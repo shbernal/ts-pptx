@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shapes added without text emit `<p:sp>` with no `<p:txBody>`, triggering the "needs repair" dialog [\#1441](https://github.com/gitbrent/PptxGenJS/issues/1441)
 - Non-numeric table cell `margin` values leak `NaN` into `<a:tcPr>` `marL/marR/marT/marB` attributes
 - `notesMaster` rel resolves to `theme1.xml` (the slideMaster theme) instead of its own `theme2.xml` part [\#1443](https://github.com/gitbrent/PptxGenJS/issues/1443) [\#1449](https://github.com/gitbrent/PptxGenJS/issues/1449)
+- Calling `writeFile()`/`stream()`/`write()` more than once on the same Presentation mutates `options.shadow` and produces invalid EMU values on subsequent writes
 
 ## [4.0.1](https://github.com/gitbrent/PptxGenJS/releases/tag/v4.0.1) - 2025-06-25
 

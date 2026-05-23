@@ -521,17 +521,20 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 
 				// EFFECTS > SHADOW: REF: @see http://officeopenxml.com/drwSp-effects.php
 				if (slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none') {
-					slideItemObj.options.shadow.type = slideItemObj.options.shadow.type || 'outer'
-					slideItemObj.options.shadow.blur = valToPts(slideItemObj.options.shadow.blur || 8)
-					slideItemObj.options.shadow.offset = valToPts(slideItemObj.options.shadow.offset || 4)
-					slideItemObj.options.shadow.angle = Math.round((slideItemObj.options.shadow.angle || 270) * 60000)
-					slideItemObj.options.shadow.opacity = Math.round((slideItemObj.options.shadow.opacity || 0.75) * 100000)
-					slideItemObj.options.shadow.color = slideItemObj.options.shadow.color || DEF_TEXT_SHADOW.color
+					// B4: derive emit-time values into locals so we don't mutate the user's options.shadow
+					// (re-emission would otherwise re-convert pt→EMU and produce absurd values).
+					const sh = slideItemObj.options.shadow
+					const shadowType = sh.type || 'outer'
+					const shadowBlur = valToPts(sh.blur || 8)
+					const shadowOffset = valToPts(sh.offset || 4)
+					const shadowAngle = Math.round((sh.angle || 270) * 60000)
+					const shadowOpacity = Math.round((sh.opacity || 0.75) * 100000)
+					const shadowColor = sh.color || DEF_TEXT_SHADOW.color
 
 					strSlideXml += '<a:effectLst>'
-					strSlideXml += ` <a:${slideItemObj.options.shadow.type}Shdw ${slideItemObj.options.shadow.type === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0"' : ''} blurRad="${slideItemObj.options.shadow.blur}" dist="${slideItemObj.options.shadow.offset}" dir="${slideItemObj.options.shadow.angle}">`
-					strSlideXml += ` <a:srgbClr val="${slideItemObj.options.shadow.color}">`
-					strSlideXml += ` <a:alpha val="${slideItemObj.options.shadow.opacity}"/></a:srgbClr>`
+					strSlideXml += ` <a:${shadowType}Shdw ${shadowType === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0"' : ''} blurRad="${shadowBlur}" dist="${shadowOffset}" dir="${shadowAngle}">`
+					strSlideXml += ` <a:srgbClr val="${shadowColor}">`
+					strSlideXml += ` <a:alpha val="${shadowOpacity}"/></a:srgbClr>`
 					strSlideXml += ' </a:outerShdw>'
 					strSlideXml += '</a:effectLst>'
 				}
@@ -616,18 +619,21 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 
 				// EFFECTS > SHADOW: REF: @see http://officeopenxml.com/drwSp-effects.php
 				if (slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none') {
-					slideItemObj.options.shadow.type = slideItemObj.options.shadow.type || 'outer'
-					slideItemObj.options.shadow.blur = valToPts(slideItemObj.options.shadow.blur || 8)
-					slideItemObj.options.shadow.offset = valToPts(slideItemObj.options.shadow.offset || 4)
-					slideItemObj.options.shadow.angle = Math.round((slideItemObj.options.shadow.angle || 270) * 60000)
-					slideItemObj.options.shadow.opacity = Math.round((slideItemObj.options.shadow.opacity || 0.75) * 100000)
-					slideItemObj.options.shadow.color = slideItemObj.options.shadow.color || DEF_TEXT_SHADOW.color
+					// B4: derive emit-time values into locals so we don't mutate the user's options.shadow
+					// (re-emission would otherwise re-convert pt→EMU and produce absurd values).
+					const sh = slideItemObj.options.shadow
+					const shadowType = sh.type || 'outer'
+					const shadowBlur = valToPts(sh.blur || 8)
+					const shadowOffset = valToPts(sh.offset || 4)
+					const shadowAngle = Math.round((sh.angle || 270) * 60000)
+					const shadowOpacity = Math.round((sh.opacity || 0.75) * 100000)
+					const shadowColor = sh.color || DEF_TEXT_SHADOW.color
 
 					strSlideXml += '<a:effectLst>'
-					strSlideXml += `<a:${slideItemObj.options.shadow.type}Shdw ${slideItemObj.options.shadow.type === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0"' : ''} blurRad="${slideItemObj.options.shadow.blur}" dist="${slideItemObj.options.shadow.offset}" dir="${slideItemObj.options.shadow.angle}">`
-					strSlideXml += `<a:srgbClr val="${slideItemObj.options.shadow.color}">`
-					strSlideXml += `<a:alpha val="${slideItemObj.options.shadow.opacity}"/></a:srgbClr>`
-					strSlideXml += `</a:${slideItemObj.options.shadow.type}Shdw>`
+					strSlideXml += `<a:${shadowType}Shdw ${shadowType === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0"' : ''} blurRad="${shadowBlur}" dist="${shadowOffset}" dir="${shadowAngle}">`
+					strSlideXml += `<a:srgbClr val="${shadowColor}">`
+					strSlideXml += `<a:alpha val="${shadowOpacity}"/></a:srgbClr>`
+					strSlideXml += `</a:${shadowType}Shdw>`
 					strSlideXml += '</a:effectLst>'
 				}
 				strSlideXml += '</p:spPr>'
