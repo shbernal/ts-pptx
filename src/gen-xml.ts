@@ -319,6 +319,10 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 
 						let cellMargin = cellOpts.margin === 0 || cellOpts.margin ? cellOpts.margin : DEF_CELL_MARGIN_IN
 						if (!Array.isArray(cellMargin) && typeof cellMargin === 'number') cellMargin = [cellMargin, cellMargin, cellMargin, cellMargin]
+						// B14: defensive fallback - if `cellMargin` is not a 4-element array of finite numbers, use defaults (prevents NaN in marL/R/T/B)
+						if (!Array.isArray(cellMargin) || cellMargin.length !== 4 || cellMargin.some(v => typeof v !== 'number' || !isFinite(v))) {
+							cellMargin = DEF_CELL_MARGIN_IN
+						}
 						/** FUTURE: DEPRECATED:
 						 * - Backwards-Compat: Oops! Discovered we were still using points for cell margin before v3.8.0 (UGH!)
 						 * - We cant introduce a breaking change before v4.0, so...

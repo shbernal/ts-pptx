@@ -846,6 +846,10 @@ export function addTableDefinition(
 	opt.fontSize = opt.fontSize || DEF_FONT_SIZE
 	opt.margin = opt.margin === 0 || opt.margin ? opt.margin : DEF_CELL_MARGIN_IN
 	if (typeof opt.margin === 'number') opt.margin = [Number(opt.margin), Number(opt.margin), Number(opt.margin), Number(opt.margin)]
+	// B14: defensive fallback - if `opt.margin` is not a 4-element array of finite numbers, use defaults so non-numeric table-level margins don't leak NaN into <a:tcPr>
+	if (!Array.isArray(opt.margin) || opt.margin.length !== 4 || opt.margin.some((v: any) => typeof v !== 'number' || !isFinite(v))) {
+		opt.margin = DEF_CELL_MARGIN_IN
+	}
 	// NOTE: dont add default color on tables with hyperlinks! (it causes any textObj's with hyperlinks to have subsequent words to be black)
 	if (JSON.stringify({ arrRows: arrRows }).indexOf('hyperlink') === -1) {
 		if (!opt.color) opt.color = opt.color || DEF_FONT_COLOR // Set default color if needed (table option > inherit from Slide > default to black)

@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `addShape()` with bare-string aliases (`"oval"`, `"rectangle"`, `"roundedRectangle"`) emits invalid OOXML preset names that PowerPoint strips during repair
 - Solid-color slide background omits `<a:effectLst/>` inside `<p:bgPr>`, triggering the "needs repair" dialog [\#1442](https://github.com/gitbrent/PptxGenJS/issues/1442)
 - Shapes added without text emit `<p:sp>` with no `<p:txBody>`, triggering the "needs repair" dialog [\#1441](https://github.com/gitbrent/PptxGenJS/issues/1441)
+- Non-numeric table cell `margin` values leak `NaN` into `<a:tcPr>` `marL/marR/marT/marB` attributes
 
 ## [4.0.1](https://github.com/gitbrent/PptxGenJS/releases/tag/v4.0.1) - 2025-06-25
 
