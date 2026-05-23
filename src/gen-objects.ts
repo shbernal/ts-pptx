@@ -681,6 +681,7 @@ const SHAPE_NAME_ALIASES: { [key: string]: SHAPE_NAME } = {
 export function addShapeDefinition(target: PresSlide, shapeName: SHAPE_NAME, opts: ShapeProps): void {
 	const options = typeof opts === 'object' ? opts : {}
 	options.line = options.line || { type: 'none' }
+	options.shadow = correctShadowOptions(options.shadow)
 	// Normalize friendly shape names (e.g. "oval" -> "ellipse") to their valid
 	// OOXML preset spellings before storing on the slide object.
 	const resolvedShapeName: SHAPE_NAME = (typeof shapeName === 'string' && SHAPE_NAME_ALIASES[shapeName])
