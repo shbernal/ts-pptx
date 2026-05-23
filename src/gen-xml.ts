@@ -1316,7 +1316,19 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 			})
 
 			// D: Add formatted textrun
-			strSlideXml += genXmlTextRun(textObj)
+			// B9: When this paragraph emits bullet markup (`bullet:true` or any object
+			// form), strip a single leading bullet glyph (+ optional whitespace) from
+			// the first run's text. Otherwise PowerPoint renders two bullets — one
+			// from the paragraph-level `<a:buChar/>` and one from the literal glyph
+			// in `<a:t>`. Mid-text glyphs and `bullet:false`/no-bullet are unaffected.
+			let _textRunObj = textObj
+			if (idx === 0 && line[0].options.bullet && typeof textObj.text === 'string') {
+				const _stripped = textObj.text.replace(/^[\u2022\u25E6\u25AA\u25AB\u25CF\u25CB\u2023\u2043\u2219]\s*/, '')
+				if (_stripped !== textObj.text) {
+					_textRunObj = { text: _stripped, options: textObj.options }
+				}
+			}
+			strSlideXml += genXmlTextRun(_textRunObj)
 
 			// E: Flag close fontSize for empty [lineBreak] elements
 			if ((!textObj.text && opts.fontSize) || textObj.options.fontSize) {

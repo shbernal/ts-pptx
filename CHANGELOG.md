@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 8-character hex (RGBA) color values silently fall back to black and discard alpha; shadow colors emit invalid 8-char `val` attributes
 - Unpopulated layout placeholders render a "Click to add text" hint over populated content because the empty stub was stored as text rather than placeholder
 - `bullet:{type:"bullet"}` emits no bullet markup; `characterCode` was unreachable when combined with `type`
+- Leading bullet glyphs in user text (e.g. `addText("• item", {bullet:true})`) render alongside the paragraph-level bullet, producing double bullets
 
 ## [4.0.1](https://github.com/gitbrent/PptxGenJS/releases/tag/v4.0.1) - 2025-06-25
 
