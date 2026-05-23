@@ -501,8 +501,17 @@ export default class PptxGenJS implements IPresentationProps {
 			zip.folder('_rels')
 			zip.folder('docProps')
 			zip.folder('ppt').folder('_rels')
-			zip.folder('ppt/charts').folder('_rels')
-			zip.folder('ppt/embeddings')
+			// B17: only scaffold ppt/charts and ppt/embeddings when at least one
+			// target actually has a chart. Otherwise JSZip emits stray empty
+			// directory entries into the archive on every minimal deck.
+			const hasCharts =
+				this.slides.some(s => (s._relsChart || []).length > 0) ||
+				this.slideLayouts.some(l => (l._relsChart || []).length > 0) ||
+				((this.masterSlide && this.masterSlide._relsChart) || []).length > 0
+			if (hasCharts) {
+				zip.folder('ppt/charts').folder('_rels')
+				zip.folder('ppt/embeddings')
+			}
 			zip.folder('ppt/media')
 			zip.folder('ppt/slideLayouts').folder('_rels')
 			zip.folder('ppt/slideMasters').folder('_rels')
