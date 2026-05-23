@@ -1413,24 +1413,30 @@ export function makeXmlContTypes (slides: PresSlide[], slideLayouts: SlideLayout
 	strXml += '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
 	strXml += '<Default Extension="xml" ContentType="application/xml"/>'
 	strXml += '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
-	strXml += '<Default Extension="jpeg" ContentType="image/jpeg"/>'
-	strXml += '<Default Extension="jpg" ContentType="image/jpg"/>'
-	strXml += '<Default Extension="svg" ContentType="image/svg+xml"/>'
 
-	// STEP 1: Add standard/any media types used in Presentation
-	strXml += '<Default Extension="png" ContentType="image/png"/>'
-	strXml += '<Default Extension="gif" ContentType="image/gif"/>'
-	strXml += '<Default Extension="m4v" ContentType="video/mp4"/>' // NOTE: Hard-Code this extension as it wont be created in loop below (as extn !== type)
-	strXml += '<Default Extension="mp4" ContentType="video/mp4"/>' // NOTE: Hard-Code this extension as it wont be created in loop below (as extn !== type)
-	slides.forEach(slide => {
-		(slide._relsMedia || []).forEach(rel => {
-			if (rel.type !== 'image' && rel.type !== 'online' && rel.type !== 'chart' && rel.extn !== 'm4v' && !strXml.includes(rel.type)) {
-				strXml += '<Default Extension="' + rel.extn + '" ContentType="' + rel.type + '"/>'
-			}
+	// B16: STEP 1 - Emit Default Extension entries only for media types actually used by the deck.
+	// Walk slides + slideLayouts + masterSlide _relsMedia[] and dedupe by extension.
+	// Skip 'online' rels (no part written) and rels missing extn/type.
+	const extnTypeMap = new Map<string, string>()
+	const ctTargets: Array<{ _relsMedia?: ISlideRelMedia[], _relsChart?: ISlideRelChart[] }> = []
+	;(slides || []).forEach(s => ctTargets.push(s))
+	;(slideLayouts || []).forEach(l => ctTargets.push(l))
+	if (masterSlide) ctTargets.push(masterSlide)
+	let ctHasChart = false
+	ctTargets.forEach(target => {
+		(target._relsMedia || []).forEach(rel => {
+			if (rel.type === 'online' || !rel.extn || !rel.type) return
+			if (!extnTypeMap.has(rel.extn)) extnTypeMap.set(rel.extn, rel.type)
 		})
+		if (((target._relsChart) || []).length > 0) ctHasChart = true
 	})
-	strXml += '<Default Extension="vml" ContentType="application/vnd.openxmlformats-officedocument.vmlDrawing"/>'
-	strXml += '<Default Extension="xlsx" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"/>'
+	extnTypeMap.forEach((type, extn) => {
+		strXml += '<Default Extension="' + extn + '" ContentType="' + type + '"/>'
+	})
+	// Charts embed an xlsx workbook part; emit the Default only when at least one chart is present.
+	if (ctHasChart) {
+		strXml += '<Default Extension="xlsx" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"/>'
+	}
 
 	// STEP 2: Add presentation and slide master(s)/slide(s)
 	strXml += '<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>'
@@ -1471,9 +1477,7 @@ export function makeXmlContTypes (slides: PresSlide[], slideLayouts: SlideLayout
 	masterSlide._relsChart.forEach(rel => {
 		strXml += ' <Override PartName="' + rel.Target + '" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>'
 	})
-	masterSlide._relsMedia.forEach(rel => {
-		if (rel.type !== 'image' && rel.type !== 'online' && rel.type !== 'chart' && rel.extn !== 'm4v' && !strXml.includes(rel.type)) { strXml += ' <Default Extension="' + rel.extn + '" ContentType="' + rel.type + '"/>' }
-	})
+	// B16: master _relsMedia extensions are already covered by the unified ctTargets walk above; no per-master Default block needed here.
 
 	// LAST: Finish XML (Resume core)
 	strXml += ' <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>'
