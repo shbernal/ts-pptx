@@ -1156,8 +1156,11 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 	let tmpTextObjects: TextProps[] = []
 	const arrTextObjects: TextProps[] = []
 
-	// FIRST: Shapes without text, etc. may be sent here during build, but have no text to render so return an empty string
-	if (opts && slideObj._type !== SLIDE_OBJECT_TYPES.tablecell && (typeof slideObj.text === 'undefined' || slideObj.text === null)) return ''
+	// FIRST: Shapes without text reach this point with `slideObj.text` null/undefined.
+	// We MUST still emit a `<p:txBody>` with at least an empty `<a:p>` paragraph;
+	// the empty-txBody fallback below appends `<a:p><a:endParaRPr/></a:p>` when no
+	// `<a:p>` was produced. Returning early here would emit `<p:sp>` without
+	// `<p:txBody>`, which PowerPoint reports as a needs-repair error (#1441).
 
 	// STEP 1: Start textBody
 	let strSlideXml = slideObj._type === SLIDE_OBJECT_TYPES.tablecell ? '<a:txBody>' : '<p:txBody>'
