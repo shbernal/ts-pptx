@@ -1434,6 +1434,8 @@ export function makeXmlContTypes (slides: PresSlide[], slideLayouts: SlideLayout
 	strXml += '<Override PartName="/ppt/presProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presProps+xml"/>'
 	strXml += '<Override PartName="/ppt/viewProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml"/>'
 	strXml += '<Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>'
+	// B15: notesMaster1.xml.rels references ../theme/theme2.xml; emit a matching Override so the part resolves
+	strXml += '<Override PartName="/ppt/theme/theme2.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>'
 	strXml += '<Override PartName="/ppt/tableStyles.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml"/>'
 
 	// STEP 4: Add Slide Layouts
@@ -1753,7 +1755,7 @@ export function makeXmlMasterRel (masterSlide: PresSlide, slideLayouts: SlideLay
  */
 export function makeXmlNotesMasterRel (): string {
 	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-		<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme1.xml"/>
+		<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme2.xml"/>
 		</Relationships>`
 }
 
