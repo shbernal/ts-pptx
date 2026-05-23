@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Multiple `<a:pPr>` elements emitted per `<a:p>` cause "needs repair" — paragraph properties were re-emitted for every text run [\#1322](https://github.com/gitbrent/PptxGenJS/issues/1322)
+- `[Content_Types].xml` emits a slideMaster `Override` per slide instead of a single Override matching `slideMaster1.xml` [\#1444](https://github.com/gitbrent/PptxGenJS/issues/1444) [\#1449](https://github.com/gitbrent/PptxGenJS/issues/1449)
 
 ## [4.0.1](https://github.com/gitbrent/PptxGenJS/releases/tag/v4.0.1) - 2025-06-25
 
