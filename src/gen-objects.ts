@@ -661,6 +661,18 @@ export function addNotesDefinition(target: PresSlide, notes: string): void {
 }
 
 /**
+ * Map of common friendly shape names users pass as bare strings to their
+ * valid OOXML preset values. PowerPoint can't parse the friendly spellings
+ * and removes the shape during repair (see B10/B11).
+ */
+const SHAPE_NAME_ALIASES: { [key: string]: SHAPE_NAME } = {
+	oval: 'ellipse',
+	rectangle: 'rect',
+	roundedRectangle: 'roundRect',
+	roundedrectangle: 'roundRect',
+}
+
+/**
  * Adds a shape object to a slide definition.
  * @param {PresSlide} target slide object that the shape should be added to
  * @param {SHAPE_NAME} shapeName shape name
@@ -669,9 +681,14 @@ export function addNotesDefinition(target: PresSlide, notes: string): void {
 export function addShapeDefinition(target: PresSlide, shapeName: SHAPE_NAME, opts: ShapeProps): void {
 	const options = typeof opts === 'object' ? opts : {}
 	options.line = options.line || { type: 'none' }
+	// Normalize friendly shape names (e.g. "oval" -> "ellipse") to their valid
+	// OOXML preset spellings before storing on the slide object.
+	const resolvedShapeName: SHAPE_NAME = (typeof shapeName === 'string' && SHAPE_NAME_ALIASES[shapeName])
+		? SHAPE_NAME_ALIASES[shapeName]
+		: shapeName
 	const newObject: ISlideObject = {
 		_type: SLIDE_OBJECT_TYPES.text,
-		shape: shapeName || SHAPE_TYPE.RECTANGLE,
+		shape: resolvedShapeName || SHAPE_TYPE.RECTANGLE,
 		options,
 		text: null,
 	}
