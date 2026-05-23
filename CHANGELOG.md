@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `notesMaster` rel resolves to `theme1.xml` (the slideMaster theme) instead of its own `theme2.xml` part [\#1443](https://github.com/gitbrent/PptxGenJS/issues/1443) [\#1449](https://github.com/gitbrent/PptxGenJS/issues/1449)
 - Calling `writeFile()`/`stream()`/`write()` more than once on the same Presentation mutates `options.shadow` and produces invalid EMU values on subsequent writes
 - `addShape()` with a `#`-prefixed shadow color emits invalid `<a:srgbClr val="#...">`
+- 8-character hex (RGBA) color values silently fall back to black and discard alpha; shadow colors emit invalid 8-char `val` attributes
 
 ## [4.0.1](https://github.com/gitbrent/PptxGenJS/releases/tag/v4.0.1) - 2025-06-25
 
