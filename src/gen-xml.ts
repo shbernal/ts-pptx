@@ -1264,6 +1264,7 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 		strSlideXml += '<a:p>'
 		// NOTE: `rtlMode` is like other opts, its propagated up to each text:options, so just check the 1st one
 		let paragraphPropXml = `<a:pPr ${line[0].options?.rtlMode ? ' rtl="1" ' : ''}`
+		let paragraphPropEmitted = false
 
 		// B: Start paragraph, loop over lines and add text runs
 		line.forEach((textObj, idx) => {
@@ -1282,9 +1283,17 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 			textObj.options.indentLevel = textObj.options.indentLevel || opts.indentLevel
 			textObj.options.paraSpaceBefore = textObj.options.paraSpaceBefore || opts.paraSpaceBefore
 			textObj.options.paraSpaceAfter = textObj.options.paraSpaceAfter || opts.paraSpaceAfter
-			paragraphPropXml = genXmlParagraphProperties(textObj, false)
 
-			strSlideXml += paragraphPropXml.replace('<a:pPr></a:pPr>', '') // IMPORTANT: Empty "pPr" blocks will generate needs-repair/corrupt msg
+			// B1: OOXML allows only one `<a:pPr>` per `<a:p>`, and it must precede any `<a:r>` runs.
+			// Emit paragraph properties exactly once, derived from the first run that yields non-empty pPr XML.
+			if (!paragraphPropEmitted) {
+				paragraphPropXml = genXmlParagraphProperties(textObj, false)
+				const cleaned = paragraphPropXml.replace('<a:pPr></a:pPr>', '') // IMPORTANT: Empty "pPr" blocks will generate needs-repair/corrupt msg
+				if (cleaned) {
+					strSlideXml += cleaned
+					paragraphPropEmitted = true
+				}
+			}
 			// C: Inherit any main options (color, fontSize, etc.)
 			// NOTE: We only pass the text.options to genXmlTextRun (not the Slide.options),
 			// so the run building function cant just fallback to Slide.color, therefore, we need to do that here before passing options below.
