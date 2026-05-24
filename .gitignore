@@ -37,3 +37,6 @@ src/bld/
 # git cannot re-include a file inside an excluded directory.
 .autoloop/*
 !.autoloop/bug-report.md
+
+### OOXML-Validator binary (downloaded by tools/ooxml-validator/install.sh)
+tools/ooxml-validator/bin/
