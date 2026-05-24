@@ -111,6 +111,19 @@ async function buildFreshDist () {
 	// MUST split into two await'd calls — running them all together races
 	// `nodeTestCjs` (reads dist) against `cjs` (writes dist) and produces
 	// stale node_modules. Splitting guarantees dist/ is populated first.
+	//
+	// NOTE on vite-demo: the analogous `gulp reactTestCode reactTestDefs`
+	// tasks (which copy into `demos/vite-demo/node_modules/pptxgenjs/`) are
+	// deliberately NOT invoked here. gulp.dest() creates parent
+	// directories, so a runner-level pre-population would create
+	// `demos/vite-demo/node_modules/pptxgenjs/` before the vite test's
+	// `npm install` runs — and npm then concludes pptxgenjs is "already
+	// installed" and skips installing the rest of the workspace's deps
+	// (react, vite, @types, etc.), leaving `vite build` broken with
+	// 'Cannot find module react' errors. Instead, `vite.test.js`'s setup
+	// runs `gulp reactTestCode reactTestDefs` AFTER `npm install`
+	// completes, guaranteeing live-source override without poisoning the
+	// install heuristic.
 	await runCmd(npx, ['gulp', 'cjs', 'es'])
 	await runCmd(npx, ['gulp', 'nodeTestCjs', 'nodeTestEs'])
 	for (const f of ['pptxgen.cjs.js', 'pptxgen.es.js']) {
