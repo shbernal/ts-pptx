@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Leading bullet glyphs in user text (e.g. `addText("• item", {bullet:true})`) render alongside the paragraph-level bullet, producing double bullets
 - `[Content_Types].xml` emits Default `Extension` entries for media types not present in the deck (and a `vml` entry with no corresponding part)
 - Every output `.pptx` contains stray empty `ppt/charts/`, `ppt/charts/_rels/`, and `ppt/embeddings/` directories even when the deck has no chart
+- Combo charts with `secondaryValAxis`/`secondaryCatAxis` flags emit dangling axis-ID references; 2D bar/line/area/radar charts emit a series-axis reference with no matching definition
 
 ## [4.0.1](https://github.com/gitbrent/PptxGenJS/releases/tag/v4.0.1) - 2025-06-25
 

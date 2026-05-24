@@ -547,6 +547,7 @@ export async function createExcelWorksheet (chartObject: ISlideRelChart, zip: JS
 export function makeXmlCharts (rel: ISlideRelChart): string {
 	let strXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
 	let usesSecondaryValAxis = false
+	let usesSecondaryCatAxis = false
 
 	// STEP 1: Create chart
 	{
@@ -613,6 +614,7 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
 			const valAxisId = options.secondaryValAxis ? AXIS_ID_VALUE_SECONDARY : AXIS_ID_VALUE_PRIMARY
 			const catAxisId = options.secondaryCatAxis ? AXIS_ID_CATEGORY_SECONDARY : AXIS_ID_CATEGORY_PRIMARY
 			usesSecondaryValAxis = usesSecondaryValAxis || options.secondaryValAxis
+			usesSecondaryCatAxis = usesSecondaryCatAxis || options.secondaryCatAxis
 			strXml += makeChartType(type.type, type.data, options, valAxisId, catAxisId, true)
 		})
 	} else {
@@ -647,11 +649,22 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
 			if (rel.opts._type === CHART_TYPE.BAR3D) {
 				strXml += makeSerAxis(rel.opts, AXIS_ID_SERIES_PRIMARY, AXIS_ID_VALUE_PRIMARY)
 			}
+
+			// B6: For combo charts referencing a secondary value axis via the
+			// `secondaryValAxis: true` flag (without a `valAxes` array),
+			// auto-synthesise the missing secondary value axis def so that
+			// the axId references in <c:plotArea> all resolve.
+			if (usesSecondaryValAxis) {
+				strXml += makeValAxis(rel.opts, AXIS_ID_VALUE_SECONDARY)
+			}
 		}
 
 		// Combo Charts: Add secondary axes after all vals
 		if (rel.opts?.catAxes && rel.opts?.catAxes[1]) {
 			strXml += makeCatAxis({ ...rel.opts, ...rel.opts.catAxes[1] }, AXIS_ID_CATEGORY_SECONDARY, AXIS_ID_VALUE_SECONDARY)
+		} else if (usesSecondaryCatAxis && (!rel.opts.catAxes || !rel.opts.catAxes[1])) {
+			// B6: Same as above for the secondary category axis.
+			strXml += makeCatAxis(rel.opts, AXIS_ID_CATEGORY_SECONDARY, AXIS_ID_VALUE_SECONDARY)
 		}
 	}
 
@@ -1030,7 +1043,14 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 			}
 
 			// 5: Add axisId (NOTE: order matters! (category comes first))
-			strXml += `<c:axId val="${catAxisId}"/><c:axId val="${valAxisId}"/><c:axId val="${AXIS_ID_SERIES_PRIMARY}"/>`
+			// B6: Only 3D charts (BAR3D) get a series axis def; emitting a
+			// SERIES_PRIMARY axId for 2D charts produced a dangling reference
+			// that violated B6's acceptance criterion (every axId in <c:plotArea>
+			// must resolve to a defined catAx/valAx).
+			strXml += `<c:axId val="${catAxisId}"/><c:axId val="${valAxisId}"/>`
+			if (chartType === CHART_TYPE.BAR3D) {
+				strXml += `<c:axId val="${AXIS_ID_SERIES_PRIMARY}"/>`
+			}
 
 			// 6: Close Chart tag
 			strXml += `</c:${chartType}Chart>`
