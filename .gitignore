@@ -40,3 +40,7 @@ src/bld/
 
 ### OOXML-Validator binary (downloaded by tools/ooxml-validator/install.sh)
 tools/ooxml-validator/bin/
+
+### Release-test ephemeral artefacts (saved downloads, intermediate .pptx files)
+test/release/_artifacts/
+test/release/_tmp/
