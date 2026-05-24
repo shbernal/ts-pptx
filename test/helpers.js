@@ -8,7 +8,7 @@ async function build(buildFn) {
 	buildFn(pres)
 	const buf = await pres.stream()
 	const zip = await JSZip.loadAsync(buf)
-	return { pres, zip }
+	return { pres, zip, buf }
 }
 
 async function readEntry(zip, path) {
