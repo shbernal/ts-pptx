@@ -6,7 +6,18 @@
 // chain it cleanly. Picks up files matching `*.test.js` (excluding files
 // starting with `_` such as this runner and the server helper).
 //
-// Each test file exports an array of `{ name, fn }` objects. `fn` is awaited.
+// Each test file exports either:
+//   * an array of `{ name, fn, [knownFailure] }` objects (case-only form), or
+//   * an object `{ setup?, teardown?, cases }` where `setup`/`teardown` are
+//     awaited once per file (around all its cases). `teardown` is invoked even
+//     if a case throws (try/finally semantics) so server child processes,
+//     browsers, and any swapped files are always cleaned up.
+//
+// `fn` is awaited. If a case sets `knownFailure: '<reason>'`, a thrown error
+// is reported as `KNOWN-FAIL: <reason>` (excluded from the Failed count) so
+// the harness can still pin a deferred-bug case to the matrix without making
+// the run red. Cases that pass while marked `knownFailure` are reported with
+// an `UNEXPECTED-PASS` warning.
 //
 // Pre-test bundle build:
 //   The browser harness substitutes a JSZip+pptxgenjs IIFE bundle for the
@@ -77,6 +88,8 @@ async function buildFreshBundle () {
 
 const failures = []
 const successes = []
+const knownFails = [] // cases that failed but were marked `knownFailure`
+const unexpectedPasses = [] // cases marked `knownFailure` that passed
 
 async function loadAndRun () {
 	const dir = __dirname
@@ -85,16 +98,64 @@ async function loadAndRun () {
 		.sort()
 	for (const f of files) {
 		const full = path.join(dir, f)
-		const cases = require(full)
-		for (const c of cases) {
-			try {
-				await c.fn()
-				successes.push(c.name)
-				console.log('  ok ' + c.name)
-			} catch (e) {
-				failures.push({ name: c.name, error: e })
-				console.log('  FAIL ' + c.name + ': ' + (e && e.message ? e.message : e))
+		const mod = require(full)
+		// Support two export shapes:
+		//   1. Array of cases (legacy, still supported).
+		//   2. Object `{ setup?, teardown?, cases }` (per-file lifecycle).
+		let cases
+		let setup
+		let teardown
+		if (Array.isArray(mod)) {
+			cases = mod
+		} else if (mod && Array.isArray(mod.cases)) {
+			cases = mod.cases
+			setup = typeof mod.setup === 'function' ? mod.setup : undefined
+			teardown = typeof mod.teardown === 'function' ? mod.teardown : undefined
+		} else {
+			throw new Error('test module ' + f + ' must export an array of cases or `{ setup?, teardown?, cases }`')
+		}
+
+		const ctx = {}
+		let setupOk = false
+		try {
+			if (setup) await setup(ctx)
+			setupOk = true
+			for (const c of cases) {
+				try {
+					await c.fn(ctx)
+					if (c.knownFailure) {
+						unexpectedPasses.push({ name: c.name, reason: c.knownFailure })
+						console.log('  UNEXPECTED-PASS ' + c.name + ' (was marked knownFailure: ' + c.knownFailure + ')')
+					} else {
+						successes.push(c.name)
+						console.log('  ok ' + c.name)
+					}
+				} catch (e) {
+					if (c.knownFailure) {
+						knownFails.push({ name: c.name, reason: c.knownFailure, error: e })
+						console.log('  KNOWN-FAIL ' + c.name + ' (' + c.knownFailure + ')')
+					} else {
+						failures.push({ name: c.name, error: e })
+						console.log('  FAIL ' + c.name + ': ' + (e && e.message ? e.message : e))
+					}
+				}
 			}
+		} catch (e) {
+			// Setup failure: report as a synthetic failure so the runner exits non-zero.
+			failures.push({ name: f + ' [setup]', error: e })
+			console.log('  FAIL ' + f + ' [setup]: ' + (e && e.message ? e.message : e))
+		} finally {
+			if (teardown) {
+				try {
+					await teardown(ctx)
+				} catch (e) {
+					// Teardown failure should also fail the run — leaking server/browser
+					// or a swapped file is a real problem.
+					failures.push({ name: f + ' [teardown]', error: e })
+					console.log('  FAIL ' + f + ' [teardown]: ' + (e && e.message ? e.message : e))
+				}
+			}
+			void setupOk // (informational only; we run cases iff setup succeeded above)
 		}
 	}
 }
@@ -108,7 +169,22 @@ async function loadAndRun () {
 		process.exit(2)
 	}
 	await loadAndRun()
-	console.log('\nPassed: ' + successes.length + '  Failed: ' + failures.length)
+	console.log(
+		'\nPassed: ' + successes.length +
+		'  Failed: ' + failures.length +
+		'  Known-Fail: ' + knownFails.length +
+		'  Unexpected-Pass: ' + unexpectedPasses.length
+	)
+	if (knownFails.length > 0) {
+		console.log('\nKnown failures (deferred bugs, not counted as failures):')
+		knownFails.forEach(k => console.log('  - ' + k.name + ' :: ' + k.reason))
+	}
+	if (unexpectedPasses.length > 0) {
+		console.log('\nUnexpected passes (cases marked knownFailure that succeeded — review and remove the marker):')
+		unexpectedPasses.forEach(u => console.log('  - ' + u.name + ' (was: ' + u.reason + ')'))
+		// Unexpected passes are a soft warning: not a failure but worth surfacing
+		// loudly so the marker is removed promptly.
+	}
 	if (failures.length > 0) {
 		failures.forEach(f => console.log(f.name + ' -- ' + ((f.error && f.error.stack) || (f.error && f.error.message) || f.error)))
 		process.exit(1)
