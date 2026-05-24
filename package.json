@@ -29,7 +29,8 @@
 		"pretest": "npm run build",
 		"test": "node test/run.js && node test/run-schema.js",
 		"schema-test": "node test/run-schema.js",
-		"check-validator": "node tools/ooxml-validator/check-updates.js"
+		"check-validator": "node tools/ooxml-validator/check-updates.js",
+		"release-test": "npm test && node test/release/_runner.js"
 	},
 	"browser": {
 		"express": false,
