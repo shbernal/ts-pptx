@@ -14,7 +14,7 @@ async function buildOnce(pres) {
 
 module.exports = [
 	{
-		name: 'B4: two writes on same Presentation produce identical slide1.xml (text/shape branch)',
+		name: 'two writes on same Presentation produce identical slide1.xml (text/shape branch)',
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
@@ -28,7 +28,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B4: user shadow object is not mutated across two writes',
+		name: 'user shadow object is not mutated across two writes',
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
@@ -51,7 +51,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B4: two writes on same Presentation produce identical slide1.xml (image branch)',
+		name: 'two writes on same Presentation produce identical slide1.xml (image branch)',
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
@@ -72,7 +72,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B4: regression - single write still emits sane shadow EMU values',
+		name: 'regression - single write still emits sane shadow EMU values',
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()

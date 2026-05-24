@@ -650,7 +650,7 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
 				strXml += makeSerAxis(rel.opts, AXIS_ID_SERIES_PRIMARY, AXIS_ID_VALUE_PRIMARY)
 			}
 
-			// B6: For combo charts referencing a secondary value axis via the
+			// For combo charts referencing a secondary value axis via the
 			// `secondaryValAxis: true` flag (without a `valAxes` array),
 			// auto-synthesise the missing secondary value axis def so that
 			// the axId references in <c:plotArea> all resolve.
@@ -663,7 +663,7 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
 		if (rel.opts?.catAxes && rel.opts?.catAxes[1]) {
 			strXml += makeCatAxis({ ...rel.opts, ...rel.opts.catAxes[1] }, AXIS_ID_CATEGORY_SECONDARY, AXIS_ID_VALUE_SECONDARY)
 		} else if (usesSecondaryCatAxis && (!rel.opts.catAxes || !rel.opts.catAxes[1])) {
-			// B6: Same as above for the secondary category axis.
+			// Same as above for the secondary category axis.
 			strXml += makeCatAxis(rel.opts, AXIS_ID_CATEGORY_SECONDARY, AXIS_ID_VALUE_SECONDARY)
 		}
 	}
@@ -1043,9 +1043,9 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 			}
 
 			// 5: Add axisId (NOTE: order matters! (category comes first))
-			// B6: Only 3D charts (BAR3D) get a series axis def; emitting a
+			// Only 3D charts (BAR3D) get a series axis def; emitting a
 			// SERIES_PRIMARY axId for 2D charts produced a dangling reference
-			// that violated B6's acceptance criterion (every axId in <c:plotArea>
+			// that violated the OOXML invariant (every axId in <c:plotArea>
 			// must resolve to a defined catAx/valAx).
 			strXml += `<c:axId val="${catAxisId}"/><c:axId val="${valAxisId}"/>`
 			if (chartType === CHART_TYPE.BAR3D) {

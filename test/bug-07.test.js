@@ -14,7 +14,7 @@ async function buildSlide1(pres) {
 
 module.exports = [
 	{
-		name: 'B7: shape fill with "#FF0000" emits val="FF0000" (no leading hash)',
+		name: 'shape fill with "#FF0000" emits val="FF0000" (no leading hash)',
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
@@ -31,7 +31,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B7: text color "#00FF00" emits val="00FF00"',
+		name: 'text color "#00FF00" emits val="00FF00"',
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
@@ -45,7 +45,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B7: shape line color "#0000FF" emits val="0000FF"',
+		name: 'shape line color "#0000FF" emits val="0000FF"',
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
@@ -62,7 +62,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B7: shadow color "#888888" emits val="888888"',
+		name: 'shadow color "#888888" emits val="888888"',
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()

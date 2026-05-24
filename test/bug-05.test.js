@@ -28,7 +28,7 @@ function extractEffectLsts(xml) {
 
 module.exports = [
 	{
-		name: 'B5: two addShape calls sharing one shadow object emit identical effectLst',
+		name: 'two addShape calls sharing one shadow object emit identical effectLst',
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
@@ -53,7 +53,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B5: shared shadow object literal not mutated after build',
+		name: 'shared shadow object literal not mutated after build',
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
@@ -70,7 +70,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B5: shared shadow across image+shape emits same EMU values (no double-conversion)',
+		name: 'shared shadow across image+shape emits same EMU values (no double-conversion)',
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
@@ -84,7 +84,7 @@ module.exports = [
 			assert(matches.length === 2,
 				'expected 2 effectLst blocks (one shape, one image); got ' + matches.length + '\n' + xml)
 			// Whitespace differs between shape and image emission templates (cosmetic), but
-			// the EMU values must match — that is what B5 guards against. Normalise spaces
+			// the EMU values must match — that is what this regression guards against. Normalise spaces
 			// then compare.
 			const norm = s => s.replace(/\s+/g, ' ').replace(/ ?\/>/g, '/>').replace(/> </g, '><').trim()
 			const a = norm(matches[0])

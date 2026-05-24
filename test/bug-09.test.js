@@ -22,7 +22,7 @@ function firstPPr(xml) {
 
 module.exports = [
 	{
-		name: 'B9: addText("• item",{bullet:true}) strips leading bullet glyph from <a:t> while keeping <a:buChar/>',
+		name: 'addText("• item",{bullet:true}) strips leading bullet glyph from <a:t> while keeping <a:buChar/>',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -38,7 +38,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B9: addText("hello",{bullet:true}) leaves text unchanged',
+		name: 'addText("hello",{bullet:true}) leaves text unchanged',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -51,7 +51,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B9: mid-text bullet glyph "a • b" is preserved when bullet:true',
+		name: 'mid-text bullet glyph "a • b" is preserved when bullet:true',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -64,7 +64,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B9: bullet:false preserves leading bullet glyph (user opted out of bullet markup)',
+		name: 'bullet:false preserves leading bullet glyph (user opted out of bullet markup)',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -77,7 +77,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B9: bullet:{type:"bullet"} also strips leading bullet glyph',
+		name: 'bullet:{type:"bullet"} also strips leading bullet glyph',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -93,7 +93,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B9: variant glyphs (◦, ▪) are also stripped when bullet:true',
+		name: 'variant glyphs (◦, ▪) are also stripped when bullet:true',
 		fn: async () => {
 			const { zip: zipHollow } = await build(p => {
 				const s = p.addSlide()

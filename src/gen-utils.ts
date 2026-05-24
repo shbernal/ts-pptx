@@ -136,7 +136,7 @@ export function rgbToHex (r: number, g: number, b: number): string {
 export function createColorElement (colorStr: string | SCHEME_COLORS, innerElements?: string): string {
 	let colorVal = (colorStr || '').replace('#', '')
 
-	// B8: 8-char hex (RGBA) — strip the alpha byte to a sibling <a:alpha val="N"/>,
+	// 8-char hex (RGBA) — strip the alpha byte to a sibling <a:alpha val="N"/>,
 	// continue with the leading 6-char RGB through the existing validation. This keeps
 	// fill/text/line/glow paths from silently falling back to DEF_FONT_COLOR on RGBA input.
 	if (/^[0-9a-fA-F]{8}$/.test(colorVal)) {
@@ -280,7 +280,7 @@ export function correctShadowOptions (ShadowProps: ShadowProps): ShadowProps | u
 			ShadowProps.color = ShadowProps.color.replace('#', '')
 		}
 
-		// B8: 8-char hex (RGBA) — derive `opacity` from the alpha byte (only when caller
+		// 8-char hex (RGBA) — derive `opacity` from the alpha byte (only when caller
 		// did not pass an explicit opacity), then strip the alpha byte from the color so
 		// emit sites produce valid 6-char `<a:srgbClr val="…"/>`.
 		if (/^[0-9a-fA-F]{8}$/.test(ShadowProps.color)) {

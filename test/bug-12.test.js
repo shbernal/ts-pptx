@@ -4,7 +4,7 @@ const { build, readEntry, assert } = require('./helpers')
 
 module.exports = [
 	{
-		name: 'B12: solid-color slide.background <p:bgPr> contains <a:effectLst/>',
+		name: 'solid-color slide.background <p:bgPr> contains <a:effectLst/>',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -17,7 +17,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B12: image-background still emits <a:effectLst/> (regression guard)',
+		name: 'image-background still emits <a:effectLst/> (regression guard)',
 		fn: async () => {
 			// 1x1 transparent PNG
 			const b64png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='

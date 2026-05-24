@@ -4,7 +4,7 @@ const { build, readEntry, listEntries, assert } = require('./helpers')
 
 module.exports = [
 	{
-		name: 'B2: [Content_Types].xml emits exactly one slideMaster Override per existing master part',
+		name: '[Content_Types].xml emits exactly one slideMaster Override per existing master part',
 		fn: async () => {
 			const { zip } = await build(p => {
 				for (let i = 0; i < 5; i++) {

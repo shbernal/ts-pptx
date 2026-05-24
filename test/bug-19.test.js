@@ -12,7 +12,7 @@ async function getPPr(zip) {
 
 module.exports = [
 	{
-		name: 'B19: bullet:{type:"bullet"} emits default <a:buChar/> with marL/indent (was silently swallowed)',
+		name: 'bullet:{type:"bullet"} emits default <a:buChar/> with marL/indent (was silently swallowed)',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -28,7 +28,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B19: bullet:{type:"bullet"} produces same bullet markup as bullet:true',
+		name: 'bullet:{type:"bullet"} produces same bullet markup as bullet:true',
 		fn: async () => {
 			const { zip: zipObj } = await build(p => {
 				const s = p.addSlide()
@@ -45,7 +45,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B19 regression: bullet:{type:"number"} still emits <a:buAutoNum/>',
+		name: 'regression: bullet:{type:"number"} still emits <a:buAutoNum/>',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -58,7 +58,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B19: bullet:{type:"bullet", characterCode:"2713"} now reachable → emits <a:buChar char="&#x2713;"/>',
+		name: 'bullet:{type:"bullet", characterCode:"2713"} now reachable → emits <a:buChar char="&#x2713;"/>',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()

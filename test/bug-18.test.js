@@ -4,7 +4,7 @@ const { build, readEntry, assert } = require('./helpers')
 
 module.exports = [
 	{
-		name: 'B18: master with title+body, only title populated → body stub emitted as placeholder (non-empty <a:lstStyle>)',
+		name: 'master with title+body, only title populated → body stub emitted as placeholder (non-empty <a:lstStyle>)',
 		fn: async () => {
 			const { zip } = await build(p => {
 				p.defineSlideMaster({
@@ -35,7 +35,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B18: master with single placeholder fully populated → exactly one <p:sp>, no empty stub',
+		name: 'master with single placeholder fully populated → exactly one <p:sp>, no empty stub',
 		fn: async () => {
 			const { zip } = await build(p => {
 				p.defineSlideMaster({
@@ -56,7 +56,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B18: master with two placeholders both populated → two <p:sp> with text runs, no empty stub',
+		name: 'master with two placeholders both populated → two <p:sp> with text runs, no empty stub',
 		fn: async () => {
 			const { zip } = await build(p => {
 				p.defineSlideMaster({

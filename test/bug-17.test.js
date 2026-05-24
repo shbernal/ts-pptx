@@ -10,7 +10,7 @@ function chartsOrEmbeddingsEntries(zip) {
 
 module.exports = [
 	{
-		name: 'B17: empty deck (text-only) does not create ppt/charts or ppt/embeddings dirs',
+		name: 'empty deck (text-only) does not create ppt/charts or ppt/embeddings dirs',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -21,7 +21,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B17: image-only deck does not create ppt/charts or ppt/embeddings dirs',
+		name: 'image-only deck does not create ppt/charts or ppt/embeddings dirs',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -32,7 +32,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B17: chart-present deck still creates chart and embedding parts (regression)',
+		name: 'chart-present deck still creates chart and embedding parts (regression)',
 		fn: async () => {
 			const PptxGenJS = require('../src/bld/pptxgen.cjs.js')
 			const pres = new PptxGenJS()

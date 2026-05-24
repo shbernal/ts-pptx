@@ -9,7 +9,7 @@ const JPG_DATA = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAEBAQE
 
 module.exports = [
 	{
-		name: 'B16: PNG-only deck emits png Default but not jpeg/jpg/svg/gif/m4v/mp4/vml/xlsx',
+		name: 'PNG-only deck emits png Default but not jpeg/jpg/svg/gif/m4v/mp4/vml/xlsx',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -30,7 +30,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B16: empty deck emits only xml + rels Defaults (no media defaults)',
+		name: 'empty deck emits only xml + rels Defaults (no media defaults)',
 		fn: async () => {
 			const { zip } = await build(p => {
 				p.addSlide()
@@ -50,7 +50,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B16: PNG + JPEG deck emits both png and jpeg/jpg Defaults; gif/svg absent',
+		name: 'PNG + JPEG deck emits both png and jpeg/jpg Defaults; gif/svg absent',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -71,7 +71,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B16: chart deck emits xlsx Default',
+		name: 'chart deck emits xlsx Default',
 		fn: async () => {
 			const { pres, zip } = await build(p => {
 				const s = p.addSlide()
@@ -85,7 +85,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B16: regression - structural Override entries still emitted',
+		name: 'regression - structural Override entries still emitted',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()

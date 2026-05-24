@@ -4,7 +4,7 @@ const { build, readEntry, assert } = require('./helpers')
 
 module.exports = [
 	{
-		name: 'B6: combo chart with secondary*Axis flags emits all referenced axIds as defs',
+		name: 'combo chart with secondary*Axis flags emits all referenced axIds as defs',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()

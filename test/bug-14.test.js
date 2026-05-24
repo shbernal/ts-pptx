@@ -8,7 +8,7 @@ const { build, readEntry, assert } = require('./helpers')
 
 module.exports = [
 	{
-		name: 'B14: cell margin set to a string falls back to defaults (no NaN)',
+		name: 'cell margin set to a string falls back to defaults (no NaN)',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -22,7 +22,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B14: cell margin set to a plain object falls back to defaults (no NaN)',
+		name: 'cell margin set to a plain object falls back to defaults (no NaN)',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -35,7 +35,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B14: table-level margin set to a string falls back to defaults (no NaN)',
+		name: 'table-level margin set to a string falls back to defaults (no NaN)',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -48,7 +48,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B14: numeric margin still emits valid mar attributes (regression guard)',
+		name: 'numeric margin still emits valid mar attributes (regression guard)',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()

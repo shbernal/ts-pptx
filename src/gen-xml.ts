@@ -319,7 +319,7 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 
 						let cellMargin = cellOpts.margin === 0 || cellOpts.margin ? cellOpts.margin : DEF_CELL_MARGIN_IN
 						if (!Array.isArray(cellMargin) && typeof cellMargin === 'number') cellMargin = [cellMargin, cellMargin, cellMargin, cellMargin]
-						// B14: defensive fallback - if `cellMargin` is not a 4-element array of finite numbers, use defaults (prevents NaN in marL/R/T/B)
+						// defensive fallback - if `cellMargin` is not a 4-element array of finite numbers, use defaults (prevents NaN in marL/R/T/B)
 						if (!Array.isArray(cellMargin) || cellMargin.length !== 4 || cellMargin.some(v => typeof v !== 'number' || !isFinite(v))) {
 							cellMargin = DEF_CELL_MARGIN_IN
 						}
@@ -521,7 +521,7 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 
 				// EFFECTS > SHADOW: REF: @see http://officeopenxml.com/drwSp-effects.php
 				if (slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none') {
-					// B4: derive emit-time values into locals so we don't mutate the user's options.shadow
+					// derive emit-time values into locals so we don't mutate the user's options.shadow
 					// (re-emission would otherwise re-convert pt→EMU and produce absurd values).
 					const sh = slideItemObj.options.shadow
 					const shadowType = sh.type || 'outer'
@@ -619,7 +619,7 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 
 				// EFFECTS > SHADOW: REF: @see http://officeopenxml.com/drwSp-effects.php
 				if (slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none') {
-					// B4: derive emit-time values into locals so we don't mutate the user's options.shadow
+					// derive emit-time values into locals so we don't mutate the user's options.shadow
 					// (re-emission would otherwise re-convert pt→EMU and produce absurd values).
 					const sh = slideItemObj.options.shadow
 					const shadowType = sh.type || 'outer'
@@ -1295,7 +1295,7 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 			textObj.options.paraSpaceBefore = textObj.options.paraSpaceBefore || opts.paraSpaceBefore
 			textObj.options.paraSpaceAfter = textObj.options.paraSpaceAfter || opts.paraSpaceAfter
 
-			// B1: OOXML allows only one `<a:pPr>` per `<a:p>`, and it must precede any `<a:r>` runs.
+			// OOXML allows only one `<a:pPr>` per `<a:p>`, and it must precede any `<a:r>` runs.
 			// Emit paragraph properties exactly once, derived from the first run that yields non-empty pPr XML.
 			if (!paragraphPropEmitted) {
 				paragraphPropXml = genXmlParagraphProperties(textObj, false)
@@ -1316,7 +1316,7 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 			})
 
 			// D: Add formatted textrun
-			// B9: When this paragraph emits bullet markup (`bullet:true` or any object
+			// When this paragraph emits bullet markup (`bullet:true` or any object
 			// form), strip a single leading bullet glyph (+ optional whitespace) from
 			// the first run's text. Otherwise PowerPoint renders two bullets — one
 			// from the paragraph-level `<a:buChar/>` and one from the literal glyph
@@ -1414,7 +1414,7 @@ export function makeXmlContTypes (slides: PresSlide[], slideLayouts: SlideLayout
 	strXml += '<Default Extension="xml" ContentType="application/xml"/>'
 	strXml += '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
 
-	// B16: STEP 1 - Emit Default Extension entries only for media types actually used by the deck.
+	// STEP 1 - Emit Default Extension entries only for media types actually used by the deck.
 	// Walk slides + slideLayouts + masterSlide _relsMedia[] and dedupe by extension.
 	// Skip 'online' rels (no part written) and rels missing extn/type.
 	const extnTypeMap = new Map<string, string>()
@@ -1441,7 +1441,7 @@ export function makeXmlContTypes (slides: PresSlide[], slideLayouts: SlideLayout
 	// STEP 2: Add presentation and slide master(s)/slide(s)
 	strXml += '<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>'
 	strXml += '<Override PartName="/ppt/notesMasters/notesMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml"/>'
-	// B2: Only one slideMaster part (`slideMaster1.xml`) is written; emit a single matching Override
+	// Only one slideMaster part (`slideMaster1.xml`) is written; emit a single matching Override
 	// rather than one per slide (which would dangle, since `slideMaster2..N.xml` do not exist).
 	strXml += '<Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>'
 	slides.forEach((slide, idx) => {
@@ -1456,7 +1456,7 @@ export function makeXmlContTypes (slides: PresSlide[], slideLayouts: SlideLayout
 	strXml += '<Override PartName="/ppt/presProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presProps+xml"/>'
 	strXml += '<Override PartName="/ppt/viewProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml"/>'
 	strXml += '<Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>'
-	// B15: notesMaster1.xml.rels references ../theme/theme2.xml; emit a matching Override so the part resolves
+	// notesMaster1.xml.rels references ../theme/theme2.xml; emit a matching Override so the part resolves
 	strXml += '<Override PartName="/ppt/theme/theme2.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>'
 	strXml += '<Override PartName="/ppt/tableStyles.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml"/>'
 
@@ -1477,7 +1477,7 @@ export function makeXmlContTypes (slides: PresSlide[], slideLayouts: SlideLayout
 	masterSlide._relsChart.forEach(rel => {
 		strXml += ' <Override PartName="' + rel.Target + '" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>'
 	})
-	// B16: master _relsMedia extensions are already covered by the unified ctTargets walk above; no per-master Default block needed here.
+	// master _relsMedia extensions are already covered by the unified ctTargets walk above; no per-master Default block needed here.
 
 	// LAST: Finish XML (Resume core)
 	strXml += ' <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>'

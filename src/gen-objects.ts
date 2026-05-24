@@ -663,7 +663,7 @@ export function addNotesDefinition(target: PresSlide, notes: string): void {
 /**
  * Map of common friendly shape names users pass as bare strings to their
  * valid OOXML preset values. PowerPoint can't parse the friendly spellings
- * and removes the shape during repair (see B10/B11).
+ * and removes the shape during repair .
  */
 const SHAPE_NAME_ALIASES: { [key: string]: SHAPE_NAME } = {
 	oval: 'ellipse',
@@ -847,7 +847,7 @@ export function addTableDefinition(
 	opt.fontSize = opt.fontSize || DEF_FONT_SIZE
 	opt.margin = opt.margin === 0 || opt.margin ? opt.margin : DEF_CELL_MARGIN_IN
 	if (typeof opt.margin === 'number') opt.margin = [Number(opt.margin), Number(opt.margin), Number(opt.margin), Number(opt.margin)]
-	// B14: defensive fallback - if `opt.margin` is not a 4-element array of finite numbers, use defaults so non-numeric table-level margins don't leak NaN into <a:tcPr>
+	// defensive fallback - if `opt.margin` is not a 4-element array of finite numbers, use defaults so non-numeric table-level margins don't leak NaN into <a:tcPr>
 	if (!Array.isArray(opt.margin) || opt.margin.length !== 4 || opt.margin.some((v: any) => typeof v !== 'number' || !isFinite(v))) {
 		opt.margin = DEF_CELL_MARGIN_IN
 	}

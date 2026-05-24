@@ -4,7 +4,7 @@ const { build, readEntry, assert } = require('./helpers')
 
 module.exports = [
 	{
-		name: 'B1: mixed-formatting paragraph emits at most one <a:pPr>',
+		name: 'mixed-formatting paragraph emits at most one <a:pPr>',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -23,7 +23,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B1: paragraph with mixed-align runs still emits 1 <a:pPr> per <a:p>',
+		name: 'paragraph with mixed-align runs still emits 1 <a:pPr> per <a:p>',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()

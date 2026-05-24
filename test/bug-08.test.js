@@ -19,7 +19,7 @@ function alphaPct(hex) {
 
 module.exports = [
 	{
-		name: 'B8: fill color "00000020" splits to val="000000" + <a:alpha val="12549"/>',
+		name: 'fill color "00000020" splits to val="000000" + <a:alpha val="12549"/>',
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
@@ -38,7 +38,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B8: text color "00FF0080" splits to val="00FF00" + <a:alpha val="50196"/>',
+		name: 'text color "00FF0080" splits to val="00FF00" + <a:alpha val="50196"/>',
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
@@ -54,7 +54,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B8: shape line color "0000FF40" splits to val="0000FF" + <a:alpha val="..."/>',
+		name: 'shape line color "0000FF40" splits to val="0000FF" + <a:alpha val="..."/>',
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
@@ -73,7 +73,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B8: shadow color "00000020" without explicit opacity emits val="000000" + derived alpha',
+		name: 'shadow color "00000020" without explicit opacity emits val="000000" + derived alpha',
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
@@ -102,7 +102,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B8: shadow color "88888880" with explicit opacity=0.5 — explicit opacity wins, color stripped',
+		name: 'shadow color "88888880" with explicit opacity=0.5 — explicit opacity wins, color stripped',
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
@@ -129,7 +129,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B8: hash-prefixed 8-char "#FF0000FF" splits to val="FF0000" + <a:alpha val="100000"/>',
+		name: 'hash-prefixed 8-char "#FF0000FF" splits to val="FF0000" + <a:alpha val="100000"/>',
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()

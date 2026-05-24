@@ -4,7 +4,7 @@ const { build, readEntry, assert } = require('./helpers')
 
 module.exports = [
 	{
-		name: 'B10: addShape("oval", ...) emits prst="ellipse" (not invalid "oval")',
+		name: 'addShape("oval", ...) emits prst="ellipse" (not invalid "oval")',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -18,7 +18,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B11: addShape("roundedRectangle", ...) emits prst="roundRect" (not invalid "roundedRectangle")',
+		name: 'addShape("roundedRectangle", ...) emits prst="roundRect" (not invalid "roundedRectangle")',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -32,7 +32,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B11: addShape("rectangle", ...) emits prst="rect" (not invalid "rectangle")',
+		name: 'addShape("rectangle", ...) emits prst="rect" (not invalid "rectangle")',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -46,7 +46,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B10: enum-constant API still works (pres.shapes.OVAL -> ellipse)',
+		name: 'enum-constant API still works (pres.shapes.OVAL -> ellipse)',
 		fn: async () => {
 			const { zip, pres } = await build(p => {
 				const s = p.addSlide()

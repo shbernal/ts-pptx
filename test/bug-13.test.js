@@ -4,7 +4,7 @@ const { PptxGenJS, build, readEntry, assert } = require('./helpers')
 
 module.exports = [
 	{
-		name: 'B13: textless addShape emits <p:sp> containing <p:txBody>',
+		name: 'textless addShape emits <p:sp> containing <p:txBody>',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -24,7 +24,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B13: textful addShape still emits text run (regression guard)',
+		name: 'textful addShape still emits text run (regression guard)',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()

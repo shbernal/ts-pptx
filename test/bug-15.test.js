@@ -4,7 +4,7 @@ const { build, readEntry, listEntries, assert } = require('./helpers')
 
 module.exports = [
 	{
-		name: 'B15: ppt/theme/theme2.xml is present in archive',
+		name: 'ppt/theme/theme2.xml is present in archive',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -16,7 +16,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B15: notesMaster1.xml.rels references theme2.xml (not theme1)',
+		name: 'notesMaster1.xml.rels references theme2.xml (not theme1)',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -30,7 +30,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B15: [Content_Types].xml has Override for theme2.xml',
+		name: '[Content_Types].xml has Override for theme2.xml',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
@@ -42,7 +42,7 @@ module.exports = [
 		}
 	},
 	{
-		name: 'B15: regression - theme1.xml still present and slideMaster rel still resolves',
+		name: 'regression - theme1.xml still present and slideMaster rel still resolves',
 		fn: async () => {
 			const { zip } = await build(p => {
 				const s = p.addSlide()
