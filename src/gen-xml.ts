@@ -1826,17 +1826,18 @@ export function makeXmlPresentation (pres: IPresentationProps): string {
 	// STEP 1: Add slide master (SPEC: tag 1 under <presentation>)
 	strXml += '<p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>'
 
-	// STEP 2: Add all Slides (SPEC: tag 3 under <presentation>)
+	// STEP 2: Add Notes Master (SPEC: tag 2 under <presentation>)
+	// CT_Presentation child sequence (ECMA-376 Part 1 §19.2.1.26) requires
+	// notesMasterIdLst to appear BEFORE sldIdLst. Emitting it after sldIdLst
+	// (or after sldSz/notesSz) violates the schema and is flagged by
+	// OpenXmlValidator as Sch_UnexpectedElementContentExpectingComplex.
+	// (NOTE: length+2 is from `presentation.xml.rels` func (since we have to match this rId, we just use same logic))
+	strXml += `<p:notesMasterIdLst><p:notesMasterId r:id="rId${pres.slides.length + 2}"/></p:notesMasterIdLst>`
+
+	// STEP 3: Add all Slides (SPEC: tag 3 under <presentation>)
 	strXml += '<p:sldIdLst>'
 	pres.slides.forEach(slide => (strXml += `<p:sldId id="${slide._slideId}" r:id="rId${slide._rId}"/>`))
 	strXml += '</p:sldIdLst>'
-
-	// STEP 3: Add Notes Master (SPEC: tag 2 under <presentation>)
-	// (NOTE: length+2 is from `presentation.xml.rels` func (since we have to match this rId, we just use same logic))
-	// IMPORTANT: In this order (matches PPT2019) PPT will give corruption message on open!
-	// IMPORTANT: Placing this before `<p:sldIdLst>` causes warning in modern powerpoint!
-	// IMPORTANT: Presentations open without warning Without this line, however, the pres isnt preview in Finder anymore or viewable in iOS!
-	strXml += `<p:notesMasterIdLst><p:notesMasterId r:id="rId${pres.slides.length + 2}"/></p:notesMasterIdLst>`
 
 	// STEP 4: Add sizes
 	strXml += `<p:sldSz cx="${pres.presLayout.width}" cy="${pres.presLayout.height}"/>`
