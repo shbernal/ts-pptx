@@ -28,5 +28,11 @@ app.listen(port, () => {
 	console.log(`\n----------------------==~==~==~==[ SERVER RUNNING ]==~==~==~==----------------------\n`);
 });
 
-let start = process.platform == "darwin" ? "open" : process.platform == "win32" ? "start" : "xdg-open";
-require("child_process").exec(start + " " + DEMO_URL);
+// Skip the auto-open when running headless / CI / under the release-test
+// harness — the harness sets `CI=1` in the spawned env (see
+// `test/release/_server.js`). `PPTXGEN_NO_OPEN=1` is a more explicit opt-out
+// for any other caller that doesn't want a browser tab to appear.
+if (!process.env.CI && !process.env.PPTXGEN_NO_OPEN) {
+	let start = process.platform == "darwin" ? "open" : process.platform == "win32" ? "start" : "xdg-open";
+	require("child_process").exec(start + " " + DEMO_URL);
+}

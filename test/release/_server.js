@@ -4,9 +4,11 @@
 // process. The server uses `app.use("/browser", express.static("./browser"))`
 // so it MUST be started from the `demos/` directory; we set `cwd` accordingly.
 //
-// Resolves once the "SERVER RUNNING" banner appears on stdout. The auto-`open`
-// side-effect at the end of `browser_server.mjs` is fire-and-forget; we ignore
-// any browser launch failure since we drive the page programmatically.
+// Resolves once the "SERVER RUNNING" banner appears on stdout. We pass
+// `PPTXGEN_NO_OPEN=1` so the server skips its developer-facing "open the demo
+// page in the default browser" side-effect — the harness drives the page
+// programmatically via Playwright. `CI=1` is also passed for parity with the
+// usual signal CI runners set.
 
 const { spawn } = require('child_process')
 const path = require('path')
@@ -21,7 +23,7 @@ function startServer () {
 		const child = spawn(process.execPath, [SERVER_SCRIPT], {
 			cwd: DEMOS_DIR,
 			stdio: ['ignore', 'pipe', 'pipe'],
-			env: Object.assign({}, process.env, { CI: '1' })
+			env: Object.assign({}, process.env, { CI: '1', PPTXGEN_NO_OPEN: '1' })
 		})
 
 		let resolved = false
