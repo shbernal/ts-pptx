@@ -90,6 +90,10 @@ Download from GitHub: [Latest Release](https://github.com/gitbrent/PptxGenJS/rel
 <script src="PptxGenJS/dist/pptxgen.min.js"></script>
 ```
 
+### Contributors: Running the Test Suite
+
+> Running `npm test` from a clone requires a one-time `./tools/ooxml-validator/install.sh` to download the OOXML schema validator into `tools/ooxml-validator/bin/`.
+
 ## 🚀 Universal Compatibility
 
 PptxGenJS works seamlessly in **modern web and Node environments**, thanks to dual ESM and CJS builds and zero runtime dependencies. Whether you're building a CLI tool, an Electron app, or a web-based presentation builder, the library adapts automatically to your stack.

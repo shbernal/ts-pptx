@@ -27,7 +27,7 @@
 		"defs": "gulp reactTestDefs",
 		"watch": "rollup -cw",
 		"pretest": "npm run build",
-		"test": "node test/run.js",
+		"test": "node test/run.js && node test/run-schema.js",
 		"schema-test": "node test/run-schema.js"
 	},
 	"browser": {

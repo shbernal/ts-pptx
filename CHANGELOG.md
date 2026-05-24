@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Combo charts with `secondaryValAxis`/`secondaryCatAxis` flags emit dangling axis-ID references; 2D bar/line/area/radar charts emit a series-axis reference with no matching definition
 - `<p:presentation>` child elements emitted in non-canonical order — `<p:notesMasterIdLst>` now appears before `<p:sldIdLst>` to match the OOXML CT_Presentation child sequence (ECMA-376 Part 1 §19.2.1.26)
 
+### Changed
+
+- `npm test` now runs both the regression suite and the OOXML schema-validation suite. Schema validation requires a one-time `./tools/ooxml-validator/install.sh` to download the validator binary.
+
 ## [4.0.1](https://github.com/gitbrent/PptxGenJS/releases/tag/v4.0.1) - 2025-06-25
 
 ### Fixed
