@@ -1,17 +1,37 @@
-### MacOS
+### macOS
 .DS_Store
-
-### Others
 *.icloud
-.icloud
-bower_components/
-node_modules/
-npm-debug.log
-src/bld
-demo
 
-### docusaurus
-.docusaurus
-build
-docs
-static
+### Node
+node_modules/
+bower_components/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+coverage/
+.nyc_output/
+
+### Env / secrets
+.env
+.env.local
+.env.*.local
+
+### Build artifacts
+src/bld/
+
+### Docusaurus (anchored to repo root; docusaurus lives at root on gh-pages)
+/build/
+/docs/
+/static/
+/.docusaurus/
+
+### Editors
+.idea/
+*.swp
+*~
+
+### Autoloop
+.autoloop/
+!.autoloop/bug-report.md
