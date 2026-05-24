@@ -32,10 +32,10 @@
 
 const { spawnSync } = require('child_process')
 const fs = require('fs')
-const os = require('os')
 const path = require('path')
 
-const { runValidatorOnFile, isInstalled } = require('../validator')
+const { isInstalled } = require('../validator')
+const { assert, expectNoSchemaErrors, withTempDir } = require('./_helpers')
 const { startServer } = require('./_server')
 
 const WORKER_URL = 'http://localhost:8000/browser/worker_test.html'
@@ -45,21 +45,6 @@ const DEMO_BUNDLE = path.join(REPO_ROOT, 'demos', 'browser', 'js', 'pptxgen.bund
 const LOCAL_BUNDLE = process.env.PPTXGEN_LOCAL_BUNDLE || path.join(REPO_ROOT, 'dist', 'pptxgen.bundle.js')
 
 const DOWNLOAD_TIMEOUT_MS = 90000
-
-function assert (cond, msg) {
-	if (!cond) throw new Error('assertion failed: ' + msg)
-}
-
-async function expectNoSchemaErrors (filePath, label) {
-	const errors = await runValidatorOnFile(filePath)
-	if (errors.length === 0) return
-	const summary = errors
-		.slice(0, 5)
-		.map(e => `  - [${e.ErrorType}] ${e.Description} (path: ${(e.Path && e.Path.PartUri) || '?'})`)
-		.join('\n')
-	const more = errors.length > 5 ? `\n  ...(${errors.length - 5} more)` : ''
-	assert(false, `${label}: ${errors.length} schema error(s):\n${summary}${more}`)
-}
 
 function gitStatusPorcelain (file) {
 	const r = spawnSync('git', ['-P', 'status', '--porcelain', '--', file], { cwd: REPO_ROOT, encoding: 'utf8' })
@@ -150,44 +135,44 @@ async function teardown (ctx) {
 }
 
 async function runWorkerCase (ctx) {
-	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pptxgen-release-worker-'))
-	const context = await ctx.browser.newContext({ acceptDownloads: true })
+	await withTempDir('pptxgen-release-worker-', async (tmpDir) => {
+		const context = await ctx.browser.newContext({ acceptDownloads: true })
 
-	const pageErrors = []
-	const consoleErrors = []
+		const pageErrors = []
+		const consoleErrors = []
 
-	try {
-		const page = await context.newPage()
+		try {
+			const page = await context.newPage()
 
-		page.on('pageerror', err => { pageErrors.push(err.message) })
-		page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()) })
+			page.on('pageerror', err => { pageErrors.push(err.message) })
+			page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()) })
 
-		await page.goto(WORKER_URL, { waitUntil: 'load' })
-		await page.waitForLoadState('networkidle')
-		await page.waitForSelector('#generatePptWorker', { state: 'visible', timeout: 15000 })
+			await page.goto(WORKER_URL, { waitUntil: 'load' })
+			await page.waitForLoadState('networkidle')
+			await page.waitForSelector('#generatePptWorker', { state: 'visible', timeout: 15000 })
 
-		const [download] = await Promise.all([
-			page.waitForEvent('download', { timeout: DOWNLOAD_TIMEOUT_MS }),
-			page.click('#generatePptWorker')
-		])
+			const [download] = await Promise.all([
+				page.waitForEvent('download', { timeout: DOWNLOAD_TIMEOUT_MS }),
+				page.click('#generatePptWorker')
+			])
 
-		const suggested = download.suggestedFilename() || 'worker_demo.pptx'
-		const out = path.join(tmpDir, suggested)
-		await download.saveAs(out)
+			const suggested = download.suggestedFilename() || 'worker_demo.pptx'
+			const out = path.join(tmpDir, suggested)
+			await download.saveAs(out)
 
-		const stat = fs.statSync(out)
-		assert(
-			stat.size > 0,
-			'downloaded file is empty: ' + out +
-				' pageErrors=' + JSON.stringify(pageErrors) +
-				' consoleErrors=' + JSON.stringify(consoleErrors)
-		)
+			const stat = fs.statSync(out)
+			assert(
+				stat.size > 0,
+				'downloaded file is empty: ' + out +
+					' pageErrors=' + JSON.stringify(pageErrors) +
+					' consoleErrors=' + JSON.stringify(consoleErrors)
+			)
 
-		await expectNoSchemaErrors(out, 'worker/generatePptWorker')
-	} finally {
-		try { await context.close() } catch (_) { /* ignore */ }
-		try { fs.rmSync(tmpDir, { recursive: true, force: true }) } catch (_) { /* ignore */ }
-	}
+			await expectNoSchemaErrors(out, 'worker/generatePptWorker')
+		} finally {
+			try { await context.close() } catch (_) { /* ignore */ }
+		}
+	})
 }
 
 module.exports = {

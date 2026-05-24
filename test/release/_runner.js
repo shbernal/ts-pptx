@@ -33,6 +33,14 @@
 //   release pipeline, not the inner-loop build) while guaranteeing the
 //   harness tests the live code path. The path of the freshly-built bundle
 //   is exposed via `process.env.PPTXGEN_LOCAL_BUNDLE`.
+//
+// Pre-test dist/ refresh (for the Node harness):
+//   The Node demos under `demos/node/` resolve `import pptxgen from "pptxgenjs"`
+//   via `package.json` `main`/`exports`, landing on `dist/pptxgen.cjs.js`.
+//   That file is a committed v4.0.1 release artefact and is NOT touched by
+//   `gulp build`. To exercise current source, we run `npm run build` (rollup)
+//   which writes fresh `dist/pptxgen.{cjs,es,min}.js`. On runner exit we
+//   restore the originals from git so the working tree stays clean.
 
 const { spawn } = require('child_process')
 const fs = require('fs')
@@ -43,6 +51,11 @@ const BLD_IIFE = path.join(REPO_ROOT, 'src', 'bld', 'pptxgen.gulp.js')
 const LIBS_DIR = path.join(REPO_ROOT, 'libs')
 const TMP_DIR = path.join(__dirname, '_tmp')
 const TMP_BUNDLE = path.join(TMP_DIR, 'pptxgen.bundle.js')
+const DIST_DIR = path.join(REPO_ROOT, 'dist')
+// Files under dist/ that the dist-refresh step overwrites. Restored from
+// git on runner exit so the working tree stays clean even after dist/ was
+// regenerated to refresh the cjs/es entry points used by the Node demos.
+const DIST_FILES = ['pptxgen.cjs.js', 'pptxgen.es.js']
 
 function runCmd (cmd, args, opts) {
 	return new Promise((resolve, reject) => {
@@ -84,6 +97,45 @@ async function buildFreshBundle () {
 	const stat = fs.statSync(TMP_BUNDLE)
 	console.log('  ' + path.relative(REPO_ROOT, TMP_BUNDLE) + ': ' + stat.size + ' bytes (parts: ' + parts.map(p => path.basename(p)).join(' + ') + ')')
 	process.env.PPTXGEN_LOCAL_BUNDLE = TMP_BUNDLE
+}
+
+async function buildFreshDist () {
+	console.log('Refreshing dist/ + demos/node/node_modules for Node demos...')
+	const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx'
+	// `gulp build` (already invoked by buildFreshBundle) wrote fresh
+	// `src/bld/pptxgen.{cjs,es}.js`. We then need to copy those into:
+	//   1. `dist/` (via `gulp cjs` and `gulp es`), and
+	//   2. `demos/node/node_modules/pptxgenjs/dist/` (via `gulp nodeTestCjs`
+	//      and `gulp nodeTestEs`, which read from `dist/`).
+	// IMPORTANT: gulp runs CLI-supplied tasks in parallel by default, so we
+	// MUST split into two await'd calls — running them all together races
+	// `nodeTestCjs` (reads dist) against `cjs` (writes dist) and produces
+	// stale node_modules. Splitting guarantees dist/ is populated first.
+	await runCmd(npx, ['gulp', 'cjs', 'es'])
+	await runCmd(npx, ['gulp', 'nodeTestCjs', 'nodeTestEs'])
+	for (const f of ['pptxgen.cjs.js', 'pptxgen.es.js']) {
+		const full = path.join(DIST_DIR, f)
+		if (!fs.existsSync(full)) {
+			throw new Error('expected ' + full + ' after `gulp cjs/es`; the gulp tasks did not produce it')
+		}
+	}
+}
+
+function restoreDistFiles () {
+	// Best-effort: use `git checkout --` to restore the committed bytes of
+	// any dist/ files this run regenerated. Logs a warning if anything
+	// remains dirty so the contributor can investigate; does not throw.
+	const args = ['-P', 'checkout', '--']
+	for (const f of DIST_FILES) args.push(path.join('dist', f))
+	const r = require('child_process').spawnSync('git', args, { cwd: REPO_ROOT, encoding: 'utf8' })
+	if (r.status !== 0) {
+		console.log('  [dist-restore] WARNING: `git checkout` failed for dist/ files (status=' + r.status + ', stderr=' + (r.stderr || '').slice(0, 500) + ')')
+		return
+	}
+	const status = require('child_process').spawnSync('git', ['-P', 'status', '--porcelain', '--', 'dist/'], { cwd: REPO_ROOT, encoding: 'utf8' })
+	if (status.status === 0 && status.stdout.trim() !== '') {
+		console.log('  [dist-restore] WARNING: dist/ still dirty after restore: ' + JSON.stringify(status.stdout.trim()))
+	}
 }
 
 const failures = []
@@ -164,11 +216,19 @@ async function loadAndRun () {
 	console.log('Running PptxGenJS release-time tests')
 	try {
 		await buildFreshBundle()
+		await buildFreshDist()
 	} catch (e) {
 		console.error('Pre-test bundle build failed: ' + (e && e.message ? e.message : e))
+		// Even on early failure, restore dist/ in case `npm run build` partially ran.
+		try { restoreDistFiles() } catch (_) { /* ignore */ }
 		process.exit(2)
 	}
-	await loadAndRun()
+	try {
+		await loadAndRun()
+	} finally {
+		// Always restore dist/ — keeps the working tree clean even on case failures.
+		try { restoreDistFiles() } catch (_) { /* ignore */ }
+	}
 	console.log(
 		'\nPassed: ' + successes.length +
 		'  Failed: ' + failures.length +

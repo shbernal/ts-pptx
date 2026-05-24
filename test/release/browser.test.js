@@ -28,10 +28,10 @@
 //   * `#btnGenFunc_Master`     (tab-masters)
 
 const fs = require('fs')
-const os = require('os')
 const path = require('path')
 
-const { runValidatorOnFile, isInstalled } = require('../validator')
+const { isInstalled } = require('../validator')
+const { assert, expectNoSchemaErrors, withTempDir } = require('./_helpers')
 const { startServer } = require('./_server')
 
 const DEMO_URL = 'http://localhost:8000/browser/index.html'
@@ -44,21 +44,6 @@ const LOCAL_DEMOS = path.join(REPO_ROOT, 'demos', 'modules', 'demos.mjs')
 
 const DEFAULT_DOWNLOAD_TIMEOUT_MS = 60000
 const ALL_DEMOS_TIMEOUT_MS = 120000
-
-function assert (cond, msg) {
-	if (!cond) throw new Error('assertion failed: ' + msg)
-}
-
-async function expectNoSchemaErrors (filePath, label) {
-	const errors = await runValidatorOnFile(filePath)
-	if (errors.length === 0) return
-	const summary = errors
-		.slice(0, 5)
-		.map(e => `  - [${e.ErrorType}] ${e.Description} (path: ${(e.Path && e.Path.PartUri) || '?'})`)
-		.join('\n')
-	const more = errors.length > 5 ? `\n  ...(${errors.length - 5} more)` : ''
-	assert(false, `${label}: ${errors.length} schema error(s):\n${summary}${more}`)
-}
 
 async function setup (ctx) {
 	if (!isInstalled()) throw new Error('OOXMLValidatorCLI not installed; run ./tools/ooxml-validator/install.sh')
@@ -93,88 +78,88 @@ async function teardown (ctx) {
 async function runDemoButtonCase (ctx, opts) {
 	const { selector, label, downloadTimeoutMs = DEFAULT_DOWNLOAD_TIMEOUT_MS } = opts
 
-	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pptxgen-release-'))
-	const context = await ctx.browser.newContext({ acceptDownloads: true })
+	await withTempDir('pptxgen-release-', async (tmpDir) => {
+		const context = await ctx.browser.newContext({ acceptDownloads: true })
 
-	let bundleHits = 0
-	const pageErrors = []
-	const consoleErrors = []
+		let bundleHits = 0
+		const pageErrors = []
+		const consoleErrors = []
 
-	try {
-		const page = await context.newPage()
+		try {
+			const page = await context.newPage()
 
-		await page.route(CDN_BUNDLE_URL, route => {
-			bundleHits++
-			return route.fulfill({
-				path: LOCAL_BUNDLE,
-				headers: { 'Content-Type': 'application/javascript' }
+			await page.route(CDN_BUNDLE_URL, route => {
+				bundleHits++
+				return route.fulfill({
+					path: LOCAL_BUNDLE,
+					headers: { 'Content-Type': 'application/javascript' }
+				})
 			})
-		})
-		await page.route(CDN_DEMOS_URL, route => {
-			return route.fulfill({
-				path: LOCAL_DEMOS,
-				headers: { 'Content-Type': 'application/javascript' }
+			await page.route(CDN_DEMOS_URL, route => {
+				return route.fulfill({
+					path: LOCAL_DEMOS,
+					headers: { 'Content-Type': 'application/javascript' }
+				})
 			})
-		})
 
-		page.on('pageerror', err => { pageErrors.push(err.message) })
-		page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()) })
+			page.on('pageerror', err => { pageErrors.push(err.message) })
+			page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()) })
 
-		await page.goto(DEMO_URL, { waitUntil: 'load' })
-		await page.waitForLoadState('networkidle')
+			await page.goto(DEMO_URL, { waitUntil: 'load' })
+			await page.waitForLoadState('networkidle')
 
-		// `<code id="demo-sandbox">` ships empty in tab-intro.html. `doAppStart`
-		// (called on DOMContentLoaded) populates it once the section HTML loads.
-		// Until that happens, `#btnRunSandboxDemo` runs `new Function('')()` (no-op).
-		// `#btnRunBasicDemo` reads from `#demo-basic` populated in the same call,
-		// so this gate covers both paths.
-		await page.waitForFunction(
-			() => {
-				const el = document.getElementById('demo-sandbox')
-				return !!el && typeof el.innerHTML === 'string' && el.innerHTML.includes('writeFile')
-			},
-			null,
-			{ timeout: 15000 }
-		)
+			// `<code id="demo-sandbox">` ships empty in tab-intro.html. `doAppStart`
+			// (called on DOMContentLoaded) populates it once the section HTML loads.
+			// Until that happens, `#btnRunSandboxDemo` runs `new Function('')()` (no-op).
+			// `#btnRunBasicDemo` reads from `#demo-basic` populated in the same call,
+			// so this gate covers both paths.
+			await page.waitForFunction(
+				() => {
+					const el = document.getElementById('demo-sandbox')
+					return !!el && typeof el.innerHTML === 'string' && el.innerHTML.includes('writeFile')
+				},
+				null,
+				{ timeout: 15000 }
+			)
 
-		await page.waitForSelector(selector, { state: 'attached', timeout: 15000 })
+			await page.waitForSelector(selector, { state: 'attached', timeout: 15000 })
 
-		assert(
-			bundleHits >= 1,
-			'expected the CDN bundle URL to be intercepted at least once for ' + label +
-				'; got ' + bundleHits + ' hits — substitution did not run, so the test would not be exercising local code.' +
-				' pageErrors=' + JSON.stringify(pageErrors) + ' consoleErrors=' + JSON.stringify(consoleErrors)
-		)
+			assert(
+				bundleHits >= 1,
+				'expected the CDN bundle URL to be intercepted at least once for ' + label +
+					'; got ' + bundleHits + ' hits — substitution did not run, so the test would not be exercising local code.' +
+					' pageErrors=' + JSON.stringify(pageErrors) + ' consoleErrors=' + JSON.stringify(consoleErrors)
+			)
 
-		// Many demo buttons live inside currently-collapsed Bootstrap accordions or
-		// inactive tab panels (e.g. `#btnGenFunc_Chart` is in the `#tab-charts`
-		// pane which is `display:none` until the user activates that tab). The
-		// click handlers are wired by `main.js` directly via `addEventListener`
-		// at module load, so a programmatic `.click()` reliably fires them
-		// regardless of the element's CSS visibility — exactly as if the user
-		// had opened the tab and clicked. We use `dispatchEvent` to ensure
-		// bubbling and Bootstrap-modal-friendly default behaviour.
-		const [download] = await Promise.all([
-			page.waitForEvent('download', { timeout: downloadTimeoutMs }),
-			page.evaluate((sel) => {
-				const el = document.querySelector(sel)
-				if (!el) throw new Error('selector not found: ' + sel)
-				el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }))
-			}, selector)
-		])
+			// Many demo buttons live inside currently-collapsed Bootstrap accordions or
+			// inactive tab panels (e.g. `#btnGenFunc_Chart` is in the `#tab-charts`
+			// pane which is `display:none` until the user activates that tab). The
+			// click handlers are wired by `main.js` directly via `addEventListener`
+			// at module load, so a programmatic `.click()` reliably fires them
+			// regardless of the element's CSS visibility — exactly as if the user
+			// had opened the tab and clicked. We use `dispatchEvent` to ensure
+			// bubbling and Bootstrap-modal-friendly default behaviour.
+			const [download] = await Promise.all([
+				page.waitForEvent('download', { timeout: downloadTimeoutMs }),
+				page.evaluate((sel) => {
+					const el = document.querySelector(sel)
+					if (!el) throw new Error('selector not found: ' + sel)
+					el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }))
+				}, selector)
+			])
 
-		const suggested = download.suggestedFilename() || (label.replace(/[^a-z0-9]+/gi, '_') + '.pptx')
-		const out = path.join(tmpDir, suggested)
-		await download.saveAs(out)
+			const suggested = download.suggestedFilename() || (label.replace(/[^a-z0-9]+/gi, '_') + '.pptx')
+			const out = path.join(tmpDir, suggested)
+			await download.saveAs(out)
 
-		const stat = fs.statSync(out)
-		assert(stat.size > 0, 'downloaded file is empty: ' + out)
+			const stat = fs.statSync(out)
+			assert(stat.size > 0, 'downloaded file is empty: ' + out)
 
-		await expectNoSchemaErrors(out, label)
-	} finally {
-		try { await context.close() } catch (_) { /* ignore */ }
-		try { fs.rmSync(tmpDir, { recursive: true, force: true }) } catch (_) { /* ignore */ }
-	}
+			await expectNoSchemaErrors(out, label)
+		} finally {
+			try { await context.close() } catch (_) { /* ignore */ }
+		}
+	})
 }
 
 // `knownFailure` annotations:
