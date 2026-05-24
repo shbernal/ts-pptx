@@ -33,5 +33,7 @@ src/bld/
 *~
 
 ### Autoloop
-.autoloop/
+# Use .autoloop/* (not .autoloop/) so the negation below actually applies —
+# git cannot re-include a file inside an excluded directory.
+.autoloop/*
 !.autoloop/bug-report.md
