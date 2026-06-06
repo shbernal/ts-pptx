@@ -18,15 +18,20 @@ for (const target of targets) {
 
 function run(command, args, options = {}) {
 	return new Promise((resolve, reject) => {
-		const npmCache = path.join(os.tmpdir(), 'pptxgenjs-npm-cache')
+		const packageManagerCache = path.join(os.tmpdir(), 'pptxgenjs-package-manager-cache')
+		const env = {
+			...process.env,
+			npm_config_cache: path.join(packageManagerCache, 'npm'),
+			NPM_CONFIG_CACHE: path.join(packageManagerCache, 'npm'),
+			...options.env,
+		}
+		if (command === 'pnpm') {
+			env.pnpm_config_store_dir = path.join(packageManagerCache, 'pnpm-store')
+			env.PNPM_CONFIG_STORE_DIR = path.join(packageManagerCache, 'pnpm-store')
+		}
 		const child = spawn(command, args, {
 			cwd: options.cwd || ROOT,
-			env: {
-				...process.env,
-				npm_config_cache: npmCache,
-				NPM_CONFIG_CACHE: npmCache,
-				...options.env,
-			},
+			env,
 			stdio: options.capture ? ['ignore', 'pipe', 'pipe'] : 'inherit',
 		})
 		let stdout = ''
@@ -87,6 +92,7 @@ async function prepareFixturePackage(fixtureDir, tarball) {
 	pkg.dependencies = { ...pkg.dependencies, pptxgenjs: 'file:' + tarball }
 	await writeJson(pkgFile, pkg)
 	await fs.rm(path.join(fixtureDir, 'package-lock.json'), { force: true })
+	await fs.rm(path.join(fixtureDir, 'pnpm-lock.yaml'), { force: true })
 	await fs.rm(path.join(fixtureDir, 'node_modules'), { recursive: true, force: true })
 	await run('npm', ['install', '--ignore-scripts', '--no-audit', '--no-fund'], { cwd: fixtureDir })
 }

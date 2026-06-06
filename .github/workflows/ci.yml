@@ -27,34 +27,38 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-          cache: npm
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Install OOXML validator
         run: ./tools/ooxml-validator/install.sh
 
       - name: Lint
-        run: npm run lint
+        run: pnpm run lint
 
       - name: Check formatting
-        run: npm run format:check
+        run: pnpm run format:check
 
       - name: Typecheck
-        run: npm run typecheck
+        run: pnpm run typecheck
 
       - name: Test
-        run: npm test
+        run: pnpm test
 
       - name: Build package artifacts
-        run: npm run build:dist
+        run: pnpm run build:dist
 
       - name: Check package manifest
-        run: npm run pack:check
+        run: pnpm run pack:check
 
       - name: Smoke test packed package
-        run: npm run test:package
+        run: pnpm run test:package
 
       - name: Smoke test demos
-        run: npm run test:demos
+        run: pnpm run test:demos

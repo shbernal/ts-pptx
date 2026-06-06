@@ -3,7 +3,7 @@
  * AUTH: Brent Ely (https://github.com/gitbrent/)
  * DATE: 20210410
  * DESC: PptxGenJS feature demos for Node.js
- * REQS: npm 4.x + `npm install pptxgenjs`
+ * REQS: install dependencies with pnpm, npm, or yarn
  *
  * USAGE: `node demo_stream.js`
  */

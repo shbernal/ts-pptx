@@ -5,7 +5,7 @@
 // Fixtures are intentionally small and orthogonal — they exercise one
 // API surface each — so when an error appears we can localise it.
 //
-// Run with: npm run test:schema
+// Run with: pnpm run test:schema
 
 import { build, assert } from './helpers.js'
 import { validateBuf } from './validator.js'

@@ -1,0 +1,5 @@
+packages:
+  - demos/node
+  - demos/vite-demo
+allowBuilds:
+  '@parcel/watcher': true

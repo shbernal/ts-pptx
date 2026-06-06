@@ -64,6 +64,10 @@ Choose your preferred method to install **PptxGenJS**:
 ### Quick Install (Node-based)
 
 ```bash
+pnpm add pptxgenjs
+```
+
+```bash
 npm install pptxgenjs
 ```
 
@@ -92,8 +96,9 @@ Download from GitHub: [Latest Release](https://github.com/gitbrent/PptxGenJS/rel
 
 ### Contributors: Running the Test Suite
 
-> Running `npm test` from a clone requires a one-time `./tools/ooxml-validator/install.sh` to download the OOXML schema validator into `tools/ooxml-validator/bin/`.
-> Run `npm run test:package` after `npm run build:dist` when validating the npm package boundary.
+> Running the test suite from a clone requires a one-time `./tools/ooxml-validator/install.sh` to download the OOXML schema validator into `tools/ooxml-validator/bin/`.
+> This repository uses pnpm for development. Run `pnpm install`, then `pnpm test`.
+> Run `pnpm run test:package` after `pnpm run build:dist` when validating the packed package boundary.
 
 ## 🚀 Universal Compatibility
 
