@@ -3,12 +3,26 @@
  */
 
 import { DEF_FONT_SIZE, DEF_SLIDE_MARGIN_IN, EMU, LINEH_MODIFIER, ONEPT, SLIDE_OBJECT_TYPES } from './core-enums.js'
-import type { BorderProps, PresLayout, SlideLayoutInternal, TableCell, TableToSlidesProps, TableRow, TableRowSlide, TableCellProps } from './core-interfaces.js'
+import type {
+	AddSlideProps,
+	BorderProps,
+	PresLayout,
+	PresSlide,
+	SlideLayoutInternal,
+	TableCell,
+	TableToSlidesProps,
+	TableRow,
+	TableRowSlide,
+	TableCellProps,
+} from './core-interfaces.js'
 import { getSmartParseNumber, inch2Emu, rgbToHex, valToPts } from './gen-utils.js'
-import PptxGenJS from './pptxgen.js'
 
 type MarginTuple = [number, number, number, number]
 type BorderTuple = [BorderProps, BorderProps, BorderProps, BorderProps]
+type TableToSlidesHost = {
+	addSlide: (options?: AddSlideProps) => PresSlide
+	presLayout: PresLayout
+}
 
 /**
  * Break cell text into lines based upon table column width (e.g.: Magic Happens Here(tm))
@@ -522,12 +536,12 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 
 /**
  * Reproduces an HTML table as a PowerPoint table - including column widths, style, etc. - creates 1 or more slides as needed
- * @param {PptxGenJS} pptx - pptxgenjs instance
+ * @param {TableToSlidesHost} pptx - pptxgenjs instance
  * @param {string} tabEleId - HTMLElementID of the table
  * @param {ITableToSlidesOpts} options - array of options (e.g.: tabsize)
  * @param {SlideLayoutInternal} masterSlide - masterSlide
  */
-export function genTableToSlides(pptx: PptxGenJS, tabEleId: string, options: TableToSlidesProps = {}, masterSlide?: SlideLayoutInternal): void {
+export function genTableToSlides(pptx: TableToSlidesHost, tabEleId: string, options: TableToSlidesProps = {}, masterSlide?: SlideLayoutInternal): void {
 	const opts = options || {}
 	opts.slideMargin = opts.slideMargin || opts.slideMargin === 0 ? opts.slideMargin : 0.5
 	let emuSlideTabW = opts.w || pptx.presLayout.width
