@@ -1,13 +1,11 @@
 #!/usr/bin/env node
-'use strict'
 
 // Compare the pinned OOXML-Validator version against the latest GitHub
 // release. Designed to be run periodically (locally or in CI) to flag
 // upstream drift. Exits 0 if up-to-date, 1 if a newer release is
 // available, 2 on network/parse errors.
 
-import fs from 'node:fs'
-import https from 'node:https'
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -16,41 +14,28 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const VERSION_FILE = path.join(__dirname, 'version.json')
 const LATEST_URL = 'https://api.github.com/repos/mikeebowen/OOXML-Validator/releases/latest'
 
-function fetchJson (url) {
-	return new Promise((resolve, reject) => {
-		const req = https.get(
-			url,
-			{
-				headers: {
-					'User-Agent': 'pptxgenjs-tooling',
-					'Accept': 'application/vnd.github+json'
-				}
-			},
-			res => {
-				if (res.statusCode !== 200) {
-					reject(new Error('HTTP ' + res.statusCode + ' from ' + url))
-					return
-				}
-				let body = ''
-				res.setEncoding('utf8')
-				res.on('data', c => { body += c })
-				res.on('end', () => {
-					try { resolve(JSON.parse(body)) }
-					catch (e) { reject(new Error('Bad JSON from ' + url + ': ' + e.message)) }
-				})
-			}
-		)
-		req.on('error', reject)
-		req.setTimeout(15_000, () => req.destroy(new Error('timeout')))
+async function fetchJson(url) {
+	const response = await fetch(url, {
+		headers: {
+			'User-Agent': 'pptxgenjs-tooling',
+			Accept: 'application/vnd.github+json',
+		},
+		signal: AbortSignal.timeout(15_000),
 	})
+	if (!response.ok) throw new Error('HTTP ' + response.status + ' from ' + url)
+	return await response.json()
+}
+
+function getErrorMessage(error) {
+	return error instanceof Error ? error.message : String(error)
 }
 
 ;(async () => {
 	let pinned
 	try {
-		pinned = JSON.parse(fs.readFileSync(VERSION_FILE, 'utf8'))
+		pinned = JSON.parse(await fs.readFile(VERSION_FILE, 'utf8'))
 	} catch (e) {
-		console.error('failed to read ' + VERSION_FILE + ': ' + e.message)
+		console.error('failed to read ' + VERSION_FILE + ': ' + getErrorMessage(e))
 		process.exit(2)
 	}
 	const pinnedVersion = String(pinned.version || '').replace(/^v/, '')
@@ -59,7 +44,7 @@ function fetchJson (url) {
 	try {
 		latest = await fetchJson(LATEST_URL)
 	} catch (e) {
-		console.error('failed to query GitHub: ' + e.message)
+		console.error('failed to query GitHub: ' + getErrorMessage(e))
 		process.exit(2)
 	}
 	const latestTag = String(latest.tag_name || '').replace(/^v/, '')

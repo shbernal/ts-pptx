@@ -3,8 +3,8 @@ import { isInstalled, VALIDATOR } from './validator.js'
 import cases from './schema.test.js'
 
 describe('PptxGenJS schema validation fixtures', () => {
-	beforeAll(() => {
-		if (!isInstalled()) {
+	beforeAll(async () => {
+		if (!(await isInstalled())) {
 			throw new Error('OOXMLValidatorCLI not installed at ' + VALIDATOR + '\nRun: ./tools/ooxml-validator/install.sh')
 		}
 	})
