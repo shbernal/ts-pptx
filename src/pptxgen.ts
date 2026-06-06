@@ -60,7 +60,7 @@
  */
 
 import JSZip from 'jszip'
-import Slide from './slide'
+import Slide from './slide.js'
 import {
 	AlignH,
 	AlignV,
@@ -76,7 +76,7 @@ import {
 	SchemeColor,
 	ShapeType,
 	WRITE_OUTPUT_TYPE,
-} from './core-enums'
+} from './core-enums.js'
 import {
 	AddSlideProps,
 	IPresentationProps,
@@ -91,20 +91,21 @@ import {
 	WriteBaseProps,
 	WriteFileProps,
 	WriteProps,
-} from './core-interfaces'
-import * as genCharts from './gen-charts'
-import * as genObj from './gen-objects'
-import * as genMedia from './gen-media'
-import * as genTable from './gen-tables'
-import * as genXml from './gen-xml'
+} from './core-interfaces.js'
+import * as genCharts from './gen-charts.js'
+import * as genObj from './gen-objects.js'
+import * as genMedia from './gen-media.js'
+import * as genTable from './gen-tables.js'
+import * as genXml from './gen-xml.js'
 
-export type { default as Slide } from './slide'
+export type { default as Slide } from './slide.js'
 export type {
 	AddSlideProps,
 	BackgroundProps,
 	BorderProps,
 	Color,
 	DataOrPathProps,
+	DataOrPathRequiredProps,
 	HAlign,
 	HexColor,
 	IChartAreaProps,
@@ -159,7 +160,7 @@ export type {
 	WriteBaseProps,
 	WriteFileProps,
 	WriteProps,
-} from './core-interfaces'
+} from './core-interfaces.js'
 export type {
 	CHART_NAME,
 	CHART_TYPE,
@@ -171,7 +172,7 @@ export type {
 	SHAPE_NAME,
 	SHAPE_TYPE,
 	WRITE_OUTPUT_TYPE,
-} from './core-enums'
+} from './core-enums.js'
 
 const VERSION = '4.0.1'
 

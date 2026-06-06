@@ -2,7 +2,7 @@
  * PptxGenJS: Slide Class
  */
 
-import { CHART_NAME, SHAPE_NAME } from './core-enums'
+import { CHART_NAME, SHAPE_NAME } from './core-enums.js'
 import {
 	AddSlideProps,
 	BackgroundProps,
@@ -26,8 +26,8 @@ import {
 	TableRow,
 	TextProps,
 	TextPropsOptions,
-} from './core-interfaces'
-import * as genObj from './gen-objects'
+} from './core-interfaces.js'
+import * as genObj from './gen-objects.js'
 
 export default class Slide {
 	private readonly _setSlideNum: (value: SlideNumberProps) => void
@@ -238,7 +238,7 @@ export default class Slide {
 	 * @param {TextPropsOptions} options - text options
 	 * @return {Slide} this Slide
 	 */
-	addText(text: string | TextProps[], options?: TextPropsOptions): Slide {
+	addText(text: string | number | TextProps[], options?: TextPropsOptions): Slide {
 		const textParam = typeof text === 'string' || typeof text === 'number' ? [{ text, options }] : text
 		genObj.addTextDefinition(this, textParam, options, false)
 		return this

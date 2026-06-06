@@ -3,7 +3,7 @@
  * PptxGenJS Interfaces
  */
 
-import { CHART_NAME, PLACEHOLDER_TYPE, SHAPE_NAME, SLIDE_OBJECT_TYPES, TEXT_HALIGN, TEXT_VALIGN, WRITE_OUTPUT_TYPE } from './core-enums'
+import type { CHART_NAME, PLACEHOLDER_TYPE, SHAPE_NAME, SLIDE_OBJECT_TYPES, TEXT_HALIGN, TEXT_VALIGN, WRITE_OUTPUT_TYPE } from './core-enums.js'
 
 // Core Types
 // ==========
@@ -48,7 +48,8 @@ export interface PositionProps {
 	w?: Coord
 }
 /**
- * Either `data` or `path` is required
+ * Reusable optional data/path fields.
+ * Use `DataOrPathRequiredProps` for APIs that require at least one source.
  */
 export interface DataOrPathProps {
 	/**
@@ -66,6 +67,9 @@ export interface DataOrPathProps {
 	 */
 	data?: string
 }
+export type DataOrPathRequiredProps =
+	| (DataOrPathProps & { data: string })
+	| (DataOrPathProps & { path: string })
 export interface BackgroundProps extends DataOrPathProps, ShapeFillProps {
 	/**
 	 * Color (hex format)
@@ -477,7 +481,7 @@ export interface ThemeProps {
 // image / media ==================================================================================
 export type MediaType = 'audio' | 'online' | 'video'
 
-export interface ImageProps extends PositionProps, DataOrPathProps, ObjectNameProps {
+interface ImageBaseProps extends PositionProps, ObjectNameProps {
 	/**
 	 * Alt Text value ("How would you describe this object and its contents to someone who is blind?")
 	 * - PowerPoint: [right-click on an image] > "Edit Alt Text..."
@@ -568,16 +572,12 @@ export interface ImageProps extends PositionProps, DataOrPathProps, ObjectNamePr
 	 */
 	transparency?: number
 }
+export type ImageProps = ImageBaseProps & DataOrPathRequiredProps
 /**
  * Add media (audio/video) to slide
- * @requires either `link` or `path`
+ * @requires either `data` or `path`; online media requires `link`
  */
-export interface MediaProps extends PositionProps, DataOrPathProps, ObjectNameProps {
-	/**
-	 * Media type
-	 * - Use 'online' to embed a YouTube video (only supported in recent versions of PowerPoint)
-	 */
-	type: MediaType
+interface MediaBaseProps extends PositionProps, ObjectNameProps {
 	/**
 	 * Cover image
 	 * @since 3.9.0
@@ -591,20 +591,33 @@ export interface MediaProps extends PositionProps, DataOrPathProps, ObjectNamePr
 	 * @default extension from file provided
 	 */
 	extn?: string
-	/**
-	 * video embed link
-	 * - works with YouTube
-	 * - other sites may not show correctly in PowerPoint
-	 * @example 'https://www.youtube.com/embed/Dph6ynRVyUc' // embed a youtube video
-	 */
-	link?: string
-	/**
-	 * full or local path
-	 * @example 'https://freesounds/simpsons/bart.mp3' // embed mp3 audio clip from server
-	 * @example '/sounds/simpsons_haha.mp3' // embed mp3 audio clip from local directory
-	 */
-	path?: string
 }
+export type MediaProps = MediaBaseProps &
+	(
+		| (DataOrPathRequiredProps & {
+			/**
+			 * Media type
+			 */
+			type: Exclude<MediaType, 'online'>
+			/**
+			 * Optional video embed link metadata.
+			 */
+			link?: string
+		})
+		| (DataOrPathProps & {
+			/**
+			 * Use 'online' to embed a YouTube video (only supported in recent versions of PowerPoint)
+			 */
+			type: 'online'
+			/**
+			 * video embed link
+			 * - works with YouTube
+			 * - other sites may not show correctly in PowerPoint
+			 * @example 'https://www.youtube.com/embed/Dph6ynRVyUc' // embed a youtube video
+			 */
+			link: string
+		})
+	)
 
 // shapes =========================================================================================
 
@@ -1132,7 +1145,7 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	lineTail?: 'none' | 'arrow' | 'diamond' | 'oval' | 'stealth' | 'triangle'
 }
 export interface TextProps {
-	text?: string
+	text?: string | number
 	options?: TextPropsOptions
 }
 
@@ -1767,7 +1780,7 @@ export interface SlideMasterProps {
 	 */
 	bkgd?: string | BackgroundProps
 }
-export interface ObjectOptions extends ImageProps, PositionProps, ShapeProps, TableCellProps, TextPropsOptions {
+export interface ObjectOptions extends ImageBaseProps, PositionProps, ShapeProps, TableCellProps, TextPropsOptions {
 	_placeholderIdx?: number
 	_placeholderType?: PLACEHOLDER_TYPE
 
@@ -1814,7 +1827,7 @@ export interface PresSlide extends SlideBaseProps {
 	addNotes: (notes: string) => PresSlide
 	addShape: (shapeName: SHAPE_NAME, options?: ShapeProps) => PresSlide
 	addTable: (tableRows: TableRow[], options?: TableProps) => PresSlide
-	addText: (text: string | TextProps[], options?: TextPropsOptions) => PresSlide
+	addText: (text: string | number | TextProps[], options?: TextPropsOptions) => PresSlide
 
 	/**
 	 * Background color or image (`color` | `path` | `data`)

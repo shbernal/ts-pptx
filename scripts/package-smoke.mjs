@@ -60,39 +60,70 @@ async function smokeInstalledPackage(fixtureDir) {
 		[
 			"import PptxGenJS, { type ThemeProps, type WriteFileProps } from 'pptxgenjs'",
 			'const pptx = new PptxGenJS()',
+			'const slide = pptx.addSlide()',
 			"const theme: ThemeProps = { headFontFace: 'Aptos', bodyFontFace: 'Aptos' }",
 			"const options: WriteFileProps = { fileName: 'smoke.pptx' }",
 			'pptx.theme = theme',
+			"slide.addImage({ data: 'image/png;base64,AAAA', x: 0, y: 0, w: 1, h: 1 })",
+			"slide.addMedia({ type: 'online', link: 'https://www.youtube.com/embed/example', x: 0, y: 0, w: 1, h: 1 })",
+			'slide.addText(42, { x: 0, y: 0, w: 1, h: 1 })',
+			'// @ts-expect-error addImage requires data or path',
+			'slide.addImage({ x: 0, y: 0, w: 1, h: 1 })',
+			'// @ts-expect-error file media requires data or path',
+			"slide.addMedia({ type: 'video', x: 0, y: 0, w: 1, h: 1 })",
 			'void pptx.writeFile(options)',
 			'',
 		].join('\n')
 	)
-	await fs.writeFile(
-		path.join(fixtureDir, 'tsconfig.json'),
-		JSON.stringify(
-			{
-				compilerOptions: {
-					lib: ['dom', 'es2024'],
-					module: 'esnext',
-					moduleResolution: 'bundler',
-					noEmit: true,
-					strict: true,
-					target: 'es2024',
-				},
-				include: ['type-smoke.ts'],
+	const typeSmokeConfigs = [
+		{
+			fileName: 'tsconfig.bundler.json',
+			compilerOptions: {
+				lib: ['dom', 'es2024'],
+				module: 'esnext',
+				moduleResolution: 'bundler',
+				noEmit: true,
+				strict: true,
+				target: 'es2024',
 			},
-			null,
-			2
-		) + '\n'
+		},
+		{
+			fileName: 'tsconfig.nodenext.json',
+			compilerOptions: {
+				lib: ['dom', 'es2024'],
+				module: 'nodenext',
+				moduleResolution: 'nodenext',
+				noEmit: true,
+				strict: true,
+				target: 'es2024',
+			},
+		},
+	]
+	await Promise.all(
+		typeSmokeConfigs.map((config) =>
+			fs.writeFile(
+				path.join(fixtureDir, config.fileName),
+				JSON.stringify(
+					{
+						compilerOptions: config.compilerOptions,
+						include: ['type-smoke.ts'],
+					},
+					null,
+					2
+				) + '\n'
+			)
+		)
 	)
 
 	await run(process.execPath, [path.join(fixtureDir, 'esm-smoke.mjs')], { cwd: fixtureDir })
 	await run(process.execPath, [path.join(fixtureDir, 'cjs-unsupported.cjs')], { cwd: fixtureDir })
-	await run(process.execPath, [
-		path.join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc'),
-		'-p',
-		path.join(fixtureDir, 'tsconfig.json'),
-	])
+	for (const config of typeSmokeConfigs) {
+		await run(process.execPath, [
+			path.join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc'),
+			'-p',
+			path.join(fixtureDir, config.fileName),
+		])
+	}
 }
 
 const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-package-smoke-'))

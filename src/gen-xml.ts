@@ -15,8 +15,8 @@ import {
 	PLACEHOLDER_TYPES,
 	SLDNUMFLDID,
 	SLIDE_OBJECT_TYPES,
-} from './core-enums'
-import {
+} from './core-enums.js'
+import type {
 	IPresentationProps,
 	ISlideObject,
 	ISlideRel,
@@ -30,7 +30,7 @@ import {
 	TableCellProps,
 	TextProps,
 	TextPropsOptions,
-} from './core-interfaces'
+} from './core-interfaces.js'
 import {
 	convertRotationDegrees,
 	createColorElement,
@@ -41,7 +41,7 @@ import {
 	getUuid,
 	inch2Emu,
 	valToPts,
-} from './gen-utils'
+} from './gen-utils.js'
 
 const ImageSizingXml = {
 	cover: function (imgSize: { w: number, h: number }, boxDim: { w: number, h: number, x: number, y: number }) {
@@ -1069,7 +1069,8 @@ function genXmlTextRun (textObj: TextProps): string {
 	*/
 
 	// Return paragraph with text run
-	return textObj.text ? `<a:r>${genXmlTextRunProperties(textObj.options, false)}<a:t>${encodeXmlEntities(textObj.text)}</a:t></a:r>` : ''
+	if (textObj.text === undefined || textObj.text === null) return ''
+	return `<a:r>${genXmlTextRunProperties(textObj.options, false)}<a:t>${encodeXmlEntities(String(textObj.text))}</a:t></a:r>`
 }
 
 /**

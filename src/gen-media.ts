@@ -2,8 +2,8 @@
  * PptxGenJS: Media Methods
  */
 
-import { IMG_BROKEN } from './core-enums'
-import { PresSlide, SlideLayout, ISlideRelMedia } from './core-interfaces'
+import { IMG_BROKEN } from './core-enums.js'
+import type { PresSlide, SlideLayout, ISlideRelMedia } from './core-interfaces.js'
 
 /**
  * Encode Image/Audio/Video into base64

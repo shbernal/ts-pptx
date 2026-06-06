@@ -3,7 +3,7 @@
  * NOTE: `enum` wont work for objects, so use `Object.freeze`
  */
 
-import { BorderProps, OptsChartGridLine } from './core-interfaces'
+import type { BorderProps, OptsChartGridLine } from './core-interfaces.js'
 
 // CONST
 export const EMU = 914400 // One (1) inch (OfficeXML measures in EMU (English Metric Units))

@@ -2,10 +2,10 @@
  * PptxGenJS: Table Generation
  */
 
-import { DEF_FONT_SIZE, DEF_SLIDE_MARGIN_IN, EMU, LINEH_MODIFIER, ONEPT, SLIDE_OBJECT_TYPES } from './core-enums'
-import { PresLayout, SlideLayout, TableCell, TableToSlidesProps, TableRow, TableRowSlide, TableCellProps } from './core-interfaces'
-import { getSmartParseNumber, inch2Emu, rgbToHex, valToPts } from './gen-utils'
-import PptxGenJS from './pptxgen'
+import { DEF_FONT_SIZE, DEF_SLIDE_MARGIN_IN, EMU, LINEH_MODIFIER, ONEPT, SLIDE_OBJECT_TYPES } from './core-enums.js'
+import type { PresLayout, SlideLayout, TableCell, TableToSlidesProps, TableRow, TableRowSlide, TableCellProps } from './core-interfaces.js'
+import { getSmartParseNumber, inch2Emu, rgbToHex, valToPts } from './gen-utils.js'
+import PptxGenJS from './pptxgen.js'
 
 /**
  * Break cell text into lines based upon table column width (e.g.: Magic Happens Here(tm))

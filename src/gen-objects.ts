@@ -23,8 +23,8 @@ import {
 	SLIDE_OBJECT_TYPES,
 	TEXT_HALIGN,
 	TEXT_VALIGN,
-} from './core-enums'
-import {
+} from './core-enums.js'
+import type {
 	AddSlideProps,
 	BackgroundProps,
 	IChartMulti,
@@ -46,9 +46,9 @@ import {
 	TableRow,
 	TextProps,
 	TextPropsOptions,
-} from './core-interfaces'
-import { getSlidesForTableRows } from './gen-tables'
-import { encodeXmlEntities, getNewRelId, getSmartParseNumber, inch2Emu, valToPts, correctShadowOptions } from './gen-utils'
+} from './core-interfaces.js'
+import { getSlidesForTableRows } from './gen-tables.js'
+import { encodeXmlEntities, getNewRelId, getSmartParseNumber, inch2Emu, valToPts, correctShadowOptions } from './gen-utils.js'
 
 /** counter for included charts (used for index in their filenames) */
 let _chartCounter = 0
