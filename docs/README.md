@@ -17,6 +17,8 @@ artifacts.
   other agent-assisted changes.
 - [OOXML agent context](ooxml-agent-context.md): project-specific OOXML
   reference and validation workflow.
+- [Upstream signal workflow](upstream-signal-workflow.md): how to classify
+  upstream issues and PRs without reintroducing dropped package targets.
 - [Legacy autoloop workflow](legacy-autoloop.md): retained legacy automation
   notes.
 

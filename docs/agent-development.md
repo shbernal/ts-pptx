@@ -43,6 +43,20 @@ The package smoke test should continue to prove that old artifacts are absent
 and that `pptxgenjs`, `pptxgenjs/core`, `pptxgenjs/node`,
 `pptxgenjs/browser`, and `pptxgenjs/standalone` resolve.
 
+## Upstream Signals
+
+When reviewing upstream issues or pull requests for potential local work, use
+[upstream signal workflow](upstream-signal-workflow.md) and record decisions in
+`docs/upstream-signals.yml`.
+
+Treat upstream as a source of evidence for PPTX generation bugs and missing
+features, not as a source of package-target decisions. Signals about PowerPoint
+repair prompts, invalid OOXML, content types, relationships, chart/table/media
+serialization, and current TypeScript or ESM behavior can be target candidates.
+Signals that depend on CommonJS, IIFE/global bundles, direct CDN script tags, or
+legacy generated artifact names are non-target unless the documented project
+target changes first.
+
 ## Communication Expectations
 
 When proposing or making a change, distinguish:

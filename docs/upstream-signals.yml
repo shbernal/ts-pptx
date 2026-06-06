@@ -1,0 +1,116 @@
+schema: 1
+source_repo: gitbrent/PptxGenJS
+purpose: >
+  Track upstream issues and pull requests as signals for current-project PPTX
+  generation behavior, OOXML validity, PowerPoint compatibility, and supported
+  ESM/TypeScript package behavior.
+project_target_docs:
+  - docs/project-target.md
+  - docs/runtime-and-package-support.md
+  - docs/agent-development.md
+  - docs/ooxml-agent-context.md
+  - docs/testing.md
+
+vocabulary:
+  statuses:
+    - unreviewed
+    - needs-repro
+    - target-candidate
+    - accepted
+    - interesting-with-tweaks
+    - non-target
+    - watch
+    - implemented
+    - superseded
+  priorities:
+    - p0
+    - p1
+    - p2
+    - p3
+    - none
+  target_areas:
+    - powerpoint-repair
+    - invalid-ooxml
+    - schema-order
+    - relationship-or-content-type
+    - chart-ooxml
+    - table-ooxml
+    - image-svg-media
+    - speaker-notes-masters-layouts
+    - missing-pptx-feature
+    - typescript-api
+    - browser-modern-esm
+    - package-boundary
+  applies_to_current_project:
+    - yes
+    - partial
+    - no
+    - unknown
+  non_target_reasons:
+    - commonjs
+    - iife-global
+    - cdn-script-tag
+    - legacy-dist-artifact
+    - unsupported-runtime
+    - upstream-build-system
+    - release-matrix
+    - docs-only-for-legacy-workflow
+    - not-reproducible-in-current-project
+    - insufficient-evidence
+  evidence_kinds:
+    - minimal-repro
+    - generated-pptx
+    - extracted-xml
+    - schema-fixture
+    - validator-result
+    - powerpoint-result
+    - powerpoint-authored-comparison
+    - ooxml-reference
+    - microsoft-reference
+    - local-test
+
+item_fields:
+  id: stable local identifier, usually upstream-issue-N or upstream-pr-N
+  source: upstream URL or owner/repo#number
+  type: issue or pull-request
+  first_seen: ISO date when recorded locally
+  last_reviewed: ISO date when last classified
+  status: one vocabulary.statuses value
+  priority: one vocabulary.priorities value
+  target_area: list of vocabulary.target_areas values
+  applies_to_current_project: one vocabulary.applies_to_current_project value
+  non_target_reasons: list of vocabulary.non_target_reasons values
+  upstream_summary: short metadata-level summary, not a full copied thread
+  current_project_notes: local decision note
+  evidence: local evidence gathered against this checkout
+  next_action: next local action or none
+
+# Add reviewed items by replacing the empty list below with entries like this.
+# Keep entries short and evidence-based.
+#
+# items:
+# - id: upstream-issue-1234
+#   source: gitbrent/PptxGenJS#1234
+#   type: issue
+#   first_seen: 2026-06-07
+#   last_reviewed: 2026-06-07
+#   status: interesting-with-tweaks
+#   priority: p1
+#   target_area:
+#     - powerpoint-repair
+#     - invalid-ooxml
+#   applies_to_current_project: partial
+#   non_target_reasons: []
+#   upstream_summary: PowerPoint repair report for a generated chart.
+#   current_project_notes: >
+#     The behavior may apply, but the upstream fix also touches legacy package
+#     artifacts. Re-evaluate only the emitted OOXML behavior.
+#   evidence:
+#     kinds: []
+#     local_files: []
+#     schema_fixture: null
+#     validator_result: null
+#     powerpoint_result: null
+#     spec_refs: []
+#   next_action: create-minimal-repro
+items: []
