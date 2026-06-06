@@ -9,16 +9,18 @@
 	"homepage": "https://gitbrent.github.io/PptxGenJS/",
 	"license": "MIT",
 	"packageManager": "npm@11.14.1",
+	"type": "module",
 	"engines": {
 		"node": ">=24"
 	},
 	"exports": {
-		"types": "./types/pptxgen.d.ts",
-		"import": "./dist/pptxgen.es.js",
-		"require": "./dist/pptxgen.cjs.js"
+		".": {
+			"types": "./types/pptxgen.d.ts",
+			"import": "./dist/pptxgen.js"
+		}
 	},
-	"main": "dist/pptxgen.cjs.js",
-	"module": "dist/pptxgen.es.js",
+	"main": "dist/pptxgen.js",
+	"module": "dist/pptxgen.js",
 	"files": [
 		"dist",
 		"types"
@@ -51,8 +53,8 @@
 		"types:build": "node scripts/types.mjs",
 		"lint": "eslint . --no-warn-ignored",
 		"lint:fix": "npm run lint -- --fix",
-		"format": "prettier package.json tsconfig*.json eslint.config.mjs rollup.config.mjs \"scripts/**/*.mjs\" \"test/**/*.mjs\" \".github/**/*.yml\" --write",
-		"format:check": "prettier package.json tsconfig*.json eslint.config.mjs rollup.config.mjs \"scripts/**/*.mjs\" \"test/**/*.mjs\" \".github/**/*.yml\" --check",
+		"format": "prettier package.json tsconfig*.json eslint.config.mjs rollup.config.mjs \"scripts/**/*.mjs\" \"test/**/*.mjs\" \"test/**/*.js\" \".github/**/*.yml\" --write",
+		"format:check": "prettier package.json tsconfig*.json eslint.config.mjs rollup.config.mjs \"scripts/**/*.mjs\" \"test/**/*.mjs\" \"test/**/*.js\" \".github/**/*.yml\" --check",
 		"prepack": "npm run build:dist && npm run types:build",
 		"check-validator": "node tools/ooxml-validator/check-updates.js",
 		"pack:check": "npm pack --dry-run --json"

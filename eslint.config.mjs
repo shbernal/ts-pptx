@@ -45,7 +45,7 @@ export default tseslint.config(
 		},
 	},
 	{
-		files: ['rollup.config.mjs', 'scripts/**/*.mjs', 'test/**/*.mjs'],
+		files: ['rollup.config.mjs', 'scripts/**/*.mjs', 'test/**/*.mjs', 'test/**/*.js'],
 		extends: [eslint.configs.recommended],
 		languageOptions: {
 			ecmaVersion: 2024,

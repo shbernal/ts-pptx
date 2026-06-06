@@ -1,7 +1,5 @@
-'use strict'
-
-const JSZip = require('jszip')
-const PptxGenJS = require('../src/bld/pptxgen.cjs.js')
+import JSZip from 'jszip'
+import PptxGenJS from '../src/bld/pptxgen.js'
 
 async function build(buildFn) {
 	const pres = new PptxGenJS()
@@ -26,7 +24,10 @@ function assert(cond, msg) {
 }
 
 function assertEqual(actual, expected, msg) {
-	if (actual !== expected) throw new Error('assertion failed: ' + (msg || '') + ' expected ' + JSON.stringify(expected) + ' got ' + JSON.stringify(actual))
+	if (actual !== expected)
+		throw new Error(
+			'assertion failed: ' + (msg || '') + ' expected ' + JSON.stringify(expected) + ' got ' + JSON.stringify(actual)
+		)
 }
 
-module.exports = { PptxGenJS, build, readEntry, listEntries, assert, assertEqual }
+export { PptxGenJS, build, readEntry, listEntries, assert, assertEqual }

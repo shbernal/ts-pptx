@@ -13,13 +13,13 @@ const DEMO_NODE_DIST_DIR = path.join(ROOT, 'demos', 'node', 'node_modules', 'ppt
 const DEMO_VITE_PKG_DIR = path.join(ROOT, 'demos', 'vite-demo', 'node_modules', 'pptxgenjs')
 
 const BLD_IIFE = path.join(BLD_DIR, 'pptxgen.iife.js')
-const BLD_CJS = path.join(BLD_DIR, 'pptxgen.cjs.js')
-const BLD_ES = path.join(BLD_DIR, 'pptxgen.es.js')
+const BLD_ESM = path.join(BLD_DIR, 'pptxgen.js')
+const BLD_LEGACY_FILES = [path.join(BLD_DIR, 'pptxgen.cjs.js'), path.join(BLD_DIR, 'pptxgen.es.js')]
 
-const DIST_CJS = path.join(DIST_DIR, 'pptxgen.cjs.js')
-const DIST_ES = path.join(DIST_DIR, 'pptxgen.es.js')
+const DIST_ESM = path.join(DIST_DIR, 'pptxgen.js')
 const DIST_MIN = path.join(DIST_DIR, 'pptxgen.min.js')
 const DIST_BUNDLE = path.join(DIST_DIR, 'pptxgen.bundle.js')
+const DIST_LEGACY_FILES = [path.join(DIST_DIR, 'pptxgen.cjs.js'), path.join(DIST_DIR, 'pptxgen.es.js')]
 
 process.chdir(ROOT)
 
@@ -48,12 +48,17 @@ async function assertFile(file, hint) {
 	}
 }
 
+async function removeFiles(files) {
+	await Promise.all(files.map((file) => fs.rm(file, { force: true })))
+}
+
 async function createRollupBundle() {
 	return rollup(createRollupInputOptions(pkg))
 }
 
 async function buildBld() {
 	await fs.mkdir(BLD_DIR, { recursive: true })
+	await removeFiles(BLD_LEGACY_FILES)
 	const bundle = await createRollupBundle()
 	try {
 		await bundle.write({
@@ -63,26 +68,21 @@ async function buildBld() {
 			globals: { jszip: 'JSZip' },
 		})
 		await bundle.write({
-			file: BLD_CJS,
-			format: 'cjs',
-			exports: 'default',
-		})
-		await bundle.write({
-			file: BLD_ES,
+			file: BLD_ESM,
 			format: 'es',
 		})
 	} finally {
 		await bundle.close()
 	}
-	logFiles('Built', [BLD_IIFE, BLD_CJS, BLD_ES])
+	logFiles('Built', [BLD_IIFE, BLD_ESM])
 }
 
 async function writeDistEntries() {
 	await buildBld()
 	await fs.mkdir(DIST_DIR, { recursive: true })
-	await fs.writeFile(DIST_CJS, header() + (await fs.readFile(BLD_CJS, 'utf8')))
-	await fs.writeFile(DIST_ES, header() + (await fs.readFile(BLD_ES, 'utf8')))
-	logFiles('Wrote', [DIST_CJS, DIST_ES])
+	await removeFiles(DIST_LEGACY_FILES)
+	await fs.writeFile(DIST_ESM, header() + (await fs.readFile(BLD_ESM, 'utf8')))
+	logFiles('Wrote', [DIST_ESM])
 }
 
 async function libFiles() {
@@ -146,12 +146,11 @@ async function copyBrowserBundle() {
 }
 
 async function copyNodeDemo() {
-	await assertFile(DIST_CJS, 'before copying Node demo CJS entry')
-	await assertFile(DIST_ES, 'before copying Node demo ES entry')
+	await assertFile(DIST_ESM, 'before copying Node demo ESM entry')
 	await fs.mkdir(DEMO_NODE_DIST_DIR, { recursive: true })
-	await fs.copyFile(DIST_CJS, path.join(DEMO_NODE_DIST_DIR, 'pptxgen.cjs.js'))
-	await fs.copyFile(DIST_ES, path.join(DEMO_NODE_DIST_DIR, 'pptxgen.es.js'))
-	logFiles('Copied', [path.join(DEMO_NODE_DIST_DIR, 'pptxgen.cjs.js'), path.join(DEMO_NODE_DIST_DIR, 'pptxgen.es.js')])
+	await removeFiles([path.join(DEMO_NODE_DIST_DIR, 'pptxgen.cjs.js'), path.join(DEMO_NODE_DIST_DIR, 'pptxgen.es.js')])
+	await fs.copyFile(DIST_ESM, path.join(DEMO_NODE_DIST_DIR, 'pptxgen.js'))
+	logFiles('Copied', [path.join(DEMO_NODE_DIST_DIR, 'pptxgen.js')])
 }
 
 async function copyViteDemo(opts = {}) {
@@ -161,10 +160,11 @@ async function copyViteDemo(opts = {}) {
 	const destTypes = path.join(DEMO_VITE_PKG_DIR, 'types')
 	const copied = []
 	if (copyCode) {
-		await assertFile(DIST_ES, 'before copying Vite demo ES entry')
+		await assertFile(DIST_ESM, 'before copying Vite demo ESM entry')
 		await fs.mkdir(destDist, { recursive: true })
-		await fs.copyFile(DIST_ES, path.join(destDist, 'pptxgen.es.js'))
-		copied.push(path.join(destDist, 'pptxgen.es.js'))
+		await removeFiles([path.join(destDist, 'pptxgen.es.js')])
+		await fs.copyFile(DIST_ESM, path.join(destDist, 'pptxgen.js'))
+		copied.push(path.join(destDist, 'pptxgen.js'))
 	}
 	if (copyTypes) {
 		const typesFile = path.join(ROOT, 'types', 'pptxgen.d.ts')

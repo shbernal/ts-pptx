@@ -18,9 +18,15 @@ for (const target of targets) {
 
 function run(command, args, options = {}) {
 	return new Promise((resolve, reject) => {
+		const npmCache = path.join(os.tmpdir(), 'pptxgenjs-npm-cache')
 		const child = spawn(command, args, {
 			cwd: options.cwd || ROOT,
-			env: { ...process.env, ...options.env },
+			env: {
+				...process.env,
+				npm_config_cache: npmCache,
+				NPM_CONFIG_CACHE: npmCache,
+				...options.env,
+			},
 			stdio: options.capture ? ['ignore', 'pipe', 'pipe'] : 'inherit',
 		})
 		let stdout = ''
@@ -36,7 +42,7 @@ function run(command, args, options = {}) {
 		child.on('error', reject)
 		child.on('close', (code) => {
 			if (code === 0) resolve({ stdout, stderr })
-			else reject(new Error(command + ' ' + args.join(' ') + ' exited with code ' + code + '\n' + stderr))
+			else reject(new Error(command + ' ' + args.join(' ') + ' exited with code ' + code + '\n' + (stderr || stdout)))
 		})
 	})
 }
@@ -47,6 +53,12 @@ function parsePackOutput(stdout) {
 	const pack = JSON.parse(jsonText)
 	if (!Array.isArray(pack) || !pack[0]?.filename) throw new Error('npm pack did not return a tarball filename')
 	return pack[0]
+}
+
+async function findPackedTarball(packDir) {
+	const filename = (await fs.readdir(packDir)).find((file) => file.endsWith('.tgz'))
+	if (!filename) throw new Error('npm pack did not create a tarball under ' + packDir)
+	return { filename }
 }
 
 async function readJson(file) {
@@ -99,7 +111,8 @@ try {
 	const packDir = path.join(tmp, 'pack')
 	await fs.mkdir(packDir, { recursive: true })
 	const packResult = await run('npm', ['pack', '--json', '--pack-destination', packDir], { capture: true })
-	const packInfo = parsePackOutput(packResult.stdout)
+	const packOutput = packResult.stdout || packResult.stderr
+	const packInfo = packOutput.trim() ? parsePackOutput(packOutput) : await findPackedTarball(packDir)
 	const tarball = path.join(packDir, packInfo.filename)
 
 	for (const target of targets) {

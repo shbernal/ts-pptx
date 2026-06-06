@@ -8,9 +8,15 @@ import { ROOT } from './rollup-options.mjs'
 
 function run(command, args, options = {}) {
 	return new Promise((resolve, reject) => {
+		const npmCache = path.join(os.tmpdir(), 'pptxgenjs-npm-cache')
 		const child = spawn(command, args, {
 			cwd: options.cwd || ROOT,
-			env: { ...process.env, ...options.env },
+			env: {
+				...process.env,
+				npm_config_cache: npmCache,
+				NPM_CONFIG_CACHE: npmCache,
+				...options.env,
+			},
 			stdio: options.capture ? ['ignore', 'pipe', 'pipe'] : 'inherit',
 		})
 		let stdout = ''
@@ -26,7 +32,7 @@ function run(command, args, options = {}) {
 		child.on('error', reject)
 		child.on('close', (code) => {
 			if (code === 0) resolve({ stdout, stderr })
-			else reject(new Error(command + ' ' + args.join(' ') + ' exited with code ' + code + '\n' + stderr))
+			else reject(new Error(command + ' ' + args.join(' ') + ' exited with code ' + code + '\n' + (stderr || stdout)))
 		})
 	})
 }
@@ -39,8 +45,23 @@ function parsePackOutput(stdout) {
 	return pack[0]
 }
 
+async function findPackedTarball(packDir) {
+	const filename = (await fs.readdir(packDir)).find((file) => file.endsWith('.tgz'))
+	if (!filename) throw new Error('npm pack did not create a tarball under ' + packDir)
+	return { filename }
+}
+
 async function assertFile(file) {
 	await fs.access(file)
+}
+
+async function assertNoFile(file) {
+	try {
+		await fs.access(file)
+	} catch {
+		return
+	}
+	throw new Error('unexpected file exists: ' + file)
 }
 
 async function smokeBrowserBundle(bundlePath) {
@@ -82,7 +103,8 @@ try {
 	await fs.mkdir(fixtureDir, { recursive: true })
 
 	const packResult = await run('npm', ['pack', '--json', '--pack-destination', packDir], { capture: true })
-	const packInfo = parsePackOutput(packResult.stdout)
+	const packOutput = packResult.stdout || packResult.stderr
+	const packInfo = packOutput.trim() ? parsePackOutput(packOutput) : await findPackedTarball(packDir)
 	const tarball = path.join(packDir, packInfo.filename)
 	await assertFile(tarball)
 
@@ -94,28 +116,27 @@ try {
 
 	const installedPkgDir = path.join(fixtureDir, 'node_modules', 'pptxgenjs')
 	await Promise.all([
-		assertFile(path.join(installedPkgDir, 'dist', 'pptxgen.cjs.js')),
-		assertFile(path.join(installedPkgDir, 'dist', 'pptxgen.es.js')),
+		assertFile(path.join(installedPkgDir, 'dist', 'pptxgen.js')),
 		assertFile(path.join(installedPkgDir, 'dist', 'pptxgen.bundle.js')),
 		assertFile(path.join(installedPkgDir, 'types', 'pptxgen.d.ts')),
+		assertNoFile(path.join(installedPkgDir, 'dist', 'pptxgen.cjs.js')),
+		assertNoFile(path.join(installedPkgDir, 'dist', 'pptxgen.es.js')),
 	])
 
-	await fs.writeFile(
-		path.join(fixtureDir, 'cjs-smoke.cjs'),
-		[
-			"const PptxGenJS = require('pptxgenjs')",
-			'const Ctor = PptxGenJS.default || PptxGenJS',
-			'const pptx = new Ctor()',
-			"if (typeof pptx.version !== 'string') throw new Error('missing version')",
-			'',
-		].join('\n')
-	)
 	await fs.writeFile(
 		path.join(fixtureDir, 'esm-smoke.mjs'),
 		[
 			"import PptxGenJS from 'pptxgenjs'",
 			'const pptx = new PptxGenJS()',
 			"if (typeof pptx.version !== 'string') throw new Error('missing version')",
+			'',
+		].join('\n')
+	)
+	await fs.writeFile(
+		path.join(fixtureDir, 'cjs-unsupported.cjs'),
+		[
+			"try { require('pptxgenjs') } catch { process.exit(0) }",
+			"throw new Error('CommonJS require unexpectedly resolved pptxgenjs')",
 			'',
 		].join('\n')
 	)
@@ -150,8 +171,8 @@ try {
 		) + '\n'
 	)
 
-	await run(process.execPath, [path.join(fixtureDir, 'cjs-smoke.cjs')], { cwd: fixtureDir })
 	await run(process.execPath, [path.join(fixtureDir, 'esm-smoke.mjs')], { cwd: fixtureDir })
+	await run(process.execPath, [path.join(fixtureDir, 'cjs-unsupported.cjs')], { cwd: fixtureDir })
 	await run(process.execPath, [
 		path.join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc'),
 		'-p',

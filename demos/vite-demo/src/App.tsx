@@ -1,7 +1,3 @@
-// NOTE: previous {create-react-app} is webpack-based and will use package.json `module: "dist/pptxgen.es.js"` value
-// NOTE: this Vite+React demo is using `main: "dist/pptxgen.cjs.js"` value, so we hard-code below to TEST
-/* // @ts-expect-error (manually import the es module for TESTING!) */
-//import pptxgen from "pptxgenjs/dist/pptxgen.cjs.js";
 import pptxgen from "pptxgenjs";
 import { testMainMethods, testTableMethod } from "./tstest/Test";
 import { demoCode } from "./enums";

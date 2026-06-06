@@ -58,8 +58,7 @@ export async function createRollupConfig() {
 				name: 'PptxGenJS',
 				globals: { jszip: 'JSZip' },
 			},
-			{ file: './src/bld/pptxgen.cjs.js', format: 'cjs', exports: 'default' },
-			{ file: './src/bld/pptxgen.es.js', format: 'es' },
+			{ file: './src/bld/pptxgen.js', format: 'es' },
 		],
 	}
 }

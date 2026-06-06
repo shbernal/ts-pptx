@@ -1,6 +1,4 @@
-'use strict'
-
-const { build, readEntry, assert } = require('./helpers')
+import { build, readEntry, assert } from './helpers.js'
 
 async function getSlide1(zip) {
 	return readEntry(zip, 'ppt/slides/slide1.xml')
@@ -20,86 +18,82 @@ function firstPPr(xml) {
 	return m[0]
 }
 
-module.exports = [
+export default [
 	{
 		name: 'addText("• item",{bullet:true}) strips leading bullet glyph from <a:t> while keeping <a:buChar/>',
 		fn: async () => {
-			const { zip } = await build(p => {
+			const { zip } = await build((p) => {
 				const s = p.addSlide()
 				s.addText('\u2022 item', { x: 1, y: 1, w: 4, h: 1, bullet: true })
 			})
 			const xml = await getSlide1(zip)
 			const ppr = firstPPr(xml)
 			const tText = firstATText(xml)
-			assert(/<a:buChar char="&#x2022;"\/>/.test(ppr),
-				'expected <a:buChar char="&#x2022;"/> on <a:pPr>; got: ' + ppr)
-			assert(tText === 'item',
-				'expected first <a:t> to be "item" (bullet glyph stripped); got: ' + JSON.stringify(tText))
-		}
+			assert(/<a:buChar char="&#x2022;"\/>/.test(ppr), 'expected <a:buChar char="&#x2022;"/> on <a:pPr>; got: ' + ppr)
+			assert(
+				tText === 'item',
+				'expected first <a:t> to be "item" (bullet glyph stripped); got: ' + JSON.stringify(tText)
+			)
+		},
 	},
 	{
 		name: 'addText("hello",{bullet:true}) leaves text unchanged',
 		fn: async () => {
-			const { zip } = await build(p => {
+			const { zip } = await build((p) => {
 				const s = p.addSlide()
 				s.addText('hello', { x: 1, y: 1, w: 4, h: 1, bullet: true })
 			})
 			const xml = await getSlide1(zip)
 			const tText = firstATText(xml)
-			assert(tText === 'hello',
-				'expected first <a:t> to be "hello"; got: ' + JSON.stringify(tText))
-		}
+			assert(tText === 'hello', 'expected first <a:t> to be "hello"; got: ' + JSON.stringify(tText))
+		},
 	},
 	{
 		name: 'mid-text bullet glyph "a • b" is preserved when bullet:true',
 		fn: async () => {
-			const { zip } = await build(p => {
+			const { zip } = await build((p) => {
 				const s = p.addSlide()
 				s.addText('a \u2022 b', { x: 1, y: 1, w: 4, h: 1, bullet: true })
 			})
 			const xml = await getSlide1(zip)
 			const tText = firstATText(xml)
-			assert(tText === 'a \u2022 b',
-				'expected mid-text bullet preserved; got: ' + JSON.stringify(tText))
-		}
+			assert(tText === 'a \u2022 b', 'expected mid-text bullet preserved; got: ' + JSON.stringify(tText))
+		},
 	},
 	{
 		name: 'bullet:false preserves leading bullet glyph (user opted out of bullet markup)',
 		fn: async () => {
-			const { zip } = await build(p => {
+			const { zip } = await build((p) => {
 				const s = p.addSlide()
 				s.addText('\u2022 item', { x: 1, y: 1, w: 4, h: 1, bullet: false })
 			})
 			const xml = await getSlide1(zip)
 			const tText = firstATText(xml)
-			assert(tText === '\u2022 item',
-				'expected bullet:false preserves leading glyph; got: ' + JSON.stringify(tText))
-		}
+			assert(tText === '\u2022 item', 'expected bullet:false preserves leading glyph; got: ' + JSON.stringify(tText))
+		},
 	},
 	{
 		name: 'bullet:{type:"bullet"} also strips leading bullet glyph',
 		fn: async () => {
-			const { zip } = await build(p => {
+			const { zip } = await build((p) => {
 				const s = p.addSlide()
 				s.addText('\u2022 hello', { x: 1, y: 1, w: 4, h: 1, bullet: { type: 'bullet' } })
 			})
 			const xml = await getSlide1(zip)
 			const ppr = firstPPr(xml)
 			const tText = firstATText(xml)
-			assert(/<a:buChar char="&#x2022;"\/>/.test(ppr),
-				'expected default <a:buChar/> on <a:pPr>; got: ' + ppr)
-			assert(tText === 'hello',
-				'expected first <a:t> to be "hello"; got: ' + JSON.stringify(tText))
-		}
+			assert(/<a:buChar char="&#x2022;"\/>/.test(ppr), 'expected default <a:buChar/> on <a:pPr>; got: ' + ppr)
+			assert(tText === 'hello', 'expected first <a:t> to be "hello"; got: ' + JSON.stringify(tText))
+		},
 	},
 	{
 		name: 'variant glyphs (◦, ▪) are also stripped when bullet:true',
 		fn: async () => {
-			const { zip: zipHollow } = await build(p => {
+			const { zip: zipHollow } = await build((p) => {
 				const s = p.addSlide()
 				s.addText('\u25E6 a', { x: 1, y: 1, w: 4, h: 1, bullet: true })
 			})
-			const { zip: zipSquare } = await build(p => {
+			const { zip: zipSquare } = await build((p) => {
 				const s = p.addSlide()
 				s.addText('\u25AA b', { x: 1, y: 1, w: 4, h: 1, bullet: true })
 			})
@@ -107,6 +101,6 @@ module.exports = [
 			const tSquare = firstATText(await getSlide1(zipSquare))
 			assert(tHollow === 'a', 'expected hollow-circle glyph stripped; got: ' + JSON.stringify(tHollow))
 			assert(tSquare === 'b', 'expected black-small-square glyph stripped; got: ' + JSON.stringify(tSquare))
-		}
-	}
+		},
+	},
 ]

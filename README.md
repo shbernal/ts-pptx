@@ -97,7 +97,7 @@ Download from GitHub: [Latest Release](https://github.com/gitbrent/PptxGenJS/rel
 
 ## 🚀 Universal Compatibility
 
-PptxGenJS works seamlessly in **modern web and Node environments**, thanks to dual ESM and CJS builds and zero runtime dependencies. Whether you're building a CLI tool, an Electron app, or a web-based presentation builder, the library adapts automatically to your stack.
+PptxGenJS works seamlessly in **modern web and Node environments**, with an ESM-first package entry and zero runtime dependencies. Whether you're building a CLI tool, an Electron app, or a web-based presentation builder, the library adapts automatically to modern stacks.
 
 ### Supported Platforms
 
@@ -107,12 +107,11 @@ PptxGenJS works seamlessly in **modern web and Node environments**, thanks to du
 - **Browser (Vanilla JS)** – embed in web apps with direct download support
 - **Serverless / Edge Functions** – use in AWS Lambda, Vercel, Cloudflare Workers, etc.
 
-> _Vite, Webpack, and modern bundlers automatically select the right build via the `exports` field in `package.json`._
+> _Vite, Webpack, and modern bundlers automatically select the ESM build via the `exports` field in `package.json`._
 
 ### Builds Provided
 
-- **CommonJS**: [`dist/pptxgen.cjs.js`](./dist/pptxgen.cjs.js)
-- **ES Module**: [`dist/pptxgen.es.js`](./dist/pptxgen.es.js)
+- **ES Module**: [`dist/pptxgen.js`](./dist/pptxgen.js)
 
 ## 📖 Documentation
 
