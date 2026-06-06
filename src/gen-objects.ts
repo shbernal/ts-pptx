@@ -29,11 +29,11 @@ import {
 	BackgroundProps,
 	IChartMulti,
 	IChartOptsLib,
-	IOptsChartData,
 	ISlideObject,
 	ImageProps,
 	MediaProps,
 	ObjectOptions,
+	OptsChartData,
 	OptsChartGridLine,
 	PresLayout,
 	PresSlide,
@@ -128,7 +128,7 @@ export function createSlideMaster(props: SlideMasterProps, target: SlideLayout):
  *    ]
  * }
  */
-export function addChartDefinition(target: PresSlide, type: CHART_NAME | IChartMulti[], data: IOptsChartData[], opt: IChartOptsLib): object {
+export function addChartDefinition(target: PresSlide, type: CHART_NAME | IChartMulti[], data: OptsChartData[], opt: IChartOptsLib): object {
 	function correctGridLineOptions(glOpts: OptsChartGridLine): void {
 		if (!glOpts || glOpts.style === 'none') return
 		if (glOpts.size !== undefined && (isNaN(Number(glOpts.size)) || glOpts.size <= 0)) {
@@ -155,7 +155,7 @@ export function addChartDefinition(target: PresSlide, type: CHART_NAME | IChartM
 	// DESIGN: `type` can an object (ex: `pptx.charts.DOUGHNUT`) or an array of chart objects
 	// EX: addChartDefinition([ { type:pptx.charts.BAR, data:{name:'', labels:[], values[]} }, {<etc>} ])
 	// Multi-Type Charts
-	let tmpOpt = null
+	let tmpOpt
 	let tmpData = []
 	if (Array.isArray(type)) {
 		// For multi-type charts there needs to be data for each type,

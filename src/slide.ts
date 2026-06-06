@@ -10,7 +10,6 @@ import {
 	IChartMulti,
 	IChartOpts,
 	IChartOptsLib,
-	IOptsChartData,
 	ISlideObject,
 	ISlideRel,
 	ISlideRelChart,
@@ -22,6 +21,7 @@ import {
 	ShapeProps,
 	SlideLayout,
 	SlideNumberProps,
+	OptsChartData,
 	TableProps,
 	TableRow,
 	TextProps,
@@ -164,7 +164,7 @@ export default class Slide {
 	 * @param {IChartOpts} options - chart options
 	 * @return {Slide} this Slide
 	 */
-	addChart(type: CHART_NAME | IChartMulti[], data: IOptsChartData[], options?: IChartOpts): Slide {
+	addChart(type: CHART_NAME | IChartMulti[], data: OptsChartData[], options?: IChartOpts): Slide {
 		// FUTURE: TODO-VERSION-4: Remove first arg - only take data and opts, with "type" required on opts
 		// Set `_type` on IChartOptsLib as its what is used as object is passed around
 		const optionsWithType: IChartOptsLib = options || {}

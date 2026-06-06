@@ -10,7 +10,7 @@ export default defineConfig({
 	css: {
 		preprocessorOptions: {
 			scss: {
-				silenceDeprecations: ['mixed-decls', 'color-functions', 'global-builtin', 'import'],
+				silenceDeprecations: ['color-functions', 'global-builtin', 'import'],
 				quietDeps: true, // Add this line to suppress warnings (above needed for bootstrap SCSS Dart messages)
 				//api: 'modern',
 			},

@@ -2,7 +2,7 @@
  * Test TypeScript Defs file
  */
 import { SVG_MASTODON_LOGO_BASE64, STARLABS_LOGO_SM } from "../enums";
-import pptxgen from "pptxgenjs";
+import pptxgen, { type HAlign, type TableProps, type TableRow, type TextPropsOptions } from "pptxgenjs";
 
 export function testMainMethods() {
 	const pptx = new pptxgen();
@@ -87,7 +87,7 @@ function basicDemoSlide(pptx: pptxgen) {
 		color: "A1A1A1", // pptx.SchemeColor.accent3,
 	});
 
-	const opts: pptxgen.TextPropsOptions = {
+	const opts: TextPropsOptions = {
 		x: 0,
 		y: 1,
 		w: "100%",
@@ -124,7 +124,7 @@ function testMethod_Table(pptx: pptxgen) {
 		const objOpts1 = { x: 0.5, y: 0.7, w: 4, h: 0.3, margin: 0, fontSize: 18, fontFace: "Arial", color: "0088CC" };
 		slide.addText("Cell Text Alignment:", objOpts1);
 
-		const arrTabRows1: pptxgen.TableRow[] = [
+		const arrTabRows1: TableRow[] = [
 			[
 				{ text: "Top Lft", options: { valign: "top", align: "left", fontFace: "Arial" } },
 				{ text: "Top Ctr", options: { valign: "top", align: "center", fontFace: "Courier" } },
@@ -158,7 +158,7 @@ function testMethod_Table(pptx: pptxgen) {
 		const objOpts2 = { x: 6.0, y: 0.7, w: 4, h: 0.3, margin: 0, fontSize: 18, fontFace: "Arial", color: "0088CC" };
 		slide.addText("Cell Styles:", objOpts2);
 
-		const arrTabRows2: pptxgen.TableRow[] = [
+		const arrTabRows2: TableRow[] = [
 			[
 				{ text: "White", options: { fill: { color: "6699CC" }, color: "FFFFFF" } },
 				{ text: "Yellow", options: { fill: { color: "99AACC" }, color: "FFFFAA" } },
@@ -221,7 +221,7 @@ function testMethod_Table(pptx: pptxgen) {
 		//var optsSub = JSON.parse(JSON.stringify(BASE_OPTS_SUBTITLE));
 		//slide.addText('Colspans/Rowspans:', optsSub);
 
-		const tabOpts1: pptxgen.TableProps = {
+		const tabOpts1: TableProps = {
 			x: 0.67,
 			y: 1.1,
 			w: "90%",
@@ -233,7 +233,7 @@ function testMethod_Table(pptx: pptxgen) {
 			align: "center",
 			valign: "middle",
 		};
-		const arrTabRows1: pptxgen.TableRow[] = [
+		const arrTabRows1: TableRow[] = [
 			[
 				{ text: "A1\nA2", options: { rowspan: 2, fill: { color: "99FFCC" } } },
 				{ text: "B1" },
@@ -249,7 +249,7 @@ function testMethod_Table(pptx: pptxgen) {
 		// (e.g.: there are 5 elements in the first row, and 6 in the second)
 		slide.addTable(arrTabRows1, tabOpts1);
 
-		const tabOpts2: pptxgen.TableProps = {
+		const tabOpts2: TableProps = {
 			x: 0.5,
 			y: 3.3,
 			w: 12.4,
@@ -261,7 +261,7 @@ function testMethod_Table(pptx: pptxgen) {
 			fill: { color: "F9F9F9" },
 			border: { pt: 1, color: "c7c7c7" },
 		};
-		const arrTabRows2: pptxgen.TableRow[] = [
+		const arrTabRows2: TableRow[] = [
 			[
 				{ text: "A1\n--\nA2", options: { rowspan: 2, fill: { color: "99FFCC" } } },
 				{ text: "B1\n--\nB2", options: { rowspan: 2, fill: { color: "99FFCC" } } },
@@ -273,7 +273,7 @@ function testMethod_Table(pptx: pptxgen) {
 		];
 		slide.addTable(arrTabRows2, tabOpts2);
 
-		const tabOpts3: pptxgen.TableProps = {
+		const tabOpts3: TableProps = {
 			x: 0.5,
 			y: 5.15,
 			w: 6.25,
@@ -285,7 +285,7 @@ function testMethod_Table(pptx: pptxgen) {
 			border: { pt: 1, color: "c7c7c7" },
 			fill: { color: "F1F1F1" },
 		};
-		const arrTabRows3: pptxgen.TableRow[] = [
+		const arrTabRows3: TableRow[] = [
 			[
 				{ text: "A1\nA2\nA3", options: { rowspan: 3, fill: { color: "FFFCCC" } } },
 				{ text: "B1\nB2", options: { rowspan: 2, fill: { color: "FFFCCC" } } },
@@ -296,7 +296,7 @@ function testMethod_Table(pptx: pptxgen) {
 		];
 		slide.addTable(arrTabRows3, tabOpts3);
 
-		const tabOpts4: pptxgen.TableProps = {
+		const tabOpts4: TableProps = {
 			x: 7.4,
 			y: 5.15,
 			w: 5.5,
@@ -308,7 +308,7 @@ function testMethod_Table(pptx: pptxgen) {
 			border: { pt: 1, color: "c7c7c7" },
 			fill: { color: "F2F9FC" },
 		};
-		const arrTabRows4: pptxgen.TableRow[] = [
+		const arrTabRows4: TableRow[] = [
 			[
 				{ text: "A1" },
 				{ text: "B1\nB2", options: { rowspan: 2, fill: { color: "FFFCCC" } } },
@@ -323,7 +323,7 @@ function testMethod_Table(pptx: pptxgen) {
 	// SLIDE 3:
 	{
 		const slide = pptx.addSlide({ sectionTitle: "Tables" });
-		const arrRows: pptxgen.TableRow[] = [];
+		const arrRows: TableRow[] = [];
 		arrRows.push([
 			{ text: "ID#", options: { fill: { color: "0088cc" }, color: "ffffff", valign: "middle" } },
 			{ text: "First Name", options: { fill: { color: "0088cc" }, color: "ffffff", valign: "middle" } },
@@ -339,7 +339,7 @@ function testMethod_Table(pptx: pptxgen) {
 		slide.addTable(arrRows, { x: 0.5, y: 0.6, w: 3, border: { color: "CFCFCF" }, autoPage: true, verbose: true });
 
 		// TEST: `hyperlink`
-		const arrTextObjects: pptxgen.TableRow[] = [
+		const arrTextObjects: TableRow[] = [
 			[
 				{ text: "Text Objects", options: { color: "99ABCC", align: "right" } },
 				{ text: "2nd cell", options: { color: "0000EE", align: "center" } },
@@ -355,7 +355,7 @@ function testMethod_Tables(pptx: pptxgen) {
 
 	slide.addTable([[{ text: "cell 1" }]], { x: 0.5, y: 0.5, w: 5, h: 0.5 });
 
-	let rows: pptxgen.TableRow[] = [];
+	let rows: TableRow[] = [];
 	//rows.push(["First", "Second", "Third", "Fourth"]); // simple text array // NOTE: 20200812: removed `string[]` from types (considered DEPRECATED, even tho its still in demo code as of v3.3.0)
 	rows.push([{ text: "TODO" }, { text: "optionsChk", options: { colspan: 4, fontFace: "Arial" } }]); // complex object cells
 	// prettier-ignore
@@ -650,7 +650,7 @@ function testMethod_Masters(pptx: pptxgen) {
 		shape: pptx.ShapeType.rect,
 		fill: { color: "FFFCCC" },
 		color: "9f9f9f",
-		align: "center" as PptxGenJS.default.AlignH,
+		align: "center" as HAlign,
 		fontFace: "Courier New",
 		fontSize: 10,
 	};

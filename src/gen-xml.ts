@@ -113,7 +113,7 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 		let arrTabRows: TableCell[][] = null
 		let objTabOpts: ObjectOptions = null
 		let intColCnt = 0
-		let intColW = 0
+		let intColW: number
 		let cellOpts: TableCellProps = null
 		let strXml: string = null
 		const sizing: ObjectOptions['sizing'] = slideItemObj.options?.sizing
@@ -160,7 +160,6 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 				arrTabRows = slideItemObj.arrTabRows
 				objTabOpts = slideItemObj.options
 				intColCnt = 0
-				intColW = 0
 
 				// Calc number of columns
 				// NOTE: Cells may have a colspan, so merely taking the length of the [0] (or any other) row is not
@@ -327,7 +326,7 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 						 * - Backwards-Compat: Oops! Discovered we were still using points for cell margin before v3.8.0 (UGH!)
 						 * - We cant introduce a breaking change before v4.0, so...
 						 */
-						let cellMarginXml = ''
+						let cellMarginXml: string
 						if (cellMargin[0] >= 1) {
 							cellMarginXml = ` marL="${valToPts(cellMargin[3])}" marR="${valToPts(cellMargin[1])}" marT="${valToPts(cellMargin[0])}" marB="${valToPts(
 								cellMargin[2]

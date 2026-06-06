@@ -180,7 +180,7 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
  */
 export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps: TableToSlidesProps = {}, presLayout: PresLayout, masterSlide?: SlideLayout): TableRowSlide[] {
 	let arrInchMargins = DEF_SLIDE_MARGIN_IN
-	let emuSlideTabW = EMU * 1
+	let emuSlideTabW: number
 	let emuSlideTabH = EMU * 1
 	let emuTabCurrH = 0
 	let numCols = 0
@@ -672,8 +672,7 @@ export function genTableToSlides(pptx: PptxGenJS, tabEleId: string, options: Tab
 									.replace('px', '')
 							)
 						)
-						let arrRGB = []
-						arrRGB = window
+						const arrRGB = window
 							.getComputedStyle(cell)
 							.getPropertyValue('border-' + val + '-color')
 							.replace(/\s+/gi, '')

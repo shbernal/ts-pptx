@@ -115,7 +115,7 @@ export interface BorderProps {
 }
 // used by: image, object, text,
 export interface HyperlinkProps {
-	_rId: number
+	_rId?: number
 	/**
 	 * Slide number to link to
 	 */
@@ -937,7 +937,7 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	newSlideStartY?: number
 }
 export interface TableCell {
-	_type: SLIDE_OBJECT_TYPES.tablecell
+	_type?: SLIDE_OBJECT_TYPES.tablecell
 	/** lines in this cell (autoPage) */
 	_lines?: TableCell[][]
 	/** `text` prop but guaranteed to hold "TableCell[]" */
@@ -1207,7 +1207,7 @@ export interface OptsChartGridLine {
 // TODO: 202008: chart types remain with predicated with "I" in v3.3.0 (ran out of time!)
 export interface IChartMulti {
 	type: CHART_NAME
-	data: IOptsChartData[]
+	data: OptsChartData[]
 	options: IChartOptsLib
 }
 export interface IChartPropsFillLine {
@@ -1707,8 +1707,8 @@ export interface WriteFileProps extends WriteBaseProps {
 	fileName?: string
 }
 export interface SectionProps {
-	_type: 'user' | 'default'
-	_slides: PresSlide[]
+	_type?: 'user' | 'default'
+	_slides?: PresSlide[]
 
 	/**
 	 * Section title
@@ -1808,7 +1808,7 @@ export interface PresSlide extends SlideBaseProps {
 	_slideLayout: SlideLayout
 	_slideId: number
 
-	addChart: (type: CHART_NAME | IChartMulti[], data: IOptsChartData[], options?: IChartOpts) => PresSlide
+	addChart: (type: CHART_NAME | IChartMulti[], data: OptsChartData[], options?: IChartOpts) => PresSlide
 	addImage: (options: ImageProps) => PresSlide
 	addMedia: (options: MediaProps) => PresSlide
 	addNotes: (notes: string) => PresSlide

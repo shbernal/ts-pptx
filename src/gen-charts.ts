@@ -553,7 +553,7 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
 	{
 		// CHARTSPACE: BEGIN vvv
 		strXml +=
-            '<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+			'<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
 		strXml += '<c:date1904 val="0"/>' // ppt defaults to 1904 dates, excel to 1900
 		strXml += `<c:roundedCorners val="${rel.opts.chartArea.roundedCorners ? '1' : '0'}"/>`
 		strXml += '<c:chart>'
@@ -615,7 +615,7 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
 			const catAxisId = options.secondaryCatAxis ? AXIS_ID_CATEGORY_SECONDARY : AXIS_ID_CATEGORY_PRIMARY
 			usesSecondaryValAxis = usesSecondaryValAxis || options.secondaryValAxis
 			usesSecondaryCatAxis = usesSecondaryCatAxis || options.secondaryCatAxis
-			strXml += makeChartType(type.type, type.data, options, valAxisId, catAxisId)
+			strXml += makeChartType(type.type, type.data as IOptsChartData[], options, valAxisId, catAxisId)
 		})
 	} else {
 		strXml += makeChartType(rel.opts._type, rel.data, rel.opts, AXIS_ID_VALUE_PRIMARY, AXIS_ID_CATEGORY_PRIMARY)
@@ -782,7 +782,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 	// ....: Ensure each X/Y Axis/Col has same row height (esp. applicable to XY Scatter where X can often be larger than Y's)
 	let colorIndex = -1 // Maintain the color index by region
 	let idxColLtr = 1
-	let optsChartData: IOptsChartData = null
+	let optsChartData: IOptsChartData
 	let strXml = ''
 
 	switch (chartType) {
@@ -1832,9 +1832,9 @@ function makeValAxis (opts: IChartOptsLib, valAxisId: string): string {
 		strXml += ' <c:crosses val="' + crosses + '"/>'
 	}
 	strXml +=
-        ' <c:crossBetween val="' +
-        (opts._type === CHART_TYPE.SCATTER || (!!(Array.isArray(opts._type) && opts._type.filter(type => type.type === CHART_TYPE.AREA).length > 0)) ? 'midCat' : 'between') +
-        '"/>'
+		' <c:crossBetween val="' +
+		(opts._type === CHART_TYPE.SCATTER || (!!(Array.isArray(opts._type) && opts._type.filter(type => type.type === CHART_TYPE.AREA).length > 0)) ? 'midCat' : 'between') +
+		'"/>'
 	if (opts.valAxisMajorUnit) strXml += ` <c:majorUnit val="${opts.valAxisMajorUnit}"/>`
 	if (opts.valAxisDisplayUnit) { strXml += `<c:dispUnits><c:builtInUnit val="${opts.valAxisDisplayUnit}"/>${opts.valAxisDisplayUnitLabel ? '<c:dispUnitsLbl/>' : ''}</c:dispUnits>` }
 
@@ -1980,7 +1980,7 @@ function genXmlTitle (opts: IChartPropsTitle, chartX?: number, chartY?: number):
  * @example 27 returns 'AA'
  */
 function getExcelColName (colIndex: number): string {
-	let colStr = ''
+	let colStr: string
 	const colIdx = colIndex - 1 // Subtract 1 so `LETTERS[columnIndex]` returns "A" etc
 
 	if (colIdx <= 25) {

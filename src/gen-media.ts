@@ -67,7 +67,7 @@ export function encodeSlideMediaRels(layout: PresSlide | SlideLayout): Array<Pro
 							candidateRels
 								.filter(dupe => dupe.isDuplicate && dupe.path === rel.path)
 								.forEach(dupe => (dupe.data = rel.data))
-							throw new Error(`ERROR: Unable to read media: "${rel.path}"\n${String(ex)}`)
+							throw new Error(`ERROR: Unable to read media: "${rel.path}"\n${String(ex)}`, { cause: ex })
 						}
 					}
 
@@ -170,7 +170,7 @@ async function createSvgPngPreview(rel: ISlideRelMedia): Promise<string> {
 			if (image.width + image.height === 0) {
 				image.onerror('h/w=0')
 			}
-			let canvas: HTMLCanvasElement = document.createElement('CANVAS') as HTMLCanvasElement
+			const canvas: HTMLCanvasElement = document.createElement('CANVAS') as HTMLCanvasElement
 			const ctx = canvas.getContext('2d')
 			canvas.width = image.width
 			canvas.height = image.height
@@ -184,7 +184,6 @@ async function createSvgPngPreview(rel: ISlideRelMedia): Promise<string> {
 			} catch (ex) {
 				image.onerror(ex.toString())
 			}
-			canvas = null
 		}
 		image.onerror = () => {
 			rel.data = IMG_BROKEN
