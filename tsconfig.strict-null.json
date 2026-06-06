@@ -1,0 +1,11 @@
+{
+	"$schema": "https://json.schemastore.org/tsconfig",
+	"display": "PptxGenJS strict null migration",
+	"extends": "./tsconfig.strict.json",
+	"compilerOptions": {
+		"strictNullChecks": true,
+		"types": ["node"]
+	},
+	"include": [],
+	"files": ["src/gen-utils.ts", "src/gen-media.ts"]
+}

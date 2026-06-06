@@ -5,6 +5,12 @@
 import { IMG_BROKEN } from './core-enums.js'
 import type { PresSlideInternal, SlideLayoutInternal, ISlideRelMedia } from './core-interfaces.js'
 
+type SlideMediaRelWithPath = ISlideRelMedia & { path: string }
+
+function hasEncodingPath(rel: ISlideRelMedia): rel is SlideMediaRelWithPath {
+	return typeof rel.path === 'string' && rel.path.length > 0 && !rel.path.includes('preencoded')
+}
+
 /**
  * Encode Image/Audio/Video into base64
  * @param {PresSlideInternal | SlideLayoutInternal} layout - slide layout
@@ -31,7 +37,7 @@ export function encodeSlideMediaRels(layout: PresSlideInternal | SlideLayoutInte
 
 	// A: Capture all audio/image/video candidates for encoding (filtering online/pre-encoded)
 	const candidateRels = layout._relsMedia.filter(
-		rel => rel.type !== 'online' && !rel.data && (!rel.path || (rel.path && !rel.path.includes('preencoded')))
+		(rel): rel is SlideMediaRelWithPath => rel.type !== 'online' && !rel.data && hasEncodingPath(rel)
 	)
 
 	// B: PERF: Mark dupes (same `path`) to avoid loading the same media over-and-over!
@@ -73,8 +79,9 @@ export function encodeSlideMediaRels(layout: PresSlideInternal | SlideLayoutInte
 
 					// ────────────  NODE HTTP(S)  ────────────
 					if (isNode && https && rel.path.startsWith('http')) {
+						const httpsModule = https
 						return await new Promise<string>((resolve, reject) => {
-							https.get(rel.path, res => {
+							httpsModule.get(rel.path, res => {
 								let raw = ''
 								res.setEncoding('binary') // IMPORTANT: Only binary encoding works
 								res.on('data', chunk => (raw += chunk))
@@ -163,15 +170,24 @@ async function createSvgPngPreview(rel: ISlideRelMedia): Promise<string> {
 	return await new Promise((resolve, reject) => {
 		// A: Create
 		const image = new Image()
+		const fail = (reason?: unknown) => {
+			rel.data = IMG_BROKEN
+			reject(new Error(`ERROR! Unable to load image (image.onerror): ${rel.path}${reason ? ` - ${String(reason)}` : ''}`))
+		}
 
 		// B: Set onload event
 		image.onload = () => {
 			// First: Check for any errors: This is the best method (try/catch wont work, etc.)
 			if (image.width + image.height === 0) {
-				image.onerror('h/w=0')
+				fail('h/w=0')
+				return
 			}
 			const canvas: HTMLCanvasElement = document.createElement('CANVAS') as HTMLCanvasElement
 			const ctx = canvas.getContext('2d')
+			if (!ctx) {
+				fail('canvas 2d context unavailable')
+				return
+			}
 			canvas.width = image.width
 			canvas.height = image.height
 			ctx.drawImage(image, 0, 0)
@@ -182,13 +198,10 @@ async function createSvgPngPreview(rel: ISlideRelMedia): Promise<string> {
 				rel.data = canvas.toDataURL(rel.type)
 				resolve('done')
 			} catch (ex) {
-				image.onerror(ex.toString())
+				fail(ex)
 			}
 		}
-		image.onerror = () => {
-			rel.data = IMG_BROKEN
-			reject(new Error(`ERROR! Unable to load image (image.onerror): ${rel.path}`))
-		}
+		image.onerror = () => fail()
 
 		// C: Load image
 		image.src = typeof rel.data === 'string' ? rel.data : IMG_BROKEN

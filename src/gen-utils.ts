@@ -180,8 +180,8 @@ export function createGlowElement (options: TextGlowProps, defaults: TextGlowPro
 	let strXml = ''
 	const opts = { ...defaults, ...options }
 	const size = Math.round(opts.size * ONEPT)
-	const color = opts.color
-	const opacity = Math.round(opts.opacity * 100000)
+	const color = opts.color || DEF_FONT_COLOR
+	const opacity = Math.round((opts.opacity ?? 0) * 100000)
 
 	strXml += `<a:glow rad="${size}">`
 	strXml += createColorElement(color, `<a:alpha val="${opacity}"/>`)
