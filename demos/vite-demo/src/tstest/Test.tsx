@@ -4,6 +4,11 @@
 import { SVG_MASTODON_LOGO_BASE64, STARLABS_LOGO_SM } from "../enums";
 import pptxgen, { type HAlign, type TableProps, type TableRow, type TextPropsOptions } from "pptxgenjs";
 
+const fediverseTreeUrl = new URL("../../../common/images/fediverse_tree.jpg", import.meta.url).href;
+const sampleAviUrl = new URL("../../../common/media/sample.avi", import.meta.url).href;
+const starlabsBkgdUrl = new URL("../../../common/images/starlabs_bkgd.jpg", import.meta.url).href;
+const starlabsLogoUrl = new URL("../../../common/images/starlabs_logo.png", import.meta.url).href;
+
 export function testMainMethods() {
 	const pptx = new pptxgen();
 	console.log(`pptx.version: ${pptx.version}`);
@@ -385,7 +390,7 @@ function testMethod_Media(pptx: pptxgen) {
 
 	// 7: Image
 	slide.addImage({
-		path: "https://raw.githubusercontent.com/gitbrent/PptxGenJS/master/demos/common/images/fediverse_tree.jpg",
+		path: fediverseTreeUrl,
 		x: 0.5, y: 0.5, w: 4.0, h: 4.0
 	});
 	slide.addImage({ data: SVG_MASTODON_LOGO_BASE64, x: 9.5, y: 4, w: 3, h: 3 });
@@ -408,7 +413,7 @@ function testMethod_Media(pptx: pptxgen) {
 		w: 3.0,
 		h: 2.25,
 		type: "video",
-		path: "https://raw.githubusercontent.com/gitbrent/PptxGenJS/master/demos/common/media/sample.avi",
+		path: sampleAviUrl,
 	});
 	// TESTING: this causes content warning on open, so dont leave in for release
 	//slide.addMedia({ x: 9.4, y: 4.0, w: 4.5, h: 2.5, type: "online", link: "https://www.youtube.com/embed/g36-noRtKR4" });
@@ -502,8 +507,8 @@ function testMethod_Text(pptx: pptxgen) {
 	});
 }
 function testMethod_Masters(pptx: pptxgen) {
-	const starlabsBkgd = { path: "https://raw.githubusercontent.com/gitbrent/PptxGenJS/master/demos/common/images/starlabs_bkgd.jpg" };
-	const starlabsLogo = { path: "https://raw.githubusercontent.com/gitbrent/PptxGenJS/master/demos/common/images/starlabs_logo.png" };
+	const starlabsBkgd = { path: starlabsBkgdUrl };
+	const starlabsLogo = { path: starlabsLogoUrl };
 
 	const objBkg = { path: starlabsBkgd.path };
 	const objImg = { path: starlabsLogo.path, x: 4.6, y: 3.5, w: 4, h: 1.8 };

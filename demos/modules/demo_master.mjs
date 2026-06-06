@@ -115,7 +115,7 @@ function genSlide07(pptx) {
 
 		let slide4 = pptx.addSlide(pptx.masters.TITLE_SLIDE, { bkgd: "0088CC", slideNumber: { x: "50%", y: "90%", color: "0088CC" } });
 		let slide5 = pptx.addSlide(pptx.masters.MASTER_SLIDE, {
-			bkgd: { path: "https://raw.githubusercontent.com/gitbrent/PptxGenJS/v2.1.0/examples/images/title_bkgd_alt.jpg" },
+			bkgd: { path: "../common/images/title_bkgd_alt.jpg" },
 		});
 		let slide6 = pptx.addSlide(pptx.masters.THANKS_SLIDE, { bkgd: "ffab33" });
 		//let slide7 = pptx.addSlide( pptx.masters.LEGACY_TEST_ONLY );
