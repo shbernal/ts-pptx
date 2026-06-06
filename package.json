@@ -41,6 +41,7 @@
 		"test:demo:vite": "node scripts/demo-smoke.mjs vite",
 		"test:demos": "node scripts/demo-smoke.mjs",
 		"typecheck": "tsc -p tsconfig.json --noEmit",
+		"strict:check": "tsc -p tsconfig.strict.json --noEmit",
 		"types:build": "node scripts/types.mjs",
 		"lint": "eslint . --no-warn-ignored",
 		"lint:fix": "pnpm run lint -- --fix",

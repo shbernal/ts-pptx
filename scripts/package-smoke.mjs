@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises'
-import os from 'node:os'
 import path from 'node:path'
 import { ROOT } from './rollup-options.mjs'
 import { assertFile, assertNoFile, packPackage, run } from './script-utils.mjs'
@@ -58,12 +57,15 @@ async function smokeInstalledPackage(fixtureDir) {
 	await fs.writeFile(
 		path.join(fixtureDir, 'type-smoke.ts'),
 		[
-			"import PptxGenJS, { type ThemeProps, type WriteFileProps } from 'pptxgenjs'",
+			"import PptxGenJS, { type IChartMulti, type ThemeProps, type WriteFileProps } from 'pptxgenjs'",
 			'const pptx = new PptxGenJS()',
 			'const slide = pptx.addSlide()',
 			"const theme: ThemeProps = { headFontFace: 'Aptos', bodyFontFace: 'Aptos' }",
 			"const options: WriteFileProps = { fileName: 'smoke.pptx' }",
+			"const comboChart: IChartMulti[] = [{ type: 'bar', data: [{ labels: ['A'], values: [1] }], options: {} }]",
 			'pptx.theme = theme',
+			"slide.addChart('bar', [{ labels: ['A'], values: [1] }], { x: 0, y: 0, w: 1, h: 1 })",
+			'slide.addChart(comboChart, { x: 0, y: 0, w: 1, h: 1 })',
 			"slide.addImage({ data: 'image/png;base64,AAAA', x: 0, y: 0, w: 1, h: 1 })",
 			"slide.addMedia({ type: 'online', link: 'https://www.youtube.com/embed/example', x: 0, y: 0, w: 1, h: 1 })",
 			'slide.addText(42, { x: 0, y: 0, w: 1, h: 1 })',
@@ -132,7 +134,9 @@ async function smokeInstalledPackage(fixtureDir) {
 	}
 }
 
-const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-package-smoke-'))
+const tmpRoot = process.env.PPTXGENJS_PACKAGE_SMOKE_TMPDIR || path.dirname(ROOT)
+await fs.mkdir(tmpRoot, { recursive: true })
+const tmp = await fs.mkdtemp(path.join(tmpRoot, '.pptxgenjs-package-smoke-'))
 const keepTmp = process.env.PPTXGENJS_KEEP_PACKAGE_SMOKE === '1'
 
 try {

@@ -1,10 +1,9 @@
 import { spawn } from 'node:child_process'
 import fs from 'node:fs/promises'
-import os from 'node:os'
 import path from 'node:path'
 import { ROOT } from './rollup-options.mjs'
 
-const packageManagerCache = path.join(os.tmpdir(), 'pptxgenjs-package-manager-cache')
+const packageManagerCache = process.env.PPTXGENJS_SCRIPT_CACHE_DIR || path.join(ROOT, '.tmp', 'package-manager-cache')
 
 export function run(command, args, options = {}) {
 	return new Promise((resolve, reject) => {

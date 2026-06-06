@@ -77,6 +77,10 @@ const ImageSizingXml = {
 	},
 }
 
+type TableInheritableOption = 'align' | 'bold' | 'border' | 'color' | 'fill' | 'fontFace' | 'fontSize' | 'margin' | 'textDirection' | 'underline' | 'valign'
+type TableInheritableValue = ObjectOptions[TableInheritableOption]
+const PLACEHOLDER_TYPE_MAP = PLACEHOLDER_TYPES as Record<string, string>
+
 /**
  * Transforms a slide or slideLayout to resulting XML string - Creates `ppt/slide*.xml`
  * @param {PresSlideInternal|SlideLayoutInternal} slideObject - slide object created within createSlideObject
@@ -279,8 +283,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 							vMerge: cell._vmerge ? 1 : undefined,
 							hMerge: cell._hmerge ? 1 : undefined,
 						}
-						let cellSpanAttrStr = Object.keys(cellSpanAttrs)
-							.map(k => [k, cellSpanAttrs[k]])
+						let cellSpanAttrStr = Object.entries(cellSpanAttrs)
 							.filter(([, v]) => !!v)
 							.map(([k, v]) => `${String(k)}="${String(v)}"`)
 							.join(' ')
@@ -298,8 +301,10 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 
 						// B: Inherit some options from table when cell options dont exist
 						// @see: http://officeopenxml.com/drwTableCellProperties-alignment.php
-						;['align', 'bold', 'border', 'color', 'fill', 'fontFace', 'fontSize', 'margin', 'textDirection', 'underline', 'valign'].forEach(name => {
-							if (objTabOpts[name] && !cellOpts[name] && cellOpts[name] !== 0) cellOpts[name] = objTabOpts[name]
+						const inheritedCellOpts = cellOpts as Partial<Record<TableInheritableOption, TableInheritableValue>>
+						const inheritedTableOpts = objTabOpts as Partial<Record<TableInheritableOption, TableInheritableValue>>
+						;(['align', 'bold', 'border', 'color', 'fill', 'fontFace', 'fontSize', 'margin', 'textDirection', 'underline', 'valign'] as const).forEach(name => {
+							if (inheritedTableOpts[name] && !inheritedCellOpts[name] && inheritedCellOpts[name] !== 0) inheritedCellOpts[name] = inheritedTableOpts[name]
 						})
 
 						const cellValign = cellOpts.valign
@@ -346,18 +351,20 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 						// <a:tcPr marL="38100" marR="38100" marT="38100" marB="38100" vert="vert270">
 
 						// 5: Borders: Add any borders
-						if (cellOpts.border && Array.isArray(cellOpts.border)) {
+						const cellBorder = Array.isArray(cellOpts.border) ? cellOpts.border : null
+						if (cellBorder) {
 							// NOTE: *** IMPORTANT! *** LRTB order matters! (Reorder a line below to watch the borders go wonky in MS-PPT-2013!!)
-							[
+							;([
 								{ idx: 3, name: 'lnL' },
 								{ idx: 1, name: 'lnR' },
 								{ idx: 0, name: 'lnT' },
 								{ idx: 2, name: 'lnB' },
-							].forEach(obj => {
-								if (cellOpts.border[obj.idx].type !== 'none') {
-									strXml += `<a:${obj.name} w="${valToPts(cellOpts.border[obj.idx].pt)}" cap="flat" cmpd="sng" algn="ctr">`
-									strXml += `<a:solidFill>${createColorElement(cellOpts.border[obj.idx].color)}</a:solidFill>`
-									strXml += `<a:prstDash val="${cellOpts.border[obj.idx].type === 'dash' ? 'sysDash' : 'solid'
+							] as const).forEach(obj => {
+								const border = cellBorder[obj.idx]
+								if (border.type !== 'none') {
+									strXml += `<a:${obj.name} w="${valToPts(border.pt)}" cap="flat" cmpd="sng" algn="ctr">`
+									strXml += `<a:solidFill>${createColorElement(border.color)}</a:solidFill>`
+									strXml += `<a:prstDash val="${border.type === 'dash' ? 'sysDash' : 'solid'
 									}"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/>`
 									strXml += `</a:${obj.name}>`
 								} else {
@@ -1309,10 +1316,11 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 			// NOTE: We only pass the text.options to genXmlTextRun (not the Slide.options),
 			// so the run building function cant just fallback to Slide.color, therefore, we need to do that here before passing options below.
 			// FILTER RULE: Hyperlinks should not inherit `color` from main options (let PPT default to local color, eg: blue on MacOS)
+			const textOptions = textObj.options as TextPropsOptions & Record<string, unknown>
 			Object.entries(opts).filter(([key]) => !(textObj.options.hyperlink && key === 'color')).forEach(([key, val]) => {
 				// if (textObj.options.hyperlink && key === 'color') null
 				// NOTE: This loop will pick up unecessary keys (`x`, etc.), but it doesnt hurt anything
-				if (key !== 'bullet' && !textObj.options[key]) textObj.options[key] = val
+				if (key !== 'bullet' && !textOptions[key]) textOptions[key] = val
 			})
 
 			// D: Add formatted textrun
@@ -1390,11 +1398,11 @@ export function genXmlPlaceholder (placeholderObj: ISlideObject): string {
 
 	const placeholderIdx = placeholderObj.options?._placeholderIdx ? placeholderObj.options._placeholderIdx : ''
 	const placeholderTyp = placeholderObj.options?._placeholderType ? placeholderObj.options._placeholderType : ''
-	const placeholderType: string = placeholderTyp && PLACEHOLDER_TYPES[placeholderTyp] ? (PLACEHOLDER_TYPES[placeholderTyp]).toString() : ''
+	const placeholderType = placeholderTyp && PLACEHOLDER_TYPE_MAP[placeholderTyp] ? PLACEHOLDER_TYPE_MAP[placeholderTyp].toString() : ''
 
 	return `<p:ph
 		${placeholderIdx ? ' idx="' + placeholderIdx.toString() + '"' : ''}
-		${placeholderType && PLACEHOLDER_TYPES[placeholderType] ? ` type="${placeholderType}"` : ''}
+		${placeholderType && PLACEHOLDER_TYPE_MAP[placeholderType] ? ` type="${placeholderType}"` : ''}
 		${placeholderObj.text && placeholderObj.text.length > 0 ? ' hasCustomPrompt="1"' : ''}
 		/>`
 }

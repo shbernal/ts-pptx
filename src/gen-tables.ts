@@ -3,9 +3,12 @@
  */
 
 import { DEF_FONT_SIZE, DEF_SLIDE_MARGIN_IN, EMU, LINEH_MODIFIER, ONEPT, SLIDE_OBJECT_TYPES } from './core-enums.js'
-import type { PresLayout, SlideLayoutInternal, TableCell, TableToSlidesProps, TableRow, TableRowSlide, TableCellProps } from './core-interfaces.js'
+import type { BorderProps, PresLayout, SlideLayoutInternal, TableCell, TableToSlidesProps, TableRow, TableRowSlide, TableCellProps } from './core-interfaces.js'
 import { getSmartParseNumber, inch2Emu, rgbToHex, valToPts } from './gen-utils.js'
 import PptxGenJS from './pptxgen.js'
+
+type MarginTuple = [number, number, number, number]
+type BorderTuple = [BorderProps, BorderProps, BorderProps, BorderProps]
 
 /**
  * Break cell text into lines based upon table column width (e.g.: Magic Happens Here(tm))
@@ -279,9 +282,10 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 	// STEP 5: Calculate column widths if not provided (emuSlideTabW will be used below to determine lines-per-col)
 	if (!tableProps.colW || !Array.isArray(tableProps.colW)) {
 		if (tableProps.colW && !isNaN(Number(tableProps.colW))) {
-			const arrColW = []
+			const arrColW: number[] = []
+			const colW = Number(tableProps.colW)
 			const firstRow = tableRows[0] || []
-			firstRow.forEach(() => arrColW.push(tableProps.colW))
+			firstRow.forEach(() => arrColW.push(colW))
 			tableProps.colW = []
 			arrColW.forEach(val => {
 				if (Array.isArray(tableProps.colW)) tableProps.colW.push(val)
@@ -316,16 +320,18 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 			 * - Backwards-Compat: Oops! Discovered we were still using points for cell margin before v3.8.0 (UGH!)
 			 * - We cant introduce a breaking change before v4.0, so...
 			 */
-			if (cell.options.margin && cell.options.margin[0] >= 1) {
-				if (cell.options?.margin && cell.options.margin[0] && valToPts(cell.options.margin[0]) > maxCellMarTopEmu) maxCellMarTopEmu = valToPts(cell.options.margin[0])
-				else if (tableProps?.margin && tableProps.margin[0] && valToPts(tableProps.margin[0]) > maxCellMarTopEmu) maxCellMarTopEmu = valToPts(tableProps.margin[0])
-				if (cell.options?.margin && cell.options.margin[2] && valToPts(cell.options.margin[2]) > maxCellMarBtmEmu) maxCellMarBtmEmu = valToPts(cell.options.margin[2])
-				else if (tableProps?.margin && tableProps.margin[2] && valToPts(tableProps.margin[2]) > maxCellMarBtmEmu) maxCellMarBtmEmu = valToPts(tableProps.margin[2])
+			const cellMargin = Array.isArray(cell.options.margin) ? cell.options.margin : null
+			const tableMargin = Array.isArray(tableProps.margin) ? tableProps.margin : null
+			if (cellMargin && cellMargin[0] >= 1) {
+				if (cellMargin[0] && valToPts(cellMargin[0]) > maxCellMarTopEmu) maxCellMarTopEmu = valToPts(cellMargin[0])
+				else if (tableMargin?.[0] && valToPts(tableMargin[0]) > maxCellMarTopEmu) maxCellMarTopEmu = valToPts(tableMargin[0])
+				if (cellMargin[2] && valToPts(cellMargin[2]) > maxCellMarBtmEmu) maxCellMarBtmEmu = valToPts(cellMargin[2])
+				else if (tableMargin?.[2] && valToPts(tableMargin[2]) > maxCellMarBtmEmu) maxCellMarBtmEmu = valToPts(tableMargin[2])
 			} else {
-				if (cell.options?.margin && cell.options.margin[0] && inch2Emu(cell.options.margin[0]) > maxCellMarTopEmu) maxCellMarTopEmu = inch2Emu(cell.options.margin[0])
-				else if (tableProps?.margin && tableProps.margin[0] && inch2Emu(tableProps.margin[0]) > maxCellMarTopEmu) maxCellMarTopEmu = inch2Emu(tableProps.margin[0])
-				if (cell.options?.margin && cell.options.margin[2] && inch2Emu(cell.options.margin[2]) > maxCellMarBtmEmu) maxCellMarBtmEmu = inch2Emu(cell.options.margin[2])
-				else if (tableProps?.margin && tableProps.margin[2] && inch2Emu(tableProps.margin[2]) > maxCellMarBtmEmu) maxCellMarBtmEmu = inch2Emu(tableProps.margin[2])
+				if (cellMargin?.[0] && inch2Emu(cellMargin[0]) > maxCellMarTopEmu) maxCellMarTopEmu = inch2Emu(cellMargin[0])
+				else if (tableMargin?.[0] && inch2Emu(tableMargin[0]) > maxCellMarTopEmu) maxCellMarTopEmu = inch2Emu(tableMargin[0])
+				if (cellMargin?.[2] && inch2Emu(cellMargin[2]) > maxCellMarBtmEmu) maxCellMarBtmEmu = inch2Emu(cellMargin[2])
+				else if (tableMargin?.[2] && inch2Emu(tableMargin[2]) > maxCellMarBtmEmu) maxCellMarBtmEmu = inch2Emu(tableMargin[2])
 			}
 		})
 
@@ -355,9 +361,10 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 			newCell.options.autoPageCharWeight = tableProps.autoPageCharWeight ? tableProps.autoPageCharWeight : null
 
 			// E-3: **MAIN** Parse cell contents into lines based upon col width, font, etc
-			let totalColW = tableProps.colW[iCell]
-			if (cell.options.colspan && Array.isArray(tableProps.colW)) {
-				totalColW = tableProps.colW.filter((_cell, idx) => idx >= iCell && idx < idx + cell.options.colspan).reduce((prev, curr) => prev + curr)
+			const tableColW = Array.isArray(tableProps.colW) ? tableProps.colW : []
+			let totalColW = tableColW[iCell]
+			if (cell.options.colspan) {
+				totalColW = tableColW.filter((_cell, idx) => idx >= iCell && idx < idx + cell.options.colspan).reduce((prev, curr) => prev + curr)
 			}
 
 			// E-4: Create lines based upon available column width
@@ -647,11 +654,12 @@ export function genTableToSlides(pptx: PptxGenJS, tabEleId: string, options: Tab
 				// C: Add padding [margin] (if any)
 				// NOTE: Margins translate: px->pt 1:1 (e.g.: a 20px padded cell looks the same in PPTX as 20pt Text Inset/Padding)
 				if (window.getComputedStyle(cell).getPropertyValue('padding-left')) {
-					cellOpts.margin = [0, 0, 0, 0]
+					const cellMargin: MarginTuple = [0, 0, 0, 0]
 					const sidesPad = ['padding-top', 'padding-right', 'padding-bottom', 'padding-left']
 					sidesPad.forEach((val, idxs) => {
-						cellOpts.margin[idxs] = Math.round(Number(window.getComputedStyle(cell).getPropertyValue(val).replace(/\D/gi, '')))
+						cellMargin[idxs] = Math.round(Number(window.getComputedStyle(cell).getPropertyValue(val).replace(/\D/gi, '')))
 					})
+					cellOpts.margin = cellMargin
 				}
 
 				// D: Add border (if any)
@@ -661,7 +669,7 @@ export function genTableToSlides(pptx: PptxGenJS, tabEleId: string, options: Tab
 					window.getComputedStyle(cell).getPropertyValue('border-bottom-width') ||
 					window.getComputedStyle(cell).getPropertyValue('border-left-width')
 				) {
-					cellOpts.border = [null, null, null, null]
+					const cellBorder: BorderTuple = [null, null, null, null]
 					const sidesBor = ['top', 'right', 'bottom', 'left']
 					sidesBor.forEach((val, idxb) => {
 						const intBorderW = Math.round(
@@ -681,8 +689,9 @@ export function genTableToSlides(pptx: PptxGenJS, tabEleId: string, options: Tab
 							.replace(')', '')
 							.split(',')
 						const strBorderC = rgbToHex(Number(arrRGB[0]), Number(arrRGB[1]), Number(arrRGB[2]))
-						cellOpts.border[idxb] = { pt: intBorderW, color: strBorderC }
+						cellBorder[idxb] = { pt: intBorderW, color: strBorderC }
 					})
+					cellOpts.border = cellBorder
 				}
 
 				// LAST: Add cell

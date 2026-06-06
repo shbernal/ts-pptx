@@ -23,6 +23,8 @@ import type { IChartOptsLib, ISlideRelChart, ShadowProps, IChartPropsTitle, Opts
 import { createColorElement, genXmlColorSelection, convertRotationDegrees, encodeXmlEntities, getUuid, valToPts } from './gen-utils.js'
 import JSZip from 'jszip'
 
+const VALID_CHART_TIME_UNITS = ['days', 'months', 'years']
+
 /**
  * Based on passed data, creates Excel Worksheet that is used as a data source for a chart.
  * @param {ISlideRelChart} chartObject - chart object
@@ -1732,9 +1734,10 @@ function makeCatAxis (opts: IChartOptsLib, axisId: string, valAxisId: string): s
 	// Allow major and minor units to be set for double value axis charts
 	if (opts.catLabelFormatCode || opts._type === CHART_TYPE.SCATTER || opts._type === CHART_TYPE.BUBBLE || opts._type === CHART_TYPE.BUBBLE3D) {
 		if (opts.catLabelFormatCode) {
-			['catAxisBaseTimeUnit', 'catAxisMajorTimeUnit', 'catAxisMinorTimeUnit'].forEach(opt => {
+			;(['catAxisBaseTimeUnit', 'catAxisMajorTimeUnit', 'catAxisMinorTimeUnit'] as const).forEach(opt => {
 				// Validate input as poorly chosen/garbage options will cause chart corruption and it wont render at all!
-				if (opts[opt] && (typeof opts[opt] !== 'string' || !['days', 'months', 'years'].includes(opts[opt].toLowerCase()))) {
+				const optVal = opts[opt]
+				if (optVal && (typeof optVal !== 'string' || !VALID_CHART_TIME_UNITS.includes(optVal.toLowerCase()))) {
 					console.warn(`"${opt}" must be one of: 'days','months','years' !`)
 					opts[opt] = null
 				}
@@ -1900,9 +1903,10 @@ function makeSerAxis (opts: IChartOptsLib, axisId: string, valAxisId: string): s
 
 	// Issue#149: PPT will auto-adjust these as needed after calcing the date bounds, so we only include them when specified by user
 	if (opts.serLabelFormatCode) {
-		['serAxisBaseTimeUnit', 'serAxisMajorTimeUnit', 'serAxisMinorTimeUnit'].forEach(opt => {
+		;(['serAxisBaseTimeUnit', 'serAxisMajorTimeUnit', 'serAxisMinorTimeUnit'] as const).forEach(opt => {
 			// Validate input as poorly chosen/garbage options will cause chart corruption and it wont render at all!
-			if (opts[opt] && (typeof opts[opt] !== 'string' || !['days', 'months', 'years'].includes(opt.toLowerCase()))) {
+			const optVal = opts[opt]
+			if (optVal && (typeof optVal !== 'string' || !VALID_CHART_TIME_UNITS.includes(optVal.toLowerCase()))) {
 				console.warn(`"${opt}" must be one of: 'days','months','years' !`)
 				opts[opt] = null
 			}

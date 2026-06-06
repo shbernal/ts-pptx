@@ -15,7 +15,6 @@ import {
 	DEF_SLIDE_MARGIN_IN,
 	EMU,
 	IMG_PLAYBTN,
-	MASTER_OBJECTS,
 	PIECHART_COLORS,
 	SCHEME_COLOR_NAMES,
 	SHAPE_NAME,
@@ -27,8 +26,11 @@ import {
 import type {
 	AddSlideProps,
 	BackgroundProps,
+	BorderProps,
 	IChartMulti,
+	IChartOpts,
 	IChartOptsLib,
+	IOptsChartData,
 	ISlideObject,
 	ImageProps,
 	MediaProps,
@@ -53,6 +55,16 @@ import { encodeXmlEntities, getNewRelId, getSmartParseNumber, inch2Emu, valToPts
 /** counter for included charts (used for index in their filenames) */
 let _chartCounter = 0
 
+type BorderTuple = [BorderProps, BorderProps, BorderProps, BorderProps]
+type HyperlinkTextObject = (TextProps | ISlideObject | TableCell) & {
+	options?: TextPropsOptions | ObjectOptions
+	text?: string | number | TextProps[] | TableCell[]
+}
+
+function normalizeBorderTuple(border: BorderProps | BorderTuple): BorderTuple {
+	return Array.isArray(border) ? border : [border, border, border, border]
+}
+
 /**
  * Transforms a slide definition to a slide object that is then passed to the XML transformation process.
  * @param {SlideMasterProps} props - slide definition
@@ -66,23 +78,24 @@ export function createSlideMaster(props: SlideMasterProps, target: SlideLayoutIn
 	// STEP 2: Add all Slide Master objects in the order they were given
 	if (props.objects && Array.isArray(props.objects) && props.objects.length > 0) {
 		props.objects.forEach((object, idx) => {
-			const key = Object.keys(object)[0]
 			const tgt = target as PresSlideInternal
-			if (MASTER_OBJECTS[key] && key === 'chart') addChartDefinition(tgt, object[key].type, object[key].data, object[key].opts)
-			else if (MASTER_OBJECTS[key] && key === 'image') addImageDefinition(tgt, object[key])
-			else if (MASTER_OBJECTS[key] && key === 'line') addShapeDefinition(tgt, SHAPE_TYPE.LINE, object[key])
-			else if (MASTER_OBJECTS[key] && key === 'rect') addShapeDefinition(tgt, SHAPE_TYPE.RECTANGLE, object[key])
-			else if (MASTER_OBJECTS[key] && key === 'text') addTextDefinition(tgt, [{ text: object[key].text }], object[key].options, false)
-			else if (MASTER_OBJECTS[key] && key === 'placeholder') {
+			if ('chart' in object) addChartDefinition(tgt, object.chart.type, object.chart.data, object.chart.opts || object.chart.options || {})
+			else if ('image' in object) addImageDefinition(tgt, object.image)
+			else if ('line' in object) addShapeDefinition(tgt, SHAPE_TYPE.LINE, object.line)
+			else if ('rect' in object) addShapeDefinition(tgt, SHAPE_TYPE.RECTANGLE, object.rect)
+			else if ('text' in object) addTextDefinition(tgt, [{ text: object.text.text }], object.text.options, false)
+			else if ('placeholder' in object) {
 				// TODO: 20180820: Check for existing `name`?
-				object[key].options.placeholder = object[key].options.name
-				delete object[key].options.name // remap name for earier handling internally
-				object[key].options._placeholderType = object[key].options.type
-				delete object[key].options.type // remap name for earier handling internally
-				object[key].options._placeholderIdx = 100 + idx
-				addTextDefinition(tgt, [{ text: object[key].text }], object[key].options, true)
+				const placeholder = object.placeholder
+				const placeholderOptions = placeholder.options as TextPropsOptions & ObjectOptions
+				placeholderOptions.placeholder = placeholder.options.name
+				delete placeholder.options.name // remap name for earier handling internally
+				placeholderOptions._placeholderType = placeholder.options.type
+				delete placeholder.options.type // remap name for earier handling internally
+				placeholderOptions._placeholderIdx = 100 + idx
+				addTextDefinition(tgt, [{ text: placeholder.text }], placeholderOptions, true)
 				// TODO: ISSUE#599 - only text is suported now (add more below)
-				// else if (object[key].image) addImageDefinition(tgt, object[key].image)
+				// else if (placeholder.image) addImageDefinition(tgt, placeholder.image)
 				/* 20200120: So... image placeholders go into the "slideLayoutN.xml" file and addImage doesnt do this yet...
 					<p:sp>
 				  <p:nvSpPr>
@@ -128,7 +141,7 @@ export function createSlideMaster(props: SlideMasterProps, target: SlideLayoutIn
  *    ]
  * }
  */
-export function addChartDefinition(target: PresSlideInternal, type: CHART_NAME | IChartMulti[], data: OptsChartData[], opt: IChartOptsLib): object {
+export function addChartDefinition(target: PresSlideInternal, type: CHART_NAME | IChartMulti[], data: OptsChartData[] | IChartOpts, opt?: IChartOptsLib): object {
 	function correctGridLineOptions(glOpts: OptsChartGridLine): void {
 		if (!glOpts || glOpts.style === 'none') return
 		if (glOpts.size !== undefined && (isNaN(Number(glOpts.size)) || glOpts.size <= 0)) {
@@ -146,7 +159,7 @@ export function addChartDefinition(target: PresSlideInternal, type: CHART_NAME |
 	}
 
 	const chartId = ++_chartCounter
-	const resultObject = {
+	const resultObject: ISlideObject = {
 		_type: null,
 		text: null,
 		options: null,
@@ -155,8 +168,8 @@ export function addChartDefinition(target: PresSlideInternal, type: CHART_NAME |
 	// DESIGN: `type` can an object (ex: `pptx.charts.DOUGHNUT`) or an array of chart objects
 	// EX: addChartDefinition([ { type:pptx.charts.BAR, data:{name:'', labels:[], values[]} }, {<etc>} ])
 	// Multi-Type Charts
-	let tmpOpt
-	let tmpData = []
+	let tmpOpt: IChartOpts | IChartOptsLib | undefined
+	let tmpData: OptsChartData[] = []
 	if (Array.isArray(type)) {
 		// For multi-type charts there needs to be data for each type,
 		// as well as a single data source for non-series operations.
@@ -165,9 +178,9 @@ export function addChartDefinition(target: PresSlideInternal, type: CHART_NAME |
 		type.forEach(obj => {
 			tmpData = tmpData.concat(obj.data)
 		})
-		tmpOpt = data || opt
+		tmpOpt = !Array.isArray(data) && data && typeof data === 'object' ? data : opt
 	} else {
-		tmpData = data
+		tmpData = Array.isArray(data) ? data : []
 		tmpOpt = opt
 	}
 	tmpData.forEach((item, i) => {
@@ -256,9 +269,10 @@ export function addChartDefinition(target: PresSlideInternal, type: CHART_NAME |
 	options.lineDataSymbolLineSize = options.lineDataSymbolLineSize && !isNaN(options.lineDataSymbolLineSize) ? valToPts(options.lineDataSymbolLineSize) : valToPts(0.75)
 	// `layout` allows the override of PPT defaults to maximize space
 	if (options.layout) {
-		['x', 'y', 'w', 'h'].forEach(key => {
+		;(['x', 'y', 'w', 'h'] as const).forEach(key => {
 			const val = options.layout[key]
-			if (isNaN(Number(val)) || val < 0 || val > 1) {
+			const numVal = Number(val)
+			if (isNaN(numVal) || numVal < 0 || numVal > 1) {
 				console.warn('Warning: chart.layout.' + key + ' can only be 0-1')
 				delete options.layout[key] // remove invalid value so that default will be used
 			}
@@ -355,14 +369,14 @@ export function addChartDefinition(target: PresSlideInternal, type: CHART_NAME |
 	}
 
 	// STEP 4: Set props
-	resultObject._type = 'chart'
-	resultObject.options = options
+	resultObject._type = SLIDE_OBJECT_TYPES.chart
+	resultObject.options = options as unknown as ObjectOptions
 	resultObject.chartRid = getNewRelId(target)
 
 	// STEP 5: Add this chart to this Slide Rels (rId/rels count spans all slides! Count all images to get next rId)
 	target._relsChart.push({
 		rId: getNewRelId(target),
-		data: tmpData,
+		data: tmpData as IOptsChartData[],
 		opts: options,
 		type: options._type,
 		globalId: chartId,
@@ -809,25 +823,30 @@ export function addTableDefinition(
 
 				// C: Set cell borders
 				newCell.options.border = newCell.options.border || opt.border || [{ type: 'none' }, { type: 'none' }, { type: 'none' }, { type: 'none' }]
-				const cellBorder = newCell.options.border
+				let cellBorder = newCell.options.border
 
 				// CASE 1: border interface is: BorderOptions | [BorderOptions, BorderOptions, BorderOptions, BorderOptions]
-				if (!Array.isArray(cellBorder) && typeof cellBorder === 'object') newCell.options.border = [cellBorder, cellBorder, cellBorder, cellBorder]
+				if (cellBorder && typeof cellBorder === 'object') {
+					cellBorder = normalizeBorderTuple(cellBorder)
+					newCell.options.border = cellBorder
+				}
 				// Handle: [null, null, {type:'solid'}, null]
-				if (!newCell.options.border[0]) newCell.options.border[0] = { type: 'none' }
-				if (!newCell.options.border[1]) newCell.options.border[1] = { type: 'none' }
-				if (!newCell.options.border[2]) newCell.options.border[2] = { type: 'none' }
-				if (!newCell.options.border[3]) newCell.options.border[3] = { type: 'none' }
+				const cellBorderTuple = newCell.options.border as BorderTuple
+				if (!cellBorderTuple[0]) cellBorderTuple[0] = { type: 'none' }
+				if (!cellBorderTuple[1]) cellBorderTuple[1] = { type: 'none' }
+				if (!cellBorderTuple[2]) cellBorderTuple[2] = { type: 'none' }
+				if (!cellBorderTuple[3]) cellBorderTuple[3] = { type: 'none' }
 
 				// set complete BorderOptions for all sides
-				const arrSides = [0, 1, 2, 3]
+				const arrSides = [0, 1, 2, 3] as const
 				arrSides.forEach(idx => {
-					newCell.options.border[idx] = {
-						type: newCell.options.border[idx].type || DEF_CELL_BORDER.type,
-						color: newCell.options.border[idx].color || DEF_CELL_BORDER.color,
-						pt: typeof newCell.options.border[idx].pt === 'number' ? newCell.options.border[idx].pt : DEF_CELL_BORDER.pt,
+					cellBorderTuple[idx] = {
+						type: cellBorderTuple[idx].type || DEF_CELL_BORDER.type,
+						color: cellBorderTuple[idx].color || DEF_CELL_BORDER.color,
+						pt: typeof cellBorderTuple[idx].pt === 'number' ? cellBorderTuple[idx].pt : DEF_CELL_BORDER.pt,
 					}
 				})
+				newCell.options.border = cellBorderTuple
 
 				// LAST:
 				newRow.push(newCell)
@@ -859,9 +878,10 @@ export function addTableDefinition(
 		console.warn('addTable `border` option must be an object. Ex: `{border: {type:\'none\'}}`')
 		opt.border = null
 	} else if (Array.isArray(opt.border)) {
-		[0, 1, 2, 3].forEach(idx => {
-			opt.border[idx] = opt.border[idx]
-				? { type: opt.border[idx].type || DEF_CELL_BORDER.type, color: opt.border[idx].color || DEF_CELL_BORDER.color, pt: opt.border[idx].pt || DEF_CELL_BORDER.pt }
+		const border = opt.border
+		;([0, 1, 2, 3] as const).forEach(idx => {
+			border[idx] = border[idx]
+				? { type: border[idx].type || DEF_CELL_BORDER.type, color: border[idx].color || DEF_CELL_BORDER.color, pt: border[idx].pt || DEF_CELL_BORDER.pt }
 				: { type: 'none' }
 		})
 	}
@@ -1204,31 +1224,33 @@ export function addBackgroundDefinition(props: BackgroundProps, target: SlideLay
  */
 function createHyperlinkRels(
 	target: PresSlideInternal,
-	text: number | string | ISlideObject | TextProps | TextProps[] | TableCell[][],
+	text: number | string | ISlideObject | TextProps | TextProps[] | TableCell[] | TableCell[][],
 	options?: TextPropsOptions[],
 ): void {
-	let textObjs = []
+	let textObjs: Array<HyperlinkTextObject | TableCell[]> = []
 
 	// Only text objects can have hyperlinks, bail when text param is plain text
 	if (typeof text === 'string' || typeof text === 'number') return
 	// IMPORTANT: "else if" Array.isArray must come before typeof===object! Otherwise, code will exhaust recursion!
 	else if (Array.isArray(text)) textObjs = text
-	else if (typeof text === 'object') textObjs = [text]
+	else if (typeof text === 'object') textObjs = [text as HyperlinkTextObject]
 
-	textObjs.forEach((text: TextProps, idx: number) => {
-		// IMPORTANT: `options` are lost due to recursion/copy!
-		if (options && options[idx] && options[idx].hyperlink) text.options = { ...text.options, ...options[idx] }
-
+	textObjs.forEach((text: HyperlinkTextObject | TableCell[], idx: number) => {
 		// NOTE: `text` can be an array of other `text` objects (table cell word-level formatting), continue parsing using recursion
 		if (Array.isArray(text)) {
-			const cellOpts = []
+			const cellOpts: TextPropsOptions[] = []
 			text.forEach((tablecell) => {
-				if (tablecell.options && !tablecell.text.options) {
+				if (tablecell.options) {
 					cellOpts.push(tablecell.options)
 				}
 			})
 			createHyperlinkRels(target, text, cellOpts)
-		} else if (Array.isArray(text.text)) {
+			return
+		}
+
+		// IMPORTANT: `options` are lost due to recursion/copy!
+		if (options && options[idx] && options[idx].hyperlink) text.options = { ...text.options, ...options[idx] }
+		if (Array.isArray(text.text)) {
 			createHyperlinkRels(target, text.text, options && options[idx] ? [options[idx]] : undefined)
 		} else if (text && typeof text === 'object' && text.options && text.options.hyperlink && !text.options.hyperlink._rId) {
 			if (typeof text.options.hyperlink !== 'object') {

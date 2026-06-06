@@ -146,6 +146,8 @@ export type {
 	ShapeFillProps,
 	ShapeLineProps,
 	ShapeProps,
+	SlideMasterChartProps,
+	SlideMasterObject,
 	SlideMasterProps,
 	SlideNumberProps,
 	TableCell,

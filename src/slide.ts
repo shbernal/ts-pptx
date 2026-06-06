@@ -165,12 +165,14 @@ export default class Slide {
 	 * @param {IChartOpts} options - chart options
 	 * @return {Slide} this Slide
 	 */
-	addChart(type: CHART_NAME | IChartMulti[], data: OptsChartData[], options?: IChartOpts): Slide {
+	addChart(type: CHART_NAME, data: OptsChartData[], options?: IChartOpts): Slide
+	addChart(type: IChartMulti[], options?: IChartOpts): Slide
+	addChart(type: CHART_NAME | IChartMulti[], dataOrOptions: OptsChartData[] | IChartOpts = [], options?: IChartOpts): Slide {
 		// FUTURE: TODO-VERSION-4: Remove first arg - only take data and opts, with "type" required on opts
 		// Set `_type` on IChartOptsLib as its what is used as object is passed around
-		const optionsWithType: IChartOptsLib = options || {}
-		optionsWithType._type = type
-		genObj.addChartDefinition(this, type, data, options)
+		const optionsWithType = (Array.isArray(type) && !Array.isArray(dataOrOptions) ? dataOrOptions : options) as IChartOptsLib | undefined
+		if (optionsWithType) optionsWithType._type = type
+		genObj.addChartDefinition(this, type, dataOrOptions, options)
 		return this
 	}
 

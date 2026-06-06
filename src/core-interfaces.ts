@@ -1752,15 +1752,14 @@ export interface SlideNumberProps extends PositionProps, TextBaseProps {
 	 */
 	margin?: Margin // TODO: convert to inches in 4.0 (valid values are 0-22)
 }
-export interface SlideMasterProps {
-	/**
-	 * Unique name for this master
-	 */
-	title: string
-	background?: BackgroundProps
-	margin?: Margin
-	slideNumber?: SlideNumberProps
-	objects?: Array< | { chart: IChartOpts }
+export interface SlideMasterChartProps {
+	type: CHART_NAME | IChartMulti[]
+	data: OptsChartData[]
+	options?: IChartOptsLib
+	opts?: IChartOptsLib
+}
+export type SlideMasterObject =
+	| { chart: SlideMasterChartProps }
 	| { image: ImageProps }
 	| { line: ShapeProps }
 	| { rect: ShapeProps }
@@ -1774,7 +1773,16 @@ export interface SlideMasterProps {
 			 */
 			text?: string
 		}
-	}>
+	}
+export interface SlideMasterProps {
+	/**
+	 * Unique name for this master
+	 */
+	title: string
+	background?: BackgroundProps
+	margin?: Margin
+	slideNumber?: SlideNumberProps
+	objects?: SlideMasterObject[]
 
 	/**
 	 * @deprecated v3.3.0 - use `background`
@@ -1825,7 +1833,8 @@ export interface SlideLayoutInternal extends SlideBaseProps, SlideLayout {
 	}
 }
 export interface PresSlide {
-	addChart: (type: CHART_NAME | IChartMulti[], data: OptsChartData[], options?: IChartOpts) => PresSlide
+	addChart(type: CHART_NAME, data: OptsChartData[], options?: IChartOpts): PresSlide
+	addChart(type: IChartMulti[], options?: IChartOpts): PresSlide
 	addImage: (options: ImageProps) => PresSlide
 	addMedia: (options: MediaProps) => PresSlide
 	addNotes: (notes: string) => PresSlide
