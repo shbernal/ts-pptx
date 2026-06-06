@@ -1,5 +1,5 @@
 import JSZip from 'jszip'
-import PptxGenJS from '../src/bld/pptxgen.js'
+import PptxGenJS from '../dist/node.js'
 import { assert } from './helpers.js'
 
 async function buildSlideXml(pres) {

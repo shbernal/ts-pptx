@@ -100,6 +100,7 @@ import * as genObj from './gen-objects.js'
 import * as genMedia from './gen-media.js'
 import * as genTable from './gen-tables.js'
 import * as genXml from './gen-xml.js'
+import type { RuntimeAdapter } from './runtime/types.js'
 
 export type { PresSlide as Slide } from './core-interfaces.js'
 export type {
@@ -411,7 +412,10 @@ export default class PptxGenJS {
 		return this._shapes
 	}
 
-	constructor() {
+	private readonly _runtime: RuntimeAdapter
+
+	constructor(runtime: RuntimeAdapter) {
+		this._runtime = runtime
 		const layout4x3: PresLayout = { name: 'screen4x3', width: 9144000, height: 6858000 }
 		const layout16x9: PresLayout = { name: 'screen16x9', width: 9144000, height: 5143500 }
 		const layout16x10: PresLayout = { name: 'screen16x10', width: 9144000, height: 5715000 }
@@ -542,38 +546,6 @@ export default class PptxGenJS {
 
 	/**
 	 * Create and export the .pptx file
-	 * @param {string} exportName - output file type
-	 * @param {Blob} blobContent - Blob content
-	 * @return {Promise<string>} Promise with file name
-	 */
-	private readonly writeFileToBrowser = async (exportName: string, blobContent: Blob): Promise<string> => {
-		// STEP 1: Create element
-		const eleLink = document.createElement('a')
-		eleLink.setAttribute('style', 'display:none;')
-		eleLink.dataset.interception = 'off' // @see https://docs.microsoft.com/en-us/sharepoint/dev/spfx/hyperlinking
-		document.body.appendChild(eleLink)
-
-		// STEP 2: Download file to browser
-		// DESIGN: Use `createObjectURL()` to D/L files in client browsers (FYI: synchronously executed)
-		if (window.URL.createObjectURL) {
-			const url = window.URL.createObjectURL(new Blob([blobContent], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }))
-			eleLink.href = url
-			eleLink.download = exportName
-			eleLink.click()
-
-			// Clean-up (NOTE: Add a slight delay before removing to avoid 'blob:null' error in Firefox Issue#81)
-			setTimeout(() => {
-				window.URL.revokeObjectURL(url)
-				document.body.removeChild(eleLink)
-			}, 100)
-
-			// Done
-			return await Promise.resolve(exportName)
-		}
-	}
-
-	/**
-	 * Create and export the .pptx file
 	 * @param {WRITE_OUTPUT_TYPE} outputType - output file type
 	 * @return {Promise<string | ArrayBuffer | Blob | Uint8Array>} Promise with data or stream (node) or filename (browser)
 	 */
@@ -584,12 +556,12 @@ export default class PptxGenJS {
 
 		// STEP 1: Read/Encode all Media before zip as base64 content, etc. is required
 		this._slides.forEach(slide => {
-			arrMediaPromises = arrMediaPromises.concat(genMedia.encodeSlideMediaRels(slide))
+			arrMediaPromises = arrMediaPromises.concat(genMedia.encodeSlideMediaRels(slide, this._runtime))
 		})
 		this._slideLayouts.forEach(layout => {
-			arrMediaPromises = arrMediaPromises.concat(genMedia.encodeSlideMediaRels(layout))
+			arrMediaPromises = arrMediaPromises.concat(genMedia.encodeSlideMediaRels(layout, this._runtime))
 		})
-		arrMediaPromises = arrMediaPromises.concat(genMedia.encodeSlideMediaRels(this._masterSlide))
+		arrMediaPromises = arrMediaPromises.concat(genMedia.encodeSlideMediaRels(this._masterSlide, this._runtime))
 
 		// STEP 2: Wait for Promises (if any) then generate the PPTX file
 		return await Promise.all(arrMediaPromises).then(async () => {
@@ -712,10 +684,6 @@ export default class PptxGenJS {
 	 * @returns {Promise<string>} the presentation name
 	 */
 	async writeFile(props?: WriteFileProps | string): Promise<string> {
-		// STEP 1: Figure out where we are running
-		const isNode = typeof process !== 'undefined' && !!process.versions?.node && process.release?.name === 'node'
-
-		// STEP 2: Normalise the user arguments
 		if (typeof props === 'string') {
 			// DEPRECATED: @deprecated v3.5.0 - fileName - [[remove in v4.0.0]]
 			console.warn('[WARNING] writeFile(string) is deprecated - pass { fileName } instead.')
@@ -724,22 +692,8 @@ export default class PptxGenJS {
 		const { fileName: rawName = 'Presentation.pptx', compression = false } = props as WriteFileProps
 		const fileName = rawName.toLowerCase().endsWith('.pptx') ? rawName : `${rawName}.pptx`
 
-		// STEP 3: Get the binary/Blob from exportPresentation()
-		const outputType = isNode ? ('nodebuffer' as const) : null
-		const data = await this.exportPresentation({ compression, outputType })
-
-		// STEP 4: Write the file out
-		if (isNode) {
-			// Dynamically import to avoid bundling fs in the browser build
-			const { promises: fs } = await import('node:fs')
-			const { writeFile } = fs
-			await writeFile(fileName, data as string | Uint8Array)
-			return fileName
-		}
-
-		// Browser branch - push a download
-		await this.writeFileToBrowser(fileName, data as Blob)
-		return fileName
+		const data = await this.exportPresentation({ compression, outputType: this._runtime.writeFileOutputType })
+		return await this._runtime.writeFile(fileName, data)
 	}
 
 	// PRESENTATION METHODS

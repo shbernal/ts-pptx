@@ -13,25 +13,37 @@ import pptxgen from "pptxgenjs"
 
 The package publishes:
 
-- `dist/pptxgen.js` as the runtime ESM entry.
-- `types/pptxgen.d.ts` as the TypeScript declaration entry.
-- `exports["."].import` for ESM consumers.
-- `exports["."].types` for declaration consumers.
-- `main` and `module` pointing at the ESM runtime entry for compatibility with
-  tools that still inspect those fields.
+- `dist/index.js` and `dist/index.d.ts` as the default ESM package entry.
+- `dist/core.js` and `dist/core.d.ts` for public enums and shared types.
+- `dist/node.js` and `dist/node.d.ts` for explicit Node.js consumers.
+- `dist/browser.js` and `dist/browser.d.ts` for explicit browser consumers.
+- `dist/standalone.js` and `dist/standalone.d.ts` as a browser ESM entry that
+  bundles JSZip.
+- package `exports` entries for `.`, `./core`, `./node`, `./browser`, and
+  `./standalone`.
 
 Supported environments are modern module-aware environments:
 
 - Node.js `>=24`.
-- Vite, Rollup, Webpack, and similar modern bundlers.
+- Vite, Rolldown, Rollup, Webpack, and similar modern bundlers.
 - React, Angular, Electron, and other app frameworks that consume ESM packages.
 - Browser applications when the app is built around ESM or a bundler.
+
+Supported package imports:
+
+```ts
+import pptxgen from "pptxgenjs"
+import { ShapeType } from "pptxgenjs/core"
+import pptxgenNode from "pptxgenjs/node"
+import pptxgenBrowser from "pptxgenjs/browser"
+import pptxgenStandalone from "pptxgenjs/standalone"
+```
 
 ## Dropped Compared To Upstream
 
 ### CommonJS
 
-CommonJS is not supported.
+CommonJS is not a supported package target.
 
 Unsupported:
 
@@ -45,12 +57,15 @@ The package does not ship:
 - a CJS export condition
 - a CJS-specific Node demo target
 
-The package smoke test intentionally verifies that `require("pptxgenjs")` does
-not resolve.
+Modern Node.js versions can sometimes load ESM packages through `require()` as a
+runtime interop feature. That behavior is not this package's maintained API. The
+package smoke test verifies the actual contract: no CJS artifacts and no
+`require` export condition.
 
 ### IIFE And Global Browser Bundle
 
-The IIFE/global browser build is not supported.
+The IIFE/global browser build is not supported. `pptxgenjs/standalone` is an ESM
+browser entry, not a `window.PptxGenJS` global.
 
 Unsupported:
 
@@ -68,15 +83,15 @@ The package does not ship:
 - `dist/pptxgen.min.js`
 - `dist/pptxgen.min.js.map`
 
-Direct CDN script tags and `window.PptxGenJS` are legacy upstream workflows, not
-the supported package target for this project.
+Classic CDN script tags and `window.PptxGenJS` are legacy upstream workflows,
+not the supported package target for this project.
 The legacy upstream browser demo for that workflow is not included in this
 repository.
 
 ## Artifact Name Changes
 
-The old named ESM artifact `dist/pptxgen.es.js` is not shipped. The ESM runtime
-artifact is `dist/pptxgen.js`.
+The old named ESM artifacts `dist/pptxgen.es.js` and `dist/pptxgen.js` are not
+shipped. Use the package exports instead of direct artifact paths.
 
 The maintained browser integration target is a module-aware app such as
 `demos/vite-demo`.

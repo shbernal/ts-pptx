@@ -68,20 +68,24 @@ The package is ESM-only.
 Supported package surface:
 
 - `import pptxgen from "pptxgenjs"`
-- `dist/pptxgen.js`
-- `types/pptxgen.d.ts`
+- `import { ShapeType } from "pptxgenjs/core"`
+- `import pptxgen from "pptxgenjs/node"`
+- `import pptxgen from "pptxgenjs/browser"`
+- `import pptxgen from "pptxgenjs/standalone"`
+- generated runtime and declaration artifacts under `dist/`
 - Node.js `>=24`
 - modern bundlers and module-aware app frameworks
 
 Dropped compared to upstream:
 
 - No CommonJS support: no `require("pptxgenjs")`, no CJS export condition, and
-  no `dist/pptxgen.cjs.js`.
-- No IIFE/global browser bundle: no `window.PptxGenJS` script-tag API, no
+  no `dist/pptxgen.cjs.js`. Modern Node.js may provide `require()` interop for
+  ESM, but it is not a maintained API.
+- No IIFE/global browser bundle: no `window.PptxGenJS` classic script API, no
   `dist/pptxgen.bundle.js`, and no `dist/pptxgen.min.js`.
 
-The old named ESM artifact `dist/pptxgen.es.js` is also no longer shipped.
-Use the package export or `dist/pptxgen.js`.
+The old named ESM artifact `dist/pptxgen.es.js` is also no longer shipped. Use
+the package exports instead of direct artifact paths.
 
 See [runtime and package support](docs/runtime-and-package-support.md) for the
 complete support contract.
@@ -118,8 +122,8 @@ pnpm run test:schema
 Package-boundary changes should run:
 
 ```bash
-pnpm run build:dist
-pnpm run types:build
+pnpm run build
+pnpm run package:lint
 pnpm run pack:check
 pnpm run test:package
 ```

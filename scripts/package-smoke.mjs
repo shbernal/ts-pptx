@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
-import { ROOT } from './rollup-options.mjs'
-import { assertFile, assertNoFile, packPackage, run } from './script-utils.mjs'
+import { ROOT, assertFile, assertNoFile, packPackage, run } from './script-utils.mjs'
 
 async function writeFixtureManifest(fixtureDir, manager) {
 	await fs.mkdir(fixtureDir, { recursive: true })
@@ -27,48 +27,75 @@ async function installPackedPackage(manager, fixtureDir, tarball) {
 async function smokeInstalledPackage(fixtureDir) {
 	const installedPkgDir = path.join(fixtureDir, 'node_modules', 'pptxgenjs')
 	await Promise.all([
-		assertFile(path.join(installedPkgDir, 'dist', 'pptxgen.js')),
-		assertFile(path.join(installedPkgDir, 'types', 'pptxgen.d.ts')),
-		assertNoFile(path.join(installedPkgDir, 'dist', 'pptxgen.cjs.js')),
-		assertNoFile(path.join(installedPkgDir, 'dist', 'pptxgen.es.js')),
-		assertNoFile(path.join(installedPkgDir, 'dist', 'pptxgen.min.js')),
-		assertNoFile(path.join(installedPkgDir, 'dist', 'pptxgen.min.js.map')),
-		assertNoFile(path.join(installedPkgDir, 'dist', 'pptxgen.bundle.js')),
-		assertNoFile(path.join(installedPkgDir, 'dist', 'pptxgen.bundle.js.map')),
+		assertFile(path.join(installedPkgDir, 'dist', 'index.js')),
+		assertFile(path.join(installedPkgDir, 'dist', 'index.d.ts')),
+		assertFile(path.join(installedPkgDir, 'dist', 'core.js')),
+		assertFile(path.join(installedPkgDir, 'dist', 'core.d.ts')),
+		assertFile(path.join(installedPkgDir, 'dist', 'node.js')),
+		assertFile(path.join(installedPkgDir, 'dist', 'node.d.ts')),
+		assertFile(path.join(installedPkgDir, 'dist', 'browser.js')),
+		assertFile(path.join(installedPkgDir, 'dist', 'browser.d.ts')),
+		assertFile(path.join(installedPkgDir, 'dist', 'standalone.js')),
+		assertFile(path.join(installedPkgDir, 'dist', 'standalone.d.ts')),
+		assertFile(path.join(installedPkgDir, 'dist', 'standalone.js.map')),
+		assertFile(path.join(installedPkgDir, 'dist', 'standalone.d.ts.map')),
+		assertNoFile(path.join(installedPkgDir, 'types', 'pptxgen.d.ts')),
+		assertNoFile(path.join(installedPkgDir, 'dist', 'pptxgen.js')),
 	])
 
 	await fs.writeFile(
 		path.join(fixtureDir, 'esm-smoke.mjs'),
 		[
-			"import PptxGenJS from 'pptxgenjs'",
+			"import PptxGenJS, { Presentation, ShapeType } from 'pptxgenjs'",
+			"import NodePptxGenJS from 'pptxgenjs/node'",
+			"import BrowserPptxGenJS from 'pptxgenjs/browser'",
+			"import StandalonePptxGenJS from 'pptxgenjs/standalone'",
+			"import { ChartType } from 'pptxgenjs/core'",
 			'const pptx = new PptxGenJS()',
 			"if (typeof pptx.version !== 'string') throw new Error('missing version')",
+			"if (Presentation !== PptxGenJS) throw new Error('missing Presentation named export')",
+			"if (NodePptxGenJS !== PptxGenJS) throw new Error('node entry mismatch')",
+			"if (typeof new BrowserPptxGenJS().version !== 'string') throw new Error('browser entry missing version')",
+			"if (typeof new StandalonePptxGenJS().version !== 'string') throw new Error('standalone entry missing version')",
+			"if (ShapeType.rect !== 'rect') throw new Error('missing ShapeType export')",
+			"if (ChartType.bar !== 'bar') throw new Error('missing ChartType export')",
 			'',
 		].join('\n')
 	)
 	await fs.writeFile(
-		path.join(fixtureDir, 'cjs-unsupported.cjs'),
+		path.join(fixtureDir, 'cjs-contract.cjs'),
 		[
-			"try { require('pptxgenjs') } catch { process.exit(0) }",
-			"throw new Error('CommonJS require unexpectedly resolved pptxgenjs')",
+			"const pkg = require('pptxgenjs/package.json')",
+			"if (JSON.stringify(pkg.exports).includes('\"require\"')) throw new Error('unexpected require export condition')",
+			"if (pkg.main || pkg.module) throw new Error('unexpected legacy main/module field')",
 			'',
 		].join('\n')
 	)
 	await fs.writeFile(
 		path.join(fixtureDir, 'type-smoke.ts'),
 		[
-			"import PptxGenJS, { type IChartMulti, type ThemeProps, type WriteFileProps } from 'pptxgenjs'",
+			"import PptxGenJS, { Presentation, type IChartMulti, type ThemeProps, type WriteFileProps } from 'pptxgenjs'",
+			"import NodePptxGenJS from 'pptxgenjs/node'",
+			"import BrowserPptxGenJS from 'pptxgenjs/browser'",
+			"import StandalonePptxGenJS from 'pptxgenjs/standalone'",
+			"import { ShapeType, type PresSlide } from 'pptxgenjs/core'",
 			'const pptx = new PptxGenJS()',
+			'const nodePptx = new NodePptxGenJS()',
+			'const browserPptx = new BrowserPptxGenJS()',
+			'const standalonePptx = new StandalonePptxGenJS()',
 			'const slide = pptx.addSlide()',
 			"const theme: ThemeProps = { headFontFace: 'Aptos', bodyFontFace: 'Aptos' }",
 			"const options: WriteFileProps = { fileName: 'smoke.pptx' }",
 			"const comboChart: IChartMulti[] = [{ type: 'bar', data: [{ labels: ['A'], values: [1] }], options: {} }]",
+			'const presentationCtor: typeof PptxGenJS = Presentation',
+			'const typedSlide: PresSlide = slide',
 			'pptx.theme = theme',
 			"slide.addChart('bar', [{ labels: ['A'], values: [1] }], { x: 0, y: 0, w: 1, h: 1 })",
 			'slide.addChart(comboChart, { x: 0, y: 0, w: 1, h: 1 })',
 			"slide.addImage({ data: 'image/png;base64,AAAA', x: 0, y: 0, w: 1, h: 1 })",
 			"slide.addMedia({ type: 'online', link: 'https://www.youtube.com/embed/example', x: 0, y: 0, w: 1, h: 1 })",
 			'slide.addText(42, { x: 0, y: 0, w: 1, h: 1 })',
+			'slide.addShape(ShapeType.rect, { x: 0, y: 0, w: 1, h: 1 })',
 			'// @ts-expect-error public slides do not expose internal OOXML object storage',
 			'slide._slideObjects',
 			'// @ts-expect-error presentation slides getter returns the public slide shape',
@@ -80,6 +107,11 @@ async function smokeInstalledPackage(fixtureDir) {
 			'// @ts-expect-error file media requires data or path',
 			"slide.addMedia({ type: 'video', x: 0, y: 0, w: 1, h: 1 })",
 			'void pptx.writeFile(options)',
+			'void nodePptx.write()',
+			'void browserPptx.write()',
+			'void standalonePptx.write()',
+			'void presentationCtor',
+			'void typedSlide',
 			'',
 		].join('\n')
 	)
@@ -124,7 +156,7 @@ async function smokeInstalledPackage(fixtureDir) {
 	)
 
 	await run(process.execPath, [path.join(fixtureDir, 'esm-smoke.mjs')], { cwd: fixtureDir })
-	await run(process.execPath, [path.join(fixtureDir, 'cjs-unsupported.cjs')], { cwd: fixtureDir })
+	await run(process.execPath, [path.join(fixtureDir, 'cjs-contract.cjs')], { cwd: fixtureDir })
 	for (const config of typeSmokeConfigs) {
 		await run(process.execPath, [
 			path.join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc'),
@@ -134,7 +166,7 @@ async function smokeInstalledPackage(fixtureDir) {
 	}
 }
 
-const tmpRoot = process.env.PPTXGENJS_PACKAGE_SMOKE_TMPDIR || path.dirname(ROOT)
+const tmpRoot = process.env.PPTXGENJS_PACKAGE_SMOKE_TMPDIR || os.tmpdir()
 await fs.mkdir(tmpRoot, { recursive: true })
 const tmp = await fs.mkdtemp(path.join(tmpRoot, '.pptxgenjs-package-smoke-'))
 const keepTmp = process.env.PPTXGENJS_KEEP_PACKAGE_SMOKE === '1'

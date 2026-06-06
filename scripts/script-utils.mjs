@@ -1,7 +1,9 @@
 import { spawn } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { ROOT } from './rollup-options.mjs'
+import { fileURLToPath } from 'node:url'
+
+export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 const packageManagerCache = process.env.PPTXGENJS_SCRIPT_CACHE_DIR || path.join(ROOT, '.tmp', 'package-manager-cache')
 
@@ -57,9 +59,17 @@ export function parsePackOutput(output) {
 export async function packPackage(packDir) {
 	await fs.mkdir(packDir, { recursive: true })
 	const result = await run('pnpm', ['pack', '--json', '--pack-destination', packDir], { capture: true })
-	const pack = parsePackOutput(result.stdout || result.stderr)
-	const entry = Array.isArray(pack) ? pack[0] : pack
-	if (!entry?.filename) throw new Error('pnpm pack did not return a tarball filename')
+	const output = result.stdout || result.stderr
+	let entry
+	if (output.trim()) {
+		const pack = parsePackOutput(output)
+		entry = Array.isArray(pack) ? pack[0] : pack
+	}
+	if (!entry?.filename) {
+		const packedFiles = (await fs.readdir(packDir)).filter((file) => file.endsWith('.tgz')).sort()
+		if (packedFiles.length !== 1) throw new Error('pnpm pack did not return exactly one tarball in ' + packDir)
+		entry = { filename: packedFiles[0] }
+	}
 
 	const tarball = path.isAbsolute(entry.filename) ? entry.filename : path.join(packDir, path.basename(entry.filename))
 	await assertFile(tarball)

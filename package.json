@@ -13,24 +13,45 @@
 	"engines": {
 		"node": ">=24"
 	},
+	"sideEffects": false,
 	"exports": {
 		".": {
-			"types": "./types/pptxgen.d.ts",
-			"import": "./dist/pptxgen.js"
+			"types": "./dist/index.d.ts",
+			"browser": "./dist/browser.js",
+			"node": "./dist/node.js",
+			"default": "./dist/index.js"
+		},
+		"./core": {
+			"types": "./dist/core.d.ts",
+			"default": "./dist/core.js"
+		},
+		"./node": {
+			"types": "./dist/node.d.ts",
+			"node": "./dist/node.js",
+			"default": "./dist/node.js"
+		},
+		"./browser": {
+			"types": "./dist/browser.d.ts",
+			"browser": "./dist/browser.js",
+			"default": "./dist/browser.js"
+		},
+		"./standalone": {
+			"types": "./dist/standalone.d.ts",
+			"browser": "./dist/standalone.js",
+			"default": "./dist/standalone.js"
+		},
+		"./package.json": {
+			"default": "./package.json"
 		}
 	},
-	"main": "dist/pptxgen.js",
-	"module": "dist/pptxgen.js",
 	"files": [
-		"dist",
-		"types"
+		"dist"
 	],
-	"types": "types/pptxgen.d.ts",
+	"types": "./dist/index.d.ts",
 	"scripts": {
-		"build": "node scripts/build.mjs build",
-		"build:dist": "node scripts/build.mjs dist",
+		"build": "tsdown",
 		"start": "pnpm run watch",
-		"watch": "rollup -cw",
+		"watch": "tsdown --watch",
 		"test": "pnpm run build && vitest run test/regression.test.mjs && vitest run test/schema-validation.test.mjs",
 		"test:unit": "pnpm run build && vitest run test/regression.test.mjs",
 		"test:schema": "pnpm run build && vitest run test/schema-validation.test.mjs",
@@ -43,32 +64,22 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit",
 		"strict:check": "tsc -p tsconfig.strict.json --noEmit",
 		"strict:null:check": "tsc -p tsconfig.strict-null.json --noEmit",
-		"types:build": "node scripts/types.mjs",
 		"lint": "eslint . --no-warn-ignored",
 		"lint:fix": "pnpm run lint -- --fix",
-		"format": "prettier package.json pnpm-workspace.yaml tsconfig*.json eslint.config.mjs rollup.config.mjs \"scripts/**/*.mjs\" \"test/**/*.mjs\" \"test/**/*.js\" \".github/**/*.yml\" --write",
-		"format:check": "prettier package.json pnpm-workspace.yaml tsconfig*.json eslint.config.mjs rollup.config.mjs \"scripts/**/*.mjs\" \"test/**/*.mjs\" \"test/**/*.js\" \".github/**/*.yml\" --check",
-		"prepack": "pnpm run build:dist && pnpm run types:build",
+		"format": "prettier package.json pnpm-workspace.yaml tsconfig*.json eslint.config.mjs tsdown.config.ts \"scripts/**/*.mjs\" \"test/**/*.mjs\" \"test/**/*.js\" \".github/**/*.yml\" --write",
+		"format:check": "prettier package.json pnpm-workspace.yaml tsconfig*.json eslint.config.mjs tsdown.config.ts \"scripts/**/*.mjs\" \"test/**/*.mjs\" \"test/**/*.js\" \".github/**/*.yml\" --check",
+		"package:lint": "node scripts/package-lint.mjs",
+		"prepack": "pnpm run build",
 		"check-validator": "node tools/ooxml-validator/check-updates.js",
 		"pack:check": "pnpm pack --dry-run --json"
-	},
-	"browser": {
-		"express": false,
-		"fs": false,
-		"https": false,
-		"node:fs": false,
-		"node:https": false,
-		"os": false,
-		"path": false
 	},
 	"dependencies": {
 		"jszip": "^3.10.1"
 	},
 	"devDependencies": {
+		"@arethetypeswrong/cli": "^0.18.3",
+		"@arethetypeswrong/core": "^0.18.3",
 		"@eslint/js": "^10.0.1",
-		"@rollup/plugin-commonjs": "^29.0.3",
-		"@rollup/plugin-node-resolve": "^16.0.3",
-		"@rollup/plugin-typescript": "^12.3.0",
 		"@stylistic/eslint-plugin": "^5.10.0",
 		"@types/node": "^25.9.2",
 		"@typescript-eslint/eslint-plugin": "^8.60.1",
@@ -76,7 +87,8 @@
 		"@vitest/coverage-v8": "^4.1.8",
 		"eslint": "^10.4.1",
 		"prettier": "^3.8.3",
-		"rollup": "^4.61.1",
+		"publint": "^0.3.21",
+		"tsdown": "^0.22.2",
 		"tslib": "^2.8.1",
 		"typescript": "^6.0.3",
 		"typescript-eslint": "^8.60.1",

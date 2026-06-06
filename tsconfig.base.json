@@ -6,7 +6,7 @@
 		"lib": ["dom", "es2024"],
 		"module": "esnext",
 		"moduleResolution": "bundler",
-		"noImplicitAny": false,
+		"noImplicitAny": true,
 		"sourceMap": true,
 		"strict": true,
 		"strictNullChecks": false,

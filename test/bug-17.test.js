@@ -1,5 +1,5 @@
 import JSZip from 'jszip'
-import PptxGenJS from '../src/bld/pptxgen.js'
+import PptxGenJS from '../dist/node.js'
 import { build, listEntries, assert } from './helpers.js'
 
 // 1x1 PNG (red pixel) for image-only deck case

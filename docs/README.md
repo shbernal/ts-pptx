@@ -24,7 +24,7 @@ artifacts.
 
 - Keep docs aligned with the current package target.
 - Do not document CJS or IIFE as supported workflows.
-- Keep release artifacts under `dist/` and declaration artifacts under `types/`
-  treated as generated outputs unless a task explicitly asks to refresh them.
+- Keep release runtime and declaration artifacts under `dist/` treated as
+  generated outputs unless a task explicitly asks to refresh them.
 - For OOXML behavior, prefer small repo-specific notes with section references
   over copied standards text.

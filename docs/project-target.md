@@ -23,7 +23,7 @@ applications that need to create presentations programmatically.
 - Shipping a standalone IIFE/global browser build.
 - Supporting direct CDN script tags as the primary browser story.
 - Rebuilding the upstream release matrix around every historical artifact name.
-- Treating generated `dist/` and `types/` outputs as hand-edited source.
+- Treating generated `dist/` outputs as hand-edited source.
 
 ## Maintenance Posture
 

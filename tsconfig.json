@@ -5,6 +5,5 @@
 	"compilerOptions": {
 		"noEmit": true
 	},
-	"include": ["src/**/*.ts"],
-	"exclude": ["src/bld/**"]
+	"include": ["src/**/*.ts"]
 }

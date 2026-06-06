@@ -26,8 +26,8 @@ pnpm run lint
 pnpm run format:check
 pnpm run typecheck
 pnpm test
-pnpm run build:dist
-pnpm run types:build
+pnpm run build
+pnpm run package:lint
 pnpm run pack:check
 pnpm run test:package
 pnpm run test:demos
@@ -37,17 +37,25 @@ pnpm run test:demos
 
 The package should ship:
 
-- `dist/pptxgen.js`
-- `types/pptxgen.d.ts`
-- package `exports["."].import`
+- `dist/index.js`
+- `dist/index.d.ts`
+- `dist/core.js`
+- `dist/node.js`
+- `dist/browser.js`
+- `dist/standalone.js`
+- package `exports["."].default`
 - package `exports["."].types`
+- package subpaths for `./core`, `./node`, `./browser`, and `./standalone`
 
 The package should not ship or document:
 
 - CommonJS support
 - IIFE/global browser bundle support
 - direct CDN script-tag support as a maintained workflow
+- `types/`
+- `src/bld/`
 - `dist/pptxgen.cjs.js`
+- `dist/pptxgen.js`
 - `dist/pptxgen.es.js`
 - `dist/pptxgen.bundle.js`
 - `dist/pptxgen.min.js`

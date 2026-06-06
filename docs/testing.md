@@ -46,22 +46,23 @@ pnpm test
 Build package artifacts:
 
 ```bash
-pnpm run build:dist
-pnpm run types:build
+pnpm run build
 ```
 
 Check the packed package:
 
 ```bash
+pnpm run package:lint
 pnpm run pack:check
 pnpm run test:package
 ```
 
-`pack:check` uses `pnpm pack --dry-run`. `test:package` creates a packed
-package with pnpm, installs it with npm and pnpm, verifies that the ESM entry
-and declarations are present, verifies that old CJS and IIFE artifacts are
-absent, runs an ESM import smoke test, checks that CommonJS `require` is
-unsupported, and typechecks a minimal TypeScript consumer.
+`package:lint` runs package export/type validation. `pack:check` uses
+`pnpm pack --dry-run`. `test:package` creates a packed package with pnpm,
+installs it with npm and pnpm, verifies that the ESM entries and declarations
+are present, verifies that old generated artifacts are absent, runs an ESM
+import smoke test, checks that the package has no CJS export condition, and
+typechecks a minimal TypeScript consumer.
 
 ## Demo Smoke Tests
 

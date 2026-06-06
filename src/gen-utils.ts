@@ -214,7 +214,7 @@ export function genXmlColorSelection (props: Color | ShapeFillProps | ShapeLineP
 			case 'solid':
 				outText += `<a:solidFill>${createColorElement(colorVal, internalElements)}</a:solidFill>`
 				break
-			default: // @note need a statement as having only "break" is removed by rollup, then tiggers "no-default" js-linter
+			default: // @note need a statement as having only "break" can be removed by bundlers, then triggers "no-default" js-linter
 				outText += ''
 				break
 		}

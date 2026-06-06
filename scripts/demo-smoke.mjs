@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { ROOT } from './rollup-options.mjs'
-import { run } from './script-utils.mjs'
+import { ROOT, run } from './script-utils.mjs'
 
 const ALL_TARGETS = ['node', 'vite']
 const requestedTargets = process.argv.slice(2)
@@ -42,8 +41,7 @@ async function smokeViteDemo() {
 	await run('pnpm', ['--dir', 'demos/vite-demo', 'run', 'build'])
 }
 
-await run('pnpm', ['run', 'build:dist'])
-await run('pnpm', ['run', 'types:build'])
+await run('pnpm', ['run', 'build'])
 
 for (const target of targets) {
 	if (target === 'node') await smokeNodeDemo()

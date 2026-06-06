@@ -21,11 +21,10 @@ pnpm install
 - `demos/vite-demo`: React, TypeScript, and Vite demo.
 - `scripts/`: build, package, demo, and smoke-test automation.
 - `tools/ooxml-validator`: OOXML validator installer and wrapper.
-- `dist/`: generated package runtime artifacts.
-- `types/`: generated package declaration artifacts.
+- `dist/`: generated package runtime and declaration artifacts.
 
-Do not hand-edit generated `dist/` or `types/` outputs unless the task
-explicitly asks to refresh release artifacts.
+Do not hand-edit generated `dist/` outputs unless the task explicitly asks to
+refresh release artifacts.
 
 ## Common Commands
 
@@ -47,16 +46,10 @@ Run regression tests:
 pnpm run test:unit
 ```
 
-Build package artifacts:
-
-```bash
-pnpm run build:dist
-pnpm run types:build
-```
-
 Check package contents:
 
 ```bash
+pnpm run package:lint
 pnpm run pack:check
 pnpm run test:package
 ```
@@ -96,8 +89,8 @@ package contents should preserve the support contract documented in
 Package-boundary verification:
 
 ```bash
-pnpm run build:dist
-pnpm run types:build
+pnpm run build
+pnpm run package:lint
 pnpm run pack:check
 pnpm run test:package
 ```

@@ -9,8 +9,8 @@ with executable checks.
 1. Inspect the current checkout before answering or editing.
 2. Preserve unrelated dirty state.
 3. Keep source changes in `src/` and tests in `test/`.
-4. Treat `dist/` and `types/` as generated artifacts unless the task explicitly
-   asks to refresh package outputs.
+4. Treat `dist/` as generated artifacts unless the task explicitly asks to
+   refresh package outputs.
 5. Prefer existing repository scripts and local patterns over new tooling.
 6. Verify the narrowest relevant behavior before finishing.
 
@@ -39,7 +39,9 @@ explicitly changed:
 - IIFE/global browser bundle support;
 - direct CDN script-tag support as a maintained package workflow.
 
-The package smoke test should continue to prove that old artifacts are absent.
+The package smoke test should continue to prove that old artifacts are absent
+and that `pptxgenjs`, `pptxgenjs/core`, `pptxgenjs/node`,
+`pptxgenjs/browser`, and `pptxgenjs/standalone` resolve.
 
 ## Communication Expectations
 
