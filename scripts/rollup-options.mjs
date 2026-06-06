@@ -51,14 +51,6 @@ export async function createRollupConfig() {
 	const pkg = await readPackageJson()
 	return {
 		...createRollupInputOptions(pkg),
-		output: [
-			{
-				file: './src/bld/pptxgen.iife.js',
-				format: 'iife',
-				name: 'PptxGenJS',
-				globals: { jszip: 'JSZip' },
-			},
-			{ file: './src/bld/pptxgen.js', format: 'es' },
-		],
+		output: [{ file: './src/bld/pptxgen.js', format: 'es' }],
 	}
 }

@@ -3,7 +3,6 @@ import { spawn } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import vm from 'node:vm'
 import { ROOT } from './rollup-options.mjs'
 
 function run(command, args, options = {}) {
@@ -69,35 +68,6 @@ async function assertNoFile(file) {
 	throw new Error('unexpected file exists: ' + file)
 }
 
-async function smokeBrowserBundle(bundlePath) {
-	const code = await fs.readFile(bundlePath, 'utf8')
-	const sandbox = {
-		ArrayBuffer,
-		Blob,
-		Buffer,
-		clearInterval,
-		clearTimeout,
-		console,
-		DataView,
-		Promise,
-		setInterval,
-		setTimeout,
-		TextDecoder,
-		TextEncoder,
-		Uint8Array,
-	}
-	sandbox.globalThis = sandbox
-	sandbox.self = sandbox
-	sandbox.window = sandbox
-	sandbox.navigator = { userAgent: 'node' }
-
-	vm.runInNewContext(code, sandbox, { filename: bundlePath })
-	const PptxGenJS = sandbox.PptxGenJS || sandbox.window.PptxGenJS || sandbox.globalThis.PptxGenJS
-	if (typeof PptxGenJS !== 'function') {
-		throw new Error('browser bundle did not expose PptxGenJS')
-	}
-}
-
 async function writeFixtureManifest(fixtureDir, manager) {
 	await fs.mkdir(fixtureDir, { recursive: true })
 	await fs.writeFile(
@@ -122,10 +92,13 @@ async function smokeInstalledPackage(fixtureDir) {
 	const installedPkgDir = path.join(fixtureDir, 'node_modules', 'pptxgenjs')
 	await Promise.all([
 		assertFile(path.join(installedPkgDir, 'dist', 'pptxgen.js')),
-		assertFile(path.join(installedPkgDir, 'dist', 'pptxgen.bundle.js')),
 		assertFile(path.join(installedPkgDir, 'types', 'pptxgen.d.ts')),
 		assertNoFile(path.join(installedPkgDir, 'dist', 'pptxgen.cjs.js')),
 		assertNoFile(path.join(installedPkgDir, 'dist', 'pptxgen.es.js')),
+		assertNoFile(path.join(installedPkgDir, 'dist', 'pptxgen.min.js')),
+		assertNoFile(path.join(installedPkgDir, 'dist', 'pptxgen.min.js.map')),
+		assertNoFile(path.join(installedPkgDir, 'dist', 'pptxgen.bundle.js')),
+		assertNoFile(path.join(installedPkgDir, 'dist', 'pptxgen.bundle.js.map')),
 	])
 
 	await fs.writeFile(
@@ -183,7 +156,6 @@ async function smokeInstalledPackage(fixtureDir) {
 		'-p',
 		path.join(fixtureDir, 'tsconfig.json'),
 	])
-	await smokeBrowserBundle(path.join(installedPkgDir, 'dist', 'pptxgen.bundle.js'))
 }
 
 const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-package-smoke-'))
