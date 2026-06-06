@@ -10,9 +10,10 @@ Config Notes
 
 Testing Steps
 
-1. Run `npm run ship` to refresh release artefacts (`dist/pptxgen.{cjs,es,min}.js`, `demos/browser/js/pptxgen.bundle.js`).
-2. Run `npm run release-test` for the automated end-to-end suite — drives the browser demo, Web Worker demo, Node CLI demo, Node stream demo, and Vite build, validating each generated `.pptx` against the OOXML schema.
-3. Run the manual sections below for items that require human eyes (Microsoft 365 web viewer, iOS rendering, PowerPoint visual inspection).
+1. Run `npm test` for regression and schema validation.
+2. Run `npm run build:dist` to refresh local package artifacts under `dist/`.
+3. Run `npm run pack:check` to verify the npm package contents.
+4. Run the manual sections below for browser, worker, Node, Vite, and PowerPoint visual checks.
 
 ## 🧪 Test Suites Overview
 
@@ -30,11 +31,9 @@ Testing Steps
 
 **Purpose:** Validate browser compatibility using the standalone bundle as script.
 
-### Automated Coverage
+### Build Coverage
 
-Browser desktop and Web Worker paths are exercised by `npm run release-test` (see `test/release/browser.test.js` and `test/release/worker.test.js`). The harness drives every `#btnRunBasicDemo` / `#btnRunSandboxDemo` / `#btnGenFunc_*` / `#btnRunAllDemos` button on `demos/browser/index.html` plus the `#generatePptWorker` flow on `demos/browser/worker_test.html`, then validates each generated `.pptx` against the OOXML schema.
-
-The manual desktop / iOS sections below remain for human-eye verification (visual rendering, gesture handling, and devices the headless harness does not cover).
+Run `npm run ship` before manual browser checks when you need `demos/browser/js/pptxgen.bundle.js` to reflect the current source. Browser and worker demos are manual release checks.
 
 ### Desktop & Mobile Browsers
 
@@ -67,7 +66,14 @@ node browser_server.mjs
 
 **Purpose:** Validate functionality of CommonJS module in pure Node environments.
 
-Automated by `npm run release-test`. The harness spawns `node demo.js`, `node demo.js All`, and `node demo_stream.js` from `demos/node/` (via `npm install --prefix demos/node` on first run) and validates each generated `.pptx` against the OOXML schema. See `test/release/node.test.js` for the full case list.
+Run the Node demo manually after building the package artifacts:
+
+```bash
+npm install --prefix demos/node
+npm run build:dist
+npm run copy:node
+npm --prefix demos/node run demo
+```
 
 ---
 
@@ -75,7 +81,14 @@ Automated by `npm run release-test`. The harness spawns `node demo.js`, `node de
 
 **Purpose:** Validate integration in modern front-end SPA toolchains (Vite, TypeScript, React-compatible).
 
-Automated by `npm run release-test`. The harness runs `tsc -b && vite build` against `demos/vite-demo/` (via `npm install --prefix demos/vite-demo` on first run, with a post-install `gulp reactTestCode reactTestDefs` to override the published artefacts with the freshly-built `dist/pptxgen.es.js` and `types/index.d.ts`) and asserts the entry HTML plus at least one hashed JS chunk under `dist/assets/`. See `test/release/vite.test.js`.
+Run the Vite build manually after building the package artifacts:
+
+```bash
+npm install --prefix demos/vite-demo
+npm run build:dist
+npm run copy:vite
+npm --prefix demos/vite-demo run build
+```
 
 ### IDE IntelliSense (Manual)
 
@@ -118,8 +131,8 @@ npm run build
 | ----------------- | ---------- | ---------------------- | ------------------------------------------------- | ------ |
 | pptxgen.es.js     | Webpack 4  | SPFx (v1.16.1) project | 👤 manual (SPFx runtime)                           | ✅?🟡    |
 | pptxgen.es.js     | Webpack 5  | SPFx (v1.19.1) project | 👤 manual (SPFx runtime)                           | ✅?🟡    |
-| pptxgen.es.js     | Rollup 4   | Vite (v6) demo         | 🤖 `npm run release-test` (`vite.test.js`)         | ✅?🟡    |
-| pptxgen.es.js     | Webworkers | worker_test demo       | 🤖 `npm run release-test` (`worker.test.js`)       | ✅?🟡    |
-| pptxgen.cjs.js    | Node/CJS   | Node demo              | 🤖 `npm run release-test` (`node.test.js`)         | ✅?🟡    |
-| pptxgen.bundle.js | Script     | Browser demo (desktop) | 🤖 `npm run release-test` (`browser.test.js`)      | ✅?🟡    |
+| pptxgen.es.js     | Rollup 4   | Vite (v6) demo         | 👤 manual (`npm --prefix demos/vite-demo run build`) | ✅?🟡    |
+| pptxgen.es.js     | Webworkers | worker_test demo       | 👤 manual                                           | ✅?🟡    |
+| pptxgen.cjs.js    | Node/CJS   | Node demo              | 👤 manual (`npm --prefix demos/node run demo`)      | ✅?🟡    |
+| pptxgen.bundle.js | Script     | Browser demo (desktop) | 👤 manual                                           | ✅?🟡    |
 | pptxgen.bundle.js | Script     | Browser demo (iOS)     | 👤 manual (no headless iOS runner)                 | ✅?🟡    |

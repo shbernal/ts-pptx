@@ -17,7 +17,7 @@ export default {
 	input: "src/pptxgen.ts",
 	output: [
 		{
-			file: "./src/bld/pptxgen.js",
+			file: "./src/bld/pptxgen.iife.js",
 			format: "iife",
 			name: "PptxGenJS",
 			globals: { jszip: "JSZip" },

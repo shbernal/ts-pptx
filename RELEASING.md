@@ -7,15 +7,16 @@
 
 1. Update `package.json` version (ex: `4.1.0-beta.0`)
 2. Update `src/pptxgen.ts` version
-3. Build library: npm scripts > `ship`
-4. `npm publish --tag beta`
+3. Build library: `npm run ship`
+4. Verify package contents: `npm run pack:check`
+5. `npm publish --tag beta`
 
 ## 🚀 Build Library, Update Files
 
 1. Update `package.json` version
 2. Update `src/pptxgen.ts` version (eg: `const VERSION = '4.0.1'`)
 3. Update `CHANGELOG.md` with new date
-4. Build library: npm scripts > `ship`
+4. Build library: `npm run ship`
 5. Consolidate new changes from `src/bld/*.ts` into `types/index.d.ts` and update version in head comment
 6. Open `dist/*.js` and check headers
 7. Update version in: `demos/node/package.json`
@@ -26,6 +27,14 @@
 ### ⚠️ Run Standard Test Suite
 
 See [TESTING.md](./TESTING.md) for complete test instructions.
+
+Minimum command gate:
+
+```bash
+npm test
+npm run build:dist
+npm run pack:check
+```
 
 ### ⚠️ Capture Testing Results
 
