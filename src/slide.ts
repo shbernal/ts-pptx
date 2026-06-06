@@ -18,8 +18,9 @@ import {
 	MediaProps,
 	PresLayout,
 	PresSlide,
+	PresSlideInternal,
 	ShapeProps,
-	SlideLayout,
+	SlideLayoutInternal,
 	SlideNumberProps,
 	OptsChartData,
 	TableProps,
@@ -32,8 +33,8 @@ import * as genObj from './gen-objects.js'
 export default class Slide {
 	private readonly _setSlideNum: (value: SlideNumberProps) => void
 
-	public addSlide: (options?: AddSlideProps) => PresSlide
-	public getSlide: (slideNum: number) => PresSlide
+	public addSlide: (options?: AddSlideProps) => PresSlideInternal
+	public getSlide: (slideNum: number) => PresSlideInternal
 	public _name: string
 	public _presLayout: PresLayout
 	public _rels: ISlideRel[]
@@ -41,21 +42,21 @@ export default class Slide {
 	public _relsMedia: ISlideRelMedia[]
 	public _rId: number
 	public _slideId: number
-	public _slideLayout: SlideLayout
+	public _slideLayout: SlideLayoutInternal
 	public _slideNum: number
 	public _slideNumberProps: SlideNumberProps
 	public _slideObjects: ISlideObject[]
-	public _newAutoPagedSlides: PresSlide[]
+	public _newAutoPagedSlides: PresSlideInternal[]
 
 	constructor(params: {
-		addSlide: (options?: AddSlideProps) => PresSlide
-		getSlide: (slideNum: number) => PresSlide
+		addSlide: (options?: AddSlideProps) => PresSlideInternal
+		getSlide: (slideNum: number) => PresSlideInternal
 		presLayout: PresLayout
 		setSlideNum: (value: SlideNumberProps) => void
 		slideId: number
 		slideRId: number
 		slideNumber: number
-		slideLayout?: SlideLayout
+		slideLayout?: SlideLayoutInternal
 	}) {
 		this.addSlide = params.addSlide
 		this.getSlide = params.getSlide

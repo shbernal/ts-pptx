@@ -3,14 +3,14 @@
  */
 
 import { IMG_BROKEN } from './core-enums.js'
-import type { PresSlide, SlideLayout, ISlideRelMedia } from './core-interfaces.js'
+import type { PresSlideInternal, SlideLayoutInternal, ISlideRelMedia } from './core-interfaces.js'
 
 /**
  * Encode Image/Audio/Video into base64
- * @param {PresSlide | SlideLayout} layout - slide layout
+ * @param {PresSlideInternal | SlideLayoutInternal} layout - slide layout
  * @return {Promise} promise
  */
-export function encodeSlideMediaRels(layout: PresSlide | SlideLayout): Array<Promise<string>> {
+export function encodeSlideMediaRels(layout: PresSlideInternal | SlideLayoutInternal): Array<Promise<string>> {
 	// STEP 1: Detect real Node runtime once
 	const isNode = typeof process !== 'undefined' && !!process.versions?.node && process.release?.name === 'node'
 	// These will be filled only when we’re in Node

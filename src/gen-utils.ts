@@ -3,7 +3,7 @@
  */
 
 import { EMU, REGEX_HEX_COLOR, DEF_FONT_COLOR, ONEPT, SchemeColor, SCHEME_COLORS } from './core-enums.js'
-import type { PresLayout, TextGlowProps, PresSlide, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps } from './core-interfaces.js'
+import type { PresLayout, TextGlowProps, PresSlideInternal, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps } from './core-interfaces.js'
 
 /**
  * Translates any type of `x`/`y`/`w`/`h` prop to EMU
@@ -225,10 +225,10 @@ export function genXmlColorSelection (props: Color | ShapeFillProps | ShapeLineP
 
 /**
  * Get a new rel ID (rId) for charts, media, etc.
- * @param {PresSlide} target - the slide to use
+ * @param {PresSlideInternal} target - the slide to use
  * @returns {number} count of all current rels plus 1 for the caller to use as its "rId"
  */
-export function getNewRelId (target: PresSlide): number {
+export function getNewRelId (target: PresSlideInternal): number {
 	return target._rels.length + target._relsChart.length + target._relsMedia.length + 1
 }
 

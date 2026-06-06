@@ -23,9 +23,9 @@ import type {
 	ISlideRelChart,
 	ISlideRelMedia,
 	ObjectOptions,
-	PresSlide,
+	PresSlideInternal,
 	ShadowProps,
-	SlideLayout,
+	SlideLayoutInternal,
 	TableCell,
 	TableCellProps,
 	TextProps,
@@ -79,10 +79,10 @@ const ImageSizingXml = {
 
 /**
  * Transforms a slide or slideLayout to resulting XML string - Creates `ppt/slide*.xml`
- * @param {PresSlide|SlideLayout} slideObject - slide object created within createSlideObject
+ * @param {PresSlideInternal|SlideLayoutInternal} slideObject - slide object created within createSlideObject
  * @return {string} XML string with <p:cSld> as the root
  */
-function slideObjectToXml (slide: PresSlide | SlideLayout): string {
+function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): string {
 	let strSlideXml: string = slide._name ? '<p:cSld name="' + slide._name + '">' : '<p:cSld>'
 	let intTableNum = 1
 
@@ -120,12 +120,12 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
 		const rounding = slideItemObj.options?.rounding
 
 		if (
-			(slide as PresSlide)._slideLayout !== undefined &&
-			(slide as PresSlide)._slideLayout._slideObjects !== undefined &&
+			(slide as PresSlideInternal)._slideLayout !== undefined &&
+			(slide as PresSlideInternal)._slideLayout._slideObjects !== undefined &&
 			slideItemObj.options &&
 			slideItemObj.options.placeholder
 		) {
-			placeholderObj = (slide as PresSlide)._slideLayout._slideObjects.filter(
+			placeholderObj = (slide as PresSlideInternal)._slideLayout._slideObjects.filter(
 				(object: ISlideObject) => object.options.placeholder === slideItemObj.options.placeholder
 			)[0]
 		}
@@ -769,11 +769,11 @@ function slideObjectToXml (slide: PresSlide | SlideLayout): string {
  * Transforms slide relations to XML string.
  * Extra relations that are not dynamic can be passed using the 2nd arg (e.g. theme relation in master file).
  * These relations use rId series that starts with 1-increased maximum of rIds used for dynamic relations.
- * @param {PresSlide | SlideLayout} slide - slide object whose relations are being transformed
+ * @param {PresSlideInternal | SlideLayoutInternal} slide - slide object whose relations are being transformed
  * @param {{ target: string; type: string }[]} defaultRels - array of default relations
  * @return {string} XML
  */
-function slideObjectRelationsToXml (slide: PresSlide | SlideLayout, defaultRels: Array<{ target: string, type: string }>): string {
+function slideObjectRelationsToXml (slide: PresSlideInternal | SlideLayoutInternal, defaultRels: Array<{ target: string, type: string }>): string {
 	let lastRid = 0 // stores maximum rId used for dynamic relations
 	let strXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + CRLF + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
 
@@ -1403,12 +1403,12 @@ export function genXmlPlaceholder (placeholderObj: ISlideObject): string {
 
 /**
  * Generate XML ContentType
- * @param {PresSlide[]} slides - slides
- * @param {SlideLayout[]} slideLayouts - slide layouts
- * @param {PresSlide} masterSlide - master slide
+ * @param {PresSlideInternal[]} slides - slides
+ * @param {SlideLayoutInternal[]} slideLayouts - slide layouts
+ * @param {PresSlideInternal} masterSlide - master slide
  * @returns XML
  */
-export function makeXmlContTypes (slides: PresSlide[], slideLayouts: SlideLayout[], masterSlide?: PresSlide): string {
+export function makeXmlContTypes (slides: PresSlideInternal[], slideLayouts: SlideLayoutInternal[], masterSlide?: PresSlideInternal): string {
 	let strXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + CRLF
 	strXml += '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
 	strXml += '<Default Extension="xml" ContentType="application/xml"/>'
@@ -1501,11 +1501,11 @@ export function makeXmlRootRels (): string {
 
 /**
  * Creates `docProps/app.xml`
- * @param {PresSlide[]} slides - Presenation Slides
+ * @param {PresSlideInternal[]} slides - Presenation Slides
  * @param {string} company - "Company" metadata
  * @returns XML
  */
-export function makeXmlApp (slides: PresSlide[], company: string): string {
+export function makeXmlApp (slides: PresSlideInternal[], company: string): string {
 	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
 	<TotalTime>0</TotalTime>
 	<Words>0</Words>
@@ -1566,10 +1566,10 @@ export function makeXmlCore (title: string, subject: string, author: string, rev
 
 /**
  * Creates `ppt/_rels/presentation.xml.rels`
- * @param {PresSlide[]} slides - Presenation Slides
+ * @param {PresSlideInternal[]} slides - Presenation Slides
  * @returns XML
  */
-export function makeXmlPresentationRels (slides: PresSlide[]): string {
+export function makeXmlPresentationRels (slides: PresSlideInternal[]): string {
 	let intRelNum = 1
 	let strXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + CRLF
 	strXml += '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
@@ -1593,10 +1593,10 @@ export function makeXmlPresentationRels (slides: PresSlide[]): string {
 
 /**
  * Generates XML for the slide file (`ppt/slides/slide1.xml`)
- * @param {PresSlide} slide - the slide object to transform into XML
+ * @param {PresSlideInternal} slide - the slide object to transform into XML
  * @return {string} XML
  */
-export function makeXmlSlide (slide: PresSlide): string {
+export function makeXmlSlide (slide: PresSlideInternal): string {
 	return (
 		`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}` +
 		'<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
@@ -1609,10 +1609,10 @@ export function makeXmlSlide (slide: PresSlide): string {
 
 /**
  * Get text content of Notes from Slide
- * @param {PresSlide} slide - the slide object to transform into XML
+ * @param {PresSlideInternal} slide - the slide object to transform into XML
  * @return {string} notes text
  */
-export function getNotesFromSlide (slide: PresSlide): string {
+export function getNotesFromSlide (slide: PresSlideInternal): string {
 	let notesText = ''
 
 	slide._slideObjects.forEach(data => {
@@ -1632,10 +1632,10 @@ export function makeXmlNotesMaster (): string {
 
 /**
  * Creates Notes Slide (`ppt/notesSlides/notesSlide1.xml`)
- * @param {PresSlide} slide - the slide object to transform into XML
+ * @param {PresSlideInternal} slide - the slide object to transform into XML
  * @return {string} XML
  */
-export function makeXmlNotesSlide (slide: PresSlide): string {
+export function makeXmlNotesSlide (slide: PresSlideInternal): string {
 	return (
 		`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<p:notes xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr><p:sp><p:nvSpPr><p:cNvPr id="2" name="Slide Image Placeholder 1"/><p:cNvSpPr><a:spLocks noGrp="1" noRot="1" noChangeAspect="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldImg"/></p:nvPr></p:nvSpPr><p:spPr/></p:sp><p:sp><p:nvSpPr><p:cNvPr id="3" name="Notes Placeholder 2"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US" dirty="0"/><a:t>${encodeXmlEntities(getNotesFromSlide(slide))}</a:t></a:r><a:endParaRPr lang="en-US" dirty="0"/></a:p></p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="4" name="Slide Number Placeholder 3"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldNum" sz="quarter" idx="10"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:fld id="${SLDNUMFLDID}" type="slidenum"><a:rPr lang="en-US"/><a:t>${slide._slideNum}</a:t></a:fld><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp></p:spTree><p:extLst><p:ext uri="{BB962C8B-B14F-4D97-AF65-F5344CB8AC3E}"><p14:creationId xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" val="1024086991"/></p:ext></p:extLst></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:notes>`
 	)
@@ -1643,10 +1643,10 @@ export function makeXmlNotesSlide (slide: PresSlide): string {
 
 /**
  * Generates the XML layout resource from a layout object
- * @param {SlideLayout} layout - slide layout (master)
+ * @param {SlideLayoutInternal} layout - slide layout (master)
  * @return {string} XML
  */
-export function makeXmlLayout (layout: SlideLayout): string {
+export function makeXmlLayout (layout: SlideLayoutInternal): string {
 	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 		<p:sldLayout xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" preserve="1">
 		${slideObjectToXml(layout)}
@@ -1655,11 +1655,11 @@ export function makeXmlLayout (layout: SlideLayout): string {
 
 /**
  * Creates Slide Master 1 (`ppt/slideMasters/slideMaster1.xml`)
- * @param {PresSlide} slide - slide object that represents master slide layout
- * @param {SlideLayout[]} layouts - slide layouts
+ * @param {PresSlideInternal} slide - slide object that represents master slide layout
+ * @param {SlideLayoutInternal[]} layouts - slide layouts
  * @return {string} XML
  */
-export function makeXmlMaster (slide: PresSlide, layouts: SlideLayout[]): string {
+export function makeXmlMaster (slide: PresSlideInternal, layouts: SlideLayoutInternal[]): string {
 	// NOTE: Pass layouts as static rels because they are not referenced any time
 	const layoutDefs = layouts.map((_layoutDef, idx) => `<p:sldLayoutId id="${LAYOUT_IDX_SERIES_BASE + idx}" r:id="rId${slide._rels.length + idx + 1}"/>`)
 
@@ -1708,10 +1708,10 @@ export function makeXmlMaster (slide: PresSlide, layouts: SlideLayout[]): string
 /**
  * Generates XML string for a slide layout relation file
  * @param {number} layoutNumber - 1-indexed number of a layout that relations are generated for
- * @param {SlideLayout[]} slideLayouts - Slide Layouts
+ * @param {SlideLayoutInternal[]} slideLayouts - Slide Layouts
  * @return {string} XML
  */
-export function makeXmlSlideLayoutRel (layoutNumber: number, slideLayouts: SlideLayout[]): string {
+export function makeXmlSlideLayoutRel (layoutNumber: number, slideLayouts: SlideLayoutInternal[]): string {
 	return slideObjectRelationsToXml(slideLayouts[layoutNumber - 1], [
 		{
 			target: '../slideMasters/slideMaster1.xml',
@@ -1722,12 +1722,12 @@ export function makeXmlSlideLayoutRel (layoutNumber: number, slideLayouts: Slide
 
 /**
  * Creates `ppt/_rels/slide*.xml.rels`
- * @param {PresSlide[]} slides
- * @param {SlideLayout[]} slideLayouts - Slide Layout(s)
+ * @param {PresSlideInternal[]} slides
+ * @param {SlideLayoutInternal[]} slideLayouts - Slide Layout(s)
  * @param {number} `slideNumber` 1-indexed number of a layout that relations are generated for
  * @return {string} XML
  */
-export function makeXmlSlideRel (slides: PresSlide[], slideLayouts: SlideLayout[], slideNumber: number): string {
+export function makeXmlSlideRel (slides: PresSlideInternal[], slideLayouts: SlideLayoutInternal[], slideNumber: number): string {
 	return slideObjectRelationsToXml(slides[slideNumber - 1], [
 		{
 			target: `../slideLayouts/slideLayout${getLayoutIdxForSlide(slides, slideLayouts, slideNumber)}.xml`,
@@ -1755,11 +1755,11 @@ export function makeXmlNotesSlideRel (slideNumber: number): string {
 
 /**
  * Creates `ppt/slideMasters/_rels/slideMaster1.xml.rels`
- * @param {PresSlide} masterSlide - Slide object
- * @param {SlideLayout[]} slideLayouts - Slide Layouts
+ * @param {PresSlideInternal} masterSlide - Slide object
+ * @param {SlideLayoutInternal[]} slideLayouts - Slide Layouts
  * @return {string} XML
  */
-export function makeXmlMasterRel (masterSlide: PresSlide, slideLayouts: SlideLayout[]): string {
+export function makeXmlMasterRel (masterSlide: PresSlideInternal, slideLayouts: SlideLayoutInternal[]): string {
 	const defaultRels = slideLayouts.map((_layoutDef, idx) => ({
 		target: `../slideLayouts/slideLayout${idx + 1}.xml`,
 		type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout',
@@ -1781,12 +1781,12 @@ export function makeXmlNotesMasterRel (): string {
 
 /**
  * For the passed slide number, resolves name of a layout that is used for.
- * @param {PresSlide[]} slides - srray of slides
- * @param {SlideLayout[]} slideLayouts - array of slideLayouts
+ * @param {PresSlideInternal[]} slides - srray of slides
+ * @param {SlideLayoutInternal[]} slideLayouts - array of slideLayouts
  * @param {number} slideNumber
  * @return {number} slide number
  */
-function getLayoutIdxForSlide (slides: PresSlide[], slideLayouts: SlideLayout[], slideNumber: number): number {
+function getLayoutIdxForSlide (slides: PresSlideInternal[], slideLayouts: SlideLayoutInternal[], slideNumber: number): number {
 	for (let i = 0; i < slideLayouts.length; i++) {
 		if (slideLayouts[i]._name === slides[slideNumber - 1]._slideLayout._name) {
 			return i + 1

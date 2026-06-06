@@ -3,7 +3,7 @@
  */
 
 import { DEF_FONT_SIZE, DEF_SLIDE_MARGIN_IN, EMU, LINEH_MODIFIER, ONEPT, SLIDE_OBJECT_TYPES } from './core-enums.js'
-import type { PresLayout, SlideLayout, TableCell, TableToSlidesProps, TableRow, TableRowSlide, TableCellProps } from './core-interfaces.js'
+import type { PresLayout, SlideLayoutInternal, TableCell, TableToSlidesProps, TableRow, TableRowSlide, TableCellProps } from './core-interfaces.js'
 import { getSmartParseNumber, inch2Emu, rgbToHex, valToPts } from './gen-utils.js'
 import PptxGenJS from './pptxgen.js'
 
@@ -175,10 +175,10 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
  * @param {TableCell[][]} tableRows - table rows
  * @param {TableToSlidesProps} tableProps - table2slides properties
  * @param {PresLayout} presLayout - presentation layout
- * @param {SlideLayout} masterSlide - master slide
+ * @param {SlideLayoutInternal} masterSlide - master slide
  * @return {TableRowSlide[]} array of table rows
  */
-export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps: TableToSlidesProps = {}, presLayout: PresLayout, masterSlide?: SlideLayout): TableRowSlide[] {
+export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps: TableToSlidesProps = {}, presLayout: PresLayout, masterSlide?: SlideLayoutInternal): TableRowSlide[] {
 	let arrInchMargins = DEF_SLIDE_MARGIN_IN
 	let emuSlideTabW: number
 	let emuSlideTabH = EMU * 1
@@ -518,9 +518,9 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
  * @param {PptxGenJS} pptx - pptxgenjs instance
  * @param {string} tabEleId - HTMLElementID of the table
  * @param {ITableToSlidesOpts} options - array of options (e.g.: tabsize)
- * @param {SlideLayout} masterSlide - masterSlide
+ * @param {SlideLayoutInternal} masterSlide - masterSlide
  */
-export function genTableToSlides(pptx: PptxGenJS, tabEleId: string, options: TableToSlidesProps = {}, masterSlide?: SlideLayout): void {
+export function genTableToSlides(pptx: PptxGenJS, tabEleId: string, options: TableToSlidesProps = {}, masterSlide?: SlideLayoutInternal): void {
 	const opts = options || {}
 	opts.slideMargin = opts.slideMargin || opts.slideMargin === 0 ? opts.slideMargin : 0.5
 	let emuSlideTabW = opts.w || pptx.presLayout.width

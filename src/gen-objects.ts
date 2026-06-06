@@ -36,10 +36,10 @@ import type {
 	OptsChartData,
 	OptsChartGridLine,
 	PresLayout,
-	PresSlide,
+	PresSlideInternal,
 	ShapeLineProps,
 	ShapeProps,
-	SlideLayout,
+	SlideLayoutInternal,
 	SlideMasterProps,
 	TableCell,
 	TableProps,
@@ -56,9 +56,9 @@ let _chartCounter = 0
 /**
  * Transforms a slide definition to a slide object that is then passed to the XML transformation process.
  * @param {SlideMasterProps} props - slide definition
- * @param {PresSlide|SlideLayout} target - empty slide object that should be updated by the passed definition
+ * @param {PresSlideInternal|SlideLayoutInternal} target - empty slide object that should be updated by the passed definition
  */
-export function createSlideMaster(props: SlideMasterProps, target: SlideLayout): void {
+export function createSlideMaster(props: SlideMasterProps, target: SlideLayoutInternal): void {
 	// STEP 1: Add background if either the slide or layout has background props
 	// if (props.background || target.background) addBackgroundDefinition(props.background, target)
 	if (props.bkgd) target.bkgd = props.bkgd // DEPRECATED: (remove in v4.0.0)
@@ -67,7 +67,7 @@ export function createSlideMaster(props: SlideMasterProps, target: SlideLayout):
 	if (props.objects && Array.isArray(props.objects) && props.objects.length > 0) {
 		props.objects.forEach((object, idx) => {
 			const key = Object.keys(object)[0]
-			const tgt = target as PresSlide
+			const tgt = target as PresSlideInternal
 			if (MASTER_OBJECTS[key] && key === 'chart') addChartDefinition(tgt, object[key].type, object[key].data, object[key].opts)
 			else if (MASTER_OBJECTS[key] && key === 'image') addImageDefinition(tgt, object[key])
 			else if (MASTER_OBJECTS[key] && key === 'line') addShapeDefinition(tgt, SHAPE_TYPE.LINE, object[key])
@@ -110,7 +110,7 @@ export function createSlideMaster(props: SlideMasterProps, target: SlideLayout):
  * @param {CHART_NAME | IChartMulti[]} `type` should belong to: 'column', 'pie'
  * @param {[]} `data` a JSON object with follow the following format
  * @param {IChartOptsLib} `opt` chart options
- * @param {PresSlide} `target` slide object that the chart will be added to
+ * @param {PresSlideInternal} `target` slide object that the chart will be added to
  * @return {object} chart object
  * {
  *    title: 'eSurvey chart',
@@ -128,7 +128,7 @@ export function createSlideMaster(props: SlideMasterProps, target: SlideLayout):
  *    ]
  * }
  */
-export function addChartDefinition(target: PresSlide, type: CHART_NAME | IChartMulti[], data: OptsChartData[], opt: IChartOptsLib): object {
+export function addChartDefinition(target: PresSlideInternal, type: CHART_NAME | IChartMulti[], data: OptsChartData[], opt: IChartOptsLib): object {
 	function correctGridLineOptions(glOpts: OptsChartGridLine): void {
 		if (!glOpts || glOpts.style === 'none') return
 		if (glOpts.size !== undefined && (isNaN(Number(glOpts.size)) || glOpts.size <= 0)) {
@@ -378,11 +378,11 @@ export function addChartDefinition(target: PresSlide, type: CHART_NAME | IChartM
  * Adds an image object to a slide definition.
  * This method can be called with only two args (opt, target) - this is supposed to be the only way in future.
  * @param {ImageProps} `opt` - object containing `path`/`data`, `x`, `y`, etc.
- * @param {PresSlide} `target` - slide that the image should be added to (if not specified as the 2nd arg)
+ * @param {PresSlideInternal} `target` - slide that the image should be added to (if not specified as the 2nd arg)
  * @note: Remote images (eg: "http://whatev.com/blah"/from web and/or remote server arent supported yet - we'd need to create an <img>, load it, then send to canvas
  * @see: https://stackoverflow.com/questions/164181/how-to-fetch-a-remote-image-to-display-in-a-canvas)
  */
-export function addImageDefinition(target: PresSlide, opt: ImageProps): void {
+export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): void {
 	const newObject: ISlideObject = {
 		_type: null,
 		text: null,
@@ -526,10 +526,10 @@ export function addImageDefinition(target: PresSlide, opt: ImageProps): void {
 
 /**
  * Adds a media object to a slide definition.
- * @param {PresSlide} `target` - slide object that the media will be added to
+ * @param {PresSlideInternal} `target` - slide object that the media will be added to
  * @param {MediaProps} `opt` - media options
  */
-export function addMediaDefinition(target: PresSlide, opt: MediaProps): void {
+export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): void {
 	const intPosX = opt.x || 0
 	const intPosY = opt.y || 0
 	const intSizeX = opt.w || 2
@@ -649,11 +649,11 @@ export function addMediaDefinition(target: PresSlide, opt: MediaProps): void {
 
 /**
  * Adds Notes to a slide.
- * @param {PresSlide} `target` slide object
+ * @param {PresSlideInternal} `target` slide object
  * @param {string} `notes`
  * @since 2.3.0
  */
-export function addNotesDefinition(target: PresSlide, notes: string): void {
+export function addNotesDefinition(target: PresSlideInternal, notes: string): void {
 	target._slideObjects.push({
 		_type: SLIDE_OBJECT_TYPES.notes,
 		text: [{ text: notes }],
@@ -674,11 +674,11 @@ const SHAPE_NAME_ALIASES: { [key: string]: SHAPE_NAME } = {
 
 /**
  * Adds a shape object to a slide definition.
- * @param {PresSlide} target slide object that the shape should be added to
+ * @param {PresSlideInternal} target slide object that the shape should be added to
  * @param {SHAPE_NAME} shapeName shape name
  * @param {ShapeProps} opts shape options
  */
-export function addShapeDefinition(target: PresSlide, shapeName: SHAPE_NAME, opts: ShapeProps): void {
+export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_NAME, opts: ShapeProps): void {
 	const options = typeof opts === 'object' ? opts : {}
 	options.line = options.line || { type: 'none' }
 	options.shadow = correctShadowOptions(options.shadow)
@@ -738,24 +738,24 @@ export function addShapeDefinition(target: PresSlide, shapeName: SHAPE_NAME, opt
 
 /**
  * Adds a table object to a slide definition.
- * @param {PresSlide} target - slide object that the table should be added to
+ * @param {PresSlideInternal} target - slide object that the table should be added to
  * @param {TableRow[]} tableRows - table data
  * @param {TableProps} options - table options
- * @param {SlideLayout} slideLayout - Slide layout
+ * @param {SlideLayoutInternal} slideLayout - Slide layout
  * @param {PresLayout} presLayout - Presentation layout
  * @param {Function} addSlide - method
  * @param {Function} getSlide - method
  */
 export function addTableDefinition(
-	target: PresSlide,
+	target: PresSlideInternal,
 	tableRows: TableRow[],
 	options: TableProps,
-	slideLayout: SlideLayout,
+	slideLayout: SlideLayoutInternal,
 	presLayout: PresLayout,
-	addSlide: (options?: AddSlideProps) => PresSlide,
-	getSlide: (slideNumber: number) => PresSlide
-): PresSlide[] {
-	const slides: PresSlide[] = [target] // Create array of Slides as more may be added by auto-paging
+	addSlide: (options?: AddSlideProps) => PresSlideInternal,
+	getSlide: (slideNumber: number) => PresSlideInternal
+): PresSlideInternal[] {
+	const slides: PresSlideInternal[] = [target] // Create array of Slides as more may be added by auto-paging
 	const opt: TableProps = options && typeof options === 'object' ? options : {}
 	opt.objectName = opt.objectName ? encodeXmlEntities(opt.objectName) : `Table ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.table).length}`
 
@@ -966,7 +966,7 @@ export function addTableDefinition(
 	})
 
 	// If autoPage = true, we need to return references to newly created slides if any
-	const newAutoPagedSlides: PresSlide[] = []
+	const newAutoPagedSlides: PresSlideInternal[] = []
 
 	// STEP 6: Auto-Paging: (via {options} and used internally)
 	// (used internally by `tableToSlides()` to not engage recursion - we've already paged the table data, just add this one)
@@ -993,7 +993,7 @@ export function addTableDefinition(
 
 			// C: Add this table to new Slide
 			{
-				const newSlide: PresSlide = getSlide(target._slideNum + idx)
+				const newSlide: PresSlideInternal = getSlide(target._slideNum + idx)
 
 				opt.autoPage = false
 
@@ -1013,13 +1013,13 @@ export function addTableDefinition(
 
 /**
  * Adds a text object to a slide definition.
- * @param {PresSlide} target - slide object that the text should be added to
+ * @param {PresSlideInternal} target - slide object that the text should be added to
  * @param {string|TextProps[]} text text string or object
  * @param {TextPropsOptions} opts text options
  * @param {boolean} isPlaceholder whether this a placeholder object
  * @since: 1.0.0
  */
-export function addTextDefinition(target: PresSlide, text: TextProps[], opts: TextPropsOptions, isPlaceholder: boolean): void {
+export function addTextDefinition(target: PresSlideInternal, text: TextProps[], opts: TextPropsOptions, isPlaceholder: boolean): void {
 	const newObject: ISlideObject = {
 		_type: isPlaceholder ? SLIDE_OBJECT_TYPES.placeholder : SLIDE_OBJECT_TYPES.text,
 		shape: (opts?.shape) || SHAPE_TYPE.RECTANGLE,
@@ -1138,9 +1138,9 @@ export function addTextDefinition(target: PresSlide, text: TextProps[], opts: Te
 
 /**
  * Adds placeholder objects to slide
- * @param {PresSlide} slide - slide object containing layouts
+ * @param {PresSlideInternal} slide - slide object containing layouts
  */
-export function addPlaceholdersToSlideLayouts(slide: PresSlide): void {
+export function addPlaceholdersToSlideLayouts(slide: PresSlideInternal): void {
 	// Add all placeholders on this Slide that dont already exist
 	(slide._slideLayout._slideObjects || []).forEach(slideLayoutObj => {
 		if (slideLayoutObj._type === SLIDE_OBJECT_TYPES.placeholder) {
@@ -1159,9 +1159,9 @@ export function addPlaceholdersToSlideLayouts(slide: PresSlide): void {
 /**
  * Adds a background image or color to a slide definition.
  * @param {BackgroundProps} props - color string or an object with image definition
- * @param {PresSlide} target - slide object that the background is set to
+ * @param {PresSlideInternal} target - slide object that the background is set to
  */
-export function addBackgroundDefinition(props: BackgroundProps, target: SlideLayout): void {
+export function addBackgroundDefinition(props: BackgroundProps, target: SlideLayoutInternal): void {
 	// A: @deprecated
 	if (target.bkgd) {
 		if (!target.background) target.background = {}
@@ -1199,11 +1199,11 @@ export function addBackgroundDefinition(props: BackgroundProps, target: SlideLay
 
 /**
  * Parses text/text-objects from `addText()` and `addTable()` methods; creates 'hyperlink'-type Slide Rels for each hyperlink found
- * @param {PresSlide} target - slide object that any hyperlinks will be be added to
+ * @param {PresSlideInternal} target - slide object that any hyperlinks will be be added to
  * @param {number | string | TextProps | TextProps[] | ITableCell[][]} text - text to parse
  */
 function createHyperlinkRels(
-	target: PresSlide,
+	target: PresSlideInternal,
 	text: number | string | ISlideObject | TextProps | TextProps[] | TableCell[][],
 	options?: TextPropsOptions[],
 ): void {

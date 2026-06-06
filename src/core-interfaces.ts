@@ -1720,9 +1720,6 @@ export interface WriteFileProps extends WriteBaseProps {
 	fileName?: string
 }
 export interface SectionProps {
-	_type?: 'user' | 'default'
-	_slides?: PresSlide[]
-
 	/**
 	 * Section title
 	 */
@@ -1732,6 +1729,10 @@ export interface SectionProps {
 	 * - values: 1-n
 	 */
 	order?: number
+}
+export interface SectionInternalProps extends SectionProps {
+	_type?: 'user' | 'default'
+	_slides: PresSlideInternal[]
 }
 export interface PresLayout {
 	_sizeW?: number
@@ -1808,7 +1809,14 @@ export interface SlideBaseProps {
 	 */
 	bkgd?: string | BackgroundProps
 }
-export interface SlideLayout extends SlideBaseProps {
+export interface SlideLayout {
+	background?: BackgroundProps
+	/**
+	 * @deprecated v3.3.0 - use `background`
+	 */
+	bkgd?: string | BackgroundProps
+}
+export interface SlideLayoutInternal extends SlideBaseProps, SlideLayout {
 	_slide?: {
 		_bkgdImgRid?: number
 		back: string
@@ -1816,11 +1824,7 @@ export interface SlideLayout extends SlideBaseProps {
 		hidden?: boolean
 	}
 }
-export interface PresSlide extends SlideBaseProps {
-	_rId: number
-	_slideLayout: SlideLayout
-	_slideId: number
-
+export interface PresSlide {
 	addChart: (type: CHART_NAME | IChartMulti[], data: OptsChartData[], options?: IChartOpts) => PresSlide
 	addImage: (options: ImageProps) => PresSlide
 	addMedia: (options: MediaProps) => PresSlide
@@ -1828,6 +1832,8 @@ export interface PresSlide extends SlideBaseProps {
 	addShape: (shapeName: SHAPE_NAME, options?: ShapeProps) => PresSlide
 	addTable: (tableRows: TableRow[], options?: TableProps) => PresSlide
 	addText: (text: string | number | TextProps[], options?: TextPropsOptions) => PresSlide
+
+	readonly newAutoPagedSlides?: PresSlide[]
 
 	/**
 	 * Background color or image (`color` | `path` | `data`)
@@ -1839,6 +1845,10 @@ export interface PresSlide extends SlideBaseProps {
 	 * @since v3.3.0
 	 */
 	background?: BackgroundProps
+	/**
+	 * @deprecated v3.3.0 - use `background`
+	 */
+	bkgd?: string | BackgroundProps
 	/**
 	 * Default text color (hex format)
 	 * @example 'FF3399'
@@ -1854,6 +1864,11 @@ export interface PresSlide extends SlideBaseProps {
 	 * Slide number options
 	 */
 	slideNumber?: SlideNumberProps
+}
+export interface PresSlideInternal extends SlideBaseProps, PresSlide {
+	_rId: number
+	_slideLayout: SlideLayoutInternal
+	_slideId: number
 }
 export interface AddSlideProps {
 	masterName?: string // TODO: 20200528: rename to "masterTitle" (createMaster uses `title` so lets be consistent)
@@ -1881,7 +1896,8 @@ export interface PresentationProps {
 }
 // PRIVATE interface
 export interface IPresentationProps extends PresentationProps {
-	sections: SectionProps[]
-	slideLayouts: SlideLayout[]
-	slides: PresSlide[]
+	masterSlide: PresSlideInternal
+	sections: SectionInternalProps[]
+	slideLayouts: SlideLayoutInternal[]
+	slides: PresSlideInternal[]
 }
