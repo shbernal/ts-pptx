@@ -1,9 +1,10 @@
 # Submission Guidelines
 
-- Only modify the `src/*.ts` files (do not submit `dist` or `src/bld` files)
-- New and updated properties must be added to `src/core-interfaces.ts` and `types/index.d.ts`
-- New and updated features must be included in the corresponding `demos/modules/*.mjs` file
-- Review previously accepted changes for examples on what to provide
+- Keep source changes in `src/` and tests in `test/`.
+- Treat `dist/`, `src/bld`, and `types/` as generated artifacts unless the change explicitly refreshes package outputs.
+- New and updated public properties must be reflected in source interfaces and generated declarations.
+- New and updated features should include focused tests and, when useful, a demo update.
+- Review `docs/development.md`, `docs/testing.md`, and `docs/runtime-and-package-support.md` before changing package behavior.
 
 ## Change Summary
 <!--- Required: Provide a general summary of your changes -->
@@ -26,13 +27,13 @@
 
 ## Checklist before requesting a review
 
-- [ ] If it is a core feature, I have added new code under `/demos/modules/`
-- [ ] My code follows the style guidelines of this project
-- [ ] My changes generate no new eslint warnings
-- [ ] I have performed a self-review of my code
-- [ ] I have commented my code, particularly in hard-to-understand areas
-- [ ] I have included code/tests that prove my fix is effective or that my feature works
-- [ ] I have used the "Run All Demos" feature on the [browser demo](/demos/browser/index.html) and no errors were found
+- [ ] My code follows the style guidelines of this project.
+- [ ] I have performed a self-review of my code.
+- [ ] I have included code or tests that prove my fix is effective or that my feature works.
+- [ ] I ran the relevant checks from `docs/testing.md`.
+- [ ] For emitted OOXML changes, I added or updated a schema fixture and ran `pnpm run test:schema`.
+- [ ] For package-boundary changes, I ran `pnpm run test:package`.
+- [ ] I did not reintroduce CommonJS or IIFE/global browser bundle support.
 
 ## Screenshots / Sample Code (if appropriate)
 

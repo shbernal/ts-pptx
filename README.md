@@ -1,67 +1,23 @@
 # PptxGenJS
 
-![PptxGenJS Sample Slides](https://raw.githubusercontent.com/gitbrent/PptxGenJS/gh-pages/img/readme_banner.png)
+PptxGenJS generates PowerPoint `.pptx` files from TypeScript and modern
+JavaScript. This maintained project targets ESM package consumers, typed
+application code, reproducible package verification, and agent-assisted OOXML
+development.
 
-![jsdelivr downloads](https://data.jsdelivr.com/v1/package/gh/gitbrent/pptxgenjs/badge)
-![NPM Downloads](https://img.shields.io/npm/dm/pptxgenjs?style=flat-square)
-![GitHub Repo stars](https://img.shields.io/github/stars/gitbrent/pptxgenjs?style=flat-square)
-![GitHub License](https://img.shields.io/github/license/gitbrent/pptxgenjs?style=flat-square)
-![TypeScript defs](https://img.shields.io/npm/types/pptxgenjs?style=flat-square)
+## Project Target
 
-## 🚀 Features
+- Generate standards-based PowerPoint `.pptx` packages without requiring
+  PowerPoint at runtime.
+- Support TypeScript-first workflows with checked declarations and modern
+  bundler resolution.
+- Ship a small, explicit ESM package boundary for Node.js, Vite, React,
+  Angular, Electron, and similar modern toolchains.
+- Keep OOXML changes grounded in fixtures, schema validation, and PowerPoint
+  compatibility evidence.
+- Make the repository practical for human and agent-driven maintenance.
 
-**PptxGenJS lets you generate professional PowerPoint presentations in JavaScript - directly from Node, React, Vite, Electron, or even the browser.**
-The library outputs standards-compliant Open Office XML (OOXML) files compatible with:
-
-- ✅ Microsoft PowerPoint
-- ✅ Apple Keynote
-- ✅ LibreOffice Impress
-- ✅ Google Slides (via import)
-
-Design custom slides, charts, images, tables, and templates programmatically - no PowerPoint install or license required.
-
-### Works Everywhere
-
-- Supports every major modern browser - desktop and mobile
-- Seamlessly integrates with **Node.js**, **React**, **Angular**, **Vite**, and **Electron**
-- Compatible with **PowerPoint**, **Keynote**, **LibreOffice**, and other OOXML apps
-
-### Full-Featured
-
-- Create all major slide objects: **text, tables, shapes, images, charts**, and more
-- Define custom **Slide Masters** for consistent academic or corporate branding
-- Supports **SVGs**, **animated GIFs**, **YouTube embeds**, **RTL text**, and **Asian fonts**
-
-### Simple & Powerful
-
-- Ridiculously easy to use - create a presentation in 4 lines of code
-- Full **TypeScript definitions** for autocomplete and inline documentation
-- Includes **75+ demo slides** covering every feature and usage pattern
-
-### Export Your Way
-
-- Instantly download `.pptx` files from the browser with proper MIME handling
-- Export as **base64**, **Blob**, **Buffer**, or **Node stream**
-- Supports compression and advanced output options for production use
-
-### HTML to PowerPoint Magic
-
-- Convert any HTML `<table>` to one or more slides with a single line of code → [Explore the HTML-to-PPTX feature](#html-to-powerpoint-magic)
-
-## 🌐 Live Demos
-
-Try PptxGenJS right in your browser - no setup required.
-
-- [Basic Slide Demo](https://gitbrent.github.io/PptxGenJS/demos/) - Build a basic presentation in seconds
-- [Full Feature Showcase](https://gitbrent.github.io/PptxGenJS/demo/browser/index.html) - Explore every available feature
-
-> Perfect for testing compatibility or learning by example - all demos run 100% in the browser.
-
-## 📦 Installation
-
-Choose your preferred method to install **PptxGenJS**:
-
-### Quick Install (Node-based)
+## Install
 
 ```bash
 pnpm add pptxgenjs
@@ -75,159 +31,114 @@ npm install pptxgenjs
 yarn add pptxgenjs
 ```
 
-### CDN (Browser Usage)
+## Quick Start
 
-Use the bundled or minified version via [jsDelivr](https://www.jsdelivr.com/package/gh/gitbrent/pptxgenjs):
+```ts
+import pptxgen from "pptxgenjs"
 
-```html
-<script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs/dist/pptxgen.bundle.js"></script>
+const pptx = new pptxgen()
+const slide = pptx.addSlide()
+
+slide.addText("Hello from PptxGenJS", {
+  x: 1,
+  y: 1,
+  w: 8,
+  h: 1,
+  fontSize: 24,
+  color: "363636",
+})
+
+await pptx.writeFile({ fileName: "example.pptx" })
 ```
 
-> Includes the sole dependency (JSZip) in one file.
+## What It Can Generate
 
-📁 Advanced: Separate Files, Direct Download
+- Slides, layouts, masters, sections, notes, and metadata.
+- Text, tables, shapes, images, SVGs, charts, and media.
+- Browser-downloadable, streamed, buffered, Blob, base64, or file outputs,
+  depending on the runtime.
+- OOXML that is intended to open cleanly in Microsoft PowerPoint and other
+  `.pptx` consumers such as Keynote, LibreOffice Impress, and Google Slides
+  import.
 
-Download from GitHub: [Latest Release](https://github.com/gitbrent/PptxGenJS/releases/latest)
+## Runtime And Package Support
 
-```html
-<script src="PptxGenJS/libs/jszip.min.js"></script>
-<script src="PptxGenJS/dist/pptxgen.min.js"></script>
+The package is ESM-only.
+
+Supported package surface:
+
+- `import pptxgen from "pptxgenjs"`
+- `dist/pptxgen.js`
+- `types/pptxgen.d.ts`
+- Node.js `>=24`
+- modern bundlers and module-aware app frameworks
+
+Dropped compared to upstream:
+
+- No CommonJS support: no `require("pptxgenjs")`, no CJS export condition, and
+  no `dist/pptxgen.cjs.js`.
+- No IIFE/global browser bundle: no `window.PptxGenJS` script-tag API, no
+  `dist/pptxgen.bundle.js`, and no `dist/pptxgen.min.js`.
+
+The old named ESM artifact `dist/pptxgen.es.js` is also no longer shipped.
+Use the package export or `dist/pptxgen.js`.
+
+See [runtime and package support](docs/runtime-and-package-support.md) for the
+complete support contract.
+
+## Documentation
+
+- [Documentation index](docs/README.md)
+- [Project target](docs/project-target.md)
+- [Runtime and package support](docs/runtime-and-package-support.md)
+- [Development guide](docs/development.md)
+- [Testing guide](docs/testing.md)
+- [Agent development guide](docs/agent-development.md)
+- [OOXML agent context](docs/ooxml-agent-context.md)
+- [Legacy autoloop workflow](docs/legacy-autoloop.md)
+
+## Repository Development
+
+This repository uses `pnpm` and requires Node.js `>=24`.
+
+```bash
+pnpm install
+pnpm run build
+pnpm run typecheck
+pnpm run test:unit
 ```
 
-### Contributors: Running the Test Suite
+OOXML serialization changes should also add or update a schema fixture and run:
 
-> Running the test suite from a clone requires a one-time `./tools/ooxml-validator/install.sh` to download the OOXML schema validator into `tools/ooxml-validator/bin/`.
-> This repository uses pnpm for development. Run `pnpm install`, then `pnpm test`.
-> Run `pnpm run test:package` after `pnpm run build:dist` when validating the packed package boundary.
-
-## 🚀 Universal Compatibility
-
-PptxGenJS works seamlessly in **modern web and Node environments**, with an ESM-first package entry and zero runtime dependencies. Whether you're building a CLI tool, an Electron app, or a web-based presentation builder, the library adapts automatically to modern stacks.
-
-### Supported Platforms
-
-- **Node.js** – generate presentations in backend scripts, APIs, or CLI tools
-- **React / Angular / Vite / Webpack** – just import and go, no config required
-- **Electron** – build native apps with full filesystem access and PowerPoint output
-- **Browser (Vanilla JS)** – embed in web apps with direct download support
-- **Serverless / Edge Functions** – use in AWS Lambda, Vercel, Cloudflare Workers, etc.
-
-> _Vite, Webpack, and modern bundlers automatically select the ESM build via the `exports` field in `package.json`._
-
-### Builds Provided
-
-- **ES Module**: [`dist/pptxgen.js`](./dist/pptxgen.js)
-
-## 📖 Documentation
-
-### Quick Start Guide
-
-PptxGenJS PowerPoint presentations are created via JavaScript by following 4 basic steps:
-
-#### Angular/React, ES6, TypeScript
-
-```typescript
-import pptxgen from "pptxgenjs";
-
-// 1. Create a new Presentation
-let pres = new pptxgen();
-
-// 2. Add a Slide
-let slide = pres.addSlide();
-
-// 3. Add one or more objects (Tables, Shapes, Images, Text and Media) to the Slide
-let textboxText = "Hello World from PptxGenJS!";
-let textboxOpts = { x: 1, y: 1, color: "363636" };
-slide.addText(textboxText, textboxOpts);
-
-// 4. Save the Presentation
-pres.writeFile();
+```bash
+./tools/ooxml-validator/install.sh
+pnpm run test:schema
 ```
 
-#### Script/Web Browser
+Package-boundary changes should run:
 
-```javascript
-// 1. Create a new Presentation
-let pres = new PptxGenJS();
-
-// 2. Add a Slide
-let slide = pres.addSlide();
-
-// 3. Add one or more objects (Tables, Shapes, Images, Text and Media) to the Slide
-let textboxText = "Hello World from PptxGenJS!";
-let textboxOpts = { x: 1, y: 1, color: "363636" };
-slide.addText(textboxText, textboxOpts);
-
-// 4. Save the Presentation
-pres.writeFile();
+```bash
+pnpm run build:dist
+pnpm run types:build
+pnpm run pack:check
+pnpm run test:package
 ```
 
-That's really all there is to it!
+## Demos
 
-## 💥 HTML-to-PowerPoint Magic
+- `demos/node` exercises Node.js ESM generation and stream output.
+- `demos/vite-demo` exercises a modern React, TypeScript, and Vite app.
+- `demos/browser` is a legacy upstream browser demo. It remains in the
+  repository for reference while the project target is ESM-first package usage.
 
-Convert any HTML `<table>` into fully formatted PowerPoint slides - automatically and effortlessly.
+## Relationship To Upstream
 
-```javascript
-let pptx = new pptxgen();
-pptx.tableToSlides("tableElementId");
-pptx.writeFile({ fileName: "html2pptx-demo.pptx" });
-```
+This project builds on PptxGenJS by Brent Ely and contributors. The modernized
+package target is intentionally narrower than upstream in order to simplify the
+runtime contract and keep maintenance focused.
 
-Perfect for transforming:
+## License
 
-- Dynamic dashboards and data reports
-- Exportable grids in web apps
-- Tabular content from CMS or BI tools
+Copyright (c) 2015-present Brent Ely and PptxGenJS contributors.
 
-[View Full Docs & Live Demo](https://gitbrent.github.io/PptxGenJS/html2pptx/)
-
-## 📚 Full Documentation
-
-Complete API reference, tutorials, and integration guides are available on the official docs site: [https://gitbrent.github.io/PptxGenJS](https://gitbrent.github.io/PptxGenJS)
-
-## 🛠️ Issues / Suggestions
-
-Please file issues or suggestions on the [issues page on github](https://github.com/gitbrent/PptxGenJS/issues/new), or even better, [submit a pull request](https://github.com/gitbrent/PptxGenJS/pulls). Feedback is always welcome!
-
-When reporting issues, please include a code snippet or a link demonstrating the problem.
-Here is a small [jsFiddle](https://jsfiddle.net/gitbrent/L1uctxm0/) that is already configured and uses the latest PptxGenJS code.
-
-## 🆘 Need Help?
-
-Sometimes implementing a new library can be a difficult task and the slightest mistake will keep something from working. We've all been there!
-
-If you are having issues getting a presentation to generate, check out the code in the `demos` directory. There
-are demos for browser, node and, react that contain working examples of every available library feature.
-
-- Use a pre-configured jsFiddle to test with: [PptxGenJS Fiddle](https://jsfiddle.net/gitbrent/L1uctxm0/)
-- [View questions tagged `PptxGenJS` on StackOverflow](https://stackoverflow.com/questions/tagged/pptxgenjs?sort=votes&pageSize=50). If you can't find your question, [ask it yourself](https://stackoverflow.com/questions/ask?tags=PptxGenJS) - be sure to tag it `pptxgenjs`.
-- Ask your AI pair programmer! All major LLMs have ingested the pptxgenjs library and have the ability to answer functionality questions and provide code.
-
-## 🙏 Contributors
-
-Thank you to everyone for the contributions and suggestions! ❤️
-
-Special Thanks:
-
-- [Dzmitry Dulko](https://github.com/DzmitryDulko) - Getting the project published on NPM
-- [Michal Kacerovský](https://github.com/kajda90) - New Master Slide Layouts and Chart expertise
-- [Connor Bowman](https://github.com/conbow) - Adding Placeholders
-- [Reima Frgos](https://github.com/ReimaFrgos) - Multiple chart and general functionality patches
-- [Matt King](https://github.com/kyrrigle) - Chart expertise
-- [Mike Wilcox](https://github.com/clubajax) - Chart expertise
-- [Joonas](https://github.com/wyozi) - [react-pptx](https://github.com/wyozi/react-pptx)
-
-PowerPoint shape definitions and some XML code via [Officegen Project](https://github.com/Ziv-Barber/officegen)
-
-## 🌟 Support the Open Source Community
-
-If you find this library useful, consider contributing to open-source projects, or sharing your knowledge on the open social web. Together, we can build free tools and resources that empower everyone.
-
-[@gitbrent@fosstodon.org](https://fosstodon.org/@gitbrent)
-
-## 📜 License
-
-Copyright &copy; 2015-present [Brent Ely](https://github.com/gitbrent/)
-
-[MIT](https://github.com/gitbrent/PptxGenJS/blob/master/LICENSE)
+[MIT](LICENSE)

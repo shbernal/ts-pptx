@@ -1,36 +1,53 @@
 # Node.js Demo
 
-## Regular Node Demo
+This demo exercises the maintained Node.js package target: ESM usage on
+Node.js `>=24`.
 
-### Regular Usage
+## Run From The Repository
 
-Generate a simple presentation.
-
-```bash
-node demo.js
-```
-
-Generate a presentation with all demo objects (like the browser demo).
+Install dependencies at the repository root:
 
 ```bash
-node demo.js All
+pnpm install
 ```
 
-Generate a presentation with selected demo objects (e.g.: 'Table', 'Text', etc.).
-(See `../common/demos.js` for all tests)
+Run a focused text demo:
 
 ```bash
-node demo.js Text
+pnpm --dir demos/node run demo-text
 ```
 
-## Stream Demo
-
-The `demo_stream.js` file requires the `express` package to demonstrate streaming.
-
-### Stream Usage
+Run the default demo:
 
 ```bash
-node demo_stream.js
+pnpm --dir demos/node run demo
 ```
 
-Then visit `http://localhost:3000/` on a local web browser to download the streamed file.
+Run all demo objects:
+
+```bash
+pnpm --dir demos/node run demo-all
+```
+
+Run the stream demo:
+
+```bash
+pnpm --dir demos/node run demo-stream
+```
+
+Then visit `http://localhost:3000/` in a browser to download the streamed
+presentation.
+
+## Package Smoke Path
+
+To test this demo against a packed package instead of the workspace dependency,
+use the repository smoke command:
+
+```bash
+pnpm run test:demo:node
+```
+
+## Notes
+
+- This demo is ESM-only.
+- CommonJS `require("pptxgenjs")` is not supported.

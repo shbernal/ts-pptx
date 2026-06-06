@@ -53,7 +53,7 @@ Use it when you need to answer questions such as:
 ## Retrieval Workflow
 
 1. Start with local evidence. Search `src/`, `test/`, `tools/ooxml-validator/`,
-   `README.md`, and `TESTING.md` before changing behavior.
+   `README.md`, and `docs/testing.md` before changing behavior.
 2. Use `ooxml` for normative structure: schema order, child elements,
    attributes, simple type enums, namespaces, and OPC package metadata.
 3. Use `microsoft_learn` for PowerPoint-specific behavior, Microsoft extension

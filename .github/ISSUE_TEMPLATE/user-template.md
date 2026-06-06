@@ -7,13 +7,13 @@ assignees: ''
 
 ---
 
-We appreciate your feedback - to help the team understand your needs please complete the following template to ensure we have the details to help.
+We appreciate your feedback. Please complete the template so maintainers can reproduce and triage the issue.
 
 ### Submission Guidelines
 
 - **If you are not using the latest release, please update and see if the issue is resolved before submitting an issue**
-- General questions or high-level topics should be posted in [Discussions](https://github.com/gitbrent/PptxGenJS/discussions)
-- Please browse the online [Documentation](https://gitbrent.github.io/PptxGenJS/) to see if your question is already addressed there
+- Please check the repository documentation under `docs/`.
+- This project targets ESM package usage. CommonJS and IIFE/global browser bundles are not supported.
 
 ### Issue Category
 
@@ -25,6 +25,8 @@ We appreciate your feedback - to help the team understand your needs please comp
 ### Product Versions
 
 - Please specify what version of the library you are using......: [        ]
+- Please specify your Node.js version if applicable.............: [        ]
+- Please specify your package manager and version if applicable.: [        ]
 - Please specify what version(s) of PowerPoint you are targeting: [        ]
 - Please specify what web browser you are using.................: [        ]
 
