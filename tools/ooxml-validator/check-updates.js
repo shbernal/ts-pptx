@@ -6,9 +6,12 @@
 // upstream drift. Exits 0 if up-to-date, 1 if a newer release is
 // available, 2 on network/parse errors.
 
-const fs = require('fs')
-const path = require('path')
-const https = require('https')
+import fs from 'node:fs'
+import https from 'node:https'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const VERSION_FILE = path.join(__dirname, 'version.json')
 const LATEST_URL = 'https://api.github.com/repos/mikeebowen/OOXML-Validator/releases/latest'
