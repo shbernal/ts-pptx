@@ -493,7 +493,7 @@ export default class PptxGenJS {
 		// Continue using sections if the first slide using auto-paging has a Section
 		const sectAlreadyInUse =
 			this._sections.length > 0 &&
-			this._sections[this._sections.length - 1]._slides.filter(slide => slide._slideNum === this._slides[this._slides.length - 1]._slideNum).length > 0
+			this._sections[this._sections.length - 1]._slides.some(slide => slide._slideNum === this._slides[this._slides.length - 1]._slideNum)
 
 		nextOptions.sectionTitle = sectAlreadyInUse ? this._sections[this._sections.length - 1].title : null
 
@@ -506,7 +506,7 @@ export default class PptxGenJS {
 	 * @return {PresSlide} Slide
 	 * @since 3.0.0
 	 */
-	private readonly getSlide = (slideNum: number): PresSlideInternal => this._slides.filter(slide => slide._slideNum === slideNum)[0]
+	private readonly getSlide = (slideNum: number): PresSlideInternal => this._slides.find(slide => slide._slideNum === slideNum)
 
 	/**
 	 * Enables the `Slide` class to set PptxGenJS [Presentation] master/layout slidenumbers
@@ -517,7 +517,7 @@ export default class PptxGenJS {
 		this._masterSlide._slideNumberProps = slideNum
 
 		// 2: Add slideNumber to DEF_PRES_LAYOUT_NAME layout
-		this._slideLayouts.filter(layout => layout._name === DEF_PRES_LAYOUT_NAME)[0]._slideNumberProps = slideNum
+		this._slideLayouts.find(layout => layout._name === DEF_PRES_LAYOUT_NAME)._slideNumberProps = slideNum
 	}
 
 	/**
@@ -735,7 +735,7 @@ export default class PptxGenJS {
 		}
 
 		if (masterSlideName) {
-			const tmpLayout = this._slideLayouts.filter(layout => layout._name === masterSlideName)[0]
+			const tmpLayout = this._slideLayouts.find(layout => layout._name === masterSlideName)
 			if (tmpLayout) slideLayout = tmpLayout
 		}
 
@@ -757,7 +757,7 @@ export default class PptxGenJS {
 		// B-1: Add slide to section (if any provided)
 		// B-2: Handle slides without a section when sections are already is use ("loose" slides arent allowed, they all need a section)
 		if (options?.sectionTitle) {
-			const sect = this._sections.filter(section => section.title === options.sectionTitle)[0]
+			const sect = this._sections.find(section => section.title === options.sectionTitle)
 			if (!sect) console.warn(`addSlide: unable to find section with title: "${options.sectionTitle}"`)
 			else sect._slides.push(newSlide)
 		} else if (this._sections && this._sections.length > 0 && (!options?.sectionTitle)) {
@@ -851,7 +851,7 @@ export default class PptxGenJS {
 			this,
 			eleId,
 			options,
-			options?.masterSlideName ? this._slideLayouts.filter(layout => layout._name === options.masterSlideName)[0] : null
+			options?.masterSlideName ? this._slideLayouts.find(layout => layout._name === options.masterSlideName) : null
 		)
 	}
 }

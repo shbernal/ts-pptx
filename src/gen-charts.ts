@@ -1204,7 +1204,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 								strXml += '    <c:extLst>'
 								strXml += '      <c:ext uri="{CE6537A1-D6FC-4f65-9D91-7224C49458BB}" xmlns:c15="http://schemas.microsoft.com/office/drawing/2012/chart"/>'
 								strXml += '      <c:ext uri="{C3380CC4-5D6E-409C-BE32-E72D297353CC}" xmlns:c16="http://schemas.microsoft.com/office/drawing/2014/chart">'
-								strXml += `            <c16:uniqueId val="{${'00000000'.substring(0, 8 - (idx + 1).toString().length).toString()}${idx + 1}${chartUuid}}"/>`
+								strXml += `            <c16:uniqueId val="{${String(idx + 1).padStart(8, '0')}${chartUuid}}"/>`
 								strXml += '      </c:ext>'
 								strXml += '        </c:extLst>'
 								strXml += '</c:dLbl>'
@@ -1836,7 +1836,7 @@ function makeValAxis (opts: IChartOptsLib, valAxisId: string): string {
 	}
 	strXml +=
 		' <c:crossBetween val="' +
-		(opts._type === CHART_TYPE.SCATTER || (!!(Array.isArray(opts._type) && opts._type.filter(type => type.type === CHART_TYPE.AREA).length > 0)) ? 'midCat' : 'between') +
+		(opts._type === CHART_TYPE.SCATTER || (!!(Array.isArray(opts._type) && opts._type.some(type => type.type === CHART_TYPE.AREA))) ? 'midCat' : 'between') +
 		'"/>'
 	if (opts.valAxisMajorUnit) strXml += ` <c:majorUnit val="${opts.valAxisMajorUnit}"/>`
 	if (opts.valAxisDisplayUnit) { strXml += `<c:dispUnits><c:builtInUnit val="${opts.valAxisDisplayUnit}"/>${opts.valAxisDisplayUnitLabel ? '<c:dispUnitsLbl/>' : ''}</c:dispUnits>` }
@@ -1930,7 +1930,7 @@ function makeSerAxis (opts: IChartOptsLib, axisId: string, valAxisId: string): s
  * @return {string} XML `<c:title>`
  */
 function genXmlTitle (opts: IChartPropsTitle, chartX?: number, chartY?: number): string {
-	const align = opts.titleAlign === 'left' || opts.titleAlign === 'right' ? `<a:pPr algn="${opts.titleAlign.substring(0, 1)}">` : '<a:pPr>'
+	const align = opts.titleAlign === 'left' || opts.titleAlign === 'right' ? `<a:pPr algn="${opts.titleAlign.slice(0, 1)}">` : '<a:pPr>'
 	const rotate = opts.titleRotate ? `<a:bodyPr rot="${convertRotationDegrees(opts.titleRotate)}"/>` : '<a:bodyPr/>' // don't specify rotation to get default (ex. vertical for cat axis)
 	const sizeAttr = opts.fontSize ? `sz="${Math.round(opts.fontSize * 100)}"` : '' // only set the font size if specified.  Powerpoint will handle the default size
 	const titleBold = opts.titleBold ? 1 : 0

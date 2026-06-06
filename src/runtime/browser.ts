@@ -12,19 +12,15 @@ export function createBrowserRuntime(): RuntimeAdapter {
 }
 
 async function loadMedia(rel: ISlideRelMedia & { path: string }): Promise<string> {
+	const response = await fetch(rel.path)
+	if (!response.ok) throw new Error(`ERROR! Unable to load image (fetch): ${rel.path}`)
+	const blob = await response.blob()
+
 	return await new Promise<string>((resolve, reject) => {
-		const xhr = new XMLHttpRequest()
-		xhr.onload = () => {
-			const reader = new FileReader()
-			reader.onloadend = () => resolve(reader.result as string)
-			reader.readAsDataURL(xhr.response)
-		}
-		xhr.onerror = () => {
-			reject(new Error(`ERROR! Unable to load image (xhr.onerror): ${rel.path}`))
-		}
-		xhr.open('GET', rel.path)
-		xhr.responseType = 'blob'
-		xhr.send()
+		const reader = new FileReader()
+		reader.onloadend = () => resolve(reader.result as string)
+		reader.onerror = () => reject(new Error(`ERROR! Unable to load image (FileReader): ${rel.path}`))
+		reader.readAsDataURL(blob)
 	})
 }
 

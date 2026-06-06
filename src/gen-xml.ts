@@ -586,10 +586,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				strSlideXml += '  </p:nvPicPr>'
 				strSlideXml += '<p:blipFill>'
 				// NOTE: This works for both cases: either `path` or `data` contains the SVG
-				if (
-					(slide._relsMedia || []).filter(rel => rel.rId === slideItemObj.imageRid)[0] &&
-					(slide._relsMedia || []).filter(rel => rel.rId === slideItemObj.imageRid)[0].extn === 'svg'
-				) {
+				if ((slide._relsMedia || []).find(rel => rel.rId === slideItemObj.imageRid)?.extn === 'svg') {
 					strSlideXml += `<a:blip r:embed="rId${slideItemObj.imageRid - 1}">`
 					strSlideXml += slideItemObj.options.transparency ? ` <a:alphaModFix amt="${Math.round((100 - slideItemObj.options.transparency) * 1000)}"/>` : ''
 					strSlideXml += ' <a:extLst>'
@@ -1377,7 +1374,7 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 			<a:lstStyle/>
 		</a:txBody>
 	*/
-	if (strSlideXml.indexOf('<a:p>') === -1) {
+	if (!strSlideXml.includes('<a:p>')) {
 		strSlideXml += '<a:p><a:endParaRPr/></a:p>'
 	}
 

@@ -436,7 +436,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	// NOTE: Split to address URLs with params (eg: `path/brent.jpg?someParam=true`)
 	let strImgExtn = (
 		strImagePath
-			.substring(strImagePath.lastIndexOf('/') + 1)
+			.slice(strImagePath.lastIndexOf('/') + 1)
 			.split('?')[0]
 			.split('.')
 			.pop()
@@ -457,7 +457,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	// STEP 3: Set image properties & options
 	// FIXME: Measure actual image when no intWidth/intHeight params passed
 	// ....: This is an async process: we need to make getSizeFromImage use callback, then set H/W...
-	// if ( !intWidth || !intHeight ) { var imgObj = getSizeFromImage(strImagePath);
+	// if ( !intWidth || !intHeight ) { const imgObj = getSizeFromImage(strImagePath);
 	newObject.options = {
 		x: intPosX || 0,
 		y: intPosY || 0,
@@ -502,7 +502,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 		newObject.imageRid = imageRelId + 1
 	} else {
 		// PERF: Duplicate media should reuse existing `Target` value and not create an additional copy
-		const dupeItem = target._relsMedia.filter(item => item.path && item.path === strImagePath && item.type === 'image/' + strImgExtn && !item.isDuplicate)[0]
+		const dupeItem = target._relsMedia.find(item => item.path && item.path === strImagePath && item.type === 'image/' + strImgExtn && !item.isDuplicate)
 
 		target._relsMedia.push({
 			path: strImagePath || 'preencoded.' + strImgExtn,
@@ -620,7 +620,7 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 		})
 	} else {
 		// PERF: Duplicate media should reuse existing `Target` value and not create an additional copy
-		const dupeItem = target._relsMedia.filter(item => item.path && item.path === strPath && item.type === strType + '/' + strExtn && !item.isDuplicate)[0]
+		const dupeItem = target._relsMedia.find(item => item.path && item.path === strPath && item.type === strType + '/' + strExtn && !item.isDuplicate)
 
 		// A: "relationships/video"
 		const relId1 = getNewRelId(target)
@@ -871,7 +871,7 @@ export function addTableDefinition(
 		opt.margin = DEF_CELL_MARGIN_IN
 	}
 	// NOTE: dont add default color on tables with hyperlinks! (it causes any textObj's with hyperlinks to have subsequent words to be black)
-	if (JSON.stringify({ arrRows: arrRows }).indexOf('hyperlink') === -1) {
+	if (!JSON.stringify({ arrRows }).includes('hyperlink')) {
 		if (!opt.color) opt.color = opt.color || DEF_FONT_COLOR // Set default color if needed (table option > inherit from Slide > default to black)
 	}
 	if (typeof opt.border === 'string') {
@@ -957,7 +957,7 @@ export function addTableDefinition(
 			// A: Transform cell data if needed
 			/* Table rows can be an object or plain text - transform into object when needed
 				// EX:
-				var arrTabRows1 = [
+				const arrTabRows1 = [
 					[ { text:'A1\nA2', options:{rowspan:2, fill:'99FFCC'} } ]
 					,[ 'B2', 'C2', 'D2', 'E2' ]
 				]
@@ -998,7 +998,7 @@ export function addTableDefinition(
 		target._slideObjects.push({
 			_type: SLIDE_OBJECT_TYPES.table,
 			arrTabRows: arrRows,
-			options: Object.assign({}, opt),
+			options: { ...opt },
 		})
 	} else {
 		if (opt.autoPageRepeatHeader) opt._arrObjTabHeadRows = arrRows.filter((_row, idx) => idx < opt.autoPageHeaderRows)
@@ -1021,7 +1021,7 @@ export function addTableDefinition(
 				createHyperlinkRels(newSlide, slide.rows)
 
 				// Add rows to new slide
-				newSlide.addTable(slide.rows, Object.assign({}, opt))
+				newSlide.addTable(slide.rows, { ...opt })
 
 				// Add reference to the new slide so it can be returned, but don't add the first one because the user already has a reference to that one.
 				if (idx > 0) newAutoPagedSlides.push(newSlide)
@@ -1127,14 +1127,16 @@ export function addTextDefinition(target: PresSlideInternal, text: TextProps[], 
 
 		// STEP 2: Transform `align`/`valign` to XML values, store in _bodyProp for XML gen
 		{
-			if ((itemOpts.align || '').toLowerCase().indexOf('c') === 0) itemOpts._bodyProp.align = TEXT_HALIGN.center
-			else if ((itemOpts.align || '').toLowerCase().indexOf('l') === 0) itemOpts._bodyProp.align = TEXT_HALIGN.left
-			else if ((itemOpts.align || '').toLowerCase().indexOf('r') === 0) itemOpts._bodyProp.align = TEXT_HALIGN.right
-			else if ((itemOpts.align || '').toLowerCase().indexOf('j') === 0) itemOpts._bodyProp.align = TEXT_HALIGN.justify
+			const align = (itemOpts.align || '').toLowerCase()
+			const valign = (itemOpts.valign || '').toLowerCase()
+			if (align.startsWith('c')) itemOpts._bodyProp.align = TEXT_HALIGN.center
+			else if (align.startsWith('l')) itemOpts._bodyProp.align = TEXT_HALIGN.left
+			else if (align.startsWith('r')) itemOpts._bodyProp.align = TEXT_HALIGN.right
+			else if (align.startsWith('j')) itemOpts._bodyProp.align = TEXT_HALIGN.justify
 
-			if ((itemOpts.valign || '').toLowerCase().indexOf('b') === 0) itemOpts._bodyProp.anchor = TEXT_VALIGN.b
-			else if ((itemOpts.valign || '').toLowerCase().indexOf('m') === 0) itemOpts._bodyProp.anchor = TEXT_VALIGN.ctr
-			else if ((itemOpts.valign || '').toLowerCase().indexOf('t') === 0) itemOpts._bodyProp.anchor = TEXT_VALIGN.t
+			if (valign.startsWith('b')) itemOpts._bodyProp.anchor = TEXT_VALIGN.b
+			else if (valign.startsWith('m')) itemOpts._bodyProp.anchor = TEXT_VALIGN.ctr
+			else if (valign.startsWith('t')) itemOpts._bodyProp.anchor = TEXT_VALIGN.t
 		}
 
 		// STEP 3: ROBUST: Set rational values for some shadow props if needed
@@ -1167,7 +1169,7 @@ export function addPlaceholdersToSlideLayouts(slide: PresSlideInternal): void {
 			// A: Search for this placeholder on Slide before we add
 			// NOTE: Check to ensure a placeholder does not already exist on the Slide
 			// They are created when they have been populated with text (ex: `slide.addText('Hi', { placeholder:'title' });`)
-			if (slide._slideObjects.filter(slideObj => slideObj.options && slideObj.options.placeholder === slideLayoutObj.options.placeholder).length === 0) {
+			if (!slide._slideObjects.some(slideObj => slideObj.options && slideObj.options.placeholder === slideLayoutObj.options.placeholder)) {
 				addTextDefinition(slide, [{ text: '' }], slideLayoutObj.options, true)
 			}
 		}
@@ -1274,7 +1276,7 @@ function createHyperlinkRels(
 		}
 		else if (text && typeof text === 'object' && text.options && text.options.hyperlink && text.options.hyperlink._rId) {
 			// NOTE: auto-paging will create new slides, but skip above as _rId exists, BUT this is a new slide, so add rels!
-			if (target._rels.filter(rel => rel.rId === text.options.hyperlink._rId).length === 0) {
+			if (!target._rels.some(rel => rel.rId === text.options.hyperlink._rId)) {
 				target._rels.push({
 					type: SLIDE_OBJECT_TYPES.hyperlink,
 					data: text.options.hyperlink.slide ? 'slide' : 'dummy',
