@@ -24,12 +24,6 @@ coverage/
 /.tmp/
 src/bld/
 
-### Docusaurus (anchored to repo root; docusaurus lives at root on gh-pages)
-/build/
-/docs/
-/static/
-/.docusaurus/
-
 ### Editors
 .idea/
 *.swp
