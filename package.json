@@ -69,6 +69,8 @@
 		"format": "prettier package.json pnpm-workspace.yaml tsconfig*.json eslint.config.mjs tsdown.config.ts \"scripts/**/*.mjs\" \"test/**/*.mjs\" \"test/**/*.js\" \".github/**/*.yml\" --write",
 		"format:check": "prettier package.json pnpm-workspace.yaml tsconfig*.json eslint.config.mjs tsdown.config.ts \"scripts/**/*.mjs\" \"test/**/*.mjs\" \"test/**/*.js\" \".github/**/*.yml\" --check",
 		"package:lint": "node scripts/package-lint.mjs",
+		"upstream:signals:check": "node scripts/upstream-signals-check.mjs",
+		"upstream:signals:check:json": "node scripts/upstream-signals-check.mjs --json",
 		"prepack": "pnpm run build",
 		"check-validator": "node tools/ooxml-validator/check-updates.js",
 		"pack:check": "pnpm pack --dry-run --json"

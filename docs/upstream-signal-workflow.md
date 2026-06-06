@@ -68,6 +68,28 @@ gh issue list --repo gitbrent/PptxGenJS --state all \
 
 Use `gh pr list` with the same repo and similar fields for pull requests.
 
+## Untreated Item Check
+
+After an initial pass, use the read-only checker to find upstream issue and PR
+metadata that is not represented in the ledger:
+
+```bash
+pnpm run upstream:signals:check
+```
+
+The checker requires the GitHub CLI (`gh`). It uses metadata from `gh` and
+compares upstream numbers against entries in `docs/upstream-signals.yml`. It
+accepts filters for routine follow-up checks:
+
+```bash
+pnpm run upstream:signals:check -- --state open --type issue
+pnpm run upstream:signals:check -- --created-since 2026-06-07
+pnpm run upstream:signals:check:json -- --updated-since 2026-06-07
+```
+
+The checker never edits the ledger. Record reviewed decisions manually so
+`seen` does not become confused with `reviewed`.
+
 ## Classification
 
 Classify each reviewed item with one status:
