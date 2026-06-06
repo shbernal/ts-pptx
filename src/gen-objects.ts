@@ -848,7 +848,7 @@ export function addTableDefinition(
 	opt.margin = opt.margin === 0 || opt.margin ? opt.margin : DEF_CELL_MARGIN_IN
 	if (typeof opt.margin === 'number') opt.margin = [Number(opt.margin), Number(opt.margin), Number(opt.margin), Number(opt.margin)]
 	// defensive fallback - if `opt.margin` is not a 4-element array of finite numbers, use defaults so non-numeric table-level margins don't leak NaN into <a:tcPr>
-	if (!Array.isArray(opt.margin) || opt.margin.length !== 4 || opt.margin.some((v: any) => typeof v !== 'number' || !isFinite(v))) {
+	if (!Array.isArray(opt.margin) || opt.margin.length !== 4 || opt.margin.some((v: unknown) => typeof v !== 'number' || !Number.isFinite(v))) {
 		opt.margin = DEF_CELL_MARGIN_IN
 	}
 	// NOTE: dont add default color on tables with hyperlinks! (it causes any textObj's with hyperlinks to have subsequent words to be black)

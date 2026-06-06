@@ -615,10 +615,10 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
 			const catAxisId = options.secondaryCatAxis ? AXIS_ID_CATEGORY_SECONDARY : AXIS_ID_CATEGORY_PRIMARY
 			usesSecondaryValAxis = usesSecondaryValAxis || options.secondaryValAxis
 			usesSecondaryCatAxis = usesSecondaryCatAxis || options.secondaryCatAxis
-			strXml += makeChartType(type.type, type.data, options, valAxisId, catAxisId, true)
+			strXml += makeChartType(type.type, type.data, options, valAxisId, catAxisId)
 		})
 	} else {
-		strXml += makeChartType(rel.opts._type, rel.data, rel.opts, AXIS_ID_VALUE_PRIMARY, AXIS_ID_CATEGORY_PRIMARY, false)
+		strXml += makeChartType(rel.opts._type, rel.data, rel.opts, AXIS_ID_VALUE_PRIMARY, AXIS_ID_CATEGORY_PRIMARY)
 	}
 
 	// B: Axes -----------------------------------------------------------
@@ -773,12 +773,11 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
  * @param {IChartOptsLib} opts chart options
  * @param {string} valAxisId chart val axis id
  * @param {string} catAxisId chart cat axis id
- * @param {boolean} isMultiTypeChart is this a mutli-type chart?
  * @example 'bubble' returns <c:bubbleChart></c>
  * @example '<c:lineChart>'
  * @return {string} XML chart
  */
-function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: IChartOptsLib, valAxisId: string, catAxisId: string, isMultiTypeChart: boolean): string {
+function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: IChartOptsLib, valAxisId: string, catAxisId: string): string {
 	// NOTE: "Chart Range" (as shown in "select Chart Area dialog") is calculated.
 	// ....: Ensure each X/Y Axis/Col has same row height (esp. applicable to XY Scatter where X can often be larger than Y's)
 	let colorIndex = -1 // Maintain the color index by region

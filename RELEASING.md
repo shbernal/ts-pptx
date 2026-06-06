@@ -7,9 +7,8 @@
 
 1. Update `package.json` version (ex: `4.1.0-beta.0`)
 2. Update `src/pptxgen.ts` version
-3. Build library: `npm run ship`
-4. Verify package contents: `npm run pack:check`
-5. `npm publish --tag beta`
+3. Run the automated release gate from this document.
+4. `npm publish --tag beta`
 
 ## 🚀 Build Library, Update Files
 
@@ -17,7 +16,7 @@
 2. Update `src/pptxgen.ts` version (eg: `const VERSION = '4.0.1'`)
 3. Update `CHANGELOG.md` with new date
 4. Build library: `npm run ship`
-5. Consolidate new changes from `src/bld/*.ts` into `types/index.d.ts` and update version in head comment
+5. Run `npm run types:build` to regenerate public declarations.
 6. Open `dist/*.js` and check headers
 7. Update version in: `demos/node/package.json`
 8. Update pptxgenjs dep version in: `demos/vite-demo/package.json`
@@ -31,9 +30,13 @@ See [TESTING.md](./TESTING.md) for complete test instructions.
 Minimum command gate:
 
 ```bash
+npm run lint
+npm run format:check
+npm run typecheck
 npm test
 npm run build:dist
 npm run pack:check
+npm run test:package
 ```
 
 ### ⚠️ Capture Testing Results
@@ -55,7 +58,7 @@ npm run pack:check
 1. Update: `demos/browser/index.html` head to use "RELEASE (CDN)"
 2. Check: Is `version` updated in package.json?
 3. Check: Is `version` updated in src/pptxgen.ts?
-4. Check: Is `types/index.d.ts` version in header updated?
+4. Check: Does `npm run types:build` complete and emit `types/pptxgen.d.ts`?
 
 ### 🟢 Release: GitHub
 

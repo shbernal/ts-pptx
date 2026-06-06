@@ -20,6 +20,8 @@ coverage/
 
 ### Build artifacts
 /dist/
+/types/
+/.tmp/
 src/bld/
 
 ### Docusaurus (anchored to repo root; docusaurus lives at root on gh-pages)

@@ -48,13 +48,30 @@ Already completed:
   - ignored and untracked `dist/`
   - removed the brittle `release-test` harness
   - added `pack:check` using `npm pack --dry-run --json`
+- Publish and pack safety:
+  - declared Node 24 as the minimum runtime engine
+  - set the package manager to npm
+  - added `prepack` to generate `dist/` and `types/`
+  - added a packed-package smoke test for CJS, ESM, browser bundle, and TypeScript resolution
+- TypeScript declarations:
+  - split base, build, types, and test TypeScript configs
+  - generate package declarations from `src/**/*.ts`
+  - removed the tracked manual `types/index.d.ts`
+- Tooling gates:
+  - added `typecheck`, `lint`, `format:check`, Vitest unit/schema scripts, and package smoke scripts
+  - shared Rollup options between the watch config and build script
+  - added Node 24 GitHub Actions validation
 
 Current minimum validation gate:
 
 ```bash
+npm run lint
+npm run format:check
+npm run typecheck
 npm test
 npm run build:dist
 npm run pack:check
+npm run test:package
 ```
 
 ## Phase 1: Lock Publish And Pack Safety

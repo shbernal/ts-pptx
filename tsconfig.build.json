@@ -1,9 +1,11 @@
 {
 	"$schema": "https://json.schemastore.org/tsconfig",
-	"display": "PptxGenJS source",
+	"display": "PptxGenJS bundled build",
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
-		"noEmit": true
+		"declaration": false,
+		"noEmit": false,
+		"sourceMap": false
 	},
 	"include": ["src/**/*.ts"],
 	"exclude": ["src/bld/**"]

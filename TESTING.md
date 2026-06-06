@@ -10,10 +10,11 @@ Config Notes
 
 Testing Steps
 
-1. Run `npm test` for regression and schema validation.
-2. Run `npm run build:dist` to refresh local package artifacts under `dist/`.
-3. Run `npm run pack:check` to verify the npm package contents.
-4. Run the manual sections below for browser, worker, Node, Vite, and PowerPoint visual checks.
+1. Run `npm run lint`, `npm run format:check`, and `npm run typecheck` for static checks.
+2. Run `npm test` for regression and schema validation.
+3. Run `npm run build:dist` to refresh local package artifacts under `dist/`.
+4. Run `npm run pack:check` and `npm run test:package` to verify package contents and entry points.
+5. Run the manual sections below for browser, worker, Node, Vite, and PowerPoint visual checks.
 
 ## 🧪 Test Suites Overview
 
@@ -71,6 +72,7 @@ Run the Node demo manually after building the package artifacts:
 ```bash
 npm install --prefix demos/node
 npm run build:dist
+npm run test:package
 npm run copy:node
 npm --prefix demos/node run demo
 ```
@@ -86,6 +88,7 @@ Run the Vite build manually after building the package artifacts:
 ```bash
 npm install --prefix demos/vite-demo
 npm run build:dist
+npm run types:build
 npm run copy:vite
 npm --prefix demos/vite-demo run build
 ```

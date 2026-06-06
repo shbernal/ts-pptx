@@ -7,7 +7,7 @@
 // Fixtures are intentionally small and orthogonal — they exercise one
 // API surface each — so when an error appears we can localise it.
 //
-// Run with: npm run schema-test
+// Run with: npm run test:schema
 
 const { build, assert } = require('./helpers')
 const { validateBuf } = require('./validator')

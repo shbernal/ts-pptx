@@ -1,0 +1,15 @@
+{
+	"$schema": "https://json.schemastore.org/tsconfig",
+	"display": "PptxGenJS base",
+	"compilerOptions": {
+		"allowSyntheticDefaultImports": true,
+		"lib": ["dom", "es2024"],
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"noImplicitAny": false,
+		"sourceMap": true,
+		"strict": true,
+		"strictNullChecks": false,
+		"target": "es2024"
+	}
+}

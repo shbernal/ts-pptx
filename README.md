@@ -93,6 +93,7 @@ Download from GitHub: [Latest Release](https://github.com/gitbrent/PptxGenJS/rel
 ### Contributors: Running the Test Suite
 
 > Running `npm test` from a clone requires a one-time `./tools/ooxml-validator/install.sh` to download the OOXML schema validator into `tools/ooxml-validator/bin/`.
+> Run `npm run test:package` after `npm run build:dist` when validating the npm package boundary.
 
 ## 🚀 Universal Compatibility
 

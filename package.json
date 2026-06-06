@@ -8,8 +8,12 @@
 	"description": "Create JavaScript PowerPoint Presentations",
 	"homepage": "https://gitbrent.github.io/PptxGenJS/",
 	"license": "MIT",
+	"packageManager": "npm@11.14.1",
+	"engines": {
+		"node": ">=24"
+	},
 	"exports": {
-		"types": "./types/index.d.ts",
+		"types": "./types/pptxgen.d.ts",
 		"import": "./dist/pptxgen.es.js",
 		"require": "./dist/pptxgen.cjs.js"
 	},
@@ -19,7 +23,7 @@
 		"dist",
 		"types"
 	],
-	"types": "types",
+	"types": "types/pptxgen.d.ts",
 	"scripts": {
 		"build": "node scripts/build.mjs build",
 		"build:dist": "node scripts/build.mjs dist",
@@ -31,8 +35,22 @@
 		"defs": "node scripts/build.mjs copy:vite-types",
 		"watch": "rollup -cw",
 		"pretest": "npm run build",
-		"test": "node test/run.js && node test/run-schema.js",
-		"schema-test": "node test/run-schema.js",
+		"pretest:unit": "npm run build",
+		"pretest:schema": "npm run build",
+		"test": "vitest run test/regression.test.mjs && vitest run test/schema-validation.test.mjs",
+		"test:unit": "vitest run test/regression.test.mjs",
+		"test:schema": "vitest run test/schema-validation.test.mjs",
+		"test:watch": "npm run build && vitest --watch test/regression.test.mjs",
+		"test:coverage": "npm run build && vitest run --coverage test/regression.test.mjs",
+		"test:package": "node scripts/package-smoke.mjs",
+		"schema-test": "npm run test:schema",
+		"typecheck": "tsc -p tsconfig.json --noEmit",
+		"types:build": "node scripts/types.mjs",
+		"lint": "eslint . --no-warn-ignored",
+		"lint:fix": "npm run lint -- --fix",
+		"format": "prettier package.json tsconfig*.json eslint.config.mjs rollup.config.mjs \"scripts/**/*.mjs\" \"test/**/*.mjs\" \".github/**/*.yml\" --write",
+		"format:check": "prettier package.json tsconfig*.json eslint.config.mjs rollup.config.mjs \"scripts/**/*.mjs\" \"test/**/*.mjs\" \".github/**/*.yml\" --check",
+		"prepack": "npm run build:dist && npm run types:build",
 		"check-validator": "node tools/ooxml-validator/check-updates.js",
 		"pack:check": "npm pack --dry-run --json"
 	},
@@ -57,14 +75,17 @@
 		"@types/node": "^22.8.1",
 		"@typescript-eslint/eslint-plugin": "^8.31.0",
 		"@typescript-eslint/parser": "^8.31.0",
+		"@vitest/coverage-v8": "^4.1.8",
 		"eslint": "^9.25.1",
 		"express": "^5.1.0",
 		"playwright": "^1.60.0",
+		"prettier": "^3.8.3",
 		"rollup": "^4.24.2",
 		"terser": "^5.48.0",
 		"tslib": "^2.8.0",
 		"typescript": "^5.6.3",
-		"typescript-eslint": "^8.31.0"
+		"typescript-eslint": "^8.31.0",
+		"vitest": "^4.1.8"
 	},
 	"repository": {
 		"type": "git",

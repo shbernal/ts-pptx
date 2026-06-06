@@ -1,0 +1,16 @@
+node_modules/
+dist/
+types/
+src/bld/
+coverage/
+.tmp/
+.docusaurus/
+build/
+docs/
+static/
+package-lock.json
+demos/**/package-lock.json
+demos/**/node_modules/
+demos/browser/js/*.js
+demos/browser/js/*.map
+tools/ooxml-validator/bin/

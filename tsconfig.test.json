@@ -1,0 +1,10 @@
+{
+	"$schema": "https://json.schemastore.org/tsconfig",
+	"display": "PptxGenJS tests",
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"types": ["node", "vitest"]
+	},
+	"include": ["test/**/*.mjs", "scripts/**/*.mjs"]
+}
