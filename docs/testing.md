@@ -57,9 +57,10 @@ pnpm run pack:check
 pnpm run test:package
 ```
 
-`test:package` installs the packed package with npm and pnpm, verifies that the
-ESM entry and declarations are present, verifies that old CJS and IIFE artifacts
-are absent, runs an ESM import smoke test, checks that CommonJS `require` is
+`pack:check` uses `pnpm pack --dry-run`. `test:package` creates a packed
+package with pnpm, installs it with npm and pnpm, verifies that the ESM entry
+and declarations are present, verifies that old CJS and IIFE artifacts are
+absent, runs an ESM import smoke test, checks that CommonJS `require` is
 unsupported, and typechecks a minimal TypeScript consumer.
 
 ## Demo Smoke Tests
@@ -77,8 +78,10 @@ pnpm run test:demo:node
 pnpm run test:demo:vite
 ```
 
-The Node demo validates ESM package usage in a Node application. The Vite demo
-validates a modern browser app path through React, TypeScript, and Vite.
+The demo smoke command builds package artifacts first, then runs the maintained
+workspace demos with pnpm. The Node demo validates ESM package usage in a Node
+application. The Vite demo validates a modern browser app path through React,
+TypeScript, and Vite.
 
 ## Manual Visual Checks
 
@@ -90,9 +93,3 @@ checks are still useful for user-visible PowerPoint behavior:
 3. Check import behavior in Keynote, LibreOffice Impress, or Google Slides when
    the change affects cross-app compatibility.
 4. For browser download behavior, prefer `demos/vite-demo`.
-
-## Legacy Browser Demo
-
-`demos/browser` is retained as legacy upstream reference material. It still
-contains script-tag/global assumptions and should not be used as evidence that
-the package supports an IIFE build.

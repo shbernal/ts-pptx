@@ -29,10 +29,9 @@ Preview a production build:
 pnpm --dir demos/vite-demo run preview
 ```
 
-## Package Smoke Path
+## Demo Smoke Path
 
-To test this demo against a packed package instead of the workspace dependency,
-use the repository smoke command:
+To test this demo through the repository smoke command:
 
 ```bash
 pnpm run test:demo:vite

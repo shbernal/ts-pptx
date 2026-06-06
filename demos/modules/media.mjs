@@ -1,6 +1,6 @@
 /**
  * NAME: media.mjs
- * DESC: module for /demos/browser/index.html
+ * DESC: shared media constants for maintained demos
  * DESC: base64 and other long variables
  */
 

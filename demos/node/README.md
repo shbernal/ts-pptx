@@ -38,10 +38,9 @@ pnpm --dir demos/node run demo-stream
 Then visit `http://localhost:3000/` in a browser to download the streamed
 presentation.
 
-## Package Smoke Path
+## Demo Smoke Path
 
-To test this demo against a packed package instead of the workspace dependency,
-use the repository smoke command:
+To test this demo through the repository smoke command:
 
 ```bash
 pnpm run test:demo:node

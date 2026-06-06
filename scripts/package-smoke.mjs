@@ -1,72 +1,9 @@
 #!/usr/bin/env node
-import { spawn } from 'node:child_process'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { ROOT } from './rollup-options.mjs'
-
-function run(command, args, options = {}) {
-	return new Promise((resolve, reject) => {
-		const packageManagerCache = path.join(os.tmpdir(), 'pptxgenjs-package-manager-cache')
-		const env = {
-			...process.env,
-			npm_config_cache: path.join(packageManagerCache, 'npm'),
-			NPM_CONFIG_CACHE: path.join(packageManagerCache, 'npm'),
-			...options.env,
-		}
-		if (command === 'pnpm') {
-			env.pnpm_config_store_dir = path.join(packageManagerCache, 'pnpm-store')
-			env.PNPM_CONFIG_STORE_DIR = path.join(packageManagerCache, 'pnpm-store')
-		}
-		const child = spawn(command, args, {
-			cwd: options.cwd || ROOT,
-			env,
-			stdio: options.capture ? ['ignore', 'pipe', 'pipe'] : 'inherit',
-		})
-		let stdout = ''
-		let stderr = ''
-		if (child.stdout)
-			child.stdout.on('data', (chunk) => {
-				stdout += chunk
-			})
-		if (child.stderr)
-			child.stderr.on('data', (chunk) => {
-				stderr += chunk
-			})
-		child.on('error', reject)
-		child.on('close', (code) => {
-			if (code === 0) resolve({ stdout, stderr })
-			else reject(new Error(command + ' ' + args.join(' ') + ' exited with code ' + code + '\n' + (stderr || stdout)))
-		})
-	})
-}
-
-function parsePackOutput(stdout) {
-	const start = stdout.lastIndexOf('\n[')
-	const jsonText = start >= 0 ? stdout.slice(start + 1) : stdout.slice(stdout.indexOf('['))
-	const pack = JSON.parse(jsonText)
-	if (!Array.isArray(pack) || !pack[0]?.filename) throw new Error('npm pack did not return a tarball filename')
-	return pack[0]
-}
-
-async function findPackedTarball(packDir) {
-	const filename = (await fs.readdir(packDir)).find((file) => file.endsWith('.tgz'))
-	if (!filename) throw new Error('npm pack did not create a tarball under ' + packDir)
-	return { filename }
-}
-
-async function assertFile(file) {
-	await fs.access(file)
-}
-
-async function assertNoFile(file) {
-	try {
-		await fs.access(file)
-	} catch {
-		return
-	}
-	throw new Error('unexpected file exists: ' + file)
-}
+import { assertFile, assertNoFile, packPackage, run } from './script-utils.mjs'
 
 async function writeFixtureManifest(fixtureDir, manager) {
 	await fs.mkdir(fixtureDir, { recursive: true })
@@ -163,18 +100,12 @@ const keepTmp = process.env.PPTXGENJS_KEEP_PACKAGE_SMOKE === '1'
 
 try {
 	const packDir = path.join(tmp, 'pack')
-	await fs.mkdir(packDir, { recursive: true })
-
-	const packResult = await run('npm', ['pack', '--json', '--pack-destination', packDir], { capture: true })
-	const packOutput = packResult.stdout || packResult.stderr
-	const packInfo = packOutput.trim() ? parsePackOutput(packOutput) : await findPackedTarball(packDir)
-	const tarball = path.join(packDir, packInfo.filename)
-	await assertFile(tarball)
+	const packInfo = await packPackage(packDir)
 
 	for (const manager of ['npm', 'pnpm']) {
 		const fixtureDir = path.join(tmp, manager + '-fixture')
 		await writeFixtureManifest(fixtureDir, manager)
-		await installPackedPackage(manager, fixtureDir, tarball)
+		await installPackedPackage(manager, fixtureDir, packInfo.tarball)
 		await smokeInstalledPackage(fixtureDir)
 	}
 

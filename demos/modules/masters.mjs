@@ -2,7 +2,7 @@
  * NAME: masters.mjs
  * AUTH: Brent Ely (https://github.com/gitbrent/)
  * DESC: Common test/demo slides for all library features
- * DEPS: Used by various demos (./demos/browser, ./demos/node, etc.)
+ * DEPS: Used by maintained demos (./demos/node, ./demos/vite-demo).
  * VER.: 3.6.0
  * BLD.: 20210421
  */

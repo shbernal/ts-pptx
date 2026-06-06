@@ -2,7 +2,7 @@
  * NAME: demo_media.mjs
  * AUTH: Brent Ely (https://github.com/gitbrent/)
  * DESC: Common test/demo slides for all library features
- * DEPS: Used by various demos (./demos/browser, ./demos/node, etc.)
+ * DEPS: Used by maintained demos (./demos/node, ./demos/vite-demo).
  * VER.: 3.12.0
  * BLD.: 20230314
  */

@@ -128,8 +128,6 @@ pnpm run test:package
 
 - `demos/node` exercises Node.js ESM generation and stream output.
 - `demos/vite-demo` exercises a modern React, TypeScript, and Vite app.
-- `demos/browser` is a legacy upstream browser demo. It remains in the
-  repository for reference while the project target is ESM-first package usage.
 
 ## Relationship To Upstream
 

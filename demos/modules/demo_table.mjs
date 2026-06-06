@@ -2,7 +2,7 @@
  * NAME: demo_tables.mjs
  * AUTH: Brent Ely (https://github.com/gitbrent/)
  * DESC: Common test/demo slides for all library features
- * DEPS: Used by various demos (./demos/browser, ./demos/node, etc.)
+ * DEPS: Used by maintained demos (./demos/node, ./demos/vite-demo).
  * VER.: 4.0.1
  * BLD.: 20250530
  */

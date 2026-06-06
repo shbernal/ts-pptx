@@ -19,7 +19,6 @@ pnpm install
 - `docs/`: maintained project documentation.
 - `demos/node`: Node.js ESM demo.
 - `demos/vite-demo`: React, TypeScript, and Vite demo.
-- `demos/browser`: legacy upstream browser demo.
 - `scripts/`: build, package, demo, and smoke-test automation.
 - `tools/ooxml-validator`: OOXML validator installer and wrapper.
 - `dist/`: generated package runtime artifacts.
@@ -62,7 +61,7 @@ pnpm run pack:check
 pnpm run test:package
 ```
 
-Smoke-test demos against the packed package:
+Smoke-test the maintained demos against the built workspace package:
 
 ```bash
 pnpm run test:demos

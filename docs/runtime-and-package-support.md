@@ -70,15 +70,13 @@ The package does not ship:
 
 Direct CDN script tags and `window.PptxGenJS` are legacy upstream workflows, not
 the supported package target for this project.
+The legacy upstream browser demo for that workflow is not included in this
+repository.
 
 ## Artifact Name Changes
 
 The old named ESM artifact `dist/pptxgen.es.js` is not shipped. The ESM runtime
 artifact is `dist/pptxgen.js`.
 
-## Legacy Browser Demo
-
-The repository still contains `demos/browser` from the upstream browser-demo
-lineage. Treat it as legacy reference material until it is either modernized or
-removed. The maintained browser integration target is a module-aware app such
-as `demos/vite-demo`.
+The maintained browser integration target is a module-aware app such as
+`demos/vite-demo`.
