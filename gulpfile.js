@@ -2,7 +2,7 @@ const pkg = require('./package.json')
 const rollup = require('rollup')
 const { resolve } = require('@rollup/plugin-node-resolve')
 const { commonjs } = require('@rollup/plugin-commonjs')
-const typescript = require('rollup-plugin-typescript2')
+const typescript = require('@rollup/plugin-typescript')
 const { watch, series } = require('gulp')
 const gulp = require('gulp'),
 	concat = require('gulp-concat'),
@@ -10,13 +10,21 @@ const gulp = require('gulp'),
 	insert = require('gulp-insert'),
 	source = require('gulp-sourcemaps'),
 	uglify = require('gulp-uglify')
+const typescriptOptions = {
+	compilerOptions: {
+		declaration: false,
+		declarationDir: undefined,
+		outDir: undefined,
+		sourceMap: false,
+	},
+}
 
 gulp.task('build', () => {
 	return rollup
 		.rollup({
 			input: './src/pptxgen.ts',
 			external: [...Object.keys(pkg.dependencies || {}), ...Object.keys(pkg.peerDependencies || {})],
-			plugins: [typescript(), resolve, commonjs]
+			plugins: [typescript(typescriptOptions), resolve, commonjs]
 		})
 		.then(bundle => {
 			bundle.write({

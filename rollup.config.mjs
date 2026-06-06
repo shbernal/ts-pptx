@@ -1,9 +1,17 @@
 import pkg from "./package.json" with { type: "json" };
 import resolve from "@rollup/plugin-node-resolve";
 import commonjs from "@rollup/plugin-commonjs";
-import typescript from "rollup-plugin-typescript2";
+import typescript from "@rollup/plugin-typescript";
 
 const nodeBuiltinsRE = /^node:.*/; /* Regex that matches all Node built-in specifiers */
+const typescriptOptions = {
+	compilerOptions: {
+		declaration: false,
+		declarationDir: undefined,
+		outDir: undefined,
+		sourceMap: false,
+	},
+};
 
 export default {
 	input: "src/pptxgen.ts",
@@ -25,6 +33,6 @@ export default {
 	plugins: [
 		resolve({ preferBuiltins: true }),
 		commonjs(),
-		typescript({ typescript: require("typescript") }),
+		typescript(typescriptOptions),
 	]
 };
