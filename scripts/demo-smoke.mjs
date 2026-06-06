@@ -14,28 +14,28 @@ for (const target of targets) {
 	}
 }
 
-async function pptxFiles(dir) {
+async function fileStat(file) {
 	try {
-		return new Set((await fs.readdir(dir)).filter((file) => file.endsWith('.pptx')))
+		return await fs.stat(file)
 	} catch {
-		return new Set()
+		return null
 	}
 }
 
-async function removeNewPptxFiles(dir, before) {
-	for (const file of await pptxFiles(dir)) {
-		if (!before.has(file)) await fs.rm(path.join(dir, file), { force: true })
+async function assertGeneratedPptx(file, before) {
+	const after = await fileStat(file)
+	if (!after?.isFile()) throw new Error('expected demo output file: ' + path.relative(ROOT, file))
+	if (after.size === 0) throw new Error('demo output file is empty: ' + path.relative(ROOT, file))
+	if (before && after.mtimeMs <= before.mtimeMs) {
+		throw new Error('demo output file was not refreshed: ' + path.relative(ROOT, file))
 	}
 }
 
 async function smokeNodeDemo() {
-	const demoDir = path.join(ROOT, 'demos', 'node')
-	const before = await pptxFiles(demoDir)
-	try {
-		await run('pnpm', ['--dir', 'demos/node', 'run', 'demo-text'])
-	} finally {
-		await removeNewPptxFiles(demoDir, before)
-	}
+	const outputFile = path.join(ROOT, 'demos', 'node', 'output', 'PptxGenJS_Demo_Text.pptx')
+	const before = await fileStat(outputFile)
+	await run('pnpm', ['--dir', 'demos/node', 'run', 'demo-text'])
+	await assertGeneratedPptx(outputFile, before)
 }
 
 async function smokeViteDemo() {

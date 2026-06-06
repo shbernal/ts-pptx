@@ -29,6 +29,9 @@ Run all demo objects:
 pnpm --dir demos/node run demo-all
 ```
 
+Generated decks are written to `demos/node/output/`. The output directory is
+ignored by git, and each demo command overwrites its previous `.pptx`.
+
 Run the stream demo:
 
 ```bash

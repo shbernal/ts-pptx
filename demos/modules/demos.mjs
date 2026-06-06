@@ -28,6 +28,11 @@ export function runEveryTest(pptxgen) {
 	// ....: Therefore, run it manually. // if ( typeof table2slides1 !== 'undefined' ) table2slides1();
 }
 
+function getDemoOutputName(type) {
+	const name = Array.isArray(type) ? "All" : type;
+	return `output/PptxGenJS_Demo_${name}.pptx`;
+}
+
 export function execGenSlidesFuncs(type, pptxgen) {
 	// STEP 1: Instantiate new PptxGenJS object
 	let pptx = typeof PptxGenJS !== "undefined" ? new PptxGenJS() : new pptxgen();
@@ -65,7 +70,7 @@ export function execGenSlidesFuncs(type, pptxgen) {
 
 	// LAST: Export Presentation
 	return pptx.writeFile({
-		fileName: `PptxGenJS_Demo_${type}_${new Date().toISOString().replace(/\D/gi, "")}`,
+		fileName: getDemoOutputName(type),
 		compression: COMPRESS,
 	});
 }

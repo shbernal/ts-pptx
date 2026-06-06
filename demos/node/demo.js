@@ -10,12 +10,17 @@
  * USAGE: `node demo.js Text`  (runs pre-defined single test in `../common/demos.js`)
  */
 
+import fs from "node:fs/promises";
+import path from "node:path";
 import { execGenSlidesFuncs, runEveryTest } from "../modules/demos.mjs";
 import pptxgen from "pptxgenjs";
 
 // ============================================================================
 
-const exportName = "PptxGenJS_Demo_Node";
+const outputDir = path.join(process.cwd(), "output");
+await fs.mkdir(outputDir, { recursive: true });
+
+const exportName = path.join("output", "PptxGenJS_Demo_Node.pptx");
 let pptx = new pptxgen();
 
 console.log(`\n\n--------------------==~==~==~==[ STARTING DEMO... ]==~==~==~==--------------------\n`);
@@ -73,7 +78,7 @@ if (process.argv.length > 2) {
 		x: 7.75, y: 0.25, w: 2.0, h: 1.5
 	});
 
-	// EXAMPLE 1: Saves output file to the local directory where this process is running
+	// EXAMPLE 1: Saves output file to the local output directory where this process is running
 	pptx.writeFile({ fileName: exportName })
 		.catch((err) => {
 			throw new Error(err);

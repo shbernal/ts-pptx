@@ -93,3 +93,6 @@ checks are still useful for user-visible PowerPoint behavior:
 3. Check import behavior in Keynote, LibreOffice Impress, or Google Slides when
    the change affects cross-app compatibility.
 4. For browser download behavior, prefer `demos/vite-demo`.
+
+Node demo decks are written to `demos/node/output/`, which is ignored by git.
+Re-running a demo command replaces the previous deck with the same name.

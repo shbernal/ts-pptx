@@ -23,6 +23,7 @@ coverage/
 /types/
 /.tmp/
 src/bld/
+demos/node/output/
 
 ### Editors
 .idea/
