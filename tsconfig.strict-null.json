@@ -7,5 +7,5 @@
 		"types": ["node"]
 	},
 	"include": [],
-	"files": ["src/gen-utils.ts", "src/gen-media.ts"]
+	"files": ["src/gen-utils.ts", "src/gen-media.ts", "src/slide.ts"]
 }

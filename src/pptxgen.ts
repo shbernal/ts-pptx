@@ -732,6 +732,7 @@ export default class PptxGenJS {
 			_relsChart: [],
 			_relsMedia: [],
 			_slideNum: this._slides.length + 1,
+			_slideObjects: [],
 		}
 
 		if (masterSlideName) {

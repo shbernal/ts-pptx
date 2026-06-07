@@ -19,6 +19,12 @@ import { getSmartParseNumber, inch2Emu, rgbToHex, valToPts } from './gen-utils.j
 
 type MarginTuple = [number, number, number, number]
 type BorderTuple = [BorderProps, BorderProps, BorderProps, BorderProps]
+type AutoPageCell = TableCell & {
+	_lineHeight: number
+	_lines: TableCell[][]
+	options: TableCellProps
+	text: TableCell[]
+}
 type TableToSlidesHost = {
 	addSlide: (options?: AddSlideProps) => PresSlide
 	presLayout: PresLayout
@@ -159,8 +165,9 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 		let strCurrLine = ''
 
 		line.forEach(word => {
+			const wordText = String(word.text || '')
 			// A: create new line when horizontal space is exhausted
-			if (strCurrLine.length + word.text.length > CPL) {
+			if (strCurrLine.length + wordText.length > CPL) {
 				// if (verbose) console.log(`STEP 4: New line added: (${strCurrLine.length} + ${word.text.length} > ${CPL})`);
 				parsedLines.push(lineCells)
 				lineCells = []
@@ -171,7 +178,7 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 			lineCells.push(word)
 
 			// C: add current word to `strCurrLine` which we use to keep track of line's char length
-			strCurrLine += word.text.toString()
+			strCurrLine += wordText
 		})
 
 		// Flush buffer: Only create a line when there's text to avoid empty row
@@ -195,7 +202,7 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
  * @param {SlideLayoutInternal} masterSlide - master slide
  * @return {TableRowSlide[]} array of table rows
  */
-export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps: TableToSlidesProps = {}, presLayout: PresLayout, masterSlide?: SlideLayoutInternal): TableRowSlide[] {
+export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps: TableToSlidesProps = {}, presLayout: PresLayout, masterSlide?: SlideLayoutInternal | null): TableRowSlide[] {
 	let arrInchMargins = DEF_SLIDE_MARGIN_IN
 	let emuSlideTabW: number
 	let emuSlideTabH = EMU * 1
@@ -317,7 +324,7 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 	let newTableRowSlide: TableRowSlide = { rows: [] as TableRow[] }
 	tableRows.forEach((row, iRow) => {
 		// A: Row variables
-		const rowCellLines: TableCell[] = []
+		const rowCellLines: AutoPageCell[] = []
 		let maxCellMarTopEmu = 0
 		let maxCellMarBtmEmu = 0
 
@@ -334,7 +341,7 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 			 * - Backwards-Compat: Oops! Discovered we were still using points for cell margin before v3.8.0 (UGH!)
 			 * - We cant introduce a breaking change before v4.0, so...
 			 */
-			const cellMargin = Array.isArray(cell.options.margin) ? cell.options.margin : null
+			const cellMargin = Array.isArray(cell.options?.margin) ? cell.options.margin : undefined
 			const tableMargin = Array.isArray(tableProps.margin) ? tableProps.margin : null
 			if (cellMargin && cellMargin[0] >= 1) {
 				if (cellMargin[0] && valToPts(cellMargin[0]) > maxCellMarTopEmu) maxCellMarTopEmu = valToPts(cellMargin[0])
@@ -356,29 +363,31 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 
 		// D: --==[[ BUILD DATA SET ]]==-- (iterate over cells: split text into lines[], set `lineHeight`)
 		row.forEach((cell, iCell) => {
-			const newCell: TableCell = {
+			const newCellOptions = cell.options || {}
+			const newCell: AutoPageCell = {
 				_type: SLIDE_OBJECT_TYPES.tablecell,
-				_lines: null,
+				_lines: [],
 				_lineHeight: inch2Emu(
 					((cell.options?.fontSize ? cell.options.fontSize : tableProps.fontSize ? tableProps.fontSize : DEF_FONT_SIZE) *
 						(LINEH_MODIFIER + (tableProps.autoPageLineWeight ? tableProps.autoPageLineWeight : 0))) /
 					100
 				),
 				text: [],
-				options: cell.options,
+				options: newCellOptions,
 			}
 
 			// E-1: Exempt cells with `rowspan` from increasing lineHeight (or we could create a new slide when unecessary!)
-			if (newCell.options.rowspan) newCell._lineHeight = 0
+			if (newCellOptions.rowspan) newCell._lineHeight = 0
 
 			// E-2: The parseTextToLines method uses `autoPageCharWeight`, so inherit from table options
-			newCell.options.autoPageCharWeight = tableProps.autoPageCharWeight ? tableProps.autoPageCharWeight : null
+			newCellOptions.autoPageCharWeight = tableProps.autoPageCharWeight || undefined
 
 			// E-3: **MAIN** Parse cell contents into lines based upon col width, font, etc
 			const tableColW = Array.isArray(tableProps.colW) ? tableProps.colW : []
 			let totalColW = tableColW[iCell]
-			if (cell.options.colspan) {
-				totalColW = tableColW.filter((_cell, idx) => idx >= iCell && idx < idx + cell.options.colspan).reduce((prev, curr) => prev + curr)
+			const cellColspan = cell.options?.colspan
+			if (cellColspan) {
+				totalColW = tableColW.filter((_cell, idx) => idx >= iCell && idx < idx + cellColspan).reduce((prev, curr) => prev + curr)
 			}
 
 			// E-4: Create lines based upon available column width
@@ -430,7 +439,7 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 		let emuLineMaxH = 0
 		let isDone = false
 		while (!isDone) {
-			const srcCell: TableCell = rowCellLines[currCellIdx]
+			const srcCell = rowCellLines[currCellIdx]
 			let tgtCell: TableCell = currTableRow[currCellIdx] // NOTE: may be redefined below (a new row may be created, thus changing this value)
 
 			// 1: calc emuLineMaxH
@@ -448,7 +457,7 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 				}
 
 				// A: add current row slide or it will be lost (only if it has rows and text)
-				if (currTableRow.length > 0 && currTableRow.map(cell => cell.text.length).reduce((p, n) => p + n) > 0) newTableRowSlide.rows.push(currTableRow)
+				if (currTableRow.length > 0 && currTableRow.map(cell => Array.isArray(cell.text) ? cell.text.length : 0).reduce((p, n) => p + n) > 0) newTableRowSlide.rows.push(currTableRow)
 
 				// B: add current slide to Slides array
 				tableRowSlides.push(newTableRowSlide)
@@ -476,7 +485,7 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 						let maxLineHeight = 0
 						row.forEach(cell => {
 							newHeadRow.push(cell)
-							if (cell._lineHeight > maxLineHeight) maxLineHeight = cell._lineHeight
+							if ((cell._lineHeight || 0) > maxLineHeight) maxLineHeight = cell._lineHeight || 0
 						})
 						newTableRowSlide.rows.push(newHeadRow)
 						emuTabCurrH += maxLineHeight // TODO: what about margins? dont we need to include cell margin in line height?
@@ -488,7 +497,7 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 			}
 
 			// 3: set array of words that comprise this line
-			const currLine: TableCell[] = srcCell._lines.shift()
+			const currLine = srcCell._lines.shift()
 
 			// 4: create new line by adding all words from curr line (or add empty if there are no words to avoid "needs repair" issue triggered when cells have null content)
 			if (Array.isArray(tgtCell.text)) {
@@ -545,9 +554,9 @@ export function genTableToSlides(pptx: TableToSlidesHost, tabEleId: string, opti
 	const opts = options || {}
 	opts.slideMargin = opts.slideMargin || opts.slideMargin === 0 ? opts.slideMargin : 0.5
 	let emuSlideTabW = opts.w || pptx.presLayout.width
-	const arrObjTabHeadRows: [TableCell[]?] = []
-	const arrObjTabBodyRows: [TableCell[]?] = []
-	const arrObjTabFootRows: [TableCell[]?] = []
+	const arrObjTabHeadRows: TableCell[][] = []
+	const arrObjTabBodyRows: TableCell[][] = []
+	const arrObjTabFootRows: TableCell[][] = []
 	const arrColW: number[] = []
 	const arrTabColW: number[] = []
 	let arrInchMargins: [number, number, number, number] = [0.5, 0.5, 0.5, 0.5] // TRBL-style
@@ -639,30 +648,28 @@ export function genTableToSlides(pptx: TableToSlidesHost, tabEleId: string, opti
 
 				// B: Create option object
 				const cellOpts: TableCellProps = {
-					align: null,
-					bold:
-						!!(window.getComputedStyle(cell).getPropertyValue('font-weight') === 'bold' ||
-							Number(window.getComputedStyle(cell).getPropertyValue('font-weight')) >= 500),
-					border: null,
+					bold: !!(
+						window.getComputedStyle(cell).getPropertyValue('font-weight') === 'bold' ||
+						Number(window.getComputedStyle(cell).getPropertyValue('font-weight')) >= 500
+					),
 					color: rgbToHex(Number(arrRGB1[0]), Number(arrRGB1[1]), Number(arrRGB1[2])),
 					fill: { color: rgbToHex(Number(arrRGB2[0]), Number(arrRGB2[1]), Number(arrRGB2[2])) },
-					fontFace:
-						(window.getComputedStyle(cell).getPropertyValue('font-family') || '').split(',')[0].replace(/"/g, '').replace('inherit', '').replace('initial', '') ||
-						null,
 					fontSize: Number(window.getComputedStyle(cell).getPropertyValue('font-size').replace(/[a-z]/gi, '')),
-					margin: null,
-					colspan: Number(cell.getAttribute('colspan')) || null,
-					rowspan: Number(cell.getAttribute('rowspan')) || null,
-					valign: null,
 				}
+				const fontFace = (window.getComputedStyle(cell).getPropertyValue('font-family') || '').split(',')[0].replace(/"/g, '').replace('inherit', '').replace('initial', '')
+				const colspan = Number(cell.getAttribute('colspan')) || undefined
+				const rowspan = Number(cell.getAttribute('rowspan')) || undefined
+				if (fontFace) cellOpts.fontFace = fontFace
+				if (colspan) cellOpts.colspan = colspan
+				if (rowspan) cellOpts.rowspan = rowspan
 
 				if (['left', 'center', 'right', 'start', 'end'].includes(window.getComputedStyle(cell).getPropertyValue('text-align'))) {
 					const align = window.getComputedStyle(cell).getPropertyValue('text-align').replace('start', 'left').replace('end', 'right')
-					cellOpts.align = align === 'center' ? 'center' : align === 'left' ? 'left' : align === 'right' ? 'right' : null
+					cellOpts.align = align === 'center' ? 'center' : align === 'left' ? 'left' : align === 'right' ? 'right' : undefined
 				}
 				if (['top', 'middle', 'bottom'].includes(window.getComputedStyle(cell).getPropertyValue('vertical-align'))) {
 					const valign = window.getComputedStyle(cell).getPropertyValue('vertical-align')
-					cellOpts.valign = valign === 'top' ? 'top' : valign === 'middle' ? 'middle' : valign === 'bottom' ? 'bottom' : null
+					cellOpts.valign = valign === 'top' ? 'top' : valign === 'middle' ? 'middle' : valign === 'bottom' ? 'bottom' : undefined
 				}
 
 				// C: Add padding [margin] (if any)
@@ -683,7 +690,7 @@ export function genTableToSlides(pptx: TableToSlidesHost, tabEleId: string, opti
 					window.getComputedStyle(cell).getPropertyValue('border-bottom-width') ||
 					window.getComputedStyle(cell).getPropertyValue('border-left-width')
 				) {
-					const cellBorder: BorderTuple = [null, null, null, null]
+					const cellBorder: BorderTuple = [{ type: 'none' }, { type: 'none' }, { type: 'none' }, { type: 'none' }]
 					const sidesBor = ['top', 'right', 'bottom', 'left']
 					sidesBor.forEach((val, idxb) => {
 						const intBorderW = Math.round(
@@ -734,11 +741,11 @@ export function genTableToSlides(pptx: TableToSlidesHost, tabEleId: string, opti
 
 	// STEP 5: Break table into Slides as needed
 	// Pass head-rows as there is an option to add to each table and the parse func needs this data to fulfill that option
-	opts._arrObjTabHeadRows = arrObjTabHeadRows || null
+	opts._arrObjTabHeadRows = arrObjTabHeadRows
 	opts.colW = arrColW
 	getSlidesForTableRows([...arrObjTabHeadRows, ...arrObjTabBodyRows, ...arrObjTabFootRows], opts, pptx.presLayout, masterSlide).forEach((slide, idxTr) => {
 		// A: Create new Slide
-		const newSlide = pptx.addSlide({ masterName: opts.masterSlideName || null })
+		const newSlide = pptx.addSlide({ masterName: opts.masterSlideName || undefined })
 
 		// B: DESIGN: Reset `y` to startY or margin after first Slide (ISSUE#43, ISSUE#47, ISSUE#48)
 		if (idxTr === 0) opts.y = opts.y || arrInchMargins[0]
@@ -754,9 +761,11 @@ export function genTableToSlides(pptx: TableToSlidesHost, tabEleId: string, opti
 			if (!opts.addImage.image || (!opts.addImage.image.path && !opts.addImage.image.data)) {
 				console.warn('Warning: tableToSlides.addImage requires either `path` or `data`')
 			} else {
+				const imageProps = opts.addImage.image.path
+					? { path: opts.addImage.image.path }
+					: { data: opts.addImage.image.data as string }
 				newSlide.addImage({
-					path: opts.addImage.image.path,
-					data: opts.addImage.image.data,
+					...imageProps,
 					x: opts.addImage.options.x,
 					y: opts.addImage.options.y,
 					w: opts.addImage.options.w,

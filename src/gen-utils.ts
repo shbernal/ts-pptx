@@ -16,7 +16,7 @@ import type { PresLayout, TextGlowProps, PresSlideInternal, ShapeFillProps, Colo
  * @param {PresLayout} layout - presentation layout
  * @returns {number} calculated size
  */
-export function getSmartParseNumber (size: Coord, xyDir: 'X' | 'Y', layout: PresLayout): number {
+export function getSmartParseNumber (size: Coord | null | undefined, xyDir: 'X' | 'Y', layout: PresLayout): number {
 	// FIRST: Convert string numeric value if reqd
 	if (typeof size === 'string' && !isNaN(Number(size))) size = Number(size)
 
@@ -236,7 +236,7 @@ export function getNewRelId (target: PresSlideInternal): number {
  * Checks shadow options passed by user and performs corrections if needed.
  * @param {ShadowProps} ShadowProps - shadow options
  */
-export function correctShadowOptions (ShadowProps: ShadowProps): ShadowProps | undefined {
+export function correctShadowOptions (ShadowProps?: ShadowProps | null): ShadowProps | undefined {
 	if (!ShadowProps || typeof ShadowProps !== 'object') {
 		// console.warn("`shadow` options must be an object. Ex: `{shadow: {type:'none'}}`")
 		return

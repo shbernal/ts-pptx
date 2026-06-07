@@ -962,7 +962,7 @@ export interface TableCell {
 	_rowContinue?: number
 	_optImp?: any
 
-	text?: string | TableCell[] // TODO: FUTURE: 20210815: ONly allow `TableCell[]` dealing with string|TableCell[] *SUCKS*
+	text?: string | number | TableCell[] // TODO: FUTURE: 20210815: ONly allow `TableCell[]` dealing with string|TableCell[] *SUCKS*
 	options?: TableCellProps
 }
 export interface TableRowSlide {
@@ -1808,8 +1808,8 @@ export interface SlideBaseProps {
 	_relsChart: ISlideRelChart[] // needed as we use args:"PresSlide|SlideLayout" often
 	_relsMedia: ISlideRelMedia[] // needed as we use args:"PresSlide|SlideLayout" often
 	_slideNum: number
-	_slideNumberProps?: SlideNumberProps
-	_slideObjects?: ISlideObject[]
+	_slideNumberProps?: SlideNumberProps | null
+	_slideObjects: ISlideObject[]
 
 	background?: BackgroundProps
 	/**
@@ -1830,7 +1830,7 @@ export interface SlideLayoutInternal extends SlideBaseProps, SlideLayout {
 		back: string
 		color: string
 		hidden?: boolean
-	}
+	} | null
 }
 export interface PresSlide {
 	addChart(type: CHART_NAME, data: OptsChartData[], options?: IChartOpts): PresSlide
@@ -1876,7 +1876,7 @@ export interface PresSlide {
 }
 export interface PresSlideInternal extends SlideBaseProps, PresSlide {
 	_rId: number
-	_slideLayout: SlideLayoutInternal
+	_slideLayout: SlideLayoutInternal | null
 	_slideId: number
 }
 export interface AddSlideProps {
