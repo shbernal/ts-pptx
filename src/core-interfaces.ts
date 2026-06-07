@@ -335,7 +335,7 @@ export interface TextBaseProps {
 		/**
 		 * Margin between bullet and text
 		 * @since v3.2.1
-		 * @deplrecated v3.3.0 - use `indent`
+		 * @deprecated v3.3.0 - use `indent`
 		 */
 		marginPt?: number
 		/**
@@ -575,7 +575,7 @@ interface ImageBaseProps extends PositionProps, ObjectNameProps {
 export type ImageProps = ImageBaseProps & DataOrPathRequiredProps
 /**
  * Add media (audio/video) to slide
- * @requires either `data` or `path`; online media requires `link`
+ * Requires either `data` or `path`; online media requires `link`.
  */
 interface MediaBaseProps extends PositionProps, ObjectNameProps {
 	/**

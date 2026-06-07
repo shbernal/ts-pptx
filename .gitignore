@@ -22,6 +22,10 @@ coverage/
 /dist/
 /types/
 /.tmp/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
+docs/public/llms*.txt
+docs/reference/api/
 src/bld/
 demos/node/output/
 

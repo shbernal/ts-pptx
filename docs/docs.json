@@ -1,0 +1,36 @@
+{
+  "name": "PptxGenJS",
+  "description": "Documentation for the modern ESM-first PptxGenJS fork.",
+  "navigation": [
+    {
+      "group": "Start",
+      "pages": [
+        "index",
+        "project-target",
+        "runtime-and-package-support",
+        "development",
+        "testing"
+      ]
+    },
+    {
+      "group": "Reference",
+      "pages": [
+        "reference/index",
+        "reference/api/index",
+        "ooxml-agent-context",
+        "RELEASING"
+      ]
+    },
+    {
+      "group": "Maintenance",
+      "pages": [
+        "architecture",
+        "agent-development",
+        "upstream-signal-workflow",
+        "troubleshooting",
+        "legacy-autoloop",
+        "README"
+      ]
+    }
+  ]
+}

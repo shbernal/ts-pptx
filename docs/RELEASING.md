@@ -1,3 +1,14 @@
+---
+doc-schema-version: 1
+title: "Release Workflow"
+summary: "Maintained release path for publishing the scoped ESM-only package."
+read_when:
+  - Preparing a release
+  - Updating npm publish or GitHub Release workflow documentation
+  - Checking release verification steps
+doc_type: "runbook"
+---
+
 # Release Workflow
 
 This guide documents the maintained release path for the scoped ESM-only

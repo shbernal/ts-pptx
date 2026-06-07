@@ -1,0 +1,14 @@
+{
+	"$schema": "https://typedoc.org/schema.json",
+	"entryPoints": ["src/index.ts", "src/core.ts", "src/node.ts", "src/browser.ts", "src/standalone.ts"],
+	"entryPointStrategy": "resolve",
+	"excludeInternal": true,
+	"excludePrivate": true,
+	"excludeProtected": true,
+	"hideGenerator": true,
+	"intentionallyNotExported": ["ImageBaseProps", "MediaBaseProps"],
+	"out": "docs/reference/api",
+	"plugin": ["typedoc-plugin-markdown"],
+	"readme": "none",
+	"tsconfig": "tsconfig.json"
+}

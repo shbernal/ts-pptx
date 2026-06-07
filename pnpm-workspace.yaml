@@ -3,6 +3,7 @@ packages:
   - demos/vite-demo
 allowBuilds:
   '@parcel/watcher': true
+  esbuild: true
 minimumReleaseAgeStrict: true
 minimumReleaseAgeExclude:
   - '@types/node@25.9.2'

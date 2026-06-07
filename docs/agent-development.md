@@ -1,3 +1,14 @@
+---
+doc-schema-version: 1
+title: "Agent Development Guide"
+summary: "Expectations for agent-assisted PptxGenJS changes and verification."
+read_when:
+  - Starting agent work in this repository
+  - Updating agent workflow or evidence requirements
+  - Reviewing documentation or implementation handoff rules
+doc_type: "guide"
+---
+
 # Agent Development Guide
 
 This repository is intended to be maintainable by both humans and coding

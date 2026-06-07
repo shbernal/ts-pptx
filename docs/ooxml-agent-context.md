@@ -1,3 +1,14 @@
+---
+doc-schema-version: 1
+title: "OOXML Agent Context"
+summary: "Repo-local OOXML and Microsoft documentation lookup workflow for emitted package changes."
+read_when:
+  - Changing emitted OOXML
+  - Researching PowerPoint or Open XML compatibility
+  - Updating OOXML validation guidance
+doc_type: "reference"
+---
+
 # OOXML Agent Context
 
 This repository has project-scoped Codex MCP configuration in `.codex/config.toml`.

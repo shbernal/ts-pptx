@@ -1,3 +1,13 @@
+---
+doc-schema-version: 1
+title: "Documentation"
+summary: "Index of maintained PptxGenJS fork documentation and documentation rules."
+read_when:
+  - Looking for the maintained docs surface
+  - Updating documentation structure or rules
+doc_type: "overview"
+---
+
 # Documentation
 
 This directory contains the maintained project documentation for this PptxGenJS

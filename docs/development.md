@@ -1,3 +1,14 @@
+---
+doc-schema-version: 1
+title: "Development Guide"
+summary: "Setup, source layout, generated outputs, and contribution rules."
+read_when:
+  - Setting up the repository
+  - Changing source layout or generated output policy
+  - Updating development commands
+doc_type: "guide"
+---
+
 # Development Guide
 
 ## Prerequisites

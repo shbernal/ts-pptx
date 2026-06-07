@@ -1,3 +1,14 @@
+---
+doc-schema-version: 1
+title: "Project Target"
+summary: "Current goals, non-goals, and maintenance posture for the PptxGenJS fork."
+read_when:
+  - Deciding whether a feature fits this fork
+  - Updating package target or compatibility policy
+  - Explaining current project goals
+doc_type: "decision"
+---
+
 # Project Target
 
 PptxGenJS generates PowerPoint `.pptx` packages from TypeScript and modern

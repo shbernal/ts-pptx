@@ -1,3 +1,14 @@
+---
+doc-schema-version: 1
+title: "Upstream Signal Workflow"
+summary: "How to classify upstream issues and PRs without reintroducing dropped package targets."
+read_when:
+  - Reviewing upstream PptxGenJS issues or PRs
+  - Updating upstream signal classifications
+  - Deciding whether upstream behavior belongs in this fork
+doc_type: "guide"
+---
+
 # Upstream Signal Workflow
 
 This workflow tracks upstream PptxGenJS issues and pull requests as signals for

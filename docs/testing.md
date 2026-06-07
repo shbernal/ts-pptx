@@ -1,3 +1,14 @@
+---
+doc-schema-version: 1
+title: "Testing Guide"
+summary: "Regression, schema, package, demo, and manual verification commands."
+read_when:
+  - Choosing verification commands
+  - Updating test scripts or package smoke checks
+  - Changing emitted OOXML or package exports
+doc_type: "guide"
+---
+
 # Testing Guide
 
 Use `pnpm` for repository scripts. The package declares Node.js `>=24`.

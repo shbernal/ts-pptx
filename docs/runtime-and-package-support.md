@@ -1,3 +1,14 @@
+---
+doc-schema-version: 1
+title: "Runtime And Package Support"
+summary: "Supported imports, dropped upstream support, and shipped artifacts."
+read_when:
+  - Changing package exports or runtime support
+  - Explaining ESM-only package behavior
+  - Updating shipped artifact policy
+doc_type: "reference"
+---
+
 # Runtime And Package Support
 
 This project ships an ESM-only package for TypeScript and modern JavaScript

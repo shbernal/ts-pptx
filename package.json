@@ -66,8 +66,8 @@
 		"strict:null:check": "tsc -p tsconfig.strict-null.json --noEmit",
 		"lint": "eslint . --no-warn-ignored",
 		"lint:fix": "pnpm run lint -- --fix",
-		"format": "prettier package.json pnpm-workspace.yaml tsconfig*.json eslint.config.mjs tsdown.config.ts \"scripts/**/*.mjs\" \"test/**/*.mjs\" \"test/**/*.js\" \".github/**/*.yml\" --write",
-		"format:check": "prettier package.json pnpm-workspace.yaml tsconfig*.json eslint.config.mjs tsdown.config.ts \"scripts/**/*.mjs\" \"test/**/*.mjs\" \"test/**/*.js\" \".github/**/*.yml\" --check",
+		"format": "prettier package.json pnpm-workspace.yaml typedoc.docs.json tsconfig*.json docs/docs.json docs/tsconfig.json docs/.vitepress/config.mts eslint.config.mjs tsdown.config.ts \"scripts/**/*.mjs\" \"test/**/*.mjs\" \"test/**/*.js\" \".github/**/*.yml\" --write",
+		"format:check": "prettier package.json pnpm-workspace.yaml typedoc.docs.json tsconfig*.json docs/docs.json docs/tsconfig.json docs/.vitepress/config.mts eslint.config.mjs tsdown.config.ts \"scripts/**/*.mjs\" \"test/**/*.mjs\" \"test/**/*.js\" \".github/**/*.yml\" --check",
 		"package:lint": "node scripts/package-lint.mjs",
 		"upstream:signals": "node scripts/upstream-signals-ledger.mjs",
 		"upstream:signals:list": "node scripts/upstream-signals-ledger.mjs list",
@@ -77,7 +77,17 @@
 		"test:tools": "vitest run test/upstream-signals-ledger.test.mjs",
 		"prepack": "pnpm run build",
 		"check-validator": "node tools/ooxml-validator/check-updates.js",
-		"pack:check": "pnpm pack --dry-run --json"
+		"pack:check": "pnpm pack --dry-run --json",
+		"docs:init": "python3 scripts/docs-init.py",
+		"docs:list": "python3 scripts/docs-list.py",
+		"docs:new": "python3 scripts/docs-new.py",
+		"docs:api": "node scripts/docs-api.mjs",
+		"docs:llms": "node scripts/generate-llms-docs.mjs",
+		"docs:check": "pnpm run docs:api && python3 scripts/docs-check.py",
+		"docs:prepare": "pnpm run docs:api && pnpm run docs:llms",
+		"docs:dev": "pnpm run docs:prepare && vitepress dev docs",
+		"docs:build": "pnpm run docs:prepare && python3 scripts/docs-check.py && vitepress build docs",
+		"docs:preview": "vitepress preview docs"
 	},
 	"dependencies": {
 		"jszip": "^3.10.1"
@@ -99,8 +109,11 @@
 		"publint": "^0.3.21",
 		"tsdown": "^0.22.2",
 		"tslib": "^2.8.1",
+		"typedoc": "^0.28.19",
+		"typedoc-plugin-markdown": "^4.12.0",
 		"typescript": "^6.0.3",
 		"typescript-eslint": "^8.60.1",
+		"vitepress": "^1.6.4",
 		"vitest": "^4.1.8",
 		"yaml": "^2.9.0"
 	},

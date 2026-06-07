@@ -1,3 +1,14 @@
+---
+doc-schema-version: 1
+title: "Legacy Autoloop Workflow"
+summary: "Legacy automation files retained for reference but not promoted as the default workflow."
+read_when:
+  - Touching legacy autoloop files
+  - Explaining why autoloop is not the primary workflow
+  - Cleaning up old automation documentation
+doc_type: "guide"
+---
+
 # Legacy Autoloop Workflow
 
 The repository still contains autoloop configuration:
