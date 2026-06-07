@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.1](https://github.com/shbernal/PptxGenJS/releases/tag/v5.0.1) - 2026-06-07
+
+### Added
+
+- GitHub Actions npm publishing workflow for `@shbernal/pptxgenjs`, using npm
+  trusted publishing and provenance on published GitHub releases.
+
+### Changed
+
+- Release documentation now describes the automated `publish.yml` workflow, tag
+  guard, manual retry path, and post-publish checks.
+
 ## [5.0.0](https://github.com/shbernal/PptxGenJS/releases/tag/v5.0.0) - 2026-06-07
 
 ### Added

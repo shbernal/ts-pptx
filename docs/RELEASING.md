@@ -1,11 +1,26 @@
-# Release Checklist
+# Release Workflow
 
 This guide documents the maintained release path for the scoped ESM-only
 package, `@shbernal/pptxgenjs`.
 
-Publishing is manual until the first scoped release exists and the npm package
-ownership/trusted-publishing setup is confirmed. Do not add or run automated npm
-publishing without an explicit release-automation task.
+Publishing is automated by `.github/workflows/publish.yml`. The workflow runs
+when a GitHub Release is published and can also be dispatched manually from a
+matching tag as a retry path.
+
+## Release Prerequisites
+
+- The npm package is `@shbernal/pptxgenjs`.
+- `package.json#repository.url` points at `shbernal/PptxGenJS`.
+- npm trusted publishing is configured for:
+  - package: `@shbernal/pptxgenjs`
+  - GitHub repository: `shbernal/PptxGenJS`
+  - workflow filename: `publish.yml`
+  - GitHub environment: `npm-publish`
+  - allowed action: `npm publish`
+- The GitHub Environment `npm-publish` exists before the first automated
+  release.
+- Do not add an `NPM_TOKEN` secret for the normal path. The workflow uses OIDC
+  with `id-token: write`.
 
 ## Version Updates
 
@@ -17,7 +32,7 @@ publishing without an explicit release-automation task.
 5. Keep package import examples on the scoped package name:
    `@shbernal/pptxgenjs`.
 
-## Automated Release Gate
+## Local Release Gate
 
 Install dependencies and the OOXML validator:
 
@@ -26,7 +41,7 @@ pnpm install --frozen-lockfile
 ./tools/ooxml-validator/install.sh
 ```
 
-Run the full automated gate:
+Run the full automated gate before tagging:
 
 ```bash
 pnpm run lint
@@ -38,6 +53,60 @@ pnpm run package:lint
 pnpm run pack:check
 pnpm run test:package
 pnpm run test:demos
+npm pack --dry-run --ignore-scripts
+```
+
+Check that the target version is not already published:
+
+```bash
+npm view @shbernal/pptxgenjs@X.Y.Z version
+```
+
+The command should fail with a registry 404 for a new release version.
+
+## Automated npm Publish
+
+1. Merge the release commit into `mainline`.
+2. Create a tag named exactly `vX.Y.Z`, matching `package.json#version`.
+3. Push `mainline` and the tag.
+4. Create a GitHub Release from `vX.Y.Z`.
+5. Publish the GitHub Release.
+
+Publishing the GitHub Release starts `.github/workflows/publish.yml`. The
+workflow:
+
+- refuses to run outside `shbernal/PptxGenJS`
+- refuses branch publishes; `GITHUB_REF_TYPE` must be `tag`
+- requires the tag name to equal `v${package.json#version}`
+- checks that `@shbernal/pptxgenjs@X.Y.Z` is unpublished
+- installs with `pnpm install --frozen-lockfile`
+- installs the OOXML validator
+- runs lint, formatting, typecheck, tests, package checks, package smoke tests,
+  demo smoke tests, and `npm pack --dry-run --ignore-scripts`
+- publishes with `npm publish --access public --provenance --ignore-scripts`
+
+npm trusted publishing automatically exchanges the GitHub Actions OIDC token for
+publish credentials. The explicit `--provenance` flag keeps provenance required
+even if npm defaults change.
+
+## Manual Workflow Retry
+
+Use this only after fixing a failed publish workflow without changing the
+release artifact:
+
+```bash
+gh workflow run publish.yml --repo shbernal/PptxGenJS --ref vX.Y.Z
+```
+
+The selected ref must be the release tag, not `mainline`.
+
+## Post-Publish Checks
+
+Verify npm and GitHub agree on the release:
+
+```bash
+npm view @shbernal/pptxgenjs@X.Y.Z version dist-tags --json
+gh release view vX.Y.Z --repo shbernal/PptxGenJS
 ```
 
 ## Package Surface Checks
@@ -69,51 +138,3 @@ The package should not ship or document:
 - `dist/pptxgen.es.js`
 - `dist/pptxgen.bundle.js`
 - `dist/pptxgen.min.js`
-
-## Demo Checks
-
-The maintained demos are:
-
-- `demos/node`
-- `demos/vite-demo`
-
-Run both with:
-
-```bash
-pnpm run test:demos
-```
-
-## Manual Pack Check
-
-```bash
-mkdir -p /tmp/pptxgenjs-release
-pnpm pack --pack-destination /tmp/pptxgenjs-release
-```
-
-Inspect the generated tarball before publishing:
-
-```bash
-tar -tf /tmp/pptxgenjs-release/shbernal-pptxgenjs-*.tgz
-```
-
-## Manual npm Publish
-
-Only publish after confirming npm ownership and the exact target version:
-
-```bash
-npm publish /tmp/pptxgenjs-release/shbernal-pptxgenjs-*.tgz --access public
-```
-
-For a prerelease, publish with an explicit tag:
-
-```bash
-npm publish /tmp/pptxgenjs-release/shbernal-pptxgenjs-*.tgz --access public --tag beta
-```
-
-## GitHub Release
-
-1. Merge the release branch into the release branch target.
-2. Copy the changelog entry into a new GitHub release.
-3. Use `vX.Y.Z` as the release tag.
-4. State the npm package status in the release notes. For the first scoped
-   GitHub release, npm publishing may remain manual or pending.
