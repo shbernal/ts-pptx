@@ -1,12 +1,16 @@
-import { build, readEntry, assert } from './helpers.js'
+import {
+	defineRegressionSuite,
+	build,
+	readEntry,
+	assert,
+	assertNonVisualDrawingProperty,
+	xmlAttributes,
+	xmlOpeningTags,
+} from '../helpers.js'
 
 const PNG_1X1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 
-function assertContains(xml, expected, label) {
-	assert(xml.includes(expected), `expected ${label} to include ${expected}; got: ${xml}`)
-}
-
-export default [
+defineRegressionSuite('Object identity', 'legacy bug-21', [
 	{
 		name: 'explicit objectName values are emitted as cNvPr names for slide objects',
 		fn: async () => {
@@ -58,10 +62,10 @@ export default [
 				'identity:table',
 				'identity:media',
 			]) {
-				assertContains(xml, `name="${name}"`, name)
+				assertNonVisualDrawingProperty(xml, { name }, name)
 			}
-			assertContains(xml, 'name="identity:image" descr="Identity image"', 'image altText')
-			assertContains(xml, 'name="identity:chart" descr="Identity chart"', 'chart altText')
+			assertNonVisualDrawingProperty(xml, { name: 'identity:image', descr: 'Identity image' }, 'image altText')
+			assertNonVisualDrawingProperty(xml, { name: 'identity:chart', descr: 'Identity chart' }, 'chart altText')
 		},
 	},
 	{
@@ -91,8 +95,12 @@ export default [
 			})
 
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
-			assertContains(xml, 'name="identity:placeholder:title"', 'placeholder objectName')
-			assert(/<p:ph\b[\s\S]*idx="100"[\s\S]*type="title"/.test(xml), 'expected title placeholder metadata; got: ' + xml)
+			assertNonVisualDrawingProperty(xml, { name: 'identity:placeholder:title' }, 'placeholder objectName')
+			const placeholder = xmlOpeningTags(xml, 'p:ph').find((tag) => {
+				const attrs = xmlAttributes(tag)
+				return attrs.idx === '100' && attrs.type === 'title'
+			})
+			assert(placeholder, 'expected title placeholder metadata; got: ' + xml)
 		},
 	},
-]
+])

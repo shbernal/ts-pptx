@@ -1,6 +1,6 @@
-import { build, readEntry, listEntries, assert } from './helpers.js'
+import { defineRegressionSuite, build, readEntry, listEntries, assert } from '../helpers.js'
 
-export default [
+defineRegressionSuite('Slide master content types', 'legacy bug-02', [
 	{
 		name: '[Content_Types].xml emits exactly one slideMaster Override per existing master part',
 		fn: async () => {
@@ -27,4 +27,4 @@ export default [
 			}
 		},
 	},
-]
+])

@@ -1,10 +1,10 @@
-import { build, readEntry, assert } from './helpers.js'
+import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
 // Acceptance: emitted <a:tcPr> must never carry NaN in marL/R/T/B even when
 // the user supplies a non-numeric/non-array `margin` (string, plain object,
 // undefined slot, etc).  Falls back to defaults.
 
-export default [
+defineRegressionSuite('Table margins', 'legacy bug-14', [
 	{
 		name: 'cell margin set to a string falls back to defaults (no NaN)',
 		fn: async () => {
@@ -66,4 +66,4 @@ export default [
 			)
 		},
 	},
-]
+])

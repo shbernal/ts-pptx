@@ -8,8 +8,8 @@ import {
 	inchesToEmu,
 	pixelsToEmu,
 	pointsToEmu,
-} from '../dist/core.js'
-import { build, readEntry, assert, assertEqual } from './helpers.js'
+} from '../../dist/core.js'
+import { defineRegressionSuite, build, readEntry, assert, assertEqual } from '../helpers.js'
 
 const WIDE = STANDARD_LAYOUTS.LAYOUT_WIDE
 
@@ -20,7 +20,7 @@ async function assertPresentationSize(buildFn, expected, label) {
 	assert(xml.includes(expectedTag), `${label}: expected presentation size ${expectedTag}, got ${xml}`)
 }
 
-export default [
+defineRegressionSuite('Presentation layouts', 'legacy bug-22', [
 	{
 		name: 'public unit helpers expose PowerPoint EMU conversions',
 		fn: () => {
@@ -74,4 +74,4 @@ export default [
 			)
 		},
 	},
-]
+])

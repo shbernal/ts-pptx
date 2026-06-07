@@ -1,6 +1,6 @@
-import { build, readEntry, assert } from './helpers.js'
+import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
-export default [
+defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 	{
 		name: 'addShape("oval", ...) emits prst="ellipse" (not invalid "oval")',
 		fn: async () => {
@@ -58,4 +58,4 @@ export default [
 			void pres
 		},
 	},
-]
+])

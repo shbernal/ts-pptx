@@ -1,4 +1,4 @@
-import { build, readEntry, assert } from './helpers.js'
+import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
 // Extract the first slide's <a:pPr ...>...</a:pPr> block (paragraph properties)
 async function getPPr(zip) {
@@ -8,7 +8,7 @@ async function getPPr(zip) {
 	return { xml, ppr: m[0] }
 }
 
-export default [
+defineRegressionSuite('Bullet option serialization', 'legacy bug-19', [
 	{
 		name: 'bullet:{type:"bullet"} emits default <a:buChar/> with marL/indent (was silently swallowed)',
 		fn: async () => {
@@ -79,4 +79,4 @@ export default [
 			)
 		},
 	},
-]
+])

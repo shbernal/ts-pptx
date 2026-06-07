@@ -1,6 +1,6 @@
 import JSZip from 'jszip'
-import PptxGenJS from '../dist/node.js'
-import { assert } from './helpers.js'
+import PptxGenJS from '../../dist/node.js'
+import { defineRegressionSuite, assert } from '../helpers.js'
 
 async function buildOnce(pres) {
 	const buf = await pres.stream()
@@ -10,7 +10,7 @@ async function buildOnce(pres) {
 	return entry.async('string')
 }
 
-export default [
+defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 	{
 		name: 'two writes on same Presentation produce identical slide1.xml (text/shape branch)',
 		fn: async () => {
@@ -90,4 +90,4 @@ export default [
 			assert(xml.indexOf('blurRad="967740000"') === -1, 'unexpected double-converted blurRad in output: ' + xml)
 		},
 	},
-]
+])

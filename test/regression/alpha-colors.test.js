@@ -1,6 +1,6 @@
 import JSZip from 'jszip'
-import PptxGenJS from '../dist/node.js'
-import { assert } from './helpers.js'
+import PptxGenJS from '../../dist/node.js'
+import { defineRegressionSuite, assert } from '../helpers.js'
 
 async function buildSlide1(pres) {
 	const buf = await pres.stream()
@@ -15,7 +15,7 @@ function alphaPct(hex) {
 	return Math.round((parseInt(hex, 16) / 255) * 100000)
 }
 
-export default [
+defineRegressionSuite('Alpha channel colors', 'legacy bug-08', [
 	{
 		name: 'fill color "00000020" splits to val="000000" + <a:alpha val="12549"/>',
 		fn: async () => {
@@ -158,4 +158,4 @@ export default [
 			assert(xml.indexOf(expectedFragment) !== -1, `expected ${expectedFragment} in slide XML; got:\n` + xml)
 		},
 	},
-]
+])

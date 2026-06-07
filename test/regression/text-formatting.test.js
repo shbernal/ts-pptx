@@ -1,6 +1,6 @@
-import { build, readEntry, assert } from './helpers.js'
+import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
-export default [
+defineRegressionSuite('Text formatting', 'legacy bug-01', [
 	{
 		name: 'mixed-formatting paragraph emits at most one <a:pPr>',
 		fn: async () => {
@@ -44,4 +44,4 @@ export default [
 			}
 		},
 	},
-]
+])

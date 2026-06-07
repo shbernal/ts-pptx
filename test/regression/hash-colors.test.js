@@ -1,6 +1,6 @@
 import JSZip from 'jszip'
-import PptxGenJS from '../dist/node.js'
-import { assert } from './helpers.js'
+import PptxGenJS from '../../dist/node.js'
+import { defineRegressionSuite, assert } from '../helpers.js'
 
 async function buildSlide1(pres) {
 	const buf = await pres.stream()
@@ -10,7 +10,7 @@ async function buildSlide1(pres) {
 	return entry.async('string')
 }
 
-export default [
+defineRegressionSuite('Hash-prefixed colors', 'legacy bug-07', [
 	{
 		name: 'shape fill with "#FF0000" emits val="FF0000" (no leading hash)',
 		fn: async () => {
@@ -97,4 +97,4 @@ export default [
 			)
 		},
 	},
-]
+])

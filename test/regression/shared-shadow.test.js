@@ -1,6 +1,6 @@
 import JSZip from 'jszip'
-import PptxGenJS from '../dist/node.js'
-import { assert } from './helpers.js'
+import PptxGenJS from '../../dist/node.js'
+import { defineRegressionSuite, assert } from '../helpers.js'
 
 async function buildSlideXml(pres) {
 	const buf = await pres.stream()
@@ -24,7 +24,7 @@ function extractEffectLsts(xml) {
 	return blocks
 }
 
-export default [
+defineRegressionSuite('Shared shadow options', 'legacy bug-05', [
 	{
 		name: 'two addShape calls sharing one shadow object emit identical effectLst',
 		fn: async () => {
@@ -114,4 +114,4 @@ export default [
 			)
 		},
 	},
-]
+])

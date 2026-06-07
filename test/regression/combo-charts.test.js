@@ -1,6 +1,6 @@
-import { build, readEntry, assert } from './helpers.js'
+import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
-export default [
+defineRegressionSuite('Combo chart axes', 'legacy bug-06', [
 	{
 		name: 'combo chart with secondary*Axis flags emits all referenced axIds as defs',
 		fn: async () => {
@@ -42,4 +42,4 @@ export default [
 			)
 		},
 	},
-]
+])

@@ -1,6 +1,15 @@
-import { build, readEntry, listEntries, assert } from './helpers.js'
+import {
+	defineRegressionSuite,
+	build,
+	readEntry,
+	listEntries,
+	assert,
+	assertContentTypeOverride,
+	assertIncludes,
+	assertNotIncludes,
+} from '../helpers.js'
 
-export default [
+defineRegressionSuite('Theme relationships', 'legacy bug-15', [
 	{
 		name: 'ppt/theme/theme2.xml is present in archive',
 		fn: async () => {
@@ -23,11 +32,8 @@ export default [
 				s.addText('hello', { x: 1, y: 1 })
 			})
 			const xml = await readEntry(zip, 'ppt/notesMasters/_rels/notesMaster1.xml.rels')
-			assert(
-				xml.indexOf('Target="../theme/theme2.xml"') !== -1,
-				'expected notesMaster rels to point to theme2.xml; got: ' + xml
-			)
-			assert(xml.indexOf('theme1.xml') === -1, 'expected notesMaster rels NOT to reference theme1.xml; got: ' + xml)
+			assertIncludes(xml, 'Target="../theme/theme2.xml"', 'notesMaster rels')
+			assertNotIncludes(xml, 'theme1.xml', 'notesMaster rels')
 		},
 	},
 	{
@@ -38,12 +44,7 @@ export default [
 				s.addText('hello', { x: 1, y: 1 })
 			})
 			const xml = await readEntry(zip, '[Content_Types].xml')
-			assert(
-				/Override\s+PartName="\/ppt\/theme\/theme2\.xml"\s+ContentType="application\/vnd\.openxmlformats-officedocument\.theme\+xml"/.test(
-					xml
-				),
-				'expected Override entry for /ppt/theme/theme2.xml; got: ' + xml
-			)
+			assertContentTypeOverride(xml, '/ppt/theme/theme2.xml')
 		},
 	},
 	{
@@ -59,15 +60,9 @@ export default [
 				'expected ppt/theme/theme1.xml still present; got: ' + entries.join(',')
 			)
 			const masterRels = await readEntry(zip, 'ppt/slideMasters/_rels/slideMaster1.xml.rels')
-			assert(
-				masterRels.indexOf('Target="../theme/theme1.xml"') !== -1,
-				'expected slideMaster rels to still point to theme1.xml; got: ' + masterRels
-			)
+			assertIncludes(masterRels, 'Target="../theme/theme1.xml"', 'slideMaster rels')
 			const ct = await readEntry(zip, '[Content_Types].xml')
-			assert(
-				/Override\s+PartName="\/ppt\/theme\/theme1\.xml"/.test(ct),
-				'expected Override entry for theme1.xml still present; got: ' + ct
-			)
+			assertContentTypeOverride(ct, '/ppt/theme/theme1.xml')
 		},
 	},
-]
+])

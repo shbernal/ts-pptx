@@ -1,6 +1,6 @@
 import JSZip from 'jszip'
-import PptxGenJS from '../dist/node.js'
-import { build, listEntries, assert } from './helpers.js'
+import PptxGenJS from '../../dist/node.js'
+import { defineRegressionSuite, build, listEntries, assert } from '../helpers.js'
 
 // 1x1 PNG (red pixel) for image-only deck case
 const PNG_DATA =
@@ -13,7 +13,7 @@ function chartsOrEmbeddingsEntries(zip) {
 	)
 }
 
-export default [
+defineRegressionSuite('Chart embedding parts', 'legacy bug-17', [
 	{
 		name: 'empty deck (text-only) does not create ppt/charts or ppt/embeddings dirs',
 		fn: async () => {
@@ -70,4 +70,4 @@ export default [
 			)
 		},
 	},
-]
+])

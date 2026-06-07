@@ -1,4 +1,4 @@
-import { build, readEntry, assert } from './helpers.js'
+import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
 async function getSlide1(zip) {
 	return readEntry(zip, 'ppt/slides/slide1.xml')
@@ -18,7 +18,7 @@ function firstPPr(xml) {
 	return m[0]
 }
 
-export default [
+defineRegressionSuite('Bullet glyph normalization', 'legacy bug-09', [
 	{
 		name: 'addText("• item",{bullet:true}) strips leading bullet glyph from <a:t> while keeping <a:buChar/>',
 		fn: async () => {
@@ -103,4 +103,4 @@ export default [
 			assert(tSquare === 'b', 'expected black-small-square glyph stripped; got: ' + JSON.stringify(tSquare))
 		},
 	},
-]
+])

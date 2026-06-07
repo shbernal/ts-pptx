@@ -26,6 +26,33 @@ pnpm run test:unit
 For documentation-only changes, no automated test is required unless the docs
 change package, build, or testing claims.
 
+## Regression Suite Layout
+
+Regression tests live in `test/regression/` and are organized by behavior, not
+by historical bug number. File names should describe the contract being tested,
+such as `object-identity.test.js`, `content-type-defaults.test.js`, or
+`slide-master-placeholders.test.js`.
+
+Each regression file calls `defineRegressionSuite()` from `test/helpers.js`.
+The optional second argument records legacy provenance, for example
+`legacy bug-21`, so old issue references remain traceable without making the
+suite name opaque.
+
+Prefer public API deck generation plus focused package/XML assertions:
+
+- Use `build()` to create a presentation and inspect the generated package.
+- Use `readEntry()` for specific package parts such as `ppt/slides/slide1.xml`.
+- Use helper assertions such as `assertContentTypeDefault()`,
+  `assertContentTypeOverride()`, `assertXmlOrder()`, and
+  `assertNonVisualDrawingProperty()` when they match the behavior under test.
+- Keep raw XML substring or regex assertions local and narrowly targeted when a
+  helper would hide the OOXML detail being tested.
+
+Add a regression test when a public API call must keep producing a specific
+package part, relationship, OOXML element, attribute, or absence of generated
+parts. Name the file after the behavior, and include bug or upstream issue
+context in the suite metadata or test name only when it helps future triage.
+
 ## OOXML Schema Validation
 
 Install the validator once:

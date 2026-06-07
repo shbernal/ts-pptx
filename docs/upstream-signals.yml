@@ -2826,7 +2826,7 @@ items:
         - src/gen-xml.ts:1229
         - src/gen-xml.ts:1246
         - src/gen-xml.ts:1281
-        - test/bug-01.test.js:27
+        - test/regression/text-formatting.test.js:27
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
@@ -2974,7 +2974,7 @@ items:
       local_files:
         - src/gen-xml.ts:1302
         - src/gen-xml.ts:1305
-        - test/bug-01.test.js:27
+        - test/regression/text-formatting.test.js:27
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
@@ -3334,8 +3334,8 @@ items:
         - local-test
       local_files:
         - src/gen-xml.ts:1302
-        - test/bug-01.test.js:5
-        - test/bug-01.test.js:27
+        - test/regression/text-formatting.test.js:5
+        - test/regression/text-formatting.test.js:27
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
@@ -3428,7 +3428,7 @@ items:
       local_files:
         - src/gen-xml.ts:1302
         - src/gen-xml.ts:1350
-        - test/bug-01.test.js:5
+        - test/regression/text-formatting.test.js:5
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
@@ -7755,7 +7755,7 @@ items:
       local_files:
         - package.json:12
         - package.json:13
-        - test/bug-01.test.js:85
+        - test/regression/text-formatting.test.js:3
         - test/schema.test.js:1
       schema_fixture: null
       validator_result: null
@@ -7883,8 +7883,8 @@ items:
         - src/gen-charts.ts:617
         - src/gen-charts.ts:620
         - src/gen-charts.ts:1051
-        - test/bug-06.test.js:5
-        - test/bug-06.test.js:39
+        - test/regression/combo-charts.test.js:5
+        - test/regression/combo-charts.test.js:39
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
@@ -8236,8 +8236,8 @@ items:
         - src/pptxgen.ts:622
         - src/gen-xml.ts:1639
         - src/gen-xml.ts:1645
-        - test/bug-15.test.js:19
-        - test/bug-20.test.js:35
+        - test/regression/theme-relationships.test.js:19
+        - test/regression/presentation-child-order.test.js:35
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
@@ -8426,8 +8426,8 @@ items:
         - src/gen-xml.ts:1246
         - src/gen-xml.ts:1248
         - src/gen-xml.ts:1302
-        - test/bug-01.test.js:87
-        - test/bug-01.test.js:109
+        - test/regression/text-formatting.test.js:5
+        - test/regression/text-formatting.test.js:27
       schema_fixture: null
       validator_result: null
       powerpoint_result: null

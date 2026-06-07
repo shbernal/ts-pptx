@@ -1,6 +1,6 @@
-import { build, readEntry, assert } from './helpers.js'
+import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
-export default [
+defineRegressionSuite('Slide backgrounds', 'legacy bug-12', [
 	{
 		name: 'solid-color slide.background <p:bgPr> contains <a:effectLst/>',
 		fn: async () => {
@@ -33,4 +33,4 @@ export default [
 			)
 		},
 	},
-]
+])

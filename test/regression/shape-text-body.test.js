@@ -1,6 +1,6 @@
-import { build, readEntry, assert } from './helpers.js'
+import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
-export default [
+defineRegressionSuite('Shape text bodies', 'legacy bug-13', [
 	{
 		name: 'textless addShape emits <p:sp> containing <p:txBody>',
 		fn: async () => {
@@ -37,4 +37,4 @@ export default [
 			)
 		},
 	},
-]
+])
