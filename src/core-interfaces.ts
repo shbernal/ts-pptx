@@ -90,6 +90,54 @@ export interface BackgroundProps extends DataOrPathProps, ShapeFillProps {
 export type HexColor = string
 export type ThemeColor = 'tx1' | 'tx2' | 'bg1' | 'bg2' | 'accent1' | 'accent2' | 'accent3' | 'accent4' | 'accent5' | 'accent6'
 export type Color = HexColor | ThemeColor
+export interface GradientStopProps {
+	/**
+	 * Stop position as a percentage.
+	 * - range: 0-100
+	 */
+	position: number
+	/**
+	 * Stop color.
+	 * - `HexColor` or `ThemeColor`
+	 */
+	color: Color
+	/**
+	 * Transparency (percent)
+	 * - range: 0-100
+	 * @default 0
+	 */
+	transparency?: number
+	/**
+	 * Transparency (percent)
+	 * @deprecated v3.3.0 - use `transparency`
+	 */
+	alpha?: number
+}
+export interface LinearGradientFillProps {
+	/**
+	 * Gradient type.
+	 */
+	kind: 'linear'
+	/**
+	 * Gradient angle in degrees. Values are normalized into 0-359.999...
+	 * @default 0
+	 */
+	angle?: number
+	/**
+	 * Whether the gradient angle scales with the fill region.
+	 */
+	scaled?: boolean
+	/**
+	 * Whether the fill rotates with the shape.
+	 * @default true
+	 */
+	rotateWithShape?: boolean
+	/**
+	 * Gradient stops. Stops are serialized in ascending `position` order.
+	 */
+	stops: GradientStopProps[]
+}
+export type GradientFillProps = LinearGradientFillProps
 export type Margin = number | [number, number, number, number]
 export type HAlign = 'left' | 'center' | 'right' | 'justify'
 export type VAlign = 'top' | 'middle' | 'bottom'
@@ -195,7 +243,12 @@ export interface ShapeFillProps {
 	 * Fill type
 	 * @default 'solid'
 	 */
-	type?: 'none' | 'solid'
+	type?: 'none' | 'solid' | 'gradient'
+
+	/**
+	 * Native PPTX gradient fill options.
+	 */
+	gradient?: GradientFillProps
 
 	/**
 	 * Transparency (percent)

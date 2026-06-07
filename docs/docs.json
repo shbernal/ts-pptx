@@ -29,6 +29,7 @@
       "pages": [
         "architecture",
         "agent-development",
+        "native-backgrounds-and-gradients",
         "upstream-signal-workflow",
         "troubleshooting",
         "legacy-autoloop",

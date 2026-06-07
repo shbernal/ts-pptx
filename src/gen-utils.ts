@@ -3,7 +3,7 @@
  */
 
 import { EMU, REGEX_HEX_COLOR, DEF_FONT_COLOR, ONEPT, SchemeColor, SCHEME_COLORS } from './core-enums.js'
-import type { PresLayout, TextGlowProps, PresSlideInternal, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps } from './core-interfaces.js'
+import type { PresLayout, TextGlowProps, PresSlideInternal, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, GradientStopProps } from './core-interfaces.js'
 
 /**
  * Translates any type of `x`/`y`/`w`/`h` prop to EMU
@@ -190,6 +190,66 @@ export function createGlowElement (options: TextGlowProps, defaults: TextGlowPro
 	return strXml
 }
 
+function boolToXml (value: boolean): string {
+	return value ? '1' : '0'
+}
+
+function normalizeGradientAngle (angle: number | undefined): number {
+	const degrees = angle ?? 0
+	if (typeof degrees !== 'number' || !Number.isFinite(degrees)) throw new Error('Gradient angle must be a finite number.')
+	return convertRotationDegrees(((degrees % 360) + 360) % 360)
+}
+
+function gradientStopColorAdjustments (stop: GradientStopProps): string {
+	let internalElements = ''
+	if (stop.alpha) internalElements += `<a:alpha val="${Math.round((100 - stop.alpha) * 1000)}"/>` // DEPRECATED: @deprecated v3.3.0
+	if (stop.transparency) internalElements += `<a:alpha val="${Math.round((100 - stop.transparency) * 1000)}"/>`
+	return internalElements
+}
+
+function normalizeGradientStops (stops: GradientStopProps[] | undefined): GradientStopProps[] {
+	if (!Array.isArray(stops) || stops.length < 2) throw new Error('Gradient fill requires at least two stops.')
+
+	return stops
+		.map(stop => {
+			if (!stop || typeof stop.position !== 'number' || !Number.isFinite(stop.position)) {
+				throw new Error('Gradient stop position must be a finite number from 0 to 100.')
+			}
+			if (stop.position < 0 || stop.position > 100) throw new Error('Gradient stop position must be from 0 to 100.')
+			return stop
+		})
+		.sort((a, b) => a.position - b.position)
+}
+
+/**
+ * Create a native DrawingML gradient fill.
+ * @param {GradientFillProps} gradient gradient fill options
+ * @returns XML string
+ */
+export function genXmlGradientFill (gradient: GradientFillProps | undefined): string {
+	if (!gradient || gradient.kind !== 'linear') throw new Error('Gradient fill currently supports only linear gradients.')
+	if (typeof gradient.rotateWithShape !== 'undefined' && typeof gradient.rotateWithShape !== 'boolean') {
+		throw new Error('Gradient rotateWithShape must be a boolean.')
+	}
+	if (typeof gradient.scaled !== 'undefined' && typeof gradient.scaled !== 'boolean') throw new Error('Gradient scaled must be a boolean.')
+
+	const stops = normalizeGradientStops(gradient.stops)
+	const rotWithShape = gradient.rotateWithShape ?? true
+	const scaledAttr = typeof gradient.scaled === 'boolean' ? ` scaled="${boolToXml(gradient.scaled)}"` : ''
+
+	let strXml = `<a:gradFill rotWithShape="${boolToXml(rotWithShape)}">`
+	strXml += '<a:gsLst>'
+	stops.forEach(stop => {
+		const position = Math.round(stop.position * 1000)
+		strXml += `<a:gs pos="${position}">${createColorElement(stop.color, gradientStopColorAdjustments(stop))}</a:gs>`
+	})
+	strXml += '</a:gsLst>'
+	strXml += `<a:lin ang="${normalizeGradientAngle(gradient.angle)}"${scaledAttr}/>`
+	strXml += '</a:gradFill>'
+
+	return strXml
+}
+
 /**
  * Create color selection
  * @param {Color | ShapeFillProps | ShapeLineProps} props fill props
@@ -213,6 +273,9 @@ export function genXmlColorSelection (props: Color | ShapeFillProps | ShapeLineP
 		switch (fillType) {
 			case 'solid':
 				outText += `<a:solidFill>${createColorElement(colorVal, internalElements)}</a:solidFill>`
+				break
+			case 'gradient':
+				outText += genXmlGradientFill(typeof props === 'string' ? undefined : props.gradient)
 				break
 			default: // @note need a statement as having only "break" can be removed by bundlers, then triggers "no-default" js-linter
 				outText += ''

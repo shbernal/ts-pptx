@@ -95,6 +95,33 @@ export default [
 		},
 	},
 	{
+		name: 'shape with native linear gradient fill',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape(p.shapes.RECTANGLE, {
+					x: 1,
+					y: 1,
+					w: 4,
+					h: 1,
+					fill: {
+						type: 'gradient',
+						gradient: {
+							kind: 'linear',
+							angle: 90,
+							scaled: true,
+							stops: [
+								{ position: 0, color: '451DC7' },
+								{ position: 100, color: '0B003D', transparency: 10 },
+							],
+						},
+					},
+				})
+			})
+			await expectNoSchemaErrors(buf, 'shape-native-linear-gradient')
+		},
+	},
+	{
 		name: 'solid-color slide background',
 		fn: async () => {
 			const { buf } = await build((p) => {
@@ -103,6 +130,28 @@ export default [
 				s.addText('hi', { x: 1, y: 1 })
 			})
 			await expectNoSchemaErrors(buf, 'solid-bg')
+		},
+	},
+	{
+		name: 'native linear gradient slide background',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.background = {
+					type: 'gradient',
+					gradient: {
+						kind: 'linear',
+						angle: 90,
+						scaled: true,
+						stops: [
+							{ position: 0, color: '451DC7' },
+							{ position: 100, color: '0B003D' },
+						],
+					},
+				}
+				s.addText('hi', { x: 1, y: 1 })
+			})
+			await expectNoSchemaErrors(buf, 'native-linear-gradient-bg')
 		},
 	},
 	{
