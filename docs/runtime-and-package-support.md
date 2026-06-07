@@ -27,12 +27,14 @@ The package publishes:
 - `dist/index.js` and `dist/index.d.ts` as the default ESM package entry.
 - `dist/core.js` and `dist/core.d.ts` for public enums, shared types, layout
   constants, and unit helpers.
+- `dist/inspect.js` and `dist/inspect.d.ts` for low-level PPTX package
+  inspection, slide/object extraction, and geometry helpers.
 - `dist/node.js` and `dist/node.d.ts` for explicit Node.js consumers.
 - `dist/browser.js` and `dist/browser.d.ts` for explicit browser consumers.
 - `dist/standalone.js` and `dist/standalone.d.ts` as a browser ESM entry that
   bundles JSZip.
-- package `exports` entries for `.`, `./core`, `./node`, `./browser`, and
-  `./standalone`.
+- package `exports` entries for `.`, `./core`, `./inspect`, `./node`,
+  `./browser`, and `./standalone`.
 
 Supported environments are modern module-aware environments:
 
@@ -46,6 +48,7 @@ Supported package imports:
 ```ts
 import pptxgen from "@shbernal/pptxgenjs"
 import { ShapeType } from "@shbernal/pptxgenjs/core"
+import { inspectPptx } from "@shbernal/pptxgenjs/inspect"
 import pptxgenNode from "@shbernal/pptxgenjs/node"
 import pptxgenBrowser from "@shbernal/pptxgenjs/browser"
 import pptxgenStandalone from "@shbernal/pptxgenjs/standalone"

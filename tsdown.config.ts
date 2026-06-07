@@ -21,6 +21,7 @@ export default defineConfig([
 		entry: {
 			index: 'src/index.ts',
 			core: 'src/core.ts',
+			inspect: 'src/inspect.ts',
 			node: 'src/node.ts',
 			browser: 'src/browser.ts',
 		},

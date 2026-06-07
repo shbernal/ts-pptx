@@ -17,6 +17,7 @@
       "pages": [
         "reference/index",
         "reference/layout-units",
+        "reference/pptx-inspection",
         "reference/object-identity",
         "reference/api/index",
         "ooxml-agent-context",

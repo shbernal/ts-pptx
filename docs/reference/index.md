@@ -21,6 +21,7 @@ The generated TypeDoc reference is built from public entry points:
 
 - `src/index.ts`
 - `src/core.ts`
+- `src/inspect.ts`
 - `src/node.ts`
 - `src/browser.ts`
 - `src/standalone.ts`
@@ -38,6 +39,11 @@ contract for images and charts.
 
 [Layout Units](layout-units.md) documents standard slide-layout constants and
 unit helpers for converting inches, points, pixels-at-DPI, and EMUs.
+
+## PPTX Inspection
+
+[PPTX Inspection](pptx-inspection.md) documents low-level package inspection,
+slide/object extraction, and geometry helpers for downstream tools.
 
 ## Package Boundary
 

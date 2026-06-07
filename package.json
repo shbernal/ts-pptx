@@ -25,6 +25,10 @@
 			"types": "./dist/core.d.ts",
 			"default": "./dist/core.js"
 		},
+		"./inspect": {
+			"types": "./dist/inspect.d.ts",
+			"default": "./dist/inspect.js"
+		},
 		"./node": {
 			"types": "./dist/node.d.ts",
 			"node": "./dist/node.js",
@@ -90,6 +94,7 @@
 		"docs:preview": "vitepress preview docs"
 	},
 	"dependencies": {
+		"fast-xml-parser": "^5.8.0",
 		"jszip": "^3.10.1"
 	},
 	"publishConfig": {
