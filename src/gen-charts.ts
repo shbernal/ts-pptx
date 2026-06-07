@@ -1656,10 +1656,13 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
  */
 function makeCatAxis (opts: IChartOptsLib, axisId: string, valAxisId: string): string {
 	let strXml = ''
+	const usesValueAxisForCategories =
+		opts._type === CHART_TYPE.SCATTER || opts._type === CHART_TYPE.BUBBLE || opts._type === CHART_TYPE.BUBBLE3D
+	const usesCategoryAxis = !usesValueAxisForCategories && !opts.catLabelFormatCode
 
 	// Build cat axis tag
 	// NOTE: Scatter and Bubble chart need two Val axises as they display numbers on x axis
-	if (opts._type === CHART_TYPE.SCATTER || opts._type === CHART_TYPE.BUBBLE || opts._type === CHART_TYPE.BUBBLE3D) {
+	if (usesValueAxisForCategories) {
 		strXml += '<c:valAx>'
 	} else {
 		strXml += '<c:' + (opts.catLabelFormatCode ? 'dateAx' : 'catAx') + '>'
@@ -1724,15 +1727,19 @@ function makeCatAxis (opts: IChartOptsLib, axisId: string, valAxisId: string): s
 	strXml += '  </a:p>'
 	strXml += ' </c:txPr>'
 	strXml += ' <c:crossAx val="' + valAxisId + '"/>'
-	strXml += ` <c:${typeof opts.valAxisCrossesAt === 'number' ? 'crossesAt' : 'crosses'} val="${opts.valAxisCrossesAt || 'autoZero'}"/>`
-	strXml += ' <c:auto val="1"/>'
-	strXml += ' <c:lblAlgn val="ctr"/>'
-	strXml += ` <c:noMultiLvlLbl val="${opts.catAxisMultiLevelLabels ? 0 : 1}"/>`
-	if (opts.catAxisLabelFrequency) strXml += ' <c:tickLblSkip val="' + opts.catAxisLabelFrequency + '"/>'
+	const valAxisCrossTag = typeof opts.valAxisCrossesAt === 'number' ? 'crossesAt' : 'crosses'
+	const valAxisCrossValue = typeof opts.valAxisCrossesAt === 'number' ? opts.valAxisCrossesAt : opts.valAxisCrossesAt || 'autoZero'
+	strXml += ` <c:${valAxisCrossTag} val="${valAxisCrossValue}"/>`
+	if (!usesValueAxisForCategories) strXml += ' <c:auto val="1"/>'
+	if (usesCategoryAxis) {
+		strXml += ' <c:lblAlgn val="ctr"/>'
+		if (opts.catAxisLabelFrequency) strXml += ' <c:tickLblSkip val="' + opts.catAxisLabelFrequency + '"/>'
+		strXml += ` <c:noMultiLvlLbl val="${opts.catAxisMultiLevelLabels ? 0 : 1}"/>`
+	}
 
 	// Issue#149: PPT will auto-adjust these as needed after calcing the date bounds, so we only include them when specified by user
 	// Allow major and minor units to be set for double value axis charts
-	if (opts.catLabelFormatCode || opts._type === CHART_TYPE.SCATTER || opts._type === CHART_TYPE.BUBBLE || opts._type === CHART_TYPE.BUBBLE3D) {
+	if (opts.catLabelFormatCode || usesValueAxisForCategories) {
 		if (opts.catLabelFormatCode) {
 			;(['catAxisBaseTimeUnit', 'catAxisMajorTimeUnit', 'catAxisMinorTimeUnit'] as const).forEach(opt => {
 				// Validate input as poorly chosen/garbage options will cause chart corruption and it wont render at all!
@@ -1752,7 +1759,7 @@ function makeCatAxis (opts: IChartOptsLib, axisId: string, valAxisId: string): s
 
 	// Close cat axis tag
 	// NOTE: Added closing tag of val or cat axis based on chart type
-	if (opts._type === CHART_TYPE.SCATTER || opts._type === CHART_TYPE.BUBBLE || opts._type === CHART_TYPE.BUBBLE3D) {
+	if (usesValueAxisForCategories) {
 		strXml += '</c:valAx>'
 	} else {
 		strXml += '</c:' + (opts.catLabelFormatCode ? 'dateAx' : 'catAx') + '>'

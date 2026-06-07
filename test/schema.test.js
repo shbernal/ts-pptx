@@ -139,4 +139,21 @@ export default [
 			await expectNoSchemaErrors(buf, 'embedded-png')
 		},
 	},
+	{
+		name: 'scatter chart with valAxisCrossesAt zero',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addChart(
+					p.charts.SCATTER,
+					[
+						{ name: 'X-Axis', values: [0, 1, 2] },
+						{ name: 'Y-Value 1', values: [1, 4, 9], labels: ['A', 'B', 'C'] },
+					],
+					{ x: 1, y: 1, w: 6, h: 3, valAxisCrossesAt: 0 }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'scatter-val-axis-crosses-at-zero')
+		},
+	},
 ]
