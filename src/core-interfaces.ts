@@ -444,7 +444,7 @@ export interface TextBaseProps {
 	 */
 	valign?: VAlign
 }
-export interface PlaceholderProps extends PositionProps, TextBaseProps {
+export interface PlaceholderProps extends PositionProps, TextBaseProps, ObjectNameProps {
 	name: string
 	type: PLACEHOLDER_TYPE
 	/**

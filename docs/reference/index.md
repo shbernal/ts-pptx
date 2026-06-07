@@ -28,6 +28,12 @@ The generated TypeDoc reference is built from public entry points:
 After running `pnpm run docs:api`, read the generated reference at
 `reference/api/index.md`.
 
+## Object Identity
+
+[Object Identity](object-identity.md) documents the `objectName` contract for
+stable PowerPoint Selection Pane names and the current `altText` serialization
+contract for images and charts.
+
 ## Package Boundary
 
 - Supported import paths are declared in `package.json` exports.
