@@ -231,3 +231,28 @@ When a ledger item moves to `accepted`, create a local implementation task with:
 Keep the fix local to the current package target. If the upstream PR includes a
 useful idea but also reintroduces non-target package behavior, mark the signal
 `interesting-with-tweaks` and implement only the applicable behavior.
+
+## Closing Implemented Signals
+
+After fixing an upstream signal, update [upstream-signals.yml](upstream-signals.yml)
+in the same work session. Do not leave the entry at `accepted`,
+`target-candidate`, or `needs-repro` after the local fix has landed.
+
+For each fixed upstream issue or PR:
+
+- set `status` to `implemented`;
+- update `current_project_notes` with the local commit or fix summary;
+- add the source and test files to `evidence.local_files`;
+- set `schema_fixture` and `validator_result` when a schema fixture was added;
+- add relevant OOXML or Microsoft references used for the fix;
+- set `next_action` to `none`.
+
+If one source fix closes both a PR and its linked issue, update both ledger
+entries so future reviews do not reopen already-fixed work.
+
+Validate the ledger before finishing:
+
+```bash
+pnpm run upstream:signals -- validate
+pnpm run upstream:signals -- show upstream-issue-1234
+```
