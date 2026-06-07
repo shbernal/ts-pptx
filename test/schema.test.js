@@ -68,6 +68,23 @@ export default [
 		},
 	},
 	{
+		name: 'shape with inner shadow',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape(p.shapes.RECTANGLE, {
+					x: 1,
+					y: 1,
+					w: 4,
+					h: 1,
+					fill: { color: '00B0B9' },
+					shadow: { type: 'inner', blur: 6, offset: 2, color: '000000', opacity: 0.15 },
+				})
+			})
+			await expectNoSchemaErrors(buf, 'shape-with-inner-shadow')
+		},
+	},
+	{
 		name: 'solid-color slide background',
 		fn: async () => {
 			const { buf } = await build((p) => {

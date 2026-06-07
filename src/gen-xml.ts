@@ -541,7 +541,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					strSlideXml += ` <a:${shadowType}Shdw ${shadowType === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0"' : ''} blurRad="${shadowBlur}" dist="${shadowOffset}" dir="${shadowAngle}">`
 					strSlideXml += ` <a:srgbClr val="${shadowColor}">`
 					strSlideXml += ` <a:alpha val="${shadowOpacity}"/></a:srgbClr>`
-					strSlideXml += ' </a:outerShdw>'
+					strSlideXml += ` </a:${shadowType}Shdw>`
 					strSlideXml += '</a:effectLst>'
 				}
 
