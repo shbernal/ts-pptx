@@ -16,6 +16,7 @@
       "group": "Reference",
       "pages": [
         "reference/index",
+        "reference/layout-units",
         "reference/object-identity",
         "reference/api/index",
         "ooxml-agent-context",

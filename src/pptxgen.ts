@@ -69,7 +69,6 @@ import {
 	DEF_PRES_LAYOUT,
 	DEF_PRES_LAYOUT_NAME,
 	DEF_SLIDE_MARGIN_IN,
-	EMU,
 	OutputType,
 	SCHEME_COLOR_NAMES,
 	SHAPE_TYPE,
@@ -101,6 +100,7 @@ import * as genMedia from './gen-media.js'
 import * as genTable from './gen-tables.js'
 import * as genXml from './gen-xml.js'
 import type { RuntimeAdapter } from './runtime/types.js'
+import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
 
 export type { PresSlide as Slide } from './core-interfaces.js'
 export type {
@@ -183,6 +183,14 @@ export type {
 
 const VERSION = '5.0.1'
 
+function standardLayoutToPresLayout(layout: StandardLayout): PresLayout {
+	return {
+		name: layout.name,
+		width: layout.widthEmu,
+		height: layout.heightEmu,
+	}
+}
+
 export default class PptxGenJS {
 	// Property getters/setters
 
@@ -192,7 +200,7 @@ export default class PptxGenJS {
 	 * - 'LAYOUT_4x3'   (10"    x 7.5")
 	 * - 'LAYOUT_16x9'  (10"    x 5.625")
 	 * - 'LAYOUT_16x10' (10"    x 6.25")
-	 * - 'LAYOUT_WIDE'  (13.33" x 7.5")
+	 * - 'LAYOUT_WIDE'  (13.333" x 7.5")
 	 * Custom layouts:
 	 * Use `pptx.defineLayout()` to create custom layouts (e.g.: 'A4')
 	 * @type {string}
@@ -416,16 +424,12 @@ export default class PptxGenJS {
 
 	constructor(runtime: RuntimeAdapter) {
 		this._runtime = runtime
-		const layout4x3: PresLayout = { name: 'screen4x3', width: 9144000, height: 6858000 }
-		const layout16x9: PresLayout = { name: 'screen16x9', width: 9144000, height: 5143500 }
-		const layout16x10: PresLayout = { name: 'screen16x10', width: 9144000, height: 5715000 }
-		const layoutWide: PresLayout = { name: 'custom', width: 12192000, height: 6858000 }
 		// Set available layouts
 		this.LAYOUTS = {
-			LAYOUT_4x3: layout4x3,
-			LAYOUT_16x9: layout16x9,
-			LAYOUT_16x10: layout16x10,
-			LAYOUT_WIDE: layoutWide,
+			LAYOUT_4x3: standardLayoutToPresLayout(STANDARD_LAYOUTS.LAYOUT_4x3),
+			LAYOUT_16x9: standardLayoutToPresLayout(STANDARD_LAYOUTS.LAYOUT_16x9),
+			LAYOUT_16x10: standardLayoutToPresLayout(STANDARD_LAYOUTS.LAYOUT_16x10),
+			LAYOUT_WIDE: standardLayoutToPresLayout(STANDARD_LAYOUTS.LAYOUT_WIDE),
 		}
 
 		// Core
@@ -795,10 +799,10 @@ export default class PptxGenJS {
 
 		this.LAYOUTS[layout.name] = {
 			name: layout.name,
-			_sizeW: Math.round(Number(layout.width) * EMU),
-			_sizeH: Math.round(Number(layout.height) * EMU),
-			width: Math.round(Number(layout.width) * EMU),
-			height: Math.round(Number(layout.height) * EMU),
+			_sizeW: inchesToEmu(Number(layout.width)),
+			_sizeH: inchesToEmu(Number(layout.height)),
+			width: inchesToEmu(Number(layout.width)),
+			height: inchesToEmu(Number(layout.height)),
 		}
 	}
 

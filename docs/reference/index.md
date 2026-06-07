@@ -34,6 +34,11 @@ After running `pnpm run docs:api`, read the generated reference at
 stable PowerPoint Selection Pane names and the current `altText` serialization
 contract for images and charts.
 
+## Layout Units
+
+[Layout Units](layout-units.md) documents standard slide-layout constants and
+unit helpers for converting inches, points, pixels-at-DPI, and EMUs.
+
 ## Package Boundary
 
 - Supported import paths are declared in `package.json` exports.

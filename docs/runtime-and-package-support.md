@@ -25,7 +25,8 @@ import pptxgen from "@shbernal/pptxgenjs"
 The package publishes:
 
 - `dist/index.js` and `dist/index.d.ts` as the default ESM package entry.
-- `dist/core.js` and `dist/core.d.ts` for public enums and shared types.
+- `dist/core.js` and `dist/core.d.ts` for public enums, shared types, layout
+  constants, and unit helpers.
 - `dist/node.js` and `dist/node.d.ts` for explicit Node.js consumers.
 - `dist/browser.js` and `dist/browser.d.ts` for explicit browser consumers.
 - `dist/standalone.js` and `dist/standalone.d.ts` as a browser ESM entry that

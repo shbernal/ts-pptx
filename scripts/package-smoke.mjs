@@ -58,7 +58,7 @@ async function smokeInstalledPackage(fixtureDir) {
 			`import NodePptxGenJS from ${JSON.stringify(packageImport('/node'))}`,
 			`import BrowserPptxGenJS from ${JSON.stringify(packageImport('/browser'))}`,
 			`import StandalonePptxGenJS from ${JSON.stringify(packageImport('/standalone'))}`,
-			`import { ChartType } from ${JSON.stringify(packageImport('/core'))}`,
+			`import { ChartType, EMU_PER_INCH, STANDARD_LAYOUTS, inchesToEmu, pixelsToEmu } from ${JSON.stringify(packageImport('/core'))}`,
 			'const pptx = new PptxGenJS()',
 			"if (typeof pptx.version !== 'string') throw new Error('missing version')",
 			"if (Presentation !== PptxGenJS) throw new Error('missing Presentation named export')",
@@ -67,6 +67,9 @@ async function smokeInstalledPackage(fixtureDir) {
 			"if (typeof new StandalonePptxGenJS().version !== 'string') throw new Error('standalone entry missing version')",
 			"if (ShapeType.rect !== 'rect') throw new Error('missing ShapeType export')",
 			"if (ChartType.bar !== 'bar') throw new Error('missing ChartType export')",
+			"if (EMU_PER_INCH !== 914400) throw new Error('missing EMU_PER_INCH export')",
+			"if (inchesToEmu(STANDARD_LAYOUTS.LAYOUT_WIDE.widthIn) !== 12192000) throw new Error('missing wide layout helpers')",
+			"if (pixelsToEmu(1920, 144) !== 12192000) throw new Error('missing pixel conversion helper')",
 			'',
 		].join('\n')
 	)
@@ -82,11 +85,11 @@ async function smokeInstalledPackage(fixtureDir) {
 	await fs.writeFile(
 		path.join(fixtureDir, 'type-smoke.ts'),
 		[
-			`import PptxGenJS, { Presentation, type IChartMulti, type ThemeProps, type WriteFileProps } from ${JSON.stringify(packageImport())}`,
+			`import PptxGenJS, { Presentation, STANDARD_LAYOUTS, inchesToEmu, type IChartMulti, type StandardLayoutName, type ThemeProps, type WriteFileProps } from ${JSON.stringify(packageImport())}`,
 			`import NodePptxGenJS from ${JSON.stringify(packageImport('/node'))}`,
 			`import BrowserPptxGenJS from ${JSON.stringify(packageImport('/browser'))}`,
 			`import StandalonePptxGenJS from ${JSON.stringify(packageImport('/standalone'))}`,
-			`import { ShapeType, type PresSlide } from ${JSON.stringify(packageImport('/core'))}`,
+			`import { EMU_PER_INCH, ShapeType, pixelsToEmu, type PresSlide } from ${JSON.stringify(packageImport('/core'))}`,
 			'const pptx = new PptxGenJS()',
 			'const nodePptx = new NodePptxGenJS()',
 			'const browserPptx = new BrowserPptxGenJS()',
@@ -97,6 +100,9 @@ async function smokeInstalledPackage(fixtureDir) {
 			"const comboChart: IChartMulti[] = [{ type: 'bar', data: [{ labels: ['A'], values: [1] }], options: {} }]",
 			'const presentationCtor: typeof PptxGenJS = Presentation',
 			'const typedSlide: PresSlide = slide',
+			"const layoutName: StandardLayoutName = 'LAYOUT_WIDE'",
+			'const wideWidthEmu: number = inchesToEmu(STANDARD_LAYOUTS[layoutName].widthIn)',
+			'const pxWidthEmu: number = pixelsToEmu(1920, 144)',
 			'pptx.theme = theme',
 			"slide.addChart('bar', [{ labels: ['A'], values: [1] }], { x: 0, y: 0, w: 1, h: 1 })",
 			'slide.addChart(comboChart, { x: 0, y: 0, w: 1, h: 1 })',
@@ -120,6 +126,9 @@ async function smokeInstalledPackage(fixtureDir) {
 			'void standalonePptx.write()',
 			'void presentationCtor',
 			'void typedSlide',
+			'void EMU_PER_INCH',
+			'void wideWidthEmu',
+			'void pxWidthEmu',
 			'',
 		].join('\n')
 	)

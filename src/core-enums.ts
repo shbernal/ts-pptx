@@ -3,11 +3,12 @@
  * NOTE: `enum` wont work for objects, so use `Object.freeze`
  */
 
+import { EMU_PER_INCH, EMU_PER_POINT } from './units.js'
 import type { BorderProps, OptsChartGridLine } from './core-interfaces.js'
 
 // CONST
-export const EMU = 914400 // One (1) inch (OfficeXML measures in EMU (English Metric Units))
-export const ONEPT = 12700 // One (1) point (pt)
+export const EMU = EMU_PER_INCH // One (1) inch (OfficeXML measures in EMU (English Metric Units))
+export const ONEPT = EMU_PER_POINT // One (1) point (pt)
 export const CRLF = '\r\n' // AKA: Chr(13) & Chr(10)
 export const LAYOUT_IDX_SERIES_BASE = 2147483649
 export const REGEX_HEX_COLOR = /^[0-9a-fA-F]{6}$/
