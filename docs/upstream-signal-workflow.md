@@ -90,6 +90,37 @@ pnpm run upstream:signals:check:json -- --updated-since 2026-06-07
 The checker never edits the ledger. Record reviewed decisions manually so
 `seen` does not become confused with `reviewed`.
 
+## Ledger Tooling
+
+Use the local ledger command to inspect and maintain entries already recorded in
+`docs/upstream-signals.yml`:
+
+```bash
+pnpm run upstream:signals -- list
+pnpm run upstream:signals -- list --status needs-repro --type issue
+pnpm run upstream:signals -- show upstream-issue-1440
+pnpm run upstream:signals -- values status
+pnpm run upstream:signals -- validate
+```
+
+The default list output is intentionally compact: item id, status, priority,
+current-project applicability, and `upstream_summary`. Use `--json` when another
+tool or agent needs structured output, and `--print-limit 0` when a filtered
+listing should print every matching entry.
+
+Use `values status` to see which status values are currently used in the ledger
+and how many entries use each one.
+
+The command also supports exact-ID maintenance operations:
+
+```bash
+pnpm run upstream:signals -- set-status upstream-issue-1440 implemented
+pnpm run upstream:signals -- remove upstream-issue-1440
+```
+
+Mutation commands validate the ledger before writing and refuse ambiguous or
+duplicate ids. Use `--dry-run` to check the intended mutation without writing.
+
 ## Classification
 
 Classify each reviewed item with one status:
