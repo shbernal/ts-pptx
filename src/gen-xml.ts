@@ -1540,7 +1540,7 @@ export function makeXmlApp (slides: PresSlideInternal[], company: string): strin
 			${slides.map((_slideObj, idx) => `<vt:lpstr>Slide ${idx + 1}</vt:lpstr>`).join('')}
 		</vt:vector>
 	</TitlesOfParts>
-	<Company>${company}</Company>
+	<Company>${encodeXmlEntities(company)}</Company>
 	<LinksUpToDate>false</LinksUpToDate>
 	<SharedDoc>false</SharedDoc>
 	<HyperlinksChanged>false</HyperlinksChanged>

@@ -41,6 +41,16 @@ export default [
 		},
 	},
 	{
+		name: 'company metadata with XML entities',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.company = 'A & B <C>'
+				p.addSlide().addText('hello', { x: 1, y: 1, w: 4, h: 0.5 })
+			})
+			await expectNoSchemaErrors(buf, 'company-metadata-xml-entities')
+		},
+	},
+	{
 		name: 'single rectangle shape',
 		fn: async () => {
 			const { buf } = await build((p) => {
