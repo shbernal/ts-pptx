@@ -8,7 +8,7 @@ applications.
 Use the package export:
 
 ```ts
-import pptxgen from "pptxgenjs"
+import pptxgen from "@shbernal/pptxgenjs"
 ```
 
 The package publishes:
@@ -32,11 +32,11 @@ Supported environments are modern module-aware environments:
 Supported package imports:
 
 ```ts
-import pptxgen from "pptxgenjs"
-import { ShapeType } from "pptxgenjs/core"
-import pptxgenNode from "pptxgenjs/node"
-import pptxgenBrowser from "pptxgenjs/browser"
-import pptxgenStandalone from "pptxgenjs/standalone"
+import pptxgen from "@shbernal/pptxgenjs"
+import { ShapeType } from "@shbernal/pptxgenjs/core"
+import pptxgenNode from "@shbernal/pptxgenjs/node"
+import pptxgenBrowser from "@shbernal/pptxgenjs/browser"
+import pptxgenStandalone from "@shbernal/pptxgenjs/standalone"
 ```
 
 ## Dropped Compared To Upstream
@@ -48,7 +48,7 @@ CommonJS is not a supported package target.
 Unsupported:
 
 ```js
-const pptxgen = require("pptxgenjs")
+const pptxgen = require("@shbernal/pptxgenjs")
 ```
 
 The package does not ship:
@@ -64,8 +64,9 @@ package smoke test verifies the actual contract: no CJS artifacts and no
 
 ### IIFE And Global Browser Bundle
 
-The IIFE/global browser build is not supported. `pptxgenjs/standalone` is an ESM
-browser entry, not a `window.PptxGenJS` global.
+The IIFE/global browser build is not supported.
+`@shbernal/pptxgenjs/standalone` is an ESM browser entry, not a
+`window.PptxGenJS` global.
 
 Unsupported:
 

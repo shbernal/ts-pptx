@@ -1,4 +1,4 @@
-import pptxgen from "pptxgenjs";
+import pptxgen from "@shbernal/pptxgenjs";
 import { testMainMethods, testTableMethod } from "./tstest/Test";
 import { demoCode } from "./enums";
 import logo from "./assets/logo.png";

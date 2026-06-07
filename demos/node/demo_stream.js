@@ -10,7 +10,7 @@
 
 // ============================================================================
 import { Buffer } from "node:buffer";
-import pptxgen from "pptxgenjs";
+import pptxgen from "@shbernal/pptxgenjs";
 import express from "express"; // @note Only required for streaming test (not a req for PptxGenJS)
 const app = express(); // @note Only required for streaming test (not a req for PptxGenJS)
 //let exportName = `PptxGenJS_Node_Demo_Stream_${new Date().toISOString()}.pptx`;

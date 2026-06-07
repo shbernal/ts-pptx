@@ -1,6 +1,11 @@
-# PptxGenJS Release Checklist
+# Release Checklist
 
-This guide documents the maintained release path for the ESM-only package.
+This guide documents the maintained release path for the scoped ESM-only
+package, `@shbernal/pptxgenjs`.
+
+Publishing is manual until the first scoped release exists and the npm package
+ownership/trusted-publishing setup is confirmed. Do not add or run automated npm
+publishing without an explicit release-automation task.
 
 ## Version Updates
 
@@ -9,6 +14,8 @@ This guide documents the maintained release path for the ESM-only package.
 3. Update `CHANGELOG.md` with the release date and summary.
 4. Update demo package versions when they intentionally track the release
    version.
+5. Keep package import examples on the scoped package name:
+   `@shbernal/pptxgenjs`.
 
 ## Automated Release Gate
 
@@ -46,6 +53,9 @@ The package should ship:
 - package `exports["."].default`
 - package `exports["."].types`
 - package subpaths for `./core`, `./node`, `./browser`, and `./standalone`
+- scoped imports for `@shbernal/pptxgenjs`,
+  `@shbernal/pptxgenjs/core`, `@shbernal/pptxgenjs/node`,
+  `@shbernal/pptxgenjs/browser`, and `@shbernal/pptxgenjs/standalone`
 
 The package should not ship or document:
 
@@ -73,16 +83,31 @@ Run both with:
 pnpm run test:demos
 ```
 
-## Beta Publish
+## Manual Pack Check
 
 ```bash
-pnpm publish --tag beta
+mkdir -p /tmp/pptxgenjs-release
+pnpm pack --pack-destination /tmp/pptxgenjs-release
 ```
 
-## Stable Publish
+Inspect the generated tarball before publishing:
 
 ```bash
-pnpm publish
+tar -tf /tmp/pptxgenjs-release/shbernal-pptxgenjs-*.tgz
+```
+
+## Manual npm Publish
+
+Only publish after confirming npm ownership and the exact target version:
+
+```bash
+npm publish /tmp/pptxgenjs-release/shbernal-pptxgenjs-*.tgz --access public
+```
+
+For a prerelease, publish with an explicit tag:
+
+```bash
+npm publish /tmp/pptxgenjs-release/shbernal-pptxgenjs-*.tgz --access public --tag beta
 ```
 
 ## GitHub Release
@@ -90,4 +115,5 @@ pnpm publish
 1. Merge the release branch into the release branch target.
 2. Copy the changelog entry into a new GitHub release.
 3. Use `vX.Y.Z` as the release tag.
-4. Publish the release after npm publishing succeeds.
+4. State the npm package status in the release notes. For the first scoped
+   GitHub release, npm publishing may remain manual or pending.

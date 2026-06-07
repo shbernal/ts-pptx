@@ -66,24 +66,24 @@ importers:
 
   demos/node:
     dependencies:
+      '@shbernal/pptxgenjs':
+        specifier: workspace:*
+        version: link:../..
       express:
         specifier: ^5.2.1
         version: 5.2.1
-      pptxgenjs:
-        specifier: workspace:*
-        version: link:../..
 
   demos/vite-demo:
     dependencies:
       '@popperjs/core':
         specifier: ^2.11.8
         version: 2.11.8
+      '@shbernal/pptxgenjs':
+        specifier: workspace:*
+        version: link:../..
       bootstrap:
         specifier: ^5.3.8
         version: 5.3.8(@popperjs/core@2.11.8)
-      pptxgenjs:
-        specifier: workspace:*
-        version: link:../..
       react:
         specifier: ^19.2.7
         version: 19.2.7

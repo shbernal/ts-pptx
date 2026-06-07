@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.0](https://github.com/shbernal/PptxGenJS/releases/tag/v5.0.0) - 2026-06-07
+
+### Added
+
+- Scoped package release target: `@shbernal/pptxgenjs`.
+- Package-boundary validation for the scoped default import and subpath imports:
+  `@shbernal/pptxgenjs/core`, `@shbernal/pptxgenjs/node`,
+  `@shbernal/pptxgenjs/browser`, and `@shbernal/pptxgenjs/standalone`.
+
 ### Fixed
 
 - Multiple `<a:pPr>` elements emitted per `<a:p>` cause "needs repair" — paragraph properties were re-emitted for every text run [\#1322](https://github.com/gitbrent/PptxGenJS/issues/1322)
@@ -29,6 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Package version is now `5.0.0` because this release intentionally narrows the
+  package contract to modern ESM consumers and Node.js `>=24`.
+- CommonJS, IIFE/global browser bundles, direct CDN script-tag workflows, and
+  legacy generated artifact names are not maintained package targets.
+- Release documentation now lives under `docs/RELEASING.md` with a manual npm
+  publishing path for the first scoped release.
 - `npm test` now runs both the regression suite and the OOXML schema-validation suite. Schema validation requires a one-time `./tools/ooxml-validator/install.sh` to download the validator binary.
 
 ## [4.0.1](https://github.com/gitbrent/PptxGenJS/releases/tag/v4.0.1) - 2025-06-25

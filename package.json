@@ -1,12 +1,12 @@
 {
-	"name": "pptxgenjs",
-	"version": "4.0.1",
+	"name": "@shbernal/pptxgenjs",
+	"version": "5.0.0",
 	"author": {
-		"name": "Brent Ely",
-		"url": "https://github.com/gitbrent/"
+		"name": "shbernal",
+		"url": "https://github.com/shbernal/"
 	},
 	"description": "Create JavaScript PowerPoint Presentations",
-	"homepage": "https://gitbrent.github.io/PptxGenJS/",
+	"homepage": "https://github.com/shbernal/PptxGenJS#readme",
 	"license": "MIT",
 	"packageManager": "pnpm@11.3.0",
 	"type": "module",
@@ -82,6 +82,9 @@
 	"dependencies": {
 		"jszip": "^3.10.1"
 	},
+	"publishConfig": {
+		"access": "public"
+	},
 	"devDependencies": {
 		"@arethetypeswrong/cli": "^0.18.3",
 		"@arethetypeswrong/core": "^0.18.3",
@@ -103,7 +106,7 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/gitbrent/PptxGenJS.git"
+		"url": "git+https://github.com/shbernal/PptxGenJS.git"
 	},
 	"keywords": [
 		"es6-powerpoint",
@@ -127,6 +130,6 @@
 		"typescript-powerpoint"
 	],
 	"bugs": {
-		"url": "https://github.com/gitbrent/PptxGenJS/issues"
+		"url": "https://github.com/shbernal/PptxGenJS/issues"
 	}
 }

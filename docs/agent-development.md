@@ -40,8 +40,9 @@ explicitly changed:
 - direct CDN script-tag support as a maintained package workflow.
 
 The package smoke test should continue to prove that old artifacts are absent
-and that `pptxgenjs`, `pptxgenjs/core`, `pptxgenjs/node`,
-`pptxgenjs/browser`, and `pptxgenjs/standalone` resolve.
+and that `@shbernal/pptxgenjs`, `@shbernal/pptxgenjs/core`,
+`@shbernal/pptxgenjs/node`, `@shbernal/pptxgenjs/browser`, and
+`@shbernal/pptxgenjs/standalone` resolve.
 
 ## Upstream Signals
 

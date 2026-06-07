@@ -52,4 +52,4 @@ pnpm run test:demo:node
 ## Notes
 
 - This demo is ESM-only.
-- CommonJS `require("pptxgenjs")` is not supported.
+- CommonJS `require("@shbernal/pptxgenjs")` is not supported.

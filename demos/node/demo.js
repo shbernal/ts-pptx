@@ -13,7 +13,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { execGenSlidesFuncs, runEveryTest } from "../modules/demos.mjs";
-import pptxgen from "pptxgenjs";
+import pptxgen from "@shbernal/pptxgenjs";
 
 // ============================================================================
 

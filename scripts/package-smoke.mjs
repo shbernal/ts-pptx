@@ -4,6 +4,14 @@ import os from 'node:os'
 import path from 'node:path'
 import { ROOT, assertFile, assertNoFile, packPackage, run } from './script-utils.mjs'
 
+const packageJson = JSON.parse(await fs.readFile(path.join(ROOT, 'package.json'), 'utf8'))
+const packageName = packageJson.name
+const packagePathParts = packageName.split('/')
+
+function packageImport(subpath = '') {
+	return packageName + subpath
+}
+
 async function writeFixtureManifest(fixtureDir, manager) {
 	await fs.mkdir(fixtureDir, { recursive: true })
 	await fs.writeFile(
@@ -25,7 +33,7 @@ async function installPackedPackage(manager, fixtureDir, tarball) {
 }
 
 async function smokeInstalledPackage(fixtureDir) {
-	const installedPkgDir = path.join(fixtureDir, 'node_modules', 'pptxgenjs')
+	const installedPkgDir = path.join(fixtureDir, 'node_modules', ...packagePathParts)
 	await Promise.all([
 		assertFile(path.join(installedPkgDir, 'dist', 'index.js')),
 		assertFile(path.join(installedPkgDir, 'dist', 'index.d.ts')),
@@ -46,11 +54,11 @@ async function smokeInstalledPackage(fixtureDir) {
 	await fs.writeFile(
 		path.join(fixtureDir, 'esm-smoke.mjs'),
 		[
-			"import PptxGenJS, { Presentation, ShapeType } from 'pptxgenjs'",
-			"import NodePptxGenJS from 'pptxgenjs/node'",
-			"import BrowserPptxGenJS from 'pptxgenjs/browser'",
-			"import StandalonePptxGenJS from 'pptxgenjs/standalone'",
-			"import { ChartType } from 'pptxgenjs/core'",
+			`import PptxGenJS, { Presentation, ShapeType } from ${JSON.stringify(packageImport())}`,
+			`import NodePptxGenJS from ${JSON.stringify(packageImport('/node'))}`,
+			`import BrowserPptxGenJS from ${JSON.stringify(packageImport('/browser'))}`,
+			`import StandalonePptxGenJS from ${JSON.stringify(packageImport('/standalone'))}`,
+			`import { ChartType } from ${JSON.stringify(packageImport('/core'))}`,
 			'const pptx = new PptxGenJS()',
 			"if (typeof pptx.version !== 'string') throw new Error('missing version')",
 			"if (Presentation !== PptxGenJS) throw new Error('missing Presentation named export')",
@@ -65,7 +73,7 @@ async function smokeInstalledPackage(fixtureDir) {
 	await fs.writeFile(
 		path.join(fixtureDir, 'cjs-contract.cjs'),
 		[
-			"const pkg = require('pptxgenjs/package.json')",
+			`const pkg = require(${JSON.stringify(packageImport('/package.json'))})`,
 			"if (JSON.stringify(pkg.exports).includes('\"require\"')) throw new Error('unexpected require export condition')",
 			"if (pkg.main || pkg.module) throw new Error('unexpected legacy main/module field')",
 			'',
@@ -74,11 +82,11 @@ async function smokeInstalledPackage(fixtureDir) {
 	await fs.writeFile(
 		path.join(fixtureDir, 'type-smoke.ts'),
 		[
-			"import PptxGenJS, { Presentation, type IChartMulti, type ThemeProps, type WriteFileProps } from 'pptxgenjs'",
-			"import NodePptxGenJS from 'pptxgenjs/node'",
-			"import BrowserPptxGenJS from 'pptxgenjs/browser'",
-			"import StandalonePptxGenJS from 'pptxgenjs/standalone'",
-			"import { ShapeType, type PresSlide } from 'pptxgenjs/core'",
+			`import PptxGenJS, { Presentation, type IChartMulti, type ThemeProps, type WriteFileProps } from ${JSON.stringify(packageImport())}`,
+			`import NodePptxGenJS from ${JSON.stringify(packageImport('/node'))}`,
+			`import BrowserPptxGenJS from ${JSON.stringify(packageImport('/browser'))}`,
+			`import StandalonePptxGenJS from ${JSON.stringify(packageImport('/standalone'))}`,
+			`import { ShapeType, type PresSlide } from ${JSON.stringify(packageImport('/core'))}`,
 			'const pptx = new PptxGenJS()',
 			'const nodePptx = new NodePptxGenJS()',
 			'const browserPptx = new BrowserPptxGenJS()',

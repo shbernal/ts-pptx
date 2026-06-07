@@ -20,21 +20,21 @@ development.
 ## Install
 
 ```bash
-pnpm add pptxgenjs
+pnpm add @shbernal/pptxgenjs
 ```
 
 ```bash
-npm install pptxgenjs
+npm install @shbernal/pptxgenjs
 ```
 
 ```bash
-yarn add pptxgenjs
+yarn add @shbernal/pptxgenjs
 ```
 
 ## Quick Start
 
 ```ts
-import pptxgen from "pptxgenjs"
+import pptxgen from "@shbernal/pptxgenjs"
 
 const pptx = new pptxgen()
 const slide = pptx.addSlide()
@@ -67,20 +67,20 @@ The package is ESM-only.
 
 Supported package surface:
 
-- `import pptxgen from "pptxgenjs"`
-- `import { ShapeType } from "pptxgenjs/core"`
-- `import pptxgen from "pptxgenjs/node"`
-- `import pptxgen from "pptxgenjs/browser"`
-- `import pptxgen from "pptxgenjs/standalone"`
+- `import pptxgen from "@shbernal/pptxgenjs"`
+- `import { ShapeType } from "@shbernal/pptxgenjs/core"`
+- `import pptxgen from "@shbernal/pptxgenjs/node"`
+- `import pptxgen from "@shbernal/pptxgenjs/browser"`
+- `import pptxgen from "@shbernal/pptxgenjs/standalone"`
 - generated runtime and declaration artifacts under `dist/`
 - Node.js `>=24`
 - modern bundlers and module-aware app frameworks
 
 Dropped compared to upstream:
 
-- No CommonJS support: no `require("pptxgenjs")`, no CJS export condition, and
-  no `dist/pptxgen.cjs.js`. Modern Node.js may provide `require()` interop for
-  ESM, but it is not a maintained API.
+- No CommonJS support: no `require("@shbernal/pptxgenjs")`, no CJS export
+  condition, and no `dist/pptxgen.cjs.js`. Modern Node.js may provide
+  `require()` interop for ESM, but it is not a maintained API.
 - No IIFE/global browser bundle: no `window.PptxGenJS` classic script API, no
   `dist/pptxgen.bundle.js`, and no `dist/pptxgen.min.js`.
 
@@ -143,5 +143,6 @@ runtime contract and keep maintenance focused.
 ## License
 
 Copyright (c) 2015-present Brent Ely and PptxGenJS contributors.
+Fork modifications copyright (c) 2026 shbernal.
 
 [MIT](LICENSE)

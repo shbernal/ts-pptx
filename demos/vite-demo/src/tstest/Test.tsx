@@ -2,7 +2,7 @@
  * Test TypeScript Defs file
  */
 import { SVG_MASTODON_LOGO_BASE64, STARLABS_LOGO_SM } from "../enums";
-import pptxgen, { type HAlign, type TableProps, type TableRow, type TextPropsOptions } from "pptxgenjs";
+import pptxgen, { type HAlign, type TableProps, type TableRow, type TextPropsOptions } from "@shbernal/pptxgenjs";
 
 const fediverseTreeUrl = new URL("../../../common/images/fediverse_tree.jpg", import.meta.url).href;
 const sampleAviUrl = new URL("../../../common/media/sample.avi", import.meta.url).href;

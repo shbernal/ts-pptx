@@ -1,13 +1,14 @@
 {
 	"name": "pptxgenjs-demos-node",
-	"version": "4.0.1",
+	"private": true,
+	"version": "5.0.0",
 	"author": {
-		"name": "Brent Ely",
-		"url": "https://github.com/gitbrent/"
+		"name": "shbernal",
+		"url": "https://github.com/shbernal/"
 	},
 	"type": "module",
 	"description": "Create PowerPoint Presentations with JavaScript",
-	"homepage": "https://gitbrent.github.io/PptxGenJS/",
+	"homepage": "https://github.com/shbernal/PptxGenJS#readme",
 	"scripts": {
 		"demo": "node demo.js",
 		"demo-all": "node demo.js All",
@@ -16,11 +17,11 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/gitbrent/PptxGenJS.git"
+		"url": "git+https://github.com/shbernal/PptxGenJS.git"
 	},
 	"license": "MIT",
 	"dependencies": {
 		"express": "^5.2.1",
-		"pptxgenjs": "workspace:*"
+		"@shbernal/pptxgenjs": "workspace:*"
 	}
 }

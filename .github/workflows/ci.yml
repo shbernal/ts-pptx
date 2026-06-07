@@ -8,6 +8,9 @@ on:
       - mainline
       - master
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     name: Node ${{ matrix.node }}
@@ -23,15 +26,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.3.0
+          run_install: false
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-
-      - name: Enable Corepack
-        run: corepack enable
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -52,7 +58,10 @@ jobs:
         run: pnpm test
 
       - name: Build package artifacts
-        run: pnpm run build:dist
+        run: pnpm run build
+
+      - name: Lint package manifest
+        run: pnpm run package:lint
 
       - name: Check package manifest
         run: pnpm run pack:check

@@ -13,6 +13,8 @@ artifacts.
   and contribution rules.
 - [Testing guide](testing.md): regression, schema, package, demo, and manual
   verification.
+- [Release checklist](RELEASING.md): scoped-package release preparation and
+  manual release gates.
 - [Agent development guide](agent-development.md): expectations for Codex and
   other agent-assisted changes.
 - [OOXML agent context](ooxml-agent-context.md): project-specific OOXML

@@ -181,7 +181,7 @@ export type {
 	WRITE_OUTPUT_TYPE,
 } from './core-enums.js'
 
-const VERSION = '4.0.1'
+const VERSION = '5.0.0'
 
 export default class PptxGenJS {
 	// Property getters/setters
