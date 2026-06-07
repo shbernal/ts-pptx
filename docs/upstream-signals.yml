@@ -370,7 +370,7 @@ items:
     type: pull-request
     first_seen: 2026-06-07
     last_reviewed: 2026-06-07
-    status: target-candidate
+    status: implemented
     priority: p0
     target_area:
       - powerpoint-repair
@@ -379,26 +379,33 @@ items:
     non_target_reasons: []
     upstream_summary: Inner shadow opens a:innerShdw but closes a:outerShdw.
     current_project_notes: >
-      Current shape effect serialization still opens a dynamic shadow tag while
-      closing with a hard-coded outer shadow tag. This is a direct malformed XML
-      candidate and should be reproduced with a minimal inner-shadow shape.
+      Implemented in commit 3ab4e71b. Shape shadow XML now closes the same
+      innerShdw or outerShdw element that it opens, and the schema fixture
+      covers a minimal inner-shadow shape.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
+        - ooxml-reference
+        - microsoft-reference
       local_files:
-        - src/gen-xml.ts:539
-      schema_fixture: null
-      validator_result: null
+        - src/gen-xml.ts:541
+        - test/schema.test.js:81
+      schema_fixture: shape-with-inner-shadow
+      validator_result: pnpm run test:schema passed 2026-06-07
       powerpoint_result: null
-      spec_refs: []
-    next_action: create-inner-shadow-repro-and-schema-fixture
+      spec_refs:
+        - OOXML CT_EffectList innerShdw outerShdw
+        - Microsoft Learn Open XML SDK InnerShadow OuterShadow
+    next_action: none
 
   - id: upstream-issue-1293
     source: "gitbrent/PptxGenJS#1293"
     type: issue
     first_seen: 2026-06-07
     last_reviewed: 2026-06-07
-    status: target-candidate
+    status: implemented
     priority: p0
     target_area:
       - powerpoint-repair
@@ -407,18 +414,26 @@ items:
     non_target_reasons: []
     upstream_summary: Inner shadow option breaks generated PPTX.
     current_project_notes: >
-      Linked PR #1455 matches a current source pattern: dynamic inner or outer
-      shadow opening tag with hard-coded outer closing tag.
+      Implemented with upstream-pr-1455 in commit 3ab4e71b. The current
+      checkout emits matching innerShdw open and close tags and validates a
+      focused inner-shadow fixture.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
+        - ooxml-reference
+        - microsoft-reference
       local_files:
-        - src/gen-xml.ts:539
-      schema_fixture: null
-      validator_result: null
+        - src/gen-xml.ts:541
+        - test/schema.test.js:81
+      schema_fixture: shape-with-inner-shadow
+      validator_result: pnpm run test:schema passed 2026-06-07
       powerpoint_result: null
-      spec_refs: []
-    next_action: handle-with-upstream-pr-1455
+      spec_refs:
+        - OOXML CT_EffectList innerShdw outerShdw
+        - Microsoft Learn Open XML SDK InnerShadow OuterShadow
+    next_action: none
 
   - id: upstream-pr-1459
     source: "gitbrent/PptxGenJS#1459"
@@ -528,7 +543,7 @@ items:
     type: pull-request
     first_seen: 2026-06-07
     last_reviewed: 2026-06-07
-    status: target-candidate
+    status: implemented
     priority: p0
     target_area:
       - powerpoint-repair
@@ -537,20 +552,25 @@ items:
     non_target_reasons: []
     upstream_summary: Company metadata containing XML character entities can break app.xml.
     current_project_notes: >
-      Current makeXmlApp interpolates company directly into docProps/app.xml.
-      Reproduce with characters that require XML escaping and add a focused
-      serialization test before accepting.
+      Implemented in commit 98d91647. makeXmlApp now XML-escapes the Company
+      extended property, and a schema fixture covers company text containing
+      entity-sensitive characters.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
+        - microsoft-reference
       local_files:
         - src/gen-xml.ts:1513
         - src/gen-xml.ts:1543
-      schema_fixture: null
-      validator_result: null
+        - test/schema.test.js:44
+      schema_fixture: company-metadata-xml-entities
+      validator_result: pnpm run test:schema passed 2026-06-07
       powerpoint_result: null
-      spec_refs: []
-    next_action: create-company-metadata-escaping-repro
+      spec_refs:
+        - Microsoft Learn Open XML SDK ExtendedProperties Company
+    next_action: none
 
   - id: upstream-pr-1237
     source: "gitbrent/PptxGenJS#1237"
@@ -4523,7 +4543,7 @@ items:
     type: issue
     first_seen: 2026-06-07
     last_reviewed: 2026-06-07
-    status: target-candidate
+    status: implemented
     priority: p1
     target_area:
       - chart-ooxml
@@ -4532,19 +4552,27 @@ items:
     non_target_reasons: []
     upstream_summary: Scatter chart with valAxisCrossesAt set to 0 produced a faulty presentation.
     current_project_notes: >
-      Current chart XML still uses a truthy fallback for valAxisCrossesAt, so a
-      numeric zero is discarded before the crosses/crossesAt branch. This is a
-      small, current chart serialization defect with PowerPoint repair history.
+      Implemented in commit 1d1073e3. Chart axis XML now preserves numeric
+      valAxisCrossesAt zero, and the scatter/bubble value-axis branch avoids
+      category-axis-only children that the schema rejects for valAx.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
+        - ooxml-reference
+        - microsoft-reference
       local_files:
-        - src/gen-charts.ts:1727
-      schema_fixture: null
-      validator_result: null
+        - src/gen-charts.ts:1730
+        - test/schema.test.js:143
+      schema_fixture: scatter-val-axis-crosses-at-zero
+      validator_result: pnpm run test:schema passed 2026-06-07
       powerpoint_result: null
-      spec_refs: []
-    next_action: add-scatter-val-axis-crosses-at-zero-fixture
+      spec_refs:
+        - OOXML c:crossesAt CT_Double
+        - OOXML CT_CatAx CT_ValAx child order
+        - Microsoft Learn Open XML SDK CrossesAt Crosses
+    next_action: none
 
   - id: upstream-issue-1244
     source: "gitbrent/PptxGenJS#1244"
