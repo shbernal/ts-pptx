@@ -141,6 +141,11 @@ export type GradientFillProps = LinearGradientFillProps
 export type Margin = number | [number, number, number, number]
 export type HAlign = 'left' | 'center' | 'right' | 'justify'
 export type VAlign = 'top' | 'middle' | 'bottom'
+/**
+ * Text body `vert` attribute — flow/rotation direction of the text within its box.
+ * Maps to `<a:bodyPr vert="…">` (ECMA-376 `ST_TextVerticalType`).
+ */
+export type TextVertType = 'eaVert' | 'horz' | 'mongolianVert' | 'vert' | 'vert270' | 'wordArtVert' | 'wordArtVertRtl'
 
 /**
  * A single node of a freeform (`custGeom`) path.
@@ -1111,7 +1116,7 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 		rIns?: number
 		tIns?: number
 		bIns?: number
-		vert?: 'eaVert' | 'horz' | 'mongolianVert' | 'vert' | 'vert270' | 'wordArtVert' | 'wordArtVertRtl'
+		vert?: TextVertType
 		wrap?: boolean
 	}
 	_lineIdx?: number
@@ -1215,7 +1220,7 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 * @default middle
 	 */
 	valign?: VAlign
-	vert?: 'eaVert' | 'horz' | 'mongolianVert' | 'vert' | 'vert270' | 'wordArtVert' | 'wordArtVertRtl'
+	vert?: TextVertType
 	/**
 	 * Text wrap
 	 * @since v3.3.0

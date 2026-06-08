@@ -51,6 +51,46 @@ export default [
 		},
 	},
 	{
+		// Asserts the body-property serialization stays schema-valid. Note: this
+		// proves the XML is well-formed, not that PowerPoint/LibreOffice renders
+		// a particular layout (see UPSTREAMING_CANDIDATES.md "Text Box Behavior").
+		name: 'text box with margins',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addText('hello', { x: 1, y: 1, w: 4, h: 1, margin: [10, 5, 10, 5] })
+			})
+			await expectNoSchemaErrors(buf, 'text-margins')
+		},
+	},
+	{
+		name: 'text box with vertical alignment',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addText('top', { x: 1, y: 1, w: 4, h: 1, valign: 'top' })
+				s.addText('middle', { x: 1, y: 2, w: 4, h: 1, valign: 'middle' })
+				s.addText('bottom', { x: 1, y: 3, w: 4, h: 1, valign: 'bottom' })
+			})
+			await expectNoSchemaErrors(buf, 'text-valign')
+		},
+	},
+	{
+		name: 'text box with mixed bold/color runs',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addText(
+					[
+						{ text: 'bold red ', options: { bold: true, color: 'FF0000' } },
+						{ text: 'plain ', options: {} },
+						{ text: 'blue', options: { color: '0000FF' } },
+					],
+					{ x: 1, y: 1, w: 4, h: 1 },
+				)
+			})
+			await expectNoSchemaErrors(buf, 'text-mixed-runs')
+		},
+	},
+	{
 		name: 'single rectangle shape',
 		fn: async () => {
 			const { buf } = await build((p) => {
