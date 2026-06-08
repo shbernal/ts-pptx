@@ -43,7 +43,7 @@ defineRegressionSuite('PPTX inspection primitives', [
 			assertEqual(inspection.slides.length, 1, 'slide count')
 			assertEqual(inspection.slides[0].wordCount, 2, 'word count')
 
-			const elements = new Map(inspection.slides[0].elements.map(element => [element.name, element]))
+			const elements = new Map(inspection.slides[0].elements.map((element) => [element.name, element]))
 			const text = elements.get('inspect:text')
 			const shape = elements.get('inspect:shape')
 			const image = elements.get('inspect:image')

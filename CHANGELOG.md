@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.2](https://github.com/shbernal/PptxGenJS/releases/tag/v5.0.2) - 2026-06-08
+
+### Added
+
+- Native linear gradient fills for shapes.
+- Public slide-layout unit helpers and package inspection primitives.
+- Generated documentation site and object identity reference documentation.
+
+### Fixed
+
+- Zero chart axis crossing values are preserved instead of being treated as
+  absent.
+- Company metadata XML is escaped before serialization.
+- Inner shadow XML is closed correctly.
+
+### Changed
+
+- Regression tests were reorganized into the current suite layout.
+
 ## [5.0.1](https://github.com/shbernal/PptxGenJS/releases/tag/v5.0.1) - 2026-06-07
 
 ### Added
