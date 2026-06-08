@@ -89,6 +89,62 @@ export function encodeXmlEntities (xml: string): string {
 }
 
 /**
+ * Practical maximum length for a `p:cNvPr` object name. PowerPoint does not
+ * enforce a hard spec limit, but very long names are a strong signal of a bug
+ * and are unwieldy in the Selection Pane.
+ */
+const MAX_OBJECT_NAME_LENGTH = 255
+
+/**
+ * Validate a user-supplied object name and warn (does not throw) when the value
+ * cannot be preserved as a stable PowerPoint Selection Pane identity. This keeps
+ * semantic-identity bugs visible at generation time without breaking existing
+ * decks that pass loose names.
+ * - Empty/whitespace-only names provide no usable identity.
+ * - Control characters are stripped by `encodeXmlEntities`, silently changing
+ *   the stored name.
+ * - Excessively long names may not round-trip through PowerPoint/consumers.
+ * @param {string} name - the raw (pre-encoding) object name
+ * @param {string} kind - object kind for the warning message (e.g. 'text')
+ * @returns {string} the name unchanged (validation only)
+ */
+export function validateObjectName (name: string, kind: string): string {
+	if (typeof name !== 'string') return name
+	if (name.trim().length === 0) {
+		console.warn(`Warning: ${kind} objectName is empty or whitespace-only; it will not provide a stable Selection Pane identity.`)
+		return name
+	}
+	// Same illegal-XML-char set that `encodeXmlEntities` strips; detect so the caller knows the name will change.
+	const cc = String.fromCharCode
+	const illegalXmlCharsRe = new RegExp(`[${cc(0)}-${cc(8)}${cc(11)}${cc(12)}${cc(14)}-${cc(31)}${cc(127)}]`)
+	if (illegalXmlCharsRe.test(name)) {
+		console.warn(`Warning: ${kind} objectName "${name}" contains control characters that will be stripped, changing the stored name.`)
+	}
+	if (name.length > MAX_OBJECT_NAME_LENGTH) {
+		console.warn(`Warning: ${kind} objectName exceeds ${MAX_OBJECT_NAME_LENGTH} characters and may not be preserved by PowerPoint.`)
+	}
+	return name
+}
+
+/**
+ * Return object names that appear more than once in the given list. Used to warn
+ * when duplicate Selection Pane identities would be emitted on a single slide,
+ * which breaks consumers (e.g. semantic manifests) that rely on unique names.
+ * @param {string[]} names - object names emitted on one slide
+ * @returns {string[]} the duplicated names (each listed once)
+ */
+export function getDuplicateObjectNames (names: string[]): string[] {
+	const seen = new Set<string>()
+	const dupes = new Set<string>()
+	names.forEach(name => {
+		if (typeof name !== 'string' || name.length === 0) return
+		if (seen.has(name)) dupes.add(name)
+		else seen.add(name)
+	})
+	return Array.from(dupes)
+}
+
+/**
  * Convert inches into EMU
  * @param {number|string} inches - as string or number
  * @returns {number} EMU value

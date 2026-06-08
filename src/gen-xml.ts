@@ -37,6 +37,7 @@ import {
 	createGlowElement,
 	encodeXmlEntities,
 	genXmlColorSelection,
+	getDuplicateObjectNames,
 	getSmartParseNumber,
 	getUuid,
 	inch2Emu,
@@ -116,6 +117,15 @@ const PLACEHOLDER_TYPE_MAP = PLACEHOLDER_TYPES as Record<string, string>
 function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): string {
 	let strSlideXml: string = slide._name ? '<p:cSld name="' + slide._name + '">' : '<p:cSld>'
 	let intTableNum = 1
+
+	// Warn on duplicate Selection Pane identities within this slide. Unique `objectName`
+	// values are what consumers (e.g. semantic manifests) rely on, so flag collisions loudly.
+	const duplicateObjectNames = getDuplicateObjectNames(
+		slide._slideObjects.map(obj => obj.options?.objectName).filter((name): name is string => typeof name === 'string')
+	)
+	if (duplicateObjectNames.length > 0) {
+		console.warn(`Warning: duplicate objectName value(s) emitted on a single slide: ${duplicateObjectNames.join(', ')}. Selection Pane identities should be unique.`)
+	}
 
 	// STEP 1: Add background color/image (ensure only a single `<p:bg>` tag is created, ex: when master-baskground has both `color` and `path`)
 	if (slide._bkgdImgRid) {
@@ -204,7 +214,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 
 				// STEP 1: Start Table XML
 				// NOTE: Non-numeric cNvPr id values will trigger "presentation needs repair" type warning in MS-PPT-2013
-				strXml = `<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="${intTableNum * slide._slideNum + 1}" name="${slideItemObj.options.objectName}"/>`
+				strXml = `<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="${intTableNum * slide._slideNum + 1}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"/>`
 				strXml +=
 					'<p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr>' +
 					'  <p:nvPr><p:extLst><p:ext uri="{D42A27DB-BD31-4B8C-83A1-F6EECF244321}"><p14:modId xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" val="1579011935"/></p:ext></p:extLst></p:nvPr>' +
@@ -448,7 +458,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				strSlideXml += '<p:sp>'
 
 				// B: The addition of the "txBox" attribute is the sole determiner of if an object is a shape or textbox
-				strSlideXml += `<p:nvSpPr><p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}">`
+				strSlideXml += `<p:nvSpPr><p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}">`
 				// <Hyperlink>
 				if (slideItemObj.options.hyperlink?.url) {
 					strSlideXml += `<a:hlinkClick r:id="rId${slideItemObj.options.hyperlink._rId}" tooltip="${slideItemObj.options.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.options.hyperlink.tooltip) : ''}"/>`
@@ -665,7 +675,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					strSlideXml += '<p:pic>'
 					strSlideXml += ' <p:nvPicPr>'
 					// IMPORTANT: <p:cNvPr id="" value is critical - if its not the same number as preview image `rId`, PowerPoint throws error!
-					strSlideXml += `<p:cNvPr id="${slideItemObj.mediaRid + 2}" name="${slideItemObj.options.objectName}"/>`
+					strSlideXml += `<p:cNvPr id="${slideItemObj.mediaRid + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"/>`
 					strSlideXml += ' <p:cNvPicPr/>'
 					strSlideXml += ' <p:nvPr>'
 					strSlideXml += `  <a:videoFile r:link="rId${slideItemObj.mediaRid}"/>`
@@ -683,7 +693,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					strSlideXml += ' <p:nvPicPr>'
 					// IMPORTANT: <p:cNvPr id="" value is critical - if not the same number as preiew image rId, PowerPoint throws error!
 					strSlideXml += `<p:cNvPr id="${slideItemObj.mediaRid + 2}" name="${slideItemObj.options.objectName
-					}"><a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr>`
+					}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"><a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr>`
 					strSlideXml += ' <p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr>'
 					strSlideXml += ' <p:nvPr>'
 					strSlideXml += `  <a:videoFile r:link="rId${slideItemObj.mediaRid}"/>`

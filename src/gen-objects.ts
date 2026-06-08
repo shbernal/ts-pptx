@@ -50,7 +50,7 @@ import type {
 	TextPropsOptions,
 } from './core-interfaces.js'
 import { getSlidesForTableRows } from './gen-tables.js'
-import { encodeXmlEntities, getNewRelId, getSmartParseNumber, inch2Emu, valToPts, correctShadowOptions } from './gen-utils.js'
+import { encodeXmlEntities, getNewRelId, getSmartParseNumber, inch2Emu, valToPts, correctShadowOptions, validateObjectName } from './gen-utils.js'
 
 /** counter for included charts (used for index in their filenames) */
 let _chartCounter = 0
@@ -212,7 +212,7 @@ export function addChartDefinition(target: PresSlideInternal, type: CHART_NAME |
 	options.w = options.w || '50%'
 	options.h = options.h || '50%'
 	options.objectName = options.objectName
-		? encodeXmlEntities(options.objectName)
+		? encodeXmlEntities(validateObjectName(options.objectName, 'chart'))
 		: `Chart ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.chart).length}`
 
 	// B: Options: misc
@@ -408,7 +408,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	const strImageData = opt.data || ''
 	const strImagePath = opt.path || ''
 	let imageRelId = getNewRelId(target)
-	const objectName = opt.objectName ? encodeXmlEntities(opt.objectName) : `Image ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.image).length}`
+	const objectName = opt.objectName ? encodeXmlEntities(validateObjectName(opt.objectName, 'image')) : `Image ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.image).length}`
 
 	// REALITY-CHECK:
 	if (!strImagePath && !strImageData) {
@@ -548,7 +548,7 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	const strType = opt.type || 'audio'
 	let strExtn = ''
 	const strCover = opt.cover || IMG_PLAYBTN
-	const objectName = opt.objectName ? encodeXmlEntities(opt.objectName) : `Media ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.media).length}`
+	const objectName = opt.objectName ? encodeXmlEntities(validateObjectName(opt.objectName, 'media')) : `Media ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.media).length}`
 	const slideData: ISlideObject = { _type: SLIDE_OBJECT_TYPES.media }
 
 	// STEP 1: REALITY-CHECK
@@ -579,6 +579,7 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	slideData.options.w = intSizeX
 	slideData.options.h = intSizeY
 	slideData.options.objectName = objectName
+	if (opt.altText) slideData.options.altText = opt.altText
 
 	// STEP 4: Add this media to this Slide Rels (rId/rels count spans all slides! Count all media to get next rId)
 	/**
@@ -722,7 +723,7 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 	options.w = options.w || (options.w === 0 ? 0 : 1)
 	options.h = options.h || (options.h === 0 ? 0 : 1)
 	options.objectName = options.objectName
-		? encodeXmlEntities(options.objectName)
+		? encodeXmlEntities(validateObjectName(options.objectName, 'shape'))
 		: `Shape ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.text).length}`
 
 	// 3: Handle line (lots of deprecated opts)
@@ -764,7 +765,7 @@ export function addTableDefinition(
 ): PresSlideInternal[] {
 	const slides: PresSlideInternal[] = [target] // Create array of Slides as more may be added by auto-paging
 	const opt: TableProps = options && typeof options === 'object' ? options : {}
-	opt.objectName = opt.objectName ? encodeXmlEntities(opt.objectName) : `Table ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.table).length}`
+	opt.objectName = opt.objectName ? encodeXmlEntities(validateObjectName(opt.objectName, 'table')) : `Table ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.table).length}`
 
 	// STEP 1: REALITY-CHECK
 	{
@@ -1066,7 +1067,7 @@ export function addTextDefinition(target: PresSlideInternal, text: TextProps[], 
 
 			// A.4: Other options
 			itemOpts.objectName = itemOpts.objectName
-				? encodeXmlEntities(itemOpts.objectName)
+				? encodeXmlEntities(validateObjectName(itemOpts.objectName, 'text'))
 				: `Text ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.text).length}`
 
 			// B:

@@ -529,6 +529,14 @@ export interface ObjectNameProps {
 	 * @example 'Antenna Design 9'
 	 */
 	objectName?: string
+	/**
+	 * Alt Text value ("How would you describe this object and its contents to someone who is blind?")
+	 * - serialized to the generated object's `p:cNvPr` `descr` attribute
+	 * - PowerPoint: [right-click on the object] > "Edit Alt Text..."
+	 * @since v4.0.0
+	 * @example 'Quarterly revenue bar chart'
+	 */
+	altText?: string
 }
 export interface ThemeProps {
 	/**
