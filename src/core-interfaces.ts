@@ -1278,6 +1278,7 @@ export interface OptsDataLabelPosition {
 
 export type ChartAxisTickMark = 'none' | 'inside' | 'outside' | 'cross'
 export type ChartLineCap = 'flat' | 'round' | 'square'
+export type ChartLineDash = 'dash' | 'dashDot' | 'lgDash' | 'lgDashDot' | 'lgDashDotDot' | 'solid' | 'sysDash' | 'sysDot'
 
 export interface OptsChartData {
 	_dataIndex?: number
@@ -1619,11 +1620,17 @@ export interface IChartPropsChartLine {
 	 */
 	lineCap?: ChartLineCap
 	/**
-	 * MS-PPT > Chart format > Format Data Series > Marker Options > Built-in > Type
-	 * - line dash type
+	 * MS-PPT > Chart format > Format Data Series > Line > Dash type (chart-level default)
+	 * - applies to every series that has no entry in `lineDashValues`
 	 * @default solid
 	 */
-	lineDash?: 'dash' | 'dashDot' | 'lgDash' | 'lgDashDot' | 'lgDashDotDot' | 'solid' | 'sysDash' | 'sysDot'
+	lineDash?: ChartLineDash
+	/**
+	 * Per-series dash type overrides; index matches the series order in the `data` array.
+	 * - entries shorter than the series count fall back to `lineDash`
+	 * - example: `['solid', 'dash', 'lgDash']` gives each series its own dash pattern
+	 */
+	lineDashValues?: ChartLineDash[]
 	/**
 	 * MS-PPT > Chart format > Format Data Series > Marker Options > Built-in > Type
 	 * - marker type

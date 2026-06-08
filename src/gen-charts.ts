@@ -876,7 +876,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 						strXml += '<a:ln><a:noFill/></a:ln>'
 					} else {
 						strXml += `<a:ln w="${valToPts(opts.lineSize)}" cap="${createLineCap(opts.lineCap)}"><a:solidFill>${createColorElement(seriesColor)}</a:solidFill>`
-						strXml += '<a:prstDash val="' + (opts.lineDash || 'solid') + '"/><a:round/></a:ln>'
+						strXml += `<a:prstDash val="${opts.lineDashValues?.[colorIndex] ?? opts.lineDash ?? 'solid'}"/><a:round/></a:ln>`
 					}
 				} else if (opts.dataBorder) {
 					strXml += `<a:ln w="${valToPts(opts.dataBorder.pt)}" cap="${createLineCap(opts.lineCap)}"><a:solidFill>${createColorElement(opts.dataBorder.color)}</a:solidFill><a:prstDash val="solid"/><a:round/></a:ln>`
@@ -1116,7 +1116,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 						strXml += '<a:ln><a:noFill/></a:ln>'
 					} else {
 						strXml += `<a:ln w="${valToPts(opts.lineSize)}" cap="${createLineCap(opts.lineCap)}"><a:solidFill>${createColorElement(tmpSerColor)}</a:solidFill>`
-						strXml += `<a:prstDash val="${opts.lineDash || 'solid'}"/><a:round/></a:ln>`
+						strXml += `<a:prstDash val="${opts.lineDashValues?.[colorIndex] ?? opts.lineDash ?? 'solid'}"/><a:round/></a:ln>`
 					}
 
 					// Shadow
@@ -1420,7 +1420,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 						strXml += `<a:ln w="${valToPts(opts.dataBorder.pt)}" cap="flat"><a:solidFill>${createColorElement(opts.dataBorder.color)}</a:solidFill><a:prstDash val="solid"/><a:round/></a:ln>`
 					} else {
 						strXml += `<a:ln w="${valToPts(opts.lineSize)}" cap="flat"><a:solidFill>${createColorElement(tmpSerColor)}</a:solidFill>`
-						strXml += `<a:prstDash val="${opts.lineDash || 'solid'}"/><a:round/></a:ln>`
+						strXml += `<a:prstDash val="${opts.lineDashValues?.[colorIndex] ?? opts.lineDash ?? 'solid'}"/><a:round/></a:ln>`
 					}
 
 					// Shadow

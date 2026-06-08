@@ -332,4 +332,21 @@ export default [
 			await expectNoSchemaErrors(buf, 'line-chart-null-values-gap')
 		},
 	},
+	{
+		name: 'line chart with per-series lineDashValues',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					p.charts.LINE,
+					[
+						{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] },
+						{ name: 'S2', labels: ['A', 'B', 'C'], values: [4, 3, 2] },
+						{ name: 'S3', labels: ['A', 'B', 'C'], values: [2, 4, 1] },
+					],
+					{ x: 1, y: 1, w: 6, h: 3, lineDashValues: ['solid', 'dash', 'lgDashDot'] }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'line-chart-per-series-dash')
+		},
+	},
 ]
