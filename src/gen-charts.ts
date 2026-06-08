@@ -285,10 +285,10 @@ export async function createExcelWorksheet (chartObject: ISlideRelChart, zip: JS
 					let idxColLtr = 2
 					for (let idy = 1; idy < data.length; idy++) {
 						// y-value
-						strSheetXml += `<c r="${getExcelColName(idxColLtr)}${idx + 2}"><v>${data[idy].values[idx] || ''}</v></c>`
+						strSheetXml += `<c r="${getExcelColName(idxColLtr)}${idx + 2}"><v>${data[idy].values[idx] ?? ''}</v></c>`
 						idxColLtr++
 						// y-size
-						strSheetXml += `<c r="${getExcelColName(idxColLtr)}${idx + 2}"><v>${data[idy].sizes[idx] || ''}</v></c>`
+						strSheetXml += `<c r="${getExcelColName(idxColLtr)}${idx + 2}"><v>${data[idy].sizes[idx] ?? ''}</v></c>`
 						idxColLtr++
 					}
 					strSheetXml += '</row>'
@@ -377,7 +377,7 @@ export async function createExcelWorksheet (chartObject: ISlideRelChart, zip: JS
 							strSheetXml += '</c>'
 						}
 						for (let idy = 0; idy < data.length; idy++) {
-							strSheetXml += `<c r="${getExcelColName(data[0].labels.length + idy + 1)}${idx + 2}"><v>${data[idy].values[idx] || ''}</v></c>`
+							strSheetXml += `<c r="${getExcelColName(data[0].labels.length + idy + 1)}${idx + 2}"><v>${data[idy].values[idx] ?? ''}</v></c>`
 						}
 						strSheetXml += '</row>'
 					})
@@ -1450,7 +1450,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 				strXml += '        <c:formatCode>General</c:formatCode>'
 				strXml += `           <c:ptCount val="${obj.sizes.length}"/>`
 				obj.sizes.forEach((value, idx) => {
-					strXml += `<c:pt idx="${idx}"><c:v>${value || ''}</c:v></c:pt>`
+					strXml += `<c:pt idx="${idx}"><c:v>${value ?? ''}</c:v></c:pt>`
 				})
 				strXml += '      </c:numCache>'
 				strXml += '    </c:numRef>'
@@ -1589,8 +1589,9 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 			strXml += '      <a:lstStyle/>'
 			strXml += '      <a:p>'
 			strXml += '        <a:pPr>'
-			strXml += `          <a:defRPr sz="1800" b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike">`
-			strXml += '            <a:solidFill><a:srgbClr val="000000"/></a:solidFill><a:latin typeface="Arial"/>'
+			strXml += `          <a:defRPr sz="${Math.round((opts.dataLabelFontSize || DEF_FONT_SIZE) * 100)}" b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike">`
+			strXml += '            <a:solidFill>' + createColorElement(opts.dataLabelColor || DEF_FONT_COLOR) + '</a:solidFill>'
+			strXml += `            <a:latin typeface="${opts.dataLabelFontFace || 'Arial'}"/>`
 			strXml += '          </a:defRPr>'
 			strXml += '        </a:pPr>'
 			strXml += '      </a:p>'

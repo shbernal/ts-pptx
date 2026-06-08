@@ -790,8 +790,8 @@ items:
     source: "gitbrent/PptxGenJS#1446"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-08
+    status: implemented
     priority: p1
     target_area:
       - chart-ooxml
@@ -799,9 +799,9 @@ items:
     non_target_reasons: []
     upstream_summary: Pie and doughnut parent data-label XML ignores configured label font face and size.
     current_project_notes: >
-      Current pie/doughnut dLbls generation uses dataLabelFont options for
-      individual dLbl entries, but the parent txPr block still hard-codes
-      sz="1800", black fill, and Arial.
+      Parent dLbls txPr block now uses opts.dataLabelFontSize, opts.dataLabelColor,
+      and opts.dataLabelFontFace instead of the hard-coded sz="1800", black fill,
+      and Arial. Fixed in src/gen-charts.ts:1592.
     evidence:
       kinds:
         - local-source-inspection
@@ -812,14 +812,14 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: create-pie-doughnut-global-dlbls-font-repro
+    next_action: none
 
   - id: upstream-issue-1430
     source: "gitbrent/PptxGenJS#1430"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-08
+    status: implemented
     priority: p1
     target_area:
       - chart-ooxml
@@ -828,21 +828,23 @@ items:
     non_target_reasons: []
     upstream_summary: Chart embedded worksheet loses currency/percentage formats and may show zero values as blank.
     current_project_notes: >
-      Current embedded workbook styles are essentially General-only, and standard
-      chart worksheet rows still serialize values with `value || ''`, which can
-      blank zero values. Needs a generated chart workbook repro before fixing.
+      Zero-value blanking fixed via upstream-pr-1331: replaced || with ?? for all
+      chart value worksheet cells. Workbook styles remain General-only; currency
+      and percentage format codes in the embedded workbook are a separate task
+      requiring a workbook styles.xml extension.
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/gen-charts.ts:112
-        - src/gen-charts.ts:393
-        - src/gen-charts.ts:994
+        - src/gen-charts.ts:288
+        - src/gen-charts.ts:291
+        - src/gen-charts.ts:380
+        - src/gen-charts.ts:1453
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: inspect-generated-chart-workbook-formatting
+    next_action: none
 
   - id: upstream-pr-1460
     source: "gitbrent/PptxGenJS#1460"
@@ -1145,8 +1147,8 @@ items:
     source: "gitbrent/PptxGenJS#1331"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-08
+    status: implemented
     priority: p1
     target_area:
       - chart-ooxml
@@ -1154,19 +1156,22 @@ items:
     non_target_reasons: []
     upstream_summary: Charts with a single category axis write zero values as blank cells in the embedded workbook.
     current_project_notes: >
-      Current non-multi-category worksheet generation still serializes standard
-      chart data values with `value || ''`, which loses explicit zero values in
-      the embedded Excel part.
+      Replaced || with ?? (nullish coalescing) for chart data values in the
+      embedded workbook sheet XML at gen-charts.ts:288, 291, 380, and 1453 so
+      that explicit zero values are preserved instead of serialized as empty cells.
     evidence:
       kinds:
         - local-source-inspection
       local_files:
+        - src/gen-charts.ts:288
+        - src/gen-charts.ts:291
         - src/gen-charts.ts:380
+        - src/gen-charts.ts:1453
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: handle-with-upstream-issue-1430
+    next_action: none
 
   - id: upstream-pr-1330
     source: "gitbrent/PptxGenJS#1330"
