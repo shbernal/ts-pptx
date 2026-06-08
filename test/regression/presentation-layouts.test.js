@@ -74,4 +74,60 @@ defineRegressionSuite('Presentation layouts', 'legacy bug-22', [
 			)
 		},
 	},
+	{
+		name: 'standard layout presets expose intuitive inch accessors (.width/.height)',
+		fn: () => {
+			const wide = STANDARD_LAYOUTS.LAYOUT_WIDE
+			const std = STANDARD_LAYOUTS.LAYOUT_16x9
+			assertEqual(wide.width, wide.widthIn, 'LAYOUT_WIDE .width aliases .widthIn')
+			assertEqual(wide.height, wide.heightIn, 'LAYOUT_WIDE .height aliases .heightIn')
+			assertEqual(std.width, 10, 'LAYOUT_16x9 .width is 10in')
+			assertEqual(std.height, 5.625, 'LAYOUT_16x9 .height is 5.625in')
+		},
+	},
+	{
+		name: 'pptx.layout accepts a STANDARD_LAYOUTS preset object directly',
+		fn: async () => {
+			await assertPresentationSize(
+				(p) => {
+					p.layout = STANDARD_LAYOUTS.LAYOUT_WIDE
+					p.addSlide()
+				},
+				WIDE,
+				'preset object assignment'
+			)
+		},
+	},
+	{
+		name: 'slide.width/slide.height return the active layout size in inches',
+		fn: async () => {
+			const { pres } = await build((p) => {
+				p.layout = STANDARD_LAYOUTS.LAYOUT_16x9
+				const slide = p.addSlide()
+				assertEqual(slide.width, 10, 'slide.width inches')
+				assertEqual(slide.height, 5.625, 'slide.height inches')
+			})
+			assert(pres, 'presentation built')
+		},
+	},
+	{
+		name: 'non-finite coordinates fail loud instead of emitting zero-size objects',
+		fn: async () => {
+			const layout = STANDARD_LAYOUTS.LAYOUT_16x9
+			let threw = null
+			try {
+				// Reproduces the footgun: reading `.width`/`.height` off a value that lacks them
+				// yields undefined -> NaN coordinate math.
+				const bogus = undefined
+				await build((p) => {
+					p.layout = layout
+					p.addSlide().addText('collapses', { x: 0.5, y: 0.5, w: bogus - 1, h: 1 })
+				})
+			} catch (err) {
+				threw = err
+			}
+			assert(threw instanceof Error, 'expected a thrown Error for a NaN width')
+			assert(/finite number/.test(threw.message), `expected a descriptive message, got: ${threw && threw.message}`)
+		},
+	},
 ])

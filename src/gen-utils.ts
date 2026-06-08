@@ -20,6 +20,17 @@ export function getSmartParseNumber (size: Coord | null | undefined, xyDir: 'X' 
 	// FIRST: Convert string numeric value if reqd
 	if (typeof size === 'string' && !isNaN(Number(size))) size = Number(size)
 
+	// GUARD: A NaN/Infinity coordinate is always a mistake (commonly arithmetic on an
+	// `undefined` layout dimension). Fail loud instead of silently emitting 0 EMU, which
+	// collapses the object to zero size/position and produces a broken-looking deck.
+	if (typeof size === 'number' && !isFinite(size)) {
+		throw new Error(
+			`Invalid ${xyDir || 'coordinate'} value: expected a finite number but received ${String(size)}. ` +
+				'This usually means a layout dimension was read from a missing property (e.g. `layout.width` returning `undefined`). ' +
+				'Use `slide.width`/`slide.height` or `STANDARD_LAYOUTS.<NAME>.width`/`.height` (inches).'
+		)
+	}
+
 	// CASE 1: Number in inches
 	// Assume any number less than 100 is inches
 	if (typeof size === 'number' && size < 100) return inch2Emu(size)

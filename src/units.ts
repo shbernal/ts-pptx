@@ -13,6 +13,10 @@ export interface StandardLayout {
 	readonly layout: StandardLayoutName
 	/** PresentationML slide-size preset name, or `custom` for PowerPoint widescreen. */
 	readonly name: string
+	/** Slide width in inches. Alias of {@link StandardLayout.widthIn} — inches is PptxGenJS's default coordinate unit, so this is the value to use for `addText`/`addShape` math. */
+	readonly width: number
+	/** Slide height in inches. Alias of {@link StandardLayout.heightIn}. */
+	readonly height: number
 	/** Slide width in inches. */
 	readonly widthIn: number
 	/** Slide height in inches. */
@@ -59,6 +63,8 @@ function standardLayout(layout: StandardLayoutName, name: string, widthIn: numbe
 	return Object.freeze({
 		layout,
 		name,
+		width: widthIn,
+		height: heightIn,
 		widthIn,
 		heightIn,
 		widthEmu: inchesToEmu(widthIn),

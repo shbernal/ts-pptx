@@ -207,11 +207,13 @@ export default class PptxGenJS {
 	 * @see https://support.office.com/en-us/article/Change-the-size-of-your-slides-040a811c-be43-40b9-8d04-0de5ed79987e
 	 */
 	private _layout: string
-	public set layout(value: string) {
-		const newLayout: PresLayout = this.LAYOUTS[value]
+	public set layout(value: string | StandardLayout) {
+		// Accept either a layout key string or a STANDARD_LAYOUTS preset object directly.
+		const layoutKey = typeof value === 'string' ? value : value?.layout
+		const newLayout: PresLayout | undefined = layoutKey ? this.LAYOUTS[layoutKey] : undefined
 
 		if (newLayout) {
-			this._layout = value
+			this._layout = layoutKey
 			this._presLayout = newLayout
 		} else {
 			throw new Error('UNKNOWN-LAYOUT')

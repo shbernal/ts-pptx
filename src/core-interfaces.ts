@@ -1919,6 +1919,17 @@ export interface PresSlide {
 	readonly newAutoPagedSlides?: PresSlide[]
 
 	/**
+	 * Slide width in inches, resolved from the active presentation layout.
+	 * Use for coordinate math instead of hard-coding layout dimensions.
+	 * @example slide.addText('Centered', { x: 0, w: slide.width, align: 'center' })
+	 */
+	readonly width?: number
+	/**
+	 * Slide height in inches, resolved from the active presentation layout.
+	 */
+	readonly height?: number
+
+	/**
 	 * Background color or image (`color` | `path` | `data`)
 	 * @example { color: 'FF3399' } - hex color
 	 * @example { color: 'FF3399', transparency:50 } - hex color with 50% transparency

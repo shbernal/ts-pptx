@@ -29,6 +29,7 @@ import {
 	TextPropsOptions,
 } from './core-interfaces.js'
 import * as genObj from './gen-objects.js'
+import { emuToInches } from './units.js'
 
 export default class Slide {
 	private readonly _setSlideNum: (value: SlideNumberProps) => void
@@ -156,6 +157,16 @@ export default class Slide {
 
 	public get newAutoPagedSlides(): PresSlide[] {
 		return this._newAutoPagedSlides
+	}
+
+	/** Slide width in inches (resolved from the active presentation layout). */
+	public get width(): number {
+		return emuToInches(this._presLayout.width)
+	}
+
+	/** Slide height in inches (resolved from the active presentation layout). */
+	public get height(): number {
+		return emuToInches(this._presLayout.height)
 	}
 
 	/**
