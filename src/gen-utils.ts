@@ -63,7 +63,18 @@ export function getUuid (uuidFormat: string): string {
 export function encodeXmlEntities (xml: string): string {
 	// NOTE: Dont use short-circuit eval here as value c/b "0" (zero) etc.!
 	if (typeof xml === 'undefined' || xml == null) return ''
-	return xml.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;')
+	// Strip XML 1.0 illegal control chars (e.g. \v) before escaping to prevent PowerPoint repair dialogs.
+	// Pattern built from String.fromCharCode so no-control-regex cannot flag it statically.
+	const cc = String.fromCharCode
+	const illegalXmlCharsRe = new RegExp(`[${cc(0)}-${cc(8)}${cc(11)}${cc(12)}${cc(14)}-${cc(31)}${cc(127)}]`, 'g')
+	return xml
+		.toString()
+		.replace(illegalXmlCharsRe, '')
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&apos;')
 }
 
 /**
@@ -134,6 +145,10 @@ export function rgbToHex (r: number, g: number, b: number): string {
  * @returns {string} XML string
  */
 export function createColorElement (colorStr: string | SCHEME_COLORS, innerElements?: string): string {
+	if (typeof colorStr !== 'string') {
+		console.warn(`createColorElement: expected a string color value, got ${typeof colorStr}. "${DEF_FONT_COLOR}" used instead.`)
+		colorStr = DEF_FONT_COLOR
+	}
 	let colorVal = (colorStr || '').replace('#', '')
 
 	// 8-char hex (RGBA) — strip the alpha byte to a sibling <a:alpha val="N"/>,

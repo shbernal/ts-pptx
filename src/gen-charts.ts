@@ -1153,10 +1153,16 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 								strXml += '            <a:lstStyle/>'
 								strXml += '            <a:p>'
 								strXml += '                <a:pPr>'
-								strXml += '                    <a:defRPr/>'
+								strXml += `                    <a:defRPr sz="${Math.round((opts.dataLabelFontSize || DEF_FONT_SIZE) * 100)}" b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike">`
+								strXml += '                        <a:solidFill>' + createColorElement(opts.dataLabelColor || DEF_FONT_COLOR) + '</a:solidFill>'
+								strXml += `                        <a:latin typeface="${opts.dataLabelFontFace || 'Arial'}"/>`
+								strXml += '                    </a:defRPr>'
 								strXml += '                </a:pPr>'
 								strXml += '              <a:r>'
-								strXml += '                    <a:rPr lang="' + (opts.lang || 'en-US') + '" dirty="0"/>'
+								strXml += `                    <a:rPr lang="${opts.lang || 'en-US'}" sz="${Math.round((opts.dataLabelFontSize || DEF_FONT_SIZE) * 100)}" b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike" dirty="0">`
+								strXml += '                        <a:solidFill>' + createColorElement(opts.dataLabelColor || DEF_FONT_COLOR) + '</a:solidFill>'
+								strXml += `                        <a:latin typeface="${opts.dataLabelFontFace || 'Arial'}"/>`
+								strXml += '                    </a:rPr>'
 								strXml += '                    <a:t>' + encodeXmlEntities(label) + '</a:t>'
 								strXml += '              </a:r>'
 								// Apply XY values at end of custom label
@@ -1236,9 +1242,12 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 						strXml += '        <a:lstStyle/>'
 						strXml += '        <a:p>'
 						strXml += '            <a:pPr>'
-						strXml += '                <a:defRPr/>'
+						strXml += `                <a:defRPr sz="${Math.round((opts.dataLabelFontSize || DEF_FONT_SIZE) * 100)}" b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike">`
+						strXml += '                    <a:solidFill>' + createColorElement(opts.dataLabelColor || DEF_FONT_COLOR) + '</a:solidFill>'
+						strXml += `                    <a:latin typeface="${opts.dataLabelFontFace || 'Arial'}"/>`
+						strXml += '                </a:defRPr>'
 						strXml += '            </a:pPr>'
-						strXml += '            <a:endParaRPr lang="en-US"/>'
+						strXml += `            <a:endParaRPr lang="${opts.lang || 'en-US'}"/>`
 						strXml += '        </a:p>'
 						strXml += '    </c:txPr>'
 						if (opts.dataLabelPosition) strXml += ' <c:dLblPos val="' + opts.dataLabelPosition + '"/>'

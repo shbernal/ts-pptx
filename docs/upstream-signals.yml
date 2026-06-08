@@ -439,8 +439,8 @@ items:
     source: "gitbrent/PptxGenJS#1459"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-08
+    status: implemented
     priority: p1
     target_area:
       - chart-ooxml
@@ -449,44 +449,43 @@ items:
     non_target_reasons: []
     upstream_summary: Apply data label font properties to scatter chart dLbls XML.
     current_project_notes: >
-      Current scatter data label generation still emits bare a:defRPr blocks in
-      the custom/customXY/XY paths, which likely prevents PowerPoint from using
-      dataLabel font options.
+      Fixed: scatter custom/customXY defRPr and rPr elements now carry
+      dataLabelFontSize, dataLabelFontBold, dataLabelFontItalic, dataLabelColor,
+      and dataLabelFontFace. XY path txPr defRPr also populated. gen-charts.ts.
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/gen-charts.ts:1148
-        - src/gen-charts.ts:1231
+        - src/gen-charts.ts
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: create-scatter-data-label-font-repro
+    next_action: none
 
   - id: upstream-issue-1348
     source: "gitbrent/PptxGenJS#1348"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-08
+    status: implemented
     priority: p1
     target_area:
       - chart-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
     upstream_summary: Scatter plot data label font size does not affect output.
-    current_project_notes: Same local source pattern as PR #1459.
+    current_project_notes: Resolved with upstream-pr-1459 fix in gen-charts.ts.
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/gen-charts.ts:1148
+        - src/gen-charts.ts
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: handle-with-upstream-pr-1459
+    next_action: none
 
   - id: upstream-pr-1438
     source: "gitbrent/PptxGenJS#1438"
@@ -761,8 +760,8 @@ items:
     source: "gitbrent/PptxGenJS#1448"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-08
+    status: implemented
     priority: p1
     target_area:
       - chart-ooxml
@@ -771,20 +770,19 @@ items:
     non_target_reasons: []
     upstream_summary: Combo chart creation throws a color handling TypeError in an Angular ESM app.
     current_project_notes: >
-      The report uses supported current-package behavior and points at chart XML
-      color generation. Current createColorElement assumes a string-like color
-      and may still throw if chart fill or border handling passes an object.
+      Fixed: createColorElement now guards against non-string colorStr with a
+      typeof check that falls back to DEF_FONT_COLOR and logs a warning, preventing
+      TypeError when an object is passed via chartColors. gen-utils.ts.
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/gen-utils.ts:136
-        - src/gen-utils.ts:198
+        - src/gen-utils.ts
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: run-combo-chart-color-object-repro
+    next_action: none
 
   - id: upstream-issue-1446
     source: "gitbrent/PptxGenJS#1446"
@@ -1895,8 +1893,8 @@ items:
     source: "gitbrent/PptxGenJS#1416"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-08
+    status: implemented
     priority: p1
     target_area:
       - image-svg-media
@@ -1906,22 +1904,20 @@ items:
     non_target_reasons: []
     upstream_summary: Slide master image target names collide with slide image names around slide number 1000.
     current_project_notes: >
-      Default layout numbering starts at 1000 and media targets include
-      target._slideNum, so master/layout media can collide with real slide media
-      in very large decks.
+      Fixed: addImageDefinition now derives a mediaSlideKey from _slideNum —
+      null -> 'sm' (slide master), >=1000 -> 'sl-N' (layout), else the raw
+      slide number. All three Target assignments in the SVG and non-SVG paths
+      use this key. gen-objects.ts.
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/pptxgen.ts:456
-        - src/pptxgen.ts:822
-        - src/gen-objects.ts:478
-        - src/gen-objects.ts:503
+        - src/gen-objects.ts
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-large-deck-master-media-target-collision-test
+    next_action: none
 
   - id: upstream-issue-1410
     source: "gitbrent/PptxGenJS#1410"
@@ -4675,8 +4671,8 @@ items:
     source: "gitbrent/PptxGenJS#1240"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-08
+    status: implemented
     priority: p1
     target_area:
       - invalid-ooxml
@@ -4685,20 +4681,20 @@ items:
     non_target_reasons: []
     upstream_summary: Vertical tab and other unsupported control characters in addText could break PowerPoint.
     current_project_notes: >
-      Text serialization escapes XML entities but does not sanitize illegal XML
-      control characters before writing text runs. Vertical tab is a focused
-      invalid-XML/PowerPoint-repair candidate.
+      Fixed: encodeXmlEntities now strips XML 1.0 illegal control characters
+      (x00-x08, x0B, x0C, x0E-x1F, x7F) before escaping, so vertical tab and
+      similar chars are silently dropped rather than written as invalid XML.
+      gen-utils.ts.
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/gen-utils.ts:63
-        - src/gen-xml.ts:1077
+        - src/gen-utils.ts
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-control-character-text-sanitization-fixture
+    next_action: none
 
   - id: upstream-issue-1239
     source: "gitbrent/PptxGenJS#1239"
@@ -6678,8 +6674,8 @@ items:
     source: "gitbrent/PptxGenJS#911"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-08
+    status: implemented
     priority: p1
     target_area:
       - powerpoint-repair
@@ -6688,28 +6684,19 @@ items:
     non_target_reasons: []
     upstream_summary: Calling write or writeFile repeatedly after a merged-cell table could corrupt the generated table.
     current_project_notes: >
-      Current write and writeFile both re-enter exportPresentation, and table XML
-      generation still splices hMerge and vMerge placeholder cells into the
-      stored arrTabRows during serialization. Repeated exports should be made
-      idempotent before relying on multi-output workflows.
+      Fixed: genXmlSlideContent now shallow-clones each arrTabRows row before the
+      hMerge/vMerge splice expansion, so repeated write()/writeFile() calls no
+      longer accumulate extra placeholder cells in the stored data. gen-xml.ts.
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/pptxgen.ts:669
-        - src/pptxgen.ts:674
-        - src/pptxgen.ts:686
-        - src/pptxgen.ts:695
-        - src/gen-xml.ts:164
-        - src/gen-xml.ts:229
-        - src/gen-xml.ts:238
-        - src/gen-xml.ts:246
-        - src/gen-xml.ts:255
+        - src/gen-xml.ts
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-repeat-write-table-merge-idempotency-fixture
+    next_action: none
 
   - id: upstream-issue-904
     source: "gitbrent/PptxGenJS#904"

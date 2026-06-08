@@ -161,7 +161,9 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 		// B: Add OBJECT to the current Slide
 		switch (slideItemObj._type) {
 			case SLIDE_OBJECT_TYPES.table:
-				arrTabRows = slideItemObj.arrTabRows
+				// Shallow-clone each row so splice() in the merge-grid builder does not mutate the stored
+				// arrTabRows, which would corrupt output on repeated write()/writeFile() calls (issue #911).
+				arrTabRows = slideItemObj.arrTabRows.map(row => [...row])
 				objTabOpts = slideItemObj.options
 				intColCnt = 0
 

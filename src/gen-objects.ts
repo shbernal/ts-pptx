@@ -465,6 +465,9 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	newObject.options = objectOptions
 
 	// STEP 4: Add this image to this Slide Rels (rId/rels count spans all slides! Count all images to get next rId)
+	// Use a namespaced key for media targets so slide master (sm) and slide layouts (sl-N, _slideNum >= 1000)
+	// never collide with regular slide media names in large decks (issue #1416).
+	const mediaSlideKey = target._slideNum == null ? 'sm' : target._slideNum >= 1000 ? `sl-${target._slideNum}` : target._slideNum
 	if (strImgExtn === 'svg') {
 		// SVG files consume *TWO* rId's: (a png version and the svg image)
 		// <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image1.png"/>
@@ -475,7 +478,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 			extn: 'png',
 			data: strImageData || '',
 			rId: imageRelId,
-			Target: `../media/image-${target._slideNum}-${target._relsMedia.length + 1}.png`,
+			Target: `../media/image-${mediaSlideKey}-${target._relsMedia.length + 1}.png`,
 			isSvgPng: true,
 			svgSize: { w: getSmartParseNumber(objectOptions.w, 'X', target._presLayout), h: getSmartParseNumber(objectOptions.h, 'Y', target._presLayout) },
 		})
@@ -486,7 +489,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 			extn: strImgExtn,
 			data: strImageData || '',
 			rId: imageRelId + 1,
-			Target: `../media/image-${target._slideNum}-${target._relsMedia.length + 1}.${strImgExtn}`,
+			Target: `../media/image-${mediaSlideKey}-${target._relsMedia.length + 1}.${strImgExtn}`,
 		})
 		newObject.imageRid = imageRelId + 1
 	} else {
@@ -500,7 +503,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 			data: strImageData || '',
 			rId: imageRelId,
 			isDuplicate: !!(dupeItem?.Target),
-			Target: dupeItem?.Target ? dupeItem.Target : `../media/image-${target._slideNum}-${target._relsMedia.length + 1}.${strImgExtn}`,
+			Target: dupeItem?.Target ? dupeItem.Target : `../media/image-${mediaSlideKey}-${target._relsMedia.length + 1}.${strImgExtn}`,
 		})
 		newObject.imageRid = imageRelId
 	}
