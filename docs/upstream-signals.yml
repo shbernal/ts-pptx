@@ -1516,8 +1516,8 @@ items:
     source: "gitbrent/PptxGenJS#1246"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-08
+    status: implemented
     priority: p2
     target_area:
       - missing-pptx-feature
@@ -1525,18 +1525,23 @@ items:
     applies_to_current_project: yes
     non_target_reasons: []
     upstream_summary: Add a bullet.color option so bullet glyph color can differ from text color.
-    current_project_notes: Current bullet type does not expose or emit a separate buClr value.
+    current_project_notes: >
+      Added bullet.color?: HexColor to the bullet object interface. When set,
+      emits <a:buClr> before <a:buSzPct> in the pPr element, respecting the
+      EG_TextBulletColor position (order 3) in CT_TextParagraphProperties.
+      Schema fixture added and validated.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-validated
       local_files:
-        - src/core-interfaces.ts:283
-        - src/gen-xml.ts:899
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts
+        - src/gen-xml.ts
+      schema_fixture: test/schema.test.js (bullet color)
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: verify-buClr-order-and-add-bullet-color-repro
+    next_action: none
 
   - id: upstream-issue-1456
     source: "gitbrent/PptxGenJS#1456"
@@ -2248,8 +2253,8 @@ items:
     source: "gitbrent/PptxGenJS#1284"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-08
+    status: implemented
     priority: p2
     target_area:
       - chart-ooxml
@@ -2258,21 +2263,23 @@ items:
     non_target_reasons: []
     upstream_summary: Make line/radar chart markers support transparent colors.
     current_project_notes: >
-      Current series fill can treat chartColors entry "transparent" as noFill,
-      but marker fill still emits a solidFill from chartColors without a
-      transparent branch.
+      Added transparent branch to both marker spPr blocks in gen-charts.ts.
+      When chartColors entry equals "transparent", emits <a:noFill/> instead
+      of <a:solidFill>. Also fixed two pre-existing CT_LineSer schema ordering
+      bugs exposed by the new fixture: c:grouping is now always emitted for
+      line/area charts (required, min=1) and c:marker now precedes c:dLbls.
+      Schema fixture added and validated.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-validated
       local_files:
-        - src/gen-charts.ts:865
-        - src/gen-charts.ts:916
-        - src/gen-charts.ts:1124
-      schema_fixture: null
-      validator_result: null
+        - src/gen-charts.ts
+      schema_fixture: test/schema.test.js (line chart with transparent marker fill)
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: add-line-radar-transparent-marker-fixture
+    next_action: none
 
   - id: upstream-pr-1281
     source: "gitbrent/PptxGenJS#1281"
@@ -7982,8 +7989,8 @@ items:
     source: "gitbrent/PptxGenJS#514"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-08
+    status: implemented
     priority: p2
     target_area:
       - chart-ooxml
@@ -7991,25 +7998,25 @@ items:
     non_target_reasons: []
     upstream_summary: Null values in line, bar, or combo charts were plotted as shifted data points.
     current_project_notes: >
-      Current chart caches serialize nullish values as empty c:v entries and
-      default displayBlanksAs to span. This needs a current generated workbook
-      and chart XML repro to decide whether blanks should be omitted, cached
-      differently, or default to gap for null-aware data.
+      Changed default displayBlanksAs from 'span' to 'gap' in gen-objects.ts
+      (also added 'zero' as a valid accepted value). Null/undefined values in
+      numCache (line/bar/scatter charts) now omit the c:pt element entirely
+      rather than emitting an empty c:v, which is the correct OOXML encoding
+      for gap handling. displayBlanksAs interface type narrowed to
+      'gap' | 'span' | 'zero'. Schema fixture added and validated.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-validated
       local_files:
-        - src/core-interfaces.ts:1261
-        - src/gen-objects.ts:263
-        - src/gen-charts.ts:748
-        - src/gen-charts.ts:996
-        - src/gen-charts.ts:1287
-        - src/gen-charts.ts:1302
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts
+        - src/gen-objects.ts
+        - src/gen-charts.ts
+      schema_fixture: test/schema.test.js (line chart with null values defaults to gap)
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: add-null-value-chart-blank-handling-fixture
+    next_action: none
 
   - id: upstream-issue-493
     source: "gitbrent/PptxGenJS#493"

@@ -236,4 +236,43 @@ export default [
 			await expectNoSchemaErrors(buf, 'bar-chart-cross-between-midcat')
 		},
 	},
+	{
+		name: 'bullet color (buClr separate from text color)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addText('item', {
+					x: 1, y: 1, w: 4, h: 0.5,
+					bullet: { color: 'FF0000', characterCode: '2022' },
+					color: '000000',
+				})
+			})
+			await expectNoSchemaErrors(buf, 'bullet-color')
+		},
+	},
+	{
+		name: 'line chart with transparent marker fill',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					p.charts.LINE,
+					[{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }],
+					{ x: 1, y: 1, w: 6, h: 3, chartColors: ['transparent'] }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'line-chart-transparent-marker')
+		},
+	},
+	{
+		name: 'line chart with null values defaults to gap',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					p.charts.LINE,
+					[{ name: 'S1', labels: ['A', 'B', 'C', 'D'], values: [1, null, 3, 4] }],
+					{ x: 1, y: 1, w: 6, h: 3 }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'line-chart-null-values-gap')
+		},
+	},
 ]

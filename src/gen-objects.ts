@@ -260,7 +260,7 @@ export function addChartDefinition(target: PresSlideInternal, type: CHART_NAME |
 	// lineDataSymbol: http://www.datypic.com/sc/ooxml/a-val-32.html
 	// Spec has [plus,star,x] however neither PPT2013 nor PPT-Online support them
 	if (!['circle', 'dash', 'diamond', 'dot', 'none', 'square', 'triangle'].includes(options.lineDataSymbol || '')) options.lineDataSymbol = 'circle'
-	if (!['gap', 'span'].includes(options.displayBlanksAs || '')) options.displayBlanksAs = 'span'
+	if (!['gap', 'span', 'zero'].includes(options.displayBlanksAs || '')) options.displayBlanksAs = 'gap'
 	if (!['standard', 'marker', 'filled'].includes(options.radarStyle || '')) options.radarStyle = 'standard'
 	options.lineDataSymbolSize = options.lineDataSymbolSize && !isNaN(options.lineDataSymbolSize) ? options.lineDataSymbolSize : 6
 	options.lineDataSymbolLineSize = options.lineDataSymbolLineSize && !isNaN(options.lineDataSymbolLineSize) ? valToPts(options.lineDataSymbolLineSize) : valToPts(0.75)

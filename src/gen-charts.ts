@@ -795,8 +795,9 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 		case CHART_TYPE.RADAR:
 			// 1: Start Chart
 			strXml += `<c:${chartType}Chart>`
-			if ((chartType === CHART_TYPE.AREA || chartType === CHART_TYPE.LINE) && opts.barGrouping === 'stacked') {
-				strXml += '<c:grouping val="' + opts.barGrouping + '"/>'
+			if (chartType === CHART_TYPE.AREA || chartType === CHART_TYPE.LINE) {
+				const lineGrouping = opts.barGrouping === 'stacked' || opts.barGrouping === 'percentStacked' ? opts.barGrouping : 'standard'
+				strXml += '<c:grouping val="' + lineGrouping + '"/>'
 			}
 
 			if (chartType === CHART_TYPE.BAR || chartType === CHART_TYPE.BAR3D) {
@@ -884,7 +885,23 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 				strXml += createShadowElement(opts.shadow, DEF_SHAPE_SHADOW)
 
 				strXml += '  </c:spPr>'
-				strXml += '  <c:invertIfNegative val="0"/>'
+				if (chartType !== CHART_TYPE.LINE && chartType !== CHART_TYPE.RADAR) strXml += '  <c:invertIfNegative val="0"/>'
+
+				// 'c:marker' must precede 'c:dLbls' in CT_LineSer (schema order: spPr → marker → dPt → dLbls)
+				if (chartType === CHART_TYPE.LINE || chartType === CHART_TYPE.RADAR) {
+					strXml += '<c:marker>'
+					strXml += '  <c:symbol val="' + opts.lineDataSymbol + '"/>'
+					if (opts.lineDataSymbolSize) strXml += `<c:size val="${opts.lineDataSymbolSize}"/>` // Defaults to "auto" otherwise (but this is usually too small, so there is a default)
+					strXml += '  <c:spPr>'
+					{
+						const markerColor = opts.chartColors[obj._dataIndex + 1 > opts.chartColors.length ? Math.floor(Math.random() * opts.chartColors.length) : obj._dataIndex]
+						strXml += markerColor === 'transparent' ? '<a:noFill/>' : `<a:solidFill>${createColorElement(markerColor)}</a:solidFill>`
+					}
+					strXml += `    <a:ln w="${opts.lineDataSymbolLineSize}" cap="flat"><a:solidFill>${createColorElement(opts.lineDataSymbolLineColor || seriesColor)}</a:solidFill><a:prstDash val="solid"/><a:round/></a:ln>`
+					strXml += '    <a:effectLst/>'
+					strXml += '  </c:spPr>'
+					strXml += '</c:marker>'
+				}
 
 				// Data Labels per series
 				// NOTE: [20190117] Adding these to RADAR chart causes unrecoverable corruption!
@@ -905,19 +922,6 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					strXml += `<c:showCatName val="0"/><c:showSerName val="${opts.showSerName ? '1' : '0'}"/><c:showPercent val="0"/><c:showBubbleSize val="0"/>`
 					strXml += `<c:showLeaderLines val="${opts.showLeaderLines ? '1' : '0'}"/>`
 					strXml += '</c:dLbls>'
-				}
-
-				// 'c:marker' tag: `lineDataSymbol`
-				if (chartType === CHART_TYPE.LINE || chartType === CHART_TYPE.RADAR) {
-					strXml += '<c:marker>'
-					strXml += '  <c:symbol val="' + opts.lineDataSymbol + '"/>'
-					if (opts.lineDataSymbolSize) strXml += `<c:size val="${opts.lineDataSymbolSize}"/>` // Defaults to "auto" otherwise (but this is usually too small, so there is a default)
-					strXml += '  <c:spPr>'
-					strXml += `    <a:solidFill>${createColorElement(opts.chartColors[obj._dataIndex + 1 > opts.chartColors.length ? Math.floor(Math.random() * opts.chartColors.length) : obj._dataIndex])}</a:solidFill>`
-					strXml += `    <a:ln w="${opts.lineDataSymbolLineSize}" cap="flat"><a:solidFill>${createColorElement(opts.lineDataSymbolLineColor || seriesColor)}</a:solidFill><a:prstDash val="solid"/><a:round/></a:ln>`
-					strXml += '    <a:effectLst/>'
-					strXml += '  </c:spPr>'
-					strXml += '</c:marker>'
 				}
 
 				// Allow users with a single data set to pass their own array of colors (check for this using != ours)
@@ -1001,7 +1005,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					strXml += '    <c:numCache>'
 					strXml += '      <c:formatCode>' + (opts.valLabelFormatCode || opts.dataTableFormatCode || 'General') + '</c:formatCode>'
 					strXml += `      <c:ptCount val="${obj.labels[0].length}"/>`
-					obj.values.forEach((value, idx) => (strXml += `<c:pt idx="${idx}"><c:v>${value || value === 0 ? value : ''}</c:v></c:pt>`))
+					obj.values.forEach((value, idx) => { if (value != null) strXml += `<c:pt idx="${idx}"><c:v>${value}</c:v></c:pt>` })
 					strXml += '    </c:numCache>'
 					strXml += '  </c:numRef>'
 					strXml += '</c:val>'
@@ -1129,7 +1133,10 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 						strXml += `<c:size val="${opts.lineDataSymbolSize}"/>`
 					}
 					strXml += '<c:spPr>'
-					strXml += `<a:solidFill>${createColorElement(opts.chartColors[idx + 1 > opts.chartColors.length ? Math.floor(Math.random() * opts.chartColors.length) : idx])}</a:solidFill>`
+					{
+						const markerColor = opts.chartColors[idx + 1 > opts.chartColors.length ? Math.floor(Math.random() * opts.chartColors.length) : idx]
+						strXml += markerColor === 'transparent' ? '<a:noFill/>' : `<a:solidFill>${createColorElement(markerColor)}</a:solidFill>`
+					}
 					strXml += `<a:ln w="${opts.lineDataSymbolLineSize}" cap="flat"><a:solidFill>${createColorElement(opts.lineDataSymbolLineColor || opts.chartColors[colorIndex % opts.chartColors.length])}</a:solidFill><a:prstDash val="solid"/><a:round/></a:ln>`
 					strXml += '<a:effectLst/>'
 					strXml += '</c:spPr>'
@@ -1301,7 +1308,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					strXml += '      <c:formatCode>General</c:formatCode>'
 					strXml += `      <c:ptCount val="${data[0].values.length}"/>`
 					data[0].values.forEach((value, idx) => {
-						strXml += `<c:pt idx="${idx}"><c:v>${value || value === 0 ? value : ''}</c:v></c:pt>`
+						if (value != null) strXml += `<c:pt idx="${idx}"><c:v>${value}</c:v></c:pt>`
 					})
 					strXml += '    </c:numCache>'
 					strXml += '  </c:numRef>'
@@ -1316,7 +1323,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					// NOTE: Use pt count and iterate over data[0] (X-Axis) as user can have more values than data (eg: timeline where only first few months are populated)
 					strXml += `      <c:ptCount val="${data[0].values.length}"/>`
 					data[0].values.forEach((_value, idx) => {
-						strXml += `<c:pt idx="${idx}"><c:v>${obj.values[idx] || obj.values[idx] === 0 ? obj.values[idx] : ''}</c:v></c:pt>`
+						if (obj.values[idx] != null) strXml += `<c:pt idx="${idx}"><c:v>${obj.values[idx]}</c:v></c:pt>`
 					})
 					strXml += '    </c:numCache>'
 					strXml += '  </c:numRef>'

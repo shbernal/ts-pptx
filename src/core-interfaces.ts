@@ -401,6 +401,12 @@ export interface TextBaseProps {
 		 * @deprecated v3.3.0 - use `numberType`
 		 */
 		style?: string
+		/**
+		 * Bullet glyph color (separate from the text run color)
+		 * @since v4.0.0
+		 * @example 'FF0000' // red bullet
+		 */
+		color?: HexColor
 	}
 	/**
 	 * Text capitalization
@@ -1319,7 +1325,7 @@ export interface IChartPropsBase {
 	 */
 	chartColorsOpacity?: number
 	dataBorder?: BorderProps
-	displayBlanksAs?: string
+	displayBlanksAs?: 'gap' | 'span' | 'zero'
 	invertedColors?: HexColor[]
 	lang?: string
 	layout?: PositionProps
