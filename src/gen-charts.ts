@@ -1713,7 +1713,8 @@ function makeCatAxis (opts: IChartOptsLib, axisId: string, valAxisId: string): s
 	}
 	// NOTE: Adding Val Axis Formatting if scatter or bubble charts
 	if (opts._type === CHART_TYPE.SCATTER || opts._type === CHART_TYPE.BUBBLE || opts._type === CHART_TYPE.BUBBLE3D) {
-		strXml += '  <c:numFmt formatCode="' + (opts.valAxisLabelFormatCode ? encodeXmlEntities(opts.valAxisLabelFormatCode) : 'General') + '" sourceLinked="1"/>'
+		const xAxisFmtCode = opts.catAxisLabelFormatCode ?? opts.valAxisLabelFormatCode
+		strXml += '  <c:numFmt formatCode="' + (xAxisFmtCode ? encodeXmlEntities(xAxisFmtCode) : 'General') + '" sourceLinked="1"/>'
 	} else {
 		strXml += '  <c:numFmt formatCode="' + (encodeXmlEntities(opts.catLabelFormatCode) || 'General') + '" sourceLinked="1"/>'
 	}

@@ -491,8 +491,8 @@ items:
     source: "gitbrent/PptxGenJS#1438"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-09
+    status: implemented
     priority: p1
     target_area:
       - chart-ooxml
@@ -500,42 +500,48 @@ items:
     non_target_reasons: []
     upstream_summary: Scatter and bubble charts should allow separate category and value axis formatting.
     current_project_notes: >
-      Current makeCatAxis uses valAxisLabelFormatCode for scatter and bubble
-      category-axis numFmt, so the upstream report still appears applicable.
+      Implemented via new catAxisLabelFormatCode prop on IChartPropsAxisCat.
+      makeCatAxis in gen-charts.ts now uses catAxisLabelFormatCode for the X
+      value axis numFmt on scatter/bubble charts, falling back to
+      valAxisLabelFormatCode when not set. Schema fixture added.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
       local_files:
-        - src/gen-charts.ts:1688
-      schema_fixture: null
-      validator_result: null
+        - src/gen-charts.ts:1714
+        - src/core-interfaces.ts
+        - test/schema.test.js
+      schema_fixture: scatter-independent-axis-format-codes
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: create-scatter-bubble-axis-format-repro
+    next_action: none
 
   - id: upstream-issue-1436
     source: "gitbrent/PptxGenJS#1436"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-09
+    status: implemented
     priority: p1
     target_area:
       - chart-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
     upstream_summary: Scatter and bubble chart axes inherit the same value formatting.
-    current_project_notes: Same local source pattern as PR #1438.
+    current_project_notes: Handled with upstream-pr-1438 implementation.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
       local_files:
-        - src/gen-charts.ts:1688
-      schema_fixture: null
-      validator_result: null
+        - src/gen-charts.ts:1714
+      schema_fixture: scatter-independent-axis-format-codes
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: handle-with-upstream-pr-1438
+    next_action: none
 
   - id: upstream-pr-1427
     source: "gitbrent/PptxGenJS#1427"

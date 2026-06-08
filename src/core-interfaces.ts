@@ -1467,6 +1467,13 @@ export interface IChartPropsAxisCat {
 	catAxisLabelFontFace?: string
 	catAxisLabelFontItalic?: boolean
 	catAxisLabelFontSize?: number
+	/**
+	 * Number format code for the category (X) axis labels on scatter and bubble charts.
+	 * Falls back to `valAxisLabelFormatCode` when not set.
+	 * - Example: `'0.00'`, `'#,##0'`, `'mmm yyyy'`
+	 * - PowerPoint: Format Axis > Number > Format Code
+	 */
+	catAxisLabelFormatCode?: string
 	catAxisLabelFrequency?: string
 	catAxisLabelPos?: 'none' | 'low' | 'high' | 'nextTo'
 	catAxisLabelRotate?: number
