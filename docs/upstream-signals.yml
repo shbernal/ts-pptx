@@ -2116,21 +2116,27 @@ items:
       (demo assets and legacy build steps discarded). ImageProps now accepts
       `shape` (any preset geometry) and `rectRadius`; `rounding` is shorthand
       for `shape: 'ellipse'`. Shape and image paths share `genXmlPresetGeom` in
-      gen-xml.ts. Covered by test/regression/image-shape.test.js.
+      gen-xml.ts. Arbitrary freeform clipping is now supported too: ImageProps
+      accepts `points` (shared GeometryPoint[] DSL) and the image path shares
+      `genXmlCustGeom` with shapes; `points` wins over `shape`/`rounding`.
+      Covered by test/regression/image-shape.test.js and a schema fixture.
     evidence:
       kinds:
         - local-source-inspection
         - regression-test
+        - schema-fixture
+        - render-check
       local_files:
-        - src/core-interfaces.ts:586
-        - src/gen-objects.ts:455
-        - src/gen-xml.ts:80
+        - src/core-interfaces.ts:559
+        - src/gen-objects.ts:458
+        - src/gen-xml.ts:107
         - test/regression/image-shape.test.js
-      schema_fixture: null
+        - test/schema.test.js
+      schema_fixture: image-custgeom
       validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: support-arbitrary-custgeom-picture-clipping
+    next_action: none
 
   - id: upstream-pr-1431
     source: "gitbrent/PptxGenJS#1431"
@@ -6928,21 +6934,27 @@ items:
       geometry name, e.g. roundRect/hexagon/ellipse) plus `rectRadius`, and the
       image XML emits the chosen preset prstGeom via the shared genXmlPresetGeom
       helper. Combine with sizing:cover for aspect-correct fills. Arbitrary
-      custGeom picture clipping is still not supported (preset geometries only).
+      custGeom picture clipping is now also supported: ImageBaseProps accepts
+      `points` (shared GeometryPoint[] DSL) and the image XML emits a custGeom
+      via the shared genXmlCustGeom helper; `points` takes precedence over
+      `shape`/`rounding`. Verified by LibreOffice render (triangle clip).
     evidence:
       kinds:
         - local-source-inspection
         - regression-test
+        - schema-fixture
+        - render-check
       local_files:
-        - src/core-interfaces.ts:586
-        - src/gen-objects.ts:455
-        - src/gen-xml.ts:80
+        - src/core-interfaces.ts:559
+        - src/gen-objects.ts:458
+        - src/gen-xml.ts:107
         - test/regression/image-shape.test.js
-      schema_fixture: null
+        - test/schema.test.js
+      schema_fixture: image-custgeom
       validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: support-arbitrary-custgeom-picture-clipping
+    next_action: none
 
   - id: upstream-issue-842
     source: "gitbrent/PptxGenJS#842"

@@ -189,6 +189,23 @@ export default [
 		},
 	},
 	{
+		name: 'image clipped to a freeform custGeom path',
+		fn: async () => {
+			const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+			const { buf } = await build((p) => {
+				p.addSlide().addImage({
+					data: 'image/png;base64,' + b64,
+					x: 1,
+					y: 1,
+					w: 2,
+					h: 2,
+					points: [{ x: 1, y: 0 }, { x: 2, y: 2 }, { x: 0, y: 2 }, { close: true }],
+				})
+			})
+			await expectNoSchemaErrors(buf, 'image-custgeom')
+		},
+	},
+	{
 		name: 'text caps: all-caps and small-caps run properties',
 		fn: async () => {
 			const { buf } = await build((p) => {

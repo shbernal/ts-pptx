@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `addImage({ points })` clips a picture to an arbitrary freeform path
+  (`custGeom`), not just preset shapes. `points` uses the same path DSL as
+  freeform shapes (`moveTo`/`lnTo`/`cubicBezTo`/`quadBezTo`/`arcTo`/`close`,
+  via the shared `GeometryPoint` type) and takes precedence over
+  `shape`/`rounding`. Coordinates are authored in the image's own inch/EMU
+  space. Confirmed clipping in a LibreOffice render.
+
 ## [5.0.2](https://github.com/shbernal/PptxGenJS/releases/tag/v5.0.2) - 2026-06-08
 
 ### Added

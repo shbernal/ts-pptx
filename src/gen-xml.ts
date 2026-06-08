@@ -23,6 +23,7 @@ import type {
 	ISlideRelChart,
 	ISlideRelMedia,
 	ObjectOptions,
+	PresLayout,
 	PresSlideInternal,
 	ShadowProps,
 	SlideLayoutInternal,
@@ -102,6 +103,77 @@ function genXmlPresetGeom (shapeName: string, options: ObjectOptions, cx: number
 		}
 	}
 	strXml += '</a:avLst></a:prstGeom>'
+	return strXml
+}
+
+/**
+ * Emit an `<a:custGeom>` for a freeform path built from `points`.
+ * Shared by the shape and image code paths so that path emission stays in one place.
+ * Points are authored in the object's own inch/EMU space (0..cx, 0..cy) — not slide-relative and not normalized.
+ * @param {ObjectOptions['points']} points - freeform path DSL (`moveTo`/`lnTo`/`cubicBezTo`/`quadBezTo`/`arcTo`/`close`)
+ * @param {number} cx - object width (EMU), used as the path viewport width
+ * @param {number} cy - object height (EMU), used as the path viewport height
+ * @param {PresLayout} layout - presentation layout used to resolve point coordinates to EMU
+ * @return {string} `<a:custGeom>` XML
+ */
+function genXmlCustGeom (points: ObjectOptions['points'], cx: number, cy: number, layout: PresLayout): string {
+	let strXml = '<a:custGeom><a:avLst />'
+	strXml += '<a:gdLst>'
+	strXml += '</a:gdLst>'
+	strXml += '<a:ahLst />'
+	strXml += '<a:cxnLst>'
+	strXml += '</a:cxnLst>'
+	strXml += '<a:rect l="l" t="t" r="r" b="b" />'
+
+	strXml += '<a:pathLst>'
+	strXml += `<a:path w="${cx}" h="${cy}">`
+
+	points?.forEach((point, i) => {
+		if ('curve' in point) {
+			switch (point.curve.type) {
+				case 'arc':
+					strXml += `<a:arcTo hR="${getSmartParseNumber(point.curve.hR, 'Y', layout)}" wR="${getSmartParseNumber(
+						point.curve.wR,
+						'X',
+						layout
+					)}" stAng="${convertRotationDegrees(point.curve.stAng)}" swAng="${convertRotationDegrees(point.curve.swAng)}" />`
+					break
+				case 'cubic':
+					strXml += `<a:cubicBezTo>
+					<a:pt x="${getSmartParseNumber(point.curve.x1, 'X', layout)}" y="${getSmartParseNumber(point.curve.y1, 'Y', layout)}" />
+					<a:pt x="${getSmartParseNumber(point.curve.x2, 'X', layout)}" y="${getSmartParseNumber(point.curve.y2, 'Y', layout)}" />
+					<a:pt x="${getSmartParseNumber(point.x, 'X', layout)}" y="${getSmartParseNumber(point.y, 'Y', layout)}" />
+					</a:cubicBezTo>`
+					break
+				case 'quadratic':
+					strXml += `<a:quadBezTo>
+					<a:pt x="${getSmartParseNumber(point.curve.x1, 'X', layout)}" y="${getSmartParseNumber(point.curve.y1, 'Y', layout)}" />
+					<a:pt x="${getSmartParseNumber(point.x, 'X', layout)}" y="${getSmartParseNumber(point.y, 'Y', layout)}" />
+					</a:quadBezTo>`
+					break
+				default:
+					break
+			}
+		} else if ('close' in point) {
+			strXml += '<a:close />'
+		} else if (point.moveTo || i === 0) {
+			strXml += `<a:moveTo><a:pt x="${getSmartParseNumber(point.x, 'X', layout)}" y="${getSmartParseNumber(
+				point.y,
+				'Y',
+				layout
+			)}" /></a:moveTo>`
+		} else {
+			strXml += `<a:lnTo><a:pt x="${getSmartParseNumber(point.x, 'X', layout)}" y="${getSmartParseNumber(
+				point.y,
+				'Y',
+				layout
+			)}" /></a:lnTo>`
+		}
+	})
+
+	strXml += '</a:path>'
+	strXml += '</a:pathLst>'
+	strXml += '</a:custGeom>'
 	return strXml
 }
 
@@ -476,63 +548,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				strSlideXml += `<a:ext cx="${cx}" cy="${cy}"/></a:xfrm>`
 
 				if (slideItemObj.shape === 'custGeom') {
-					strSlideXml += '<a:custGeom><a:avLst />'
-					strSlideXml += '<a:gdLst>'
-					strSlideXml += '</a:gdLst>'
-					strSlideXml += '<a:ahLst />'
-					strSlideXml += '<a:cxnLst>'
-					strSlideXml += '</a:cxnLst>'
-					strSlideXml += '<a:rect l="l" t="t" r="r" b="b" />'
-
-					strSlideXml += '<a:pathLst>'
-					strSlideXml += `<a:path w="${cx}" h="${cy}">`
-
-					slideItemObj.options.points?.forEach((point, i) => {
-						if ('curve' in point) {
-							switch (point.curve.type) {
-								case 'arc':
-									strSlideXml += `<a:arcTo hR="${getSmartParseNumber(point.curve.hR, 'Y', slide._presLayout)}" wR="${getSmartParseNumber(
-										point.curve.wR,
-										'X',
-										slide._presLayout
-									)}" stAng="${convertRotationDegrees(point.curve.stAng)}" swAng="${convertRotationDegrees(point.curve.swAng)}" />`
-									break
-								case 'cubic':
-									strSlideXml += `<a:cubicBezTo>
-									<a:pt x="${getSmartParseNumber(point.curve.x1, 'X', slide._presLayout)}" y="${getSmartParseNumber(point.curve.y1, 'Y', slide._presLayout)}" />
-									<a:pt x="${getSmartParseNumber(point.curve.x2, 'X', slide._presLayout)}" y="${getSmartParseNumber(point.curve.y2, 'Y', slide._presLayout)}" />
-									<a:pt x="${getSmartParseNumber(point.x, 'X', slide._presLayout)}" y="${getSmartParseNumber(point.y, 'Y', slide._presLayout)}" />
-									</a:cubicBezTo>`
-									break
-								case 'quadratic':
-									strSlideXml += `<a:quadBezTo>
-									<a:pt x="${getSmartParseNumber(point.curve.x1, 'X', slide._presLayout)}" y="${getSmartParseNumber(point.curve.y1, 'Y', slide._presLayout)}" />
-									<a:pt x="${getSmartParseNumber(point.x, 'X', slide._presLayout)}" y="${getSmartParseNumber(point.y, 'Y', slide._presLayout)}" />
-									</a:quadBezTo>`
-									break
-								default:
-									break
-							}
-						} else if ('close' in point) {
-							strSlideXml += '<a:close />'
-						} else if (point.moveTo || i === 0) {
-							strSlideXml += `<a:moveTo><a:pt x="${getSmartParseNumber(point.x, 'X', slide._presLayout)}" y="${getSmartParseNumber(
-								point.y,
-								'Y',
-								slide._presLayout
-							)}" /></a:moveTo>`
-						} else {
-							strSlideXml += `<a:lnTo><a:pt x="${getSmartParseNumber(point.x, 'X', slide._presLayout)}" y="${getSmartParseNumber(
-								point.y,
-								'Y',
-								slide._presLayout
-							)}" /></a:lnTo>`
-						}
-					})
-
-					strSlideXml += '</a:path>'
-					strSlideXml += '</a:pathLst>'
-					strSlideXml += '</a:custGeom>'
+					strSlideXml += genXmlCustGeom(slideItemObj.options.points, cx, cy, slide._presLayout)
 				} else {
 					strSlideXml += genXmlPresetGeom(slideItemObj.shape, slideItemObj.options, cx, cy)
 				}
@@ -644,8 +660,13 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				strSlideXml += `  <a:off x="${x}" y="${y}"/>`
 				strSlideXml += `  <a:ext cx="${imgWidth}" cy="${imgHeight}"/>`
 				strSlideXml += ' </a:xfrm>'
-				// Clip the picture to a preset geometry. `shape` takes precedence; `rounding` is shorthand for an ellipse.
-				strSlideXml += ' ' + genXmlPresetGeom(slideItemObj.options.shape ?? (rounding ? 'ellipse' : 'rect'), slideItemObj.options, imgWidth, imgHeight)
+				// Clip the picture to a geometry. `points` (freeform custGeom) takes precedence over `shape`/`rounding`;
+				// otherwise `shape` wins over `rounding` (shorthand for an ellipse), falling back to a plain rectangle.
+				if (slideItemObj.options.points) {
+					strSlideXml += ' ' + genXmlCustGeom(slideItemObj.options.points, imgWidth, imgHeight, slide._presLayout)
+				} else {
+					strSlideXml += ' ' + genXmlPresetGeom(slideItemObj.options.shape ?? (rounding ? 'ellipse' : 'rect'), slideItemObj.options, imgWidth, imgHeight)
+				}
 
 				// EFFECTS > SHADOW: REF: @see http://officeopenxml.com/drwSp-effects.php
 				if (slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none') {

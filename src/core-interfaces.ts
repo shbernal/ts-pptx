@@ -142,6 +142,18 @@ export type Margin = number | [number, number, number, number]
 export type HAlign = 'left' | 'center' | 'right' | 'justify'
 export type VAlign = 'top' | 'middle' | 'bottom'
 
+/**
+ * A single node of a freeform (`custGeom`) path.
+ * - coordinates are authored in the object's own inch/EMU space (0..width, 0..height), not slide-relative and not normalized
+ * - used by shapes (`pptx.shapes.CUSTOM_GEOMETRY`) and by images (clips the picture to the path)
+ */
+export type GeometryPoint =
+	| { x: Coord, y: Coord, moveTo?: boolean }
+	| { x: Coord, y: Coord, curve: { type: 'arc', hR: Coord, wR: Coord, stAng: number, swAng: number } }
+	| { x: Coord, y: Coord, curve: { type: 'cubic', x1: Coord, y1: Coord, x2: Coord, y2: Coord } }
+	| { x: Coord, y: Coord, curve: { type: 'quadratic', x1: Coord, y1: Coord } }
+	| { close: true }
+
 // used by charts, shape, text
 export interface BorderProps {
 	/**
@@ -603,6 +615,14 @@ interface ImageBaseProps extends PositionProps, ObjectNameProps {
 	 */
 	shape?: SHAPE_NAME
 	/**
+	 * Clip the image to an arbitrary freeform path (`custGeom`)
+	 * - takes precedence over `shape` / `rounding` when present
+	 * - coordinates are authored in the image's own inch/EMU space (0..w, 0..h), not slide-relative and not normalized
+	 * - supports the same path DSL as freeform shapes: `moveTo` / `lnTo` / `cubicBezTo` / `quadBezTo` / `arcTo` / `close`
+	 * @example [{ x: 1, y: 0 }, { x: 2, y: 2 }, { x: 0, y: 2 }, { close: true }] // triangular photo clip
+	 */
+	points?: GeometryPoint[]
+	/**
 	 * Rounded rectangle corner radius (inches) when `shape: 'roundRect'`
 	 * - values: 0.0 to 1.0
 	 * @default 0
@@ -777,13 +797,7 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 * @see http://www.datypic.com/sc/ooxml/e-a_arcTo-1.html
 	 * @example [{ x: 0, y: 0 }, { x: 10, y: 10 }] // draw a line between those two points
 	 */
-	points?: Array<
-	| { x: Coord, y: Coord, moveTo?: boolean }
-	| { x: Coord, y: Coord, curve: { type: 'arc', hR: Coord, wR: Coord, stAng: number, swAng: number } }
-	| { x: Coord, y: Coord, curve: { type: 'cubic', x1: Coord, y1: Coord, x2: Coord, y2: Coord } }
-	| { x: Coord, y: Coord, curve: { type: 'quadratic', x1: Coord, y1: Coord } }
-	| { close: true }
-	>
+	points?: GeometryPoint[]
 	/**
 	 * Rounded rectangle radius (only for pptx.shapes.ROUNDED_RECTANGLE)
 	 * - values: 0.0 to 1.0

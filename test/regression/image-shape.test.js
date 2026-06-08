@@ -63,4 +63,47 @@ defineRegressionSuite('Image shape clipping', [
 			assert(/<a:prstGeom\s+prst="ellipse"/.test(xml), 'expected prstGeom prst="ellipse"; got: ' + xml)
 		},
 	},
+	{
+		name: 'addImage({ points }) clips to a freeform custGeom path',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addImage({
+					data: PNG_DATA,
+					x: 1,
+					y: 1,
+					w: 2,
+					h: 2,
+					points: [{ x: 1, y: 0 }, { x: 2, y: 2 }, { x: 0, y: 2 }, { close: true }],
+				})
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(/<a:custGeom>/.test(xml), 'expected custGeom on the picture; got: ' + xml)
+			assert(/<a:moveTo>/.test(xml), 'expected a moveTo; got: ' + xml)
+			assert(/<a:lnTo>/.test(xml), 'expected a lnTo; got: ' + xml)
+			assert(/<a:close \/>/.test(xml), 'expected a close; got: ' + xml)
+			assert(!/<a:prstGeom\b/.test(xml), 'points should suppress prstGeom; got: ' + xml)
+		},
+	},
+	{
+		name: 'addImage points wins over shape/rounding',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addImage({
+					data: PNG_DATA,
+					x: 1,
+					y: 1,
+					w: 2,
+					h: 2,
+					shape: 'hexagon',
+					rounding: true,
+					points: [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 1, y: 2 }, { close: true }],
+				})
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(/<a:custGeom>/.test(xml), 'expected custGeom; got: ' + xml)
+			assert(!/<a:prstGeom\b/.test(xml), 'points should win over shape/rounding; got: ' + xml)
+		},
+	},
 ])
