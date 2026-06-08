@@ -7,14 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.1.0](https://github.com/shbernal/PptxGenJS/releases/tag/v5.1.0) - 2026-06-09
+
 ### Added
 
+- `catAxisLabelFormatCode` on scatter and bubble charts sets an independent
+  number format for the X (horizontal) axis, decoupled from
+  `valAxisLabelFormatCode` which controls the Y axis.
+- `lineDashValues?: ChartLineDash[]` on line, scatter, and bubble charts sets
+  a per-series dash pattern; entries fall back to the chart-level `lineDash`
+  default.
+- `addImage({ shape })` clips a picture to any preset geometry (e.g.
+  `'hexagon'`, `'roundRect'`). `rounding: true` remains a shorthand for
+  `shape: 'ellipse'`. `shape` takes precedence when both are set.
 - `addImage({ points })` clips a picture to an arbitrary freeform path
-  (`custGeom`), not just preset shapes. `points` uses the same path DSL as
-  freeform shapes (`moveTo`/`lnTo`/`cubicBezTo`/`quadBezTo`/`arcTo`/`close`,
-  via the shared `GeometryPoint` type) and takes precedence over
-  `shape`/`rounding`. Coordinates are authored in the image's own inch/EMU
-  space. Confirmed clipping in a LibreOffice render.
+  (`custGeom`) using the same path DSL as freeform shapes (`moveTo`/`lnTo`/
+  `cubicBezTo`/`quadBezTo`/`arcTo`/`close`). Takes precedence over
+  `shape`/`rounding`.
+- `addImage({ svg })` accepts raw SVG markup directly, converting it to a
+  base64 data URI internally. `data`/`path` still win when also supplied.
+- `altText` prop extended to text boxes, shapes, tables, and media objects.
+  Previously only images and charts emitted `p:cNvPr descr`.
+- Object name validation: warns (without throwing) on names that cannot
+  provide a stable Selection Pane identity — empty/whitespace, control
+  characters, names over 255 chars, or duplicates on the same slide.
+- `bullet.color` (HexColor) colors a bullet glyph independently of the
+  text run color via `<a:buClr>`.
+- `TextBaseProps.caps` (`'none'` | `'small'` | `'all'`) applies all-caps or
+  small-caps styling to a text run.
+- `valAxisCrossBetween` (`'between'` | `'midCat'`) exposes the OOXML
+  `crossBetween` setting on the value axis.
+- `STANDARD_LAYOUTS.*` now expose `.width` / `.height` inch aliases.
+  `pptx.layout` accepts a preset object directly (e.g.
+  `STANDARD_LAYOUTS.LAYOUT_16x9`). `slide.width` / `slide.height` getters
+  return the active layout size in inches.
+- `displayBlanksAs: 'zero'` added as a valid chart option value.
+
+### Fixed
+
+- `getSmartParseNumber` now throws on `NaN`/`Infinity` instead of silently
+  collapsing objects to zero size or position.
+- XML 1.0 illegal control characters (U+0000–U+0008, U+000B, U+000C,
+  U+000E–U+001F, U+007F) are stripped before serialization, preventing
+  PowerPoint repair dialogs.
+- `createColorElement` guards against non-string input, preventing a
+  `TypeError` when an object is passed via `chartColors`.
+- Table `write()` / `writeFile()` is now idempotent on merged-cell tables;
+  the internal row expansion no longer mutates the caller's array.
+- Scatter/bubble chart data labels now apply `dataLabelFontSize`,
+  `dataLabelFontBold`, `dataLabelFontItalic`, `dataLabelColor`, and
+  `dataLabelFontFace` to custom label `rPr` elements.
+- Slide master and layout media targets are namespaced so they no longer
+  collide with regular slide targets in large decks.
+- Line charts now emit `c:grouping` (required, defaults to `'standard'`) and
+  respect `barGrouping: 'stacked'`.
+- Single-level category labels now emit `c:strRef/c:strCache` instead of
+  `c:multiLvlStrRef`, improving Google Slides and other importer
+  compatibility.
+- Chart zero values are preserved in embedded workbook cells; the previous
+  `||` guard treated `0` as blank.
+- Pie and doughnut parent `dLbls` now use `dataLabelFontSize`,
+  `dataLabelColor`, and `dataLabelFontFace` instead of hard-coded defaults.
+- Transparent `chartColors` entries on line/radar charts now emit
+  `<a:noFill/>` on markers instead of a solid fill.
+- Chart null values now omit `<c:pt>` entirely (correct OOXML gap encoding)
+  rather than emitting empty `<c:v/>`.
+- Stray apostrophe removed from embedded workbook table-ref attribute,
+  fixing chart rendering in Apple Keynote.
+- Pie/doughnut `dataLabelPosition` is now applied to the parent `dLbls`
+  block instead of being hard-coded to `'ctr'`.
+- Shadow `blur`, `angle`, and `opacity` zero values are now honored instead
+  of being replaced by defaults.
+- `barOverlapPct` is respected on stacked bar charts; previously the
+  stacked-bar path forced `100` before the user value was checked.
+- Scatter/bubble cat-axis now reads `catAxisLabelPos` instead of
+  hard-coding `'nextTo'`.
+- `catAxisOrientation` and `valAxisOrientation` type unions now include
+  `'maxMin'`; XML emission was already correct.
+
+### Changed
+
+- `displayBlanksAs` default changed from `'span'` to `'gap'`.
 
 ## [5.0.2](https://github.com/shbernal/PptxGenJS/releases/tag/v5.0.2) - 2026-06-08
 
