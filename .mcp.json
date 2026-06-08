@@ -1,0 +1,12 @@
+{
+	"mcpServers": {
+		"ooxml": {
+			"type": "http",
+			"url": "https://api.ooxml.dev/mcp"
+		},
+		"microsoft_learn": {
+			"type": "http",
+			"url": "https://learn.microsoft.com/api/mcp"
+		}
+	}
+}
