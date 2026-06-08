@@ -50,7 +50,7 @@ import type {
 	TextPropsOptions,
 } from './core-interfaces.js'
 import { getSlidesForTableRows } from './gen-tables.js'
-import { encodeXmlEntities, getNewRelId, getSmartParseNumber, inch2Emu, valToPts, correctShadowOptions, validateObjectName } from './gen-utils.js'
+import { encodeXmlEntities, getNewRelId, getSmartParseNumber, inch2Emu, valToPts, correctShadowOptions, validateObjectName, svgMarkupToDataUri } from './gen-utils.js'
 
 /** counter for included charts (used for index in their filenames) */
 let _chartCounter = 0
@@ -405,7 +405,9 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	const intHeight = opt.h || 0
 	const sizing = opt.sizing
 	const objHyperlink = opt.hyperlink || ''
-	const strImageData = opt.data || ''
+	// Convenience: accept raw SVG markup via `svg` and encode it to a data URI.
+	// `data`/`path` win when also supplied, matching the documented precedence.
+	const strImageData = opt.data || (opt.svg && !opt.path ? svgMarkupToDataUri(opt.svg) : '')
 	const strImagePath = opt.path || ''
 	let imageRelId = getNewRelId(target)
 	const objectName = opt.objectName ? encodeXmlEntities(validateObjectName(opt.objectName, 'image')) : `Image ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.image).length}`

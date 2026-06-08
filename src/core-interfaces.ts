@@ -662,8 +662,15 @@ interface ImageBaseProps extends PositionProps, ObjectNameProps {
 	 * @example 25 // 25% transparent
 	 */
 	transparency?: number
+	/**
+	 * Raw SVG markup to embed as the image source
+	 * - convenience for `data: 'data:image/svg+xml;base64,...'`; PptxGenJS encodes it for you
+	 * - ignored when `data` or `path` is also provided
+	 * @example '<svg viewBox="0 0 24 24">...</svg>'
+	 */
+	svg?: string
 }
-export type ImageProps = ImageBaseProps & DataOrPathRequiredProps
+export type ImageProps = ImageBaseProps & (DataOrPathRequiredProps | (DataOrPathProps & { svg: string }))
 /**
  * Add media (audio/video) to slide
  * Requires either `data` or `path`; online media requires `link`.
