@@ -189,6 +189,23 @@ export default [
 		},
 	},
 	{
+		name: 'text caps: all-caps and small-caps run properties',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addText(
+					[
+						{ text: 'ALL CAPS ', options: { caps: 'all' } },
+						{ text: 'Small Caps ', options: { caps: 'small' } },
+						{ text: 'Normal', options: { caps: 'none' } },
+					],
+					{ x: 1, y: 1, w: 6, h: 0.5 }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'text-caps')
+		},
+	},
+	{
 		name: 'scatter chart with valAxisCrossesAt zero',
 		fn: async () => {
 			const { buf } = await build((p) => {
@@ -203,6 +220,20 @@ export default [
 				)
 			})
 			await expectNoSchemaErrors(buf, 'scatter-val-axis-crosses-at-zero')
+		},
+	},
+	{
+		name: 'bar chart with valAxisCrossBetween midCat',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addChart(
+					p.charts.BAR,
+					[{ name: 'Series 1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }],
+					{ x: 1, y: 1, w: 6, h: 3, valAxisCrossBetween: 'midCat' }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'bar-chart-cross-between-midcat')
 		},
 	},
 ]

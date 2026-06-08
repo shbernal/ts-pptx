@@ -1861,7 +1861,11 @@ function makeValAxis (opts: IChartOptsLib, valAxisId: string): string {
 	}
 	strXml +=
 		' <c:crossBetween val="' +
-		(opts._type === CHART_TYPE.SCATTER || (!!(Array.isArray(opts._type) && opts._type.some(type => type.type === CHART_TYPE.AREA))) ? 'midCat' : 'between') +
+		(opts.valAxisCrossBetween
+			? opts.valAxisCrossBetween
+			: opts._type === CHART_TYPE.SCATTER || (!!(Array.isArray(opts._type) && opts._type.some(type => type.type === CHART_TYPE.AREA)))
+				? 'midCat'
+				: 'between') +
 		'"/>'
 	if (opts.valAxisMajorUnit) strXml += ` <c:majorUnit val="${opts.valAxisMajorUnit}"/>`
 	if (opts.valAxisDisplayUnit) { strXml += `<c:dispUnits><c:builtInUnit val="${opts.valAxisDisplayUnit}"/>${opts.valAxisDisplayUnitLabel ? '<c:dispUnitsLbl/>' : ''}</c:dispUnits>` }

@@ -3589,8 +3589,8 @@ items:
     source: "gitbrent/PptxGenJS#1312"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-08
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -3599,22 +3599,22 @@ items:
     non_target_reasons: []
     upstream_summary: Add text caps support for small-caps and all-caps rendering.
     current_project_notes: >
-      Current TextBaseProps exposes strike, subscript, superscript, and related
-      run properties, but no caps option; run-property emission has no caps
-      attribute branch.
+      Added caps?: 'none' | 'small' | 'all' to TextBaseProps; emits cap attribute
+      on a:rPr in genXmlTextRunProperties. Schema fixture added and passes validator.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
       local_files:
-        - src/core-interfaces.ts:1098
-        - src/core-interfaces.ts:1100
-        - src/gen-xml.ts:974
-        - src/gen-xml.ts:997
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts
+        - src/gen-xml.ts
+        - test/schema.test.js
+      schema_fixture: "text caps: all-caps and small-caps run properties"
+      validator_result: pass
       powerpoint_result: null
-      spec_refs: []
-    next_action: compare-powerpoint-authored-text-caps-run-properties
+      spec_refs:
+        - "ECMA-376 §21.1.2.3.3 rPr — cap attribute, ST_TextCapsType (none|small|all)"
+    next_action: none
 
   - id: upstream-issue-1309
     source: "gitbrent/PptxGenJS#1309"
@@ -7917,8 +7917,8 @@ items:
     source: "gitbrent/PptxGenJS#548"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-08
+    status: implemented
     priority: p3
     target_area:
       - chart-ooxml
@@ -7927,23 +7927,23 @@ items:
     non_target_reasons: []
     upstream_summary: Requested chart axis position "On tick marks" via OOXML crossBetween.
     current_project_notes: >
-      Current chart options expose axisPos but not a crossBetween option, and
-      value axis XML hard-codes crossBetween to midCat for scatter/area or
-      between otherwise. A focused chart fixture should add and validate the
-      user-facing contract.
+      Added valAxisCrossBetween?: 'between' | 'midCat' to IChartPropsAxisVal; used
+      in value-axis XML when provided, with the previous scatter/area auto-logic as
+      fallback. Schema fixture added and passes validator.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
       local_files:
-        - src/core-interfaces.ts:1253
-        - src/gen-charts.ts:1837
-        - src/gen-charts.ts:1839
-        - src/gen-charts.ts:1840
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts
+        - src/gen-charts.ts
+        - test/schema.test.js
+      schema_fixture: "bar chart with valAxisCrossBetween midCat"
+      validator_result: pass
       powerpoint_result: null
-      spec_refs: []
-    next_action: add-chart-cross-between-option-fixture
+      spec_refs:
+        - "ECMA-376 §21.2.2.29 crossBetween — ST_CrossBetween (between|midCat)"
+    next_action: none
 
   - id: upstream-issue-519
     source: "gitbrent/PptxGenJS#519"

@@ -980,6 +980,7 @@ function genXmlTextRunProperties (opts: ObjectOptions | TextPropsOptions, isDefa
 	runProps += opts?.italic ? ` i="${opts.italic ? '1' : '0'}"` : ''
 
 	runProps += opts?.strike ? ` strike="${typeof opts.strike === 'string' ? opts.strike : 'sngStrike'}"` : ''
+	runProps += opts?.caps ? ` cap="${opts.caps}"` : ''
 	if (typeof opts.underline === 'object' && opts.underline?.style) {
 		runProps += ` u="${opts.underline.style}"`
 	} else if (typeof opts.underline === 'string') {

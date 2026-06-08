@@ -403,6 +403,14 @@ export interface TextBaseProps {
 		style?: string
 	}
 	/**
+	 * Text capitalization
+	 * - `'all'` = ALL CAPS
+	 * - `'small'` = Small Caps
+	 * - `'none'` = no override (default)
+	 * - PowerPoint: Font > Effects > All Caps / Small Caps
+	 */
+	caps?: 'none' | 'small' | 'all'
+	/**
 	 * Text color
 	 * - `HexColor` or `ThemeColor`
 	 * - MS-PPT > Format Shape > Text Options > Text Fill & Outline > Text Fill > Color
@@ -1472,6 +1480,13 @@ export interface IChartPropsAxisVal {
 	 */
 	valAxes?: IChartPropsAxisVal[]
 	valAxisCrossesAt?: number | 'autoZero'
+	/**
+	 * Controls where axis values are plotted relative to tick marks
+	 * - `'between'` = values plotted between tick marks (default for bar/column/line)
+	 * - `'midCat'` = values plotted on tick marks (default for scatter/area)
+	 * - PowerPoint: Format Axis > Axis Options > Axis crosses > On tick marks / Between tick marks
+	 */
+	valAxisCrossBetween?: 'between' | 'midCat'
 	valAxisDisplayUnit?: 'billions' | 'hundredMillions' | 'hundreds' | 'hundredThousands' | 'millions' | 'tenMillions' | 'tenThousands' | 'thousands' | 'trillions'
 	valAxisDisplayUnitLabel?: boolean
 	valAxisHidden?: boolean
