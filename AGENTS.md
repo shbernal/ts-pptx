@@ -7,6 +7,20 @@
 - Keep source changes focused in `src/` and tests in `test/`. Treat `dist/` as generated package artifacts unless the task explicitly requires refreshing release outputs.
 - Preserve unrelated dirty state. Do not revert user changes.
 
+## API Evolution Policy
+
+- This fork is maintained for our own use; there is no external backward-compat
+  obligation. Prefer fixing root causes here rather than asking consumers (e.g.
+  `downstream`) to work around them — a fix in this public package helps every
+  consumer.
+- Breaking changes are acceptable and encouraged when they make the API clearer
+  or safer. Do not block an improvement on reverse compatibility. When you make
+  or propose one, record it (with migration guidance) in the
+  `UPSTREAMING_CANDIDATES.md` tracker at `../UPSTREAMING_CANDIDATES.md`.
+- Silent coercion of invalid input is a footgun, not a feature: prefer warning or
+  failing on `NaN` / `undefined` / out-of-range values over emitting a degenerate
+  result (e.g. a zero-size object).
+
 ## OOXML And PowerPoint Work
 
 - Before changing emitted OOXML, read `docs/ooxml-agent-context.md`.
