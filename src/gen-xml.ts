@@ -531,10 +531,10 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					// (re-emission would otherwise re-convert pt→EMU and produce absurd values).
 					const sh = slideItemObj.options.shadow
 					const shadowType = sh.type || 'outer'
-					const shadowBlur = valToPts(sh.blur || 8)
-					const shadowOffset = valToPts(sh.offset || 4)
-					const shadowAngle = Math.round((sh.angle || 270) * 60000)
-					const shadowOpacity = Math.round((sh.opacity || 0.75) * 100000)
+					const shadowBlur = valToPts(sh.blur ?? 8)
+					const shadowOffset = valToPts(sh.offset ?? 4)
+					const shadowAngle = Math.round((sh.angle ?? 270) * 60000)
+					const shadowOpacity = Math.round((sh.opacity ?? 0.75) * 100000)
 					const shadowColor = sh.color || DEF_TEXT_SHADOW.color
 
 					strSlideXml += '<a:effectLst>'
@@ -626,10 +626,10 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					// (re-emission would otherwise re-convert pt→EMU and produce absurd values).
 					const sh = slideItemObj.options.shadow
 					const shadowType = sh.type || 'outer'
-					const shadowBlur = valToPts(sh.blur || 8)
-					const shadowOffset = valToPts(sh.offset || 4)
-					const shadowAngle = Math.round((sh.angle || 270) * 60000)
-					const shadowOpacity = Math.round((sh.opacity || 0.75) * 100000)
+					const shadowBlur = valToPts(sh.blur ?? 8)
+					const shadowOffset = valToPts(sh.offset ?? 4)
+					const shadowAngle = Math.round((sh.angle ?? 270) * 60000)
+					const shadowOpacity = Math.round((sh.opacity ?? 0.75) * 100000)
 					const shadowColor = sh.color || DEF_TEXT_SHADOW.color
 
 					strSlideXml += '<a:effectLst>'

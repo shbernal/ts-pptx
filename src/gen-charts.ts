@@ -219,7 +219,7 @@ export async function createExcelWorksheet (chartObject: ISlideRelChart, zip: JS
 					strTableXml += `<tableColumn id="${idx + 1}" name="${idx === 0 ? 'X-Values' : 'Y-Value '}${idx}"/>`
 				})
 			} else {
-				strTableXml += `<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="Table1" displayName="Table1" ref="A1:${getExcelColName(data.length + data[0].labels.length)}${data[0].labels[0].length + 1}'" totalsRowShown="0">`
+				strTableXml += `<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="Table1" displayName="Table1" ref="A1:${getExcelColName(data.length + data[0].labels.length)}${data[0].labels[0].length + 1}" totalsRowShown="0">`
 				strTableXml += `<tableColumns count="${data.length + data[0].labels.length}">`
 				data[0].labels.forEach((_labelsGroup, idx) => {
 					strTableXml += `<tableColumn id="${idx + 1}" name="Column${idx + 1}"/>`
@@ -1034,7 +1034,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 			// 4: Add more chart options (gapWidth, line Marker, etc.)
 			if (chartType === CHART_TYPE.BAR) {
 				strXml += `  <c:gapWidth val="${opts.barGapWidthPct}"/>`
-				strXml += `  <c:overlap val="${(opts.barGrouping || '').includes('tacked') ? 100 : opts.barOverlapPct ? opts.barOverlapPct : 0}"/>`
+				strXml += `  <c:overlap val="${opts.barOverlapPct != null ? opts.barOverlapPct : (opts.barGrouping || '').includes('tacked') ? 100 : 0}"/>`
 			} else if (chartType === CHART_TYPE.BAR3D) {
 				strXml += `  <c:gapWidth val="${opts.barGapWidthPct}"/>`
 				strXml += `  <c:gapDepth val="${opts.barGapDepthPct}"/>`
@@ -1595,7 +1595,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 			strXml += '        </a:pPr>'
 			strXml += '      </a:p>'
 			strXml += '    </c:txPr>'
-			strXml += chartType === CHART_TYPE.PIE ? '<c:dLblPos val="ctr"/>' : ''
+			strXml += chartType === CHART_TYPE.PIE ? `<c:dLblPos val="${opts.dataLabelPosition || 'ctr'}"/>` : ''
 			strXml += '    <c:showLegendKey val="0"/>'
 			strXml += '    <c:showVal val="0"/>'
 			strXml += '    <c:showCatName val="1"/>'
@@ -1695,7 +1695,7 @@ function makeCatAxis (opts: IChartOptsLib, axisId: string, valAxisId: string): s
 	if (opts._type === CHART_TYPE.SCATTER) {
 		strXml += '  <c:majorTickMark val="none"/>'
 		strXml += '  <c:minorTickMark val="none"/>'
-		strXml += '  <c:tickLblPos val="nextTo"/>'
+		strXml += '  <c:tickLblPos val="' + (opts.catAxisLabelPos || 'nextTo') + '"/>'
 	} else {
 		strXml += '  <c:majorTickMark val="' + (opts.catAxisMajorTickMark || 'out') + '"/>'
 		strXml += '  <c:minorTickMark val="' + (opts.catAxisMinorTickMark || 'none') + '"/>'

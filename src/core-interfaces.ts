@@ -1419,7 +1419,7 @@ export interface IChartPropsAxisCat {
 	catAxisMinVal?: number
 	/** @since v3.11.0 */
 	catAxisMultiLevelLabels?: boolean
-	catAxisOrientation?: 'minMax'
+	catAxisOrientation?: 'minMax' | 'maxMin'
 	catAxisTitle?: string
 	catAxisTitleColor?: string
 	catAxisTitleFontFace?: string
@@ -1498,7 +1498,7 @@ export interface IChartPropsAxisVal {
 	valAxisMaxVal?: number
 	valAxisMinorTickMark?: ChartAxisTickMark
 	valAxisMinVal?: number
-	valAxisOrientation?: 'minMax'
+	valAxisOrientation?: 'minMax' | 'maxMin'
 	valAxisTitle?: string
 	valAxisTitleColor?: string
 	valAxisTitleFontFace?: string
