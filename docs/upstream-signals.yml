@@ -1068,8 +1068,8 @@ items:
     source: "gitbrent/PptxGenJS#1341"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-08
+    status: implemented
     priority: p2
     target_area:
       - chart-ooxml
@@ -1077,7 +1077,9 @@ items:
     applies_to_current_project: yes
     non_target_reasons: []
     upstream_summary: Allow stacked grouping for line charts, analogous to area charts.
-    current_project_notes: Current grouping branch only applies stacked grouping to area charts.
+    current_project_notes: >
+      Extended the stacked grouping condition at gen-charts.ts:798 to also apply
+      to CHART_TYPE.LINE when barGrouping is 'stacked', matching area chart behavior.
     evidence:
       kinds:
         - local-source-inspection
@@ -1087,7 +1089,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: verify-line-chart-stacked-grouping-ooxml
+    next_action: none
 
   - id: upstream-pr-1337
     source: "gitbrent/PptxGenJS#1337"
@@ -2308,8 +2310,8 @@ items:
     source: "gitbrent/PptxGenJS#1273"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-08
+    status: implemented
     priority: p2
     target_area:
       - chart-ooxml
@@ -2317,20 +2319,19 @@ items:
     non_target_reasons: []
     upstream_summary: Use strRef instead of multiLvlStrRef for single-level categories to improve Google Slides import.
     current_project_notes: >
-      Current bar/line chart category XML emits multiLvlStrRef whenever no
-      catLabelFormatCode is present, even when labels are single-level.
+      When obj.labels.length === 1 (single label array), the category block now
+      emits strRef/strCache instead of multiLvlStrRef/multiLvlStrCache. Multi-level
+      labels (length > 1) still use multiLvlStrRef. Fixed in src/gen-charts.ts:972.
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/gen-charts.ts:961
-        - src/gen-charts.ts:973
-        - src/gen-charts.ts:975
+        - src/gen-charts.ts:972
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-single-level-category-import-compat-fixture
+    next_action: none
 
   - id: upstream-pr-1269
     source: "gitbrent/PptxGenJS#1269"
@@ -2664,8 +2665,8 @@ items:
     source: "gitbrent/PptxGenJS#1359"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: superseded
+    last_reviewed: 2026-06-08
+    status: implemented
     priority: p2
     target_area:
       - chart-ooxml
@@ -2673,16 +2674,14 @@ items:
     non_target_reasons: []
     upstream_summary: Category labels displayed as indexes instead of labels in a chart.
     current_project_notes: >
-      This appears to be the issue-side report for the single-level category
-      label XML compatibility problem already tracked as upstream-pr-1273.
-      Current source still emits multiLvlStrRef for non-numeric category labels.
+      Root cause addressed via upstream-pr-1273: single-level category label
+      arrays now emit strRef/strCache instead of multiLvlStrRef, which resolves
+      the index-display symptom in Google Slides and other importers.
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/gen-charts.ts:961
-        - src/gen-charts.ts:973
-        - src/gen-charts.ts:975
+        - src/gen-charts.ts:972
       schema_fixture: null
       validator_result: null
       powerpoint_result: null

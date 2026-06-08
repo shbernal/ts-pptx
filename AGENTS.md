@@ -15,6 +15,12 @@
 - Do not vendor full standards PDFs or large extracted specification text into this repository as agent context. Store small, repo-specific notes with section references instead.
 - Prefer executable evidence over prose alone: inspect minimal PowerPoint-authored `.pptx` packages when needed, compare package XML, and add focused regression or schema fixtures.
 
+## Upstream Signals Workflow
+
+- `docs/upstream-signals.yml` tracks upstream issues and PRs as signals for local work.
+- When you implement a fix or feature derived from an upstream signal, update the corresponding item in that file: set `status` to `implemented`, update `last_reviewed` to today's date, update `current_project_notes` with where the fix landed, update `evidence.local_files` to reflect the current source location, and set `next_action` to `none`.
+- Also update any companion items that share the same root cause (e.g. an issue whose `next_action` was `handle-with-upstream-pr-NNNN` when that PR is now implemented).
+
 ## Verification
 
 - For source changes, run `pnpm run build` and `pnpm run typecheck` when practical.

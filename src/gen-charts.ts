@@ -795,7 +795,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 		case CHART_TYPE.RADAR:
 			// 1: Start Chart
 			strXml += `<c:${chartType}Chart>`
-			if (chartType === CHART_TYPE.AREA && opts.barGrouping === 'stacked') {
+			if ((chartType === CHART_TYPE.AREA || chartType === CHART_TYPE.LINE) && opts.barGrouping === 'stacked') {
 				strXml += '<c:grouping val="' + opts.barGrouping + '"/>'
 			}
 
@@ -969,6 +969,14 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 						obj.labels[0].forEach((label, idx) => (strXml += `<c:pt idx="${idx}"><c:v>${encodeXmlEntities(label)}</c:v></c:pt>`))
 						strXml += '    </c:numCache>'
 						strXml += '  </c:numRef>'
+					} else if (obj.labels.length === 1) {
+						strXml += '  <c:strRef>'
+						strXml += `    <c:f>Sheet1!$A$2:$A$${obj.labels[0].length + 1}</c:f>`
+						strXml += '    <c:strCache>'
+						strXml += `      <c:ptCount val="${obj.labels[0].length}"/>`
+						obj.labels[0].forEach((label, idx) => (strXml += `<c:pt idx="${idx}"><c:v>${encodeXmlEntities(label)}</c:v></c:pt>`))
+						strXml += '    </c:strCache>'
+						strXml += '  </c:strRef>'
 					} else {
 						strXml += '  <c:multiLvlStrRef>'
 						strXml += `    <c:f>Sheet1!$A$2:$${getExcelColName(obj.labels.length)}$${obj.labels[0].length + 1}</c:f>`
