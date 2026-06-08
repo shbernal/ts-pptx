@@ -75,8 +75,22 @@ defineRegressionSuite('Object identity', 'legacy bug-21', [
 			const { zip } = await build((p) => {
 				const slide = p.addSlide()
 				slide.addText('Named text', { x: 0.4, y: 0.3, w: 2, h: 0.4, objectName: 'alt:text', altText: 'Text alt' })
-				slide.addShape(p.shapes.RECTANGLE, { x: 0.4, y: 0.9, w: 1, h: 0.4, objectName: 'alt:shape', altText: 'Shape alt' })
-				slide.addTable([[{ text: 'A1' }]], { x: 4.8, y: 0.4, w: 2, h: 0.6, objectName: 'alt:table', altText: 'Table alt' })
+				slide.addShape(p.shapes.RECTANGLE, {
+					x: 0.4,
+					y: 0.9,
+					w: 1,
+					h: 0.4,
+					objectName: 'alt:shape',
+					altText: 'Shape alt',
+				})
+				slide.addTable([[{ text: 'A1' }]], {
+					x: 4.8,
+					y: 0.4,
+					w: 2,
+					h: 0.6,
+					objectName: 'alt:table',
+					altText: 'Table alt',
+				})
 				slide.addMedia({
 					type: 'video',
 					data: 'video/mp4;base64,AAAA',

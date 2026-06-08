@@ -7,7 +7,7 @@ pre-commit:
       stage_fixed: true
 
     - name: prettier
-      glob: '*.{json,yaml,yml,mjs,mts,ts}'
+      glob: '*.{json,yaml,yml,mjs,mts,ts,js}'
       exclude:
         - 'src/**'
         - 'pnpm-lock.yaml'

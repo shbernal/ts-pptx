@@ -84,7 +84,7 @@ export default [
 						{ text: 'plain ', options: {} },
 						{ text: 'blue', options: { color: '0000FF' } },
 					],
-					{ x: 1, y: 1, w: 4, h: 1 },
+					{ x: 1, y: 1, w: 4, h: 1 }
 				)
 			})
 			await expectNoSchemaErrors(buf, 'text-mixed-runs')
@@ -301,11 +301,13 @@ export default [
 		fn: async () => {
 			const { buf } = await build((p) => {
 				const s = p.addSlide()
-				s.addChart(
-					p.charts.BAR,
-					[{ name: 'Series 1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }],
-					{ x: 1, y: 1, w: 6, h: 3, valAxisCrossBetween: 'midCat' }
-				)
+				s.addChart(p.charts.BAR, [{ name: 'Series 1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
+					x: 1,
+					y: 1,
+					w: 6,
+					h: 3,
+					valAxisCrossBetween: 'midCat',
+				})
 			})
 			await expectNoSchemaErrors(buf, 'bar-chart-cross-between-midcat')
 		},
@@ -315,7 +317,10 @@ export default [
 		fn: async () => {
 			const { buf } = await build((p) => {
 				p.addSlide().addText('item', {
-					x: 1, y: 1, w: 4, h: 0.5,
+					x: 1,
+					y: 1,
+					w: 4,
+					h: 0.5,
 					bullet: { color: 'FF0000', characterCode: '2022' },
 					color: '000000',
 				})
@@ -327,11 +332,13 @@ export default [
 		name: 'line chart with transparent marker fill',
 		fn: async () => {
 			const { buf } = await build((p) => {
-				p.addSlide().addChart(
-					p.charts.LINE,
-					[{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }],
-					{ x: 1, y: 1, w: 6, h: 3, chartColors: ['transparent'] }
-				)
+				p.addSlide().addChart(p.charts.LINE, [{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
+					x: 1,
+					y: 1,
+					w: 6,
+					h: 3,
+					chartColors: ['transparent'],
+				})
 			})
 			await expectNoSchemaErrors(buf, 'line-chart-transparent-marker')
 		},
@@ -340,11 +347,12 @@ export default [
 		name: 'line chart with null values defaults to gap',
 		fn: async () => {
 			const { buf } = await build((p) => {
-				p.addSlide().addChart(
-					p.charts.LINE,
-					[{ name: 'S1', labels: ['A', 'B', 'C', 'D'], values: [1, null, 3, 4] }],
-					{ x: 1, y: 1, w: 6, h: 3 }
-				)
+				p.addSlide().addChart(p.charts.LINE, [{ name: 'S1', labels: ['A', 'B', 'C', 'D'], values: [1, null, 3, 4] }], {
+					x: 1,
+					y: 1,
+					w: 6,
+					h: 3,
+				})
 			})
 			await expectNoSchemaErrors(buf, 'line-chart-null-values-gap')
 		},
