@@ -1,0 +1,15 @@
+pre-commit:
+  parallel: true
+  jobs:
+    - name: eslint
+      glob: '*.{ts,mjs,js}'
+      run: pnpm exec eslint --fix --no-warn-ignored {staged_files}
+      stage_fixed: true
+
+    - name: prettier
+      glob: '*.{json,yaml,yml,mjs,mts,ts}'
+      exclude:
+        - 'src/**'
+        - 'pnpm-lock.yaml'
+      run: pnpm exec prettier --write --ignore-unknown {staged_files}
+      stage_fixed: true

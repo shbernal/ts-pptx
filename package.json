@@ -54,6 +54,7 @@
 	"types": "./dist/index.d.ts",
 	"scripts": {
 		"build": "tsdown",
+		"prepare": "lefthook install",
 		"start": "pnpm run watch",
 		"watch": "tsdown --watch",
 		"test": "pnpm run build && vitest run test/regression test/schema-validation.test.mjs",
@@ -110,6 +111,7 @@
 		"@typescript-eslint/parser": "^8.60.1",
 		"@vitest/coverage-v8": "^4.1.8",
 		"eslint": "^10.4.1",
+		"lefthook": "^2.1.9",
 		"prettier": "^3.8.3",
 		"publint": "^0.3.21",
 		"tsdown": "^0.22.2",
