@@ -453,6 +453,8 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 		h: intHeight || 1,
 		altText: opt.altText || '',
 		rounding: typeof opt.rounding === 'boolean' ? opt.rounding : false,
+		shape: opt.shape,
+		rectRadius: opt.rectRadius,
 		sizing,
 		placeholder: opt.placeholder,
 		rotate: opt.rotate || 0,

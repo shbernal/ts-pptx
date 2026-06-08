@@ -2100,8 +2100,8 @@ items:
     source: "gitbrent/PptxGenJS#1433"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: interesting-with-tweaks
+    last_reviewed: 2026-06-08
+    status: implemented
     priority: p2
     target_area:
       - image-svg-media
@@ -2112,21 +2112,25 @@ items:
       - upstream-build-system
     upstream_summary: Spike adding rounded-rectangle image crop support.
     current_project_notes: >
-      Current image options only support boolean rounding that emits ellipse or
-      rect geometry. Keep the image-cropping feature idea, but discard demo
-      assets, npm build steps, and generated legacy artifacts.
+      Implemented 2026-06-08 from current source rather than the upstream PR
+      (demo assets and legacy build steps discarded). ImageProps now accepts
+      `shape` (any preset geometry) and `rectRadius`; `rounding` is shorthand
+      for `shape: 'ellipse'`. Shape and image paths share `genXmlPresetGeom` in
+      gen-xml.ts. Covered by test/regression/image-shape.test.js.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/core-interfaces.ts:519
+        - src/core-interfaces.ts:586
         - src/gen-objects.ts:455
-        - src/gen-xml.ts:621
+        - src/gen-xml.ts:80
+        - test/regression/image-shape.test.js
       schema_fixture: null
-      validator_result: null
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: design-rounded-rect-image-mask-api-from-current-source
+    next_action: support-arbitrary-custgeom-picture-clipping
 
   - id: upstream-pr-1431
     source: "gitbrent/PptxGenJS#1431"
@@ -6910,8 +6914,8 @@ items:
     source: "gitbrent/PptxGenJS#850"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-08
+    status: implemented
     priority: p3
     target_area:
       - image-svg-media
@@ -6920,23 +6924,25 @@ items:
     non_target_reasons: []
     upstream_summary: Requested image cropping masks for arbitrary preset shapes, not only rectangle or circle.
     current_project_notes: >
-      Current ImageBaseProps exposes rounding as a boolean, and image XML chooses
-      only ellipse or rect for the picture geometry. Generalized picture
-      prstGeom should be compared against PowerPoint-authored examples before
-      expanding the API.
+      Implemented 2026-06-08: ImageBaseProps now exposes `shape` (any preset
+      geometry name, e.g. roundRect/hexagon/ellipse) plus `rectRadius`, and the
+      image XML emits the chosen preset prstGeom via the shared genXmlPresetGeom
+      helper. Combine with sizing:cover for aspect-correct fills. Arbitrary
+      custGeom picture clipping is still not supported (preset geometries only).
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/core-interfaces.ts:516
-        - src/core-interfaces.ts:519
+        - src/core-interfaces.ts:586
         - src/gen-objects.ts:455
-        - src/gen-xml.ts:621
+        - src/gen-xml.ts:80
+        - test/regression/image-shape.test.js
       schema_fixture: null
-      validator_result: null
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: compare-powerpoint-authored-picture-mask-xml
+    next_action: support-arbitrary-custgeom-picture-clipping
 
   - id: upstream-issue-842
     source: "gitbrent/PptxGenJS#842"

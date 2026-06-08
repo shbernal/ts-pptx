@@ -77,6 +77,33 @@ const ImageSizingXml = {
 	},
 }
 
+/**
+ * Emit an `<a:prstGeom>` for a preset shape, including any adjust values (`<a:avLst>`).
+ * Shared by the shape and image code paths so that geometry + adjust handling stays in one place.
+ * @param {string} shapeName - preset geometry name (e.g. `rect`, `ellipse`, `roundRect`, `hexagon`)
+ * @param {ObjectOptions} options - object options carrying optional `rectRadius`/`angleRange`/`arcThicknessRatio`
+ * @param {number} cx - shape width (EMU), used to scale `rectRadius`
+ * @param {number} cy - shape height (EMU), used to scale `rectRadius`
+ * @return {string} `<a:prstGeom>` XML
+ */
+function genXmlPresetGeom (shapeName: string, options: ObjectOptions, cx: number, cy: number): string {
+	let strXml = `<a:prstGeom prst="${shapeName}"><a:avLst>`
+	if (options.rectRadius) {
+		strXml += `<a:gd name="adj" fmla="val ${Math.round((options.rectRadius * EMU * 100000) / Math.min(cx, cy))}"/>`
+	} else if (options.angleRange) {
+		for (let i = 0; i < 2; i++) {
+			const angle = options.angleRange[i]
+			strXml += `<a:gd name="adj${i + 1}" fmla="val ${convertRotationDegrees(angle)}" />`
+		}
+
+		if (options.arcThicknessRatio) {
+			strXml += `<a:gd name="adj3" fmla="val ${Math.round(options.arcThicknessRatio * 50000)}" />`
+		}
+	}
+	strXml += '</a:avLst></a:prstGeom>'
+	return strXml
+}
+
 type TableInheritableOption = 'align' | 'bold' | 'border' | 'color' | 'fill' | 'fontFace' | 'fontSize' | 'margin' | 'textDirection' | 'underline' | 'valign'
 type TableInheritableValue = ObjectOptions[TableInheritableOption]
 const PLACEHOLDER_TYPE_MAP = PLACEHOLDER_TYPES as Record<string, string>
@@ -497,20 +524,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					strSlideXml += '</a:pathLst>'
 					strSlideXml += '</a:custGeom>'
 				} else {
-					strSlideXml += '<a:prstGeom prst="' + slideItemObj.shape + '"><a:avLst>'
-					if (slideItemObj.options.rectRadius) {
-						strSlideXml += `<a:gd name="adj" fmla="val ${Math.round((slideItemObj.options.rectRadius * EMU * 100000) / Math.min(cx, cy))}"/>`
-					} else if (slideItemObj.options.angleRange) {
-						for (let i = 0; i < 2; i++) {
-							const angle = slideItemObj.options.angleRange[i]
-							strSlideXml += `<a:gd name="adj${i + 1}" fmla="val ${convertRotationDegrees(angle)}" />`
-						}
-
-						if (slideItemObj.options.arcThicknessRatio) {
-							strSlideXml += `<a:gd name="adj3" fmla="val ${Math.round(slideItemObj.options.arcThicknessRatio * 50000)}" />`
-						}
-					}
-					strSlideXml += '</a:avLst></a:prstGeom>'
+					strSlideXml += genXmlPresetGeom(slideItemObj.shape, slideItemObj.options, cx, cy)
 				}
 
 				// Option: FILL
@@ -620,7 +634,8 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				strSlideXml += `  <a:off x="${x}" y="${y}"/>`
 				strSlideXml += `  <a:ext cx="${imgWidth}" cy="${imgHeight}"/>`
 				strSlideXml += ' </a:xfrm>'
-				strSlideXml += ` <a:prstGeom prst="${rounding ? 'ellipse' : 'rect'}"><a:avLst/></a:prstGeom>`
+				// Clip the picture to a preset geometry. `shape` takes precedence; `rounding` is shorthand for an ellipse.
+				strSlideXml += ' ' + genXmlPresetGeom(slideItemObj.options.shape ?? (rounding ? 'ellipse' : 'rect'), slideItemObj.options, imgWidth, imgHeight)
 
 				// EFFECTS > SHADOW: REF: @see http://officeopenxml.com/drwSp-effects.php
 				if (slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none') {

@@ -580,10 +580,26 @@ interface ImageBaseProps extends PositionProps, ObjectNameProps {
 	 */
 	rotate?: number
 	/**
-	 * Enable image rounding
+	 * Enable image rounding (clips the image to a circle/ellipse)
+	 * - shorthand for `shape: 'ellipse'`; `shape` takes precedence when both are set
 	 * @default false
 	 */
 	rounding?: boolean
+	/**
+	 * Clip the image to a preset shape geometry ("fit image into shape")
+	 * - accepts any PowerPoint preset geometry name, e.g. `'roundRect'`, `'hexagon'`, `'ellipse'`
+	 * - combine with `sizing: { type: 'cover', ... }` for an aspect-correct fill of the shape box
+	 * - use `rectRadius` to set the corner radius for `'roundRect'`
+	 * @example 'roundRect' // rounded-rectangle avatar
+	 * @example 'hexagon'   // hexagonal photo
+	 */
+	shape?: SHAPE_NAME
+	/**
+	 * Rounded rectangle corner radius (inches) when `shape: 'roundRect'`
+	 * - values: 0.0 to 1.0
+	 * @default 0
+	 */
+	rectRadius?: number
 	/**
 	 * Shadow Props
 	 * - MS-PPT > Format Picture > Shadow
