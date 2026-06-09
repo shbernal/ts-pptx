@@ -459,6 +459,31 @@ export default [
 		},
 	},
 	{
+		name: 'round2SameRect and round2DiagRect with rectRadius emit adj1/adj2',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape(p.shapes.ROUND_2_SAME_RECTANGLE, {
+					x: 0.5,
+					y: 0.5,
+					w: 3,
+					h: 2,
+					rectRadius: 0.1,
+					fill: { color: '4472C4' },
+				})
+				s.addShape(p.shapes.ROUND_2_DIAG_RECTANGLE, {
+					x: 4,
+					y: 0.5,
+					w: 3,
+					h: 2,
+					rectRadius: 0.15,
+					fill: { color: 'ED7D31' },
+				})
+			})
+			await expectNoSchemaErrors(buf, 'round2-rect-adj1-adj2')
+		},
+	},
+	{
 		name: 'custom document properties (string, integer, float, boolean, date)',
 		fn: async () => {
 			const { buf } = await build((p) => {

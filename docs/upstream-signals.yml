@@ -1902,8 +1902,8 @@ items:
     source: "gitbrent/PptxGenJS#1418"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-09
+    status: implemented
     priority: p1
     target_area:
       - powerpoint-repair
@@ -1912,21 +1912,27 @@ items:
     non_target_reasons: []
     upstream_summary: round2SameRect with rectRadius reportedly causes PowerPoint repair and disappears.
     current_project_notes: >
-      The shape name is accepted by the public enum, and generic preset geometry
-      emits one adj guide when rectRadius is present. Reproduce before deciding
-      whether round2SameRect needs different guides or rectRadius validation.
+      Root cause: genXmlPresetGeom emitted <a:gd name="adj"> for all rectRadius
+      shapes, but round2SameRect (and round2DiagRect) use adj1/adj2 per the
+      ECMA-376 Annex D preset shape definitions. PowerPoint did not recognise the
+      unknown "adj" guide and triggered repair. Fixed by adding RECT_RADIUS_ADJ1_SHAPES
+      set in gen-xml.ts; when the shape is in that set, adj1 is emitted from the
+      rectRadius value and adj2 is emitted as val 0 (spec default — bottom pair
+      sharp). Schema fixture round2-rect-adj1-adj2 covers both shapes and passes
+      the OOXML validator.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
       local_files:
-        - src/core-enums.ts:266
-        - src/gen-xml.ts:498
-        - src/gen-xml.ts:500
-      schema_fixture: null
-      validator_result: null
+        - src/gen-xml.ts:92
+        - test/schema.test.js
+      schema_fixture: round2-rect-adj1-adj2
+      validator_result: pass
       powerpoint_result: null
-      spec_refs: []
-    next_action: add-round2SameRect-rectRadius-repair-repro
+      spec_refs:
+        - "ECMA-376 Part 1 Annex D presetShapeDefinitions.xml (round2SameRect, round2DiagRect)"
+    next_action: none
 
   - id: upstream-issue-1417
     source: "gitbrent/PptxGenJS#1417"

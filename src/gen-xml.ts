@@ -89,10 +89,20 @@ const ImageSizingXml = {
  * @param {number} cy - shape height (EMU), used to scale `rectRadius`
  * @return {string} `<a:prstGeom>` XML
  */
+// Shapes whose corner-radius adjust value is named adj1 (+ adj2) instead of adj.
+// Sourced from ECMA-376 Annex D electronic addenda (presetShapeDefinitions.xml).
+const RECT_RADIUS_ADJ1_SHAPES = new Set(['round2SameRect', 'round2DiagRect'])
+
 function genXmlPresetGeom (shapeName: string, options: ObjectOptions, cx: number, cy: number): string {
 	let strXml = `<a:prstGeom prst="${shapeName}"><a:avLst>`
 	if (options.rectRadius) {
-		strXml += `<a:gd name="adj" fmla="val ${Math.round((options.rectRadius * EMU * 100000) / Math.min(cx, cy))}"/>`
+		const adjVal = Math.round((options.rectRadius * EMU * 100000) / Math.min(cx, cy))
+		if (RECT_RADIUS_ADJ1_SHAPES.has(shapeName)) {
+			strXml += `<a:gd name="adj1" fmla="val ${adjVal}"/>`
+			strXml += '<a:gd name="adj2" fmla="val 0"/>'
+		} else {
+			strXml += `<a:gd name="adj" fmla="val ${adjVal}"/>`
+		}
 	} else if (options.angleRange) {
 		for (let i = 0; i < 2; i++) {
 			const angle = options.angleRange[i]
