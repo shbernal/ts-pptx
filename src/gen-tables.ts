@@ -288,6 +288,11 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 		if (tableProps.verbose) console.log(`| numCols ......................................... = ${numCols}`)
 	}
 
+	// Track per-column remaining rowspan depths so we can suppress page breaks that would
+	// fall inside a rowspan group. colSpanDepths[c] = how many more rows column c is still
+	// occupied by a rowspan that started in a previous row.
+	const colSpanDepths: number[] = new Array(numCols).fill(0)
+
 	// STEP 3: Calculate width using tableProps.colW if possible
 	if (!tablePropW && tableProps.colW) {
 		tableCalcW = Array.isArray(tableProps.colW) ? tableProps.colW.reduce((p, n) => p + n) * EMU : tableProps.colW * numCols || 0
@@ -323,7 +328,9 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 	// STEP 6: **MAIN** Iterate over rows, add table content, create new slides as rows overflow
 	let newTableRowSlide: TableRowSlide = { rows: [] as TableRow[] }
 	tableRows.forEach((row, iRow) => {
-		// A: Row variables
+		// A: Row variables — detect active rowspan at the start of this row so we can
+		// suppress page breaks that would split a rowspan group across slides.
+		const hasActiveRowSpan = colSpanDepths.some(d => d > 0)
 		const rowCellLines: AutoPageCell[] = []
 		let maxCellMarTopEmu = 0
 		let maxCellMarBtmEmu = 0
@@ -447,8 +454,9 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 				if (cell._lineHeight >= emuLineMaxH) emuLineMaxH = cell._lineHeight
 			})
 
-			// 2: create a new slide if there is insufficient room for the current row
-			if (emuTabCurrH + emuLineMaxH > emuSlideTabH) {
+			// 2: create a new slide if there is insufficient room for the current row,
+			// but never break inside a rowspan group — keep spanned rows together.
+			if (emuTabCurrH + emuLineMaxH > emuSlideTabH && !hasActiveRowSpan) {
 				if (tableProps.verbose) {
 					console.log('\n|-----------------------------------------------------------------------|')
 					// prettier-ignore
@@ -519,6 +527,27 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 
 		// F: Flush/capture row buffer before it resets at the top of this loop
 		if (currTableRow.length > 0) newTableRowSlide.rows.push(currTableRow)
+
+		// G: Update colSpanDepths for the next row's hasActiveRowSpan check.
+		// Snapshot occupied columns *before* adding new spans from this row so that
+		// cells in this row are placed correctly even when the row itself starts spans.
+		const occupiedBefore = [...colSpanDepths]
+		let colCursor = 0
+		row.forEach(cell => {
+			while (colCursor < numCols && occupiedBefore[colCursor] > 0) colCursor++
+			const cellColspan = cell.options?.colspan ?? 1
+			const cellRowspan = cell.options?.rowspan ?? 1
+			if (cellRowspan > 1) {
+				for (let c = 0; c < cellColspan && colCursor + c < numCols; c++) {
+					colSpanDepths[colCursor + c] = cellRowspan
+				}
+			}
+			colCursor += cellColspan
+		})
+		// Consume one row from every active span (including ones just opened above).
+		for (let c = 0; c < numCols; c++) {
+			if (colSpanDepths[c] > 0) colSpanDepths[c]--
+		}
 
 		if (tableProps.verbose) {
 			console.log(
