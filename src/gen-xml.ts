@@ -293,11 +293,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					'</p:nvGraphicFramePr>'
 				strXml += `<p:xfrm><a:off x="${x || (x === 0 ? 0 : EMU)}" y="${y || (y === 0 ? 0 : EMU)}"/><a:ext cx="${cx || (cx === 0 ? 0 : EMU)}" cy="${cy || EMU
 				}"/></p:xfrm>`
-				strXml += '<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr/>'
-				// + '        <a:tblPr bandRow="1"/>';
-				// TODO: Support banded rows, first/last row, etc.
-				// NOTE: Banding, etc. only shows when using a table style! (or set alt row color if banding)
-				// <a:tblPr firstCol="0" firstRow="0" lastCol="0" lastRow="0" bandCol="0" bandRow="1">
+				strXml += `<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr${objTabOpts.hasHeader ? ' firstRow="1"' : ''}/>`
 
 				// STEP 2: Set column widths
 				// Evenly distribute cols/rows across size provided when applicable (calc them if only overall dimensions were provided)

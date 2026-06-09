@@ -714,8 +714,8 @@ items:
     source: "gitbrent/PptxGenJS#1454"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-09
+    status: implemented
     priority: p2
     target_area:
       - missing-pptx-feature
@@ -724,16 +724,25 @@ items:
     non_target_reasons: []
     upstream_summary: Add gradient fill support for shapes using OOXML gradient fill output.
     current_project_notes: >
-      This fits the missing PPTX feature target, but the upstream PR needs
-      OOXML schema confirmation and current-project tests before adoption.
+      Implemented locally. genXmlGradientFill() in src/gen-utils.ts emits
+      <a:gradFill> for linear gradients with typed stops, angle, rotateWithShape,
+      and scaled props. GradientFillProps interface in core-interfaces.ts. Schema
+      fixtures cover shape gradient fill and slide background gradient fill in
+      test/schema.test.js.
     evidence:
-      kinds: []
-      local_files: []
-      schema_fixture: null
+      kinds:
+        - local-source-inspection
+        - schema-fixture
+      local_files:
+        - src/gen-utils.ts:311
+        - src/core-interfaces.ts:263
+        - test/schema.test.js:138
+        - test/schema.test.js:176
+      schema_fixture: test/schema.test.js
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: research-gradient-fill-ooxml-and-build-fixture
+    next_action: none
 
   - id: upstream-pr-1447
     source: "gitbrent/PptxGenJS#1447"
@@ -967,8 +976,8 @@ items:
     source: "gitbrent/PptxGenJS#1369"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-09
+    status: implemented
     priority: p2
     target_area:
       - table-ooxml
@@ -977,25 +986,29 @@ items:
     non_target_reasons: []
     upstream_summary: Mark repeated auto-page table headers semantically so PowerPoint accessibility checks pass.
     current_project_notes: >
-      Current table XML emits a:tblPr without firstRow semantics. This is not a
-      repair bug, but it fits generated PPTX correctness for accessibility.
+      Added hasHeader?: boolean to TableProps (and ObjectOptions for gen-xml access).
+      When true, emits firstRow="1" on <a:tblPr> so PowerPoint's accessibility checker
+      recognises the first row as a header. Schema fixture added: 'table-has-header'.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
       local_files:
-        - src/gen-xml.ts:189
-      schema_fixture: null
-      validator_result: null
+        - src/gen-xml.ts:296
+        - src/core-interfaces.ts
+      schema_fixture: table-has-header
+      validator_result: pass
       powerpoint_result: null
-      spec_refs: []
-    next_action: research-table-header-ooxml-and-accessibility-behavior
+      spec_refs:
+        - "ECMA-376 Part 1 §21.1.3.15 tblPr — firstRow attribute"
+    next_action: none
 
   - id: upstream-issue-1299
     source: "gitbrent/PptxGenJS#1299"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-09
+    status: implemented
     priority: p2
     target_area:
       - table-ooxml
@@ -1003,17 +1016,22 @@ items:
     applies_to_current_project: yes
     non_target_reasons: []
     upstream_summary: PowerPoint accessibility checker reports generated tables as missing a table header.
-    current_project_notes: Same local source state as PR #1369.
+    current_project_notes: >
+      Fixed alongside upstream-pr-1369. Use addTable(..., { hasHeader: true }) to emit
+      firstRow="1" on a:tblPr, which satisfies the accessibility check.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
       local_files:
-        - src/gen-xml.ts:189
-      schema_fixture: null
-      validator_result: null
+        - src/gen-xml.ts:296
+        - src/core-interfaces.ts
+      schema_fixture: table-has-header
+      validator_result: pass
       powerpoint_result: null
-      spec_refs: []
-    next_action: handle-with-upstream-pr-1369
+      spec_refs:
+        - "ECMA-376 Part 1 §21.1.3.15 tblPr — firstRow attribute"
+    next_action: none
 
   - id: upstream-pr-1343
     source: "gitbrent/PptxGenJS#1343"

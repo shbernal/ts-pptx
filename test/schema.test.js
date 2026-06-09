@@ -219,6 +219,21 @@ export default [
 		},
 	},
 	{
+		name: 'table with hasHeader',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addTable(
+					[
+						[{ text: 'Col A' }, { text: 'Col B' }],
+						[{ text: 'A1' }, { text: 'B1' }],
+					],
+					{ x: 1, y: 1, w: 4, hasHeader: true }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'table-has-header')
+		},
+	},
+	{
 		name: 'embedded PNG image',
 		fn: async () => {
 			const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='

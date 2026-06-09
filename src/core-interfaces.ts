@@ -1036,6 +1036,13 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 */
 	colW?: number | number[]
 	/**
+	 * Mark the first row as a header row.
+	 * Emits `firstRow="1"` on `<a:tblPr>`, which enables first-row styling from the
+	 * table style and satisfies the PowerPoint accessibility checker's "table header" rule.
+	 * @default false
+	 */
+	hasHeader?: boolean
+	/**
 	 * Cell background color
 	 * @example { color:'FF0000' } // hex color (red)
 	 * @example { color:'0088CC', transparency:50 } // hex color, 50% transparent
@@ -1936,6 +1943,7 @@ export interface ObjectOptions extends ImageBaseProps, PositionProps, ShapeProps
 	margin?: Margin
 	colW?: number | number[] // table
 	rowH?: number | number[] // table
+	hasHeader?: boolean // table
 }
 export interface SlideBaseProps {
 	_bkgdImgRid?: number
