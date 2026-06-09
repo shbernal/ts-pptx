@@ -2050,6 +2050,8 @@ export interface AddSlideProps {
 	masterName?: string // TODO: 20200528: rename to "masterTitle" (createMaster uses `title` so lets be consistent)
 	sectionTitle?: string
 }
+export type CustomPropertyValue = string | number | boolean | Date
+
 export interface PresentationProps {
 	author: string
 	company: string

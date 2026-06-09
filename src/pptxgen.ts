@@ -78,6 +78,7 @@ import {
 } from './core-enums.js'
 import {
 	AddSlideProps,
+	CustomPropertyValue,
 	IPresentationProps,
 	PresLayout,
 	PresSlide,
@@ -105,6 +106,7 @@ import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
 export type { PresSlide as Slide } from './core-interfaces.js'
 export type {
 	AddSlideProps,
+	CustomPropertyValue,
 	BackgroundProps,
 	BorderProps,
 	Color,
@@ -336,6 +338,9 @@ export default class PptxGenJS {
 		return this._sections
 	}
 
+	/** custom document properties stored in docProps/custom.xml */
+	private _customProperties: Array<{ name: string; value: CustomPropertyValue }>
+
 	/** slide layout definition objects, used for generating slide layout files */
 	private readonly _slideLayouts: SlideLayoutInternal[]
 	public get slideLayouts(): SlideLayout[] {
@@ -466,6 +471,7 @@ export default class PptxGenJS {
 		]
 		this._slides = []
 		this._sections = []
+		this._customProperties = []
 		this._masterSlide = {
 			addChart: null,
 			addImage: null,
@@ -598,10 +604,14 @@ export default class PptxGenJS {
 			zip.folder('ppt/theme')
 			zip.folder('ppt/notesMasters').folder('_rels')
 			zip.folder('ppt/notesSlides').folder('_rels')
-			zip.file('[Content_Types].xml', genXml.makeXmlContTypes(this._slides, this._slideLayouts, this._masterSlide)) // TODO: pass only `this` like below! 20200206
-			zip.file('_rels/.rels', genXml.makeXmlRootRels())
+			const hasCustomProps = this._customProperties.length > 0
+			zip.file('[Content_Types].xml', genXml.makeXmlContTypes(this._slides, this._slideLayouts, this._masterSlide, hasCustomProps)) // TODO: pass only `this` like below! 20200206
+			zip.file('_rels/.rels', genXml.makeXmlRootRels(hasCustomProps))
 			zip.file('docProps/app.xml', genXml.makeXmlApp(this._slides, this.company)) // TODO: pass only `this` like below! 20200206
 			zip.file('docProps/core.xml', genXml.makeXmlCore(this.title, this.subject, this.author, this.revision)) // TODO: pass only `this` like below! 20200206
+			if (hasCustomProps) {
+				zip.file('docProps/custom.xml', genXml.makeXmlCustomProperties(this._customProperties))
+			}
 			zip.file('ppt/_rels/presentation.xml.rels', genXml.makeXmlPresentationRels(this._slides))
 			zip.file('ppt/theme/theme1.xml', genXml.makeXmlTheme(this.internalPresentation))
 			// emit a separate theme2.xml part so notesMaster1.xml.rels resolves
@@ -703,6 +713,17 @@ export default class PptxGenJS {
 	}
 
 	// PRESENTATION METHODS
+
+	/**
+	 * Set a custom document property stored in `docProps/custom.xml`.
+	 * Calling with the same name replaces the existing value.
+	 * @param name - property name
+	 * @param value - string, integer/float number, boolean, or Date
+	 */
+	setCustomProperty(name: string, value: CustomPropertyValue): void {
+		this._customProperties = this._customProperties.filter(p => p.name !== name)
+		this._customProperties.push({ name, value })
+	}
 
 	/**
 	 * Add a new Section to Presentation

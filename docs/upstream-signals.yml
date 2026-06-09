@@ -1900,8 +1900,8 @@ items:
     source: "gitbrent/PptxGenJS#1417"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-09
+    status: implemented
     priority: p2
     target_area:
       - relationship-or-content-type
@@ -1911,21 +1911,28 @@ items:
     non_target_reasons: []
     upstream_summary: Requests support for OOXML custom document properties in docProps/custom.xml.
     current_project_notes: >
-      Current package content types and root relationships include app/core/ppt
-      only; adding custom properties would require a new part, root rel, content
-      type override, and typed API.
+      Implemented 2026-06-09. Added setCustomProperty(name, value) API on PptxGenJS.
+      Accepts string (vt:lpwstr), integer number (vt:i4), float number (vt:r8),
+      boolean (vt:bool), and Date (vt:filetime). When any custom properties are set,
+      makeXmlCustomProperties emits docProps/custom.xml; makeXmlContTypes and
+      makeXmlRootRels conditionally add the content-type override and rId4 root
+      relationship. CustomPropertyValue type is exported from the package.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
       local_files:
-        - src/gen-xml.ts:1488
-        - src/gen-xml.ts:1499
-        - src/pptxgen.ts:597
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts
+        - src/gen-xml.ts
+        - src/pptxgen.ts
+        - test/schema.test.js
+      schema_fixture: custom-document-properties
+      validator_result: pass
       powerpoint_result: null
-      spec_refs: []
-    next_action: verify-custom-properties-opc-part-and-add-package-fixture
+      spec_refs:
+        - "ECMA-376 Part 1 §22.3 Custom Properties"
+        - "ECMA-376 Part 1 §15.2.12.2 Custom File Properties Part"
+    next_action: none
 
   - id: upstream-issue-1416
     source: "gitbrent/PptxGenJS#1416"

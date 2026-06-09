@@ -17,6 +17,7 @@ import {
 	SLIDE_OBJECT_TYPES,
 } from './core-enums.js'
 import type {
+	CustomPropertyValue,
 	IPresentationProps,
 	ISlideObject,
 	ISlideRel,
@@ -1460,7 +1461,7 @@ export function genXmlPlaceholder (placeholderObj: ISlideObject): string {
  * @param {PresSlideInternal} masterSlide - master slide
  * @returns XML
  */
-export function makeXmlContTypes (slides: PresSlideInternal[], slideLayouts: SlideLayoutInternal[], masterSlide?: PresSlideInternal): string {
+export function makeXmlContTypes (slides: PresSlideInternal[], slideLayouts: SlideLayoutInternal[], masterSlide?: PresSlideInternal, hasCustomProps?: boolean): string {
 	let strXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + CRLF
 	strXml += '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
 	strXml += '<Default Extension="xml" ContentType="application/xml"/>'
@@ -1534,6 +1535,9 @@ export function makeXmlContTypes (slides: PresSlideInternal[], slideLayouts: Sli
 	// LAST: Finish XML (Resume core)
 	strXml += ' <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>'
 	strXml += ' <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>'
+	if (hasCustomProps) {
+		strXml += ' <Override PartName="/docProps/custom.xml" ContentType="application/vnd.openxmlformats-officedocument.custom-properties+xml"/>'
+	}
 	strXml += '</Types>'
 
 	return strXml
@@ -1543,12 +1547,16 @@ export function makeXmlContTypes (slides: PresSlideInternal[], slideLayouts: Sli
  * Creates `_rels/.rels`
  * @returns XML
  */
-export function makeXmlRootRels (): string {
-	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+export function makeXmlRootRels (hasCustomProps?: boolean): string {
+	let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
 		<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
 		<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
-		<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>
-		</Relationships>`
+		<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>`
+	if (hasCustomProps) {
+		xml += '\n\t\t<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties" Target="docProps/custom.xml"/>'
+	}
+	xml += '\n\t\t</Relationships>'
+	return xml
 }
 
 /**
@@ -1614,6 +1622,30 @@ export function makeXmlCore (title: string, subject: string, author: string, rev
 		<dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().replace(/\.\d\d\dZ/, 'Z')}</dcterms:created>
 		<dcterms:modified xsi:type="dcterms:W3CDTF">${new Date().toISOString().replace(/\.\d\d\dZ/, 'Z')}</dcterms:modified>
 	</cp:coreProperties>`
+}
+
+const CUSTOM_PROPS_FMTID = '{D5CDD505-2E9C-101B-9397-08002B2CF9AE}'
+
+/**
+ * Creates `docProps/custom.xml`
+ * @param props - custom property name/value pairs
+ * @returns XML
+ */
+export function makeXmlCustomProperties (props: Array<{ name: string; value: CustomPropertyValue }>): string {
+	const propertiesXml = props.map(({ name, value }, idx) => {
+		let valueXml: string
+		if (typeof value === 'boolean') {
+			valueXml = `<vt:bool>${value}</vt:bool>`
+		} else if (value instanceof Date) {
+			valueXml = `<vt:filetime>${value.toISOString().replace(/\.\d{3}Z$/, 'Z')}</vt:filetime>`
+		} else if (typeof value === 'number') {
+			valueXml = Number.isInteger(value) ? `<vt:i4>${value}</vt:i4>` : `<vt:r8>${value}</vt:r8>`
+		} else {
+			valueXml = `<vt:lpwstr>${encodeXmlEntities(String(value))}</vt:lpwstr>`
+		}
+		return `<property fmtid="${CUSTOM_PROPS_FMTID}" pid="${idx + 2}" name="${encodeXmlEntities(name)}">${valueXml}</property>`
+	}).join('')
+	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">${propertiesXml}</Properties>`
 }
 
 /**

@@ -406,4 +406,18 @@ export default [
 			await expectNoSchemaErrors(buf, 'image-hyperlink-query-string')
 		},
 	},
+	{
+		name: 'custom document properties (string, integer, float, boolean, date)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.setCustomProperty('Author', 'Jane Smith')
+				p.setCustomProperty('Version', 3)
+				p.setCustomProperty('Score', 1.5)
+				p.setCustomProperty('Published', true)
+				p.setCustomProperty('CreatedAt', new Date('2026-01-01T00:00:00Z'))
+				p.addSlide()
+			})
+			await expectNoSchemaErrors(buf, 'custom-document-properties')
+		},
+	},
 ]
