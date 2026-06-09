@@ -307,6 +307,16 @@ export default class PptxGenJS {
 		return this._title
 	}
 
+	/** Slide number shown on the first slide (maps to firstSlideNum in presentation.xml) */
+	private _firstSlideNum: number
+	public set firstSlideNum(value: number) {
+		this._firstSlideNum = value
+	}
+
+	public get firstSlideNum(): number {
+		return this._firstSlideNum
+	}
+
 	/**
 	 * Whether Right-to-Left (RTL) mode is enabled
 	 * @type {boolean}
@@ -351,6 +361,7 @@ export default class PptxGenJS {
 		return {
 			author: this.author,
 			company: this.company,
+			firstSlideNum: this.firstSlideNum,
 			layout: this.layout,
 			masterSlide: this._masterSlide,
 			presLayout: this.presLayout,
@@ -453,6 +464,7 @@ export default class PptxGenJS {
 			width: this.LAYOUTS[DEF_PRES_LAYOUT].width,
 			height: this.LAYOUTS[DEF_PRES_LAYOUT].height,
 		}
+		this._firstSlideNum = 1
 		this._rtlMode = false
 		//
 		this._slideLayouts = [

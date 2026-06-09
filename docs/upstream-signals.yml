@@ -2345,8 +2345,8 @@ items:
     source: "gitbrent/PptxGenJS#1281"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-09
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -2354,20 +2354,25 @@ items:
     non_target_reasons: []
     upstream_summary: Add firstSlideNum presentation property for custom starting slide numbers.
     current_project_notes: >
-      Current slide number placeholders emit the internal slide _slideNum value
-      directly; there is no presentation-level offset/start-number property.
+      Implemented 2026-06-09. Added firstSlideNum getter/setter on PptxGenJS
+      (default 1). makeXmlPresentation emits the firstSlideNum attribute on
+      <p:presentation> when the value is not 1. Schema fixture first-slide-num
+      validates the attribute is accepted by the OOXML validator.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
       local_files:
-        - src/gen-xml.ts:759
-        - src/gen-xml.ts:760
-        - src/pptxgen.ts:734
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts
+        - src/pptxgen.ts
+        - src/gen-xml.ts
+        - test/schema.test.js
+      schema_fixture: first-slide-num
+      validator_result: pnpm run test:schema passed 2026-06-09
       powerpoint_result: null
-      spec_refs: []
-    next_action: compare-powerpoint-first-slide-number-package-xml
+      spec_refs:
+        - "ECMA-376 Part 1 §19.2.1.26 presentation — firstSlideNum attribute"
+    next_action: none
 
   - id: upstream-pr-1273
     source: "gitbrent/PptxGenJS#1273"

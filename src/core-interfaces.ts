@@ -2064,6 +2064,11 @@ export interface PresentationProps {
 	presLayout: PresLayout
 	revision: string
 	/**
+	 * Slide number to assign to the first slide (affects the slide-number field displayed in placeholders).
+	 * @default 1
+	 */
+	firstSlideNum: number
+	/**
 	 * Whether to enable right-to-left mode
 	 * @default false
 	 */

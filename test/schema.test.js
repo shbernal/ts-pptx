@@ -448,6 +448,17 @@ export default [
 		},
 	},
 	{
+		name: 'firstSlideNum sets presentation starting slide number',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.firstSlideNum = 5
+				const slide = p.addSlide()
+				slide.addText('', { x: 0, y: 0, w: 1, h: 1, slideNumber: { x: 0.5, y: 0.5 } })
+			})
+			await expectNoSchemaErrors(buf, 'first-slide-num')
+		},
+	},
+	{
 		name: 'custom document properties (string, integer, float, boolean, date)',
 		fn: async () => {
 			const { buf } = await build((p) => {
