@@ -1273,6 +1273,16 @@ export interface TextProps {
 	options?: TextPropsOptions
 }
 
+/** Factory for a single inline text run. Prevents `as never` casts when building mixed-style run arrays. */
+export function textRun(text: string | number, options?: TextPropsOptions): TextProps {
+	return options !== undefined ? { text, options } : { text }
+}
+
+/** Wraps a run array so TypeScript accepts it as `TextProps[]` without a cast. */
+export function textRuns(runs: TextProps[]): TextProps[] {
+	return runs
+}
+
 // charts =========================================================================================
 // FUTURE: BREAKING-CHANGE: (soln: use `OptsDataLabelPosition|string` until 3.5/4.0)
 /*
