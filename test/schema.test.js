@@ -279,6 +279,23 @@ export default [
 		},
 	},
 	{
+		name: 'image with duotone recolor',
+		fn: async () => {
+			const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+			const { buf } = await build((p) => {
+				p.addSlide().addImage({
+					data: 'image/png;base64,' + b64,
+					x: 1,
+					y: 1,
+					w: 2,
+					h: 2,
+					duotone: { shadow: '250F6B', highlight: 'FFFFFF' },
+				})
+			})
+			await expectNoSchemaErrors(buf, 'image-duotone')
+		},
+	},
+	{
 		name: 'text caps: all-caps and small-caps run properties',
 		fn: async () => {
 			const { buf } = await build((p) => {

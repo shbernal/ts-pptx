@@ -688,6 +688,20 @@ interface ImageBaseProps extends PositionProps, ObjectNameProps {
 	 */
 	transparency?: number
 	/**
+	 * Recolor the image as a two-tone (duotone) effect
+	 * - maps the image's shadows to `shadow` and its highlights to `highlight`
+	 * - serializes `<a:duotone>` inside the picture's `<a:blip>` (MS-PPT > Format Picture > Picture Color > Recolor)
+	 * - colors accept `HexColor` or `ThemeColor`, same as fills
+	 * - the classic brand treatment: tint stock photography into a single brand hue
+	 * @example { shadow: '250F6B', highlight: 'FFFFFF' } // deep-blue duotone
+	 */
+	duotone?: {
+		/** Color mapped to the image's dark/shadow tones. */
+		shadow: Color
+		/** Color mapped to the image's light/highlight tones. */
+		highlight: Color
+	}
+	/**
 	 * Raw SVG markup to embed as the image source
 	 * - convenience for `data: 'data:image/svg+xml;base64,...'`; PptxGenJS encodes it for you
 	 * - ignored when `data` or `path` is also provided

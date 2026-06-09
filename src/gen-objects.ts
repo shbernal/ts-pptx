@@ -464,6 +464,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 		flipV: opt.flipV || false,
 		flipH: opt.flipH || false,
 		transparency: opt.transparency || 0,
+		duotone: opt.duotone,
 		objectName,
 		shadow: correctShadowOptions(opt.shadow),
 	}

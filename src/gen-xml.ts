@@ -633,11 +633,15 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				strSlideXml += '    <p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr>'
 				strSlideXml += '    <p:nvPr>' + genXmlPlaceholder(placeholderObj) + '</p:nvPr>'
 				strSlideXml += '  </p:nvPicPr>'
+				// Duotone recolor: maps shadows→shadow color, highlights→highlight color.
+				// `<a:duotone>` is one of the `<a:blip>` image-effect children (CT_Blip);
+				// it sits alongside `alphaModFix` and before any `extLst`.
 				strSlideXml += '<p:blipFill>'
 				// NOTE: This works for both cases: either `path` or `data` contains the SVG
 				if ((slide._relsMedia || []).find(rel => rel.rId === slideItemObj.imageRid)?.extn === 'svg') {
 					strSlideXml += `<a:blip r:embed="rId${slideItemObj.imageRid - 1}">`
 					strSlideXml += slideItemObj.options.transparency ? ` <a:alphaModFix amt="${Math.round((100 - slideItemObj.options.transparency) * 1000)}"/>` : ''
+					strSlideXml += slideItemObj.options.duotone ? `<a:duotone>${createColorElement(slideItemObj.options.duotone.shadow)}${createColorElement(slideItemObj.options.duotone.highlight)}</a:duotone>` : ''
 					strSlideXml += ' <a:extLst>'
 					strSlideXml += '  <a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}">'
 					strSlideXml += `   <asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="rId${slideItemObj.imageRid}"/>`
@@ -647,6 +651,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				} else {
 					strSlideXml += `<a:blip r:embed="rId${slideItemObj.imageRid}">`
 					strSlideXml += slideItemObj.options.transparency ? `<a:alphaModFix amt="${Math.round((100 - slideItemObj.options.transparency) * 1000)}"/>` : ''
+					strSlideXml += slideItemObj.options.duotone ? `<a:duotone>${createColorElement(slideItemObj.options.duotone.shadow)}${createColorElement(slideItemObj.options.duotone.highlight)}</a:duotone>` : ''
 					strSlideXml += '</a:blip>'
 				}
 				if (sizing?.type) {
