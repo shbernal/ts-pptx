@@ -1228,8 +1228,8 @@ items:
     source: "gitbrent/PptxGenJS#1330"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-09
+    status: implemented
     priority: p1
     target_area:
       - chart-ooxml
@@ -1238,20 +1238,40 @@ items:
     non_target_reasons: []
     upstream_summary: Multi-level category labels are malformed in the embedded chart workbook.
     current_project_notes: >
-      Upstream fixes shifted category label cells and shared string indexes.
-      Current source still has the multi-category workbook WIP block and no
-      shared-string lookup map, so this should be reproduced before fixing.
+      Implemented 2026-06-09. Three bugs fixed in the IS_MULTI_CAT_AXES workbook
+      generation branch of makeXmlChartWorkbook (src/gen-charts.ts):
+      (1) SST count was off by 1 — the blank entry at index 0 was not included in
+      the count/uniqueCount attributes.
+      (2) Sheet dimension ref used data.length+1 columns, which was wrong for
+      charts with more than one label level; changed to data.length+data[0].labels.length.
+      (3) Header row loop used a confusing variable that produced wrong column
+      letters for any chart with more than 2 label levels; rewritten with clear
+      index math.
+      (4) Data rows were computing the shared-string index by re-accumulating
+      from scratch on each row and using the row index idx instead of the level
+      index idy for the column letter — both wrong once any outer label is blank.
+      Replaced with a pre-built ssLabelMap keyed by (revLevelIdx, rowIdx).
+      Also changed `|| 0` to `?? ''` for data values for consistency with other
+      chart worksheet code.
+      Schema fixture bar-chart-multilevel-categories validates chart OOXML.
+      Regression test chart-multilevel-categories.test.js verifies shared-string
+      indices and cell assignments in the embedded workbook.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - regression-test
       local_files:
         - src/gen-charts.ts:148
-        - src/gen-charts.ts:498
-      schema_fixture: null
-      validator_result: null
+        - src/gen-charts.ts:248
+        - src/gen-charts.ts:384
+        - test/schema.test.js
+        - test/regression/chart-multilevel-categories.test.js
+      schema_fixture: bar-chart-multilevel-categories
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: create-multi-level-category-workbook-repro
+    next_action: none
 
   - id: upstream-pr-1327
     source: "gitbrent/PptxGenJS#1327"

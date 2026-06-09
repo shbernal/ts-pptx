@@ -501,6 +501,27 @@ export default [
 		},
 	},
 	{
+		name: 'bar chart with multi-level category labels (multiLvlStrRef)',
+		fn: async () => {
+			const LABELS = [
+				['Gear', 'Berg', 'Motr', 'Swch', 'Plug', 'Cord', 'Pump', 'Leak', 'Seal'],
+				['Mech', '', '', 'Elec', '', '', 'Hydr', '', ''],
+			]
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					p.charts.BAR,
+					[
+						{ name: 'West', labels: LABELS, values: [11, 8, 3, 0, 11, 3, 0, 0, 0] },
+						{ name: 'Ctrl', labels: LABELS, values: [0, 11, 6, 19, 12, 5, 0, 0, 0] },
+						{ name: 'East', labels: LABELS, values: [0, 3, 2, 0, 0, 0, 4, 3, 1] },
+					],
+					{ x: 1, y: 1, w: 6, h: 4 }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'bar-chart-multilevel-categories')
+		},
+	},
+	{
 		name: 'custom document properties (string, integer, float, boolean, date)',
 		fn: async () => {
 			const { buf } = await build((p) => {
