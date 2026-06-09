@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer'
 import fs from 'node:fs/promises'
-import { IMG_BROKEN } from '../core-enums.js'
+import { IMG_SVG_PLACEHOLDER } from '../core-enums.js'
 import type { ISlideRelMedia } from '../core-interfaces.js'
 import type { RuntimeAdapter } from './types.js'
 
@@ -28,7 +28,7 @@ async function loadMedia(rel: ISlideRelMedia & { path: string }): Promise<string
 }
 
 async function createSvgPngPreview(rel: ISlideRelMedia): Promise<string> {
-	rel.data = IMG_BROKEN
+	rel.data = IMG_SVG_PLACEHOLDER
 	return 'done'
 }
 

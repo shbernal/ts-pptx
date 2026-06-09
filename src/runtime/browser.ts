@@ -1,4 +1,4 @@
-import { IMG_BROKEN } from '../core-enums.js'
+import { IMG_SVG_PLACEHOLDER } from '../core-enums.js'
 import type { ISlideRelMedia } from '../core-interfaces.js'
 import type { RuntimeAdapter } from './types.js'
 
@@ -28,7 +28,7 @@ async function createSvgPngPreview(rel: ISlideRelMedia): Promise<string> {
 	return await new Promise((resolve, reject) => {
 		const image = new Image()
 		const fail = (reason?: unknown) => {
-			rel.data = IMG_BROKEN
+			rel.data = IMG_SVG_PLACEHOLDER
 			reject(new Error(`ERROR! Unable to load image (image.onerror): ${rel.path}${reason ? ` - ${String(reason)}` : ''}`))
 		}
 
@@ -54,7 +54,7 @@ async function createSvgPngPreview(rel: ISlideRelMedia): Promise<string> {
 			}
 		}
 		image.onerror = () => fail()
-		image.src = typeof rel.data === 'string' ? rel.data : IMG_BROKEN
+		image.src = typeof rel.data === 'string' ? rel.data : IMG_SVG_PLACEHOLDER
 	})
 }
 
