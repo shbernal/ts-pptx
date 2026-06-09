@@ -2621,8 +2621,8 @@ items:
     source: "gitbrent/PptxGenJS#1365"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-09
+    status: implemented
     priority: p1
     target_area:
       - relationship-or-content-type
@@ -2632,22 +2632,21 @@ items:
     non_target_reasons: []
     upstream_summary: Image hyperlinks with query strings or nested URLs can fail in generated presentations.
     current_project_notes: >
-      Text hyperlink relationships encode URL targets, but image hyperlink
-      relationships store the raw URL before relationship XML interpolation.
-      Ampersands in query strings can therefore produce invalid relationship XML.
+      Fixed: gen-objects.ts addImage hyperlink path now calls encodeXmlEntities()
+      on the URL before storing it in rel.Target, matching the encodeXmlEntities()
+      call already present on the text hyperlink path (gen-xml.ts:1277).
+      Ampersands and other XML-special characters in query strings are now escaped.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
       local_files:
-        - src/gen-objects.ts:518
-        - src/gen-objects.ts:1268
-        - src/gen-objects.ts:1283
-        - src/gen-xml.ts:791
-      schema_fixture: null
-      validator_result: null
+        - src/gen-objects.ts:526
+      schema_fixture: test/schema.test.js (image hyperlink with query-string ampersand produces valid XML)
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: add-image-hyperlink-query-string-relationship-fixture
+    next_action: none
 
   - id: upstream-issue-1363
     source: "gitbrent/PptxGenJS#1363"

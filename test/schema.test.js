@@ -389,4 +389,21 @@ export default [
 			await expectNoSchemaErrors(buf, 'line-chart-per-series-dash')
 		},
 	},
+	{
+		name: 'image hyperlink with query-string ampersand produces valid XML',
+		fn: async () => {
+			const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+			const { buf } = await build((p) => {
+				p.addSlide().addImage({
+					data: 'image/png;base64,' + b64,
+					x: 1,
+					y: 1,
+					w: 2,
+					h: 2,
+					hyperlink: { url: 'https://example.com/page?a=1&b=2&c=3' },
+				})
+			})
+			await expectNoSchemaErrors(buf, 'image-hyperlink-query-string')
+		},
+	},
 ]
