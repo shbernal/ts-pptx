@@ -2047,8 +2047,8 @@ items:
     source: "gitbrent/PptxGenJS#1405"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-09
+    status: implemented
     priority: p2
     target_area:
       - table-ooxml
@@ -2057,22 +2057,25 @@ items:
     non_target_reasons: []
     upstream_summary: Table auto-paging creates overflow slides in Default-1 instead of the source slide section.
     current_project_notes: >
-      addTableDefinition creates new slides with only masterName. The addNewSlide
-      helper infers the last active section instead of preserving the originating
-      slide's explicit section title.
+      Implemented 2026-06-09. Root cause was in addNewSlide (pptxgen.ts): the old
+      heuristic checked whether the last slide in the deck was in the last-defined
+      section, which fails when the originating slide is not in the final section.
+      Fixed by searching for the section that actually contains the last slide
+      (which is the originating slide on the first overflow call, and the previous
+      overflow slide on subsequent calls). Covered by
+      test/regression/table-autopage-section.test.js.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/gen-objects.ts:998
-        - src/pptxgen.ts:491
-        - src/pptxgen.ts:760
-        - src/gen-xml.ts:1864
+        - src/pptxgen.ts:515
+        - test/regression/table-autopage-section.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-autopage-section-preservation-test
+    next_action: none
 
   - id: upstream-issue-1402
     source: "gitbrent/PptxGenJS#1402"

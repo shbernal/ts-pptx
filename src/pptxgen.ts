@@ -514,12 +514,12 @@ export default class PptxGenJS {
 	 */
 	private readonly addNewSlide = (options?: AddSlideProps): PresSlideInternal => {
 		const nextOptions = options || {}
-		// Continue using sections if the first slide using auto-paging has a Section
-		const sectAlreadyInUse =
-			this._sections.length > 0 &&
-			this._sections[this._sections.length - 1]._slides.some(slide => slide._slideNum === this._slides[this._slides.length - 1]._slideNum)
-
-		nextOptions.sectionTitle = sectAlreadyInUse ? this._sections[this._sections.length - 1].title : null
+		// Preserve the originating slide's section for all auto-paged continuation slides.
+		// Search for the section that owns the current last slide rather than assuming it is
+		// the last section — the originating slide may not be at the tail of the deck.
+		const lastSlide = this._slides[this._slides.length - 1]
+		const sourceSection = this._sections.find(sect => sect._slides.some(s => s._slideNum === lastSlide._slideNum))
+		nextOptions.sectionTitle = sourceSection?.title ?? null
 
 		return this.addSlide(nextOptions) as PresSlideInternal
 	}
