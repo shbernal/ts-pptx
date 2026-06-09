@@ -1063,8 +1063,8 @@ items:
     source: "gitbrent/PptxGenJS#1342"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-09
+    status: implemented
     priority: p2
     target_area:
       - chart-ooxml
@@ -1073,18 +1073,23 @@ items:
     non_target_reasons: []
     upstream_summary: Allow combo chart subcharts to suppress their own series from the shared legend.
     current_project_notes: >
-      Current legend generation is controlled by rel.opts.showLegend and does
-      not inspect per-subchart showLegend settings for combo charts.
+      When a combo chart subchart sets options.showLegend: false, the legend block
+      now emits <c:legendEntry><c:idx val="N"/><c:delete val="1"/></c:legendEntry>
+      for each series in that subchart. Series indices are computed by summing data
+      lengths across preceding subcharts. Schema fixture added: combo-chart-subchart-legend-suppress.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
       local_files:
         - src/gen-charts.ts:722
-      schema_fixture: null
-      validator_result: null
+        - test/schema.test.js
+      schema_fixture: combo-chart-subchart-legend-suppress
+      validator_result: pnpm run test:schema passed 2026-06-09
       powerpoint_result: null
-      spec_refs: []
-    next_action: create-combo-subchart-legend-repro
+      spec_refs:
+        - "ECMA-376 Part 1 §21.2.2.98 legendEntry (CT_LegendEntry)"
+    next_action: none
 
   - id: upstream-pr-1341
     source: "gitbrent/PptxGenJS#1341"

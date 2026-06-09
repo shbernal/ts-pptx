@@ -407,6 +407,29 @@ export default [
 		},
 	},
 	{
+		name: 'combo chart with per-subchart legend suppression',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					[
+						{
+							type: p.charts.BAR,
+							data: [{ name: 'Revenue', labels: ['Q1', 'Q2', 'Q3'], values: [10, 20, 30] }],
+							options: {},
+						},
+						{
+							type: p.charts.LINE,
+							data: [{ name: 'Target', labels: ['Q1', 'Q2', 'Q3'], values: [15, 15, 15] }],
+							options: { showLegend: false },
+						},
+					],
+					{ x: 1, y: 1, w: 6, h: 3, showLegend: true }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'combo-chart-subchart-legend-suppress')
+		},
+	},
+	{
 		name: 'custom document properties (string, integer, float, boolean, date)',
 		fn: async () => {
 			const { buf } = await build((p) => {

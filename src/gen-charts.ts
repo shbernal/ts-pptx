@@ -722,6 +722,18 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
 		if (rel.opts.showLegend) {
 			strXml += '<c:legend>'
 			strXml += '<c:legendPos val="' + rel.opts.legendPos + '"/>'
+			// For combo charts: suppress series from subcharts that set showLegend: false
+			if (Array.isArray(rel.opts._type)) {
+				let seriesIdx = 0
+				rel.opts._type.forEach(type => {
+					if (type.options?.showLegend === false) {
+						for (let i = 0; i < type.data.length; i++) {
+							strXml += `<c:legendEntry><c:idx val="${seriesIdx + i}"/><c:delete val="1"/></c:legendEntry>`
+						}
+					}
+					seriesIdx += type.data.length
+				})
+			}
 			// strXml += '<c:layout/>'
 			strXml += '<c:overlay val="0"/>'
 			if (rel.opts.legendFontFace || rel.opts.legendFontSize || rel.opts.legendColor) {
