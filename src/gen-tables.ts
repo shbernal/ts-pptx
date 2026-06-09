@@ -99,47 +99,49 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 	 */
 	let newLine: TableCell[] = []
 	inputCells.forEach(cell => {
-		// (this is always true, we just constructed them above, but we need to tell typescript b/c type is still string||Cell[])
-		if (typeof cell.text === 'string') {
-			if (cell.text.split('\n').length > 1) {
-				cell.text.split('\n').forEach(textLine => {
-					newLine.push({
-						_type: SLIDE_OBJECT_TYPES.tablecell,
-						text: textLine,
-						options: { ...cell.options, ...{ breakLine: true } },
-					})
-				})
-			} else {
-				newLine.push({
-					_type: SLIDE_OBJECT_TYPES.tablecell,
-					text: cell.text.trim(),
-					options: cell.options,
-				})
-			}
+		if (typeof cell.text !== 'string') return
 
-			if (cell.options?.breakLine) {
-				if (verbose) console.log(`inputCells: new line > ${JSON.stringify(newLine)}`)
-				inputLines1.push(newLine)
-				newLine = []
-			}
+		if (cell.text.includes('\n')) {
+			// Each non-last \n-split part ends with a forced paragraph break; the last
+			// part accumulates in newLine so subsequent runs stay on the same paragraph.
+			const parts = cell.text.split('\n')
+			parts.forEach((part, partIdx) => {
+				const isLastPart = partIdx === parts.length - 1
+				if (isLastPart) {
+					newLine.push({ _type: SLIDE_OBJECT_TYPES.tablecell, text: part, options: cell.options })
+				} else {
+					newLine.push({ _type: SLIDE_OBJECT_TYPES.tablecell, text: part, options: { ...cell.options, breakLine: true } })
+					inputLines1.push(newLine)
+					newLine = []
+				}
+			})
+		} else {
+			newLine.push({ _type: SLIDE_OBJECT_TYPES.tablecell, text: cell.text.trim(), options: cell.options })
 		}
 
-		// Flush buffer
-		if (newLine.length > 0) {
+		if (cell.options?.breakLine) {
+			if (verbose) console.log(`inputCells: new line > ${JSON.stringify(newLine)}`)
 			inputLines1.push(newLine)
 			newLine = []
 		}
 	})
+	// Flush remaining buffer after all cells are processed
+	if (newLine.length > 0) {
+		inputLines1.push(newLine)
+		newLine = []
+	}
 	if (verbose) {
 		console.log(`[2/4] inputLines1 (${inputLines1.length})`)
 		inputLines1.forEach((line, idx) => console.log(`[2/4] [${idx + 1}] line: ${JSON.stringify(line)}`))
 		// console.log('...............................................\n\n')
 	}
 
-	// STEP 3: Tokenize every text object into words (then it's really easy to assemble lines below without having to break text, add its `options`, etc.)
+	// STEP 3: Tokenize every text object into words. All runs of one logical paragraph
+	// are flattened into a single token list so step 4 tracks column position across
+	// styled-run boundaries (fixes independent-reset bug for rich-text cells).
 	inputLines1.forEach(line => {
+		const lineTokens: TableCell[] = []
 		line.forEach(cell => {
-			const lineCells: TableCell[] = []
 			const cellTextStr = String(cell.text) // force convert to string (compiled JS is better with this than a cast)
 			const lineWords = cellTextStr.split(' ')
 
@@ -147,11 +149,10 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 				const cellProps = { ...cell.options }
 				// IMPORTANT: Handle `breakLine` prop - we cannot apply to each word - only apply to very last word!
 				if (cellProps?.breakLine) cellProps.breakLine = idx + 1 === lineWords.length
-				lineCells.push({ _type: SLIDE_OBJECT_TYPES.tablecell, text: word + (idx + 1 < lineWords.length ? ' ' : ''), options: cellProps })
+				lineTokens.push({ _type: SLIDE_OBJECT_TYPES.tablecell, text: word + (idx + 1 < lineWords.length ? ' ' : ''), options: cellProps })
 			})
-
-			inputLines2.push(lineCells)
 		})
+		inputLines2.push(lineTokens)
 	})
 	if (verbose) {
 		console.log(`[3/4] inputLines2 (${inputLines2.length})`)

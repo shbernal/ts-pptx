@@ -581,8 +581,8 @@ items:
     source: "gitbrent/PptxGenJS#1237"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-09
+    status: implemented
     priority: p0
     target_area:
       - powerpoint-repair
@@ -591,19 +591,27 @@ items:
     non_target_reasons: []
     upstream_summary: Auto-paged table rich text can split styled runs into separate rows and trigger repair.
     current_project_notes: >
-      Current parseTextToLines still declares the tokenized line buffer inside
-      the per-cell loop, matching the upstream root-cause analysis. Needs a
-      minimal current-project repro before implementation.
+      Fixed in src/gen-tables.ts. Step 2 now batches non-breakLine runs from the
+      same paragraph into one inputLines1 entry (flushing only on \n boundaries or
+      explicit breakLine:true). Step 3 flattens all runs in each inputLines1 entry
+      into a single token list so step 4 shares the column-position counter across
+      styled-run boundaries. Regression test in
+      test/regression/table-autopage-richtext.test.js covers: (1) two styled runs
+      that together fit on one line do not create a spurious slide break, (2) \n
+      inside a run still produces a paragraph break, (3) explicit breakLine:true
+      still separates lines as expected.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/gen-tables.ts:140
+        - src/gen-tables.ts:100
+        - test/regression/table-autopage-richtext.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: create-autopaged-table-rich-text-repro
+    next_action: none
 
   - id: upstream-pr-1160
     source: "gitbrent/PptxGenJS#1160"
