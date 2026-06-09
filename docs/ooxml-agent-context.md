@@ -61,6 +61,26 @@ Use it when you need to answer questions such as:
 - How does the Open XML SDK validate or model a package part?
 - Is a namespace, extension URI, or relationship type Microsoft-specific?
 
+## Known MCP Gap: Annex D Preset Shape Geometry Definitions
+
+The `ooxml` MCP indexes the ECMA-376 **main spec PDFs** (Parts 1–4) and the **transitional XSDs**.
+It does **not** index the Annex D electronic addenda (`OfficeOpenXML-DrawingMLGeometries.zip`
+inside the Part 1 ZIP), which is where the per-shape adjust-value guide names and geometry
+formulas live. Searching the MCP for things like "round2SameRect adj1 adj2" returns nothing
+useful.
+
+**For preset-shape adj guide names**, use the local reference file:
+
+- `docs/preset-shape-adj-guides.tsv` — complete shape → adj guide name mapping for all
+  preset shapes that take adjust values. Sourced from ECMA-376 Annex D, cross-checked
+  against LibreOffice `oox-drawingml-adj-names` and ONLYOFFICE `OOXMLShapes/` implementations.
+
+**For full geometry formulas** (avLst defaults, gdLst, path construction), the best external
+fallbacks are:
+
+- [ONLYOFFICE/core `OOXMLShapes/`](https://github.com/ONLYOFFICE/core/tree/master/MsBinaryFile/Common/Vml/PPTXShape/OOXMLShapes) — each shape has its own `.cpp` file with the full avLst and gdLst inline as XML strings.
+- [LibreOffice/core `presetooxhandleadjustmentrelations.cxx`](https://github.com/LibreOffice/core/blob/master/svx/source/svdraw/presetooxhandleadjustmentrelations.cxx) — adj handle constraints.
+
 ## Retrieval Workflow
 
 1. Start with local evidence. Search `src/`, `test/`, `tools/ooxml-validator/`,
