@@ -91,6 +91,24 @@ export default [
 		},
 	},
 	{
+		// Serialization-contract fixture: breakLine: false on a CRLF-containing run must
+		// produce valid OOXML (upstream-issue-1138). The rendering result is layout-dependent
+		// and not asserted here — see UPSTREAMING_CANDIDATES.md "Text Box Behavior".
+		name: 'rich text with breakLine: false on CRLF-containing run',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addText(
+					[
+						{ text: 'first\nsecond', options: { breakLine: false } },
+						{ text: ' tail', options: {} },
+					],
+					{ x: 1, y: 1, w: 4, h: 1 }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'rich-text-breakline-false')
+		},
+	},
+	{
 		name: 'single rectangle shape',
 		fn: async () => {
 			const { buf } = await build((p) => {

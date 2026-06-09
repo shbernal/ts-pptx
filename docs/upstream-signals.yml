@@ -5798,8 +5798,8 @@ items:
     source: "gitbrent/PptxGenJS#1138"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-09
+    status: implemented
     priority: p2
     target_area:
       - missing-pptx-feature
@@ -5807,24 +5807,27 @@ items:
     non_target_reasons: []
     upstream_summary: Rich text with multiple styles broke lines unexpectedly even when breakLine was false.
     current_project_notes: >
-      Current text serialization splits strings containing CRLF and sets
-      breakLine true on the text options object while grouping runs into
-      paragraphs. A focused rich-text fixture can lock down explicit breakLine
-      false semantics for styled runs.
+      Fixed in src/gen-xml.ts: the CRLF-split loop was mutating the shared
+      itext.options object and forcing breakLine:true on all pieces, overriding
+      an explicit breakLine:false. Fix spreads a fresh options object per piece,
+      sets breakLine:true only on non-last pieces (the \n implies a break
+      between them), and preserves the caller's breakLine on the last piece.
+      Regression test added in test/regression/text-formatting.test.js and
+      schema fixture in test/schema.test.js.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - schema-fixture
       local_files:
-        - src/core-interfaces.ts:270
-        - src/gen-xml.ts:1215
-        - src/gen-xml.ts:1231
-        - src/gen-xml.ts:1233
-        - src/gen-xml.ts:1262
-      schema_fixture: null
-      validator_result: null
+        - src/gen-xml.ts:1279
+        - test/regression/text-formatting.test.js
+        - test/schema.test.js
+      schema_fixture: rich-text-breakline-false
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: add-rich-text-breakline-false-fixture
+    next_action: none
 
   - id: upstream-issue-1137
     source: "gitbrent/PptxGenJS#1137"
