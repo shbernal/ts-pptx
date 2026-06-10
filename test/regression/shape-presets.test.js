@@ -58,4 +58,64 @@ defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 			void pres
 		},
 	},
+	{
+		name: 'addShape with an unknown preset throws instead of emitting invalid prst',
+		fn: async () => {
+			let threw = false
+			try {
+				await build((p) => {
+					const s = p.addSlide()
+					s.addShape('hexgon', { x: 1, y: 1, w: 2, h: 1 }) // typo for "hexagon"
+				})
+			} catch (err) {
+				threw = true
+				assert(/Invalid shape "hexgon"/.test(String(err.message)), 'unexpected error message: ' + err.message)
+			}
+			assert(threw, 'expected addShape("hexgon") to throw')
+		},
+	},
+	{
+		name: 'pres.shapes.FOLDED_CORNER emits the valid spec spelling prst="foldedCorner"',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape(p.shapes.FOLDED_CORNER, { x: 1, y: 1, w: 2, h: 1 })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(/<a:prstGeom\s+prst="foldedCorner"/.test(xml), 'expected prst="foldedCorner"; got: ' + xml)
+			assert(!/prst="folderCorner"/.test(xml), 'invalid prst="folderCorner" still present')
+		},
+	},
+	{
+		name: 'a valid ST_ShapeType preset not exposed via shapes.* (straightConnector1) is accepted',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape('straightConnector1', { x: 1, y: 1, w: 2, h: 0 })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(/<a:prstGeom\s+prst="straightConnector1"/.test(xml), 'expected prst="straightConnector1"; got: ' + xml)
+		},
+	},
+	{
+		name: 'custGeom freeform shape is accepted (special-cased, not a prstGeom)',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape(p.shapes.CUSTOM_GEOMETRY, {
+					x: 1,
+					y: 1,
+					w: 2,
+					h: 2,
+					points: [
+						{ x: 0, y: 0 },
+						{ x: 2, y: 0 },
+						{ x: 1, y: 2, close: true },
+					],
+				})
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(/<a:custGeom>/.test(xml), 'expected <a:custGeom> for CUSTOM_GEOMETRY; got: ' + xml)
+		},
+	},
 ])

@@ -712,6 +712,27 @@ const SHAPE_NAME_ALIASES: { [key: string]: SHAPE_NAME } = {
 }
 
 /**
+ * Valid ECMA-376 `ST_ShapeType` presets that PptxGenJS does not surface with a
+ * friendly `SHAPE_TYPE` name. They are still legal geometries PowerPoint
+ * renders, so the validation set below must accept them.
+ */
+const EXTRA_VALID_SHAPE_PRESETS = [
+	'straightConnector1',
+	'bentConnector2', 'bentConnector3', 'bentConnector4', 'bentConnector5',
+	'curvedConnector2', 'curvedConnector3', 'curvedConnector4', 'curvedConnector5',
+]
+
+/**
+ * Runtime set of every valid shape geometry name accepted by `addShape()`:
+ * the OOXML preset geometries (`ST_ShapeType`, via `SHAPE_TYPE` values plus the
+ * unexposed connectors above) and `custGeom` (freeform paths, special-cased in
+ * gen-xml). Used to reject bogus presets at `addShape()` time instead of
+ * emitting an invalid `<a:prstGeom prst="...">` that makes PowerPoint show the
+ * "needs repair" dialog and drop the shape.
+ */
+const VALID_SHAPE_PRESETS = new Set<string>([...Object.values(SHAPE_TYPE), ...EXTRA_VALID_SHAPE_PRESETS])
+
+/**
  * Adds a shape object to a slide definition.
  * @param {PresSlideInternal} target slide object that the shape should be added to
  * @param {SHAPE_NAME} shapeName shape name
@@ -734,6 +755,14 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 
 	// Reality check
 	if (!shapeName) throw new Error('Missing/Invalid shape parameter! Example: `addShape(pptxgen.shapes.LINE, {x:1, y:1, w:1, h:1});`')
+
+	// Reject presets PowerPoint can't parse. An invalid `prst` value (a typo or an
+	// unmapped friendly name) corrupts the package and triggers the repair dialog,
+	// so fail loudly here rather than emit degenerate OOXML. Use `pptxgen.shapes.*`
+	// for the canonical names.
+	if (!VALID_SHAPE_PRESETS.has(resolvedShapeName)) {
+		throw new Error(`Invalid shape "${String(shapeName)}"! Use a value from \`pptxgen.shapes.*\` (e.g. \`pptxgen.shapes.RECTANGLE\`). PowerPoint can't render unknown preset geometries and will drop the shape during repair.`)
+	}
 
 	// 1: ShapeLineProps defaults
 	const newLineOpts: ShapeLineProps = {

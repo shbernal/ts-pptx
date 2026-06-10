@@ -716,27 +716,39 @@ items:
       Umbrella of six defects; triage by subclaim. Defect 5 (notesMaster
       placeholders) is the same root cause as #1443 and is now IMPLEMENTED via
       commit a4bb5ad4 (notesMaster owns theme2.xml); its placeholders are valid
-      and were deliberately not stripped — see upstream-issue-1443. Remaining
-      open subclaims to split into focused repros: Defect 1/2 (string presets
-      "oval"/"roundedRectangle" bypass the shapes enum and emit invalid prst —
-      highest-value real bug), Defect 3 (per-slide phantom slideMaster
-      Content_Types Overrides), Defect 4 (unused Default extension registrations),
-      Defect 6 (empty charts/ and embeddings/ scaffold dirs). Keep this as an
-      umbrella signal; track each remaining defect as a focused local task.
+      and were deliberately not stripped — see upstream-issue-1443. Defect 1/2
+      (invalid shape presets emit corrupt prst) is now IMPLEMENTED:
+      addShapeDefinition() validates the resolved preset against
+      VALID_SHAPE_PRESETS (ECMA-376 ST_ShapeType values from SHAPE_TYPE plus the
+      unexposed connectors, plus custGeom) and throws on anything else instead of
+      emitting an invalid <a:prstGeom prst="...">. While wiring this up we also
+      found and fixed three latent invalid presets shipped by our own enum/union:
+      'folderCorner' -> 'foldedCorner' (spec spelling), and removed the four
+      LINE_CALLOUT_4* entries (borderCallout4 / accentCallout3=4 /
+      accentBorderCallout4 / callout4) which have no ST_ShapeType equivalent and
+      only ever produced corrupt files. Remaining open subclaims to split into
+      focused repros: Defect 3 (per-slide phantom slideMaster Content_Types
+      Overrides), Defect 4 (unused Default extension registrations), Defect 6
+      (empty charts/ and embeddings/ scaffold dirs). Keep this as an umbrella
+      signal; track each remaining defect as a focused local task. Follow-up: the
+      addImage shape/clip path (gen-xml.ts ~722) takes options.shape into prstGeom
+      without the same validation.
     evidence:
       kinds:
         - local-source-inspection
         - regression-test
+        - schema-fixture
       local_files:
-        - src/gen-xml.ts:1416
-        - src/gen-xml.ts:1920
-        - src/pptxgen.ts:635
-        - test/regression/theme-relationships.test.js
-      schema_fixture: null
-      validator_result: null
+        - src/gen-objects.ts:733
+        - src/gen-objects.ts:764
+        - src/core-enums.ts:330
+        - test/regression/shape-presets.test.js
+      schema_fixture: test/regression/shape-presets.test.js
+      validator_result: pass
       powerpoint_result: null
-      spec_refs: []
-    next_action: split-remaining-claims-into-focused-repros
+      spec_refs:
+        - "ECMA-376 Part 1 §20.1.10.55 (ST_ShapeType)"
+    next_action: split-remaining-defect-3-4-6-into-focused-repros
 
   - id: upstream-pr-1454
     source: "gitbrent/PptxGenJS#1454"

@@ -408,7 +408,7 @@ export enum SHAPE_TYPE {
 	FLOWCHART_STORED_DATA = 'flowChartOnlineStorage',
 	FLOWCHART_SUMMING_JUNCTION = 'flowChartSummingJunction',
 	FLOWCHART_TERMINATOR = 'flowChartTerminator',
-	FOLDED_CORNER = 'folderCorner',
+	FOLDED_CORNER = 'foldedCorner',
 	FRAME = 'frame',
 	FUNNEL = 'funnel',
 	GEAR_6 = 'gear6',
@@ -443,10 +443,6 @@ export enum SHAPE_TYPE {
 	LINE_CALLOUT_3_ACCENT_BAR = 'accentCallout3',
 	LINE_CALLOUT_3_BORDER_AND_ACCENT_BAR = 'accentBorderCallout3',
 	LINE_CALLOUT_3_NO_BORDER = 'callout3',
-	LINE_CALLOUT_4 = 'borderCallout4',
-	LINE_CALLOUT_4_ACCENT_BAR = 'accentCallout3=4',
-	LINE_CALLOUT_4_BORDER_AND_ACCENT_BAR = 'accentBorderCallout4',
-	LINE_CALLOUT_4_NO_BORDER = 'callout4',
 	LINE = 'line',
 	LINE_INVERSE = 'lineInv',
 	MATH_DIVIDE = 'mathDivide',
@@ -603,7 +599,7 @@ export type SHAPE_NAME =
 	| 'flowChartSort'
 	| 'flowChartSummingJunction'
 	| 'flowChartTerminator'
-	| 'folderCorner'
+	| 'foldedCorner'
 	| 'frame'
 	| 'funnel'
 	| 'gear6'
