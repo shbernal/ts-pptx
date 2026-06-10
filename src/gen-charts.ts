@@ -806,9 +806,8 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 				strXml += '  </c:tx>'
 
 				// Fill and Border
-				// TODO: CURRENT: Pull#727
-				// TODO: let seriesColor = obj.color ? obj.color : opts.chartColors ? opts.chartColors[colorIndex % opts.chartColors.length] : null
-				const seriesColor = opts.chartColors ? opts.chartColors[colorIndex % opts.chartColors.length] : null
+				const seriesOverride = opts.seriesOptions?.[obj._dataIndex]
+				const seriesColor = seriesOverride?.color ?? (opts.chartColors ? opts.chartColors[colorIndex % opts.chartColors.length] : null)
 
 				strXml += '  <c:spPr>'
 				if (seriesColor === 'transparent') {
@@ -820,10 +819,11 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 				}
 
 				if (chartType === CHART_TYPE.LINE || chartType === CHART_TYPE.RADAR) {
-					if (opts.lineSize === 0) {
+					const effectiveLineSize = seriesOverride?.lineSize ?? opts.lineSize
+					if (effectiveLineSize === 0) {
 						strXml += '<a:ln><a:noFill/></a:ln>'
 					} else {
-						strXml += `<a:ln w="${valToPts(opts.lineSize)}" cap="${createLineCap(opts.lineCap)}"><a:solidFill>${createColorElement(seriesColor)}</a:solidFill>`
+						strXml += `<a:ln w="${valToPts(effectiveLineSize)}" cap="${createLineCap(opts.lineCap)}"><a:solidFill>${createColorElement(seriesColor)}</a:solidFill>`
 						strXml += `<a:prstDash val="${opts.lineDashValues?.[colorIndex] ?? opts.lineDash ?? 'solid'}"/><a:round/></a:ln>`
 					}
 				} else if (opts.dataBorder) {
@@ -854,15 +854,18 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 				// Data Labels per series
 				// NOTE: [20190117] Adding these to RADAR chart causes unrecoverable corruption!
 				if (chartType !== CHART_TYPE.RADAR) {
+					const lblColor = seriesOverride?.dataLabelColor ?? opts.dataLabelColor ?? DEF_FONT_COLOR
+					const lblBold = seriesOverride?.dataLabelFontBold ?? opts.dataLabelFontBold ?? false
+					const lblItalic = seriesOverride?.dataLabelFontItalic ?? opts.dataLabelFontItalic ?? false
+					const lblSize = seriesOverride?.dataLabelFontSize ?? opts.dataLabelFontSize ?? DEF_FONT_SIZE
+					const lblFace = seriesOverride?.dataLabelFontFace ?? opts.dataLabelFontFace ?? 'Arial'
 					strXml += '<c:dLbls>'
 					strXml += `<c:numFmt formatCode="${encodeXmlEntities(opts.dataLabelFormatCode) || 'General'}" sourceLinked="0"/>`
 					if (opts.dataLabelBkgrdColors) strXml += `<c:spPr><a:solidFill>${createColorElement(seriesColor)}</a:solidFill></c:spPr>`
 					strXml += '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr>'
-					strXml += `<a:defRPr b="${opts.dataLabelFontBold ? 1 : 0}" i="${opts.dataLabelFontItalic ? 1 : 0}" strike="noStrike" sz="${Math.round(
-						(opts.dataLabelFontSize || DEF_FONT_SIZE) * 100
-					)}" u="none">`
-					strXml += `<a:solidFill>${createColorElement(opts.dataLabelColor || DEF_FONT_COLOR)}</a:solidFill>`
-					strXml += `<a:latin typeface="${opts.dataLabelFontFace || 'Arial'}"/>`
+					strXml += `<a:defRPr b="${lblBold ? 1 : 0}" i="${lblItalic ? 1 : 0}" strike="noStrike" sz="${Math.round(lblSize * 100)}" u="none">`
+					strXml += `<a:solidFill>${createColorElement(lblColor)}</a:solidFill>`
+					strXml += `<a:latin typeface="${lblFace}"/>`
 					strXml += '</a:defRPr></a:pPr></a:p></c:txPr>'
 					if (opts.dataLabelPosition) strXml += `<c:dLblPos val="${opts.dataLabelPosition}"/>`
 					strXml += '<c:showLegendKey val="0"/>'

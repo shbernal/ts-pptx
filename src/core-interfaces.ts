@@ -1651,6 +1651,13 @@ export interface IChartPropsBase {
 	 * @deprecated v3.11.0 - use `plotArea.fill`
 	 */
 	fill?: HexColor
+	/**
+	 * Per-series style overrides.
+	 * Element at index N applies to the series at data[N].
+	 * Missing indices or unset fields fall back to the chart-level option.
+	 * @since v4.0.0
+	 */
+	seriesOptions?: IChartSeriesOpts[]
 }
 export interface IChartPropsAxisCat {
 	/**
@@ -1894,6 +1901,31 @@ export interface IChartPropsChartRadar {
 	 */
 	radarStyle?: 'standard' | 'marker' | 'filled' // TODO: convert to 'radar'|'markers'|'filled' in 4.0 (verbatim with PPT app UI)
 }
+/**
+ * Per-series style overrides for a chart.
+ * Each entry applies to the series at the same index in the data array.
+ * Unset fields fall back to the chart-level option.
+ */
+export interface IChartSeriesOpts {
+	/** Series fill / line color (hex, e.g. `'FF0000'`) */
+	color?: HexColor
+	/** Data-label font color */
+	dataLabelColor?: string
+	/** Data-label font bold */
+	dataLabelFontBold?: boolean
+	/** Data-label typeface */
+	dataLabelFontFace?: string
+	/** Data-label font italic */
+	dataLabelFontItalic?: boolean
+	/** Data-label font size (points) */
+	dataLabelFontSize?: number
+	/**
+	 * Line/radar series line width (points).
+	 * Pass `0` to hide the line.
+	 */
+	lineSize?: number
+}
+
 export interface IChartPropsDataLabel {
 	dataLabelBkgrdColors?: boolean
 	dataLabelColor?: string

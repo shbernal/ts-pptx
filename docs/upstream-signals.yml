@@ -2528,32 +2528,37 @@ items:
     source: "gitbrent/PptxGenJS#1265"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: interesting-with-tweaks
+    last_reviewed: 2026-06-10
+    status: implemented
     priority: p2
     target_area:
       - chart-ooxml
       - missing-pptx-feature
-    applies_to_current_project: partial
-    non_target_reasons:
-      - legacy-dist-artifact
+    applies_to_current_project: yes
+    non_target_reasons: []
     upstream_summary: Add per-series chart option overrides and multiple series for doughnut/pie charts.
     current_project_notes: >
-      The underlying feature overlaps with per-series styling needs, but the PR
-      comment reports a dataBorder regression and the diff includes legacy
-      generated artifacts. Evaluate a narrower series-option merge model.
+      Implemented a narrow seriesOptions API that avoids the dataBorder regression
+      in the upstream PR. IChartSeriesOpts (core-interfaces.ts) exposes color,
+      dataLabelColor, dataLabelFontBold, dataLabelFontFace, dataLabelFontItalic,
+      dataLabelFontSize, and lineSize. Each field falls back to the chart-level
+      option when unset. seriesOptions is indexed by data-array position
+      (obj._dataIndex). The seriesColor derivation, line-size branch, and dLbls
+      block in gen-charts.ts all consult seriesOverride first. Two schema
+      fixtures added: chart-series-options and chart-series-linesize-overrides.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
       local_files:
-        - src/gen-charts.ts:860
-        - src/gen-charts.ts:861
-        - src/gen-charts.ts:1093
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts
+        - src/gen-charts.ts
+        - test/schema.test.js
+      schema_fixture: chart-series-options
+      validator_result: pnpm run test:schema passed 2026-06-10
       powerpoint_result: null
       spec_refs: []
-    next_action: design-narrow-series-option-overrides-with-dataBorder-regression-test
+    next_action: none
 
   - id: upstream-issue-1394
     source: "gitbrent/PptxGenJS#1394"

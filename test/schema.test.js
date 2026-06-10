@@ -609,6 +609,60 @@ export default [
 		},
 	},
 	{
+		name: 'chart with per-series color and data-label overrides',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					p.charts.BAR,
+					[
+						{ name: 'Alpha', labels: ['Q1', 'Q2', 'Q3'], values: [10, 20, 30] },
+						{ name: 'Beta', labels: ['Q1', 'Q2', 'Q3'], values: [15, 25, 5] },
+						{ name: 'Gamma', labels: ['Q1', 'Q2', 'Q3'], values: [5, 10, 20] },
+					],
+					{
+						x: 1,
+						y: 1,
+						w: 6,
+						h: 3,
+						showValue: true,
+						dataLabelColor: '000000',
+						dataLabelFontSize: 10,
+						seriesOptions: [
+							{ color: 'FF0000', dataLabelColor: 'FFFFFF', dataLabelFontBold: true },
+							{ color: '00AA00', dataLabelFontSize: 14, dataLabelFontItalic: true },
+							{ lineSize: 0 },
+						],
+					}
+				)
+			})
+			await expectNoSchemaErrors(buf, 'chart-series-options')
+		},
+	},
+	{
+		name: 'line chart with per-series lineSize overrides',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					p.charts.LINE,
+					[
+						{ name: 'Thick', labels: ['Jan', 'Feb', 'Mar'], values: [1, 2, 3] },
+						{ name: 'Normal', labels: ['Jan', 'Feb', 'Mar'], values: [3, 2, 1] },
+						{ name: 'Hidden', labels: ['Jan', 'Feb', 'Mar'], values: [2, 2, 2] },
+					],
+					{
+						x: 1,
+						y: 1,
+						w: 6,
+						h: 3,
+						lineSize: 2,
+						seriesOptions: [{ lineSize: 6 }, {}, { lineSize: 0 }],
+					}
+				)
+			})
+			await expectNoSchemaErrors(buf, 'chart-series-linesize-overrides')
+		},
+	},
+	{
 		name: 'firstSlideNum sets presentation starting slide number',
 		fn: async () => {
 			const { buf } = await build((p) => {
