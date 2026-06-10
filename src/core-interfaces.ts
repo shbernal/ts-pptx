@@ -1511,9 +1511,41 @@ export interface OptsChartData {
 	 */
 	customLabels?: string[]
 	/**
+	 * Per-data-point visual overrides (border / fill), index-aligned with `values[]`.
+	 * Empty (`{}`) or missing entries fall back to series/chart styling.
+	 * Supported for BAR, LINE, AREA, SCATTER, PIE, and DOUGHNUT chart types.
+	 * @example
+	 * pointStyles: [
+	 *   { border: { pt: 2, color: 'FF0000' } }, // point 0: red 2pt border
+	 *   {},                                     // point 1: default
+	 *   { fill: '00B050', border: { type: 'dash', color: '404040' } }, // point 2
+	 * ]
+	 * @since v5.3.0
+	 */
+	pointStyles?: ChartDataPointStyle[]
+	/**
 	 * Override `chartColors`
 	 */
 	// color?: string // TODO: WIP: (Pull #727)
+}
+/**
+ * Per-data-point style override for a chart series.
+ * Each entry applies to the data point at the same index in `values[]`.
+ * Unset fields fall back to the series/chart-level styling.
+ */
+export interface ChartDataPointStyle {
+	/**
+	 * Data-point border (line). Reuses {@link BorderProps}.
+	 * - `type: 'none'` hides the border; `'dash'` draws a dashed border.
+	 * @example { pt: 2, color: 'FF0000' }
+	 */
+	border?: BorderProps
+	/**
+	 * Data-point fill color (hex), overriding `chartColors[idx]`.
+	 * Most meaningful on fill-based charts (BAR, AREA, PIE, DOUGHNUT).
+	 * @example '00B050'
+	 */
+	fill?: HexColor
 }
 // Used internally, probably shouldn't be used by end users
 export interface IOptsChartData extends OptsChartData {

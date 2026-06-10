@@ -1064,8 +1064,8 @@ items:
     source: "gitbrent/PptxGenJS#1343"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-10
+    status: implemented
     priority: p2
     target_area:
       - chart-ooxml
@@ -1074,17 +1074,35 @@ items:
     non_target_reasons: []
     upstream_summary: Add per-data-point border style support for bar, line, area, scatter, pie, and doughnut charts.
     current_project_notes: >
-      This is a feature-coverage signal rather than a repair report. If adopted,
-      design a typed current API for per-point style data before copying the
-      upstream loose styles object.
+      Adopted with a typed API instead of the upstream loose `styles` object.
+      Added `OptsChartData.pointStyles?: ChartDataPointStyle[]` where
+      `ChartDataPointStyle = { border?: BorderProps; fill?: HexColor }`,
+      index-aligned with `values[]`. Reuses the existing `BorderProps` type
+      (so `type: 'none'|'dash'|'solid'` and bare HexColor come for free) rather
+      than upstream's `{ border: { pt, color: '#rrggbb' } }`. Supported for BAR,
+      BAR3D, LINE, AREA, SCATTER, PIE, DOUGHNUT (RADAR intentionally skipped:
+      extra per-point markup historically corrupts the chart). Emission is
+      centralized in `makeSeriesDataPointsXml` (+ `createChartBorderLine`),
+      which also merges legacy single-series color-vary dPt so we never emit a
+      duplicate `<c:idx>`. Prerequisite fixes: relocated the bar/scatter
+      color-vary `c:dPt` to before `c:dLbls` (CT_*Ser schema order requires
+      dPt* then dLbls), and gated `c:invertIfNegative` to bar-only (it is not in
+      CT_AreaSer). Per-point border overrides chart-level `dataBorder` on
+      pie/doughnut.
     evidence:
-      kinds: []
-      local_files: []
-      schema_fixture: null
-      validator_result: null
+      kinds:
+        - schema-fixture
+      local_files:
+        - "src/core-interfaces.ts (ChartDataPointStyle, OptsChartData.pointStyles)"
+        - "src/gen-charts.ts (makeSeriesDataPointsXml, createChartBorderLine, pie/doughnut dPt loop)"
+        - "test/schema.test.js (bar/pie/line/area/scatter -chart-point-styles)"
+      schema_fixture: "bar-chart-point-styles, pie-chart-point-styles, line-chart-point-styles, area-chart-point-styles, scatter-chart-point-styles"
+      validator_result: pass
       powerpoint_result: null
-      spec_refs: []
-    next_action: design-typed-chart-point-style-api
+      spec_refs:
+        - "ECMA-376 Part 1 §21.2.2.49 dPt (CT_DPt)"
+        - "CT_BarSer / CT_LineSer / CT_AreaSer / CT_ScatterSer / CT_PieSer — dPt precedes dLbls"
+    next_action: none
 
   - id: upstream-pr-1342
     source: "gitbrent/PptxGenJS#1342"

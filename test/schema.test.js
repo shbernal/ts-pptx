@@ -808,4 +808,114 @@ export default [
 			await expectNoSchemaErrors(buf, 'pie-chart-custom-labels')
 		},
 	},
+	{
+		name: 'bar chart with per-point pointStyles (border + fill)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					p.charts.BAR,
+					[
+						{
+							name: 'Status',
+							labels: ['A', 'B', 'C', 'D'],
+							values: [10, 20, 38, 2],
+							pointStyles: [
+								{ border: { pt: 2, color: 'FF0000' } },
+								{},
+								{ fill: '00B050', border: { type: 'dash', color: '404040' } },
+								{ border: { type: 'none' } },
+							],
+						},
+					],
+					{ x: 1, y: 1, w: 6, h: 3 }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'bar-chart-point-styles')
+		},
+	},
+	{
+		name: 'pie chart with per-point pointStyles (border + fill)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					p.charts.PIE,
+					[
+						{
+							name: 'Status',
+							labels: ['Red', 'Amber', 'Green'],
+							values: [10, 30, 60],
+							pointStyles: [{ border: { pt: 3, color: 'C00000' } }, {}, { fill: '70AD47' }],
+						},
+					],
+					{ x: 1, y: 1, w: 4, h: 3 }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'pie-chart-point-styles')
+		},
+	},
+	{
+		name: 'line chart with per-point pointStyles (border)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					p.charts.LINE,
+					[
+						{
+							name: 'Series 1',
+							labels: ['A', 'B', 'C', 'D'],
+							values: [4, 8, 6, 10],
+							pointStyles: [
+								{},
+								{ border: { pt: 2, color: 'FF0000' } },
+								{},
+								{ border: { type: 'dash', color: '0070C0' } },
+							],
+						},
+					],
+					{ x: 1, y: 1, w: 6, h: 3 }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'line-chart-point-styles')
+		},
+	},
+	{
+		name: 'area chart with per-point pointStyles (border + fill)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					p.charts.AREA,
+					[
+						{
+							name: 'Series 1',
+							labels: ['A', 'B', 'C'],
+							values: [5, 9, 7],
+							pointStyles: [{ fill: 'FFC000' }, {}, { border: { pt: 1, color: '404040' } }],
+						},
+					],
+					{ x: 1, y: 1, w: 6, h: 3 }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'area-chart-point-styles')
+		},
+	},
+	{
+		name: 'scatter chart with per-point pointStyles (border)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					p.charts.SCATTER,
+					[
+						{ name: 'X-Axis', values: [1, 2, 3, 4] },
+						{
+							name: 'Y-Values',
+							values: [3, 6, 2, 8],
+							pointStyles: [{ border: { pt: 2, color: 'FF0000' } }, {}, { fill: '00B050' }, {}],
+						},
+					],
+					{ x: 1, y: 1, w: 6, h: 3 }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'scatter-chart-point-styles')
+		},
+	},
 ]

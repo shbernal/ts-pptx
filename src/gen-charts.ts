@@ -19,7 +19,7 @@ import {
 	LETTERS,
 	ONEPT,
 } from './core-enums.js'
-import type { IChartOptsLib, ISlideRelChart, ShadowProps, IChartPropsTitle, OptsChartGridLine, IOptsChartData, ChartLineCap } from './core-interfaces.js'
+import type { IChartOptsLib, ISlideRelChart, ShadowProps, IChartPropsTitle, OptsChartGridLine, IOptsChartData, ChartLineCap, BorderProps } from './core-interfaces.js'
 import { createColorElement, genXmlColorSelection, convertRotationDegrees, encodeXmlEntities, getUuid, valToPts } from './gen-utils.js'
 import JSZip from 'jszip'
 
@@ -833,7 +833,8 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 				strXml += createShadowElement(opts.shadow, DEF_SHAPE_SHADOW)
 
 				strXml += '  </c:spPr>'
-				if (chartType !== CHART_TYPE.LINE && chartType !== CHART_TYPE.RADAR) strXml += '  <c:invertIfNegative val="0"/>'
+				// `invertIfNegative` is bar-only in the schema (CT_BarSer); area/line/radar series must omit it
+				if (chartType === CHART_TYPE.BAR || chartType === CHART_TYPE.BAR3D) strXml += '  <c:invertIfNegative val="0"/>'
 
 				// 'c:marker' must precede 'c:dLbls' in CT_LineSer (schema order: spPr → marker → dPt → dLbls)
 				if (chartType === CHART_TYPE.LINE || chartType === CHART_TYPE.RADAR) {
@@ -849,6 +850,18 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					strXml += '    <a:effectLst/>'
 					strXml += '  </c:spPr>'
 					strXml += '</c:marker>'
+				}
+
+				// Per-point data points (`c:dPt`) MUST precede `c:dLbls` in CT_*Ser schema order.
+				// Covers legacy single-series bar color-vary AND per-point `pointStyles` overrides.
+				{
+					const barVaryColors =
+						(chartType === CHART_TYPE.BAR || chartType === CHART_TYPE.BAR3D) &&
+						data.length === 1 &&
+						((opts.chartColors && opts.chartColors !== BARCHART_COLORS && opts.chartColors.length > 1) || opts.invertedColors?.length)
+							? opts.chartColors || BARCHART_COLORS
+							: null
+					strXml += makeSeriesDataPointsXml(chartType, obj, opts, barVaryColors)
 				}
 
 				// Data Labels per series
@@ -877,42 +890,6 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					strXml += `<c:showCatName val="0"/><c:showSerName val="${opts.showSerName ? '1' : '0'}"/><c:showPercent val="0"/><c:showBubbleSize val="0"/>`
 					strXml += `<c:showLeaderLines val="${opts.showLeaderLines ? '1' : '0'}"/>`
 					strXml += '</c:dLbls>'
-				}
-
-				// Allow users with a single data set to pass their own array of colors (check for this using != ours)
-				// Color chart bars various colors when >1 color
-				// NOTE: `<c:dPt>` created with various colors will change PPT legend by design so each dataPt/color is an legend item!
-				if (
-					(chartType === CHART_TYPE.BAR || chartType === CHART_TYPE.BAR3D) &&
-					data.length === 1 &&
-					((opts.chartColors && opts.chartColors !== BARCHART_COLORS && opts.chartColors.length > 1) || (opts.invertedColors?.length))
-				) {
-					// Series Data Point colors
-					obj.values.forEach((value, index) => {
-						const arrColors = value < 0 ? opts.invertedColors || opts.chartColors || BARCHART_COLORS : opts.chartColors || []
-
-						strXml += '  <c:dPt>'
-						strXml += `    <c:idx val="${index}"/>`
-						strXml += '      <c:invertIfNegative val="0"/>'
-						strXml += '    <c:bubble3D val="0"/>'
-						strXml += '    <c:spPr>'
-						if (opts.lineSize === 0) {
-							strXml += '<a:ln><a:noFill/></a:ln>'
-						} else if (chartType === CHART_TYPE.BAR) {
-							strXml += '<a:solidFill>'
-							strXml += '  <a:srgbClr val="' + arrColors[index % arrColors.length] + '"/>'
-							strXml += '</a:solidFill>'
-						} else {
-							strXml += '<a:ln>'
-							strXml += '  <a:solidFill>'
-							strXml += '   <a:srgbClr val="' + arrColors[index % arrColors.length] + '"/>'
-							strXml += '  </a:solidFill>'
-							strXml += '</a:ln>'
-						}
-						strXml += createShadowElement(opts.shadow, DEF_SHAPE_SHADOW)
-						strXml += '    </c:spPr>'
-						strXml += '  </c:dPt>'
-					})
 				}
 
 				// 2: "Categories"
@@ -1098,6 +1075,13 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					strXml += '</c:marker>'
 				}
 
+				// Per-point data points (`c:dPt`) MUST precede `c:dLbls` (CT_ScatterSer schema order).
+				// Covers legacy single-series color-vary AND per-point `pointStyles` overrides.
+				{
+					const scatterVaryColors = data.length === 1 && opts.chartColors !== BARCHART_COLORS ? opts.chartColors || BARCHART_COLORS : null
+					strXml += makeSeriesDataPointsXml(chartType, obj, opts, scatterVaryColors)
+				}
+
 				// Option: scatter data point labels
 				if (opts.showLabel) {
 					const chartUuid = getUuid('-xxxx-xxxx-xxxx-xxxxxxxxxxxx')
@@ -1226,31 +1210,6 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 						strXml += '    </c:extLst>'
 						strXml += '</c:dLbls>'
 					}
-				}
-
-				// Color bar chart bars various colors
-				// Allow users with a single data set to pass their own array of colors (check for this using != ours)
-				if (data.length === 1 && opts.chartColors !== BARCHART_COLORS) {
-					// Series Data Point colors
-					obj.values.forEach((value, index) => {
-						const arrColors = value < 0 ? opts.invertedColors || opts.chartColors || BARCHART_COLORS : opts.chartColors || []
-
-						strXml += '  <c:dPt>'
-						strXml += `    <c:idx val="${index}"/>`
-						strXml += '      <c:invertIfNegative val="0"/>'
-						strXml += '    <c:bubble3D val="0"/>'
-						strXml += '    <c:spPr>'
-						if (opts.lineSize === 0) {
-							strXml += '<a:ln><a:noFill/></a:ln>'
-						} else {
-							strXml += '<a:solidFill>'
-							strXml += ' <a:srgbClr val="' + arrColors[index % arrColors.length] + '"/>'
-							strXml += '</a:solidFill>'
-						}
-						strXml += createShadowElement(opts.shadow, DEF_SHAPE_SHADOW)
-						strXml += '    </c:spPr>'
-						strXml += '  </c:dPt>'
-					})
 				}
 
 				// 3: "Values": Scatter Chart has 2: `xVal` and `yVal`
@@ -1520,14 +1479,18 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 
 			// 2: "Data Point" block for every data row
 			optsChartData.labels[0].forEach((_label, idx) => {
+				const ptStyle = optsChartData.pointStyles?.[idx]
 				strXml += '<c:dPt>'
 				strXml += ` <c:idx val="${idx}"/>`
 				strXml += ' <c:bubble3D val="0"/>'
 				strXml += ' <c:spPr>'
 				strXml += `<a:solidFill>${createColorElement(
-					opts.chartColors[idx + 1 > opts.chartColors.length ? Math.floor(Math.random() * opts.chartColors.length) : idx]
+					ptStyle?.fill || opts.chartColors[idx + 1 > opts.chartColors.length ? Math.floor(Math.random() * opts.chartColors.length) : idx]
 				)}</a:solidFill>`
-				if (opts.dataBorder) {
+				// Per-point border override takes precedence over chart-level `dataBorder`
+				if (ptStyle?.border) {
+					strXml += createChartBorderLine(ptStyle.border)
+				} else if (opts.dataBorder) {
 					strXml += `<a:ln w="${valToPts(opts.dataBorder.pt)}" cap="flat"><a:solidFill>${createColorElement(
 						opts.dataBorder.color
 					)}</a:solidFill><a:prstDash val="solid"/><a:round/></a:ln>`
@@ -2069,6 +2032,71 @@ function makeCustomDLblXml (idx: number, text: string, opts: IChartOptsLib): str
 		'<c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/>' +
 		'<c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbl>'
 	)
+}
+
+/**
+ * Build an `<a:ln>` border element from a per-data-point `BorderProps`.
+ * @param border - point border style (`type`, `color`, `pt`)
+ */
+function createChartBorderLine (border: BorderProps): string {
+	if (border.type === 'none') return '<a:ln><a:noFill/></a:ln>'
+	const dash = border.type === 'dash' ? 'dash' : 'solid'
+	return `<a:ln w="${valToPts(border.pt ?? 1)}" cap="flat"><a:solidFill>${createColorElement(border.color || '666666')}</a:solidFill><a:prstDash val="${dash}"/><a:round/></a:ln>`
+}
+
+/**
+ * Build `<c:dPt>` entries for a series in the bar/line/area/scatter loops.
+ *
+ * Merges two sources into a single `c:dPt` per index so we never emit a
+ * duplicate `<c:idx>` (which corrupts the chart):
+ * - legacy single-series color-vary fills (bar/scatter), supplied via `varyColors`
+ * - per-point `pointStyles` border/fill overrides
+ *
+ * Must be emitted in schema position *before* `c:dLbls` (CT_*Ser order).
+ * RADAR is skipped: extra per-point markup historically corrupts the chart.
+ *
+ * @param chartType  - series chart type
+ * @param obj        - series data (reads `values`, `pointStyles`)
+ * @param opts       - chart options (fill/shadow/lineSize context)
+ * @param varyColors - color array when single-series color-vary applies, else `null`
+ */
+function makeSeriesDataPointsXml (chartType: CHART_NAME, obj: IOptsChartData, opts: IChartOptsLib, varyColors: string[] | null): string {
+	if (chartType === CHART_TYPE.RADAR) return ''
+	const pointStyles = obj.pointStyles
+	if (!varyColors && !pointStyles?.length) return ''
+
+	const isBar = chartType === CHART_TYPE.BAR || chartType === CHART_TYPE.BAR3D
+	const isScatter = chartType === CHART_TYPE.SCATTER
+	let xml = ''
+	obj.values.forEach((value, index) => {
+		const ptStyle = pointStyles?.[index]
+		const arrColors = varyColors ? (value < 0 ? opts.invertedColors || opts.chartColors || BARCHART_COLORS : varyColors) : null
+		const fillColor = ptStyle?.fill || (arrColors ? arrColors[index % arrColors.length] : null)
+		const border = ptStyle?.border
+		// Nothing to style for this point -> omit the c:dPt entirely
+		if (!fillColor && !border) return
+
+		xml += '<c:dPt>'
+		xml += `<c:idx val="${index}"/>`
+		if (isBar) xml += '<c:invertIfNegative val="0"/>'
+		xml += '<c:bubble3D val="0"/>'
+		xml += '<c:spPr>'
+		if ((isBar || isScatter) && opts.lineSize === 0 && !border && !ptStyle?.fill) {
+			// Preserve legacy color-vary behavior: hide outline when lineSize===0
+			xml += '<a:ln><a:noFill/></a:ln>'
+		} else {
+			if (fillColor) {
+				// BAR3D color-vary historically tints the edge line, not the face fill
+				if (chartType === CHART_TYPE.BAR3D) xml += `<a:ln><a:solidFill>${createColorElement(fillColor)}</a:solidFill></a:ln>`
+				else xml += `<a:solidFill>${createColorElement(fillColor)}</a:solidFill>`
+			}
+			if (border) xml += createChartBorderLine(border)
+		}
+		xml += createShadowElement(opts.shadow, DEF_SHAPE_SHADOW)
+		xml += '</c:spPr>'
+		xml += '</c:dPt>'
+	})
+	return xml
 }
 
 function createLineCap (lineCap: ChartLineCap): string {
