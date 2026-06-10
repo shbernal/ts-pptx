@@ -25,6 +25,7 @@ import type {
 	ISlideRel,
 	ISlideRelChart,
 	ISlideRelMedia,
+	ObjectLockProps,
 	ObjectOptions,
 	PresLayout,
 	PresSlideInternal,
@@ -107,6 +108,34 @@ const ImageSizingXml = {
 // Shapes whose corner-radius adjust value is named adj1 (+ adj2) instead of adj.
 // Sourced from ECMA-376 Annex D electronic addenda (presetShapeDefinitions.xml).
 const RECT_RADIUS_ADJ1_SHAPES = new Set(['round2SameRect', 'round2DiagRect'])
+
+// Object lock attributes valid for each DrawingML locking element, in emit order (ECMA-376 §20.1.2.2.x / §20.1.2.2.34).
+// Object keys in `ObjectLockProps` mirror these attribute names 1:1, so serialization is a filtered lookup.
+const SHAPE_LOCK_ATTRS = ['noGrp', 'noSelect', 'noRot', 'noChangeAspect', 'noMove', 'noResize', 'noEditPoints', 'noAdjustHandles', 'noChangeArrowheads', 'noChangeShapeType', 'noTextEdit'] as const
+const PICTURE_LOCK_ATTRS = ['noGrp', 'noSelect', 'noRot', 'noChangeAspect', 'noMove', 'noResize', 'noEditPoints', 'noAdjustHandles', 'noChangeArrowheads', 'noChangeShapeType', 'noCrop'] as const
+const GRAPHIC_FRAME_LOCK_ATTRS = ['noGrp', 'noDrilldown', 'noSelect', 'noChangeAspect', 'noMove', 'noResize'] as const
+
+/**
+ * Serialize an object-lock element (`a:spLocks` / `a:picLocks` / `a:graphicFrameLocks`).
+ * Only flags set to `true` AND valid for this element type are emitted; a flag set on an
+ * unsupported element type is dropped with a warning (silent coercion is a footgun).
+ * @param tag - locking element tag, e.g. `'a:spLocks'`
+ * @param allowed - attribute names this element type supports, in desired emit order
+ * @param locks - merged lock flags (callers fold any hard-coded default in first)
+ * @param objectName - for the warning message
+ * @returns the locking element string, or `''` when no applicable flag is set
+ */
+function genXmlObjectLock (tag: string, allowed: readonly string[], locks: ObjectLockProps | undefined, objectName?: string): string {
+	if (!locks) return ''
+	const lockMap = locks as Record<string, boolean | undefined>
+	for (const key of Object.keys(lockMap)) {
+		if (lockMap[key] && !allowed.includes(key)) {
+			console.warn(`Warning: objectLock.${key} is not supported on <${tag}> (object "${objectName ?? ''}") and was ignored.`)
+		}
+	}
+	const attrs = allowed.filter(name => lockMap[name] === true).map(name => `${name}="1"`)
+	return attrs.length > 0 ? `<${tag} ${attrs.join(' ')}/>` : ''
+}
 
 function genXmlPresetGeom (shapeName: string, options: ObjectOptions, cx: number, cy: number): string {
 	// Safety net for every prstGeom emitter (addShape, addText/addImage `shape`):
@@ -320,7 +349,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				// NOTE: Non-numeric cNvPr id values will trigger "presentation needs repair" type warning in MS-PPT-2013
 				strXml = `<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="${intTableNum * slide._slideNum + 1}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"/>`
 				strXml +=
-					'<p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr>' +
+					`<p:cNvGraphicFramePr>${genXmlObjectLock('a:graphicFrameLocks', GRAPHIC_FRAME_LOCK_ATTRS, { noGrp: true, ...slideItemObj.options.objectLock }, slideItemObj.options.objectName)}</p:cNvGraphicFramePr>` +
 					'  <p:nvPr><p:extLst><p:ext uri="{D42A27DB-BD31-4B8C-83A1-F6EECF244321}"><p14:modId xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" val="1579011935"/></p:ext></p:extLst></p:nvPr>' +
 					'</p:nvGraphicFramePr>'
 				strXml += `<p:xfrm><a:off x="${x || (x === 0 ? 0 : EMU)}" y="${y || (y === 0 ? 0 : EMU)}"/><a:ext cx="${cx || (cx === 0 ? 0 : EMU)}" cy="${cy || EMU
@@ -583,7 +612,11 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				}
 				// </Hyperlink>
 				strSlideXml += '</p:cNvPr>'
-				strSlideXml += '<p:cNvSpPr' + (slideItemObj.options?.isTextBox ? ' txBox="1"/>' : '/>')
+				{
+					const spLockXml = genXmlObjectLock('a:spLocks', SHAPE_LOCK_ATTRS, slideItemObj.options.objectLock, slideItemObj.options.objectName)
+					strSlideXml += '<p:cNvSpPr' + (slideItemObj.options?.isTextBox ? ' txBox="1"' : '')
+					strSlideXml += spLockXml ? `>${spLockXml}</p:cNvSpPr>` : '/>'
+				}
 				strSlideXml += `<p:nvPr>${slideItemObj._type === 'placeholder' ? genXmlPlaceholder(slideItemObj) : genXmlPlaceholder(placeholderObj)}</p:nvPr>`
 				strSlideXml += '</p:nvSpPr><p:spPr>'
 				strSlideXml += `<a:xfrm${locationAttr}>`
@@ -668,7 +701,8 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					}" action="ppaction://hlinksldjump"/>`
 				}
 				strSlideXml += '    </p:cNvPr>'
-				strSlideXml += '    <p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr>'
+				// Default to locking aspect ratio (PowerPoint's own behavior); user `objectLock` overrides any flag, incl. noChangeAspect.
+				strSlideXml += `    <p:cNvPicPr>${genXmlObjectLock('a:picLocks', PICTURE_LOCK_ATTRS, { noChangeAspect: true, ...slideItemObj.options.objectLock }, slideItemObj.options.objectName)}</p:cNvPicPr>`
 				strSlideXml += '    <p:nvPr>' + genXmlPlaceholder(placeholderObj) + '</p:nvPr>'
 				strSlideXml += '  </p:nvPicPr>'
 				// Duotone recolor: maps shadows→shadow color, highlights→highlight color.
@@ -762,7 +796,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					strSlideXml += ' <p:nvPicPr>'
 					// IMPORTANT: <p:cNvPr id="" value is critical - if its not the same number as preview image `rId`, PowerPoint throws error!
 					strSlideXml += `<p:cNvPr id="${slideItemObj.mediaRid + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"/>`
-					strSlideXml += ' <p:cNvPicPr/>'
+					strSlideXml += ` <p:cNvPicPr>${genXmlObjectLock('a:picLocks', PICTURE_LOCK_ATTRS, slideItemObj.options.objectLock, slideItemObj.options.objectName)}</p:cNvPicPr>`
 					strSlideXml += ' <p:nvPr>'
 					strSlideXml += `  <a:videoFile r:link="rId${slideItemObj.mediaRid}"/>`
 					strSlideXml += ' </p:nvPr>'
@@ -780,7 +814,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					// IMPORTANT: <p:cNvPr id="" value is critical - if not the same number as preiew image rId, PowerPoint throws error!
 					strSlideXml += `<p:cNvPr id="${slideItemObj.mediaRid + 2}" name="${slideItemObj.options.objectName
 					}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"><a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr>`
-					strSlideXml += ' <p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr>'
+					strSlideXml += ` <p:cNvPicPr>${genXmlObjectLock('a:picLocks', PICTURE_LOCK_ATTRS, { noChangeAspect: true, ...slideItemObj.options.objectLock }, slideItemObj.options.objectName)}</p:cNvPicPr>`
 					strSlideXml += ' <p:nvPr>'
 					strSlideXml += `  <a:videoFile r:link="rId${slideItemObj.mediaRid}"/>`
 					strSlideXml += '  <p:extLst>'

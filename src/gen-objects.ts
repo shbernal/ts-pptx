@@ -493,6 +493,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 		transparency: opt.transparency || 0,
 		duotone: opt.duotone,
 		objectName,
+		objectLock: opt.objectLock,
 		shadow: correctShadowOptions(opt.shadow),
 	}
 	newObject.options = objectOptions
@@ -611,6 +612,7 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	slideData.options.h = intSizeY
 	slideData.options.objectName = objectName
 	if (opt.altText) slideData.options.altText = opt.altText
+	if (opt.objectLock) slideData.options.objectLock = opt.objectLock
 
 	// STEP 4: Add this media to this Slide Rels (rId/rels count spans all slides! Count all media to get next rId)
 	/**

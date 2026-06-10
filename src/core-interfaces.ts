@@ -609,6 +609,56 @@ export interface ObjectNameProps {
 	 * @example 'Quarterly revenue bar chart'
 	 */
 	altText?: string
+	/**
+	 * Object lock flags (DrawingML `a:spLocks` / `a:picLocks` / `a:graphicFrameLocks`)
+	 * - restrict how the object can be manipulated in PowerPoint (e.g. prevent moving, resizing, or grouping)
+	 * - each flag maps 1:1 to the OOXML attribute of the same name; only flags set to `true` are emitted
+	 * - PowerPoint UI: Selection Pane / right-click protections (most locks are honored at edit time, not as a password)
+	 * - flags only apply to the object types that support them (see each flag); flags set on an unsupported
+	 *   object type are ignored with a console warning
+	 * @since v4.0.0
+	 * @example { noMove: true, noResize: true } // pin an object in place
+	 * @example { noGrp: true } // exclude from grouping
+	 */
+	objectLock?: ObjectLockProps
+}
+/**
+ * Object lock flags. Maps to DrawingML locking elements:
+ * - shapes / text boxes / placeholders → `a:spLocks`
+ * - images / media → `a:picLocks`
+ * - tables → `a:graphicFrameLocks`
+ *
+ * Each property mirrors the OOXML attribute name. A flag is only serialized for object types whose
+ * locking element defines it (noted per-flag); setting an unsupported flag logs a warning and is ignored.
+ * @since v4.0.0
+ */
+export interface ObjectLockProps {
+	/** Disallow grouping/ungrouping with other objects. (shapes, images, tables) */
+	noGrp?: boolean
+	/** Disallow selecting the object. (shapes, images, tables) */
+	noSelect?: boolean
+	/** Disallow moving the object. (shapes, images, tables) */
+	noMove?: boolean
+	/** Disallow resizing the object. (shapes, images, tables) */
+	noResize?: boolean
+	/** Disallow changing the aspect ratio. (shapes, images, tables) */
+	noChangeAspect?: boolean
+	/** Disallow rotating the object. (shapes, images) */
+	noRot?: boolean
+	/** Disallow editing the freeform/custom-geometry points. (shapes, images) */
+	noEditPoints?: boolean
+	/** Disallow moving the shape's adjustment handles. (shapes, images) */
+	noAdjustHandles?: boolean
+	/** Disallow changing arrowheads. (shapes, images) */
+	noChangeArrowheads?: boolean
+	/** Disallow changing the shape type (preset geometry). (shapes, images) */
+	noChangeShapeType?: boolean
+	/** Disallow editing the text body. (shapes / text boxes) */
+	noTextEdit?: boolean
+	/** Disallow cropping the picture. (images) */
+	noCrop?: boolean
+	/** Disallow drilling down into the graphical object (e.g. chart data). (tables) */
+	noDrilldown?: boolean
 }
 export interface ThemeProps {
 	/**

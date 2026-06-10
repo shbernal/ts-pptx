@@ -131,6 +131,41 @@ export default [
 		},
 	},
 	{
+		// Object lock flags (upstream-issue-438): spLocks on a shape, picLocks on an
+		// image, graphicFrameLocks on a table. Asserts each locking element + its
+		// element-type-specific attributes serialize to schema-valid OOXML.
+		name: 'object locks on shape, image, and table',
+		fn: async () => {
+			const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape(p.shapes.RECTANGLE, {
+					x: 1,
+					y: 1,
+					w: 2,
+					h: 1,
+					fill: { color: 'FF0000' },
+					objectLock: { noMove: true, noResize: true, noRot: true, noChangeShapeType: true, noTextEdit: true },
+				})
+				s.addImage({
+					data: 'image/png;base64,' + b64,
+					x: 4,
+					y: 1,
+					w: 1,
+					h: 1,
+					objectLock: { noChangeAspect: false, noCrop: true, noMove: true },
+				})
+				s.addTable([[{ text: 'locked' }]], {
+					x: 1,
+					y: 3,
+					w: 4,
+					objectLock: { noGrp: true, noSelect: true, noDrilldown: true },
+				})
+			})
+			await expectNoSchemaErrors(buf, 'object-locks')
+		},
+	},
+	{
 		name: 'shape line with round cap',
 		fn: async () => {
 			const { buf } = await build((p) => {

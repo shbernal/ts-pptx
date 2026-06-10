@@ -8505,8 +8505,8 @@ items:
     source: "gitbrent/PptxGenJS#438"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-10
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -8514,23 +8514,39 @@ items:
     non_target_reasons: []
     upstream_summary: Requested user-facing object lock options such as noGrp, noRot, noMove, and noResize.
     current_project_notes: >
-      Current XML emits a few hard-coded locks for tables, placeholders, notes,
-      and pictures, but public shape/image options do not expose lock settings
-      and picture locks only include noChangeAspect by default.
+      Implemented a public `objectLock` option (ObjectLockProps) on the shared
+      ObjectNameProps base, so shapes, text boxes, images, media, and tables can
+      set DrawingML locks. gen-xml serializes via genXmlObjectLock(), which emits
+      a:spLocks / a:picLocks / a:graphicFrameLocks with only the flags valid for
+      that element type (per-type allow-lists from ECMA-376); a flag set on an
+      unsupported element type is dropped with a console.warn instead of producing
+      illegal XML. The prior hard-coded defaults are preserved as override-able
+      seeds (picture noChangeAspect, table noGrp), so existing output is unchanged
+      when objectLock is unset. gen-objects threads opt.objectLock through addImage
+      and addMedia (shape/text/table options already pass through). Validated by a
+      schema fixture and a focused regression suite.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - regression-test
       local_files:
-        - src/gen-xml.ts:180
-        - src/gen-xml.ts:584
-        - src/gen-xml.ts:718
-        - src/gen-xml.ts:1635
-        - src/gen-xml.ts:1645
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts:635
+        - src/gen-xml.ts:114
+        - src/gen-xml.ts:128
+        - src/gen-xml.ts:352
+        - src/gen-xml.ts:616
+        - src/gen-xml.ts:705
+        - src/gen-objects.ts:496
+        - test/regression/object-locks.test.js:1
+      schema_fixture: "test/schema.test.js: 'object locks on shape, image, and table' (object-locks)"
+      validator_result: pass
       powerpoint_result: null
-      spec_refs: []
-    next_action: design-object-lock-options-and-xml-fixture
+      spec_refs:
+        - "ECMA-376 §20.1.2.2.34 (CT_ShapeLocking)"
+        - "ECMA-376 §20.1.2.2.31 (CT_PictureLocking)"
+        - "ECMA-376 §20.1.2.2.19 (graphicFrameLocks / CT_GraphicalObjectFrameLocking)"
+    next_action: none
 
   - id: upstream-issue-428
     source: "gitbrent/PptxGenJS#428"
