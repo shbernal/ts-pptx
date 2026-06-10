@@ -89,6 +89,8 @@ import {
 	SlideLayoutInternal,
 	SlideMasterProps,
 	SlideNumberProps,
+	TableStyleInternal,
+	TableStyleProps,
 	TableToSlidesProps,
 	ThemeProps,
 	WriteBaseProps,
@@ -101,6 +103,7 @@ import * as genMedia from './gen-media.js'
 import * as genTable from './gen-tables.js'
 import * as genXml from './gen-xml.js'
 import type { RuntimeAdapter } from './runtime/types.js'
+import { getUuid } from './gen-utils.js'
 import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
 
 export type { PresSlide as Slide } from './core-interfaces.js'
@@ -350,6 +353,7 @@ export default class PptxGenJS {
 
 	/** custom document properties stored in docProps/custom.xml */
 	private _customProperties: Array<{ name: string; value: CustomPropertyValue }>
+	private readonly _tableStyles: TableStyleInternal[]
 
 	/** slide layout definition objects, used for generating slide layout files */
 	private readonly _slideLayouts: SlideLayoutInternal[]
@@ -484,6 +488,7 @@ export default class PptxGenJS {
 		this._slides = []
 		this._sections = []
 		this._customProperties = []
+		this._tableStyles = []
 		this._masterSlide = {
 			addChart: null,
 			addImage: null,
@@ -630,7 +635,7 @@ export default class PptxGenJS {
 			zip.file('ppt/theme/theme2.xml', genXml.makeXmlTheme(this.internalPresentation))
 			zip.file('ppt/presentation.xml', genXml.makeXmlPresentation(this.internalPresentation))
 			zip.file('ppt/presProps.xml', genXml.makeXmlPresProps())
-			zip.file('ppt/tableStyles.xml', genXml.makeXmlTableStyles())
+			zip.file('ppt/tableStyles.xml', genXml.makeXmlTableStyles(this._tableStyles))
 			zip.file('ppt/viewProps.xml', genXml.makeXmlViewProps())
 
 			// C: Create a Layout/Master/Rel/Slide file for each SlideLayout and Slide
@@ -876,6 +881,30 @@ export default class PptxGenJS {
 
 		// STEP 4: Add slideNumber to master slide (if any)
 		if (newLayout._slideNumberProps && !this._masterSlide._slideNumberProps) this._masterSlide._slideNumberProps = newLayout._slideNumberProps
+	}
+
+	/**
+	 * Register a reusable custom table style and return its GUID.
+	 * The style is written to `ppt/tableStyles.xml` and is editable in PowerPoint's
+	 * Table Styles gallery. Pass the returned GUID as `TableProps.tableStyle`, and use
+	 * the `has*` flags (`hasHeader`, `hasBandedRows`, …) to activate the matching regions.
+	 * @param {TableStyleProps} props - custom table style definition (requires `name`)
+	 * @returns {string} braced GUID to use as `tableStyle`
+	 * @example
+	 * const brand = pptx.defineTableStyle({
+	 *   name: 'Brand Banded',
+	 *   firstRow: { fill:'1A2B3C', color:'FFFFFF', bold:true },
+	 *   band1H:   { fill:'EAF1F8' },
+	 * })
+	 * slide.addTable(rows, { tableStyle: brand, hasHeader:true, hasBandedRows:true })
+	 */
+	defineTableStyle(props: TableStyleProps): string {
+		if (!props || typeof props !== 'object') throw new Error('defineTableStyle() requires a `{ name, ... }` object argument')
+		if (!props.name || typeof props.name !== 'string') throw new Error('defineTableStyle() requires a non-empty `name`')
+
+		const guid = `{${getUuid('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx').toUpperCase()}}`
+		this._tableStyles.push({ guid, def: props })
+		return guid
 	}
 
 	// HTML-TO-SLIDES METHODS

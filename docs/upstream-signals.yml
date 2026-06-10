@@ -1757,6 +1757,17 @@ items:
       core-interfaces.ts. gen-xml.ts tblPr emission now builds all flag
       attributes and emits <a:tableStyleId> when tableStyle is set.
       Schema fixture added and validated (table-built-in-style-all-flags).
+
+      Custom styles follow-up implemented 2026-06-10. Added pptx.defineTableStyle()
+      which registers a TableStyleProps definition (curated CT_TableStyle subset:
+      wholeTbl, firstRow/lastRow, firstCol/lastCol, band1H/2H, band1V/2V — each
+      with fill/color/bold/italic/border) and returns a generated braced GUID.
+      makeXmlTableStyles() now populates the already-emitted ppt/tableStyles.xml
+      part with <a:tblStyle> definitions in CT_TableStyle schema order; tableStyle
+      widened to TABLE_STYLE | string so the returned GUID can be passed through.
+      The OPC plumbing (part, relationship, content-type Override) already existed.
+      Two schema fixtures added (custom-table-style-all-regions,
+      custom-table-style-trbl-border).
     evidence:
       kinds:
         - local-source-inspection
@@ -1765,13 +1776,16 @@ items:
         - src/core-enums.ts
         - src/core-interfaces.ts
         - src/gen-xml.ts:317
+        - src/gen-xml.ts:2027
+        - src/pptxgen.ts
         - test/schema.test.js
-      schema_fixture: table-built-in-style-all-flags
-      validator_result: pnpm run test:schema passed 2026-06-10
+      schema_fixture: table-built-in-style-all-flags, custom-table-style-all-regions, custom-table-style-trbl-border
+      validator_result: pnpm run test:schema passed 2026-06-10 (38 fixtures)
       powerpoint_result: null
       spec_refs:
         - "[MS-OE376] Part 4 §5.1.6.10 tableStyleId — 74 built-in table style GUIDs"
         - "ECMA-376 Part 1 §21.1.3.15 tblPr attributes (firstRow/lastRow/bandRow/bandCol/firstCol/lastCol)"
+        - "ECMA-376 Part 1 §20.1.4.2 CT_TableStyle / CT_TablePartStyle (custom style regions)"
     next_action: none
 
   - id: upstream-issue-1424

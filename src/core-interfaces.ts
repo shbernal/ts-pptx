@@ -1004,6 +1004,82 @@ export interface TableCellProps extends TextBaseProps {
 	 */
 	rowspan?: number
 }
+/**
+ * Styling for one region of a custom table style (maps to a `CT_TablePartStyle`).
+ * A region (e.g. the header row or banded rows) is shown only when the matching
+ * `TableProps` flag is set — `firstRow` needs `hasHeader`, `band1H`/`band2H` need
+ * `hasBandedRows`, and so on.
+ * @see TableStyleProps
+ */
+export interface TableStyleRegionProps {
+	/**
+	 * Solid cell fill color (hex).
+	 * - `HexColor` only; theme references are not supported in custom styles
+	 * @example '1A2B3C'
+	 */
+	fill?: HexColor
+	/**
+	 * Text color (hex).
+	 * @example 'FFFFFF'
+	 */
+	color?: HexColor
+	/** Bold text. */
+	bold?: boolean
+	/** Italic text. */
+	italic?: boolean
+	/**
+	 * Cell border(s).
+	 * - single value is applied to all four sides plus the interior grid lines
+	 * - array of values in TRBL order styles only the four outer sides
+	 */
+	border?: BorderProps | [BorderProps, BorderProps, BorderProps, BorderProps]
+}
+/**
+ * A reusable custom table style written to `ppt/tableStyles.xml`.
+ * Pass to `pptx.defineTableStyle()`, which registers it and returns a GUID to use
+ * as `TableProps.tableStyle`. Unlike the fixed built-in `TABLE_STYLE` set, a custom
+ * style can use arbitrary brand colors, is editable in PowerPoint's Table Styles
+ * gallery, and bands correctly across any row/column count (including auto-paged tables).
+ * @example
+ * const brand = pptx.defineTableStyle({
+ *   name: 'Brand Banded',
+ *   wholeTbl: { border: { type:'solid', color:'D9D9D9', pt:0.5 } },
+ *   firstRow: { fill:'1A2B3C', color:'FFFFFF', bold:true },
+ *   band1H:   { fill:'EAF1F8' },
+ *   band2H:   { fill:'FFFFFF' },
+ * })
+ * slide.addTable(rows, { tableStyle: brand, hasHeader:true, hasBandedRows:true })
+ */
+export interface TableStyleProps {
+	/** Display name shown in PowerPoint's Table Styles gallery. */
+	name: string
+	/** Base styling applied to every cell. */
+	wholeTbl?: TableStyleRegionProps
+	/** Header (first) row — activated by `TableProps.hasHeader`. */
+	firstRow?: TableStyleRegionProps
+	/** Footer (last) row — activated by `TableProps.hasFooter`. */
+	lastRow?: TableStyleRegionProps
+	/** First column — activated by `TableProps.hasFirstColumn`. */
+	firstCol?: TableStyleRegionProps
+	/** Last column — activated by `TableProps.hasLastColumn`. */
+	lastCol?: TableStyleRegionProps
+	/** Odd horizontal band — activated by `TableProps.hasBandedRows`. */
+	band1H?: TableStyleRegionProps
+	/** Even horizontal band — activated by `TableProps.hasBandedRows`. */
+	band2H?: TableStyleRegionProps
+	/** Odd vertical band — activated by `TableProps.hasBandedColumns`. */
+	band1V?: TableStyleRegionProps
+	/** Even vertical band — activated by `TableProps.hasBandedColumns`. */
+	band2V?: TableStyleRegionProps
+}
+/**
+ * Internal record pairing a registered custom table style with its generated GUID.
+ */
+export interface TableStyleInternal {
+	/** Braced, upper-case GUID emitted as both `styleId` and `<a:tableStyleId>`. */
+	guid: string
+	def: TableStyleProps
+}
 export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProps {
 	_arrObjTabHeadRows?: TableRow[]
 
@@ -1107,16 +1183,17 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 */
 	hasLastColumn?: boolean
 	/**
-	 * Built-in PowerPoint table style to apply.
+	 * Table style to apply, either a built-in `TABLE_STYLE` member or the GUID
+	 * returned by `pptx.defineTableStyle()` for a custom style.
 	 * Emits `<a:tableStyleId>` inside `<a:tblPr>` with the corresponding GUID.
 	 * Style flags (`hasHeader`, `hasFooter`, `hasBandedRows`, etc.) select which
 	 * regions of the chosen style are activated; they have no visible effect without
 	 * a `tableStyle` set.
 	 *
-	 * Only `TABLE_STYLE` enum members are accepted — raw GUID strings are not supported.
-	 * @example tableStyle: pptx.TABLE_STYLE.MEDIUM_STYLE_2_ACCENT_1
+	 * @example tableStyle: pptx.TABLE_STYLE.MEDIUM_STYLE_2_ACCENT_1 // built-in
+	 * @example const brand = pptx.defineTableStyle({ name:'Brand', firstRow:{ fill:'1A2B3C', color:'FFFFFF', bold:true } }); tableStyle: brand
 	 */
-	tableStyle?: TABLE_STYLE
+	tableStyle?: TABLE_STYLE | string
 	/**
 	 * Cell background color
 	 * @example { color:'FF0000' } // hex color (red)
@@ -2035,7 +2112,7 @@ export interface ObjectOptions extends ImageBaseProps, PositionProps, ShapeProps
 	hasBandedColumns?: boolean // table
 	hasFirstColumn?: boolean // table
 	hasLastColumn?: boolean // table
-	tableStyle?: TABLE_STYLE // table
+	tableStyle?: TABLE_STYLE | string // table
 }
 export interface SlideBaseProps {
 	_bkgdImgRid?: number
