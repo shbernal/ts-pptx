@@ -314,7 +314,19 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					'</p:nvGraphicFramePr>'
 				strXml += `<p:xfrm><a:off x="${x || (x === 0 ? 0 : EMU)}" y="${y || (y === 0 ? 0 : EMU)}"/><a:ext cx="${cx || (cx === 0 ? 0 : EMU)}" cy="${cy || EMU
 				}"/></p:xfrm>`
-				strXml += `<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr${objTabOpts.hasHeader ? ' firstRow="1"' : ''}/>`
+				{
+					const tblPrAttrs =
+						(objTabOpts.hasHeader ? ' firstRow="1"' : '') +
+							(objTabOpts.hasFooter ? ' lastRow="1"' : '') +
+							(objTabOpts.hasBandedRows ? ' bandRow="1"' : '') +
+							(objTabOpts.hasBandedColumns ? ' bandCol="1"' : '') +
+							(objTabOpts.hasFirstColumn ? ' firstCol="1"' : '') +
+							(objTabOpts.hasLastColumn ? ' lastCol="1"' : '')
+					const tblPr = objTabOpts.tableStyle
+						? `<a:tblPr${tblPrAttrs}><a:tableStyleId>${objTabOpts.tableStyle}</a:tableStyleId></a:tblPr>`
+						: `<a:tblPr${tblPrAttrs}/>`
+					strXml += `<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl>${tblPr}`
+				}
 
 				// STEP 2: Set column widths
 				// Evenly distribute cols/rows across size provided when applicable (calc them if only overall dimensions were provided)

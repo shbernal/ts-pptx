@@ -1735,8 +1735,8 @@ items:
     source: "gitbrent/PptxGenJS#1425"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-10
+    status: implemented
     priority: p2
     target_area:
       - table-ooxml
@@ -1745,20 +1745,29 @@ items:
     non_target_reasons: []
     upstream_summary: Requests built-in table styles and table theme flags such as banded rows and header row.
     current_project_notes: >
-      Current table XML emits a bare tblPr and the local comments explicitly
-      call out unsupported firstRow/lastRow/banded table style flags.
+      Implemented 2026-06-10. Added TABLE_STYLE enum (74 GUIDs from [MS-OE376]
+      §5.1.6.10) to core-enums.ts and tableStyle?: TABLE_STYLE plus five
+      boolean style-flag props (hasFooter, hasBandedRows, hasBandedColumns,
+      hasFirstColumn, hasLastColumn) to ITableProps and ObjectOptions in
+      core-interfaces.ts. gen-xml.ts tblPr emission now builds all flag
+      attributes and emits <a:tableStyleId> when tableStyle is set.
+      Schema fixture added and validated (table-built-in-style-all-flags).
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
       local_files:
-        - src/gen-xml.ts:185
-        - src/gen-xml.ts:187
-        - src/gen-xml.ts:1893
-      schema_fixture: null
-      validator_result: null
+        - src/core-enums.ts
+        - src/core-interfaces.ts
+        - src/gen-xml.ts:317
+        - test/schema.test.js
+      schema_fixture: table-built-in-style-all-flags
+      validator_result: pnpm run test:schema passed 2026-06-10
       powerpoint_result: null
-      spec_refs: []
-    next_action: compare-powerpoint-authored-styled-table-xml
+      spec_refs:
+        - "[MS-OE376] Part 4 §5.1.6.10 tableStyleId — 74 built-in table style GUIDs"
+        - "ECMA-376 Part 1 §21.1.3.15 tblPr attributes (firstRow/lastRow/bandRow/bandCol/firstCol/lastCol)"
+    next_action: none
 
   - id: upstream-issue-1424
     source: "gitbrent/PptxGenJS#1424"

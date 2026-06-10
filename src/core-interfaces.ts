@@ -3,7 +3,7 @@
  * PptxGenJS Interfaces
  */
 
-import type { CHART_NAME, PLACEHOLDER_TYPE, SHAPE_NAME, SLIDE_OBJECT_TYPES, TEXT_HALIGN, TEXT_VALIGN, WRITE_OUTPUT_TYPE } from './core-enums.js'
+import type { CHART_NAME, PLACEHOLDER_TYPE, SHAPE_NAME, SLIDE_OBJECT_TYPES, TABLE_STYLE, TEXT_HALIGN, TEXT_VALIGN, WRITE_OUTPUT_TYPE } from './core-enums.js'
 
 // Core Types
 // ==========
@@ -1056,11 +1056,57 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	colW?: number | number[]
 	/**
 	 * Mark the first row as a header row.
-	 * Emits `firstRow="1"` on `<a:tblPr>`, which enables first-row styling from the
-	 * table style and satisfies the PowerPoint accessibility checker's "table header" rule.
+	 * Emits `firstRow="1"` on `<a:tblPr>`, activating the first-row style region of
+	 * the table style and satisfying the PowerPoint accessibility checker's "table header" rule.
 	 * @default false
 	 */
 	hasHeader?: boolean
+	/**
+	 * Mark the last row as a footer row.
+	 * Emits `lastRow="1"` on `<a:tblPr>`, activating the last-row style region.
+	 * Requires `tableStyle` to have a visible effect.
+	 * @default false
+	 */
+	hasFooter?: boolean
+	/**
+	 * Enable alternating row (band) shading.
+	 * Emits `bandRow="1"` on `<a:tblPr>`, activating band1H/band2H style regions.
+	 * Requires `tableStyle` to have a visible effect.
+	 * @default false
+	 */
+	hasBandedRows?: boolean
+	/**
+	 * Enable alternating column (band) shading.
+	 * Emits `bandCol="1"` on `<a:tblPr>`, activating band1V/band2V style regions.
+	 * Requires `tableStyle` to have a visible effect.
+	 * @default false
+	 */
+	hasBandedColumns?: boolean
+	/**
+	 * Apply special styling to the first column.
+	 * Emits `firstCol="1"` on `<a:tblPr>`, activating the firstCol style region.
+	 * Requires `tableStyle` to have a visible effect.
+	 * @default false
+	 */
+	hasFirstColumn?: boolean
+	/**
+	 * Apply special styling to the last column.
+	 * Emits `lastCol="1"` on `<a:tblPr>`, activating the lastCol style region.
+	 * Requires `tableStyle` to have a visible effect.
+	 * @default false
+	 */
+	hasLastColumn?: boolean
+	/**
+	 * Built-in PowerPoint table style to apply.
+	 * Emits `<a:tableStyleId>` inside `<a:tblPr>` with the corresponding GUID.
+	 * Style flags (`hasHeader`, `hasFooter`, `hasBandedRows`, etc.) select which
+	 * regions of the chosen style are activated; they have no visible effect without
+	 * a `tableStyle` set.
+	 *
+	 * Only `TABLE_STYLE` enum members are accepted — raw GUID strings are not supported.
+	 * @example tableStyle: pptx.TABLE_STYLE.MEDIUM_STYLE_2_ACCENT_1
+	 */
+	tableStyle?: TABLE_STYLE
 	/**
 	 * Cell background color
 	 * @example { color:'FF0000' } // hex color (red)
@@ -1973,6 +2019,12 @@ export interface ObjectOptions extends ImageBaseProps, PositionProps, ShapeProps
 	colW?: number | number[] // table
 	rowH?: number | number[] // table
 	hasHeader?: boolean // table
+	hasFooter?: boolean // table
+	hasBandedRows?: boolean // table
+	hasBandedColumns?: boolean // table
+	hasFirstColumn?: boolean // table
+	hasLastColumn?: boolean // table
+	tableStyle?: TABLE_STYLE // table
 }
 export interface SlideBaseProps {
 	_bkgdImgRid?: number

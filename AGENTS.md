@@ -24,10 +24,51 @@
 ## OOXML And PowerPoint Work
 
 - Before changing emitted OOXML, read `docs/ooxml-agent-context.md`.
-- Use the configured `ooxml` MCP server for ECMA-376 / ISO 29500 structure, schema, legal children, attributes, enum values, namespaces, and OPC package metadata.
-- Use the configured `microsoft_learn` MCP server for Microsoft Open Specifications, PowerPoint implementation behavior, Open XML SDK behavior, and compatibility notes.
 - Do not vendor full standards PDFs or large extracted specification text into this repository as agent context. Store small, repo-specific notes with section references instead.
 - Prefer executable evidence over prose alone: inspect minimal PowerPoint-authored `.pptx` packages when needed, compare package XML, and add focused regression or schema fixtures.
+
+### MCP Tool Selection
+
+Two MCP servers cover complementary parts of the OOXML/PowerPoint space. Work
+through them in order before falling back to web search.
+
+**Step 1 — `ooxml` MCP** (source: ECMA-376 / ISO 29500 parsed XSDs and spec PDFs)
+
+Use this for questions whose answer lives in the *standard itself*:
+- Element and complexType definitions (`ooxml_element`, `ooxml_type`)
+- Legal child elements in document order (`ooxml_children`)
+- Attribute names, types, defaults, and required/optional (`ooxml_attributes`)
+- Enum values for a type (`ooxml_enum`)
+- Namespace URIs (`ooxml_namespace`)
+- OPC package parts, content types, and relationships (`ooxml_package_part`, `ooxml_parts`)
+- Free-text search across the spec PDFs (`ooxml_search`, `ooxml_section`)
+
+The `ooxml` MCP does **not** cover Microsoft-proprietary details such as built-in
+style GUIDs, behavior differences between Office versions, [MS-OE376] / [MS-PPTX]
+deviations from the standard, or Open XML SDK usage. If the answer requires any of
+those, move to Step 2 rather than falling back to web search.
+
+**Step 2 — `microsoft_learn` MCP** (source: Microsoft Learn / Open Specifications)
+
+If the `ooxml` MCP returns incomplete or no answer, always try this before web search.
+Use it for:
+- Microsoft Open Specifications ([MS-OE376], [MS-PPTX], [MS-OFFCRYPTO], …) —
+  these document how Office *implements* or *deviates from* ECMA-376 and contain
+  Microsoft-proprietary enumerations such as built-in table style GUIDs, preset
+  shape adjustment ranges, and behavior flags not in the standard.
+- PowerPoint-specific rendering behavior, repair heuristics, and version-gated features.
+- Open XML SDK (`DocumentFormat.OpenXml`) API usage and samples.
+- Azure / Microsoft 365 platform documentation.
+
+Use `microsoft_docs_search` for a broad query first, then `microsoft_docs_fetch` on
+a returned URL when you need the full page content.
+
+**Step 3 — web search (`WebSearch` / `WebFetch`)**
+
+Only after both MCPs have been tried and the information is still missing or
+ambiguous. Useful for community discoveries (e.g. undocumented GUIDs found by
+reverse-engineering), third-party library behaviour, and content that postdates the
+MCPs' corpora.
 
 ## Upstream Signals Workflow
 

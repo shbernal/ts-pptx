@@ -252,6 +252,35 @@ export default [
 		},
 	},
 	{
+		name: 'table with built-in style and all style flags',
+		fn: async () => {
+			const { TABLE_STYLE } = await import('../dist/index.js')
+			const { buf } = await build((p) => {
+				p.addSlide().addTable(
+					[
+						[{ text: 'Col A' }, { text: 'Col B' }],
+						[{ text: 'A1' }, { text: 'B1' }],
+						[{ text: 'A2' }, { text: 'B2' }],
+						[{ text: 'Total' }, { text: '42' }],
+					],
+					{
+						x: 1,
+						y: 1,
+						w: 4,
+						tableStyle: TABLE_STYLE.MEDIUM_STYLE_2_ACCENT_1,
+						hasHeader: true,
+						hasFooter: true,
+						hasBandedRows: true,
+						hasBandedColumns: false,
+						hasFirstColumn: false,
+						hasLastColumn: false,
+					}
+				)
+			})
+			await expectNoSchemaErrors(buf, 'table-built-in-style-all-flags')
+		},
+	},
+	{
 		name: 'embedded PNG image',
 		fn: async () => {
 			const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
