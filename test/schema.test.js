@@ -131,6 +131,22 @@ export default [
 		},
 	},
 	{
+		name: 'shape line with round cap',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape(p.shapes.LINE, {
+					x: 1,
+					y: 1,
+					w: 4,
+					h: 0,
+					line: { color: '0070C0', width: 3, cap: 'round', dashType: 'dash' },
+				})
+			})
+			await expectNoSchemaErrors(buf, 'shape-line-round-cap')
+		},
+	},
+	{
 		name: 'shape with shadow',
 		fn: async () => {
 			const { buf } = await build((p) => {
@@ -377,6 +393,32 @@ export default [
 				)
 			})
 			await expectNoSchemaErrors(buf, 'custom-table-style-trbl-border')
+		},
+	},
+	{
+		name: 'table cell border with line caps',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addTable(
+					[
+						[
+							{
+								text: 'capped',
+								options: {
+									border: [
+										{ type: 'solid', color: '000000', pt: 2, cap: 'round' },
+										{ type: 'solid', color: '000000', pt: 2, cap: 'square' },
+										{ type: 'none', cap: 'round' },
+										{ type: 'solid', color: '000000', pt: 2 },
+									],
+								},
+							},
+						],
+					],
+					{ x: 1, y: 1, w: 4 }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'table-cell-border-line-caps')
 		},
 	},
 	{

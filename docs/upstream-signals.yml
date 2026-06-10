@@ -7397,35 +7397,40 @@ items:
     source: "gitbrent/PptxGenJS#782"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-10
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
-    applies_to_current_project: partial
+    applies_to_current_project: yes
     non_target_reasons: []
     upstream_summary: Requested support for line cap values flat, square, and round.
     current_project_notes: >
-      Current chart gridlines and chart series lines have a ChartLineCap option,
-      but shape and table line XML still lack a public cap option. Treat any work
-      here as a shape/table line feature, not as a chart feature.
+      Implemented a shared `LineCap` type ('flat' | 'round' | 'square') and a
+      `createLineCap` helper (hoisted from gen-charts into gen-utils) that maps to
+      the OOXML `cap` attribute (flat/sq/rnd). Added a public `cap` option to
+      `ShapeLineProps` (shape `line.cap`) and `BorderProps` (table cell
+      `border[].cap`), both emitted on `<a:ln>` in gen-xml. `ChartLineCap` is kept
+      as a deprecated alias of `LineCap`. Charts already supported the cap and now
+      reuse the shared helper.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-pass
       local_files:
-        - src/core-interfaces.ts:206
-        - src/core-interfaces.ts:216
-        - src/core-interfaces.ts:1163
-        - src/core-interfaces.ts:1205
-        - src/gen-xml.ts:519
-        - src/gen-xml.ts:365
-        - src/gen-charts.ts:2044
-        - src/gen-charts.ts:2054
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts:1513
+        - src/core-interfaces.ts:215
+        - src/core-interfaces.ts:322
+        - src/gen-utils.ts:339
+        - src/gen-xml.ts:510
+        - src/gen-xml.ts:595
+        - src/gen-charts.ts:23
+      schema_fixture: "test/schema.test.js: shape-line-round-cap, table-cell-border-line-caps"
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: design-shape-and-table-line-cap-option
+    next_action: none
 
   - id: upstream-issue-776
     source: "gitbrent/PptxGenJS#776"

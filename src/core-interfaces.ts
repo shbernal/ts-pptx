@@ -211,6 +211,11 @@ export interface BorderProps {
 	 * @default 1
 	 */
 	pt?: number
+	/**
+	 * Line end cap style
+	 * @default 'flat'
+	 */
+	cap?: LineCap
 }
 // used by: image, object, text,
 export interface HyperlinkProps {
@@ -319,6 +324,11 @@ export interface ShapeLineProps extends ShapeFillProps {
 	 * @default 'solid'
 	 */
 	dashType?: 'solid' | 'dash' | 'dashDot' | 'lgDash' | 'lgDashDot' | 'lgDashDotDot' | 'sysDash' | 'sysDot'
+	/**
+	 * Line end cap style
+	 * @default 'flat'
+	 */
+	cap?: LineCap
 	/**
 	 * Begin arrow type
 	 * @since v3.3.0
@@ -1510,7 +1520,12 @@ export interface OptsDataLabelPosition {
 */
 
 export type ChartAxisTickMark = 'none' | 'inside' | 'outside' | 'cross'
-export type ChartLineCap = 'flat' | 'round' | 'square'
+/**
+ * Line end cap style. Maps to the OOXML `cap` attribute on `<a:ln>` (`flat`/`sq`/`rnd`).
+ */
+export type LineCap = 'flat' | 'round' | 'square'
+/** @deprecated use `LineCap` (the cap type is not chart-specific) */
+export type ChartLineCap = LineCap
 export type ChartLineDash = 'dash' | 'dashDot' | 'lgDash' | 'lgDashDot' | 'lgDashDotDot' | 'solid' | 'sysDash' | 'sysDot'
 
 export interface OptsChartData {

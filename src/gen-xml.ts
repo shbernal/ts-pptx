@@ -40,6 +40,7 @@ import {
 	convertRotationDegrees,
 	createColorElement,
 	createGlowElement,
+	createLineCap,
 	encodeXmlEntities,
 	genXmlColorSelection,
 	getDuplicateObjectNames,
@@ -506,14 +507,15 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 								{ idx: 2, name: 'lnB' },
 							] as const).forEach(obj => {
 								const border = cellBorder[obj.idx]
+								const cap = createLineCap(border.cap)
 								if (border.type !== 'none') {
-									strXml += `<a:${obj.name} w="${valToPts(border.pt)}" cap="flat" cmpd="sng" algn="ctr">`
+									strXml += `<a:${obj.name} w="${valToPts(border.pt)}" cap="${cap}" cmpd="sng" algn="ctr">`
 									strXml += `<a:solidFill>${createColorElement(border.color)}</a:solidFill>`
 									strXml += `<a:prstDash val="${border.type === 'dash' ? 'sysDash' : 'solid'
 									}"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/>`
 									strXml += `</a:${obj.name}>`
 								} else {
-									strXml += `<a:${obj.name} w="0" cap="flat" cmpd="sng" algn="ctr"><a:noFill/></a:${obj.name}>`
+									strXml += `<a:${obj.name} w="0" cap="${cap}" cmpd="sng" algn="ctr"><a:noFill/></a:${obj.name}>`
 								}
 							})
 						}
@@ -592,7 +594,9 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 
 				// shape Type: LINE: line color
 				if (slideItemObj.options.line) {
-					strSlideXml += slideItemObj.options.line.width ? `<a:ln w="${valToPts(slideItemObj.options.line.width)}">` : '<a:ln>'
+					const lnAttrs = (slideItemObj.options.line.width ? ` w="${valToPts(slideItemObj.options.line.width)}"` : '') +
+						(slideItemObj.options.line.cap ? ` cap="${createLineCap(slideItemObj.options.line.cap)}"` : '')
+					strSlideXml += `<a:ln${lnAttrs}>`
 					if (slideItemObj.options.line.color) strSlideXml += genXmlColorSelection(slideItemObj.options.line)
 					if (slideItemObj.options.line.dashType) strSlideXml += `<a:prstDash val="${slideItemObj.options.line.dashType}"/>`
 					if (slideItemObj.options.line.beginArrowType) strSlideXml += `<a:headEnd type="${slideItemObj.options.line.beginArrowType}"/>`

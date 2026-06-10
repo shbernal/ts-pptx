@@ -19,8 +19,8 @@ import {
 	LETTERS,
 	ONEPT,
 } from './core-enums.js'
-import type { IChartOptsLib, ISlideRelChart, ShadowProps, IChartPropsTitle, OptsChartGridLine, IOptsChartData, ChartLineCap, BorderProps } from './core-interfaces.js'
-import { createColorElement, genXmlColorSelection, convertRotationDegrees, encodeXmlEntities, getUuid, valToPts } from './gen-utils.js'
+import type { IChartOptsLib, ISlideRelChart, ShadowProps, IChartPropsTitle, OptsChartGridLine, IOptsChartData, BorderProps } from './core-interfaces.js'
+import { createColorElement, createLineCap, genXmlColorSelection, convertRotationDegrees, encodeXmlEntities, getUuid, valToPts } from './gen-utils.js'
 import JSZip from 'jszip'
 
 const VALID_CHART_TIME_UNITS = ['days', 'months', 'years']
@@ -2135,17 +2135,4 @@ function makeSeriesDataPointsXml (chartType: CHART_NAME, obj: IOptsChartData, op
 		xml += '</c:dPt>'
 	})
 	return xml
-}
-
-function createLineCap (lineCap: ChartLineCap): string {
-	if (!lineCap || lineCap === 'flat') {
-		return 'flat'
-	} else if (lineCap === 'square') {
-		return 'sq'
-	} else if (lineCap === 'round') {
-		return 'rnd'
-	} else {
-		const neverLineCap: never = lineCap
-		throw new Error(`Invalid chart line cap: ${neverLineCap}`)
-	}
 }

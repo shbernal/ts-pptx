@@ -4,7 +4,7 @@
 
 import { REGEX_HEX_COLOR, DEF_FONT_COLOR, ONEPT, SchemeColor, SCHEME_COLORS } from './core-enums.js'
 import { coordToEmu, inchesToEmu, type Emu } from './units.js'
-import type { PresLayout, TextGlowProps, PresSlideInternal, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, GradientStopProps, PatternFillProps } from './core-interfaces.js'
+import type { PresLayout, TextGlowProps, PresSlideInternal, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, GradientStopProps, PatternFillProps, LineCap } from './core-interfaces.js'
 
 /**
  * Resolve a user `Coord` (x/y/w/h) to EMU — the single user-coordinate → EMU boundary.
@@ -336,6 +336,24 @@ export function genXmlPatternFill (pattern: PatternFillProps | undefined): strin
  * @param {Color | ShapeFillProps | ShapeLineProps} props fill props
  * @returns XML string
  */
+/**
+ * Map a friendly `LineCap` value to the OOXML `cap` attribute value (`flat`/`sq`/`rnd`).
+ * @param {LineCap} [lineCap] - line cap style (defaults to `flat`)
+ * @returns {string} value for the `cap` attribute on `<a:ln>`
+ */
+export function createLineCap (lineCap?: LineCap): string {
+	if (!lineCap || lineCap === 'flat') {
+		return 'flat'
+	} else if (lineCap === 'square') {
+		return 'sq'
+	} else if (lineCap === 'round') {
+		return 'rnd'
+	} else {
+		const neverLineCap: never = lineCap
+		throw new Error(`Invalid line cap: ${String(neverLineCap)}`)
+	}
+}
+
 export function genXmlColorSelection (props: Color | ShapeFillProps | ShapeLineProps): string {
 	let fillType = 'solid'
 	let colorVal = ''
