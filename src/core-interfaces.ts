@@ -138,6 +138,30 @@ export interface LinearGradientFillProps {
 	stops: GradientStopProps[]
 }
 export type GradientFillProps = LinearGradientFillProps
+
+/** OOXML ST_PresetPatternVal — preset pattern names for `<a:pattFill prst="...">` */
+export type PatternPreset =
+	| 'pct5' | 'pct10' | 'pct20' | 'pct25' | 'pct30' | 'pct40' | 'pct50'
+	| 'pct60' | 'pct70' | 'pct75' | 'pct80' | 'pct90'
+	| 'horz' | 'vert' | 'ltHorz' | 'ltVert' | 'dkHorz' | 'dkVert'
+	| 'narHorz' | 'narVert' | 'dashHorz' | 'dashVert'
+	| 'cross' | 'dnDiag' | 'upDiag' | 'ltDnDiag' | 'ltUpDiag'
+	| 'dkDnDiag' | 'dkUpDiag' | 'wdDnDiag' | 'wdUpDiag'
+	| 'dashDnDiag' | 'dashUpDiag' | 'diagCross'
+	| 'smCheck' | 'lgCheck' | 'smGrid' | 'lgGrid' | 'dotGrid'
+	| 'smConfetti' | 'lgConfetti' | 'horzBrick' | 'diagBrick'
+	| 'solidDmnd' | 'openDmnd' | 'dotDmnd' | 'plaid' | 'sphere'
+	| 'weave' | 'divot' | 'shingle' | 'wave' | 'trellis' | 'zigZag'
+
+export interface PatternFillProps {
+	/** OOXML preset pattern (`prst` attribute on `<a:pattFill>`). */
+	preset: PatternPreset
+	/** Foreground color. Defaults to black (`000000`) if omitted. */
+	fgColor?: Color
+	/** Background color. Defaults to white (`FFFFFF`) if omitted. */
+	bgColor?: Color
+}
+
 export type Margin = number | [number, number, number, number]
 export type HAlign = 'left' | 'center' | 'right' | 'justify'
 export type VAlign = 'top' | 'middle' | 'bottom'
@@ -260,12 +284,17 @@ export interface ShapeFillProps {
 	 * Fill type
 	 * @default 'solid'
 	 */
-	type?: 'none' | 'solid' | 'gradient'
+	type?: 'none' | 'solid' | 'gradient' | 'pattern'
 
 	/**
 	 * Native PPTX gradient fill options.
 	 */
 	gradient?: GradientFillProps
+
+	/**
+	 * Native PPTX pattern fill options.
+	 */
+	pattern?: PatternFillProps
 
 	/**
 	 * Transparency (percent)

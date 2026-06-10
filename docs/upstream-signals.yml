@@ -1481,8 +1481,8 @@ items:
     source: "gitbrent/PptxGenJS#1305"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-10
+    status: implemented
     priority: p2
     target_area:
       - missing-pptx-feature
@@ -1491,19 +1491,26 @@ items:
     non_target_reasons: []
     upstream_summary: Add OOXML pattern fill support for shapes, text, charts, and tables.
     current_project_notes: >
-      Current genXmlColorSelection only handles solid fills. Pattern fill is a
-      valid feature candidate but needs schema checks and a typed API before
-      implementation.
+      Implemented locally. PatternPreset (ST_PresetPatternVal union) and
+      PatternFillProps (preset, fgColor, bgColor) added to core-interfaces.ts.
+      genXmlPatternFill() in gen-utils.ts emits <a:pattFill prst="..."> with
+      <a:fgClr> and <a:bgClr> children. ShapeFillProps.type now accepts
+      'pattern'; genXmlColorSelection routes to genXmlPatternFill on that branch.
+      Schema fixture shape-pattern-fill added to test/schema.test.js and validated.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
       local_files:
-        - src/gen-utils.ts:198
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts
+        - src/gen-utils.ts
+        - test/schema.test.js
+      schema_fixture: shape-pattern-fill
+      validator_result: pnpm run test:schema passed 2026-06-10
       powerpoint_result: null
-      spec_refs: []
-    next_action: research-pattern-fill-ooxml-and-api
+      spec_refs:
+        - "ECMA-376 Part 1 §20.1.8.43 pattFill (CT_PatternFillProperties)"
+    next_action: none
 
   - id: upstream-pr-1287
     source: "gitbrent/PptxGenJS#1287"

@@ -180,6 +180,25 @@ export default [
 		},
 	},
 	{
+		name: 'shape with pattern fill',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape(p.shapes.RECTANGLE, {
+					x: 1,
+					y: 1,
+					w: 4,
+					h: 1,
+					fill: {
+						type: 'pattern',
+						pattern: { preset: 'diagCross', fgColor: '003366', bgColor: 'FFFFFF' },
+					},
+				})
+			})
+			await expectNoSchemaErrors(buf, 'shape-pattern-fill')
+		},
+	},
+	{
 		name: 'solid-color slide background',
 		fn: async () => {
 			const { buf } = await build((p) => {

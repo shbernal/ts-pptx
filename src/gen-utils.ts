@@ -3,7 +3,7 @@
  */
 
 import { EMU, REGEX_HEX_COLOR, DEF_FONT_COLOR, ONEPT, SchemeColor, SCHEME_COLORS } from './core-enums.js'
-import type { PresLayout, TextGlowProps, PresSlideInternal, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, GradientStopProps } from './core-interfaces.js'
+import type { PresLayout, TextGlowProps, PresSlideInternal, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, GradientStopProps, PatternFillProps } from './core-interfaces.js'
 
 /**
  * Translates any type of `x`/`y`/`w`/`h` prop to EMU
@@ -333,6 +333,23 @@ export function genXmlGradientFill (gradient: GradientFillProps | undefined): st
 }
 
 /**
+ * Create a native DrawingML pattern fill.
+ * @param {PatternFillProps} pattern pattern fill options
+ * @returns XML string
+ */
+export function genXmlPatternFill (pattern: PatternFillProps | undefined): string {
+	if (!pattern) throw new Error('Pattern fill requires a pattern object.')
+	const fgColor = pattern.fgColor ?? '000000'
+	const bgColor = pattern.bgColor ?? 'FFFFFF'
+	return (
+		`<a:pattFill prst="${pattern.preset}">` +
+		`<a:fgClr>${createColorElement(fgColor)}</a:fgClr>` +
+		`<a:bgClr>${createColorElement(bgColor)}</a:bgClr>` +
+		'</a:pattFill>'
+	)
+}
+
+/**
  * Create color selection
  * @param {Color | ShapeFillProps | ShapeLineProps} props fill props
  * @returns XML string
@@ -358,6 +375,9 @@ export function genXmlColorSelection (props: Color | ShapeFillProps | ShapeLineP
 				break
 			case 'gradient':
 				outText += genXmlGradientFill(typeof props === 'string' ? undefined : props.gradient)
+				break
+			case 'pattern':
+				outText += genXmlPatternFill(typeof props === 'string' ? undefined : props.pattern)
 				break
 			default: // @note need a statement as having only "break" can be removed by bundlers, then triggers "no-default" js-linter
 				outText += ''
