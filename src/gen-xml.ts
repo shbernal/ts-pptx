@@ -1202,6 +1202,10 @@ function genXmlBodyProperties (slideObject: ISlideObject | TableCell): string {
 		if (slideObject.options._bodyProp.rIns || slideObject.options._bodyProp.rIns === 0) bodyProperties += ` rIns="${slideObject.options._bodyProp.rIns}"`
 		if (slideObject.options._bodyProp.bIns || slideObject.options._bodyProp.bIns === 0) bodyProperties += ` bIns="${slideObject.options._bodyProp.bIns}"`
 
+		// C.1: Text columns (numCol/spcCol). Spacing is only meaningful when there is more than one column.
+		if (slideObject.options._bodyProp.numCol) bodyProperties += ` numCol="${slideObject.options._bodyProp.numCol}"`
+		if (slideObject.options._bodyProp.spcCol) bodyProperties += ` spcCol="${slideObject.options._bodyProp.spcCol}"`
+
 		// C: Add rtl after margins
 		bodyProperties += ' rtlCol="0"'
 

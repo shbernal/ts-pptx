@@ -1319,6 +1319,8 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 		rIns?: number
 		tIns?: number
 		bIns?: number
+		numCol?: number
+		spcCol?: number
 		vert?: TextVertType
 		wrap?: boolean
 	}
@@ -1329,6 +1331,24 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 * Character spacing
 	 */
 	charSpacing?: number
+	/**
+	 * Number of text columns in the text body
+	 * - PowerPoint: Format Shape > Shape Options > Size & Properties > Text Box > Columns > "Number"
+	 * - range: 1-16
+	 * @since v5.3.0
+	 * @default 1
+	 * @example 2 // flow text into two columns
+	 */
+	columns?: number
+	/**
+	 * Spacing between text columns (points)
+	 * - PowerPoint: Format Shape > Shape Options > Size & Properties > Text Box > Columns > "Spacing"
+	 * - only applies when `columns` > 1
+	 * @since v5.3.0
+	 * @default 0
+	 * @example 10 // 10pt gap between columns
+	 */
+	columnSpacing?: number
 	/**
 	 * Text fit options
 	 *

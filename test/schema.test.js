@@ -63,6 +63,18 @@ export default [
 		},
 	},
 	{
+		// Asserts numCol/spcCol body-property serialization stays schema-valid
+		// (upstream-issue-1320). numCol is bounded 1-16 by ECMA-376
+		// ST_TextColumnCount; spcCol is EMU. Rendering layout is not asserted here.
+		name: 'text box with multiple columns',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addText('column flow text', { x: 1, y: 1, w: 6, h: 2, columns: 2, columnSpacing: 12 })
+			})
+			await expectNoSchemaErrors(buf, 'text-columns')
+		},
+	},
+	{
 		name: 'text box with vertical alignment',
 		fn: async () => {
 			const { buf } = await build((p) => {

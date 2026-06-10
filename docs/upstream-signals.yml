@@ -3216,8 +3216,8 @@ items:
     source: "gitbrent/PptxGenJS#1320"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-10
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -3225,22 +3225,26 @@ items:
     non_target_reasons: []
     upstream_summary: Text boxes cannot configure body columns such as numCol.
     current_project_notes: >
-      Current internal _bodyProp model and bodyPr emission expose wrapping,
-      insets, vertical text, anchoring, and autofit, but not text column count or
-      spacing attributes.
+      Implemented as TextPropsOptions `columns` (1-16) and `columnSpacing`
+      (points). cleanOpts validates the range and warns on invalid values, then
+      maps to _bodyProp.numCol / _bodyProp.spcCol (spcCol via valToPts -> EMU).
+      genXmlBodyProperties emits numCol/spcCol on <a:bodyPr> before rtlCol.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/core-interfaces.ts:993
-        - src/gen-objects.ts:1102
-        - src/gen-xml.ts:1088
-        - src/gen-xml.ts:1108
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts:1322
+        - src/core-interfaces.ts:1342
+        - src/gen-objects.ts:1144
+        - src/gen-xml.ts:1205
+      schema_fixture: "test/schema.test.js: text box with multiple columns"
+      validator_result: pass
       powerpoint_result: null
-      spec_refs: []
-    next_action: compare-powerpoint-authored-text-column-bodyPr-xml
+      spec_refs:
+        - "ECMA-376 a:CT_TextBodyProperties @numCol (ST_TextColumnCount 1-16), @spcCol (ST_PositiveCoordinate32 EMU)"
+    next_action: none
 
   - id: upstream-issue-1319
     source: "gitbrent/PptxGenJS#1319"

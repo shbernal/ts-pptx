@@ -1140,6 +1140,22 @@ export function addTextDefinition(target: PresSlideInternal, text: TextProps[], 
 			itemOpts._bodyProp.vert = itemOpts.vert // VALS: [eaVert,horz,mongolianVert,vert,vert270,wordArtVert,wordArtVertRtl]
 			itemOpts._bodyProp.wrap = typeof itemOpts.wrap === 'boolean' ? itemOpts.wrap : true
 
+			// D.1: Text columns (`numCol` range is 1-16 per ECMA-376 ST_TextColumnCount)
+			if (itemOpts.columns !== undefined) {
+				if (typeof itemOpts.columns !== 'number' || isNaN(itemOpts.columns) || itemOpts.columns < 1 || itemOpts.columns > 16) {
+					console.warn('Warning: text `columns` must be a number 1-16 (ignoring value)')
+				} else {
+					itemOpts._bodyProp.numCol = Math.round(itemOpts.columns)
+				}
+			}
+			if (itemOpts.columnSpacing !== undefined) {
+				if (typeof itemOpts.columnSpacing !== 'number' || isNaN(itemOpts.columnSpacing) || itemOpts.columnSpacing < 0) {
+					console.warn('Warning: text `columnSpacing` must be a number >= 0 (ignoring value)')
+				} else {
+					itemOpts._bodyProp.spcCol = valToPts(itemOpts.columnSpacing)
+				}
+			}
+
 			// E: Inset
 			// @deprecated 3.10.0 (`inset` - use `margin`)
 			if ((itemOpts.inset && !isNaN(Number(itemOpts.inset))) || itemOpts.inset === 0) {
