@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.2.0](https://github.com/shbernal/PptxGenJS/releases/tag/v5.2.0) - 2026-06-10
+
+### Added
+
+- `textRun(text, options?)` / `textRuns(runs)` factory helpers for building
+  typed inline-run arrays without `as never` casts.
+- Native pattern fills for shapes via `fill: { type: 'pattern', pattern: {
+  preset, fgColor?, bgColor? } }`, covering the full OOXML `ST_PresetPatternVal`
+  preset set.
+- `defineTableStyle()` registers a custom reusable table style, and a
+  `TABLE_STYLE` enum plus `tblPr` style flags expose the built-in styles.
+- `hasHeader` table option emits `firstRow="1"` on `tblPr`.
+- Slide masters accept a `roundRect` object and placeholder shapes.
+- Chart `seriesOptions` sets per-series color and data-label overrides.
+- Combo charts can suppress subchart series from the shared legend.
+- Image `duotone` recolor option maps shadows/highlights to two colors.
+- `firstSlideNum` sets a custom starting slide number for the presentation.
+- `setCustomProperty` writes OOXML custom document properties.
+
+### Fixed
+
+- `textRun` / `textRuns` are now exported from every runtime entry
+  (`node`, `browser`, `standalone`, `core`); previously only `index` shipped
+  them, so `import { textRun }` type-checked but threw at runtime under the
+  Node export condition.
+- Image `cover` / `contain` crop is computed from the natural pixel ratio
+  instead of the display ratio, fixing incorrect crop windows.
+- Out-of-bounds image crop windows now throw instead of emitting a negative
+  `srcRect`.
+- Multi-level category charts use the correct embedded-workbook cell and
+  shared-string-table indices.
+- `round2SameRect` and `round2DiagRect` preset shapes emit `adj1`/`adj2`.
+- Table `autoPage` shares line-wrap state across styled runs in a cell,
+  preserves the originating slide section across overflow slides, and no
+  longer breaks inside an active rowspan group.
+- `breakLine: false` is preserved on the last piece of a CRLF-split run.
+- SVG PNG previews use a transparent placeholder instead of the broken-image
+  icon.
+- Image hyperlink URLs are XML-entity encoded.
+
 ## [5.1.0](https://github.com/shbernal/PptxGenJS/releases/tag/v5.1.0) - 2026-06-09
 
 ### Added
