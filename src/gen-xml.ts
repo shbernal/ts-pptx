@@ -15,6 +15,7 @@ import {
 	PLACEHOLDER_TYPES,
 	SLDNUMFLDID,
 	SLIDE_OBJECT_TYPES,
+	VALID_SHAPE_PRESETS,
 } from './core-enums.js'
 import type {
 	BorderProps,
@@ -108,6 +109,12 @@ const ImageSizingXml = {
 const RECT_RADIUS_ADJ1_SHAPES = new Set(['round2SameRect', 'round2DiagRect'])
 
 function genXmlPresetGeom (shapeName: string, options: ObjectOptions, cx: number, cy: number): string {
+	// Safety net for every prstGeom emitter (addShape, addText/addImage `shape`):
+	// an unknown preset becomes an invalid `prst` value that makes PowerPoint show
+	// the "needs repair" dialog and drop the shape. Fail loudly instead.
+	if (!VALID_SHAPE_PRESETS.has(shapeName)) {
+		throw new Error(`Invalid shape "${String(shapeName)}"! Use a value from \`pptxgen.shapes.*\` (e.g. \`pptxgen.shapes.RECTANGLE\`). PowerPoint can't render unknown preset geometries and will drop the shape during repair.`)
+	}
 	let strXml = `<a:prstGeom prst="${shapeName}"><a:avLst>`
 	if (options.rectRadius) {
 		const adjVal = Math.round((options.rectRadius * EMU * 100000) / Math.min(cx, cy))

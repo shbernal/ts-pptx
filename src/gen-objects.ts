@@ -22,6 +22,7 @@ import {
 	SLIDE_OBJECT_TYPES,
 	TEXT_HALIGN,
 	TEXT_VALIGN,
+	VALID_SHAPE_PRESETS,
 } from './core-enums.js'
 import type {
 	AddSlideProps,
@@ -710,27 +711,6 @@ const SHAPE_NAME_ALIASES: { [key: string]: SHAPE_NAME } = {
 	roundedRectangle: 'roundRect',
 	roundedrectangle: 'roundRect',
 }
-
-/**
- * Valid ECMA-376 `ST_ShapeType` presets that PptxGenJS does not surface with a
- * friendly `SHAPE_TYPE` name. They are still legal geometries PowerPoint
- * renders, so the validation set below must accept them.
- */
-const EXTRA_VALID_SHAPE_PRESETS = [
-	'straightConnector1',
-	'bentConnector2', 'bentConnector3', 'bentConnector4', 'bentConnector5',
-	'curvedConnector2', 'curvedConnector3', 'curvedConnector4', 'curvedConnector5',
-]
-
-/**
- * Runtime set of every valid shape geometry name accepted by `addShape()`:
- * the OOXML preset geometries (`ST_ShapeType`, via `SHAPE_TYPE` values plus the
- * unexposed connectors above) and `custGeom` (freeform paths, special-cased in
- * gen-xml). Used to reject bogus presets at `addShape()` time instead of
- * emitting an invalid `<a:prstGeom prst="...">` that makes PowerPoint show the
- * "needs repair" dialog and drop the shape.
- */
-const VALID_SHAPE_PRESETS = new Set<string>([...Object.values(SHAPE_TYPE), ...EXTRA_VALID_SHAPE_PRESETS])
 
 /**
  * Adds a shape object to a slide definition.

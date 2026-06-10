@@ -98,6 +98,33 @@ defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 		},
 	},
 	{
+		name: 'addText with a valid shape preset emits that prstGeom',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addText('hi', { shape: 'ellipse', x: 1, y: 1, w: 1, h: 1 })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(/<a:prstGeom\s+prst="ellipse"/.test(xml), 'expected prst="ellipse" via addText shape; got: ' + xml)
+		},
+	},
+	{
+		name: 'addText with an invalid shape preset throws (gen-xml safety net)',
+		fn: async () => {
+			let threw = false
+			try {
+				await build((p) => {
+					const s = p.addSlide()
+					s.addText('hi', { shape: 'ellipsee', x: 1, y: 1, w: 1, h: 1 }) // typo
+				})
+			} catch (err) {
+				threw = true
+				assert(/Invalid shape "ellipsee"/.test(String(err.message)), 'unexpected error message: ' + err.message)
+			}
+			assert(threw, 'expected addText with invalid shape to throw')
+		},
+	},
+	{
 		name: 'custGeom freeform shape is accepted (special-cased, not a prstGeom)',
 		fn: async () => {
 			const { zip } = await build((p) => {

@@ -691,6 +691,27 @@ export type SHAPE_NAME =
 	| 'wedgeRectCallout'
 	| 'wedgeRoundRectCallout'
 
+/**
+ * Valid ECMA-376 `ST_ShapeType` presets that are not surfaced with a friendly
+ * `SHAPE_TYPE` name. They are still legal geometries PowerPoint renders, so the
+ * preset-validation set must accept them.
+ */
+const EXTRA_SHAPE_PRESETS = [
+	'straightConnector1',
+	'bentConnector2', 'bentConnector3', 'bentConnector4', 'bentConnector5',
+	'curvedConnector2', 'curvedConnector3', 'curvedConnector4', 'curvedConnector5',
+] as const
+
+/**
+ * Every shape geometry name PptxGenJS can serialize without corrupting the
+ * package: the OOXML preset geometries (`ST_ShapeType` — `SHAPE_TYPE` values
+ * plus the unexposed connectors above) and `custGeom` (freeform paths, emitted
+ * as `<a:custGeom>` rather than `<a:prstGeom>`). Used to reject bogus presets
+ * before they become an invalid `<a:prstGeom prst="...">` that triggers
+ * PowerPoint's "needs repair" dialog and drops the shape.
+ */
+export const VALID_SHAPE_PRESETS: ReadonlySet<string> = new Set<string>([...Object.values(SHAPE_TYPE), ...EXTRA_SHAPE_PRESETS])
+
 export enum CHART_TYPE {
 	'AREA' = 'area',
 	'BAR' = 'bar',

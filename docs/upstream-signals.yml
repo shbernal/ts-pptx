@@ -730,18 +730,20 @@ items:
       focused repros: Defect 3 (per-slide phantom slideMaster Content_Types
       Overrides), Defect 4 (unused Default extension registrations), Defect 6
       (empty charts/ and embeddings/ scaffold dirs). Keep this as an umbrella
-      signal; track each remaining defect as a focused local task. Follow-up: the
-      addImage shape/clip path (gen-xml.ts ~722) takes options.shape into prstGeom
-      without the same validation.
+      signal; track each remaining defect as a focused local task. Validation is
+      enforced at two layers: a friendly throw in addShapeDefinition, plus a
+      safety net in genXmlPresetGeom() so the addText/addImage `shape` options
+      (which bypass addShape) also reject invalid presets. The shared allow-list
+      is exported from core-enums as VALID_SHAPE_PRESETS.
     evidence:
       kinds:
         - local-source-inspection
         - regression-test
         - schema-fixture
       local_files:
-        - src/gen-objects.ts:733
-        - src/gen-objects.ts:764
-        - src/core-enums.ts:330
+        - src/core-enums.ts:713
+        - src/gen-objects.ts:743
+        - src/gen-xml.ts:115
         - test/regression/shape-presets.test.js
       schema_fixture: test/regression/shape-presets.test.js
       validator_result: pass
