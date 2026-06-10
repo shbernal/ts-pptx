@@ -609,6 +609,44 @@ export default [
 		},
 	},
 	{
+		// #1355: a scatter subchart in a combo chart needs its category (X) axis
+		// emitted as a <c:valAx>, not a <c:catAx>. Emitting a catAx made
+		// PowerPoint flag the file for repair. Scatter rides the secondary axes.
+		name: 'combo chart with bar and scatter on secondary axes',
+		fn: async () => {
+			const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					[
+						{
+							type: p.charts.BAR,
+							data: [{ name: 'Bottom', labels, values: [17, 26, 53, 10, 4] }],
+							options: { barDir: 'bar', barGrouping: 'clustered' },
+						},
+						{
+							type: p.charts.SCATTER,
+							data: [
+								{ name: 'X-Axis', labels, values: [1, 2, 3, 4, 5] },
+								{ name: 'Y', labels, values: [25, 35, 55, 10, 5] },
+							],
+							options: { secondaryValAxis: true, secondaryCatAxis: true },
+						},
+					],
+					{
+						x: 1,
+						y: 1,
+						w: 6,
+						h: 3,
+						showLegend: false,
+						valAxes: [{ valAxisTitle: 'Primary' }, { valAxisTitle: 'Secondary' }],
+						catAxes: [{ catAxisTitle: 'Primary Cat' }, { catAxisHidden: true }],
+					}
+				)
+			})
+			await expectNoSchemaErrors(buf, 'combo-bar-scatter-secondary-axes')
+		},
+	},
+	{
 		name: 'chart with per-series color and data-label overrides',
 		fn: async () => {
 			const { buf } = await build((p) => {

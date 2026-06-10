@@ -486,6 +486,15 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
 	let strXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
 	let usesSecondaryValAxis = false
 	let usesSecondaryCatAxis = false
+	// Combo charts: a scatter/bubble subchart draws numbers on its category (X)
+	// axis, so that axis must be emitted as a `<c:valAx>` rather than a `<c:catAx>`
+	// or PowerPoint flags the file for repair (#1355). Track, per category axis,
+	// the scatter/bubble subchart type that owns it (if any) and whether a
+	// category-based subchart also references it (an unsatisfiable conflict).
+	let primaryCatAxisValType: CHART_NAME | null = null
+	let secondaryCatAxisValType: CHART_NAME | null = null
+	let primaryCatAxisHasCategoryChart = false
+	let secondaryCatAxisHasCategoryChart = false
 
 	// STEP 1: Create chart
 	{
@@ -553,6 +562,16 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
 			const catAxisId = options.secondaryCatAxis ? AXIS_ID_CATEGORY_SECONDARY : AXIS_ID_CATEGORY_PRIMARY
 			usesSecondaryValAxis = usesSecondaryValAxis || options.secondaryValAxis
 			usesSecondaryCatAxis = usesSecondaryCatAxis || options.secondaryCatAxis
+			// Record whether this subchart needs a value-based X axis (scatter/bubble)
+			// or a category-based X axis, keyed to the primary/secondary cat axis it uses.
+			const usesValueXAxis = type.type === CHART_TYPE.SCATTER || type.type === CHART_TYPE.BUBBLE || type.type === CHART_TYPE.BUBBLE3D
+			if (options.secondaryCatAxis) {
+				if (usesValueXAxis) secondaryCatAxisValType = type.type
+				else secondaryCatAxisHasCategoryChart = true
+			} else {
+				if (usesValueXAxis) primaryCatAxisValType = type.type
+				else primaryCatAxisHasCategoryChart = true
+			}
 			strXml += makeChartType(type.type, type.data as IOptsChartData[], options, valAxisId, catAxisId)
 		})
 	} else {
@@ -566,13 +585,32 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
 			throw new Error('Secondary axis must be used by one of the multiple charts')
 		}
 
+		// Resolve the effective `_type` for a combo category axis so scatter/bubble
+		// subcharts get a `<c:valAx>` X axis. Returns the scatter/bubble type when
+		// that axis is owned only by such a subchart, else null (category axis).
+		const comboCatAxisType = (isSecondary: boolean): { _type: CHART_NAME } | Record<string, never> => {
+			const valType = isSecondary ? secondaryCatAxisValType : primaryCatAxisValType
+			const hasCategoryChart = isSecondary ? secondaryCatAxisHasCategoryChart : primaryCatAxisHasCategoryChart
+			if (!valType) return {}
+			if (hasCategoryChart) {
+				// A category-based chart and a scatter/bubble chart cannot share one
+				// axis (one needs <c:catAx>, the other <c:valAx>). Keep the category
+				// axis and warn rather than silently emit a repair-triggering file.
+				console.warn(
+					`A category-based chart and a scatter/bubble chart cannot share the same ${isSecondary ? 'secondary' : 'primary'} category axis; emitting a category axis. Put the scatter/bubble series on a separate axis.`
+				)
+				return {}
+			}
+			return { _type: valType }
+		}
+
 		if (rel.opts.catAxes) {
 			if (!rel.opts.valAxes || rel.opts.valAxes.length !== rel.opts.catAxes.length) {
 				throw new Error('There must be the same number of value and category axes.')
 			}
-			strXml += makeCatAxis({ ...rel.opts, ...rel.opts.catAxes[0] }, AXIS_ID_CATEGORY_PRIMARY, AXIS_ID_VALUE_PRIMARY)
+			strXml += makeCatAxis({ ...rel.opts, ...rel.opts.catAxes[0], ...comboCatAxisType(false) }, AXIS_ID_CATEGORY_PRIMARY, AXIS_ID_VALUE_PRIMARY)
 		} else {
-			strXml += makeCatAxis(rel.opts, AXIS_ID_CATEGORY_PRIMARY, AXIS_ID_VALUE_PRIMARY)
+			strXml += makeCatAxis({ ...rel.opts, ...comboCatAxisType(false) }, AXIS_ID_CATEGORY_PRIMARY, AXIS_ID_VALUE_PRIMARY)
 		}
 
 		if (rel.opts.valAxes) {
@@ -599,10 +637,10 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
 
 		// Combo Charts: Add secondary axes after all vals
 		if (rel.opts?.catAxes && rel.opts?.catAxes[1]) {
-			strXml += makeCatAxis({ ...rel.opts, ...rel.opts.catAxes[1] }, AXIS_ID_CATEGORY_SECONDARY, AXIS_ID_VALUE_SECONDARY)
+			strXml += makeCatAxis({ ...rel.opts, ...rel.opts.catAxes[1], ...comboCatAxisType(true) }, AXIS_ID_CATEGORY_SECONDARY, AXIS_ID_VALUE_SECONDARY)
 		} else if (usesSecondaryCatAxis && (!rel.opts.catAxes || !rel.opts.catAxes[1])) {
 			// Same as above for the secondary category axis.
-			strXml += makeCatAxis(rel.opts, AXIS_ID_CATEGORY_SECONDARY, AXIS_ID_VALUE_SECONDARY)
+			strXml += makeCatAxis({ ...rel.opts, ...comboCatAxisType(true) }, AXIS_ID_CATEGORY_SECONDARY, AXIS_ID_VALUE_SECONDARY)
 		}
 	}
 

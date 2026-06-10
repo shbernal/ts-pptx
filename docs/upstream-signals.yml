@@ -2934,31 +2934,39 @@ items:
     source: "gitbrent/PptxGenJS#1355"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-10
+    status: implemented
     priority: p1
     target_area:
       - chart-ooxml
       - powerpoint-repair
-    applies_to_current_project: partial
+    applies_to_current_project: yes
     non_target_reasons: []
     upstream_summary: Combo chart using bar plus scatter triggered PowerPoint repair.
     current_project_notes: >
-      Keep as a combo-axis repair candidate and evaluate together with the
-      already-recorded scatter/bubble axis work in upstream-pr-1438. The likely
-      surface is chart axis/category emission rather than package-level output.
+      Root cause confirmed by repro: a scatter subchart's category (X) axis must
+      be emitted as <c:valAx>, but makeCatAxis only converted to valAx when the
+      scalar opts._type === SCATTER. In combo charts opts._type is the subchart
+      array, so the scatter's X axis was emitted as <c:catAx>, which PowerPoint
+      repairs. Fix tracks, per category axis, which subchart type owns it and
+      injects an effective _type into the makeCatAxis call so scatter/bubble X
+      axes emit <c:valAx>. The genuinely unsatisfiable case (a category chart and
+      a scatter sharing one axis) now warns instead of emitting a broken file.
+      Verified with a schema fixture against OOXMLValidatorCLI.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-pass
       local_files:
+        - src/gen-charts.ts:567
         - src/gen-charts.ts:591
-        - src/gen-charts.ts:1669
-        - src/gen-charts.ts:1780
-      schema_fixture: null
-      validator_result: null
+        - src/gen-charts.ts:611
+      schema_fixture: "test/schema.test.js: combo chart with bar and scatter on secondary axes"
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: create-combo-bar-scatter-axis-repair-fixture
+    next_action: none
 
   - id: upstream-issue-1352
     source: "gitbrent/PptxGenJS#1352"
