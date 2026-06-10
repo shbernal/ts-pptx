@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `addImage` infers an image's natural size when `w`/`h` are omitted. For base64
+  `data` images the intrinsic pixel size is read synchronously from the header
+  (PNG/JPEG/GIF/BMP/WebP) and applied at 96 DPI; when only one of `w`/`h` is
+  given, the other is derived from the natural aspect ratio. Previously a
+  dimensionless image collapsed to a 1in square. `path` and SVG images (not
+  synchronously measurable) keep the 1in fallback.
+- Explicit coordinate unit suffixes on any `Coord` (`x`/`y`/`w`/`h`): `"<n>in"`
+  (inches), `"<n>pt"` (points), and `"<n>emu"` (raw EMU) — alongside the existing
+  bare number (inches) and `"<n>%"`. Example: `{ x: '72pt', w: '914400emu' }`.
+- Exported branded `Emu` type and `coordToEmu` / `percentToEmu` converters from
+  the units module (joining the existing `inchesToEmu` / `pointsToEmu` /
+  `emuToInches` helpers).
+
+### Changed
+
+- **BREAKING:** A bare-number coordinate is now **always inches**. The library no
+  longer guesses units by magnitude — previously a number `>= 100` was silently
+  treated as raw EMU (and `inch2Emu`/coordinate parsing carried a matching
+  `> 100` passthrough), which mis-rendered any legitimately large value and made
+  values near the threshold ambiguous.
+  - *Migration:* if you were passing raw EMU as a large number (e.g. `914400`),
+    pass it explicitly as a string instead (`'914400emu'`), or convert with the
+    `emuToInches` helper. Bare numbers, `'%'`, and the new unit suffixes need no
+    change.
+  - Non-finite coordinates now throw with a descriptive message instead of
+    collapsing the object to zero size; an implausibly large bare number (> 1000
+    inches) is interpreted as inches but warns, pointing at the `'<n>emu'` form.
+  - Internally, user coordinates are resolved to EMU exactly once at the
+    emission boundary (no in-place pre-conversion / double-parse), and resolved
+    values carry a branded `Emu` type so they cannot be silently re-converted.
+
 ## [5.2.0](https://github.com/shbernal/PptxGenJS/releases/tag/v5.2.0) - 2026-06-10
 
 ### Added

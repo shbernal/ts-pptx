@@ -207,8 +207,8 @@ items:
     source: "gitbrent/PptxGenJS#1443"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-10
+    status: implemented
     priority: p0
     target_area:
       - powerpoint-repair
@@ -217,20 +217,31 @@ items:
     non_target_reasons: []
     upstream_summary: PowerPoint repair reportedly strips notesMaster placeholder shapes.
     current_project_notes: >
-      Current makeXmlNotesMaster still emits six placeholder shapes. The fork
-      has a local theme2 fix, so reproduce the remaining placeholder behavior
-      before deciding whether to strip or regenerate the notes master.
+      Root cause was a shared theme relationship, not malformed placeholders.
+      The notesMaster placeholder XML is verbatim PowerPoint-authored output and
+      is valid; the reporter's stripped-placeholder observation was a side effect
+      of PowerPoint regenerating the notes master while repairing the broken theme
+      rel (notesMaster1.xml.rels pointed at the slideMaster's theme1.xml). Commit
+      a4bb5ad4 gives the notesMaster its own theme2.xml part (rel target, a
+      Content_Types Override, and the emitted part), which resolves the repair.
+      The #1443 "strip placeholders to a minimal spTree" suggestion was a
+      misdiagnosis and was deliberately NOT implemented: makeXmlNotesSlide
+      placeholders inherit geometry/style from the notesMaster placeholders, so
+      stripping them would orphan those inheritances and likely re-trigger repair.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/gen-xml.ts:1635
-        - src/gen-xml.ts:1778
+        - src/gen-xml.ts:1920
+        - src/gen-xml.ts:1571
+        - src/pptxgen.ts:635
+        - test/regression/theme-relationships.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: compare-notesMaster-with-powerpoint-authored-output
+    next_action: none
 
   - id: upstream-pr-1457
     source: "gitbrent/PptxGenJS#1457"
@@ -690,7 +701,7 @@ items:
     source: "gitbrent/PptxGenJS#1449"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
+    last_reviewed: 2026-06-10
     status: target-candidate
     priority: p0
     target_area:
@@ -702,16 +713,25 @@ items:
     non_target_reasons: []
     upstream_summary: Umbrella report of PowerPoint repair defects seen in a large generated deck.
     current_project_notes: >
-      Several subclaims are already handled locally or tracked separately in
-      this ledger: slideMaster overrides, dynamic content-type defaults,
-      notesMaster placeholders, and shape preset validation. Keep this as an
-      umbrella signal, but split any implementation into focused local tasks.
+      Umbrella of six defects; triage by subclaim. Defect 5 (notesMaster
+      placeholders) is the same root cause as #1443 and is now IMPLEMENTED via
+      commit a4bb5ad4 (notesMaster owns theme2.xml); its placeholders are valid
+      and were deliberately not stripped — see upstream-issue-1443. Remaining
+      open subclaims to split into focused repros: Defect 1/2 (string presets
+      "oval"/"roundedRectangle" bypass the shapes enum and emit invalid prst —
+      highest-value real bug), Defect 3 (per-slide phantom slideMaster
+      Content_Types Overrides), Defect 4 (unused Default extension registrations),
+      Defect 6 (empty charts/ and embeddings/ scaffold dirs). Keep this as an
+      umbrella signal; track each remaining defect as a focused local task.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
         - src/gen-xml.ts:1416
-        - src/gen-xml.ts:1635
+        - src/gen-xml.ts:1920
+        - src/pptxgen.ts:635
+        - test/regression/theme-relationships.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
@@ -2972,8 +2992,8 @@ items:
     source: "gitbrent/PptxGenJS#1351"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-10
+    status: implemented
     priority: p2
     target_area:
       - image-svg-media
@@ -2982,22 +3002,26 @@ items:
     non_target_reasons: []
     upstream_summary: Base64 image output appeared forced into the wrong aspect ratio.
     current_project_notes: >
-      Current addImage cannot infer dimensions for data-only images when width
-      and height are omitted, falls back to 1x1, and then sizing calculations use
-      emitted dimensions rather than decoded intrinsic image dimensions.
+      Fixed: addImage now defaults missing dimensions from the image's intrinsic
+      size. For base64 `data` images the natural pixel size is read synchronously
+      from the header (PNG/JPEG/GIF/BMP/WebP) via getImageSizeFromBase64 and
+      applied at 96 DPI (natural px / 96 = inches). When only one of w/h is given,
+      the other is derived from the natural aspect ratio. Path images and vector
+      (SVG) data are not synchronously measurable, so they keep the 1in fallback.
+      Reuses the existing decoder added for `sizing: cover|contain` srcRect work.
     evidence:
       kinds:
         - local-source-inspection
+        - local-test
       local_files:
-        - src/gen-objects.ts:445
-        - src/gen-objects.ts:452
-        - src/gen-xml.ts:603
-        - src/gen-xml.ts:609
+        - src/gen-objects.ts:448
+        - src/gen-utils.ts:512
+        - test/regression/image-intrinsic-size.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-data-image-intrinsic-size-measurement-repro
+    next_action: none
 
   - id: upstream-issue-1349
     source: "gitbrent/PptxGenJS#1349"

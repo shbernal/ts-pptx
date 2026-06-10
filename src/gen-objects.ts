@@ -50,10 +50,13 @@ import type {
 	TextPropsOptions,
 } from './core-interfaces.js'
 import { getSlidesForTableRows } from './gen-tables.js'
-import { encodeXmlEntities, getNewRelId, getSmartParseNumber, inch2Emu, valToPts, correctShadowOptions, validateObjectName, svgMarkupToDataUri } from './gen-utils.js'
+import { encodeXmlEntities, getNewRelId, getSmartParseNumber, inch2Emu, valToPts, correctShadowOptions, validateObjectName, svgMarkupToDataUri, getImageSizeFromBase64 } from './gen-utils.js'
 
 /** counter for included charts (used for index in their filenames) */
 let _chartCounter = 0
+
+/** DPI PowerPoint assumes when sizing an inserted raster image (natural pixels / 96 == inches) */
+const IMAGE_NATURAL_DPI = 96
 
 type BorderTuple = [BorderProps, BorderProps, BorderProps, BorderProps]
 type HyperlinkTextObject = (TextProps | ISlideObject | TableCell) & {
@@ -445,15 +448,37 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	newObject._type = SLIDE_OBJECT_TYPES.image
 	newObject.image = strImagePath || 'preencoded.png'
 
-	// STEP 3: Set image properties & options
-	// FIXME: Measure actual image when no intWidth/intHeight params passed
-	// ....: This is an async process: we need to make getSizeFromImage use callback, then set H/W...
-	// if ( !intWidth || !intHeight ) { const imgObj = getSizeFromImage(strImagePath);
+	// STEP 3: Default any missing dimension from the image's intrinsic (natural) size.
+	// For base64 `data` images the bytes are already in hand, so we can read the
+	// natural pixel size synchronously and avoid the legacy 1x1 fallback that
+	// squished data-only images into a 1in square (issue #1351). Path images
+	// can't be measured synchronously, so they keep the 1in fallback below.
+	// PowerPoint inserts images at 96 DPI, so natural pixels / 96 == inches.
+	let defWidth = intWidth
+	let defHeight = intHeight
+	if ((!intWidth || !intHeight) && strImageData && strImgExtn !== 'svg') {
+		const natural = getImageSizeFromBase64(strImageData)
+		if (natural) {
+			if (!intWidth && !intHeight) {
+				// Neither given: use the natural size (inches @ 96 DPI)
+				defWidth = natural.w / IMAGE_NATURAL_DPI
+				defHeight = natural.h / IMAGE_NATURAL_DPI
+			} else if (typeof intWidth === 'number' && intWidth && !intHeight) {
+				// Only width given: preserve aspect ratio for height (same unit as width)
+				defHeight = intWidth * (natural.h / natural.w)
+			} else if (typeof intHeight === 'number' && intHeight && !intWidth) {
+				// Only height given: preserve aspect ratio for width (same unit as height)
+				defWidth = intHeight * (natural.w / natural.h)
+			}
+		}
+	}
+
+	// STEP 4: Set image properties & options
 	const objectOptions: ObjectOptions = {
 		x: intPosX || 0,
 		y: intPosY || 0,
-		w: intWidth || 1,
-		h: intHeight || 1,
+		w: defWidth || 1,
+		h: defHeight || 1,
 		altText: opt.altText || '',
 		rounding: typeof opt.rounding === 'boolean' ? opt.rounding : false,
 		shape: opt.shape,
@@ -471,7 +496,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	}
 	newObject.options = objectOptions
 
-	// STEP 4: Add this image to this Slide Rels (rId/rels count spans all slides! Count all images to get next rId)
+	// STEP 5: Add this image to this Slide Rels (rId/rels count spans all slides! Count all images to get next rId)
 	// Use a namespaced key for media targets so slide master (sm) and slide layouts (sl-N, _slideNum >= 1000)
 	// never collide with regular slide media names in large decks (issue #1416).
 	const mediaSlideKey = target._slideNum == null ? 'sm' : target._slideNum >= 1000 ? `sl-${target._slideNum}` : target._slideNum
@@ -515,7 +540,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 		newObject.imageRid = imageRelId
 	}
 
-	// STEP 5: Hyperlink support
+	// STEP 6: Hyperlink support
 	if (typeof objHyperlink === 'object') {
 		if (!objHyperlink.url && !objHyperlink.slide) throw new Error('ERROR: `hyperlink` option requires either: `url` or `slide`')
 		else {
@@ -533,7 +558,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 		}
 	}
 
-	// STEP 6: Add object to slide
+	// STEP 7: Add object to slide
 	target._slideObjects.push(newObject)
 }
 
@@ -860,9 +885,12 @@ export function addTableDefinition(
 	})
 
 	// STEP 3: Set options
-	opt.x = getSmartParseNumber(opt.x || (opt.x === 0 ? 0 : EMU / 2), 'X', presLayout)
-	opt.y = getSmartParseNumber(opt.y || (opt.y === 0 ? 0 : EMU / 2), 'Y', presLayout)
-	if (opt.h) opt.h = getSmartParseNumber(opt.h, 'Y', presLayout) // NOTE: Dont set default `h` - leaving it null triggers auto-rowH in `makeXMLSlide()`
+	// Keep x/y/w/h as raw user `Coord` (inches/percent/unit-string). They are resolved to EMU
+	// exactly once at emission (gen-xml) and by the auto-pager (getSlidesForTableRows); no
+	// pre-conversion here, so a value is never parsed twice. Default position is 0.5in.
+	if (opt.x === undefined || opt.x === null) opt.x = 0.5
+	if (opt.y === undefined || opt.y === null) opt.y = 0.5
+	// NOTE: Dont set default `h` - leaving it null triggers auto-rowH in `makeXMLSlide()`
 	opt.fontSize = opt.fontSize || DEF_FONT_SIZE
 	opt.margin = opt.margin === 0 || opt.margin ? opt.margin : DEF_CELL_MARGIN_IN
 	if (typeof opt.margin === 'number') opt.margin = [Number(opt.margin), Number(opt.margin), Number(opt.margin), Number(opt.margin)]
@@ -940,16 +968,10 @@ export function addTableDefinition(
 			opt.colW = undefined
 		}
 	} else if (opt.w) {
-		opt.w = getSmartParseNumber(opt.w, 'X', presLayout)
+		// Keep raw user `Coord` — resolved to EMU once at emission. (No pre-conversion.)
 	} else {
 		opt.w = Math.floor((presLayout._sizeW || presLayout.width) / EMU - arrTableMargin[1] - arrTableMargin[3])
 	}
-
-	// STEP 4: Convert units to EMU now (we use different logic in makeSlide->table - smartCalc is not used)
-	if (opt.x && opt.x < 20) opt.x = inch2Emu(opt.x)
-	if (opt.y && opt.y < 20) opt.y = inch2Emu(opt.y)
-	if (opt.w && typeof opt.w === 'number' && opt.w < 20) opt.w = inch2Emu(opt.w)
-	if (opt.h && typeof opt.h === 'number' && opt.h < 20) opt.h = inch2Emu(opt.h)
 
 	// STEP 5: Loop over cells: transform each to ITableCell; check to see whether to unset `autoPage` while here
 	arrRows.forEach(row => {
@@ -1009,7 +1031,8 @@ export function addTableDefinition(
 			if (!getSlide(target._slideNum + idx)) slides.push(addSlide({ masterName: slideLayout?._name || undefined }))
 
 			// B: Reset opt.y to `option`/`margin` after first Slide (ISSUE#43, ISSUE#47, ISSUE#48)
-			if (idx > 0) opt.y = inch2Emu(opt.autoPageSlideStartY || opt.newSlideStartY || arrTableMargin[0])
+			// Keep raw inches — resolved to EMU once at emission. (No pre-conversion.)
+			if (idx > 0) opt.y = opt.autoPageSlideStartY || opt.newSlideStartY || arrTableMargin[0]
 
 			// C: Add this table to new Slide
 			{

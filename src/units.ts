@@ -6,6 +6,21 @@ export const EMU_PER_INCH = 914400
 export const EMU_PER_POINT = 12700
 export const POINTS_PER_INCH = 72
 
+/**
+ * English Metric Units — the integer unit OOXML serializes geometry in (914400 per inch).
+ *
+ * Branded so a value that has already been resolved to EMU cannot be silently fed back into a
+ * unit converter: {@link coordToEmu} only accepts a user `Coord`, so passing an `Emu` into it is
+ * a compile-time error. This replaces the old runtime "a number ≥ 100 must already be EMU"
+ * magnitude guess, which silently mis-rendered values near the threshold.
+ */
+export type Emu = number & { readonly __unit: 'emu' }
+
+/** A bare number larger than this (in inches) is almost certainly a mistake — likely a raw EMU
+ *  value passed where inches are expected. We interpret it as inches (the documented contract) but
+ *  warn, pointing at the explicit `"<n>emu"` form. ~1000in is far beyond any real slide. */
+const IMPLAUSIBLE_INCHES = 1000
+
 export type StandardLayoutName = 'LAYOUT_4x3' | 'LAYOUT_16x9' | 'LAYOUT_16x10' | 'LAYOUT_WIDE'
 
 export interface StandardLayout {
@@ -27,20 +42,75 @@ export interface StandardLayout {
 	readonly heightEmu: number
 }
 
-export function inchesToEmu(inches: number): number {
+export function inchesToEmu(inches: number): Emu {
 	assertFiniteNumber(inches, 'inches')
-	return Math.round(inches * EMU_PER_INCH)
+	return Math.round(inches * EMU_PER_INCH) as Emu
 }
 
-export function pointsToEmu(points: number): number {
+export function pointsToEmu(points: number): Emu {
 	assertFiniteNumber(points, 'points')
-	return Math.round(points * EMU_PER_POINT)
+	return Math.round(points * EMU_PER_POINT) as Emu
 }
 
-export function pixelsToEmu(pixels: number, dpi: number): number {
+export function pixelsToEmu(pixels: number, dpi: number): Emu {
 	assertFiniteNumber(pixels, 'pixels')
 	assertPositiveFiniteNumber(dpi, 'dpi')
 	return inchesToEmu(pixels / dpi)
+}
+
+/**
+ * Resolve a percentage of an axis length to EMU.
+ * @param percent - percentage value (e.g. `50` for 50%)
+ * @param axisEmu - the axis length in EMU (slide width for x/w, height for y/h)
+ */
+export function percentToEmu(percent: number, axisEmu: number): Emu {
+	assertFiniteNumber(percent, 'percent')
+	assertFiniteNumber(axisEmu, 'axisEmu')
+	return Math.round((percent / 100) * axisEmu) as Emu
+}
+
+/**
+ * The single user-coordinate → EMU boundary. Convert each user-supplied coordinate exactly once.
+ *
+ * Accepts (see {@link Coord}):
+ * - a bare `number` → **always inches** (the documented unit); no magnitude guessing
+ * - `"<n>%"` → percentage of `axisEmu`
+ * - `"<n>in"` / `"<n>pt"` / `"<n>emu"` → explicit units (the escape hatch for non-inch values)
+ *
+ * Throws on non-finite or unparseable input rather than silently emitting a degenerate 0-size.
+ * @param value - user coordinate
+ * @param axisEmu - axis length in EMU, used only to resolve percentages
+ */
+export function coordToEmu(value: number | string, axisEmu: number): Emu {
+	if (typeof value === 'number') {
+		assertFiniteNumber(value, 'coordinate')
+		if (Math.abs(value) > IMPLAUSIBLE_INCHES) {
+			console.warn(
+				`PptxGenJS: coordinate ${value} interpreted as ${value} inches. A bare number is always inches; ` +
+					`if you meant EMU, pass it as a string like "${Math.round(value)}emu".`
+			)
+		}
+		return inchesToEmu(value)
+	}
+
+	const match = /^\s*(-?\d*\.?\d+)\s*(%|in|pt|emu)\s*$/.exec(value)
+	if (!match) {
+		throw new Error(
+			`PptxGenJS: invalid coordinate "${value}". Expected a number (inches) or a string like "50%", "5in", "72pt", or "914400emu".`
+		)
+	}
+	const n = Number(match[1])
+	switch (match[2]) {
+		case '%':
+			return percentToEmu(n, axisEmu)
+		case 'in':
+			return inchesToEmu(n)
+		case 'pt':
+			return pointsToEmu(n)
+		default: // 'emu'
+			assertFiniteNumber(n, 'coordinate')
+			return Math.round(n) as Emu
+	}
 }
 
 export function emuToInches(emu: number): number {

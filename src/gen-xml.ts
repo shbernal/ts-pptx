@@ -338,7 +338,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				if (Array.isArray(objTabOpts.colW)) {
 					strXml += '<a:tblGrid>'
 					for (let col = 0; col < intColCnt; col++) {
-						let w = inch2Emu(objTabOpts.colW[col])
+						let w: number = inch2Emu(objTabOpts.colW[col])
 						if (w == null || isNaN(w)) {
 							w = (typeof slideItemObj.options.w === 'number' ? slideItemObj.options.w : 1) / intColCnt
 						}
@@ -407,8 +407,10 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					if (Array.isArray(objTabOpts.rowH) && objTabOpts.rowH[rIdx]) intRowH = inch2Emu(Number(objTabOpts.rowH[rIdx]))
 					else if (objTabOpts.rowH && !isNaN(Number(objTabOpts.rowH))) intRowH = inch2Emu(Number(objTabOpts.rowH))
 					else if (slideItemObj.options.cy || slideItemObj.options.h) {
+						// `cy` already holds the table height resolved to EMU (line ~276), correctly handling
+						// inches/percent/unit-string inputs — reuse it rather than re-parsing options.h.
 						intRowH = Math.round(
-							(slideItemObj.options.h ? inch2Emu(slideItemObj.options.h) : typeof slideItemObj.options.cy === 'number' ? slideItemObj.options.cy : 1) /
+							(slideItemObj.options.h ? cy : typeof slideItemObj.options.cy === 'number' ? slideItemObj.options.cy : 1) /
 							arrTabRows.length
 						)
 					}
@@ -689,7 +691,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					// image's natural pixel ratio — not the displayed box (options.w/h). Measure it from the
 					// embedded media bytes; if unmeasurable (SVG/unknown format) fall back to display dims + warn.
 					// `crop` keeps display EMU: its contract treats the displayed extent as the crop frame.
-					let cropSize = { w: imgWidth, h: imgHeight }
+					let cropSize: { w: number, h: number } = { w: imgWidth, h: imgHeight }
 					if (sizing.type === 'cover' || sizing.type === 'contain') {
 						const relData = (slide._relsMedia || []).find(rel => rel.rId === slideItemObj.imageRid)?.data
 						const natural = typeof relData === 'string' ? getImageSizeFromBase64(relData) : null

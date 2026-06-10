@@ -214,7 +214,7 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 	const tablePropY = getSmartParseNumber(tableProps.y, 'Y', presLayout)
 	const tablePropW = getSmartParseNumber(tableProps.w, 'X', presLayout)
 	const tablePropH = getSmartParseNumber(tableProps.h, 'Y', presLayout)
-	let tableCalcW = tablePropW
+	let tableCalcW: number = tablePropW
 
 	function calcSlideTabH(): void {
 		let emuStartY = 0

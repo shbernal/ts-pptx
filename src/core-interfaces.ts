@@ -9,14 +9,20 @@ import type { CHART_NAME, PLACEHOLDER_TYPE, SHAPE_NAME, SLIDE_OBJECT_TYPES, TABL
 // ==========
 
 /**
- * Coordinate number - either:
- * - Inches (0-n)
- * - Percentage (0-100)
+ * Coordinate value. A bare `number` is **always inches** — there is no magnitude-based unit
+ * guessing. For other units use an explicit string suffix:
+ * - `number` → inches (e.g. `10.25`)
+ * - `"<n>%"` → percentage of the slide axis (e.g. `"75%"`)
+ * - `"<n>in"` → inches (e.g. `"10.25in"`)
+ * - `"<n>pt"` → points (e.g. `"72pt"` = 1 inch)
+ * - `"<n>emu"` → raw EMU, the escape hatch for exact OOXML units (e.g. `"914400emu"` = 1 inch)
  *
- * @example 10.25 // coordinate in inches
- * @example '75%' // coordinate as percentage of slide size
+ * @example 10.25 // inches
+ * @example '75%' // percentage of slide size
+ * @example '72pt' // points
+ * @example '914400emu' // raw EMU
  */
-export type Coord = number | `${number}%`
+export type Coord = number | `${number}%` | `${number}in` | `${number}pt` | `${number}emu`
 export interface PositionProps {
 	/**
 	 * Horizontal position
@@ -613,6 +619,15 @@ export interface ThemeProps {
 export type MediaType = 'audio' | 'online' | 'video'
 
 interface ImageBaseProps extends PositionProps, ObjectNameProps {
+	/**
+	 * Sizing note (`w`/`h` inherited from {@link PositionProps}):
+	 * - When a `data` (base64) image is supplied and `w`/`h` are omitted, the natural pixel
+	 *   size is read from the image header (PNG/JPEG/GIF/BMP/WebP) and used at 96 DPI
+	 *   (natural pixels / 96 = inches).
+	 * - When only one of `w`/`h` is given, the other is derived from the natural aspect ratio.
+	 * - `path` images and vector (SVG) data cannot be measured synchronously, so an omitted
+	 *   dimension falls back to 1 inch.
+	 */
 	/**
 	 * Alt Text value ("How would you describe this object and its contents to someone who is blind?")
 	 * - PowerPoint: [right-click on an image] > "Edit Alt Text..."

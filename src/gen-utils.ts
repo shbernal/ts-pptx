@@ -2,27 +2,27 @@
  * PptxGenJS: Utility Methods
  */
 
-import { EMU, REGEX_HEX_COLOR, DEF_FONT_COLOR, ONEPT, SchemeColor, SCHEME_COLORS } from './core-enums.js'
+import { REGEX_HEX_COLOR, DEF_FONT_COLOR, ONEPT, SchemeColor, SCHEME_COLORS } from './core-enums.js'
+import { coordToEmu, inchesToEmu, type Emu } from './units.js'
 import type { PresLayout, TextGlowProps, PresSlideInternal, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, GradientStopProps, PatternFillProps } from './core-interfaces.js'
 
 /**
- * Translates any type of `x`/`y`/`w`/`h` prop to EMU
- * - guaranteed to return a result regardless of undefined, null, etc. (0)
- * - {number} - 12800 (EMU)
- * - {number} - 0.5 (inches)
- * - {string} - "75%"
- * @param {number|string} size - numeric ("5.5") or percentage ("90%")
- * @param {'X' | 'Y'} xyDir - direction
- * @param {PresLayout} layout - presentation layout
- * @returns {number} calculated size
+ * Resolve a user `Coord` (x/y/w/h) to EMU — the single user-coordinate → EMU boundary.
+ * - bare `number` → **inches** (no magnitude guessing); `"<n>%"` → percent of the slide axis;
+ *   `"<n>in"`/`"<n>pt"`/`"<n>emu"` → explicit units (see {@link Coord} / {@link coordToEmu})
+ * - `null`/`undefined` → 0 (callers may omit a coordinate)
+ * - throws on a non-finite number rather than silently collapsing the object to zero size
+ * @param {Coord|null|undefined} size - user coordinate
+ * @param {'X' | 'Y'} xyDir - axis (selects slide width vs height for percentages)
+ * @param {PresLayout} layout - presentation layout (EMU dimensions)
+ * @returns {Emu} resolved EMU value
  */
-export function getSmartParseNumber (size: Coord | null | undefined, xyDir: 'X' | 'Y', layout: PresLayout): number {
-	// FIRST: Convert string numeric value if reqd
-	if (typeof size === 'string' && !isNaN(Number(size))) size = Number(size)
+export function getSmartParseNumber (size: Coord | null | undefined, xyDir: 'X' | 'Y', layout: PresLayout): Emu {
+	if (size === null || size === undefined) return 0 as Emu
 
 	// GUARD: A NaN/Infinity coordinate is always a mistake (commonly arithmetic on an
-	// `undefined` layout dimension). Fail loud instead of silently emitting 0 EMU, which
-	// collapses the object to zero size/position and produces a broken-looking deck.
+	// `undefined` layout dimension). Fail loud with a targeted hint instead of the generic
+	// converter message, since this is the most common way a deck collapses to zero-size.
 	if (typeof size === 'number' && !isFinite(size)) {
 		throw new Error(
 			`Invalid ${xyDir || 'coordinate'} value: expected a finite number but received ${String(size)}. ` +
@@ -31,25 +31,7 @@ export function getSmartParseNumber (size: Coord | null | undefined, xyDir: 'X' 
 		)
 	}
 
-	// CASE 1: Number in inches
-	// Assume any number less than 100 is inches
-	if (typeof size === 'number' && size < 100) return inch2Emu(size)
-
-	// CASE 2: Number is already converted to something other than inches
-	// Assume any number greater than 100 sure isnt inches! Just return it (assume value is EMU already).
-	if (typeof size === 'number' && size >= 100) return size
-
-	// CASE 3: Percentage (ex: '50%')
-	if (typeof size === 'string' && size.includes('%')) {
-		if (xyDir && xyDir === 'X') return Math.round((parseFloat(size) / 100) * layout.width)
-		if (xyDir && xyDir === 'Y') return Math.round((parseFloat(size) / 100) * layout.height)
-
-		// Default: Assume width (x/cx)
-		return Math.round((parseFloat(size) / 100) * layout.width)
-	}
-
-	// LAST: Default value
-	return 0
+	return coordToEmu(size, xyDir === 'Y' ? layout.height : layout.width)
 }
 
 /**
@@ -145,16 +127,16 @@ export function getDuplicateObjectNames (names: string[]): string[] {
 }
 
 /**
- * Convert inches into EMU
- * @param {number|string} inches - as string or number
- * @returns {number} EMU value
+ * Convert inches into EMU.
+ * - accepts a number (inches) or a numeric/`"<n>in"` string
+ * - no magnitude guessing: values are always treated as inches (use {@link coordToEmu} for
+ *   user coordinates that may carry other units)
+ * @param {number|string} inches - inches as number or string
+ * @returns {Emu} EMU value
  */
-export function inch2Emu (inches: number | string): number {
-	// NOTE: Provide Caller Safety: Numbers may get conv<->conv during flight, so be kind and do some simple checks to ensure inches were passed
-	// Any value over 100 damn sure isnt inches, so lets assume its in EMU already, therefore, just return the same value
-	if (typeof inches === 'number' && inches > 100) return inches
+export function inch2Emu (inches: number | string): Emu {
 	if (typeof inches === 'string') inches = Number(inches.replace(/in*/gi, ''))
-	return Math.round(EMU * inches)
+	return inchesToEmu(inches)
 }
 
 /**
