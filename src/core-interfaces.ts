@@ -535,6 +535,16 @@ export interface PlaceholderProps extends PositionProps, TextBaseProps, ObjectNa
 	 * margin (points)
 	 */
 	margin?: Margin
+	/**
+	 * Preset shape geometry for this placeholder (e.g. `'roundRect'`)
+	 * @default 'rect'
+	 */
+	shape?: SHAPE_NAME
+	/**
+	 * Rounded rectangle corner radius (inches) when `shape: 'roundRect'`
+	 * - range: 0.0 to slide height/2
+	 */
+	rectRadius?: number
 }
 export interface ObjectNameProps {
 	/**
@@ -1983,6 +1993,7 @@ export type SlideMasterObject =
 	| { image: ImageProps }
 	| { line: ShapeProps }
 	| { rect: ShapeProps }
+	| { roundRect: ShapeProps }
 	| { text: TextProps }
 	| {
 		placeholder: {

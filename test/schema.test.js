@@ -592,4 +592,43 @@ export default [
 			await expectNoSchemaErrors(buf, 'custom-document-properties')
 		},
 	},
+	{
+		name: 'slide master roundRect object and roundRect placeholder',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.defineSlideMaster({
+					title: 'ROUNDRECT_MASTER',
+					objects: [
+						{
+							roundRect: {
+								x: 0.5,
+								y: 0.5,
+								w: 2,
+								h: 1,
+								rectRadius: 0.1,
+								fill: { color: 'E8F0FE' },
+							},
+						},
+						{
+							placeholder: {
+								options: {
+									name: 'title',
+									type: 'title',
+									x: 0.5,
+									y: 2,
+									w: 9,
+									h: 1.5,
+									shape: 'roundRect',
+									rectRadius: 0.15,
+								},
+								text: '',
+							},
+						},
+					],
+				})
+				p.addSlide({ masterName: 'ROUNDRECT_MASTER' })
+			})
+			await expectNoSchemaErrors(buf, 'slide-master-roundrect')
+		},
+	},
 ]

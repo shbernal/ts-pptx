@@ -871,8 +871,8 @@ items:
     source: "gitbrent/PptxGenJS#1460"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: interesting-with-tweaks
+    last_reviewed: 2026-06-10
+    status: implemented
     priority: p2
     target_area:
       - missing-pptx-feature
@@ -883,20 +883,25 @@ items:
       - legacy-dist-artifact
     upstream_summary: Add rounded rectangle support to slide master object declarations.
     current_project_notes: >
-      Current createSlideMaster handles rect but not roundRect master objects.
-      The feature fits, but the upstream PR includes generated dist and bundle
-      changes that should not be adopted in this fork.
+      Implemented 2026-06-10. Added `| { roundRect: ShapeProps }` to
+      SlideMasterObject and a matching `roundRect` branch in createSlideMaster
+      that routes to addShapeDefinition with SHAPE_TYPE.ROUNDED_RECTANGLE so
+      rectRadius/adj guides are emitted correctly. Schema fixture
+      slide-master-roundrect passes the OOXML validator.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/gen-objects.ts:73
-        - src/core-enums.ts:723
-      schema_fixture: null
-      validator_result: null
+        - src/gen-objects.ts:85
+        - src/core-interfaces.ts
+        - test/schema.test.js
+      schema_fixture: slide-master-roundrect
+      validator_result: pnpm run test:schema passed 2026-06-10
       powerpoint_result: null
       spec_refs: []
-    next_action: design-current-api-roundRect-master-support
+    next_action: none
 
   - id: upstream-pr-1435
     source: "gitbrent/PptxGenJS#1435"
@@ -1838,8 +1843,8 @@ items:
     source: "gitbrent/PptxGenJS#1422"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-10
+    status: implemented
     priority: p2
     target_area:
       - speaker-notes-masters-layouts
@@ -1848,21 +1853,27 @@ items:
     non_target_reasons: []
     upstream_summary: Placeholder in a slide master ignores shape roundRect/rectRadius options.
     current_project_notes: >
-      Placeholder objects are routed through addTextDefinition; the shape option
-      is accepted there, but this overlaps with the unresolved rounded-rect
-      master support tracked from PR #1460.
+      Implemented 2026-06-10 alongside upstream-pr-1460. Added `shape?:
+      SHAPE_NAME` and `rectRadius?: number` to PlaceholderProps in
+      core-interfaces.ts. These fields are spread through the placeholder
+      options destructuring in createSlideMaster and then consumed by
+      addTextDefinition via ObjectOptions, which already reads opts.shape.
+      Schema fixture slide-master-roundrect exercises a roundRect placeholder
+      and passes the OOXML validator.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
       local_files:
+        - src/core-interfaces.ts
         - src/gen-objects.ts:87
-        - src/gen-objects.ts:95
-        - src/gen-objects.ts:1036
-      schema_fixture: null
-      validator_result: null
+        - test/schema.test.js
+      schema_fixture: slide-master-roundrect
+      validator_result: pnpm run test:schema passed 2026-06-10
       powerpoint_result: null
       spec_refs: []
-    next_action: handle-with-upstream-pr-1460-master-roundrect-repro
+    next_action: none
 
   - id: upstream-issue-1420
     source: "gitbrent/PptxGenJS#1420"
