@@ -772,4 +772,40 @@ export default [
 			await expectNoSchemaErrors(buf, 'slide-master-roundrect')
 		},
 	},
+	{
+		name: 'bar chart with per-point customLabels',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					p.charts.BAR,
+					[
+						{ name: 'Series 1', labels: ['A', 'B', 'C'], values: [10, 20, 30], customLabels: ['Low', '', 'High'] },
+						{ name: 'Series 2', labels: ['A', 'B', 'C'], values: [15, 5, 25], customLabels: ['', 'Min', ''] },
+					],
+					{ x: 1, y: 1, w: 6, h: 3, showValue: true }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'bar-chart-custom-labels')
+		},
+	},
+	{
+		name: 'pie chart with per-point customLabels',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					p.charts.PIE,
+					[
+						{
+							name: 'Status',
+							labels: ['Red', 'Amber', 'Green'],
+							values: [10, 30, 60],
+							customLabels: ['At Risk', 'Watch', 'On Track'],
+						},
+					],
+					{ x: 1, y: 1, w: 4, h: 3, showValue: true }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'pie-chart-custom-labels')
+		},
+	},
 ]

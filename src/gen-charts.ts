@@ -860,6 +860,10 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					const lblSize = seriesOverride?.dataLabelFontSize ?? opts.dataLabelFontSize ?? DEF_FONT_SIZE
 					const lblFace = seriesOverride?.dataLabelFontFace ?? opts.dataLabelFontFace ?? 'Arial'
 					strXml += '<c:dLbls>'
+					// Per-point custom labels must precede aggregate settings (CT_DLbls schema order: dLbl* then Group_DLbls)
+					if (obj.customLabels?.length) {
+						obj.customLabels.forEach((lbl, idx) => { if (lbl) strXml += makeCustomDLblXml(idx, lbl, opts) })
+					}
 					strXml += `<c:numFmt formatCode="${encodeXmlEntities(opts.dataLabelFormatCode) || 'General'}" sourceLinked="0"/>`
 					if (opts.dataLabelBkgrdColors) strXml += `<c:spPr><a:solidFill>${createColorElement(seriesColor)}</a:solidFill></c:spPr>`
 					strXml += '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr>'
@@ -1536,8 +1540,15 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 			// 3: "Data Label" block for every data Label
 			strXml += '<c:dLbls>'
 			optsChartData.labels[0].forEach((_label, idx) => {
+				const customLbl = optsChartData.customLabels?.[idx]
 				strXml += '<c:dLbl>'
 				strXml += ` <c:idx val="${idx}"/>`
+				// c:tx must precede c:numFmt per CT_DLbl / Group_DLbl / EG_DLblShared schema order
+				if (customLbl) {
+					strXml += '<c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r>' +
+						`<a:rPr lang="${opts.lang || 'en-US'}" dirty="0"/>` +
+						`<a:t>${encodeXmlEntities(customLbl)}</a:t></a:r></a:p></c:rich></c:tx>`
+				}
 				strXml += `  <c:numFmt formatCode="${encodeXmlEntities(opts.dataLabelFormatCode) || 'General'}" sourceLinked="0"/>`
 				strXml += '  <c:spPr/><c:txPr>'
 				strXml += '   <a:bodyPr/><a:lstStyle/>'
@@ -1551,7 +1562,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 				strXml += '    </c:txPr>'
 				if (chartType === CHART_TYPE.PIE && opts.dataLabelPosition) strXml += `<c:dLblPos val="${opts.dataLabelPosition}"/>`
 				strXml += '    <c:showLegendKey val="0"/>'
-				strXml += '    <c:showVal val="' + (opts.showValue ? '1' : '0') + '"/>'
+				strXml += '    <c:showVal val="' + (customLbl ? '0' : (opts.showValue ? '1' : '0')) + '"/>'
 				strXml += '    <c:showCatName val="' + (opts.showLabel ? '1' : '0') + '"/>'
 				strXml += '    <c:showSerName val="' + (opts.showSerName ? '1' : '0') + '"/>'
 				strXml += '    <c:showPercent val="' + (opts.showPercent ? '1' : '0') + '"/>'
@@ -2037,6 +2048,27 @@ function createGridLineElement (glOpts: OptsChartGridLine): string {
 	strXml += '</c:majorGridlines>'
 
 	return strXml
+}
+
+function makeCustomDLblXml (idx: number, text: string, opts: IChartOptsLib): string {
+	const sz = Math.round((opts.dataLabelFontSize || DEF_FONT_SIZE) * 100)
+	const bold = opts.dataLabelFontBold ? '1' : '0'
+	const italic = opts.dataLabelFontItalic ? '1' : '0'
+	const color = createColorElement(opts.dataLabelColor || DEF_FONT_COLOR)
+	const face = opts.dataLabelFontFace || 'Arial'
+	const lang = opts.lang || 'en-US'
+	return (
+		`<c:dLbl><c:idx val="${idx}"/>` +
+		'<c:tx><c:rich><a:bodyPr/><a:lstStyle/>' +
+		`<a:p><a:pPr><a:defRPr sz="${sz}" b="${bold}" i="${italic}" u="none" strike="noStrike">` +
+		`<a:solidFill>${color}</a:solidFill><a:latin typeface="${face}"/></a:defRPr></a:pPr>` +
+		`<a:r><a:rPr lang="${lang}" sz="${sz}" b="${bold}" i="${italic}" u="none" strike="noStrike" dirty="0">` +
+		`<a:solidFill>${color}</a:solidFill><a:latin typeface="${face}"/></a:rPr>` +
+		`<a:t>${encodeXmlEntities(text)}</a:t></a:r></a:p>` +
+		'</c:rich></c:tx>' +
+		'<c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/>' +
+		'<c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbl>'
+	)
 }
 
 function createLineCap (lineCap: ChartLineCap): string {

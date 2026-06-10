@@ -1504,6 +1504,13 @@ export interface OptsChartData {
 	 */
 	values?: number[]
 	/**
+	 * Custom text label per data point, replacing the auto-generated value label.
+	 * Index aligns with `values[]`. Empty string or missing entries fall back to the chart-level label settings.
+	 * Supported for BAR, LINE, AREA, RADAR, PIE, and DOUGHNUT chart types.
+	 * @example ['Low', '', 'High']  // only points 0 and 2 get custom labels
+	 */
+	customLabels?: string[]
+	/**
 	 * Override `chartColors`
 	 */
 	// color?: string // TODO: WIP: (Pull #727)
