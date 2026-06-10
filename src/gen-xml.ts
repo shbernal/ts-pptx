@@ -72,6 +72,15 @@ const ImageSizingXml = {
 		const r = imgSize.w - (boxDim.x + boxDim.w)
 		const t = boxDim.y
 		const b = imgSize.h - (boxDim.y + boxDim.h)
+		if (l < 0 || r < 0 || t < 0 || b < 0) {
+			const over = [
+				l < 0 && `x (${l < 0 ? -l : 0} past left edge)`,
+				r < 0 && `x+w (${-r} past right edge)`,
+				t < 0 && `y (${-t} past top edge)`,
+				b < 0 && `y+h (${-b} past bottom edge)`,
+			].filter(Boolean).join(', ')
+			throw new Error(`addImage sizing.type 'crop': crop window overflows image bounds — ${over}. Ensure x≥0, y≥0, x+w≤w, y+h≤h.`)
+		}
 		const lPerc = Math.round(1e5 * (l / imgSize.w))
 		const rPerc = Math.round(1e5 * (r / imgSize.w))
 		const tPerc = Math.round(1e5 * (t / imgSize.h))

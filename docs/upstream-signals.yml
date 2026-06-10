@@ -2142,8 +2142,8 @@ items:
     source: "gitbrent/PptxGenJS#1399"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-10
+    status: implemented
     priority: p1
     target_area:
       - image-svg-media
@@ -2152,22 +2152,24 @@ items:
     non_target_reasons: []
     upstream_summary: Image sizing crop can produce wrong container size, zero-sized image, or broken-picture result.
     current_project_notes: >
-      Current crop sizing interprets sizing x/y/w/h as crop box dimensions and
-      then rewrites emitted picture extents to the crop box. The provided 1x1
-      image repro should be ported to current tests.
+      When a crop window overflowed the image bounds (x<0, y<0, x+w>w, or y+h>h),
+      the crop function emitted negative <a:srcRect> offsets, producing a broken or
+      distorted picture in PowerPoint. Fixed in ImageSizingXml.crop (gen-xml.ts:70):
+      now throws with a descriptive error rather than emitting an invalid srcRect.
+      Regression tests in test/regression/image-crop-overflow.test.js cover all four
+      overflow directions plus happy-path in-bounds crops.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/core-interfaces.ts:530
-        - src/gen-xml.ts:67
-        - src/gen-xml.ts:603
-        - src/gen-xml.ts:609
+        - src/gen-xml.ts:70
+        - test/regression/image-crop-overflow.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: port-image-crop-broken-picture-repro
+    next_action: none
 
   - id: upstream-issue-1396
     source: "gitbrent/PptxGenJS#1396"
