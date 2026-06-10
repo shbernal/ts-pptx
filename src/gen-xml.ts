@@ -40,6 +40,7 @@ import {
 	encodeXmlEntities,
 	genXmlColorSelection,
 	getDuplicateObjectNames,
+	getImageSizeFromBase64,
 	getSmartParseNumber,
 	getUuid,
 	inch2Emu,
@@ -669,7 +670,22 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					const boxX = getSmartParseNumber(sizing.x || 0, 'X', slide._presLayout)
 					const boxY = getSmartParseNumber(sizing.y || 0, 'Y', slide._presLayout)
 
-					strSlideXml += ImageSizingXml[sizing.type]({ w: imgWidth, h: imgHeight }, { w: boxW, h: boxH, x: boxX, y: boxY })
+					// `cover`/`contain` crop the *source* bitmap, so the srcRect must be derived from the
+					// image's natural pixel ratio — not the displayed box (options.w/h). Measure it from the
+					// embedded media bytes; if unmeasurable (SVG/unknown format) fall back to display dims + warn.
+					// `crop` keeps display EMU: its contract treats the displayed extent as the crop frame.
+					let cropSize = { w: imgWidth, h: imgHeight }
+					if (sizing.type === 'cover' || sizing.type === 'contain') {
+						const relData = (slide._relsMedia || []).find(rel => rel.rId === slideItemObj.imageRid)?.data
+						const natural = typeof relData === 'string' ? getImageSizeFromBase64(relData) : null
+						if (natural) {
+							cropSize = natural
+						} else {
+							console.warn(`Warning: sizing '${sizing.type}' could not measure natural dimensions for image "${slideItemObj.options.objectName}"; falling back to displayed aspect ratio (crop may be inexact). Provide a raster image (PNG/JPEG/GIF/BMP/WebP) to enable an aspect-correct crop.`)
+						}
+					}
+
+					strSlideXml += ImageSizingXml[sizing.type](cropSize, { w: boxW, h: boxH, x: boxX, y: boxY })
 					imgWidth = boxW
 					imgHeight = boxH
 				} else {

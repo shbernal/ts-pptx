@@ -455,3 +455,113 @@ export function svgMarkupToDataUri (svg: string): string {
 	}
 	return `data:image/svg+xml;base64,${btoa(binary)}`
 }
+
+/**
+ * Decode a base64 image payload (raw base64 or a `data:` URI) to bytes.
+ * - tolerant of the `data:[mime];base64,` prefix and of whitespace in the payload
+ * @param {string} b64 - base64 string or data URI
+ * @returns {Uint8Array | null} decoded bytes, or `null` when the payload is empty/undecodable
+ */
+function decodeBase64ToBytes (b64: string): Uint8Array | null {
+	if (!b64) return null
+	// Strip any `data:...;base64,` prefix and surrounding whitespace
+	const comma = b64.indexOf('base64,')
+	const payload = (comma >= 0 ? b64.slice(comma + 'base64,'.length) : b64).replace(/\s/g, '')
+	if (!payload) return null
+	try {
+		const binary = atob(payload)
+		const bytes = new Uint8Array(binary.length)
+		for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+		return bytes
+	} catch {
+		return null
+	}
+}
+
+/**
+ * Read the intrinsic pixel dimensions of a raster image from its header bytes.
+ * - synchronous: parses only file-format headers, never decodes pixels
+ * - supports PNG, JPEG, GIF, BMP, and WebP (VP8 / VP8L / VP8X)
+ * - vector (SVG) and unrecognized formats return `null` (no intrinsic pixel size)
+ *
+ * Used by image `sizing: 'cover' | 'contain'` to compute an aspect-correct
+ * `<a:srcRect>` crop from the *natural* image ratio rather than the displayed box.
+ * @param {string} dataB64 - base64 image payload or `data:` URI
+ * @returns {{ w: number, h: number } | null} natural pixel size, or `null` when unmeasurable
+ */
+export function getImageSizeFromBase64 (dataB64: string): { w: number, h: number } | null {
+	const b = decodeBase64ToBytes(dataB64)
+	if (!b || b.length < 24) return null
+
+	// PNG: 8-byte signature, then IHDR with width@16 / height@20 (big-endian uint32)
+	if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) {
+		const w = (b[16] << 24) | (b[17] << 16) | (b[18] << 8) | b[19]
+		const h = (b[20] << 24) | (b[21] << 16) | (b[22] << 8) | b[23]
+		return w > 0 && h > 0 ? { w, h } : null
+	}
+
+	// GIF: "GIF87a"/"GIF89a", width@6 / height@8 (little-endian uint16)
+	if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) {
+		const w = b[6] | (b[7] << 8)
+		const h = b[8] | (b[9] << 8)
+		return w > 0 && h > 0 ? { w, h } : null
+	}
+
+	// BMP: "BM", width@18 / height@22 (little-endian int32; height may be negative for top-down)
+	if (b[0] === 0x42 && b[1] === 0x4d) {
+		const w = b[18] | (b[19] << 8) | (b[20] << 16) | (b[21] << 24)
+		const h = b[22] | (b[23] << 8) | (b[24] << 16) | (b[25] << 24)
+		const aw = Math.abs(w)
+		const ah = Math.abs(h)
+		return aw > 0 && ah > 0 ? { w: aw, h: ah } : null
+	}
+
+	// WebP: "RIFF"...."WEBP" then a VP8 / VP8L / VP8X chunk
+	if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) {
+		const fourCC = String.fromCharCode(b[12], b[13], b[14], b[15])
+		if (fourCC === 'VP8 ' && b.length >= 30) {
+			// Lossy: 14-bit width/height at offset 26/28 (little-endian, mask off scale bits)
+			const w = ((b[26] | (b[27] << 8)) & 0x3fff)
+			const h = ((b[28] | (b[29] << 8)) & 0x3fff)
+			return w > 0 && h > 0 ? { w, h } : null
+		}
+		if (fourCC === 'VP8L' && b.length >= 25) {
+			// Lossless: 14-bit width/height packed starting at bit 0 of offset 21
+			const bits = b[21] | (b[22] << 8) | (b[23] << 16) | (b[24] << 24)
+			const w = (bits & 0x3fff) + 1
+			const h = ((bits >> 14) & 0x3fff) + 1
+			return w > 0 && h > 0 ? { w, h } : null
+		}
+		if (fourCC === 'VP8X' && b.length >= 30) {
+			// Extended: 24-bit canvas width/height minus one at offset 24/27 (little-endian)
+			const w = (b[24] | (b[25] << 8) | (b[26] << 16)) + 1
+			const h = (b[27] | (b[28] << 8) | (b[29] << 16)) + 1
+			return w > 0 && h > 0 ? { w, h } : null
+		}
+		return null
+	}
+
+	// JPEG: "FFD8", scan segment markers for a Start-Of-Frame (SOFn) and read height@5 / width@7
+	if (b[0] === 0xff && b[1] === 0xd8) {
+		let i = 2
+		while (i + 9 < b.length) {
+			if (b[i] !== 0xff) { i++; continue }
+			const marker = b[i + 1]
+			// SOF0..SOF15 carry frame dimensions, excluding DHT(C4)/JPG(C8)/DAC(CC)
+			if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+				const h = (b[i + 5] << 8) | b[i + 6]
+				const w = (b[i + 7] << 8) | b[i + 8]
+				return w > 0 && h > 0 ? { w, h } : null
+			}
+			// Standalone markers (RSTn / SOI / EOI / TEM) have no length payload
+			if ((marker >= 0xd0 && marker <= 0xd9) || marker === 0x01) { i += 2; continue }
+			// Otherwise skip this segment using its 2-byte big-endian length
+			const segLen = (b[i + 2] << 8) | b[i + 3]
+			if (segLen < 2) break
+			i += 2 + segLen
+		}
+		return null
+	}
+
+	return null
+}

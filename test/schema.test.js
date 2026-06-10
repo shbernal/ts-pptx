@@ -296,6 +296,34 @@ export default [
 		},
 	},
 	{
+		name: 'image cover/contain sizing emits schema-valid srcRect (incl. negative contain inset)',
+		fn: async () => {
+			// 1x1 PNG (natural square): cover crops, contain pads with a negative srcRect inset —
+			// both must stay schema-valid (CT_RelativeRect permits negative ST_Percentage).
+			const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addImage({
+					data: 'image/png;base64,' + b64,
+					x: 0.5,
+					y: 0.5,
+					w: 4,
+					h: 3,
+					sizing: { type: 'cover', w: 4, h: 3 },
+				})
+				s.addImage({
+					data: 'image/png;base64,' + b64,
+					x: 5,
+					y: 0.5,
+					w: 4,
+					h: 3,
+					sizing: { type: 'contain', w: 4, h: 3 },
+				})
+			})
+			await expectNoSchemaErrors(buf, 'image-cover-contain')
+		},
+	},
+	{
 		name: 'text caps: all-caps and small-caps run properties',
 		fn: async () => {
 			const { buf } = await build((p) => {

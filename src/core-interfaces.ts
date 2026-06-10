@@ -646,6 +646,11 @@ interface ImageBaseProps extends PositionProps, ObjectNameProps {
 	sizing?: {
 		/**
 		 * Sizing type
+		 * - `cover` / `contain` fit the image into the `w`×`h` box using the image's *natural*
+		 *   pixel aspect ratio (read from the embedded PNG/JPEG/GIF/BMP/WebP header). If the
+		 *   natural size cannot be determined (e.g. SVG or an unrecognized format) the displayed
+		 *   `w`/`h` ratio is used as a fallback and a warning is logged.
+		 * - `crop` cuts a window out of the displayed image using the `x`/`y`/`w`/`h` offsets.
 		 */
 		type: 'contain' | 'cover' | 'crop'
 		/**
