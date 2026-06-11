@@ -449,6 +449,19 @@ export interface TextBaseProps {
 		 */
 		characterCode?: string
 		/**
+		 * Bullet glyph font typeface (`<a:buFont/>`), e.g. for symbol-font bullets
+		 * @since v4.0.0
+		 * @example 'Wingdings' // render `characterCode` using the Wingdings font
+		 */
+		fontFace?: string
+		/**
+		 * Bullet glyph size as a percentage of the run's text size (25–400)
+		 * @since v4.0.0
+		 * @default 100
+		 * @example 80 // bullet glyph is 80% of the text size
+		 */
+		size?: number
+		/**
 		 * Indentation (space between bullet and text) (points)
 		 * @since v3.3.0
 		 * @default 27 // DEF_BULLET_MARGIN

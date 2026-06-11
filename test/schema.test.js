@@ -1056,6 +1056,23 @@ export default [
 		},
 	},
 	{
+		name: 'bullet glyph font and size (buFont + buSzPct)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addText('wingding', {
+					x: 1,
+					y: 1,
+					w: 4,
+					h: 0.5,
+					bullet: { characterCode: 'F0E0', fontFace: 'Wingdings', size: 80 },
+				})
+				s.addText('numbered', { x: 1, y: 2, w: 4, h: 0.5, bullet: { type: 'number', fontFace: 'Arial', size: 150 } })
+			})
+			await expectNoSchemaErrors(buf, 'bullet-font-size')
+		},
+	},
+	{
 		name: 'shrink-text fit with explicit fontScale/lnSpcReduction',
 		fn: async () => {
 			const { buf } = await build((p) => {

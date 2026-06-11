@@ -1188,10 +1188,23 @@ function genXmlParagraphProperties (textObj: ISlideObject | TextProps, isDefault
 			if (textObj?.options?.bullet?.indent) bulletMarL = valToPts(textObj.options.bullet.indent)
 			if (textObj.options.bullet.color) strXmlBulletColor = `<a:buClr>${createColorElement(textObj.options.bullet.color)}</a:buClr>`
 
+			// `<a:buSzPct/>` val is thousandths of a percent; ST_TextBulletSizePercent allows 25%-400%
+			let bulletSizePct = 100000
+			if (textObj.options.bullet.size !== undefined) {
+				const bulletSize = Number(textObj.options.bullet.size)
+				if (isNaN(bulletSize) || bulletSize < 25 || bulletSize > 400) {
+					console.warn('Warning: `bullet.size` must be a percentage between 25 and 400!')
+				} else {
+					bulletSizePct = Math.round(bulletSize * 1000)
+				}
+			}
+			const strXmlBulletSize = `<a:buSzPct val="${bulletSizePct}"/>`
+			const strXmlBulletFont = textObj.options.bullet.fontFace ? `<a:buFont typeface="${encodeXmlEntities(textObj.options.bullet.fontFace)}"/>` : ''
+
 			if (textObj.options.bullet.type && textObj.options.bullet.type.toString().toLowerCase() === 'number') {
 				paragraphPropXml += ` marL="${textObj.options.indentLevel && textObj.options.indentLevel > 0 ? bulletMarL + bulletMarL * textObj.options.indentLevel : bulletMarL
 				}" indent="-${bulletMarL}"`
-				strXmlBullet = `<a:buSzPct val="100000"/><a:buFont typeface="+mj-lt"/><a:buAutoNum type="${textObj.options.bullet.style || 'arabicPeriod'}" startAt="${textObj.options.bullet.numberStartAt || textObj.options.bullet.startAt || '1'
+				strXmlBullet = `${strXmlBulletSize}${strXmlBulletFont || '<a:buFont typeface="+mj-lt"/>'}<a:buAutoNum type="${textObj.options.bullet.style || 'arabicPeriod'}" startAt="${textObj.options.bullet.numberStartAt || textObj.options.bullet.startAt || '1'
 				}"/>`
 			} else if (textObj.options.bullet.characterCode) {
 				let bulletCode = `&#x${textObj.options.bullet.characterCode};`
@@ -1204,7 +1217,7 @@ function genXmlParagraphProperties (textObj: ISlideObject | TextProps, isDefault
 
 				paragraphPropXml += ` marL="${textObj.options.indentLevel && textObj.options.indentLevel > 0 ? bulletMarL + bulletMarL * textObj.options.indentLevel : bulletMarL
 				}" indent="-${bulletMarL}"`
-				strXmlBullet = '<a:buSzPct val="100000"/><a:buChar char="' + bulletCode + '"/>'
+				strXmlBullet = strXmlBulletSize + strXmlBulletFont + '<a:buChar char="' + bulletCode + '"/>'
 			} else if (textObj.options.bullet.code) {
 				// @deprecated `bullet.code` v3.3.0
 				let bulletCode = `&#x${textObj.options.bullet.code};`
@@ -1217,11 +1230,11 @@ function genXmlParagraphProperties (textObj: ISlideObject | TextProps, isDefault
 
 				paragraphPropXml += ` marL="${textObj.options.indentLevel && textObj.options.indentLevel > 0 ? bulletMarL + bulletMarL * textObj.options.indentLevel : bulletMarL
 				}" indent="-${bulletMarL}"`
-				strXmlBullet = '<a:buSzPct val="100000"/><a:buChar char="' + bulletCode + '"/>'
+				strXmlBullet = strXmlBulletSize + strXmlBulletFont + '<a:buChar char="' + bulletCode + '"/>'
 			} else {
 				paragraphPropXml += ` marL="${textObj.options.indentLevel && textObj.options.indentLevel > 0 ? bulletMarL + bulletMarL * textObj.options.indentLevel : bulletMarL
 				}" indent="-${bulletMarL}"`
-				strXmlBullet = `<a:buSzPct val="100000"/><a:buChar char="${BULLET_TYPES.DEFAULT}"/>`
+				strXmlBullet = `${strXmlBulletSize}${strXmlBulletFont}<a:buChar char="${BULLET_TYPES.DEFAULT}"/>`
 			}
 		} else if (textObj.options.bullet) {
 			paragraphPropXml += ` marL="${textObj.options.indentLevel && textObj.options.indentLevel > 0 ? bulletMarL + bulletMarL * textObj.options.indentLevel : bulletMarL

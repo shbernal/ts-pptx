@@ -7473,8 +7473,8 @@ items:
     source: "gitbrent/PptxGenJS#800"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -7482,24 +7482,24 @@ items:
     non_target_reasons: []
     upstream_summary: Requested a way to use PowerPoint-style arrow bullets such as Wingdings glyphs.
     current_project_notes: >
-      Current bullet options allow Unicode character codes but do not expose a
-      bullet font or typeface option. The XML path emits buChar and fixed
-      buSzPct values, while authored Wingdings bullets likely need buFont plus
-      the glyph.
+      Implemented: `bullet.fontFace` emits `<a:buFont typeface="..."/>` between
+      buSzPct and buChar/buAutoNum (e.g. Wingdings glyph bullets via
+      characterCode + fontFace). Numbered bullets use the custom font in place
+      of the +mj-lt default. Landed with the bullet size option from issue 743.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - schema-fixture
       local_files:
-        - src/core-interfaces.ts:277
-        - src/core-interfaces.ts:290
-        - src/gen-xml.ts:908
-        - src/gen-xml.ts:919
-        - src/gen-xml.ts:936
-      schema_fixture: null
+        - src/core-interfaces.ts:444
+        - src/gen-xml.ts:1196
+        - test/regression/bullet-font-size.test.js
+      schema_fixture: bullet-font-size
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: compare-powerpoint-authored-wingdings-bullet-xml
+    next_action: none
 
   - id: upstream-issue-798
     source: "gitbrent/PptxGenJS#798"
@@ -7806,8 +7806,8 @@ items:
     source: "gitbrent/PptxGenJS#743"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -7815,23 +7815,24 @@ items:
     non_target_reasons: []
     upstream_summary: Bullet glyph size did not match PowerPoint's default bullet sizing for the same text.
     current_project_notes: >
-      Current paragraph XML emits a fixed buSzPct value and no public bullet size
-      control. Compare an authored PowerPoint bullet before adding an option
-      because this overlaps with bullet font and color work.
+      Implemented: `bullet.size` (percent of run text size, 25-400 per
+      ST_TextBulletSizePercent) controls the emitted `<a:buSzPct/>` value;
+      out-of-range values warn and fall back to 100%. Landed with the bullet
+      font option from issue 800.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - schema-fixture
       local_files:
-        - src/core-interfaces.ts:277
-        - src/gen-xml.ts:906
-        - src/gen-xml.ts:919
-        - src/gen-xml.ts:936
-        - docs/upstream-signals.yml:1495
-      schema_fixture: null
+        - src/core-interfaces.ts:450
+        - src/gen-xml.ts:1192
+        - test/regression/bullet-font-size.test.js
+      schema_fixture: bullet-font-size
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: compare-powerpoint-authored-bullet-size-xml
+    next_action: none
 
   - id: upstream-issue-731
     source: "gitbrent/PptxGenJS#731"
