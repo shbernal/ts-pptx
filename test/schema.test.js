@@ -246,6 +246,25 @@ export default [
 		},
 	},
 	{
+		// RGBA (8-char) effect colors must not emit two <a:alpha> children when the
+		// effect also carries an explicit `opacity`. Cell text skips correctShadowOptions,
+		// so the RGBA byte reaches createColorElement directly — the caller's opacity wins.
+		name: 'RGBA effect color with explicit opacity (shadow + glow)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addTable([[{ text: 'A', options: { shadow: { type: 'outer', color: '404040CC', opacity: 0.6 } } }]], {
+					x: 1,
+					y: 1,
+					w: 3,
+					h: 1,
+				})
+				s.addText('B', { x: 1, y: 3, w: 3, h: 1, glow: { size: 6, color: 'FFFF0080', opacity: 0.5 } })
+			})
+			await expectNoSchemaErrors(buf, 'rgba-effect-color-opacity')
+		},
+	},
+	{
 		name: 'shape with native linear gradient fill',
 		fn: async () => {
 			const { buf } = await build((p) => {

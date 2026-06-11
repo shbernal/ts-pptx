@@ -234,9 +234,14 @@ export function createColorElement (colorStr: string | SCHEME_COLORS, innerEleme
 	// continue with the leading 6-char RGB through the existing validation. This keeps
 	// fill/text/line/glow paths from silently falling back to DEF_FONT_COLOR on RGBA input.
 	if (/^[0-9a-fA-F]{8}$/.test(colorVal)) {
-		const alphaHex = colorVal.slice(6, 8)
-		const alphaVal = Math.round((parseInt(alphaHex, 16) / 255) * 100000)
-		innerElements = `<a:alpha val="${alphaVal}"/>${innerElements || ''}`
+		// If the caller already supplied an explicit <a:alpha> (e.g. shadow/glow `opacity`),
+		// it wins — do NOT add a second alpha from the RGBA byte, which would emit two
+		// <a:alpha> children and produce schema-invalid OOXML (CT_SRgbColor allows one).
+		if (!innerElements?.includes('<a:alpha')) {
+			const alphaHex = colorVal.slice(6, 8)
+			const alphaVal = Math.round((parseInt(alphaHex, 16) / 255) * 100000)
+			innerElements = `<a:alpha val="${alphaVal}"/>${innerElements || ''}`
+		}
 		colorVal = colorVal.slice(0, 6)
 	}
 
