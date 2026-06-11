@@ -267,7 +267,18 @@ export function addChartDefinition(target: PresSlideInternal, type: CHART_NAME |
 	if (!['circle', 'dash', 'diamond', 'dot', 'none', 'square', 'triangle'].includes(options.lineDataSymbol || '')) options.lineDataSymbol = 'circle'
 	if (!['gap', 'span', 'zero'].includes(options.displayBlanksAs || '')) options.displayBlanksAs = 'gap'
 	if (!['standard', 'marker', 'filled'].includes(options.radarStyle || '')) options.radarStyle = 'standard'
-	options.lineDataSymbolSize = options.lineDataSymbolSize && !isNaN(options.lineDataSymbolSize) ? options.lineDataSymbolSize : 6
+	// Marker size emits as `<c:size val>` (ST_MarkerSize): an integer in [2,72] points.
+	// Out-of-range or non-integer values make PowerPoint report the file as needing
+	// repair, so round and clamp into range and warn when the input is coerced.
+	{
+		const rawSymbolSize = options.lineDataSymbolSize
+		const hasSymbolSize = rawSymbolSize != null && !isNaN(rawSymbolSize)
+		const symbolSize = Math.min(72, Math.max(2, Math.round(hasSymbolSize ? rawSymbolSize : 6)))
+		if (hasSymbolSize && symbolSize !== rawSymbolSize) {
+			console.warn(`Warning: lineDataSymbolSize ${rawSymbolSize} is outside the valid marker size range (integer 2-72); using ${symbolSize}.`)
+		}
+		options.lineDataSymbolSize = symbolSize
+	}
 	options.lineDataSymbolLineSize = options.lineDataSymbolLineSize && !isNaN(options.lineDataSymbolLineSize) ? valToPts(options.lineDataSymbolLineSize) : valToPts(0.75)
 	// `layout` allows the override of PPT defaults to maximize space
 	const chartLayout = options.layout

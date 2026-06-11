@@ -727,6 +727,44 @@ export default [
 		},
 	},
 	{
+		name: 'line chart marker size out of range is clamped to valid ST_MarkerSize (upstream #1233)',
+		fn: async () => {
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (...args) => warnings.push(args.join(' '))
+			let buf
+			try {
+				;({ buf } = await build((p) => {
+					// 1 (below min 2), 100 (above max 72), and 5.5 (non-integer) all violate
+					// ST_MarkerSize (integer 2-72) and would trigger PowerPoint repair if emitted as-is.
+					const s = p.addSlide()
+					s.addChart(p.charts.LINE, [{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
+						x: 1,
+						y: 1,
+						w: 6,
+						h: 3,
+						lineDataSymbolSize: 1,
+					})
+					const s2 = p.addSlide()
+					s2.addChart(p.charts.LINE, [{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
+						x: 1,
+						y: 1,
+						w: 6,
+						h: 3,
+						lineDataSymbolSize: 100,
+					})
+				}))
+			} finally {
+				console.warn = origWarn
+			}
+			assert(
+				warnings.some((w) => w.includes('valid marker size range')),
+				'expected a warning for out-of-range lineDataSymbolSize'
+			)
+			await expectNoSchemaErrors(buf, 'line-chart-marker-size-clamped')
+		},
+	},
+	{
 		name: 'chart title with y-only manual layout (auto horizontal centering)',
 		fn: async () => {
 			const { buf } = await build((p) => {
