@@ -208,7 +208,7 @@ export enum ShapeType {
 	'flowChartSort' = 'flowChartSort',
 	'flowChartSummingJunction' = 'flowChartSummingJunction',
 	'flowChartTerminator' = 'flowChartTerminator',
-	'folderCorner' = 'folderCorner',
+	'foldedCorner' = 'foldedCorner',
 	'frame' = 'frame',
 	'funnel' = 'funnel',
 	'gear6' = 'gear6',
