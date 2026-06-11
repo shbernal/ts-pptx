@@ -614,6 +614,32 @@ export default [
 		},
 	},
 	{
+		// Upstream #1420: chart text fonts (title, legend, axis labels, data labels) emit the
+		// `<a:latin>/<a:ea>/<a:cs>` typeface trio so East Asian text honors the requested font.
+		// Lock in that the ea/cs additions stay schema-valid (correct CT_TextCharacterProperties order).
+		name: 'chart text fonts emit schema-valid latin/ea/cs typeface trio (upstream #1420)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(p.charts.BAR, [{ name: '系列', labels: ['甲', '乙', '丙'], values: [1, 2, 3] }], {
+					x: 0.5,
+					y: 0.5,
+					w: 6,
+					h: 3,
+					showTitle: true,
+					title: '图表标题',
+					titleFontFace: 'Microsoft YaHei',
+					showLegend: true,
+					legendFontFace: 'SimSun',
+					showValue: true,
+					dataLabelFontFace: 'NSimSun',
+					catAxisLabelFontFace: 'KaiTi',
+					valAxisLabelFontFace: 'FangSong',
+				})
+			})
+			await expectNoSchemaErrors(buf, 'chart-east-asian-font-trio')
+		},
+	},
+	{
 		name: 'bar chart with valAxisCrossBetween midCat',
 		fn: async () => {
 			const { buf } = await build((p) => {

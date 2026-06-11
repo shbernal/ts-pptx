@@ -1983,8 +1983,8 @@ items:
     source: "gitbrent/PptxGenJS#1420"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p2
     target_area:
       - chart-ooxml
@@ -1992,22 +1992,31 @@ items:
     non_target_reasons: []
     upstream_summary: Reports chart title, legend, and category label Chinese font settings not taking effect on PowerPoint for Mac.
     current_project_notes: >
-      Chart title, axis, and data label runs mostly emit a:latin typeface only.
-      East Asian and complex-script typeface handling needs a PowerPoint-authored
-      comparison before changing chart text XML.
+      Fixed. Chart text runs previously emitted `<a:latin typeface>` only, so a
+      requested font applied to Latin/ASCII glyphs but East Asian (e.g. Chinese)
+      text fell back to the theme font — most visibly on PowerPoint for Mac. A
+      new `createChartTextFonts()` helper in gen-charts.ts now stamps the same
+      typeface onto the `<a:latin>/<a:ea>/<a:cs>` trio, matching what PowerPoint
+      writes when a font is chosen in its UI. Applied across title, legend,
+      cat/val/ser axis labels, and all data-label/custom-label runs (the legend
+      block also gained its previously-missing `<a:ea>`). Confirmed via
+      microsoft_learn that a DrawingML typeface applies only to the script class
+      of its element. Purely additive — Latin-only decks are unaffected.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - schema-fixture
       local_files:
-        - src/gen-charts.ts:900
-        - src/gen-charts.ts:1326
-        - src/gen-charts.ts:1720
-        - src/gen-charts.ts:1961
-      schema_fixture: null
-      validator_result: null
+        - src/gen-charts.ts:492
+        - test/regression/chart-east-asian-fonts.test.js
+        - test/schema.test.js:620
+      schema_fixture: chart-east-asian-font-trio
+      validator_result: pass
       powerpoint_result: null
-      spec_refs: []
-    next_action: compare-mac-powerpoint-chart-font-runs-for-ea-text
+      spec_refs:
+        - "ISO/IEC 29500-1 §21.1.2.3 (latin/ea/cs run fonts)"
+    next_action: none
 
   - id: upstream-issue-1419
     source: "gitbrent/PptxGenJS#1419"

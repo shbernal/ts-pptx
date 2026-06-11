@@ -477,6 +477,23 @@ export async function createExcelWorksheet (chartObject: ISlideRelChart, zip: JS
 }
 
 /**
+ * Emit the `<a:latin>/<a:ea>/<a:cs>` font trio for a chart text run.
+ *
+ * In DrawingML run properties a typeface applies only to the script class of
+ * its element: `<a:latin>` covers Latin/ASCII, `<a:ea>` covers East Asian, and
+ * `<a:cs>` covers complex scripts. Emitting `<a:latin>` alone leaves East Asian
+ * (e.g. Chinese) and complex-script glyphs falling back to the theme font, so a
+ * user-specified font never takes effect for that text — most visibly on
+ * PowerPoint for Mac. Stamping the same typeface onto all three classes is what
+ * choosing a font in PowerPoint's UI does (upstream gitbrent/PptxGenJS#1420).
+ * @param {string} typeface - font face name
+ * @return {string} `<a:latin/><a:ea/><a:cs/>` XML
+ */
+function createChartTextFonts (typeface: string): string {
+	return `<a:latin typeface="${typeface}"/><a:ea typeface="${typeface}"/><a:cs typeface="${typeface}"/>`
+}
+
+/**
  * Main entry point method for create charts
  * @see: http://www.datypic.com/sc/ooxml/s-dml-chart.xsd.html
  * @param {ISlideRelChart} rel - chart object
@@ -720,8 +737,7 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
 				strXml += '    <a:pPr>'
 				strXml += rel.opts.legendFontSize ? `<a:defRPr sz="${Math.round(Number(rel.opts.legendFontSize) * 100)}">` : '<a:defRPr>'
 				if (rel.opts.legendColor) strXml += genXmlColorSelection(rel.opts.legendColor)
-				if (rel.opts.legendFontFace) strXml += '<a:latin typeface="' + rel.opts.legendFontFace + '"/>'
-				if (rel.opts.legendFontFace) strXml += '<a:cs    typeface="' + rel.opts.legendFontFace + '"/>'
+				if (rel.opts.legendFontFace) strXml += createChartTextFonts(rel.opts.legendFontFace)
 				strXml += '      </a:defRPr>'
 				strXml += '    </a:pPr>'
 				strXml += '    <a:endParaRPr lang="en-US"/>'
@@ -931,7 +947,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					strXml += '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr>'
 					strXml += `<a:defRPr b="${lblBold ? 1 : 0}" i="${lblItalic ? 1 : 0}" strike="noStrike" sz="${Math.round(lblSize * 100)}" u="none">`
 					strXml += `<a:solidFill>${createColorElement(lblColor)}</a:solidFill>`
-					strXml += `<a:latin typeface="${lblFace}"/>`
+					strXml += createChartTextFonts(lblFace)
 					strXml += '</a:defRPr></a:pPr></a:p></c:txPr>'
 					if (opts.dataLabelPosition) strXml += `<c:dLblPos val="${opts.dataLabelPosition}"/>`
 					strXml += '<c:showLegendKey val="0"/>'
@@ -1009,7 +1025,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 				strXml += '      <a:p><a:pPr>'
 				strXml += `        <a:defRPr b="${opts.dataLabelFontBold ? 1 : 0}" i="${opts.dataLabelFontItalic ? 1 : 0}" strike="noStrike" sz="${Math.round((opts.dataLabelFontSize || DEF_FONT_SIZE) * 100)}" u="none">`
 				strXml += '          <a:solidFill>' + createColorElement(opts.dataLabelColor || DEF_FONT_COLOR) + '</a:solidFill>'
-				strXml += '          <a:latin typeface="' + (opts.dataLabelFontFace || 'Arial') + '"/>'
+				strXml += '          ' + createChartTextFonts(opts.dataLabelFontFace || 'Arial')
 				strXml += '        </a:defRPr>'
 				strXml += '      </a:pPr></a:p>'
 				strXml += '    </c:txPr>'
@@ -1150,13 +1166,13 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 								strXml += '                <a:pPr>'
 								strXml += `                    <a:defRPr sz="${Math.round((opts.dataLabelFontSize || DEF_FONT_SIZE) * 100)}" b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike">`
 								strXml += '                        <a:solidFill>' + createColorElement(opts.dataLabelColor || DEF_FONT_COLOR) + '</a:solidFill>'
-								strXml += `                        <a:latin typeface="${opts.dataLabelFontFace || 'Arial'}"/>`
+								strXml += '                        ' + createChartTextFonts(opts.dataLabelFontFace || 'Arial')
 								strXml += '                    </a:defRPr>'
 								strXml += '                </a:pPr>'
 								strXml += '              <a:r>'
 								strXml += `                    <a:rPr lang="${opts.lang || 'en-US'}" sz="${Math.round((opts.dataLabelFontSize || DEF_FONT_SIZE) * 100)}" b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike" dirty="0">`
 								strXml += '                        <a:solidFill>' + createColorElement(opts.dataLabelColor || DEF_FONT_COLOR) + '</a:solidFill>'
-								strXml += `                        <a:latin typeface="${opts.dataLabelFontFace || 'Arial'}"/>`
+								strXml += '                        ' + createChartTextFonts(opts.dataLabelFontFace || 'Arial')
 								strXml += '                    </a:rPr>'
 								strXml += '                    <a:t>' + encodeXmlEntities(label) + '</a:t>'
 								strXml += '              </a:r>'
@@ -1239,7 +1255,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 						strXml += '            <a:pPr>'
 						strXml += `                <a:defRPr sz="${Math.round((opts.dataLabelFontSize || DEF_FONT_SIZE) * 100)}" b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike">`
 						strXml += '                    <a:solidFill>' + createColorElement(opts.dataLabelColor || DEF_FONT_COLOR) + '</a:solidFill>'
-						strXml += `                    <a:latin typeface="${opts.dataLabelFontFace || 'Arial'}"/>`
+						strXml += '                    ' + createChartTextFonts(opts.dataLabelFontFace || 'Arial')
 						strXml += '                </a:defRPr>'
 						strXml += '            </a:pPr>'
 						strXml += `            <a:endParaRPr lang="${opts.lang || 'en-US'}"/>`
@@ -1310,7 +1326,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 				strXml += '      <a:p><a:pPr>'
 				strXml += `        <a:defRPr b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" strike="noStrike" sz="${Math.round((opts.dataLabelFontSize || DEF_FONT_SIZE) * 100)}" u="none">`
 				strXml += '          <a:solidFill>' + createColorElement(opts.dataLabelColor || DEF_FONT_COLOR) + '</a:solidFill>'
-				strXml += '          <a:latin typeface="' + (opts.dataLabelFontFace || 'Arial') + '"/>'
+				strXml += '          ' + createChartTextFonts(opts.dataLabelFontFace || 'Arial')
 				strXml += '        </a:defRPr>'
 				strXml += '      </a:pPr></a:p>'
 				strXml += '    </c:txPr>'
@@ -1457,7 +1473,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					Math.round(opts.dataLabelFontSize || DEF_FONT_SIZE) * 100
 				)}" u="none">`
 				strXml += `<a:solidFill>${createColorElement(opts.dataLabelColor || DEF_FONT_COLOR)}</a:solidFill>`
-				strXml += `<a:latin typeface="${opts.dataLabelFontFace || 'Arial'}"/>`
+				strXml += createChartTextFonts(opts.dataLabelFontFace || 'Arial')
 				strXml += '</a:defRPr></a:pPr></a:p></c:txPr>'
 				if (opts.dataLabelPosition) strXml += `<c:dLblPos val="${opts.dataLabelPosition}"/>`
 				strXml += '<c:showLegendKey val="0"/>'
@@ -1568,7 +1584,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 				strXml += `   <a:defRPr sz="${Math.round((opts.dataLabelFontSize || DEF_FONT_SIZE) * 100)}" b="${opts.dataLabelFontBold ? 1 : 0}" i="${opts.dataLabelFontItalic ? 1 : 0
 				}" u="none" strike="noStrike">`
 				strXml += '    <a:solidFill>' + createColorElement(opts.dataLabelColor || DEF_FONT_COLOR) + '</a:solidFill>'
-				strXml += `    <a:latin typeface="${opts.dataLabelFontFace || 'Arial'}"/>`
+				strXml += '    ' + createChartTextFonts(opts.dataLabelFontFace || 'Arial')
 				strXml += '   </a:defRPr>'
 				strXml += '      </a:pPr></a:p>'
 				strXml += '    </c:txPr>'
@@ -1589,7 +1605,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 			strXml += '        <a:pPr>'
 			strXml += `          <a:defRPr sz="${Math.round((opts.dataLabelFontSize || DEF_FONT_SIZE) * 100)}" b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike">`
 			strXml += '            <a:solidFill>' + createColorElement(opts.dataLabelColor || DEF_FONT_COLOR) + '</a:solidFill>'
-			strXml += `            <a:latin typeface="${opts.dataLabelFontFace || 'Arial'}"/>`
+			strXml += '            ' + createChartTextFonts(opts.dataLabelFontFace || 'Arial')
 			strXml += '          </a:defRPr>'
 			strXml += '        </a:pPr>'
 			strXml += '      </a:p>'
@@ -1721,7 +1737,7 @@ function makeCatAxis (opts: IChartOptsLib, axisId: string, valAxisId: string): s
 	strXml += '    <a:pPr>'
 	strXml += `      <a:defRPr sz="${Math.round((opts.catAxisLabelFontSize || DEF_FONT_SIZE) * 100)}" b="${opts.catAxisLabelFontBold ? 1 : 0}" i="${opts.catAxisLabelFontItalic ? 1 : 0}" u="none" strike="noStrike">`
 	strXml += '      <a:solidFill>' + createColorElement(opts.catAxisLabelColor || DEF_FONT_COLOR) + '</a:solidFill>'
-	strXml += '      <a:latin typeface="' + (opts.catAxisLabelFontFace || 'Arial') + '"/>'
+	strXml += '      ' + createChartTextFonts(opts.catAxisLabelFontFace || 'Arial')
 	strXml += '   </a:defRPr>'
 	strXml += '  </a:pPr>'
 	strXml += '  <a:endParaRPr lang="' + (opts.lang || 'en-US') + '"/>'
@@ -1826,7 +1842,7 @@ function makeValAxis (opts: IChartOptsLib, valAxisId: string): string {
 	strXml += '    <a:pPr>'
 	strXml += `      <a:defRPr sz="${Math.round((opts.valAxisLabelFontSize || DEF_FONT_SIZE) * 100)}" b="${opts.valAxisLabelFontBold ? 1 : 0}" i="${opts.valAxisLabelFontItalic ? 1 : 0}" u="none" strike="noStrike">`
 	strXml += '        <a:solidFill>' + createColorElement(opts.valAxisLabelColor || DEF_FONT_COLOR) + '</a:solidFill>'
-	strXml += '        <a:latin typeface="' + (opts.valAxisLabelFontFace || 'Arial') + '"/>'
+	strXml += '        ' + createChartTextFonts(opts.valAxisLabelFontFace || 'Arial')
 	strXml += '      </a:defRPr>'
 	strXml += '    </a:pPr>'
 	strXml += '  <a:endParaRPr lang="' + (opts.lang || 'en-US') + '"/>'
@@ -1903,7 +1919,7 @@ function makeSerAxis (opts: IChartOptsLib, axisId: string, valAxisId: string): s
 	strXml += '    <a:pPr>'
 	strXml += `    <a:defRPr sz="${Math.round((opts.serAxisLabelFontSize || DEF_FONT_SIZE) * 100)}" b="${opts.serAxisLabelFontBold ? '1' : '0'}" i="${opts.serAxisLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike">`
 	strXml += `      <a:solidFill>${createColorElement(opts.serAxisLabelColor || DEF_FONT_COLOR)}</a:solidFill>`
-	strXml += `      <a:latin typeface="${opts.serAxisLabelFontFace || 'Arial'}"/>`
+	strXml += '      ' + createChartTextFonts(opts.serAxisLabelFontFace || 'Arial')
 	strXml += '   </a:defRPr>'
 	strXml += '  </a:pPr>'
 	strXml += '  <a:endParaRPr lang="' + (opts.lang || 'en-US') + '"/>'
@@ -1988,13 +2004,13 @@ function genXmlTitle (opts: IChartPropsTitle, chartX?: number, chartY?: number):
             ${align}
             <a:defRPr ${sizeAttr} b="${titleBold}" i="${titleItalic}" u="${titleUnderline}" strike="noStrike">
               <a:solidFill>${createColorElement(opts.color || DEF_FONT_COLOR)}</a:solidFill>
-              <a:latin typeface="${opts.fontFace || 'Arial'}"/>
+              ${createChartTextFonts(opts.fontFace || 'Arial')}
             </a:defRPr>
           </a:pPr>
           <a:r>
             <a:rPr ${sizeAttr} b="${titleBold}" i="${titleItalic}" u="${titleUnderline}" strike="noStrike">
               <a:solidFill>${createColorElement(opts.color || DEF_FONT_COLOR)}</a:solidFill>
-              <a:latin typeface="${opts.fontFace || 'Arial'}"/>
+              ${createChartTextFonts(opts.fontFace || 'Arial')}
             </a:rPr>
             <a:t>${encodeXmlEntities(opts.title) || ''}</a:t>
           </a:r>
@@ -2092,9 +2108,9 @@ function makeCustomDLblXml (idx: number, text: string, opts: IChartOptsLib): str
 		`<c:dLbl><c:idx val="${idx}"/>` +
 		'<c:tx><c:rich><a:bodyPr/><a:lstStyle/>' +
 		`<a:p><a:pPr><a:defRPr sz="${sz}" b="${bold}" i="${italic}" u="none" strike="noStrike">` +
-		`<a:solidFill>${color}</a:solidFill><a:latin typeface="${face}"/></a:defRPr></a:pPr>` +
+		`<a:solidFill>${color}</a:solidFill>${createChartTextFonts(face)}</a:defRPr></a:pPr>` +
 		`<a:r><a:rPr lang="${lang}" sz="${sz}" b="${bold}" i="${italic}" u="none" strike="noStrike" dirty="0">` +
-		`<a:solidFill>${color}</a:solidFill><a:latin typeface="${face}"/></a:rPr>` +
+		`<a:solidFill>${color}</a:solidFill>${createChartTextFonts(face)}</a:rPr>` +
 		`<a:t>${encodeXmlEntities(text)}</a:t></a:r></a:p>` +
 		'</c:rich></c:tx>' +
 		'<c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/>' +
