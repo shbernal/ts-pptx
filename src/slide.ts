@@ -6,6 +6,7 @@ import { CHART_NAME, SHAPE_NAME } from './core-enums.js'
 import {
 	AddSlideProps,
 	BackgroundProps,
+	ConnectorProps,
 	HexColor,
 	IChartMulti,
 	IChartOpts,
@@ -231,6 +232,17 @@ export default class Slide {
 		// TypeScript => `pptxgen.shapes.RECTANGLE` [string] "rect" ... shapeName = 'rect'
 		// let shapeNameDecode = typeof shapeName === 'object' && shapeName['name'] ? shapeName['name'] : shapeName
 		genObj.addShapeDefinition(this, shapeName, options || {})
+		return this
+	}
+
+	/**
+	 * Add a connector (a line drawn between two points, emitted as a PowerPoint `<p:cxnSp>`).
+	 * @param {ConnectorProps} options - connector endpoints (`x1,y1,x2,y2`) and line styling
+	 * @return {Slide} this Slide
+	 * @example slide.addConnector({ type: 'elbow', x1: 1, y1: 1, x2: 5, y2: 3, endArrowType: 'triangle' })
+	 */
+	addConnector(options: ConnectorProps): Slide {
+		genObj.addConnectorDefinition(this, options)
 		return this
 	}
 

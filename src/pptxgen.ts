@@ -491,6 +491,7 @@ export default class PptxGenJS {
 		this._tableStyles = []
 		this._masterSlide = {
 			addChart: null,
+			addConnector: null,
 			addImage: null,
 			addMedia: null,
 			addNotes: null,

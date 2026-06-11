@@ -1588,4 +1588,27 @@ export default [
 			await expectNoSchemaErrors(buf, 'theme-color-scheme')
 		},
 	},
+	{
+		// upstream #1059: connectors emit <p:cxnSp> with connector preset geometries and must stay
+		// schema-valid, including flipped boxes and arrowheads/dashes on the <a:ln>.
+		name: 'connectors (straight/elbow/curved, flipped, arrowheads)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addConnector({
+					type: 'straight',
+					x1: 1,
+					y1: 1,
+					x2: 4,
+					y2: 3,
+					color: 'FF0000',
+					width: 2,
+					endArrowType: 'triangle',
+				})
+				s.addConnector({ type: 'elbow', x1: 6, y1: 4, x2: 2, y2: 1, dashType: 'dash', beginArrowType: 'oval' })
+				s.addConnector({ type: 'curved', x1: 1, y1: 5, x2: 5, y2: 6 })
+			})
+			await expectNoSchemaErrors(buf, 'connectors')
+		},
+	},
 ]

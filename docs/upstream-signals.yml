@@ -3685,8 +3685,8 @@ items:
     source: "gitbrent/PptxGenJS#1059"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: interesting-with-tweaks
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -3694,21 +3694,35 @@ items:
     non_target_reasons: []
     upstream_summary: Add connected lines between shapes.
     current_project_notes: >
-      Connector support is a useful feature signal, but it needs a current API
-      design around shape identifiers, connection sites, and line XML rather than
-      adopting the older broad patch directly.
+      Implemented a connector primitive: new slide.addConnector(ConnectorProps)
+      and addConnectorDefinition build a SLIDE_OBJECT_TYPES.connector object, and
+      slideObjectToXml emits a real <p:cxnSp> (not a <p:sp> line). API takes two
+      points (x1,y1,x2,y2) plus type ('straight'|'elbow'|'curved' →
+      straightConnector1/bentConnector3/curvedConnector3 via CONNECTOR_PRESETS)
+      and line styling (color/width/dashType/begin+endArrowType). Endpoints are
+      resolved to inches and reduced to a min-corner box + flipH/flipV so the line
+      can run between any two corners. Schema-validated. Scoped OUT: anchoring
+      endpoints to shape connection sites (<a:stCxn>/<a:endCxn>) — tracked as the
+      remaining follow-up on upstream-issue-399 (now deferred). Companion
+      upstream-pr-777 marked implemented.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/gen-objects.ts:1089
-        - src/gen-xml.ts:520
-        - src/gen-xml.ts:522
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts:369
+        - src/gen-objects.ts:840
+        - src/gen-xml.ts:790
+        - src/slide.ts:237
+        - test/regression/connector-shape.test.js
+        - test/schema.test.js
+      schema_fixture: connectors
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: design-shape-connector-api-and-xml-fixture
+    next_action: none
 
   - id: upstream-pr-1021
     source: "gitbrent/PptxGenJS#1021"
@@ -3778,8 +3792,8 @@ items:
     source: "gitbrent/PptxGenJS#777"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: superseded
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -3787,20 +3801,24 @@ items:
     non_target_reasons: []
     upstream_summary: Add an older connector shape type implementation.
     current_project_notes: >
-      Treat as covered by the broader connected-lines feature signal in
-      upstream-pr-1059. If connectors are implemented, do it once against the
-      current shape/line model.
+      Covered by the connector feature implemented under upstream-pr-1059:
+      slide.addConnector emits <p:cxnSp> against the current shape/line model. See
+      that item for the implementation and tests.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/gen-objects.ts:1089
-        - src/gen-xml.ts:522
-      schema_fixture: null
-      validator_result: null
+        - src/gen-objects.ts:840
+        - src/gen-xml.ts:790
+        - test/regression/connector-shape.test.js
+      schema_fixture: connectors
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: handle-with-upstream-pr-1059
+    next_action: none
 
   - id: upstream-pr-727
     source: "gitbrent/PptxGenJS#727"
@@ -8789,8 +8807,8 @@ items:
     source: "gitbrent/PptxGenJS#399"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: superseded
+    last_reviewed: 2026-06-11
+    status: deferred
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -8798,21 +8816,23 @@ items:
     non_target_reasons: []
     upstream_summary: Requested anchor connections for shapes and lines.
     current_project_notes: >
-      Connector/anchor support is already tracked as a current design candidate
-      under upstream-pr-1059. Keep this issue as demand evidence for that lane.
+      Partially addressed by the connector primitive in upstream-pr-1059
+      (slide.addConnector emits <p:cxnSp> between two points). The remaining ask —
+      anchoring connector endpoints to a shape's connection sites via
+      <a:stCxn>/<a:endCxn> (so PowerPoint reroutes them when shapes move) — was
+      deliberately scoped out of the first pass; it needs stable per-shape ids and
+      connection-site indices. Deferred until a concrete need lands.
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/gen-objects.ts:1089
-        - src/gen-xml.ts:520
-        - src/gen-xml.ts:522
-        - docs/upstream-signals.yml:3325
+        - src/gen-objects.ts:840
+        - src/gen-xml.ts:790
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: handle-with-upstream-pr-1059
+    next_action: revisit-connector-shape-anchoring-on-concrete-need
 
   - id: upstream-issue-307
     source: "gitbrent/PptxGenJS#307"

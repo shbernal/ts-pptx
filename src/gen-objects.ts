@@ -6,6 +6,7 @@ import {
 	BARCHART_COLORS,
 	CHART_NAME,
 	CHART_TYPE,
+	CONNECTOR_PRESETS,
 	DEF_CELL_BORDER,
 	DEF_CELL_MARGIN_IN,
 	DEF_CHART_BORDER,
@@ -28,6 +29,7 @@ import type {
 	AddSlideProps,
 	BackgroundProps,
 	BorderProps,
+	ConnectorProps,
 	IChartMulti,
 	IChartOpts,
 	IChartOptsLib,
@@ -832,6 +834,61 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 	createHyperlinkRels(target, newObject)
 
 	// LAST: Add object to slide
+	target._slideObjects.push(newObject)
+}
+
+/**
+ * Adds a connector object to a slide definition.
+ * A connector is a line between two points emitted as a PowerPoint connector (`<p:cxnSp>`).
+ * Endpoints are converted to a bounding box (`x/y/w/h`) plus `flipH`/`flipV` so the box can be
+ * oriented from any corner; the connector preset geometry is derived from `type`.
+ * @param {PresSlideInternal} target - slide the connector is added to
+ * @param {ConnectorProps} opts - connector options (endpoints + line styling)
+ */
+export function addConnectorDefinition(target: PresSlideInternal, opts: ConnectorProps): void {
+	if (!opts || [opts.x1, opts.y1, opts.x2, opts.y2].some(v => typeof v === 'undefined')) {
+		throw new Error('addConnector requires { x1, y1, x2, y2 }. Example: `slide.addConnector({ x1:1, y1:1, x2:4, y2:3 })`')
+	}
+
+	const preset = CONNECTOR_PRESETS[opts.type || 'straight']
+	if (!preset) {
+		throw new Error(`Invalid connector type "${String(opts.type)}". Use 'straight', 'elbow', or 'curved'.`)
+	}
+
+	// Resolve all four endpoints to inches up front (handles every `Coord` form: number,
+	// '50%', '2in', etc.). The connector box uses the min corner as its origin and flips
+	// horizontally/vertically when the end point is left of / above the start point.
+	const x1 = getSmartParseNumber(opts.x1, 'X', target._presLayout) / EMU
+	const y1 = getSmartParseNumber(opts.y1, 'Y', target._presLayout) / EMU
+	const x2 = getSmartParseNumber(opts.x2, 'X', target._presLayout) / EMU
+	const y2 = getSmartParseNumber(opts.y2, 'Y', target._presLayout) / EMU
+
+	const newObject: ISlideObject = {
+		_type: SLIDE_OBJECT_TYPES.connector,
+		// store the connector preset on `shape`; the serializer emits it as the prstGeom `prst`
+		shape: preset as SHAPE_NAME,
+		options: {
+			x: Math.min(x1, x2),
+			y: Math.min(y1, y2),
+			w: Math.abs(x2 - x1),
+			h: Math.abs(y2 - y1),
+			flipH: x2 < x1,
+			flipV: y2 < y1,
+			line: {
+				type: 'solid',
+				color: opts.color || DEF_SHAPE_LINE_COLOR,
+				width: typeof opts.width === 'number' ? opts.width : 1,
+				dashType: opts.dashType || 'solid',
+				beginArrowType: opts.beginArrowType,
+				endArrowType: opts.endArrowType,
+			},
+			altText: opts.altText,
+			objectName: opts.objectName
+				? encodeXmlEntities(validateObjectName(opts.objectName, 'connector'))
+				: `Connector ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.connector).length}`,
+		},
+	}
+
 	target._slideObjects.push(newObject)
 }
 

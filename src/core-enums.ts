@@ -749,6 +749,7 @@ export enum MASTER_OBJECTS {
 
 export enum SLIDE_OBJECT_TYPES {
 	'chart' = 'chart',
+	'connector' = 'connector',
 	'hyperlink' = 'hyperlink',
 	'image' = 'image',
 	'media' = 'media',
@@ -758,6 +759,17 @@ export enum SLIDE_OBJECT_TYPES {
 	'tablecell' = 'tablecell',
 	'text' = 'text',
 	'notes' = 'notes',
+}
+
+/**
+ * Maps a friendly `ConnectorType` to its OOXML connector preset geometry (`prst`).
+ * These are the canonical 1-segment straight, 3-segment bent (elbow), and 3-segment
+ * curved connector presets PowerPoint uses by default.
+ */
+export const CONNECTOR_PRESETS: Record<'straight' | 'elbow' | 'curved', string> = {
+	straight: 'straightConnector1',
+	elbow: 'bentConnector3',
+	curved: 'curvedConnector3',
 }
 export enum PLACEHOLDER_TYPES {
 	'title' = 'title',

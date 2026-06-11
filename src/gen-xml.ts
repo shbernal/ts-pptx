@@ -789,6 +789,29 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				strSlideXml += '</p:sp>'
 				break
 
+			case SLIDE_OBJECT_TYPES.connector: {
+				// A connector is emitted as <p:cxnSp> (a connector shape) rather than <p:sp>, so
+				// PowerPoint treats it as a connector. Geometry/flip come from the shared resolution
+				// above; the preset (straightConnector1 / bentConnector3 / curvedConnector3) is on `shape`.
+				strSlideXml += '<p:cxnSp><p:nvCxnSpPr>'
+				strSlideXml += `<p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"/>`
+				strSlideXml += '<p:cNvCxnSpPr/><p:nvPr/></p:nvCxnSpPr><p:spPr>'
+				strSlideXml += `<a:xfrm${locationAttr}><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>`
+				strSlideXml += `<a:prstGeom prst="${slideItemObj.shape}"><a:avLst/></a:prstGeom>`
+				{
+					const ln = slideItemObj.options.line || {}
+					const lnAttrs = (ln.width ? ` w="${lineWidthToEmu(ln.width)}"` : '') + (ln.cap ? ` cap="${createLineCap(ln.cap)}"` : '')
+					strSlideXml += `<a:ln${lnAttrs}>`
+					if (ln.color) strSlideXml += genXmlColorSelection(ln)
+					if (ln.dashType) strSlideXml += `<a:prstDash val="${ln.dashType}"/>`
+					if (ln.beginArrowType) strSlideXml += `<a:headEnd type="${ln.beginArrowType}"/>`
+					if (ln.endArrowType) strSlideXml += `<a:tailEnd type="${ln.endArrowType}"/>`
+					strSlideXml += '</a:ln>'
+				}
+				strSlideXml += '</p:spPr></p:cxnSp>'
+				break
+			}
+
 			case SLIDE_OBJECT_TYPES.image:
 				strSlideXml += '<p:pic>'
 				strSlideXml += '  <p:nvPicPr>'

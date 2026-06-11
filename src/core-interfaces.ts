@@ -366,6 +366,51 @@ export interface ShapeLineProps extends ShapeFillProps {
 	 */
 	size?: number
 }
+/**
+ * Connector routing style. Maps to a connector preset geometry:
+ * `straight`→`straightConnector1`, `elbow`→`bentConnector3`, `curved`→`curvedConnector3`.
+ */
+export type ConnectorType = 'straight' | 'elbow' | 'curved'
+/**
+ * A connector is a line drawn between two points, emitted as a PowerPoint connector
+ * (`<p:cxnSp>`) so the app treats it as a connector (selectable/reroutable) rather than a
+ * plain line shape. Endpoints are given directly; the bounding box and flip flags are derived.
+ */
+export interface ConnectorProps {
+	/**
+	 * Routing style
+	 * @default 'straight'
+	 */
+	type?: ConnectorType
+	/** Start point X — inches, or a `Coord` such as `'50%'` / `'2in'` */
+	x1: Coord
+	/** Start point Y */
+	y1: Coord
+	/** End point X */
+	x2: Coord
+	/** End point Y */
+	y2: Coord
+	/**
+	 * Line color (6-digit hex, no `#`)
+	 * @default '000000'
+	 */
+	color?: HexColor
+	/**
+	 * Line width (pt)
+	 * @default 1
+	 */
+	width?: number
+	/** Dash style */
+	dashType?: ShapeLineProps['dashType']
+	/** Arrowhead at the start point */
+	beginArrowType?: ShapeLineProps['beginArrowType']
+	/** Arrowhead at the end point */
+	endArrowType?: ShapeLineProps['endArrowType']
+	/** Selection Pane object name */
+	objectName?: string
+	/** Accessibility alt text */
+	altText?: string
+}
 // used by: chart, slide, table, text
 export interface TextBaseProps {
 	/**
@@ -2524,6 +2569,7 @@ export interface SlideLayoutInternal extends SlideBaseProps, SlideLayout {
 export interface PresSlide {
 	addChart(type: CHART_NAME, data: OptsChartData[], options?: IChartOpts): PresSlide
 	addChart(type: IChartMulti[], options?: IChartOpts): PresSlide
+	addConnector: (options: ConnectorProps) => PresSlide
 	addImage: (options: ImageProps) => PresSlide
 	addMedia: (options: MediaProps) => PresSlide
 	addNotes: (notes: string) => PresSlide
