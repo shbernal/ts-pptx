@@ -66,4 +66,32 @@ defineRegressionSuite('Image base64 data de-duplication (#1339)', [
 			assert(countMedia(zip) === 2, `expected 2 media parts for distinct images; got ${countMedia(zip)}`)
 		},
 	},
+	{
+		// Cross-slide: the same inline image on two different slides collapses to one part
+		// (a deck-wide pass rewrites the later slide's Target to the first occurrence's).
+		name: 'identical data image across slides embeds a single media part',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addImage({ data: PNG_A, x: 1, y: 1, w: 1, h: 1 })
+				p.addSlide().addImage({ data: PNG_A, x: 1, y: 1, w: 1, h: 1 })
+			})
+			assert(countMedia(zip) === 1, `expected 1 shared media part across slides; got ${countMedia(zip)}`)
+			// Both slides must still reference a media part (one each, now the same Target).
+			for (const n of [1, 2]) {
+				const rels = await readEntry(zip, `ppt/slides/_rels/slide${n}.xml.rels`)
+				assert(/Target="\.\.\/media\/[^"]+"/.test(rels), `slide${n} should reference a media part`)
+			}
+		},
+	},
+	{
+		// Cross-slide for distinct images: no collapsing, one part per slide.
+		name: 'distinct data images across slides stay separate',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addImage({ data: PNG_A, x: 1, y: 1, w: 1, h: 1 })
+				p.addSlide().addImage({ data: PNG_B, x: 1, y: 1, w: 1, h: 1 })
+			})
+			assert(countMedia(zip) === 2, `expected 2 media parts for distinct cross-slide images; got ${countMedia(zip)}`)
+		},
+	},
 ])

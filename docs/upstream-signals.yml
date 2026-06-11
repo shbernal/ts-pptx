@@ -3168,17 +3168,22 @@ items:
     non_target_reasons: []
     upstream_summary: Duplicate images should be detected by content hash to reduce package size.
     current_project_notes: >
-      Implemented for base64/`data:` images in addImageDefinition and
-      addMediaDefinition: the duplicate-media check previously matched only on
-      `path`, which never fired for inline media (they all share the
-      `preencoded.<extn>` placeholder path). The find now falls back to exact
-      `data`-payload equality when there is no real path, so identical inline
-      images/media reuse the original `Target` and are embedded once per slide.
-      Exact string equality is used rather than a content hash, which is
-      sufficient and avoids collision concerns. Scope: raster images and
-      audio/video; the two-rId SVG branch is not yet deduped. De-dup remains
-      per-slide (each slide owns its `_relsMedia`), matching the existing
-      path-image behavior.
+      Implemented in two layers. (1) Per-slide: addImageDefinition and
+      addMediaDefinition previously matched duplicates only on `path`, which
+      never fired for inline media (all share the `preencoded.<extn>`
+      placeholder); the find now falls back to exact `data`-payload equality
+      when there is no real path, so identical inline media reuse the original
+      `Target` within a slide. (2) Deck-wide (Option B): a global pass in
+      exportPresentation, run after encodeSlideMediaRels has populated every
+      `rel.data`, rewrites each later duplicate's `Target` to the first
+      occurrence's across all slides/layouts/master, keyed on `extn` + bytes.
+      This collapses the same image used on many slides (or loaded from the same
+      path) to one package part, and also covers background images and the
+      previously-unhandled SVG two-rId branch. Exact string equality is used
+      rather than a content hash — sufficient and collision-free, and the data
+      strings are already retained in `_relsMedia` so keying on them adds no
+      meaningful memory. Sharing a media part across slide `.rels` is valid OOXML
+      (rels reference media by rId).
     evidence:
       kinds:
         - local-source-inspection
@@ -3186,6 +3191,7 @@ items:
       local_files:
         - src/gen-objects.ts:572
         - src/gen-objects.ts:698
+        - src/pptxgen.ts:597
         - test/regression/image-data-dedup.test.js
       schema_fixture: null
       validator_result: null

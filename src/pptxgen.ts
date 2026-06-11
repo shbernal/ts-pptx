@@ -594,6 +594,27 @@ export default class PptxGenJS {
 
 		// STEP 2: Wait for Promises (if any) then generate the PPTX file
 		return await Promise.all(arrMediaPromises).then(async () => {
+			// PERF: Collapse identical media to a single package part across the entire deck.
+			// Each target (slide/layout/master) namespaces its media `Target` by slide, so the
+			// same image used on multiple slides — or loaded from the same path — otherwise
+			// embeds one copy per use. By now `encodeSlideMediaRels` has populated every
+			// `rel.data`, so we can point later duplicates at the first occurrence's `Target`
+			// (slide `.rels` reference media by rId, and sharing a part across slides is valid
+			// OOXML). This subsumes the per-slide path/data de-dup for cross-slide reuse and
+			// also covers background images (issue #1339).
+			const canonicalMediaTargets = new Map<string, string>()
+			for (const target of [...this._slides, ...this._slideLayouts, this._masterSlide]) {
+				for (const rel of target._relsMedia || []) {
+					if (rel.type === 'online' || rel.type === 'hyperlink' || typeof rel.data !== 'string' || !rel.data) continue
+					// Key on extension + bytes so identical content with differing part
+					// extensions is never merged into one mistyped file.
+					const key = (rel.extn || '') + '\0' + rel.data
+					const canonical = canonicalMediaTargets.get(key)
+					if (canonical) rel.Target = canonical
+					else canonicalMediaTargets.set(key, rel.Target)
+				}
+			}
+
 			// A: Add empty placeholder objects to slides that don't already have them
 			this._slides.forEach(slide => {
 				if (slide._slideLayout) genObj.addPlaceholdersToSlideLayouts(slide)
