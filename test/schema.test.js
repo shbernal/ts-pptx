@@ -1150,6 +1150,33 @@ export default [
 		},
 	},
 	{
+		name: 'shapeAdjust emits avLst guides for preset shapes (single + array)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				// Single guide: chevron point depth
+				s.addShape(p.shapes.CHEVRON, {
+					x: 0.5,
+					y: 0.5,
+					w: 3,
+					h: 1,
+					shapeAdjust: { name: 'adj', value: 0.25 },
+					fill: { color: '4472C4' },
+				})
+				// Array form on a rounded-rectangle adjust handle
+				s.addShape(p.shapes.ROUNDED_RECTANGLE, {
+					x: 0.5,
+					y: 2,
+					w: 3,
+					h: 1,
+					shapeAdjust: [{ name: 'adj', value: 0.5 }],
+					fill: { color: 'ED7D31' },
+				})
+			})
+			await expectNoSchemaErrors(buf, 'shape-adjust-avlst-guides')
+		},
+	},
+	{
 		name: 'bar chart with multi-level category labels (multiLvlStrRef)',
 		fn: async () => {
 			const LABELS = [

@@ -4049,8 +4049,8 @@ items:
     source: "gitbrent/PptxGenJS#1300"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -4058,23 +4058,30 @@ items:
     non_target_reasons: []
     upstream_summary: Add adjustment properties such as corner radius for more preset shapes.
     current_project_notes: >
-      Current rectRadius is documented only for rounded rectangles, while shape
-      XML can emit one generic adj guide when rectRadius is present. Other preset
-      shapes need PowerPoint-authored guide names/ranges before expanding the
-      API.
+      Added a generic `shapeAdjust` option (ShapeAdjustValue: { name, value })
+      on ShapeProps and ImageBaseProps, accepting a single guide or an array.
+      genXmlPresetGeom now emits each as an `<a:gd name=... fmla="val N"/>` inside
+      `<a:avLst>`, where value is a 0.0-1.0 fraction mapped to percentage guide
+      units (×100000), matching the existing arcThicknessRatio convention.
+      rectRadius/angleRange remain friendly shortcuts and win on name collisions
+      (collision and invalid entries warn-and-skip rather than emit degenerate
+      OOXML). Works for addShape and the addImage clip-shape path. Schema fixture
+      added and validated.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/core-interfaces.ts:1077
-        - src/core-interfaces.ts:1083
-        - src/gen-xml.ts:498
-        - src/gen-xml.ts:500
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts
+        - src/gen-xml.ts
+        - src/gen-objects.ts
+      schema_fixture: test/schema.test.js (shapeAdjust emits avLst guides for preset shapes)
+      validator_result: pass
       powerpoint_result: null
-      spec_refs: []
-    next_action: compare-powerpoint-authored-adjustment-guides-for-requested-shapes
+      spec_refs:
+        - "ECMA-376 a:CT_GeomGuide (name + fmla); percentage adjust guides in 1/100000 units"
+    next_action: none
 
   - id: upstream-issue-1298
     source: "gitbrent/PptxGenJS#1298"

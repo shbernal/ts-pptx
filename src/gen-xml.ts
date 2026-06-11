@@ -183,27 +183,51 @@ function genXmlPresetGeom (shapeName: string, options: ObjectOptions, cx: number
 	if (!VALID_SHAPE_PRESETS.has(shapeName)) {
 		throw new Error(`Invalid shape "${String(shapeName)}"! Use a value from \`pptxgen.shapes.*\` (e.g. \`pptxgen.shapes.RECTANGLE\`). PowerPoint can't render unknown preset geometries and will drop the shape during repair.`)
 	}
-	let strXml = `<a:prstGeom prst="${shapeName}"><a:avLst>`
+	// Collect adjustment guides; track names so the generic `shapeAdjust` passthrough
+	// never emits a duplicate `<a:gd>` for a handle a friendly shortcut already set.
+	let avLst = ''
+	const emittedAdjNames = new Set<string>()
+	const emitGuide = (name: string, fmlaVal: number): void => {
+		avLst += `<a:gd name="${name}" fmla="val ${fmlaVal}"/>`
+		emittedAdjNames.add(name)
+	}
 	if (options.rectRadius) {
 		const adjVal = Math.round((options.rectRadius * EMU * 100000) / Math.min(cx, cy))
 		if (RECT_RADIUS_ADJ1_SHAPES.has(shapeName)) {
-			strXml += `<a:gd name="adj1" fmla="val ${adjVal}"/>`
-			strXml += '<a:gd name="adj2" fmla="val 0"/>'
+			emitGuide('adj1', adjVal)
+			emitGuide('adj2', 0)
 		} else {
-			strXml += `<a:gd name="adj" fmla="val ${adjVal}"/>`
+			emitGuide('adj', adjVal)
 		}
 	} else if (options.angleRange) {
 		for (let i = 0; i < 2; i++) {
 			const angle = options.angleRange[i]
-			strXml += `<a:gd name="adj${i + 1}" fmla="val ${convertRotationDegrees(angle)}" />`
+			emitGuide(`adj${i + 1}`, convertRotationDegrees(angle))
 		}
 
 		if (options.arcThicknessRatio) {
-			strXml += `<a:gd name="adj3" fmla="val ${Math.round(options.arcThicknessRatio * 50000)}" />`
+			emitGuide('adj3', Math.round(options.arcThicknessRatio * 50000))
 		}
 	}
-	strXml += '</a:avLst></a:prstGeom>'
-	return strXml
+	// Generic adjustment handles (`shapeAdjust`) for any preset shape (Issue #1300).
+	if (options.shapeAdjust) {
+		const adjusts = Array.isArray(options.shapeAdjust) ? options.shapeAdjust : [options.shapeAdjust]
+		adjusts.forEach(adj => {
+			// Silent coercion of a bad guide produces a shape PowerPoint silently drops or repairs,
+			// so warn and skip instead of emitting a degenerate `<a:gd>`.
+			if (!adj || typeof adj.name !== 'string' || adj.name.length === 0 || typeof adj.value !== 'number' || !isFinite(adj.value)) {
+				console.warn(`Warning: shapeAdjust entry ${JSON.stringify(adj)} is invalid (needs { name:string, value:number }) and was ignored.`)
+				return
+			}
+			if (emittedAdjNames.has(adj.name)) {
+				console.warn(`Warning: shapeAdjust "${adj.name}" was ignored because rectRadius/angleRange already set that handle.`)
+				return
+			}
+			// `value` is a 0.0-1.0 fraction of the handle range, emitted as a percentage guide (1/100000 units).
+			emitGuide(adj.name, Math.round(adj.value * 100000))
+		})
+	}
+	return `<a:prstGeom prst="${shapeName}"><a:avLst>${avLst}</a:avLst></a:prstGeom>`
 }
 
 /**

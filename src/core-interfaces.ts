@@ -748,6 +748,14 @@ interface ImageBaseProps extends PositionProps, ObjectNameProps {
 	 */
 	rectRadius?: number
 	/**
+	 * Preset-geometry adjustment handles (`<a:avLst>` guides) for the clip `shape`.
+	 * - tune adjustment handles that lack a dedicated option, e.g. chevron point depth
+	 * - accepts a single guide or an array; each `value` is a `0.0–1.0` fraction (see {@link ShapeAdjustValue})
+	 * @since v4.0.0
+	 * @example { name: 'adj', value: 0.25 }
+	 */
+	shapeAdjust?: ShapeAdjustValue | ShapeAdjustValue[]
+	/**
 	 * Shadow Props
 	 * - MS-PPT > Format Picture > Shadow
 	 * @example
@@ -877,6 +885,22 @@ export type MediaProps = MediaBaseProps &
 
 // shapes =========================================================================================
 
+/**
+ * A single preset-geometry adjustment guide (`<a:gd>` inside `<a:avLst>`).
+ * - `name` is the guide name the preset defines, e.g. `'adj'`, `'adj1'`, `'adj2'`.
+ *   PowerPoint shows these handles as the yellow drag dots on a selected shape.
+ * - `value` is a fraction `0.0–1.0` of the handle's range, emitted as a percentage
+ *   guide formula (`val`, in 1/100000 units, so `0.25` → `fmla="val 25000"`).
+ *   Most adjustment handles (corner radius, chevron point, callout depth, bevel
+ *   width, …) are percentage-based and map directly; some shapes accept values
+ *   beyond `1.0`. For angle-based handles, prefer the `angleRange` shortcut.
+ * @since v4.0.0
+ */
+export interface ShapeAdjustValue {
+	name: string
+	value: number
+}
+
 export interface ShapeProps extends PositionProps, ObjectNameProps {
 	/**
 	 * Horizontal alignment
@@ -891,6 +915,19 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 * @default [270, 0]
 	 */
 	angleRange?: [number, number]
+	/**
+	 * Preset-geometry adjustment handles (`<a:avLst>` guides) for any preset shape.
+	 * - Use this to tune adjustment handles that lack a dedicated shortcut option,
+	 *   e.g. chevron/arrow point depth, callout pointer, bevel/frame thickness.
+	 * - Accepts a single guide or an array; each `value` is a `0.0–1.0` fraction of
+	 *   the handle's range (see {@link ShapeAdjustValue}).
+	 * - `rectRadius` / `angleRange` remain friendly shortcuts; any `shapeAdjust`
+	 *   guide that does not collide with a shortcut name is emitted in addition.
+	 * @since v4.0.0
+	 * @example { name: 'adj', value: 0.25 } // set the single adjust handle to 25%
+	 * @example [{ name: 'adj1', value: 0.5 }, { name: 'adj2', value: 0.25 }] // two handles
+	 */
+	shapeAdjust?: ShapeAdjustValue | ShapeAdjustValue[]
 	/**
 	 * Radius (only for pptx.shapes.BLOCK_ARC)
 	 * - You have to setup the angleRange values too
