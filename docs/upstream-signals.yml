@@ -20,6 +20,7 @@ vocabulary:
     - interesting-with-tweaks
     - non-target
     - watch
+    - deferred
     - implemented
     - superseded
   priorities:
@@ -58,6 +59,8 @@ vocabulary:
     - existing-pptx-import
     - not-reproducible-in-current-project
     - insufficient-evidence
+    - out-of-project-scope
+    - escape-hatch-footgun
   evidence_kinds:
     # Source / spec reading
     - local-source-inspection
@@ -1505,22 +1508,22 @@ items:
     source: "gitbrent/PptxGenJS#1302"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: interesting-with-tweaks
-    priority: p2
+    last_reviewed: 2026-06-11
+    status: non-target
+    priority: none
     target_area:
       - missing-pptx-feature
       - relationship-or-content-type
       - package-boundary
-    applies_to_current_project: partial
+    applies_to_current_project: no
     non_target_reasons:
-      - legacy-dist-artifact
+      - out-of-project-scope
     upstream_summary: Add an addFonts API for embedding fonts into generated presentations.
     current_project_notes: >
-      Font embedding is a valid PPTX feature, but the upstream PR carries dist
-      and package changes. A local design would need OPC relationship/content
-      type research, font obfuscation rules if applicable, and TS-first API
-      review.
+      Dismissed. Font embedding adds new OPC parts with significant package-size
+      cost, font-licensing/obfuscation landmines, and PowerPoint-specific
+      embedding rules, for a niche benefit. Not in scope for the fork's core
+      primitives; revisit only with a concrete, recurring need.
     evidence:
       kinds:
         - local-source-inspection
@@ -1531,7 +1534,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: research-font-embedding-opc-parts
+    next_action: none
 
   - id: upstream-pr-1295
     source: "gitbrent/PptxGenJS#1295"
@@ -2918,9 +2921,9 @@ items:
     source: "gitbrent/PptxGenJS#1360"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
-    priority: p2
+    last_reviewed: 2026-06-11
+    status: deferred
+    priority: p3
     target_area:
       - speaker-notes-masters-layouts
       - missing-pptx-feature
@@ -2928,8 +2931,11 @@ items:
     non_target_reasons: []
     upstream_summary: Slide master body styles cannot configure nested bullet level character, size, and color.
     current_project_notes: >
-      Current master XML hard-codes title/body/other paragraph levels and does
-      not expose a defineSlideMaster model for per-level bullet styling.
+      Deferred (in scope, design-heavy). Per-level master txStyles configuration
+      is a legitimate masters feature but needs a careful defineSlideMaster option
+      model spanning all nine list levels. Partly worked around today by styling
+      runs directly. Wait for a user actually blocked by the master-level gap
+      before designing the option surface.
     evidence:
       kinds:
         - local-source-inspection
@@ -2941,7 +2947,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: design-master-text-style-level-options
+    next_action: revisit-master-text-style-levels-on-concrete-need
 
   - id: upstream-issue-1359
     source: "gitbrent/PptxGenJS#1359"
@@ -4394,19 +4400,22 @@ items:
     source: "gitbrent/PptxGenJS#1282"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: interesting-with-tweaks
-    priority: p3
+    last_reviewed: 2026-06-11
+    status: non-target
+    priority: none
     target_area:
       - missing-pptx-feature
       - invalid-ooxml
-    applies_to_current_project: partial
-    non_target_reasons: []
+    applies_to_current_project: no
+    non_target_reasons:
+      - escape-hatch-footgun
     upstream_summary: Add a caller-provided transform hook to modify slide XML before packaging.
     current_project_notes: >
-      Current makeXmlSlide returns generated slide XML directly with no hook.
-      A raw XML transform is risky for validity; if adopted, prefer a guarded
-      plugin/escape-hatch design with schema validation expectations.
+      Dismissed. A raw caller-provided XML transform hook directly undermines the
+      fork's core value (OOXML correctness) and creates an open-ended support
+      surface for invalid output the library can no longer guarantee. Not adopting
+      a generic escape hatch; if a concrete need arises it should be met with a
+      typed, validated primitive instead.
     evidence:
       kinds:
         - local-source-inspection
@@ -4418,7 +4427,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: decide-whether-to-support-guarded-xml-transform-hook
+    next_action: none
 
   - id: upstream-issue-1280
     source: "gitbrent/PptxGenJS#1280"
@@ -6833,8 +6842,8 @@ items:
     source: "gitbrent/PptxGenJS#964"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: deferred
     priority: p3
     target_area:
       - table-ooxml
@@ -6843,9 +6852,10 @@ items:
     non_target_reasons: []
     upstream_summary: Wanted autoPage to keep an overflowing HTML table row together on the next slide.
     current_project_notes: >
-      Current autoPage calculates lines per cell and can split row content across
-      generated slides. A keep-row-together option would be a behavior addition,
-      not an OOXML repair fix.
+      Deferred (in scope, reduce scope before building). A keep-row-together
+      option complicates the line-splitting pagination for an edge case, and a row
+      taller than a full page is still unsolvable. Wait for a concrete report
+      before adding the option.
     evidence:
       kinds:
         - local-source-inspection
@@ -6858,7 +6868,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: design-autopage-keep-row-together-option
+    next_action: revisit-keep-row-together-on-concrete-report
 
   - id: upstream-issue-962
     source: "gitbrent/PptxGenJS#962"
@@ -7611,8 +7621,8 @@ items:
     source: "gitbrent/PptxGenJS#776"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: deferred
     priority: p3
     target_area:
       - speaker-notes-masters-layouts
@@ -7621,9 +7631,12 @@ items:
     non_target_reasons: []
     upstream_summary: Slide masters could not add an ellipse or circle shape object.
     current_project_notes: >
-      Current SlideMasterObject supports line and rect shape shortcuts, but not
-      a generic shape object or ellipse shortcut. The shape enum and addShape
-      serializer can handle ellipse outside the master object model.
+      Deferred (in scope, reduce scope / clarify need). The master object model
+      hard-codes line/rect/text/image/chart shortcuts; a generic master shape
+      object would generalize that, but the underlying addShape serializer already
+      handles every preset outside the master model. Scope the minimal additive
+      change (route an arbitrary shape type through the existing master object
+      list) when a concrete need lands.
     evidence:
       kinds:
         - local-source-inspection
@@ -7638,7 +7651,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: design-generic-slide-master-shape-object
+    next_action: revisit-generic-master-shape-on-concrete-need
 
   - id: upstream-issue-770
     source: "gitbrent/PptxGenJS#770"
@@ -8487,19 +8500,21 @@ items:
     source: "gitbrent/PptxGenJS#487"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
-    priority: p3
+    last_reviewed: 2026-06-11
+    status: non-target
+    priority: none
     target_area:
       - table-ooxml
       - missing-pptx-feature
-    applies_to_current_project: yes
-    non_target_reasons: []
+    applies_to_current_project: no
+    non_target_reasons:
+      - out-of-project-scope
     upstream_summary: tableToSlides addText accepted one editable text object but not an array of text objects.
     current_project_notes: >
-      Current TableToSlidesProps exposes a single addText object and the loop
-      calls newSlide.addText once per generated slide. Supporting multiple
-      editable text boxes needs an additive TS-first option shape.
+      Dismissed. tableToSlides is a convenience/import helper, not a core
+      primitive; callers needing multiple text boxes on generated slides can
+      build the slides directly with addText. Not worth widening the helper's
+      option surface for this niche case.
     evidence:
       kinds:
         - local-source-inspection
@@ -8513,7 +8528,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: design-table-to-slides-addtext-collection-api
+    next_action: none
 
   - id: upstream-issue-481
     source: "gitbrent/PptxGenJS#481"
@@ -8786,8 +8801,8 @@ items:
     source: "gitbrent/PptxGenJS#307"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: deferred
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -8795,10 +8810,11 @@ items:
     non_target_reasons: []
     upstream_summary: Requested grouping shapes and other slide objects.
     current_project_notes: >
-      Current slide objects are serialized directly under the slide tree and
-      there is no addGroup API, group object type, or recursive grouped-object
-      serializer. This is a real but broad feature because grouping changes
-      object containers, IDs, and bounding box calculations.
+      Deferred (in scope, reduce scope before building). A group (a:grpSp /
+      p:grpSp) is a legitimate primitive, but a faithful implementation needs
+      child coordinate transforms (chOff/chExt) and recursive bounding-box math,
+      which is a large effort. Revisit with a flat-group MVP (no nested scaling)
+      only when a concrete need lands; full nesting is out of scope until then.
     evidence:
       kinds:
         - local-source-inspection
@@ -8812,7 +8828,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: design-group-object-container-api-and-xml-fixture
+    next_action: revisit-with-flat-group-mvp-on-concrete-need
 
   - id: upstream-issue-275
     source: "gitbrent/PptxGenJS#275"
@@ -8947,19 +8963,23 @@ items:
     source: "gitbrent/PptxGenJS#98"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
-    priority: p2
+    last_reviewed: 2026-06-11
+    status: non-target
+    priority: none
     target_area:
       - table-ooxml
       - missing-pptx-feature
-    applies_to_current_project: yes
-    non_target_reasons: []
+    applies_to_current_project: no
+    non_target_reasons:
+      - out-of-project-scope
     upstream_summary: Requested images or shapes inside table cells.
     current_project_notes: >
-      Current TableCell text is limited to strings, numbers, or rich table-cell
-      text runs, and table serialization writes a:txBody plus a:tcPr inside each
-      cell. There is no table-cell object model for images or shapes.
+      Dismissed. An OOXML table cell (a:tc) holds only a:txBody and a:tcPr, so an
+      image or shape cannot live inside a cell; PowerPoint authors fake it by
+      floating a picture over the table. Modeling that is out of scope for the
+      table primitive (callers can already overlay an addImage at the cell's
+      computed position). Image fills via a:blipFill are tracked separately under
+      cell fill work.
     evidence:
       kinds:
         - local-source-inspection
@@ -8973,7 +8993,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: design-table-cell-embedded-object-model
+    next_action: none
 
   - id: upstream-issue-93
     source: "gitbrent/PptxGenJS#93"
