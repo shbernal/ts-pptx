@@ -580,6 +580,35 @@ export default [
 		},
 	},
 	{
+		name: 'image with border line (and shadow) emits a:ln before a:effectLst',
+		fn: async () => {
+			const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				// solid border + shadow: a:ln must precede a:effectLst per CT_ShapeProperties order
+				s.addImage({
+					data: 'image/png;base64,' + b64,
+					x: 1,
+					y: 1,
+					w: 2,
+					h: 2,
+					line: { color: '0088CC', width: 2 },
+					shadow: { type: 'outer', color: '000000', opacity: 0.5, blur: 8, offset: 4, angle: 270 },
+				})
+				// dashed border
+				s.addImage({
+					data: 'image/png;base64,' + b64,
+					x: 4,
+					y: 1,
+					w: 2,
+					h: 2,
+					line: { color: '666666', width: 1, dashType: 'dash' },
+				})
+			})
+			await expectNoSchemaErrors(buf, 'image-border-line')
+		},
+	},
+	{
 		name: 'image cover/contain sizing emits schema-valid srcRect (incl. negative contain inset)',
 		fn: async () => {
 			// 1x1 PNG (natural square): cover crops, contain pads with a negative srcRect inset —

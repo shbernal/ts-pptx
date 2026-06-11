@@ -6725,32 +6725,36 @@ items:
     source: "gitbrent/PptxGenJS#986"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p3
     target_area:
       - image-svg-media
       - missing-pptx-feature
-    applies_to_current_project: partial
+    applies_to_current_project: yes
     non_target_reasons: []
     upstream_summary: Asked whether images can have borders and shadows.
     current_project_notes: >
-      Current image options include shadow and the image serializer emits shadow
-      effects, but ImageBaseProps does not expose a border option analogous to
-      chart, table, or shape borders.
+      Images already supported shadow; added an outline option for the border
+      half. ImageBaseProps now exposes line?: ShapeLineProps (same vocabulary as
+      shape outlines, reusing the existing <a:ln> serializer rather than a new
+      type). The image serializer emits <a:ln> in the picture <p:spPr> after the
+      geometry and before <a:effectLst>, satisfying CT_ShapeProperties order.
+      Reused ShapeProps.line's type so the merged ObjectOptions interface stays
+      consistent (a BorderProps-typed `border` collided with TableCellProps.border).
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/core-interfaces.ts:526
-        - src/core-interfaces.ts:573
-        - src/core-interfaces.ts:1231
-        - src/gen-xml.ts:624
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts (ImageBaseProps.line)
+        - src/gen-xml.ts (image spPr <a:ln> emission)
+      schema_fixture: test/schema.test.js (image-border-line)
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: compare-powerpoint-authored-image-border-xml
+    next_action: none
 
   - id: upstream-issue-976
     source: "gitbrent/PptxGenJS#976"

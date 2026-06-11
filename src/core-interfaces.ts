@@ -705,6 +705,14 @@ interface ImageBaseProps extends PositionProps, ObjectNameProps {
 	flipV?: boolean
 	hyperlink?: HyperlinkProps
 	/**
+	 * Border line (`<a:ln>` outline) drawn around the image
+	 * - same options as a shape outline; a picture supports a single outline, not per-side borders
+	 * - MS-PPT: Format Picture > Line
+	 * @example { color: '0088CC', width: 2 }                   // 2pt blue border
+	 * @example { color: '666666', width: 1, dashType: 'dash' } // dashed gray border
+	 */
+	line?: ShapeLineProps
+	/**
 	 * Placeholder type
 	 * - values: 'body' | 'header' | 'footer' | 'title' | et. al.
 	 * @example 'body'

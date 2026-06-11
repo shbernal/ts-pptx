@@ -868,6 +868,19 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					strSlideXml += ' ' + genXmlPresetGeom(slideItemObj.options.shape ?? (rounding ? 'ellipse' : 'rect'), slideItemObj.options, imgWidth, imgHeight)
 				}
 
+				// BORDER: `<a:ln>` outline (must precede `<a:effectLst>` per CT_ShapeProperties order)
+				if (slideItemObj.options.line) {
+					const imgLine = slideItemObj.options.line
+					const lnAttrs = (imgLine.width ? ` w="${lineWidthToEmu(imgLine.width)}"` : '') +
+						(imgLine.cap ? ` cap="${createLineCap(imgLine.cap)}"` : '')
+					strSlideXml += `<a:ln${lnAttrs}>`
+					if (imgLine.color) strSlideXml += genXmlColorSelection(imgLine)
+					if (imgLine.dashType) strSlideXml += `<a:prstDash val="${imgLine.dashType}"/>`
+					if (imgLine.beginArrowType) strSlideXml += `<a:headEnd type="${imgLine.beginArrowType}"/>`
+					if (imgLine.endArrowType) strSlideXml += `<a:tailEnd type="${imgLine.endArrowType}"/>`
+					strSlideXml += '</a:ln>'
+				}
+
 				// EFFECTS > SHADOW: REF: @see http://officeopenxml.com/drwSp-effects.php
 				if (slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none') {
 					// derive emit-time values into locals so we don't mutate the user's options.shadow
