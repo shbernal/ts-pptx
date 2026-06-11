@@ -2115,6 +2115,8 @@ export interface IChartPropsTitle extends TextBaseProps {
 	titleColor?: string
 	titleFontFace?: string
 	titleFontSize?: number
+	titleItalic?: boolean
+	titleUnderline?: boolean
 	/**
 	 * Manual title position (inches), relative to the chart.
 	 * Each axis is independent: omit `x` to keep automatic horizontal centering,

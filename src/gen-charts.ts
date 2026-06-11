@@ -515,6 +515,8 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
 					fontSize: rel.opts.titleFontSize || DEF_FONT_TITLE_SIZE,
 					titleAlign: rel.opts.titleAlign,
 					titleBold: rel.opts.titleBold,
+					titleItalic: rel.opts.titleItalic,
+					titleUnderline: rel.opts.titleUnderline,
 					titlePos: rel.opts.titlePos,
 					titleRotate: rel.opts.titleRotate,
 				},
@@ -1944,6 +1946,8 @@ function genXmlTitle (opts: IChartPropsTitle, chartX?: number, chartY?: number):
 	const rotate = opts.titleRotate ? `<a:bodyPr rot="${convertRotationDegrees(opts.titleRotate)}"/>` : '<a:bodyPr/>' // don't specify rotation to get default (ex. vertical for cat axis)
 	const sizeAttr = opts.fontSize ? `sz="${Math.round(opts.fontSize * 100)}"` : '' // only set the font size if specified.  Powerpoint will handle the default size
 	const titleBold = opts.titleBold ? 1 : 0
+	const titleItalic = opts.titleItalic ? 1 : 0
+	const titleUnderline = opts.titleUnderline ? 'sng' : 'none'
 
 	let layout = '<c:layout/>'
 	const hasX = opts.titlePos && typeof opts.titlePos.x === 'number'
@@ -1982,13 +1986,13 @@ function genXmlTitle (opts: IChartPropsTitle, chartX?: number, chartY?: number):
           <a:lstStyle/>
           <a:p>
             ${align}
-            <a:defRPr ${sizeAttr} b="${titleBold}" i="0" u="none" strike="noStrike">
+            <a:defRPr ${sizeAttr} b="${titleBold}" i="${titleItalic}" u="${titleUnderline}" strike="noStrike">
               <a:solidFill>${createColorElement(opts.color || DEF_FONT_COLOR)}</a:solidFill>
               <a:latin typeface="${opts.fontFace || 'Arial'}"/>
             </a:defRPr>
           </a:pPr>
           <a:r>
-            <a:rPr ${sizeAttr} b="${titleBold}" i="0" u="none" strike="noStrike">
+            <a:rPr ${sizeAttr} b="${titleBold}" i="${titleItalic}" u="${titleUnderline}" strike="noStrike">
               <a:solidFill>${createColorElement(opts.color || DEF_FONT_COLOR)}</a:solidFill>
               <a:latin typeface="${opts.fontFace || 'Arial'}"/>
             </a:rPr>

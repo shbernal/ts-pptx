@@ -648,6 +648,26 @@ export default [
 		},
 	},
 	{
+		name: 'chart title with italic and underline styling (upstream #1188)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addChart(p.charts.BAR, [{ name: 'Series 1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
+					x: 1,
+					y: 1,
+					w: 6,
+					h: 3,
+					showTitle: true,
+					title: 'Italic underlined title',
+					titleBold: true,
+					titleItalic: true,
+					titleUnderline: true,
+				})
+			})
+			await expectNoSchemaErrors(buf, 'chart-title-italic-underline')
+		},
+	},
+	{
 		name: 'bullet color (buClr separate from text color)',
 		fn: async () => {
 			const { buf } = await build((p) => {

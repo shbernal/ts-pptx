@@ -2299,8 +2299,8 @@ items:
     source: "gitbrent/PptxGenJS#1396"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p1
     target_area:
       - chart-ooxml
@@ -2309,19 +2309,20 @@ items:
     non_target_reasons: []
     upstream_summary: Most generated chart demo slides are invisible in Apple Keynote except scatter and bubble charts.
     current_project_notes: >
-      This is another Keynote chart compatibility signal. Track alongside the
-      existing #1327/#1306/#1242 chart workbook/table reference investigation.
+      Resolved with the companion #1327 fix: the embedded workbook table ref
+      attribute no longer carries a stray apostrophe, and #987bf937 corrected the
+      multi-level category embedded workbook cell and SST indices. Charts now
+      open in Keynote. Closed alongside the now-implemented upstream-pr-1327.
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/gen-charts.ts:219
-        - src/gen-charts.ts:973
+        - src/gen-charts.ts:222
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: handle-with-upstream-pr-1327-keynote-chart-repro
+    next_action: none
 
   - id: upstream-pr-1433
     source: "gitbrent/PptxGenJS#1433"
@@ -3110,8 +3111,8 @@ items:
     source: "gitbrent/PptxGenJS#1344"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p2
     target_area:
       - image-svg-media
@@ -3119,23 +3120,25 @@ items:
     non_target_reasons: []
     upstream_summary: SVG added in Node generated an abnormal preview image.
     current_project_notes: >
-      Current SVG output embeds both a PNG preview relationship and an SVG
-      relationship. Browser runtime can rasterize the preview, but Node runtime
-      still replaces SVG PNG previews with IMG_BROKEN.
+      Resolved with the companion #1315 fix (commit #e0378497): both runtimes now
+      set IMG_SVG_PLACEHOLDER (1x1 transparent PNG) instead of IMG_BROKEN when
+      SVG-to-PNG preview conversion is unavailable (Node) or fails (browser), so
+      the embedded PNG preview no longer renders a broken-image icon. Closed
+      alongside the now-implemented upstream-pr-1315.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/gen-objects.ts:468
-        - src/gen-xml.ts:589
-        - src/gen-media.ts:48
-        - src/runtime/node.ts:30
-        - src/runtime/browser.ts:27
+        - src/core-enums.ts
+        - src/runtime/node.ts
+        - src/runtime/browser.ts
+        - test/regression/image-svg-source.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: choose-node-svg-preview-rasterization-strategy
+    next_action: none
 
   - id: upstream-issue-1339
     source: "gitbrent/PptxGenJS#1339"
@@ -5586,8 +5589,8 @@ items:
     source: "gitbrent/PptxGenJS#1188"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p3
     target_area:
       - chart-ooxml
@@ -5596,22 +5599,27 @@ items:
     non_target_reasons: []
     upstream_summary: Requested italic and underline styling for pie chart titles.
     current_project_notes: >
-      Current chart title props expose titleBold but not italic or underline, and
-      title XML hard-codes i="0" and u="none". This is a narrow chart title API
-      gap, not a repair issue.
+      Added titleItalic and titleUnderline boolean props on IChartPropsTitle,
+      mirroring the existing titleBold. genXmlTitle now emits i="0|1" and
+      u="none|sng" for both the title defRPr and rPr instead of the hard-coded
+      i="0" u="none", and the main chart-title call site passes the new props
+      through. Axis titles are unchanged (they do not expose bold either).
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
       local_files:
-        - src/core-interfaces.ts:1604
-        - src/core-interfaces.ts:1607
-        - src/gen-charts.ts:1936
-        - src/gen-charts.ts:1959
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts:2116
+        - src/core-interfaces.ts:2117
+        - src/gen-charts.ts:1947
+        - src/gen-charts.ts:1948
+        - src/gen-charts.ts:1986
+        - src/gen-charts.ts:1992
+      schema_fixture: "test/schema.test.js: chart-title-italic-underline"
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: compare-chart-title-italic-underline-xml
+    next_action: none
 
   - id: upstream-issue-1187
     source: "gitbrent/PptxGenJS#1187"
@@ -6421,8 +6429,8 @@ items:
     source: "gitbrent/PptxGenJS#1044"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p3
     target_area:
       - speaker-notes-masters-layouts
@@ -6431,22 +6439,22 @@ items:
     non_target_reasons: []
     upstream_summary: Requested slide number support for starting at an arbitrary value.
     current_project_notes: >
-      SlideNumberProps has formatting and positioning options but no startAt
-      option. The serializer writes the current internal slide number into the
-      slide-number field and notes XML does the same.
+      Implemented as the presentation-level firstSlideNum property (commit
+      #ec45510f), serialized to the presentation.xml sldSz/p:presentation
+      firstSlideNum attribute so the slide-number field renders from the chosen
+      starting value.
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/core-interfaces.ts:1749
-        - src/gen-xml.ts:712
-        - src/gen-xml.ts:759
-        - src/gen-xml.ts:1645
+        - src/core-interfaces.ts:2434
+        - src/pptxgen.ts:313
+        - src/gen-xml.ts:2017
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: compare-slide-number-startAt-authoring-xml
+    next_action: none
 
   - id: upstream-issue-1031
     source: "gitbrent/PptxGenJS#1031"
