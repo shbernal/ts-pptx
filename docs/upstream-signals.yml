@@ -5437,8 +5437,8 @@ items:
     source: "gitbrent/PptxGenJS#1199"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -5446,21 +5446,27 @@ items:
     non_target_reasons: []
     upstream_summary: Requested fontScale and lnSpcReduction support for fit shrink text autofit.
     current_project_notes: >
-      Current fit is a string union and shrink emits bare a:normAutofit. PowerPoint
-      supports fontScale and lnSpcReduction attributes, so adopting this would
-      require a richer fit option shape plus authored XML comparison.
+      Extended the `fit` option with an object form `{ type: 'shrink', fontScale?, lnSpcReduction? }`
+      (TextFitShrinkProps). Values are authored as a percent (0-100) and emitted in 1000ths of a
+      percent on `<a:normAutofit fontScale=".." lnSpcReduction="..">` via the new genXmlNormAutofit
+      helper; attributes are omitted when unset, and NaN/out-of-range values warn and are dropped
+      (no degenerate attribute). Bare `fit: 'shrink'` still emits an attribute-less a:normAutofit.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/core-interfaces.ts:1027
-        - src/gen-xml.ts:1115
-        - src/gen-xml.ts:1120
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts
+        - src/gen-xml.ts
+      schema_fixture: >
+        test/schema.test.js (shrink-text fit with explicit fontScale/lnSpcReduction);
+        test/regression/text-fit-shrink.test.js
+      validator_result: pass
       powerpoint_result: null
-      spec_refs: []
-    next_action: compare-authored-normautofit-fontscale-xml
+      spec_refs:
+        - ECMA-376 CT_TextNormAutofit (fontScale/lnSpcReduction, ST_TextFontScalePercentOrPercentString)
+    next_action: none
 
   - id: upstream-issue-1198
     source: "gitbrent/PptxGenJS#1198"

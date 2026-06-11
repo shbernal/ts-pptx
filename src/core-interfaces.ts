@@ -1369,6 +1369,28 @@ export interface TextGlowProps {
 	size: number
 }
 
+export interface TextFitShrinkProps {
+	/**
+	 * Shrink text on overflow (`<a:normAutofit>`)
+	 */
+	type: 'shrink'
+	/**
+	 * Font scale as a percent (0-100), mapped to `<a:normAutofit fontScale="..">`.
+	 *
+	 * PowerPoint normally calculates this dynamically when text overflows; set it
+	 * explicitly to bake the scale into the generated file.
+	 * @example 85 // render text at 85% of its nominal size
+	 * @default undefined // attribute omitted (PowerPoint defaults to 100%)
+	 */
+	fontScale?: number
+	/**
+	 * Line-space reduction as a percent (0-100), mapped to `<a:normAutofit lnSpcReduction="..">`.
+	 * @example 20 // reduce line spacing by 20%
+	 * @default undefined // attribute omitted (PowerPoint defaults to 0%)
+	 */
+	lnSpcReduction?: number
+}
+
 export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBaseProps, ObjectNameProps {
 	_bodyProp?: {
 		// Note: Many of these duplicated as user options are transformed to _bodyProp options for XML processing
@@ -1420,11 +1442,15 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 * **Note** 'shrink' and 'resize' only take effect after editing text/resize shape.
 	 * Both PowerPoint and Word dynamically calculate a scaling factor and apply it when edit/resize occurs.
 	 *
-	 * There is no way for this library to trigger that behavior, sorry.
+	 * There is no way for this library to trigger that behavior, sorry. As a workaround,
+	 * pass an object form of 'shrink' to bake explicit `fontScale`/`lnSpcReduction` values
+	 * into the file so the text renders pre-shrunk without an edit/resize.
 	 * @since v3.3.0
+	 * @example 'shrink' // emit a bare <a:normAutofit/>
+	 * @example { type: 'shrink', fontScale: 85, lnSpcReduction: 20 } // pre-shrink text
 	 * @default "none"
 	 */
-	fit?: 'none' | 'shrink' | 'resize'
+	fit?: 'none' | 'shrink' | 'resize' | TextFitShrinkProps
 	/**
 	 * Shape fill
 	 * @example { color:'FF0000' } // hex color (red)

@@ -684,6 +684,21 @@ export default [
 		},
 	},
 	{
+		name: 'shrink-text fit with explicit fontScale/lnSpcReduction',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addText('shrink me', {
+					x: 1,
+					y: 1,
+					w: 4,
+					h: 1,
+					fit: { type: 'shrink', fontScale: 85, lnSpcReduction: 20 },
+				})
+			})
+			await expectNoSchemaErrors(buf, 'text-fit-shrink-normautofit')
+		},
+	},
+	{
 		name: 'line chart with transparent marker fill',
 		fn: async () => {
 			const { buf } = await build((p) => {

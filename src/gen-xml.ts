@@ -35,6 +35,7 @@ import type {
 	TableCellProps,
 	TableStyleInternal,
 	TableStyleRegionProps,
+	TextFitShrinkProps,
 	TextProps,
 	TextPropsOptions,
 } from './core-interfaces.js'
@@ -1228,6 +1229,33 @@ function genXmlTextRun (textObj: TextProps): string {
 }
 
 /**
+ * Builds `<a:normAutofit>` with explicit fontScale/lnSpcReduction for "shrink text on overflow"
+ * @param {TextFitShrinkProps} fit - shrink fit options
+ * @return {string} XML string (`<a:normAutofit .../>`)
+ * @see ECMA-376 CT_TextNormAutofit (attributes in 1000ths of a percent)
+ */
+function genXmlNormAutofit (fit: TextFitShrinkProps): string {
+	let attrs = ''
+
+	// NOTE: fontScale/lnSpcReduction are authored as a percent (0-100); OOXML stores them in 1000ths of a percent.
+	const pct = (val: number | undefined, name: string): number | null => {
+		if (val === undefined || val === null) return null
+		if (typeof val !== 'number' || isNaN(val) || val < 0 || val > 100) {
+			console.warn(`Warning: fit.${name} must be a number between 0 and 100 (percent); received ${String(val)} - attribute ignored.`)
+			return null
+		}
+		return Math.round(val * 1000)
+	}
+
+	const fontScale = pct(fit.fontScale, 'fontScale')
+	if (fontScale !== null) attrs += ` fontScale="${fontScale}"`
+	const lnSpcReduction = pct(fit.lnSpcReduction, 'lnSpcReduction')
+	if (lnSpcReduction !== null) attrs += ` lnSpcReduction="${lnSpcReduction}"`
+
+	return `<a:normAutofit${attrs}/>`
+}
+
+/**
  * Builds `<a:bodyPr></a:bodyPr>` tag for "genXmlTextBody()"
  * @param {ISlideObject | TableCell} slideObject - various options
  * @return {string} XML string
@@ -1267,12 +1295,14 @@ function genXmlBodyProperties (slideObject: ISlideObject | TableCell): string {
 		 * @see: http://www.datypic.com/sc/ooxml/g-a_EG_TextAutofit.html
 		 */
 		if (slideObject.options.fit) {
+			const fit = slideObject.options.fit
 			// NOTE: Use of '<a:noAutofit/>' instead of '' causes issues in PPT-2013!
-			if (slideObject.options.fit === 'none') bodyProperties += ''
-			// NOTE: Shrink does not work automatically - PowerPoint calculates the `fontScale` value dynamically upon resize
-			// else if (slideObject.options.fit === 'shrink') bodyProperties += '<a:normAutofit fontScale="85000" lnSpcReduction="20000"/>' // MS-PPT > Format shape > Text Options: "Shrink text on overflow"
-			else if (slideObject.options.fit === 'shrink') bodyProperties += '<a:normAutofit/>'
-			else if (slideObject.options.fit === 'resize') bodyProperties += '<a:spAutoFit/>'
+			if (fit === 'none') bodyProperties += ''
+			// NOTE: Bare shrink does not work automatically - PowerPoint calculates fontScale/lnSpcReduction dynamically upon edit/resize.
+			// The object form bakes explicit values into the file (MS-PPT > Format shape > Text Options: "Shrink text on overflow").
+			else if (fit === 'shrink') bodyProperties += '<a:normAutofit/>'
+			else if (fit === 'resize') bodyProperties += '<a:spAutoFit/>'
+			else if (typeof fit === 'object' && fit.type === 'shrink') bodyProperties += genXmlNormAutofit(fit)
 		}
 		//
 		// DEPRECATED: below (@deprecated v3.3.0)
