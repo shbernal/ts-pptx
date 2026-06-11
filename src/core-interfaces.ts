@@ -1277,6 +1277,14 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 */
 	autoPageSlideStartY?: number
 	/**
+	 * Whether populated placeholders on the source slide (e.g. a title set via
+	 * `addText(text, { placeholder })`) are copied onto each overflow slide created by autoPage.
+	 * - new slides otherwise inherit only the layout's empty placeholders, so a title set on the
+	 *   first slide would not appear on continuation slides (upstream gitbrent/PptxGenJS#1136).
+	 * @default false
+	 */
+	autoPagePlaceholder?: boolean
+	/**
 	 * Table border
 	 * - single value is applied to all 4 sides
 	 * - array of values in TRBL order for individual sides

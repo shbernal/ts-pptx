@@ -976,6 +976,7 @@ export function addTableDefinition(
 	}
 
 	opt.autoPage = typeof opt.autoPage === 'boolean' ? opt.autoPage : false
+	opt.autoPagePlaceholder = typeof opt.autoPagePlaceholder === 'boolean' ? opt.autoPagePlaceholder : false
 	opt.autoPageRepeatHeader = typeof opt.autoPageRepeatHeader === 'boolean' ? opt.autoPageRepeatHeader : false
 	opt.autoPageHeaderRows = typeof opt.autoPageHeaderRows !== 'undefined' && !isNaN(Number(opt.autoPageHeaderRows)) ? Number(opt.autoPageHeaderRows) : 1
 	opt.autoPageLineWeight = typeof opt.autoPageLineWeight !== 'undefined' && !isNaN(Number(opt.autoPageLineWeight)) ? Number(opt.autoPageLineWeight) : 0
@@ -1086,6 +1087,15 @@ export function addTableDefinition(
 	} else {
 		if (opt.autoPageRepeatHeader) opt._arrObjTabHeadRows = arrRows.filter((_row, idx) => idx < (opt.autoPageHeaderRows || 1))
 
+		// #1136: snapshot populated placeholders on the source slide (e.g. a title added via
+		// `addText(text, { placeholder })`) so they can be re-rendered on each overflow slide.
+		// Overflow slides otherwise inherit only the layout's empty placeholders. Captured before
+		// the loop so the table object added per-slide below is never included.
+		const sourcePlaceholders =
+			opt.autoPagePlaceholder && Array.isArray(target._slideObjects)
+				? target._slideObjects.filter(obj => obj._type !== SLIDE_OBJECT_TYPES.table && obj.options?.placeholder)
+				: []
+
 		// Loop over rows and create 1-N tables as needed (ISSUE#21)
 		getSlidesForTableRows(arrRows, opt, presLayout, slideLayout).forEach((slide, idx) => {
 			// A: Create new Slide when needed, otherwise, use existing (NOTE: More than 1 table can be on a Slide, so we will go up AND down the Slide chain)
@@ -1100,6 +1110,12 @@ export function addTableDefinition(
 				const newSlide: PresSlideInternal = getSlide(target._slideNum + idx)
 
 				opt.autoPage = false
+
+				// #1136: copy the source slide's populated placeholders onto each overflow slide
+				// (idx 0 is the source slide itself and already has them).
+				if (idx > 0 && sourcePlaceholders.length > 0) {
+					sourcePlaceholders.forEach(ph => newSlide._slideObjects.push(structuredClone(ph)))
+				}
 
 				// Create hyperlink rels (IMPORTANT: Wait until table has been shredded across Slides or all rels will end-up on Slide 1!)
 				createHyperlinkRels(newSlide, slide.rows)

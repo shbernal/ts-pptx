@@ -6206,8 +6206,8 @@ items:
     source: "gitbrent/PptxGenJS#1136"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p2
     target_area:
       - table-ooxml
@@ -6217,23 +6217,31 @@ items:
     non_target_reasons: []
     upstream_summary: Auto-paged tables with master placeholders did not copy populated placeholder text to overflow slides.
     current_project_notes: >
-      Current autoPage creates overflow slides with the same master, but there is
-      no autoPagePlaceholder option or logic to propagate user-populated
-      placeholder text from the source slide to each generated slide.
+      Implemented as an opt-in TableProps.autoPagePlaceholder (default false). In
+      addTableDefinition's autoPage branch we snapshot the source slide's
+      populated placeholder objects (slide objects with options.placeholder, table
+      excluded) before the split loop, then structuredClone them onto each overflow
+      slide (idx > 0; idx 0 is the source slide and already has them). Overflow
+      slides otherwise inherit only the layout's empty placeholders. Regression
+      test in test/regression/table-autopage-placeholder.test.js. NOTE while
+      writing the fixture: getSlidesForTableRows can emit a degenerate empty
+      overflow page (rows:[]) for certain small `h` + `y` combos, which makes the
+      recursive addTable throw "Array expected"; unrelated pre-existing bug, see
+      next_action.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/gen-objects.ts:996
-        - src/gen-objects.ts:998
-        - src/gen-objects.ts:1013
-        - src/gen-objects.ts:1156
-        - src/core-interfaces.ts:861
+        - src/gen-objects.ts:1093
+        - src/gen-objects.ts:1116
+        - src/core-interfaces.ts:1279
+        - test/regression/table-autopage-placeholder.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: design-autopage-placeholder-propagation-fixture
+    next_action: file-followup-for-getSlidesForTableRows-empty-overflow-page
 
   - id: upstream-issue-1135
     source: "gitbrent/PptxGenJS#1135"
