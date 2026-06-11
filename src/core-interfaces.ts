@@ -2323,6 +2323,17 @@ export interface WriteBaseProps {
 	 * @since v3.5.0
 	 */
 	compression?: boolean
+	/**
+	 * How to handle a media asset (image/audio/video) that fails to load during export.
+	 * - `'throw'` (default): reject the export with an error naming the failing asset. A deck
+	 *   that silently embeds a broken-image placeholder is a degenerate result, so failing
+	 *   loudly is the safe default.
+	 * - `'placeholder'`: substitute a broken-image placeholder, emit a `console.warn`, and
+	 *   continue. Useful for best-effort/batch jobs where one missing asset should not abort
+	 *   the whole deck.
+	 * @default 'throw'
+	 */
+	onMediaError?: 'throw' | 'placeholder'
 }
 export interface WriteProps extends WriteBaseProps {
 	/**

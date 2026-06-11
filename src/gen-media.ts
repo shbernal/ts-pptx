@@ -15,9 +15,15 @@ function hasEncodingPath(rel: ISlideRelMedia): rel is SlideMediaRelWithPath {
 /**
  * Encode Image/Audio/Video into base64
  * @param {PresSlideInternal | SlideLayoutInternal} layout - slide layout
+ * @param {RuntimeAdapter} runtime - runtime adapter (Node/browser media loader)
+ * @param {'throw' | 'placeholder'} onMediaError - failure policy: reject the export (default) or substitute a placeholder and warn
  * @return {Promise} promise
  */
-export function encodeSlideMediaRels(layout: PresSlideInternal | SlideLayoutInternal, runtime: RuntimeAdapter): Array<Promise<string>> {
+export function encodeSlideMediaRels(
+	layout: PresSlideInternal | SlideLayoutInternal,
+	runtime: RuntimeAdapter,
+	onMediaError: 'throw' | 'placeholder' = 'throw',
+): Array<Promise<string>> {
 	const imageProms: Array<Promise<string>> = []
 
 	// A: Capture all audio/image/video candidates for encoding (filtering online/pre-encoded)
@@ -48,9 +54,16 @@ export function encodeSlideMediaRels(layout: PresSlideInternal | SlideLayoutInte
 						if (rel.isSvgPng) await runtime.createSvgPngPreview(rel)
 						return 'done'
 					} catch (ex) {
-						rel.data = IMG_BROKEN
-						candidateRels.filter(dupe => dupe.isDuplicate && dupe.path === rel.path).forEach(dupe => (dupe.data = rel.data))
-						throw ex
+						if (onMediaError === 'placeholder') {
+							console.warn(`[WARNING] Failed to load media "${rel.path}"; embedding a broken-image placeholder. (${String(ex)})`)
+							rel.data = IMG_BROKEN
+							candidateRels.filter(dupe => dupe.isDuplicate && dupe.path === rel.path).forEach(dupe => (dupe.data = rel.data))
+							return 'done'
+						}
+						// Default: fail-fast with an actionable error that names the failing asset and
+						// chains the original cause (the raw fs/network error alone does not say which
+						// media path broke). Pass `onMediaError: 'placeholder'` to degrade gracefully.
+						throw new Error(`Failed to load media "${rel.path}" during export.`, { cause: ex })
 					}
 				})(),
 			)

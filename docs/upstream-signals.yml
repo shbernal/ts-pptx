@@ -2437,8 +2437,8 @@ items:
     source: "gitbrent/PptxGenJS#1310"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: interesting-with-tweaks
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p2
     target_area:
       - image-svg-media
@@ -2449,21 +2449,31 @@ items:
       - upstream-build-system
     upstream_summary: Add better media-asset error handling by substituting a blank image when loading fails.
     current_project_notes: >
-      Current media encoding sets IMG_BROKEN on load failure but still throws the
-      original exception, so export remains fail-fast. Decide policy before
-      adopting a placeholder fallback, and ignore the broad generated-file churn.
+      Decided fail-fast remains the default (a deck silently embedding a broken
+      image is a degenerate result), but improved it: the catch in
+      encodeSlideMediaRels previously assigned IMG_BROKEN then re-threw the raw
+      fs/network error, which never named the failing asset. Now it throws a
+      wrapped Error naming the media path with { cause } chained. Added an opt-in
+      escape hatch onMediaError: 'throw' | 'placeholder' (default 'throw') on
+      WriteBaseProps, threaded through write()/writeFile()/exportPresentation;
+      'placeholder' substitutes IMG_BROKEN and warns instead of throwing, for
+      best-effort/batch jobs. Rejected the upstream PR's default placeholder
+      behavior and its broad generated-file churn. Regression test in
+      test/regression/media-load-error.test.js.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/gen-media.ts:45
-        - src/gen-media.ts:51
-        - src/gen-media.ts:53
+        - src/gen-media.ts:50
+        - src/core-interfaces.ts:2327
+        - src/pptxgen.ts:587
+        - test/regression/media-load-error.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: decide-fail-fast-vs-placeholder-media-policy
+    next_action: none
 
   - id: upstream-pr-1308
     source: "gitbrent/PptxGenJS#1308"

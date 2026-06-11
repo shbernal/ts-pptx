@@ -584,13 +584,14 @@ export default class PptxGenJS {
 		const zip = new JSZip()
 
 		// STEP 1: Read/Encode all Media before zip as base64 content, etc. is required
+		const onMediaError = props.onMediaError ?? 'throw'
 		this._slides.forEach(slide => {
-			arrMediaPromises = arrMediaPromises.concat(genMedia.encodeSlideMediaRels(slide, this._runtime))
+			arrMediaPromises = arrMediaPromises.concat(genMedia.encodeSlideMediaRels(slide, this._runtime, onMediaError))
 		})
 		this._slideLayouts.forEach(layout => {
-			arrMediaPromises = arrMediaPromises.concat(genMedia.encodeSlideMediaRels(layout, this._runtime))
+			arrMediaPromises = arrMediaPromises.concat(genMedia.encodeSlideMediaRels(layout, this._runtime, onMediaError))
 		})
-		arrMediaPromises = arrMediaPromises.concat(genMedia.encodeSlideMediaRels(this._masterSlide, this._runtime))
+		arrMediaPromises = arrMediaPromises.concat(genMedia.encodeSlideMediaRels(this._masterSlide, this._runtime, onMediaError))
 
 		// STEP 2: Wait for Promises (if any) then generate the PPTX file
 		return await Promise.all(arrMediaPromises).then(async () => {
@@ -724,10 +725,12 @@ export default class PptxGenJS {
 		// DEPRECATED: @deprecated v3.5.0 - outputType - [[remove in v4.0.0]]
 		const propsOutpType = typeof props === 'object' && props?.outputType ? props.outputType : props ? (props as WRITE_OUTPUT_TYPE) : null
 		const propsCompress = typeof props === 'object' && props?.compression ? props.compression : false
+		const propsMediaError = typeof props === 'object' ? props?.onMediaError : undefined
 
 		return await this.exportPresentation({
 			compression: propsCompress,
 			outputType: propsOutpType,
+			onMediaError: propsMediaError,
 		})
 	}
 
@@ -743,10 +746,10 @@ export default class PptxGenJS {
 			console.warn('[WARNING] writeFile(string) is deprecated - pass { fileName } instead.')
 			props = { fileName: props }
 		}
-		const { fileName: rawName = 'Presentation.pptx', compression = false } = props as WriteFileProps
+		const { fileName: rawName = 'Presentation.pptx', compression = false, onMediaError } = props as WriteFileProps
 		const fileName = rawName.toLowerCase().endsWith('.pptx') ? rawName : `${rawName}.pptx`
 
-		const data = await this.exportPresentation({ compression, outputType: this._runtime.writeFileOutputType })
+		const data = await this.exportPresentation({ compression, outputType: this._runtime.writeFileOutputType, onMediaError })
 		return await this._runtime.writeFile(fileName, data)
 	}
 
