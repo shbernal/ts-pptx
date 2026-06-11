@@ -2956,31 +2956,36 @@ items:
     source: "gitbrent/PptxGenJS#1357"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: needs-repro
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p1
     target_area:
       - chart-ooxml
       - powerpoint-repair
-    applies_to_current_project: unknown
-    non_target_reasons:
-      - insufficient-evidence
+    applies_to_current_project: yes
+    non_target_reasons: []
     upstream_summary: Stacked bar chart with many undefined values produced a broken PPTX.
     current_project_notes: >
-      The current chart cache emits empty c:v values for undefined data. That
-      may be involved, but the upstream report needs a minimal current-fixture
-      reproduction before accepting a repair-classification.
+      Reproduced: `undefined`/`null` values were already skipped (valid sparse
+      idx-keyed numCache), but non-finite numbers (`NaN`, `Infinity`) leaked into
+      `<c:v>` as invalid `xsd:double` text, triggering PowerPoint repair. Some
+      scatter/bubble paths also emitted invalid empty `<c:v></c:v>`. Unified all
+      numeric numCache emission through `numCachePt()` (gen-charts.ts:2115), which
+      skips null gaps silently and warns + omits non-finite values.
     evidence:
       kinds:
         - local-source-inspection
+        - repro-confirmed
+        - schema-fixture
+        - validator-pass
       local_files:
-        - src/gen-charts.ts:996
-        - src/gen-charts.ts:1037
-      schema_fixture: null
-      validator_result: null
+        - src/gen-charts.ts:2115
+      schema_fixture: test/schema.test.js (bar-chart-nonfinite-values)
+      validator_result: pass
       powerpoint_result: null
-      spec_refs: []
-    next_action: create-stacked-bar-undefined-values-repro
+      spec_refs:
+        - "ECMA-376 CT_NumVal/c:v (xsd:double)"
+    next_action: none
 
   - id: upstream-issue-1355
     source: "gitbrent/PptxGenJS#1355"

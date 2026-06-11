@@ -697,6 +697,36 @@ export default [
 		},
 	},
 	{
+		name: 'chart with non-finite (NaN) values emits a valid sparse numCache (upstream #1357)',
+		fn: async () => {
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (...args) => warnings.push(args.join(' '))
+			let buf
+			try {
+				;({ buf } = await build((p) => {
+					const s = p.addSlide()
+					s.addChart(
+						p.charts.BAR,
+						[
+							{ name: 'S1', labels: ['A', 'B', 'C', 'D'], values: [5, NaN, 3, NaN] },
+							{ name: 'S2', labels: ['A', 'B', 'C', 'D'], values: [2, 4, NaN, 1] },
+						],
+						{ x: 1, y: 1, w: 6, h: 3, barGrouping: 'stacked' }
+					)
+				}))
+			} finally {
+				console.warn = origWarn
+			}
+			// NaN data points must be dropped (not emitted as invalid <c:v>NaN</c:v>) and warned about.
+			assert(
+				warnings.some((w) => w.includes('not a finite number')),
+				'expected a warning for non-finite chart values'
+			)
+			await expectNoSchemaErrors(buf, 'bar-chart-nonfinite-values')
+		},
+	},
+	{
 		name: 'chart title with y-only manual layout (auto horizontal centering)',
 		fn: async () => {
 			const { buf } = await build((p) => {

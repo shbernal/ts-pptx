@@ -1002,7 +1002,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					strXml += '    <c:numCache>'
 					strXml += '      <c:formatCode>' + valFmtCode + '</c:formatCode>'
 					strXml += `      <c:ptCount val="${obj.labels[0].length}"/>`
-					obj.values.forEach((value, idx) => { if (value != null) strXml += `<c:pt idx="${idx}"><c:v>${value}</c:v></c:pt>` })
+					obj.values.forEach((value, idx) => { strXml += numCachePt(idx, value) })
 					strXml += '    </c:numCache>'
 					strXml += '  </c:numRef>'
 					strXml += '</c:val>'
@@ -1290,7 +1290,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					strXml += '      <c:formatCode>' + valFmtCode + '</c:formatCode>'
 					strXml += `      <c:ptCount val="${data[0].values.length}"/>`
 					data[0].values.forEach((value, idx) => {
-						if (value != null) strXml += `<c:pt idx="${idx}"><c:v>${value}</c:v></c:pt>`
+						strXml += numCachePt(idx, value)
 					})
 					strXml += '    </c:numCache>'
 					strXml += '  </c:numRef>'
@@ -1305,7 +1305,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					// NOTE: Use pt count and iterate over data[0] (X-Axis) as user can have more values than data (eg: timeline where only first few months are populated)
 					strXml += `      <c:ptCount val="${data[0].values.length}"/>`
 					data[0].values.forEach((_value, idx) => {
-						if (obj.values[idx] != null) strXml += `<c:pt idx="${idx}"><c:v>${obj.values[idx]}</c:v></c:pt>`
+						strXml += numCachePt(idx, obj.values[idx])
 					})
 					strXml += '    </c:numCache>'
 					strXml += '  </c:numRef>'
@@ -1424,7 +1424,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					strXml += '      <c:formatCode>' + valFmtCode + '</c:formatCode>'
 					strXml += `      <c:ptCount val="${data[0].values.length}"/>`
 					data[0].values.forEach((value, idx) => {
-						strXml += `<c:pt idx="${idx}"><c:v>${value || value === 0 ? value : ''}</c:v></c:pt>`
+						strXml += numCachePt(idx, value)
 					})
 					strXml += '    </c:numCache>'
 					strXml += '  </c:numRef>'
@@ -1440,7 +1440,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					// NOTE: Use pt count and iterate over data[0] (X-Axis) as user can have more values than data (eg: timeline where only first few months are populated)
 					strXml += `      <c:ptCount val="${data[0].values.length}"/>`
 					data[0].values.forEach((_value, idx) => {
-						strXml += `<c:pt idx="${idx}"><c:v>${obj.values[idx] || obj.values[idx] === 0 ? obj.values[idx] : ''}</c:v></c:pt>`
+						strXml += numCachePt(idx, obj.values[idx])
 					})
 					strXml += '    </c:numCache>'
 					strXml += '  </c:numRef>'
@@ -1456,7 +1456,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 				strXml += '        <c:formatCode>General</c:formatCode>'
 				strXml += `           <c:ptCount val="${obj.sizes.length}"/>`
 				obj.sizes.forEach((value, idx) => {
-					strXml += `<c:pt idx="${idx}"><c:v>${value ?? ''}</c:v></c:pt>`
+					strXml += numCachePt(idx, value)
 				})
 				strXml += '      </c:numCache>'
 				strXml += '    </c:numRef>'
@@ -2098,6 +2098,27 @@ function createGridLineElement (glOpts: OptsChartGridLine): string {
 	strXml += '</c:majorGridlines>'
 
 	return strXml
+}
+
+/**
+ * Build a `<c:pt>` numeric-cache data point, or '' to leave a gap.
+ *
+ * `<c:v>` inside a `<c:numCache>` is an `xsd:double`; emitting `NaN`, `Infinity`
+ * or an empty string yields an invalid value that makes PowerPoint report the
+ * package as needing repair. Null/undefined are intentional gaps and are skipped
+ * silently (a sparse, idx-keyed cache is valid); other non-finite numbers are
+ * skipped with a warning, per the library's "warn rather than emit a degenerate
+ * result" policy.
+ * @param idx - zero-based data-point index (emitted as `idx`)
+ * @param value - numeric value (or null/undefined gap)
+ */
+function numCachePt (idx: number, value: number | null | undefined): string {
+	if (value == null) return ''
+	if (!Number.isFinite(value)) {
+		console.warn(`Warning: chart value "${value}" at index ${idx} is not a finite number; data point omitted.`)
+		return ''
+	}
+	return `<c:pt idx="${idx}"><c:v>${value}</c:v></c:pt>`
 }
 
 /**
