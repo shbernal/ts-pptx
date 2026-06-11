@@ -2490,7 +2490,7 @@ export type SlideMasterObject =
 	| { line: ShapeProps }
 	| { rect: ShapeProps }
 	| { roundRect: ShapeProps }
-	| { text: TextProps }
+	| { text: { text: string | number | TextProps[], options?: TextPropsOptions } }
 	| {
 		placeholder: {
 			options: PlaceholderProps

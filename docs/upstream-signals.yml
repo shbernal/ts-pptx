@@ -6923,8 +6923,8 @@ items:
     source: "gitbrent/PptxGenJS#962"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p2
     target_area:
       - speaker-notes-masters-layouts
@@ -6933,22 +6933,23 @@ items:
     non_target_reasons: []
     upstream_summary: Slide master text objects failed when text was provided as rich text arrays.
     current_project_notes: >
-      createSlideMaster currently wraps object.text.text inside a new one-item
-      array before calling addTextDefinition. If object.text.text is already an
-      array, that can flatten into the wrong rich-text shape for the master.
+      Fixed: createSlideMaster now passes a TextProps[] through to
+      addTextDefinition unchanged and only wraps plain string/number text;
+      SlideMasterObject's text variant was widened to accept rich-text arrays.
+      Regression test covers per-run options (bold) on master rich text.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/gen-objects.ts:86
-        - src/core-interfaces.ts:1766
-        - src/gen-xml.ts:1205
-        - src/gen-xml.ts:1209
+        - src/gen-objects.ts:93
+        - src/core-interfaces.ts:2493
+        - test/regression/slide-master-richtext.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-slidemaster-rich-text-array-fixture
+    next_action: none
 
   - id: upstream-issue-961
     source: "gitbrent/PptxGenJS#961"
