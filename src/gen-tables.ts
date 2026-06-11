@@ -209,6 +209,7 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 	let emuSlideTabH = EMU * 1
 	let emuTabCurrH = 0
 	let numCols = 0
+	let warnedNoTabH = false
 	const tableRowSlides: TableRowSlide[] = []
 	const tablePropX = getSmartParseNumber(tableProps.x, 'X', presLayout)
 	const tablePropY = getSmartParseNumber(tableProps.y, 'Y', presLayout)
@@ -235,6 +236,22 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 				// Use whichever is greater: area between margins or the table H provided (dont shrink usable area - the whole point of over-riding Y on paging is to *increase* usable space)
 				if (emuSlideTabH < tablePropH) emuSlideTabH = tablePropH
 			}
+		}
+
+		// GUARD: a small explicit `h` (or a large `y`) can leave zero/negative usable height, so no
+		// row ever fits. That previously emitted degenerate empty overflow pages (rows:[]), which made
+		// the recursive addTable throw "Array expected". Ignore the unusable height, fall back to the
+		// full slide area between margins, and warn once rather than emit a broken table.
+		if (emuSlideTabH <= 0) {
+			const emuStartY = tableRowSlides.length === 0
+				? (tablePropY || inch2Emu(arrInchMargins[0]))
+				: inch2Emu(tableProps.autoPageSlideStartY || tableProps.newSlideStartY || arrInchMargins[0])
+			const fallbackH = presLayout.height - emuStartY - inch2Emu(arrInchMargins[2])
+			if (!warnedNoTabH) {
+				console.warn('addTable/autoPage: the table height (`h`) leaves no room to paginate; ignoring it and using the slide height. Increase `h` or decrease `y`.')
+				warnedNoTabH = true
+			}
+			emuSlideTabH = fallbackH > 0 ? fallbackH : presLayout.height
 		}
 	}
 
@@ -468,8 +485,9 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 				// A: add current row slide or it will be lost (only if it has rows and text)
 				if (currTableRow.length > 0 && currTableRow.map(cell => Array.isArray(cell.text) ? cell.text.length : 0).reduce((p, n) => p + n) > 0) newTableRowSlide.rows.push(currTableRow)
 
-				// B: add current slide to Slides array
-				tableRowSlides.push(newTableRowSlide)
+				// B: add current slide to Slides array (never push an empty page: a row that does not
+				// fit yet has no content here, and an empty `rows` slide crashes the recursive addTable)
+				if (newTableRowSlide.rows.length > 0) tableRowSlides.push(newTableRowSlide)
 
 				// C: reset working/curr slide to hold rows as they're created
 				const newRows: TableRow[] = []
@@ -559,8 +577,9 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 		}
 	})
 
-	// STEP 7: Flush buffer / add final slide
-	tableRowSlides.push(newTableRowSlide)
+	// STEP 7: Flush buffer / add final slide (skip an empty trailing buffer; always keep at least
+	// one slide so a non-empty table is never reduced to zero pages)
+	if (newTableRowSlide.rows.length > 0 || tableRowSlides.length === 0) tableRowSlides.push(newTableRowSlide)
 
 	if (tableProps.verbose) {
 		console.log('\n|================================================|')

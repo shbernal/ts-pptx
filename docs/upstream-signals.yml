@@ -6261,11 +6261,12 @@ items:
       excluded) before the split loop, then structuredClone them onto each overflow
       slide (idx > 0; idx 0 is the source slide and already has them). Overflow
       slides otherwise inherit only the layout's empty placeholders. Regression
-      test in test/regression/table-autopage-placeholder.test.js. NOTE while
-      writing the fixture: getSlidesForTableRows can emit a degenerate empty
-      overflow page (rows:[]) for certain small `h` + `y` combos, which makes the
-      recursive addTable throw "Array expected"; unrelated pre-existing bug, see
-      next_action.
+      test in test/regression/table-autopage-placeholder.test.js. FOLLOW-UP FIXED:
+      getSlidesForTableRows used to emit a degenerate empty overflow page (rows:[])
+      for small `h` + large `y` combos, making the recursive addTable throw "Array
+      expected". calcSlideTabH now clamps a non-positive usable height to the slide
+      height (with a warning), and the paginator no longer pushes empty pages.
+      Regression test in test/regression/table-autopage-small-height.test.js.
     evidence:
       kinds:
         - local-source-inspection
@@ -6274,12 +6275,14 @@ items:
         - src/gen-objects.ts:1093
         - src/gen-objects.ts:1116
         - src/core-interfaces.ts:1279
+        - src/gen-tables.ts:219
         - test/regression/table-autopage-placeholder.test.js
+        - test/regression/table-autopage-small-height.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: file-followup-for-getSlidesForTableRows-empty-overflow-page
+    next_action: none
 
   - id: upstream-issue-1135
     source: "gitbrent/PptxGenJS#1135"
