@@ -216,6 +216,36 @@ export default [
 		},
 	},
 	{
+		name: 'text run shadow in table cell and combined with glow',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				// table cell text has no shape spPr; shadow must emit at the run level (inside <a:rPr>)
+				s.addTable(
+					[
+						[
+							{
+								text: 'Shadowed cell',
+								options: { shadow: { type: 'outer', blur: 4, offset: 3, angle: 45, color: '404040', opacity: 0.6 } },
+							},
+						],
+					],
+					{ x: 1, y: 1, w: 4, h: 1 }
+				)
+				// glow + shadow together must share a single <a:effectLst> (only one allowed per CT_TextCharacterProperties)
+				s.addText('Glow and shadow', {
+					x: 1,
+					y: 3,
+					w: 4,
+					h: 1,
+					glow: { size: 6, color: 'FFFF00', opacity: 0.5 },
+					shadow: { type: 'outer', blur: 5, offset: 2, color: '000000', opacity: 0.5 },
+				})
+			})
+			await expectNoSchemaErrors(buf, 'text-run-shadow')
+		},
+	},
+	{
 		name: 'shape with native linear gradient fill',
 		fn: async () => {
 			const { buf } = await build((p) => {

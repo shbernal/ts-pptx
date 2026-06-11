@@ -6553,8 +6553,8 @@ items:
     source: "gitbrent/PptxGenJS#1011"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p2
     target_area:
       - table-ooxml
@@ -6563,23 +6563,28 @@ items:
     non_target_reasons: []
     upstream_summary: Requested shadow support for text inside table cells.
     current_project_notes: >
-      Text options expose shadow and addTextDefinition normalizes it, but text
-      run properties currently emit color, highlight, underline, and glow without
-      a shadow effect. Shape and image shadows are serialized separately.
+      Implemented run-level text shadow. genXmlTextRunProperties now emits an
+      <a:effectLst> inside <a:rPr> when shadow (or glow) is set, via the new
+      createShadowElement helper in gen-utils.ts. Glow and shadow share a single
+      effectLst (glow first, then shadow per CT_EffectList) since
+      CT_TextCharacterProperties allows only one. The effectLst was also moved to
+      its schema-correct position (after fill, before highlight), which fixes a
+      latent glow ordering issue. This covers table cells (which have no shape
+      spPr) plus any text run. Schema fixture added and validated.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/core-interfaces.ts:1096
-        - src/gen-objects.ts:1136
-        - src/gen-xml.ts:1003
-        - src/gen-xml.ts:529
-        - src/gen-xml.ts:624
-      schema_fixture: null
-      validator_result: null
+        - src/gen-utils.ts:296
+        - src/gen-xml.ts:1215
+        - src/core-enums.ts:32
+      schema_fixture: test/schema.test.js (text run shadow in table cell and combined with glow)
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: compare-powerpoint-authored-text-shadow-run-xml
+    next_action: none
 
   - id: upstream-issue-1006
     source: "gitbrent/PptxGenJS#1006"

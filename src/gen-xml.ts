@@ -43,6 +43,7 @@ import {
 	convertRotationDegrees,
 	createColorElement,
 	createGlowElement,
+	createShadowElement,
 	createLineCap,
 	encodeXmlEntities,
 	genXmlColorSelection,
@@ -1210,15 +1211,23 @@ function genXmlTextRunProperties (opts: ObjectOptions | TextPropsOptions, isDefa
 	}
 	runProps += opts.charSpacing ? ` spc="${clampCharSpacingSpc(opts.charSpacing)}" kern="0"` : '' // IMPORTANT: Also disable kerning; otherwise text won't actually expand
 	runProps += ' dirty="0">'
-	// Color / Font / Highlight / Outline are children of <a:rPr>, so add them now before closing the runProperties tag
-	if (opts.color || opts.fontFace || opts.outline || (typeof opts.underline === 'object' && opts.underline.color)) {
+	// Color / Font / Highlight / Outline / Effects are children of <a:rPr>, so add them now before closing the runProperties tag
+	const hasShadow = !!opts.shadow && opts.shadow.type !== 'none'
+	if (opts.color || opts.fontFace || opts.outline || opts.glow || hasShadow || (typeof opts.underline === 'object' && opts.underline.color)) {
+		// NOTE: children must follow CT_TextCharacterProperties order: ln, fill, effectLst, highlight, uFill, latin/ea/cs
 		if (opts.outline && typeof opts.outline === 'object') {
 			runProps += `<a:ln w="${lineWidthToEmu(opts.outline.size || 0.75)}">${genXmlColorSelection(opts.outline.color || 'FFFFFF')}</a:ln>`
 		}
 		if (opts.color) runProps += genXmlColorSelection({ color: opts.color, transparency: opts.transparency })
+		// EFFECTS: glow and shadow share a single <a:effectLst> (only one is allowed per CT_TextCharacterProperties; glow precedes shadow per CT_EffectList)
+		if (opts.glow || hasShadow) {
+			runProps += '<a:effectLst>'
+			if (opts.glow) runProps += createGlowElement(opts.glow, DEF_TEXT_GLOW)
+			if (hasShadow) runProps += createShadowElement(opts.shadow, DEF_TEXT_SHADOW)
+			runProps += '</a:effectLst>'
+		}
 		if (opts.highlight) runProps += `<a:highlight>${createColorElement(opts.highlight)}</a:highlight>`
 		if (typeof opts.underline === 'object' && opts.underline.color) runProps += `<a:uFill>${genXmlColorSelection(opts.underline.color)}</a:uFill>`
-		if (opts.glow) runProps += `<a:effectLst>${createGlowElement(opts.glow, DEF_TEXT_GLOW)}</a:effectLst>`
 		if (opts.fontFace) {
 			// NOTE: 'cs' = Complex Script, 'ea' = East Asian (use "-120" instead of "0" - per Issue #174); ea must come first (Issue #174)
 			runProps += `<a:latin typeface="${opts.fontFace}" pitchFamily="34" charset="0"/><a:ea typeface="${opts.fontFace}" pitchFamily="34" charset="-122"/><a:cs typeface="${opts.fontFace}" pitchFamily="34" charset="-120"/>`

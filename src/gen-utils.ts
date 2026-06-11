@@ -284,6 +284,36 @@ export function createGlowElement (options: TextGlowProps, defaults: TextGlowPro
 	return strXml
 }
 
+/**
+ * Creates an `a:outerShdw`/`a:innerShdw` element for a text run or shape.
+ * Returns the shadow element only (no wrapping `a:effectLst`) so callers can
+ * combine it with other effects (e.g. glow) inside a single `a:effectLst`.
+ * @param {ShadowProps} options shadow properties
+ * @param {ShadowProps} defaults defaults for unspecified properties in `options`
+ * @see http://officeopenxml.com/drwSp-effects.php
+ * @returns {string} XML string, or '' when type is 'none'
+ */
+export function createShadowElement (options: ShadowProps, defaults: ShadowProps): string {
+	const opts = { ...defaults, ...options }
+	if (opts.type === 'none') return ''
+
+	// NOTE: read into locals so we never mutate the caller's options (re-emission
+	// would otherwise re-convert pt→EMU and produce absurd values).
+	const type = opts.type || 'outer'
+	const blur = valToPts(opts.blur ?? 0)
+	const offset = valToPts(opts.offset ?? 0)
+	const angle = Math.round((opts.angle ?? 0) * 60000)
+	const opacity = Math.round((opts.opacity ?? 0.75) * 100000)
+	const color = opts.color || DEF_FONT_COLOR
+
+	const extraAttrs = type === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0" ' : ''
+	let strXml = `<a:${type}Shdw ${extraAttrs}blurRad="${blur}" dist="${offset}" dir="${angle}">`
+	strXml += createColorElement(color, `<a:alpha val="${opacity}"/>`)
+	strXml += `</a:${type}Shdw>`
+
+	return strXml
+}
+
 function boolToXml (value: boolean): string {
 	return value ? '1' : '0'
 }
