@@ -5005,8 +5005,8 @@ items:
     source: "gitbrent/PptxGenJS#1235"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p2
     target_area:
       - table-ooxml
@@ -5014,21 +5014,24 @@ items:
     non_target_reasons: []
     upstream_summary: HTML table border widths between 0 and 1 px rounded to zero.
     current_project_notes: >
-      Current HTML table conversion still rounds computed CSS border widths
-      before assigning pptx border points, while direct table serialization can
-      emit fractional pt values. The likely fix belongs in HTML table parsing.
+      Fixed in HTML-table parsing. Extracted the computed-CSS border conversion
+      into a pure, testable helper `htmlBorderToProps(widthStr, colorStr)` in
+      gen-tables.ts and removed the `Math.round` that collapsed sub-1px widths to
+      0pt. Fractional widths (e.g. 0.5px -> 0.5pt) are now preserved (valToPts
+      already emits fractional points); a computed width of 0 / non-finite now
+      yields `{ type: 'none' }` instead of a zero-width line.
     evidence:
       kinds:
         - local-source-inspection
+        - unit-test
       local_files:
-        - src/gen-tables.ts:696
-        - src/gen-tables.ts:713
-        - src/gen-xml.ts:348
-      schema_fixture: null
+        - src/gen-tables.ts (htmlBorderToProps; HTML border loop)
+        - test/regression/html-table-border-width.test.js
+      schema_fixture: test/regression/html-table-border-width.test.js
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-html-table-fractional-border-width-fixture
+    next_action: none
 
   - id: upstream-issue-1234
     source: "gitbrent/PptxGenJS#1234"

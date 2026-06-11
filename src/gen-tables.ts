@@ -574,6 +574,26 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 }
 
 /**
+ * Convert a computed CSS border (width string + color string) from `getComputedStyle` into a
+ * pptx `BorderProps`.
+ *
+ * Preserves *fractional* widths: a hairline CSS border such as `0.5px` must not be rounded to
+ * `0pt` and silently vanish — the table serializer (`valToPts`) emits fractional points just
+ * fine, so there is no reason to integer-round here (upstream gitbrent/PptxGenJS#1235). A
+ * computed width of `0` (or a non-finite value) yields `{ type: 'none' }` so we never emit a
+ * zero-width line.
+ * @param {string} widthStr - computed `border-<side>-width`, e.g. `"0.5px"`
+ * @param {string} colorStr - computed `border-<side>-color`, e.g. `"rgb(102, 102, 102)"`
+ * @returns {BorderProps} border props for the cell side
+ */
+export function htmlBorderToProps(widthStr: string, colorStr: string): BorderProps {
+	const pt = Number(String(widthStr).replace('px', ''))
+	if (!isFinite(pt) || pt <= 0) return { type: 'none' }
+	const arrRGB = String(colorStr).replace(/\s+/gi, '').replace('rgba(', '').replace('rgb(', '').replace(')', '').split(',')
+	return { pt, color: rgbToHex(Number(arrRGB[0]), Number(arrRGB[1]), Number(arrRGB[2])) }
+}
+
+/**
  * Reproduces an HTML table as a PowerPoint table - including column widths, style, etc. - creates 1 or more slides as needed
  * @param {TableToSlidesHost} pptx - pptxgenjs instance
  * @param {string} tabEleId - HTMLElementID of the table
@@ -723,24 +743,8 @@ export function genTableToSlides(pptx: TableToSlidesHost, tabEleId: string, opti
 					const cellBorder: BorderTuple = [{ type: 'none' }, { type: 'none' }, { type: 'none' }, { type: 'none' }]
 					const sidesBor = ['top', 'right', 'bottom', 'left']
 					sidesBor.forEach((val, idxb) => {
-						const intBorderW = Math.round(
-							Number(
-								window
-									.getComputedStyle(cell)
-									.getPropertyValue('border-' + val + '-width')
-									.replace('px', '')
-							)
-						)
-						const arrRGB = window
-							.getComputedStyle(cell)
-							.getPropertyValue('border-' + val + '-color')
-							.replace(/\s+/gi, '')
-							.replace('rgba(', '')
-							.replace('rgb(', '')
-							.replace(')', '')
-							.split(',')
-						const strBorderC = rgbToHex(Number(arrRGB[0]), Number(arrRGB[1]), Number(arrRGB[2]))
-						cellBorder[idxb] = { pt: intBorderW, color: strBorderC }
+						const style = window.getComputedStyle(cell)
+						cellBorder[idxb] = htmlBorderToProps(style.getPropertyValue('border-' + val + '-width'), style.getPropertyValue('border-' + val + '-color'))
 					})
 					cellOpts.border = cellBorder
 				}
