@@ -121,6 +121,27 @@ export function createSlideMaster(props: SlideMasterProps, target: SlideLayoutIn
 }
 
 /**
+ * Round and clamp an integer chart percentage/angle option into a schema-valid range.
+ *
+ * Several chart attributes are bounded integer types whose out-of-range values make
+ * PowerPoint report the package as needing repair: `<c:overlap>` (ST_Overlap, -100..100),
+ * `<c:gapWidth>`/`<c:gapDepth>` (ST_GapAmount, 0..500), `<c:holeSize>` (ST_HoleSize, 10..90)
+ * and `<c:firstSliceAng>` (ST_FirstSliceAng, 0..360). Missing/non-numeric input returns
+ * `undefined` so the caller can apply its own default; an out-of-range value is clamped
+ * and a warning is emitted (per the library's warn-rather-than-degrade policy).
+ * @param value - caller-supplied option value
+ * @param min - inclusive lower bound
+ * @param max - inclusive upper bound
+ * @param name - option name, for the warning message
+ */
+function clampChartPct(value: number | undefined, min: number, max: number, name: string): number | undefined {
+	if (typeof value !== 'number' || isNaN(value)) return undefined
+	const clamped = Math.min(max, Math.max(min, Math.round(value)))
+	if (clamped !== value) console.warn(`Warning: ${name} ${value} is outside the valid range ${min}-${max}; using ${clamped}.`)
+	return clamped
+}
+
+/**
  * Generate the chart based on input data.
  * OOXML Chart Spec: ISO/IEC 29500-1:2016(E)
  *
@@ -324,8 +345,14 @@ export function addChartDefinition(target: PresSlideInternal, type: CHART_NAME |
 	options.v3DPerspective = typeof options.v3DPerspective === 'number' && !isNaN(options.v3DPerspective) && options.v3DPerspective >= 0 && options.v3DPerspective <= 240 ? options.v3DPerspective : 30
 
 	// D: Options: chart
-	options.barGapWidthPct = typeof options.barGapWidthPct === 'number' && !isNaN(options.barGapWidthPct) && options.barGapWidthPct >= 0 && options.barGapWidthPct <= 1000 ? options.barGapWidthPct : 150
-	options.barGapDepthPct = typeof options.barGapDepthPct === 'number' && !isNaN(options.barGapDepthPct) && options.barGapDepthPct >= 0 && options.barGapDepthPct <= 1000 ? options.barGapDepthPct : 150
+	// `<c:gapWidth>`/`<c:gapDepth>` are ST_GapAmount (integer 0..500); `<c:overlap>` is
+	// ST_Overlap (integer -100..100). Out-of-range values trigger PowerPoint repair.
+	options.barGapWidthPct = clampChartPct(options.barGapWidthPct, 0, 500, 'barGapWidthPct') ?? 150
+	options.barGapDepthPct = clampChartPct(options.barGapDepthPct, 0, 500, 'barGapDepthPct') ?? 150
+	options.barOverlapPct = clampChartPct(options.barOverlapPct, -100, 100, 'barOverlapPct')
+	// `<c:holeSize>` is ST_HoleSize (10..90); `<c:firstSliceAng>` is ST_FirstSliceAng (0..360).
+	options.holeSize = clampChartPct(options.holeSize, 10, 90, 'holeSize')
+	options.firstSliceAng = clampChartPct(options.firstSliceAng, 0, 360, 'firstSliceAng')
 
 	options.chartColors = Array.isArray(options.chartColors)
 		? options.chartColors

@@ -5159,13 +5159,18 @@ items:
     non_target_reasons: []
     upstream_summary: Composite chart combinations could make PowerPoint repair the generated presentation.
     current_project_notes: >
-      Confirmed and fixed the line-marker-size repair surface: `lineDataSymbolSize`
-      was defaulted but never bounded, so values outside the ST_MarkerSize range
-      (integer 2-72) emitted an invalid `<c:size val>` that Microsoft's
-      OpenXmlValidator rejects with "MinInclusive ... must be >= 2" (and similarly
-      for >72 / non-integer). Normalization now rounds and clamps into [2,72] and
-      warns on coercion (gen-objects.ts:274). The dataLabelPosition combo surface
-      was already validated by existing normalization; no separate repro emerged.
+      Confirmed and fixed several bounded-integer chart attributes whose
+      out-of-range values made Microsoft's OpenXmlValidator (and PowerPoint)
+      reject the package. (1) `lineDataSymbolSize` -> `<c:size>` (ST_MarkerSize
+      2-72) now rounds+clamps and warns (gen-objects.ts:274). (2) A shared
+      `clampChartPct()` helper (gen-objects.ts:137) now also bounds
+      `barGapWidthPct`/`barGapDepthPct` -> `<c:gapWidth>`/`<c:gapDepth>`
+      (ST_GapAmount 0-500; the old guard used a wrong 1000 ceiling),
+      `barOverlapPct` -> `<c:overlap>` (ST_Overlap -100..100, previously emitted
+      unvalidated), `holeSize` -> `<c:holeSize>` (ST_HoleSize 10-90) and
+      `firstSliceAng` -> `<c:firstSliceAng>` (ST_FirstSliceAng 0-360). The
+      dataLabelPosition combo surface was already validated; no separate repro
+      emerged.
     evidence:
       kinds:
         - local-source-inspection
@@ -5173,12 +5178,15 @@ items:
         - schema-fixture
         - validator-pass
       local_files:
+        - src/gen-objects.ts:137
         - src/gen-objects.ts:274
-      schema_fixture: test/schema.test.js (line-chart-marker-size-clamped)
+        - src/gen-objects.ts:350
+      schema_fixture: test/schema.test.js (line-chart-marker-size-clamped, chart-bounded-attrs-clamped)
       validator_result: pass
       powerpoint_result: null
       spec_refs:
         - "ECMA-376 ST_MarkerSize (21.2.3.26): integer 2-72"
+        - "ECMA-376 ST_Overlap (21.2.3.31): -100..100; ST_GapAmount: 0-500; ST_HoleSize: 10-90; ST_FirstSliceAng (21.2.3.15): 0-360"
     next_action: none
 
   - id: upstream-issue-1226

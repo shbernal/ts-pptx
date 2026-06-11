@@ -765,6 +765,44 @@ export default [
 		},
 	},
 	{
+		name: 'out-of-range chart gap/overlap/holeSize/firstSliceAng are clamped to valid ranges (upstream #1233)',
+		fn: async () => {
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (...args) => warnings.push(args.join(' '))
+			let buf
+			try {
+				;({ buf } = await build((p) => {
+					// gapWidth 600 (>500), overlap 200 (>100) violate ST_GapAmount / ST_Overlap.
+					p.addSlide().addChart(
+						p.charts.BAR,
+						[
+							{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] },
+							{ name: 'S2', labels: ['A', 'B', 'C'], values: [2, 3, 1] },
+						],
+						{ x: 1, y: 1, w: 6, h: 3, barGapWidthPct: 600, barOverlapPct: 200 }
+					)
+					// holeSize 200 (>90) violates ST_HoleSize; firstSliceAng 400 (>360) violates ST_FirstSliceAng.
+					p.addSlide().addChart(p.charts.DOUGHNUT, [{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
+						x: 1,
+						y: 1,
+						w: 6,
+						h: 3,
+						holeSize: 200,
+						firstSliceAng: 400,
+					})
+				}))
+			} finally {
+				console.warn = origWarn
+			}
+			assert(
+				warnings.some((w) => w.includes('barOverlapPct')) && warnings.some((w) => w.includes('holeSize')),
+				'expected warnings for out-of-range chart options'
+			)
+			await expectNoSchemaErrors(buf, 'chart-bounded-attrs-clamped')
+		},
+	},
+	{
 		name: 'chart title with y-only manual layout (auto horizontal centering)',
 		fn: async () => {
 			const { buf } = await build((p) => {
