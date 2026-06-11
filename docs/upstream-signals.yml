@@ -11,6 +11,17 @@ project_target_docs:
   - docs/ooxml-agent-context.md
   - docs/testing.md
 
+# MAINTENANCE (agents):
+# - Every vocabulary-constrained field (status, priority, target_area,
+#   applies_to_current_project, non_target_reasons, evidence.kinds) must use a value
+#   already listed under `vocabulary:` below. Reuse the closest existing term; never
+#   invent a synonym (e.g. `validator-pass` instead of `validator-result`).
+# - If nothing fits, ADD the new value to the relevant `vocabulary:` list in the same
+#   edit (note why), then use it — extending the vocabulary on purpose is fine, drifting
+#   off it by typo is not.
+# - After ANY edit to this file, run `pnpm run upstream:signals:validate` and fix every
+#   error before committing. The validator keys on the `vocabulary:` lists in THIS file.
+
 vocabulary:
   statuses:
     - unreviewed
@@ -2999,9 +3010,9 @@ items:
     evidence:
       kinds:
         - local-source-inspection
-        - repro-confirmed
+        - minimal-repro
         - schema-fixture
-        - validator-pass
+        - validator-result
       local_files:
         - src/gen-charts.ts:2115
       schema_fixture: test/schema.test.js (bar-chart-nonfinite-values)
@@ -3245,7 +3256,7 @@ items:
       kinds:
         - local-source-inspection
         - schema-fixture
-        - validator-pass
+        - validator-result
       local_files:
         - src/core-interfaces.ts:2000
         - src/gen-charts.ts:1049
@@ -5252,9 +5263,9 @@ items:
     evidence:
       kinds:
         - local-source-inspection
-        - validator-confirmed-repro
+        - minimal-repro
         - schema-fixture
-        - validator-pass
+        - validator-result
       local_files:
         - src/gen-objects.ts:137
         - src/gen-objects.ts:274

@@ -75,6 +75,9 @@ MCPs' corpora.
 - `docs/upstream-signals.yml` tracks upstream issues and PRs as signals for local work.
 - When you implement a fix or feature derived from an upstream signal, update the corresponding item in that file: set `status` to `implemented`, update `last_reviewed` to today's date, update `current_project_notes` with where the fix landed, update `evidence.local_files` to reflect the current source location, and set `next_action` to `none`.
 - Also update any companion items that share the same root cause (e.g. an issue whose `next_action` was `handle-with-upstream-pr-NNNN` when that PR is now implemented).
+- Every field constrained by `vocabulary` (`status`, `priority`, `target_area`, `applies_to_current_project`, `non_target_reasons`, `evidence.kinds`) MUST use a value already listed under that file's top-level `vocabulary:` block. Before writing a value, scan the `vocabulary:` lists and reuse the closest existing term — do not invent synonyms (`validator-pass` for `validator-result`, `repro-confirmed` for `minimal-repro`, etc.), as the validator rejects them.
+- If no listed value genuinely fits the situation, do not force an approximation: add the new value to the appropriate `vocabulary:` list (with a one-line rationale in your message) in the same change, then use it. Extending the controlled vocabulary deliberately is fine; drifting away from it by typo is not.
+- ALWAYS run `pnpm run upstream:signals:validate` after editing `docs/upstream-signals.yml` (it is fast and offline) and fix every reported error before committing. A clean ledger is a precondition for the edit being considered done. `pnpm run test:tools` exercises the ledger tooling itself.
 
 ## Verification
 
