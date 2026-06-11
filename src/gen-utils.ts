@@ -150,6 +150,36 @@ export function valToPts (pt: number | string): number {
 }
 
 /**
+ * Convert a transparency percentage (0-100) into a schema-valid `<a:alpha>` value
+ * (ST_PositiveFixedPercentage, 0-100000). Out-of-range transparency yields an
+ * alpha that PowerPoint rejects as needing repair, so clamp into range and warn.
+ */
+export function transparencyToAlpha (transparency: number): number {
+	const pct = Math.min(100, Math.max(0, transparency))
+	if (pct !== transparency) console.warn(`Warning: transparency ${transparency} is outside the valid range 0-100; using ${pct}.`)
+	return Math.round((100 - pct) * 1000)
+}
+
+/** Convert an opacity (0-1) into a schema-valid `<a:alpha>` value (0-100000); clamps + warns on out-of-range input. */
+export function opacityToAlpha (opacity: number): number {
+	const o = Math.min(1, Math.max(0, opacity))
+	if (o !== opacity) console.warn(`Warning: opacity ${opacity} is outside the valid range 0-1; using ${o}.`)
+	return Math.round(o * 100000)
+}
+
+/**
+ * Convert a line width (points) to EMU clamped into ST_LineWidth (0..20116800 EMU,
+ * i.e. 0-1584pt). Out-of-range widths make PowerPoint report the package as needing
+ * repair, so clamp into range and warn.
+ */
+export function lineWidthToEmu (widthPts: number | string): number {
+	const raw = valToPts(widthPts)
+	const clamped = Math.min(20116800, Math.max(0, raw))
+	if (clamped !== raw) console.warn(`Warning: line width ${widthPts} is outside the valid range 0-1584pt; using ${clamped / ONEPT}.`)
+	return clamped
+}
+
+/**
  * Convert degrees (0..360) to PowerPoint `rot` value
  * @param {number} d degrees
  * @returns {number} calculated `rot` value
@@ -245,7 +275,7 @@ export function createGlowElement (options: TextGlowProps, defaults: TextGlowPro
 	const opts = { ...defaults, ...options }
 	const size = Math.round(opts.size * ONEPT)
 	const color = opts.color || DEF_FONT_COLOR
-	const opacity = Math.round((opts.opacity ?? 0) * 100000)
+	const opacity = opacityToAlpha(opts.opacity ?? 0)
 
 	strXml += `<a:glow rad="${size}">`
 	strXml += createColorElement(color, `<a:alpha val="${opacity}"/>`)
@@ -266,8 +296,8 @@ function normalizeGradientAngle (angle: number | undefined): number {
 
 function gradientStopColorAdjustments (stop: GradientStopProps): string {
 	let internalElements = ''
-	if (stop.alpha) internalElements += `<a:alpha val="${Math.round((100 - stop.alpha) * 1000)}"/>` // DEPRECATED: @deprecated v3.3.0
-	if (stop.transparency) internalElements += `<a:alpha val="${Math.round((100 - stop.transparency) * 1000)}"/>`
+	if (stop.alpha) internalElements += `<a:alpha val="${transparencyToAlpha(stop.alpha)}"/>` // DEPRECATED: @deprecated v3.3.0
+	if (stop.transparency) internalElements += `<a:alpha val="${transparencyToAlpha(stop.transparency)}"/>`
 	return internalElements
 }
 
@@ -365,8 +395,8 @@ export function genXmlColorSelection (props: Color | ShapeFillProps | ShapeLineP
 		else {
 			if (props.type) fillType = props.type
 			if (props.color) colorVal = props.color
-			if (props.alpha) internalElements += `<a:alpha val="${Math.round((100 - props.alpha) * 1000)}"/>` // DEPRECATED: @deprecated v3.3.0
-			if (props.transparency) internalElements += `<a:alpha val="${Math.round((100 - props.transparency) * 1000)}"/>`
+			if (props.alpha) internalElements += `<a:alpha val="${transparencyToAlpha(props.alpha)}"/>` // DEPRECATED: @deprecated v3.3.0
+			if (props.transparency) internalElements += `<a:alpha val="${transparencyToAlpha(props.transparency)}"/>`
 		}
 
 		switch (fillType) {

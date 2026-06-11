@@ -51,6 +51,7 @@ import {
 	getSmartParseNumber,
 	getUuid,
 	inch2Emu,
+	lineWidthToEmu,
 	valToPts,
 } from './gen-utils.js'
 
@@ -672,7 +673,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 
 				// shape Type: LINE: line color
 				if (slideItemObj.options.line) {
-					const lnAttrs = (slideItemObj.options.line.width ? ` w="${valToPts(slideItemObj.options.line.width)}"` : '') +
+					const lnAttrs = (slideItemObj.options.line.width ? ` w="${lineWidthToEmu(slideItemObj.options.line.width)}"` : '') +
 						(slideItemObj.options.line.cap ? ` cap="${createLineCap(slideItemObj.options.line.cap)}"` : '')
 					strSlideXml += `<a:ln${lnAttrs}>`
 					if (slideItemObj.options.line.color) strSlideXml += genXmlColorSelection(slideItemObj.options.line)
@@ -1186,7 +1187,7 @@ function genXmlTextRunProperties (opts: ObjectOptions | TextPropsOptions, isDefa
 	// Color / Font / Highlight / Outline are children of <a:rPr>, so add them now before closing the runProperties tag
 	if (opts.color || opts.fontFace || opts.outline || (typeof opts.underline === 'object' && opts.underline.color)) {
 		if (opts.outline && typeof opts.outline === 'object') {
-			runProps += `<a:ln w="${valToPts(opts.outline.size || 0.75)}">${genXmlColorSelection(opts.outline.color || 'FFFFFF')}</a:ln>`
+			runProps += `<a:ln w="${lineWidthToEmu(opts.outline.size || 0.75)}">${genXmlColorSelection(opts.outline.color || 'FFFFFF')}</a:ln>`
 		}
 		if (opts.color) runProps += genXmlColorSelection({ color: opts.color, transparency: opts.transparency })
 		if (opts.highlight) runProps += `<a:highlight>${createColorElement(opts.highlight)}</a:highlight>`
@@ -2228,7 +2229,7 @@ function genXmlTableStyleBorders (border: BorderProps | BorderProps[]): string {
 		if (b.type === 'none') {
 			xml += '<a:ln><a:noFill/></a:ln>'
 		} else {
-			xml += `<a:ln w="${valToPts(b.pt ?? 1)}" cap="flat" cmpd="sng" algn="ctr">`
+			xml += `<a:ln w="${lineWidthToEmu(b.pt ?? 1)}" cap="flat" cmpd="sng" algn="ctr">`
 			xml += `<a:solidFill>${createColorElement(b.color ?? '666666')}</a:solidFill>`
 			xml += `<a:prstDash val="${b.type === 'dash' ? 'sysDash' : 'solid'}"/>`
 			xml += '</a:ln>'

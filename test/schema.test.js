@@ -838,6 +838,35 @@ export default [
 		},
 	},
 	{
+		name: 'out-of-range shape transparency/line-width are clamped to valid ranges',
+		fn: async () => {
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (...args) => warnings.push(args.join(' '))
+			let buf
+			try {
+				;({ buf } = await build((p) => {
+					const s = p.addSlide()
+					// transparency 150 / -20 push <a:alpha> outside ST_PositiveFixedPercentage (0..100000).
+					s.addShape(p.shapes.RECTANGLE, { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000', transparency: 150 } })
+					s.addShape(p.shapes.RECTANGLE, { x: 4, y: 1, w: 2, h: 1, fill: { color: '00FF00', transparency: -20 } })
+					// line width 2000pt -> w 25.4M EMU (>20116800), and a negative width, both violate ST_LineWidth.
+					s.addShape(p.shapes.RECTANGLE, { x: 1, y: 3, w: 2, h: 1, line: { color: '0000FF', width: 2000 } })
+					s.addShape(p.shapes.RECTANGLE, { x: 4, y: 3, w: 2, h: 1, line: { color: '0000FF', width: -5 } })
+					// glow opacity 5 (valid 0-1) pushes <a:alpha> above 100000.
+					s.addText('Glow', { x: 1, y: 5, w: 4, h: 1, glow: { size: 10, color: 'FF0000', opacity: 5 } })
+				}))
+			} finally {
+				console.warn = origWarn
+			}
+			assert(
+				warnings.some((w) => w.includes('transparency')) && warnings.some((w) => w.includes('line width')),
+				'expected warnings for out-of-range shape options'
+			)
+			await expectNoSchemaErrors(buf, 'shape-bounded-attrs-clamped')
+		},
+	},
+	{
 		name: 'chart title with y-only manual layout (auto horizontal centering)',
 		fn: async () => {
 			const { buf } = await build((p) => {
