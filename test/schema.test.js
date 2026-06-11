@@ -1561,4 +1561,31 @@ export default [
 			await expectNoSchemaErrors(buf, 'scatter-chart-point-styles')
 		},
 	},
+	{
+		// upstream #1243: theme color scheme overrides must stay schema-valid, including dk1/lt1
+		// switching from <a:sysClr> to <a:srgbClr> when overridden.
+		name: 'theme color scheme overrides (incl. dk1/lt1 as srgbClr)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.theme = {
+					colorScheme: {
+						dk1: '101010',
+						lt1: 'FAFAFA',
+						dk2: '1F3864',
+						lt2: 'D9D9D9',
+						accent1: 'C00000',
+						accent2: '00B050',
+						accent3: '0070C0',
+						accent4: '7030A0',
+						accent5: 'FFC000',
+						accent6: '00B0F0',
+						hlink: '0563C1',
+						folHlink: '954F72',
+					},
+				}
+				p.addSlide().addText('themed', { x: 1, y: 1, w: 4, h: 0.5, color: p.SchemeColor.accent1 })
+			})
+			await expectNoSchemaErrors(buf, 'theme-color-scheme')
+		},
+	},
 ]
