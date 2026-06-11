@@ -626,10 +626,12 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				// Margin/Padding/Inset for textboxes
 				if (!slideItemObj.options._bodyProp) slideItemObj.options._bodyProp = {}
 				if (slideItemObj.options.margin && Array.isArray(slideItemObj.options.margin)) {
-					slideItemObj.options._bodyProp.lIns = valToPts(slideItemObj.options.margin[0] || 0)
+					// Margin arrays are documented as [Top, Right, Bottom, Left] (CSS order) and table cells /
+					// slide numbers already map them that way. Keep textboxes consistent: index 0=Top, 3=Left.
+					slideItemObj.options._bodyProp.tIns = valToPts(slideItemObj.options.margin[0] || 0)
 					slideItemObj.options._bodyProp.rIns = valToPts(slideItemObj.options.margin[1] || 0)
 					slideItemObj.options._bodyProp.bIns = valToPts(slideItemObj.options.margin[2] || 0)
-					slideItemObj.options._bodyProp.tIns = valToPts(slideItemObj.options.margin[3] || 0)
+					slideItemObj.options._bodyProp.lIns = valToPts(slideItemObj.options.margin[3] || 0)
 				} else if (typeof slideItemObj.options.margin === 'number') {
 					slideItemObj.options._bodyProp.lIns = valToPts(slideItemObj.options.margin)
 					slideItemObj.options._bodyProp.rIns = valToPts(slideItemObj.options.margin)

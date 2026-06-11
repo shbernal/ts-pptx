@@ -3522,8 +3522,8 @@ items:
     source: "gitbrent/PptxGenJS#1248"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p2
     target_area:
       - table-ooxml
@@ -3532,24 +3532,26 @@ items:
     non_target_reasons: []
     upstream_summary: Fix inconsistent margin array handling.
     current_project_notes: >
-      Textbox margin array mapping currently writes l/r/b/t from indices 0/1/2/3,
-      while table cell margin code treats arrays as top/right/bottom/left. This
-      warrants a compatibility decision and fixtures before changing public
-      behavior.
+      Fixed: the textbox margin path mapped array indices 0/1/2/3 to l/r/b/t,
+      transposing Top and Left relative to the documented [Top, Right, Bottom,
+      Left] order (core-interfaces.ts:1497) that table cells (gen-xml.ts ~556)
+      and slide numbers (gen-xml.ts ~917) already follow. Textbox now maps
+      index 0=tIns, 1=rIns, 2=bIns, 3=lIns, so all three margin paths agree.
+      Regression test test/regression/text-margin-order.test.js asserts each of
+      four distinct values lands on the correct inset. Recorded in
+      UPSTREAMING_CANDIDATES.md (asymmetric textbox margins change output).
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/gen-xml.ts:406
-        - src/gen-xml.ts:407
-        - src/gen-xml.ts:410
-        - src/gen-xml.ts:335
-        - src/gen-xml.ts:340
-      schema_fixture: null
+        - src/gen-xml.ts:628
+        - test/regression/text-margin-order.test.js
+      schema_fixture: test/regression/text-margin-order.test.js (textbox margin order)
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: define-margin-array-order-contract-and-add-fixtures
+    next_action: none
 
   - id: upstream-pr-1202
     source: "gitbrent/PptxGenJS#1202"
