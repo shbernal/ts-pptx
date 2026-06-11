@@ -701,8 +701,8 @@ items:
     source: "gitbrent/PptxGenJS#1449"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-10
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p0
     target_area:
       - powerpoint-repair
@@ -726,31 +726,44 @@ items:
       'folderCorner' -> 'foldedCorner' (spec spelling), and removed the four
       LINE_CALLOUT_4* entries (borderCallout4 / accentCallout3=4 /
       accentBorderCallout4 / callout4) which have no ST_ShapeType equivalent and
-      only ever produced corrupt files. Remaining open subclaims to split into
-      focused repros: Defect 3 (per-slide phantom slideMaster Content_Types
-      Overrides), Defect 4 (unused Default extension registrations), Defect 6
-      (empty charts/ and embeddings/ scaffold dirs). Keep this as an umbrella
-      signal; track each remaining defect as a focused local task. Validation is
-      enforced at two layers: a friendly throw in addShapeDefinition, plus a
-      safety net in genXmlPresetGeom() so the addText/addImage `shape` options
-      (which bypass addShape) also reject invalid presets. The shared allow-list
-      is exported from core-enums as VALID_SHAPE_PRESETS.
+      only ever produced corrupt files. Validation is enforced at two layers: a
+      friendly throw in addShapeDefinition, plus a safety net in genXmlPresetGeom()
+      so the addText/addImage `shape` options (which bypass addShape) also reject
+      invalid presets. The shared allow-list is exported from core-enums as
+      VALID_SHAPE_PRESETS. The remaining package-scaffold subclaims are all
+      IMPLEMENTED as well (re-verified 2026-06-11): Defect 3 (per-slide phantom
+      slideMaster Content_Types Overrides) — makeXmlContTypes emits a single
+      slideMaster1 Override regardless of slide count (gen-xml.ts:1606), covered by
+      test/regression/slide-master-content-types.test.js; Defect 4 (unused Default
+      extension registrations) — Default Extension entries are emitted only for
+      media types actually used by the deck (gen-xml.ts:1579), covered by
+      test/regression/content-type-defaults.test.js; Defect 6 (empty charts/ and
+      embeddings/ scaffold dirs) — ppt/charts and ppt/embeddings are scaffolded
+      only when at least one chart is present (pptxgen.ts:606), covered by
+      test/regression/chart-embedding-parts.test.js. All six subclaims are now
+      resolved, so this umbrella is marked implemented.
     evidence:
       kinds:
         - local-source-inspection
         - regression-test
         - schema-fixture
+        - validator-result
       local_files:
         - src/core-enums.ts:713
         - src/gen-objects.ts:743
-        - src/gen-xml.ts:115
+        - src/gen-xml.ts:1579
+        - src/gen-xml.ts:1606
+        - src/pptxgen.ts:606
         - test/regression/shape-presets.test.js
+        - test/regression/content-type-defaults.test.js
+        - test/regression/slide-master-content-types.test.js
+        - test/regression/chart-embedding-parts.test.js
       schema_fixture: test/regression/shape-presets.test.js
       validator_result: pass
       powerpoint_result: null
       spec_refs:
         - "ECMA-376 Part 1 §20.1.10.55 (ST_ShapeType)"
-    next_action: split-remaining-defect-3-4-6-into-focused-repros
+    next_action: none
 
   - id: upstream-pr-1454
     source: "gitbrent/PptxGenJS#1454"
@@ -884,9 +897,13 @@ items:
     upstream_summary: Chart embedded worksheet loses currency/percentage formats and may show zero values as blank.
     current_project_notes: >
       Zero-value blanking fixed via upstream-pr-1331: replaced || with ?? for all
-      chart value worksheet cells. Workbook styles remain General-only; currency
-      and percentage format codes in the embedded workbook are a separate task
-      requiring a workbook styles.xml extension.
+      chart value worksheet cells. The chart-XML *display* side of the
+      currency/percentage problem is now handled via [[upstream-issue-1309]]: the
+      series numCache formatCode carries the resolved value format, so PowerPoint
+      and Google Slides render the format. The remaining piece — the embedded
+      workbook styles.xml staying General-only (which only affects PowerPoint's
+      "Edit Data in Excel" round-trip) — is still a separate deferred task
+      requiring a workbook styles.xml cellXfs extension.
     evidence:
       kinds:
         - local-source-inspection
@@ -3870,8 +3887,8 @@ items:
     source: "gitbrent/PptxGenJS#1309"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p1
     target_area:
       - chart-ooxml
@@ -3879,22 +3896,47 @@ items:
     non_target_reasons: []
     upstream_summary: Chart formatCode options show correctly in LibreOffice but not in Microsoft Office or Google Slides.
     current_project_notes: >
-      Current chart XML emits c:numFmt for data labels and axes, but the embedded
-      workbook styles.xml is hard-coded to General. PowerPoint and Google Slides
-      may require workbook/cache formatting consistency, not just chart numFmt.
+      Root cause: PowerPoint and Google Slides render values using the cached
+      *source* number format carried in each series'
+      `<c:val>/<c:xVal>/<c:yVal><c:numRef><c:numCache><c:formatCode>` (Google
+      Slides cannot read the embedded xlsx at all and renders purely from this
+      chart-XML cache), NOT the `<c:dLbls><c:numFmt>` mask that LibreOffice
+      honors. That value cache was hard-coded to "General" (and entirely absent
+      from the pie/doughnut numCache), so those engines fell back to raw values
+      (e.g. 0.1 instead of 10%). Implemented in makeChartType (gen-charts.ts):
+      a single resolved `valFmtCode`
+      (valLabelFormatCode || dataTableFormatCode || dataLabelFormatCode ||
+      'General') is now stamped onto every value numCache — bar/line/area/radar
+      c:val, scatter/bubble c:xVal+c:yVal, and the previously format-less
+      pie/doughnut c:val. Because dataLabelFormatCode defaults to '#,##0', the
+      value cache now mirrors that default, making PowerPoint/Google Slides agree
+      with LibreOffice (deliberate consistency change). The category cache
+      (catLabelFormatCode) and bubble-size cache are intentionally left alone.
+      DEFERRED follow-up: styling the embedded workbook cells (styles.xml cellXfs
+      + per-cell s=) so PowerPoint's "Edit Data in Excel" round-trip preserves
+      the format — tracked jointly with [[upstream-issue-1430]]; not required for
+      the reported display bug since Google Slides ignores the workbook entirely.
+      Verified at the OOXML level (schema validator + regression assertions on the
+      emitted numCache); a live PowerPoint render confirmation is still pending.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/gen-charts.ts:112
-        - src/gen-charts.ts:893
-        - src/gen-charts.ts:1688
-        - src/gen-charts.ts:1797
-      schema_fixture: null
-      validator_result: null
+        - src/gen-charts.ts:783
+        - src/gen-charts.ts:985
+        - src/gen-charts.ts:1269
+        - src/gen-charts.ts:1623
+        - test/regression/chart-format-code.test.js
+        - test/schema.test.js
+      schema_fixture: chart-value-format-code-numcache
+      validator_result: pass
       powerpoint_result: null
-      spec_refs: []
-    next_action: compare-powerpoint-authored-chart-format-code-workbook-and-chart-xml
+      spec_refs:
+        - "ECMA-376 Part 1 §21.2.2.121 (CT_NumData / formatCode)"
+    next_action: none
 
   - id: upstream-issue-1307
     source: "gitbrent/PptxGenJS#1307"

@@ -580,6 +580,40 @@ export default [
 		},
 	},
 	{
+		// upstream #1309: value number format must reach the series numCache (and stay schema-valid)
+		// so PowerPoint/Google Slides honor it, not just LibreOffice via the dLbls mask.
+		name: 'charts with dataLabelFormatCode in the value numCache (bar, pie, scatter)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(p.charts.BAR, [{ name: 'S1', labels: ['A', 'B', 'C'], values: [0.1, 0.2, 0.3] }], {
+					x: 0.5,
+					y: 0.5,
+					w: 4,
+					h: 3,
+					showValue: true,
+					dataLabelFormatCode: '0%',
+				})
+				p.addSlide().addChart(p.charts.PIE, [{ name: 'S1', labels: ['A', 'B', 'C'], values: [0.5, 0.3, 0.2] }], {
+					x: 0.5,
+					y: 0.5,
+					w: 4,
+					h: 3,
+					showPercent: true,
+					dataLabelFormatCode: '0%',
+				})
+				p.addSlide().addChart(
+					p.charts.SCATTER,
+					[
+						{ name: 'X-Axis', values: [0, 1, 2] },
+						{ name: 'Y-Value 1', values: [0.1, 0.4, 0.9], labels: ['A', 'B', 'C'] },
+					],
+					{ x: 0.5, y: 0.5, w: 4, h: 3, showValue: true, dataLabelFormatCode: '0.0%' }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'chart-value-format-code-numcache')
+		},
+	},
+	{
 		name: 'bar chart with valAxisCrossBetween midCat',
 		fn: async () => {
 			const { buf } = await build((p) => {

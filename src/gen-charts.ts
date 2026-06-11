@@ -773,6 +773,15 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 	let optsChartData: IOptsChartData
 	let strXml = ''
 
+	// PowerPoint and Google Slides render values using the cached *source* number format carried in
+	// each series' `<c:numCache><c:formatCode>` (mirroring the embedded workbook cell format), NOT the
+	// `<c:dLbls><c:numFmt>` mask — so when the value cache is left as "General" those engines display
+	// raw values (e.g. `0.1` instead of `10%`) even though LibreOffice honors the dLbls mask. Resolve a
+	// single effective value format and stamp it onto every value cache below so all three engines agree.
+	// See upstream gitbrent/PptxGenJS#1309. Precedence keeps the historical `valLabelFormatCode` winner,
+	// then the data-table format, and finally falls back to `dataLabelFormatCode` (the most common knob).
+	const valFmtCode = encodeXmlEntities(opts.valLabelFormatCode || opts.dataTableFormatCode || opts.dataLabelFormatCode || 'General')
+
 	switch (chartType) {
 		case CHART_TYPE.AREA:
 		case CHART_TYPE.BAR:
@@ -973,7 +982,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					strXml += '  <c:numRef>'
 					strXml += `<c:f>Sheet1!$${getExcelColName(obj._dataIndex + obj.labels.length + 1)}$2:$${getExcelColName(obj._dataIndex + obj.labels.length + 1)}$${obj.labels[0].length + 1}</c:f>`
 					strXml += '    <c:numCache>'
-					strXml += '      <c:formatCode>' + (opts.valLabelFormatCode || opts.dataTableFormatCode || 'General') + '</c:formatCode>'
+					strXml += '      <c:formatCode>' + valFmtCode + '</c:formatCode>'
 					strXml += `      <c:ptCount val="${obj.labels[0].length}"/>`
 					obj.values.forEach((value, idx) => { if (value != null) strXml += `<c:pt idx="${idx}"><c:v>${value}</c:v></c:pt>` })
 					strXml += '    </c:numCache>'
@@ -1257,7 +1266,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					strXml += '  <c:numRef>'
 					strXml += `    <c:f>Sheet1!$A$2:$A$${data[0].values.length + 1}</c:f>`
 					strXml += '    <c:numCache>'
-					strXml += '      <c:formatCode>General</c:formatCode>'
+					strXml += '      <c:formatCode>' + valFmtCode + '</c:formatCode>'
 					strXml += `      <c:ptCount val="${data[0].values.length}"/>`
 					data[0].values.forEach((value, idx) => {
 						if (value != null) strXml += `<c:pt idx="${idx}"><c:v>${value}</c:v></c:pt>`
@@ -1271,7 +1280,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					strXml += '  <c:numRef>'
 					strXml += `    <c:f>Sheet1!$${getExcelColName(idx + 2)}$2:$${getExcelColName(idx + 2)}$${data[0].values.length + 1}</c:f>`
 					strXml += '    <c:numCache>'
-					strXml += '      <c:formatCode>General</c:formatCode>'
+					strXml += '      <c:formatCode>' + valFmtCode + '</c:formatCode>'
 					// NOTE: Use pt count and iterate over data[0] (X-Axis) as user can have more values than data (eg: timeline where only first few months are populated)
 					strXml += `      <c:ptCount val="${data[0].values.length}"/>`
 					data[0].values.forEach((_value, idx) => {
@@ -1391,7 +1400,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					strXml += '  <c:numRef>'
 					strXml += `    <c:f>Sheet1!$A$2:$A$${data[0].values.length + 1}</c:f>`
 					strXml += '    <c:numCache>'
-					strXml += '      <c:formatCode>General</c:formatCode>'
+					strXml += '      <c:formatCode>' + valFmtCode + '</c:formatCode>'
 					strXml += `      <c:ptCount val="${data[0].values.length}"/>`
 					data[0].values.forEach((value, idx) => {
 						strXml += `<c:pt idx="${idx}"><c:v>${value || value === 0 ? value : ''}</c:v></c:pt>`
@@ -1406,7 +1415,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					strXml += `<c:f>Sheet1!$${getExcelColName(idxColLtr + 1)}$2:$${getExcelColName(idxColLtr + 1)}$${data[0].values.length + 1}</c:f>`
 					idxColLtr++
 					strXml += '    <c:numCache>'
-					strXml += '      <c:formatCode>General</c:formatCode>'
+					strXml += '      <c:formatCode>' + valFmtCode + '</c:formatCode>'
 					// NOTE: Use pt count and iterate over data[0] (X-Axis) as user can have more values than data (eg: timeline where only first few months are populated)
 					strXml += `      <c:ptCount val="${data[0].values.length}"/>`
 					data[0].values.forEach((_value, idx) => {
@@ -1611,6 +1620,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 			strXml += '    <c:numRef>'
 			strXml += `      <c:f>Sheet1!$B$2:$B$${optsChartData.labels[0].length + 1}</c:f>`
 			strXml += '      <c:numCache>'
+			strXml += '        <c:formatCode>' + valFmtCode + '</c:formatCode>'
 			strXml += `           <c:ptCount val="${optsChartData.labels[0].length}"/>`
 			optsChartData.values.forEach((value, idx) => {
 				strXml += `<c:pt idx="${idx}"><c:v>${value || value === 0 ? value : ''}</c:v></c:pt>`
