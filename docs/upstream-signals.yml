@@ -3158,8 +3158,8 @@ items:
     source: "gitbrent/PptxGenJS#1339"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p3
     target_area:
       - image-svg-media
@@ -3168,21 +3168,30 @@ items:
     non_target_reasons: []
     upstream_summary: Duplicate images should be detected by content hash to reduce package size.
     current_project_notes: >
-      Current media de-duplication only reuses targets when path and type match.
-      Data/base64 duplicates are not content-hashed and therefore produce
-      separate media entries.
+      Implemented for base64/`data:` images in addImageDefinition and
+      addMediaDefinition: the duplicate-media check previously matched only on
+      `path`, which never fired for inline media (they all share the
+      `preencoded.<extn>` placeholder path). The find now falls back to exact
+      `data`-payload equality when there is no real path, so identical inline
+      images/media reuse the original `Target` and are embedded once per slide.
+      Exact string equality is used rather than a content hash, which is
+      sufficient and avoids collision concerns. Scope: raster images and
+      audio/video; the two-rId SVG branch is not yet deduped. De-dup remains
+      per-slide (each slide owns its `_relsMedia`), matching the existing
+      path-image behavior.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/gen-objects.ts:493
-        - src/gen-objects.ts:494
-        - src/gen-media.ts:40
+        - src/gen-objects.ts:572
+        - src/gen-objects.ts:698
+        - test/regression/image-data-dedup.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: design-optional-media-content-hash-deduplication
+    next_action: none
 
   - id: upstream-issue-1329
     source: "gitbrent/PptxGenJS#1329"

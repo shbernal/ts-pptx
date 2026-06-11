@@ -565,8 +565,14 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 		})
 		newObject.imageRid = imageRelId + 1
 	} else {
-		// PERF: Duplicate media should reuse existing `Target` value and not create an additional copy
-		const dupeItem = target._relsMedia.find(item => item.path && item.path === strImagePath && item.type === 'image/' + strImgExtn && !item.isDuplicate)
+		// PERF: Duplicate media should reuse existing `Target` value and not create an additional copy.
+		// File-path images are matched by `path`; base64/`data` images have no real path
+		// (all share the `preencoded.<extn>` placeholder), so they are matched by their data
+		// payload instead so identical inline images are embedded once (issue #1339).
+		const dupeItem = target._relsMedia.find(item => {
+			if (item.isDuplicate || !item.Target || item.type !== 'image/' + strImgExtn) return false
+			return strImagePath ? item.path === strImagePath : !!strImageData && item.data === strImageData
+		})
 
 		target._relsMedia.push({
 			path: strImagePath || 'preencoded.' + strImgExtn,
@@ -685,8 +691,13 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 			Target: `../media/image-${target._slideNum}-${target._relsMedia.length + 1}.png`,
 		})
 	} else {
-		// PERF: Duplicate media should reuse existing `Target` value and not create an additional copy
-		const dupeItem = target._relsMedia.find(item => item.path && item.path === strPath && item.type === strType + '/' + strExtn && !item.isDuplicate)
+		// PERF: Duplicate media should reuse existing `Target` value and not create an additional copy.
+		// Path-based media match by `path`; base64/`data` media (which share the `preencoded`
+		// placeholder path) match by their data payload so identical inline media embed once (issue #1339).
+		const dupeItem = target._relsMedia.find(item => {
+			if (item.isDuplicate || !item.Target || item.type !== strType + '/' + strExtn) return false
+			return strPath ? item.path === strPath : !!strData && item.data === strData
+		})
 
 		// A: "relationships/video"
 		const relId1 = getNewRelId(target)
