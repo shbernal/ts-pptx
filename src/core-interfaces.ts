@@ -1984,6 +1984,20 @@ export interface IChartPropsChartBar {
 	 * @default 0
 	 */
 	barOverlapPct?: number
+	/**
+	 * Draw connector lines between data points across stacked bar/column series
+	 * ("Series Lines" in PowerPoint). Emits `<c:serLines>` in the bar chart.
+	 *
+	 * - `true` uses PowerPoint's automatic line styling.
+	 * - An {@link OptsChartGridLine} object customizes color/size/style/cap.
+	 * - Omit (or pass an object with `style: 'none'`) to disable.
+	 *
+	 * Bar (`bar`) charts only; ignored for 3D bar charts.
+	 * @default undefined
+	 * @example true
+	 * @example { color: '777777', size: 1, style: 'dash' }
+	 */
+	barSeriesLine?: boolean | OptsChartGridLine
 }
 export interface IChartPropsChartDoughnut {
 	dataNoEffects?: boolean

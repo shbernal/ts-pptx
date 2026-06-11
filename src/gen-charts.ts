@@ -1044,6 +1044,9 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 			if (chartType === CHART_TYPE.BAR) {
 				strXml += `  <c:gapWidth val="${opts.barGapWidthPct}"/>`
 				strXml += `  <c:overlap val="${opts.barOverlapPct != null ? opts.barOverlapPct : (opts.barGrouping || '').includes('tacked') ? 100 : 0}"/>`
+				// `<c:serLines>` ("Series Lines") connects data points across stacked bar/column series.
+				// Schema order (CT_BarChart): gapWidth → overlap → serLines → axId.
+				strXml += createSerLinesElement(opts.barSeriesLine)
 			} else if (chartType === CHART_TYPE.BAR3D) {
 				strXml += `  <c:gapWidth val="${opts.barGapWidthPct}"/>`
 				strXml += `  <c:gapDepth val="${opts.barGapDepthPct}"/>`
@@ -2093,6 +2096,24 @@ function createGridLineElement (glOpts: OptsChartGridLine): string {
 	strXml += '  </a:ln>'
 	strXml += ' </c:spPr>'
 	strXml += '</c:majorGridlines>'
+
+	return strXml
+}
+
+/**
+ * Build a `<c:serLines>` ("Series Lines") element for a bar chart.
+ * @param opt - `true` for PowerPoint automatic styling, an {@link OptsChartGridLine}
+ *   to customize the line, or falsy / `{ style: 'none' }` to omit the element.
+ */
+function createSerLinesElement (opt?: boolean | OptsChartGridLine): string {
+	if (!opt) return ''
+	if (opt === true) return '<c:serLines/>'
+	if (opt.style === 'none') return ''
+	let strXml = '<c:serLines><c:spPr>'
+	strXml += `<a:ln w="${valToPts(opt.size || DEF_CHART_GRIDLINE.size)}" cap="${createLineCap(opt.cap || DEF_CHART_GRIDLINE.cap)}">`
+	strXml += `<a:solidFill><a:srgbClr val="${opt.color || DEF_CHART_GRIDLINE.color}"/></a:solidFill>`
+	strXml += `<a:prstDash val="${opt.style || DEF_CHART_GRIDLINE.style}"/><a:round/>`
+	strXml += '</a:ln></c:spPr></c:serLines>'
 
 	return strXml
 }
