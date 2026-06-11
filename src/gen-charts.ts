@@ -1481,7 +1481,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 				if (opts.dataLabelPosition) strXml += `<c:dLblPos val="${opts.dataLabelPosition}"/>`
 				strXml += '<c:showLegendKey val="0"/>'
 				strXml += `<c:showVal val="${opts.showValue ? '1' : '0'}"/>`
-				strXml += `<c:showCatName val="0"/><c:showSerName val="${opts.showSerName ? '1' : '0'}"/><c:showPercent val="0"/><c:showBubbleSize val="0"/>`
+				strXml += `<c:showCatName val="0"/><c:showSerName val="${opts.showSerName ? '1' : '0'}"/><c:showPercent val="0"/><c:showBubbleSize val="${opts.showBubbleSize ? '1' : '0'}"/>`
 				strXml += '<c:extLst>'
 				strXml += '  <c:ext uri="{CE6537A1-D6FC-4f65-9D91-7224C49458BB}" xmlns:c15="http://schemas.microsoft.com/office/drawing/2012/chart">'
 				strXml += '    <c15:showLeaderLines val="' + (opts.showLeaderLines ? '1' : '0') + '"/>'

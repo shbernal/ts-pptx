@@ -614,6 +614,33 @@ export default [
 		},
 	},
 	{
+		// Upstream #744: bubble/bubble3D charts can show each bubble's size as a data label.
+		// The `showBubbleSize` option flips the previously hard-coded <c:showBubbleSize val="0"/>;
+		// lock in that the enabled flag stays schema-valid in CT_DLbls.
+		name: 'bubble charts show bubble-size data labels (upstream #744)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					p.charts.BUBBLE,
+					[
+						{ name: 'X-Axis', values: [1, 2, 3, 4] },
+						{ name: 'Y-Values 1', values: [13, 20, 21, 25], sizes: [10, 5, 20, 15] },
+					],
+					{ x: 0.5, y: 0.5, w: 6, h: 3, showBubbleSize: true }
+				)
+				p.addSlide().addChart(
+					p.charts.BUBBLE3D,
+					[
+						{ name: 'X-Axis', values: [1, 2, 3, 4] },
+						{ name: 'Y-Values 1', values: [13, 20, 21, 25], sizes: [10, 5, 20, 15] },
+					],
+					{ x: 0.5, y: 0.5, w: 6, h: 3, showBubbleSize: true }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'chart-bubble-size-data-label')
+		},
+	},
+	{
 		// Upstream #1420: chart text fonts (title, legend, axis labels, data labels) emit the
 		// `<a:latin>/<a:ea>/<a:cs>` typeface trio so East Asian text honors the requested font.
 		// Lock in that the ea/cs additions stay schema-valid (correct CT_TextCharacterProperties order).

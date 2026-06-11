@@ -1782,6 +1782,12 @@ export interface IChartPropsBase {
 	layout?: PositionProps
 	shadow?: ShadowProps
 	/**
+	 * Show each bubble's size value as a data label (bubble / bubble3D charts only).
+	 * Has no effect on other chart types.
+	 * @default false
+	 */
+	showBubbleSize?: boolean
+	/**
 	 * @default false
 	 */
 	showLabel?: boolean
