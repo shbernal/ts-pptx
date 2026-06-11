@@ -1796,6 +1796,18 @@ export interface IChartPropsBase {
 	showLabel?: boolean
 	showLeaderLines?: boolean
 	/**
+	 * Leader line color (pie/doughnut data labels). Requires `showLeaderLines: true`.
+	 * When omitted, PowerPoint applies its automatic leader-line color.
+	 * @example 'FF0000' // red leader lines
+	 */
+	leaderLineColor?: HexColor
+	/**
+	 * Leader line width, in points (pie/doughnut data labels). Requires `showLeaderLines: true`.
+	 * @default 0.75
+	 * @example 1.5
+	 */
+	leaderLineSize?: number
+	/**
 	 * @default false
 	 */
 	showLegend?: boolean

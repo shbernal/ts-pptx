@@ -1438,6 +1438,36 @@ export default [
 		},
 	},
 	{
+		name: 'pie/doughnut charts with configurable leader-line color and size',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					p.charts.PIE,
+					[{ name: 'Status', labels: ['Red', 'Amber', 'Green'], values: [10, 30, 60] }],
+					{
+						x: 1,
+						y: 1,
+						w: 4,
+						h: 3,
+						showPercent: true,
+						showLeaderLines: true,
+						leaderLineColor: 'FF0000',
+						leaderLineSize: 1.5,
+					}
+				)
+				p.addSlide().addChart(p.charts.DOUGHNUT, [{ name: 'Status', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
+					x: 1,
+					y: 1,
+					w: 4,
+					h: 3,
+					showLeaderLines: true,
+					leaderLineColor: '0070C0',
+				})
+			})
+			await expectNoSchemaErrors(buf, 'pie-chart-leader-line-color')
+		},
+	},
+	{
 		name: 'line chart with per-point pointStyles (border)',
 		fn: async () => {
 			const { buf } = await build((p) => {

@@ -1621,6 +1621,7 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 			strXml += '    <c:showPercent val="1"/>'
 			strXml += '    <c:showBubbleSize val="0"/>'
 			strXml += ` <c:showLeaderLines val="${opts.showLeaderLines ? '1' : '0'}"/>`
+			strXml += createLeaderLinesElement(opts)
 			strXml += '</c:dLbls>'
 
 			// 2: "Categories"
@@ -2137,6 +2138,31 @@ function createSerLinesElement (opt?: boolean | OptsChartGridLine): string {
 	strXml += '</a:ln></c:spPr></c:serLines>'
 
 	return strXml
+}
+
+/**
+ * Build the `<c:leaderLines>` element for pie/doughnut data labels.
+ *
+ * Schema position: inside `<c:dLbls>`, immediately after `<c:showLeaderLines>`
+ * (CT_DLbls / Group_DLbls order: showLeaderLines → leaderLines).
+ *
+ * Returns `''` unless the caller both enabled leader lines (`showLeaderLines`)
+ * and configured their appearance (`leaderLineColor` / `leaderLineSize`). When
+ * appearance is unset we leave the element off so PowerPoint applies its
+ * automatic leader-line color, matching prior behavior.
+ *
+ * @param opts - chart options (reads `showLeaderLines`, `leaderLineColor`, `leaderLineSize`)
+ */
+function createLeaderLinesElement (opts: IChartOptsLib): string {
+	if (!opts.showLeaderLines) return ''
+	if (!opts.leaderLineColor && opts.leaderLineSize == null) return ''
+	const w = valToPts(opts.leaderLineSize ?? 0.75)
+	const color = opts.leaderLineColor || '808080'
+	return (
+		'<c:leaderLines><c:spPr>' +
+		`<a:ln w="${w}" cap="flat"><a:solidFill>${createColorElement(color)}</a:solidFill><a:prstDash val="solid"/><a:round/></a:ln>` +
+		'<a:effectLst/></c:spPr></c:leaderLines>'
+	)
 }
 
 function makeCustomDLblXml (idx: number, text: string, opts: IChartOptsLib): string {

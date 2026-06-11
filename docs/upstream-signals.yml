@@ -2718,8 +2718,8 @@ items:
     source: "gitbrent/PptxGenJS#1376"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p3
     target_area:
       - chart-ooxml
@@ -2728,20 +2728,28 @@ items:
     non_target_reasons: []
     upstream_summary: Pie chart leader lines can be enabled but their color cannot be configured.
     current_project_notes: >
-      Current chart options only expose showLeaderLines, and generated data-label
-      XML emits showLeaderLines without a leader-line shape property branch.
+      Added leaderLineColor/leaderLineSize chart options (IChartPropsBase) and a
+      createLeaderLinesElement() helper that emits <c:leaderLines><c:spPr><a:ln>
+      after <c:showLeaderLines> in the pie/doughnut data-label block. The element
+      is only emitted when leader lines are enabled AND color/size is configured,
+      so unstyled decks keep PowerPoint's automatic leader-line color. Schema
+      order verified via ooxml MCP (CT_DLbls -> Group_DLbls: showLeaderLines then
+      leaderLines; CT_ChartLines -> spPr).
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
       local_files:
-        - src/core-interfaces.ts:1270
-        - src/gen-charts.ts:906
-        - src/gen-charts.ts:1605
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts:1803
+        - src/gen-charts.ts:1624
+        - src/gen-charts.ts:2156
+      schema_fixture: test/schema.test.js "pie/doughnut charts with configurable leader-line color and size"
+      validator_result: pass
       powerpoint_result: null
-      spec_refs: []
-    next_action: compare-powerpoint-authored-pie-leader-line-color-xml
+      spec_refs:
+        - "ECMA-376 CT_DLbls / Group_DLbls (showLeaderLines, leaderLines)"
+        - "ECMA-376 CT_ChartLines (spPr)"
+    next_action: none
 
   - id: upstream-issue-1375
     source: "gitbrent/PptxGenJS#1375"
