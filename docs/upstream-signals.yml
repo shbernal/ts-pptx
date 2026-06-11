@@ -6024,8 +6024,8 @@ items:
     source: "gitbrent/PptxGenJS#1157"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p2
     target_area:
       - table-ooxml
@@ -6034,23 +6034,27 @@ items:
     non_target_reasons: []
     upstream_summary: Hidden HTML tables could not use data-pptx-width or data-pptx-min-width because offsetWidth was zero.
     current_project_notes: >
-      Current tableToSlides still derives widths from offsetWidth and can compute
-      NaN when the hidden table has zero total width. The data-pptx-width branch
-      also assigns into intMinWidth while intSetWidth remains zero.
+      Fixed in src/gen-tables.ts. The column-width branch had two bugs: the
+      data-pptx-width value was assigned into intMinWidth while intSetWidth was a
+      const 0 (so an explicit width never applied), and a hidden table (every
+      offsetWidth 0) made the proportional calc NaN. Extracted a pure
+      resolveHtmlColWidth(calcWidth, setWidth, minWidth) helper that gives
+      data-pptx-width exact precedence, treats data-pptx-min-width as a floor, and
+      falls back to 0 for a non-finite calc so an explicit override still drives a
+      hidden table. Unit test added in test/regression/html-table-col-width.test.js.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/gen-tables.ts:590
-        - src/gen-tables.ts:610
-        - src/gen-tables.ts:614
-        - src/gen-tables.ts:616
-        - src/gen-tables.ts:617
+        - src/gen-tables.ts:596
+        - src/gen-tables.ts:659
+        - test/regression/html-table-col-width.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-hidden-html-table-custom-width-fixture
+    next_action: none
 
   - id: upstream-issue-1152
     source: "gitbrent/PptxGenJS#1152"

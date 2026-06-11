@@ -594,6 +594,26 @@ export function htmlBorderToProps(widthStr: string, colorStr: string): BorderPro
 }
 
 /**
+ * Resolve a single HTML-table column width for `tableToSlides`.
+ *
+ * Precedence: an explicit `data-pptx-width` wins outright; otherwise the proportional width
+ * derived from the live table is used, raised to `data-pptx-min-width` when that floor is larger.
+ *
+ * Hidden tables report `offsetWidth` 0 for every cell, which makes `calcWidth` non-finite (a 0/0
+ * proportional calc). Fall back to `0` there so an explicit `data-pptx-width` / `data-pptx-min-width`
+ * override still drives the column instead of emitting a `NaN` width (upstream gitbrent/PptxGenJS#1157).
+ * @param {number} calcWidth - proportional width derived from `offsetWidth` (may be `NaN` for hidden tables)
+ * @param {number} setWidth - `data-pptx-width` override (`0`/`NaN` when absent or invalid)
+ * @param {number} minWidth - `data-pptx-min-width` floor (`0`/`NaN` when absent or invalid)
+ * @returns {number} resolved column width
+ */
+export function resolveHtmlColWidth(calcWidth: number, setWidth: number, minWidth: number): number {
+	const safeCalc = isFinite(calcWidth) ? calcWidth : 0
+	if (isFinite(setWidth) && setWidth > 0) return setWidth
+	return isFinite(minWidth) && minWidth > safeCalc ? minWidth : safeCalc
+}
+
+/**
  * Reproduces an HTML table as a PowerPoint table - including column widths, style, etc. - creates 1 or more slides as needed
  * @param {TableToSlidesHost} pptx - pptxgenjs instance
  * @param {string} tabEleId - HTMLElementID of the table
@@ -658,13 +678,10 @@ export function genTableToSlides(pptx: TableToSlidesHost, tabEleId: string, opti
 	// STEP 3: Calc/Set column widths by using same column width percent from HTML table
 	arrTabColW.forEach((colW, idxW) => {
 		const intCalcWidth = Number(((Number(emuSlideTabW) * ((colW / intTabW) * 100)) / 100 / EMU).toFixed(2))
-		let intMinWidth = 0
-		const colSelectorMin = document.querySelector(`#${tabEleId} thead tr:first-child th:nth-child(${idxW + 1})`)
-		if (colSelectorMin) intMinWidth = Number(colSelectorMin.getAttribute('data-pptx-min-width'))
-		const intSetWidth = 0
-		const colSelectorSet = document.querySelector(`#${tabEleId} thead tr:first-child th:nth-child(${idxW + 1})`)
-		if (colSelectorSet) intMinWidth = Number(colSelectorSet.getAttribute('data-pptx-width'))
-		arrColW.push(intSetWidth || (intMinWidth > intCalcWidth ? intMinWidth : intCalcWidth))
+		const headCell = document.querySelector(`#${tabEleId} thead tr:first-child th:nth-child(${idxW + 1})`)
+		const intSetWidth = headCell ? Number(headCell.getAttribute('data-pptx-width')) : 0
+		const intMinWidth = headCell ? Number(headCell.getAttribute('data-pptx-min-width')) : 0
+		arrColW.push(resolveHtmlColWidth(intCalcWidth, intSetWidth, intMinWidth))
 	})
 	if (opts.verbose) {
 		console.log(`| arrColW ......................................... = [${arrColW.join(', ')}]`)
