@@ -1612,8 +1612,8 @@ items:
     source: "gitbrent/PptxGenJS#1287"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: interesting-with-tweaks
+    last_reviewed: 2026-06-11
+    status: superseded
     priority: p2
     target_area:
       - missing-pptx-feature
@@ -1623,20 +1623,22 @@ items:
       - legacy-dist-artifact
     upstream_summary: Allow defining the presentation theme color palette.
     current_project_notes: >
-      Current theme support covers major/minor font faces and scheme-color use,
-      but not a user-supplied theme color array. The feature may fit after a
-      TS-first API review and generated-theme comparison.
+      Superseded by the local ThemeProps.colorScheme implementation for issue
+      1243 (all 12 clrScheme slots as optional hex overrides with warn-on-invalid
+      semantics). The upstream PR's remaining delta is its legacy dist/bundle
+      changes, which do not fit this fork.
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/gen-xml.ts:1813
-        - src/gen-utils.ts:151
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts:663
+        - src/gen-xml.ts:2148
+        - test/regression/theme-color-scheme.test.js
+      schema_fixture: theme-color-scheme
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: compare-theme-color-xml-against-powerpoint-authored-theme
+    next_action: none
 
   - id: upstream-pr-1270
     source: "gitbrent/PptxGenJS#1270"
