@@ -1936,17 +1936,33 @@ function genXmlTitle (opts: IChartPropsTitle, chartX?: number, chartY?: number):
 	const titleBold = opts.titleBold ? 1 : 0
 
 	let layout = '<c:layout/>'
-	if (opts.titlePos && typeof opts.titlePos.x === 'number' && typeof opts.titlePos.y === 'number') {
-		// NOTE: manualLayout x/y vals are *relative to entire slide*
-		const totalX = opts.titlePos.x + chartX
-		const totalY = opts.titlePos.y + chartY
-		let valX = totalX === 0 ? 0 : (totalX * (totalX / 5)) / 10
-		if (valX >= 1) valX = valX / 10
-		if (valX >= 0.1) valX = valX / 10
-		let valY = totalY === 0 ? 0 : (totalY * (totalY / 5)) / 10
-		if (valY >= 1) valY = valY / 10
-		if (valY >= 0.1) valY = valY / 10
-		layout = `<c:layout><c:manualLayout><c:xMode val="edge"/><c:yMode val="edge"/><c:x val="${valX}"/><c:y val="${valY}"/></c:manualLayout></c:layout>`
+	const hasX = opts.titlePos && typeof opts.titlePos.x === 'number'
+	const hasY = opts.titlePos && typeof opts.titlePos.y === 'number'
+	if (hasX || hasY) {
+		// NOTE: manualLayout x/y vals are *relative to entire slide*. Each axis is
+		// independent in CT_ManualLayout: omitting xMode/x (or yMode/y) leaves that
+		// axis on automatic layout, so a caller can center horizontally while still
+		// applying a manual vertical offset (and vice-versa). (upstream #1363)
+		// Schema order is xMode, yMode, x, y.
+		let modes = ''
+		let vals = ''
+		if (hasX) {
+			const totalX = opts.titlePos.x + chartX
+			let valX = totalX === 0 ? 0 : (totalX * (totalX / 5)) / 10
+			if (valX >= 1) valX = valX / 10
+			if (valX >= 0.1) valX = valX / 10
+			modes += '<c:xMode val="edge"/>'
+			vals += `<c:x val="${valX}"/>`
+		}
+		if (hasY) {
+			const totalY = opts.titlePos.y + chartY
+			let valY = totalY === 0 ? 0 : (totalY * (totalY / 5)) / 10
+			if (valY >= 1) valY = valY / 10
+			if (valY >= 0.1) valY = valY / 10
+			modes += '<c:yMode val="edge"/>'
+			vals += `<c:y val="${valY}"/>`
+		}
+		layout = `<c:layout><c:manualLayout>${modes}${vals}</c:manualLayout></c:layout>`
 	}
 
 	return `<c:title>

@@ -2115,7 +2115,12 @@ export interface IChartPropsTitle extends TextBaseProps {
 	titleColor?: string
 	titleFontFace?: string
 	titleFontSize?: number
-	titlePos?: { x: number, y: number }
+	/**
+	 * Manual title position (inches), relative to the chart.
+	 * Each axis is independent: omit `x` to keep automatic horizontal centering,
+	 * or omit `y` to keep automatic vertical placement. Provide at least one.
+	 */
+	titlePos?: { x?: number, y?: number }
 	titleRotate?: number
 }
 export interface IChartOpts

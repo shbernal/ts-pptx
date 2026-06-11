@@ -596,6 +596,24 @@ export default [
 		},
 	},
 	{
+		name: 'chart title with y-only manual layout (auto horizontal centering)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addChart(p.charts.BAR, [{ name: 'Series 1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
+					x: 1,
+					y: 1,
+					w: 6,
+					h: 3,
+					showTitle: true,
+					title: 'Centered title, nudged down',
+					titlePos: { y: 0.3 },
+				})
+			})
+			await expectNoSchemaErrors(buf, 'chart-title-y-only-manual-layout')
+		},
+	},
+	{
 		name: 'bullet color (buClr separate from text color)',
 		fn: async () => {
 			const { buf } = await build((p) => {
