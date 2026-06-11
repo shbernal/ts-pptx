@@ -54,6 +54,43 @@ import {
 	valToPts,
 } from './gen-utils.js'
 
+// Warn once per distinct message so a recurring out-of-range value (e.g. the same
+// bad fontSize across every cell of a table) does not flood the console.
+const _warnedTextRangeMsgs = new Set<string>()
+function warnTextRangeOnce (msg: string): void {
+	if (_warnedTextRangeMsgs.has(msg)) return
+	_warnedTextRangeMsgs.add(msg)
+	console.warn(msg)
+}
+
+/**
+ * Clamp a font size (points) into ST_TextFontSize (1-4000pt) and return it in
+ * hundredths of a point for the `sz` attribute. Out-of-range sizes make
+ * PowerPoint report the package as needing repair (e.g. `sz` > 400000 or < 100).
+ */
+function clampFontSizeSz (fontSizePts: number): number {
+	const raw = Math.round(fontSizePts * 100)
+	const clamped = Math.min(400000, Math.max(100, raw))
+	if (clamped !== raw) warnTextRangeOnce(`Warning: fontSize ${fontSizePts} is outside the valid range 1-4000pt; using ${clamped / 100}.`)
+	return clamped
+}
+
+/** Clamp character spacing (points) into ST_TextPoint (-4000..4000pt); returns hundredths for the `spc` attribute. */
+function clampCharSpacingSpc (charSpacingPts: number): number {
+	const raw = Math.round(charSpacingPts * 100)
+	const clamped = Math.min(400000, Math.max(-400000, raw))
+	if (clamped !== raw) warnTextRangeOnce(`Warning: charSpacing ${charSpacingPts} is outside the valid range -4000..4000pt; using ${clamped / 100}.`)
+	return clamped
+}
+
+/** Clamp line spacing (points) into ST_TextSpacingPoint (0..1584pt); returns hundredths for `<a:spcPts val>`. */
+function clampLineSpacingPts (lineSpacingPts: number): number {
+	const raw = Math.round(lineSpacingPts * 100)
+	const clamped = Math.min(158400, Math.max(0, raw))
+	if (clamped !== raw) warnTextRangeOnce(`Warning: lineSpacing ${lineSpacingPts} is outside the valid range 0-1584pt; using ${clamped / 100}.`)
+	return clamped
+}
+
 const ImageSizingXml = {
 	cover: function (imgSize: { w: number, h: number }, boxDim: { w: number, h: number, x: number, y: number }) {
 		const imgRatio = imgSize.h / imgSize.w
@@ -893,7 +930,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 		strSlideXml += '/>'
 		strSlideXml += '  <a:lstStyle><a:lvl1pPr>'
 		if (slide._slideNumberProps.fontFace || slide._slideNumberProps.fontSize || slide._slideNumberProps.color) {
-			strSlideXml += `<a:defRPr sz="${Math.round((slide._slideNumberProps.fontSize || 12) * 100)}">`
+			strSlideXml += `<a:defRPr sz="${clampFontSizeSz(slide._slideNumberProps.fontSize || 12)}">`
 			if (slide._slideNumberProps.color) strSlideXml += genXmlColorSelection(slide._slideNumberProps.color)
 			if (slide._slideNumberProps.fontFace) { strSlideXml += `<a:latin typeface="${slide._slideNumberProps.fontFace}"/><a:ea typeface="${slide._slideNumberProps.fontFace}"/><a:cs typeface="${slide._slideNumberProps.fontFace}"/>` }
 			strSlideXml += '</a:defRPr>'
@@ -1025,7 +1062,7 @@ function genXmlParagraphProperties (textObj: ISlideObject | TextProps, isDefault
 		}
 
 		if (textObj.options.lineSpacing) {
-			strXmlLnSpc = `<a:lnSpc><a:spcPts val="${Math.round(textObj.options.lineSpacing * 100)}"/></a:lnSpc>`
+			strXmlLnSpc = `<a:lnSpc><a:spcPts val="${clampLineSpacingPts(textObj.options.lineSpacing)}"/></a:lnSpc>`
 		} else if (textObj.options.lineSpacingMultiple) {
 			strXmlLnSpc = `<a:lnSpc><a:spcPct val="${Math.round(textObj.options.lineSpacingMultiple * 100000)}"/></a:lnSpc>`
 		}
@@ -1123,7 +1160,7 @@ function genXmlTextRunProperties (opts: ObjectOptions | TextPropsOptions, isDefa
 
 	// BEGIN runProperties (ex: `<a:rPr lang="en-US" sz="1600" b="1" dirty="0">`)
 	runProps += '<' + runPropsTag + ' lang="' + (opts.lang ? opts.lang : 'en-US') + '"' + (opts.lang ? ' altLang="en-US"' : '')
-	runProps += opts.fontSize ? ` sz="${Math.round(opts.fontSize * 100)}"` : '' // NOTE: Use round so sizes like '7.5' wont cause corrupt presentations
+	runProps += opts.fontSize ? ` sz="${clampFontSizeSz(opts.fontSize)}"` : '' // NOTE: clamp+round so sizes like '7.5' or out-of-range values wont cause corrupt presentations
 	runProps += opts?.bold ? ` b="${opts.bold ? '1' : '0'}"` : ''
 	runProps += opts?.italic ? ` i="${opts.italic ? '1' : '0'}"` : ''
 
@@ -1144,7 +1181,7 @@ function genXmlTextRunProperties (opts: ObjectOptions | TextPropsOptions, isDefa
 	} else if (opts.superscript) {
 		runProps += ' baseline="30000"'
 	}
-	runProps += opts.charSpacing ? ` spc="${Math.round(opts.charSpacing * 100)}" kern="0"` : '' // IMPORTANT: Also disable kerning; otherwise text won't actually expand
+	runProps += opts.charSpacing ? ` spc="${clampCharSpacingSpc(opts.charSpacing)}" kern="0"` : '' // IMPORTANT: Also disable kerning; otherwise text won't actually expand
 	runProps += ' dirty="0">'
 	// Color / Font / Highlight / Outline are children of <a:rPr>, so add them now before closing the runProperties tag
 	if (opts.color || opts.fontFace || opts.outline || (typeof opts.underline === 'object' && opts.underline.color)) {
@@ -1534,17 +1571,17 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 		 */
 		if (slideObj._type === SLIDE_OBJECT_TYPES.tablecell && (opts.fontSize || opts.fontFace)) {
 			if (opts.fontFace) {
-				strSlideXml += `<a:endParaRPr lang="${opts.lang || 'en-US'}"` + (opts.fontSize ? ` sz="${Math.round(opts.fontSize * 100)}"` : '') + ' dirty="0">'
+				strSlideXml += `<a:endParaRPr lang="${opts.lang || 'en-US'}"` + (opts.fontSize ? ` sz="${clampFontSizeSz(opts.fontSize)}"` : '') + ' dirty="0">'
 				strSlideXml += `<a:latin typeface="${opts.fontFace}" charset="0"/>`
 				strSlideXml += `<a:ea typeface="${opts.fontFace}" charset="0"/>`
 				strSlideXml += `<a:cs typeface="${opts.fontFace}" charset="0"/>`
 				strSlideXml += '</a:endParaRPr>'
 			} else {
-				strSlideXml += `<a:endParaRPr lang="${opts.lang || 'en-US'}"` + (opts.fontSize ? ` sz="${Math.round(opts.fontSize * 100)}"` : '') + ' dirty="0"/>'
+				strSlideXml += `<a:endParaRPr lang="${opts.lang || 'en-US'}"` + (opts.fontSize ? ` sz="${clampFontSizeSz(opts.fontSize)}"` : '') + ' dirty="0"/>'
 			}
 		} else if (reqsClosingFontSize) {
 			// Empty [lineBreak] lines should not contain runProp, however, they need to specify fontSize in `endParaRPr`
-			strSlideXml += `<a:endParaRPr lang="${opts.lang || 'en-US'}"` + (opts.fontSize ? ` sz="${Math.round(opts.fontSize * 100)}"` : '') + ' dirty="0"/>'
+			strSlideXml += `<a:endParaRPr lang="${opts.lang || 'en-US'}"` + (opts.fontSize ? ` sz="${clampFontSizeSz(opts.fontSize)}"` : '') + ' dirty="0"/>'
 		} else {
 			strSlideXml += `<a:endParaRPr lang="${opts.lang || 'en-US'}" dirty="0"/>` // Added 20180101 to address PPT-2007 issues
 		}

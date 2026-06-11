@@ -803,6 +803,41 @@ export default [
 		},
 	},
 	{
+		name: 'out-of-range text fontSize/charSpacing/lineSpacing are clamped to valid ranges',
+		fn: async () => {
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (...args) => warnings.push(args.join(' '))
+			let buf
+			try {
+				;({ buf } = await build((p) => {
+					// fontSize 5000pt -> sz 500000 (>400000), charSpacing 5000pt -> spc 500000 (>400000),
+					// lineSpacing 2000pt -> spcPts 200000 (>158400): all violate their ST_Text* ranges.
+					p.addSlide().addText('Too big', {
+						x: 1,
+						y: 1,
+						w: 6,
+						h: 2,
+						fontSize: 5000,
+						charSpacing: 5000,
+						lineSpacing: 2000,
+					})
+					// Negatives violate the lower bounds (sz >= 100, spcPts >= 0).
+					p.addSlide().addText('Negative', { x: 1, y: 1, w: 6, h: 2, fontSize: -10, charSpacing: -5000 })
+					// Same surfaces inside a table cell (shares the run-property emission path).
+					p.addSlide().addTable([[{ text: 'Cell', options: { fontSize: 5000 } }]], { x: 1, y: 1, w: 4 })
+				}))
+			} finally {
+				console.warn = origWarn
+			}
+			assert(
+				warnings.some((w) => w.includes('fontSize')) && warnings.some((w) => w.includes('charSpacing')),
+				'expected warnings for out-of-range text options'
+			)
+			await expectNoSchemaErrors(buf, 'text-bounded-attrs-clamped')
+		},
+	},
+	{
 		name: 'chart title with y-only manual layout (auto horizontal centering)',
 		fn: async () => {
 			const { buf } = await build((p) => {
