@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.3.0](https://github.com/shbernal/PptxGenJS/releases/tag/v5.3.0) - 2026-06-11
+
 ### Added
 
 - `addImage` infers an image's natural size when `w`/`h` are omitted. For base64
@@ -21,10 +23,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Exported branded `Emu` type and `coordToEmu` / `percentToEmu` converters from
   the units module (joining the existing `inchesToEmu` / `pointsToEmu` /
   `emuToInches` helpers).
+- Run-level text shadow: a `shadow` (or `glow`) set on a text run now emits an
+  `<a:effectLst>` inside `<a:rPr>`, so text in table cells — which have no shape
+  `spPr` — can finally carry a shadow (upstream #1011).
+- `OptsChartData.customLabels?: string[]` for per-data-point data label text
+  overrides on BAR/LINE/AREA/RADAR and PIE/DOUGHNUT charts; empty entries fall
+  back to chart-level settings (upstream #1337).
+- `OptsChartData.pointStyles?: ChartDataPointStyle[]` for typed per-data-point
+  border/fill styling (`{ border?: BorderProps; fill?: HexColor }`), index-
+  aligned with `values[]`, on BAR/BAR3D/LINE/AREA/SCATTER/PIE/DOUGHNUT
+  (upstream #1343).
+- Text-box columns: `columns` (1–16) and `columnSpacing` (points) on
+  `TextPropsOptions`, emitting `numCol`/`spcCol` on `<a:bodyPr>` (upstream #1320).
+- Line `cap` (`'flat'|'round'|'square'`) on `ShapeLineProps` and `BorderProps`,
+  emitted on `<a:ln>` for shapes, table cell borders, and charts via a shared
+  `LineCap` type (upstream #782).
+- `objectLock` (`ObjectLockProps`) on shapes, text boxes, images, media, and
+  tables, serializing DrawingML `a:spLocks`/`a:picLocks`/`a:graphicFrameLocks`
+  (noGrp, noMove, noResize, noRot, noCrop, …) (upstream #438).
+- `shapeAdjust` ({ name, value }, single or array) on `ShapeProps` and
+  `ImageBaseProps`, emitting preset-shape adjustment guides in `<a:avLst>`
+  (upstream #1300).
+- Chart title `titleItalic` / `titleUnderline` props, mirroring `titleBold`
+  (upstream #1188).
+- Partial chart-title manual layout: `titlePos` now accepts a partial
+  `{ x?, y? }`, applying a manual offset on one axis while leaving the other on
+  automatic layout (upstream #1363).
+- Shrink-autofit tuning: `fit` accepts `{ type: 'shrink', fontScale?,
+  lnSpcReduction? }` (percent 0–100) emitted on `<a:normAutofit>`; bare
+  `fit: 'shrink'` is unchanged (upstream #1199).
+- `barSeriesLine` on bar charts (`true` or an `OptsChartGridLine` object) emits
+  `<c:serLines>` for stacked bars (upstream #1329).
+- `showBubbleSize` option for bubble-chart data labels (upstream #744).
 
 ### Changed
 
-- **BREAKING:** A bare-number coordinate is now **always inches**. The library no
+- **Behavior change:** A bare-number coordinate is now **always inches**. The library no
   longer guesses units by magnitude — previously a number `>= 100` was silently
   treated as raw EMU (and `inch2Emu`/coordinate parsing carried a matching
   `> 100` passthrough), which mis-rendered any legitimately large value and made
@@ -39,6 +73,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Internally, user coordinates are resolved to EMU exactly once at the
     emission boundary (no in-place pre-conversion / double-parse), and resolved
     values carry a branded `Emu` type so they cannot be silently re-converted.
+- **Behavior change:** Removed the invalid `LINE_CALLOUT_4*` shape presets
+  (`borderCallout4`, `accentCallout3=4`, `accentBorderCallout4`, `callout4`) —
+  no callout-4 exists in ECMA-376 `ST_ShapeType`, so they only ever produced
+  corrupt packages. `FOLDED_CORNER` is also corrected from the invalid
+  `folderCorner` to the spec spelling `foldedCorner` (upstream #1449).
+- Chart values now carry their number format into each series'
+  `<c:numCache><c:formatCode>` (resolved from `valLabelFormatCode` /
+  `dataTableFormatCode` / `dataLabelFormatCode`, default `#,##0`) instead of a
+  hard-coded `General`, so PowerPoint and Google Slides honor `formatCode` the
+  way LibreOffice already did. This deliberately changes default cached output
+  to match the data-label format (upstream #1309).
+- Identical media is now deduplicated: inline base64 `data:` media is reused
+  per slide, and a deck-wide export pass collapses repeated images (including
+  background images and SVG) to a single package part instead of embedding one
+  copy per use (upstream #1339).
+- `ChartLineCap` is now a deprecated alias for the shared `LineCap` type.
+
+### Fixed
+
+- Table merged cells (colspan/rowspan covered cells) now render the span's outer
+  borders and fill instead of emitting an empty `<a:tcPr/>`; the origin cell's
+  border tuple and resolved fill are applied to the covered edges to match
+  PowerPoint-authored output (upstream #680).
+- RGBA effect colors no longer emit a duplicate `<a:alpha>`: when a shadow/glow
+  caller supplies an explicit alpha (notably on table-cell paths that skip
+  `correctShadowOptions`), it wins and the RGBA byte is dropped, fixing
+  schema-invalid double-`<a:alpha>` output that triggered PowerPoint repair.
+- Text-box `margin` arrays are now mapped as `[top, right, bottom, left]`,
+  matching table cells and slide numbers; previously Top and Left were
+  transposed, mis-rendering asymmetric margins (upstream #1248).
+- Out-of-range fill/line/gradient transparency, glow opacity, and line widths
+  are clamped to schema-valid `<a:alpha>` / `<a:ln w>` ranges (warning on
+  coercion) instead of emitting values PowerPoint rejects.
+- Out-of-range `fontSize`, `charSpacing`, and `lineSpacing` are clamped to their
+  schema ranges at run/paragraph emission (covering text boxes, table cells, and
+  the slide-number placeholder).
+- Chart `gapWidth`/`gapDepth`, `overlap`, `holeSize`, and `firstSliceAng` are
+  clamped to their schema ranges via a shared helper (upstream #1233).
+- Chart `lineDataSymbolSize` is rounded and clamped into the valid
+  `ST_MarkerSize` range 2–72 (upstream #1233).
+- Non-finite (`NaN`/`Infinity`) chart data values are dropped (with a warning)
+  rather than emitting an invalid `<c:numCache>` that PowerPoint flags for
+  repair; `null`/`undefined` remain valid sparse gaps (upstream #1357).
+- Chart text (title, legend, axis labels, data labels) now stamps the requested
+  typeface onto the `<a:latin>`/`<a:ea>`/`<a:cs>` trio so East-Asian and
+  complex-script glyphs honor the chosen font (most visibly on PowerPoint for
+  Mac) (upstream #1420).
+- Scatter/bubble X axes in combo charts now emit `<c:valAx>` instead of
+  `<c:catAx>`, fixing packages PowerPoint flagged for repair; an unsatisfiable
+  shared-axis configuration now warns (upstream #1355).
+- `addShape` (and the `shape` option on `addText`/`addImage`) now rejects
+  unknown presets with a clear error at the `genXmlPresetGeom` chokepoint rather
+  than emitting an invalid `<a:prstGeom>` that corrupts the package
+  (upstream #1449).
+- HTML-table conversion preserves fractional border widths (e.g. 0.5px hairlines)
+  instead of rounding them to 0pt; a zero/non-finite computed width now yields
+  `{ type: 'none' }` (upstream #1235).
 
 ## [5.2.0](https://github.com/shbernal/PptxGenJS/releases/tag/v5.2.0) - 2026-06-10
 
