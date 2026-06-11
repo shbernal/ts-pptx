@@ -42,3 +42,7 @@ demos/node/output/
 
 ### OOXML-Validator binary (downloaded by tools/ooxml-validator/install.sh)
 tools/ooxml-validator/bin/
+
+### Claude Code local/runtime files (shared config like .claude/settings.json stays tracked)
+.claude/settings.local.json
+.claude/*.lock
