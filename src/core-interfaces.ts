@@ -2426,9 +2426,10 @@ export interface ISlideObject {
 
 export interface WriteBaseProps {
 	/**
-	 * Whether to compress export (can save substantial space, but takes a bit longer to export)
-	 * @default false
-	 * @since v3.5.0
+	 * Whether to DEFLATE-compress the package (PowerPoint itself always compresses;
+	 * set `false` only if export time matters more than file size)
+	 * @default true
+	 * @since v3.5.0 (default changed false→true in v4.0.0)
 	 */
 	compression?: boolean
 	/**

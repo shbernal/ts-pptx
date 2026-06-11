@@ -4583,8 +4583,8 @@ items:
     source: "gitbrent/PptxGenJS#1268"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p3
     target_area:
       - package-boundary
@@ -4593,22 +4593,25 @@ items:
     non_target_reasons: []
     upstream_summary: Generated PPTX files are much larger than the same decks after re-saving in PowerPoint or LibreOffice.
     current_project_notes: >
-      Current export uses JSZip without compression in the outputType branch,
-      and media de-duplication remains path-based. The issue is package-size
-      quality rather than OOXML validity, but it can matter for generated decks.
+      Fixed: all export paths now DEFLATE by default (compression: false opts
+      back out), and the typed-output write() branch no longer silently ignores
+      the compression option. The companion media-size factor, data-payload
+      de-duplication of inline images, was already fixed under issue 1339
+      (test/regression/image-data-dedup.test.js). Breaking-change/migration
+      note recorded in ../UPSTREAMING_CANDIDATES.md.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/pptxgen.ts:635
-        - src/pptxgen.ts:641
-        - src/gen-objects.ts:493
-        - src/gen-objects.ts:503
+        - src/pptxgen.ts:692
+        - src/core-interfaces.ts:2428
+        - test/regression/zip-compression.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: measure-current-pptx-size-with-compression-and-media-dedup-fixture
+    next_action: none
 
   - id: upstream-issue-1264
     source: "gitbrent/PptxGenJS#1264"
