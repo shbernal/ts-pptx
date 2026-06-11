@@ -1377,6 +1377,9 @@ export interface TableCell {
 	_hmerge?: boolean
 	_vmerge?: boolean
 	_rowContinue?: number
+	/** origin cell of a colspan/rowspan span, set on the dummy `_hmerge`/`_vmerge` cells so they can
+	 * inherit the origin's border/fill and render the merged region's outer edges (Issue #680) */
+	_spanOrigin?: TableCell
 	_optImp?: any
 
 	text?: string | number | TableCell[] // TODO: FUTURE: 20210815: ONly allow `TableCell[]` dealing with string|TableCell[] *SUCKS*

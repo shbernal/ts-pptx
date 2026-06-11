@@ -7875,8 +7875,8 @@ items:
     source: "gitbrent/PptxGenJS#680"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p2
     target_area:
       - table-ooxml
@@ -7885,25 +7885,32 @@ items:
     non_target_reasons: []
     upstream_summary: Colspan table cells did not apply configured borders across the full merged span.
     current_project_notes: >
-      Current table XML creates dummy hMerge/vMerge cells for spans, but returns
-      those dummy cells with an empty tcPr before inheriting fill or writing
-      borders. A fixture should compare PowerPoint-authored merged-cell border
-      behavior before changing span serialization.
+      Fixed. The dummy hMerge/vMerge span cells used to emit an empty
+      <a:tcPr/>, dropping the merged region's outer edges (e.g. a colspan's
+      right border lives on the rightmost hMerge cell, a rowspan's bottom border
+      on the lowest vMerge cell). Span construction now records the origin cell
+      via a new TableCell._spanOrigin reference, and the span branch in
+      slideObjectToXml emits the origin's border tuple (via the extracted
+      genTableCellBorderXml helper, shared with normal cells) plus the origin's
+      resolved fill so the merged region renders its edges and fills uniformly,
+      matching PowerPoint-authored output. Schema fixture validates; regression
+      test asserts lnR/red on the hMerge cell and lnB/blue on the vMerge cell.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
+        - regression-test
       local_files:
-        - src/gen-xml.ts:228
-        - src/gen-xml.ts:235
-        - src/gen-xml.ts:292
-        - src/gen-xml.ts:294
-        - src/gen-xml.ts:353
-        - src/gen-xml.ts:365
-      schema_fixture: null
-      validator_result: null
+        - src/gen-xml.ts (genTableCellBorderXml helper + span-cell branch)
+        - src/core-interfaces.ts (TableCell._spanOrigin)
+        - test/regression/table-merged-cell-borders.test.js
+        - test/schema.test.js (table with merged cells carrying borders and fill)
+      schema_fixture: test/schema.test.js (table with merged cells carrying borders and fill)
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: add-merged-cell-border-fill-fixture
+    next_action: none
 
   - id: upstream-issue-676
     source: "gitbrent/PptxGenJS#676"

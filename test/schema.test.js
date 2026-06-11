@@ -506,6 +506,36 @@ export default [
 		},
 	},
 	{
+		name: 'table with merged cells carrying borders and fill (colspan + rowspan)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const red = [
+					{ type: 'solid', color: 'FF0000', pt: 2 },
+					{ type: 'solid', color: 'FF0000', pt: 2 },
+					{ type: 'solid', color: 'FF0000', pt: 2 },
+					{ type: 'solid', color: 'FF0000', pt: 2 },
+				]
+				const blue = [
+					{ type: 'solid', color: '0000FF', pt: 2 },
+					{ type: 'solid', color: '0000FF', pt: 2 },
+					{ type: 'solid', color: '0000FF', pt: 2 },
+					{ type: 'solid', color: '0000FF', pt: 2 },
+				]
+				p.addSlide().addTable(
+					[
+						[
+							{ text: 'tall', options: { rowspan: 2, border: blue, fill: { color: 'E0E0FF' } } },
+							{ text: 'wide', options: { colspan: 2, border: red, fill: { color: 'FFE0E0' } } },
+						],
+						[{ text: 'b1' }, { text: 'b2' }],
+					],
+					{ x: 1, y: 1, w: 8 }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'table-merged-cell-borders')
+		},
+	},
+	{
 		name: 'embedded PNG image',
 		fn: async () => {
 			const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='

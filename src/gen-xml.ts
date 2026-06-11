@@ -307,6 +307,38 @@ type TableInheritableValue = ObjectOptions[TableInheritableOption]
 const PLACEHOLDER_TYPE_MAP = PLACEHOLDER_TYPES as Record<string, string>
 
 /**
+ * Emit the `<a:lnL>/<a:lnR>/<a:lnT>/<a:lnB>` border children of an `<a:tcPr>` for a table cell.
+ * Shared by normal cells and the dummy span (`_hmerge`/`_vmerge`) cells so a merged region's
+ * outer edges render with the same border as its origin cell (Issue #680).
+ * @param {BorderProps[]} cellBorder - 4-tuple of border props in [top, right, bottom, left] order
+ * @return {string} concatenated border element XML, in the LRTB document order PowerPoint expects
+ */
+function genTableCellBorderXml (cellBorder: BorderProps[]): string {
+	let strXml = ''
+	// NOTE: *** IMPORTANT! *** LRTB order matters! (Reorder a line below to watch the borders go wonky in MS-PPT-2013!!)
+	;([
+		{ idx: 3, name: 'lnL' },
+		{ idx: 1, name: 'lnR' },
+		{ idx: 0, name: 'lnT' },
+		{ idx: 2, name: 'lnB' },
+	] as const).forEach(obj => {
+		const border = cellBorder[obj.idx]
+		if (!border) return
+		const cap = createLineCap(border.cap)
+		if (border.type !== 'none') {
+			strXml += `<a:${obj.name} w="${valToPts(border.pt)}" cap="${cap}" cmpd="sng" algn="ctr">`
+			strXml += `<a:solidFill>${createColorElement(border.color)}</a:solidFill>`
+			strXml += `<a:prstDash val="${border.type === 'dash' ? 'sysDash' : 'solid'
+			}"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/>`
+			strXml += `</a:${obj.name}>`
+		} else {
+			strXml += `<a:${obj.name} w="0" cap="${cap}" cmpd="sng" algn="ctr"><a:noFill/></a:${obj.name}>`
+		}
+	})
+	return strXml
+}
+
+/**
  * Transforms a slide or slideLayout to resulting XML string - Creates `ppt/slide*.xml`
  * @param {PresSlideInternal|SlideLayoutInternal} slideObject - slide object created within createSlideObject
  * @return {string} XML string with <p:cSld> as the root
@@ -477,7 +509,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 						const rowspan = cell.options?.rowspan
 						if (colspan && colspan > 1) {
 							const vMergeCells = new Array(colspan - 1).fill(undefined).map(() => {
-								return { _type: SLIDE_OBJECT_TYPES.tablecell, options: { rowspan }, _hmerge: true } as const
+								return { _type: SLIDE_OBJECT_TYPES.tablecell, options: { rowspan }, _hmerge: true, _spanOrigin: cell } as const
 							})
 							cells.splice(cIdx + 1, 0, ...vMergeCells)
 							cIdx += colspan
@@ -495,7 +527,10 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 						const colspan = cell.options?.colspan
 						const _hmerge = cell._hmerge
 						if (rowspan && rowspan > 1) {
-							const hMergeCell = { _type: SLIDE_OBJECT_TYPES.tablecell, options: { colspan }, _rowContinue: rowspan - 1, _vmerge: true, _hmerge } as const
+							// Point back to the true origin cell: when `cell` is itself an `_hmerge` dummy
+							// (combined colspan+rowspan), use its origin rather than the dummy (Issue #680).
+							const _spanOrigin = cell._spanOrigin || cell
+							const hMergeCell = { _type: SLIDE_OBJECT_TYPES.tablecell, options: { colspan }, _rowContinue: rowspan - 1, _vmerge: true, _hmerge, _spanOrigin } as const
 							nextRow.splice(cIdx, 0, hMergeCell)
 						}
 					})
@@ -535,9 +570,29 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 							.join(' ')
 						if (cellSpanAttrStr) cellSpanAttrStr = ' ' + cellSpanAttrStr
 
-						// 1: COLSPAN/ROWSPAN: Add dummy cells for any active colspan/rowspan
+						// 1: COLSPAN/ROWSPAN: Emit the dummy covered cell for any active span. PowerPoint defines a
+						// merged region's outer edges (e.g. the right border of a colspan, the bottom border of a
+						// rowspan) on the *covered* cells, so inherit the origin cell's border + fill here instead of
+						// emitting an empty `<a:tcPr/>` that drops those edges (Issue #680).
 						if (cell._hmerge || cell._vmerge) {
-							strXml += `<a:tc${cellSpanAttrStr}><a:tcPr/></a:tc>`
+							const origin = cell._spanOrigin
+							let spanPrXml = ''
+							if (origin) {
+								const originOpts = origin.options || {}
+								const originBorder = Array.isArray(originOpts.border) ? originOpts.border : null
+								if (originBorder) spanPrXml += genTableCellBorderXml(originBorder)
+								// Resolve the origin's fill with the same precedence the origin cell itself uses below,
+								// so the whole merged region fills uniformly.
+								let spanFill =
+									origin._optImp?.fill?.color
+										? origin._optImp.fill.color
+										: origin._optImp?.fill && typeof origin._optImp.fill === 'string'
+											? origin._optImp.fill
+											: ''
+								spanFill = spanFill || originOpts.fill ? originOpts.fill : ''
+								if (spanFill) spanPrXml += genXmlColorSelection(spanFill)
+							}
+							strXml += `<a:tc${cellSpanAttrStr}><a:tcPr>${spanPrXml}</a:tcPr></a:tc>`
 							return
 						}
 
@@ -598,27 +653,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 
 						// 5: Borders: Add any borders
 						const cellBorder = Array.isArray(cellOpts.border) ? cellOpts.border : null
-						if (cellBorder) {
-							// NOTE: *** IMPORTANT! *** LRTB order matters! (Reorder a line below to watch the borders go wonky in MS-PPT-2013!!)
-							;([
-								{ idx: 3, name: 'lnL' },
-								{ idx: 1, name: 'lnR' },
-								{ idx: 0, name: 'lnT' },
-								{ idx: 2, name: 'lnB' },
-							] as const).forEach(obj => {
-								const border = cellBorder[obj.idx]
-								const cap = createLineCap(border.cap)
-								if (border.type !== 'none') {
-									strXml += `<a:${obj.name} w="${valToPts(border.pt)}" cap="${cap}" cmpd="sng" algn="ctr">`
-									strXml += `<a:solidFill>${createColorElement(border.color)}</a:solidFill>`
-									strXml += `<a:prstDash val="${border.type === 'dash' ? 'sysDash' : 'solid'
-									}"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/>`
-									strXml += `</a:${obj.name}>`
-								} else {
-									strXml += `<a:${obj.name} w="0" cap="${cap}" cmpd="sng" algn="ctr"><a:noFill/></a:${obj.name}>`
-								}
-							})
-						}
+						if (cellBorder) strXml += genTableCellBorderXml(cellBorder)
 
 						// 6: Close cell Properties & Cell
 						strXml += cellFill
