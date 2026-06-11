@@ -9,6 +9,30 @@ import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 const PNG_1x1 =
 	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 
+// Synthesize a PNG header carrying an arbitrary intrinsic w×h. getImageSizeFromBase64 reads only
+// the IHDR dimension bytes (width@16 / height@20, big-endian), so a 24-byte header is enough to
+// exercise the natural-ratio crop math with exact, self-documenting dimensions.
+function pngOf(w, h) {
+	const b = Buffer.alloc(24)
+	b.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0)
+	b.writeUInt32BE(13, 8)
+	b.write('IHDR', 12, 'ascii')
+	b.writeUInt32BE(w, 16)
+	b.writeUInt32BE(h, 20)
+	return 'image/png;base64,' + b.toString('base64')
+}
+
+// A srcRect is PowerPoint-valid only if the cropped source keeps positive area: l+r and t+b must
+// each stay below 100% (100000). Negative edges (outset/letterbox) are legal. Out-of-range values
+// are exactly what triggered the #1286 repair dialog, so every case asserts this invariant.
+function assertValidSrcRect(r, label) {
+	for (const k of ['l', 'r', 't', 'b']) {
+		assert(Number.isInteger(r[k]), `${label}: srcRect ${k} must be a finite integer; got ${r[k]}`)
+	}
+	assert(r.l + r.r < 1e5, `${label}: l+r must keep positive source width (<100000); got ${r.l}+${r.r}`)
+	assert(r.t + r.b < 1e5, `${label}: t+b must keep positive source height (<100000); got ${r.t}+${r.b}`)
+}
+
 // Minimal 4x2 (ratio 0.5) raster headers, one per supported format. Only the dimension
 // header bytes are meaningful — the parser reads headers, never pixel data.
 const RASTER_4x2 = {
@@ -64,6 +88,53 @@ defineRegressionSuite('Image cover/contain natural-ratio crop', [
 			assert(
 				r.l === -16667 && r.r === -16667 && r.t === 0 && r.b === 0,
 				`expected l=-16667 r=-16667 t=0 b=0; got ${JSON.stringify(r)}`
+			)
+		},
+	},
+	// upstream #1286: mixed "pixel-like" dimensions straddling 100 (some <100, some ≥100) once
+	// produced invalid out-of-range srcRect crop values and a PowerPoint repair. The old converter
+	// guessed units by magnitude (a number ≥100 was treated as already-EMU, <100 as inches), so a
+	// single object's two dimensions could be resolved in *different* units, wrecking the box ratio.
+	// That magnitude guess is gone — a bare number is always inches — and cover/contain now measure
+	// the natural pixel ratio from the image bytes. These cases lock in a valid, in-bounds srcRect
+	// for the exact straddling-100 shape that used to trigger repair.
+	{
+		// contain is the original repair surface: with mixed units the letterbox inset blew up to a
+		// wildly out-of-range negative percentage. natural 200×80 (ratio 0.4) into a 120×80 box must
+		// pad top/bottom by a modest, in-bounds inset and leave left/right flush.
+		name: 'contain: dimensions straddling 100 stay in-bounds (no #1286 repair)',
+		fn: async () => {
+			const r = await srcRectFor({
+				data: pngOf(200, 80),
+				x: 1,
+				y: 1,
+				w: 120,
+				h: 80,
+				sizing: { type: 'contain', w: 120, h: 80 },
+			})
+			assertValidSrcRect(r, 'contain 200x80 into 120x80')
+			assert(
+				r.l === 0 && r.r === 0 && r.t === -33333 && r.b === -33333,
+				`expected l=0 r=0 t=-33333 b=-33333; got ${JSON.stringify(r)}`
+			)
+		},
+	},
+	{
+		// cover counterpart: same straddling-100 shape crops left/right from the natural 0.4 ratio.
+		name: 'cover: dimensions straddling 100 crop from natural ratio (no #1286 repair)',
+		fn: async () => {
+			const r = await srcRectFor({
+				data: pngOf(200, 80),
+				x: 1,
+				y: 1,
+				w: 120,
+				h: 80,
+				sizing: { type: 'cover', w: 120, h: 80 },
+			})
+			assertValidSrcRect(r, 'cover 200x80 into 120x80')
+			assert(
+				r.l === 20000 && r.r === 20000 && r.t === 0 && r.b === 0,
+				`expected l=20000 r=20000 t=0 b=0; got ${JSON.stringify(r)}`
 			)
 		},
 	},

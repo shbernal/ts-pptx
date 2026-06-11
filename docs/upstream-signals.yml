@@ -59,17 +59,22 @@ vocabulary:
     - not-reproducible-in-current-project
     - insufficient-evidence
   evidence_kinds:
+    # Source / spec reading
     - local-source-inspection
+    - ooxml-reference
+    - microsoft-reference
+    # Reproduction artifacts
     - minimal-repro
     - generated-pptx
     - extracted-xml
+    # Automated tests / validation
+    - regression-test
     - schema-fixture
     - validator-result
+    # Application-render verification
+    - render-check
     - powerpoint-result
     - powerpoint-authored-comparison
-    - ooxml-reference
-    - microsoft-reference
-    - local-test
 
 item_fields:
   id: stable local identifier, usually upstream-issue-N or upstream-pr-N
@@ -1698,7 +1703,8 @@ items:
     evidence:
       kinds:
         - local-source-inspection
-        - schema-validated
+        - schema-fixture
+        - validator-result
       local_files:
         - src/core-interfaces.ts
         - src/gen-xml.ts
@@ -2503,7 +2509,8 @@ items:
     evidence:
       kinds:
         - local-source-inspection
-        - schema-validated
+        - schema-fixture
+        - validator-result
       local_files:
         - src/gen-charts.ts
       schema_fixture: test/schema.test.js (line chart with transparent marker fill)
@@ -2992,7 +2999,7 @@ items:
       kinds:
         - local-source-inspection
         - schema-fixture
-        - validator-pass
+        - validator-result
       local_files:
         - src/gen-charts.ts:567
         - src/gen-charts.ts:591
@@ -3055,7 +3062,7 @@ items:
     evidence:
       kinds:
         - local-source-inspection
-        - local-test
+        - regression-test
       local_files:
         - src/gen-objects.ts:448
         - src/gen-utils.ts:512
@@ -3087,7 +3094,7 @@ items:
     evidence:
       kinds:
         - local-source-inspection
-        - local-test
+        - regression-test
       local_files:
         - src/gen-xml.ts:1229
         - src/gen-xml.ts:1246
@@ -3236,7 +3243,7 @@ items:
     evidence:
       kinds:
         - local-source-inspection
-        - local-test
+        - regression-test
       local_files:
         - src/gen-xml.ts:1302
         - src/gen-xml.ts:1305
@@ -3600,7 +3607,7 @@ items:
     evidence:
       kinds:
         - local-source-inspection
-        - local-test
+        - regression-test
       local_files:
         - src/gen-xml.ts:1302
         - test/regression/text-formatting.test.js:5
@@ -3693,7 +3700,7 @@ items:
     evidence:
       kinds:
         - local-source-inspection
-        - local-test
+        - regression-test
       local_files:
         - src/gen-xml.ts:1302
         - src/gen-xml.ts:1350
@@ -4255,8 +4262,8 @@ items:
     source: "gitbrent/PptxGenJS#1286"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-11
+    status: implemented
     priority: p1
     target_area:
       - image-svg-media
@@ -4266,24 +4273,30 @@ items:
     non_target_reasons: []
     upstream_summary: Mixed pixel-like image dimensions above and below 100 produced invalid srcRect crop values and PowerPoint repair.
     current_project_notes: >
-      Current getSmartParseNumber still treats any numeric value below 100 as
-      inches and any value at least 100 as already converted units. Image contain
-      and cover calculations then use those mixed-unit dimensions to compute
-      srcRect percentages.
+      Resolved. The mixed-unit root cause is already gone: coordToEmu
+      (src/units.ts:84) dropped the old "a number >=100 is already EMU, <100 is
+      inches" magnitude guess, so an object's two dimensions can no longer resolve
+      in different units. cover/contain (src/gen-xml.ts:56) also now derive the
+      srcRect from the image's natural pixel ratio (getImageSizeFromBase64,
+      src/gen-utils.ts:512) rather than the displayed box. Locked in by a
+      regression fixture reproducing the exact straddling-100 shape that used to
+      trigger PowerPoint repair: a 200x80 image in a 120x80 box now emits an
+      in-bounds srcRect for both cover and contain, with an explicit
+      positive-source-area invariant.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/gen-utils.ts:23
-        - src/gen-utils.ts:29
-        - src/gen-xml.ts:57
-        - src/gen-xml.ts:65
-        - src/gen-xml.ts:609
+        - src/units.ts:84
+        - src/gen-xml.ts:56
+        - src/gen-utils.ts:512
+        - test/regression/image-cover-contain.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-image-contain-mixed-dimension-repair-fixture
+    next_action: none
 
   - id: upstream-issue-1283
     source: "gitbrent/PptxGenJS#1283"
@@ -5069,7 +5082,7 @@ items:
     evidence:
       kinds:
         - local-source-inspection
-        - unit-test
+        - regression-test
       local_files:
         - src/gen-tables.ts (htmlBorderToProps; HTML border loop)
         - test/regression/html-table-border-width.test.js
@@ -7479,7 +7492,7 @@ items:
       kinds:
         - local-source-inspection
         - schema-fixture
-        - validator-pass
+        - validator-result
       local_files:
         - src/core-interfaces.ts:1513
         - src/core-interfaces.ts:215
@@ -8182,7 +8195,7 @@ items:
     evidence:
       kinds:
         - local-source-inspection
-        - local-test
+        - regression-test
       local_files:
         - src/gen-charts.ts:616
         - src/gen-charts.ts:617
@@ -8315,7 +8328,8 @@ items:
     evidence:
       kinds:
         - local-source-inspection
-        - schema-validated
+        - schema-fixture
+        - validator-result
       local_files:
         - src/core-interfaces.ts
         - src/gen-objects.ts
@@ -8535,7 +8549,7 @@ items:
     evidence:
       kinds:
         - local-source-inspection
-        - local-test
+        - regression-test
       local_files:
         - src/pptxgen.ts:617
         - src/pptxgen.ts:622
@@ -8741,7 +8755,7 @@ items:
     evidence:
       kinds:
         - local-source-inspection
-        - local-test
+        - regression-test
       local_files:
         - src/gen-xml.ts:1241
         - src/gen-xml.ts:1246
