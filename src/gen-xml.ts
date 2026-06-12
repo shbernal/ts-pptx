@@ -869,7 +869,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 						if (natural) {
 							cropSize = natural
 						} else {
-							console.warn(`Warning: sizing '${sizing.type}' could not measure natural dimensions for image "${slideItemObj.options.objectName}"; falling back to displayed aspect ratio (crop may be inexact). Provide a raster image (PNG/JPEG/GIF/BMP/WebP) to enable an aspect-correct crop.`)
+							console.warn(`Warning: sizing '${sizing.type}' could not measure natural dimensions for image "${slideItemObj.options.objectName}"; falling back to displayed aspect ratio (crop may be inexact). Provide a raster image (PNG/JPEG/GIF/BMP/WebP) or an SVG with width/height or a viewBox to enable an aspect-correct crop.`)
 						}
 					}
 

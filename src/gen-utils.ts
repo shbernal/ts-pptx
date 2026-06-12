@@ -564,15 +564,16 @@ function decodeBase64ToBytes (b64: string): Uint8Array | null {
 }
 
 /**
- * Read the intrinsic pixel dimensions of a raster image from its header bytes.
+ * Read the intrinsic dimensions of an image from its header bytes.
  * - synchronous: parses only file-format headers, never decodes pixels
- * - supports PNG, JPEG, GIF, BMP, and WebP (VP8 / VP8L / VP8X)
- * - vector (SVG) and unrecognized formats return `null` (no intrinsic pixel size)
+ * - raster: PNG, JPEG, GIF, BMP, and WebP (VP8 / VP8L / VP8X) — natural pixels
+ * - vector: SVG — intrinsic size from the root `<svg>` width/height or viewBox
+ * - unrecognized formats return `null` (no measurable intrinsic size)
  *
  * Used by image `sizing: 'cover' | 'contain'` to compute an aspect-correct
  * `<a:srcRect>` crop from the *natural* image ratio rather than the displayed box.
  * @param {string} dataB64 - base64 image payload or `data:` URI
- * @returns {{ w: number, h: number } | null} natural pixel size, or `null` when unmeasurable
+ * @returns {{ w: number, h: number } | null} natural size, or `null` when unmeasurable
  */
 export function getImageSizeFromBase64 (dataB64: string): { w: number, h: number } | null {
 	const b = decodeBase64ToBytes(dataB64)
@@ -648,5 +649,44 @@ export function getImageSizeFromBase64 (dataB64: string): { w: number, h: number
 		return null
 	}
 
+	// SVG: text-based vector with no binary signature. When the payload is an
+	// `<svg>` document, read its intrinsic size from the root element so that
+	// `sizing: 'cover' | 'contain'` is aspect-correct for SVG, not just rasters.
+	const text = utf8Decode(b)
+	if (/<svg[\s>]/i.test(text)) return getSvgSizeFromMarkup(text)
+
 	return null
+}
+
+/**
+ * Read the intrinsic size of an SVG document from its root `<svg>` element.
+ * Follows the SVG sizing model: an explicit absolute `width`/`height` pair wins;
+ * otherwise the `viewBox` width/height defines the size (and thus aspect ratio).
+ * Percentage or missing `width`/`height` fall through to `viewBox`.
+ * @param {string} svg - SVG markup
+ * @returns {{ w: number, h: number } | null} intrinsic size, or `null` when undeterminable
+ */
+function getSvgSizeFromMarkup (svg: string): { w: number, h: number } | null {
+	const openTag = /<svg\b[^>]*>/i.exec(svg)?.[0]
+	if (!openTag) return null
+	const attr = (name: string): string | null => new RegExp(`\\b${name}\\s*=\\s*["']([^"']*)["']`, 'i').exec(openTag)?.[1] ?? null
+	// Leading number with an optional absolute unit; a percentage is not an intrinsic length.
+	const absLength = (val: string | null): number => {
+		if (val == null || /%\s*$/.test(val)) return NaN
+		const m = /^\s*\+?(\d*\.?\d+)/.exec(val)
+		return m ? parseFloat(m[1]) : NaN
+	}
+	let w = absLength(attr('width'))
+	let h = absLength(attr('height'))
+	if (!(w > 0 && h > 0)) {
+		const vb = attr('viewBox')
+		const p = vb ? vb.trim().split(/[\s,]+/).map(Number) : []
+		if (p.length === 4 && p[2] > 0 && p[3] > 0) { w = p[2]; h = p[3] }
+	}
+	return w > 0 && h > 0 ? { w, h } : null
+}
+
+/** Decode UTF-8 bytes to a string, isomorphic across Node and browsers. */
+function utf8Decode (bytes: Uint8Array): string {
+	return new TextDecoder().decode(bytes)
 }
