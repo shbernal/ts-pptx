@@ -242,6 +242,7 @@ class Slide {
 	readonly relationships: Relationships // this slide part's rels
 	readonly name: string | null // p:cSld/@name
 	readonly shapes: Shape[] // top-level shapes in the spTree
+	addTextBox(options: AddTextBoxOptions): AutoShape // Phase 4 — appends a p:sp
 }
 ```
 
@@ -427,6 +428,33 @@ slice is the read-model properties above: run text, `fontSizePt`, `bold`,
 `italic`, `underline`, `fontName`, `color`, `schemeColor`, and shape
 `left`/`top`/`width`/`height`.
 
+### Adding and removing shapes (Phase 4)
+
+Add a text box to a slide, or remove any shape, mutating only the slide part:
+
+```js
+const slide = presentation.slides[0]
+
+// Add — geometry in EMU; width/height must be positive. A slide-unique
+// drawing id is allocated automatically. Returns the new AutoShape.
+const box = slide.addTextBox({
+	text: 'Quarterly review',
+	left: 914400, // 1"
+	top: 457200, // 0.5"
+	width: 4572000, // 5"
+	height: 914400, // 1"
+	name: 'Caption', // optional; defaults to `TextBox <id>`
+})
+box.textFrame.paragraphs[0].runs[0].bold = true // edit it like any shape
+
+// Remove — detaches the shape from the slide (or its enclosing group).
+slide.shapes.find((s) => s.name === 'Old caption')?.delete()
+```
+
+`addTextBox` builds a minimal, schema-valid `p:sp` (`txBox="1"`, a `rect`
+preset geometry, and one paragraph). For richer shapes, add the text box and
+then mutate it, or use the low-level escape hatch below.
+
 ### Editing anything else (low-level escape hatch)
 
 For structure the typed setters do not yet cover, mutate the DOM directly and
@@ -454,7 +482,9 @@ formatting), and the edit tests (`test/read/edit.test.js`: text/font/geometry
 setters survive a save → reopen round-trip, untouched parts stay
 byte-identical, edited packages stay schema-valid, and invalid input is
 rejected), and the table tests (`test/read/table.test.js`: table/row/cell
-navigation, merge metadata, and cell-text edits surviving a round-trip).
+navigation, merge metadata, and cell-text edits surviving a round-trip), and
+the structural-edit tests (`test/read/shapes-edit.test.js`: `addTextBox` /
+`delete` surviving a round-trip with untouched parts byte-identical).
 Schema cases require the OOXML validator
 (`./tools/ooxml-validator/install.sh`) and are skipped with a notice when it
 is absent. See [testing](../testing.md).

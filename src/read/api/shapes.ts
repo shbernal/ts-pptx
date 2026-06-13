@@ -174,6 +174,17 @@ export abstract class Shape {
 		return this.textFrame?.text ?? ''
 	}
 
+	/**
+	 * Remove this shape from its parent (the slide's shape tree, or an enclosing
+	 * group) and mark the owning slide part dirty. The proxy is dead afterwards.
+	 */
+	delete(): void {
+		const parent = this.element.parentNode
+		if (!parent) throw new Error('Shape is not attached to a parent and cannot be deleted')
+		parent.removeChild(this.element)
+		this.markDirty()
+	}
+
 	/** The underlying shape element, for advanced reads and future mutation. */
 	get element_(): Element {
 		return this.element
