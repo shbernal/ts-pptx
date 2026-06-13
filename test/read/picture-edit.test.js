@@ -142,3 +142,98 @@ describe('Slide.addPicture', () => {
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 	})
 })
+
+describe('Picture.setImage', () => {
+	test('mints a new media part, repoints the blip, and leaves the old part untouched', async () => {
+		const presentation = await open('image')
+		const slide = presentation.slides[0]
+		const picture = slide.shapes.find((shape) => shape.shapeType === 'picture')
+		assert(picture, 'fixture slide 1 has a picture')
+
+		const oldRelId = picture.imageRelId
+		const oldPartName = picture.imagePartName
+		assert(oldPartName, 'picture resolves its original media part')
+		const oldBytes = Uint8Array.from(presentation.opc.part(oldPartName).bytes)
+
+		picture.setImage(PNG_1X1, { contentType: 'image/png' })
+		assert(picture.imageRelId && picture.imageRelId !== oldRelId, 'blip repointed to a fresh rel id')
+
+		const saved = await presentation.save()
+		const reopened = await Presentation.load(saved)
+		const reloaded = reopened.slides[0].shapes.find((shape) => shape.shapeType === 'picture')
+
+		const newPartName = reloaded.imagePartName
+		assert(
+			newPartName && newPartName.startsWith('/ppt/media/') && newPartName.endsWith('.png'),
+			`new image partname: ${newPartName}`
+		)
+		assert(newPartName !== oldPartName, 'blip points at a different media part than before')
+		assert(bytesEqual(reopened.opc.part(newPartName).bytes, PNG_1X1), 'new media part holds the supplied bytes')
+		assertEqual(reopened.opc.contentTypes.contentTypeFor(newPartName), 'image/png', 'new media content type registered')
+
+		// Copy-on-write fidelity: the original media part survives byte-identical.
+		assert(bytesEqual(reopened.opc.part(oldPartName).bytes, oldBytes), 'original media part is untouched')
+	})
+
+	test('defaults the media extension from the content type', async () => {
+		const presentation = await open('image')
+		const picture = presentation.slides[0].shapes.find((shape) => shape.shapeType === 'picture')
+		picture.setImage(PNG_1X1, { contentType: 'image/gif' })
+		const partName = picture.imagePartName
+		assert(partName && partName.endsWith('.gif'), `extension derived from content type: ${partName}`)
+		assertEqual(presentation.opc.contentTypes.contentTypeFor(partName), 'image/gif', 'gif content type registered')
+	})
+
+	test('throws when no content type is supplied', async () => {
+		const picture = (await open('image')).slides[0].shapes.find((shape) => shape.shapeType === 'picture')
+		assert(
+			throws(() => picture.setImage(PNG_1X1, { contentType: '' })),
+			'empty content type should throw'
+		)
+	})
+
+	test('a sibling picture sharing the old media part is unaffected (copy-on-write)', async () => {
+		const presentation = await open('image')
+		// On fixture slide 2, two pictures embed the same rel (image2.png).
+		const slide = presentation.slides[1]
+		const pictures = slide.shapes.filter((shape) => shape.shapeType === 'picture')
+		const counts = new Map()
+		for (const pic of pictures) counts.set(pic.imageRelId, (counts.get(pic.imageRelId) ?? 0) + 1)
+		const sharedRelId = [...counts].find(([, n]) => n >= 2)?.[0]
+		assert(sharedRelId, 'fixture slide 2 has two pictures sharing one image rel')
+
+		const shared = pictures.filter((pic) => pic.imageRelId === sharedRelId)
+		const sharedPartName = shared[0].imagePartName
+		const sharedBytes = Uint8Array.from(presentation.opc.part(sharedPartName).bytes)
+
+		shared[0].setImage(PNG_1X1, { contentType: 'image/png' })
+
+		assert(shared[1].imageRelId === sharedRelId, 'the sibling picture still points at the shared rel')
+		assertEqual(shared[1].imagePartName, sharedPartName, 'the sibling still resolves the original media part')
+		assert(
+			bytesEqual(presentation.opc.part(sharedPartName).bytes, sharedBytes),
+			'the shared media part bytes are unchanged'
+		)
+	})
+
+	test('imageRelId setter repoints the blip without adding a media part', async () => {
+		const presentation = await open('image')
+		const pictures = presentation.slides[1].shapes.filter((shape) => shape.shapeType === 'picture')
+		const [first, second] = pictures
+		assert(first && second && first.imageRelId !== second.imageRelId, 'two pictures with distinct rels')
+
+		const before = presentation.opc.parts.size
+		first.imageRelId = second.imageRelId
+		assertEqual(first.imageRelId, second.imageRelId, 'blip repointed to the chosen rel id')
+		assertEqual(presentation.opc.parts.size, before, 'no media part added by the rel-id setter')
+	})
+
+	test.skipIf(!validatorInstalled)('a deck with a swapped image stays schema-valid', async () => {
+		const presentation = await open('image')
+		presentation.slides[0].shapes
+			.find((shape) => shape.shapeType === 'picture')
+			.setImage(PNG_1X1, { contentType: 'image/png' })
+		const errors = await validateBuf(Buffer.from(await presentation.save()))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+})

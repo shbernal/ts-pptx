@@ -18,6 +18,7 @@ import {
 	setAttr,
 	type Element,
 } from '../oxml/dom.js'
+import { relativePartName } from '../opc/partnames.js'
 import { FILL_CHOICES, normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
 import { Chart } from './chart.js'
 import { Table } from './table.js'
@@ -26,6 +27,40 @@ import type { Slide } from './slide.js'
 
 const A_TABLE_URI = 'http://schemas.openxmlformats.org/drawingml/2006/table'
 const A_CHART_URI = 'http://schemas.openxmlformats.org/drawingml/2006/chart'
+const IMAGE_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
+
+// Schema successors within p:pic (CT_Picture: nvPicPr, blipFill, spPr, style?)
+// and within a:blipFill (blip?, srcRect?, (tile|stretch)?), used to keep a
+// get-or-added p:blipFill / a:blip in document order.
+const PIC_AFTER_BLIPFILL = ['p:spPr', 'p:style']
+const BLIPFILL_AFTER_BLIP = ['a:srcRect', 'a:tile', 'a:stretch']
+
+/** Known content-type → file-extension map for image media parts. */
+const IMAGE_EXTENSION_BY_CONTENT_TYPE: Readonly<Record<string, string>> = Object.freeze({
+	'image/png': 'png',
+	'image/jpeg': 'jpeg',
+	'image/gif': 'gif',
+	'image/bmp': 'bmp',
+	'image/tiff': 'tiff',
+	'image/webp': 'webp',
+	'image/svg+xml': 'svg',
+	'image/x-emf': 'emf',
+	'image/x-wmf': 'wmf',
+})
+
+/**
+ * Default a media-part file extension from a content type. Known image types use
+ * an explicit map; otherwise fall back to the content-type subtype (before any
+ * `+suffix`, with a leading `x-` stripped), e.g. `image/x-foo` → `foo`.
+ */
+function extFromContentType(contentType: string): string {
+	const known = IMAGE_EXTENSION_BY_CONTENT_TYPE[contentType.toLowerCase()]
+	if (known) return known
+	const subtype = contentType.toLowerCase().split('/')[1] ?? ''
+	const ext = subtype.split('+')[0].replace(/^x-/, '')
+	if (!ext) throw new Error(`Cannot derive a file extension from content type "${contentType}"; pass { extension }`)
+	return ext
+}
 
 // Schema successors used to keep elements in document order when a geometry
 // setter has to create one.
@@ -385,10 +420,53 @@ export class Picture extends Shape {
 		return blip ? attr(blip, 'r:embed') : null
 	}
 
+	/**
+	 * Repoint the blip at a relationship id already present in the slide's
+	 * relationships, without minting a new media part. The caller owns ensuring
+	 * the id exists and targets an image; use {@link setImage} to add fresh bytes.
+	 */
+	set imageRelId(value: string) {
+		setAttr(this.#getOrAddBlip(), 'r:embed', value)
+		this.markDirty()
+	}
+
 	/** Absolute partname of the embedded image, resolved via the slide's relationships, or `null`. */
 	get imagePartName(): string | null {
 		const relId = this.imageRelId
 		return relId ? this.slide.relationships.resolveTarget(relId) : null
+	}
+
+	/**
+	 * Replace this picture's image with new bytes. Mints a fresh media part under
+	 * `/ppt/media/`, registers its content type, wires an `image` relationship
+	 * from the owning slide, and repoints the blip's `@r:embed` at it.
+	 *
+	 * Copy-on-write: the previous media part is never mutated or removed, so any
+	 * other picture sharing it (common after `importSlide`/dedup) is unaffected;
+	 * an orphaned old part is left in place for a later GC pass to prune.
+	 *
+	 * Geometry and crop (`a:xfrm`, `a:srcRect`) are left untouched — the caller
+	 * owns sizing. `contentType` is required (e.g. `image/png`); the bytes are not
+	 * sniffed. `extension` defaults from the content type.
+	 */
+	setImage(bytes: Uint8Array, options: { contentType: string; extension?: string }): void {
+		const { contentType } = options
+		if (!contentType) throw new Error('setImage requires a contentType (e.g. "image/png")')
+		const extension = (options.extension ?? extFromContentType(contentType)).toLowerCase().replace(/^\./, '')
+
+		const opc = this.slide.presentation.opc
+		const mediaPartName = opc.reserveMediaPartName(extension)
+		opc.addPart(mediaPartName, contentType, bytes)
+		const relId = this.slide.relationships.add(IMAGE_REL_TYPE, relativePartName(this.slide.partName, mediaPartName)).id
+
+		setAttr(this.#getOrAddBlip(), 'r:embed', relId)
+		this.markDirty()
+	}
+
+	/** Get-or-add `p:blipFill/a:blip`, keeping both in document order. */
+	#getOrAddBlip(): Element {
+		const blipFill = getOrAddChild(this.element, 'p:blipFill', PIC_AFTER_BLIPFILL)
+		return getOrAddChild(blipFill, 'a:blip', BLIPFILL_AFTER_BLIP)
 	}
 }
 

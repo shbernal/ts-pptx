@@ -324,8 +324,9 @@ class AutoShape extends Shape {
 }
 
 class Picture extends Shape {
-	readonly imageRelId: string | null // a:blip/@r:embed
+	imageRelId: string | null // a:blip/@r:embed — get, or set to repoint at an existing rel
 	readonly imagePartName: string | null // resolved via the slide's rels
+	setImage(bytes: Uint8Array, options: { contentType: string; extension?: string }): void // Phase 4 — swap the image
 	// Fill setters throw (a picture's surface is out of scope for v1); lineColor
 	// (the picture's border) is available.
 }
@@ -578,6 +579,36 @@ On save, the new media part is appended, the slide's `.rels` is rewritten with
 the added relationship, and `[Content_Types].xml` is regenerated only if the
 image's type was not already registered — every other part stays byte-identical.
 
+### Replacing a picture's image (Phase 4)
+
+`Picture.setImage` swaps the bytes behind an existing picture — the primitive a
+stitching workflow needs when it lifts a slide from a reference deck and drops in
+its own logo or photo. Like `addPicture`, it mints a `/ppt/media/` part,
+registers its content type, and wires an `image` relationship from the slide;
+then it repoints the picture's blip (`a:blip/@r:embed`) at the new part:
+
+```js
+import { readFile } from 'node:fs/promises'
+
+const logo = await readFile('our-logo.png')
+const picture = slide.shapes.find((s) => s.shapeType === 'picture')
+picture.setImage(logo, { contentType: 'image/png' })
+// `contentType` is required (the bytes are not sniffed); `extension` defaults
+// from it (image/png → png, image/svg+xml → svg, …) and can be passed to override.
+```
+
+`setImage` is **copy-on-write**: it always adds a new media part and never
+mutates or removes the old one. After `importSlide` (and in PowerPoint's own
+dedup) a single media part is frequently shared by several pictures, so
+overwriting bytes in place would silently change every picture pointing at it.
+Minting a fresh part means the swap affects exactly this one picture; the
+now-orphaned old part is left in place (harmless, just not pruned).
+
+Geometry and crop are left untouched — `setImage` repoints the blip and leaves
+`a:xfrm` and any `a:srcRect` as-is, so the caller owns sizing. To point a picture
+at an image **already** present in the slide's relationships without adding a
+part, assign the rel id directly: `picture.imageRelId = otherPicture.imageRelId`.
+
 ### Cloning a slide (Phase 4)
 
 Duplicate an existing slide and append the copy to the deck:
@@ -654,8 +685,9 @@ shape fill/line tests (`test/read/shape-fill-edit.test.js`: `fillColor` /
 `lineColor` / `noFill()` round-tripping, document-order insertion, per-kind
 support, and edited packages staying schema-valid), and the
 picture tests (`test/read/picture-edit.test.js`: `addPicture` creating a media
-part + content-type + relationship, format sniffing, and untouched parts staying
-byte-identical), and the clone tests (`test/read/clone-slide.test.js`:
+part + content-type + relationship, format sniffing, and `setImage` swapping a
+picture's bytes copy-on-write — minting a fresh part, repointing the blip, and
+leaving the old part and any sibling sharing it untouched), and the clone tests (`test/read/clone-slide.test.js`:
 `cloneSlide` appending an independent duplicate with correct presentation/rels
 wiring), and the import tests (`test/read/import-slide.test.js`: `importSlide`
 copying a slide's layout/master/theme/media sub-graph across a package boundary,
