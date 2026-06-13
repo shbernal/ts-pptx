@@ -121,11 +121,14 @@ Record the surface used and the result here.
 
 ### PowerPoint for the web (lenient — opens-clean smoke check)
 
-- [ ] `empty.added-textbox.pptx` — not yet performed
-- [ ] `empty.added-picture.pptx` — not yet performed
-- [ ] `textbox.deleted-shape.pptx` — not yet performed
-- [ ] `textbox.cloned-slide.pptx` — not yet performed
-- [ ] `table.edited-cells.pptx` — not yet performed
+Done on **PowerPoint for the web**, 2026-06-13 — all five edited decks opened
+clean with no repair prompt:
+
+- [x] `empty.added-textbox.pptx` — PowerPoint for the web, 2026-06-13
+- [x] `empty.added-picture.pptx` — PowerPoint for the web, 2026-06-13
+- [x] `textbox.deleted-shape.pptx` — PowerPoint for the web, 2026-06-13
+- [x] `textbox.cloned-slide.pptx` — PowerPoint for the web, 2026-06-13
+- [x] `table.edited-cells.pptx` — PowerPoint for the web, 2026-06-13
 
 ## Replacing fixtures
 
