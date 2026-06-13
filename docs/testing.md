@@ -89,6 +89,33 @@ when it is not installed.
 Changes under `src/read/` should run this suite; new read/edit capabilities
 should extend it (and grow the fixture set) alongside the code.
 
+### `pptx-bank/` — real-world deck corpus (uncommitted)
+
+`pptx-bank/` at the repo root is an **uncommitted** bank of real-world
+PowerPoint files for ad-hoc testing and verification: probing OOXML structures,
+reproducing read/round-trip behaviour against decks far messier and larger than
+the curated fixtures, and finding candidates worth promoting to a committed
+fixture. It is gitignored (`/pptx-bank/*` with a `!README.md` negation), so you
+can drop in arbitrary decks — including large, copyrighted, or client files —
+with no risk of them entering Git history. See `pptx-bank/README.md`.
+
+How it relates to the other deck locations:
+
+| Location | Committed? | Role |
+|---|---|---|
+| `test/read/fixtures/` | yes — hash-pinned, provenance-tracked, license-clean | curated, minimal **inputs** the harness depends on (CI runs these) |
+| `.tmp/` | no | generated **output** scratch (e.g. `pnpm run test:read:emit`) |
+| `pptx-bank/` | no | free-form **input** corpus for exploration and manual verification |
+
+The automated harness must only point at `test/read/fixtures/` — bank files are
+not tracked, so other checkouts and CI will not have them. When a bank deck
+proves a good minimal, license-clean regression case, **promote** it: copy it
+into `test/read/fixtures/`, add it to that directory's provenance table +
+SHA-256 list and purpose notes, and wire it into the harness
+(`FIXTURES` in `test/read/roundtrip.test.js`). The `mixed.pptx` fixture was
+promoted from the bank this way to cover connectors, nested groups, charts, and
+SmartArt that the vendored fixtures lacked.
+
 ## Full Test Command
 
 The default test command builds first, then runs regression and schema

@@ -6,7 +6,9 @@ harness must round-trip genuine Microsoft Office output, including its quirks.
 
 ## Provenance
 
-All four files are vendored unmodified (bytes byte-identical to upstream) from
+### Vendored from `singerla/pptx-automizer` (MIT)
+
+These four files are vendored unmodified (bytes byte-identical to upstream) from
 [singerla/pptx-automizer](https://github.com/singerla/pptx-automizer), licensed
 **MIT** ([upstream license](https://github.com/singerla/pptx-automizer/blob/main/LICENSE)).
 Authoring application verified from each file's `docProps/app.xml`.
@@ -18,11 +20,23 @@ Authoring application verified from each file's `docProps/app.xml`.
 | `image.pptx` | `SlideWithImages.pptx` | [`58b5f0d`](https://github.com/singerla/pptx-automizer/blob/58b5f0d7efe30d58453ecd6ba8a627e10675e784/__tests__/pptx-templates/SlideWithImages.pptx) | Microsoft Macintosh PowerPoint | 16.0000 | 2 |
 | `table.pptx` | `SlideWithTables.pptx` | [`6d1588f`](https://github.com/singerla/pptx-automizer/blob/6d1588f3eda2d388f2aa1fbb75a3d30ae2e85ebd/__tests__/pptx-templates/SlideWithTables.pptx) | Microsoft Office PowerPoint | 16.0000 | 3 |
 
-SHA-256 of the vendored bytes:
+### Locally provided (license-clean, promoted from `pptx-bank/`)
+
+Real-world PowerPoint output contributed by the maintainer and confirmed
+license-clean for inclusion. Promoted from the uncommitted `pptx-bank/` corpus
+(see `../../../pptx-bank/README.md`) because it exercises shape kinds the
+vendored set does not. Stored byte-for-byte as authored.
+
+| Local name | Application | AppVersion | Slides |
+|---|---|---|---|
+| `mixed.pptx` | Microsoft Macintosh PowerPoint | 16.0000 | 11 |
+
+SHA-256 of the fixture bytes:
 
 ```
 589b5fa79126aad341cd2bb121c1d25a488716d0d22806303c910b42238401fe  empty.pptx
 f2a75b0111c0d486cf81b33a21055c2ffe891c76ecbb7e261e2c8b626c0e7b35  image.pptx
+db80910224b01b46cb7e8c29e183b59d128a18fd8e0c651558907230874693b9  mixed.pptx
 c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
 1a59832d7e5c926e4aff11e9f62bc90c9e8430fb68e1d77a1b4a2fb0800e05d2  textbox.pptx
 ```
@@ -36,6 +50,11 @@ c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
   in `ppt/media/`; exercises binary parts and `Default` content-type
   resolution by extension.
 - `table.pptx` — slides containing tables (`a:tbl` graphic frames).
+- `mixed.pptx` — an 11-slide real-world deck that exercises the shape kinds the
+  other fixtures miss: connectors (`p:cxnSp`), nested groups (`p:grpSp`),
+  plus tables, a chart (`c:chart`), and SmartArt/diagram (`dgm:`) graphic
+  frames. The Phase 2 read-model coverage deck for shape enumeration and
+  group traversal.
 
 ## Manual PowerPoint check
 
@@ -44,13 +63,14 @@ be opened once in PowerPoint to confirm there is no repair prompt. Generate the
 outputs with `pnpm run test:read:emit` (writes `.tmp/roundtrip/*.roundtrip.pptx`),
 then open each in PowerPoint. Record the PowerPoint surface used here.
 
-Done on **PowerPoint for the web** (Microsoft 365), 2026-06-13 — all four opened
-clean with no repair prompt:
+Done on **PowerPoint for the web** (Microsoft 365), 2026-06-13 — the four vendored
+fixtures opened clean with no repair prompt:
 
 - [x] `empty.pptx` — PowerPoint for the web, 2026-06-13
 - [x] `textbox.pptx` — PowerPoint for the web, 2026-06-13
 - [x] `image.pptx` — PowerPoint for the web, 2026-06-13
 - [x] `table.pptx` — PowerPoint for the web, 2026-06-13
+- [ ] `mixed.pptx` — not yet performed (added 2026-06-13 for Phase 2)
 
 **Further testing needed on PowerPoint desktop.** The web loader is more lenient
 than desktop PowerPoint, whose stricter OOXML validation is what produces the
@@ -64,6 +84,7 @@ and the emitted XML actually differs:
 - [ ] `textbox.pptx` — desktop PowerPoint (Windows/Mac) not yet performed
 - [ ] `image.pptx` — desktop PowerPoint (Windows/Mac) not yet performed
 - [ ] `table.pptx` — desktop PowerPoint (Windows/Mac) not yet performed
+- [ ] `mixed.pptx` — desktop PowerPoint (Windows/Mac) not yet performed
 
 ## Replacing fixtures
 

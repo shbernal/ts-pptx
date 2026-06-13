@@ -40,6 +40,14 @@ demos/node/output/
 .autoloop/*
 !.autoloop/bug-report.md
 
+### PPTX bank — uncommitted corpus of real decks for ad-hoc agent use
+# (probing OOXML, debugging round-trip, fixture candidates). Distinct from the
+# curated, hash-pinned harness inputs in test/read/fixtures/. Track only the
+# README so the convention stays self-documenting; ignore all .pptx bytes.
+# Same `dir/*` + negation trick as .autoloop above.
+/pptx-bank/*
+!/pptx-bank/README.md
+
 ### OOXML-Validator binary (downloaded by tools/ooxml-validator/install.sh)
 tools/ooxml-validator/bin/
 

@@ -14,7 +14,7 @@ import { assert, assertEqual } from '../helpers.js'
 import { isInstalled, validateBuf } from '../validator.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const FIXTURES = ['empty', 'textbox', 'image', 'table']
+const FIXTURES = ['empty', 'textbox', 'image', 'table', 'mixed']
 
 const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
