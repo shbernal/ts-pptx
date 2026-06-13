@@ -144,3 +144,71 @@ describe('empty deck', () => {
 		}
 	})
 })
+
+// mixed.pptx is the real-world coverage deck for shape kinds the vendored
+// fixtures lack: connectors, nested groups, tables, charts, and SmartArt.
+describe('mixed.pptx — connectors, groups, graphic frames', () => {
+	/** Flatten a shape list, descending into groups. */
+	function allShapes(shapes) {
+		return shapes.flatMap((shape) => (shape.shapeType === 'group' ? [shape, ...allShapes(shape.shapes)] : [shape]))
+	}
+
+	test('reads top-level connectors (p:cxnSp) with resolvable geometry', async () => {
+		// slide6 (index 5) has three connectors directly in its spTree.
+		const slide = (await open('mixed')).slides[5]
+		const connectors = slide.shapes.filter((shape) => shape.shapeType === 'connector')
+		assert(connectors.length >= 3, `expected ≥3 top-level connectors, got ${connectors.length}`)
+		for (const connector of connectors) {
+			assert(typeof connector.id === 'number', 'connector has a numeric id')
+			assert(connector.left !== null && connector.width !== null, 'connector geometry resolves from spPr/a:xfrm')
+		}
+	})
+
+	test('descends into nested groups; connectors surface only via group traversal', async () => {
+		// slide5 (index 4): connectors live inside groups, not at the top level.
+		const slide = (await open('mixed')).slides[4]
+		const topShapes = slide.shapes
+		const groups = topShapes.filter((shape) => shape.shapeType === 'group')
+		assert(groups.length >= 4, `expected ≥4 top-level groups, got ${groups.length}`)
+		assertEqual(
+			topShapes.filter((shape) => shape.shapeType === 'connector').length,
+			0,
+			'no connectors at the top level of slide5'
+		)
+
+		const nestedConnectors = allShapes(topShapes).filter((shape) => shape.shapeType === 'connector')
+		assert(nestedConnectors.length >= 3, `expected ≥3 connectors via group recursion, got ${nestedConnectors.length}`)
+
+		// "Groupe 2" nests one shape + two connectors; check the proxy enumerates them.
+		const groupe2 = groups.find((group) => group.name === 'Groupe 2')
+		assert(groupe2, 'expected a group named "Groupe 2"')
+		assertEqual(groupe2.shapes.length, 3, 'Groupe 2 has three nested children')
+		assertEqual(
+			groupe2.shapes.filter((shape) => shape.shapeType === 'connector').length,
+			2,
+			'Groupe 2 nests two connectors'
+		)
+		assert(
+			groupe2.shapes.every((shape) => shape.slide === slide),
+			'nested shapes back-reference their owning slide'
+		)
+	})
+
+	test('distinguishes table, chart, and SmartArt graphic frames', async () => {
+		const slides = (await open('mixed')).slides
+		const frameOn = (index) => slides[index].shapes.find((shape) => shape.shapeType === 'graphicFrame')
+
+		const table = frameOn(6) // slide7: a:tbl
+		assert(table, 'slide7 has a graphic frame')
+		assert(table.hasTable && !table.hasChart, 'slide7 frame is a table')
+		assert(table.left !== null, 'graphic frame geometry resolves from p:xfrm')
+
+		const chart = frameOn(7) // slide8: c:chart
+		assert(chart, 'slide8 has a graphic frame')
+		assert(chart.hasChart && !chart.hasTable, 'slide8 frame is a chart')
+
+		const smartArt = frameOn(1) // slide2: dgm diagram
+		assert(smartArt, 'slide2 has a graphic frame')
+		assert(!smartArt.hasTable && !smartArt.hasChart, 'SmartArt frame is neither table nor chart')
+	})
+})
