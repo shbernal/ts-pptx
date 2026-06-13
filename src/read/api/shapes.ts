@@ -7,12 +7,46 @@
  * pictures can resolve their image relationship and so future edits can mark
  * the slide part dirty.
  */
-import { ELEMENT_NODE, OOXML_NS, attr, firstChild, intValue, type Element } from '../oxml/dom.js'
+import { ELEMENT_NODE, OOXML_NS, attr, firstChild, getOrAddChild, intValue, setAttr, type Element } from '../oxml/dom.js'
 import { TextFrame } from './text.js'
 import type { Slide } from './slide.js'
 
 const A_TABLE_URI = 'http://schemas.openxmlformats.org/drawingml/2006/table'
 const A_CHART_URI = 'http://schemas.openxmlformats.org/drawingml/2006/chart'
+
+// Schema successors used to keep elements in document order when a geometry
+// setter has to create one.
+const SPPR_AFTER_XFRM = [
+	'a:custGeom',
+	'a:prstGeom',
+	'a:noFill',
+	'a:solidFill',
+	'a:gradFill',
+	'a:blipFill',
+	'a:pattFill',
+	'a:grpFill',
+	'a:ln',
+	'a:effectLst',
+	'a:effectDag',
+	'a:scene3d',
+	'a:sp3d',
+	'a:extLst',
+]
+const GRPSPPR_AFTER_XFRM = [
+	'a:noFill',
+	'a:solidFill',
+	'a:gradFill',
+	'a:blipFill',
+	'a:pattFill',
+	'a:grpFill',
+	'a:effectLst',
+	'a:effectDag',
+	'a:scene3d',
+	'a:extLst',
+]
+// spPr itself sits before p:style / p:txBody within p:sp (and before p:style
+// within p:pic / p:cxnSp); blipFill / nv*Pr precede it and are excluded.
+const SHAPE_AFTER_SPPR = ['p:style', 'p:txBody']
 
 /** Discriminator for the concrete `Shape` subclass. */
 export type ShapeType = 'autoShape' | 'picture' | 'connector' | 'graphicFrame' | 'group'
@@ -34,6 +68,13 @@ function emuFrom(parent: Element | null, qname: string, attribute: string): numb
 	return element ? intValue(attr(element, attribute)) : null
 }
 
+/** Validate and round an EMU geometry value; extents (`cx`/`cy`) must be non-negative. */
+function toEmu(value: number, attribute: string, allowNegative: boolean): number {
+	if (!Number.isFinite(value)) throw new Error(`${attribute} must be a finite number of EMU, got ${value}`)
+	if (!allowNegative && value < 0) throw new Error(`${attribute} must be non-negative, got ${value}`)
+	return Math.round(value)
+}
+
 /** Common base for every shape in a slide's shape tree. */
 export abstract class Shape {
 	constructor(
@@ -46,6 +87,14 @@ export abstract class Shape {
 
 	/** The transform element (`a:xfrm` or `p:xfrm`) carrying this shape's geometry, or `null` if inherited. */
 	protected abstract xfrm(): Element | null
+
+	/** The transform element, creating it (and its container) in document order if absent. */
+	protected abstract getOrAddXfrm(): Element
+
+	/** Mark the owning slide part dirty so `save()` reserializes it. */
+	protected markDirty(): void {
+		this.slide.part.markDirty()
+	}
 
 	/** Drawing id (`p:cNvPr/@id`), or `null` if absent. */
 	get id(): number | null {
@@ -64,9 +113,17 @@ export abstract class Shape {
 		return emuFrom(this.xfrm(), 'a:off', 'x')
 	}
 
+	set left(value: number) {
+		this.#setOffset('x', value, true)
+	}
+
 	/** Top edge in EMU (`a:off/@y`), or `null` when the shape has no own transform. */
 	get top(): number | null {
 		return emuFrom(this.xfrm(), 'a:off', 'y')
+	}
+
+	set top(value: number) {
+		this.#setOffset('y', value, true)
 	}
 
 	/** Width in EMU (`a:ext/@cx`), or `null` when the shape has no own transform. */
@@ -74,9 +131,31 @@ export abstract class Shape {
 		return emuFrom(this.xfrm(), 'a:ext', 'cx')
 	}
 
+	set width(value: number) {
+		this.#setExtent('cx', value)
+	}
+
 	/** Height in EMU (`a:ext/@cy`), or `null` when the shape has no own transform. */
 	get height(): number | null {
 		return emuFrom(this.xfrm(), 'a:ext', 'cy')
+	}
+
+	set height(value: number) {
+		this.#setExtent('cy', value)
+	}
+
+	#setOffset(axis: 'x' | 'y', value: number, allowNegative: boolean): void {
+		const emu = toEmu(value, axis, allowNegative)
+		const off = getOrAddChild(this.getOrAddXfrm(), 'a:off', ['a:ext'])
+		setAttr(off, axis, String(emu))
+		this.markDirty()
+	}
+
+	#setExtent(axis: 'cx' | 'cy', value: number): void {
+		const emu = toEmu(value, axis, false)
+		const ext = getOrAddChild(this.getOrAddXfrm(), 'a:ext')
+		setAttr(ext, axis, String(emu))
+		this.markDirty()
 	}
 
 	/** Whether this shape can hold text (only `p:sp` does in this read model). */
@@ -109,13 +188,17 @@ export class AutoShape extends Shape {
 		return spPr ? firstChild(spPr, 'a:xfrm') : null
 	}
 
+	protected getOrAddXfrm(): Element {
+		return getOrAddSpPrXfrm(this.element)
+	}
+
 	override get hasTextFrame(): boolean {
 		return firstChild(this.element, 'p:txBody') !== null
 	}
 
 	override get textFrame(): TextFrame | null {
 		const txBody = firstChild(this.element, 'p:txBody')
-		return txBody ? new TextFrame(txBody) : null
+		return txBody ? new TextFrame(txBody, this.slide.part) : null
 	}
 
 	/** Preset geometry name (`a:prstGeom/@prst`, e.g. `rect`), or `null` for custom/none. */
@@ -133,6 +216,10 @@ export class Picture extends Shape {
 	protected xfrm(): Element | null {
 		const spPr = firstChild(this.element, 'p:spPr')
 		return spPr ? firstChild(spPr, 'a:xfrm') : null
+	}
+
+	protected getOrAddXfrm(): Element {
+		return getOrAddSpPrXfrm(this.element)
 	}
 
 	/** Relationship id of the embedded image (`p:blipFill/a:blip/@r:embed`), or `null`. */
@@ -157,6 +244,10 @@ export class Connector extends Shape {
 		const spPr = firstChild(this.element, 'p:spPr')
 		return spPr ? firstChild(spPr, 'a:xfrm') : null
 	}
+
+	protected getOrAddXfrm(): Element {
+		return getOrAddSpPrXfrm(this.element)
+	}
 }
 
 /** A graphic frame (`p:graphicFrame`) — host for tables and charts. */
@@ -166,6 +257,11 @@ export class GraphicFrame extends Shape {
 	protected xfrm(): Element | null {
 		// graphicFrame carries its own `p:xfrm` directly, not inside `p:spPr`.
 		return firstChild(this.element, 'p:xfrm')
+	}
+
+	protected getOrAddXfrm(): Element {
+		// p:xfrm sits between p:nvGraphicFramePr and a:graphic.
+		return getOrAddChild(this.element, 'p:xfrm', ['a:graphic', 'p:extLst'])
 	}
 
 	/** Whether this frame hosts a table (`a:graphicData/@uri` is the table URI). */
@@ -194,10 +290,21 @@ export class GroupShape extends Shape {
 		return grpSpPr ? firstChild(grpSpPr, 'a:xfrm') : null
 	}
 
+	protected getOrAddXfrm(): Element {
+		const grpSpPr = getOrAddChild(this.element, 'p:grpSpPr', ['p:sp', 'p:grpSp', 'p:pic', 'p:cxnSp', 'p:graphicFrame'])
+		return getOrAddChild(grpSpPr, 'a:xfrm', GRPSPPR_AFTER_XFRM)
+	}
+
 	/** The shapes nested directly inside this group, in document order. */
 	get shapes(): Shape[] {
 		return buildShapes(this.element, this.slide)
 	}
+}
+
+/** Get-or-add `p:spPr/a:xfrm` for shapes whose transform lives in `p:spPr` (`p:sp`, `p:pic`, `p:cxnSp`). */
+function getOrAddSpPrXfrm(shapeElement: Element): Element {
+	const spPr = getOrAddChild(shapeElement, 'p:spPr', SHAPE_AFTER_SPPR)
+	return getOrAddChild(spPr, 'a:xfrm', SPPR_AFTER_XFRM)
 }
 
 /**

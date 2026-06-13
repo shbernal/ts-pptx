@@ -1,9 +1,10 @@
 ---
 doc-schema-version: 1
 title: "PPTX Read / Round-Trip"
-summary: "Open an existing .pptx, inspect its OPC parts, and save it back losslessly (foundation for editing)."
+summary: "Open an existing .pptx, read its slides/shapes/text, edit text, fonts, and geometry, and save it back losslessly."
 read_when:
   - Opening or editing decks this library did not generate
+  - Editing run text, fonts, or shape position/size in an existing deck
   - Round-tripping a .pptx with untouched parts byte-identical
   - Reading OPC parts, content types, or relationships
 doc_type: "reference"
@@ -19,12 +20,15 @@ It is a separate subsystem from the generator (`pptxgenjs`) and the inspector
 (`pptxgenjs/inspect`): those are one-way and lossy, while `read` keeps the
 package's own XML as the source of truth.
 
-Status: **Phase 2 — read object model**. On top of the Phase 1 OPC layer
-(load, parts, content types, relationships, lossless save) there is now a
-navigable, typed view of the deck: `Presentation → slides → shapes → text
-frame → paragraphs → runs`, read from the live DOM. Mutation still happens
-directly on a part's DOM plus `markDirty()`; typed *editing* APIs come in
-Phase 3.
+Status: **Phase 3 — edit vertical slice**. On top of the Phase 1 OPC layer
+(load, parts, content types, relationships, lossless save) and the Phase 2
+navigable read model (`Presentation → slides → shapes → text frame →
+paragraphs → runs`), the model is now also *writable* for a first slice:
+**run text and character formatting** and **shape position/size**. Setting a
+property mutates the live DOM in place and marks only the owning slide part
+dirty, so `save()` reserializes that one part and keeps every other byte for
+byte. Lower-level DOM mutation (below) still works for anything the typed
+setters do not yet cover.
 
 ## Quick start
 
@@ -190,12 +194,14 @@ function resolveRelativePartName(sourcePartName: string, target: string): string
 function relsPartNameFor(sourcePartName: string): string
 ```
 
-## Read object model (Phase 2)
+## Object model (Phase 2 read, Phase 3 edit)
 
 A navigable, typed view over the live DOM. Every proxy reads from its DOM
-element on each access (no caching) and wraps the very nodes a later phase will
-mutate. Geometry is reported in **EMU** (the OOXML unit; 914 400 per inch) and
-is `null` when a shape inherits its position from a placeholder.
+element on each access (no caching) and wraps the very nodes the setters mutate
+in place. Geometry is reported in **EMU** (the OOXML unit; 914 400 per inch)
+and is `null` when a shape inherits its position from a placeholder. Properties
+documented below as *settable* write back to the DOM and mark the owning slide
+part dirty (see [Editing](#editing-typed-api-phase-3)).
 
 ### `Presentation`
 
@@ -251,16 +257,22 @@ class Slide {
 | `p:graphicFrame`  | `GraphicFrame` | `graphicFrame`  |
 | `p:grpSp`         | `GroupShape`   | `group`         |
 
+Geometry is read/write. A getter returns `null` when the shape inherits its
+position; a setter writes EMU into the shape's transform, creating the
+transform (`a:xfrm`/`p:xfrm`) and its container in document order if absent.
+Values are rounded to integer EMU; extents (`width`/`height`) reject negatives,
+and all four reject `NaN`/`Infinity`.
+
 ```ts
 abstract class Shape {
 	readonly shapeType: ShapeType
 	readonly slide: Slide
 	readonly id: number | null // p:cNvPr/@id
 	readonly name: string // p:cNvPr/@name ('' if unnamed)
-	readonly left: number | null // EMU (a:off/@x)
-	readonly top: number | null // EMU (a:off/@y)
-	readonly width: number | null // EMU (a:ext/@cx)
-	readonly height: number | null // EMU (a:ext/@cy)
+	left: number | null // EMU (a:off/@x) — settable
+	top: number | null // EMU (a:off/@y) — settable
+	width: number | null // EMU (a:ext/@cx) — settable
+	height: number | null // EMU (a:ext/@cy) — settable
 	readonly hasTextFrame: boolean
 	readonly textFrame: TextFrame | null
 	readonly text: string // textFrame?.text ?? ''
@@ -304,14 +316,14 @@ class Paragraph {
 }
 
 class Run {
-	readonly text: string // a:t, verbatim
-	readonly fontSizePt: number | null // a:rPr/@sz / 100
-	readonly bold: boolean | null // null when unset (inherited)
-	readonly italic: boolean | null // null when unset (inherited)
-	readonly underline: string | null // a:rPr/@u token, e.g. 'sng'
-	readonly fontName: string | null // a:latin/@typeface
-	readonly color: string | null // a:srgbClr/@val (6-hex)
-	readonly schemeColor: string | null // a:schemeClr/@val, e.g. 'accent2'
+	text: string // a:t, verbatim — settable
+	fontSizePt: number | null // a:rPr/@sz / 100 — settable
+	bold: boolean | null // null when unset (inherited) — settable
+	italic: boolean | null // null when unset (inherited) — settable
+	underline: string | null // a:rPr/@u token, e.g. 'sng' — settable
+	fontName: string | null // a:latin/@typeface — settable
+	color: string | null // a:srgbClr/@val (6-hex) — settable
+	schemeColor: string | null // a:schemeClr/@val, e.g. 'accent2' — settable
 }
 ```
 
@@ -320,17 +332,64 @@ inherited from the list/placeholder style, not `false`. Explicit RGB colour and
 theme colour are reported separately (`color` vs `schemeColor`); at most one is
 non-null for a given run.
 
-## Editing today (low-level)
+Every `Run` property is writable. A setter creates the run's `a:rPr` (and any
+needed child, e.g. `a:latin`, `a:solidFill`) in document order:
 
-Until the typed API lands, edits work directly on the DOM:
+- `run.text = '...'` rewrites the `a:t`; whitespace-significant text
+  automatically gets `xml:space="preserve"`.
+- `fontSizePt` takes points (stored as hundredths); it rejects non-positive and
+  non-finite values.
+- `bold`/`italic` accept `true`/`false`/`null`; setting `null` **removes** the
+  attribute (back to inherited) rather than writing `0`.
+- `color` accepts a 6-hex RGB string (optional leading `#`, normalized to
+  upper-case; malformed input throws); `schemeColor` accepts a theme token.
+  A run carries at most one solid fill, so setting one **clears** the other;
+  setting `color = null` removes the run's solid fill entirely.
+
+## Editing (typed API, Phase 3)
+
+Edit through the read model and save. Only the parts you touch are
+reserialized; everything else stays byte-identical.
 
 ```js
-const slide = pkg.part('/ppt/slides/slide1.xml')
+import { readFile, writeFile } from 'node:fs/promises'
+import { Presentation } from '@shbernal/pptxgenjs/read'
+
+const presentation = await Presentation.load(await readFile('deck.pptx'))
+const shape = presentation.slides[0].shapes.find((s) => s.name === 'Title')
+
+// Geometry (EMU)
+shape.left = 914400 // 1"
+shape.top = 457200 // 0.5"
+shape.width = 8229600
+
+// Text + character formatting
+const run = shape.textFrame.paragraphs[0].runs[0]
+run.text = 'New title'
+run.fontSizePt = 32
+run.bold = true
+run.color = '1F4E79' // explicit RGB; clears any scheme colour on the run
+
+await writeFile('deck-edited.pptx', await presentation.save())
+```
+
+Each setter marks only the owning slide part dirty. The scope of the typed
+slice is the read-model properties above: run text, `fontSizePt`, `bold`,
+`italic`, `underline`, `fontName`, `color`, `schemeColor`, and shape
+`left`/`top`/`width`/`height`.
+
+### Editing anything else (low-level escape hatch)
+
+For structure the typed setters do not yet cover, mutate the DOM directly and
+mark the part dirty yourself — `element_` gives you the live node:
+
+```js
+const slide = presentation.opc.part('/ppt/slides/slide1.xml')
 const run = slide.dom.getElementsByTagName('a:t')[0]
 run.textContent = 'New title'
 slide.markDirty() // without this, save() writes the original bytes
 
-const edited = await pkg.save()
+const edited = await presentation.save()
 ```
 
 Only the touched part is reserialized; everything else stays byte-identical.
@@ -340,9 +399,12 @@ Only the touched part is reserialized; everything else stays byte-identical.
 `pnpm run test:read` runs the round-trip harness
 (`test/read/roundtrip.test.js`: part-set stability, byte-identity, laziness,
 idempotence, content-type/relationship resolution, dirty-path, schema
-validation) and the read-model tests (`test/read/model.test.js`: slide/shape
+validation), the read-model tests (`test/read/model.test.js`: slide/shape
 navigation, geometry, picture image resolution, table detection, run
-formatting). Schema cases require the OOXML validator
+formatting), and the edit tests (`test/read/edit.test.js`: text/font/geometry
+setters survive a save → reopen round-trip, untouched parts stay
+byte-identical, edited packages stay schema-valid, and invalid input is
+rejected). Schema cases require the OOXML validator
 (`./tools/ooxml-validator/install.sh`) and are skipped with a notice when it
 is absent. See [testing](../testing.md).
 

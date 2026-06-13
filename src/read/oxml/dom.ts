@@ -88,6 +88,89 @@ export function firstChild(parent: Node, qname: string): Element | null {
 	return null
 }
 
+/** First direct child element matching any of the given qnames, or `null`. */
+function firstChildMatchingAny(parent: Node, qnames: string[]): Element | null {
+	const wanted = qnames.map(splitQName)
+	for (let node = parent.firstChild; node; node = node.nextSibling) {
+		if (node.nodeType !== ELEMENT_NODE) continue
+		const element = node as Element
+		if (wanted.some(({ uri, local }) => element.localName === local && element.namespaceURI === uri)) return element
+	}
+	return null
+}
+
+// --- Mutation helpers (Phase 3 editing) -----------------------------------
+//
+// `src/read/` mutates the live DOM in place; these are the only sanctioned way
+// to create elements, set attributes, and keep a parent's children in the
+// sequence OOXML requires. They never mark a part dirty — callers own that.
+
+/** Create a namespaced element from a prefixed qname (e.g. `createElement(doc, 'a:off')`). */
+export function createElement(doc: Document, qname: string): Element {
+	const { uri } = splitQName(qname)
+	return doc.createElementNS(uri, qname)
+}
+
+/**
+ * Set an attribute by qname. An unprefixed name (`sz`, `x`) sets a plain
+ * attribute; a prefixed name (`r:id`) resolves the prefix to its namespace and
+ * sets it via `setAttributeNS`. The reserved `xml:` prefix is handled by the
+ * DOM itself.
+ */
+export function setAttr(element: Element, qname: string, value: string): void {
+	const colon = qname.indexOf(':')
+	if (colon < 0 || qname.startsWith('xml:')) {
+		element.setAttribute(qname, value)
+		return
+	}
+	const { uri } = splitQName(qname)
+	element.setAttributeNS(uri, qname, value)
+}
+
+/** Remove an attribute by qname; a no-op when the attribute is absent. */
+export function removeAttr(element: Element, qname: string): void {
+	const colon = qname.indexOf(':')
+	if (colon < 0 || qname.startsWith('xml:')) {
+		element.removeAttribute(qname)
+		return
+	}
+	const { uri, local } = splitQName(qname)
+	element.removeAttributeNS(uri, local)
+}
+
+/**
+ * Get the first child element matching `qname`, creating and inserting it when
+ * absent. A newly created element is inserted before the first existing child
+ * whose qname appears in `before` (the schema successors of the new element),
+ * or appended when none are present — keeping the parent's children in the
+ * sequence order OOXML mandates.
+ */
+export function getOrAddChild(parent: Element, qname: string, before: string[] = []): Element {
+	const existing = firstChild(parent, qname)
+	if (existing) return existing
+	const doc = parent.ownerDocument
+	if (!doc) throw new Error(`Cannot create <${qname}>: parent element has no owner document`)
+	const child = createElement(doc, qname)
+	const successor = before.length ? firstChildMatchingAny(parent, before) : null
+	parent.insertBefore(child, successor) // insertBefore(node, null) appends
+	return child
+}
+
+/** Remove every direct child element matching any of the given qnames. */
+export function removeChildrenByQName(parent: Element, qnames: string[]): void {
+	const toRemove: Element[] = []
+	for (let node = parent.firstChild; node; node = node.nextSibling) {
+		if (node.nodeType !== ELEMENT_NODE) continue
+		toRemove.push(node as Element)
+	}
+	const wanted = qnames.map(splitQName)
+	for (const element of toRemove) {
+		if (wanted.some(({ uri, local }) => element.localName === local && element.namespaceURI === uri)) {
+			parent.removeChild(element)
+		}
+	}
+}
+
 /**
  * Read an attribute by qname. An unprefixed name (`sz`, `b`) reads the plain
  * attribute; a prefixed name (`r:id`, `r:embed`) resolves the prefix to its

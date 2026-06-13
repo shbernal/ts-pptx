@@ -1,19 +1,75 @@
 /**
- * Read-model proxies for a shape's text: `TextFrame → Paragraph[] → Run[]`.
+ * Read/write proxies for a shape's text: `TextFrame → Paragraph[] → Run[]`.
  *
- * Each proxy wraps a live DOM element (`a:txBody`, `a:p`, `a:r`) so the same
- * nodes can later be mutated in place. Phase 2 is read-only; getters compute
- * from the DOM on each access rather than caching.
+ * Each proxy wraps a live DOM element (`a:txBody`, `a:p`, `a:r`) and holds the
+ * owning `Part`, so a setter can mutate the node in place and call
+ * `part.markDirty()` — that single flag is what makes `save()` reserialize the
+ * part. Getters compute from the DOM on each access rather than caching.
  */
-import { ELEMENT_NODE, attr, boolValue, firstChild, getElements, intValue, type Element } from '../oxml/dom.js'
+import type { Part } from '../opc/part.js'
+import {
+	ELEMENT_NODE,
+	attr,
+	boolValue,
+	createElement,
+	firstChild,
+	getElements,
+	getOrAddChild,
+	intValue,
+	removeAttr,
+	removeChildrenByQName,
+	setAttr,
+	type Element,
+} from '../oxml/dom.js'
+
+// Schema successors used to keep `a:rPr` children in document order when a
+// setter has to create one (CT_TextCharacterProperties sequence).
+const RPR_AFTER_FILL = [
+	'a:effectLst',
+	'a:effectDag',
+	'a:highlight',
+	'a:uLnTx',
+	'a:uLn',
+	'a:uFillTx',
+	'a:uFill',
+	'a:latin',
+	'a:ea',
+	'a:cs',
+	'a:sym',
+	'a:hlinkClick',
+	'a:hlinkMouseOver',
+	'a:rtl',
+	'a:extLst',
+]
+const RPR_AFTER_LATIN = ['a:ea', 'a:cs', 'a:sym', 'a:hlinkClick', 'a:hlinkMouseOver', 'a:rtl', 'a:extLst']
+const RPR_FILL_CHOICES = ['a:noFill', 'a:solidFill', 'a:gradFill', 'a:blipFill', 'a:pattFill', 'a:grpFill']
+
+/** Normalize a 6-hex RGB string (optional leading `#`) to upper-case, or throw. */
+function normalizeHex(value: string): string {
+	const hex = value.startsWith('#') ? value.slice(1) : value
+	if (!/^[0-9a-fA-F]{6}$/.test(hex)) throw new Error(`Expected a 6-digit hex RGB colour, got: ${JSON.stringify(value)}`)
+	return hex.toUpperCase()
+}
 
 /** One text run (`a:r`): a span of text with uniform character formatting. */
 export class Run {
-	constructor(private readonly element: Element) {}
+	constructor(
+		private readonly element: Element,
+		private readonly part: Part
+	) {}
 
 	/** The run's text (`a:t`), verbatim — whitespace is not normalized. */
 	get text(): string {
 		return firstChild(this.element, 'a:t')?.textContent ?? ''
+	}
+
+	set text(value: string) {
+		const t = getOrAddChild(this.element, 'a:t')
+		t.textContent = value
+		// Preserve significant leading/trailing whitespace per the XML spec.
+		if (value !== value.trim()) setAttr(t, 'xml:space', 'preserve')
+		else removeAttr(t, 'xml:space')
+		this.part.markDirty()
 	}
 
 	/** Font size in points (`a:rPr/@sz` is hundredths of a point), or `null` if unset. */
@@ -22,9 +78,23 @@ export class Run {
 		return size === null ? null : size / 100
 	}
 
+	set fontSizePt(value: number | null) {
+		if (value === null) {
+			this.#removeRPrAttr('sz')
+			return
+		}
+		if (!Number.isFinite(value) || value <= 0) throw new Error(`fontSizePt must be a positive number, got ${value}`)
+		setAttr(this.#getOrAddRPr(), 'sz', String(Math.round(value * 100)))
+		this.part.markDirty()
+	}
+
 	/** Bold (`a:rPr/@b`), or `null` when unset (inherited from style). */
 	get bold(): boolean | null {
 		return boolValue(this.#rPrAttrRaw('b'))
+	}
+
+	set bold(value: boolean | null) {
+		this.#setBoolRPrAttr('b', value)
 	}
 
 	/** Italic (`a:rPr/@i`), or `null` when unset (inherited from style). */
@@ -32,9 +102,22 @@ export class Run {
 		return boolValue(this.#rPrAttrRaw('i'))
 	}
 
+	set italic(value: boolean | null) {
+		this.#setBoolRPrAttr('i', value)
+	}
+
 	/** Underline style token (`a:rPr/@u`, e.g. `sng`), or `null` when unset. */
 	get underline(): string | null {
 		return this.#rPrAttrRaw('u')
+	}
+
+	set underline(value: string | null) {
+		if (value === null) {
+			this.#removeRPrAttr('u')
+			return
+		}
+		setAttr(this.#getOrAddRPr(), 'u', value)
+		this.part.markDirty()
 	}
 
 	/** Latin typeface name (`a:rPr/a:latin/@typeface`), or `null` when unset. */
@@ -44,16 +127,36 @@ export class Run {
 		return latin ? attr(latin, 'typeface') : null
 	}
 
+	set fontName(value: string | null) {
+		if (value === null) {
+			const rPr = this.#rPr()
+			if (rPr) removeChildrenByQName(rPr, ['a:latin'])
+			if (rPr) this.part.markDirty()
+			return
+		}
+		const latin = getOrAddChild(this.#getOrAddRPr(), 'a:latin', RPR_AFTER_LATIN)
+		setAttr(latin, 'typeface', value)
+		this.part.markDirty()
+	}
+
 	/** Explicit RGB fill colour as a 6-hex string (`a:solidFill/a:srgbClr/@val`), or `null`. */
 	get color(): string | null {
 		const srgb = this.#solidFillChild('a:srgbClr')
 		return srgb ? attr(srgb, 'val') : null
 	}
 
+	set color(value: string | null) {
+		this.#setSolidFill(value === null ? null : { qname: 'a:srgbClr', val: normalizeHex(value) })
+	}
+
 	/** Theme colour token when the fill is a scheme colour (`a:schemeClr/@val`, e.g. `accent2`), or `null`. */
 	get schemeColor(): string | null {
 		const scheme = this.#solidFillChild('a:schemeClr')
 		return scheme ? attr(scheme, 'val') : null
+	}
+
+	set schemeColor(value: string | null) {
+		this.#setSolidFill(value === null ? null : { qname: 'a:schemeClr', val: value })
 	}
 
 	/** The underlying `a:r` element, for advanced reads and future mutation. */
@@ -65,6 +168,10 @@ export class Run {
 		return firstChild(this.element, 'a:rPr')
 	}
 
+	#getOrAddRPr(): Element {
+		return getOrAddChild(this.element, 'a:rPr', ['a:t'])
+	}
+
 	#rPrAttrRaw(name: string): string | null {
 		const rPr = this.#rPr()
 		return rPr ? attr(rPr, name) : null
@@ -74,20 +181,58 @@ export class Run {
 		return intValue(this.#rPrAttrRaw(name))
 	}
 
+	#removeRPrAttr(name: string): void {
+		const rPr = this.#rPr()
+		if (!rPr) return
+		removeAttr(rPr, name)
+		this.part.markDirty()
+	}
+
+	#setBoolRPrAttr(name: string, value: boolean | null): void {
+		if (value === null) {
+			this.#removeRPrAttr(name)
+			return
+		}
+		setAttr(this.#getOrAddRPr(), name, value ? '1' : '0')
+		this.part.markDirty()
+	}
+
 	#solidFillChild(qname: string): Element | null {
 		const rPr = this.#rPr()
 		const fill = rPr && firstChild(rPr, 'a:solidFill')
 		return fill ? firstChild(fill, qname) : null
 	}
+
+	/** Replace the run's solid fill with a single colour element, or clear it when `null`. */
+	#setSolidFill(color: { qname: string; val: string } | null): void {
+		if (color === null) {
+			const rPr = this.#rPr()
+			if (!rPr) return
+			removeChildrenByQName(rPr, ['a:solidFill'])
+			this.part.markDirty()
+			return
+		}
+		const rPr = this.#getOrAddRPr()
+		// A run carries at most one fill choice; drop any existing one first.
+		removeChildrenByQName(rPr, RPR_FILL_CHOICES)
+		const fill = getOrAddChild(rPr, 'a:solidFill', RPR_AFTER_FILL)
+		const clr = createElement(this.element.ownerDocument!, color.qname)
+		setAttr(clr, 'val', color.val)
+		fill.appendChild(clr)
+		this.part.markDirty()
+	}
 }
 
 /** One paragraph (`a:p`) of a text frame. */
 export class Paragraph {
-	constructor(private readonly element: Element) {}
+	constructor(
+		private readonly element: Element,
+		private readonly part: Part
+	) {}
 
 	/** The runs (`a:r`) in document order. Fields (`a:fld`) and breaks are not runs; see `text`. */
 	get runs(): Run[] {
-		return getElements(this.element, 'a:r').map((element) => new Run(element))
+		return getElements(this.element, 'a:r').map((element) => new Run(element, this.part))
 	}
 
 	/** Indent level (`a:pPr/@lvl`), 0 when unset. */
@@ -122,11 +267,14 @@ export class Paragraph {
 
 /** A shape's text frame (`p:txBody`): an ordered list of paragraphs. */
 export class TextFrame {
-	constructor(private readonly txBody: Element) {}
+	constructor(
+		private readonly txBody: Element,
+		private readonly part: Part
+	) {}
 
 	/** Paragraphs (`a:p`) in document order. */
 	get paragraphs(): Paragraph[] {
-		return getElements(this.txBody, 'a:p').map((element) => new Paragraph(element))
+		return getElements(this.txBody, 'a:p').map((element) => new Paragraph(element, this.part))
 	}
 
 	/** All paragraph text joined by `\n` (mirrors python-pptx `TextFrame.text`). */
