@@ -316,6 +316,7 @@ class GraphicFrame extends Shape {
 	readonly hasTable: boolean
 	readonly hasChart: boolean
 	readonly table: Table | null // non-null when hasTable
+	readonly chart: Chart | null // non-null when hasChart (resolves the chart part)
 }
 
 class GroupShape extends Shape {
@@ -418,6 +419,40 @@ const run = table.cell(1, 1).textFrame.paragraphs[0].runs[0]
 run.text = '42'
 run.bold = true
 ```
+
+### `Chart`, `ChartSeries` (Phase 4, read-only)
+
+A `GraphicFrame` whose `hasChart` is true resolves its chart part (via the
+slide's `chart` relationship) and exposes it as a `Chart`:
+
+```ts
+class Chart {
+	readonly part: Part
+	readonly partName: string
+	readonly chartType: string | null // first plot-area group, e.g. 'line' / 'bar' / 'pie'
+	readonly chartTypes: string[] // all groups (combo charts have >1)
+	readonly title: string | null // c:chart/c:title rich text
+	readonly series: ChartSeries[]
+	readonly categories: (string | null)[] // from the first series' cache
+}
+
+class ChartSeries {
+	readonly index: number | null // c:ser/c:idx
+	readonly name: string | null // cached c:tx
+	readonly values: (number | null)[] // cached c:val (c:numCache)
+	readonly categories: (string | null)[] // cached c:cat
+}
+```
+
+```js
+const chart = slide.shapes.find((s) => s.shapeType === 'graphicFrame' && s.chart).chart
+chart.chartType // 'line'
+chart.series.map((s) => [s.name, s.values]) // [['Costs', [360000, …]], ['Revenue', […]]]
+```
+
+Charts are **read-only**: the values exposed are the cache PowerPoint stores
+alongside the embedded workbook (`c:numCache` / `c:strCache`). Rewriting chart
+data (which means rewriting the embedded `.xlsx`) is not yet supported.
 
 ## Editing (typed API, Phase 3)
 
@@ -547,7 +582,9 @@ picture tests (`test/read/picture-edit.test.js`: `addPicture` creating a media
 part + content-type + relationship, format sniffing, and untouched parts staying
 byte-identical), and the clone tests (`test/read/clone-slide.test.js`:
 `cloneSlide` appending an independent duplicate with correct presentation/rels
-wiring). Schema cases require the OOXML validator
+wiring), and the chart tests (`test/read/chart.test.js`: chart part resolution,
+type/title/series/values reads, and a read-only open staying byte-identical).
+Schema cases require the OOXML validator
 (`./tools/ooxml-validator/install.sh`) and are skipped with a notice when it
 is absent. See [testing](../testing.md).
 

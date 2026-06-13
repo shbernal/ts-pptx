@@ -8,6 +8,7 @@
  * the slide part dirty.
  */
 import { ELEMENT_NODE, OOXML_NS, attr, firstChild, getOrAddChild, intValue, setAttr, type Element } from '../oxml/dom.js'
+import { Chart } from './chart.js'
 import { Table } from './table.js'
 import { TextFrame } from './text.js'
 import type { Slide } from './slide.js'
@@ -292,6 +293,18 @@ export class GraphicFrame extends Shape {
 		const graphicData = this.#graphicData()
 		const tbl = graphicData && firstChild(graphicData, 'a:tbl')
 		return tbl ? new Table(tbl, this.slide.part) : null
+	}
+
+	/** The hosted chart, or `null` when this frame is not a chart or its part is missing. */
+	get chart(): Chart | null {
+		if (!this.hasChart) return null
+		const graphicData = this.#graphicData()
+		const chartRef = graphicData && firstChild(graphicData, 'c:chart')
+		const relId = chartRef && attr(chartRef, 'r:id')
+		if (!relId) return null
+		const partName = this.slide.relationships.resolveTarget(relId)
+		const part = this.slide.presentation.opc.part(partName)
+		return part ? new Chart(part) : null
 	}
 
 	#graphicData(): Element | null {
