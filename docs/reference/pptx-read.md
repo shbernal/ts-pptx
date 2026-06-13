@@ -20,15 +20,18 @@ It is a separate subsystem from the generator (`pptxgenjs`) and the inspector
 (`pptxgenjs/inspect`): those are one-way and lossy, while `read` keeps the
 package's own XML as the source of truth.
 
-Status: **Phase 3 — edit vertical slice**. On top of the Phase 1 OPC layer
-(load, parts, content types, relationships, lossless save) and the Phase 2
-navigable read model (`Presentation → slides → shapes → text frame →
-paragraphs → runs`), the model is now also *writable* for a first slice:
-**run text and character formatting** and **shape position/size**. Setting a
-property mutates the live DOM in place and marks only the owning slide part
-dirty, so `save()` reserializes that one part and keeps every other byte for
-byte. Lower-level DOM mutation (below) still works for anything the typed
-setters do not yet cover.
+Status: **Phase 4 — rich content & structural edits**. On top of the Phase 1
+OPC layer (load, parts, content types, relationships, lossless save), the
+Phase 2 navigable read model (`Presentation → slides → shapes → text frame →
+paragraphs → runs`), and the Phase 3 edit slice (**run text and character
+formatting** and **shape position/size**), the model now also covers
+**tables**, **charts** (read-only), **adding and removing shapes**, **adding
+pictures**, and **slide cloning**. Setting a property or calling a mutator
+mutates the live DOM in place and marks only the affected part(s) dirty, so
+`save()` reserializes just those and keeps every other byte for byte.
+Lower-level DOM mutation (below) still works for anything the typed setters do
+not yet cover. Future directions not yet implemented are tracked outside this
+repo in `../PPTX_EDITING_NEXT_STEPS.md`.
 
 ## Quick start
 
