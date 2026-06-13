@@ -110,6 +110,33 @@ export class OpcPackage {
 	}
 
 	/**
+	 * Reserve an unused partname in the same directory and naming family as
+	 * `templatePartName`, with a fresh index one past the highest existing one.
+	 * The template's filename is split into a base (its stem minus any trailing
+	 * digits) and an extension, e.g. `/ppt/slideLayouts/slideLayout1.xml` →
+	 * `/ppt/slideLayouts/slideLayout<n>.xml`, `/ppt/media/image1.png` →
+	 * `/ppt/media/image<n>.png`. Used when copying a part in from another package.
+	 * Does not create the part.
+	 */
+	reservePartNameLike(templatePartName: string): string {
+		const slash = templatePartName.lastIndexOf('/')
+		const dir = templatePartName.slice(0, slash)
+		const fileName = templatePartName.slice(slash + 1)
+		const dot = fileName.lastIndexOf('.')
+		const ext = dot > 0 ? fileName.slice(dot) : '' // includes the leading '.'
+		const stem = dot > 0 ? fileName.slice(0, dot) : fileName
+		const base = stem.replace(/\d+$/, '')
+		const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+		const re = new RegExp(`^${escape(`${dir}/${base}`)}(\\d+)${escape(ext)}$`)
+		let max = 0
+		for (const partName of this.#parts.keys()) {
+			const match = re.exec(partName)
+			if (match) max = Math.max(max, Number(match[1]))
+		}
+		return `${dir}/${base}${max + 1}${ext}`
+	}
+
+	/**
 	 * Re-emit the package. Clean parts are written from their original bytes;
 	 * dirty parts from their DOM. Dirty relationship sets and content types are
 	 * flushed first. Part order is preserved from load; added parts append.

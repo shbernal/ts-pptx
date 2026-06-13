@@ -7,14 +7,23 @@ import { emuToInches } from '../../units.js'
 import { OpcPackage, type OpcInput } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
 import { relativePartName, relsPartNameFor } from '../opc/partnames.js'
-import { attr, createElement, firstChild, getElements, intValue, setAttr } from '../oxml/dom.js'
+import { attr, createElement, firstChild, getElements, getOrAddChild, intValue, removeChildrenByQName, setAttr, type Element } from '../oxml/dom.js'
 import { Slide } from './slide.js'
 
 const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
 const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
+const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
+const SLIDE_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster'
+const NOTES_SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
+
+const SLIDE_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
+const SLIDE_LAYOUT_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'
 
 /** ST_SlideId minimum (ECMA-376): slide ids live in [256, 2147483647]. */
 const MIN_SLIDE_ID = 256
+
+/** ST_SlideLayoutId minimum (ECMA-376): slide-layout ids start at 2147483648. */
+const MIN_SLIDE_LAYOUT_ID = 2147483648
 
 /** Slide dimensions, in both EMU (the OOXML unit) and inches. */
 export interface SlideSize {
@@ -26,6 +35,13 @@ export interface SlideSize {
 
 export class Presentation {
 	#presentationPart: Part | undefined
+	/**
+	 * Per-source copy registry for {@link importSlide}: source `OpcPackage` →
+	 * (source partname → partname allocated in this package). Lets parts shared
+	 * across imports from the same source deck (layout, master, theme, media) be
+	 * copied once and reused on later calls.
+	 */
+	#importRegistry = new Map<OpcPackage, Map<string, string>>()
 
 	private constructor(readonly opc: OpcPackage) {}
 
@@ -101,19 +117,155 @@ export class Presentation {
 		const sourcePart = source.part
 
 		// 1. Copy the slide part bytes verbatim into a fresh slide partname.
-		const newPartName = this.#reserveSlidePartName()
+		const newPartName = opc.reservePartNameLike(sourcePart.partName)
 		const newPart = opc.addPart(newPartName, sourcePart.contentType, sourcePart.bytes)
 
 		// 2. Copy the slide's relationships (targets resolve identically — same dir).
 		const sourceRels = opc.part(relsPartNameFor(sourcePart.partName))
 		if (sourceRels) opc.addPart(relsPartNameFor(newPartName), sourceRels.contentType, sourceRels.bytes)
 
-		// 3. Wire a presentation→slide relationship.
-		const presPart = this.presentationPart
-		const presRels = opc.relationshipsFor(presPart.partName)
-		const relId = presRels.add(SLIDE_REL, relativePartName(presPart.partName, newPartName)).id
+		// 3. Wire the new slide into the presentation (rel + p:sldId entry).
+		return this.#appendSlidePart(newPart)
+	}
 
-		// 4. Append a p:sldId entry referencing the new relationship.
+	/**
+	 * Append a copy of `source.slides[index]` to this presentation and return it.
+	 *
+	 * Unlike {@link cloneSlide} (same-deck duplicate), this copies a slide across
+	 * a package boundary: it brings the connected sub-graph the slide depends on —
+	 * its `slideLayout` → `slideMaster` → `theme`, plus any media, charts, and
+	 * embeddings — into this package under fresh partnames, rewriting every
+	 * partname, relationship id, and content-type registration so the result is a
+	 * self-consistent OPC package. Parts of this (target) package that are not
+	 * touched stay byte-identical, matching `cloneSlide`'s fidelity contract.
+	 *
+	 * Only the layout(s) actually used by imported slides are copied; the imported
+	 * master's `p:sldLayoutIdLst` is pruned to exactly those, mirroring how
+	 * PowerPoint's "Reuse Slides" brings a slide across. Parts shared by repeated
+	 * imports from the same source deck are copied once and reused.
+	 *
+	 * v1 limitations: the source slide size must equal this presentation's (no
+	 * geometry rescaling); source notes are dropped; fonts embedded via
+	 * `presentation.xml` are not copied.
+	 */
+	importSlide(source: Presentation, index: number): Slide {
+		const sourceSlide = source.slides[index]
+		if (!sourceSlide) throw new Error(`No slide at index ${index} to import`)
+
+		// 1. Pre-flight: v1 does not rescale geometry, so slide sizes must match.
+		const target = this.slideSize
+		const incoming = source.slideSize
+		if (!target || !incoming || target.widthEmu !== incoming.widthEmu || target.heightEmu !== incoming.heightEmu) {
+			const fmt = (s: SlideSize | null): string => (s ? `${s.widthEmu}×${s.heightEmu} EMU` : 'unknown')
+			throw new Error(`importSlide requires equal slide sizes; target is ${fmt(target)}, source is ${fmt(incoming)}`)
+		}
+
+		// 2. Recursively copy the slide and the sub-graph it depends on.
+		const newPartName = this.#copyPart(source.opc, sourceSlide.partName)
+		const newPart = this.opc.part(newPartName)
+		if (!newPart) throw new Error(`Imported slide part went missing: ${newPartName}`)
+
+		// 3. Wire the new slide into the presentation (rel + p:sldId entry).
+		return this.#appendSlidePart(newPart)
+	}
+
+	/** The copy registry for one source package (created on first use). */
+	#registryFor(sourceOpc: OpcPackage): Map<string, string> {
+		let registry = this.#importRegistry.get(sourceOpc)
+		if (!registry) {
+			registry = new Map()
+			this.#importRegistry.set(sourceOpc, registry)
+		}
+		return registry
+	}
+
+	/**
+	 * Copy `sourcePartName` (and, recursively, every internal part it references)
+	 * from `sourceOpc` into this package, returning the new partname. Idempotent
+	 * per source package via the copy registry. Relationship ids are preserved so
+	 * the copied part body's `r:id`/`r:embed` references stay valid; targets are
+	 * rewritten to the freshly-allocated partnames. Notes relationships are
+	 * dropped. A copied `slideMaster` does not drag in all its sibling layouts —
+	 * each imported `slideLayout` wires itself into the master instead (see
+	 * {@link #linkLayoutIntoMaster}).
+	 */
+	#copyPart(sourceOpc: OpcPackage, sourcePartName: string): string {
+		const registry = this.#registryFor(sourceOpc)
+		const existing = registry.get(sourcePartName)
+		if (existing) return existing
+
+		const sourcePart = sourceOpc.part(sourcePartName)
+		if (!sourcePart) throw new Error(`importSlide: source package has no part ${sourcePartName}`)
+
+		const newPartName = this.opc.reservePartNameLike(sourcePartName)
+		this.opc.addPart(newPartName, sourcePart.contentType, sourcePart.bytes)
+		// Record before recursing so the master↔layout cycle terminates.
+		registry.set(sourcePartName, newPartName)
+
+		const isMaster = sourcePart.contentType === SLIDE_MASTER_CONTENT_TYPE
+		const sourceRels = sourceOpc.relationshipsFor(sourcePartName)
+		const targetRels = this.opc.relationshipsFor(newPartName)
+		for (const rel of sourceRels) {
+			// Notes pull in a notesMaster + its own theme; an imported slide does not need them.
+			if (rel.type === NOTES_SLIDE_REL) continue
+			// Lean master: skip its layout rels; copied layouts re-link themselves.
+			if (isMaster && rel.type === SLIDE_LAYOUT_REL) continue
+			if (rel.targetMode === 'External') {
+				targetRels.addWithId(rel.id, rel.type, rel.target, 'External')
+				continue
+			}
+			const newTargetPartName = this.#copyPart(sourceOpc, sourceRels.resolveTarget(rel.id))
+			targetRels.addWithId(rel.id, rel.type, relativePartName(newPartName, newTargetPartName))
+		}
+
+		if (isMaster) this.#clearLayoutIdList(newPartName)
+		if (sourcePart.contentType === SLIDE_LAYOUT_CONTENT_TYPE) {
+			this.#linkLayoutIntoMaster(sourceOpc, sourceRels, newPartName)
+		}
+
+		return newPartName
+	}
+
+	/** Empty a freshly-copied master's `p:sldLayoutIdLst`; copied layouts repopulate it. */
+	#clearLayoutIdList(masterPartName: string): void {
+		const masterPart = this.opc.part(masterPartName)
+		const root = masterPart?.dom.documentElement
+		const lst = root && firstChild(root, 'p:sldLayoutIdLst')
+		if (!masterPart || !lst) return
+		removeChildrenByQName(lst, ['p:sldLayoutId'])
+		masterPart.markDirty()
+	}
+
+	/**
+	 * Wire a just-copied layout into its (already-copied) master: add a
+	 * master→layout relationship and append a `p:sldLayoutId` entry. Called once
+	 * per copied layout, so the master accumulates exactly the imported layouts.
+	 */
+	#linkLayoutIntoMaster(sourceOpc: OpcPackage, layoutSourceRels: ReturnType<OpcPackage['relationshipsFor']>, layoutPartName: string): void {
+		const masterRel = layoutSourceRels.byType(SLIDE_MASTER_REL)[0]
+		if (!masterRel) return
+		const masterPartName = this.#registryFor(sourceOpc).get(layoutSourceRels.resolveTarget(masterRel.id))
+		if (!masterPartName) return
+		const masterPart = this.opc.part(masterPartName)
+		const root = masterPart?.dom.documentElement
+		if (!masterPart || !root) return
+
+		const masterRels = this.opc.relationshipsFor(masterPartName)
+		const relId = masterRels.add(SLIDE_LAYOUT_REL, relativePartName(masterPartName, layoutPartName)).id
+		const lst = getOrAddChild(root, 'p:sldLayoutIdLst', ['p:transition', 'p:timing', 'p:hf', 'p:txStyles', 'p:extLst'])
+		const entry = createElement(masterPart.dom, 'p:sldLayoutId')
+		setAttr(entry, 'id', String(this.#nextSlideLayoutId(lst)))
+		setAttr(entry, 'r:id', relId)
+		lst.appendChild(entry)
+		masterPart.markDirty()
+	}
+
+	/** Wire a new slide part into `p:sldIdLst` (rel + `p:sldId`), append it, and return it. */
+	#appendSlidePart(newPart: Part): Slide {
+		const presPart = this.presentationPart
+		const presRels = this.opc.relationshipsFor(presPart.partName)
+		const relId = presRels.add(SLIDE_REL, relativePartName(presPart.partName, newPart.partName)).id
+
 		const root = presPart.dom.documentElement
 		const sldIdLst = root && firstChild(root, 'p:sldIdLst')
 		if (!sldIdLst) throw new Error('presentation.xml has no p:sldIdLst to append a slide to')
@@ -129,22 +281,21 @@ export class Presentation {
 		return new Slide(this, newPart, newSlideId, newIndex)
 	}
 
-	/** Reserve an unused `/ppt/slides/slide<n>.xml` partname (n one past the highest). */
-	#reserveSlidePartName(): string {
-		const re = /^\/ppt\/slides\/slide(\d+)\.xml$/
-		let max = 0
-		for (const partName of this.opc.parts.keys()) {
-			const match = re.exec(partName)
-			if (match) max = Math.max(max, Number(match[1]))
-		}
-		return `/ppt/slides/slide${max + 1}.xml`
-	}
-
 	/** A slide id one past the highest existing, but at least ST_SlideId's minimum. */
 	#nextSlideId(sldIds: ReturnType<typeof getElements>): number {
 		let max = MIN_SLIDE_ID - 1
 		for (const sldId of sldIds) {
 			const id = intValue(attr(sldId, 'id'))
+			if (id !== null && id > max) max = id
+		}
+		return max + 1
+	}
+
+	/** A slide-layout id one past the highest in `sldLayoutIdLst`, floored at ST_SlideLayoutId's minimum. */
+	#nextSlideLayoutId(sldLayoutIdLst: Element): number {
+		let max = MIN_SLIDE_LAYOUT_ID - 1
+		for (const entry of getElements(sldLayoutIdLst, 'p:sldLayoutId')) {
+			const id = intValue(attr(entry, 'id'))
 			if (id !== null && id > max) max = id
 		}
 		return max + 1

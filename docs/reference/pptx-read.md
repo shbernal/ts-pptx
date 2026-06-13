@@ -251,6 +251,13 @@ class Presentation {
 	/** Phase 4 — duplicate the slide at `index`, append the copy, and return it. */
 	cloneSlide(index: number): Slide
 
+	/**
+	 * Phase 4 — append a copy of `source.slides[index]` (from a *different* open
+	 * package), bringing its layout → master → theme and any media/chart/embedding
+	 * parts, and return it. Source and target slide sizes must match.
+	 */
+	importSlide(source: Presentation, index: number): Slide
+
 	save(): Promise<Uint8Array>
 }
 ```
@@ -551,6 +558,29 @@ Relationships are copied as-is. If the source slide owns a one-to-one part such
 as a notes slide, the copy would reference the same part; clone slides without
 per-slide notes, or detach them afterward via the low-level API.
 
+### Importing a slide from another deck (Phase 4)
+
+Copy a slide from one open package into a different one. Unlike `cloneSlide`
+(same-deck duplicate), `importSlide` copies the connected sub-graph the slide
+depends on — its `slideLayout → slideMaster → theme`, plus any media, charts, and
+embeddings — into the target under fresh partnames:
+
+```js
+const target = await Presentation.load(await readFile('deck.pptx'))
+const source = await Presentation.load(await readFile('library.pptx'))
+const imported = target.importSlide(source, 0) // returns the new (last) Slide
+const bytes = await target.save()
+```
+
+Only the layout(s) actually used by imported slides are copied, and the imported
+master's `p:sldLayoutIdLst` is pruned to exactly those — mirroring PowerPoint's
+"Reuse Slides". Parts shared by repeated imports from the same source deck are
+copied once and reused. Untouched parts of the target stay byte-identical.
+
+Source and target slide sizes must match (`importSlide` throws otherwise; v1 does
+no geometry rescaling). Source notes are dropped, and fonts embedded via
+`presentation.xml` are not carried across.
+
 ### Editing anything else (low-level escape hatch)
 
 For structure the typed setters do not yet cover, mutate the DOM directly and
@@ -585,8 +615,12 @@ picture tests (`test/read/picture-edit.test.js`: `addPicture` creating a media
 part + content-type + relationship, format sniffing, and untouched parts staying
 byte-identical), and the clone tests (`test/read/clone-slide.test.js`:
 `cloneSlide` appending an independent duplicate with correct presentation/rels
-wiring), and the chart tests (`test/read/chart.test.js`: chart part resolution,
-type/title/series/values reads, and a read-only open staying byte-identical).
+wiring), and the import tests (`test/read/import-slide.test.js`: `importSlide`
+copying a slide's layout/master/theme/media sub-graph across a package boundary,
+deduping a shared master and pruning its layout list, dropping notes, rejecting a
+size mismatch, and staying schema-valid), and the chart tests
+(`test/read/chart.test.js`: chart part resolution, type/title/series/values
+reads, and a read-only open staying byte-identical).
 Schema cases require the OOXML validator
 (`./tools/ooxml-validator/install.sh`) and are skipped with a notice when it
 is absent. See [testing](../testing.md).
@@ -599,7 +633,8 @@ prompt):
   output to `.tmp/roundtrip/` — confirms the round-trip envelope opens clean.
 - `pnpm run test:read:emit:edits` writes one *edited* deck per editing
   capability (added text box, added picture, deleted shape, cloned slide, edited
-  table cells) to `.tmp/read-edits/` — confirms the reserialized/added parts open
+  table cells, imported image/table slide) to `.tmp/read-edits/` — confirms the
+  reserialized/added parts open
   clean and render as intended. This is the check that matters for the editing
   API, since desktop PowerPoint validates the reserialized XML more strictly than
   the web.

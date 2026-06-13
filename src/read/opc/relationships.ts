@@ -84,6 +84,22 @@ export class Relationships {
 		return relationship
 	}
 
+	/**
+	 * Add a relationship under a caller-chosen id and return it. Used when
+	 * rebuilding a copied part's relationships across a package boundary: keeping
+	 * each source id lets the copied part body's `r:id`/`r:embed` references stay
+	 * valid without rewriting the body. Throws if the id is already present.
+	 * Marks this set dirty.
+	 */
+	addWithId(id: string, type: string, target: string, targetMode?: 'Internal' | 'External'): Relationship {
+		if (this.#byId.has(id)) throw new Error(`Relationships of ${this.sourcePartName}: duplicate relationship id ${id}`)
+		const relationship: Relationship = { id, type, target }
+		if (targetMode) relationship.targetMode = targetMode
+		this.#byId.set(id, relationship)
+		this.#dirty = true
+		return relationship
+	}
+
 	get(id: string): Relationship | undefined {
 		return this.#byId.get(id)
 	}

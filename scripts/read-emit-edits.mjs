@@ -7,7 +7,7 @@
  * stricter desktop validation actually reacts to.
  *
  * Each output is named for the edit it performs (added-textbox, added-picture,
- * deleted-shape, cloned-slide, edited-table-cells). Output goes to
+ * deleted-shape, cloned-slide, edited-table-cells, imported-*-slide). Output goes to
  * .tmp/read-edits/ (gitignored) by default; override with the first CLI arg or
  * PPTXGENJS_READ_EDITS_DIR. Assumes a current build — the
  * test:read:emit:edits script runs `pnpm run build` first.
@@ -124,6 +124,30 @@ const cases = [
 				table.cell(0, 1).text = 'Edited B1'
 			}
 			return presentation.save()
+		},
+	},
+	{
+		out: 'empty.imported-image-slide.pptx',
+		// Verify: a slide carrying the image fixture's picture (with its own
+		// layout/master/theme) is appended to the otherwise-blank deck.
+		async build() {
+			const target = await open('empty')
+			const source = await open('image')
+			target.importSlide(source, 0)
+			return target.save()
+		},
+	},
+	{
+		out: 'empty.imported-table-slide.pptx',
+		// Verify: a slide carrying a table from the table fixture is appended.
+		async build() {
+			const target = await open('empty')
+			const source = await open('table')
+			const tableSlide = source.slides.findIndex((slide) =>
+				slide.shapes.some((shape) => shape.shapeType === 'graphicFrame' && shape.table)
+			)
+			target.importSlide(source, tableSlide === -1 ? 0 : tableSlide)
+			return target.save()
 		},
 	},
 ]

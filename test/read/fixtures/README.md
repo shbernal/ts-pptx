@@ -108,6 +108,8 @@ appears.
 | `textbox.deleted-shape.pptx` | `Shape.delete` | The "replaceText" shape is gone; the rest of the slide is intact. |
 | `textbox.cloned-slide.pptx` | `Presentation.cloneSlide` (+ edit on the clone) | A duplicate of slide 1 is appended last, reading "CLONED COPY". |
 | `table.edited-cells.pptx` | `TableCell.text` | The first table's top-left cells read "Edited A1" / "Edited B1". |
+| `empty.imported-image-slide.pptx` | `Presentation.importSlide` (cross-package: slide + layout/master/theme + media) | A slide carrying the image fixture's picture is appended to the blank deck. |
+| `empty.imported-table-slide.pptx` | `Presentation.importSlide` (cross-package: slide + layout/master/theme) | A slide carrying a table is appended to the blank deck. |
 
 Record the surface used and the result here.
 
@@ -118,17 +120,21 @@ Record the surface used and the result here.
 - [ ] `textbox.deleted-shape.pptx` — not yet performed
 - [ ] `textbox.cloned-slide.pptx` — not yet performed
 - [ ] `table.edited-cells.pptx` — not yet performed
+- [ ] `empty.imported-image-slide.pptx` — not yet performed
+- [ ] `empty.imported-table-slide.pptx` — not yet performed
 
 ### PowerPoint for the web (lenient — opens-clean smoke check)
 
-Done on **PowerPoint for the web**, 2026-06-13 — all five edited decks opened
-clean with no repair prompt:
+Done on **PowerPoint for the web**, 2026-06-13 — the first five edited decks
+opened clean with no repair prompt:
 
 - [x] `empty.added-textbox.pptx` — PowerPoint for the web, 2026-06-13
 - [x] `empty.added-picture.pptx` — PowerPoint for the web, 2026-06-13
 - [x] `textbox.deleted-shape.pptx` — PowerPoint for the web, 2026-06-13
 - [x] `textbox.cloned-slide.pptx` — PowerPoint for the web, 2026-06-13
 - [x] `table.edited-cells.pptx` — PowerPoint for the web, 2026-06-13
+- [ ] `empty.imported-image-slide.pptx` — not yet performed (added 2026-06-14 for importSlide)
+- [ ] `empty.imported-table-slide.pptx` — not yet performed (added 2026-06-14 for importSlide)
 
 ## Replacing fixtures
 
