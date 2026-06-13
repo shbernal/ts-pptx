@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.4.0](https://github.com/shbernal/PptxGenJS/releases/tag/v5.4.0) - 2026-06-13
+
+### Added
+
+- `slide.addConnector({ type, x1, y1, x2, y2, ...line })` emits a real
+  PowerPoint connector shape (`<p:cxnSp>`) with straight/elbow/curved preset
+  geometries, min-corner box plus `flipH`/`flipV` derived from the endpoints, and
+  line styling/arrowheads (upstream #1059).
+- `ThemeProps.colorScheme` to configure a presentation's theme color scheme
+  (upstream #1243).
+- Table `autoPagePlaceholder` option to carry placeholders onto auto-paged
+  overflow slides (upstream #1136).
+- Image `line?: ShapeLineProps` for a picture border outline, emitted as `<a:ln>`
+  in the picture `<p:spPr>` (reuses the shape-outline vocabulary; pairs with the
+  existing `shadow`) (upstream #986).
+- Pie/doughnut data-label leader-line styling via `leaderLineColor` /
+  `leaderLineSize`, emitting `<c:leaderLines>` only when leader lines are enabled
+  and styled (otherwise PowerPoint's automatic color is kept) (upstream #1376).
+- `bullet.fontFace` (emits `<a:buFont/>`) and `bullet.size` (percent 25–400,
+  mapped to `<a:buSzPct/>`, warns and falls back to 100% when out of range) for
+  custom symbol/numbered bullet glyphs (upstream #800, #743).
+- Actionable media-load errors with an opt-in placeholder fallback (upstream
+  #1310).
+
+### Changed
+
+- **BREAKING:** exported `.pptx` packages are now DEFLATE-compressed by default
+  on every export path (previously STORE, and the typed-output `write()` branch
+  ignored the compression option entirely), producing packages comparable in size
+  to a deck re-saved by PowerPoint. Pass `compression: false` to restore the old
+  uncompressed STORE behavior (upstream #1268).
+
+### Fixed
+
+- `sizing: 'cover' | 'contain'` is now aspect-correct for SVG images:
+  `getImageSizeFromBase64` reads an SVG's intrinsic size from the root `<svg>`
+  (absolute `width`/`height`, else `viewBox`), so the letterbox/crop is computed
+  from the real aspect ratio instead of stretching the SVG to fill the box.
+- `defineSlideMaster` now passes rich-text arrays (`TextProps[]`) through master
+  text objects unchanged, instead of wrapping them so the runs were lost
+  (upstream #962).
+- Table `autoPage` no longer crashes with `addTable: Array expected` when an
+  explicit `h` plus `y`/margins leaves no usable vertical height: a non-positive
+  usable height is clamped to the slide height (warning once) and empty overflow
+  pages are no longer emitted.
+- Tables honor `data-pptx-width` and no longer compute `NaN` column widths for
+  hidden tables (upstream #1157).
+
 ## [5.3.0](https://github.com/shbernal/PptxGenJS/releases/tag/v5.3.0) - 2026-06-11
 
 ### Added
