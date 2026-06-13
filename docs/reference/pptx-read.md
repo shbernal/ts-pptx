@@ -96,15 +96,20 @@ type OpcInput = string | number[] | Uint8Array | ArrayBuffer | Blob
 class OpcPackage {
 	static load(input: OpcInput): Promise<OpcPackage>
 
-	/** All parts keyed by partname (e.g. '/ppt/slides/slide1.xml'), in zip order. */
+	/** All parts keyed by partname (e.g. '/ppt/slides/slide1.xml'), in zip/add order. */
 	readonly parts: ReadonlyMap<string, Part>
-	/** Content-type resolution overlay over [Content_Types].xml (read-only). */
+	/** Content-type resolution + registration overlay over [Content_Types].xml. */
 	readonly contentTypes: ContentTypes
 
 	part(partName: string): Part | undefined
 	partsByContentType(contentType: string): Part[]
 	/** Relationships owned by a part; '/' (default) = package-level /_rels/.rels. */
 	relationshipsFor(sourcePartName?: string): Relationships
+
+	/** Add a part and register its content type. Throws if the partname is taken. */
+	addPart(partName: string, contentType: string, bytes: Uint8Array): Part
+	/** Reserve an unused '/ppt/media/<base><n>.<ext>' partname (does not create it). */
+	reserveMediaPartName(extension: string, base?: string): string
 
 	save(): Promise<Uint8Array>
 }
@@ -116,6 +121,10 @@ offending part.
 
 `[Content_Types].xml` is not enumerated in `parts`; it is managed by the
 package and exposed through the `contentTypes` overlay.
+
+`save()` flushes any dirty `Relationships` set back into its `.rels` part
+(creating it when new) and writes a regenerated `[Content_Types].xml` only when
+a registration changed it; everything still untouched stays byte-identical.
 
 ### `Part`
 
@@ -147,20 +156,27 @@ assignable to each other.
 
 ### `ContentTypes`
 
-Read-only overlay over `[Content_Types].xml`.
+Overlay over `[Content_Types].xml`: clean → bytes pass through; dirty →
+`serialize()` is authoritative on save.
 
 ```ts
 class ContentTypes {
 	static parse(xml: string): ContentTypes
 	/** Exact Override match first, else Default by lowercased extension. */
 	contentTypeFor(partName: string): string | undefined
+	readonly isDirty: boolean
+	/** Ensure partName resolves to contentType (no-op if already; else adds an Override). */
+	ensureRegistered(partName: string, contentType: string): void
+	/** Register a Default content type for an extension if absent. */
+	ensureDefault(extension: string, contentType: string): void
 	serialize(): string
 }
 ```
 
 ### `Relationships`
 
-Read-only overlay over one `.rels` part. Iterable.
+Overlay over one `.rels` part. Iterable. Clean → bytes pass through; once `add()`
+marks it dirty, `OpcPackage.save()` writes `serialize()` into the `.rels` part.
 
 ```ts
 interface Relationship {
@@ -174,10 +190,13 @@ class Relationships {
 	static parse(xml: string, sourcePartName: string): Relationships
 	readonly sourcePartName: string
 	readonly size: number
+	readonly isDirty: boolean
 	get(id: string): Relationship | undefined
 	byType(type: string): Relationship[]
 	/** Absolute partname for an internal rel; throws for External rels. */
 	resolveTarget(id: string): string
+	/** Add a relationship, allocating 'rId<n>' past the highest existing id. */
+	add(type: string, target: string, targetMode?: 'Internal' | 'External'): Relationship
 	serialize(): string
 }
 ```
@@ -243,6 +262,7 @@ class Slide {
 	readonly name: string | null // p:cSld/@name
 	readonly shapes: Shape[] // top-level shapes in the spTree
 	addTextBox(options: AddTextBoxOptions): AutoShape // Phase 4 — appends a p:sp
+	addPicture(image: Uint8Array, options: AddPictureOptions): Picture // Phase 4 — new media part + rel + p:pic
 }
 ```
 
@@ -455,6 +475,22 @@ slide.shapes.find((s) => s.name === 'Old caption')?.delete()
 preset geometry, and one paragraph). For richer shapes, add the text box and
 then mutate it, or use the low-level escape hatch below.
 
+Add a picture from raw image bytes — this creates a `/ppt/media/` part,
+registers its content type, and wires an `image` relationship from the slide:
+
+```js
+import { readFile } from 'node:fs/promises'
+
+const png = await readFile('logo.png')
+slide.addPicture(png, { left: 914400, top: 457200, width: 1828800, height: 1828800 })
+// The PNG/JPEG/GIF/BMP/TIFF/WebP format is sniffed from the bytes; pass
+// { extension, contentType } to override or for an unrecognized format.
+```
+
+On save, the new media part is appended, the slide's `.rels` is rewritten with
+the added relationship, and `[Content_Types].xml` is regenerated only if the
+image's type was not already registered — every other part stays byte-identical.
+
 ### Editing anything else (low-level escape hatch)
 
 For structure the typed setters do not yet cover, mutate the DOM directly and
@@ -484,8 +520,10 @@ byte-identical, edited packages stay schema-valid, and invalid input is
 rejected), and the table tests (`test/read/table.test.js`: table/row/cell
 navigation, merge metadata, and cell-text edits surviving a round-trip), and
 the structural-edit tests (`test/read/shapes-edit.test.js`: `addTextBox` /
-`delete` surviving a round-trip with untouched parts byte-identical).
-Schema cases require the OOXML validator
+`delete` surviving a round-trip with untouched parts byte-identical), and the
+picture tests (`test/read/picture-edit.test.js`: `addPicture` creating a media
+part + content-type + relationship, format sniffing, and untouched parts staying
+byte-identical). Schema cases require the OOXML validator
 (`./tools/ooxml-validator/install.sh`) and are skipped with a notice when it
 is absent. See [testing](../testing.md).
 

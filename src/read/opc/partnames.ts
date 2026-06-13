@@ -33,6 +33,22 @@ export function relsPartNameFor(sourcePartName: string): string {
 }
 
 /**
+ * Build a relationship `Target` for `targetPartName` relative to its source
+ * part's directory — the inverse of {@link resolveRelativePartName}. Both names
+ * are absolute partnames. E.g. source `/ppt/slides/slide1.xml`, target
+ * `/ppt/media/image1.png` → `../media/image1.png`.
+ */
+export function relativePartName(sourcePartName: string, targetPartName: string): string {
+	const from = sourcePartName.slice(1).split('/').slice(0, -1) // source directory segments
+	const to = targetPartName.slice(1).split('/') // target segments incl. filename
+	let common = 0
+	while (common < from.length && common < to.length - 1 && from[common] === to[common]) common++
+	const up = from.slice(common).map(() => '..')
+	const down = to.slice(common)
+	return [...up, ...down].join('/')
+}
+
+/**
  * Resolve a relationship target against its source part, per OPC pack-URI
  * resolution: relative targets resolve against the source part's directory.
  *

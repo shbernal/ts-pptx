@@ -9,14 +9,16 @@ export interface Relationship {
 }
 
 /**
- * Read-only overlay over one `.rels` part, keyed by relationship id. Like
- * `ContentTypes`, this is a query view: the `.rels` bytes pass through
- * verbatim on save until a mutation API lands (Phase 3).
+ * Overlay over one `.rels` part, keyed by relationship id. While clean, the
+ * `.rels` bytes pass through verbatim on save (byte-identical); once `add()`
+ * (or another mutation) marks it dirty, `OpcPackage.save()` writes
+ * `serialize()` into the owning `.rels` part instead.
  */
 export class Relationships {
 	/** Partname of the part owning these relationships ('/' for package-level). */
 	readonly sourcePartName: string
 	#byId = new Map<string, Relationship>()
+	#dirty = false
 
 	private constructor(sourcePartName: string) {
 		this.sourcePartName = sourcePartName
@@ -55,6 +57,31 @@ export class Relationships {
 
 	get size(): number {
 		return this.#byId.size
+	}
+
+	/** True once a relationship was added/changed; `serialize()` is then authoritative. */
+	get isDirty(): boolean {
+		return this.#dirty
+	}
+
+	/**
+	 * Add a relationship and return it. Allocates an id `rId<n>` with `n` one
+	 * past the highest existing numeric id. `target` is relative to the source
+	 * part's directory for internal targets (e.g. `../media/image1.png`), or an
+	 * absolute URI for external ones. Marks this set dirty.
+	 */
+	add(type: string, target: string, targetMode?: 'Internal' | 'External'): Relationship {
+		let max = 0
+		for (const id of this.#byId.keys()) {
+			const match = /^rId(\d+)$/.exec(id)
+			if (match) max = Math.max(max, Number(match[1]))
+		}
+		const id = `rId${max + 1}`
+		const relationship: Relationship = { id, type, target }
+		if (targetMode) relationship.targetMode = targetMode
+		this.#byId.set(id, relationship)
+		this.#dirty = true
+		return relationship
 	}
 
 	get(id: string): Relationship | undefined {

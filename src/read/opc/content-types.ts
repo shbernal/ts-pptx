@@ -2,13 +2,15 @@ import { escapeXmlAttribute, getElements, parseXml } from '../oxml/dom.js'
 import { partNameExtension } from './partnames.js'
 
 /**
- * Read-only overlay over `[Content_Types].xml`, used to resolve part content
- * types at load. The original bytes pass through verbatim on save; this
- * object is never the source of truth until a mutation API lands (Phase 3).
+ * Overlay over `[Content_Types].xml`, used to resolve part content types at
+ * load and to register new ones when parts are added. While clean, the original
+ * bytes pass through verbatim on save (byte-identical); once a mutation marks it
+ * dirty, `OpcPackage.save()` writes `serialize()` instead.
  */
 export class ContentTypes {
 	#defaults = new Map<string, string>()
 	#overrides = new Map<string, string>()
+	#dirty = false
 
 	static parse(xml: string): ContentTypes {
 		const contentTypes = new ContentTypes()
@@ -32,6 +34,31 @@ export class ContentTypes {
 	/** Exact `Override` match first, else `Default` by lowercased extension. */
 	contentTypeFor(partName: string): string | undefined {
 		return this.#overrides.get(partName) ?? this.#defaults.get(partNameExtension(partName))
+	}
+
+	/** True once a registration changed the overlay; `serialize()` is then authoritative. */
+	get isDirty(): boolean {
+		return this.#dirty
+	}
+
+	/**
+	 * Ensure `partName` resolves to `contentType`, adding the minimum needed.
+	 * A no-op when an existing `Default`/`Override` already resolves it to the
+	 * same type; otherwise an `Override` is added (always valid, never conflicts
+	 * with a differing `Default`).
+	 */
+	ensureRegistered(partName: string, contentType: string): void {
+		if (this.contentTypeFor(partName) === contentType) return
+		this.#overrides.set(partName, contentType)
+		this.#dirty = true
+	}
+
+	/** Register a `Default` content type for a (lowercased) extension if absent. */
+	ensureDefault(extension: string, contentType: string): void {
+		const ext = extension.toLowerCase()
+		if (this.#defaults.get(ext) === contentType) return
+		this.#defaults.set(ext, contentType)
+		this.#dirty = true
 	}
 
 	serialize(): string {

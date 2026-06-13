@@ -2,10 +2,13 @@
  * Read-model proxy for one slide (`p:sld`), backed by its live part DOM.
  */
 import type { Part } from '../opc/part.js'
+import { relativePartName } from '../opc/partnames.js'
 import type { Relationships } from '../opc/relationships.js'
 import { OOXML_NS, attr, createElement, firstChild, intValue, setAttr, type Document, type Element } from '../oxml/dom.js'
 import type { Presentation } from './presentation.js'
-import { AutoShape, buildShapes, type Shape } from './shapes.js'
+import { AutoShape, Picture, buildShapes, type Shape } from './shapes.js'
+
+const IMAGE_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 
 /** Options for {@link Slide.addTextBox}. Geometry is in EMU. */
 export interface AddTextBoxOptions {
@@ -21,6 +24,47 @@ export interface AddTextBoxOptions {
 	text?: string
 	/** Shape name (`p:cNvPr/@name`); defaults to `TextBox <id>`. */
 	name?: string
+}
+
+/** Options for {@link Slide.addPicture}. Geometry is in EMU. */
+export interface AddPictureOptions {
+	/** Left edge in EMU (`a:off/@x`). */
+	left: number
+	/** Top edge in EMU (`a:off/@y`). */
+	top: number
+	/** Width in EMU (`a:ext/@cx`); must be positive. */
+	width: number
+	/** Height in EMU (`a:ext/@cy`); must be positive. */
+	height: number
+	/** Shape name (`p:cNvPr/@name`); defaults to `Picture <id>`. */
+	name?: string
+	/**
+	 * Image file extension (e.g. `png`). When omitted it is sniffed from the
+	 * image's magic bytes; supply it (with `contentType`) for formats the
+	 * sniffer does not recognize.
+	 */
+	extension?: string
+	/** MIME content type (e.g. `image/png`); sniffed alongside `extension` when omitted. */
+	contentType?: string
+}
+
+interface ImageType {
+	extension: string
+	contentType: string
+}
+
+/** Recognize a handful of common raster formats from their leading bytes. */
+function sniffImageType(bytes: Uint8Array): ImageType | null {
+	const b = bytes
+	if (b.length >= 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return { extension: 'png', contentType: 'image/png' }
+	if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return { extension: 'jpeg', contentType: 'image/jpeg' }
+	if (b.length >= 4 && b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x38) return { extension: 'gif', contentType: 'image/gif' }
+	if (b.length >= 2 && b[0] === 0x42 && b[1] === 0x4d) return { extension: 'bmp', contentType: 'image/bmp' }
+	if (b.length >= 4 && ((b[0] === 0x49 && b[1] === 0x49 && b[2] === 0x2a && b[3] === 0x00) || (b[0] === 0x4d && b[1] === 0x4d && b[2] === 0x00 && b[3] === 0x2a)))
+		return { extension: 'tiff', contentType: 'image/tiff' }
+	if (b.length >= 12 && b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50)
+		return { extension: 'webp', contentType: 'image/webp' }
+	return null
 }
 
 export class Slide {
@@ -83,10 +127,59 @@ export class Slide {
 			width: Math.round(width),
 			height: Math.round(height),
 		})
-		// A shape goes after grpSpPr and before any trailing p:extLst on the tree.
-		spTree.insertBefore(sp, firstChild(spTree, 'p:extLst'))
-		this.part.markDirty()
+		this.#appendShape(spTree, sp)
 		return new AutoShape(sp, this)
+	}
+
+	/**
+	 * Add a picture (`p:pic`) from raw image bytes and return it. Creates a media
+	 * part under `/ppt/media/`, registers its content type, wires an `image`
+	 * relationship from this slide, and appends the picture to the shape tree.
+	 * Geometry is required (EMU); width and height must be positive. The image
+	 * format is sniffed from the bytes unless `extension`/`contentType` are given.
+	 */
+	addPicture(image: Uint8Array, options: AddPictureOptions): Picture {
+		const { left, top, width, height } = options
+		requireFinite(left, 'left')
+		requireFinite(top, 'top')
+		requirePositive(width, 'width')
+		requirePositive(height, 'height')
+
+		const sniffed = sniffImageType(image)
+		const extension = (options.extension ?? sniffed?.extension)?.toLowerCase().replace(/^\./, '')
+		const contentType = options.contentType ?? sniffed?.contentType
+		if (!extension || !contentType) {
+			throw new Error('Could not determine image type; pass { extension, contentType } to addPicture')
+		}
+
+		const spTree = this.#spTree()
+		if (!spTree) throw new Error(`Slide ${this.partName} has no spTree to add a picture to`)
+		const doc = spTree.ownerDocument
+		if (!doc) throw new Error('Slide DOM has no owner document')
+
+		const opc = this.presentation.opc
+		const mediaPartName = opc.reserveMediaPartName(extension)
+		opc.addPart(mediaPartName, contentType, image)
+		const relId = this.relationships.add(IMAGE_REL_TYPE, relativePartName(this.partName, mediaPartName)).id
+
+		const id = this.#nextShapeId()
+		const pic = buildPicture(doc, {
+			id,
+			name: options.name ?? `Picture ${id}`,
+			relId,
+			left: Math.round(left),
+			top: Math.round(top),
+			width: Math.round(width),
+			height: Math.round(height),
+		})
+		this.#appendShape(spTree, pic)
+		return new Picture(pic, this)
+	}
+
+	/** Insert a shape after grpSpPr and before any trailing p:extLst on the tree; mark dirty. */
+	#appendShape(spTree: Element, shape: Element): void {
+		spTree.insertBefore(shape, firstChild(spTree, 'p:extLst'))
+		this.part.markDirty()
 	}
 
 	/** The smallest drawing id (`p:cNvPr/@id`) not already used on the slide. */
@@ -176,4 +269,55 @@ function buildTextBox(doc: Document, spec: TextBoxSpec): Element {
 	}
 
 	return sp
+}
+
+interface PictureSpec {
+	id: number
+	name: string
+	relId: string
+	left: number
+	top: number
+	width: number
+	height: number
+}
+
+/** Build a minimal, schema-valid `p:pic` element (not yet attached). */
+function buildPicture(doc: Document, spec: PictureSpec): Element {
+	const make = (qname: string): Element => createElement(doc, qname)
+	const append = (parent: Element, qname: string): Element => {
+		const child = make(qname)
+		parent.appendChild(child)
+		return child
+	}
+
+	const pic = make('p:pic')
+
+	const nvPicPr = append(pic, 'p:nvPicPr')
+	const cNvPr = append(nvPicPr, 'p:cNvPr')
+	setAttr(cNvPr, 'id', String(spec.id))
+	setAttr(cNvPr, 'name', spec.name)
+	const cNvPicPr = append(nvPicPr, 'p:cNvPicPr')
+	const picLocks = append(cNvPicPr, 'a:picLocks')
+	setAttr(picLocks, 'noChangeAspect', '1')
+	append(nvPicPr, 'p:nvPr')
+
+	const blipFill = append(pic, 'p:blipFill')
+	const blip = append(blipFill, 'a:blip')
+	setAttr(blip, 'r:embed', spec.relId)
+	const stretch = append(blipFill, 'a:stretch')
+	append(stretch, 'a:fillRect')
+
+	const spPr = append(pic, 'p:spPr')
+	const xfrm = append(spPr, 'a:xfrm')
+	const off = append(xfrm, 'a:off')
+	setAttr(off, 'x', String(spec.left))
+	setAttr(off, 'y', String(spec.top))
+	const ext = append(xfrm, 'a:ext')
+	setAttr(ext, 'cx', String(spec.width))
+	setAttr(ext, 'cy', String(spec.height))
+	const prstGeom = append(spPr, 'a:prstGeom')
+	setAttr(prstGeom, 'prst', 'rect')
+	append(prstGeom, 'a:avLst')
+
+	return pic
 }

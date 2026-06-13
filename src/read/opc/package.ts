@@ -7,8 +7,10 @@ import { partNameToZipPath, relsPartNameFor, zipPathToPartName } from './partnam
 export type OpcInput = string | number[] | Uint8Array | ArrayBuffer | Blob
 
 const CONTENT_TYPES_ZIP_PATH = '[Content_Types].xml'
+const RELATIONSHIPS_CONTENT_TYPE = 'application/vnd.openxmlformats-package.relationships+xml'
 
 const textDecoder = new TextDecoder('utf-8')
+const textEncoder = new TextEncoder()
 
 /**
  * An OPC package loaded from `.pptx` bytes.
@@ -20,16 +22,21 @@ const textDecoder = new TextDecoder('utf-8')
  */
 export class OpcPackage {
 	/** All parts, keyed by partname (e.g. `/ppt/slides/slide1.xml`), in original zip order. */
-	readonly parts: ReadonlyMap<string, Part>
-	/** Content-type resolution overlay (read-only in Phase 1). */
+	#parts: Map<string, Part>
+	/** Content-type resolution + registration overlay. */
 	readonly contentTypes: ContentTypes
 	#contentTypesBytes: Uint8Array
 	#relationshipsCache = new Map<string, Relationships>()
 
 	private constructor(parts: Map<string, Part>, contentTypes: ContentTypes, contentTypesBytes: Uint8Array) {
-		this.parts = parts
+		this.#parts = parts
 		this.contentTypes = contentTypes
 		this.#contentTypesBytes = contentTypesBytes
+	}
+
+	/** All parts, keyed by partname, in zip/add order. */
+	get parts(): ReadonlyMap<string, Part> {
+		return this.#parts
 	}
 
 	static async load(input: OpcInput): Promise<OpcPackage> {
@@ -76,15 +83,55 @@ export class OpcPackage {
 	}
 
 	/**
+	 * Add a new part and register its content type (`ensureRegistered`), so the
+	 * package stays consistent. Throws if the partname is already taken.
+	 */
+	addPart(partName: string, contentType: string, bytes: Uint8Array): Part {
+		if (this.#parts.has(partName)) throw new Error(`Cannot add part ${partName}: a part with that name already exists`)
+		this.contentTypes.ensureRegistered(partName, contentType)
+		const part = new Part(partName, contentType, bytes)
+		this.#parts.set(partName, part)
+		return part
+	}
+
+	/**
+	 * Reserve an unused media partname `/ppt/media/<base><n>.<ext>` (n one past
+	 * the highest existing index for that base). Does not create the part.
+	 */
+	reserveMediaPartName(extension: string, base = 'image'): string {
+		const ext = extension.toLowerCase().replace(/^\./, '')
+		const re = new RegExp(`^/ppt/media/${base}(\\d+)\\.${ext}$`, 'i')
+		let max = 0
+		for (const partName of this.#parts.keys()) {
+			const match = re.exec(partName)
+			if (match) max = Math.max(max, Number(match[1]))
+		}
+		return `/ppt/media/${base}${max + 1}.${ext}`
+	}
+
+	/**
 	 * Re-emit the package. Clean parts are written from their original bytes;
-	 * dirty parts from their DOM. Part order is preserved from load.
+	 * dirty parts from their DOM. Dirty relationship sets and content types are
+	 * flushed first. Part order is preserved from load; added parts append.
 	 */
 	async save(): Promise<Uint8Array> {
+		this.#flushRelationships()
 		const zip = new JSZip()
-		zip.file(CONTENT_TYPES_ZIP_PATH, this.#contentTypesBytes)
-		for (const part of this.parts.values()) {
+		zip.file(CONTENT_TYPES_ZIP_PATH, this.contentTypes.isDirty ? textEncoder.encode(this.contentTypes.serialize()) : this.#contentTypesBytes)
+		for (const part of this.#parts.values()) {
 			zip.file(partNameToZipPath(part.partName), part.serialize())
 		}
 		return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' })
+	}
+
+	/** Write each dirty `Relationships` set back into its `.rels` part (creating it if new). */
+	#flushRelationships(): void {
+		for (const relationships of this.#relationshipsCache.values()) {
+			if (!relationships.isDirty) continue
+			const relsPartName = relsPartNameFor(relationships.sourcePartName)
+			const bytes = textEncoder.encode(relationships.serialize())
+			// Overwriting an existing key preserves its position in the Map.
+			this.#parts.set(relsPartName, new Part(relsPartName, RELATIONSHIPS_CONTENT_TYPE, bytes))
+		}
 	}
 }
