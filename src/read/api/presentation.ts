@@ -6,10 +6,15 @@
 import { emuToInches } from '../../units.js'
 import { OpcPackage, type OpcInput } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
-import { attr, firstChild, getElements, intValue } from '../oxml/dom.js'
+import { relativePartName, relsPartNameFor } from '../opc/partnames.js'
+import { attr, createElement, firstChild, getElements, intValue, setAttr } from '../oxml/dom.js'
 import { Slide } from './slide.js'
 
 const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
+const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
+
+/** ST_SlideId minimum (ECMA-376): slide ids live in [256, 2147483647]. */
+const MIN_SLIDE_ID = 256
 
 /** Slide dimensions, in both EMU (the OOXML unit) and inches. */
 export interface SlideSize {
@@ -77,6 +82,72 @@ export class Presentation {
 		const heightEmu = intValue(attr(sldSz, 'cy'))
 		if (widthEmu === null || heightEmu === null) return null
 		return { widthEmu, heightEmu, widthIn: emuToInches(widthEmu), heightIn: emuToInches(heightEmu) }
+	}
+
+	/**
+	 * Duplicate the slide at `index` and append the copy at the end of the deck,
+	 * returning it. The new slide part copies the source bytes verbatim and
+	 * shares the source's relationship targets (layout, images, …) by copying its
+	 * `.rels`; a new presentation→slide relationship and a `p:sldId` entry are
+	 * wired up. Marks the presentation part dirty.
+	 *
+	 * Note: relationships are copied as-is, so a source slide that owns a
+	 * one-to-one part (e.g. a notes slide) would end up shared with the clone.
+	 */
+	cloneSlide(index: number): Slide {
+		const source = this.slides[index]
+		if (!source) throw new Error(`No slide at index ${index} to clone`)
+		const opc = this.opc
+		const sourcePart = source.part
+
+		// 1. Copy the slide part bytes verbatim into a fresh slide partname.
+		const newPartName = this.#reserveSlidePartName()
+		const newPart = opc.addPart(newPartName, sourcePart.contentType, sourcePart.bytes)
+
+		// 2. Copy the slide's relationships (targets resolve identically — same dir).
+		const sourceRels = opc.part(relsPartNameFor(sourcePart.partName))
+		if (sourceRels) opc.addPart(relsPartNameFor(newPartName), sourceRels.contentType, sourceRels.bytes)
+
+		// 3. Wire a presentation→slide relationship.
+		const presPart = this.presentationPart
+		const presRels = opc.relationshipsFor(presPart.partName)
+		const relId = presRels.add(SLIDE_REL, relativePartName(presPart.partName, newPartName)).id
+
+		// 4. Append a p:sldId entry referencing the new relationship.
+		const root = presPart.dom.documentElement
+		const sldIdLst = root && firstChild(root, 'p:sldIdLst')
+		if (!sldIdLst) throw new Error('presentation.xml has no p:sldIdLst to append a slide to')
+		const existing = getElements(sldIdLst, 'p:sldId')
+		const newIndex = existing.length
+		const newSlideId = this.#nextSlideId(existing)
+		const sldId = createElement(presPart.dom, 'p:sldId')
+		setAttr(sldId, 'id', String(newSlideId))
+		setAttr(sldId, 'r:id', relId)
+		sldIdLst.appendChild(sldId)
+		presPart.markDirty()
+
+		return new Slide(this, newPart, newSlideId, newIndex)
+	}
+
+	/** Reserve an unused `/ppt/slides/slide<n>.xml` partname (n one past the highest). */
+	#reserveSlidePartName(): string {
+		const re = /^\/ppt\/slides\/slide(\d+)\.xml$/
+		let max = 0
+		for (const partName of this.opc.parts.keys()) {
+			const match = re.exec(partName)
+			if (match) max = Math.max(max, Number(match[1]))
+		}
+		return `/ppt/slides/slide${max + 1}.xml`
+	}
+
+	/** A slide id one past the highest existing, but at least ST_SlideId's minimum. */
+	#nextSlideId(sldIds: ReturnType<typeof getElements>): number {
+		let max = MIN_SLIDE_ID - 1
+		for (const sldId of sldIds) {
+			const id = intValue(attr(sldId, 'id'))
+			if (id !== null && id > max) max = id
+		}
+		return max + 1
 	}
 
 	/** Re-emit the package; untouched parts stay byte-identical (see `OpcPackage.save`). */

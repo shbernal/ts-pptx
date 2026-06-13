@@ -245,6 +245,9 @@ class Presentation {
 	/** Slide dimensions, or null if none declared. */
 	readonly slideSize: SlideSize | null
 
+	/** Phase 4 — duplicate the slide at `index`, append the copy, and return it. */
+	cloneSlide(index: number): Slide
+
 	save(): Promise<Uint8Array>
 }
 ```
@@ -491,6 +494,25 @@ On save, the new media part is appended, the slide's `.rels` is rewritten with
 the added relationship, and `[Content_Types].xml` is regenerated only if the
 image's type was not already registered — every other part stays byte-identical.
 
+### Cloning a slide (Phase 4)
+
+Duplicate an existing slide and append the copy to the deck:
+
+```js
+const clone = presentation.cloneSlide(0) // returns the new (last) Slide
+clone.shapes.find((s) => s.hasTextFrame).textFrame.paragraphs[0].runs[0].text = 'Copy'
+```
+
+The clone gets its own slide part (a verbatim byte copy of the source) and its
+own `.rels`, so it shares the source's layout, theme, and images by reference
+while staying independent for edits. A presentation→slide relationship and a
+`p:sldId` (with a fresh slide id) are wired up; only `presentation.xml`, its
+`.rels`, and `[Content_Types].xml` change, plus the two new slide parts.
+
+Relationships are copied as-is. If the source slide owns a one-to-one part such
+as a notes slide, the copy would reference the same part; clone slides without
+per-slide notes, or detach them afterward via the low-level API.
+
 ### Editing anything else (low-level escape hatch)
 
 For structure the typed setters do not yet cover, mutate the DOM directly and
@@ -523,7 +545,9 @@ the structural-edit tests (`test/read/shapes-edit.test.js`: `addTextBox` /
 `delete` surviving a round-trip with untouched parts byte-identical), and the
 picture tests (`test/read/picture-edit.test.js`: `addPicture` creating a media
 part + content-type + relationship, format sniffing, and untouched parts staying
-byte-identical). Schema cases require the OOXML validator
+byte-identical), and the clone tests (`test/read/clone-slide.test.js`:
+`cloneSlide` appending an independent duplicate with correct presentation/rels
+wiring). Schema cases require the OOXML validator
 (`./tools/ooxml-validator/install.sh`) and are skipped with a notice when it
 is absent. See [testing](../testing.md).
 
