@@ -26,3 +26,4 @@ export {
 	type ShapeType,
 } from './read/api/shapes.js'
 export { TextFrame, Paragraph, Run } from './read/api/text.js'
+export { Table, TableRow, TableCell } from './read/api/table.js'

@@ -8,6 +8,7 @@
  * the slide part dirty.
  */
 import { ELEMENT_NODE, OOXML_NS, attr, firstChild, getOrAddChild, intValue, setAttr, type Element } from '../oxml/dom.js'
+import { Table } from './table.js'
 import { TextFrame } from './text.js'
 import type { Slide } from './slide.js'
 
@@ -274,9 +275,21 @@ export class GraphicFrame extends Shape {
 		return this.#graphicDataUri() === A_CHART_URI
 	}
 
-	#graphicDataUri(): string | null {
+	/** The hosted table, or `null` when this frame is not a table. */
+	get table(): Table | null {
+		if (!this.hasTable) return null
+		const graphicData = this.#graphicData()
+		const tbl = graphicData && firstChild(graphicData, 'a:tbl')
+		return tbl ? new Table(tbl, this.slide.part) : null
+	}
+
+	#graphicData(): Element | null {
 		const graphic = firstChild(this.element, 'a:graphic')
-		const graphicData = graphic && firstChild(graphic, 'a:graphicData')
+		return graphic ? firstChild(graphic, 'a:graphicData') : null
+	}
+
+	#graphicDataUri(): string | null {
+		const graphicData = this.#graphicData()
 		return graphicData ? attr(graphicData, 'uri') : null
 	}
 }

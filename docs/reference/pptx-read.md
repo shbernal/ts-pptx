@@ -291,6 +291,7 @@ class Picture extends Shape {
 class GraphicFrame extends Shape {
 	readonly hasTable: boolean
 	readonly hasChart: boolean
+	readonly table: Table | null // non-null when hasTable
 }
 
 class GroupShape extends Shape {
@@ -345,6 +346,54 @@ needed child, e.g. `a:latin`, `a:solidFill`) in document order:
   upper-case; malformed input throws); `schemeColor` accepts a theme token.
   A run carries at most one solid fill, so setting one **clears** the other;
   setting `color = null` removes the run's solid fill entirely.
+
+### `Table`, `TableRow`, `TableCell` (Phase 4)
+
+A `GraphicFrame` whose `hasTable` is true exposes its `a:tbl` as a `Table`:
+
+```ts
+class Table {
+	readonly rows: TableRow[]
+	readonly rowCount: number
+	readonly columnCount: number // a:tblGrid/a:gridCol count
+	readonly columnWidths: (number | null)[] // EMU, per grid column
+	readonly firstRowHeader: boolean // a:tblPr/@firstRow
+	readonly bandedRows: boolean // a:tblPr/@bandRow
+	cell(rowIndex: number, columnIndex: number): TableCell | null
+}
+
+class TableRow {
+	readonly cells: TableCell[]
+	readonly heightEmu: number | null // a:tr/@h
+}
+
+class TableCell {
+	text: string // settable convenience (see below)
+	readonly textFrame: TextFrame | null // a:txBody — full per-run editing
+	readonly gridSpan: number // a:tc/@gridSpan, default 1
+	readonly rowSpan: number // a:tc/@rowSpan, default 1
+	readonly isMergeContinuation: boolean // @hMerge / @vMerge set
+}
+```
+
+`columnIndex` counts `a:tc` elements in the row, so a cell that spans columns
+(`gridSpan > 1`) occupies one index; merged-away cells report
+`isMergeContinuation: true`.
+
+Two ways to edit cell text, both marking only the slide part dirty:
+
+```js
+const table = slide.shapes.find((s) => s.shapeType === 'graphicFrame' && s.table).table
+
+// Convenience: replace the whole cell with one run, keeping the first run's
+// character formatting (font, size, colour) when the cell already had a run.
+table.cell(0, 0).text = 'Total'
+
+// Precise: edit individual runs, exactly as on a shape's text frame.
+const run = table.cell(1, 1).textFrame.paragraphs[0].runs[0]
+run.text = '42'
+run.bold = true
+```
 
 ## Editing (typed API, Phase 3)
 
@@ -404,7 +453,9 @@ navigation, geometry, picture image resolution, table detection, run
 formatting), and the edit tests (`test/read/edit.test.js`: text/font/geometry
 setters survive a save → reopen round-trip, untouched parts stay
 byte-identical, edited packages stay schema-valid, and invalid input is
-rejected). Schema cases require the OOXML validator
+rejected), and the table tests (`test/read/table.test.js`: table/row/cell
+navigation, merge metadata, and cell-text edits surviving a round-trip).
+Schema cases require the OOXML validator
 (`./tools/ooxml-validator/install.sh`) and are skipped with a notice when it
 is absent. See [testing](../testing.md).
 
