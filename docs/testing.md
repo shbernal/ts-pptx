@@ -70,6 +70,25 @@ pnpm run test:schema
 Use this path for emitted OOXML changes. Add or update focused fixtures in
 `test/schema.test.js`.
 
+## Read/Round-Trip Suite (`pptxgenjs/read`)
+
+The lossless read/edit subsystem (`src/read/`) has its own harness:
+
+```bash
+pnpm run test:read
+```
+
+It runs `test/read/roundtrip.test.js` against real, PowerPoint-authored decks
+in `test/read/fixtures/` (provenance in that directory's README): part-set
+stability, per-part byte-identity for untouched parts, lazy-parse guarantees,
+save idempotence, content-type/relationship resolution, the dirty
+(mutate-and-reserialize) path, and schema validation of saved output. The
+schema cases require the OOXML validator above and are skipped with a notice
+when it is not installed.
+
+Changes under `src/read/` should run this suite; new read/edit capabilities
+should extend it (and grow the fixture set) alongside the code.
+
 ## Full Test Command
 
 The default test command builds first, then runs regression and schema

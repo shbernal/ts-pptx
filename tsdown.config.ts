@@ -22,6 +22,7 @@ export default defineConfig([
 			index: 'src/index.ts',
 			core: 'src/core.ts',
 			inspect: 'src/inspect.ts',
+			read: 'src/read.ts',
 			node: 'src/node.ts',
 			browser: 'src/browser.ts',
 		},
