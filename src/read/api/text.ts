@@ -11,7 +11,6 @@ import {
 	ELEMENT_NODE,
 	attr,
 	boolValue,
-	createElement,
 	firstChild,
 	getElements,
 	getOrAddChild,
@@ -21,6 +20,7 @@ import {
 	setAttr,
 	type Element,
 } from '../oxml/dom.js'
+import { normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
 
 // Schema successors used to keep `a:rPr` children in document order when a
 // setter has to create one (CT_TextCharacterProperties sequence).
@@ -42,14 +42,6 @@ const RPR_AFTER_FILL = [
 	'a:extLst',
 ]
 const RPR_AFTER_LATIN = ['a:ea', 'a:cs', 'a:sym', 'a:hlinkClick', 'a:hlinkMouseOver', 'a:rtl', 'a:extLst']
-const RPR_FILL_CHOICES = ['a:noFill', 'a:solidFill', 'a:gradFill', 'a:blipFill', 'a:pattFill', 'a:grpFill']
-
-/** Normalize a 6-hex RGB string (optional leading `#`) to upper-case, or throw. */
-function normalizeHex(value: string): string {
-	const hex = value.startsWith('#') ? value.slice(1) : value
-	if (!/^[0-9a-fA-F]{6}$/.test(hex)) throw new Error(`Expected a 6-digit hex RGB colour, got: ${JSON.stringify(value)}`)
-	return hex.toUpperCase()
-}
 
 /** One text run (`a:r`): a span of text with uniform character formatting. */
 export class Run {
@@ -141,8 +133,7 @@ export class Run {
 
 	/** Explicit RGB fill colour as a 6-hex string (`a:solidFill/a:srgbClr/@val`), or `null`. */
 	get color(): string | null {
-		const srgb = this.#solidFillChild('a:srgbClr')
-		return srgb ? attr(srgb, 'val') : null
+		return solidFillColor(this.#rPr(), 'a:srgbClr')
 	}
 
 	set color(value: string | null) {
@@ -151,8 +142,7 @@ export class Run {
 
 	/** Theme colour token when the fill is a scheme colour (`a:schemeClr/@val`, e.g. `accent2`), or `null`. */
 	get schemeColor(): string | null {
-		const scheme = this.#solidFillChild('a:schemeClr')
-		return scheme ? attr(scheme, 'val') : null
+		return solidFillColor(this.#rPr(), 'a:schemeClr')
 	}
 
 	set schemeColor(value: string | null) {
@@ -197,12 +187,6 @@ export class Run {
 		this.part.markDirty()
 	}
 
-	#solidFillChild(qname: string): Element | null {
-		const rPr = this.#rPr()
-		const fill = rPr && firstChild(rPr, 'a:solidFill')
-		return fill ? firstChild(fill, qname) : null
-	}
-
 	/** Replace the run's solid fill with a single colour element, or clear it when `null`. */
 	#setSolidFill(color: { qname: string; val: string } | null): void {
 		if (color === null) {
@@ -212,13 +196,7 @@ export class Run {
 			this.part.markDirty()
 			return
 		}
-		const rPr = this.#getOrAddRPr()
-		// A run carries at most one fill choice; drop any existing one first.
-		removeChildrenByQName(rPr, RPR_FILL_CHOICES)
-		const fill = getOrAddChild(rPr, 'a:solidFill', RPR_AFTER_FILL)
-		const clr = createElement(this.element.ownerDocument!, color.qname)
-		setAttr(clr, 'val', color.val)
-		fill.appendChild(clr)
+		setSolidFill(this.#getOrAddRPr(), RPR_AFTER_FILL, color)
 		this.part.markDirty()
 	}
 }

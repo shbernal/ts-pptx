@@ -7,7 +7,18 @@
  * pictures can resolve their image relationship and so future edits can mark
  * the slide part dirty.
  */
-import { ELEMENT_NODE, OOXML_NS, attr, firstChild, getOrAddChild, intValue, setAttr, type Element } from '../oxml/dom.js'
+import {
+	ELEMENT_NODE,
+	OOXML_NS,
+	attr,
+	firstChild,
+	getOrAddChild,
+	intValue,
+	removeChildrenByQName,
+	setAttr,
+	type Element,
+} from '../oxml/dom.js'
+import { FILL_CHOICES, normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
 import { Chart } from './chart.js'
 import { Table } from './table.js'
 import { TextFrame } from './text.js'
@@ -49,6 +60,27 @@ const GRPSPPR_AFTER_XFRM = [
 // spPr itself sits before p:style / p:txBody within p:sp (and before p:style
 // within p:pic / p:cxnSp); blipFill / nv*Pr precede it and are excluded.
 const SHAPE_AFTER_SPPR = ['p:style', 'p:txBody']
+
+// Successor arrays for inserting a fill / line *into* a properties element.
+// Distinct from the *_AFTER_XFRM arrays above, which sequence a:xfrm (the first
+// child): a:solidFill and a:ln sit mid-sequence, so their `before` lists must
+// contain only the children that legally follow them (CT_ShapeProperties /
+// CT_GroupShapeProperties / CT_LineProperties).
+const SPPR_FILL_AFTER = ['a:ln', 'a:effectLst', 'a:effectDag', 'a:scene3d', 'a:sp3d', 'a:extLst']
+const SPPR_LN_AFTER = ['a:effectLst', 'a:effectDag', 'a:scene3d', 'a:sp3d', 'a:extLst']
+const GRPSPPR_FILL_AFTER = ['a:effectLst', 'a:effectDag', 'a:scene3d', 'a:extLst']
+const LN_FILL_AFTER = ['a:prstDash', 'a:custDash', 'a:round', 'a:bevel', 'a:miter', 'a:headEnd', 'a:tailEnd', 'a:extLst']
+
+/**
+ * A shape's properties element (`p:spPr` / `p:grpSpPr`) paired with the schema
+ * successors for ordered insertion of its `a:solidFill` and `a:ln` children.
+ * `lnAfter` is `null` for kinds with no `a:ln` (group shapes).
+ */
+interface ShapeProperties {
+	props: Element
+	fillAfter: string[]
+	lnAfter: string[] | null
+}
 
 /** Discriminator for the concrete `Shape` subclass. */
 export type ShapeType = 'autoShape' | 'picture' | 'connector' | 'graphicFrame' | 'group'
@@ -160,6 +192,109 @@ export abstract class Shape {
 		this.markDirty()
 	}
 
+	/** The shape's properties element (`p:spPr` / `p:grpSpPr`), or `null` when absent. */
+	protected properties(): Element | null {
+		return firstChild(this.element, 'p:spPr')
+	}
+
+	/** Get-or-add the properties element in document order, with the successor
+	 *  arrays for inserting its fill / line children. Subclasses override this
+	 *  to point at `p:grpSpPr`, or to reject kinds with no properties element. */
+	protected getOrAddProperties(): ShapeProperties {
+		const props = getOrAddChild(this.element, 'p:spPr', SHAPE_AFTER_SPPR)
+		return { props, fillAfter: SPPR_FILL_AFTER, lnAfter: SPPR_LN_AFTER }
+	}
+
+	/** Whether a solid fill can be set on this shape kind. Pictures and graphic
+	 *  frames opt out (they carry their own image / table-cell fill model). */
+	protected get supportsFill(): boolean {
+		return true
+	}
+
+	/** Explicit RGB fill colour as a 6-hex string (`spPr/a:solidFill/a:srgbClr/@val`), or `null`. */
+	get fillColor(): string | null {
+		return solidFillColor(this.properties(), 'a:srgbClr')
+	}
+
+	set fillColor(value: string | null) {
+		this.#setFill(value === null ? null : { qname: 'a:srgbClr', val: normalizeHex(value) })
+	}
+
+	/** Theme colour token when the fill is a scheme colour (`a:solidFill/a:schemeClr/@val`, e.g. `accent2`), or `null`. */
+	get fillSchemeColor(): string | null {
+		return solidFillColor(this.properties(), 'a:schemeClr')
+	}
+
+	set fillSchemeColor(value: string | null) {
+		this.#setFill(value === null ? null : { qname: 'a:schemeClr', val: value })
+	}
+
+	/**
+	 * Set an explicit `<a:noFill/>` on the shape — a transparent surface. This is
+	 * distinct from clearing the fill (`fillColor = null`), which removes the
+	 * `a:solidFill` and lets the fill inherit from the shape's style/placeholder.
+	 */
+	noFill(): void {
+		if (!this.supportsFill) throw new Error(`${this.shapeType} shapes do not support a solid fill`)
+		const { props, fillAfter } = this.getOrAddProperties()
+		removeChildrenByQName(props, FILL_CHOICES)
+		getOrAddChild(props, 'a:noFill', fillAfter)
+		this.markDirty()
+	}
+
+	/** Explicit RGB line/border colour (`spPr/a:ln/a:solidFill/a:srgbClr/@val`), or `null`. */
+	get lineColor(): string | null {
+		return solidFillColor(this.#line(), 'a:srgbClr')
+	}
+
+	set lineColor(value: string | null) {
+		this.#setLine(value === null ? null : { qname: 'a:srgbClr', val: normalizeHex(value) })
+	}
+
+	/** Theme colour token when the line is a scheme colour (`a:ln/a:solidFill/a:schemeClr/@val`), or `null`. */
+	get lineSchemeColor(): string | null {
+		return solidFillColor(this.#line(), 'a:schemeClr')
+	}
+
+	set lineSchemeColor(value: string | null) {
+		this.#setLine(value === null ? null : { qname: 'a:schemeClr', val: value })
+	}
+
+	/** The line element (`spPr/a:ln`), or `null` when absent. */
+	#line(): Element | null {
+		const props = this.properties()
+		return props ? firstChild(props, 'a:ln') : null
+	}
+
+	#setFill(color: { qname: string; val: string } | null): void {
+		if (color === null) {
+			const props = this.properties()
+			if (!props || !firstChild(props, 'a:solidFill')) return
+			removeChildrenByQName(props, ['a:solidFill'])
+			this.markDirty()
+			return
+		}
+		if (!this.supportsFill) throw new Error(`${this.shapeType} shapes do not support a solid fill`)
+		const { props, fillAfter } = this.getOrAddProperties()
+		setSolidFill(props, fillAfter, color)
+		this.markDirty()
+	}
+
+	#setLine(color: { qname: string; val: string } | null): void {
+		if (color === null) {
+			const ln = this.#line()
+			if (!ln || !firstChild(ln, 'a:solidFill')) return
+			removeChildrenByQName(ln, ['a:solidFill'])
+			this.markDirty()
+			return
+		}
+		const { props, lnAfter } = this.getOrAddProperties()
+		if (lnAfter === null) throw new Error(`${this.shapeType} shapes do not support a line colour`)
+		const ln = getOrAddChild(props, 'a:ln', lnAfter)
+		setSolidFill(ln, LN_FILL_AFTER, color)
+		this.markDirty()
+	}
+
 	/** Whether this shape can hold text (only `p:sp` does in this read model). */
 	get hasTextFrame(): boolean {
 		return false
@@ -235,6 +370,14 @@ export class Picture extends Shape {
 		return getOrAddSpPrXfrm(this.element)
 	}
 
+	// A picture's image is its sibling `p:blipFill`, not a fill of `p:spPr`, so a
+	// solid `spPr` fill would not clobber the image. v1 still omits fill setters
+	// here — recolouring a picture surface is rarely what a caller means — and
+	// exposes only the border via `lineColor`. Reads of `fillColor` stay valid.
+	protected override get supportsFill(): boolean {
+		return false
+	}
+
 	/** Relationship id of the embedded image (`p:blipFill/a:blip/@r:embed`), or `null`. */
 	get imageRelId(): string | null {
 		const blipFill = firstChild(this.element, 'p:blipFill')
@@ -275,6 +418,12 @@ export class GraphicFrame extends Shape {
 	protected getOrAddXfrm(): Element {
 		// p:xfrm sits between p:nvGraphicFramePr and a:graphic.
 		return getOrAddChild(this.element, 'p:xfrm', ['a:graphic', 'p:extLst'])
+	}
+
+	// A graphicFrame has no p:spPr; its hosted table/chart carries its own fill
+	// model. There is nothing to get-or-add, so fill and line setters reject it.
+	protected override getOrAddProperties(): ShapeProperties {
+		throw new Error('graphicFrame shapes have no shape properties; fill and line colours are not supported')
 	}
 
 	/** Whether this frame hosts a table (`a:graphicData/@uri` is the table URI). */
@@ -328,8 +477,20 @@ export class GroupShape extends Shape {
 	}
 
 	protected getOrAddXfrm(): Element {
-		const grpSpPr = getOrAddChild(this.element, 'p:grpSpPr', ['p:sp', 'p:grpSp', 'p:pic', 'p:cxnSp', 'p:graphicFrame'])
-		return getOrAddChild(grpSpPr, 'a:xfrm', GRPSPPR_AFTER_XFRM)
+		return getOrAddChild(this.#getOrAddGrpSpPr(), 'a:xfrm', GRPSPPR_AFTER_XFRM)
+	}
+
+	protected override properties(): Element | null {
+		return firstChild(this.element, 'p:grpSpPr')
+	}
+
+	// A group's fill lives in p:grpSpPr, which has no a:ln (no line colour).
+	protected override getOrAddProperties(): ShapeProperties {
+		return { props: this.#getOrAddGrpSpPr(), fillAfter: GRPSPPR_FILL_AFTER, lnAfter: null }
+	}
+
+	#getOrAddGrpSpPr(): Element {
+		return getOrAddChild(this.element, 'p:grpSpPr', ['p:sp', 'p:grpSp', 'p:pic', 'p:cxnSp', 'p:graphicFrame'])
 	}
 
 	/** The shapes nested directly inside this group, in document order. */

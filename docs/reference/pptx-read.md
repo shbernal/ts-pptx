@@ -24,7 +24,8 @@ Status: **Phase 4 — rich content & structural edits**. On top of the Phase 1
 OPC layer (load, parts, content types, relationships, lossless save), the
 Phase 2 navigable read model (`Presentation → slides → shapes → text frame →
 paragraphs → runs`), and the Phase 3 edit slice (**run text and character
-formatting** and **shape position/size**), the model now also covers
+formatting**, **shape position/size**, and **shape fill/line colour**), the
+model now also covers
 **tables**, **charts** (read-only), **adding and removing shapes**, **adding
 pictures**, and **slide cloning**. Setting a property or calling a mutator
 mutates the live DOM in place and marks only the affected part(s) dirty, so
@@ -307,6 +308,11 @@ abstract class Shape {
 	top: number | null // EMU (a:off/@y) — settable
 	width: number | null // EMU (a:ext/@cx) — settable
 	height: number | null // EMU (a:ext/@cy) — settable
+	fillColor: string | null // spPr/a:solidFill/a:srgbClr/@val (6-hex) — settable
+	fillSchemeColor: string | null // spPr/a:solidFill/a:schemeClr/@val, e.g. 'accent2' — settable
+	lineColor: string | null // spPr/a:ln/a:solidFill/a:srgbClr/@val (6-hex) — settable
+	lineSchemeColor: string | null // spPr/a:ln/a:solidFill/a:schemeClr/@val — settable
+	noFill(): void // set an explicit <a:noFill/> (transparent surface)
 	readonly hasTextFrame: boolean
 	readonly textFrame: TextFrame | null
 	readonly text: string // textFrame?.text ?? ''
@@ -320,6 +326,8 @@ class AutoShape extends Shape {
 class Picture extends Shape {
 	readonly imageRelId: string | null // a:blip/@r:embed
 	readonly imagePartName: string | null // resolved via the slide's rels
+	// Fill setters throw (a picture's surface is out of scope for v1); lineColor
+	// (the picture's border) is available.
 }
 
 class GraphicFrame extends Shape {
@@ -327,15 +335,41 @@ class GraphicFrame extends Shape {
 	readonly hasChart: boolean
 	readonly table: Table | null // non-null when hasTable
 	readonly chart: Chart | null // non-null when hasChart (resolves the chart part)
+	// Fill and line setters throw: a graphicFrame has no p:spPr; its hosted
+	// table/chart carries its own fill model.
 }
 
 class GroupShape extends Shape {
 	readonly shapes: Shape[] // nested children
+	// Fill setters write p:grpSpPr/a:solidFill; line setters throw (a group's
+	// properties have no a:ln).
 }
 ```
 
 Only `AutoShape` (`p:sp`) reports `hasTextFrame: true` and a non-null
 `textFrame` in this read model.
+
+#### Fill and line colour
+
+`fillColor`/`fillSchemeColor` read and write the shape's solid fill
+(`spPr/a:solidFill`); `lineColor`/`lineSchemeColor` do the same for its outline
+(`spPr/a:ln/a:solidFill`). They mirror `Run.color`/`Run.schemeColor`:
+
+- The `*Color` accessors take a 6-hex RGB string (optional leading `#`,
+  normalized to upper-case; malformed input throws). The `*SchemeColor`
+  accessors take a theme token (`accent2`, `bg1`, …). At most one of the RGB /
+  scheme pair is non-null, so setting one **clears** the other.
+- Setting `fillColor = null` (or `lineColor = null`) removes the `a:solidFill`,
+  restoring inheritance from the shape's style/placeholder. This is **distinct**
+  from `noFill()`, which writes an explicit `<a:noFill/>` — a deliberately
+  transparent surface, not "inherit".
+- A setter creates the properties element (`p:spPr`/`p:grpSpPr`), the `a:ln`, and
+  the `a:solidFill` in OOXML document order if absent.
+- Per-kind support follows the OOXML model (see the class notes above):
+  `AutoShape` and `Connector` support both fill and line; `GroupShape` supports
+  fill only; `Picture` supports line only; `GraphicFrame` supports neither.
+  Setting an unsupported property throws. These are setters for the **token**;
+  resolving a scheme colour to RGB is the deck theme's job, not this API's.
 
 ### `TextFrame`, `Paragraph`, `Run`
 
@@ -481,6 +515,10 @@ shape.left = 914400 // 1"
 shape.top = 457200 // 0.5"
 shape.width = 8229600
 
+// Fill + line colour
+shape.fillColor = '1F4E79' // explicit RGB; clears any scheme fill on the shape
+shape.lineColor = 'D4D4D4' // shape outline
+
 // Text + character formatting
 const run = shape.textFrame.paragraphs[0].runs[0]
 run.text = 'New title'
@@ -493,8 +531,9 @@ await writeFile('deck-edited.pptx', await presentation.save())
 
 Each setter marks only the owning slide part dirty. The scope of the typed
 slice is the read-model properties above: run text, `fontSizePt`, `bold`,
-`italic`, `underline`, `fontName`, `color`, `schemeColor`, and shape
-`left`/`top`/`width`/`height`.
+`italic`, `underline`, `fontName`, `color`, `schemeColor`; shape
+`left`/`top`/`width`/`height`; and shape `fillColor`/`fillSchemeColor`/
+`lineColor`/`lineSchemeColor` plus `noFill()`.
 
 ### Adding and removing shapes (Phase 4)
 
@@ -611,6 +650,9 @@ rejected), and the table tests (`test/read/table.test.js`: table/row/cell
 navigation, merge metadata, and cell-text edits surviving a round-trip), and
 the structural-edit tests (`test/read/shapes-edit.test.js`: `addTextBox` /
 `delete` surviving a round-trip with untouched parts byte-identical), and the
+shape fill/line tests (`test/read/shape-fill-edit.test.js`: `fillColor` /
+`lineColor` / `noFill()` round-tripping, document-order insertion, per-kind
+support, and edited packages staying schema-valid), and the
 picture tests (`test/read/picture-edit.test.js`: `addPicture` creating a media
 part + content-type + relationship, format sniffing, and untouched parts staying
 byte-identical), and the clone tests (`test/read/clone-slide.test.js`:
