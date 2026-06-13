@@ -588,9 +588,18 @@ Schema cases require the OOXML validator
 (`./tools/ooxml-validator/install.sh`) and are skipped with a notice when it
 is absent. See [testing](../testing.md).
 
-Beyond the automated suite, `pnpm run test:read:emit` writes each fixture's
-`load() → save()` output to `.tmp/roundtrip/` so it can be opened in PowerPoint
-to confirm there is no repair prompt. As of 2026-06-13 this manual check has
-passed on **PowerPoint for the web** for all four fixtures; the stricter
-**desktop PowerPoint** check is still outstanding (tracked in
-`test/read/fixtures/README.md`).
+Beyond the automated suite, two scripts emit decks for a manual PowerPoint open
+(schema validity is necessary but does not prove PowerPoint won't show a repair
+prompt):
+
+- `pnpm run test:read:emit` writes each fixture's unmodified `load() → save()`
+  output to `.tmp/roundtrip/` — confirms the round-trip envelope opens clean.
+- `pnpm run test:read:emit:edits` writes one *edited* deck per editing
+  capability (added text box, added picture, deleted shape, cloned slide, edited
+  table cells) to `.tmp/read-edits/` — confirms the reserialized/added parts open
+  clean and render as intended. This is the check that matters for the editing
+  API, since desktop PowerPoint validates the reserialized XML more strictly than
+  the web.
+
+Both checklists (web + desktop, with current status) live in
+`test/read/fixtures/README.md`.

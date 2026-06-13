@@ -66,6 +66,7 @@
 		"test:schema": "pnpm run build && vitest run test/schema-validation.test.mjs",
 		"test:read": "pnpm run build && vitest run test/read",
 		"test:read:emit": "pnpm run build && node scripts/read-emit-roundtrip.mjs",
+		"test:read:emit:edits": "pnpm run build && node scripts/read-emit-edits.mjs",
 		"test:watch": "pnpm run build && vitest --watch test/regression",
 		"test:coverage": "pnpm run build && vitest run --coverage test/regression",
 		"test:package": "node scripts/package-smoke.mjs",

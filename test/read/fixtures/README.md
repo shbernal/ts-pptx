@@ -86,6 +86,47 @@ and the emitted XML actually differs:
 - [ ] `table.pptx` — desktop PowerPoint (Windows/Mac) not yet performed
 - [ ] `mixed.pptx` — desktop PowerPoint (Windows/Mac) not yet performed
 
+## Manual PowerPoint check — edited output
+
+The round-trip check above saves an unmodified `load() → save()`, so its part
+bodies are byte-identical and only the zip envelope changes. The editing API is
+different: it reserializes the parts it touches (and adds new ones), and that
+reserialized XML is exactly what desktop PowerPoint's stricter validation reacts
+to. Schema validation and the automated tests confirm the output is valid and
+reloads, but only a real PowerPoint open confirms there is no repair prompt and
+the edit renders as intended.
+
+Generate the edited decks with `pnpm run test:read:emit:edits` (writes
+`.tmp/read-edits/*.pptx`), then open each in PowerPoint. Each file is named for
+the edit it exercises; verify the described result and that no repair banner
+appears.
+
+| Output deck | Exercises | Verify in PowerPoint |
+|---|---|---|
+| `empty.added-textbox.pptx` | `Slide.addTextBox` | A text box reading "Added via addTextBox" is present. |
+| `empty.added-picture.pptx` | `Slide.addPicture` (+ new media part, content-type, image rel) | A raster image renders (not a missing-image placeholder). |
+| `textbox.deleted-shape.pptx` | `Shape.delete` | The "replaceText" shape is gone; the rest of the slide is intact. |
+| `textbox.cloned-slide.pptx` | `Presentation.cloneSlide` (+ edit on the clone) | A duplicate of slide 1 is appended last, reading "CLONED COPY". |
+| `table.edited-cells.pptx` | `TableCell.text` | The first table's top-left cells read "Edited A1" / "Edited B1". |
+
+Record the surface used and the result here.
+
+### Desktop PowerPoint (Windows/Mac) — the strict check
+
+- [ ] `empty.added-textbox.pptx` — not yet performed
+- [ ] `empty.added-picture.pptx` — not yet performed
+- [ ] `textbox.deleted-shape.pptx` — not yet performed
+- [ ] `textbox.cloned-slide.pptx` — not yet performed
+- [ ] `table.edited-cells.pptx` — not yet performed
+
+### PowerPoint for the web (lenient — opens-clean smoke check)
+
+- [ ] `empty.added-textbox.pptx` — not yet performed
+- [ ] `empty.added-picture.pptx` — not yet performed
+- [ ] `textbox.deleted-shape.pptx` — not yet performed
+- [ ] `textbox.cloned-slide.pptx` — not yet performed
+- [ ] `table.edited-cells.pptx` — not yet performed
+
 ## Replacing fixtures
 
 Locally-authored PowerPoint decks may replace these at any time without harness
