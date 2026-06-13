@@ -11,7 +11,8 @@ import { DOMParser, MIME_TYPE, XMLSerializer, onErrorStopParsing } from '@xmldom
 export type { Document, Element, Node } from '@xmldom/xmldom'
 import type { Document, Element, Node } from '@xmldom/xmldom'
 
-const ELEMENT_NODE = 1
+/** DOM `Node.ELEMENT_NODE` constant (xmldom does not expose it statically). */
+export const ELEMENT_NODE = 1
 
 /** Parse an XML string strictly: any well-formedness error throws. */
 export function parseXml(xml: string): Document {
@@ -84,6 +85,33 @@ export function firstChild(parent: Node, qname: string): Element | null {
 			if (element.localName === local && element.namespaceURI === uri) return element
 		}
 	}
+	return null
+}
+
+/**
+ * Read an attribute by qname. An unprefixed name (`sz`, `b`) reads the plain
+ * attribute; a prefixed name (`r:id`, `r:embed`) resolves the prefix to its
+ * namespace URI and reads via `getAttributeNS`, so it is robust to whatever
+ * prefix the document declared. Returns `null` when the attribute is absent.
+ */
+export function attr(element: Element, qname: string): string | null {
+	const colon = qname.indexOf(':')
+	if (colon < 0) return element.getAttribute(qname)
+	const { uri, local } = splitQName(qname)
+	return element.getAttributeNS(uri, local)
+}
+
+/** Parse an integer-valued OOXML attribute; `null`/empty/non-finite → `null`. */
+export function intValue(value: string | null): number | null {
+	if (value === null || value === '') return null
+	const number = Number(value)
+	return Number.isFinite(number) ? number : null
+}
+
+/** Parse an `xsd:boolean` OOXML attribute (`1`/`0`/`true`/`false`); else `null`. */
+export function boolValue(value: string | null): boolean | null {
+	if (value === '1' || value === 'true') return true
+	if (value === '0' || value === 'false') return false
 	return null
 }
 

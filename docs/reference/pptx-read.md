@@ -19,28 +19,49 @@ It is a separate subsystem from the generator (`pptxgenjs`) and the inspector
 (`pptxgenjs/inspect`): those are one-way and lossy, while `read` keeps the
 package's own XML as the source of truth.
 
-Status: **Phase 1 — OPC layer**. Load, inspect parts/content types/
-relationships, and save. Mutation happens directly on a part's DOM plus
-`markDirty()`; typed editing APIs (`Presentation`, `Slide`, `TextFrame`, …)
-come in later phases.
+Status: **Phase 2 — read object model**. On top of the Phase 1 OPC layer
+(load, parts, content types, relationships, lossless save) there is now a
+navigable, typed view of the deck: `Presentation → slides → shapes → text
+frame → paragraphs → runs`, read from the live DOM. Mutation still happens
+directly on a part's DOM plus `markDirty()`; typed *editing* APIs come in
+Phase 3.
 
 ## Quick start
 
+Read a deck through the typed object model:
+
 ```js
 import { readFile, writeFile } from 'node:fs/promises'
+import { Presentation } from '@shbernal/pptxgenjs/read'
+
+const presentation = await Presentation.load(await readFile('deck.pptx'))
+
+for (const slide of presentation.slides) {
+	for (const shape of slide.shapes) {
+		console.log(shape.shapeType, shape.name, shape.left, shape.top)
+		if (shape.hasTextFrame) console.log(shape.text)
+	}
+}
+
+// Save it back — untouched parts are byte-identical
+await writeFile('deck-roundtrip.pptx', await presentation.save())
+```
+
+Or work at the OPC layer directly:
+
+```js
 import { OpcPackage } from '@shbernal/pptxgenjs/read'
 
 const pkg = await OpcPackage.load(await readFile('deck.pptx'))
-
-// Inspect the package
 const slides = pkg.partsByContentType(
 	'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
 )
 console.log(slides.map((part) => part.partName)) // ['/ppt/slides/slide1.xml', ...]
-
-// Save it back — untouched parts are byte-identical
 await writeFile('deck-roundtrip.pptx', await pkg.save())
 ```
+
+`Presentation` wraps an `OpcPackage`; reach the lower layer any time via
+`presentation.opc`.
 
 The module is isomorphic: bytes in, bytes out, no `node:fs`. File I/O is the
 caller's job, so it works in browsers too.
@@ -169,6 +190,136 @@ function resolveRelativePartName(sourcePartName: string, target: string): string
 function relsPartNameFor(sourcePartName: string): string
 ```
 
+## Read object model (Phase 2)
+
+A navigable, typed view over the live DOM. Every proxy reads from its DOM
+element on each access (no caching) and wraps the very nodes a later phase will
+mutate. Geometry is reported in **EMU** (the OOXML unit; 914 400 per inch) and
+is `null` when a shape inherits its position from a placeholder.
+
+### `Presentation`
+
+```ts
+interface SlideSize {
+	widthEmu: number
+	heightEmu: number
+	widthIn: number
+	heightIn: number
+}
+
+class Presentation {
+	static load(input: OpcInput): Promise<Presentation>
+	static fromPackage(opc: OpcPackage): Presentation
+
+	/** The underlying OPC package. */
+	readonly opc: OpcPackage
+	/** The main presentation part, via the package officeDocument relationship. */
+	readonly presentationPart: Part
+	/** Slides in presentation order (p:sldIdLst). */
+	readonly slides: Slide[]
+	/** Slide dimensions, or null if none declared. */
+	readonly slideSize: SlideSize | null
+
+	save(): Promise<Uint8Array>
+}
+```
+
+### `Slide`
+
+```ts
+class Slide {
+	readonly presentation: Presentation
+	readonly part: Part
+	readonly slideId: number // from p:sldId/@id
+	readonly index: number // zero-based, in presentation order
+	readonly partName: string
+	readonly relationships: Relationships // this slide part's rels
+	readonly name: string | null // p:cSld/@name
+	readonly shapes: Shape[] // top-level shapes in the spTree
+}
+```
+
+### `Shape` and subclasses
+
+`slide.shapes` returns one proxy per shape-tree child, by element:
+
+| Element           | Class          | `shapeType`     |
+| ----------------- | -------------- | --------------- |
+| `p:sp`            | `AutoShape`    | `autoShape`     |
+| `p:pic`           | `Picture`      | `picture`       |
+| `p:cxnSp`         | `Connector`    | `connector`     |
+| `p:graphicFrame`  | `GraphicFrame` | `graphicFrame`  |
+| `p:grpSp`         | `GroupShape`   | `group`         |
+
+```ts
+abstract class Shape {
+	readonly shapeType: ShapeType
+	readonly slide: Slide
+	readonly id: number | null // p:cNvPr/@id
+	readonly name: string // p:cNvPr/@name ('' if unnamed)
+	readonly left: number | null // EMU (a:off/@x)
+	readonly top: number | null // EMU (a:off/@y)
+	readonly width: number | null // EMU (a:ext/@cx)
+	readonly height: number | null // EMU (a:ext/@cy)
+	readonly hasTextFrame: boolean
+	readonly textFrame: TextFrame | null
+	readonly text: string // textFrame?.text ?? ''
+	readonly element_: Element // escape hatch to the DOM node
+}
+
+class AutoShape extends Shape {
+	readonly presetGeometry: string | null // a:prstGeom/@prst, e.g. 'rect'
+}
+
+class Picture extends Shape {
+	readonly imageRelId: string | null // a:blip/@r:embed
+	readonly imagePartName: string | null // resolved via the slide's rels
+}
+
+class GraphicFrame extends Shape {
+	readonly hasTable: boolean
+	readonly hasChart: boolean
+}
+
+class GroupShape extends Shape {
+	readonly shapes: Shape[] // nested children
+}
+```
+
+Only `AutoShape` (`p:sp`) reports `hasTextFrame: true` and a non-null
+`textFrame` in this read model.
+
+### `TextFrame`, `Paragraph`, `Run`
+
+```ts
+class TextFrame {
+	readonly paragraphs: Paragraph[]
+	readonly text: string // paragraph texts joined by '\n'
+}
+
+class Paragraph {
+	readonly runs: Run[] // a:r elements only
+	readonly level: number // a:pPr/@lvl, 0 if unset
+	readonly text: string // runs + fields, with a:br as '\n'
+}
+
+class Run {
+	readonly text: string // a:t, verbatim
+	readonly fontSizePt: number | null // a:rPr/@sz / 100
+	readonly bold: boolean | null // null when unset (inherited)
+	readonly italic: boolean | null // null when unset (inherited)
+	readonly underline: string | null // a:rPr/@u token, e.g. 'sng'
+	readonly fontName: string | null // a:latin/@typeface
+	readonly color: string | null // a:srgbClr/@val (6-hex)
+	readonly schemeColor: string | null // a:schemeClr/@val, e.g. 'accent2'
+}
+```
+
+Boolean run properties are `null` when the attribute is absent — the value is
+inherited from the list/placeholder style, not `false`. Explicit RGB colour and
+theme colour are reported separately (`color` vs `schemeColor`); at most one is
+non-null for a given run.
+
 ## Editing today (low-level)
 
 Until the typed API lands, edits work directly on the DOM:
@@ -186,9 +337,12 @@ Only the touched part is reserialized; everything else stays byte-identical.
 
 ## Testing
 
-`pnpm run test:read` runs the round-trip harness (part-set stability,
-byte-identity, laziness, idempotence, content-type/relationship resolution,
-dirty-path, schema validation). Schema cases require the OOXML validator
+`pnpm run test:read` runs the round-trip harness
+(`test/read/roundtrip.test.js`: part-set stability, byte-identity, laziness,
+idempotence, content-type/relationship resolution, dirty-path, schema
+validation) and the read-model tests (`test/read/model.test.js`: slide/shape
+navigation, geometry, picture image resolution, table detection, run
+formatting). Schema cases require the OOXML validator
 (`./tools/ooxml-validator/install.sh`) and are skipped with a notice when it
 is absent. See [testing](../testing.md).
 

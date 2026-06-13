@@ -5,8 +5,24 @@
  * This subsystem is isomorphic: bytes in, bytes out, no `node:fs`. File I/O
  * is the caller's job.
  */
+
+// OPC layer (Phase 1) — low-level package, parts, content types, relationships.
 export { OpcPackage, type OpcInput } from './read/opc/package.js'
 export { Part } from './read/opc/part.js'
 export { ContentTypes } from './read/opc/content-types.js'
 export { Relationships, type Relationship } from './read/opc/relationships.js'
 export { resolveRelativePartName, relsPartNameFor } from './read/opc/partnames.js'
+
+// Read object model (Phase 2) — navigable presentation → slides → shapes → text.
+export { Presentation, type SlideSize } from './read/api/presentation.js'
+export { Slide } from './read/api/slide.js'
+export {
+	Shape,
+	AutoShape,
+	Picture,
+	Connector,
+	GraphicFrame,
+	GroupShape,
+	type ShapeType,
+} from './read/api/shapes.js'
+export { TextFrame, Paragraph, Run } from './read/api/text.js'
