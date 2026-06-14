@@ -50,6 +50,11 @@ export class OpcPackage {
 		for (const entry of Object.values(zip.files)) {
 			if (entry.dir || entry.name === CONTENT_TYPES_ZIP_PATH) continue
 			const partName = zipPathToPartName(entry.name)
+			// PowerPoint leaves deleted parts in a `[trash]` folder that is not
+			// registered in [Content_Types].xml and is referenced by nothing. These
+			// are inert artifacts (common in real-world authored decks); drop them on
+			// load rather than failing, so the package model holds only live parts.
+			if (partName.startsWith('/[trash]/')) continue
 			const contentType = contentTypes.contentTypeFor(partName)
 			if (!contentType) {
 				throw new Error(`No content type for part ${partName}: [Content_Types].xml has no matching Override or Default`)

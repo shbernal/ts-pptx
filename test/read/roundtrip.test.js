@@ -246,4 +246,24 @@ describe('partname and overlay units', () => {
 		}
 		assert(message.includes('/ppt/media/orphan.zzz'), `load should name the offending part; got: ${message}`)
 	})
+
+	test('load drops PowerPoint [trash] parts instead of failing on their missing content type', async () => {
+		const zip = await JSZip.loadAsync(await loadFixture('empty'))
+		// PowerPoint parks deleted parts under /[trash]/ without registering them
+		// in [Content_Types].xml. Such a part has no resolvable content type, so it
+		// would trip the rejection above if it were not skipped on load.
+		zip.file('[trash]/3681', 'inert deleted-part bytes')
+		zip.file('[trash]/ppt/slides/slide99.xml', '<p:sld/>')
+		const withTrash = await zip.generateAsync({ type: 'uint8array' })
+
+		const pkg = await OpcPackage.load(withTrash)
+		assertEqual(pkg.part('/[trash]/3681'), undefined, 'top-level trash part is not loaded')
+		assertEqual(pkg.part('/[trash]/ppt/slides/slide99.xml'), undefined, 'nested trash part is not loaded')
+		assert(
+			[...pkg.parts.keys()].every((name) => !name.startsWith('/[trash]/')),
+			`no [trash] parts survive load; got: ${[...pkg.parts.keys()].join(', ')}`
+		)
+		// Live parts are unaffected: the presentation part still loads.
+		assert(pkg.part('/ppt/presentation.xml'), 'live presentation part still loaded alongside trash')
+	})
 })
