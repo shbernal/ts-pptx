@@ -3720,10 +3720,20 @@ items:
       guides (1000ths-of-a-percent; verified against PowerPoint-authored decks in
       pptx-bank/ and docs/preset-shape-adj-guides.tsv). Validation fails loud on
       non-finite adj / bends∉{1,2,3} / adj-length≠bends and warns on out-of-range.
-      Schema-validated. Scoped OUT (Phase 2/3): anchoring endpoints to shape
-      connection sites (<a:stCxn>/<a:endCxn>) — tracked as the remaining follow-up
-      on upstream-issue-399 (now deferred) — and connector labels (<p:txBody>).
-      Companion upstream-pr-777 marked implemented.
+      Schema-validated. ELBOW_CONNECTOR_PLAN Phase 2 added SHAPE BINDING: new
+      `startShape`/`endShape` (target shape objectName on the same slide) +
+      `startShapeIdx`/`endShapeIdx` emit <a:stCxn id idx>/<a:endCxn id idx> in
+      <p:cNvCxnSpPr> (schema child order cxnSpLocks,stCxn,endCxn,extLst confirmed
+      via ooxml MCP). The id is resolved at serialize time as the target's
+      slide-object index + 2 (matching the cNvPr id assignment); an unresolved name
+      warns and falls back to the static endpoint coordinates rather than emitting
+      a dangling id. This closes the remaining follow-up on upstream-issue-399.
+      Phase 3 (connector text label) was investigated and is INFEASIBLE as a
+      <p:txBody> on the connector: CT_Connector's children are only
+      nvCxnSpPr/spPr/style/extLst (no txBody, confirmed via ooxml MCP and zero
+      occurrences across pptx-bank/ authored decks), so a connector cannot carry
+      text in OOXML — the established pattern is a separate text box, owned by the
+      consumer. Companion upstream-pr-777 marked implemented.
     evidence:
       kinds:
         - local-source-inspection
@@ -8835,8 +8845,8 @@ items:
     source: "gitbrent/PptxGenJS#399"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-11
-    status: deferred
+    last_reviewed: 2026-06-15
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -8844,23 +8854,33 @@ items:
     non_target_reasons: []
     upstream_summary: Requested anchor connections for shapes and lines.
     current_project_notes: >
-      Partially addressed by the connector primitive in upstream-pr-1059
-      (slide.addConnector emits <p:cxnSp> between two points). The remaining ask —
-      anchoring connector endpoints to a shape's connection sites via
-      <a:stCxn>/<a:endCxn> (so PowerPoint reroutes them when shapes move) — was
-      deliberately scoped out of the first pass; it needs stable per-shape ids and
-      connection-site indices. Deferred until a concrete need lands.
+      Fully addressed. The connector primitive (upstream-pr-1059) drew <p:cxnSp>
+      between two points; ELBOW_CONNECTOR_PLAN Phase 2 then added the remaining ask
+      — anchoring connector endpoints to a shape's connection sites. addConnector
+      now accepts startShape/endShape (target shape objectName on the same slide) +
+      startShapeIdx/endShapeIdx and emits <a:stCxn id idx>/<a:endCxn id idx> in
+      <p:cNvCxnSpPr>, so PowerPoint reroutes the connector when the shape moves. The
+      target id is resolved at serialize time as the shape's slide-object index + 2
+      (matching the cNvPr id assignment); an unresolved name warns and falls back to
+      the static endpoint coordinates. Schema-validated. See upstream-pr-1059 for
+      the full connector notes.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/gen-objects.ts:840
-        - src/gen-xml.ts:790
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts:405
+        - src/gen-objects.ts:848
+        - src/gen-xml.ts:792
+        - test/regression/connector-shape.test.js
+        - test/schema.test.js
+      schema_fixture: connectors
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: revisit-connector-shape-anchoring-on-concrete-need
+    next_action: none
 
   - id: upstream-issue-307
     source: "gitbrent/PptxGenJS#307"

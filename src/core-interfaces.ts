@@ -429,6 +429,27 @@ export interface ConnectorProps {
 	 * Emitted as `<a:gd name="adj1…" fmla="val …"/>` adjust guides (OOXML 1000ths-of-a-percent).
 	 */
 	adj?: number | number[]
+	/**
+	 * Bind the connector's start point to a shape on the **same slide**, referenced by that
+	 * shape's `objectName`. Emits `<a:stCxn id=… idx=…>`, so PowerPoint treats the endpoint as
+	 * attached: it reroutes when the shape moves and its elbow auto-router can engage.
+	 * The shape's `objectName` must be set and unique on the slide. `x1`/`y1` remain the static
+	 * fallback geometry (and are used if the name can't be resolved).
+	 */
+	startShape?: string
+	/**
+	 * Connection-site index on `startShape` (0-based; the valid range is preset-dependent — a
+	 * shape's `<a:cxnLst>` enumerates its sites). Ignored without `startShape`.
+	 * @default 0
+	 */
+	startShapeIdx?: number
+	/** Bind the connector's end point to a shape on the same slide (by `objectName`). Emits `<a:endCxn>`. See {@link startShape}. */
+	endShape?: string
+	/**
+	 * Connection-site index on `endShape`. Ignored without `endShape`.
+	 * @default 0
+	 */
+	endShapeIdx?: number
 	/** Start point X — inches, or a `Coord` such as `'50%'` / `'2in'` */
 	x1: Coord
 	/** Start point Y */
@@ -2582,6 +2603,10 @@ export interface ObjectOptions extends ImageBaseProps, PositionProps, ShapeProps
 	_placeholderType?: PLACEHOLDER_TYPE
 	/** Connector adjust-guide values (OOXML 1000ths-of-a-percent), one per bend; emitted as `<a:gd name="adjN">` */
 	_connectorAdj?: number[]
+	/** Connector start-point binding: target shape `objectName` + connection-site index; resolved to `<a:stCxn>` at serialize time */
+	_startCxn?: { name: string, idx: number }
+	/** Connector end-point binding: target shape `objectName` + connection-site index; resolved to `<a:endCxn>` at serialize time */
+	_endCxn?: { name: string, idx: number }
 
 	cx?: Coord
 	cy?: Coord

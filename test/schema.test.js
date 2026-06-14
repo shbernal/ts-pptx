@@ -1669,6 +1669,20 @@ export default [
 				s.addConnector({ type: 'elbow', x1: 7, y1: 1, x2: 9, y2: 3, adj: 25 })
 				s.addConnector({ type: 'elbow', x1: 6, y1: 5, x2: 9, y2: 6, bends: 2, adj: [30, 70] })
 				s.addConnector({ type: 'curved', x1: 7, y1: 4, x2: 9, y2: 5, bends: 3, adj: [10, 50, 90] })
+				// Shape binding: <a:stCxn>/<a:endCxn> in <p:cNvCxnSpPr> must stay schema-valid.
+				s.addShape('rect', { x: 0.5, y: 6.5, w: 1, h: 0.5, objectName: 'cxnBoxA' })
+				s.addShape('rect', { x: 4, y: 6.5, w: 1, h: 0.5, objectName: 'cxnBoxB' })
+				s.addConnector({
+					type: 'elbow',
+					x1: 1.5,
+					y1: 6.75,
+					x2: 4,
+					y2: 6.75,
+					startShape: 'cxnBoxA',
+					startShapeIdx: 3,
+					endShape: 'cxnBoxB',
+					endShapeIdx: 1,
+				})
 			})
 			await expectNoSchemaErrors(buf, 'connectors')
 		},

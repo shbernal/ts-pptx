@@ -795,7 +795,23 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				// above; the preset (straightConnector1 / bentConnector3 / curvedConnector3) is on `shape`.
 				strSlideXml += '<p:cxnSp><p:nvCxnSpPr>'
 				strSlideXml += `<p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"/>`
-				strSlideXml += '<p:cNvCxnSpPr/><p:nvPr/></p:nvCxnSpPr><p:spPr>'
+				{
+					// Shape binding: resolve each bound target's objectName to its cNvPr id (= slide-object
+					// index + 2) and emit <a:stCxn>/<a:endCxn> in schema order. An unresolved name falls
+					// back to the static endpoint geometry (warn, don't corrupt) rather than a dangling id.
+					const cxnTag = (binding: { name: string, idx: number } | undefined, tag: 'a:stCxn' | 'a:endCxn'): string => {
+						if (!binding) return ''
+						const i = slide._slideObjects.findIndex(o => o.options?.objectName === binding.name)
+						if (i < 0) {
+							console.warn(`Warning: addConnector could not bind to shape "${binding.name}" (no shape with that objectName on the slide); using endpoint coordinates instead.`)
+							return ''
+						}
+						return `<${tag} id="${i + 2}" idx="${binding.idx}"/>`
+					}
+					const cxnSpPr = cxnTag(slideItemObj.options._startCxn, 'a:stCxn') + cxnTag(slideItemObj.options._endCxn, 'a:endCxn')
+					strSlideXml += cxnSpPr ? `<p:cNvCxnSpPr>${cxnSpPr}</p:cNvCxnSpPr>` : '<p:cNvCxnSpPr/>'
+				}
+				strSlideXml += '<p:nvPr/></p:nvCxnSpPr><p:spPr>'
 				strSlideXml += `<a:xfrm${locationAttr}><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>`
 				{
 					// Bent/curved connectors carry adjustable jogs as `<a:gd name="adjN" fmla="val …"/>`

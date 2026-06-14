@@ -115,6 +115,73 @@ defineRegressionSuite('Connector shapes (upstream #1059)', [
 		},
 	},
 	{
+		name: 'startShape/endShape bind to shapes via <a:stCxn>/<a:endCxn> using their cNvPr ids',
+		fn: async () => {
+			const xml = await slideXml((p) => {
+				const s = p.addSlide()
+				s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, objectName: 'boxA' }) // slide obj 0 → id 2
+				s.addShape('rect', { x: 6, y: 4, w: 2, h: 1, objectName: 'boxB' }) // slide obj 1 → id 3
+				s.addConnector({
+					type: 'elbow',
+					x1: 3,
+					y1: 1.5,
+					x2: 6,
+					y2: 4.5,
+					startShape: 'boxA',
+					startShapeIdx: 3,
+					endShape: 'boxB',
+					endShapeIdx: 1,
+				})
+			})
+			const cxn = (xml.match(/<p:cxnSp>[\s\S]*?<\/p:cxnSp>/g) || [])[0]
+			// stCxn must come before endCxn (schema order); ids are target index + 2.
+			assert(
+				cxn.includes('<p:cNvCxnSpPr><a:stCxn id="2" idx="3"/><a:endCxn id="3" idx="1"/></p:cNvCxnSpPr>'),
+				`expected stCxn/endCxn binding; got: ${cxn}`
+			)
+		},
+	},
+	{
+		name: 'unresolved binding name warns and falls back to empty <p:cNvCxnSpPr/>',
+		fn: async () => {
+			const warnings = []
+			const orig = console.warn
+			console.warn = (m) => warnings.push(m)
+			let xml
+			try {
+				xml = await slideXml((p) => {
+					p.addSlide().addConnector({ type: 'straight', x1: 1, y1: 6, x2: 4, y2: 6, endShape: 'ghost' })
+				})
+			} finally {
+				console.warn = orig
+			}
+			const cxn = (xml.match(/<p:cxnSp>[\s\S]*?<\/p:cxnSp>/g) || [])[0]
+			assert(cxn.includes('<p:cNvCxnSpPr/>'), 'unresolved binding must emit an empty cNvCxnSpPr (no dangling id)')
+			assert(!cxn.includes('Cxn id='), 'unresolved binding must not emit stCxn/endCxn')
+			assert(
+				warnings.some((m) => /could not bind to shape "ghost"/.test(m)),
+				'expected an unresolved-binding warning'
+			)
+		},
+	},
+	{
+		name: 'negative connection-site index throws',
+		fn: async () => {
+			let threw = false
+			try {
+				await build((p) => {
+					const s = p.addSlide()
+					s.addShape('rect', { x: 1, y: 1, w: 1, h: 1, objectName: 'b' })
+					s.addConnector({ x1: 1, y1: 1, x2: 2, y2: 2, startShape: 'b', startShapeIdx: -1 })
+				})
+			} catch (ex) {
+				threw = true
+				assert(/startShapeIdx.*non-negative integer/.test(ex.message), `expected an idx error; got: ${ex.message}`)
+			}
+			assert(threw, 'negative startShapeIdx must throw')
+		},
+	},
+	{
 		name: 'missing endpoints throw',
 		fn: async () => {
 			let threw = false

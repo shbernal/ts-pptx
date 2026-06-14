@@ -887,6 +887,24 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 	}
 	const preset = connectorPresetFor(type, bends)
 
+	// Optional shape binding (<a:stCxn>/<a:endCxn>). The target id is resolved at serialize time
+	// (it equals the shape's slide-object index + 2); here we just capture the name + site index.
+	// The site index must be a non-negative integer — a bad idx makes PowerPoint repair the connector.
+	const resolveCxn = (shapeName: string | undefined, idx: number | undefined, end: 'startShape' | 'endShape'): { name: string, idx: number } | undefined => {
+		if (shapeName === undefined) return undefined
+		if (typeof shapeName !== 'string' || shapeName.trim().length === 0) {
+			throw new Error(`addConnector \`${end}\` must be a non-empty shape objectName.`)
+		}
+		const site = idx ?? 0
+		if (!Number.isInteger(site) || site < 0) {
+			throw new Error(`addConnector \`${end}Idx\` must be a non-negative integer (got ${String(site)}).`)
+		}
+		// Match the shape's stored objectName, which is XML-entity-encoded at add time.
+		return { name: encodeXmlEntities(shapeName), idx: site }
+	}
+	const startCxn = resolveCxn(opts.startShape, opts.startShapeIdx, 'startShape')
+	const endCxn = resolveCxn(opts.endShape, opts.endShapeIdx, 'endShape')
+
 	// Resolve all four endpoints to inches up front (handles every `Coord` form: number,
 	// '50%', '2in', etc.). The connector box uses the min corner as its origin and flips
 	// horizontally/vertically when the end point is left of / above the start point.
@@ -907,6 +925,8 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 			flipH: x2 < x1,
 			flipV: y2 < y1,
 			_connectorAdj: connectorAdj.length ? connectorAdj : undefined,
+			_startCxn: startCxn,
+			_endCxn: endCxn,
 			line: {
 				type: 'solid',
 				color: opts.color || DEF_SHAPE_LINE_COLOR,
