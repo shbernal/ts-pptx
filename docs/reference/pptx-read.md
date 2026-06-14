@@ -254,12 +254,18 @@ class Presentation {
 
 	/**
 	 * Phase 4 — append a copy of `source.slides[index]` (from a *different* open
-	 * package), bringing its layout → master → theme and any media/chart/embedding
-	 * parts, and return it. Source and target slide sizes must match.
+	 * package) and return it. With `theme: 'copy'` (default) it brings the slide's
+	 * layout → master → theme and any media/chart/embedding parts; with
+	 * `theme: 'preserve'` it bakes the source theme into the slide and binds it to
+	 * this deck's existing master. Source and target slide sizes must match.
 	 */
-	importSlide(source: Presentation, index: number): Slide
+	importSlide(source: Presentation, index: number, options?: ImportSlideOptions): Slide
 
 	save(): Promise<Uint8Array>
+}
+
+interface ImportSlideOptions {
+	theme?: 'copy' | 'preserve' // default 'copy'
 }
 ```
 
@@ -680,6 +686,41 @@ Source and target slide sizes must match (`importSlide` throws otherwise; v1 doe
 no geometry rescaling). Source notes are dropped, and fonts embedded via
 `presentation.xml` are not carried across.
 
+#### Themes: `copy` (default) vs `preserve`
+
+Each imported slide is structurally bound to its own `slideLayout → slideMaster →
+theme`. The default `theme: 'copy'` brings that whole subgraph across, so a deck
+stitched from N source decks carries **N themes / N masters**. That renders
+faithfully in PowerPoint, but it is untidy for handoff and trips renderers
+(notably LibreOffice) that resolve a slide's per-element `schemeClr` / style-matrix
+references against the *wrong* (first) theme — branded backgrounds turn white and
+scheme-coloured fills turn black, while literal `srgbClr` content is unaffected.
+
+`theme: 'preserve'` fixes both by **flattening then attaching**:
+
+```js
+const imported = target.importSlide(source, 0, { theme: 'preserve' })
+```
+
+- **Flatten** — bake what the *source* theme would have produced into the slide
+  XML: every `a:schemeClr` is resolved through the source `clrMap`/`clrScheme` to a
+  literal `a:srgbClr` (colour transforms like `lumMod`/`shade` carried through
+  unchanged, so tints render identically); each shape's `p:style`
+  `lnRef`/`fillRef`/`effectRef` is resolved from the theme `fmtScheme` into an
+  explicit `spPr` fill/line/effect and neutralized; and the slide's *effective
+  background* (its own `p:bg`, else the one it inherited from the source
+  layout/master, including a theme-indexed `p:bgRef`) is resolved to a literal
+  `p:bgPr` and written onto the slide so it survives rebinding.
+- **Attach** — bind the now theme-independent slide to *this* deck's existing
+  master/layout instead of importing the source theme. The result is a
+  single-theme file whose imported slides keep their original colours.
+
+Because the colours are frozen to literals, `preserve` does not re-colour to the
+destination brand — its thesis is "same pixels, one theme". The `fontRef` is
+deliberately left intact so fonts re-bind to the destination theme (a font
+normalization bonus on attach). Deliberate re-branding (a `restyle` mode) is not
+yet implemented.
+
 ### Editing anything else (low-level escape hatch)
 
 For structure the typed setters do not yet cover, mutate the DOM directly and
@@ -721,7 +762,11 @@ leaving the old part and any sibling sharing it untouched), and the clone tests 
 wiring), and the import tests (`test/read/import-slide.test.js`: `importSlide`
 copying a slide's layout/master/theme/media sub-graph across a package boundary,
 deduping a shared master and pruning its layout list, dropping notes, rejecting a
-size mismatch, and staying schema-valid), and the chart tests
+size mismatch, and staying schema-valid), and the theme-preserve import tests
+(`test/read/import-slide-preserve.test.js`: `importSlide({ theme: 'preserve' })`
+flattening scheme colours and `p:style` refs to literals, carrying the
+slide's effective background, attaching to the destination master without a new
+theme, and staying schema-valid), and the chart tests
 (`test/read/chart.test.js`: chart part resolution, type/title/series/values
 reads, and a read-only open staying byte-identical).
 Schema cases require the OOXML validator

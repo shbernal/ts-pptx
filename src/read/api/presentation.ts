@@ -8,12 +8,14 @@ import { OpcPackage, type OpcInput } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
 import { relativePartName, relsPartNameFor } from '../opc/partnames.js'
 import { attr, createElement, firstChild, getElements, getOrAddChild, intValue, removeChildrenByQName, setAttr, type Element } from '../oxml/dom.js'
+import { flattenSlide, parseClrMap, parseClrScheme, type FlattenContext } from '../oxml/theme.js'
 import { Slide } from './slide.js'
 
 const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
 const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
 const SLIDE_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster'
+const THEME_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme'
 const NOTES_SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
 
 const SLIDE_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
@@ -31,6 +33,24 @@ export interface SlideSize {
 	heightEmu: number
 	widthIn: number
 	heightIn: number
+}
+
+/** Options for {@link Presentation.importSlide}. */
+export interface ImportSlideOptions {
+	/**
+	 * How the imported slide relates to themes.
+	 *
+	 * - `'copy'` (default): bring the slide's own `slideLayout → slideMaster →
+	 *   theme` subgraph across, so the slide renders byte-for-byte as authored.
+	 *   A deck stitched from N sources then carries N themes/masters.
+	 * - `'preserve'`: *flatten then attach* — bake the source theme's colours and
+	 *   style-matrix fills into the slide XML (so its pixels do not change), then
+	 *   bind it to this deck's existing master/layout instead of importing the
+	 *   source theme. The result is a single-theme file whose imported slides are
+	 *   theme-independent: it fixes renderers that mis-resolve per-slide scheme
+	 *   colours against the wrong (first) theme, and tidies the deck for handoff.
+	 */
+	theme?: 'copy' | 'preserve'
 }
 
 export class Presentation {
@@ -144,11 +164,15 @@ export class Presentation {
 	 * PowerPoint's "Reuse Slides" brings a slide across. Parts shared by repeated
 	 * imports from the same source deck are copied once and reused.
 	 *
+	 * With `{ theme: 'preserve' }` the slide's source theme is instead *flattened*
+	 * into the slide XML and the slide is bound to this deck's existing
+	 * master/layout — see {@link ImportSlideOptions}.
+	 *
 	 * v1 limitations: the source slide size must equal this presentation's (no
 	 * geometry rescaling); source notes are dropped; fonts embedded via
 	 * `presentation.xml` are not copied.
 	 */
-	importSlide(source: Presentation, index: number): Slide {
+	importSlide(source: Presentation, index: number, options: ImportSlideOptions = {}): Slide {
 		const sourceSlide = source.slides[index]
 		if (!sourceSlide) throw new Error(`No slide at index ${index} to import`)
 
@@ -160,13 +184,126 @@ export class Presentation {
 			throw new Error(`importSlide requires equal slide sizes; target is ${fmt(target)}, source is ${fmt(incoming)}`)
 		}
 
-		// 2. Recursively copy the slide and the sub-graph it depends on.
-		const newPartName = this.#copyPart(source.opc, sourceSlide.partName)
+		// 2. Copy the slide and its dependencies. 'preserve' flattens the theme into
+		//    the slide and attaches it to this deck's master; 'copy' brings the
+		//    source theme subgraph across wholesale.
+		const newPartName = options.theme === 'preserve' ? this.#importSlidePreserve(source, sourceSlide) : this.#copyPart(source.opc, sourceSlide.partName)
 		const newPart = this.opc.part(newPartName)
 		if (!newPart) throw new Error(`Imported slide part went missing: ${newPartName}`)
 
 		// 3. Wire the new slide into the presentation (rel + p:sldId entry).
 		return this.#appendSlidePart(newPart)
+	}
+
+	/**
+	 * Import a slide in `preserve` mode: copy the slide part, flatten its source
+	 * theme into the slide XML (scheme colours + style-matrix fills baked to
+	 * literals), copy its non-theme dependencies (media, charts, …), and point its
+	 * `slideLayout` rel at this deck's existing layout. Returns the new partname.
+	 */
+	#importSlidePreserve(source: Presentation, sourceSlide: Slide): string {
+		const destLayout = this.#destinationLayoutPartName()
+		const ctx = this.#sourceFlattenContext(source.opc, sourceSlide.partName)
+
+		// Copy the slide bytes into a fresh partname, then flatten its own DOM (a
+		// distinct copy, so the source package is never mutated).
+		const sourcePart = source.opc.part(sourceSlide.partName)
+		if (!sourcePart) throw new Error(`importSlide: source package has no part ${sourceSlide.partName}`)
+		const newPartName = this.opc.reservePartNameLike(sourceSlide.partName)
+		const newPart = this.opc.addPart(newPartName, sourcePart.contentType, sourcePart.bytes)
+		const slideRoot = newPart.dom.documentElement
+		if (!slideRoot) throw new Error(`Imported slide ${newPartName} has no root element`)
+		flattenSlide(slideRoot, ctx)
+		newPart.markDirty()
+
+		// Rebuild the slide's relationships: drop notes, repoint slideLayout at the
+		// destination layout, and copy every other internal target (media/charts).
+		const sourceRels = source.opc.relationshipsFor(sourceSlide.partName)
+		const targetRels = this.opc.relationshipsFor(newPartName)
+		for (const rel of sourceRels) {
+			if (rel.type === NOTES_SLIDE_REL) continue
+			if (rel.type === SLIDE_LAYOUT_REL) {
+				targetRels.addWithId(rel.id, SLIDE_LAYOUT_REL, relativePartName(newPartName, destLayout))
+				continue
+			}
+			if (rel.targetMode === 'External') {
+				targetRels.addWithId(rel.id, rel.type, rel.target, 'External')
+				continue
+			}
+			const newTarget = this.#copyPart(source.opc, sourceRels.resolveTarget(rel.id))
+			targetRels.addWithId(rel.id, rel.type, relativePartName(newPartName, newTarget))
+		}
+		return newPartName
+	}
+
+	/**
+	 * The partname of the layout this deck's slides should attach to in `preserve`
+	 * mode: the first layout of the first slide master. Throws when the deck has no
+	 * master/layout to attach to (a deck pptxgenjs always provides).
+	 */
+	#destinationLayoutPartName(): string {
+		const presRels = this.opc.relationshipsFor(this.presentationPart.partName)
+		const masterRel = presRels.byType(SLIDE_MASTER_REL)[0]
+		if (!masterRel) throw new Error('importSlide preserve mode requires a slide master in the destination deck')
+		const masterPartName = presRels.resolveTarget(masterRel.id)
+		const masterRels = this.opc.relationshipsFor(masterPartName)
+		const layoutRel = masterRels.byType(SLIDE_LAYOUT_REL)[0]
+		if (!layoutRel) throw new Error('importSlide preserve mode requires a slide layout in the destination deck')
+		return masterRels.resolveTarget(layoutRel.id)
+	}
+
+	/**
+	 * Gather the flatten context for a source slide: walk slide → layout → master →
+	 * theme, reading the effective colour map (the slide's `clrMapOvr` override, or
+	 * the master `clrMap`), the theme `clrScheme`, and the theme `fmtScheme`.
+	 */
+	#sourceFlattenContext(sourceOpc: OpcPackage, slidePartName: string): FlattenContext {
+		const layoutPartName = this.#resolveSingleRel(sourceOpc, slidePartName, SLIDE_LAYOUT_REL)
+		const masterPartName = layoutPartName && this.#resolveSingleRel(sourceOpc, layoutPartName, SLIDE_MASTER_REL)
+		const themePartName = masterPartName && this.#resolveSingleRel(sourceOpc, masterPartName, THEME_REL)
+
+		const masterRoot = masterPartName ? sourceOpc.part(masterPartName)?.dom.documentElement : null
+		const masterClrMap = masterRoot ? firstChild(masterRoot, 'p:clrMap') : null
+
+		// A slide's clrMapOvr/overrideClrMapping (if present) wins over the master map.
+		const slideRoot = sourceOpc.part(slidePartName)?.dom.documentElement
+		const clrMapOvr = slideRoot ? firstChild(slideRoot, 'p:clrMapOvr') : null
+		const override = clrMapOvr ? firstChild(clrMapOvr, 'a:overrideClrMapping') : null
+
+		const themeRoot = themePartName ? sourceOpc.part(themePartName)?.dom.documentElement : null
+		const themeElements = themeRoot ? firstChild(themeRoot, 'a:themeElements') : null
+
+		return {
+			clrMap: parseClrMap(override ?? masterClrMap),
+			clrScheme: parseClrScheme(themeElements ? firstChild(themeElements, 'a:clrScheme') : null),
+			fmtScheme: themeElements ? firstChild(themeElements, 'a:fmtScheme') : null,
+			inheritedBackground: this.#effectiveBackground(sourceOpc, slideRoot ?? null, layoutPartName, masterPartName),
+		}
+	}
+
+	/**
+	 * The background the slide effectively inherits from its source subgraph: the
+	 * layout's `p:bg`, else the master's. Returns `null` when the slide carries its
+	 * own `p:bg` (it stays on the slide and is flattened directly) or none exists.
+	 */
+	#effectiveBackground(sourceOpc: OpcPackage, slideRoot: Element | null, layoutPartName: string | null, masterPartName: string | null): Element | null {
+		if (slideRoot && this.#backgroundOf(slideRoot)) return null
+		const layoutRoot = layoutPartName ? (sourceOpc.part(layoutPartName)?.dom.documentElement ?? null) : null
+		const masterRoot = masterPartName ? (sourceOpc.part(masterPartName)?.dom.documentElement ?? null) : null
+		return (layoutRoot && this.#backgroundOf(layoutRoot)) ?? (masterRoot && this.#backgroundOf(masterRoot)) ?? null
+	}
+
+	/** The `p:cSld/p:bg` element of a slide/layout/master root, or `null`. */
+	#backgroundOf(root: Element): Element | null {
+		const cSld = firstChild(root, 'p:cSld')
+		return cSld ? firstChild(cSld, 'p:bg') : null
+	}
+
+	/** Resolve the single relationship of `type` owned by `partName`, or `null`. */
+	#resolveSingleRel(sourceOpc: OpcPackage, partName: string, type: string): string | null {
+		const rels = sourceOpc.relationshipsFor(partName)
+		const rel = rels.byType(type)[0]
+		return rel ? rels.resolveTarget(rel.id) : null
 	}
 
 	/** The copy registry for one source package (created on first use). */

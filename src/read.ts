@@ -14,7 +14,7 @@ export { Relationships, type Relationship } from './read/opc/relationships.js'
 export { resolveRelativePartName, relsPartNameFor } from './read/opc/partnames.js'
 
 // Read object model (Phase 2) — navigable presentation → slides → shapes → text.
-export { Presentation, type SlideSize } from './read/api/presentation.js'
+export { Presentation, type SlideSize, type ImportSlideOptions } from './read/api/presentation.js'
 export { Slide, type AddTextBoxOptions, type AddPictureOptions } from './read/api/slide.js'
 export {
 	Shape,

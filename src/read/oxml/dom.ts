@@ -89,7 +89,7 @@ export function firstChild(parent: Node, qname: string): Element | null {
 }
 
 /** First direct child element matching any of the given qnames, or `null`. */
-function firstChildMatchingAny(parent: Node, qnames: string[]): Element | null {
+export function firstChildMatchingAny(parent: Node, qnames: string[]): Element | null {
 	const wanted = qnames.map(splitQName)
 	for (let node = parent.firstChild; node; node = node.nextSibling) {
 		if (node.nodeType !== ELEMENT_NODE) continue
@@ -154,6 +154,18 @@ export function getOrAddChild(parent: Element, qname: string, before: string[] =
 	const successor = before.length ? firstChildMatchingAny(parent, before) : null
 	parent.insertBefore(child, successor) // insertBefore(node, null) appends
 	return child
+}
+
+/**
+ * Insert an already-built `node` into `parent` in document order: before the
+ * first existing child whose qname is in `before` (the new node's schema
+ * successors), or appended when none are present. Unlike {@link getOrAddChild}
+ * this always inserts the given node (no get-or-create), so callers can place a
+ * freshly-constructed subtree at the right position.
+ */
+export function insertInOrder(parent: Element, node: Node, before: string[] = []): void {
+	const successor = before.length ? firstChildMatchingAny(parent, before) : null
+	parent.insertBefore(node, successor)
 }
 
 /** Remove every direct child element matching any of the given qnames. */
