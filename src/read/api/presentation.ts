@@ -9,7 +9,7 @@ import type { Part } from '../opc/part.js'
 import type { Relationships } from '../opc/relationships.js'
 import { relativePartName, relsPartNameFor } from '../opc/partnames.js'
 import { ELEMENT_NODE, OOXML_NS, attr, createElement, firstChild, getElements, getOrAddChild, intValue, removeChildrenByQName, setAttr, type Element } from '../oxml/dom.js'
-import { flattenSlide, parseClrMap, parseClrScheme, type FlattenContext } from '../oxml/theme.js'
+import { flattenSlide, parseClrMap, parseClrScheme, restyleSlide, type FlattenContext } from '../oxml/theme.js'
 import { Slide } from './slide.js'
 
 const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
@@ -62,21 +62,44 @@ export interface ImportSlideOptions {
 	 *   master/layout shape tree (logos, accent shapes): those belong to the
 	 *   master `preserve` deliberately drops. Set {@link carryMasterGraphics} to
 	 *   bake them onto the slide instead.
+	 * - `'restyle'`: re-brand to *this* deck. Rebind the slide to this deck's
+	 *   master/layout exactly like `preserve` but **skip the flatten** — leave every
+	 *   `a:schemeClr`, style-matrix ref (`fillRef`/`lnRef`/`effectRef`/`fontRef`),
+	 *   and `p:bg` `bgRef` symbolic so they re-resolve against the *destination*
+	 *   theme. The slide keeps its geometry, text, and structure but adopts this
+	 *   deck's colours/fonts: `preserve` makes it "look the same everywhere",
+	 *   `restyle` makes it "look like mine". The slide's own `p:clrMapOvr` is dropped
+	 *   so the destination master's `clrMap` governs the re-brand.
+	 *
+	 *   **Load-bearing limitation:** `restyle` can only recolour what is *symbolic*.
+	 *   Anything the source authored as a literal `a:srgbClr` has no theme reference
+	 *   to re-resolve and stays exactly that colour, so a slide with a baked literal
+	 *   palette re-brands little or nothing. Use `restyle` for slides built against
+	 *   theme colours/style matrices, not hardcoded RGB. Re-brand is inherently a
+	 *   visual change (a source `accent1` light-on-dark can invert against a dark
+	 *   destination `accent1`), so its output needs visual QA. A restyled table
+	 *   resolves its `@tableStyleId` against the *destination* `tableStyles`; if the
+	 *   destination lacks that id the table falls back, so the destination must own
+	 *   the style id.
 	 */
-	theme?: 'copy' | 'preserve'
+	theme?: 'copy' | 'preserve' | 'restyle'
 
 	/**
-	 * `preserve` mode only. When `true`, bake the source `slideLayout`/`slideMaster`
-	 * shape-tree decorations (everything on those shape trees *except* placeholders
-	 * — logos, accent curves, footers drawn as shapes) onto the imported slide,
-	 * behind its own content, so master/layout branding survives the rebind to this
-	 * deck's master. Their media are copied across and theme references are
-	 * flattened like the slide's own content.
+	 * `preserve`/`restyle` modes only. When `true`, bake the source
+	 * `slideLayout`/`slideMaster` shape-tree decorations (everything on those shape
+	 * trees *except* placeholders — logos, accent curves, footers drawn as shapes)
+	 * onto the imported slide, behind its own content, so master/layout branding
+	 * survives the rebind to this deck's master. Their media are copied across.
+	 *
+	 * Under `preserve` the carried decorations' theme references are flattened like
+	 * the slide's own content; under `restyle` they are left symbolic and so
+	 * re-brand to the destination palette along with the slide — note a carried
+	 * source logo could recolour unexpectedly under a different palette.
 	 *
 	 * Off by default: it raises fidelity for cover/closer/divider slides at the
 	 * cost of duplicating shapes that would otherwise live once on the shared
 	 * master, so opt in only when that branding actually needs to travel with the
-	 * slide. Ignored unless `theme: 'preserve'`.
+	 * slide. Ignored unless `theme` is `'preserve'` or `'restyle'`.
 	 */
 	carryMasterGraphics?: boolean
 }
@@ -194,7 +217,9 @@ export class Presentation {
 	 *
 	 * With `{ theme: 'preserve' }` the slide's source theme is instead *flattened*
 	 * into the slide XML and the slide is bound to this deck's existing
-	 * master/layout — see {@link ImportSlideOptions}.
+	 * master/layout; with `{ theme: 'restyle' }` the slide is bound to this deck's
+	 * master/layout with its theme references left symbolic, so it re-brands to the
+	 * destination palette — see {@link ImportSlideOptions}.
 	 *
 	 * v1 limitations: the source slide size must equal this presentation's (no
 	 * geometry rescaling); source notes are dropped; fonts embedded via
@@ -213,12 +238,15 @@ export class Presentation {
 		}
 
 		// 2. Copy the slide and its dependencies. 'preserve' flattens the theme into
-		//    the slide and attaches it to this deck's master; 'copy' brings the
-		//    source theme subgraph across wholesale.
+		//    the slide and attaches it to this deck's master; 'restyle' attaches it
+		//    to this deck's master with theme refs left symbolic (re-brand); 'copy'
+		//    brings the source theme subgraph across wholesale.
 		const newPartName =
 			options.theme === 'preserve'
 				? this.#importSlidePreserve(source, sourceSlide, options.carryMasterGraphics === true)
-				: this.#copyPart(source.opc, sourceSlide.partName)
+				: options.theme === 'restyle'
+					? this.#importSlideRestyle(source, sourceSlide, options.carryMasterGraphics === true)
+					: this.#copyPart(source.opc, sourceSlide.partName)
 		const newPart = this.opc.part(newPartName)
 		if (!newPart) throw new Error(`Imported slide part went missing: ${newPartName}`)
 
@@ -227,20 +255,57 @@ export class Presentation {
 	}
 
 	/**
-	 * Import a slide in `preserve` mode: copy the slide part, copy its non-theme
-	 * dependencies (media, charts, …) and point its `slideLayout` rel at this deck's
-	 * existing layout, optionally bake the source master/layout decorations onto the
-	 * slide, then flatten its source theme into the slide XML (scheme colours +
-	 * style-matrix fills baked to literals). Returns the new partname.
+	 * Import a slide in `preserve` mode: rebind it to this deck's master/layout
+	 * (see {@link #importSlideRebind}), then flatten its source theme into the slide
+	 * XML (scheme colours + style-matrix fills baked to literals). Returns the new
+	 * partname.
 	 *
-	 * Relationships are rebuilt and any carried decorations injected *before* the
-	 * flatten pass, so flattening resolves the theme references on the slide's own
-	 * content and on the carried decorations in a single sweep. Flatten itself does
-	 * not touch relationships, so its order relative to the rels rebuild is free.
+	 * The flatten context is gathered from the *source* subgraph, so it can be read
+	 * before or after the rebind; the rebind injects any carried decorations before
+	 * we flatten, so a single sweep resolves the theme references on the slide's own
+	 * content and on the carried decorations together.
 	 */
 	#importSlidePreserve(source: Presentation, sourceSlide: Slide, carryGraphics: boolean): string {
-		const destLayout = this.#destinationLayoutPartName()
 		const ctx = this.#sourceFlattenContext(source.opc, sourceSlide.partName)
+		const { newPartName, slideRoot, newPart } = this.#importSlideRebind(source, sourceSlide, carryGraphics)
+		flattenSlide(slideRoot, ctx)
+		newPart.markDirty()
+		return newPartName
+	}
+
+	/**
+	 * Import a slide in `restyle` mode: rebind it to this deck's master/layout (see
+	 * {@link #importSlideRebind}) and then {@link restyleSlide} it — drop its colour
+	 * map override but bake *nothing*, so its symbolic theme references re-resolve
+	 * against the destination theme and the slide re-brands. Returns the new
+	 * partname.
+	 *
+	 * The deliberate inverse of `preserve`: no flatten, no inherited-background
+	 * bake, no placeholder colour/size/geometry bake — every one of those would pin
+	 * the slide to its source look, the opposite of re-branding. Carried
+	 * decorations are left symbolic too, so they re-brand along with the slide.
+	 */
+	#importSlideRestyle(source: Presentation, sourceSlide: Slide, carryGraphics: boolean): string {
+		const { newPartName, slideRoot, newPart } = this.#importSlideRebind(source, sourceSlide, carryGraphics)
+		restyleSlide(slideRoot)
+		newPart.markDirty()
+		return newPartName
+	}
+
+	/**
+	 * The rebind shared by `preserve` and `restyle`: copy the slide bytes into a
+	 * fresh part, rebuild its relationships (drop notes, repoint the `slideLayout`
+	 * rel at this deck's existing layout, copy every other internal target —
+	 * media/charts — and pass externals through), and optionally bake the source
+	 * master/layout decorations onto the slide. Returns the new part, its name, and
+	 * its live root element for the caller's mode-specific pass (flatten vs restyle).
+	 *
+	 * This carries *no* theme baking of its own — not even the inherited background.
+	 * `preserve` adds that via {@link flattenSlide}'s context; `restyle` must not,
+	 * so the background stays symbolic and re-brands.
+	 */
+	#importSlideRebind(source: Presentation, sourceSlide: Slide, carryGraphics: boolean): { newPartName: string; slideRoot: Element; newPart: Part } {
+		const destLayout = this.#destinationLayoutPartName()
 
 		// Copy the slide bytes into a fresh partname; we then mutate that copy's DOM
 		// (a distinct document, so the source package is never touched).
@@ -271,12 +336,11 @@ export class Presentation {
 
 		// Optionally bake the source master/layout decorations (logos, accent shapes)
 		// onto the slide behind its own content. Done after the slide's own rels are
-		// in place (so carried media get fresh, non-colliding ids) but before flatten.
+		// in place (so carried media get fresh, non-colliding ids) but before the
+		// caller's flatten/restyle pass acts on the carried shapes.
 		if (carryGraphics) this.#carryMasterGraphics(source.opc, slideRoot, newPartName, sourceSlide.partName)
 
-		flattenSlide(slideRoot, ctx)
-		newPart.markDirty()
-		return newPartName
+		return { newPartName, slideRoot, newPart }
 	}
 
 	/**

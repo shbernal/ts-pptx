@@ -35,7 +35,7 @@
  * `clrMap` / `clrScheme` / `fmtScheme` parts (and the source layout/master roots
  * for the placeholder inheritance passes) and owns marking the slide dirty.
  */
-import { ELEMENT_NODE, OOXML_NS, attr, createElement, firstChild, getElements, getOrAddChild, insertInOrder, intValue, setAttr, type Element } from './dom.js'
+import { ELEMENT_NODE, OOXML_NS, attr, createElement, firstChild, getElements, getOrAddChild, insertInOrder, intValue, removeChildrenByQName, setAttr, type Element } from './dom.js'
 import { FILL_CHOICES } from './fill.js'
 
 /** The 12 `a:clrScheme` slot names, in schema order. */
@@ -199,6 +199,24 @@ export function flattenSlide(slideRoot: Element, ctx: FlattenContext): void {
 	resolvePlaceholderRunColors(slideRoot, ctx)
 	resolvePlaceholderRunSizes(slideRoot, ctx)
 	resolveSchemeColors(slideRoot, ctx)
+}
+
+/**
+ * Restyle a rebound slide in place (the `theme: 'restyle'` mode): the exact
+ * inverse of {@link flattenSlide}. It bakes *nothing* — leaving every
+ * `a:schemeClr`/style-matrix ref and `p:bg` `bgRef` symbolic is the whole point,
+ * so they re-resolve against the *destination* master's `clrMap` + theme once the
+ * slide is rebound. The single mutation is dropping the slide's own colour-map
+ * override (`p:clrMapOvr/a:overrideClrMapping`): a source override would keep
+ * mapping the slide's scheme-token names the source way and defeat the re-brand,
+ * so it must yield to the destination master's `p:clrMap`.
+ *
+ * Caveat carried from the plan: only *symbolic* colours re-brand. Anything the
+ * source authored as a literal `a:srgbClr` has no theme reference to re-resolve
+ * and stays exactly that colour. The caller marks the part dirty.
+ */
+export function restyleSlide(slideRoot: Element): void {
+	removeChildrenByQName(slideRoot, ['p:clrMapOvr'])
 }
 
 /**
