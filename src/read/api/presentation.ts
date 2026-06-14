@@ -6,8 +6,9 @@
 import { emuToInches } from '../../units.js'
 import { OpcPackage, type OpcInput } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
+import type { Relationships } from '../opc/relationships.js'
 import { relativePartName, relsPartNameFor } from '../opc/partnames.js'
-import { attr, createElement, firstChild, getElements, getOrAddChild, intValue, removeChildrenByQName, setAttr, type Element } from '../oxml/dom.js'
+import { ELEMENT_NODE, OOXML_NS, attr, createElement, firstChild, getElements, getOrAddChild, intValue, removeChildrenByQName, setAttr, type Element } from '../oxml/dom.js'
 import { flattenSlide, parseClrMap, parseClrScheme, type FlattenContext } from '../oxml/theme.js'
 import { Slide } from './slide.js'
 
@@ -52,12 +53,28 @@ export interface ImportSlideOptions {
 	 *
 	 *   To stay faithful across the rebind, `preserve` also carries the slide's
 	 *   effective background and each placeholder run's *inherited* colour (from
-	 *   the source layout/master text styles) explicitly onto the slide. It does
-	 *   **not** carry decorative graphics that live on the source master/layout
-	 *   shape tree (logos, accent shapes): those belong to the master `preserve`
-	 *   deliberately drops, so re-add such branding as explicit slide elements.
+	 *   the source layout/master text styles) explicitly onto the slide. By
+	 *   default it does **not** carry decorative graphics that live on the source
+	 *   master/layout shape tree (logos, accent shapes): those belong to the
+	 *   master `preserve` deliberately drops. Set {@link carryMasterGraphics} to
+	 *   bake them onto the slide instead.
 	 */
 	theme?: 'copy' | 'preserve'
+
+	/**
+	 * `preserve` mode only. When `true`, bake the source `slideLayout`/`slideMaster`
+	 * shape-tree decorations (everything on those shape trees *except* placeholders
+	 * — logos, accent curves, footers drawn as shapes) onto the imported slide,
+	 * behind its own content, so master/layout branding survives the rebind to this
+	 * deck's master. Their media are copied across and theme references are
+	 * flattened like the slide's own content.
+	 *
+	 * Off by default: it raises fidelity for cover/closer/divider slides at the
+	 * cost of duplicating shapes that would otherwise live once on the shared
+	 * master, so opt in only when that branding actually needs to travel with the
+	 * slide. Ignored unless `theme: 'preserve'`.
+	 */
+	carryMasterGraphics?: boolean
 }
 
 export class Presentation {
@@ -194,7 +211,10 @@ export class Presentation {
 		// 2. Copy the slide and its dependencies. 'preserve' flattens the theme into
 		//    the slide and attaches it to this deck's master; 'copy' brings the
 		//    source theme subgraph across wholesale.
-		const newPartName = options.theme === 'preserve' ? this.#importSlidePreserve(source, sourceSlide) : this.#copyPart(source.opc, sourceSlide.partName)
+		const newPartName =
+			options.theme === 'preserve'
+				? this.#importSlidePreserve(source, sourceSlide, options.carryMasterGraphics === true)
+				: this.#copyPart(source.opc, sourceSlide.partName)
 		const newPart = this.opc.part(newPartName)
 		if (!newPart) throw new Error(`Imported slide part went missing: ${newPartName}`)
 
@@ -203,25 +223,29 @@ export class Presentation {
 	}
 
 	/**
-	 * Import a slide in `preserve` mode: copy the slide part, flatten its source
-	 * theme into the slide XML (scheme colours + style-matrix fills baked to
-	 * literals), copy its non-theme dependencies (media, charts, …), and point its
-	 * `slideLayout` rel at this deck's existing layout. Returns the new partname.
+	 * Import a slide in `preserve` mode: copy the slide part, copy its non-theme
+	 * dependencies (media, charts, …) and point its `slideLayout` rel at this deck's
+	 * existing layout, optionally bake the source master/layout decorations onto the
+	 * slide, then flatten its source theme into the slide XML (scheme colours +
+	 * style-matrix fills baked to literals). Returns the new partname.
+	 *
+	 * Relationships are rebuilt and any carried decorations injected *before* the
+	 * flatten pass, so flattening resolves the theme references on the slide's own
+	 * content and on the carried decorations in a single sweep. Flatten itself does
+	 * not touch relationships, so its order relative to the rels rebuild is free.
 	 */
-	#importSlidePreserve(source: Presentation, sourceSlide: Slide): string {
+	#importSlidePreserve(source: Presentation, sourceSlide: Slide, carryGraphics: boolean): string {
 		const destLayout = this.#destinationLayoutPartName()
 		const ctx = this.#sourceFlattenContext(source.opc, sourceSlide.partName)
 
-		// Copy the slide bytes into a fresh partname, then flatten its own DOM (a
-		// distinct copy, so the source package is never mutated).
+		// Copy the slide bytes into a fresh partname; we then mutate that copy's DOM
+		// (a distinct document, so the source package is never touched).
 		const sourcePart = source.opc.part(sourceSlide.partName)
 		if (!sourcePart) throw new Error(`importSlide: source package has no part ${sourceSlide.partName}`)
 		const newPartName = this.opc.reservePartNameLike(sourceSlide.partName)
 		const newPart = this.opc.addPart(newPartName, sourcePart.contentType, sourcePart.bytes)
 		const slideRoot = newPart.dom.documentElement
 		if (!slideRoot) throw new Error(`Imported slide ${newPartName} has no root element`)
-		flattenSlide(slideRoot, ctx)
-		newPart.markDirty()
 
 		// Rebuild the slide's relationships: drop notes, repoint slideLayout at the
 		// destination layout, and copy every other internal target (media/charts).
@@ -240,7 +264,90 @@ export class Presentation {
 			const newTarget = this.#copyPart(source.opc, sourceRels.resolveTarget(rel.id))
 			targetRels.addWithId(rel.id, rel.type, relativePartName(newPartName, newTarget))
 		}
+
+		// Optionally bake the source master/layout decorations (logos, accent shapes)
+		// onto the slide behind its own content. Done after the slide's own rels are
+		// in place (so carried media get fresh, non-colliding ids) but before flatten.
+		if (carryGraphics) this.#carryMasterGraphics(source.opc, slideRoot, newPartName, sourceSlide.partName)
+
+		flattenSlide(slideRoot, ctx)
+		newPart.markDirty()
 		return newPartName
+	}
+
+	/**
+	 * Bake the source `slideLayout`/`slideMaster` shape-tree decorations onto the
+	 * imported slide (the `carryMasterGraphics` path). Every shape on those trees
+	 * *except* placeholders is deep-copied into the slide's `p:spTree` ahead of its
+	 * own content — master decorations first, then layout, then the slide's shapes —
+	 * so document (z-)order keeps the master furthest back. Each decoration's media
+	 * and other relationship targets are copied into this package and its
+	 * `r:embed`/`r:id`/… references rewritten to fresh slide-local ids. The injected
+	 * shapes are left for the caller's {@link flattenSlide} pass to resolve any
+	 * theme references they carry.
+	 */
+	#carryMasterGraphics(sourceOpc: OpcPackage, slideRoot: Element, newPartName: string, slidePartName: string): void {
+		const layoutPartName = this.#resolveSingleRel(sourceOpc, slidePartName, SLIDE_LAYOUT_REL)
+		const masterPartName = layoutPartName ? this.#resolveSingleRel(sourceOpc, layoutPartName, SLIDE_MASTER_REL) : null
+		const cSld = firstChild(slideRoot, 'p:cSld')
+		const spTree = cSld && firstChild(cSld, 'p:spTree')
+		if (!spTree) return
+
+		const doc = slideRoot.ownerDocument!
+		const slideRels = this.opc.relationshipsFor(newPartName)
+		const relIdMap = new Map<string, string>()
+		// Insert ahead of the slide's own first shape so decorations render behind it.
+		const anchor = firstShapeChild(spTree)
+		// Master behind layout behind the slide (document order == z-order).
+		for (const partName of [masterPartName, layoutPartName]) {
+			if (!partName) continue
+			const decorations = carriedDecorations(sourceOpc.part(partName)?.dom.documentElement ?? null)
+			if (decorations.length === 0) continue
+			const sourceRels = sourceOpc.relationshipsFor(partName)
+			for (const deco of decorations) {
+				const imported = doc.importNode(deco, true) as Element
+				this.#rewriteCarriedRels(imported, sourceOpc, sourceRels, newPartName, slideRels, relIdMap)
+				spTree.insertBefore(imported, anchor)
+			}
+		}
+	}
+
+	/**
+	 * Rewrite every relationship reference (`r:embed`, `r:id`, `r:link`, …) inside a
+	 * carried decoration so it points at a fresh slide-local relationship, copying
+	 * the referenced part into this package on first sight. `relIdMap` (keyed by
+	 * source part + source rel id) dedupes references shared within one import call.
+	 */
+	#rewriteCarriedRels(node: Element, sourceOpc: OpcPackage, sourceRels: Relationships, newPartName: string, slideRels: Relationships, relIdMap: Map<string, string>): void {
+		const elements: Element[] = []
+		collectElements(node, elements)
+		for (const el of elements) {
+			const refs: { local: string; id: string }[] = []
+			const attrs = el.attributes
+			for (let i = 0; i < attrs.length; i++) {
+				const a = attrs.item(i)
+				if (!a || a.namespaceURI !== OOXML_NS.r || !a.value) continue
+				if (!sourceRels.get(a.value)) continue // an r-namespaced attribute that isn't a relationship id
+				refs.push({ local: a.localName, id: a.value })
+			}
+			for (const { local, id } of refs) {
+				setAttr(el, `r:${local}`, this.#carryRel(sourceOpc, sourceRels, id, newPartName, slideRels, relIdMap))
+			}
+		}
+	}
+
+	/** Resolve a carried decoration's source relationship to a fresh slide-local id, copying its internal target. */
+	#carryRel(sourceOpc: OpcPackage, sourceRels: Relationships, id: string, newPartName: string, slideRels: Relationships, relIdMap: Map<string, string>): string {
+		const key = `${sourceRels.sourcePartName}|${id}`
+		const cached = relIdMap.get(key)
+		if (cached) return cached
+		const rel = sourceRels.get(id)!
+		const newId =
+			rel.targetMode === 'External'
+				? slideRels.add(rel.type, rel.target, 'External').id
+				: slideRels.add(rel.type, relativePartName(newPartName, this.#copyPart(sourceOpc, sourceRels.resolveTarget(id)))).id
+		relIdMap.set(key, newId)
+		return newId
 	}
 
 	/**
@@ -451,5 +558,59 @@ export class Presentation {
 	/** Re-emit the package; untouched parts stay byte-identical (see `OpcPackage.save`). */
 	async save(): Promise<Uint8Array> {
 		return this.opc.save()
+	}
+}
+
+/** Whether `el` is a `p:spTree`'s own group properties (`p:nvGrpSpPr`/`p:grpSpPr`), not a shape. */
+function isSpTreeProperty(el: Element): boolean {
+	return el.namespaceURI === OOXML_NS.p && (el.localName === 'nvGrpSpPr' || el.localName === 'grpSpPr')
+}
+
+/** First direct child *element* of `parent` (skipping text/comment nodes), or `null`. */
+function firstChildElement(parent: Element): Element | null {
+	for (let node = parent.firstChild; node; node = node.nextSibling) {
+		if (node.nodeType === ELEMENT_NODE) return node as Element
+	}
+	return null
+}
+
+/** Whether a `p:spTree` child is a placeholder shape (its `*nvPr` carries a `p:ph`). */
+function isPlaceholderShape(shape: Element): boolean {
+	const nv = firstChildElement(shape)
+	const nvPr = nv && firstChild(nv, 'p:nvPr')
+	return !!(nvPr && firstChild(nvPr, 'p:ph'))
+}
+
+/** The decorative shapes on a layout/master `p:spTree`: every shape child except placeholders. */
+function carriedDecorations(root: Element | null): Element[] {
+	if (!root) return []
+	const cSld = firstChild(root, 'p:cSld')
+	const spTree = cSld && firstChild(cSld, 'p:spTree')
+	if (!spTree) return []
+	const out: Element[] = []
+	for (let node = spTree.firstChild; node; node = node.nextSibling) {
+		if (node.nodeType !== ELEMENT_NODE) continue
+		const el = node as Element
+		if (isSpTreeProperty(el) || isPlaceholderShape(el)) continue
+		out.push(el)
+	}
+	return out
+}
+
+/** The first shape child of a `p:spTree` (skipping `nvGrpSpPr`/`grpSpPr`), or `null`. */
+function firstShapeChild(spTree: Element): Element | null {
+	for (let node = spTree.firstChild; node; node = node.nextSibling) {
+		if (node.nodeType !== ELEMENT_NODE) continue
+		const el = node as Element
+		if (!isSpTreeProperty(el)) return el
+	}
+	return null
+}
+
+/** Collect `node` and all its descendant elements (document order) into `out`. */
+function collectElements(node: Element, out: Element[]): void {
+	out.push(node)
+	for (let child = node.firstChild; child; child = child.nextSibling) {
+		if (child.nodeType === ELEMENT_NODE) collectElements(child as Element, out)
 	}
 }

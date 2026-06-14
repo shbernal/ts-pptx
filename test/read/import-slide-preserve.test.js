@@ -41,6 +41,46 @@ function countParts(opc, re) {
 	return [...opc.parts.keys()].filter((n) => re.test(n)).length
 }
 
+/** A 1×1 transparent PNG, for a synthetic decoration picture. */
+const PNG_1x1 = Buffer.from(
+	'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+	'base64'
+)
+
+/**
+ * mixed.pptx with a `p:pic` decoration spliced onto its slideMaster1 shape tree,
+ * pointing at a fresh media part — so `carryMasterGraphics` has a picture (with a
+ * relationship to rewrite) to carry. Returns the rebuilt package bytes.
+ */
+async function deckWithMasterPicture() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+	const pic =
+		'<p:pic><p:nvPicPr><p:cNvPr id="987" name="CarryLogo"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr>' +
+		'<p:blipFill><a:blip r:embed="rId999"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>' +
+		'<p:spPr><a:xfrm><a:off x="100" y="100"/><a:ext cx="500" cy="500"/></a:xfrm>' +
+		'<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>'
+	const master = (await zip.file('ppt/slideMasters/slideMaster1.xml').async('string')).replace(
+		'</p:grpSpPr>',
+		`</p:grpSpPr>${pic}`
+	)
+	zip.file('ppt/slideMasters/slideMaster1.xml', master)
+
+	const rels = (await zip.file('ppt/slideMasters/_rels/slideMaster1.xml.rels').async('string')).replace(
+		'</Relationships>',
+		'<Relationship Id="rId999" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/carrytest.png"/></Relationships>'
+	)
+	zip.file('ppt/slideMasters/_rels/slideMaster1.xml.rels', rels)
+
+	zip.file('ppt/media/carrytest.png', PNG_1x1)
+	const ct = (await zip.file('[Content_Types].xml').async('string')).replace(
+		'</Types>',
+		'<Override PartName="/ppt/media/carrytest.png" ContentType="image/png"/></Types>'
+	)
+	zip.file('[Content_Types].xml', ct)
+
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
 /** Resolve the single relationship of `type` owned by `partName`, or null. */
 function resolveSingle(opc, partName, type) {
 	const rels = opc.relationshipsFor(partName)
@@ -197,6 +237,91 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		assertEqual(imported.partName, last.partName, 'imported slide is the appended one')
 	})
 
+	test('carryMasterGraphics bakes source master/layout decorations onto the slide, behind its content', async () => {
+		// mixed's slideMaster1 carries non-placeholder rectangles ("Rectangle 2".."8");
+		// slide1's layout1 carries more (groups + rectangles). preserve drops the source
+		// master, so by default those decorations vanish; carryMasterGraphics bakes them on.
+		const target = await open('mixed')
+		const source = await open('mixed')
+		const imported = target.importSlide(source, 0, { theme: 'preserve', carryMasterGraphics: true }) // slide1: ctrTitle
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		assert(xml.includes('name="Rectangle 2"'), 'a source-master decoration was baked onto the slide')
+		// Decorations sit ahead of the slide's own content (document order == z-order).
+		assert(
+			xml.indexOf('name="Rectangle 2"') < xml.indexOf('ctrTitle'),
+			'carried decoration precedes the slide placeholder'
+		)
+		// Flatten still ran over the carried shapes: no scheme token survives.
+		assert(!/schemeClr/.test(xml), 'carried decorations were flattened to literal colours')
+	})
+
+	test('carryMasterGraphics carries no placeholder shapes from the master/layout', async () => {
+		// The master/layout placeholders are inherited via the placeholder mechanism, not
+		// baked as decorations; carry must add only non-placeholder shapes.
+		const target = await open('mixed')
+		const plain = target.importSlide(await open('mixed'), 0, { theme: 'preserve' })
+		const withGfx = target.importSlide(await open('mixed'), 0, { theme: 'preserve', carryMasterGraphics: true })
+		const bytes = await target.save()
+		const countPh = (xml) => (xml.match(/<p:ph[ />]/g) ?? []).length
+
+		const plainPh = countPh(await slideXml(bytes, plain.partName))
+		const gfxPh = countPh(await slideXml(bytes, withGfx.partName))
+		assertEqual(gfxPh, plainPh, 'carry added no extra placeholder shapes')
+	})
+
+	test('without carryMasterGraphics, master/layout decorations are not carried (default)', async () => {
+		const target = await open('mixed')
+		const source = await open('mixed')
+		const imported = target.importSlide(source, 0, { theme: 'preserve' }) // no carry flag
+		const xml = await slideXml(await target.save(), imported.partName)
+		assert(!xml.includes('name="Rectangle 2"'), 'no source-master decoration leaks in without the flag')
+	})
+
+	test('carryMasterGraphics still attaches to the destination master without importing a theme', async () => {
+		const target = await open('mixed')
+		const themesBefore = countParts(target.opc, /\/theme\/theme\d+\.xml$/)
+		const mastersBefore = countParts(target.opc, /\/slideMasters\/slideMaster\d+\.xml$/)
+
+		target.importSlide(await open('mixed'), 0, { theme: 'preserve', carryMasterGraphics: true })
+		const reopened = await Presentation.load(await target.save())
+		const opc = reopened.opc
+		assertEqual(countParts(opc, /\/theme\/theme\d+\.xml$/), themesBefore, 'carry adds no new theme part')
+		assertEqual(countParts(opc, /\/slideMasters\/slideMaster\d+\.xml$/), mastersBefore, 'carry adds no new master part')
+
+		// No dangling internal relationships anywhere in the package.
+		for (const partName of opc.parts.keys()) {
+			if (partName.endsWith('.rels')) continue
+			for (const rel of opc.relationshipsFor(partName)) {
+				if (rel.targetMode === 'External') continue
+				const t = opc.relationshipsFor(partName).resolveTarget(rel.id)
+				assert(opc.part(t), `${partName} → ${rel.id} resolves to an existing part (${t})`)
+			}
+		}
+	})
+
+	test('carryMasterGraphics copies a decoration picture media and rewrites its relationship', async () => {
+		// mixed's master has no picture decoration, so splice one (a p:pic on the master
+		// spTree referencing a fresh media part) into a source deck, then carry it across.
+		const source = await Presentation.load(await deckWithMasterPicture())
+		const target = await open('mixed')
+		const imported = target.importSlide(source, 0, { theme: 'preserve', carryMasterGraphics: true })
+		const reopened = await Presentation.load(await target.save())
+
+		const last = reopened.slides[reopened.slides.length - 1]
+		assertEqual(imported.partName, last.partName, 'imported slide is the appended one')
+		const pic = last.shapes.find((s) => s.shapeType === 'picture')
+		assert(pic, 'the carried master picture lands as a slide picture')
+		assert(
+			pic.imagePartName && reopened.opc.part(pic.imagePartName),
+			`its media part was copied across (${pic.imagePartName})`
+		)
+
+		const xml = await slideXml(await reopened.save(), last.partName)
+		assert(xml.includes('name="CarryLogo"'), 'the carried picture is the one we spliced onto the master')
+		assert(!/r:embed="rId999"/.test(xml), 'the source rel id was rewritten to a fresh slide-local id')
+	})
+
 	test('the default (no option) still copies the source theme subgraph', async () => {
 		const target = await open('mixed')
 		const source = await open('mixed')
@@ -211,6 +336,17 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		const source = await open('mixed')
 		target.importSlide(source, THEMED_SLIDE_INDEX, { theme: 'preserve' })
 		target.importSlide(source, 5, { theme: 'preserve' }) // slide6: also themed (schemeClr + p:style)
+		const errors = await validateBuf(Buffer.from(await target.save()))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+
+	test.skipIf(!validatorInstalled)('a carryMasterGraphics-imported deck stays schema-valid', async () => {
+		const target = await open('mixed')
+		target.importSlide(await open('mixed'), 0, { theme: 'preserve', carryMasterGraphics: true })
+		target.importSlide(await Presentation.load(await deckWithMasterPicture()), 0, {
+			theme: 'preserve',
+			carryMasterGraphics: true,
+		})
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 	})
