@@ -266,6 +266,7 @@ class Presentation {
 
 interface ImportSlideOptions {
 	theme?: 'copy' | 'preserve' // default 'copy'
+	carryMasterGraphics?: boolean // preserve only; default false
 }
 ```
 
@@ -711,15 +712,38 @@ const imported = target.importSlide(source, 0, { theme: 'preserve' })
   background* (its own `p:bg`, else the one it inherited from the source
   layout/master, including a theme-indexed `p:bgRef`) is resolved to a literal
   `p:bgPr` and written onto the slide so it survives rebinding.
+- **Carry inherited placeholder values** — a placeholder draws position, size,
+  colour, and font from the source `slideLayout`/`slideMaster` it no longer
+  points at after the rebind, so anything it does not set explicitly would snap
+  to the destination master's defaults. `preserve` resolves and bakes that
+  inheritance onto the slide: a placeholder with no own `a:xfrm` gets the
+  effective `a:xfrm` (off/ext) from the matching source layout (else master)
+  placeholder, so titles cannot shift or clip; and each placeholder run that
+  sets none of its own gets the inherited colour and size/weight (`sz`/`b`/`i`),
+  resolved per paragraph list level through the source placeholder `a:lstStyle`
+  → master `a:lstStyle` → master `p:txStyles` chain. Typeface (`a:latin`) is
+  deliberately left unbaked — it re-binds to the destination theme along with
+  `fontRef` (see below).
 - **Attach** — bind the now theme-independent slide to *this* deck's existing
   master/layout instead of importing the source theme. The result is a
   single-theme file whose imported slides keep their original colours.
 
 Because the colours are frozen to literals, `preserve` does not re-colour to the
-destination brand — its thesis is "same pixels, one theme". The `fontRef` is
-deliberately left intact so fonts re-bind to the destination theme (a font
+destination brand — its thesis is "same pixels, one theme". The `fontRef` and
+typeface are deliberately left to re-bind to the destination theme (a font
 normalization bonus on attach). Deliberate re-branding (a `restyle` mode) is not
 yet implemented.
+
+Decorative graphics on the source `slideMaster`/`slideLayout` shape trees (logos,
+accent shapes, drawn footers — everything there *except* placeholders) belong to
+the master that `preserve` drops, so by default they do not travel with the slide.
+Pass `carryMasterGraphics: true` to bake them onto the imported slide behind its
+own content (their media copied across and theme references flattened the same
+way), for cover/divider slides whose branding must survive the rebind:
+
+```js
+const imported = target.importSlide(source, 0, { theme: 'preserve', carryMasterGraphics: true })
+```
 
 ### Editing anything else (low-level escape hatch)
 
@@ -764,9 +788,11 @@ copying a slide's layout/master/theme/media sub-graph across a package boundary,
 deduping a shared master and pruning its layout list, dropping notes, rejecting a
 size mismatch, and staying schema-valid), and the theme-preserve import tests
 (`test/read/import-slide-preserve.test.js`: `importSlide({ theme: 'preserve' })`
-flattening scheme colours and `p:style` refs to literals, carrying the
-slide's effective background, attaching to the destination master without a new
-theme, and staying schema-valid), and the chart tests
+flattening scheme colours and `p:style` refs to literals, carrying the slide's
+effective background, baking each placeholder's inherited run colour, geometry
+(`a:xfrm`), and run size onto the slide, optionally carrying source
+master/layout decorations via `carryMasterGraphics`, attaching to the
+destination master without a new theme, and staying schema-valid), and the chart tests
 (`test/read/chart.test.js`: chart part resolution, type/title/series/values
 reads, and a read-only open staying byte-identical).
 Schema cases require the OOXML validator

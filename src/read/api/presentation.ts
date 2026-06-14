@@ -51,10 +51,14 @@ export interface ImportSlideOptions {
 	 *   theme-independent: it fixes renderers that mis-resolve per-slide scheme
 	 *   colours against the wrong (first) theme, and tidies the deck for handoff.
 	 *
-	 *   To stay faithful across the rebind, `preserve` also carries the slide's
-	 *   effective background and each placeholder run's *inherited* colour (from
-	 *   the source layout/master text styles) explicitly onto the slide. By
-	 *   default it does **not** carry decorative graphics that live on the source
+	 *   To stay faithful across the rebind, `preserve` also bakes the inheritance
+	 *   the rebind would otherwise break explicitly onto the slide: the slide's
+	 *   effective background; each placeholder's *inherited* geometry (`a:xfrm`
+	 *   from the matching source layout/master placeholder) so it cannot shift or
+	 *   clip; and each placeholder run's *inherited* colour and size/weight
+	 *   (`sz`/`b`/`i`) from the source layout/master text styles. Typeface
+	 *   (`a:latin`) is left to re-bind to the destination theme, like `fontRef`.
+	 *   By default it does **not** carry decorative graphics that live on the source
 	 *   master/layout shape tree (logos, accent shapes): those belong to the
 	 *   master `preserve` deliberately drops. Set {@link carryMasterGraphics} to
 	 *   bake them onto the slide instead.

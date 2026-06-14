@@ -81,6 +81,32 @@ async function deckWithMasterPicture() {
 	return zip.generateAsync({ type: 'uint8array' })
 }
 
+/**
+ * mixed.pptx with slideLayout1's ctrTitle `a:xfrm` removed, so an imported
+ * slide1 ctrTitle (which carries no own geometry) must inherit its geometry from
+ * the slideMaster title placeholder instead of the layout. Returns package bytes.
+ */
+async function deckMixedNoLayoutCtrTitleXfrm() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+	const layout = (await zip.file('ppt/slideLayouts/slideLayout1.xml').async('string')).replace(
+		'<a:xfrm><a:off x="990600" y="1828800"/><a:ext cx="7772400" cy="1143000"/></a:xfrm>',
+		''
+	)
+	zip.file('ppt/slideLayouts/slideLayout1.xml', layout)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
+/** mixed.pptx with an explicit `sz` on slide1's first ctrTitle run. Returns package bytes. */
+async function deckMixedWithExplicitTitleSize() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+	const slide = (await zip.file('ppt/slides/slide1.xml').async('string')).replace(
+		'<a:rPr lang="fr-FR" dirty="0"/><a:t>Data </a:t>',
+		'<a:rPr lang="fr-FR" sz="4444" dirty="0"/><a:t>Data </a:t>'
+	)
+	zip.file('ppt/slides/slide1.xml', slide)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
 /** Resolve the single relationship of `type` owned by `partName`, or null. */
 function resolveSingle(opc, partName, type) {
 	const rels = opc.relationshipsFor(partName)
@@ -322,6 +348,86 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		assert(!/r:embed="rId999"/.test(xml), 'the source rel id was rewritten to a fresh slide-local id')
 	})
 
+	test('bakes placeholder geometry inherited from the source layout onto the shape', async () => {
+		// slide1's ctrTitle carries no own a:xfrm; its position/size are inherited from
+		// slideLayout1's ctrTitle (off 990600,1828800; ext 7772400,1143000). Rebinding to
+		// the destination master would drop that, so preserve must bake the layout xfrm on.
+		const target = await open('mixed')
+		const source = await open('mixed')
+		const imported = target.importSlide(source, 0, { theme: 'preserve' }) // slide1: ctrTitle, no own xfrm
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		const sp = (xml.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?ctrTitle[\s\S]*?<\/p:sp>/) ?? [''])[0]
+		assert(sp, 'the imported slide still has its ctrTitle placeholder')
+		assert(
+			/<a:xfrm><a:off x="990600" y="1828800"\/><a:ext cx="7772400" cy="1143000"\/><\/a:xfrm>/.test(sp),
+			'ctrTitle carries the source layout1 geometry explicitly'
+		)
+	})
+
+	test('bakes placeholder geometry from the source master when the layout lacks it', async () => {
+		// With slideLayout1's ctrTitle xfrm stripped, the ctrTitle's geometry falls through
+		// to slideMaster1's title placeholder (off 1023938,131763; ext 7793037,1143000).
+		const source = await Presentation.load(await deckMixedNoLayoutCtrTitleXfrm())
+		const target = await open('mixed')
+		const imported = target.importSlide(source, 0, { theme: 'preserve' })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		const sp = (xml.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?ctrTitle[\s\S]*?<\/p:sp>/) ?? [''])[0]
+		assert(
+			/<a:off x="1023938" y="131763"\/><a:ext cx="7793037" cy="1143000"\/>/.test(sp),
+			'ctrTitle inherits the master title geometry when the layout defines none'
+		)
+	})
+
+	test('leaves a placeholder that already has its own a:xfrm untouched', async () => {
+		// slide2's title placeholder defines its own xfrm (off 1115616,3200); explicit
+		// geometry is not inherited, so preserve must not overwrite it.
+		const target = await open('mixed')
+		const source = await open('mixed')
+		const imported = target.importSlide(source, 1, { theme: 'preserve' }) // slide2: title with own xfrm
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		const sp = (xml.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?type="title"[\s\S]*?<\/p:sp>/) ?? [''])[0]
+		assert(sp, 'the imported slide has its title placeholder')
+		assert(/<a:off x="1115616" y="3200"\/>/.test(sp), 'the slide-owned title geometry is preserved')
+		assert(!/x="1023938"/.test(sp) && !/x="990600"/.test(sp), 'no layout/master geometry was baked over it')
+	})
+
+	test('bakes placeholder-inherited run size onto runs that set none', async () => {
+		// slide1's ctrTitle runs set no sz; the size comes from the master titleStyle lvl1
+		// (defRPr sz="3200"). Rebinding would drop it, so preserve bakes sz onto each run.
+		const target = await open('mixed')
+		const source = await open('mixed')
+		const imported = target.importSlide(source, 0, { theme: 'preserve' }) // slide1: ctrTitle, runs carry no sz
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		const sp = (xml.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?ctrTitle[\s\S]*?<\/p:sp>/) ?? [''])[0]
+		const runs = [...sp.matchAll(/<a:r>[\s\S]*?<\/a:r>/g)].map((m) => m[0])
+		assert(runs.length > 0, 'ctrTitle has runs')
+		for (const run of runs) {
+			assert(/<a:rPr[^>]*\bsz="3200"/.test(run), 'each run carries the resolved titleStyle size (3200) explicitly')
+		}
+	})
+
+	test('leaves a run that sets its own sz untouched', async () => {
+		// slide1's first ctrTitle run is given an explicit sz="4444"; preserve must keep it
+		// while its siblings still inherit the resolved master size (3200).
+		const source = await Presentation.load(await deckMixedWithExplicitTitleSize())
+		const target = await open('mixed')
+		const imported = target.importSlide(source, 0, { theme: 'preserve' })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		const sp = (xml.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?ctrTitle[\s\S]*?<\/p:sp>/) ?? [''])[0]
+		const runs = [...sp.matchAll(/<a:r>[\s\S]*?<\/a:r>/g)].map((m) => m[0])
+		assert(/\bsz="4444"/.test(runs[0]), 'the run keeps its explicit size')
+		assert(!/\bsz="3200"/.test(runs[0]), 'the inherited size did not overwrite it')
+		assert(
+			runs.slice(1).every((r) => /\bsz="3200"/.test(r)),
+			'sibling runs still inherit the resolved master size'
+		)
+	})
+
 	test('the default (no option) still copies the source theme subgraph', async () => {
 		const target = await open('mixed')
 		const source = await open('mixed')
@@ -347,6 +453,14 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 			theme: 'preserve',
 			carryMasterGraphics: true,
 		})
+		const errors = await validateBuf(Buffer.from(await target.save()))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+
+	test.skipIf(!validatorInstalled)('a deck with baked placeholder geometry/size stays schema-valid', async () => {
+		const target = await open('mixed')
+		target.importSlide(await open('mixed'), 0, { theme: 'preserve' }) // slide1: geometry + run size baked
+		target.importSlide(await Presentation.load(await deckMixedNoLayoutCtrTitleXfrm()), 0, { theme: 'preserve' })
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 	})

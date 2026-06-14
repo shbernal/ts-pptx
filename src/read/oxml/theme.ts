@@ -21,12 +21,19 @@
  *    style chain (`p:txStyles` / placeholder `a:lstStyle`). Rebinding to the
  *    destination master would replace that chain and flip the colour, so we
  *    resolve each such run's effective colour from the *source* styles and write
- *    it explicitly onto the run. Only colour is baked (the observed breakage);
- *    size/weight/typeface still re-bind to the destination styles.
+ *    it explicitly onto the run.
+ * 4. **Placeholder-inherited geometry & run size** — a placeholder shape with no
+ *    own `a:xfrm` takes its position/size from the matching source layout/master
+ *    placeholder, and a run with no own `sz`/`b`/`i` takes them from the same text
+ *    style chain. Rebinding to the destination master replaces both inheritances,
+ *    so a title clips off-canvas and type comes out at the wrong size. We bake the
+ *    effective `a:xfrm` onto the shape and the effective `sz`/`b`/`i` onto each run.
+ *    Typeface (`a:latin`) is deliberately *not* baked — it re-binds to the
+ *    destination theme along with `fontRef`.
  *
  * All functions operate purely on DOM elements; the caller gathers the source
  * `clrMap` / `clrScheme` / `fmtScheme` parts (and the source layout/master roots
- * for the placeholder run-colour pass) and owns marking the slide dirty.
+ * for the placeholder inheritance passes) and owns marking the slide dirty.
  */
 import { ELEMENT_NODE, OOXML_NS, attr, createElement, firstChild, getElements, getOrAddChild, insertInOrder, intValue, setAttr, type Element } from './dom.js'
 import { FILL_CHOICES } from './fill.js'
@@ -37,6 +44,7 @@ const SCHEME_SLOTS = ['dk1', 'lt1', 'dk2', 'lt2', 'accent1', 'accent2', 'accent3
 const DIRECT_SLOT_TOKENS = new Set(['dk1', 'lt1', 'dk2', 'lt2'])
 
 /** Schema successors for ordered insertion into `p:spPr` (CT_ShapeProperties). */
+const SPPR_XFRM_AFTER = ['a:custGeom', 'a:prstGeom', ...FILL_CHOICES, 'a:ln', 'a:effectLst', 'a:effectDag', 'a:scene3d', 'a:sp3d', 'a:extLst']
 const SPPR_FILL_AFTER = ['a:ln', 'a:effectLst', 'a:effectDag', 'a:scene3d', 'a:sp3d', 'a:extLst']
 const SPPR_LN_AFTER = ['a:effectLst', 'a:effectDag', 'a:scene3d', 'a:sp3d', 'a:extLst']
 const SPPR_EFFECT_AFTER = ['a:scene3d', 'a:sp3d', 'a:extLst']
@@ -172,19 +180,24 @@ function resolveColor(color: Element | null, ctx: FlattenContext): ResolvedColor
  * 1. carry the background the slide inherited from its source layout/master onto
  *    the slide (so it survives rebinding to a different master);
  * 2. materialize `p:bgRef` and style-matrix refs into explicit fills/lines/effects;
- * 3. bake each placeholder run's effective colour (inherited from the source
- *    layout/master text styles) explicitly onto the run;
- * 4. rewrite every remaining `a:schemeClr` to its literal `a:srgbClr`.
+ * 3. bake each placeholder's effective geometry (inherited `a:xfrm`) onto the
+ *    shape so a rebind cannot move or resize it;
+ * 4. bake each placeholder run's effective colour and size/weight (inherited from
+ *    the source layout/master text styles) explicitly onto the run;
+ * 5. rewrite every remaining `a:schemeClr` to its literal `a:srgbClr`.
  *
  * Steps run in this order so the inherited/materialized backgrounds are present
  * before the final scheme-colour sweep resolves the colours they carry. The
- * caller marks the part dirty.
+ * placeholder geometry/colour/size passes have no data dependency on the others.
+ * The caller marks the part dirty.
  */
 export function flattenSlide(slideRoot: Element, ctx: FlattenContext): void {
 	applyInheritedBackground(slideRoot, ctx)
 	materializeBackground(slideRoot, ctx)
 	materializeStyleRefs(slideRoot, ctx)
+	resolvePlaceholderGeometry(slideRoot, ctx)
 	resolvePlaceholderRunColors(slideRoot, ctx)
+	resolvePlaceholderRunSizes(slideRoot, ctx)
 	resolveSchemeColors(slideRoot, ctx)
 }
 
@@ -350,14 +363,19 @@ function placeholderLstStyle(sp: Element): Element | null {
 }
 
 /**
- * The `a:solidFill` for `level` (0-based) in a `CT_TextListStyle` (`a:lstStyle`
- * or a `p:txStyles` style): the level-specific `a:lvlNpPr/a:defRPr`, else the
- * `a:defPPr/a:defRPr` fallback. Returns `null` when no fill is defined there.
+ * The `a:defRPr` for `level` (0-based) in a `CT_TextListStyle` (`a:lstStyle` or a
+ * `p:txStyles` style): the level-specific `a:lvlNpPr/a:defRPr`, else the
+ * `a:defPPr/a:defRPr` fallback. The shared root for colour and size resolution.
  */
-function lstStyleLevelFill(listStyle: Element | null, level: number): Element | null {
+function lstStyleLevelDefRPr(listStyle: Element | null, level: number): Element | null {
 	if (!listStyle) return null
 	const lvl = firstChild(listStyle, `a:lvl${level + 1}pPr`) ?? firstChild(listStyle, 'a:defPPr')
-	const defRPr = lvl && firstChild(lvl, 'a:defRPr')
+	return lvl ? firstChild(lvl, 'a:defRPr') : null
+}
+
+/** The `a:solidFill` of a level's `a:defRPr`, or `null` when none is defined there. */
+function lstStyleLevelFill(listStyle: Element | null, level: number): Element | null {
+	const defRPr = lstStyleLevelDefRPr(listStyle, level)
 	return defRPr ? firstChild(defRPr, 'a:solidFill') : null
 }
 
@@ -407,6 +425,138 @@ function writeRunColor(run: Element, color: ResolvedColor): void {
 	for (const t of color.transforms) srgb.appendChild(t.cloneNode(true) as Element)
 	fill.appendChild(srgb)
 	insertInOrder(rPr, fill, RPR_FILL_AFTER)
+}
+
+/**
+ * Bake placeholder-inherited geometry onto the slide (gap 3). A placeholder shape
+ * that carries no own `p:spPr/a:xfrm` takes its position/size from the matching
+ * source `slideLayout` placeholder, else the `slideMaster` placeholder. Rebinding
+ * to the destination master replaces that inheritance, so the placeholder would
+ * snap to the destination default (often clipping off-canvas). We deep-clone the
+ * effective source `a:xfrm` and write it explicitly onto the shape. Shapes with
+ * their own `a:xfrm` are left untouched (explicit geometry is not inherited), and
+ * an orphan placeholder with no source match keeps the current fall-back behaviour.
+ */
+function resolvePlaceholderGeometry(slideRoot: Element, ctx: FlattenContext): void {
+	if (!ctx.layoutRoot && !ctx.masterRoot) return
+	for (const sp of elementsByTag(slideRoot, OOXML_NS.p, 'sp')) {
+		const ph = placeholderOf(sp)
+		if (!ph) continue
+		const spPr = firstChild(sp, 'p:spPr')
+		if (spPr && firstChild(spPr, 'a:xfrm')) continue // explicit geometry is not inherited — leave it
+		const xfrm = placeholderInheritedXfrm(attr(ph, 'type'), attr(ph, 'idx') ?? '0', ctx)
+		if (!xfrm) continue
+		const target = getOrAddChild(sp, 'p:spPr', SHAPE_AFTER_SPPR)
+		insertInOrder(target, xfrm.cloneNode(true) as Element, SPPR_XFRM_AFTER)
+	}
+}
+
+/** The `a:xfrm` a placeholder inherits from the source layout, then master, or `null`. */
+function placeholderInheritedXfrm(type: string | null, idx: string, ctx: FlattenContext): Element | null {
+	for (const root of [ctx.layoutRoot, ctx.masterRoot]) {
+		if (!root) continue
+		const ph = findPlaceholder(root, type, idx)
+		const spPr = ph && firstChild(ph, 'p:spPr')
+		const xfrm = spPr && firstChild(spPr, 'a:xfrm')
+		if (xfrm) return xfrm
+	}
+	return null
+}
+
+/** Inheritable run properties baked under `preserve`: size and weight/slant (not typeface). */
+const RUN_PROP_NAMES = ['sz', 'b', 'i'] as const
+type RunProps = Record<(typeof RUN_PROP_NAMES)[number], string | null>
+
+/**
+ * Bake placeholder-inherited run size/weight onto the slide (gap 3). Mirrors
+ * {@link resolvePlaceholderRunColors}: for each placeholder run that sets no
+ * `sz`/`b`/`i` of its own (nor at paragraph/text-body level on the *slide*),
+ * resolve the value it would inherit from the source `slideLayout`/`slideMaster`
+ * text styles — per paragraph list level — and write it explicitly onto the run's
+ * `a:rPr`. Each property resolves independently up the chain. Typeface (`a:latin`)
+ * is left to re-bind to the destination theme, as gap 1 does for the `fontRef`.
+ */
+function resolvePlaceholderRunSizes(slideRoot: Element, ctx: FlattenContext): void {
+	if (!ctx.layoutRoot && !ctx.masterRoot) return
+	for (const sp of elementsByTag(slideRoot, OOXML_NS.p, 'sp')) {
+		const ph = placeholderOf(sp)
+		if (!ph) continue
+		const txBody = firstChild(sp, 'p:txBody')
+		if (!txBody) continue
+		const type = attr(ph, 'type')
+		const idx = attr(ph, 'idx') ?? '0'
+		const slideLst = firstChild(txBody, 'a:lstStyle')
+		const byLevel = new Map<number, RunProps | null>()
+		for (const p of getElements(txBody, 'a:p')) {
+			const pPr = firstChild(p, 'a:pPr')
+			const level = (pPr && intValue(attr(pPr, 'lvl'))) ?? 0
+			const runs = [...getElements(p, 'a:r'), ...getElements(p, 'a:fld')]
+			if (runs.length === 0) continue
+			let props = byLevel.get(level)
+			if (props === undefined) {
+				props = placeholderInheritedRunProps(type, idx, level, ctx)
+				byLevel.set(level, props)
+			}
+			if (!props) continue
+			for (const run of runs) writeRunProps(run, props, pPr, slideLst, level)
+		}
+	}
+}
+
+/**
+ * The run size/weight a placeholder run inherits from the source style chain:
+ * layout placeholder `a:lstStyle` → master placeholder `a:lstStyle` → master
+ * `p:txStyles` category style, per list level. Each of `sz`/`b`/`i` is taken from
+ * the first tier that defines it (properties resolve independently). Returns
+ * `null` when no tier defines any of them.
+ */
+function placeholderInheritedRunProps(type: string | null, idx: string, level: number, ctx: FlattenContext): RunProps | null {
+	const tiers: (Element | null)[] = []
+	if (ctx.layoutRoot) {
+		const layoutPh = findPlaceholder(ctx.layoutRoot, type, idx)
+		tiers.push(layoutPh && lstStyleLevelDefRPr(placeholderLstStyle(layoutPh), level))
+	}
+	if (ctx.masterRoot) {
+		const masterPh = findPlaceholder(ctx.masterRoot, type, idx)
+		tiers.push(masterPh && lstStyleLevelDefRPr(placeholderLstStyle(masterPh), level))
+		const txStyles = firstChild(ctx.masterRoot, 'p:txStyles')
+		const styleEl = txStyles && firstChild(txStyles, TX_STYLE_NAME[phCategory(type)])
+		tiers.push(styleEl && lstStyleLevelDefRPr(styleEl, level))
+	}
+	const props = {} as RunProps
+	let any = false
+	for (const name of RUN_PROP_NAMES) {
+		let value: string | null = null
+		for (const tier of tiers) {
+			value = tier && attr(tier, name)
+			if (value != null) break
+		}
+		props[name] = value
+		if (value != null) any = true
+	}
+	return any ? props : null
+}
+
+/** Whether the *slide itself* already fixes a run property (so a rebind cannot change it). */
+function slideDefinesProp(name: string, run: Element, pPr: Element | null, slideLst: Element | null, level: number): boolean {
+	const rPr = firstChild(run, 'a:rPr')
+	if (rPr && attr(rPr, name) != null) return true
+	const defRPr = pPr && firstChild(pPr, 'a:defRPr')
+	if (defRPr && attr(defRPr, name) != null) return true
+	const slideDefRPr = lstStyleLevelDefRPr(slideLst, level)
+	return !!(slideDefRPr && attr(slideDefRPr, name) != null)
+}
+
+/** Write each resolved run property onto a run's `a:rPr`, skipping ones the slide already fixes. */
+function writeRunProps(run: Element, props: RunProps, pPr: Element | null, slideLst: Element | null, level: number): void {
+	let rPr: Element | null = null
+	for (const name of RUN_PROP_NAMES) {
+		const value = props[name]
+		if (value == null) continue
+		if (slideDefinesProp(name, run, pPr, slideLst, level)) continue
+		rPr ??= getOrAddChild(run, 'a:rPr', ['a:t'])
+		setAttr(rPr, name, value)
+	}
 }
 
 /** Snapshot all descendant elements of `root` matching a namespace + local name. */
