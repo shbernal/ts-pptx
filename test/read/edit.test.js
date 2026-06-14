@@ -193,6 +193,40 @@ describe('Shape geometry editing', () => {
 	})
 })
 
+describe('Slide.hidden editing', () => {
+	test('hiding a slide writes show="0" and survives a reload', async () => {
+		const { reopened } = await editAndReopen('textbox', (presentation) => {
+			assertEqual(presentation.slides[0].hidden, false, 'slide starts shown')
+			presentation.slides[0].hidden = true
+		})
+		assertEqual(reopened.slides[0].hidden, true, 'hidden state reloads')
+	})
+
+	test('showing a hidden slide removes the attribute (canonical shown form)', async () => {
+		const { reopened, saved } = await editAndReopen('hidden', (presentation) => {
+			assertEqual(presentation.slides[1].hidden, true, 'slide 2 starts hidden')
+			presentation.slides[1].hidden = false
+		})
+		assertEqual(reopened.slides[1].hidden, false, 'shown state reloads')
+		const bodies = await partBodies(saved)
+		const slide2 = new TextDecoder().decode(bodies.get('ppt/slides/slide2.xml'))
+		assert(!slide2.includes('show='), `@show should be absent when shown; got: ${slide2.slice(0, 200)}`)
+	})
+
+	test('toggling hidden marks only the owning slide part dirty', async () => {
+		const presentation = await open('textbox')
+		const inputBodies = await partBodies(await presentation.save())
+		presentation.slides[1].hidden = true
+		const outputBodies = await partBodies(await presentation.save())
+		const dirty = 'ppt/slides/slide2.xml'
+		assert(!bytesEqual(inputBodies.get(dirty), outputBodies.get(dirty)), 'hidden slide body should differ')
+		for (const [name, bytes] of inputBodies) {
+			if (name === dirty) continue
+			assert(bytesEqual(bytes, outputBodies.get(name)), `untouched part ${name} should be byte-identical`)
+		}
+	})
+})
+
 describe('schema validity of edited packages', () => {
 	test.skipIf(!validatorInstalled)('a text + font + geometry edit stays schema-valid', async () => {
 		const { saved } = await editAndReopen('textbox', (presentation) => {

@@ -132,6 +132,24 @@ describe('TextFrame / Paragraph / Run', () => {
 	})
 })
 
+describe('Slide.hidden', () => {
+	test('reads p:sld/@show="0" as hidden and treats an absent attr as shown', async () => {
+		// hidden.pptx is textbox.pptx with show="0" set on slide 2 (the attribute
+		// PowerPoint writes when a slide is hidden); slide 1 omits @show entirely.
+		const slides = (await open('hidden')).slides
+		assertEqual(slides.length, 2, 'hidden fixture has two slides')
+		assertEqual(slides[0].hidden, false, 'slide with no @show is shown')
+		assertEqual(slides[1].hidden, true, 'slide with show="0" is hidden')
+	})
+
+	test('a deck with no hidden slides reports every slide as shown', async () => {
+		const slides = (await open('textbox')).slides
+		for (const slide of slides) {
+			assertEqual(slide.hidden, false, `slide ${slide.index} should be shown`)
+		}
+	})
+})
+
 describe('empty deck', () => {
 	test('a slide with no real shapes yields an empty shape list', async () => {
 		const slide = (await open('empty')).slides[0]

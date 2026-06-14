@@ -4,7 +4,7 @@
 import type { Part } from '../opc/part.js'
 import { relativePartName } from '../opc/partnames.js'
 import type { Relationships } from '../opc/relationships.js'
-import { OOXML_NS, attr, createElement, firstChild, intValue, setAttr, type Document, type Element } from '../oxml/dom.js'
+import { OOXML_NS, attr, createElement, firstChild, intValue, removeAttr, setAttr, type Document, type Element } from '../oxml/dom.js'
 import type { Presentation } from './presentation.js'
 import { AutoShape, Picture, buildShapes, type Shape } from './shapes.js'
 
@@ -92,6 +92,32 @@ export class Slide {
 	get name(): string | null {
 		const cSld = this.#cSld()
 		return cSld ? attr(cSld, 'name') : null
+	}
+
+	/**
+	 * Whether this slide is hidden (`p:sld/@show="0"`). The attribute is
+	 * `xsd:boolean` defaulting to `true`, so an absent attribute means shown.
+	 * Hidden slides are dropped from PowerPoint/LibreOffice presentations and
+	 * exported PDFs, so render order diverges from model order when any earlier
+	 * slide is hidden.
+	 */
+	get hidden(): boolean {
+		const root = this.part.dom.documentElement
+		const show = root ? attr(root, 'show') : null
+		return show === '0' || show === 'false'
+	}
+
+	/**
+	 * Hide or show this slide. Hiding writes `p:sld/@show="0"`; showing removes
+	 * the attribute, restoring PowerPoint's canonical shown form (absent ⇒ shown).
+	 * Marks the slide part dirty.
+	 */
+	set hidden(value: boolean) {
+		const root = this.part.dom.documentElement
+		if (!root) throw new Error(`Slide ${this.partName} has no root <p:sld> element`)
+		if (value) setAttr(root, 'show', '0')
+		else removeAttr(root, 'show')
+		this.part.markDirty()
 	}
 
 	/** Top-level shapes in the slide's shape tree, in document order. */

@@ -31,10 +31,20 @@ vendored set does not. Stored byte-for-byte as authored.
 |---|---|---|---|
 | `mixed.pptx` | Microsoft Macintosh PowerPoint | 16.0000 | 11 |
 
+### Derived from a vendored fixture
+
+`hidden.pptx` is `textbox.pptx` (vendored above) with a single attribute added:
+`show="0"` on the `<p:sld>` root of slide 2. That is exactly the attribute
+PowerPoint writes when a slide is marked hidden, so the deck stays
+PowerPoint-authored apart from the one hidden-slide flag. Slide 1 omits `@show`
+entirely (the shown default). Used by the `Slide.hidden` getter test in
+`../model.test.js`.
+
 SHA-256 of the fixture bytes:
 
 ```
 589b5fa79126aad341cd2bb121c1d25a488716d0d22806303c910b42238401fe  empty.pptx
+73e4743c2d1e54f3959ffa5f5ff55071c3be6946097e90676fb6a16d6f690472  hidden.pptx
 f2a75b0111c0d486cf81b33a21055c2ffe891c76ecbb7e261e2c8b626c0e7b35  image.pptx
 db80910224b01b46cb7e8c29e183b59d128a18fd8e0c651558907230874693b9  mixed.pptx
 c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
@@ -50,6 +60,8 @@ c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
   in `ppt/media/`; exercises binary parts and `Default` content-type
   resolution by extension.
 - `table.pptx` — slides containing tables (`a:tbl` graphic frames).
+- `hidden.pptx` — `textbox.pptx` with `show="0"` on slide 2; exercises the
+  `Slide.hidden` getter (hidden slide vs. shown-by-default absent attribute).
 - `mixed.pptx` — an 11-slide real-world deck that exercises the shape kinds the
   other fixtures miss: connectors (`p:cxnSp`), nested groups (`p:grpSp`),
   plus tables, a chart (`c:chart`), and SmartArt/diagram (`dgm:`) graphic

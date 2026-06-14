@@ -275,9 +275,38 @@ class Slide {
 	readonly relationships: Relationships // this slide part's rels
 	readonly name: string | null // p:cSld/@name
 	readonly shapes: Shape[] // top-level shapes in the spTree
+	hidden: boolean // p:sld/@show — read/write; absent attr ⇒ shown
 	addTextBox(options: AddTextBoxOptions): AutoShape // Phase 4 — appends a p:sp
 	addPicture(image: Uint8Array, options: AddPictureOptions): Picture // Phase 4 — new media part + rel + p:pic
 }
+```
+
+#### Hidden slides (`hidden`)
+
+`slide.hidden` reflects `p:sld/@show`, an `xsd:boolean` that **defaults to
+`true`**, so a slide with no `@show` attribute reads as shown (`false`).
+PowerPoint writes `show="0"` when you hide a slide (the getter also accepts the
+`"false"` lexical form).
+
+This matters whenever you reconcile **render order** with **model order**:
+PowerPoint's "present" and LibreOffice both drop hidden slides from a slideshow
+and from exported PDFs, so once any earlier slide is hidden the Nth rendered page
+is no longer `presentation.slides[N]`. The reconciliation falls out directly —
+`slides.length − (visible count) === (hidden count)`:
+
+```ts
+const hidden = presentation.slides.filter((s) => s.hidden).length
+const visible = presentation.slides.length - hidden // === rendered page count
+```
+
+The setter is symmetric and writes the canonical form: assigning `true` writes
+`show="0"`; assigning `false` removes the attribute (PowerPoint's shown default),
+marking only the owning slide part dirty.
+
+```ts
+presentation.slides[1].hidden = true // hide slide 2
+presentation.slides[3].hidden = false // un-hide slide 4
+await presentation.save()
 ```
 
 ### `Shape` and subclasses
