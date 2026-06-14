@@ -762,14 +762,28 @@ export enum SLIDE_OBJECT_TYPES {
 }
 
 /**
- * Maps a friendly `ConnectorType` to its OOXML connector preset geometry (`prst`).
- * These are the canonical 1-segment straight, 3-segment bent (elbow), and 3-segment
- * curved connector presets PowerPoint uses by default.
+ * Maps a friendly `ConnectorType` to its OOXML connector preset *family*. `straight`
+ * has a single fixed preset; `elbow` and `curved` select a member by bend count
+ * (`bentConnector{3,4,5}` / `curvedConnector{3,4,5}`) — see `connectorPresetFor`.
  */
 export const CONNECTOR_PRESETS: Record<'straight' | 'elbow' | 'curved', string> = {
 	straight: 'straightConnector1',
-	elbow: 'bentConnector3',
-	curved: 'curvedConnector3',
+	elbow: 'bentConnector',
+	curved: 'curvedConnector',
+}
+
+/**
+ * Resolve the concrete connector preset geometry name for a `type` + bend count.
+ * `straight` ignores `bends` (it has no adjustable jog). For `elbow` / `curved`, the
+ * preset suffix is `bends + 2`, so `bends` of 1/2/3 maps to `…Connector3/4/5`, each
+ * of which exposes exactly `bends` adjustable guides (`adj1…adjN`).
+ * @param {'straight' | 'elbow' | 'curved'} type - friendly connector routing style
+ * @param {number} bends - number of adjustable bends (1–3); ignored for `straight`
+ * @return {string} OOXML preset geometry name (e.g. `bentConnector4`)
+ */
+export function connectorPresetFor (type: 'straight' | 'elbow' | 'curved', bends: number): string {
+	if (type === 'straight') return CONNECTOR_PRESETS.straight
+	return `${CONNECTOR_PRESETS[type]}${bends + 2}`
 }
 export enum PLACEHOLDER_TYPES {
 	'title' = 'title',

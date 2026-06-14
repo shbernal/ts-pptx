@@ -391,8 +391,10 @@ export interface ShapeLineProps extends ShapeFillProps {
 	size?: number
 }
 /**
- * Connector routing style. Maps to a connector preset geometry:
- * `straight`→`straightConnector1`, `elbow`→`bentConnector3`, `curved`→`curvedConnector3`.
+ * Connector routing style. Maps to a connector preset geometry. The exact preset
+ * also depends on `bends` (number of jogs):
+ * `straight`→`straightConnector1`; `elbow`→`bentConnector{3,4,5}`;
+ * `curved`→`curvedConnector{3,4,5}`.
  */
 export type ConnectorType = 'straight' | 'elbow' | 'curved'
 /**
@@ -406,6 +408,27 @@ export interface ConnectorProps {
 	 * @default 'straight'
 	 */
 	type?: ConnectorType
+	/**
+	 * Number of adjustable bends (jogs) for an `elbow` / `curved` connector. Selects the
+	 * preset variant and how many `adj` values it accepts:
+	 * - `1` → `bentConnector3` / `curvedConnector3` (one jog) — the default
+	 * - `2` → `bentConnector4` / `curvedConnector4` (two jogs)
+	 * - `3` → `bentConnector5` / `curvedConnector5` (three jogs)
+	 *
+	 * Ignored for `type: 'straight'` (a straight connector has no bends).
+	 * @default 1
+	 */
+	bends?: 1 | 2 | 3
+	/**
+	 * Bend position(s) as a percent of the connector box (`0`–`100`), one value per bend.
+	 * A single number sets the sole jog of a one-bend `elbow` / `curved`; an array sets each
+	 * jog of a multi-bend connector and its length must equal `bends`. Values outside `0`–`100`
+	 * are allowed (they place the bend beyond the endpoint box, as PowerPoint itself does when
+	 * endpoints flip). When omitted, PowerPoint uses the preset default (50%).
+	 *
+	 * Emitted as `<a:gd name="adj1…" fmla="val …"/>` adjust guides (OOXML 1000ths-of-a-percent).
+	 */
+	adj?: number | number[]
 	/** Start point X — inches, or a `Coord` such as `'50%'` / `'2in'` */
 	x1: Coord
 	/** Start point Y */
@@ -2557,6 +2580,8 @@ export interface SlideMasterProps {
 export interface ObjectOptions extends ImageBaseProps, PositionProps, ShapeProps, TableCellProps, TextPropsOptions {
 	_placeholderIdx?: number
 	_placeholderType?: PLACEHOLDER_TYPE
+	/** Connector adjust-guide values (OOXML 1000ths-of-a-percent), one per bend; emitted as `<a:gd name="adjN">` */
+	_connectorAdj?: number[]
 
 	cx?: Coord
 	cy?: Coord

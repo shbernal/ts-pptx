@@ -1665,6 +1665,10 @@ export default [
 				})
 				s.addConnector({ type: 'elbow', x1: 6, y1: 4, x2: 2, y2: 1, dashType: 'dash', beginArrowType: 'oval' })
 				s.addConnector({ type: 'curved', x1: 1, y1: 5, x2: 5, y2: 6 })
+				// Bend control: adjustable jogs emit <a:gd name="adjN"> guides that must stay schema-valid.
+				s.addConnector({ type: 'elbow', x1: 7, y1: 1, x2: 9, y2: 3, adj: 25 })
+				s.addConnector({ type: 'elbow', x1: 6, y1: 5, x2: 9, y2: 6, bends: 2, adj: [30, 70] })
+				s.addConnector({ type: 'curved', x1: 7, y1: 4, x2: 9, y2: 5, bends: 3, adj: [10, 50, 90] })
 			})
 			await expectNoSchemaErrors(buf, 'connectors')
 		},

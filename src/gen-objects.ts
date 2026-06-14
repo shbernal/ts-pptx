@@ -6,7 +6,7 @@ import {
 	BARCHART_COLORS,
 	CHART_NAME,
 	CHART_TYPE,
-	CONNECTOR_PRESETS,
+	connectorPresetFor,
 	DEF_CELL_BORDER,
 	DEF_CELL_MARGIN_IN,
 	DEF_CHART_BORDER,
@@ -850,10 +850,42 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 		throw new Error('addConnector requires { x1, y1, x2, y2 }. Example: `slide.addConnector({ x1:1, y1:1, x2:4, y2:3 })`')
 	}
 
-	const preset = CONNECTOR_PRESETS[opts.type || 'straight']
-	if (!preset) {
-		throw new Error(`Invalid connector type "${String(opts.type)}". Use 'straight', 'elbow', or 'curved'.`)
+	const type = opts.type || 'straight'
+	if (type !== 'straight' && type !== 'elbow' && type !== 'curved') {
+		throw new Error(`Invalid connector type "${String(type)}". Use 'straight', 'elbow', or 'curved'.`)
 	}
+
+	// Resolve the preset variant + adjust guides. `bentConnector{3,4,5}` / `curvedConnector{3,4,5}`
+	// each expose `bends` adjustable jogs as `<a:gd name="adjN" fmla="val …"/>` (1000ths-of-a-percent,
+	// so 50% → 50000; values verified against PowerPoint-authored decks). `straightConnector1` has none.
+	const adjInput = opts.adj === undefined ? [] : Array.isArray(opts.adj) ? opts.adj : [opts.adj]
+	const bends = opts.bends ?? (adjInput.length || 1)
+	let connectorAdj: number[] = []
+	if (type === 'straight') {
+		if (opts.bends !== undefined || opts.adj !== undefined) {
+			console.warn('Warning: addConnector `bends`/`adj` are ignored for type "straight" (a straight connector has no bends).')
+		}
+	} else {
+		if (bends !== 1 && bends !== 2 && bends !== 3) {
+			throw new Error(`addConnector \`bends\` must be 1, 2, or 3 (got ${String(bends)}).`)
+		}
+		if (opts.adj !== undefined && adjInput.length !== bends) {
+			throw new Error(`addConnector \`adj\` must supply ${bends} value(s) to match \`bends\`=${bends} (got ${adjInput.length}).`)
+		}
+		// Convert each percent to OOXML 1000ths-of-a-percent. Fail loud on non-finite input
+		// (silent coercion would emit a degenerate guide PowerPoint repairs); warn but allow
+		// out-of-range, which legitimately places a jog beyond the endpoint box.
+		connectorAdj = adjInput.map((pct, i) => {
+			if (typeof pct !== 'number' || !Number.isFinite(pct)) {
+				throw new Error(`addConnector \`adj\` value #${i + 1} must be a finite number (percent 0–100); got ${String(pct)}.`)
+			}
+			if (pct < 0 || pct > 100) {
+				console.warn(`Warning: addConnector \`adj\` value ${pct} is outside 0–100; the bend will sit beyond the endpoint box.`)
+			}
+			return Math.round(pct * 1000)
+		})
+	}
+	const preset = connectorPresetFor(type, bends)
 
 	// Resolve all four endpoints to inches up front (handles every `Coord` form: number,
 	// '50%', '2in', etc.). The connector box uses the min corner as its origin and flips
@@ -874,6 +906,7 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 			h: Math.abs(y2 - y1),
 			flipH: x2 < x1,
 			flipV: y2 < y1,
+			_connectorAdj: connectorAdj.length ? connectorAdj : undefined,
 			line: {
 				type: 'solid',
 				color: opts.color || DEF_SHAPE_LINE_COLOR,

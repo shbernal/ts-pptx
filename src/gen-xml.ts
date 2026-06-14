@@ -797,7 +797,13 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				strSlideXml += `<p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"/>`
 				strSlideXml += '<p:cNvCxnSpPr/><p:nvPr/></p:nvCxnSpPr><p:spPr>'
 				strSlideXml += `<a:xfrm${locationAttr}><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>`
-				strSlideXml += `<a:prstGeom prst="${slideItemObj.shape}"><a:avLst/></a:prstGeom>`
+				{
+					// Bent/curved connectors carry adjustable jogs as `<a:gd name="adjN" fmla="val …"/>`
+					// (1000ths-of-a-percent). With none, the empty `<a:avLst/>` leaves the preset default (50%).
+					const adj = slideItemObj.options._connectorAdj || []
+					const avLst = adj.map((val, i) => `<a:gd name="adj${i + 1}" fmla="val ${val}"/>`).join('')
+					strSlideXml += `<a:prstGeom prst="${slideItemObj.shape}"><a:avLst>${avLst}</a:avLst></a:prstGeom>`
+				}
 				{
 					const ln = slideItemObj.options.line || {}
 					const lnAttrs = (ln.width ? ` w="${lineWidthToEmu(ln.width)}"` : '') + (ln.cap ? ` cap="${createLineCap(ln.cap)}"` : '')

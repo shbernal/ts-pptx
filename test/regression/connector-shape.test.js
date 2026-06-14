@@ -56,6 +56,65 @@ defineRegressionSuite('Connector shapes (upstream #1059)', [
 		},
 	},
 	{
+		name: 'elbow adj sets the bentConnector3 jog guide; values map percent→1000ths',
+		fn: async () => {
+			const xml = await slideXml((p) => {
+				p.addSlide().addConnector({ type: 'elbow', x1: 1, y1: 1, x2: 5, y2: 3, adj: 25 })
+			})
+			const cxn = (xml.match(/<p:cxnSp>[\s\S]*?<\/p:cxnSp>/g) || [])[0]
+			assert(cxn.includes('<a:prstGeom prst="bentConnector3">'), 'one bend → bentConnector3')
+			// 25% → val 25000 on adj1 (the single bent-connector jog guide).
+			assert(cxn.includes('<a:avLst><a:gd name="adj1" fmla="val 25000"/></a:avLst>'), 'expected adj1=25000')
+		},
+	},
+	{
+		name: 'bends selects bentConnector4/5 and adj array fills each jog (adj1..adjN)',
+		fn: async () => {
+			const xml = await slideXml((p) => {
+				const s = p.addSlide()
+				s.addConnector({ type: 'elbow', x1: 1, y1: 1, x2: 5, y2: 3, bends: 2, adj: [30, 70] })
+				s.addConnector({ type: 'curved', x1: 1, y1: 4, x2: 5, y2: 6, bends: 3, adj: [10, 50, 90] })
+			})
+			const cxns = xml.match(/<p:cxnSp>[\s\S]*?<\/p:cxnSp>/g) || []
+			assert(cxns[0].includes('<a:prstGeom prst="bentConnector4">'), 'bends:2 → bentConnector4')
+			assert(
+				cxns[0].includes('<a:avLst><a:gd name="adj1" fmla="val 30000"/><a:gd name="adj2" fmla="val 70000"/></a:avLst>'),
+				'expected two bent jogs'
+			)
+			assert(cxns[1].includes('<a:prstGeom prst="curvedConnector5">'), 'curved bends:3 → curvedConnector5')
+			assert(
+				cxns[1].includes(
+					'<a:avLst><a:gd name="adj1" fmla="val 10000"/><a:gd name="adj2" fmla="val 50000"/><a:gd name="adj3" fmla="val 90000"/></a:avLst>'
+				),
+				'expected three curved jogs'
+			)
+		},
+	},
+	{
+		name: 'adj array length must match bends; non-finite adj throws',
+		fn: async () => {
+			let threw = false
+			try {
+				await build((p) =>
+					p.addSlide().addConnector({ type: 'elbow', x1: 1, y1: 1, x2: 5, y2: 3, bends: 2, adj: [50] })
+				)
+			} catch (ex) {
+				threw = true
+				assert(/must supply 2 value/.test(ex.message), `expected a length-mismatch error; got: ${ex.message}`)
+			}
+			assert(threw, 'mismatched adj length must throw')
+
+			let threw2 = false
+			try {
+				await build((p) => p.addSlide().addConnector({ type: 'elbow', x1: 1, y1: 1, x2: 5, y2: 3, adj: Number.NaN }))
+			} catch (ex) {
+				threw2 = true
+				assert(/finite number/.test(ex.message), `expected a finite-number error; got: ${ex.message}`)
+			}
+			assert(threw2, 'NaN adj must throw')
+		},
+	},
+	{
 		name: 'missing endpoints throw',
 		fn: async () => {
 			let threw = false

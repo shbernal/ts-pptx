@@ -3698,7 +3698,7 @@ items:
     source: "gitbrent/PptxGenJS#1059"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-11
+    last_reviewed: 2026-06-15
     status: implemented
     priority: p3
     target_area:
@@ -3710,14 +3710,20 @@ items:
       Implemented a connector primitive: new slide.addConnector(ConnectorProps)
       and addConnectorDefinition build a SLIDE_OBJECT_TYPES.connector object, and
       slideObjectToXml emits a real <p:cxnSp> (not a <p:sp> line). API takes two
-      points (x1,y1,x2,y2) plus type ('straight'|'elbow'|'curved' →
-      straightConnector1/bentConnector3/curvedConnector3 via CONNECTOR_PRESETS)
-      and line styling (color/width/dashType/begin+endArrowType). Endpoints are
-      resolved to inches and reduced to a min-corner box + flipH/flipV so the line
-      can run between any two corners. Schema-validated. Scoped OUT: anchoring
-      endpoints to shape connection sites (<a:stCxn>/<a:endCxn>) — tracked as the
-      remaining follow-up on upstream-issue-399 (now deferred). Companion
-      upstream-pr-777 marked implemented.
+      points (x1,y1,x2,y2) plus type ('straight'|'elbow'|'curved') and line
+      styling (color/width/dashType/begin+endArrowType). Endpoints are resolved to
+      inches and reduced to a min-corner box + flipH/flipV so the line can run
+      between any two corners. ELBOW_CONNECTOR_PLAN Phase 1 added BEND CONTROL: new
+      `bends` (1|2|3) selects the elbow/curved preset member
+      (bentConnector{3,4,5}/curvedConnector{3,4,5} via connectorPresetFor), and new
+      `adj` (percent, single or per-bend array) emits the <a:gd name="adjN"> jog
+      guides (1000ths-of-a-percent; verified against PowerPoint-authored decks in
+      pptx-bank/ and docs/preset-shape-adj-guides.tsv). Validation fails loud on
+      non-finite adj / bends∉{1,2,3} / adj-length≠bends and warns on out-of-range.
+      Schema-validated. Scoped OUT (Phase 2/3): anchoring endpoints to shape
+      connection sites (<a:stCxn>/<a:endCxn>) — tracked as the remaining follow-up
+      on upstream-issue-399 (now deferred) — and connector labels (<p:txBody>).
+      Companion upstream-pr-777 marked implemented.
     evidence:
       kinds:
         - local-source-inspection
@@ -3725,10 +3731,11 @@ items:
         - schema-fixture
         - validator-result
       local_files:
-        - src/core-interfaces.ts:369
-        - src/gen-objects.ts:840
-        - src/gen-xml.ts:790
-        - src/slide.ts:237
+        - src/core-interfaces.ts:405
+        - src/core-enums.ts:784
+        - src/gen-objects.ts:848
+        - src/gen-xml.ts:792
+        - src/slide.ts:244
         - test/regression/connector-shape.test.js
         - test/schema.test.js
       schema_fixture: connectors
