@@ -13,13 +13,18 @@ doc_type: "decision"
 
 ## Status
 
-The first schema-validated implementation slice is in place for simple linear
-gradient fills on slide backgrounds and shape fills.
+Two schema-validated implementation slices are in place:
+
+1. **Linear** gradient fills on slide backgrounds and shape fills (`<a:lin>`).
+2. **Radial** gradient fills on the same surfaces (`<a:path path="circle">` with
+   a `<a:fillToRect>` focus). See [Radial gradients](#radial-gradients) below.
 
 The configured `ooxml` and `microsoft_learn` MCP servers were consulted on
-2026-06-07. The OOXML shape below is schema-grounded, but PowerPoint-authored
-comparison fixtures are still required before broadening the API or treating
-native gradients as a drop-in replacement for deterministic raster gradients.
+2026-06-07 (linear) and the radial shade elements re-checked against the `ooxml`
+MCP on 2026-06-15. The OOXML shapes below are schema-grounded, but
+PowerPoint-authored comparison fixtures are still required before broadening the
+API or treating native gradients as a drop-in replacement for deterministic
+raster gradients.
 
 ## Goal
 
@@ -128,8 +133,11 @@ fill: {
 }
 ```
 
-The first slice should avoid path, radial, tile-rectangle, table, chart, and
+The first slice avoided path, radial, tile-rectangle, table, chart, and
 line-gradient promises until each parent surface is independently validated.
+Radial fills were subsequently added on the validated background/shape surfaces
+(see [Radial gradients](#radial-gradients)); tile-rectangle, table, chart, and
+line gradients are still out of scope.
 
 The same model should apply directly to slide backgrounds because
 `BackgroundProps` already extends `ShapeFillProps`:
@@ -160,6 +168,88 @@ Initial validation rules:
    legal `ST_PositiveFixedAngle` values.
 6. Support `HexColor`, `ThemeColor`, and existing alpha/transparency handling
    for each stop by routing stop colors through `createColorElement()`.
+
+## Radial gradients
+
+Radial fills reuse the linear plumbing — same `type: 'gradient'` fill object,
+same `<a:gradFill>`/`<a:gsLst>` stop list and color handling — and swap the
+shade element from `<a:lin>` (linear) to `<a:path path="circle">` (radial).
+
+```ts
+fill: {
+	type: 'gradient',
+	gradient: {
+		kind: 'radial',
+		// Focus of the bright center as a percentage of the fill box.
+		// Omitted => { x: 50, y: 50 } (dead center).
+		center: { x: 50, y: 50 },
+		rotateWithShape: true,
+		stops: [
+			{ position: 0, color: 'FFFFFF' }, // position 0 is the center color
+			{ position: 100, color: '0B003D' }, // later stops fan out to the edges
+		],
+	},
+}
+```
+
+The same object works on `slide.background` because `BackgroundProps extends
+ShapeFillProps`.
+
+### Serialization
+
+A radial gradient serializes as a `<a:gradFill>` (§20.1.8.33) whose shade child
+is `<a:path path="circle">` (§20.1.8.46; `ST_PathShadeType` `shape | circle |
+rect`, §20.1.10.38) carrying a single `<a:fillToRect>` focus rectangle
+(§20.1.8.31):
+
+```xml
+<a:gradFill rotWithShape="1">
+	<a:gsLst>
+		<a:gs pos="0"><a:srgbClr val="FFFFFF"/></a:gs>
+		<a:gs pos="100000"><a:srgbClr val="0B003D"/></a:gs>
+	</a:gsLst>
+	<a:path path="circle">
+		<a:fillToRect l="50000" t="50000" r="50000" b="50000"/>
+	</a:path>
+</a:gradFill>
+```
+
+Notes that make the mapping correct:
+
+1. **Stop direction is inverted from the geometric reading.** For `<a:path>`,
+   the stop at `pos="0"` is the *center* and later stops radiate outward — the
+   opposite mental model from a linear sweep. The public `position` ordering is
+   unchanged (0 first), so `position: 0` is documented as the center color.
+2. **`fillToRect` is a focus rectangle, not a center point.** Its `l/t/r/b` are
+   `ST_Percentage` *insets* from each edge of the tile (§20.1.10.40; positive =
+   inset, negative = outset), in 1000ths of a percent (`50%` → `50000`). Equal
+   `50000` insets on all sides collapse the focus to the dead-center point, which
+   is the default `center: { x: 50, y: 50 }`.
+3. **`center` maps to insets, not coordinates.** `center.x`/`center.y` are
+   clamped to `0..100` and mapped as `l = x`, `t = y`, `r = 100 - x`,
+   `b = 100 - y` (each `× 1000`). So `center: { x: 25, y: 50 }` emits
+   `l="25000" t="50000" r="75000" b="50000"`, pushing the bright center to 25%
+   from the left edge.
+4. `rotWithShape` defaults to `1` exactly as for linear. `scaled` is a
+   linear-only attribute (`<a:lin/@scaled>`) and is rejected/ignored on radial.
+
+### Validation
+
+In addition to the shared stop rules (≥2 stops, finite `0..100` positions,
+ascending serialization order), radial adds:
+
+1. `gradient.kind: 'radial'` selects the radial path.
+2. `center.x` and `center.y` are clamped into `0..100`; an absent `center`
+   defaults to `{ x: 50, y: 50 }`.
+3. There is no `angle` on a radial gradient (it has no linear direction).
+
+### Still outstanding for radial
+
+PowerPoint authors radial fills with additional preset shade variants
+(`path="shape"`, `path="rect"`, and off-center `fillToRect` presets such as the
+corner "from corner" gradients). Only `path="circle"` with an axis-aligned
+`fillToRect` focus is currently exposed. Confirm PowerPoint's authored defaults
+for those presets against minimal fixtures before extending the public API.
 
 ## Implementation Steps
 
