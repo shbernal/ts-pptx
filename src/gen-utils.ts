@@ -356,15 +356,15 @@ function normalizeGradientStops (stops: GradientStopProps[] | undefined): Gradie
  * @returns XML string
  */
 export function genXmlGradientFill (gradient: GradientFillProps | undefined): string {
-	if (!gradient || gradient.kind !== 'linear') throw new Error('Gradient fill currently supports only linear gradients.')
+	if (!gradient || (gradient.kind !== 'linear' && gradient.kind !== 'radial')) {
+		throw new Error('Gradient fill currently supports only linear and radial gradients.')
+	}
 	if (typeof gradient.rotateWithShape !== 'undefined' && typeof gradient.rotateWithShape !== 'boolean') {
 		throw new Error('Gradient rotateWithShape must be a boolean.')
 	}
-	if (typeof gradient.scaled !== 'undefined' && typeof gradient.scaled !== 'boolean') throw new Error('Gradient scaled must be a boolean.')
 
 	const stops = normalizeGradientStops(gradient.stops)
 	const rotWithShape = gradient.rotateWithShape ?? true
-	const scaledAttr = typeof gradient.scaled === 'boolean' ? ` scaled="${boolToXml(gradient.scaled)}"` : ''
 
 	let strXml = `<a:gradFill rotWithShape="${boolToXml(rotWithShape)}">`
 	strXml += '<a:gsLst>'
@@ -373,7 +373,22 @@ export function genXmlGradientFill (gradient: GradientFillProps | undefined): st
 		strXml += `<a:gs pos="${position}">${createColorElement(stop.color, gradientStopColorAdjustments(stop))}</a:gs>`
 	})
 	strXml += '</a:gsLst>'
-	strXml += `<a:lin ang="${normalizeGradientAngle(gradient.angle)}"${scaledAttr}/>`
+	if (gradient.kind === 'radial') {
+		// `<a:path path="circle">` radiates the first stop from a focus rectangle out
+		// to the edges. `fillToRect` insets place that focus: equal insets center it,
+		// and the `center` percentage shifts it (l/t = center, r/b = 100 - center).
+		const cx = Math.max(0, Math.min(100, gradient.center?.x ?? 50))
+		const cy = Math.max(0, Math.min(100, gradient.center?.y ?? 50))
+		const l = Math.round(cx * 1000)
+		const t = Math.round(cy * 1000)
+		const r = Math.round((100 - cx) * 1000)
+		const b = Math.round((100 - cy) * 1000)
+		strXml += `<a:path path="circle"><a:fillToRect l="${l}" t="${t}" r="${r}" b="${b}"/></a:path>`
+	} else {
+		if (typeof gradient.scaled !== 'undefined' && typeof gradient.scaled !== 'boolean') throw new Error('Gradient scaled must be a boolean.')
+		const scaledAttr = typeof gradient.scaled === 'boolean' ? ` scaled="${boolToXml(gradient.scaled)}"` : ''
+		strXml += `<a:lin ang="${normalizeGradientAngle(gradient.angle)}"${scaledAttr}/>`
+	}
 	strXml += '</a:gradFill>'
 
 	return strXml

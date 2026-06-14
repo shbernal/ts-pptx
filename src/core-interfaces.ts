@@ -143,7 +143,31 @@ export interface LinearGradientFillProps {
 	 */
 	stops: GradientStopProps[]
 }
-export type GradientFillProps = LinearGradientFillProps
+export interface RadialGradientFillProps {
+	/**
+	 * Gradient type. A circular gradient radiating from a focus point: the stop at
+	 * `position: 0` sits at the center and later stops fan outward to the edges.
+	 */
+	kind: 'radial'
+	/**
+	 * Focus point of the radial gradient as percentages of the fill box, where
+	 * `{ x: 50, y: 50 }` (the default) centers it. Lower/higher values push the
+	 * bright center toward an edge.
+	 * @default { x: 50, y: 50 }
+	 */
+	center?: { x: number, y: number }
+	/**
+	 * Whether the fill rotates with the shape.
+	 * @default true
+	 */
+	rotateWithShape?: boolean
+	/**
+	 * Gradient stops. Stops are serialized in ascending `position` order; the
+	 * first (`position: 0`) is the center color.
+	 */
+	stops: GradientStopProps[]
+}
+export type GradientFillProps = LinearGradientFillProps | RadialGradientFillProps
 
 /** OOXML ST_PresetPatternVal — preset pattern names for `<a:pattFill prst="...">` */
 export type PatternPreset =
