@@ -7,8 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.0.0](https://github.com/shbernal/PptxGenJS/releases/tag/v6.0.0) - 2026-06-14
+
+This major release introduces the new `pptxgenjs/read` subsystem — a separate,
+lossless read/edit/round-trip layer for existing decks — alongside radial
+gradient fills and the image-in-shape composition. The new public `./read`
+subpath export and its substantial API surface motivate the major version bump.
+
 ### Added
 
+- **New `pptxgenjs/read` subsystem (`@shbernal/pptxgenjs/read`):** open an
+  existing `.pptx`, navigate and edit it, and save it back losslessly (untouched
+  parts stay byte-for-byte identical). It keeps the package's own XML as the
+  source of truth, unlike the one-way/lossy generator and inspector subpaths.
+  - OPC layer (`OpcPackage`): load, enumerate parts, content types, and
+    relationships, writable parts, and a lossless `save()`.
+  - Navigable read model: `Presentation → slides → shapes → text frame →
+    paragraphs → runs`, including tables, charts (read-only), connectors, and
+    nested groups.
+  - Typed edits over the live DOM: run text and character formatting, shape
+    position/size, shape fill/line colour, `Slide.hidden`, `Picture.setImage`
+    to swap a picture's image, and `Picture`/`Slide.addPicture`. Setting a
+    property mutates the DOM in place and marks only the affected part(s) dirty.
+  - Structural edits: add/remove shapes, add pictures, edit table cell text, and
+    slide cloning.
+  - Cross-package composition: `Presentation.importSlide` (with
+    `theme: 'preserve' | 'restyle'`, `carryMasterGraphics`, placeholder geometry
+    and run-size baking, and placeholder-inherited run-colour preservation) and
+    `importShape`/`importShapes` for cross-slide shape composition.
+  - Loader hardening: PowerPoint `[trash]` parts are dropped on load.
+  - Docs: `docs/reference/pptx-read.md`.
+- **Radial gradient fills:** `RadialGradientFillProps` (`kind: 'radial'`, with
+  optional `center` and `rotateWithShape`) joins the `GradientFillProps` union.
+  It serializes as `<a:gradFill>` with `<a:path path="circle">` and a
+  `<a:fillToRect>` focus derived from `center`, while the linear path is
+  unchanged.
 - Documented and tested "image embedded in a shape": `addImage({ points })` clips
   a picture to a freeform `custGeom` path (or `shape`/`rounding` for a preset),
   and pairing it with `sizing: { type: 'cover' }` fills the clip with an

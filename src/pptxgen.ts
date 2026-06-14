@@ -186,7 +186,7 @@ export type {
 	WRITE_OUTPUT_TYPE,
 } from './core-enums.js'
 
-const VERSION = '5.4.0'
+const VERSION = '6.0.0'
 
 function standardLayoutToPresLayout(layout: StandardLayout): PresLayout {
 	return {
