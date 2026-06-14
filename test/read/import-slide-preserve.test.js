@@ -121,6 +121,29 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		assert(/<p:bgPr>[\s\S]*<a:srgbClr /.test(bg), 'bgRef became a bgPr with a literal srgbClr fill')
 	})
 
+	test("bakes a placeholder run's inherited colour onto the run so a rebind cannot change it", async () => {
+		// slide1's ctrTitle runs carry no own colour; the white/dark they render comes
+		// from the source master titleStyle (defRPr/solidFill schemeClr tx2 → clrMap
+		// tx2=dk2 → 333399). Rebinding to the destination master would drop that
+		// inheritance, so preserve must write the resolved colour explicitly.
+		const target = await open('mixed')
+		const source = await open('mixed')
+		const imported = target.importSlide(source, 0, { theme: 'preserve' }) // slide1: ctrTitle
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		const sp = (xml.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?ctrTitle[\s\S]*?<\/p:sp>/) ?? [''])[0]
+		assert(sp, 'the imported slide still has its ctrTitle placeholder')
+		const runs = [...sp.matchAll(/<a:r>[\s\S]*?<\/a:r>/g)].map((m) => m[0])
+		assert(runs.length > 0, 'ctrTitle has runs')
+		for (const run of runs) {
+			assert(
+				/<a:rPr[\s\S]*?<a:solidFill><a:srgbClr val="333399"\/><\/a:solidFill>/.test(run),
+				'each ctrTitle run carries the resolved master titleStyle colour (333399) explicitly'
+			)
+			assert(!/schemeClr/.test(run), 'the baked run colour is a literal, not a scheme token')
+		}
+	})
+
 	test('attaches to the destination master/layout without importing a new theme', async () => {
 		const target = await open('mixed')
 		const source = await open('mixed')

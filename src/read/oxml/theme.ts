@@ -16,11 +16,19 @@
  *    the ref's own colour) and neutralize the ref so it cannot re-resolve. The
  *    `fontRef` is left intact so its font (and resolved colour) can re-bind to
  *    the destination theme — the deliberate "normalize fonts on attach" bonus.
+ * 3. **Placeholder-inherited run colour** — a run whose `a:rPr` carries no own
+ *    fill takes its colour from the source placeholder → layout → master text
+ *    style chain (`p:txStyles` / placeholder `a:lstStyle`). Rebinding to the
+ *    destination master would replace that chain and flip the colour, so we
+ *    resolve each such run's effective colour from the *source* styles and write
+ *    it explicitly onto the run. Only colour is baked (the observed breakage);
+ *    size/weight/typeface still re-bind to the destination styles.
  *
  * All functions operate purely on DOM elements; the caller gathers the source
- * `clrMap` / `clrScheme` / `fmtScheme` parts and owns marking the slide dirty.
+ * `clrMap` / `clrScheme` / `fmtScheme` parts (and the source layout/master roots
+ * for the placeholder run-colour pass) and owns marking the slide dirty.
  */
-import { ELEMENT_NODE, OOXML_NS, attr, createElement, firstChild, getOrAddChild, insertInOrder, setAttr, type Element } from './dom.js'
+import { ELEMENT_NODE, OOXML_NS, attr, createElement, firstChild, getElements, getOrAddChild, insertInOrder, intValue, setAttr, type Element } from './dom.js'
 import { FILL_CHOICES } from './fill.js'
 
 /** The 12 `a:clrScheme` slot names, in schema order. */
@@ -51,6 +59,18 @@ export interface FlattenContext {
 	 * {@link flattenSlide}.
 	 */
 	inheritedBackground?: Element | null
+	/**
+	 * The source `slideLayout` root element, for resolving placeholder-inherited
+	 * run colours (gap 1). Read-only — never mutated. `null`/absent disables the
+	 * placeholder run-colour pass for the layout tier.
+	 */
+	layoutRoot?: Element | null
+	/**
+	 * The source `slideMaster` root element, for resolving placeholder-inherited
+	 * run colours via its placeholder `a:lstStyle` and `p:txStyles`. Read-only —
+	 * never mutated.
+	 */
+	masterRoot?: Element | null
 }
 
 /** Parse an `a:clrScheme` into slot → 6-hex RGB, reading `srgbClr`/`sysClr`. */
@@ -152,7 +172,9 @@ function resolveColor(color: Element | null, ctx: FlattenContext): ResolvedColor
  * 1. carry the background the slide inherited from its source layout/master onto
  *    the slide (so it survives rebinding to a different master);
  * 2. materialize `p:bgRef` and style-matrix refs into explicit fills/lines/effects;
- * 3. rewrite every remaining `a:schemeClr` to its literal `a:srgbClr`.
+ * 3. bake each placeholder run's effective colour (inherited from the source
+ *    layout/master text styles) explicitly onto the run;
+ * 4. rewrite every remaining `a:schemeClr` to its literal `a:srgbClr`.
  *
  * Steps run in this order so the inherited/materialized backgrounds are present
  * before the final scheme-colour sweep resolves the colours they carry. The
@@ -162,6 +184,7 @@ export function flattenSlide(slideRoot: Element, ctx: FlattenContext): void {
 	applyInheritedBackground(slideRoot, ctx)
 	materializeBackground(slideRoot, ctx)
 	materializeStyleRefs(slideRoot, ctx)
+	resolvePlaceholderRunColors(slideRoot, ctx)
 	resolveSchemeColors(slideRoot, ctx)
 }
 
@@ -216,6 +239,174 @@ function resolveSchemeColors(root: Element, ctx: FlattenContext): void {
 		while (schemeClr.firstChild) srgb.appendChild(schemeClr.firstChild) // carry transforms
 		schemeClr.parentNode!.replaceChild(srgb, schemeClr)
 	}
+}
+
+/** Schema successors of `a:solidFill` inside `a:rPr` (CT_TextCharacterProperties sequence). */
+const RPR_FILL_AFTER = [
+	'a:effectLst',
+	'a:effectDag',
+	'a:highlight',
+	'a:uLnTx',
+	'a:uLn',
+	'a:uFillTx',
+	'a:uFill',
+	'a:latin',
+	'a:ea',
+	'a:cs',
+	'a:sym',
+	'a:hlinkClick',
+	'a:hlinkMouseOver',
+	'a:rtl',
+	'a:extLst',
+]
+
+/** The master `p:txStyles` style element name for a placeholder category. */
+const TX_STYLE_NAME: Record<'title' | 'body' | 'other', string> = {
+	title: 'p:titleStyle',
+	body: 'p:bodyStyle',
+	other: 'p:otherStyle',
+}
+
+/**
+ * Bake placeholder-inherited run colours onto the slide (gap 1). For each
+ * placeholder run that defines no colour of its own (nor at paragraph/text-body
+ * level on the *slide*), resolve the colour it would inherit from the source
+ * `slideLayout`/`slideMaster` text styles and write it explicitly onto the run's
+ * `a:rPr`. After this the run's colour cannot change when the slide is rebound to
+ * the destination master. `a:fld` runs (dates, slide numbers) are treated like
+ * `a:r`. Only colour is resolved; other inheritable run properties are left to
+ * re-bind to the destination styles.
+ */
+function resolvePlaceholderRunColors(slideRoot: Element, ctx: FlattenContext): void {
+	if (!ctx.layoutRoot && !ctx.masterRoot) return
+	for (const sp of elementsByTag(slideRoot, OOXML_NS.p, 'sp')) {
+		const ph = placeholderOf(sp)
+		if (!ph) continue
+		const txBody = firstChild(sp, 'p:txBody')
+		if (!txBody) continue
+		const type = attr(ph, 'type')
+		const idx = attr(ph, 'idx') ?? '0'
+		const slideLst = firstChild(txBody, 'a:lstStyle')
+		const byLevel = new Map<number, ResolvedColor | null>()
+		for (const p of getElements(txBody, 'a:p')) {
+			const pPr = firstChild(p, 'a:pPr')
+			const level = (pPr && intValue(attr(pPr, 'lvl'))) ?? 0
+			const runs = [...getElements(p, 'a:r'), ...getElements(p, 'a:fld')]
+			if (runs.length === 0) continue
+			let color = byLevel.get(level)
+			if (color === undefined) {
+				color = placeholderInheritedColor(type, idx, level, ctx)
+				byLevel.set(level, color)
+			}
+			if (!color) continue
+			for (const run of runs) {
+				if (slideDefinesColor(run, pPr, slideLst, level)) continue
+				writeRunColor(run, color)
+			}
+		}
+	}
+}
+
+/** The `p:ph` element of a shape (`p:sp/p:nvSpPr/p:nvPr/p:ph`), or `null`. */
+function placeholderOf(sp: Element): Element | null {
+	const nvSpPr = firstChild(sp, 'p:nvSpPr')
+	const nvPr = nvSpPr && firstChild(nvSpPr, 'p:nvPr')
+	return nvPr ? firstChild(nvPr, 'p:ph') : null
+}
+
+/** The master text-style category a placeholder type resolves against (absent ⇒ `obj` ⇒ body). */
+function phCategory(type: string | null): 'title' | 'body' | 'other' {
+	if (type === 'title' || type === 'ctrTitle') return 'title'
+	if (type === null || type === 'body' || type === 'subTitle' || type === 'obj') return 'body'
+	return 'other'
+}
+
+/**
+ * The placeholder shape in `root` (a layout/master) that the given slide
+ * placeholder inherits from: prefer a same-`idx` placeholder of the same
+ * category, then any same-`idx`, then any same-category. Returns `null` when none
+ * match.
+ */
+function findPlaceholder(root: Element, slideType: string | null, slideIdx: string): Element | null {
+	const cat = phCategory(slideType)
+	let idxMatch: Element | null = null
+	let catMatch: Element | null = null
+	for (const sp of elementsByTag(root, OOXML_NS.p, 'sp')) {
+		const ph = placeholderOf(sp)
+		if (!ph) continue
+		const i = attr(ph, 'idx') ?? '0'
+		const sameCat = phCategory(attr(ph, 'type')) === cat
+		if (i === slideIdx && sameCat) return sp
+		if (i === slideIdx && !idxMatch) idxMatch = sp
+		if (sameCat && !catMatch) catMatch = sp
+	}
+	return idxMatch ?? catMatch
+}
+
+/** The `a:lstStyle` of a placeholder shape's `p:txBody`, or `null`. */
+function placeholderLstStyle(sp: Element): Element | null {
+	const txBody = firstChild(sp, 'p:txBody')
+	return txBody ? firstChild(txBody, 'a:lstStyle') : null
+}
+
+/**
+ * The `a:solidFill` for `level` (0-based) in a `CT_TextListStyle` (`a:lstStyle`
+ * or a `p:txStyles` style): the level-specific `a:lvlNpPr/a:defRPr`, else the
+ * `a:defPPr/a:defRPr` fallback. Returns `null` when no fill is defined there.
+ */
+function lstStyleLevelFill(listStyle: Element | null, level: number): Element | null {
+	if (!listStyle) return null
+	const lvl = firstChild(listStyle, `a:lvl${level + 1}pPr`) ?? firstChild(listStyle, 'a:defPPr')
+	const defRPr = lvl && firstChild(lvl, 'a:defRPr')
+	return defRPr ? firstChild(defRPr, 'a:solidFill') : null
+}
+
+/**
+ * The colour a placeholder run inherits from the source style chain: the layout
+ * placeholder's `a:lstStyle`, then the master placeholder's, then the master
+ * `p:txStyles` category style — resolved to a literal `{ hex, transforms }`. The
+ * first tier with a fill that resolves wins. Returns `null` when nothing in the
+ * chain defines a resolvable colour (the run then re-binds to the destination).
+ */
+function placeholderInheritedColor(type: string | null, idx: string, level: number, ctx: FlattenContext): ResolvedColor | null {
+	const tiers: (Element | null)[] = []
+	if (ctx.layoutRoot) {
+		const layoutPh = findPlaceholder(ctx.layoutRoot, type, idx)
+		tiers.push(layoutPh && lstStyleLevelFill(placeholderLstStyle(layoutPh), level))
+	}
+	if (ctx.masterRoot) {
+		const masterPh = findPlaceholder(ctx.masterRoot, type, idx)
+		tiers.push(masterPh && lstStyleLevelFill(placeholderLstStyle(masterPh), level))
+		const txStyles = firstChild(ctx.masterRoot, 'p:txStyles')
+		const styleEl = txStyles && firstChild(txStyles, TX_STYLE_NAME[phCategory(type)])
+		tiers.push(styleEl && lstStyleLevelFill(styleEl, level))
+	}
+	for (const fill of tiers) {
+		const resolved = fill && resolveColor(firstChildElement(fill), ctx)
+		if (resolved) return resolved
+	}
+	return null
+}
+
+/** Whether the *slide itself* already fixes this run's colour (so a rebind cannot change it). */
+function slideDefinesColor(run: Element, pPr: Element | null, slideLst: Element | null, level: number): boolean {
+	const rPr = firstChild(run, 'a:rPr')
+	if (rPr && FILL_CHOICES.some((q) => firstChild(rPr, q))) return true
+	const defRPr = pPr && firstChild(pPr, 'a:defRPr')
+	if (defRPr && firstChild(defRPr, 'a:solidFill')) return true
+	return !!lstStyleLevelFill(slideLst, level)
+}
+
+/** Write a resolved colour as an explicit `a:solidFill` (with carried transforms) onto a run's `a:rPr`. */
+function writeRunColor(run: Element, color: ResolvedColor): void {
+	const doc = run.ownerDocument!
+	const rPr = getOrAddChild(run, 'a:rPr', ['a:t'])
+	const fill = createElement(doc, 'a:solidFill')
+	const srgb = createElement(doc, 'a:srgbClr')
+	setAttr(srgb, 'val', color.hex)
+	for (const t of color.transforms) srgb.appendChild(t.cloneNode(true) as Element)
+	fill.appendChild(srgb)
+	insertInOrder(rPr, fill, RPR_FILL_AFTER)
 }
 
 /** Snapshot all descendant elements of `root` matching a namespace + local name. */

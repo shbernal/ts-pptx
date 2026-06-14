@@ -49,6 +49,13 @@ export interface ImportSlideOptions {
 	 *   source theme. The result is a single-theme file whose imported slides are
 	 *   theme-independent: it fixes renderers that mis-resolve per-slide scheme
 	 *   colours against the wrong (first) theme, and tidies the deck for handoff.
+	 *
+	 *   To stay faithful across the rebind, `preserve` also carries the slide's
+	 *   effective background and each placeholder run's *inherited* colour (from
+	 *   the source layout/master text styles) explicitly onto the slide. It does
+	 *   **not** carry decorative graphics that live on the source master/layout
+	 *   shape tree (logos, accent shapes): those belong to the master `preserve`
+	 *   deliberately drops, so re-add such branding as explicit slide elements.
 	 */
 	theme?: 'copy' | 'preserve'
 }
@@ -262,8 +269,9 @@ export class Presentation {
 		const masterPartName = layoutPartName && this.#resolveSingleRel(sourceOpc, layoutPartName, SLIDE_MASTER_REL)
 		const themePartName = masterPartName && this.#resolveSingleRel(sourceOpc, masterPartName, THEME_REL)
 
-		const masterRoot = masterPartName ? sourceOpc.part(masterPartName)?.dom.documentElement : null
+		const masterRoot = masterPartName ? (sourceOpc.part(masterPartName)?.dom.documentElement ?? null) : null
 		const masterClrMap = masterRoot ? firstChild(masterRoot, 'p:clrMap') : null
+		const layoutRoot = layoutPartName ? (sourceOpc.part(layoutPartName)?.dom.documentElement ?? null) : null
 
 		// A slide's clrMapOvr/overrideClrMapping (if present) wins over the master map.
 		const slideRoot = sourceOpc.part(slidePartName)?.dom.documentElement
@@ -278,6 +286,8 @@ export class Presentation {
 			clrScheme: parseClrScheme(themeElements ? firstChild(themeElements, 'a:clrScheme') : null),
 			fmtScheme: themeElements ? firstChild(themeElements, 'a:fmtScheme') : null,
 			inheritedBackground: this.#effectiveBackground(sourceOpc, slideRoot ?? null, layoutPartName, masterPartName),
+			layoutRoot,
+			masterRoot,
 		}
 	}
 
