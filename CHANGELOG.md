@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Documented and tested "image embedded in a shape": `addImage({ points })` clips
+  a picture to a freeform `custGeom` path (or `shape`/`rounding` for a preset),
+  and pairing it with `sizing: { type: 'cover' }` fills the clip with an
+  aspect-correct center-cropped source — the picture-placeholder form (`<p:pic>`
+  with a clip in `<p:spPr>` and a source crop in `<p:blipFill>`). New regression
+  + schema fixtures cover the `points` + `sizing` composition (incl. an `arcTo`
+  half-disc clip) and the correct `blipFill`-before-`spPr` order. New docs
+  (`docs/image-in-shape.md`) and a demo slide.
+
+### Changed
+
+- Image `sizing` (`cover`/`contain`/`crop`) now emits an explicit `<a:fillRect/>`
+  inside `<a:stretch>` (the canonical form PowerPoint authors, ECMA-376
+  §L.4.8.4.3) instead of an empty self-closing `<a:stretch/>`. Semantically
+  identical (an absent `fillRect` already defaults to the full shape bounds), but
+  it removes any rendering ambiguity when a source crop is composed with a
+  `custGeom` clip.
+
 ## [5.4.0](https://github.com/shbernal/PptxGenJS/releases/tag/v5.4.0) - 2026-06-13
 
 ### Added

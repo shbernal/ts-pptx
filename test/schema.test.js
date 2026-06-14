@@ -637,6 +637,47 @@ export default [
 		},
 	},
 	{
+		// "Image embedded in a shape": a freeform custGeom clip (spPr) composed with a source
+		// crop (srcRect in blipFill) on one picture — the placeholder-equivalent form. Also an
+		// arcTo-based half-disc clip. Both must stay schema-valid (CT_Picture child order:
+		// blipFill before spPr) with the explicit <a:fillRect/> inside <a:stretch>.
+		name: 'image clipped to custGeom AND source-cropped (points + sizing), incl. arcTo',
+		fn: async () => {
+			const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				// triangular clip + cover crop
+				s.addImage({
+					data: 'image/png;base64,' + b64,
+					x: 1,
+					y: 1,
+					w: 2,
+					h: 3,
+					points: [{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 3 }, { x: 0, y: 3 }, { close: true }],
+					sizing: { type: 'cover', w: 2, h: 3 },
+				})
+				// half-disc ("D") clip expressed with an arcTo for the curved edge
+				s.addImage({
+					data: 'image/png;base64,' + b64,
+					x: 5,
+					y: 1,
+					w: 2,
+					h: 3,
+					points: [
+						{ x: 0.64, y: 0 },
+						{ x: 2, y: 0 },
+						{ x: 2, y: 3 },
+						{ x: 0.64, y: 3 },
+						{ x: 0, y: 1.5, curve: { type: 'arc', hR: 1.5, wR: 0.64, stAng: 90, swAng: 180 } },
+						{ close: true },
+					],
+					sizing: { type: 'cover', w: 2, h: 3 },
+				})
+			})
+			await expectNoSchemaErrors(buf, 'image-custgeom-plus-sizing')
+		},
+	},
+	{
 		name: 'text caps: all-caps and small-caps run properties',
 		fn: async () => {
 			const { buf } = await build((p) => {

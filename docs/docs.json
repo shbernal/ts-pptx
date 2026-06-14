@@ -20,6 +20,7 @@
         "reference/pptx-inspection",
         "reference/pptx-read",
         "reference/object-identity",
+        "image-in-shape",
         "reference/api/index",
         "ooxml-agent-context",
         "RELEASING"

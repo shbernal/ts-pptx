@@ -104,7 +104,7 @@ const ImageSizingXml = {
 		const height = isBoxBased ? boxDim.h : boxDim.w * imgRatio
 		const hzPerc = Math.round(1e5 * 0.5 * (1 - boxDim.w / width))
 		const vzPerc = Math.round(1e5 * 0.5 * (1 - boxDim.h / height))
-		return `<a:srcRect l="${hzPerc}" r="${hzPerc}" t="${vzPerc}" b="${vzPerc}"/><a:stretch/>`
+		return `<a:srcRect l="${hzPerc}" r="${hzPerc}" t="${vzPerc}" b="${vzPerc}"/><a:stretch><a:fillRect/></a:stretch>`
 	},
 	contain: function (imgSize: { w: number, h: number }, boxDim: { w: number, h: number, x: number, y: number }) {
 		const imgRatio = imgSize.h / imgSize.w
@@ -114,7 +114,7 @@ const ImageSizingXml = {
 		const height = widthBased ? boxDim.w * imgRatio : boxDim.h
 		const hzPerc = Math.round(1e5 * 0.5 * (1 - boxDim.w / width))
 		const vzPerc = Math.round(1e5 * 0.5 * (1 - boxDim.h / height))
-		return `<a:srcRect l="${hzPerc}" r="${hzPerc}" t="${vzPerc}" b="${vzPerc}"/><a:stretch/>`
+		return `<a:srcRect l="${hzPerc}" r="${hzPerc}" t="${vzPerc}" b="${vzPerc}"/><a:stretch><a:fillRect/></a:stretch>`
 	},
 	crop: function (imgSize: { w: number, h: number }, boxDim: { w: number, h: number, x: number, y: number }) {
 		const l = boxDim.x
@@ -134,7 +134,7 @@ const ImageSizingXml = {
 		const rPerc = Math.round(1e5 * (r / imgSize.w))
 		const tPerc = Math.round(1e5 * (t / imgSize.h))
 		const bPerc = Math.round(1e5 * (b / imgSize.h))
-		return `<a:srcRect l="${lPerc}" r="${rPerc}" t="${tPerc}" b="${bPerc}"/><a:stretch/>`
+		return `<a:srcRect l="${lPerc}" r="${rPerc}" t="${tPerc}" b="${bPerc}"/><a:stretch><a:fillRect/></a:stretch>`
 	},
 }
 

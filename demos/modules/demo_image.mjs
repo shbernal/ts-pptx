@@ -14,7 +14,18 @@
  * - Image source: either `data` or `path` is required
  */
 
-import { IMAGE_PATHS, BASE_TABLE_OPTS, BASE_TEXT_OPTS_L, BASE_TEXT_OPTS_R, BASE_CODE_OPTS, BKGD_LTGRAY, BKGD_LRGRAY, COLOR_BLUE, CODE_STYLE, TITLE_STYLE } from "./enums.mjs";
+import {
+	IMAGE_PATHS,
+	BASE_TABLE_OPTS,
+	BASE_TEXT_OPTS_L,
+	BASE_TEXT_OPTS_R,
+	BASE_CODE_OPTS,
+	BKGD_LTGRAY,
+	BKGD_LRGRAY,
+	COLOR_BLUE,
+	CODE_STYLE,
+	TITLE_STYLE,
+} from "./enums.mjs";
 import { FEDIVERSE_TREE, HYPERLINK_SVG, KRITA_SPLASHSCREEN, SVG_MASTODON_LOGO_BASE64, UNITE_PNG } from "./media.mjs";
 
 export function genSlides_Image(pptx) {
@@ -25,6 +36,7 @@ export function genSlides_Image(pptx) {
 	genSlide03(pptx);
 	genSlide04(pptx);
 	genSlide05(pptx);
+	genSlide06(pptx);
 }
 
 /**
@@ -196,17 +208,11 @@ function genSlide02(pptx) {
 
 	// TOP-LEFT: jpg
 	slide.addImage({ path: IMAGE_PATHS.ccLogo.path, x: 0.5, y: 0.6, h: 2.68, w: 3.58 });
-	slide.addText(
-		[{ text: `path:"${IMAGE_PATHS.ccLogo.path}"` }],
-		{ ...BASE_CODE_OPTS, ...{ x: 0.5, y: 3.28, h: 0.7, w: 3.58 }, ...CODE_STYLE }
-	);
+	slide.addText([{ text: `path:"${IMAGE_PATHS.ccLogo.path}"` }], { ...BASE_CODE_OPTS, ...{ x: 0.5, y: 3.28, h: 0.7, w: 3.58 }, ...CODE_STYLE });
 
 	// TOP-CENTER: png
 	slide.addImage({ path: IMAGE_PATHS.wikimedia2.path, x: 4.6, y: 0.6, h: 2.64, w: 3.45 });
-	slide.addText(
-		[{ text: `path:"${IMAGE_PATHS.wikimedia2.path}"` }],
-		{ ...BASE_CODE_OPTS, ...{ x: 4.6, y: 3.24, h: 0.7, w: 3.45 }, ...CODE_STYLE }
-	);
+	slide.addText([{ text: `path:"${IMAGE_PATHS.wikimedia2.path}"` }], { ...BASE_CODE_OPTS, ...{ x: 4.6, y: 3.24, h: 0.7, w: 3.45 }, ...CODE_STYLE });
 
 	// TOP-RIGHT: relative-path test
 	// NOTE: Node will throw exception when using "/" path
@@ -215,24 +221,22 @@ function genSlide02(pptx) {
 	// WIP: ^^^
 	slide.addImage({
 		path: `${typeof window === "undefined" ? ".." : ""}${IMAGE_PATHS.ccLicenseComp.path}`,
-		x: 8.57, y: 0.6, h: 2.52, w: 4.26
+		x: 8.57,
+		y: 0.6,
+		h: 2.52,
+		w: 4.26,
 	});
-	slide.addText(
-		[
-			{ text: '// Example: local path', options: { breakLine: true } },
-			{ text: `path:"${IMAGE_PATHS.ccLicenseComp.path}"` }
-		],
-		{ ...BASE_CODE_OPTS, ...{ x: 8.57, y: 3.12, h: 0.82, w: 4.26 }, ...CODE_STYLE }
-	);
+	slide.addText([{ text: "// Example: local path", options: { breakLine: true } }, { text: `path:"${IMAGE_PATHS.ccLicenseComp.path}"` }], {
+		...BASE_CODE_OPTS,
+		...{ x: 8.57, y: 3.12, h: 0.82, w: 4.26 },
+		...CODE_STYLE,
+	});
 
 	// BOTTOM: wide, url-sourced
 	slide.addImage({ path: IMAGE_PATHS.sydneyBridge.path, x: 0.5, y: 4.35, h: 1.8, w: 12.33 });
 	slide.addText(
-		[
-			{ text: '// Example: URL variables, plus more than one ".jpg"', options: { breakLine: true } },
-			{ text: `path:"${IMAGE_PATHS.sydneyBridge.path}"` },
-		],
-		{ ...BASE_CODE_OPTS, ...{ x: 0.5, y: 6.15, h: 0.8, w: 12.33 }, ...CODE_STYLE }
+		[{ text: '// Example: URL variables, plus more than one ".jpg"', options: { breakLine: true } }, { text: `path:"${IMAGE_PATHS.sydneyBridge.path}"` }],
+		{ ...BASE_CODE_OPTS, ...{ x: 0.5, y: 6.15, h: 0.8, w: 12.33 }, ...CODE_STYLE },
 	);
 }
 
@@ -264,7 +268,7 @@ function genSlide03(pptx) {
 	// TOP: 4
 	slide.addText("Sizing: `crop, w:3, h:2`", { x: 10.0, y: 4.25, w: 3.0, h: 0.3, color: COLOR_BLUE });
 	slide.addShape(pptx.shapes.RECTANGLE, { x: 10, y: 4.65, w: 3, h: 1.5, fill: { color: BKGD_LRGRAY } });
-	slide.addImage({ data: KRITA_SPLASHSCREEN, x: 10.0, y: 4.65, w: 5.0, h: 1.5, sizing: { type: "crop", w: 3, h: 1.5, x: 0.5, y: 0.5 } });
+	slide.addImage({ data: KRITA_SPLASHSCREEN, x: 10.0, y: 4.65, w: 5.0, h: 1.5, sizing: { type: "crop", w: 3, h: 1.0, x: 0.5, y: 0.25 } });
 
 	// TOP-RIGHT:
 	slide.addText("Rounding: `rounding:true`", { x: 7.0, y: 0.6, w: 3.0, h: 0.3, color: COLOR_BLUE });
@@ -285,7 +289,7 @@ function genSlide04(pptx) {
 	slide.slideNumber = { x: "50%", y: "95%", w: 1, h: 1, color: COLOR_BLUE };
 
 	// EXAMPLES
-	slide.addText("`rotate:45` ", { ...{ x: 0.50, y: 0.6, h: 0.4, w: 4.0 }, ...TITLE_STYLE });
+	slide.addText("`rotate:45` ", { ...{ x: 0.5, y: 0.6, h: 0.4, w: 4.0 }, ...TITLE_STYLE });
 	slide.addText("`rotate:180`", { ...{ x: 4.66, y: 0.6, h: 0.4, w: 4.0 }, ...TITLE_STYLE });
 	slide.addText("`rotate:315`", { ...{ x: 8.82, y: 0.6, h: 0.4, w: 4.0 }, ...TITLE_STYLE });
 
@@ -308,26 +312,81 @@ function genSlide05(pptx) {
 	// EXAMPLES
 
 	// type:none
-	const shadow1 = { shadow: { type: 'none' } };
+	const shadow1 = { shadow: { type: "none" } };
 	slide.addText("Shadow: `type:none`", { ...{ x: 0.5, y: 0.6, h: 0.4, w: 6.0 }, ...TITLE_STYLE });
-	slide.addText(
-		[{ text: JSON.stringify(shadow1, '', 2) }], { ...BASE_CODE_OPTS, ...{ x: 0.5, y: 1.0, h: 1.0, w: 6 }, ...CODE_STYLE }
-	);
+	slide.addText([{ text: JSON.stringify(shadow1, "", 2) }], { ...BASE_CODE_OPTS, ...{ x: 0.5, y: 1.0, h: 1.0, w: 6 }, ...CODE_STYLE });
 	slide.addImage({ ...{ path: IMAGE_PATHS.nycSubway.path, x: 7.0, y: 0.6, h: 1.4, w: 2.11 }, ...shadow1 });
 
 	// type:inner
-	const shadow2 = { shadow: { type: 'inner', opacity: 0.5, blur: 20, color: '000000', offset: 20, angle: 320 } };
+	const shadow2 = { shadow: { type: "inner", opacity: 0.5, blur: 20, color: "000000", offset: 20, angle: 320 } };
 	slide.addText("Shadow: `type:inner`", { ...{ x: 0.5, y: 2.45, h: 0.4, w: 6.0 }, ...TITLE_STYLE });
-	slide.addText(
-		[{ text: JSON.stringify(shadow2, '', 2) }], { ...BASE_CODE_OPTS, ...{ x: 0.5, y: 2.85, h: 1.7, w: 6 }, ...CODE_STYLE }
-	);
+	slide.addText([{ text: JSON.stringify(shadow2, "", 2) }], { ...BASE_CODE_OPTS, ...{ x: 0.5, y: 2.85, h: 1.7, w: 6 }, ...CODE_STYLE });
 	slide.addImage({ ...{ path: IMAGE_PATHS.nycSubway.path, x: 7.0, y: 2.45, h: 2.1, w: 3.13 }, ...shadow2 });
 
 	// type:outer
-	const shadow3 = { shadow: { type: 'outer', opacity: 0.35, blur: 20, color: '000000', offset: 20, angle: 320 } };
+	const shadow3 = { shadow: { type: "outer", opacity: 0.35, blur: 20, color: "000000", offset: 20, angle: 320 } };
 	slide.addText("Shadow: `type:outer`", { ...{ x: 0.5, y: 5.0, h: 0.4, w: 6.0 }, ...TITLE_STYLE });
-	slide.addText(
-		[{ text: JSON.stringify(shadow3, '', 2) }], { ...BASE_CODE_OPTS, ...{ x: 0.5, y: 5.4, h: 1.7, w: 6 }, ...CODE_STYLE }
-	);
+	slide.addText([{ text: JSON.stringify(shadow3, "", 2) }], { ...BASE_CODE_OPTS, ...{ x: 0.5, y: 5.4, h: 1.7, w: 6 }, ...CODE_STYLE });
 	slide.addImage({ ...{ path: IMAGE_PATHS.nycSubway.path, x: 7.0, y: 5.0, h: 2.1, w: 3.13 }, ...shadow3 });
+}
+
+/**
+ * SLIDE 6: Image embedded in a shape (clip + source crop)
+ * Demonstrates clipping a picture to a preset shape, a freeform `points` path, and the
+ * "picture placeholder" composition: a freeform clip filled by a center-cropped photo
+ * (`points` + `sizing:'cover'`). See docs/image-in-shape.md.
+ * @param {PptxGenJS} pptx
+ */
+function genSlide06(pptx) {
+	const slide = pptx.addSlide({ sectionTitle: "Images" });
+
+	slide.addTable([[{ text: "Image Examples: Image Embedded In A Shape", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
+	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-images.html");
+	slide.slideNumber = { x: "50%", y: "95%", w: 1, h: 1, color: COLOR_BLUE };
+
+	const photo = IMAGE_PATHS.nycSubway.path;
+
+	// 1) Preset clip: hexagon
+	slide.addText("Preset clip: `shape:'hexagon'`", { x: 0.5, y: 0.6, w: 2.8, h: 0.3, fontSize: 11, color: COLOR_BLUE });
+	slide.addImage({ path: photo, x: 0.5, y: 1.0, w: 2.5, h: 2.5, shape: "hexagon", sizing: { type: "cover", w: 2.5, h: 2.5 } });
+
+	// 2) Preset clip: roundRect with corner radius
+	slide.addText("Preset clip: `shape:'roundRect'`", { x: 3.4, y: 0.6, w: 2.8, h: 0.3, fontSize: 11, color: COLOR_BLUE });
+	slide.addImage({ path: photo, x: 3.4, y: 1.0, w: 2.5, h: 2.5, shape: "roundRect", rectRadius: 0.35, sizing: { type: "cover", w: 2.5, h: 2.5 } });
+
+	// 3) Freeform clip: triangle via `points`
+	slide.addText("Freeform clip: `points` (triangle)", { x: 6.3, y: 0.6, w: 2.8, h: 0.3, fontSize: 11, color: COLOR_BLUE });
+	slide.addImage({
+		path: photo,
+		x: 6.3,
+		y: 1.0,
+		w: 2.5,
+		h: 2.5,
+		points: [{ x: 1.25, y: 0 }, { x: 2.5, y: 2.5 }, { x: 0, y: 2.5 }, { close: true }],
+		sizing: { type: "cover", w: 2.5, h: 2.5 },
+	});
+
+	// 4) The half-disc "D" cover: freeform `arcTo` clip + center-cropped photo
+	slide.addText("Half-disc 'D' cover: `points`+`cover`", { x: 9.2, y: 0.6, w: 3.6, h: 0.3, fontSize: 11, color: COLOR_BLUE });
+	const dW = 3.4,
+		dH = 6.0,
+		dx = 9.2,
+		dy = 1.0;
+	const fx = 0.3179 * dW; // x of the flat (right-flush) edge
+	slide.addImage({
+		path: photo,
+		x: dx,
+		y: dy,
+		w: dW,
+		h: dH,
+		points: [
+			{ x: fx, y: 0 },
+			{ x: dW, y: 0 },
+			{ x: dW, y: dH },
+			{ x: fx, y: dH },
+			{ x: 0, y: dH / 2, curve: { type: "arc", hR: dH / 2, wR: fx, stAng: 90, swAng: 180 } },
+			{ close: true },
+		],
+		sizing: { type: "cover", w: dW, h: dH },
+	});
 }
