@@ -9,8 +9,9 @@ import type { Part } from '../opc/part.js'
 import type { Relationships } from '../opc/relationships.js'
 import { relativePartName, relsPartNameFor } from '../opc/partnames.js'
 import { ELEMENT_NODE, OOXML_NS, attr, createElement, firstChild, getElements, getOrAddChild, intValue, removeChildrenByQName, setAttr, type Element } from '../oxml/dom.js'
-import { flattenSlide, parseClrMap, parseClrScheme, restyleSlide, type FlattenContext } from '../oxml/theme.js'
+import { flattenShape, flattenSlide, parseClrMap, parseClrScheme, restyleSlide, type FlattenContext } from '../oxml/theme.js'
 import { Slide } from './slide.js'
+import { wrapShapeElement, type Shape } from './shapes.js'
 
 const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
 const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
@@ -102,6 +103,42 @@ export interface ImportSlideOptions {
 	 * slide. Ignored unless `theme` is `'preserve'` or `'restyle'`.
 	 */
 	carryMasterGraphics?: boolean
+}
+
+/** Options for {@link Presentation.importShape} / {@link Presentation.importShapes}. */
+export interface ImportShapeOptions {
+	/**
+	 * How the lifted shape relates to themes, mirroring {@link ImportSlideOptions}
+	 * but scoped to one shape subtree:
+	 *
+	 * - `'preserve'` (default): bake the shape's scheme/style-matrix colours (and,
+	 *   for a lifted placeholder, its inherited geometry/colour/size) to literals
+	 *   using the *source* slide's theme, so it keeps its look on a host slide whose
+	 *   theme differs. The safe default for composing across decks.
+	 * - `'restyle'`: leave the shape's theme references symbolic so it re-brands to
+	 *   the host theme. Only *symbolic* colours re-brand — literal `a:srgbClr` the
+	 *   source baked in stays put (same limitation as `importSlide` restyle).
+	 * - `'copy'`: bring the shape's XML across untouched; only sane when the host
+	 *   already shares the source theme.
+	 *
+	 * Unlike a slide import this never runs the slide-scoped background passes — a
+	 * background belongs to a slide, not to a composed shape.
+	 */
+	theme?: 'preserve' | 'restyle' | 'copy'
+	/** Override left edge (EMU). Omitted axes keep the shape's source `a:off`/`a:ext`. */
+	left?: number
+	/** Override top edge (EMU). */
+	top?: number
+	/** Override width (EMU); must be positive. */
+	width?: number
+	/** Override height (EMU); must be positive. */
+	height?: number
+	/**
+	 * Insert position among the host shape tree's shape children (z-order, 0 =
+	 * backmost). Out-of-range or omitted appends on top. A batch inserts in the
+	 * given order starting at this position.
+	 */
+	at?: number
 }
 
 export class Presentation {
@@ -252,6 +289,112 @@ export class Presentation {
 
 		// 3. Wire the new slide into the presentation (rel + p:sldId entry).
 		return this.#appendSlidePart(newPart)
+	}
+
+	/**
+	 * Copy one shape — an autoshape, picture, table/chart graphic frame, connector,
+	 * or group — from `source.shapes[shapeIndex]` onto `target`, returning the new
+	 * {@link Shape}. `target` must be a slide of *this* presentation; `source` may
+	 * belong to any open presentation.
+	 *
+	 * The lifted subtree is copied self-consistently: every media/chart/embedding it
+	 * depends on is dragged into this package (deduped against earlier imports from
+	 * the same source), its `r:embed`/`r:id`/… are rewritten to fresh host-slide
+	 * relationships, and its drawing ids (including a group's children) are reassigned
+	 * so they cannot collide with the host. With `theme: 'preserve'` (default) the
+	 * shape's theme references are baked to literals against the *source* theme so it
+	 * renders the same on a foreign host; `restyle` leaves them symbolic to re-brand;
+	 * `copy` brings the XML across untouched — see {@link ImportShapeOptions}.
+	 *
+	 * v1 limitations: source and target slide sizes must match (no geometry rescale,
+	 * as with `importSlide`); the source slide's build animation/timing for the shape
+	 * is dropped; and lifting a *placeholder* is best-effort — `preserve` bakes its
+	 * inherited geometry/colour/size, but for clean results prefer lifting concrete
+	 * content shapes/tables/charts over placeholders.
+	 */
+	importShape(target: Slide, source: Slide, shapeIndex: number, options: ImportShapeOptions = {}): Shape {
+		return this.importShapes(target, source, [shapeIndex], options)[0]
+	}
+
+	/**
+	 * Batch form of {@link importShape}: copy several shapes from one source slide
+	 * onto `target` in the given order. Media/chart/embedding parts shared by the
+	 * lifted shapes (and by earlier imports from the same source deck) are copied
+	 * once via the copy registry, and shared images resolve to a single host-slide
+	 * relationship. Returns the new {@link Shape}s in `shapeIndices` order.
+	 */
+	importShapes(target: Slide, source: Slide, shapeIndices: number[], options: ImportShapeOptions = {}): Shape[] {
+		if (target.presentation !== this) throw new Error('importShape: target slide must belong to this presentation')
+
+		// Pre-flight: v1 does not rescale geometry, so slide sizes must match.
+		const targetSize = this.slideSize
+		const sourceSize = source.presentation.slideSize
+		if (!targetSize || !sourceSize || targetSize.widthEmu !== sourceSize.widthEmu || targetSize.heightEmu !== sourceSize.heightEmu) {
+			const fmt = (s: SlideSize | null): string => (s ? `${s.widthEmu}×${s.heightEmu} EMU` : 'unknown')
+			throw new Error(`importShape requires equal slide sizes; target is ${fmt(targetSize)}, source is ${fmt(sourceSize)}`)
+		}
+
+		// Resolve + validate every index up front so a bad batch throws before mutating.
+		const sourceShapes = source.shapes
+		const sourceElements = shapeIndices.map((i) => {
+			const shape = sourceShapes[i]
+			if (!shape) throw new Error(`No shape at index ${i} on the source slide (it has ${sourceShapes.length})`)
+			return shape.element_
+		})
+
+		const spTree = target.shapeTree()
+		if (!spTree) throw new Error(`importShape: target slide ${target.partName} has no shape tree`)
+		const targetDoc = spTree.ownerDocument
+		if (!targetDoc) throw new Error('importShape: target slide DOM has no owner document')
+
+		const theme = options.theme ?? 'preserve'
+		const sourceOpc = source.presentation.opc
+		const sourceRels = sourceOpc.relationshipsFor(source.partName)
+		const targetRels = this.opc.relationshipsFor(target.partName)
+		// One rel-id map across the batch so shapes sharing a source image share a rel.
+		const relIdMap = new Map<string, string>()
+		// preserve: build the source theme context once; copy/restyle need none.
+		const ctx = theme === 'preserve' ? this.#sourceFlattenContext(sourceOpc, source.partName) : null
+
+		// Anchor for z-order: the existing shape currently at `at` (insert before it,
+		// preserving batch order), else append before any trailing p:extLst.
+		const extLst = firstChild(spTree, 'p:extLst')
+		const anchor = options.at == null ? extLst : (nthShapeChild(spTree, options.at) ?? extLst)
+
+		const result: Shape[] = []
+		for (const shapeEl of sourceElements) {
+			const imported = targetDoc.importNode(shapeEl, true) as Element
+
+			// Drag media/charts/embeddings across and rewrite refs to fresh host rels.
+			this.#rewriteCarriedRels(imported, sourceOpc, sourceRels, target.partName, targetRels, relIdMap)
+
+			// preserve: bake the source theme onto the subtree. The flatten passes match
+			// descendants (not the root), so wrap the shape in a throwaway container.
+			if (ctx) {
+				const holder = createElement(targetDoc, 'p:spTree')
+				holder.appendChild(imported)
+				flattenShape(holder, ctx)
+			}
+
+			// Give the shape and any group children collision-free host ids.
+			let nextId = target.nextShapeId()
+			const cNvPrs = imported.getElementsByTagNameNS(OOXML_NS.p, 'cNvPr')
+			for (let i = 0; i < cNvPrs.length; i++) setAttr(cNvPrs[i], 'id', String(nextId++))
+
+			// Insert into the host tree (this reparents it out of any holder).
+			spTree.insertBefore(imported, anchor)
+
+			const shape = wrapShapeElement(imported, target)
+			if (!shape) throw new Error(`importShape: unsupported shape element <${imported.localName}>`)
+			if (options.left != null) shape.left = options.left
+			if (options.top != null) shape.top = options.top
+			if (options.width != null) shape.width = options.width
+			if (options.height != null) shape.height = options.height
+			result.push(shape)
+		}
+
+		target.part.markDirty()
+		return result
 	}
 
 	/**
@@ -663,6 +806,24 @@ function carriedDecorations(root: Element | null): Element[] {
 		out.push(el)
 	}
 	return out
+}
+
+/**
+ * The `n`-th shape child of a `p:spTree` in document (z-)order, skipping the
+ * tree's own `nvGrpSpPr`/`grpSpPr` and any trailing `p:extLst`. Returns `null`
+ * when `n` is past the last shape (the caller then appends).
+ */
+function nthShapeChild(spTree: Element, n: number): Element | null {
+	let i = 0
+	for (let node = spTree.firstChild; node; node = node.nextSibling) {
+		if (node.nodeType !== ELEMENT_NODE) continue
+		const el = node as Element
+		if (isSpTreeProperty(el)) continue
+		if (el.namespaceURI === OOXML_NS.p && el.localName === 'extLst') continue
+		if (i === n) return el
+		i++
+	}
+	return null
 }
 
 /** The first shape child of a `p:spTree` (skipping `nvGrpSpPr`/`grpSpPr`), or `null`. */

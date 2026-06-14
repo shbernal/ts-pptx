@@ -202,6 +202,28 @@ export function flattenSlide(slideRoot: Element, ctx: FlattenContext): void {
 }
 
 /**
+ * Flatten a single lifted shape's theme dependencies in place — the shape-scoped
+ * subset of {@link flattenSlide} used by `Presentation.importShape` `preserve`
+ * mode. It runs every pass that resolves a *shape's* theme references against the
+ * source theme (style-matrix refs, placeholder-inherited geometry/colour/size,
+ * scheme colours) but deliberately **omits** the two slide-scoped background
+ * passes (`applyInheritedBackground`/`materializeBackground`): a background
+ * belongs to a slide, not to a shape being composed onto a foreign host.
+ *
+ * `shapeRoot` must be an element whose *descendants* include the lifted shape
+ * (the passes match via `getElementsByTagNameNS`, which excludes the root element
+ * itself) — the caller wraps the imported `p:sp`/`p:pic`/`p:graphicFrame`/`p:grpSp`
+ * in a throwaway container before calling. The caller marks the part dirty.
+ */
+export function flattenShape(shapeRoot: Element, ctx: FlattenContext): void {
+	materializeStyleRefs(shapeRoot, ctx)
+	resolvePlaceholderGeometry(shapeRoot, ctx)
+	resolvePlaceholderRunColors(shapeRoot, ctx)
+	resolvePlaceholderRunSizes(shapeRoot, ctx)
+	resolveSchemeColors(shapeRoot, ctx)
+}
+
+/**
  * Restyle a rebound slide in place (the `theme: 'restyle'` mode): the exact
  * inverse of {@link flattenSlide}. It bakes *nothing* — leaving every
  * `a:schemeClr`/style-matrix ref and `p:bg` `bgRef` symbolic is the whole point,

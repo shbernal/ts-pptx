@@ -202,6 +202,23 @@ export class Slide {
 		return new Picture(pic, this)
 	}
 
+	/**
+	 * @internal The slide's shape tree (`p:cSld/p:spTree`), or `null` if absent.
+	 * Exposed for cross-slide composition (`Presentation.importShape`).
+	 */
+	shapeTree(): Element | null {
+		return this.#spTree()
+	}
+
+	/**
+	 * @internal The smallest drawing id (`p:cNvPr/@id`) not already used on this
+	 * slide. Exposed so `Presentation.importShape` can give a lifted shape (and its
+	 * group children) collision-free ids on the host.
+	 */
+	nextShapeId(): number {
+		return this.#nextShapeId()
+	}
+
 	/** Insert a shape after grpSpPr and before any trailing p:extLst on the tree; mark dirty. */
 	#appendShape(spTree: Element, shape: Element): void {
 		spTree.insertBefore(shape, firstChild(spTree, 'p:extLst'))

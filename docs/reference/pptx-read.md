@@ -261,12 +261,36 @@ class Presentation {
 	 */
 	importSlide(source: Presentation, index: number, options?: ImportSlideOptions): Slide
 
+	/**
+	 * Phase 4 — copy one shape from `source.shapes[shapeIndex]` (a slide of any
+	 * open package) onto `target` (a slide of *this* presentation), returning the
+	 * new Shape. Drags the shape's media/chart/embedding parts across (deduped via
+	 * the copy registry), rewrites their relationship references to fresh host-slide
+	 * rels, and reassigns the shape's (and any group children's) drawing ids. With
+	 * `theme: 'preserve'` (default) it bakes the shape's theme references to literals
+	 * against the source theme; `restyle` leaves them symbolic; `copy` is verbatim.
+	 * Source and target slide sizes must match.
+	 */
+	importShape(target: Slide, source: Slide, shapeIndex: number, options?: ImportShapeOptions): Shape
+
+	/** Phase 4 — batch form of `importShape`; media shared by the lifted shapes is copied once. */
+	importShapes(target: Slide, source: Slide, shapeIndices: number[], options?: ImportShapeOptions): Shape[]
+
 	save(): Promise<Uint8Array>
 }
 
 interface ImportSlideOptions {
-	theme?: 'copy' | 'preserve' // default 'copy'
-	carryMasterGraphics?: boolean // preserve only; default false
+	theme?: 'copy' | 'preserve' | 'restyle' // default 'copy'
+	carryMasterGraphics?: boolean // preserve/restyle only; default false
+}
+
+interface ImportShapeOptions {
+	theme?: 'preserve' | 'restyle' | 'copy' // default 'preserve'
+	left?: number // EMU placement overrides; omitted axes keep the source xfrm
+	top?: number
+	width?: number
+	height?: number
+	at?: number // z-order insert position among host shape children; default append (on top)
 }
 ```
 
@@ -745,6 +769,64 @@ way), for cover/divider slides whose branding must survive the rebind:
 const imported = target.importSlide(source, 0, { theme: 'preserve', carryMasterGraphics: true })
 ```
 
+### Composing a slide from shapes of several decks (Phase 4)
+
+Where `importSlide` brings a **whole** slide across, `importShape` lifts an
+**individual** shape — an autoshape, picture, table, chart, connector, or group —
+from any open deck onto a slide of *this* presentation. It is the primitive behind
+a "stitching" workflow: build one target slide from, say, the comparison table of
+deck A's slide 38 and the icon row of deck B's slide 34.
+
+```js
+const target = await Presentation.load(await readFile('deck.pptx'))
+const libraryA = await Presentation.load(await readFile('library-a.pptx'))
+const libraryB = await Presentation.load(await readFile('library-b.pptx'))
+
+const slide = target.slides[0]
+// Lift the table at index 2 of libraryA's slide 38…
+const table = target.importShape(slide, libraryA.slides[38], 2)
+// …and three icons from libraryB's slide 34, repositioned, in one call.
+const icons = target.importShapes(slide, libraryB.slides[34], [4, 5, 6], { left: 1_000_000, top: 4_000_000 })
+
+const bytes = await target.save()
+```
+
+`importShape(target, source, shapeIndex)` resolves `source.shapes[shapeIndex]` and
+copies that subtree self-consistently:
+
+- **Dependencies travel.** Every media / chart (and its embedded workbook) /
+  embedding the shape references is copied into this package under a fresh
+  partname — deduped against earlier imports from the same source deck via the
+  copy registry — and its `r:embed` / `r:id` / `r:link` are rewritten to fresh
+  host-slide relationships. So pictures, styled tables, and charts come across
+  intact, not as re-synthesized plain shapes.
+- **Ids cannot collide.** The lifted shape's `p:cNvPr/@id` (and every group
+  child's) is reassigned to ids unused on the host slide.
+- **Placement.** `left` / `top` / `width` / `height` (EMU) override the shape's
+  source `a:xfrm`; omitted axes keep it verbatim (no rescale). `at` sets the
+  z-order insert position among the host's shape children (default: append, on
+  top). A batch inserts in the given order starting at `at`.
+
+#### Themes: `preserve` (default), `restyle`, `copy`
+
+Same three semantics as `importSlide`, scoped to the one shape subtree:
+
+- **`preserve`** (default) — bake the shape's `a:schemeClr` and `p:style`
+  `lnRef`/`fillRef`/`effectRef` to literals against the *source* theme, so it keeps
+  its look on a host slide whose theme differs. A lifted *placeholder* also gets
+  its inherited geometry/colour/size baked (best-effort — prefer lifting concrete
+  content shapes over placeholders). Unlike a slide import this never runs the
+  slide-scoped background passes; a background belongs to a slide, not a shape.
+- **`restyle`** — leave the shape's theme references symbolic so it re-brands to
+  the host theme. Only *symbolic* colours re-brand; a literal `a:srgbClr` the
+  source baked in stays put.
+- **`copy`** — bring the XML across untouched; only sane when the host already
+  shares the source theme.
+
+v1 limitations match `importSlide`: source and target slide sizes must match
+(no geometry rescale), and the source slide's build animation/timing for the
+lifted shape is dropped (the result is an editable static layout).
+
 ### Editing anything else (low-level escape hatch)
 
 For structure the typed setters do not yet cover, mutate the DOM directly and
@@ -792,7 +874,13 @@ flattening scheme colours and `p:style` refs to literals, carrying the slide's
 effective background, baking each placeholder's inherited run colour, geometry
 (`a:xfrm`), and run size onto the slide, optionally carrying source
 master/layout decorations via `carryMasterGraphics`, attaching to the
-destination master without a new theme, and staying schema-valid), and the chart tests
+destination master without a new theme, and staying schema-valid), and the
+shape-import tests (`test/read/import-shape.test.js`: `importShape`/`importShapes`
+lifting a picture/table/chart/group onto a foreign host, deduping shared media,
+reassigning ids off every host id, baking scheme colours to literals under
+`preserve` vs leaving them symbolic under `restyle`, honouring placement + z-order
+overrides, batching in order, rejecting size/index/ownership errors, and staying
+schema-valid), and the chart tests
 (`test/read/chart.test.js`: chart part resolution, type/title/series/values
 reads, and a read-only open staying byte-identical).
 Schema cases require the OOXML validator

@@ -584,6 +584,29 @@ function getOrAddSpPrXfrm(shapeElement: Element): Element {
 }
 
 /**
+ * Wrap a single shape-tree element (`p:sp`/`p:pic`/`p:cxnSp`/`p:graphicFrame`/
+ * `p:grpSp`) in its concrete `Shape` proxy, or `null` if it is not a shape kind
+ * (e.g. `p:nvGrpSpPr`, `p:grpSpPr`, `p:extLst`).
+ */
+export function wrapShapeElement(element: Element, slide: Slide): Shape | null {
+	if (element.namespaceURI !== OOXML_NS.p) return null
+	switch (element.localName) {
+		case 'sp':
+			return new AutoShape(element, slide)
+		case 'pic':
+			return new Picture(element, slide)
+		case 'cxnSp':
+			return new Connector(element, slide)
+		case 'graphicFrame':
+			return new GraphicFrame(element, slide)
+		case 'grpSp':
+			return new GroupShape(element, slide)
+		default:
+			return null
+	}
+}
+
+/**
  * Build shape proxies for the shape-tree children of `parent` (a `p:spTree` or
  * `p:grpSp`), skipping non-shape children (`p:nvGrpSpPr`, `p:grpSpPr`, …).
  */
@@ -591,27 +614,8 @@ export function buildShapes(parent: Element, slide: Slide): Shape[] {
 	const shapes: Shape[] = []
 	for (let node = parent.firstChild; node; node = node.nextSibling) {
 		if (node.nodeType !== ELEMENT_NODE) continue
-		const element = node as Element
-		if (element.namespaceURI !== OOXML_NS.p) continue
-		switch (element.localName) {
-			case 'sp':
-				shapes.push(new AutoShape(element, slide))
-				break
-			case 'pic':
-				shapes.push(new Picture(element, slide))
-				break
-			case 'cxnSp':
-				shapes.push(new Connector(element, slide))
-				break
-			case 'graphicFrame':
-				shapes.push(new GraphicFrame(element, slide))
-				break
-			case 'grpSp':
-				shapes.push(new GroupShape(element, slide))
-				break
-			default:
-				break
-		}
+		const shape = wrapShapeElement(node as Element, slide)
+		if (shape) shapes.push(shape)
 	}
 	return shapes
 }
