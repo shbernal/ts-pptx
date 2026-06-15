@@ -29,6 +29,9 @@ const MIN_SLIDE_ID = 256
 /** ST_SlideLayoutId minimum (ECMA-376): slide-layout ids start at 2147483648. */
 const MIN_SLIDE_LAYOUT_ID = 2147483648
 
+/** ST_SlideMasterId minimum (ECMA-376): slide-master ids start at 2147483648. */
+const MIN_SLIDE_MASTER_ID = 2147483648
+
 /** Slide dimensions, in both EMU (the OOXML unit) and inches. */
 export interface SlideSize {
 	widthEmu: number
@@ -692,12 +695,73 @@ export class Presentation {
 			targetRels.addWithId(rel.id, rel.type, relativePartName(newPartName, newTargetPartName))
 		}
 
-		if (isMaster) this.#clearLayoutIdList(newPartName)
+		if (isMaster) {
+			this.#clearLayoutIdList(newPartName)
+			// Register the copied master in presentation.xml. Without a
+			// `p:sldMasterId` entry (and a presentation→master relationship) the
+			// master is inert: PowerPoint/LibreOffice ignore its background and shape
+			// tree, so a `copy`-imported slide whose look lives on its master (a
+			// cover/closer) renders blank. Idempotent, so masters shared across
+			// repeated imports are registered exactly once.
+			this.#registerMaster(newPartName)
+		}
 		if (sourcePart.contentType === SLIDE_LAYOUT_CONTENT_TYPE) {
 			this.#linkLayoutIntoMaster(sourceOpc, sourceRels, newPartName)
 		}
 
 		return newPartName
+	}
+
+	/**
+	 * Wire a freshly-copied slide master into `presentation.xml`: add a
+	 * presentation→master relationship and a `p:sldMasterId` entry in
+	 * `p:sldMasterIdLst`. A master that is reachable only through the
+	 * slide→layout→master rel chain but absent from `p:sldMasterIdLst` is treated
+	 * as inactive by renderers, so its background/graphics never paint. No-op when
+	 * the master is already registered (shared across imports from one source).
+	 */
+	#registerMaster(masterPartName: string): void {
+		const presPart = this.presentationPart
+		const presRels = this.opc.relationshipsFor(presPart.partName)
+		for (const rel of presRels.byType(SLIDE_MASTER_REL)) {
+			if (presRels.resolveTarget(rel.id) === masterPartName) return
+		}
+		const relId = presRels.add(SLIDE_MASTER_REL, relativePartName(presPart.partName, masterPartName)).id
+
+		const root = presPart.dom.documentElement
+		if (!root) throw new Error('presentation.xml has no document element to register a master in')
+		// `p:sldMasterIdLst` is the first child of CT_Presentation; create it before
+		// any later sibling if a (degenerate) deck lacks one.
+		const lst = getOrAddChild(root, 'p:sldMasterIdLst', [
+			'p:notesMasterIdLst',
+			'p:handoutMasterIdLst',
+			'p:sldIdLst',
+			'p:sldSz',
+			'p:notesSz',
+			'p:embeddedFontLst',
+			'p:custShowLst',
+			'p:photoAlbum',
+			'p:custDataLst',
+			'p:kinsoku',
+			'p:defaultTextStyle',
+			'p:modifyVerifier',
+			'p:extLst',
+		])
+		const entry = createElement(presPart.dom, 'p:sldMasterId')
+		setAttr(entry, 'id', String(this.#nextSlideMasterId(lst)))
+		setAttr(entry, 'r:id', relId)
+		lst.appendChild(entry)
+		presPart.markDirty()
+	}
+
+	/** A slide-master id one past the highest in `sldMasterIdLst`, floored at ST_SlideMasterId's minimum. */
+	#nextSlideMasterId(sldMasterIdLst: Element): number {
+		let max = MIN_SLIDE_MASTER_ID - 1
+		for (const entry of getElements(sldMasterIdLst, 'p:sldMasterId')) {
+			const id = intValue(attr(entry, 'id'))
+			if (id !== null && id > max) max = id
+		}
+		return max + 1
 	}
 
 	/** Empty a freshly-copied master's `p:sldLayoutIdLst`; copied layouts repopulate it. */
