@@ -91,6 +91,27 @@ function masterLayoutList(opc, masterPartName) {
 	return out
 }
 
+const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
+
+/** Master partnames registered in presentation.xml's p:sldMasterIdLst (resolved via rels). */
+function registeredMasters(opc) {
+	const rootRels = opc.relationshipsFor('/')
+	const officeDoc = [...rootRels].find((rel) => rel.type === OFFICE_DOCUMENT_REL)
+	const presName = rootRels.resolveTarget(officeDoc.id)
+	const root = opc.part(presName).dom.documentElement
+	const rels = opc.relationshipsFor(presName)
+	const out = []
+	for (let n = root.firstChild; n; n = n.nextSibling) {
+		if (n.nodeType !== 1 || n.localName !== 'sldMasterIdLst') continue
+		for (let e = n.firstChild; e; e = e.nextSibling) {
+			if (e.nodeType !== 1 || e.localName !== 'sldMasterId') continue
+			const relId = e.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id')
+			out.push(rels.resolveTarget(relId))
+		}
+	}
+	return out
+}
+
 /** Every internal relationship of every part resolves to a part that exists (no dangling rels). */
 function assertNoDanglingRels(opc) {
 	for (const partName of opc.parts.keys()) {
@@ -225,6 +246,32 @@ describe('Presentation.importSlide', () => {
 			JSON.stringify([ga.layout, gb.layout].sort()),
 			'and they are precisely those two'
 		)
+
+		// The copied master must be registered in presentation.xml's
+		// p:sldMasterIdLst — exactly once for a master shared across imports — or
+		// renderers treat it as inactive and never paint its background/graphics.
+		const masters = registeredMasters(opc)
+		assert(masters.includes(ga.master), 'the copied master is registered in p:sldMasterIdLst')
+		assertEqual(
+			masters.filter((m) => m === ga.master).length,
+			1,
+			'the shared master is registered exactly once (idempotent)'
+		)
+	})
+
+	test('registers each copied master in p:sldMasterIdLst (so master graphics render)', async () => {
+		const target = await open('mixed')
+		const source = await open('mixed')
+		const before = registeredMasters(target.opc).length
+
+		target.importSlide(source, 0)
+		const reopened = await Presentation.load(await target.save())
+		const opc = reopened.opc
+
+		const { master } = assertGraphResolves(opc, reopened.slides[reopened.slides.length - 1].partName)
+		const masters = registeredMasters(opc)
+		assertEqual(masters.length, before + 1, 'importing a slide on a new master registers one more master')
+		assert(masters.includes(master), 'and the registered master is the slide’s own copied master')
 	})
 
 	test('imports a chart slide with its embedded data', async () => {
