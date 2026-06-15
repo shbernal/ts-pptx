@@ -18,6 +18,7 @@ import {
 	setAttr,
 	type Element,
 } from '../oxml/dom.js'
+import { fitSrcRectPercents, getImageSizeFromBytes } from '../../gen-utils.js'
 import { relativePartName } from '../opc/partnames.js'
 import { FILL_CHOICES, normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
 import { Chart } from './chart.js'
@@ -445,11 +446,27 @@ export class Picture extends Shape {
 	 * other picture sharing it (common after `importSlide`/dedup) is unaffected;
 	 * an orphaned old part is left in place for a later GC pass to prune.
 	 *
-	 * Geometry and crop (`a:xfrm`, `a:srcRect`) are left untouched — the caller
-	 * owns sizing. `contentType` is required (e.g. `image/png`); the bytes are not
-	 * sniffed. `extension` defaults from the content type.
+	 * `contentType` is required (e.g. `image/png`); the bytes are not sniffed.
+	 * `extension` defaults from the content type.
+	 *
+	 * `fit` controls the picture's `a:srcRect` crop against its current frame
+	 * extent (`a:xfrm/a:ext`):
+	 * - omitted (default): geometry and crop are left untouched — the caller owns
+	 *   sizing. Note an inherited `a:srcRect` was tuned to the *previous* image's
+	 *   aspect ratio, so swapping in an image of a different ratio reuses a crop
+	 *   that no longer fits and the result looks stretched; pass `fit` to refit.
+	 * - `'cover'`: fill the frame, cropping the overflowing axis (no distortion).
+	 * - `'contain'`: fit the whole image inside the frame, letterboxing the short
+	 *   axis (no distortion).
+	 * - `'stretch'`: drop any crop so the full image is stretched to the frame.
+	 *
+	 * `'cover'`/`'contain'` measure the new bytes' natural size; if unmeasurable
+	 * (e.g. an unknown format) the crop is left as-is and a warning is emitted.
 	 */
-	setImage(bytes: Uint8Array, options: { contentType: string; extension?: string }): void {
+	setImage(
+		bytes: Uint8Array,
+		options: { contentType: string; extension?: string; fit?: 'cover' | 'contain' | 'stretch' },
+	): void {
 		const { contentType } = options
 		if (!contentType) throw new Error('setImage requires a contentType (e.g. "image/png")')
 		const extension = (options.extension ?? extFromContentType(contentType)).toLowerCase().replace(/^\./, '')
@@ -460,7 +477,39 @@ export class Picture extends Shape {
 		const relId = this.slide.relationships.add(IMAGE_REL_TYPE, relativePartName(this.slide.partName, mediaPartName)).id
 
 		setAttr(this.#getOrAddBlip(), 'r:embed', relId)
+		if (options.fit) this.#applyFit(options.fit, bytes)
 		this.markDirty()
+	}
+
+	/**
+	 * Refit the blip crop after a {@link setImage} swap. `stretch` removes any
+	 * `a:srcRect`; `cover`/`contain` recompute it from the new image's natural
+	 * size against the frame extent so the swap is aspect-correct.
+	 */
+	#applyFit(fit: 'cover' | 'contain' | 'stretch', bytes: Uint8Array): void {
+		const blipFill = getOrAddChild(this.element, 'p:blipFill', PIC_AFTER_BLIPFILL)
+		if (fit === 'stretch') {
+			removeChildrenByQName(blipFill, ['a:srcRect'])
+			return
+		}
+		const natural = getImageSizeFromBytes(bytes)
+		if (!natural) {
+			console.warn(
+				`setImage fit '${fit}': could not measure the new image's natural size; leaving the crop unchanged (it may look stretched). Provide a raster (PNG/JPEG/GIF/BMP/WebP) or an SVG with width/height or a viewBox.`,
+			)
+			return
+		}
+		const cx = this.width
+		const cy = this.height
+		if (cx == null || cy == null) {
+			throw new Error(`setImage fit '${fit}' needs a frame extent (a:xfrm/a:ext); this picture has no transform`)
+		}
+		const { l, r, t, b } = fitSrcRectPercents(fit, { w: natural.w, h: natural.h }, { w: cx, h: cy })
+		const srcRect = getOrAddChild(blipFill, 'a:srcRect', ['a:tile', 'a:stretch'])
+		setAttr(srcRect, 'l', String(l))
+		setAttr(srcRect, 'r', String(r))
+		setAttr(srcRect, 't', String(t))
+		setAttr(srcRect, 'b', String(b))
 	}
 
 	/** Get-or-add `p:blipFill/a:blip`, keeping both in document order. */

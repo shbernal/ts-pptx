@@ -592,6 +592,17 @@ function decodeBase64ToBytes (b64: string): Uint8Array | null {
  */
 export function getImageSizeFromBase64 (dataB64: string): { w: number, h: number } | null {
 	const b = decodeBase64ToBytes(dataB64)
+	return b ? getImageSizeFromBytes(b) : null
+}
+
+/**
+ * Read the intrinsic dimensions of an image from raw header bytes — the
+ * byte-level core shared by {@link getImageSizeFromBase64} and the read API's
+ * `Picture.setImage({ fit })`, which already holds the media bytes.
+ * @param {Uint8Array} b - image bytes
+ * @returns {{ w: number, h: number } | null} natural size, or `null` when unmeasurable
+ */
+export function getImageSizeFromBytes (b: Uint8Array): { w: number, h: number } | null {
 	if (!b || b.length < 24) return null
 
 	// PNG: 8-byte signature, then IHDR with width@16 / height@20 (big-endian uint32)
@@ -671,6 +682,45 @@ export function getImageSizeFromBase64 (dataB64: string): { w: number, h: number
 	if (/<svg[\s>]/i.test(text)) return getSvgSizeFromMarkup(text)
 
 	return null
+}
+
+/**
+ * Compute the `<a:srcRect>` crop percentages (each in 1/1000 of a percent, the
+ * OOXML unit) for fitting an image of natural size `img` into a display `box`,
+ * assuming the cropped region is then stretched to fill the box (`<a:stretch>`).
+ *
+ * - `cover`: fill the box, cropping the overflowing axis (positive l/r or t/b)
+ * - `contain`: fit inside the box, letterboxing the short axis (negative l/r or t/b)
+ *
+ * Single source of truth for the crop math shared by the write side
+ * (`ImageSizingXml`) and the read API's `Picture.setImage({ fit })`. `l`/`r` and
+ * `t`/`b` are symmetric (centered crop).
+ * @param {'cover' | 'contain'} type - fit mode
+ * @param {{ w: number, h: number }} img - natural image pixel size
+ * @param {{ w: number, h: number }} box - displayed frame size (any consistent unit)
+ * @returns {{ l: number, r: number, t: number, b: number }} srcRect percentages
+ */
+export function fitSrcRectPercents (
+	type: 'cover' | 'contain',
+	img: { w: number, h: number },
+	box: { w: number, h: number },
+): { l: number, r: number, t: number, b: number } {
+	const imgRatio = img.h / img.w
+	const boxRatio = box.h / box.w
+	let width: number
+	let height: number
+	if (type === 'cover') {
+		const isBoxBased = boxRatio > imgRatio
+		width = isBoxBased ? box.h / imgRatio : box.w
+		height = isBoxBased ? box.h : box.w * imgRatio
+	} else {
+		const widthBased = boxRatio > imgRatio
+		width = widthBased ? box.w : box.h / imgRatio
+		height = widthBased ? box.w * imgRatio : box.h
+	}
+	const hz = Math.round(1e5 * 0.5 * (1 - box.w / width))
+	const vz = Math.round(1e5 * 0.5 * (1 - box.h / height))
+	return { l: hz, r: hz, t: vz, b: vz }
 }
 
 /**

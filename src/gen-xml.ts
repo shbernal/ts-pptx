@@ -48,6 +48,7 @@ import {
 	createShadowElement,
 	createLineCap,
 	encodeXmlEntities,
+	fitSrcRectPercents,
 	genXmlColorSelection,
 	getDuplicateObjectNames,
 	getImageSizeFromBase64,
@@ -97,24 +98,12 @@ function clampLineSpacingPts (lineSpacingPts: number): number {
 
 const ImageSizingXml = {
 	cover: function (imgSize: { w: number, h: number }, boxDim: { w: number, h: number, x: number, y: number }) {
-		const imgRatio = imgSize.h / imgSize.w
-		const boxRatio = boxDim.h / boxDim.w
-		const isBoxBased = boxRatio > imgRatio
-		const width = isBoxBased ? boxDim.h / imgRatio : boxDim.w
-		const height = isBoxBased ? boxDim.h : boxDim.w * imgRatio
-		const hzPerc = Math.round(1e5 * 0.5 * (1 - boxDim.w / width))
-		const vzPerc = Math.round(1e5 * 0.5 * (1 - boxDim.h / height))
-		return `<a:srcRect l="${hzPerc}" r="${hzPerc}" t="${vzPerc}" b="${vzPerc}"/><a:stretch><a:fillRect/></a:stretch>`
+		const { l, r, t, b } = fitSrcRectPercents('cover', imgSize, boxDim)
+		return `<a:srcRect l="${l}" r="${r}" t="${t}" b="${b}"/><a:stretch><a:fillRect/></a:stretch>`
 	},
 	contain: function (imgSize: { w: number, h: number }, boxDim: { w: number, h: number, x: number, y: number }) {
-		const imgRatio = imgSize.h / imgSize.w
-		const boxRatio = boxDim.h / boxDim.w
-		const widthBased = boxRatio > imgRatio
-		const width = widthBased ? boxDim.w : boxDim.h / imgRatio
-		const height = widthBased ? boxDim.w * imgRatio : boxDim.h
-		const hzPerc = Math.round(1e5 * 0.5 * (1 - boxDim.w / width))
-		const vzPerc = Math.round(1e5 * 0.5 * (1 - boxDim.h / height))
-		return `<a:srcRect l="${hzPerc}" r="${hzPerc}" t="${vzPerc}" b="${vzPerc}"/><a:stretch><a:fillRect/></a:stretch>`
+		const { l, r, t, b } = fitSrcRectPercents('contain', imgSize, boxDim)
+		return `<a:srcRect l="${l}" r="${r}" t="${t}" b="${b}"/><a:stretch><a:fillRect/></a:stretch>`
 	},
 	crop: function (imgSize: { w: number, h: number }, boxDim: { w: number, h: number, x: number, y: number }) {
 		const l = boxDim.x
