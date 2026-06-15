@@ -249,13 +249,17 @@ class Presentation {
 	/** Slide dimensions, or null if none declared. */
 	readonly slideSize: SlideSize | null
 
-	/** Phase 4 — duplicate the slide at `index`, append the copy, and return it. */
-	cloneSlide(index: number): Slide
+	/**
+	 * Phase 4 — duplicate the slide at `index`, insert the copy at `options.at`
+	 * (deck order; 0 = first; omitted/out-of-range appends), and return it.
+	 */
+	cloneSlide(index: number, options?: { at?: number }): Slide
 
 	/**
-	 * Phase 4 — append a copy of `source.slides[index]` (from a *different* open
-	 * package) and return it. With `theme: 'copy'` (default) it brings the slide's
-	 * layout → master → theme and any media/chart/embedding parts; with
+	 * Phase 4 — copy `source.slides[index]` (from a *different* open package) and
+	 * insert it at `options.at` (deck order; 0 = first; omitted/out-of-range
+	 * appends), returning the new slide. With `theme: 'copy'` (default) it brings
+	 * the slide's layout → master → theme and any media/chart/embedding parts; with
 	 * `theme: 'preserve'` it bakes the source theme into the slide and binds it to
 	 * this deck's existing master. Source and target slide sizes must match.
 	 */
@@ -282,6 +286,7 @@ class Presentation {
 interface ImportSlideOptions {
 	theme?: 'copy' | 'preserve' | 'restyle' // default 'copy'
 	carryMasterGraphics?: boolean // preserve/restyle only; default false
+	at?: number // insert position in p:sldIdLst (deck order); 0 = first; default append
 }
 
 interface ImportShapeOptions {
@@ -688,6 +693,12 @@ Relationships are copied as-is. If the source slide owns a one-to-one part such
 as a notes slide, the copy would reference the same part; clone slides without
 per-slide notes, or detach them afterward via the low-level API.
 
+Pass `{ at }` to place the duplicate at a specific deck position instead of
+appending: `presentation.cloneSlide(0, { at: 0 })` makes the copy the new first
+slide. `at` is a zero-based index into `p:sldIdLst` (deck order); an `at` past the
+current slide count — or omitting it — appends. The returned slide's `.index`
+reflects where it landed.
+
 ### Importing a slide from another deck (Phase 4)
 
 Copy a slide from one open package into a different one. Unlike `cloneSlide`
@@ -710,6 +721,24 @@ copied once and reused. Untouched parts of the target stay byte-identical.
 Source and target slide sizes must match (`importSlide` throws otherwise; v1 does
 no geometry rescaling). Source notes are dropped, and fonts embedded via
 `presentation.xml` are not carried across.
+
+#### Slide position: `at`
+
+By default the imported slide appends. Pass `{ at }` to insert it at a specific
+deck position — the same zero-based `p:sldIdLst` index as `cloneSlide`'s `at`,
+where `0` makes it first and an out-of-range/omitted `at` appends. This places
+brand **bookends** around generator-authored interior slides regardless of import
+order — a cover first, a closer last:
+
+```js
+deck.importSlide(source, COVER_INDEX, { theme: 'copy', at: 0 }) // cover first
+deck.importSlide(source, CLOSER_INDEX, { theme: 'copy' })       // closer appended last
+```
+
+`importSlide` and `cloneSlide` are the read/import API; interior slides are
+authored with the generate API (`new PptxGenJS()`). The two compose: emit the
+generated deck to bytes (`await pptx.stream()`), `Presentation.load` those bytes,
+`importSlide` the bookends, then `await deck.save()`.
 
 #### Themes: `copy` (default) vs `preserve`
 

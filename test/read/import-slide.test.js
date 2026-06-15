@@ -12,6 +12,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
+import PptxGenJS from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 import { isInstalled, validateBuf } from '../validator.js'
@@ -284,6 +285,146 @@ describe('Presentation.importSlide', () => {
 		target.importSlide(source, 0)
 		target.importSlide(source, 1)
 		const errors = await validateBuf(Buffer.from(await target.save()))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+})
+
+// Slide position control (`at`): bookends need the cover first and the closer
+// last regardless of import order, so `importSlide`/`cloneSlide` accept an
+// `at?: number` insert position in p:sldIdLst (deck order). 0 = first; an
+// out-of-range or omitted `at` appends (the prior behaviour).
+describe('Presentation.importSlide({ at })', () => {
+	// Tag the target's existing slides so we can recognise where the import landed.
+	async function targetWithMarkedSlides() {
+		const target = await open('mixed')
+		const ids = target.slides.map((s) => s.slideId)
+		assert(ids.length >= 1, 'mixed has at least one slide to anchor against')
+		return { target, ids }
+	}
+
+	test('at: 0 inserts the imported slide first', async () => {
+		const { target, ids } = await targetWithMarkedSlides()
+		const source = await open('mixed')
+
+		const imported = target.importSlide(source, 0, { at: 0 })
+		assertEqual(imported.index, 0, 'imported slide reports index 0 in-memory')
+
+		const reopened = await Presentation.load(await target.save())
+		assertEqual(reopened.slides.length, ids.length + 1, 'slide count grew by one')
+		assertEqual(reopened.slides[0].slideId, imported.slideId, 'imported slide is first after round-trip')
+		assertEqual(
+			JSON.stringify(reopened.slides.slice(1).map((s) => s.slideId)),
+			JSON.stringify(ids),
+			'the original slides keep their order, shifted back by one'
+		)
+		assertNoDanglingRels(reopened.opc)
+	})
+
+	test('omitting at appends (unchanged behaviour)', async () => {
+		const { target, ids } = await targetWithMarkedSlides()
+		const source = await open('mixed')
+
+		const imported = target.importSlide(source, 0)
+		assertEqual(imported.index, ids.length, 'imported slide reports the last index')
+
+		const reopened = await Presentation.load(await target.save())
+		const reIds = reopened.slides.map((s) => s.slideId)
+		assertEqual(JSON.stringify(reIds.slice(0, ids.length)), JSON.stringify(ids), 'originals stay first in order')
+		assertEqual(reIds[reIds.length - 1], imported.slideId, 'imported slide is last')
+	})
+
+	test('an out-of-range at appends rather than throwing', async () => {
+		const { target, ids } = await targetWithMarkedSlides()
+		const source = await open('mixed')
+
+		const imported = target.importSlide(source, 0, { at: 999 })
+		assertEqual(imported.index, ids.length, 'an at past the end appends')
+
+		const reopened = await Presentation.load(await target.save())
+		assertEqual(reopened.slides[reopened.slides.length - 1].slideId, imported.slideId, 'imported slide is last')
+		assertNoDanglingRels(reopened.opc)
+	})
+
+	test('cover-first + closer-last bookend placement around an interior', async () => {
+		// One source deck supplies both bookends; place cover at 0 and append closer.
+		const { target, ids } = await targetWithMarkedSlides()
+		const source = await open('mixed')
+
+		const cover = target.importSlide(source, 0, { at: 0 })
+		const closer = target.importSlide(source, 1) // append
+
+		const reopened = await Presentation.load(await target.save())
+		const reIds = reopened.slides.map((s) => s.slideId)
+		assertEqual(reIds[0], cover.slideId, 'cover is first')
+		assertEqual(reIds[reIds.length - 1], closer.slideId, 'closer is last')
+		assertEqual(
+			JSON.stringify(reIds.slice(1, 1 + ids.length)),
+			JSON.stringify(ids),
+			'interior slides sit between the bookends, in order'
+		)
+		assertNoDanglingRels(reopened.opc)
+	})
+
+	test('cloneSlide accepts at to place the duplicate', async () => {
+		const target = await open('mixed')
+		const firstId = target.slides[0].slideId
+
+		const clone = target.cloneSlide(target.slides.length - 1, { at: 0 })
+		assertEqual(clone.index, 0, 'clone reports index 0')
+
+		const reopened = await Presentation.load(await target.save())
+		assertEqual(reopened.slides[0].slideId, clone.slideId, 'clone is first after round-trip')
+		assertEqual(reopened.slides[1].slideId, firstId, 'the former first slide shifted back by one')
+		assertNoDanglingRels(reopened.opc)
+	})
+
+	test.skipIf(!validatorInstalled)('an at-inserted import stays schema-valid', async () => {
+		const target = await open('mixed')
+		const source = await open('mixed')
+		target.importSlide(source, 0, { at: 0 })
+		const errors = await validateBuf(Buffer.from(await target.save()))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+})
+
+// Generate → read bridge: interior slides are authored with the generate API
+// (`new PptxGenJS()`), then bookends are imported on the read/import model
+// (`Presentation`). This pins that the two APIs compose: a pptxgen-generated
+// package loads into Presentation, accepts an importSlide from a fixture, and
+// re-saves without dangling relationships or schema errors.
+describe('generate → read import bridge', () => {
+	async function generatedDeckBytes() {
+		// LAYOUT_WIDE is 12192000×6858000 EMU, matching the `image` read fixture so
+		// importSlide's equal-size pre-flight passes (the pptxgen default is the
+		// narrower LAYOUT_16x9, 9144000×5143500).
+		const pres = new PptxGenJS()
+		pres.layout = 'LAYOUT_WIDE'
+		pres.addSlide().addText('interior slide one', { x: 1, y: 1, w: 6, h: 1 })
+		pres.addSlide().addText('interior slide two', { x: 1, y: 1, w: 6, h: 1 })
+		const out = await pres.stream()
+		return out instanceof Uint8Array ? out : new Uint8Array(out)
+	}
+
+	test('a pptxgen-generated deck loads and accepts an imported bookend', async () => {
+		const deck = await Presentation.load(await generatedDeckBytes())
+		const interiorCount = deck.slides.length
+		assertEqual(interiorCount, 2, 'the generated interior has two slides')
+
+		const source = await open('image')
+		const cover = deck.importSlide(source, 0, { at: 0 })
+
+		const reopened = await Presentation.load(await deck.save())
+		assertEqual(reopened.slides.length, interiorCount + 1, 'the bookend was added to the generated deck')
+		assertEqual(reopened.slides[0].slideId, cover.slideId, 'imported cover is first')
+		assertGraphResolves(reopened.opc, reopened.slides[0].partName)
+		assertNoDanglingRels(reopened.opc)
+	})
+
+	test.skipIf(!validatorInstalled)('the bridged deck stays schema-valid', async () => {
+		const deck = await Presentation.load(await generatedDeckBytes())
+		const source = await open('image')
+		deck.importSlide(source, 0, { at: 0 })
+		const errors = await validateBuf(Buffer.from(await deck.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 	})
 })

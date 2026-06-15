@@ -103,6 +103,14 @@ export interface ImportSlideOptions {
 	 * slide. Ignored unless `theme` is `'preserve'` or `'restyle'`.
 	 */
 	carryMasterGraphics?: boolean
+
+	/**
+	 * Zero-based insert position in `p:sldIdLst` (deck order). `0` makes the
+	 * imported slide first; an `at` past the current slide count — or omitting it —
+	 * appends. Use it to place brand bookends (cover at `0`, closer appended)
+	 * around generator-authored interior slides regardless of import order.
+	 */
+	at?: number
 }
 
 /** Options for {@link Presentation.importShape} / {@link Presentation.importShapes}. */
@@ -209,16 +217,17 @@ export class Presentation {
 	}
 
 	/**
-	 * Duplicate the slide at `index` and append the copy at the end of the deck,
-	 * returning it. The new slide part copies the source bytes verbatim and
-	 * shares the source's relationship targets (layout, images, …) by copying its
-	 * `.rels`; a new presentation→slide relationship and a `p:sldId` entry are
-	 * wired up. Marks the presentation part dirty.
+	 * Duplicate the slide at `index` and insert the copy at `options.at` (deck
+	 * order; `0` = first), defaulting to appending at the end when `at` is omitted
+	 * or out of range. Returns the new slide. The new slide part copies the source
+	 * bytes verbatim and shares the source's relationship targets (layout, images,
+	 * …) by copying its `.rels`; a new presentation→slide relationship and a
+	 * `p:sldId` entry are wired up. Marks the presentation part dirty.
 	 *
 	 * Note: relationships are copied as-is, so a source slide that owns a
 	 * one-to-one part (e.g. a notes slide) would end up shared with the clone.
 	 */
-	cloneSlide(index: number): Slide {
+	cloneSlide(index: number, options: { at?: number } = {}): Slide {
 		const source = this.slides[index]
 		if (!source) throw new Error(`No slide at index ${index} to clone`)
 		const opc = this.opc
@@ -232,8 +241,8 @@ export class Presentation {
 		const sourceRels = opc.part(relsPartNameFor(sourcePart.partName))
 		if (sourceRels) opc.addPart(relsPartNameFor(newPartName), sourceRels.contentType, sourceRels.bytes)
 
-		// 3. Wire the new slide into the presentation (rel + p:sldId entry).
-		return this.#appendSlidePart(newPart)
+		// 3. Wire the new slide into the presentation (rel + p:sldId entry) at `at`.
+		return this.#insertSlidePart(newPart, options.at)
 	}
 
 	/**
@@ -287,8 +296,8 @@ export class Presentation {
 		const newPart = this.opc.part(newPartName)
 		if (!newPart) throw new Error(`Imported slide part went missing: ${newPartName}`)
 
-		// 3. Wire the new slide into the presentation (rel + p:sldId entry).
-		return this.#appendSlidePart(newPart)
+		// 3. Wire the new slide into the presentation (rel + p:sldId entry) at `at`.
+		return this.#insertSlidePart(newPart, options.at)
 	}
 
 	/**
@@ -725,8 +734,13 @@ export class Presentation {
 		masterPart.markDirty()
 	}
 
-	/** Wire a new slide part into `p:sldIdLst` (rel + `p:sldId`), append it, and return it. */
-	#appendSlidePart(newPart: Part): Slide {
+	/**
+	 * Wire a new slide part into `p:sldIdLst` (rel + `p:sldId`) at zero-based
+	 * position `at` and return it. `p:sldIdLst` order *is* deck order, so the
+	 * insertion point is the only bookkeeping needed. An `at` that is omitted,
+	 * negative, or `>=` the current slide count appends (the prior behaviour).
+	 */
+	#insertSlidePart(newPart: Part, at?: number): Slide {
 		const presPart = this.presentationPart
 		const presRels = this.opc.relationshipsFor(presPart.partName)
 		const relId = presRels.add(SLIDE_REL, relativePartName(presPart.partName, newPart.partName)).id
@@ -735,12 +749,15 @@ export class Presentation {
 		const sldIdLst = root && firstChild(root, 'p:sldIdLst')
 		if (!sldIdLst) throw new Error('presentation.xml has no p:sldIdLst to append a slide to')
 		const existing = getElements(sldIdLst, 'p:sldId')
-		const newIndex = existing.length
 		const newSlideId = this.#nextSlideId(existing)
 		const sldId = createElement(presPart.dom, 'p:sldId')
 		setAttr(sldId, 'id', String(newSlideId))
 		setAttr(sldId, 'r:id', relId)
-		sldIdLst.appendChild(sldId)
+
+		const inRange = at !== undefined && at >= 0 && at < existing.length
+		const newIndex = inRange ? at : existing.length
+		if (inRange) sldIdLst.insertBefore(sldId, existing[at])
+		else sldIdLst.appendChild(sldId)
 		presPart.markDirty()
 
 		return new Slide(this, newPart, newSlideId, newIndex)
