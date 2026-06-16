@@ -196,8 +196,8 @@ items:
     source: "gitbrent/PptxGenJS#1458"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: interesting-with-tweaks
+    last_reviewed: 2026-06-16
+    status: superseded
     priority: p0
     target_area:
       - powerpoint-repair
@@ -207,20 +207,38 @@ items:
     non_target_reasons: []
     upstream_summary: Fix phantom slideMaster overrides and notesMaster placeholder repair behavior.
     current_project_notes: >
-      The slideMaster content-type half is already covered locally. The
-      notesMaster placeholder claim still maps to current gen-xml output and
-      should be evaluated separately before adopting the upstream approach.
+      Both halves of this PR are already resolved locally by our own (better)
+      fixes, so the PR's specific changes are superseded. (1) The phantom
+      slideMaster Override half (#1444) is fixed: makeXmlContTypes emits a single
+      /ppt/slideMasters/slideMaster1.xml Override outside the per-slide loop
+      (gen-xml.ts:1863), guarded by test/regression/slide-master-content-types.test.js.
+      (2) The notesMaster placeholder half (#1443): the PR's "strip placeholders to
+      a minimal spTree" approach was deliberately NOT adopted because it was a
+      misdiagnosis. The real repair trigger was notesMaster1.xml.rels pointing at the
+      slideMaster's theme1.xml; commit a4bb5ad4 gives the notesMaster its own
+      theme2.xml part (rel + Content_Types Override + emitted part), guarded by
+      test/regression/theme-relationships.test.js. Our notesMaster keeps the verbatim
+      PowerPoint-authored placeholder set (makeXmlNotesMaster, gen-xml.ts:2213) since
+      makeXmlNotesSlide placeholders inherit geometry/style from them; stripping would
+      orphan those inheritances and re-trigger repair. The keep-placeholders decision
+      is now locked in by test/regression/notes-master-placeholders.test.js. See
+      companion items upstream-issue-1444 and upstream-issue-1443.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/gen-xml.ts:1451
-        - src/gen-xml.ts:1635
+        - src/gen-xml.ts:1863
+        - src/gen-xml.ts:1877
+        - src/gen-xml.ts:2213
+        - test/regression/slide-master-content-types.test.js
+        - test/regression/theme-relationships.test.js
+        - test/regression/notes-master-placeholders.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: evaluate-notesMaster-placeholder-repro
+    next_action: none
 
   - id: upstream-issue-1443
     source: "gitbrent/PptxGenJS#1443"
