@@ -3110,7 +3110,7 @@ items:
     source: "gitbrent/PptxGenJS#1351"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-10
+    last_reviewed: 2026-06-16
     status: implemented
     priority: p2
     target_area:
@@ -3124,9 +3124,12 @@ items:
       size. For base64 `data` images the natural pixel size is read synchronously
       from the header (PNG/JPEG/GIF/BMP/WebP) via getImageSizeFromBase64 and
       applied at 96 DPI (natural px / 96 = inches). When only one of w/h is given,
-      the other is derived from the natural aspect ratio. Path images and vector
-      (SVG) data are not synchronously measurable, so they keep the 1in fallback.
-      Reuses the existing decoder added for `sizing: cover|contain` srcRect work.
+      the other is derived from the natural aspect ratio. Path images are now also
+      handled, but measured at serialize time rather than synchronously (see
+      issue #1217): addImage flags the omitted side(s) via _szAuto and the writer
+      backfills from the embedded media bytes. Only vector (SVG) and unmeasurable
+      formats keep the 1in fallback. Reuses the decoder added for `sizing:
+      cover|contain` srcRect work.
     evidence:
       kinds:
         - local-source-inspection
@@ -5489,8 +5492,8 @@ items:
     source: "gitbrent/PptxGenJS#1217"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-16
+    status: implemented
     priority: p2
     target_area:
       - image-svg-media
@@ -5499,21 +5502,26 @@ items:
     non_target_reasons: []
     upstream_summary: Requested preserving an image's unknown aspect ratio when only width is supplied.
     current_project_notes: >
-      Current image handling defaults missing dimensions to 1 and explicitly
-      notes that actual image dimensions are not measured. This overlaps the
-      existing image-sizing signal but is a clear current API behavior gap.
+      Implemented for path-based images. Base64 `data` images were already measured
+      eagerly in addImage() (issue #1351); path images can't be read synchronously
+      there, so addImage() now flags the omitted side(s) via ObjectOptions._szAuto and
+      slideObjectToXml backfills the missing extent from the embedded media bytes
+      (PNG/JPEG/GIF/BMP/WebP) at 96 DPI once _relsMedia[].data is populated. SVG and
+      unmeasurable formats keep the 1in fallback.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/gen-objects.ts:445
-        - src/gen-objects.ts:452
-        - src/gen-objects.ts:456
+        - src/gen-objects.ts:494
+        - src/gen-xml.ts:829
+        - src/core-interfaces.ts:2651
+        - test/regression/image-intrinsic-size.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: design-image-probing-for-aspect-ratio-preservation
+    next_action: none
 
   - id: upstream-issue-1208
     source: "gitbrent/PptxGenJS#1208"

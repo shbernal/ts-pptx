@@ -58,6 +58,7 @@ import {
 	lineWidthToEmu,
 	valToPts,
 } from './gen-utils.js'
+import { pixelsToEmu, type Emu } from './units.js'
 
 // Warn once per distinct message so a recurring out-of-range value (e.g. the same
 // bad fontSize across every cell of a table) does not flood the console.
@@ -826,6 +827,29 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 			}
 
 			case SLIDE_OBJECT_TYPES.image:
+				// Backfill any omitted dimension of a path-based image from its natural pixel ratio.
+				// The bytes weren't available synchronously in `addImage()`, but `_relsMedia[].data` is
+				// populated by now, so measure it here and keep aspect ratio (issue #1217).
+				// PowerPoint inserts images at 96 DPI, so natural pixels / 96 * EMU == display EMU.
+				if (slideItemObj.options._szAuto) {
+					const szAuto = slideItemObj.options._szAuto
+					const relData = (slide._relsMedia || []).find(rel => rel.rId === slideItemObj.imageRid)?.data
+					const natural = typeof relData === 'string' ? getImageSizeFromBase64(relData) : null
+					if (natural) {
+						if (szAuto.w && szAuto.h) {
+							cx = pixelsToEmu(natural.w, 96)
+							cy = pixelsToEmu(natural.h, 96)
+						} else if (szAuto.h) {
+							// Width supplied, derive height
+							cy = Math.round(cx * (natural.h / natural.w)) as Emu
+						} else if (szAuto.w) {
+							// Height supplied, derive width
+							cx = Math.round(cy * (natural.w / natural.h)) as Emu
+						}
+						imgWidth = cx
+						imgHeight = cy
+					}
+				}
 				strSlideXml += '<p:pic>'
 				strSlideXml += '  <p:nvPicPr>'
 				strSlideXml += `<p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(

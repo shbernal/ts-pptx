@@ -494,13 +494,16 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	// STEP 3: Default any missing dimension from the image's intrinsic (natural) size.
 	// For base64 `data` images the bytes are already in hand, so we can read the
 	// natural pixel size synchronously and avoid the legacy 1x1 fallback that
-	// squished data-only images into a 1in square (issue #1351). Path images
-	// can't be measured synchronously, so they keep the 1in fallback below.
+	// squished data-only images into a 1in square (issue #1351).
+	// Path images can't be measured synchronously (bytes load async during export),
+	// so the missing extent is flagged via `_szAuto` and backfilled at serialize time
+	// once the media bytes are available (issue #1217).
 	// PowerPoint inserts images at 96 DPI, so natural pixels / 96 == inches.
 	let defWidth = intWidth
 	let defHeight = intHeight
-	if ((!intWidth || !intHeight) && strImageData && strImgExtn !== 'svg') {
-		const natural = getImageSizeFromBase64(strImageData)
+	let szAuto: { w: boolean, h: boolean } | undefined
+	if ((!intWidth || !intHeight) && strImgExtn !== 'svg') {
+		const natural = strImageData ? getImageSizeFromBase64(strImageData) : null
 		if (natural) {
 			if (!intWidth && !intHeight) {
 				// Neither given: use the natural size (inches @ 96 DPI)
@@ -513,6 +516,10 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 				// Only height given: preserve aspect ratio for width (same unit as height)
 				defWidth = intHeight * (natural.w / natural.h)
 			}
+		} else if (strImagePath) {
+			// Path image: defer measurement to serialize time. Record which side(s) to derive
+			// from the natural ratio; the 1in fallback below still applies if it stays unmeasurable.
+			szAuto = { w: !intWidth, h: !intHeight }
 		}
 	}
 
@@ -538,6 +545,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 		objectName,
 		objectLock: opt.objectLock,
 		shadow: correctShadowOptions(opt.shadow),
+		...(szAuto ? { _szAuto: szAuto } : {}),
 	}
 	newObject.options = objectOptions
 

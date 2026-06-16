@@ -2648,6 +2648,14 @@ export interface ObjectOptions extends ImageBaseProps, PositionProps, ShapeProps
 	_startCxn?: { name: string, idx: number }
 	/** Connector end-point binding: target shape `objectName` + connection-site index; resolved to `<a:endCxn>` at serialize time */
 	_endCxn?: { name: string, idx: number }
+	/**
+	 * Image: which dimensions were omitted by the user and should be derived from the image's
+	 * natural pixel size at serialize time. Path-based images can't be measured synchronously in
+	 * `addImage()` (bytes are loaded async during export), so the missing extent is backfilled
+	 * once `_relsMedia[].data` is populated. `{ w, h }` true means "derive this side from the
+	 * natural ratio". Base64 `data` images are measured eagerly in `addImage()` and never set this.
+	 */
+	_szAuto?: { w: boolean, h: boolean }
 
 	cx?: Coord
 	cy?: Coord

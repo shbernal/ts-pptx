@@ -1,3 +1,6 @@
+import { writeFileSync, mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
 // addImage() previously fell back to a 1in x 1in square whenever `w`/`h` were omitted, which
@@ -50,6 +53,13 @@ async function extFor(opts) {
 	return { cx: +m[1], cy: +m[2] }
 }
 
+// A path-based 4x2 PNG written to a temp file. Path images can't be measured synchronously in
+// addImage() (bytes are loaded async during export), so the missing extent is backfilled at
+// serialize time from the embedded media bytes (issue #1217).
+const tmpDir = mkdtempSync(join(tmpdir(), 'pptx-img-'))
+const PNG_4x2_PATH = join(tmpDir, 'raster-4x2.png')
+writeFileSync(PNG_4x2_PATH, Buffer.from(RASTER_4x2.png.split('base64,')[1], 'base64'))
+
 defineRegressionSuite('Image intrinsic-size defaults', [
 	{
 		// Neither w nor h: square 1x1 image must emit its natural 9525x9525 EMU box, not 1in.
@@ -101,12 +111,43 @@ defineRegressionSuite('Image intrinsic-size defaults', [
 		},
 	},
 	{
-		// SVG (and any path image, which can't be measured synchronously) has no intrinsic
-		// pixel size here → keep the legacy 1in (914400 EMU) fallback.
+		// SVG is a vector with no intrinsic pixel size → keep the legacy 1in (914400 EMU) fallback.
 		name: 'svg data keeps the 1in fallback (no intrinsic pixel size)',
 		fn: async () => {
 			const r = await extFor({ data: SVG_DATA, x: 1, y: 1 })
 			assert(r.cx === 914400 && r.cy === 914400, `expected cx=914400 cy=914400; got ${JSON.stringify(r)}`)
+		},
+	},
+	{
+		// Path image, no w/h: measured at serialize time → natural 4x2 px → 38100x19050 EMU (issue #1217).
+		name: 'no w/h: path image is measured at serialize time (natural pixel size)',
+		fn: async () => {
+			const r = await extFor({ path: PNG_4x2_PATH, x: 1, y: 1 })
+			assert(r.cx === 38100 && r.cy === 19050, `expected cx=38100 cy=19050; got ${JSON.stringify(r)}`)
+		},
+	},
+	{
+		// Path image, width only (2in): height derived from the 2:1 natural ratio → 1in.
+		name: 'w only: path image height is derived from natural aspect ratio',
+		fn: async () => {
+			const r = await extFor({ path: PNG_4x2_PATH, x: 1, y: 1, w: 2 })
+			assert(r.cx === 1828800 && r.cy === 914400, `expected cx=1828800 cy=914400; got ${JSON.stringify(r)}`)
+		},
+	},
+	{
+		// Path image, height only (2in): width derived from the 2:1 natural ratio → 4in.
+		name: 'h only: path image width is derived from natural aspect ratio',
+		fn: async () => {
+			const r = await extFor({ path: PNG_4x2_PATH, x: 1, y: 1, h: 2 })
+			assert(r.cx === 3657600 && r.cy === 1828800, `expected cx=3657600 cy=1828800; got ${JSON.stringify(r)}`)
+		},
+	},
+	{
+		// Path image, both given: explicit dimensions win, intrinsic size is ignored.
+		name: 'path image explicit w and h are never overridden by intrinsic size',
+		fn: async () => {
+			const r = await extFor({ path: PNG_4x2_PATH, x: 1, y: 1, w: 3, h: 3 })
+			assert(r.cx === 2743200 && r.cy === 2743200, `expected cx=2743200 cy=2743200; got ${JSON.stringify(r)}`)
 		},
 	},
 ])
