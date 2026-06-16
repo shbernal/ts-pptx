@@ -3166,8 +3166,8 @@ items:
     source: "gitbrent/PptxGenJS#1349"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-16
+    status: implemented
     priority: p2
     target_area:
       - missing-pptx-feature
@@ -3175,25 +3175,28 @@ items:
     non_target_reasons: []
     upstream_summary: Mixed RTL/LTR text with newline-separated runs rendered incorrectly.
     current_project_notes: >
-      Current text-body generation splits newline-containing runs into separate
-      text objects, groups paragraphs by align/bullet/breakLine, and emits one
-      paragraph property block per paragraph. The invalid duplicate-pPr class is
-      already fixed, but mixed-direction line splitting still deserves a focused
-      fixture.
+      Text-body generation splits newline-containing runs into separate text
+      objects, groups paragraphs by align/bullet/breakLine, and emits one
+      paragraph property block per paragraph; the invalid duplicate-pPr class was
+      already fixed. Verified the mixed RTL/LTR case now renders correctly (one
+      paragraph per newline, per-run lang/dir preserved, lang change alone does
+      not break a line) and removed the remaining artifact: a segment beginning
+      with "\n" left a junk empty <a:t></a:t> run trailing the previous line.
+      genXmlTextBody now drops empty-string runs that are pure paragraph-break
+      artifacts while preserving lone empty runs as intentional blank paragraphs.
+      Locked in with regression fixtures.
     evidence:
       kinds:
         - local-source-inspection
         - regression-test
       local_files:
-        - src/gen-xml.ts:1229
-        - src/gen-xml.ts:1246
-        - src/gen-xml.ts:1281
-        - test/regression/text-formatting.test.js:27
+        - src/gen-xml.ts:1742
+        - test/regression/text-formatting.test.js:57
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-mixed-rtl-ltr-newline-text-fixture
+    next_action: none
 
   - id: upstream-issue-1344
     source: "gitbrent/PptxGenJS#1344"

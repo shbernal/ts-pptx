@@ -1733,7 +1733,14 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 					_textRunObj = { text: _stripped, options: textObj.options }
 				}
 			}
-			strSlideXml += genXmlTextRun(_textRunObj)
+			// Drop empty-string runs that are pure paragraph-break artifacts. A segment that begins
+			// with "\n" (common when mixing RTL/LTR runs) splits into a leading empty piece; once the
+			// paragraph break has been applied in STEP 5 that empty piece would otherwise emit a junk
+			// `<a:r>...<a:t></a:t></a:r>` trailing the previous line. A *lone* empty run is the line
+			// itself (an intentional blank paragraph, eg: "line1\n\nline3"), so keep it when it is the
+			// only run on the line.
+			const isEmptyBreakArtifact = _textRunObj.text === '' && line.length > 1
+			if (!isEmptyBreakArtifact) strSlideXml += genXmlTextRun(_textRunObj)
 
 			// E: Flag close fontSize for empty [lineBreak] elements
 			if ((!textObj.text && opts.fontSize) || textObj.options.fontSize) {
