@@ -1755,16 +1755,24 @@ export function genXmlPlaceholder (placeholderObj: ISlideObject): string {
 
 	const placeholderIdx = placeholderObj.options?._placeholderIdx ? placeholderObj.options._placeholderIdx : ''
 	const placeholderTyp = placeholderObj.options?._placeholderType ? placeholderObj.options._placeholderType : ''
-	const placeholderType = placeholderTyp && PLACEHOLDER_TYPE_MAP[placeholderTyp] ? PLACEHOLDER_TYPE_MAP[placeholderTyp].toString() : ''
+	// Normalize to the OOXML ST_PlaceholderType value, accepting either a friendly PLACEHOLDER_TYPES
+	// key ('image', 'table') or the mapped value ('pic', 'tbl') - the latter is what `PLACEHOLDER_TYPE`
+	// actually declares. Unknown strings emit no type rather than an invalid attribute.
+	const placeholderType = PLACEHOLDER_TYPE_MAP[placeholderTyp]
+		? PLACEHOLDER_TYPE_MAP[placeholderTyp].toString()
+		: (Object.values(PLACEHOLDER_TYPES) as string[]).includes(placeholderTyp) ? placeholderTyp : ''
 
 	// `hasCustomPrompt` flags a placeholder *definition* (layout/master) that carries custom
 	// prompt text; it must not be set on a populated slide-level text shape promoted to a
 	// placeholder (#1298), or PowerPoint would treat the visible text as prompt text.
 	const isPlaceholderDef = placeholderObj._type === SLIDE_OBJECT_TYPES.placeholder
 
+	// NOTE: `placeholderType` is already the mapped OOXML value (e.g. 'pic', 'tbl') validated on
+	// the line above; do NOT re-look it up in PLACEHOLDER_TYPE_MAP (its keys are the input names,
+	// not the mapped values), or the type attribute is silently dropped for image/table placeholders.
 	return `<p:ph
 		${placeholderIdx ? ' idx="' + placeholderIdx.toString() + '"' : ''}
-		${placeholderType && PLACEHOLDER_TYPE_MAP[placeholderType] ? ` type="${placeholderType}"` : ''}
+		${placeholderType ? ` type="${placeholderType}"` : ''}
 		${isPlaceholderDef && placeholderObj.text && placeholderObj.text.length > 0 ? ' hasCustomPrompt="1"' : ''}
 		/>`
 }
