@@ -1739,6 +1739,17 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	outline?: { color: Color, size: number }
 	paraSpaceAfter?: number
 	paraSpaceBefore?: number
+	/**
+	 * Placeholder type
+	 * - when the value matches a placeholder defined on the slide layout/master, this text
+	 *   inherits that placeholder's position and formatting
+	 * - otherwise the text shape is promoted to a standalone placeholder of this type, emitting
+	 *   a real `<p:ph type="...">`. Use `placeholder: 'title'` to give a slide an accessible
+	 *   title (PowerPoint's accessibility checker otherwise reports "Missing Slide Title")
+	 * - values: 'title' | 'body' | et. al.
+	 * @example 'title'
+	 * @see https://learn.microsoft.com/en-us/office/vba/api/powerpoint.ppplaceholdertype
+	 */
 	placeholder?: string
 	/**
 	 * Rounded rectangle radius (only for pptx.shapes.ROUNDED_RECTANGLE)

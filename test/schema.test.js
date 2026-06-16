@@ -41,6 +41,18 @@ export default [
 		},
 	},
 	{
+		// upstream-issue-1298: a standalone title text box (no matching layout placeholder)
+		// emits <p:ph type="title"/> so PowerPoint sees an accessible slide title. Assert the
+		// resulting package is schema-valid.
+		name: 'standalone title placeholder text box',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addText('Accessible Title', { x: 0.5, y: 0.3, w: 9, h: 1, fontSize: 32, placeholder: 'title' })
+			})
+			await expectNoSchemaErrors(buf, 'standalone-title-placeholder')
+		},
+	},
+	{
 		name: 'company metadata with XML entities',
 		fn: async () => {
 			const { buf } = await build((p) => {

@@ -25,6 +25,7 @@ import {
 	TEXT_VALIGN,
 	VALID_SHAPE_PRESETS,
 } from './core-enums.js'
+import type { PLACEHOLDER_TYPE } from './core-enums.js'
 import type {
 	AddSlideProps,
 	BackgroundProps,
@@ -1392,6 +1393,16 @@ export function addTextDefinition(target: PresSlideInternal, text: TextProps[], 
 
 	// STEP 1: Create/Clean object options
 	newObject.options = cleanOpts(objectOptions)
+
+	// STEP 1b: Standalone placeholder type (#1298 - accessibility "Missing Slide Title")
+	// `placeholder` is documented as a placeholder *type* ('title', 'body', et. al.). When it
+	// resolves to a layout placeholder the layout object supplies the <p:ph> at serialize time,
+	// but with a blank/default layout there is no match and no <p:ph> was emitted - so PowerPoint's
+	// accessibility checker reports the slide as having no title. Record the type here so a real
+	// <p:ph type="..."/> is emitted on the slide shape even without a matching layout placeholder.
+	if (!isPlaceholder && newObject.options.placeholder && !newObject.options._placeholderType) {
+		newObject.options._placeholderType = newObject.options.placeholder as PLACEHOLDER_TYPE
+	}
 
 	// STEP 2: Create/Clean text options
 	textObjects.forEach(item => (item.options = cleanOpts(item.options || {})))

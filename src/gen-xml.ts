@@ -709,7 +709,9 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					strSlideXml += '<p:cNvSpPr' + (slideItemObj.options?.isTextBox ? ' txBox="1"' : '')
 					strSlideXml += spLockXml ? `>${spLockXml}</p:cNvSpPr>` : '/>'
 				}
-				strSlideXml += `<p:nvPr>${slideItemObj._type === 'placeholder' ? genXmlPlaceholder(slideItemObj) : genXmlPlaceholder(placeholderObj)}</p:nvPr>`
+				// Prefer the resolved slide-layout placeholder; otherwise fall back to the shape's own
+				// placeholder type (#1298) so a standalone title/body text box still emits a real <p:ph>.
+				strSlideXml += `<p:nvPr>${genXmlPlaceholder(slideItemObj._type === 'placeholder' || (placeholderObj == null && slideItemObj.options?._placeholderType) ? slideItemObj : placeholderObj)}</p:nvPr>`
 				strSlideXml += '</p:nvSpPr><p:spPr>'
 				strSlideXml += `<a:xfrm${locationAttr}>`
 				strSlideXml += `<a:off x="${x}" y="${y}"/>`
@@ -1755,10 +1757,15 @@ export function genXmlPlaceholder (placeholderObj: ISlideObject): string {
 	const placeholderTyp = placeholderObj.options?._placeholderType ? placeholderObj.options._placeholderType : ''
 	const placeholderType = placeholderTyp && PLACEHOLDER_TYPE_MAP[placeholderTyp] ? PLACEHOLDER_TYPE_MAP[placeholderTyp].toString() : ''
 
+	// `hasCustomPrompt` flags a placeholder *definition* (layout/master) that carries custom
+	// prompt text; it must not be set on a populated slide-level text shape promoted to a
+	// placeholder (#1298), or PowerPoint would treat the visible text as prompt text.
+	const isPlaceholderDef = placeholderObj._type === SLIDE_OBJECT_TYPES.placeholder
+
 	return `<p:ph
 		${placeholderIdx ? ' idx="' + placeholderIdx.toString() + '"' : ''}
 		${placeholderType && PLACEHOLDER_TYPE_MAP[placeholderType] ? ` type="${placeholderType}"` : ''}
-		${placeholderObj.text && placeholderObj.text.length > 0 ? ' hasCustomPrompt="1"' : ''}
+		${isPlaceholderDef && placeholderObj.text && placeholderObj.text.length > 0 ? ' hasCustomPrompt="1"' : ''}
 		/>`
 }
 

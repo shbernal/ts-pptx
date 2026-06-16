@@ -4175,8 +4175,8 @@ items:
     source: "gitbrent/PptxGenJS#1298"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-16
+    status: implemented
     priority: p2
     target_area:
       - speaker-notes-masters-layouts
@@ -4185,23 +4185,30 @@ items:
     non_target_reasons: []
     upstream_summary: PowerPoint accessibility checker reports Missing Slide Title for generated slides.
     current_project_notes: >
-      Current placeholder support can emit p:ph only when a slide layout/master
-      placeholder is involved; plain visual title text is not promoted to a
-      title placeholder. Accessibility behavior should be verified against a
-      minimal PowerPoint-authored title-placeholder slide.
+      Implemented standalone placeholder promotion: addText with a `placeholder`
+      type ('title', 'body', ...) that does not match a slide-layout placeholder
+      now emits a real <p:ph type="..."/> on its own slide shape, so PowerPoint's
+      accessibility checker sees a slide title. addTextDefinition records the
+      placeholder string as _placeholderType (gen-objects.ts); serialization
+      falls back to the shape's own _placeholderType when no layout placeholder
+      resolves (gen-xml.ts). genXmlPlaceholder now sets hasCustomPrompt only on
+      actual placeholder definitions, not on a populated slide-level title.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/gen-objects.ts:87
-        - src/gen-objects.ts:95
-        - src/gen-xml.ts:1393
-        - src/gen-xml.ts:1402
-      schema_fixture: null
-      validator_result: null
+        - src/gen-objects.ts:1396
+        - src/gen-xml.ts:712
+        - src/gen-xml.ts:1758
+        - test/regression/slide-title-placeholder.test.js
+      schema_fixture: "test/schema.test.js: standalone title placeholder text box"
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: create-accessibility-title-placeholder-fixture
+    next_action: none
 
   - id: upstream-issue-1296
     source: "gitbrent/PptxGenJS#1296"
