@@ -1687,4 +1687,20 @@ export default [
 			await expectNoSchemaErrors(buf, 'connectors')
 		},
 	},
+	{
+		// Looping media (upstream-issue-1434): `loop`/`loopCount` emit a slide-level
+		// <p:timing> tree with repeatCount on the media node's <p:cTn>. Asserts the
+		// timing tree (tmRoot + p:video/cMediaNode) stays schema-valid.
+		name: 'media loop and loopCount (p:timing repeatCount)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addMedia({ type: 'video', data: 'video/mp4;base64,AAAA', x: 1, y: 1, w: 3, h: 2, loop: true })
+				s.addMedia({ type: 'video', data: 'video/mp4;base64,BBBB', x: 5, y: 1, w: 3, h: 2, loopCount: 3 })
+				// audio loops via <a:audioFile> + <p:audio> timing node
+				s.addMedia({ type: 'audio', data: 'audio/mp3;base64,CCCC', x: 1, y: 4, w: 3, h: 2, loop: true })
+			})
+			await expectNoSchemaErrors(buf, 'media-loop')
+		},
+	},
 ]

@@ -966,7 +966,8 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"><a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr>`
 					strSlideXml += ` <p:cNvPicPr>${genXmlObjectLock('a:picLocks', PICTURE_LOCK_ATTRS, { noChangeAspect: true, ...slideItemObj.options.objectLock }, slideItemObj.options.objectName)}</p:cNvPicPr>`
 					strSlideXml += ' <p:nvPr>'
-					strSlideXml += `  <a:videoFile r:link="rId${slideItemObj.mediaRid}"/>`
+					// EG_Media choice: audio embeds use <a:audioFile>, video uses <a:videoFile>
+					strSlideXml += `  <a:${slideItemObj.mtype === 'audio' ? 'audioFile' : 'videoFile'} r:link="rId${slideItemObj.mediaRid}"/>`
 					strSlideXml += '  <p:extLst>'
 					strSlideXml += '   <p:ext uri="{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}">'
 					strSlideXml += `    <p14:media xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" r:embed="rId${slideItemObj.mediaRid + 1}"/>`
@@ -1989,6 +1990,58 @@ export function makeXmlPresentationRels (slides: PresSlideInternal[]): string {
  * @param {PresSlideInternal} slide - the slide object to transform into XML
  * @return {string} XML
  */
+/**
+ * Build the slide-level `<p:timing>` tree that makes embedded media loop.
+ * - PowerPoint stores playback looping as `repeatCount` on the media node's `<p:cTn>`
+ *   (`indefinite` for "Loop until Stopped", or `N*1000` for a finite N plays), inside
+ *   the slide timing tree rather than on the `<p:pic>` itself.
+ * - A slide has at most one `<p:timing>`; all looping media share its `tmRoot` node.
+ * - Audio loops via `<p:audio>`, video via `<p:video>` (both `CT_TLCommonMediaNodeData`).
+ * - The media node targets the picture by `spid` (its `<p:cNvPr>` id = `mediaRid + 2`).
+ * @param {PresSlideInternal} slide - the slide to inspect for looping media
+ * @returns {string} the `<p:timing>` XML, or `''` when no media loops
+ */
+function slideTimingToXml (slide: PresSlideInternal): string {
+	const loopMedia = slide._slideObjects.filter(
+		obj =>
+			obj._type === SLIDE_OBJECT_TYPES.media &&
+			obj.mtype !== 'online' &&
+			typeof obj.mediaRid === 'number' &&
+			(obj.loop === true || (typeof obj.loopCount === 'number' && obj.loopCount > 0))
+	)
+	if (loopMedia.length === 0) return ''
+
+	// `<p:cTn id="1">` is the tmRoot; each media node gets the next id
+	let nodeId = 1
+	const mediaNodes = loopMedia
+		.map(obj => {
+			const spid = (obj.mediaRid as number) + 2
+			const repeatCount = obj.loop === true ? 'indefinite' : String(Math.round((obj.loopCount as number) * 1000))
+			// EG_TimeNodeChoice: audio loops via <p:audio>, video via <p:video> (both CT_TLCommonMediaNodeData)
+			const mediaEl = obj.mtype === 'audio' ? 'p:audio' : 'p:video'
+			nodeId += 1
+			return (
+				`<${mediaEl}>` +
+				'<p:cMediaNode>' +
+				`<p:cTn id="${nodeId}" repeatCount="${repeatCount}" fill="hold" display="0">` +
+				'<p:stCondLst><p:cond delay="indefinite"/></p:stCondLst>' +
+				'</p:cTn>' +
+				`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+				'</p:cMediaNode>' +
+				`</${mediaEl}>`
+			)
+		})
+		.join('')
+
+	return (
+		'<p:timing><p:tnLst><p:par>' +
+		'<p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot">' +
+		`<p:childTnLst>${mediaNodes}</p:childTnLst>` +
+		'</p:cTn>' +
+		'</p:par></p:tnLst></p:timing>'
+	)
+}
+
 export function makeXmlSlide (slide: PresSlideInternal): string {
 	return (
 		`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}` +
@@ -1996,7 +2049,9 @@ export function makeXmlSlide (slide: PresSlideInternal): string {
 		'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"' +
 		`${slide?.hidden ? ' show="0"' : ''}>` +
 		`${slideObjectToXml(slide)}` +
-		'<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>'
+		'<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>' +
+		slideTimingToXml(slide) +
+		'</p:sld>'
 	)
 }
 

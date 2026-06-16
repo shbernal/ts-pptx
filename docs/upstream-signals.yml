@@ -1817,8 +1817,8 @@ items:
     source: "gitbrent/PptxGenJS#1434"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-16
+    status: implemented
     priority: p2
     target_area:
       - image-svg-media
@@ -1827,20 +1827,36 @@ items:
     non_target_reasons: []
     upstream_summary: Requests video loop or loopCount support for media playback.
     current_project_notes: >
-      MediaProps exposes cover/extn/link only, and emitted media XML writes the
-      video relationship and p14 media extension without playback loop settings.
+      Added loop?: boolean and loopCount?: number to MediaProps (embedded
+      audio/video only; ignored for type: 'online'). addMediaDefinition stores
+      the flags on the slide object, and makeXmlSlide now emits a slide-level
+      <p:timing> tree via slideTimingToXml: a tmRoot CT_TLCommonTimeNodeData
+      whose childTnLst holds one <p:video>/<p:cMediaNode> per looping item, with
+      repeatCount="indefinite" for loop and repeatCount=N*1000 (ST_TLTime) for a
+      finite loopCount. Each node targets the picture by spid (cNvPr id =
+      mediaRid + 2). repeatCount placement confirmed against the
+      PowerPoint-authored timing tree in pptx-bank/ar-integration-proposal.pptx.
+      Also fixed the long-standing audio path: the non-online <p:pic> body now
+      emits <a:audioFile> (EG_Media choice) for type:'audio' instead of always
+      <a:videoFile>, and the timing tree uses <p:audio> vs <p:video> per mtype.
     evidence:
       kinds:
         - local-source-inspection
+        - powerpoint-authored-comparison
+        - schema-fixture
+        - validator-result
+        - regression-test
       local_files:
-        - src/core-interfaces.ts:580
-        - src/gen-xml.ts:646
-        - src/gen-xml.ts:672
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts:1035
+        - src/gen-objects.ts:654
+        - src/gen-xml.ts:1992
+      schema_fixture: test/schema.test.js (media loop and loopCount)
+      validator_result: pass
       powerpoint_result: null
-      spec_refs: []
-    next_action: inspect-powerpoint-authored-looping-video-xml
+      spec_refs:
+        - "CT_TLCommonTimeNodeData/@repeatCount (ST_TLTime; pml-main)"
+        - "CT_TLCommonMediaNodeData (p:video/p:cMediaNode)"
+    next_action: none
 
   - id: upstream-issue-1425
     source: "gitbrent/PptxGenJS#1425"

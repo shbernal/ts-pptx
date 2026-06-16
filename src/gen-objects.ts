@@ -652,6 +652,12 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	slideData.media = strPath || 'preencoded.mov'
 	slideData.options = {}
 
+	// Playback looping (embedded audio/video only; online embeds have no timing tree)
+	if (strType !== 'online') {
+		if (opt.loop) slideData.loop = true
+		else if (typeof opt.loopCount === 'number' && opt.loopCount > 0) slideData.loopCount = opt.loopCount
+	}
+
 	// STEP 3: Set media properties & options
 	slideData.options.x = intPosX
 	slideData.options.y = intPosY

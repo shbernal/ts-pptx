@@ -56,15 +56,17 @@ export function genSlides_Media(pptx) {
 function genSlide01(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Media" });
 	slide.addTable([[{ text: "Media Examples: Video Types", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-media.html\r\nIt's worth noting that even if a video file format is supported by PowerPoint, you may still encounter issues with playing the video if the video is encoded using a codec that is not supported by the computer you are using to present the slideshow. It's a good idea to test your slideshow on the computer you will be using to present it to ensure that your videos will play correctly.");
+	slide.addNotes(
+		"API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-media.html\r\nIt's worth noting that even if a video file format is supported by PowerPoint, you may still encounter issues with playing the video if the video is encoded using a codec that is not supported by the computer you are using to present the slideshow. It's a good idea to test your slideshow on the computer you will be using to present it to ensure that your videos will play correctly.",
+	);
 
 	slide.addText([{ text: "Type: m4v" }], { ...BASE_CODE_OPTS, ...{ x: 0.5, y: 0.6, h: 0.4, w: 3.56 }, ...TITLE_STYLE });
 	slide.addMedia({ x: 0.5, y: 1.0, h: 2.0, w: 3.56, type: "video", path: IMAGE_PATHS.sample_m4v.path, cover: COVER_VIDEO_16X9 });
 	slide.addText([{ text: "`cover` image provided" }], { ...BASE_CODE_OPTS, ...{ x: 0.5, y: 3.0, h: 0.4, w: 3.56 }, ...CODE_STYLE });
 
 	slide.addText([{ text: "Type: m4v" }], { ...BASE_CODE_OPTS, ...{ x: 9.3, y: 0.6, h: 0.4, w: 3.56 }, ...TITLE_STYLE });
-	slide.addMedia({ x: 9.3, y: 1.0, h: 2.0, w: 3.56, type: "video", path: IMAGE_PATHS.sample_m4v.path });
-	slide.addText([{ text: "no `cover` image provided" }], { ...BASE_CODE_OPTS, ...{ x: 9.3, y: 3.0, h: 0.4, w: 3.56 }, ...CODE_STYLE });
+	slide.addMedia({ x: 9.3, y: 1.0, h: 2.0, w: 3.56, type: "video", path: IMAGE_PATHS.sample_m4v.path, loop: true });
+	slide.addText([{ text: "`loop: true` (Loop until Stopped)" }], { ...BASE_CODE_OPTS, ...{ x: 9.3, y: 3.0, h: 0.4, w: 3.56 }, ...CODE_STYLE });
 
 	// BOTTOM-ROW
 
@@ -79,7 +81,7 @@ function genSlide01(pptx) {
 		cover: COVER_VIDEO_MP4,
 	});
 
-	slide.addText([{ text: "Type: avi" }], { ...BASE_CODE_OPTS, ...{ x: 4.79, y: 3.85, h: 0.4, w: 3.6 }, ...TITLE_STYLE });
+	slide.addText([{ text: "Type: avi (`loopCount: 2`)" }], { ...BASE_CODE_OPTS, ...{ x: 4.79, y: 3.85, h: 0.4, w: 3.6 }, ...TITLE_STYLE });
 	slide.addMedia({
 		x: 4.79,
 		y: 4.25,
@@ -87,6 +89,7 @@ function genSlide01(pptx) {
 		w: 3.6,
 		type: "video",
 		path: IMAGE_PATHS.sample_avi.path,
+		loopCount: 2, // play twice, then stop
 	});
 
 	slide.addText([{ text: "Type: mov" }], { ...BASE_CODE_OPTS, ...{ x: 9.08, y: 3.85, h: 0.4, w: 3.75 }, ...TITLE_STYLE });
@@ -131,7 +134,7 @@ function genSlide02(pptx) {
 		cover: COVER_AUDIO_ROUND,
 	});
 
-	slide.addText([{ text: "Type: wav" }], { ...BASE_CODE_OPTS, ...{ x: 9.33, y: 0.6, h: 0.4, w: 3.5 }, ...TITLE_STYLE });
+	slide.addText([{ text: "Type: wav (`loop: true`)" }], { ...BASE_CODE_OPTS, ...{ x: 9.33, y: 0.6, h: 0.4, w: 3.5 }, ...TITLE_STYLE });
 	slide.addMedia({
 		x: 9.33,
 		y: 1.0,
@@ -140,6 +143,7 @@ function genSlide02(pptx) {
 		type: "audio",
 		path: IMAGE_PATHS.sample_wav.path,
 		cover: COVER_AUDIO,
+		loop: true, // loops the audio until stopped
 	});
 
 	if (typeof window !== "undefined" && window.location.href.indexOf("gitbrent") > 0) {
@@ -161,10 +165,12 @@ function genSlide03(pptx) {
 	slide.addText("Online: YouTube", { ...{ x: 0.5, y: 0.75, h: 5.6, w: 12.3 }, ...TITLE_STYLE });
 	// YouTube `link` is the embed URL (share > embed > copy URL like what you see below)
 	slide.addMedia({ x: 2.1, y: 1.2, h: 5.1, w: 9.1, type: "online", link: "https://www.youtube.com/embed/g36-noRtKR4", cover: COVER_YOUTUBE });
-	slide.addText(
-		[{ text: 'slide.addMedia({ type: "online", link: "https://www.youtube.com/embed/g36-noRtKR4" })' }],
-		{ ...BASE_CODE_OPTS, ...{ x: 0.5, y: 6.35, h: 0.4, w: 12.3 }, ...CODE_STYLE, ...{ align: 'center' } }
-	);
+	slide.addText([{ text: 'slide.addMedia({ type: "online", link: "https://www.youtube.com/embed/g36-noRtKR4" })' }], {
+		...BASE_CODE_OPTS,
+		...{ x: 0.5, y: 6.35, h: 0.4, w: 12.3 },
+		...CODE_STYLE,
+		...{ align: "center" },
+	});
 
 	// FOOTER
 	slide.addText("Note: YouTube videos require newer versions of PowerPoint (v16+/M365). Older versions will show content warning messages.", {

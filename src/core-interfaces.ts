@@ -1031,6 +1031,21 @@ interface MediaBaseProps extends PositionProps, ObjectNameProps {
 	 * @default extension from file provided
 	 */
 	extn?: string
+	/**
+	 * Loop playback indefinitely (PowerPoint "Playback > Loop until Stopped")
+	 * - emits a slide timing tree so the embedded audio/video repeats when played
+	 * - not supported for `type: 'online'` (e.g. YouTube) embeds
+	 * @since 4.0.0
+	 * @default false
+	 */
+	loop?: boolean
+	/**
+	 * Total number of times to play the media (a finite loop), ex: `3` plays it three times
+	 * - ignored when `loop` is `true` (which repeats forever)
+	 * - not supported for `type: 'online'` (e.g. YouTube) embeds
+	 * @since 4.0.0
+	 */
+	loopCount?: number
 }
 export type MediaProps = MediaBaseProps &
 	(
@@ -2488,6 +2503,8 @@ export interface ISlideObject {
 	media?: string
 	mtype?: MediaType
 	mediaRid?: number
+	loop?: boolean
+	loopCount?: number
 	shape?: SHAPE_NAME
 }
 // PRIVATE ^^^
