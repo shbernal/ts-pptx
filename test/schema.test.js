@@ -1685,6 +1685,25 @@ export default [
 		},
 	},
 	{
+		// upstream #1288: theme East Asian (<a:ea>) and complex-script (<a:cs>) font slots must stay
+		// schema-valid when populated from ThemeProps for both the major and minor fonts.
+		name: 'theme East Asian / complex-script font faces',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.theme = {
+					headFontFace: 'Arial Narrow',
+					bodyFontFace: 'Arial',
+					headFontFaceEA: 'Yu Gothic',
+					bodyFontFaceEA: 'Yu Mincho',
+					headFontFaceCS: 'Arial',
+					bodyFontFaceCS: 'Times New Roman',
+				}
+				p.addSlide().addText('テーマ', { x: 1, y: 1, w: 4, h: 0.5 })
+			})
+			await expectNoSchemaErrors(buf, 'theme-ea-cs-fonts')
+		},
+	},
+	{
 		// upstream #1059: connectors emit <p:cxnSp> with connector preset geometries and must stay
 		// schema-valid, including flipped boxes and arrowheads/dashes on the <a:ln>.
 		name: 'connectors (straight/elbow/curved, flipped, arrowheads)',

@@ -850,6 +850,34 @@ export interface ThemeProps {
 	 */
 	bodyFontFace?: string
 	/**
+	 * Headings East Asian font face — theme `<a:ea>` slot of the major font.
+	 * Used for CJK (Chinese/Japanese/Korean) runs that fall back to the theme font.
+	 * - leave unset to keep PowerPoint's empty default (auto-resolved per script)
+	 * @example 'Yu Gothic'
+	 */
+	headFontFaceEA?: string
+	/**
+	 * Body East Asian font face — theme `<a:ea>` slot of the minor font.
+	 * Used for CJK (Chinese/Japanese/Korean) runs that fall back to the theme font.
+	 * - leave unset to keep PowerPoint's empty default (auto-resolved per script)
+	 * @example 'Yu Gothic'
+	 */
+	bodyFontFaceEA?: string
+	/**
+	 * Headings complex-script font face — theme `<a:cs>` slot of the major font.
+	 * Used for complex scripts such as Arabic, Hebrew, Thai, and Devanagari.
+	 * - leave unset to keep PowerPoint's empty default (auto-resolved per script)
+	 * @example 'Arial'
+	 */
+	headFontFaceCS?: string
+	/**
+	 * Body complex-script font face — theme `<a:cs>` slot of the minor font.
+	 * Used for complex scripts such as Arabic, Hebrew, Thai, and Devanagari.
+	 * - leave unset to keep PowerPoint's empty default (auto-resolved per script)
+	 * @example 'Arial'
+	 */
+	bodyFontFaceCS?: string
+	/**
 	 * Theme color scheme overrides written to `ppt/theme/theme1.xml`.
 	 * - any unset slot keeps its default Office value
 	 * - references such as `pptx.SchemeColor.accent1` resolve against these values
