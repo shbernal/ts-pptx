@@ -1566,6 +1566,16 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 */
 	hasLastColumn?: boolean
 	/**
+	 * Lay the table out right-to-left.
+	 * Emits `rtl="1"` on `<a:tblPr>`, which mirrors the column order so the first
+	 * column renders on the right — the correct layout for RTL scripts (Arabic, Hebrew).
+	 * This controls only the table/column direction; per-cell text direction is set
+	 * with each cell's `rtlMode` option.
+	 * @default false
+	 * @since v4.0.0
+	 */
+	rtl?: boolean
+	/**
 	 * Table style to apply, either a built-in `TABLE_STYLE` member or the GUID
 	 * returned by `pptx.defineTableStyle()` for a custom style.
 	 * Emits `<a:tableStyleId>` inside `<a:tblPr>` with the corresponding GUID.
@@ -2711,6 +2721,7 @@ export interface ObjectOptions extends ImageBaseProps, PositionProps, ShapeProps
 	hasBandedColumns?: boolean // table
 	hasFirstColumn?: boolean // table
 	hasLastColumn?: boolean // table
+	rtl?: boolean // table
 	tableStyle?: TABLE_STYLE | string // table
 }
 export interface SlideBaseProps {

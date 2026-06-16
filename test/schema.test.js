@@ -7,7 +7,7 @@
 //
 // Run with: pnpm run test:schema
 
-import { build, assert } from './helpers.js'
+import { build, assert, readEntry, assertIncludes } from './helpers.js'
 import { validateBuf } from './validator.js'
 
 async function expectNoSchemaErrors(buf, label) {
@@ -392,6 +392,23 @@ export default [
 				)
 			})
 			await expectNoSchemaErrors(buf, 'table-has-header')
+		},
+	},
+	{
+		name: 'table with rtl emits rtl="1" on tblPr (upstream #1291)',
+		fn: async () => {
+			const { buf, zip } = await build((p) => {
+				p.addSlide().addTable(
+					[
+						[{ text: 'Col A' }, { text: 'Col B' }],
+						[{ text: 'A1' }, { text: 'B1' }],
+					],
+					{ x: 1, y: 1, w: 4, rtl: true }
+				)
+			})
+			const slideXml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assertIncludes(slideXml, '<a:tblPr rtl="1"', 'rtl table')
+			await expectNoSchemaErrors(buf, 'table-rtl')
 		},
 	},
 	{

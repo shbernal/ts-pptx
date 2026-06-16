@@ -4297,8 +4297,8 @@ items:
     source: "gitbrent/PptxGenJS#1291"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-16
+    status: implemented
     priority: p2
     target_area:
       - table-ooxml
@@ -4307,23 +4307,27 @@ items:
     non_target_reasons: []
     upstream_summary: Table objects cannot be configured for right-to-left direction.
     current_project_notes: >
-      Current code has presentation and paragraph-level rtlMode support, but
-      table body properties are emitted without a table-level direction model
-      and default text styles hard-code rtl="0".
+      Implemented. `TableProps.rtl` (and the `ObjectOptions` table passthrough)
+      now emits `rtl="1"` on `<a:tblPr>`, mirroring the column order for RTL
+      scripts. Per-cell text direction remains controlled by each cell's
+      `rtlMode`. Confirmed CT_TableProperties exposes the `rtl` boolean
+      (default false) via the ooxml MCP.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
+        - ooxml-reference
       local_files:
-        - src/core-interfaces.ts:1095
-        - src/gen-xml.ts:853
-        - src/gen-xml.ts:1141
-        - src/gen-xml.ts:1829
-        - src/gen-xml.ts:1855
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts:1568
+        - src/gen-xml.ts:446
+        - test/schema.test.js:398
+      schema_fixture: table-rtl
+      validator_result: pnpm run test:schema passed 2026-06-16
       powerpoint_result: null
-      spec_refs: []
-    next_action: compare-powerpoint-authored-rtl-table-xml
+      spec_refs:
+        - OOXML CT_TableProperties rtl attribute
+    next_action: none
 
   - id: upstream-issue-1290
     source: "gitbrent/PptxGenJS#1290"

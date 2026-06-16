@@ -444,7 +444,8 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				}"/></p:xfrm>`
 				{
 					const tblPrAttrs =
-						(objTabOpts.hasHeader ? ' firstRow="1"' : '') +
+						(objTabOpts.rtl ? ' rtl="1"' : '') +
+							(objTabOpts.hasHeader ? ' firstRow="1"' : '') +
 							(objTabOpts.hasFooter ? ' lastRow="1"' : '') +
 							(objTabOpts.hasBandedRows ? ' bandRow="1"' : '') +
 							(objTabOpts.hasBandedColumns ? ' bandCol="1"' : '') +
