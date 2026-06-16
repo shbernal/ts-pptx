@@ -1126,6 +1126,32 @@ export default [
 		},
 	},
 	{
+		name: 'picture bullet (buBlip image)',
+		fn: async () => {
+			const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				// shape-level picture bullet shared across runs
+				s.addText('star item', {
+					x: 1,
+					y: 1,
+					w: 4,
+					h: 0.5,
+					bullet: { image: { data: 'image/png;base64,' + b64 }, size: 120 },
+				})
+				// second box re-using the same data must register its own slide rel
+				s.addText('another item', {
+					x: 1,
+					y: 2,
+					w: 4,
+					h: 0.5,
+					bullet: { image: { data: 'image/png;base64,' + b64 } },
+				})
+			})
+			await expectNoSchemaErrors(buf, 'picture-bullet')
+		},
+	},
+	{
 		name: 'shrink-text fit with explicit fontScale/lnSpcReduction',
 		fn: async () => {
 			const { buf } = await build((p) => {

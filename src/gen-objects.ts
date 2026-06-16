@@ -1418,8 +1418,69 @@ export function addTextDefinition(target: PresSlideInternal, text: TextProps[], 
 	// STEP 3: Create hyperlinks
 	createHyperlinkRels(target, textObjects)
 
+	// STEP 4: Create picture-bullet image rels
+	createBulletImageRels(target, newObject.options, textObjects)
+
 	// LAST: Add object to Slide
 	target._slideObjects.push(newObject)
+}
+
+/**
+ * Register slide media relationships for any picture bullets (`bullet.image`) used by a text object.
+ * Picture bullets render as `<a:buBlip><a:blip r:embed="rId.."/></a:buBlip>`, so the bullet image
+ * needs the same media-rel + package-part plumbing as `addImage()`. The assigned `rId` is stored on
+ * the bullet options object (`_rId`) so XML generation can reference it.
+ * @param {PresSlideInternal} target - slide receiving the rels
+ * @param {ObjectOptions} objectOptions - shape-level text options (bullet may live here)
+ * @param {TextProps[]} textObjects - per-paragraph text options (bullet may live here too)
+ */
+function createBulletImageRels(target: PresSlideInternal, objectOptions: ObjectOptions, textObjects: TextProps[]): void {
+	// Collect every bullet options object that requests a picture bullet (shape-level + per-paragraph).
+	// Shape-level bullets are later shared by reference onto the first run, so the same object may appear
+	// twice; the `_rId` guard below makes the registration idempotent.
+	const bulletObjs: Array<{ image?: { path?: string, data?: string }, _rId?: number }> = []
+	const collect = (opts?: TextPropsOptions): void => {
+		if (opts && typeof opts.bullet === 'object' && opts.bullet) bulletObjs.push(opts.bullet)
+	}
+	collect(objectOptions)
+	textObjects.forEach(item => collect(item.options))
+
+	bulletObjs.forEach(bullet => {
+		const img = bullet.image
+		if (!img || (!img.path && !img.data)) return
+
+		// REALITY-CHECK: base64 `data` must carry a base64 header (mirror addImage())
+		if (img.data && (typeof img.data !== 'string' || !img.data.toLowerCase().includes('base64,'))) {
+			console.error('ERROR: bullet.image `data` value lacks a base64 header! Ex: \'image/png;base64,iVBOR[...]\'')
+			return
+		}
+
+		// Auto-paging clones text objects onto new slides while sharing the bullet options object by
+		// reference, so `_rId` may already be set from the originating slide. Skip when this slide already
+		// carries the rel; otherwise (re-)register so the new slide's .rels and media part exist.
+		if (bullet._rId && target._relsMedia.some(rel => rel.rId === bullet._rId)) return
+
+		// Determine extension: path wins, else sniff the data: mime-type (mirror addImageDefinition())
+		let strImgExtn = 'png'
+		if (img.path) {
+			const imagePathFile = img.path.slice(img.path.lastIndexOf('/') + 1).split('?')[0] || ''
+			strImgExtn = ((imagePathFile.split('.').pop() || 'png').split('#')[0] || 'png').toLowerCase()
+		}
+		const imageMimeMatch = /image\/(\w+);/.exec(img.data || '')
+		if (img.data && imageMimeMatch) strImgExtn = imageMimeMatch[1]
+
+		const relId = bullet._rId || getNewRelId(target)
+		const mediaSlideKey = target._slideNum == null ? 'sm' : target._slideNum >= 1000 ? `sl-${target._slideNum}` : target._slideNum
+		target._relsMedia.push({
+			path: img.path || 'preencoded.' + strImgExtn,
+			type: 'image/' + strImgExtn,
+			extn: strImgExtn,
+			data: img.data || '',
+			rId: relId,
+			Target: `../media/image-${mediaSlideKey}-${target._relsMedia.length + 1}.${strImgExtn}`,
+		})
+		bullet._rId = relId
+	})
 }
 
 /**

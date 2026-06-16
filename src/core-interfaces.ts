@@ -565,6 +565,21 @@ export interface TextBaseProps {
 		 * @example 10 // numbered bullets start with 10
 		 */
 		numberStartAt?: number
+		/**
+		 * Image to use as the bullet glyph ("picture bullet", `<a:buBlip>`)
+		 * - supply an image `path` (filesystem/URL) or base64 `data` (same forms as `addImage()`)
+		 * - raster formats (PNG/JPG/GIF) are recommended; use `size` to scale relative to the text height
+		 * - takes precedence over `type`/`characterCode` when set
+		 * @since v4.0.0
+		 * @example image: { path: 'images/star.png' }
+		 * @example image: { data: 'image/png;base64,iVBOR...' }
+		 */
+		image?: { path?: string, data?: string }
+		/**
+		 * Relationship id assigned to a picture-bullet image (`<a:blip r:embed>`)
+		 * @internal populated by `addText()`; do not set directly
+		 */
+		_rId?: number
 
 		// DEPRECATED
 

@@ -1223,8 +1223,11 @@ function genXmlParagraphProperties (textObj: ISlideObject | TextProps, isDefault
 		// NOTE: OOXML uses the unicode character set for Bullets
 		// EX: Unicode Character 'BULLET' (U+2022) ==> '<a:buChar char="&#x2022;"/>'
 		if (typeof textObj.options.bullet === 'object') {
+			const bulletImage = textObj.options.bullet.image
+			const isPictureBullet = !!(bulletImage && (bulletImage.path || bulletImage.data))
 			if (textObj?.options?.bullet?.indent) bulletMarL = valToPts(textObj.options.bullet.indent)
-			if (textObj.options.bullet.color) strXmlBulletColor = `<a:buClr>${createColorElement(textObj.options.bullet.color)}</a:buClr>`
+			// `buClr` colors a glyph/number; it has no effect on a picture bullet, so skip it for `buBlip`.
+			if (textObj.options.bullet.color && !isPictureBullet) strXmlBulletColor = `<a:buClr>${createColorElement(textObj.options.bullet.color)}</a:buClr>`
 
 			// `<a:buSzPct/>` val is thousandths of a percent; ST_TextBulletSizePercent allows 25%-400%
 			let bulletSizePct = 100000
@@ -1239,7 +1242,19 @@ function genXmlParagraphProperties (textObj: ISlideObject | TextProps, isDefault
 			const strXmlBulletSize = `<a:buSzPct val="${bulletSizePct}"/>`
 			const strXmlBulletFont = textObj.options.bullet.fontFace ? `<a:buFont typeface="${encodeXmlEntities(textObj.options.bullet.fontFace)}"/>` : ''
 
-			if (textObj.options.bullet.type && textObj.options.bullet.type.toString().toLowerCase() === 'number') {
+			if (isPictureBullet) {
+				// Picture bullet: <a:buBlip> references a slide media rel registered in addText() (`_rId`).
+				// No `buFont` (there is no glyph typeface), but `buSzPct` still scales the image height.
+				paragraphPropXml += ` marL="${textObj.options.indentLevel && textObj.options.indentLevel > 0 ? bulletMarL + bulletMarL * textObj.options.indentLevel : bulletMarL
+				}" indent="-${bulletMarL}"`
+				if (textObj.options.bullet._rId) {
+					strXmlBullet = `${strXmlBulletSize}<a:buBlip><a:blip r:embed="rId${textObj.options.bullet._rId}"/></a:buBlip>`
+				} else {
+					// rel was not registered (eg: bullet on a context without a slide target) - fall back to a glyph
+					console.warn('Warning: picture `bullet.image` could not be embedded; using a default bullet glyph')
+					strXmlBullet = `${strXmlBulletSize}${strXmlBulletFont}<a:buChar char="${BULLET_TYPES.DEFAULT}"/>`
+				}
+			} else if (textObj.options.bullet.type && textObj.options.bullet.type.toString().toLowerCase() === 'number') {
 				paragraphPropXml += ` marL="${textObj.options.indentLevel && textObj.options.indentLevel > 0 ? bulletMarL + bulletMarL * textObj.options.indentLevel : bulletMarL
 				}" indent="-${bulletMarL}"`
 				strXmlBullet = `${strXmlBulletSize}${strXmlBulletFont || '<a:buFont typeface="+mj-lt"/>'}<a:buAutoNum type="${textObj.options.bullet.style || 'arabicPeriod'}" startAt="${textObj.options.bullet.numberStartAt || textObj.options.bullet.startAt || '1'
