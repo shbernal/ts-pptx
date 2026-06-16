@@ -17,6 +17,7 @@ import {
 	ISlideRelMedia,
 	ImageProps,
 	MediaProps,
+	NotesProps,
 	PresLayout,
 	PresSlide,
 	PresSlideInternal,
@@ -211,10 +212,14 @@ export default class Slide {
 	/**
 	 * Add speaker notes to Slide
 	 * @docs https://gitbrent.github.io/PptxGenJS/docs/speaker-notes.html
-	 * @param {string} notes - notes to add to slide
+	 * @param {string | NotesProps | NotesProps[]} notes - notes text, or rich runs with inline
+	 * formatting / hyperlinks. A plain string is the single-run case; pass run objects to add
+	 * hyperlinks (external `url` only) or per-run bold/italic/underline/color/fontSize/fontFace.
+	 * @example slide.addNotes('Remember to smile')
+	 * @example slide.addNotes([{ text: 'See ' }, { text: 'the docs', options: { hyperlink: { url: 'https://gitbrent.github.io/PptxGenJS/' } } }])
 	 * @return {Slide} this Slide
 	 */
-	addNotes(notes: string): Slide {
+	addNotes(notes: string | NotesProps | NotesProps[]): Slide {
 		genObj.addNotesDefinition(this, notes)
 		return this
 	}

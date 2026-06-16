@@ -4957,8 +4957,8 @@ items:
     source: "gitbrent/PptxGenJS#1250"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-16
+    status: implemented
     priority: p2
     target_area:
       - speaker-notes-masters-layouts
@@ -4968,22 +4968,30 @@ items:
     non_target_reasons: []
     upstream_summary: Requested support for hyperlinks in speaker notes.
     current_project_notes: >
-      Current notes support is plain string input serialized as escaped text in
-      one notes run. Supporting notes hyperlinks would need notes-slide
-      relationship generation plus a structured notes text model.
+      Implemented. addNotes() now accepts string | NotesProps | NotesProps[]:
+      runs carry inline formatting and external `url` hyperlinks. Notes runs
+      reuse the standard text-run serializer (genXmlTextRun), and notes
+      hyperlink rels get their own namespace in the notes part (rId3+, after the
+      reserved rId1=notesMaster / rId2=slide) via buildNotesSlideRels().
+      Internal `slide` hyperlink targets are not yet supported (dropped with a
+      warning); read-side notes round-trip remains out of scope.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/slide.ts:205
-        - src/gen-objects.ts:659
-        - src/gen-xml.ts:1620
-        - src/gen-xml.ts:1643
-      schema_fixture: null
-      validator_result: null
+        - src/slide.ts:222
+        - src/gen-objects.ts:757
+        - src/gen-xml.ts:2099
+        - src/gen-xml.ts:2283
+        - test/regression/notes-hyperlinks.test.js
+      schema_fixture: "test/schema.test.js: speaker notes with hyperlink and rich runs"
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: compare-powerpoint-authored-notes-hyperlink-xml
+    next_action: none
 
   - id: upstream-issue-1245
     source: "gitbrent/PptxGenJS#1245"

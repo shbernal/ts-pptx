@@ -1814,6 +1814,19 @@ export interface TextProps {
 	options?: TextPropsOptions
 }
 
+/**
+ * Per-run options for a speaker-notes text run.
+ * A focused subset of `TextPropsOptions`: inline formatting plus an (external URL) hyperlink.
+ * Notes hyperlinks support `url` only; `slide` targets are not yet supported.
+ */
+export type NotesTextOptions = Pick<TextPropsOptions, 'hyperlink' | 'bold' | 'italic' | 'underline' | 'color' | 'fontSize' | 'fontFace'>
+
+/** A single speaker-notes text run: text plus optional inline formatting / hyperlink. */
+export interface NotesProps {
+	text: string
+	options?: NotesTextOptions
+}
+
 /** Factory for a single inline text run. Prevents `as never` casts when building mixed-style run arrays. */
 export function textRun(text: string | number, options?: TextPropsOptions): TextProps {
 	return options !== undefined ? { text, options } : { text }
@@ -2646,6 +2659,7 @@ export interface SlideBaseProps {
 	_rels: ISlideRel[]
 	_relsChart: ISlideRelChart[] // needed as we use args:"PresSlide|SlideLayout" often
 	_relsMedia: ISlideRelMedia[] // needed as we use args:"PresSlide|SlideLayout" often
+	_relsNotes?: ISlideRel[] // hyperlink rels emitted in the notes-slide part (notesSlideN.xml.rels)
 	_slideNum: number
 	_slideNumberProps?: SlideNumberProps | null
 	_slideObjects: ISlideObject[]
@@ -2677,7 +2691,7 @@ export interface PresSlide {
 	addConnector: (options: ConnectorProps) => PresSlide
 	addImage: (options: ImageProps) => PresSlide
 	addMedia: (options: MediaProps) => PresSlide
-	addNotes: (notes: string) => PresSlide
+	addNotes: (notes: string | NotesProps | NotesProps[]) => PresSlide
 	addShape: (shapeName: SHAPE_NAME, options?: ShapeProps) => PresSlide
 	addTable: (tableRows: TableRow[], options?: TableProps) => PresSlide
 	addText: (text: string | number | TextProps[], options?: TextPropsOptions) => PresSlide

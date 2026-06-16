@@ -37,6 +37,7 @@ import type {
 	ISlideObject,
 	ImageProps,
 	MediaProps,
+	NotesProps,
 	ObjectOptions,
 	OptsChartData,
 	OptsChartGridLine,
@@ -750,13 +751,20 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 /**
  * Adds Notes to a slide.
  * @param {PresSlideInternal} `target` slide object
- * @param {string} `notes`
+ * @param {string | NotesProps | NotesProps[]} `notes` plain text, or rich runs (inline formatting / hyperlinks)
  * @since 2.3.0
  */
-export function addNotesDefinition(target: PresSlideInternal, notes: string): void {
+export function addNotesDefinition(target: PresSlideInternal, notes: string | NotesProps | NotesProps[]): void {
+	// Normalize all input forms to a TextProps[] run list so the notes-slide serializer
+	// (which reuses the standard text-run generator) can handle plain and rich notes uniformly.
+	const runs: TextProps[] =
+		typeof notes === 'string'
+			? [{ text: notes }]
+			: (Array.isArray(notes) ? notes : [notes]).map(run => ({ text: run.text, options: run.options }))
+
 	target._slideObjects.push({
 		_type: SLIDE_OBJECT_TYPES.notes,
-		text: [{ text: notes }],
+		text: runs,
 	})
 }
 

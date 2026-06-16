@@ -2071,6 +2071,88 @@ export function getNotesFromSlide (slide: PresSlideInternal): string {
 }
 
 /**
+ * Collect the speaker-notes runs for a slide (flattened across any number of `addNotes()` calls).
+ * @param {PresSlideInternal} slide - the slide object
+ * @return {TextProps[]} notes text runs in document order
+ */
+function getNotesRuns (slide: PresSlideInternal): TextProps[] {
+	const runs: TextProps[] = []
+	slide._slideObjects.forEach(obj => {
+		if (obj._type === SLIDE_OBJECT_TYPES.notes && obj.text) runs.push(...obj.text)
+	})
+	return runs
+}
+
+/**
+ * Build (and cache) the hyperlink relationships for a slide's notes part (`notesSlideN.xml.rels`).
+ *
+ * Notes rels use their own namespace, independent of `slide._rels` (which serialize to
+ * `slideN.xml.rels`). The notes part always reserves rId1=notesMaster and rId2=slide, so
+ * dynamic hyperlink rels are allocated starting at rId3. Each notes hyperlink run is tagged
+ * with its `_rId` so the body serializer and the rels file agree.
+ *
+ * Idempotent: the result is cached on `slide._relsNotes` and reused by both callers.
+ * Only external `url` hyperlinks are supported; `slide` targets are ignored with a warning.
+ * @param {PresSlideInternal} slide - the slide object
+ * @return {ISlideRel[]} notes hyperlink relationships
+ */
+export function buildNotesSlideRels (slide: PresSlideInternal): ISlideRel[] {
+	if (slide._relsNotes) return slide._relsNotes
+
+	const NOTES_REL_RESERVED = 2 // rId1=notesMaster, rId2=slide
+	const rels: ISlideRel[] = []
+	let lastRid = NOTES_REL_RESERVED
+
+	getNotesRuns(slide).forEach(run => {
+		const hyperlink = run.options?.hyperlink
+		if (!hyperlink) return
+		if (!hyperlink.url) {
+			// Notes support external `url` links only. Drop unsupported (e.g. `slide`) targets so the
+			// run serializer doesn't emit a dangling <a:hlinkClick> with no matching relationship.
+			if (hyperlink.slide) console.warn('Warning: notes hyperlinks support `url` only (ignoring `slide` target)')
+			delete run.options.hyperlink
+			return
+		}
+
+		lastRid++
+		hyperlink._rId = lastRid
+		rels.push({
+			type: SLIDE_OBJECT_TYPES.hyperlink,
+			data: 'dummy',
+			rId: lastRid,
+			Target: encodeXmlEntities(hyperlink.url),
+		})
+	})
+
+	slide._relsNotes = rels
+	return rels
+}
+
+/**
+ * Build the `<p:txBody>` paragraphs for the notes placeholder.
+ * Runs are split into `<a:p>` paragraphs on newlines; each run is serialized with the standard
+ * text-run generator so inline formatting and `<a:hlinkClick>` markup are emitted consistently.
+ * @param {PresSlideInternal} slide - the slide object
+ * @return {string} XML string of `<a:p>` paragraphs
+ */
+function genXmlNotesParagraphs (slide: PresSlideInternal): string {
+	const paragraphs: TextProps[][] = [[]]
+
+	getNotesRuns(slide).forEach(run => {
+		const segments = String(run.text ?? '').split('\n')
+		segments.forEach((segment, idx) => {
+			if (idx > 0) paragraphs.push([]) // a newline starts a new paragraph
+			const text = segment.replace(/\r/g, '')
+			if (text !== '') paragraphs[paragraphs.length - 1].push({ text, options: run.options || {} })
+		})
+	})
+
+	return paragraphs
+		.map(runs => `<a:p>${runs.map(run => genXmlTextRun(run)).join('')}<a:endParaRPr lang="en-US" dirty="0"/></a:p>`)
+		.join('')
+}
+
+/**
  * Generate XML for Notes Master (notesMaster1.xml)
  * @returns {string} XML
  */
@@ -2084,8 +2166,11 @@ export function makeXmlNotesMaster (): string {
  * @return {string} XML
  */
 export function makeXmlNotesSlide (slide: PresSlideInternal): string {
+	// Allocate notes hyperlink rels first so run serialization can reference the correct rId
+	buildNotesSlideRels(slide)
+
 	return (
-		`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<p:notes xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr><p:sp><p:nvSpPr><p:cNvPr id="2" name="Slide Image Placeholder 1"/><p:cNvSpPr><a:spLocks noGrp="1" noRot="1" noChangeAspect="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldImg"/></p:nvPr></p:nvSpPr><p:spPr/></p:sp><p:sp><p:nvSpPr><p:cNvPr id="3" name="Notes Placeholder 2"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US" dirty="0"/><a:t>${encodeXmlEntities(getNotesFromSlide(slide))}</a:t></a:r><a:endParaRPr lang="en-US" dirty="0"/></a:p></p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="4" name="Slide Number Placeholder 3"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldNum" sz="quarter" idx="10"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:fld id="${SLDNUMFLDID}" type="slidenum"><a:rPr lang="en-US"/><a:t>${slide._slideNum}</a:t></a:fld><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp></p:spTree><p:extLst><p:ext uri="{BB962C8B-B14F-4D97-AF65-F5344CB8AC3E}"><p14:creationId xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" val="1024086991"/></p:ext></p:extLst></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:notes>`
+		`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<p:notes xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr><p:sp><p:nvSpPr><p:cNvPr id="2" name="Slide Image Placeholder 1"/><p:cNvSpPr><a:spLocks noGrp="1" noRot="1" noChangeAspect="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldImg"/></p:nvPr></p:nvSpPr><p:spPr/></p:sp><p:sp><p:nvSpPr><p:cNvPr id="3" name="Notes Placeholder 2"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/>${genXmlNotesParagraphs(slide)}</p:txBody></p:sp><p:sp><p:nvSpPr><p:cNvPr id="4" name="Slide Number Placeholder 3"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr><p:ph type="sldNum" sz="quarter" idx="10"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:fld id="${SLDNUMFLDID}" type="slidenum"><a:rPr lang="en-US"/><a:t>${slide._slideNum}</a:t></a:fld><a:endParaRPr lang="en-US"/></a:p></p:txBody></p:sp></p:spTree><p:extLst><p:ext uri="{BB962C8B-B14F-4D97-AF65-F5344CB8AC3E}"><p14:creationId xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" val="1024086991"/></p:ext></p:extLst></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:notes>`
 	)
 }
 
@@ -2189,16 +2274,25 @@ export function makeXmlSlideRel (slides: PresSlideInternal[], slideLayouts: Slid
 }
 
 /**
- * Generates XML string for a slide relation file.
- * @param {number} slideNumber - 1-indexed number of a layout that relations are generated for
+ * Generates XML string for a notes-slide relation file (`ppt/notesSlides/_rels/notesSlideN.xml.rels`).
+ * rId1=notesMaster and rId2=slide are always reserved; any notes hyperlink rels follow (rId3+).
+ * @param {PresSlideInternal} slide - the slide whose notes part is being related
+ * @param {number} slideNumber - 1-indexed slide number the notes part belongs to
  * @return {string} XML
  */
-export function makeXmlNotesSlideRel (slideNumber: number): string {
+export function makeXmlNotesSlideRel (slide: PresSlideInternal, slideNumber: number): string {
+	const hlinkRels = buildNotesSlideRels(slide)
+		.map(
+			rel =>
+				`<Relationship Id="rId${rel.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${rel.Target}" TargetMode="External"/>`
+		)
+		.join('')
+
 	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 		<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
 			<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster" Target="../notesMasters/notesMaster1.xml"/>
 			<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="../slides/slide${slideNumber}.xml"/>
-		</Relationships>`
+			${hlinkRels}</Relationships>`
 }
 
 /**

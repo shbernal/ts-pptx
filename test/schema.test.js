@@ -1703,4 +1703,27 @@ export default [
 			await expectNoSchemaErrors(buf, 'media-loop')
 		},
 	},
+	{
+		// Speaker-notes hyperlinks + rich runs (upstream-issue-1250): notes runs carry
+		// inline formatting and external `url` hyperlinks. The hyperlink emits an
+		// <a:hlinkClick> in the notes body and an external relationship in the notes
+		// part's rels (rId3+). Asserts the notes part + its rels stay schema-valid.
+		name: 'speaker notes with hyperlink and rich runs',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addText('hello', { x: 1, y: 1, w: 4, h: 0.5 })
+				s.addNotes([
+					{ text: 'Intro. ' },
+					{
+						text: 'bold link',
+						options: { bold: true, hyperlink: { url: 'https://gitbrent.github.io/PptxGenJS/', tooltip: 'Docs' } },
+					},
+					{ text: '\nNext line ' },
+					{ text: 'red', options: { color: 'FF0000', italic: true } },
+				])
+			})
+			await expectNoSchemaErrors(buf, 'notes-hyperlinks')
+		},
+	},
 ]
