@@ -4132,30 +4132,43 @@ items:
     source: "gitbrent/PptxGenJS#1301"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-17
+    status: implemented
     priority: p2
     target_area:
+      - invalid-ooxml
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
     upstream_summary: Custom fonts such as Jost Light visually duplicate text in Office 365.
     current_project_notes: >
-      Upstream comments point at the East Asian and complex-script font charset
-      values. Current run XML still emits latin charset 0, ea charset -122, and
-      cs charset -120 for every fontFace, so reproduce before changing a fix
-      that was originally added for other font behavior.
+      Root cause confirmed against PowerPoint-authored decks in pptx-bank: no
+      authored run carries `charset` on `<a:ea>`/`<a:cs>`, yet
+      genXmlTextRunProperties forced every fontFace into `<a:ea>` with the bogus
+      charset="-122" (and cs charset="-120"), which triggers the Office 365
+      ghost/duplicate render. Fix: genXmlTextRunProperties now writes the face
+      to `<a:latin>`+`<a:cs>` only
+      (matching PowerPoint's UI output) and emits `<a:ea>` solely when the new
+      `fontFaceEA` option is set, preserving #174 CJK support. The table-cell
+      endParaRPr fallback was aligned to the same rule.
     evidence:
       kinds:
         - local-source-inspection
+        - powerpoint-authored-comparison
+        - regression-test
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/gen-xml.ts:1007
-        - src/gen-xml.ts:1009
-      schema_fixture: null
-      validator_result: null
+        - src/gen-xml.ts:1371
+        - src/gen-xml.ts:1763
+        - src/core-interfaces.ts:634
+        - test/regression/text-fontface-ea-cs.test.js
+        - test/schema.test.js:1803
+      schema_fixture: text-fontface-ea-cs
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: compare-powerpoint-authored-custom-font-run-charsets
+    next_action: none
 
   - id: upstream-issue-1300
     source: "gitbrent/PptxGenJS#1300"

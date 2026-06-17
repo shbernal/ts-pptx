@@ -629,9 +629,22 @@ export interface TextBaseProps {
 	color?: Color
 	/**
 	 * Font face name
+	 *
+	 * Applied to the Latin (`<a:latin>`) and complex-script (`<a:cs>`) font slots, matching
+	 * how PowerPoint writes a font picked from the UI. The East Asian slot (`<a:ea>`) is left
+	 * to inherit from the theme unless `fontFaceEA` is set — forcing a Latin-only face into the
+	 * East Asian slot duplicates/ghosts text in Office 365.
 	 * @example 'Arial' // Arial font
 	 */
 	fontFace?: string
+	/**
+	 * East Asian font face name (`<a:ea>` slot), used to render CJK (Chinese/Japanese/Korean) glyphs
+	 *
+	 * Set this when the East Asian font differs from `fontFace`. When omitted, `<a:ea>` inherits the
+	 * theme East Asian font, which is what PowerPoint does for Latin fonts.
+	 * @example '微軟正黑體' // render East Asian glyphs with Microsoft JhengHei
+	 */
+	fontFaceEA?: string
 	/**
 	 * Font size
 	 * @example 12 // Font size 12

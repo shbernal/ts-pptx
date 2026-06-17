@@ -1369,8 +1369,15 @@ function genXmlTextRunProperties (opts: ObjectOptions | TextPropsOptions, isDefa
 		if (opts.highlight) runProps += `<a:highlight>${createColorElement(opts.highlight)}</a:highlight>`
 		if (typeof opts.underline === 'object' && opts.underline.color) runProps += `<a:uFill>${genXmlColorSelection(opts.underline.color)}</a:uFill>`
 		if (opts.fontFace) {
-			// NOTE: 'cs' = Complex Script, 'ea' = East Asian (use "-120" instead of "0" - per Issue #174); ea must come first (Issue #174)
-			runProps += `<a:latin typeface="${opts.fontFace}" pitchFamily="34" charset="0"/><a:ea typeface="${opts.fontFace}" pitchFamily="34" charset="-122"/><a:cs typeface="${opts.fontFace}" pitchFamily="34" charset="-120"/>`
+			// Match how PowerPoint writes a font picked from the UI: the chosen typeface goes in the
+			// Latin (`<a:latin>`) and complex-script (`<a:cs>`) slots. The East Asian slot (`<a:ea>`) is
+			// only written when an EA face is explicitly chosen (`fontFaceEA`); otherwise it inherits the
+			// theme. Forcing a Latin-only font into `<a:ea>` — especially with the bogus charset values
+			// PowerPoint never emits on ea/cs — duplicates/ghosts text in Office 365 (Issue #1301).
+			// NOTE: order must be latin, ea, cs per CT_TextCharacterProperties.
+			runProps += `<a:latin typeface="${opts.fontFace}" pitchFamily="34" charset="0"/>`
+			if (opts.fontFaceEA) runProps += `<a:ea typeface="${opts.fontFaceEA}"/>`
+			runProps += `<a:cs typeface="${opts.fontFace}"/>`
 		}
 	}
 
@@ -1755,9 +1762,11 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 		if (slideObj._type === SLIDE_OBJECT_TYPES.tablecell && (opts.fontSize || opts.fontFace)) {
 			if (opts.fontFace) {
 				strSlideXml += `<a:endParaRPr lang="${opts.lang || 'en-US'}"` + (opts.fontSize ? ` sz="${clampFontSizeSz(opts.fontSize)}"` : '') + ' dirty="0">'
+				// Mirror genXmlTextRunProperties: Latin + complex-script slots carry the face; East Asian slot
+				// inherits the theme unless `fontFaceEA` is set (see Issue #1301).
 				strSlideXml += `<a:latin typeface="${opts.fontFace}" charset="0"/>`
-				strSlideXml += `<a:ea typeface="${opts.fontFace}" charset="0"/>`
-				strSlideXml += `<a:cs typeface="${opts.fontFace}" charset="0"/>`
+				if (opts.fontFaceEA) strSlideXml += `<a:ea typeface="${opts.fontFaceEA}"/>`
+				strSlideXml += `<a:cs typeface="${opts.fontFace}"/>`
 				strSlideXml += '</a:endParaRPr>'
 			} else {
 				strSlideXml += `<a:endParaRPr lang="${opts.lang || 'en-US'}"` + (opts.fontSize ? ` sz="${clampFontSizeSz(opts.fontSize)}"` : '') + ' dirty="0"/>'

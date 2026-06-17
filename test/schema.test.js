@@ -1800,4 +1800,18 @@ export default [
 			await expectNoSchemaErrors(buf, 'notes-hyperlinks')
 		},
 	},
+	{
+		// upstream-issue-1301: a custom `fontFace` fills the Latin (<a:latin>) + complex-script (<a:cs>)
+		// slots only, and `fontFaceEA` adds an explicit East Asian (<a:ea>) face. Lock in that the
+		// resulting run properties stay schema-valid (correct CT_TextCharacterProperties child order).
+		name: 'custom fontFace + fontFaceEA emit schema-valid latin/ea/cs runs (upstream #1301)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addText('Latin only', { x: 1, y: 1, w: 4, h: 0.5, fontFace: 'Jost Light' })
+				s.addText('東アジア', { x: 1, y: 2, w: 4, h: 0.5, fontFace: 'Jost Light', fontFaceEA: '游ゴシック' })
+			})
+			await expectNoSchemaErrors(buf, 'text-fontface-ea-cs')
+		},
+	},
 ]
