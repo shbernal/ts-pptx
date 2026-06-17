@@ -1008,7 +1008,7 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 	const newObject: ISlideObject = {
 		_type: SLIDE_OBJECT_TYPES.connector,
 		// store the connector preset on `shape`; the serializer emits it as the prstGeom `prst`
-		shape: preset as SHAPE_NAME,
+		shape: preset,
 		options: {
 			x: Math.min(x1, x2),
 			y: Math.min(y1, y2),

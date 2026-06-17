@@ -690,6 +690,7 @@ export type SHAPE_NAME =
 	| 'wedgeEllipseCallout'
 	| 'wedgeRectCallout'
 	| 'wedgeRoundRectCallout'
+	| CONNECTOR_PRESET_NAME
 
 /**
  * Valid ECMA-376 `ST_ShapeType` presets that are not surfaced with a friendly
@@ -701,6 +702,16 @@ const EXTRA_SHAPE_PRESETS = [
 	'bentConnector2', 'bentConnector3', 'bentConnector4', 'bentConnector5',
 	'curvedConnector2', 'curvedConnector3', 'curvedConnector4', 'curvedConnector5',
 ] as const
+
+/**
+ * Connector preset geometries (`straightConnector1` / `bentConnector{2-5}` /
+ * `curvedConnector{2-5}`) that `addShape` can serialize but that are not surfaced
+ * as friendly `SHAPE_TYPE` names. Derived from `EXTRA_SHAPE_PRESETS` so the public
+ * `SHAPE_NAME` union and the runtime `VALID_SHAPE_PRESETS` set share one source of
+ * truth and cannot drift. Use `addConnector` for live, endpoint-bound connectors;
+ * pass these to `addShape` for a static box-positioned connector geometry.
+ */
+export type CONNECTOR_PRESET_NAME = typeof EXTRA_SHAPE_PRESETS[number]
 
 /**
  * Every shape geometry name PptxGenJS can serialize without corrupting the
@@ -766,11 +777,11 @@ export enum SLIDE_OBJECT_TYPES {
  * has a single fixed preset; `elbow` and `curved` select a member by bend count
  * (`bentConnector{3,4,5}` / `curvedConnector{3,4,5}`) — see `connectorPresetFor`.
  */
-export const CONNECTOR_PRESETS: Record<'straight' | 'elbow' | 'curved', string> = {
+export const CONNECTOR_PRESETS = {
 	straight: 'straightConnector1',
 	elbow: 'bentConnector',
 	curved: 'curvedConnector',
-}
+} as const satisfies Record<'straight' | 'elbow' | 'curved', string>
 
 /**
  * Resolve the concrete connector preset geometry name for a `type` + bend count.
@@ -779,11 +790,11 @@ export const CONNECTOR_PRESETS: Record<'straight' | 'elbow' | 'curved', string> 
  * of which exposes exactly `bends` adjustable guides (`adj1…adjN`).
  * @param {'straight' | 'elbow' | 'curved'} type - friendly connector routing style
  * @param {number} bends - number of adjustable bends (1–3); ignored for `straight`
- * @return {string} OOXML preset geometry name (e.g. `bentConnector4`)
+ * @return {CONNECTOR_PRESET_NAME} OOXML preset geometry name (e.g. `bentConnector4`)
  */
-export function connectorPresetFor (type: 'straight' | 'elbow' | 'curved', bends: number): string {
+export function connectorPresetFor (type: 'straight' | 'elbow' | 'curved', bends: number): CONNECTOR_PRESET_NAME {
 	if (type === 'straight') return CONNECTOR_PRESETS.straight
-	return `${CONNECTOR_PRESETS[type]}${bends + 2}`
+	return `${CONNECTOR_PRESETS[type]}${bends + 2}` as CONNECTOR_PRESET_NAME
 }
 export enum PLACEHOLDER_TYPES {
 	'title' = 'title',

@@ -145,4 +145,23 @@ defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 			assert(/<a:custGeom>/.test(xml), 'expected <a:custGeom> for CUSTOM_GEOMETRY; got: ' + xml)
 		},
 	},
+	{
+		// Connector presets are typed on the public `SHAPE_NAME` union (derived from
+		// EXTRA_SHAPE_PRESETS), so a string-literal `addShape('bentConnector2', ...)` is a
+		// valid typed call AND serializes as a static prstGeom connector geometry. This test
+		// runs under tsconfig.test.json, so it also fails to compile if the union regresses.
+		name: 'addShape with a connector preset is typed and emits its prstGeom',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape('bentConnector2', { x: 1, y: 1, w: 2, h: 1 })
+				s.addShape('curvedConnector4', { x: 1, y: 3, w: 2, h: 1 })
+				s.addShape('straightConnector1', { x: 1, y: 5, w: 2, h: 1 })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(/<a:prstGeom\s+prst="bentConnector2"/.test(xml), 'expected prst="bentConnector2"; got: ' + xml)
+			assert(/<a:prstGeom\s+prst="curvedConnector4"/.test(xml), 'expected prst="curvedConnector4"')
+			assert(/<a:prstGeom\s+prst="straightConnector1"/.test(xml), 'expected prst="straightConnector1"')
+		},
+	},
 ])
