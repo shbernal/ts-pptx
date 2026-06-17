@@ -530,6 +530,15 @@ export interface TextBaseProps {
 	 */
 	breakLine?: boolean
 	/**
+	 * Preset text warp / WordArt shape (`<a:bodyPr><a:prstTxWarp prst="..">`), which
+	 * bends the text along a preset path (arch, circle, wave, …). The value is an
+	 * OOXML `ST_TextShapeType` preset name.
+	 * @since v4.0.0
+	 * @example 'textArchUp' // bend text along an upward arch (e.g. a label following a ring/arc)
+	 * @example 'textCircle'
+	 */
+	textWarp?: string
+	/**
 	 * Add standard or custom bullet
 	 * - use `true` for standard bullet
 	 * - pass object options for custom bullet
@@ -1765,6 +1774,7 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 		spcCol?: number
 		vert?: TextVertType
 		wrap?: boolean
+		prstTxWarp?: string
 	}
 	_lineIdx?: number
 

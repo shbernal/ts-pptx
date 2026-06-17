@@ -1419,6 +1419,7 @@ export function addTextDefinition(target: PresSlideInternal, text: TextProps[], 
 			itemOpts._bodyProp.anchor = !itemOpts.placeholder ? TEXT_VALIGN.ctr : undefined // VALS: [t,ctr,b]
 			itemOpts._bodyProp.vert = itemOpts.vert // VALS: [eaVert,horz,mongolianVert,vert,vert270,wordArtVert,wordArtVertRtl]
 			itemOpts._bodyProp.wrap = typeof itemOpts.wrap === 'boolean' ? itemOpts.wrap : true
+			itemOpts._bodyProp.prstTxWarp = itemOpts.textWarp // preset text warp (`<a:prstTxWarp>`), e.g. 'textArchUp'
 
 			// D.1: Text columns (`numCol` range is 1-16 per ECMA-376 ST_TextColumnCount)
 			if (itemOpts.columns !== undefined) {

@@ -1540,6 +1540,12 @@ function genXmlBodyProperties (slideObject: ISlideObject | TableCell): string {
 		// E: Close <a:bodyPr element
 		bodyProperties += '>'
 
+		// E.1: Preset text warp (`<a:prstTxWarp>`). Per CT_TextBodyProperties this child
+		// comes before the autofit group, so emit it immediately after the attributes.
+		if (slideObject.options._bodyProp.prstTxWarp) {
+			bodyProperties += `<a:prstTxWarp prst="${slideObject.options._bodyProp.prstTxWarp}"><a:avLst/></a:prstTxWarp>`
+		}
+
 		/**
 		 * F: Text Fit/AutoFit/Shrink option
 		 * @see: http://officeopenxml.com/drwSp-text-bodyPr-fit.php
