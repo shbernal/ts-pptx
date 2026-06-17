@@ -489,6 +489,27 @@ export function genXmlColorSelection (props: Color | ShapeFillProps | ShapeLineP
 }
 
 /**
+ * Emit the paint child of an `<a:ln>` stroke.
+ * DrawingML allows the same fill group inside `<a:ln>` as inside a shape fill, so a
+ * stroke can be a gradient/pattern as well as a solid color:
+ * - a `gradient` (or `type: 'gradient'`) produces a `<a:gradFill>` (gradient stroke);
+ * - a `pattern`/`image` type delegates to the shared fill dispatch;
+ * - otherwise a `color` produces a `<a:solidFill>`.
+ * Returns '' when the line specifies no paint, so the caller emits no fill child and
+ * the stroke inherits its color from the theme/placeholder.
+ * @param {ShapeLineProps} [line] line options
+ * @returns XML string
+ */
+export function genXmlLineFill (line: ShapeLineProps | undefined): string {
+	if (!line) return ''
+	// `gradient` presence selects a gradient stroke even when `type` was omitted.
+	if (line.gradient || line.type === 'gradient') return genXmlGradientFill(line.gradient)
+	if (line.type === 'pattern' || line.type === 'image') return genXmlColorSelection(line)
+	if (line.color) return genXmlColorSelection(line)
+	return ''
+}
+
+/**
  * Get a new rel ID (rId) for charts, media, etc.
  * @param {PresSlideInternal} target - the slide to use
  * @returns {number} count of all current rels plus 1 for the caller to use as its "rId"

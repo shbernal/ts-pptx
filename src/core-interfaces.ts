@@ -361,6 +361,15 @@ export interface ShapeFillProps {
 	 */
 	_imgRid?: number
 }
+/**
+ * Line (stroke) options.
+ *
+ * A stroke is painted like a fill: in addition to a solid `color`, it accepts the
+ * inherited `gradient`/`pattern`/`image` fill options (DrawingML allows the same
+ * fill group inside `<a:ln>`). Setting `gradient` (or `type: 'gradient'`) paints a
+ * gradient stroke, e.g. `line: { width: 1, gradient: { kind: 'linear', angle: 0,
+ * stops: [{ position: 0, color: 'accent3' }, { position: 100, color: 'accent4' }] } }`.
+ */
 export interface ShapeLineProps extends ShapeFillProps {
 	/**
 	 * Line width (pt)

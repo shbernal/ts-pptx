@@ -50,6 +50,7 @@ import {
 	encodeXmlEntities,
 	fitSrcRectPercents,
 	genXmlColorSelection,
+	genXmlLineFill,
 	getDuplicateObjectNames,
 	getImageSizeFromBase64,
 	getSmartParseNumber,
@@ -733,7 +734,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					const lnAttrs = (slideItemObj.options.line.width ? ` w="${lineWidthToEmu(slideItemObj.options.line.width)}"` : '') +
 						(slideItemObj.options.line.cap ? ` cap="${createLineCap(slideItemObj.options.line.cap)}"` : '')
 					strSlideXml += `<a:ln${lnAttrs}>`
-					if (slideItemObj.options.line.color) strSlideXml += genXmlColorSelection(slideItemObj.options.line)
+					strSlideXml += genXmlLineFill(slideItemObj.options.line)
 					if (slideItemObj.options.line.dashType) strSlideXml += `<a:prstDash val="${slideItemObj.options.line.dashType}"/>`
 					if (slideItemObj.options.line.beginArrowType) strSlideXml += `<a:headEnd type="${slideItemObj.options.line.beginArrowType}"/>`
 					if (slideItemObj.options.line.endArrowType) strSlideXml += `<a:tailEnd type="${slideItemObj.options.line.endArrowType}"/>`
@@ -817,7 +818,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					const ln = slideItemObj.options.line || {}
 					const lnAttrs = (ln.width ? ` w="${lineWidthToEmu(ln.width)}"` : '') + (ln.cap ? ` cap="${createLineCap(ln.cap)}"` : '')
 					strSlideXml += `<a:ln${lnAttrs}>`
-					if (ln.color) strSlideXml += genXmlColorSelection(ln)
+					strSlideXml += genXmlLineFill(ln)
 					if (ln.dashType) strSlideXml += `<a:prstDash val="${ln.dashType}"/>`
 					if (ln.beginArrowType) strSlideXml += `<a:headEnd type="${ln.beginArrowType}"/>`
 					if (ln.endArrowType) strSlideXml += `<a:tailEnd type="${ln.endArrowType}"/>`
@@ -937,7 +938,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					const lnAttrs = (imgLine.width ? ` w="${lineWidthToEmu(imgLine.width)}"` : '') +
 						(imgLine.cap ? ` cap="${createLineCap(imgLine.cap)}"` : '')
 					strSlideXml += `<a:ln${lnAttrs}>`
-					if (imgLine.color) strSlideXml += genXmlColorSelection(imgLine)
+					strSlideXml += genXmlLineFill(imgLine)
 					if (imgLine.dashType) strSlideXml += `<a:prstDash val="${imgLine.dashType}"/>`
 					if (imgLine.beginArrowType) strSlideXml += `<a:headEnd type="${imgLine.beginArrowType}"/>`
 					if (imgLine.endArrowType) strSlideXml += `<a:tailEnd type="${imgLine.endArrowType}"/>`

@@ -880,14 +880,20 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 	}
 
 	// 1: ShapeLineProps defaults
+	// A stroke can carry a non-solid paint (a `gradient`) just like a fill, so infer the
+	// stroke `type` from the gradient when the caller omits it (`line: { gradient }`) and
+	// preserve the gradient through normalization. Only a solid stroke gets the default
+	// line color; a gradient stroke takes its colors from its stops.
+	const lineType = options.line.type || (options.line.gradient ? 'gradient' : 'solid')
 	const newLineOpts: ShapeLineProps = {
-		type: options.line.type || 'solid',
-		color: options.line.color || DEF_SHAPE_LINE_COLOR,
+		type: lineType,
+		color: lineType === 'solid' ? options.line.color || DEF_SHAPE_LINE_COLOR : options.line.color,
 		transparency: options.line.transparency || 0,
 		width: options.line.width || 1,
 		dashType: options.line.dashType || 'solid',
 		beginArrowType: options.line.beginArrowType,
 		endArrowType: options.line.endArrowType,
+		gradient: options.line.gradient,
 	}
 	if (typeof options.line === 'object' && options.line.type !== 'none') options.line = newLineOpts
 

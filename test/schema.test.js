@@ -304,6 +304,53 @@ export default [
 		},
 	},
 	{
+		name: 'shape with gradient line stroke',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				// Gradient stroke via `line.gradient` (no fill) — `<a:gradFill>` inside `<a:ln>`.
+				s.addShape(p.shapes.LINE, {
+					x: 1,
+					y: 1,
+					w: 4,
+					h: 0,
+					line: {
+						width: 3,
+						gradient: {
+							kind: 'linear',
+							angle: 0,
+							stops: [
+								{ position: 0, color: 'accent3' },
+								{ position: 100, color: 'accent4' },
+							],
+						},
+					},
+				})
+				// Gradient border around a filled rectangle (stroke + fill coexisting).
+				s.addShape(p.shapes.RECTANGLE, {
+					x: 1,
+					y: 2,
+					w: 4,
+					h: 1,
+					fill: { color: 'FFFFFF' },
+					line: {
+						width: 2,
+						type: 'gradient',
+						gradient: {
+							kind: 'linear',
+							angle: 45,
+							stops: [
+								{ position: 0, color: 'FF0000' },
+								{ position: 100, color: '0000FF', transparency: 20 },
+							],
+						},
+					},
+				})
+			})
+			await expectNoSchemaErrors(buf, 'shape-gradient-line-stroke')
+		},
+	},
+	{
 		name: 'shape with pattern fill',
 		fn: async () => {
 			const { buf } = await build((p) => {

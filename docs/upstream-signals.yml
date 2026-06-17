@@ -9241,8 +9241,8 @@ items:
     source: "gitbrent/PptxGenJS#93"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: superseded
+    last_reviewed: 2026-06-17
+    status: implemented
     priority: p2
     target_area:
       - missing-pptx-feature
@@ -9250,19 +9250,23 @@ items:
     non_target_reasons: []
     upstream_summary: Requested gradient color support for line shapes.
     current_project_notes: >
-      Line gradients should be evaluated with the broader gradient fill support
-      lane under upstream-pr-1454, including whether the API covers shape fills,
-      line fills, and slide backgrounds consistently.
+      Implemented. Strokes now accept the same gradient paint as fills: `line.gradient`
+      (or `line.type: 'gradient'`) emits `<a:gradFill>` inside `<a:ln>`, reusing the
+      existing fill-gradient stop model. `genXmlLineFill` (src/gen-utils.ts) dispatches
+      the stroke paint and is shared by the shape, connector, and image-border `<a:ln>`
+      emitters in src/gen-xml.ts; `addShape` normalization (src/gen-objects.ts) infers
+      the stroke `type` from `gradient` and preserves it. Covered by the
+      'shape with gradient line stroke' schema fixture.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
       local_files:
-        - src/gen-objects.ts:1068
-        - src/gen-objects.ts:1079
-        - src/gen-xml.ts:525
-        - docs/upstream-signals.yml:688
-      schema_fixture: null
+        - src/gen-utils.ts:503
+        - src/gen-objects.ts:882
+        - src/gen-xml.ts:737
+      schema_fixture: shape-gradient-line-stroke
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: handle-with-upstream-pr-1454
+    next_action: none
