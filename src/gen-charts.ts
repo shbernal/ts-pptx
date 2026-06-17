@@ -727,7 +727,33 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
 					seriesIdx += type.data.length
 				})
 			}
-			// strXml += '<c:layout/>'
+			// OPTION: Manual legend placement
+			// Each axis of CT_ManualLayout is independent: omitting xMode/x (or
+			// yMode/y, etc.) leaves that axis on automatic layout. x/y use edge
+			// mode so they are absolute fractions of the chart; w/h are fractions
+			// of the chart size. Schema order: xMode, yMode, x, y, w, h.
+			const legendLayout = rel.opts.legendLayout
+			const hasLegendX = legendLayout && typeof legendLayout.x === 'number'
+			const hasLegendY = legendLayout && typeof legendLayout.y === 'number'
+			const hasLegendW = legendLayout && typeof legendLayout.w === 'number'
+			const hasLegendH = legendLayout && typeof legendLayout.h === 'number'
+			if (hasLegendX || hasLegendY || hasLegendW || hasLegendH) {
+				let modes = ''
+				let vals = ''
+				if (hasLegendX) {
+					modes += '<c:xMode val="edge"/>'
+					vals += `<c:x val="${legendLayout.x}"/>`
+				}
+				if (hasLegendY) {
+					modes += '<c:yMode val="edge"/>'
+					vals += `<c:y val="${legendLayout.y}"/>`
+				}
+				if (hasLegendW) vals += `<c:w val="${legendLayout.w}"/>`
+				if (hasLegendH) vals += `<c:h val="${legendLayout.h}"/>`
+				strXml += `<c:layout><c:manualLayout>${modes}${vals}</c:manualLayout></c:layout>`
+			} else {
+				// strXml += '<c:layout/>'
+			}
 			strXml += '<c:overlay val="0"/>'
 			if (rel.opts.legendFontFace || rel.opts.legendFontSize || rel.opts.legendColor) {
 				strXml += '<c:txPr>'

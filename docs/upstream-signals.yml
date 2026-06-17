@@ -3798,8 +3798,8 @@ items:
     source: "gitbrent/PptxGenJS#1021"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-17
+    status: implemented
     priority: p2
     target_area:
       - chart-ooxml
@@ -3808,22 +3808,26 @@ items:
     non_target_reasons: []
     upstream_summary: Add chart legend manual layout support.
     current_project_notes: >
-      Current chart plotArea supports manual layout, but legend output only emits
-      legend position, overlay, and optional text properties; there is no legend
-      layout option or XML branch.
+      Added legendLayout?: PositionProps to IChartPropsLegend. When any of
+      x/y/w/h is a number, the legend <c:legend> now emits a <c:layout> with a
+      <c:manualLayout> between legendEntry and overlay (CT_Legend order). x/y use
+      edge mode (absolute fractions of the chart) and w/h are size fractions, in
+      CT_ManualLayout order xMode, yMode, x, y, w, h. Each axis is independent so
+      partial layouts leave the rest automatic. Schema fixture added and
+      validated.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/gen-charts.ts:591
-        - src/gen-charts.ts:593
-        - src/gen-charts.ts:723
-        - src/gen-charts.ts:743
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts:2500
+        - src/gen-charts.ts:730
+      schema_fixture: test/schema.test.js (chart legend manual layout, upstream #1021)
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: compare-powerpoint-authored-legend-manual-layout-xml
+    next_action: none
 
   - id: upstream-pr-871
     source: "gitbrent/PptxGenJS#871"
@@ -6566,8 +6570,8 @@ items:
     source: "gitbrent/PptxGenJS#1075"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: superseded
+    last_reviewed: 2026-06-17
+    status: implemented
     priority: p3
     target_area:
       - chart-ooxml
@@ -6576,21 +6580,22 @@ items:
     non_target_reasons: []
     upstream_summary: Requested chart legend interval or manual legend placement controls.
     current_project_notes: >
-      Current legend serialization supports position and font styling, but not
-      manual legend layout. Upstream PR 1021 is already the focused tracking item
-      for legend manual layout support.
+      Manual legend placement landed via the legendLayout option (see
+      upstream-pr-1021). Legend interval controls are not part of that change and
+      have no separate repro; revisit only if a focused request appears.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/gen-charts.ts:719
-        - src/gen-charts.ts:744
-        - docs/upstream-signals.yml:3354
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts:2500
+        - src/gen-charts.ts:730
+      schema_fixture: test/schema.test.js (chart legend manual layout, upstream #1021)
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: handle-with-upstream-pr-1021
+    next_action: none
 
   - id: upstream-issue-1055
     source: "gitbrent/PptxGenJS#1055"

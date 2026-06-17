@@ -2501,6 +2501,20 @@ export interface IChartPropsLegend {
 	legendColor?: string
 	legendFontFace?: string
 	legendFontSize?: number
+	/**
+	 * Manual legend placement within the chart area.
+	 *
+	 * Each of `x`/`y`/`w`/`h` is a fraction (0-1) of the chart's width/height.
+	 * `x`/`y` position the legend's top-left corner relative to the chart edge;
+	 * `w`/`h` set its size. Each axis is independent: provide only `x` to move the
+	 * legend horizontally while leaving vertical placement and size automatic.
+	 * Setting this overrides the automatic placement implied by `legendPos`.
+	 *
+	 * Has no effect unless `showLegend` is `true`.
+	 *
+	 * @example { x: 0.7, y: 0.3, w: 0.25, h: 0.4 }
+	 */
+	legendLayout?: PositionProps
 	legendPos?: 'b' | 'l' | 'r' | 't' | 'tr'
 }
 export interface IChartPropsTitle extends TextBaseProps {

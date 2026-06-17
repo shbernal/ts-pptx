@@ -845,6 +845,35 @@ export default [
 		},
 	},
 	{
+		// Upstream #1021: legendLayout emits a <c:manualLayout> inside <c:legend> so the
+		// legend can be positioned and sized manually. Schema order inside CT_ManualLayout
+		// is xMode, yMode, x, y, w, h; <c:layout> sits between legendEntry and overlay.
+		name: 'chart legend with manual layout emits schema-valid manualLayout (upstream #1021)',
+		fn: async () => {
+			const { buf, zip } = await build((p) => {
+				p.addSlide().addChart(p.charts.BAR, [{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
+					x: 0.5,
+					y: 0.5,
+					w: 6,
+					h: 3,
+					showLegend: true,
+					legendPos: 'r',
+					legendLayout: { x: 0.7, y: 0.3, w: 0.25, h: 0.4 },
+				})
+			})
+			// _chartCounter is global across the test run, so the chart file number is
+			// not deterministic here; locate the single chart part by pattern.
+			const chartPath = Object.keys(zip.files).find((p) => /^ppt\/charts\/chart\d+\.xml$/.test(p))
+			const chartXml = await readEntry(zip, chartPath)
+			assertIncludes(
+				chartXml,
+				'<c:layout><c:manualLayout><c:xMode val="edge"/><c:yMode val="edge"/><c:x val="0.7"/><c:y val="0.3"/><c:w val="0.25"/><c:h val="0.4"/></c:manualLayout></c:layout>',
+				'legend manual layout'
+			)
+			await expectNoSchemaErrors(buf, 'chart-legend-manual-layout')
+		},
+	},
+	{
 		name: 'bar chart with valAxisCrossBetween midCat',
 		fn: async () => {
 			const { buf } = await build((p) => {
