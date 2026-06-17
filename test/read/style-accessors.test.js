@@ -14,10 +14,34 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { DOMParser } from '@xmldom/xmldom'
 import { describe, test } from 'vitest'
 import PptxGenJS from '../../dist/node.js'
-import { Presentation } from '../../dist/read.js'
+import { Presentation, AutoShape, Picture } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
+
+const P_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main'
+const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+
+/**
+ * Parse a standalone shape-tree XML string and wrap its first `p:<local>`
+ * descendant in `Kind`. `absoluteFrame` and `recolor` read only the shape's own
+ * DOM (never the owning `Slide`), so a throwaway slide stand-in is enough to
+ * exercise them off-fixture. Selecting by tag lets a nested-group fixture wrap the
+ * innermost `p:sp` rather than the enclosing `p:grpSp`.
+ */
+function shapeFromXml(Kind, local, innerXml) {
+	const xml = `<p:spTree xmlns:p="${P_NS}" xmlns:a="${A_NS}">${innerXml}</p:spTree>`
+	const spTree = new DOMParser().parseFromString(xml, 'text/xml').documentElement
+	const el = spTree.getElementsByTagNameNS(P_NS, local)[0]
+	if (!el) throw new Error(`no <p:${local}> in the supplied XML`)
+	return new Kind(el, /** stand-in slide */ {})
+}
+
+/** A `p:pic` proxy whose blip carries the given recolour child XML. */
+function pictureWithBlipChild(innerXml) {
+	return shapeFromXml(Picture, 'pic', `<p:pic><p:blipFill><a:blip>${innerXml}</a:blip></p:blipFill></p:pic>`)
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -306,5 +330,130 @@ describe('Theme colour resolution — write→read round-trip', () => {
 		const run = shape.textFrame.paragraphs[0].runs[0]
 		assertEqual(run.schemeColor, 'accent3', 'the raw read reports the scheme token')
 		assertEqual(run.resolvedColor.hex, 'A5A5A5', 'accent3 resolves to the theme accent3 hex')
+	})
+})
+
+describe('Picture recolour reads (recolor)', () => {
+	test('reads a real PowerPoint a:duotone, preserving the prstClr/srgbClr stop split (image.pptx)', async () => {
+		// image.pptx slide2 carries an icon recoloured with the duotone tint trick:
+		// <a:duotone><a:prstClr val="black"/><a:srgbClr val="B6D3ED">…</a:srgbClr></a:duotone>.
+		const pictures = (await open('image')).slides
+			.flatMap((slide) => allShapes(slide.shapes))
+			.filter((s) => s.shapeType === 'picture')
+		const tinted = pictures.find((p) => p.recolor !== null)
+		assert(tinted, 'expected a picture carrying a recolour effect')
+		const recolor = tinted.recolor
+		assertEqual(recolor.kind, 'duotone', 'a:duotone is read as a duotone recolour')
+		assertEqual(recolor.stops.length, 2, 'a duotone has two colour stops')
+		assertEqual(recolor.stops[0].presetColor, 'black', 'first stop is the prstClr black')
+		assertEqual(recolor.stops[0].color, null, 'a prstClr stop carries no srgb colour')
+		assertEqual(recolor.stops[0].schemeColor, null, 'a prstClr stop carries no scheme colour')
+		assertEqual(recolor.stops[1].color, 'B6D3ED', 'second stop is the explicit srgb tint')
+		assertEqual(recolor.stops[1].presetColor, null, 'an srgb stop carries no preset colour')
+	})
+
+	test('a picture with no recolour effect reads null', () => {
+		assertEqual(pictureWithBlipChild('').recolor, null, 'a bare blip has no recolour')
+	})
+
+	test('clrChange reports its from/to colours, scheme tokens included', () => {
+		const recolor = pictureWithBlipChild(
+			'<a:clrChange><a:clrFrom><a:srgbClr val="FF0000"/></a:clrFrom><a:clrTo><a:schemeClr val="accent1"/></a:clrTo></a:clrChange>'
+		).recolor
+		assertEqual(recolor.kind, 'clrChange', 'a:clrChange is read as a clrChange recolour')
+		assertEqual(recolor.from.color, 'FF0000', 'clrFrom is the explicit source colour')
+		assertEqual(recolor.to.schemeColor, 'accent1', 'clrTo is a scheme token left for the theme resolver')
+		assertEqual(recolor.to.color, null, 'a scheme clrTo carries no explicit colour')
+	})
+
+	test('grayscl / biLevel / alphaModFix map to their kinds with 0–1 fractions', () => {
+		assertEqual(pictureWithBlipChild('<a:grayscl/>').recolor.kind, 'grayscale', 'a:grayscl → grayscale')
+
+		const biLevel = pictureWithBlipChild('<a:biLevel thresh="50000"/>').recolor
+		assertEqual(biLevel.kind, 'biLevel', 'a:biLevel → biLevel')
+		assertEqual(biLevel.threshold, 0.5, 'thresh 50000 (thousandths of a percent) reads as 0.5')
+
+		const amf = pictureWithBlipChild('<a:alphaModFix amt="40000"/>').recolor
+		assertEqual(amf.kind, 'alphaModFix', 'a:alphaModFix → alphaModFix')
+		assertEqual(amf.amount, 0.4, 'amt 40000 reads as 0.4')
+		// amt is optional and defaults to 100% per the schema.
+		assertEqual(pictureWithBlipChild('<a:alphaModFix/>').recolor.amount, 1, 'a missing amt defaults to 1.0')
+	})
+
+	test('the first recolour effect in document order wins', () => {
+		const recolor = pictureWithBlipChild(
+			'<a:grayscl/><a:duotone><a:srgbClr val="111111"/><a:srgbClr val="222222"/></a:duotone>'
+		).recolor
+		assertEqual(recolor.kind, 'grayscale', 'grayscl precedes the duotone, so it is the one reported')
+	})
+})
+
+describe('Group-child absolute geometry (absoluteFrame)', () => {
+	test('a top-level shape resolves to its own geometry', async () => {
+		const presentation = await (async () => {
+			const pres = new PptxGenJS()
+			pres.addSlide().addShape(pres.shapes.RECTANGLE, { x: 1, y: 1, w: 3, h: 1, fill: { color: 'CCCCCC' } })
+			return Presentation.load(await pres.stream())
+		})()
+		const shape = presentation.slides[0].shapes.find((s) => s.presetGeometry === 'rect')
+		const frame = shape.absoluteFrame
+		assertEqual(frame.left, shape.left, 'an ungrouped shape: absolute left == own left')
+		assertEqual(frame.top, shape.top, 'an ungrouped shape: absolute top == own top')
+		assertEqual(frame.width, shape.width, 'an ungrouped shape: absolute width == own width')
+		assertEqual(frame.height, shape.height, 'an ungrouped shape: absolute height == own height')
+	})
+
+	test('a group child composes its parent group transform (real PowerPoint XML, mixed.pptx slide5)', async () => {
+		// One slide5 group translates its children down by 145757 EMU (off.y 3301445
+		// vs chOff.y 3155688) with ext == chExt (no scaling). A child whose own
+		// a:off.y is 3155688 must therefore resolve to an absolute top of 3301445.
+		const slide = (await open('mixed')).slides[4]
+		const groups = slide.shapes.filter((s) => s.shapeType === 'group')
+		assert(groups.length > 0, 'expected groups on slide5')
+		const child = groups.flatMap((g) => g.shapes).find((s) => s.top === 3155688 && s.absoluteFrame)
+		assert(child, 'expected a (non-degenerate) group child at raw top 3155688')
+		const frame = child.absoluteFrame
+		assertEqual(frame.top, 3301445, 'the child top shifts by the group offset (3155688 → 3301445)')
+		assertEqual(frame.left, child.left, 'this group does not shift x (off.x == chOff.x)')
+		assertEqual(frame.width, child.width, 'ext == chExt, so width is unscaled')
+		assertEqual(frame.height, child.height, 'ext == chExt, so height is unscaled')
+	})
+
+	test('composes offset and scale through nested groups', () => {
+		// outer ratio 2 (ext 8000 / chExt 4000), inner ratio 2 (2000 / 1000):
+		// sp (100,100,500,500) → inner → (1200,1200,1000,1000) → outer → (12400,12400,2000,2000).
+		const inner = shapeFromXml(
+			AutoShape,
+			'sp',
+			`<p:grpSp>
+				<p:grpSpPr><a:xfrm><a:off x="10000" y="10000"/><a:ext cx="8000" cy="8000"/><a:chOff x="0" y="0"/><a:chExt cx="4000" cy="4000"/></a:xfrm></p:grpSpPr>
+				<p:grpSp>
+					<p:grpSpPr><a:xfrm><a:off x="1000" y="1000"/><a:ext cx="2000" cy="2000"/><a:chOff x="0" y="0"/><a:chExt cx="1000" cy="1000"/></a:xfrm></p:grpSpPr>
+					<p:sp><p:spPr><a:xfrm><a:off x="100" y="100"/><a:ext cx="500" cy="500"/></a:xfrm></p:spPr></p:sp>
+				</p:grpSp>
+			</p:grpSp>`
+		)
+		const frame = inner.absoluteFrame
+		assertEqual(frame.left, 12400, 'left composes inner then outer offset+scale')
+		assertEqual(frame.top, 12400, 'top composes inner then outer offset+scale')
+		assertEqual(frame.width, 2000, 'width scales by inner×outer ratio (500 → 2000)')
+		assertEqual(frame.height, 2000, 'height scales by inner×outer ratio')
+	})
+
+	test('a shape with no own transform has no resolvable absolute frame', () => {
+		const shape = shapeFromXml(AutoShape, 'sp', '<p:sp><p:spPr/></p:sp>')
+		assertEqual(shape.absoluteFrame, null, 'no a:xfrm → null')
+	})
+
+	test('a degenerate group (zero a:chExt) yields no resolvable frame', () => {
+		const inner = shapeFromXml(
+			AutoShape,
+			'sp',
+			`<p:grpSp>
+				<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>
+				<p:sp><p:spPr><a:xfrm><a:off x="100" y="100"/><a:ext cx="500" cy="500"/></a:xfrm></p:spPr></p:sp>
+			</p:grpSp>`
+		)
+		assertEqual(inner.absoluteFrame, null, 'dividing by a zero child extent is degenerate → null')
 	})
 })

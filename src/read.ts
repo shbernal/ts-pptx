@@ -30,6 +30,9 @@ export {
 	GroupShape,
 	type ShapeType,
 	type GradientStop,
+	type AbsoluteFrame,
+	type Recolor,
+	type RecolorColor,
 } from './read/api/shapes.js'
 export { TextFrame, Paragraph, Run } from './read/api/text.js'
 export { Table, TableRow, TableCell } from './read/api/table.js'

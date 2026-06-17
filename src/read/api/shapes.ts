@@ -159,6 +159,64 @@ function toEmu(value: number, attribute: string, allowNegative: boolean): number
 	return Math.round(value)
 }
 
+/** Direct child *elements* of `parent`, in document order. */
+function childElements(parent: Element): Element[] {
+	const out: Element[] = []
+	for (let node = parent.firstChild; node; node = node.nextSibling) {
+		if (node.nodeType === ELEMENT_NODE) out.push(node as Element)
+	}
+	return out
+}
+
+/** First child *element* of `parent` (skipping text/comment nodes), or `null`. */
+function firstChildElement(parent: Element): Element | null {
+	for (let node = parent.firstChild; node; node = node.nextSibling) {
+		if (node.nodeType === ELEMENT_NODE) return node as Element
+	}
+	return null
+}
+
+/** A point + extent pair (`a:off`/`a:ext` or `a:chOff`/`a:chExt`) from a transform, or `null` if either is incomplete. */
+function readBox(xfrm: Element, offName: string, extName: string): { x: number; y: number; cx: number; cy: number } | null {
+	const off = firstChild(xfrm, offName)
+	const ext = firstChild(xfrm, extName)
+	const x = off && intValue(attr(off, 'x'))
+	const y = off && intValue(attr(off, 'y'))
+	const cx = ext && intValue(attr(ext, 'cx'))
+	const cy = ext && intValue(attr(ext, 'cy'))
+	if (x === null || y === null || cx === null || cy === null) return null
+	return { x, y, cx, cy }
+}
+
+/** Convert a DrawingML colour element to a {@link RecolorColor}, or `null` when it is not an `a:` colour element. */
+function recolorColorOf(color: Element | null): RecolorColor | null {
+	if (!color || color.namespaceURI !== OOXML_NS.a) return null
+	return {
+		color: color.localName === 'srgbClr' ? attr(color, 'val') : null,
+		schemeColor: color.localName === 'schemeClr' ? attr(color, 'val') : null,
+		presetColor: color.localName === 'prstClr' ? attr(color, 'val') : null,
+	}
+}
+
+// Warn at most once when absoluteFrame meets a rotated/flipped group it cannot
+// compose exactly, rather than spamming a getter that may be called per shape.
+let warnedTransformedGroup = false
+
+/** Warn (once) if a group transform carries a rotation/flip that the offset+scale composition ignores. */
+function warnIfTransformedGroup(groupXfrm: Element): void {
+	if (warnedTransformedGroup) return
+	const rot = attr(groupXfrm, 'rot')
+	const flipH = attr(groupXfrm, 'flipH')
+	const flipV = attr(groupXfrm, 'flipV')
+	const flipped = flipH === '1' || flipH === 'true' || flipV === '1' || flipV === 'true'
+	if ((rot && rot !== '0') || flipped) {
+		warnedTransformedGroup = true
+		console.warn(
+			'Shape.absoluteFrame: an enclosing group is rotated or flipped (@rot/@flipH/@flipV); the returned frame composes offset and scale only and is approximate for such groups.'
+		)
+	}
+}
+
 /** One stop of a gradient fill (`a:gsLst/a:gs`), as read from a shape. */
 export interface GradientStop {
 	/** Stop offset along the gradient, 0–1 (from `@pos`, thousandths of a percent), or `null` if unset. */
@@ -168,6 +226,41 @@ export interface GradientStop {
 	/** Theme colour token (`a:schemeClr/@val`, e.g. `accent1`), or `null` when the stop uses an explicit colour. */
 	schemeColor: string | null
 }
+
+/** A shape's resolved position and size in slide-absolute EMU. */
+export interface AbsoluteFrame {
+	left: number
+	top: number
+	width: number
+	height: number
+}
+
+/**
+ * A colour reference inside a picture recolour effect, split by colour model
+ * (mirrors {@link GradientStop}). At most one field is non-`null`.
+ */
+export interface RecolorColor {
+	/** Explicit RGB as 6-hex (`a:srgbClr/@val`), or `null`. */
+	color: string | null
+	/** Theme colour token (`a:schemeClr/@val`, e.g. `accent1`), or `null`. */
+	schemeColor: string | null
+	/** Preset colour name (`a:prstClr/@val`, e.g. `black`/`white` — the duotone icon-tint stops), or `null`. */
+	presetColor: string | null
+}
+
+/**
+ * A picture's blip recolour effect (`p:blipFill/a:blip` recolour child), as read.
+ * A small discriminated union over the effects a faithful reader needs to
+ * reproduce a recoloured image. Colours use the same `color`/`schemeColor`/
+ * `presetColor` split as {@link GradientStop}, so theme tokens can resolve through
+ * {@link Slide.themeContext}. `threshold`/`amount` are 0–1 fractions.
+ */
+export type Recolor =
+	| { kind: 'duotone'; stops: RecolorColor[] }
+	| { kind: 'clrChange'; from: RecolorColor | null; to: RecolorColor | null }
+	| { kind: 'grayscale' }
+	| { kind: 'biLevel'; threshold: number | null }
+	| { kind: 'alphaModFix'; amount: number }
 
 /** Common base for every shape in a slide's shape tree. */
 export abstract class Shape {
@@ -248,6 +341,52 @@ export abstract class Shape {
 
 	set height(value: number) {
 		this.#setExtent('cy', value)
+	}
+
+	/**
+	 * This shape's position and size in **slide-absolute** EMU, composing the
+	 * offset+scale transform of every enclosing group.
+	 *
+	 * {@link left}/{@link top}/{@link width}/{@link height} report a group child's
+	 * geometry in its group's child coordinate space (`a:chOff`/`a:chExt`), which is
+	 * not directly placeable on the slide. This getter walks the `p:grpSp` ancestor
+	 * chain outward, mapping the box through each group's
+	 * `off + (p - chOff) * (ext / chExt)` transform, so a nested shape's frame can be
+	 * dropped onto a flat slide as-is. For a shape already at slide level it equals
+	 * `{ left, top, width, height }`.
+	 *
+	 * `null` when the shape (or any enclosing group) has no own transform, or a
+	 * group's `a:chExt` is degenerate (zero) — there is then no resolvable frame.
+	 *
+	 * **Limit (axis-aligned only):** a group's `@rot`/`@flipH`/`@flipV` also
+	 * rotates/flips its children; this composes offset and scale only, so the frame
+	 * is approximate for a rotated or flipped group (a one-time warning is emitted).
+	 * A fully general placement must compose the rotation too.
+	 */
+	get absoluteFrame(): AbsoluteFrame | null {
+		const xfrm = this.xfrm()
+		let box = xfrm && readBox(xfrm, 'a:off', 'a:ext')
+		if (!box) return null
+		for (let node = this.element.parentNode; node && node.nodeType === ELEMENT_NODE; node = node.parentNode) {
+			const parent = node as Element
+			if (parent.namespaceURI !== OOXML_NS.p || parent.localName !== 'grpSp') break // reached the shape tree (or a non-group)
+			const grpSpPr = firstChild(parent, 'p:grpSpPr')
+			const groupXfrm = grpSpPr && firstChild(grpSpPr, 'a:xfrm')
+			const outer = groupXfrm && readBox(groupXfrm, 'a:off', 'a:ext')
+			const child = groupXfrm && readBox(groupXfrm, 'a:chOff', 'a:chExt')
+			if (!groupXfrm || !outer || !child) return null
+			if (child.cx === 0 || child.cy === 0) return null // degenerate child frame — no resolvable mapping
+			warnIfTransformedGroup(groupXfrm)
+			const ratioX = outer.cx / child.cx
+			const ratioY = outer.cy / child.cy
+			box = {
+				x: outer.x + (box.x - child.x) * ratioX,
+				y: outer.y + (box.y - child.y) * ratioY,
+				cx: box.cx * ratioX,
+				cy: box.cy * ratioY,
+			}
+		}
+		return { left: Math.round(box.x), top: Math.round(box.y), width: Math.round(box.cx), height: Math.round(box.cy) }
 	}
 
 	#setOffset(axis: 'x' | 'y', value: number, allowNegative: boolean): void {
@@ -562,6 +701,55 @@ export class Picture extends Shape {
 	get svgPartName(): string | null {
 		const relId = this.svgRelId
 		return relId ? this.slide.relationships.resolveTarget(relId) : null
+	}
+
+	/**
+	 * The picture's blip recolour effect (`p:blipFill/a:blip` recolour child), or
+	 * `null` when the blip carries none. Recognises the effects a faithful reader
+	 * needs to reproduce a recoloured image: `a:duotone` (the two-stop icon-tint
+	 * trick), `a:clrChange`, `a:grayscl`, `a:biLevel`, and `a:alphaModFix`; the
+	 * first such effect in document order wins. Colours mirror the
+	 * {@link GradientStop} split (`color`/`schemeColor`/`presetColor`) so theme
+	 * tokens resolve through {@link Slide.themeContext}. `threshold`/`amount` are
+	 * 0–1 fractions. {@link hidden} (the duotone fallback-layer trick) reports the
+	 * *visibility* of a recolour source; this reports the *tint* itself.
+	 */
+	get recolor(): Recolor | null {
+		const blipFill = firstChild(this.element, 'p:blipFill')
+		const blip = blipFill && firstChild(blipFill, 'a:blip')
+		if (!blip) return null
+		for (const child of childElements(blip)) {
+			if (child.namespaceURI !== OOXML_NS.a) continue
+			switch (child.localName) {
+				case 'duotone':
+					return {
+						kind: 'duotone',
+						stops: childElements(child)
+							.map(recolorColorOf)
+							.filter((c): c is RecolorColor => c !== null),
+					}
+				case 'clrChange': {
+					const from = firstChild(child, 'a:clrFrom')
+					const to = firstChild(child, 'a:clrTo')
+					return {
+						kind: 'clrChange',
+						from: from ? recolorColorOf(firstChildElement(from)) : null,
+						to: to ? recolorColorOf(firstChildElement(to)) : null,
+					}
+				}
+				case 'grayscl':
+					return { kind: 'grayscale' }
+				case 'biLevel': {
+					const thresh = intValue(attr(child, 'thresh'))
+					return { kind: 'biLevel', threshold: thresh === null ? null : thresh / 100000 }
+				}
+				case 'alphaModFix': {
+					const amt = intValue(attr(child, 'amt'))
+					return { kind: 'alphaModFix', amount: amt === null ? 1 : amt / 100000 }
+				}
+			}
+		}
+		return null
 	}
 
 	/** The `<asvg:svgBlip>` element inside the blip's extLst, or `null` when the picture carries no SVG. */
