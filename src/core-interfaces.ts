@@ -2446,6 +2446,14 @@ export interface IChartSeriesOpts {
 	/** Data-label font size (points) */
 	dataLabelFontSize?: number
 	/**
+	 * Data-label number format code for this series.
+	 * Overrides the chart-level `dataLabelFormatCode` for this series only.
+	 * @example '#,##0' // thousands separator
+	 * @example '0.00%' // shows values as '0.00%'
+	 * @example '$0.00' // shows values as '$0.00'
+	 */
+	dataLabelFormatCode?: string
+	/**
 	 * Line/radar series line width (points).
 	 * Pass `0` to hide the line.
 	 */

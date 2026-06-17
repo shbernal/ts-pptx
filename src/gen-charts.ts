@@ -937,12 +937,13 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					const lblItalic = seriesOverride?.dataLabelFontItalic ?? opts.dataLabelFontItalic ?? false
 					const lblSize = seriesOverride?.dataLabelFontSize ?? opts.dataLabelFontSize ?? DEF_FONT_SIZE
 					const lblFace = seriesOverride?.dataLabelFontFace ?? opts.dataLabelFontFace ?? 'Arial'
+					const lblFmtCode = seriesOverride?.dataLabelFormatCode ?? opts.dataLabelFormatCode
 					strXml += '<c:dLbls>'
 					// Per-point custom labels must precede aggregate settings (CT_DLbls schema order: dLbl* then Group_DLbls)
 					if (obj.customLabels?.length) {
 						obj.customLabels.forEach((lbl, idx) => { if (lbl) strXml += makeCustomDLblXml(idx, lbl, opts) })
 					}
-					strXml += `<c:numFmt formatCode="${encodeXmlEntities(opts.dataLabelFormatCode) || 'General'}" sourceLinked="0"/>`
+					strXml += `<c:numFmt formatCode="${encodeXmlEntities(lblFmtCode) || 'General'}" sourceLinked="0"/>`
 					if (opts.dataLabelBkgrdColors) strXml += `<c:spPr><a:solidFill>${createColorElement(seriesColor)}</a:solidFill></c:spPr>`
 					strXml += '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr>'
 					strXml += `<a:defRPr b="${lblBold ? 1 : 0}" i="${lblItalic ? 1 : 0}" strike="noStrike" sz="${Math.round(lblSize * 100)}" u="none">`
