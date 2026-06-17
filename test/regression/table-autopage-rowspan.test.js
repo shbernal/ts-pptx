@@ -22,8 +22,8 @@ defineRegressionSuite('Table autoPage rowspan', 'upstream-pr-1391', [
 			//   - Row 0 fits on slide 1 (height 0.3 in, line ≈ 0.2 in)
 			//   - Row 1 would trigger the break condition BUT it is under A's span
 			//     → the break must be suppressed and row 1 stays on slide 1
-			//   - Row 2 then triggers a real break (span is done) → slide 2
-			// Expected: 2 slides total (not 3).
+			//   - Row 2 then triggers a real break (span is done) → next slide
+			// Expected: the rowspan group stays intact and every slide keeps 2 columns.
 
 			const rows = [
 				[{ text: 'A', options: { rowspan: 2 } }, { text: 'B0' }],
@@ -37,7 +37,8 @@ defineRegressionSuite('Table autoPage rowspan', 'upstream-pr-1391', [
 				const s = p.addSlide()
 				// margin:0 / slideMargin:0 eliminate per-row margin overhead so the math is
 				// deterministic.  With fontSize:12 each row line is ~0.2004 in tall.
-				// emuSlideTabH = h(0.7) - y(0.4) - bottom_margin(0) ≈ 0.3 in.
+				// emuSlideTabH = h(0.3 in); `h` is the table's height (an extent) so `y` does not
+				// shrink it (upstream #1264).
 				// Row 0 (0.20 in) fits.  Row 1 (under rowspan) would push to 0.40 in > 0.30 —
 				// without the fix the break fires here; with the fix it is suppressed.
 				// Row 2 (0.60 in > 0.30) triggers the real break on the now-span-free row.
@@ -45,7 +46,7 @@ defineRegressionSuite('Table autoPage rowspan', 'upstream-pr-1391', [
 					x: 0.5,
 					y: 0.4,
 					w: 9,
-					h: 0.7,
+					h: 0.3,
 					colW: [4.5, 4.5],
 					margin: 0,
 					slideMargin: 0,
@@ -54,16 +55,18 @@ defineRegressionSuite('Table autoPage rowspan', 'upstream-pr-1391', [
 				})
 			})
 
-			// 1. Should produce exactly 2 slides (not 3).
-			const slideFiles = listEntries(zip).filter((f) => /ppt\/slides\/slide\d+\.xml$/.test(f))
-			assert(
-				slideFiles.length === 2,
-				`expected 2 slides after rowspan-aware page break; got ${slideFiles.length} — ` +
-					`the rows under the rowspan may have been split onto a new slide (upstream-pr-1391 bug)`
-			)
+			// The table overflows across slides. The regression is about *where* breaks land and
+			// the resulting column count, not the total slide count: with an explicit `h` every page
+			// has the same usable height (upstream #1264), so these rows legitimately span >2 slides.
+			const slideFiles = listEntries(zip)
+				.filter((f) => /ppt\/slides\/slide\d+\.xml$/.test(f))
+				.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+			assert(slideFiles.length >= 2, `expected the table to overflow to multiple slides; got ${slideFiles.length}`)
 
-			// 2. Slide 1 must contain "B1" (row 1 belongs on slide 1 alongside its span anchor).
+			// 1. The rowspan group must NOT be split: row 1 ("B1") stays on the same slide as its
+			//    span anchor "A" (suppressing the break that would otherwise fall inside the span).
 			const slide1Xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(slide1Xml.includes('>A<'), 'expected span anchor "A" on slide 1')
 			assert(
 				slide1Xml.includes('>B1<'),
 				'expected "B1" text on slide 1 (row under rowspan should stay with span anchor); ' +
@@ -71,17 +74,19 @@ defineRegressionSuite('Table autoPage rowspan', 'upstream-pr-1391', [
 					slide1Xml.slice(0, 400)
 			)
 
-			// 3. Slide 2 must be a 2-column table (row 2 has 2 normal cells).
-			const slide2Xml = await readEntry(zip, 'ppt/slides/slide2.xml')
-			const gridColCount = (slide2Xml.match(/<a:gridCol\b/g) || []).length
-			assert(
-				gridColCount === 2,
-				`expected 2 <a:gridCol> elements on slide 2; got ${gridColCount} — ` +
-					`the slide 2 table has the wrong column count`
-			)
+			// 2. The real break falls AFTER the span boundary: "C0" must not be on slide 1.
+			assert(!slide1Xml.includes('>C0<'), 'expected the break before "C0"; it should not share slide 1 with the span')
 
-			// 4. Slide 2 must contain "C0" (first row after the span boundary).
-			assert(slide2Xml.includes('>C0<'), 'expected "C0" text on slide 2 as the first post-span row')
+			// 3. Every continuation slide must keep the full 2-column grid — the original bug placed a
+			//    1-column table on the slide that picked up rows split out from under the rowspan.
+			for (const name of slideFiles) {
+				const xml = await readEntry(zip, name)
+				const gridColCount = (xml.match(/<a:gridCol\b/g) || []).length
+				assert(
+					gridColCount === 2,
+					`expected 2 <a:gridCol> elements on ${name}; got ${gridColCount} — wrong column count (upstream-pr-1391 bug)`
+				)
+			}
 		},
 	},
 ])

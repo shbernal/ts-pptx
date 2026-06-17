@@ -91,6 +91,8 @@ defineRegressionSuite('Table autoPage rich-text line wrapping', 'upstream-pr-123
 			// A cell with breakLine:true between two long runs must honour the break and
 			// can still overflow when the total height exceeds the slide area.
 			// Parameters chosen so that run1 fits on slide 1 but run2 overflows to slide 2.
+			// `h` is the table's height (an extent), so `y` does not shrink it (upstream #1264):
+			//   emuSlideTabH = h(0.3 in); one line ≈ 0.2004 in fits, two lines ≈ 0.4008 in overflow.
 
 			const rows = [
 				[
@@ -106,7 +108,7 @@ defineRegressionSuite('Table autoPage rich-text line wrapping', 'upstream-pr-123
 					x: 0.25,
 					y: 0.25,
 					w: 3,
-					h: 0.5,
+					h: 0.3,
 					margin: 0,
 					slideMargin: 0,
 					autoPage: true,

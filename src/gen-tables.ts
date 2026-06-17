@@ -224,6 +224,12 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 		emuSlideTabH = (tablePropH || presLayout.height) - emuStartY - inch2Emu(arrInchMargins[2])
 		// console.log(`| startY .......................................... = ${(emuStartY / EMU).toFixed(1)}`)
 		// console.log(`| emuSlideTabH .................................... = ${(emuSlideTabH / EMU).toFixed(1)}`)
+		// EXPLICIT-H FIX (upstream #1264): an explicit `h` is the table's height (an extent), not a
+		// bottom coordinate, so — unlike `presLayout.height` — the first slide must NOT subtract the
+		// start-Y from it. Otherwise a table that begins mid-slide gets a tiny first page (only a few
+		// rows) while later pages, which already clamp to `h`, render normally. Mirror the
+		// subsequent-slide rule below: never let an explicit `h` shrink the usable height below `h`.
+		if (tableRowSlides.length === 0 && tablePropH && emuSlideTabH < tablePropH) emuSlideTabH = tablePropH
 		if (tableRowSlides.length > 1) {
 			// D: RULE: Use margins for starting point after the initial Slide, not `opt.y` (ISSUE #43, ISSUE #47, ISSUE #48)
 			if (typeof tableProps.autoPageSlideStartY === 'number') {
@@ -238,11 +244,15 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 			}
 		}
 
-		// GUARD: a small explicit `h` (or a large `y`) can leave zero/negative usable height, so no
-		// row ever fits. That previously emitted degenerate empty overflow pages (rows:[]), which made
-		// the recursive addTable throw "Array expected". Ignore the unusable height, fall back to the
-		// full slide area between margins, and warn once rather than emit a broken table.
-		if (emuSlideTabH <= 0) {
+		// GUARD: a non-positive height, or one too small to fit even a single line of the base font,
+		// means no row ever fits. That previously emitted degenerate empty overflow pages (rows:[]),
+		// which made the recursive addTable throw "Array expected", or — with `h` smaller than one
+		// line — placed one row per slide forever. Ignore the unusable height, fall back to the full
+		// slide area between margins, and warn once rather than emit a broken table.
+		const emuBaseLineH = inch2Emu(
+			((typeof tableProps.fontSize === 'number' ? tableProps.fontSize : DEF_FONT_SIZE) * (LINEH_MODIFIER + (tableProps.autoPageLineWeight || 0))) / 100
+		)
+		if (emuSlideTabH < emuBaseLineH) {
 			const emuStartY = tableRowSlides.length === 0
 				? (tablePropY || inch2Emu(arrInchMargins[0]))
 				: inch2Emu(tableProps.autoPageSlideStartY || tableProps.newSlideStartY || arrInchMargins[0])

@@ -1,9 +1,14 @@
 import { defineRegressionSuite, build, listEntries, assert } from '../helpers.js'
 
-// Regression: an autoPage table whose height (`h`) — combined with `y` and margins — leaves no
-// usable vertical space must NOT emit a degenerate empty overflow page. That empty `rows:[]`
-// page previously made the recursive addTable throw "addTable: Array expected". The paginator
-// now ignores the unusable height (falling back to the slide height) and warns.
+// Regression: an autoPage table whose height (`h`) is too small to fit even a single line of text
+// must NOT emit a degenerate output (an empty `rows:[]` overflow page that made the recursive
+// addTable throw "addTable: Array expected", or one row per slide forever). The paginator ignores
+// the unusable height (falling back to the slide height) and warns.
+//
+// NOTE: `h` is the table's *height* (an extent), not a bottom coordinate — `y` does not eat into
+// it (upstream gitbrent/PptxGenJS#1264, see table-autopage-mid-slide.test.js). So a small-but-
+// usable `h` like 0.7" paginates normally regardless of `y`; only an `h` smaller than one line of
+// the base font is genuinely unusable.
 
 function rows(n) {
 	return Array.from({ length: n }, (_, i) => [{ text: `Row ${i} col A` }, { text: `Row ${i} col B` }])
@@ -15,7 +20,7 @@ function slideCount(zip) {
 
 defineRegressionSuite('Table autoPage tiny-height guard', [
 	{
-		name: 'tiny h + large y does not crash and emits no empty page (warns instead)',
+		name: 'h smaller than one line of text does not crash and emits no empty page (warns instead)',
 		fn: async () => {
 			const warnings = []
 			const orig = console.warn
@@ -23,12 +28,12 @@ defineRegressionSuite('Table autoPage tiny-height guard', [
 			let zip
 			try {
 				;({ zip } = await build((p) => {
-					// y(1.2) + bottom margin already exceed h(0.7) → negative usable height.
+					// h(0.1") cannot fit even one 12pt line (~0.2") → unusable usable height.
 					p.addSlide().addTable(rows(12), {
 						x: 0.5,
 						y: 1.2,
 						w: 9,
-						h: 0.7,
+						h: 0.1,
 						colW: [4.5, 4.5],
 						margin: 0,
 						slideMargin: 0,

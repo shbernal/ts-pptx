@@ -4709,8 +4709,8 @@ items:
     source: "gitbrent/PptxGenJS#1264"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-17
+    status: implemented
     priority: p2
     target_area:
       - table-ooxml
@@ -4718,23 +4718,30 @@ items:
     non_target_reasons: []
     upstream_summary: autoPage table starting mid-slide only placed a few rows on the first slide.
     current_project_notes: >
-      Current autoPage logic computes first-slide usable height from the current
-      table y position and subsequent-slide height from margins or
-      autoPageSlideStartY. A focused fixture should verify whether the first
-      slide is being overly constrained when y starts low on the slide.
+      Root cause confirmed and fixed in calcSlideTabH (src/gen-tables.ts): the
+      first-slide usable height subtracted the start-Y from an explicit `h`, but
+      `h` is the table's height (an extent), not a bottom coordinate. A table at
+      y=3"/h=4" got a ~0.5" first page (4 rows) while later slides — which already
+      clamp to `h` — rendered ~19 rows. The fix mirrors the subsequent-slide rule:
+      when `h` is explicit, never shrink the first slide below `h`. The tiny-`h`
+      fallback now triggers on "smaller than one base line of text" instead of the
+      old "<= 0" (which only fired because of the buggy Y subtraction), so a small
+      but usable `h` (e.g. 0.7") paginates normally and only a genuinely unusable
+      `h` (< one line) warns and falls back to the slide height.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - generated-pptx
       local_files:
         - src/gen-tables.ts:220
-        - src/gen-tables.ts:222
-        - src/gen-objects.ts:996
-        - src/gen-objects.ts:1001
+        - test/regression/table-autopage-mid-slide.test.js:1
+        - test/regression/table-autopage-small-height.test.js:1
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-autopage-mid-slide-first-page-row-count-fixture
+    next_action: none
 
   - id: upstream-issue-1262
     source: "gitbrent/PptxGenJS#1262"
@@ -6372,8 +6379,12 @@ items:
       test in test/regression/table-autopage-placeholder.test.js. FOLLOW-UP FIXED:
       getSlidesForTableRows used to emit a degenerate empty overflow page (rows:[])
       for small `h` + large `y` combos, making the recursive addTable throw "Array
-      expected". calcSlideTabH now clamps a non-positive usable height to the slide
-      height (with a warning), and the paginator no longer pushes empty pages.
+      expected". calcSlideTabH now clamps an unusable height to the slide height
+      (with a warning), and the paginator no longer pushes empty pages. NOTE: the
+      guard threshold was refined alongside upstream-issue-1264 — `h` is an extent,
+      not a bottom coordinate, so `y` no longer eats into it; the fallback now fires
+      when usable height is below one base line of text (not the old `<= 0`, which
+      only triggered because of the buggy Y subtraction).
       Regression test in test/regression/table-autopage-small-height.test.js.
     evidence:
       kinds:
