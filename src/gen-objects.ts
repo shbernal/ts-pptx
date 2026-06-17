@@ -594,6 +594,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 		rectRadius: opt.rectRadius,
 		shapeAdjust: opt.shapeAdjust,
 		sizing,
+		crop: opt.crop,
 		placeholder: opt.placeholder,
 		rotate: opt.rotate || 0,
 		flipV: opt.flipV || false,

@@ -130,6 +130,30 @@ const ImageSizingXml = {
 }
 
 /**
+ * Build an explicit `<a:srcRect>` crop from percentage edge insets (0–100), emitted verbatim.
+ * Each inset is the percent of the *source* image trimmed from that edge; values serialize in
+ * 1000ths of a percent (DrawingML `ST_Percentage`, where 100% = 100000). Unlike `sizing: 'crop'`
+ * — which derives the rect from displayed inches and the natural pixel size — this maps a
+ * sub-region of the source directly, so it works for SVG and other unmeasurable formats.
+ * @param crop - edge insets in percent; omitted edges default to 0
+ * @param objectName - for error messages
+ * @returns the `<a:srcRect>` + `<a:stretch>` blipFill children
+ */
+function genXmlImageCrop (crop: { l?: number, t?: number, r?: number, b?: number }, objectName?: string): string {
+	const where = objectName ? ` for image "${objectName}"` : ''
+	const edges = { l: crop.l ?? 0, t: crop.t ?? 0, r: crop.r ?? 0, b: crop.b ?? 0 }
+	for (const [name, val] of Object.entries(edges)) {
+		if (typeof val !== 'number' || !isFinite(val) || val < 0 || val > 100) {
+			throw new Error(`addImage crop.${name} must be a percentage between 0 and 100 (got ${String(val)})${where}.`)
+		}
+	}
+	if (edges.l + edges.r >= 100) throw new Error(`addImage crop: left+right insets (${edges.l}%+${edges.r}%) must be < 100%${where}.`)
+	if (edges.t + edges.b >= 100) throw new Error(`addImage crop: top+bottom insets (${edges.t}%+${edges.b}%) must be < 100%${where}.`)
+	const v = (perc: number): number => Math.round(perc * 1000)
+	return `<a:srcRect l="${v(edges.l)}" t="${v(edges.t)}" r="${v(edges.r)}" b="${v(edges.b)}"/><a:stretch><a:fillRect/></a:stretch>`
+}
+
+/**
  * Emit an `<a:prstGeom>` for a preset shape, including any adjust values (`<a:avLst>`).
  * Shared by the shape and image code paths so that geometry + adjust handling stays in one place.
  * @param {string} shapeName - preset geometry name (e.g. `rect`, `ellipse`, `roundRect`, `hexagon`)
@@ -891,7 +915,13 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					strSlideXml += slideItemObj.options.duotone ? `<a:duotone>${createColorElement(slideItemObj.options.duotone.shadow)}${createColorElement(slideItemObj.options.duotone.highlight)}</a:duotone>` : ''
 					strSlideXml += '</a:blip>'
 				}
-				if (sizing?.type) {
+				if (slideItemObj.options.crop) {
+					// Explicit OOXML srcRect (percentage edge insets), emitted verbatim. Crops the source
+					// directly, so it wins over the inch-based `sizing` crop and works for SVG/unmeasurable
+					// formats; the picture's normal w/h box stays the display extent.
+					if (sizing?.type) console.warn(`Warning: addImage 'crop' and 'sizing' are mutually exclusive for image "${slideItemObj.options.objectName}"; 'sizing' was ignored.`)
+					strSlideXml += genXmlImageCrop(slideItemObj.options.crop, slideItemObj.options.objectName)
+				} else if (sizing?.type) {
 					const boxW = sizing.w ? getSmartParseNumber(sizing.w, 'X', slide._presLayout) : cx
 					const boxH = sizing.h ? getSmartParseNumber(sizing.h, 'Y', slide._presLayout) : cy
 					const boxX = getSmartParseNumber(sizing.x || 0, 'X', slide._presLayout)

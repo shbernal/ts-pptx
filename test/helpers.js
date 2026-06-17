@@ -154,6 +154,7 @@ export {
 	xmlBlocks,
 	firstXmlBlock,
 	xmlAttributes,
+	selfClosingTags,
 	contentTypeDefaultExtensions,
 	contentTypeOverrideParts,
 	assertContentTypeDefault,

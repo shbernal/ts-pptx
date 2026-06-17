@@ -731,6 +731,34 @@ export default [
 		},
 	},
 	{
+		name: 'image crop emits explicit srcRect (percentage edge insets)',
+		fn: async () => {
+			// `crop` maps a sub-region of the source verbatim into the box. Two pictures reference the
+			// same composite raster, each keeping a different quadrant — the composite-icon use case.
+			const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addImage({
+					data: 'image/png;base64,' + b64,
+					x: 0.5,
+					y: 0.5,
+					w: 2,
+					h: 2,
+					crop: { l: 0, t: 0, r: 50, b: 50 }, // top-left quadrant
+				})
+				s.addImage({
+					data: 'image/png;base64,' + b64,
+					x: 3,
+					y: 0.5,
+					w: 2,
+					h: 2,
+					crop: { l: 50, t: 50 }, // bottom-right quadrant (omitted edges default to 0)
+				})
+			})
+			await expectNoSchemaErrors(buf, 'image-crop-srcrect')
+		},
+	},
+	{
 		// "Image embedded in a shape": a freeform custGeom clip (spPr) composed with a source
 		// crop (srcRect in blipFill) on one picture — the placeholder-equivalent form. Also an
 		// arcTo-based half-disc clip. Both must stay schema-valid (CT_Picture child order:
