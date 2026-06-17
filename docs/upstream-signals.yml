@@ -3464,8 +3464,8 @@ items:
     source: "gitbrent/PptxGenJS#1317"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-17
+    status: implemented
     priority: p3
     target_area:
       - image-svg-media
@@ -3474,22 +3474,34 @@ items:
     non_target_reasons: []
     upstream_summary: Shape fill should support images.
     current_project_notes: >
-      Current shape fills are modeled as color-oriented ShapeFillProps and image
-      blipFill emission is only present for pictures, backgrounds, and media
-      preview images, not arbitrary shape fills.
+      Implemented picture (blip) fills for shapes and text boxes. ShapeFillProps
+      gained type: 'image' and an image?: { path | data } source (new
+      ImageFillProps), plus an internal _imgRid. At add-time
+      registerImageFillMedia() registers the bitmap as a slide media relationship
+      (reusing addImageDefinition's non-SVG path + #1339 de-duplication) and
+      stashes the resolved rId on the fill; genXmlColorSelection's new 'image'
+      branch calls genXmlImageFill() to emit <a:blipFill><a:blip
+      r:embed="rIdN"><a:srcRect/><a:stretch><a:fillRect/></a:stretch></a:blipFill>
+      in CT_ShapeProperties order (after geom, before <a:ln>). transparency maps
+      to <a:alphaModFix>. Raster only (PNG/JPEG/GIF/BMP/WebP); missing source and
+      SVG warn loud and fall back to no fill. Schema fixture validates clean.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/core-interfaces.ts:179
-        - src/core-interfaces.ts:652
-        - src/gen-xml.ts:587
-        - src/gen-xml.ts:615
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts:200
+        - src/core-interfaces.ts:350
+        - src/gen-utils.ts:421
+        - src/gen-objects.ts:454
+        - test/regression/image-fills.test.js
+      schema_fixture: shape-image-fill
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: compare-powerpoint-authored-shape-image-fill-xml
+    next_action: none
 
   - id: upstream-issue-1316
     source: "gitbrent/PptxGenJS#1316"

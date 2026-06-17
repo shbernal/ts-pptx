@@ -323,6 +323,24 @@ export default [
 		},
 	},
 	{
+		name: 'shape with image (blip) fill',
+		fn: async () => {
+			const pngData =
+				'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape(p.shapes.RECTANGLE, {
+					x: 1,
+					y: 1,
+					w: 4,
+					h: 1,
+					fill: { type: 'image', image: { data: pngData } },
+				})
+			})
+			await expectNoSchemaErrors(buf, 'shape-image-fill')
+		},
+	},
+	{
 		name: 'solid-color slide background',
 		fn: async () => {
 			const { buf } = await build((p) => {

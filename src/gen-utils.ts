@@ -412,6 +412,23 @@ export function genXmlPatternFill (pattern: PatternFillProps | undefined): strin
 }
 
 /**
+ * Create a native DrawingML picture (image) fill.
+ * The media relationship is registered when the object is added; this only emits
+ * the `<a:blipFill>` referencing the pre-resolved rId.
+ * @param {ShapeFillProps} props fill props (must carry a resolved `_imgRid`)
+ * @returns XML string
+ */
+export function genXmlImageFill (props: ShapeFillProps | undefined): string {
+	if (!props || typeof props._imgRid !== 'number') {
+		console.warn('Warning: image fill is missing its resolved media reference; falling back to no fill. Provide `image: { path }` or `image: { data }`.')
+		return '<a:noFill/>'
+	}
+	const alpha = props.transparency ?? props.alpha
+	const blipInner = alpha ? `<a:alphaModFix amt="${Math.round((100 - alpha) * 1000)}"/>` : ''
+	return `<a:blipFill dpi="0" rotWithShape="1"><a:blip r:embed="rId${props._imgRid}">${blipInner}</a:blip><a:srcRect/><a:stretch><a:fillRect/></a:stretch></a:blipFill>`
+}
+
+/**
  * Create color selection
  * @param {Color | ShapeFillProps | ShapeLineProps} props fill props
  * @returns XML string
@@ -458,6 +475,9 @@ export function genXmlColorSelection (props: Color | ShapeFillProps | ShapeLineP
 				break
 			case 'pattern':
 				outText += genXmlPatternFill(typeof props === 'string' ? undefined : props.pattern)
+				break
+			case 'image':
+				outText += genXmlImageFill(typeof props === 'string' ? undefined : props)
 				break
 			default: // @note need a statement as having only "break" can be removed by bundlers, then triggers "no-default" js-linter
 				outText += ''

@@ -44,6 +44,7 @@ import type {
 	OptsChartGridLine,
 	PresLayout,
 	PresSlideInternal,
+	ShapeFillProps,
 	ShapeLineProps,
 	ShapeProps,
 	SlideLayoutInternal,
@@ -441,6 +442,63 @@ export function addChartDefinition(target: PresSlideInternal, type: CHART_NAME |
  * @note: Remote images (eg: "http://whatev.com/blah"/from web and/or remote server arent supported yet - we'd need to create an <img>, load it, then send to canvas
  * @see: https://stackoverflow.com/questions/164181/how-to-fetch-a-remote-image-to-display-in-a-canvas)
  */
+/**
+ * Register a raster image fill as a slide media relationship and stash the resolved
+ * rId on the fill object so serialization can emit `<a:blipFill r:embed="rIdN">`.
+ * Mirrors the non-SVG media-registration path used by `addImageDefinition()`,
+ * including de-duplication of identical sources (issue #1339). SVG sources are not
+ * supported as fills yet.
+ * @param {PresSlideInternal} target - slide the owning object belongs to
+ * @param {ShapeFillProps} fill - fill options carrying `image: { path | data }`
+ */
+function registerImageFillMedia(target: PresSlideInternal, fill: ShapeFillProps): void {
+	const strImagePath = fill.image?.path || ''
+	const strImageData = fill.image?.data || ''
+
+	if (!strImagePath && !strImageData) {
+		console.warn('Warning: image fill requires `image.path` or `image.data`; ignoring image fill.')
+		fill.type = 'none'
+		return
+	}
+	if (strImageData && !strImageData.toLowerCase().includes('base64,')) {
+		console.warn('Warning: image fill `data` value lacks a base64 header (ex: \'image/png;base64,...\'); ignoring image fill.')
+		fill.type = 'none'
+		return
+	}
+
+	// Determine extension: path wins, else sniff the data: mime-type (mirror addImageDefinition())
+	const imagePathFile = strImagePath.slice(strImagePath.lastIndexOf('/') + 1).split('?')[0] || ''
+	let strImgExtn = ((imagePathFile.split('.').pop() || 'png').split('#')[0] || 'png').toLowerCase()
+	const imageMimeMatch = /image\/(\w+);/.exec(strImageData)
+	if (strImageData && imageMimeMatch) strImgExtn = imageMimeMatch[1]
+	else if (strImageData?.toLowerCase().includes('image/svg+xml')) strImgExtn = 'svg'
+
+	if (strImgExtn === 'svg') {
+		console.warn('Warning: SVG image fills are not supported; ignoring image fill. Use a raster format (PNG/JPEG/GIF/BMP/WebP).')
+		fill.type = 'none'
+		return
+	}
+
+	const imageRelId = getNewRelId(target)
+	const mediaSlideKey = target._slideNum == null ? 'sm' : target._slideNum >= 1000 ? `sl-${target._slideNum}` : target._slideNum
+	const dupeItem = target._relsMedia.find(item => {
+		if (item.isDuplicate || !item.Target || item.type !== 'image/' + strImgExtn) return false
+		return strImagePath ? item.path === strImagePath : !!strImageData && item.data === strImageData
+	})
+
+	target._relsMedia.push({
+		path: strImagePath || 'preencoded.' + strImgExtn,
+		type: 'image/' + strImgExtn,
+		extn: strImgExtn,
+		data: strImageData || '',
+		rId: imageRelId,
+		isDuplicate: !!dupeItem?.Target,
+		Target: dupeItem?.Target ? dupeItem.Target : `../media/image-${mediaSlideKey}-${target._relsMedia.length + 1}.${strImgExtn}`,
+	})
+	fill.type = 'image'
+	fill._imgRid = imageRelId
+}
+
 export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): void {
 	const newObject: ISlideObject = {
 		_type: SLIDE_OBJECT_TYPES.image,
@@ -855,6 +913,11 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 
 	// 4: Create hyperlink rels
 	createHyperlinkRels(target, newObject)
+
+	// 5: Register an image fill (if any) as a media relationship for serialize-time blipFill
+	if (typeof options.fill === 'object' && (options.fill.type === 'image' || options.fill.image)) {
+		registerImageFillMedia(target, options.fill)
+	}
 
 	// LAST: Add object to slide
 	target._slideObjects.push(newObject)
@@ -1420,6 +1483,11 @@ export function addTextDefinition(target: PresSlideInternal, text: TextProps[], 
 
 	// STEP 4: Create picture-bullet image rels
 	createBulletImageRels(target, newObject.options, textObjects)
+
+	// STEP 5: Register an image fill (if any) as a media relationship for serialize-time blipFill
+	if (typeof newObject.options.fill === 'object' && (newObject.options.fill.type === 'image' || newObject.options.fill.image)) {
+		registerImageFillMedia(target, newObject.options.fill)
+	}
 
 	// LAST: Add object to Slide
 	target._slideObjects.push(newObject)

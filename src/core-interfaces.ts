@@ -192,6 +192,18 @@ export interface PatternFillProps {
 	bgColor?: Color
 }
 
+/**
+ * Native PPTX picture (image) fill — fills a shape's interior with a bitmap
+ * (`<a:blipFill>`). Provide exactly one of `path` or `data`; raster formats only
+ * (PNG/JPEG/GIF/BMP/WebP). SVG is not yet supported as a fill source.
+ */
+export interface ImageFillProps {
+	/** Image file path (Node filesystem path or URL). */
+	path?: string
+	/** Pre-encoded base64 data URI, e.g. `'image/png;base64,iVBOR...'`. */
+	data?: string
+}
+
 export type Margin = number | [number, number, number, number]
 export type HAlign = 'left' | 'center' | 'right' | 'justify'
 export type VAlign = 'top' | 'middle' | 'bottom'
@@ -319,7 +331,7 @@ export interface ShapeFillProps {
 	 * Fill type
 	 * @default 'solid'
 	 */
-	type?: 'none' | 'solid' | 'gradient' | 'pattern'
+	type?: 'none' | 'solid' | 'gradient' | 'pattern' | 'image'
 
 	/**
 	 * Native PPTX gradient fill options.
@@ -332,10 +344,22 @@ export interface ShapeFillProps {
 	pattern?: PatternFillProps
 
 	/**
+	 * Native PPTX picture fill options. Setting this (or `type: 'image'`) fills the
+	 * shape interior with a stretched bitmap instead of a color.
+	 */
+	image?: ImageFillProps
+
+	/**
 	 * Transparency (percent)
 	 * @deprecated v3.3.0 - use `transparency`
 	 */
 	alpha?: number
+
+	/**
+	 * Resolved media relationship id for an image fill, assigned at add-time.
+	 * @internal
+	 */
+	_imgRid?: number
 }
 export interface ShapeLineProps extends ShapeFillProps {
 	/**
