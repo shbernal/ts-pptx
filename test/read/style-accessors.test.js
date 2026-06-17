@@ -457,3 +457,53 @@ describe('Group-child absolute geometry (absoluteFrame)', () => {
 		assertEqual(inner.absoluteFrame, null, 'dividing by a zero child extent is degenerate → null')
 	})
 })
+
+describe('Per-shape rotation / flip (rotation, flipH, flipV)', () => {
+	/** A bare `p:sp` whose spPr carries the given a:xfrm XML (or none). */
+	function spWithXfrm(xfrmXml) {
+		return shapeFromXml(AutoShape, 'sp', `<p:sp><p:spPr>${xfrmXml}</p:spPr></p:sp>`)
+	}
+
+	const EPS = 1e-6
+
+	test('rot (60000ths of a degree) reads as degrees; flipV reads true, flipH false', () => {
+		// 2259366 / 60000 ≈ 37.6561° — the benchmark "R&D" label rotation, flipped vertically.
+		const shape = spWithXfrm('<a:xfrm rot="2259366" flipV="1"><a:off x="0" y="0"/><a:ext cx="100" cy="100"/></a:xfrm>')
+		assert(Math.abs(shape.rotation - 37.6561) < 1e-3, `expected ≈37.6561°, got ${shape.rotation}`)
+		assertEqual(shape.flipV, true, 'flipV="1" reads true')
+		assertEqual(shape.flipH, false, 'no flipH reads false')
+	})
+
+	test('a present xfrm with no rot/flip reads rotation 0 and both flips false', () => {
+		const shape = spWithXfrm('<a:xfrm><a:off x="0" y="0"/><a:ext cx="100" cy="100"/></a:xfrm>')
+		assertEqual(shape.rotation, 0, 'a transform with no @rot is not rotated (0, not null)')
+		assertEqual(shape.flipH, false, 'no @flipH reads false')
+		assertEqual(shape.flipV, false, 'no @flipV reads false')
+	})
+
+	test('a shape with no own transform reads rotation null and flips false', () => {
+		const shape = spWithXfrm('')
+		assertEqual(shape.rotation, null, 'no a:xfrm → rotation null (inherits layout geometry)')
+		assertEqual(shape.flipH, false, 'no transform → not flipped')
+		assertEqual(shape.flipV, false, 'no transform → not flipped')
+	})
+
+	test('rot is faithful to the XML, not normalised to a signed range', () => {
+		// 19216344 / 60000 = 320.2724° — a negative angle (≈ −39.73°) as PowerPoint stores it.
+		const shape = spWithXfrm('<a:xfrm rot="19216344"><a:off x="0" y="0"/><a:ext cx="100" cy="100"/></a:xfrm>')
+		assert(Math.abs(shape.rotation - 320.2724) < 1e-3, `expected ≈320.2724° (raw ÷60000), got ${shape.rotation}`)
+	})
+
+	test('rotation / flipH round-trip through the write API', async () => {
+		const pres = new PptxGenJS()
+		pres
+			.addSlide()
+			.addShape(pres.shapes.RECTANGLE, { x: 1, y: 1, w: 3, h: 1, fill: { color: 'CCCCCC' }, rotate: 45, flipH: true })
+		const presentation = await Presentation.load(await pres.stream())
+		const shape = presentation.slides[0].shapes.find((s) => s.presetGeometry === 'rect')
+		assert(shape, 'expected the rotated rect')
+		assert(Math.abs(shape.rotation - 45) < EPS, `rotate: 45 reads back as 45°, got ${shape.rotation}`)
+		assertEqual(shape.flipH, true, 'flipH: true round-trips')
+		assertEqual(shape.flipV, false, 'flipV was not set, reads false')
+	})
+})

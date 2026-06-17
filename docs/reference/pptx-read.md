@@ -363,6 +363,15 @@ transform (`a:xfrm`/`p:xfrm`) and its container in document order if absent.
 Values are rounded to integer EMU; extents (`width`/`height`) reject negatives,
 and all four reject `NaN`/`Infinity`.
 
+`rotation`/`flipH`/`flipV` are read-only reads of the shape's own `a:xfrm`.
+`rotation` is in **degrees** (the source stores 60000ths) and is faithful to the
+XML — a negative angle stored as e.g. `19216344` reads back as `320.27`, not
+normalized to a signed range. Like the geometry getters, `rotation` is `null`
+when the shape has no own transform and `0` when it has one without a `@rot`.
+These report the shape's **own** orientation; they are the per-shape complement
+to `absoluteFrame`, which composes only the offset+scale of enclosing groups and
+warns when a group is itself rotated/flipped.
+
 ```ts
 abstract class Shape {
 	readonly shapeType: ShapeType
@@ -373,6 +382,9 @@ abstract class Shape {
 	top: number | null // EMU (a:off/@y) — settable
 	width: number | null // EMU (a:ext/@cx) — settable
 	height: number | null // EMU (a:ext/@cy) — settable
+	readonly rotation: number | null // degrees (a:xfrm/@rot ÷ 60000); null when no own xfrm, 0 when present but unrotated
+	readonly flipH: boolean // a:xfrm/@flipH; false when unset or no own xfrm
+	readonly flipV: boolean // a:xfrm/@flipV; false when unset or no own xfrm
 	fillColor: string | null // spPr/a:solidFill/a:srgbClr/@val (6-hex) — settable
 	fillSchemeColor: string | null // spPr/a:solidFill/a:schemeClr/@val, e.g. 'accent2' — settable
 	lineColor: string | null // spPr/a:ln/a:solidFill/a:srgbClr/@val (6-hex) — settable

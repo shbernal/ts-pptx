@@ -344,6 +344,44 @@ export abstract class Shape {
 	}
 
 	/**
+	 * Clockwise rotation in degrees (`a:xfrm/@rot` ÷ 60000), or `null` when the
+	 * shape has no own transform. A present xfrm with no `@rot` reads as `0`, so
+	 * — mirroring {@link left}/{@link top}/{@link width}/{@link height} — `null`
+	 * ("inherits layout geometry") stays distinct from `0` ("has a transform, not
+	 * rotated"). The value is faithful to the XML and not normalised to a signed
+	 * range, so a `@rot` past 360° (e.g. a negative angle stored as `19216344`)
+	 * reads back greater than 360. This is the per-shape complement to
+	 * {@link absoluteFrame}, which composes offset+scale only and warns when an
+	 * enclosing group is itself rotated/flipped.
+	 */
+	get rotation(): number | null {
+		const xfrm = this.xfrm()
+		if (!xfrm) return null
+		const rot = intValue(attr(xfrm, 'rot'))
+		return rot === null ? 0 : rot / 60000
+	}
+
+	/**
+	 * Whether the shape is flipped horizontally (`a:xfrm/@flipH`); `false` when
+	 * unset or when the shape has no own transform. Per-shape complement to
+	 * {@link absoluteFrame}'s group-flip limit.
+	 */
+	get flipH(): boolean {
+		const xfrm = this.xfrm()
+		return xfrm !== null && boolValue(attr(xfrm, 'flipH')) === true
+	}
+
+	/**
+	 * Whether the shape is flipped vertically (`a:xfrm/@flipV`); `false` when
+	 * unset or when the shape has no own transform. Per-shape complement to
+	 * {@link absoluteFrame}'s group-flip limit.
+	 */
+	get flipV(): boolean {
+		const xfrm = this.xfrm()
+		return xfrm !== null && boolValue(attr(xfrm, 'flipV')) === true
+	}
+
+	/**
 	 * This shape's position and size in **slide-absolute** EMU, composing the
 	 * offset+scale transform of every enclosing group.
 	 *
