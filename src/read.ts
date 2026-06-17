@@ -34,3 +34,7 @@ export {
 export { TextFrame, Paragraph, Run } from './read/api/text.js'
 export { Table, TableRow, TableCell } from './read/api/table.js'
 export { Chart, ChartSeries } from './read/api/chart.js'
+
+// Theme colour resolution (schemeClr → literal hex) shared by the colour getters.
+export { type ResolvedColor } from './read/api/theme-context.js'
+export type { ColorContext } from './read/oxml/theme.js'

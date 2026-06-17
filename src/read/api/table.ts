@@ -18,18 +18,21 @@ import {
 	setAttr,
 	type Element,
 } from '../oxml/dom.js'
+import type { ColorContext } from '../oxml/theme.js'
 import { TextFrame } from './text.js'
 
 /** A table: a grid of rows and cells inside a graphic frame. */
 export class Table {
 	constructor(
 		private readonly tbl: Element,
-		private readonly part: Part
+		private readonly part: Part,
+		/** The owning slide's theme colour context, threaded to each cell's text for `Run.resolvedColor`. */
+		private readonly themeColors?: ColorContext
 	) {}
 
 	/** The table's rows (`a:tr`) in document (top-to-bottom) order. */
 	get rows(): TableRow[] {
-		return getElements(this.tbl, 'a:tr').map((tr) => new TableRow(tr, this.part))
+		return getElements(this.tbl, 'a:tr').map((tr) => new TableRow(tr, this.part, this.themeColors))
 	}
 
 	/** Number of rows (`a:tr`). */
@@ -84,12 +87,14 @@ export class Table {
 export class TableRow {
 	constructor(
 		private readonly tr: Element,
-		private readonly part: Part
+		private readonly part: Part,
+		/** The owning slide's theme colour context, threaded to each {@link TableCell}. */
+		private readonly themeColors?: ColorContext
 	) {}
 
 	/** The row's cells (`a:tc`) in left-to-right order. */
 	get cells(): TableCell[] {
-		return getElements(this.tr, 'a:tc').map((tc) => new TableCell(tc, this.part))
+		return getElements(this.tr, 'a:tc').map((tc) => new TableCell(tc, this.part, this.themeColors))
 	}
 
 	/** Row height in EMU (`a:tr/@h`), or `null` if unset. */
@@ -107,13 +112,15 @@ export class TableRow {
 export class TableCell {
 	constructor(
 		private readonly tc: Element,
-		private readonly part: Part
+		private readonly part: Part,
+		/** The owning slide's theme colour context, threaded to the cell's text for `Run.resolvedColor`. */
+		private readonly themeColors?: ColorContext
 	) {}
 
 	/** The cell's text frame (`a:txBody`); `null` only if the cell has none (non-conformant). */
 	get textFrame(): TextFrame | null {
 		const txBody = firstChild(this.tc, 'a:txBody')
-		return txBody ? new TextFrame(txBody, this.part) : null
+		return txBody ? new TextFrame(txBody, this.part, this.themeColors) : null
 	}
 
 	/** The cell's text, paragraphs joined by `\n`. */

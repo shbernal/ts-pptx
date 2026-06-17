@@ -21,6 +21,8 @@ import {
 	type Element,
 } from '../oxml/dom.js'
 import { normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
+import type { ColorContext } from '../oxml/theme.js'
+import { resolveSolidFillColor, type ResolvedColor } from './theme-context.js'
 
 // Schema successors used to keep `a:rPr` children in document order when a
 // setter has to create one (CT_TextCharacterProperties sequence).
@@ -47,7 +49,9 @@ const RPR_AFTER_LATIN = ['a:ea', 'a:cs', 'a:sym', 'a:hlinkClick', 'a:hlinkMouseO
 export class Run {
 	constructor(
 		private readonly element: Element,
-		private readonly part: Part
+		private readonly part: Part,
+		/** The owning slide's theme colour context, for {@link resolvedColor}; absent when the run was reached without one. */
+		private readonly themeColors?: ColorContext
 	) {}
 
 	/** The run's text (`a:t`), verbatim — whitespace is not normalized. */
@@ -149,6 +153,19 @@ export class Run {
 		this.#setSolidFill(value === null ? null : { qname: 'a:schemeClr', val: value })
 	}
 
+	/**
+	 * The run's own solid fill colour resolved against the owning slide's theme to
+	 * a literal hex — the resolved counterpart of {@link color}/{@link schemeColor}.
+	 * `null` when the run sets no colour of its own (it then inherits from the
+	 * placeholder / list-style chain, which this getter does not walk), the colour
+	 * cannot be made literal, or the run was reached without a theme context. The
+	 * returned {@link ResolvedColor} reports child colour transforms but does not
+	 * apply them.
+	 */
+	get resolvedColor(): ResolvedColor | null {
+		return this.themeColors ? resolveSolidFillColor(this.#rPr(), this.themeColors) : null
+	}
+
 	/** The underlying `a:r` element, for advanced reads and future mutation. */
 	get element_(): Element {
 		return this.element
@@ -205,12 +222,14 @@ export class Run {
 export class Paragraph {
 	constructor(
 		private readonly element: Element,
-		private readonly part: Part
+		private readonly part: Part,
+		/** The owning slide's theme colour context, threaded to each {@link Run} for `resolvedColor`. */
+		private readonly themeColors?: ColorContext
 	) {}
 
 	/** The runs (`a:r`) in document order. Fields (`a:fld`) and breaks are not runs; see `text`. */
 	get runs(): Run[] {
-		return getElements(this.element, 'a:r').map((element) => new Run(element, this.part))
+		return getElements(this.element, 'a:r').map((element) => new Run(element, this.part, this.themeColors))
 	}
 
 	/** Indent level (`a:pPr/@lvl`), 0 when unset. */
@@ -314,12 +333,14 @@ export class Paragraph {
 export class TextFrame {
 	constructor(
 		private readonly txBody: Element,
-		private readonly part: Part
+		private readonly part: Part,
+		/** The owning slide's theme colour context, threaded to each {@link Paragraph}/{@link Run} for `resolvedColor`. */
+		private readonly themeColors?: ColorContext
 	) {}
 
 	/** Paragraphs (`a:p`) in document order. */
 	get paragraphs(): Paragraph[] {
-		return getElements(this.txBody, 'a:p').map((element) => new Paragraph(element, this.part))
+		return getElements(this.txBody, 'a:p').map((element) => new Paragraph(element, this.part, this.themeColors))
 	}
 
 	/** All paragraph text joined by `\n` (mirrors python-pptx `TextFrame.text`). */

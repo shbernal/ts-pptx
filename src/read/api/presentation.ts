@@ -9,7 +9,8 @@ import type { Part } from '../opc/part.js'
 import type { Relationships } from '../opc/relationships.js'
 import { relativePartName, relsPartNameFor } from '../opc/partnames.js'
 import { ELEMENT_NODE, OOXML_NS, attr, createElement, firstChild, getElements, getOrAddChild, intValue, removeChildrenByQName, setAttr, type Element } from '../oxml/dom.js'
-import { flattenShape, flattenSlide, parseClrMap, parseClrScheme, restyleSlide, type FlattenContext } from '../oxml/theme.js'
+import { flattenShape, flattenSlide, restyleSlide, type FlattenContext } from '../oxml/theme.js'
+import { resolveSlideThemeParts } from './theme-context.js'
 import { Slide } from './slide.js'
 import { wrapShapeElement, type Shape } from './shapes.js'
 
@@ -17,7 +18,6 @@ const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/20
 const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
 const SLIDE_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster'
-const THEME_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme'
 const NOTES_SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
 
 const SLIDE_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
@@ -595,29 +595,17 @@ export class Presentation {
 	 * the master `clrMap`), the theme `clrScheme`, and the theme `fmtScheme`.
 	 */
 	#sourceFlattenContext(sourceOpc: OpcPackage, slidePartName: string): FlattenContext {
-		const layoutPartName = this.#resolveSingleRel(sourceOpc, slidePartName, SLIDE_LAYOUT_REL)
-		const masterPartName = layoutPartName && this.#resolveSingleRel(sourceOpc, layoutPartName, SLIDE_MASTER_REL)
-		const themePartName = masterPartName && this.#resolveSingleRel(sourceOpc, masterPartName, THEME_REL)
-
-		const masterRoot = masterPartName ? (sourceOpc.part(masterPartName)?.dom.documentElement ?? null) : null
-		const masterClrMap = masterRoot ? firstChild(masterRoot, 'p:clrMap') : null
-		const layoutRoot = layoutPartName ? (sourceOpc.part(layoutPartName)?.dom.documentElement ?? null) : null
-
-		// A slide's clrMapOvr/overrideClrMapping (if present) wins over the master map.
-		const slideRoot = sourceOpc.part(slidePartName)?.dom.documentElement
-		const clrMapOvr = slideRoot ? firstChild(slideRoot, 'p:clrMapOvr') : null
-		const override = clrMapOvr ? firstChild(clrMapOvr, 'a:overrideClrMapping') : null
-
-		const themeRoot = themePartName ? sourceOpc.part(themePartName)?.dom.documentElement : null
-		const themeElements = themeRoot ? firstChild(themeRoot, 'a:themeElements') : null
-
+		// Reuse the shared slide → layout → master → theme walk (also backing the
+		// read-model colour getters), then layer the flatten-only needs on top.
+		const parts = resolveSlideThemeParts(sourceOpc, slidePartName)
+		const themeElements = parts.themeElements
 		return {
-			clrMap: parseClrMap(override ?? masterClrMap),
-			clrScheme: parseClrScheme(themeElements ? firstChild(themeElements, 'a:clrScheme') : null),
+			clrMap: parts.clrMap,
+			clrScheme: parts.clrScheme,
 			fmtScheme: themeElements ? firstChild(themeElements, 'a:fmtScheme') : null,
-			inheritedBackground: this.#effectiveBackground(sourceOpc, slideRoot ?? null, layoutPartName, masterPartName),
-			layoutRoot,
-			masterRoot,
+			inheritedBackground: this.#effectiveBackground(sourceOpc, parts.slideRoot, parts.layoutPartName, parts.masterPartName),
+			layoutRoot: parts.layoutRoot,
+			masterRoot: parts.masterRoot,
 		}
 	}
 

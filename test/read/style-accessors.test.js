@@ -212,3 +212,99 @@ describe('Shape style reads — write→read round-trip', () => {
 		assertEqual(solid.gradientStops, null, 'a solid-filled shape reports null gradientStops')
 	})
 })
+
+describe('Theme colour resolution — write→read round-trip', () => {
+	// A generated deck carries the default Office theme + a slide → layout → master
+	// → theme chain, so a scheme token resolves deterministically: accent1=4472C4,
+	// accent2=ED7D31, accent3=A5A5A5 (see THEME_CLR_SCHEME_DEFAULTS in gen-xml).
+	async function reopen(buildFn) {
+		const pres = new PptxGenJS()
+		buildFn(pres)
+		const buf = await pres.stream()
+		return Presentation.load(buf)
+	}
+
+	test('resolvedFill resolves a scheme fill to the theme hex, and an explicit fill to itself', async () => {
+		const presentation = await reopen((p) => {
+			const slide = p.addSlide()
+			slide.addShape(p.shapes.RECTANGLE, { x: 1, y: 1, w: 3, h: 1, fill: { color: 'accent1' } })
+			slide.addShape(p.shapes.RECTANGLE, { x: 1, y: 3, w: 3, h: 1, fill: { color: 'FF0000' } })
+		})
+		const shapes = presentation.slides[0].shapes.filter((s) => s.presetGeometry === 'rect')
+		const scheme = shapes.find((s) => s.fillSchemeColor === 'accent1')
+		assert(scheme, 'expected the accent1-filled rect')
+		assertEqual(scheme.resolvedFill.hex, '4472C4', 'accent1 resolves to the theme accent1 hex')
+		// The raw read still reports the unresolved token — resolution is opt-in.
+		assertEqual(scheme.fillColor, null, 'fillColor still reports null for a scheme-coloured fill')
+
+		const explicit = shapes.find((s) => s.fillColor === 'FF0000')
+		assertEqual(explicit.resolvedFill.hex, 'FF0000', 'an explicit srgb fill resolves to itself')
+	})
+
+	test('resolvedLine resolves a scheme line colour; null when there is no solid fill', async () => {
+		const presentation = await reopen((p) => {
+			const slide = p.addSlide()
+			slide.addShape(p.shapes.RECTANGLE, {
+				x: 1,
+				y: 1,
+				w: 3,
+				h: 1,
+				fill: { color: 'FF0000' },
+				line: { color: 'accent2', width: 1 },
+			})
+			slide.addShape(p.shapes.RECTANGLE, {
+				x: 1,
+				y: 3,
+				w: 3,
+				h: 1,
+				fill: {
+					type: 'gradient',
+					gradient: {
+						kind: 'linear',
+						angle: 0,
+						stops: [
+							{ position: 0, color: 'accent1' },
+							{ position: 100, color: 'accent2' },
+						],
+					},
+				},
+			})
+		})
+		const shapes = presentation.slides[0].shapes.filter((s) => s.presetGeometry === 'rect')
+		const lined = shapes.find((s) => s.lineSchemeColor === 'accent2')
+		assert(lined, 'expected the accent2-lined rect')
+		assertEqual(lined.resolvedLine.hex, 'ED7D31', 'accent2 line resolves to the theme accent2 hex')
+		// A gradient-filled, unlined shape resolves neither a fill nor a line colour.
+		const gradient = shapes.find((s) => s.gradientStops !== null)
+		assertEqual(gradient.resolvedFill, null, 'a gradient fill has no a:solidFill to resolve')
+		assertEqual(gradient.resolvedLine, null, 'an unlined shape resolves no line colour')
+	})
+
+	test('resolvedFill reports colour transforms without applying them', async () => {
+		const presentation = await reopen((p) => {
+			p.addSlide().addShape(p.shapes.RECTANGLE, {
+				x: 1,
+				y: 1,
+				w: 3,
+				h: 1,
+				fill: { color: 'accent1', transparency: 25 },
+			})
+		})
+		const shape = presentation.slides[0].shapes.find((s) => s.presetGeometry === 'rect')
+		// transparency 25 → <a:alpha val="75000"/>; the base hex stays the theme colour.
+		assertEqual(shape.resolvedFill.hex, '4472C4', 'base colour stays the theme hex, not premultiplied')
+		assertEqual(shape.resolvedFill.transforms.length, 1, 'one transform child reported')
+		assertEqual(shape.resolvedFill.transforms[0].name, 'alpha', 'the alpha transform is reported by name')
+		assertEqual(shape.resolvedFill.transforms[0].value, '75000', 'with its raw @val, left for the consumer to apply')
+	})
+
+	test('Run.resolvedColor resolves a scheme run colour to the theme hex', async () => {
+		const presentation = await reopen((p) => {
+			p.addSlide().addText([{ text: 'hi', options: { color: 'accent3' } }], { x: 1, y: 1, w: 3, h: 1 })
+		})
+		const shape = presentation.slides[0].shapes.find((s) => s.hasTextFrame)
+		const run = shape.textFrame.paragraphs[0].runs[0]
+		assertEqual(run.schemeColor, 'accent3', 'the raw read reports the scheme token')
+		assertEqual(run.resolvedColor.hex, 'A5A5A5', 'accent3 resolves to the theme accent3 hex')
+	})
+})

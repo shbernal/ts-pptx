@@ -51,13 +51,22 @@ const SPPR_EFFECT_AFTER = ['a:scene3d', 'a:sp3d', 'a:extLst']
 const SHAPE_AFTER_SPPR = ['p:style', 'p:txBody']
 
 /**
- * Everything {@link flattenSlide} needs from the slide's source theme subgraph:
- * the effective colour map (token → slot), the resolved colour scheme (slot →
- * 6-hex RGB), and the live `a:fmtScheme` element (for style-matrix resolution).
+ * The colour-resolution context: the two maps that turn a DrawingML colour
+ * reference into a literal hex — the effective colour map (token → `clrScheme`
+ * slot, honouring any slide `clrMapOvr`) and the resolved colour scheme (slot →
+ * 6-hex RGB). Shared by the read-model colour getters and {@link FlattenContext}.
  */
-export interface FlattenContext {
+export interface ColorContext {
 	clrMap: Map<string, string>
 	clrScheme: Map<string, string>
+}
+
+/**
+ * Everything {@link flattenSlide} needs from the slide's source theme subgraph:
+ * the {@link ColorContext} maps plus the live `a:fmtScheme` element (for
+ * style-matrix resolution).
+ */
+export interface FlattenContext extends ColorContext {
 	fmtScheme: Element | null
 	/**
 	 * The slide's effective background inherited from the *source*
@@ -108,7 +117,7 @@ export function parseClrMap(clrMap: Element | null): Map<string, string> {
 }
 
 /** Resolve a scheme token (`accent1`, `bg1`, `dk1`, …) to a 6-hex RGB, or `null`. */
-function resolveSchemeToken(token: string, ctx: FlattenContext): string | null {
+function resolveSchemeToken(token: string, ctx: ColorContext): string | null {
 	if (token === 'phClr') return null
 	const slot = DIRECT_SLOT_TOKENS.has(token) ? token : ctx.clrMap.get(token)
 	return slot ? (ctx.clrScheme.get(slot) ?? null) : null
@@ -145,7 +154,7 @@ function colorElementHex(color: Element | null): string | null {
 }
 
 /** A colour reference resolved to a literal base RGB plus its transform children. */
-interface ResolvedColor {
+export interface ResolvedColor {
 	hex: string
 	transforms: Element[]
 }
@@ -155,7 +164,7 @@ interface ResolvedColor {
  * `a:schemeClr` through the context. Returns `null` when the base cannot be made
  * literal (unmapped token, or a colour model we do not flatten).
  */
-function resolveColor(color: Element | null, ctx: FlattenContext): ResolvedColor | null {
+export function resolveColor(color: Element | null, ctx: ColorContext): ResolvedColor | null {
 	if (!color) return null
 	const transforms = childElements(color)
 	if (isA(color, 'srgbClr')) {

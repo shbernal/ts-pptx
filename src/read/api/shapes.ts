@@ -23,6 +23,7 @@ import {
 import { fitSrcRectPercents, getImageSizeFromBytes } from '../../gen-utils.js'
 import { relativePartName } from '../opc/partnames.js'
 import { FILL_CHOICES, normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
+import { resolveSolidFillColor, type ResolvedColor } from './theme-context.js'
 import { Chart } from './chart.js'
 import { Table } from './table.js'
 import { TextFrame } from './text.js'
@@ -382,6 +383,27 @@ export abstract class Shape {
 		})
 	}
 
+	/**
+	 * The shape's solid fill resolved against the slide's theme
+	 * ({@link Slide.themeContext}) to a literal hex — the resolved counterpart of
+	 * {@link fillColor}/{@link fillSchemeColor}, which report the raw reference.
+	 * `null` when the shape has no `a:solidFill` (a gradient/none/inherited fill)
+	 * or the colour cannot be made literal. The returned {@link ResolvedColor}
+	 * reports child colour transforms (`lumMod`/`shade`/…) but does not apply them.
+	 */
+	get resolvedFill(): ResolvedColor | null {
+		return resolveSolidFillColor(this.properties(), this.slide.themeContext())
+	}
+
+	/**
+	 * The shape's line/border solid fill resolved against the slide's theme to a
+	 * literal hex — the resolved counterpart of {@link lineColor}/{@link lineSchemeColor}.
+	 * `null` when the shape has no `a:ln/a:solidFill` or it cannot be made literal.
+	 */
+	get resolvedLine(): ResolvedColor | null {
+		return resolveSolidFillColor(this.#line(), this.slide.themeContext())
+	}
+
 	/** The line element (`spPr/a:ln`), or `null` when absent. */
 	#line(): Element | null {
 		const props = this.properties()
@@ -468,7 +490,7 @@ export class AutoShape extends Shape {
 
 	override get textFrame(): TextFrame | null {
 		const txBody = firstChild(this.element, 'p:txBody')
-		return txBody ? new TextFrame(txBody, this.slide.part) : null
+		return txBody ? new TextFrame(txBody, this.slide.part, this.slide.themeContext()) : null
 	}
 
 	/** Preset geometry name (`a:prstGeom/@prst`, e.g. `rect`), or `null` for custom/none. */
@@ -689,7 +711,7 @@ export class GraphicFrame extends Shape {
 		if (!this.hasTable) return null
 		const graphicData = this.#graphicData()
 		const tbl = graphicData && firstChild(graphicData, 'a:tbl')
-		return tbl ? new Table(tbl, this.slide.part) : null
+		return tbl ? new Table(tbl, this.slide.part, this.slide.themeContext()) : null
 	}
 
 	/** The hosted chart, or `null` when this frame is not a chart or its part is missing. */
