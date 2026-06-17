@@ -220,6 +220,73 @@ export class Paragraph {
 	}
 
 	/**
+	 * Horizontal alignment token (`a:pPr/@algn`: `l` | `ctr` | `r` | `just` |
+	 * `dist` | `thaiDist`), or `null` when unset (inherited from the list style).
+	 */
+	get align(): string | null {
+		const pPr = firstChild(this.element, 'a:pPr')
+		return pPr ? attr(pPr, 'algn') : null
+	}
+
+	/**
+	 * Space before the paragraph in points (`a:pPr/a:spcBef/a:spcPts/@val` is
+	 * hundredths of a point), or `null` when unset or expressed as a percentage
+	 * (`a:spcPct`, which has no fixed point value).
+	 */
+	get spaceBeforePt(): number | null {
+		return this.#spacingPt('a:spcBef')
+	}
+
+	/** Space after the paragraph in points; see {@link spaceBeforePt} for the percentage caveat. */
+	get spaceAfterPt(): number | null {
+		return this.#spacingPt('a:spcAft')
+	}
+
+	/** Left margin of the paragraph in points (`a:pPr/@marL` is EMU; 12700 EMU = 1pt), or `null` when unset. */
+	get marginLeftPt(): number | null {
+		return this.#emuAttrPt('marL')
+	}
+
+	/** First-line indent in points (`a:pPr/@indent` is EMU; negative for a hanging indent), or `null` when unset. */
+	get indentPt(): number | null {
+		return this.#emuAttrPt('indent')
+	}
+
+	/**
+	 * Bullet description for this paragraph, derived from the `a:pPr` bullet
+	 * children, or `null` when unset (inherited from the list style):
+	 * - `'none'`          — explicit `a:buNone` (bullet suppressed)
+	 * - `'char:•'`        — `a:buChar/@char` (the literal glyph follows the colon)
+	 * - `'autoNum:arabicPeriod'` — `a:buAutoNum/@type` (auto-numbered)
+	 */
+	get bullet(): string | null {
+		const pPr = firstChild(this.element, 'a:pPr')
+		if (!pPr) return null
+		if (firstChild(pPr, 'a:buNone')) return 'none'
+		const buChar = firstChild(pPr, 'a:buChar')
+		if (buChar) return `char:${attr(buChar, 'char') ?? ''}`
+		const buAutoNum = firstChild(pPr, 'a:buAutoNum')
+		if (buAutoNum) return `autoNum:${attr(buAutoNum, 'type') ?? ''}`
+		return null
+	}
+
+	/** Points from a spacing child's `a:spcPts/@val` (hundredths of a point), or `null`. */
+	#spacingPt(qname: string): number | null {
+		const pPr = firstChild(this.element, 'a:pPr')
+		const spc = pPr && firstChild(pPr, qname)
+		const pts = spc && firstChild(spc, 'a:spcPts')
+		const val = pts ? intValue(attr(pts, 'val')) : null
+		return val === null ? null : val / 100
+	}
+
+	/** Points from an EMU-valued `a:pPr` attribute (`marL` / `indent`), or `null`. */
+	#emuAttrPt(name: string): number | null {
+		const pPr = firstChild(this.element, 'a:pPr')
+		const emu = pPr ? intValue(attr(pPr, name)) : null
+		return emu === null ? null : emu / 12700
+	}
+
+	/**
 	 * The paragraph's text: run (`a:r`) and field (`a:fld`) text concatenated in
 	 * document order, with each line break (`a:br`) rendered as `\n`.
 	 */

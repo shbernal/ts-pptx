@@ -11,7 +11,9 @@ import {
 	ELEMENT_NODE,
 	OOXML_NS,
 	attr,
+	boolValue,
 	firstChild,
+	getElements,
 	getOrAddChild,
 	intValue,
 	removeChildrenByQName,
@@ -29,6 +31,8 @@ import type { Slide } from './slide.js'
 const A_TABLE_URI = 'http://schemas.openxmlformats.org/drawingml/2006/table'
 const A_CHART_URI = 'http://schemas.openxmlformats.org/drawingml/2006/chart'
 const IMAGE_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
+// Microsoft's SVG blip extension namespace (a:blip/a:extLst/a:ext/asvg:svgBlip).
+const ASVG_NS = 'http://schemas.microsoft.com/office/drawing/2016/SVG/main'
 
 // Schema successors within p:pic (CT_Picture: nvPicPr, blipFill, spPr, style?)
 // and within a:blipFill (blip?, srcRect?, (tile|stretch)?), used to keep a
@@ -105,7 +109,16 @@ const SHAPE_AFTER_SPPR = ['p:style', 'p:txBody']
 const SPPR_FILL_AFTER = ['a:ln', 'a:effectLst', 'a:effectDag', 'a:scene3d', 'a:sp3d', 'a:extLst']
 const SPPR_LN_AFTER = ['a:effectLst', 'a:effectDag', 'a:scene3d', 'a:sp3d', 'a:extLst']
 const GRPSPPR_FILL_AFTER = ['a:effectLst', 'a:effectDag', 'a:scene3d', 'a:extLst']
-const LN_FILL_AFTER = ['a:prstDash', 'a:custDash', 'a:round', 'a:bevel', 'a:miter', 'a:headEnd', 'a:tailEnd', 'a:extLst']
+const LN_FILL_AFTER = [
+	'a:prstDash',
+	'a:custDash',
+	'a:round',
+	'a:bevel',
+	'a:miter',
+	'a:headEnd',
+	'a:tailEnd',
+	'a:extLst',
+]
 
 /**
  * A shape's properties element (`p:spPr` / `p:grpSpPr`) paired with the schema
@@ -145,6 +158,16 @@ function toEmu(value: number, attribute: string, allowNegative: boolean): number
 	return Math.round(value)
 }
 
+/** One stop of a gradient fill (`a:gsLst/a:gs`), as read from a shape. */
+export interface GradientStop {
+	/** Stop offset along the gradient, 0–1 (from `@pos`, thousandths of a percent), or `null` if unset. */
+	position: number | null
+	/** Explicit RGB colour as 6-hex (`a:srgbClr/@val`), or `null` when the stop uses a scheme colour. */
+	color: string | null
+	/** Theme colour token (`a:schemeClr/@val`, e.g. `accent1`), or `null` when the stop uses an explicit colour. */
+	schemeColor: string | null
+}
+
 /** Common base for every shape in a slide's shape tree. */
 export abstract class Shape {
 	constructor(
@@ -176,6 +199,18 @@ export abstract class Shape {
 	get name(): string {
 		const cNvPr = nonVisualCNvPr(this.element)
 		return (cNvPr && attr(cNvPr, 'name')) ?? ''
+	}
+
+	/**
+	 * Whether the shape is explicitly hidden (`p:cNvPr/@hidden="1"`); `false` when
+	 * the attribute is unset. A hidden shape stays in the slide XML but is not
+	 * rendered — decks use it as a fallback layer (e.g. a duotone-recolour source
+	 * sitting behind the visible icon), so a faithful reader must distinguish it
+	 * from the drawn shapes.
+	 */
+	get hidden(): boolean {
+		const cNvPr = nonVisualCNvPr(this.element)
+		return boolValue(cNvPr && attr(cNvPr, 'hidden')) === true
 	}
 
 	/** Left edge in EMU (`a:off/@x`), or `null` when the shape has no own transform. */
@@ -294,6 +329,57 @@ export abstract class Shape {
 
 	set lineSchemeColor(value: string | null) {
 		this.#setLine(value === null ? null : { qname: 'a:schemeClr', val: value })
+	}
+
+	/** Line/border width in points (`spPr/a:ln/@w` is EMU; 12700 EMU = 1pt), or `null` when unset. */
+	get lineWidthPt(): number | null {
+		const ln = this.#line()
+		const w = ln ? intValue(attr(ln, 'w')) : null
+		return w === null ? null : w / 12700
+	}
+
+	/**
+	 * Preset-geometry adjustment values (`spPr/a:prstGeom/a:avLst/a:gd`) as a
+	 * name → formula map, e.g. `{ adj: 'val 16667' }`. Empty when the shape has no
+	 * adjust handles (or uses custom geometry). Pair with {@link presetGeometry}.
+	 */
+	get adjustValues(): Record<string, string> {
+		const props = this.properties()
+		const prstGeom = props && firstChild(props, 'a:prstGeom')
+		const avLst = prstGeom && firstChild(prstGeom, 'a:avLst')
+		const out: Record<string, string> = {}
+		if (avLst) {
+			for (const gd of getElements(avLst, 'a:gd')) {
+				const name = attr(gd, 'name')
+				if (name) out[name] = attr(gd, 'fmla') ?? ''
+			}
+		}
+		return out
+	}
+
+	/**
+	 * Gradient fill stops (`spPr/a:gradFill/a:gsLst/a:gs`) in document order, or
+	 * `null` when the shape's fill is not a gradient. Each stop carries its
+	 * position (0–1, from `@pos` in thousandths of a percent) and either an
+	 * explicit `color` (hex) or a `schemeColor` token, mirroring the
+	 * {@link fillColor} / {@link fillSchemeColor} split for solid fills.
+	 */
+	get gradientStops(): GradientStop[] | null {
+		const props = this.properties()
+		const grad = props && firstChild(props, 'a:gradFill')
+		if (!grad) return null
+		const gsLst = firstChild(grad, 'a:gsLst')
+		if (!gsLst) return []
+		return getElements(gsLst, 'a:gs').map((gs) => {
+			const pos = intValue(attr(gs, 'pos'))
+			const srgb = firstChild(gs, 'a:srgbClr')
+			const scheme = firstChild(gs, 'a:schemeClr')
+			return {
+				position: pos === null ? null : pos / 100000,
+				color: srgb ? attr(srgb, 'val') : null,
+				schemeColor: scheme ? attr(scheme, 'val') : null,
+			}
+		})
 	}
 
 	/** The line element (`spPr/a:ln`), or `null` when absent. */
@@ -438,6 +524,41 @@ export class Picture extends Shape {
 	}
 
 	/**
+	 * Relationship id of the embedded **vector (SVG)** image, read from the
+	 * Microsoft SVG blip extension (`a:blip/a:extLst/a:ext/asvg:svgBlip/@r:embed`),
+	 * or `null` when the picture has no SVG. PowerPoint usually pairs this with a
+	 * raster fallback in `a:blip/@r:embed` ({@link imageRelId}), but some exporters
+	 * emit an SVG-only blip where `imageRelId` is absent and only this resolves —
+	 * so a reader that wants the real drawn art must consult both.
+	 */
+	get svgRelId(): string | null {
+		const svg = this.#svgBlip()
+		return svg ? attr(svg, 'r:embed') : null
+	}
+
+	/** Absolute partname of the embedded SVG image, resolved via the slide's relationships, or `null`. */
+	get svgPartName(): string | null {
+		const relId = this.svgRelId
+		return relId ? this.slide.relationships.resolveTarget(relId) : null
+	}
+
+	/** The `<asvg:svgBlip>` element inside the blip's extLst, or `null` when the picture carries no SVG. */
+	#svgBlip(): Element | null {
+		const blipFill = firstChild(this.element, 'p:blipFill')
+		const blip = blipFill && firstChild(blipFill, 'a:blip')
+		const extLst = blip && firstChild(blip, 'a:extLst')
+		if (!extLst) return null
+		for (const ext of getElements(extLst, 'a:ext')) {
+			for (let node = ext.firstChild; node; node = node.nextSibling) {
+				if (node.nodeType !== ELEMENT_NODE) continue
+				const el = node as Element
+				if (el.localName === 'svgBlip' && el.namespaceURI === ASVG_NS) return el
+			}
+		}
+		return null
+	}
+
+	/**
 	 * Replace this picture's image with new bytes. Mints a fresh media part under
 	 * `/ppt/media/`, registers its content type, wires an `image` relationship
 	 * from the owning slide, and repoints the blip's `@r:embed` at it.
@@ -465,7 +586,7 @@ export class Picture extends Shape {
 	 */
 	setImage(
 		bytes: Uint8Array,
-		options: { contentType: string; extension?: string; fit?: 'cover' | 'contain' | 'stretch' },
+		options: { contentType: string; extension?: string; fit?: 'cover' | 'contain' | 'stretch' }
 	): void {
 		const { contentType } = options
 		if (!contentType) throw new Error('setImage requires a contentType (e.g. "image/png")')
@@ -495,7 +616,7 @@ export class Picture extends Shape {
 		const natural = getImageSizeFromBytes(bytes)
 		if (!natural) {
 			console.warn(
-				`setImage fit '${fit}': could not measure the new image's natural size; leaving the crop unchanged (it may look stretched). Provide a raster (PNG/JPEG/GIF/BMP/WebP) or an SVG with width/height or a viewBox.`,
+				`setImage fit '${fit}': could not measure the new image's natural size; leaving the crop unchanged (it may look stretched). Provide a raster (PNG/JPEG/GIF/BMP/WebP) or an SVG with width/height or a viewBox.`
 			)
 			return
 		}
