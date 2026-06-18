@@ -9754,3 +9754,111 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: layer-styleref-resolution
+  - id: dn-group-rot-flip-frame
+    source: downstream:scripts/slide-library/lib/slide-style.ts
+    type: downstream-need
+    first_seen: 2026-06-18
+    last_reviewed: 2026-06-18
+    status: target-candidate
+    priority: p2
+    target_area:
+      - typescript-api
+      - missing-pptx-feature
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: absoluteFrame composes group offset+scale only; an enclosing @rot/@flipH/@flipV is not applied, so group-child placement is approximate
+    current_project_notes: |
+      Read-model gap surfaced by the slide-replication work (the "source-pixel
+      replica" method: transcribe each shape at its absolute on-canvas geometry).
+      `Shape.absoluteFrame` (src/read/api/shapes.ts) walks the group ancestry and
+      composes each group's offset + child-scale (chOff/chExt vs off/ext), which
+      is what closed the original group-local-coordinate blocker (downstream
+      emits `absBox` from it). But it deliberately does NOT apply an enclosing
+      group's rotation/flip: when a `<p:grpSpPr>` xfrm carries @rot/@flipH/@flipV,
+      the returned frame is offset+scale only and the code emits a one-time warning
+      (shapes.ts:201-215, and the JSDoc at shapes.ts:409-413). For such a group the
+      child's absolute placement is approximate — a replicator transcribing `absBox`
+      lands children in the wrong spot and only catches it by eyeballing the render.
+
+      Why it matters now: the replication-lab audit (decks/replication-lab/audit)
+      flags `group-rot-flip` as the one UNTRACKED residual after the colour-transform
+      and absBox fixes closed blockers #2 and #3. It currently has no backlog id, so
+      the audit can only mark it YELLOW "verify by hand" instead of gating it like
+      the others. Filing this lets the audit resolve its status from the ledger and
+      go GREEN automatically when the fix lands.
+
+      Design sketch (needs validation before implementing): extend the absoluteFrame
+      transform composition to apply each enclosing group's rotation and flip, not
+      just translate+scale. Open questions: PowerPoint rotates a group about the
+      group's own centre then places children within the rotated frame, so the
+      child's absolute box is no longer axis-aligned — `absoluteFrame` may need to
+      return a rotation/flip alongside the box (or document that the box is the
+      pre-rotation frame plus an effective rotation), and consumers must compose
+      that into the shape's own @rot. Flip propagation (flipH/flipV) toggles child
+      flip and mirrors offsets about the group axis. Build a PowerPoint-authored
+      fixture with a rotated group + flipped group and diff the rendered child
+      centres against the model before/after.
+
+      Scope note: nested *scaled* groups (e.g. the NYCO fan, Group 5 -> 15/24 at
+      ~0.95) are already handled — this is specifically the rotation/flip axis.
+    stopgap: downstream:decks/replication-lab/audit/capability-map.ts
+    evidence:
+      kinds:
+        - local-source-inspection
+        - render-check
+      local_files:
+        - src/read/api/shapes.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: design-api-shape
+  - id: dn-backlog-construct-tags
+    source: downstream:decks/replication-lab/audit/capability-map.ts
+    type: downstream-need
+    first_seen: 2026-06-18
+    last_reviewed: 2026-06-18
+    status: target-candidate
+    priority: p3
+    target_area:
+      - typescript-api
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: "Add a structured constructs: field (OOXML construct kinds) to downstream-need entries so consumers can join detected constructs to gaps data-driven, not via a hand-curated downstream map"
+    current_project_notes: |
+      META / ledger-tooling enhancement, not a PPTX-generation feature — filed
+      here because the ledger is the single place cross-repo needs are tracked.
+
+      Problem: the replication-lab feature audit (decks/replication-lab/audit)
+      must answer "is OOXML construct X a fork gap?" by joining a detected
+      construct (e.g. prstTxWarp, custGeom, group-rot-flip, fillRef-sourced
+      colour) to the backlog entry that gates it. The ledger has no
+      machine-readable construct tag — `evidence.kinds` is evidence *provenance*
+      (local-source-inspection, render-check, …), not OOXML construct identity —
+      so the construct->entry mapping is hand-curated downstream in
+      capability-map.ts. That map has to be kept in sync with the ledger by hand
+      and will drift as it grows.
+
+      Proposal: add an optional `constructs:` list to entries (at least
+      downstream-need), holding stable OOXML construct keys (a small controlled
+      vocabulary, e.g. `prst-txwarp`, `cust-geom`, `group-rot-flip`,
+      `style-fill-ref`, `grad-fill`, `normautofit-shrink`, `bodypr-vert`). Then a
+      consumer derives "construct -> gating entry -> live status" directly from
+      the ledger, and the downstream capability map shrinks to just the detector
+      keys. Define the vocabulary under `vocabulary:` (like `evidence_kinds`) and
+      have the validator check membership. Backwards-compatible: the field is
+      optional and absent on upstream entries.
+
+      Open question: whether the construct vocabulary lives here (fork owns the
+      OOXML it emits/reads) or stays downstream-side (consumer owns "what we
+      hit"). Leaning fork-side, since the gap status already lives here.
+    stopgap: downstream:decks/replication-lab/audit/capability-map.ts
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files: []
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: needs-design
