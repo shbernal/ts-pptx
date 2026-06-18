@@ -1357,7 +1357,12 @@ export function addTextDefinition(target: PresSlideInternal, text: TextProps[], 
 		{
 			// A.1: Color (placeholders should inherit their colors or override them, so don't default them)
 			if (!itemOpts.placeholder) {
-				itemOpts.color = itemOpts.color || objectOptions.color || target.color || DEF_FONT_COLOR
+				// A hyperlink run with no color configured anywhere inherits the theme hyperlink color
+				// (a:schemeClr hlink, and folHlink once visited), which PowerPoint applies automatically
+				// when the run carries no explicit fill. Defaulting it to DEF_FONT_COLOR would emit a
+				// solidFill plus hlinkClr="tx", pinning the link to black and suppressing the theme
+				// hyperlink/visited colors (#1165). Only non-hyperlink text falls back to DEF_FONT_COLOR.
+				itemOpts.color = itemOpts.color || objectOptions.color || target.color || (itemOpts.hyperlink || objectOptions.hyperlink ? undefined : DEF_FONT_COLOR)
 			}
 
 			// A.2: Placeholder should inherit their bullets or override them, so don't default them

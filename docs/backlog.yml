@@ -6151,8 +6151,8 @@ items:
     source: "gitbrent/PptxGenJS#1165"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-18
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -6160,22 +6160,34 @@ items:
     non_target_reasons: []
     summary: Slide hyperlinks were underlined but did not pick up default theme hyperlink and visited colors.
     current_project_notes: >
-      Current hyperlink run XML adds underline and hlinkClick, but does not emit
-      explicit hlink or folHlink scheme color runs when no user color is
-      supplied. This is a compatibility/styling feature gap rather than repair.
+      Root cause: addTextDefinition (src/gen-objects.ts) unconditionally defaulted
+      every non-placeholder run's color to DEF_FONT_COLOR ('000000'). For a
+      hyperlink run with no user color, that defaulted black was emitted as an
+      explicit <a:solidFill> and also tripped the opts.color branch in
+      genXmlTextRunProperties, which adds an `ahyp:hlinkClr val="tx"` override —
+      pinning the link to the (black) text color and suppressing PowerPoint's
+      automatic theme hlink color and the followed-link folHlink color. Fix:
+      skip the DEF_FONT_COLOR fallback for hyperlink runs when no color is
+      configured anywhere, so the run emits a bare <a:hlinkClick/> and PowerPoint
+      applies the theme hyperlink/visited colors automatically. Hyperlinks with an
+      explicit color keep emitting solidFill + hlinkClr="tx" unchanged. Verified
+      by generating slide XML and by schema validation.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/gen-xml.ts:986
-        - src/gen-xml.ts:1017
-        - src/gen-xml.ts:1025
-        - src/gen-xml.ts:1676
-      schema_fixture: null
-      validator_result: null
+        - src/gen-objects.ts:1360
+        - src/gen-xml.ts:1416
+        - test/regression/slide-hyperlinks.test.js
+        - test/schema.test.js
+      schema_fixture: slide-hyperlink-theme-colors
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: compare-authored-theme-hyperlink-run-xml
+    next_action: none
 
   - id: upstream-issue-1164
     source: "gitbrent/PptxGenJS#1164"
@@ -9375,7 +9387,7 @@ items:
     type: downstream-need
     first_seen: 2026-06-18
     last_reviewed: 2026-06-18
-    status: target-candidate
+    status: implemented
     priority: p2
     target_area:
       - image-svg-media
@@ -9383,27 +9395,28 @@ items:
     non_target_reasons: []
     summary: "sizing cannot measure SVG natural dimensions; warns and falls back"
     current_project_notes: |
-      sizing contain/cover/crop measure natural dimensions for raster formats
-      only; for an SVG path/data image the library warns ("could not measure
-      natural dimensions … falling back to displayed aspect ratio") and emits no
-      aspect-correct srcRect. Renders still look right today because SVG's default
-      preserveAspectRatio="xMidYMid meet" letterboxes inside the frame, but that
-      is the rasterizer saving us, not the geometry being correct. The fix is a
-      lightweight SVG dimension probe (parse viewBox and/or root width/height
-      attributes) feeding the same sizing math as raster probes. Discovered
-      building logo-group-panel, whose vendor-logo chips contain-fit mixed
-      PNG/SVG marks; every SVG logo currently triggers the warning.
-    stopgap: registry/components/logo-group-panel.ts
+      Implemented in commit 37b68ae9 ("fix(image): measure SVG intrinsic size so
+      sizing:cover|contain is aspect-correct"), which this entry was not updated to
+      reflect. getImageSizeFromBytes (src/gen-utils.ts) now detects an <svg>
+      payload and calls getSvgSizeFromMarkup, which reads the intrinsic size from
+      the root <svg> element following the SVG sizing model: an absolute
+      width/height pair wins, otherwise the viewBox width/height defines the
+      aspect ratio (percentage/missing lengths fall through to viewBox). The
+      sizing path in gen-xml.ts feeds that natural size into fitSrcRectPercents
+      just like the raster probes, so sizing:'cover'|'contain' now emits an
+      aspect-correct <a:srcRect> for SVG instead of warning and falling back.
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/gen-objects.ts
+        - src/gen-utils.ts:775
+        - src/gen-utils.ts:719
+        - src/gen-xml.ts:937
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-svg-dimension-probe
+    next_action: none
   - id: dn-doc-render-caveats
     source: downstream
     type: downstream-need

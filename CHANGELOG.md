@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Hyperlinks now inherit the theme hyperlink color (#1165):** a text
+  hyperlink created without an explicit `color` no longer renders in the default
+  black body color. Previously every run's color was defaulted to `000000`,
+  which made the hyperlink emit an explicit `<a:solidFill>` plus an
+  `ahyp:hlinkClr val="tx"` override — pinning the link to black and suppressing
+  the theme `hlink` color (and the followed-link `folHlink` color after a click).
+  Such runs now emit a bare `<a:hlinkClick/>` with no fill, so PowerPoint applies
+  the theme hyperlink and visited colors automatically. Hyperlinks that set an
+  explicit `color` keep their existing behavior (explicit fill + `hlinkClr="tx"`).
+
 ## [6.0.0](https://github.com/shbernal/PptxGenJS/releases/tag/v6.0.0) - 2026-06-14
 
 This major release introduces the new `pptxgenjs/read` subsystem — a separate,

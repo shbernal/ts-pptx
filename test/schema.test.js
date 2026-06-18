@@ -2021,4 +2021,26 @@ export default [
 			await expectNoSchemaErrors(buf, 'text-fontface-ea-cs')
 		},
 	},
+	{
+		// upstream-issue-1165: a hyperlink run with no color inherits the theme hyperlink
+		// color, so it must emit a bare <a:hlinkClick/> (no solidFill, no hlinkClr override);
+		// a hyperlink with an explicit color emits solidFill + ahyp:hlinkClr. Lock in that both
+		// the theme-colored and explicitly-colored hyperlink runs stay schema-valid.
+		name: 'slide hyperlink runs stay schema-valid with and without color (upstream #1165)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addText('theme link', {
+					x: 1,
+					y: 1,
+					w: 4,
+					h: 0.5,
+					hyperlink: { url: 'https://example.com', tooltip: 'Example' },
+				})
+				s.addText('red link', { x: 1, y: 2, w: 4, h: 0.5, color: 'FF0000', hyperlink: { url: 'https://example.com' } })
+				s.addText('jump', { x: 1, y: 3, w: 4, h: 0.5, hyperlink: { slide: 1 } })
+			})
+			await expectNoSchemaErrors(buf, 'slide-hyperlink-theme-colors')
+		},
+	},
 ]
