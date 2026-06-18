@@ -58,8 +58,8 @@ and that `@shbernal/pptxgenjs`, `@shbernal/pptxgenjs/core`,
 ## Upstream Signals
 
 When reviewing upstream issues or pull requests for potential local work, use
-[upstream signal workflow](upstream-signal-workflow.md) and record decisions in
-`docs/upstream-signals.yml`.
+[backlog workflow](backlog-workflow.md) and record decisions in
+`docs/backlog.yml`.
 
 Treat upstream as a source of evidence for PPTX generation bugs and missing
 features, not as a source of package-target decisions. Signals about PowerPoint

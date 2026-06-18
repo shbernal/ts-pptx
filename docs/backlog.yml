@@ -1,9 +1,15 @@
 schema: 1
 source_repo: gitbrent/PptxGenJS
 purpose: >
-  Track upstream issues and pull requests as signals for current-project PPTX
+  The fork's backlog ledger. It tracks two kinds of inbound signal: (1) upstream
+  gitbrent/PptxGenJS issues and pull requests, classified for current-project PPTX
   generation behavior, OOXML validity, PowerPoint compatibility, and supported
-  ESM/TypeScript package behavior.
+  ESM/TypeScript package behavior; and (2) downstream-need items raised by the
+  downstream consumer for generic PPTX behavior that belongs in this package.
+  The `source` field discriminates the two: a github reference (owner/repo#N or a
+  github.com issues/pull URL) for upstream items, or `downstream[:path]` for
+  downstream needs. `backlog:check:upstream` reconciles only the github-sourced
+  entries against GitHub.
 project_target_docs:
   - docs/project-target.md
   - docs/runtime-and-package-support.md
@@ -19,8 +25,11 @@ project_target_docs:
 # - If nothing fits, ADD the new value to the relevant `vocabulary:` list in the same
 #   edit (note why), then use it — extending the vocabulary on purpose is fine, drifting
 #   off it by typo is not.
-# - After ANY edit to this file, run `pnpm run upstream:signals:validate` and fix every
+# - After ANY edit to this file, run `pnpm run backlog:validate` and fix every
 #   error before committing. The validator keys on the `vocabulary:` lists in THIS file.
+# - `source` must be consistent with `type`: issue/pull-request entries need a github
+#   reference; downstream-need entries need `downstream` or `downstream:<path>`.
+#   New downstream needs are easiest to add with `pnpm run backlog -- add` (see --help).
 
 vocabulary:
   statuses:
@@ -91,9 +100,9 @@ vocabulary:
     - powerpoint-authored-comparison
 
 item_fields:
-  id: stable local identifier, usually upstream-issue-N or upstream-pr-N
-  source: upstream URL or owner/repo#number
-  type: issue or pull-request
+  id: stable local identifier; upstream-issue-N / upstream-pr-N for upstream, sf-<slug> for downstream
+  source: github reference (owner/repo#N or github.com issues/pull URL) for upstream; downstream[:path] for downstream-need
+  type: issue, pull-request, or downstream-need
   first_seen: ISO date when recorded locally
   last_reviewed: ISO date when last classified
   status: one vocabulary.statuses value
@@ -101,13 +110,15 @@ item_fields:
   target_area: list of vocabulary.target_areas values
   applies_to_current_project: one vocabulary.applies_to_current_project value
   non_target_reasons: list of vocabulary.non_target_reasons values
-  upstream_summary: short metadata-level summary, not a full copied thread
-  current_project_notes: local decision note
+  summary: short one-line summary
+  current_project_notes: local decision note; for downstream-need, the full design rationale belongs here
+  stopgap: optional; the downstream file the gap forces a workaround in (downstream-need only)
   evidence: local evidence gathered against this checkout
   next_action: next local action or none
 
-# Add reviewed items by replacing the empty list below with entries like this.
-# Keep entries short and evidence-based.
+# Add an upstream item by hand following the example below. Add a downstream-need
+# the easy way with `pnpm run backlog -- add` (see --help), then write its design
+# rationale into current_project_notes as a block scalar.
 #
 # items:
 # - id: upstream-issue-1234
@@ -122,7 +133,7 @@ item_fields:
 #     - invalid-ooxml
 #   applies_to_current_project: partial
 #   non_target_reasons: []
-#   upstream_summary: PowerPoint repair report for a generated chart.
+#   summary: PowerPoint repair report for a generated chart.
 #   current_project_notes: >
 #     The behavior may apply, but the upstream fix also touches legacy package
 #     artifacts. Re-evaluate only the emitted OOXML behavior.
@@ -148,7 +159,7 @@ items:
       - invalid-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Correct jpg content type and avoid phantom slideMaster content-type overrides.
+    summary: Correct jpg content type and avoid phantom slideMaster content-type overrides.
     current_project_notes: >
       Current checkout already emits one slideMaster1 Override and builds Default
       media content types from actual media relationships. JPG inputs are also
@@ -177,7 +188,7 @@ items:
       - powerpoint-repair
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Content_Types.xml references phantom slideMaster parts in multi-slide decks.
+    summary: Content_Types.xml references phantom slideMaster parts in multi-slide decks.
     current_project_notes: >
       Current makeXmlContTypes emits only /ppt/slideMasters/slideMaster1.xml,
       matching the single slide master part written by this checkout.
@@ -205,7 +216,7 @@ items:
       - speaker-notes-masters-layouts
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Fix phantom slideMaster overrides and notesMaster placeholder repair behavior.
+    summary: Fix phantom slideMaster overrides and notesMaster placeholder repair behavior.
     current_project_notes: >
       Both halves of this PR are already resolved locally by our own (better)
       fixes, so the PR's specific changes are superseded. (1) The phantom
@@ -252,7 +263,7 @@ items:
       - speaker-notes-masters-layouts
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: PowerPoint repair reportedly strips notesMaster placeholder shapes.
+    summary: PowerPoint repair reportedly strips notesMaster placeholder shapes.
     current_project_notes: >
       Root cause was a shared theme relationship, not malformed placeholders.
       The notesMaster placeholder XML is verbatim PowerPoint-authored output and
@@ -293,7 +304,7 @@ items:
       - table-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Batch of repair fixes for solid backgrounds, empty shapes, table margins, and bullet type handling.
+    summary: Batch of repair fixes for solid backgrounds, empty shapes, table margins, and bullet type handling.
     current_project_notes: >
       Current source already contains the same repair-oriented fixes: solid
       background effectLst, textless-shape txBody fallback, invalid table margin
@@ -324,7 +335,7 @@ items:
       - invalid-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Solid color slide background missing a:effectLst in p:bgPr.
+    summary: Solid color slide background missing a:effectLst in p:bgPr.
     current_project_notes: Current solid background branch appends a:effectLst in p:bgPr.
     evidence:
       kinds:
@@ -349,7 +360,7 @@ items:
       - invalid-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Shapes without text can produce p:sp without p:txBody.
+    summary: Shapes without text can produce p:sp without p:txBody.
     current_project_notes: Current genXmlTextBody avoids the early return and appends an empty paragraph fallback.
     evidence:
       kinds:
@@ -375,7 +386,7 @@ items:
       - table-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Invalid table cell margin input can emit NaN XML attributes.
+    summary: Invalid table cell margin input can emit NaN XML attributes.
     current_project_notes: Current table serialization falls back to default margins when margin is not a four-number array.
     evidence:
       kinds:
@@ -399,7 +410,7 @@ items:
       - invalid-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: bullet type set to bullet can fail to emit a normal bullet.
+    summary: bullet type set to bullet can fail to emit a normal bullet.
     current_project_notes: Current paragraph property generation falls through to bullet character emission for non-number bullet types.
     evidence:
       kinds:
@@ -425,7 +436,7 @@ items:
       - invalid-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Inner shadow opens a:innerShdw but closes a:outerShdw.
+    summary: Inner shadow opens a:innerShdw but closes a:outerShdw.
     current_project_notes: >
       Implemented in commit 3ab4e71b. Shape shadow XML now closes the same
       innerShdw or outerShdw element that it opens, and the schema fixture
@@ -460,7 +471,7 @@ items:
       - invalid-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Inner shadow option breaks generated PPTX.
+    summary: Inner shadow option breaks generated PPTX.
     current_project_notes: >
       Implemented with upstream-pr-1455 in commit 3ab4e71b. The current
       checkout emits matching innerShdw open and close tags and validates a
@@ -495,7 +506,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Apply data label font properties to scatter chart dLbls XML.
+    summary: Apply data label font properties to scatter chart dLbls XML.
     current_project_notes: >
       Fixed: scatter custom/customXY defRPr and rPr elements now carry
       dataLabelFontSize, dataLabelFontBold, dataLabelFontItalic, dataLabelColor,
@@ -522,7 +533,7 @@ items:
       - chart-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Scatter plot data label font size does not affect output.
+    summary: Scatter plot data label font size does not affect output.
     current_project_notes: Resolved with upstream-pr-1459 fix in gen-charts.ts.
     evidence:
       kinds:
@@ -546,7 +557,7 @@ items:
       - chart-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Scatter and bubble charts should allow separate category and value axis formatting.
+    summary: Scatter and bubble charts should allow separate category and value axis formatting.
     current_project_notes: >
       Implemented via new catAxisLabelFormatCode prop on IChartPropsAxisCat.
       makeCatAxis in gen-charts.ts now uses catAxisLabelFormatCode for the X
@@ -577,7 +588,7 @@ items:
       - chart-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Scatter and bubble chart axes inherit the same value formatting.
+    summary: Scatter and bubble chart axes inherit the same value formatting.
     current_project_notes: Handled with upstream-pr-1438 implementation.
     evidence:
       kinds:
@@ -603,7 +614,7 @@ items:
       - invalid-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Company metadata containing XML character entities can break app.xml.
+    summary: Company metadata containing XML character entities can break app.xml.
     current_project_notes: >
       Implemented in commit 98d91647. makeXmlApp now XML-escapes the Company
       extended property, and a schema fixture covers company text containing
@@ -637,7 +648,7 @@ items:
       - table-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Auto-paged table rich text can split styled runs into separate rows and trigger repair.
+    summary: Auto-paged table rich text can split styled runs into separate rows and trigger repair.
     current_project_notes: >
       Fixed in src/gen-tables.ts. Step 2 now batches non-breakLine runs from the
       same paragraph into one inputLines1 entry (flushing only on \n boundaries or
@@ -673,7 +684,7 @@ items:
       - table-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Empty txBody in autopaged empty cells triggers PowerPoint repair.
+    summary: Empty txBody in autopaged empty cells triggers PowerPoint repair.
     current_project_notes: Current genXmlTextBody appends an empty paragraph when no a:p was emitted.
     evidence:
       kinds:
@@ -697,7 +708,7 @@ items:
       - speaker-notes-masters-layouts
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Empty slide-layout placeholders should be added as placeholder objects, not text objects.
+    summary: Empty slide-layout placeholders should be added as placeholder objects, not text objects.
     current_project_notes: Current addPlaceholdersToSlideLayouts passes isPlaceholder=true.
     evidence:
       kinds:
@@ -721,7 +732,7 @@ items:
       - speaker-notes-masters-layouts
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Empty placeholders from slide masters appear as visible click-to-add text boxes.
+    summary: Empty placeholders from slide masters appear as visible click-to-add text boxes.
     current_project_notes: Same local source state as PR #1452.
     evidence:
       kinds:
@@ -748,7 +759,7 @@ items:
       - speaker-notes-masters-layouts
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Umbrella report of PowerPoint repair defects seen in a large generated deck.
+    summary: Umbrella report of PowerPoint repair defects seen in a large generated deck.
     current_project_notes: >
       Umbrella of six defects; triage by subclaim. Defect 5 (notesMaster
       placeholders) is the same root cause as #1443 and is now IMPLEMENTED via
@@ -814,7 +825,7 @@ items:
       - invalid-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Add gradient fill support for shapes using OOXML gradient fill output.
+    summary: Add gradient fill support for shapes using OOXML gradient fill output.
     current_project_notes: >
       Implemented locally. genXmlGradientFill() in src/gen-utils.ts emits
       <a:gradFill> for linear gradients with typed stops, angle, rotateWithShape,
@@ -849,7 +860,7 @@ items:
     applies_to_current_project: partial
     non_target_reasons:
       - legacy-dist-artifact
-    upstream_summary: Add native PowerPoint comments and generated comment parts.
+    summary: Add native PowerPoint comments and generated comment parts.
     current_project_notes: >
       Native comments may fit the feature target, but the upstream PR carries
       generated dist, CJS, and bundle changes that do not fit this fork. Treat
@@ -875,7 +886,7 @@ items:
       - browser-modern-esm
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Combo chart creation throws a color handling TypeError in an Angular ESM app.
+    summary: Combo chart creation throws a color handling TypeError in an Angular ESM app.
     current_project_notes: >
       Fixed: createColorElement now guards against non-string colorStr with a
       typeof check that falls back to DEF_FONT_COLOR and logs a warning, preventing
@@ -902,7 +913,7 @@ items:
       - chart-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Pie and doughnut parent data-label XML ignores configured label font face and size.
+    summary: Pie and doughnut parent data-label XML ignores configured label font face and size.
     current_project_notes: >
       Parent dLbls txPr block now uses opts.dataLabelFontSize, opts.dataLabelColor,
       and opts.dataLabelFontFace instead of the hard-coded sz="1800", black fill,
@@ -931,7 +942,7 @@ items:
       - relationship-or-content-type
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Chart embedded worksheet loses currency/percentage formats and may show zero values as blank.
+    summary: Chart embedded worksheet loses currency/percentage formats and may show zero values as blank.
     current_project_notes: >
       Zero-value blanking fixed via upstream-pr-1331: replaced || with ?? for all
       chart value worksheet cells. The chart-XML *display* side of the
@@ -969,7 +980,7 @@ items:
     applies_to_current_project: partial
     non_target_reasons:
       - legacy-dist-artifact
-    upstream_summary: Add rounded rectangle support to slide master object declarations.
+    summary: Add rounded rectangle support to slide master object declarations.
     current_project_notes: >
       Implemented 2026-06-10. Added `| { roundRect: ShapeProps }` to
       SlideMasterObject and a matching `roundRect` branch in createSlideMaster
@@ -1005,7 +1016,7 @@ items:
       - legacy-dist-artifact
       - upstream-build-system
       - insufficient-evidence
-    upstream_summary: PR titled as a bold inline text wrapping fix, but with no body and a broad unrelated diff.
+    summary: PR titled as a bold inline text wrapping fix, but with no body and a broad unrelated diff.
     current_project_notes: >
       The underlying text-wrapping topic may be relevant, but this PR cannot be
       used as-is: it rewrites generated dist artifacts, package metadata, demos,
@@ -1030,7 +1041,7 @@ items:
       - table-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Fix auto-paged tables when rowspan is set.
+    summary: Fix auto-paged tables when rowspan is set.
     current_project_notes: >
       Confirmed the bug: getSlidesForTableRows could break the table across slides
       mid-rowspan, leaving continuation rows with a wrong column count (1 instead
@@ -1065,7 +1076,7 @@ items:
       - table-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Auto-paged tables can ignore row-spanned cells after a slide break.
+    summary: Auto-paged tables can ignore row-spanned cells after a slide break.
     current_project_notes: >
       Resolved with the same fix as upstream-pr-1391. The break suppression in
       getSlidesForTableRows ensures spanned rows stay together on the same slide
@@ -1099,7 +1110,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Mark repeated auto-page table headers semantically so PowerPoint accessibility checks pass.
+    summary: Mark repeated auto-page table headers semantically so PowerPoint accessibility checks pass.
     current_project_notes: >
       Added hasHeader?: boolean to TableProps (and ObjectOptions for gen-xml access).
       When true, emits firstRow="1" on <a:tblPr> so PowerPoint's accessibility checker
@@ -1130,7 +1141,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: PowerPoint accessibility checker reports generated tables as missing a table header.
+    summary: PowerPoint accessibility checker reports generated tables as missing a table header.
     current_project_notes: >
       Fixed alongside upstream-pr-1369. Use addTable(..., { hasHeader: true }) to emit
       firstRow="1" on a:tblPr, which satisfies the accessibility check.
@@ -1160,7 +1171,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Add per-data-point border style support for bar, line, area, scatter, pie, and doughnut charts.
+    summary: Add per-data-point border style support for bar, line, area, scatter, pie, and doughnut charts.
     current_project_notes: >
       Adopted with a typed API instead of the upstream loose `styles` object.
       Added `OptsChartData.pointStyles?: ChartDataPointStyle[]` where
@@ -1204,7 +1215,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Allow combo chart subcharts to suppress their own series from the shared legend.
+    summary: Allow combo chart subcharts to suppress their own series from the shared legend.
     current_project_notes: >
       When a combo chart subchart sets options.showLegend: false, the legend block
       now emits <c:legendEntry><c:idx val="N"/><c:delete val="1"/></c:legendEntry>
@@ -1236,7 +1247,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Allow stacked grouping for line charts, analogous to area charts.
+    summary: Allow stacked grouping for line charts, analogous to area charts.
     current_project_notes: >
       Extended the stacked grouping condition at gen-charts.ts:798 to also apply
       to CHART_TYPE.LINE when barGrouping is 'stacked', matching area chart behavior.
@@ -1263,7 +1274,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Add custom data label text arrays to chart data.
+    summary: Add custom data label text arrays to chart data.
     current_project_notes: >
       Added OptsChartData.customLabels?: string[] with index aligned to values[].
       For BAR/LINE/AREA/RADAR: per-point c:dLbl entries with c:tx rich text are
@@ -1298,7 +1309,7 @@ items:
       - chart-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Pie chart dataLabelPosition outEnd is ignored by a hard-coded center position.
+    summary: Pie chart dataLabelPosition outEnd is ignored by a hard-coded center position.
     current_project_notes: >
       Parent dLbls block now emits opts.dataLabelPosition when set, falling back
       to "ctr" as the default. Fixed in src/gen-charts.ts:1598.
@@ -1324,7 +1335,7 @@ items:
       - chart-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Charts with a single category axis write zero values as blank cells in the embedded workbook.
+    summary: Charts with a single category axis write zero values as blank cells in the embedded workbook.
     current_project_notes: >
       Replaced || with ?? (nullish coalescing) for chart data values in the
       embedded workbook sheet XML at gen-charts.ts:288, 291, 380, and 1453 so
@@ -1355,7 +1366,7 @@ items:
       - relationship-or-content-type
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Multi-level category labels are malformed in the embedded chart workbook.
+    summary: Multi-level category labels are malformed in the embedded chart workbook.
     current_project_notes: >
       Implemented 2026-06-09. Three bugs fixed in the IS_MULTI_CAT_AXES workbook
       generation branch of makeXmlChartWorkbook (src/gen-charts.ts):
@@ -1404,7 +1415,7 @@ items:
       - invalid-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Fix chart embedded workbook XML so charts open in Keynote.
+    summary: Fix chart embedded workbook XML so charts open in Keynote.
     current_project_notes: >
       Removed the stray apostrophe before the closing quote in the ref attribute
       of the embedded workbook table element. Fixed in src/gen-charts.ts:222.
@@ -1431,7 +1442,7 @@ items:
       - invalid-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Charts generated by PptxGenJS are not shown in Mac Keynote.
+    summary: Charts generated by PptxGenJS are not shown in Mac Keynote.
     current_project_notes: >
       Root cause was the malformed ref attribute in the embedded workbook table
       element fixed by upstream-pr-1327. The stray apostrophe has been removed
@@ -1459,7 +1470,7 @@ items:
       - invalid-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Keynote reports the file format as invalid for a minimal generated bar chart.
+    summary: Keynote reports the file format as invalid for a minimal generated bar chart.
     current_project_notes: >
       Same root cause as upstream-pr-1327 and upstream-issue-1306: stray
       apostrophe in embedded workbook table ref attribute. Fixed in
@@ -1487,7 +1498,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Avoid using IMG_BROKEN as the PNG preview for local or data URL SVG images.
+    summary: Avoid using IMG_BROKEN as the PNG preview for local or data URL SVG images.
     current_project_notes: >
       Both runtimes now use IMG_SVG_PLACEHOLDER (1x1 transparent PNG) instead of
       IMG_BROKEN when SVG-to-PNG preview conversion is unavailable (Node) or fails
@@ -1519,7 +1530,7 @@ items:
       - image-svg-media
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: SVG images in Node can show a broken placeholder in some renderers.
+    summary: SVG images in Node can show a broken placeholder in some renderers.
     current_project_notes: Handled with upstream-pr-1315. IMG_SVG_PLACEHOLDER replaces IMG_BROKEN in both runtimes.
     evidence:
       kinds:
@@ -1547,7 +1558,7 @@ items:
     applies_to_current_project: no
     non_target_reasons:
       - out-of-project-scope
-    upstream_summary: Add an addFonts API for embedding fonts into generated presentations.
+    summary: Add an addFonts API for embedding fonts into generated presentations.
     current_project_notes: >
       Dismissed. Font embedding adds new OPC parts with significant package-size
       cost, font-licensing/obfuscation landmines, and PowerPoint-specific
@@ -1576,7 +1587,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Add linear gradient fill support across generated objects.
+    summary: Add linear gradient fill support across generated objects.
     current_project_notes: >
       Older gradient-fill signal. Newer PR #1454 is the better ledger item to
       evaluate for current gradient-fill design and OOXML validation.
@@ -1603,7 +1614,7 @@ items:
       - invalid-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Add OOXML pattern fill support for shapes, text, charts, and tables.
+    summary: Add OOXML pattern fill support for shapes, text, charts, and tables.
     current_project_notes: >
       Implemented locally. PatternPreset (ST_PresetPatternVal union) and
       PatternFillProps (preset, fgColor, bgColor) added to core-interfaces.ts.
@@ -1639,7 +1650,7 @@ items:
     applies_to_current_project: partial
     non_target_reasons:
       - legacy-dist-artifact
-    upstream_summary: Allow defining the presentation theme color palette.
+    summary: Allow defining the presentation theme color palette.
     current_project_notes: >
       Superseded by the local ThemeProps.colorScheme implementation for issue
       1243 (all 12 clrScheme slots as optional hex overrides with warn-on-invalid
@@ -1671,7 +1682,7 @@ items:
     applies_to_current_project: partial
     non_target_reasons:
       - legacy-dist-artifact
-    upstream_summary: Allow modified theme colors and color transforms.
+    summary: Allow modified theme colors and color transforms.
     current_project_notes: >
       Upstream PR #1287 says it extends and includes this work. Track current
       theme-color evaluation there.
@@ -1698,7 +1709,7 @@ items:
       - invalid-ooxml
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Fix placeholder text formatting on master slides, including margin, valign, and custom bullet handling.
+    summary: Fix placeholder text formatting on master slides, including margin, valign, and custom bullet handling.
     current_project_notes: >
       The bullet.type part is already covered by current source, but
       genXmlBodyProperties still applies body properties only to text objects,
@@ -1728,7 +1739,7 @@ items:
       - invalid-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Add a bullet.color option so bullet glyph color can differ from text color.
+    summary: Add a bullet.color option so bullet glyph color can differ from text color.
     current_project_notes: >
       Added bullet.color?: HexColor to the bullet object interface. When set,
       emits <a:buClr> before <a:buSzPct> in the pPr element, respecting the
@@ -1759,7 +1770,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requests native editable PowerPoint math equations via LaTeX, MathML, or raw OMML.
+    summary: Requests native editable PowerPoint math equations via LaTeX, MathML, or raw OMML.
     current_project_notes: >
       Current text and shape APIs have math symbol shapes but no OMML text-run
       model, math namespace handling, or LaTeX/MathML conversion path.
@@ -1787,7 +1798,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Requests automatic table column scaling so many columns fit within slide width.
+    summary: Requests automatic table column scaling so many columns fit within slide width.
     current_project_notes: >
       Current table code distributes columns from w/colW, but the upstream item is
       a layout convenience request without a repair report or invalid OOXML
@@ -1817,7 +1828,7 @@ items:
     applies_to_current_project: no
     non_target_reasons:
       - existing-pptx-import
-    upstream_summary: Requests loading an existing presentation and replacing existing content.
+    summary: Requests loading an existing presentation and replacing existing content.
     current_project_notes: >
       This is an import/editing surface, not emitted-OOXML generation behavior.
       Keep outside the current fork target unless a generated package defect is
@@ -1843,7 +1854,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requests video loop or loopCount support for media playback.
+    summary: Requests video loop or loopCount support for media playback.
     current_project_notes: >
       Added loop?: boolean and loopCount?: number to MediaProps (embedded
       audio/video only; ignored for type: 'online'). addMediaDefinition stores
@@ -1888,7 +1899,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requests built-in table styles and table theme flags such as banded rows and header row.
+    summary: Requests built-in table styles and table theme flags such as banded rows and header row.
     current_project_notes: >
       Implemented 2026-06-10. Added TABLE_STYLE enum (74 GUIDs from [MS-OE376]
       §5.1.6.10) to core-enums.ts and tableStyle?: TABLE_STYLE plus five
@@ -1940,7 +1951,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requests per-series lineDash values for line charts.
+    summary: Requests per-series lineDash values for line charts.
     current_project_notes: >
       Implemented 2026-06-09. Added `ChartLineDash` type alias and
       `lineDashValues?: ChartLineDash[]` to `IChartPropsChartLine`. The three
@@ -1977,7 +1988,7 @@ items:
       - chart-ooxml
     applies_to_current_project: unknown
     non_target_reasons: []
-    upstream_summary: Reports that manually adding a new dimension in the embedded Excel data does not update chart display.
+    summary: Reports that manually adding a new dimension in the embedded Excel data does not update chart display.
     current_project_notes: >
       The report has only a screenshot and does not establish whether this is a
       generated range/cache defect or expected fixed-range chart behavior.
@@ -2005,7 +2016,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Placeholder in a slide master ignores shape roundRect/rectRadius options.
+    summary: Placeholder in a slide master ignores shape roundRect/rectRadius options.
     current_project_notes: >
       Implemented 2026-06-10 alongside upstream-pr-1460. Added `shape?:
       SHAPE_NAME` and `rectRadius?: number` to PlaceholderProps in
@@ -2040,7 +2051,7 @@ items:
       - chart-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Reports chart title, legend, and category label Chinese font settings not taking effect on PowerPoint for Mac.
+    summary: Reports chart title, legend, and category label Chinese font settings not taking effect on PowerPoint for Mac.
     current_project_notes: >
       Fixed. Chart text runs previously emitted `<a:latin typeface>` only, so a
       requested font applied to Latin/ASCII glyphs but East Asian (e.g. Chinese)
@@ -2082,7 +2093,7 @@ items:
     non_target_reasons:
       - legacy-dist-artifact
       - iife-global
-    upstream_summary: Angular/NX microfrontend build fails on upstream v4 node-prefixed imports and old dist bundle path.
+    summary: Angular/NX microfrontend build fails on upstream v4 node-prefixed imports and old dist bundle path.
     current_project_notes: >
       Current fork is ESM-only with conditional browser/node/standalone exports
       and intentionally does not preserve the old dist bundle or IIFE global
@@ -2113,7 +2124,7 @@ items:
       - invalid-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: round2SameRect with rectRadius reportedly causes PowerPoint repair and disappears.
+    summary: round2SameRect with rectRadius reportedly causes PowerPoint repair and disappears.
     current_project_notes: >
       Root cause: genXmlPresetGeom emitted <a:gd name="adj"> for all rectRadius
       shapes, but round2SameRect (and round2DiagRect) use adj1/adj2 per the
@@ -2150,7 +2161,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requests support for OOXML custom document properties in docProps/custom.xml.
+    summary: Requests support for OOXML custom document properties in docProps/custom.xml.
     current_project_notes: >
       Implemented 2026-06-09. Added setCustomProperty(name, value) API on PptxGenJS.
       Accepts string (vt:lpwstr), integer number (vt:i4), float number (vt:r8),
@@ -2188,7 +2199,7 @@ items:
       - relationship-or-content-type
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Slide master image target names collide with slide image names around slide number 1000.
+    summary: Slide master image target names collide with slide image names around slide number 1000.
     current_project_notes: >
       Fixed: addImageDefinition now derives a mediaSlideKey from _slideNum —
       null -> 'sm' (slide master), >=1000 -> 'sl-N' (layout), else the raw
@@ -2216,7 +2227,7 @@ items:
       - image-svg-media
     applies_to_current_project: unknown
     non_target_reasons: []
-    upstream_summary: Reports unsatisfactory SVG gradient output with screenshots only.
+    summary: Reports unsatisfactory SVG gradient output with screenshots only.
     current_project_notes: >
       Current SVG handling embeds the SVG plus a PNG preview, but the report does
       not include source SVG, code, target app, or whether the defect is in SVG
@@ -2245,7 +2256,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requests per-subchart showLegend control for combo charts.
+    summary: Requests per-subchart showLegend control for combo charts.
     current_project_notes: >
       This duplicates the already-recorded combo subchart showLegend signal from
       upstream PR #1342. Keep implementation tracking there.
@@ -2272,7 +2283,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Table auto-paging creates overflow slides in Default-1 instead of the source slide section.
+    summary: Table auto-paging creates overflow slides in Default-1 instead of the source slide section.
     current_project_notes: >
       Implemented 2026-06-09. Root cause was in addNewSlide (pptxgen.ts): the old
       heuristic checked whether the last slide in the deck was in the last-defined
@@ -2305,7 +2316,7 @@ items:
       - invalid-ooxml
     applies_to_current_project: unknown
     non_target_reasons: []
-    upstream_summary: Bullet indentation renders differently in LibreOffice and OnlyOffice than in PowerPoint.
+    summary: Bullet indentation renders differently in LibreOffice and OnlyOffice than in PowerPoint.
     current_project_notes: >
       The report references an older v3.12 browser bundle and non-PowerPoint
       viewers. Reproduce against current ESM output before treating as an OOXML
@@ -2333,7 +2344,7 @@ items:
       - powerpoint-repair
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Image sizing crop can produce wrong container size, zero-sized image, or broken-picture result.
+    summary: Image sizing crop can produce wrong container size, zero-sized image, or broken-picture result.
     current_project_notes: >
       When a crop window overflowed the image bounds (x<0, y<0, x+w>w, or y+h>h),
       the crop function emitted negative <a:srcRect> offsets, producing a broken or
@@ -2366,7 +2377,7 @@ items:
       - relationship-or-content-type
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Most generated chart demo slides are invisible in Apple Keynote except scatter and bubble charts.
+    summary: Most generated chart demo slides are invisible in Apple Keynote except scatter and bubble charts.
     current_project_notes: >
       Resolved with the companion #1327 fix: the embedded workbook table ref
       attribute no longer carries a stray apostrophe, and #987bf937 corrected the
@@ -2397,7 +2408,7 @@ items:
     non_target_reasons:
       - legacy-dist-artifact
       - upstream-build-system
-    upstream_summary: Spike adding rounded-rectangle image crop support.
+    summary: Spike adding rounded-rectangle image crop support.
     current_project_notes: >
       Implemented 2026-06-08 from current source rather than the upstream PR
       (demo assets and legacy build steps discarded). ImageProps now accepts
@@ -2438,7 +2449,7 @@ items:
     non_target_reasons:
       - legacy-dist-artifact
       - upstream-build-system
-    upstream_summary: Large animation engine for entrance, emphasis, exit, and motion-path animations.
+    summary: Large animation engine for entrance, emphasis, exit, and motion-path animations.
     current_project_notes: >
       Animation OOXML is a broad new feature, not a repair signal. The PR touches
       generated bundles and legacy typings; any current work should start with a
@@ -2467,7 +2478,7 @@ items:
       - powerpoint-repair
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Ensure autopaged table rows do not retain empty cell entries that trigger repair.
+    summary: Ensure autopaged table rows do not retain empty cell entries that trigger repair.
     current_project_notes: >
       Current source already adds an empty tablecell object when an autopaged
       cell has no words, matching the repair intent.
@@ -2497,7 +2508,7 @@ items:
     non_target_reasons:
       - legacy-dist-artifact
       - upstream-build-system
-    upstream_summary: Add better media-asset error handling by substituting a blank image when loading fails.
+    summary: Add better media-asset error handling by substituting a blank image when loading fails.
     current_project_notes: >
       Decided fail-fast remains the default (a deck silently embedding a broken
       image is a degenerate result), but improved it: the catch in
@@ -2539,7 +2550,7 @@ items:
     non_target_reasons:
       - legacy-dist-artifact
       - insufficient-evidence
-    upstream_summary: Empty-body PR updating legacy types/index.d.ts.
+    summary: Empty-body PR updating legacy types/index.d.ts.
     current_project_notes: >
       Current fork generates dist declarations from TypeScript source and does
       not track handwritten legacy types/index.d.ts changes without a concrete
@@ -2568,7 +2579,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Make line/radar chart markers support transparent colors.
+    summary: Make line/radar chart markers support transparent colors.
     current_project_notes: >
       Added transparent branch to both marker spPr blocks in gen-charts.ts.
       When chartColors entry equals "transparent", emits <a:noFill/> instead
@@ -2600,7 +2611,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Add firstSlideNum presentation property for custom starting slide numbers.
+    summary: Add firstSlideNum presentation property for custom starting slide numbers.
     current_project_notes: >
       Implemented 2026-06-09. Added firstSlideNum getter/setter on PptxGenJS
       (default 1). makeXmlPresentation emits the firstSlideNum attribute on
@@ -2633,7 +2644,7 @@ items:
       - chart-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Use strRef instead of multiLvlStrRef for single-level categories to improve Google Slides import.
+    summary: Use strRef instead of multiLvlStrRef for single-level categories to improve Google Slides import.
     current_project_notes: >
       When obj.labels.length === 1 (single label array), the category block now
       emits strRef/strCache instead of multiLvlStrRef/multiLvlStrCache. Multi-level
@@ -2661,7 +2672,7 @@ items:
       - typescript-api
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Add maxMin as an accepted catAxisOrientation and valAxisOrientation type value.
+    summary: Add maxMin as an accepted catAxisOrientation and valAxisOrientation type value.
     current_project_notes: >
       Added 'maxMin' to both catAxisOrientation and valAxisOrientation type
       unions in core-interfaces.ts. The XML emission already forwarded the value
@@ -2690,7 +2701,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Add per-series chart option overrides and multiple series for doughnut/pie charts.
+    summary: Add per-series chart option overrides and multiple series for doughnut/pie charts.
     current_project_notes: >
       Implemented a narrow seriesOptions API that avoids the dataBorder regression
       in the upstream PR. IChartSeriesOpts (core-interfaces.ts) exposes color,
@@ -2727,7 +2738,7 @@ items:
       - powerpoint-repair
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Shape alias confusion led users to pass CUSTOM_GEOMETRY text and produce repair-prone shape XML.
+    summary: Shape alias confusion led users to pass CUSTOM_GEOMETRY text and produce repair-prone shape XML.
     current_project_notes: >
       Current TS source exposes ShapeType and the deprecated shapes getter, and
       the current enum maps CUSTOM_GEOMETRY to the OOXML custGeom token. Treat
@@ -2759,7 +2770,7 @@ items:
       - package-boundary
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: User asked how to include custom fonts in generated presentations.
+    summary: User asked how to include custom fonts in generated presentations.
     current_project_notes: >
       This is the issue-side duplicate of the already-recorded font embedding
       signal in upstream-pr-1302. Keep the design/review work on that PR entry
@@ -2786,7 +2797,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Pie chart leader lines can be enabled but their color cannot be configured.
+    summary: Pie chart leader lines can be enabled but their color cannot be configured.
     current_project_notes: >
       Added leaderLineColor/leaderLineSize chart options (IChartPropsBase) and a
       createLeaderLinesElement() helper that emits <c:leaderLines><c:spPr><a:ln>
@@ -2823,7 +2834,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Bar data labels cannot use per-point colors matching each bar.
+    summary: Bar data labels cannot use per-point colors matching each bar.
     current_project_notes: >
       The underlying missing feature is better represented by upstream-pr-727,
       which directly targets custom bar labels and per-series label colors.
@@ -2854,7 +2865,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Pie chart dataLabelPosition outEnd still rendered labels near the center.
+    summary: Pie chart dataLabelPosition outEnd still rendered labels near the center.
     current_project_notes: >
       Fixed via upstream-pr-1336: parent dLbls block now emits the configured
       dataLabelPosition instead of always hard-coding "ctr".
@@ -2881,7 +2892,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Shadow angle and blur settings ignore zero values and fall back to defaults.
+    summary: Shadow angle and blur settings ignore zero values and fall back to defaults.
     current_project_notes: >
       Replaced || with ?? (nullish coalescing) for blur, angle, and opacity in
       both shadow emission blocks in gen-xml.ts so that zero values are respected
@@ -2913,7 +2924,7 @@ items:
       - powerpoint-repair
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Image hyperlinks with query strings or nested URLs can fail in generated presentations.
+    summary: Image hyperlinks with query strings or nested URLs can fail in generated presentations.
     current_project_notes: >
       Fixed: gen-objects.ts addImage hyperlink path now calls encodeXmlEntities()
       on the URL before storing it in rel.Target, matching the encodeXmlEntities()
@@ -2943,7 +2954,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Chart title layout cannot combine automatic horizontal centering with a custom vertical offset.
+    summary: Chart title layout cannot combine automatic horizontal centering with a custom vertical offset.
     current_project_notes: >
       Fixed: titlePos now accepts a partial { x?, y? } and genXmlTitle emits a
       manual layout when either coordinate is numeric, writing only the provided
@@ -2976,7 +2987,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Slide master body styles cannot configure nested bullet level character, size, and color.
+    summary: Slide master body styles cannot configure nested bullet level character, size, and color.
     current_project_notes: >
       Deferred (in scope, design-heavy). Per-level master txStyles configuration
       is a legitimate masters feature but needs a careful defineSlideMaster option
@@ -3007,7 +3018,7 @@ items:
       - chart-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Category labels displayed as indexes instead of labels in a chart.
+    summary: Category labels displayed as indexes instead of labels in a chart.
     current_project_notes: >
       Root cause addressed via upstream-pr-1273: single-level category label
       arrays now emit strRef/strCache instead of multiLvlStrRef, which resolves
@@ -3035,7 +3046,7 @@ items:
       - powerpoint-repair
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Stacked bar chart with many undefined values produced a broken PPTX.
+    summary: Stacked bar chart with many undefined values produced a broken PPTX.
     current_project_notes: >
       Reproduced: `undefined`/`null` values were already skipped (valid sparse
       idx-keyed numCache), but non-finite numbers (`NaN`, `Infinity`) leaked into
@@ -3070,7 +3081,7 @@ items:
       - powerpoint-repair
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Combo chart using bar plus scatter triggered PowerPoint repair.
+    summary: Combo chart using bar plus scatter triggered PowerPoint repair.
     current_project_notes: >
       Root cause confirmed by repro: a scatter subchart's category (X) axis must
       be emitted as <c:valAx>, but makeCatAxis only converted to valAx when the
@@ -3107,7 +3118,7 @@ items:
       - typescript-api
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: addShape enum access was undefined in an Angular setup.
+    summary: addShape enum access was undefined in an Angular setup.
     current_project_notes: >
       Current TS-first source exposes ShapeType directly and keeps a deprecated
       shapes getter for existing enum-style access. This old packaging/API
@@ -3136,7 +3147,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Base64 image output appeared forced into the wrong aspect ratio.
+    summary: Base64 image output appeared forced into the wrong aspect ratio.
     current_project_notes: >
       Fixed: addImage now defaults missing dimensions from the image's intrinsic
       size. For base64 `data` images the natural pixel size is read synchronously
@@ -3173,7 +3184,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Mixed RTL/LTR text with newline-separated runs rendered incorrectly.
+    summary: Mixed RTL/LTR text with newline-separated runs rendered incorrectly.
     current_project_notes: >
       Text-body generation splits newline-containing runs into separate text
       objects, groups paragraphs by align/bullet/breakLine, and emits one
@@ -3209,7 +3220,7 @@ items:
       - image-svg-media
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: SVG added in Node generated an abnormal preview image.
+    summary: SVG added in Node generated an abnormal preview image.
     current_project_notes: >
       Resolved with the companion #1315 fix (commit #e0378497): both runtimes now
       set IMG_SVG_PLACEHOLDER (1x1 transparent PNG) instead of IMG_BROKEN when
@@ -3243,7 +3254,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Duplicate images should be detected by content hash to reduce package size.
+    summary: Duplicate images should be detected by content hash to reduce package size.
     current_project_notes: >
       Implemented in two layers. (1) Per-slide: addImageDefinition and
       addMediaDefinition previously matched duplicates only on `path`, which
@@ -3288,7 +3299,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Add chart series line support.
+    summary: Add chart series line support.
     current_project_notes: >
       Implemented as a `barSeriesLine` option on bar charts (boolean for
       PowerPoint automatic styling, or an OptsChartGridLine object for
@@ -3321,7 +3332,7 @@ items:
       - typescript-api
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Request to add custGeom to ShapeTypes.
+    summary: Request to add custGeom to ShapeTypes.
     current_project_notes: >
       Current enum already includes custGeom and the uppercase CUSTOM_GEOMETRY
       alias maps to that exact OOXML token.
@@ -3349,7 +3360,7 @@ items:
       - powerpoint-repair
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Text alignment leaked across later default text runs.
+    summary: Text alignment leaked across later default text runs.
     current_project_notes: >
       Current text XML emits paragraph properties once per paragraph and has a
       regression test for mixed alignment runs, which also covers the invalid
@@ -3379,7 +3390,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Text boxes cannot configure body columns such as numCol.
+    summary: Text boxes cannot configure body columns such as numCol.
     current_project_notes: >
       Implemented as TextPropsOptions `columns` (1-16) and `columnSpacing`
       (points). cleanOpts validates the range and warns on invalid values, then
@@ -3414,7 +3425,7 @@ items:
     applies_to_current_project: unknown
     non_target_reasons:
       - insufficient-evidence
-    upstream_summary: Auto-paged table content overflowed on newly created slides.
+    summary: Auto-paged table content overflowed on newly created slides.
     current_project_notes: >
       The report is plausibly related to existing autoPage/table overflow work,
       but it needs a minimal current-repo fixture before deciding whether this
@@ -3441,7 +3452,7 @@ items:
     applies_to_current_project: unknown
     non_target_reasons:
       - insufficient-evidence
-    upstream_summary: Top and left table cell borders were not displayed for non-first rows and columns.
+    summary: Top and left table cell borders were not displayed for non-first rows and columns.
     current_project_notes: >
       Current cell border emission writes LRTB border tags when a per-cell border
       array is present, so the upstream symptom needs a small generated-package
@@ -3472,7 +3483,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Shape fill should support images.
+    summary: Shape fill should support images.
     current_project_notes: >
       Implemented picture (blip) fills for shapes and text boxes. ShapeFillProps
       gained type: 'image' and an image?: { path | data } source (new
@@ -3517,7 +3528,7 @@ items:
     non_target_reasons:
       - unsupported-runtime
       - insufficient-evidence
-    upstream_summary: Qiankun Vue 2 sub-application export did not save and produced no visible errors.
+    summary: Qiankun Vue 2 sub-application export did not save and produced no visible errors.
     current_project_notes: >
       This is an old framework/runtime integration report without a package or
       OOXML repro. Current fork intentionally targets modern ESM/TS usage and no
@@ -3546,7 +3557,7 @@ items:
     applies_to_current_project: partial
     non_target_reasons:
       - insufficient-evidence
-    upstream_summary: Adjust hyperlink output for WPS compatibility.
+    summary: Adjust hyperlink output for WPS compatibility.
     current_project_notes: >
       WPS compatibility can be useful signal, but this needs a concrete current
       hyperlink fixture before changing relationship or click-action emission.
@@ -3577,7 +3588,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Respect explicit bar overlap percentage even when bar grouping implies stacked output.
+    summary: Respect explicit bar overlap percentage even when bar grouping implies stacked output.
     current_project_notes: >
       barOverlapPct is now checked first (!=null) before falling back to the
       stacked default of 100, so callers can override overlap on stacked bar
@@ -3605,7 +3616,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Add custom labels for bar charts without generating embedded spreadsheet source.
+    summary: Add custom labels for bar charts without generating embedded spreadsheet source.
     current_project_notes: >
       Keep this as part of the broader custom chart label work under
       upstream-pr-727. Any adopted version should avoid creating presentation
@@ -3634,7 +3645,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Fix inconsistent margin array handling.
+    summary: Fix inconsistent margin array handling.
     current_project_notes: >
       Fixed: the textbox margin path mapped array indices 0/1/2/3 to l/r/b/t,
       transposing Top and Left relative to the documented [Top, Right, Bottom,
@@ -3668,7 +3679,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Add appearOnClick support for simple animation behavior.
+    summary: Add appearOnClick support for simple animation behavior.
     current_project_notes: >
       Animation support is already represented by upstream-pr-1431, which is the
       broader and newer signal. Do not separately track this older partial
@@ -3696,7 +3707,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Add placeholder properties to table objects.
+    summary: Add placeholder properties to table objects.
     current_project_notes: >
       Current table props extend position, text, and object-name options, but do
       not expose placeholder behavior the same way image/text objects do. Accept
@@ -3727,7 +3738,7 @@ items:
       - powerpoint-repair
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Avoid duplicate paragraph properties that caused Office 2016 repair behavior.
+    summary: Avoid duplicate paragraph properties that caused Office 2016 repair behavior.
     current_project_notes: >
       Current text XML now emits at most one a:pPr per paragraph and has focused
       bug fixtures for mixed formatting and mixed alignment. The repair class is
@@ -3757,7 +3768,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Add connected lines between shapes.
+    summary: Add connected lines between shapes.
     current_project_notes: >
       Implemented a connector primitive: new slide.addConnector(ConnectorProps)
       and addConnectorDefinition build a SLIDE_OBJECT_TYPES.connector object, and
@@ -3818,7 +3829,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Add chart legend manual layout support.
+    summary: Add chart legend manual layout support.
     current_project_notes: >
       Added legendLayout?: PositionProps to IChartPropsLegend. When any of
       x/y/w/h is a number, the legend <c:legend> now emits a <c:layout> with a
@@ -3854,7 +3865,7 @@ items:
     applies_to_current_project: yes
     non_target_reasons:
       - legacy-dist-artifact
-    upstream_summary: Fix decimal font sizes and breakline paragraph-property emission.
+    summary: Fix decimal font sizes and breakline paragraph-property emission.
     current_project_notes: >
       Current text run size emission preserves decimal sizes through
       fontSize*100 rounding, and the duplicate-pPr breakline repair class has
@@ -3885,7 +3896,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Add an older connector shape type implementation.
+    summary: Add an older connector shape type implementation.
     current_project_notes: >
       Covered by the connector feature implemented under upstream-pr-1059:
       slide.addConnector emits <p:cxnSp> against the current shape/line model. See
@@ -3918,7 +3929,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Extend bar charts with custom labels and color customization.
+    summary: Extend bar charts with custom labels and color customization.
     current_project_notes: >
       Current chart code still carries a TODO for this PR, dataLabelColor is
       global, and per-point dPt styling is narrower than the requested custom
@@ -3949,7 +3960,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Add chart error bars.
+    summary: Add chart error bars.
     current_project_notes: >
       Implemented per-series error bars via a new `errorBars` field on
       OptsChartData (single config or array for scatter/area X+Y). The
@@ -3988,7 +3999,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Add per-series lineDataSymbol and lineDash support.
+    summary: Add per-series lineDataSymbol and lineDash support.
     current_project_notes: >
       Per-series line marker/dash customization is already represented by the
       newer upstream issue 1424 and the series-option work in upstream-pr-1265.
@@ -4018,7 +4029,7 @@ items:
     applies_to_current_project: no
     non_target_reasons:
       - insufficient-evidence
-    upstream_summary: User expected raw HTML passed as text to render as formatted PowerPoint content.
+    summary: User expected raw HTML passed as text to render as formatted PowerPoint content.
     current_project_notes: >
       Current text APIs intentionally treat input text as text and XML-escape it.
       A full HTML-to-PPT renderer is a separate conversion layer, not a direct
@@ -4047,7 +4058,7 @@ items:
       - typescript-api
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Add text caps support for small-caps and all-caps rendering.
+    summary: Add text caps support for small-caps and all-caps rendering.
     current_project_notes: >
       Added caps?: 'none' | 'small' | 'all' to TextBaseProps; emits cap attribute
       on a:rPr in genXmlTextRunProperties. Schema fixture added and passes validator.
@@ -4077,7 +4088,7 @@ items:
       - chart-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Chart formatCode options show correctly in LibreOffice but not in Microsoft Office or Google Slides.
+    summary: Chart formatCode options show correctly in LibreOffice but not in Microsoft Office or Google Slides.
     current_project_notes: >
       Root cause: PowerPoint and Google Slides render values using the cached
       *source* number format carried in each series'
@@ -4134,7 +4145,7 @@ items:
     applies_to_current_project: no
     non_target_reasons:
       - unsupported-runtime
-    upstream_summary: React Native writeFile failed because Blob output is unsupported by that platform.
+    summary: React Native writeFile failed because Blob output is unsupported by that platform.
     current_project_notes: >
       Current supported runtime surface is modern Node and modern ESM/browser
       apps. React Native is not listed as a maintained runtime adapter, and the
@@ -4165,7 +4176,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Custom fonts such as Jost Light visually duplicate text in Office 365.
+    summary: Custom fonts such as Jost Light visually duplicate text in Office 365.
     current_project_notes: >
       Root cause confirmed against PowerPoint-authored decks in pptx-bank: no
       authored run carries `charset` on `<a:ea>`/`<a:cs>`, yet
@@ -4206,7 +4217,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Add adjustment properties such as corner radius for more preset shapes.
+    summary: Add adjustment properties such as corner radius for more preset shapes.
     current_project_notes: >
       Added a generic `shapeAdjust` option (ShapeAdjustValue: { name, value })
       on ShapeProps and ImageBaseProps, accepting a single guide or an array.
@@ -4245,7 +4256,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: PowerPoint accessibility checker reports Missing Slide Title for generated slides.
+    summary: PowerPoint accessibility checker reports Missing Slide Title for generated slides.
     current_project_notes: >
       Implemented standalone placeholder promotion: addText with a `placeholder`
       type ('title', 'body', ...) that does not match a slide-layout placeholder
@@ -4284,7 +4295,7 @@ items:
     applies_to_current_project: no
     non_target_reasons:
       - insufficient-evidence
-    upstream_summary: User asked whether different slides can have different layout widths.
+    summary: User asked whether different slides can have different layout widths.
     current_project_notes: >
       Current PPTX generation writes one presentation-level slide size, matching
       the standard presentation package model. There is no evidence here of a
@@ -4313,7 +4324,7 @@ items:
       - table-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Mixed subscript/superscript text runs rendered as multiple lines in table cells.
+    summary: Mixed subscript/superscript text runs rendered as multiple lines in table cells.
     current_project_notes: >
       Current text-body generation keeps TextProps arrays as runs within a
       paragraph unless align, bullet, or breakLine creates a paragraph split, and
@@ -4346,7 +4357,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Table objects cannot be configured for right-to-left direction.
+    summary: Table objects cannot be configured for right-to-left direction.
     current_project_notes: >
       Implemented. `TableProps.rtl` (and the `ObjectOptions` table passthrough)
       now emits `rtl="1"` on `<a:tblPr>`, mirroring the column order for RTL
@@ -4381,7 +4392,7 @@ items:
       - table-ooxml
     applies_to_current_project: unknown
     non_target_reasons: []
-    upstream_summary: Table colspan greater than one produced extra empty cells or columns.
+    summary: Table colspan greater than one produced extra empty cells or columns.
     current_project_notes: >
       Current table XML intentionally inserts hMerge/vMerge placeholder cells and
       computes column count from colspans. Reproduce in the current fork before
@@ -4416,7 +4427,7 @@ items:
     non_target_reasons:
       - commonjs
       - unsupported-runtime
-    upstream_summary: CommonJS-compiled default import failed with default is not a constructor.
+    summary: CommonJS-compiled default import failed with default is not a constructor.
     current_project_notes: >
       Current fork is ESM-only, requires Node >=24, and exposes package exports
       rather than preserving old CommonJS default-constructor interop behavior.
@@ -4446,7 +4457,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Theme configuration cannot set East Asian theme fonts.
+    summary: Theme configuration cannot set East Asian theme fonts.
     current_project_notes: >
       Implemented: ThemeProps now exposes headFontFaceEA / bodyFontFaceEA (theme
       <a:ea> East Asian slots) and headFontFaceCS / bodyFontFaceCS (theme <a:cs>
@@ -4487,7 +4498,7 @@ items:
       - powerpoint-repair
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Mixed pixel-like image dimensions above and below 100 produced invalid srcRect crop values and PowerPoint repair.
+    summary: Mixed pixel-like image dimensions above and below 100 produced invalid srcRect crop values and PowerPoint repair.
     current_project_notes: >
       Resolved. The mixed-unit root cause is already gone: coordToEmu
       (src/units.ts:84) dropped the old "a number >=100 is already EMU, <100 is
@@ -4526,7 +4537,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Line and radar chart markers should support transparent noFill marker colors.
+    summary: Line and radar chart markers should support transparent noFill marker colors.
     current_project_notes: >
       This is the issue-side report for upstream-pr-1284, which is already
       recorded as the implementation-oriented transparent marker signal.
@@ -4555,7 +4566,7 @@ items:
     applies_to_current_project: no
     non_target_reasons:
       - escape-hatch-footgun
-    upstream_summary: Add a caller-provided transform hook to modify slide XML before packaging.
+    summary: Add a caller-provided transform hook to modify slide XML before packaging.
     current_project_notes: >
       Dismissed. A raw caller-provided XML transform hook directly undermines the
       fork's core value (OOXML correctness) and creates an open-ended support
@@ -4588,7 +4599,7 @@ items:
     applies_to_current_project: yes
     non_target_reasons:
       - legacy-dist-artifact
-    upstream_summary: Angular warned that importing pptxgenjs or the old ESM artifact pulled in CommonJS.
+    summary: Angular warned that importing pptxgenjs or the old ESM artifact pulled in CommonJS.
     current_project_notes: >
       Current fork is ESM-only, ships package exports for browser/node/standalone
       entries, and no longer ships the old dist/pptxgen.es.js artifact path.
@@ -4619,7 +4630,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Bar chart data points cannot use diagonal-line or pattern fills.
+    summary: Bar chart data points cannot use diagonal-line or pattern fills.
     current_project_notes: >
       Implemented as a per-point `pattern` field on `ChartDataPointStyle`
       (pointStyles[i].pattern: PatternFillProps). makeSeriesDataPointsXml now
@@ -4660,7 +4671,7 @@ items:
     non_target_reasons:
       - commonjs
       - unsupported-runtime
-    upstream_summary: Old Angular/Jasmine setup reported pptx.addSlide is not a function.
+    summary: Old Angular/Jasmine setup reported pptx.addSlide is not a function.
     current_project_notes: >
       The report targets a legacy Angular 9/test bundling setup and old package
       version. Current fork does not maintain CommonJS or legacy browser bundle
@@ -4690,7 +4701,7 @@ items:
     applies_to_current_project: no
     non_target_reasons:
       - insufficient-evidence
-    upstream_summary: Asked whether GPT text can be used to automatically generate PowerPoint templates.
+    summary: Asked whether GPT text can be used to automatically generate PowerPoint templates.
     current_project_notes: >
       This is an application-level authoring workflow idea, not a concrete
       PptxGenJS package, OOXML, or PowerPoint compatibility defect.
@@ -4716,7 +4727,7 @@ items:
       - image-svg-media
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Generated PPTX files are much larger than the same decks after re-saving in PowerPoint or LibreOffice.
+    summary: Generated PPTX files are much larger than the same decks after re-saving in PowerPoint or LibreOffice.
     current_project_notes: >
       Fixed: all export paths now DEFLATE by default (compression: false opts
       back out), and the typed-output write() branch no longer silently ignores
@@ -4749,7 +4760,7 @@ items:
       - table-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: autoPage table starting mid-slide only placed a few rows on the first slide.
+    summary: autoPage table starting mid-slide only placed a few rows on the first slide.
     current_project_notes: >
       Root cause confirmed and fixed in calcSlideTabH (src/gen-tables.ts): the
       first-slide usable height subtracted the start-Y from an explicit `h`, but
@@ -4787,7 +4798,7 @@ items:
       - relationship-or-content-type
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Text hyperlinks work in Microsoft Office but not WPS unless hlinkClick action is changed.
+    summary: Text hyperlinks work in Microsoft Office but not WPS unless hlinkClick action is changed.
     current_project_notes: >
       This is the issue-side report for upstream-pr-1263. Keep WPS hyperlink
       compatibility tracking there, separate from the image hyperlink XML repair
@@ -4816,7 +4827,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Multi-series doughnut chart data does not render as expected.
+    summary: Multi-series doughnut chart data does not render as expected.
     current_project_notes: >
       This is the issue-side report for the multi-series pie/doughnut work
       already represented by upstream-pr-1265. Track the design there together
@@ -4845,7 +4856,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Combo chart configurations cannot control showLegend per subchart.
+    summary: Combo chart configurations cannot control showLegend per subchart.
     current_project_notes: >
       This duplicates the newer per-subchart legend signal already recorded
       under upstream-pr-1342 and issue 1406. Current chart option normalization
@@ -4875,7 +4886,7 @@ items:
       - speaker-notes-masters-layouts
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Asked how to vertically align a paragraph or block of text.
+    summary: Asked how to vertically align a paragraph or block of text.
     current_project_notes: >
       Current text options support shape/body vertical anchoring through
       valign/bodyPr anchor, and table cells map valign to the same body property.
@@ -4907,7 +4918,7 @@ items:
       - speaker-notes-masters-layouts
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Image placeholders on slide masters no longer inherited dimensions unless explicit w/h were supplied.
+    summary: Image placeholders on slide masters no longer inherited dimensions unless explicit w/h were supplied.
     current_project_notes: >
       Current master placeholder handling still routes placeholder definitions
       through text-object generation, while addImage defaults missing w/h to 1
@@ -4940,7 +4951,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Asked for a way to style table headers differently from body rows.
+    summary: Asked for a way to style table headers differently from body rows.
     current_project_notes: >
       Tables can already receive per-cell options and autoPage can repeat a
       header row, but there is no dedicated header style shorthand. This is a
@@ -4971,7 +4982,7 @@ items:
     applies_to_current_project: no
     non_target_reasons:
       - insufficient-evidence
-    upstream_summary: Asked how to position a shape before each table row.
+    summary: Asked how to position a shape before each table row.
     current_project_notes: >
       This is an authoring/layout calculation question about coordinating
       separate shapes with table rows. It does not identify a current generated
@@ -4998,7 +5009,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Asked how to place bar chart values at the top of bars.
+    summary: Asked how to place bar chart values at the top of bars.
     current_project_notes: >
       This is a data label placement request already covered by the broader
       chart data-label option signals. Keep implementation tracking with the
@@ -5030,7 +5041,7 @@ items:
     non_target_reasons:
       - unsupported-runtime
       - legacy-dist-artifact
-    upstream_summary: Old SPFx React/TypeScript compiler failed against a historical types/index.d.ts file.
+    summary: Old SPFx React/TypeScript compiler failed against a historical types/index.d.ts file.
     current_project_notes: >
       The current fork is TS-first, ESM-only, generated-declaration based, and
       declares Node >=24. Supporting old SPFx TypeScript 3.9 compiler behavior
@@ -5063,7 +5074,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested support for hyperlinks in speaker notes.
+    summary: Requested support for hyperlinks in speaker notes.
     current_project_notes: >
       Implemented. addNotes() now accepts string | NotesProps | NotesProps[]:
       runs carry inline formatting and external `url` hyperlinks. Notes runs
@@ -5102,7 +5113,7 @@ items:
       - powerpoint-repair
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Scatter chart with valAxisCrossesAt set to 0 produced a faulty presentation.
+    summary: Scatter chart with valAxisCrossesAt set to 0 produced a faulty presentation.
     current_project_notes: >
       Implemented in commit 1d1073e3. Chart axis XML now preserves numeric
       valAxisCrossesAt zero, and the scatter/bubble value-axis branch avoids
@@ -5137,7 +5148,7 @@ items:
       - table-ooxml
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: HTML table conversion mishandled rowspan and colspan sizing.
+    summary: HTML table conversion mishandled rowspan and colspan sizing.
     current_project_notes: >
       Current table XML has hMerge/vMerge support, but HTML table conversion and
       derived width calculations have multiple fragile paths. This should be
@@ -5170,7 +5181,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested injection of custom theme colors and accent scheme values.
+    summary: Requested injection of custom theme colors and accent scheme values.
     current_project_notes: >
       Implemented ThemeProps.colorScheme (new ThemeColorScheme interface) exposing
       all 12 OOXML clrScheme slots (dk1/lt1/dk2/lt2/accent1-6/hlink/folHlink) as
@@ -5208,7 +5219,7 @@ items:
       - image-svg-media
     applies_to_current_project: unknown
     non_target_reasons: []
-    upstream_summary: Asked whether WebP images are supported.
+    summary: Asked whether WebP images are supported.
     current_project_notes: >
       Current image handling derives extension and content type from the input
       MIME/extension, so image/webp may be packaged, but PowerPoint support and
@@ -5238,7 +5249,7 @@ items:
       - powerpoint-repair
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Vertical tab and other unsupported control characters in addText could break PowerPoint.
+    summary: Vertical tab and other unsupported control characters in addText could break PowerPoint.
     current_project_notes: >
       Fixed: encodeXmlEntities now strips XML 1.0 illegal control characters
       (x00-x08, x0B, x0C, x0E-x1F, x7F) before escaping, so vertical tab and
@@ -5268,7 +5279,7 @@ items:
       - powerpoint-repair
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Image hyperlink URL containing ampersand caused PowerPoint repair.
+    summary: Image hyperlink URL containing ampersand caused PowerPoint repair.
     current_project_notes: >
       This is the issue-side report for the image hyperlink target escaping
       candidate already tracked under upstream-issue-1365. Current image
@@ -5297,7 +5308,7 @@ items:
       - powerpoint-repair
     applies_to_current_project: unknown
     non_target_reasons: []
-    upstream_summary: Copying and pasting a generated line chart in WPS led PowerPoint to repair the file.
+    summary: Copying and pasting a generated line chart in WPS led PowerPoint to repair the file.
     current_project_notes: >
       The reported repair is mediated by WPS copy/paste, so it is unclear
       whether current generated chart XML is invalid or whether WPS mutates it
@@ -5325,7 +5336,7 @@ items:
       - table-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: HTML table border widths between 0 and 1 px rounded to zero.
+    summary: HTML table border widths between 0 and 1 px rounded to zero.
     current_project_notes: >
       Fixed in HTML-table parsing. Extracted the computed-CSS border conversion
       into a pure, testable helper `htmlBorderToProps(widthStr, colorStr)` in
@@ -5359,7 +5370,7 @@ items:
       - powerpoint-repair
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Table cell text hyperlinks caused PowerPoint repair or did not work.
+    summary: Table cell text hyperlinks caused PowerPoint repair or did not work.
     current_project_notes: >
       Current hyperlink relationship generation recurses into table cells and
       encodes hyperlink targets before writing them. Keep this historical report
@@ -5389,7 +5400,7 @@ items:
       - powerpoint-repair
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Composite chart combinations could make PowerPoint repair the generated presentation.
+    summary: Composite chart combinations could make PowerPoint repair the generated presentation.
     current_project_notes: >
       Confirmed and fixed several bounded-integer chart attributes whose
       out-of-range values made Microsoft's OpenXmlValidator (and PowerPoint)
@@ -5433,7 +5444,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested automatic support for EXIF image orientation.
+    summary: Requested automatic support for EXIF image orientation.
     current_project_notes: >
       Current image APIs allow explicit rotation, but image handling does not
       read metadata or compensate for EXIF orientation. This is an image
@@ -5462,7 +5473,7 @@ items:
       - table-ooxml
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Border style of the first cell adjacent to a rowspan cell was not applied as expected.
+    summary: Border style of the first cell adjacent to a rowspan cell was not applied as expected.
     current_project_notes: >
       Current table border XML is emitted per side and rowspan uses vMerge
       continuation cells. The report may indicate border ownership around merge
@@ -5494,7 +5505,7 @@ items:
     applies_to_current_project: no
     non_target_reasons:
       - insufficient-evidence
-    upstream_summary: Asked for stacked and unstacked bars together in a chart.
+    summary: Asked for stacked and unstacked bars together in a chart.
     current_project_notes: >
       The report requests a Highcharts-like chart composition but does not show
       that PowerPoint supports the exact chart structure or that PptxGenJS emits
@@ -5523,7 +5534,7 @@ items:
       - powerpoint-repair
     applies_to_current_project: unknown
     non_target_reasons: []
-    upstream_summary: Reported problems rendering stacked-bar and bar-line charts from external gists.
+    summary: Reported problems rendering stacked-bar and bar-line charts from external gists.
     current_project_notes: >
       The issue is vague but sits near other combo-chart repair reports. Treat it
       as a repro pointer only; if the linked examples are still available, reduce
@@ -5555,7 +5566,7 @@ items:
     non_target_reasons:
       - legacy-dist-artifact
       - unsupported-runtime
-    upstream_summary: Old Rollup setup failed to import because the bundle referenced a stream bare specifier.
+    summary: Old Rollup setup failed to import because the bundle referenced a stream bare specifier.
     current_project_notes: >
       The current fork removed the old CommonJS/IIFE artifact contract and
       exposes explicit ESM package entries, including a browser entry. Legacy
@@ -5587,7 +5598,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested preserving an image's unknown aspect ratio when only width is supplied.
+    summary: Requested preserving an image's unknown aspect ratio when only width is supplied.
     current_project_notes: >
       Implemented for path-based images. Base64 `data` images were already measured
       eagerly in addImage() (issue #1351); path images can't be read synchronously
@@ -5621,7 +5632,7 @@ items:
       - speaker-notes-masters-layouts
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Slide master placeholders did not preserve valign when users inserted new slides in PowerPoint.
+    summary: Slide master placeholders did not preserve valign when users inserted new slides in PowerPoint.
     current_project_notes: >
       Current placeholder object generation can store valign as bodyPr anchor,
       but PowerPoint-created slides from layouts may require the anchor to be
@@ -5652,7 +5663,7 @@ items:
       - table-ooxml
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: tableToSlides only placed configured addText content on the first generated slide.
+    summary: tableToSlides only placed configured addText content on the first generated slide.
     current_project_notes: >
       Current tableToSlides generation loops over every generated slide and
       applies opts.addText inside that loop, so this specific historical report
@@ -5681,7 +5692,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: unknown
     non_target_reasons: []
-    upstream_summary: tableToSlides and autoPage overflowed large HTML/table content instead of splitting it across slides.
+    summary: tableToSlides and autoPage overflowed large HTML/table content instead of splitting it across slides.
     current_project_notes: >
       Current tableToSlides still depends on DOM offset widths and the same
       getSlidesForTableRows pagination heuristic used by addTable autoPage. The
@@ -5712,7 +5723,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested fontScale and lnSpcReduction support for fit shrink text autofit.
+    summary: Requested fontScale and lnSpcReduction support for fit shrink text autofit.
     current_project_notes: >
       Extended the `fit` option with an object form `{ type: 'shrink', fontScale?, lnSpcReduction? }`
       (TextFitShrinkProps). Values are authored as a percent (0-100) and emitted in 1000ths of a
@@ -5748,7 +5759,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Multi-series bar charts cannot assign different colors to individual points within each series.
+    summary: Multi-series bar charts cannot assign different colors to individual points within each series.
     current_project_notes: >
       Current chartColors are primarily series-level, and bar data-point colors
       are only emitted for a single data series. This is part of the broader
@@ -5780,7 +5791,7 @@ items:
     applies_to_current_project: no
     non_target_reasons:
       - insufficient-evidence
-    upstream_summary: Asked generally whether PowerPoint slides can be created using Node.js APIs.
+    summary: Asked generally whether PowerPoint slides can be created using Node.js APIs.
     current_project_notes: >
       This is a usage/support question, not a current package, OOXML, or
       PowerPoint compatibility defect. The current fork is explicitly a Node
@@ -5809,7 +5820,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Asked how to create math equations through the API.
+    summary: Asked how to create math equations through the API.
     current_project_notes: >
       This is an older issue-side version of the editable math/OMML feature
       already tracked under upstream-issue-1456. Keep research and any fixture
@@ -5838,7 +5849,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested per-series or per-value dataLabelFormatCode support.
+    summary: Requested per-series or per-value dataLabelFormatCode support.
     current_project_notes: >
       Added `dataLabelFormatCode` to the existing per-series override model
       (`IChartSeriesOpts` / `seriesOptions[]`), matching the pattern already used
@@ -5873,7 +5884,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested italic and underline styling for pie chart titles.
+    summary: Requested italic and underline styling for pie chart titles.
     current_project_notes: >
       Added titleItalic and titleUnderline boolean props on IChartPropsTitle,
       mirroring the existing titleBold. genXmlTitle now emits i="0|1" and
@@ -5909,7 +5920,7 @@ items:
       - typescript-api
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Bar chart series or categories appeared reversed; workaround needed catAxisOrientation maxMin despite the type only allowing minMax.
+    summary: Bar chart series or categories appeared reversed; workaround needed catAxisOrientation maxMin despite the type only allowing minMax.
     current_project_notes: >
       Fixed via upstream-pr-1269: 'maxMin' added to both catAxisOrientation and
       valAxisOrientation type unions in core-interfaces.ts. XML emission was
@@ -5938,7 +5949,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Asked for a semi-circle chart derived from pie or doughnut charts.
+    summary: Asked for a semi-circle chart derived from pie or doughnut charts.
     current_project_notes: >
       Current pie/doughnut options include firstSliceAng and holeSize, which may
       cover part of the authoring need. Do not elevate without confirming the
@@ -5971,7 +5982,7 @@ items:
     applies_to_current_project: no
     non_target_reasons:
       - insufficient-evidence
-    upstream_summary: Asked how to add more table rows for duplicated cell values while reusing a single image.
+    summary: Asked how to add more table rows for duplicated cell values while reusing a single image.
     current_project_notes: >
       This is an application-level table layout transformation question. It does
       not show invalid table OOXML, PowerPoint repair, or a missing primitive
@@ -5997,7 +6008,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested exporting theme color schemes with explicit hex values.
+    summary: Requested exporting theme color schemes with explicit hex values.
     current_project_notes: >
       This is an older issue-side version of the theme color palette work already
       tracked under upstream-pr-1287 and the newer theme injection signal. Keep
@@ -6026,7 +6037,7 @@ items:
     applies_to_current_project: no
     non_target_reasons:
       - existing-pptx-import
-    upstream_summary: Asked whether existing PowerPoint templates can be reused instead of rebuilding masters.
+    summary: Asked whether existing PowerPoint templates can be reused instead of rebuilding masters.
     current_project_notes: >
       Importing or editing existing PPTX templates is outside the current fork's
       generator-only package target. Template-driven deck production belongs in
@@ -6055,7 +6066,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Asked for computed x/y positions of table cells to place images over them.
+    summary: Asked for computed x/y positions of table cells to place images over them.
     current_project_notes: >
       Current table layout is write-only and does not expose computed cell
       geometry after column width, row height, colspan, rowspan, or autoPage
@@ -6086,7 +6097,7 @@ items:
       - powerpoint-repair
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Auto-paged split table rows with an empty cell caused PowerPoint repair.
+    summary: Auto-paged split table rows with an empty cell caused PowerPoint repair.
     current_project_notes: >
       This is the issue-side report for the empty-cell autoPage repair already
       represented by upstream-pr-1311. Current source includes the repair-intent
@@ -6117,7 +6128,7 @@ items:
     non_target_reasons:
       - unsupported-runtime
       - legacy-dist-artifact
-    upstream_summary: TypeScript 4.0 failed to parse template-literal coordinate types in historical declarations.
+    summary: TypeScript 4.0 failed to parse template-literal coordinate types in historical declarations.
     current_project_notes: >
       Current fork is TS-first, ESM-only, and declares modern Node/package
       targets. Backporting declarations for old Angular/TypeScript compiler
@@ -6147,7 +6158,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Slide hyperlinks were underlined but did not pick up default theme hyperlink and visited colors.
+    summary: Slide hyperlinks were underlined but did not pick up default theme hyperlink and visited colors.
     current_project_notes: >
       Current hyperlink run XML adds underline and hlinkClick, but does not emit
       explicit hlink or folHlink scheme color runs when no user color is
@@ -6177,7 +6188,7 @@ items:
       - chart-ooxml
     applies_to_current_project: unknown
     non_target_reasons: []
-    upstream_summary: Doughnut chart titlePos was ignored in version 3.11.0.
+    summary: Doughnut chart titlePos was ignored in version 3.11.0.
     current_project_notes: >
       Current chart XML has manual title layout support, but the coordinate
       conversion is custom and should be checked against a current doughnut deck
@@ -6206,7 +6217,7 @@ items:
       - speaker-notes-masters-layouts
     applies_to_current_project: unknown
     non_target_reasons: []
-    upstream_summary: Slide numbers from a master disappeared when users inserted a new slide in PowerPoint.
+    summary: Slide numbers from a master disappeared when users inserted a new slide in PowerPoint.
     current_project_notes: >
       Current defineSlideMaster stores slideNumber props on the slide layout and
       makeXmlLayout serializes layout objects, but the master still writes
@@ -6239,7 +6250,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Hidden HTML tables could not use data-pptx-width or data-pptx-min-width because offsetWidth was zero.
+    summary: Hidden HTML tables could not use data-pptx-width or data-pptx-min-width because offsetWidth was zero.
     current_project_notes: >
       Fixed in src/gen-tables.ts. The column-width branch had two bugs: the
       data-pptx-width value was assigned into intMinWidth while intSetWidth was a
@@ -6274,7 +6285,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Suggested checking for an existing section title before pushing a new section.
+    summary: Suggested checking for an existing section title before pushing a new section.
     current_project_notes: >
       Current addSection validates that a title exists but does not prevent
       duplicate section names. This is a low-priority section-management API
@@ -6303,7 +6314,7 @@ items:
       - table-ooxml
     applies_to_current_project: unknown
     non_target_reasons: []
-    upstream_summary: Auto-paged addTable rows reused a configured row height on later slides where default height was expected.
+    summary: Auto-paged addTable rows reused a configured row height on later slides where default height was expected.
     current_project_notes: >
       Current autoPage passes the copied table options into each split table and
       then calls addTable on every generated slide. A current fixture should
@@ -6334,7 +6345,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Rich text with multiple styles broke lines unexpectedly even when breakLine was false.
+    summary: Rich text with multiple styles broke lines unexpectedly even when breakLine was false.
     current_project_notes: >
       Fixed in src/gen-xml.ts: the CRLF-split loop was mutating the shared
       itext.options object and forcing breakLine:true on all pieces, overriding
@@ -6371,7 +6382,7 @@ items:
       - table-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: SlideMasterProps.margin and placeholder.options.margin use different units and array orders.
+    summary: SlideMasterProps.margin and placeholder.options.margin use different units and array orders.
     current_project_notes: >
       This is covered by the margin consistency work already tracked under
       upstream-pr-1248. Keep any contract decision and fixtures there because it
@@ -6403,7 +6414,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Auto-paged tables with master placeholders did not copy populated placeholder text to overflow slides.
+    summary: Auto-paged tables with master placeholders did not copy populated placeholder text to overflow slides.
     current_project_notes: >
       Implemented as an opt-in TableProps.autoPagePlaceholder (default false). In
       addTableDefinition's autoPage branch we snapshot the source slide's
@@ -6451,7 +6462,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: >
+    summary: >
       TableProps did not accept placeholder: tbl when targeting a table
       placeholder.
     current_project_notes: >
@@ -6483,7 +6494,7 @@ items:
       - chart-ooxml
     applies_to_current_project: unknown
     non_target_reasons: []
-    upstream_summary: Reported that titlePos did not work, without a reproducible chart example.
+    summary: Reported that titlePos did not work, without a reproducible chart example.
     current_project_notes: >
       Keep this with the more specific doughnut title positioning report already
       tracked under upstream-issue-1164. Current code does emit manual title
@@ -6512,7 +6523,7 @@ items:
       - image-svg-media
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Asked how to set opacity on an image added with addImage.
+    summary: Asked how to set opacity on an image added with addImage.
     current_project_notes: >
       Current ImageBaseProps exposes transparency, addImageDefinition stores it,
       and image serialization emits alphaModFix for both regular image fills and
@@ -6543,7 +6554,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested custom text or icon data labels for specific chart values.
+    summary: Requested custom text or icon data labels for specific chart values.
     current_project_notes: >
       Current dataLabelFormatCode and dataLabelColor are global chart options in
       the main chart serializers. Treat this as another issue-side signal for the
@@ -6575,7 +6586,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Asked for custom chart data labels on individual data values.
+    summary: Asked for custom chart data labels on individual data values.
     current_project_notes: >
       This duplicates the custom per-point label lane. The current implementation
       still applies format code and label color at chart scope, so keep the
@@ -6607,7 +6618,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Requested chart legend interval or manual legend placement controls.
+    summary: Requested chart legend interval or manual legend placement controls.
     current_project_notes: >
       Manual legend placement landed via the legendLayout option (see
       upstream-pr-1021). Legend interval controls are not part of that change and
@@ -6637,7 +6648,7 @@ items:
       - table-ooxml
     applies_to_current_project: unknown
     non_target_reasons: []
-    upstream_summary: Rowspan table cells lost borders on rows covered by the merged cell.
+    summary: Rowspan table cells lost borders on rows covered by the merged cell.
     current_project_notes: >
       Current table XML creates vMerge and hMerge continuation cells and applies
       borders while serializing each cell. A focused fixture should check whether
@@ -6669,7 +6680,7 @@ items:
     applies_to_current_project: no
     non_target_reasons:
       - insufficient-evidence
-    upstream_summary: Requested different vertical alignment for individual words in one text box.
+    summary: Requested different vertical alignment for individual words in one text box.
     current_project_notes: >
       Current valign is represented as a text body or table cell anchor, not as a
       per-run property. Without PowerPoint-authored evidence for word-level
@@ -6701,7 +6712,7 @@ items:
       - powerpoint-repair
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Auto-paged tables with empty cell values caused PowerPoint repair.
+    summary: Auto-paged tables with empty cell values caused PowerPoint repair.
     current_project_notes: >
       This is covered by the empty text body and auto-page repair lane already
       tracked under upstream-pr-1311. Current table split code inserts empty cell
@@ -6733,7 +6744,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested slide number support for starting at an arbitrary value.
+    summary: Requested slide number support for starting at an arbitrary value.
     current_project_notes: >
       Implemented as the presentation-level firstSlideNum property (commit
       #ec45510f), serialized to the presentation.xml sldSz/p:presentation
@@ -6764,7 +6775,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested multiple chart colors across multiple datasets.
+    summary: Requested multiple chart colors across multiple datasets.
     current_project_notes: >
       Current chartColors is a flat HexColor array, and multi-series custom
       point colors remain part of the broader custom chart label and color lane
@@ -6796,7 +6807,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested shadow support for text inside table cells.
+    summary: Requested shadow support for text inside table cells.
     current_project_notes: >
       Implemented run-level text shadow. genXmlTextRunProperties now emits an
       <a:effectLst> inside <a:rPr> when shadow (or glow) is set, via the new
@@ -6832,7 +6843,7 @@ items:
       - package-boundary
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Reported JSZip generateAsync performance as a bottleneck for large presentations.
+    summary: Reported JSZip generateAsync performance as a bottleneck for large presentations.
     current_project_notes: >
       Current write paths still use JSZip generateAsync and expose compression
       controls. This is not an OOXML correctness issue, but it can be revisited
@@ -6862,7 +6873,7 @@ items:
       - table-ooxml
     applies_to_current_project: unknown
     non_target_reasons: []
-    upstream_summary: addTable with autoPage raised an Array expected error in an HTML-table workflow.
+    summary: addTable with autoPage raised an Array expected error in an HTML-table workflow.
     current_project_notes: >
       Current addTable validates row arrays before autoPage, then splits tables
       and recursively adds each generated slide table. This old report should be
@@ -6894,7 +6905,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Image placeholders lost aspect ratio when the image dimensions differed from the placeholder.
+    summary: Image placeholders lost aspect ratio when the image dimensions differed from the placeholder.
     current_project_notes: >
       The historic issue was reported fixed upstream, and current image options
       include placeholder plus contain, cover, and crop sizing support. Keep any
@@ -6929,7 +6940,7 @@ items:
       - iife-global
       - legacy-dist-artifact
       - unsupported-runtime
-    upstream_summary: Asked for Salesforce LWC compatibility around script loading and MIME type behavior.
+    summary: Asked for Salesforce LWC compatibility around script loading and MIME type behavior.
     current_project_notes: >
       The current fork is ESM-only and intentionally does not preserve CJS or
       IIFE distribution contracts. Do not carry this legacy global-script runtime
@@ -6960,7 +6971,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Asked whether images can have borders and shadows.
+    summary: Asked whether images can have borders and shadows.
     current_project_notes: >
       Images already supported shadow; added an outline option for the border
       half. ImageBaseProps now exposes line?: ShapeLineProps (same vocabulary as
@@ -6995,7 +7006,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: catAxisLabelPos was ignored for scatter charts.
+    summary: catAxisLabelPos was ignored for scatter charts.
     current_project_notes: >
       Scatter/bubble cat-axis branch now reads opts.catAxisLabelPos, falling
       back to "nextTo", matching the non-scatter branch behaviour.
@@ -7023,7 +7034,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested per-data-label colors and other chart customization arrays.
+    summary: Requested per-data-label colors and other chart customization arrays.
     current_project_notes: >
       Current dataLabelColor is a single option, while point color handling is
       limited. This belongs with the broader custom chart label and color work
@@ -7054,7 +7065,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Wanted autoPage to keep an overflowing HTML table row together on the next slide.
+    summary: Wanted autoPage to keep an overflowing HTML table row together on the next slide.
     current_project_notes: >
       Deferred (in scope, reduce scope before building). A keep-row-together
       option complicates the line-splitting pagination for an edge case, and a row
@@ -7086,7 +7097,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Slide master text objects failed when text was provided as rich text arrays.
+    summary: Slide master text objects failed when text was provided as rich text arrays.
     current_project_notes: >
       Fixed: createSlideMaster now passes a TextProps[] through to
       addTextDefinition unchanged and only wraps plain string/number text;
@@ -7118,7 +7129,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Requested Sunburst chart support using newer chart extension namespaces.
+    summary: Requested Sunburst chart support using newer chart extension namespaces.
     current_project_notes: >
       Current chart generation emits the classic DrawingML chart namespace and
       does not include the cx chart extension namespace needed for Sunburst-style
@@ -7148,7 +7159,7 @@ items:
       - chart-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested scheme color modifiers such as lumMod and lumOff.
+    summary: Requested scheme color modifiers such as lumMod and lumOff.
     current_project_notes: >
       Current color selection can emit scheme or sRGB colors plus alpha, but not
       arbitrary scheme color transforms. Keep this with the modified theme color
@@ -7178,7 +7189,7 @@ items:
       - package-boundary
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Asked for text height calculation in Node without browser DOM measurement.
+    summary: Asked for text height calculation in Node without browser DOM measurement.
     current_project_notes: >
       Current table autoPage uses heuristic text wrapping and line-height weights
       instead of a public text-measurement API. This may be useful for future
@@ -7210,7 +7221,7 @@ items:
       - relationship-or-content-type
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Hyperlinks inside auto-paged tables were lost on generated overflow slides.
+    summary: Hyperlinks inside auto-paged tables were lost on generated overflow slides.
     current_project_notes: >
       Current autoPage creates hyperlink relationships for each generated slide,
       and createHyperlinkRels preserves hyperlink targets when a copied rich-text
@@ -7241,7 +7252,7 @@ items:
       - package-boundary
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested direct exports for common constants such as ChartType, ShapeType, and SchemeColor.
+    summary: Requested direct exports for common constants such as ChartType, ShapeType, and SchemeColor.
     current_project_notes: >
       The current ESM package exposes a ./core export with generated types, and
       the enums are exported from core-enums while instance getters remain for
@@ -7275,7 +7286,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Empty rich-text runs with breakLine false triggered a PowerPoint repair dialog.
+    summary: Empty rich-text runs with breakLine false triggered a PowerPoint repair dialog.
     current_project_notes: >
       Current genXmlTextRun returns a normal a:r run for empty strings and only
       suppresses runs when text is undefined or null. The text-body fallback also
@@ -7307,7 +7318,7 @@ items:
       - table-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Calling write or writeFile repeatedly after a merged-cell table could corrupt the generated table.
+    summary: Calling write or writeFile repeatedly after a merged-cell table could corrupt the generated table.
     current_project_notes: >
       Fixed: genXmlSlideContent now shallow-clones each arrTabRows row before the
       hMerge/vMerge splice expansion, so repeated write()/writeFile() calls no
@@ -7337,7 +7348,7 @@ items:
     non_target_reasons:
       - unsupported-runtime
       - insufficient-evidence
-    upstream_summary: writeFile promise appeared not to resolve when a user added an image by path.
+    summary: writeFile promise appeared not to resolve when a user added an image by path.
     current_project_notes: >
       The report never narrowed a current reproducible failure. The current fork
       has separate Node and browser runtime media loaders; browser local paths
@@ -7370,7 +7381,7 @@ items:
       - package-boundary
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: TypeScript users could not import HAlign or related types in an old Node and ts-node setup.
+    summary: TypeScript users could not import HAlign or related types in an old Node and ts-node setup.
     current_project_notes: >
       The current package is TS-first and ESM-only. It exports HAlign,
       TextPropsOptions, IChartMulti, and related types from the main entry, keeps
@@ -7405,7 +7416,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested image-backed bullets for text lists.
+    summary: Requested image-backed bullets for text lists.
     current_project_notes: >
       Implemented picture bullets via a new `bullet.image` option ({ path | data }
       accepted in the same forms as addImage()). addText() registers the bullet
@@ -7442,7 +7453,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: SVG source images for picture bullets (follow-up to #898 picture-bullet support).
+    summary: SVG source images for picture bullets (follow-up to #898 picture-bullet support).
     current_project_notes: >
       Deferred (in scope, narrow follow-up to the implemented picture-bullet
       feature). createBulletImageRels currently handles raster formats (PNG/JPG/GIF)
@@ -7480,7 +7491,7 @@ items:
     applies_to_current_project: no
     non_target_reasons:
       - insufficient-evidence
-    upstream_summary: Proposed injecting arbitrary meta elements into chartSpace.
+    summary: Proposed injecting arbitrary meta elements into chartSpace.
     current_project_notes: >
       Do not add a free-form c:meta element to chart XML. Schema lookup for
       CT_ChartSpace does not list c:meta as a legal child, and the upstream owner
@@ -7513,7 +7524,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Asked whether the folded or folder corner shape constant was misspelled.
+    summary: Asked whether the folded or folder corner shape constant was misspelled.
     current_project_notes: >
       Current ShapeType exposes FOLDED_CORNER as the folderCorner preset geometry
       value, matching the local shape-name union. There is no current OOXML
@@ -7544,7 +7555,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Adding a table to a table placeholder did not target the placeholder.
+    summary: Adding a table to a table placeholder did not target the placeholder.
     current_project_notes: >
       This is an older issue-side report for table placeholder support. The same
       current gap is already tracked under upstream-pr-1151 and
@@ -7577,7 +7588,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested image cropping masks for arbitrary preset shapes, not only rectangle or circle.
+    summary: Requested image cropping masks for arbitrary preset shapes, not only rectangle or circle.
     current_project_notes: >
       Implemented 2026-06-08: ImageBaseProps now exposes `shape` (any preset
       geometry name, e.g. roundRect/hexagon/ellipse) plus `rectRadius`, and the
@@ -7617,7 +7628,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Asked whether a bar category with value zero could show custom text or an image.
+    summary: Asked whether a bar category with value zero could show custom text or an image.
     current_project_notes: >
       The sparse issue body does not define a separate fix. Treat the text part
       as another signal for the custom data label lane under upstream-pr-727; an
@@ -7648,7 +7659,7 @@ items:
       - typescript-api
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: IChartMulti.data was typed as any[] instead of chart data objects.
+    summary: IChartMulti.data was typed as any[] instead of chart data objects.
     current_project_notes: >
       Current IChartMulti.data is typed as OptsChartData[], and IChartMulti is
       exported from the package entrypoint.
@@ -7676,7 +7687,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested a way to use PowerPoint-style arrow bullets such as Wingdings glyphs.
+    summary: Requested a way to use PowerPoint-style arrow bullets such as Wingdings glyphs.
     current_project_notes: >
       Implemented: `bullet.fontFace` emits `<a:buFont typeface="..."/>` between
       buSzPct and buChar/buAutoNum (e.g. Wingdings glyph bullets via
@@ -7708,7 +7719,7 @@ items:
       - chart-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: dataBorder was missing around bars, columns, and legend entries in bar and column charts.
+    summary: dataBorder was missing around bars, columns, and legend entries in bar and column charts.
     current_project_notes: >
       Current bar and column series XML emits a line under c:spPr when
       dataBorder is set. Keep broader per-series styling regressions with the
@@ -7742,7 +7753,7 @@ items:
     non_target_reasons:
       - unsupported-runtime
       - not-reproducible-in-current-project
-    upstream_summary: Pie labels appeared wrong in LibreOffice Impress but worked in PowerPoint-compatible viewers.
+    summary: Pie labels appeared wrong in LibreOffice Impress but worked in PowerPoint-compatible viewers.
     current_project_notes: >
       The upstream reporter identified LibreOffice Impress as the cause. The
       current project target is PowerPoint-compatible OOXML generation, not
@@ -7773,7 +7784,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested custom label support for bubble charts, including series names inside bubbles.
+    summary: Requested custom label support for bubble charts, including series names inside bubbles.
     current_project_notes: >
       Current bubble labels can show value and series name through global
       options, but custom label text remains part of the broader chart data label
@@ -7804,7 +7815,7 @@ items:
       - chart-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Asked how to make a four-quadrant bubble chart.
+    summary: Asked how to make a four-quadrant bubble chart.
     current_project_notes: >
       Current bubble/scatter axis generation supports numeric axis crossing
       options for both axes, which is the core chart behavior needed for a
@@ -7835,7 +7846,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested support for line cap values flat, square, and round.
+    summary: Requested support for line cap values flat, square, and round.
     current_project_notes: >
       Implemented a shared `LineCap` type ('flat' | 'round' | 'square') and a
       `createLineCap` helper (hoisted from gen-charts into gen-utils) that maps to
@@ -7875,7 +7886,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Slide masters could not add an ellipse or circle shape object.
+    summary: Slide masters could not add an ellipse or circle shape object.
     current_project_notes: >
       Deferred (in scope, reduce scope / clarify need). The master object model
       hard-codes line/rect/text/image/chart shortcuts; a generic master shape
@@ -7912,7 +7923,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Asked when to use text inset versus margin and noted unit/order confusion.
+    summary: Asked when to use text inset versus margin and noted unit/order confusion.
     current_project_notes: >
       Current inset is deprecated in favor of margin, but margin unit and array
       order consistency remains tracked under upstream-pr-1248. Keep the contract
@@ -7943,7 +7954,7 @@ items:
       - table-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Text rotation did not work inside table cells.
+    summary: Text rotation did not work inside table cells.
     current_project_notes: >
       Current table cell text options include textDirection, and table cell XML
       maps that option to the a:tcPr vert attribute.
@@ -7973,7 +7984,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested showing bubble size as the bubble chart data label.
+    summary: Requested showing bubble size as the bubble chart data label.
     current_project_notes: >
       Added a `showBubbleSize?: boolean` chart option. The bubble/bubble3D
       data-label block previously hard-coded <c:showBubbleSize val="0"/>; it now
@@ -8009,7 +8020,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Bullet glyph size did not match PowerPoint's default bullet sizing for the same text.
+    summary: Bullet glyph size did not match PowerPoint's default bullet sizing for the same text.
     current_project_notes: >
       Implemented: `bullet.size` (percent of run text size, 25-400 per
       ST_TextBulletSizePercent) controls the emitted `<a:buSzPct/>` value;
@@ -8041,7 +8052,7 @@ items:
       - chart-ooxml
     applies_to_current_project: unknown
     non_target_reasons: []
-    upstream_summary: catAxisLabelFrequency stopped working when chartColors was also used.
+    summary: catAxisLabelFrequency stopped working when chartColors was also used.
     current_project_notes: >
       Current XML emits tickLblSkip from catAxisLabelFrequency independently of
       chartColors, while single-series bar charts can emit per-point dPt colors.
@@ -8075,7 +8086,7 @@ items:
     non_target_reasons:
       - unsupported-runtime
       - not-reproducible-in-current-project
-    upstream_summary: Percent decimals appeared differently on iPad, later narrowed to Keynote or viewer behavior.
+    summary: Percent decimals appeared differently on iPad, later narrowed to Keynote or viewer behavior.
     current_project_notes: >
       Current chart serializers emit numFmt for data labels and axes. The
       upstream discussion did not establish a PowerPoint repair, schema, or
@@ -8107,7 +8118,7 @@ items:
     applies_to_current_project: no
     non_target_reasons:
       - docs-only-for-legacy-workflow
-    upstream_summary: Documentation wording around valGridline style used ambiguous punctuation.
+    summary: Documentation wording around valGridline style used ambiguous punctuation.
     current_project_notes: >
       This is a legacy documentation wording issue, not a current PPTX generation
       signal. The current TypeScript option model already represents gridline
@@ -8136,7 +8147,7 @@ items:
       - chart-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Asked whether a scatter chart could place category/value axes like the attached screenshot.
+    summary: Asked whether a scatter chart could place category/value axes like the attached screenshot.
     current_project_notes: >
       Current scatter and bubble chart generation already uses xVal/yVal data
       and emits value-axis XML for both axes instead of a category axis. If a
@@ -8169,7 +8180,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Colspan table cells did not apply configured borders across the full merged span.
+    summary: Colspan table cells did not apply configured borders across the full merged span.
     current_project_notes: >
       Fixed. The dummy hMerge/vMerge span cells used to emit an empty
       <a:tcPr/>, dropping the merged region's outer edges (e.g. a colspan's
@@ -8210,7 +8221,7 @@ items:
     applies_to_current_project: no
     non_target_reasons:
       - unsupported-runtime
-    upstream_summary: Keynote warned about missing Calibri fonts from generated theme XML.
+    summary: Keynote warned about missing Calibri fonts from generated theme XML.
     current_project_notes: >
       The default Office theme font names are intentional for PowerPoint output,
       and the current API lets users override head/body font faces when a
@@ -8243,7 +8254,7 @@ items:
       - image-svg-media
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested SVG image support for dynamically generated SVG content.
+    summary: Requested SVG image support for dynamically generated SVG content.
     current_project_notes: >
       addImage accepts SVG data URI, SVG path, or raw SVG markup via the `svg`
       convenience prop (added 2026-06-08). svgMarkupToDataUri in gen-utils
@@ -8280,7 +8291,7 @@ items:
       - table-ooxml
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: addTable autoPage overflowed rows and one commenter worked around it with autoPageLineWeight.
+    summary: addTable autoPage overflowed rows and one commenter worked around it with autoPageLineWeight.
     current_project_notes: >
       This is an older broad autoPage report. Current pagination already exposes
       autoPageLineWeight and still has more specific active lanes for empty-cell
@@ -8314,7 +8325,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Bullet options on master-slide placeholder definitions did not survive into placeholder XML.
+    summary: Bullet options on master-slide placeholder definitions did not survive into placeholder XML.
     current_project_notes: >
       Current placeholder generation carries bullet options through text
       definition, but broader master placeholder formatting remains tracked in
@@ -8345,7 +8356,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested a soft line break inside one bullet item instead of creating another bullet.
+    summary: Requested a soft line break inside one bullet item instead of creating another bullet.
     current_project_notes: >
       Current text options expose softBreakBefore and the serializer emits
       a:br before a later run in the same paragraph. Plain newline characters
@@ -8378,7 +8389,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested chart error bars for line data in a combo chart.
+    summary: Requested chart error bars for line data in a combo chart.
     current_project_notes: >
       Error bars are already tracked by upstream-pr-685 as the focused active
       chart error-bar lane. Keep issue-side demand here but avoid a separate
@@ -8409,7 +8420,7 @@ items:
     applies_to_current_project: no
     non_target_reasons:
       - docs-only-for-legacy-workflow
-    upstream_summary: Asked for Chinese translation/offline docs for the upstream live demo.
+    summary: Asked for Chinese translation/offline docs for the upstream live demo.
     current_project_notes: >
       This is upstream website localization work, not a current PPTX generation,
       OOXML validity, or modern package-boundary signal.
@@ -8434,7 +8445,7 @@ items:
     applies_to_current_project: no
     non_target_reasons:
       - upstream-build-system
-    upstream_summary: Proposed an old broad refactor around text fragments and XML snapshot testing before v3.
+    summary: Proposed an old broad refactor around text fragments and XML snapshot testing before v3.
     current_project_notes: >
       The current fork is already TS-first with local regression and schema-test
       lanes. This issue is not a concrete PPTX generation feature or repair
@@ -8464,7 +8475,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested an API for overriding theme scheme colors in theme1.xml.
+    summary: Requested an API for overriding theme scheme colors in theme1.xml.
     current_project_notes: >
       This is the issue-side version of the theme color palette work already
       tracked under upstream-pr-1287 and newer theme injection entries. Current
@@ -8496,7 +8507,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Image placeholders on master slides did not work and needed examples.
+    summary: Image placeholders on master slides did not work and needed examples.
     current_project_notes: >
       The current source still carries the original issue note that image
       placeholders are incomplete. Track the active current behavior and geometry
@@ -8527,7 +8538,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Requested embedding PowerPoint 3D model assets.
+    summary: Requested embedding PowerPoint 3D model assets.
     current_project_notes: >
       Current media support is audio, video, online video, and images; there is
       no 3D model object, content type, relationship, or serializer path. This
@@ -8559,7 +8570,7 @@ items:
       - chart-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Combo charts reportedly defined secondary axes but did not plot series against them.
+    summary: Combo charts reportedly defined secondary axes but did not plot series against them.
     current_project_notes: >
       Current multi-chart generation routes each chart type through primary or
       secondary axis IDs based on secondaryValAxis and secondaryCatAxis, and a
@@ -8594,7 +8605,7 @@ items:
     non_target_reasons:
       - unsupported-runtime
       - insufficient-evidence
-    upstream_summary: LibreOffice and Keynote rendered generated charts differently from Microsoft PowerPoint.
+    summary: LibreOffice and Keynote rendered generated charts differently from Microsoft PowerPoint.
     current_project_notes: >
       The thread describes non-PowerPoint rendering differences and does not
       establish invalid OOXML, PowerPoint repair, or a current project failure.
@@ -8625,7 +8636,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested chart axis position "On tick marks" via OOXML crossBetween.
+    summary: Requested chart axis position "On tick marks" via OOXML crossBetween.
     current_project_notes: >
       Added valAxisCrossBetween?: 'between' | 'midCat' to IChartPropsAxisVal; used
       in value-axis XML when provided, with the previous scatter/area auto-logic as
@@ -8657,7 +8668,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested lineDataSymbol customization per data set.
+    summary: Requested lineDataSymbol customization per data set.
     current_project_notes: >
       Current lineDataSymbol is a chart-level option. Per-series chart option
       overrides are already represented by upstream-pr-525 and the broader
@@ -8689,7 +8700,7 @@ items:
       - chart-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Null values in line, bar, or combo charts were plotted as shifted data points.
+    summary: Null values in line, bar, or combo charts were plotted as shifted data points.
     current_project_notes: >
       Changed default displayBlanksAs from 'span' to 'gap' in gen-objects.ts
       (also added 'zero' as a valid accepted value). Null/undefined values in
@@ -8724,7 +8735,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    upstream_summary: Requested Waterfall chart support.
+    summary: Requested Waterfall chart support.
     current_project_notes: >
       Waterfall belongs with the broader modern Microsoft chart extension lane
       rather than the classic chart type enum. Keep this with the existing
@@ -8756,7 +8767,7 @@ items:
     applies_to_current_project: no
     non_target_reasons:
       - out-of-project-scope
-    upstream_summary: tableToSlides addText accepted one editable text object but not an array of text objects.
+    summary: tableToSlides addText accepted one editable text object but not an array of text objects.
     current_project_notes: >
       Dismissed. tableToSlides is a convenience/import helper, not a core
       primitive; callers needing multiple text boxes on generated slides can
@@ -8788,7 +8799,7 @@ items:
       - image-svg-media
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Suggested flipH and flipV options for images.
+    summary: Suggested flipH and flipV options for images.
     current_project_notes: >
       Current ImageBaseProps exposes flipH and flipV, addImage stores both
       options, and slide XML emits the corresponding transform attributes.
@@ -8820,7 +8831,7 @@ items:
       - typescript-api
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Chart x/y percentage coordinates fell back to the default position.
+    summary: Chart x/y percentage coordinates fell back to the default position.
     current_project_notes: >
       Current shared coordinate typing allows percentage strings and slide XML
       positioning uses getSmartParseNumber for object x, y, w, and h before
@@ -8853,7 +8864,7 @@ items:
     non_target_reasons:
       - unsupported-runtime
       - insufficient-evidence
-    upstream_summary: Asked whether hyperlink behavior differences across PowerPoint 2007, 2010, and 2016 were expected.
+    summary: Asked whether hyperlink behavior differences across PowerPoint 2007, 2010, and 2016 were expected.
     current_project_notes: >
       The report targets legacy PowerPoint 2007 behavior without an attachable
       repro. Current target work should only revisit hyperlink XML if a modern
@@ -8882,7 +8893,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Saving reset a custom presentation layout back to the default screen16x9 layout.
+    summary: Saving reset a custom presentation layout back to the default screen16x9 layout.
     current_project_notes: >
       The old save API is gone. Current custom layouts are defined through
       defineLayout and selected through the layout setter; write/writeFile export
@@ -8914,7 +8925,7 @@ items:
       - speaker-notes-masters-layouts
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: PowerPoint notes print layout did not show the slide image for generated decks.
+    summary: PowerPoint notes print layout did not show the slide image for generated decks.
     current_project_notes: >
       Current code emits notesMaster and notesSlide parts, and has tests for
       notesMaster relationship/order repairs, but the notes slide image
@@ -8948,7 +8959,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested user-facing object lock options such as noGrp, noRot, noMove, and noResize.
+    summary: Requested user-facing object lock options such as noGrp, noRot, noMove, and noResize.
     current_project_notes: >
       Implemented a public `objectLock` option (ObjectLockProps) on the shared
       ObjectNameProps base, so shapes, text boxes, images, media, and tables can
@@ -8996,7 +9007,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested image support inside table cells.
+    summary: Requested image support inside table cells.
     current_project_notes: >
       This is the image-specific duplicate of the broader table-cell embedded
       object feature. Keep the active lane under upstream-issue-98, which covers
@@ -9026,7 +9037,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested anchor connections for shapes and lines.
+    summary: Requested anchor connections for shapes and lines.
     current_project_notes: >
       Fully addressed. The connector primitive (upstream-pr-1059) drew <p:cxnSp>
       between two points; ELBOW_CONNECTOR_PLAN Phase 2 then added the remaining ask
@@ -9067,7 +9078,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested grouping shapes and other slide objects.
+    summary: Requested grouping shapes and other slide objects.
     current_project_notes: >
       Deferred (in scope, reduce scope before building). A group (a:grpSp /
       p:grpSp) is a legitimate primitive, but a faithful implementation needs
@@ -9100,7 +9111,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested paragraph spacing before/after, line spacing, and related paragraph indentation controls.
+    summary: Requested paragraph spacing before/after, line spacing, and related paragraph indentation controls.
     current_project_notes: >
       Current TextPropsOptions includes exact line spacing, multiple line
       spacing, paraSpaceBefore, paraSpaceAfter, indentLevel, and bullet indent
@@ -9134,7 +9145,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Rich text with alignment broke into separate lines even when breakLine was false.
+    summary: Rich text with alignment broke into separate lines even when breakLine was false.
     current_project_notes: >
       Current paragraph grouping only starts a new paragraph when alignment
       changes, and local mixed-formatting tests verify one paragraph property
@@ -9168,7 +9179,7 @@ items:
     applies_to_current_project: partial
     non_target_reasons:
       - existing-pptx-import
-    upstream_summary: Requested real slide master/layout generation instead of copying master objects onto every slide.
+    summary: Requested real slide master/layout generation instead of copying master objects onto every slide.
     current_project_notes: >
       Current presentation export writes slideLayouts, slideMasters, and
       slide-to-layout relationships from defineSlideMaster. The later subthread
@@ -9201,7 +9212,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested gradient fill support for shapes and slide backgrounds.
+    summary: Requested gradient fill support for shapes and slide backgrounds.
     current_project_notes: >
       Gradient fill support is already tracked by the newer upstream-pr-1454
       design and validation lane. Keep this issue as demand evidence there.
@@ -9231,7 +9242,7 @@ items:
     applies_to_current_project: no
     non_target_reasons:
       - out-of-project-scope
-    upstream_summary: Requested images or shapes inside table cells.
+    summary: Requested images or shapes inside table cells.
     current_project_notes: >
       Dismissed. An OOXML table cell (a:tc) holds only a:txBody and a:tcPr, so an
       image or shape cannot live inside a cell; PowerPoint authors fake it by
@@ -9265,7 +9276,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
-    upstream_summary: Requested gradient color support for line shapes.
+    summary: Requested gradient color support for line shapes.
     current_project_notes: >
       Implemented. Strokes now accept the same gradient paint as fills: `line.gradient`
       (or `line.type: 'gradient'`) emits `<a:gradFill>` inside `<a:ln>`, reusing the
@@ -9287,3 +9298,441 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: none
+  - id: dn-text-fit-fontscale
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-06-18
+    last_reviewed: 2026-06-18
+    status: target-candidate
+    priority: p2
+    target_area:
+      - missing-pptx-feature
+      - typescript-api
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: "Accept an explicit fontScale/lnSpcReduction so measured consumers can render fit:'shrink'"
+    current_project_notes: |
+      The library does no text measurement, so fit:'shrink' emits a bare
+      <a:normAutofit/> and overflowing text shows until a human opens and touches
+      the shape. The clean generic move is to let callers *supply* a static scale
+      rather than have the library *compute* one: accept an explicit fontScale
+      (and optional lnSpcReduction) so a measuring consumer can emit
+      <a:normAutofit fontScale="…" lnSpcReduction="…"/>. This keeps measurement
+      downstream while making fit:'shrink' actually render for consumers that have
+      measured. Open questions before implementing: API shape (extend `fit` to an
+      object form vs add sibling options), units/range validation (per-mille vs
+      percent; clamp), and how it composes with resize/autoFit. Needs design
+      (downstream to decide API shape).
+    stopgap: downstream measures the box or precomputes a scale before addText
+    evidence:
+      kinds: []
+      local_files:
+        - src/gen-xml.ts
+        - src/core-interfaces.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: design-api-shape
+  - id: dn-text-direction-serialization
+    source: downstream:registry/components/quadrant-matrix.ts
+    type: downstream-need
+    first_seen: 2026-06-18
+    last_reviewed: 2026-06-18
+    status: accepted
+    priority: p2
+    target_area:
+      - missing-pptx-feature
+      - typescript-api
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: "textDirection is typed but never serialized to <a:bodyPr vert=...>"
+    current_project_notes: |
+      TextBaseProps.textDirection ('horz' | 'vert' | 'vert270' | 'wordArtVert')
+      is a public option, but genXmlBodyProperties never emits the corresponding
+      <a:bodyPr vert="…"> attribute, so passing textDirection: 'vert270' is
+      silently dropped and the text renders horizontal. This is a deterministic,
+      library-owned emission gap (same class as the fixed breakLine:false bug, not
+      a measurement/render caveat): the fix is to map the option to the `vert`
+      attribute in gen-xml.ts and add a schema fixture asserting it. Discovered
+      building quadrant-matrix, whose rotated y-axis title needs vertical text;
+      current stopgap there is a rotate: 270 text box, which works but is less
+      clean than a real vert270 body property.
+    stopgap: registry/components/quadrant-matrix.ts
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/gen-xml.ts
+        - src/core-interfaces.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: implement-and-add-schema-fixture
+  - id: dn-svg-natural-sizing
+    source: downstream:registry/components/logo-group-panel.ts
+    type: downstream-need
+    first_seen: 2026-06-18
+    last_reviewed: 2026-06-18
+    status: target-candidate
+    priority: p2
+    target_area:
+      - image-svg-media
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: "sizing cannot measure SVG natural dimensions; warns and falls back"
+    current_project_notes: |
+      sizing contain/cover/crop measure natural dimensions for raster formats
+      only; for an SVG path/data image the library warns ("could not measure
+      natural dimensions … falling back to displayed aspect ratio") and emits no
+      aspect-correct srcRect. Renders still look right today because SVG's default
+      preserveAspectRatio="xMidYMid meet" letterboxes inside the frame, but that
+      is the rasterizer saving us, not the geometry being correct. The fix is a
+      lightweight SVG dimension probe (parse viewBox and/or root width/height
+      attributes) feeding the same sizing math as raster probes. Discovered
+      building logo-group-panel, whose vendor-logo chips contain-fit mixed
+      PNG/SVG marks; every SVG logo currently triggers the warning.
+    stopgap: registry/components/logo-group-panel.ts
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/gen-objects.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: add-svg-dimension-probe
+  - id: dn-doc-render-caveats
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-06-18
+    last_reviewed: 2026-06-18
+    status: target-candidate
+    priority: p3
+    target_area: []
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: "Document PowerPoint-vs-LibreOffice render caveats the library intentionally does not guarantee"
+    current_project_notes: |
+      Because PptxGenJS does no glyph measurement or line-breaking, several text
+      behaviors emit correct OOXML yet render differently across PowerPoint,
+      LibreOffice, and the intended layout. These are documented limitations, not
+      bugs, and their guard lives downstream (downstream has fonts + LibreOffice
+      and can measure/resize before addText). Write them down in the fork docs so
+      every consumer knows what schema fixtures intentionally do NOT assert:
+        - fit:'shrink' emits a bare <a:normAutofit/>; the fontScale/lnSpcReduction
+          variant is deliberately omitted because PowerPoint computes it on
+          edit/resize, so generated decks overflow until a human touches the shape.
+        - wrap:false reliably emits wrap="none", but whether text overflows or is
+          clipped is renderer-defined (PowerPoint spills, LibreOffice may clip).
+        - breakLine faithfully splits paragraphs, but the resulting visual line
+          count (and whether it fits) is layout-dependent.
+      We may still add serialization-contract fixtures later (assert "option X
+      emits attribute Y" only) but framed strictly as XML assertions, never as
+      rendering guarantees.
+    evidence:
+      kinds: []
+      local_files:
+        - src/gen-xml.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: write-docs
+  - id: dn-registry-components
+    source: downstream:registry/components
+    type: downstream-need
+    first_seen: 2026-06-18
+    last_reviewed: 2026-06-18
+    status: deferred
+    priority: p2
+    target_area:
+      - missing-pptx-feature
+      - typescript-api
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: "Graduate generic registry component primitives into the fork once the contract settles"
+    current_project_notes: |
+      downstream composes decks from a typed component registry. The generic,
+      brand-free building blocks are fork candidates once the component contract
+      stabilizes; defer the actual move until then. Brand chrome
+      (section-header, source-footer) and the downstream theme stay downstream; the
+      upstream form of asset-bearing components takes resolved image paths
+      (resolution stays in downstream's lib/assets.ts). The registry/lib/*
+      region/semantics/names helpers are also generic candidates.
+
+      Candidates:
+        - metric-card-grid — grid of metric cards (value + label + icon).
+        - stat-callout — single hero number; degenerate single-card sibling of
+          metric-card-grid.
+        - key-points — bullet list with markers.
+        - comparison-table — two-axis comparison table.
+        - callout-banner — single emphasized takeaway band (bar or solid).
+        - icon-label-row — row/column of icon+label pairs.
+        - process-steps — ordered process/timeline with native arrow endcaps
+          (connectors lean on line.endArrowType, already upstream).
+        - two-column-split — LAYOUT primitive returning a TwoColumnResult
+          ({ ...RenderResult, left, right }); surfaces the layout-component
+          return-shape extension. Both the primitive AND the RenderResult-extension
+          contract are upstreamable; a pure twoColumnRegions() helper exposes the
+          layout without chrome.
+        - logo-group-panel — grouped brand-logo panels (seeded chip scatter);
+          shape generic, asset resolution downstream.
+        - quadrant-matrix — 2x2 positioning matrix with native line arrowheads
+          (rotated y-axis title uses the rotate workaround; see
+          dn-text-direction-serialization).
+    stopgap: registry/components
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/gen-objects.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: stabilize-component-contract
+  - id: dn-logo-cloud-helper
+    source: downstream:registry/lib/logo-cloud.ts
+    type: downstream-need
+    first_seen: 2026-06-18
+    last_reviewed: 2026-06-18
+    status: deferred
+    priority: p3
+    target_area:
+      - missing-pptx-feature
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: "Graduate the deterministic logo-cloud placement helper once asset/theme boundaries settle"
+    current_project_notes: |
+      The logo-cloud geometry — uniform white chips laid out as a deterministic
+      FNV-1a seeded scatter, one shared chip scale fitted across several zones,
+      and a text-chip fallback for unresolved marks — was extracted from
+      logo-group-panel into registry/lib/logo-cloud.ts so other cluster components
+      reuse it. Surfaces: fitChipScale, placeChipCloud, renderChip, hasMemberLogo.
+      Genuinely generic and a candidate to move alongside the other registry/lib/*
+      layout primitives, but today it depends on downstream's lib/assets.ts
+      resolver and the downstream Theme, so the move waits on those boundaries.
+    stopgap: registry/lib/logo-cloud.ts
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files: []
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: await-asset-theme-boundary
+  - id: dn-importslide-restyle-literals
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-06-18
+    last_reviewed: 2026-06-18
+    status: deferred
+    priority: p3
+    target_area:
+      - missing-pptx-feature
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: "importSlide restyle: optional force-remap of literal colours + copy source table style into destination"
+    current_project_notes: |
+      importSlide theme: 'restyle' rebinds a lifted slide to the destination
+      master/layout and leaves schemeClr/style-matrix refs symbolic so they
+      re-resolve against the destination theme. Load-bearing limitation: restyle
+      can only recolour what is symbolic — anything authored as a literal srgbClr
+      has no theme reference to re-resolve and stays that colour. Two deferred
+      follow-ups: (a) a heavier "force re-map literals" mode that diffs source-theme
+      literals against the source clrScheme and rewrites matches to destination
+      slots; (b) copying the source table style into the destination tableStyles
+      under a fresh id (a restyled table resolves @tableStyleId against the
+      destination tableStyles and falls back if the id is absent).
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/read/api/presentation.ts
+        - src/read/oxml/theme.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: design-literal-remap
+  - id: dn-importslide-v1-limits
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-06-18
+    last_reviewed: 2026-06-18
+    status: deferred
+    priority: p3
+    target_area:
+      - missing-pptx-feature
+      - speaker-notes-masters-layouts
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: "importSlide v1 gaps: embedded fonts, slide-size rescale, notes import"
+    current_project_notes: |
+      importSlide copies a slide's slideLayout -> slideMaster -> theme plus used
+      media/chart/embedding parts. Three gaps are deliberately out of scope for v1:
+        - Embedded fonts are not copied. Fonts embedded via embedTrueType live in
+          ppt/fonts/* and are referenced from presentation.xml (p:embeddedFontLst),
+          not from the slide, so importSlide does not bring them across; a slide
+          relying on an embedded font may substitute on render. Deferred (low
+          priority): the first consumer normalizes lifted text to Aptos during the
+          edit pass, so font fidelity doesn't depend on carrying embedded faces.
+          Follow-up: copy the font parts and merge p:embeddedFontLst.
+        - Slide size must match. importSlide asserts source/target p:sldSz are
+          equal and throws otherwise; no geometry rescaling. Follow-up: optional
+          EMU rescale when sizes differ.
+        - Source notes are dropped by design (the notesSlide relationship is
+          skipped so the import doesn't drag in a notesMaster + its own theme).
+          Follow-up: opt-in notes import that copies/merges the notes master.
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/read/api/presentation.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: revisit-per-need
+  - id: dn-importshape-v1-limits
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-06-18
+    last_reviewed: 2026-06-18
+    status: deferred
+    priority: p3
+    target_area:
+      - missing-pptx-feature
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: "importShape v1 limits: size must match, lifted-shape timing dropped, placeholder lift best-effort"
+    current_project_notes: |
+      importShape/importShapes copy one or more shapes (autoshape, picture,
+      table/chart graphic frame, connector, group) from a source slide onto a
+      slide of this presentation, dragging dependent media/charts and rewriting
+      rels/ids. v1 limitations (same posture as importSlide): source and target
+      slide sizes must match (no geometry rescale); the source slide's build
+      animation/timing for the lifted shape is dropped (editable static layout);
+      lifting a placeholder is best-effort (preserve bakes its inherited
+      geometry/colour/size, but prefer lifting concrete content shapes/tables/
+      charts). Downstream follow-up: the stitch/harvest map grows sourceDeck +
+      sourceSlide + shapeIndices.
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/read/api/presentation.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: revisit-per-need
+  - id: dn-flatten-slide-animations
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-06-18
+    last_reviewed: 2026-06-18
+    status: deferred
+    priority: p3
+    target_area:
+      - missing-pptx-feature
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: "Optional whole-slide animation/timing flatten pass (strip <p:timing>)"
+    current_project_notes: |
+      A slide-level pass to strip a slide's animation timeline so it renders/edits
+      as its final static state: remove the <p:timing> block and any per-shape
+      build references, leaving every shape visible at once. Generic OOXML surgery,
+      a natural companion to importShape (which already drops the lifted shape's
+      build/timing). Low priority: a scan of the reference corpus found only 3 of
+      640 slides carry any animation and none of the chosen references do; the
+      heaviness that actually blocks lifting is static shape complexity, which this
+      would not touch. Caveat if built: flattening only removes click-through
+      behavior; if a slide animated alternating states over the same region,
+      showing them all at once can clutter the render — keep "drop animations"
+      distinct from "remove staging/duplicate shapes". Revisit only if a future
+      deck depends on animation-staged source slides.
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files: []
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: revisit-if-needed
+  - id: dn-image-shape-fill
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-06-18
+    last_reviewed: 2026-06-18
+    status: deferred
+    priority: p3
+    target_area:
+      - image-svg-media
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: "Image as a shape *fill* (<p:sp> + <a:blipFill>) — skip until a concrete need appears"
+    current_project_notes: |
+      Two valid OOXML encodings of "image in a shape": (1) a <p:pic> whose <p:spPr>
+      carries a clip geometry — what the fork emits today via addImage({ points |
+      shape | rounding, sizing }) — and (2) a <p:sp> whose spPr carries an
+      <a:blipFill> as the fill of a freeform shape. Verified that the <p:pic> +
+      custGeom clip + cover source-crop composition renders correctly and is
+      schema-valid, covering the motivating downstream "D" cover. The <p:sp>
+      image-fill form (2) would only be worth adding for a shape that must own an
+      image fill AND behave as a shape in grouping/connector logic that treats
+      <p:pic> differently, or for gradient/pattern-over-image fill stacking that
+      <p:pic> can't express. Building it would extend ShapeFillProps with an
+      image-fill variant and teach the shape/text emit block to write <a:blipFill>,
+      which also pulls in rels/media registration for shapes (today only images and
+      backgrounds register media) — a meaningfully larger change. Revisit only if a
+      concrete need appears.
+    evidence:
+      kinds:
+        - local-source-inspection
+        - render-check
+      local_files: []
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: revisit-if-needed
+  - id: dn-readmodel-style-followups
+    source: downstream:scripts/slide-library/lib/slide-style.ts
+    type: downstream-need
+    first_seen: 2026-06-18
+    last_reviewed: 2026-06-18
+    status: deferred
+    priority: p3
+    target_area:
+      - missing-pptx-feature
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: "Read-model colour resolver follow-up: walk p:style fillRef/lnRef and placeholder-inherited run colour"
+    current_project_notes: |
+      The read-model theme colour resolver (Slide.themeContext(),
+      Shape.resolvedFill/resolvedLine, Run.resolvedColor) resolves only an
+      *explicit* schemeClr on the shape/run today (matching downstream's own
+      resolveColors scope). A colour delivered through a shape's p:style
+      fillRef/lnRef, or a placeholder-inherited run colour, is not yet walked by
+      the read getter — the materializeStyleRefs / placeholderInheritedColor logic
+      exists in theme.ts and can be layered behind the same getter later. This is
+      the remaining open follow-up after the read-model style accessors shipped;
+      downstream consumes the resolver in slide-style.ts.
+    stopgap: scripts/slide-library/lib/slide-style.ts
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/read/api/theme-context.ts
+        - src/read/oxml/theme.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: layer-styleref-resolution

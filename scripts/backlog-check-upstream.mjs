@@ -3,19 +3,20 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { ROOT, run } from './script-utils.mjs'
 
-const DEFAULT_LEDGER = path.join(ROOT, 'docs', 'upstream-signals.yml')
+const DEFAULT_LEDGER = path.join(ROOT, 'docs', 'backlog.yml')
 const DEFAULT_REPO = 'gitbrent/PptxGenJS'
 const GH_FIELDS = ['number', 'title', 'state', 'labels', 'createdAt', 'updatedAt', 'url'].join(',')
 
 function usage() {
-	return `Usage: pnpm run upstream:signals:check -- [options]
+	return `Usage: pnpm run backlog:check:upstream -- [options]
 
-Checks upstream GitHub issue and PR metadata against docs/upstream-signals.yml.
-The command is read-only: it never edits the ledger.
+Checks upstream GitHub issue and PR metadata against docs/backlog.yml.
+The command is read-only: it never edits the ledger. Only github-sourced
+entries are reconciled; downstream downstream-need entries are ignored.
 
 Options:
   --repo <owner/repo>          GitHub repo to query (default: ledger source_repo or ${DEFAULT_REPO})
-  --ledger <path>             Signal ledger path (default: docs/upstream-signals.yml)
+  --ledger <path>             Backlog ledger path (default: docs/backlog.yml)
   --type <all|issue|pr>       Metadata kind to check (default: all)
   --state <all|open|closed>   GitHub state to fetch (default: all)
   --limit <n>                 Max items to fetch per kind via gh (default: 1000)
@@ -27,10 +28,10 @@ Options:
   --help                      Show this help
 
 Examples:
-  pnpm run upstream:signals:check
-  pnpm run upstream:signals:check -- --state open --type issue
-  pnpm run upstream:signals:check -- --created-since 2026-06-07
-  pnpm run upstream:signals:check:json -- --updated-since 2026-06-07
+  pnpm run backlog:check:upstream
+  pnpm run backlog:check:upstream -- --state open --type issue
+  pnpm run backlog:check:upstream -- --created-since 2026-06-07
+  pnpm run backlog:check:upstream:json -- --updated-since 2026-06-07
 `
 }
 

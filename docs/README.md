@@ -31,7 +31,7 @@ artifacts.
   reference and validation workflow.
 - [Native backgrounds and gradients](native-backgrounds-and-gradients.md):
   planning note for native PPTX gradient fills and required review gates.
-- [Upstream signal workflow](upstream-signal-workflow.md): how to classify
+- [Backlog workflow](backlog-workflow.md): how to classify
   upstream issues and PRs without reintroducing dropped package targets.
 - [Legacy autoloop workflow](legacy-autoloop.md): retained legacy automation
   notes.

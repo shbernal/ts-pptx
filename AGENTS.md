@@ -15,8 +15,10 @@
   consumer.
 - Breaking changes are acceptable and encouraged when they make the API clearer
   or safer. Do not block an improvement on reverse compatibility. When you make
-  or propose one, record it (with migration guidance) in the
-  `UPSTREAMING_CANDIDATES.md` tracker at `../UPSTREAMING_CANDIDATES.md`.
+  one, record it (with migration guidance and downstream impact) in `CHANGELOG.md`.
+  When you only *propose* one, or want to track a not-yet-implemented candidate,
+  record it in the backlog ledger `docs/backlog.yml` (see the Backlog Workflow
+  below).
 - Silent coercion of invalid input is a footgun, not a feature: prefer warning or
   failing on `NaN` / `undefined` / out-of-range values over emitting a degenerate
   result (e.g. a zero-size object).
@@ -70,14 +72,16 @@ ambiguous. Useful for community discoveries (e.g. undocumented GUIDs found by
 reverse-engineering), third-party library behaviour, and content that postdates the
 MCPs' corpora.
 
-## Upstream Signals Workflow
+## Backlog Workflow
 
-- `docs/upstream-signals.yml` tracks upstream issues and PRs as signals for local work.
-- When you implement a fix or feature derived from an upstream signal, update the corresponding item in that file: set `status` to `implemented`, update `last_reviewed` to today's date, update `current_project_notes` with where the fix landed, update `evidence.local_files` to reflect the current source location, and set `next_action` to `none`.
+- `docs/backlog.yml` is the fork's backlog ledger. It tracks two kinds of signal: upstream gitbrent/PptxGenJS issues/PRs, and `downstream-need` items raised by the downstream consumer. The `source` field discriminates them (github reference vs `downstream[:path]`), and the validator enforces that the source matches the type. The full process lives in `docs/backlog-workflow.md`.
+- Record a not-yet-implemented candidate here only; if you implement a change immediately, its record is the fork's own commit history, tests, and `CHANGELOG.md` — do not also add a backlog entry.
+- To add a downstream need, use `pnpm run backlog -- add --id sf-<slug> --type downstream-need --source downstream:<path> --summary "…"`, then write the design rationale into `current_project_notes`. For these we DO want full design detail (they are believed-valuable), unlike metadata-first upstream entries.
+- When you implement a fix or feature derived from a backlog item, update the corresponding entry: set `status` to `implemented`, update `last_reviewed` to today's date, update `current_project_notes` with where the fix landed, update `evidence.local_files`, set `next_action` to `none`, and delete any downstream `stopgap` it referenced.
 - Also update any companion items that share the same root cause (e.g. an issue whose `next_action` was `handle-with-upstream-pr-NNNN` when that PR is now implemented).
 - Every field constrained by `vocabulary` (`status`, `priority`, `target_area`, `applies_to_current_project`, `non_target_reasons`, `evidence.kinds`) MUST use a value already listed under that file's top-level `vocabulary:` block. Before writing a value, scan the `vocabulary:` lists and reuse the closest existing term — do not invent synonyms (`validator-pass` for `validator-result`, `repro-confirmed` for `minimal-repro`, etc.), as the validator rejects them.
 - If no listed value genuinely fits the situation, do not force an approximation: add the new value to the appropriate `vocabulary:` list (with a one-line rationale in your message) in the same change, then use it. Extending the controlled vocabulary deliberately is fine; drifting away from it by typo is not.
-- ALWAYS run `pnpm run upstream:signals:validate` after editing `docs/upstream-signals.yml` (it is fast and offline) and fix every reported error before committing. A clean ledger is a precondition for the edit being considered done. `pnpm run test:tools` exercises the ledger tooling itself.
+- ALWAYS run `pnpm run backlog:validate` after editing `docs/backlog.yml` (it is fast and offline) and fix every reported error before committing. A clean ledger is a precondition for the edit being considered done. `pnpm run test:tools` exercises the ledger tooling itself.
 
 ## Verification
 

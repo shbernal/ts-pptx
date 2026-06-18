@@ -99,7 +99,7 @@ complete support contract.
 - [Testing guide](docs/testing.md)
 - [Agent development guide](docs/agent-development.md)
 - [OOXML agent context](docs/ooxml-agent-context.md)
-- [Upstream signal workflow](docs/upstream-signal-workflow.md)
+- [Backlog workflow](docs/backlog-workflow.md)
 - [Legacy autoloop workflow](docs/legacy-autoloop.md)
 
 ## Repository Development

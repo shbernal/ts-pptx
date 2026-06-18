@@ -1,21 +1,34 @@
 ---
 doc-schema-version: 1
-title: "Upstream Signal Workflow"
-summary: "How to classify upstream issues and PRs without reintroducing dropped package targets."
+title: "Backlog Workflow"
+summary: "How to classify upstream issues/PRs and downstream downstream needs in the fork backlog without reintroducing dropped package targets."
 read_when:
   - Reviewing upstream PptxGenJS issues or PRs
-  - Updating upstream signal classifications
-  - Deciding whether upstream behavior belongs in this fork
+  - Recording a downstream need raised by downstream
+  - Updating backlog classifications
+  - Deciding whether a behavior belongs in this fork
 doc_type: "guide"
 ---
 
-# Upstream Signal Workflow
+# Backlog Workflow
 
-This workflow tracks upstream PptxGenJS issues and pull requests as signals for
-this fork. Upstream is useful for finding real `.pptx` generation gaps, but it
-is not the local project target.
+This workflow maintains the fork's backlog ledger, `docs/backlog.yml`, which holds
+two kinds of inbound signal:
 
-Use this workflow when reviewing upstream reports or PRs that may point to:
+1. **Upstream signals** — gitbrent/PptxGenJS issues and pull requests, classified
+   for relevance to this fork. Upstream is useful for finding real `.pptx`
+   generation gaps, but it is not the local project target.
+2. **Downstream needs** — generic PPTX behavior the downstream consumer needs
+   that belongs in this package (`type: downstream-need`, `source: downstream`).
+
+The `source` field discriminates the two, and the validator enforces it: upstream
+items carry a github reference (`owner/repo#N` or a github.com issues/pull URL);
+downstream needs carry `downstream` or `downstream:<path>`. The
+`backlog:check:upstream` reconciler only looks at github-sourced entries. The rest
+of this guide is about the upstream classification flow; see **Downstream Needs**
+near the end for the downstream side.
+
+Use the upstream flow when reviewing upstream reports or PRs that may point to:
 
 - PowerPoint repair prompts or corrupt output;
 - invalid OOXML or Open XML SDK validation failures;
@@ -33,7 +46,7 @@ Do not use this workflow to reintroduce dropped upstream targets:
 
 ## Source Of Truth
 
-The decision ledger is [upstream-signals.yml](upstream-signals.yml). It records
+The decision ledger is [backlog.yml](backlog.yml). It records
 what has been dismissed, what is under consideration, and what should be
 implemented locally.
 
@@ -85,17 +98,17 @@ After an initial pass, use the read-only checker to find upstream issue and PR
 metadata that is not represented in the ledger:
 
 ```bash
-pnpm run upstream:signals:check
+pnpm run backlog:check:upstream
 ```
 
 The checker requires the GitHub CLI (`gh`). It uses metadata from `gh` and
-compares upstream numbers against entries in `docs/upstream-signals.yml`. It
+compares upstream numbers against entries in `docs/backlog.yml`. It
 accepts filters for routine follow-up checks:
 
 ```bash
-pnpm run upstream:signals:check -- --state open --type issue
-pnpm run upstream:signals:check -- --created-since 2026-06-07
-pnpm run upstream:signals:check:json -- --updated-since 2026-06-07
+pnpm run backlog:check:upstream -- --state open --type issue
+pnpm run backlog:check:upstream -- --created-since 2026-06-07
+pnpm run backlog:check:upstream:json -- --updated-since 2026-06-07
 ```
 
 The checker never edits the ledger. Record reviewed decisions manually so
@@ -104,14 +117,14 @@ The checker never edits the ledger. Record reviewed decisions manually so
 ## Ledger Tooling
 
 Use the local ledger command to inspect and maintain entries already recorded in
-`docs/upstream-signals.yml`:
+`docs/backlog.yml`:
 
 ```bash
-pnpm run upstream:signals -- list
-pnpm run upstream:signals -- list --status needs-repro --type issue
-pnpm run upstream:signals -- show upstream-issue-1440
-pnpm run upstream:signals -- values status
-pnpm run upstream:signals -- validate
+pnpm run backlog -- list
+pnpm run backlog -- list --status needs-repro --type issue
+pnpm run backlog -- show upstream-issue-1440
+pnpm run backlog -- values status
+pnpm run backlog -- validate
 ```
 
 The default list output is intentionally compact: item id, status, priority,
@@ -125,8 +138,8 @@ and how many entries use each one.
 The command also supports exact-ID maintenance operations:
 
 ```bash
-pnpm run upstream:signals -- set-status upstream-issue-1440 implemented
-pnpm run upstream:signals -- remove upstream-issue-1440
+pnpm run backlog -- set-status upstream-issue-1440 implemented
+pnpm run backlog -- remove upstream-issue-1440
 ```
 
 Mutation commands validate the ledger before writing and refuse ambiguous or
@@ -245,7 +258,7 @@ useful idea but also reintroduces non-target package behavior, mark the signal
 
 ## Closing Implemented Signals
 
-After fixing an upstream signal, update [upstream-signals.yml](upstream-signals.yml)
+After fixing an upstream signal, update [backlog.yml](backlog.yml)
 in the same work session. Do not leave the entry at `accepted`,
 `target-candidate`, or `needs-repro` after the local fix has landed.
 
@@ -264,6 +277,61 @@ entries so future reviews do not reopen already-fixed work.
 Validate the ledger before finishing:
 
 ```bash
-pnpm run upstream:signals -- validate
-pnpm run upstream:signals -- show upstream-issue-1234
+pnpm run backlog -- validate
+pnpm run backlog -- show upstream-issue-1234
 ```
+
+## Downstream Needs (downstream)
+
+downstream is a consumer of this package, not part of its source. When a
+downstream task exposes a generic PPTX gap that belongs here — an OOXML
+serialization fix, an API/typing gap, a repeated layout primitive, media/SVG
+handling, post-processing that patches generated XML — record it as a
+`downstream-need` instead of leaving a one-off workaround undocumented.
+
+Unlike upstream signals (metadata-first: do not copy full issue/PR bodies), a
+downstream need is something we already believe is valuable, so the full design
+rationale and any long-form analysis are welcome in `current_project_notes`.
+
+Add one with the ledger CLI, then write the rationale into the file:
+
+```bash
+pnpm run backlog -- add --id sf-<slug> --type downstream-need \
+  --source downstream:<path/that/needs/it> \
+  --summary "<one line>" --priority p2 \
+  --stopgap <downstream path the gap forces a workaround in>
+```
+
+`add` writes a valid skeleton (defaults: `status: target-candidate`, `priority:
+p2`, `applies_to_current_project: yes`, today's dates) and validates the result.
+Then edit the entry to add `target_area`, evidence, and the design essay under
+`current_project_notes` (a `|` block scalar). The `stopgap` field records the
+downstream file carrying the temporary workaround, so the loop is closeable:
+when the fix lands here, flip `status` to `implemented` and delete the stopgap
+downstream.
+
+`id` uses an `sf-<slug>` prefix (no trailing `-N`, which is reserved for the
+github number cross-check). `backlog:check:upstream` ignores these entries.
+
+## Promotion Checklist (before moving a candidate into the fork)
+
+1. Prove the need with a downstream deck or eval.
+2. Reduce the behavior to a minimal PptxGenJS fixture.
+3. Add a PptxGenJS regression or schema test.
+4. Pack or link the fork into downstream.
+5. Run the relevant downstream build/render/lint/eval command.
+6. Keep only generic code in PptxGenJS; keep project policy in downstream.
+
+## Keep In downstream (not fork candidates)
+
+These encode downstream/downstream specifics or deck workflow and stay downstream —
+do not raise them as backlog items:
+
+- downstream brand guidance, CV workflow scripts, and workflow-specific content.
+- Aptos as a project default font.
+- Lucide and Dashboard Icons policy, imports, aliases, and provenance manifests.
+- Pexels or other external asset sourcing helpers.
+- `slide-lint` quality thresholds, annotated screenshots, and human-review artifacts.
+- Slide semantics manifests as agent-facing design-intent contracts.
+- Greenfield deck eval prompts, scorecards, and Codex adapter behavior.
+- LibreOffice/ImageMagick rendering orchestration for local visual QA.

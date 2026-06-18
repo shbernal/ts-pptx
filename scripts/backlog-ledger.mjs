@@ -2,12 +2,13 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { parseDocument } from 'yaml'
+import { parseDocument, stringify } from 'yaml'
 import { ROOT } from './script-utils.mjs'
 
-export const DEFAULT_LEDGER = path.join(ROOT, 'docs', 'upstream-signals.yml')
+export const DEFAULT_LEDGER = path.join(ROOT, 'docs', 'backlog.yml')
 
-const COMMANDS = new Set(['list', 'show', 'values', 'validate', 'remove', 'set-status'])
+const COMMANDS = new Set(['list', 'show', 'values', 'validate', 'remove', 'set-status', 'add'])
+const ITEM_TYPES = ['issue', 'pull-request', 'downstream-need']
 const REQUIRED_ITEM_FIELDS = [
 	'id',
 	'source',
@@ -19,7 +20,7 @@ const REQUIRED_ITEM_FIELDS = [
 	'target_area',
 	'applies_to_current_project',
 	'non_target_reasons',
-	'upstream_summary',
+	'summary',
 	'current_project_notes',
 	'evidence',
 	'next_action',
@@ -34,40 +35,52 @@ const REQUIRED_EVIDENCE_FIELDS = [
 ]
 
 function usage() {
-	return `Usage: pnpm run upstream:signals -- <command> [options]
+	return `Usage: pnpm run backlog -- <command> [options]
 
-Reads and edits docs/upstream-signals.yml.
+Reads and edits docs/backlog.yml.
 
 Commands:
   list                         Print compact ledger rows
   show <id>                    Print one full ledger item
   values <field>               Print unique values and counts for an item field
   validate                     Validate ledger structure and vocabulary use
+  add                          Append a new ledger item from flags, then validate
   remove <id>                  Remove one ledger item by exact id
   set-status <id> <status>     Update status and last_reviewed
 
 Options:
-  --ledger <path>                         Ledger path (default: docs/upstream-signals.yml)
+  --ledger <path>                         Ledger path (default: docs/backlog.yml)
   --json                                  Print machine-readable JSON
   --print-limit <n>                       Max list rows to print; 0 prints all (default: 50)
-  --status <value[,value...]>             Filter list by status
-  --type <issue|pull-request|pr>          Filter list by type
-  --priority <value[,value...]>           Filter list by priority
-  --target-area <value[,value...]>        Filter list by target area
-  --applies <yes|partial|no|unknown>      Filter list by applies_to_current_project
+  --status <value[,value...]>             Filter list by status; sets status on add
+  --type <issue|pull-request|pr|downstream-need>  Filter list by type; sets type on add
+  --priority <value[,value...]>           Filter list by priority; sets priority on add
+  --target-area <value[,value...]>        Filter list by target area; sets target_area on add
+  --applies <yes|partial|no|unknown>      Filter list by applies_to_current_project; sets it on add
   --search <text>                         Filter list by id, source, summary, notes, or next_action
   --review-date <YYYY-MM-DD>              Date written by set-status (default: today)
+  --id <id>                               Item id (add)
+  --source <ref>                          Item source: owner/repo#N, a github URL, or downstream[:path] (add)
+  --summary <text>                        One-line summary (add)
+  --notes <text>                          current_project_notes body (add)
+  --stopgap <path>                        downstream file the gap forces a workaround in (add, optional)
+  --next-action <text>                    next_action (add; default: none)
+  --first-seen <YYYY-MM-DD>               first_seen date (add; default: today)
   --dry-run                               Validate mutation without writing
   --help                                  Show this help
 
 Examples:
-  pnpm run upstream:signals -- list
-  pnpm run upstream:signals -- list --status needs-repro --type issue
-  pnpm run upstream:signals -- show upstream-issue-1440
-  pnpm run upstream:signals -- values status
-  pnpm run upstream:signals -- validate
-  pnpm run upstream:signals -- remove upstream-issue-1440
-  pnpm run upstream:signals -- set-status upstream-issue-1440 implemented
+  pnpm run backlog -- list
+  pnpm run backlog -- list --status needs-repro --type issue
+  pnpm run backlog -- list --type downstream-need
+  pnpm run backlog -- show upstream-issue-1440
+  pnpm run backlog -- values status
+  pnpm run backlog -- validate
+  pnpm run backlog -- add --id dn-text-direction --type downstream-need \\
+    --source downstream:registry/components/quadrant-matrix.ts \\
+    --summary "textDirection typed but not serialized" --priority p2
+  pnpm run backlog -- remove upstream-issue-1440
+  pnpm run backlog -- set-status upstream-issue-1440 implemented
 `
 }
 
@@ -120,6 +133,7 @@ export function parseArgs(argv) {
 		json: false,
 		printLimit: 50,
 		filters: {},
+		fields: {},
 		reviewDate: todayIsoDate(),
 		dryRun: false,
 		help: false,
@@ -175,6 +189,35 @@ export function parseArgs(argv) {
 			const result = readOptionValue(argv, i, '--review-date')
 			if (!isIsoDate(result.value)) throw new Error('--review-date must be YYYY-MM-DD')
 			options.reviewDate = result.value
+			i += result.consumed
+		} else if (arg.startsWith('--first-seen')) {
+			const result = readOptionValue(argv, i, '--first-seen')
+			if (!isIsoDate(result.value)) throw new Error('--first-seen must be YYYY-MM-DD')
+			options.fields.first_seen = result.value
+			i += result.consumed
+		} else if (arg.startsWith('--id')) {
+			const result = readOptionValue(argv, i, '--id')
+			options.fields.id = result.value
+			i += result.consumed
+		} else if (arg.startsWith('--source')) {
+			const result = readOptionValue(argv, i, '--source')
+			options.fields.source = result.value
+			i += result.consumed
+		} else if (arg.startsWith('--summary')) {
+			const result = readOptionValue(argv, i, '--summary')
+			options.fields.summary = result.value
+			i += result.consumed
+		} else if (arg.startsWith('--notes')) {
+			const result = readOptionValue(argv, i, '--notes')
+			options.fields.notes = result.value
+			i += result.consumed
+		} else if (arg.startsWith('--stopgap')) {
+			const result = readOptionValue(argv, i, '--stopgap')
+			options.fields.stopgap = result.value
+			i += result.consumed
+		} else if (arg.startsWith('--next-action')) {
+			const result = readOptionValue(argv, i, '--next-action')
+			options.fields.next_action = result.value
 			i += result.consumed
 		} else if (arg.startsWith('--')) {
 			throw new Error('unknown option: ' + arg)
@@ -261,6 +304,16 @@ function idKind(id) {
 	return null
 }
 
+function isGithubRef(source) {
+	if (typeof source !== 'string') return false
+	if (/^[\w.-]+\/[\w.-]+#\d+$/.test(source)) return true
+	return /github\.com\/[^/]+\/[^/]+\/(issues|pull)\/\d+/.test(source)
+}
+
+function isDownstreamSource(source) {
+	return typeof source === 'string' && /^downstream(:\S.*)?$/.test(source)
+}
+
 export function validateLedgerData(data) {
 	const errors = []
 	if (!data || typeof data !== 'object' || Array.isArray(data)) return ['ledger root must be a mapping']
@@ -297,8 +350,20 @@ export function validateLedgerData(data) {
 			errors.push(label + ': id must be a string')
 		}
 
-		if (typeof item.source !== 'string') errors.push(label + ': source must be a string')
-		if (!['issue', 'pull-request'].includes(item.type)) errors.push(label + ': type must be issue or pull-request')
+		if (typeof item.source !== 'string') {
+			errors.push(label + ': source must be a string')
+		} else if (item.type === 'downstream-need') {
+			if (!isDownstreamSource(item.source)) {
+				errors.push(label + ': downstream-need source must be "downstream" or "downstream:<path>"')
+			}
+		} else if (item.type === 'issue' || item.type === 'pull-request') {
+			if (!isGithubRef(item.source)) {
+				errors.push(
+					label + ': ' + item.type + ' source must be a GitHub reference (owner/repo#N or a github.com issues/pull URL)'
+				)
+			}
+		}
+		if (!ITEM_TYPES.includes(item.type)) errors.push(label + ': type must be one of ' + ITEM_TYPES.join(', '))
 		if (!statuses.has(item.status)) errors.push(label + ': unknown status: ' + item.status)
 		if (!priorities.has(item.priority)) errors.push(label + ': unknown priority: ' + item.priority)
 		if (!appliesValues.has(item.applies_to_current_project)) {
@@ -310,7 +375,7 @@ export function validateLedgerData(data) {
 		validateListField(errors, item, index, 'target_area', targetAreas)
 		validateListField(errors, item, index, 'non_target_reasons', nonTargetReasons)
 
-		if (typeof item.upstream_summary !== 'string') errors.push(label + ': upstream_summary must be a string')
+		if (typeof item.summary !== 'string') errors.push(label + ': summary must be a string')
 		if (typeof item.current_project_notes !== 'string') errors.push(label + ': current_project_notes must be a string')
 		if (typeof item.next_action !== 'string') errors.push(label + ': next_action must be a string')
 
@@ -365,8 +430,9 @@ function itemSearchText(item) {
 		item.status,
 		item.priority,
 		item.applies_to_current_project,
-		item.upstream_summary,
+		item.summary,
 		item.current_project_notes,
+		item.stopgap,
 		item.next_action,
 	]
 		.filter(Boolean)
@@ -399,7 +465,7 @@ function compactItem(item) {
 		priority: item.priority,
 		target_area: item.target_area,
 		applies_to_current_project: item.applies_to_current_project,
-		upstream_summary: item.upstream_summary,
+		summary: item.summary,
 		next_action: item.next_action,
 		last_reviewed: item.last_reviewed,
 	}
@@ -469,15 +535,7 @@ function printList(items, options, ledgerPath) {
 	const lines = ['Ledger items: ' + items.length]
 	for (const item of items.slice(0, limit)) {
 		lines.push(
-			item.id +
-				' [' +
-				item.status +
-				'/' +
-				item.priority +
-				'/' +
-				item.applies_to_current_project +
-				'] ' +
-				item.upstream_summary
+			item.id + ' [' + item.status + '/' + item.priority + '/' + item.applies_to_current_project + '] ' + item.summary
 		)
 	}
 	const remaining = items.length - limit
@@ -487,7 +545,7 @@ function printList(items, options, ledgerPath) {
 
 function printItem(item, options) {
 	if (options.json) return JSON.stringify(item, null, 2)
-	return [
+	const lines = [
 		'id: ' + item.id,
 		'source: ' + item.source,
 		'type: ' + item.type,
@@ -496,10 +554,12 @@ function printItem(item, options) {
 		'target_area: ' + (Array.isArray(item.target_area) ? item.target_area.join(', ') : ''),
 		'applies_to_current_project: ' + item.applies_to_current_project,
 		'last_reviewed: ' + item.last_reviewed,
-		'upstream_summary: ' + item.upstream_summary,
+		'summary: ' + item.summary,
 		'current_project_notes: ' + item.current_project_notes,
-		'next_action: ' + item.next_action,
-	].join('\n')
+	]
+	if (item.stopgap) lines.push('stopgap: ' + item.stopgap)
+	lines.push('next_action: ' + item.next_action)
+	return lines.join('\n')
 }
 
 function splitLines(text) {
@@ -605,6 +665,62 @@ export function setLedgerItemStatusText(text, id, status, reviewDate = todayIsoD
 	return updated
 }
 
+const ADD_DEFAULTS_BY_TYPE = {
+	'downstream-need': { status: 'target-candidate', priority: 'p2', applies: 'yes' },
+}
+
+function buildItemSkeleton(fields, reviewDate) {
+	if (!fields.id) throw new Error('add requires --id')
+	if (!fields.source) throw new Error('add requires --source')
+	if (!fields.type) throw new Error('add requires --type')
+	const typeDefaults = ADD_DEFAULTS_BY_TYPE[fields.type] || {
+		status: 'unreviewed',
+		priority: 'none',
+		applies: 'unknown',
+	}
+	return {
+		id: fields.id,
+		source: fields.source,
+		type: fields.type,
+		first_seen: fields.first_seen || reviewDate,
+		last_reviewed: reviewDate,
+		status: fields.status || typeDefaults.status,
+		priority: fields.priority || typeDefaults.priority,
+		target_area: fields.target_area || [],
+		applies_to_current_project: fields.applies || typeDefaults.applies,
+		non_target_reasons: [],
+		summary: fields.summary || '',
+		current_project_notes: fields.notes || '',
+		...(fields.stopgap ? { stopgap: fields.stopgap } : {}),
+		evidence: {
+			kinds: [],
+			local_files: [],
+			schema_fixture: null,
+			validator_result: null,
+			powerpoint_result: null,
+			spec_refs: [],
+		},
+		next_action: fields.next_action || 'none',
+	}
+}
+
+export function addLedgerItemText(text, fields, reviewDate = todayIsoDate()) {
+	const validation = validateLedgerText(text)
+	if (validation.errors.length > 0) throw new Error('ledger is invalid:\n' + validation.errors.join('\n'))
+	const item = buildItemSkeleton(fields, reviewDate)
+	const { blocks } = findItemBlocks(text)
+	if (blocks.some((block) => block.item?.id === item.id)) throw new Error('ledger item id already exists: ' + item.id)
+
+	const itemBlock = stringify({ items: [item] }, { lineWidth: 0 }).replace(/^items:\r?\n/, '')
+	const base = text.endsWith('\n') ? text : text + '\n'
+	const updated =
+		blocks.length === 0
+			? base.replace(/^items:[^\S\r\n]*(?:\[\])?[^\S\r\n]*$/m, 'items:') + itemBlock
+			: base + itemBlock
+	assertValidAfterMutation(updated)
+	return updated
+}
+
 function validationReport(validation, options, ledgerPath) {
 	if (options.json) {
 		return JSON.stringify(
@@ -653,6 +769,22 @@ export async function runLedgerCommand(argv, io = defaultIo()) {
 		const updated = removeLedgerItemText(text, id)
 		if (!options.dryRun) await fs.writeFile(options.ledger, updated)
 		io.stdout((options.dryRun ? 'Would remove ' : 'Removed ') + id)
+		return 0
+	}
+
+	if (options.command === 'add') {
+		const fields = {
+			...options.fields,
+			type: options.filters.type?.[0] ?? options.fields.type,
+			status: options.filters.status?.[0],
+			priority: options.filters.priority?.[0],
+			applies: options.filters.applies?.[0],
+			target_area: options.filters.targetArea,
+		}
+		const text = await fs.readFile(options.ledger, 'utf8')
+		const updated = addLedgerItemText(text, fields, options.reviewDate)
+		if (!options.dryRun) await fs.writeFile(options.ledger, updated)
+		io.stdout((options.dryRun ? 'Would add ' : 'Added ') + fields.id)
 		return 0
 	}
 

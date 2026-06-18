@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { describe, expect, test } from 'vitest'
 import {
+	addLedgerItemText,
 	filterItems,
 	parseLedgerText,
 	removeLedgerItemText,
@@ -10,7 +11,7 @@ import {
 	setLedgerItemStatusText,
 	uniqueItemFieldValues,
 	validateLedgerText,
-} from '../scripts/upstream-signals-ledger.mjs'
+} from '../scripts/backlog-ledger.mjs'
 
 const fixture = `schema: 1
 source_repo: gitbrent/PptxGenJS
@@ -59,7 +60,7 @@ items:
       - chart-ooxml
     applies_to_current_project: unknown
     non_target_reasons: []
-    upstream_summary: Chart labels need a local reproduction.
+    summary: Chart labels need a local reproduction.
     current_project_notes: >
       Keep this entry until the chart XML path is tested locally.
     evidence:
@@ -84,7 +85,7 @@ items:
     applies_to_current_project: no
     non_target_reasons:
       - commonjs
-    upstream_summary: Reintroduces CommonJS package support.
+    summary: Reintroduces CommonJS package support.
     current_project_notes: >
       This conflicts with the current ESM-only package target.
     evidence:
@@ -97,7 +98,7 @@ items:
     next_action: none
 `
 
-describe('upstream signals ledger tooling', () => {
+describe('backlog ledger tooling', () => {
 	test('filters parsed items by status, type, priority, and target area', () => {
 		const parsed = parseLedgerText(fixture)
 		expect(parsed.errors).toEqual([])
@@ -154,7 +155,7 @@ describe('upstream signals ledger tooling', () => {
 	test('prints JSON list output for command-line consumers', async () => {
 		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-ledger-'))
 		try {
-			const ledger = path.join(tmpDir, 'upstream-signals.yml')
+			const ledger = path.join(tmpDir, 'backlog.yml')
 			await fs.writeFile(ledger, fixture)
 			const stdout = []
 			const code = await runLedgerCommand(['list', '--ledger', ledger, '--status', 'needs-repro', '--json'], {
@@ -166,16 +167,68 @@ describe('upstream signals ledger tooling', () => {
 			expect(code).toBe(0)
 			expect(report.count).toBe(1)
 			expect(report.items[0].id).toBe('upstream-issue-1')
-			expect(report.items[0].upstream_summary).toBe('Chart labels need a local reproduction.')
+			expect(report.items[0].summary).toBe('Chart labels need a local reproduction.')
 		} finally {
 			await fs.rm(tmpDir, { recursive: true, force: true })
 		}
 	})
 
+	test('accepts a downstream-need item with a downstream source', () => {
+		const updated = addLedgerItemText(
+			fixture,
+			{
+				id: 'dn-text-direction',
+				source: 'downstream:registry/components/quadrant-matrix.ts',
+				type: 'downstream-need',
+				summary: 'textDirection typed but not serialized',
+				stopgap: 'registry/components/quadrant-matrix.ts',
+			},
+			'2026-06-18'
+		)
+		const validation = validateLedgerText(updated)
+
+		expect(validation.errors).toEqual([])
+		const added = validation.data.items.find((item) => item.id === 'dn-text-direction')
+		expect(added.type).toBe('downstream-need')
+		expect(added.status).toBe('target-candidate')
+		expect(added.priority).toBe('p2')
+		expect(added.stopgap).toBe('registry/components/quadrant-matrix.ts')
+	})
+
+	test('rejects an inconsistent source for the item type', () => {
+		const issueWithDownstreamSource = fixture.replace(
+			'source: "gitbrent/PptxGenJS#1"\n    type: issue',
+			'source: "downstream"\n    type: issue'
+		)
+		expect(validateLedgerText(issueWithDownstreamSource).errors).toContain(
+			'upstream-issue-1: issue source must be a GitHub reference (owner/repo#N or a github.com issues/pull URL)'
+		)
+
+		// addLedgerItemText validates after mutation, so a non-downstream
+		// source on a downstream-need throws before returning.
+		expect(() =>
+			addLedgerItemText(
+				fixture,
+				{ id: 'dn-bad', source: 'gitbrent/PptxGenJS#9', type: 'downstream-need', summary: 'x' },
+				'2026-06-18'
+			)
+		).toThrow(/downstream/)
+	})
+
+	test('refuses to add a duplicate id', () => {
+		expect(() =>
+			addLedgerItemText(
+				fixture,
+				{ id: 'upstream-issue-1', source: 'downstream', type: 'downstream-need', summary: 'dup' },
+				'2026-06-18'
+			)
+		).toThrow(/already exists/)
+	})
+
 	test('prints JSON values output for command-line consumers', async () => {
 		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-ledger-'))
 		try {
-			const ledger = path.join(tmpDir, 'upstream-signals.yml')
+			const ledger = path.join(tmpDir, 'backlog.yml')
 			await fs.writeFile(ledger, fixture)
 			const stdout = []
 			const code = await runLedgerCommand(['values', 'status', '--ledger', ledger, '--json'], {

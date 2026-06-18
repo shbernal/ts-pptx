@@ -65,7 +65,7 @@ export default [
 	{
 		// Asserts the body-property serialization stays schema-valid. Note: this
 		// proves the XML is well-formed, not that PowerPoint/LibreOffice renders
-		// a particular layout (see UPSTREAMING_CANDIDATES.md "Text Box Behavior").
+		// a particular layout (see docs/backlog.yml dn-doc-render-caveats).
 		name: 'text box with margins',
 		fn: async () => {
 			const { buf } = await build((p) => {
@@ -117,7 +117,7 @@ export default [
 	{
 		// Serialization-contract fixture: breakLine: false on a CRLF-containing run must
 		// produce valid OOXML (upstream-issue-1138). The rendering result is layout-dependent
-		// and not asserted here — see UPSTREAMING_CANDIDATES.md "Text Box Behavior".
+		// and not asserted here — see docs/backlog.yml dn-doc-render-caveats.
 		name: 'rich text with breakLine: false on CRLF-containing run',
 		fn: async () => {
 			const { buf } = await build((p) => {
