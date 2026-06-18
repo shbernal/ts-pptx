@@ -58,6 +58,10 @@ function allShapes(shapes) {
 	return shapes.flatMap((shape) => (shape.shapeType === 'group' ? [shape, ...allShapes(shape.shapes)] : [shape]))
 }
 
+function leafShapes(shapes) {
+	return allShapes(shapes).filter((shape) => shape.shapeType !== 'group')
+}
+
 /** Every paragraph of every (flattened) shape on a slide. */
 function allParagraphs(slide) {
 	return allShapes(slide.shapes)
@@ -396,6 +400,14 @@ describe('Picture recolour reads (recolor)', () => {
 })
 
 describe('Group-child absolute geometry (absoluteFrame)', () => {
+	function assertWithin(actual, expected, tolerance, label) {
+		assert(Math.abs(actual - expected) <= tolerance, `${label}: expected ${expected} ± ${tolerance}, got ${actual}`)
+	}
+
+	function normalizedDegrees(value) {
+		return ((value % 360) + 360) % 360
+	}
+
 	test('a top-level shape resolves to its own geometry', async () => {
 		const presentation = await (async () => {
 			const pres = new PptxGenJS()
@@ -408,6 +420,9 @@ describe('Group-child absolute geometry (absoluteFrame)', () => {
 		assertEqual(frame.top, shape.top, 'an ungrouped shape: absolute top == own top')
 		assertEqual(frame.width, shape.width, 'an ungrouped shape: absolute width == own width')
 		assertEqual(frame.height, shape.height, 'an ungrouped shape: absolute height == own height')
+		assertEqual(frame.rotation, 0, 'an ungrouped unrotated shape has effective rotation 0')
+		assertEqual(frame.flipH, false, 'an ungrouped unflipped shape has effective flipH=false')
+		assertEqual(frame.flipV, false, 'an ungrouped unflipped shape has effective flipV=false')
 	})
 
 	test('a group child composes its parent group transform (real PowerPoint XML, mixed.pptx slide5)', async () => {
@@ -445,6 +460,54 @@ describe('Group-child absolute geometry (absoluteFrame)', () => {
 		assertEqual(frame.top, 12400, 'top composes inner then outer offset+scale')
 		assertEqual(frame.width, 2000, 'width scales by inner×outer ratio (500 → 2000)')
 		assertEqual(frame.height, 2000, 'height scales by inner×outer ratio')
+	})
+
+	test('composes scale, rotation, and flips to match PowerPoint ungroup output', async () => {
+		const [grouped, ungrouped] = (await open('group-transform')).slides
+		const flattenedGroups = allShapes(ungrouped.shapes).filter((shape) => shape.shapeType === 'group')
+		assertEqual(flattenedGroups.length, 0, 'slide 2 is PowerPoint-ungrouped ground truth')
+
+		const groupedChildren = leafShapes(grouped.shapes).filter((shape) => shape.name.includes(' child '))
+		const ungroupedByName = new Map(leafShapes(ungrouped.shapes).map((shape) => [shape.name, shape]))
+
+		assertEqual(
+			groupedChildren.length,
+			21,
+			'fixture pins the original four groups plus scale/child/nested transform cases'
+		)
+		assert(
+			groupedChildren.some((shape) => shape.name.startsWith('scale-rot child ')),
+			'expected scale+rotation group children in the fixture'
+		)
+		assert(
+			groupedChildren.some((shape) => shape.name.startsWith('childrot-in-rot child ')),
+			'expected child-owned transform children in the fixture'
+		)
+		assert(
+			groupedChildren.some((shape) => shape.name.startsWith('nested-rot-in-scale child ')),
+			'expected nested rotated group children in the fixture'
+		)
+
+		for (const child of groupedChildren) {
+			const expectedName = child.name.replace(/^(.+?) child /, '$1-ungrouped child ')
+			const expected = ungroupedByName.get(expectedName)
+			assert(expected, `expected PowerPoint-ungrouped twin "${expectedName}" for "${child.name}"`)
+
+			const frame = child.absoluteFrame
+			assert(frame, `${child.name} should have a resolvable absolute frame`)
+			assertWithin(frame.left, expected.left, 2, `${child.name} absolute left`)
+			assertWithin(frame.top, expected.top, 2, `${child.name} absolute top`)
+			assertWithin(frame.width, expected.width, 2, `${child.name} absolute width`)
+			assertWithin(frame.height, expected.height, 2, `${child.name} absolute height`)
+			assertWithin(
+				normalizedDegrees(frame.rotation),
+				normalizedDegrees(expected.rotation),
+				1e-6,
+				`${child.name} effective rotation`
+			)
+			assertEqual(frame.flipH, expected.flipH, `${child.name} effective flipH`)
+			assertEqual(frame.flipV, expected.flipV, `${child.name} effective flipV`)
+		}
 	})
 
 	test('a shape with no own transform has no resolvable absolute frame', () => {

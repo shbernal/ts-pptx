@@ -198,22 +198,33 @@ function recolorColorOf(color: Element | null): RecolorColor | null {
 	}
 }
 
-// Warn at most once when absoluteFrame meets a rotated/flipped group it cannot
-// compose exactly, rather than spamming a getter that may be called per shape.
-let warnedTransformedGroup = false
+function rotationDegrees(xfrm: Element): number {
+	const rot = intValue(attr(xfrm, 'rot'))
+	return rot === null ? 0 : rot / 60000
+}
 
-/** Warn (once) if a group transform carries a rotation/flip that the offset+scale composition ignores. */
-function warnIfTransformedGroup(groupXfrm: Element): void {
-	if (warnedTransformedGroup) return
-	const rot = attr(groupXfrm, 'rot')
-	const flipH = attr(groupXfrm, 'flipH')
-	const flipV = attr(groupXfrm, 'flipV')
-	const flipped = flipH === '1' || flipH === 'true' || flipV === '1' || flipV === 'true'
-	if ((rot && rot !== '0') || flipped) {
-		warnedTransformedGroup = true
-		console.warn(
-			'Shape.absoluteFrame: an enclosing group is rotated or flipped (@rot/@flipH/@flipV); the returned frame composes offset and scale only and is approximate for such groups.'
-		)
+function normalizeDegrees(value: number): number {
+	return ((value % 360) + 360) % 360
+}
+
+function transformFlipH(xfrm: Element): boolean {
+	return boolValue(attr(xfrm, 'flipH')) === true
+}
+
+function transformFlipV(xfrm: Element): boolean {
+	return boolValue(attr(xfrm, 'flipV')) === true
+}
+
+function rotatePoint(point: { x: number; y: number }, center: { x: number; y: number }, degrees: number): { x: number; y: number } {
+	if (degrees === 0) return point
+	const angle = (degrees * Math.PI) / 180
+	const cos = Math.cos(angle)
+	const sin = Math.sin(angle)
+	const dx = point.x - center.x
+	const dy = point.y - center.y
+	return {
+		x: center.x + cos * dx - sin * dy,
+		y: center.y + sin * dx + cos * dy,
 	}
 }
 
@@ -242,6 +253,12 @@ export interface AbsoluteFrame {
 	top: number
 	width: number
 	height: number
+	/** Effective clockwise rotation in degrees after composing enclosing group rotations. */
+	rotation: number
+	/** Effective horizontal flip after XOR-composing enclosing group flips. */
+	flipH: boolean
+	/** Effective vertical flip after XOR-composing enclosing group flips. */
+	flipV: boolean
 }
 
 /**
@@ -359,61 +376,73 @@ export abstract class Shape {
 	 * ("inherits layout geometry") stays distinct from `0` ("has a transform, not
 	 * rotated"). The value is faithful to the XML and not normalised to a signed
 	 * range, so a `@rot` past 360° (e.g. a negative angle stored as `19216344`)
-	 * reads back greater than 360. This is the per-shape complement to
-	 * {@link absoluteFrame}, which composes offset+scale only and warns when an
-	 * enclosing group is itself rotated/flipped.
+	 * reads back greater than 360. This is the shape's own orientation; use
+	 * {@link absoluteFrame} when you need the effective orientation after
+	 * enclosing group transforms are composed.
 	 */
 	get rotation(): number | null {
 		const xfrm = this.xfrm()
 		if (!xfrm) return null
-		const rot = intValue(attr(xfrm, 'rot'))
-		return rot === null ? 0 : rot / 60000
+		return rotationDegrees(xfrm)
 	}
 
 	/**
 	 * Whether the shape is flipped horizontally (`a:xfrm/@flipH`); `false` when
-	 * unset or when the shape has no own transform. Per-shape complement to
-	 * {@link absoluteFrame}'s group-flip limit.
+	 * unset or when the shape has no own transform. This is the shape's own
+	 * horizontal flip; use {@link absoluteFrame} for the effective value after
+	 * enclosing group transforms are composed.
 	 */
 	get flipH(): boolean {
 		const xfrm = this.xfrm()
-		return xfrm !== null && boolValue(attr(xfrm, 'flipH')) === true
+		return xfrm !== null && transformFlipH(xfrm)
 	}
 
 	/**
 	 * Whether the shape is flipped vertically (`a:xfrm/@flipV`); `false` when
-	 * unset or when the shape has no own transform. Per-shape complement to
-	 * {@link absoluteFrame}'s group-flip limit.
+	 * unset or when the shape has no own transform. This is the shape's own
+	 * vertical flip; use {@link absoluteFrame} for the effective value after
+	 * enclosing group transforms are composed.
 	 */
 	get flipV(): boolean {
 		const xfrm = this.xfrm()
-		return xfrm !== null && boolValue(attr(xfrm, 'flipV')) === true
+		return xfrm !== null && transformFlipV(xfrm)
 	}
 
 	/**
-	 * This shape's position and size in **slide-absolute** EMU, composing the
-	 * offset+scale transform of every enclosing group.
+	 * This shape's position, size, and effective orientation in **slide-absolute**
+	 * EMU/degrees, composing every enclosing group transform.
 	 *
 	 * {@link left}/{@link top}/{@link width}/{@link height} report a group child's
 	 * geometry in its group's child coordinate space (`a:chOff`/`a:chExt`), which is
 	 * not directly placeable on the slide. This getter walks the `p:grpSp` ancestor
 	 * chain outward, mapping the box through each group's
-	 * `off + (p - chOff) * (ext / chExt)` transform, so a nested shape's frame can be
-	 * dropped onto a flat slide as-is. For a shape already at slide level it equals
-	 * `{ left, top, width, height }`.
+	 * `off + (p - chOff) * (ext / chExt)` transform, then composing group flips and
+	 * rotations about the group centre. For a shape already at slide level the box
+	 * equals its own `{ left, top, width, height }`, while `rotation`/`flipH`/`flipV`
+	 * equal the shape's own transform values.
 	 *
 	 * `null` when the shape (or any enclosing group) has no own transform, or a
 	 * group's `a:chExt` is degenerate (zero) — there is then no resolvable frame.
 	 *
-	 * **Limit (axis-aligned only):** a group's `@rot`/`@flipH`/`@flipV` also
-	 * rotates/flips its children; this composes offset and scale only, so the frame
-	 * is approximate for a rotated or flipped group (a one-time warning is emitted).
-	 * A fully general placement must compose the rotation too.
+	 * A rotated shape's returned `left`/`top` remain PowerPoint's unrotated
+	 * placement box (the same box PowerPoint writes after Ungroup), with the
+	 * effective rotation exposed separately.
 	 */
 	get absoluteFrame(): AbsoluteFrame | null {
 		const xfrm = this.xfrm()
 		let box = xfrm && readBox(xfrm, 'a:off', 'a:ext')
 		if (!box) return null
+		let center = { x: box.x + box.cx / 2, y: box.y + box.cy / 2 }
+		let width = box.cx
+		let height = box.cy
+		const groups: {
+			center: { x: number; y: number }
+			rotation: number
+			flipH: boolean
+			flipV: boolean
+		}[] = []
+		let flipH = transformFlipH(xfrm)
+		let flipV = transformFlipV(xfrm)
 		for (let node = this.element.parentNode; node && node.nodeType === ELEMENT_NODE; node = node.parentNode) {
 			const parent = node as Element
 			if (parent.namespaceURI !== OOXML_NS.p || parent.localName !== 'grpSp') break // reached the shape tree (or a non-group)
@@ -423,17 +452,54 @@ export abstract class Shape {
 			const child = groupXfrm && readBox(groupXfrm, 'a:chOff', 'a:chExt')
 			if (!groupXfrm || !outer || !child) return null
 			if (child.cx === 0 || child.cy === 0) return null // degenerate child frame — no resolvable mapping
-			warnIfTransformedGroup(groupXfrm)
 			const ratioX = outer.cx / child.cx
 			const ratioY = outer.cy / child.cy
-			box = {
-				x: outer.x + (box.x - child.x) * ratioX,
-				y: outer.y + (box.y - child.y) * ratioY,
-				cx: box.cx * ratioX,
-				cy: box.cy * ratioY,
+			const groupFlipH = transformFlipH(groupXfrm)
+			const groupFlipV = transformFlipV(groupXfrm)
+
+			const mapPoint = (point: { x: number; y: number }): { x: number; y: number } => {
+				let x = outer.x + (point.x - child.x) * ratioX
+				let y = outer.y + (point.y - child.y) * ratioY
+				if (groupFlipH) x = outer.x + outer.cx - (x - outer.x)
+				if (groupFlipV) y = outer.y + outer.cy - (y - outer.y)
+				return { x, y }
 			}
+			center = mapPoint(center)
+			for (const group of groups) group.center = mapPoint(group.center)
+			width *= Math.abs(ratioX)
+			height *= Math.abs(ratioY)
+			groups.push({
+				center: { x: outer.x + outer.cx / 2, y: outer.y + outer.cy / 2 },
+				rotation: rotationDegrees(groupXfrm),
+				flipH: groupFlipH,
+				flipV: groupFlipV,
+			})
+			flipH = flipH !== groupFlipH
+			flipV = flipV !== groupFlipV
 		}
-		return { left: Math.round(box.x), top: Math.round(box.y), width: Math.round(box.cx), height: Math.round(box.cy) }
+		let rotation = 0
+		let orientation = 1
+		for (let index = groups.length - 1; index >= 0; index--) {
+			const group = groups[index]
+			const groupRotation = group.rotation * orientation
+			center = rotatePoint(center, group.center, groupRotation)
+			for (let innerIndex = 0; innerIndex < index; innerIndex++) {
+				groups[innerIndex].center = rotatePoint(groups[innerIndex].center, group.center, groupRotation)
+			}
+			rotation += groupRotation
+			if (group.flipH !== group.flipV) orientation *= -1
+		}
+		rotation = normalizeDegrees(rotation + rotationDegrees(xfrm) * orientation)
+		box = { x: center.x - width / 2, y: center.y - height / 2, cx: width, cy: height }
+		return {
+			left: Math.round(box.x),
+			top: Math.round(box.y),
+			width: Math.round(box.cx),
+			height: Math.round(box.cy),
+			rotation,
+			flipH,
+			flipV,
+		}
 	}
 
 	#setOffset(axis: 'x' | 'y', value: number, allowNegative: boolean): void {

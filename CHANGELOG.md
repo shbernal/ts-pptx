@@ -51,6 +51,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `applyColorTransforms(baseHex, transforms): EffectiveColor`. Additive, no
   signature breaks. Verified against an oracle table of PowerPoint/LibreOffice
   source→effective mappings (`test/read/color-transform.test.js`, 17 cases).
+- **Group-aware absolute shape frames:** `Shape.absoluteFrame` now composes
+  enclosing group rotation and flips, including scaled rotated groups, children
+  with their own rotation/flip, and nested rotated groups. The returned frame
+  adds effective `rotation`, `flipH`, and `flipV` fields; `left`/`top`/`width`/
+  `height` remain the PowerPoint-style unrotated placement box in slide EMU.
+  Verified against an expanded desktop PowerPoint-authored
+  `group-transform.pptx` fixture whose second slide is PowerPoint's own
+  ungrouped ground truth.
 
 ### Fixed
 

@@ -9775,7 +9775,7 @@ items:
     type: downstream-need
     first_seen: 2026-06-18
     last_reviewed: 2026-06-18
-    status: target-candidate
+    status: implemented
     priority: p2
     target_area:
       - typescript-api
@@ -9784,51 +9784,35 @@ items:
     non_target_reasons: []
     summary: absoluteFrame composes group offset+scale only; an enclosing @rot/@flipH/@flipV is not applied, so group-child placement is approximate
     current_project_notes: |
-      Read-model gap surfaced by the slide-replication work (the "source-pixel
-      replica" method: transcribe each shape at its absolute on-canvas geometry).
-      `Shape.absoluteFrame` (src/read/api/shapes.ts) walks the group ancestry and
-      composes each group's offset + child-scale (chOff/chExt vs off/ext), which
-      is what closed the original group-local-coordinate blocker (downstream
-      emits `absBox` from it). But it deliberately does NOT apply an enclosing
-      group's rotation/flip: when a `<p:grpSpPr>` xfrm carries @rot/@flipH/@flipV,
-      the returned frame is offset+scale only and the code emits a one-time warning
-      (shapes.ts:201-215, and the JSDoc at shapes.ts:409-413). For such a group the
-      child's absolute placement is approximate — a replicator transcribing `absBox`
-      lands children in the wrong spot and only catches it by eyeballing the render.
+      Implemented in src/read/api/shapes.ts. `Shape.absoluteFrame` now composes
+      enclosing group offset, child scale (`chOff`/`chExt` vs `off`/`ext`), flip,
+      and rotation. The position fields remain PowerPoint's unrotated placement
+      box in slide EMU, and the returned object now also carries effective
+      `rotation`, `flipH`, and `flipV` for consumers that flatten group children.
 
-      Why it matters now: the replication-lab audit (scripts/slide-analysis/replication)
-      flags `group-rot-flip` as the one UNTRACKED residual after the colour-transform
-      and absBox fixes closed blockers #2 and #3. It currently has no backlog id, so
-      the audit can only mark it YELLOW "verify by hand" instead of gating it like
-      the others. Filing this lets the audit resolve its status from the ledger and
-      go GREEN automatically when the fix lands.
-
-      Design sketch (needs validation before implementing): extend the absoluteFrame
-      transform composition to apply each enclosing group's rotation and flip, not
-      just translate+scale. Open questions: PowerPoint rotates a group about the
-      group's own centre then places children within the rotated frame, so the
-      child's absolute box is no longer axis-aligned — `absoluteFrame` may need to
-      return a rotation/flip alongside the box (or document that the box is the
-      pre-rotation frame plus an effective rotation), and consumers must compose
-      that into the shape's own @rot. Flip propagation (flipH/flipV) toggles child
-      flip and mirrors offsets about the group axis. Build a PowerPoint-authored
-      fixture with a rotated group + flipped group and diff the rendered child
-      centres against the model before/after.
-
-      Scope note: nested *scaled* groups (e.g. the NYCO fan, Group 5 -> 15/24 at
-      ~0.95) are already handled — this is specifically the rotation/flip axis.
-    stopgap: downstream:scripts/slide-analysis/replication/capability-map.ts
+      The implementation was validated against an expanded desktop
+      PowerPoint-authored `test/read/fixtures/group-transform.pptx`: slide 1 keeps
+      grouped children, while slide 2 is PowerPoint's own repeated Ungroup result.
+      The fixture covers the original pure rot/flip groups plus scale+rotation,
+      child-owned rotation/flip inside a transformed group, and a nested rotated
+      group inside a scaled rotated parent. `test/read/style-accessors.test.js`
+      compares each grouped child's `absoluteFrame` to the matching
+      `<name>-ungrouped` PowerPoint ground-truth shape.
     evidence:
       kinds:
         - local-source-inspection
-        - render-check
+        - regression-test
+        - powerpoint-authored-comparison
       local_files:
         - src/read/api/shapes.ts
+        - test/read/style-accessors.test.js
+        - test/read/fixtures/group-transform.pptx
+        - test/read/fixtures/README.md
       schema_fixture: null
       validator_result: null
-      powerpoint_result: null
+      powerpoint_result: test/read/fixtures/group-transform.pptx opened clean in Windows desktop PowerPoint 16.0 on 2026-06-18
       spec_refs: []
-    next_action: design-api-shape
+    next_action: none
   - id: dn-backlog-construct-tags
     source: downstream:scripts/slide-analysis/replication/capability-map.ts
     type: downstream-need
