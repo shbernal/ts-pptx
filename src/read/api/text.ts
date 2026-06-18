@@ -159,8 +159,9 @@ export class Run {
 	 * `null` when the run sets no colour of its own (it then inherits from the
 	 * placeholder / list-style chain, which this getter does not walk), the colour
 	 * cannot be made literal, or the run was reached without a theme context. The
-	 * returned {@link ResolvedColor} reports child colour transforms but does not
-	 * apply them.
+	 * returned {@link ResolvedColor} carries `effectiveHex` — the base colour with
+	 * its child transforms (`lumMod`/`shade`/…) applied — for the final rendered
+	 * colour.
 	 */
 	get resolvedColor(): ResolvedColor | null {
 		return this.themeColors ? resolveSolidFillColor(this.#rPr(), this.themeColors) : null

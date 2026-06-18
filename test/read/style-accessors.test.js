@@ -231,6 +231,9 @@ describe('Shape style reads — write→read round-trip', () => {
 		assertEqual(first.schemeColor, null, 'first stop has no scheme colour')
 		assertEqual(last.color, null, 'second stop has no explicit colour')
 		assertEqual(last.schemeColor, 'accent1', 'second stop is a scheme colour')
+		// Each stop also resolves through the theme to its effective (transform-applied) hex.
+		assertEqual(first.effectiveHex, '451DC7', 'an explicit stop resolves to itself')
+		assertEqual(last.effectiveHex, '4472C4', 'the accent1 stop resolves to the theme accent1 hex')
 
 		const solid = shapes.find((s) => s.fillColor === '00FF00')
 		assertEqual(solid.gradientStops, null, 'a solid-filled shape reports null gradientStops')
@@ -304,7 +307,7 @@ describe('Theme colour resolution — write→read round-trip', () => {
 		assertEqual(gradient.resolvedLine, null, 'an unlined shape resolves no line colour')
 	})
 
-	test('resolvedFill reports colour transforms without applying them', async () => {
+	test('resolvedFill reports the base hex + raw transforms and the applied effectiveHex', async () => {
 		const presentation = await reopen((p) => {
 			p.addSlide().addShape(p.shapes.RECTANGLE, {
 				x: 1,
@@ -316,10 +319,14 @@ describe('Theme colour resolution — write→read round-trip', () => {
 		})
 		const shape = presentation.slides[0].shapes.find((s) => s.presetGeometry === 'rect')
 		// transparency 25 → <a:alpha val="75000"/>; the base hex stays the theme colour.
-		assertEqual(shape.resolvedFill.hex, '4472C4', 'base colour stays the theme hex, not premultiplied')
-		assertEqual(shape.resolvedFill.transforms.length, 1, 'one transform child reported')
-		assertEqual(shape.resolvedFill.transforms[0].name, 'alpha', 'the alpha transform is reported by name')
-		assertEqual(shape.resolvedFill.transforms[0].value, '75000', 'with its raw @val, left for the consumer to apply')
+		const fill = shape.resolvedFill
+		assertEqual(fill.hex, '4472C4', 'base colour stays the theme hex, not premultiplied')
+		assertEqual(fill.transforms.length, 1, 'one transform child reported')
+		assertEqual(fill.transforms[0].name, 'alpha', 'the alpha transform is reported by name')
+		assertEqual(fill.transforms[0].value, '75000', 'with its raw @val, left for the consumer to apply')
+		// The new applied value: alpha does not touch RGB, so effectiveHex == base, alpha 0.75.
+		assertEqual(fill.effectiveHex, '4472C4', 'effectiveHex is the base with transforms applied (alpha leaves RGB)')
+		assertEqual(fill.alpha, 0.75, 'an alpha transform surfaces as 0–1 opacity')
 	})
 
 	test('Run.resolvedColor resolves a scheme run colour to the theme hex', async () => {

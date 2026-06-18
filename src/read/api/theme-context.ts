@@ -9,6 +9,7 @@
  * background needs on top of {@link resolveSlideThemeParts} — so a token resolves
  * identically whether it is read or baked.
  */
+import { applyColorTransforms } from '../oxml/color-transform.js'
 import { ELEMENT_NODE, attr, firstChild, type Element } from '../oxml/dom.js'
 import { parseClrMap, parseClrScheme, resolveColor, type ColorContext } from '../oxml/theme.js'
 import type { OpcPackage } from '../opc/package.js'
@@ -82,14 +83,39 @@ export function resolveSlideColorContext(opc: OpcPackage, slidePartName: string)
 
 /**
  * A DrawingML colour reference resolved against a slide's theme to a literal hex.
- * `transforms` reports the colour-transform children (`lumMod`/`lumOff`/`shade`/
- * `tint`/`alpha`/…) in document order as `{ name, value }` pairs — they are
- * **not** applied to `hex`; a consumer that needs the final rendered colour must
- * apply them itself.
+ *
+ * `hex` is the **base** token colour and `transforms` reports the colour-transform
+ * children (`lumMod`/`lumOff`/`shade`/`tint`/`alpha`/…) in document order as
+ * `{ name, value }` pairs — both kept for traceability and for the
+ * `theme: 'preserve'` flatten path that re-emits the transforms verbatim.
+ *
+ * `effectiveHex` is the colour a renderer actually paints: `hex` with its
+ * `transforms` applied (see {@link applyColorTransforms}). Read this for the final
+ * rendered colour. `alpha` (0–1) is present only when an `alpha*` transform set an
+ * opacity.
  */
 export interface ResolvedColor {
 	hex: string
 	transforms: { name: string; value: string | null }[]
+	effectiveHex: string
+	alpha?: number
+}
+
+/**
+ * Resolve a DrawingML colour *element* (`a:srgbClr`/`a:schemeClr`/`a:sysClr`)
+ * against `ctx` into a full {@link ResolvedColor} — base hex, raw transform list,
+ * and the `effectiveHex`/`alpha` after applying those transforms. `null` when the
+ * element cannot be made literal (unmapped token, or a colour model we do not
+ * resolve). Shared by the solid-fill and gradient-stop colour reads.
+ */
+export function resolveColorElement(colorEl: Element | null, ctx: ColorContext): ResolvedColor | null {
+	const resolved = resolveColor(colorEl, ctx)
+	if (!resolved) return null
+	const transforms = resolved.transforms.map((t) => ({ name: t.localName, value: attr(t, 'val') }))
+	const { hex, alpha } = applyColorTransforms(resolved.hex, transforms)
+	return alpha === undefined
+		? { hex: resolved.hex, transforms, effectiveHex: hex }
+		: { hex: resolved.hex, transforms, effectiveHex: hex, alpha }
 }
 
 /** First child *element* of `parent` (skipping text/comment nodes), or `null`. */
@@ -110,7 +136,5 @@ export function resolveSolidFillColor(container: Element | null, ctx: ColorConte
 	if (!container) return null
 	const solidFill = firstChild(container, 'a:solidFill')
 	if (!solidFill) return null
-	const resolved = resolveColor(firstChildElement(solidFill), ctx)
-	if (!resolved) return null
-	return { hex: resolved.hex, transforms: resolved.transforms.map((t) => ({ name: t.localName, value: attr(t, 'val') })) }
+	return resolveColorElement(firstChildElement(solidFill), ctx)
 }

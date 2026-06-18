@@ -23,7 +23,7 @@ import {
 import { fitSrcRectPercents, getImageSizeFromBytes } from '../../gen-utils.js'
 import { relativePartName } from '../opc/partnames.js'
 import { FILL_CHOICES, normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
-import { resolveSolidFillColor, type ResolvedColor } from './theme-context.js'
+import { resolveColorElement, resolveSolidFillColor, type ResolvedColor } from './theme-context.js'
 import { Chart } from './chart.js'
 import { Table } from './table.js'
 import { TextFrame } from './text.js'
@@ -225,6 +225,15 @@ export interface GradientStop {
 	color: string | null
 	/** Theme colour token (`a:schemeClr/@val`, e.g. `accent1`), or `null` when the stop uses an explicit colour. */
 	schemeColor: string | null
+	/**
+	 * The stop's colour resolved against the slide theme **with its colour
+	 * transforms applied** — the final rendered hex (the gradient counterpart of
+	 * {@link ResolvedColor.effectiveHex}). `null` when the colour cannot be made
+	 * literal (an unmapped token, or a colour model we do not resolve).
+	 */
+	effectiveHex: string | null
+	/** The stop's opacity (0–1) when an `alpha*` transform set one, else `undefined`. */
+	alpha?: number
 }
 
 /** A shape's resolved position and size in slide-absolute EMU. */
@@ -548,14 +557,18 @@ export abstract class Shape {
 		if (!grad) return null
 		const gsLst = firstChild(grad, 'a:gsLst')
 		if (!gsLst) return []
+		const ctx = this.slide.themeContext()
 		return getElements(gsLst, 'a:gs').map((gs) => {
 			const pos = intValue(attr(gs, 'pos'))
 			const srgb = firstChild(gs, 'a:srgbClr')
 			const scheme = firstChild(gs, 'a:schemeClr')
+			const resolved = resolveColorElement(srgb ?? scheme ?? null, ctx)
 			return {
 				position: pos === null ? null : pos / 100000,
 				color: srgb ? attr(srgb, 'val') : null,
 				schemeColor: scheme ? attr(scheme, 'val') : null,
+				effectiveHex: resolved ? resolved.effectiveHex : null,
+				...(resolved?.alpha !== undefined ? { alpha: resolved.alpha } : {}),
 			}
 		})
 	}
@@ -566,7 +579,9 @@ export abstract class Shape {
 	 * {@link fillColor}/{@link fillSchemeColor}, which report the raw reference.
 	 * `null` when the shape has no `a:solidFill` (a gradient/none/inherited fill)
 	 * or the colour cannot be made literal. The returned {@link ResolvedColor}
-	 * reports child colour transforms (`lumMod`/`shade`/…) but does not apply them.
+	 * carries the base `hex` and raw transforms, and `effectiveHex` — the base with
+	 * its colour transforms (`lumMod`/`shade`/…) applied (read that for the final
+	 * rendered colour).
 	 */
 	get resolvedFill(): ResolvedColor | null {
 		return resolveSolidFillColor(this.properties(), this.slide.themeContext())
@@ -576,6 +591,8 @@ export abstract class Shape {
 	 * The shape's line/border solid fill resolved against the slide's theme to a
 	 * literal hex — the resolved counterpart of {@link lineColor}/{@link lineSchemeColor}.
 	 * `null` when the shape has no `a:ln/a:solidFill` or it cannot be made literal.
+	 * Like {@link resolvedFill}, the result carries `effectiveHex` (the base colour
+	 * with its transforms applied) for the final rendered colour.
 	 */
 	get resolvedLine(): ResolvedColor | null {
 		return resolveSolidFillColor(this.#line(), this.slide.themeContext())
