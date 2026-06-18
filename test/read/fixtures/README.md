@@ -23,15 +23,13 @@ Authoring application verified from each file's `docProps/app.xml`.
 ### Locally provided (license-clean, promoted from `pptx-bank/`)
 
 Real-world PowerPoint output contributed by the maintainer and confirmed
-license-clean for inclusion. Promoted from local maintainer-provided inputs such
-as the uncommitted `pptx-bank/` corpus (see `../../../pptx-bank/README.md`) or a
-one-off local deck because they exercise shape kinds the vendored set does not.
-Stored byte-for-byte as authored.
+license-clean for inclusion. Promoted from the uncommitted `pptx-bank/` corpus
+(see `../../../pptx-bank/README.md`) because it exercises shape kinds the
+vendored set does not. Stored byte-for-byte as authored.
 
 | Local name | Application | AppVersion | Slides |
 |---|---|---|---|
 | `mixed.pptx` | Microsoft Macintosh PowerPoint | 16.0000 | 11 |
-| `group-transform.pptx` | Microsoft Office PowerPoint | 16.0000 | 4 |
 
 ### Derived from a vendored fixture
 
@@ -49,7 +47,6 @@ SHA-256 of the fixture bytes:
 73e4743c2d1e54f3959ffa5f5ff55071c3be6946097e90676fb6a16d6f690472  hidden.pptx
 f2a75b0111c0d486cf81b33a21055c2ffe891c76ecbb7e261e2c8b626c0e7b35  image.pptx
 db80910224b01b46cb7e8c29e183b59d128a18fd8e0c651558907230874693b9  mixed.pptx
-b3800c7ac9ac0481e6a528b9a7e879e24c0323189b2920730dd04de95c201b74  group-transform.pptx
 c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
 1a59832d7e5c926e4aff11e9f62bc90c9e8430fb68e1d77a1b4a2fb0800e05d2  textbox.pptx
 ```
@@ -70,10 +67,6 @@ c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
   plus tables, a chart (`c:chart`), and SmartArt/diagram (`dgm:`) graphic
   frames. The Phase 2 read-model coverage deck for shape enumeration and
   group traversal.
-- `group-transform.pptx` — a 4-slide PowerPoint-authored deck with grouped
-  shapes and rotated child shapes. It is partial evidence for the
-  `dn-group-rot-flip-frame` backlog item, but does **not** close it: the group
-  transforms themselves do not carry `@rot`, `@flipH`, or `@flipV`.
 
 ## Manual PowerPoint check
 
@@ -90,7 +83,6 @@ fixtures opened clean with no repair prompt:
 - [x] `image.pptx` — PowerPoint for the web, 2026-06-13
 - [x] `table.pptx` — PowerPoint for the web, 2026-06-13
 - [ ] `mixed.pptx` — not yet performed (added 2026-06-13 for Phase 2)
-- [ ] `group-transform.pptx` — not yet performed (added 2026-06-18 as partial group-transform evidence)
 
 **Further testing needed on PowerPoint desktop.** The web loader is more lenient
 than desktop PowerPoint, whose stricter OOXML validation is what produces the
@@ -105,7 +97,6 @@ and the emitted XML actually differs:
 - [ ] `image.pptx` — desktop PowerPoint (Windows/Mac) not yet performed
 - [ ] `table.pptx` — desktop PowerPoint (Windows/Mac) not yet performed
 - [ ] `mixed.pptx` — desktop PowerPoint (Windows/Mac) not yet performed
-- [ ] `group-transform.pptx` — desktop PowerPoint (Windows/Mac) not yet performed
 
 ## Manual PowerPoint check — edited output
 

@@ -9817,26 +9817,18 @@ items:
 
       Scope note: nested *scaled* groups (e.g. the NYCO fan, Group 5 -> 15/24 at
       ~0.95) are already handled — this is specifically the rotation/flip axis.
-
-      Partial fixture check, 2026-06-18: `test/read/fixtures/group-transform.pptx`
-      is a PowerPoint-authored deck with grouped content and rotated child shapes,
-      but its group transforms do not carry `@rot`, `@flipH`, or `@flipV`. Keep it
-      as read-harness coverage, not as the closing reproduction for this item.
     stopgap: downstream:decks/replication-lab/audit/capability-map.ts
     evidence:
       kinds:
         - local-source-inspection
-        - powerpoint-authored-comparison
-        - extracted-xml
         - render-check
       local_files:
         - src/read/api/shapes.ts
-        - test/read/fixtures/group-transform.pptx
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: create-powerpoint-authored-group-rot-flip-fixture
+    next_action: design-api-shape
   - id: dn-backlog-construct-tags
     source: downstream:decks/replication-lab/audit/capability-map.ts
     type: downstream-need
