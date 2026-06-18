@@ -23,6 +23,25 @@ const NOTES_SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/r
 const SLIDE_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
 const SLIDE_LAYOUT_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'
 
+/**
+ * Content types that are shared deck chrome: reachable through the
+ * presentation → master → layout → theme graph, not owned by any one slide.
+ * {@link Presentation.removeSlide} never prunes these as a removed slide's
+ * orphan, even while momentarily unreferenced.
+ */
+const SHARED_CHROME_CONTENT_TYPES = new Set([
+	SLIDE_MASTER_CONTENT_TYPE,
+	SLIDE_LAYOUT_CONTENT_TYPE,
+	'application/vnd.openxmlformats-officedocument.theme+xml',
+	'application/vnd.openxmlformats-officedocument.themeOverride+xml',
+	'application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml',
+	'application/vnd.openxmlformats-officedocument.presentationml.handoutMaster+xml',
+	'application/vnd.openxmlformats-officedocument.presentationml.presProps+xml',
+	'application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml',
+	'application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml',
+	'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml',
+])
+
 /** ST_SlideId minimum (ECMA-376): slide ids live in [256, 2147483647]. */
 const MIN_SLIDE_ID = 256
 
@@ -152,6 +171,37 @@ export interface ImportShapeOptions {
 	at?: number
 }
 
+/** A master brought across by {@link Presentation.importSlideMasters}. */
+export interface ImportedSlideMaster {
+	/** Partname of the copied master in this (destination) package. */
+	partName: string
+	/** Partnames of the layouts copied under it, in source `p:sldLayoutIdLst` order. */
+	layoutPartNames: string[]
+}
+
+/** Options for {@link Presentation.importSlideMasters}. */
+export interface ImportSlideMastersOptions {
+	/**
+	 * Pick which of the source's masters to graft. Receives the master's `p:cSld`
+	 * `name` (`''` when unnamed) and its zero-based index in the source's
+	 * `p:sldMasterIdLst`. Default: every master.
+	 */
+	masters?: (name: string, index: number) => boolean
+	/**
+	 * Pick which layouts under each grafted master to bring. Receives the layout's
+	 * `p:cSld` `name` and its zero-based index within that master's
+	 * `p:sldLayoutIdLst`. Default: the whole family.
+	 */
+	layouts?: (name: string, index: number) => boolean
+	/**
+	 * Require the source and destination slide sizes to match (default `true`).
+	 * A grafted master is shipped into the layout gallery, not applied to existing
+	 * slides — but a layout authored at a different canvas size shows up mis-scaled
+	 * in that gallery, so the guard is on by default. Pass `false` to graft anyway.
+	 */
+	requireEqualSize?: boolean
+}
+
 export class Presentation {
 	#presentationPart: Part | undefined
 	/**
@@ -249,6 +299,82 @@ export class Presentation {
 	}
 
 	/**
+	 * Remove the slide at `index` (deck order) and return its former partname. The
+	 * `p:sldId` entry and the presentation→slide relationship are dropped, the slide
+	 * part and its `.rels` are deleted, and any part the slide *privately* owned
+	 * (its notes slide, slide-only media, charts/embeddings) that no remaining part
+	 * references is pruned too — recursively. Shared deck chrome (layout, master,
+	 * theme, …) is never pruned, so the deck stays renderable; removing every slide
+	 * leaves a valid master/layout-only package (a template shell).
+	 *
+	 * Untouched parts stay byte-identical, matching the package fidelity contract.
+	 * Throws when there is no slide at `index`.
+	 */
+	removeSlide(index: number): string {
+		const slide = this.slides[index]
+		if (!slide) throw new Error(`No slide at index ${index} to remove`)
+		const partName = slide.partName
+
+		// The slide's internal targets, captured before its rels are dropped, so the
+		// parts it privately owned can be pruned afterwards.
+		const slideRels = this.opc.relationshipsFor(partName)
+		const formerTargets = [...slideRels].filter((rel) => rel.targetMode !== 'External').map((rel) => slideRels.resolveTarget(rel.id))
+
+		// Unwire from presentation.xml: remove the matching p:sldId and the rel.
+		const presPart = this.presentationPart
+		const presRels = this.opc.relationshipsFor(presPart.partName)
+		const root = presPart.dom.documentElement
+		const sldIdLst = root && firstChild(root, 'p:sldIdLst')
+		if (sldIdLst) {
+			for (const sldId of getElements(sldIdLst, 'p:sldId')) {
+				const relId = attr(sldId, 'r:id')
+				if (relId && presRels.get(relId) && presRels.resolveTarget(relId) === partName) {
+					sldIdLst.removeChild(sldId)
+					presRels.remove(relId)
+					break
+				}
+			}
+		}
+		presPart.markDirty()
+
+		// Drop the slide part and its .rels, then prune the parts it privately owned.
+		this.opc.removePart(relsPartNameFor(partName))
+		this.opc.removePart(partName)
+		for (const target of formerTargets) this.#pruneIfOrphan(target)
+
+		return partName
+	}
+
+	/**
+	 * Remove `partName` if it is neither shared chrome nor still referenced by any
+	 * remaining part, then recurse into the parts it referenced. The pruning a
+	 * removed slide triggers (notes/media/charts the slide alone used).
+	 */
+	#pruneIfOrphan(partName: string): void {
+		const part = this.opc.part(partName)
+		if (!part || SHARED_CHROME_CONTENT_TYPES.has(part.contentType)) return
+		if (this.#isReferenced(partName)) return
+		const rels = this.opc.relationshipsFor(partName)
+		const childTargets = [...rels].filter((rel) => rel.targetMode !== 'External').map((rel) => rels.resolveTarget(rel.id))
+		this.opc.removePart(relsPartNameFor(partName))
+		this.opc.removePart(partName)
+		for (const child of childTargets) this.#pruneIfOrphan(child)
+	}
+
+	/** Whether any remaining part (or the package root) resolves an internal relationship to `partName`. */
+	#isReferenced(partName: string): boolean {
+		for (const owner of [...this.opc.parts.keys(), '/']) {
+			if (owner.endsWith('.rels')) continue
+			const rels = this.opc.relationshipsFor(owner)
+			for (const rel of rels) {
+				if (rel.targetMode === 'External') continue
+				if (rels.resolveTarget(rel.id) === partName) return true
+			}
+		}
+		return false
+	}
+
+	/**
 	 * Append a copy of `source.slides[index]` to this presentation and return it.
 	 *
 	 * Unlike {@link cloneSlide} (same-deck duplicate), this copies a slide across
@@ -301,6 +427,92 @@ export class Presentation {
 
 		// 3. Wire the new slide into the presentation (rel + p:sldId entry) at `at`.
 		return this.#insertSlidePart(newPart, options.at)
+	}
+
+	/**
+	 * Graft slide master(s) from another open package into this one and return what
+	 * was copied. Unlike {@link importSlide} — which brings a master across only as
+	 * the dependency of an imported *slide* and prunes it to the one layout that
+	 * slide uses — this copies a master together with its **whole** layout family
+	 * and attaches it to no slide: the master and its layouts land in this deck's
+	 * layout gallery (PowerPoint's *Insert ▸ New Slide* / *Layout* picker) without
+	 * changing any existing slide.
+	 *
+	 * It is the "ship a brand template's layouts into a generated deck" capability,
+	 * kept brand-agnostic here: the caller supplies the source `.pptx`. Each grafted
+	 * master is wired into `p:sldMasterIdLst` (so renderers treat it as active) and
+	 * its `p:sldLayoutIdLst` is rebuilt to list exactly the copied layouts; the
+	 * connected theme/media/tag parts come across under fresh partnames, and parts
+	 * shared with earlier imports from the same source are reused (the copy
+	 * registry), so a re-call is idempotent. Untouched parts of this package stay
+	 * byte-identical, matching {@link importSlide}'s fidelity contract.
+	 *
+	 * `options.masters` / `options.layouts` narrow what is grafted; by default every
+	 * master and every layout comes across. The source and destination slide sizes
+	 * must match unless `options.requireEqualSize` is `false` (see
+	 * {@link ImportSlideMastersOptions}).
+	 *
+	 * v1 limitations mirror {@link importSlide}: no geometry rescaling, and
+	 * presentation-level embedded fonts are not copied.
+	 */
+	importSlideMasters(source: Presentation, options: ImportSlideMastersOptions = {}): ImportedSlideMaster[] {
+		if (options.requireEqualSize !== false) {
+			const target = this.slideSize
+			const incoming = source.slideSize
+			if (!target || !incoming || target.widthEmu !== incoming.widthEmu || target.heightEmu !== incoming.heightEmu) {
+				const fmt = (s: SlideSize | null): string => (s ? `${s.widthEmu}×${s.heightEmu} EMU` : 'unknown')
+				throw new Error(`importSlideMasters requires equal slide sizes (pass { requireEqualSize: false } to override); target is ${fmt(target)}, source is ${fmt(incoming)}`)
+			}
+		}
+
+		const pickMaster = options.masters ?? (() => true)
+		const pickLayout = options.layouts ?? (() => true)
+
+		const imported: ImportedSlideMaster[] = []
+		source.#slideMasterPartNames().forEach((masterPartName, masterIndex) => {
+			if (!pickMaster(cSldName(source.opc.part(masterPartName)), masterIndex)) return
+
+			// Copy the (lean) master first: #copyPart registers it in p:sldMasterIdLst
+			// and clears its layout list, then each copied layout re-links itself in.
+			const newMasterPartName = this.#copyPart(source.opc, masterPartName)
+
+			const layoutPartNames: string[] = []
+			source.#layoutPartNamesOf(masterPartName).forEach((layoutPartName, layoutIndex) => {
+				if (!pickLayout(cSldName(source.opc.part(layoutPartName)), layoutIndex)) return
+				layoutPartNames.push(this.#copyPart(source.opc, layoutPartName))
+			})
+
+			imported.push({ partName: newMasterPartName, layoutPartNames })
+		})
+		return imported
+	}
+
+	/** Source-side helper: master partnames in `p:sldMasterIdLst` order. */
+	#slideMasterPartNames(): string[] {
+		const root = this.presentationPart.dom.documentElement
+		const lst = root && firstChild(root, 'p:sldMasterIdLst')
+		if (!lst) return []
+		const rels = this.opc.relationshipsFor(this.presentationPart.partName)
+		const out: string[] = []
+		for (const entry of getElements(lst, 'p:sldMasterId')) {
+			const relId = attr(entry, 'r:id')
+			if (relId) out.push(rels.resolveTarget(relId))
+		}
+		return out
+	}
+
+	/** Source-side helper: a master's layout partnames in `p:sldLayoutIdLst` order. */
+	#layoutPartNamesOf(masterPartName: string): string[] {
+		const root = this.opc.part(masterPartName)?.dom.documentElement
+		const lst = root && firstChild(root, 'p:sldLayoutIdLst')
+		if (!lst) return []
+		const rels = this.opc.relationshipsFor(masterPartName)
+		const out: string[] = []
+		for (const entry of getElements(lst, 'p:sldLayoutId')) {
+			const relId = attr(entry, 'r:id')
+			if (relId) out.push(rels.resolveTarget(relId))
+		}
+		return out
 	}
 
 	/**
@@ -839,6 +1051,13 @@ export class Presentation {
 	async save(): Promise<Uint8Array> {
 		return this.opc.save()
 	}
+}
+
+/** The `p:cSld@name` of a slide/layout/master part (`''` when absent). */
+function cSldName(part: Part | undefined): string {
+	const root = part?.dom.documentElement
+	const cSld = root && firstChild(root, 'p:cSld')
+	return (cSld && attr(cSld, 'name')) ?? ''
 }
 
 /** Whether `el` is a `p:spTree`'s own group properties (`p:nvGrpSpPr`/`p:grpSpPr`), not a shape. */

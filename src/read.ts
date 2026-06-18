@@ -19,6 +19,8 @@ export {
 	type SlideSize,
 	type ImportSlideOptions,
 	type ImportShapeOptions,
+	type ImportSlideMastersOptions,
+	type ImportedSlideMaster,
 } from './read/api/presentation.js'
 export { Slide, type AddTextBoxOptions, type AddPictureOptions } from './read/api/slide.js'
 export {

@@ -100,6 +100,17 @@ export class Relationships {
 		return relationship
 	}
 
+	/**
+	 * Remove the relationship with `id` and return whether one was present. Used
+	 * when a referenced part is deleted (e.g. removing a slide drops the
+	 * presentation→slide relationship). Marks this set dirty when it removes one.
+	 */
+	remove(id: string): boolean {
+		const removed = this.#byId.delete(id)
+		if (removed) this.#dirty = true
+		return removed
+	}
+
 	get(id: string): Relationship | undefined {
 		return this.#byId.get(id)
 	}

@@ -100,6 +100,22 @@ export class OpcPackage {
 	}
 
 	/**
+	 * Remove a part and return whether it existed. Drops its `Override` content-type
+	 * registration and any cached relationship set it owned, so a later `save()`
+	 * neither re-emits it nor flushes a stale `.rels` for it. Low-level: it does not
+	 * touch references *to* this part (dangling rels are the caller's concern) nor
+	 * cascade to parts this one referenced — see {@link Presentation.removeSlide}
+	 * for the slide-aware variant that unwires the presentation and prunes orphans.
+	 */
+	removePart(partName: string): boolean {
+		if (!this.#parts.delete(partName)) return false
+		this.contentTypes.removeOverride(partName)
+		// Cache is keyed by owning part; clearing it stops a stale set being flushed.
+		this.#relationshipsCache.delete(partName)
+		return true
+	}
+
+	/**
 	 * Reserve an unused media partname `/ppt/media/<base><n>.<ext>` (n one past
 	 * the highest existing index for that base). Does not create the part.
 	 */

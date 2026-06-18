@@ -53,6 +53,15 @@ export class ContentTypes {
 		this.#dirty = true
 	}
 
+	/**
+	 * Drop the `Override` for `partName` if present (e.g. when a part is removed).
+	 * `Default` rules by extension are left untouched — they may still serve other
+	 * parts. Marks the overlay dirty when something was removed.
+	 */
+	removeOverride(partName: string): void {
+		if (this.#overrides.delete(partName)) this.#dirty = true
+	}
+
 	/** Register a `Default` content type for a (lowercased) extension if absent. */
 	ensureDefault(extension: string, contentType: string): void {
 		const ext = extension.toLowerCase()

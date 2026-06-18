@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Remove slides / parts (`Presentation.removeSlide`, `OpcPackage.removePart`):**
+  the `pptxgenjs/read` model can now delete content. `removeSlide(index)` drops
+  the `p:sldId` entry, the presentation→slide relationship, the slide part and its
+  `.rels`, and recursively prunes any part the slide *privately* owned (its notes
+  slide, slide-only media, charts/embeddings) that no remaining part references —
+  while never pruning shared chrome (layout/master/theme), so the deck stays
+  renderable and removing every slide leaves a valid master/layout-only template
+  shell. The low-level `OpcPackage.removePart(partName)` deletes one part and
+  unregisters its `Override` content type (supporting primitives:
+  `Relationships.remove(id)`, `ContentTypes.removeOverride(partName)`). Untouched
+  parts stay byte-identical; the shell is schema-valid
+  (`test/read/remove-slide.test.js`, 6 cases). Motivated downstream by stripping a
+  brand template to a master-only graft source (see `importSlideMasters`).
+- **Graft external slide masters into a deck (`Presentation.importSlideMasters`):**
+  a new `pptxgenjs/read` method copies slide master(s) from another open package
+  together with their **whole** layout family and attaches them to no slide, so a
+  brand template's layouts land in a generated deck's layout gallery
+  (PowerPoint's *New Slide* / *Layout* picker) without touching existing slides.
+  It complements `importSlide`, which only brings a master across as a slide's
+  dependency and prunes it to the one used layout. Each grafted master is
+  registered in `p:sldMasterIdLst`, its `p:sldLayoutIdLst` is rebuilt to exactly
+  the copied layouts, and the connected theme/media/tag parts come across under
+  fresh partnames (re-calls are idempotent via the copy registry). `options`:
+  `masters`/`layouts` predicates narrow what is grafted (default: all);
+  `requireEqualSize` (default `true`) guards against mis-scaled layouts. Reuses
+  the existing cross-package copy engine; untouched parts stay byte-identical and
+  the result is schema-valid (`test/read/import-slide-masters.test.js`, 9 cases).
+  Brand-agnostic: the caller supplies the source `.pptx` (downstream points it
+  at the downstream template to ship the brand layout gallery).
 - **Read model applies DrawingML colour transforms (`effectiveHex`):** the
   `pptxgenjs/read` colour resolver now computes the colour a renderer actually
   paints, not just the base token. `ResolvedColor` (from `Shape.resolvedFill` /
