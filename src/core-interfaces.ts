@@ -979,9 +979,11 @@ interface ImageBaseProps extends PositionProps, ObjectNameProps {
 	 */
 	line?: ShapeLineProps
 	/**
-	 * Placeholder type
-	 * - values: 'body' | 'header' | 'footer' | 'title' | et. al.
-	 * @example 'body'
+	 * Name of a picture placeholder defined on the slide layout/master to populate
+	 * - when it matches a layout/master placeholder, the image inherits that placeholder's
+	 *   position and size for any of `x`/`y`/`w`/`h` not supplied explicitly (issue #1258);
+	 *   explicit values always win
+	 * @example 'picph'
 	 * @see https://docs.microsoft.com/en-us/office/vba/api/powerpoint.ppplaceholdertype
 	 */
 	placeholder?: string

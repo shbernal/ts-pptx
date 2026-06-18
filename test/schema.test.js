@@ -7,7 +7,7 @@
 //
 // Run with: pnpm run test:schema
 
-import { build, assert, readEntry, assertIncludes } from './helpers.js'
+import { build, assert, readEntry, assertIncludes, firstXmlBlock } from './helpers.js'
 import { validateBuf } from './validator.js'
 
 async function expectNoSchemaErrors(buf, label) {
@@ -652,6 +652,30 @@ export default [
 				p.addSlide().addImage({ data: 'image/png;base64,' + b64, x: 1, y: 1, w: 1, h: 1 })
 			})
 			await expectNoSchemaErrors(buf, 'embedded-png')
+		},
+	},
+	{
+		// upstream-issue-1258: an image targeting a slide-master/layout picture placeholder must
+		// inherit the placeholder's position/size when no explicit w/h are supplied, instead of
+		// collapsing to the image's natural (here 1px) size. Asserts the package is schema-valid
+		// and that the slide picture's <a:ext> matches the placeholder geometry (4x3in in EMU).
+		name: 'image inherits geometry from a master picture placeholder',
+		fn: async () => {
+			const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+			const { buf, zip } = await build((p) => {
+				p.defineSlideMaster({
+					title: 'PIC_MASTER',
+					objects: [{ placeholder: { options: { name: 'picph', type: 'pic', x: 1, y: 1, w: 4, h: 3 }, text: '' } }],
+				})
+				const slide = p.addSlide({ masterName: 'PIC_MASTER' })
+				// No w/h supplied: geometry must come from the placeholder, not the 1px natural size.
+				slide.addImage({ placeholder: 'picph', data: 'image/png;base64,' + b64 })
+			})
+			await expectNoSchemaErrors(buf, 'image-master-placeholder-geometry')
+			const slideXml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const picBlock = firstXmlBlock(slideXml, 'p:pic', 'slide picture')
+			// 4in x 3in @ 914400 EMU/in
+			assertIncludes(picBlock, 'cx="3657600" cy="2743200"', 'inherited placeholder ext')
 		},
 	},
 	{

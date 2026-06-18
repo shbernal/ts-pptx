@@ -54,6 +54,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Images targeting a placeholder now inherit the placeholder's geometry (#1258):**
+  `addImage({ placeholder: 'name' })` referencing a picture placeholder defined on a
+  slide master/layout previously ignored the placeholder's position/size — the image
+  collapsed to its natural pixel size (or the 1in fallback) unless explicit `w`/`h`
+  were supplied. `addImageDefinition` now fills any of `x`/`y`/`w`/`h` the caller
+  omits from the matching layout placeholder (mirroring the existing text-placeholder
+  inheritance, #640); explicit `opt` values still win. Schema fixture added asserting
+  the slide picture's `<a:ext>` matches the placeholder geometry.
 - **`textDirection` now serializes to `<a:bodyPr vert="…">` on text boxes:** the
   documented `textDirection` option (`'horz' | 'vert' | 'vert270' | 'wordArtVert'`)
   was typed and documented but never emitted for text boxes — only the

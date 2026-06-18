@@ -31,6 +31,7 @@ import type {
 	BackgroundProps,
 	BorderProps,
 	ConnectorProps,
+	Coord,
 	IChartMulti,
 	IChartOpts,
 	IChartOptsLib,
@@ -503,11 +504,33 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	const newObject: ISlideObject = {
 		_type: SLIDE_OBJECT_TYPES.image,
 	}
+
+	// Inherit geometry from a matching layout placeholder (issue #1258): an image targeting a
+	// placeholder adopts that placeholder's position/size for any of x/y/w/h the caller omits.
+	// Explicit `opt` values always win; this only fills the gaps so a picture placeholder no longer
+	// collapses to the image's natural/1in fallback when no dimensions are supplied. Mirrors the
+	// text-object placeholder inheritance in addTextDefinition() (issue #640).
+	let phX: Coord | undefined
+	let phY: Coord | undefined
+	let phW: Coord | undefined
+	let phH: Coord | undefined
+	if (opt.placeholder && target._slideLayout?._slideObjects) {
+		const placeHold = target._slideLayout._slideObjects.find(
+			item => item._type === SLIDE_OBJECT_TYPES.placeholder && item.options?.placeholder === opt.placeholder
+		)
+		if (placeHold?.options) {
+			phX = placeHold.options.x
+			phY = placeHold.options.y
+			phW = placeHold.options.w
+			phH = placeHold.options.h
+		}
+	}
+
 	// FIRST: Set vars for this image (object param replaces positional args in 1.1.0)
-	const intPosX = opt.x || 0
-	const intPosY = opt.y || 0
-	const intWidth = opt.w || 0
-	const intHeight = opt.h || 0
+	const intPosX = opt.x ?? phX ?? 0
+	const intPosY = opt.y ?? phY ?? 0
+	const intWidth = opt.w ?? phW ?? 0
+	const intHeight = opt.h ?? phH ?? 0
 	const sizing = opt.sizing
 	const objHyperlink = opt.hyperlink || ''
 	// Convenience: accept raw SVG markup via `svg` and encode it to a data URI.

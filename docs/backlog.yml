@@ -4910,8 +4910,8 @@ items:
     source: "gitbrent/PptxGenJS#1258"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-18
+    status: implemented
     priority: p2
     target_area:
       - image-svg-media
@@ -4920,24 +4920,33 @@ items:
     non_target_reasons: []
     summary: Image placeholders on slide masters no longer inherited dimensions unless explicit w/h were supplied.
     current_project_notes: >
-      Current master placeholder handling still routes placeholder definitions
-      through text-object generation, while addImage defaults missing w/h to 1
-      and then relies on placeholder lookup for inherited geometry. Image
-      placeholder behavior is explicitly incomplete in the source comments.
+      RESOLVED. The picture-placeholder <p:ph> linkage already worked (a master
+      placeholder defined via objects:[{placeholder:{options:{type:'pic',...}}}]
+      emits <p:ph type="pic"> and the slide picture inherits it at serialize
+      time), but the geometry was not inherited: addImageDefinition() had no
+      equivalent of the text path's placeholder-options merge (gen-objects.ts
+      ~1374, issue #640), so addImage({placeholder}) without explicit w/h
+      collapsed to the image's natural pixel size or the 1in fallback. Fix:
+      addImageDefinition() now looks up the matching layout placeholder and fills
+      any of x/y/w/h the caller omits (opt.x ?? phX ?? 0, etc.); explicit opt
+      values still win. ImageProps.placeholder JSDoc updated to document the
+      inheritance. Schema fixture 'image inherits geometry from a master picture
+      placeholder' builds a pic placeholder (4x3in) and asserts the slide
+      picture's <a:ext> is cx=3657600 cy=2743200 and the package is schema-valid.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/core-enums.ts:747
-        - src/gen-objects.ts:87
-        - src/gen-objects.ts:94
-        - src/gen-objects.ts:397
-        - src/gen-objects.ts:452
-      schema_fixture: null
-      validator_result: null
+        - src/gen-objects.ts:502
+        - src/core-interfaces.ts:981
+        - test/schema.test.js
+      schema_fixture: "test/schema.test.js: image inherits geometry from a master picture placeholder (upstream-issue-1258)"
+      validator_result: "pnpm run test:schema — 92 passed (incl. image-master-placeholder-geometry)"
       powerpoint_result: null
       spec_refs: []
-    next_action: add-master-image-placeholder-inherited-geometry-fixture
+    next_action: none
 
   - id: upstream-issue-1256
     source: "gitbrent/PptxGenJS#1256"
@@ -6920,8 +6929,9 @@ items:
     summary: Image placeholders lost aspect ratio when the image dimensions differed from the placeholder.
     current_project_notes: >
       The historic issue was reported fixed upstream, and current image options
-      include placeholder plus contain, cover, and crop sizing support. Keep any
-      current placeholder geometry investigation with upstream-issue-1258.
+      include placeholder plus contain, cover, and crop sizing support. The
+      placeholder-geometry inheritance investigation tracked here was resolved in
+      upstream-issue-1258 (addImageDefinition now inherits placeholder x/y/w/h).
     evidence:
       kinds:
         - local-source-inspection
@@ -6935,7 +6945,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: handle-with-upstream-issue-1258
+    next_action: none
 
   - id: upstream-issue-988
     source: "gitbrent/PptxGenJS#988"
@@ -8521,9 +8531,11 @@ items:
     non_target_reasons: []
     summary: Image placeholders on master slides did not work and needed examples.
     current_project_notes: >
-      The current source still carries the original issue note that image
-      placeholders are incomplete. Track the active current behavior and geometry
-      work under upstream-issue-1258.
+      Image placeholders on masters/layouts now work end-to-end: a placeholder
+      defined via objects:[{placeholder:{options:{type:'pic',...}}}] emits
+      <p:ph type="pic"> and a slide image added with addImage({placeholder})
+      inherits its <p:ph> and (as of upstream-issue-1258) its geometry. The
+      geometry work tracked here landed in upstream-issue-1258.
     evidence:
       kinds:
         - local-source-inspection
@@ -8537,7 +8549,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: handle-with-upstream-issue-1258
+    next_action: none
 
   - id: upstream-issue-585
     source: "gitbrent/PptxGenJS#585"
@@ -9315,7 +9327,7 @@ items:
     type: downstream-need
     first_seen: 2026-06-18
     last_reviewed: 2026-06-18
-    status: target-candidate
+    status: implemented
     priority: p2
     target_area:
       - missing-pptx-feature
@@ -9324,28 +9336,32 @@ items:
     non_target_reasons: []
     summary: "Accept an explicit fontScale/lnSpcReduction so measured consumers can render fit:'shrink'"
     current_project_notes: |
-      The library does no text measurement, so fit:'shrink' emits a bare
-      <a:normAutofit/> and overflowing text shows until a human opens and touches
-      the shape. The clean generic move is to let callers *supply* a static scale
-      rather than have the library *compute* one: accept an explicit fontScale
-      (and optional lnSpcReduction) so a measuring consumer can emit
-      <a:normAutofit fontScale="…" lnSpcReduction="…"/>. This keeps measurement
-      downstream while making fit:'shrink' actually render for consumers that have
-      measured. Open questions before implementing: API shape (extend `fit` to an
-      object form vs add sibling options), units/range validation (per-mille vs
-      percent; clamp), and how it composes with resize/autoFit. Needs design
-      (downstream to decide API shape).
-    stopgap: downstream measures the box or precomputes a scale before addText
+      RESOLVED (entry was stale; the feature already shipped). The chosen API
+      shape extends `fit` to an object form: fit?: 'none' | 'shrink' | 'resize'
+      | TextFitShrinkProps, where TextFitShrinkProps = { type: 'shrink',
+      fontScale?, lnSpcReduction? } (core-interfaces.ts ~1743-1823). Values are
+      authored as a percent (0-100) and serialized to 1000ths of a percent by
+      genXmlNormAutofit() (gen-xml.ts ~1488), which warns-and-ignores out-of-range
+      / NaN inputs per the library's warn-rather-than-degrade policy. genXmlBodyProperties
+      emits <a:normAutofit fontScale="…" lnSpcReduction="…"/> for the object form
+      while bare 'shrink' still emits <a:normAutofit/>. This keeps measurement
+      downstream while letting a measuring consumer bake a static scale that
+      actually renders without a manual edit. Covered by
+      test/regression/text-fit-shrink.test.js (asserts 85->85000, 62.5->62500,
+      lnSpcReduction omitted when undefined).
     evidence:
-      kinds: []
+      kinds:
+        - local-source-inspection
+        - regression-test
       local_files:
-        - src/gen-xml.ts
-        - src/core-interfaces.ts
+        - src/gen-xml.ts:1488
+        - src/core-interfaces.ts:1743
+        - test/regression/text-fit-shrink.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: design-api-shape
+    next_action: none
   - id: dn-text-direction-serialization
     source: downstream:registry/components/quadrant-matrix.ts
     type: downstream-need
