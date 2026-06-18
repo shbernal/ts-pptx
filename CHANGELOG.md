@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Read model applies DrawingML colour transforms (`effectiveHex`):** the
+  `pptxgenjs/read` colour resolver now computes the colour a renderer actually
+  paints, not just the base token. `ResolvedColor` (from `Shape.resolvedFill` /
+  `Shape.resolvedLine`, `Run.resolvedColor`, and each `Shape.gradientStops`
+  entry) gains an `effectiveHex` field — the base `hex` with its ordered child
+  transforms (`lumMod`/`lumOff`/`shade`/`tint`/`satMod`/…) applied — plus an
+  optional `alpha` (0–1) when an `alpha*` transform sets opacity. The base `hex`
+  and the raw `transforms` list are unchanged, so the `theme: 'preserve'`
+  flatten path still re-emits transforms verbatim (byte-for-byte identical
+  output). A new pure helper is exported for direct use:
+  `applyColorTransforms(baseHex, transforms): EffectiveColor`. Additive, no
+  signature breaks. Verified against an oracle table of PowerPoint/LibreOffice
+  source→effective mappings (`test/read/color-transform.test.js`, 17 cases).
+
 ### Fixed
 
 - **Hyperlinks now inherit the theme hyperlink color (#1165):** a text
