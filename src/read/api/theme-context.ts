@@ -11,7 +11,7 @@
  */
 import { applyColorTransforms } from '../oxml/color-transform.js'
 import { ELEMENT_NODE, attr, firstChild, type Element } from '../oxml/dom.js'
-import { parseClrMap, parseClrScheme, resolveColor, type ColorContext } from '../oxml/theme.js'
+import { parseClrMap, parseClrScheme, resolveColor, styleRefFill, styleRefLine, type ColorContext, type FlattenContext } from '../oxml/theme.js'
 import type { OpcPackage } from '../opc/package.js'
 
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
@@ -75,10 +75,16 @@ export function resolveSlideThemeParts(opc: OpcPackage, slidePartName: string): 
 	}
 }
 
-/** The {@link ColorContext} subset of a slide's theme parts (for the read-model colour getters). */
-export function resolveSlideColorContext(opc: OpcPackage, slidePartName: string): ColorContext {
-	const { clrMap, clrScheme } = resolveSlideThemeParts(opc, slidePartName)
-	return { clrMap, clrScheme }
+/**
+ * The colour context a slide's read-model getters resolve against: the
+ * {@link ColorContext} maps plus the theme's `a:fmtScheme` (so a colour delivered
+ * through a shape's `p:style` `fillRef`/`lnRef` can be resolved like the
+ * `theme: 'preserve'` flatten path does). The `fmtScheme` is `null` when the
+ * slide's theme is missing.
+ */
+export function resolveSlideColorContext(opc: OpcPackage, slidePartName: string): FlattenContext {
+	const { clrMap, clrScheme, themeElements } = resolveSlideThemeParts(opc, slidePartName)
+	return { clrMap, clrScheme, fmtScheme: themeElements ? firstChild(themeElements, 'a:fmtScheme') : null }
 }
 
 /**
@@ -137,4 +143,31 @@ export function resolveSolidFillColor(container: Element | null, ctx: ColorConte
 	const solidFill = firstChild(container, 'a:solidFill')
 	if (!solidFill) return null
 	return resolveColorElement(firstChildElement(solidFill), ctx)
+}
+
+/**
+ * Resolve the fill colour a shape inherits from its `p:style` `a:fillRef`
+ * (style-matrix fill) to a literal hex through `ctx`. Used as the fallback for
+ * {@link import('./shapes.js').Shape.resolvedFill} when the shape carries no
+ * explicit `spPr` fill choice. `null` when there is no `fillRef`, it cannot be
+ * resolved, or the indexed style entry is not a solid fill (a gradient style fill
+ * has no single colour — read it through `gradientStops` instead).
+ */
+export function resolveStyleFillColor(shape: Element, ctx: FlattenContext): ResolvedColor | null {
+	const style = firstChild(shape, 'p:style')
+	const fill = style && styleRefFill(firstChild(style, 'a:fillRef'), ctx)
+	if (!fill || fill.localName !== 'solidFill') return null
+	return resolveColorElement(firstChildElement(fill), ctx)
+}
+
+/**
+ * Resolve the line colour a shape inherits from its `p:style` `a:lnRef`
+ * (style-matrix line) to a literal hex through `ctx`. Used as the fallback for
+ * {@link import('./shapes.js').Shape.resolvedLine} when the shape carries no
+ * explicit `spPr/a:ln`. `null` when there is no `lnRef` or it cannot be resolved.
+ */
+export function resolveStyleLineColor(shape: Element, ctx: FlattenContext): ResolvedColor | null {
+	const style = firstChild(shape, 'p:style')
+	const ln = style && styleRefLine(firstChild(style, 'a:lnRef'), ctx)
+	return ln ? resolveSolidFillColor(ln, ctx) : null
 }

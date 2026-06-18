@@ -5,7 +5,7 @@ import type { Part } from '../opc/part.js'
 import { relativePartName } from '../opc/partnames.js'
 import type { Relationships } from '../opc/relationships.js'
 import { OOXML_NS, attr, createElement, firstChild, intValue, removeAttr, setAttr, type Document, type Element } from '../oxml/dom.js'
-import type { ColorContext } from '../oxml/theme.js'
+import type { FlattenContext } from '../oxml/theme.js'
 import { resolveSlideColorContext } from './theme-context.js'
 import type { Presentation } from './presentation.js'
 import { AutoShape, Picture, buildShapes, type Shape } from './shapes.js'
@@ -90,16 +90,18 @@ export class Slide {
 		return this.presentation.opc.relationshipsFor(this.partName)
 	}
 
-	#themeColors?: ColorContext
+	#themeColors?: FlattenContext
 
 	/**
-	 * The slide's resolved theme colour context (`clrMap` + `clrScheme`), walked
-	 * once from slide → layout → master → theme and cached on this proxy. Backs the
-	 * read-model colour getters ({@link Shape.resolvedFill}, `Run.resolvedColor`) so
-	 * a `schemeClr` token resolves to a literal hex. The maps are empty when the
-	 * theme chain is incomplete, in which case scheme tokens simply stay unresolved.
+	 * The slide's resolved theme colour context (`clrMap` + `clrScheme` + the theme
+	 * `fmtScheme`), walked once from slide → layout → master → theme and cached on
+	 * this proxy. Backs the read-model colour getters ({@link Shape.resolvedFill},
+	 * `Run.resolvedColor`) so a `schemeClr` token — including one delivered through a
+	 * shape's `p:style` `fillRef`/`lnRef` — resolves to a literal hex. The maps are
+	 * empty when the theme chain is incomplete, in which case scheme tokens simply
+	 * stay unresolved.
 	 */
-	themeContext(): ColorContext {
+	themeContext(): FlattenContext {
 		return (this.#themeColors ??= resolveSlideColorContext(this.presentation.opc, this.partName))
 	}
 

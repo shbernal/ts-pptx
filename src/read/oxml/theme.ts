@@ -654,31 +654,56 @@ function fmtEntry(ctx: FlattenContext, listName: string, idx: number): Element |
 	return entry ? (entry.cloneNode(true) as Element) : null
 }
 
+/**
+ * Build the explicit fill element a `p:style` `a:fillRef` resolves to — the indexed
+ * `fmtScheme` `fillStyleLst`/`bgFillStyleLst` entry (deep-cloned) with its `phClr`
+ * replaced by the ref's resolved colour. Pure: mutates neither the ref nor the
+ * theme. `null` when the ref is absent, `idx` is 0/unset, or the entry or its
+ * colour cannot be resolved. Shared by the flatten path ({@link materializeFill})
+ * and the read-model `resolveStyleFillColor` getter so both see the same fill.
+ */
+export function styleRefFill(fillRef: Element | null, ctx: FlattenContext): Element | null {
+	if (!fillRef) return null
+	const idx = intAttr(fillRef, 'idx')
+	if (idx === null || idx <= 0) return null
+	// idx >= 1000 selects bgFillStyleLst (offset by 1000); otherwise fillStyleLst.
+	const fill = idx >= 1000 ? fmtEntry(ctx, 'a:bgFillStyleLst', idx - 1000) : fmtEntry(ctx, 'a:fillStyleLst', idx)
+	const ref = resolveColor(firstChildElement(fillRef), ctx)
+	if (!fill || !ref) return null
+	substitutePhClr(fill, ref)
+	return fill
+}
+
+/**
+ * Build the explicit `a:ln` element a `p:style` `a:lnRef` resolves to — the indexed
+ * `fmtScheme` `lnStyleLst` entry (deep-cloned) with its `phClr` replaced by the
+ * ref's resolved colour. Pure; the line/read counterpart of {@link styleRefFill}.
+ */
+export function styleRefLine(lnRef: Element | null, ctx: FlattenContext): Element | null {
+	if (!lnRef) return null
+	const idx = intAttr(lnRef, 'idx')
+	if (idx === null || idx <= 0) return null
+	const ln = fmtEntry(ctx, 'a:lnStyleLst', idx)
+	const ref = resolveColor(firstChildElement(lnRef), ctx)
+	if (!ln || !ref) return null
+	substitutePhClr(ln, ref)
+	return ln
+}
+
 function materializeFill(spPr: Element, fillRef: Element | null, ctx: FlattenContext): void {
 	if (!fillRef) return
-	const idx = intAttr(fillRef, 'idx')
-	if (idx !== null && idx > 0 && !FILL_CHOICES.some((q) => firstChild(spPr, q))) {
-		// idx >= 1000 selects bgFillStyleLst (offset by 1000); otherwise fillStyleLst.
-		const fill = idx >= 1000 ? fmtEntry(ctx, 'a:bgFillStyleLst', idx - 1000) : fmtEntry(ctx, 'a:fillStyleLst', idx)
-		const ref = resolveColor(firstChildElement(fillRef), ctx)
-		if (fill && ref) {
-			substitutePhClr(fill, ref)
-			insertInOrder(spPr, fill, SPPR_FILL_AFTER)
-		}
+	if (!FILL_CHOICES.some((q) => firstChild(spPr, q))) {
+		const fill = styleRefFill(fillRef, ctx)
+		if (fill) insertInOrder(spPr, fill, SPPR_FILL_AFTER)
 	}
 	neutralizeRef(fillRef)
 }
 
 function materializeLine(spPr: Element, lnRef: Element | null, ctx: FlattenContext): void {
 	if (!lnRef) return
-	const idx = intAttr(lnRef, 'idx')
-	if (idx !== null && idx > 0 && !firstChild(spPr, 'a:ln')) {
-		const ln = fmtEntry(ctx, 'a:lnStyleLst', idx)
-		const ref = resolveColor(firstChildElement(lnRef), ctx)
-		if (ln && ref) {
-			substitutePhClr(ln, ref)
-			insertInOrder(spPr, ln, SPPR_LN_AFTER)
-		}
+	if (!firstChild(spPr, 'a:ln')) {
+		const ln = styleRefLine(lnRef, ctx)
+		if (ln) insertInOrder(spPr, ln, SPPR_LN_AFTER)
 	}
 	neutralizeRef(lnRef)
 }

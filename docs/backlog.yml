@@ -9750,26 +9750,44 @@ items:
     summary: "Read-model colour resolver follow-up: walk p:style fillRef/lnRef and placeholder-inherited run colour"
     current_project_notes: |
       The read-model theme colour resolver (Slide.themeContext(),
-      Shape.resolvedFill/resolvedLine, Run.resolvedColor) resolves only an
-      *explicit* schemeClr on the shape/run today (matching downstream's own
-      resolveColors scope). A colour delivered through a shape's p:style
-      fillRef/lnRef, or a placeholder-inherited run colour, is not yet walked by
-      the read getter — the materializeStyleRefs / placeholderInheritedColor logic
-      exists in theme.ts and can be layered behind the same getter later. This is
-      the remaining open follow-up after the read-model style accessors shipped;
-      downstream consumes the resolver in slide-style.ts.
+      Shape.resolvedFill/resolvedLine, Run.resolvedColor) resolved only an
+      *explicit* schemeClr on the shape/run.
+
+      DONE (2026-06-18): the p:style fillRef/lnRef leg shipped. Shape.resolvedFill
+      now falls back to the shape's p:style a:fillRef (and resolvedLine to a:lnRef)
+      when there is no explicit spPr fill/line, resolving the indexed theme
+      fmtScheme entry with its phClr substituted by the ref colour — the same
+      materialization the theme:'preserve' flatten path applies, now factored into
+      pure styleRefFill/styleRefLine builders in src/read/oxml/theme.ts shared by
+      both. Slide.themeContext() now carries the theme fmtScheme. Pinned against
+      the multi-theme.pptx style-matrix-default shape (no explicit spPr fill/line,
+      fillRef idx1=accent1, lnRef idx2=accent1+shade) in
+      test/read/style-accessors.test.js.
+
+      REMAINING: the placeholder-inherited run colour leg is still deferred — a run
+      with no own colour that inherits one from the layout/master placeholder
+      lstStyle/txStyles is not yet walked by Run.resolvedColor. The
+      placeholderInheritedColor logic exists in theme.ts (used by the flatten path)
+      and can be layered behind the run getter later; no read fixture carries that
+      construct yet. downstream keeps the slide-style.ts stopgap for this leg.
     stopgap: scripts/slide-library/lib/slide-style.ts
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - powerpoint-authored-comparison
       local_files:
+        - src/read/api/shapes.ts
         - src/read/api/theme-context.ts
+        - src/read/api/slide.ts
         - src/read/oxml/theme.ts
+        - test/read/style-accessors.test.js
+        - test/read/fixtures/multi-theme.pptx
       schema_fixture: null
       validator_result: null
-      powerpoint_result: null
+      powerpoint_result: test/read/fixtures/multi-theme.pptx opened clean in Windows desktop PowerPoint 16.0 on 2026-06-18
       spec_refs: []
-    next_action: layer-styleref-resolution
+    next_action: layer-placeholder-inherited-run-colour
   - id: dn-group-rot-flip-frame
     source: downstream:scripts/slide-library/lib/slide-style.ts
     type: downstream-need

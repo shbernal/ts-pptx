@@ -62,6 +62,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Read model: `Shape.resolvedFill`/`resolvedLine` now follow a `p:style`
+  `fillRef`/`lnRef` (theme style matrix):** a shape whose fill or line comes only
+  from its `p:style` style-matrix reference — no explicit `spPr` fill/line — read
+  back as `null` from `resolvedFill`/`resolvedLine`, even though PowerPoint renders
+  it with the referenced theme colour. The getters now fall back to the indexed
+  theme `fmtScheme` entry with its `phClr` substituted by the ref colour (carrying
+  the ref's colour transforms), matching how the `importSlide({ theme: 'preserve' })`
+  flatten path already bakes it — the shared logic is factored into
+  `styleRefFill`/`styleRefLine`, and `Slide.themeContext()` now also carries the
+  theme `fmtScheme`. An explicit `spPr` fill/line still wins. Pinned against a real
+  PowerPoint-authored fixture (`test/read/fixtures/multi-theme.pptx`). The
+  placeholder-inherited *run* colour leg of the same resolver remains deferred
+  (see `docs/backlog.yml` `dn-readmodel-style-followups`).
 - **Images targeting a placeholder now inherit the placeholder's geometry (#1258):**
   `addImage({ placeholder: 'name' })` referencing a picture placeholder defined on a
   slide master/layout previously ignored the placeholder's position/size — the image

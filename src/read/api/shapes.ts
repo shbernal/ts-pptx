@@ -23,7 +23,7 @@ import {
 import { fitSrcRectPercents, getImageSizeFromBytes } from '../../gen-utils.js'
 import { relativePartName } from '../opc/partnames.js'
 import { FILL_CHOICES, normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
-import { resolveColorElement, resolveSolidFillColor, type ResolvedColor } from './theme-context.js'
+import { resolveColorElement, resolveSolidFillColor, resolveStyleFillColor, resolveStyleLineColor, type ResolvedColor } from './theme-context.js'
 import { Chart } from './chart.js'
 import { Table } from './table.js'
 import { TextFrame } from './text.js'
@@ -648,9 +648,16 @@ export abstract class Shape {
 	 * carries the base `hex` and raw transforms, and `effectiveHex` — the base with
 	 * its colour transforms (`lumMod`/`shade`/…) applied (read that for the final
 	 * rendered colour).
+	 *
+	 * When the shape carries no explicit `spPr` fill choice, this falls back to the
+	 * fill the shape inherits from its `p:style` `a:fillRef` (the theme style
+	 * matrix), resolved the same way the `theme: 'preserve'` flatten path bakes it.
 	 */
 	get resolvedFill(): ResolvedColor | null {
-		return resolveSolidFillColor(this.properties(), this.slide.themeContext())
+		const ctx = this.slide.themeContext()
+		const props = this.properties()
+		if (props && FILL_CHOICES.some((q) => firstChild(props, q))) return resolveSolidFillColor(props, ctx)
+		return resolveStyleFillColor(this.element, ctx)
 	}
 
 	/**
@@ -659,9 +666,14 @@ export abstract class Shape {
 	 * `null` when the shape has no `a:ln/a:solidFill` or it cannot be made literal.
 	 * Like {@link resolvedFill}, the result carries `effectiveHex` (the base colour
 	 * with its transforms applied) for the final rendered colour.
+	 *
+	 * When the shape carries no explicit `spPr/a:ln`, this falls back to the line
+	 * the shape inherits from its `p:style` `a:lnRef` (the theme style matrix).
 	 */
 	get resolvedLine(): ResolvedColor | null {
-		return resolveSolidFillColor(this.#line(), this.slide.themeContext())
+		const ctx = this.slide.themeContext()
+		const ln = this.#line()
+		return ln ? resolveSolidFillColor(ln, ctx) : resolveStyleLineColor(this.element, ctx)
 	}
 
 	/** The line element (`spPr/a:ln`), or `null` when absent. */

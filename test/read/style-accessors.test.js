@@ -261,6 +261,46 @@ describe('Theme colour resolution — real PowerPoint XML (theme-colors.pptx)', 
 	})
 })
 
+describe('Style-matrix fill/line resolution — real PowerPoint XML (multi-theme.pptx)', () => {
+	// The `style-matrix-default` shape carries NO explicit spPr fill or line: its
+	// colour comes only through the p:style fillRef (idx 1, accent1) and lnRef
+	// (idx 2, accent1 + shade). resolvedFill/resolvedLine must walk that style
+	// matrix the same way the `theme: 'preserve'` flatten path bakes it.
+	test('resolvedFill walks a p:style fillRef when the shape has no explicit fill', async () => {
+		const shape = shapeNamed((await open('multi-theme')).slides[0], 'style-matrix-default')
+		// Nothing explicit on the shape itself — the raw reads still report null.
+		assertEqual(shape.fillColor, null, 'no explicit srgb fill')
+		assertEqual(shape.fillSchemeColor, null, 'no explicit scheme fill')
+
+		const fill = shape.resolvedFill
+		assert(fill, 'the style fillRef resolves to a fill colour')
+		assertEqual(fill.hex, 'B01513', 'fillRef accent1 resolves through the Ion theme')
+		assertEqual(fill.transforms.length, 0, 'the fillStyleLst idx-1 solid carries no transform')
+		assertEqual(fill.effectiveHex, 'B01513', 'effective fill is the plain accent1 hex')
+	})
+
+	test('resolvedLine walks a p:style lnRef, carrying the ref colour transform', async () => {
+		const shape = shapeNamed((await open('multi-theme')).slides[0], 'style-matrix-default')
+		assertEqual(shape.lineColor, null, 'no explicit srgb line')
+		assertEqual(shape.lineSchemeColor, null, 'no explicit scheme line')
+
+		const line = shape.resolvedLine
+		assert(line, 'the style lnRef resolves to a line colour')
+		assertEqual(line.hex, 'B01513', 'lnRef accent1 resolves through the Ion theme')
+		assertEqual(line.transforms.length, 1, 'the lnRef shade transform is carried onto the resolved colour')
+		assertEqual(line.transforms[0].name, 'shade', 'the carried transform is the authored shade')
+		assertEqual(line.transforms[0].value, '15000', 'with its raw @val preserved')
+	})
+
+	test('an explicit spPr fill/line still wins over the style matrix', async () => {
+		// scheme-accent1-fill has explicit solidFill accent1 + an explicit accent2 line,
+		// alongside a p:style fillRef/lnRef — the explicit spPr children must govern.
+		const shape = shapeNamed((await open('multi-theme')).slides[0], 'scheme-accent1-fill')
+		assertEqual(shape.resolvedFill.hex, 'B01513', 'explicit accent1 fill resolves to the Ion accent1 hex')
+		assertEqual(shape.resolvedLine.hex, 'EA6312', 'explicit accent2 line wins over the lnRef accent1')
+	})
+})
+
 describe('Picture recolour reads (recolor)', () => {
 	test('reads a real PowerPoint a:duotone, preserving the prstClr/srgbClr stop split (image.pptx)', async () => {
 		// image.pptx slide2 carries an icon recoloured with the duotone tint trick:
