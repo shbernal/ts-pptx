@@ -13,24 +13,30 @@ These four files are vendored unmodified (bytes byte-identical to upstream) from
 **MIT** ([upstream license](https://github.com/singerla/pptx-automizer/blob/main/LICENSE)).
 Authoring application verified from each file's `docProps/app.xml`.
 
-| Local name | Upstream file (`__tests__/pptx-templates/`) | Pinned commit | Application | AppVersion | Slides |
-|---|---|---|---|---|---|
-| `empty.pptx` | `EmptySlide.pptx` | [`5820cd2`](https://github.com/singerla/pptx-automizer/blob/5820cd2400fa64e136d48dc85f552440ccc19e09/__tests__/pptx-templates/EmptySlide.pptx) | Microsoft Office PowerPoint | 16.0000 | 1 |
-| `textbox.pptx` | `TextReplace.pptx` | [`7c0f2b5`](https://github.com/singerla/pptx-automizer/blob/7c0f2b50d700c9f0a00942649c1a68f56ba21608/__tests__/pptx-templates/TextReplace.pptx) | Microsoft Office PowerPoint | 16.0000 | 2 |
-| `image.pptx` | `SlideWithImages.pptx` | [`58b5f0d`](https://github.com/singerla/pptx-automizer/blob/58b5f0d7efe30d58453ecd6ba8a627e10675e784/__tests__/pptx-templates/SlideWithImages.pptx) | Microsoft Macintosh PowerPoint | 16.0000 | 2 |
-| `table.pptx` | `SlideWithTables.pptx` | [`6d1588f`](https://github.com/singerla/pptx-automizer/blob/6d1588f3eda2d388f2aa1fbb75a3d30ae2e85ebd/__tests__/pptx-templates/SlideWithTables.pptx) | Microsoft Office PowerPoint | 16.0000 | 3 |
+| Local name     | Upstream file (`__tests__/pptx-templates/`) | Pinned commit                                                                                                                                       | Application                    | AppVersion | Slides |
+| -------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | ---------- | ------ |
+| `empty.pptx`   | `EmptySlide.pptx`                           | [`5820cd2`](https://github.com/singerla/pptx-automizer/blob/5820cd2400fa64e136d48dc85f552440ccc19e09/__tests__/pptx-templates/EmptySlide.pptx)      | Microsoft Office PowerPoint    | 16.0000    | 1      |
+| `textbox.pptx` | `TextReplace.pptx`                          | [`7c0f2b5`](https://github.com/singerla/pptx-automizer/blob/7c0f2b50d700c9f0a00942649c1a68f56ba21608/__tests__/pptx-templates/TextReplace.pptx)     | Microsoft Office PowerPoint    | 16.0000    | 2      |
+| `image.pptx`   | `SlideWithImages.pptx`                      | [`58b5f0d`](https://github.com/singerla/pptx-automizer/blob/58b5f0d7efe30d58453ecd6ba8a627e10675e784/__tests__/pptx-templates/SlideWithImages.pptx) | Microsoft Macintosh PowerPoint | 16.0000    | 2      |
+| `table.pptx`   | `SlideWithTables.pptx`                      | [`6d1588f`](https://github.com/singerla/pptx-automizer/blob/6d1588f3eda2d388f2aa1fbb75a3d30ae2e85ebd/__tests__/pptx-templates/SlideWithTables.pptx) | Microsoft Office PowerPoint    | 16.0000    | 3      |
 
-### Locally provided (license-clean, promoted from `pptx-bank/`)
+### Locally provided / locally authored (license-clean)
 
-Real-world PowerPoint output contributed by the maintainer and confirmed
-license-clean for inclusion. Promoted from the uncommitted `pptx-bank/` corpus
-(see `../../../pptx-bank/README.md`) because it exercises shape kinds the
-vendored set does not. Stored byte-for-byte as authored.
+PowerPoint output contributed by the maintainer or authored locally with desktop
+PowerPoint COM and confirmed license-clean for inclusion. `mixed.pptx` was
+promoted from the uncommitted `pptx-bank/` corpus (see
+`../../../pptx-bank/README.md`) because it exercises shape kinds the vendored set
+does not. Minimal locally authored decks are stored byte-for-byte as saved by
+PowerPoint.
 
-| Local name | Application | AppVersion | Slides |
-|---|---|---|---|
-| `mixed.pptx` | Microsoft Macintosh PowerPoint | 16.0000 | 11 |
-| `group-transform.pptx` | Microsoft Office PowerPoint | 16.0000 | 2 |
+| Local name             | Application                    | AppVersion | Slides |
+| ---------------------- | ------------------------------ | ---------- | ------ |
+| `mixed.pptx`           | Microsoft Macintosh PowerPoint | 16.0000    | 11     |
+| `group-transform.pptx` | Microsoft Office PowerPoint    | 16.0000    | 2      |
+| `theme-colors.pptx`    | Microsoft Office PowerPoint    | 16.0000    | 1      |
+| `gradient-fill.pptx`   | Microsoft Office PowerPoint    | 16.0000    | 1      |
+| `preset-geometry.pptx` | Microsoft Office PowerPoint    | 16.0000    | 1      |
+| `multi-theme.pptx`     | Microsoft Office PowerPoint    | 16.0000    | 1      |
 
 ### Derived from a vendored fixture
 
@@ -49,6 +55,10 @@ SHA-256 of the fixture bytes:
 f2a75b0111c0d486cf81b33a21055c2ffe891c76ecbb7e261e2c8b626c0e7b35  image.pptx
 db80910224b01b46cb7e8c29e183b59d128a18fd8e0c651558907230874693b9  mixed.pptx
 492fa2a2b69ee5f9b6dc171242c93c0ebd0c4055209f21e779eb9bc318f4481d  group-transform.pptx
+b7430f562b8b836f54b84f2c846c7f80dc03677d79884aa7722203d66c775cc2  theme-colors.pptx
+773498a81723eed35ac03271f5051c842af84888e802291473e1a8872ac88994  gradient-fill.pptx
+4a0db4be724bd436865b81f073b53dbd464a8d9eb05d820977821e57b3f743b5  preset-geometry.pptx
+ae1914acbef5c32e93d40611ca4200c80817f451e835372b269da68ed91c1884  multi-theme.pptx
 c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
 1a59832d7e5c926e4aff11e9f62bc90c9e8430fb68e1d77a1b4a2fb0800e05d2  textbox.pptx
 ```
@@ -78,6 +88,20 @@ c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
   operation twice, preserving the visual result as ordinary shapes. Used to pin
   how child absolute frames compose enclosing group `@rot`, `@flipH`, `@flipV`,
   and `chOff`/`chExt` scale.
+- `theme-colors.pptx` — a minimal Ion-theme deck with named rectangles carrying
+  PowerPoint-authored `a:schemeClr` fills, luminance transforms, a 2pt
+  scheme-colour line, an explicit srgb fill, and a scheme-colour text run. Used
+  by read-model style accessors and the `applyColorTransforms` fixture oracle.
+- `gradient-fill.pptx` — a minimal deck with named linear and path gradients
+  authored by PowerPoint, including a three-stop gradient that mixes a scheme
+  colour stop with srgb stops, plus a solid-fill negative control.
+- `preset-geometry.pptx` — a minimal deck with PowerPoint-authored adjusted
+  preset geometries (`roundRect`, `chevron`, and `blockArc`) plus a plain rect
+  negative control.
+- `multi-theme.pptx` — a minimal Ion-theme source deck with scheme-colour fills,
+  line colours, text, and style-matrix refs. Used by `importSlide` preserve and
+  restyle tests to prove non-default source theme handling when imported into a
+  default-theme target.
 
 ## Manual PowerPoint check
 
@@ -94,6 +118,10 @@ fixtures opened clean with no repair prompt:
 - [x] `image.pptx` — PowerPoint for the web, 2026-06-13
 - [x] `table.pptx` — PowerPoint for the web, 2026-06-13
 - [ ] `mixed.pptx` — not yet performed (added 2026-06-13 for Phase 2)
+- [x] `theme-colors.pptx` — Windows desktop PowerPoint, 2026-06-18
+- [x] `gradient-fill.pptx` — Windows desktop PowerPoint, 2026-06-18
+- [x] `preset-geometry.pptx` — Windows desktop PowerPoint, 2026-06-18
+- [x] `multi-theme.pptx` — Windows desktop PowerPoint, 2026-06-18
 
 **Further testing needed on PowerPoint desktop.** The web loader is more lenient
 than desktop PowerPoint, whose stricter OOXML validation is what produces the
@@ -109,6 +137,10 @@ and the emitted XML actually differs:
 - [ ] `table.pptx` — desktop PowerPoint (Windows/Mac) not yet performed
 - [ ] `mixed.pptx` — desktop PowerPoint (Windows/Mac) not yet performed
 - [x] `group-transform.pptx` — Windows desktop PowerPoint, 2026-06-18
+- [x] `theme-colors.pptx` — Windows desktop PowerPoint, 2026-06-18
+- [x] `gradient-fill.pptx` — Windows desktop PowerPoint, 2026-06-18
+- [x] `preset-geometry.pptx` — Windows desktop PowerPoint, 2026-06-18
+- [x] `multi-theme.pptx` — Windows desktop PowerPoint, 2026-06-18
 
 ## Manual PowerPoint check — edited output
 
@@ -125,15 +157,15 @@ Generate the edited decks with `pnpm run test:read:emit:edits` (writes
 the edit it exercises; verify the described result and that no repair banner
 appears.
 
-| Output deck | Exercises | Verify in PowerPoint |
-|---|---|---|
-| `empty.added-textbox.pptx` | `Slide.addTextBox` | A text box reading "Added via addTextBox" is present. |
-| `empty.added-picture.pptx` | `Slide.addPicture` (+ new media part, content-type, image rel) | A raster image renders (not a missing-image placeholder). |
-| `textbox.deleted-shape.pptx` | `Shape.delete` | The "replaceText" shape is gone; the rest of the slide is intact. |
-| `textbox.cloned-slide.pptx` | `Presentation.cloneSlide` (+ edit on the clone) | A duplicate of slide 1 is appended last, reading "CLONED COPY". |
-| `table.edited-cells.pptx` | `TableCell.text` | The first table's top-left cells read "Edited A1" / "Edited B1". |
+| Output deck                       | Exercises                                                                       | Verify in PowerPoint                                                        |
+| --------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `empty.added-textbox.pptx`        | `Slide.addTextBox`                                                              | A text box reading "Added via addTextBox" is present.                       |
+| `empty.added-picture.pptx`        | `Slide.addPicture` (+ new media part, content-type, image rel)                  | A raster image renders (not a missing-image placeholder).                   |
+| `textbox.deleted-shape.pptx`      | `Shape.delete`                                                                  | The "replaceText" shape is gone; the rest of the slide is intact.           |
+| `textbox.cloned-slide.pptx`       | `Presentation.cloneSlide` (+ edit on the clone)                                 | A duplicate of slide 1 is appended last, reading "CLONED COPY".             |
+| `table.edited-cells.pptx`         | `TableCell.text`                                                                | The first table's top-left cells read "Edited A1" / "Edited B1".            |
 | `empty.imported-image-slide.pptx` | `Presentation.importSlide` (cross-package: slide + layout/master/theme + media) | A slide carrying the image fixture's picture is appended to the blank deck. |
-| `empty.imported-table-slide.pptx` | `Presentation.importSlide` (cross-package: slide + layout/master/theme) | A slide carrying a table is appended to the blank deck. |
+| `empty.imported-table-slide.pptx` | `Presentation.importSlide` (cross-package: slide + layout/master/theme)         | A slide carrying a table is appended to the blank deck.                     |
 
 Record the surface used and the result here.
 

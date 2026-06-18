@@ -6,10 +6,11 @@
 // PowerPoint-authored XML and our own serializer.
 //
 // Strategy:
-// - mixed.pptx is genuine Office output and carries line widths, alignment,
-//   spacing, indents, and bullet glyphs — assert the paragraph/line reads there.
-// - geometry adjusts and gradient stops are not in the vendored fixtures, so we
-//   round-trip them through the write API (generate → reopen → read).
+// - mixed.pptx is genuine Office output and carries paragraph formatting and
+//   group geometry — assert those reads there.
+// - theme-colors.pptx, gradient-fill.pptx, and preset-geometry.pptx are minimal
+//   desktop PowerPoint fixtures for the style-accessor constructs that would be
+//   circular if tested only through this library's writer.
 
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -60,6 +61,12 @@ function allShapes(shapes) {
 
 function leafShapes(shapes) {
 	return allShapes(shapes).filter((shape) => shape.shapeType !== 'group')
+}
+
+function shapeNamed(slide, name) {
+	const shape = allShapes(slide.shapes).find((s) => s.name === name)
+	assert(shape, `expected shape named ${name}`)
+	return shape
 }
 
 /** Every paragraph of every (flattened) shape on a slide. */
@@ -160,187 +167,97 @@ describe('Picture SVG blip reads (image.pptx)', () => {
 	})
 })
 
-describe('Shape style reads — write→read round-trip', () => {
-	async function reopen(buildFn) {
-		const pres = new PptxGenJS()
-		buildFn(pres)
-		const buf = await pres.stream()
-		return Presentation.load(buf)
-	}
+describe('Shape style reads — minimal real PowerPoint fixtures', () => {
+	test('lineWidthPt reads an explicit 2pt theme-colour line', async () => {
+		const shape = shapeNamed((await open('theme-colors')).slides[0], 'accent1-line-accent2-2pt')
+		assertEqual(shape.lineWidthPt, 2, '<a:ln w="25400"> is 2pt')
+		assertEqual(shape.lineSchemeColor, 'accent2', 'line is a real PowerPoint scheme colour')
+		assertEqual(shape.resolvedLine.hex, 'EA6312', 'accent2 resolves through the non-default Ion theme')
+	})
 
-	test('adjustValues exposes a roundRect rectRadius as the avLst adj handle', async () => {
-		const presentation = await reopen((p) => {
-			const slide = p.addSlide()
-			slide.addShape(p.shapes.ROUNDED_RECTANGLE, { x: 1, y: 1, w: 3, h: 1, fill: { color: 'CCCCCC' }, rectRadius: 0.1 })
-		})
-		const shape = presentation.slides[0].shapes.find((s) => s.presetGeometry === 'roundRect')
-		assert(shape, 'expected the roundRect')
-		const adj = shape.adjustValues
-		assert('adj' in adj, `expected an 'adj' handle; got ${JSON.stringify(adj)}`)
-		assert(adj.adj.startsWith('val '), `expected a 'val N' formula; got ${JSON.stringify(adj.adj)}`)
-		// A plain rect has no adjust handles.
-		const presRect = await reopen((p) => {
-			p.addSlide().addShape(p.shapes.RECTANGLE, { x: 1, y: 1, w: 3, h: 1, fill: { color: 'CCCCCC' } })
-		})
-		const rect = presRect.slides[0].shapes.find((s) => s.presetGeometry === 'rect')
+	test('adjustValues exposes PowerPoint-authored avLst handles', async () => {
+		const slide = (await open('preset-geometry')).slides[0]
+
+		const roundRect = shapeNamed(slide, 'roundRect-adj')
+		assertEqual(roundRect.presetGeometry, 'roundRect', 'fixture shape is a roundRect')
+		assertEqual(roundRect.adjustValues.adj, 'val 12000', 'roundRect writes its single adj handle')
+
+		const chevron = shapeNamed(slide, 'chevron-adj')
+		assertEqual(chevron.presetGeometry, 'chevron', 'fixture shape is a chevron')
+		assertEqual(chevron.adjustValues.adj, 'val 35000', 'chevron writes its single adj handle')
+
+		const blockArc = shapeNamed(slide, 'blockArc-adj1-adj2-adj3')
+		assertEqual(blockArc.presetGeometry, 'blockArc', 'fixture shape is a blockArc')
+		assertEqual(blockArc.adjustValues.adj1, 'val 15000', 'blockArc first guide is present')
+		assertEqual(blockArc.adjustValues.adj2, 'val 7200000', 'blockArc angle guide is present')
+		assertEqual(blockArc.adjustValues.adj3, 'val 30000000', 'blockArc second angle guide is present')
+
+		const rect = shapeNamed(slide, 'rect-no-adjust')
 		assertEqual(Object.keys(rect.adjustValues).length, 0, 'a plain rect has no adjust handles')
 	})
 
-	test('lineWidthPt round-trips an explicit line width', async () => {
-		const presentation = await reopen((p) => {
-			p.addSlide().addShape(p.shapes.RECTANGLE, {
-				x: 1,
-				y: 1,
-				w: 3,
-				h: 1,
-				fill: { color: 'CCCCCC' },
-				line: { color: '111111', width: 2 },
-			})
-		})
-		const shape = presentation.slides[0].shapes.find((s) => s.presetGeometry === 'rect')
-		assertEqual(shape.lineWidthPt, 2, 'line width 2pt round-trips')
-	})
+	test('gradientStops reads PowerPoint-authored gsLst stops with position + colour split', async () => {
+		const slide = (await open('gradient-fill')).slides[0]
 
-	test('gradientStops reads gsLst stops with position + colour split, null when solid', async () => {
-		const presentation = await reopen((p) => {
-			const slide = p.addSlide()
-			slide.addShape(p.shapes.RECTANGLE, {
-				x: 1,
-				y: 1,
-				w: 3,
-				h: 1,
-				fill: {
-					type: 'gradient',
-					gradient: {
-						kind: 'linear',
-						angle: 90,
-						stops: [
-							{ position: 0, color: '#451DC7' },
-							{ position: 100, color: 'accent1' },
-						],
-					},
-				},
-			})
-			slide.addShape(p.shapes.RECTANGLE, { x: 1, y: 3, w: 3, h: 1, fill: { color: '00FF00' } })
-		})
-		const shapes = presentation.slides[0].shapes.filter((s) => s.presetGeometry === 'rect')
-		const gradient = shapes.find((s) => s.gradientStops !== null)
-		assert(gradient, 'expected a gradient-filled rect')
-		const stops = gradient.gradientStops
-		assertEqual(stops.length, 2, 'two gradient stops')
-		const first = stops.find((s) => s.position === 0)
-		const last = stops.find((s) => s.position === 1)
-		assert(first && last, `stops at 0 and 1; got positions ${JSON.stringify(stops.map((s) => s.position))}`)
-		assertEqual(first.color, '451DC7', 'first stop is an explicit colour')
-		assertEqual(first.schemeColor, null, 'first stop has no scheme colour')
-		assertEqual(last.color, null, 'second stop has no explicit colour')
-		assertEqual(last.schemeColor, 'accent1', 'second stop is a scheme colour')
-		// Each stop also resolves through the theme to its effective (transform-applied) hex.
-		assertEqual(first.effectiveHex, '451DC7', 'an explicit stop resolves to itself')
-		assertEqual(last.effectiveHex, '4472C4', 'the accent1 stop resolves to the theme accent1 hex')
+		const linear2 = shapeNamed(slide, 'grad-linear-2')
+		assertEqual(linear2.gradientStops.length, 2, 'two-stop linear gradient')
+		assertEqual(linear2.gradientStops[0].position, 0, 'first stop at 0%')
+		assertEqual(linear2.gradientStops[0].color, '451DC7', 'first stop is explicit srgb')
+		assertEqual(linear2.gradientStops[1].position, 1, 'last stop at 100%')
+		assertEqual(linear2.gradientStops[1].color, 'FFFFFF', 'last stop is explicit srgb')
 
-		const solid = shapes.find((s) => s.fillColor === '00FF00')
+		const linear3 = shapeNamed(slide, 'grad-linear-3-scheme')
+		assertEqual(linear3.gradientStops.length, 3, 'three-stop gradient')
+		assertEqual(linear3.gradientStops[0].schemeColor, 'accent1', 'first stop is a scheme colour')
+		assertEqual(linear3.gradientStops[0].effectiveHex, 'B01513', 'scheme stop resolves through the Ion theme')
+		assertEqual(linear3.gradientStops[1].position, 0.5, 'middle stop at 50%')
+		assertEqual(linear3.gradientStops[1].color, '1EB4D2', 'middle stop is explicit srgb')
+
+		const radial = shapeNamed(slide, 'grad-radial')
+		assertEqual(radial.gradientStops.length, 2, 'radial/path gradient still exposes its stops')
+
+		const solid = shapeNamed(slide, 'solid-control')
 		assertEqual(solid.gradientStops, null, 'a solid-filled shape reports null gradientStops')
 	})
 })
 
-describe('Theme colour resolution — write→read round-trip', () => {
-	// A generated deck carries the default Office theme + a slide → layout → master
-	// → theme chain, so a scheme token resolves deterministically: accent1=4472C4,
-	// accent2=ED7D31, accent3=A5A5A5 (see THEME_CLR_SCHEME_DEFAULTS in gen-xml).
-	async function reopen(buildFn) {
-		const pres = new PptxGenJS()
-		buildFn(pres)
-		const buf = await pres.stream()
-		return Presentation.load(buf)
-	}
-
+describe('Theme colour resolution — real PowerPoint XML (theme-colors.pptx)', () => {
 	test('resolvedFill resolves a scheme fill to the theme hex, and an explicit fill to itself', async () => {
-		const presentation = await reopen((p) => {
-			const slide = p.addSlide()
-			slide.addShape(p.shapes.RECTANGLE, { x: 1, y: 1, w: 3, h: 1, fill: { color: 'accent1' } })
-			slide.addShape(p.shapes.RECTANGLE, { x: 1, y: 3, w: 3, h: 1, fill: { color: 'FF0000' } })
-		})
-		const shapes = presentation.slides[0].shapes.filter((s) => s.presetGeometry === 'rect')
-		const scheme = shapes.find((s) => s.fillSchemeColor === 'accent1')
-		assert(scheme, 'expected the accent1-filled rect')
-		assertEqual(scheme.resolvedFill.hex, '4472C4', 'accent1 resolves to the theme accent1 hex')
+		const slide = (await open('theme-colors')).slides[0]
+		const scheme = shapeNamed(slide, 'accent1-plain')
+		assertEqual(scheme.resolvedFill.hex, 'B01513', 'accent1 resolves to the Ion theme accent1 hex')
 		// The raw read still reports the unresolved token — resolution is opt-in.
 		assertEqual(scheme.fillColor, null, 'fillColor still reports null for a scheme-coloured fill')
 
-		const explicit = shapes.find((s) => s.fillColor === 'FF0000')
+		const explicit = shapeNamed(slide, 'explicit-srgb-fill')
 		assertEqual(explicit.resolvedFill.hex, 'FF0000', 'an explicit srgb fill resolves to itself')
 	})
 
 	test('resolvedLine resolves a scheme line colour; null when there is no solid fill', async () => {
-		const presentation = await reopen((p) => {
-			const slide = p.addSlide()
-			slide.addShape(p.shapes.RECTANGLE, {
-				x: 1,
-				y: 1,
-				w: 3,
-				h: 1,
-				fill: { color: 'FF0000' },
-				line: { color: 'accent2', width: 1 },
-			})
-			slide.addShape(p.shapes.RECTANGLE, {
-				x: 1,
-				y: 3,
-				w: 3,
-				h: 1,
-				fill: {
-					type: 'gradient',
-					gradient: {
-						kind: 'linear',
-						angle: 0,
-						stops: [
-							{ position: 0, color: 'accent1' },
-							{ position: 100, color: 'accent2' },
-						],
-					},
-				},
-			})
-		})
-		const shapes = presentation.slides[0].shapes.filter((s) => s.presetGeometry === 'rect')
-		const lined = shapes.find((s) => s.lineSchemeColor === 'accent2')
-		assert(lined, 'expected the accent2-lined rect')
-		assertEqual(lined.resolvedLine.hex, 'ED7D31', 'accent2 line resolves to the theme accent2 hex')
-		// A gradient-filled, unlined shape resolves neither a fill nor a line colour.
-		const gradient = shapes.find((s) => s.gradientStops !== null)
+		const lined = shapeNamed((await open('theme-colors')).slides[0], 'accent1-line-accent2-2pt')
+		assertEqual(lined.resolvedLine.hex, 'EA6312', 'accent2 line resolves to the Ion theme accent2 hex')
+		// A gradient-filled shape has no a:solidFill to resolve as a fill colour.
+		const gradient = shapeNamed((await open('gradient-fill')).slides[0], 'grad-linear-3-scheme')
 		assertEqual(gradient.resolvedFill, null, 'a gradient fill has no a:solidFill to resolve')
-		assertEqual(gradient.resolvedLine, null, 'an unlined shape resolves no line colour')
 	})
 
 	test('resolvedFill reports the base hex + raw transforms and the applied effectiveHex', async () => {
-		const presentation = await reopen((p) => {
-			p.addSlide().addShape(p.shapes.RECTANGLE, {
-				x: 1,
-				y: 1,
-				w: 3,
-				h: 1,
-				fill: { color: 'accent1', transparency: 25 },
-			})
-		})
-		const shape = presentation.slides[0].shapes.find((s) => s.presetGeometry === 'rect')
-		// transparency 25 → <a:alpha val="75000"/>; the base hex stays the theme colour.
+		const shape = shapeNamed((await open('theme-colors')).slides[0], 'accent1-lm60-lo40')
 		const fill = shape.resolvedFill
-		assertEqual(fill.hex, '4472C4', 'base colour stays the theme hex, not premultiplied')
-		assertEqual(fill.transforms.length, 1, 'one transform child reported')
-		assertEqual(fill.transforms[0].name, 'alpha', 'the alpha transform is reported by name')
-		assertEqual(fill.transforms[0].value, '75000', 'with its raw @val, left for the consumer to apply')
-		// The new applied value: alpha does not touch RGB, so effectiveHex == base, alpha 0.75.
-		assertEqual(fill.effectiveHex, '4472C4', 'effectiveHex is the base with transforms applied (alpha leaves RGB)')
-		assertEqual(fill.alpha, 0.75, 'an alpha transform surfaces as 0–1 opacity')
+		assertEqual(fill.hex, 'B01513', 'base colour stays the theme hex')
+		assertEqual(fill.transforms.length, 2, 'lumMod/lumOff transform children reported')
+		assertEqual(fill.transforms[0].name, 'lumMod', 'first transform is lumMod')
+		assertEqual(fill.transforms[0].value, '60000', 'lumMod raw @val is preserved')
+		assertEqual(fill.transforms[1].name, 'lumOff', 'second transform is lumOff')
+		assertEqual(fill.transforms[1].value, '40000', 'lumOff raw @val is preserved')
+		assertEqual(fill.effectiveHex, 'ED5654', 'effectiveHex applies the PowerPoint-authored transforms')
 	})
 
 	test('Run.resolvedColor resolves a scheme run colour to the theme hex', async () => {
-		const presentation = await reopen((p) => {
-			p.addSlide().addText([{ text: 'hi', options: { color: 'accent3' } }], { x: 1, y: 1, w: 3, h: 1 })
-		})
-		const shape = presentation.slides[0].shapes.find((s) => s.hasTextFrame)
+		const shape = shapeNamed((await open('theme-colors')).slides[0], 'text-accent5-run')
 		const run = shape.textFrame.paragraphs[0].runs[0]
-		assertEqual(run.schemeColor, 'accent3', 'the raw read reports the scheme token')
-		assertEqual(run.resolvedColor.hex, 'A5A5A5', 'accent3 resolves to the theme accent3 hex')
+		assertEqual(run.schemeColor, 'accent5', 'the raw read reports the scheme token')
+		assertEqual(run.resolvedColor.hex, '54849A', 'accent5 resolves to the Ion theme accent5 hex')
 	})
 })
 

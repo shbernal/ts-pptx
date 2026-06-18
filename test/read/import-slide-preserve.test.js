@@ -118,6 +118,25 @@ function resolveSingle(opc, partName, type) {
 const THEMED_SLIDE_INDEX = 4 // slide5: 69 schemeClr, 18 p:style (Fusion theme: accent1=00E4A8, dk2=333399)
 
 describe("Presentation.importSlide({ theme: 'preserve' })", () => {
+	test('flattens a non-default PowerPoint theme source into literals when importing into a default-theme deck', async () => {
+		const target = await open('empty')
+		const source = await open('multi-theme')
+		const imported = target.importSlide(source, 0, { theme: 'preserve' })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		assert(!/schemeClr/.test(xml), 'no a:schemeClr token remains in the flattened slide')
+		assert(/<a:srgbClr val="B01513"/.test(xml), 'source Ion accent1 flattened to its literal RGB')
+		assert(/<a:srgbClr val="EA6312"/.test(xml), 'source Ion accent2 flattened to its literal RGB')
+		assert(/<a:srgbClr val="E6B729"/.test(xml), 'source Ion accent3 line colour flattened to its literal RGB')
+		assert(/<a:srgbClr val="54849A"/.test(xml), 'source Ion accent5 run colour flattened to its literal RGB')
+		assert(
+			/<a:srgbClr val="EA6312"><a:lumMod val="65000"\/><a:lumOff val="35000"\/><\/a:srgbClr>/.test(xml),
+			'colour transforms are carried onto the flattened literal'
+		)
+		assert(/<a:fillRef idx="0"\/>/.test(xml), 'style fillRef neutralized after materialization')
+		assert(/<a:lnRef idx="0"\/>/.test(xml), 'style lnRef neutralized after materialization')
+	})
+
 	test('flattens scheme colours to the resolved source RGB, carrying transforms', async () => {
 		// Import mixed→mixed (equal slide size); slide5 binds to theme1 "Fusion".
 		const target = await open('mixed')

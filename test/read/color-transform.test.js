@@ -3,13 +3,15 @@
 // effective rendered hex. This is the step that previously forced the NYCO
 // replication agent to hand-compute every lightened/darkened colour.
 //
-// The oracle table below is the set of source→effective mappings documented in
-// the replication plan and verified against PowerPoint/LibreOffice output. The
-// implementation is correct iff it reproduces them within ±1 per channel (the
-// small slack absorbs PowerPoint's luminance-rounding quirks).
+// The main oracle below is read from theme-colors.pptx, a desktop
+// PowerPoint-authored deck. Expected effective colours were read back from
+// PowerPoint COM (`Shape.Fill.ForeColor.RGB`) after opening the saved fixture.
 
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
-import { applyColorTransforms } from '../../dist/read.js'
+import { applyColorTransforms, Presentation } from '../../dist/read.js'
 import { assert } from '../helpers.js'
 
 /** Parse `RRGGBB` → [r,g,b] 0–255. */
@@ -31,25 +33,35 @@ function tf(...pairs) {
 	return pairs.map(([name, value]) => ({ name, value: String(value) }))
 }
 
-// base | transforms | effective — straight from the replication oracle.
-const ORACLE = [
-	['accent1 lumMod60/lumOff40', '04F06A', tf(['lumMod', 60000], ['lumOff', 40000]), '62FCA5'],
-	['accent3 lumMod40/lumOff60', '250F6B', tf(['lumMod', 40000], ['lumOff', 60000]), '9377EC'],
-	['bg2 lumMod20/lumOff80', '451DC7', tf(['lumMod', 20000], ['lumOff', 80000]), 'D8CEF8'],
-	['bg2 lumMod40/lumOff60', '451DC7', tf(['lumMod', 40000], ['lumOff', 60000]), 'B09DF1'],
-	['bg2 lumMod60/lumOff40', '451DC7', tf(['lumMod', 60000], ['lumOff', 40000]), '896BEA'],
-	['bg2 lumMod75', '451DC7', tf(['lumMod', 75000]), '341695'],
-	['bg2 shade30/satMod115', '451DC7', tf(['shade', 30000], ['satMod', 115000]), '20047B'],
-	['bg2 shade67.5/satMod115', '451DC7', tf(['shade', 67500], ['satMod', 115000]), '330CB2'],
-	['bg2 shade100/satMod115', '451DC7', tf(['shade', 100000], ['satMod', 115000]), '3E10D4'],
-	['bg1 lumMod50', 'FFFFFF', tf(['lumMod', 50000]), '7F7F7F'],
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+async function open(name) {
+	return Presentation.load(await readFile(path.join(__dirname, 'fixtures', `${name}.pptx`)))
+}
+
+function shapeNamed(slide, name) {
+	const shape = slide.shapes.find((s) => s.name === name)
+	assert(shape, `expected shape named ${name}`)
+	return shape
+}
+
+// shape name | PowerPoint COM effective RGB.
+const POWERPOINT_ORACLE = [
+	['accent1-plain', 'B01513'],
+	['accent1-lm60-lo40', 'ED5654'],
+	['accent2-lm75', 'B04A0E'],
+	['accent3-shade50', '795F0E'],
+	['accent4-tint40', 'A6CDBC'],
+	['lt2-lm20-lo80', 'FBFBFB'],
 ]
 
-describe('applyColorTransforms — replication oracle', () => {
-	for (const [label, base, transforms, expected] of ORACLE) {
-		test(label, () => {
+describe('applyColorTransforms — PowerPoint fixture oracle', () => {
+	for (const [shapeName, expected] of POWERPOINT_ORACLE) {
+		test(shapeName, async () => {
+			const shape = shapeNamed((await open('theme-colors')).slides[0], shapeName)
+			const { hex: base, transforms } = shape.resolvedFill
 			const { hex } = applyColorTransforms(base, transforms)
-			assertHexClose(hex, expected, 1, label)
+			assertHexClose(hex, expected, 1, shapeName)
 		})
 	}
 

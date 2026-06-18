@@ -83,6 +83,23 @@ async function deckMixedRecoloredAccent1() {
 }
 
 describe("Presentation.importSlide({ theme: 'restyle' })", () => {
+	test('keeps a non-default PowerPoint theme source symbolic when importing into a default-theme deck', async () => {
+		const target = await open('empty')
+		const source = await open('multi-theme')
+		const themesBefore = countParts(target.opc, /\/theme\/theme\d+\.xml$/)
+
+		const imported = target.importSlide(source, 0, { theme: 'restyle' })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		assert(/<a:schemeClr val="accent1"/.test(xml), 'accent1 remains symbolic for destination-theme rebinding')
+		assert(/<a:schemeClr val="accent2"/.test(xml), 'accent2 remains symbolic for destination-theme rebinding')
+		assert(/<a:schemeClr val="accent5"/.test(xml), 'run colour remains symbolic for destination-theme rebinding')
+		assert(/<a:fillRef idx="1"><a:schemeClr val="accent1"\/><\/a:fillRef>/.test(xml), 'style fillRef remains symbolic')
+		assert(!/val="B01513"/.test(xml), 'source Ion accent1 was not baked as a literal')
+		assert(!/val="54849A"/.test(xml), 'source Ion accent5 was not baked as a literal')
+		assertEqual(countParts(target.opc, /\/theme\/theme\d+\.xml$/), themesBefore, 'restyle copies no source theme part')
+	})
+
 	test('re-brands a symbolic schemeClr to the destination theme (no flatten, no source theme copied)', async () => {
 		// Source slide5 fills with schemeClr accent1; the destination's theme1 accent1
 		// is the sentinel. restyle keeps accent1 symbolic and binds it to the
