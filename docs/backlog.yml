@@ -9796,7 +9796,7 @@ items:
       child's absolute placement is approximate — a replicator transcribing `absBox`
       lands children in the wrong spot and only catches it by eyeballing the render.
 
-      Why it matters now: the replication-lab audit (decks/replication-lab/audit)
+      Why it matters now: the replication-lab audit (scripts/slide-analysis/replication)
       flags `group-rot-flip` as the one UNTRACKED residual after the colour-transform
       and absBox fixes closed blockers #2 and #3. It currently has no backlog id, so
       the audit can only mark it YELLOW "verify by hand" instead of gating it like
@@ -9817,7 +9817,7 @@ items:
 
       Scope note: nested *scaled* groups (e.g. the NYCO fan, Group 5 -> 15/24 at
       ~0.95) are already handled — this is specifically the rotation/flip axis.
-    stopgap: downstream:decks/replication-lab/audit/capability-map.ts
+    stopgap: downstream:scripts/slide-analysis/replication/capability-map.ts
     evidence:
       kinds:
         - local-source-inspection
@@ -9830,7 +9830,7 @@ items:
       spec_refs: []
     next_action: design-api-shape
   - id: dn-backlog-construct-tags
-    source: downstream:decks/replication-lab/audit/capability-map.ts
+    source: downstream:scripts/slide-analysis/replication/capability-map.ts
     type: downstream-need
     first_seen: 2026-06-18
     last_reviewed: 2026-06-18
@@ -9845,7 +9845,7 @@ items:
       META / ledger-tooling enhancement, not a PPTX-generation feature — filed
       here because the ledger is the single place cross-repo needs are tracked.
 
-      Problem: the replication-lab feature audit (decks/replication-lab/audit)
+      Problem: the replication-lab feature audit (scripts/slide-analysis/replication)
       must answer "is OOXML construct X a fork gap?" by joining a detected
       construct (e.g. prstTxWarp, custGeom, group-rot-flip, fillRef-sourced
       colour) to the backlog entry that gates it. The ledger has no
@@ -9868,7 +9868,7 @@ items:
       Open question: whether the construct vocabulary lives here (fork owns the
       OOXML it emits/reads) or stays downstream-side (consumer owns "what we
       hit"). Leaning fork-side, since the gap status already lives here.
-    stopgap: downstream:decks/replication-lab/audit/capability-map.ts
+    stopgap: downstream:scripts/slide-analysis/replication/capability-map.ts
     evidence:
       kinds:
         - local-source-inspection
