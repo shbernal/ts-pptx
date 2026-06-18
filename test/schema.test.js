@@ -99,6 +99,21 @@ export default [
 		},
 	},
 	{
+		// textDirection is the documented public option; it must reach <a:bodyPr vert="…">
+		// (ST_TextVerticalType). Previously only the undocumented `vert` alias was honored
+		// for text boxes, so textDirection was silently dropped (dn-text-direction-serialization).
+		name: 'text box with textDirection emits bodyPr vert (dn-text-direction-serialization)',
+		fn: async () => {
+			const { buf, zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addText('rotated', { x: 1, y: 1, w: 4, h: 2, textDirection: 'vert270' })
+			})
+			const slideXml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assertIncludes(slideXml, 'vert="vert270"', 'textDirection vert270')
+			await expectNoSchemaErrors(buf, 'text-direction')
+		},
+	},
+	{
 		name: 'text box with mixed bold/color runs',
 		fn: async () => {
 			const { buf } = await build((p) => {

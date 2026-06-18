@@ -1422,7 +1422,10 @@ export function addTextDefinition(target: PresSlideInternal, text: TextProps[], 
 			itemOpts._bodyProp = itemOpts._bodyProp || {}
 			itemOpts._bodyProp.autoFit = itemOpts.autoFit || false // DEPRECATED: (3.3.0) If true, shape will collapse to text size (Fit To shape)
 			itemOpts._bodyProp.anchor = !itemOpts.placeholder ? TEXT_VALIGN.ctr : undefined // VALS: [t,ctr,b]
-			itemOpts._bodyProp.vert = itemOpts.vert // VALS: [eaVert,horz,mongolianVert,vert,vert270,wordArtVert,wordArtVertRtl]
+			// `textDirection` is the documented public option; `vert` is a legacy/extended alias kept as an
+			// escape hatch for the full ST_TextVerticalType range (eaVert, mongolianVert, wordArtVertRtl).
+			// Both map directly to the `<a:bodyPr vert="…">` attribute, so prefer the documented one.
+			itemOpts._bodyProp.vert = itemOpts.textDirection ?? itemOpts.vert // VALS: [eaVert,horz,mongolianVert,vert,vert270,wordArtVert,wordArtVertRtl]
 			itemOpts._bodyProp.wrap = typeof itemOpts.wrap === 'boolean' ? itemOpts.wrap : true
 			itemOpts._bodyProp.prstTxWarp = itemOpts.textWarp // preset text warp (`<a:prstTxWarp>`), e.g. 'textArchUp'
 

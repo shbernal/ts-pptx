@@ -9351,7 +9351,7 @@ items:
     type: downstream-need
     first_seen: 2026-06-18
     last_reviewed: 2026-06-18
-    status: accepted
+    status: implemented
     priority: p2
     target_area:
       - missing-pptx-feature
@@ -9360,28 +9360,33 @@ items:
     non_target_reasons: []
     summary: "textDirection is typed but never serialized to <a:bodyPr vert=...>"
     current_project_notes: |
-      TextBaseProps.textDirection ('horz' | 'vert' | 'vert270' | 'wordArtVert')
-      is a public option, but genXmlBodyProperties never emits the corresponding
-      <a:bodyPr vert="…"> attribute, so passing textDirection: 'vert270' is
-      silently dropped and the text renders horizontal. This is a deterministic,
-      library-owned emission gap (same class as the fixed breakLine:false bug, not
-      a measurement/render caveat): the fix is to map the option to the `vert`
-      attribute in gen-xml.ts and add a schema fixture asserting it. Discovered
-      building quadrant-matrix, whose rotated y-axis title needs vertical text;
-      current stopgap there is a rotate: 270 text box, which works but is less
-      clean than a real vert270 body property.
-    stopgap: registry/components/quadrant-matrix.ts
+      RESOLVED. TextBaseProps.textDirection ('horz' | 'vert' | 'vert270' |
+      'wordArtVert') was a public option, but the text-box body-prop transform in
+      gen-objects.ts only read the undocumented `vert` alias, so textDirection was
+      silently dropped and text rendered horizontal. (Tables already honored
+      textDirection via the <a:tcPr vert="…"> path in gen-xml.ts.) Fix:
+      gen-objects.ts now sets `_bodyProp.vert = itemOpts.textDirection ?? itemOpts.vert`,
+      so the documented option drives `<a:bodyPr vert="…">`; `vert` is retained as a
+      legacy/extended escape hatch for the full ST_TextVerticalType range (eaVert,
+      mongolianVert, wordArtVertRtl) not listed by textDirection's type. Both map
+      identically to the attribute value. Schema fixture
+      'text box with textDirection emits bodyPr vert' asserts vert="vert270" and
+      schema validity. quadrant-matrix can now use textDirection:'vert270' for its
+      rotated y-axis title instead of the rotate:270 stopgap.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/gen-xml.ts
+        - src/gen-objects.ts
         - src/core-interfaces.ts
-      schema_fixture: null
-      validator_result: null
+        - test/schema.test.js
+      schema_fixture: "test/schema.test.js: text box with textDirection emits bodyPr vert (dn-text-direction-serialization)"
+      validator_result: "pnpm run test:schema — 91 passed (incl. text-direction)"
       powerpoint_result: null
       spec_refs: []
-    next_action: implement-and-add-schema-fixture
+    next_action: none
   - id: dn-svg-natural-sizing
     source: downstream:registry/components/logo-group-panel.ts
     type: downstream-need

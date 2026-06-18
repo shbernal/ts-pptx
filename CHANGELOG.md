@@ -54,6 +54,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`textDirection` now serializes to `<a:bodyPr vert="…">` on text boxes:** the
+  documented `textDirection` option (`'horz' | 'vert' | 'vert270' | 'wordArtVert'`)
+  was typed and documented but never emitted for text boxes — only the
+  undocumented `vert` alias was read — so `textDirection: 'vert270'` was silently
+  dropped and the text rendered horizontal. (Tables already honored
+  `textDirection`.) Text-box body properties now set the `vert` attribute from
+  `textDirection`, falling back to `vert`, which is retained as a legacy escape
+  hatch for the full `ST_TextVerticalType` range (`eaVert`, `mongolianVert`,
+  `wordArtVertRtl`) not listed by `textDirection`'s type. Schema fixture added.
 - **Hyperlinks now inherit the theme hyperlink color (#1165):** a text
   hyperlink created without an explicit `color` no longer renders in the default
   black body color. Previously every run's color was defaulted to `000000`,
