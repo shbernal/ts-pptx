@@ -2066,6 +2066,19 @@ export interface ChartDataPointStyle {
 	 * @example '00B050'
 	 */
 	fill?: HexColor
+	/**
+	 * Data-point pattern fill (`<a:pattFill>`), e.g. diagonal hatching, for the
+	 * BAR/BAR3D and SCATTER charts that emit per-point `c:dPt`. Takes precedence
+	 * over `fill` (OOXML allows only one fill per data point).
+	 *
+	 * When `pattern.fgColor` is omitted it defaults to this point's resolved fill
+	 * color (`fill` or the varied `chartColors[idx]`), giving a hatched version of
+	 * the bar color; if no point color is resolvable it falls back to black.
+	 * `pattern.bgColor` defaults to white.
+	 * @example { preset: 'ltUpDiag' }
+	 * @example { preset: 'diagCross', fgColor: 'C00000', bgColor: 'FFFFFF' }
+	 */
+	pattern?: PatternFillProps
 }
 // Used internally, probably shouldn't be used by end users
 export interface IOptsChartData extends OptsChartData {

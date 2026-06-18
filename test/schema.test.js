@@ -1683,6 +1683,34 @@ export default [
 		},
 	},
 	{
+		name: 'bar chart with per-point pattern fills (a:pattFill)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addChart(
+					p.charts.BAR,
+					[
+						{
+							name: 'Status',
+							labels: ['A', 'B', 'C', 'D'],
+							values: [10, 20, 38, 2],
+							pointStyles: [
+								// fgColor defaults to the resolved point fill -> hatched bar color
+								{ fill: '00B050', pattern: { preset: 'ltUpDiag' } },
+								// explicit fg/bg colors
+								{ pattern: { preset: 'diagCross', fgColor: 'C00000', bgColor: 'FFFFFF' } },
+								// pattern alongside a border
+								{ pattern: { preset: 'pct25' }, border: { pt: 2, color: '404040' } },
+								{},
+							],
+						},
+					],
+					{ x: 1, y: 1, w: 6, h: 3 }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'bar-chart-pattern-fills')
+		},
+	},
+	{
 		name: 'pie chart with per-point pointStyles (border + fill)',
 		fn: async () => {
 			const { buf } = await build((p) => {

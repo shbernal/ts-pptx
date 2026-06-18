@@ -4602,8 +4602,8 @@ items:
     source: "gitbrent/PptxGenJS#1279"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-18
+    status: implemented
     priority: p3
     target_area:
       - chart-ooxml
@@ -4612,23 +4612,31 @@ items:
     non_target_reasons: []
     upstream_summary: Bar chart data points cannot use diagonal-line or pattern fills.
     current_project_notes: >
-      Current fill modeling is color-oriented and chart series/data-point
-      generation emits solidFill/noFill branches, with no pattern-fill model for
-      bar chart points.
+      Implemented as a per-point `pattern` field on `ChartDataPointStyle`
+      (pointStyles[i].pattern: PatternFillProps). makeSeriesDataPointsXml now
+      emits `<a:pattFill>` (via the existing genXmlPatternFill helper) inside
+      `c:dPt`/`c:spPr` for BAR/BAR3D and SCATTER, taking precedence over a solid
+      fill. When pattern.fgColor is omitted it defaults to the point's resolved
+      color (explicit `fill` or varied chartColors), so a bare preset reads as a
+      hatched bar in the series color; bgColor defaults to white. Covers the
+      diagonal-line request (e.g. ltUpDiag/diagCross) via ST_PresetPatternVal.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/core-interfaces.ts:179
-        - src/core-interfaces.ts:198
-        - src/gen-charts.ts:864
-        - src/gen-charts.ts:870
-        - src/gen-charts.ts:928
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts:2056
+        - src/gen-utils.ts:402
+        - src/gen-charts.ts:2242
+        - test/schema.test.js
+      schema_fixture: test/schema.test.js (bar-chart-pattern-fills)
+      validator_result: pass
       powerpoint_result: null
-      spec_refs: []
-    next_action: compare-powerpoint-authored-bar-pattern-fill-xml
+      spec_refs:
+        - "ECMA-376 Part 1 ST_PresetPatternVal (20.1.10.50): a:pattFill prst values"
+        - "ECMA-376 Part 1 pattFill (20.1.8.47); fgClr (20.1.8.27); bgClr (20.1.8.10)"
+    next_action: none
 
   - id: upstream-issue-1278
     source: "gitbrent/PptxGenJS#1278"

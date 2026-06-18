@@ -20,7 +20,7 @@ import {
 	ONEPT,
 } from './core-enums.js'
 import type { IChartOptsLib, ISlideRelChart, ShadowProps, IChartPropsTitle, OptsChartGridLine, IOptsChartData, BorderProps } from './core-interfaces.js'
-import { createColorElement, createLineCap, genXmlColorSelection, convertRotationDegrees, encodeXmlEntities, getUuid, valToPts } from './gen-utils.js'
+import { createColorElement, createLineCap, genXmlColorSelection, genXmlPatternFill, convertRotationDegrees, encodeXmlEntities, getUuid, valToPts } from './gen-utils.js'
 import JSZip from 'jszip'
 
 const VALID_CHART_TIME_UNITS = ['days', 'months', 'years']
@@ -2251,20 +2251,25 @@ function makeSeriesDataPointsXml (chartType: CHART_NAME, obj: IOptsChartData, op
 		const ptStyle = pointStyles?.[index]
 		const arrColors = varyColors ? (value < 0 ? opts.invertedColors || opts.chartColors || BARCHART_COLORS : varyColors) : null
 		const fillColor = ptStyle?.fill || (arrColors ? arrColors[index % arrColors.length] : null)
+		const pattern = ptStyle?.pattern
 		const border = ptStyle?.border
 		// Nothing to style for this point -> omit the c:dPt entirely
-		if (!fillColor && !border) return
+		if (!fillColor && !pattern && !border) return
 
 		xml += '<c:dPt>'
 		xml += `<c:idx val="${index}"/>`
 		if (isBar) xml += '<c:invertIfNegative val="0"/>'
 		xml += '<c:bubble3D val="0"/>'
 		xml += '<c:spPr>'
-		if ((isBar || isScatter) && opts.lineSize === 0 && !border && !ptStyle?.fill) {
+		if ((isBar || isScatter) && opts.lineSize === 0 && !border && !ptStyle?.fill && !pattern) {
 			// Preserve legacy color-vary behavior: hide outline when lineSize===0
 			xml += '<a:ln><a:noFill/></a:ln>'
 		} else {
-			if (fillColor) {
+			// Pattern fill takes precedence over a solid fill (OOXML allows only one fill per c:dPt).
+			// Default the pattern foreground to this point's resolved color so it reads as a hatched bar.
+			if (pattern) {
+				xml += genXmlPatternFill(fillColor && !pattern.fgColor ? { ...pattern, fgColor: fillColor } : pattern)
+			} else if (fillColor) {
 				// BAR3D color-vary historically tints the edge line, not the face fill
 				if (chartType === CHART_TYPE.BAR3D) xml += `<a:ln><a:solidFill>${createColorElement(fillColor)}</a:solidFill></a:ln>`
 				else xml += `<a:solidFill>${createColorElement(fillColor)}</a:solidFill>`
