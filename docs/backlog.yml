@@ -9878,3 +9878,69 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: needs-design
+  - id: dn-connector-preset-shapename
+    source: downstream:registry/replication/kit.ts
+    type: downstream-need
+    first_seen: 2026-06-18
+    last_reviewed: 2026-06-18
+    status: target-candidate
+    priority: p3
+    target_area:
+      - typescript-api
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: Surface bent/straight connector presets on the public SHAPE_NAME union
+    current_project_notes: "The connector presets (bentConnector2/3, straightConnector1) are valid serializable geometries in VALID_SHAPE_PRESETS but are not exposed on the public SHAPE_NAME union, so the replica kit's connector() casts the preset string through Parameters<addShape>[0]. Output is correct; this is purely an API-surface gap. Fix: add the connector presets to SHAPE_NAME (and document them) so callers get type-checked names without a cast. Surfaced by the replication capability-map (construct key: connector)."
+    stopgap: registry/replication/kit.ts
+    evidence:
+      kinds: []
+      local_files: []
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: implement
+  - id: dn-gradient-line-stroke
+    source: downstream:registry/replication/kit.ts
+    type: downstream-need
+    first_seen: 2026-06-18
+    last_reviewed: 2026-06-18
+    status: target-candidate
+    priority: p3
+    target_area:
+      - missing-pptx-feature
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: Stroke a line/connector with a gradient fill (<a:ln> > <a:gradFill>)
+    current_project_notes: "Source downstream elbow connectors paint their stroke with an <a:gradFill> inside <a:ln> (accent3->accent4 fade). The fork can only stroke a line with a solid colour, so the replica kit's connector() falls back to a representative solid lavender (deviation noted on the slide). Fix: let the line spec accept a gradient (mirror the shape gradient fill path landed in upstream-pr-1454, but for <a:ln>). Surfaced by the replication capability-map (construct key: gradient-line-stroke); the audit flags it RED until implemented."
+    stopgap: registry/replication/kit.ts
+    evidence:
+      kinds: []
+      local_files: []
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: implement
+  - id: dn-px-coordinate-unit
+    source: downstream:registry/replication/kit.ts
+    type: downstream-need
+    first_seen: 2026-06-18
+    last_reviewed: 2026-06-18
+    status: target-candidate
+    priority: p3
+    target_area:
+      - missing-pptx-feature
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: First-class pixel/DPI coordinate unit for authoring at a known canvas size
+    current_project_notes: "Source-pixel replication authors every box in pixels on the source canvas and maps px/96=inch by hand (the replica kit's inch() helper). Any consumer recreating a slide at a known pixel size wants this as a first-class coordinate mode, not a hand-rolled divide. Proposal: a 'px' unit (at a configurable DPI, default 96) alongside the existing in/cm/% so x/y/w/h can be given in source pixels. Net-new layout primitive (not a slide-detectable construct, so it is intentionally NOT in the capability-map). Surfaced while graduating the replica kit to registry/replication."
+    stopgap: registry/replication/kit.ts
+    evidence:
+      kinds: []
+      local_files: []
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: propose
