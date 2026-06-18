@@ -19,7 +19,7 @@ import {
 	LETTERS,
 	ONEPT,
 } from './core-enums.js'
-import type { IChartOptsLib, ISlideRelChart, ShadowProps, IChartPropsTitle, OptsChartGridLine, IOptsChartData, BorderProps } from './core-interfaces.js'
+import type { IChartOptsLib, ISlideRelChart, ShadowProps, IChartPropsTitle, OptsChartGridLine, IOptsChartData, BorderProps, ChartErrorBarOptions } from './core-interfaces.js'
 import { createColorElement, createLineCap, genXmlColorSelection, genXmlPatternFill, convertRotationDegrees, encodeXmlEntities, getUuid, valToPts } from './gen-utils.js'
 import JSZip from 'jszip'
 
@@ -984,6 +984,10 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 					strXml += '</c:dLbls>'
 				}
 
+				// Error bars (`<c:errBars>`) — schema order places them after dLbls, before cat.
+				// RADAR has no error bars in CT_RadarSer, so it is excluded.
+				if (chartType !== CHART_TYPE.RADAR) strXml += makeChartErrorBarsXml(chartType, obj.errorBars, obj)
+
 				// 2: "Categories"
 				{
 					strXml += '<c:cat>'
@@ -1306,6 +1310,9 @@ function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: ICh
 						strXml += '</c:dLbls>'
 					}
 				}
+
+				// Error bars (`<c:errBars>`) — schema order places them after dLbls, before xVal/yVal.
+				strXml += makeChartErrorBarsXml(chartType, obj.errorBars, obj)
 
 				// 3: "Values": Scatter Chart has 2: `xVal` and `yVal`
 				{
@@ -2147,6 +2154,79 @@ function numCachePt (idx: number, value: number | null | undefined): string {
 		return ''
 	}
 	return `<c:pt idx="${idx}"><c:v>${value}</c:v></c:pt>`
+}
+
+/**
+ * Build the error-bar elements (`<c:errBars>`) for a single series.
+ *
+ * Schema position (CT_*Ser): after `dLbls`/`trendline`, before `cat`/`val` (bar/line/area)
+ * or `xVal`/`yVal` (scatter). CT_ErrBars child order is errDir → errBarType → errValType →
+ * noEndCap → plus → minus → val → spPr.
+ *
+ * @param chartType - chart this series belongs to (used to bound how many bars are legal)
+ * @param errorBars - one config, or an array (X+Y) for scatter/area; bar/line keep only the first
+ * @param obj - the series data object (only `name`, for warnings)
+ */
+function makeChartErrorBarsXml (chartType: CHART_NAME, errorBars: ChartErrorBarOptions | ChartErrorBarOptions[] | undefined, obj: IOptsChartData): string {
+	if (!errorBars) return ''
+	const bars = Array.isArray(errorBars) ? errorBars : [errorBars]
+	// CT_BarSer/CT_LineSer allow a single <c:errBars>; only scatter/area permit two (x + y).
+	const maxBars = chartType === CHART_TYPE.SCATTER || chartType === CHART_TYPE.AREA ? 2 : 1
+	let strXml = ''
+
+	bars.slice(0, maxBars).forEach(eb => {
+		if (!eb) return
+		const valueType = eb.valueType || 'fixedVal'
+		const barType = eb.barType || 'both'
+		const direction = eb.direction || 'y'
+
+		strXml += '<c:errBars>'
+		strXml += `<c:errDir val="${direction}"/>`
+		strXml += `<c:errBarType val="${barType}"/>`
+		strXml += `<c:errValType val="${valueType}"/>`
+		strXml += `<c:noEndCap val="${eb.noEndCap ? '1' : '0'}"/>`
+
+		if (valueType === 'cust') {
+			// Custom amounts: <c:plus>/<c:minus> each hold a number source (we emit <c:numLit>).
+			// `barType` decides which sides are present; warn (don't silently drop) on a missing side.
+			if (barType !== 'minus') {
+				if (!eb.plusValues?.length) console.warn(`Warning: chart series "${obj.name}" errorBars valueType 'cust' needs \`plusValues\` for barType '${barType}'.`)
+				strXml += makeErrBarNumLit('plus', eb.plusValues || [])
+			}
+			if (barType !== 'plus') {
+				if (!eb.minusValues?.length) console.warn(`Warning: chart series "${obj.name}" errorBars valueType 'cust' needs \`minusValues\` for barType '${barType}'.`)
+				strXml += makeErrBarNumLit('minus', eb.minusValues || [])
+			}
+		} else if (valueType !== 'stdErr') {
+			// fixedVal / percentage / stdDev use a single magnitude (stdErr derives it from the data).
+			strXml += `<c:val val="${eb.value ?? 1}"/>`
+		}
+
+		if (eb.color || eb.size != null) {
+			strXml += '<c:spPr><a:ln'
+			strXml += eb.size != null ? ` w="${valToPts(eb.size)}"` : ''
+			strXml += '>'
+			strXml += eb.color ? `<a:solidFill>${createColorElement(eb.color)}</a:solidFill>` : ''
+			strXml += '</a:ln></c:spPr>'
+		}
+
+		strXml += '</c:errBars>'
+	})
+
+	return strXml
+}
+
+/**
+ * Build a `<c:plus>`/`<c:minus>` number-literal source for custom error-bar amounts.
+ * @param tag - `'plus'` or `'minus'`
+ * @param values - per-point magnitudes (index-aligned with the series values)
+ */
+function makeErrBarNumLit (tag: 'plus' | 'minus', values: number[]): string {
+	let strXml = `<c:${tag}><c:numLit><c:formatCode>General</c:formatCode><c:ptCount val="${values.length}"/>`
+	values.forEach((value, idx) => { strXml += numCachePt(idx, value) })
+	strXml += `</c:numLit></c:${tag}>`
+
+	return strXml
 }
 
 /**

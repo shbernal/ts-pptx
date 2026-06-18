@@ -2044,6 +2044,16 @@ export interface OptsChartData {
 	 */
 	pointStyles?: ChartDataPointStyle[]
 	/**
+	 * Error bars for this series (`<c:errBars>`).
+	 * - Supported for BAR, BAR3D, LINE, AREA, and SCATTER chart types (RADAR has no error bars in the schema).
+	 * - Pass a single config, or an array to draw both X and Y error bars (SCATTER/AREA only; BAR/LINE use the first entry).
+	 * @example { valueType: 'percentage', value: 5 } // ±5% error bars
+	 * @example { valueType: 'fixedVal', value: 2, barType: 'plus', noEndCap: true }
+	 * @example { valueType: 'cust', plusValues: [1, 2, 1], minusValues: [0.5, 1, 0.5] }
+	 * @since v6.0.0
+	 */
+	errorBars?: ChartErrorBarOptions | ChartErrorBarOptions[]
+	/**
 	 * Override `chartColors`
 	 */
 	// color?: string // TODO: WIP: (Pull #727)
@@ -2079,6 +2089,51 @@ export interface ChartDataPointStyle {
 	 * @example { preset: 'diagCross', fgColor: 'C00000', bgColor: 'FFFFFF' }
 	 */
 	pattern?: PatternFillProps
+}
+/**
+ * Error-bar configuration for a chart series (`<c:errBars>`).
+ * Maps onto OOXML `CT_ErrBars` (errDir / errBarType / errValType / noEndCap / plus / minus / val).
+ */
+export interface ChartErrorBarOptions {
+	/**
+	 * Axis the error bars measure along.
+	 * - `'y'` (the value axis) for BAR/BAR3D/LINE/AREA; SCATTER may also use `'x'`.
+	 * @default 'y'
+	 */
+	direction?: 'x' | 'y'
+	/**
+	 * Which sides of each marker draw a bar.
+	 * @default 'both'
+	 */
+	barType?: 'both' | 'minus' | 'plus'
+	/**
+	 * How `value` (or `plusValues`/`minusValues`) is interpreted.
+	 * - `'fixedVal'` — fixed amount in axis units
+	 * - `'percentage'` — percent of each value (e.g. `value: 5` → ±5%)
+	 * - `'stdDev'` — `value` standard deviations
+	 * - `'stdErr'` — standard error (ignores `value`)
+	 * - `'cust'` — explicit per-point amounts via `plusValues`/`minusValues`
+	 * @default 'fixedVal'
+	 */
+	valueType?: 'cust' | 'fixedVal' | 'percentage' | 'stdDev' | 'stdErr'
+	/**
+	 * Magnitude for `'fixedVal'`, `'percentage'`, or `'stdDev'`. Ignored for `'stdErr'` and `'cust'`.
+	 * @default 1
+	 */
+	value?: number
+	/** Per-point positive magnitudes; required when `valueType === 'cust'` (unless `barType: 'minus'`). Index-aligned with `values[]`. */
+	plusValues?: number[]
+	/** Per-point negative magnitudes; required when `valueType === 'cust'` (unless `barType: 'plus'`). Index-aligned with `values[]`. */
+	minusValues?: number[]
+	/**
+	 * Hide the perpendicular end caps.
+	 * @default false
+	 */
+	noEndCap?: boolean
+	/** Error-bar line color (hex, e.g. `'FF0000'`). */
+	color?: HexColor
+	/** Error-bar line width (points). */
+	size?: number
 }
 // Used internally, probably shouldn't be used by end users
 export interface IOptsChartData extends OptsChartData {

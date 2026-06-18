@@ -1485,6 +1485,62 @@ export default [
 		},
 	},
 	{
+		name: 'chart error bars (bar percentage/cust, line stdDev, scatter x+y)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				// BAR: percentage error bars on one series, custom per-point on another
+				p.addSlide().addChart(
+					p.charts.BAR,
+					[
+						{
+							name: 'Pct',
+							labels: ['Q1', 'Q2', 'Q3'],
+							values: [10, 20, 30],
+							errorBars: { valueType: 'percentage', value: 5, color: 'FF0000', size: 1 },
+						},
+						{
+							name: 'Cust',
+							labels: ['Q1', 'Q2', 'Q3'],
+							values: [15, 25, 5],
+							errorBars: { valueType: 'cust', plusValues: [1, 2, 1], minusValues: [0.5, 1, 0.5], noEndCap: true },
+						},
+					],
+					{ x: 1, y: 1, w: 6, h: 3 }
+				)
+				// LINE: standard-deviation error bars, plus-only
+				p.addSlide().addChart(
+					p.charts.LINE,
+					[
+						{
+							name: 'StdDev',
+							labels: ['Jan', 'Feb', 'Mar'],
+							values: [1, 2, 3],
+							errorBars: { valueType: 'stdDev', value: 1, barType: 'plus' },
+						},
+					],
+					{ x: 1, y: 1, w: 6, h: 3 }
+				)
+				// SCATTER: both X and Y error bars on the Y series
+				p.addSlide().addChart(
+					p.charts.SCATTER,
+					[
+						{ name: 'X-Axis', values: [1, 2, 3, 4] },
+						{
+							name: 'Y-Value',
+							values: [13, 20, 21, 25],
+							errorBars: [
+								{ direction: 'x', valueType: 'fixedVal', value: 0.5 },
+								{ direction: 'y', valueType: 'stdErr' },
+							],
+						},
+					],
+					{ x: 1, y: 1, w: 6, h: 3 }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'chart-error-bars')
+		},
+	},
+	{
 		name: 'firstSlideNum sets presentation starting slide number',
 		fn: async () => {
 			const { buf } = await build((p) => {

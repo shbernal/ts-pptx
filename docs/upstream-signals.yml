@@ -3941,8 +3941,8 @@ items:
     source: "gitbrent/PptxGenJS#685"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
+    last_reviewed: 2026-06-18
+    status: implemented
     priority: p3
     target_area:
       - chart-ooxml
@@ -3951,21 +3951,30 @@ items:
     non_target_reasons: []
     upstream_summary: Add chart error bars.
     current_project_notes: >
-      Error bars remain a valid missing chart feature, but should be implemented
-      with current chart option typing and a PowerPoint-authored XML comparison
-      rather than carrying over the old patch directly.
+      Implemented per-series error bars via a new `errorBars` field on
+      OptsChartData (single config or array for scatter/area X+Y). The
+      `ChartErrorBarOptions` interface maps onto CT_ErrBars (direction/barType/
+      valueType/value/plusValues/minusValues/noEndCap/color/size), supporting
+      fixedVal, percentage, stdDev, stdErr, and cust value types. `<c:errBars>`
+      is emitted in schema order (after dLbls/trendline, before cat/val or
+      xVal/yVal) for BAR/BAR3D/LINE/AREA/SCATTER; RADAR is excluded since
+      CT_RadarSer has no errBars. Custom amounts emit `<c:plus>`/`<c:minus>`
+      number literals. Schema fixture `chart-error-bars` validates bar
+      percentage+cust, line stdDev (plus-only), and scatter x+y.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/core-interfaces.ts:1260
-        - src/gen-charts.ts:850
-        - src/gen-charts.ts:1009
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts
+        - src/gen-charts.ts
+        - test/schema.test.js
+      schema_fixture: test/schema.test.js (chart-error-bars)
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: compare-powerpoint-authored-error-bars-xml
+    next_action: none
 
   - id: upstream-pr-525
     source: "gitbrent/PptxGenJS#525"
