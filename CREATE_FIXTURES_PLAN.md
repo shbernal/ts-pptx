@@ -181,6 +181,14 @@ forgotten.
 
 ---
 
+## Generation-feature fixtures — moved out (on stand-by)
+
+The two `interesting-with-tweaks` backlog items — `upstream-pr-1447` (native
+PowerPoint comments) and `upstream-pr-1431` (animation engine) — are
+**write/serialization** features, not read-model work, and are **on stand-by**
+(not active). Their fixture plan now lives in
+[`CREATE_FIXTURES_PLAN_GENERATION.md`](CREATE_FIXTURES_PLAN_GENERATION.md).
+
 ## Not needed (already covered or out of scope)
 
 - **Charts** — `mixed.pptx` carries a real chart and `chart.test.js` reads it; no
