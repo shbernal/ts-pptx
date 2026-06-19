@@ -185,6 +185,34 @@ path:
 For emitted OOXML changes, the implementation handoff should require a focused
 fixture in `test/schema.test.js` and `pnpm run test:schema` when practical.
 
+## Fixture-Gated Work: Ask For The Fixture, Don't Guess
+
+When a feature can only be tested against OOXML that must be **genuine
+PowerPoint output** — a read-model accessor validated against real Office XML, or
+a write-side behaviour whose target XML is "what PowerPoint authors" (preset IDs,
+part wiring, namespaces, inheritance) — and that fixture/oracle does **not** yet
+exist, do not implement against synthetic, hand-typed, or write→read
+round-tripped XML. Guessing the target XML produces circular or wrong evidence.
+
+Instead, record the fixture as the blocking precondition in the backlog and stop:
+
+- If a backlog entry already gates the feature, set its `next_action` to authoring
+  the fixture (e.g. `await-reader-then-author-<construct>-fixture`) and describe
+  the exact construct the oracle must contain in `current_project_notes`.
+- If none exists, add a `downstream-need` entry whose `current_project_notes`
+  states the "do not implement without it" fixture dependency and what the oracle
+  must capture, then leave the feature unimplemented until the fixture lands.
+- Tag the entry with the relevant `constructs:` key(s) (see the
+  `vocabulary.constructs` list in `backlog.yml`, e.g. `custom-geom`,
+  `style-ref-color`, `group-rot-flip`) so the downstream replication audit can
+  join the detected construct to this gating entry.
+
+Author the fixture itself with the `powerpoint-fixture-authoring` skill, verify it
+with `scripts/verify-powerpoint-fixture.ps1`, record provenance + SHA-256 in
+`test/read/fixtures/README.md`, then wire the test to the fixture (read harness
+for read accessors; a `test/schema.test.js` comparison/inspection check for
+write-side oracles). Only then implement and close the entry.
+
 ## Reopening Dismissed Items
 
 Reopen a `non-target` or `superseded` item only when one of these changes:

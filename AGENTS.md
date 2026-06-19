@@ -49,6 +49,7 @@
 - Before changing emitted OOXML, read `docs/ooxml-agent-context.md`.
 - Do not vendor full standards PDFs or large extracted specification text into this repository as agent context. Store small, repo-specific notes with section references instead.
 - Prefer executable evidence over prose alone: inspect minimal PowerPoint-authored `.pptx` packages when needed, compare package XML, and add focused regression or schema fixtures.
+- If a feature can only be tested against genuine PowerPoint output (a read accessor validated against real Office XML, or a write-side behaviour whose target XML is "what PowerPoint authors") and that fixture/oracle does not exist yet, do not implement against synthetic or round-tripped XML. Record the fixture as the blocking precondition in `docs/backlog.yml` (tagging the relevant `constructs:` key) and stop until it is authored — see the "Fixture-Gated Work" section in `docs/backlog-workflow.md`.
 
 ### MCP Tool Selection
 

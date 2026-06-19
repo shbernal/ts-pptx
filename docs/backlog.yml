@@ -185,10 +185,48 @@ items:
     non_target_reasons:
       - legacy-dist-artifact
     summary: Add native PowerPoint comments and generated comment parts.
-    current_project_notes: >
+    current_project_notes: |
       Native comments may fit the feature target, but the upstream PR carries
       generated dist, CJS, and bundle changes that do not fit this fork. Treat
-      only the OOXML/package-part behavior as reusable signal.
+      only the OOXML/package-part behavior as reusable signal: take the OOXML
+      intent and re-implement against the fork's ESM/TS boundary, discarding the
+      upstream dist/CJS/bundle changes.
+
+      ON STAND-BY — do not build until scheduled. Fixture strategy (folded in from
+      the retired CREATE_FIXTURES_PLAN_GENERATION.md): this is a write/serialization
+      feature, so the primary evidence is a serialization schema fixture in
+      test/schema.test.js asserting the exact OOXML the writer emits (option ->
+      attribute/part), run with `pnpm run test:schema`. A PowerPoint-authored .pptx
+      is an authoring ORACLE only (no read accessor for comments): use it to
+      discover/pin the correct part wiring, content types, namespaces, and idx
+      numbering, then assert against it in a comparison/inspection check — NOT
+      test:read. See the "Fixture-Gated Work" section in docs/backlog-workflow.md.
+
+      OOXML shape to pin. PowerPoint has two comment formats (365 writes modern,
+      still reads legacy); decide which the fork emits (modern is the realistic
+      target; legacy is the simpler ISO/IEC 29500 baseline) and fixture accordingly.
+      - Legacy comments (ISO/IEC 29500 §13): per-slide Comments part
+        /ppt/comments/comment{N}.xml, root <p:cmLst>, content type
+        application/vnd.openxmlformats-officedocument.presentationml.comments+xml,
+        implicit relationship from each authoring Slide part; body
+        <p:cm authorId dt idx><p:pos x y/><p:text>…</p:text></p:cm>. Plus the
+        presentation-level Comment Authors part /ppt/commentAuthors.xml, root
+        <p:cmAuthorLst>, content type …presentationml.commentAuthors+xml, implicit
+        relationship from the Presentation part; body
+        <p:cmAuthor id name initials lastIdx clrIdx/>.
+      - Modern comments (PowerPoint 2021+, MS-PPTX 2.16): per-slide modern-comment
+        part whose <cm> carries id/authorId/created/status/etc. and a <txBody> +
+        <replyLst>, anchored by content monikers (pc:sldMkLst) rather than pos, plus
+        a presentation-level /ppt/authors.xml (Authors part) listing <author>s.
+      Fixtures to add (with the feature):
+      - Schema fixture(s) in test/schema.test.js asserting the emitted comment part
+        XML, the commentAuthors/authors part, the Content_Types.xml Overrides, and
+        the slide->comments and presentation->authors relationships — for a deck
+        with one author + one comment, and ideally a two-author/multi-comment case
+        to pin per-author idx numbering.
+      - comments-reference.pptx oracle: a desktop-PowerPoint deck with a couple of
+        comments by two authors, confirming the exact part layout/attributes the
+        schema fixture asserts. Read-harness wiring is NOT required (no read getter).
     evidence:
       kinds: []
       local_files: []
@@ -494,7 +532,7 @@ items:
       SVG and target viewer — the screenshot alone cannot separate an SVG-embedding
       defect from preview-rasterization fidelity, and there is no PptxGenJS-side
       construct to fixture. Held at needs-repro pending reporter-supplied source SVG
-      (not a PowerPoint-authored read fixture, so out of scope for CREATE_FIXTURES_PLAN).
+      (not a PowerPoint-authored read fixture).
     evidence:
       kinds:
         - local-source-inspection
@@ -556,10 +594,40 @@ items:
       - legacy-dist-artifact
       - upstream-build-system
     summary: Large animation engine for entrance, emphasis, exit, and motion-path animations.
-    current_project_notes: >
+    current_project_notes: |
       Animation OOXML is a broad new feature, not a repair signal. The PR touches
       generated bundles and legacy typings; any current work should start with a
-      minimal timing/animation part model and PowerPoint-authored comparison.
+      minimal timing/animation part model and PowerPoint-authored comparison. Take
+      the OOXML intent and re-implement against the fork's ESM/TS boundary, not the
+      upstream engine wholesale.
+
+      ON STAND-BY — do not build until scheduled. Fixture strategy (folded in from
+      the retired CREATE_FIXTURES_PLAN_GENERATION.md): this is a write/serialization
+      feature, so primary evidence is a serialization schema fixture in
+      test/schema.test.js asserting the emitted OOXML, run with `pnpm run
+      test:schema`. A PowerPoint-authored .pptx is an authoring ORACLE only (no read
+      accessor for animation timing): use it to discover/pin the correct OOXML shape,
+      then assert against it in a comparison/inspection check — NOT test:read. See
+      the "Fixture-Gated Work" section in docs/backlog-workflow.md.
+
+      OOXML shape to pin. Animation OOXML lives in the slide's <p:timing> element
+      (child of CT_Slide), which holds <p:tnLst> (the time-node tree of par/seq/cTn
+      with behaviors anim/animEffect/animMotion/animRotation/animScale/set/cmd) and
+      <p:bldLst> (per-shape build entries). Entrance/emphasis/exit/motion-path map to
+      Microsoft-proprietary presetClass/presetID/presetSubtype values (MS-PPTX), so
+      the correct integers MUST be captured from a real deck, not guessed.
+      Fixtures to add (with the feature):
+      - One PowerPoint-authored oracle deck per animation class (or one deck with a
+        shape per class): a simple entrance (e.g. Fade/Appear), an emphasis, an exit,
+        and a motion-path animation, each on a named shape — capturing the authentic
+        presetClass/presetID/presetSubtype integers and tnLst/bldLst structure (the
+        magnitudes-from-real-PowerPoint principle already used for the per-shape
+        rotation angles in rotation-flip.pptx, dn-group-rot-flip-frame).
+      - Schema fixture(s) in test/schema.test.js asserting the p:timing tree the
+        writer emits for a minimal "fade-in on one shape" model first, expanding per
+        class as the engine grows; validate against the oracle decks. Keep p3: a
+        low-priority research signal, so oracle decks can be authored opportunistically
+        to unblock the model design.
     evidence:
       kinds:
         - local-source-inspection
@@ -2921,7 +2989,7 @@ items:
     source: downstream
     type: downstream-need
     first_seen: 2026-06-18
-    last_reviewed: 2026-06-18
+    last_reviewed: 2026-06-19
     status: deferred
     priority: p3
     target_area:
@@ -2940,6 +3008,16 @@ items:
       slots; (b) copying the source table style into the destination tableStyles
       under a fresh id (a restyled table resolves @tableStyleId against the
       destination tableStyles and falls back if the id is absent).
+
+      Fixture dependency (migrated from the retired CREATE_FIXTURES_PLAN.md,
+      Remaining Work B): testing leg (a) needs a PowerPoint-authored source slide
+      that actually contains a literal srgbClr equal to a source-theme accent hex,
+      and leg (b) needs a table using a non-default table style. multi-theme.pptx
+      has neither today. Before implementing, author those fixture additions (a
+      rectangle filled with a literal srgbClr equal to an Ion accent so a
+      force-remap has a match, and a table with a custom table style as the copy
+      source) into multi-theme.pptx or a new restyle-literals.pptx; do not
+      implement the force-remap/table-style copy without that authored source.
     evidence:
       kinds:
         - local-source-inspection
@@ -3096,6 +3174,43 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: revisit-if-needed
+  - id: dn-custgeom-read
+    source: downstream:scripts/slide-analysis/replication/capability-map.ts
+    type: downstream-need
+    first_seen: 2026-06-19
+    last_reviewed: 2026-06-19
+    status: deferred
+    priority: p3
+    target_area:
+      - missing-pptx-feature
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: "Read accessor for freeform custGeom path geometry (no reader today; author a PowerPoint fixture before implementing)"
+    constructs:
+      - custom-geom
+    current_project_notes: |
+      The downstream replication capability audit detects <a:custGeom> freeform
+      path geometry, but the read model exposes no accessor for it today and there
+      is no custGeom read fixture. Migrated here from the retired
+      CREATE_FIXTURES_PLAN.md (Remaining Work D) so it is not forgotten.
+
+      Fixture dependency (do not implement without it): a custGeom read accessor is
+      read-model work whose oracle must be genuine PowerPoint output. When a reader
+      is scheduled, FIRST author a custGeom fixture with the
+      powerpoint-fixture-authoring skill (one freeform shape with a known path —
+      moveTo/lineTo/cubicBezTo + close, plus recorded path extents), record
+      provenance + SHA-256 in test/read/fixtures/README.md, then wire the read test
+      to that fixture. Do not build the accessor against synthetic/hand-typed path
+      XML.
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files: []
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: await-reader-then-author-custgeom-fixture
   - id: dn-readmodel-style-followups
     source: downstream:scripts/slide-library/lib/slide-style.ts
     type: downstream-need

@@ -47,10 +47,11 @@ writes for write-side behaviours so the corresponding writer fixes can be
 compared against authentic XML in `test/schema.test.js`. They are not consumed
 by the `pptxgenjs/read` harness. Two groups:
 
-- **Placeholder / notes** (E/F/G in `CREATE_FIXTURES_PLAN.md`):
-  `layout-placeholder-bodypr.pptx`, `table-placeholder.pptx`,
-  `notes-slide-image.pptx`.
-- **Feature serialization** (H/I): `bar-chart-data-labels.pptx` (per-point bar
+- **Placeholder / notes**: `layout-placeholder-bodypr.pptx`,
+  `table-placeholder.pptx`, `notes-slide-image.pptx` (master/layout placeholder
+  bodyPr → `upstream-pr-1247`/`upstream-issue-1208`; table-in-placeholder →
+  `upstream-pr-1151`; notes `sldImg` → `upstream-issue-446`).
+- **Feature serialization**: `bar-chart-data-labels.pptx` (per-point bar
   `c:dPt`/`c:dLbl` + workbook cache, #727) and `math-omml.pptx` (native equation
   OMML `a14:m`/`m:oMath`, #1456).
 
