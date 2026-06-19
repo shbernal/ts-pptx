@@ -270,7 +270,7 @@ items:
     source: "gitbrent/PptxGenJS#1456"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
+    last_reviewed: 2026-06-19
     status: target-candidate
     priority: p2
     target_area:
@@ -291,7 +291,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: research-omml-in-presentation-text-runs
+    next_action: research-omml-then-author-oracle-see-CREATE_FIXTURES_PLAN-section-I
 
   - id: upstream-issue-1451
     source: "gitbrent/PptxGenJS#1451"
@@ -753,7 +753,7 @@ items:
     source: "gitbrent/PptxGenJS#727"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
+    last_reviewed: 2026-06-19
     status: target-candidate
     priority: p2
     target_area:
@@ -763,9 +763,14 @@ items:
     non_target_reasons: []
     summary: Extend bar charts with custom labels and color customization.
     current_project_notes: >
-      Current chart code still carries a TODO for this PR, dataLabelColor is
-      global, and per-point dPt styling is narrower than the requested custom
-      label/color behavior. Needs a current workbook/cache-consistent design.
+      Partially present: the chart writer now has per-series overrides
+      (`seriesOverride.dataLabelColor`) and per-point `c:dPt` fills + per-point
+      custom `c:dLbl` text (gen-charts.ts), so dataLabelColor is no longer purely
+      global. The remaining PR-727 surface is arbitrary per-point label text AND
+      per-point colour together, kept consistent with the embedded workbook cache.
+      Blocked on a PowerPoint-authored chart oracle so the emitted c:dPt/c:dLbl
+      and the numCache/strCache it must agree with are not guessed — see
+      CREATE_FIXTURES_PLAN.md section H.
     evidence:
       kinds:
         - local-source-inspection
@@ -778,7 +783,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: design-custom-bar-labels-with-workbook-cache-fixtures
+    next_action: design-custom-bar-labels-then-author-oracle-see-CREATE_FIXTURES_PLAN-section-H
 
   - id: upstream-issue-1313
     source: "gitbrent/PptxGenJS#1313"
