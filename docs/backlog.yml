@@ -42,6 +42,7 @@ vocabulary:
     - watch
     - deferred
     - implemented
+    - partially-implemented
     - superseded
   priorities:
     - p0
@@ -9781,14 +9782,14 @@ items:
     source: downstream:scripts/slide-library/lib/slide-style.ts
     type: downstream-need
     first_seen: 2026-06-18
-    last_reviewed: 2026-06-18
-    status: deferred
+    last_reviewed: 2026-06-19
+    status: partially-implemented
     priority: p3
     target_area:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    summary: "Read-model colour resolver follow-up: walk p:style fillRef/lnRef and placeholder-inherited run colour"
+    summary: "Read-model colour resolver follow-up: walk p:style fillRef/lnRef (DONE) and placeholder-inherited run colour (remaining)"
     current_project_notes: |
       The read-model theme colour resolver (Slide.themeContext(),
       Shape.resolvedFill/resolvedLine, Run.resolvedColor) resolved only an
