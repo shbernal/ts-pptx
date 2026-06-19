@@ -301,9 +301,16 @@ items:
       validators/non-a14 consumers treat the a14 subtree as a known extension (the
       oracle math-omml.pptx uses the same envelope and validates clean). Pinned by the
       schema fixture 'native math equation (OMML) text run' (test/schema.test.js),
-      validator-clean. REMAINING (not yet done): a LaTeX/MathML→OMML conversion path
-      and an mc:Fallback raster — the raw-OMML entry point is the deliberate first
-      deliverable; callers supply OMML directly for now.
+      validator-clean. REMAINING (DEFERRED 2026-06-19, no implementation planned):
+      a LaTeX/MathML→OMML conversion path and an mc:Fallback raster. Both are out of
+      active scope under the Node-first, minimal-dependency charter — LaTeX→OMML needs
+      a typesetting parser dependency and the fallback raster requires actually
+      rendering the equation (no browser/Office). The raw-OMML entry point is the
+      deliberate, supported deliverable; callers convert from LaTeX/MathML with an
+      external tool and supply OMML directly. A dependency-free MathML→OMML subset
+      converter remains a possible future in-scope addition if a concrete consumer
+      need appears; note it's not required for validity (Requires="a14" is understood
+      by PowerPoint 2010+, so current output opens and validates clean without it).
     evidence:
       kinds:
         - local-source-inspection
@@ -319,7 +326,7 @@ items:
       validator_result: pass (pnpm run test:schema, 2026-06-19)
       powerpoint_result: oracle test/read/fixtures/math-omml.pptx opened clean in Windows desktop PowerPoint 16.0 on 2026-06-19
       spec_refs: []
-    next_action: add-latex-mathml-to-omml-conversion-and-mc-fallback-raster
+    next_action: none-remaining-legs-deferred-out-of-active-scope
 
   - id: upstream-issue-1451
     source: "gitbrent/PptxGenJS#1451"
