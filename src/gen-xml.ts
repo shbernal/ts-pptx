@@ -2311,7 +2311,10 @@ export function makeXmlMaster (slide: PresSlideInternal, layouts: SlideLayoutInt
 	strXml +=
 		'<p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/>'
 	strXml += '<p:sldLayoutIdLst>' + layoutDefs.join('') + '</p:sldLayoutIdLst>'
-	strXml += '<p:hf sldNum="0" hdr="0" ftr="0" dt="0"/>'
+	// CT_HeaderFooter/@sldNum defaults to true (ECMA-376). When a slide-number placeholder is
+	// defined on the master we must NOT disable it here, otherwise slides that PowerPoint inserts
+	// from this master inherit sldNum="0" and the master slide number disappears (gitbrent/PptxGenJS#1159).
+	strXml += `<p:hf${slide._slideNumberProps ? '' : ' sldNum="0"'} hdr="0" ftr="0" dt="0"/>`
 	strXml +=
 		'<p:txStyles>' +
 		' <p:titleStyle>' +

@@ -62,6 +62,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Master slide numbers no longer disappear on slides inserted in PowerPoint
+  (gitbrent/PptxGenJS#1159):** when `defineSlideMaster({ slideNumber })` defined a
+  slide-number placeholder, the master still emitted `<p:hf sldNum="0" .../>`.
+  Because `CT_HeaderFooter/@sldNum` defaults to `true` (ECMA-376), the explicit
+  `"0"` disabled the slide-number field for any slide PowerPoint inserts/inherits
+  from that master — so the number rendered on PptxGenJS-generated slides but
+  vanished on newly inserted ones. The master now omits `@sldNum` when a slide
+  number is defined (letting it default to `true`); masters without a slide number
+  still emit `sldNum="0"`. Covered by
+  `test/regression/master-slide-number-hf.test.js`.
 - **Auto-paged tables: a `rowH` *array* now follows its original rows across
   pages (gitbrent/PptxGenJS#1145):** `rowH` as an array is keyed by the original
   row index, but auto-paging passed the whole array to every overflow slide where

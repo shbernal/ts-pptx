@@ -1982,17 +1982,25 @@ items:
     source: "gitbrent/PptxGenJS#1423"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: needs-repro
-    priority: p3
+    last_reviewed: 2026-06-19
+    status: non-target
+    priority: none
     target_area:
       - chart-ooxml
-    applies_to_current_project: unknown
-    non_target_reasons: []
+    applies_to_current_project: no
+    non_target_reasons:
+      - insufficient-evidence
     summary: Reports that manually adding a new dimension in the embedded Excel data does not update chart display.
     current_project_notes: >
-      The report has only a screenshot and does not establish whether this is a
-      generated range/cache defect or expected fixed-range chart behavior.
+      Reviewed 2026-06-19 against the generator. Charts emit a fixed reference range
+      (e.g. <c:f>Sheet1!$A$2:$A$N</c:f>) sized to the supplied data, plus a matching
+      numCache/strCache — standard, valid OOXML. A chart only plots what its c:f range
+      covers; manually inserting a row in the embedded worksheet does NOT auto-extend
+      that range in any viewer (auto-expansion is an Excel "Table"/structured-reference
+      feature, not default chart behavior). So the reported "defect" is expected
+      fixed-range behavior, not a generator bug, and the screenshot-only report shows
+      no malformed range/cache. Marked non-target/insufficient-evidence. Reopen only
+      if a repro shows the emitted c:f range or cache is itself malformed.
     evidence:
       kinds:
         - local-source-inspection
@@ -2003,7 +2011,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: request-or-create-range-expansion-repro
+    next_action: none
 
   - id: upstream-issue-1422
     source: "gitbrent/PptxGenJS#1422"
@@ -2221,7 +2229,7 @@ items:
     source: "gitbrent/PptxGenJS#1410"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
+    last_reviewed: 2026-06-19
     status: needs-repro
     priority: p3
     target_area:
@@ -2233,6 +2241,11 @@ items:
       Current SVG handling embeds the SVG plus a PNG preview, but the report does
       not include source SVG, code, target app, or whether the defect is in SVG
       embedding or preview rasterization.
+      Reviewed again 2026-06-19: still not actionable without the reporter's source
+      SVG and target viewer — the screenshot alone cannot separate an SVG-embedding
+      defect from preview-rasterization fidelity, and there is no PptxGenJS-side
+      construct to fixture. Held at needs-repro pending reporter-supplied source SVG
+      (not a PowerPoint-authored read fixture, so out of scope for CREATE_FIXTURES_PLAN).
     evidence:
       kinds:
         - local-source-inspection
@@ -2310,18 +2323,26 @@ items:
     source: "gitbrent/PptxGenJS#1402"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: needs-repro
-    priority: p3
+    last_reviewed: 2026-06-19
+    status: non-target
+    priority: none
     target_area:
       - invalid-ooxml
-    applies_to_current_project: unknown
-    non_target_reasons: []
+    applies_to_current_project: no
+    non_target_reasons:
+      - out-of-project-scope
     summary: Bullet indentation renders differently in LibreOffice and OnlyOffice than in PowerPoint.
     current_project_notes: >
-      The report references an older v3.12 browser bundle and non-PowerPoint
-      viewers. Reproduce against current ESM output before treating as an OOXML
-      defect.
+      Reviewed 2026-06-19. The report is a rendering *difference* between PowerPoint
+      (where bullets render as intended) and the non-PowerPoint viewers LibreOffice
+      Impress and OnlyOffice, against an older v3.12 browser bundle. Per
+      docs/project-target.md the supported compatibility bar is that output opens
+      cleanly in Microsoft PowerPoint; LibreOffice/OnlyOffice fidelity is best-effort
+      and out of active scope. The bullet marL/indent emission is valid OOXML (it
+      renders correctly in PowerPoint), so this is a viewer-interpretation difference,
+      not invalid OOXML the library emits. Marked non-target/out-of-project-scope.
+      Contributions welcome: reopen if a repro pins the defect to invalid OOXML that
+      also misrenders in PowerPoint.
     evidence:
       kinds:
         - local-source-inspection
@@ -2331,7 +2352,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: create-current-bullet-compatibility-fixture
+    next_action: none
 
   - id: upstream-issue-1399
     source: "gitbrent/PptxGenJS#1399"
@@ -3554,20 +3575,24 @@ items:
     source: "gitbrent/PptxGenJS#1263"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: needs-repro
-    priority: p3
+    last_reviewed: 2026-06-19
+    status: non-target
+    priority: none
     target_area:
       - relationship-or-content-type
-    applies_to_current_project: partial
+    applies_to_current_project: no
     non_target_reasons:
-      - insufficient-evidence
+      - out-of-project-scope
     summary: Adjust hyperlink output for WPS compatibility.
     current_project_notes: >
-      WPS compatibility can be useful signal, but this needs a concrete current
-      hyperlink fixture before changing relationship or click-action emission.
-      Keep it separate from the image URL escaping repair candidate in issue
-      1365.
+      Reviewed 2026-06-19. The proposed change exists only to satisfy WPS Office,
+      a third-party office suite; the library's hyperlink relationship/click-action
+      output is already valid OOXML that opens cleanly in PowerPoint. Per
+      docs/project-target.md, third-party office-suite interop tweaks are out of
+      active scope (PowerPoint is the supported compatibility bar). Marked
+      non-target/out-of-project-scope. Contributions welcome: reopen with a worked
+      repro pinning a defect to invalid OOXML the library itself emits, independent
+      of WPS. Kept separate from the image URL escaping repair in issue 1365.
     evidence:
       kinds:
         - local-source-inspection
@@ -3579,7 +3604,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: inspect-if-wps-hyperlink-repro-emerges
+    next_action: none
 
   - id: upstream-pr-1257
     source: "gitbrent/PptxGenJS#1257"
@@ -5158,22 +5183,26 @@ items:
     source: "gitbrent/PptxGenJS#1244"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-18
-    status: needs-repro
-    priority: p2
+    last_reviewed: 2026-06-19
+    status: non-target
+    priority: none
     target_area:
       - table-ooxml
-    applies_to_current_project: partial
-    non_target_reasons: []
+    applies_to_current_project: no
+    non_target_reasons:
+      - out-of-project-scope
     summary: HTML table conversion mishandled rowspan and colspan sizing.
     current_project_notes: >
-      Reviewed 2026-06-18. The *OOXML emission* side of spans is confirmed correct in
+      Reviewed 2026-06-19. The *OOXML emission* side of spans is confirmed correct in
       the current fork (colspan/rowspan cell counts and merged-cell borders verified —
       see #1290/#1055/#1224 and regression suite table-span-border-structure). Any
       remaining defect is therefore in genTableToSlides' HTML→rows parsing / derived
-      column-width calc, which reads a live HTML <table> through the browser DOM and
-      cannot be exercised in this Node-only checkout. Kept as needs-repro pending a
-      jsdom-backed tableToSlides fixture targeting rowspan/colspan width derivation.
+      column-width calc, which reads a live HTML <table> through the browser DOM. Per
+      docs/project-target.md that is a live-DOM/browser-layout feature out of active
+      scope and not reproducible in the Node test suite. Marked
+      non-target/out-of-project-scope. Contributions welcome: the established pattern
+      is to extract DOM-independent width logic into a pure helper and unit-test it
+      (see resolveHtmlColWidth); a full-fidelity repro needs a headless browser.
     evidence:
       kinds:
         - local-source-inspection
@@ -5184,7 +5213,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-jsdom-tabletoslides-rowspan-colspan-sizing-repro
+    next_action: none
 
   - id: upstream-issue-1243
     source: "gitbrent/PptxGenJS#1243"
@@ -5317,22 +5346,26 @@ items:
     source: "gitbrent/PptxGenJS#1236"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-18
-    status: needs-repro
-    priority: p2
+    last_reviewed: 2026-06-19
+    status: non-target
+    priority: none
     target_area:
       - chart-ooxml
       - powerpoint-repair
-    applies_to_current_project: unknown
-    non_target_reasons: []
+    applies_to_current_project: no
+    non_target_reasons:
+      - out-of-project-scope
     summary: Copying and pasting a generated line chart in WPS led PowerPoint to repair the file.
     current_project_notes: >
-      Reviewed 2026-06-18. The repair is mediated by a WPS copy/paste round-trip, so
-      the corrupting mutation is introduced by WPS, not by the generator — the file
-      opens cleanly until WPS rewrites it. Reproducing requires WPS Office and
-      PowerPoint (an application round-trip), neither available in this checkout, and
-      the generated line-chart XML itself already validates. Kept as needs-repro /
-      out-of-reach; only actionable if a WPS-independent invalid-OOXML repro surfaces.
+      Reviewed 2026-06-19. This is a third-party office-suite interop quirk, which
+      docs/project-target.md lists as out of active scope: the repair is mediated by
+      a WPS copy/paste round-trip, so the corrupting mutation is introduced by WPS,
+      not by the generator — the file opens cleanly in PowerPoint until WPS rewrites
+      it, and the generated line-chart XML itself already validates. Per the project
+      target, such an item only becomes in-scope with a worked repro pinning the
+      defect to invalid OOXML the library itself emits (independent of WPS); none
+      exists. Marked non-target/out-of-project-scope. Contributions welcome: reopen
+      if a WPS-independent invalid-OOXML repro surfaces.
     evidence:
       kinds:
         - local-source-inspection
@@ -5343,7 +5376,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: reproduce-line-chart-through-wps-copy-paste-before-implementation
+    next_action: none
 
   - id: upstream-issue-1235
     source: "gitbrent/PptxGenJS#1235"
@@ -5551,7 +5584,7 @@ items:
     source: "gitbrent/PptxGenJS#1222"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
+    last_reviewed: 2026-06-19
     status: needs-repro
     priority: p2
     target_area:
@@ -5565,6 +5598,11 @@ items:
       as a repro pointer only; if the linked examples are still available, reduce
       them into the same combo-chart validation lane as the more specific issue
       1233.
+      Reviewed again 2026-06-19: no minimal repro to act on — the report only points
+      at external gists with no described OOXML defect. The combo-chart repair lane it
+      gestures at is already covered by the more specific, implemented issues 1355 and
+      1357. Held at needs-repro; reopen only if a linked example reduces to a concrete
+      stacked-bar / bar-line repair case not already covered.
     evidence:
       kinds:
         - local-source-inspection
@@ -5709,20 +5747,28 @@ items:
     source: "gitbrent/PptxGenJS#1200"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: needs-repro
-    priority: p2
+    last_reviewed: 2026-06-19
+    status: non-target
+    priority: none
     target_area:
       - table-ooxml
       - missing-pptx-feature
-    applies_to_current_project: unknown
-    non_target_reasons: []
+    applies_to_current_project: no
+    non_target_reasons:
+      - out-of-project-scope
     summary: tableToSlides and autoPage overflowed large HTML/table content instead of splitting it across slides.
     current_project_notes: >
-      Current tableToSlides still depends on DOM offset widths and the same
-      getSlidesForTableRows pagination heuristic used by addTable autoPage. The
-      old attached example should be reduced against this fork before deciding
-      whether the remaining issue is sizing, line wrapping, or page-height math.
+      Reviewed 2026-06-19. The report is about tableToSlides, which depends on DOM
+      offset widths to derive column sizes and feed the getSlidesForTableRows
+      pagination heuristic. Per docs/project-target.md, reading a rendered <table>
+      (offsetWidth/getComputedStyle) is a live-DOM/browser-layout feature out of
+      active scope and not reproducible in the Node test suite, so the sizing input
+      that drives the overflow cannot be exercised here. The supported, fully-tested
+      path — addTable(rows, { autoPage }) with array rows — has passing pagination
+      regression coverage (table-autopage-* suites). Marked
+      non-target/out-of-project-scope. Contributions welcome: reopen with a DOM-free
+      addTable-autoPage pagination repro (which would be in-scope) or a headless-browser
+      tableToSlides repro.
     evidence:
       kinds:
         - local-source-inspection
@@ -5735,7 +5781,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: reduce-current-tabletoslides-overflow-repro
+    next_action: none
 
   - id: upstream-issue-1199
     source: "gitbrent/PptxGenJS#1199"
@@ -6250,33 +6296,40 @@ items:
     source: "gitbrent/PptxGenJS#1159"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: needs-repro
+    last_reviewed: 2026-06-19
+    status: implemented
     priority: p2
     target_area:
       - speaker-notes-masters-layouts
-    applies_to_current_project: unknown
+    applies_to_current_project: yes
     non_target_reasons: []
     summary: Slide numbers from a master disappeared when users inserted a new slide in PowerPoint.
     current_project_notes: >
-      Current defineSlideMaster stores slideNumber props on the slide layout and
-      makeXmlLayout serializes layout objects, but the master still writes
-      p:hf sldNum="0". This needs a current generated deck and PowerPoint
-      new-slide check before changing layout/master slide-number XML.
+      Root cause confirmed by source + spec: makeXmlMaster always emitted
+      <p:hf sldNum="0" .../>, but CT_HeaderFooter/@sldNum defaults to true
+      (ECMA-376, confirmed via ooxml MCP). So even when defineSlideMaster set a
+      slideNumber (which adds a sldNum placeholder shape to the master via
+      slideObjectToXml STEP 4), the explicit sldNum="0" disabled the slide-number
+      field for any slide PowerPoint inserts/inherits from that master — the
+      number "disappeared" on new slides. Fixed in gen-xml.ts makeXmlMaster: when
+      slide._slideNumberProps is set, the @sldNum attribute is omitted so it
+      defaults to true; masters with no slide number keep sldNum="0". This is an
+      internal-consistency fix (placeholder present + hf no longer contradicting
+      it), verifiable from emitted XML without a PowerPoint-authored fixture.
     evidence:
       kinds:
         - local-source-inspection
+        - ooxml-reference
+        - regression-test
       local_files:
-        - src/gen-objects.ts:115
-        - src/pptxgen.ts:823
-        - src/gen-xml.ts:712
-        - src/gen-xml.ts:1654
-        - src/gen-xml.ts:1678
+        - src/gen-xml.ts:2314
+        - test/regression/master-slide-number-hf.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
-      spec_refs: []
-    next_action: compare-authored-master-slide-number-layout-xml
+      spec_refs:
+        - "ECMA-376 CT_HeaderFooter/@sldNum default=true"
+    next_action: none
 
   - id: upstream-issue-1157
     source: "gitbrent/PptxGenJS#1157"
@@ -6923,24 +6976,26 @@ items:
     source: "gitbrent/PptxGenJS#1005"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-18
-    status: needs-repro
-    priority: p2
+    last_reviewed: 2026-06-19
+    status: non-target
+    priority: none
     target_area:
       - table-ooxml
-    applies_to_current_project: unknown
-    non_target_reasons: []
+    applies_to_current_project: no
+    non_target_reasons:
+      - out-of-project-scope
     summary: addTable with autoPage raised an Array expected error in an HTML-table workflow.
     current_project_notes: >
-      Reviewed 2026-06-18 alongside the autoPage rowH fix (#1145). The "Array
-      expected" throw is the well-formedness guard in addTableDefinition (STEP 1) and
-      it fires before autoPage, so the failure is upstream in tableToSlides' HTML→rows
-      conversion (a malformed/empty row reaching addTable), not in pagination itself.
-      Reproducing requires a DOM (genTableToSlides reads a live HTML <table> via the
-      browser DOM), which is not available in this Node-only checkout. Kept as
-      needs-repro pending a jsdom-backed tableToSlides fixture; the direct
-      addTable(autoPage) path with array rows paginates correctly (see
-      table-autopage-* regression suites).
+      Reviewed 2026-06-19. The "Array expected" throw is the well-formedness guard
+      in addTableDefinition (STEP 1) and it fires before autoPage, so the failure is
+      upstream in tableToSlides' HTML→rows conversion (a malformed/empty row reaching
+      addTable), not in pagination. genTableToSlides reads a live HTML <table> via
+      the browser DOM, which docs/project-target.md lists as a live-DOM/browser-layout
+      feature that is out of active scope and cannot be reproduced in the Node test
+      suite. The supported, fully-tested path — direct addTable(rows, { autoPage })
+      with array rows — paginates correctly (see table-autopage-* regression suites).
+      Marked non-target/out-of-project-scope. Contributions welcome: a headless-browser
+      (Playwright/Puppeteer) repro of genTableToSlides would make this actionable.
     evidence:
       kinds:
         - local-source-inspection
@@ -6951,7 +7006,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-jsdom-tabletoslides-autopage-array-fixture
+    next_action: none
 
   - id: upstream-issue-996
     source: "gitbrent/PptxGenJS#996"
