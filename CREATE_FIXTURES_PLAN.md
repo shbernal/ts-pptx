@@ -23,13 +23,15 @@ round-trips), the two implied read fixes landed, and `pnpm run test:read` is
 | `theme-colors.pptx` | yes | yes | n/a (accessor already shipped) | ✅ done |
 | `gradient-fill.pptx` | yes | yes | n/a | ✅ done |
 | `preset-geometry.pptx` | yes | yes | n/a | ✅ done |
-| `multi-theme.pptx` | yes | yes | `fix(read): resolve p:style fillRef/lnRef` (59ea7bcf) | ✅ done (fillRef/lnRef); restyle-literals still deferred |
+| `multi-theme.pptx` | yes | yes (slide 1) | `fix(read): resolve p:style fillRef/lnRef` (59ea7bcf) | ✅ done (fillRef/lnRef); restyle-literals still deferred |
+| `multi-theme.pptx` slide 2 (placeholder-inherited) | yes (2026-06-19) | ⏳ pending fix | ⏳ `Run.resolvedColor` fallback — Linux | 🟡 fixture done, fix + test remain (Remaining Work A) |
 | `group-transform.pptx` (extended) | yes | yes | `fix(read): compose group rotations in absolute frames` (6871b337) | ✅ done |
 
 Fixtures were added in `4b1293c3 addition of new fixtures`; all five carry a
 non-default **Ion** theme / PowerPoint-authored constructs and passed a Windows
 desktop PowerPoint open-clean check on 2026-06-18 (README provenance + SHA-256
-recorded).
+recorded). `multi-theme.pptx` then gained a placeholder-inherited slide 2 on
+2026-06-19 (same Windows desktop PowerPoint COM path; slide 1 left byte-identical).
 
 The original problem this set out to fix — read-model accessors validated only by
 **round-tripping through PptxGenJS's own writer** (circular evidence) or
@@ -118,30 +120,46 @@ absolute frames` (6871b337). `Shape.absoluteFrame` now composes enclosing group
 
 ## Remaining work (the "missing stuff")
 
-### A. Placeholder-inherited run colour in the read getter — fixture + fix needed
+### A. Placeholder-inherited run colour in the read getter — ✅ fixture landed; fix still needed (Linux)
 
 `dn-readmodel-style-followups` had two halves: (1) walk `p:style` fillRef/lnRef,
 and (2) resolve a **placeholder-inherited run colour** (a run whose `a:rPr`
 carries no own color, inheriting from the layout/master placeholder). Half (1)
 shipped via 59ea7bcf + `multi-theme.pptx`. Half (2) is **not** in the read getter:
 `placeholderInheritedColor` exists in `src/read/oxml/theme.ts` only on the
-`importSlide` flatten path, and `Run.resolvedColor` does not consult it. No
-fixture exercises it.
+`importSlide` flatten path, and `Run.resolvedColor` does not consult it.
 
-- **Fixture:** a small deck whose slide has a placeholder (e.g. a title/body
-  placeholder) with **no run-level color**, on a layout/master whose placeholder
-  defines a scheme color. Either a new `placeholder-inherited.pptx` or a second
-  slide added to `multi-theme.pptx` (it already carries the Ion theme +
-  master/layout). Name the placeholder stably.
-- **Fix + test:** extend `Run.resolvedColor` (`src/read/api/text.ts` /
-  `theme-context.ts`) to fall back to `placeholderInheritedColor`; assert the
-  inherited run resolves to the master/layout color while an explicit run color
-  still wins.
-- **Backlog:** `dn-readmodel-style-followups` is now `partially-implemented`
-  (updated 2026-06-19) — fillRef/lnRef shipped (59ea7bcf), placeholder-inherited
-  run colour is the remaining open leg (`next_action:
-  layer-placeholder-inherited-run-colour`, stopgap retained), with
-  `multi-theme.pptx` as the available fixture base.
+- **Fixture — ✅ done (2026-06-19, Windows desktop PowerPoint COM).** Added as
+  **slide 2 of `multi-theme.pptx`** (the recommended option — reuses the Ion theme
+  + master). Slide 1's XML is byte-identical to before, so existing
+  importSlide/style-matrix consumers (all read slide index 0) are unaffected;
+  `pnpm run test:read` stays green (218 passed / 27 skipped). Two stably named
+  placeholders on slide 2:
+  - **`inherited-title`** (`<p:ph type="title"/>`): run is `<a:r><a:rPr
+    lang="en-US"/><a:t>Inherited title color</a:t></a:r>` — **no own colour**.
+    Both the layout (`slideLayout18.xml`) and master title placeholders carry an
+    empty `<a:lstStyle/>`, so the colour resolves through the master `p:txStyles`
+    `titleStyle` lvl1 → `<a:schemeClr val="tx2"/>` → clrMap `tx2="lt2"` → theme
+    `lt2 = EBEBEB`. **Oracle: `resolvedColor.hex === "EBEBEB"`.**
+  - **`explicit-body`** (`<p:ph type="body" idx="1"/>`): run carries an explicit
+    `<a:solidFill><a:srgbClr val="FF00FF"/></a:solidFill>` — the negative control.
+    **Oracle: `resolvedColor.hex === "FF00FF"` (explicit wins over the inherited
+    `tx1 → lt1 → FFFFFF`).**
+  - Fixture SHA-256 updated in `test/read/fixtures/README.md` to
+    `737a28fa9832a1d009dc4588a868f856ec58c333843ba58f8eee3915a38cc659`.
+- **Fix + test — ⏳ remaining (run on the Linux + tooling machine).** Extend
+  `Run.resolvedColor` (`src/read/api/text.ts` / `theme-context.ts`) to fall back to
+  the placeholder-inherited colour when the run, its paragraph, and the slide-level
+  list style define none — reusing the `placeholderInheritedColor` chain logic
+  (layout placeholder `lstStyle` → master placeholder `lstStyle` → master
+  `p:txStyles` category style, resolved through the clrMap + theme). Then wire a
+  `style-accessors.test.js` case reading `multi-theme.pptx` slide 2: assert
+  `inherited-title` resolves to `EBEBEB` and `explicit-body` stays `FF00FF`.
+- **Backlog:** `dn-readmodel-style-followups` is `partially-implemented` (updated
+  2026-06-19) — fillRef/lnRef shipped (59ea7bcf), placeholder-inherited run colour
+  is the remaining open leg (`next_action:
+  layer-placeholder-inherited-run-colour`, stopgap retained). The fixture base is
+  now in place (`multi-theme.pptx` slide 2); only the getter fix + test remain.
 
 ### B. importSlide `restyle` literal force-remap + table style — feature deferred, fixture content to add
 

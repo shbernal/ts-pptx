@@ -36,7 +36,7 @@ PowerPoint.
 | `theme-colors.pptx`    | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `gradient-fill.pptx`   | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `preset-geometry.pptx` | Microsoft Office PowerPoint    | 16.0000    | 1      |
-| `multi-theme.pptx`     | Microsoft Office PowerPoint    | 16.0000    | 1      |
+| `multi-theme.pptx`     | Microsoft Office PowerPoint    | 16.0000    | 2      |
 
 ### Derived from a vendored fixture
 
@@ -58,7 +58,7 @@ db80910224b01b46cb7e8c29e183b59d128a18fd8e0c651558907230874693b9  mixed.pptx
 b7430f562b8b836f54b84f2c846c7f80dc03677d79884aa7722203d66c775cc2  theme-colors.pptx
 773498a81723eed35ac03271f5051c842af84888e802291473e1a8872ac88994  gradient-fill.pptx
 4a0db4be724bd436865b81f073b53dbd464a8d9eb05d820977821e57b3f743b5  preset-geometry.pptx
-ae1914acbef5c32e93d40611ca4200c80817f451e835372b269da68ed91c1884  multi-theme.pptx
+737a28fa9832a1d009dc4588a868f856ec58c333843ba58f8eee3915a38cc659  multi-theme.pptx
 c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
 1a59832d7e5c926e4aff11e9f62bc90c9e8430fb68e1d77a1b4a2fb0800e05d2  textbox.pptx
 ```
@@ -98,10 +98,17 @@ c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
 - `preset-geometry.pptx` — a minimal deck with PowerPoint-authored adjusted
   preset geometries (`roundRect`, `chevron`, and `blockArc`) plus a plain rect
   negative control.
-- `multi-theme.pptx` — a minimal Ion-theme source deck with scheme-colour fills,
-  line colours, text, and style-matrix refs. Used by `importSlide` preserve and
-  restyle tests to prove non-default source theme handling when imported into a
-  default-theme target.
+- `multi-theme.pptx` — a minimal Ion-theme deck. **Slide 1** carries
+  scheme-colour fills, line colours, text, and style-matrix refs; used by
+  `importSlide` preserve and restyle tests (slide index 0) to prove non-default
+  source theme handling when imported into a default-theme target, and by the
+  style-matrix fill/line accessor tests. **Slide 2** (added 2026-06-19) exercises
+  placeholder-inherited run colour: a `title` placeholder `inherited-title` whose
+  run carries **no** own colour (so it inherits `tx2 → lt2 → EBEBEB` through the
+  master `titleStyle`, both the layout and master title placeholders having an
+  empty `<a:lstStyle/>`), and a `body` placeholder `explicit-body` whose run sets
+  an explicit `srgbClr FF00FF` (the negative control proving an explicit run
+  colour still wins). Slide 1's XML is byte-identical to the pre-edit fixture.
 
 ## Manual PowerPoint check
 
@@ -121,7 +128,7 @@ fixtures opened clean with no repair prompt:
 - [x] `theme-colors.pptx` — Windows desktop PowerPoint, 2026-06-18
 - [x] `gradient-fill.pptx` — Windows desktop PowerPoint, 2026-06-18
 - [x] `preset-geometry.pptx` — Windows desktop PowerPoint, 2026-06-18
-- [x] `multi-theme.pptx` — Windows desktop PowerPoint, 2026-06-18
+- [x] `multi-theme.pptx` — Windows desktop PowerPoint, 2026-06-19 (re-checked after adding slide 2)
 
 **Further testing needed on PowerPoint desktop.** The web loader is more lenient
 than desktop PowerPoint, whose stricter OOXML validation is what produces the
@@ -140,7 +147,7 @@ and the emitted XML actually differs:
 - [x] `theme-colors.pptx` — Windows desktop PowerPoint, 2026-06-18
 - [x] `gradient-fill.pptx` — Windows desktop PowerPoint, 2026-06-18
 - [x] `preset-geometry.pptx` — Windows desktop PowerPoint, 2026-06-18
-- [x] `multi-theme.pptx` — Windows desktop PowerPoint, 2026-06-18
+- [x] `multi-theme.pptx` — Windows desktop PowerPoint, 2026-06-19 (re-checked after adding slide 2)
 
 ## Manual PowerPoint check — edited output
 
