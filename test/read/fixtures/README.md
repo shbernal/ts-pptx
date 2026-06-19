@@ -38,6 +38,20 @@ PowerPoint.
 | `preset-geometry.pptx` | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `multi-theme.pptx`     | Microsoft Office PowerPoint    | 16.0000    | 2      |
 
+#### Authoring oracles (inspection only — not loaded by `test:read`)
+
+These three decks were authored locally with desktop PowerPoint COM on Windows
+(2026-06-19) as **serialization oracles**: they pin the exact OOXML PowerPoint
+writes for write-side placeholder/notes behaviours so the writer fixes (E/F/G in
+`CREATE_FIXTURES_PLAN.md`) can be compared against authentic XML in
+`test/schema.test.js`. They are not consumed by the `pptxgenjs/read` harness.
+
+| Local name                    | Application                 | AppVersion | Slides |
+| ----------------------------- | --------------------------- | ---------- | ------ |
+| `layout-placeholder-bodypr.pptx` | Microsoft Office PowerPoint | 16.0000    | 1      |
+| `table-placeholder.pptx`      | Microsoft Office PowerPoint | 16.0000    | 1      |
+| `notes-slide-image.pptx`      | Microsoft Office PowerPoint | 16.0000    | 1      |
+
 ### Derived from a vendored fixture
 
 `hidden.pptx` is `textbox.pptx` (vendored above) with a single attribute added:
@@ -61,6 +75,9 @@ b7430f562b8b836f54b84f2c846c7f80dc03677d79884aa7722203d66c775cc2  theme-colors.p
 737a28fa9832a1d009dc4588a868f856ec58c333843ba58f8eee3915a38cc659  multi-theme.pptx
 c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
 1a59832d7e5c926e4aff11e9f62bc90c9e8430fb68e1d77a1b4a2fb0800e05d2  textbox.pptx
+69fd092ced7067af23b7cbb4d65cc7de1c44d06c0a62b0f49b32dbc9f7ef954e  layout-placeholder-bodypr.pptx
+f18ae67b1df1cc1cf7dc616451c3e548a4ea0c80f807c06a87521b010597af75  table-placeholder.pptx
+2f41c301147518686fb63e262ea1eb2ede6873fdc22d913dc869d8a924190fc7  notes-slide-image.pptx
 ```
 
 ## Purpose of each fixture
@@ -109,6 +126,29 @@ c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
   empty `<a:lstStyle/>`), and a `body` placeholder `explicit-body` whose run sets
   an explicit `srgbClr FF00FF` (the negative control proving an explicit run
   colour still wins). Slide 1's XML is byte-identical to the pre-edit fixture.
+- `layout-placeholder-bodypr.pptx` — **authoring oracle** for write-side
+  master/layout placeholder body properties (`upstream-pr-1247` /
+  `upstream-issue-1208`). The "Title and Content" layout (`slideLayout2.xml`) was
+  edited so its **title** placeholder (`oracle-title-ph`, `<p:ph type="title"/>`)
+  carries `<a:bodyPr lIns="228600" tIns="114300" rIns="228600" bIns="114300"
+  anchor="b"/>` and its **content** placeholder (`oracle-body-ph`, `<p:ph
+  idx="1"/>`) carries `<a:bodyPr lIns="304800" tIns="190500" rIns="152400"
+  bIns="76200" anchor="ctr"/>` (asymmetric insets so each of lIns/tIns/rIns/bIns
+  is independently pinned). Slide 1 is inserted from that layout and inherits with
+  an empty `<a:bodyPr/>` on each placeholder — the inheritance path the fix must
+  honour.
+- `table-placeholder.pptx` — **authoring oracle** for a table that lives in a
+  layout placeholder (`upstream-pr-1151`). One slide from the "Title and Content"
+  layout whose content placeholder hosts a 2×3 table (`placeholder-table`); the
+  table `<p:graphicFrame>` carries `<p:nvGraphicFramePr><p:nvPr><p:ph idx="1"/>`
+  (content placeholder idx, no `type`), with the `a:tbl` inside. Pins the exact
+  `p:ph` wiring PowerPoint emits on a placeholder-bound table graphicFrame.
+- `notes-slide-image.pptx` — **authoring oracle** for the notes print-layout slide
+  image placeholder (`upstream-issue-446`). One slide with speaker notes;
+  `notesMaster1.xml` carries `<p:ph type="sldImg" idx="2"/>` with explicit geometry
+  (`a:off x="685800" y="1143000"`, `a:ext cx="5486400" cy="3086100"`, `a:noFill`,
+  1pt `prstClr` black line), and `notesSlide1.xml` carries a bare
+  `<p:ph type="sldImg"/>` with empty `spPr` inheriting that geometry.
 
 ## Manual PowerPoint check
 
@@ -129,6 +169,9 @@ fixtures opened clean with no repair prompt:
 - [x] `gradient-fill.pptx` — Windows desktop PowerPoint, 2026-06-18
 - [x] `preset-geometry.pptx` — Windows desktop PowerPoint, 2026-06-18
 - [x] `multi-theme.pptx` — Windows desktop PowerPoint, 2026-06-19 (re-checked after adding slide 2)
+- [x] `layout-placeholder-bodypr.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
+- [x] `table-placeholder.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
+- [x] `notes-slide-image.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
 
 **Further testing needed on PowerPoint desktop.** The web loader is more lenient
 than desktop PowerPoint, whose stricter OOXML validation is what produces the

@@ -207,20 +207,31 @@ PowerPoint comments) and `upstream-pr-1431` (animation engine) — are
 (not active). Their fixture plan now lives in
 [`CREATE_FIXTURES_PLAN_GENERATION.md`](CREATE_FIXTURES_PLAN_GENERATION.md).
 
-## Placeholder & notes serialization fixtures — authoring oracles needed (active)
+## Placeholder & notes serialization fixtures — oracles authored ✅; fixes remain (Linux)
 
-Four `target-candidate` backlog items are **blocked on a PowerPoint-authored
+Three `target-candidate` backlog items were **blocked on a PowerPoint-authored
 oracle**: each is a write-side placeholder/notes/table-placeholder behaviour where
 the fix is "emit the XML PowerPoint authors," and we must not guess that XML. They
 follow the *authoring-oracle + serialization schema fixture* pattern (same as the
 generation items): author a minimal desktop-PowerPoint deck with the
 `powerpoint-fixture-authoring` skill, extract the relevant part, then pin the
-writer output with a `test/schema.test.js` fixture. **Do not implement any of these
-until its oracle exists** — the whole point is to compare against authentic XML.
-Record provenance/SHA-256 in `test/read/fixtures/README.md` as usual (these are
-inspection oracles, not `test:read` fixtures).
+writer output with a `test/schema.test.js` fixture.
 
-### E. Master/layout placeholder margin + valign (`upstream-pr-1247`, `upstream-issue-1208`)
+**Oracle status (2026-06-19): all three oracle decks authored on Windows desktop
+PowerPoint COM and opened clean (no repair).** Provenance + SHA-256 recorded in
+`test/read/fixtures/README.md` under "Authoring oracles". They are inspection
+oracles, **not** `test:read` fixtures. The remaining work for each (the writer fix
++ a `test/schema.test.js` assertion comparing the emitted XML against the oracle)
+is the Linux + tooling job; the authentic target XML is now captured below so the
+fix can be implemented and pinned without guessing.
+
+| Item | Oracle deck | Construct captured | Remaining (Linux) |
+|---|---|---|---|
+| E | `layout-placeholder-bodypr.pptx` | layout placeholder `<a:bodyPr>` insets+anchor | thread bodyPr through placeholder emit + schema fixture |
+| F | `table-placeholder.pptx` | table graphicFrame `<p:ph idx="1"/>` | add table `placeholder` option + schema fixture |
+| G | `notes-slide-image.pptx` | notes `<p:ph type="sldImg">` geometry | align emitted notes `sldImg` + schema fixture |
+
+### E. Master/layout placeholder margin + valign (`upstream-pr-1247`, `upstream-issue-1208`) — ✅ oracle authored; fix remains (Linux)
 
 `genXmlBodyProperties` applies body properties (margin, `anchor`/valign, custom
 bullets) only to ordinary text objects, not to placeholder objects on masters /
@@ -229,40 +240,74 @@ it the way PowerPoint expects when a user inserts a new slide from that layout
 (`#1208`). `#1247` is the broader master-placeholder formatting item (margin,
 valign, custom bullet).
 
-- **Oracle:** a deck with a custom slide layout whose body/title **placeholder**
-  sets a non-default vertical anchor (e.g. middle/bottom) and non-default text
-  insets, named stably. Insert a new slide from that layout in PowerPoint so the
-  inheritance path is exercised. Capture the layout placeholder `<a:bodyPr>`
-  (anchor + lIns/tIns/rIns/bIns) PowerPoint writes.
-- **Fix + fixture (after oracle):** thread body properties through the placeholder
-  emit path; add a schema fixture asserting the placeholder `<a:bodyPr anchor=…
-  lIns=…>` matches the authored shape. Blocks `upstream-pr-1247` and
+- **Oracle — ✅ done (`layout-placeholder-bodypr.pptx`, 2026-06-19).** The "Title
+  and Content" layout (`slideLayout2.xml`) was edited via COM (`TextFrame2`
+  VerticalAnchor + Margin*) so its placeholders carry explicit `<a:bodyPr>`:
+  - **`oracle-title-ph`** (`<p:ph type="title"/>`):
+    `<a:bodyPr lIns="228600" tIns="114300" rIns="228600" bIns="114300" anchor="b"/>`
+    (18pt/9pt insets, bottom-anchored).
+  - **`oracle-body-ph`** (`<p:ph idx="1"/>`):
+    `<a:bodyPr lIns="304800" tIns="190500" rIns="152400" bIns="76200" anchor="ctr"/>`
+    (asymmetric 24/15/12/6pt insets, middle-anchored — each inset independently
+    pinned).
+  - Slide 1, inserted from the layout, carries an empty `<a:bodyPr/>` on each
+    placeholder (the inheritance path the fix must honour).
+- **Fix + fixture — ⏳ remaining (Linux).** Thread body properties through the
+  placeholder emit path in `genXmlBodyProperties`; add a `test/schema.test.js`
+  fixture asserting the emitted layout placeholder `<a:bodyPr anchor=… lIns=…>`
+  matches the authored shape above. Blocks `upstream-pr-1247` and
   `upstream-issue-1208`.
 
-### F. Table placeholder properties (`upstream-pr-1151`)
+### F. Table placeholder properties (`upstream-pr-1151`) — ✅ oracle authored; fix remains (Linux)
 
 Table objects don't expose placeholder behaviour the way image/text objects do.
 Before adding a `placeholder` option to table props we need the exact
 `<p:graphicFrame>` + `<p:nvGraphicFramePr>/<p:nvPr><p:ph …>` shape PowerPoint
 authors for a table that lives in a layout placeholder.
 
-- **Oracle:** a deck whose layout has a table placeholder (or a slide table bound
-  to a placeholder), captured to pin the `p:ph` type/idx and graphicFrame wiring.
-- **Fix + fixture (after oracle):** add the table `placeholder` option and a schema
-  fixture asserting the emitted `p:ph` on the graphicFrame. Blocks
-  `upstream-pr-1151`.
+- **Oracle — ✅ done (`table-placeholder.pptx`, 2026-06-19).** One slide from the
+  "Title and Content" layout whose content placeholder hosts a 2×3 table. Authored
+  via COM by calling `Shapes.AddTable` over the empty content placeholder's exact
+  geometry — PowerPoint binds the table into the placeholder, emitting the
+  graphicFrame wiring:
+  ```xml
+  <p:graphicFrame>
+    <p:nvGraphicFramePr>
+      <p:cNvPr id="4" name="placeholder-table">…</p:cNvPr>
+      <p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr>
+      <p:nvPr><p:ph idx="1"/>…</p:nvPr>
+    </p:nvGraphicFramePr>
+    <p:xfrm>…</p:xfrm>
+    <a:graphic><a:graphicData uri="…/table"><a:tbl>…</a:tbl></a:graphicData></a:graphic>
+  </p:graphicFrame>
+  ```
+  Key point: the placeholder binding is `<p:ph idx="1"/>` (content-placeholder
+  idx, **no `type`**) on the graphicFrame's `nvPr`, independent of the contained
+  graphic. (`mixed.pptx` slide 2 corroborates the same wiring for a non-table
+  content graphic.)
+- **Fix + fixture — ⏳ remaining (Linux).** Add the table `placeholder` option and a
+  `test/schema.test.js` fixture asserting the emitted `p:ph` on the table
+  graphicFrame matches the wiring above. Blocks `upstream-pr-1151`.
 
-### G. Notes print-layout slide image placeholder (`upstream-issue-446`)
+### G. Notes print-layout slide image placeholder (`upstream-issue-446`) — ✅ oracle authored; fix remains (Linux)
 
 The notes slide / notesMaster `sldImg` placeholder is currently hard-coded and
 unverified against what PowerPoint's notes print layout expects, so generated decks
 reportedly don't show the slide image in notes print view.
 
-- **Oracle:** a PowerPoint deck with a notes page, capturing the notesSlide +
-  notesMaster `<p:ph type="sldImg">` placeholder geometry/relationship PowerPoint
-  authors for the notes print layout.
-- **Fix + fixture (after oracle):** align the emitted notes `sldImg` placeholder to
-  the authored XML; add a schema fixture. Blocks `upstream-issue-446`.
+- **Oracle — ✅ done (`notes-slide-image.pptx`, 2026-06-19).** One slide with
+  speaker notes (notes text set via COM to materialize the notes parts):
+  - **`notesMaster1.xml`** carries the geometry-bearing placeholder:
+    `<p:ph type="sldImg" idx="2"/>` with `<a:xfrm><a:off x="685800" y="1143000"/>
+    <a:ext cx="5486400" cy="3086100"/></a:xfrm>`, `<a:prstGeom prst="rect">`,
+    `<a:noFill/>`, and `<a:ln w="12700"><a:solidFill><a:prstClr val="black"/>` (1pt
+    black border). `spLocks` = `noGrp/noRot/noChangeAspect`.
+  - **`notesSlide1.xml`** carries a bare `<p:ph type="sldImg"/>` with empty
+    `<p:spPr/>` — it inherits the master geometry (this is the inheritance the fix
+    must reproduce).
+- **Fix + fixture — ⏳ remaining (Linux).** Align the emitted notes `sldImg`
+  placeholder (notesMaster geometry + bare notesSlide placeholder) to the authored
+  XML above; add a `test/schema.test.js` fixture. Blocks `upstream-issue-446`.
 
 ## Feature-serialization fixtures — authoring oracles needed (target-candidate, unscheduled)
 
