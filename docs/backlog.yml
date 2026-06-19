@@ -1702,7 +1702,7 @@ items:
     source: "gitbrent/PptxGenJS#1247"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
+    last_reviewed: 2026-06-19
     status: target-candidate
     priority: p2
     target_area:
@@ -1726,7 +1726,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: create-master-placeholder-margin-valign-repro
+    next_action: author-powerpoint-oracle-then-fix-see-CREATE_FIXTURES_PLAN-section-E
 
   - id: upstream-pr-1246
     source: "gitbrent/PptxGenJS#1246"
@@ -3728,7 +3728,7 @@ items:
     source: "gitbrent/PptxGenJS#1151"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
+    last_reviewed: 2026-06-19
     status: target-candidate
     priority: p2
     target_area:
@@ -3754,7 +3754,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: compare-powerpoint-authored-table-placeholder-xml
+    next_action: author-powerpoint-oracle-then-fix-see-CREATE_FIXTURES_PLAN-section-F
 
   - id: upstream-pr-1083
     source: "gitbrent/PptxGenJS#1083"
@@ -4911,33 +4911,38 @@ items:
     source: "gitbrent/PptxGenJS#1259"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: needs-repro
-    priority: p3
+    last_reviewed: 2026-06-19
+    status: non-target
+    priority: none
     target_area:
       - missing-pptx-feature
       - speaker-notes-masters-layouts
-    applies_to_current_project: partial
-    non_target_reasons: []
+    applies_to_current_project: no
+    non_target_reasons:
+      - not-reproducible-in-current-project
     summary: Asked how to vertically align a paragraph or block of text.
     current_project_notes: >
-      Current text options support shape/body vertical anchoring through
-      valign/bodyPr anchor, and table cells map valign to the same body property.
-      The report needs a minimal current-fork repro to distinguish a missing
-      paragraph/rich-text-level API from a documented shape-level option.
+      Resolved on inspection (2026-06-19): vertical alignment IS supported, at the
+      level OOXML defines it. Vertical anchoring is a body-level property
+      (CT_TextBodyProperties/@anchor), not a per-paragraph one — there is no
+      per-paragraph vertical-align attribute in DrawingML. The fork already maps
+      `valign: 'top'|'middle'|'bottom'` to `<a:bodyPr anchor="t|ctr|b">` for text
+      shapes (gen-xml.ts:1537 via _bodyProp.anchor) and table cells (gen-xml.ts:629),
+      which is the only construct that exists. A "rich-text / per-paragraph valign
+      API" would have no valid OOXML to emit, so this is not a fork gap. The
+      documented shape-level `valign` option is the answer.
     evidence:
       kinds:
         - local-source-inspection
       local_files:
+        - src/gen-xml.ts:629
+        - src/gen-xml.ts:1537
         - src/core-interfaces.ts:445
-        - src/core-interfaces.ts:997
-        - src/gen-objects.ts:1122
-        - src/gen-xml.ts:1103
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: build-minimal-rich-text-valign-repro
+    next_action: none
 
   - id: upstream-issue-1258
     source: "gitbrent/PptxGenJS#1258"
@@ -5258,30 +5263,40 @@ items:
     source: "gitbrent/PptxGenJS#1241"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: needs-repro
-    priority: p3
+    last_reviewed: 2026-06-19
+    status: non-target
+    priority: none
     target_area:
       - image-svg-media
-    applies_to_current_project: unknown
-    non_target_reasons: []
+    applies_to_current_project: no
+    non_target_reasons:
+      - not-reproducible-in-current-project
     summary: Asked whether WebP images are supported.
     current_project_notes: >
-      Current image handling derives extension and content type from the input
-      MIME/extension, so image/webp may be packaged, but PowerPoint support and
-      any required conversion or fallback behavior need a generated-deck check.
+      Resolved on inspection (2026-06-19): WebP IS supported. Image handling
+      derives the extension/content type from the `data:` MIME (or file
+      extension), so `image/webp` is packaged with the correct
+      `<Override ContentType="image/webp">` and image relationship; PowerPoint
+      2021/365 reads WebP. The natural-size header parser in gen-utils.ts
+      (getImageSizeFromBase64) explicitly decodes the WebP RIFF/WEBP container
+      (VP8 / VP8L / VP8X chunks), so a dimensionless WebP gets its real pixel size
+      at 96 DPI. Already covered by the cross-format case in
+      test/regression/image-intrinsic-size.test.js (a 4x2 webp resolves to
+      38100x19050 EMU). No conversion/fallback is needed and no OOXML defect
+      exists, so there is nothing to implement.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/gen-objects.ts:428
-        - src/gen-objects.ts:496
-        - src/gen-xml.ts:1419
+        - src/gen-objects.ts:564
+        - src/gen-utils.ts:672
+        - test/regression/image-intrinsic-size.test.js:23
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: generate-webp-image-fixture-and-open-in-powerpoint-or-validator
+    next_action: none
 
   - id: upstream-issue-1240
     source: "gitbrent/PptxGenJS#1240"
@@ -5489,19 +5504,26 @@ items:
     source: "gitbrent/PptxGenJS#1226"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: target-candidate
-    priority: p3
+    last_reviewed: 2026-06-19
+    status: non-target
+    priority: none
     target_area:
       - image-svg-media
       - missing-pptx-feature
-    applies_to_current_project: yes
-    non_target_reasons: []
+    applies_to_current_project: no
+    non_target_reasons:
+      - out-of-project-scope
     summary: Requested automatic support for EXIF image orientation.
     current_project_notes: >
-      Current image APIs allow explicit rotation, but image handling does not
-      read metadata or compensate for EXIF orientation. This is an image
-      preprocessing feature gap, not an OOXML validity problem.
+      Decided (2026-06-19): userland, not core — non-target. PptxGenJS embeds image
+      bytes verbatim and emits valid OOXML; PowerPoint itself does not honour JPEG
+      EXIF orientation either, so the generated package matches PowerPoint's own
+      behaviour. Auto-rotating would require decoding EXIF metadata and either
+      re-encoding pixels or injecting a compensating xfrm rotation — image
+      preprocessing that belongs in the caller's pipeline (or a dedicated image
+      library), not in an OOXML serializer. The explicit `rotate` option remains
+      available for callers that want to compensate. No OOXML validity problem, so
+      nothing to implement here.
     evidence:
       kinds:
         - local-source-inspection
@@ -5513,7 +5535,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: decide-whether-image-metadata-probing-belongs-in-core-or-userland
+    next_action: none
 
   - id: upstream-issue-1224
     source: "gitbrent/PptxGenJS#1224"
@@ -5688,7 +5710,7 @@ items:
     source: "gitbrent/PptxGenJS#1208"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
+    last_reviewed: 2026-06-19
     status: target-candidate
     priority: p2
     target_area:
@@ -5713,7 +5735,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: compare-authored-layout-placeholder-valign-xml
+    next_action: author-powerpoint-oracle-then-fix-see-CREATE_FIXTURES_PLAN-section-E
 
   - id: upstream-issue-1206
     source: "gitbrent/PptxGenJS#1206"
@@ -9039,7 +9061,7 @@ items:
     source: "gitbrent/PptxGenJS#446"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
+    last_reviewed: 2026-06-19
     status: target-candidate
     priority: p2
     target_area:
@@ -9067,7 +9089,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: compare-notes-print-slide-image-placeholder-xml
+    next_action: author-powerpoint-oracle-then-fix-see-CREATE_FIXTURES_PLAN-section-G
 
   - id: upstream-issue-438
     source: "gitbrent/PptxGenJS#438"
@@ -9981,65 +10003,77 @@ items:
     source: downstream:registry/replication/kit.ts
     type: downstream-need
     first_seen: 2026-06-18
-    last_reviewed: 2026-06-18
-    status: target-candidate
+    last_reviewed: 2026-06-19
+    status: implemented
     priority: p3
     target_area:
       - typescript-api
     applies_to_current_project: partial
     non_target_reasons: []
     summary: Surface bent/straight connector presets on the public SHAPE_NAME union
-    current_project_notes: "The connector presets (bentConnector2/3, straightConnector1) are valid serializable geometries in VALID_SHAPE_PRESETS but are not exposed on the public SHAPE_NAME union, so the replica kit's connector() casts the preset string through Parameters<addShape>[0]. Output is correct; this is purely an API-surface gap. Fix: add the connector presets to SHAPE_NAME (and document them) so callers get type-checked names without a cast. Surfaced by the replication capability-map (construct key: connector)."
-    stopgap: registry/replication/kit.ts
+    current_project_notes: "Implemented in commit b726ce1b (feat(shape): type connector presets on the SHAPE_NAME union). The public SHAPE_NAME union now ends with `| CONNECTOR_PRESET_NAME`, where CONNECTOR_PRESET_NAME is derived from the EXTRA_SHAPE_PRESETS tuple (straightConnector1, bentConnector{2-5}, curvedConnector{2-5}) — the same single source of truth the runtime VALID_SHAPE_PRESETS set is built from, so the type and the validator cannot drift. Callers pass these presets to addShape with type-checked names and no cast. (For live, endpoint-bound connectors use slide.addConnector.)"
     evidence:
-      kinds: []
-      local_files: []
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/core-enums.ts:513
+        - src/core-enums.ts:693
+        - src/core-enums.ts:700
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: implement
+    next_action: none
   - id: dn-gradient-line-stroke
     source: downstream:registry/replication/kit.ts
     type: downstream-need
     first_seen: 2026-06-18
-    last_reviewed: 2026-06-18
-    status: target-candidate
+    last_reviewed: 2026-06-19
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
     summary: Stroke a line/connector with a gradient fill (<a:ln> > <a:gradFill>)
-    current_project_notes: "Source downstream elbow connectors paint their stroke with an <a:gradFill> inside <a:ln> (accent3->accent4 fade). The fork can only stroke a line with a solid colour, so the replica kit's connector() falls back to a representative solid lavender (deviation noted on the slide). Fix: let the line spec accept a gradient (mirror the shape gradient fill path landed in upstream-pr-1454, but for <a:ln>). Surfaced by the replication capability-map (construct key: gradient-line-stroke); the audit flags it RED until implemented."
-    stopgap: registry/replication/kit.ts
+    current_project_notes: "Implemented in commit 561b0341 (feat(line): support gradient strokes (gradFill inside a:ln)). ShapeLineProps gained `type: 'gradient'` and a `gradient?: GradientFillProps` field; genXmlLineFill (src/gen-utils.ts) emits a `<a:gradFill>` inside `<a:ln>` when a gradient is present (gradient presence selects a gradient stroke even when `type` is omitted), reusing the same genXmlGradientFill builder as shape fills (upstream-pr-1454). This covers the downstream accent3->accent4 elbow-connector stroke fade, so the replica kit no longer needs its solid-lavender fallback. Validated by schema fixture 'shape with gradient line stroke' (shape-gradient-line-stroke) in test/schema.test.js."
     evidence:
-      kinds: []
-      local_files: []
-      schema_fixture: null
-      validator_result: null
+      kinds:
+        - local-source-inspection
+        - schema-fixture
+        - validator-result
+      local_files:
+        - src/gen-utils.ts:503
+        - src/core-interfaces.ts:334
+        - test/schema.test.js
+      schema_fixture: test/schema.test.js (shape-gradient-line-stroke)
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: implement
+    next_action: none
   - id: dn-px-coordinate-unit
     source: downstream:registry/replication/kit.ts
     type: downstream-need
     first_seen: 2026-06-18
-    last_reviewed: 2026-06-18
-    status: target-candidate
+    last_reviewed: 2026-06-19
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
     summary: First-class pixel/DPI coordinate unit for authoring at a known canvas size
-    current_project_notes: "Source-pixel replication authors every box in pixels on the source canvas and maps px/96=inch by hand (the replica kit's inch() helper). Any consumer recreating a slide at a known pixel size wants this as a first-class coordinate mode, not a hand-rolled divide. Proposal: a 'px' unit (at a configurable DPI, default 96) alongside the existing in/cm/% so x/y/w/h can be given in source pixels. Net-new layout primitive (not a slide-detectable construct, so it is intentionally NOT in the capability-map). Surfaced while graduating the replica kit to registry/replication."
-    stopgap: registry/replication/kit.ts
+    current_project_notes: "Implemented a first-class `\"<n>px\"` coordinate unit. coordToEmu (src/units.ts) now accepts a `px` suffix alongside %/in/pt/emu, resolving pixels at DEFAULT_PX_PER_INCH (96, the CSS reference-pixel density the library already assumes when reading image headers) via the existing pixelsToEmu helper. The public Coord type (src/core-interfaces.ts) gained the `${number}px` template member so x/y/w/h accept source pixels with type-checking, removing the consumer's hand-rolled px/96 inch() divide. DPI is fixed at 96 for v1; a configurable per-presentation DPI was considered but deferred (would have to thread a density through the coordToEmu boundary) and is not needed for the source-pixel replication case. Regression test 'pixels: 96px == 1in at the default 96 DPI' in test/regression/coordinate-units.test.js."
     evidence:
-      kinds: []
-      local_files: []
+      kinds:
+        - local-source-inspection
+        - regression-test
+      local_files:
+        - src/units.ts
+        - src/core-interfaces.ts
+        - test/regression/coordinate-units.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: propose
+    next_action: none

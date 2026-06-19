@@ -52,6 +52,13 @@ defineRegressionSuite('Coordinate units', [
 		},
 	},
 	{
+		name: 'pixels: 96px == 1in at the default 96 DPI',
+		fn: async () => {
+			const r = await offExtFor({ x: '96px', y: '48px', w: '960px', h: '192px' })
+			assert(r.x === IN && r.y === IN / 2 && r.cx === 10 * IN && r.cy === 2 * IN, JSON.stringify(r))
+		},
+	},
+	{
 		name: 'raw EMU escape hatch passes through exactly',
 		fn: async () => {
 			const r = await offExtFor({ x: '914400emu', y: '457200emu', w: '1828800emu', h: '12700emu' })

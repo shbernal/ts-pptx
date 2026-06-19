@@ -189,6 +189,63 @@ PowerPoint comments) and `upstream-pr-1431` (animation engine) — are
 (not active). Their fixture plan now lives in
 [`CREATE_FIXTURES_PLAN_GENERATION.md`](CREATE_FIXTURES_PLAN_GENERATION.md).
 
+## Placeholder & notes serialization fixtures — authoring oracles needed (active)
+
+Four `target-candidate` backlog items are **blocked on a PowerPoint-authored
+oracle**: each is a write-side placeholder/notes/table-placeholder behaviour where
+the fix is "emit the XML PowerPoint authors," and we must not guess that XML. They
+follow the *authoring-oracle + serialization schema fixture* pattern (same as the
+generation items): author a minimal desktop-PowerPoint deck with the
+`powerpoint-fixture-authoring` skill, extract the relevant part, then pin the
+writer output with a `test/schema.test.js` fixture. **Do not implement any of these
+until its oracle exists** — the whole point is to compare against authentic XML.
+Record provenance/SHA-256 in `test/read/fixtures/README.md` as usual (these are
+inspection oracles, not `test:read` fixtures).
+
+### E. Master/layout placeholder margin + valign (`upstream-pr-1247`, `upstream-issue-1208`)
+
+`genXmlBodyProperties` applies body properties (margin, `anchor`/valign, custom
+bullets) only to ordinary text objects, not to placeholder objects on masters /
+layouts, so a placeholder authored with a margin or vertical anchor may not carry
+it the way PowerPoint expects when a user inserts a new slide from that layout
+(`#1208`). `#1247` is the broader master-placeholder formatting item (margin,
+valign, custom bullet).
+
+- **Oracle:** a deck with a custom slide layout whose body/title **placeholder**
+  sets a non-default vertical anchor (e.g. middle/bottom) and non-default text
+  insets, named stably. Insert a new slide from that layout in PowerPoint so the
+  inheritance path is exercised. Capture the layout placeholder `<a:bodyPr>`
+  (anchor + lIns/tIns/rIns/bIns) PowerPoint writes.
+- **Fix + fixture (after oracle):** thread body properties through the placeholder
+  emit path; add a schema fixture asserting the placeholder `<a:bodyPr anchor=…
+  lIns=…>` matches the authored shape. Blocks `upstream-pr-1247` and
+  `upstream-issue-1208`.
+
+### F. Table placeholder properties (`upstream-pr-1151`)
+
+Table objects don't expose placeholder behaviour the way image/text objects do.
+Before adding a `placeholder` option to table props we need the exact
+`<p:graphicFrame>` + `<p:nvGraphicFramePr>/<p:nvPr><p:ph …>` shape PowerPoint
+authors for a table that lives in a layout placeholder.
+
+- **Oracle:** a deck whose layout has a table placeholder (or a slide table bound
+  to a placeholder), captured to pin the `p:ph` type/idx and graphicFrame wiring.
+- **Fix + fixture (after oracle):** add the table `placeholder` option and a schema
+  fixture asserting the emitted `p:ph` on the graphicFrame. Blocks
+  `upstream-pr-1151`.
+
+### G. Notes print-layout slide image placeholder (`upstream-issue-446`)
+
+The notes slide / notesMaster `sldImg` placeholder is currently hard-coded and
+unverified against what PowerPoint's notes print layout expects, so generated decks
+reportedly don't show the slide image in notes print view.
+
+- **Oracle:** a PowerPoint deck with a notes page, capturing the notesSlide +
+  notesMaster `<p:ph type="sldImg">` placeholder geometry/relationship PowerPoint
+  authors for the notes print layout.
+- **Fix + fixture (after oracle):** align the emitted notes `sldImg` placeholder to
+  the authored XML; add a schema fixture. Blocks `upstream-issue-446`.
+
 ## Not needed (already covered or out of scope)
 
 - **Charts** — `mixed.pptx` carries a real chart and `chart.test.js` reads it; no

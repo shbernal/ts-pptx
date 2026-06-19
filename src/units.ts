@@ -21,6 +21,10 @@ export type Emu = number & { readonly __unit: 'emu' }
  *  warn, pointing at the explicit `"<n>emu"` form. ~1000in is far beyond any real slide. */
 const IMPLAUSIBLE_INCHES = 1000
 
+/** Default pixel density for the `"<n>px"` coordinate unit: CSS reference pixels, also the
+ *  density PptxGenJS assumes when reading an image header's pixel dimensions. */
+export const DEFAULT_PX_PER_INCH = 96
+
 export type StandardLayoutName = 'LAYOUT_4x3' | 'LAYOUT_16x9' | 'LAYOUT_16x10' | 'LAYOUT_WIDE'
 
 export interface StandardLayout {
@@ -75,7 +79,9 @@ export function percentToEmu(percent: number, axisEmu: number): Emu {
  * Accepts (see {@link Coord}):
  * - a bare `number` → **always inches** (the documented unit); no magnitude guessing
  * - `"<n>%"` → percentage of `axisEmu`
- * - `"<n>in"` / `"<n>pt"` / `"<n>emu"` → explicit units (the escape hatch for non-inch values)
+ * - `"<n>in"` / `"<n>pt"` / `"<n>px"` / `"<n>emu"` → explicit units (the escape hatch for non-inch
+ *   values). `px` is resolved at {@link DEFAULT_PX_PER_INCH} (96), for authoring against a known
+ *   web/source canvas size.
  *
  * Throws on non-finite or unparseable input rather than silently emitting a degenerate 0-size.
  * @param value - user coordinate
@@ -93,10 +99,10 @@ export function coordToEmu(value: number | string, axisEmu: number): Emu {
 		return inchesToEmu(value)
 	}
 
-	const match = /^\s*(-?\d*\.?\d+)\s*(%|in|pt|emu)\s*$/.exec(value)
+	const match = /^\s*(-?\d*\.?\d+)\s*(%|in|pt|px|emu)\s*$/.exec(value)
 	if (!match) {
 		throw new Error(
-			`PptxGenJS: invalid coordinate "${value}". Expected a number (inches) or a string like "50%", "5in", "72pt", or "914400emu".`
+			`PptxGenJS: invalid coordinate "${value}". Expected a number (inches) or a string like "50%", "5in", "72pt", "96px", or "914400emu".`
 		)
 	}
 	const n = Number(match[1])
@@ -107,6 +113,8 @@ export function coordToEmu(value: number | string, axisEmu: number): Emu {
 			return inchesToEmu(n)
 		case 'pt':
 			return pointsToEmu(n)
+		case 'px':
+			return pixelsToEmu(n, DEFAULT_PX_PER_INCH)
 		default: // 'emu'
 			assertFiniteNumber(n, 'coordinate')
 			return Math.round(n) as Emu

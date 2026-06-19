@@ -15,14 +15,17 @@ import type { CHART_NAME, PLACEHOLDER_TYPE, SHAPE_NAME, SLIDE_OBJECT_TYPES, TABL
  * - `"<n>%"` → percentage of the slide axis (e.g. `"75%"`)
  * - `"<n>in"` → inches (e.g. `"10.25in"`)
  * - `"<n>pt"` → points (e.g. `"72pt"` = 1 inch)
+ * - `"<n>px"` → CSS reference pixels at 96 px/inch (e.g. `"96px"` = 1 inch), for authoring against
+ *   a known web/source canvas size
  * - `"<n>emu"` → raw EMU, the escape hatch for exact OOXML units (e.g. `"914400emu"` = 1 inch)
  *
  * @example 10.25 // inches
  * @example '75%' // percentage of slide size
  * @example '72pt' // points
+ * @example '960px' // pixels at 96 DPI = 10 inches
  * @example '914400emu' // raw EMU
  */
-export type Coord = number | `${number}%` | `${number}in` | `${number}pt` | `${number}emu`
+export type Coord = number | `${number}%` | `${number}in` | `${number}pt` | `${number}px` | `${number}emu`
 export interface PositionProps {
 	/**
 	 * Horizontal position
