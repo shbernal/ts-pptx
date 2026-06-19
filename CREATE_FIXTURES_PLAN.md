@@ -32,7 +32,7 @@ already captured.
 | `gradient-fill.pptx` | yes | yes | n/a | ✅ done |
 | `preset-geometry.pptx` | yes | yes | n/a | ✅ done |
 | `multi-theme.pptx` | yes | yes (slide 1) | `fix(read): resolve p:style fillRef/lnRef` (59ea7bcf) | ✅ done (fillRef/lnRef); restyle-literals still deferred |
-| `multi-theme.pptx` slide 2 (placeholder-inherited) | yes (2026-06-19) | ⏳ pending fix | ⏳ `Run.resolvedColor` fallback — Linux | 🟡 fixture done, fix + test remain (Remaining Work A) |
+| `multi-theme.pptx` slide 2 (placeholder-inherited) | yes (2026-06-19) | yes | `Run.resolvedColor` placeholder-inherited fallback (2026-06-19) | ✅ done (Remaining Work A) |
 | `group-transform.pptx` (extended) | yes | yes | `fix(read): compose group rotations in absolute frames` (6871b337) | ✅ done |
 | `rotation-flip.pptx` (per-shape rot/flip) | yes (2026-06-19) | yes | n/a (read accessor already shipped) | ✅ done (Remaining Work C) |
 
@@ -129,7 +129,7 @@ absolute frames` (6871b337). `Shape.absoluteFrame` now composes enclosing group
 
 ## Remaining work (the "missing stuff")
 
-### A. Placeholder-inherited run colour in the read getter — ✅ fixture landed; fix still needed (Linux)
+### A. Placeholder-inherited run colour in the read getter — ✅ done (2026-06-19)
 
 `dn-readmodel-style-followups` had two halves: (1) walk `p:style` fillRef/lnRef,
 and (2) resolve a **placeholder-inherited run colour** (a run whose `a:rPr`
@@ -156,19 +156,21 @@ shipped via 59ea7bcf + `multi-theme.pptx`. Half (2) is **not** in the read gette
     `tx1 → lt1 → FFFFFF`).**
   - Fixture SHA-256 updated in `test/read/fixtures/README.md` to
     `737a28fa9832a1d009dc4588a868f856ec58c333843ba58f8eee3915a38cc659`.
-- **Fix + test — ⏳ remaining (run on the Linux + tooling machine).** Extend
-  `Run.resolvedColor` (`src/read/api/text.ts` / `theme-context.ts`) to fall back to
-  the placeholder-inherited colour when the run, its paragraph, and the slide-level
-  list style define none — reusing the `placeholderInheritedColor` chain logic
-  (layout placeholder `lstStyle` → master placeholder `lstStyle` → master
-  `p:txStyles` category style, resolved through the clrMap + theme). Then wire a
-  `style-accessors.test.js` case reading `multi-theme.pptx` slide 2: assert
-  `inherited-title` resolves to `EBEBEB` and `explicit-body` stays `FF00FF`.
-- **Backlog:** `dn-readmodel-style-followups` is `partially-implemented` (updated
-  2026-06-19) — fillRef/lnRef shipped (59ea7bcf), placeholder-inherited run colour
-  is the remaining open leg (`next_action:
-  layer-placeholder-inherited-run-colour`, stopgap retained). The fixture base is
-  now in place (`multi-theme.pptx` slide 2); only the getter fix + test remain.
+- **Fix + test — ✅ done (2026-06-19).** `Run.resolvedColor` now falls back, when
+  the run sets no own colour, to the colour it inherits — paragraph `a:defRPr`, then
+  the slide text body `a:lstStyle`, then the placeholder's layout → master
+  `a:lstStyle` → master `p:txStyles` chain (`resolveInheritedRunColor` in
+  `theme-context.ts`, built on the new exported `placeholderInheritedFill` /
+  `lstStyleLevelFill` helpers the flatten path already used). `resolveSlideColorContext`
+  now carries the layout/master roots, and `AutoShape.textFrame` threads the shape's
+  `p:ph` identity through `TextFrame → Paragraph → Run` (a memoized per-paragraph
+  thunk does the lookup lazily, only for colourless placeholder runs).
+  `style-accessors.test.js` "Placeholder-inherited run colour" reads
+  `multi-theme.pptx` slide 2: `inherited-title` → `EBEBEB`, `explicit-body` →
+  `FF00FF`. `pnpm run test:read` is **247** (was 245).
+- **Backlog:** `dn-readmodel-style-followups` is now `implemented` (2026-06-19) —
+  both legs (fillRef/lnRef via 59ea7bcf and placeholder-inherited run colour) shipped;
+  `next_action: none`, the downstream stopgap dropped.
 
 ### B. importSlide `restyle` literal force-remap + table style — feature deferred, fixture content to add
 
@@ -221,7 +223,7 @@ PowerPoint comments) and `upstream-pr-1431` (animation engine) — are
 (not active). Their fixture plan now lives in
 [`CREATE_FIXTURES_PLAN_GENERATION.md`](CREATE_FIXTURES_PLAN_GENERATION.md).
 
-## Placeholder & notes serialization fixtures — oracles authored ✅; fixes remain (Linux)
+## Placeholder & notes serialization fixtures — ✅ done (oracles authored + fixes landed 2026-06-19)
 
 Three `target-candidate` backlog items were **blocked on a PowerPoint-authored
 oracle**: each is a write-side placeholder/notes/table-placeholder behaviour where
@@ -241,9 +243,9 @@ fix can be implemented and pinned without guessing.
 
 | Item | Oracle deck | Construct captured | Remaining (Linux) |
 |---|---|---|---|
-| E | `layout-placeholder-bodypr.pptx` | layout placeholder `<a:bodyPr>` insets+anchor | thread bodyPr through placeholder emit + schema fixture |
-| F | `table-placeholder.pptx` | table graphicFrame `<p:ph idx="1"/>` | add table `placeholder` option + schema fixture |
-| G | `notes-slide-image.pptx` | notes `<p:ph type="sldImg">` geometry | align emitted notes `sldImg` + schema fixture |
+| E | `layout-placeholder-bodypr.pptx` | layout placeholder `<a:bodyPr>` insets+anchor | ✅ done (2026-06-19) — bodyPr threaded through placeholder emit + schema fixture |
+| F | `table-placeholder.pptx` | table graphicFrame `<p:ph idx="1"/>` | ✅ done (2026-06-19) — table `placeholder` option + schema fixture |
+| G | `notes-slide-image.pptx` | notes `<p:ph type="sldImg">` geometry | ✅ done (2026-06-19) — output already byte-identical to oracle; locked by schema fixture |
 
 ### E. Master/layout placeholder margin + valign (`upstream-pr-1247`, `upstream-issue-1208`) — ✅ oracle authored; fix remains (Linux)
 
@@ -266,11 +268,15 @@ valign, custom bullet).
     pinned).
   - Slide 1, inserted from the layout, carries an empty `<a:bodyPr/>` on each
     placeholder (the inheritance path the fix must honour).
-- **Fix + fixture — ⏳ remaining (Linux).** Thread body properties through the
-  placeholder emit path in `genXmlBodyProperties`; add a `test/schema.test.js`
-  fixture asserting the emitted layout placeholder `<a:bodyPr anchor=… lIns=…>`
-  matches the authored shape above. Blocks `upstream-pr-1247` and
-  `upstream-issue-1208`.
+- **Fix + fixture — ✅ done (2026-06-19).** `genXmlBodyProperties`
+  (`src/gen-xml.ts`) now emits the configured `<a:bodyPr>` for placeholder objects,
+  not only text objects (the `_type === text` guard was widened to include
+  `SLIDE_OBJECT_TYPES.placeholder`), so a master/layout placeholder authored with
+  `margin` (→ `lIns/tIns/rIns/bIns`) and/or `valign` (→ `anchor`) carries them.
+  Schema fixture "master/layout placeholder carries bodyPr insets + anchor"
+  (`test/schema.test.js`) pins the title (bottom-anchored 18/9pt) and body
+  (center-anchored 24/15/12/6pt) placeholders against the oracle, validator-clean.
+  `upstream-pr-1247` and `upstream-issue-1208` are `implemented`.
 
 ### F. Table placeholder properties (`upstream-pr-1151`) — ✅ oracle authored; fix remains (Linux)
 
@@ -299,9 +305,13 @@ authors for a table that lives in a layout placeholder.
   idx, **no `type`**) on the graphicFrame's `nvPr`, independent of the contained
   graphic. (`mixed.pptx` slide 2 corroborates the same wiring for a non-table
   content graphic.)
-- **Fix + fixture — ⏳ remaining (Linux).** Add the table `placeholder` option and a
-  `test/schema.test.js` fixture asserting the emitted `p:ph` on the table
-  graphicFrame matches the wiring above. Blocks `upstream-pr-1151`.
+- **Fix + fixture — ✅ done (2026-06-19).** `TableProps` gained a
+  `placeholder?: string` option; the table `<p:graphicFrame>` emits the bound
+  layout placeholder's `<p:ph>` on `<p:nvPr>` (before `<p:extLst>`) via
+  `genXmlPlaceholder`, and `addTableDefinition` inherits the placeholder geometry
+  for any omitted x/y/w/h. Schema fixture "table bound to a layout placeholder
+  emits p:ph on the graphicFrame" (`test/schema.test.js`) pins it against the
+  oracle, validator-clean. `upstream-pr-1151` is `implemented`.
 
 ### G. Notes print-layout slide image placeholder (`upstream-issue-446`) — ✅ oracle authored; fix remains (Linux)
 
@@ -319,11 +329,16 @@ reportedly don't show the slide image in notes print view.
   - **`notesSlide1.xml`** carries a bare `<p:ph type="sldImg"/>` with empty
     `<p:spPr/>` — it inherits the master geometry (this is the inheritance the fix
     must reproduce).
-- **Fix + fixture — ⏳ remaining (Linux).** Align the emitted notes `sldImg`
-  placeholder (notesMaster geometry + bare notesSlide placeholder) to the authored
-  XML above; add a `test/schema.test.js` fixture. Blocks `upstream-issue-446`.
+- **Fix + fixture — ✅ done (2026-06-19).** Verification showed the writer output is
+  **already byte-identical** to the oracle: `makeXmlNotesMaster` emits exactly
+  `<p:ph type="sldImg" idx="2"/>` with `off 685800,1143000 / ext 5486400,3086100`,
+  `prstGeom rect`, `noFill`, and the 1pt black `<a:ln>`, and `makeXmlNotesSlide`
+  emits the bare `<p:ph type="sldImg"/>` with empty `<p:spPr/>`. No code change was
+  needed — the previously-unverified hard-coding is correct. Locked by the schema
+  fixture "notes sldImg placeholder geometry (notesMaster) + bare placeholder
+  (notesSlide)" (`test/schema.test.js`). `upstream-issue-446` is `implemented`.
 
-## Feature-serialization fixtures — ✅ oracles authored; fixes remain (Linux)
+## Feature-serialization fixtures — ✅ done (oracles authored + fixes landed 2026-06-19; OMML raw-leg, LaTeX/raster future)
 
 Two further `target-candidate` write features emit OOXML we must not guess and so
 follow the same *authoring-oracle + serialization schema fixture* pattern as E–G.
@@ -337,8 +352,8 @@ captured so the fix can be implemented and pinned without guessing.
 
 | Item | Oracle deck | Construct captured | Remaining (Linux) |
 |---|---|---|---|
-| H | `bar-chart-data-labels.pptx` | per-point `c:dPt` fills + custom `c:dLbl` text + workbook cache | per-point bar label/colour API + schema fixture |
-| I | `math-omml.pptx` | `<a14:m>`/`<m:oMathPara>`/`<m:oMath>` equation run + `mc:Fallback` | OMML text-run model + schema fixture |
+| H | `bar-chart-data-labels.pptx` | per-point `c:dPt` fills + custom `c:dLbl` text + workbook cache | ✅ done (2026-06-19) — already supported via `pointStyles`/`customLabels`; locked by schema fixture |
+| I | `math-omml.pptx` | `<a14:m>`/`<m:oMathPara>`/`<m:oMath>` equation run + `mc:Fallback` | ✅ raw-OMML done (2026-06-19) — `math` text prop + a14 envelope + schema fixture; LaTeX/MathML + raster fallback still future |
 
 ### H. Bar-chart custom data labels + per-point colours (`upstream-pr-727`) — ✅ oracle authored; fix remains (Linux)
 
@@ -361,10 +376,15 @@ read-side "Charts" note below, which only says `mixed.pptx` covers chart *reads*
   - the embedded-workbook cache the labels must agree with: strCache categories
     `Q1`–`Q4` (`Sheet1!$A$2:$A$5`), numCache values `10`/`25`/`18`/`30`
     (`Sheet1!$B$2:$B$5`), workbook in `ppt/embeddings/`.
-- **Fix + fixture — ⏳ remaining (Linux).** Extend the bar-series API for per-point
-  label text/colour, keep the workbook cache consistent, and add a
-  `test/schema.test.js` fixture asserting the emitted `c:dPt`/`c:dLbl` against the
-  authored shape above. Blocks `upstream-pr-727`.
+- **Fix + fixture — ✅ done (2026-06-19).** Verification showed the full surface is
+  already implemented and public: a series' `pointStyles[].fill` emits the per-point
+  `<c:dPt><c:spPr>` solid fills (`makeSeriesDataPointsXml`) and `customLabels[]`
+  emits the per-point rich `<c:dLbl>` text (`makeCustomDLblXml`), combining in correct
+  CT_BarSer order while the value cache keeps the real numbers. No code change was
+  needed. Schema fixture "bar chart per-point colours + custom data labels
+  (consistent with value cache)" (`test/schema.test.js`) pins all four `c:dPt` fills,
+  the four `c:dLbl` texts, and the intact numCache against the oracle, validator-clean.
+  `upstream-pr-727` is `implemented`.
 
 ### I. Native math equation (OMML) text run (`upstream-issue-1456`) — ✅ oracle authored; fix remains (Linux)
 
@@ -384,11 +404,17 @@ sits in within `<a:p>`) is exactly what must not be guessed.
   **no COM equation-insert API**, so the equation was built in Word (`OMaths.Add` +
   `BuildUp`), copied, and pasted into the PowerPoint text box; **PowerPoint
   re-serialised it on `SaveAs`, so the package XML is genuine PowerPoint output.**
-- **Fix + fixture — ⏳ remaining (Linux).** Introduce an OMML text-run model (raw
-  OMML first, MathML/LaTeX conversion later), then add a `test/schema.test.js`
-  fixture pinning the emitted math run against the authored XML above. Blocks
-  `upstream-issue-1456`. The oracle also satisfies the entry's
-  `research-omml-in-presentation-text-runs` first deliverable.
+- **Fix + fixture — ✅ raw-OMML leg done (2026-06-19).** A text item gained a
+  `math?: string` raw-OMML property (`TextProps`). `genXmlTextBody` isolates it as a
+  display-math paragraph and emits `<a14:m><m:oMathPara><m:oMath>{OMML}</m:oMath>…`
+  via `genXmlMathParagraph` (accepting inner OMML, a full `<m:oMath>`, or a full
+  `<m:oMathPara>`; both `a14` and `m` namespaces declared on `<a14:m>`). The
+  equation-bearing shape is wrapped in `<mc:AlternateContent><mc:Choice
+  Requires="a14">` exactly as the oracle does, so it validates clean. Schema fixture
+  "native math equation (OMML) text run" (`test/schema.test.js`) pins the envelope +
+  OMML structure. `upstream-issue-1456` is `partially-implemented`: the
+  **remaining** legs are a LaTeX/MathML→OMML conversion path and the `mc:Fallback`
+  raster (the raw-OMML entry point is the deliberate first deliverable).
 
 ## Not needed (already covered or out of scope)
 

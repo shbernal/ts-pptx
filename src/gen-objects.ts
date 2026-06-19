@@ -1084,6 +1084,22 @@ export function addTableDefinition(
 	const opt: TableProps = options && typeof options === 'object' ? options : {}
 	opt.objectName = opt.objectName ? encodeXmlEntities(validateObjectName(opt.objectName, 'table')) : `Table ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.table).length}`
 
+	// STEP 0: PLACEHOLDER — a table targeting a layout placeholder inherits that placeholder's
+	// position/size for any of x/y/w/h the caller omits (#1151), mirroring the image (#1258) and
+	// text (#640) placeholder inheritance. Explicit values always win; this only fills the gaps so
+	// the table fills the placeholder geometry rather than the default 1in/full-width fallback.
+	if (opt.placeholder && slideLayout?._slideObjects) {
+		const placeHold = slideLayout._slideObjects.find(
+			item => item._type === SLIDE_OBJECT_TYPES.placeholder && item.options?.placeholder === opt.placeholder
+		)
+		if (placeHold?.options) {
+			if (opt.x === undefined) opt.x = placeHold.options.x
+			if (opt.y === undefined) opt.y = placeHold.options.y
+			if (opt.w === undefined) opt.w = placeHold.options.w
+			if (opt.h === undefined) opt.h = placeHold.options.h
+		}
+	}
+
 	// STEP 1: REALITY-CHECK
 	{
 		// A: check for empty

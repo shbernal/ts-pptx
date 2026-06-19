@@ -21,8 +21,20 @@ import {
 	type Element,
 } from '../oxml/dom.js'
 import { normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
-import type { ColorContext } from '../oxml/theme.js'
-import { resolveSolidFillColor, type ResolvedColor } from './theme-context.js'
+import type { ColorContext, FlattenContext } from '../oxml/theme.js'
+import { resolveInheritedRunColor, resolveSolidFillColor, type PlaceholderRef, type ResolvedColor } from './theme-context.js'
+
+/**
+ * What a {@link Run}'s text body needs to resolve a *placeholder-inherited* run
+ * colour: which placeholder the text lives in and the slide theme context (with
+ * the layout/master roots) to resolve against. The owning slide's text body
+ * `a:lstStyle` is added per text frame. Absent for non-placeholder text (ordinary
+ * text boxes, table cells), which never inherit a placeholder colour.
+ */
+export interface PlaceholderTextContext {
+	ph: PlaceholderRef
+	flatten: FlattenContext
+}
 
 // Schema successors used to keep `a:rPr` children in document order when a
 // setter has to create one (CT_TextCharacterProperties sequence).
@@ -51,7 +63,13 @@ export class Run {
 		private readonly element: Element,
 		private readonly part: Part,
 		/** The owning slide's theme colour context, for {@link resolvedColor}; absent when the run was reached without one. */
-		private readonly themeColors?: ColorContext
+		private readonly themeColors?: ColorContext,
+		/**
+		 * Resolves the colour this run inherits from its placeholder/list-style chain
+		 * when it sets none of its own (item A). Built by the owning {@link Paragraph}
+		 * for placeholder text; absent for non-placeholder runs. Called lazily.
+		 */
+		private readonly inheritedColor?: () => ResolvedColor | null
 	) {}
 
 	/** The run's text (`a:t`), verbatim — whitespace is not normalized. */
@@ -154,17 +172,19 @@ export class Run {
 	}
 
 	/**
-	 * The run's own solid fill colour resolved against the owning slide's theme to
-	 * a literal hex — the resolved counterpart of {@link color}/{@link schemeColor}.
-	 * `null` when the run sets no colour of its own (it then inherits from the
-	 * placeholder / list-style chain, which this getter does not walk), the colour
-	 * cannot be made literal, or the run was reached without a theme context. The
-	 * returned {@link ResolvedColor} carries `effectiveHex` — the base colour with
-	 * its child transforms (`lumMod`/`shade`/…) applied — for the final rendered
-	 * colour.
+	 * The colour this run effectively renders, resolved against the owning slide's
+	 * theme to a literal hex. It is the run's own solid fill
+	 * ({@link color}/{@link schemeColor}) when set; otherwise, for a run inside a
+	 * placeholder, the colour it inherits from the placeholder/list-style chain
+	 * (layout → master placeholder `a:lstStyle` → master `p:txStyles`). `null` when
+	 * the run sets no colour and inherits none, the colour cannot be made literal,
+	 * or the run was reached without a theme context. The returned
+	 * {@link ResolvedColor} carries `effectiveHex` — the base colour with its child
+	 * transforms (`lumMod`/`shade`/…) applied — for the final rendered colour.
 	 */
 	get resolvedColor(): ResolvedColor | null {
-		return this.themeColors ? resolveSolidFillColor(this.#rPr(), this.themeColors) : null
+		if (!this.themeColors) return null
+		return resolveSolidFillColor(this.#rPr(), this.themeColors) ?? this.inheritedColor?.() ?? null
 	}
 
 	/** The underlying `a:r` element, for advanced reads and future mutation. */
@@ -225,12 +245,35 @@ export class Paragraph {
 		private readonly element: Element,
 		private readonly part: Part,
 		/** The owning slide's theme colour context, threaded to each {@link Run} for `resolvedColor`. */
-		private readonly themeColors?: ColorContext
+		private readonly themeColors?: ColorContext,
+		/**
+		 * Placeholder + slide-list-style context for resolving a placeholder-inherited
+		 * run colour (item A); absent for non-placeholder text. The owning
+		 * {@link TextFrame} supplies the placeholder identity and the text body's
+		 * `a:lstStyle`.
+		 */
+		private readonly inherit?: { placeholder: PlaceholderTextContext; slideLstStyle: Element | null }
 	) {}
 
 	/** The runs (`a:r`) in document order. Fields (`a:fld`) and breaks are not runs; see `text`. */
 	get runs(): Run[] {
-		return getElements(this.element, 'a:r').map((element) => new Run(element, this.part, this.themeColors))
+		const inheritedColor = this.#inheritedColorResolver()
+		return getElements(this.element, 'a:r').map((element) => new Run(element, this.part, this.themeColors, inheritedColor))
+	}
+
+	/**
+	 * A memoized thunk resolving the colour every run in this paragraph inherits
+	 * when it sets none of its own, or `undefined` for non-placeholder paragraphs.
+	 * Runs in one paragraph share a level and `a:pPr`, so the lookup runs at most
+	 * once per paragraph and only when a colourless run actually asks for it.
+	 */
+	#inheritedColorResolver(): (() => ResolvedColor | null) | undefined {
+		if (!this.inherit) return undefined
+		const { placeholder, slideLstStyle } = this.inherit
+		const pPr = firstChild(this.element, 'a:pPr')
+		const level = this.level
+		let cached: ResolvedColor | null | undefined
+		return () => (cached === undefined ? (cached = resolveInheritedRunColor(placeholder.ph, level, pPr, slideLstStyle, placeholder.flatten)) : cached)
 	}
 
 	/** Indent level (`a:pPr/@lvl`), 0 when unset. */
@@ -336,12 +379,21 @@ export class TextFrame {
 		private readonly txBody: Element,
 		private readonly part: Part,
 		/** The owning slide's theme colour context, threaded to each {@link Paragraph}/{@link Run} for `resolvedColor`. */
-		private readonly themeColors?: ColorContext
+		private readonly themeColors?: ColorContext,
+		/**
+		 * The placeholder this text body lives in, when any — enables
+		 * placeholder-inherited run colour resolution (item A). Absent for ordinary
+		 * text boxes and table cells.
+		 */
+		private readonly placeholder?: PlaceholderTextContext
 	) {}
 
 	/** Paragraphs (`a:p`) in document order. */
 	get paragraphs(): Paragraph[] {
-		return getElements(this.txBody, 'a:p').map((element) => new Paragraph(element, this.part, this.themeColors))
+		// The slide text body's own list style is the tier just below the run/paragraph
+		// in the placeholder inheritance chain; resolve it once and share it.
+		const inherit = this.placeholder ? { placeholder: this.placeholder, slideLstStyle: firstChild(this.txBody, 'a:lstStyle') } : undefined
+		return getElements(this.txBody, 'a:p').map((element) => new Paragraph(element, this.part, this.themeColors, inherit))
 	}
 
 	/** All paragraph text joined by `\n` (mirrors python-pptx `TextFrame.text`). */

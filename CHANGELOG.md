@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Native math equations (raw OMML) in text (`TextProps.math`):** a text item can
+  now carry a native, editable PowerPoint equation. `addText([{ math: '<raw OMML>' }])`
+  emits a display-math paragraph (`<a14:m><m:oMathPara><m:oMath>…`) and wraps the
+  equation shape in `<mc:AlternateContent><mc:Choice Requires="a14">` exactly as
+  PowerPoint authors it, so the package validates and opens clean. `math` accepts
+  inner OMML, a full `<m:oMath>`, or a full `<m:oMathPara>` (the `m`/`a14` namespaces
+  are supplied by the wrapper). Raw OMML is the first deliverable; LaTeX/MathML→OMML
+  conversion and an `mc:Fallback` raster are future work. Pinned against the
+  PowerPoint-authored `math-omml.pptx` oracle (gitbrent/PptxGenJS#1456).
+- **Table placeholders (`TableProps.placeholder`):** a table can bind to a
+  layout/master content placeholder by name. The table `<p:graphicFrame>` then emits
+  that placeholder's `<p:ph>` on its `<p:nvPr>`, and the table inherits the
+  placeholder's position/size for any omitted `x`/`y`/`w`/`h` — mirroring the
+  existing image (#1258) and text (#640) placeholder inheritance. Pinned against the
+  `table-placeholder.pptx` oracle (gitbrent/PptxGenJS#1151).
 - **Remove slides / parts (`Presentation.removeSlide`, `OpcPackage.removePart`):**
   the `pptxgenjs/read` model can now delete content. `removeSlide(index)` drops
   the `p:sldId` entry, the presentation→slide relationship, the slide part and its
@@ -62,6 +77,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Master/layout placeholder body properties (margin/valign) (gitbrent/PptxGenJS#1247,
+  #1208):** a placeholder authored on a slide master/layout (via `defineSlideMaster`)
+  with `margin` and/or `valign` now emits those in its `<a:bodyPr>` (insets + `anchor`)
+  instead of degrading to the default, so a slide inserted from that layout inherits
+  them. `genXmlBodyProperties` previously applied configured body properties only to
+  ordinary text objects, not placeholder objects. Pinned against the
+  `layout-placeholder-bodypr.pptx` oracle.
+- **`pptxgenjs/read` `Run.resolvedColor` resolves placeholder-inherited colour:** a
+  run inside a placeholder that sets no colour of its own now resolves the colour it
+  inherits through the paragraph `a:defRPr` → slide `a:lstStyle` → placeholder
+  layout/master `a:lstStyle` → master `p:txStyles` chain, instead of returning
+  `null`. Pinned against `multi-theme.pptx` slide 2.
 - **Master slide numbers no longer disappear on slides inserted in PowerPoint
   (gitbrent/PptxGenJS#1159):** when `defineSlideMaster({ slideNumber })` defined a
   slide-number placeholder, the master still emitted `<p:hf sldNum="0" .../>`.

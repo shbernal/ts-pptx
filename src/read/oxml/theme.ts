@@ -423,19 +423,22 @@ function lstStyleLevelDefRPr(listStyle: Element | null, level: number): Element 
 }
 
 /** The `a:solidFill` of a level's `a:defRPr`, or `null` when none is defined there. */
-function lstStyleLevelFill(listStyle: Element | null, level: number): Element | null {
+export function lstStyleLevelFill(listStyle: Element | null, level: number): Element | null {
 	const defRPr = lstStyleLevelDefRPr(listStyle, level)
 	return defRPr ? firstChild(defRPr, 'a:solidFill') : null
 }
 
 /**
- * The colour a placeholder run inherits from the source style chain: the layout
- * placeholder's `a:lstStyle`, then the master placeholder's, then the master
- * `p:txStyles` category style — resolved to a literal `{ hex, transforms }`. The
- * first tier with a fill that resolves wins. Returns `null` when nothing in the
- * chain defines a resolvable colour (the run then re-binds to the destination).
+ * The colour *element* a placeholder run inherits from the source style chain: the
+ * layout placeholder's `a:lstStyle`, then the master placeholder's, then the
+ * master `p:txStyles` category style. Returns the first tier's colour element that
+ * resolves against `ctx` (the `a:srgbClr`/`a:schemeClr`/… inside its
+ * `a:solidFill`), or `null` when nothing in the chain defines a resolvable colour.
+ * The read-model `Run.resolvedColor` getter feeds this element to
+ * `resolveColorElement` for the `effectiveHex`; the flatten path resolves it
+ * directly via {@link placeholderInheritedColor}.
  */
-function placeholderInheritedColor(type: string | null, idx: string, level: number, ctx: FlattenContext): ResolvedColor | null {
+export function placeholderInheritedFill(type: string | null, idx: string, level: number, ctx: FlattenContext): Element | null {
 	const tiers: (Element | null)[] = []
 	if (ctx.layoutRoot) {
 		const layoutPh = findPlaceholder(ctx.layoutRoot, type, idx)
@@ -449,10 +452,22 @@ function placeholderInheritedColor(type: string | null, idx: string, level: numb
 		tiers.push(styleEl && lstStyleLevelFill(styleEl, level))
 	}
 	for (const fill of tiers) {
-		const resolved = fill && resolveColor(firstChildElement(fill), ctx)
-		if (resolved) return resolved
+		const colorEl = fill && firstChildElement(fill)
+		if (colorEl && resolveColor(colorEl, ctx)) return colorEl
 	}
 	return null
+}
+
+/**
+ * The colour a placeholder run inherits from the source style chain, resolved to a
+ * literal `{ hex, transforms }`. Thin wrapper over {@link placeholderInheritedFill}
+ * for the flatten path, which re-emits the transforms verbatim. Returns `null`
+ * when nothing in the chain defines a resolvable colour (the run then re-binds to
+ * the destination).
+ */
+function placeholderInheritedColor(type: string | null, idx: string, level: number, ctx: FlattenContext): ResolvedColor | null {
+	const colorEl = placeholderInheritedFill(type, idx, level, ctx)
+	return colorEl ? resolveColor(colorEl, ctx) : null
 }
 
 /** Whether the *slide itself* already fixes this run's colour (so a rebind cannot change it). */

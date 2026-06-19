@@ -1541,6 +1541,16 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	_arrObjTabHeadRows?: TableRow[]
 
 	/**
+	 * Name of a table/content placeholder defined on the slide layout/master to bind this table to.
+	 * - when it matches a layout/master placeholder, the table's `<p:graphicFrame>` emits that
+	 *   placeholder's `<p:ph>` (idx/type) so PowerPoint treats the table as filling the placeholder
+	 *   (e.g. a "Title and Content" content placeholder)
+	 * - the table also inherits the placeholder's position/size for any of x/y/w/h left unset
+	 * @example 'body' // bind to the layout placeholder named 'body'
+	 */
+	placeholder?: string
+
+	/**
 	 * Whether to enable auto-paging
 	 * - auto-paging creates new slides as content overflows a slide
 	 * @default false
@@ -1968,6 +1978,17 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 export interface TextProps {
 	text?: string | number
 	options?: TextPropsOptions
+	/**
+	 * Raw OMML (Office MathML) for a native, editable PowerPoint equation, emitted as its own
+	 * display-math paragraph (`<a14:m><m:oMathPara><m:oMath>…`). When set, this item is a math
+	 * paragraph and `text` is ignored. Accepts either the inner OMML (children of `<m:oMath>`),
+	 * a full `<m:oMath>…</m:oMath>`, or a full `<m:oMathPara>…</m:oMathPara>`; the `m:` prefix is
+	 * resolved by the wrapper, so the markup does not need its own namespace declarations.
+	 * This is the raw-OMML entry point; LaTeX/MathML→OMML conversion is not yet provided.
+	 * @example { math: '<m:r><m:t>x^2+1=y</m:t></m:r>' } // (use real OMML, not LaTeX)
+	 * @since v5.4.0
+	 */
+	math?: string
 }
 
 /**

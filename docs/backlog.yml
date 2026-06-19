@@ -241,7 +241,7 @@ items:
     type: pull-request
     first_seen: 2026-06-07
     last_reviewed: 2026-06-19
-    status: target-candidate
+    status: implemented
     priority: p2
     target_area:
       - speaker-notes-masters-layouts
@@ -250,28 +250,39 @@ items:
     non_target_reasons: []
     summary: Fix placeholder text formatting on master slides, including margin, valign, and custom bullet handling.
     current_project_notes: >
-      The bullet.type part is already covered by current source, but
-      genXmlBodyProperties still applies body properties only to text objects,
-      not placeholder objects, so master placeholder margin/valign needs a
-      focused repro.
+      Implemented 2026-06-19. genXmlBodyProperties (src/gen-xml.ts) now emits the
+      configured <a:bodyPr> for placeholder objects too, not only text objects: the
+      _type === text guard was widened to include SLIDE_OBJECT_TYPES.placeholder, so
+      a master/layout placeholder authored via defineSlideMaster with margin (→
+      lIns/tIns/rIns/bIns) and/or valign (→ anchor) carries those into its layout
+      placeholder bodyPr instead of degrading to the default. The bullet.type part
+      was already covered. Pinned against the layout-placeholder-bodypr.pptx oracle
+      by the schema fixture 'master/layout placeholder carries bodyPr insets +
+      anchor' (test/schema.test.js): title bottom-anchored 18/9pt insets, body
+      center-anchored 24/15/12/6pt insets, validator-clean. Companion:
+      upstream-issue-1208 (same root cause).
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
+        - powerpoint-authored-comparison
       local_files:
-        - src/gen-xml.ts:1087
-        - src/gen-xml.ts:903
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
+        - src/gen-xml.ts
+        - test/schema.test.js
+        - test/read/fixtures/layout-placeholder-bodypr.pptx
+      schema_fixture: "test/schema.test.js: master/layout placeholder carries bodyPr insets + anchor"
+      validator_result: pass (pnpm run test:schema, 2026-06-19)
+      powerpoint_result: oracle test/read/fixtures/layout-placeholder-bodypr.pptx opened clean in Windows desktop PowerPoint 16.0 on 2026-06-19
       spec_refs: []
-    next_action: author-powerpoint-oracle-then-fix-see-CREATE_FIXTURES_PLAN-section-E
+    next_action: none
 
   - id: upstream-issue-1456
     source: "gitbrent/PptxGenJS#1456"
     type: issue
     first_seen: 2026-06-07
     last_reviewed: 2026-06-19
-    status: target-candidate
+    status: partially-implemented
     priority: p2
     target_area:
       - missing-pptx-feature
@@ -279,19 +290,36 @@ items:
     non_target_reasons: []
     summary: Requests native editable PowerPoint math equations via LaTeX, MathML, or raw OMML.
     current_project_notes: >
-      Current text and shape APIs have math symbol shapes but no OMML text-run
-      model, math namespace handling, or LaTeX/MathML conversion path.
+      Raw-OMML leg implemented 2026-06-19. A text item gained a `math?: string`
+      property (core-interfaces.ts TextProps) carrying raw OMML. genXmlTextBody
+      emits it as a display-math paragraph via genXmlMathParagraph
+      (<a14:m xmlns:a14 xmlns:m><m:oMathPara><m:oMathParaPr><m:jc m:val="centerGroup"/>
+      <m:oMath>{OMML}</m:oMath></m:oMathPara></a14:m><a:endParaRPr/>), accepting inner
+      OMML, a full <m:oMath>, or a full <m:oMathPara>. STEP 5/6 isolate the equation
+      onto its own paragraph; objectHasMath then wraps the whole shape in
+      <mc:AlternateContent><mc:Choice Requires="a14"> exactly as PowerPoint does, so
+      validators/non-a14 consumers treat the a14 subtree as a known extension (the
+      oracle math-omml.pptx uses the same envelope and validates clean). Pinned by the
+      schema fixture 'native math equation (OMML) text run' (test/schema.test.js),
+      validator-clean. REMAINING (not yet done): a LaTeX/MathML→OMML conversion path
+      and an mc:Fallback raster — the raw-OMML entry point is the deliberate first
+      deliverable; callers supply OMML directly for now.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
+        - powerpoint-authored-comparison
       local_files:
-        - src/core-enums.ts:237
-        - src/gen-xml.ts:1166
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
+        - src/core-interfaces.ts
+        - src/gen-xml.ts
+        - test/schema.test.js
+        - test/read/fixtures/math-omml.pptx
+      schema_fixture: "test/schema.test.js: native math equation (OMML) text run"
+      validator_result: pass (pnpm run test:schema, 2026-06-19)
+      powerpoint_result: oracle test/read/fixtures/math-omml.pptx opened clean in Windows desktop PowerPoint 16.0 on 2026-06-19
       spec_refs: []
-    next_action: research-omml-then-author-oracle-see-CREATE_FIXTURES_PLAN-section-I
+    next_action: add-latex-mathml-to-omml-conversion-and-mc-fallback-raster
 
   - id: upstream-issue-1451
     source: "gitbrent/PptxGenJS#1451"
@@ -722,7 +750,7 @@ items:
     type: pull-request
     first_seen: 2026-06-07
     last_reviewed: 2026-06-19
-    status: target-candidate
+    status: implemented
     priority: p2
     target_area:
       - table-ooxml
@@ -732,29 +760,42 @@ items:
     non_target_reasons: []
     summary: Add placeholder properties to table objects.
     current_project_notes: >
-      Current table props extend position, text, and object-name options, but do
-      not expose placeholder behavior the same way image/text objects do. Accept
-      only after confirming the desired table placeholder XML in a master/layout
-      context.
+      Implemented 2026-06-19. TableProps gained a `placeholder?: string` option
+      (src/core-interfaces.ts) matching the image/text placeholder pattern. The
+      table's <p:graphicFrame> now emits the bound layout placeholder's <p:ph>
+      (idx/type) on <p:nvPr> via genXmlPlaceholder, before <p:extLst> per
+      CT_ApplicationNonVisualDrawingProps order (src/gen-xml.ts); the existing
+      per-object placeholder resolution already populates placeholderObj for any
+      object carrying options.placeholder. addTableDefinition (src/gen-objects.ts)
+      also fills x/y/w/h from the matching layout placeholder when omitted, mirroring
+      the image (#1258) and text (#640) inheritance. Pinned against the
+      table-placeholder.pptx oracle (PowerPoint emits <p:ph idx="1"/> on the table
+      graphicFrame) by the schema fixture 'table bound to a layout placeholder emits
+      p:ph on the graphicFrame' (test/schema.test.js), validator-clean.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
+        - powerpoint-authored-comparison
       local_files:
-        - src/core-interfaces.ts:861
-        - src/core-interfaces.ts:927
-        - src/gen-xml.ts:585
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
+        - src/core-interfaces.ts
+        - src/gen-xml.ts
+        - src/gen-objects.ts
+        - test/schema.test.js
+        - test/read/fixtures/table-placeholder.pptx
+      schema_fixture: "test/schema.test.js: table bound to a layout placeholder emits p:ph on the graphicFrame"
+      validator_result: pass (pnpm run test:schema, 2026-06-19)
+      powerpoint_result: oracle test/read/fixtures/table-placeholder.pptx opened clean in Windows desktop PowerPoint 16.0 on 2026-06-19
       spec_refs: []
-    next_action: author-powerpoint-oracle-then-fix-see-CREATE_FIXTURES_PLAN-section-F
+    next_action: none
 
   - id: upstream-pr-727
     source: "gitbrent/PptxGenJS#727"
     type: pull-request
     first_seen: 2026-06-07
     last_reviewed: 2026-06-19
-    status: target-candidate
+    status: implemented
     priority: p2
     target_area:
       - chart-ooxml
@@ -763,27 +804,34 @@ items:
     non_target_reasons: []
     summary: Extend bar charts with custom labels and color customization.
     current_project_notes: >
-      Partially present: the chart writer now has per-series overrides
-      (`seriesOverride.dataLabelColor`) and per-point `c:dPt` fills + per-point
-      custom `c:dLbl` text (gen-charts.ts), so dataLabelColor is no longer purely
-      global. The remaining PR-727 surface is arbitrary per-point label text AND
-      per-point colour together, kept consistent with the embedded workbook cache.
-      Blocked on a PowerPoint-authored chart oracle so the emitted c:dPt/c:dLbl
-      and the numCache/strCache it must agree with are not guessed — see
-      CREATE_FIXTURES_PLAN.md section H.
+      Resolved 2026-06-19 by verification against the bar-chart-data-labels.pptx
+      oracle: the full PR-727 surface is already implemented and public. A series'
+      per-point fill colours come from `pointStyles[].fill` (emitted as per-point
+      <c:dPt><c:spPr> solid fills via makeSeriesDataPointsXml) and per-point custom
+      label text from `customLabels[]` (emitted as per-point rich <c:dLbl> via
+      makeCustomDLblXml) — both series-level, public, typed (gen-charts.ts,
+      core-interfaces.ts). They combine in correct CT_BarSer order (dPt* → dLbls →
+      cat → val) while the value cache keeps the real numbers, matching the oracle
+      (FF0000/00B050/0070C0/FFC000 fills + Low/Mid/High/Peak labels over numCache
+      10/25/18/30). No code change needed. Locked by the schema fixture 'bar chart
+      per-point colours + custom data labels (consistent with value cache)' in
+      test/schema.test.js, validator-clean.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
+        - powerpoint-authored-comparison
       local_files:
-        - src/core-interfaces.ts:1563
-        - src/gen-charts.ts:860
-        - src/gen-charts.ts:899
-        - src/gen-charts.ts:928
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
+        - src/core-interfaces.ts
+        - src/gen-charts.ts
+        - test/schema.test.js
+        - test/read/fixtures/bar-chart-data-labels.pptx
+      schema_fixture: "test/schema.test.js: bar chart per-point colours + custom data labels (consistent with value cache)"
+      validator_result: pass (pnpm run test:schema, 2026-06-19)
+      powerpoint_result: oracle test/read/fixtures/bar-chart-data-labels.pptx opened clean in Windows desktop PowerPoint 16.0 on 2026-06-19
       spec_refs: []
-    next_action: design-custom-bar-labels-then-author-oracle-see-CREATE_FIXTURES_PLAN-section-H
+    next_action: none
 
   - id: upstream-issue-1313
     source: "gitbrent/PptxGenJS#1313"
@@ -1419,7 +1467,7 @@ items:
     type: issue
     first_seen: 2026-06-07
     last_reviewed: 2026-06-19
-    status: target-candidate
+    status: implemented
     priority: p2
     target_area:
       - speaker-notes-masters-layouts
@@ -1427,23 +1475,28 @@ items:
     non_target_reasons: []
     summary: Slide master placeholders did not preserve valign when users inserted new slides in PowerPoint.
     current_project_notes: >
-      Current placeholder object generation can store valign as bodyPr anchor,
-      but PowerPoint-created slides from layouts may require the anchor to be
-      emitted on the layout placeholder XML exactly as PowerPoint authors it.
-      Compare master/layout XML before changing serialization.
+      Implemented 2026-06-19 together with upstream-pr-1247 (same root cause):
+      genXmlBodyProperties now emits the configured <a:bodyPr> (anchor from valign,
+      lIns/tIns/rIns/bIns from margin) for placeholder objects, so a layout
+      placeholder authored via defineSlideMaster carries its vertical anchor, and a
+      slide inserted from that layout inherits it. Pinned against the
+      layout-placeholder-bodypr.pptx oracle by the schema fixture 'master/layout
+      placeholder carries bodyPr insets + anchor' in test/schema.test.js.
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - validator-result
+        - powerpoint-authored-comparison
       local_files:
-        - src/gen-objects.ts:87
-        - src/gen-objects.ts:1122
-        - src/gen-xml.ts:1103
-        - src/gen-xml.ts:1393
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
+        - src/gen-xml.ts
+        - test/schema.test.js
+        - test/read/fixtures/layout-placeholder-bodypr.pptx
+      schema_fixture: "test/schema.test.js: master/layout placeholder carries bodyPr insets + anchor"
+      validator_result: pass (pnpm run test:schema, 2026-06-19)
+      powerpoint_result: oracle test/read/fixtures/layout-placeholder-bodypr.pptx opened clean in Windows desktop PowerPoint 16.0 on 2026-06-19
       spec_refs: []
-    next_action: author-powerpoint-oracle-then-fix-see-CREATE_FIXTURES_PLAN-section-E
+    next_action: none
 
   - id: upstream-issue-1200
     source: "gitbrent/PptxGenJS#1200"
@@ -2488,7 +2541,7 @@ items:
     type: issue
     first_seen: 2026-06-07
     last_reviewed: 2026-06-19
-    status: target-candidate
+    status: implemented
     priority: p2
     target_area:
       - speaker-notes-masters-layouts
@@ -2496,26 +2549,34 @@ items:
     non_target_reasons: []
     summary: PowerPoint notes print layout did not show the slide image for generated decks.
     current_project_notes: >
-      Current code emits notesMaster and notesSlide parts, and has tests for
-      notesMaster relationship/order repairs, but the notes slide image
-      placeholder remains hard-coded and unverified against PowerPoint-authored
-      notes print output.
+      Resolved 2026-06-19 by verification against a PowerPoint-authored oracle: the
+      notes sldImg placeholder was hard-coded but UNVERIFIED. The notes-slide-image.pptx
+      oracle (Windows desktop PowerPoint) shows the current writer output is already
+      byte-identical to what PowerPoint authors — notesMaster1.xml emits
+      <p:ph type="sldImg" idx="2"/> with off 685800,1143000 / ext 5486400,3086100,
+      prstGeom rect, noFill, and a 1pt black border, and notesSlide1.xml emits a bare
+      <p:ph type="sldImg"/> with empty <p:spPr/> that inherits the master geometry.
+      No code change was needed; the previously-unverified hard-coding is correct. Locked
+      against regression by the schema fixture 'notes sldImg placeholder geometry
+      (notesMaster) + bare placeholder (notesSlide)' in test/schema.test.js.
     evidence:
       kinds:
         - local-source-inspection
         - regression-test
+        - schema-fixture
+        - validator-result
+        - powerpoint-authored-comparison
       local_files:
-        - src/pptxgen.ts:617
-        - src/pptxgen.ts:622
-        - src/gen-xml.ts:1639
-        - src/gen-xml.ts:1645
-        - test/regression/theme-relationships.test.js:19
-        - test/regression/presentation-child-order.test.js:35
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
+        - src/gen-xml.ts
+        - test/schema.test.js
+        - test/read/fixtures/notes-slide-image.pptx
+        - test/regression/theme-relationships.test.js
+        - test/regression/presentation-child-order.test.js
+      schema_fixture: "test/schema.test.js: notes sldImg placeholder geometry (notesMaster) + bare placeholder (notesSlide)"
+      validator_result: pass (pnpm run test:schema, 2026-06-19)
+      powerpoint_result: oracle test/read/fixtures/notes-slide-image.pptx opened clean in Windows desktop PowerPoint 16.0 on 2026-06-19; generated notes parts byte-identical to oracle sldImg placeholders
       spec_refs: []
-    next_action: author-powerpoint-oracle-then-fix-see-CREATE_FIXTURES_PLAN-section-G
+    next_action: none
 
   - id: upstream-issue-307
     source: "gitbrent/PptxGenJS#307"
@@ -3005,36 +3066,40 @@ items:
     type: downstream-need
     first_seen: 2026-06-18
     last_reviewed: 2026-06-19
-    status: partially-implemented
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    summary: "Read-model colour resolver follow-up: walk p:style fillRef/lnRef (DONE) and placeholder-inherited run colour (remaining)"
+    summary: "Read-model colour resolver follow-up: walk p:style fillRef/lnRef and placeholder-inherited run colour"
     current_project_notes: |
       The read-model theme colour resolver (Slide.themeContext(),
       Shape.resolvedFill/resolvedLine, Run.resolvedColor) resolved only an
-      *explicit* schemeClr on the shape/run.
+      *explicit* schemeClr on the shape/run. Both legs are now implemented.
 
-      DONE (2026-06-18): the p:style fillRef/lnRef leg shipped. Shape.resolvedFill
-      now falls back to the shape's p:style a:fillRef (and resolvedLine to a:lnRef)
-      when there is no explicit spPr fill/line, resolving the indexed theme
-      fmtScheme entry with its phClr substituted by the ref colour — the same
-      materialization the theme:'preserve' flatten path applies, now factored into
-      pure styleRefFill/styleRefLine builders in src/read/oxml/theme.ts shared by
-      both. Slide.themeContext() now carries the theme fmtScheme. Pinned against
-      the multi-theme.pptx style-matrix-default shape (no explicit spPr fill/line,
-      fillRef idx1=accent1, lnRef idx2=accent1+shade) in
-      test/read/style-accessors.test.js.
+      DONE (2026-06-18): the p:style fillRef/lnRef leg. Shape.resolvedFill falls
+      back to the shape's p:style a:fillRef (and resolvedLine to a:lnRef) when there
+      is no explicit spPr fill/line, resolving the indexed theme fmtScheme entry
+      with its phClr substituted by the ref colour — the same materialization the
+      theme:'preserve' flatten path applies, factored into pure
+      styleRefFill/styleRefLine builders in src/read/oxml/theme.ts. Pinned against
+      the multi-theme.pptx style-matrix-default shape.
 
-      REMAINING: the placeholder-inherited run colour leg is still deferred — a run
-      with no own colour that inherits one from the layout/master placeholder
-      lstStyle/txStyles is not yet walked by Run.resolvedColor. The
-      placeholderInheritedColor logic exists in theme.ts (used by the flatten path)
-      and can be layered behind the run getter later; no read fixture carries that
-      construct yet. downstream keeps the slide-style.ts stopgap for this leg.
-    stopgap: scripts/slide-library/lib/slide-style.ts
+      DONE (2026-06-19): the placeholder-inherited run colour leg. Run.resolvedColor
+      now falls back, when the run sets no own colour, to the colour it inherits
+      through the placeholder chain — paragraph a:defRPr, then the slide text body
+      a:lstStyle, then the placeholder's layout → master a:lstStyle → master
+      p:txStyles (resolveInheritedRunColor in theme-context.ts, built on the new
+      exported placeholderInheritedFill/lstStyleLevelFill helpers in theme.ts that
+      the flatten path already used). resolveSlideColorContext now carries the
+      layout/master roots; AutoShape.textFrame threads the shape's p:ph identity
+      into TextFrame → Paragraph → Run, where a memoized per-paragraph thunk runs
+      the lookup lazily only for colourless placeholder runs. Pinned against
+      multi-theme.pptx slide 2 (inherited-title → master titleStyle tx2 → lt2 =
+      EBEBEB; explicit-body run colour FF00FF still wins) in
+      test/read/style-accessors.test.js. The downstream slide-style.ts stopgap
+      is no longer needed and was dropped.
     evidence:
       kinds:
         - local-source-inspection
@@ -3049,9 +3114,9 @@ items:
         - test/read/fixtures/multi-theme.pptx
       schema_fixture: null
       validator_result: null
-      powerpoint_result: test/read/fixtures/multi-theme.pptx opened clean in Windows desktop PowerPoint 16.0 on 2026-06-18
+      powerpoint_result: test/read/fixtures/multi-theme.pptx (incl. placeholder-inherited slide 2) opened clean in Windows desktop PowerPoint 16.0 on 2026-06-19
       spec_refs: []
-    next_action: layer-placeholder-inherited-run-colour
+    next_action: none
   - id: dn-group-rot-flip-frame
     source: downstream:scripts/slide-library/lib/slide-style.ts
     type: downstream-need

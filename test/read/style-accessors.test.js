@@ -301,6 +301,30 @@ describe('Style-matrix fill/line resolution — real PowerPoint XML (multi-theme
 	})
 })
 
+describe('Placeholder-inherited run colour — real PowerPoint XML (multi-theme.pptx slide 2)', () => {
+	// Slide 2 carries two placeholders authored by desktop PowerPoint:
+	// - inherited-title: a run with NO own colour, inheriting through the master
+	//   titleStyle lvl1 → schemeClr tx2 → clrMap tx2=lt2 → theme lt2 = EBEBEB.
+	// - explicit-body: a run with an explicit srgbClr FF00FF (the negative control).
+	// Run.resolvedColor must walk the placeholder/list-style chain for the first and
+	// keep the explicit colour for the second.
+	test('a colourless placeholder run resolves through the master text style', async () => {
+		const shape = shapeNamed((await open('multi-theme')).slides[1], 'inherited-title')
+		const run = shape.textFrame.paragraphs[0].runs[0]
+		assertEqual(run.color, null, 'the run sets no explicit srgb colour')
+		assertEqual(run.schemeColor, null, 'the run sets no explicit scheme colour')
+		assertEqual(run.resolvedColor.hex, 'EBEBEB', 'inherits titleStyle tx2 → lt2 from the master')
+		assertEqual(run.resolvedColor.effectiveHex, 'EBEBEB', 'no transforms, so effective equals base')
+	})
+
+	test('an explicit run colour still wins over the inherited placeholder colour', async () => {
+		const shape = shapeNamed((await open('multi-theme')).slides[1], 'explicit-body')
+		const run = shape.textFrame.paragraphs[0].runs[0]
+		assertEqual(run.color, 'FF00FF', 'the run carries an explicit srgb colour')
+		assertEqual(run.resolvedColor.hex, 'FF00FF', 'the explicit colour governs, not the inherited body colour')
+	})
+})
+
 describe('Picture recolour reads (recolor)', () => {
 	test('reads a real PowerPoint a:duotone, preserving the prstClr/srgbClr stop split (image.pptx)', async () => {
 		// image.pptx slide2 carries an icon recoloured with the duotone tint trick:

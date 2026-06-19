@@ -23,7 +23,7 @@ import {
 import { fitSrcRectPercents, getImageSizeFromBytes } from '../../gen-utils.js'
 import { relativePartName } from '../opc/partnames.js'
 import { FILL_CHOICES, normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
-import { resolveColorElement, resolveSolidFillColor, resolveStyleFillColor, resolveStyleLineColor, type ResolvedColor } from './theme-context.js'
+import { resolveColorElement, resolveSolidFillColor, resolveStyleFillColor, resolveStyleLineColor, type PlaceholderRef, type ResolvedColor } from './theme-context.js'
 import { Chart } from './chart.js'
 import { Table } from './table.js'
 import { TextFrame } from './text.js'
@@ -762,7 +762,18 @@ export class AutoShape extends Shape {
 
 	override get textFrame(): TextFrame | null {
 		const txBody = firstChild(this.element, 'p:txBody')
-		return txBody ? new TextFrame(txBody, this.slide.part, this.slide.themeContext()) : null
+		if (!txBody) return null
+		const flatten = this.slide.themeContext()
+		const ph = this.#placeholderRef()
+		return new TextFrame(txBody, this.slide.part, flatten, ph ? { ph, flatten } : undefined)
+	}
+
+	/** This shape's placeholder identity (`p:ph` `type`/`idx`), or `null` when it is not a placeholder. */
+	#placeholderRef(): PlaceholderRef | null {
+		const nvSpPr = firstChild(this.element, 'p:nvSpPr')
+		const nvPr = nvSpPr && firstChild(nvSpPr, 'p:nvPr')
+		const ph = nvPr && firstChild(nvPr, 'p:ph')
+		return ph ? { type: attr(ph, 'type'), idx: attr(ph, 'idx') ?? '0' } : null
 	}
 
 	/** Preset geometry name (`a:prstGeom/@prst`, e.g. `rect`), or `null` for custom/none. */

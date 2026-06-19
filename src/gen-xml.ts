@@ -463,7 +463,10 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				strXml = `<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="${intTableNum * slide._slideNum + 1}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"/>`
 				strXml +=
 					`<p:cNvGraphicFramePr>${genXmlObjectLock('a:graphicFrameLocks', GRAPHIC_FRAME_LOCK_ATTRS, { noGrp: true, ...slideItemObj.options.objectLock }, slideItemObj.options.objectName)}</p:cNvGraphicFramePr>` +
-					'  <p:nvPr><p:extLst><p:ext uri="{D42A27DB-BD31-4B8C-83A1-F6EECF244321}"><p14:modId xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" val="1579011935"/></p:ext></p:extLst></p:nvPr>' +
+					// A table bound to a layout placeholder emits that placeholder's <p:ph> (idx/type) so
+					// PowerPoint treats the graphicFrame as filling the placeholder (#1151). The <p:ph>
+					// precedes <p:extLst> per CT_ApplicationNonVisualDrawingProps document order.
+					`  <p:nvPr>${genXmlPlaceholder(placeholderObj)}<p:extLst><p:ext uri="{D42A27DB-BD31-4B8C-83A1-F6EECF244321}"><p14:modId xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" val="1579011935"/></p:ext></p:extLst></p:nvPr>` +
 					'</p:nvGraphicFramePr>'
 				strXml += `<p:xfrm><a:off x="${x || (x === 0 ? 0 : EMU)}" y="${y || (y === 0 ? 0 : EMU)}"/><a:ext cx="${cx || (cx === 0 ? 0 : EMU)}" cy="${cy || EMU
 				}"/></p:xfrm>`
@@ -718,6 +721,13 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				}
 
 				// A: Start SHAPE =======================================================
+				// A native equation (#1456) uses the `a14` (drawing-2010) markup-compatibility extension.
+				// PowerPoint wraps the whole shape in <mc:AlternateContent><mc:Choice Requires="a14"> so
+				// non-a14 consumers (and schema validators) treat the a14:m subtree as a known extension.
+				if (objectHasMath(slideItemObj)) {
+					strSlideXml += '<mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006">'
+					strSlideXml += '<mc:Choice xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main" Requires="a14">'
+				}
 				strSlideXml += '<p:sp>'
 
 				// B: The addition of the "txBox" attribute is the sole determiner of if an object is a shape or textbox
@@ -805,6 +815,9 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 
 				// LAST: Close SHAPE =======================================================
 				strSlideXml += '</p:sp>'
+
+				// Close the a14 markup-compatibility envelope for an equation-bearing shape (#1456).
+				if (objectHasMath(slideItemObj)) strSlideXml += '</mc:Choice></mc:AlternateContent>'
 				break
 
 			case SLIDE_OBJECT_TYPES.connector: {
@@ -1514,7 +1527,10 @@ function genXmlNormAutofit (fit: TextFitShrinkProps): string {
 function genXmlBodyProperties (slideObject: ISlideObject | TableCell): string {
 	let bodyProperties = '<a:bodyPr'
 
-	if (slideObject && slideObject._type === SLIDE_OBJECT_TYPES.text && slideObject.options._bodyProp) {
+	// Placeholders (incl. master/layout placeholders) carry their margin/valign in `_bodyProp` just
+	// like text boxes, so they must emit the same configured `<a:bodyPr>` — otherwise a placeholder
+	// authored with insets or a vertical anchor silently degrades to the default (#1247, #1208).
+	if (slideObject && (slideObject._type === SLIDE_OBJECT_TYPES.text || slideObject._type === SLIDE_OBJECT_TYPES.placeholder) && (slideObject as ISlideObject).options._bodyProp) {
 		// PPT-2019 EX: <a:bodyPr wrap="square" lIns="1270" tIns="1270" rIns="1270" bIns="1270" rtlCol="0" anchor="ctr"/>
 
 		// A: Enable or disable textwrapping none or square
@@ -1583,6 +1599,39 @@ function genXmlBodyProperties (slideObject: ISlideObject | TableCell): string {
 }
 
 /**
+ * Build a native-equation paragraph (`<a:p>`) from raw OMML (#1456).
+ *
+ * PowerPoint stores an editable equation inside a text body as an `<a14:m>` marker wrapping
+ * `<m:oMathPara><m:oMath>…`. We declare both the `a14` (drawing-2010) and `m` (math) namespaces
+ * on the `<a14:m>` element so the supplied OMML needs no namespace declarations of its own, then
+ * accept three input shapes: a full `<m:oMathPara>`, a full `<m:oMath>`, or the inner OMML
+ * (children of `<m:oMath>`). A trailing `<a:endParaRPr>` matches what PowerPoint authors.
+ *
+ * @param {string} omml - raw OMML markup for the equation
+ * @returns {string} an `<a:p>` math paragraph
+ */
+/** Whether a slide object carries a native equation (`math` raw OMML) on any of its text items (#1456). */
+function objectHasMath (slideObj: ISlideObject): boolean {
+	const text = slideObj.text as TextProps | TextProps[] | string | number | undefined
+	if (Array.isArray(text)) return text.some(item => item && typeof item === 'object' && !!item.math)
+	if (text && typeof text === 'object') return !!text.math
+	return false
+}
+
+function genXmlMathParagraph (omml: string): string {
+	const M_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
+	const A14_NS = 'http://schemas.microsoft.com/office/drawing/2010/main'
+	const trimmed = (omml || '').trim()
+	const paraPr = '<m:oMathParaPr><m:jc m:val="centerGroup"/></m:oMathParaPr>'
+	const mathXml = trimmed.startsWith('<m:oMathPara')
+		? trimmed
+		: trimmed.includes('<m:oMath')
+			? `<m:oMathPara>${paraPr}${trimmed}</m:oMathPara>`
+			: `<m:oMathPara>${paraPr}<m:oMath>${trimmed}</m:oMath></m:oMathPara>`
+	return `<a:p><a14:m xmlns:a14="${A14_NS}" xmlns:m="${M_NS}">${mathXml}</a14:m><a:endParaRPr lang="en-US"/></a:p>`
+}
+
+/**
  * Generate the XML for text and its options (bold, bullet, etc) including text runs (word-level formatting)
  * @param {ISlideObject|TableCell} slideObj - slideObj or tableCell
  * @note PPT text lines [lines followed by line-breaks] are created using <p>-aragraph's
@@ -1646,11 +1695,12 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 	} else if (slideObj.text && !Array.isArray(slideObj.text) && typeof slideObj.text === 'object' && Object.keys(slideObj.text).includes('text')) {
 		// } else if (!Array.isArray(slideObj.text) && slideObj.text!.hasOwnProperty('text')) { // 20210706: replaced with below as ts compiler rejected it
 		// Handle case 3
-		tmpTextObjects.push({ text: slideObj.text || '', options: slideObj.options || {} })
+		tmpTextObjects.push({ text: slideObj.text || '', options: slideObj.options || {}, math: (slideObj.text as TextProps).math })
 	} else if (Array.isArray(slideObj.text)) {
 		// Handle cases 4,5,6
 		// NOTE: use cast as text is TextProps[]|TableCell[] and their `options` dont overlap (they share the same TextBaseProps though)
-		tmpTextObjects = (slideObj.text as TextProps[]).map(item => ({ text: item.text, options: item.options }))
+		// `math` carries raw OMML for native equation paragraphs (#1456) — preserved here so STEP 5/6 can isolate it.
+		tmpTextObjects = (slideObj.text as TextProps[]).map(item => ({ text: item.text, options: item.options, math: item.math }))
 	}
 
 	// STEP 4: Iterate over text objects, set text/options, break into pieces if '\n'/breakLine found
@@ -1686,6 +1736,14 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 	const arrLines: TextProps[][] = []
 	let arrTexts: TextProps[] = []
 	arrTextObjects.forEach((textObj, idx) => {
+		// A0: A math equation (#1456) is a display-level paragraph — flush any pending runs and
+		// give it its own line so STEP 6 can emit the <a14:m> wrapper instead of text runs.
+		if (textObj.math) {
+			if (arrTexts.length > 0) { arrLines.push(arrTexts); arrTexts = [] }
+			arrLines.push([textObj])
+			return
+		}
+
 		// A: Align or Bullet trigger new line
 		if (arrTexts.length > 0 && (textObj.options.align || opts.align)) {
 			// Only start a new paragraph when align *changes*
@@ -1717,6 +1775,12 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 
 	// STEP 6: Loop over each line and create paragraph props, text run, etc.
 	arrLines.forEach(line => {
+		// A native equation (#1456) owns its whole paragraph: emit the OMML wrapper and skip runs.
+		if (line.length === 1 && line[0].math) {
+			strSlideXml += genXmlMathParagraph(line[0].math)
+			return
+		}
+
 		let reqsClosingFontSize = false
 
 		// A: Start paragraph, add paraProps

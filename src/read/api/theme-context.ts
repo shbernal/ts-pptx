@@ -11,7 +11,7 @@
  */
 import { applyColorTransforms } from '../oxml/color-transform.js'
 import { ELEMENT_NODE, attr, firstChild, type Element } from '../oxml/dom.js'
-import { parseClrMap, parseClrScheme, resolveColor, styleRefFill, styleRefLine, type ColorContext, type FlattenContext } from '../oxml/theme.js'
+import { lstStyleLevelFill, parseClrMap, parseClrScheme, placeholderInheritedFill, resolveColor, styleRefFill, styleRefLine, type ColorContext, type FlattenContext } from '../oxml/theme.js'
 import type { OpcPackage } from '../opc/package.js'
 
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
@@ -83,8 +83,41 @@ export function resolveSlideThemeParts(opc: OpcPackage, slidePartName: string): 
  * slide's theme is missing.
  */
 export function resolveSlideColorContext(opc: OpcPackage, slidePartName: string): FlattenContext {
-	const { clrMap, clrScheme, themeElements } = resolveSlideThemeParts(opc, slidePartName)
-	return { clrMap, clrScheme, fmtScheme: themeElements ? firstChild(themeElements, 'a:fmtScheme') : null }
+	const { clrMap, clrScheme, themeElements, layoutRoot, masterRoot } = resolveSlideThemeParts(opc, slidePartName)
+	return {
+		clrMap,
+		clrScheme,
+		fmtScheme: themeElements ? firstChild(themeElements, 'a:fmtScheme') : null,
+		// layout/master roots let the read-model run-colour getter resolve a
+		// placeholder-inherited colour the same way the flatten path does.
+		layoutRoot,
+		masterRoot,
+	}
+}
+
+/** Identifies a placeholder by its `p:ph` `type`/`idx` for inheritance lookups. */
+export interface PlaceholderRef {
+	type: string | null
+	idx: string
+}
+
+/**
+ * The colour a placeholder run effectively renders when its own `a:rPr` defines
+ * none, resolved to a full {@link ResolvedColor}. Walks the inheritance the way
+ * PowerPoint does: the paragraph's `a:pPr/a:defRPr` colour, then the slide text
+ * body's `a:lstStyle` colour for the run's `level`, then the placeholder's
+ * layout → master → master-`p:txStyles` chain (via {@link placeholderInheritedFill}).
+ * The first tier that defines a colour wins. `null` when the run is not in a
+ * placeholder, nothing in the chain defines a colour, or it cannot be made literal.
+ */
+export function resolveInheritedRunColor(ph: PlaceholderRef, level: number, pPr: Element | null, slideLstStyle: Element | null, ctx: FlattenContext): ResolvedColor | null {
+	const defRPr = pPr && firstChild(pPr, 'a:defRPr')
+	const paraFill = defRPr && firstChild(defRPr, 'a:solidFill')
+	if (paraFill) return resolveColorElement(firstChildElement(paraFill), ctx)
+	const slideFill = lstStyleLevelFill(slideLstStyle, level)
+	if (slideFill) return resolveColorElement(firstChildElement(slideFill), ctx)
+	const colorEl = placeholderInheritedFill(ph.type, ph.idx, level, ctx)
+	return colorEl ? resolveColorElement(colorEl, ctx) : null
 }
 
 /**

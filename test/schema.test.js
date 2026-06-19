@@ -7,7 +7,7 @@
 //
 // Run with: pnpm run test:schema
 
-import { build, assert, readEntry, assertIncludes, firstXmlBlock } from './helpers.js'
+import { build, assert, readEntry, assertIncludes, firstXmlBlock, listEntries } from './helpers.js'
 import { validateBuf } from './validator.js'
 
 async function expectNoSchemaErrors(buf, label) {
@@ -676,6 +676,234 @@ export default [
 			const picBlock = firstXmlBlock(slideXml, 'p:pic', 'slide picture')
 			// 4in x 3in @ 914400 EMU/in
 			assertIncludes(picBlock, 'cx="3657600" cy="2743200"', 'inherited placeholder ext')
+		},
+	},
+	{
+		// upstream-pr-1247 / upstream-issue-1208: a master/layout placeholder authored with a
+		// vertical anchor (valign) and/or text insets (margin) must emit those in its <a:bodyPr>,
+		// not silently fall back to the default. Before the fix, genXmlBodyProperties applied
+		// _bodyProp only to ordinary text objects, so placeholders lost their margin/valign and a
+		// slide inserted from the layout did not inherit them. Oracle: layout-placeholder-bodypr.pptx
+		// (PowerPoint-authored) — title bottom-anchored 18/9pt insets, body middle-anchored 24/15/12/6pt.
+		name: 'master/layout placeholder carries bodyPr insets + anchor',
+		fn: async () => {
+			const { buf, zip } = await build((p) => {
+				p.defineSlideMaster({
+					title: 'BODYPR_MASTER',
+					objects: [
+						// margin is [Top, Right, Bottom, Left] (pt) → tIns/rIns/bIns/lIns; valign → anchor.
+						{
+							placeholder: {
+								options: {
+									name: 'title-ph',
+									type: 'title',
+									x: 0.5,
+									y: 0.3,
+									w: 9,
+									h: 1.2,
+									valign: 'bottom',
+									margin: [9, 18, 9, 18],
+								},
+								text: '',
+							},
+						},
+						{
+							placeholder: {
+								options: {
+									name: 'body-ph',
+									type: 'body',
+									idx: 1,
+									x: 0.5,
+									y: 1.8,
+									w: 9,
+									h: 4,
+									valign: 'middle',
+									margin: [15, 12, 6, 24],
+								},
+								text: '',
+							},
+						},
+					],
+				})
+				p.addSlide({ masterName: 'BODYPR_MASTER' })
+			})
+			await expectNoSchemaErrors(buf, 'master-placeholder-bodypr')
+			// The defineSlideMaster placeholders are emitted on the master's layout part; find it.
+			const layoutNames = listEntries(zip).filter((n) => /ppt\/slideLayouts\/slideLayout\d+\.xml$/.test(n))
+			const layoutXmls = await Promise.all(layoutNames.map((n) => readEntry(zip, n)))
+			const layoutXml = layoutXmls.find((xml) => xml.includes('anchor="b"') && xml.includes('lIns="228600"'))
+			assert(layoutXml, `found the BODYPR_MASTER layout part among ${layoutNames.join(', ')}`)
+			// Title placeholder: bottom anchor, 18pt L/R + 9pt T/B insets (EMU @ 12700/pt).
+			assertIncludes(
+				layoutXml,
+				'lIns="228600" tIns="114300" rIns="228600" bIns="114300" rtlCol="0" anchor="b"',
+				'title placeholder bodyPr'
+			)
+			// Body placeholder: center anchor, asymmetric 24/15/12/6pt insets.
+			assertIncludes(
+				layoutXml,
+				'lIns="304800" tIns="190500" rIns="152400" bIns="76200" rtlCol="0" anchor="ctr"',
+				'body placeholder bodyPr'
+			)
+		},
+	},
+	{
+		// upstream-pr-1151: a table can bind to a layout/master content placeholder via the new
+		// `placeholder` table option. The table's <p:graphicFrame> then emits the placeholder's
+		// <p:ph> on its <p:nvPr> (before <p:extLst>) and inherits the placeholder geometry for any
+		// omitted x/y/w/h. Oracle: table-placeholder.pptx (PowerPoint binds AddTable into a content
+		// placeholder, emitting <p:ph idx="1"/> on the graphicFrame nvPr).
+		name: 'table bound to a layout placeholder emits p:ph on the graphicFrame',
+		fn: async () => {
+			const { buf, zip } = await build((p) => {
+				p.defineSlideMaster({
+					title: 'TBL_MASTER',
+					objects: [
+						{
+							placeholder: { options: { name: 'content', type: 'body', idx: 1, x: 0.5, y: 1.5, w: 9, h: 4 }, text: '' },
+						},
+					],
+				})
+				const slide = p.addSlide({ masterName: 'TBL_MASTER' })
+				// No x/y/w/h: geometry must come from the placeholder.
+				slide.addTable(
+					[
+						['A1', 'B1'],
+						['A2', 'B2'],
+					],
+					{ placeholder: 'content' }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'table-placeholder')
+			const slideXml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const frame = firstXmlBlock(slideXml, 'p:graphicFrame', 'table graphicFrame')
+			const nvPr = firstXmlBlock(frame, 'p:nvPr', 'graphicFrame nvPr')
+			// The graphicFrame fills the placeholder: it carries a <p:ph> binding (idx + body type).
+			assertIncludes(nvPr, '<p:ph', 'graphicFrame placeholder binding')
+			assertIncludes(nvPr, 'type="body"', 'placeholder body type')
+			// The <p:ph> precedes <p:extLst> per CT_ApplicationNonVisualDrawingProps document order.
+			assert(nvPr.indexOf('<p:ph') < nvPr.indexOf('<p:extLst>'), 'p:ph precedes p:extLst in nvPr')
+			// Geometry inherited from the placeholder (9in x 4in @ 914400 EMU/in).
+			const xfrm = firstXmlBlock(frame, 'p:xfrm', 'table xfrm')
+			assertIncludes(xfrm, 'cx="8229600" cy="3657600"', 'inherited placeholder ext')
+		},
+	},
+	{
+		// upstream-issue-446: the notes print layout slide-image placeholder. The notesMaster
+		// sldImg placeholder must carry its geometry (off/ext + 1pt black border) and the
+		// notesSlide must carry a bare <p:ph type="sldImg"/> that inherits it, so the slide image
+		// renders in notes print view. Oracle: notes-slide-image.pptx (PowerPoint-authored) — the
+		// current writer output is byte-identical to it; this fixture locks that against regression.
+		name: 'notes sldImg placeholder geometry (notesMaster) + bare placeholder (notesSlide)',
+		fn: async () => {
+			const { buf, zip } = await build((p) => {
+				const slide = p.addSlide()
+				slide.addText('Body', { x: 1, y: 1, w: 4, h: 1 })
+				slide.addNotes('Speaker notes here')
+			})
+			await expectNoSchemaErrors(buf, 'notes-sldimg-placeholder')
+			// notesMaster: the sldImg placeholder carries the print-layout geometry + black border.
+			const masterXml = await readEntry(zip, 'ppt/notesMasters/notesMaster1.xml')
+			assertIncludes(masterXml, '<p:ph type="sldImg" idx="2"/>', 'notesMaster sldImg placeholder')
+			assertIncludes(
+				masterXml,
+				'<a:off x="685800" y="1143000"/><a:ext cx="5486400" cy="3086100"/>',
+				'notesMaster sldImg geometry'
+			)
+			assertIncludes(
+				masterXml,
+				'<a:ln w="12700"><a:solidFill><a:prstClr val="black"/></a:solidFill></a:ln>',
+				'notesMaster sldImg 1pt black border'
+			)
+			// notesSlide: a bare sldImg placeholder (empty spPr) that inherits the master geometry.
+			const slideXml = await readEntry(zip, 'ppt/notesSlides/notesSlide1.xml')
+			assertIncludes(
+				slideXml,
+				'<p:nvPr><p:ph type="sldImg"/></p:nvPr></p:nvSpPr><p:spPr/>',
+				'notesSlide bare sldImg placeholder'
+			)
+		},
+	},
+	{
+		// upstream-pr-727: a bar/column chart with per-point fill colours AND per-point custom
+		// data-label text, kept consistent with the embedded workbook value cache. The series-level
+		// `pointStyles[].fill` (per-point c:dPt) and `customLabels[]` (per-point rich c:dLbl) APIs
+		// cover this together. Oracle: bar-chart-data-labels.pptx (CT_BarSer with 4 recoloured bars
+		// FF0000/00B050/0070C0/FFC000 + custom labels Low/Mid/High/Peak over numCache 10/25/18/30).
+		name: 'bar chart per-point colours + custom data labels (consistent with value cache)',
+		fn: async () => {
+			const { buf, zip } = await build((p) => {
+				p.addSlide().addChart(
+					p.ChartType.bar,
+					[
+						{
+							name: 'Revenue',
+							labels: [['Q1', 'Q2', 'Q3', 'Q4']],
+							values: [10, 25, 18, 30],
+							pointStyles: [{ fill: 'FF0000' }, { fill: '00B050' }, { fill: '0070C0' }, { fill: 'FFC000' }],
+							customLabels: ['Low', 'Mid', 'High', 'Peak'],
+						},
+					],
+					{ barDir: 'col', showValue: true }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'bar-per-point-labels-colors')
+			const chartXml = await readEntry(zip, 'ppt/charts/chart1.xml')
+			const ser = firstXmlBlock(chartXml, 'c:ser', 'bar series')
+			// Per-point fills: one <c:dPt> per recoloured bar.
+			for (const hex of ['FF0000', '00B050', '0070C0', 'FFC000']) {
+				assertIncludes(ser, `<a:srgbClr val="${hex}"/>`, `dPt fill ${hex}`)
+			}
+			// Per-point custom label text in rich <c:dLbl> runs.
+			for (const text of ['Low', 'Mid', 'High', 'Peak']) {
+				assertIncludes(ser, `<a:t>${text}</a:t>`, `dLbl text ${text}`)
+			}
+			// The value cache still holds the real numbers (labels override display, not data).
+			const val = firstXmlBlock(ser, 'c:val', 'series values')
+			for (const num of ['10', '25', '18', '30']) {
+				assertIncludes(val, `<c:v>${num}</c:v>`, `numCache value ${num}`)
+			}
+			// CT_BarSer document order: dPt* → dLbls → cat → val.
+			assert(ser.indexOf('<c:dPt>') < ser.indexOf('<c:dLbls>'), 'c:dPt precedes c:dLbls')
+			assert(ser.indexOf('<c:dLbls>') < ser.indexOf('<c:cat>'), 'c:dLbls precedes c:cat')
+		},
+	},
+	{
+		// upstream-issue-1456: a native, editable PowerPoint equation (OMML) in a text box. A text
+		// item's `math` raw-OMML property emits a display-math paragraph (<a14:m><m:oMathPara><m:oMath>)
+		// and the whole shape is wrapped in <mc:AlternateContent><mc:Choice Requires="a14"> so non-a14
+		// consumers + validators treat the a14 subtree as a known extension. Oracle: math-omml.pptx
+		// (PowerPoint-authored x^2+1=y), which validates clean with the same envelope.
+		name: 'native math equation (OMML) text run',
+		fn: async () => {
+			const omml =
+				'<m:sSup><m:e><m:r><m:t>x</m:t></m:r></m:e><m:sup><m:r><m:t>2</m:t></m:r></m:sup></m:sSup><m:r><m:t>+1=y</m:t></m:r>'
+			const { buf, zip } = await build((p) => {
+				p.addSlide().addText([{ math: omml }], { x: 1, y: 2, w: 8, h: 1 })
+			})
+			await expectNoSchemaErrors(buf, 'native-math-omml')
+			const slideXml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// The equation shape is wrapped in the a14 markup-compatibility envelope.
+			assertIncludes(
+				slideXml,
+				'<mc:Choice xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main" Requires="a14">',
+				'a14 mc:Choice envelope'
+			)
+			// The math paragraph: a14:m → m:oMathPara → m:oMath carrying the supplied OMML.
+			const ac = firstXmlBlock(slideXml, 'mc:AlternateContent', 'math AlternateContent')
+			assertIncludes(ac, '<a14:m', 'a14:m equation marker')
+			assertIncludes(
+				ac,
+				'<m:oMathPara><m:oMathParaPr><m:jc m:val="centerGroup"/></m:oMathParaPr><m:oMath><m:sSup>',
+				'oMathPara/oMath wrapping the OMML'
+			)
+			assertIncludes(ac, '<m:t>+1=y</m:t>', 'the supplied OMML run is present')
+			// The m namespace is declared so the m: prefix resolves.
+			assertIncludes(
+				ac,
+				'xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"',
+				'math namespace declared'
+			)
 		},
 	},
 	{
