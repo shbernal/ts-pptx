@@ -26,6 +26,7 @@ round-trips), the two implied read fixes landed, and `pnpm run test:read` is
 | `multi-theme.pptx` | yes | yes (slide 1) | `fix(read): resolve p:style fillRef/lnRef` (59ea7bcf) | ✅ done (fillRef/lnRef); restyle-literals still deferred |
 | `multi-theme.pptx` slide 2 (placeholder-inherited) | yes (2026-06-19) | ⏳ pending fix | ⏳ `Run.resolvedColor` fallback — Linux | 🟡 fixture done, fix + test remain (Remaining Work A) |
 | `group-transform.pptx` (extended) | yes | yes | `fix(read): compose group rotations in absolute frames` (6871b337) | ✅ done |
+| `rotation-flip.pptx` (per-shape rot/flip) | yes (2026-06-19) | yes | n/a (read accessor already shipped) | ✅ done (Remaining Work C) |
 
 Fixtures were added in `4b1293c3 addition of new fixtures`; all five carry a
 non-default **Ion** theme / PowerPoint-authored constructs and passed a Windows
@@ -36,9 +37,9 @@ recorded). `multi-theme.pptx` then gained a placeholder-inherited slide 2 on
 The original problem this set out to fix — read-model accessors validated only by
 **round-tripping through PptxGenJS's own writer** (circular evidence) or
 **hand-typed oracle tables** — is resolved for color transforms, theme
-resolution, gradient stops, preset-geometry adjusts, and style-matrix fill/line.
-One small write→read round-trip remains (per-shape rotation/flip; see Remaining
-Work C).
+resolution, gradient stops, preset-geometry adjusts, style-matrix fill/line, and
+per-shape rotation/flip (`rotation-flip.pptx`, 2026-06-19 — Remaining Work C). No
+read-model accessor is now validated only through PptxGenJS's own writer.
 
 ---
 
@@ -177,18 +178,23 @@ custom table style.
 - This is net-new feature work, not a wiring gap; only add the fixture content
   alongside implementing the mode.
 
-### C. Per-shape rotation/flip — one write→read round-trip remains (low priority)
+### C. Per-shape rotation/flip — ✅ done (2026-06-19)
 
 `style-accessors.test.js` "Per-shape rotation / flip" reads `Shape.rotation`/
 `flipH`/`flipV` mostly from synthetic `spWithXfrm` XML using **real PowerPoint
 angle values** (e.g. `rot="2259366"` → 37.6561°, the unsigned `19216344` →
-320.2724°), which is good evidence. But one case still round-trips through the
-write API (`addShape({ rotate: 45, flipH: true })` → reopen). To fully
-de-circularize, add two ungrouped rotated/flipped rectangles to an existing
-fixture (e.g. `theme-colors.pptx` or `preset-geometry.pptx`) — a rotated shape and
-a flipped shape with stable names — and replace the round-trip assertion with a
-read of those. Low priority: the raw-value synthetic tests already use authentic
-PowerPoint magnitudes.
+320.2724°). The one remaining write→read round-trip (`addShape({ rotate: 45,
+flipH: true })` → reopen) is now **de-circularized**: a dedicated
+**`rotation-flip.pptx`** fixture (desktop PowerPoint COM, 2026-06-19) carries two
+ungrouped, stably-named rectangles — `rotated-45` (`<a:xfrm rot="2700000">` =
+45°, no flip) and `flipped-h` (`<a:xfrm flipH="1">`, no rotation). The test now
+reads those shapes instead of round-tripping through the writer; `pnpm run
+test:read` stays **245** (218 passed / 27 skipped) on Windows.
+
+A standalone fixture was used rather than mutating `theme-colors.pptx` /
+`preset-geometry.pptx`: re-saving an existing committed fixture through PowerPoint
+COM re-emits the whole package and could perturb the avLst/theme constructs those
+fixtures already pin, so a fresh minimal deck is the conservative choice.
 
 ### D. Freeform `custGeom` read — out of scope unless a reader lands (note only)
 

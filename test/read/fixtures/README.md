@@ -37,6 +37,7 @@ PowerPoint.
 | `gradient-fill.pptx`   | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `preset-geometry.pptx` | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `multi-theme.pptx`     | Microsoft Office PowerPoint    | 16.0000    | 2      |
+| `rotation-flip.pptx`   | Microsoft Office PowerPoint    | 16.0000    | 1      |
 
 #### Authoring oracles (inspection only — not loaded by `test:read`)
 
@@ -73,6 +74,7 @@ b7430f562b8b836f54b84f2c846c7f80dc03677d79884aa7722203d66c775cc2  theme-colors.p
 773498a81723eed35ac03271f5051c842af84888e802291473e1a8872ac88994  gradient-fill.pptx
 4a0db4be724bd436865b81f073b53dbd464a8d9eb05d820977821e57b3f743b5  preset-geometry.pptx
 737a28fa9832a1d009dc4588a868f856ec58c333843ba58f8eee3915a38cc659  multi-theme.pptx
+e8c0ca04154f6365813aee28d0fa8556cea5e1429af060d6061dd02db5ff1a85  rotation-flip.pptx
 c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
 1a59832d7e5c926e4aff11e9f62bc90c9e8430fb68e1d77a1b4a2fb0800e05d2  textbox.pptx
 69fd092ced7067af23b7cbb4d65cc7de1c44d06c0a62b0f49b32dbc9f7ef954e  layout-placeholder-bodypr.pptx
@@ -126,6 +128,12 @@ f18ae67b1df1cc1cf7dc616451c3e548a4ea0c80f807c06a87521b010597af75  table-placehol
   empty `<a:lstStyle/>`), and a `body` placeholder `explicit-body` whose run sets
   an explicit `srgbClr FF00FF` (the negative control proving an explicit run
   colour still wins). Slide 1's XML is byte-identical to the pre-edit fixture.
+- `rotation-flip.pptx` — a minimal deck with two ungrouped, stably-named
+  rectangles that pin per-shape transform reads against genuine PowerPoint
+  output (de-circularising the former write→read round-trip in
+  `style-accessors.test.js`): `rotated-45` carries `<a:xfrm rot="2700000">`
+  (2700000 / 60000 = 45°, no flip) and `flipped-h` carries `<a:xfrm flipH="1">`
+  (no rotation). Read by the "Per-shape rotation / flip" suite.
 - `layout-placeholder-bodypr.pptx` — **authoring oracle** for write-side
   master/layout placeholder body properties (`upstream-pr-1247` /
   `upstream-issue-1208`). The "Title and Content" layout (`slideLayout2.xml`) was
@@ -169,6 +177,7 @@ fixtures opened clean with no repair prompt:
 - [x] `gradient-fill.pptx` — Windows desktop PowerPoint, 2026-06-18
 - [x] `preset-geometry.pptx` — Windows desktop PowerPoint, 2026-06-18
 - [x] `multi-theme.pptx` — Windows desktop PowerPoint, 2026-06-19 (re-checked after adding slide 2)
+- [x] `rotation-flip.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
 - [x] `layout-placeholder-bodypr.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
 - [x] `table-placeholder.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
 - [x] `notes-slide-image.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)

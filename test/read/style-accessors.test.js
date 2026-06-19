@@ -521,16 +521,21 @@ describe('Per-shape rotation / flip (rotation, flipH, flipV)', () => {
 		assert(Math.abs(shape.rotation - 320.2724) < 1e-3, `expected ≈320.2724° (raw ÷60000), got ${shape.rotation}`)
 	})
 
-	test('rotation / flipH round-trip through the write API', async () => {
-		const pres = new PptxGenJS()
-		pres
-			.addSlide()
-			.addShape(pres.shapes.RECTANGLE, { x: 1, y: 1, w: 3, h: 1, fill: { color: 'CCCCCC' }, rotate: 45, flipH: true })
-		const presentation = await Presentation.load(await pres.stream())
-		const shape = presentation.slides[0].shapes.find((s) => s.presetGeometry === 'rect')
-		assert(shape, 'expected the rotated rect')
-		assert(Math.abs(shape.rotation - 45) < EPS, `rotate: 45 reads back as 45°, got ${shape.rotation}`)
-		assertEqual(shape.flipH, true, 'flipH: true round-trips')
-		assertEqual(shape.flipV, false, 'flipV was not set, reads false')
+	test('rotation and flips read from genuine PowerPoint shapes (rotation-flip.pptx)', async () => {
+		// De-circularised: was a write→read round-trip (addShape{rotate,flipH}→reopen);
+		// now reads two desktop-PowerPoint-authored rectangles. PowerPoint stored
+		// rot="2700000" (2700000 / 60000 = 45°) on rotated-45 and flipH="1" on flipped-h.
+		const presentation = await open('rotation-flip')
+		const shapes = presentation.slides[0].shapes
+		const rotated = shapes.find((s) => s.name === 'rotated-45')
+		const flipped = shapes.find((s) => s.name === 'flipped-h')
+		assert(rotated, 'expected the rotated-45 rect')
+		assert(flipped, 'expected the flipped-h rect')
+		assert(Math.abs(rotated.rotation - 45) < EPS, `rotated-45 reads 45°, got ${rotated.rotation}`)
+		assertEqual(rotated.flipH, false, 'rotated-45 is not horizontally flipped')
+		assertEqual(rotated.flipV, false, 'rotated-45 is not vertically flipped')
+		assertEqual(flipped.flipH, true, 'flipped-h reads flipH true')
+		assertEqual(flipped.rotation, 0, 'flipped-h has no rotation (reads 0)')
+		assertEqual(flipped.flipV, false, 'flipped-h is not vertically flipped')
 	})
 })
