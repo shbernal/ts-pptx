@@ -48,6 +48,9 @@ vocabulary:
     - local-source-inspection
     - minimal-repro
     - local-test
+  constructs:
+    - gradient-fill
+    - vertical-text
 items:
   - id: upstream-issue-1
     source: "gitbrent/PptxGenJS#1"
@@ -213,6 +216,32 @@ describe('backlog ledger tooling', () => {
 				'2026-06-18'
 			)
 		).toThrow(/downstream/)
+	})
+
+	test('accepts an optional constructs list and rejects unknown construct keys', () => {
+		// Absent constructs is valid (the field is optional).
+		expect(validateLedgerText(fixture).errors).toEqual([])
+
+		// A known construct key validates clean...
+		const tagged = addLedgerItemText(
+			fixture,
+			{
+				id: 'dn-vert-text',
+				source: 'downstream:registry/components/quadrant-matrix.ts',
+				type: 'downstream-need',
+				summary: 'vertical text gate',
+				constructs: ['vertical-text'],
+			},
+			'2026-06-18'
+		)
+		const taggedValidation = validateLedgerText(tagged)
+		expect(taggedValidation.errors).toEqual([])
+		expect(taggedValidation.data.items.find((item) => item.id === 'dn-vert-text').constructs).toEqual(['vertical-text'])
+
+		// ...an unmapped key is rejected against vocabulary.constructs. Target the
+		// item's 6-space-indented entry, not the 4-space vocabulary declaration.
+		const bogus = tagged.replace('      - vertical-text', '      - not-a-construct')
+		expect(validateLedgerText(bogus).errors).toContain('dn-vert-text: unknown constructs value: not-a-construct')
 	})
 
 	test('refuses to add a duplicate id', () => {

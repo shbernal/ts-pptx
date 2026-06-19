@@ -101,6 +101,27 @@ vocabulary:
     - render-check
     - powerpoint-result
     - powerpoint-authored-comparison
+  constructs:
+    # OOXML construct identity for the downstream replication capability audit
+    # (scripts/slide-analysis/replication). An entry tags the OOXML construct(s) it
+    # gates so the consumer joins detected-construct -> gating-entry -> live status
+    # directly off this ledger, with no hand-curated construct map. Keys are the
+    # stable detector keys; the comment names the DrawingML element each identifies.
+    - gradient-fill #         <a:gradFill> shape fill
+    - gradient-line-stroke #  <a:gradFill> inside <a:ln>
+    - custom-geom #           <a:custGeom> freeform geometry
+    - preset-geom-exotic #    non-trivial <a:prstGeom> presets (blockArc/homePlate/textArch*)
+    - text-warp #             <a:prstTxWarp> preset text warp
+    - connector #             <p:cxnSp> connector autoShape
+    - outer-shadow #          <a:outerShdw> drop shadow
+    - bullet-char #           <a:buChar> symbol bullet
+    - bullet-autonum #        <a:buAutoNum> auto-number bullet
+    - group-scale #           scaled group (chOff/chExt vs off/ext)
+    - group-rot-flip #        group <a:xfrm> @rot/@flipH/@flipV
+    - autofit-shrink #        <a:normAutofit> shrink-to-fit text
+    - vertical-text #         <a:bodyPr vert="…"> text direction
+    - style-ref-color #       <p:style> <a:fillRef>/<a:lnRef> theme colour
+    - blip-fill-shape #       <a:blipFill> as the fill of a <p:sp>
 
 item_fields:
   id: stable local identifier; upstream-issue-N / upstream-pr-N for upstream, sf-<slug> for downstream
@@ -114,6 +135,7 @@ item_fields:
   applies_to_current_project: one vocabulary.applies_to_current_project value
   non_target_reasons: list of vocabulary.non_target_reasons values
   summary: short one-line summary
+  constructs: optional; list of vocabulary.constructs OOXML construct keys this entry gates (read by the downstream replication capability audit)
   current_project_notes: local decision note; for downstream-need, the full design rationale belongs here
   stopgap: optional; the downstream file the gap forces a workaround in (downstream-need only)
   evidence: local evidence gathered against this checkout
@@ -2667,6 +2689,8 @@ items:
     applies_to_current_project: yes
     non_target_reasons: []
     summary: "Accept an explicit fontScale/lnSpcReduction so measured consumers can render fit:'shrink'"
+    constructs:
+      - autofit-shrink
     current_project_notes: |
       RESOLVED (entry was stale; the feature already shipped). The chosen API
       shape extends `fit` to an object form: fit?: 'none' | 'shrink' | 'resize'
@@ -2707,6 +2731,8 @@ items:
     applies_to_current_project: yes
     non_target_reasons: []
     summary: "textDirection is typed but never serialized to <a:bodyPr vert=...>"
+    constructs:
+      - vertical-text
     current_project_notes: |
       RESOLVED. TextBaseProps.textDirection ('horz' | 'vert' | 'vert270' |
       'wordArtVert') was a public option, but the text-box body-prop transform in
@@ -3043,6 +3069,8 @@ items:
     applies_to_current_project: partial
     non_target_reasons: []
     summary: "Image as a shape *fill* (<p:sp> + <a:blipFill>) — skip until a concrete need appears"
+    constructs:
+      - blip-fill-shape
     current_project_notes: |
       Two valid OOXML encodings of "image in a shape": (1) a <p:pic> whose <p:spPr>
       carries a clip geometry — what the fork emits today via addImage({ points |
@@ -3080,6 +3108,8 @@ items:
     applies_to_current_project: partial
     non_target_reasons: []
     summary: "Read-model colour resolver follow-up: walk p:style fillRef/lnRef and placeholder-inherited run colour"
+    constructs:
+      - style-ref-color
     current_project_notes: |
       The read-model theme colour resolver (Slide.themeContext(),
       Shape.resolvedFill/resolvedLine, Run.resolvedColor) resolved only an
@@ -3137,6 +3167,8 @@ items:
     applies_to_current_project: yes
     non_target_reasons: []
     summary: absoluteFrame composes group offset+scale only; an enclosing @rot/@flipH/@flipV is not applied, so group-child placement is approximate
+    constructs:
+      - group-rot-flip
     current_project_notes: |
       Implemented in src/read/api/shapes.ts. `Shape.absoluteFrame` now composes
       enclosing group offset, child scale (`chOff`/`chExt` vs `off`/`ext`), flip,
@@ -3171,8 +3203,8 @@ items:
     source: downstream:scripts/slide-analysis/replication/capability-map.ts
     type: downstream-need
     first_seen: 2026-06-18
-    last_reviewed: 2026-06-18
-    status: target-candidate
+    last_reviewed: 2026-06-19
+    status: implemented
     priority: p3
     target_area:
       - typescript-api
@@ -3183,39 +3215,50 @@ items:
       META / ledger-tooling enhancement, not a PPTX-generation feature — filed
       here because the ledger is the single place cross-repo needs are tracked.
 
-      Problem: the replication-lab feature audit (scripts/slide-analysis/replication)
-      must answer "is OOXML construct X a fork gap?" by joining a detected
-      construct (e.g. prstTxWarp, custGeom, group-rot-flip, fillRef-sourced
-      colour) to the backlog entry that gates it. The ledger has no
-      machine-readable construct tag — `evidence.kinds` is evidence *provenance*
-      (local-source-inspection, render-check, …), not OOXML construct identity —
-      so the construct->entry mapping is hand-curated downstream in
-      capability-map.ts. That map has to be kept in sync with the ledger by hand
-      and will drift as it grows.
+      Problem (solved): the replication-lab feature audit
+      (scripts/slide-analysis/replication) had to answer "is OOXML construct X a
+      fork gap?" by joining a detected construct (e.g. prstTxWarp, custGeom,
+      group-rot-flip, fillRef-sourced colour) to the backlog entry that gates it.
+      The ledger had no machine-readable construct tag — `evidence.kinds` is
+      evidence *provenance* (local-source-inspection, render-check, …), not OOXML
+      construct identity — so the construct->entry mapping was hand-curated
+      downstream in capability-map.ts and drifted as it grew.
 
-      Proposal: add an optional `constructs:` list to entries (at least
-      downstream-need), holding stable OOXML construct keys (a small controlled
-      vocabulary, e.g. `prst-txwarp`, `cust-geom`, `group-rot-flip`,
-      `style-fill-ref`, `grad-fill`, `normautofit-shrink`, `bodypr-vert`). Then a
-      consumer derives "construct -> gating entry -> live status" directly from
-      the ledger, and the downstream capability map shrinks to just the detector
-      keys. Define the vocabulary under `vocabulary:` (like `evidence_kinds`) and
-      have the validator check membership. Backwards-compatible: the field is
-      optional and absent on upstream entries.
+      Resolved the open question fork-side: the construct vocabulary lives HERE.
+      The fork owns the OOXML it emits/reads and already owns gap status, so the
+      construct identity belongs next to it; the consumer keeps only its detector
+      keys and joins on identity.
 
-      Open question: whether the construct vocabulary lives here (fork owns the
-      OOXML it emits/reads) or stays downstream-side (consumer owns "what we
-      hit"). Leaning fork-side, since the gap status already lives here.
-    stopgap: downstream:scripts/slide-analysis/replication/capability-map.ts
+      Implemented:
+      - `vocabulary.constructs` lists the stable construct keys (one per OOXML
+        construct the replication detector recognises), each commented with the
+        DrawingML element it identifies.
+      - An optional `constructs:` item field (documented in item_fields) holds the
+        keys an entry gates; validated for membership by scripts/backlog-ledger.mjs
+        (optional — absent entries are fine, unknown keys error). `backlog -- add`
+        gained a `--constructs a,b` flag and `show` prints the field.
+      - Tagged the gating entries: dn-gradient-line-stroke (gradient-line-stroke),
+        dn-group-rot-flip-frame (group-rot-flip), dn-text-fit-fontscale
+        (autofit-shrink), dn-text-direction-serialization (vertical-text),
+        dn-readmodel-style-followups (style-ref-color), dn-image-shape-fill
+        (blip-fill-shape), dn-connector-preset-shapename (connector).
+      - Consumer reaped: downstream capability-map.ts/audit.ts now read each
+        capability's gating entry from this ledger's `constructs:` field instead of
+        a hand-curated `backlog:` column, and the dangling upstream-pr provenance
+        ids were dropped. The old stopgap (the hand-curated map) is gone.
     evidence:
       kinds:
         - local-source-inspection
-      local_files: []
+        - regression-test
+      local_files:
+        - docs/backlog.yml
+        - scripts/backlog-ledger.mjs
+        - test/backlog-ledger.test.mjs
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: needs-design
+    next_action: none
   - id: dn-connector-preset-shapename
     source: downstream:registry/replication/kit.ts
     type: downstream-need
@@ -3228,6 +3271,8 @@ items:
     applies_to_current_project: partial
     non_target_reasons: []
     summary: Surface bent/straight connector presets on the public SHAPE_NAME union
+    constructs:
+      - connector
     current_project_notes: "Implemented in commit b726ce1b (feat(shape): type connector presets on the SHAPE_NAME union). The public SHAPE_NAME union now ends with `| CONNECTOR_PRESET_NAME`, where CONNECTOR_PRESET_NAME is derived from the EXTRA_SHAPE_PRESETS tuple (straightConnector1, bentConnector{2-5}, curvedConnector{2-5}) — the same single source of truth the runtime VALID_SHAPE_PRESETS set is built from, so the type and the validator cannot drift. Callers pass these presets to addShape with type-checked names and no cast. (For live, endpoint-bound connectors use slide.addConnector.)"
     evidence:
       kinds:
@@ -3253,6 +3298,8 @@ items:
     applies_to_current_project: partial
     non_target_reasons: []
     summary: Stroke a line/connector with a gradient fill (<a:ln> > <a:gradFill>)
+    constructs:
+      - gradient-line-stroke
     current_project_notes: "Implemented in commit 561b0341 (feat(line): support gradient strokes (gradFill inside a:ln)). ShapeLineProps gained `type: 'gradient'` and a `gradient?: GradientFillProps` field; genXmlLineFill (src/gen-utils.ts) emits a `<a:gradFill>` inside `<a:ln>` when a gradient is present (gradient presence selects a gradient stroke even when `type` is omitted), reusing the same genXmlGradientFill builder as shape fills (upstream-pr-1454). This covers the downstream accent3->accent4 elbow-connector stroke fade, so the replica kit no longer needs its solid-lavender fallback. Validated by schema fixture 'shape with gradient line stroke' (shape-gradient-line-stroke) in test/schema.test.js."
     evidence:
       kinds:

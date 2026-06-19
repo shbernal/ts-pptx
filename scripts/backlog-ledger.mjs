@@ -64,6 +64,7 @@ Options:
   --summary <text>                        One-line summary (add)
   --notes <text>                          current_project_notes body (add)
   --stopgap <path>                        downstream file the gap forces a workaround in (add, optional)
+  --constructs <key[,key...]>             OOXML construct keys this entry gates (add, optional; vocabulary.constructs)
   --next-action <text>                    next_action (add; default: none)
   --first-seen <YYYY-MM-DD>               first_seen date (add; default: today)
   --dry-run                               Validate mutation without writing
@@ -215,6 +216,10 @@ export function parseArgs(argv) {
 			const result = readOptionValue(argv, i, '--stopgap')
 			options.fields.stopgap = result.value
 			i += result.consumed
+		} else if (arg.startsWith('--constructs')) {
+			const result = readOptionValue(argv, i, '--constructs')
+			options.fields.constructs = parseCsv(result.value)
+			i += result.consumed
 		} else if (arg.startsWith('--next-action')) {
 			const result = readOptionValue(argv, i, '--next-action')
 			options.fields.next_action = result.value
@@ -325,6 +330,7 @@ export function validateLedgerData(data) {
 	const appliesValues = asSet(vocabulary.applies_to_current_project)
 	const nonTargetReasons = asSet(vocabulary.non_target_reasons)
 	const evidenceKinds = asSet(vocabulary.evidence_kinds)
+	const constructs = asSet(vocabulary.constructs)
 
 	if (!Array.isArray(data.items)) {
 		errors.push('items must be a list')
@@ -378,6 +384,9 @@ export function validateLedgerData(data) {
 		if (typeof item.summary !== 'string') errors.push(label + ': summary must be a string')
 		if (typeof item.current_project_notes !== 'string') errors.push(label + ': current_project_notes must be a string')
 		if (typeof item.next_action !== 'string') errors.push(label + ': next_action must be a string')
+
+		// constructs is optional: validate membership only when present.
+		if (hasOwn(item, 'constructs')) validateListField(errors, item, index, 'constructs', constructs)
 
 		const kindFromId = idKind(item.id)
 		if (kindFromId && item.type && kindFromId !== item.type) {
@@ -558,6 +567,8 @@ function printItem(item, options) {
 		'current_project_notes: ' + item.current_project_notes,
 	]
 	if (item.stopgap) lines.push('stopgap: ' + item.stopgap)
+	if (Array.isArray(item.constructs) && item.constructs.length > 0)
+		lines.push('constructs: ' + item.constructs.join(', '))
 	lines.push('next_action: ' + item.next_action)
 	return lines.join('\n')
 }
@@ -692,6 +703,7 @@ function buildItemSkeleton(fields, reviewDate) {
 		summary: fields.summary || '',
 		current_project_notes: fields.notes || '',
 		...(fields.stopgap ? { stopgap: fields.stopgap } : {}),
+		...(fields.constructs?.length ? { constructs: fields.constructs } : {}),
 		evidence: {
 			kinds: [],
 			local_files: [],
