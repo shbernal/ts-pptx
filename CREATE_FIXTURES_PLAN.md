@@ -18,6 +18,14 @@ read tests are wired to read genuine PowerPoint XML (not the old write→read
 round-trips), the two implied read fixes landed, and `pnpm run test:read` is
 **245/245 green**.
 
+All write-side **serialization oracles** are now authored too (2026-06-19, Windows
+desktop PowerPoint COM): the placeholder/notes set E/F/G
+(`layout-placeholder-bodypr`, `table-placeholder`, `notes-slide-image`) and the
+feature set H/I (`bar-chart-data-labels`, `math-omml`). Every fixture this plan
+calls for on the Windows side now exists; the remaining items (read getter fix A,
+and the writer fixes E–I) are Linux + tooling work with the authentic target XML
+already captured.
+
 | Fixture | Added | Tests wired | Fix landed | State |
 |---|---|---|---|---|
 | `theme-colors.pptx` | yes | yes | n/a (accessor already shipped) | ✅ done |
@@ -315,18 +323,24 @@ reportedly don't show the slide image in notes print view.
   placeholder (notesMaster geometry + bare notesSlide placeholder) to the authored
   XML above; add a `test/schema.test.js` fixture. Blocks `upstream-issue-446`.
 
-## Feature-serialization fixtures — authoring oracles needed (target-candidate, unscheduled)
+## Feature-serialization fixtures — ✅ oracles authored; fixes remain (Linux)
 
 Two further `target-candidate` write features emit OOXML we must not guess and so
-follow the same *authoring-oracle + serialization schema fixture* pattern as E–G,
-but are not yet scheduled (their backlog `next_action` is research/design, not an
-oracle-then-fix step). They are recorded here so the oracle requirement is captured
-before any implementation begins. **Do not implement either until its oracle
-exists.** As with E–G these are inspection oracles, not `test:read` fixtures —
-record provenance/SHA-256 in `test/read/fixtures/README.md` and pin the writer
-output in `test/schema.test.js`.
+follow the same *authoring-oracle + serialization schema fixture* pattern as E–G.
+Both oracles are now **authored** (2026-06-19, Windows desktop PowerPoint COM;
+provenance + SHA-256 in `test/read/fixtures/README.md`), so the
+"do not implement until the oracle exists" precondition is satisfied. As with E–G
+these are inspection oracles, not `test:read` fixtures — the remaining work for
+each (the writer fix + a `test/schema.test.js` assertion comparing the emitted XML
+against the oracle) is the Linux + tooling job; the authentic target XML is now
+captured so the fix can be implemented and pinned without guessing.
 
-### H. Bar-chart custom data labels + per-point colours (`upstream-pr-727`)
+| Item | Oracle deck | Construct captured | Remaining (Linux) |
+|---|---|---|---|
+| H | `bar-chart-data-labels.pptx` | per-point `c:dPt` fills + custom `c:dLbl` text + workbook cache | per-point bar label/colour API + schema fixture |
+| I | `math-omml.pptx` | `<a14:m>`/`<m:oMathPara>`/`<m:oMath>` equation run + `mc:Fallback` | OMML text-run model + schema fixture |
+
+### H. Bar-chart custom data labels + per-point colours (`upstream-pr-727`) — ✅ oracle authored; fix remains (Linux)
 
 The chart writer already has per-series overrides (`seriesOverride.dataLabelColor`,
 `gen-charts.ts`) and per-point `c:dPt` / per-point custom `c:dLbl` text, but the
@@ -336,17 +350,23 @@ exact `c:dLbl`/`c:dPt` shape plus the `numCache`/`strCache` it must agree with i
 the thing not to guess. This is a **write-side** chart oracle — distinct from the
 read-side "Charts" note below, which only says `mixed.pptx` covers chart *reads*.
 
-- **Oracle:** a PowerPoint deck with a bar chart whose individual bars were
-  manually recoloured and given custom per-point data-label text, captured to pin
-  the per-point `<c:dPt>` (idx + `spPr` fill) and `<c:dLbl>` (idx + rich `c:tx`)
-  ordering inside `CT_BarSer`, plus the embedded workbook (`xl/embeddings`) cache
-  values the labels are derived from.
-- **Fix + fixture (after oracle):** extend the bar-series API for per-point label
-  text/colour, keep the workbook cache consistent, and add a `test/schema.test.js`
-  fixture asserting the emitted `c:dPt`/`c:dLbl` against the authored shape. Blocks
-  `upstream-pr-727`.
+- **Oracle — ✅ done (`bar-chart-data-labels.pptx`, 2026-06-19).** One slide with a
+  clustered **column** chart (`bar-chart-727`, `<c:barDir val="col"/>` → CT_BarSer),
+  one series of four points whose bars were individually recoloured and given
+  custom per-point label text via COM. `ppt/charts/chart1.xml` carries:
+  - four `<c:dPt>` (idx 0–3), each `<c:spPr>` a solid fill —
+    `FF0000`/`00B050`/`0070C0`/`FFC000`;
+  - four `<c:dLbl>` (idx 0–3), each a rich `<c:tx>` overriding the numeric value
+    with `Low`/`Mid`/`High`/`Peak`;
+  - the embedded-workbook cache the labels must agree with: strCache categories
+    `Q1`–`Q4` (`Sheet1!$A$2:$A$5`), numCache values `10`/`25`/`18`/`30`
+    (`Sheet1!$B$2:$B$5`), workbook in `ppt/embeddings/`.
+- **Fix + fixture — ⏳ remaining (Linux).** Extend the bar-series API for per-point
+  label text/colour, keep the workbook cache consistent, and add a
+  `test/schema.test.js` fixture asserting the emitted `c:dPt`/`c:dLbl` against the
+  authored shape above. Blocks `upstream-pr-727`.
 
-### I. Native math equation (OMML) text run (`upstream-issue-1456`)
+### I. Native math equation (OMML) text run (`upstream-issue-1456`) — ✅ oracle authored; fix remains (Linux)
 
 PptxGenJS has math *symbol shapes* (`mathPlus`/`mathEqual`/… preset geometries) but
 no editable-equation model: no `m:oMathPara`/`m:oMath` run inside a text body, no
@@ -354,14 +374,21 @@ no editable-equation model: no `m:oMathPara`/`m:oMath` run inside a text body, n
 authors for an inserted equation (and the `mc:AlternateContent` / `a14:m` wrapper it
 sits in within `<a:p>`) is exactly what must not be guessed.
 
-- **Oracle:** a PowerPoint deck with an inserted equation in a text box, captured to
-  pin the `<a:p>` → `<a14:m>`/`<m:oMathPara><m:oMath>` structure, the `m:` namespace
-  declarations, and the run-property handling PowerPoint emits.
-- **Fix + fixture (after oracle):** introduce an OMML text-run model (raw OMML first,
-  MathML/LaTeX conversion later), then add a `test/schema.test.js` fixture pinning
-  the emitted math run against the authored XML. Blocks `upstream-issue-1456`. The
-  oracle is also the natural first deliverable of the entry's
-  `research-omml-in-presentation-text-runs` step.
+- **Oracle — ✅ done (`math-omml.pptx`, 2026-06-19).** One slide with a text box
+  (`equation-box`) holding the equation 𝑥²+1=𝑦. `ppt/slides/slide1.xml` carries
+  `<mc:AlternateContent>` → `<mc:Choice Requires="a14">` → `<a14:m>` →
+  `<m:oMathPara>` → `<m:oMath>` with an `<m:sSup>` superscript, `Cambria Math` run
+  properties, and the variables as Unicode mathematical-italic letters
+  (`U+1D465`/`U+1D466`); plus the `<mc:Fallback>` raster `blipFill`
+  (`ppt/media/image1.png`, `rId2`) PowerPoint emits for back-compat. PowerPoint has
+  **no COM equation-insert API**, so the equation was built in Word (`OMaths.Add` +
+  `BuildUp`), copied, and pasted into the PowerPoint text box; **PowerPoint
+  re-serialised it on `SaveAs`, so the package XML is genuine PowerPoint output.**
+- **Fix + fixture — ⏳ remaining (Linux).** Introduce an OMML text-run model (raw
+  OMML first, MathML/LaTeX conversion later), then add a `test/schema.test.js`
+  fixture pinning the emitted math run against the authored XML above. Blocks
+  `upstream-issue-1456`. The oracle also satisfies the entry's
+  `research-omml-in-presentation-text-runs` first deliverable.
 
 ## Not needed (already covered or out of scope)
 

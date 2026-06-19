@@ -41,17 +41,26 @@ PowerPoint.
 
 #### Authoring oracles (inspection only — not loaded by `test:read`)
 
-These three decks were authored locally with desktop PowerPoint COM on Windows
+These decks were authored locally with desktop PowerPoint COM on Windows
 (2026-06-19) as **serialization oracles**: they pin the exact OOXML PowerPoint
-writes for write-side placeholder/notes behaviours so the writer fixes (E/F/G in
-`CREATE_FIXTURES_PLAN.md`) can be compared against authentic XML in
-`test/schema.test.js`. They are not consumed by the `pptxgenjs/read` harness.
+writes for write-side behaviours so the corresponding writer fixes can be
+compared against authentic XML in `test/schema.test.js`. They are not consumed
+by the `pptxgenjs/read` harness. Two groups:
+
+- **Placeholder / notes** (E/F/G in `CREATE_FIXTURES_PLAN.md`):
+  `layout-placeholder-bodypr.pptx`, `table-placeholder.pptx`,
+  `notes-slide-image.pptx`.
+- **Feature serialization** (H/I): `bar-chart-data-labels.pptx` (per-point bar
+  `c:dPt`/`c:dLbl` + workbook cache, #727) and `math-omml.pptx` (native equation
+  OMML `a14:m`/`m:oMath`, #1456).
 
 | Local name                    | Application                 | AppVersion | Slides |
 | ----------------------------- | --------------------------- | ---------- | ------ |
 | `layout-placeholder-bodypr.pptx` | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `table-placeholder.pptx`      | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `notes-slide-image.pptx`      | Microsoft Office PowerPoint | 16.0000    | 1      |
+| `bar-chart-data-labels.pptx`  | Microsoft Office PowerPoint | 16.0000    | 1      |
+| `math-omml.pptx`              | Microsoft Office PowerPoint | 16.0000    | 1      |
 
 ### Derived from a vendored fixture
 
@@ -80,6 +89,8 @@ c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
 69fd092ced7067af23b7cbb4d65cc7de1c44d06c0a62b0f49b32dbc9f7ef954e  layout-placeholder-bodypr.pptx
 f18ae67b1df1cc1cf7dc616451c3e548a4ea0c80f807c06a87521b010597af75  table-placeholder.pptx
 2f41c301147518686fb63e262ea1eb2ede6873fdc22d913dc869d8a924190fc7  notes-slide-image.pptx
+edeb1dafe790edf45152485753245928a06786d923364d7647354393d891a74f  bar-chart-data-labels.pptx
+d88cb77b480d3c84a16307cbe503e9ee64f5fa8bdfee6d7b5a7167847d1cb8e6  math-omml.pptx
 ```
 
 ## Purpose of each fixture
@@ -157,6 +168,29 @@ f18ae67b1df1cc1cf7dc616451c3e548a4ea0c80f807c06a87521b010597af75  table-placehol
   (`a:off x="685800" y="1143000"`, `a:ext cx="5486400" cy="3086100"`, `a:noFill`,
   1pt `prstClr` black line), and `notesSlide1.xml` carries a bare
   `<p:ph type="sldImg"/>` with empty `spPr` inheriting that geometry.
+- `bar-chart-data-labels.pptx` — **authoring oracle** for bar-chart custom data
+  labels + per-point colours (`upstream-pr-727`). One slide with a clustered
+  **column** chart (`bar-chart-727`, `<c:barDir val="col"/>` → CT_BarSer), one
+  series of four points whose bars were individually recoloured and given custom
+  per-point label text. `ppt/charts/chart1.xml` carries four `<c:dPt>` (idx 0–3,
+  each `<c:spPr>` solid fill `FF0000`/`00B050`/`0070C0`/`FFC000`) and four
+  `<c:dLbl>` (idx 0–3, rich `<c:tx>` text `Low`/`Mid`/`High`/`Peak`), kept
+  consistent with the embedded-workbook cache (strCache categories `Q1`–`Q4` at
+  `Sheet1!$A$2:$A$5`, numCache values `10`/`25`/`18`/`30` at `Sheet1!$B$2:$B$5`,
+  workbook in `ppt/embeddings/`). Pins the exact per-point `c:dPt`/`c:dLbl`
+  ordering inside `CT_BarSer` plus the cache the labels derive from.
+- `math-omml.pptx` — **authoring oracle** for a native equation (OMML) text run
+  (`upstream-issue-1456`). One slide with a text box (`equation-box`) holding the
+  equation 𝑥²+1=𝑦. `ppt/slides/slide1.xml` carries `<mc:AlternateContent>` →
+  `<mc:Choice Requires="a14">` → `<a14:m>` → `<m:oMathPara>` → `<m:oMath>` with an
+  `<m:sSup>` superscript, `Cambria Math` run properties, and the variables stored
+  as Unicode mathematical-italic letters (`U+1D465`/`U+1D466`); plus the
+  `<mc:Fallback>` raster `blipFill` (`ppt/media/image1.png`, `rId2`) PowerPoint
+  emits for back-compat. PowerPoint has no COM equation-insert API, so the
+  equation was built in Word (`OMaths.Add` + `BuildUp`), copied, and pasted into
+  the PowerPoint text box; **PowerPoint re-serialised it on `SaveAs`, so the
+  `.pptx` package XML is genuine PowerPoint output.** Pins the `<a:p>` → `a14:m` /
+  `m:oMathPara` / `m:oMath` structure and namespace declarations.
 
 ## Manual PowerPoint check
 
@@ -181,6 +215,8 @@ fixtures opened clean with no repair prompt:
 - [x] `layout-placeholder-bodypr.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
 - [x] `table-placeholder.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
 - [x] `notes-slide-image.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
+- [x] `bar-chart-data-labels.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
+- [x] `math-omml.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored via Word→PowerPoint paste + opened clean via COM)
 
 **Further testing needed on PowerPoint desktop.** The web loader is more lenient
 than desktop PowerPoint, whose stricter OOXML validation is what produces the
