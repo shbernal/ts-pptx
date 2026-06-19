@@ -7,6 +7,27 @@
 - Keep source changes focused in `src/` and tests in `test/`. Treat `dist/` as generated package artifacts unless the task explicitly requires refreshing release outputs.
 - Preserve unrelated dirty state. Do not revert user changes.
 
+## Scope: Node-First (Two Out-Of-Active-Scope Domains)
+
+- This project is **Node-first**: it runs and is tested without a browser or any
+  office application. Two domains are out of *active* maintenance scope. Do not
+  proactively build features or hunt for fixes in them, and do not block other
+  work on them; when a task lands in one, say so and treat it as out of scope
+  unless the user explicitly opts in. They are not rejected on merit — outside
+  contributors are welcome to submit PRs — but the maintainer is not driving them.
+  See `docs/project-target.md` ("Out Of Active Scope") for the full statement.
+  - **Live-DOM / browser-layout features** — anything reading a *rendered* page
+    rather than in-memory data, notably `tableToSlides()` (`offsetWidth`,
+    `window.getComputedStyle`). These are browser-only and cannot be reproduced in
+    the Node test suite. The in-memory `addTable(rows, opts)` path is the supported
+    one. If logic here genuinely needs covering, extract the DOM-independent part
+    into a pure helper and unit-test it (pattern: `resolveHtmlColWidth`).
+  - **Third-party office-suite interop quirks** — breakage that only appears after
+    a round-trip through another app (e.g. WPS copy/paste, then PowerPoint) when
+    the generated package is itself valid OOXML. The supported bar is that output
+    opens cleanly in Microsoft PowerPoint. Such an item only becomes in-scope with
+    a repro pinning the defect to invalid OOXML the library itself emits.
+
 ## API Evolution Policy
 
 - This fork is maintained for our own use; there is no external backward-compat

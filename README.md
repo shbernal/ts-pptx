@@ -61,6 +61,27 @@ await pptx.writeFile({ fileName: "example.pptx" })
   `.pptx` consumers such as Keynote, LibreOffice Impress, and Google Slides
   import.
 
+## Scope And Contributions
+
+This fork is **Node-first**: it generates and is tested without a browser or any
+office application. Two areas are out of *active* maintenance scope — not because
+they lack merit, but because there is no in-house use case driving them, so the
+maintainer generally will not pick up bugs or feature requests there:
+
+- **Live-DOM / browser-layout features**, such as `tableToSlides()`, which scrapes
+  a rendered HTML `<table>` (its on-screen column widths and computed CSS) and only
+  works in a real browser. The in-memory `addTable(rows, options)` API is the
+  supported, fully-tested way to build tables.
+- **Third-party office-suite interop quirks** that appear only after a file is
+  round-tripped through another application (for example, copy/paste inside WPS
+  Office, then opening in PowerPoint) when the generated package is itself valid
+  OOXML. The supported bar is that output opens cleanly in Microsoft PowerPoint.
+
+**Contributions in these areas are welcome** — issues and pull requests are
+encouraged even though the maintainer is not actively developing them. See
+[`docs/project-target.md`](docs/project-target.md) for the full scope statement
+and suggested testing approaches.
+
 ## Runtime And Package Support
 
 The package is ESM-only.
