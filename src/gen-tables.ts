@@ -353,8 +353,14 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 		}
 	}
 
+	// Resolve a row's explicit height (inches) from the original `rowH` *array*, keyed by original
+	// row index. A single-number `rowH` is left to propagate via table options (it applies uniformly,
+	// so it needs no per-row remapping); only the array form is index-sensitive after pagination (#1145).
+	const resolveRowH = (origRowIdx: number): number | undefined =>
+		Array.isArray(tableProps.rowH) && typeof tableProps.rowH[origRowIdx] === 'number' ? tableProps.rowH[origRowIdx] : undefined
+
 	// STEP 6: **MAIN** Iterate over rows, add table content, create new slides as rows overflow
-	let newTableRowSlide: TableRowSlide = { rows: [] as TableRow[] }
+	let newTableRowSlide: TableRowSlide = { rows: [] as TableRow[], rowH: [] as Array<number | undefined> }
 	tableRows.forEach((row, iRow) => {
 		// A: Row variables — detect active rowspan at the start of this row so we can
 		// suppress page breaks that would split a rowspan group across slides.
@@ -493,7 +499,10 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 				}
 
 				// A: add current row slide or it will be lost (only if it has rows and text)
-				if (currTableRow.length > 0 && currTableRow.map(cell => Array.isArray(cell.text) ? cell.text.length : 0).reduce((p, n) => p + n) > 0) newTableRowSlide.rows.push(currTableRow)
+				if (currTableRow.length > 0 && currTableRow.map(cell => Array.isArray(cell.text) ? cell.text.length : 0).reduce((p, n) => p + n) > 0) {
+					newTableRowSlide.rows.push(currTableRow)
+					newTableRowSlide.rowH?.push(resolveRowH(iRow))
+				}
 
 				// B: add current slide to Slides array (never push an empty page: a row that does not
 				// fit yet has no content here, and an empty `rows` slide crashes the recursive addTable)
@@ -501,7 +510,7 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 
 				// C: reset working/curr slide to hold rows as they're created
 				const newRows: TableRow[] = []
-				newTableRowSlide = { rows: newRows }
+				newTableRowSlide = { rows: newRows, rowH: [] as Array<number | undefined> }
 
 				// D: reset working/curr row
 				currTableRow = []
@@ -517,7 +526,7 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 
 				// G: handle repeat headers option /or/ Add new empty row to continue current lines into
 				if ((tableProps.addHeaderToEach || tableProps.autoPageRepeatHeader) && tableProps._arrObjTabHeadRows) {
-					tableProps._arrObjTabHeadRows.forEach(row => {
+					tableProps._arrObjTabHeadRows.forEach((row, headIdx) => {
 						const newHeadRow: TableRow = []
 						let maxLineHeight = 0
 						row.forEach(cell => {
@@ -525,6 +534,8 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 							if ((cell._lineHeight || 0) > maxLineHeight) maxLineHeight = cell._lineHeight || 0
 						})
 						newTableRowSlide.rows.push(newHeadRow)
+						// Repeated header rows are the original leading rows, so carry their configured height (#1145).
+						newTableRowSlide.rowH?.push(resolveRowH(headIdx))
 						emuTabCurrH += maxLineHeight // TODO: what about margins? dont we need to include cell margin in line height?
 					})
 				}
@@ -555,7 +566,10 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 		}
 
 		// F: Flush/capture row buffer before it resets at the top of this loop
-		if (currTableRow.length > 0) newTableRowSlide.rows.push(currTableRow)
+		if (currTableRow.length > 0) {
+			newTableRowSlide.rows.push(currTableRow)
+			newTableRowSlide.rowH?.push(resolveRowH(iRow))
+		}
 
 		// G: Update colSpanDepths for the next row's hasActiveRowSpan check.
 		// Snapshot occupied columns *before* adding new spans from this row so that

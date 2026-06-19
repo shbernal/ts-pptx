@@ -3444,32 +3444,36 @@ items:
     source: "gitbrent/PptxGenJS#1318"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: needs-repro
+    last_reviewed: 2026-06-18
+    status: non-target
     priority: p2
     target_area:
       - table-ooxml
-    applies_to_current_project: unknown
     non_target_reasons:
-      - insufficient-evidence
+      - not-reproducible-in-current-project
+    applies_to_current_project: no
     summary: Top and left table cell borders were not displayed for non-first rows and columns.
     current_project_notes: >
-      Current cell border emission writes LRTB border tags when a per-cell border
-      array is present, so the upstream symptom needs a small generated-package
-      fixture to determine whether the failure is inheritance, merged cells, or
-      PowerPoint rendering precedence.
+      Not reproducible in the current fork. With a uniform 4-sided border, every
+      generated <a:tc> — including non-first rows and columns — emits all of lnL,
+      lnR, lnT, lnB. Verified by generated-package extraction; locked by regression
+      suite table-span-border-structure. (The historical symptom is the same family
+      as #680, whose merged-cell border-ownership fix already landed.)
     evidence:
       kinds:
         - local-source-inspection
+        - minimal-repro
+        - extracted-xml
+        - regression-test
       local_files:
-        - src/gen-xml.ts:354
-        - src/gen-xml.ts:357
-        - src/gen-xml.ts:365
+        - src/gen-xml.ts:327
+        - src/gen-xml.ts:672
+        - test/regression/table-span-border-structure.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: create-table-non-first-cell-border-fixture
+    next_action: none
 
   - id: upstream-issue-1317
     source: "gitbrent/PptxGenJS#1317"
@@ -4385,34 +4389,37 @@ items:
     source: "gitbrent/PptxGenJS#1290"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: needs-repro
+    last_reviewed: 2026-06-18
+    status: non-target
     priority: p2
     target_area:
       - table-ooxml
-    applies_to_current_project: unknown
-    non_target_reasons: []
+    applies_to_current_project: no
+    non_target_reasons:
+      - not-reproducible-in-current-project
     summary: Table colspan greater than one produced extra empty cells or columns.
     current_project_notes: >
-      Current table XML intentionally inserts hMerge/vMerge placeholder cells and
-      computes column count from colspans. Reproduce in the current fork before
-      deciding whether the symptom is valid table OOXML, visual rendering, or a
-      span calculation bug.
+      Not reproducible in the current fork. A colspan:2 over a 3-column table emits
+      exactly 3 <a:gridCol> and, per row, exactly 3 <a:tc>: the origin cell with
+      gridSpan="2" plus one hMerge="1" filler — which is the OOXML PowerPoint expects
+      (covered cells are real <a:tc> with hMerge, not extra columns). Verified by
+      generated-package extraction and locked by regression suite
+      table-span-border-structure.
     evidence:
       kinds:
         - local-source-inspection
+        - minimal-repro
+        - extracted-xml
+        - regression-test
       local_files:
-        - src/gen-xml.ts:169
-        - src/gen-xml.ts:173
-        - src/gen-xml.ts:228
-        - src/gen-xml.ts:238
-        - src/gen-xml.ts:281
-        - src/gen-xml.ts:284
+        - src/gen-xml.ts:523
+        - src/gen-xml.ts:579
+        - test/regression/table-span-border-structure.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: create-colspan-extra-cell-current-repro
+    next_action: none
 
   - id: upstream-issue-1289
     source: "gitbrent/PptxGenJS#1289"
@@ -5150,7 +5157,7 @@ items:
     source: "gitbrent/PptxGenJS#1244"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
+    last_reviewed: 2026-06-18
     status: needs-repro
     priority: p2
     target_area:
@@ -5159,24 +5166,24 @@ items:
     non_target_reasons: []
     summary: HTML table conversion mishandled rowspan and colspan sizing.
     current_project_notes: >
-      Current table XML has hMerge/vMerge support, but HTML table conversion and
-      derived width calculations have multiple fragile paths. This should be
-      reduced to a current fixture before deciding whether the defect is in
-      parsing, sizing, or OOXML emission.
+      Reviewed 2026-06-18. The *OOXML emission* side of spans is confirmed correct in
+      the current fork (colspan/rowspan cell counts and merged-cell borders verified —
+      see #1290/#1055/#1224 and regression suite table-span-border-structure). Any
+      remaining defect is therefore in genTableToSlides' HTML→rows parsing / derived
+      column-width calc, which reads a live HTML <table> through the browser DOM and
+      cannot be exercised in this Node-only checkout. Kept as needs-repro pending a
+      jsdom-backed tableToSlides fixture targeting rowspan/colspan width derivation.
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/gen-tables.ts:640
-        - src/gen-tables.ts:657
-        - src/gen-tables.ts:388
-        - src/gen-xml.ts:228
-        - src/gen-xml.ts:281
+        - src/gen-tables.ts:639
+        - src/gen-tables.ts:652
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-html-table-rowspan-colspan-sizing-repro
+    next_action: add-jsdom-tabletoslides-rowspan-colspan-sizing-repro
 
   - id: upstream-issue-1243
     source: "gitbrent/PptxGenJS#1243"
@@ -5309,7 +5316,7 @@ items:
     source: "gitbrent/PptxGenJS#1236"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
+    last_reviewed: 2026-06-18
     status: needs-repro
     priority: p2
     target_area:
@@ -5319,9 +5326,12 @@ items:
     non_target_reasons: []
     summary: Copying and pasting a generated line chart in WPS led PowerPoint to repair the file.
     current_project_notes: >
-      The reported repair is mediated by WPS copy/paste, so it is unclear
-      whether current generated chart XML is invalid or whether WPS mutates it
-      into a PowerPoint-incompatible shape. Keep as a repro candidate only.
+      Reviewed 2026-06-18. The repair is mediated by a WPS copy/paste round-trip, so
+      the corrupting mutation is introduced by WPS, not by the generator — the file
+      opens cleanly until WPS rewrites it. Reproducing requires WPS Office and
+      PowerPoint (an application round-trip), neither available in this checkout, and
+      the generated line-chart XML itself already validates. Kept as needs-repro /
+      out-of-reach; only actionable if a WPS-independent invalid-OOXML repro surfaces.
     evidence:
       kinds:
         - local-source-inspection
@@ -5475,31 +5485,36 @@ items:
     source: "gitbrent/PptxGenJS#1224"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: needs-repro
+    last_reviewed: 2026-06-18
+    status: non-target
     priority: p2
     target_area:
       - table-ooxml
-    applies_to_current_project: partial
-    non_target_reasons: []
+    applies_to_current_project: no
+    non_target_reasons:
+      - not-reproducible-in-current-project
     summary: Border style of the first cell adjacent to a rowspan cell was not applied as expected.
     current_project_notes: >
-      Current table border XML is emitted per side and rowspan uses vMerge
-      continuation cells. The report may indicate border ownership around merge
-      continuations, but it needs a current fixture to identify which generated
-      cell should carry the visible border.
+      Not reproducible in the current fork. With a uniform border, the cell adjacent
+      to a rowspan origin emits all four borders (lnL/lnR/lnT/lnB), as do the origin
+      and the vMerge continuation. Shares its root with #1055 (merged-cell border
+      ownership, #680). Verified by extraction; locked by regression suite
+      table-span-border-structure.
     evidence:
       kinds:
         - local-source-inspection
+        - minimal-repro
+        - extracted-xml
+        - regression-test
       local_files:
-        - src/gen-xml.ts:281
-        - src/gen-xml.ts:344
-        - src/gen-xml.ts:371
+        - src/gen-xml.ts:595
+        - src/gen-xml.ts:672
+        - test/regression/table-span-border-structure.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-rowspan-adjacent-border-fixture
+    next_action: none
 
   - id: upstream-issue-1223
     source: "gitbrent/PptxGenJS#1223"
@@ -6202,30 +6217,33 @@ items:
     source: "gitbrent/PptxGenJS#1164"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: needs-repro
+    last_reviewed: 2026-06-18
+    status: non-target
     priority: p3
     target_area:
       - chart-ooxml
-    applies_to_current_project: unknown
-    non_target_reasons: []
+    applies_to_current_project: no
+    non_target_reasons:
+      - not-reproducible-in-current-project
     summary: Doughnut chart titlePos was ignored in version 3.11.0.
     current_project_notes: >
-      Current chart XML has manual title layout support, but the coordinate
-      conversion is custom and should be checked against a current doughnut deck
-      before treating this as either fixed or a live chart-layout defect.
+      Not reproducible in the current fork. A doughnut chart with showTitle:true and
+      titlePos:{x,y} emits a <c:title> with a <c:layout><c:manualLayout> carrying the
+      configured x/y, same as other chart types. The reported 3.11.0 regression no
+      longer applies. Verified by generated-package extraction.
     evidence:
       kinds:
         - local-source-inspection
+        - minimal-repro
+        - extracted-xml
       local_files:
-        - src/core-interfaces.ts:1611
         - src/gen-charts.ts:564
         - src/gen-charts.ts:1938
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-doughnut-titlepos-current-fixture
+    next_action: none
 
   - id: upstream-issue-1159
     source: "gitbrent/PptxGenJS#1159"
@@ -6328,32 +6346,43 @@ items:
     source: "gitbrent/PptxGenJS#1145"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: needs-repro
+    last_reviewed: 2026-06-18
+    status: implemented
     priority: p2
     target_area:
       - table-ooxml
-    applies_to_current_project: unknown
+    applies_to_current_project: yes
     non_target_reasons: []
     summary: Auto-paged addTable rows reused a configured row height on later slides where default height was expected.
     current_project_notes: >
-      Current autoPage passes the copied table options into each split table and
-      then calls addTable on every generated slide. A current fixture should
-      verify how rowH arrays interact with split rows before changing pagination
-      or option propagation.
+      Reproduced: a `rowH` ARRAY is keyed by the original row index, but auto-paging
+      passes the full array to each generated slide's addTable, where gen-xml applies
+      it by physical row index (which restarts per slide). A tall row 0 (e.g. 2") was
+      therefore re-applied to the first row of EVERY overflow slide; with
+      autoPageRepeatHeader, body rows also took the wrong heights. Single-number
+      `rowH` was unaffected (applies uniformly). Fix: getSlidesForTableRows now builds
+      a per-slide `rowH` array (TableRowSlide.rowH) aligned 1:1 with that slide's
+      output rows — each row records its source row's resolved height (resolveRowH),
+      repeated headers carry their original header-row height, and rows with no
+      configured height get `undefined` (auto). addTableDefinition passes this
+      per-slide array when the caller's `rowH` is an array; gen-xml's existing falsy
+      guard treats undefined entries as auto height. Covered by regression suite
+      table-autopage-rowh-array (tall-first-row and repeat-header cases).
     evidence:
       kinds:
         - local-source-inspection
+        - minimal-repro
+        - regression-test
       local_files:
-        - src/core-interfaces.ts:939
-        - src/gen-objects.ts:996
-        - src/gen-objects.ts:1013
-        - src/gen-tables.ts:370
+        - src/core-interfaces.ts:1719
+        - src/gen-tables.ts:357
+        - src/gen-objects.ts:1349
+        - test/regression/table-autopage-rowh-array.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-autopage-rowh-propagation-fixture
+    next_action: none
 
   - id: upstream-issue-1138
     source: "gitbrent/PptxGenJS#1138"
@@ -6662,32 +6691,38 @@ items:
     source: "gitbrent/PptxGenJS#1055"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: needs-repro
+    last_reviewed: 2026-06-18
+    status: non-target
     priority: p2
     target_area:
       - table-ooxml
-    applies_to_current_project: unknown
-    non_target_reasons: []
+    applies_to_current_project: no
+    non_target_reasons:
+      - not-reproducible-in-current-project
     summary: Rowspan table cells lost borders on rows covered by the merged cell.
     current_project_notes: >
-      Current table XML creates vMerge and hMerge continuation cells and applies
-      borders while serializing each cell. A focused fixture should check whether
-      continuation cells need inherited border ownership to match PowerPoint.
+      Not reproducible in the current fork. The vMerge continuation cell emitted for
+      a covered row now carries the origin cell's border (the #680 merged-cell
+      border-ownership fix in gen-xml.ts: see the `_hmerge || _vmerge` branch that
+      calls genTableCellBorderXml on the origin border). A rowspan:2 table with a
+      uniform border emits all four borders on the origin, the adjacent cell, the
+      vMerge continuation, and the next cell. Verified by extraction; locked by
+      regression suite table-span-border-structure.
     evidence:
       kinds:
         - local-source-inspection
+        - minimal-repro
+        - extracted-xml
+        - regression-test
       local_files:
-        - src/core-interfaces.ts:857
-        - src/gen-xml.ts:245
-        - src/gen-xml.ts:281
-        - src/gen-xml.ts:344
-        - src/gen-xml.ts:365
+        - src/gen-xml.ts:595
+        - src/gen-xml.ts:601
+        - test/regression/table-span-border-structure.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-rowspan-border-continuation-fixture
+    next_action: none
 
   - id: upstream-issue-1051
     source: "gitbrent/PptxGenJS#1051"
@@ -6887,7 +6922,7 @@ items:
     source: "gitbrent/PptxGenJS#1005"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
+    last_reviewed: 2026-06-18
     status: needs-repro
     priority: p2
     target_area:
@@ -6896,23 +6931,26 @@ items:
     non_target_reasons: []
     summary: addTable with autoPage raised an Array expected error in an HTML-table workflow.
     current_project_notes: >
-      Current addTable validates row arrays before autoPage, then splits tables
-      and recursively adds each generated slide table. This old report should be
-      rechecked only with a current HTML-table fixture before changing pagination.
+      Reviewed 2026-06-18 alongside the autoPage rowH fix (#1145). The "Array
+      expected" throw is the well-formedness guard in addTableDefinition (STEP 1) and
+      it fires before autoPage, so the failure is upstream in tableToSlides' HTML→rows
+      conversion (a malformed/empty row reaching addTable), not in pagination itself.
+      Reproducing requires a DOM (genTableToSlides reads a live HTML <table> via the
+      browser DOM), which is not available in this Node-only checkout. Kept as
+      needs-repro pending a jsdom-backed tableToSlides fixture; the direct
+      addTable(autoPage) path with array rows paginates correctly (see
+      table-autopage-* regression suites).
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/gen-objects.ts:768
-        - src/gen-objects.ts:977
-        - src/gen-objects.ts:996
-        - src/gen-objects.ts:1013
-        - src/gen-tables.ts:756
+        - src/gen-objects.ts:1090
+        - src/gen-tables.ts:652
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-html-table-autopage-array-validation-fixture
+    next_action: add-jsdom-tabletoslides-autopage-array-fixture
 
   - id: upstream-issue-996
     source: "gitbrent/PptxGenJS#996"
@@ -8067,25 +8105,28 @@ items:
     source: "gitbrent/PptxGenJS#731"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: needs-repro
+    last_reviewed: 2026-06-18
+    status: non-target
     priority: p3
     target_area:
       - chart-ooxml
-    applies_to_current_project: unknown
-    non_target_reasons: []
+    applies_to_current_project: no
+    non_target_reasons:
+      - not-reproducible-in-current-project
     summary: catAxisLabelFrequency stopped working when chartColors was also used.
     current_project_notes: >
-      Current XML emits tickLblSkip from catAxisLabelFrequency independently of
-      chartColors, while single-series bar charts can emit per-point dPt colors.
-      A current fixture should verify whether PowerPoint still ignores tickLblSkip
-      in that combination.
+      Not reproducible in the current fork. A bar chart with both catAxisLabelFrequency
+      and chartColors emits <c:tickLblSkip val="2"/> on the category axis AND the
+      per-point <c:dPt> color elements in the same chart XML — the two features are
+      independent in gen-charts and do not suppress each other. Verified by
+      generated-package extraction. (No schema fixture: tickLblSkip emission is not a
+      validity concern and the combination is exercised by the existing chart suite.)
     evidence:
       kinds:
         - local-source-inspection
+        - minimal-repro
+        - extracted-xml
       local_files:
-        - src/core-interfaces.ts:1254
-        - src/core-interfaces.ts:1352
         - src/gen-charts.ts:923
         - src/gen-charts.ts:929
         - src/gen-charts.ts:1731
@@ -8093,7 +8134,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-cat-axis-label-frequency-chart-colors-fixture
+    next_action: none
 
   - id: upstream-issue-699
     source: "gitbrent/PptxGenJS#699"

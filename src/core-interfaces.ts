@@ -1718,6 +1718,15 @@ export interface TableCell {
 }
 export interface TableRowSlide {
 	rows: TableRow[]
+	/**
+	 * Per-row height (inches) aligned 1:1 with `rows`, derived from the original `rowH` array.
+	 * Auto-paging splits/reorders rows across slides and inserts repeated headers, so the caller's
+	 * `rowH[i]` (keyed by *original* row index) can no longer be applied by physical row index on
+	 * each generated slide. This carries each output row's resolved height so a configured height
+	 * follows its source row instead of being re-applied to whatever lands at that index (#1145).
+	 * Entries are `undefined` where no explicit height was configured (auto-distributed height).
+	 */
+	rowH?: Array<number | undefined>
 }
 export type TableRow = TableCell[]
 

@@ -1346,8 +1346,13 @@ export function addTableDefinition(
 				// Create hyperlink rels (IMPORTANT: Wait until table has been shredded across Slides or all rels will end-up on Slide 1!)
 				createHyperlinkRels(newSlide, slide.rows)
 
-				// Add rows to new slide
-				newSlide.addTable(slide.rows, { ...opt })
+				// Add rows to new slide. When `rowH` is an array it is keyed by *original* row index,
+				// which no longer matches the per-slide physical row order after pagination; use the
+				// per-slide heights the auto-pager resolved so each row keeps its configured height
+				// instead of inheriting whatever row lands at the same index (#1145).
+				// `slide.rowH` may contain `undefined` holes (auto-height rows); the table serializer
+				// treats a falsy per-row height as "auto", so the cast to number[] is safe.
+				newSlide.addTable(slide.rows, { ...opt, rowH: Array.isArray(opt.rowH) && slide.rowH ? (slide.rowH as number[]) : opt.rowH })
 
 				// Add reference to the new slide so it can be returned, but don't add the first one because the user already has a reference to that one.
 				if (idx > 0) newAutoPagedSlides.push(newSlide)

@@ -62,6 +62,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Auto-paged tables: a `rowH` *array* now follows its original rows across
+  pages (gitbrent/PptxGenJS#1145):** `rowH` as an array is keyed by the original
+  row index, but auto-paging passed the whole array to every overflow slide where
+  it was re-applied by *physical* row index (which restarts per slide). A tall
+  first row therefore reappeared as the first row of every overflow slide, and
+  with `autoPageRepeatHeader` the body rows inherited the wrong heights. The
+  auto-pager now resolves a per-slide height list aligned 1:1 with each generated
+  slide's rows (repeated header rows keep their configured height; rows with no
+  configured height auto-size), so a configured height stays with its source row.
+  Single-number `rowH` is unchanged (it already applied uniformly). Covered by
+  `test/regression/table-autopage-rowh-array.test.js`.
 - **Read model: `Shape.resolvedFill`/`resolvedLine` now follow a `p:style`
   `fillRef`/`lnRef` (theme style matrix):** a shape whose fill or line comes only
   from its `p:style` style-matrix reference — no explicit `spPr` fill/line — read
