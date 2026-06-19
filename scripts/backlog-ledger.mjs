@@ -674,7 +674,7 @@ function buildItemSkeleton(fields, reviewDate) {
 	if (!fields.source) throw new Error('add requires --source')
 	if (!fields.type) throw new Error('add requires --type')
 	const typeDefaults = ADD_DEFAULTS_BY_TYPE[fields.type] || {
-		status: 'unreviewed',
+		status: 'target-candidate',
 		priority: 'none',
 		applies: 'unknown',
 	}

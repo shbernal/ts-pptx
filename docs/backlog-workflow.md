@@ -1,42 +1,42 @@
 ---
 doc-schema-version: 1
 title: "Backlog Workflow"
-summary: "How to classify upstream issues/PRs and downstream downstream needs in the fork backlog without reintroducing dropped package targets."
+summary: "How to record and classify this fork's own project work in docs/backlog.yml: downstream downstream needs plus the retained upstream-derived entries, without reintroducing dropped package targets."
 read_when:
-  - Reviewing upstream PptxGenJS issues or PRs
   - Recording a downstream need raised by downstream
   - Updating backlog classifications
+  - Closing a backlog item after a fix lands
   - Deciding whether a behavior belongs in this fork
 doc_type: "guide"
 ---
 
 # Backlog Workflow
 
-This workflow maintains the fork's backlog ledger, `docs/backlog.yml`, which holds
-two kinds of inbound signal:
+This workflow maintains the fork's backlog ledger, `docs/backlog.yml`. It is a
+**project backlog**: a record of work this fork intends to do and decisions it
+has made. It holds two kinds of entry:
 
-1. **Upstream signals** — gitbrent/PptxGenJS issues and pull requests, classified
-   for relevance to this fork. Upstream is useful for finding real `.pptx`
-   generation gaps, but it is not the local project target.
-2. **Downstream needs** — generic PPTX behavior the downstream consumer needs
-   that belongs in this package (`type: downstream-need`, `source: downstream`).
+1. **Downstream needs** — generic PPTX behavior the downstream consumer needs
+   that belongs in this package (`type: downstream-need`, `source:
+   downstream[:path]`). These are the primary, ongoing source of new work.
+2. **Retained upstream-derived signals** — a set of gitbrent/PptxGenJS issues and
+   PRs that were judged relevant to this fork before upstream tracking was
+   retired. They carry a github reference (`owner/repo#N`) in `source` and remain
+   as historical context and standing feature ideas.
 
-The `source` field discriminates the two, and the validator enforces it: upstream
-items carry a github reference (`owner/repo#N` or a github.com issues/pull URL);
-downstream needs carry `downstream` or `downstream:<path>`. The
-`backlog:check:upstream` reconciler only looks at github-sourced entries. The rest
-of this guide is about the upstream classification flow; see **Downstream Needs**
-near the end for the downstream side.
+> **Upstream tracking is retired.** This fork no longer fetches upstream issues
+> or reconciles the ledger against GitHub, and the `backlog:check:upstream`
+> tooling has been removed. Do not re-add a sync step. New entries should be
+> project needs (`downstream-need`); the github-sourced entries already in the
+> file are kept as-is unless a local change closes one.
 
-Use the upstream flow when reviewing upstream reports or PRs that may point to:
+The `source` field still discriminates the two kinds, and the validator enforces
+it: github references for the retained legacy entries, `downstream[:path]` for
+downstream needs.
 
-- PowerPoint repair prompts or corrupt output;
-- invalid OOXML or Open XML SDK validation failures;
-- broken package relationships, content types, or part layout;
-- missing PPTX generation features that fit the current API;
-- browser or TypeScript issues that apply to the current ESM package boundary.
+## Out-Of-Target Work
 
-Do not use this workflow to reintroduce dropped upstream targets:
+Do not use the backlog to reintroduce dropped package targets:
 
 - CommonJS package support;
 - IIFE or global browser bundles;
@@ -46,17 +46,17 @@ Do not use this workflow to reintroduce dropped upstream targets:
 
 ## Source Of Truth
 
-The decision ledger is [backlog.yml](backlog.yml). It records
-what has been dismissed, what is under consideration, and what should be
-implemented locally.
+The decision ledger is [backlog.yml](backlog.yml). It records what has been
+dismissed, what is under consideration, and what should be implemented locally.
 
-The ledger is intentionally metadata-first. Do not copy full upstream issue or
-PR bodies into this repository. Store the upstream URL, a short summary, current
-decision, and evidence gathered against this checkout.
+The ledger is intentionally metadata-first for the retained github entries: do
+not copy full upstream issue or PR bodies into this repository. For
+`downstream-need` items the full design rationale is welcome (see **Downstream
+Needs** below).
 
 ## Review Inputs
 
-Before reviewing a candidate, read the local project boundaries:
+Before classifying or promoting a candidate, read the local project boundaries:
 
 - [Project target](project-target.md)
 - [Runtime and package support](runtime-and-package-support.md)
@@ -68,69 +68,23 @@ When a candidate affects emitted OOXML, follow the OOXML workflow before making
 source changes. Use the `ooxml` MCP server for ECMA-376 structure and the
 `microsoft_learn` MCP server for Microsoft or PowerPoint-specific behavior.
 
-## Candidate Collection
-
-Agents may fetch upstream metadata from `gitbrent/PptxGenJS`, but should avoid
-reviewing full threads until a candidate passes the local relevance filter.
-
-Useful metadata fields:
-
-- issue or PR number;
-- title;
-- state;
-- labels;
-- created and updated dates;
-- URL;
-- whether the item is an issue or pull request.
-
-Example metadata-only collection command:
-
-```bash
-gh issue list --repo gitbrent/PptxGenJS --state all \
-  --json number,title,state,labels,createdAt,updatedAt,url
-```
-
-Use `gh pr list` with the same repo and similar fields for pull requests.
-
-## Untreated Item Check
-
-After an initial pass, use the read-only checker to find upstream issue and PR
-metadata that is not represented in the ledger:
-
-```bash
-pnpm run backlog:check:upstream
-```
-
-The checker requires the GitHub CLI (`gh`). It uses metadata from `gh` and
-compares upstream numbers against entries in `docs/backlog.yml`. It
-accepts filters for routine follow-up checks:
-
-```bash
-pnpm run backlog:check:upstream -- --state open --type issue
-pnpm run backlog:check:upstream -- --created-since 2026-06-07
-pnpm run backlog:check:upstream:json -- --updated-since 2026-06-07
-```
-
-The checker never edits the ledger. Record reviewed decisions manually so
-`seen` does not become confused with `reviewed`.
-
 ## Ledger Tooling
 
-Use the local ledger command to inspect and maintain entries already recorded in
+Use the local ledger command to inspect and maintain entries in
 `docs/backlog.yml`:
 
 ```bash
 pnpm run backlog -- list
-pnpm run backlog -- list --status needs-repro --type issue
-pnpm run backlog -- show upstream-issue-1440
+pnpm run backlog -- list --status needs-repro --type downstream-need
+pnpm run backlog -- show dn-some-slug
 pnpm run backlog -- values status
 pnpm run backlog -- validate
 ```
 
 The default list output is intentionally compact: item id, status, priority,
-current-project applicability, and `upstream_summary`. Use `--json` when another
-tool or agent needs structured output, and `--print-limit 0` when a filtered
-listing should print every matching entry.
+current-project applicability, and summary. Use `--json` when another tool or
+agent needs structured output, and `--print-limit 0` when a filtered listing
+should print every matching entry.
 
 Use `values status` to see which status values are currently used in the ledger
 and how many entries use each one.
@@ -138,8 +92,8 @@ and how many entries use each one.
 The command also supports exact-ID maintenance operations:
 
 ```bash
-pnpm run backlog -- set-status upstream-issue-1440 implemented
-pnpm run backlog -- remove upstream-issue-1440
+pnpm run backlog -- set-status dn-some-slug implemented
+pnpm run backlog -- remove dn-some-slug
 ```
 
 Mutation commands validate the ledger before writing and refuse ambiguous or
@@ -147,17 +101,19 @@ duplicate ids. Use `--dry-run` to check the intended mutation without writing.
 
 ## Classification
 
-Classify each reviewed item with one status:
+Classify each item with one status:
 
-- `unreviewed`: fetched, but not judged.
 - `needs-repro`: plausible, but no current-project reproduction exists yet.
-- `target-candidate`: likely relevant to this fork.
-- `accepted`: worth implementing or opening a local issue for.
-- `interesting-with-tweaks`: useful upstream signal, but the upstream fix or
-  framing does not fit this project.
+- `target-candidate`: likely relevant to this fork; worth scoping.
+- `accepted`: worth implementing or opening a local task for.
+- `interesting-with-tweaks`: useful signal, but the original fix or framing does
+  not fit this project as-is.
 - `non-target`: dismissed because it conflicts with current goals.
-- `watch`: incomplete upstream signal; revisit only when new evidence appears.
+- `watch`: incomplete signal; revisit only when new evidence appears.
+- `deferred`: relevant, but intentionally not scheduled now.
 - `implemented`: fixed locally with test or fixture evidence.
+- `partially-implemented`: part of the work has landed; the remainder is tracked
+  in the entry's `next_action`.
 - `superseded`: covered by another local fix or decision.
 
 Use these priority values:
@@ -202,12 +158,12 @@ Use one or more non-target reasons when dismissing an item:
 
 ## Decision Questions
 
-For each reviewed item, answer these in the ledger note:
+For each item, answer these in the ledger note:
 
 1. Is this about generated `.pptx` correctness, current package behavior, or real
    feature coverage?
-2. Does it still apply after the TS-first, ESM-only package changes?
-3. Is the upstream proposed fix tied to legacy architecture?
+2. Does it still apply under the TS-first, ESM-only package shape?
+3. Is any proposed fix tied to legacy architecture this fork dropped?
 4. Can this checkout reproduce the behavior?
 5. Would a local fix live in `src/` with focused tests in `test/`?
 6. Does the item require OOXML schema lookup, Microsoft implementation docs, the
@@ -234,7 +190,7 @@ fixture in `test/schema.test.js` and `pnpm run test:schema` when practical.
 Reopen a `non-target` or `superseded` item only when one of these changes:
 
 - the documented project target changes;
-- upstream adds a reproduction that applies to this checkout;
+- a reproduction that applies to this checkout appears;
 - a local bug proves the same root cause;
 - PowerPoint or Open XML SDK behavior shows that the previous dismissal was too
   narrow.
@@ -245,40 +201,36 @@ Update `last_reviewed`, `status`, and `current_project_notes` when reopening.
 
 When a ledger item moves to `accepted`, create a local implementation task with:
 
-- upstream source URL;
+- the source reference;
 - local reproduction steps;
 - expected generated package or XML behavior;
 - relevant `src/` and `test/` files;
 - OOXML and Microsoft references, if applicable;
 - verification commands to run.
 
-Keep the fix local to the current package target. If the upstream PR includes a
-useful idea but also reintroduces non-target package behavior, mark the signal
-`interesting-with-tweaks` and implement only the applicable behavior.
+Keep the fix local to the current package target.
 
-## Closing Implemented Signals
+## Closing Implemented Items
 
-After fixing an upstream signal, update [backlog.yml](backlog.yml)
-in the same work session. Do not leave the entry at `accepted`,
-`target-candidate`, or `needs-repro` after the local fix has landed.
+After fixing an item, update [backlog.yml](backlog.yml) in the same work session.
+Do not leave the entry at `accepted`, `target-candidate`, or `needs-repro` after
+the local fix has landed.
 
-For each fixed upstream issue or PR:
+For each fixed item:
 
 - set `status` to `implemented`;
 - update `current_project_notes` with the local commit or fix summary;
 - add the source and test files to `evidence.local_files`;
 - set `schema_fixture` and `validator_result` when a schema fixture was added;
 - add relevant OOXML or Microsoft references used for the fix;
-- set `next_action` to `none`.
-
-If one source fix closes both a PR and its linked issue, update both ledger
-entries so future reviews do not reopen already-fixed work.
+- set `next_action` to `none`;
+- delete any downstream `stopgap` the entry referenced.
 
 Validate the ledger before finishing:
 
 ```bash
 pnpm run backlog -- validate
-pnpm run backlog -- show upstream-issue-1234
+pnpm run backlog -- show <id>
 ```
 
 ## Downstream Needs (downstream)
@@ -287,10 +239,10 @@ downstream is a consumer of this package, not part of its source. When a
 downstream task exposes a generic PPTX gap that belongs here — an OOXML
 serialization fix, an API/typing gap, a repeated layout primitive, media/SVG
 handling, post-processing that patches generated XML — record it as a
-`downstream-need` instead of leaving a one-off workaround undocumented.
+`downstream-need` instead of leaving a one-off workaround undocumented. These are
+now the main source of new backlog work.
 
-Unlike upstream signals (metadata-first: do not copy full issue/PR bodies), a
-downstream need is something we already believe is valuable, so the full design
+A downstream need is something we already believe is valuable, so the full design
 rationale and any long-form analysis are welcome in `current_project_notes`.
 
 Add one with the ledger CLI, then write the rationale into the file:
@@ -310,8 +262,7 @@ downstream file carrying the temporary workaround, so the loop is closeable:
 when the fix lands here, flip `status` to `implemented` and delete the stopgap
 downstream.
 
-`id` uses an `sf-<slug>` prefix (no trailing `-N`, which is reserved for the
-github number cross-check). `backlog:check:upstream` ignores these entries.
+`id` uses an `sf-<slug>` prefix.
 
 ## Promotion Checklist (before moving a candidate into the fork)
 

@@ -84,8 +84,6 @@
 		"backlog": "node scripts/backlog-ledger.mjs",
 		"backlog:list": "node scripts/backlog-ledger.mjs list",
 		"backlog:validate": "node scripts/backlog-ledger.mjs validate",
-		"backlog:check:upstream": "node scripts/backlog-check-upstream.mjs",
-		"backlog:check:upstream:json": "node scripts/backlog-check-upstream.mjs --json",
 		"test:tools": "vitest run test/backlog-ledger.test.mjs",
 		"prepack": "pnpm run build",
 		"check-validator": "node tools/ooxml-validator/check-updates.js",
