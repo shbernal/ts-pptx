@@ -3439,28 +3439,39 @@ items:
     source: "gitbrent/PptxGenJS#1319"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: needs-repro
+    last_reviewed: 2026-06-19
+    status: non-target
     priority: p2
     target_area:
       - table-ooxml
-    applies_to_current_project: unknown
+    applies_to_current_project: no
     non_target_reasons:
-      - insufficient-evidence
+      - not-reproducible-in-current-project
     summary: Auto-paged table content overflowed on newly created slides.
     current_project_notes: >
-      The report is plausibly related to existing autoPage/table overflow work,
-      but it needs a minimal current-repo fixture before deciding whether this
-      is a duplicate of rowspan/header handling or a separate pagination bug.
+      Not reproducible in the current fork. Built the reporter's exact option
+      shape as a minimal repro (no explicit `h`, autoPageRepeatHeader,
+      newSlideStartY; 30 rows on a 16:9 layout): autoPage recomputes the usable
+      table height via calcSlideTabH for every generated slide, so continuation
+      slides honor the same row budget — rows-per-slide came back [10,11,11,5],
+      with the filled middle slides stable at 11 rows each (no progressive
+      overflow). The original symptom was almost certainly fixed by the later
+      auto-pager rework (mid-slide height #1264, rowspan #1231, repeat-header
+      handling). Locked by regression suite table-autopage-continuation-overflow.
     evidence:
       kinds:
         - local-source-inspection
-      local_files: []
+        - minimal-repro
+        - extracted-xml
+        - regression-test
+      local_files:
+        - src/gen-tables.ts:220
+        - test/regression/table-autopage-continuation-overflow.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: create-autopage-overflow-current-repro
+    next_action: none
 
   - id: upstream-issue-1318
     source: "gitbrent/PptxGenJS#1318"
@@ -5607,35 +5618,40 @@ items:
     type: issue
     first_seen: 2026-06-07
     last_reviewed: 2026-06-19
-    status: needs-repro
+    status: non-target
     priority: p2
     target_area:
       - chart-ooxml
       - powerpoint-repair
-    applies_to_current_project: unknown
-    non_target_reasons: []
+    applies_to_current_project: no
+    non_target_reasons:
+      - not-reproducible-in-current-project
     summary: Reported problems rendering stacked-bar and bar-line charts from external gists.
     current_project_notes: >
-      The issue is vague but sits near other combo-chart repair reports. Treat it
-      as a repro pointer only; if the linked examples are still available, reduce
-      them into the same combo-chart validation lane as the more specific issue
-      1233.
-      Reviewed again 2026-06-19: no minimal repro to act on — the report only points
-      at external gists with no described OOXML defect. The combo-chart repair lane it
-      gestures at is already covered by the more specific, implemented issues 1355 and
-      1357. Held at needs-repro; reopen only if a linked example reduces to a concrete
-      stacked-bar / bar-line repair case not already covered.
+      The issue is vague but sits near other combo-chart repair reports. The report
+      only points at external gists with no described OOXML defect, and the combo-chart
+      repair lane it gestures at is already covered by the more specific, implemented
+      issues 1355 and 1357.
+      Reviewed 2026-06-19: built the two shapes it names — a stacked bar chart and a
+      bar+line combo (stacked bars on the primary axis, a line on a secondary
+      cat/val axis) — and ran the OOXML validator on the generated package: zero
+      validation errors (validator returned []). Both chart shapes emit valid OOXML
+      that opens clean, so there is no reproducible repair/render defect on the
+      generator side. Closed as not-reproducible; reopen only if a linked example
+      reduces to a concrete stacked-bar / bar-line repair case not already covered.
     evidence:
       kinds:
         - local-source-inspection
+        - generated-pptx
+        - validator-result
       local_files:
         - src/gen-charts.ts:748
         - src/gen-charts.ts:910
       schema_fixture: null
-      validator_result: null
+      validator_result: clean-stacked-bar-and-bar-line-combo
       powerpoint_result: null
       spec_refs: []
-    next_action: try-reducing-linked-combo-chart-gists-if-still-accessible
+    next_action: none
 
   - id: upstream-issue-1219
     source: "gitbrent/PptxGenJS#1219"
