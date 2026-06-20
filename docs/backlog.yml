@@ -3021,3 +3021,41 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: Benchmark a large deck, then move src/zip.ts ZipWriter.toBytes to fflate async zip() and readZip to async unzip() behind the existing seam.
+  - id: dn-readmodel-placeholder-font
+    source: downstream:scripts/slide-library/lib/slide-style.ts
+    type: downstream-need
+    first_seen: 2026-06-20
+    last_reviewed: 2026-06-21
+    status: implemented
+    priority: p3
+    target_area:
+      - missing-pptx-feature
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: "Read-model font follow-up: resolve placeholder-inherited run size + typeface (the size/face sibling of the colour resolver)"
+    current_project_notes: |-
+      Sibling of dn-readmodel-style-followups, which resolved placeholder-inherited run COLOUR. The read model resolved a placeholder run's inherited colour but not its inherited SIZE or TYPEFACE: a placeholder <a:rPr> with no sz= and no <a:latin> takes its point size and face from the layout placeholder -> master p:txStyles (titleStyle/bodyStyle) -> theme fontScheme major/minor chain.
+
+      DONE (2026-06-21): Run.resolvedSizePt and Run.resolvedFontFace now resolve through the placeholder chain exactly the way Run.resolvedColor does -- paragraph a:defRPr -> slide a:lstStyle -> layout/master placeholder a:lstStyle -> master p:txStyles -- with the run's own @sz / a:latin winning when set. resolvedFontFace additionally resolves a +mj-*/+mn-* major/minor theme-font token (on the run itself or reached through the chain) to a literal face via the theme fontScheme. Implementation: new resolveThemeFont + placeholderInheritedDefRPrs + exported lstStyleLevelDefRPr in src/read/oxml/theme.ts (the size/face flatten pass placeholderInheritedRunProps was refactored onto the shared defRPr-tier helper); resolveInheritedRunSize / resolveInheritedRunFontFace + fontScheme added to the slide context in src/read/api/theme-context.ts; the getters + memoized per-paragraph thunks in src/read/api/text.ts (themeColors widened to the full FlattenContext, also threaded through table cells in table.ts). Pinned against multi-theme.pptx slide 2 in test/read/style-accessors.test.js (inherited-title -> 42pt / Century Gothic via master titleStyle sz=4200 + +mj-lt; explicit-body -> 20pt / Century Gothic via bodyStyle; non-placeholder text-accent5-run -> own 24pt, no inherited face).
+
+      Consumers can now read the true placeholder size/face instead of eyeballing it; the downstream harvester can emit Run.resolvedSizePt/resolvedFontFace into style.json and replicas no longer hand-guess (the slide-008/a.ts guess is the old stopgap, now obsolete upstream).
+
+      Not covered here: even with the correct face resolved, a condensed display cut (e.g. Aptos Display) is font-substituted by LibreOffice at render with different metrics, shifting wrap points. That is a renderer/installed-font issue, documented in replication-lab/FRONTIER.md, not fixable in the read model.
+    evidence:
+      kinds:
+        - local-source-inspection
+        - regression-test
+        - powerpoint-authored-comparison
+      local_files:
+        - src/read/oxml/theme.ts
+        - src/read/api/theme-context.ts
+        - src/read/api/text.ts
+        - src/read/api/table.ts
+        - src/read/api/slide.ts
+        - test/read/style-accessors.test.js
+        - test/read/fixtures/multi-theme.pptx
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: test/read/fixtures/multi-theme.pptx (PowerPoint-authored slide 2) opened clean; reused from the colour leg
+      spec_refs: []
+    next_action: none

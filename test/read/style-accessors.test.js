@@ -325,6 +325,39 @@ describe('Placeholder-inherited run colour — real PowerPoint XML (multi-theme.
 	})
 })
 
+describe('Placeholder-inherited run size + typeface — real PowerPoint XML (multi-theme.pptx slide 2)', () => {
+	// The same slide-2 placeholders the colour leg uses, now read for SIZE/FACE.
+	// inherited-title sets no own sz/latin, so both resolve through the master
+	// titleStyle lvl1 (sz=4200 → 42pt; latin +mj-lt → theme major font Century Gothic).
+	// explicit-body sets an explicit colour but no sz/latin, so size/face still
+	// resolve through the body chain (master bodyStyle lvl1: sz=2000 → 20pt, +mj-lt).
+	test('a placeholder title run with no own size/face resolves both through the master text style', async () => {
+		const shape = shapeNamed((await open('multi-theme')).slides[1], 'inherited-title')
+		const run = shape.textFrame.paragraphs[0].runs[0]
+		assertEqual(run.fontSizePt, null, 'the run sets no own @sz')
+		assertEqual(run.fontName, null, 'the run sets no own a:latin')
+		assertEqual(run.resolvedSizePt, 42, 'inherits titleStyle sz=4200 from the master')
+		assertEqual(run.resolvedFontFace, 'Century Gothic', '+mj-lt resolves through the theme major font')
+	})
+
+	test('a colourful body placeholder run still resolves its inherited size/face', async () => {
+		const shape = shapeNamed((await open('multi-theme')).slides[1], 'explicit-body')
+		const run = shape.textFrame.paragraphs[0].runs[0]
+		assertEqual(run.fontSizePt, null, 'the run sets no own @sz')
+		assertEqual(run.resolvedSizePt, 20, 'inherits bodyStyle lvl1 sz=2000 from the master')
+		assertEqual(run.resolvedFontFace, 'Century Gothic', 'inherits the body +mj-lt face through the theme')
+	})
+
+	test("a non-placeholder run's own size wins and reports no inherited face", async () => {
+		// text-accent5-run is a plain text box (no placeholder): own sz=2400 governs,
+		// and with no own a:latin and no placeholder chain there is no face to resolve.
+		const shape = shapeNamed((await open('theme-colors')).slides[0], 'text-accent5-run')
+		const run = shape.textFrame.paragraphs[0].runs[0]
+		assertEqual(run.resolvedSizePt, 24, "the run's own sz=2400 is reported as 24pt")
+		assertEqual(run.resolvedFontFace, null, 'a non-placeholder run inherits no placeholder typeface')
+	})
+})
+
 describe('Picture recolour reads (recolor)', () => {
 	test('reads a real PowerPoint a:duotone, preserving the prstClr/srgbClr stop split (image.pptx)', async () => {
 		// image.pptx slide2 carries an icon recoloured with the duotone tint trick:

@@ -93,13 +93,15 @@ export class Slide {
 	#themeColors?: FlattenContext
 
 	/**
-	 * The slide's resolved theme colour context (`clrMap` + `clrScheme` + the theme
-	 * `fmtScheme`), walked once from slide → layout → master → theme and cached on
-	 * this proxy. Backs the read-model colour getters ({@link Shape.resolvedFill},
-	 * `Run.resolvedColor`) so a `schemeClr` token — including one delivered through a
-	 * shape's `p:style` `fillRef`/`lnRef` — resolves to a literal hex. The maps are
-	 * empty when the theme chain is incomplete, in which case scheme tokens simply
-	 * stay unresolved.
+	 * The slide's resolved theme context (`clrMap` + `clrScheme` + the theme
+	 * `fmtScheme` + `fontScheme`, plus the layout/master roots), walked once from
+	 * slide → layout → master → theme and cached on this proxy. Backs the read-model
+	 * resolved getters ({@link Shape.resolvedFill}, `Run.resolvedColor`,
+	 * `Run.resolvedSizePt`, `Run.resolvedFontFace`) so a `schemeClr` token — including
+	 * one delivered through a shape's `p:style` `fillRef`/`lnRef` — resolves to a
+	 * literal hex, and a placeholder run's inherited size/typeface (a `+mj-*`/`+mn-*`
+	 * font token included) resolves to a literal value. The maps/roots are empty when
+	 * the theme chain is incomplete, in which case tokens simply stay unresolved.
 	 */
 	themeContext(): FlattenContext {
 		return (this.#themeColors ??= resolveSlideColorContext(this.presentation.opc, this.partName))

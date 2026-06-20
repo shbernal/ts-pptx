@@ -88,6 +88,13 @@ export interface FlattenContext extends ColorContext {
 	 * never mutated.
 	 */
 	masterRoot?: Element | null
+	/**
+	 * The theme's `a:fontScheme`, for resolving a `+mj-*`/`+mn-*` major/minor font
+	 * token (the placeholder-inherited typeface chain bottoms out in one) to a
+	 * literal face name via {@link resolveThemeFont}. `null`/absent leaves such a
+	 * token unresolved.
+	 */
+	fontScheme?: Element | null
 }
 
 /** Parse an `a:clrScheme` into slot → 6-hex RGB, reading `srgbClr`/`sysClr`. */
@@ -416,7 +423,7 @@ function placeholderLstStyle(sp: Element): Element | null {
  * `p:txStyles` style): the level-specific `a:lvlNpPr/a:defRPr`, else the
  * `a:defPPr/a:defRPr` fallback. The shared root for colour and size resolution.
  */
-function lstStyleLevelDefRPr(listStyle: Element | null, level: number): Element | null {
+export function lstStyleLevelDefRPr(listStyle: Element | null, level: number): Element | null {
 	if (!listStyle) return null
 	const lvl = firstChild(listStyle, `a:lvl${level + 1}pPr`) ?? firstChild(listStyle, 'a:defPPr')
 	return lvl ? firstChild(lvl, 'a:defRPr') : null
@@ -456,6 +463,50 @@ export function placeholderInheritedFill(type: string | null, idx: string, level
 		if (colorEl && resolveColor(colorEl, ctx)) return colorEl
 	}
 	return null
+}
+
+/**
+ * The level `a:defRPr` elements a placeholder inherits from the source style
+ * chain, in resolution order: the layout placeholder's `a:lstStyle`, then the
+ * master placeholder's, then the master `p:txStyles` category style. Tiers with
+ * no `a:defRPr` for `level` are dropped. The shared root for inherited run *size*
+ * and *typeface* resolution (the size/face sibling of {@link placeholderInheritedFill}),
+ * read directly by the flatten path and the read-model font getters.
+ */
+export function placeholderInheritedDefRPrs(type: string | null, idx: string, level: number, ctx: FlattenContext): Element[] {
+	const tiers: (Element | null)[] = []
+	if (ctx.layoutRoot) {
+		const layoutPh = findPlaceholder(ctx.layoutRoot, type, idx)
+		tiers.push(layoutPh && lstStyleLevelDefRPr(placeholderLstStyle(layoutPh), level))
+	}
+	if (ctx.masterRoot) {
+		const masterPh = findPlaceholder(ctx.masterRoot, type, idx)
+		tiers.push(masterPh && lstStyleLevelDefRPr(placeholderLstStyle(masterPh), level))
+		const txStyles = firstChild(ctx.masterRoot, 'p:txStyles')
+		const styleEl = txStyles && firstChild(txStyles, TX_STYLE_NAME[phCategory(type)])
+		tiers.push(styleEl && lstStyleLevelDefRPr(styleEl, level))
+	}
+	return tiers.filter((t): t is Element => t !== null)
+}
+
+/**
+ * Resolve a `+mj-*`/`+mn-*` major/minor font token against a theme `a:fontScheme`
+ * to a literal typeface name. A non-token `typeface` (an already-literal face) is
+ * returned verbatim. `null` when `typeface` is absent, or when a token cannot be
+ * resolved (no `fontScheme`, or the indexed major/minor script slot is empty).
+ * The script suffix selects the scheme child: `lt`→`a:latin`, `ea`→`a:ea`,
+ * `cs`→`a:cs`.
+ */
+export function resolveThemeFont(typeface: string | null, fontScheme: Element | null): string | null {
+	if (!typeface) return null
+	const match = /^\+(mj|mn)-(lt|ea|cs)$/.exec(typeface)
+	if (!match) return typeface
+	if (!fontScheme) return null
+	const font = firstChild(fontScheme, match[1] === 'mj' ? 'a:majorFont' : 'a:minorFont')
+	const childName = match[2] === 'lt' ? 'a:latin' : match[2] === 'ea' ? 'a:ea' : 'a:cs'
+	const child = font && firstChild(font, childName)
+	const resolved = child && attr(child, 'typeface')
+	return resolved || null
 }
 
 /**
@@ -575,24 +626,13 @@ function resolvePlaceholderRunSizes(slideRoot: Element, ctx: FlattenContext): vo
  * `null` when no tier defines any of them.
  */
 function placeholderInheritedRunProps(type: string | null, idx: string, level: number, ctx: FlattenContext): RunProps | null {
-	const tiers: (Element | null)[] = []
-	if (ctx.layoutRoot) {
-		const layoutPh = findPlaceholder(ctx.layoutRoot, type, idx)
-		tiers.push(layoutPh && lstStyleLevelDefRPr(placeholderLstStyle(layoutPh), level))
-	}
-	if (ctx.masterRoot) {
-		const masterPh = findPlaceholder(ctx.masterRoot, type, idx)
-		tiers.push(masterPh && lstStyleLevelDefRPr(placeholderLstStyle(masterPh), level))
-		const txStyles = firstChild(ctx.masterRoot, 'p:txStyles')
-		const styleEl = txStyles && firstChild(txStyles, TX_STYLE_NAME[phCategory(type)])
-		tiers.push(styleEl && lstStyleLevelDefRPr(styleEl, level))
-	}
+	const tiers = placeholderInheritedDefRPrs(type, idx, level, ctx)
 	const props = {} as RunProps
 	let any = false
 	for (const name of RUN_PROP_NAMES) {
 		let value: string | null = null
 		for (const tier of tiers) {
-			value = tier && attr(tier, name)
+			value = attr(tier, name)
 			if (value != null) break
 		}
 		props[name] = value

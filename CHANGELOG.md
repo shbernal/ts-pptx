@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`pptxgenjs/read` resolves placeholder-inherited run size + typeface
+  (`Run.resolvedSizePt`/`Run.resolvedFontFace`):** the size/face sibling of the
+  existing `Run.resolvedColor`. When a placeholder run sets no own `@sz`/`a:latin`,
+  these getters walk the same inheritance chain the colour resolver does —
+  paragraph `a:defRPr` → slide `a:lstStyle` → layout/master placeholder `a:lstStyle`
+  → master `p:txStyles` — and return the inherited value as a literal. `resolvedFontFace`
+  additionally resolves a `+mj-*`/`+mn-*` major/minor theme-font token (whether on the
+  run itself or reached through the chain) to its concrete face via the theme
+  `fontScheme`. The run's own `@sz`/`a:latin` still wins when set (`resolvedFontFace`
+  resolves a token there too). Previously a consumer transcribing a placeholder
+  title/eyebrow had to eyeball the point size and assume the house typeface, since
+  neither was emitted by the read model. `Slide.themeContext()` now also carries the
+  theme `fontScheme`. Pinned against `multi-theme.pptx` slide 2 (inherited-title → 42pt
+  / Century Gothic via titleStyle + `+mj-lt`; explicit-body → 20pt / Century Gothic).
 - **Table-cell style reads (`TableCell.resolvedFill`/`fillSchemeColor`/`verticalText`/`anchor`/`marginsEmu`):**
   the `pptxgenjs/read` model now profiles table cells beyond their text. `resolvedFill`
   resolves the cell's `a:tcPr/a:solidFill` against the slide theme to a literal hex

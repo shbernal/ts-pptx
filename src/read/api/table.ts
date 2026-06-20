@@ -18,7 +18,7 @@ import {
 	setAttr,
 	type Element,
 } from '../oxml/dom.js'
-import type { ColorContext } from '../oxml/theme.js'
+import type { FlattenContext } from '../oxml/theme.js'
 import { resolveSolidFillColor, type ResolvedColor } from './theme-context.js'
 import { TextFrame } from './text.js'
 
@@ -28,7 +28,7 @@ export class Table {
 		private readonly tbl: Element,
 		private readonly part: Part,
 		/** The owning slide's theme colour context, threaded to each cell's text for `Run.resolvedColor`. */
-		private readonly themeColors?: ColorContext
+		private readonly themeColors?: FlattenContext
 	) {}
 
 	/** The table's rows (`a:tr`) in document (top-to-bottom) order. */
@@ -90,7 +90,7 @@ export class TableRow {
 		private readonly tr: Element,
 		private readonly part: Part,
 		/** The owning slide's theme colour context, threaded to each {@link TableCell}. */
-		private readonly themeColors?: ColorContext
+		private readonly themeColors?: FlattenContext
 	) {}
 
 	/** The row's cells (`a:tc`) in left-to-right order. */
@@ -115,7 +115,7 @@ export class TableCell {
 		private readonly tc: Element,
 		private readonly part: Part,
 		/** The owning slide's theme colour context, threaded to the cell's text for `Run.resolvedColor`. */
-		private readonly themeColors?: ColorContext
+		private readonly themeColors?: FlattenContext
 	) {}
 
 	/** The cell's text frame (`a:txBody`); `null` only if the cell has none (non-conformant). */

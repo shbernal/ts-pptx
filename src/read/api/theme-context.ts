@@ -10,8 +10,8 @@
  * identically whether it is read or baked.
  */
 import { applyColorTransforms } from '../oxml/color-transform.js'
-import { ELEMENT_NODE, attr, firstChild, type Element } from '../oxml/dom.js'
-import { lstStyleLevelFill, parseClrMap, parseClrScheme, placeholderInheritedFill, resolveColor, styleRefFill, styleRefLine, type ColorContext, type FlattenContext } from '../oxml/theme.js'
+import { ELEMENT_NODE, attr, firstChild, intValue, type Element } from '../oxml/dom.js'
+import { lstStyleLevelDefRPr, lstStyleLevelFill, parseClrMap, parseClrScheme, placeholderInheritedDefRPrs, placeholderInheritedFill, resolveColor, resolveThemeFont, styleRefFill, styleRefLine, type ColorContext, type FlattenContext } from '../oxml/theme.js'
 import type { OpcPackage } from '../opc/package.js'
 
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
@@ -88,8 +88,11 @@ export function resolveSlideColorContext(opc: OpcPackage, slidePartName: string)
 		clrMap,
 		clrScheme,
 		fmtScheme: themeElements ? firstChild(themeElements, 'a:fmtScheme') : null,
-		// layout/master roots let the read-model run-colour getter resolve a
-		// placeholder-inherited colour the same way the flatten path does.
+		// The fontScheme lets the run font getters resolve a +mj-*/+mn-* token (the
+		// placeholder-inherited typeface chain bottoms out in one) to a literal face.
+		fontScheme: themeElements ? firstChild(themeElements, 'a:fontScheme') : null,
+		// layout/master roots let the read-model run-colour/size/face getters resolve
+		// a placeholder-inherited value the same way the flatten path does.
 		layoutRoot,
 		masterRoot,
 	}
@@ -118,6 +121,57 @@ export function resolveInheritedRunColor(ph: PlaceholderRef, level: number, pPr:
 	if (slideFill) return resolveColorElement(firstChildElement(slideFill), ctx)
 	const colorEl = placeholderInheritedFill(ph.type, ph.idx, level, ctx)
 	return colorEl ? resolveColorElement(colorEl, ctx) : null
+}
+
+/**
+ * The `a:defRPr` tiers a placeholder run resolves an inherited character property
+ * against, in priority order: the paragraph's `a:pPr/a:defRPr`, then the slide
+ * text body's `a:lstStyle` level `a:defRPr`, then the placeholder's layout →
+ * master → master-`p:txStyles` chain (via {@link placeholderInheritedDefRPrs}).
+ * The first tier that defines the property wins — each property resolves
+ * independently, mirroring how the colour resolver walks the same chain.
+ */
+function inheritedRunDefRPrs(ph: PlaceholderRef, level: number, pPr: Element | null, slideLstStyle: Element | null, ctx: FlattenContext): Element[] {
+	const tiers: Element[] = []
+	const paraDefRPr = pPr && firstChild(pPr, 'a:defRPr')
+	if (paraDefRPr) tiers.push(paraDefRPr)
+	const slideDefRPr = lstStyleLevelDefRPr(slideLstStyle, level)
+	if (slideDefRPr) tiers.push(slideDefRPr)
+	tiers.push(...placeholderInheritedDefRPrs(ph.type, ph.idx, level, ctx))
+	return tiers
+}
+
+/**
+ * The point size a placeholder run effectively renders when its own `a:rPr` sets
+ * no `@sz`, walking the inheritance the way PowerPoint does (see
+ * {@link inheritedRunDefRPrs}): the first `a:defRPr/@sz` (hundredths of a point)
+ * in the paragraph → slide → layout → master → `p:txStyles` chain, converted to
+ * points. `null` when the run is not in a placeholder or nothing in the chain
+ * defines a size.
+ */
+export function resolveInheritedRunSize(ph: PlaceholderRef, level: number, pPr: Element | null, slideLstStyle: Element | null, ctx: FlattenContext): number | null {
+	for (const defRPr of inheritedRunDefRPrs(ph, level, pPr, slideLstStyle, ctx)) {
+		const sz = intValue(attr(defRPr, 'sz'))
+		if (sz !== null) return sz / 100
+	}
+	return null
+}
+
+/**
+ * The typeface a placeholder run effectively renders when its own `a:rPr` sets no
+ * `a:latin`, walking the same chain as {@link resolveInheritedRunSize}: the first
+ * `a:defRPr/a:latin/@typeface` it finds, then resolving a `+mj-*`/`+mn-*` theme
+ * font token to a literal face name through the theme `fontScheme`. `null` when
+ * the run is not in a placeholder, nothing in the chain names a face, or the token
+ * cannot be resolved.
+ */
+export function resolveInheritedRunFontFace(ph: PlaceholderRef, level: number, pPr: Element | null, slideLstStyle: Element | null, ctx: FlattenContext): string | null {
+	for (const defRPr of inheritedRunDefRPrs(ph, level, pPr, slideLstStyle, ctx)) {
+		const latin = firstChild(defRPr, 'a:latin')
+		const typeface = latin && attr(latin, 'typeface')
+		if (typeface) return resolveThemeFont(typeface, ctx.fontScheme ?? null)
+	}
+	return null
 }
 
 /**

@@ -21,8 +21,8 @@ import {
 	type Element,
 } from '../oxml/dom.js'
 import { normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
-import type { ColorContext, FlattenContext } from '../oxml/theme.js'
-import { resolveInheritedRunColor, resolveSolidFillColor, type PlaceholderRef, type ResolvedColor } from './theme-context.js'
+import { resolveThemeFont, type FlattenContext } from '../oxml/theme.js'
+import { resolveInheritedRunColor, resolveInheritedRunFontFace, resolveInheritedRunSize, resolveSolidFillColor, type PlaceholderRef, type ResolvedColor } from './theme-context.js'
 
 /**
  * What a {@link Run}'s text body needs to resolve a *placeholder-inherited* run
@@ -62,14 +62,27 @@ export class Run {
 	constructor(
 		private readonly element: Element,
 		private readonly part: Part,
-		/** The owning slide's theme colour context, for {@link resolvedColor}; absent when the run was reached without one. */
-		private readonly themeColors?: ColorContext,
+		/** The owning slide's theme context (colour maps + `fontScheme`), for the `resolved*` getters; absent when the run was reached without one. */
+		private readonly themeContext?: FlattenContext,
 		/**
 		 * Resolves the colour this run inherits from its placeholder/list-style chain
 		 * when it sets none of its own (item A). Built by the owning {@link Paragraph}
 		 * for placeholder text; absent for non-placeholder runs. Called lazily.
 		 */
-		private readonly inheritedColor?: () => ResolvedColor | null
+		private readonly inheritedColor?: () => ResolvedColor | null,
+		/**
+		 * Resolves the point size this run inherits from the same chain when it sets no
+		 * own `@sz`. Built by the owning {@link Paragraph} for placeholder text; absent
+		 * for non-placeholder runs. Called lazily.
+		 */
+		private readonly inheritedSize?: () => number | null,
+		/**
+		 * Resolves the typeface this run inherits from the same chain (a `+mj-*`/`+mn-*`
+		 * theme token already resolved to a literal face) when it sets no own `a:latin`.
+		 * Built by the owning {@link Paragraph} for placeholder text; absent otherwise.
+		 * Called lazily.
+		 */
+		private readonly inheritedFace?: () => string | null
 	) {}
 
 	/** The run's text (`a:t`), verbatim — whitespace is not normalized. */
@@ -183,8 +196,36 @@ export class Run {
 	 * transforms (`lumMod`/`shade`/…) applied — for the final rendered colour.
 	 */
 	get resolvedColor(): ResolvedColor | null {
-		if (!this.themeColors) return null
-		return resolveSolidFillColor(this.#rPr(), this.themeColors) ?? this.inheritedColor?.() ?? null
+		if (!this.themeContext) return null
+		return resolveSolidFillColor(this.#rPr(), this.themeContext) ?? this.inheritedColor?.() ?? null
+	}
+
+	/**
+	 * The point size this run effectively renders. It is the run's own `@sz`
+	 * ({@link fontSizePt}) when set; otherwise, for a run inside a placeholder, the
+	 * size it inherits from the placeholder/list-style chain (paragraph `a:defRPr` →
+	 * slide `a:lstStyle` → layout → master placeholder `a:lstStyle` → master
+	 * `p:txStyles`). `null` when the run sets no size and inherits none — the
+	 * resolved counterpart of {@link fontSizePt}, which reports only the run's own value.
+	 */
+	get resolvedSizePt(): number | null {
+		return this.fontSizePt ?? this.inheritedSize?.() ?? null
+	}
+
+	/**
+	 * The typeface this run effectively renders, resolved to a literal face name. It
+	 * is the run's own `a:latin` ({@link fontName}) when set; otherwise, for a run
+	 * inside a placeholder, the face it inherits from the placeholder/list-style
+	 * chain. A `+mj-*`/`+mn-*` major/minor theme-font token — whether on the run
+	 * itself or reached through the chain — is resolved through the theme
+	 * `fontScheme` to its concrete face. `null` when the run names no face and
+	 * inherits none, or a token cannot be resolved — the resolved counterpart of
+	 * {@link fontName}, which reports the raw `@typeface` (possibly a token).
+	 */
+	get resolvedFontFace(): string | null {
+		const own = this.fontName
+		if (own !== null) return resolveThemeFont(own, this.themeContext?.fontScheme ?? null)
+		return this.inheritedFace?.() ?? null
 	}
 
 	/** The underlying `a:r` element, for advanced reads and future mutation. */
@@ -244,11 +285,11 @@ export class Paragraph {
 	constructor(
 		private readonly element: Element,
 		private readonly part: Part,
-		/** The owning slide's theme colour context, threaded to each {@link Run} for `resolvedColor`. */
-		private readonly themeColors?: ColorContext,
+		/** The owning slide's theme context (colour maps + `fontScheme`), threaded to each {@link Run} for the `resolved*` getters. */
+		private readonly themeContext?: FlattenContext,
 		/**
 		 * Placeholder + slide-list-style context for resolving a placeholder-inherited
-		 * run colour (item A); absent for non-placeholder text. The owning
+		 * run colour/size/face; absent for non-placeholder text. The owning
 		 * {@link TextFrame} supplies the placeholder identity and the text body's
 		 * `a:lstStyle`.
 		 */
@@ -258,7 +299,9 @@ export class Paragraph {
 	/** The runs (`a:r`) in document order. Fields (`a:fld`) and breaks are not runs; see `text`. */
 	get runs(): Run[] {
 		const inheritedColor = this.#inheritedColorResolver()
-		return getElements(this.element, 'a:r').map((element) => new Run(element, this.part, this.themeColors, inheritedColor))
+		const inheritedSize = this.#inheritedResolver((ph, level, pPr, slideLst, ctx) => resolveInheritedRunSize(ph, level, pPr, slideLst, ctx))
+		const inheritedFace = this.#inheritedResolver((ph, level, pPr, slideLst, ctx) => resolveInheritedRunFontFace(ph, level, pPr, slideLst, ctx))
+		return getElements(this.element, 'a:r').map((element) => new Run(element, this.part, this.themeContext, inheritedColor, inheritedSize, inheritedFace))
 	}
 
 	/**
@@ -268,12 +311,22 @@ export class Paragraph {
 	 * once per paragraph and only when a colourless run actually asks for it.
 	 */
 	#inheritedColorResolver(): (() => ResolvedColor | null) | undefined {
+		return this.#inheritedResolver((ph, level, pPr, slideLst, ctx) => resolveInheritedRunColor(ph, level, pPr, slideLst, ctx))
+	}
+
+	/**
+	 * Build a memoized per-paragraph thunk for one inherited run property
+	 * (colour/size/face), or `undefined` for non-placeholder paragraphs. All runs in
+	 * a paragraph share its level and `a:pPr`, so each `resolve` runs at most once
+	 * and only when a run actually lacks its own value and asks.
+	 */
+	#inheritedResolver<T>(resolve: (ph: PlaceholderRef, level: number, pPr: Element | null, slideLstStyle: Element | null, ctx: FlattenContext) => T | null): (() => T | null) | undefined {
 		if (!this.inherit) return undefined
 		const { placeholder, slideLstStyle } = this.inherit
 		const pPr = firstChild(this.element, 'a:pPr')
 		const level = this.level
-		let cached: ResolvedColor | null | undefined
-		return () => (cached === undefined ? (cached = resolveInheritedRunColor(placeholder.ph, level, pPr, slideLstStyle, placeholder.flatten)) : cached)
+		let cached: T | null | undefined
+		return () => (cached === undefined ? (cached = resolve(placeholder.ph, level, pPr, slideLstStyle, placeholder.flatten)) : cached)
 	}
 
 	/** Indent level (`a:pPr/@lvl`), 0 when unset. */
@@ -378,11 +431,11 @@ export class TextFrame {
 	constructor(
 		private readonly txBody: Element,
 		private readonly part: Part,
-		/** The owning slide's theme colour context, threaded to each {@link Paragraph}/{@link Run} for `resolvedColor`. */
-		private readonly themeColors?: ColorContext,
+		/** The owning slide's theme context (colour maps + `fontScheme`), threaded to each {@link Paragraph}/{@link Run} for the `resolved*` getters. */
+		private readonly themeContext?: FlattenContext,
 		/**
 		 * The placeholder this text body lives in, when any — enables
-		 * placeholder-inherited run colour resolution (item A). Absent for ordinary
+		 * placeholder-inherited run colour/size/face resolution. Absent for ordinary
 		 * text boxes and table cells.
 		 */
 		private readonly placeholder?: PlaceholderTextContext
@@ -393,7 +446,7 @@ export class TextFrame {
 		// The slide text body's own list style is the tier just below the run/paragraph
 		// in the placeholder inheritance chain; resolve it once and share it.
 		const inherit = this.placeholder ? { placeholder: this.placeholder, slideLstStyle: firstChild(this.txBody, 'a:lstStyle') } : undefined
-		return getElements(this.txBody, 'a:p').map((element) => new Paragraph(element, this.part, this.themeColors, inherit))
+		return getElements(this.txBody, 'a:p').map((element) => new Paragraph(element, this.part, this.themeContext, inherit))
 	}
 
 	/** All paragraph text joined by `\n` (mirrors python-pptx `TextFrame.text`). */
