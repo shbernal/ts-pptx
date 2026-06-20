@@ -175,8 +175,8 @@ items:
     source: "gitbrent/PptxGenJS#1447"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: interesting-with-tweaks
+    last_reviewed: 2026-06-20
+    status: deferred
     priority: p2
     target_area:
       - missing-pptx-feature
@@ -234,7 +234,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: evaluate-comments-ooxml-with-current-esm-ts-boundary
+    next_action: revisit-only-if-scheduled-for-build
 
   - id: upstream-pr-1435
     source: "gitbrent/PptxGenJS#1435"
@@ -418,32 +418,6 @@ items:
       spec_refs: []
     next_action: reconsider-if-repro-shows-generated-overflow-defect
 
-  - id: upstream-issue-1450
-    source: "gitbrent/PptxGenJS#1450"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: non-target
-    priority: none
-    target_area:
-      - missing-pptx-feature
-    applies_to_current_project: no
-    non_target_reasons:
-      - existing-pptx-import
-    summary: Requests loading an existing presentation and replacing existing content.
-    current_project_notes: >
-      This is an import/editing surface, not emitted-OOXML generation behavior.
-      Keep outside the current fork target unless a generated package defect is
-      identified.
-    evidence:
-      kinds: []
-      local_files: []
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
   - id: upstream-issue-1423
     source: "gitbrent/PptxGenJS#1423"
     type: issue
@@ -478,72 +452,6 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: none
-
-  - id: upstream-issue-1419
-    source: "gitbrent/PptxGenJS#1419"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: non-target
-    priority: none
-    target_area:
-      - browser-modern-esm
-      - package-boundary
-    applies_to_current_project: no
-    non_target_reasons:
-      - legacy-dist-artifact
-      - iife-global
-    summary: Angular/NX microfrontend build fails on upstream v4 node-prefixed imports and old dist bundle path.
-    current_project_notes: >
-      Current fork is ESM-only with conditional browser/node/standalone exports
-      and intentionally does not preserve the old dist bundle or IIFE global
-      contract.
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files:
-        - package.json:12
-        - package.json:17
-        - package.json:33
-        - package.json:38
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
-  - id: upstream-issue-1410
-    source: "gitbrent/PptxGenJS#1410"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-19
-    status: needs-repro
-    priority: p3
-    target_area:
-      - image-svg-media
-    applies_to_current_project: unknown
-    non_target_reasons: []
-    summary: Reports unsatisfactory SVG gradient output with screenshots only.
-    current_project_notes: >
-      Current SVG handling embeds the SVG plus a PNG preview, but the report does
-      not include source SVG, code, target app, or whether the defect is in SVG
-      embedding or preview rasterization.
-      Reviewed again 2026-06-19: still not actionable without the reporter's source
-      SVG and target viewer — the screenshot alone cannot separate an SVG-embedding
-      defect from preview-rasterization fidelity, and there is no PptxGenJS-side
-      construct to fixture. Held at needs-repro pending reporter-supplied source SVG
-      (not a PowerPoint-authored read fixture).
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files:
-        - src/gen-xml.ts:589
-        - src/gen-media.ts:48
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: request-source-svg-and-target-viewer
 
   - id: upstream-issue-1402
     source: "gitbrent/PptxGenJS#1402"
@@ -584,8 +492,8 @@ items:
     source: "gitbrent/PptxGenJS#1431"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: interesting-with-tweaks
+    last_reviewed: 2026-06-20
+    status: deferred
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -596,10 +504,18 @@ items:
     summary: Large animation engine for entrance, emphasis, exit, and motion-path animations.
     current_project_notes: |
       Animation OOXML is a broad new feature, not a repair signal. The PR touches
-      generated bundles and legacy typings; any current work should start with a
-      minimal timing/animation part model and PowerPoint-authored comparison. Take
-      the OOXML intent and re-implement against the fork's ESM/TS boundary, not the
-      upstream engine wholesale.
+      generated bundles and legacy typings; take the OOXML intent and re-implement
+      against the fork's ESM/TS boundary, not the upstream engine wholesale.
+
+      INTEGRATION CONSTRAINT (new since 2026-06-16, issue-1434). The fork now ALREADY
+      emits a slide-level <p:timing> tree for looping media — slideTimingToXml() in
+      src/gen-xml.ts builds <p:timing><p:tnLst><p:par><p:cTn nodeType="tmRoot">… with
+      per-media <p:audio>/<p:video> nodes, covered by the "media loop and loopCount"
+      schema fixture in test/schema.test.js. A slide has at most ONE <p:timing>, so an
+      animation engine cannot emit its own competing <p:timing>: it must EXTEND the
+      existing tmRoot childTnLst (and add <p:bldLst>) alongside any looping-media nodes,
+      not replace the helper. Start the animation model by generalizing slideTimingToXml
+      into a shared timing-tree builder rather than greenfielding a parallel part model.
 
       ON STAND-BY — do not build until scheduled. Fixture strategy (folded in from
       the retired CREATE_FIXTURES_PLAN_GENERATION.md): this is a write/serialization
@@ -632,44 +548,13 @@ items:
       kinds:
         - local-source-inspection
       local_files:
-        - src/core-interfaces.ts:1792
-        - src/gen-xml.ts:400
+        - src/gen-xml.ts:2176
+        - test/schema.test.js:2242
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: keep-as-low-priority-animation-research-signal
-
-  - id: upstream-pr-1308
-    source: "gitbrent/PptxGenJS#1308"
-    type: pull-request
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: non-target
-    priority: none
-    target_area:
-      - typescript-api
-      - package-boundary
-    applies_to_current_project: no
-    non_target_reasons:
-      - legacy-dist-artifact
-      - insufficient-evidence
-    summary: Empty-body PR updating legacy types/index.d.ts.
-    current_project_notes: >
-      Current fork generates dist declarations from TypeScript source and does
-      not track handwritten legacy types/index.d.ts changes without a concrete
-      API defect.
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files:
-        - package.json:19
-        - package.json:50
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
+    next_action: revisit-only-if-scheduled-for-build
 
   - id: upstream-issue-1360
     source: "gitbrent/PptxGenJS#1360"
@@ -707,14 +592,13 @@ items:
     source: "gitbrent/PptxGenJS#1319"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-19
-    status: non-target
+    last_reviewed: 2026-06-20
+    status: superseded
     priority: p2
     target_area:
       - table-ooxml
-    applies_to_current_project: no
-    non_target_reasons:
-      - not-reproducible-in-current-project
+    applies_to_current_project: yes
+    non_target_reasons: []
     summary: Auto-paged table content overflowed on newly created slides.
     current_project_notes: >
       Not reproducible in the current fork. Built the reporter's exact option
@@ -726,6 +610,9 @@ items:
       overflow). The original symptom was almost certainly fixed by the later
       auto-pager rework (mid-slide height #1264, rowspan #1231, repeat-header
       handling). Locked by regression suite table-autopage-continuation-overflow.
+      Reclassified 2026-06-20: non-target → superseded. This records a fork fix
+      (auto-pager rework #1264/#1231) locked by a named regression suite, not a
+      dismissal; it was previously parked under non-target/not-reproducible.
     evidence:
       kinds:
         - local-source-inspection
@@ -745,14 +632,13 @@ items:
     source: "gitbrent/PptxGenJS#1318"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-18
-    status: non-target
+    last_reviewed: 2026-06-20
+    status: superseded
     priority: p2
     target_area:
       - table-ooxml
-    non_target_reasons:
-      - not-reproducible-in-current-project
-    applies_to_current_project: no
+    non_target_reasons: []
+    applies_to_current_project: yes
     summary: Top and left table cell borders were not displayed for non-first rows and columns.
     current_project_notes: >
       Not reproducible in the current fork. With a uniform 4-sided border, every
@@ -760,6 +646,9 @@ items:
       lnR, lnT, lnB. Verified by generated-package extraction; locked by regression
       suite table-span-border-structure. (The historical symptom is the same family
       as #680, whose merged-cell border-ownership fix already landed.)
+      Reclassified 2026-06-20: non-target → superseded. Covered by the #680
+      merged-cell border-ownership fix and locked by table-span-border-structure;
+      this is a fork fix, not a dismissal.
     evidence:
       kinds:
         - local-source-inspection
@@ -770,37 +659,6 @@ items:
         - src/gen-xml.ts:327
         - src/gen-xml.ts:672
         - test/regression/table-span-border-structure.test.js
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
-  - id: upstream-issue-1316
-    source: "gitbrent/PptxGenJS#1316"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: non-target
-    priority: none
-    target_area:
-      - browser-modern-esm
-      - package-boundary
-    applies_to_current_project: no
-    non_target_reasons:
-      - unsupported-runtime
-      - insufficient-evidence
-    summary: Qiankun Vue 2 sub-application export did not save and produced no visible errors.
-    current_project_notes: >
-      This is an old framework/runtime integration report without a package or
-      OOXML repro. Current fork intentionally targets modern ESM/TS usage and no
-      longer preserves legacy browser distribution contracts.
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files:
-        - docs/runtime-and-package-support.md:1
-        - package.json:19
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
@@ -959,79 +817,17 @@ items:
       spec_refs: []
     next_action: none
 
-  - id: upstream-issue-1307
-    source: "gitbrent/PptxGenJS#1307"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: non-target
-    priority: none
-    target_area:
-      - package-boundary
-      - browser-modern-esm
-    applies_to_current_project: no
-    non_target_reasons:
-      - unsupported-runtime
-    summary: React Native writeFile failed because Blob output is unsupported by that platform.
-    current_project_notes: >
-      Current supported runtime surface is modern Node and modern ESM/browser
-      apps. React Native is not listed as a maintained runtime adapter, and the
-      browser adapter still writes through Blob/object URLs.
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files:
-        - docs/runtime-and-package-support.md:25
-        - docs/runtime-and-package-support.md:30
-        - src/runtime/browser.ts:61
-        - src/pptxgen.ts:643
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
-  - id: upstream-issue-1296
-    source: "gitbrent/PptxGenJS#1296"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: non-target
-    priority: none
-    target_area:
-      - missing-pptx-feature
-    applies_to_current_project: no
-    non_target_reasons:
-      - insufficient-evidence
-    summary: User asked whether different slides can have different layout widths.
-    current_project_notes: >
-      Current PPTX generation writes one presentation-level slide size, matching
-      the standard presentation package model. There is no evidence here of a
-      PowerPoint-supported per-slide page-size feature to add.
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files:
-        - src/gen-xml.ts:1848
-        - src/core-interfaces.ts:1882
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
   - id: upstream-issue-1290
     source: "gitbrent/PptxGenJS#1290"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-18
-    status: non-target
+    last_reviewed: 2026-06-20
+    status: superseded
     priority: p2
     target_area:
       - table-ooxml
-    applies_to_current_project: no
-    non_target_reasons:
-      - not-reproducible-in-current-project
+    applies_to_current_project: yes
+    non_target_reasons: []
     summary: Table colspan greater than one produced extra empty cells or columns.
     current_project_notes: >
       Not reproducible in the current fork. A colspan:2 over a 3-column table emits
@@ -1040,6 +836,9 @@ items:
       (covered cells are real <a:tc> with hMerge, not extra columns). Verified by
       generated-package extraction and locked by regression suite
       table-span-border-structure.
+      Reclassified 2026-06-20: non-target → superseded. The colspan emission is
+      correct and locked by table-span-border-structure; this records a fork fix,
+      not a dismissal.
     evidence:
       kinds:
         - local-source-inspection
@@ -1050,37 +849,6 @@ items:
         - src/gen-xml.ts:523
         - src/gen-xml.ts:579
         - test/regression/table-span-border-structure.test.js
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
-  - id: upstream-issue-1289
-    source: "gitbrent/PptxGenJS#1289"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: non-target
-    priority: none
-    target_area:
-      - package-boundary
-    applies_to_current_project: no
-    non_target_reasons:
-      - commonjs
-      - unsupported-runtime
-    summary: CommonJS-compiled default import failed with default is not a constructor.
-    current_project_notes: >
-      Current fork is ESM-only, requires Node >=24, and exposes package exports
-      rather than preserving old CommonJS default-constructor interop behavior.
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files:
-        - package.json:12
-        - package.json:14
-        - package.json:17
-        - docs/runtime-and-package-support.md:3
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
@@ -1120,100 +888,6 @@ items:
       spec_refs: []
     next_action: none
 
-  - id: upstream-issue-1278
-    source: "gitbrent/PptxGenJS#1278"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: non-target
-    priority: none
-    target_area:
-      - package-boundary
-    applies_to_current_project: no
-    non_target_reasons:
-      - commonjs
-      - unsupported-runtime
-    summary: Old Angular/Jasmine setup reported pptx.addSlide is not a function.
-    current_project_notes: >
-      The report targets a legacy Angular 9/test bundling setup and old package
-      version. Current fork does not maintain CommonJS or legacy browser bundle
-      compatibility as a package target.
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files:
-        - docs/runtime-and-package-support.md:3
-        - docs/runtime-and-package-support.md:25
-        - docs/runtime-and-package-support.md:42
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
-  - id: upstream-issue-1277
-    source: "gitbrent/PptxGenJS#1277"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: non-target
-    priority: none
-    target_area:
-      - missing-pptx-feature
-    applies_to_current_project: no
-    non_target_reasons:
-      - insufficient-evidence
-    summary: Asked whether GPT text can be used to automatically generate PowerPoint templates.
-    current_project_notes: >
-      This is an application-level authoring workflow idea, not a concrete
-      PptxGenJS package, OOXML, or PowerPoint compatibility defect.
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files: []
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
-  - id: upstream-issue-1259
-    source: "gitbrent/PptxGenJS#1259"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-19
-    status: non-target
-    priority: none
-    target_area:
-      - missing-pptx-feature
-      - speaker-notes-masters-layouts
-    applies_to_current_project: no
-    non_target_reasons:
-      - not-reproducible-in-current-project
-    summary: Asked how to vertically align a paragraph or block of text.
-    current_project_notes: >
-      Resolved on inspection (2026-06-19): vertical alignment IS supported, at the
-      level OOXML defines it. Vertical anchoring is a body-level property
-      (CT_TextBodyProperties/@anchor), not a per-paragraph one — there is no
-      per-paragraph vertical-align attribute in DrawingML. The fork already maps
-      `valign: 'top'|'middle'|'bottom'` to `<a:bodyPr anchor="t|ctr|b">` for text
-      shapes (gen-xml.ts:1537 via _bodyProp.anchor) and table cells (gen-xml.ts:629),
-      which is the only construct that exists. A "rich-text / per-paragraph valign
-      API" would have no valid OOXML to emit, so this is not a fork gap. The
-      documented shape-level `valign` option is the answer.
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files:
-        - src/gen-xml.ts:629
-        - src/gen-xml.ts:1537
-        - src/core-interfaces.ts:445
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
   - id: upstream-issue-1256
     source: "gitbrent/PptxGenJS#1256"
     type: issue
@@ -1244,67 +918,6 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: consider-header-row-style-api-after-table-core-fixes
-
-  - id: upstream-issue-1253
-    source: "gitbrent/PptxGenJS#1253"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: non-target
-    priority: none
-    target_area:
-      - table-ooxml
-    applies_to_current_project: no
-    non_target_reasons:
-      - insufficient-evidence
-    summary: Asked how to position a shape before each table row.
-    current_project_notes: >
-      This is an authoring/layout calculation question about coordinating
-      separate shapes with table rows. It does not identify a current generated
-      package, OOXML validity, or PowerPoint repair defect.
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files: []
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
-  - id: upstream-issue-1251
-    source: "gitbrent/PptxGenJS#1251"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: non-target
-    priority: none
-    target_area:
-      - typescript-api
-      - package-boundary
-    applies_to_current_project: no
-    non_target_reasons:
-      - unsupported-runtime
-      - legacy-dist-artifact
-    summary: Old SPFx React/TypeScript compiler failed against a historical types/index.d.ts file.
-    current_project_notes: >
-      The current fork is TS-first, ESM-only, generated-declaration based, and
-      declares Node >=24. Supporting old SPFx TypeScript 3.9 compiler behavior
-      is outside the current package target.
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files:
-        - package.json:12
-        - package.json:14
-        - package.json:17
-        - docs/runtime-and-package-support.md:25
-        - docs/runtime-and-package-support.md:93
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
 
   - id: upstream-issue-1244
     source: "gitbrent/PptxGenJS#1244"
@@ -1346,14 +959,13 @@ items:
     source: "gitbrent/PptxGenJS#1241"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-19
-    status: non-target
+    last_reviewed: 2026-06-20
+    status: implemented
     priority: none
     target_area:
       - image-svg-media
-    applies_to_current_project: no
-    non_target_reasons:
-      - not-reproducible-in-current-project
+    applies_to_current_project: yes
+    non_target_reasons: []
     summary: Asked whether WebP images are supported.
     current_project_notes: >
       Resolved on inspection (2026-06-19): WebP IS supported. Image handling
@@ -1367,6 +979,9 @@ items:
       test/regression/image-intrinsic-size.test.js (a 4x2 webp resolves to
       38100x19050 EMU). No conversion/fallback is needed and no OOXML defect
       exists, so there is nothing to implement.
+      Reclassified 2026-06-20: non-target → implemented. WebP is fully supported with
+      direct regression coverage (image-intrinsic-size.test.js); recording it as a
+      supported capability rather than a dismissal.
     evidence:
       kinds:
         - local-source-inspection
@@ -1458,14 +1073,13 @@ items:
     source: "gitbrent/PptxGenJS#1224"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-18
-    status: non-target
+    last_reviewed: 2026-06-20
+    status: superseded
     priority: p2
     target_area:
       - table-ooxml
-    applies_to_current_project: no
-    non_target_reasons:
-      - not-reproducible-in-current-project
+    applies_to_current_project: yes
+    non_target_reasons: []
     summary: Border style of the first cell adjacent to a rowspan cell was not applied as expected.
     current_project_notes: >
       Not reproducible in the current fork. With a uniform border, the cell adjacent
@@ -1473,6 +1087,9 @@ items:
       and the vMerge continuation. Shares its root with #1055 (merged-cell border
       ownership, #680). Verified by extraction; locked by regression suite
       table-span-border-structure.
+      Reclassified 2026-06-20: non-target → superseded. Shares the #680 root with
+      #1055 and is locked by table-span-border-structure; this is a fork fix, not a
+      dismissal.
     evidence:
       kinds:
         - local-source-inspection
@@ -1515,46 +1132,6 @@ items:
         - src/gen-charts.ts:780
       schema_fixture: null
       validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
-  - id: upstream-issue-1222
-    source: "gitbrent/PptxGenJS#1222"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-19
-    status: non-target
-    priority: p2
-    target_area:
-      - chart-ooxml
-      - powerpoint-repair
-    applies_to_current_project: no
-    non_target_reasons:
-      - not-reproducible-in-current-project
-    summary: Reported problems rendering stacked-bar and bar-line charts from external gists.
-    current_project_notes: >
-      The issue is vague but sits near other combo-chart repair reports. The report
-      only points at external gists with no described OOXML defect, and the combo-chart
-      repair lane it gestures at is already covered by the more specific, implemented
-      issues 1355 and 1357.
-      Reviewed 2026-06-19: built the two shapes it names — a stacked bar chart and a
-      bar+line combo (stacked bars on the primary axis, a line on a secondary
-      cat/val axis) — and ran the OOXML validator on the generated package: zero
-      validation errors (validator returned []). Both chart shapes emit valid OOXML
-      that opens clean, so there is no reproducible repair/render defect on the
-      generator side. Closed as not-reproducible; reopen only if a linked example
-      reduces to a concrete stacked-bar / bar-line repair case not already covered.
-    evidence:
-      kinds:
-        - local-source-inspection
-        - generated-pptx
-        - validator-result
-      local_files:
-        - src/gen-charts.ts:748
-        - src/gen-charts.ts:910
-      schema_fixture: null
-      validator_result: clean-stacked-bar-and-bar-line-combo
       powerpoint_result: null
       spec_refs: []
     next_action: none
@@ -1635,36 +1212,6 @@ items:
       spec_refs: []
     next_action: none
 
-  - id: upstream-issue-1197
-    source: "gitbrent/PptxGenJS#1197"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: non-target
-    priority: none
-    target_area:
-      - package-boundary
-    applies_to_current_project: no
-    non_target_reasons:
-      - insufficient-evidence
-    summary: Asked generally whether PowerPoint slides can be created using Node.js APIs.
-    current_project_notes: >
-      This is a usage/support question, not a current package, OOXML, or
-      PowerPoint compatibility defect. The current fork is explicitly a Node
-      package with ESM entry points.
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files:
-        - package.json:12
-        - package.json:14
-        - package.json:17
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
   - id: upstream-issue-1183
     source: "gitbrent/PptxGenJS#1183"
     type: issue
@@ -1703,63 +1250,6 @@ items:
       spec_refs: []
     next_action: none
 
-  - id: upstream-issue-1174
-    source: "gitbrent/PptxGenJS#1174"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: non-target
-    priority: none
-    target_area:
-      - table-ooxml
-      - image-svg-media
-    applies_to_current_project: no
-    non_target_reasons:
-      - insufficient-evidence
-    summary: Asked how to add more table rows for duplicated cell values while reusing a single image.
-    current_project_notes: >
-      This is an application-level table layout transformation question. It does
-      not show invalid table OOXML, PowerPoint repair, or a missing primitive
-      that belongs in the package core.
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files: []
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
-  - id: upstream-issue-1170
-    source: "gitbrent/PptxGenJS#1170"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: non-target
-    priority: none
-    target_area:
-      - package-boundary
-    applies_to_current_project: no
-    non_target_reasons:
-      - existing-pptx-import
-    summary: Asked whether existing PowerPoint templates can be reused instead of rebuilding masters.
-    current_project_notes: >
-      Importing or editing existing PPTX templates is outside the current fork's
-      generator-only package target. Template-driven deck production belongs in
-      downstream tooling unless a concrete reusable primitive is identified.
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files:
-        - docs/project-target.md:1
-        - docs/runtime-and-package-support.md:3
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
   - id: upstream-issue-1169
     source: "gitbrent/PptxGenJS#1169"
     type: issue
@@ -1791,57 +1281,26 @@ items:
       spec_refs: []
     next_action: reconsider-after-table-layout-core-stabilizes
 
-  - id: upstream-issue-1167
-    source: "gitbrent/PptxGenJS#1167"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: non-target
-    priority: none
-    target_area:
-      - typescript-api
-      - package-boundary
-    applies_to_current_project: no
-    non_target_reasons:
-      - unsupported-runtime
-      - legacy-dist-artifact
-    summary: TypeScript 4.0 failed to parse template-literal coordinate types in historical declarations.
-    current_project_notes: >
-      Current fork is TS-first, ESM-only, and declares modern Node/package
-      targets. Backporting declarations for old Angular/TypeScript compiler
-      stacks is outside the current support boundary.
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files:
-        - package.json:12
-        - package.json:14
-        - docs/runtime-and-package-support.md:25
-        - docs/runtime-and-package-support.md:93
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
   - id: upstream-issue-1164
     source: "gitbrent/PptxGenJS#1164"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-18
-    status: non-target
+    last_reviewed: 2026-06-20
+    status: implemented
     priority: p3
     target_area:
       - chart-ooxml
-    applies_to_current_project: no
-    non_target_reasons:
-      - not-reproducible-in-current-project
+    applies_to_current_project: yes
+    non_target_reasons: []
     summary: Doughnut chart titlePos was ignored in version 3.11.0.
     current_project_notes: >
       Not reproducible in the current fork. A doughnut chart with showTitle:true and
       titlePos:{x,y} emits a <c:title> with a <c:layout><c:manualLayout> carrying the
       configured x/y, same as other chart types. The reported 3.11.0 regression no
       longer applies. Verified by generated-package extraction.
+      Reclassified 2026-06-20: non-target → implemented. Doughnut titlePos emits the
+      configured manualLayout in the current fork (the 3.11.0 regression is gone);
+      recording it as working behavior rather than a dismissal.
     evidence:
       kinds:
         - local-source-inspection
@@ -1896,14 +1355,13 @@ items:
     source: "gitbrent/PptxGenJS#1055"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-18
-    status: non-target
+    last_reviewed: 2026-06-20
+    status: superseded
     priority: p2
     target_area:
       - table-ooxml
-    applies_to_current_project: no
-    non_target_reasons:
-      - not-reproducible-in-current-project
+    applies_to_current_project: yes
+    non_target_reasons: []
     summary: Rowspan table cells lost borders on rows covered by the merged cell.
     current_project_notes: >
       Not reproducible in the current fork. The vMerge continuation cell emitted for
@@ -1913,6 +1371,9 @@ items:
       uniform border emits all four borders on the origin, the adjacent cell, the
       vMerge continuation, and the next cell. Verified by extraction; locked by
       regression suite table-span-border-structure.
+      Reclassified 2026-06-20: non-target → superseded. Fixed by the #680
+      merged-cell border-ownership change and locked by table-span-border-structure;
+      this records a fork fix, not a dismissal.
     evidence:
       kinds:
         - local-source-inspection
@@ -2021,40 +1482,6 @@ items:
       local_files:
         - src/gen-objects.ts:1090
         - src/gen-tables.ts:652
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
-  - id: upstream-issue-988
-    source: "gitbrent/PptxGenJS#988"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: non-target
-    priority: none
-    target_area:
-      - browser-modern-esm
-      - package-boundary
-    applies_to_current_project: no
-    non_target_reasons:
-      - iife-global
-      - legacy-dist-artifact
-      - unsupported-runtime
-    summary: Asked for Salesforce LWC compatibility around script loading and MIME type behavior.
-    current_project_notes: >
-      The current fork is ESM-only and intentionally does not preserve CJS or
-      IIFE distribution contracts. Do not carry this legacy global-script runtime
-      compatibility issue into current package work.
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files:
-        - package.json:12
-        - package.json:17
-        - package.json:34
-        - package.json:39
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
@@ -2230,41 +1657,6 @@ items:
       spec_refs: []
     next_action: route-svg-bullet-through-svgpng-rel-pair
 
-  - id: upstream-issue-894
-    source: "gitbrent/PptxGenJS#894"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: non-target
-    priority: none
-    target_area:
-      - chart-ooxml
-      - invalid-ooxml
-      - powerpoint-repair
-    applies_to_current_project: no
-    non_target_reasons:
-      - insufficient-evidence
-    summary: Proposed injecting arbitrary meta elements into chartSpace.
-    current_project_notes: >
-      Do not add a free-form c:meta element to chart XML. Schema lookup for
-      CT_ChartSpace does not list c:meta as a legal child, and the upstream owner
-      reported that PowerPoint repaired and stripped the proposed XML. Revisit
-      only as a valid customXml or extLst design if chart metadata becomes a
-      target.
-    evidence:
-      kinds:
-        - local-source-inspection
-        - ooxml-reference
-      local_files:
-        - src/gen-charts.ts:558
-        - src/gen-charts.ts:766
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs:
-        - "ECMA-376 CT_ChartSpace children via ooxml_children c:chartSpace"
-    next_action: none
-
   - id: upstream-issue-795
     source: "gitbrent/PptxGenJS#795"
     type: issue
@@ -2337,14 +1729,13 @@ items:
     source: "gitbrent/PptxGenJS#731"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-18
-    status: non-target
+    last_reviewed: 2026-06-20
+    status: implemented
     priority: p3
     target_area:
       - chart-ooxml
-    applies_to_current_project: no
-    non_target_reasons:
-      - not-reproducible-in-current-project
+    applies_to_current_project: yes
+    non_target_reasons: []
     summary: catAxisLabelFrequency stopped working when chartColors was also used.
     current_project_notes: >
       Not reproducible in the current fork. A bar chart with both catAxisLabelFrequency
@@ -2353,6 +1744,9 @@ items:
       independent in gen-charts and do not suppress each other. Verified by
       generated-package extraction. (No schema fixture: tickLblSkip emission is not a
       validity concern and the combination is exercised by the existing chart suite.)
+      Reclassified 2026-06-20: non-target → implemented. catAxisLabelFrequency and
+      chartColors emit independently in the current fork and the combination is
+      covered by the chart suite; recording it as working behavior, not a dismissal.
     evidence:
       kinds:
         - local-source-inspection
@@ -2395,36 +1789,6 @@ items:
         - src/gen-charts.ts:1012
         - src/gen-charts.ts:1319
         - src/gen-charts.ts:1797
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
-  - id: upstream-issue-682
-    source: "gitbrent/PptxGenJS#682"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: non-target
-    priority: none
-    target_area:
-      - package-boundary
-    applies_to_current_project: no
-    non_target_reasons:
-      - docs-only-for-legacy-workflow
-    summary: Documentation wording around valGridline style used ambiguous punctuation.
-    current_project_notes: >
-      This is a legacy documentation wording issue, not a current PPTX generation
-      signal. The current TypeScript option model already represents gridline
-      style as solid, dash, dot, or none.
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files:
-        - src/core-interfaces.ts:1216
-        - src/core-interfaces.ts:1218
-        - src/core-interfaces.ts:1454
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
@@ -2484,37 +1848,6 @@ items:
     evidence:
       kinds: []
       local_files: []
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
-  - id: upstream-issue-624
-    source: "gitbrent/PptxGenJS#624"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: non-target
-    priority: none
-    target_area:
-      - package-boundary
-    applies_to_current_project: no
-    non_target_reasons:
-      - upstream-build-system
-    summary: Proposed an old broad refactor around text fragments and XML snapshot testing before v3.
-    current_project_notes: >
-      The current fork is already TS-first with local regression and schema-test
-      lanes. This issue is not a concrete PPTX generation feature or repair
-      signal for the current project.
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files:
-        - package.json:12
-        - package.json:13
-        - test/regression/text-formatting.test.js:3
-        - test/schema.test.js:1
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
@@ -3473,3 +2806,91 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: none
+  - id: chart-metadata-extlst
+    source: gitbrent/PptxGenJS#894
+    type: issue
+    first_seen: 2026-06-20
+    last_reviewed: 2026-06-20
+    status: deferred
+    priority: p3
+    target_area:
+      - chart-ooxml
+      - missing-pptx-feature
+    applies_to_current_project: unknown
+    non_target_reasons: []
+    summary: "Typed chart-metadata primitive emitting through CT_ChartSpace extLst (the valid form of the rejected #894 c:meta injection)."
+    current_project_notes: "Legitimate, schema-valid alternative to the free-form c:meta injection proposed in upstream issue #894 (dropped from the ledger as an escape-hatch footgun: a raw c:meta sibling is invalid OOXML that PowerPoint repairs/strips). CT_ChartSpace has no meta child (verified via ooxml_children c:chartSpace: legal children are date1904, lang, roundedCorners, style, clrMapOvr, pivotSource, protection, chart, spPr, txPr, externalData, printSettings, userShapes, extLst), so arbitrary metadata must ride in the extLst extension list under a vendor URI guid, not as a sibling element PowerPoint will strip/repair. Deferred until a concrete consumer need for chart-level metadata lands; design the typed primitive (validated key/value or namespaced blob into c:extLst) at that point rather than exposing a raw-XML escape hatch."
+    evidence:
+      kinds: []
+      local_files: []
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: design-extlst-chart-metadata-primitive-on-concrete-need
+  - id: dn-edit-existing-content
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-06-20
+    last_reviewed: 2026-06-20
+    status: deferred
+    priority: p2
+    target_area:
+      - missing-pptx-feature
+      - package-boundary
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: Open an existing .pptx and replace its content (text runs and media) in place, losslessly, without regenerating untouched parts
+    current_project_notes: "Requested capability: load a real presentation, target an existing shape/placeholder, and swap its text/image while preserving sibling run formatting and leaving untouched parts byte-stable. The generator is emit-only and has no read-side addressing model. Addressed by the feat/pptx-edit lossless read/edit subsystem (Phase 2 read object model + Phase 3 text/media edit)."
+    evidence:
+      kinds: []
+      local_files: []
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: Track as acceptance scenario for feat/pptx-edit Phase 3; promote when the edit vertical slice lands
+  - id: dn-import-template-masters
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-06-20
+    last_reviewed: 2026-06-20
+    status: deferred
+    priority: p3
+    target_area:
+      - speaker-notes-masters-layouts
+      - missing-pptx-feature
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: Load an existing deck's slide masters, layouts, and theme as a template source instead of hand-coding defineSlideMaster
+    current_project_notes: "Requested capability: reuse a real PowerPoint template's masters/layouts/theme rather than rebuilding them in code. Needs a read path that adopts existing master/layout/theme parts into a usable definition. Distinct from editing slide content; it is template adoption."
+    evidence:
+      kinds: []
+      local_files: []
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: Scope a read-and-adopt path over feat/pptx-edit's OPC model once Phase 2 stabilizes
+  - id: dn-append-onto-existing-deck
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-06-20
+    last_reviewed: 2026-06-20
+    status: deferred
+    priority: p2
+    target_area:
+      - package-boundary
+      - missing-pptx-feature
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: Append newly generated slides onto a loaded existing deck, keeping its masters/theme byte-stable (hybrid generate-onto-existing)
+    current_project_notes: "Requested capability: open an existing deck, keep its masters/layouts/theme untouched and byte-stable, and add generator-produced slides bound to the imported layouts. This is the signature payoff of the lossless pass-through design and the most cross-cutting item: it spans the generator and the read subsystem. Highest net-new roadmap value of the three."
+    evidence:
+      kinds: []
+      local_files: []
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: Design the generator<->read integration seam; gated on feat/pptx-edit Phase 2 read model + layout binding

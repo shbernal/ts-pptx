@@ -153,8 +153,11 @@ Use one or more non-target reasons when dismissing an item:
 - `upstream-build-system`
 - `release-matrix`
 - `docs-only-for-legacy-workflow`
+- `existing-pptx-import`
 - `not-reproducible-in-current-project`
 - `insufficient-evidence`
+- `out-of-project-scope`
+- `escape-hatch-footgun`
 
 ## Decision Questions
 
