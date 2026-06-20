@@ -1,4 +1,12 @@
-import { inspectPptx, boxAnchor, listPptxParts, loadPptxPackage, overlapArea } from '../../dist/inspect.js'
+import {
+	inspectPptx,
+	boxAnchor,
+	listPptxParts,
+	loadPptxPackage,
+	overlapArea,
+	readPptxBinaryPart,
+	readPptxTextPart,
+} from '../../dist/inspect.js'
 import { defineRegressionSuite, build, assert, assertEqual } from '../helpers.js'
 
 const PNG_1X1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
@@ -76,6 +84,29 @@ defineRegressionSuite('PPTX inspection primitives', [
 			assertEqual(boxAnchor({ x: 1, y: 2, w: 3, h: 4 }, 'right', 'x'), 4, 'right anchor')
 			assertEqual(boxAnchor({ x: 1, y: 2, w: 3, h: 4 }, 'middle', 'y'), 4, 'middle anchor')
 			assertEqual(overlapArea({ x: 0, y: 0, w: 2, h: 2 }, { x: 1, y: 1, w: 2, h: 2 }), 1, 'overlap area')
+		},
+	},
+	{
+		name: 'readPptxBinaryPart returns embedded media bytes; text and binary agree',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addImage({ data: `image/png;base64,${PNG_1X1}`, x: 1, y: 1, w: 1, h: 1 })
+			})
+
+			const pptxPackage = await loadPptxPackage(buf)
+			const pngPath = listPptxParts(pptxPackage).find((part) => part.startsWith('ppt/media/') && part.endsWith('.png'))
+			assert(pngPath, 'expected an embedded png media part')
+
+			const bytes = await readPptxBinaryPart(pptxPackage, pngPath)
+			assert(bytes instanceof Uint8Array, 'binary part is a Uint8Array')
+			assertEqual(Buffer.from(bytes).toString('base64'), PNG_1X1, 'png bytes round-trip')
+			// PNG magic number (\x89 P N G) survives undecoded — UTF-8 decoding would corrupt it.
+			assertEqual(Buffer.from(bytes.subarray(1, 4)).toString('latin1'), 'PNG', 'png signature intact')
+
+			const xml = await readPptxTextPart(pptxPackage, 'ppt/slides/slide1.xml')
+			const xmlBytes = await readPptxBinaryPart(pptxPackage, 'ppt/slides/slide1.xml')
+			assertEqual(new TextDecoder('utf-8').decode(xmlBytes), xml, 'text and binary reads agree')
+			assertEqual(await readPptxBinaryPart(pptxPackage, 'ppt/does-not-exist.bin'), null, 'missing part is null')
 		},
 	},
 ])

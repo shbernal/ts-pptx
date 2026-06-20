@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`readPptxBinaryPart(pptxPackage, path)` on the `pptxgenjs/inspect` package-access
+  surface:** the binary sibling of `readPptxTextPart`, returning a part's raw bytes as a
+  `Uint8Array` (or `null` when absent) instead of UTF-8 decoding them. The `PptxPackage.file()`
+  accessor now also accepts `async('uint8array')` alongside `async('string')`. This lets a
+  consumer pull embedded media (SVG/PNG/EMF blobs, fonts) out of a `.pptx` without a second
+  zip library — previously the inspect surface only exposed text parts, so callers extracting
+  media bytes had to keep their own JSZip dependency. Used by downstream's icon extractor
+  to drop JSZip entirely.
 - **`pptxgenjs/read` resolves placeholder-inherited run size + typeface
   (`Run.resolvedSizePt`/`Run.resolvedFontFace`):** the size/face sibling of the
   existing `Run.resolvedColor`. When a placeholder run sets no own `@sz`/`a:latin`,

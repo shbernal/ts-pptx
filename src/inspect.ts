@@ -10,6 +10,7 @@ export type PptxInspectInput = PptxInspectInputValue | Promise<PptxInspectInputV
 
 export interface PptxPackageFile {
 	async(type: 'string'): Promise<string>
+	async(type: 'uint8array'): Promise<Uint8Array>
 }
 
 export interface PptxPackage {
@@ -95,7 +96,9 @@ export async function loadPptxPackage(input: PptxInspectInput): Promise<PptxPack
 		file(path: string): PptxPackageFile | null {
 			const bytes = entries.get(path)
 			if (!bytes) return null
-			return { async: async () => textDecoder.decode(bytes) }
+			const read = (async (type: 'string' | 'uint8array') =>
+				type === 'uint8array' ? bytes : textDecoder.decode(bytes)) as PptxPackageFile['async']
+			return { async: read }
 		},
 	}
 }
@@ -107,6 +110,17 @@ export function listPptxParts(pptxPackage: PptxPackage): string[] {
 export async function readPptxTextPart(pptxPackage: PptxPackage, path: string): Promise<string | null> {
 	const entry = pptxPackage.file(path)
 	return entry ? entry.async('string') : null
+}
+
+/**
+ * Read a package part as raw bytes — the binary sibling of {@link readPptxTextPart}
+ * for embedded media (SVG/PNG/EMF blobs, fonts, …) that must not be UTF-8 decoded.
+ * Returns `null` when the part is absent. The `Uint8Array` is browser-isomorphic;
+ * Node consumers can wrap it with `Buffer.from(...)` if they need Buffer methods.
+ */
+export async function readPptxBinaryPart(pptxPackage: PptxPackage, path: string): Promise<Uint8Array | null> {
+	const entry = pptxPackage.file(path)
+	return entry ? entry.async('uint8array') : null
 }
 
 export async function inspectPptx(input: PptxInspectInput): Promise<PptxInspection> {
