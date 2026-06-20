@@ -1,9 +1,9 @@
 ---
 doc-schema-version: 1
 title: "Project Target"
-summary: "Current goals, non-goals, and maintenance posture for the PptxGenJS fork."
+summary: "Current goals, non-goals, and maintenance posture for this PptxGenJS hard fork."
 read_when:
-  - Deciding whether a feature fits this fork
+  - Deciding whether a feature fits this project
   - Updating package target or compatibility policy
   - Explaining current project goals
 doc_type: "decision"
@@ -14,6 +14,12 @@ doc_type: "decision"
 PptxGenJS generates PowerPoint `.pptx` packages from TypeScript and modern
 JavaScript. The project target is a maintained, ESM-first library for
 applications that need to create presentations programmatically.
+
+This is a **hard fork** of [gitbrent/PptxGenJS](https://github.com/gitbrent/PptxGenJS),
+detached at its v6.0.0 (June 2025). Upstream tracking is retired: the project does
+not sync from or mirror the original and sets its own direction. It descends from
+the original codebase and retains the original MIT copyright; it is not a
+drop-in-compatible continuation of the upstream release line.
 
 ## Goals
 

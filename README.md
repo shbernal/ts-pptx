@@ -5,6 +5,12 @@ JavaScript. This maintained project targets ESM package consumers, typed
 application code, reproducible package verification, and agent-assisted OOXML
 development.
 
+> **Lineage.** This is a hard fork of [gitbrent/PptxGenJS](https://github.com/gitbrent/PptxGenJS),
+> detached at its v6.0.0 (June 2025) and developed independently since. Upstream
+> sync is retired: it does not track, merge from, or mirror the original project,
+> and pursues its own Node-first direction (see _Project Target_). The original
+> work remains under its MIT license — see _License_ below.
+
 ## Project Target
 
 - Generate standards-based PowerPoint `.pptx` packages without requiring
@@ -63,7 +69,7 @@ await pptx.writeFile({ fileName: "example.pptx" })
 
 ## Scope And Contributions
 
-This fork is **Node-first**: it generates and is tested without a browser or any
+This project is **Node-first**: it generates and is tested without a browser or any
 office application. Two areas are out of *active* maintenance scope — not because
 they lack merit, but because there is no in-house use case driving them, so the
 maintainer generally will not pick up bugs or feature requests there:
