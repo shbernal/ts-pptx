@@ -1702,8 +1702,8 @@ items:
     source: "gitbrent/PptxGenJS#776"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-11
-    status: deferred
+    last_reviewed: 2026-06-20
+    status: implemented
     priority: p3
     target_area:
       - speaker-notes-masters-layouts
@@ -1712,27 +1712,25 @@ items:
     non_target_reasons: []
     summary: Slide masters could not add an ellipse or circle shape object.
     current_project_notes: >
-      Deferred (in scope, reduce scope / clarify need). The master object model
-      hard-codes line/rect/text/image/chart shortcuts; a generic master shape
-      object would generalize that, but the underlying addShape serializer already
-      handles every preset outside the master model. Scope the minimal additive
-      change (route an arbitrary shape type through the existing master object
-      list) when a concrete need lands.
+      Implemented. Added a generic `{ shape: { type: SHAPE_NAME, options?: ShapeProps } }`
+      variant to `SlideMasterObject`, routed in `createSlideMaster` through the
+      existing `addShapeDefinition` (the same serializer `addShape()` uses). This
+      generalizes the hard-coded line/rect/roundRect master-object shortcuts (kept
+      for convenience) to every preset — ellipse, circle, triangle, chevron, etc.
+      Regression-tested in test/regression/master-generic-shape.test.js (ellipse
+      with fill + a no-shortcut chevron preset land in the layout's shape tree).
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/core-interfaces.ts:1761
-        - src/core-interfaces.ts:1764
-        - src/core-interfaces.ts:1765
-        - src/core-enums.ts:462
-        - src/gen-objects.ts:82
-        - src/gen-objects.ts:85
+        - src/core-interfaces.ts:2878
+        - src/gen-objects.ts:97
+        - test/regression/master-generic-shape.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: revisit-generic-master-shape-on-concrete-need
+    next_action: none
 
   - id: upstream-issue-731
     source: "gitbrent/PptxGenJS#731"

@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Generic preset shapes in slide masters (`{ shape: { type, options } }`):** a
+  `defineSlideMaster({ objects })` entry can now be any preset shape addressed by
+  `SHAPE_NAME`, e.g. `{ shape: { type: 'ellipse', options: { x, y, w, h, fill } } }`.
+  This generalizes the existing hard-coded `line`/`rect`/`roundRect` master-object
+  shortcuts (which remain) to every preset the `addShape()` serializer already
+  supports (ellipse, triangle, chevron, …), so masters are no longer limited to
+  rectangles and lines for decorative geometry (gitbrent/PptxGenJS#776).
 - **Native math equations (raw OMML) in text (`TextProps.math`):** a text item can
   now carry a native, editable PowerPoint equation. `addText([{ math: '<raw OMML>' }])`
   emits a display-math paragraph (`<a14:m><m:oMathPara><m:oMath>…`) and wraps the

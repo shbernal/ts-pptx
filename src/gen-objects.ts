@@ -94,6 +94,7 @@ export function createSlideMaster(props: SlideMasterProps, target: SlideLayoutIn
 			else if ('line' in object) addShapeDefinition(tgt, SHAPE_TYPE.LINE, object.line)
 			else if ('rect' in object) addShapeDefinition(tgt, SHAPE_TYPE.RECTANGLE, object.rect)
 			else if ('roundRect' in object) addShapeDefinition(tgt, SHAPE_TYPE.ROUNDED_RECTANGLE, object.roundRect)
+			else if ('shape' in object) addShapeDefinition(tgt, object.shape.type, object.shape.options || {})
 			else if ('text' in object) addTextDefinition(tgt, Array.isArray(object.text.text) ? object.text.text : [{ text: object.text.text }], object.text.options || {}, false)
 			else if ('placeholder' in object) {
 				// TODO: 20180820: Check for existing `name`?
