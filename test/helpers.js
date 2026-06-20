@@ -1,3 +1,8 @@
+// Tests intentionally read the generated .pptx with jszip rather than the
+// library's own src/zip.ts (fflate). The write path uses fflate, so reading
+// back with a *different* zip implementation makes jszip an independent oracle:
+// a round-trip bug in fflate can't mask itself by being used on both sides.
+// Keep jszip as a devDep for this reason — do not "consolidate" onto src/zip.ts.
 import JSZip from 'jszip'
 import PptxGenJS from '../dist/node.js'
 import { describe, test } from 'vitest'
