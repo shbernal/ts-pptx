@@ -176,6 +176,103 @@ describe('backlog ledger tooling', () => {
 		}
 	})
 
+	test('list --json emits full items, not a compact projection', async () => {
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-ledger-'))
+		try {
+			const ledger = path.join(tmpDir, 'backlog.yml')
+			await fs.writeFile(ledger, fixture)
+			const stdout = []
+			const code = await runLedgerCommand(['list', '--ledger', ledger, '--status', 'non-target', '--json'], {
+				stdout: (message) => stdout.push(message),
+				stderr: () => {},
+			})
+			const report = JSON.parse(stdout[0])
+
+			expect(code).toBe(0)
+			expect(report.count).toBe(1)
+			const item = report.items[0]
+			expect(item.non_target_reasons).toEqual(['commonjs'])
+			expect(item.current_project_notes).toContain('ESM-only package target')
+			expect(item.evidence).toMatchObject({ kinds: [] })
+			expect(item.first_seen).toBe('2026-06-07')
+		} finally {
+			await fs.rm(tmpDir, { recursive: true, force: true })
+		}
+	})
+
+	test('show text output includes non_target_reasons, first_seen, and evidence', async () => {
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-ledger-'))
+		try {
+			const ledger = path.join(tmpDir, 'backlog.yml')
+			await fs.writeFile(ledger, fixture)
+			const stdout = []
+			const code = await runLedgerCommand(['show', 'upstream-pr-2', '--ledger', ledger], {
+				stdout: (message) => stdout.push(message),
+				stderr: () => {},
+			})
+
+			expect(code).toBe(0)
+			expect(stdout[0]).toContain('non_target_reasons: commonjs')
+			expect(stdout[0]).toContain('first_seen: 2026-06-07')
+			expect(stdout[0]).toContain('evidence.kinds: []')
+		} finally {
+			await fs.rm(tmpDir, { recursive: true, force: true })
+		}
+	})
+
+	test('show accepts multiple ids', async () => {
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-ledger-'))
+		try {
+			const ledger = path.join(tmpDir, 'backlog.yml')
+			await fs.writeFile(ledger, fixture)
+			const stdout = []
+			const code = await runLedgerCommand(['show', 'upstream-issue-1', 'upstream-pr-2', '--ledger', ledger, '--json'], {
+				stdout: (message) => stdout.push(message),
+				stderr: () => {},
+			})
+			const report = JSON.parse(stdout[0])
+
+			expect(code).toBe(0)
+			expect(report.count).toBe(2)
+			expect(report.items.map((item) => item.id)).toEqual(['upstream-issue-1', 'upstream-pr-2'])
+		} finally {
+			await fs.rm(tmpDir, { recursive: true, force: true })
+		}
+	})
+
+	test('show selects by filter when no id is given', async () => {
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-ledger-'))
+		try {
+			const ledger = path.join(tmpDir, 'backlog.yml')
+			await fs.writeFile(ledger, fixture)
+			const stdout = []
+			const code = await runLedgerCommand(['show', '--status', 'non-target', '--ledger', ledger, '--json'], {
+				stdout: (message) => stdout.push(message),
+				stderr: () => {},
+			})
+			const report = JSON.parse(stdout[0])
+
+			expect(code).toBe(0)
+			expect(report.count).toBe(1)
+			expect(report.items[0].id).toBe('upstream-pr-2')
+		} finally {
+			await fs.rm(tmpDir, { recursive: true, force: true })
+		}
+	})
+
+	test('show without id or filter is an error', async () => {
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-ledger-'))
+		try {
+			const ledger = path.join(tmpDir, 'backlog.yml')
+			await fs.writeFile(ledger, fixture)
+			await expect(
+				runLedgerCommand(['show', '--ledger', ledger], { stdout: () => {}, stderr: () => {} })
+			).rejects.toThrow(/one or more item ids or a filter/)
+		} finally {
+			await fs.rm(tmpDir, { recursive: true, force: true })
+		}
+	})
+
 	test('accepts a downstream-need item with a downstream source', () => {
 		const updated = addLedgerItemText(
 			fixture,

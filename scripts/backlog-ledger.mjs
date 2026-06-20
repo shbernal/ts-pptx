@@ -40,8 +40,8 @@ function usage() {
 Reads and edits docs/backlog.yml.
 
 Commands:
-  list                         Print compact ledger rows
-  show <id>                    Print one full ledger item
+  list                         Print compact ledger rows (use --json for full items)
+  show <id...>                 Print full ledger items by id(s), or by filter when no id is given
   values <field>               Print unique values and counts for an item field
   validate                     Validate ledger structure and vocabulary use
   add                          Append a new ledger item from flags, then validate
@@ -50,7 +50,7 @@ Commands:
 
 Options:
   --ledger <path>                         Ledger path (default: docs/backlog.yml)
-  --json                                  Print machine-readable JSON
+  --json                                  Print machine-readable JSON (full items for list/show)
   --print-limit <n>                       Max list rows to print; 0 prints all (default: 50)
   --status <value[,value...]>             Filter list by status; sets status on add
   --type <issue|pull-request|pr|downstream-need>  Filter list by type; sets type on add
@@ -74,7 +74,8 @@ Examples:
   pnpm run backlog -- list
   pnpm run backlog -- list --status needs-repro --type issue
   pnpm run backlog -- list --type downstream-need
-  pnpm run backlog -- show upstream-issue-1440
+  pnpm run backlog -- show upstream-issue-1440 upstream-pr-1302
+  pnpm run backlog -- show --status non-target --json
   pnpm run backlog -- values status
   pnpm run backlog -- validate
   pnpm run backlog -- add --id dn-text-direction --type downstream-need \\
@@ -465,19 +466,15 @@ export function filterItems(items, filters = {}) {
 	})
 }
 
-function compactItem(item) {
-	return {
-		id: item.id,
-		source: item.source,
-		type: item.type,
-		status: item.status,
-		priority: item.priority,
-		target_area: item.target_area,
-		applies_to_current_project: item.applies_to_current_project,
-		summary: item.summary,
-		next_action: item.next_action,
-		last_reviewed: item.last_reviewed,
-	}
+function formatList(value) {
+	return Array.isArray(value) ? value.join(', ') : ''
+}
+
+function formatEvidence(evidence) {
+	if (!evidence || typeof evidence !== 'object') return []
+	return REQUIRED_EVIDENCE_FIELDS.map(
+		(field) => 'evidence.' + field + ': ' + printableValue(evidence[field] === undefined ? null : evidence[field])
+	)
 }
 
 function itemFieldValue(item, field) {
@@ -533,7 +530,7 @@ function printList(items, options, ledgerPath) {
 			{
 				ledger: path.relative(ROOT, ledgerPath),
 				count: items.length,
-				items: items.map(compactItem),
+				items,
 			},
 			null,
 			2
@@ -548,7 +545,11 @@ function printList(items, options, ledgerPath) {
 		)
 	}
 	const remaining = items.length - limit
-	if (remaining > 0) lines.push('... ' + remaining + ' more; use --print-limit 0 to print all or --json.')
+	if (remaining > 0) lines.push('... ' + remaining + ' more; use --print-limit 0 to print all rows.')
+	lines.push(
+		'These are compact rows. For full detail (rationale, evidence, notes) use --json, or ' +
+			'`show <id…>` / `show --status <value>` for full text.'
+	)
 	return lines.join('\n')
 }
 
@@ -558,19 +559,37 @@ function printItem(item, options) {
 		'id: ' + item.id,
 		'source: ' + item.source,
 		'type: ' + item.type,
+		'first_seen: ' + item.first_seen,
+		'last_reviewed: ' + item.last_reviewed,
 		'status: ' + item.status,
 		'priority: ' + item.priority,
-		'target_area: ' + (Array.isArray(item.target_area) ? item.target_area.join(', ') : ''),
+		'target_area: ' + formatList(item.target_area),
 		'applies_to_current_project: ' + item.applies_to_current_project,
-		'last_reviewed: ' + item.last_reviewed,
+		'non_target_reasons: ' + formatList(item.non_target_reasons),
 		'summary: ' + item.summary,
 		'current_project_notes: ' + item.current_project_notes,
 	]
 	if (item.stopgap) lines.push('stopgap: ' + item.stopgap)
 	if (Array.isArray(item.constructs) && item.constructs.length > 0)
 		lines.push('constructs: ' + item.constructs.join(', '))
+	lines.push(...formatEvidence(item.evidence))
 	lines.push('next_action: ' + item.next_action)
 	return lines.join('\n')
+}
+
+function printItems(items, options, ledgerPath) {
+	if (options.json) {
+		return JSON.stringify(
+			{
+				ledger: path.relative(ROOT, ledgerPath),
+				count: items.length,
+				items,
+			},
+			null,
+			2
+		)
+	}
+	return items.map((item) => printItem(item, options)).join('\n\n')
 }
 
 function splitLines(text) {
@@ -822,12 +841,22 @@ export async function runLedgerCommand(argv, io = defaultIo()) {
 	const items = data.items || []
 
 	if (options.command === 'show') {
-		const id = options.args[0]
-		if (!id || options.args.length !== 1) throw new Error('show requires exactly one item id')
-		const matches = items.filter((item) => item.id === id)
-		if (matches.length === 0) throw new Error('ledger item not found: ' + id)
-		if (matches.length > 1) throw new Error('ledger item id is duplicated: ' + id)
-		io.stdout(printItem(matches[0], options))
+		const ids = options.args
+		const hasFilters = Object.values(options.filters).some((value) => value !== undefined)
+		let selected
+		if (ids.length > 0) {
+			selected = ids.map((id) => {
+				const matches = items.filter((item) => item.id === id)
+				if (matches.length === 0) throw new Error('ledger item not found: ' + id)
+				if (matches.length > 1) throw new Error('ledger item id is duplicated: ' + id)
+				return matches[0]
+			})
+		} else if (hasFilters) {
+			selected = filterItems(items, options.filters)
+		} else {
+			throw new Error('show requires one or more item ids or a filter (e.g. --status non-target)')
+		}
+		io.stdout(printItems(selected, options, options.ledger))
 		return 0
 	}
 

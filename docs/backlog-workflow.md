@@ -76,15 +76,24 @@ Use the local ledger command to inspect and maintain entries in
 ```bash
 pnpm run backlog -- list
 pnpm run backlog -- list --status needs-repro --type downstream-need
-pnpm run backlog -- show dn-some-slug
+pnpm run backlog -- show dn-some-slug other-slug
+pnpm run backlog -- show --status non-target --json
 pnpm run backlog -- values status
 pnpm run backlog -- validate
 ```
 
 The default list output is intentionally compact: item id, status, priority,
-current-project applicability, and summary. Use `--json` when another tool or
-agent needs structured output, and `--print-limit 0` when a filtered listing
-should print every matching entry.
+current-project applicability, and summary. It is *not* the full record — to
+review rationale fields (`non_target_reasons`, `current_project_notes`,
+`evidence`, …) use one of the full-detail paths instead of hand-parsing the
+YAML:
+
+- `list --json` prints the complete items (lossless), not a compact projection,
+  for any other tool or agent that needs structured output.
+- `show` prints full items as readable text. It takes one or more ids
+  (`show a b c`) or, with no id, every item matching the list filters
+  (`show --status non-target`). Add `--json` for the structured form.
+- `--print-limit 0` makes a filtered `list` print every matching row.
 
 Use `values status` to see which status values are currently used in the ledger
 and how many entries use each one.
