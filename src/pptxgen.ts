@@ -774,8 +774,16 @@ export default class PptxGenJS {
 	 * @example pptx.addSection({ title:'Charts' });
 	 */
 	addSection(section: SectionProps): void {
-		if (!section) console.warn('addSection requires an argument')
-		else if (!section.title) console.warn('addSection requires a title')
+		if (!section) {
+			console.warn('addSection requires an argument')
+			return
+		} else if (!section.title) {
+			console.warn('addSection requires a title')
+			return
+		} else if (this._sections.some(sect => sect.title === section.title)) {
+			console.warn(`addSection: a section titled "${section.title}" already exists; ignoring duplicate`)
+			return
+		}
 
 		const newSection: SectionInternalProps = {
 			_type: 'user',

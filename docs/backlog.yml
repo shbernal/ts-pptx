@@ -240,8 +240,8 @@ items:
     source: "gitbrent/PptxGenJS#1435"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: watch
+    last_reviewed: 2026-06-20
+    status: deferred
     priority: none
     target_area:
       - package-boundary
@@ -341,8 +341,8 @@ items:
     source: "gitbrent/PptxGenJS#1456"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-19
-    status: partially-implemented
+    last_reviewed: 2026-06-20
+    status: deferred
     priority: p2
     target_area:
       - missing-pptx-feature
@@ -392,8 +392,8 @@ items:
     source: "gitbrent/PptxGenJS#1451"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: watch
+    last_reviewed: 2026-06-20
+    status: deferred
     priority: p3
     target_area:
       - table-ooxml
@@ -1218,8 +1218,8 @@ items:
     source: "gitbrent/PptxGenJS#1256"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: watch
+    last_reviewed: 2026-06-20
+    status: deferred
     priority: p3
     target_area:
       - table-ooxml
@@ -1669,20 +1669,26 @@ items:
     source: "gitbrent/PptxGenJS#1183"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: watch
-    priority: p3
+    last_reviewed: 2026-06-20
+    status: non-target
+    priority: none
     target_area:
       - chart-ooxml
       - missing-pptx-feature
-    applies_to_current_project: partial
-    non_target_reasons: []
+    applies_to_current_project: no
+    non_target_reasons:
+      - insufficient-evidence
     summary: Asked for a semi-circle chart derived from pie or doughnut charts.
     current_project_notes: >
-      Current pie/doughnut options include firstSliceAng and holeSize, which may
-      cover part of the authoring need. Do not elevate without confirming the
-      exact PowerPoint-authored half-pie or half-doughnut XML and whether it
-      needs a library feature rather than user data shaping.
+      Reviewed 2026-06-20: not a library gap. PowerPoint/OOXML has no native
+      half-pie or half-doughnut chart type; a semicircle is authored by data
+      shaping — adding a hidden slice equal to the visible total and rotating it
+      out of view. The library already exposes the controls this needs:
+      firstSliceAng (core-interfaces.ts:2588) to rotate the gap to the bottom and
+      holeSize (core-interfaces.ts:2519) for the doughnut variant, plus per-slice
+      no-fill via chartColors. So the authoring need is met with existing
+      primitives and no PptxGenJS feature is required; there is no authored-XML
+      evidence of a distinct OOXML construct to target.
     evidence:
       kinds:
         - local-source-inspection
@@ -1695,7 +1701,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: compare-authored-semicircle-pie-or-doughnut-xml-if-prioritized
+    next_action: none
 
   - id: upstream-issue-1174
     source: "gitbrent/PptxGenJS#1174"
@@ -1758,8 +1764,8 @@ items:
     source: "gitbrent/PptxGenJS#1169"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: watch
+    last_reviewed: 2026-06-20
+    status: deferred
     priority: p3
     target_area:
       - table-ooxml
@@ -1854,8 +1860,8 @@ items:
     source: "gitbrent/PptxGenJS#1152"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: watch
+    last_reviewed: 2026-06-20
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -1863,21 +1869,28 @@ items:
     non_target_reasons: []
     summary: Suggested checking for an existing section title before pushing a new section.
     current_project_notes: >
-      Current addSection validates that a title exists but does not prevent
-      duplicate section names. This is a low-priority section-management API
-      polish item, not a generated OOXML repair signal.
+      Implemented 2026-06-20. addSection (src/pptxgen.ts) now early-returns with a
+      console.warn when the given title duplicates an existing section
+      (this._sections.some(sect => sect.title === section.title)), so duplicate
+      section names can no longer be created — duplicates silently broke
+      section-by-title lookups (addSlide({ sectionTitle }) and autoPage
+      continuation resolved to the first match). The pre-existing missing-argument
+      and missing-title warnings were also changed to early-return instead of
+      falling through and pushing a section with an undefined title. Pinned by
+      test/regression/add-section-duplicate.test.js (2 cases) and recorded in
+      CHANGELOG.md. Not an OOXML serialization change, so no schema fixture.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/pptxgen.ts:706
-        - src/pptxgen.ts:716
-        - src/gen-xml.ts:1865
+        - src/pptxgen.ts:776
+        - test/regression/add-section-duplicate.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: consider-duplicate-section-title-policy-if-section-api-is-revisited
+    next_action: none
 
   - id: upstream-issue-1055
     source: "gitbrent/PptxGenJS#1055"
@@ -2084,8 +2097,8 @@ items:
     source: "gitbrent/PptxGenJS#961"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: watch
+    last_reviewed: 2026-06-20
+    status: deferred
     priority: p3
     target_area:
       - chart-ooxml
@@ -2114,8 +2127,8 @@ items:
     source: "gitbrent/PptxGenJS#951"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: watch
+    last_reviewed: 2026-06-20
+    status: deferred
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -2127,6 +2140,10 @@ items:
       Current table autoPage uses heuristic text wrapping and line-height weights
       instead of a public text-measurement API. This may be useful for future
       layout work but is not directly an OOXML validity or PowerPoint repair item.
+      Deferred 2026-06-20 (legacy upstream signal, no downstream need recorded;
+      upstream tracking is retired so there is no thread to watch). Same Node-first
+      "the library does no glyph measurement / line-breaking" root cause as
+      dn-doc-render-caveats — if a measurement API is ever pursued, do both together.
     evidence:
       kinds:
         - local-source-inspection
@@ -2508,8 +2525,8 @@ items:
     source: "gitbrent/PptxGenJS#585"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: watch
+    last_reviewed: 2026-06-20
+    status: deferred
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -2868,8 +2885,8 @@ items:
     source: downstream
     type: downstream-need
     first_seen: 2026-06-18
-    last_reviewed: 2026-06-18
-    status: target-candidate
+    last_reviewed: 2026-06-20
+    status: deferred
     priority: p3
     target_area: []
     applies_to_current_project: yes

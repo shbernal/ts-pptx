@@ -77,6 +77,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`addSection()` ignores duplicate and invalid sections (gitbrent/PptxGenJS#1152):**
+  `addSection({ title })` now skips (with a `console.warn`) any title that already
+  exists, instead of appending a second section with the same name — duplicate titles
+  silently broke section-by-title lookups (`addSlide({ sectionTitle })` and autoPage
+  continuation resolved to the first match). The pre-existing missing-argument and
+  missing-title warnings now also early-return rather than falling through and pushing
+  a section with an `undefined` title. Pinned by `test/regression/add-section-duplicate.test.js`.
 - **Master/layout placeholder body properties (margin/valign) (gitbrent/PptxGenJS#1247,
   #1208):** a placeholder authored on a slide master/layout (via `defineSlideMaster`)
   with `margin` and/or `valign` now emits those in its `<a:bodyPr>` (insets + `anchor`)
