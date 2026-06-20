@@ -3,7 +3,8 @@
 	"display": "PptxGenJS source",
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
-		"noEmit": true
+		"noEmit": true,
+		"types": ["node"]
 	},
 	"include": ["src/**/*.ts"]
 }

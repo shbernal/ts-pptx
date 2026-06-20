@@ -1,5 +1,5 @@
-import JSZip from 'jszip'
 import { XMLParser } from 'fast-xml-parser'
+import { readZip } from './zip.js'
 import { STANDARD_LAYOUTS, emuToInches } from './units.js'
 
 type XmlNode = Record<string, unknown>
@@ -84,8 +84,20 @@ const parser = new XMLParser({
 	parseTagValue: false,
 })
 
+const textDecoder = new TextDecoder('utf-8')
+
 export async function loadPptxPackage(input: PptxInspectInput): Promise<PptxPackage> {
-	return JSZip.loadAsync(input)
+	const entries = await readZip(input)
+	const files: Record<string, unknown> = {}
+	for (const path of entries.keys()) files[path] = true
+	return {
+		files,
+		file(path: string): PptxPackageFile | null {
+			const bytes = entries.get(path)
+			if (!bytes) return null
+			return { async: async () => textDecoder.decode(bytes) }
+		},
+	}
 }
 
 export function listPptxParts(pptxPackage: PptxPackage): string[] {

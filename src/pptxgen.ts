@@ -59,7 +59,7 @@
  * @see https://docs.microsoft.com/en-us/previous-versions/office/developer/office-2010/hh273476(v=office.14)
  */
 
-import JSZip from 'jszip'
+import { ZipWriter } from './zip.js'
 import Slide from './slide.js'
 import {
 	AlignH,
@@ -103,7 +103,7 @@ import * as genMedia from './gen-media.js'
 import * as genTable from './gen-tables.js'
 import * as genXml from './gen-xml.js'
 import type { RuntimeAdapter } from './runtime/types.js'
-import { getUuid } from './gen-utils.js'
+import { getUuid, decodeBase64ToBytes } from './gen-utils.js'
 import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
 
 export type { PresSlide as Slide } from './core-interfaces.js'
@@ -568,10 +568,10 @@ export default class PptxGenJS {
 	/**
 	 * Create all chart and media rels for this Presentation
 	 * @param {PresSlideInternal | SlideLayoutInternal} slide - slide with rels
-	 * @param {JSZip} zip - JSZip instance
+	 * @param {ZipWriter} zip - zip writer
 	 * @param {Promise<string>[]} chartPromises - promise array
 	 */
-	private readonly createChartMediaRels = (slide: PresSlideInternal | SlideLayoutInternal, zip: JSZip, chartPromises: Promise<string>[]): void => {
+	private readonly createChartMediaRels = (slide: PresSlideInternal | SlideLayoutInternal, zip: ZipWriter, chartPromises: Promise<string>[]): void => {
 		slide._relsChart.forEach(rel => chartPromises.push(genCharts.createExcelWorksheet(rel, zip)))
 		slide._relsMedia.forEach(rel => {
 			if (rel.type !== 'online' && rel.type !== 'hyperlink') {
@@ -583,13 +583,14 @@ export default class PptxGenJS {
 				else if (!data.includes(',')) data = 'image/png;base64,' + data
 				else if (!data.includes(';')) data = 'image/png;' + data
 
-				// C: Add media. Already-compressed formats (JPEG/PNG/video/…) gain
-				// ~nothing from DEFLATE, so STORE them to avoid wasted compression
+				// C: Add media. fflate needs decoded bytes (no base64 convenience), so
+				// decode the payload here. Already-compressed formats (JPEG/PNG/video/…)
+				// gain ~nothing from DEFLATE, so STORE them to avoid wasted compression
 				// CPU on large decks (#1006); other parts inherit global compression.
+				const bytes = decodeBase64ToBytes(data)
+				if (!bytes) return
 				const extn = (rel.extn || rel.Target.split('.').pop() || '').toLowerCase()
-				const fileOpts: JSZip.JSZipFileOptions = { base64: true }
-				if (ALREADY_COMPRESSED_MEDIA_EXTN.has(extn)) fileOpts.compression = 'STORE'
-				zip.file(rel.Target.replace('..', 'ppt'), data.split(',').pop(), fileOpts)
+				zip.add(rel.Target.replace('..', 'ppt'), bytes, { store: ALREADY_COMPRESSED_MEDIA_EXTN.has(extn) })
 			}
 		})
 	}
@@ -602,7 +603,7 @@ export default class PptxGenJS {
 	private readonly exportPresentation = async (props: WriteProps): Promise<string | ArrayBuffer | Blob | Uint8Array> => {
 		const arrChartPromises: Promise<string>[] = []
 		let arrMediaPromises: Promise<string>[] = []
-		const zip = new JSZip()
+		const zip = new ZipWriter()
 
 		// STEP 1: Read/Encode all Media before zip as base64 content, etc. is required
 		const onMediaError = props.onMediaError ?? 'throw'
@@ -642,61 +643,42 @@ export default class PptxGenJS {
 				if (slide._slideLayout) genObj.addPlaceholdersToSlideLayouts(slide)
 			})
 
-			// B: Add all required folders and files
-			zip.folder('_rels')
-			zip.folder('docProps')
-			zip.folder('ppt').folder('_rels')
-			// only scaffold ppt/charts and ppt/embeddings when at least one
-			// target actually has a chart. Otherwise JSZip emits stray empty
-			// directory entries into the archive on every minimal deck.
-			const hasCharts =
-				this._slides.some(s => (s._relsChart || []).length > 0) ||
-				this._slideLayouts.some(l => (l._relsChart || []).length > 0) ||
-				((this._masterSlide && this._masterSlide._relsChart) || []).length > 0
-			if (hasCharts) {
-				zip.folder('ppt/charts').folder('_rels')
-				zip.folder('ppt/embeddings')
-			}
-			zip.folder('ppt/media')
-			zip.folder('ppt/slideLayouts').folder('_rels')
-			zip.folder('ppt/slideMasters').folder('_rels')
-			zip.folder('ppt/slides').folder('_rels')
-			zip.folder('ppt/theme')
-			zip.folder('ppt/notesMasters').folder('_rels')
-			zip.folder('ppt/notesSlides').folder('_rels')
+			// B: Add all required files. fflate keys on full slash-paths and emits no
+			// directory entries, so there is no folder scaffolding to set up (and no
+			// stray empty-directory entries to guard against on minimal decks).
 			const hasCustomProps = this._customProperties.length > 0
-			zip.file('[Content_Types].xml', genXml.makeXmlContTypes(this._slides, this._slideLayouts, this._masterSlide, hasCustomProps)) // TODO: pass only `this` like below! 20200206
-			zip.file('_rels/.rels', genXml.makeXmlRootRels(hasCustomProps))
-			zip.file('docProps/app.xml', genXml.makeXmlApp(this._slides, this.company)) // TODO: pass only `this` like below! 20200206
-			zip.file('docProps/core.xml', genXml.makeXmlCore(this.title, this.subject, this.author, this.revision)) // TODO: pass only `this` like below! 20200206
+			zip.add('[Content_Types].xml', genXml.makeXmlContTypes(this._slides, this._slideLayouts, this._masterSlide, hasCustomProps)) // TODO: pass only `this` like below! 20200206
+			zip.add('_rels/.rels', genXml.makeXmlRootRels(hasCustomProps))
+			zip.add('docProps/app.xml', genXml.makeXmlApp(this._slides, this.company)) // TODO: pass only `this` like below! 20200206
+			zip.add('docProps/core.xml', genXml.makeXmlCore(this.title, this.subject, this.author, this.revision)) // TODO: pass only `this` like below! 20200206
 			if (hasCustomProps) {
-				zip.file('docProps/custom.xml', genXml.makeXmlCustomProperties(this._customProperties))
+				zip.add('docProps/custom.xml', genXml.makeXmlCustomProperties(this._customProperties))
 			}
-			zip.file('ppt/_rels/presentation.xml.rels', genXml.makeXmlPresentationRels(this._slides))
-			zip.file('ppt/theme/theme1.xml', genXml.makeXmlTheme(this.internalPresentation))
+			zip.add('ppt/_rels/presentation.xml.rels', genXml.makeXmlPresentationRels(this._slides))
+			zip.add('ppt/theme/theme1.xml', genXml.makeXmlTheme(this.internalPresentation))
 			// emit a separate theme2.xml part so notesMaster1.xml.rels resolves
-			zip.file('ppt/theme/theme2.xml', genXml.makeXmlTheme(this.internalPresentation))
-			zip.file('ppt/presentation.xml', genXml.makeXmlPresentation(this.internalPresentation))
-			zip.file('ppt/presProps.xml', genXml.makeXmlPresProps())
-			zip.file('ppt/tableStyles.xml', genXml.makeXmlTableStyles(this._tableStyles))
-			zip.file('ppt/viewProps.xml', genXml.makeXmlViewProps())
+			zip.add('ppt/theme/theme2.xml', genXml.makeXmlTheme(this.internalPresentation))
+			zip.add('ppt/presentation.xml', genXml.makeXmlPresentation(this.internalPresentation))
+			zip.add('ppt/presProps.xml', genXml.makeXmlPresProps())
+			zip.add('ppt/tableStyles.xml', genXml.makeXmlTableStyles(this._tableStyles))
+			zip.add('ppt/viewProps.xml', genXml.makeXmlViewProps())
 
 			// C: Create a Layout/Master/Rel/Slide file for each SlideLayout and Slide
 			this._slideLayouts.forEach((layout, idx) => {
-				zip.file(`ppt/slideLayouts/slideLayout${idx + 1}.xml`, genXml.makeXmlLayout(layout))
-				zip.file(`ppt/slideLayouts/_rels/slideLayout${idx + 1}.xml.rels`, genXml.makeXmlSlideLayoutRel(idx + 1, this._slideLayouts))
+				zip.add(`ppt/slideLayouts/slideLayout${idx + 1}.xml`, genXml.makeXmlLayout(layout))
+				zip.add(`ppt/slideLayouts/_rels/slideLayout${idx + 1}.xml.rels`, genXml.makeXmlSlideLayoutRel(idx + 1, this._slideLayouts))
 			})
 			this._slides.forEach((slide, idx) => {
-				zip.file(`ppt/slides/slide${idx + 1}.xml`, genXml.makeXmlSlide(slide))
-				zip.file(`ppt/slides/_rels/slide${idx + 1}.xml.rels`, genXml.makeXmlSlideRel(this._slides, this._slideLayouts, idx + 1))
+				zip.add(`ppt/slides/slide${idx + 1}.xml`, genXml.makeXmlSlide(slide))
+				zip.add(`ppt/slides/_rels/slide${idx + 1}.xml.rels`, genXml.makeXmlSlideRel(this._slides, this._slideLayouts, idx + 1))
 				// Create all slide notes related items. Notes of empty strings are created for slides which do not have notes specified, to keep track of _rels.
-				zip.file(`ppt/notesSlides/notesSlide${idx + 1}.xml`, genXml.makeXmlNotesSlide(slide))
-				zip.file(`ppt/notesSlides/_rels/notesSlide${idx + 1}.xml.rels`, genXml.makeXmlNotesSlideRel(slide, idx + 1))
+				zip.add(`ppt/notesSlides/notesSlide${idx + 1}.xml`, genXml.makeXmlNotesSlide(slide))
+				zip.add(`ppt/notesSlides/_rels/notesSlide${idx + 1}.xml.rels`, genXml.makeXmlNotesSlideRel(slide, idx + 1))
 			})
-			zip.file('ppt/slideMasters/slideMaster1.xml', genXml.makeXmlMaster(this._masterSlide, this._slideLayouts))
-			zip.file('ppt/slideMasters/_rels/slideMaster1.xml.rels', genXml.makeXmlMasterRel(this._masterSlide, this._slideLayouts))
-			zip.file('ppt/notesMasters/notesMaster1.xml', genXml.makeXmlNotesMaster())
-			zip.file('ppt/notesMasters/_rels/notesMaster1.xml.rels', genXml.makeXmlNotesMasterRel())
+			zip.add('ppt/slideMasters/slideMaster1.xml', genXml.makeXmlMaster(this._masterSlide, this._slideLayouts))
+			zip.add('ppt/slideMasters/_rels/slideMaster1.xml.rels', genXml.makeXmlMasterRel(this._masterSlide, this._slideLayouts))
+			zip.add('ppt/notesMasters/notesMaster1.xml', genXml.makeXmlNotesMaster())
+			zip.add('ppt/notesMasters/_rels/notesMaster1.xml.rels', genXml.makeXmlNotesMasterRel())
 
 			// D: Create all Rels (images, media, chart data)
 			this._slideLayouts.forEach(layout => {
@@ -709,16 +691,16 @@ export default class PptxGenJS {
 
 			// E: Wait for Promises (if any) then generate the PPTX file
 			return await Promise.all(arrChartPromises).then(async () => {
-				const compression = props.compression === false ? 'STORE' : 'DEFLATE'
+				const compression = props.compression !== false
 				if (props.outputType === 'STREAM') {
 					// A: stream file
-					return await zip.generateAsync({ type: 'nodebuffer', compression })
+					return await zip.generate('nodebuffer', { compression })
 				} else if (props.outputType) {
 					// B: Node [fs]: Output type user option or default
-					return await zip.generateAsync({ type: props.outputType, compression })
+					return await zip.generate(props.outputType, { compression })
 				} else {
 					// C: Browser: Output blob as app/ms-pptx
-					return await zip.generateAsync({ type: 'blob', compression })
+					return await zip.generate('blob', { compression })
 				}
 			})
 		})

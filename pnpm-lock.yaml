@@ -14,9 +14,9 @@ importers:
       fast-xml-parser:
         specifier: ^5.8.0
         version: 5.8.0
-      jszip:
-        specifier: ^3.10.1
-        version: 3.10.1
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: ^0.18.3
@@ -45,6 +45,9 @@ importers:
       eslint:
         specifier: ^10.4.1
         version: 10.4.1
+      jszip:
+        specifier: ^3.10.1
+        version: 3.10.1
       lefthook:
         specifier: ^2.1.9
         version: 2.1.9

@@ -1,4 +1,4 @@
-import JSZip from 'jszip'
+import { ZipWriter, readZip } from '../../zip.js'
 import { ContentTypes } from './content-types.js'
 import { Part } from './part.js'
 import { Relationships } from './relationships.js'
@@ -40,16 +40,15 @@ export class OpcPackage {
 	}
 
 	static async load(input: OpcInput): Promise<OpcPackage> {
-		const zip = await JSZip.loadAsync(input)
-		const contentTypesEntry = zip.file(CONTENT_TYPES_ZIP_PATH)
-		if (!contentTypesEntry) throw new Error('Not an OPC package: missing [Content_Types].xml')
-		const contentTypesBytes = await contentTypesEntry.async('uint8array')
+		const entries = await readZip(input)
+		const contentTypesBytes = entries.get(CONTENT_TYPES_ZIP_PATH)
+		if (!contentTypesBytes) throw new Error('Not an OPC package: missing [Content_Types].xml')
 		const contentTypes = ContentTypes.parse(textDecoder.decode(contentTypesBytes))
 
 		const parts = new Map<string, Part>()
-		for (const entry of Object.values(zip.files)) {
-			if (entry.dir || entry.name === CONTENT_TYPES_ZIP_PATH) continue
-			const partName = zipPathToPartName(entry.name)
+		for (const [zipPath, bytes] of entries) {
+			if (zipPath === CONTENT_TYPES_ZIP_PATH) continue
+			const partName = zipPathToPartName(zipPath)
 			// PowerPoint leaves deleted parts in a `[trash]` folder that is not
 			// registered in [Content_Types].xml and is referenced by nothing. These
 			// are inert artifacts (common in real-world authored decks); drop them on
@@ -59,7 +58,7 @@ export class OpcPackage {
 			if (!contentType) {
 				throw new Error(`No content type for part ${partName}: [Content_Types].xml has no matching Override or Default`)
 			}
-			parts.set(partName, new Part(partName, contentType, await entry.async('uint8array')))
+			parts.set(partName, new Part(partName, contentType, bytes))
 		}
 		return new OpcPackage(parts, contentTypes, contentTypesBytes)
 	}
@@ -164,12 +163,12 @@ export class OpcPackage {
 	 */
 	async save(): Promise<Uint8Array> {
 		this.#flushRelationships()
-		const zip = new JSZip()
-		zip.file(CONTENT_TYPES_ZIP_PATH, this.contentTypes.isDirty ? textEncoder.encode(this.contentTypes.serialize()) : this.#contentTypesBytes)
+		const zip = new ZipWriter()
+		zip.add(CONTENT_TYPES_ZIP_PATH, this.contentTypes.isDirty ? this.contentTypes.serialize() : this.#contentTypesBytes)
 		for (const part of this.#parts.values()) {
-			zip.file(partNameToZipPath(part.partName), part.serialize())
+			zip.add(partNameToZipPath(part.partName), part.serialize())
 		}
-		return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' })
+		return zip.toBytes()
 	}
 
 	/** Write each dirty `Relationships` set back into its `.rels` part (creating it if new). */

@@ -603,7 +603,7 @@ export function svgMarkupToDataUri (svg: string): string {
  * @param {string} b64 - base64 string or data URI
  * @returns {Uint8Array | null} decoded bytes, or `null` when the payload is empty/undecodable
  */
-function decodeBase64ToBytes (b64: string): Uint8Array | null {
+export function decodeBase64ToBytes (b64: string): Uint8Array | null {
 	if (!b64) return null
 	// Strip any `data:...;base64,` prefix and surrounding whitespace
 	const comma = b64.indexOf('base64,')

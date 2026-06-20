@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Table-cell style reads (`TableCell.resolvedFill`/`fillSchemeColor`/`verticalText`/`anchor`/`marginsEmu`):**
+  the `pptxgenjs/read` model now profiles table cells beyond their text. `resolvedFill`
+  resolves the cell's `a:tcPr/a:solidFill` against the slide theme to a literal hex
+  (with `effectiveHex` after `lumMod`/`lumOff`/… transforms — the same resolver as
+  `Shape.resolvedFill`); `fillSchemeColor` reports the raw token; `verticalText`
+  (`@vert`, e.g. `vert270`), `anchor` (`@anchor`), and `marginsEmu` (`@marL`/`@marR`/
+  `@marT`/`@marB`) expose the cell's layout. This lets a consumer reconstruct a table's
+  per-cell appearance (fills, vertical labels, insets) without hand-parsing `a:tbl` XML.
 - **Generic preset shapes in slide masters (`{ shape: { type, options } }`):** a
   `defineSlideMaster({ objects })` entry can now be any preset shape addressed by
   `SHAPE_NAME`, e.g. `{ shape: { type: 'ellipse', options: { x, y, w, h, fill } } }`.
@@ -84,6 +92,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Performance
 
+- **fflate ZIP backend (replaces JSZip):** the whole library now builds and reads `.pptx`
+  archives with [fflate](https://github.com/101arrowz/fflate) instead of JSZip, and the
+  `jszip` runtime dependency is dropped. fflate's DEFLATE is several times faster than
+  JSZip's pure-JS pako, so all output speeds up, not just media-heavy decks. All backend
+  contact is isolated in `src/zip.ts`: a `ZipWriter` seam on the write path and a `readZip`
+  reader on the read path. The public output types
+  (`nodebuffer`/`arraybuffer`/`blob`/`base64`/`binarystring`/`uint8array`/`STREAM`) and the
+  `compression` option are unchanged, and `OpcPackage.load`/`Presentation.load`/`inspect`
+  accept the same inputs as before (`string`/`number[]`/`Uint8Array`/`ArrayBuffer`/`Blob`),
+  normalized to `Uint8Array` for fflate. Phase 1 (write) covered `write()`/`writeFile()`/
+  `stream()` and chart generation; phase 2 (read) covered `pptxgenjs/read` and `inspect`.
+  Two incidental wins: archives no longer carry empty directory entries (fflate keys on full
+  paths), and the embedded chart XLSX is now stored as raw bytes instead of a base64
+  round-trip. The #1006 per-entry STORE-of-media behaviour is preserved, and archive bytes
+  are reproducible across runs (entries carry a fixed timestamp). `jszip` is retained as a
+  dev dependency only, where the round-trip tests use it as an independent zip oracle
+  (backlog `dn-fflate-zip-backend`). The seam currently finalizes synchronously
+  (`zipSync`/`unzipSync`); moving it to fflate's worker-parallel async `zip()`/`unzip()`
+  for an additional large-deck speedup is deferred behind the same `src/zip.ts` boundary
+  (backlog `dn-fflate-async-zip`).
 - **Skip DEFLATE on already-compressed media (gitbrent/PptxGenJS#1006):** image and
   video parts (`jpg`/`jpeg`/`png`/`gif`/`webp`/`heic`/`heif`/`avif`/`mp4`/`m4v`/`mov`/
   `avi`/`mpg`/`mpeg`/`wmv`/`webm`/`mkv`/`mp3`/`m4a`/`aac`/`ogg`/`oga`) are now written

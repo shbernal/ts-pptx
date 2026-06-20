@@ -2908,15 +2908,50 @@ items:
     type: downstream-need
     first_seen: 2026-06-20
     last_reviewed: 2026-06-20
-    status: deferred
+    status: implemented
     priority: p3
     target_area:
       - package-boundary
-    applies_to_current_project: partial
+    applies_to_current_project: yes
     non_target_reasons: []
     summary: Swap JSZip ZIP backend for fflate to cut generateAsync compression time on large decks.
     current_project_notes: >
-      Deferred follow-up to the #1006 performance work (see upstream-issue-1006).
+      IMPLEMENTED (both phases) on branch feat/fflate-zip-backend; jszip dependency dropped.
+
+
+      PHASE 1 (write path): A new `ZipWriter` seam (src/zip.ts) isolates all fflate contact:
+      callers accumulate `add(path, string|bytes, {store})` and finalize with
+      `generate(type, {compression})`, which maps fflate's single Uint8Array to the output-type
+      matrix (nodebuffer/arraybuffer/blob/base64/binarystring/uint8array). src/pptxgen.ts and
+      src/gen-charts.ts build through it; the `.folder()` scaffolding and the `hasCharts`
+      empty-dir guard are deleted (fflate emits no directory entries), and the nested chart XLSX
+      is embedded as raw STORE bytes instead of a base64 round-trip. The #1006 per-entry
+      STORE-of-media carries over via per-file `level: 0`. Entries get a fixed mtime
+      (2001-01-01) so archive bytes are reproducible.
+
+
+      PHASE 2 (read path): src/zip.ts gained a `readZip(input)` reader (fflate `unzipSync` →
+      ordered path->bytes Map, directory markers dropped) plus a `toUint8Array` normalizer that
+      reproduces JSZip's default loadAsync input handling (string treated as a latin1 binary
+      string, not base64; ArrayBuffer/Blob/number[]/Buffer all accepted). OpcPackage.load /
+      OpcPackage.save and src/inspect.ts now go through src/zip.ts; OpcPackage.save builds via
+      ZipWriter. The jszip runtime dependency was removed (moved to devDependencies — the
+      round-trip suite still uses it as an independent zip oracle). Side fix: jszip's
+      `/// <reference types="node" />` was the only thing pulling @types/node into the typecheck
+      program, so tsconfig.json now sets `types: ["node"]` explicitly (matching the existing
+      tsconfig.test.json / tsconfig.strict-null.json pattern). Verified: typecheck, build, lint,
+      295 unit tests, 249 read+inspection tests (round-trip byte-identity, trash handling,
+      content-type rejection, input variants), 98 schema/validator tests. Note OpcPackage.load
+      already materialized every part to uint8array up front, so fflate's eager unzip did not
+      change the edit core's memory profile (the original challenge #4 was moot).
+
+
+      STILL DEFERRED (contained to src/zip.ts, not blocking): switch ZipWriter.toBytes from
+      zipSync to fflate's worker-parallel async zip(), and readZip from unzipSync to async
+      unzip(), once a perf need justifies the worker setup.
+
+
+      ORIGINAL ANALYSIS — Deferred follow-up to the #1006 performance work (see upstream-issue-1006).
       The per-entry STORE-of-media fix removed the dominant cost for media-heavy
       decks, but the deeper root remains: JSZip compresses via single-threaded,
       pure-JS DEFLATE (pako). fflate is several times faster, zero-dependency,
@@ -2952,13 +2987,37 @@ items:
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - validator-result
       local_files:
-        - src/pptxgen.ts:585
-        - src/gen-charts.ts:38
-        - src/read/opc/package.ts:43
-        - src/inspect.ts:88
+        - src/zip.ts
+        - src/pptxgen.ts:574
+        - src/gen-charts.ts:34
+        - src/read/opc/package.ts:42
+        - src/inspect.ts:87
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: spike-fflate-on-write-path-behind-roundtrip-suite
+    next_action: none
+  - id: dn-fflate-async-zip
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-06-20
+    last_reviewed: 2026-06-20
+    status: deferred
+    priority: p3
+    target_area:
+      - package-boundary
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: Switch fflate ZIP backend from sync to worker-parallel async zip()/unzip() for the large-deck speedup.
+    current_project_notes: "DEFERRED follow-up to dn-fflate-zip-backend (implemented). That migration swapped JSZip for fflate and gained the faster single-threaded DEFLATE, but src/zip.ts still finalizes with synchronous zipSync (write) and unzipSync (read). The headline motivation of the fflate swap — worker-parallel compression to cut generateAsync time on large decks — is NOT yet realized; only the faster pure-JS DEFLATE is. Remaining work, fully contained to src/zip.ts behind the ZipWriter/readZip seam (no caller signature changes): switch ZipWriter.toBytes from zipSync to fflate's async, worker-parallel zip(), and readZip from unzipSync to async unzip(). Gate on an actual perf need: first capture a before/after benchmark on a representative large deck (the original swap recorded correctness parity but no timing), since the worker setup adds complexity and the sync path is already correct and fast enough for current decks. See dn-fflate-zip-backend current_project_notes (STILL DEFERRED) and src/zip.ts."
+    evidence:
+      kinds: []
+      local_files: []
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: Benchmark a large deck, then move src/zip.ts ZipWriter.toBytes to fflate async zip() and readZip to async unzip() behind the existing seam.
