@@ -19,6 +19,7 @@ import {
 	type Element,
 } from '../oxml/dom.js'
 import type { ColorContext } from '../oxml/theme.js'
+import { resolveSolidFillColor, type ResolvedColor } from './theme-context.js'
 import { TextFrame } from './text.js'
 
 /** A table: a grid of rows and cells inside a graphic frame. */
@@ -172,6 +173,68 @@ export class TableCell {
 		p.insertBefore(run, endParaRPr)
 
 		this.part.markDirty()
+	}
+
+	/** The cell's properties element (`a:tcPr`), or `null` when the cell defines none. */
+	#tcPr(): Element | null {
+		return firstChild(this.tc, 'a:tcPr')
+	}
+
+	/**
+	 * The cell's solid fill (`a:tcPr/a:solidFill`) resolved against the table's
+	 * theme colour context to a literal hex — the table-cell counterpart of
+	 * {@link import('./shapes.js').AutoShape.resolvedFill}. `null` when the cell has
+	 * no solid fill, or the colour cannot be made literal (no theme context, an
+	 * unmapped token, or a non-solid fill). The returned {@link ResolvedColor}
+	 * carries `effectiveHex` (the base colour with its `lumMod`/`lumOff`/… transforms
+	 * applied) — read that for the final rendered colour.
+	 */
+	get resolvedFill(): ResolvedColor | null {
+		return this.themeColors ? resolveSolidFillColor(this.#tcPr(), this.themeColors) : null
+	}
+
+	/**
+	 * The raw `schemeClr` token of the cell's solid fill (`a:tcPr/a:solidFill/a:schemeClr/@val`),
+	 * e.g. `accent1`/`bg1`, or `null` when the fill is absent or an explicit `srgbClr`.
+	 * The resolved literal is {@link resolvedFill}; this is the unresolved reference.
+	 */
+	get fillSchemeColor(): string | null {
+		const fill = firstChild(this.#tcPr() ?? this.tc, 'a:solidFill')
+		const scheme = fill && firstChild(fill, 'a:schemeClr')
+		return scheme ? attr(scheme, 'val') : null
+	}
+
+	/**
+	 * The cell's text direction (`a:tcPr/@vert`), e.g. `vert270` for a bottom-to-top
+	 * vertical label, or `null` for default horizontal text.
+	 */
+	get verticalText(): string | null {
+		const tcPr = this.#tcPr()
+		return (tcPr && attr(tcPr, 'vert')) ?? null
+	}
+
+	/**
+	 * The cell's vertical text anchor (`a:tcPr/@anchor`): `t`/`ctr`/`b` (top/middle/
+	 * bottom), or `null` when unset (PowerPoint defaults to top).
+	 */
+	get anchor(): string | null {
+		const tcPr = this.#tcPr()
+		return (tcPr && attr(tcPr, 'anchor')) ?? null
+	}
+
+	/**
+	 * The cell's text insets in EMU (`a:tcPr/@marL`/`@marR`/`@marT`/`@marB`), or
+	 * `null` when the cell sets none. Each side is `null` when only some are set.
+	 */
+	get marginsEmu(): { left: number | null; right: number | null; top: number | null; bottom: number | null } | null {
+		const tcPr = this.#tcPr()
+		if (!tcPr) return null
+		const left = intValue(attr(tcPr, 'marL'))
+		const right = intValue(attr(tcPr, 'marR'))
+		const top = intValue(attr(tcPr, 'marT'))
+		const bottom = intValue(attr(tcPr, 'marB'))
+		if (left === null && right === null && top === null && bottom === null) return null
+		return { left, right, top, bottom }
 	}
 
 	/** Number of grid columns this cell spans (`a:tc/@gridSpan`), default 1. */
