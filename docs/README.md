@@ -33,8 +33,6 @@ artifacts.
   planning note for native PPTX gradient fills and required review gates.
 - [Backlog workflow](backlog-workflow.md): how to classify
   upstream issues and PRs without reintroducing dropped package targets.
-- [Legacy autoloop workflow](legacy-autoloop.md): retained legacy automation
-  notes.
 
 ## Documentation Rules
 

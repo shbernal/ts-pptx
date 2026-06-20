@@ -34,17 +34,12 @@ demos/node/output/
 *.swp
 *~
 
-### Autoloop
-# Use .autoloop/* (not .autoloop/) so the negation below actually applies —
-# git cannot re-include a file inside an excluded directory.
-.autoloop/*
-!.autoloop/bug-report.md
-
 ### PPTX bank — uncommitted corpus of real decks for ad-hoc agent use
 # (probing OOXML, debugging round-trip, fixture candidates). Distinct from the
 # curated, hash-pinned harness inputs in test/read/fixtures/. Track only the
 # README so the convention stays self-documenting; ignore all .pptx bytes.
-# Same `dir/*` + negation trick as .autoloop above.
+# Use `dir/*` (not `dir/`) + a negation so git can re-include the README —
+# it cannot re-include a file inside a fully-excluded directory.
 /pptx-bank/*
 !/pptx-bank/README.md
 

@@ -81,5 +81,4 @@ from a clean checkout:
 - package support is documented in `docs/runtime-and-package-support.md`;
 - development commands are documented in `docs/development.md`;
 - verification commands are documented in `docs/testing.md`;
-- OOXML source-of-truth lookup is documented in `docs/ooxml-agent-context.md`;
-- legacy autoloop files are retained but not promoted as the default workflow.
+- OOXML source-of-truth lookup is documented in `docs/ooxml-agent-context.md`.

@@ -121,7 +121,6 @@ complete support contract.
 - [Agent development guide](docs/agent-development.md)
 - [OOXML agent context](docs/ooxml-agent-context.md)
 - [Backlog workflow](docs/backlog-workflow.md)
-- [Legacy autoloop workflow](docs/legacy-autoloop.md)
 
 ## Repository Development
 
