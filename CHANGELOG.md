@@ -75,6 +75,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `group-transform.pptx` fixture whose second slide is PowerPoint's own
   ungrouped ground truth.
 
+### Performance
+
+- **Skip DEFLATE on already-compressed media (gitbrent/PptxGenJS#1006):** image and
+  video parts (`jpg`/`jpeg`/`png`/`gif`/`webp`/`heic`/`heif`/`avif`/`mp4`/`m4v`/`mov`/
+  `avi`/`mpg`/`mpeg`/`wmv`/`webm`/`mkv`/`mp3`/`m4a`/`aac`/`ogg`/`oga`) are now written
+  to the package with per-entry `STORE` instead of `DEFLATE`. Their bytes are already
+  entropy-coded, so DEFLATE-ing them burned CPU in JSZip's `generateAsync` for a
+  negligible size gain — the dominant cost when exporting large, media-heavy decks.
+  XML parts still DEFLATE, and `compression: false` still stores everything. Formats
+  that genuinely benefit from DEFLATE (`bmp`/`wav`/`tiff`/`emf`/`wmf`/`svg`) are
+  excluded and keep inheriting the global compression. No change to OOXML validity or
+  output that PowerPoint opens.
+
 ### Fixed
 
 - **`addSection()` ignores duplicate and invalid sections (gitbrent/PptxGenJS#1152):**

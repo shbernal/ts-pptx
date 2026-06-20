@@ -188,6 +188,21 @@ export type {
 
 const VERSION = '6.0.0'
 
+/**
+ * Media extensions whose bytes are already entropy-coded, so running the ZIP's
+ * DEFLATE pass over them costs CPU for a negligible size gain. For these we set
+ * the JSZip per-entry compression to STORE while leaving XML parts on DEFLATE.
+ * In image/video-heavy decks media dominates the byte count, so this is the
+ * dominant cost in `generateAsync` for large presentations (see #1006).
+ * Formats that genuinely benefit from DEFLATE (bmp, wav, tiff, emf, wmf, svg)
+ * are deliberately excluded so they keep inheriting the global compression.
+ */
+const ALREADY_COMPRESSED_MEDIA_EXTN = new Set([
+	'jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'avif',
+	'mp4', 'm4v', 'mov', 'avi', 'mpg', 'mpeg', 'wmv', 'webm', 'mkv',
+	'mp3', 'm4a', 'aac', 'ogg', 'oga',
+])
+
 function standardLayoutToPresLayout(layout: StandardLayout): PresLayout {
 	return {
 		name: layout.name,
@@ -568,8 +583,13 @@ export default class PptxGenJS {
 				else if (!data.includes(',')) data = 'image/png;base64,' + data
 				else if (!data.includes(';')) data = 'image/png;' + data
 
-				// C: Add media
-				zip.file(rel.Target.replace('..', 'ppt'), data.split(',').pop(), { base64: true })
+				// C: Add media. Already-compressed formats (JPEG/PNG/video/…) gain
+				// ~nothing from DEFLATE, so STORE them to avoid wasted compression
+				// CPU on large decks (#1006); other parts inherit global compression.
+				const extn = (rel.extn || rel.Target.split('.').pop() || '').toLowerCase()
+				const fileOpts: JSZip.JSZipFileOptions = { base64: true }
+				if (ALREADY_COMPRESSED_MEDIA_EXTN.has(extn)) fileOpts.compression = 'STORE'
+				zip.file(rel.Target.replace('..', 'ppt'), data.split(',').pop(), fileOpts)
 			}
 		})
 	}

@@ -1426,8 +1426,8 @@ items:
     source: "gitbrent/PptxGenJS#1006"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: watch
+    last_reviewed: 2026-06-20
+    status: implemented
     priority: p3
     target_area:
       - package-boundary
@@ -1435,22 +1435,31 @@ items:
     non_target_reasons: []
     summary: Reported JSZip generateAsync performance as a bottleneck for large presentations.
     current_project_notes: >
-      Current write paths still use JSZip generateAsync and expose compression
-      controls. This is not an OOXML correctness issue, but it can be revisited
-      if package output performance becomes a project target.
+      The dominant cost for the reported case (large, media-heavy decks) is now
+      addressed without changing the ZIP backend: already-compressed media parts
+      (jpg/jpeg/png/gif/webp/heic/heif/avif and common audio/video) are written
+      with per-entry STORE instead of DEFLATE, because their bytes are already
+      entropy-coded and DEFLATE-ing them burned generateAsync CPU for a negligible
+      size gain. XML parts still DEFLATE; `compression: false` still stores all;
+      formats that benefit from DEFLATE (bmp/wav/tiff/emf/wmf/svg) are excluded.
+      Landed in src/pptxgen.ts (ALREADY_COMPRESSED_MEDIA_EXTN + per-entry option in
+      createChartMediaRels), a CHANGELOG Performance entry, and regression coverage
+      in test/regression/zip-compression.test.js. The deeper root — single-threaded
+      pure-JS DEFLATE in JSZip/pako — remains; swapping the backend to fflate is
+      tracked separately as a deferred spike (see dn-fflate-zip-backend).
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/pptxgen.ts:638
-        - src/pptxgen.ts:641
-        - src/pptxgen.ts:644
-        - src/core-interfaces.ts:1700
+        - src/pptxgen.ts:190
+        - src/pptxgen.ts:571
+        - test/regression/zip-compression.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: reconsider-zip-generation-strategy-if-output-performance-becomes-target
+    next_action: none
 
   - id: upstream-issue-1005
     source: "gitbrent/PptxGenJS#1005"
@@ -2894,3 +2903,63 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: Design the generator<->read integration seam; gated on feat/pptx-edit Phase 2 read model + layout binding
+
+  - id: dn-fflate-zip-backend
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-06-20
+    last_reviewed: 2026-06-20
+    status: deferred
+    priority: p3
+    target_area:
+      - package-boundary
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: Swap JSZip ZIP backend for fflate to cut generateAsync compression time on large decks.
+    current_project_notes: >
+      Deferred follow-up to the #1006 performance work (see upstream-issue-1006).
+      The per-entry STORE-of-media fix removed the dominant cost for media-heavy
+      decks, but the deeper root remains: JSZip compresses via single-threaded,
+      pure-JS DEFLATE (pako). fflate is several times faster, zero-dependency,
+      smaller, and supports streaming plus optional worker-parallel compression,
+      so swapping the backend would speed up *all* output, not just media.
+
+
+      Why deferred, not done now: it is a real refactor, not a drop-in. JSZip is
+      used in four files with two shapes — build side (src/pptxgen.ts new JSZip /
+      .folder / .file / generateAsync; src/gen-charts.ts nested XLSX zip) and
+      parse side (src/read/opc/package.ts loadAsync + Object.values(zip.files) +
+      entry.async + re-serialize; src/inspect.ts loadAsync + entry.async). Key
+      challenges: (1) fflate is functional with no stateful archive/folder object,
+      so the spread-out incremental accumulation must collect into one path->bytes
+      map then zip once, and every helper taking `zip: JSZip` changes signature;
+      (2) no base64/string conveniences — every base64 media hop and XML string
+      must be hand-converted to Uint8Array; (3) the single generateAsync({type})
+      output matrix (nodebuffer/blob/arraybuffer/uint8array/STREAM) collapses to
+      Uint8Array and needs a per-type conversion shim; (4) fflate's unzip is eager,
+      not lazy, changing the memory profile of the lossless read/edit round-trip
+      core (feat/pptx-edit), which is the most fidelity-sensitive code here;
+      (5) output bytes change (no directory entries, different ordering/levels), so
+      golden/byte-compare/round-trip fixtures regenerate and OOXML validity must be
+      re-verified; (6) fflate's async path uses workers by default, which may need
+      bundler/Node-ESM config or a fallback to *Sync.
+
+
+      Recommended path when picked up: introduce fflate on the WRITE path first
+      (lower fidelity stakes), keep the read/edit loader on JSZip until parity is
+      proven against the round-trip suite, then migrate the parse side. The
+      per-entry STORE-of-media behaviour is more natural in fflate (per-file
+      level 0), so the #1006 optimization carries over.
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/pptxgen.ts:585
+        - src/gen-charts.ts:38
+        - src/read/opc/package.ts:43
+        - src/inspect.ts:88
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: spike-fflate-on-write-path-behind-roundtrip-suite
