@@ -1634,8 +1634,8 @@ items:
     source: "gitbrent/PptxGenJS#898"
     type: issue
     first_seen: 2026-06-16
-    last_reviewed: 2026-06-16
-    status: deferred
+    last_reviewed: 2026-06-20
+    status: implemented
     priority: p3
     target_area:
       - image-svg-media
@@ -1644,27 +1644,28 @@ items:
     non_target_reasons: []
     summary: SVG source images for picture bullets (follow-up to #898 picture-bullet support).
     current_project_notes: >
-      Deferred (in scope, narrow follow-up to the implemented picture-bullet
-      feature). createBulletImageRels currently handles raster formats (PNG/JPG/GIF)
-      that flow straight through the existing image media pipeline. An SVG bullet
-      image would need the same png-preview generation that addImage() does for SVG
-      (the isSvgPng dual-rel + createSvgPngPreview dance), and `<a:buBlip>` would
-      need to reference the png fallback rather than the raw SVG. SVG bullets are
-      uncommon, so this was left out to keep the initial feature focused. Implement
-      by routing bullet SVG data/path through the same isSvgPng rel pair when a
-      concrete need lands.
+      Implemented. createBulletImageRels now detects SVG bullet images (path .svg or
+      `image/svg+xml` data) and registers the same dual-rel pair addImage() uses for
+      SVG: a PNG-preview rel flagged `isSvgPng` (picked up by the generic media
+      pipeline's createSvgPngPreview pass) plus the SVG rel. The bullet stores the
+      PNG rId on `_rId` and the SVG rId on the new `_rIdSvg`, and gen-xml emits
+      `<a:buBlip><a:blip r:embed=PNG><a:extLst>…asvg:svgBlip r:embed=SVG…></a:blip></a:buBlip>`.
+      Covered by the `svg-picture-bullet` schema fixture (validates the dual rel pair
+      and svgBlip extension, including re-use of the same SVG data across two boxes).
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
       local_files:
-        - src/gen-objects.ts:1437
-        - src/gen-objects.ts:556
-        - src/gen-media.ts:54
-      schema_fixture: null
+        - src/gen-objects.ts:1577
+        - src/gen-xml.ts:1295
+        - src/core-interfaces.ts:622
+        - test/schema.test.js:1560
+      schema_fixture: svg-picture-bullet
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: route-svg-bullet-through-svgpng-rel-pair
+    next_action: none
 
   - id: upstream-issue-795
     source: "gitbrent/PptxGenJS#795"

@@ -1293,7 +1293,17 @@ function genXmlParagraphProperties (textObj: ISlideObject | TextProps, isDefault
 				paragraphPropXml += ` marL="${textObj.options.indentLevel && textObj.options.indentLevel > 0 ? bulletMarL + bulletMarL * textObj.options.indentLevel : bulletMarL
 				}" indent="-${bulletMarL}"`
 				if (textObj.options.bullet._rId) {
-					strXmlBullet = `${strXmlBulletSize}<a:buBlip><a:blip r:embed="rId${textObj.options.bullet._rId}"/></a:buBlip>`
+					if (textObj.options.bullet._rIdSvg) {
+						// SVG bullet: the blip embeds the PNG preview (`_rId`) and references the SVG via the
+						// `asvg:svgBlip` extension (`_rIdSvg`), the same dual-rel form addImage() emits for SVG.
+						strXmlBullet =
+							`${strXmlBulletSize}<a:buBlip><a:blip r:embed="rId${textObj.options.bullet._rId}">` +
+							'<a:extLst><a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}">' +
+							`<asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="rId${textObj.options.bullet._rIdSvg}"/>` +
+							'</a:ext></a:extLst></a:blip></a:buBlip>'
+					} else {
+						strXmlBullet = `${strXmlBulletSize}<a:buBlip><a:blip r:embed="rId${textObj.options.bullet._rId}"/></a:buBlip>`
+					}
 				} else {
 					// rel was not registered (eg: bullet on a context without a slide target) - fall back to a glyph
 					console.warn('Warning: picture `bullet.image` could not be embedded; using a default bullet glyph')

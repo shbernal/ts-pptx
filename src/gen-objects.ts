@@ -1567,7 +1567,7 @@ function createBulletImageRels(target: PresSlideInternal, objectOptions: ObjectO
 	// Collect every bullet options object that requests a picture bullet (shape-level + per-paragraph).
 	// Shape-level bullets are later shared by reference onto the first run, so the same object may appear
 	// twice; the `_rId` guard below makes the registration idempotent.
-	const bulletObjs: Array<{ image?: { path?: string, data?: string }, _rId?: number }> = []
+	const bulletObjs: Array<{ image?: { path?: string, data?: string }, _rId?: number, _rIdSvg?: number }> = []
 	const collect = (opts?: TextPropsOptions): void => {
 		if (opts && typeof opts.bullet === 'object' && opts.bullet) bulletObjs.push(opts.bullet)
 	}
@@ -1597,18 +1597,47 @@ function createBulletImageRels(target: PresSlideInternal, objectOptions: ObjectO
 		}
 		const imageMimeMatch = /image\/(\w+);/.exec(img.data || '')
 		if (img.data && imageMimeMatch) strImgExtn = imageMimeMatch[1]
+		// `image/svg+xml` does not match the `\w+` sniff above (the `+`), so detect it explicitly (mirror addImageDefinition())
+		else if (img.data?.toLowerCase().includes('image/svg+xml')) strImgExtn = 'svg'
+		// Path-based SVG sniffing is already handled by the extension parse above.
 
 		const relId = bullet._rId || getNewRelId(target)
 		const mediaSlideKey = target._slideNum == null ? 'sm' : target._slideNum >= 1000 ? `sl-${target._slideNum}` : target._slideNum
-		target._relsMedia.push({
-			path: img.path || 'preencoded.' + strImgExtn,
-			type: 'image/' + strImgExtn,
-			extn: strImgExtn,
-			data: img.data || '',
-			rId: relId,
-			Target: `../media/image-${mediaSlideKey}-${target._relsMedia.length + 1}.${strImgExtn}`,
-		})
-		bullet._rId = relId
+
+		if (strImgExtn === 'svg') {
+			// SVG bullets consume *TWO* rels, mirroring addImage(): a PNG preview (referenced by the
+			// `<a:buBlip><a:blip r:embed>`) plus the SVG itself (referenced by the `asvg:svgBlip` ext).
+			// The preview rel is flagged `isSvgPng` so the media pipeline generates its PNG fallback.
+			target._relsMedia.push({
+				path: img.path || img.data + 'png',
+				type: 'image/png',
+				extn: 'png',
+				data: img.data || '',
+				rId: relId,
+				Target: `../media/image-${mediaSlideKey}-${target._relsMedia.length + 1}.png`,
+				isSvgPng: true,
+			})
+			target._relsMedia.push({
+				path: img.path || img.data || 'preencoded.svg',
+				type: 'image/svg+xml',
+				extn: 'svg',
+				data: img.data || '',
+				rId: relId + 1,
+				Target: `../media/image-${mediaSlideKey}-${target._relsMedia.length + 1}.svg`,
+			})
+			bullet._rId = relId
+			bullet._rIdSvg = relId + 1
+		} else {
+			target._relsMedia.push({
+				path: img.path || 'preencoded.' + strImgExtn,
+				type: 'image/' + strImgExtn,
+				extn: strImgExtn,
+				data: img.data || '',
+				rId: relId,
+				Target: `../media/image-${mediaSlideKey}-${target._relsMedia.length + 1}.${strImgExtn}`,
+			})
+			bullet._rId = relId
+		}
 	})
 }
 

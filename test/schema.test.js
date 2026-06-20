@@ -1558,6 +1558,23 @@ export default [
 		},
 	},
 	{
+		name: 'SVG picture bullet (buBlip + svgBlip ext)',
+		fn: async () => {
+			const svg =
+				'image/svg+xml;base64,' +
+				Buffer.from(
+					'<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><circle cx="4" cy="4" r="4"/></svg>'
+				).toString('base64')
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addText('svg bullet', { x: 1, y: 1, w: 4, h: 0.5, bullet: { image: { data: svg }, size: 120 } })
+				// second box re-using the same SVG data must register its own dual rel pair
+				s.addText('another svg', { x: 1, y: 2, w: 4, h: 0.5, bullet: { image: { data: svg } } })
+			})
+			await expectNoSchemaErrors(buf, 'svg-picture-bullet')
+		},
+	},
+	{
 		name: 'shrink-text fit with explicit fontScale/lnSpcReduction',
 		fn: async () => {
 			const { buf } = await build((p) => {

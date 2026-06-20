@@ -251,6 +251,11 @@ subpath export and its substantial API surface motivate the major version bump.
 - `bullet.fontFace` (emits `<a:buFont/>`) and `bullet.size` (percent 25–400,
   mapped to `<a:buSzPct/>`, warns and falls back to 100% when out of range) for
   custom symbol/numbered bullet glyphs (upstream #800, #743).
+- SVG source images for picture bullets (`bullet.image` with a `.svg` path or
+  `image/svg+xml` data). SVG bullets now embed a PNG preview plus the SVG using the
+  same dual-rel handling as `addImage()`: `<a:buBlip>` references the PNG preview via
+  `<a:blip r:embed>` and the SVG via the `<asvg:svgBlip>` extension. Raster picture
+  bullets are unchanged (follow-up to upstream #898).
 - Actionable media-load errors with an opt-in placeholder fallback (upstream
   #1310).
 

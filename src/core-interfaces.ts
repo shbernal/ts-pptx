@@ -613,18 +613,26 @@ export interface TextBaseProps {
 		/**
 		 * Image to use as the bullet glyph ("picture bullet", `<a:buBlip>`)
 		 * - supply an image `path` (filesystem/URL) or base64 `data` (same forms as `addImage()`)
-		 * - raster formats (PNG/JPG/GIF) are recommended; use `size` to scale relative to the text height
+		 * - raster formats (PNG/JPG/GIF) and SVG are supported; use `size` to scale relative to the text height
+		 * - SVG bullets embed a PNG preview plus the SVG (the same dual-rel handling as `addImage()`)
 		 * - takes precedence over `type`/`characterCode` when set
 		 * @since v4.0.0
 		 * @example image: { path: 'images/star.png' }
 		 * @example image: { data: 'image/png;base64,iVBOR...' }
+		 * @example image: { path: 'images/star.svg' }
 		 */
 		image?: { path?: string, data?: string }
 		/**
 		 * Relationship id assigned to a picture-bullet image (`<a:blip r:embed>`)
+		 * - for SVG bullets this is the PNG-preview rel; the SVG rel is `_rIdSvg`
 		 * @internal populated by `addText()`; do not set directly
 		 */
 		_rId?: number
+		/**
+		 * Relationship id of the SVG image for an SVG picture bullet (`<asvg:svgBlip r:embed>`)
+		 * @internal populated by `addText()`; do not set directly
+		 */
+		_rIdSvg?: number
 
 		// DEPRECATED
 
