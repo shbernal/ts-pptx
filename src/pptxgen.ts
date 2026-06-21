@@ -103,6 +103,8 @@ import * as genMedia from './gen-media.js'
 import * as genTable from './gen-tables.js'
 import * as genXml from './gen-xml.js'
 import type { RuntimeAdapter } from './runtime/types.js'
+import { FontMetricsRegistry, parseFontMetrics } from './font-metrics.js'
+import { applyMeasuredFit } from './measure-fit.js'
 import { getUuid, decodeBase64ToBytes } from './gen-utils.js'
 import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
 
@@ -459,6 +461,9 @@ export default class PptxGenJS {
 
 	private readonly _runtime: RuntimeAdapter
 
+	/** Write-side font metrics for measured text fit (`fit:'shrink'`). @see registerFontMetrics */
+	private readonly _fontMetrics = new FontMetricsRegistry()
+
 	constructor(runtime: RuntimeAdapter) {
 		this._runtime = runtime
 		// Set available layouts
@@ -643,6 +648,10 @@ export default class PptxGenJS {
 				if (slide._slideLayout) genObj.addPlaceholdersToSlideLayouts(slide)
 			})
 
+			// A.1: Measured text fit — bake a real fontScale onto `fit:'shrink'` text
+			// boxes when font metrics are registered, before the sync XML pass reads it.
+			applyMeasuredFit(this._slides, this._fontMetrics)
+
 			// B: Add all required files. fflate keys on full slash-paths and emits no
 			// directory entries, so there is no folder scaffolding to set up (and no
 			// stray empty-directory entries to guard against on minimal decks).
@@ -704,6 +713,32 @@ export default class PptxGenJS {
 				}
 			})
 		})
+	}
+
+	// FONT METRICS (measured text fit)
+
+	/**
+	 * Register a font's metrics so `fit:'shrink'` text boxes are measured and a real
+	 * `fontScale` is baked at export time (text renders pre-shrunk in headless
+	 * renderers and on plain file-open, with no manual edit/resize).
+	 *
+	 * Without registered metrics, `fit:'shrink'` keeps its current behavior (a bare
+	 * `<a:normAutofit/>` that only PowerPoint recomputes on edit). Register the same
+	 * face once per weight/style you use; bold/italic advances differ.
+	 * @param {string} face - font family name as used in `fontFace` (e.g. 'Aptos')
+	 * @param {string | Uint8Array | ArrayBuffer} source - font file path/URL (Node/web) or raw TTF/OTF bytes
+	 * @param {object} [opts] - variant flags; advances differ per weight/style
+	 * @example await pptx.registerFontMetrics('Aptos', '/usr/share/fonts/Aptos.ttf')
+	 * @example await pptx.registerFontMetrics('Aptos', aptosBoldBytes, { bold: true })
+	 * @since v6.1.0
+	 */
+	async registerFontMetrics(face: string, source: string | Uint8Array | ArrayBuffer, opts?: { bold?: boolean; italic?: boolean }): Promise<void> {
+		let bytes: Uint8Array
+		if (typeof source === 'string') bytes = await this._runtime.loadFontData(source)
+		else if (source instanceof Uint8Array) bytes = source
+		else bytes = new Uint8Array(source)
+		const metrics = await parseFontMetrics(bytes)
+		this._fontMetrics.set(face, metrics, opts)
 	}
 
 	// EXPORT METHODS

@@ -10,6 +10,20 @@ export function createNodeRuntime(): RuntimeAdapter {
 		loadMedia,
 		createSvgPngPreview,
 		writeFile,
+		loadFontData,
+	}
+}
+
+async function loadFontData(source: string): Promise<Uint8Array> {
+	if (source.startsWith('http')) {
+		const response = await fetch(source)
+		if (!response.ok) throw new Error(`ERROR! Unable to load font (fetch): ${source}`)
+		return new Uint8Array(await response.arrayBuffer())
+	}
+	try {
+		return new Uint8Array(await fs.readFile(source))
+	} catch (ex) {
+		throw new Error(`ERROR: Unable to read font file: "${source}"\n${String(ex)}`, { cause: ex })
 	}
 }
 

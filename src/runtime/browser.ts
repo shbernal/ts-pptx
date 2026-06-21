@@ -8,7 +8,14 @@ export function createBrowserRuntime(): RuntimeAdapter {
 		loadMedia,
 		createSvgPngPreview,
 		writeFile,
+		loadFontData,
 	}
+}
+
+async function loadFontData(source: string): Promise<Uint8Array> {
+	const response = await fetch(source)
+	if (!response.ok) throw new Error(`ERROR! Unable to load font (fetch): ${source}`)
+	return new Uint8Array(await response.arrayBuffer())
 }
 
 async function loadMedia(rel: ISlideRelMedia & { path: string }): Promise<string> {

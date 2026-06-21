@@ -1841,15 +1841,20 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 * - 'shrink' = Shrink text on overflow
 	 * - 'resize' = Resize shape to fit text
 	 *
-	 * **Note** 'shrink' and 'resize' only take effect after editing text/resize shape.
-	 * Both PowerPoint and Word dynamically calculate a scaling factor and apply it when edit/resize occurs.
+	 * **Measured fit (`'shrink'`):** if you register the box's font with
+	 * {@link PptxGenJS.registerFontMetrics}, `'shrink'` is **measured at export time**
+	 * — the library computes the largest `fontScale` at which the wrapped text fits and
+	 * bakes `<a:normAutofit fontScale=…/>`, so the text renders pre-shrunk in headless
+	 * renderers and on plain file-open (no edit/resize needed). Without registered
+	 * metrics it falls back to a bare `<a:normAutofit/>` (which only PowerPoint
+	 * recomputes on edit) and warns once.
 	 *
-	 * There is no way for this library to trigger that behavior, sorry. As a workaround,
-	 * pass an object form of 'shrink' to bake explicit `fontScale`/`lnSpcReduction` values
-	 * into the file so the text renders pre-shrunk without an edit/resize.
+	 * **Note** Bare `'resize'`, and `'shrink'` without metrics, only take effect after
+	 * editing text / resizing the shape; PowerPoint calculates the scaling factor then.
+	 * The object form of `'shrink'` always bakes the explicit values you pass.
 	 * @since v3.3.0
-	 * @example 'shrink' // emit a bare <a:normAutofit/>
-	 * @example { type: 'shrink', fontScale: 85, lnSpcReduction: 20 } // pre-shrink text
+	 * @example 'shrink' // measured when metrics are registered; else bare <a:normAutofit/>
+	 * @example { type: 'shrink', fontScale: 85, lnSpcReduction: 20 } // pre-shrink with explicit values
 	 * @default "none"
 	 */
 	fit?: 'none' | 'shrink' | 'resize' | TextFitShrinkProps

@@ -1,6 +1,12 @@
 # Plan: Measured text fit (`fit` that actually fits in headless renders)
 
-Status: proposal / not started
+Status: **P1 IMPLEMENTED (2026-06-21).** Shrink measurement + solver shipped:
+`src/font-metrics.ts` (opentype.js provider, raw advances), `src/text-fit.ts`
+(wrap simulator + shrink solver), `src/measure-fit.ts` (export-time pass), and the
+`pptx.registerFontMetrics()` public API. Calibrated against the autofit oracle and
+held conservative by `test/read/autofit-calibration-oracle.test.mjs` (computed
+`fontScale` ≤ PowerPoint's). See `CHANGELOG.md` and backlog `dn-measured-text-fit`.
+**Remaining: P2 (`fit:'resize'`) and P3 (table cells + unregistered-font heuristic).**
 Owner: (fork)
 Related downstream driver: downstream overflow back-and-forth (text spilling out
 of cards/components; "extend the card more", "text still overlaps the icon").
@@ -177,9 +183,14 @@ slide.addText(runs, { x, y, w, h, fontFace: 'Aptos', fit: 'shrink' })
   PowerPoint autofit oracle and extracted calibration table are committed (see
   `PLAN-autofit-calibration-fixtures.md` and the README "Autofit calibration
   oracle" section). P1 is now unblocked.
-- **P1 — measurement + shrink solver (highest value).** Provider + registration +
-  wrap simulator + shrink binary search + integration for text boxes. This alone
-  kills the overflow-out-of-card class for downstream.
+- **P1 — measurement + shrink solver (highest value). DONE 2026-06-21.** Provider +
+  registration + wrap simulator + shrink search (grid, not binary — only ~31 steps) +
+  integration for text boxes. This alone kills the overflow-out-of-card class for
+  downstream. Notes: width is summed from raw `charToGlyph` advances (NOT
+  `getAdvanceWidth`, which runs shaping and throws on unsupported GSUB lookups);
+  conservative WIDTH/HEIGHT safety factors (1.03/1.04) approximate PowerPoint's
+  device-DPI advance rounding; `lnSpcReduction` is left at 0 (fontScale-only is
+  provably ≤ PowerPoint's).
 - **P2 — resize solver.** `fit:'resize'` grows the box; covers "extend the card
   more" directly.
 - **P3 — table cells + heuristic fallback table.** Extend to `gen-tables` cells;
