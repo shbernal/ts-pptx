@@ -133,18 +133,38 @@ function tokenizeParagraph (para: FitParagraph, resolve: MetricsResolver, fontSc
 	return tokens
 }
 
-/** Greedy `wrap=square` line count for a tokenized paragraph. */
-function countLines (tokens: Token[], innerWidthPt: number): number {
+/** Greedy `wrap=square` line layout for a tokenized paragraph. */
+interface LineLayout {
+	lines: number
+	/** Width (points) of the widest laid-out line — for natural/widest-line measurement. */
+	maxLineWidthPt: number
+}
+
+/**
+ * Greedy `wrap=square` line layout: the wrapped line count plus the widest
+ * laid-out line width. `maxLineWidthPt` tracks the running line width and records
+ * it whenever a line completes (a wrap or the final line), so callers can measure
+ * the actual text extent, not just the box width. Trailing whitespace counts
+ * toward width (Findings #7), which slightly over-reports — the conservative
+ * direction, consistent with the wrap model erring wide.
+ */
+function countLines (tokens: Token[], innerWidthPt: number): LineLayout {
 	let lines = 1
 	let lineW = 0
+	let maxLineWidthPt = 0
+	const finishLine = (): void => {
+		if (lineW > maxLineWidthPt) maxLineWidthPt = lineW
+	}
 	for (const tok of tokens) {
 		if (tok.kind === 'newline') {
+			finishLine()
 			lines++
 			lineW = 0
 		} else if (tok.kind === 'space') {
 			// Trailing whitespace counts toward line width (Findings #7); if it
 			// overflows, the line wraps and the space is consumed at the break.
 			if (lineW + tok.w > innerWidthPt && lineW > 0) {
+				finishLine()
 				lines++
 				lineW = 0
 			} else {
@@ -152,6 +172,7 @@ function countLines (tokens: Token[], innerWidthPt: number): number {
 			}
 		} else if (tok.w <= innerWidthPt) {
 			if (lineW + tok.w > innerWidthPt && lineW > 0) {
+				finishLine()
 				lines++
 				lineW = tok.w
 			} else {
@@ -160,11 +181,13 @@ function countLines (tokens: Token[], innerWidthPt: number): number {
 		} else {
 			// Over-long unbreakable word → character-wrap (Findings #7).
 			if (lineW > 0) {
+				finishLine()
 				lines++
 				lineW = 0
 			}
 			for (const cw of tok.charWidths) {
 				if (lineW + cw > innerWidthPt && lineW > 0) {
+					finishLine()
 					lines++
 					lineW = cw
 				} else {
@@ -173,7 +196,8 @@ function countLines (tokens: Token[], innerWidthPt: number): number {
 			}
 		}
 	}
-	return lines
+	finishLine()
+	return { lines, maxLineWidthPt }
 }
 
 /** Max run size in a paragraph (line height follows the tallest run — Findings #7). */
@@ -187,6 +211,13 @@ function maxRunSizePt (para: FitParagraph): number {
 export interface LayoutResult {
 	heightPt: number
 	lineCount: number
+	/**
+	 * Width (points) of the widest laid-out line across all paragraphs. Useful for
+	 * tightening a box to the actual text extent or measuring a natural (single-line)
+	 * width. Carries the same `widthSafety` inflation as the wrap decision, so a box
+	 * set to this width will not re-wrap. Conservative (slightly wide).
+	 */
+	widestLineWidthPt: number
 }
 
 /**
@@ -207,11 +238,13 @@ export function measureLayout (
 	if (innerWidthPt <= 0) return null
 	let total = 0
 	let lineCount = 0
+	let widestLineWidthPt = 0
 	for (const para of paragraphs) {
 		const tokens = tokenizeParagraph(para, resolve, fontScalePct, widthSafety)
 		if (tokens === null) return null
-		const lines = countLines(tokens, innerWidthPt)
+		const { lines, maxLineWidthPt } = countLines(tokens, innerWidthPt)
 		lineCount += lines
+		if (maxLineWidthPt > widestLineWidthPt) widestLineWidthPt = maxLineWidthPt
 		const scaledMax = maxRunSizePt(para) * (fontScalePct / 100)
 		let lineHeight = para.lineSpacingPts != null && para.lineSpacingPts > 0
 			? para.lineSpacingPts
@@ -219,7 +252,7 @@ export function measureLayout (
 		lineHeight *= 1 - lnSpcReductionPct / 100
 		total += lines * lineHeight + (para.spaceBeforePts ?? 0) + (para.spaceAfterPts ?? 0)
 	}
-	return { heightPt: total, lineCount }
+	return { heightPt: total, lineCount, widestLineWidthPt }
 }
 
 /**

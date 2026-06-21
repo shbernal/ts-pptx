@@ -2071,6 +2071,14 @@ export interface TextMeasurement {
 	heightIn: number
 	/** Number of wrapped lines (conservative — the model wraps marginally early). */
 	lineCount: number
+	/**
+	 * Width in inches of the widest laid-out line (conservative — the model wraps
+	 * marginally early, so this errs slightly wide). With an unconstrained `wIn` it
+	 * is the natural single-line width; constrained, it is the widest wrapped line.
+	 * A box set to this width will not re-wrap the text.
+	 * @since v7.0.0
+	 */
+	widestLineIn: number
 	/** `false` only for an unnamed theme-default face that could not be measured. */
 	measurable: boolean
 	/** True if the text fits a box of inner height `hIn` (inches) at full size. */

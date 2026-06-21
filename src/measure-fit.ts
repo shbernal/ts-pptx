@@ -254,6 +254,7 @@ function measureOptsToRunOpts (opts: MeasureTextOptions): RunOpts {
 const UNMEASURABLE: TextMeasurement = Object.freeze({
 	heightIn: 0,
 	lineCount: 0,
+	widestLineIn: 0,
 	measurable: false,
 	fitsBox: () => false,
 	shrinkScaleFor: () => 100,
@@ -291,6 +292,7 @@ export function measureText (registry: FontMetricsRegistry, text: string | TextP
 	return {
 		heightIn,
 		lineCount: layout.lineCount,
+		widestLineIn: layout.widestLineWidthPt / POINTS_PER_INCH,
 		measurable: true,
 		// Mirrors solveShrink's fit check at scale 100 (height already inflated).
 		fitsBox: (hIn: number) => heightPt <= hIn * POINTS_PER_INCH,

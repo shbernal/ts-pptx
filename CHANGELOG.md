@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`widestLineIn` on `measureText()`/layout-time measurement:** `TextMeasurement`
+  (from `pptx.measureText()` and the `pptxgenjs/measure` subpath) now reports the
+  width in inches of the widest laid-out line, alongside `heightIn`/`lineCount`.
+  With an unconstrained `wIn` it is the natural single-line width (deciding a box
+  width / whether to wrap); constrained, it is the widest wrapped line (tightening
+  a box to the actual text extent). It carries the same conservative
+  `WIDTH_SAFETY` inflation as the wrap decision, so a box set to this width will
+  not re-wrap. The underlying `measureLayout`/`LayoutResult` gains
+  `widestLineWidthPt`. No drift: the value comes from the same wrap model the
+  export-time bake uses. See `docs/measured-text-fit.md`.
+
 - **Per-text-frame autofit mode and body insets on inspect elements:** each
   `PptxSlideElement` from `inspectPptx()`/`extractSlides()` now exposes `autofit`
   (`'none'` | `'normAutofit'` | `'spAutoFit'`, or `null` for elements without a

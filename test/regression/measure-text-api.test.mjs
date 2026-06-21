@@ -8,7 +8,7 @@
 // the height the export-time resize bake (solveResize) uses for the same input.
 import { describe, test, expect } from 'vitest'
 import { measureText, buildFitParagraphs, makeRegistryResolver } from '../../src/measure-fit.ts'
-import { solveResize, solveShrink, HEIGHT_SAFETY_FACTOR } from '../../src/text-fit.ts'
+import { solveResize, solveShrink, HEIGHT_SAFETY_FACTOR, WIDTH_SAFETY_FACTOR } from '../../src/text-fit.ts'
 import { FontMetricsRegistry } from '../../src/font-metrics.ts'
 import PptxGenJS from '../../dist/node.js'
 
@@ -92,6 +92,25 @@ describe('measureText core (synthetic metrics)', () => {
 		const m = measureText(reg, 'hello world', { wIn: 5, fontSize: 12, fontFace: 'SomeOtherFace' })
 		expect(m.measurable).toBe(true)
 		expect(m.heightIn).toBeGreaterThan(0)
+	})
+
+	test('widestLineIn: single line == natural width (advance × WIDTH_SAFETY)', () => {
+		const reg = regWith()
+		const text = 'one short line' // 14 chars, mono 0.5em at 12pt = 84pt raw
+		const m = measureText(reg, text, { wIn: 100, fontSize: 12, fontFace: 'Mono' })
+		expect(m.lineCount).toBe(1)
+		const rawPt = [...text].length * 0.5 * 12
+		expect(m.widestLineIn * 72).toBeCloseTo(rawPt * WIDTH_SAFETY_FACTOR, 4)
+	})
+
+	test('widestLineIn: wrapped text is bounded by the inner width but > 0', () => {
+		const reg = regWith()
+		const wide = measureText(reg, SENTENCE, { wIn: 100, fontSize: 18, fontFace: 'Mono' })
+		const narrow = measureText(reg, SENTENCE, { wIn: 2, fontSize: 18, fontFace: 'Mono' })
+		// Unwrapped: widest line is the whole sentence; wrapped: <= the wide extent.
+		expect(narrow.widestLineIn).toBeGreaterThan(0)
+		expect(narrow.widestLineIn).toBeLessThanOrEqual(wide.widestLineIn + 1e-9)
+		expect(narrow.widestLineIn).toBeLessThanOrEqual(2 + 1e-9)
 	})
 
 	test('unnamed (theme-default) face is unmeasurable', () => {

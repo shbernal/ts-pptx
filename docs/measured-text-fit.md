@@ -171,6 +171,8 @@ await pptx.registerFontMetrics('Aptos', '/path/Aptos.ttf')
 const m = pptx.measureText('A long heading…', { wIn: 3, fontSize: 18, fontFace: 'Aptos' })
 // m.heightIn   → laid-out height (conservative/tall — matches the resize bake)
 // m.lineCount  → wrapped line count
+// m.widestLineIn → width of the widest laid-out line (natural width when wIn is
+//                  unconstrained; widest wrapped line otherwise; errs slightly wide)
 // m.measurable → false only for an unnamed theme-default face
 // m.fitsBox(hIn)         → does it fit a box of inner height hIn?
 // m.shrinkScaleFor(hIn)  → the fontScale (%) that fits hIn (100 if it already does)
