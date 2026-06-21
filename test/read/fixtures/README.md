@@ -86,7 +86,7 @@ b7430f562b8b836f54b84f2c846c7f80dc03677d79884aa7722203d66c775cc2  theme-colors.p
 4a0db4be724bd436865b81f073b53dbd464a8d9eb05d820977821e57b3f743b5  preset-geometry.pptx
 737a28fa9832a1d009dc4588a868f856ec58c333843ba58f8eee3915a38cc659  multi-theme.pptx
 e8c0ca04154f6365813aee28d0fa8556cea5e1429af060d6061dd02db5ff1a85  rotation-flip.pptx
-c41640a082eddff6a9a426a57657a4aa59cd420afa47f6bc91a5d58a31e69587  custgeom.pptx
+d52da9c162f5a700f8e3a225f054e823682f201d83dabe38fc27c2e500d7451d  custgeom.pptx
 c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
 1a59832d7e5c926e4aff11e9f62bc90c9e8430fb68e1d77a1b4a2fb0800e05d2  textbox.pptx
 69fd092ced7067af23b7cbb4d65cc7de1c44d06c0a62b0f49b32dbc9f7ef954e  layout-placeholder-bodypr.pptx
@@ -162,6 +162,20 @@ d88cb77b480d3c84a16307cbe503e9ee64f5fa8bdfee6d7b5a7167847d1cb8e6  math-omml.pptx
     h="3302001"` with `moveTo (0,762000)`, `cubicBezTo` control1 `(635000,0)`
     control2 `(2032000,0)` end `(2540000,1270000)`, `lnTo (2540000,3302000)`,
     `lnTo (0,3302000)` (an open path). Pins the cubic control-point ordering.
+  - `freeform-hole` — `a:ext cx="2540000" cy="1524000"`; a rectangle with an
+    elliptical hole produced by PowerPoint's Merge Shapes → Subtract
+    (`CommandBars.ExecuteMso("ShapesSubtract")` on an overlapping rect + ellipse).
+    Note PowerPoint emits this as a **single** `a:path w="2540000" h="1524000"`
+    holding **two closed contours** in document order — first the ellipse hole
+    (`moveTo (1270000,381000)` then four `cubicBezTo` arc-quadrants, `close`), then
+    the outer rectangle (`moveTo (0,0)`, three `lnTo`, `close`). It pins the
+    multi-contour / hole case (`paths.length === 1`, multiple `moveTo`+`close` and
+    `cubicBezTo` within one path), **not** a multi-`a:path` list. Desktop PowerPoint
+    consolidates every Merge Shapes result (Union/Combine/Subtract, even of disjoint
+    shapes) into one `a:path` with multiple contours — it does not emit two
+    `a:path` elements — so a genuine two-`a:path` PowerPoint fixture is not
+    authorable via the merge tools; the reader's `paths[]` array still models the
+    schema-legal repeatable `a:path` for non-PowerPoint sources.
   - `preset-rect` — `<a:prstGeom prst="rect">` (no `a:custGeom`); the negative
     control that must read `customGeometry === null`.
 - `layout-placeholder-bodypr.pptx` — **authoring oracle** for write-side

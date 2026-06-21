@@ -47,9 +47,17 @@ each given a stable shape name so the test can look it up (`shapeNamed(...)`):
    (e.g. a triangle). Pins the common case.
 2. **`freeform-cubic`** — a path with at least one `cubicBezTo` (PowerPoint emits
    cubics when you curve a freeform node). Pins control-point ordering.
-3. *(optional, if easy)* **`freeform-multipath`** — a shape whose `a:pathLst` holds
-   **two** `a:path` elements (e.g. a shape with a hole), to validate the multi-path
-   model and per-path `fill`/`stroke`.
+3. **`freeform-hole`** — a rectangle with an elliptical hole, authored via
+   PowerPoint's Merge Shapes → Subtract (`ExecuteMso("ShapesSubtract")` on an
+   overlapping rect + ellipse). **Empirical finding (2026-06-21):** desktop
+   PowerPoint emits a hole as a **single** `a:path` holding **two closed contours**
+   (`moveTo`…`close`, `moveTo`…`close`) in document order — *not* two `a:path`
+   elements. Union/Combine/Subtract (even of disjoint shapes) all consolidate into
+   one `a:path`; a genuine two-`a:path` `a:pathLst` is **not authorable** via
+   PowerPoint's merge tools. So this shape pins the multi-contour / hole case
+   (`paths.length === 1`, multiple `moveTo`+`close` + `cubicBezTo` within one path),
+   which is the real shape of PowerPoint freeform output the glyph consumer hits;
+   the original "two `a:path` elements" goal is dropped as unauthorable.
 
 After authoring, **record the authored XML** so the test asserts real values:
 - each `a:path` `w`/`h`/`fill`/`stroke`,
@@ -69,11 +77,19 @@ Then mirror the `preset-geometry.pptx` precedent in `test/read/fixtures/README.m
 ## Step 2 — Accessor types (`src/read/api/shapes.ts`)
 
 Faithful, multi-path read model (chosen over flattening to the write
-`GeometryPoint[]` DSL: PowerPoint freeforms legitimately emit multiple `a:path`
-elements with independent `fill`/`stroke`, which the single-path write DSL cannot
-represent; and the read model elsewhere favors faithful exposure over lossy
-collapsing — cf. `gradientStops`, `src/read/api/shapes.ts:620`). Command verbs reuse
-the write DSL names so a consumer maps to `GeometryPoint[]` trivially.
+`GeometryPoint[]` DSL: the `a:pathLst` schema allows repeatable `a:path`, each with
+independent `fill`/`stroke`, which the single-path write DSL cannot represent; and
+the read model elsewhere favors faithful exposure over lossy collapsing — cf.
+`gradientStops`, `src/read/api/shapes.ts:620`). Command verbs reuse the write DSL
+names so a consumer maps to `GeometryPoint[]` trivially.
+
+> **Note (empirical, 2026-06-21):** desktop PowerPoint's own Merge Shapes never
+> writes more than one `a:path` per `custGeom` — a hole is one `a:path` with two
+> `moveTo`…`close` contours (see the `freeform-hole` fixture). So in practice the
+> `paths[]` array length is 1 for PowerPoint-authored freeforms; multi-`a:path`
+> input is schema-legal but comes from other producers (e.g. SVG import). The
+> array model is still the faithful choice, but the per-path `fill`/`stroke`
+> branch will not be exercised by a PowerPoint oracle.
 
 ```ts
 /** One path segment; verbs mirror the write-side GeometryPoint DSL. Coordinates
@@ -149,8 +165,11 @@ precedent, `:178`): `open('custgeom')`, `shapeNamed(...)`, `assertEqual` against
 - `freeform-lines`: `paths.length === 1`; path `w`/`h`/`fill`/`stroke`; exact ordered
   `commands` with literal coords.
 - `freeform-cubic`: a `cubicBezTo` with correct control-point ordering.
-- `freeform-multipath` (if authored): two paths, distinct `fill`/`stroke`.
-- a non-freeform shape: `customGeometry === null`.
+- `freeform-hole`: `paths.length === 1`; the ordered `commands` carry **two**
+  `moveTo`+`close` contours in document order (ellipse hole built from four
+  `cubicBezTo`, then the outer rectangle from three `lnTo`) — pins multi-contour
+  single-path traversal.
+- a non-freeform shape (`preset-rect`): `customGeometry === null`.
 
 Assert literal numbers from real PowerPoint output — never synthesize XML.
 

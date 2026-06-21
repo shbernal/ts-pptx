@@ -95,14 +95,42 @@ For grouped shape fixtures, create the child shapes first, group by shape names,
 then set transforms on the returned group. PowerPoint writes group transforms
 under `p:grpSpPr/a:xfrm`, for example `rot`, `flipH`, and `flipV`.
 
-### COM authoring limitations
+### Freeform / boolean (`custGeom`) geometry
 
-PowerPoint's `BuildFreeform`/`AddNodes`/`ConvertToShape` emits a single
-`a:path` per freeform, so a multi-`a:path` `custGeom` is **not** reachable this
-way. For multi-subpath geometry you need a different route (e.g. paste a
-multi-path vector from Word/Designer, or hand-author the path and re-save
-through PowerPoint). Note any such limitation in the fixture's README purpose
-note so the next author doesn't re-discover it.
+Build a single freeform with `BuildFreeform`/`AddNodes`/`ConvertToShape` (each
+`AddNodes` appends one segment; `msoSegmentLine`=0, `msoSegmentCurve`=1 takes
+control1/control2/end). Return-to-start closes the path → `a:close`.
+
+For a hole or a boolean combination, use PowerPoint's **Merge Shapes** rather
+than the COM `ShapeRange.MergeShapes(...)` method — that method's enum argument
+fails under PowerShell COM late-binding (both 5.1 and 7): the direct call throws
+`Exception setting "MergeShapes": Cannot convert ... to Object` and a reflection
+`InvokeMember` throws `DISP_E_TYPEMISMATCH`. Drive the ribbon command instead:
+open the deck **with a window** (`Presentations.Open(path, msoFalse, msoFalse,
+msoTrue)`), select the shapes, and call `ExecuteMso`, which takes a plain string
+and needs no enum marshalling:
+
+```powershell
+$base.Select($true)     # msoTrue: replace selection
+$hole.Select($false)    # msoFalse: extend selection
+$pp.CommandBars.ExecuteMso('ShapesSubtract')   # or ShapesUnion / ShapesCombine / ShapesFragment
+$merged = $pp.ActiveWindow.Selection.ShapeRange.Item(1)
+$merged.Name = '...'    # name the merged result
+```
+
+(This same `ExecuteMso`-on-a-selection pattern is the fallback for any COM method
+whose enum/optional args refuse to late-bind in PowerShell.)
+
+**`custGeom` output gotchas — verified 2026-06-21, note in the README so the next
+author doesn't re-discover them:**
+
+- `BuildFreeform` emits exactly one `a:path` per freeform.
+- Merge Shapes (Union / Combine / Subtract, **even of disjoint shapes**)
+  consolidates everything into a **single** `a:path` with multiple
+  `moveTo`…`close` contours — desktop PowerPoint never writes more than one
+  `a:path` per `custGeom`. A genuine multi-`a:path` `a:pathLst` is therefore **not
+  authorable** via any built-in PowerPoint operation; it is schema-legal but only
+  arises from other producers (e.g. SVG import) and remains unverified here.
 
 ## Helpers
 
