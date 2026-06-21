@@ -7,7 +7,7 @@
  * `fontScale` PowerPoint would have baked and rewrites `options.fit` to the
  * explicit object form (`{ type:'shrink', fontScale }`) so `genXmlNormAutofit`
  * emits `<a:normAutofit fontScale=…/>`. Without metrics it leaves the bare flag
- * untouched (current behavior) and warns once. See `PLAN-measured-text-fit.md`.
+ * untouched (current behavior) and warns once. See `docs/measured-text-fit.md`.
  */
 
 import { SLIDE_OBJECT_TYPES } from './core-enums.js'

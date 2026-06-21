@@ -2162,14 +2162,14 @@ items:
       - autofit-shrink
       - autofit-resize
     current_project_notes: |
-      Feature plan: PLAN-measured-text-fit.md. Bare <a:normAutofit/> / <a:spAutoFit/>
+      Feature doc: docs/measured-text-fit.md. Bare <a:normAutofit/> / <a:spAutoFit/>
       defer the fit computation to an interactive edit/resize that a headless
       LibreOffice->PNG render never fires, so fit:'shrink'/'resize' overflow in the
       downstream pipeline (the "text spills out of the card" driver). The fix
       adds opentype.js font metrics, a wrap simulator, and shrink/resize solvers
       calibrated against PowerPoint, gated by a fixture oracle.
 
-      BLOCKING FIXTURE PRECONDITION (PLAN-autofit-calibration-fixtures.md) -- DONE
+      BLOCKING FIXTURE PRECONDITION (calibration oracle, docs/measured-text-fit.md) -- DONE
       2026-06-21. Four desktop-PowerPoint-authored decks committed to
       test/read/fixtures/ (autofit-line-metrics 90 cases, autofit-shrink 29,
       autofit-resize 19, autofit-edge 11) plus the extracted, regenerable
@@ -2265,8 +2265,7 @@ items:
         - test/read/fixtures/autofit-resize.pptx
         - test/read/fixtures/autofit-edge.pptx
         - scripts/extract-autofit-calibration.mjs
-        - PLAN-measured-text-fit.md
-        - PLAN-autofit-calibration-fixtures.md
+        - docs/measured-text-fit.md
       schema_fixture: null
       validator_result: null
       powerpoint_result: null

@@ -3,7 +3,7 @@
  *
  * Computes a baked `fontScale` for `fit: 'shrink'` so overflowing text renders
  * pre-shrunk in headless renderers (and on plain file-open) without a manual
- * edit/resize. See `PLAN-measured-text-fit.md`.
+ * edit/resize. See `docs/measured-text-fit.md`.
  *
  * Calibration: every constant here is pinned against PowerPoint-authored fixtures
  * (`test/read/fixtures/autofit-calibration.json`). The model errs **conservative**
@@ -27,7 +27,7 @@ export const SINGLE_LINE_PITCH = 1.2117
 /** PowerPoint's `fontScale` search grid: discrete 2.5% steps (Findings #3). */
 export const FONT_SCALE_STEP_PCT = 2.5
 
-/** Floor for the shrink search (matches `PLAN-measured-text-fit.md` §4). */
+/** Floor for the shrink search (see `docs/measured-text-fit.md` → Solvers). */
 export const MIN_FONT_SCALE_PCT = 25
 
 /**

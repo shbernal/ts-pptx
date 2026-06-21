@@ -33,9 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   face lacks metrics keeps the bare flag and warns once.
   Bold/italic/charSpacing/line-spacing/space-before-after, multi-run paragraphs, hard
   breaks, and `wrap=none` are handled. New public method `PptxGenJS.registerFontMetrics`.
-  (`PLAN-measured-text-fit.md` P1+P2)
+  (see `docs/measured-text-fit.md`)
 - **Measured fit for table cells (`TableCellProps.fit:'shrink'`) + unregistered-font
-  heuristic (`PLAN-measured-text-fit.md` P3):**
+  heuristic (see `docs/measured-text-fit.md`):**
   - `addTable` cells now accept `fit:'shrink'` (also cascades from a table-level
     `fit:'shrink'`). PowerPoint has **no** text-autofit for table cells (`a:tcPr`
     carries no autofit element and the app ignores `normAutofit` inside a cell — rows

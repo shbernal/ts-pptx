@@ -225,11 +225,11 @@ d88cb77b480d3c84a16307cbe503e9ee64f5fa8bdfee6d7b5a7167847d1cb8e6  math-omml.pptx
   `.pptx` package XML is genuine PowerPoint output.** Pins the `<a:p>` → `a14:m` /
   `m:oMathPara` / `m:oMath` structure and namespace declarations.
 
-## Autofit calibration oracle (`PLAN-autofit-calibration-fixtures.md`)
+## Autofit calibration oracle (`docs/measured-text-fit.md`)
 
 Four desktop-PowerPoint-authored decks that pin **how PowerPoint itself computes
 text autofit** — the fixture-gated precondition for measured-fit solvers
-(`PLAN-measured-text-fit.md`, backlog `dn-measured-text-fit`). Like the authoring
+(`docs/measured-text-fit.md`, backlog `dn-measured-text-fit`). Like the authoring
 oracles above, these are **inspection only — not loaded by `test:read`**. PowerPoint
 baked every fit value here (`fontScale`/`lnSpcReduction` for shrink, `ext.cy`/`off.y`
 for resize) non-interactively on `SaveAs`; the decks are the source of truth and the

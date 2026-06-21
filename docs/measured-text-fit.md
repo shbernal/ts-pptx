@@ -1,0 +1,225 @@
+---
+doc-schema-version: 1
+title: "Measured Text Fit"
+summary: "How fit:'shrink'/'resize' compute and bake an autofit result so overflowing text self-corrects in headless renders, and the PowerPoint-authored oracle that calibrates it."
+read_when:
+  - Changing the autofit / text-fit solvers or font metrics
+  - Touching registerFontMetrics or the measured-fit export pass
+  - Regenerating or interpreting the autofit calibration fixtures
+  - Understanding why fit:'shrink'/'resize' now bake a value instead of a bare flag
+doc_type: "decision"
+---
+
+# Measured Text Fit
+
+## Status
+
+**Shipped (2026-06-21).** Measured fit for `fit:'shrink'` and `fit:'resize'`
+(text boxes) and `TableCellProps.fit:'shrink'` (table cells) is implemented and
+calibrated against PowerPoint-authored fixtures. Source:
+
+- `src/font-metrics.ts` — opentype.js metrics provider (+ heuristic fallback) and
+  the `FontMetricsRegistry`.
+- `src/text-fit.ts` — `wrap=square` simulator and the shrink/resize solvers.
+- `src/measure-fit.ts` — the export-time pass that measures text boxes and table
+  cells and rewrites the slide object before the sync XML build.
+- `pptx.registerFontMetrics()` — the public registration API.
+
+Held conservative by `test/read/autofit-calibration-oracle.test.mjs` (computed
+shrink `fontScale` ≤ PowerPoint's; computed resize `cy` ≥ PowerPoint's *and* ≥
+LibreOffice's). See `CHANGELOG.md` and backlog `dn-measured-text-fit`.
+
+Downstream driver: downstream overflow (text spilling out of cards/components).
+
+## The problem
+
+The `fit` autofit markup already existed in the fork and downstream already
+used `fit:'shrink'` heavily, but the fork emitted the **bare flag with no baked
+result** (`<a:normAutofit/>` / `<a:spAutoFit/>`). A bare flag defers the fit
+computation to an interactive edit/resize event that a headless render never
+fires, so in downstream's headless LibreOffice → PNG pipeline (and on plain
+file-open) nothing recomputes and the text still overflows.
+
+This is **not** an inherent renderer limitation — both PowerPoint and LibreOffice
+honor a fit that is already baked into the file. The catch is that the two
+mechanisms store the fitted answer in **different places**, so the fix is not
+symmetric:
+
+| `fit` value | bare emit | where the fitted answer lives | renderer on plain open |
+| --- | --- | --- | --- |
+| `'shrink'` | `<a:normAutofit/>` | `fontScale`/`lnSpcReduction` **attrs on the element** | applies stored scale; bare = no attrs = 100% = no shrink |
+| `'resize'` | `<a:spAutoFit/>` | the shape's `a:ext/@cy` (+ `a:off/@y`) in `xfrm` | draws the box at whatever `cy` is already written |
+
+The missing capability was **measurement**: the library had no font metrics, so it
+could not compute the value to bake. This feature adds serialize-time measured fit
+so overflow self-corrects in headless renders without a human round-trip through
+PowerPoint. It is generic PptxGenJS value — every consumer that renders or ships
+pptx headlessly hits it — so it lives upstream, not as a downstream workaround.
+
+## Design
+
+### Font metrics provider (`src/font-metrics.ts`)
+
+- Loads a font file (TTF/OTF) and exposes per-glyph advance widths +
+  ascent/descent/line-gap. **`opentype.js`** (new dependency, lazily imported,
+  Node/web only).
+- Width is summed from **raw `charToGlyph` advances** — deliberately **no**
+  GPOS/GSUB shaping. Kerning almost always narrows a line, so summing raw advances
+  over-estimates width, the conservative direction (shrink a touch too much, never
+  overflow). (`getAdvanceWidth()` also runs shaping and throws on unsupported
+  lookups, so it is avoided.)
+- `FontMetricsRegistry` is keyed by `(face, bold, italic)` with a regular
+  fallback, since variant advances differ. Parsed fonts are cached.
+
+### Registration (`pptx.registerFontMetrics`)
+
+Consumers tell the library where a face's file lives, since the fork does not
+embed/register fonts on the write side:
+
+```ts
+await pptx.registerFontMetrics('Aptos', '/path/to/Aptos.ttf')
+await pptx.registerFontMetrics('Aptos', aptosBoldBytes, { bold: true })
+
+slide.addText(runs, { x, y, w, h, fontFace: 'Aptos', fit: 'shrink' })
+// → with metrics registered, exports <a:normAutofit fontScale="83000"/> computed
+//   to fit; without metrics, exports bare <a:normAutofit/> + warns once.
+```
+
+`source` is a path/URL or raw `Uint8Array`/`ArrayBuffer`; font bytes are loaded
+via `RuntimeAdapter.loadFontData` (node `fs` / browser `fetch`).
+
+### Wrap simulator + solvers (`src/text-fit.ts`)
+
+- Greedy `wrap=square` line breaking that mirrors PowerPoint: break on whitespace,
+  hard-break over-long tokens, honor `\n`, `charSpacing`, bold/italic metrics, and
+  multi-run paragraphs. Output: wrapped line count + laid-out height for a font
+  scale.
+- Single-spacing line pitch is **1.2117 × fontSize** (an oracle finding, below).
+- **shrink** solver: search `fontScale` on PowerPoint's 2.5% grid down to a 25%
+  floor until laid-out height ≤ inner height. `lnSpcReduction` is left at 0
+  (fontScale-only is provably ≤ PowerPoint's, the conservative direction).
+- **resize** solver: reuse the wrap simulator at `fontScale=100` and return the
+  needed inner height. Resize has **no safety net** (under-estimate → overflow,
+  there is no text-scaling fallback), so it **must err tall**.
+- Conservative WIDTH/HEIGHT safety factors (`1.03`/`1.04`) approximate
+  PowerPoint's device-DPI advance rounding, so the simulator wraps slightly early.
+
+### Integration (`src/measure-fit.ts`)
+
+- A measured-fit pass runs **during async export**, before `gen-xml`'s sync body
+  build. It extracts paragraphs/runs (mirroring gen-xml grouping + inheritance),
+  computes the inner box from `w`/`h`/insets/margin, then:
+  - `'shrink'` → rewrites `fit:'shrink'` to the object form with the computed
+    `fontScale`, so gen-xml emits `<a:normAutofit fontScale=…/>`.
+  - `'resize'` → rewrites `options.h` (and `options.y` per the resolved vertical
+    anchor) as `"<emu>emu"` strings, so gen-xml emits the baked `ext.cy`/`off.y`
+    while keeping the `<a:spAutoFit/>` marker. `off.y` shifts by 0 / half / full of
+    the height delta for anchor `t` / `ctr` / `b`.
+- `gen-xml.ts` consumes pre-computed values only.
+- The feature is driven off the existing `fit` value, so consumers opt in by what
+  they already write: `fit:'shrink'`/`'resize'` measure automatically **when
+  metrics are registered** (zero API churn). Per the fork's no-back-compat-obligation
+  policy, changing what `'shrink'` emits when metrics are present is acceptable;
+  the no-metrics path is unchanged.
+
+### Table cells (`TableCellProps.fit:'shrink'`)
+
+PowerPoint has **no** text-autofit for table cells: `a:tcPr`
+(`CT_TableCellProperties`) carries no autofit child and the app ignores
+`normAutofit` inside a cell txBody (rows auto-grow instead). So a cell's
+`fit:'shrink'` (also cascades from a table-level `fit:'shrink'`) cannot bake a
+`fontScale`. Instead, `measure-fit.ts` walks the cell grid (colspan/rowspan via an
+occupancy sweep; column widths from the shared `resolveTableColWidthsEmu`; row
+heights from `rowH`/table `h`; cell margins + table→cell inheritance), runs the
+**same** shrink solver, and bakes a **reduced literal font size** (floored to
+0.1pt) onto the cell runs — which both PowerPoint and LibreOffice render
+identically with no edit/resize. Only fixed-height rows are touched; auto-height
+rows are skipped (they grow). Options objects are cloned before mutation because
+plain-string cells share the table's single `opt` object. `'resize'`/object forms
+are ignored for cells (a row already auto-grows ≈ spAutoFit).
+
+A precondition bug was fixed along the way: auto-width tables (`w` without `colW`)
+emitted ~0-EMU `gridCol` widths; gen-xml now divides the resolved EMU width via
+`resolveTableColWidthsEmu`.
+
+### Unregistered-font heuristic
+
+When a deck registered **some** metrics, a `fit:'shrink'`/`'resize'` box or cell
+whose **named** face has no exact metrics falls back to a conservative
+average-advance table (`getHeuristicFontMetrics`) and still bakes an approximate
+result + warns once, instead of degrading to the bare flag. A deck that registers
+no metrics at all is unaffected (measured fit stays off); an unnamed
+(theme-default) face stays unmeasurable (the face cannot be guessed).
+
+## Calibration oracle
+
+The solvers reproduce PowerPoint's own layout decisions closely enough that shrink
+never under-shrinks and resize never under-grows. That cannot be validated against
+prose or self-generated XML, so the model is calibrated against **PowerPoint-authored
+fixtures where PowerPoint itself baked the fit value**, held as a conservative
+regression target.
+
+The hard problem the fixtures pin down is **vertical line metrics**: laid-out
+height = `lineCount × lineHeight`, and `lineHeight` is where renderers diverge ("single"
+spacing is font-metric-derived; a font carries hhea vs OS/2 win-* vs typo-* pairs,
+gated by the `USE_TYPO_METRICS` bit; PowerPoint and LibreOffice can pick different
+pairs). downstream renders through headless LibreOffice but the file must also
+be correct in PowerPoint, so the solver is conservative against the **taller** of
+the two — which is why the fixtures measure both engines.
+
+The axes are split to avoid a combinatorial explosion: **per-font metric
+calibration** sweeps all 5 fonts on a small core (this pins each family's advance
+widths and effective line height), while **policy calibration** (discrete
+fontScale steps, lnSpcReduction trade, per-anchor `off.y`) is font-independent and
+swept on a single anchor font.
+
+### Fixture decks
+
+Four desktop-PowerPoint-authored decks live in `test/read/fixtures/` (inspection
+only — not loaded by `test:read`). PowerPoint baked every fit value
+non-interactively on `SaveAs`. Fonts: **Aptos, Aptos SemiBold, Calibri, Tahoma,
+Arial**.
+
+- `autofit-line-metrics.pptx` (90 cases) — per-font single-line height and advance
+  widths straight from XML, plus a LibreOffice cross-measure column.
+- `autofit-shrink.pptx` (29 cases) — `normAutofit` calibration: per-font core +
+  Aptos policy sweep (overflow ladder, lnSpcReduction onset, line spacing,
+  space-before/after, multi-run, insets, charSpacing, anchor).
+- `autofit-resize.pptx` (19 cases) — `spAutoFit`/baked-`cy` calibration: per-font
+  core + Aptos anchor/under-fill/spacing/inset sweep.
+- `autofit-edge.pptx` (11 cases) — over-long unbreakable tokens, trailing spaces,
+  empty paragraphs, tabs, whitespace-only runs, mixed sizes, plus documented
+  unsupported CJK/RTL boxes.
+
+The decks are the source of truth; `test/read/fixtures/autofit-calibration.json`
+(with the LibreOffice cross-measure column) is the derived, regenerable table the
+Node-only/Linux test suite reads. Regeneration tooling: `scripts/gen-autofit-cases.mjs`,
+`scripts/measure-autofit-lo.py`, `scripts/extract-autofit-calibration.mjs`.
+Provenance, SHA-256 hashes, and the case-id scheme are in
+`test/read/fixtures/README.md`.
+
+### Findings that parameterize the solver
+
+- Single-spacing line pitch ≈ **1.2117 × fontSize**, and **font-independent**
+  across the five fonts (the per-font axis is advance **width**, not line height).
+- `fontScale` sits on a **2.5% grid** (…, 85, 77.5, 70, 62.5, 55, …, 40, …)%.
+- `lnSpcReduction` ramps 0 → 10 → 20% and caps at 20% (recorded for a future
+  refinement; the solver currently leaves it at 0).
+- Vertical anchor does **not** change `fontScale`.
+- On `spAutoFit` growth, `off.y` shifts by **0 / half / full** of the height delta
+  for anchor **t / ctr / b**.
+- PowerPoint vs LibreOffice autofit height agree to **≤ 0.05pt** for this font set.
+
+## Standing caveats
+
+- **resize ≠ "extend the card".** Baking `ext.cy` grows only the *text box*. A card
+  background rectangle and an adjacent icon are separate shapes the library does not
+  know are related, so resize alone will not "extend the card" or un-overlap the
+  icon — that layout coordination lives in the downstream component. This makes
+  **shrink** the higher-leverage fix for the actual driver; resize is a partial
+  answer for grouped card components.
+- Metric fidelity vs PowerPoint's layout engine (kerning, ligatures, GPOS) and vs
+  LibreOffice's line metrics is mitigated by erring conservative (raw advances,
+  taller-of-two line height) plus the calibration regression target.
+- CJK / RTL / complex shaping are out of scope (documented as unsupported).
+- Keep `opentype.js` on the Node path / lazy-loaded to bound browser bundle size.
