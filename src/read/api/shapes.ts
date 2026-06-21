@@ -152,6 +152,68 @@ function emuFrom(parent: Element | null, qname: string, attribute: string): numb
 	return element ? intValue(attr(element, attribute)) : null
 }
 
+/**
+ * One `a:pt` coordinate as a raw path-unit integer. A guide-name reference
+ * (the `ST_AdjCoordinate` string form) is not produced by authored freeforms;
+ * a non-numeric value degrades to `0` rather than crashing (documented edge).
+ */
+function ptAxis(pt: Element | undefined, axis: 'x' | 'y'): number {
+	return (pt ? intValue(attr(pt, axis)) : null) ?? 0
+}
+
+/** Parse one `<a:path>` into its viewport attrs (with schema defaults) and ordered segments. */
+function readGeometryPath(path: Element): CustomGeometryPath {
+	const commands: GeometryCommand[] = []
+	for (let node = path.firstChild; node; node = node.nextSibling) {
+		if (node.nodeType !== ELEMENT_NODE) continue
+		const seg = node as Element
+		if (seg.namespaceURI !== OOXML_NS.a) continue
+		const pts = getElements(seg, 'a:pt')
+		switch (seg.localName) {
+			case 'moveTo':
+				commands.push({ cmd: 'moveTo', x: ptAxis(pts[0], 'x'), y: ptAxis(pts[0], 'y') })
+				break
+			case 'lnTo':
+				commands.push({ cmd: 'lnTo', x: ptAxis(pts[0], 'x'), y: ptAxis(pts[0], 'y') })
+				break
+			case 'cubicBezTo':
+				commands.push({
+					cmd: 'cubicBezTo',
+					x1: ptAxis(pts[0], 'x'), y1: ptAxis(pts[0], 'y'),
+					x2: ptAxis(pts[1], 'x'), y2: ptAxis(pts[1], 'y'),
+					x: ptAxis(pts[2], 'x'), y: ptAxis(pts[2], 'y'),
+				})
+				break
+			case 'quadBezTo':
+				commands.push({
+					cmd: 'quadBezTo',
+					x1: ptAxis(pts[0], 'x'), y1: ptAxis(pts[0], 'y'),
+					x: ptAxis(pts[1], 'x'), y: ptAxis(pts[1], 'y'),
+				})
+				break
+			case 'arcTo':
+				commands.push({
+					cmd: 'arcTo',
+					wR: intValue(attr(seg, 'wR')) ?? 0,
+					hR: intValue(attr(seg, 'hR')) ?? 0,
+					stAng: (intValue(attr(seg, 'stAng')) ?? 0) / 60000,
+					swAng: (intValue(attr(seg, 'swAng')) ?? 0) / 60000,
+				})
+				break
+			case 'close':
+				commands.push({ cmd: 'close' })
+				break
+		}
+	}
+	return {
+		w: intValue(attr(path, 'w')) ?? 0,
+		h: intValue(attr(path, 'h')) ?? 0,
+		fill: attr(path, 'fill') ?? 'norm',
+		stroke: boolValue(attr(path, 'stroke')) ?? true,
+		commands,
+	}
+}
+
 /** Validate and round an EMU geometry value; extents (`cx`/`cy`) must be non-negative. */
 function toEmu(value: number, attribute: string, allowNegative: boolean): number {
 	if (!Number.isFinite(value)) throw new Error(`${attribute} must be a finite number of EMU, got ${value}`)
@@ -245,6 +307,51 @@ export interface GradientStop {
 	effectiveHex: string | null
 	/** The stop's opacity (0–1) when an `alpha*` transform set one, else `undefined`. */
 	alpha?: number
+}
+
+/**
+ * One segment of a custom-geometry path (`a:path`), as read from a shape. The
+ * command verbs mirror the write-side `GeometryPoint` DSL (`src/core-interfaces.ts`)
+ * so a consumer can map a `GeometryCommand[]` to `GeometryPoint[]` one-to-one.
+ *
+ * Coordinates (`x`/`y`/`x1`…) are raw path-unit integers in the path's own
+ * `0..w` / `0..h` space (see {@link CustomGeometryPath.w}); they are not EMU and
+ * must be scaled by the consumer against the shape's box. `arcTo` angles are in
+ * **degrees** (the raw `60000`ths-of-a-degree values divided by 60000), matching
+ * the write DSL's degree input.
+ */
+export type GeometryCommand =
+	| { cmd: 'moveTo'; x: number; y: number }
+	| { cmd: 'lnTo'; x: number; y: number }
+	| { cmd: 'cubicBezTo'; x1: number; y1: number; x2: number; y2: number; x: number; y: number }
+	| { cmd: 'quadBezTo'; x1: number; y1: number; x: number; y: number }
+	| { cmd: 'arcTo'; wR: number; hR: number; stAng: number; swAng: number }
+	| { cmd: 'close' }
+
+/** One `<a:path>` of a custom geometry, with its path-unit viewport and render attrs. */
+export interface CustomGeometryPath {
+	/** Path-unit width (`a:path/@w`); the `x` denominator for this path's coords. Default `0`. */
+	w: number
+	/** Path-unit height (`a:path/@h`); the `y` denominator for this path's coords. Default `0`. */
+	h: number
+	/** Fill mode (`a:path/@fill`, `ST_PathFillMode`, e.g. `norm`/`none`/`lighten`). Default `norm`. */
+	fill: string
+	/** Whether the path is stroked (`a:path/@stroke`). Default `true`. */
+	stroke: boolean
+	/** The path's segments in document order — order *is* the geometry. */
+	commands: GeometryCommand[]
+}
+
+/**
+ * Custom freeform geometry (`spPr/a:custGeom/a:pathLst`), as read from a shape.
+ * Faithfully exposes every `a:path` rather than flattening to a single command
+ * list: the schema allows repeatable `a:path`, each with independent
+ * `fill`/`stroke`. Desktop PowerPoint's own freeforms only ever emit one
+ * `a:path` (a hole is one path with two `moveTo`…`close` contours), but
+ * multi-`a:path` input is schema-legal (e.g. SVG import) and preserved here.
+ */
+export interface CustomGeometry {
+	paths: CustomGeometryPath[]
 }
 
 /** A shape's resolved position and size in slide-absolute EMU. */
@@ -781,6 +888,23 @@ export class AutoShape extends Shape {
 		const spPr = firstChild(this.element, 'p:spPr')
 		const prstGeom = spPr && firstChild(spPr, 'a:prstGeom')
 		return prstGeom ? attr(prstGeom, 'prst') : null
+	}
+
+	/**
+	 * Custom freeform geometry (`spPr/a:custGeom/a:pathLst`), or `null` when the
+	 * shape uses preset geometry / none. The faithful, multi-path counterpart of
+	 * {@link presetGeometry}: each `a:path` keeps its own path-unit viewport
+	 * (`w`/`h`) and ordered {@link GeometryCommand}s. Coordinates are raw path-unit
+	 * integers, not EMU — pair the path `w`/`h` with the shape's box size to map
+	 * them into slide space.
+	 */
+	get customGeometry(): CustomGeometry | null {
+		const props = this.properties()
+		const custGeom = props && firstChild(props, 'a:custGeom')
+		if (!custGeom) return null
+		const pathLst = firstChild(custGeom, 'a:pathLst')
+		const paths = pathLst ? getElements(pathLst, 'a:path').map((p) => readGeometryPath(p)) : []
+		return { paths }
 	}
 }
 

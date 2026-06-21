@@ -2537,7 +2537,7 @@ items:
     type: downstream-need
     first_seen: 2026-06-19
     last_reviewed: 2026-06-21
-    status: deferred
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -2574,15 +2574,42 @@ items:
       provenance + SHA-256 in test/read/fixtures/README.md, then wire the read test
       to that fixture. Do not build the accessor against synthetic/hand-typed path
       XML.
+
+      2026-06-21 — IMPLEMENTED. Fixture test/read/fixtures/custgeom.pptx authored in
+      desktop PowerPoint (freeform-lines / freeform-cubic / freeform-hole + a
+      preset-rect negative), provenance + SHA-256 in test/read/fixtures/README.md.
+      Reader: Shape.customGeometry getter (src/read/api/shapes.ts) returns a faithful
+      CustomGeometry { paths: CustomGeometryPath[] } — each a:path keeps its own
+      path-unit w/h + fill/stroke (schema defaults applied) and an ordered
+      GeometryCommand[] (moveTo/lnTo/cubicBezTo/quadBezTo/arcTo/close; verbs mirror
+      the write-side GeometryPoint DSL; arc angles exposed in degrees). Multi-path
+      array chosen over flattening to the single-path write DSL because a:pathLst is
+      repeatable with per-path fill/stroke. Empirical finding pinned by the
+      freeform-hole fixture: PowerPoint's own Merge Shapes never emits more than one
+      a:path — a hole is one path with two moveTo…close contours — so paths.length is
+      1 for PowerPoint-authored freeforms (multi-a:path is schema-legal but only from
+      other producers e.g. SVG import). Types exported from src/read.ts. Tests:
+      test/read/custgeom.test.js (4, all green).
+
+      Stopgap kept: downstream still imports the generated slide-002/freeforms.ts.
+      The reader now EXISTS; the remaining downstream follow-up is harvester
+      routing (emit freeform.points into style.json on top of this accessor), tracked
+      downstream — remove the stopgap when downstream migrates off freeforms.ts.
     evidence:
       kinds:
         - local-source-inspection
-      local_files: []
+        - regression-test
+        - powerpoint-result
+      local_files:
+        - src/read/api/shapes.ts
+        - src/read.ts
+        - test/read/custgeom.test.js
+        - test/read/fixtures/custgeom.pptx
       schema_fixture: null
       validator_result: null
-      powerpoint_result: null
+      powerpoint_result: oracle test/read/fixtures/custgeom.pptx authored + opened clean in Windows desktop PowerPoint 16.0 on 2026-06-21
       spec_refs: []
-    next_action: await-reader-then-author-custgeom-fixture
+    next_action: none
   - id: dn-readmodel-style-followups
     source: downstream:scripts/slide-library/lib/slide-style.ts
     type: downstream-need

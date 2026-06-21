@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Freeform custom-geometry reads (`Shape.customGeometry`):** the `pptxgenjs/read`
+  model now exposes a shape's `spPr/a:custGeom/a:pathLst` path geometry, or `null`
+  when the shape uses preset geometry / none (the freeform counterpart of
+  `Shape.presetGeometry`). It returns a faithful `CustomGeometry { paths:
+  CustomGeometryPath[] }`: each `a:path` keeps its own path-unit viewport (`w`/`h`)
+  and `fill`/`stroke` (schema defaults `norm`/`true` applied), plus an ordered
+  `GeometryCommand[]` whose verbs — `moveTo`/`lnTo`/`cubicBezTo`/`quadBezTo`/`arcTo`/
+  `close` — mirror the write-side `GeometryPoint` DSL so a consumer maps one-to-one
+  (coordinates are raw path-unit integers in the path's `0..w`/`0..h` space; `arcTo`
+  angles are exposed in degrees). The multi-path array is chosen over flattening to
+  the single-path write DSL because `a:pathLst` is repeatable with independent
+  per-path `fill`/`stroke`. Previously a consumer replicating a native freeform glyph
+  had to reverse-engineer each `a:path` with a one-off extractor. New types
+  `CustomGeometry`, `CustomGeometryPath`, `GeometryCommand` are exported from
+  `pptxgenjs/read`. Pinned against `custgeom.pptx` (PowerPoint-authored
+  freeform-lines / freeform-cubic / freeform-hole); note PowerPoint's own Merge
+  Shapes emits a hole as a single `a:path` with two `moveTo`…`close` contours, so
+  `paths.length` is 1 for PowerPoint-authored freeforms.
 - **`readPptxBinaryPart(pptxPackage, path)` on the `pptxgenjs/inspect` package-access
   surface:** the binary sibling of `readPptxTextPart`, returning a part's raw bytes as a
   `Uint8Array` (or `null` when absent) instead of UTF-8 decoding them. The `PptxPackage.file()`

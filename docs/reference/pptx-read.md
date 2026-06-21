@@ -399,6 +399,7 @@ abstract class Shape {
 	lineColor: string | null // spPr/a:ln/a:solidFill/a:srgbClr/@val (6-hex) — settable
 	lineSchemeColor: string | null // spPr/a:ln/a:solidFill/a:schemeClr/@val — settable
 	noFill(): void // set an explicit <a:noFill/> (transparent surface)
+	readonly customGeometry: CustomGeometry | null // spPr/a:custGeom/a:pathLst freeform paths; null for preset/none
 	readonly hasTextFrame: boolean
 	readonly textFrame: TextFrame | null
 	readonly text: string // textFrame?.text ?? ''
@@ -457,6 +458,59 @@ Only `AutoShape` (`p:sp`) reports `hasTextFrame: true` and a non-null
   fill only; `Picture` supports line only; `GraphicFrame` supports neither.
   Setting an unsupported property throws. These are setters for the **token**;
   resolving a scheme colour to RGB is the deck theme's job, not this API's.
+
+#### Custom geometry (freeform paths)
+
+`customGeometry` is the freeform counterpart of `AutoShape.presetGeometry`: it
+reads a shape's `spPr/a:custGeom/a:pathLst` and returns `null` when the shape
+uses preset geometry or none. It lives on the base `Shape` so it covers both a
+freeform `p:sp` and a `p:pic` clipped to a `custGeom`.
+
+```ts
+type GeometryCommand =
+	| { cmd: 'moveTo'; x: number; y: number }
+	| { cmd: 'lnTo'; x: number; y: number }
+	| { cmd: 'cubicBezTo'; x1: number; y1: number; x2: number; y2: number; x: number; y: number }
+	| { cmd: 'quadBezTo'; x1: number; y1: number; x: number; y: number }
+	| { cmd: 'arcTo'; wR: number; hR: number; stAng: number; swAng: number } // angles in degrees
+	| { cmd: 'close' }
+
+interface CustomGeometryPath {
+	w: number // a:path/@w — path-unit width (the x denominator); default 0
+	h: number // a:path/@h — path-unit height (the y denominator); default 0
+	fill: string // a:path/@fill (ST_PathFillMode); default 'norm'
+	stroke: boolean // a:path/@stroke; default true
+	commands: GeometryCommand[] // segments in document order — order is the geometry
+}
+
+interface CustomGeometry {
+	paths: CustomGeometryPath[] // one entry per <a:path>
+}
+```
+
+The model is faithful, not flattened: `a:pathLst` is repeatable and each `a:path`
+carries its own `fill`/`stroke`, so the read side keeps the array rather than
+collapsing to the single-path write DSL. The command verbs deliberately mirror
+the write-side `GeometryPoint` DSL, so a consumer maps a `GeometryCommand[]` to
+`GeometryPoint[]` one-to-one.
+
+- **Coordinates are raw path-unit integers** in the path's own `0..w` / `0..h`
+  space, **not** EMU. To place them in slide space, scale against the path `w`/`h`
+  and the shape's box (`width`/`height`). A guide-name (`ST_AdjCoordinate` string)
+  reference is not produced by authored freeforms; a non-numeric coordinate
+  degrades to `0` rather than throwing.
+- **`arcTo` angles are degrees** (the raw 60000ths-of-a-degree values divided by
+  60000), matching the write DSL's degree input.
+- **Schema defaults are applied** when an attribute is absent: `fill='norm'`,
+  `stroke=true`, `w=0`, `h=0`.
+
+> One `a:path` is the rule for PowerPoint-authored freeforms. PowerPoint's own
+> Merge Shapes (Union/Combine/Subtract) never emits more than one `a:path` per
+> `custGeom`: a shape with a hole is a **single** `a:path` holding two
+> `moveTo`…`close` contours in document order (outer ring + inner ring). So
+> `paths.length` is 1 for PowerPoint output; a multi-`a:path` `a:pathLst` is
+> schema-legal but comes from other producers (e.g. SVG import). The
+> `customGeometry` test fixture (`test/read/fixtures/custgeom.pptx`) pins this.
 
 ### `TextFrame`, `Paragraph`, `Run`
 
