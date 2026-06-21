@@ -2240,6 +2240,26 @@ items:
       the resolved EMU width via resolveTableColWidthsEmu. Tests: table-cell-fit.test.mjs,
       font-heuristic.test.mjs, table-colwidth-distribution.test.js; measured-fit-integration
       updated for the heuristic behavior change.
+
+      P4 (layout-time public measure API) -- DONE 2026-06-21.
+      Surfaces the (previously internal) calibrated wrap model as a PUBLIC API so a
+      consumer can size its own geometry BEFORE export (grow a card, reflow a grid,
+      overflow lint) using the SAME model the export bake uses -- no second wrap math,
+      so a layout-time prediction never disagrees with the baked result. Landed:
+      pptx.measureText(text, {wIn, fontSize, fontFace, ...}) -> {heightIn (conservative/
+      tall, == the resize bake), lineCount, measurable, fitsBox(hIn), shrinkScaleFor(hIn)}
+      and pptx.overflowsBox(text, {wIn, hIn, ...}) (conservative, for a warning not a
+      gate); new pptxgenjs/measure subpath re-exporting the pure primitives
+      (measureLayout/measureHeightPt/solveShrink/solveResize + types + constants +
+      parseFontMetrics/getHeuristicFontMetrics/FontMetricsRegistry) for standalone use
+      without a PptxGenJS instance (opentype.js stays lazy). SINGLE SOURCE OF TRUTH
+      (the one bug this must not introduce): extractParagraphs was refactored to share
+      buildFitParagraphs with measureText, applyMeasuredFit's resolver was extracted to
+      makeRegistryResolver (shared), and measureHeightPt now wraps a new measureLayout
+      (height + lineCount). New public types MeasureTextOptions/TextMeasurement/
+      OverflowBoxOptions (core-interfaces.ts). Tests: measure-text-api.test.mjs incl. the
+      no-drift assertion (measureText height == solveResize bake height for the same
+      input). Design: docs/measured-text-fit.md ("Layout-time measurement (public API)").
     evidence:
       kinds:
         - powerpoint-result
@@ -2250,9 +2270,12 @@ items:
         - src/font-metrics.ts
         - src/text-fit.ts
         - src/measure-fit.ts
+        - src/measure.ts
+        - src/pptxgen.ts
         - src/gen-utils.ts
         - src/gen-xml.ts
         - src/core-interfaces.ts
+        - test/regression/measure-text-api.test.mjs
         - test/regression/text-fit.test.mjs
         - test/regression/measured-fit-integration.test.mjs
         - test/regression/table-cell-fit.test.mjs

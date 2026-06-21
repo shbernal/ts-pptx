@@ -54,6 +54,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     (theme-default) face still stays unmeasurable (the face cannot be guessed).
     **Behavior change:** previously a registered-but-mismatched named face kept the bare
     flag; it now bakes a heuristic fit.
+- **Layout-time text measurement (`pptx.measureText` / `pptx.overflowsBox` + the
+  `pptxgenjs/measure` subpath):** the calibrated wrap model that powers the export-time
+  autofit bake is now a public API, so a consumer can size its own geometry **before
+  export** — grow a card to fit its text, reflow a grid, or detect overflow — using the
+  *same* model the bake uses (a layout-time prediction never disagrees with the baked
+  result). With metrics registered, `pptx.measureText(text, { wIn, fontSize, fontFace, … })`
+  returns `{ heightIn, lineCount, measurable, fitsBox(hIn), shrinkScaleFor(hIn) }`
+  (inches in, conservative/tall height out — matching the `'resize'` bake); a named face
+  without exact metrics uses the conservative heuristic, an unnamed theme-default face is
+  `measurable:false`. `pptx.overflowsBox(text, { wIn, hIn, … })` is a thin
+  (slightly over-reporting) overflow check for a build-time warning. The pure primitives
+  are also re-exported from a dedicated subpath so a consumer can measure standalone
+  without a `PptxGenJS` instance: `measureLayout`/`measureHeightPt`/`solveShrink`/
+  `solveResize`, the `FitParagraph`/`FitBox`/`MetricsResolver`/… types, the calibration
+  constants, and `parseFontMetrics`/`getHeuristicFontMetrics`/`FontMetricsRegistry`
+  (`opentype.js` stays lazily imported). New public methods `PptxGenJS.measureText` /
+  `PptxGenJS.overflowsBox`, types `MeasureTextOptions`/`TextMeasurement`/`OverflowBoxOptions`,
+  and the `@shbernal/pptxgenjs/measure` entry point. (see `docs/measured-text-fit.md`)
 - **Freeform custom-geometry reads (`Shape.customGeometry`):** the `pptxgenjs/read`
   model now exposes a shape's `spPr/a:custGeom/a:pathLst` path geometry, or `null`
   when the shape uses preset geometry / none (the freeform counterpart of

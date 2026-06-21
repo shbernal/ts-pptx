@@ -151,6 +151,60 @@ result + warns once, instead of degrading to the bare flag. A deck that register
 no metrics at all is unaffected (measured fit stays off); an unnamed
 (theme-default) face stays unmeasurable (the face cannot be guessed).
 
+## Layout-time measurement (public API)
+
+The same calibrated engine is also exposed for **layout-time** use, so a consumer
+can size its own geometry *before* export (grow a card to fit its text, reflow a
+grid, detect overflow) instead of relying only on the export-time bake. A
+layout-time prediction must never disagree with what the export then bakes, so both
+paths share one converter (`buildFitParagraphs`), one resolver
+(`makeRegistryResolver`), and one layout function (`measureLayout`) — there is no
+second wrap model. Source: `src/measure.ts` (subpath entry), `measureText` +
+`buildFitParagraphs` + `makeRegistryResolver` in `src/measure-fit.ts`, and
+`measureLayout` in `src/text-fit.ts`.
+
+### Instance methods (inches/points, reuse registered metrics)
+
+```ts
+await pptx.registerFontMetrics('Aptos', '/path/Aptos.ttf')
+
+const m = pptx.measureText('A long heading…', { wIn: 3, fontSize: 18, fontFace: 'Aptos' })
+// m.heightIn   → laid-out height (conservative/tall — matches the resize bake)
+// m.lineCount  → wrapped line count
+// m.measurable → false only for an unnamed theme-default face
+// m.fitsBox(hIn)         → does it fit a box of inner height hIn?
+// m.shrinkScaleFor(hIn)  → the fontScale (%) that fits hIn (100 if it already does)
+
+if (pptx.overflowsBox(text, { wIn, hIn, fontSize, fontFace })) warn() // conservative
+```
+
+`measureText` is **synchronous** and assumes metrics are pre-registered (the async
+`registerFontMetrics` runs ahead of time; lookup is sync). Resolver semantics match
+the export pass exactly: exact metrics → conservative heuristic for any **named**
+face without exact metrics → `measurable:false` only for an unnamed theme-default
+face. Units are inches (width/height) + points (type/spacing); `insetIn` is
+subtracted from `wIn` on both sides if a raw box width is passed.
+
+Because the model errs **tall** (the same `WIDTH_SAFETY`/`HEIGHT_SAFETY` factors as
+the resize bake), `heightIn` is ≥ what PowerPoint/LibreOffice render — right for
+"grow a container", and why `overflowsBox` is a *conservative* (slightly
+over-reporting) check suited to a build-time **warning**, not a hard gate. An
+unmeasurable face makes `overflowsBox` return `false` (no false positive).
+
+### Standalone primitives (`pptxgenjs/measure`)
+
+For a consumer that lays out without a `PptxGenJS` instance, the subpath re-exports
+the pure pieces so it can build its own resolver/registry and measure directly:
+`measureLayout`/`measureHeightPt`/`solveShrink`/`solveResize`, the
+`FitParagraph`/`FitBox`/`MetricsResolver`/`Shrink-`/`ResizeOutcome` types, the
+calibration constants, and `parseFontMetrics`/`getHeuristicFontMetrics`/
+`FontMetricsRegistry`. `opentype.js` stays lazily imported (only `parseFontMetrics`
+pulls it in), keeping the subpath cheap to import.
+
+A regression (`test/regression/measure-text-api.test.mjs`) asserts the no-drift
+contract: `measureText`'s height equals the height `solveResize` (the export bake)
+computes for the same input.
+
 ## Calibration oracle
 
 The solvers reproduce PowerPoint's own layout decisions closely enough that shrink

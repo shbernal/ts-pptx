@@ -12,11 +12,11 @@
 
 import { SLIDE_OBJECT_TYPES } from './core-enums.js'
 import { DEF_CELL_MARGIN_IN, DEF_FONT_SIZE } from './core-enums.js'
-import { EMU_PER_POINT } from './units.js'
+import { EMU_PER_POINT, POINTS_PER_INCH } from './units.js'
 import { getSmartParseNumber, inch2Emu, resolveTableColWidthsEmu, valToPts } from './gen-utils.js'
 import { getHeuristicFontMetrics, type FontMetricsRegistry } from './font-metrics.js'
-import { solveShrink, solveResize, type FitBox, type FitParagraph, type FitRun, type MetricsResolver } from './text-fit.js'
-import type { ISlideObject, Margin, ObjectOptions, PresSlideInternal, TableCell, TableCellProps, TextProps, TextPropsOptions } from './core-interfaces.js'
+import { solveShrink, solveResize, measureLayout, WIDTH_SAFETY_FACTOR, HEIGHT_SAFETY_FACTOR, type FitBox, type FitParagraph, type FitRun, type MetricsResolver } from './text-fit.js'
+import type { ISlideObject, Margin, MeasureTextOptions, ObjectOptions, PresSlideInternal, TableCell, TableCellProps, TextMeasurement, TextProps, TextPropsOptions } from './core-interfaces.js'
 
 // PowerPoint's default text-frame insets (EMU): l/r = 0.1in, t/b = 0.05in.
 const DEF_INS_LR_EMU = 91440
@@ -44,6 +44,17 @@ function normalizeRuns (obj: ISlideObject): TextProps[] {
 function extractParagraphs (obj: ISlideObject): FitParagraph[] | null {
 	const opts = (obj.options ?? {}) as RunOpts
 	const runs = normalizeRuns(obj)
+	if (runs.length === 0) return null
+	return buildFitParagraphs(runs, opts)
+}
+
+/**
+ * Convert a run list (+ box-level default options) into a measurable
+ * `FitParagraph[]`, or null if empty. The single converter shared by the
+ * export-time pass ({@link extractParagraphs}) and the public layout-time
+ * `measureText` API, so a layout-time prediction and the baked export never drift.
+ */
+export function buildFitParagraphs (runs: TextProps[], opts: RunOpts): FitParagraph[] | null {
 	if (runs.length === 0) return null
 
 	// Expand "\n" inside a run into separate pieces, flagging the paragraph break
@@ -207,6 +218,92 @@ function scaleCellFontSizes (cell: TableCell, eff: RunOpts, f: number): void {
 }
 
 /**
+ * Build the `MetricsResolver` both the export pass and `measureText` use, so they
+ * agree run-for-run: exact registered metrics → conservative heuristic for any
+ * **named** face without exact metrics → `undefined` only for an unnamed
+ * (theme-default) face that cannot be guessed. `onHeuristic` is called with each
+ * named face that fell back to the heuristic (for the export pass's warn-once).
+ */
+export function makeRegistryResolver (registry: FontMetricsRegistry, onHeuristic?: (face: string) => void): MetricsResolver {
+	return run => {
+		const exact = registry.get(run.fontFace, run.bold, run.italic)
+		if (exact) return exact
+		if (typeof run.fontFace === 'string' && run.fontFace.length > 0) {
+			onHeuristic?.(run.fontFace)
+			return getHeuristicFontMetrics()
+		}
+		return undefined
+	}
+}
+
+/** Map the public {@link MeasureTextOptions} onto the internal run-option shape. */
+function measureOptsToRunOpts (opts: MeasureTextOptions): RunOpts {
+	return {
+		fontSize: opts.fontSize,
+		fontFace: opts.fontFace,
+		bold: opts.bold,
+		italic: opts.italic,
+		charSpacing: opts.charSpacing,
+		lineSpacing: opts.lineSpacing,
+		lineSpacingMultiple: opts.lineSpacingMultiple,
+		paraSpaceBefore: opts.paraSpaceBefore,
+		paraSpaceAfter: opts.paraSpaceAfter,
+	} as RunOpts
+}
+
+const UNMEASURABLE: TextMeasurement = Object.freeze({
+	heightIn: 0,
+	lineCount: 0,
+	measurable: false,
+	fitsBox: () => false,
+	shrinkScaleFor: () => 100,
+})
+
+/**
+ * Layout-time text measurement against registered metrics — the public engine
+ * behind `pptx.measureText()`. Uses the **same** calibrated wrap model, resolver
+ * semantics, and conservative safety factors as the export-time bake
+ * ({@link applyMeasuredFit} / {@link solveResize} / {@link solveShrink}), so a
+ * layout-time prediction matches the value the export would bake.
+ *
+ * Synchronous: assumes metrics are pre-registered (lookup is sync). A named face
+ * with no exact metrics silently uses the conservative heuristic (same as export);
+ * an unnamed theme-default face returns `measurable: false`.
+ */
+export function measureText (registry: FontMetricsRegistry, text: string | TextProps[], opts: MeasureTextOptions): TextMeasurement {
+	const runs: TextProps[] = typeof text === 'string' || typeof text === 'number'
+		? [{ text: String(text) }]
+		: Array.isArray(text) ? text : []
+	const paragraphs = buildFitParagraphs(runs, measureOptsToRunOpts(opts))
+	if (!paragraphs) return UNMEASURABLE
+
+	const inset = opts.insetIn ?? 0
+	const innerWidthPt = (opts.wIn - 2 * inset) * POINTS_PER_INCH
+	const resolve = makeRegistryResolver(registry)
+
+	// Conservative (tall) layout at full size, mirroring solveResize: inflate width
+	// (earlier wrap) by WIDTH_SAFETY and the height by HEIGHT_SAFETY.
+	const layout = measureLayout(paragraphs, innerWidthPt, resolve, 100, 0, WIDTH_SAFETY_FACTOR)
+	if (layout === null) return UNMEASURABLE
+	const heightPt = layout.heightPt * HEIGHT_SAFETY_FACTOR
+	const heightIn = heightPt / POINTS_PER_INCH
+
+	return {
+		heightIn,
+		lineCount: layout.lineCount,
+		measurable: true,
+		// Mirrors solveShrink's fit check at scale 100 (height already inflated).
+		fitsBox: (hIn: number) => heightPt <= hIn * POINTS_PER_INCH,
+		shrinkScaleFor: (hIn: number) => {
+			const box: FitBox = { innerWidthPt, innerHeightPt: hIn * POINTS_PER_INCH }
+			const outcome = solveShrink(paragraphs, box, resolve)
+			if (outcome.kind === 'shrink') return outcome.result.fontScalePct
+			return 100 // 'fits' (or, defensively, 'unmeasurable') → no shrink
+		},
+	}
+}
+
+/**
  * Apply measured fit across every slide. For each text box that opts in via
  * `fit:'shrink'` or `fit:'resize'` and whose font has registered metrics, this
  * bakes the computed result before the sync XML pass reads it:
@@ -227,15 +324,7 @@ export function applyMeasuredFit (slides: PresSlideInternal[], registry: FontMet
 	// than degrading to the bare flag — overflow still self-corrects, just less precisely.
 	// An unnamed (theme-default) face stays unmeasurable: we cannot guess which face it is.
 	const heuristicFaces = new Set<string>()
-	const resolve: MetricsResolver = run => {
-		const exact = registry.get(run.fontFace, run.bold, run.italic)
-		if (exact) return exact
-		if (typeof run.fontFace === 'string' && run.fontFace.length > 0) {
-			heuristicFaces.add(run.fontFace)
-			return getHeuristicFontMetrics()
-		}
-		return undefined
-	}
+	const resolve = makeRegistryResolver(registry, face => heuristicFaces.add(face))
 	const unmeasuredShrink = new Set<string>()
 	const unmeasuredResize = new Set<string>()
 

@@ -2029,6 +2029,63 @@ export interface TextProps {
 }
 
 /**
+ * Options for layout-time text measurement ({@link PptxGenJS.measureText}).
+ * Inches for width, points for type/spacing — the consumer-facing units. The
+ * measured face must have metrics registered via {@link PptxGenJS.registerFontMetrics}
+ * (a named face without exact metrics uses a conservative heuristic; an unnamed
+ * theme-default face is unmeasurable).
+ * @since v6.1.0
+ */
+export interface MeasureTextOptions {
+	/** Available text width in inches (the box width minus L/R inset, unless `insetIn` is given). */
+	wIn: number
+	/** Font size in points. */
+	fontSize: number
+	/** Font family name, as used in `fontFace`. Required for an exact measure; an unnamed face is unmeasurable. */
+	fontFace?: string
+	bold?: boolean
+	italic?: boolean
+	/** Character spacing in points. */
+	charSpacing?: number
+	/** Exact line spacing in points (overrides `lineSpacingMultiple`). */
+	lineSpacing?: number
+	/** Line spacing as a multiple of single (e.g. `1.5`). */
+	lineSpacingMultiple?: number
+	/** Space before each paragraph, in points. */
+	paraSpaceBefore?: number
+	/** Space after each paragraph, in points. */
+	paraSpaceAfter?: number
+	/** L/R text inset in inches; when set, subtracted from `wIn` on both sides (pass a raw box width). */
+	insetIn?: number
+}
+
+/**
+ * Result of {@link PptxGenJS.measureText}. Heights err **tall** (conservative) —
+ * they match the value the export-time autofit bake uses, so the laid-out height is
+ * ≥ what PowerPoint/LibreOffice render. Use it to grow a container; for an overflow
+ * check it may slightly over-report (good for a warning, not a hard gate).
+ * @since v6.1.0
+ */
+export interface TextMeasurement {
+	/** Laid-out height in inches at the given `fontSize` (conservative/tall). */
+	heightIn: number
+	/** Number of wrapped lines (conservative — the model wraps marginally early). */
+	lineCount: number
+	/** `false` only for an unnamed theme-default face that could not be measured. */
+	measurable: boolean
+	/** True if the text fits a box of inner height `hIn` (inches) at full size. */
+	fitsBox: (hIn: number) => boolean
+	/** The `fontScale` (percent) that fits inner height `hIn`; `100` if it already fits, never below the shrink floor. */
+	shrinkScaleFor: (hIn: number) => number
+}
+
+/** Options for {@link PptxGenJS.overflowsBox}: a measure plus the box inner height to test against. @since v6.1.0 */
+export interface OverflowBoxOptions extends MeasureTextOptions {
+	/** Box inner height in inches to test for overflow. */
+	hIn: number
+}
+
+/**
  * Per-run options for a speaker-notes text run.
  * A focused subset of `TextPropsOptions`: inline formatting plus an (external URL) hyperlink.
  * Notes hyperlinks support `url` only; `slide` targets are not yet supported.

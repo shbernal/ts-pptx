@@ -183,10 +183,48 @@ function maxRunSizePt (para: FitParagraph): number {
 	return max
 }
 
+/** Laid-out result of {@link measureLayout}: total height (points) + wrapped line count. */
+export interface LayoutResult {
+	heightPt: number
+	lineCount: number
+}
+
+/**
+ * Lay out `paragraphs` at a given scale/reduction and return the total height
+ * (points) and wrapped line count, or `null` if any paragraph is unmeasurable.
+ * Errs tall (conservative): includes space-before/after and the calibrated line
+ * pitch. The single source of truth for both {@link measureHeightPt} (the solvers)
+ * and the public layout-time measure API.
+ */
+export function measureLayout (
+	paragraphs: FitParagraph[],
+	innerWidthPt: number,
+	resolve: MetricsResolver,
+	fontScalePct: number,
+	lnSpcReductionPct: number,
+	widthSafety = 1
+): LayoutResult | null {
+	if (innerWidthPt <= 0) return null
+	let total = 0
+	let lineCount = 0
+	for (const para of paragraphs) {
+		const tokens = tokenizeParagraph(para, resolve, fontScalePct, widthSafety)
+		if (tokens === null) return null
+		const lines = countLines(tokens, innerWidthPt)
+		lineCount += lines
+		const scaledMax = maxRunSizePt(para) * (fontScalePct / 100)
+		let lineHeight = para.lineSpacingPts != null && para.lineSpacingPts > 0
+			? para.lineSpacingPts
+			: SINGLE_LINE_PITCH * scaledMax * ((para.lineSpacingPct ?? 100) / 100)
+		lineHeight *= 1 - lnSpcReductionPct / 100
+		total += lines * lineHeight + (para.spaceBeforePts ?? 0) + (para.spaceAfterPts ?? 0)
+	}
+	return { heightPt: total, lineCount }
+}
+
 /**
  * Total laid-out height (points) at a given scale/reduction, or `null` if any
- * paragraph is unmeasurable. Errs tall (conservative): include space-before/after
- * and the calibrated line pitch.
+ * paragraph is unmeasurable. Thin wrapper over {@link measureLayout}.
  */
 export function measureHeightPt (
 	paragraphs: FitParagraph[],
@@ -196,20 +234,8 @@ export function measureHeightPt (
 	lnSpcReductionPct: number,
 	widthSafety = 1
 ): number | null {
-	if (innerWidthPt <= 0) return null
-	let total = 0
-	for (const para of paragraphs) {
-		const tokens = tokenizeParagraph(para, resolve, fontScalePct, widthSafety)
-		if (tokens === null) return null
-		const lines = countLines(tokens, innerWidthPt)
-		const scaledMax = maxRunSizePt(para) * (fontScalePct / 100)
-		let lineHeight = para.lineSpacingPts != null && para.lineSpacingPts > 0
-			? para.lineSpacingPts
-			: SINGLE_LINE_PITCH * scaledMax * ((para.lineSpacingPct ?? 100) / 100)
-		lineHeight *= 1 - lnSpcReductionPct / 100
-		total += lines * lineHeight + (para.spaceBeforePts ?? 0) + (para.spaceAfterPts ?? 0)
-	}
-	return total
+	const result = measureLayout(paragraphs, innerWidthPt, resolve, fontScalePct, lnSpcReductionPct, widthSafety)
+	return result === null ? null : result.heightPt
 }
 
 /**

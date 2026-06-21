@@ -29,6 +29,10 @@
 			"types": "./dist/inspect.d.ts",
 			"default": "./dist/inspect.js"
 		},
+		"./measure": {
+			"types": "./dist/measure.d.ts",
+			"default": "./dist/measure.js"
+		},
 		"./read": {
 			"types": "./dist/read.d.ts",
 			"default": "./dist/read.js"

@@ -80,6 +80,8 @@ import {
 	AddSlideProps,
 	CustomPropertyValue,
 	IPresentationProps,
+	MeasureTextOptions,
+	OverflowBoxOptions,
 	PresLayout,
 	PresSlide,
 	PresSlideInternal,
@@ -92,6 +94,8 @@ import {
 	TableStyleInternal,
 	TableStyleProps,
 	TableToSlidesProps,
+	TextMeasurement,
+	TextProps,
 	ThemeProps,
 	WriteBaseProps,
 	WriteFileProps,
@@ -104,7 +108,7 @@ import * as genTable from './gen-tables.js'
 import * as genXml from './gen-xml.js'
 import type { RuntimeAdapter } from './runtime/types.js'
 import { FontMetricsRegistry, parseFontMetrics } from './font-metrics.js'
-import { applyMeasuredFit } from './measure-fit.js'
+import { applyMeasuredFit, measureText } from './measure-fit.js'
 import { getUuid, decodeBase64ToBytes } from './gen-utils.js'
 import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
 
@@ -138,9 +142,11 @@ export type {
 	IChartPropsTitle,
 	ImageProps,
 	Margin,
+	MeasureTextOptions,
 	MediaProps,
 	MediaType,
 	ObjectNameProps,
+	OverflowBoxOptions,
 	ObjectOptions,
 	OptsChartData,
 	OptsChartGridLine,
@@ -166,6 +172,7 @@ export type {
 	TableToSlidesProps,
 	TextBaseProps,
 	TextGlowProps,
+	TextMeasurement,
 	TextProps,
 	TextPropsOptions,
 	ThemeColor,
@@ -739,6 +746,42 @@ export default class PptxGenJS {
 		else bytes = new Uint8Array(source)
 		const metrics = await parseFontMetrics(bytes)
 		this._fontMetrics.set(face, metrics, opts)
+	}
+
+	/**
+	 * Measure how tall text wraps at a given width, using the **same** calibrated wrap
+	 * model the export-time autofit bake uses — so a layout-time prediction matches the
+	 * value `fit:'shrink'`/`'resize'` would bake. Synchronous: register the face's metrics
+	 * first with {@link PptxGenJS.registerFontMetrics} (lookup is sync).
+	 *
+	 * Lets a consumer size its own geometry before export — grow a card to fit its text,
+	 * reflow a grid, or detect overflow at layout time. Heights err **tall** (conservative),
+	 * so the returned height is ≥ what PowerPoint/LibreOffice render.
+	 * @param {string | TextProps[]} text - a string or run array (per-run options override the defaults in `opts`)
+	 * @param {MeasureTextOptions} opts - width (inches), font size/face (points), and spacing
+	 * @returns {TextMeasurement} laid-out height + line count + fit helpers
+	 * @example const m = pptx.measureText('Long heading…', { wIn: 3, fontSize: 18, fontFace: 'Aptos' })
+	 * @example if (pptx.measureText(runs, { wIn, fontSize, fontFace }).heightIn > cardHeightIn) growCard()
+	 * @since v6.1.0
+	 */
+	measureText(text: string | TextProps[], opts: MeasureTextOptions): TextMeasurement {
+		return measureText(this._fontMetrics, text, opts)
+	}
+
+	/**
+	 * Convenience overflow check: `true` if `text` does not fit a box of inner size
+	 * `wIn`×`hIn` (inches) at full size. Because the model errs tall, this is a
+	 * **conservative** (slightly over-reporting) check — appropriate for a build-time
+	 * warning, not a hard gate. An unmeasurable (unnamed theme-default) face reports
+	 * `false` (no overflow) so the linter does not false-positive on faces it cannot measure.
+	 * @param {string | TextProps[]} text - a string or run array
+	 * @param {OverflowBoxOptions} opts - {@link MeasureTextOptions} plus the box inner height `hIn`
+	 * @returns {boolean} true if the text overflows the box
+	 * @since v6.1.0
+	 */
+	overflowsBox(text: string | TextProps[], opts: OverflowBoxOptions): boolean {
+		const m = measureText(this._fontMetrics, text, opts)
+		return m.measurable && !m.fitsBox(opts.hIn)
 	}
 
 	// EXPORT METHODS
