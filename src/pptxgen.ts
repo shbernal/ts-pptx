@@ -195,7 +195,7 @@ export type {
 	WRITE_OUTPUT_TYPE,
 } from './core-enums.js'
 
-const VERSION = '6.0.0'
+const VERSION = '7.0.0'
 
 /**
  * Media extensions whose bytes are already entropy-coded, so running the ZIP's

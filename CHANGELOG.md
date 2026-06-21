@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.0.0](https://github.com/shbernal/PptxGenJS/releases/tag/v7.0.0) - 2026-06-21
+
+This major release adds **measured text fit** — a calibrated, font-metrics-driven
+layout engine that bakes autofit results at export time so overflowing text
+self-corrects in headless renders and on plain file-open. It introduces the new
+public methods `pptx.registerFontMetrics`, `pptx.measureText`, and
+`pptx.overflowsBox`, plus the new `pptxgenjs/measure` subpath export. The ZIP
+backend is also replaced (JSZip → fflate) for faster builds, reads, and writes.
+
+Two behavior changes motivate the major version bump: (1) when font metrics are
+registered, `fit:'shrink'`/`'resize'` now bake the computed result (font scale or
+shape height) instead of emitting a bare autofit flag — with no metrics registered
+the previous bare-flag behavior is unchanged; and (2) a registered-but-mismatched
+named face now bakes a conservative heuristic fit rather than keeping the bare flag.
+This release also expands the `pptxgenjs/read` subsystem (freeform custom geometry,
+placeholder-inherited run size/typeface/colour, table-cell style accessors, binary
+part access, DrawingML colour transforms, group-aware absolute frames) and adds
+generic preset shapes in masters, native math (OMML), table placeholders, slide/part
+removal, and external slide-master grafting. See `docs/measured-text-fit.md`.
+
 ### Added
 
 - **Measured text fit for `fit:'shrink'` and `fit:'resize'` (`pptx.registerFontMetrics`):**
