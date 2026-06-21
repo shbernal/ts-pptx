@@ -2536,7 +2536,7 @@ items:
     source: downstream:scripts/slide-analysis/replication/capability-map.ts
     type: downstream-need
     first_seen: 2026-06-19
-    last_reviewed: 2026-06-19
+    last_reviewed: 2026-06-21
     status: deferred
     priority: p3
     target_area:
@@ -2546,11 +2546,25 @@ items:
     summary: "Read accessor for freeform custGeom path geometry (no reader today; author a PowerPoint fixture before implementing)"
     constructs:
       - custom-geom
+    stopgap: decks/replication-lab/scripts/slides/slide-002/freeforms.ts
     current_project_notes: |
       The downstream replication capability audit detects <a:custGeom> freeform
       path geometry, but the read model exposes no accessor for it today and there
       is no custGeom read fixture. Migrated here from the retired
       CREATE_FIXTURES_PLAN.md (Remaining Work D) so it is not forgotten.
+
+      2026-06-21 — first replica to actually exercise this gap: the
+      202604-ia4cyb-overall:2 lab build (decks/replication-lab/scripts/slides/slide-002/)
+      has three native custGeom glyphs (a gear for "Nos capacités", two rocket layers
+      for "Nos boosters"). kit.freeform() RENDERS them fine (audit GREEN, the DSL is
+      native), but there is no AUTHORING path from a source <a:custGeom> to the kit's
+      GeometryPoint[] DSL, so the path had to be reverse-engineered with a one-off
+      extractor (read each <a:path w/h> + moveTo/lnTo/cubicBezTo/close, scale path
+      units to box-local inches). The committed stopgap is the generated data module
+      slide-002/freeforms.ts. The right routing target is the same one the table-cells
+      gap took: the harvester should emit the freeform's GeometryPoint DSL into
+      style.json (a `freeform.points` block, box-local), so a glyph replica is
+      copy-paste from style.json like tables now are — built on this read accessor.
 
       Fixture dependency (do not implement without it): a custGeom read accessor is
       read-model work whose oracle must be genuine PowerPoint output. When a reader
