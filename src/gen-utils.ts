@@ -2,7 +2,7 @@
  * PptxGenJS: Utility Methods
  */
 
-import { REGEX_HEX_COLOR, DEF_FONT_COLOR, ONEPT, SchemeColor, SCHEME_COLORS } from './core-enums.js'
+import { REGEX_HEX_COLOR, DEF_FONT_COLOR, EMU, ONEPT, SchemeColor, SCHEME_COLORS } from './core-enums.js'
 import { coordToEmu, inchesToEmu, type Emu } from './units.js'
 import type { PresLayout, TextGlowProps, PresSlideInternal, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, GradientStopProps, PatternFillProps, LineCap } from './core-interfaces.js'
 
@@ -137,6 +137,38 @@ export function getDuplicateObjectNames (names: string[]): string[] {
 export function inch2Emu (inches: number | string): Emu {
 	if (typeof inches === 'string') inches = Number(inches.replace(/in*/gi, ''))
 	return inchesToEmu(inches)
+}
+
+/**
+ * Resolve a table's column widths to EMU, the single source of truth shared by the
+ * table XML emitter and the measured-fit pass (so a fitted cell sees the same grid
+ * the renderer draws).
+ * - an explicit `colW` **array** is per-column inches (`inch2Emu`); a non-finite slot
+ *   falls back to the even-distribution width
+ * - otherwise the table's already-resolved width (`totalWidthEmu`, EMU) is split evenly
+ *   across `colCount` columns. (A scalar `colW` never reaches here — `addTableDefinition`
+ *   converts it to `w` and clears `colW`.)
+ *
+ * IMPORTANT: the even path divides an **EMU** width. Passing the raw inches `options.w`
+ * instead (the historical bug) produced ~0-EMU columns (e.g. `w=9` → `gridCol w="3"`),
+ * collapsing auto-width tables to a sliver in PowerPoint/LibreOffice.
+ * @param {Coord[]|Coord|undefined} colW - explicit per-column inches, or scalar/undefined
+ * @param {number} totalWidthEmu - the table's resolved width in EMU
+ * @param {number} colCount - number of grid columns (counting colspans)
+ * @returns {number[]} per-column widths in EMU (length `colCount`)
+ */
+export function resolveTableColWidthsEmu (colW: Coord[] | Coord | undefined, totalWidthEmu: number, colCount: number): number[] {
+	if (!(colCount > 0)) return []
+	const even = totalWidthEmu > 0 ? Math.round(totalWidthEmu / colCount) : EMU
+	if (Array.isArray(colW)) {
+		return Array.from({ length: colCount }, (_, i) => {
+			// Guard before inch2Emu: it throws on non-finite input. A missing/NaN slot
+			// falls back to the even-distribution width.
+			const n = colW[i]
+			return typeof n === 'number' && Number.isFinite(n) ? Math.round(inch2Emu(n)) : even
+		})
+	}
+	return new Array(colCount).fill(even)
 }
 
 /**

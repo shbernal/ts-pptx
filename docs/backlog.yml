@@ -2150,7 +2150,7 @@ items:
     type: downstream-need
     first_seen: 2026-06-21
     last_reviewed: 2026-06-21
-    status: partially-implemented
+    status: implemented
     priority: p2
     target_area:
       - missing-pptx-feature
@@ -2212,9 +2212,34 @@ items:
       (text-fit.test.mjs), resize integration via dist (measured-fit-integration.test.mjs:
       overflow grows, short text shrinks, anchor offset), and a resize oracle block in
       autofit-calibration-oracle.test.mjs (computed cy >= PowerPoint's AND >= LibreOffice's
-      across all 19 resize cases). REMAINING: P3 table cells + unregistered-font heuristic
-      fallback. CAVEAT (carried from plan risks): resize grows the text box only, not a
-      grouped card background/icon -- that layout coordination stays in the consumer.
+      across all 19 resize cases). CAVEAT (carried from plan risks): resize grows the text
+      box only, not a grouped card background/icon -- that layout coordination stays in the
+      consumer.
+
+      P3 (table cells + unregistered-font heuristic) -- DONE 2026-06-21, feature COMPLETE.
+      KEY OOXML FINDING: PowerPoint has no text-autofit for table cells -- a:tcPr
+      (CT_TableCellProperties) carries no autofit child, and the app ignores normAutofit
+      inside a cell txBody (rows auto-grow instead). So TableCellProps.fit:'shrink' (new
+      public field; also cascades from a table-level fit:'shrink') cannot bake a fontScale;
+      instead measure-fit.ts walks the cell grid (colspan/rowspan via an occupancy sweep;
+      column widths from the shared resolveTableColWidthsEmu; row heights from rowH/table h;
+      cell margins + table->cell inheritance), runs the SAME calibrated shrink solver, and
+      bakes a REDUCED LITERAL font size (floored to 0.1pt) onto the cell runs -- which both
+      PowerPoint and LibreOffice render identically with no edit/resize. Only fixed-height
+      rows are touched; auto-height rows are skipped (they grow). Options objects are cloned
+      before mutation because plain-string cells share the table's single `opt` object.
+      'resize'/object forms are ignored for cells (a row already auto-grows ~ spAutoFit).
+      HEURISTIC: getHeuristicFontMetrics() (src/font-metrics.ts) is a conservative,
+      width-over-estimating per-char advance table; when a deck registered SOME metrics, a
+      named face with no exact metrics now falls back to it (text boxes AND cells) and bakes
+      an approximate fit + warns once, instead of degrading to the bare flag. A deck with no
+      metrics at all stays a full no-op; an unnamed/theme-default face stays unmeasurable.
+      PRECONDITION BUG FIXED: auto-width tables (w without colW, or neither) emitted
+      ~0-EMU gridCol widths (raw inches divided and written as EMU, e.g. w=9 -> gridCol
+      w="3"), collapsing columns to a sliver in PowerPoint/LibreOffice; gen-xml now divides
+      the resolved EMU width via resolveTableColWidthsEmu. Tests: table-cell-fit.test.mjs,
+      font-heuristic.test.mjs, table-colwidth-distribution.test.js; measured-fit-integration
+      updated for the heuristic behavior change.
     evidence:
       kinds:
         - powerpoint-result
@@ -2225,8 +2250,14 @@ items:
         - src/font-metrics.ts
         - src/text-fit.ts
         - src/measure-fit.ts
+        - src/gen-utils.ts
+        - src/gen-xml.ts
+        - src/core-interfaces.ts
         - test/regression/text-fit.test.mjs
         - test/regression/measured-fit-integration.test.mjs
+        - test/regression/table-cell-fit.test.mjs
+        - test/regression/font-heuristic.test.mjs
+        - test/regression/table-colwidth-distribution.test.js
         - test/read/autofit-calibration-oracle.test.mjs
         - test/read/fixtures/autofit-calibration.json
         - test/read/fixtures/autofit-line-metrics.pptx
@@ -2240,7 +2271,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: implement-measured-fit-p3-table-cells-and-heuristic-fallback
+    next_action: none
   - id: dn-text-direction-serialization
     source: downstream:registry/components/quadrant-matrix.ts
     type: downstream-need

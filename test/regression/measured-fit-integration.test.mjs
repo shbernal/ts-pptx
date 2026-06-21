@@ -53,14 +53,29 @@ describe("measured fit: fit:'shrink' integration", () => {
 		expect(xml).not.toContain('fontScale')
 	})
 
-	test('registered metrics for a DIFFERENT face → bare flag + degrade (no throw)', async () => {
+	test('registered metrics for a DIFFERENT named face → heuristic shrink (P3: approximate, no throw)', async () => {
+		const path = aptosPath()
+		if (!path) return expect(true).toBe(true)
+		const pres = new PptxGenJS()
+		// The deck has opted into measured fit (some face registered), so an unregistered
+		// *named* face now falls back to the conservative average-advance heuristic and
+		// still bakes an approximate fontScale rather than degrading to the bare flag.
+		await pres.registerFontMetrics('Aptos', path)
+		const slide = pres.addSlide()
+		slide.addText(OVERFLOW, { x: 1, y: 1, w: 3, h: 1, fontFace: 'Helvetica', fontSize: 18, fit: 'shrink' })
+		const xml = await slide1Xml(pres)
+		expect(xml).toContain('fontScale')
+		expect(xml).not.toContain('<a:normAutofit/>') // bare flag replaced by the baked (heuristic) scale
+	})
+
+	test('unnamed (theme-default) face stays unmeasurable → bare flag (heuristic does not guess the face)', async () => {
 		const path = aptosPath()
 		if (!path) return expect(true).toBe(true)
 		const pres = new PptxGenJS()
 		await pres.registerFontMetrics('Aptos', path)
 		const slide = pres.addSlide()
-		// Box uses an unregistered face → unmeasurable → bare flag retained.
-		slide.addText(OVERFLOW, { x: 1, y: 1, w: 3, h: 1, fontFace: 'Helvetica', fontSize: 18, fit: 'shrink' })
+		// No fontFace → we cannot know which face the theme resolves to, so no heuristic.
+		slide.addText(OVERFLOW, { x: 1, y: 1, w: 3, h: 1, fontSize: 18, fit: 'shrink' })
 		const xml = await slide1Xml(pres)
 		expect(xml).toContain('<a:normAutofit/>')
 		expect(xml).not.toContain('fontScale')

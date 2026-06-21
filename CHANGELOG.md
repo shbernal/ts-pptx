@@ -32,9 +32,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no metrics registered the previous behavior is unchanged (bare flag); a box whose
   face lacks metrics keeps the bare flag and warns once.
   Bold/italic/charSpacing/line-spacing/space-before-after, multi-run paragraphs, hard
-  breaks, and `wrap=none` are handled; table cells and an unregistered-font heuristic
-  remain future work (P3). New public method `PptxGenJS.registerFontMetrics`.
+  breaks, and `wrap=none` are handled. New public method `PptxGenJS.registerFontMetrics`.
   (`PLAN-measured-text-fit.md` P1+P2)
+- **Measured fit for table cells (`TableCellProps.fit:'shrink'`) + unregistered-font
+  heuristic (`PLAN-measured-text-fit.md` P3):**
+  - `addTable` cells now accept `fit:'shrink'` (also cascades from a table-level
+    `fit:'shrink'`). PowerPoint has **no** text-autofit for table cells (`a:tcPr`
+    carries no autofit element and the app ignores `normAutofit` inside a cell — rows
+    auto-grow instead), so a cell's shrink is honored by baking a **reduced literal
+    font size** onto its runs (computed with the same calibrated wrap simulator + shrink
+    solver), which both PowerPoint and LibreOffice render identically with no edit/resize.
+    Only triggers for cells in a **fixed-height** row (`rowH`/table `h`) whose text
+    overflows; an auto-height row is left alone (it simply grows). `'resize'` and the
+    object form are intentionally ignored for cells (a row already auto-grows — the cell
+    equivalent of `spAutoFit`).
+  - When a deck has registered *some* metrics, a `fit:'shrink'`/`'resize'` box or cell
+    whose **named** face has no exact metrics now falls back to a conservative
+    average-advance heuristic and still bakes an approximate result (it warns once that
+    the estimate was used) instead of degrading to the bare flag. A deck that registers
+    no metrics at all is unaffected (measured fit stays off), and an unnamed
+    (theme-default) face still stays unmeasurable (the face cannot be guessed).
+    **Behavior change:** previously a registered-but-mismatched named face kept the bare
+    flag; it now bakes a heuristic fit.
 - **Freeform custom-geometry reads (`Shape.customGeometry`):** the `pptxgenjs/read`
   model now exposes a shape's `spPr/a:custGeom/a:pathLst` path geometry, or `null`
   when the shape uses preset geometry / none (the freeform counterpart of
@@ -191,6 +210,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Auto-width table columns collapsed to a sliver:** an `addTable` sized with `w`
+  (or with neither `w` nor `colW`, the default full-slide width) emitted
+  `<a:gridCol w="…">` values computed by dividing the **raw inches** width and writing
+  the result as **EMU** — e.g. `w: 9` over 3 columns produced `gridCol w="3"` (≈0 in),
+  so PowerPoint/LibreOffice drew near-zero-width columns and wrapped every cell to one
+  glyph per line. The grid now divides the table's resolved EMU width. Explicit `colW`
+  arrays were already correct and are unchanged. Column-width resolution is now a single
+  shared helper (`resolveTableColWidthsEmu`) used by both the table emitter and the
+  measured-fit pass. (regression: `table-colwidth-distribution`)
 - **`addSection()` ignores duplicate and invalid sections (gitbrent/PptxGenJS#1152):**
   `addSection({ title })` now skips (with a `console.warn`) any title that already
   exists, instead of appending a second section with the same name — duplicate titles

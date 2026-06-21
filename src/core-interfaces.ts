@@ -1468,6 +1468,25 @@ export interface TableCellProps extends TextBaseProps {
 	 * Cell rowspan
 	 */
 	rowspan?: number
+	/**
+	 * Shrink cell text to fit when it would overflow the cell's fixed height.
+	 * - `'shrink'` measures the wrapped text and bakes a **reduced literal font size**
+	 *   onto the cell's runs so the text fits — PowerPoint does not support text
+	 *   autofit (`normAutofit`) inside table cells, so there is no font-scale flag to
+	 *   set; the size itself is lowered, which both PowerPoint and LibreOffice render
+	 *   identically with no edit/resize.
+	 * - Requires the cell font registered via {@link PptxGenJS.registerFontMetrics};
+	 *   without metrics it is a no-op (the cell keeps its authored size) and warns once.
+	 * - Only triggers when the cell's row has a **fixed** height that the text exceeds.
+	 *   With auto-height rows (no `rowH`/`h`), the row simply grows, so nothing shrinks.
+	 * - Only `'shrink'` is acted on for cells. `'resize'` and the object form are ignored
+	 *   here: a table row already auto-grows to fit its tallest cell (the cell equivalent
+	 *   of `spAutoFit`), so there is nothing to bake. (The wider union is shared with
+	 *   {@link TextPropsOptions.fit} so table-level `fit` can cascade to cells.)
+	 * @since v4.0.0
+	 * @example 'shrink' // measured when the cell font is registered; else no-op
+	 */
+	fit?: 'none' | 'shrink' | 'resize' | TextFitShrinkProps
 }
 /**
  * Styling for one region of a custom table style (maps to a `CT_TablePartStyle`).

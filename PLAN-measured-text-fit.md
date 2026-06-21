@@ -1,13 +1,18 @@
 # Plan: Measured text fit (`fit` that actually fits in headless renders)
 
-Status: **P1+P2 IMPLEMENTED (2026-06-21).** Shrink + resize measurement shipped:
-`src/font-metrics.ts` (opentype.js provider, raw advances), `src/text-fit.ts`
-(wrap simulator + shrink/resize solvers), `src/measure-fit.ts` (export-time pass), and
-the `pptx.registerFontMetrics()` public API. Calibrated against the autofit oracle and
+Status: **P1+P2+P3 IMPLEMENTED (2026-06-21).** Shrink + resize measurement shipped:
+`src/font-metrics.ts` (opentype.js provider, raw advances, + heuristic fallback),
+`src/text-fit.ts` (wrap simulator + shrink/resize solvers), `src/measure-fit.ts`
+(export-time pass for text boxes *and* table cells), and the
+`pptx.registerFontMetrics()` public API. Calibrated against the autofit oracle and
 held conservative by `test/read/autofit-calibration-oracle.test.mjs` (shrink computed
 `fontScale` ≤ PowerPoint's; resize computed `cy` ≥ PowerPoint's and ≥ LibreOffice's).
 See `CHANGELOG.md` and backlog `dn-measured-text-fit`.
-**Remaining: P3 (table cells + unregistered-font heuristic).**
+**All phases complete.** P3 note: PowerPoint has no text-autofit for table cells
+(`a:tcPr` carries no autofit element; the app ignores `normAutofit` in a cell — rows
+auto-grow), so `TableCellProps.fit:'shrink'` bakes a *reduced literal font size* onto
+the cell runs rather than a `fontScale`. P3 also fixed a pre-existing bug where
+auto-width table columns (`w` without `colW`) emitted ~0-EMU `gridCol` widths.
 Owner: (fork)
 Related downstream driver: downstream overflow back-and-forth (text spilling out
 of cards/components; "extend the card more", "text still overlaps the icon").
@@ -200,8 +205,18 @@ slide.addText(runs, { x, y, w, h, fontFace: 'Aptos', fit: 'shrink' })
   the resize oracle (computed `cy` ≥ PowerPoint's *and* ≥ LibreOffice's across the
   19 resize cases). Note the standing caveat below: this grows the *text box* only,
   not a grouped card background/icon.
-- **P3 — table cells + heuristic fallback table.** Extend to `gen-tables` cells;
-  add an average-advance fallback so unregistered fonts still improve.
+- **P3 — table cells + heuristic fallback. DONE 2026-06-21.** `TableCellProps.fit:'shrink'`
+  (added to the public API; cascades from a table-level `fit:'shrink'`) measures each
+  fixed-height cell's box (column widths via the shared `resolveTableColWidthsEmu`, row
+  heights, cell margins, table→cell inheritance) and bakes a **reduced literal font size**
+  on the cell runs — PowerPoint has no per-cell text autofit, so there is no `fontScale`
+  flag to set. Auto-height rows are skipped (the row grows). Cloning every options object
+  before mutating avoids corrupting the shared `opt` reference plain-string cells share.
+  Unregistered **named** faces (in a deck that registered *some* metrics) now fall back to
+  a conservative average-advance heuristic (`getHeuristicFontMetrics`) for both text boxes
+  and cells, baking an approximate result + warning once rather than degrading to the bare
+  flag; unnamed/theme-default faces stay unmeasurable. Precondition fixed along the way: the
+  auto-width `gridCol` ~0-EMU bug (see Status).
 
 ## Risks / open questions
 

@@ -57,6 +57,7 @@ import {
 	getUuid,
 	inch2Emu,
 	lineWidthToEmu,
+	resolveTableColWidthsEmu,
 	valToPts,
 } from './gen-utils.js'
 import { pixelsToEmu, type Emu } from './units.js'
@@ -400,7 +401,6 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 		let arrTabRows: TableCell[][] = null
 		let objTabOpts: ObjectOptions = null
 		let intColCnt = 0
-		let intColW: number
 		let cellOpts: TableCellProps = null
 		let strXml: string = null
 		const sizing: ObjectOptions['sizing'] = slideItemObj.options?.sizing
@@ -486,26 +486,15 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				}
 
 				// STEP 2: Set column widths
-				// Evenly distribute cols/rows across size provided when applicable (calc them if only overall dimensions were provided)
-				// A: Col widths provided?
-				// B: Table Width provided without colW? Then distribute cols
-				if (Array.isArray(objTabOpts.colW)) {
+				// Per-column inches from an explicit `colW` array, else split the table's
+				// resolved EMU width (`cx`) evenly. `resolveTableColWidthsEmu` is the single
+				// source of truth shared with the measured-fit pass. NOTE: divide the EMU
+				// width, not the raw inches `options.w` — the latter collapsed auto-width
+				// tables to ~0-EMU columns (e.g. `w=9` → `gridCol w="3"`).
+				{
+					const gridColsEmu = resolveTableColWidthsEmu(objTabOpts.colW, cx, intColCnt)
 					strXml += '<a:tblGrid>'
-					for (let col = 0; col < intColCnt; col++) {
-						let w: number = inch2Emu(objTabOpts.colW[col])
-						if (w == null || isNaN(w)) {
-							w = (typeof slideItemObj.options.w === 'number' ? slideItemObj.options.w : 1) / intColCnt
-						}
-						strXml += `<a:gridCol w="${Math.round(w)}"/>`
-					}
-					strXml += '</a:tblGrid>'
-				} else {
-					intColW = objTabOpts.colW ? objTabOpts.colW : EMU
-					if (slideItemObj.options.w && !objTabOpts.colW) intColW = Math.round((typeof slideItemObj.options.w === 'number' ? slideItemObj.options.w : 1) / intColCnt)
-					strXml += '<a:tblGrid>'
-					for (let colw = 0; colw < intColCnt; colw++) {
-						strXml += `<a:gridCol w="${intColW}"/>`
-					}
+					for (const w of gridColsEmu) strXml += `<a:gridCol w="${w}"/>`
 					strXml += '</a:tblGrid>'
 				}
 
