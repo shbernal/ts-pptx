@@ -1,6 +1,11 @@
 # Plan: `dn-custgeom-read` — read accessor for `a:custGeom` freeform path geometry
 
-> Status: **blocked on Step 1 fixture** (a PowerPoint-authored `custgeom.pptx`).
+> Status: **Step 1 fixture authored** — `test/read/fixtures/custgeom.pptx` exists,
+> opens clean in desktop PowerPoint, and is documented (provenance/hash/purpose) in
+> `test/read/fixtures/README.md`. Ready for Step 2 (accessor). The recorded authored
+> XML — path `w`/`h`, ordered segments with literal `a:pt` coords, cubic control-point
+> ordering, and shape `cx`/`cy` — is captured in that README entry; Step 5 asserts
+> those literals.
 > Backlog item `dn-custgeom-read` (deferred, p3). This doc carries the fixture spec
 > so it can be authored, then the accessor implemented against real Office XML.
 
