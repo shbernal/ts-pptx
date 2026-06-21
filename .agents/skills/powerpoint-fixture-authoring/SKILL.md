@@ -132,6 +132,79 @@ author doesn't re-discover them:**
   authorable** via any built-in PowerPoint operation; it is schema-legal but only
   arises from other producers (e.g. SVG import) and remains unverified here.
 
+## Autofit bake-on-save (`normAutofit` / `spAutoFit`)
+
+PowerPoint bakes autofit results into the saved XML **non-interactively** (no
+manual editing in the UI) — but only with the right COM sequence. **Verified
+2026-06-21** while authoring the `autofit-*` calibration decks:
+
+- **Pin the box first, set `AutoSize` last.** `AddTextbox`'s height argument is
+  ignored, so explicitly: `TextFrame2.AutoSize = msoAutoSizeNone`, set
+  `Shape.Width`/`Shape.Height`, add the text, **then** set `AutoSize`. With the
+  box pinned small at that moment:
+  - `msoAutoSizeTextToFitShape` (shrink) bakes
+    `<a:normAutofit fontScale="…" lnSpcReduction="…"/>` and keeps `ext` pinned;
+  - `msoAutoSizeShapeToFitText` (resize) bakes `<a:spAutoFit/>` and a fitted
+    `ext.cy`.
+- **The trigger is the box being pinned small when `AutoSize` is applied — not
+  "before vs after text" per se.** An earlier theory ("set AutoSize before
+  text") was wrong: a box that has already grown tall bakes only a bare
+  `<a:normAutofit/>` with no scale. Pin → text → AutoSize-last is what bakes a
+  real `fontScale`.
+- **Two-pass text build.** A trailing empty paragraph is **not** enumerable via
+  `TextRange.Paragraphs()` until the whole text exists — `Paragraphs($i+1,1)`
+  throws an "index out of bounds" COM error. So: pass 1 inserts every
+  paragraph's text and formats non-empty runs inline; pass 2 (once
+  `Paragraphs().Count` is final) does paragraph-level formatting and the run
+  font for empty paragraphs. See `.tmp/author-deck.ps1` from that session for a
+  complete parameterized engine.
+
+## Font-presence guard (substitution is invisible in the XML)
+
+**PowerPoint writes `latin@typeface="X"` into the run XML even when font `X` is
+not installed** — it substitutes only at render time. So asserting the typeface
+in the saved OOXML does **not** prove the font was actually used; a fixture can
+silently carry the wrong metrics. Verify **host-side via GDI** instead — the
+resolved face must equal the requested name:
+
+```powershell
+Add-Type -AssemblyName System.Drawing
+foreach ($face in 'Aptos','Aptos SemiBold','Calibri','Tahoma','Arial') {
+  $f = New-Object System.Drawing.Font($face, 18); $resolved = $f.Name; $f.Dispose()
+  if ($resolved -ne $face) { throw "FONT SUBSTITUTED: $face -> $resolved" }
+}
+```
+
+Run this as a hard precondition before authoring any font-sensitive fixture
+(and re-run in a **fresh** process after installing a font — a prior process's
+"ready" can't be trusted). `.tmp/readiness-guard.ps1` and the guard block in
+`.tmp/author-deck.ps1` are the worked examples.
+
+### Provisioning fonts / LibreOffice without elevation
+
+Both are installable with **no admin** when a fixture needs them — verified
+2026-06-21:
+
+- **Per-user font install (no elevation):** copy the `.ttf`s into
+  `%LOCALAPPDATA%\Microsoft\Windows\Fonts` and register each under
+  `HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts`; GDI resolves them
+  in a fresh process. Office **cloud fonts** (e.g. Aptos) are already on disk in
+  `%LOCALAPPDATA%\Microsoft\FontCache\4\CloudFonts\<Family>\` but with numeric
+  names and no extension and **only visible to Office apps**, not GDI — picking
+  the font in the PowerPoint dropdown is *not* enough. Identify each cached file
+  by its OpenType `name` table (family/face), then per-user install the faces
+  you need.
+- **LibreOffice without elevation:** winget's package is a machine-scoped MSI
+  that triggers UAC. Instead do an **administrative extract** into a user dir:
+  `msiexec /a <msi> /qn TARGETDIR=%LOCALAPPDATA%\Programs\LibreOffice`. That
+  yields a runnable `program\soffice.exe` (confirmed headless conversion works)
+  with no admin. Verify the MSI's SHA-256 against winget's published hash first.
+
+LibreOffice is useful here as an independent cross-measure: its `program\
+python.exe` + `pyuno` can open a deck (LibreOffice recomputes `spAutoFit` on
+load) and read each shape's fitted size via UNO — a second opinion on
+PowerPoint's baked metrics. See `.tmp/measure-lo.py` for the UNO bootstrap.
+
 ## Helpers
 
 Both scripts run through the PowerShell (pwsh 7) tool with the call operator —
