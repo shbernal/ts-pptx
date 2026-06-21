@@ -32,6 +32,10 @@ export {
 	GroupShape,
 	type ShapeType,
 	type GradientStop,
+	type GradientFill,
+	type LineEnd,
+	type LineEnds,
+	type OuterShadow,
 	type CustomGeometry,
 	type CustomGeometryPath,
 	type GeometryCommand,
@@ -39,7 +43,7 @@ export {
 	type Recolor,
 	type RecolorColor,
 } from './read/api/shapes.js'
-export { TextFrame, Paragraph, Run } from './read/api/text.js'
+export { TextFrame, Paragraph, Run, type BodyProperties } from './read/api/text.js'
 export { Table, TableRow, TableCell } from './read/api/table.js'
 export { Chart, ChartSeries } from './read/api/chart.js'
 

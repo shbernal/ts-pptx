@@ -310,6 +310,62 @@ export interface GradientStop {
 }
 
 /**
+ * A shape's gradient fill (`spPr/a:gradFill`), as read from a shape — the stops
+ * plus the geometry that {@link Shape.gradientStops} omits. `linear` gradients
+ * carry an {@link angleDeg} (the `a:lin/@ang` direction); `radial`/`path`
+ * gradients carry a {@link path} shape (`a:path/@path`, e.g. `circle`). The
+ * angle is in **OOXML degrees** (clockwise from 3 o'clock), the same convention
+ * the write-side `GradientFillProps.angle` expects, so it round-trips directly.
+ */
+export interface GradientFill {
+	/** `linear` (`a:lin`) or `path` (`a:path`, i.e. radial/rectangular). `null` when neither child is present. */
+	kind: 'linear' | 'path' | null
+	/** Linear direction in OOXML degrees (clockwise from 3 o'clock), or `null` for a path gradient / when unset. */
+	angleDeg: number | null
+	/** Path-gradient shape (`a:path/@path`: `circle`/`rect`/`shape`), or `null` for a linear gradient. */
+	path: string | null
+	/** The gradient stops in document order (same as {@link Shape.gradientStops}). */
+	stops: GradientStop[]
+}
+
+/** One end of a connector/line (`a:ln/a:headEnd` or `a:tailEnd`), as read from a shape. */
+export interface LineEnd {
+	/** Arrowhead type (`@type`: `none`/`triangle`/`stealth`/`diamond`/`oval`/`arrow`). */
+	type: string
+	/** Width class (`@w`: `sm`/`med`/`lg`), or `null` when unset. */
+	width: string | null
+	/** Length class (`@len`: `sm`/`med`/`lg`), or `null` when unset. */
+	length: string | null
+}
+
+/** Both ends of a shape's line/border, when either carries an arrowhead. */
+export interface LineEnds {
+	head: LineEnd | null
+	tail: LineEnd | null
+}
+
+/**
+ * A shape's outer drop shadow (`spPr/a:effectLst/a:outerShdw`), as read from a
+ * shape and resolved against the slide theme. Distances are in points (the EMU
+ * source ÷ 12700) and the direction in degrees (the `60000`ths source ÷ 60000),
+ * matching the write-side {@link ShadowProps} convention so it round-trips.
+ */
+export interface OuterShadow {
+	/** Effective shadow colour as 6-hex (theme-resolved, transforms applied), or `null`. */
+	color: string | null
+	/** Theme colour token when the shadow colour was a scheme colour (e.g. `accent1`), else `undefined`. */
+	colorToken?: string
+	/** Shadow opacity 0–1 (from the colour's `a:alpha`), or `undefined` when fully opaque. */
+	alpha?: number
+	/** Blur radius in points (`@blurRad` ÷ 12700), or `undefined` when unset. */
+	blurPt?: number
+	/** Offset distance in points (`@dist` ÷ 12700), or `undefined` when unset. */
+	offsetPt?: number
+	/** Offset direction in degrees, clockwise from 3 o'clock (`@dir` ÷ 60000), or `undefined` when unset. */
+	angleDeg?: number
+}
+
+/**
  * One segment of a custom-geometry path (`a:path`), as read from a shape. The
  * command verbs mirror the write-side `GeometryPoint` DSL (`src/core-interfaces.ts`)
  * so a consumer can map a `GeometryCommand[]` to `GeometryPoint[]` one-to-one.
@@ -744,6 +800,75 @@ export abstract class Shape {
 				...(resolved?.alpha !== undefined ? { alpha: resolved.alpha } : {}),
 			}
 		})
+	}
+
+	/**
+	 * The shape's gradient fill with its geometry (`spPr/a:gradFill`), or `null`
+	 * when the fill is not a gradient. Unlike {@link gradientStops} (stops only),
+	 * this also carries the linear {@link GradientFill.angleDeg} or the
+	 * {@link GradientFill.path} shape — the geometry a faithful replica needs and
+	 * which the bare stop list omits.
+	 */
+	get gradientFill(): GradientFill | null {
+		const props = this.properties()
+		const grad = props && firstChild(props, 'a:gradFill')
+		if (!grad) return null
+		const lin = firstChild(grad, 'a:lin')
+		const path = firstChild(grad, 'a:path')
+		const ang = lin ? intValue(attr(lin, 'ang')) : null
+		return {
+			kind: lin ? 'linear' : path ? 'path' : null,
+			angleDeg: ang === null ? null : ang / 60000,
+			path: path ? (attr(path, 'path') ?? null) : null,
+			stops: this.gradientStops ?? [],
+		}
+	}
+
+	/**
+	 * The shape's line/connector arrowheads (`a:ln/a:headEnd` + `a:tailEnd`), or
+	 * `null` when neither end carries one. Essential for replicating connectors,
+	 * whose dot/arrow ends are otherwise invisible in the geometry.
+	 */
+	get lineEnds(): LineEnds | null {
+		const ln = this.#line()
+		if (!ln) return null
+		const read = (qn: string): LineEnd | null => {
+			const el = firstChild(ln, qn)
+			if (!el) return null
+			return { type: attr(el, 'type') ?? 'none', width: attr(el, 'w') ?? null, length: attr(el, 'len') ?? null }
+		}
+		const head = read('a:headEnd')
+		const tail = read('a:tailEnd')
+		return head || tail ? { head, tail } : null
+	}
+
+	/**
+	 * The shape's outer drop shadow (`spPr/a:effectLst/a:outerShdw`), resolved
+	 * against the slide theme, or `null` when the shape has no outer shadow. The
+	 * soft brand shadows the eye reads as "floating" panels live here and are
+	 * invisible in geometry/fill alone.
+	 */
+	get shadow(): OuterShadow | null {
+		const props = this.properties()
+		const effectLst = props && firstChild(props, 'a:effectLst')
+		const shdw = effectLst && firstChild(effectLst, 'a:outerShdw')
+		if (!shdw) return null
+		const out: OuterShadow = { color: null }
+		const colorEl = firstChild(shdw, 'a:srgbClr') ?? firstChild(shdw, 'a:schemeClr')
+		const resolved = resolveColorElement(colorEl ?? null, this.slide.themeContext())
+		if (resolved) {
+			out.color = resolved.effectiveHex
+			if (resolved.alpha !== undefined) out.alpha = resolved.alpha
+		}
+		const scheme = colorEl && colorEl.localName === 'schemeClr'
+		if (scheme) out.colorToken = attr(colorEl, 'val') ?? undefined
+		const blur = intValue(attr(shdw, 'blurRad'))
+		const dist = intValue(attr(shdw, 'dist'))
+		const dir = intValue(attr(shdw, 'dir'))
+		if (blur !== null) out.blurPt = blur / 12700
+		if (dist !== null) out.offsetPt = dist / 12700
+		if (dir !== null) out.angleDeg = dir / 60000
+		return out
 	}
 
 	/**

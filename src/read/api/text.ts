@@ -427,6 +427,24 @@ export class Paragraph {
 }
 
 /** A shape's text frame (`p:txBody`): an ordered list of paragraphs. */
+/**
+ * A text frame's body properties (`a:bodyPr`), as read from a shape. Carries the
+ * inset/anchor/vertical-text settings that govern where text sits inside its box
+ * — the difference between a label that clears a left rail and one that overlaps
+ * it. Only **explicitly set** attributes are reported; an absent inset means the
+ * PowerPoint default (`lIns`/`rIns` = 0.1", `tIns`/`bIns` = 0.05").
+ */
+export interface BodyProperties {
+	/** Text direction (`@vert`: `horz`/`vert`/`vert270`/`eaVert`/`wordArtVert`…), or `null` when horizontal/unset. */
+	vert: string | null
+	/** Vertical anchor (`@anchor`: `t`/`ctr`/`b`), or `null` when unset (defaults to top). */
+	anchor: string | null
+	/** Wrap mode (`@wrap`: `square`/`none`), or `null` when unset. */
+	wrap: string | null
+	/** Explicitly-set text insets in points (`@lIns`/`@rIns`/`@tIns`/`@bIns` ÷ 12700); a missing side uses the PowerPoint default. */
+	insetsPt: { left?: number; right?: number; top?: number; bottom?: number }
+}
+
 export class TextFrame {
 	constructor(
 		private readonly txBody: Element,
@@ -447,6 +465,31 @@ export class TextFrame {
 		// in the placeholder inheritance chain; resolve it once and share it.
 		const inherit = this.placeholder ? { placeholder: this.placeholder, slideLstStyle: firstChild(this.txBody, 'a:lstStyle') } : undefined
 		return getElements(this.txBody, 'a:p').map((element) => new Paragraph(element, this.part, this.themeContext, inherit))
+	}
+
+	/**
+	 * The frame's body properties (`a:bodyPr`: insets, anchor, vertical text), or
+	 * `null` when there is no `a:bodyPr`. Only explicitly-set insets are reported
+	 * (a missing side is the PowerPoint default — see {@link BodyProperties}).
+	 */
+	get bodyProperties(): BodyProperties | null {
+		const bodyPr = firstChild(this.txBody, 'a:bodyPr')
+		if (!bodyPr) return null
+		const insetsPt: BodyProperties['insetsPt'] = {}
+		const inset = (qn: string, key: keyof BodyProperties['insetsPt']): void => {
+			const v = intValue(attr(bodyPr, qn))
+			if (v !== null) insetsPt[key] = v / 12700
+		}
+		inset('lIns', 'left')
+		inset('rIns', 'right')
+		inset('tIns', 'top')
+		inset('bIns', 'bottom')
+		return {
+			vert: attr(bodyPr, 'vert') ?? null,
+			anchor: attr(bodyPr, 'anchor') ?? null,
+			wrap: attr(bodyPr, 'wrap') ?? null,
+			insetsPt,
+		}
 	}
 
 	/** All paragraph text joined by `\n` (mirrors python-pptx `TextFrame.text`). */

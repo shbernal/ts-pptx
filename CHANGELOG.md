@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Read-model: gradient geometry, line arrowheads, outer shadow, and text-body
+  properties.** The `pptxgenjs/read` shape proxies gain four getters that close
+  the gaps a faithful slide replica kept hand-reading from raw XML: `gradientFill`
+  (`GradientFill` — the stops **plus** the linear `angleDeg` / path shape that the
+  bare `gradientStops` omits), `lineEnds` (`LineEnds` — connector `headEnd`/`tailEnd`
+  arrowhead type/width/length), and `shadow` (`OuterShadow` — `a:outerShdw` colour
+  (theme-resolved), `alpha`, `blurPt`, `offsetPt`, `angleDeg`). `TextFrame` gains
+  `bodyProperties` (`BodyProperties` — `a:bodyPr` `vert`/`anchor`/`wrap` and
+  explicitly-set insets in points). Angles use the OOXML clockwise-from-3-o'clock
+  degree convention and distances are in points, so each round-trips to the
+  matching write-side prop. New exported types: `GradientFill`, `LineEnd`,
+  `LineEnds`, `OuterShadow`, `BodyProperties`.
+
 - **`widestLineIn` on `measureText()`/layout-time measurement:** `TextMeasurement`
   (from `pptx.measureText()` and the `pptxgenjs/measure` subpath) now reports the
   width in inches of the widest laid-out line, alongside `heightIn`/`lineCount`.
