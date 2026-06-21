@@ -37,7 +37,7 @@ project_target_docs:
 vocabulary:
   statuses:
     - needs-repro
-    - target-candidate
+    - target
     - accepted
     - interesting-with-tweaks
     - non-target

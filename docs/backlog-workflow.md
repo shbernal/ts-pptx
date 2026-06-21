@@ -113,7 +113,7 @@ duplicate ids. Use `--dry-run` to check the intended mutation without writing.
 Classify each item with one status:
 
 - `needs-repro`: plausible, but no current-project reproduction exists yet.
-- `target-candidate`: likely relevant to this fork; worth scoping.
+- `target`: likely relevant to this fork; worth scoping.
 - `accepted`: worth implementing or opening a local task for.
 - `interesting-with-tweaks`: useful signal, but the original fix or framing does
   not fit this project as-is.
@@ -253,7 +253,7 @@ Keep the fix local to the current package target.
 ## Closing Implemented Items
 
 After fixing an item, update [backlog.yml](backlog.yml) in the same work session.
-Do not leave the entry at `accepted`, `target-candidate`, or `needs-repro` after
+Do not leave the entry at `accepted`, `target`, or `needs-repro` after
 the local fix has landed.
 
 For each fixed item:
@@ -294,7 +294,7 @@ pnpm run backlog -- add --id sf-<slug> --type downstream-need \
   --stopgap <downstream path the gap forces a workaround in>
 ```
 
-`add` writes a valid skeleton (defaults: `status: target-candidate`, `priority:
+`add` writes a valid skeleton (defaults: `status: target`, `priority:
 p2`, `applies_to_current_project: yes`, today's dates) and validates the result.
 Then edit the entry to add `target_area`, evidence, and the design essay under
 `current_project_notes` (a `|` block scalar). The `stopgap` field records the

@@ -696,7 +696,7 @@ export function setLedgerItemStatusText(text, id, status, reviewDate = todayIsoD
 }
 
 const ADD_DEFAULTS_BY_TYPE = {
-	'downstream-need': { status: 'target-candidate', priority: 'p2', applies: 'yes' },
+	'downstream-need': { status: 'target', priority: 'p2', applies: 'yes' },
 }
 
 function buildItemSkeleton(fields, reviewDate) {
@@ -704,7 +704,7 @@ function buildItemSkeleton(fields, reviewDate) {
 	if (!fields.source) throw new Error('add requires --source')
 	if (!fields.type) throw new Error('add requires --type')
 	const typeDefaults = ADD_DEFAULTS_BY_TYPE[fields.type] || {
-		status: 'target-candidate',
+		status: 'target',
 		priority: 'none',
 		applies: 'unknown',
 	}

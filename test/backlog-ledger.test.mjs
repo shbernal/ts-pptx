@@ -19,7 +19,7 @@ vocabulary:
   statuses:
     - unreviewed
     - needs-repro
-    - target-candidate
+    - target
     - accepted
     - interesting-with-tweaks
     - non-target
@@ -290,7 +290,7 @@ describe('backlog ledger tooling', () => {
 		expect(validation.errors).toEqual([])
 		const added = validation.data.items.find((item) => item.id === 'dn-text-direction')
 		expect(added.type).toBe('downstream-need')
-		expect(added.status).toBe('target-candidate')
+		expect(added.status).toBe('target')
 		expect(added.priority).toBe('p2')
 		expect(added.stopgap).toBe('registry/components/quadrant-matrix.ts')
 	})
