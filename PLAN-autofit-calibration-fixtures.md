@@ -1,6 +1,14 @@
 # Plan: Autofit calibration fixtures (the oracle for measured text fit)
 
-Status: proposal / not started
+Status: **DONE (2026-06-21).** Four PowerPoint-authored decks
+(`autofit-line-metrics/-shrink/-resize/-edge.pptx`, 149 cases), the derived
+`test/read/fixtures/autofit-calibration.json` (with the LibreOffice cross-measure
+column), the regeneration tooling (`scripts/gen-autofit-cases.mjs`,
+`scripts/measure-autofit-lo.py`, `scripts/extract-autofit-calibration.mjs`), the
+provenance/hashes/case-id scheme/findings note in `test/read/fixtures/README.md`,
+and the backlog entry (`dn-measured-text-fit`) are all committed. See the README
+"Autofit calibration oracle" section for the findings. Acceptance items 1–5 below
+are satisfied; `PLAN-measured-text-fit.md` P1 is now unblocked.
 Owner: (fork)
 Blocks: `PLAN-measured-text-fit.md` (measurement + solvers). This is the
 **fixture-gated precondition** for that work — per `docs/backlog-workflow.md`

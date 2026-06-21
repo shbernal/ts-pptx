@@ -1,0 +1,399 @@
+{
+	"deck": "autofit-edge",
+	"slideWidthPt": 960,
+	"slideHeightPt": 540,
+	"fontsRequired": ["Aptos"],
+	"notes": "Deck 4: Aptos edge cases most likely to break a wrap/line simulator - over-long tokens, trailing/leading whitespace, blank line, whitespace-only run, tab, mixed sizes, plus documentation-only CJK + RTL boxes marked unsupported.",
+	"cases": [
+		{
+			"id": "edge__longtoken_charwrap",
+			"kind": "resize",
+			"slide": 1,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 144,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Supercalifragilisticexpialidociousantidisestablishmentarianism",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			],
+			"note": "Over-long unbreakable token in a fixed-width wrap box; pins PowerPoint character-wrap behaviour."
+		},
+		{
+			"id": "edge__longtoken_nowrap",
+			"kind": "resize",
+			"slide": 2,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 144,
+			"hPt": 36,
+			"wrap": false,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Supercalifragilisticexpialidociousantidisestablishmentarianism",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			],
+			"note": "Same token, wrap off; box grows in width instead of char-wrapping (comparison)."
+		},
+		{
+			"id": "edge__trailing_spaces",
+			"kind": "resize",
+			"slide": 3,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 144,
+			"hPt": 36,
+			"wrap": false,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Hamburgefontsiv          ",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			],
+			"note": "Trailing spaces before line end; compare extCx to the no-trailing-space control."
+		},
+		{
+			"id": "edge__no_trailing_spaces",
+			"kind": "resize",
+			"slide": 4,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 144,
+			"hPt": 36,
+			"wrap": false,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Hamburgefontsiv",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			],
+			"note": "Control for trailing-spaces width."
+		},
+		{
+			"id": "edge__leading_spaces",
+			"kind": "resize",
+			"slide": 5,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 144,
+			"hPt": 36,
+			"wrap": false,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "          Hamburgefontsiv",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			],
+			"note": "Leading spaces; do they widen the box?"
+		},
+		{
+			"id": "edge__blank_line",
+			"kind": "resize",
+			"slide": 6,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 144,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Line A",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				},
+				{
+					"runs": [
+						{
+							"text": "",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				},
+				{
+					"runs": [
+						{
+							"text": "Line B",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			],
+			"note": "Blank middle paragraph; pins empty-line height contribution to cy."
+		},
+		{
+			"id": "edge__only_whitespace",
+			"kind": "resize",
+			"slide": 7,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 144,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "          ",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			],
+			"note": "A run that is only whitespace; does the line collapse?"
+		},
+		{
+			"id": "edge__tab",
+			"kind": "resize",
+			"slide": 8,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 144,
+			"hPt": 36,
+			"wrap": false,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "A\tB",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			],
+			"note": "Tab character between tokens; pins tab advance handling."
+		},
+		{
+			"id": "edge__mixed_sizes",
+			"kind": "resize",
+			"slide": 9,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 144,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "small ",
+							"font": "Aptos",
+							"sizePt": 12,
+							"bold": false,
+							"italic": false
+						},
+						{
+							"text": "BIG",
+							"font": "Aptos",
+							"sizePt": 36,
+							"bold": false,
+							"italic": false
+						},
+						{
+							"text": " small",
+							"font": "Aptos",
+							"sizePt": 12,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			],
+			"note": "Mixed run sizes on one line; line height should follow the max run."
+		},
+		{
+			"id": "edge__cjk_unsupported",
+			"kind": "fixed",
+			"slide": 10,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 144,
+			"hPt": 36,
+			"wrap": false,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "日本語テキスト",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			],
+			"note": "UNSUPPORTED (documentation only): CJK text. Aptos lacks CJK glyphs; recorded as a known measurement gap, not a calibration target."
+		},
+		{
+			"id": "edge__rtl_unsupported",
+			"kind": "fixed",
+			"slide": 11,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 144,
+			"hPt": 36,
+			"wrap": false,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "مرحبا بالعالم",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			],
+			"note": "UNSUPPORTED (documentation only): RTL (Arabic) text. Bidi/shaping out of scope; recorded as a known gap."
+		}
+	]
+}

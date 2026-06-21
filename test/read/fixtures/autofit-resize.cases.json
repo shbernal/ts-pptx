@@ -1,0 +1,614 @@
+{
+	"deck": "autofit-resize",
+	"slideWidthPt": 960,
+	"slideHeightPt": 540,
+	"fontsRequired": ["Aptos", "Aptos SemiBold", "Calibri", "Tahoma", "Arial"],
+	"notes": "Deck 3: spAutoFit (resize) cy calibration. Per-font core (single + 3 hard lines, corroborates Deck 1) + Aptos policy sweep (vertical anchor off.y on growth, under-filled box, line-spacing, space before/after, insets, soft-wrap). LibreOffice cross-measure applies (resize cy vs LO height).",
+	"cases": [
+		{
+			"id": "resize__aptos__lines1",
+			"kind": "resize",
+			"slide": 1,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 216,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Hamburgefontsiv",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "resize__aptos__lines3",
+			"kind": "resize",
+			"slide": 2,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 216,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Hamburgefontsiv\nHamburgefontsiv\nHamburgefontsiv",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "resize__aptossemibold__lines1",
+			"kind": "resize",
+			"slide": 3,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 216,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Hamburgefontsiv",
+							"font": "Aptos SemiBold",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "resize__aptossemibold__lines3",
+			"kind": "resize",
+			"slide": 4,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 216,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Hamburgefontsiv\nHamburgefontsiv\nHamburgefontsiv",
+							"font": "Aptos SemiBold",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "resize__calibri__lines1",
+			"kind": "resize",
+			"slide": 5,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 216,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Hamburgefontsiv",
+							"font": "Calibri",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "resize__calibri__lines3",
+			"kind": "resize",
+			"slide": 6,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 216,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Hamburgefontsiv\nHamburgefontsiv\nHamburgefontsiv",
+							"font": "Calibri",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "resize__tahoma__lines1",
+			"kind": "resize",
+			"slide": 7,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 216,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Hamburgefontsiv",
+							"font": "Tahoma",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "resize__tahoma__lines3",
+			"kind": "resize",
+			"slide": 8,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 216,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Hamburgefontsiv\nHamburgefontsiv\nHamburgefontsiv",
+							"font": "Tahoma",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "resize__arial__lines1",
+			"kind": "resize",
+			"slide": 9,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 216,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Hamburgefontsiv",
+							"font": "Arial",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "resize__arial__lines3",
+			"kind": "resize",
+			"slide": 10,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 216,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Hamburgefontsiv\nHamburgefontsiv\nHamburgefontsiv",
+							"font": "Arial",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "resize__aptos__anchor_t",
+			"kind": "resize",
+			"slide": 11,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 216,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Hamburgefontsiv\nHamburgefontsiv\nHamburgefontsiv",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "resize__aptos__anchor_ctr",
+			"kind": "resize",
+			"slide": 12,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 216,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "ctr",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Hamburgefontsiv\nHamburgefontsiv\nHamburgefontsiv",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "resize__aptos__anchor_b",
+			"kind": "resize",
+			"slide": 13,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 216,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "b",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Hamburgefontsiv\nHamburgefontsiv\nHamburgefontsiv",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "resize__aptos__underfilled",
+			"kind": "resize",
+			"slide": 14,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 216,
+			"hPt": 144,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Hamburgefontsiv",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "resize__aptos__lnspc150",
+			"kind": "resize",
+			"slide": 15,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 216,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Hamburgefontsiv\nHamburgefontsiv\nHamburgefontsiv",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 150
+				}
+			]
+		},
+		{
+			"id": "resize__aptos__lnspc_exact24",
+			"kind": "resize",
+			"slide": 16,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 216,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Hamburgefontsiv\nHamburgefontsiv\nHamburgefontsiv",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPts": 24
+				}
+			]
+		},
+		{
+			"id": "resize__aptos__spba12_2para",
+			"kind": "resize",
+			"slide": 17,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 216,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Hamburgefontsiv",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100,
+					"spaceBeforePts": 12,
+					"spaceAfterPts": 12
+				},
+				{
+					"runs": [
+						{
+							"text": "Hamburgefontsiv",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100,
+					"spaceBeforePts": 12,
+					"spaceAfterPts": 12
+				}
+			]
+		},
+		{
+			"id": "resize__aptos__insets",
+			"kind": "resize",
+			"slide": 18,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 216,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 20,
+				"b": 20
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Hamburgefontsiv\nHamburgefontsiv\nHamburgefontsiv",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "resize__aptos__softwrap",
+			"kind": "resize",
+			"slide": 19,
+			"xPt": 60,
+			"yPt": 200,
+			"wPt": 216,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		}
+	]
+}

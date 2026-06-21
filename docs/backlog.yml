@@ -119,6 +119,7 @@ vocabulary:
     - group-scale #           scaled group (chOff/chExt vs off/ext)
     - group-rot-flip #        group <a:xfrm> @rot/@flipH/@flipV
     - autofit-shrink #        <a:normAutofit> shrink-to-fit text
+    - autofit-resize #        <a:spAutoFit> resize-to-fit text (added 2026-06-21 for the measured-text-fit oracle)
     - vertical-text #         <a:bodyPr vert="…"> text direction
     - style-ref-color #       <p:style> <a:fillRef>/<a:lnRef> theme colour
     - blip-fill-shape #       <a:blipFill> as the fill of a <p:sp>
@@ -2144,6 +2145,63 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: none
+  - id: dn-measured-text-fit
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-06-21
+    last_reviewed: 2026-06-21
+    status: partially-implemented
+    priority: p2
+    target_area:
+      - missing-pptx-feature
+      - typescript-api
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: "Serialize-time measured autofit: compute and bake fontScale/lnSpcReduction (shrink) and ext.cy/off.y (resize) so fit:'shrink'/'resize' actually fit in headless renders"
+    constructs:
+      - autofit-shrink
+      - autofit-resize
+    current_project_notes: |
+      Feature plan: PLAN-measured-text-fit.md. Bare <a:normAutofit/> / <a:spAutoFit/>
+      defer the fit computation to an interactive edit/resize that a headless
+      LibreOffice->PNG render never fires, so fit:'shrink'/'resize' overflow in the
+      downstream pipeline (the "text spills out of the card" driver). The fix
+      adds opentype.js font metrics, a wrap simulator, and shrink/resize solvers
+      calibrated against PowerPoint, gated by a fixture oracle.
+
+      BLOCKING FIXTURE PRECONDITION (PLAN-autofit-calibration-fixtures.md) -- DONE
+      2026-06-21. Four desktop-PowerPoint-authored decks committed to
+      test/read/fixtures/ (autofit-line-metrics 90 cases, autofit-shrink 29,
+      autofit-resize 19, autofit-edge 11) plus the extracted, regenerable
+      autofit-calibration.json with a LibreOffice cross-measure column. Oracle
+      findings that parameterize the solver: single-spacing line pitch ~= 1.2117 x
+      fontSize and font-INDEPENDENT across {Aptos, Aptos SemiBold, Calibri, Tahoma,
+      Arial} (the per-font axis is advance WIDTH, not line height); fontScale sits on
+      a 2.5% grid {...,85,77.5,70,62.5,55,...,40,...}%; lnSpcReduction ramps 0->10->20%
+      and caps at 20%; vertical anchor does NOT change fontScale; on spAutoFit growth
+      off.y shifts by 0 / half / full of the height delta for anchor t / ctr / b;
+      PowerPoint vs LibreOffice autofit height agree to <=0.05pt for this font set.
+      The P1+ solver is now unblocked but NOT started.
+    evidence:
+      kinds:
+        - powerpoint-result
+        - powerpoint-authored-comparison
+        - extracted-xml
+        - local-source-inspection
+      local_files:
+        - test/read/fixtures/autofit-calibration.json
+        - test/read/fixtures/autofit-line-metrics.pptx
+        - test/read/fixtures/autofit-shrink.pptx
+        - test/read/fixtures/autofit-resize.pptx
+        - test/read/fixtures/autofit-edge.pptx
+        - scripts/extract-autofit-calibration.mjs
+        - PLAN-measured-text-fit.md
+        - PLAN-autofit-calibration-fixtures.md
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: implement-measured-fit-p1-shrink-solver
   - id: dn-text-direction-serialization
     source: downstream:registry/components/quadrant-matrix.ts
     type: downstream-need

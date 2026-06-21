@@ -1,0 +1,946 @@
+{
+	"deck": "autofit-shrink",
+	"slideWidthPt": 960,
+	"slideHeightPt": 540,
+	"fontsRequired": ["Aptos", "Aptos SemiBold", "Calibri", "Tahoma", "Arial"],
+	"notes": "Deck 2: normAutofit (shrink) calibration. Per-font core (5 regular + 4 bold, fixed 3x overflow in a 3.0x1.0in box at 18pt) + Aptos policy sweep (overflow ladder, line-spacing, space before/after, multi-run, insets, charSpacing, vertical anchor, width- vs height-driven).",
+	"cases": [
+		{
+			"id": "shrink__aptos__sz18__b0i0__w3.00h1.00__core",
+			"kind": "shrink",
+			"slide": 1,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__aptossemibold__sz18__b0i0__w3.00h1.00__core",
+			"kind": "shrink",
+			"slide": 2,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos SemiBold",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__calibri__sz18__b0i0__w3.00h1.00__core",
+			"kind": "shrink",
+			"slide": 3,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Calibri",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__tahoma__sz18__b0i0__w3.00h1.00__core",
+			"kind": "shrink",
+			"slide": 4,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Tahoma",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__arial__sz18__b0i0__w3.00h1.00__core",
+			"kind": "shrink",
+			"slide": 5,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Arial",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__aptos__sz18__b1i0__w3.00h1.00__core",
+			"kind": "shrink",
+			"slide": 6,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": true,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__calibri__sz18__b1i0__w3.00h1.00__core",
+			"kind": "shrink",
+			"slide": 7,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Calibri",
+							"sizePt": 18,
+							"bold": true,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__tahoma__sz18__b1i0__w3.00h1.00__core",
+			"kind": "shrink",
+			"slide": 8,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Tahoma",
+							"sizePt": 18,
+							"bold": true,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__arial__sz18__b1i0__w3.00h1.00__core",
+			"kind": "shrink",
+			"slide": 9,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Arial",
+							"sizePt": 18,
+							"bold": true,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__aptos__sz18__b0i0__ovr2x",
+			"kind": "shrink",
+			"slide": 10,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__aptos__sz18__b0i0__ovr3x",
+			"kind": "shrink",
+			"slide": 11,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__aptos__sz18__b0i0__ovr4x",
+			"kind": "shrink",
+			"slide": 12,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__aptos__sz18__b0i0__ovr6x",
+			"kind": "shrink",
+			"slide": 13,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__aptos__sz18__b0i0__ovr10x",
+			"kind": "shrink",
+			"slide": 14,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__aptos__sz18__b1i0__ovr2x",
+			"kind": "shrink",
+			"slide": 15,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": true,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__aptos__sz18__b1i0__ovr4x",
+			"kind": "shrink",
+			"slide": 16,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": true,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__aptos__sz18__b1i0__ovr8x",
+			"kind": "shrink",
+			"slide": 17,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": true,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__aptos__sz18__lnspc_single",
+			"kind": "shrink",
+			"slide": 18,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__aptos__sz18__lnspc_150",
+			"kind": "shrink",
+			"slide": 19,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 150
+				}
+			]
+		},
+		{
+			"id": "shrink__aptos__sz18__lnspc_exact18",
+			"kind": "shrink",
+			"slide": 20,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPts": 18
+				}
+			]
+		},
+		{
+			"id": "shrink__aptos__sz18__spba10_2para",
+			"kind": "shrink",
+			"slide": 21,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100,
+					"spaceBeforePts": 10,
+					"spaceAfterPts": 10
+				},
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100,
+					"spaceBeforePts": 10,
+					"spaceAfterPts": 10
+				}
+			]
+		},
+		{
+			"id": "shrink__aptos__sz18__multirun",
+			"kind": "shrink",
+			"slide": 22,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "Big bold start ",
+							"font": "Aptos",
+							"sizePt": 28,
+							"bold": true,
+							"italic": false
+						},
+						{
+							"text": "then normal eighteen point text that continues ",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						},
+						{
+							"text": "and small twelve tail that keeps going to overflow the box for sure. ",
+							"font": "Aptos",
+							"sizePt": 12,
+							"bold": false,
+							"italic": false
+						},
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__aptos__sz18__insets",
+			"kind": "shrink",
+			"slide": 23,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 20,
+				"r": 5,
+				"t": 15,
+				"b": 2
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__aptos__sz18__charspc2",
+			"kind": "shrink",
+			"slide": 24,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false,
+							"charSpacingPts": 2
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__aptos__sz18__anchor_t",
+			"kind": "shrink",
+			"slide": 25,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__aptos__sz18__anchor_ctr",
+			"kind": "shrink",
+			"slide": 26,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "ctr",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__aptos__sz18__anchor_b",
+			"kind": "shrink",
+			"slide": 27,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "b",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__aptos__sz18__widthdriven",
+			"kind": "shrink",
+			"slide": 28,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 36,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		},
+		{
+			"id": "shrink__aptos__sz18__heightdriven",
+			"kind": "shrink",
+			"slide": 29,
+			"xPt": 60,
+			"yPt": 160,
+			"wPt": 216,
+			"hPt": 72,
+			"wrap": true,
+			"anchor": "t",
+			"insetsPt": {
+				"l": 7.2,
+				"r": 7.2,
+				"t": 3.6,
+				"b": 3.6
+			},
+			"paragraphs": [
+				{
+					"runs": [
+						{
+							"text": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+							"font": "Aptos",
+							"sizePt": 18,
+							"bold": false,
+							"italic": false
+						}
+					],
+					"lineSpacingPct": 100
+				}
+			]
+		}
+	]
+}

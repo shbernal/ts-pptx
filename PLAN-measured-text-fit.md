@@ -173,9 +173,10 @@ slide.addText(runs, { x, y, w, h, fontFace: 'Aptos', fit: 'shrink' })
 
 ## Phases
 
-- **P0 — calibration fixtures (blocking precondition).** Author the PowerPoint
-  autofit oracle and extract the calibration table. Fully specified in
-  `PLAN-autofit-calibration-fixtures.md`. P1 does not start until P0 is done.
+- **P0 — calibration fixtures (blocking precondition). DONE 2026-06-21.** The
+  PowerPoint autofit oracle and extracted calibration table are committed (see
+  `PLAN-autofit-calibration-fixtures.md` and the README "Autofit calibration
+  oracle" section). P1 is now unblocked.
 - **P1 — measurement + shrink solver (highest value).** Provider + registration +
   wrap simulator + shrink binary search + integration for text boxes. This alone
   kills the overflow-out-of-card class for downstream.
