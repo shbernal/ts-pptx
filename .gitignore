@@ -49,3 +49,5 @@ tools/ooxml-validator/bin/
 ### Claude Code local/runtime files (shared config like .claude/settings.json stays tracked)
 .claude/settings.local.json
 .claude/*.lock
+# Local junction/symlink mirroring .agents/skills/ for Skill-registry discovery; canonical source lives in .agents/
+.claude/skills/

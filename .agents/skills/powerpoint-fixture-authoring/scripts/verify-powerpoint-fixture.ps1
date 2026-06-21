@@ -12,6 +12,10 @@ $pp = $null
 $pres = $null
 $openInfo = $null
 
+# Snapshot PIDs that already exist so we only ever reap the automation server
+# we spawn below — never a user's interactive PowerPoint with unsaved work.
+$preexistingIds = @(Get-Process POWERPNT -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id)
+
 try {
   $pp = New-Object -ComObject PowerPoint.Application
   $pp.DisplayAlerts = 1
@@ -32,6 +36,20 @@ finally {
   [GC]::Collect()
   [GC]::WaitForPendingFinalizers()
 }
+
+# COM Quit() can leave the automation server lingering. Reap only PIDs that
+# appeared during this run, so callers never have to kill a process by hand.
+# Wait for exit so the powerPointProcesses snapshot below is accurate.
+$reapedProcessIds = @(
+  Get-Process POWERPNT -ErrorAction SilentlyContinue |
+    Where-Object { $preexistingIds -notcontains $_.Id } |
+    ForEach-Object {
+      $proc = $_
+      Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+      try { $proc.WaitForExit(5000) | Out-Null } catch {}
+      $proc.Id
+    }
+)
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
@@ -106,5 +124,6 @@ $powerPointProcesses = @(Get-Process POWERPNT -ErrorAction SilentlyContinue | Se
   appVersion = $appVersion
   open = $openInfo
   groups = $groups
+  reapedProcessIds = $reapedProcessIds
   powerPointProcesses = $powerPointProcesses
 } | ConvertTo-Json -Depth 6
