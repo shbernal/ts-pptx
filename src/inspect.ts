@@ -38,6 +38,29 @@ export interface PptxTextRun {
 
 export type PptxSlideElementKind = 'text' | 'image' | 'shape'
 
+/**
+ * Vertical-autofit mode of a text frame, read from the `a:bodyPr` child element:
+ * - `'none'`: no autofit (`a:noAutofit`, or no autofit child at all). The box has a
+ *   fixed height the text must fit inside — a genuine overflow candidate.
+ * - `'normAutofit'`: shrink text to fit (`a:normAutofit`, PptxGenJS `fit: 'shrink'`).
+ *   Text is downscaled rather than overflowing.
+ * - `'spAutoFit'`: resize shape to fit text (`a:spAutoFit`, PptxGenJS `fit: 'resize'`).
+ *   The authored height is an output, not a constraint, so the box cannot overflow.
+ */
+export type PptxAutofitMode = 'none' | 'normAutofit' | 'spAutoFit'
+
+/**
+ * Text-frame body insets in inches (`a:bodyPr` `lIns`/`tIns`/`rIns`/`bIns`), with
+ * PowerPoint defaults applied when an attribute is absent (0.1in left/right,
+ * 0.05in top/bottom). Subtract these from {@link PptxBox} to get the inner text box.
+ */
+export interface PptxBodyInsets {
+	left: number
+	top: number
+	right: number
+	bottom: number
+}
+
 export interface PptxSlideElement {
 	id: string | number
 	name: string
@@ -46,6 +69,8 @@ export interface PptxSlideElement {
 	box: PptxBox
 	text: string
 	textWrap: string | null
+	autofit: PptxAutofitMode | null
+	bodyInsets: PptxBodyInsets | null
 	textRuns: PptxTextRun[]
 	fontSizes: number[]
 	colors: string[]
@@ -246,6 +271,8 @@ function normalizeElement(node: XmlNode, zIndex: number): PptxSlideElement | nul
 		box,
 		text,
 		textWrap: readTextWrap(textBody),
+		autofit: readAutofit(textBody),
+		bodyInsets: readBodyInsets(textBody),
 		textRuns,
 		fontSizes: [...new Set(textRuns.map(run => run.fontSizePt).filter((size): size is number => size !== null))],
 		colors: [...new Set(textRuns.map(run => run.color).filter((color): color is string => Boolean(color)))],
@@ -305,6 +332,30 @@ function readLine(spPr: XmlNode | null): string | null {
 
 function readTextWrap(textBody: XmlNode | null): string | null {
 	return stringValue(nodeChild(textBody, 'a:bodyPr')?.wrap)
+}
+
+// PowerPoint body-inset defaults (ECMA-376 §21.1.2.1.1 prose; the XSD leaves
+// lIns/tIns/rIns/bIns optional with no schema default): 0.1in left/right, 0.05in top/bottom.
+const DEFAULT_INSET_LR_EMU = 91440
+const DEFAULT_INSET_TB_EMU = 45720
+
+function readAutofit(textBody: XmlNode | null): PptxAutofitMode | null {
+	const bodyPr = nodeChild(textBody, 'a:bodyPr')
+	if (!bodyPr) return null
+	if ('a:spAutoFit' in bodyPr) return 'spAutoFit'
+	if ('a:normAutofit' in bodyPr) return 'normAutofit'
+	return 'none'
+}
+
+function readBodyInsets(textBody: XmlNode | null): PptxBodyInsets | null {
+	const bodyPr = nodeChild(textBody, 'a:bodyPr')
+	if (!bodyPr) return null
+	return {
+		left: emuToInches(numericValue(bodyPr.lIns) ?? DEFAULT_INSET_LR_EMU),
+		top: emuToInches(numericValue(bodyPr.tIns) ?? DEFAULT_INSET_TB_EMU),
+		right: emuToInches(numericValue(bodyPr.rIns) ?? DEFAULT_INSET_LR_EMU),
+		bottom: emuToInches(numericValue(bodyPr.bIns) ?? DEFAULT_INSET_TB_EMU),
+	}
 }
 
 function walk(value: unknown, visitor: (node: XmlNode) => void): void {

@@ -71,6 +71,45 @@ defineRegressionSuite('PPTX inspection primitives', [
 		},
 	},
 	{
+		name: 'inspect exposes per-text-frame autofit mode and body insets',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const slide = p.addSlide()
+				// Fixed-height box (no autofit) with default body insets — a genuine overflow candidate.
+				slide.addText('Fixed', { x: 1, y: 1, w: 2, h: 0.5, objectName: 'fit:none' })
+				// Shrink-to-fit (normAutofit) — text downscales rather than overflowing.
+				slide.addText('Shrink', { x: 1, y: 2, w: 2, h: 0.5, fit: 'shrink', objectName: 'fit:shrink' })
+				// Resize-shape-to-fit (spAutoFit) — authored height is an output, cannot overflow.
+				slide.addText('Resize', { x: 1, y: 3, w: 2, h: 0.5, fit: 'resize', objectName: 'fit:resize' })
+				// Custom zero insets via the `inset` option (inches).
+				slide.addText('Tight', { x: 1, y: 4, w: 2, h: 0.5, inset: 0, objectName: 'fit:inset0' })
+				slide.addImage({ data: `image/png;base64,${PNG_1X1}`, x: 6, y: 1, w: 1, h: 1, objectName: 'fit:image' })
+			})
+
+			const inspection = await inspectPptx(buf)
+			const elements = new Map(inspection.slides[0].elements.map((element) => [element.name, element]))
+
+			const fixed = elements.get('fit:none')
+			assertEqual(fixed.autofit, 'none', 'no-autofit box reports none')
+			assert(Math.abs(fixed.bodyInsets.left - 0.1) < 1e-6, 'default left inset is 0.1in')
+			assert(Math.abs(fixed.bodyInsets.right - 0.1) < 1e-6, 'default right inset is 0.1in')
+			assert(Math.abs(fixed.bodyInsets.top - 0.05) < 1e-6, 'default top inset is 0.05in')
+			assert(Math.abs(fixed.bodyInsets.bottom - 0.05) < 1e-6, 'default bottom inset is 0.05in')
+
+			assertEqual(elements.get('fit:shrink').autofit, 'normAutofit', 'shrink box reports normAutofit')
+			assertEqual(elements.get('fit:resize').autofit, 'spAutoFit', 'resize box reports spAutoFit')
+
+			const tight = elements.get('fit:inset0')
+			assertEqual(tight.autofit, 'none', 'inset-only box still reports none')
+			assertEqual(tight.bodyInsets.left, 0, 'zero inset is preserved, not defaulted')
+			assertEqual(tight.bodyInsets.bottom, 0, 'zero inset is preserved, not defaulted')
+
+			const image = elements.get('fit:image')
+			assertEqual(image.autofit, null, 'image without a text frame has no autofit')
+			assertEqual(image.bodyInsets, null, 'image without a text frame has no body insets')
+		},
+	},
+	{
 		name: 'low-level package and geometry helpers are available',
 		fn: async () => {
 			const { buf } = await build((p) => {

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Per-text-frame autofit mode and body insets on inspect elements:** each
+  `PptxSlideElement` from `inspectPptx()`/`extractSlides()` now exposes `autofit`
+  (`'none'` | `'normAutofit'` | `'spAutoFit'`, or `null` for elements without a
+  text frame) and `bodyInsets` (`{ left, top, right, bottom }` in inches, with
+  PowerPoint defaults applied when an `a:bodyPr` inset attribute is absent — 0.1in
+  left/right, 0.05in top/bottom). Together these let a consumer distinguish a
+  bounded text box (a genuine overflow candidate) from an auto-growing
+  (`spAutoFit`) or text-shrinking (`normAutofit`) one, and compute the inner text
+  box (`box` minus `bodyInsets`) for overflow detection. See
+  `docs/reference/pptx-inspection.md`.
+
 ## [7.0.0](https://github.com/shbernal/PptxGenJS/releases/tag/v7.0.0) - 2026-06-21
 
 This major release adds **measured text fit** — a calibrated, font-metrics-driven

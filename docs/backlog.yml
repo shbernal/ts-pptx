@@ -3250,3 +3250,33 @@ items:
       powerpoint_result: test/read/fixtures/multi-theme.pptx (PowerPoint-authored slide 2) opened clean; reused from the colour leg
       spec_refs: []
     next_action: none
+  - id: dn-inspect-text-autofit
+    source: downstream:scripts/slide-lint.ts
+    type: downstream-need
+    first_seen: 2026-06-21
+    last_reviewed: 2026-06-21
+    status: implemented
+    priority: p2
+    target_area:
+      - typescript-api
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: Expose per-text-element autofit mode (none/normAutofit/spAutoFit) and body insets (lIns/tIns/rIns/bIns) on inspect PptxSlideElement so a consumer can tell a bounded text box from an auto-growing one and compute its inner box for overflow detection
+    current_project_notes: "Implemented in src/inspect.ts: PptxSlideElement gains autofit (new PptxAutofitMode: 'none' | 'normAutofit' | 'spAutoFit', null when no text frame) and bodyInsets (new PptxBodyInsets {left,top,right,bottom} in inches, null when no text frame), both parsed from a:bodyPr via readAutofit()/readBodyInsets(). Autofit keys on the bodyPr child (a:spAutoFit > a:normAutofit > else 'none', matching gen-xml emission for fit:'resize'/'shrink'/'none'). Insets apply PowerPoint defaults when an attr is absent (lIns/rIns 91440 EMU = 0.1in, tIns/bIns 45720 EMU = 0.05in; the XSD CT_TextBodyProperties leaves these optional with no schema default). A consumer's overflow lint now skips spAutoFit boxes, treats normAutofit as a shrink-floor signal, and flags only no-autofit fixed-h boxes, computing the inner box as box minus bodyInsets. Generic read-surface gap that benefits any inspect consumer."
+    constructs:
+      - autofit-shrink
+      - autofit-resize
+    evidence:
+      kinds:
+        - regression-test
+        - local-source-inspection
+        - ooxml-reference
+      local_files:
+        - src/inspect.ts
+        - test/regression/pptx-inspection.test.js
+        - docs/reference/pptx-inspection.md
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: none

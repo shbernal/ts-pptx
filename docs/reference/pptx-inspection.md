@@ -25,7 +25,18 @@ import { inspectPptx, loadPptxPackage, listPptxParts } from "@shbernal/pptxgenjs
 - `slides[]`: generated slide entries in package order.
 - `slides[].elements[]`: normalized objects with `id`, `name`, `kind`,
   `zIndex`, `box`, `text`, `textRuns`, `fontSizes`, `colors`, `fill`, `line`,
-  `shapeType`, and `textWrap`.
+  `shapeType`, `textWrap`, `autofit`, and `bodyInsets`.
+
+`autofit` and `bodyInsets` describe the text frame's `a:bodyPr` so a consumer can
+tell a bounded text box from an auto-growing one and compute its inner box:
+
+- `autofit`: `'none'` (fixed height — a genuine overflow candidate), `'normAutofit'`
+  (shrink text to fit, PptxGenJS `fit: 'shrink'`), or `'spAutoFit'` (resize shape to
+  fit text, `fit: 'resize'` — the authored height is an output, so it cannot
+  overflow). `null` for elements without a text frame (e.g. images).
+- `bodyInsets`: `{ left, top, right, bottom }` in inches, with PowerPoint defaults
+  applied when absent (0.1in left/right, 0.05in top/bottom). Subtract from `box` to
+  get the inner text box. `null` for elements without a text frame.
 
 The subpath also exports package helpers such as `loadPptxPackage()`,
 `listPptxParts()`, and `readPptxTextPart()`, plus geometry helpers such as
