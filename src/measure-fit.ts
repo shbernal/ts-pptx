@@ -15,7 +15,7 @@ import { DEF_FONT_SIZE } from './core-enums.js'
 import { EMU_PER_POINT } from './units.js'
 import { getSmartParseNumber, valToPts } from './gen-utils.js'
 import type { FontMetricsRegistry } from './font-metrics.js'
-import { solveShrink, type FitParagraph, type FitRun, type MetricsResolver } from './text-fit.js'
+import { solveShrink, solveResize, type FitParagraph, type FitRun, type MetricsResolver } from './text-fit.js'
 import type { ISlideObject, ObjectOptions, PresSlideInternal, TextProps, TextPropsOptions } from './core-interfaces.js'
 
 // PowerPoint's default text-frame insets (EMU): l/r = 0.1in, t/b = 0.05in.
@@ -103,14 +103,10 @@ function extractParagraphs (obj: ISlideObject): FitParagraph[] | null {
 	return paras.length > 0 ? paras : null
 }
 
-/** Resolve the inner box (shape minus insets) in points; null if degenerate. */
-function computeBox (obj: ISlideObject, presLayout: PresSlideInternal['_presLayout']): { innerWidthPt: number, innerHeightPt: number } | null {
-	const opts = (obj.options ?? {}) as RunOpts
-	const wEmu = getSmartParseNumber(opts.w, 'X', presLayout)
-	const hEmu = getSmartParseNumber(opts.h, 'Y', presLayout)
-	if (!(wEmu > 0) || !(hEmu > 0)) return null
+interface InsetsEmu { lIns: number, rIns: number, tIns: number, bIns: number }
 
-	// Insets: explicit `_bodyProp` (set from `inset`) → `margin` → PowerPoint defaults.
+/** Resolve text-frame insets (EMU): explicit `_bodyProp` (from `inset`) → `margin` → PowerPoint defaults. */
+function resolveInsetsEmu (opts: RunOpts): InsetsEmu {
 	const bp = opts._bodyProp ?? {}
 	const margin = opts.margin
 	let lIns = bp.lIns
@@ -127,13 +123,25 @@ function computeBox (obj: ISlideObject, presLayout: PresSlideInternal['_presLayo
 			lIns = rIns = tIns = bIns = valToPts(margin)
 		}
 	}
-	lIns = lIns ?? DEF_INS_LR_EMU
-	rIns = rIns ?? DEF_INS_LR_EMU
-	tIns = tIns ?? DEF_INS_TB_EMU
-	bIns = bIns ?? DEF_INS_TB_EMU
+	return {
+		lIns: lIns ?? DEF_INS_LR_EMU,
+		rIns: rIns ?? DEF_INS_LR_EMU,
+		tIns: tIns ?? DEF_INS_TB_EMU,
+		bIns: bIns ?? DEF_INS_TB_EMU,
+	}
+}
+
+/** Resolve the inner box (shape minus insets) in points; null if degenerate. */
+function computeBox (obj: ISlideObject, presLayout: PresSlideInternal['_presLayout']): { innerWidthPt: number, innerHeightPt: number } | null {
+	const opts = (obj.options ?? {}) as RunOpts
+	const wEmu = getSmartParseNumber(opts.w, 'X', presLayout)
+	const hEmu = getSmartParseNumber(opts.h, 'Y', presLayout)
+	if (!(wEmu > 0) || !(hEmu > 0)) return null
+
+	const { lIns, rIns, tIns, bIns } = resolveInsetsEmu(opts)
 
 	// wrap=none means no width wrapping (only hard breaks): unbounded line width.
-	const wrap = bp.wrap !== false
+	const wrap = (opts._bodyProp ?? {}).wrap !== false
 	const innerWidthPt = wrap ? (wEmu - lIns - rIns) / EMU_PER_POINT : Infinity
 	const innerHeightPt = (hEmu - tIns - bIns) / EMU_PER_POINT
 	if (!(innerHeightPt > 0)) return null
@@ -141,49 +149,96 @@ function computeBox (obj: ISlideObject, presLayout: PresSlideInternal['_presLayo
 	return { innerWidthPt, innerHeightPt }
 }
 
+/** Vertical-anchor share of a height change that moves the box top up (`off.y` shift). */
+function anchorTopShareOfDelta (opts: RunOpts): number {
+	// `_bodyProp.anchor` is the resolved valign ('t' | 'ctr' | 'b'); default 'ctr'.
+	const anchor = (opts._bodyProp ?? {}).anchor
+	if (anchor === 't') return 0 // grow downward — top fixed
+	if (anchor === 'b') return 1 // grow upward — bottom fixed
+	return 0.5 // centered growth (default)
+}
+
 /**
- * Apply measured shrink-to-fit across every slide. Mutates `options.fit` in place
- * for text boxes that opt in via `fit:'shrink'` and whose font has registered
- * metrics. Safe to call with an empty registry (no-op). Warns once if any opted-in
- * box could not be measured (missing metrics) so overflow is not silently ignored.
+ * Apply measured fit across every slide. For each text box that opts in via
+ * `fit:'shrink'` or `fit:'resize'` and whose font has registered metrics, this
+ * bakes the computed result before the sync XML pass reads it:
+ * - `'shrink'` → rewrites `options.fit` to the object form so `<a:normAutofit
+ *   fontScale=…/>` is emitted (text renders pre-shrunk).
+ * - `'resize'` → rewrites `options.h` (and `options.y` per vertical anchor) so the
+ *   shape's `a:ext/@cy` is the height the text needs; the `<a:spAutoFit/>` marker is
+ *   left in place (the renderer draws the baked `cy`).
+ *
+ * Safe to call with an empty registry (no-op). Warns once if any opted-in box could
+ * not be measured (missing metrics) so overflow is not silently ignored.
  */
 export function applyMeasuredFit (slides: PresSlideInternal[], registry: FontMetricsRegistry): void {
 	if (registry.size === 0) return
 
 	const resolve: MetricsResolver = run => registry.get(run.fontFace, run.bold, run.italic)
-	const unmeasuredFaces = new Set<string>()
+	const unmeasuredShrink = new Set<string>()
+	const unmeasuredResize = new Set<string>()
+
+	const collectUnmeasured = (paragraphs: FitParagraph[], into: Set<string>): void => {
+		for (const para of paragraphs) for (const run of para.runs) if (!resolve(run)) into.add(run.fontFace ?? '(theme default)')
+	}
 
 	for (const slide of slides) {
 		for (const obj of slide._slideObjects ?? []) {
 			if (obj._type !== SLIDE_OBJECT_TYPES.text) continue
-			// Only the bare string form opts into measurement; an explicit object form is
-			// already baked by the caller and 'none'/'resize' are out of scope for P1.
-			if (obj.options?.fit !== 'shrink') continue
+			// Only the bare string forms opt into measurement; an explicit object form is
+			// already baked by the caller, and 'none' is a no-op.
+			const fit = obj.options?.fit
+			if (fit !== 'shrink' && fit !== 'resize') continue
 
 			const paragraphs = extractParagraphs(obj)
 			if (!paragraphs) continue
 			const box = computeBox(obj, slide._presLayout)
 			if (!box) continue
 
-			const outcome = solveShrink(paragraphs, box, resolve)
-			if (outcome.kind === 'shrink') {
-				const { fontScalePct, lnSpcReductionPct } = outcome.result
-				obj.options.fit = {
-					type: 'shrink',
-					fontScale: fontScalePct,
-					lnSpcReduction: lnSpcReductionPct || undefined,
+			if (fit === 'shrink') {
+				const outcome = solveShrink(paragraphs, box, resolve)
+				if (outcome.kind === 'shrink') {
+					const { fontScalePct, lnSpcReductionPct } = outcome.result
+					obj.options!.fit = {
+						type: 'shrink',
+						fontScale: fontScalePct,
+						lnSpcReduction: lnSpcReductionPct || undefined,
+					}
+				} else if (outcome.kind === 'unmeasurable') {
+					collectUnmeasured(paragraphs, unmeasuredShrink)
 				}
-			} else if (outcome.kind === 'unmeasurable') {
-				for (const para of paragraphs) for (const run of para.runs) if (!resolve(run)) unmeasuredFaces.add(run.fontFace ?? '(theme default)')
+				// 'fits' → leave the bare flag; the text already fits, so no scale is needed.
+			} else {
+				const outcome = solveResize(paragraphs, box, resolve)
+				if (outcome.kind === 'resize') {
+					const opts = obj.options as RunOpts
+					const { tIns, bIns } = resolveInsetsEmu(opts)
+					const oldHeightEmu = getSmartParseNumber(opts.h, 'Y', slide._presLayout)
+					const newHeightEmu = Math.round(outcome.neededInnerHeightPt * EMU_PER_POINT) + tIns + bIns
+					// Shift the box origin so growth/shrink honors the vertical anchor; `off.y`
+					// moves up by the anchor's share of the height delta (0 / half / full for t / ctr / b).
+					const oldYEmu = getSmartParseNumber(opts.y, 'Y', slide._presLayout)
+					const shiftEmu = Math.round((newHeightEmu - oldHeightEmu) * anchorTopShareOfDelta(opts))
+					opts.h = `${newHeightEmu}emu`
+					if (shiftEmu !== 0) opts.y = `${oldYEmu - shiftEmu}emu`
+				} else {
+					collectUnmeasured(paragraphs, unmeasuredResize)
+				}
 			}
-			// 'fits' → leave the bare flag; the text already fits, so no scale is needed.
 		}
 	}
 
-	if (unmeasuredFaces.size > 0) {
+	if (unmeasuredShrink.size > 0) {
 		console.warn(
-			`Warning: fit:'shrink' could not be measured for font(s) [${[...unmeasuredFaces].join(', ')}] — ` +
+			`Warning: fit:'shrink' could not be measured for font(s) [${[...unmeasuredShrink].join(', ')}] — ` +
 				'no registered metrics. Emitting bare <a:normAutofit/> (text will not pre-shrink in headless renders). ' +
+				'Call pptx.registerFontMetrics(face, fontFilePathOrBytes) to enable measured fit.'
+		)
+	}
+	if (unmeasuredResize.size > 0) {
+		console.warn(
+			`Warning: fit:'resize' could not be measured for font(s) [${[...unmeasuredResize].join(', ')}] — ` +
+				'no registered metrics. Emitting bare <a:spAutoFit/> with the authored height (box will not auto-grow in headless renders). ' +
 				'Call pptx.registerFontMetrics(face, fontFilePathOrBytes) to enable measured fit.'
 		)
 	}

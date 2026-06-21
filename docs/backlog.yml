@@ -2199,8 +2199,22 @@ items:
       test/regression/measured-fit-integration.test.mjs (end-to-end via dist),
       test/read/autofit-calibration-oracle.test.mjs (computed fontScale <= PowerPoint's
       across the real-font Aptos shrink cases; skips when fonts absent, e.g. CI).
-      REMAINING: P2 fit:'resize' (bake ext.cy/off.y), P3 table cells + unregistered-font
-      heuristic fallback.
+
+      P2 (resize solver) -- DONE 2026-06-21. Landed: text-fit.ts solveResize (reuses
+      the wrap simulator at fontScale=100; returns the needed inner height inflated by
+      the same WIDTH/HEIGHT safety factors -- resize has no shrink fallback so it MUST
+      err tall); measure-fit.ts resize branch rewrites options.h (and options.y per the
+      resolved vertical anchor _bodyProp.anchor: off.y shifts by 0 / half / full of the
+      height delta for t / ctr / b) as "<emu>emu" strings before the sync XML pass, so
+      gen-xml emits the baked ext.cy/off.y while keeping the <a:spAutoFit/> marker.
+      Matches spAutoFit semantics (box shrinks OR grows to fit). A separate warn-once
+      path covers unmeasured resize boxes. Tests extended: solveResize unit cases
+      (text-fit.test.mjs), resize integration via dist (measured-fit-integration.test.mjs:
+      overflow grows, short text shrinks, anchor offset), and a resize oracle block in
+      autofit-calibration-oracle.test.mjs (computed cy >= PowerPoint's AND >= LibreOffice's
+      across all 19 resize cases). REMAINING: P3 table cells + unregistered-font heuristic
+      fallback. CAVEAT (carried from plan risks): resize grows the text box only, not a
+      grouped card background/icon -- that layout coordination stays in the consumer.
     evidence:
       kinds:
         - powerpoint-result
@@ -2226,7 +2240,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: implement-measured-fit-p2-resize-solver
+    next_action: implement-measured-fit-p3-table-cells-and-heuristic-fallback
   - id: dn-text-direction-serialization
     source: downstream:registry/components/quadrant-matrix.ts
     type: downstream-need

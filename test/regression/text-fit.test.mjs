@@ -6,6 +6,7 @@
 import { describe, test, expect } from 'vitest'
 import {
 	solveShrink,
+	solveResize,
 	measureHeightPt,
 	SINGLE_LINE_PITCH,
 	FONT_SCALE_STEP_PCT,
@@ -124,5 +125,35 @@ describe('text-fit: solveShrink', () => {
 		const long = 'x '.repeat(400).trim()
 		const out = solveShrink([para(long)], box(50, 20), resolveMono)
 		expect(out).toEqual({ kind: 'shrink', result: { fontScalePct: MIN_FONT_SCALE_PCT, lnSpcReductionPct: 0 } })
+	})
+})
+
+describe('text-fit: solveResize', () => {
+	const box = (innerWidthPt, innerHeightPt) => ({ innerWidthPt, innerHeightPt })
+
+	test('unmeasurable propagates', () => {
+		expect(solveResize([para('hi')], box(1000, 100), () => undefined)).toEqual({ kind: 'unmeasurable' })
+	})
+
+	test('needed height = pitch * size, inflated by the height safety factor', () => {
+		const out = solveResize([para('hi')], box(1000, 5), resolveMono)
+		expect(out.kind).toBe('resize')
+		expect(out.neededInnerHeightPt).toBeCloseTo(SINGLE_LINE_PITCH * 18 * HEIGHT_SAFETY_FACTOR, 6)
+	})
+
+	test('never under-estimates: needed height ≥ the true laid-out height (no overflow)', () => {
+		const paras = [para('aaaaaaaaaa bbbbbbbbbb cccccccccc dddddddddd')]
+		const out = solveResize(paras, box(120, 30), resolveMono)
+		expect(out.kind).toBe('resize')
+		const trueHeight = measureHeightPt(paras, 120, resolveMono, 100, 0)
+		expect(out.neededInnerHeightPt).toBeGreaterThanOrEqual(trueHeight)
+	})
+
+	test('wraps to more lines as width shrinks → taller needed height', () => {
+		const paras = [para('aaaaaaaaaa bbbbbbbbbb cccccccccc')]
+		const wide = solveResize(paras, box(10000, 1), resolveMono).neededInnerHeightPt
+		const narrow = solveResize(paras, box(100, 1), resolveMono).neededInnerHeightPt
+		expect(linesOf(wide / HEIGHT_SAFETY_FACTOR)).toBe(1)
+		expect(narrow).toBeGreaterThan(wide)
 	})
 })

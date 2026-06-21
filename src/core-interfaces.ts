@@ -1841,19 +1841,24 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 * - 'shrink' = Shrink text on overflow
 	 * - 'resize' = Resize shape to fit text
 	 *
-	 * **Measured fit (`'shrink'`):** if you register the box's font with
-	 * {@link PptxGenJS.registerFontMetrics}, `'shrink'` is **measured at export time**
-	 * — the library computes the largest `fontScale` at which the wrapped text fits and
-	 * bakes `<a:normAutofit fontScale=…/>`, so the text renders pre-shrunk in headless
-	 * renderers and on plain file-open (no edit/resize needed). Without registered
-	 * metrics it falls back to a bare `<a:normAutofit/>` (which only PowerPoint
-	 * recomputes on edit) and warns once.
+	 * **Measured fit:** if you register the box's font with
+	 * {@link PptxGenJS.registerFontMetrics}, both `'shrink'` and `'resize'` are
+	 * **measured at export time**, so the text renders correctly in headless renderers
+	 * and on plain file-open (no edit/resize needed):
+	 * - `'shrink'` computes the largest `fontScale` at which the wrapped text fits and
+	 *   bakes `<a:normAutofit fontScale=…/>`.
+	 * - `'resize'` computes the height the text needs and bakes it into the shape's
+	 *   `a:ext/@cy` (adjusting `a:off/@y` per vertical anchor), the marker being
+	 *   `<a:spAutoFit/>`.
+	 * Without registered metrics they fall back to the bare flag (`<a:normAutofit/>` /
+	 * `<a:spAutoFit/>`, which only PowerPoint recomputes on edit) and warn once.
 	 *
-	 * **Note** Bare `'resize'`, and `'shrink'` without metrics, only take effect after
-	 * editing text / resizing the shape; PowerPoint calculates the scaling factor then.
-	 * The object form of `'shrink'` always bakes the explicit values you pass.
+	 * **Note** Bare `'shrink'`/`'resize'` (no metrics) only take effect after editing
+	 * text / resizing the shape; PowerPoint calculates the result then. The object form
+	 * of `'shrink'` always bakes the explicit values you pass.
 	 * @since v3.3.0
 	 * @example 'shrink' // measured when metrics are registered; else bare <a:normAutofit/>
+	 * @example 'resize' // measured when metrics are registered; else bare <a:spAutoFit/>
 	 * @example { type: 'shrink', fontScale: 85, lnSpcReduction: 20 } // pre-shrink with explicit values
 	 * @default "none"
 	 */

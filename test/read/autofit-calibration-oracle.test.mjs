@@ -15,8 +15,10 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { describe, test, expect } from 'vitest'
-import { solveShrink } from '../../src/text-fit.ts'
+import { solveShrink, solveResize } from '../../src/text-fit.ts'
 import { parseFontMetrics, FontMetricsRegistry } from '../../src/font-metrics.ts'
+
+const EMU_PER_PT = 12700
 
 const FIX = resolve(dirname(fileURLToPath(import.meta.url)), 'fixtures')
 
@@ -56,8 +58,33 @@ async function metricsFor(registry, family, bold, italic) {
 
 const calibration = JSON.parse(readFileSync(resolve(FIX, 'autofit-calibration.json'), 'utf8'))
 const shrinkSpec = JSON.parse(readFileSync(resolve(FIX, 'autofit-shrink.cases.json'), 'utf8'))
+const resizeSpec = JSON.parse(readFileSync(resolve(FIX, 'autofit-resize.cases.json'), 'utf8'))
 const ppById = new Map()
-for (const deck of calibration.decks) for (const c of deck.cases) ppById.set(c.id, c.powerpoint)
+const loById = new Map()
+for (const deck of calibration.decks) {
+	for (const c of deck.cases) {
+		ppById.set(c.id, c.powerpoint)
+		if (c.libreoffice) loById.set(c.id, c.libreoffice)
+	}
+}
+
+/** Build the FitParagraph[] a case describes (shared by the shrink/resize oracles). */
+function paragraphsOf(c) {
+	return c.paragraphs.map((p) => ({
+		runs: p.runs.map((r) => ({
+			text: r.text,
+			sizePt: r.sizePt,
+			bold: !!r.bold,
+			italic: !!r.italic,
+			fontFace: r.font,
+			charSpacingPt: r.charSpacingPts ?? undefined,
+		})),
+		lineSpacingPct: p.lineSpacingPct,
+		lineSpacingPts: p.lineSpacingPts,
+		spaceBeforePts: p.spaceBeforePts,
+		spaceAfterPts: p.spaceAfterPts,
+	}))
+}
 
 describe('autofit calibration oracle: shrink solver is conservative vs PowerPoint', () => {
 	let ranAny = false
@@ -83,20 +110,7 @@ describe('autofit calibration oracle: shrink solver is conservative vs PowerPoin
 			}
 			ranAny = true
 
-			const paragraphs = c.paragraphs.map((p) => ({
-				runs: p.runs.map((r) => ({
-					text: r.text,
-					sizePt: r.sizePt,
-					bold: !!r.bold,
-					italic: !!r.italic,
-					fontFace: r.font,
-					charSpacingPt: r.charSpacingPts ?? undefined,
-				})),
-				lineSpacingPct: p.lineSpacingPct,
-				lineSpacingPts: p.lineSpacingPts,
-				spaceBeforePts: p.spaceBeforePts,
-				spaceAfterPts: p.spaceAfterPts,
-			}))
+			const paragraphs = paragraphsOf(c)
 			const box = {
 				innerWidthPt: c.wPt - (c.insetsPt?.l ?? 0) - (c.insetsPt?.r ?? 0),
 				innerHeightPt: c.hPt - (c.insetsPt?.t ?? 0) - (c.insetsPt?.b ?? 0),
@@ -116,4 +130,44 @@ describe('autofit calibration oracle: shrink solver is conservative vs PowerPoin
 			console.warn('autofit oracle: no genuine fonts resolved — conservativeness assertions skipped (expected on CI).')
 		expect(true).toBe(true)
 	})
+})
+
+describe('autofit calibration oracle: resize solver is conservative vs PowerPoint + LibreOffice', () => {
+	for (const c of resizeSpec.cases) {
+		const pp = ppById.get(c.id)
+		const lo = loById.get(c.id)
+		if (!pp || pp.extCyEmu == null) continue
+
+		test(c.id, async () => {
+			const registry = new FontMetricsRegistry()
+			const resolve = (run) => registry.get(run.fontFace, !!run.bold, !!run.italic)
+
+			for (const para of c.paragraphs) {
+				for (const run of para.runs) {
+					const ok = await metricsFor(registry, run.font, !!run.bold, !!run.italic)
+					if (!ok) {
+						expect(true).toBe(true) // skipped — font not installed
+						return
+					}
+				}
+			}
+
+			const paragraphs = paragraphsOf(c)
+			const box = {
+				innerWidthPt: c.wrap === false ? Infinity : c.wPt - (c.insetsPt?.l ?? 0) - (c.insetsPt?.r ?? 0),
+				innerHeightPt: c.hPt - (c.insetsPt?.t ?? 0) - (c.insetsPt?.b ?? 0),
+			}
+
+			const out = solveResize(paragraphs, box, resolve)
+			expect(out.kind).toBe('resize')
+			// Bake the same way measure-fit does: needed inner height + top/bottom insets.
+			const insetsPt = (c.insetsPt?.t ?? 0) + (c.insetsPt?.b ?? 0)
+			const computedCyEmu = Math.round(out.neededInnerHeightPt * EMU_PER_PT) + Math.round(insetsPt * EMU_PER_PT)
+
+			// CONSERVATIVE (resize has no safety net): computed cy must be ≥ PowerPoint's
+			// baked height AND ≥ the LibreOffice-rendered height, so text never overflows.
+			expect(computedCyEmu).toBeGreaterThanOrEqual(pp.extCyEmu)
+			if (lo?.hEmu != null) expect(computedCyEmu).toBeGreaterThanOrEqual(lo.hEmu)
+		})
+	}
 })

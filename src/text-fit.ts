@@ -222,6 +222,24 @@ export function measureHeightPt (
  * so a reduction-free fit is always ≤ PowerPoint's scale). The calibration data for
  * the reduction ramp (Findings #4) is recorded for a future refinement.
  */
+export type ResizeOutcome =
+	| { kind: 'unmeasurable' } // a run's face has no registered metrics — caller degrades
+	| { kind: 'resize'; neededInnerHeightPt: number }
+
+/**
+ * Inner height (points) the text needs at full size — the value to bake into the
+ * shape's `a:ext/@cy` for `fit: 'resize'` (`spAutoFit`). Unlike shrink, resize has
+ * **no safety net**: an under-estimate overflows (there is no text scaling
+ * fallback), so this errs **tall** — width is inflated (earlier wrap ⇒ more lines)
+ * and the laid-out height by the calibrated height factor, so the computed `cy` is
+ * ≥ PowerPoint's and ≥ the LibreOffice-rendered height across the resize oracle.
+ */
+export function solveResize (paragraphs: FitParagraph[], box: FitBox, resolve: MetricsResolver): ResizeOutcome {
+	const h = measureHeightPt(paragraphs, box.innerWidthPt, resolve, 100, 0, WIDTH_SAFETY_FACTOR)
+	if (h === null) return { kind: 'unmeasurable' }
+	return { kind: 'resize', neededInnerHeightPt: h * HEIGHT_SAFETY_FACTOR }
+}
+
 export function solveShrink (paragraphs: FitParagraph[], box: FitBox, resolve: MetricsResolver): ShrinkOutcome {
 	// Inflate measured width (earlier wrap) and height by the calibrated safety
 	// factors so the fit threshold is conservative against PowerPoint.

@@ -9,26 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Measured text fit for `fit:'shrink'` (`pptx.registerFontMetrics`):** the library
-  can now compute and bake a real `fontScale` so overflowing text self-corrects in
-  headless renders (and on plain file-open) without a manual edit/resize. Register a
-  face's font file once — `await pptx.registerFontMetrics('Aptos', '/path/Aptos.ttf')`
-  (path/URL or raw `Uint8Array`/`ArrayBuffer`; pass `{ bold }`/`{ italic }` per
-  variant) — and any `fit:'shrink'` text box in that face is measured at export time:
-  the box's text is wrapped with the font's `hmtx` advances (raw, no kerning/GSUB —
-  the conservative direction), the largest fitting `fontScale` is found on
-  PowerPoint's 2.5% grid, and `<a:normAutofit fontScale=…/>` is emitted. Measurement
-  uses `opentype.js` (new dependency, lazily imported, Node/web only). The model is
-  calibrated against PowerPoint-authored fixtures (`autofit-calibration.json`) and is
-  conservative — its `fontScale` is ≤ the value PowerPoint itself bakes, so text never
-  overflows in PowerPoint or LibreOffice (regression: `autofit-calibration-oracle`).
-  **Behavior change:** when metrics are registered, `fit:'shrink'` now bakes a scale
-  instead of emitting a bare `<a:normAutofit/>`. With no metrics registered the
-  previous behavior is unchanged (bare flag); a box whose face lacks metrics keeps the
-  bare flag and warns once. Bold/italic/charSpacing/line-spacing/space-before-after,
-  multi-run paragraphs, hard breaks, and `wrap=none` are handled; `fit:'resize'`,
-  table cells, and an unregistered-font heuristic remain future work (P2/P3). New
-  public method `PptxGenJS.registerFontMetrics`. (`PLAN-measured-text-fit.md` P1)
+- **Measured text fit for `fit:'shrink'` and `fit:'resize'` (`pptx.registerFontMetrics`):**
+  the library can now compute and bake the autofit result so overflowing text
+  self-corrects in headless renders (and on plain file-open) without a manual
+  edit/resize. Register a face's font file once —
+  `await pptx.registerFontMetrics('Aptos', '/path/Aptos.ttf')` (path/URL or raw
+  `Uint8Array`/`ArrayBuffer`; pass `{ bold }`/`{ italic }` per variant) — and any
+  `fit:'shrink'` or `fit:'resize'` text box in that face is measured at export time.
+  The box's text is wrapped with the font's `hmtx` advances (raw, no kerning/GSUB —
+  the conservative direction). For `'shrink'` the largest fitting `fontScale` is found
+  on PowerPoint's 2.5% grid and `<a:normAutofit fontScale=…/>` is emitted; for
+  `'resize'` the height the text needs is computed and baked into the shape's
+  `a:ext/@cy` (with `a:off/@y` shifted per vertical anchor — 0 / half / full of the
+  delta for `t` / `ctr` / `b`), leaving the `<a:spAutoFit/>` marker in place.
+  Measurement uses `opentype.js` (new dependency, lazily imported, Node/web only). The
+  model is calibrated against PowerPoint-authored fixtures (`autofit-calibration.json`)
+  and is conservative — the `'shrink'` `fontScale` is ≤ the value PowerPoint bakes and
+  the `'resize'` `cy` is ≥ both PowerPoint's and LibreOffice's rendered height — so
+  text never overflows in PowerPoint or LibreOffice (regression:
+  `autofit-calibration-oracle`). **Behavior change:** when metrics are registered,
+  `fit:'shrink'`/`'resize'` now bake the result instead of emitting a bare flag. With
+  no metrics registered the previous behavior is unchanged (bare flag); a box whose
+  face lacks metrics keeps the bare flag and warns once.
+  Bold/italic/charSpacing/line-spacing/space-before-after, multi-run paragraphs, hard
+  breaks, and `wrap=none` are handled; table cells and an unregistered-font heuristic
+  remain future work (P3). New public method `PptxGenJS.registerFontMetrics`.
+  (`PLAN-measured-text-fit.md` P1+P2)
 - **Freeform custom-geometry reads (`Shape.customGeometry`):** the `pptxgenjs/read`
   model now exposes a shape's `spPr/a:custGeom/a:pathLst` path geometry, or `null`
   when the shape uses preset geometry / none (the freeform counterpart of

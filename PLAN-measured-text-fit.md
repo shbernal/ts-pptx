@@ -1,12 +1,13 @@
 # Plan: Measured text fit (`fit` that actually fits in headless renders)
 
-Status: **P1 IMPLEMENTED (2026-06-21).** Shrink measurement + solver shipped:
+Status: **P1+P2 IMPLEMENTED (2026-06-21).** Shrink + resize measurement shipped:
 `src/font-metrics.ts` (opentype.js provider, raw advances), `src/text-fit.ts`
-(wrap simulator + shrink solver), `src/measure-fit.ts` (export-time pass), and the
-`pptx.registerFontMetrics()` public API. Calibrated against the autofit oracle and
-held conservative by `test/read/autofit-calibration-oracle.test.mjs` (computed
-`fontScale` ≤ PowerPoint's). See `CHANGELOG.md` and backlog `dn-measured-text-fit`.
-**Remaining: P2 (`fit:'resize'`) and P3 (table cells + unregistered-font heuristic).**
+(wrap simulator + shrink/resize solvers), `src/measure-fit.ts` (export-time pass), and
+the `pptx.registerFontMetrics()` public API. Calibrated against the autofit oracle and
+held conservative by `test/read/autofit-calibration-oracle.test.mjs` (shrink computed
+`fontScale` ≤ PowerPoint's; resize computed `cy` ≥ PowerPoint's and ≥ LibreOffice's).
+See `CHANGELOG.md` and backlog `dn-measured-text-fit`.
+**Remaining: P3 (table cells + unregistered-font heuristic).**
 Owner: (fork)
 Related downstream driver: downstream overflow back-and-forth (text spilling out
 of cards/components; "extend the card more", "text still overlaps the icon").
@@ -191,8 +192,14 @@ slide.addText(runs, { x, y, w, h, fontFace: 'Aptos', fit: 'shrink' })
   conservative WIDTH/HEIGHT safety factors (1.03/1.04) approximate PowerPoint's
   device-DPI advance rounding; `lnSpcReduction` is left at 0 (fontScale-only is
   provably ≤ PowerPoint's).
-- **P2 — resize solver.** `fit:'resize'` grows the box; covers "extend the card
-  more" directly.
+- **P2 — resize solver. DONE 2026-06-21.** `fit:'resize'` now measures the height the
+  text needs and bakes `ext.cy` (shrinking *or* growing the box to fit, matching
+  `spAutoFit` semantics), shifting `off.y` by 0 / half / full of the height delta for
+  anchor t / ctr / b. Reuses the wrap simulator at `fontScale=100`; errs tall (width
+  + height safety factors) since resize has no shrink fallback. Held conservative by
+  the resize oracle (computed `cy` ≥ PowerPoint's *and* ≥ LibreOffice's across the
+  19 resize cases). Note the standing caveat below: this grows the *text box* only,
+  not a grouped card background/icon.
 - **P3 — table cells + heuristic fallback table.** Extend to `gen-tables` cells;
   add an average-advance fallback so unregistered fonts still improve.
 
