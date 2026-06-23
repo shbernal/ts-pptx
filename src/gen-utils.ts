@@ -551,6 +551,27 @@ export function getNewRelId (target: PresSlideInternal): number {
 }
 
 /**
+ * Map an image file extension to its OOXML content type.
+ * Inverse of the read-side `IMAGE_EXTENSION_BY_CONTENT_TYPE` (src/read/api/shapes.ts):
+ * EMF/WMF use the `x-`-prefixed forms PowerPoint authors (and that the read side
+ * expects), `jpg`/`jpeg` normalize to `image/jpeg`, and `svg` to `image/svg+xml`.
+ * Only the content type is derived here; the file extension (used for the media
+ * Target filename) is left to the caller.
+ * @param {string} extn - image file extension (e.g. `png`, `jpg`, `emf`)
+ * @returns {string} OOXML content type (e.g. `image/png`, `image/x-emf`)
+ */
+export function imageContentType (extn: string): string {
+	switch ((extn || '').toLowerCase()) {
+		case 'emf': return 'image/x-emf'
+		case 'wmf': return 'image/x-wmf'
+		case 'svg': return 'image/svg+xml'
+		case 'jpg':
+		case 'jpeg': return 'image/jpeg'
+		default: return 'image/' + (extn || '').toLowerCase()
+	}
+}
+
+/**
  * Checks shadow options passed by user and performs corrections if needed.
  * @param {ShadowProps} ShadowProps - shadow options
  */

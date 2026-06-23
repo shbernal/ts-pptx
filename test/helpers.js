@@ -97,6 +97,11 @@ function contentTypeOverrideParts(xml) {
 	return selfClosingTags(xml, 'Override').map((tag) => xmlAttributes(tag).PartName)
 }
 
+function contentTypeForExtension(xml, extension) {
+	const tag = selfClosingTags(xml, 'Default').find((t) => xmlAttributes(t).Extension === extension)
+	return tag ? xmlAttributes(tag).ContentType : undefined
+}
+
 function assertContentTypeDefault(xml, extension) {
 	const extensions = contentTypeDefaultExtensions(xml)
 	assert(
@@ -161,6 +166,7 @@ export {
 	xmlAttributes,
 	selfClosingTags,
 	contentTypeDefaultExtensions,
+	contentTypeForExtension,
 	contentTypeOverrideParts,
 	assertContentTypeDefault,
 	assertNoContentTypeDefault,

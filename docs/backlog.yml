@@ -3377,7 +3377,7 @@ items:
     type: downstream-need
     first_seen: 2026-06-23
     last_reviewed: 2026-06-23
-    status: target
+    status: implemented
     priority: p3
     target_area:
       - relationship-or-content-type
@@ -3386,6 +3386,20 @@ items:
     non_target_reasons: []
     summary: EMF/WMF images embed as image/emf|image/wmf; OOXML-correct is image/x-emf|image/x-wmf
     current_project_notes: |
+      IMPLEMENTED (2026-06-23): added imageContentType(extn) to src/gen-utils.ts
+      (emf->image/x-emf, wmf->image/x-wmf, svg->image/svg+xml, jpg/jpeg->image/jpeg,
+      else image/<extn>) and routed every write-path image-rel `type:` through it
+      in src/gen-objects.ts: image-fill push+guard, addImageDefinition push+guard,
+      the bullet-image push (was also `'image/' + strImgExtn`, not in the original
+      note), and the background push (which had been emitting the literal
+      `SLIDE_OBJECT_TYPES.image` = "image" as a content type, a latent bug). The
+      jpg content type is now correctly `image/jpeg` (was `image/jpg`). Verified by
+      a round-trip: a written EMF media part resolves to image/x-emf and the read
+      side maps it back to emf. Regression coverage in
+      test/regression/content-type-defaults.test.js (EMF/WMF cases + tightened
+      JPEG assertion via new contentTypeForExtension() helper in test/helpers.js).
+      gen-xml.ts makeXmlContTypes was left unchanged as predicted.
+
       On the write path the image content type is built inline as
       ('image/' + strImgExtn) at every media-rel push site, so an `emf`
       extension yields `image/emf` and `wmf` yields `image/wmf`. The
@@ -3418,13 +3432,15 @@ items:
         - local-source-inspection
         - extracted-xml
         - render-check
+        - regression-test
       local_files:
+        - PptxGenJS/src/gen-utils.ts
         - PptxGenJS/src/gen-objects.ts
-        - PptxGenJS/src/gen-xml.ts
         - PptxGenJS/src/read/api/shapes.ts
-        - downstream/decks/replication-lab/scripts/slides/eu-ai-act-formation__081/a.ts
+        - PptxGenJS/test/regression/content-type-defaults.test.js
+        - PptxGenJS/test/helpers.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: implement-ext-to-content-type-helper
+    next_action: none

@@ -60,7 +60,7 @@ import type {
 	TextPropsOptions,
 } from './core-interfaces.js'
 import { getSlidesForTableRows } from './gen-tables.js'
-import { encodeXmlEntities, getNewRelId, getSmartParseNumber, inch2Emu, valToPts, correctShadowOptions, validateObjectName, svgMarkupToDataUri, getImageSizeFromBase64 } from './gen-utils.js'
+import { encodeXmlEntities, getNewRelId, getSmartParseNumber, inch2Emu, valToPts, correctShadowOptions, validateObjectName, svgMarkupToDataUri, getImageSizeFromBase64, imageContentType } from './gen-utils.js'
 
 /** counter for included charts (used for index in their filenames) */
 let _chartCounter = 0
@@ -582,14 +582,15 @@ function registerImageFillMedia(target: PresSlideInternal, fill: ShapeFillProps)
 
 	const imageRelId = getNewRelId(target)
 	const mediaSlideKey = target._slideNum == null ? 'sm' : target._slideNum >= 1000 ? `sl-${target._slideNum}` : target._slideNum
+	const imgContentType = imageContentType(strImgExtn)
 	const dupeItem = target._relsMedia.find(item => {
-		if (item.isDuplicate || !item.Target || item.type !== 'image/' + strImgExtn) return false
+		if (item.isDuplicate || !item.Target || item.type !== imgContentType) return false
 		return strImagePath ? item.path === strImagePath : !!strImageData && item.data === strImageData
 	})
 
 	target._relsMedia.push({
 		path: strImagePath || 'preencoded.' + strImgExtn,
-		type: 'image/' + strImgExtn,
+		type: imgContentType,
 		extn: strImgExtn,
 		data: strImageData || '',
 		rId: imageRelId,
@@ -764,14 +765,15 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 		// File-path images are matched by `path`; base64/`data` images have no real path
 		// (all share the `preencoded.<extn>` placeholder), so they are matched by their data
 		// payload instead so identical inline images are embedded once (issue #1339).
+		const imgContentType = imageContentType(strImgExtn)
 		const dupeItem = target._relsMedia.find(item => {
-			if (item.isDuplicate || !item.Target || item.type !== 'image/' + strImgExtn) return false
+			if (item.isDuplicate || !item.Target || item.type !== imgContentType) return false
 			return strImagePath ? item.path === strImagePath : !!strImageData && item.data === strImageData
 		})
 
 		target._relsMedia.push({
 			path: strImagePath || 'preencoded.' + strImgExtn,
-			type: 'image/' + strImgExtn,
+			type: imgContentType,
 			extn: strImgExtn,
 			data: strImageData || '',
 			rId: imageRelId,
@@ -1729,7 +1731,7 @@ function createBulletImageRels(target: PresSlideInternal, objectOptions: ObjectO
 		} else {
 			target._relsMedia.push({
 				path: img.path || 'preencoded.' + strImgExtn,
-				type: 'image/' + strImgExtn,
+				type: imageContentType(strImgExtn),
 				extn: strImgExtn,
 				data: img.data || '',
 				rId: relId,
@@ -1793,7 +1795,7 @@ export function addBackgroundDefinition(props: BackgroundProps, target: SlideLay
 		// NOTE: `Target` cannot have spaces (eg:"Slide 1-image-1.jpg") or a "presentation is corrupt" warning comes up
 		target._relsMedia.push({
 			path: props.path,
-			type: SLIDE_OBJECT_TYPES.image,
+			type: imageContentType(strImgExtn),
 			extn: strImgExtn,
 			data: props.data || undefined,
 			rId: intRels,

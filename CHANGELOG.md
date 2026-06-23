@@ -86,6 +86,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   box (`box` minus `bodyInsets`) for overflow detection. See
   `docs/reference/pptx-inspection.md`.
 
+### Fixed
+
+- **EMF/WMF images now embed with OOXML-correct content types
+  (`image/x-emf` / `image/x-wmf`):** the write path previously built the image
+  content type inline as `'image/' + extn`, so `emf`/`wmf` extensions emitted
+  `image/emf` / `image/wmf` — values the library's own read side would not
+  recognize as EMF/WMF (`IMAGE_EXTENSION_BY_CONTENT_TYPE` expects the `x-`
+  forms). A new `imageContentType(extn)` helper in `src/gen-utils.ts` (the
+  inverse of the read-side map) is now used at every image-rel `type:`
+  assignment and duplicate-guard in `src/gen-objects.ts`. Two latent bugs are
+  fixed along the way: the slide-background image push was emitting the literal
+  string `"image"` as a content type, and JPEG images now correctly emit
+  `image/jpeg` (previously `image/jpg`). File extensions and Target filenames
+  are unchanged. **Downstream impact:** decks embedding EMF/WMF now open
+  cleanly in stricter consumers than LibreOffice; consumers asserting the old
+  `image/emf` / `image/wmf` / `image/jpg` content-type strings must update.
+
 ## [7.0.0](https://github.com/shbernal/PptxGenJS/releases/tag/v7.0.0) - 2026-06-21
 
 This major release adds **measured text fit** — a calibrated, font-metrics-driven

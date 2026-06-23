@@ -3,10 +3,12 @@ import {
 	build,
 	readEntry,
 	assert,
+	assertEqual,
 	assertContentTypeDefault,
 	assertNoContentTypeDefault,
 	assertContentTypeOverride,
 	contentTypeDefaultExtensions,
+	contentTypeForExtension,
 } from '../helpers.js'
 
 // 1x1 PNG (red pixel)
@@ -15,6 +17,11 @@ const PNG_DATA =
 // 1x1 JPEG
 const JPG_DATA =
 	'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wBDAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAAAP/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AL+AB//Z'
+// Minimal EMF/WMF payloads (bytes are immaterial to content-type generation; w/h are
+// supplied so no intrinsic-size measurement is attempted). The `image/emf` / `image/wmf`
+// mime in the data URI is what the extension sniff reads back as the `emf` / `wmf` extn.
+const EMF_DATA = 'data:image/emf;base64,AQAAAA=='
+const WMF_DATA = 'data:image/wmf;base64,1tZ0AA=='
 
 const CHART_FREE_MEDIA_DEFAULTS = ['jpeg', 'jpg', 'svg', 'gif', 'm4v', 'mp4', 'vml', 'xlsx']
 const EMPTY_DECK_MEDIA_DEFAULTS = ['png', ...CHART_FREE_MEDIA_DEFAULTS]
@@ -61,12 +68,34 @@ defineRegressionSuite('Content type defaults', 'legacy bug-16', [
 			const xml = await readEntry(zip, '[Content_Types].xml')
 			const defaults = contentTypeDefaultExtensions(xml)
 			assert(defaults.includes('png'), 'expected png Default; got: ' + defaults.join(', '))
-			// jpeg images are recorded with extn "jpg" and type "image/jpg" in this codebase
-			assert(
-				defaults.includes('jpg') || defaults.includes('jpeg'),
-				'expected jpg or jpeg Default for JPEG image; got: ' + defaults.join(', ')
-			)
+			// JPEG images keep extn "jpeg" from the data: mime sniff; the content type is image/jpeg
+			assert(defaults.includes('jpeg'), 'expected jpeg Default for JPEG image; got: ' + defaults.join(', '))
+			assertEqual(contentTypeForExtension(xml, 'jpeg'), 'image/jpeg', 'jpeg Default ContentType')
 			assertNoDefaults(xml, ['gif', 'svg', 'm4v', 'mp4', 'vml', 'xlsx'])
+		},
+	},
+	{
+		name: 'EMF image emits emf Default with OOXML-correct image/x-emf content type',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addImage({ data: EMF_DATA, x: 1, y: 1, w: 1, h: 1 })
+			})
+			const xml = await readEntry(zip, '[Content_Types].xml')
+			assertContentTypeDefault(xml, 'emf')
+			assertEqual(contentTypeForExtension(xml, 'emf'), 'image/x-emf', 'emf Default ContentType')
+		},
+	},
+	{
+		name: 'WMF image emits wmf Default with OOXML-correct image/x-wmf content type',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addImage({ data: WMF_DATA, x: 1, y: 1, w: 1, h: 1 })
+			})
+			const xml = await readEntry(zip, '[Content_Types].xml')
+			assertContentTypeDefault(xml, 'wmf')
+			assertEqual(contentTypeForExtension(xml, 'wmf'), 'image/x-wmf', 'wmf Default ContentType')
 		},
 	},
 	{
