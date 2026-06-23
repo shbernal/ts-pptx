@@ -3125,8 +3125,8 @@ items:
     source: downstream
     type: downstream-need
     first_seen: 2026-06-20
-    last_reviewed: 2026-06-20
-    status: deferred
+    last_reviewed: 2026-06-23
+    status: partially-implemented
     priority: p2
     target_area:
       - package-boundary
@@ -3134,15 +3134,22 @@ items:
     applies_to_current_project: partial
     non_target_reasons: []
     summary: Append newly generated slides onto a loaded existing deck, keeping its masters/theme byte-stable (hybrid generate-onto-existing)
-    current_project_notes: "Requested capability: open an existing deck, keep its masters/layouts/theme untouched and byte-stable, and add generator-produced slides bound to the imported layouts. This is the signature payoff of the lossless pass-through design and the most cross-cutting item: it spans the generator and the read subsystem. Highest net-new roadmap value of the three."
+    current_project_notes: "Implemented via read-centric injection (v1): the loaded OpcPackage stays the byte-stable source of truth and is never regenerated. PptxGenJS.extractSlides() (src/pptxgen.ts) authors slides and returns per-slide descriptors {xml, image media bytes, external hyperlinks, hasChart/hasAvMedia/hasInternalSlideLink flags, slide-size EMU}, reusing the existing encodeSlideMediaRels + addPlaceholdersToSlideLayouts + applyMeasuredFit + makeXmlSlide passes (no zipping). Presentation.appendSlides(source, {layout, at, onMediaError}) (src/read/api/presentation.ts) resolves the target layout via the new public Presentation.layouts() (LayoutHandle[], promoting #slideMasterPartNames/#layoutPartNamesOf), enforces equal slide size, injects each slide body + its media as fresh parts (addPart registers content types), rebuilds the slide .rels with the slideLayout pointed at the EXISTING layout and image/hyperlink rels preserving the body's rIds (add layout rel last so its auto-id can't collide), drops notes, and wires p:sldId via the existing #insertSlidePart. SlideSource is a structural interface so read/ never imports the generator at runtime; types re-exported from src/read.ts. Byte-stability verified: only presentation.xml, its .rels, [Content_Types].xml, and the new slide/media parts change. v1 limitations (deferred follow-up leg): charts, audio/video media, and internal slide-to-slide hyperlinks throw; no placeholder inheritance; schemeClr re-resolves against the destination theme; sizes must match; no notes. Original design rationale: signature payoff of the lossless pass-through design; spans generator + read subsystem; gate (Phase 2 read model + layout binding) was satisfied."
     evidence:
-      kinds: []
-      local_files: []
+      kinds:
+        - local-source-inspection
+        - regression-test
+        - validator-result
+      local_files:
+        - src/pptxgen.ts
+        - src/read/api/presentation.ts
+        - src/read.ts
+        - test/read/append-onto-existing.test.js
       schema_fixture: null
-      validator_result: null
+      validator_result: test/read/append-onto-existing.test.js asserts the appended deck stays schema-valid (skipped when the OOXML validator is not installed)
       powerpoint_result: null
       spec_refs: []
-    next_action: Design the generator<->read integration seam; gated on feat/pptx-edit Phase 2 read model + layout binding
+    next_action: Follow-up leg — support charts (chart XML + .rels + embedded xlsx), audio/video media, and internal slide-to-slide hyperlinks in appended slides (currently rejected in v1)
 
   - id: dn-fflate-zip-backend
     source: downstream

@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`Presentation.appendSlides(source, { layout })` — generate slides onto an
+  existing deck (`pptxgenjs/read`):** open a real `.pptx`, keep its
+  masters/layouts/theme (and every other untouched part) **byte-identical**, and
+  append generator-produced slides bound to one of the deck's existing layouts —
+  the hybrid "generate-onto-existing" path. `source` is any slide producer (a
+  `PptxGenJS` instance); its slides are authored, serialized, and spliced in under
+  fresh partnames with each slide's `slideLayout` relationship pointed at the
+  chosen layout (relationship ids in the slide body are preserved, only their
+  targets are repointed). Only `presentation.xml`, its `.rels`,
+  `[Content_Types].xml`, and the new slide/media parts change. Companion additions:
+  **`Presentation.layouts()`** returns the deck's layout gallery as addressable
+  `LayoutHandle`s, and **`PptxGenJS.extractSlides()`** exposes the generator's
+  per-slide artifacts (body XML + image media + hyperlinks) without producing a
+  package. v1 limitations: charts, audio/video media, and internal slide-to-slide
+  hyperlinks throw; appended slides are concrete absolute-positioned content (no
+  placeholder inheritance — `schemeClr` re-resolves against the destination theme);
+  source/destination slide sizes must match; notes are not generated. Lands in
+  `src/pptxgen.ts` (`extractSlides`), `src/read/api/presentation.ts` (`layouts`,
+  `appendSlides`, reusing `#insertSlidePart`), and `src/read.ts` (type exports).
+  Implements backlog `dn-append-onto-existing-deck`.
 - **`FontMetrics.hasCodepoint(cp)` — cmap glyph coverage on the `measure` API:**
   the `measure` subpath's `FontMetrics` interface gains
   `hasCodepoint(cp: number): boolean`, reporting whether a face's cmap maps a code

@@ -19,9 +19,14 @@ const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relatio
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
 const SLIDE_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster'
 const NOTES_SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
+const IMAGE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
+const HYPERLINK_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
 
 const SLIDE_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
 const SLIDE_LAYOUT_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'
+const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+
+const textEncoder = new TextEncoder()
 
 /**
  * Content types that are shared deck chrome: reachable through the
@@ -200,6 +205,69 @@ export interface ImportSlideMastersOptions {
 	 * in that gallery, so the guard is on by default. Pass `false` to graft anyway.
 	 */
 	requireEqualSize?: boolean
+}
+
+/** A layout in this deck's gallery, addressable as an {@link AppendSlidesOptions} target. */
+export interface LayoutHandle {
+	/** Partname of the layout in this package (e.g. `/ppt/slideLayouts/slideLayout2.xml`). */
+	partName: string
+	/** The layout's `p:cSld@name` (`''` when unnamed). */
+	name: string
+	/** Partname of the master this layout belongs to. */
+	masterPartName: string
+	/** Zero-based index of the master in `p:sldMasterIdLst`. */
+	masterIndex: number
+	/** Zero-based index of the layout within its master's `p:sldLayoutIdLst`. */
+	layoutIndex: number
+}
+
+/**
+ * One authored slide, extracted from a generator for injection into an existing
+ * package. The slide body XML references its media/hyperlinks by relationship id
+ * only, so {@link Presentation.appendSlides} preserves each `rId` and only
+ * repoints its target — see {@link SlideSource}.
+ */
+export interface ExtractedSlide {
+	/** Standalone `<p:sld>` part body (XML declaration + namespaces included). */
+	xml: string
+	/** Image media the body references, keyed by the `rId` used in {@link xml}. */
+	media: Array<{ rId: number; bytes: Uint8Array; extn: string; contentType: string }>
+	/** External hyperlink rels, keyed by the `rId` used in {@link xml}. */
+	hyperlinks: Array<{ rId: number; target: string }>
+	/** True if the slide references a chart (unsupported by `appendSlides` in v1). */
+	hasChart: boolean
+	/** True if the slide references audio/video media (unsupported in v1). */
+	hasAvMedia: boolean
+	/** True if the slide has an internal slide-to-slide hyperlink (unsupported in v1). */
+	hasInternalSlideLink: boolean
+}
+
+/** A generator's authored slides + canvas size, the input to {@link Presentation.appendSlides}. */
+export interface ExtractedSlides {
+	widthEmu: number
+	heightEmu: number
+	slides: ExtractedSlide[]
+}
+
+/**
+ * Structural view of a slide producer (a `PptxGenJS` instance satisfies this).
+ * Kept structural so the read subsystem never imports the generator at runtime.
+ */
+export interface SlideSource {
+	extractSlides(opts?: { onMediaError?: 'throw' | 'placeholder' }): Promise<ExtractedSlides>
+}
+
+/** Options for {@link Presentation.appendSlides}. */
+export interface AppendSlidesOptions {
+	/** Target layout to bind every appended slide to: by `p:cSld@name` or a {@link LayoutHandle}. */
+	layout: string | LayoutHandle
+	/**
+	 * Zero-based `p:sldIdLst` position for the first appended slide; subsequent
+	 * slides follow it in order. Omitted/out-of-range appends at the end.
+	 */
+	at?: number
+	/** How `addImage` media errors surface during extraction (default `'throw'`). */
+	onMediaError?: 'throw' | 'placeholder'
 }
 
 export class Presentation {
@@ -485,6 +553,120 @@ export class Presentation {
 			imported.push({ partName: newMasterPartName, layoutPartNames })
 		})
 		return imported
+	}
+
+	/**
+	 * The deck's slide layouts, in master then layout order — the gallery a new
+	 * slide can bind to. Each {@link LayoutHandle} addresses one layout for
+	 * {@link appendSlides}; the `name` is its `p:cSld@name`. Read-only enumeration:
+	 * it copies nothing and leaves the package byte-identical.
+	 */
+	layouts(): LayoutHandle[] {
+		const out: LayoutHandle[] = []
+		this.#slideMasterPartNames().forEach((masterPartName, masterIndex) => {
+			this.#layoutPartNamesOf(masterPartName).forEach((layoutPartName, layoutIndex) => {
+				out.push({
+					partName: layoutPartName,
+					name: cSldName(this.opc.part(layoutPartName)),
+					masterPartName,
+					masterIndex,
+					layoutIndex,
+				})
+			})
+		})
+		return out
+	}
+
+	/**
+	 * Append generator-produced slides onto this deck, binding each to an existing
+	 * layout, and return the new {@link Slide}s. This is the hybrid
+	 * "generate-onto-existing" path: the deck's masters, layouts, theme — and every
+	 * other untouched part — stay **byte-identical** (only `presentation.xml`, its
+	 * `.rels`, `[Content_Types].xml`, and the freshly-added slide/media parts
+	 * change), because the existing chrome is never regenerated.
+	 *
+	 * `source` is any slide producer (a `PptxGenJS` instance); its authored slides
+	 * are serialized via {@link SlideSource.extractSlides} and spliced in under
+	 * fresh partnames, with each slide's `slideLayout` relationship pointed at the
+	 * layout named by `options.layout` and its image/hyperlink relationships rebuilt
+	 * (preserving the body's relationship ids). Insert position follows
+	 * `options.at` (see {@link AppendSlidesOptions}).
+	 *
+	 * v1 limitations:
+	 * - Charts and audio/video media in an appended slide throw (a follow-up leg).
+	 * - Internal slide-to-slide hyperlinks throw (they reference the generator's own
+	 *   slide numbering, which has no meaning in the destination).
+	 * - Appended slides are concrete absolute-positioned content with no placeholder
+	 *   inheritance from the bound layout; the binding governs theme/`clrMap`
+	 *   resolution and the "based on" link, not placeholder geometry. Author with
+	 *   concrete colours — any `schemeClr` re-resolves against the destination theme.
+	 * - Source and destination slide sizes must match (no geometry rescale).
+	 * - Notes are not generated.
+	 */
+	async appendSlides(source: SlideSource, options: AppendSlidesOptions): Promise<Slide[]> {
+		// 1. Resolve the target layout partname (explicit; no silent fallback).
+		const gallery = this.layouts()
+		let target: LayoutHandle
+		if (typeof options.layout === 'string') {
+			const matches = gallery.filter(l => l.name === options.layout)
+			if (matches.length === 0) {
+				const names = gallery.map(l => JSON.stringify(l.name)).join(', ')
+				throw new Error(`appendSlides: no layout named ${JSON.stringify(options.layout)}; available: ${names || '(none)'}`)
+			}
+			if (matches.length > 1) {
+				throw new Error(`appendSlides: layout name ${JSON.stringify(options.layout)} is ambiguous (${matches.length} layouts share it); pass a LayoutHandle from layouts() instead`)
+			}
+			target = matches[0]
+		} else {
+			const handle = options.layout
+			if (!gallery.some(l => l.partName === handle.partName)) {
+				throw new Error(`appendSlides: layout ${handle.partName} does not belong to this presentation`)
+			}
+			target = handle
+		}
+
+		// 2. Author + extract; enforce equal slide size (no geometry rescale in v1).
+		const extracted = await source.extractSlides({ onMediaError: options.onMediaError })
+		const size = this.slideSize
+		if (!size || size.widthEmu !== extracted.widthEmu || size.heightEmu !== extracted.heightEmu) {
+			const fmt = (w: number, h: number): string => `${w}×${h} EMU`
+			throw new Error(`appendSlides requires equal slide sizes; target is ${size ? fmt(size.widthEmu, size.heightEmu) : 'unknown'}, source is ${fmt(extracted.widthEmu, extracted.heightEmu)}`)
+		}
+
+		// Any existing slide partname seeds the fresh-partname family; fall back to a
+		// literal seed for a slide-less template shell (reservePartNameLike parses the
+		// string, it does not require the part to exist).
+		const slideTemplate = this.slides[0]?.partName ?? '/ppt/slides/slide1.xml'
+
+		const added: Slide[] = []
+		extracted.slides.forEach((slide, i) => {
+			if (slide.hasChart) throw new Error(`appendSlides: slide ${i} contains a chart, which is not supported in v1`)
+			if (slide.hasAvMedia) throw new Error(`appendSlides: slide ${i} contains audio/video media, which is not supported in v1`)
+			if (slide.hasInternalSlideLink) throw new Error(`appendSlides: slide ${i} has an internal slide-to-slide hyperlink, which is not supported in v1`)
+
+			// Add the slide part (addPart registers its Override content type).
+			const newPartName = this.opc.reservePartNameLike(slideTemplate)
+			const newPart = this.opc.addPart(newPartName, SLIDE_CONTENT_TYPE, textEncoder.encode(slide.xml))
+
+			// Build the slide .rels. Media/hyperlinks keep the body's rId (addWithId);
+			// the layout rel is added last via add() so its auto-id cannot collide.
+			const rels = this.opc.relationshipsFor(newPartName)
+			for (const m of slide.media) {
+				const mediaPartName = this.opc.reserveMediaPartName(m.extn)
+				this.opc.addPart(mediaPartName, m.contentType, m.bytes)
+				rels.addWithId(`rId${m.rId}`, IMAGE_REL, relativePartName(newPartName, mediaPartName))
+			}
+			for (const h of slide.hyperlinks) {
+				rels.addWithId(`rId${h.rId}`, HYPERLINK_REL, h.target, 'External')
+			}
+			rels.add(SLIDE_LAYOUT_REL, relativePartName(newPartName, target.partName))
+
+			// Wire into presentation.xml (rel + p:sldId) at the requested position.
+			const at = options.at === undefined ? undefined : options.at + i
+			added.push(this.#insertSlidePart(newPart, at))
+		})
+
+		return added
 	}
 
 	/** Source-side helper: master partnames in `p:sldMasterIdLst` order. */

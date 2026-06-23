@@ -112,8 +112,9 @@ import * as genXml from './gen-xml.js'
 import type { RuntimeAdapter } from './runtime/types.js'
 import { FontMetricsRegistry, parseFontMetrics } from './font-metrics.js'
 import { applyMeasuredFit, computeTableLayout, measureText } from './measure-fit.js'
-import { getUuid, decodeBase64ToBytes } from './gen-utils.js'
+import { getUuid, decodeBase64ToBytes, imageContentType } from './gen-utils.js'
 import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
+import type { ExtractedSlide, ExtractedSlides } from './read/api/presentation.js'
 
 export type { PresSlide as Slide } from './core-interfaces.js'
 export type {
@@ -725,6 +726,69 @@ export default class PptxGenJS {
 				}
 			})
 		})
+	}
+
+	/**
+	 * Author + serialize this presentation's slides as injectable descriptors,
+	 * WITHOUT producing a `.pptx` package. Runs the same media-encode, placeholder
+	 * backfill, and measured-fit passes `write()` uses, then serializes each slide
+	 * body and resolves its image media to decoded bytes — so a loaded deck can
+	 * splice the slides in via `Presentation.appendSlides()` (see `pptxgenjs/read`)
+	 * while keeping its own masters/layouts/theme byte-identical.
+	 *
+	 * Returns the deck's slide size (EMU, for the destination size check) and one
+	 * descriptor per authored slide. Charts, audio/video media, and internal
+	 * slide-to-slide hyperlinks are flagged but not resolved here; the append path
+	 * rejects them in v1.
+	 */
+	extractSlides = async (opts: { onMediaError?: 'throw' | 'placeholder' } = {}): Promise<ExtractedSlides> => {
+		const onMediaError = opts.onMediaError ?? 'throw'
+
+		// STEP 1: Encode every slide's media (populates rel.data), mirroring exportPresentation.
+		let mediaPromises: Promise<string>[] = []
+		this._slides.forEach(slide => {
+			mediaPromises = mediaPromises.concat(genMedia.encodeSlideMediaRels(slide, this._runtime, onMediaError))
+		})
+		await Promise.all(mediaPromises)
+
+		// STEP 2: Backfill placeholders + bake measured fit exactly as exportPresentation
+		// does before its sync XML pass, so extracted bodies match a normal write.
+		this._slides.forEach(slide => {
+			if (slide._slideLayout) genObj.addPlaceholdersToSlideLayouts(slide)
+		})
+		applyMeasuredFit(this._slides, this._fontMetrics)
+
+		// STEP 3: Serialize each slide body and resolve its image media to bytes.
+		const slides: ExtractedSlide[] = this._slides.map(slide => {
+			const media = slide._relsMedia
+				.filter(rel => rel.type.toLowerCase().includes('image'))
+				.map(rel => {
+					// Normalize the base64 payload's data-URI prefix, mirroring createChartMediaRels.
+					let data: string = rel.data && typeof rel.data === 'string' ? rel.data : ''
+					if (!data.includes(',') && !data.includes(';')) data = 'image/png;base64,' + data
+					else if (!data.includes(',')) data = 'image/png;base64,' + data
+					else if (!data.includes(';')) data = 'image/png;' + data
+					const bytes = decodeBase64ToBytes(data)
+					const extn = (rel.extn || rel.Target.split('.').pop() || 'png').toLowerCase()
+					return bytes ? { rId: rel.rId, bytes, extn, contentType: imageContentType(extn) } : null
+				})
+				.filter((m): m is NonNullable<typeof m> => m !== null)
+
+			const hyperlinks = slide._rels
+				.filter(rel => rel.type.toLowerCase().includes('hyperlink') && rel.data !== 'slide')
+				.map(rel => ({ rId: rel.rId, target: rel.Target }))
+
+			return {
+				xml: genXml.makeXmlSlide(slide),
+				media,
+				hyperlinks,
+				hasChart: (slide._relsChart || []).length > 0,
+				hasAvMedia: slide._relsMedia.some(rel => /audio|video/i.test(rel.type)),
+				hasInternalSlideLink: slide._rels.some(rel => rel.type.toLowerCase().includes('hyperlink') && rel.data === 'slide'),
+			}
+		})
+
+		return { widthEmu: this.presLayout.width, heightEmu: this.presLayout.height, slides }
 	}
 
 	// FONT METRICS (measured text fit)
