@@ -221,6 +221,57 @@ describe('Shape style reads — minimal real PowerPoint fixtures', () => {
 	})
 })
 
+describe('Shape line dash / explicit no-line reads (off-fixture)', () => {
+	// lineDash and lineNoFill read only the shape's own spPr/a:ln, so hand-authored
+	// OOXML exercises every branch without a round-trip through this library's writer.
+	const sp = (spPr) => shapeFromXml(AutoShape, 'sp', `<p:sp>${spPr}</p:sp>`)
+
+	test('lineDash reads a:ln/a:prstDash/@val', () => {
+		const dashed = sp(
+			'<p:spPr><a:ln w="12700"><a:solidFill><a:srgbClr val="000000"/></a:solidFill><a:prstDash val="dash"/></a:ln></p:spPr>'
+		)
+		assertEqual(dashed.lineDash, 'dash', 'prstDash val is surfaced verbatim')
+	})
+
+	test('lineDash is null for a solid line and for no line at all', () => {
+		const solid = sp('<p:spPr><a:ln w="12700"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln></p:spPr>')
+		assertEqual(solid.lineDash, null, 'a line with no prstDash is solid → null')
+		const noLine = sp('<p:spPr/>')
+		assertEqual(noLine.lineDash, null, 'no a:ln at all → null')
+	})
+
+	test('lineNoFill distinguishes an explicit a:ln/a:noFill from an inherited line', () => {
+		const explicitNone = sp('<p:spPr><a:ln><a:noFill/></a:ln></p:spPr>')
+		assertEqual(explicitNone.lineNoFill, true, 'explicit <a:ln><a:noFill/> reads true')
+		assertEqual(explicitNone.lineDash, null, 'a no-fill line carries no dash')
+
+		const solid = sp('<p:spPr><a:ln w="12700"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln></p:spPr>')
+		assertEqual(solid.lineNoFill, false, 'a solid-filled line is not a no-line')
+
+		const inherited = sp('<p:spPr/>')
+		assertEqual(inherited.lineNoFill, false, 'no a:ln (inherited line) is not an explicit no-line')
+	})
+})
+
+describe('TextFrame.resolvedAnchor — real PowerPoint XML (layout-placeholder-bodypr.pptx)', () => {
+	// slide1 carries two placeholders whose own <a:bodyPr/> sets no @anchor, so the
+	// effective vertical anchor must come from the layout placeholder a:bodyPr:
+	// - Title 1 inherits the layout title anchor="b" (and the fixture text says so).
+	// - Content Placeholder 2 inherits the layout body anchor="ctr".
+	// bodyProperties.anchor (own attribute only) stays null for both.
+	test('a placeholder title inherits its anchor from the layout bodyPr', async () => {
+		const title = shapeNamed((await open('layout-placeholder-bodypr')).slides[0], 'Title 1')
+		assertEqual(title.textFrame.bodyProperties?.anchor ?? null, null, 'the slide bodyPr sets no own @anchor')
+		assertEqual(title.textFrame.resolvedAnchor, 'b', 'inherits the layout title anchor="b"')
+	})
+
+	test('a placeholder body inherits a different anchor from the layout bodyPr', async () => {
+		const body = shapeNamed((await open('layout-placeholder-bodypr')).slides[0], 'Content Placeholder 2')
+		assertEqual(body.textFrame.bodyProperties?.anchor ?? null, null, 'the slide bodyPr sets no own @anchor')
+		assertEqual(body.textFrame.resolvedAnchor, 'ctr', 'inherits the layout body anchor="ctr"')
+	})
+})
+
 describe('Theme colour resolution — real PowerPoint XML (theme-colors.pptx)', () => {
 	test('resolvedFill resolves a scheme fill to the theme hex, and an explicit fill to itself', async () => {
 		const slide = (await open('theme-colors')).slides[0]
