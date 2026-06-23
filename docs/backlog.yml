@@ -97,6 +97,8 @@ vocabulary:
     - regression-test
     - schema-fixture
     - validator-result
+    # Performance measurement (timing/throughput spike, not a correctness test)
+    - benchmark
     # Application-render verification
     - render-check
     - powerpoint-result
@@ -2407,7 +2409,7 @@ items:
     source: downstream
     type: downstream-need
     first_seen: 2026-06-18
-    last_reviewed: 2026-06-20
+    last_reviewed: 2026-06-23
     status: deferred
     priority: p3
     target_area: []
@@ -2415,6 +2417,13 @@ items:
     non_target_reasons: []
     summary: "Document PowerPoint-vs-LibreOffice render caveats the library intentionally does not guarantee"
     current_project_notes: |
+      ON HOLD 2026-06-23 (user request): do NOT surface this in "what can we build
+      next" suggestions until the user explicitly asks for it. The underlying
+      render-caveat behaviours are being actively reworked elsewhere, so the drafted
+      doc text below is likely stale; writing it now would clutter the docs with
+      information that will change. Keep the item (the need is real) but treat it as
+      parked, not actionable, until reactivated. -- end hold note --
+
       Because PptxGenJS does no glyph measurement or line-breaking, several text
       behaviors emit correct OOXML yet render differently across PowerPoint,
       LibreOffice, and the intended layout. These are documented limitations, not
@@ -2439,7 +2448,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: write-docs
+    next_action: On hold per user request — do not surface in suggestions; reactivate (and re-derive the caveat list, which is likely stale) only when the user asks.
   - id: dn-registry-components
     source: downstream:registry/components
     type: downstream-need
@@ -3168,9 +3177,13 @@ items:
       change the edit core's memory profile (the original challenge #4 was moot).
 
 
-      STILL DEFERRED (contained to src/zip.ts, not blocking): switch ZipWriter.toBytes from
-      zipSync to fflate's worker-parallel async zip(), and readZip from unzipSync to async
-      unzip(), once a perf need justifies the worker setup.
+      ASYNC FOLLOW-UP — BENCHMARKED 2026-06-23, DROPPED (see dn-fflate-async-zip): switching
+      ZipWriter.toBytes/readZip to fflate's async zip()/unzip() was built and measured; it is
+      byte-identical to the sync path but gives no wall-clock speedup (0.97-1.01x on 250/800-slide
+      decks) because fflate's async zip() uses a single worker (no cross-core DEFLATE), and the
+      only multi-core API (per-file AsyncZipDeflate) OOMs on a deck's thousands of small parts.
+      The sync zipSync/unzipSync path therefore stays. Revisit only per the conditions recorded
+      in dn-fflate-async-zip.
 
 
       ORIGINAL ANALYSIS — Deferred follow-up to the #1006 performance work (see upstream-issue-1006).
@@ -3226,23 +3239,49 @@ items:
     source: downstream
     type: downstream-need
     first_seen: 2026-06-20
-    last_reviewed: 2026-06-20
-    status: deferred
+    last_reviewed: 2026-06-23
+    status: superseded
     priority: p3
     target_area:
       - package-boundary
     applies_to_current_project: yes
     non_target_reasons: []
     summary: Switch fflate ZIP backend from sync to worker-parallel async zip()/unzip() for the large-deck speedup.
-    current_project_notes: "DEFERRED follow-up to dn-fflate-zip-backend (implemented). That migration swapped JSZip for fflate and gained the faster single-threaded DEFLATE, but src/zip.ts still finalizes with synchronous zipSync (write) and unzipSync (read). The headline motivation of the fflate swap — worker-parallel compression to cut generateAsync time on large decks — is NOT yet realized; only the faster pure-JS DEFLATE is. Remaining work, fully contained to src/zip.ts behind the ZipWriter/readZip seam (no caller signature changes): switch ZipWriter.toBytes from zipSync to fflate's async, worker-parallel zip(), and readZip from unzipSync to async unzip(). Gate on an actual perf need: first capture a before/after benchmark on a representative large deck (the original swap recorded correctness parity but no timing), since the worker setup adds complexity and the sync path is already correct and fast enough for current decks. See dn-fflate-zip-backend current_project_notes (STILL DEFERRED) and src/zip.ts."
+    current_project_notes: |-
+      BENCHMARKED 2026-06-23 — NO WALL-CLOCK WIN, staying deferred. Built the async
+      swap (ZipWriter.toBytesAsync via fflate async zip(), readZip via async
+      unzip(), threshold-gated) and benchmarked it against the current zipSync path
+      on real deck parts (12-core box, fflate 0.8.3):
+        - 250 slides / 6.17 MiB payload: zipSync 94 ms vs async 97 ms (0.97x)
+        - 800 slides / 19.67 MiB payload: zipSync 330 ms vs async 326 ms (1.01x)
+      Async output is byte-identical to sync but delivers NO speedup, because
+      fflate's async zip() offloads the WHOLE archive to a SINGLE worker — it does
+      not spread DEFLATE across cores. The only truly multi-core fflate API,
+      streaming Zip + AsyncZipDeflate, spawns one worker PER FILE; a real PPTX deck
+      has thousands of tiny parts (3217 at 800 slides), so it OOM-killed the process
+      (exit 137/144). So the headline premise — "worker-parallel compression to cut
+      generateAsync time" — is NOT achievable with fflate for PPTX-shaped workloads
+      (many small parts). The single-worker async path's only residual benefit is
+      freeing the event loop during compression (relevant to a live server/browser,
+      not this Node-first batch library), which does not justify the worker
+      complexity plus the small-deck worker-startup overhead. Code was reverted;
+      src/zip.ts stays on zipSync/unzipSync.
+
+      Original context (retained): follow-up to dn-fflate-zip-backend (implemented),
+      which swapped JSZip -> fflate and already captured the faster single-threaded
+      DEFLATE. This item was the unrealized "go parallel" half of that swap.
     evidence:
-      kinds: []
-      local_files: []
+      kinds:
+        - benchmark
+        - generated-pptx
+        - local-source-inspection
+      local_files:
+        - src/zip.ts
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: Benchmark a large deck, then move src/zip.ts ZipWriter.toBytes to fflate async zip() and readZip to async unzip() behind the existing seam.
+    next_action: none — superseded. The "go parallel" premise is closed — benchmarked with no wall-clock win, and fflate cannot parallelize PPTX part counts (single-worker zip() = no speedup; per-file AsyncZipDeflate OOMs on thousands of small parts). The single-threaded DEFLATE win that motivated this lives in the implemented dn-fflate-zip-backend. Revisit only if fflate gains a bounded-concurrency parallel zip, or if a concrete event-loop-offload (non-blocking generate inside a server/browser) need appears.
   - id: dn-readmodel-placeholder-font
     source: downstream:scripts/slide-library/lib/slide-style.ts
     type: downstream-need
@@ -3333,3 +3372,59 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: Add a cmap-backed coverage accessor to src/measure (FontMetrics.hasCodepoint(cp) / covered-codepoint set); downstream then drops the fontconfig fc-match probe.
+  - id: dn-emf-content-type
+    source: downstream:registry/replication/kit.ts
+    type: downstream-need
+    first_seen: 2026-06-23
+    last_reviewed: 2026-06-23
+    status: target
+    priority: p3
+    target_area:
+      - relationship-or-content-type
+      - image-svg-media
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: EMF/WMF images embed as image/emf|image/wmf; OOXML-correct is image/x-emf|image/x-wmf
+    current_project_notes: |
+      On the write path the image content type is built inline as
+      ('image/' + strImgExtn) at every media-rel push site, so an `emf`
+      extension yields `image/emf` and `wmf` yields `image/wmf`. The
+      OOXML-correct values are `image/x-emf` and `image/x-wmf`. The read side
+      already expects the correct forms: IMAGE_EXTENSION_BY_CONTENT_TYPE maps
+      `image/x-emf` -> emf / `image/x-wmf` -> wmf (src/read/api/shapes.ts:53-54),
+      and extFromContentType() strips a leading `x-`. So the package is
+      internally asymmetric: it writes a content type it would not itself read
+      back as EMF/WMF.
+
+      Fix: introduce one extension -> content-type helper (the inverse of the
+      read-side IMAGE_EXTENSION_BY_CONTENT_TYPE) and use it at every `type:`
+      assignment AND the matching duplicate-guard comparisons:
+        - src/gen-objects.ts:774 (addImageDefinition push) and :768 (guard)
+        - src/gen-objects.ts:592 (image-fill push) and :586 (guard)
+        - src/gen-objects.ts:1796 (background path push)
+      Special-case emf -> image/x-emf, wmf -> image/x-wmf; keep
+      svg -> image/svg+xml and jpg -> jpeg. src/gen-xml.ts makeXmlContTypes
+      (~:2048) needs no change: it emits whatever rel.type it is handed via
+      <Default Extension=.. ContentType=..>.
+
+      Impact: LibreOffice tolerates `image/emf`, so the downstream EMF
+      replica (eu-ai-act-formation__081, embedding image77.emf) renders today;
+      PowerPoint may be stricter, which is why this is recorded rather than
+      relied upon. No downstream workaround is in place (hence no stopgap) -
+      the kit's icon() simply embeds the EMF and accepts the current content
+      type.
+    evidence:
+      kinds:
+        - local-source-inspection
+        - extracted-xml
+        - render-check
+      local_files:
+        - PptxGenJS/src/gen-objects.ts
+        - PptxGenJS/src/gen-xml.ts
+        - PptxGenJS/src/read/api/shapes.ts
+        - downstream/decks/replication-lab/scripts/slides/eu-ai-act-formation__081/a.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: implement-ext-to-content-type-helper
