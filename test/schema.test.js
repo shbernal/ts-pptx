@@ -2353,4 +2353,29 @@ export default [
 			await expectNoSchemaErrors(buf, 'flat-group')
 		},
 	},
+	{
+		// upstream-issue-307: a nested group (<p:grpSp> inside <p:grpSp>). Identity child coordinate
+		// space at every depth; children keep their slide-absolute coordinates.
+		name: 'nested group of rect + (group of rect + text) (addGroup)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addGroup(
+					[
+						{ rect: { x: 1, y: 1, w: 2, h: 1, fill: { color: 'CC0000' } } },
+						{
+							group: {
+								children: [
+									{ rect: { x: 4, y: 1, w: 1, h: 1, fill: { color: '00CC00' } } },
+									{ text: { text: 'Nested', options: { x: 4, y: 1, w: 1, h: 1, color: 'FFFFFF' } } },
+								],
+								options: { objectName: 'InnerGroup' },
+							},
+						},
+					],
+					{ objectName: 'OuterGroup' }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'nested-group')
+		},
+	},
 ]

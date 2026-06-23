@@ -245,15 +245,16 @@ export default class Slide {
 	/**
 	 * Group slide objects into a single PowerPoint group (`<p:grpSp>`).
 	 *
-	 * Flat-group MVP: children keep their slide-absolute `x/y/w/h` (identity child coordinate
-	 * space), and the objects become one selectable/movable group in PowerPoint. When
-	 * `options.x/y/w/h` are omitted the group's bounds are the bounding box of its children.
-	 * Charts, media, tables, placeholders, and nested groups are not supported yet (each is
-	 * skipped with a warning).
-	 * @param {GroupChildProps[]} children - child object descriptors (`{ text }`, `{ image }`, `{ shape }`, `{ rect }`, `{ roundRect }`, `{ line }`)
+	 * Children keep their slide-absolute `x/y/w/h` (identity child coordinate space at every depth),
+	 * and the objects become one selectable/movable group in PowerPoint. A `group` child nests
+	 * another group. When `options.x/y/w/h` are omitted the group's bounds are the bounding box of
+	 * its children (recursing into nested groups). Charts, media, tables, and placeholders are not
+	 * supported as group children yet (each is skipped with a warning).
+	 * @param {GroupChildProps[]} children - child object descriptors (`{ text }`, `{ image }`, `{ shape }`, `{ rect }`, `{ roundRect }`, `{ line }`, `{ group }`)
 	 * @param {GroupProps} options - group position/size/name options
 	 * @return {Slide} this Slide
 	 * @example slide.addGroup([{ rect: { x: 1, y: 1, w: 2, h: 1, fill: { color: 'CC0000' } } }, { text: { text: 'Hi', options: { x: 1, y: 1, w: 2, h: 1 } } }])
+	 * @example slide.addGroup([{ rect: { x: 1, y: 1, w: 4, h: 3 } }, { group: { children: [{ text: { text: 'Hi', options: { x: 1.5, y: 1.5, w: 2, h: 1 } } }] } }])
 	 */
 	addGroup(children: GroupChildProps[], options?: GroupProps): Slide {
 		genObj.addGroupDefinition(this, children, options || {})

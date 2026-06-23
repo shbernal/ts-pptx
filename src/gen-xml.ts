@@ -397,6 +397,31 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 	// top-level object id so child ids stay unique slide-wide.
 	let childIdxAlloc = slide._slideObjects.length
 
+	// Resolve an object's bounds in EMU. For an auto-sized group (a `group` object with no explicit
+	// x/y/w/h) this recurses into `_groupObjects` and returns their bounding box — so a parent group
+	// can size around a nested auto-sized child group. The group rendering below uses the same helper
+	// for both a child's bounds and a group's own off/ext, keeping every level consistent.
+	const resolveObjBounds = (obj: ISlideObject): { x: number, y: number, cx: number, cy: number } => {
+		const o = obj.options || {}
+		const hasExplicit =
+			typeof o.x !== 'undefined' || typeof o.y !== 'undefined' || typeof o.w !== 'undefined' || typeof o.h !== 'undefined'
+		if (obj._type === SLIDE_OBJECT_TYPES.group && !hasExplicit) {
+			const kids = (obj._groupObjects || []).map(resolveObjBounds)
+			if (kids.length === 0) return { x: 0, y: 0, cx: 0, cy: 0 }
+			const minX = Math.min(...kids.map(b => b.x))
+			const minY = Math.min(...kids.map(b => b.y))
+			const maxX = Math.max(...kids.map(b => b.x + b.cx))
+			const maxY = Math.max(...kids.map(b => b.y + b.cy))
+			return { x: minX, y: minY, cx: maxX - minX, cy: maxY - minY }
+		}
+		return {
+			x: typeof o.x !== 'undefined' ? getSmartParseNumber(o.x, 'X', slide._presLayout) : 0,
+			y: typeof o.y !== 'undefined' ? getSmartParseNumber(o.y, 'Y', slide._presLayout) : 0,
+			cx: typeof o.w !== 'undefined' ? getSmartParseNumber(o.w, 'X', slide._presLayout) : 0,
+			cy: typeof o.h !== 'undefined' ? getSmartParseNumber(o.h, 'Y', slide._presLayout) : 0,
+		}
+	}
+
 	// Render one slide object — and, for a group, its children recursively — to an XML fragment.
 	// Closes over `slide`, the `intTableNum` counter, and `childIdxAlloc`. Uses a local
 	// `strSlideXml` accumulator (shadowing the slide-level one) so the existing per-object
@@ -1074,40 +1099,26 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 			case SLIDE_OBJECT_TYPES.group: {
 				const groupChildren = slideItemObj._groupObjects || []
 
-				// Render children first; capture their resolved bounds so the group can auto-size.
-				// Each child gets a unique id via `childIdxAlloc` (children are not in `_slideObjects`).
+				// Render children (recursively for nested groups). Each child gets a unique id via
+				// `childIdxAlloc` (children are not in `_slideObjects`); the shared counter keeps ids
+				// collision-free across nesting depth.
 				let innerXml = ''
-				const childBounds: Array<{ x: number, y: number, cx: number, cy: number }> = []
 				groupChildren.forEach(child => {
 					child.options = child.options || {}
-					const childX = typeof child.options.x !== 'undefined' ? getSmartParseNumber(child.options.x, 'X', slide._presLayout) : 0
-					const childY = typeof child.options.y !== 'undefined' ? getSmartParseNumber(child.options.y, 'Y', slide._presLayout) : 0
-					const childCx = typeof child.options.w !== 'undefined' ? getSmartParseNumber(child.options.w, 'X', slide._presLayout) : 0
-					const childCy = typeof child.options.h !== 'undefined' ? getSmartParseNumber(child.options.h, 'Y', slide._presLayout) : 0
-					childBounds.push({ x: childX, y: childY, cx: childCx, cy: childCy })
 					innerXml += renderSlideObjectXml(child, childIdxAlloc++)
 				})
 
-				// Flat group => identity child coordinate space (chOff/chExt == off/ext), so children
+				// Identity child coordinate space (chOff/chExt == off/ext) at every depth, so children
 				// keep their slide-absolute coordinates. Use explicit x/y/w/h when given, else the
-				// bounding box of the children.
+				// bounding box of the children (recursing into nested auto-sized groups).
 				const hasExplicit =
 					typeof slideItemObj.options.x !== 'undefined' || typeof slideItemObj.options.y !== 'undefined' ||
 					typeof slideItemObj.options.w !== 'undefined' || typeof slideItemObj.options.h !== 'undefined'
-				let gx: number = x
-				let gy: number = y
-				let gcx: number = cx
-				let gcy: number = cy
-				if (!hasExplicit && childBounds.length > 0) {
-					const minX = Math.min(...childBounds.map(b => b.x))
-					const minY = Math.min(...childBounds.map(b => b.y))
-					const maxX = Math.max(...childBounds.map(b => b.x + b.cx))
-					const maxY = Math.max(...childBounds.map(b => b.y + b.cy))
-					gx = minX
-					gy = minY
-					gcx = maxX - minX
-					gcy = maxY - minY
-				}
+				const gb = hasExplicit ? { x, y, cx, cy } : resolveObjBounds(slideItemObj)
+				const gx: number = gb.x
+				const gy: number = gb.y
+				const gcx: number = gb.cx
+				const gcy: number = gb.cy
 
 				const grpLockXml = genXmlObjectLock('a:grpSpLocks', GROUP_SHAPE_LOCK_ATTRS, slideItemObj.options.objectLock, slideItemObj.options.objectName)
 				strSlideXml += '<p:grpSp>'

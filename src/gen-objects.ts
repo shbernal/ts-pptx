@@ -101,24 +101,38 @@ function addChildDefinition(target: PresSlideInternal, object: SlideMasterObject
 	return true
 }
 
+/** Counter for default group names (`Group N`), incremented across nesting depth within a slide. */
+let _groupNameCounter = 0
+
 /**
- * Add a flat group (`<p:grpSp>`) of child objects to a slide.
+ * Build a group (`<p:grpSp>`) render-object from its child descriptors, without appending the
+ * group itself to the slide. Nested `group` children recurse, so a group can contain other groups.
  *
- * MVP scope: an identity child coordinate space, so children keep their slide-absolute
- * coordinates and grouping is visually a no-op while making the objects one selectable PowerPoint
- * group. Charts, media, tables, placeholders, and nested groups are not supported yet; each is
- * skipped with a warning. When `opts.x/y/w/h` are omitted the group's bounds are auto-computed
- * (in `gen-xml`) as the bounding box of its children.
- * @param target - slide the group is added to
+ * An identity child coordinate space is kept at every depth (emitted in `gen-xml` as
+ * `chOff/chExt == off/ext`), so children — including descendants of nested groups — keep their
+ * slide-absolute coordinates and grouping is visually a no-op while making the objects one
+ * selectable PowerPoint group. Charts, media, tables, and placeholders are not supported as group
+ * children yet; each is skipped with a warning. When `opts.x/y/w/h` are omitted the group's bounds
+ * are auto-computed (in `gen-xml`) as the bounding box of its children.
+ *
+ * `target` stays the slide at every depth so leaf descendants register their image/chart rels and
+ * unique ids slide-level, even when nested inside child groups.
+ * @param target - slide the group's leaf children register rels against
  * @param children - the child-object descriptors
  * @param opts - group position/size/name options
  */
-export function addGroupDefinition(target: PresSlideInternal, children: GroupChildProps[], opts: GroupProps): void {
+function buildGroupObject(target: PresSlideInternal, children: GroupChildProps[], opts: GroupProps): ISlideObject {
 	const groupObjects: ISlideObject[] = []
 
 	;(children || []).forEach(child => {
-		// Reject object types the flat-group MVP does not support (rels/ID/transform work pending).
-		if ('chart' in child || 'placeholder' in child || 'table' in child || 'group' in child || 'media' in child) {
+		// Nested group: recurse and embed the child group object directly (no slide splice — its own
+		// leaf descendants still register against `target` inside the recursive call).
+		if ('group' in child) {
+			groupObjects.push(buildGroupObject(target, child.group.children, child.group.options || {}))
+			return
+		}
+		// Reject object types grouping does not support yet (rels/ID/transform work pending).
+		if ('chart' in child || 'placeholder' in child || 'table' in child || 'media' in child) {
 			console.warn(`Warning: addGroup() does not support '${Object.keys(child)[0]}' children yet; skipping.`)
 			return
 		}
@@ -135,9 +149,9 @@ export function addGroupDefinition(target: PresSlideInternal, children: GroupChi
 
 	const objectName = opts.objectName
 		? encodeXmlEntities(validateObjectName(opts.objectName, 'group'))
-		: `Group ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.group).length + 1}`
+		: `Group ${++_groupNameCounter}`
 
-	target._slideObjects.push({
+	return {
 		_type: SLIDE_OBJECT_TYPES.group,
 		_groupObjects: groupObjects,
 		options: {
@@ -152,7 +166,17 @@ export function addGroupDefinition(target: PresSlideInternal, children: GroupChi
 			altText: opts.altText,
 			objectLock: opts.objectLock,
 		},
-	})
+	}
+}
+
+/**
+ * Add a group (`<p:grpSp>`) of child objects to a slide. Children may include nested groups.
+ * @param target - slide the group is added to
+ * @param children - the child-object descriptors
+ * @param opts - group position/size/name options
+ */
+export function addGroupDefinition(target: PresSlideInternal, children: GroupChildProps[], opts: GroupProps): void {
+	target._slideObjects.push(buildGroupObject(target, children, opts))
 }
 
 /**

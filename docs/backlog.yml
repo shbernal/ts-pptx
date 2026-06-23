@@ -2060,17 +2060,24 @@ items:
     non_target_reasons: []
     summary: Requested grouping shapes and other slide objects.
     current_project_notes: >
-      Implemented as the flat-group MVP. `slide.addGroup(children, options?)` emits a
-      single `<p:grpSp>` with an identity child coordinate space (chOff/chExt == off/ext),
-      so children keep their slide-absolute coordinates; group bounds default to the
-      bounding box of the children when x/y/w/h are omitted. Children reuse the slide-master
-      `objects` descriptor shape (text/image/shape/rect/roundRect/line) via a shared
-      `addChildDefinition` dispatch extracted from `createSlideMaster`. The per-object
-      serialization in `gen-xml.ts` was extracted into a nested `renderSlideObjectXml` so the
-      group case can render children recursively; child `<p:cNvPr id>` values are allocated
-      from a counter seeded past the top-level objects to stay unique. Out of scope (skipped
-      with a warning / deferred): nested groups, true child-space scaling, and grouping
-      charts/media/tables/placeholders.
+      Implemented. `slide.addGroup(children, options?)` emits a `<p:grpSp>` with an identity
+      child coordinate space (chOff/chExt == off/ext) at every depth, so children keep their
+      slide-absolute coordinates; group bounds default to the bounding box of the children when
+      x/y/w/h are omitted. Children reuse the slide-master `objects` descriptor shape
+      (text/image/shape/rect/roundRect/line) via a shared `addChildDefinition` dispatch extracted
+      from `createSlideMaster`. The per-object serialization in `gen-xml.ts` was extracted into a
+      nested `renderSlideObjectXml` so the group case can render children recursively; child
+      `<p:cNvPr id>` values are allocated from a counter seeded past the top-level objects to stay
+      unique (collision-free across nesting depth).
+      NESTED GROUPS (2026-06-23): a `{ group: { children, options? } }` child nests another group.
+      `addGroupDefinition` was refactored into a recursive `buildGroupObject` that embeds nested
+      group objects directly while keeping the slide as the rel/ID target for leaf descendants;
+      the `'group'` skip guard was removed. Auto-sizing recurses via a new `resolveObjBounds`
+      helper in `gen-xml.ts`, so a parent group sizes around a nested auto-sized child group. The
+      read side was already symmetric (Shape.absoluteFrame composes nested-group transforms,
+      dn-group-rot-flip-frame). Still out of scope (skipped with a warning / deferred): true
+      child-space scaling (chOff/chExt != off/ext), and grouping charts/media/tables/placeholders
+      as group children.
     evidence:
       kinds:
         - local-source-inspection
@@ -2079,14 +2086,14 @@ items:
         - validator-result
       local_files:
         - src/core-enums.ts:764
-        - src/core-interfaces.ts (GroupProps, GroupChildProps, ISlideObject._groupObjects)
-        - src/gen-objects.ts (addGroupDefinition, addChildDefinition)
-        - src/gen-xml.ts (renderSlideObjectXml, SLIDE_OBJECT_TYPES.group case)
+        - src/core-interfaces.ts (GroupProps, GroupChildProps incl. recursive group variant, ISlideObject._groupObjects)
+        - src/gen-objects.ts (addGroupDefinition, buildGroupObject, addChildDefinition)
+        - src/gen-xml.ts (renderSlideObjectXml, resolveObjBounds, SLIDE_OBJECT_TYPES.group case)
         - src/slide.ts (addGroup)
-        - test/regression/group-shapes.test.js
-        - test/schema.test.js (flat group of shape + text + image)
-      schema_fixture: "test/schema.test.js: flat group of shape + text + image (addGroup)"
-      validator_result: OOXMLValidatorCLI reports 0 errors for the flat-group fixture (pnpm run test:schema)
+        - test/regression/group-shapes.test.js (incl. nested group)
+        - test/schema.test.js (flat group + nested group fixtures)
+      schema_fixture: "test/schema.test.js: flat group of shape + text + image, and nested group of rect + (group of rect + text) (addGroup)"
+      validator_result: OOXMLValidatorCLI reports 0 errors for the flat-group and nested-group fixtures (pnpm run test:schema)
       powerpoint_result: null
       spec_refs: []
     next_action: none
@@ -3304,3 +3311,25 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: none
+  - id: dn-measure-glyph-coverage
+    source: downstream:scripts/slide-analysis/replication/glyph-coverage.ts
+    type: downstream-need
+    first_seen: 2026-06-23
+    last_reviewed: 2026-06-23
+    status: target
+    priority: p3
+    target_area:
+      - missing-pptx-feature
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: measure surface exposes no glyph-coverage (cmap/hasCodepoint) accessor
+    current_project_notes: "downstream's replication glyph-coverage gate needs to know whether the replica face (Aptos) can render a given codepoint, to flag source glyphs the face lacks (canonical case: non-breaking hyphen U+2011, absent from Aptos.ttf/Aptos-Bold cmap, which LibreOffice/Office render via a mismatched fallback face whose advance overlaps the next word — surfaced on 202604-ia4cyb-overall:26). @shbernal/pptxgenjs/measure parses the font via opentype but FontMetrics exposes only per-glyph advances + hasFace(), no per-codepoint coverage. Stopgap shells out to fontconfig (fc-match <face>:charset=<hex> returns the face iff it covers the cp; validated against the cmap). A coverage accessor read from the cmap the measure parser already loads is generic to any consumer doing font-coverage normalization, removes the fontconfig dependency, and works where fontconfig is unavailable (managed Windows)."
+    stopgap: scripts/slide-analysis/replication/glyph-coverage.ts
+    evidence:
+      kinds: []
+      local_files: []
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: Add a cmap-backed coverage accessor to src/measure (FontMetrics.hasCodepoint(cp) / covered-codepoint set); downstream then drops the fontconfig fc-match probe.

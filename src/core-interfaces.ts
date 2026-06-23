@@ -3046,8 +3046,10 @@ export type SlideMasterObject =
  * A child object that can be placed inside a group via `slide.addGroup()`.
  *
  * Uses the same key-tagged descriptor shape as `SlideMasterObject`, but limited to the
- * object types the flat-group MVP supports. Charts, media, tables, placeholders, and nested
- * groups are intentionally excluded (see `addGroup`); passing one logs a warning and skips it.
+ * object types `addGroup` supports. A `group` child nests another group (an identity child
+ * coordinate space is kept at every depth, so descendants keep their slide-absolute
+ * coordinates). Charts, media, tables, and placeholders are intentionally excluded (see
+ * `addGroup`); passing one logs a warning and skips it.
  * @since v4.0.0
  */
 export type GroupChildProps =
@@ -3057,12 +3059,13 @@ export type GroupChildProps =
 	| { roundRect: ShapeProps }
 	| { shape: { type: SHAPE_NAME, options?: ShapeProps } }
 	| { text: { text: string | number | TextProps[], options?: TextPropsOptions } }
+	| { group: { children: GroupChildProps[], options?: GroupProps } }
 /**
  * Options for `slide.addGroup()`.
  *
- * The group is a *flat* group (identity child coordinate space): children keep their
- * slide-absolute `x/y/w/h`. When `x/y/w/h` are omitted the group's bounds are auto-computed
- * as the bounding box of its children.
+ * The group keeps an identity child coordinate space (`chOff/chExt == off/ext`) at every depth:
+ * children — including nested groups — keep their slide-absolute `x/y/w/h`. When `x/y/w/h` are
+ * omitted the group's bounds are auto-computed as the bounding box of its children.
  * @since v4.0.0
  */
 export interface GroupProps extends PositionProps, ObjectNameProps {
