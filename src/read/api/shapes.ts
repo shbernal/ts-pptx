@@ -983,6 +983,27 @@ export abstract class Shape {
 	}
 
 	/**
+	 * Convenience: replace the shape's text with a single run, preserving the
+	 * first existing run's formatting (see {@link TextFrame.text}). Throws when the
+	 * shape has no text frame. For multiple runs or per-run formatting, edit
+	 * `textFrame.paragraphs[].runs[]` directly.
+	 */
+	set text(value: string) {
+		const frame = this.textFrame
+		if (!frame) throw new Error('Shape has no text frame to set text on')
+		frame.text = value
+	}
+
+	/**
+	 * This shape's placeholder identity (`p:ph` `type`/`idx`), or `null` when it is
+	 * not a placeholder. Only `p:sp` shapes can be placeholders, so the base
+	 * implementation always returns `null`; {@link AutoShape} overrides it.
+	 */
+	get placeholder(): PlaceholderRef | null {
+		return null
+	}
+
+	/**
 	 * Remove this shape from its parent (the slide's shape tree, or an enclosing
 	 * group) and mark the owning slide part dirty. The proxy is dead afterwards.
 	 */
@@ -1020,12 +1041,16 @@ export class AutoShape extends Shape {
 		const txBody = firstChild(this.element, 'p:txBody')
 		if (!txBody) return null
 		const flatten = this.slide.themeContext()
-		const ph = this.#placeholderRef()
+		const ph = this.placeholder
 		return new TextFrame(txBody, this.slide.part, flatten, ph ? { ph, flatten } : undefined)
 	}
 
-	/** This shape's placeholder identity (`p:ph` `type`/`idx`), or `null` when it is not a placeholder. */
-	#placeholderRef(): PlaceholderRef | null {
+	/**
+	 * This shape's placeholder identity (`p:ph` `type`/`idx`), or `null` when it is
+	 * not a placeholder. `idx` defaults to `'0'` when the attribute is absent, as
+	 * PowerPoint does. Use {@link Slide.placeholder} to find a placeholder by type.
+	 */
+	override get placeholder(): PlaceholderRef | null {
 		const nvSpPr = firstChild(this.element, 'p:nvSpPr')
 		const nvPr = nvSpPr && firstChild(nvSpPr, 'p:nvPr')
 		const ph = nvPr && firstChild(nvPr, 'p:ph')

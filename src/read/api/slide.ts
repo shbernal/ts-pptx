@@ -145,6 +145,29 @@ export class Slide {
 		return spTree ? buildShapes(spTree, this) : []
 	}
 
+	/** The first top-level shape with the given drawing id (`p:cNvPr/@id`), or `undefined`. */
+	shapeById(id: number): Shape | undefined {
+		return this.shapes.find((shape) => shape.id === id)
+	}
+
+	/** The first top-level shape with the given name (`p:cNvPr/@name`), or `undefined`. */
+	shapeByName(name: string): Shape | undefined {
+		return this.shapes.find((shape) => shape.name === name)
+	}
+
+	/**
+	 * The first placeholder of the given type (`p:ph/@type`, e.g. `title`,
+	 * `ctrTitle`, `subTitle`, `body`), optionally narrowed by `idx`. Returns
+	 * `undefined` when none match. Only `p:sp` shapes can be placeholders, so the
+	 * result is an {@link AutoShape}.
+	 */
+	placeholder(type: string, idx?: string): AutoShape | undefined {
+		return this.shapes.find((shape): shape is AutoShape => {
+			const ph = shape instanceof AutoShape ? shape.placeholder : null
+			return ph !== null && ph.type === type && (idx === undefined || ph.idx === idx)
+		})
+	}
+
 	/**
 	 * Append a text box (`p:sp` with `txBox="1"`) to the slide's shape tree and
 	 * return it. Geometry is required (EMU); width and height must be positive.

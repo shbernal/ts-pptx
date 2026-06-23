@@ -3071,8 +3071,8 @@ items:
     source: downstream
     type: downstream-need
     first_seen: 2026-06-20
-    last_reviewed: 2026-06-20
-    status: deferred
+    last_reviewed: 2026-06-23
+    status: implemented
     priority: p2
     target_area:
       - missing-pptx-feature
@@ -3080,15 +3080,25 @@ items:
     applies_to_current_project: partial
     non_target_reasons: []
     summary: Open an existing .pptx and replace its content (text runs and media) in place, losslessly, without regenerating untouched parts
-    current_project_notes: "Requested capability: load a real presentation, target an existing shape/placeholder, and swap its text/image while preserving sibling run formatting and leaving untouched parts byte-stable. The generator is emit-only and has no read-side addressing model. Addressed by the feat/pptx-edit lossless read/edit subsystem (Phase 2 read object model + Phase 3 text/media edit)."
+    current_project_notes: "Requested capability: load a real presentation, target an existing shape/placeholder, and swap its text/image while preserving sibling run formatting and leaving untouched parts byte-stable. Delivered by the pptxgenjs/read subsystem (src/read/). The core primitives already shipped (Phase 3/4): Run.text preserves sibling runs (src/read/api/text.ts), Picture.setImage copy-on-write media swap (src/read/api/shapes.ts), and the lossless OPC save keeps untouched parts byte-identical. This entry's promotion (2026-06-23) added the turnkey ergonomics the scenario named: shape addressing finders Slide.shapeById/shapeByName/placeholder(type,idx?) + public AutoShape.placeholder getter (src/read/api/slide.ts, shapes.ts); and a whole-text-frame replace via TextFrame.text / Shape.text setters that collapse to one run preserving the first run's formatting, reusing a shared setTextBodyText helper extracted from the TableCell.text path (src/read/api/text.ts, table.ts). End-to-end acceptance in test/read/edit-existing.test.js (open image.pptx, target shapes by name/placeholder, swap text + image, assert untouched parts byte-identical and schema-valid)."
     evidence:
-      kinds: []
-      local_files: []
+      kinds:
+        - regression-test
+        - validator-result
+        - local-source-inspection
+      local_files:
+        - src/read/api/text.ts
+        - src/read/api/shapes.ts
+        - src/read/api/slide.ts
+        - src/read/api/table.ts
+        - src/read/oxml/dom.ts
+        - test/read/edit-existing.test.js
+        - docs/reference/pptx-read.md
       schema_fixture: null
-      validator_result: null
+      validator_result: test/read/edit-existing.test.js asserts the edited deck stays schema-valid (skipped when the OOXML validator is not installed)
       powerpoint_result: null
       spec_refs: []
-    next_action: Track as acceptance scenario for feat/pptx-edit Phase 3; promote when the edit vertical slice lands
+    next_action: none
   - id: dn-import-template-masters
     source: downstream
     type: downstream-need

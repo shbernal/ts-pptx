@@ -11,6 +11,8 @@ import {
 	ELEMENT_NODE,
 	attr,
 	boolValue,
+	childElements,
+	createElement,
 	firstChild,
 	getElements,
 	getOrAddChild,
@@ -513,8 +515,62 @@ export class TextFrame {
 		return this.paragraphs.map((paragraph) => paragraph.text).join('\n')
 	}
 
+	/**
+	 * Replace the frame's text with a single paragraph and run, preserving the
+	 * character formatting (`a:rPr`) of the frame's first existing run when there
+	 * is one. For multiple runs or per-run formatting, edit
+	 * `paragraphs[].runs[]` directly.
+	 */
+	set text(value: string) {
+		setTextBodyText(this.txBody, value)
+		this.part.markDirty()
+	}
+
 	/** The underlying `p:txBody` element, for advanced reads and future mutation. */
 	get element_(): Element {
 		return this.txBody
 	}
+}
+
+/**
+ * Replace a text body's content (`a:txBody` or `a:txBody`-shaped element) with a
+ * single paragraph and run, preserving the `a:rPr` of the body's first existing
+ * run when there is one. Shared by {@link TextFrame.text} and `TableCell.text`.
+ * Does **not** mark any part dirty — the caller owns the `Part` and must call
+ * `markDirty()` after.
+ */
+export function setTextBodyText(txBody: Element, value: string): void {
+	const doc = txBody.ownerDocument
+	if (!doc) throw new Error('Cannot set text: text body has no owner document')
+
+	const paragraphs = getElements(txBody, 'a:p')
+	// Capture the first run's character formatting before we discard runs.
+	const firstRun = paragraphs[0] && firstChild(paragraphs[0], 'a:r')
+	const rPrTemplate = firstRun && firstChild(firstRun, 'a:rPr')
+
+	// Collapse to a single paragraph, dropping any extras.
+	for (let i = paragraphs.length - 1; i >= 1; i--) txBody.removeChild(paragraphs[i])
+	let p = paragraphs[0]
+	if (!p) {
+		p = createElement(doc, 'a:p')
+		txBody.appendChild(p)
+	}
+
+	// Remove every run-level child (runs, breaks, fields); keep a:pPr / a:endParaRPr.
+	for (const child of [...childElements(p)]) {
+		if (child.localName === 'r' || child.localName === 'br' || child.localName === 'fld') p.removeChild(child)
+	}
+
+	// Build a single run, carrying over the captured formatting if present.
+	const run = createElement(doc, 'a:r')
+	if (rPrTemplate) run.appendChild(rPrTemplate.cloneNode(true))
+	const t = createElement(doc, 'a:t')
+	t.textContent = value
+	if (value !== value.trim()) setAttr(t, 'xml:space', 'preserve')
+	else removeAttr(t, 'xml:space')
+	run.appendChild(t)
+
+	// Insert before a:endParaRPr if present (it must stay last), else append.
+	const endParaRPr = firstChild(p, 'a:endParaRPr')
+	p.insertBefore(run, endParaRPr)
 }

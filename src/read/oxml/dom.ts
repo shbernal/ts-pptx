@@ -76,6 +76,15 @@ export function getElements(parent: Node, qname: string): Element[] {
 	return out
 }
 
+/** All direct child elements in document order, regardless of qname. */
+export function childElements(parent: Node): Element[] {
+	const out: Element[] = []
+	for (let node = parent.firstChild; node; node = node.nextSibling) {
+		if (node.nodeType === ELEMENT_NODE) out.push(node as Element)
+	}
+	return out
+}
+
 /** First direct child element matching a qname, or `null`. */
 export function firstChild(parent: Node, qname: string): Element | null {
 	const { uri, local } = splitQName(qname)

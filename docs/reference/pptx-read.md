@@ -676,6 +676,38 @@ slice is the read-model properties above: run text, `fontSizePt`, `bold`,
 `left`/`top`/`width`/`height`; and shape `fillColor`/`fillSchemeColor`/
 `lineColor`/`lineSchemeColor` plus `noFill()`.
 
+### Targeting a shape and replacing all its text
+
+To swap the content of a known shape without walking the `shapes` array, a slide
+exposes three finders:
+
+```js
+slide.shapeByName('Title') // first top-level shape with that p:cNvPr/@name
+slide.shapeById(5) // first top-level shape with that p:cNvPr/@id
+slide.placeholder('ctrTitle') // first placeholder of that p:ph/@type
+slide.placeholder('subTitle', '1') // …narrowed by idx (defaults to '0' when absent)
+```
+
+`placeholder(type, idx?)` returns an `AutoShape` (only `p:sp` shapes can be
+placeholders); read a shape's own placeholder identity via `shape.placeholder`
+(`{ type, idx } | null`). All three finders scan **top-level** shapes only — a
+shape nested in a group is not matched (walk `groupShape.shapes` for those).
+
+To replace **all** of a shape's text in one call, set `shape.text` (or
+`textFrame.text`). It collapses the body to a single paragraph and run,
+preserving the **first** existing run's character formatting (`a:rPr`) — the same
+behaviour as `TableCell.text`:
+
+```js
+slide.shapeByName('Title').text = 'New title' // keeps the first run's font/size/colour
+slide.placeholder('subTitle', '1').text = 'New subtitle'
+```
+
+Setting `text` on a shape with no text frame (e.g. a picture) throws. For
+multiple runs or per-run formatting, edit `textFrame.paragraphs[].runs[]`
+directly instead — that path preserves every run's own formatting, so it is the
+right tool when you want to change one run and leave its siblings untouched.
+
 ### Adding and removing shapes (Phase 4)
 
 Add a text box to a slide, or remove any shape, mutating only the slide part:

@@ -7,20 +7,10 @@
  * proxies, so per-run formatting edits work exactly as on a shape's text.
  */
 import type { Part } from '../opc/part.js'
-import {
-	ELEMENT_NODE,
-	attr,
-	createElement,
-	firstChild,
-	getElements,
-	intValue,
-	removeAttr,
-	setAttr,
-	type Element,
-} from '../oxml/dom.js'
+import { attr, firstChild, getElements, intValue, type Element } from '../oxml/dom.js'
 import type { FlattenContext } from '../oxml/theme.js'
 import { resolveSolidFillColor, type ResolvedColor } from './theme-context.js'
-import { TextFrame } from './text.js'
+import { setTextBodyText, TextFrame } from './text.js'
 
 /** A table: a grid of rows and cells inside a graphic frame. */
 export class Table {
@@ -138,40 +128,7 @@ export class TableCell {
 	set text(value: string) {
 		const txBody = firstChild(this.tc, 'a:txBody')
 		if (!txBody) throw new Error('Table cell has no a:txBody to set text on')
-		const doc = txBody.ownerDocument
-		if (!doc) throw new Error('Cannot edit cell text: a:txBody has no owner document')
-
-		const paragraphs = getElements(txBody, 'a:p')
-		// Capture the first run's character formatting before we discard runs.
-		const firstRun = paragraphs[0] && firstChild(paragraphs[0], 'a:r')
-		const rPrTemplate = firstRun && firstChild(firstRun, 'a:rPr')
-
-		// Collapse to a single paragraph, dropping any extras.
-		for (let i = paragraphs.length - 1; i >= 1; i--) txBody.removeChild(paragraphs[i])
-		let p = paragraphs[0]
-		if (!p) {
-			p = createElement(doc, 'a:p')
-			txBody.appendChild(p)
-		}
-
-		// Remove every run-level child (runs, breaks, fields); keep a:pPr / a:endParaRPr.
-		for (const child of [...childElements(p)]) {
-			if (child.localName === 'r' || child.localName === 'br' || child.localName === 'fld') p.removeChild(child)
-		}
-
-		// Build a single run, carrying over the captured formatting if present.
-		const run = createElement(doc, 'a:r')
-		if (rPrTemplate) run.appendChild(rPrTemplate.cloneNode(true))
-		const t = createElement(doc, 'a:t')
-		t.textContent = value
-		if (value !== value.trim()) setAttr(t, 'xml:space', 'preserve')
-		else removeAttr(t, 'xml:space')
-		run.appendChild(t)
-
-		// Insert before a:endParaRPr if present (it must stay last), else append.
-		const endParaRPr = firstChild(p, 'a:endParaRPr')
-		p.insertBefore(run, endParaRPr)
-
+		setTextBodyText(txBody, value)
 		this.part.markDirty()
 	}
 
@@ -256,13 +213,4 @@ export class TableCell {
 	get element_(): Element {
 		return this.tc
 	}
-}
-
-/** Direct child elements of `parent` in document order. */
-function childElements(parent: Element): Element[] {
-	const out: Element[] = []
-	for (let node = parent.firstChild; node; node = node.nextSibling) {
-		if (node.nodeType === ELEMENT_NODE) out.push(node as Element)
-	}
-	return out
 }
