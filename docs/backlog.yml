@@ -1255,32 +1255,45 @@ items:
     source: "gitbrent/PptxGenJS#1169"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-20
-    status: deferred
+    last_reviewed: 2026-06-23
+    status: implemented
     priority: p3
     target_area:
       - table-ooxml
       - missing-pptx-feature
-    applies_to_current_project: partial
+    applies_to_current_project: yes
     non_target_reasons: []
     summary: Asked for computed x/y positions of table cells to place images over them.
     current_project_notes: >
-      Current table layout is write-only and does not expose computed cell
-      geometry after column width, row height, colspan, rowspan, or autoPage
-      calculations. This may be useful, but it is not an OOXML validity defect.
+      Implemented as the read-side accessor pptx.tableLayout(rows, opts) (mirrors
+      the measureText/overflowsBox precedent): returns per-cell
+      {row,col,rowSpan,colSpan,xIn,yIn,wIn,hIn,heightExact} in inches plus overall
+      widthIn/heightIn, so a consumer can place images/shapes over cells without
+      adding the table to a slide. Engine computeTableLayout in src/measure-fit.ts.
+      Column widths (x/w) are exact via the shared resolveTableColWidthsEmu
+      (src/gen-utils.ts) the writer uses; colspan/rowspan resolve through a new
+      shared walkTableGrid generator that the measured-fit shrink pass
+      (measureTableCells) was refactored onto, so placement cannot drift. Row
+      heights are exact when pinned by rowH (array/scalar) or table h; auto-height
+      rows are estimated with the same conservative (tall) measureText line model
+      and flagged heightExact:false. Scope: single, un-paginated table — autoPage
+      paging is intentionally not modeled (documented). Related but still deferred:
+      upstream-issue-951 (general Node text-measurement) shares the line-model
+      root cause; upstream-issue-1256 (header-row style) is independent.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/gen-tables.ts:303
-        - src/gen-tables.ts:323
-        - src/gen-objects.ts:904
-        - src/gen-xml.ts:196
+        - src/measure-fit.ts
+        - src/pptxgen.ts
+        - src/core-interfaces.ts
+        - test/regression/table-layout-api.test.mjs
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: reconsider-after-table-layout-core-stabilizes
+    next_action: none
 
   - id: upstream-issue-1164
     source: "gitbrent/PptxGenJS#1164"

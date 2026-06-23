@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`pptx.tableLayout(rows, opts)` — computed table-cell geometry (issue #1169):**
+  a layout-time accessor that returns each cell's `{ row, col, rowSpan, colSpan,
+  xIn, yIn, wIn, hIn, heightExact }` (inches) plus overall `widthIn`/`heightIn`,
+  without adding the table to a slide — so a consumer can place images or shapes
+  precisely over cells. Takes the same `rows`/`opts` as `slide.addTable`. Column
+  widths (cell `x`/`w`) are **exact**, derived from the same
+  `resolveTableColWidthsEmu` the writer uses, and resolve colspan/rowspan via the
+  same grid walk as the measured-fit pass (now shared, so placement cannot drift).
+  Row heights are exact when pinned by `rowH` (array or scalar) or table `h`; an
+  auto-height row is estimated with the same conservative (tall) text model as
+  `measureText` and flagged `heightExact: false` (register the cell font via
+  `registerFontMetrics` for an exact estimate). Single-slide only — `autoPage`
+  paging is not modeled. New exported types: `TableCellLayout`, `TableLayoutResult`.
+
 - **Read-model: gradient geometry, line arrowheads, outer shadow, and text-body
   properties.** The `pptxgenjs/read` shape proxies gain four getters that close
   the gaps a faithful slide replica kept hand-reading from raw XML: `gradientFill`

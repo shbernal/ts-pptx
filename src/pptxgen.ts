@@ -91,6 +91,9 @@ import {
 	SlideLayoutInternal,
 	SlideMasterProps,
 	SlideNumberProps,
+	TableLayoutResult,
+	TableProps,
+	TableRow,
 	TableStyleInternal,
 	TableStyleProps,
 	TableToSlidesProps,
@@ -108,7 +111,7 @@ import * as genTable from './gen-tables.js'
 import * as genXml from './gen-xml.js'
 import type { RuntimeAdapter } from './runtime/types.js'
 import { FontMetricsRegistry, parseFontMetrics } from './font-metrics.js'
-import { applyMeasuredFit, measureText } from './measure-fit.js'
+import { applyMeasuredFit, computeTableLayout, measureText } from './measure-fit.js'
 import { getUuid, decodeBase64ToBytes } from './gen-utils.js'
 import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
 
@@ -165,7 +168,9 @@ export type {
 	SlideMasterProps,
 	SlideNumberProps,
 	TableCell,
+	TableCellLayout,
 	TableCellProps,
+	TableLayoutResult,
 	TableProps,
 	TableRow,
 	TableRowSlide,
@@ -782,6 +787,29 @@ export default class PptxGenJS {
 	overflowsBox(text: string | TextProps[], opts: OverflowBoxOptions): boolean {
 		const m = measureText(this._fontMetrics, text, opts)
 		return m.measurable && !m.fitsBox(opts.hIn)
+	}
+
+	/**
+	 * Compute the per-cell geometry of a table laid out at `opts.x`/`y`/`w`, without
+	 * adding it to a slide — so a consumer can place images or shapes precisely over
+	 * cells. Column widths (cell `x`/`w`) are exact, derived from the same logic the
+	 * writer uses. Row heights (`y`/`h`) are exact when pinned by `rowH` (array or
+	 * scalar) or table `h`; an auto-height row is estimated with the same conservative
+	 * (tall) text model as {@link PptxGenJS.measureText} and flagged `heightExact:false`
+	 * (register the cell font via {@link PptxGenJS.registerFontMetrics} for an exact
+	 * estimate). Geometry is for a single, un-paginated table — `autoPage` paging is
+	 * not modeled.
+	 * @param {TableRow[]} rows - the same `rows` passed to `slide.addTable`
+	 * @param {TableProps} opts - the same table options (`x`, `y`, `w`, `colW`, `rowH`, `h`, …)
+	 * @returns {TableLayoutResult} per-cell rectangles (inches) plus overall table bounds
+	 * @example
+	 * const g = pptx.tableLayout(rows, { x: 1, y: 1, w: 8, colW: [2, 3, 3] })
+	 * const c = g.cells.find(c => c.row === 0 && c.col === 2)
+	 * slide.addImage({ path: 'logo.png', x: c.xIn, y: c.yIn, w: c.wIn, h: c.hIn })
+	 * @since v7.1.0
+	 */
+	tableLayout(rows: TableRow[], opts: TableProps): TableLayoutResult {
+		return computeTableLayout(rows, opts, this._presLayout, this._fontMetrics)
 	}
 
 	// EXPORT METHODS

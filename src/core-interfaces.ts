@@ -2094,6 +2094,57 @@ export interface OverflowBoxOptions extends MeasureTextOptions {
 }
 
 /**
+ * One cell's computed rectangle from {@link PptxGenJS.tableLayout}. All values are
+ * inches; `x`/`y` are absolute (offset from the table's `x`/`y`). For a merged cell,
+ * `row`/`col` are the top-left origin and `wIn`/`hIn` cover the whole span; the
+ * cells it covers are not emitted separately.
+ * @since v7.1.0
+ */
+export interface TableCellLayout {
+	/** Zero-based grid row of the cell's top-left origin. */
+	row: number
+	/** Zero-based grid column of the cell's top-left origin. */
+	col: number
+	/** Number of rows the cell spans (1 if not merged). */
+	rowSpan: number
+	/** Number of columns the cell spans (1 if not merged). */
+	colSpan: number
+	/** Left edge in inches (absolute). */
+	xIn: number
+	/** Top edge in inches (absolute). */
+	yIn: number
+	/** Outer cell width in inches (sum of spanned column widths). */
+	wIn: number
+	/** Outer cell height in inches (sum of spanned row heights). */
+	hIn: number
+	/**
+	 * `true` when `hIn`/`yIn` are pinned by an explicit `rowH` (array or scalar) or
+	 * table `h`; `false` when the row is auto-height and the value is a conservative
+	 * (tall) estimate from the same text model as {@link PptxGenJS.measureText}.
+	 */
+	heightExact: boolean
+}
+
+/**
+ * Result of {@link PptxGenJS.tableLayout}: per-cell geometry plus overall table
+ * bounds, for placing images/shapes over a table without rendering it. Geometry is
+ * for a single, un-paginated table laid out at `opts.x`/`y`/`w`; `autoPage` paging
+ * is not modeled. Widths are exact; auto-height row heights are conservative
+ * estimates (see {@link TableCellLayout.heightExact}).
+ * @since v7.1.0
+ */
+export interface TableLayoutResult {
+	/** One entry per non-merged origin cell, in row-major order. */
+	cells: TableCellLayout[]
+	/** Overall table width in inches (sum of column widths). */
+	widthIn: number
+	/** Overall table height in inches (sum of row heights; may include estimates). */
+	heightIn: number
+	/** `false` if any row height was estimated (the total errs tall, like `measureText`). */
+	heightExact: boolean
+}
+
+/**
  * Per-run options for a speaker-notes text run.
  * A focused subset of `TextPropsOptions`: inline formatting plus an (external URL) hyperlink.
  * Notes hyperlinks support `url` only; `slide` targets are not yet supported.

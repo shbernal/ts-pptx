@@ -11,12 +11,12 @@
  */
 
 import { SLIDE_OBJECT_TYPES } from './core-enums.js'
-import { DEF_CELL_MARGIN_IN, DEF_FONT_SIZE } from './core-enums.js'
-import { EMU_PER_POINT, POINTS_PER_INCH } from './units.js'
+import { DEF_CELL_MARGIN_IN, DEF_FONT_SIZE, LINEH_MODIFIER } from './core-enums.js'
+import { EMU_PER_POINT, POINTS_PER_INCH, emuToInches } from './units.js'
 import { getSmartParseNumber, inch2Emu, resolveTableColWidthsEmu, valToPts } from './gen-utils.js'
 import { getHeuristicFontMetrics, type FontMetricsRegistry } from './font-metrics.js'
 import { solveShrink, solveResize, measureLayout, WIDTH_SAFETY_FACTOR, HEIGHT_SAFETY_FACTOR, type FitBox, type FitParagraph, type FitRun, type MetricsResolver } from './text-fit.js'
-import type { ISlideObject, Margin, MeasureTextOptions, ObjectOptions, PresSlideInternal, TableCell, TableCellProps, TextMeasurement, TextProps, TextPropsOptions } from './core-interfaces.js'
+import type { ISlideObject, Margin, MeasureTextOptions, ObjectOptions, PresLayout, PresSlideInternal, TableCell, TableCellLayout, TableCellProps, TableLayoutResult, TableProps, TextMeasurement, TextProps, TextPropsOptions } from './core-interfaces.js'
 
 // PowerPoint's default text-frame insets (EMU): l/r = 0.1in, t/b = 0.05in.
 const DEF_INS_LR_EMU = 91440
@@ -217,6 +217,169 @@ function scaleCellFontSizes (cell: TableCell, eff: RunOpts, f: number): void {
 	}
 }
 
+/** Grid column count of a table (sums the first row's colspans), mirroring gen-xml. */
+function tableColCount (rows: TableCell[][]): number {
+	const first = rows[0]
+	return first ? first.reduce((n, c) => n + (Number(c?.options?.colspan) || 1), 0) : 0
+}
+
+/** A placed (non-merged origin) cell yielded by {@link walkTableGrid}. */
+interface GridPlacement {
+	cell: TableCell
+	/** Zero-based grid row of the cell's top-left origin. */
+	row: number
+	/** Zero-based grid column of the cell's top-left origin. */
+	col: number
+	/** Rows spanned, clamped to the available rows. */
+	rowSpan: number
+	/** Columns spanned, clamped to the grid width. */
+	colSpan: number
+}
+
+/**
+ * Walk a table's cell grid in row-major order, resolving each authored cell to its
+ * grid origin (`row`/`col`) and clamped colspan/rowspan. Tracks rowspan occupancy so
+ * a cell never lands beneath one spanned from above (ISSUE #36 grid build). This is
+ * the single traversal shared by the measured-fit shrink pass and
+ * {@link computeTableLayout}, so cell placement cannot drift between them.
+ */
+function * walkTableGrid (rows: TableCell[][], numCols: number): Generator<GridPlacement> {
+	// occupied[c] = rows still covered by a rowspan started above (incl. current row).
+	const occupied = new Array<number>(numCols).fill(0)
+	for (let r = 0; r < rows.length; r++) {
+		let col = 0
+		for (const cell of rows[r]) {
+			while (col < numCols && occupied[col] > 0) col++
+			if (col >= numCols) break
+			const colspan = Math.max(1, Number(cell?.options?.colspan) || 1)
+			const rowspan = Math.min(Math.max(1, Number(cell?.options?.rowspan) || 1), rows.length - r)
+			const colStart = col
+			const colEnd = Math.min(colStart + colspan, numCols)
+			for (let c = colStart; c < colEnd; c++) occupied[c] = rowspan
+			col = colEnd
+			yield { cell, row: r, col: colStart, rowSpan: rowspan, colSpan: colEnd - colStart }
+		}
+		for (let c = 0; c < numCols; c++) if (occupied[c] > 0) occupied[c]--
+	}
+}
+
+/**
+ * Compute per-cell geometry (inches) for a table laid out at `opts.x`/`y`/`w` — the
+ * engine behind `pptx.tableLayout()`. Column widths come from the same
+ * {@link resolveTableColWidthsEmu} the writer uses, so cell x/width are exact. Row
+ * heights are exact when pinned by `rowH` (array or scalar) or table `h`; otherwise
+ * each auto-height row is estimated with the same conservative (tall) text model as
+ * {@link measureText} and flagged `heightExact: false`. Single-slide only —
+ * `autoPage` paging across slides is not modeled. Rowspan cells do not drive a row's
+ * estimated height (mirrors gen-tables, which exempts them from line-height growth).
+ */
+export function computeTableLayout (rows: TableCell[][], opts: TableProps, presLayout: PresLayout, registry: FontMetricsRegistry): TableLayoutResult {
+	const empty: TableLayoutResult = { cells: [], widthIn: 0, heightIn: 0, heightExact: true }
+	if (!rows || rows.length === 0 || !rows[0]) return empty
+	const numRows = rows.length
+	const numCols = tableColCount(rows)
+	if (!(numCols > 0)) return empty
+	const o = opts as RunOpts
+
+	const tableXEmu = opts.x != null ? getSmartParseNumber(opts.x, 'X', presLayout) : 0
+	const tableYEmu = opts.y != null ? getSmartParseNumber(opts.y, 'Y', presLayout) : 0
+	const cxEmu = opts.w != null ? getSmartParseNumber(opts.w, 'X', presLayout) : getSmartParseNumber('75%', 'X', presLayout)
+	const colWidthsEmu = resolveTableColWidthsEmu(opts.colW, cxEmu, numCols)
+
+	// Prefix-sum column x offsets (length numCols+1): colXEmu[c] = left edge of column c.
+	const colXEmu = new Array<number>(numCols + 1).fill(0)
+	for (let c = 0; c < numCols; c++) colXEmu[c + 1] = colXEmu[c] + (colWidthsEmu[c] ?? 0)
+
+	const tableHeightEmu = opts.h != null ? getSmartParseNumber(opts.h, 'Y', presLayout) : 0
+	// Explicit row height (EMU) or null when the row is auto-height. An array `rowH`
+	// slot that is missing/NaN falls back to an even split of table `h` if one is set.
+	const explicitRowHEmu = (r: number): number | null => {
+		if (Array.isArray(opts.rowH)) {
+			const v = opts.rowH[r]
+			if (typeof v === 'number' && isFinite(v)) return inch2Emu(v)
+			return tableHeightEmu > 0 ? Math.round(tableHeightEmu / numRows) : null
+		}
+		if (opts.rowH != null && !isNaN(Number(opts.rowH))) return inch2Emu(Number(opts.rowH))
+		if (tableHeightEmu > 0) return Math.round(tableHeightEmu / numRows)
+		return null
+	}
+	const resolve = makeRegistryResolver(registry)
+	const defLineEmu = inch2Emu((DEF_FONT_SIZE * LINEH_MODIFIER) / 100)
+
+	// Estimate a cell's content height (EMU) at its authored size, conservative/tall,
+	// with a one-line floor. Mirrors measureText's inflated wrap + height safety.
+	const estimateContentHeightEmu = (cell: TableCell, eff: RunOpts, innerWidthPt: number): number => {
+		const fontSizePt = Number(eff.fontSize ?? DEF_FONT_SIZE) || DEF_FONT_SIZE
+		const oneLineEmu = inch2Emu((fontSizePt * LINEH_MODIFIER) / 100)
+		if (!(innerWidthPt > 0)) return oneLineEmu
+		const paragraphs = extractParagraphs({ text: cell.text, options: eff } as unknown as ISlideObject)
+		if (!paragraphs) return oneLineEmu
+		const layout = measureLayout(paragraphs, innerWidthPt, resolve, 100, 0, WIDTH_SAFETY_FACTOR)
+		if (layout === null) return oneLineEmu
+		return Math.max(Math.round(layout.heightPt * HEIGHT_SAFETY_FACTOR * EMU_PER_POINT), oneLineEmu)
+	}
+
+	// PASS 1: place every origin cell and resolve each row's height.
+	interface Placed { p: GridPlacement, colStart: number, colEnd: number }
+	const placed: Placed[] = []
+	const rowHeightsEmu = new Array<number>(numRows).fill(0)
+	const rowExact = new Array<boolean>(numRows).fill(false)
+	for (let r = 0; r < numRows; r++) {
+		const ex = explicitRowHEmu(r)
+		if (ex != null) { rowHeightsEmu[r] = ex; rowExact[r] = true }
+	}
+
+	for (const p of walkTableGrid(rows, numCols)) {
+		const colStart = p.col
+		const colEnd = p.col + p.colSpan
+		placed.push({ p, colStart, colEnd })
+
+		// Only single-row, auto-height cells drive a row's estimated height.
+		if (p.rowSpan === 1 && !rowExact[p.row]) {
+			let widthEmu = 0
+			for (let c = colStart; c < colEnd; c++) widthEmu += colWidthsEmu[c] ?? 0
+			const eff = effectiveCellOpts((p.cell?.options ?? {}) as TableCellProps, o)
+			const ins = resolveCellInsetsEmu(eff.margin)
+			const innerWidthPt = (widthEmu - ins.marL - ins.marR) / EMU_PER_POINT
+			const contentEmu = estimateContentHeightEmu(p.cell, eff, innerWidthPt) + ins.marT + ins.marB
+			if (contentEmu > rowHeightsEmu[p.row]) rowHeightsEmu[p.row] = contentEmu
+		}
+	}
+
+	// A row touched only by rowspans (no single-row cell, no explicit height) still
+	// needs a non-zero height: give it one default line.
+	for (let r = 0; r < numRows; r++) if (rowHeightsEmu[r] <= 0) rowHeightsEmu[r] = defLineEmu
+
+	// Prefix-sum row y offsets.
+	const rowYEmu = new Array<number>(numRows + 1).fill(0)
+	for (let r = 0; r < numRows; r++) rowYEmu[r + 1] = rowYEmu[r] + rowHeightsEmu[r]
+
+	// PASS 2: emit one rect per origin cell.
+	const cells: TableCellLayout[] = placed.map(({ p, colStart, colEnd }) => {
+		const rowEnd = p.row + p.rowSpan
+		let heightExact = true
+		for (let rr = p.row; rr < rowEnd; rr++) if (!rowExact[rr]) heightExact = false
+		return {
+			row: p.row,
+			col: p.col,
+			rowSpan: p.rowSpan,
+			colSpan: p.colSpan,
+			xIn: emuToInches(tableXEmu + colXEmu[colStart]),
+			yIn: emuToInches(tableYEmu + rowYEmu[p.row]),
+			wIn: emuToInches(colXEmu[colEnd] - colXEmu[colStart]),
+			hIn: emuToInches(rowYEmu[rowEnd] - rowYEmu[p.row]),
+			heightExact,
+		}
+	})
+
+	return {
+		cells,
+		widthIn: emuToInches(colXEmu[numCols]),
+		heightIn: emuToInches(rowYEmu[numRows]),
+		heightExact: rowExact.every(Boolean),
+	}
+}
+
 /**
  * Build the `MetricsResolver` both the export pass and `measureText` use, so they
  * agree run-for-run: exact registered metrics → conservative heuristic for any
@@ -345,7 +508,7 @@ export function applyMeasuredFit (slides: PresSlideInternal[], registry: FontMet
 		if (!rows || rows.length === 0 || !rows[0]) return
 		const tableOpts = (tableObj.options ?? {}) as RunOpts
 		const numRows = rows.length
-		const numCols = rows[0].reduce((n, c) => n + (Number(c?.options?.colspan) || 1), 0)
+		const numCols = tableColCount(rows)
 		if (!(numCols > 0)) return
 
 		const cxEmu = tableOpts.w != null ? getSmartParseNumber(tableOpts.w, 'X', layout) : getSmartParseNumber('75%', 'X', layout)
@@ -358,54 +521,40 @@ export function applyMeasuredFit (slides: PresSlideInternal[], registry: FontMet
 			return 0 // auto-height row → grows to fit, no shrink
 		}
 
-		// occupied[c] = rows still covered by a rowspan started above (incl. current row).
-		const occupied = new Array<number>(numCols).fill(0)
-		for (let r = 0; r < numRows; r++) {
-			let col = 0
-			for (const cell of rows[r]) {
-				while (col < numCols && occupied[col] > 0) col++
-				if (col >= numCols) break
-				const colspan = Math.max(1, Number(cell?.options?.colspan) || 1)
-				const rowspan = Math.max(1, Number(cell?.options?.rowspan) || 1)
-				const colStart = col
-				const colEnd = Math.min(colStart + colspan, numCols)
-				for (let c = colStart; c < colEnd; c++) occupied[c] = rowspan
-				col = colEnd
+		for (const { cell, row: r, col: colStart, colSpan, rowSpan } of walkTableGrid(rows, numCols)) {
+			const colEnd = colStart + colSpan
+			const cellOpts = (cell?.options ?? {}) as TableCellProps
+			const fit = cellOpts.fit ?? (tableOpts.fit === 'shrink' ? 'shrink' : undefined)
+			if (fit !== 'shrink') continue
 
-				const cellOpts = (cell?.options ?? {}) as TableCellProps
-				const fit = cellOpts.fit ?? (tableOpts.fit === 'shrink' ? 'shrink' : undefined)
-				if (fit !== 'shrink') continue
-
-				let widthEmu = 0
-				for (let c = colStart; c < colEnd; c++) widthEmu += colWidthsEmu[c] ?? 0
-				let heightEmu = 0
-				let autoHeight = false
-				for (let rr = r; rr < Math.min(r + rowspan, numRows); rr++) {
-					const h = rowHeightEmu(rr)
-					if (h <= 0) { autoHeight = true; break }
-					heightEmu += h
-				}
-				if (autoHeight) continue
-
-				const eff = effectiveCellOpts(cellOpts, tableOpts)
-				const ins = resolveCellInsetsEmu(eff.margin)
-				const innerWidthPt = (widthEmu - ins.marL - ins.marR) / EMU_PER_POINT
-				const innerHeightPt = (heightEmu - ins.marT - ins.marB) / EMU_PER_POINT
-				if (!(innerWidthPt > 0) || !(innerHeightPt > 0)) continue
-
-				const paragraphs = extractParagraphs({ text: cell.text, options: eff } as unknown as ISlideObject)
-				if (!paragraphs) continue
-				const box: FitBox = { innerWidthPt, innerHeightPt }
-				const outcome = solveShrink(paragraphs, box, resolve)
-				if (outcome.kind === 'shrink') {
-					const f = outcome.result.fontScalePct / 100
-					if (f < 1) scaleCellFontSizes(cell, eff, f)
-				} else if (outcome.kind === 'unmeasurable') {
-					collectUnmeasured(paragraphs, unmeasuredShrink)
-				}
-				// 'fits' → leave the authored size; the text already fits.
+			let widthEmu = 0
+			for (let c = colStart; c < colEnd; c++) widthEmu += colWidthsEmu[c] ?? 0
+			let heightEmu = 0
+			let autoHeight = false
+			for (let rr = r; rr < r + rowSpan; rr++) {
+				const h = rowHeightEmu(rr)
+				if (h <= 0) { autoHeight = true; break }
+				heightEmu += h
 			}
-			for (let c = 0; c < numCols; c++) if (occupied[c] > 0) occupied[c]--
+			if (autoHeight) continue
+
+			const eff = effectiveCellOpts(cellOpts, tableOpts)
+			const ins = resolveCellInsetsEmu(eff.margin)
+			const innerWidthPt = (widthEmu - ins.marL - ins.marR) / EMU_PER_POINT
+			const innerHeightPt = (heightEmu - ins.marT - ins.marB) / EMU_PER_POINT
+			if (!(innerWidthPt > 0) || !(innerHeightPt > 0)) continue
+
+			const paragraphs = extractParagraphs({ text: cell.text, options: eff } as unknown as ISlideObject)
+			if (!paragraphs) continue
+			const box: FitBox = { innerWidthPt, innerHeightPt }
+			const outcome = solveShrink(paragraphs, box, resolve)
+			if (outcome.kind === 'shrink') {
+				const f = outcome.result.fontScalePct / 100
+				if (f < 1) scaleCellFontSizes(cell, eff, f)
+			} else if (outcome.kind === 'unmeasurable') {
+				collectUnmeasured(paragraphs, unmeasuredShrink)
+			}
+			// 'fits' → leave the authored size; the text already fits.
 		}
 	}
 
