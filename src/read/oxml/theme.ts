@@ -578,6 +578,25 @@ function placeholderInheritedXfrm(type: string | null, idx: string, ctx: Flatten
 	return null
 }
 
+/**
+ * The vertical anchor (`a:bodyPr/@anchor`) a placeholder inherits from the source
+ * layout, then master, or `null`. Resolves per-attribute: the first tier whose
+ * placeholder `a:bodyPr` actually sets `@anchor` wins, so a layout `a:bodyPr`
+ * present but without `@anchor` does not mask the master's. The read-model
+ * {@link TextFrame.resolvedAnchor} sibling of {@link placeholderInheritedXfrm}.
+ */
+export function placeholderInheritedAnchor(type: string | null, idx: string, ctx: FlattenContext): string | null {
+	for (const root of [ctx.layoutRoot, ctx.masterRoot]) {
+		if (!root) continue
+		const ph = findPlaceholder(root, type, idx)
+		const txBody = ph && firstChild(ph, 'p:txBody')
+		const bodyPr = txBody && firstChild(txBody, 'a:bodyPr')
+		const anchor = bodyPr && attr(bodyPr, 'anchor')
+		if (anchor) return anchor
+	}
+	return null
+}
+
 /** Inheritable run properties baked under `preserve`: size and weight/slant (not typeface). */
 const RUN_PROP_NAMES = ['sz', 'b', 'i'] as const
 type RunProps = Record<(typeof RUN_PROP_NAMES)[number], string | null>

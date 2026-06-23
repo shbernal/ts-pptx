@@ -755,6 +755,30 @@ export abstract class Shape {
 	}
 
 	/**
+	 * The line/border dash style (`spPr/a:ln/a:prstDash/@val`), e.g. `'dash'`,
+	 * `'lgDashDot'`, `'sysDot'`, or `null` when the line is solid/unset. A faithful
+	 * replica of dashed dividers and dashed card borders needs this — it is
+	 * otherwise invisible in {@link lineColor}/{@link lineWidthPt} alone.
+	 */
+	get lineDash(): string | null {
+		const ln = this.#line()
+		const dash = ln && firstChild(ln, 'a:prstDash')
+		return dash ? (attr(dash, 'val') ?? null) : null
+	}
+
+	/**
+	 * `true` when the shape sets an explicit no-line (`spPr/a:ln/a:noFill`) — a
+	 * deliberately border-less shape. Distinct from simply having no `a:ln`
+	 * (an inherited line), which {@link resolvedLine} cannot tell apart: both
+	 * report `null`. A replica that relies on a shadow instead of a border needs
+	 * to know the border was explicitly suppressed.
+	 */
+	get lineNoFill(): boolean {
+		const ln = this.#line()
+		return !!(ln && firstChild(ln, 'a:noFill'))
+	}
+
+	/**
 	 * Preset-geometry adjustment values (`spPr/a:prstGeom/a:avLst/a:gd`) as a
 	 * name → formula map, e.g. `{ adj: 'val 16667' }`. Empty when the shape has no
 	 * adjust handles (or uses custom geometry). Pair with {@link presetGeometry}.

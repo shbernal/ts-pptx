@@ -22,7 +22,7 @@ import {
 } from '../oxml/dom.js'
 import { normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
 import { resolveThemeFont, type FlattenContext } from '../oxml/theme.js'
-import { resolveInheritedRunColor, resolveInheritedRunFontFace, resolveInheritedRunSize, resolveSolidFillColor, type PlaceholderRef, type ResolvedColor } from './theme-context.js'
+import { resolveInheritedAnchor, resolveInheritedRunColor, resolveInheritedRunFontFace, resolveInheritedRunSize, resolveSolidFillColor, type PlaceholderRef, type ResolvedColor } from './theme-context.js'
 
 /**
  * What a {@link Run}'s text body needs to resolve a *placeholder-inherited* run
@@ -490,6 +490,22 @@ export class TextFrame {
 			wrap: attr(bodyPr, 'wrap') ?? null,
 			insetsPt,
 		}
+	}
+
+	/**
+	 * The effective vertical anchor (`t`/`ctr`/`b`): the frame's own
+	 * `a:bodyPr/@anchor` when set, else the anchor it inherits from its
+	 * layout → master placeholder `a:bodyPr`. `null` when nothing in the chain sets
+	 * one (PowerPoint then defaults to top). Unlike {@link bodyProperties}'s
+	 * `anchor` (own attribute only), this surfaces the inherited anchor a
+	 * placeholder title relies on — the difference between a top- and
+	 * centre-anchored title that own-attribute reads alone cannot see.
+	 */
+	get resolvedAnchor(): string | null {
+		const own = this.bodyProperties?.anchor
+		if (own) return own
+		if (!this.placeholder) return null
+		return resolveInheritedAnchor(this.placeholder.ph, this.placeholder.flatten)
 	}
 
 	/** All paragraph text joined by `\n` (mirrors python-pptx `TextFrame.text`). */

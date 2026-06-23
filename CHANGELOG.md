@@ -50,6 +50,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   matching write-side prop. New exported types: `GradientFill`, `LineEnd`,
   `LineEnds`, `OuterShadow`, `BodyProperties`.
 
+- **Read-model: line dash, explicit no-line, and resolved (inherited) text
+  anchor.** Three more getters that close gaps a faithful replica kept hand-reading
+  from raw `slide.xml`. On the shape proxies: `lineDash` (`spPr/a:ln/a:prstDash/@val`
+  — `'dash'`/`'lgDashDot'`/`'sysDot'`/…, or `null` when solid/unset) and `lineNoFill`
+  (`true` when the shape sets an explicit `<a:ln><a:noFill/>`, distinguishing a
+  deliberately border-less shape from one with an inherited line — both of which
+  `resolvedLine` reports as `null`). On `TextFrame`: `resolvedAnchor`, the effective
+  vertical anchor (`t`/`ctr`/`b`) resolving placeholder inheritance — the frame's own
+  `a:bodyPr/@anchor` when set, else the anchor inherited from the layout → master
+  placeholder `a:bodyPr` — where `bodyProperties.anchor` reports only the own
+  attribute (so an inherited top-anchored title reads `null` there). New helper
+  `placeholderInheritedAnchor` (sibling of `placeholderInheritedXfrm`) +
+  `resolveInheritedAnchor` wrapper.
+
 - **`widestLineIn` on `measureText()`/layout-time measurement:** `TextMeasurement`
   (from `pptx.measureText()` and the `pptxgenjs/measure` subpath) now reports the
   width in inches of the widest laid-out line, alongside `heightIn`/`lineCount`.

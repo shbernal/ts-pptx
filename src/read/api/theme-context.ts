@@ -11,7 +11,7 @@
  */
 import { applyColorTransforms } from '../oxml/color-transform.js'
 import { ELEMENT_NODE, attr, firstChild, intValue, type Element } from '../oxml/dom.js'
-import { lstStyleLevelDefRPr, lstStyleLevelFill, parseClrMap, parseClrScheme, placeholderInheritedDefRPrs, placeholderInheritedFill, resolveColor, resolveThemeFont, styleRefFill, styleRefLine, type ColorContext, type FlattenContext } from '../oxml/theme.js'
+import { lstStyleLevelDefRPr, lstStyleLevelFill, parseClrMap, parseClrScheme, placeholderInheritedAnchor, placeholderInheritedDefRPrs, placeholderInheritedFill, resolveColor, resolveThemeFont, styleRefFill, styleRefLine, type ColorContext, type FlattenContext } from '../oxml/theme.js'
 import type { OpcPackage } from '../opc/package.js'
 
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
@@ -172,6 +172,17 @@ export function resolveInheritedRunFontFace(ph: PlaceholderRef, level: number, p
 		if (typeface) return resolveThemeFont(typeface, ctx.fontScheme ?? null)
 	}
 	return null
+}
+
+/**
+ * The vertical anchor a placeholder text frame effectively renders when its own
+ * `a:bodyPr` sets no `@anchor`: the value inherited from the layout → master
+ * placeholder `a:bodyPr` (see {@link placeholderInheritedAnchor}). `null` when the
+ * frame is not in a placeholder or nothing in the chain sets an anchor (PowerPoint
+ * then defaults to top).
+ */
+export function resolveInheritedAnchor(ph: PlaceholderRef, ctx: FlattenContext): string | null {
+	return placeholderInheritedAnchor(ph.type, ph.idx, ctx)
 }
 
 /**
