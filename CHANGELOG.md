@@ -21,14 +21,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `[Content_Types].xml`, and the new slide/media parts change. Companion additions:
   **`Presentation.layouts()`** returns the deck's layout gallery as addressable
   `LayoutHandle`s, and **`PptxGenJS.extractSlides()`** exposes the generator's
-  per-slide artifacts (body XML + image media + hyperlinks) without producing a
-  package. v1 limitations: charts, audio/video media, and internal slide-to-slide
-  hyperlinks throw; appended slides are concrete absolute-positioned content (no
+  per-slide artifacts (body XML + image media + hyperlinks + charts) without
+  producing a package. **Charts** (chart XML + `.rels` + embedded workbook) and
+  **internal slide-to-slide hyperlinks** (`slide:N` repointed at the Nth appended
+  slide) are carried across; appendSlides injects in two passes so a forward link
+  resolves. Limitations: audio/video media throws (fixture-gated, backlog
+  `dn-append-av-media`); an internal link to a source slide outside the appended
+  batch throws; appended slides are concrete absolute-positioned content (no
   placeholder inheritance — `schemeClr` re-resolves against the destination theme);
   source/destination slide sizes must match; notes are not generated. Lands in
   `src/pptxgen.ts` (`extractSlides`), `src/read/api/presentation.ts` (`layouts`,
-  `appendSlides`, reusing `#insertSlidePart`), and `src/read.ts` (type exports).
-  Implements backlog `dn-append-onto-existing-deck`.
+  `appendSlides`, reusing `#insertSlidePart`), `src/gen-charts.ts`
+  (`buildEmbeddedWorksheet`/`buildChartRelsXml` split), and `src/read.ts` (type
+  exports). Implements backlog `dn-append-onto-existing-deck`.
 - **`FontMetrics.hasCodepoint(cp)` — cmap glyph coverage on the `measure` API:**
   the `measure` subpath's `FontMetrics` interface gains
   `hasCodepoint(cp: number): boolean`, reporting whether a face's cmap maps a code

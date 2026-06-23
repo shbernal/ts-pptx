@@ -21,10 +21,14 @@ const SLIDE_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/
 const NOTES_SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
 const IMAGE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 const HYPERLINK_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
+const CHART_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart'
+const PACKAGE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/package'
 
 const SLIDE_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
 const SLIDE_LAYOUT_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+const CHART_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'
+const XLSX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 const textEncoder = new TextEncoder()
 
@@ -234,12 +238,16 @@ export interface ExtractedSlide {
 	media: Array<{ rId: number; bytes: Uint8Array; extn: string; contentType: string }>
 	/** External hyperlink rels, keyed by the `rId` used in {@link xml}. */
 	hyperlinks: Array<{ rId: number; target: string }>
-	/** True if the slide references a chart (unsupported by `appendSlides` in v1). */
-	hasChart: boolean
-	/** True if the slide references audio/video media (unsupported in v1). */
+	/**
+	 * Charts the body references, keyed by the `rId` used in {@link xml}. Each carries
+	 * the chart part XML and its embedded workbook bytes; the chart part's own `.rels`
+	 * (workbook reference) is rebuilt by {@link Presentation.appendSlides}.
+	 */
+	charts: Array<{ rId: number; chartXml: string; embeddingBytes: Uint8Array }>
+	/** Internal slide-to-slide links: the `rId` used in {@link xml} → 1-based source slide number. */
+	slideLinks: Array<{ rId: number; sourceSlideNumber: number }>
+	/** True if the slide references audio/video media (unsupported by `appendSlides`; see backlog `dn-append-av-media`). */
 	hasAvMedia: boolean
-	/** True if the slide has an internal slide-to-slide hyperlink (unsupported in v1). */
-	hasInternalSlideLink: boolean
 }
 
 /** A generator's authored slides + canvas size, the input to {@link Presentation.appendSlides}. */
@@ -592,10 +600,15 @@ export class Presentation {
 	 * (preserving the body's relationship ids). Insert position follows
 	 * `options.at` (see {@link AppendSlidesOptions}).
 	 *
-	 * v1 limitations:
-	 * - Charts and audio/video media in an appended slide throw (a follow-up leg).
-	 * - Internal slide-to-slide hyperlinks throw (they reference the generator's own
-	 *   slide numbering, which has no meaning in the destination).
+	 * Charts and internal slide-to-slide hyperlinks are carried across: chart parts
+	 * (chart XML + `.rels` + embedded workbook) are injected under fresh names, and a
+	 * `slide:N` link is repointed at the Nth appended slide's new partname.
+	 *
+	 * Limitations:
+	 * - Audio/video media in an appended slide throws (fixture-gated; backlog
+	 *   `dn-append-av-media`).
+	 * - An internal link to a source slide outside the appended batch throws (its
+	 *   target has no counterpart in the destination).
 	 * - Appended slides are concrete absolute-positioned content with no placeholder
 	 *   inheritance from the bound layout; the binding governs theme/`clrMap`
 	 *   resolution and the "based on" link, not placeholder geometry. Author with
@@ -638,32 +651,59 @@ export class Presentation {
 		// string, it does not require the part to exist).
 		const slideTemplate = this.slides[0]?.partName ?? '/ppt/slides/slide1.xml'
 
+		// Pass 1: reserve + add every slide body first, so internal slide-to-slide
+		// links (which may point forward) can resolve to any appended slide. Adding
+		// each part immediately claims its name — reservePartNameLike returns max+1
+		// from the existing parts, so the next reservation sees it. (addPart registers
+		// the slide's Override content type.)
+		const placed = extracted.slides.map((slide, i) => {
+			if (slide.hasAvMedia) throw new Error(`appendSlides: slide ${i} contains audio/video media, which is not supported yet (backlog dn-append-av-media)`)
+			const partName = this.opc.reservePartNameLike(slideTemplate)
+			const part = this.opc.addPart(partName, SLIDE_CONTENT_TYPE, textEncoder.encode(slide.xml))
+			return { slide, part, partName }
+		})
+
+		// 1-based source slide number -> the appended slide's new partname.
+		const partBySourceNumber = new Map<number, string>(placed.map((p, i) => [i + 1, p.partName]))
+
+		// Pass 2: build each slide's .rels and wire it into presentation.xml. Media,
+		// hyperlinks, charts, and slide-links keep the body's rId (addWithId); the
+		// layout rel is added last via add() so its auto-id cannot collide.
 		const added: Slide[] = []
-		extracted.slides.forEach((slide, i) => {
-			if (slide.hasChart) throw new Error(`appendSlides: slide ${i} contains a chart, which is not supported in v1`)
-			if (slide.hasAvMedia) throw new Error(`appendSlides: slide ${i} contains audio/video media, which is not supported in v1`)
-			if (slide.hasInternalSlideLink) throw new Error(`appendSlides: slide ${i} has an internal slide-to-slide hyperlink, which is not supported in v1`)
-
-			// Add the slide part (addPart registers its Override content type).
-			const newPartName = this.opc.reservePartNameLike(slideTemplate)
-			const newPart = this.opc.addPart(newPartName, SLIDE_CONTENT_TYPE, textEncoder.encode(slide.xml))
-
-			// Build the slide .rels. Media/hyperlinks keep the body's rId (addWithId);
-			// the layout rel is added last via add() so its auto-id cannot collide.
-			const rels = this.opc.relationshipsFor(newPartName)
+		placed.forEach(({ slide, part, partName }, i) => {
+			const rels = this.opc.relationshipsFor(partName)
 			for (const m of slide.media) {
 				const mediaPartName = this.opc.reserveMediaPartName(m.extn)
 				this.opc.addPart(mediaPartName, m.contentType, m.bytes)
-				rels.addWithId(`rId${m.rId}`, IMAGE_REL, relativePartName(newPartName, mediaPartName))
+				rels.addWithId(`rId${m.rId}`, IMAGE_REL, relativePartName(partName, mediaPartName))
 			}
 			for (const h of slide.hyperlinks) {
 				rels.addWithId(`rId${h.rId}`, HYPERLINK_REL, h.target, 'External')
 			}
-			rels.add(SLIDE_LAYOUT_REL, relativePartName(newPartName, target.partName))
+			for (const c of slide.charts) {
+				// Chart part + its embedded workbook, each under a fresh name. The chart
+				// XML references the workbook through the chart part's own rId1, so the
+				// chart .rels is rebuilt here against the reserved workbook partname.
+				const chartPartName = this.opc.reservePartNameLike('/ppt/charts/chart1.xml')
+				this.opc.addPart(chartPartName, CHART_CONTENT_TYPE, textEncoder.encode(c.chartXml))
+				const embeddingPartName = this.opc.reservePartNameLike('/ppt/embeddings/Microsoft_Excel_Worksheet1.xlsx')
+				this.opc.contentTypes.ensureDefault('xlsx', XLSX_CONTENT_TYPE)
+				this.opc.addPart(embeddingPartName, XLSX_CONTENT_TYPE, c.embeddingBytes)
+				this.opc.relationshipsFor(chartPartName).addWithId('rId1', PACKAGE_REL, relativePartName(chartPartName, embeddingPartName))
+				rels.addWithId(`rId${c.rId}`, CHART_REL, relativePartName(partName, chartPartName))
+			}
+			for (const link of slide.slideLinks) {
+				const targetPartName = partBySourceNumber.get(link.sourceSlideNumber)
+				if (!targetPartName) {
+					throw new Error(`appendSlides: slide ${i} links to source slide ${link.sourceSlideNumber}, which is not among the appended slides`)
+				}
+				rels.addWithId(`rId${link.rId}`, SLIDE_REL, relativePartName(partName, targetPartName))
+			}
+			rels.add(SLIDE_LAYOUT_REL, relativePartName(partName, target.partName))
 
 			// Wire into presentation.xml (rel + p:sldId) at the requested position.
 			const at = options.at === undefined ? undefined : options.at + i
-			added.push(this.#insertSlidePart(newPart, at))
+			added.push(this.#insertSlidePart(part, at))
 		})
 
 		return added

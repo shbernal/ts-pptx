@@ -21,8 +21,10 @@ import { isInstalled, validateBuf } from '../validator.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const validatorInstalled = await isInstalled()
 
+const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
 const IMAGE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
+const CHART_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart'
 const NOTES_SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
 
 // 1×1 transparent PNG.
@@ -150,17 +152,27 @@ describe('Presentation.appendSlides', () => {
 		assertEqual(reopened.slides[0].slideId, added.slideId, 'the appended slide landed first (at: 0)')
 	})
 
-	test.skipIf(!validatorInstalled)('the appended deck stays schema-valid', async () => {
-		const pres = await Presentation.load(await readFile(fixturePath('theme-colors')))
-		const pptx = wideGenerator()
-		const slide = pptx.addSlide()
-		slide.addText('valid', { x: 1, y: 1, w: 6, h: 1, color: '0000FF' })
-		slide.addImage({ data: PNG_1PX, x: 1, y: 3, w: 1, h: 1 })
-		await pres.appendSlides(pptx, { layout: 'Blank' })
+	test.skipIf(!validatorInstalled)(
+		'the appended deck stays schema-valid (text, image, chart, internal link)',
+		async () => {
+			const pres = await Presentation.load(await readFile(fixturePath('theme-colors')))
+			const pptx = wideGenerator()
+			const slide = pptx.addSlide()
+			slide.addText('valid', { x: 1, y: 1, w: 6, h: 1, color: '0000FF', hyperlink: { slide: 2 } })
+			slide.addImage({ data: PNG_1PX, x: 1, y: 3, w: 1, h: 1 })
+			slide.addChart(pptx.ChartType.bar, [{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
+				x: 7,
+				y: 1,
+				w: 5,
+				h: 3,
+			})
+			pptx.addSlide().addText('target', { x: 1, y: 1, w: 6, h: 1 })
+			await pres.appendSlides(pptx, { layout: 'Blank' })
 
-		const errors = await validateBuf(Buffer.from(await pres.save()))
-		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
-	})
+			const errors = await validateBuf(Buffer.from(await pres.save()))
+			assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+		}
+	)
 
 	test('rejects an unknown layout name', async () => {
 		const pres = await Presentation.load(await readFile(fixturePath('theme-colors')))
@@ -179,15 +191,94 @@ describe('Presentation.appendSlides', () => {
 		assert(await rejects(() => pres.appendSlides(pptx, { layout: 'Blank' })), 'a mismatched slide size throws')
 	})
 
-	test('rejects an appended slide containing a chart (v1 limitation)', async () => {
-		const pres = await Presentation.load(await readFile(fixturePath('theme-colors')))
+	test('appends a slide with a chart, injecting chart + workbook parts and keeping chrome byte-identical', async () => {
+		const originalBytes = await readFile(fixturePath('theme-colors'))
+		const before = await partBodies(originalBytes)
+		const pres = await Presentation.load(originalBytes)
+
 		const pptx = wideGenerator()
 		pptx
 			.addSlide()
 			.addChart(pptx.ChartType.bar, [{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], { x: 1, y: 1, w: 6, h: 3 })
+
+		const [added] = await pres.appendSlides(pptx, { layout: 'Blank' })
+		const out = await pres.save()
+		const after = await partBodies(out)
+
+		// Byte-stability: only the three wiring parts plus brand-new parts change.
+		const expectedChanged = new Set(['ppt/presentation.xml', 'ppt/_rels/presentation.xml.rels', '[Content_Types].xml'])
+		for (const [name, bytes] of before) {
+			assert(after.has(name), `part ${name} survives the append`)
+			if (expectedChanged.has(name)) continue
+			assert(bytesEqual(bytes, after.get(name)), `part ${name} is byte-identical after the append`)
+		}
+
+		// The chart's three parts were injected: chart XML, its .rels, and the workbook.
+		const newParts = [...after.keys()].filter((name) => !before.has(name))
+		assert(
+			newParts.some((n) => /^ppt\/charts\/chart\d+\.xml$/.test(n)),
+			`a chart part was added (${newParts.join(', ')})`
+		)
+		assert(
+			newParts.some((n) => /^ppt\/charts\/_rels\/chart\d+\.xml\.rels$/.test(n)),
+			'the chart .rels was added'
+		)
+		assert(
+			newParts.some((n) => /^ppt\/embeddings\/.*\.xlsx$/.test(n)),
+			'the embedded workbook was added'
+		)
+
+		// The slide's chart rel resolves, and the chart part's own rel resolves to the workbook.
+		const reopened = await Presentation.load(out)
+		const newSlide = reopened.slides.find((s) => s.partName === added.partName)
+		const chartPart = resolveSingle(reopened.opc, added.partName, CHART_REL)
+		assert(chartPart && reopened.opc.part(chartPart), `the slide's chart rel resolves (${chartPart})`)
+		assert(newSlide, 'the appended chart slide is present after reopen')
+		const PACKAGE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/package'
+		const workbook = resolveSingle(reopened.opc, chartPart, PACKAGE_REL)
+		assert(workbook && reopened.opc.part(workbook), `the chart's workbook rel resolves (${workbook})`)
+	})
+
+	test('carries an internal slide-to-slide hyperlink across, repointed at the appended target', async () => {
+		const pres = await Presentation.load(await readFile(fixturePath('theme-colors')))
+
+		// Slide 1 links to slide 2 (source numbering); both are appended together.
+		const pptx = wideGenerator()
+		pptx.addSlide().addText('go to two', { x: 1, y: 1, w: 6, h: 1, hyperlink: { slide: 2 } })
+		pptx.addSlide().addText('slide two', { x: 1, y: 1, w: 6, h: 1 })
+
+		const added = await pres.appendSlides(pptx, { layout: 'Blank' })
+		assertEqual(added.length, 2, 'both slides were appended')
+
+		const reopened = await Presentation.load(await pres.save())
+		const linkTarget = resolveSingle(reopened.opc, added[0].partName, SLIDE_REL)
+		assertEqual(linkTarget, added[1].partName, 'the internal link resolves to the 2nd appended slide')
+	})
+
+	test('rejects an internal link to a source slide outside the appended batch', async () => {
+		const pres = await Presentation.load(await readFile(fixturePath('theme-colors')))
+		const pptx = wideGenerator()
+		pptx.addSlide().addText('dangling', { x: 1, y: 1, w: 6, h: 1, hyperlink: { slide: 9 } })
 		assert(
 			await rejects(() => pres.appendSlides(pptx, { layout: 'Blank' })),
-			'a chart slide throws the v1-unsupported error'
+			'a link to a non-appended source slide throws'
+		)
+	})
+
+	test('rejects an appended slide containing audio/video media (fixture-gated, dn-append-av-media)', async () => {
+		const pres = await Presentation.load(await readFile(fixturePath('theme-colors')))
+		const pptx = wideGenerator()
+		pptx.addSlide().addMedia({
+			type: 'video',
+			data: 'data:video/mp4;base64,AAAA',
+			x: 1,
+			y: 1,
+			w: 6,
+			h: 3,
+		})
+		assert(
+			await rejects(() => pres.appendSlides(pptx, { layout: 'Blank' })),
+			'an audio/video slide throws the unsupported error'
 		)
 	})
 })

@@ -778,13 +778,27 @@ export default class PptxGenJS {
 				.filter(rel => rel.type.toLowerCase().includes('hyperlink') && rel.data !== 'slide')
 				.map(rel => ({ rId: rel.rId, target: rel.Target }))
 
+			// Internal slide-to-slide links: rel.data === 'slide', rel.Target is the
+			// 1-based source slide number (see addText's hyperlink.slide handling).
+			const slideLinks = slide._rels
+				.filter(rel => rel.type.toLowerCase().includes('hyperlink') && rel.data === 'slide')
+				.map(rel => ({ rId: rel.rId, sourceSlideNumber: Number(rel.Target) }))
+
+			// Charts: serialize the chart part XML + its embedded workbook bytes. The
+			// chart part's own .rels (workbook reference) is rebuilt on injection.
+			const charts = (slide._relsChart || []).map(rel => ({
+				rId: rel.rId,
+				chartXml: genCharts.makeXmlCharts(rel),
+				embeddingBytes: genCharts.buildEmbeddedWorksheet(rel),
+			}))
+
 			return {
 				xml: genXml.makeXmlSlide(slide),
 				media,
 				hyperlinks,
-				hasChart: (slide._relsChart || []).length > 0,
+				charts,
+				slideLinks,
 				hasAvMedia: slide._relsMedia.some(rel => /audio|video/i.test(rel.type)),
-				hasInternalSlideLink: slide._rels.some(rel => rel.type.toLowerCase().includes('hyperlink') && rel.data === 'slide'),
 			}
 		})
 

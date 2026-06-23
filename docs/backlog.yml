@@ -3126,7 +3126,7 @@ items:
     type: downstream-need
     first_seen: 2026-06-20
     last_reviewed: 2026-06-23
-    status: partially-implemented
+    status: implemented
     priority: p2
     target_area:
       - package-boundary
@@ -3134,7 +3134,7 @@ items:
     applies_to_current_project: partial
     non_target_reasons: []
     summary: Append newly generated slides onto a loaded existing deck, keeping its masters/theme byte-stable (hybrid generate-onto-existing)
-    current_project_notes: "Implemented via read-centric injection (v1): the loaded OpcPackage stays the byte-stable source of truth and is never regenerated. PptxGenJS.extractSlides() (src/pptxgen.ts) authors slides and returns per-slide descriptors {xml, image media bytes, external hyperlinks, hasChart/hasAvMedia/hasInternalSlideLink flags, slide-size EMU}, reusing the existing encodeSlideMediaRels + addPlaceholdersToSlideLayouts + applyMeasuredFit + makeXmlSlide passes (no zipping). Presentation.appendSlides(source, {layout, at, onMediaError}) (src/read/api/presentation.ts) resolves the target layout via the new public Presentation.layouts() (LayoutHandle[], promoting #slideMasterPartNames/#layoutPartNamesOf), enforces equal slide size, injects each slide body + its media as fresh parts (addPart registers content types), rebuilds the slide .rels with the slideLayout pointed at the EXISTING layout and image/hyperlink rels preserving the body's rIds (add layout rel last so its auto-id can't collide), drops notes, and wires p:sldId via the existing #insertSlidePart. SlideSource is a structural interface so read/ never imports the generator at runtime; types re-exported from src/read.ts. Byte-stability verified: only presentation.xml, its .rels, [Content_Types].xml, and the new slide/media parts change. v1 limitations (deferred follow-up leg): charts, audio/video media, and internal slide-to-slide hyperlinks throw; no placeholder inheritance; schemeClr re-resolves against the destination theme; sizes must match; no notes. Original design rationale: signature payoff of the lossless pass-through design; spans generator + read subsystem; gate (Phase 2 read model + layout binding) was satisfied."
+    current_project_notes: "Implemented via read-centric injection: the loaded OpcPackage stays the byte-stable source of truth and is never regenerated. PptxGenJS.extractSlides() (src/pptxgen.ts) authors slides and returns per-slide descriptors {xml, image media bytes, external hyperlinks, charts (chart XML + embedded workbook bytes), slideLinks (rId -> 1-based source slide number), hasAvMedia flag, slide-size EMU}, reusing the existing encodeSlideMediaRels + addPlaceholdersToSlideLayouts + applyMeasuredFit + makeXmlSlide passes plus the new pure genCharts.buildEmbeddedWorksheet/buildChartRelsXml split (no zipping). Presentation.appendSlides(source, {layout, at, onMediaError}) (src/read/api/presentation.ts) resolves the target layout via the public Presentation.layouts() (LayoutHandle[]), enforces equal slide size, and injects in two passes: pass 1 reserves+adds every slide body (so forward internal links resolve) building a 1-based source-number -> new-partname map; pass 2 rebuilds each slide .rels — image media (fresh parts), external hyperlinks, charts (fresh chart + embedding parts, chart's own rId1->workbook .rels rebuilt, xlsx Default content-type ensured), internal slide-to-slide links (slide:N repointed at the Nth appended partname, throws if N is outside the batch), then the slideLayout rel pointed at the EXISTING layout last so its auto-id can't collide — and wires p:sldId via #insertSlidePart. SlideSource is a structural interface so read/ never imports the generator at runtime; types re-exported from src/read.ts. Byte-stability verified: only presentation.xml, its .rels, [Content_Types].xml, and the new slide/media/chart/embedding parts change; appended deck stays schema-valid (text+image+chart+internal-link). Remaining gap carved off to dn-append-av-media (audio/video, fixture-gated). Other limitations by design: no placeholder inheritance; schemeClr re-resolves against the destination theme; sizes must match; no notes."
     evidence:
       kinds:
         - local-source-inspection
@@ -3149,7 +3149,7 @@ items:
       validator_result: test/read/append-onto-existing.test.js asserts the appended deck stays schema-valid (skipped when the OOXML validator is not installed)
       powerpoint_result: null
       spec_refs: []
-    next_action: Follow-up leg — support charts (chart XML + .rels + embedded xlsx), audio/video media, and internal slide-to-slide hyperlinks in appended slides (currently rejected in v1)
+    next_action: none
 
   - id: dn-fflate-zip-backend
     source: downstream
@@ -3491,3 +3491,78 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: none
+  - id: dn-append-av-media
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-06-23
+    last_reviewed: 2026-06-23
+    status: deferred
+    priority: p3
+    target_area:
+      - image-svg-media
+      - relationship-or-content-type
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: "appendSlides: support audio/video media in appended slides (split from dn-append-onto-existing-deck; fixture-gated)"
+    current_project_notes: |
+      Split out of dn-append-onto-existing-deck: the charts and internal
+      slide-to-slide hyperlink legs ship in appendSlides; A/V media is carved off
+      here because, unlike those two, it is a write-side structure whose target is
+      "what PowerPoint authors" and we have no oracle for it yet (Fixture-Gated
+      Work, AGENTS.md). Until the fixtures below exist, appendSlides keeps throwing
+      on a slide that references audio/video media (the hasAvMedia guard in
+      PptxGenJS.extractSlides / Presentation.appendSlides).
+
+      Why A/V is harder than image media (the shape we must reproduce in
+      Presentation.appendSlides, mirroring gen-xml.ts slideObjectRelationsToXml +
+      the media cases in slideObjectToXml):
+        - Each A/V item is NOT one rel. The generator emits TWO _relsMedia entries
+          sharing one Target — a Microsoft 2007 `media` rel
+          (http://schemas.microsoft.com/office/2007/relationships/media) AND an
+          ECMA `audio` or `video` rel
+          (http://schemas.openxmlformats.org/officeDocument/2006/relationships/{audio|video})
+          — PLUS a separate `image` rel for the poster/preview frame.
+        - The slide body references three consecutive rIds per item: rId{mediaRid}
+          (r:link on <a:audioFile>/<a:videoFile>), rId{mediaRid+1}
+          (<p14:media r:embed> in the cNvPr extLst), and rId{mediaRid+2}
+          (<a:blip r:embed> preview in the blipFill). appendSlides must preserve
+          all three body rIds and repoint each to a freshly-reserved part.
+        - Content types: the media part needs a Default extension entry (e.g. mp4 →
+          video/mp4, m4a → audio/mp4, mp3 → audio/mpeg) rather than an Override;
+          extractSlides must surface each part's content type since imageContentType
+          does not cover A/V (add an A/V content-type resolver).
+        - extractSlides currently filters _relsMedia to image rels only and just
+          sets hasAvMedia; it must instead emit A/V descriptors carrying the link
+          part bytes + extn + content type, the preview-image bytes, and the
+          body rId triple, with the two-rels-per-item Target sharing intact.
+
+      Fixture dependency (blocking precondition — do not implement against
+      synthetic/round-tripped XML):
+        1. Tiny real media binaries to drive the generator path in tests, committed
+           under test/read/fixtures/media/ (the bytes addMedia must encode):
+             - a minimal valid MP4 video (a few KB, 1 frame is fine),
+             - a minimal valid audio clip (M4A/AAC or MP3),
+             - a poster PNG (the preview frame; the 1x1 PNG already used in the
+               append tests is acceptable).
+        2. A PowerPoint-authored oracle deck, test/read/fixtures/av-media.pptx,
+           authored in real PowerPoint (NOT generated by this library), containing
+           one slide with an embedded video and one with embedded audio. This is the
+           rel-graph + content-type oracle: it pins the exact relationship types and
+           ordering (media + video/audio pair, p14:media embed, preview image rel),
+           the [Content_Types].xml Default extension entries Office writes, and the
+           <p:nvPr>/extLst markup, so the appended structure can be asserted against
+           what PowerPoint actually produces rather than guessed.
+
+      Acceptance: appendSlides accepts a source slide carrying addMedia audio/video;
+      only presentation.xml + its .rels + [Content_Types].xml + the new
+      slide/media/preview parts change (byte-stability preserved); the appended deck
+      opens in PowerPoint and stays schema-valid; the emitted rel graph matches the
+      authored oracle.
+    evidence:
+      kinds: []
+      local_files: []
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: Author the fixtures above (tiny MP4/audio binaries + PowerPoint-authored av-media.pptx oracle), then mirror gen-xml's A/V media rel structure in extractSlides + appendSlides and drop the hasAvMedia throw

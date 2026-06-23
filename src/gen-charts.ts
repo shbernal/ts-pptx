@@ -26,12 +26,15 @@ import { ZipWriter } from './zip.js'
 const VALID_CHART_TIME_UNITS = ['days', 'months', 'years']
 
 /**
- * Based on passed data, creates Excel Worksheet that is used as a data source for a chart.
+ * Build the chart's embedded Excel workbook as a standalone OPC package and
+ * return its bytes — the data source PowerPoint opens when a user edits the
+ * chart's data. Pure (no zip side effects), so both the package write path
+ * ({@link createExcelWorksheet}) and the read-side injection path
+ * (`PptxGenJS.extractSlides`) can reuse it.
  * @param {ISlideRelChart} chartObject - chart object
- * @param {ZipWriter} zip - zip writer the resulting XLSX (and chart parts) are added to
- * @return {Promise} promise of generating the XLSX file
+ * @return {Uint8Array} the embedded `.xlsx` package bytes
  */
-export async function createExcelWorksheet (chartObject: ISlideRelChart, zip: ZipWriter): Promise<string> {
+export function buildEmbeddedWorksheet (chartObject: ISlideRelChart): Uint8Array {
 	const data = chartObject.data
 
 	{
@@ -443,23 +446,45 @@ export async function createExcelWorksheet (chartObject: ISlideRelChart, zip: Zi
 			zipExcel.add('xl/worksheets/sheet1.xml', strSheetXml)
 		}
 
-		// C: Add XLSX to PPTX export
-		// 1: Create the embedded Excel worksheet with labels and data. The xlsx is
-		//    itself a zip, so STORE it — re-DEFLATING already-compressed bytes wastes CPU.
-		zip.add(`ppt/embeddings/Microsoft_Excel_Worksheet${chartObject.globalId}.xlsx`, zipExcel.toBytes(), { store: true })
-
-		// 2: Create the chart.xml and rel files
-		zip.add(
-			'ppt/charts/_rels/' + chartObject.fileName + '.rels',
-			'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
-			'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-			`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/package" Target="../embeddings/Microsoft_Excel_Worksheet${chartObject.globalId}.xlsx"/>` +
-			'</Relationships>'
-		)
-		zip.add(`ppt/charts/${chartObject.fileName}`, makeXmlCharts(chartObject))
+		// Done — return the embedded workbook bytes for the caller to place.
+		return zipExcel.toBytes()
 	}
+}
 
-	// 3: Done
+/**
+ * Build the standalone `.rels` for a chart part: a single `rId1` relationship to
+ * the chart's embedded workbook (`Target`). Shared by the package write path and
+ * the read-side injection path, which pass different (relative) embedding targets.
+ * @param {string} embeddingTarget - the workbook target, relative to the chart part
+ * @return {string} the chart part's `.rels` XML
+ */
+export function buildChartRelsXml (embeddingTarget: string): string {
+	return (
+		'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+		'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+		`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/package" Target="${embeddingTarget}"/>` +
+		'</Relationships>'
+	)
+}
+
+/**
+ * Create the chart's embedded Excel worksheet and add the chart + workbook parts
+ * to `zip` (package write path). The read-side injection path builds the same
+ * parts itself from {@link buildEmbeddedWorksheet}, {@link buildChartRelsXml}, and
+ * {@link makeXmlCharts}.
+ * @param {ISlideRelChart} chartObject - chart object
+ * @param {ZipWriter} zip - zip writer the resulting XLSX (and chart parts) are added to
+ * @return {Promise} promise of generating the XLSX file
+ */
+export async function createExcelWorksheet (chartObject: ISlideRelChart, zip: ZipWriter): Promise<string> {
+	// 1: Embed the workbook. The xlsx is itself a zip, so STORE it — re-DEFLATING
+	//    already-compressed bytes wastes CPU.
+	zip.add(`ppt/embeddings/Microsoft_Excel_Worksheet${chartObject.globalId}.xlsx`, buildEmbeddedWorksheet(chartObject), { store: true })
+
+	// 2: Create the chart.xml and rel files
+	zip.add('ppt/charts/_rels/' + chartObject.fileName + '.rels', buildChartRelsXml(`../embeddings/Microsoft_Excel_Worksheet${chartObject.globalId}.xlsx`))
+	zip.add(`ppt/charts/${chartObject.fileName}`, makeXmlCharts(chartObject))
+
 	return ''
 }
 
