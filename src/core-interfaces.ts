@@ -2939,6 +2939,8 @@ export interface ISlideObject {
 	loop?: boolean
 	loopCount?: number
 	shape?: SHAPE_NAME
+	// group (flat group): child render-objects emitted inside this object's `<p:grpSp>`
+	_groupObjects?: ISlideObject[]
 }
 // PRIVATE ^^^
 
@@ -3040,6 +3042,37 @@ export type SlideMasterObject =
 			text?: string
 		}
 	}
+/**
+ * A child object that can be placed inside a group via `slide.addGroup()`.
+ *
+ * Uses the same key-tagged descriptor shape as `SlideMasterObject`, but limited to the
+ * object types the flat-group MVP supports. Charts, media, tables, placeholders, and nested
+ * groups are intentionally excluded (see `addGroup`); passing one logs a warning and skips it.
+ * @since v4.0.0
+ */
+export type GroupChildProps =
+	| { image: ImageProps }
+	| { line: ShapeProps }
+	| { rect: ShapeProps }
+	| { roundRect: ShapeProps }
+	| { shape: { type: SHAPE_NAME, options?: ShapeProps } }
+	| { text: { text: string | number | TextProps[], options?: TextPropsOptions } }
+/**
+ * Options for `slide.addGroup()`.
+ *
+ * The group is a *flat* group (identity child coordinate space): children keep their
+ * slide-absolute `x/y/w/h`. When `x/y/w/h` are omitted the group's bounds are auto-computed
+ * as the bounding box of its children.
+ * @since v4.0.0
+ */
+export interface GroupProps extends PositionProps, ObjectNameProps {
+	/** Rotation in degrees (applied to the whole group) */
+	rotate?: number
+	/** Flip the group horizontally */
+	flipH?: boolean
+	/** Flip the group vertically */
+	flipV?: boolean
+}
 export interface SlideMasterProps {
 	/**
 	 * Unique name for this master

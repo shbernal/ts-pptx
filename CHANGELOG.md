@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`slide.addGroup(children, options?)` — group slide objects (issue #307):**
+  wraps child objects in a single PowerPoint group (`<p:grpSp>`) so they become one
+  selectable/movable group. Children are key-tagged descriptors reusing the slide-master
+  `objects` shape (`{ text }`, `{ image }`, `{ shape }`, `{ rect }`, `{ roundRect }`,
+  `{ line }`). This is a **flat-group MVP**: the child coordinate space is the identity
+  transform (`chOff/chExt` == `off/ext`), so children keep their slide-absolute
+  `x/y/w/h` and grouping is visually a no-op. When `options.x/y/w/h` are omitted the
+  group's bounds are auto-computed as the bounding box of its children. Not yet
+  supported (each skipped with a warning): charts, media, tables, placeholders, and
+  nested groups; true child-space scaling is also deferred. Lands in
+  `src/gen-objects.ts` (`addGroupDefinition`), `src/gen-xml.ts` (`<p:grpSp>` serialization),
+  `src/slide.ts` (`addGroup`), with `GroupProps`/`GroupChildProps` in `src/core-interfaces.ts`.
 - **`pptx.tableLayout(rows, opts)` — computed table-cell geometry (issue #1169):**
   a layout-time accessor that returns each cell's `{ row, col, rowSpan, colSpan,
   xIn, yIn, wIn, hIn, heightExact }` (inches) plus overall `widthIn`/`heightIn`,

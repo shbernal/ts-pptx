@@ -2051,8 +2051,8 @@ items:
     source: "gitbrent/PptxGenJS#307"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-11
-    status: deferred
+    last_reviewed: 2026-06-23
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -2060,25 +2060,36 @@ items:
     non_target_reasons: []
     summary: Requested grouping shapes and other slide objects.
     current_project_notes: >
-      Deferred (in scope, reduce scope before building). A group (a:grpSp /
-      p:grpSp) is a legitimate primitive, but a faithful implementation needs
-      child coordinate transforms (chOff/chExt) and recursive bounding-box math,
-      which is a large effort. Revisit with a flat-group MVP (no nested scaling)
-      only when a concrete need lands; full nesting is out of scope until then.
+      Implemented as the flat-group MVP. `slide.addGroup(children, options?)` emits a
+      single `<p:grpSp>` with an identity child coordinate space (chOff/chExt == off/ext),
+      so children keep their slide-absolute coordinates; group bounds default to the
+      bounding box of the children when x/y/w/h are omitted. Children reuse the slide-master
+      `objects` descriptor shape (text/image/shape/rect/roundRect/line) via a shared
+      `addChildDefinition` dispatch extracted from `createSlideMaster`. The per-object
+      serialization in `gen-xml.ts` was extracted into a nested `renderSlideObjectXml` so the
+      group case can render children recursively; child `<p:cNvPr id>` values are allocated
+      from a counter seeded past the top-level objects to stay unique. Out of scope (skipped
+      with a warning / deferred): nested groups, true child-space scaling, and grouping
+      charts/media/tables/placeholders.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/core-enums.ts:732
-        - src/core-enums.ts:741
-        - src/gen-objects.ts:751
-        - src/gen-xml.ts:162
-        - src/gen-xml.ts:569
-      schema_fixture: null
-      validator_result: null
+        - src/core-enums.ts:764
+        - src/core-interfaces.ts (GroupProps, GroupChildProps, ISlideObject._groupObjects)
+        - src/gen-objects.ts (addGroupDefinition, addChildDefinition)
+        - src/gen-xml.ts (renderSlideObjectXml, SLIDE_OBJECT_TYPES.group case)
+        - src/slide.ts (addGroup)
+        - test/regression/group-shapes.test.js
+        - test/schema.test.js (flat group of shape + text + image)
+      schema_fixture: "test/schema.test.js: flat group of shape + text + image (addGroup)"
+      validator_result: OOXMLValidatorCLI reports 0 errors for the flat-group fixture (pnpm run test:schema)
       powerpoint_result: null
       spec_refs: []
-    next_action: revisit-with-flat-group-mvp-on-concrete-need
+    next_action: none
 
   - id: upstream-issue-98
     source: "gitbrent/PptxGenJS#98"

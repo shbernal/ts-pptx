@@ -32,6 +32,8 @@ import type {
 	BorderProps,
 	ConnectorProps,
 	Coord,
+	GroupChildProps,
+	GroupProps,
 	IChartMulti,
 	IChartOpts,
 	IChartOptsLib,
@@ -49,6 +51,7 @@ import type {
 	ShapeLineProps,
 	ShapeProps,
 	SlideLayoutInternal,
+	SlideMasterObject,
 	SlideMasterProps,
 	TableCell,
 	TableProps,
@@ -76,6 +79,83 @@ function normalizeBorderTuple(border: BorderProps | BorderTuple): BorderTuple {
 }
 
 /**
+ * Dispatch a key-tagged child-object descriptor (`{ text }`, `{ image }`, `{ shape }`, …) to the
+ * matching `add*Definition`. Shared by `createSlideMaster` (slide master `objects`) and
+ * `addGroupDefinition` (group children) so the descriptor mapping lives in one place.
+ *
+ * `placeholder` is intentionally not handled here — it is master-specific and needs the object's
+ * index for `_placeholderIdx`, so `createSlideMaster` handles that case itself.
+ * @param target - slide (or master) the object is appended to
+ * @param object - the child descriptor
+ * @returns `true` if the descriptor was recognized and added, else `false`
+ */
+function addChildDefinition(target: PresSlideInternal, object: SlideMasterObject | GroupChildProps): boolean {
+	if ('chart' in object) addChartDefinition(target, object.chart.type, object.chart.data, object.chart.opts || object.chart.options || {})
+	else if ('image' in object) addImageDefinition(target, object.image)
+	else if ('line' in object) addShapeDefinition(target, SHAPE_TYPE.LINE, object.line)
+	else if ('rect' in object) addShapeDefinition(target, SHAPE_TYPE.RECTANGLE, object.rect)
+	else if ('roundRect' in object) addShapeDefinition(target, SHAPE_TYPE.ROUNDED_RECTANGLE, object.roundRect)
+	else if ('shape' in object) addShapeDefinition(target, object.shape.type, object.shape.options || {})
+	else if ('text' in object) addTextDefinition(target, Array.isArray(object.text.text) ? object.text.text : [{ text: object.text.text }], object.text.options || {}, false)
+	else return false
+	return true
+}
+
+/**
+ * Add a flat group (`<p:grpSp>`) of child objects to a slide.
+ *
+ * MVP scope: an identity child coordinate space, so children keep their slide-absolute
+ * coordinates and grouping is visually a no-op while making the objects one selectable PowerPoint
+ * group. Charts, media, tables, placeholders, and nested groups are not supported yet; each is
+ * skipped with a warning. When `opts.x/y/w/h` are omitted the group's bounds are auto-computed
+ * (in `gen-xml`) as the bounding box of its children.
+ * @param target - slide the group is added to
+ * @param children - the child-object descriptors
+ * @param opts - group position/size/name options
+ */
+export function addGroupDefinition(target: PresSlideInternal, children: GroupChildProps[], opts: GroupProps): void {
+	const groupObjects: ISlideObject[] = []
+
+	;(children || []).forEach(child => {
+		// Reject object types the flat-group MVP does not support (rels/ID/transform work pending).
+		if ('chart' in child || 'placeholder' in child || 'table' in child || 'group' in child || 'media' in child) {
+			console.warn(`Warning: addGroup() does not support '${Object.keys(child)[0]}' children yet; skipping.`)
+			return
+		}
+		// Reuse the existing add*Definition logic (which registers any image/chart rels on the slide,
+		// correctly — grouped children still reference slide-level relationships), then move the
+		// just-appended object(s) off the slide's top-level list into this group's child list.
+		const before = target._slideObjects.length
+		if (!addChildDefinition(target, child)) {
+			console.warn(`Warning: addGroup() received an unrecognized child descriptor (${Object.keys(child).join(', ')}); skipping.`)
+			return
+		}
+		groupObjects.push(...target._slideObjects.splice(before))
+	})
+
+	const objectName = opts.objectName
+		? encodeXmlEntities(validateObjectName(opts.objectName, 'group'))
+		: `Group ${target._slideObjects.filter(obj => obj._type === SLIDE_OBJECT_TYPES.group).length + 1}`
+
+	target._slideObjects.push({
+		_type: SLIDE_OBJECT_TYPES.group,
+		_groupObjects: groupObjects,
+		options: {
+			x: opts.x,
+			y: opts.y,
+			w: opts.w,
+			h: opts.h,
+			rotate: opts.rotate,
+			flipH: opts.flipH,
+			flipV: opts.flipV,
+			objectName,
+			altText: opts.altText,
+			objectLock: opts.objectLock,
+		},
+	})
+}
+
+/**
  * Transforms a slide definition to a slide object that is then passed to the XML transformation process.
  * @param {SlideMasterProps} props - slide definition
  * @param {PresSlideInternal|SlideLayoutInternal} target - empty slide object that should be updated by the passed definition
@@ -89,14 +169,9 @@ export function createSlideMaster(props: SlideMasterProps, target: SlideLayoutIn
 	if (props.objects && Array.isArray(props.objects) && props.objects.length > 0) {
 		props.objects.forEach((object, idx) => {
 			const tgt = target as PresSlideInternal
-			if ('chart' in object) addChartDefinition(tgt, object.chart.type, object.chart.data, object.chart.opts || object.chart.options || {})
-			else if ('image' in object) addImageDefinition(tgt, object.image)
-			else if ('line' in object) addShapeDefinition(tgt, SHAPE_TYPE.LINE, object.line)
-			else if ('rect' in object) addShapeDefinition(tgt, SHAPE_TYPE.RECTANGLE, object.rect)
-			else if ('roundRect' in object) addShapeDefinition(tgt, SHAPE_TYPE.ROUNDED_RECTANGLE, object.roundRect)
-			else if ('shape' in object) addShapeDefinition(tgt, object.shape.type, object.shape.options || {})
-			else if ('text' in object) addTextDefinition(tgt, Array.isArray(object.text.text) ? object.text.text : [{ text: object.text.text }], object.text.options || {}, false)
-			else if ('placeholder' in object) {
+			if (addChildDefinition(tgt, object)) {
+				// handled by the shared chart/image/shape/text dispatch
+			} else if ('placeholder' in object) {
 				// TODO: 20180820: Check for existing `name`?
 				const placeholder = object.placeholder
 				const { name, type, ...rawPlaceholderOptions } = placeholder.options

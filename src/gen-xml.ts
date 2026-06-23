@@ -172,6 +172,7 @@ const RECT_RADIUS_ADJ1_SHAPES = new Set(['round2SameRect', 'round2DiagRect'])
 const SHAPE_LOCK_ATTRS = ['noGrp', 'noSelect', 'noRot', 'noChangeAspect', 'noMove', 'noResize', 'noEditPoints', 'noAdjustHandles', 'noChangeArrowheads', 'noChangeShapeType', 'noTextEdit'] as const
 const PICTURE_LOCK_ATTRS = ['noGrp', 'noSelect', 'noRot', 'noChangeAspect', 'noMove', 'noResize', 'noEditPoints', 'noAdjustHandles', 'noChangeArrowheads', 'noChangeShapeType', 'noCrop'] as const
 const GRAPHIC_FRAME_LOCK_ATTRS = ['noGrp', 'noDrilldown', 'noSelect', 'noChangeAspect', 'noMove', 'noResize'] as const
+const GROUP_SHAPE_LOCK_ATTRS = ['noGrp', 'noSelect', 'noRot', 'noChangeAspect', 'noMove', 'noResize'] as const
 
 /**
  * Serialize an object-lock element (`a:spLocks` / `a:picLocks` / `a:graphicFrameLocks`).
@@ -390,8 +391,18 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 	strSlideXml += '<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/>'
 	strSlideXml += '<a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>'
 
-	// STEP 3: Loop over all Slide.data objects and add them to this slide
-	slide._slideObjects.forEach((slideItemObj: ISlideObject, idx: number) => {
+	// STEP 3: Loop over all Slide.data objects and add them to this slide.
+	// Allocates <p:cNvPr id> values for group children, which are not in `slide._slideObjects`
+	// and so cannot reuse the top-level `idx + 2` scheme without colliding. Seeded past the last
+	// top-level object id so child ids stay unique slide-wide.
+	let childIdxAlloc = slide._slideObjects.length
+
+	// Render one slide object — and, for a group, its children recursively — to an XML fragment.
+	// Closes over `slide`, the `intTableNum` counter, and `childIdxAlloc`. Uses a local
+	// `strSlideXml` accumulator (shadowing the slide-level one) so the existing per-object
+	// `strSlideXml +=` appends compose into the returned fragment unchanged.
+	const renderSlideObjectXml = (slideItemObj: ISlideObject, idx: number): string => {
+		let strSlideXml = ''
 		let x = 0
 		let y = 0
 		let cx = getSmartParseNumber('75%', 'X', slide._presLayout)
@@ -1060,10 +1071,69 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				strSlideXml += '</p:graphicFrame>'
 				break
 
+			case SLIDE_OBJECT_TYPES.group: {
+				const groupChildren = slideItemObj._groupObjects || []
+
+				// Render children first; capture their resolved bounds so the group can auto-size.
+				// Each child gets a unique id via `childIdxAlloc` (children are not in `_slideObjects`).
+				let innerXml = ''
+				const childBounds: Array<{ x: number, y: number, cx: number, cy: number }> = []
+				groupChildren.forEach(child => {
+					child.options = child.options || {}
+					const childX = typeof child.options.x !== 'undefined' ? getSmartParseNumber(child.options.x, 'X', slide._presLayout) : 0
+					const childY = typeof child.options.y !== 'undefined' ? getSmartParseNumber(child.options.y, 'Y', slide._presLayout) : 0
+					const childCx = typeof child.options.w !== 'undefined' ? getSmartParseNumber(child.options.w, 'X', slide._presLayout) : 0
+					const childCy = typeof child.options.h !== 'undefined' ? getSmartParseNumber(child.options.h, 'Y', slide._presLayout) : 0
+					childBounds.push({ x: childX, y: childY, cx: childCx, cy: childCy })
+					innerXml += renderSlideObjectXml(child, childIdxAlloc++)
+				})
+
+				// Flat group => identity child coordinate space (chOff/chExt == off/ext), so children
+				// keep their slide-absolute coordinates. Use explicit x/y/w/h when given, else the
+				// bounding box of the children.
+				const hasExplicit =
+					typeof slideItemObj.options.x !== 'undefined' || typeof slideItemObj.options.y !== 'undefined' ||
+					typeof slideItemObj.options.w !== 'undefined' || typeof slideItemObj.options.h !== 'undefined'
+				let gx: number = x
+				let gy: number = y
+				let gcx: number = cx
+				let gcy: number = cy
+				if (!hasExplicit && childBounds.length > 0) {
+					const minX = Math.min(...childBounds.map(b => b.x))
+					const minY = Math.min(...childBounds.map(b => b.y))
+					const maxX = Math.max(...childBounds.map(b => b.x + b.cx))
+					const maxY = Math.max(...childBounds.map(b => b.y + b.cy))
+					gx = minX
+					gy = minY
+					gcx = maxX - minX
+					gcy = maxY - minY
+				}
+
+				const grpLockXml = genXmlObjectLock('a:grpSpLocks', GROUP_SHAPE_LOCK_ATTRS, slideItemObj.options.objectLock, slideItemObj.options.objectName)
+				strSlideXml += '<p:grpSp>'
+				strSlideXml += '<p:nvGrpSpPr>'
+				strSlideXml += `<p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"/>`
+				strSlideXml += grpLockXml ? `<p:cNvGrpSpPr>${grpLockXml}</p:cNvGrpSpPr>` : '<p:cNvGrpSpPr/>'
+				strSlideXml += '<p:nvPr/>'
+				strSlideXml += '</p:nvGrpSpPr>'
+				strSlideXml += `<p:grpSpPr><a:xfrm${locationAttr}>`
+				strSlideXml += `<a:off x="${gx}" y="${gy}"/><a:ext cx="${gcx}" cy="${gcy}"/>`
+				strSlideXml += `<a:chOff x="${gx}" y="${gy}"/><a:chExt cx="${gcx}" cy="${gcy}"/>`
+				strSlideXml += '</a:xfrm></p:grpSpPr>'
+				strSlideXml += innerXml
+				strSlideXml += '</p:grpSp>'
+				break
+			}
+
 			default:
 				strSlideXml += ''
 				break
 		}
+		return strSlideXml
+	}
+
+	slide._slideObjects.forEach((slideItemObj: ISlideObject, idx: number) => {
+		strSlideXml += renderSlideObjectXml(slideItemObj, idx)
 	})
 
 	// STEP 4: Add slide numbers (if any) last

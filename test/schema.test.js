@@ -2327,4 +2327,30 @@ export default [
 			await expectNoSchemaErrors(buf, 'slide-hyperlink-theme-colors')
 		},
 	},
+	{
+		// upstream-issue-307: a flat group (<p:grpSp>) wrapping a shape, a text box, and an image.
+		// Identity child coordinate space; children keep their slide-absolute coordinates.
+		name: 'flat group of shape + text + image (addGroup)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addGroup(
+					[
+						{ rect: { x: 1, y: 1, w: 2, h: 1, fill: { color: 'CC0000' } } },
+						{ text: { text: 'Grouped', options: { x: 1.2, y: 1.2, w: 1.6, h: 0.6, color: 'FFFFFF' } } },
+						{
+							image: {
+								x: 3.5,
+								y: 1,
+								w: 1,
+								h: 1,
+								data: 'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+							},
+						},
+					],
+					{ objectName: 'SchemaGroup' }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'flat-group')
+		},
+	},
 ]

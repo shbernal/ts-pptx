@@ -7,6 +7,8 @@ import {
 	AddSlideProps,
 	BackgroundProps,
 	ConnectorProps,
+	GroupChildProps,
+	GroupProps,
 	HexColor,
 	IChartMulti,
 	IChartOpts,
@@ -237,6 +239,24 @@ export default class Slide {
 		// TypeScript => `pptxgen.shapes.RECTANGLE` [string] "rect" ... shapeName = 'rect'
 		// let shapeNameDecode = typeof shapeName === 'object' && shapeName['name'] ? shapeName['name'] : shapeName
 		genObj.addShapeDefinition(this, shapeName, options || {})
+		return this
+	}
+
+	/**
+	 * Group slide objects into a single PowerPoint group (`<p:grpSp>`).
+	 *
+	 * Flat-group MVP: children keep their slide-absolute `x/y/w/h` (identity child coordinate
+	 * space), and the objects become one selectable/movable group in PowerPoint. When
+	 * `options.x/y/w/h` are omitted the group's bounds are the bounding box of its children.
+	 * Charts, media, tables, placeholders, and nested groups are not supported yet (each is
+	 * skipped with a warning).
+	 * @param {GroupChildProps[]} children - child object descriptors (`{ text }`, `{ image }`, `{ shape }`, `{ rect }`, `{ roundRect }`, `{ line }`)
+	 * @param {GroupProps} options - group position/size/name options
+	 * @return {Slide} this Slide
+	 * @example slide.addGroup([{ rect: { x: 1, y: 1, w: 2, h: 1, fill: { color: 'CC0000' } } }, { text: { text: 'Hi', options: { x: 1, y: 1, w: 2, h: 1 } } }])
+	 */
+	addGroup(children: GroupChildProps[], options?: GroupProps): Slide {
+		genObj.addGroupDefinition(this, children, options || {})
 		return this
 	}
 

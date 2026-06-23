@@ -761,6 +761,7 @@ export enum MASTER_OBJECTS {
 export enum SLIDE_OBJECT_TYPES {
 	'chart' = 'chart',
 	'connector' = 'connector',
+	'group' = 'group',
 	'hyperlink' = 'hyperlink',
 	'image' = 'image',
 	'media' = 'media',
