@@ -6,11 +6,25 @@
 //     heuristic path, so no real font is required).
 // The KEY correctness assertion is the no-drift test: measureText's height equals
 // the height the export-time resize bake (solveResize) uses for the same input.
+import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { describe, test, expect } from 'vitest'
 import { measureText, buildFitParagraphs, makeRegistryResolver } from '../../src/measure-fit.ts'
 import { solveResize, solveShrink, HEIGHT_SAFETY_FACTOR, WIDTH_SAFETY_FACTOR } from '../../src/text-fit.ts'
-import { FontMetricsRegistry } from '../../src/font-metrics.ts'
+import { FontMetricsRegistry, parseFontMetrics, getHeuristicFontMetrics } from '../../src/font-metrics.ts'
 import PptxGenJS from '../../dist/node.js'
+
+// Resolve a genuine Aptos font file via fontconfig; null when unavailable so the
+// file-backed coverage assertions skip on CI (same pattern as measured-fit-integration).
+function aptosPath() {
+	try {
+		const out = execFileSync('fc-match', ['-f', '%{family}\t%{file}', 'Aptos'], { encoding: 'utf8' })
+		const [fam, file] = out.split('\t')
+		return fam && file && fam.toLowerCase().includes('aptos') ? file.trim() : null
+	} catch {
+		return null
+	}
+}
 
 // Monospace synthetic metrics: every code point advances `emPerChar` ems.
 const mono = (emPerChar = 0.5) => ({
@@ -165,6 +179,23 @@ describe('pptxgenjs/measure subpath (P1 re-exports, built)', () => {
 		const m = mod.measureText(reg, SENTENCE, { wIn: 2, fontSize: 18, fontFace: 'Mono' })
 		expect(m.measurable).toBe(true)
 		expect(m.lineCount).toBeGreaterThan(1)
+	})
+})
+
+describe('FontMetrics.hasCodepoint (cmap coverage)', () => {
+	test('heuristic metrics report every code point as covered (no cmap to consult)', () => {
+		const h = getHeuristicFontMetrics()
+		expect(h.hasCodepoint(0x41)).toBe(true) // 'A'
+		expect(h.hasCodepoint(0x2011)).toBe(true) // non-breaking hyphen, still reported covered
+	})
+
+	test('file-backed Aptos: covers A and ordinary hyphen, lacks U+2011 non-breaking hyphen', async () => {
+		const path = aptosPath()
+		if (!path) return expect(true).toBe(true) // skip when fontconfig can't resolve Aptos
+		const fm = await parseFontMetrics(new Uint8Array(readFileSync(path)))
+		expect(fm.hasCodepoint(0x41)).toBe(true) // 'A' — present
+		expect(fm.hasCodepoint(0x2d)).toBe(true) // '-' ordinary hyphen-minus — present (contrast control)
+		expect(fm.hasCodepoint(0x2011)).toBe(false) // non-breaking hyphen — the canonical missing glyph
 	})
 })
 

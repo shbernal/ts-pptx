@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`FontMetrics.hasCodepoint(cp)` — cmap glyph coverage on the `measure` API:**
+  the `measure` subpath's `FontMetrics` interface gains
+  `hasCodepoint(cp: number): boolean`, reporting whether a face's cmap maps a code
+  point to a real glyph (not `.notdef`). File-backed metrics
+  (`parseFontMetrics`, `pptx.registerFontMetrics`) answer authoritatively via the
+  parsed font; the unregistered-font heuristic has no cmap and reports every code
+  point as covered. Lets a consumer flag source code points the replica face
+  cannot render (e.g. U+2011 non-breaking hyphen, absent from Aptos) without
+  shelling out to fontconfig. Lands in `src/font-metrics.ts`.
 - **`slide.addGroup(children, options?)` — group slide objects (issue #307):**
   wraps child objects in a PowerPoint group (`<p:grpSp>`) so they become one
   selectable/movable group. Children are key-tagged descriptors reusing the slide-master

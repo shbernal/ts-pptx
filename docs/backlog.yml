@@ -3355,23 +3355,53 @@ items:
     type: downstream-need
     first_seen: 2026-06-23
     last_reviewed: 2026-06-23
-    status: target
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
     summary: measure surface exposes no glyph-coverage (cmap/hasCodepoint) accessor
-    current_project_notes: "downstream's replication glyph-coverage gate needs to know whether the replica face (Aptos) can render a given codepoint, to flag source glyphs the face lacks (canonical case: non-breaking hyphen U+2011, absent from Aptos.ttf/Aptos-Bold cmap, which LibreOffice/Office render via a mismatched fallback face whose advance overlaps the next word — surfaced on 202604-ia4cyb-overall:26). @shbernal/pptxgenjs/measure parses the font via opentype but FontMetrics exposes only per-glyph advances + hasFace(), no per-codepoint coverage. Stopgap shells out to fontconfig (fc-match <face>:charset=<hex> returns the face iff it covers the cp; validated against the cmap). A coverage accessor read from the cmap the measure parser already loads is generic to any consumer doing font-coverage normalization, removes the fontconfig dependency, and works where fontconfig is unavailable (managed Windows)."
-    stopgap: scripts/slide-analysis/replication/glyph-coverage.ts
+    current_project_notes: |
+      IMPLEMENTED (2026-06-23): added hasCodepoint(cp: number): boolean as a
+      required method on the FontMetrics interface in src/font-metrics.ts. The
+      opentype-backed OpentypeFontMetrics delegates to opentype's font.hasChar(
+      String.fromCodePoint(cp)) — the correct primitive, since charToGlyph() falls
+      back to the .notdef glyph (index 0) for uncovered code points and so can't
+      answer coverage; hasChar() keys on the cmap glyph index > 0 (excludes both
+      .notdef and CFF's -1). The unregistered-font HeuristicFontMetrics returns
+      true for every code point (no cmap to consult; never fabricates a 'missing'
+      flag — coverage is authoritative only for file-backed metrics). Scope is
+      just the per-codepoint accessor; a covered-codepoint Set was deferred (YAGNI,
+      derivable later). Reachable via parseFontMetrics(bytes).hasCodepoint(cp) and
+      pptx.fontMetrics?.get(face)?.hasCodepoint(cp); rides along the existing
+      /measure subpath (re-exports the FontMetrics type). Verified against real
+      Aptos.ttf: hasCodepoint(0x41)=true, 0x2D=true, 0x2011=false (the canonical
+      missing non-breaking hyphen). downstream can now drop its fc-match probe
+      (a separate downstream task).
+
+      Original need: downstream's replication glyph-coverage gate needs to know
+      whether the replica face (Aptos) can render a given codepoint, to flag source
+      glyphs the face lacks (canonical case: non-breaking hyphen U+2011, absent
+      from Aptos.ttf/Aptos-Bold cmap, which LibreOffice/Office render via a
+      mismatched fallback face whose advance overlaps the next word — surfaced on
+      202604-ia4cyb-overall:26). FontMetrics previously exposed only per-glyph
+      advances + hasFace(), no per-codepoint coverage. The accessor reads the cmap
+      the measure parser already loads, is generic to any consumer doing
+      font-coverage normalization, removes the fontconfig dependency, and works
+      where fontconfig is unavailable (managed Windows).
     evidence:
-      kinds: []
-      local_files: []
+      kinds:
+        - regression-test
+        - local-source-inspection
+      local_files:
+        - src/font-metrics.ts
+        - test/regression/measure-text-api.test.mjs
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: Add a cmap-backed coverage accessor to src/measure (FontMetrics.hasCodepoint(cp) / covered-codepoint set); downstream then drops the fontconfig fc-match probe.
+    next_action: none
   - id: dn-emf-content-type
     source: downstream:registry/replication/kit.ts
     type: downstream-need
