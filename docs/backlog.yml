@@ -43,6 +43,10 @@ vocabulary:
     - non-target
     - watch
     - deferred
+    # on-hold: a deliberate, owner-gated parking. Unlike `deferred` (which routine
+    # review may re-raise on its own), an on-hold item must NOT be proposed or
+    # re-raised until the maintainer explicitly green-lights it.
+    - on-hold
     - implemented
     - partially-implemented
     - superseded
@@ -1481,9 +1485,9 @@ items:
     source: downstream:registry/components
     type: downstream-need
     first_seen: 2026-06-18
-    last_reviewed: 2026-06-18
-    status: deferred
-    priority: p2
+    last_reviewed: 2026-06-24
+    status: on-hold
+    priority: none
     target_area:
       - missing-pptx-feature
       - typescript-api
@@ -1491,6 +1495,18 @@ items:
     non_target_reasons: []
     summary: "Graduate generic registry component primitives into the fork once the contract settles"
     current_project_notes: |
+      ON HOLD — owner-gated. Do NOT propose, plan, re-raise, or surface this item
+      in suggestions until the maintainer explicitly green-lights it, regardless of
+      its p2-shaped value. Parked 2026-06-24 after a readiness review found the
+      precondition unmet: the registry contract that matters is not the 46-line
+      RenderResult shape but the whole registry/lib/* + theme/downstream.ts substrate
+      every component reaches into (Theme token schema, Region/layout, layout-time
+      text measure, slide-semantics.v1, icons, catalog) — much of it brand/workflow
+      coupled and meant to stay downstream — and that substrate is still under heavy
+      active churn (ongoing graduate/drop/add commits). Graduating now would be a
+      hard cross-repo move that freezes a still-moving API. Reactivate only on the
+      owner's word, and re-derive the candidate list below (it will likely be stale).
+
       downstream composes decks from a typed component registry. The generic,
       brand-free building blocks are fork candidates once the component contract
       stabilizes; defer the actual move until then. Brand chrome
@@ -1529,7 +1545,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: stabilize-component-contract
+    next_action: none-until-owner-greenlights
   - id: dn-logo-cloud-helper
     source: downstream:registry/lib/logo-cloud.ts
     type: downstream-need
