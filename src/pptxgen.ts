@@ -72,6 +72,7 @@ import {
 	OutputType,
 	SCHEME_COLOR_NAMES,
 	SHAPE_TYPE,
+	SLIDE_OBJECT_TYPES,
 	SchemeColor,
 	ShapeType,
 	WRITE_OUTPUT_TYPE,
@@ -112,7 +113,7 @@ import * as genXml from './gen-xml.js'
 import type { RuntimeAdapter } from './runtime/types.js'
 import { FontMetricsRegistry, parseFontMetrics } from './font-metrics.js'
 import { applyMeasuredFit, computeTableLayout, measureText } from './measure-fit.js'
-import { getUuid, decodeBase64ToBytes, imageContentType } from './gen-utils.js'
+import { getUuid, decodeBase64ToBytes, imageContentType, avContentType } from './gen-utils.js'
 import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
 import type { ExtractedSlide, ExtractedSlides } from './read/api/presentation.js'
 
@@ -760,8 +761,48 @@ export default class PptxGenJS {
 
 		// STEP 3: Serialize each slide body and resolve its image media to bytes.
 		const slides: ExtractedSlide[] = this._slides.map(slide => {
+			const relByRid = new Map(slide._relsMedia.map(rel => [rel.rId, rel] as const))
+
+			// Embedded audio/video. addMedia (gen-objects) pushes three consecutive
+			// _relsMedia entries per item off `mediaRid`: the ECMA audio/video rel
+			// (rId=mediaRid), the MS-2007 `media` rel (mediaRid+1, sharing one Target),
+			// and the preview image rel (mediaRid+2). The body references all three; we
+			// surface the descriptor so appendSlides can reproduce the rel graph. Online
+			// media (external link) is excluded — it has a different rel shape and no part.
+			const avPreviewRids = new Set<number>()
+			const avMedia = slide._slideObjects
+				.filter(obj => obj._type === SLIDE_OBJECT_TYPES.media && obj.mtype !== 'online' && typeof obj.mediaRid === 'number')
+				.map(obj => {
+					const mtype: 'audio' | 'video' = obj.mtype === 'audio' ? 'audio' : 'video'
+					const mediaRid = obj.mediaRid as number
+					const mediaRel = relByRid.get(mediaRid)
+					const previewRel = relByRid.get(mediaRid + 2)
+					if (!mediaRel || !previewRel) return null
+					const mediaBytes = decodeBase64ToBytes(typeof mediaRel.data === 'string' ? mediaRel.data : '')
+					const previewBytes = decodeBase64ToBytes(typeof previewRel.data === 'string' ? previewRel.data : '')
+					if (!mediaBytes || !previewBytes) return null
+					const mediaExtn = (mediaRel.extn || mediaRel.Target.split('.').pop() || 'mp4').toLowerCase()
+					const previewExtn = (previewRel.extn || previewRel.Target.split('.').pop() || 'png').toLowerCase()
+					avPreviewRids.add(mediaRid + 2)
+					return {
+						mtype,
+						mediaRid,
+						msMediaRid: mediaRid + 1,
+						previewRid: mediaRid + 2,
+						mediaBytes,
+						mediaExtn,
+						mediaContentType: avContentType(mediaExtn, mtype),
+						previewBytes,
+						previewExtn,
+						previewContentType: imageContentType(previewExtn),
+					}
+				})
+				.filter((m): m is NonNullable<typeof m> => m !== null)
+
 			const media = slide._relsMedia
-				.filter(rel => rel.type.toLowerCase().includes('image'))
+				// A/V preview images live in _relsMedia as image rels too; they are carried
+				// by their A/V descriptor, so exclude them from the plain-image media list.
+				.filter(rel => rel.type.toLowerCase().includes('image') && !avPreviewRids.has(rel.rId))
 				.map(rel => {
 					// Normalize the base64 payload's data-URI prefix, mirroring createChartMediaRels.
 					let data: string = rel.data && typeof rel.data === 'string' ? rel.data : ''
@@ -798,7 +839,7 @@ export default class PptxGenJS {
 				hyperlinks,
 				charts,
 				slideLinks,
-				hasAvMedia: slide._relsMedia.some(rel => /audio|video/i.test(rel.type)),
+				avMedia,
 			}
 		})
 

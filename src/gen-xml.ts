@@ -42,6 +42,7 @@ import type {
 	ThemeColorScheme,
 } from './core-interfaces.js'
 import {
+	avContentType,
 	convertRotationDegrees,
 	createColorElement,
 	createGlowElement,
@@ -2041,7 +2042,15 @@ export function makeXmlContTypes (slides: PresSlideInternal[], slideLayouts: Sli
 	ctTargets.forEach(target => {
 		(target._relsMedia || []).forEach(rel => {
 			if (rel.type === 'online' || !rel.extn || !rel.type) return
-			if (!extnTypeMap.has(rel.extn)) extnTypeMap.set(rel.extn, rel.type)
+			// A/V rel `type` is `${mtype}/${extn}` (e.g. `audio/mp3`); resolve the part's
+			// Default content type to what PowerPoint authors (`audio/mpeg`). Image rels
+			// already carry their final content type (imageContentType).
+			const contentType = rel.type.startsWith('audio/')
+				? avContentType(rel.extn, 'audio')
+				: rel.type.startsWith('video/')
+					? avContentType(rel.extn, 'video')
+					: rel.type
+			if (!extnTypeMap.has(rel.extn)) extnTypeMap.set(rel.extn, contentType)
 		})
 		if (((target._relsChart) || []).length > 0) ctHasChart = true
 	})

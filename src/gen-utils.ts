@@ -572,6 +572,39 @@ export function imageContentType (extn: string): string {
 }
 
 /**
+ * Resolve the OPC content type for an embedded audio/video part by file extension,
+ * matching what PowerPoint authors (e.g. `mp3` → `audio/mpeg`, not `audio/mp3`).
+ * The `mtype` disambiguates extensions Office maps differently per kind and seeds
+ * the `mtype/extn` fallback for anything unlisted.
+ * @param {string} extn - media file extension (no dot), case-insensitive
+ * @param {'audio' | 'video'} mtype - whether the item is audio or video
+ */
+export function avContentType (extn: string, mtype: 'audio' | 'video'): string {
+	switch ((extn || '').toLowerCase()) {
+		// video
+		case 'mp4': return mtype === 'audio' ? 'audio/mp4' : 'video/mp4'
+		case 'm4v': return 'video/mp4'
+		case 'mov': return 'video/quicktime'
+		case 'avi': return 'video/avi'
+		case 'wmv': return 'video/x-ms-wmv'
+		case 'mpg':
+		case 'mpeg': return mtype === 'audio' ? 'audio/mpeg' : 'video/mpeg'
+		case 'ogv': return 'video/ogg'
+		case 'webm': return 'video/webm'
+		// audio
+		case 'mp3': return 'audio/mpeg'
+		case 'm4a': return 'audio/mp4'
+		case 'wav': return 'audio/wav'
+		case 'wma': return 'audio/x-ms-wma'
+		case 'aac': return 'audio/aac'
+		case 'oga':
+		case 'ogg': return 'audio/ogg'
+		case 'flac': return 'audio/flac'
+		default: return mtype + '/' + (extn || '').toLowerCase()
+	}
+}
+
+/**
  * Checks shadow options passed by user and performs corrections if needed.
  * @param {ShadowProps} ShadowProps - shadow options
  */

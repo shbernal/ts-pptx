@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`appendSlides` carries embedded audio/video media:** a source slide produced
+  with `addMedia({ type: 'audio' | 'video', … })` now appends onto an existing
+  deck, reproducing the rel graph PowerPoint authors — one media part backing two
+  relationships that share its Target (the ECMA `audio`/`video` rel and the
+  Microsoft-2007 `media` rel referenced by `<p14:media>`) plus a separate preview
+  image part — with the media part's content type registered as a `Default`
+  extension entry (e.g. `video/mp4`, `audio/mpeg`), not a per-part `Override`.
+  `extractSlides()` now exposes these via an `avMedia` descriptor array on each
+  extracted slide (**breaking**: replaces the prior `hasAvMedia: boolean` flag),
+  and `appendSlides` no longer throws on A/V slides. Verified against a
+  PowerPoint-authored oracle fixture (`test/read/fixtures/av-media.pptx`).
+  Lands in `src/pptxgen.ts`, `src/read/api/presentation.ts`, `src/gen-utils.ts`
+  (`avContentType`). Implements backlog `dn-append-av-media`.
+
 - **`Presentation.appendSlides(source, { layout })` — generate slides onto an
   existing deck (`pptxgenjs/read`):** open a real `.pptx`, keep its
   masters/layouts/theme (and every other untouched part) **byte-identical**, and
@@ -25,9 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   producing a package. **Charts** (chart XML + `.rels` + embedded workbook) and
   **internal slide-to-slide hyperlinks** (`slide:N` repointed at the Nth appended
   slide) are carried across; appendSlides injects in two passes so a forward link
-  resolves. Limitations: audio/video media throws (fixture-gated, backlog
-  `dn-append-av-media`); an internal link to a source slide outside the appended
-  batch throws; appended slides are concrete absolute-positioned content (no
+  resolves. Limitations: online (external-link) media is not yet carried
+  (fixture-gated, backlog `dn-append-online-video`); an internal link to a source
+  slide outside the appended batch throws; appended slides are concrete absolute-positioned content (no
   placeholder inheritance — `schemeClr` re-resolves against the destination theme);
   source/destination slide sizes must match; notes are not generated. Lands in
   `src/pptxgen.ts` (`extractSlides`), `src/read/api/presentation.ts` (`layouts`,
@@ -122,6 +136,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`addMedia` audio/video now embeds with PowerPoint-correct `Default` content
+  types:** the write path derived the media `[Content_Types].xml` `Default` from
+  the rel's internal `mtype/extn` string, so `mp3` audio emitted `audio/mp3`
+  rather than the `audio/mpeg` PowerPoint authors. A new `avContentType(extn,
+  mtype)` helper in `src/gen-utils.ts` resolves the standard mapping
+  (`mp3 → audio/mpeg`, `m4a → audio/mp4`, `mov → video/quicktime`, …), used by
+  both the generator's content-type builder (`src/gen-xml.ts`) and the
+  `appendSlides` injection path so a fresh write and an append agree.
 - **EMF/WMF images now embed with OOXML-correct content types
   (`image/x-emf` / `image/x-wmf`):** the write path previously built the image
   content type inline as `'image/' + extn`, so `emf`/`wmf` extensions emitted

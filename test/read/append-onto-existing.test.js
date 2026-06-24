@@ -26,6 +26,9 @@ const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/
 const IMAGE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 const CHART_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart'
 const NOTES_SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
+const AUDIO_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio'
+const VIDEO_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/video'
+const MS_MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media'
 
 // 1×1 transparent PNG.
 const PNG_1PX =
@@ -63,6 +66,25 @@ function resolveSingle(opc, partName, type) {
 	const matches = [...rels].filter((rel) => rel.type === type)
 	if (matches.length === 0) return null
 	return rels.resolveTarget(matches[0].id)
+}
+
+/** Resolve the absolute target a single `rId` points at, or `null`. */
+function resolveRid(opc, partName, rId) {
+	const rels = opc.relationshipsFor(partName)
+	const match = [...rels].find((rel) => rel.id === rId)
+	return match ? rels.resolveTarget(match.id) : null
+}
+
+/** The rel `type` of a single `rId` on a part, or `null`. */
+function typeOfRid(opc, partName, rId) {
+	const rels = opc.relationshipsFor(partName)
+	const match = [...rels].find((rel) => rel.id === rId)
+	return match ? match.type : null
+}
+
+async function mediaFixture(name) {
+	const buf = await readFile(path.join(__dirname, 'fixtures', 'media', name))
+	return buf.toString('base64')
 }
 
 /** A generator deck sized to LAYOUT_WIDE (12192000×6858000), matching theme-colors / image. */
@@ -174,6 +196,158 @@ describe('Presentation.appendSlides', () => {
 		}
 	)
 
+	test('appends slides carrying embedded audio/video, reproducing the A/V rel graph (dn-append-av-media)', async () => {
+		const mp4 = await mediaFixture('tiny.mp4')
+		const mp3 = await mediaFixture('tiny.mp3')
+		const poster = await mediaFixture('poster.png')
+
+		const originalBytes = await readFile(fixturePath('theme-colors'))
+		const before = await partBodies(originalBytes)
+		const pres = await Presentation.load(originalBytes)
+
+		const pptx = wideGenerator()
+		pptx
+			.addSlide()
+			.addMedia({
+				type: 'video',
+				extn: 'mp4',
+				data: `video/mp4;base64,${mp4}`,
+				cover: `image/png;base64,${poster}`,
+				x: 1,
+				y: 1,
+				w: 4,
+				h: 3,
+			})
+		pptx
+			.addSlide()
+			.addMedia({
+				type: 'audio',
+				extn: 'mp3',
+				data: `audio/mpeg;base64,${mp3}`,
+				cover: `image/png;base64,${poster}`,
+				x: 1,
+				y: 1,
+				w: 2,
+				h: 2,
+			})
+
+		const added = await pres.appendSlides(pptx, { layout: 'Blank' })
+		assertEqual(added.length, 2, 'two A/V slides were appended')
+
+		const out = await pres.save()
+		const after = await partBodies(out)
+
+		// Byte-stability: only presentation.xml, its .rels, and [Content_Types].xml change among original parts.
+		const expectedChanged = new Set(['ppt/presentation.xml', 'ppt/_rels/presentation.xml.rels', '[Content_Types].xml'])
+		for (const [name, bytes] of before) {
+			assert(after.has(name), `part ${name} survives the append`)
+			if (expectedChanged.has(name)) continue
+			assert(bytesEqual(bytes, after.get(name)), `part ${name} is byte-identical after the A/V append`)
+		}
+
+		// New parts are slides + the media binaries + the preview images only.
+		const newParts = [...after.keys()].filter((name) => !before.has(name))
+		for (const name of newParts) {
+			assert(/^ppt\/(slides|media)\//.test(name), `new part ${name} is a slide or media part`)
+		}
+		assert(
+			newParts.some((n) => /^ppt\/media\/media\d+\.mp4$/.test(n)),
+			'an mp4 media part was added'
+		)
+		assert(
+			newParts.some((n) => /^ppt\/media\/media\d+\.mp3$/.test(n)),
+			'an mp3 media part was added'
+		)
+		assert(
+			newParts.filter((n) => /^ppt\/media\/image\d+\.png$/.test(n)).length === 2,
+			'two preview image parts were added'
+		)
+
+		// Content types: A/V parts are registered as Default extension entries (what PowerPoint
+		// authors), matching the av-media.pptx oracle — NOT per-part Overrides.
+		const ct = new TextDecoder().decode(after.get('[Content_Types].xml'))
+		assert(ct.includes('<Default Extension="mp4" ContentType="video/mp4"/>'), 'mp4 Default content type was added')
+		assert(
+			ct.includes('<Default Extension="mp3" ContentType="audio/mpeg"/>'),
+			'mp3 Default content type was added (audio/mpeg, not audio/mp3)'
+		)
+		assert(
+			!/<Override PartName="\/ppt\/media\/[^"]*\.mp[34]"/.test(ct),
+			'A/V parts use Defaults, not per-part Overrides'
+		)
+
+		// Reopen and assert the per-slide rel graph mirrors the oracle: one ECMA audio/video
+		// rel + one MS-2007 media rel sharing the media Target, plus a separate image preview.
+		const reopened = await Presentation.load(out)
+		const avSlides = reopened.slides.slice(-2)
+		const cases = [
+			{ slide: avSlides[0], avRel: VIDEO_REL, mediaExt: '.mp4' },
+			{ slide: avSlides[1], avRel: AUDIO_REL, mediaExt: '.mp3' },
+		]
+		for (const { slide, avRel, mediaExt } of cases) {
+			const body = new TextDecoder().decode(after.get(slide.partName.slice(1)))
+
+			// Body rId triple (mirrors gen-xml media markup).
+			const fileRid = (body.match(/<a:(?:audio|video)File r:link="(rId\d+)"/) || [])[1]
+			const embedRid = (body.match(/<p14:media[^>]*r:embed="(rId\d+)"/) || [])[1]
+			const blipRid = (body.match(/<a:blip r:embed="(rId\d+)"/) || [])[1]
+			assert(fileRid && embedRid && blipRid, `A/V body references the rId triple (${fileRid}/${embedRid}/${blipRid})`)
+
+			// Each body rId resolves to the expected rel type.
+			assertEqual(
+				typeOfRid(reopened.opc, slide.partName, fileRid),
+				avRel,
+				'audioFile/videoFile r:link → ECMA audio/video rel'
+			)
+			assertEqual(
+				typeOfRid(reopened.opc, slide.partName, embedRid),
+				MS_MEDIA_REL,
+				'p14:media r:embed → MS-2007 media rel'
+			)
+			assertEqual(typeOfRid(reopened.opc, slide.partName, blipRid), IMAGE_REL, 'blip r:embed → image preview rel')
+
+			// The ECMA and MS rels share one media Target; the preview is a distinct image part.
+			const mediaTarget = resolveRid(reopened.opc, slide.partName, fileRid)
+			assertEqual(
+				resolveRid(reopened.opc, slide.partName, embedRid),
+				mediaTarget,
+				'ECMA + MS rels share the media part Target'
+			)
+			assert(mediaTarget.endsWith(mediaExt), `media Target is the ${mediaExt} part (${mediaTarget})`)
+			assert(reopened.opc.part(mediaTarget), 'the media part exists')
+			const previewTarget = resolveRid(reopened.opc, slide.partName, blipRid)
+			assert(
+				previewTarget !== mediaTarget && reopened.opc.part(previewTarget),
+				'the preview image part exists and is distinct'
+			)
+		}
+	})
+
+	test.skipIf(!validatorInstalled)('the appended deck with embedded audio/video stays schema-valid', async () => {
+		const mp4 = await mediaFixture('tiny.mp4')
+		const mp3 = await mediaFixture('tiny.mp3')
+		const poster = await mediaFixture('poster.png')
+		const pres = await Presentation.load(await readFile(fixturePath('theme-colors')))
+		const pptx = wideGenerator()
+		pptx
+			.addSlide()
+			.addMedia({
+				type: 'video',
+				extn: 'mp4',
+				data: `video/mp4;base64,${mp4}`,
+				cover: `image/png;base64,${poster}`,
+				x: 1,
+				y: 1,
+				w: 4,
+				h: 3,
+			})
+		pptx.addSlide().addMedia({ type: 'audio', extn: 'mp3', data: `audio/mpeg;base64,${mp3}`, x: 1, y: 1, w: 2, h: 2 })
+		await pres.appendSlides(pptx, { layout: 'Blank' })
+
+		const errors = await validateBuf(Buffer.from(await pres.save()))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+
 	test('rejects an unknown layout name', async () => {
 		const pres = await Presentation.load(await readFile(fixturePath('theme-colors')))
 		const pptx = wideGenerator()
@@ -262,23 +436,6 @@ describe('Presentation.appendSlides', () => {
 		assert(
 			await rejects(() => pres.appendSlides(pptx, { layout: 'Blank' })),
 			'a link to a non-appended source slide throws'
-		)
-	})
-
-	test('rejects an appended slide containing audio/video media (fixture-gated, dn-append-av-media)', async () => {
-		const pres = await Presentation.load(await readFile(fixturePath('theme-colors')))
-		const pptx = wideGenerator()
-		pptx.addSlide().addMedia({
-			type: 'video',
-			data: 'data:video/mp4;base64,AAAA',
-			x: 1,
-			y: 1,
-			w: 6,
-			h: 3,
-		})
-		assert(
-			await rejects(() => pres.appendSlides(pptx, { layout: 'Blank' })),
-			'an audio/video slide throws the unsupported error'
 		)
 	})
 })

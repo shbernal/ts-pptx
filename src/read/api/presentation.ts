@@ -23,6 +23,11 @@ const IMAGE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relatio
 const HYPERLINK_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
 const CHART_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart'
 const PACKAGE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/package'
+const AUDIO_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio'
+const VIDEO_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/video'
+// Microsoft 2007 `media` rel: paired with the ECMA audio/video rel (same Target),
+// referenced by the slide body's <p14:media r:embed>.
+const MS_MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media'
 
 const SLIDE_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
 const SLIDE_LAYOUT_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'
@@ -246,8 +251,37 @@ export interface ExtractedSlide {
 	charts: Array<{ rId: number; chartXml: string; embeddingBytes: Uint8Array }>
 	/** Internal slide-to-slide links: the `rId` used in {@link xml} → 1-based source slide number. */
 	slideLinks: Array<{ rId: number; sourceSlideNumber: number }>
-	/** True if the slide references audio/video media (unsupported by `appendSlides`; see backlog `dn-append-av-media`). */
-	hasAvMedia: boolean
+	/**
+	 * Embedded audio/video the body references. Each item is one media binary backed
+	 * by two rels sharing a Target — the ECMA `audio`/`video` rel (`mediaRid`) and the
+	 * MS-2007 `media` rel (`msMediaRid`) — plus a separate preview image rel
+	 * (`previewRid`). {@link Presentation.appendSlides} reproduces this rel graph.
+	 */
+	avMedia: AvMediaItem[]
+}
+
+/** One embedded audio/video item extracted for {@link Presentation.appendSlides}. */
+export interface AvMediaItem {
+	/** Whether the item is `audio` (`<a:audioFile>`) or `video` (`<a:videoFile>`). */
+	mtype: 'audio' | 'video'
+	/** Body `rId` of the ECMA `audio`/`video` rel (`r:link`); points at the media part. */
+	mediaRid: number
+	/** Body `rId` of the MS-2007 `media` rel (`p14:media r:embed`); shares the media part Target. */
+	msMediaRid: number
+	/** Body `rId` of the preview image rel (`a:blip r:embed` in the blipFill). */
+	previewRid: number
+	/** The audio/video binary the media part will hold. */
+	mediaBytes: Uint8Array
+	/** Media file extension (no dot), e.g. `mp4`, `mp3`. */
+	mediaExtn: string
+	/** OPC content type for the media part (PowerPoint-authored, e.g. `audio/mpeg`). */
+	mediaContentType: string
+	/** The preview/poster image bytes. */
+	previewBytes: Uint8Array
+	/** Preview image extension (no dot), e.g. `png`. */
+	previewExtn: string
+	/** OPC content type for the preview image part. */
+	previewContentType: string
 }
 
 /** A generator's authored slides + canvas size, the input to {@link Presentation.appendSlides}. */
@@ -656,8 +690,7 @@ export class Presentation {
 		// each part immediately claims its name — reservePartNameLike returns max+1
 		// from the existing parts, so the next reservation sees it. (addPart registers
 		// the slide's Override content type.)
-		const placed = extracted.slides.map((slide, i) => {
-			if (slide.hasAvMedia) throw new Error(`appendSlides: slide ${i} contains audio/video media, which is not supported yet (backlog dn-append-av-media)`)
+		const placed = extracted.slides.map(slide => {
 			const partName = this.opc.reservePartNameLike(slideTemplate)
 			const part = this.opc.addPart(partName, SLIDE_CONTENT_TYPE, textEncoder.encode(slide.xml))
 			return { slide, part, partName }
@@ -676,6 +709,23 @@ export class Presentation {
 				const mediaPartName = this.opc.reserveMediaPartName(m.extn)
 				this.opc.addPart(mediaPartName, m.contentType, m.bytes)
 				rels.addWithId(`rId${m.rId}`, IMAGE_REL, relativePartName(partName, mediaPartName))
+			}
+			for (const av of slide.avMedia) {
+				// One media part backs two rels (ECMA audio/video + MS-2007 media) sharing
+				// its Target; the preview poster is a separate image part. ensureDefault
+				// runs before addPart so the content type resolves via a Default extension
+				// entry (what PowerPoint authors) rather than a per-part Override.
+				const mediaPartName = this.opc.reserveMediaPartName(av.mediaExtn, 'media')
+				this.opc.contentTypes.ensureDefault(av.mediaExtn, av.mediaContentType)
+				this.opc.addPart(mediaPartName, av.mediaContentType, av.mediaBytes)
+				const mediaTarget = relativePartName(partName, mediaPartName)
+				rels.addWithId(`rId${av.mediaRid}`, av.mtype === 'audio' ? AUDIO_REL : VIDEO_REL, mediaTarget)
+				rels.addWithId(`rId${av.msMediaRid}`, MS_MEDIA_REL, mediaTarget)
+
+				const previewPartName = this.opc.reserveMediaPartName(av.previewExtn)
+				this.opc.contentTypes.ensureDefault(av.previewExtn, av.previewContentType)
+				this.opc.addPart(previewPartName, av.previewContentType, av.previewBytes)
+				rels.addWithId(`rId${av.previewRid}`, IMAGE_REL, relativePartName(partName, previewPartName))
 			}
 			for (const h of slide.hyperlinks) {
 				rels.addWithId(`rId${h.rId}`, HYPERLINK_REL, h.target, 'External')
