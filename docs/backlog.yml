@@ -3559,10 +3559,30 @@ items:
       opens in PowerPoint and stays schema-valid; the emitted rel graph matches the
       authored oracle.
     evidence:
-      kinds: []
-      local_files: []
+      kinds:
+        - powerpoint-authored-comparison
+        - local-source-inspection
+      local_files:
+        - test/read/fixtures/av-media.pptx
+        - test/read/fixtures/media/tiny.mp4
+        - test/read/fixtures/media/tiny.mp3
+        - test/read/fixtures/media/poster.png
       schema_fixture: null
       validator_result: null
-      powerpoint_result: null
+      powerpoint_result: |
+        Fixtures authored 2026-06-24. av-media.pptx (Microsoft Office PowerPoint,
+        AppVersion 16.0000, 2 slides) opens clean via COM with no repair prompt
+        (verify-powerpoint-fixture.ps1; sha256
+        39aafb02e448a860136c20c46daf89d446d1d34140de1c533b1fe537dee6f0af). Pins the
+        A/V rel graph: per slide a Microsoft 2007 `media` rel + an ECMA
+        `video`/`audio` rel sharing one media Target, plus a separate `image` rel
+        for the PowerPoint-generated preview (video frame / audio icon). Slide body
+        references the rId triple — `a:videoFile`/`a:audioFile` r:link (ECMA rel),
+        `p14:media` r:embed in the nvPr extLst (MS rel), `a:blip` r:embed in
+        blipFill (preview); PowerPoint's actual numbering is rId1=media,
+        rId2=video/audio, rId3=slideLayout, rId4=image. Content types are Default
+        extension entries: mp4 -> video/mp4, mp3 -> audio/mpeg. Tiny embeddable
+        binaries minted with ffmpeg 8.1.1 (mp4 1558 B H.264 32x32; mp3 2529 B
+        silent mono) + the 1x1 poster PNG.
       spec_refs: []
-    next_action: Author the fixtures above (tiny MP4/audio binaries + PowerPoint-authored av-media.pptx oracle), then mirror gen-xml's A/V media rel structure in extractSlides + appendSlides and drop the hasAvMedia throw
+    next_action: Fixtures landed; mirror gen-xml's A/V media rel structure in extractSlides + appendSlides (two-rels-per-item shared Target, p14:media embed, preview image rel, A/V Default content types) and drop the hasAvMedia throw, asserting the emitted rel graph against av-media.pptx

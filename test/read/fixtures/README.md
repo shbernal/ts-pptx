@@ -55,6 +55,8 @@ by the `pptxgenjs/read` harness. Two groups:
 - **Feature serialization**: `bar-chart-data-labels.pptx` (per-point bar
   `c:dPt`/`c:dLbl` + workbook cache, #727) and `math-omml.pptx` (native equation
   OMML `a14:m`/`m:oMath`, #1456).
+- **A/V media rel graph**: `av-media.pptx` (embedded video + audio rel/content-type
+  oracle for `appendSlides`, backlog `dn-append-av-media`).
 
 | Local name                    | Application                 | AppVersion | Slides |
 | ----------------------------- | --------------------------- | ---------- | ------ |
@@ -63,6 +65,7 @@ by the `pptxgenjs/read` harness. Two groups:
 | `notes-slide-image.pptx`      | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `bar-chart-data-labels.pptx`  | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `math-omml.pptx`              | Microsoft Office PowerPoint | 16.0000    | 1      |
+| `av-media.pptx`               | Microsoft Office PowerPoint | 16.0000    | 2      |
 
 ### Derived from a vendored fixture
 
@@ -94,7 +97,28 @@ f18ae67b1df1cc1cf7dc616451c3e548a4ea0c80f807c06a87521b010597af75  table-placehol
 2f41c301147518686fb63e262ea1eb2ede6873fdc22d913dc869d8a924190fc7  notes-slide-image.pptx
 edeb1dafe790edf45152485753245928a06786d923364d7647354393d891a74f  bar-chart-data-labels.pptx
 d88cb77b480d3c84a16307cbe503e9ee64f5fa8bdfee6d7b5a7167847d1cb8e6  math-omml.pptx
+39aafb02e448a860136c20c46daf89d446d1d34140de1c533b1fe537dee6f0af  av-media.pptx
 ```
+
+### Embedded-media binaries (`media/`)
+
+Tiny real media binaries committed under `media/` to drive the `addMedia`
+generator path in `appendSlides` tests (backlog `dn-append-av-media`). Encoded
+locally with ffmpeg 8.1.1 on Windows (2026-06-24); these are the bytes
+`addMedia` must round-trip and are kept deliberately small. The poster PNG is the
+same 1×1 PNG the append tests already use inline.
+
+```
+d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
+83b48d85d0a1bd2fd0281f945113f74da380123a204b43538e8ff82ee8e008f8  media/tiny.mp3
+0fbc91e1bc582c5d4a730903c55f567af9561fd8db39bee8d4ee819d0df96a02  media/poster.png
+```
+
+- `media/tiny.mp4` — 1558-byte H.264 clip (32×32, 1 fps, 1 s, no audio track);
+  Default content-type `video/mp4`.
+- `media/tiny.mp3` — 2529-byte silent MP3 (mono, 16 kHz, 0.5 s, 32 kbps);
+  Default content-type `audio/mpeg`.
+- `media/poster.png` — the 1×1 preview/poster PNG.
 
 ## Purpose of each fixture
 
@@ -224,6 +248,28 @@ d88cb77b480d3c84a16307cbe503e9ee64f5fa8bdfee6d7b5a7167847d1cb8e6  math-omml.pptx
   the PowerPoint text box; **PowerPoint re-serialised it on `SaveAs`, so the
   `.pptx` package XML is genuine PowerPoint output.** Pins the `<a:p>` → `a14:m` /
   `m:oMathPara` / `m:oMath` structure and namespace declarations.
+- `av-media.pptx` — **authoring oracle** for embedded audio/video in appended
+  slides (backlog `dn-append-av-media`). Two blank slides, each with one media
+  shape embedded by PowerPoint's `AddMediaObject2` (no link-to-file): **slide 1**
+  `EmbeddedVideo` (`media1.mp4`) and **slide 2** `EmbeddedAudio` (`media2.mp3`).
+  Pins the exact rel graph + content types PowerPoint writes for A/V — the
+  structure `appendSlides` must reproduce instead of throwing:
+  - **Two rels share one media Target.** Each slide's `.rels` carries a Microsoft
+    2007 `…/2007/relationships/media` rel **and** an ECMA
+    `…/2006/relationships/{video|audio}` rel, both pointing at the same
+    `media1.mp4` / `media2.mp3`, **plus** a separate `…/relationships/image` rel
+    for the auto-generated preview frame (`image1.png` video frame, `image2.png`
+    audio icon).
+  - **The slide body references three rIds.** In `p:pic/p:nvPicPr/p:nvPr`,
+    `<a:videoFile r:link="…"/>` / `<a:audioFile r:link="…"/>` points at the ECMA
+    rel, `<p14:media r:embed="…"/>` (inside the `p:nvPr` extLst) at the MS media
+    rel, and the `p:blipFill` `<a:blip r:embed="…"/>` at the preview image.
+    PowerPoint's real numbering is `rId1`=media, `rId2`=video/audio,
+    `rId3`=slideLayout, `rId4`=image (**not** a strictly consecutive triple). The
+    `p:cNvPr` also carries `<a:hlinkClick action="ppaction://media"/>` and the
+    slide a `<p:timing>` interactive-media trigger tree.
+  - **Content types are `Default` extension entries, not Overrides:** `mp4` →
+    `video/mp4`, `mp3` → `audio/mpeg` (alongside `png`/`jpeg`).
 
 ## Autofit calibration oracle (`docs/measured-text-fit.md`)
 
