@@ -3114,6 +3114,65 @@ export interface GroupProps extends PositionProps, ObjectNameProps {
 	/** Flip the group vertically */
 	flipV?: boolean
 }
+/**
+ * Bullet configuration for one slide-master text-style level (`a:buChar`/`a:buAutoNum`/`a:buNone`).
+ * A focused subset of the run-level bullet model — picture bullets and per-glyph sizing are not
+ * supported in master defaults (those require slide rels). Set `bullet: false` to suppress the
+ * level's bullet entirely.
+ * @since v4.0.0
+ */
+export interface MasterBulletProps {
+	/** `'bullet'` emits a character bullet (`a:buChar`); `'number'` emits an auto-number (`a:buAutoNum`). @default 'bullet' */
+	type?: 'bullet' | 'number'
+	/** Bullet character (unicode code point hex), e.g. `'2022'` for •. Used when `type` is `'bullet'`. */
+	characterCode?: string
+	/** Glyph font typeface for the bullet character (`a:buFont`), e.g. `'Arial'` or `'Wingdings'`. */
+	fontFace?: string
+	/** Auto-number scheme (`a:buAutoNum@type`) when `type` is `'number'`, e.g. `'arabicPeriod'`. @default 'arabicPeriod' */
+	numberType?: string
+	/** Starting value for auto-numbered bullets (`a:buAutoNum@startAt`). @default 1 */
+	numberStartAt?: number
+}
+/**
+ * Styling for one paragraph level (`a:lvlNpPr`) of a slide-master text style. Every field is
+ * optional; an unset field keeps PowerPoint's built-in default for that level. Configure via
+ * {@link SlideMasterProps.textStyles}.
+ * @since v4.0.0
+ */
+export interface MasterTextStyleLevel {
+	/** Font size in points (`a:defRPr@sz`), e.g. `24`. */
+	fontSize?: number
+	/** Font face (`a:defRPr/a:latin@typeface`). Unset keeps the theme font (`+mn-lt`/`+mj-lt`). */
+	fontFace?: string
+	/** Text color — hex (`'C00000'`) or theme slot (`'tx1'`) — emitted as `a:defRPr/a:solidFill`. */
+	color?: Color
+	/** Bold text (`a:defRPr@b`). */
+	bold?: boolean
+	/** Italic text (`a:defRPr@i`). */
+	italic?: boolean
+	/** Horizontal alignment (`a:lvlNpPr@algn`). */
+	align?: HAlign
+	/** Left margin in inches (`a:lvlNpPr@marL`); for a hanging bullet this is the text indent. */
+	marginLeft?: number
+	/** First-line indent in inches (`a:lvlNpPr@indent`); negative produces a hanging bullet. */
+	indent?: number
+	/** Bullet config: `false` emits `a:buNone`; an object configures a char/number bullet. Unset keeps the level default. */
+	bullet?: boolean | MasterBulletProps
+}
+/**
+ * Per-level slide-master text styles, written to `slideMaster1.xml`'s `<p:txStyles>`.
+ * Because a deck has a single shared slide master, these styles are **deck-wide**: when set on more
+ * than one `defineSlideMaster()` call the last value for each group (`title`/`body`/`other`) wins.
+ * @since v4.0.0
+ */
+export interface MasterTextStyleProps {
+	/** Title placeholder style (`p:titleStyle`, single level). */
+	title?: MasterTextStyleLevel
+	/** Body placeholder per-level styles (`p:bodyStyle`, levels 1–9; index 0 is `lvl1`). */
+	body?: MasterTextStyleLevel[]
+	/** Other/default placeholder per-level styles (`p:otherStyle`, levels 1–9). */
+	other?: MasterTextStyleLevel[]
+}
 export interface SlideMasterProps {
 	/**
 	 * Unique name for this master
@@ -3123,6 +3182,14 @@ export interface SlideMasterProps {
 	margin?: Margin
 	slideNumber?: SlideNumberProps
 	objects?: SlideMasterObject[]
+	/**
+	 * Per-level master text styles (title / body / other) written to the shared slide master's
+	 * `<p:txStyles>`. Configure nested bullet character, font size, color, alignment, and indent
+	 * for each of the nine list levels. Deck-wide (see {@link MasterTextStyleProps}).
+	 * @since v4.0.0
+	 * @example textStyles: { body: [{ fontSize: 24, color: 'C00000', bullet: { characterCode: '25AA' } }] }
+	 */
+	textStyles?: MasterTextStyleProps
 
 	/**
 	 * @deprecated v3.3.0 - use `background`
@@ -3171,6 +3238,7 @@ export interface SlideBaseProps {
 	_relsMedia: ISlideRelMedia[] // needed as we use args:"PresSlide|SlideLayout" often
 	_relsNotes?: ISlideRel[] // hyperlink rels emitted in the notes-slide part (notesSlideN.xml.rels)
 	_comments?: ISlideComment[] // review comments emitted in the per-slide comments part (commentN.xml)
+	_txStyles?: MasterTextStyleProps // per-level master text styles emitted in slideMaster1.xml <p:txStyles> (deck-wide; set via defineSlideMaster textStyles)
 	_slideNum: number
 	_slideNumberProps?: SlideNumberProps | null
 	_slideObjects: ISlideObject[]

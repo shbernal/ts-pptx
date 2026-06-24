@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`defineSlideMaster({ textStyles })` — configurable per-level master text styles:**
+  configure the shared slide master's `<p:txStyles>` instead of accepting the fixed
+  Office defaults. `textStyles` (`MasterTextStyleProps`) carries `title` (single level),
+  `body[]`, and `other[]` (each up to the nine list levels; index `0` is `lvl1`). Each
+  level (`MasterTextStyleLevel`) sets `fontSize` (pt), `fontFace`, `color` (hex or theme
+  slot), `bold`, `italic`, `align`, `marginLeft`/`indent` (**inches**), and `bullet`
+  (`false` → `<a:buNone/>`, or `MasterBulletProps` for a character/auto-number bullet) —
+  exactly the nested-bullet character, size, and colour control that was previously
+  impossible (gitbrent/PptxGenJS#1360). Any unset field keeps that level's built-in
+  default, and a deck that does not pass `textStyles` emits the **byte-identical** default
+  master as before. Because a deck has a single shared master, `textStyles` is **deck-wide**:
+  set across multiple `defineSlideMaster()` calls, the last value for each group
+  (`title`/`body`/`other`) wins. Levels past nine warn and are dropped; an invalid
+  `fontSize` warns and keeps the default. Lands in `src/gen-xml.ts` (`makeXmlMasterTxStyles`)
+  and `src/pptxgen.ts` (`defineSlideMaster`). Implements backlog `upstream-issue-1360`.
+
 - **`importSlide(src, i, { theme: 'restyle', remapLiterals: true })` — force-remap
   literals and copy table styles:** an opt-in flag that pushes a `restyle` re-brand
   past what symbolic theme references reach, for slides whose palette is partly

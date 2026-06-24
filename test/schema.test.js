@@ -907,6 +907,42 @@ export default [
 		},
 	},
 	{
+		// upstream-issue-1360: defineSlideMaster({ textStyles }) configures the shared slide
+		// master's per-level <p:txStyles>. Assert the configured master is schema-valid and that
+		// the body level overrides (bullet char, font size, color) landed in slideMaster1.xml.
+		name: 'configurable master text styles (txStyles)',
+		fn: async () => {
+			const { buf, zip } = await build((p) => {
+				p.defineSlideMaster({
+					title: 'TXSTYLE_MASTER',
+					textStyles: {
+						title: { fontSize: 40, color: '1F3864', bold: true },
+						body: [
+							{ fontSize: 24, color: 'C00000', bold: true, bullet: { characterCode: '25AA', fontFace: 'Arial' } },
+							{ fontSize: 20, align: 'right', bullet: false },
+							{ bullet: { type: 'number', numberType: 'arabicPeriod' } },
+						],
+					},
+				})
+				p.addSlide({ masterName: 'TXSTYLE_MASTER' }).addText('Body', { x: 1, y: 1, w: 6, h: 1 })
+			})
+			await expectNoSchemaErrors(buf, 'master-txstyles')
+			const masterXml = await readEntry(zip, 'ppt/slideMasters/slideMaster1.xml')
+			const txStyles = firstXmlBlock(masterXml, 'p:txStyles', 'master txStyles')
+			const titleStyle = firstXmlBlock(txStyles, 'p:titleStyle', 'titleStyle')
+			const bodyStyle = firstXmlBlock(txStyles, 'p:bodyStyle', 'bodyStyle')
+			assertIncludes(titleStyle, 'sz="4000"', 'title fontSize 40pt')
+			assertIncludes(titleStyle, 'b="1"', 'title bold')
+			assertIncludes(titleStyle, '<a:srgbClr val="1F3864"/>', 'title color')
+			assertIncludes(bodyStyle, 'sz="2400"', 'body lvl1 fontSize 24pt')
+			assertIncludes(bodyStyle, '<a:srgbClr val="C00000"/>', 'body lvl1 color')
+			assertIncludes(bodyStyle, '<a:buChar char="&#x25AA;"/>', 'body lvl1 custom bullet char')
+			assertIncludes(bodyStyle, '<a:lvl2pPr marL="742950" indent="-285750" algn="r"', 'body lvl2 right align')
+			assertIncludes(bodyStyle, '<a:buNone/>', 'body lvl2 bullet suppressed')
+			assertIncludes(bodyStyle, '<a:buAutoNum type="arabicPeriod"/>', 'body lvl3 auto-number bullet')
+		},
+	},
+	{
 		name: 'image clipped to a freeform custGeom path',
 		fn: async () => {
 			const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='

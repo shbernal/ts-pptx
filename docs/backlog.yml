@@ -306,8 +306,8 @@ items:
     source: "gitbrent/PptxGenJS#1456"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-20
-    status: deferred
+    last_reviewed: 2026-06-24
+    status: partially-implemented
     priority: p2
     target_area:
       - missing-pptx-feature
@@ -525,8 +525,8 @@ items:
     source: "gitbrent/PptxGenJS#1360"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-11
-    status: deferred
+    last_reviewed: 2026-06-24
+    status: implemented
     priority: p3
     target_area:
       - speaker-notes-masters-layouts
@@ -534,24 +534,46 @@ items:
     applies_to_current_project: yes
     non_target_reasons: []
     summary: Slide master body styles cannot configure nested bullet level character, size, and color.
-    current_project_notes: >
-      Deferred (in scope, design-heavy). Per-level master txStyles configuration
-      is a legitimate masters feature but needs a careful defineSlideMaster option
-      model spanning all nine list levels. Partly worked around today by styling
-      runs directly. Wait for a user actually blocked by the master-level gap
-      before designing the option surface.
+    current_project_notes: |
+      IMPLEMENTED 2026-06-24. `defineSlideMaster()` gained an optional `textStyles`
+      (SlideMasterProps.textStyles: MasterTextStyleProps) that configures the shared
+      slide master's per-level `<p:txStyles>` — `title` (single level), `body[]`, and
+      `other[]` (each up to 9 list levels, index 0 == lvl1). Per level
+      (MasterTextStyleLevel): fontSize (pt), fontFace, color (hex|theme), bold, italic,
+      align, marginLeft + indent (INCHES -> EMU via inch2Emu), and bullet
+      (false -> <a:buNone/>; MasterBulletProps for char/auto-number).
+
+      Serialization: makeXmlMaster (src/gen-xml.ts) now emits
+      `slide._txStyles ? makeXmlMasterTxStyles(slide._txStyles) : <verbatim default literal>`,
+      so a deck that does not set textStyles is BYTE-IDENTICAL to before (regression-guarded).
+      makeXmlMasterTxStyles layers caller overrides onto data-model defaults
+      (MASTER_TITLE_DEFAULT / MASTER_BODY_DEFAULTS / MASTER_OTHER_DEFAULTS mirroring the
+      Office literal) via masterLevelXml/masterBulletXml; unset fields keep the level
+      default. Levels past 9 warn and are dropped; invalid fontSize warns and keeps the
+      default (warn-over-coerce). txStyles lives on the single shared master, so it is
+      deck-wide: defineSlideMaster routes textStyles to `this._masterSlide._txStyles`
+      (SlideBaseProps._txStyles) with per-group last-call-wins merge (src/pptxgen.ts).
+
+      Validator-clean (legacy txStyles is fully standard-specified; no PowerPoint oracle
+      needed). Out of scope for this pass (no concrete need): new placeholder/style groups
+      beyond title/body/other, and picture bullets in master defaults (need slide rels).
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
+        - regression-test
+        - validator-result
       local_files:
-        - src/gen-xml.ts:1682
-        - src/gen-xml.ts:1685
-        - src/gen-xml.ts:1693
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts
+        - src/gen-xml.ts
+        - src/pptxgen.ts
+        - test/schema.test.js
+        - test/regression/master-text-styles.test.js
+      schema_fixture: "test/schema.test.js: 'configurable master text styles (txStyles)'"
+      validator_result: pass (pnpm run test:schema, 2026-06-24; 103 fixtures green)
       powerpoint_result: null
       spec_refs: []
-    next_action: revisit-master-text-style-levels-on-concrete-need
+    next_action: none
 
   - id: upstream-pr-1263
     source: "gitbrent/PptxGenJS#1263"
@@ -654,7 +676,7 @@ items:
     source: "gitbrent/PptxGenJS#1256"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-20
+    last_reviewed: 2026-06-24
     status: deferred
     priority: p3
     target_area:
@@ -664,9 +686,15 @@ items:
     non_target_reasons: []
     summary: Asked for a way to style table headers differently from body rows.
     current_project_notes: >
-      Tables can already receive per-cell options and autoPage can repeat a
-      header row, but there is no dedicated header style shorthand. This is a
-      convenience API signal rather than evidence of invalid table OOXML.
+      Re-reviewed 2026-06-24: largely satisfied by existing primitives. The custom
+      table-style system (pptx.defineTableStyle({ firstRow: { fill, color, bold, border } })
+      + hasHeader:true) styles the header row distinctly through the proper OOXML firstRow
+      style region (core-interfaces.ts TableStyleProps.firstRow; gen-xml.ts tableStyles.xml),
+      and per-cell options on row 0 remain available. What is missing is only thin inline
+      sugar (a headerRow:{…} shortcut that skips defining a named style). Holding it: adding
+      an overlapping header-styling path alongside firstRow risks an ambiguous-precedence
+      footgun (which wins when both are set?), against the API-clarity policy. Build only if
+      a concrete consumer wants the inline form AND a clear precedence rule is defined.
     evidence:
       kinds:
         - local-source-inspection

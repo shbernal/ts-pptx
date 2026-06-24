@@ -1163,6 +1163,12 @@ export default class PptxGenJS {
 		// STEP 1: Create the Slide Master/Layout
 		genObj.createSlideMaster(propsClone, newLayout)
 
+		// STEP 1b: Master text styles (<p:txStyles>) live on the single shared slide master, not per-layout.
+		// Merge each provided group (title/body/other) onto the master, last-call-wins (deck-wide).
+		if (propsClone.textStyles && typeof propsClone.textStyles === 'object') {
+			this._masterSlide._txStyles = { ...this._masterSlide._txStyles, ...propsClone.textStyles }
+		}
+
 		// STEP 2: Add it to layout defs
 		this._slideLayouts.push(newLayout)
 
