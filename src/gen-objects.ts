@@ -1455,6 +1455,29 @@ export function addTableDefinition(
 		opt.w = Math.floor((presLayout._sizeW || presLayout.width) / EMU - arrTableMargin[1] - arrTableMargin[3])
 	}
 
+	// Shrink-to-fit (`fitColumns: 'shrink'`, #1451): proportionally scale columns down so a
+	// too-wide table fits between `x` and the right slide margin. Runs after the width-calc
+	// above so it sees the resolved form — either a surviving per-column `colW` array, or a
+	// single `w`. Rewriting the widths here (the table definition) means both the emitter and
+	// the measured-fit pass inherit the fitted grid; shrink only, no minimum-width floor.
+	if (opt.fitColumns === 'shrink') {
+		const slideWin = (presLayout._sizeW || presLayout.width) / EMU
+		const xIn = getSmartParseNumber(opt.x, 'X', presLayout) / EMU
+		const availWin = slideWin - xIn - arrTableMargin[3]
+		if (availWin > 0) {
+			if (Array.isArray(opt.colW)) {
+				const sumIn = opt.colW.reduce((p, n) => p + (Number.isFinite(n) ? n : 0), 0)
+				if (sumIn > availWin) {
+					const factor = availWin / sumIn
+					opt.colW = opt.colW.map(n => (Number.isFinite(n) ? n * factor : n))
+					opt.w = availWin
+				}
+			} else if (typeof opt.w === 'number' && opt.w > availWin) {
+				opt.w = availWin
+			}
+		}
+	}
+
 	// STEP 5: Loop over cells: transform each to ITableCell; check to see whether to unset `autoPage` while here
 	arrRows.forEach(row => {
 		row.forEach((cell, idy) => {

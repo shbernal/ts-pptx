@@ -357,8 +357,8 @@ items:
     source: "gitbrent/PptxGenJS#1451"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-20
-    status: deferred
+    last_reviewed: 2026-06-24
+    status: implemented
     priority: p3
     target_area:
       - table-ooxml
@@ -367,21 +367,30 @@ items:
     non_target_reasons: []
     summary: Requests automatic table column scaling so many columns fit within slide width.
     current_project_notes: >
-      Current table code distributes columns from w/colW, but the upstream item is
-      a layout convenience request without a repair report or invalid OOXML
-      evidence.
+      Implemented as opt-in `fitColumns: 'shrink'` on TableProps. In
+      addTableDefinition (gen-objects.ts), after the existing width-calc resolves
+      colW/w, a shrink pass computes the usable width (slide width - x - right
+      margin) and, when the total exceeds it, scales every column by the same
+      factor (or clamps a too-wide `w`). Rewriting the widths at the table
+      definition means both the XML emitter and the measured-fit pass inherit the
+      fitted grid. Shrink only, no minimum-width floor; off by default so existing
+      explicit widths are unchanged.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/core-interfaces.ts:920
-        - src/gen-tables.ts:304
-        - src/gen-xml.ts:194
-      schema_fixture: null
-      validator_result: null
+        - src/core-interfaces.ts (TableProps.fitColumns)
+        - src/gen-objects.ts (addTableDefinition shrink-to-fit pass)
+        - test/regression/table-fit-columns.test.js
+        - test/schema.test.js (table-fit-columns fixture)
+      schema_fixture: "table with fitColumns shrink-to-fit (upstream-issue-1451)"
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: reconsider-if-repro-shows-generated-overflow-defect
+    next_action: none
 
   - id: upstream-issue-1423
     source: "gitbrent/PptxGenJS#1423"

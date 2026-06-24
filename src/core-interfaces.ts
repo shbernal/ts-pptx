@@ -1643,6 +1643,18 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 */
 	colW?: number | number[]
 	/**
+	 * Shrink columns proportionally so a too-wide table fits the slide.
+	 * - `'shrink'`: if the total column width exceeds the space available between
+	 *   the table's `x` and the right slide margin, scale every column down by the
+	 *   same factor so the whole table fits. Columns that already fit are untouched.
+	 * - applies to an explicit `colW` array (the common "too many columns" case) and
+	 *   to a `w` wider than the slide; never grows columns and never enforces a
+	 *   minimum width, so a very high column count can still become thin.
+	 * - opt-in: explicit widths are otherwise emitted as-is and may run off the slide.
+	 * @default undefined (no scaling)
+	 */
+	fitColumns?: 'shrink'
+	/**
 	 * Mark the first row as a header row.
 	 * Emits `firstRow="1"` on `<a:tblPr>`, activating the first-row style region of
 	 * the table style and satisfying the PowerPoint accessibility checker's "table header" rule.

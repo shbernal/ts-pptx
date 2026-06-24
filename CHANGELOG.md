@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`addTable(rows, { fitColumns: 'shrink' })` — shrink columns to fit the slide:**
+  when a table's total column width exceeds the space between its `x` and the right
+  slide margin, scale every column down by the same factor so the whole table fits.
+  Applies to an explicit `colW` array (the common "too many columns" case) and to a `w`
+  wider than the slide; it is **shrink-only** (never grows columns) with **no
+  minimum-width floor** (a very high column count can still become thin). Opt-in and
+  off by default — without the flag, explicit widths are emitted as-is and may run off
+  the slide, so existing decks are unchanged. The scaling runs once in
+  `addTableDefinition` after width resolution, so both the XML emitter and the
+  measured-fit pass see the fitted grid. Lands in `src/core-interfaces.ts`
+  (`TableProps.fitColumns`) and `src/gen-objects.ts` (`addTableDefinition`). Implements
+  backlog `upstream-issue-1451`.
+
 - **`addTable(rows, { headerRow })` — inline header-row styling:** style a table's
   first row distinctly from the body **without** first registering a custom style via
   `pptx.defineTableStyle({ firstRow })`. `headerRow` (a `TableCellProps`) is applied as

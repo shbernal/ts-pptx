@@ -460,6 +460,26 @@ export default [
 		},
 	},
 	{
+		name: 'table with fitColumns shrink-to-fit (upstream-issue-1451)',
+		fn: async () => {
+			const { buf, zip } = await build((p) => {
+				p.addSlide().addTable(
+					[
+						[{ text: 'A' }, { text: 'B' }, { text: 'C' }, { text: 'D' }],
+						[{ text: '1' }, { text: '2' }, { text: '3' }, { text: '4' }],
+					],
+					{ x: 0.5, y: 1, colW: [4, 4, 4, 4], fitColumns: 'shrink' }
+				)
+			})
+			const slideXml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const cols = [...slideXml.matchAll(/<a:gridCol w="(\d+)"\/>/g)].map((m) => Number(m[1]))
+			const sum = cols.reduce((a, b) => a + b, 0)
+			// 16in of columns scaled to the 9in usable width (10in slide - 0.5 x - 0.5 margin).
+			assert(Math.abs(sum - 9 * 914400) <= cols.length, `expected gridCol sum ~9in; got ${sum / 914400}`)
+			await expectNoSchemaErrors(buf, 'table-fit-columns')
+		},
+	},
+	{
 		name: 'table with hasHeader',
 		fn: async () => {
 			const { buf } = await build((p) => {
