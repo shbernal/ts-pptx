@@ -206,30 +206,26 @@ describe('Presentation.appendSlides', () => {
 		const pres = await Presentation.load(originalBytes)
 
 		const pptx = wideGenerator()
-		pptx
-			.addSlide()
-			.addMedia({
-				type: 'video',
-				extn: 'mp4',
-				data: `video/mp4;base64,${mp4}`,
-				cover: `image/png;base64,${poster}`,
-				x: 1,
-				y: 1,
-				w: 4,
-				h: 3,
-			})
-		pptx
-			.addSlide()
-			.addMedia({
-				type: 'audio',
-				extn: 'mp3',
-				data: `audio/mpeg;base64,${mp3}`,
-				cover: `image/png;base64,${poster}`,
-				x: 1,
-				y: 1,
-				w: 2,
-				h: 2,
-			})
+		pptx.addSlide().addMedia({
+			type: 'video',
+			extn: 'mp4',
+			data: `video/mp4;base64,${mp4}`,
+			cover: `image/png;base64,${poster}`,
+			x: 1,
+			y: 1,
+			w: 4,
+			h: 3,
+		})
+		pptx.addSlide().addMedia({
+			type: 'audio',
+			extn: 'mp3',
+			data: `audio/mpeg;base64,${mp3}`,
+			cover: `image/png;base64,${poster}`,
+			x: 1,
+			y: 1,
+			w: 2,
+			h: 2,
+		})
 
 		const added = await pres.appendSlides(pptx, { layout: 'Blank' })
 		assertEqual(added.length, 2, 'two A/V slides were appended')
@@ -329,19 +325,94 @@ describe('Presentation.appendSlides', () => {
 		const poster = await mediaFixture('poster.png')
 		const pres = await Presentation.load(await readFile(fixturePath('theme-colors')))
 		const pptx = wideGenerator()
+		pptx.addSlide().addMedia({
+			type: 'video',
+			extn: 'mp4',
+			data: `video/mp4;base64,${mp4}`,
+			cover: `image/png;base64,${poster}`,
+			x: 1,
+			y: 1,
+			w: 4,
+			h: 3,
+		})
+		pptx.addSlide().addMedia({ type: 'audio', extn: 'mp3', data: `audio/mpeg;base64,${mp3}`, x: 1, y: 1, w: 2, h: 2 })
+		await pres.appendSlides(pptx, { layout: 'Blank' })
+
+		const errors = await validateBuf(Buffer.from(await pres.save()))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+
+	test('carries an online (external-link) video: two External rels + poster, no media part', async () => {
+		// Mirrors the online-video.pptx oracle: an appended online video reproduces the
+		// external-link rel graph PowerPoint authors — an ECMA video rel AND an MS-2007
+		// media rel, both TargetMode="External" sharing one link Target, plus a poster
+		// image part — with NO media binary part and NO A/V content-type entry.
+		const link = 'https://example.com/online-video-sample.mp4'
+		const originalBytes = await readFile(fixturePath('theme-colors'))
+		const before = await partBodies(originalBytes)
+		const pres = await Presentation.load(originalBytes)
+
+		const pptx = wideGenerator()
+		pptx.addSlide().addMedia({ type: 'online', link, cover: PNG_1PX, x: 1, y: 1, w: 4, h: 3 })
+
+		const [added] = await pres.appendSlides(pptx, { layout: 'Blank' })
+		const out = await pres.save()
+		const after = await partBodies(out)
+
+		// Only chrome changes among original parts.
+		const expectedChanged = new Set(['ppt/presentation.xml', 'ppt/_rels/presentation.xml.rels', '[Content_Types].xml'])
+		for (const [name, bytes] of before) {
+			assert(after.has(name), `part ${name} survives the append`)
+			if (expectedChanged.has(name)) continue
+			assert(bytesEqual(bytes, after.get(name)), `part ${name} is byte-identical after the online-video append`)
+		}
+
+		// The only new media part is the poster image — no ppt/media/*.mp4 binary.
+		const newParts = [...after.keys()].filter((name) => !before.has(name))
+		assert(
+			newParts.filter((n) => /^ppt\/media\//.test(n)).every((n) => /^ppt\/media\/image\d+\.png$/.test(n)),
+			`the only new media part is the poster image (${newParts.join(', ')})`
+		)
+		assert(!newParts.some((n) => /^ppt\/media\/.*\.mp4$/.test(n)), 'no mp4 media binary was added')
+
+		// No A/V content-type entry — the video is a link, not a part.
+		const ct = new TextDecoder().decode(after.get('[Content_Types].xml'))
+		assert(!/Extension="mp4"/.test(ct), 'no mp4 content type was added for the linked video')
+
+		// Body rId triple: a:videoFile r:link (ECMA), p14:media r:link (MS-2007), a:blip r:embed (poster).
+		const reopened = await Presentation.load(out)
+		const body = new TextDecoder().decode(after.get(added.partName.slice(1)))
+		const fileRid = (body.match(/<a:videoFile r:link="(rId\d+)"/) || [])[1]
+		const mediaRid = (body.match(/<p14:media[^>]*r:link="(rId\d+)"/) || [])[1]
+		const blipRid = (body.match(/<a:blip r:embed="(rId\d+)"/) || [])[1]
+		assert(
+			fileRid && mediaRid && blipRid,
+			`online-video body references the rId triple (${fileRid}/${mediaRid}/${blipRid})`
+		)
+
+		// Each body rId resolves to the expected rel type.
+		assertEqual(typeOfRid(reopened.opc, added.partName, fileRid), VIDEO_REL, 'videoFile r:link → ECMA video rel')
+		assertEqual(typeOfRid(reopened.opc, added.partName, mediaRid), MS_MEDIA_REL, 'p14:media r:link → MS-2007 media rel')
+		assertEqual(typeOfRid(reopened.opc, added.partName, blipRid), IMAGE_REL, 'blip r:embed → poster image rel')
+
+		// The two external rels share the link Target and are External; the poster is a real part.
+		const rels = [...reopened.opc.relationshipsFor(added.partName)]
+		const videoRel = rels.find((r) => r.id === fileRid)
+		const msRel = rels.find((r) => r.id === mediaRid)
+		assertEqual(videoRel.target, link, 'ECMA video rel Target is the external link')
+		assertEqual(msRel.target, link, 'MS-2007 media rel shares the same link Target')
+		assertEqual(videoRel.targetMode, 'External', 'ECMA video rel is External')
+		assertEqual(msRel.targetMode, 'External', 'MS-2007 media rel is External')
+		const posterTarget = resolveRid(reopened.opc, added.partName, blipRid)
+		assert(reopened.opc.part(posterTarget), 'the poster image part exists')
+	})
+
+	test.skipIf(!validatorInstalled)('the appended deck with an online video stays schema-valid', async () => {
+		const pres = await Presentation.load(await readFile(fixturePath('theme-colors')))
+		const pptx = wideGenerator()
 		pptx
 			.addSlide()
-			.addMedia({
-				type: 'video',
-				extn: 'mp4',
-				data: `video/mp4;base64,${mp4}`,
-				cover: `image/png;base64,${poster}`,
-				x: 1,
-				y: 1,
-				w: 4,
-				h: 3,
-			})
-		pptx.addSlide().addMedia({ type: 'audio', extn: 'mp3', data: `audio/mpeg;base64,${mp3}`, x: 1, y: 1, w: 2, h: 2 })
+			.addMedia({ type: 'online', link: 'https://example.com/v.mp4', cover: PNG_1PX, x: 1, y: 1, w: 4, h: 3 })
 		await pres.appendSlides(pptx, { layout: 'Blank' })
 
 		const errors = await validateBuf(Buffer.from(await pres.save()))

@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`appendSlides` carries online (external-link) video, and `addMedia({type:'online'})`
+  now emits the rel graph PowerPoint authors:** a source slide with an online video
+  appends onto an existing deck instead of dropping the link (previously the appended
+  slide kept the poster but left a **dangling** `<a:videoFile r:link>`). The generator
+  side was also brought up to PowerPoint's shape — `addMedia({type:'online', link})`
+  now writes **two external relationships** sharing the link Target (the ECMA
+  `…/relationships/video` rel and the Microsoft-2007 `…/relationships/media` rel, both
+  `TargetMode="External"`), the body references the second via `<p14:media r:link>`
+  (inside the `p:nvPr` extLst) alongside `<a:videoFile r:link>` and the poster
+  `<a:blip r:embed>`, and the `p:cNvPr` gains `<a:hlinkClick action="ppaction://media"/>`.
+  There is **no** media binary part and **no** A/V content-type entry — only the poster
+  image part is added. `extractSlides()` exposes these via a new `onlineMedia` descriptor
+  array on each extracted slide (**breaking**: `ExtractedSlide` gains a required
+  `onlineMedia` field). Verified against a PowerPoint-authored oracle fixture
+  (`test/read/fixtures/online-video.pptx`). Lands in `src/gen-objects.ts`,
+  `src/gen-xml.ts`, `src/pptxgen.ts`, `src/read/api/presentation.ts`. Implements backlog
+  `dn-append-online-video`.
+
 - **`Presentation.fromTemplate(input, options?)` — author a fresh deck on a real
   PowerPoint template (`pptxgenjs/read`):** open a `.pptx` *or* `.potx` template,
   get back an empty deck shell whose slide masters, layouts, and theme are kept
@@ -62,8 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   producing a package. **Charts** (chart XML + `.rels` + embedded workbook) and
   **internal slide-to-slide hyperlinks** (`slide:N` repointed at the Nth appended
   slide) are carried across; appendSlides injects in two passes so a forward link
-  resolves. Limitations: online (external-link) media is not yet carried
-  (fixture-gated, backlog `dn-append-online-video`); an internal link to a source
+  resolves. Limitations: an internal link to a source
   slide outside the appended batch throws; appended slides are concrete absolute-positioned content (no
   placeholder inheritance — `schemeClr` re-resolves against the destination theme);
   source/destination slide sizes must match; notes are not generated. Lands in

@@ -873,7 +873,7 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	 */
 	if (strType === 'online') {
 		const relId1 = getNewRelId(target)
-		// A: Add video
+		// A: ECMA video rel (external link) — referenced by <a:videoFile r:link>.
 		target._relsMedia.push({
 			path: strPath || 'preencoded' + strExtn,
 			data: 'dummy',
@@ -884,7 +884,19 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 		})
 		slideData.mediaRid = relId1
 
-		// B: Add cover (preview/overlay) image
+		// B: MS-2007 media rel — PowerPoint authors a second external rel sharing the
+		// same link Target; the body points at it via <p14:media r:link>. (Mirrors the
+		// embedded A/V pair, but External and with no media binary part.)
+		target._relsMedia.push({
+			path: strPath || 'preencoded' + strExtn,
+			data: 'dummy',
+			type: 'online',
+			extn: strExtn,
+			rId: getNewRelId(target),
+			Target: strLink,
+		})
+
+		// C: Add cover (preview/overlay) image
 		target._relsMedia.push({
 			path: 'preencoded.png',
 			data: strCover,

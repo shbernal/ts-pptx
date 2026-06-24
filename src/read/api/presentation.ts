@@ -282,6 +282,14 @@ export interface ExtractedSlide {
 	 * (`previewRid`). {@link Presentation.appendSlides} reproduces this rel graph.
 	 */
 	avMedia: AvMediaItem[]
+	/**
+	 * Online (external-link) video the body references. Each item is two *external*
+	 * rels sharing one link Target — the ECMA `video` rel (`mediaRid`) and the MS-2007
+	 * `media` rel (`msMediaRid`) — with **no** media binary part. The poster frame is a
+	 * normal image rel carried by {@link media}. {@link Presentation.appendSlides}
+	 * wires the two external rels without reserving a media part or content type.
+	 */
+	onlineMedia: OnlineMediaItem[]
 }
 
 /** One embedded audio/video item extracted for {@link Presentation.appendSlides}. */
@@ -306,6 +314,16 @@ export interface AvMediaItem {
 	previewExtn: string
 	/** OPC content type for the preview image part. */
 	previewContentType: string
+}
+
+/** One online (external-link) video item extracted for {@link Presentation.appendSlides}. */
+export interface OnlineMediaItem {
+	/** Body `rId` of the ECMA `video` rel (`a:videoFile r:link`); External, no part. */
+	mediaRid: number
+	/** Body `rId` of the MS-2007 `media` rel (`p14:media r:link`); External, shares the link Target. */
+	msMediaRid: number
+	/** The external video link both rels point at (`TargetMode="External"`). */
+	link: string
 }
 
 /** A generator's authored slides + canvas size, the input to {@link Presentation.appendSlides}. */
@@ -807,6 +825,13 @@ export class Presentation {
 				this.opc.contentTypes.ensureDefault(av.previewExtn, av.previewContentType)
 				this.opc.addPart(previewPartName, av.previewContentType, av.previewBytes)
 				rels.addWithId(`rId${av.previewRid}`, IMAGE_REL, relativePartName(partName, previewPartName))
+			}
+			for (const ov of slide.onlineMedia) {
+				// Online (external-link) video: two External rels share the link Target — the
+				// ECMA video rel and the MS-2007 media rel — with no media binary part and no
+				// content-type entry. The poster image is wired by the `slide.media` loop above.
+				rels.addWithId(`rId${ov.mediaRid}`, VIDEO_REL, ov.link, 'External')
+				rels.addWithId(`rId${ov.msMediaRid}`, MS_MEDIA_REL, ov.link, 'External')
 			}
 			for (const h of slide.hyperlinks) {
 				rels.addWithId(`rId${h.rId}`, HYPERLINK_REL, h.target, 'External')

@@ -1742,7 +1742,7 @@ items:
     type: downstream-need
     first_seen: 2026-06-24
     last_reviewed: 2026-06-24
-    status: deferred
+    status: implemented
     priority: p3
     target_area:
       - image-svg-media
@@ -1779,20 +1779,40 @@ items:
       with `<a:videoFile r:link>` (ECMA) + `<p14:media r:link>` (MS-2007, in
       `p:nvPr/p:extLst`) + `<a:blip r:embed>` (poster). appendSlides must reproduce
       both external rels (link, not embed) and the poster image part, reserving no
-      media part / Default content-type for the video itself. Implementation still
-      pending.
+      media part / Default content-type for the video itself.
+
+      IMPLEMENTED 2026-06-24. Two coordinated changes (fixed upstream so writeFile
+      benefits too, not just appendSlides):
+      (1) Generator faithfulness — `addMedia({type:'online'})` now emits the full rel
+      graph PowerPoint authors. gen-objects.ts pushes a THIRD rel (the MS-2007
+      `…/2007/relationships/media` external rel sharing the link Target) between the
+      ECMA video rel (mediaRid) and the poster image (now mediaRid+2). gen-xml.ts
+      online body branch gained `<p14:media r:link="rId{mediaRid+1}">`, an
+      `<a:hlinkClick action="ppaction://media"/>` on cNvPr, and moved the poster blip
+      to rId{mediaRid+2}; its rels branch now writes BOTH external rels (ECMA video +
+      MS-2007 media), each TargetMode="External".
+      (2) Append carry — extractSlides (pptxgen.ts) surfaces an `onlineMedia`
+      descriptor (mediaRid + msMediaRid + external link; poster carried as a normal
+      image in `media`). appendSlides (read/api/presentation.ts) wires the two External
+      rels via VIDEO_REL + MS_MEDIA_REL with no media part and no content-type entry;
+      the poster is reserved by the existing image-media loop.
+      Tests: test/read/append-onto-existing.test.js gained two cases (rel-graph
+      assertion + schema-valid) matching the online-video.pptx oracle shape; full
+      test:unit (376) green, validator clean.
     evidence:
       kinds:
         - local-source-inspection
         - powerpoint-result
+        - validator-result
       local_files:
         - src/gen-xml.ts
         - src/gen-objects.ts
         - src/pptxgen.ts
         - src/read/api/presentation.ts
+        - test/read/append-onto-existing.test.js
         - test/read/fixtures/online-video.pptx
       schema_fixture: null
-      validator_result: null
+      validator_result: pass (ooxml-validator, appended online-video deck schema-valid, 2026-06-24)
       powerpoint_result: pass (Windows desktop PowerPoint 16.0, 2026-06-24; online-video.pptx authored + opened clean via COM)
       spec_refs: []
-    next_action: Add an online-media descriptor to extractSlides + appendSlides (two external rels with TargetMode=External sharing the link Target, plus the poster image part; no media binary / Default content-type) against the online-video.pptx oracle.
+    next_action: none

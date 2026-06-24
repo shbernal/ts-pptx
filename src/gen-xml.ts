@@ -1042,14 +1042,22 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					strSlideXml += '<p:pic>'
 					strSlideXml += ' <p:nvPicPr>'
 					// IMPORTANT: <p:cNvPr id="" value is critical - if its not the same number as preview image `rId`, PowerPoint throws error!
-					strSlideXml += `<p:cNvPr id="${slideItemObj.mediaRid + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"/>`
-					strSlideXml += ` <p:cNvPicPr>${genXmlObjectLock('a:picLocks', PICTURE_LOCK_ATTRS, slideItemObj.options.objectLock, slideItemObj.options.objectName)}</p:cNvPicPr>`
+					strSlideXml += `<p:cNvPr id="${slideItemObj.mediaRid + 2}" name="${slideItemObj.options.objectName
+					}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"><a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr>`
+					strSlideXml += ` <p:cNvPicPr>${genXmlObjectLock('a:picLocks', PICTURE_LOCK_ATTRS, { noChangeAspect: true, ...slideItemObj.options.objectLock }, slideItemObj.options.objectName)}</p:cNvPicPr>`
 					strSlideXml += ' <p:nvPr>'
+					// External-link video: <a:videoFile r:link> at the ECMA rel, <p14:media r:link>
+					// at the MS-2007 media rel (both External, sharing the link Target). Mirrors the
+					// embedded branch but uses r:link (no media binary part).
 					strSlideXml += `  <a:videoFile r:link="rId${slideItemObj.mediaRid}"/>`
+					strSlideXml += '  <p:extLst>'
+					strSlideXml += '   <p:ext uri="{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}">'
+					strSlideXml += `    <p14:media xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" r:link="rId${slideItemObj.mediaRid + 1}"/>`
+					strSlideXml += '   </p:ext>'
+					strSlideXml += '  </p:extLst>'
 					strSlideXml += ' </p:nvPr>'
 					strSlideXml += ' </p:nvPicPr>'
-					// NOTE: `blip` is diferent than videos; also there's no preview "p:extLst" above but exists in videos
-					strSlideXml += ` <p:blipFill><a:blip r:embed="rId${slideItemObj.mediaRid + 1}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>` // NOTE: Preview image is required!
+					strSlideXml += ` <p:blipFill><a:blip r:embed="rId${slideItemObj.mediaRid + 2}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>` // NOTE: Preview image is required!
 					strSlideXml += ' <p:spPr>'
 					strSlideXml += `  <a:xfrm${locationAttr}><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>`
 					strSlideXml += '  <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'
@@ -1258,11 +1266,13 @@ function slideObjectRelationsToXml (slide: PresSlideInternal | SlideLayoutIntern
 				strXml += '<Relationship Id="rId' + relRid + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/video" Target="' + rel.Target + '"/>'
 			}
 		} else if (rel.type.toLowerCase().includes('online')) {
-			// As media has *TWO* rel entries per item, check for first one, if found add second rel with alt style
+			// Online video has *TWO* external rels sharing the link Target: the ECMA video
+			// rel (first) and the MS-2007 media rel (second). Both TargetMode="External",
+			// no media binary part. Detect the second by its Target already being present.
 			if (strXml.includes(' Target="' + rel.Target + '"')) {
-				strXml += '<Relationship Id="rId' + relRid + '" Type="http://schemas.microsoft.com/office/2007/relationships/image" Target="' + rel.Target + '"/>'
+				strXml += '<Relationship Id="rId' + relRid + '" Type="http://schemas.microsoft.com/office/2007/relationships/media" Target="' + rel.Target + '" TargetMode="External"/>'
 			} else {
-				strXml += '<Relationship Id="rId' + relRid + '" Target="' + rel.Target + '" TargetMode="External" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/video"/>'
+				strXml += '<Relationship Id="rId' + relRid + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/video" Target="' + rel.Target + '" TargetMode="External"/>'
 			}
 		}
 	})

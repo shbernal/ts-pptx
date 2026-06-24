@@ -815,6 +815,21 @@ export default class PptxGenJS {
 				})
 				.filter((m): m is NonNullable<typeof m> => m !== null)
 
+			// Online (external-link) video. addMedia type:'online' pushes three rels off
+			// mediaRid: the ECMA video rel (mediaRid, External), the MS-2007 media rel
+			// (mediaRid+1, External, sharing the link Target), and the poster image rel
+			// (mediaRid+2, carried by `media` below as a normal image). No media binary
+			// part exists; appendSlides reproduces only the two external rels + poster.
+			const onlineMedia = slide._slideObjects
+				.filter(obj => obj._type === SLIDE_OBJECT_TYPES.media && obj.mtype === 'online' && typeof obj.mediaRid === 'number')
+				.map(obj => {
+					const mediaRid = obj.mediaRid as number
+					const videoRel = relByRid.get(mediaRid)
+					if (!videoRel || typeof videoRel.Target !== 'string' || !videoRel.Target) return null
+					return { mediaRid, msMediaRid: mediaRid + 1, link: videoRel.Target }
+				})
+				.filter((m): m is NonNullable<typeof m> => m !== null)
+
 			const hyperlinks = slide._rels
 				.filter(rel => rel.type.toLowerCase().includes('hyperlink') && rel.data !== 'slide')
 				.map(rel => ({ rId: rel.rId, target: rel.Target }))
@@ -840,6 +855,7 @@ export default class PptxGenJS {
 				charts,
 				slideLinks,
 				avMedia,
+				onlineMedia,
 			}
 		})
 
