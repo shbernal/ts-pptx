@@ -258,6 +258,56 @@ export function restyleSlide(slideRoot: Element): void {
 }
 
 /**
+ * The optional inverse of {@link resolveSchemeColors}, for `restyle`'s
+ * force-remap-literals mode (the {@link Presentation.importSlide} `remapLiterals`
+ * option). Every literal `a:srgbClr` whose value equals a *source* `clrScheme`
+ * slot is rewritten back to a symbolic `a:schemeClr` so it re-resolves against the
+ * destination theme; a literal matching no slot (the common case) is left exactly
+ * as authored. Transform children (`lumMod`/`shade`/`alpha`/…) are carried across.
+ *
+ * Plain `restyle` cannot re-brand a literal — it carries no theme reference. This
+ * re-introduces one by matching the literal's RGB against the slots the *source*
+ * theme defined, emitting the scheme token that routes through the source `clrMap`
+ * (so a literal equal to the source `accent1` slot becomes `schemeClr accent1`,
+ * which the destination `clrMap`/theme then re-resolve). Slots are matched in
+ * `clrScheme` order, so the first slot defining a given RGB wins when several share
+ * it. Opt-in because it deliberately reinterprets authored literals as theme
+ * colours — visual QA territory, the same caveat as the rest of `restyle`.
+ */
+export function remapLiteralColors(slideRoot: Element, ctx: ColorContext): void {
+	const slotByHex = reverseClrScheme(ctx.clrScheme)
+	if (slotByHex.size === 0) return
+	const tokenBySlot = reverseClrMap(ctx.clrMap)
+	const doc = slideRoot.ownerDocument!
+	for (const srgb of elementsByTag(slideRoot, OOXML_NS.a, 'srgbClr')) {
+		const hex = attr(srgb, 'val')
+		const slot = hex ? slotByHex.get(hex.toUpperCase()) : undefined
+		if (!slot) continue
+		const scheme = createElement(doc, 'a:schemeClr')
+		setAttr(scheme, 'val', tokenBySlot.get(slot) ?? slot) // route through the source clrMap; dk1/lt1/… are themselves valid tokens
+		while (srgb.firstChild) scheme.appendChild(srgb.firstChild) // carry transforms
+		srgb.parentNode!.replaceChild(scheme, srgb)
+	}
+}
+
+/** Reverse a slot → RGB `clrScheme` into RGB → slot, in `SCHEME_SLOTS` order (first slot wins on a shared RGB). */
+function reverseClrScheme(clrScheme: Map<string, string>): Map<string, string> {
+	const out = new Map<string, string>()
+	for (const slot of SCHEME_SLOTS) {
+		const hex = clrScheme.get(slot)
+		if (hex && !out.has(hex.toUpperCase())) out.set(hex.toUpperCase(), slot)
+	}
+	return out
+}
+
+/** Reverse a token → slot `clrMap` into slot → token (first token wins on a shared slot). */
+function reverseClrMap(clrMap: Map<string, string>): Map<string, string> {
+	const out = new Map<string, string>()
+	for (const [token, slot] of clrMap) if (!out.has(slot)) out.set(slot, token)
+	return out
+}
+
+/**
  * If the slide has no own `p:bg`, insert (a copy of) the background it inherited
  * from its source layout/master as an explicit `p:cSld/p:bg`. The clone is left
  * unresolved here; the later passes flatten its `bgRef`/`schemeClr` in place.

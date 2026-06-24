@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`importSlide(src, i, { theme: 'restyle', remapLiterals: true })` — force-remap
+  literals and copy table styles:** an opt-in flag that pushes a `restyle` re-brand
+  past what symbolic theme references reach, for slides whose palette is partly
+  hardcoded. Plain `restyle` can only recolour what is symbolic (a literal `a:srgbClr`
+  has no theme reference, so it stays its authored RGB; a restyled table whose
+  `@tableStyleId` is absent in the destination silently falls back). `remapLiterals`
+  closes both gaps: (1) every literal `a:srgbClr` equal to a **source**-theme
+  `clrScheme` slot is rewritten back to a symbolic `a:schemeClr` — routed through the
+  source `clrMap`, transforms carried, a literal matching no slot left untouched — so
+  it re-resolves against the destination theme; and (2) any `<a:tableStyleId>` the
+  slide references is copied from the source `tableStyles.xml` into this deck's under
+  the **same** id (idempotent; an id the deck already defines is left alone; a missing
+  `tableStyles.xml` part is created and wired), and since the copied `<a:tblStyle>` is
+  itself symbolic it re-brands to the destination theme. Off by default, preserving the
+  prior byte-identical-literal guarantee; deliberately reinterprets authored literals
+  as theme colours, so output wants visual QA. Lands in `src/read/oxml/theme.ts`
+  (`remapLiteralColors`) and `src/read/api/presentation.ts`
+  (`#copySourceTableStyles`/`#ensureTableStylesPart`). Verified against
+  PowerPoint-authored `test/read/fixtures/multi-theme.pptx` slide 3. Implements backlog
+  `dn-importslide-restyle-literals`.
+
 - **`slide.addComment({ author, text, … })` — native PowerPoint review comments:**
   attach legacy (ISO/IEC 29500 §13) comments to a slide. The writer emits a per-slide
   `/ppt/comments/comment{N}.xml` (`<p:cmLst>` of `<p:cm authorId dt? idx><p:pos x y/>

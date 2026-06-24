@@ -245,3 +245,78 @@ describe("Presentation.importSlide({ theme: 'restyle' })", () => {
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 	})
 })
+
+// `remapLiterals` pushes the re-brand past what plain restyle reaches: it rewrites
+// source-theme *literal* colours back to symbolic scheme colours, and copies a
+// referenced source table style into the destination so a restyled table keeps it.
+//
+// Fixture: `multi-theme.pptx` slide 3 (PowerPoint-authored, Ion theme) carries the
+// two constructs this needs — a rectangle with a literal `srgbClr B01513` equal to
+// Ion accent1 (the force-remap match), a `123456` literal matching no slot (the
+// negative control), and a table whose `@tableStyleId` resolves to a `<a:tblStyle>`
+// in the source `tableStyles.xml`. The destination `empty.pptx` defines no such
+// table style, so the copy is observable.
+describe("Presentation.importSlide({ theme: 'restyle', remapLiterals: true })", () => {
+	const SLIDE3 = 2
+	const ION_ACCENT1 = 'B01513' // a slide3 literal equal to Ion accent1 — the force-remap match
+	const NON_SLOT_LITERAL = '123456' // a slide3 literal matching no Ion slot — the negative control
+	const TABLE_STYLE_ID = '{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}' // slide3 table @tableStyleId (Medium Style 2 - Accent 1)
+
+	test('remaps a source-theme literal to a symbolic schemeClr, leaving a non-slot literal alone', async () => {
+		const target = await open('empty')
+		const source = await open('multi-theme')
+		const imported = target.importSlide(source, SLIDE3, { theme: 'restyle', remapLiterals: true })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		assert(!new RegExp(`<a:srgbClr val="${ION_ACCENT1}"`).test(xml), 'the Ion-accent1 literal is no longer a literal')
+		assert(/<a:schemeClr val="accent1"/.test(xml), 'it was rewritten to a symbolic accent1 that re-brands to this deck')
+		assert(
+			new RegExp(`<a:srgbClr val="${NON_SLOT_LITERAL}"`).test(xml),
+			'a literal matching no source slot is left untouched'
+		)
+	})
+
+	test('without the flag, plain restyle leaves the source-theme literal byte-identical', async () => {
+		const target = await open('empty')
+		const source = await open('multi-theme')
+		const imported = target.importSlide(source, SLIDE3, { theme: 'restyle' })
+		const xml = await slideXml(await target.save(), imported.partName)
+		assert(
+			new RegExp(`<a:srgbClr val="${ION_ACCENT1}"`).test(xml),
+			'the literal stays put (the limitation, as a guarantee)'
+		)
+		assert(!/<a:schemeClr val="accent1"\/>[\s\S]*B01513/.test(xml), 'no remap happened')
+	})
+
+	test('copies the referenced source table style into this deck, without duplicating on repeat', async () => {
+		const target = await open('empty')
+		const source = await open('multi-theme')
+
+		const before = await slideXml(await target.save(), '/ppt/tableStyles.xml')
+		assert(!before.includes(`styleId="${TABLE_STYLE_ID}"`), 'precondition: the destination defines no such table style')
+
+		target.importSlide(source, SLIDE3, { theme: 'restyle', remapLiterals: true })
+		target.importSlide(source, SLIDE3, { theme: 'restyle', remapLiterals: true })
+		const after = await slideXml(await target.save(), '/ppt/tableStyles.xml')
+
+		const count = after.split(`styleId="${TABLE_STYLE_ID}"`).length - 1
+		assertEqual(count, 1, 'the source table style is copied exactly once across two imports')
+		assert(after.includes('Medium Style 2 - Accent 1'), 'the copied definition is the source style, verbatim')
+	})
+
+	test('does not copy a table style without remapLiterals (the table falls back)', async () => {
+		const target = await open('empty')
+		const source = await open('multi-theme')
+		target.importSlide(source, SLIDE3, { theme: 'restyle' })
+		const after = await slideXml(await target.save(), '/ppt/tableStyles.xml')
+		assert(!after.includes(`styleId="${TABLE_STYLE_ID}"`), 'plain restyle leaves the destination tableStyles untouched')
+	})
+
+	test.skipIf(!validatorInstalled)('a remap + table-copy restyle import stays schema-valid', async () => {
+		const target = await open('empty')
+		const source = await open('multi-theme')
+		target.importSlide(source, SLIDE3, { theme: 'restyle', remapLiterals: true })
+		const errors = await validateBuf(Buffer.from(await target.save()))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+})

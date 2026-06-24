@@ -9,7 +9,7 @@ import type { Part } from '../opc/part.js'
 import type { Relationships } from '../opc/relationships.js'
 import { relativePartName, relsPartNameFor } from '../opc/partnames.js'
 import { ELEMENT_NODE, OOXML_NS, attr, createElement, firstChild, getElements, getOrAddChild, intValue, removeChildrenByQName, setAttr, type Element } from '../oxml/dom.js'
-import { flattenShape, flattenSlide, restyleSlide, type FlattenContext } from '../oxml/theme.js'
+import { flattenShape, flattenSlide, remapLiteralColors, restyleSlide, type FlattenContext } from '../oxml/theme.js'
 import { resolveSlideThemeParts } from './theme-context.js'
 import { Slide } from './slide.js'
 import { wrapShapeElement, type Shape } from './shapes.js'
@@ -28,6 +28,10 @@ const VIDEO_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relatio
 // Microsoft 2007 `media` rel: paired with the ECMA audio/video rel (same Target),
 // referenced by the slide body's <p14:media r:embed>.
 const MS_MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media'
+const TABLE_STYLES_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles'
+const TABLE_STYLES_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml'
+// The well-known "no style / table grid" GUID PowerPoint uses as a tblStyleLst @def.
+const TABLE_STYLES_DEFAULT_GUID = '{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}'
 
 const SLIDE_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
 const SLIDE_LAYOUT_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'
@@ -136,14 +140,35 @@ export interface ImportSlideOptions {
 	 *   Anything the source authored as a literal `a:srgbClr` has no theme reference
 	 *   to re-resolve and stays exactly that colour, so a slide with a baked literal
 	 *   palette re-brands little or nothing. Use `restyle` for slides built against
-	 *   theme colours/style matrices, not hardcoded RGB. Re-brand is inherently a
+	 *   theme colours/style matrices, not hardcoded RGB — or set {@link remapLiterals}
+	 *   to force-remap literals and copy table styles. Re-brand is inherently a
 	 *   visual change (a source `accent1` light-on-dark can invert against a dark
 	 *   destination `accent1`), so its output needs visual QA. A restyled table
 	 *   resolves its `@tableStyleId` against the *destination* `tableStyles`; if the
-	 *   destination lacks that id the table falls back, so the destination must own
-	 *   the style id.
+	 *   destination lacks that id the table falls back (which {@link remapLiterals}
+	 *   also addresses by copying the source style across).
 	 */
 	theme?: 'copy' | 'preserve' | 'restyle'
+
+	/**
+	 * `restyle` mode only. Push the re-brand past what symbolic references reach, for
+	 * slides whose palette is partly hardcoded. When `true` it does two things the
+	 * plain re-brand cannot:
+	 *
+	 * - **Literal colours** — every literal `a:srgbClr` equal to a *source*-theme
+	 *   `clrScheme` slot is rewritten back to a symbolic `a:schemeClr` (routed through
+	 *   the source `clrMap`), so it re-resolves against this deck's theme instead of
+	 *   staying its authored RGB. A literal matching no source slot is left untouched.
+	 * - **Table styles** — any `@tableStyleId` the slide references is copied from the
+	 *   source `tableStyles.xml` into this deck's (same id, idempotent, leaving an id
+	 *   the destination already defines alone), so a restyled table keeps its style
+	 *   instead of falling back. The copied definition is itself symbolic, so it
+	 *   re-brands to this deck's theme.
+	 *
+	 * Off by default: it deliberately reinterprets authored literals as theme colours,
+	 * which is a visual change that needs QA. Ignored unless `theme` is `'restyle'`.
+	 */
+	remapLiterals?: boolean
 
 	/**
 	 * `preserve`/`restyle` modes only. When `true`, bake the source
@@ -629,7 +654,7 @@ export class Presentation {
 			options.theme === 'preserve'
 				? this.#importSlidePreserve(source, sourceSlide, options.carryMasterGraphics === true)
 				: options.theme === 'restyle'
-					? this.#importSlideRestyle(source, sourceSlide, options.carryMasterGraphics === true)
+					? this.#importSlideRestyle(source, sourceSlide, options.carryMasterGraphics === true, options.remapLiterals === true)
 					: this.#copyPart(source.opc, sourceSlide.partName)
 		const newPart = this.opc.part(newPartName)
 		if (!newPart) throw new Error(`Imported slide part went missing: ${newPartName}`)
@@ -1029,12 +1054,85 @@ export class Presentation {
 	 * bake, no placeholder colour/size/geometry bake — every one of those would pin
 	 * the slide to its source look, the opposite of re-branding. Carried
 	 * decorations are left symbolic too, so they re-brand along with the slide.
+	 *
+	 * With `remapLiterals` it additionally force-remaps the slide's source-theme
+	 * literal colours back to symbolic scheme colours and copies any referenced
+	 * source table style into this deck — the two things plain `restyle` cannot
+	 * re-brand (see {@link ImportSlideOptions.remapLiterals}).
 	 */
-	#importSlideRestyle(source: Presentation, sourceSlide: Slide, carryGraphics: boolean): string {
+	#importSlideRestyle(source: Presentation, sourceSlide: Slide, carryGraphics: boolean, remapLiterals: boolean): string {
 		const { newPartName, slideRoot, newPart } = this.#importSlideRebind(source, sourceSlide, carryGraphics)
 		restyleSlide(slideRoot)
+		if (remapLiterals) {
+			// The source colour context (slot ↔ RGB ↔ token) the literals are matched against.
+			const parts = resolveSlideThemeParts(source.opc, sourceSlide.partName)
+			remapLiteralColors(slideRoot, { clrMap: parts.clrMap, clrScheme: parts.clrScheme })
+			this.#copySourceTableStyles(source.opc, slideRoot)
+		}
 		newPart.markDirty()
 		return newPartName
+	}
+
+	/**
+	 * Copy any table style the restyled slide references from the source
+	 * `tableStyles.xml` into this deck's (the `remapLiterals` table leg). A restyled
+	 * table resolves its `@tableStyleId` against the *destination* `tableStyles` and
+	 * silently falls back when that id is absent; the source `<a:tblStyle>` is itself
+	 * symbolic (scheme colours), so copying it verbatim under the **same** id lets the
+	 * table keep its structure while re-branding to this deck's theme — no table-XML
+	 * rewrite needed. Idempotent: an id this deck already defines is left as-is, and a
+	 * referenced id with no source definition is skipped. Creates and wires a
+	 * `tableStyles.xml` part if this deck has none.
+	 */
+	#copySourceTableStyles(sourceOpc: OpcPackage, slideRoot: Element): void {
+		const ids = new Set<string>()
+		const idEls = slideRoot.getElementsByTagNameNS(OOXML_NS.a, 'tableStyleId')
+		for (let i = 0; i < idEls.length; i++) {
+			const id = idEls[i].textContent?.trim()
+			if (id) ids.add(id)
+		}
+		if (ids.size === 0) return
+
+		const sourceList = this.#tableStyleList(sourceOpc)
+		if (!sourceList) return
+		const sourceStyles = new Map(getElements(sourceList, 'a:tblStyle').map((st) => [attr(st, 'styleId'), st] as const))
+
+		const destPart = this.#ensureTableStylesPart()
+		const destList = destPart.dom.documentElement
+		if (!destList) return
+		const present = new Set(getElements(destList, 'a:tblStyle').map((st) => attr(st, 'styleId')))
+
+		let added = false
+		for (const id of ids) {
+			if (present.has(id)) continue
+			const src = sourceStyles.get(id)
+			if (!src) continue
+			destList.appendChild(destList.ownerDocument!.importNode(src, true))
+			present.add(id)
+			added = true
+		}
+		if (added) destPart.markDirty()
+	}
+
+	/** The `a:tblStyleLst` root of a package's `tableStyles.xml`, or `null` when it has none. */
+	#tableStyleList(opc: OpcPackage): Element | null {
+		const part = opc.partsByContentType(TABLE_STYLES_CONTENT_TYPE)[0]
+		return part ? part.dom.documentElement : null
+	}
+
+	/**
+	 * This deck's `tableStyles.xml` part, creating an empty one (and wiring its
+	 * `presentation.xml` relationship + content type) when the deck has none.
+	 */
+	#ensureTableStylesPart(): Part {
+		const existing = this.opc.partsByContentType(TABLE_STYLES_CONTENT_TYPE)[0]
+		if (existing) return existing
+		const partName = this.opc.reservePartNameLike('/ppt/tableStyles.xml')
+		const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<a:tblStyleLst xmlns:a="${OOXML_NS.a}" def="${TABLE_STYLES_DEFAULT_GUID}"/>`
+		const part = this.opc.addPart(partName, TABLE_STYLES_CONTENT_TYPE, textEncoder.encode(xml))
+		const presRels = this.opc.relationshipsFor(this.presentationPart.partName)
+		presRels.add(TABLE_STYLES_REL, relativePartName(this.presentationPart.partName, partName))
+		return part
 	}
 
 	/**

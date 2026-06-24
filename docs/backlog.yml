@@ -1520,8 +1520,8 @@ items:
     source: downstream
     type: downstream-need
     first_seen: 2026-06-18
-    last_reviewed: 2026-06-19
-    status: deferred
+    last_reviewed: 2026-06-24
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -1529,50 +1529,55 @@ items:
     non_target_reasons: []
     summary: "importSlide restyle: optional force-remap of literal colours + copy source table style into destination"
     current_project_notes: |
-      importSlide theme: 'restyle' rebinds a lifted slide to the destination
-      master/layout and leaves schemeClr/style-matrix refs symbolic so they
-      re-resolve against the destination theme. Load-bearing limitation: restyle
-      can only recolour what is symbolic — anything authored as a literal srgbClr
-      has no theme reference to re-resolve and stays that colour. Two deferred
-      follow-ups: (a) a heavier "force re-map literals" mode that diffs source-theme
-      literals against the source clrScheme and rewrites matches to destination
-      slots; (b) copying the source table style into the destination tableStyles
-      under a fresh id (a restyled table resolves @tableStyleId against the
-      destination tableStyles and falls back if the id is absent).
+      IMPLEMENTED 2026-06-24. importSlide theme: 'restyle' gained a single opt-in
+      `remapLiterals` flag (ImportSlideOptions) that pushes the re-brand past what
+      symbolic references reach, covering both originally-deferred legs:
 
-      Fixture dependency (migrated from the retired CREATE_FIXTURES_PLAN.md,
-      Remaining Work B): testing leg (a) needs a PowerPoint-authored source slide
-      that actually contains a literal srgbClr equal to a source-theme accent hex,
-      and leg (b) needs a table using a non-default table style. multi-theme.pptx
-      has neither today. Before implementing, author those fixture additions (a
-      rectangle filled with a literal srgbClr equal to an Ion accent so a
-      force-remap has a match, and a table with a custom table style as the copy
-      source) into multi-theme.pptx or a new restyle-literals.pptx; do not
-      implement the force-remap/table-style copy without that authored source.
+      Leg (a) — literal force-remap: `remapLiteralColors(slideRoot, ctx)` in
+      src/read/oxml/theme.ts is the inverse of `resolveSchemeColors`. It builds a
+      reverse source clrScheme (RGB -> slot, SCHEME_SLOTS order so the first slot
+      wins on a shared RGB) and reverse clrMap (slot -> token), then rewrites every
+      literal `a:srgbClr` whose value equals a source slot to `<a:schemeClr>` routed
+      through the source clrMap (dk1/lt1/… fall back to the slot name, itself a valid
+      token). Transforms are carried across; a literal matching no slot is untouched.
 
-      Fixture-gated precondition now SATISFIED: multi-theme.pptx gained slide 3
-      (Windows desktop PowerPoint COM, 2026-06-24) carrying both constructs —
-      `literal-accent1`, a rectangle with a literal `<a:srgbClr val="B01513"/>` fill
-      equal to Ion accent1 (the force-remap match for leg a), plus `literal-nonaccent`
-      (`123456`, matching no slot, the negative control); and `styled-table`, a table
-      with non-default built-in style Medium Style 2 - Accent 1
-      (`<a:tableStyleId>{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}</a:tableStyleId>`) whose
-      `<a:tblStyle>` definition PowerPoint materialized into ppt/tableStyles.xml (the
-      copy source for leg b). Slides 1-2 stayed byte-identical across the in-place save.
-      Implementation of the force-remap + table-style copy still pending.
+      Leg (b) — table-style copy: `#copySourceTableStyles(sourceOpc, slideRoot)` in
+      src/read/api/presentation.ts gathers the slide's `<a:tableStyleId>` ids, then
+      copies the matching source `<a:tblStyle>` into this deck's tableStyles.xml under
+      the SAME id (rejected the "fresh id" idea from the original note — no collision
+      since the destination lacks the id, and same-id keeps built-in identity and
+      needs no table-XML rewrite). Idempotent (an id the deck already defines is left
+      alone), and `#ensureTableStylesPart()` creates + wires a tableStyles.xml part
+      (presentation rel + content type) when the deck has none. The copied definition
+      is symbolic, so it re-brands to this deck's theme.
+
+      Both legs wire through `#importSlideRestyle(... , remapLiterals)`, after the
+      existing `restyleSlide` drop-clrMapOvr pass. Default (flag off) preserves the
+      prior byte-identical-literal guarantee.
+
+      Source-of-truth fixture is multi-theme.pptx slide 3 (index 2): literal B01513
+      == Ion accent1 (remap match), 123456 (negative control), and a table referencing
+      {5C22544A-7EE6-4342-B048-85BDC9FD1C3A} ("Medium Style 2 - Accent 1") whose
+      `<a:tblStyle>` lives in the source tableStyles.xml. Tests in
+      test/read/import-slide-restyle.test.js cover positive remap, negative control,
+      default-off guarantee, table-style copy + idempotency, no-copy-without-flag, and
+      schema validity (validator clean).
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - validator-result
         - powerpoint-result
       local_files:
-        - src/read/api/presentation.ts
         - src/read/oxml/theme.ts
+        - src/read/api/presentation.ts
+        - test/read/import-slide-restyle.test.js
         - test/read/fixtures/multi-theme.pptx
       schema_fixture: null
-      validator_result: null
+      validator_result: pass (test/read/import-slide-restyle.test.js "a remap + table-copy restyle import stays schema-valid"; 0 errors)
       powerpoint_result: pass (Windows desktop PowerPoint 16.0, 2026-06-24; multi-theme.pptx slide 3 authored + opened clean via COM)
       spec_refs: []
-    next_action: design-literal-remap (fixture ready — multi-theme.pptx slide 3 has the literal-accent rectangle + custom-table-style table)
+    next_action: none
   - id: dn-importslide-v1-limits
     source: downstream
     type: downstream-need
