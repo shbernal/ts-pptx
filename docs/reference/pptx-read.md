@@ -240,6 +240,15 @@ class Presentation {
 	static load(input: OpcInput): Promise<Presentation>
 	static fromPackage(opc: OpcPackage): Presentation
 
+	/**
+	 * Open a PowerPoint template (.pptx or .potx) as an empty deck shell: its
+	 * masters/layouts/theme are kept byte-identical, any sample slides are stripped,
+	 * and a .potx main part's template content type is normalized to the editable
+	 * presentation type (unless `keepTemplateContentType`). Author onto it with
+	 * `appendSlides`. See "Authoring slides onto a template or existing deck".
+	 */
+	static fromTemplate(input: OpcInput, options?: FromTemplateOptions): Promise<Presentation>
+
 	/** The underlying OPC package. */
 	readonly opc: OpcPackage
 	/** The main presentation part, via the package officeDocument relationship. */
@@ -280,7 +289,37 @@ class Presentation {
 	/** Phase 4 — batch form of `importShape`; media shared by the lifted shapes is copied once. */
 	importShapes(target: Slide, source: Slide, shapeIndices: number[], options?: ImportShapeOptions): Shape[]
 
+	/** The deck's layouts, in master-then-layout order — the gallery `appendSlides` binds to. Read-only; copies nothing. */
+	layouts(): LayoutHandle[]
+
+	/**
+	 * Author the slides of a generator (`source`, e.g. a `PptxGenJS` instance) onto
+	 * this deck, bound to one of its existing layouts (by `p:cSld@name` or a
+	 * `LayoutHandle`), and return the new Slides. Masters/layouts/theme and every
+	 * other untouched part stay byte-identical. Source and deck slide sizes must
+	 * match. See "Authoring slides onto a template or existing deck".
+	 */
+	appendSlides(source: SlideSource, options: AppendSlidesOptions): Promise<Slide[]>
+
 	save(): Promise<Uint8Array>
+}
+
+interface FromTemplateOptions {
+	keepTemplateContentType?: boolean // keep a .potx main part as ...template.main+xml; default false (normalize to editable)
+}
+
+interface LayoutHandle {
+	partName: string // the layout part's name, e.g. /ppt/slideLayouts/slideLayout2.xml
+	name: string | null // p:cSld/@name, e.g. "Title and Content"
+	masterPartName: string
+	masterIndex: number
+	layoutIndex: number
+}
+
+interface AppendSlidesOptions {
+	layout: string | LayoutHandle // bind every appended slide to this layout (by name or handle)
+	at?: number // zero-based p:sldIdLst position for the first appended slide; default append
+	onMediaError?: 'throw' | 'placeholder' // how addImage media errors surface; default 'throw'
 }
 
 interface ImportSlideOptions {
@@ -963,6 +1002,87 @@ v1 limitations match `importSlide`: source and target slide sizes must match
 (no geometry rescale), and the source slide's build animation/timing for the
 lifted shape is dropped (the result is an editable static layout).
 
+### Authoring slides onto a template or existing deck
+
+`importSlide` / `importShape` move authored content *between loaded decks*. The
+complementary path is to **generate new slides and graft them onto a loaded deck**,
+reusing its masters/layouts/theme verbatim — the hybrid "generate-onto-existing"
+workflow. Two methods cover it:
+
+- **`presentation.layouts()`** enumerates the deck's layout gallery as
+  `LayoutHandle[]` (master-then-layout order). It is a read-only discovery call —
+  it copies nothing and leaves the package byte-identical. The `name` is the
+  layout's `p:cSld@name` ("Title and Content", "Blank", …), which is what you bind
+  to.
+- **`presentation.appendSlides(source, { layout })`** authors the slides of a
+  *generator* (`source` — any object exposing `extractSlides()`, which a `PptxGenJS`
+  instance does) and splices them into this deck, each slide bound to the named
+  existing layout. Only `presentation.xml`, its `.rels`, `[Content_Types].xml`, and
+  the new slide/media/chart parts change; masters, layouts, theme, and every other
+  untouched part stay byte-identical. Source and deck slide sizes must match
+  (`appendSlides` throws otherwise — size the generator to the deck).
+
+```js
+import PptxGenJS from 'pptxgenjs'
+import { Presentation } from 'pptxgenjs/read'
+
+const deck = await Presentation.load(await readFile('deck.pptx'))
+
+const pptx = new PptxGenJS()
+pptx.layout = 'LAYOUT_WIDE' // must match deck.slideSize
+pptx.addSlide().addText('Generated', { x: 1, y: 1, w: 6, h: 1 })
+
+const added = await deck.appendSlides(pptx, { layout: 'Title and Content' })
+const bytes = await deck.save()
+```
+
+Each appended slide's `slideLayout` relationship is repointed at the **existing**
+layout part (no new chrome is created); relationship ids inside the slide body are
+preserved and only their targets are rewritten. Text, images, charts (chart XML +
+`.rels` + embedded workbook), embedded audio/video, and internal slide-to-slide
+hyperlinks (`slide:N`, repointed at the Nth appended slide) all carry across. Pass
+`{ at }` to insert at a specific deck position (zero-based `p:sldIdLst` index, same
+convention as `cloneSlide`/`importSlide`), and `{ onMediaError: 'placeholder' }` to
+substitute a placeholder instead of throwing when an `addImage` source can't be
+read.
+
+#### Starting from a PowerPoint template — `fromTemplate`
+
+To author a fresh deck on a **corporate template** instead of an existing deck,
+open it with `Presentation.fromTemplate(input)`. It returns the template as an
+empty shell ready for `appendSlides`:
+
+```js
+const deck = await Presentation.fromTemplate(await readFile('brand.potx')) // .pptx or .potx
+deck.layouts().map((l) => l.name) // discover the template's layouts
+
+const pptx = new PptxGenJS()
+pptx.layout = 'LAYOUT_WIDE' // size to deck.slideSize
+pptx.addSlide().addText('Hello', { x: 1, y: 1, w: 6, h: 1 })
+
+await deck.appendSlides(pptx, { layout: 'Title and Content' })
+const out = await deck.save() // editable .pptx using the template's masters/layouts/theme
+```
+
+`fromTemplate` does two things on top of `load`:
+
+- **Strips sample slides to a shell.** Most templates ship with sample slides you
+  don't want; they are removed via the same pruning `removeSlide` uses, which never
+  touches shared chrome, so masters/layouts/theme stay byte-identical. A template
+  that already has zero slides makes this a no-op.
+- **Normalizes a `.potx` to an editable `.pptx`.** A `.potx` package declares its
+  main part with content type `…presentationml.template.main+xml`; by default that
+  `[Content_Types].xml` override is flipped to `…presentationml.presentation.main+xml`
+  so the saved file opens as a normal editable deck rather than spawning a new one
+  from a template. Pass `{ keepTemplateContentType: true }` to keep the template
+  type. (A `.pptx` input is already editable and needs no flip.)
+
+This is higher fidelity than rebuilding the masters in code with
+`defineSlideMaster()`: the template's authored master/layout/theme parts are kept
+verbatim rather than round-tripped through the generator's lossy model. The only
+requirement is that the generator's slide size matches the template's
+(`deck.slideSize`).
+
 ### Editing anything else (low-level escape hatch)
 
 For structure the typed setters do not yet cover, mutate the DOM directly and
@@ -1018,7 +1138,16 @@ reassigning ids off every host id, baking scheme colours to literals under
 overrides, batching in order, rejecting size/index/ownership errors, and staying
 schema-valid), and the chart tests
 (`test/read/chart.test.js`: chart part resolution, type/title/series/values
-reads, and a read-only open staying byte-identical).
+reads, and a read-only open staying byte-identical), and the append tests
+(`test/read/append-onto-existing.test.js`: `appendSlides` authoring generator
+slides onto a loaded deck bound to an existing layout, keeping chrome
+byte-identical, carrying text/image/chart/internal-link/audio/video, and staying
+schema-valid), and the template tests (`test/read/template-masters.test.js`:
+`fromTemplate` stripping sample slides to a shell while preserving the layout
+gallery and chrome byte-for-byte, flipping a `.potx` main part to the editable
+presentation content type — verified against the PowerPoint-authored
+`template.potx` oracle — honouring `keepTemplateContentType`, and authoring onto a
+zero-slide template shell to a schema-valid result).
 Schema cases require the OOXML validator
 (`./tools/ooxml-validator/install.sh`) and are skipped with a notice when it
 is absent. See [testing](../testing.md).

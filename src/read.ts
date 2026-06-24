@@ -23,6 +23,7 @@ export {
 	type ImportedSlideMaster,
 	type LayoutHandle,
 	type AppendSlidesOptions,
+	type FromTemplateOptions,
 	type SlideSource,
 	type ExtractedSlide,
 	type ExtractedSlides,

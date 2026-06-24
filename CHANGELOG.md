@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`Presentation.fromTemplate(input, options?)` — author a fresh deck on a real
+  PowerPoint template (`pptxgenjs/read`):** open a `.pptx` *or* `.potx` template,
+  get back an empty deck shell whose slide masters, layouts, and theme are kept
+  **byte-identical**, then discover bindable layouts with `layouts()` and graft
+  generator-produced slides on with `appendSlides()` — reusing the template's
+  authored chrome verbatim instead of rebuilding it with `defineSlideMaster()`.
+  Any sample slides the template carried are stripped to a master/layout/theme-only
+  shell (the existing `removeSlide` path, which never prunes shared chrome). A
+  `.potx` package's main-part content type (`…presentationml.template.main+xml`) is
+  normalized to the editable `…presentationml.presentation.main+xml` by default so
+  the saved output opens as a normal deck; pass `{ keepTemplateContentType: true }`
+  to preserve the template type. `FromTemplateOptions` is re-exported from
+  `pptxgenjs/read`. Verified against a PowerPoint-authored `.potx` oracle fixture
+  (`test/read/fixtures/template.potx`). Lands in `src/read/api/presentation.ts`,
+  `src/read.ts`. Implements backlog `dn-import-template-masters`.
+
+- **`appendSlides` works on a template with zero slides:** `Presentation.appendSlides`
+  (and `cloneSlide`) previously threw `presentation.xml has no p:sldIdLst to append
+  a slide to` when the deck omitted `p:sldIdLst` — which real PowerPoint templates do
+  when they carry no sample slides. It now creates `p:sldIdLst` in `CT_Presentation`
+  document order (before `p:sldSz`) on demand, so authoring onto a freshly-loaded
+  template shell works. Lands in `src/read/api/presentation.ts` (`#insertSlidePart`).
+
 - **`appendSlides` carries embedded audio/video media:** a source slide produced
   with `addMedia({ type: 'audio' | 'video', … })` now appends onto an existing
   deck, reproducing the rel graph PowerPoint authors — one media part backing two

@@ -35,6 +35,11 @@ const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presen
 const CHART_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'
 const XLSX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
+/** Content type of the main part in an editable `.pptx` package. */
+const PRESENTATION_MAIN_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml'
+/** Content type of the main part in a `.potx` template package — flipped to {@link PRESENTATION_MAIN_CONTENT_TYPE} by {@link Presentation.fromTemplate}. */
+const PRESENTATION_TEMPLATE_MAIN_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.template.main+xml'
+
 const textEncoder = new TextEncoder()
 
 /**
@@ -53,8 +58,27 @@ const SHARED_CHROME_CONTENT_TYPES = new Set([
 	'application/vnd.openxmlformats-officedocument.presentationml.presProps+xml',
 	'application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml',
 	'application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml',
-	'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml',
+	PRESENTATION_MAIN_CONTENT_TYPE,
 ])
+
+/**
+ * `p:sldIdLst`'s document-order successors in `CT_Presentation` (ECMA-376):
+ * everything that may legally follow it, so an inserted `p:sldIdLst` lands in the
+ * right position when a template omitted it (zero slides).
+ */
+const PRESENTATION_SLD_ID_LST_SUCCESSORS = [
+	'p:sldSz',
+	'p:notesSz',
+	'p:smartTags',
+	'p:embeddedFontLst',
+	'p:custShowLst',
+	'p:photoAlbum',
+	'p:custDataLst',
+	'p:kinsoku',
+	'p:defaultTextStyle',
+	'p:modifyVerifier',
+	'p:extLst',
+]
 
 /** ST_SlideId minimum (ECMA-376): slide ids live in [256, 2147483647]. */
 const MIN_SLIDE_ID = 256
@@ -312,6 +336,17 @@ export interface AppendSlidesOptions {
 	onMediaError?: 'throw' | 'placeholder'
 }
 
+/** Options for {@link Presentation.fromTemplate}. */
+export interface FromTemplateOptions {
+	/**
+	 * Keep a `.potx` main part's `…template.main+xml` content type instead of
+	 * normalizing it to the editable `…presentation.main+xml` type. Off by default
+	 * (the saved package opens as an editable deck, not a template). No effect on a
+	 * `.pptx` input, whose main part is already editable.
+	 */
+	keepTemplateContentType?: boolean
+}
+
 export class Presentation {
 	#presentationPart: Part | undefined
 	/**
@@ -332,6 +367,52 @@ export class Presentation {
 	/** Wrap an already-loaded OPC package (e.g. from the lower-level API). */
 	static fromPackage(opc: OpcPackage): Presentation {
 		return new Presentation(opc)
+	}
+
+	/**
+	 * Open a PowerPoint template (`.pptx` or `.potx`) and return it as an empty
+	 * deck shell ready to author onto: its slide masters, layouts, and theme are
+	 * kept **byte-identical**, while any sample slides the template carried are
+	 * stripped so only the shared chrome remains.
+	 *
+	 * Use it to build a fresh deck on a corporate template without rebuilding the
+	 * masters in code: discover the bindable layouts with {@link layouts}, then
+	 * author slides with a generator sized to match the template and graft them in
+	 * with {@link appendSlides} (which enforces an equal slide size). Saving yields
+	 * an editable `.pptx` that reuses the template's authored chrome verbatim.
+	 *
+	 * ```ts
+	 * const deck = await Presentation.fromTemplate(templateBytes) // .pptx or .potx
+	 * deck.layouts().map(l => l.name)                             // discover layouts
+	 * await deck.appendSlides(pptx, { layout: 'Title and Content' })
+	 * const out = await deck.save()                               // editable .pptx
+	 * ```
+	 *
+	 * A `.potx` package declares its main part with the template content type; by
+	 * default that override is flipped to the editable presentation type so the
+	 * saved output opens as a normal deck. Pass `keepTemplateContentType: true` to
+	 * preserve the template type. A `.pptx` input needs no flip, and a template
+	 * that already carries zero slides makes the strip a no-op.
+	 */
+	static async fromTemplate(input: OpcInput, options: FromTemplateOptions = {}): Promise<Presentation> {
+		const pres = new Presentation(await OpcPackage.load(input))
+
+		// Normalize a .potx main part to the editable presentation content type so
+		// the saved package opens as a deck, not a template. The officeDocument
+		// relationship resolves the main part regardless of its content type, so a
+		// .potx already loads; only the [Content_Types].xml override needs flipping.
+		if (!options.keepTemplateContentType) {
+			const mainPart = pres.presentationPart
+			if (mainPart.contentType === PRESENTATION_TEMPLATE_MAIN_CONTENT_TYPE) {
+				pres.opc.contentTypes.ensureRegistered(mainPart.partName, PRESENTATION_MAIN_CONTENT_TYPE)
+			}
+		}
+
+		// Strip any sample slides to a master/layout-only shell. removeSlide never
+		// prunes shared chrome, so masters/layouts/theme stay byte-identical.
+		while (pres.slides.length > 0) pres.removeSlide(0)
+
+		return pres
 	}
 
 	/** The main presentation part (`/ppt/presentation.xml`), resolved via the package `officeDocument` relationship. */
@@ -1282,8 +1363,10 @@ export class Presentation {
 		const relId = presRels.add(SLIDE_REL, relativePartName(presPart.partName, newPart.partName)).id
 
 		const root = presPart.dom.documentElement
-		const sldIdLst = root && firstChild(root, 'p:sldIdLst')
-		if (!sldIdLst) throw new Error('presentation.xml has no p:sldIdLst to append a slide to')
+		if (!root) throw new Error('presentation.xml has no document element to append a slide to')
+		// A template with zero slides omits p:sldIdLst entirely; create it in
+		// CT_Presentation document order (after the *IdLst children, before p:sldSz).
+		const sldIdLst = getOrAddChild(root, 'p:sldIdLst', PRESENTATION_SLD_ID_LST_SUCCESSORS)
 		const existing = getElements(sldIdLst, 'p:sldId')
 		const newSlideId = this.#nextSlideId(existing)
 		const sldId = createElement(presPart.dom, 'p:sldId')

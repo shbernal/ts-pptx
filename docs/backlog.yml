@@ -3103,8 +3103,8 @@ items:
     source: downstream
     type: downstream-need
     first_seen: 2026-06-20
-    last_reviewed: 2026-06-20
-    status: deferred
+    last_reviewed: 2026-06-24
+    status: implemented
     priority: p3
     target_area:
       - speaker-notes-masters-layouts
@@ -3112,15 +3112,22 @@ items:
     applies_to_current_project: partial
     non_target_reasons: []
     summary: Load an existing deck's slide masters, layouts, and theme as a template source instead of hand-coding defineSlideMaster
-    current_project_notes: "Requested capability: reuse a real PowerPoint template's masters/layouts/theme rather than rebuilding them in code. Needs a read path that adopts existing master/layout/theme parts into a usable definition. Distinct from editing slide content; it is template adoption."
+    current_project_notes: "Implemented as the static factory Presentation.fromTemplate(input, options?) (src/read/api/presentation.ts), built on the read-centric machinery rather than the lossy generator master/layout/theme model: open a .pptx or .potx, strip any sample slides to a master/layout/theme-only shell via the existing removeSlide loop (never prunes shared chrome, so masters/layouts/theme stay byte-identical), and return the shell ready to author onto with appendSlides() (which enforces equal slide size) bound to a layout name discovered via layouts(). .potx normalization: a template package declares its main part with content-type ...presentationml.template.main+xml; by default fromTemplate flips that [Content_Types].xml override to ...presentationml.presentation.main+xml via ContentTypes.ensureRegistered so the saved output opens as an editable deck (the officeDocument relationship resolves the main part regardless of content type, so a .potx already loads — only the override needs flipping); keepTemplateContentType:true preserves the template type. Required one upstream fix in #insertSlidePart: a real template with zero slides omits p:sldIdLst entirely, so appendSlides now creates p:sldIdLst in CT_Presentation document order (PRESENTATION_SLD_ID_LST_SUCCESSORS, before p:sldSz) instead of throwing — this benefits every appendSlides consumer, not just templates. FromTemplateOptions re-exported from src/read.ts. Distinct from dn-edit-existing-deck (content editing) and complementary to dn-append-onto-existing-deck (the authoring path it hands off to). Open follow-up: the saved content-type-flipped .potx output's open-in-PowerPoint check is a manual desktop step done after the code lands."
     evidence:
-      kinds: []
-      local_files: []
+      kinds:
+        - local-source-inspection
+        - regression-test
+        - validator-result
+      local_files:
+        - src/read/api/presentation.ts
+        - src/read.ts
+        - test/read/template-masters.test.js
+        - test/read/fixtures/template.potx
       schema_fixture: null
-      validator_result: null
+      validator_result: test/read/template-masters.test.js asserts the saved .potx-derived deck stays schema-valid after authoring (skipped when the OOXML validator is not installed)
       powerpoint_result: null
       spec_refs: []
-    next_action: Scope a read-and-adopt path over feat/pptx-edit's OPC model once Phase 2 stabilizes
+    next_action: none
   - id: dn-append-onto-existing-deck
     source: downstream
     type: downstream-need
