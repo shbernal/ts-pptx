@@ -525,6 +525,7 @@ export default class PptxGenJS {
 		this._tableStyles = []
 		this._masterSlide = {
 			addChart: null,
+			addComment: null,
 			addConnector: null,
 			addImage: null,
 			addMedia: null,
@@ -702,6 +703,18 @@ export default class PptxGenJS {
 			zip.add('ppt/slideMasters/_rels/slideMaster1.xml.rels', genXml.makeXmlMasterRel(this._masterSlide, this._slideLayouts))
 			zip.add('ppt/notesMasters/notesMaster1.xml', genXml.makeXmlNotesMaster())
 			zip.add('ppt/notesMasters/_rels/notesMaster1.xml.rels', genXml.makeXmlNotesMasterRel())
+
+			// C.1: Comments — resolve the deck-wide author registry once, then emit the shared
+			// commentAuthors part plus a per-slide comment part for each slide that has comments.
+			const resolvedComments = genXml.resolveCommentAuthors(this._slides)
+			if (resolvedComments.authors.length > 0) {
+				zip.add('ppt/commentAuthors.xml', genXml.makeXmlCommentAuthors(resolvedComments.authors))
+				this._slides.forEach((slide, idx) => {
+					if ((slide._comments || []).length > 0) {
+						zip.add(`ppt/comments/comment${idx + 1}.xml`, genXml.makeXmlComments(slide, resolvedComments.meta))
+					}
+				})
+			}
 
 			// D: Create all Rels (images, media, chart data)
 			this._slideLayouts.forEach(layout => {

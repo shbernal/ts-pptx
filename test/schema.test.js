@@ -2378,4 +2378,112 @@ export default [
 			await expectNoSchemaErrors(buf, 'nested-group')
 		},
 	},
+	{
+		// upstream-pr-1447: native (legacy ISO/IEC 29500 §13) PowerPoint comments. One author,
+		// one comment: assert the comment part, the commentAuthors part, both Content-Types
+		// Overrides, and the slide->comments / presentation->commentAuthors relationships.
+		name: 'slide comment (single author, single comment)',
+		fn: async () => {
+			const { buf, zip } = await build((p) => {
+				p.addSlide().addComment({
+					author: 'Ada Lovelace',
+					initials: 'AL',
+					text: 'Tighten this headline',
+					x: 1,
+					y: 0.5,
+					date: '2026-06-24T10:00:00Z',
+				})
+			})
+			await expectNoSchemaErrors(buf, 'comment-single')
+
+			const commentXml = await readEntry(zip, 'ppt/comments/comment1.xml')
+			assertIncludes(commentXml, '<p:cm authorId="0" dt="2026-06-24T10:00:00Z" idx="1">', 'comment cm attrs')
+			assertIncludes(commentXml, '<p:pos x="914400" y="457200"/>', 'comment pos in EMU')
+			assertIncludes(commentXml, '<p:text>Tighten this headline</p:text>', 'comment text')
+
+			const authorsXml = await readEntry(zip, 'ppt/commentAuthors.xml')
+			assertIncludes(
+				authorsXml,
+				'<p:cmAuthor id="0" name="Ada Lovelace" initials="AL" lastIdx="1" clrIdx="0"/>',
+				'commentAuthor entry'
+			)
+
+			const ctXml = await readEntry(zip, '[Content_Types].xml')
+			assertIncludes(
+				ctXml,
+				'<Override PartName="/ppt/comments/comment1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.comments+xml"/>',
+				'comments Override'
+			)
+			assertIncludes(
+				ctXml,
+				'<Override PartName="/ppt/commentAuthors.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.commentAuthors+xml"/>',
+				'commentAuthors Override'
+			)
+
+			const slideRels = await readEntry(zip, 'ppt/slides/_rels/slide1.xml.rels')
+			assertIncludes(
+				slideRels,
+				'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments" Target="../comments/comment1.xml"',
+				'slide->comments rel'
+			)
+
+			const presRels = await readEntry(zip, 'ppt/_rels/presentation.xml.rels')
+			assertIncludes(
+				presRels,
+				'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/commentAuthors" Target="commentAuthors.xml"',
+				'presentation->commentAuthors rel'
+			)
+		},
+	},
+	{
+		// upstream-pr-1447: two authors across two slides with multiple comments — pins per-author
+		// idx numbering (each author counts from 1) and lastIdx on the author entries.
+		name: 'slide comments (two authors, per-author idx numbering)',
+		fn: async () => {
+			const { buf, zip } = await build((p) => {
+				p.addSlide()
+					.addComment({ author: 'Ada Lovelace', initials: 'AL', text: 'First by Ada' })
+					.addComment({ author: 'Alan Turing', initials: 'AT', text: 'First by Alan' })
+					.addComment({ author: 'Ada Lovelace', initials: 'AL', text: 'Second by Ada' })
+				p.addSlide().addComment({ author: 'Alan Turing', initials: 'AT', text: 'Second by Alan' })
+			})
+			await expectNoSchemaErrors(buf, 'comment-multi')
+
+			const authorsXml = await readEntry(zip, 'ppt/commentAuthors.xml')
+			assertIncludes(
+				authorsXml,
+				'<p:cmAuthor id="0" name="Ada Lovelace" initials="AL" lastIdx="2" clrIdx="0"/>',
+				'author 0 lastIdx=2'
+			)
+			assertIncludes(
+				authorsXml,
+				'<p:cmAuthor id="1" name="Alan Turing" initials="AT" lastIdx="2" clrIdx="1"/>',
+				'author 1 lastIdx=2'
+			)
+
+			const c1 = await readEntry(zip, 'ppt/comments/comment1.xml')
+			assertIncludes(
+				c1,
+				'<p:cm authorId="0" idx="1"><p:pos x="457200" y="457200"/><p:text>First by Ada</p:text></p:cm>',
+				'Ada idx=1'
+			)
+			assertIncludes(
+				c1,
+				'<p:cm authorId="1" idx="1"><p:pos x="457200" y="457200"/><p:text>First by Alan</p:text></p:cm>',
+				'Alan idx=1'
+			)
+			assertIncludes(
+				c1,
+				'<p:cm authorId="0" idx="2"><p:pos x="457200" y="457200"/><p:text>Second by Ada</p:text></p:cm>',
+				'Ada idx=2'
+			)
+
+			const c2 = await readEntry(zip, 'ppt/comments/comment2.xml')
+			assertIncludes(
+				c2,
+				'<p:cm authorId="1" idx="2"><p:pos x="457200" y="457200"/><p:text>Second by Alan</p:text></p:cm>',
+				'Alan idx=2 on slide 2'
+			)
+		},
+	},
 ]

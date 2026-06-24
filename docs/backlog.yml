@@ -178,8 +178,8 @@ items:
     source: "gitbrent/PptxGenJS#1447"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-20
-    status: deferred
+    last_reviewed: 2026-06-24
+    status: implemented
     priority: p2
     target_area:
       - missing-pptx-feature
@@ -189,55 +189,58 @@ items:
       - legacy-dist-artifact
     summary: Add native PowerPoint comments and generated comment parts.
     current_project_notes: |
-      Native comments may fit the feature target, but the upstream PR carries
-      generated dist, CJS, and bundle changes that do not fit this fork. Treat
-      only the OOXML/package-part behavior as reusable signal: take the OOXML
-      intent and re-implement against the fork's ESM/TS boundary, discarding the
-      upstream dist/CJS/bundle changes.
+      IMPLEMENTED (2026-06-24) as legacy ISO/IEC 29500 §13 comments, re-implemented
+      against the fork's ESM/TS boundary (the upstream PR's dist/CJS/bundle changes
+      were discarded as planned). Modern (MS-PPTX 2.16) comments remain out of scope
+      — see "Follow-up" below.
 
-      ON STAND-BY — do not build until scheduled. Fixture strategy (folded in from
-      the retired CREATE_FIXTURES_PLAN_GENERATION.md): this is a write/serialization
-      feature, so the primary evidence is a serialization schema fixture in
-      test/schema.test.js asserting the exact OOXML the writer emits (option ->
-      attribute/part), run with `pnpm run test:schema`. A PowerPoint-authored .pptx
-      is an authoring ORACLE only (no read accessor for comments): use it to
-      discover/pin the correct part wiring, content types, namespaces, and idx
-      numbering, then assert against it in a comparison/inspection check — NOT
-      test:read. See the "Fixture-Gated Work" section in docs/backlog-workflow.md.
+      API: `slide.addComment({ author, initials?, text, x?, y?, date? })`
+      (src/slide.ts -> genObj.addCommentDefinition in src/gen-objects.ts). x/y are
+      inches (default 0.5,0.5), initials default to letters derived from `author`,
+      `date` accepts a Date or ISO string and is omitted from XML when absent. Missing
+      author/text warn and skip (no degenerate <p:cm>), per the warn-over-coerce policy.
 
-      OOXML shape to pin. PowerPoint has two comment formats (365 writes modern,
-      still reads legacy); decide which the fork emits (modern is the realistic
-      target; legacy is the simpler ISO/IEC 29500 baseline) and fixture accordingly.
-      - Legacy comments (ISO/IEC 29500 §13): per-slide Comments part
-        /ppt/comments/comment{N}.xml, root <p:cmLst>, content type
-        application/vnd.openxmlformats-officedocument.presentationml.comments+xml,
-        implicit relationship from each authoring Slide part; body
-        <p:cm authorId dt idx><p:pos x y/><p:text>…</p:text></p:cm>. Plus the
-        presentation-level Comment Authors part /ppt/commentAuthors.xml, root
-        <p:cmAuthorLst>, content type …presentationml.commentAuthors+xml, implicit
-        relationship from the Presentation part; body
-        <p:cmAuthor id name initials lastIdx clrIdx/>.
-      - Modern comments (PowerPoint 2021+, MS-PPTX 2.16): per-slide modern-comment
-        part whose <cm> carries id/authorId/created/status/etc. and a <txBody> +
-        <replyLst>, anchored by content monikers (pc:sldMkLst) rather than pos, plus
-        a presentation-level /ppt/authors.xml (Authors part) listing <author>s.
-      Fixtures to add (with the feature):
-      - Schema fixture(s) in test/schema.test.js asserting the emitted comment part
-        XML, the commentAuthors/authors part, the Content_Types.xml Overrides, and
-        the slide->comments and presentation->authors relationships — for a deck
-        with one author + one comment, and ideally a two-author/multi-comment case
-        to pin per-author idx numbering.
-      - comments-reference.pptx oracle: a desktop-PowerPoint deck with a couple of
-        comments by two authors, confirming the exact part layout/attributes the
-        schema fixture asserts. Read-harness wiring is NOT required (no read getter).
+      Serialization (src/gen-xml.ts): resolveCommentAuthors() walks every slide's
+      `_comments` once to build the deck-wide author registry (keyed name+initials,
+      first-appearance id, clrIdx=id) and per-author 1-based `idx`/`lastIdx` numbering;
+      makeXmlCommentAuthors() emits /ppt/commentAuthors.xml (<p:cmAuthorLst>) and
+      makeXmlComments() emits per-slide /ppt/comments/comment{N}.xml (<p:cmLst>, pos in
+      EMU via inch2Emu). makeXmlSlideRel adds the slide->comments rel (only for slides
+      with comments), makeXmlPresentationRels adds the presentation->commentAuthors rel,
+      makeXmlContTypes adds the per-slide comments + commentAuthors Overrides. Parts are
+      written in src/pptxgen.ts exportPresentation() gated on any comment existing, so
+      comment-free decks are byte-identical to before.
+
+      Schema shape pinned against the ECMA-376 XSD (ooxml MCP): CT_Comment authorId
+      (req unsignedInt) / idx (req ST_Index) / dt (opt dateTime), children pos
+      (CT_Point2D, ST_Coordinate EMU) then text; CT_CommentAuthor id/name/initials/
+      lastIdx/clrIdx all required. The OpenXmlValidator reports no errors for both
+      fixtures. The optional comments-reference.pptx PowerPoint oracle was not needed:
+      legacy comments are fully specified by the standard and validator-checkable
+      (decision recorded with the implementing change).
+
+      Follow-up (not yet built): modern PowerPoint 2021+ comments (per-slide modern part
+      + /ppt/authors.xml, content-moniker anchored). Track as a new entry if scheduled.
     evidence:
-      kinds: []
-      local_files: []
-      schema_fixture: null
-      validator_result: null
+      kinds:
+        - local-source-inspection
+        - ooxml-reference
+        - schema-fixture
+        - validator-result
+      local_files:
+        - src/slide.ts
+        - src/gen-objects.ts
+        - src/gen-xml.ts
+        - src/pptxgen.ts
+        - src/core-interfaces.ts
+        - test/schema.test.js
+      schema_fixture: "test/schema.test.js: 'slide comment (single author, single comment)' + 'slide comments (two authors, per-author idx numbering)'"
+      validator_result: pass
       powerpoint_result: null
-      spec_refs: []
-    next_action: revisit-only-if-scheduled-for-build
+      spec_refs:
+        - "ISO/IEC 29500 §13 (legacy comments)"
+        - "ECMA-376 CT_Comment / CT_CommentAuthor (pml-main)"
+    next_action: none
 
   - id: upstream-pr-1435
     source: "gitbrent/PptxGenJS#1435"

@@ -30,6 +30,7 @@ import type {
 	AddSlideProps,
 	BackgroundProps,
 	BorderProps,
+	CommentProps,
 	ConnectorProps,
 	Coord,
 	GroupChildProps,
@@ -971,6 +972,48 @@ export function addNotesDefinition(target: PresSlideInternal, notes: string | No
 		_type: SLIDE_OBJECT_TYPES.notes,
 		text: runs,
 	})
+}
+
+/**
+ * Derive 1-2 letter initials from an author display name (e.g. "Ada Lovelace" -> "AL").
+ * Falls back to the first character when the name is a single word.
+ */
+function deriveAuthorInitials(author: string): string {
+	const words = author.trim().split(/\s+/).filter(Boolean)
+	if (words.length === 0) return '?'
+	if (words.length === 1) return words[0].charAt(0).toUpperCase()
+	return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase()
+}
+
+/**
+ * Adds a review comment to a slide (legacy ISO/IEC 29500 §13 comment).
+ * @param {PresSlideInternal} target slide object the comment is attached to
+ * @param {CommentProps} opts comment author/text/position options
+ * @since v4.1.0
+ */
+export function addCommentDefinition(target: PresSlideInternal, opts: CommentProps): void {
+	const author = typeof opts?.author === 'string' ? opts.author.trim() : ''
+	const text = typeof opts?.text === 'string' ? opts.text : ''
+	// Don't silently coerce: a comment with no author or no body is meaningless, so warn + skip
+	// rather than emit a degenerate <p:cm> (API policy: warn over silent coercion).
+	if (!author) {
+		console.warn('Warning: addComment() requires a non-empty `author`; comment ignored.')
+		return
+	}
+	if (!text) {
+		console.warn('Warning: addComment() requires non-empty `text`; comment ignored.')
+		return
+	}
+
+	const initials = typeof opts.initials === 'string' && opts.initials.trim() ? opts.initials.trim() : deriveAuthorInitials(author)
+	const x = typeof opts.x === 'number' && Number.isFinite(opts.x) ? opts.x : 0.5
+	const y = typeof opts.y === 'number' && Number.isFinite(opts.y) ? opts.y : 0.5
+	let date: string | undefined
+	if (opts.date instanceof Date) date = opts.date.toISOString()
+	else if (typeof opts.date === 'string' && opts.date) date = opts.date
+
+	if (!target._comments) target._comments = []
+	target._comments.push({ author, initials, text, x, y, date })
 }
 
 /**

@@ -2157,6 +2157,44 @@ export interface NotesProps {
 	options?: NotesTextOptions
 }
 
+/**
+ * A review comment attached to a slide (legacy ISO/IEC 29500 §13 comment).
+ * @since v4.1.0
+ */
+export interface CommentProps {
+	/** Author display name (required). Comments sharing the same `author`+`initials` are grouped under one author entry. */
+	author: string
+	/** Author initials shown in the comment marker. Defaults to letters derived from `author`. */
+	initials?: string
+	/** Comment body text (required). */
+	text: string
+	/** Comment marker X position in inches. @default 0.5 */
+	x?: number
+	/** Comment marker Y position in inches. @default 0.5 */
+	y?: number
+	/** Authored date/time as a `Date` or ISO-8601 string. Omitted from the XML when not provided. */
+	date?: Date | string
+}
+
+/** Internal normalized comment stored on a slide (`_comments`). x/y are inches; `date` is ISO-8601 when present. */
+export interface ISlideComment {
+	author: string
+	initials: string
+	text: string
+	x: number
+	y: number
+	date?: string
+}
+
+/** Resolved presentation-level comment author, emitted to `commentAuthors.xml`. */
+export interface ResolvedCommentAuthor {
+	id: number
+	name: string
+	initials: string
+	lastIdx: number
+	clrIdx: number
+}
+
 /** Factory for a single inline text run. Prevents `as never` casts when building mixed-style run arrays. */
 export function textRun(text: string | number, options?: TextPropsOptions): TextProps {
 	return options !== undefined ? { text, options } : { text }
@@ -3132,6 +3170,7 @@ export interface SlideBaseProps {
 	_relsChart: ISlideRelChart[] // needed as we use args:"PresSlide|SlideLayout" often
 	_relsMedia: ISlideRelMedia[] // needed as we use args:"PresSlide|SlideLayout" often
 	_relsNotes?: ISlideRel[] // hyperlink rels emitted in the notes-slide part (notesSlideN.xml.rels)
+	_comments?: ISlideComment[] // review comments emitted in the per-slide comments part (commentN.xml)
 	_slideNum: number
 	_slideNumberProps?: SlideNumberProps | null
 	_slideObjects: ISlideObject[]
@@ -3163,6 +3202,7 @@ export interface PresSlide {
 	addConnector: (options: ConnectorProps) => PresSlide
 	addImage: (options: ImageProps) => PresSlide
 	addMedia: (options: MediaProps) => PresSlide
+	addComment: (options: CommentProps) => PresSlide
 	addNotes: (notes: string | NotesProps | NotesProps[]) => PresSlide
 	addShape: (shapeName: SHAPE_NAME, options?: ShapeProps) => PresSlide
 	addTable: (tableRows: TableRow[], options?: TableProps) => PresSlide

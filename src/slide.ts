@@ -6,6 +6,7 @@ import { CHART_NAME, SHAPE_NAME } from './core-enums.js'
 import {
 	AddSlideProps,
 	BackgroundProps,
+	CommentProps,
 	ConnectorProps,
 	GroupChildProps,
 	GroupProps,
@@ -13,6 +14,7 @@ import {
 	IChartMulti,
 	IChartOpts,
 	IChartOptsLib,
+	ISlideComment,
 	ISlideObject,
 	ISlideRel,
 	ISlideRelChart,
@@ -51,6 +53,7 @@ export default class Slide {
 	public _slideNum: number
 	public _slideNumberProps: SlideNumberProps | null
 	public _slideObjects: ISlideObject[]
+	public _comments: ISlideComment[] = []
 	public _newAutoPagedSlides: PresSlideInternal[] = []
 
 	constructor(params: {
@@ -223,6 +226,18 @@ export default class Slide {
 	 */
 	addNotes(notes: string | NotesProps | NotesProps[]): Slide {
 		genObj.addNotesDefinition(this, notes)
+		return this
+	}
+
+	/**
+	 * Add a review comment to the Slide (legacy PowerPoint comment).
+	 * Comments by the same author (name + initials) are grouped under one author entry in the deck.
+	 * @param {CommentProps} options - comment author, text, and optional marker position/date
+	 * @return {Slide} this Slide
+	 * @example slide.addComment({ author: 'Ada Lovelace', text: 'Tighten this headline', x: 1, y: 0.5 })
+	 */
+	addComment(options: CommentProps): Slide {
+		genObj.addCommentDefinition(this, options)
 		return this
 	}
 

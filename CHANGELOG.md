@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`slide.addComment({ author, text, … })` — native PowerPoint review comments:**
+  attach legacy (ISO/IEC 29500 §13) comments to a slide. The writer emits a per-slide
+  `/ppt/comments/comment{N}.xml` (`<p:cmLst>` of `<p:cm authorId dt? idx><p:pos x y/>
+  <p:text>…</p:text></p:cm>`, `pos` in EMU) plus the shared presentation-level
+  `/ppt/commentAuthors.xml` (`<p:cmAuthorLst>` of `<p:cmAuthor id name initials lastIdx
+  clrIdx/>`), and wires the `slide→comments`, `presentation→commentAuthors` relationships
+  and both `[Content_Types].xml` Overrides. Authors are de-duplicated deck-wide by
+  `name`+`initials`; each author's comments are numbered with a per-author 1-based `idx`
+  (and `lastIdx`). Options: `author` (required), `text` (required), `initials` (defaults
+  to letters derived from `author`), `x`/`y` marker position in inches (default `0.5`),
+  and `date` (a `Date` or ISO-8601 string; omitted when absent). Missing `author`/`text`
+  warns and skips rather than emitting a degenerate comment. Comment-free decks are
+  byte-identical to before. Modern (PowerPoint 2021+, MS-PPTX 2.16) comments are not yet
+  supported. Schema-validated against the ECMA-376 XSD via two fixtures in
+  `test/schema.test.js`. Lands in `src/slide.ts`, `src/gen-objects.ts`, `src/gen-xml.ts`,
+  `src/pptxgen.ts`, `src/core-interfaces.ts`. Implements backlog `upstream-pr-1447`.
+
 - **`appendSlides` carries online (external-link) video, and `addMedia({type:'online'})`
   now emits the rel graph PowerPoint authors:** a source slide with an online video
   appends onto an existing deck instead of dropping the link (previously the appended

@@ -22,6 +22,7 @@ import type {
 	BorderProps,
 	CustomPropertyValue,
 	IPresentationProps,
+	ISlideComment,
 	ISlideObject,
 	ISlideRel,
 	ISlideRelChart,
@@ -30,6 +31,7 @@ import type {
 	ObjectOptions,
 	PresLayout,
 	PresSlideInternal,
+	ResolvedCommentAuthor,
 	ShadowProps,
 	SlideLayoutInternal,
 	TableCell,
@@ -2107,6 +2109,19 @@ export function makeXmlContTypes (slides: PresSlideInternal[], slideLayouts: Sli
 		strXml += `<Override PartName="/ppt/notesSlides/notesSlide${idx + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"/>`
 	})
 
+	// STEP 5b: Comments — per-slide comment part Override for slides that have comments, plus the
+	// single presentation-level commentAuthors part Override when the deck has any comments.
+	let hasAnyComment = false
+	slides.forEach((slide, idx) => {
+		if ((slide._comments || []).length > 0) {
+			hasAnyComment = true
+			strXml += `<Override PartName="/ppt/comments/comment${idx + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.comments+xml"/>`
+		}
+	})
+	if (hasAnyComment) {
+		strXml += '<Override PartName="/ppt/commentAuthors.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.commentAuthors+xml"/>'
+	}
+
 	// STEP 6: Add rels
 	masterSlide._relsChart.forEach(rel => {
 		strXml += ' <Override PartName="' + rel.Target + '" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>'
@@ -2248,8 +2263,13 @@ export function makeXmlPresentationRels (slides: PresSlideInternal[]): string {
 		`<Relationship Id="rId${intRelNum + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/presProps" Target="presProps.xml"/>` +
 		`<Relationship Id="rId${intRelNum + 2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/viewProps" Target="viewProps.xml"/>` +
 		`<Relationship Id="rId${intRelNum + 3}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>` +
-		`<Relationship Id="rId${intRelNum + 4}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles" Target="tableStyles.xml"/>` +
-		'</Relationships>'
+		`<Relationship Id="rId${intRelNum + 4}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles" Target="tableStyles.xml"/>`
+	// The presentation-level commentAuthors part is shared by every slide's comments, so it is
+	// related once from the presentation (only when the deck has at least one comment).
+	if ((slides || []).some(slide => (slide._comments || []).length > 0)) {
+		strXml += `<Relationship Id="rId${intRelNum + 5}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/commentAuthors" Target="commentAuthors.xml"/>`
+	}
+	strXml += '</Relationships>'
 
 	return strXml
 }
@@ -2535,7 +2555,8 @@ export function makeXmlSlideLayoutRel (layoutNumber: number, slideLayouts: Slide
  * @return {string} XML
  */
 export function makeXmlSlideRel (slides: PresSlideInternal[], slideLayouts: SlideLayoutInternal[], slideNumber: number): string {
-	return slideObjectRelationsToXml(slides[slideNumber - 1], [
+	const slide = slides[slideNumber - 1]
+	const defaultRels = [
 		{
 			target: `../slideLayouts/slideLayout${getLayoutIdxForSlide(slides, slideLayouts, slideNumber)}.xml`,
 			type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout',
@@ -2544,7 +2565,16 @@ export function makeXmlSlideRel (slides: PresSlideInternal[], slideLayouts: Slid
 			target: `../notesSlides/notesSlide${slideNumber}.xml`,
 			type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide',
 		},
-	])
+	]
+	// Only emit the comments rel for slides that actually carry comments (the comment part
+	// is likewise only written for those slides); the rId is assigned after slideLayout/notesSlide.
+	if ((slide._comments || []).length > 0) {
+		defaultRels.push({
+			target: `../comments/comment${slideNumber}.xml`,
+			type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments',
+		})
+	}
+	return slideObjectRelationsToXml(slide, defaultRels)
 }
 
 /**
@@ -2567,6 +2597,93 @@ export function makeXmlNotesSlideRel (slide: PresSlideInternal, slideNumber: num
 			<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster" Target="../notesMasters/notesMaster1.xml"/>
 			<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="../slides/slide${slideNumber}.xml"/>
 			${hlinkRels}</Relationships>`
+}
+
+/** Result of resolving every slide's comments into a deck-wide author registry + per-comment numbering. */
+export interface ResolvedComments {
+	/** Authors in first-appearance order, ready to serialize to `commentAuthors.xml`. */
+	authors: ResolvedCommentAuthor[]
+	/** Per-comment `authorId`/`idx` keyed by the stored comment object. */
+	meta: Map<ISlideComment, { authorId: number, idx: number }>
+}
+
+/**
+ * Walk every slide's comments and build the deck-wide author registry + per-comment numbering.
+ *
+ * Legacy comments number each comment with a *per-author* 1-based `idx`; an author's `lastIdx` is the
+ * highest `idx` it used. Authors are keyed by `name`+`initials` and assigned ids in first-appearance
+ * order (slide order, then insertion order). `clrIdx` mirrors `id` (one colour slot per author).
+ * @param {PresSlideInternal[]} slides - all presentation slides
+ * @return {ResolvedComments} the author list and per-comment metadata
+ */
+export function resolveCommentAuthors (slides: PresSlideInternal[]): ResolvedComments {
+	const byKey = new Map<string, ResolvedCommentAuthor>()
+	const authors: ResolvedCommentAuthor[] = []
+	const perAuthorCount = new Map<number, number>()
+	const meta = new Map<ISlideComment, { authorId: number, idx: number }>()
+
+	;(slides || []).forEach(slide => {
+		(slide._comments || []).forEach(comment => {
+			const key = comment.author + '\0' + comment.initials
+			let author = byKey.get(key)
+			if (!author) {
+				author = { id: authors.length, name: comment.author, initials: comment.initials, lastIdx: 0, clrIdx: authors.length }
+				byKey.set(key, author)
+				authors.push(author)
+				perAuthorCount.set(author.id, 0)
+			}
+			const idx = (perAuthorCount.get(author.id) ?? 0) + 1
+			perAuthorCount.set(author.id, idx)
+			author.lastIdx = idx
+			meta.set(comment, { authorId: author.id, idx })
+		})
+	})
+
+	return { authors, meta }
+}
+
+/**
+ * Creates the presentation-level `ppt/commentAuthors.xml` part (`<p:cmAuthorLst>`).
+ * @param {ResolvedCommentAuthor[]} authors - resolved deck-wide author registry
+ * @return {string} XML
+ */
+export function makeXmlCommentAuthors (authors: ResolvedCommentAuthor[]): string {
+	let strXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + CRLF
+	strXml +=
+		'<p:cmAuthorLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ' +
+		'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
+		'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">'
+	authors.forEach(author => {
+		strXml += `<p:cmAuthor id="${author.id}" name="${encodeXmlEntities(author.name)}" initials="${encodeXmlEntities(author.initials)}" lastIdx="${author.lastIdx}" clrIdx="${author.clrIdx}"/>`
+	})
+	strXml += '</p:cmAuthorLst>'
+	return strXml
+}
+
+/**
+ * Creates a per-slide comments part `ppt/comments/comment{N}.xml` (`<p:cmLst>`).
+ * @param {PresSlideInternal} slide - the slide whose comments are serialized
+ * @param {Map} meta - per-comment `authorId`/`idx` from {@link resolveCommentAuthors}
+ * @return {string} XML
+ */
+export function makeXmlComments (slide: PresSlideInternal, meta: Map<ISlideComment, { authorId: number, idx: number }>): string {
+	let strXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + CRLF
+	strXml +=
+		'<p:cmLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ' +
+		'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
+		'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">'
+	;(slide._comments || []).forEach(comment => {
+		const m = meta.get(comment)
+		if (!m) return // defensive: comment must have been seen by resolveCommentAuthors
+		const dt = comment.date ? ` dt="${encodeXmlEntities(comment.date)}"` : ''
+		// Child order is fixed by CT_Comment: <p:pos> then <p:text>. pos x/y are ST_Coordinate (EMU).
+		strXml += `<p:cm authorId="${m.authorId}"${dt} idx="${m.idx}">`
+		strXml += `<p:pos x="${Math.round(inch2Emu(comment.x))}" y="${Math.round(inch2Emu(comment.y))}"/>`
+		strXml += `<p:text>${encodeXmlEntities(comment.text)}</p:text>`
+		strXml += '</p:cm>'
+	})
+	strXml += '</p:cmLst>'
+	return strXml
 }
 
 /**
