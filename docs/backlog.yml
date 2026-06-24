@@ -1546,17 +1546,30 @@ items:
       force-remap has a match, and a table with a custom table style as the copy
       source) into multi-theme.pptx or a new restyle-literals.pptx; do not
       implement the force-remap/table-style copy without that authored source.
+
+      Fixture-gated precondition now SATISFIED: multi-theme.pptx gained slide 3
+      (Windows desktop PowerPoint COM, 2026-06-24) carrying both constructs —
+      `literal-accent1`, a rectangle with a literal `<a:srgbClr val="B01513"/>` fill
+      equal to Ion accent1 (the force-remap match for leg a), plus `literal-nonaccent`
+      (`123456`, matching no slot, the negative control); and `styled-table`, a table
+      with non-default built-in style Medium Style 2 - Accent 1
+      (`<a:tableStyleId>{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}</a:tableStyleId>`) whose
+      `<a:tblStyle>` definition PowerPoint materialized into ppt/tableStyles.xml (the
+      copy source for leg b). Slides 1-2 stayed byte-identical across the in-place save.
+      Implementation of the force-remap + table-style copy still pending.
     evidence:
       kinds:
         - local-source-inspection
+        - powerpoint-result
       local_files:
         - src/read/api/presentation.ts
         - src/read/oxml/theme.ts
+        - test/read/fixtures/multi-theme.pptx
       schema_fixture: null
       validator_result: null
-      powerpoint_result: null
+      powerpoint_result: pass (Windows desktop PowerPoint 16.0, 2026-06-24; multi-theme.pptx slide 3 authored + opened clean via COM)
       spec_refs: []
-    next_action: design-literal-remap
+    next_action: design-literal-remap (fixture ready — multi-theme.pptx slide 3 has the literal-accent rectangle + custom-table-style table)
   - id: dn-importslide-v1-limits
     source: downstream
     type: downstream-need
@@ -1755,19 +1768,31 @@ items:
       and wire the external rel without reserving a media part / Default
       content-type.
 
-      Fixture-gated: needs a PowerPoint-authored oracle deck with an online
-      (linked) video to pin the external rel shape + body markup before
-      implementing (Fixture-Gated Work, AGENTS.md). No oracle exists yet.
+      Fixture-gated precondition now SATISFIED: test/read/fixtures/online-video.pptx
+      (Windows desktop PowerPoint COM, 2026-06-24, 1 slide; linked-not-embedded via
+      AddMediaObject2 LinkToFile:=msoTrue). The oracle pins the external-link video
+      rel graph PowerPoint writes — richer than first assumed: the slide .rels carry
+      TWO external rels sharing one Target (an ECMA `…/2006/relationships/video` AND
+      a Microsoft `…/2007/relationships/media`, both TargetMode="External", pointing
+      at the same file:/// path, with NO media binary part) plus a separate
+      `…/relationships/image` rel for the auto-generated poster frame. Body: `<p:pic>`
+      with `<a:videoFile r:link>` (ECMA) + `<p14:media r:link>` (MS-2007, in
+      `p:nvPr/p:extLst`) + `<a:blip r:embed>` (poster). appendSlides must reproduce
+      both external rels (link, not embed) and the poster image part, reserving no
+      media part / Default content-type for the video itself. Implementation still
+      pending.
     evidence:
       kinds:
         - local-source-inspection
+        - powerpoint-result
       local_files:
         - src/gen-xml.ts
         - src/gen-objects.ts
         - src/pptxgen.ts
         - src/read/api/presentation.ts
+        - test/read/fixtures/online-video.pptx
       schema_fixture: null
       validator_result: null
-      powerpoint_result: null
+      powerpoint_result: pass (Windows desktop PowerPoint 16.0, 2026-06-24; online-video.pptx authored + opened clean via COM)
       spec_refs: []
-    next_action: Author a PowerPoint online-video oracle fixture, then add an online-media descriptor to extractSlides + appendSlides (external rel with TargetMode, preview image, no media part).
+    next_action: Add an online-media descriptor to extractSlides + appendSlides (two external rels with TargetMode=External sharing the link Target, plus the poster image part; no media binary / Default content-type) against the online-video.pptx oracle.

@@ -36,7 +36,7 @@ PowerPoint.
 | `theme-colors.pptx`    | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `gradient-fill.pptx`   | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `preset-geometry.pptx` | Microsoft Office PowerPoint    | 16.0000    | 1      |
-| `multi-theme.pptx`     | Microsoft Office PowerPoint    | 16.0000    | 2      |
+| `multi-theme.pptx`     | Microsoft Office PowerPoint    | 16.0000    | 3      |
 | `rotation-flip.pptx`   | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `custgeom.pptx`        | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `template.potx`        | Microsoft Office PowerPoint    | 16.0000    | 0      |
@@ -57,7 +57,9 @@ by the `pptxgenjs/read` harness. Two groups:
   `c:dPt`/`c:dLbl` + workbook cache, #727) and `math-omml.pptx` (native equation
   OMML `a14:m`/`m:oMath`, #1456).
 - **A/V media rel graph**: `av-media.pptx` (embedded video + audio rel/content-type
-  oracle for `appendSlides`, backlog `dn-append-av-media`).
+  oracle for `appendSlides`, backlog `dn-append-av-media`); `online-video.pptx`
+  (external-link/online video rel graph for `appendSlides`, backlog
+  `dn-append-online-video`).
 
 | Local name                    | Application                 | AppVersion | Slides |
 | ----------------------------- | --------------------------- | ---------- | ------ |
@@ -67,6 +69,7 @@ by the `pptxgenjs/read` harness. Two groups:
 | `bar-chart-data-labels.pptx`  | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `math-omml.pptx`              | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `av-media.pptx`               | Microsoft Office PowerPoint | 16.0000    | 2      |
+| `online-video.pptx`           | Microsoft Office PowerPoint | 16.0000    | 1      |
 
 ### Derived from a vendored fixture
 
@@ -88,7 +91,7 @@ db80910224b01b46cb7e8c29e183b59d128a18fd8e0c651558907230874693b9  mixed.pptx
 b7430f562b8b836f54b84f2c846c7f80dc03677d79884aa7722203d66c775cc2  theme-colors.pptx
 773498a81723eed35ac03271f5051c842af84888e802291473e1a8872ac88994  gradient-fill.pptx
 4a0db4be724bd436865b81f073b53dbd464a8d9eb05d820977821e57b3f743b5  preset-geometry.pptx
-737a28fa9832a1d009dc4588a868f856ec58c333843ba58f8eee3915a38cc659  multi-theme.pptx
+ea2b973147e9ac6f8f716f88cc5a6b692177786816462dd971c2606b533dd9af  multi-theme.pptx
 e8c0ca04154f6365813aee28d0fa8556cea5e1429af060d6061dd02db5ff1a85  rotation-flip.pptx
 d52da9c162f5a700f8e3a225f054e823682f201d83dabe38fc27c2e500d7451d  custgeom.pptx
 c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
@@ -99,6 +102,7 @@ f18ae67b1df1cc1cf7dc616451c3e548a4ea0c80f807c06a87521b010597af75  table-placehol
 edeb1dafe790edf45152485753245928a06786d923364d7647354393d891a74f  bar-chart-data-labels.pptx
 d88cb77b480d3c84a16307cbe503e9ee64f5fa8bdfee6d7b5a7167847d1cb8e6  math-omml.pptx
 39aafb02e448a860136c20c46daf89d446d1d34140de1c533b1fe537dee6f0af  av-media.pptx
+82d8907ae23c0e8c0b54e0575cba728ff56c82fd6b055827923a8dde9c4dc20c  online-video.pptx
 dd96acd1f395cb961f2222047e03263df4cbe1bdacce3735bcd934783fad0556  template.potx
 ```
 
@@ -167,7 +171,17 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   master `titleStyle`, both the layout and master title placeholders having an
   empty `<a:lstStyle/>`), and a `body` placeholder `explicit-body` whose run sets
   an explicit `srgbClr FF00FF` (the negative control proving an explicit run
-  colour still wins). Slide 1's XML is byte-identical to the pre-edit fixture.
+  colour still wins). **Slide 3** (added 2026-06-24) is the fixture-gated source
+  for `importSlide` restyle force-remap + table-style copy (backlog
+  `dn-importslide-restyle-literals`): `literal-accent1`, a rectangle whose fill is
+  a **literal** `<a:srgbClr val="B01513"/>` equal to Ion accent1 (so a force-remap
+  of literals has a hex to match); `literal-nonaccent`, a literal `srgbClr 123456`
+  matching no theme slot (negative control); and `styled-table`, a 2×2 table using
+  the non-default built-in style **Medium Style 2 - Accent 1**
+  (`<a:tableStyleId>{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}</a:tableStyleId>`), whose
+  `<a:tblStyle>` definition PowerPoint materialized into `ppt/tableStyles.xml` (the
+  copy source for the table-style-copy leg). Slides 1 and 2 stayed byte-identical
+  across the in-place save that added slide 3.
 - `rotation-flip.pptx` — a minimal deck with two ungrouped, stably-named
   rectangles that pin per-shape transform reads against genuine PowerPoint
   output (de-circularising the former write→read round-trip in
@@ -288,6 +302,27 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
     slide a `<p:timing>` interactive-media trigger tree.
   - **Content types are `Default` extension entries, not Overrides:** `mp4` →
     `video/mp4`, `mp3` → `audio/mpeg` (alongside `png`/`jpeg`).
+- `online-video.pptx` — **authoring oracle** for online (external-link) video in
+  appended slides (backlog `dn-append-online-video`). One blank slide with a single
+  `online-video` shape inserted as a **linked** (not embedded) video via
+  `AddMediaObject2(LinkToFile:=msoTrue, SaveWithDocument:=msoFalse)` pointing at an
+  external `file:///` path. Pins the external-link rel graph PowerPoint writes — the
+  shape `appendSlides` must reproduce instead of dropping the rel:
+  - **Two external rels share one link Target, with no media binary part.** The
+    slide's `.rels` carries an ECMA `…/2006/relationships/video` rel **and** a
+    Microsoft `…/2007/relationships/media` rel, **both** `TargetMode="External"` and
+    pointing at the same external path, **plus** a separate
+    `…/relationships/image` rel for the auto-generated poster frame (`image1.png`).
+    There is **no** `ppt/media/*.mp4` part and **no** A/V content-type entry — the
+    only added media part is the poster PNG.
+  - **The slide body uses `r:link`, not `r:embed`, for the video.** In
+    `p:pic/p:nvPicPr/p:nvPr`, `<a:videoFile r:link="rId2"/>` points at the ECMA
+    external rel and `<p14:media r:link="rId1"/>` (inside the `p:nvPr` extLst) at the
+    MS external rel; the `p:blipFill` `<a:blip r:embed="rId4"/>` points at the poster
+    image. (Contrast `av-media.pptx`, where the embedded form uses `p14:media r:embed`
+    against a real media part.) The `p:cNvPr` also carries
+    `<a:hlinkClick action="ppaction://media"/>` and the slide a `<p:timing>`
+    interactive-media trigger tree.
 
 ## Autofit calibration oracle (`docs/measured-text-fit.md`)
 
@@ -409,7 +444,7 @@ fixtures opened clean with no repair prompt:
 - [x] `theme-colors.pptx` — Windows desktop PowerPoint, 2026-06-18
 - [x] `gradient-fill.pptx` — Windows desktop PowerPoint, 2026-06-18
 - [x] `preset-geometry.pptx` — Windows desktop PowerPoint, 2026-06-18
-- [x] `multi-theme.pptx` — Windows desktop PowerPoint, 2026-06-19 (re-checked after adding slide 2)
+- [x] `multi-theme.pptx` — Windows desktop PowerPoint, 2026-06-24 (re-checked after adding slide 3; slides 1-2 byte-identical)
 - [x] `rotation-flip.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
 - [x] `custgeom.pptx` — Windows desktop PowerPoint, 2026-06-21 (authored + opened clean via COM)
 - [x] `layout-placeholder-bodypr.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
@@ -418,6 +453,7 @@ fixtures opened clean with no repair prompt:
 - [x] `bar-chart-data-labels.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
 - [x] `math-omml.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored via Word→PowerPoint paste + opened clean via COM)
 - [x] `template.potx` — Windows desktop PowerPoint, 2026-06-24 (authored + reopened clean via COM, no repair prompt)
+- [x] `online-video.pptx` — Windows desktop PowerPoint, 2026-06-24 (authored + opened clean via COM)
 
 **Further testing needed on PowerPoint desktop.** The web loader is more lenient
 than desktop PowerPoint, whose stricter OOXML validation is what produces the
@@ -436,7 +472,7 @@ and the emitted XML actually differs:
 - [x] `theme-colors.pptx` — Windows desktop PowerPoint, 2026-06-18
 - [x] `gradient-fill.pptx` — Windows desktop PowerPoint, 2026-06-18
 - [x] `preset-geometry.pptx` — Windows desktop PowerPoint, 2026-06-18
-- [x] `multi-theme.pptx` — Windows desktop PowerPoint, 2026-06-19 (re-checked after adding slide 2)
+- [x] `multi-theme.pptx` — Windows desktop PowerPoint, 2026-06-24 (re-checked after adding slide 3; slides 1-2 byte-identical)
 
 ## Manual PowerPoint check — edited output
 
