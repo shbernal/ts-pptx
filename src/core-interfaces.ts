@@ -1707,6 +1707,26 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 */
 	tableStyle?: TABLE_STYLE | string
 	/**
+	 * Inline styling for the header (first) row, applied as direct per-cell formatting.
+	 *
+	 * Convenience shortcut for styling a header distinctly from the body **without** first
+	 * registering a custom style via `pptx.defineTableStyle({ firstRow })`. Each property is
+	 * merged onto every cell of row 0 (`fill`, `color`, `bold`, `align`, `border`, etc.).
+	 *
+	 * Precedence (highest wins), matching how PowerPoint resolves styling — direct cell
+	 * formatting overrides a table-style region:
+	 * 1. explicit per-cell `options` on a row-0 cell
+	 * 2. this `headerRow`
+	 * 3. the `firstRow` region of any `tableStyle`
+	 * 4. `wholeTbl` / defaults
+	 *
+	 * Setting `headerRow` also implies `hasHeader: true` (emits `firstRow="1"` for the
+	 * accessibility "table header" marker) unless `hasHeader` is explicitly set to `false`.
+	 * @since v7.1.0
+	 * @example headerRow: { fill: { color:'1A2B3C' }, color:'FFFFFF', bold:true, align:'center' }
+	 */
+	headerRow?: TableCellProps
+	/**
 	 * Cell background color
 	 * @example { color:'FF0000' } // hex color (red)
 	 * @example { color:'0088CC', transparency:50 } // hex color, 50% transparent

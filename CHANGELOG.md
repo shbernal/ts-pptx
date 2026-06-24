@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`addTable(rows, { headerRow })` — inline header-row styling:** style a table's
+  first row distinctly from the body **without** first registering a custom style via
+  `pptx.defineTableStyle({ firstRow })`. `headerRow` (a `TableCellProps`) is applied as
+  direct per-cell formatting on row 0 — `fill`, `color`, `bold`, `align`, `border`, etc.
+  Precedence matches how PowerPoint resolves styling (direct formatting overrides a style
+  region): explicit per-cell `options` on a row-0 cell win over `headerRow`, which wins
+  over a `tableStyle`'s `firstRow` region. Setting `headerRow` also implies `hasHeader:
+  true` (emits `firstRow="1"` for the accessibility "table header" marker) unless
+  `hasHeader` is explicitly `false`. The caller's `rows` array is not mutated. Additive
+  (non-breaking); lands in `src/core-interfaces.ts` (`TableProps.headerRow`) and
+  `src/gen-objects.ts` (`addTableDefinition`). Implements backlog `upstream-issue-1256`.
+
 - **`defineSlideMaster({ textStyles })` — configurable per-level master text styles:**
   configure the shared slide master's `<p:txStyles>` instead of accepting the fixed
   Office defaults. `textStyles` (`MasterTextStyleProps`) carries `title` (single level),

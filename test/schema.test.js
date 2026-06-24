@@ -475,6 +475,23 @@ export default [
 		},
 	},
 	{
+		name: 'table with headerRow inline styling (upstream-issue-1256)',
+		fn: async () => {
+			const { buf, zip } = await build((p) => {
+				p.addSlide().addTable(
+					[
+						[{ text: 'Col A' }, { text: 'Col B' }],
+						[{ text: 'A1' }, { text: 'B1' }],
+					],
+					{ x: 1, y: 1, w: 4, headerRow: { fill: { color: '1A2B3C' }, color: 'FFFFFF', bold: true } }
+				)
+			})
+			const slideXml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assertIncludes(slideXml, 'firstRow="1"', 'headerRow implies hasHeader')
+			await expectNoSchemaErrors(buf, 'table-header-row')
+		},
+	},
+	{
 		name: 'table with rtl emits rtl="1" on tblPr (upstream #1291)',
 		fn: async () => {
 			const { buf, zip } = await build((p) => {

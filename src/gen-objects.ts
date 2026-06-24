@@ -1280,10 +1280,31 @@ export function addTableDefinition(
 		*/
 	}
 
+	// STEP 1.5: `headerRow` inline sugar — bake header styling into row 0 as direct per-cell
+	// formatting so it flows through the normal cell pipeline (incl. border defaulting below).
+	// Explicit per-cell options win over `headerRow`; `headerRow` wins over a `tableStyle`'s
+	// `firstRow` region (direct formatting overrides a style region, as PowerPoint resolves it).
+	// Setting `headerRow` implies `hasHeader` unless the caller set it explicitly. The caller's
+	// `tableRows` array is not mutated — only a shallow copy of row 0 (and its cells) is rebuilt.
+	let srcRows: TableRow[] = tableRows
+	if (opt.headerRow && typeof opt.headerRow === 'object' && Array.isArray(tableRows[0])) {
+		if (opt.hasHeader === undefined) opt.hasHeader = true
+		const hdr = opt.headerRow
+		srcRows = tableRows.map((row, rowIdx) => {
+			if (rowIdx !== 0 || !Array.isArray(row)) return row
+			return row.map((cell: number | string | TableCell): TableCell => {
+				const cellObj: TableCell =
+					typeof cell === 'string' || typeof cell === 'number' ? { text: String(cell), options: {} } : { ...cell, options: { ...(cell.options || {}) } }
+				cellObj.options = { ...hdr, ...cellObj.options }
+				return cellObj
+			})
+		})
+	}
+
 	// STEP 2: Transform `tableRows` into well-formatted TableCell's
 	// tableRows can be object or plain text array: `[{text:'cell 1'}, {text:'cell 2', options:{color:'ff0000'}}]` | `["cell 1", "cell 2"]`
 	const arrRows: TableCell[][] = []
-	tableRows.forEach(row => {
+	srcRows.forEach(row => {
 		const newRow: TableCell[] = []
 
 		if (Array.isArray(row)) {
