@@ -1,0 +1,106 @@
+# Backlog item template / reference
+#
+# This file is NOT part of the ledger and is NOT validated. It documents the
+# shape of an entry in docs/backlog.yml so the ledger can be emptied (all `items:`
+# removed) without losing the worked example of what a *good* entry looks like.
+#
+# The authoritative pieces are still in the repo regardless of this file:
+#   - field shape + type-aware defaults: scripts/backlog-ledger.mjs
+#     (buildItemSkeleton / ADD_DEFAULTS_BY_TYPE). `pnpm run backlog -- add`
+#     emits a valid skeleton; you rarely hand-write the boilerplate.
+#   - legal field values: the `vocabulary:` block at the top of docs/backlog.yml,
+#     enforced by `pnpm run backlog:validate`.
+#   - what each value MEANS and when to use it: docs/backlog-workflow.md.
+#
+# This file adds the missing third thing: two fully-populated, annotated examples
+# (one downstream-need, one retained github entry) showing realistic field values.
+#
+# Every field below appears in the order the `add` command writes it. Values
+# constrained by vocabulary name the relevant `vocabulary:` list in backlog.yml.
+
+# ---------------------------------------------------------------------------
+# Example 1 — downstream-need (the primary, ongoing kind of new work)
+# ---------------------------------------------------------------------------
+# A generic PPTX gap the downstream consumer needs that belongs in this
+# package. Full design rationale is welcome in current_project_notes.
+# Defaults applied by `add` for this type: status=target, priority=p2, applies=yes.
+
+- id: dn-example-slug                       # `sf-<slug>` for downstream needs
+  source: downstream:path/that/needs/it  # downstream or downstream:<path>
+  type: downstream-need                      # downstream-need | issue | pull-request
+  first_seen: 2026-06-18                      # YYYY-MM-DD; when it entered the ledger
+  last_reviewed: 2026-06-19                   # YYYY-MM-DD; bump on every status change
+  status: implemented                         # vocabulary.statuses
+  priority: p3                                # vocabulary.priorities
+  target_area:                                # one or more of vocabulary.target_areas
+    - missing-pptx-feature
+  applies_to_current_project: partial          # vocabulary.applies_to_current_project
+  non_target_reasons:                          # vocabulary.non_target_reasons; empty unless dismissing
+  summary: Stroke a line/connector with a gradient fill (<a:ln> > <a:gradFill>)
+  # current_project_notes is a free-text essay (use a `|` block scalar in the real
+  # ledger). For downstream needs, put the full design rationale here; once
+  # implemented, replace it with where the fix landed (commit, files, test).
+  current_project_notes: |
+    Implemented in commit 561b0341. ShapeLineProps gained `type: 'gradient'` and a
+    `gradient?: GradientFillProps` field; genXmlLineFill (src/gen-utils.ts) emits a
+    <a:gradFill> inside <a:ln>, reusing the genXmlGradientFill builder used for shape
+    fills. Validated by schema fixture 'shape with gradient line stroke' in
+    test/schema.test.js.
+  # OPTIONAL: `stopgap` — the downstream file carrying a temporary workaround
+  # this gap forces. Present while the gap is open; DELETE it when the fix lands.
+  # stopgap: downstream/registry/replication/kit.ts
+  # OPTIONAL: `constructs` — OOXML construct keys this entry gates, from
+  # vocabulary.constructs, so the downstream replication audit can join a
+  # detected construct to its gating entry. Omit when not gating a construct.
+  constructs:
+    - gradient-line-stroke
+  evidence:                                    # required block; lists prove the claim
+    kinds:                                     # vocabulary.evidence_kinds
+      - local-source-inspection
+      - schema-fixture
+      - validator-result
+    local_files:                               # repo paths touched / asserting the behavior
+      - src/gen-utils.ts:503
+      - test/schema.test.js
+    schema_fixture: test/schema.test.js (shape-gradient-line-stroke)  # or null
+    validator_result: pass                     # pass | fail | null
+    powerpoint_result: null                    # PowerPoint open/repair result, or null
+    spec_refs: []                              # ECMA-376 / MS-PPTX section refs, or []
+  next_action: none                            # what to do next; `none` when closed
+
+# ---------------------------------------------------------------------------
+# Example 2 — retained github-derived entry (legacy; not synced anymore)
+# ---------------------------------------------------------------------------
+# A gitbrent/PptxGenJS issue or PR kept as historical signal / standing idea.
+# These are metadata-first: do NOT copy full upstream issue/PR bodies in.
+# Defaults applied by `add` for these types: status=target, priority=none,
+# applies=unknown.
+
+- id: upstream-pr-1447
+  source: "gitbrent/PptxGenJS#1447"            # owner/repo#N or a github.com URL
+  type: pull-request                           # issue | pull-request
+  first_seen: 2026-06-07
+  last_reviewed: 2026-06-20
+  status: deferred
+  priority: p2
+  target_area:
+    - missing-pptx-feature
+    - package-boundary
+  applies_to_current_project: partial
+  non_target_reasons:
+    - legacy-dist-artifact                     # why the upstream framing doesn't fit as-is
+  summary: Add native PowerPoint comments and generated comment parts.
+  current_project_notes: |
+    Take only the OOXML/package-part intent as reusable signal; discard the
+    upstream dist/CJS/bundle changes, which do not fit this fork's ESM/TS boundary.
+    ON STAND-BY — do not build until scheduled. When built, the primary evidence is
+    a serialization schema fixture in test/schema.test.js; a PowerPoint-authored
+    .pptx is an authoring ORACLE only (no read accessor for comments).
+  evidence:
+    kinds: []
+    local_files: []
+    schema_fixture: null
+    validator_result: null
+    powerpoint_result: null
+    spec_refs: []
+  next_action: revisit-only-if-scheduled-for-build

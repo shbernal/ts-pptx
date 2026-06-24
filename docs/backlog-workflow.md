@@ -54,6 +54,16 @@ not copy full upstream issue or PR bodies into this repository. For
 `downstream-need` items the full design rationale is welcome (see **Downstream
 Needs** below).
 
+For the shape of an individual entry — every field, in write order, with
+realistic annotated values for both an implemented `downstream-need` and a
+retained github entry — see the reference
+[backlog-item-template.yml](backlog-item-template.yml). It is not validated and
+not part of the ledger; it exists so the structure survives the `items:` list
+being emptied. The authoritative field shape is still
+`buildItemSkeleton` in [scripts/backlog-ledger.mjs](../scripts/backlog-ledger.mjs)
+(what `pnpm run backlog -- add` emits), and the legal values are the
+`vocabulary:` block in [backlog.yml](backlog.yml).
+
 ## Review Inputs
 
 Before classifying or promoting a candidate, read the local project boundaries:
