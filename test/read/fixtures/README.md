@@ -39,6 +39,7 @@ PowerPoint.
 | `multi-theme.pptx`     | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `rotation-flip.pptx`   | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `custgeom.pptx`        | Microsoft Office PowerPoint    | 16.0000    | 1      |
+| `template.potx`        | Microsoft Office PowerPoint    | 16.0000    | 0      |
 
 #### Authoring oracles (inspection only — not loaded by `test:read`)
 
@@ -98,6 +99,7 @@ f18ae67b1df1cc1cf7dc616451c3e548a4ea0c80f807c06a87521b010597af75  table-placehol
 edeb1dafe790edf45152485753245928a06786d923364d7647354393d891a74f  bar-chart-data-labels.pptx
 d88cb77b480d3c84a16307cbe503e9ee64f5fa8bdfee6d7b5a7167847d1cb8e6  math-omml.pptx
 39aafb02e448a860136c20c46daf89d446d1d34140de1c533b1fe537dee6f0af  av-media.pptx
+dd96acd1f395cb961f2222047e03263df4cbe1bdacce3735bcd934783fad0556  template.potx
 ```
 
 ### Embedded-media binaries (`media/`)
@@ -202,6 +204,22 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
     schema-legal repeatable `a:path` for non-PowerPoint sources.
   - `preset-rect` — `<a:prstGeom prst="rect">` (no `a:custGeom`); the negative
     control that must read `customGeometry === null`.
+- `template.potx` — a genuine PowerPoint-authored **`.potx` template** package
+  (the only non-`.pptx` fixture here). Authored on Windows desktop PowerPoint COM
+  (2026-06-24) via `SaveAs(..., 26)` (`ppSaveAsOpenXMLTemplate`; note `27` is the
+  macro-enabled `.potm` variant and writes the wrong content-type). Its main part
+  `/ppt/presentation.xml` carries the template content-type
+  `application/vnd.openxmlformats-officedocument.presentationml.template.main+xml`
+  — exactly what `Presentation.fromTemplate()` must flip to
+  `…presentationml.presentation.main+xml` when normalizing a `.potx` to an editable
+  `.pptx` (backlog `dn-import-template-masters`). Carries the default Office theme
+  shell: **zero sample slides**, one slide master, a theme, and the 11 standard
+  named layouts (`Title Slide`, `Title and Content`, `Section Header`, `Two
+  Content`, `Comparison`, `Title Only`, `Blank`, `Content with Caption`, `Picture
+  with Caption`, `Title and Vertical Text`, `Vertical Title and Text`). Slide size
+  is 16:9 widescreen (960×540 pt). Zero slides makes the `fromTemplate` shell-strip
+  a proven no-op on real template input; `Title and Content` / `Blank` are the named
+  layouts the author-on-template test binds to.
 - `layout-placeholder-bodypr.pptx` — **authoring oracle** for write-side
   master/layout placeholder body properties (`upstream-pr-1247` /
   `upstream-issue-1208`). The "Title and Content" layout (`slideLayout2.xml`) was
@@ -399,6 +417,7 @@ fixtures opened clean with no repair prompt:
 - [x] `notes-slide-image.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
 - [x] `bar-chart-data-labels.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
 - [x] `math-omml.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored via Word→PowerPoint paste + opened clean via COM)
+- [x] `template.potx` — Windows desktop PowerPoint, 2026-06-24 (authored + reopened clean via COM, no repair prompt)
 
 **Further testing needed on PowerPoint desktop.** The web loader is more lenient
 than desktop PowerPoint, whose stricter OOXML validation is what produces the

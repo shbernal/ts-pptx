@@ -57,21 +57,24 @@ const out = await deck.save()  // editable .pptx using the template's masters/la
 Per `CLAUDE.md` fixture-gated rules, author the test oracles before writing code
 that targets them.
 
-- **`test/read/fixtures/template.potx` — REQUIRED, must be sourced first.**
-  A genuine PowerPoint-authored `.potx` template package. We cannot synthesize this
-  in-repo (no PowerPoint here, none exists under `test/read/fixtures/`), so the user
-  must supply it. It must:
-  - declare its main part with content-type
-    `…presentationml.template.main+xml` (this is what makes it a real `.potx`, and is
-    exactly what the content-type flip must rewrite);
-  - carry at least one slide master, several **named** slide layouts (e.g. "Title and
-    Content", "Blank"), and a theme;
-  - ideally carry zero sample slides (typical for a `.potx`), so the strip step is a
-    proven no-op on real template input.
-  This fixture gates: the `.potx` → editable `.pptx` content-type flip assertion and
-  the "opens as an editable deck" check. **Until it lands, that assertion stays
-  unimplemented** and the item is recorded as fixture-gated (tag
-  `speaker-notes-masters-layouts` in `docs/backlog.yml`). The rest of the feature is
+- **`test/read/fixtures/template.potx` — DONE (authored 2026-06-24).**
+  A genuine PowerPoint-authored `.potx` template package, authored on Windows desktop
+  PowerPoint COM via the `powerpoint-fixture-authoring` skill (`SaveAs(..., 26)` =
+  `ppSaveAsOpenXMLTemplate`; note `27` is the macro-enabled `.potm` variant and writes
+  the wrong content-type). It:
+  - declares its main part `/ppt/presentation.xml` with content-type
+    `application/vnd.openxmlformats-officedocument.presentationml.template.main+xml`
+    (this is what makes it a real `.potx`, and is exactly what the content-type flip
+    must rewrite);
+  - carries one slide master, a theme, and the 11 standard **named** layouts
+    (incl. "Title and Content" and "Blank");
+  - carries **zero sample slides**, so the shell-strip step is a proven no-op on real
+    template input.
+  Slide size is 16:9 widescreen (960×540 pt). Opens clean via COM (no repair prompt);
+  SHA-256 `dd96acd1f395cb961f2222047e03263df4cbe1bdacce3735bcd934783fad0556`. Provenance,
+  hash, and purpose are recorded in `test/read/fixtures/README.md`. This fixture gates
+  the `.potx` → editable `.pptx` content-type flip assertion (test #4) and the "opens
+  as an editable deck" check; both can now be implemented. The rest of the feature is
   not blocked on it.
 
 - **`.pptx` template path — no new fixture needed.** Verified existing fixtures cover
@@ -133,7 +136,7 @@ lossy `SlideLayoutInternal` model. This matches the architecture chosen for
   `template.main+xml` const for the check.
 - `src/read.ts` — re-export `FromTemplateOptions`.
 - `src/read/opc/content-types.ts` — **reused as-is** (`ensureRegistered`).
-- `test/read/fixtures/template.potx` — **new, user-supplied** (see step 1); gates the
+- `test/read/fixtures/template.potx` — **authored 2026-06-24** (see step 1); gates the
   `.potx` assertions only.
 - `test/read/template-masters.test.js` — new test (below). Reuses existing
   `multi-theme.pptx` / `theme-colors.pptx` for the `.pptx` path.
@@ -163,13 +166,11 @@ New `test/read/template-masters.test.js`, following the harness in
    installed) the saved output is schema-valid. This is the test the `.potx` fixture
    exists for; it cannot be written against existing fixtures.
 
-**Sequencing:** tests #1–#3 (the `.pptx` path) can land immediately on the existing
-fixtures; test #4 is implemented only once `template.potx` is supplied. If the
-fixture is not yet available when the code lands, ship #1–#3 and leave #4 + the
-"opens as editable deck in PowerPoint" verification as the recorded fixture-gated
-precondition (tag `speaker-notes-masters-layouts` in `docs/backlog.yml`). The flip
-logic is spec-deterministic, so the code can be written ahead of the fixture; only
-its regression assertion waits.
+**Sequencing:** `template.potx` is now in place (authored 2026-06-24), so all four
+tests can land together — tests #1–#3 on the existing `.pptx` fixtures and test #4 on
+`template.potx`. The remaining open item is the "opens as editable deck in PowerPoint"
+desktop verification of the *saved* (content-type-flipped) output, which is performed
+after the code lands by reopening the `fromTemplate → save` result in PowerPoint.
 
 Commands:
 - `pnpm run build && pnpm run typecheck`
