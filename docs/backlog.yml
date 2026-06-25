@@ -1441,8 +1441,8 @@ items:
     source: downstream
     type: downstream-need
     first_seen: 2026-06-18
-    last_reviewed: 2026-06-23
-    status: deferred
+    last_reviewed: 2026-06-25
+    status: on-hold
     priority: p3
     target_area: []
     applies_to_current_project: yes
@@ -1550,8 +1550,8 @@ items:
     source: downstream:registry/lib/logo-cloud.ts
     type: downstream-need
     first_seen: 2026-06-18
-    last_reviewed: 2026-06-18
-    status: deferred
+    last_reviewed: 2026-06-25
+    status: on-hold
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -1559,6 +1559,12 @@ items:
     non_target_reasons: []
     summary: "Graduate the deterministic logo-cloud placement helper once asset/theme boundaries settle"
     current_project_notes: |
+      ON HOLD 2026-06-25 (user request): owner-gated parking. Do NOT re-raise in
+      routine "what to build next" review until the maintainer green-lights it. The
+      graduation is blocked on the downstream asset/theme boundary settling (see
+      next_action); flipped from `deferred` so review won't re-surface it on its own.
+      -- end hold note --
+
       The logo-cloud geometry — uniform white chips laid out as a deterministic
       FNV-1a seeded scatter, one shared chip scale fitted across several zones,
       and a text-chip fallback for unresolved marks — was extracted from
@@ -1749,41 +1755,49 @@ items:
     source: downstream
     type: downstream-need
     first_seen: 2026-06-18
-    last_reviewed: 2026-06-18
-    status: deferred
+    last_reviewed: 2026-06-25
+    status: implemented
     priority: p3
     target_area:
       - image-svg-media
     applies_to_current_project: partial
     non_target_reasons: []
-    summary: "Image as a shape *fill* (<p:sp> + <a:blipFill>) — skip until a concrete need appears"
+    summary: "Image as a shape *fill* (<p:sp> + <a:blipFill>) — implemented via fill:{type:'image'} on shapes and text"
     constructs:
       - blip-fill-shape
     current_project_notes: |
-      Two valid OOXML encodings of "image in a shape": (1) a <p:pic> whose <p:spPr>
-      carries a clip geometry — what the fork emits today via addImage({ points |
-      shape | rounding, sizing }) — and (2) a <p:sp> whose spPr carries an
-      <a:blipFill> as the fill of a freeform shape. Verified that the <p:pic> +
-      custGeom clip + cover source-crop composition renders correctly and is
-      schema-valid, covering the motivating downstream "D" cover. The <p:sp>
-      image-fill form (2) would only be worth adding for a shape that must own an
-      image fill AND behave as a shape in grouping/connector logic that treats
-      <p:pic> differently, or for gradient/pattern-over-image fill stacking that
-      <p:pic> can't express. Building it would extend ShapeFillProps with an
-      image-fill variant and teach the shape/text emit block to write <a:blipFill>,
-      which also pulls in rels/media registration for shapes (today only images and
-      backgrounds register media) — a meaningfully larger change. Revisit only if a
-      concrete need appears.
+      RECONCILED 2026-06-25: form (2) is implemented and was already shipped when
+      this entry was written. Two valid OOXML encodings of "image in a shape":
+      (1) a <p:pic> whose <p:spPr> carries a clip geometry — what the fork emits via
+      addImage({ points | shape | rounding, sizing }) — and (2) a <p:sp> whose spPr
+      carries an <a:blipFill> as the fill of the shape. Form (2) landed in
+      03cd2a67 (2026-06-08, feat(shapes): add picture/blip fill) and was extended to
+      text in d29d856a (2026-06-17, #1317), both before this entry's first_seen
+      (2026-06-18). ShapeFillProps now carries `type:'image'` + `image:ImageFillProps`
+      ({path|data}) + an add-time-resolved `_imgRid`; genXmlImageFill emits the
+      <a:blipFill> via the genXmlColorSelection 'image' case; registerImageFillMedia
+      registers the media rel for both addShape and addText. Usage:
+      `fill:{ type:'image', image:{ path } }`. The backlog's hypothetical
+      "gradient/pattern over image stacking" is not a real DrawingML capability
+      (one fill per spPr — layer shapes for that), so nothing remains there.
+      REMAINING (small, optional, not yet needed): genXmlImageFill hardcodes
+      <a:srcRect/><a:stretch><a:fillRect/></a:stretch> (stretch only) — tile fills
+      (<a:tile>), source-crop (srcRect insets), and fillRect offsets are not exposed.
+      Open a fresh downstream-need if downstream ever needs those.
     evidence:
       kinds:
         - local-source-inspection
-        - render-check
-      local_files: []
+        - regression-test
+      local_files:
+        - src/gen-utils.ts
+        - src/gen-objects.ts
+        - src/core-interfaces.ts
+        - test/regression/image-fills.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: revisit-if-needed
+    next_action: none
   - id: chart-metadata-extlst
     source: gitbrent/PptxGenJS#894
     type: issue
