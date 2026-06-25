@@ -60,6 +60,12 @@ by the `pptxgenjs/read` harness. Two groups:
   oracle for `appendSlides`, backlog `dn-append-av-media`); `online-video.pptx`
   (external-link/online video rel graph for `appendSlides`, backlog
   `dn-append-online-video`).
+- **Embedded fonts**: `embedded-fonts.pptx` (PowerPoint-embedded font part graph —
+  `p:embeddedFontLst` + `font` relationships + `application/x-fontdata` Default +
+  `ppt/fonts/*.fntdata` parts; the read/merge + author-side emit oracle for
+  `docs/plans/embedded-fonts.md`). Its sibling `embedded-fonts.oracle.json` records
+  the verbatim `embeddedFontLst`, the font rels, the part list, and the raw-face
+  hashes; the whole OFL faces it embeds live under `fonts/` (below).
 
 | Local name                    | Application                 | AppVersion | Slides |
 | ----------------------------- | --------------------------- | ---------- | ------ |
@@ -70,6 +76,7 @@ by the `pptxgenjs/read` harness. Two groups:
 | `math-omml.pptx`              | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `av-media.pptx`               | Microsoft Office PowerPoint | 16.0000    | 2      |
 | `online-video.pptx`           | Microsoft Office PowerPoint | 16.0000    | 1      |
+| `embedded-fonts.pptx`         | Microsoft Office PowerPoint | 16.0000    | 1      |
 
 ### Derived from a vendored fixture
 
@@ -104,6 +111,30 @@ d88cb77b480d3c84a16307cbe503e9ee64f5fa8bdfee6d7b5a7167847d1cb8e6  math-omml.pptx
 39aafb02e448a860136c20c46daf89d446d1d34140de1c533b1fe537dee6f0af  av-media.pptx
 82d8907ae23c0e8c0b54e0575cba728ff56c82fd6b055827923a8dde9c4dc20c  online-video.pptx
 dd96acd1f395cb961f2222047e03263df4cbe1bdacce3735bcd934783fad0556  template.potx
+bfa889fb328989d93f7e5fb07303d38f6981e11261bc2754ff5b087ab32d35f4  embedded-fonts.pptx
+```
+
+### Embedded font faces (`fonts/`)
+
+Raw, whole (un-subsetted) **SIL OFL 1.1** font faces committed under `fonts/` —
+the bytes the planned author-side embedding API (`docs/plans/embedded-fonts.md`,
+Feature B) embeds verbatim, and the un-subsetted counterpart of the subsetted
+`.fntdata` parts inside `embedded-fonts.pptx`. The font is
+[**Silkscreen**](https://github.com/google/fonts/tree/main/ofl/silkscreen) (Jason
+Kottke), a tiny pixel display family chosen so the fixture stays light while still
+exercising the multi-face (regular + bold under one family) path. `OFL.txt` is the
+accompanying license. `fsType` on both faces is **Installable** (embedding
+permitted), verified host-side via `System.Windows.Media.GlyphTypeface`.
+
+To author/re-author `embedded-fonts.pptx`, both faces must be installed so GDI and
+PowerPoint resolve `Silkscreen` to itself (per-user, no elevation: copy the `.ttf`s
+into `%LOCALAPPDATA%\Microsoft\Windows\Fonts` and register each under
+`HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts`).
+
+```
+c845473330b94c2079ce9af01c51ac8ba2d99c24f4d14c039843bbb8e642ebd8  fonts/Silkscreen-Regular.ttf
+768476aa712d4f5c3e18d3bce80f980a8bd3f72b7094d22ec5e768df3acfed61  fonts/Silkscreen-Bold.ttf
+86c5e9c9382cdcc5948704fdfe60f2aa164a719746931219a42736ecd9cefbd3  fonts/OFL.txt
 ```
 
 ### Embedded-media binaries (`media/`)
@@ -323,6 +354,35 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
     against a real media part.) The `p:cNvPr` also carries
     `<a:hlinkClick action="ppaction://media"/>` and the slide a `<p:timing>`
     interactive-media trigger tree.
+- `embedded-fonts.pptx` — **authoring oracle** for embedded fonts
+  (`docs/plans/embedded-fonts.md`: Feature A import-carry merge + Feature B
+  author-side emit). One blank 16:9 slide whose text box `silkscreen-text` has a
+  regular paragraph and a bold paragraph, both in the SIL OFL font **Silkscreen**,
+  so PowerPoint embedded **both** faces under a single `p:embeddedFont`. Pins the
+  three coordinated pieces of PresentationML font embedding:
+  - **Binary parts** `ppt/fonts/font1.fntdata` (regular) and `font2.fntdata` (bold),
+    content type via a single `<Default Extension="fntdata"
+    ContentType="application/x-fontdata"/>` in `[Content_Types].xml`.
+  - **Two `font` relationships** in `ppt/_rels/presentation.xml.rels`: `rId3` →
+    `fonts/font1.fntdata`, `rId4` → `fonts/font2.fntdata` (type
+    `…/2006/relationships/font`).
+  - **`p:embeddedFontLst`** in `presentation.xml` (schema position: after `notesSz`,
+    before `defaultTextStyle`), exactly:
+    `<p:embeddedFontLst><p:embeddedFont><p:font typeface="Silkscreen" pitchFamily="2" charset="0"/><p:regular r:id="rId3"/><p:bold r:id="rId4"/></p:embeddedFont></p:embeddedFontLst>`,
+    with `p:presentation@embedTrueTypeFonts="1"`.
+  - **Subsetting caveat (resolves an `embedded-fonts.md` §6 open question):**
+    PowerPoint COM `SaveAs(…, EmbedTrueTypeFonts:=msoTrue)` **only ever subsets** the
+    embedded faces — the "Embed all characters" radio is interactive-only (no COM
+    property; the `EmbedAllChars` Options reg value is inert for COM-driven saves), so
+    the `.fntdata` parts here are subsetted glyph sets and `saveSubsetFonts="1"`.
+    Subsetting changes only the part *bytes* and that one flag, not the
+    `embeddedFontLst`/rels/content-type/part structure, and a subsetted embed is what
+    real-world decks most commonly carry. The whole un-subsetted faces (what Feature B
+    embeds and emits with `saveSubsetFonts="0"`) are committed separately under
+    `fonts/`. The verbatim oracle (rels, part list, `embeddedFontLst`, raw-face hashes)
+    is recorded in `embedded-fonts.oracle.json`. The genuine package validates clean
+    (`[]`) through the OOXML-Validator CLI, confirming the validator accepts the
+    `fntdata` Default and `embeddedFontLst` placement (plan §1.3).
 
 ## Autofit calibration oracle (`docs/measured-text-fit.md`)
 
@@ -454,6 +514,7 @@ fixtures opened clean with no repair prompt:
 - [x] `math-omml.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored via Word→PowerPoint paste + opened clean via COM)
 - [x] `template.potx` — Windows desktop PowerPoint, 2026-06-24 (authored + reopened clean via COM, no repair prompt)
 - [x] `online-video.pptx` — Windows desktop PowerPoint, 2026-06-24 (authored + opened clean via COM)
+- [x] `embedded-fonts.pptx` — Windows desktop PowerPoint, 2026-06-25 (authored + reopened clean via COM, no repair prompt; `Presentation.Fonts` reports `Silkscreen` in use)
 
 **Further testing needed on PowerPoint desktop.** The web loader is more lenient
 than desktop PowerPoint, whose stricter OOXML validation is what produces the
