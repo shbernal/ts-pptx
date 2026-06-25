@@ -1269,6 +1269,56 @@ export default [
 		},
 	},
 	{
+		// chart-metadata-extlst: custom chart-level metadata rides in the schema-valid extension
+		// list on the chart space (CT_ChartSpace/c:extLst, the LAST child) under a stable PptxGenJS
+		// vendor GUID, NOT as an invalid c:meta sibling PowerPoint would strip/repair. Each entry is
+		// a foreign-namespace <pgm:item key="" value=""/> inside the lax-processed CT_Extension
+		// wildcard. Lock in: schema-valid, extLst is last, payload escaped, and invalid entries drop.
+		name: 'chart metadata emitted via schema-valid chartSpace extLst',
+		fn: async () => {
+			const { buf, zip } = await build((p) => {
+				p.addSlide().addChart(p.charts.BAR, [{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
+					x: 0.5,
+					y: 0.5,
+					w: 4,
+					h: 3,
+					metadata: { sourceId: 'q3-revenue', 'note&tag': 'a<b>"c"' },
+				})
+			})
+			await expectNoSchemaErrors(buf, 'chart-metadata-extlst')
+			// _chartCounter is a process-global, so the chart part name is not necessarily chart1.xml.
+			const chartPath = listEntries(zip).find((f) => /^ppt\/charts\/chart\d+\.xml$/.test(f))
+			const chartXml = await readEntry(zip, chartPath)
+			const extLst = firstXmlBlock(chartXml, 'c:extLst', 'chartSpace extLst')
+			assertIncludes(extLst, '<c:ext uri="{094A432E-1F6C-499B-95B8-B57DC9536949}">', 'vendor ext uri')
+			assertIncludes(extLst, '<pgm:metadata xmlns:pgm="http://pptxgenjs.com/schema/chart/metadata">', 'metadata ns')
+			assertIncludes(extLst, '<pgm:item key="sourceId" value="q3-revenue"/>', 'plain entry')
+			// Keys and values are XML-escaped (no raw &, <, >, ").
+			assertIncludes(extLst, '<pgm:item key="note&amp;tag" value="a&lt;b&gt;&quot;c&quot;"/>', 'escaped entry')
+			// extLst is the LAST child of CT_ChartSpace (after externalData).
+			assert(chartXml.indexOf('<c:externalData') < chartXml.indexOf('<c:extLst>'), 'externalData precedes extLst')
+			assert(chartXml.indexOf('<c:extLst>') < chartXml.indexOf('</c:chartSpace>'), 'extLst before chartSpace close')
+		},
+	},
+	{
+		// chart-metadata-extlst: a chart with no metadata (and one with only-invalid entries) emits
+		// no extLst at all — the extension is purely opt-in and never produces an empty element.
+		name: 'chart without metadata emits no chartSpace extLst',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addChart(p.charts.BAR, [{ name: 'S1', labels: ['A'], values: [1] }], {
+					x: 0.5,
+					y: 0.5,
+					w: 4,
+					h: 3,
+				})
+			})
+			const chartPath = listEntries(zip).find((f) => /^ppt\/charts\/chart\d+\.xml$/.test(f))
+			const chartXml = await readEntry(zip, chartPath)
+			assert(!chartXml.includes('<c:extLst>'), 'no extLst when metadata absent')
+		},
+	},
+	{
 		// Upstream #744: bubble/bubble3D charts can show each bubble's size as a data label.
 		// The `showBubbleSize` option flips the previously hard-coded <c:showBubbleSize val="0"/>;
 		// lock in that the enabled flag stays schema-valid in CT_DLbls.

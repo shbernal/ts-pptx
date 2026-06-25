@@ -1905,8 +1905,8 @@ items:
     source: gitbrent/PptxGenJS#894
     type: issue
     first_seen: 2026-06-20
-    last_reviewed: 2026-06-20
-    status: deferred
+    last_reviewed: 2026-06-25
+    status: implemented
     priority: p3
     target_area:
       - chart-ooxml
@@ -1914,15 +1914,23 @@ items:
     applies_to_current_project: unknown
     non_target_reasons: []
     summary: "Typed chart-metadata primitive emitting through CT_ChartSpace extLst (the valid form of the rejected #894 c:meta injection)."
-    current_project_notes: "Legitimate, schema-valid alternative to the free-form c:meta injection proposed in upstream issue #894 (dropped from the ledger as an escape-hatch footgun: a raw c:meta sibling is invalid OOXML that PowerPoint repairs/strips). CT_ChartSpace has no meta child (verified via ooxml_children c:chartSpace: legal children are date1904, lang, roundedCorners, style, clrMapOvr, pivotSource, protection, chart, spPr, txPr, externalData, printSettings, userShapes, extLst), so arbitrary metadata must ride in the extLst extension list under a vendor URI guid, not as a sibling element PowerPoint will strip/repair. Deferred until a concrete consumer need for chart-level metadata lands; design the typed primitive (validated key/value or namespaced blob into c:extLst) at that point rather than exposing a raw-XML escape hatch."
+    current_project_notes: "IMPLEMENTED 2026-06-25. Added `metadata?: Record<string, string>` to IChartOpts (core-interfaces.ts). gen-charts.ts emits it as the LAST child of c:chartSpace via genXmlChartMetadata(): `<c:extLst><c:ext uri=\"{094A432E-1F6C-499B-95B8-B57DC9536949}\"><pgm:metadata xmlns:pgm=\"http://pptxgenjs.com/schema/chart/metadata\"><pgm:item key value/></pgm:metadata></c:ext></c:extLst>`. The stable vendor GUID + foreign namespace ride the CT_Extension lax xsd:any wildcard, so PowerPoint preserves the metadata (the extLst mechanism) instead of stripping/repairing it as it would the invalid c:meta sibling from #894. Typed primitive is validated key/value, NOT a raw-XML escape hatch (the rejected #894 footgun): non-string/empty keys and non-string values are dropped with console.warn (no silent coercion); absent/all-invalid metadata emits no extLst at all; keys and values are XML-escaped. Verified via ooxml MCP that CT_Extension = uri token attr + lax xsd:any wildcard (no named children). Two schema.test.js fixtures pass against the real ooxml-validator."
     evidence:
-      kinds: []
-      local_files: []
-      schema_fixture: null
-      validator_result: null
+      kinds:
+        - local-source-inspection
+        - ooxml-reference
+        - schema-fixture
+        - validator-result
+      local_files:
+        - src/gen-charts.ts
+        - src/core-interfaces.ts
+        - test/schema.test.js
+      schema_fixture: "test/schema.test.js: 'chart metadata emitted via schema-valid chartSpace extLst' + 'chart without metadata emits no chartSpace extLst'"
+      validator_result: pass (pnpm run test:schema, 2026-06-25; 108 fixtures green)
       powerpoint_result: null
-      spec_refs: []
-    next_action: design-extlst-chart-metadata-primitive-on-concrete-need
+      spec_refs:
+        - "ECMA-376 dml-chart CT_ChartSpace (extLst is the last child) + CT_Extension (uri token attr, lax xsd:any wildcard)"
+    next_action: none
   - id: dn-append-online-video
     source: downstream:src/read/api/presentation.ts
     type: downstream-need

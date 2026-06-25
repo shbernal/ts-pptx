@@ -2948,6 +2948,17 @@ export interface IChartOpts
 	 * - PowerPoint: [right-click on a chart] > "Edit Alt Text..."
 	 */
 	altText?: string
+	/**
+	 * Custom chart-level metadata, emitted as a schema-valid extension on the chart space
+	 * (`c:chartSpace/c:extLst`) under a stable PptxGenJS vendor GUID.
+	 * - Use for round-trippable, machine-readable annotations a consumer wants to travel with the
+	 *   chart (e.g. a source-data id, a generator tag, a semantic role). PowerPoint preserves the
+	 *   extension untouched and ignores it for rendering.
+	 * - Keys must be non-empty strings; values must be strings. Invalid entries are dropped with a
+	 *   console warning rather than emitting degenerate XML.
+	 * @example { sourceId: 'q3-revenue', generator: 'downstream' }
+	 */
+	metadata?: Record<string, string>
 }
 export interface IChartOptsLib extends IChartOpts {
 	_type?: CHART_NAME | IChartMulti[] // TODO: v3.4.0 - move to `IChartOpts`, remove `IChartOptsLib`

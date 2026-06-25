@@ -804,10 +804,55 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
 	// E: DATA (Add relID)
 	strXml += '<c:externalData r:id="rId1"><c:autoUpdate val="0"/></c:externalData>'
 
+	// F: METADATA (custom chart-level annotations via the schema-valid extension list)
+	// CT_ChartSpace document order: externalData → printSettings → userShapes → extLst (extLst LAST).
+	strXml += genXmlChartMetadata(rel.opts.metadata)
+
 	// LAST: chartSpace end
 	strXml += '</c:chartSpace>'
 
 	return strXml
+}
+
+/**
+ * Stable PptxGenJS vendor GUID identifying the chart-metadata extension on `c:chartSpace/c:extLst`.
+ * Custom data rides under this URI in a foreign namespace so PowerPoint preserves it (the extLst
+ * mechanism) instead of stripping/repairing it as it would an unrecognised sibling element.
+ */
+const CHART_METADATA_EXT_URI = '{094A432E-1F6C-499B-95B8-B57DC9536949}'
+/** Foreign namespace for the chart-metadata extension payload. */
+const CHART_METADATA_NS = 'http://pptxgenjs.com/schema/chart/metadata'
+
+/**
+ * Create the chart-space extension-list XML carrying custom `metadata` key/value annotations.
+ * Emits nothing when metadata is absent or contains no valid entries. Keys must be non-empty
+ * strings and values must be strings; invalid entries are dropped with a warning rather than
+ * emitting degenerate XML (per the "no silent coercion" policy).
+ * @param {Record<string, string>} [metadata] custom chart-level metadata
+ * @return {string} `<c:extLst>…</c:extLst>` XML, or '' when there is nothing valid to emit
+ */
+function genXmlChartMetadata (metadata?: Record<string, string>): string {
+	if (metadata == null) return ''
+	if (typeof metadata !== 'object' || Array.isArray(metadata)) {
+		console.warn('Warning: chart `metadata` must be a plain object of string key/value pairs; ignored.')
+		return ''
+	}
+
+	let items = ''
+	for (const [key, value] of Object.entries(metadata)) {
+		if (typeof key !== 'string' || key.length === 0) {
+			console.warn(`Warning: chart metadata key "${String(key)}" is not a non-empty string; entry skipped.`)
+			continue
+		}
+		if (typeof value !== 'string') {
+			console.warn(`Warning: chart metadata value for key "${key}" is not a string; entry skipped.`)
+			continue
+		}
+		items += `<pgm:item key="${encodeXmlEntities(key)}" value="${encodeXmlEntities(value)}"/>`
+	}
+	if (items === '') return ''
+
+	return `<c:extLst><c:ext uri="${CHART_METADATA_EXT_URI}"><pgm:metadata xmlns:pgm="${CHART_METADATA_NS}">${items}</pgm:metadata></c:ext></c:extLst>`
 }
 
 /**

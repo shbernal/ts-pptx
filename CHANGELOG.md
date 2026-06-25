@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`addChart(type, data, { metadata })` — custom chart-level metadata via a schema-valid
+  extension:** pass a `Record<string, string>` of annotations (e.g. a source-data id, a
+  generator tag, a semantic role) that should travel with the chart. They are emitted as the
+  last child of the chart space (`c:chartSpace/c:extLst`) under a stable PptxGenJS vendor GUID
+  (`{094A432E-1F6C-499B-95B8-B57DC9536949}`) in a foreign namespace
+  (`http://pptxgenjs.com/schema/chart/metadata`), riding the `CT_Extension` lax `xsd:any`
+  wildcard so PowerPoint **preserves** the data untouched and ignores it for rendering. This is
+  the OOXML-valid form of the rejected upstream #894 `c:meta` injection, which proposed an
+  invalid sibling element PowerPoint would strip/repair. It is a **validated** primitive, not a
+  raw-XML escape hatch: non-string/empty keys and non-string values are dropped with a console
+  warning (no silent coercion), keys and values are XML-escaped, and metadata that is absent or
+  has no valid entries emits no `extLst` at all. Lands in `src/gen-charts.ts`
+  (`genXmlChartMetadata`) with the type on `IChartOpts` in `src/core-interfaces.ts`. Implements
+  backlog `chart-metadata-extlst`.
+
 - **`importShape(target, source, i, { rescale })` — lift shapes across decks of different
   slide sizes:** by default `importShape`/`importShapes` still throws on a slide-size
   mismatch (now with a hint pointing at the option); set `rescale` to scale the lifted
