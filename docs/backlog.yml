@@ -1759,30 +1759,45 @@ items:
     source: downstream
     type: downstream-need
     first_seen: 2026-06-18
-    last_reviewed: 2026-06-18
+    last_reviewed: 2026-06-25
     status: deferred
     priority: p3
     target_area:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    summary: "importShape v1 limits: size must match, lifted-shape timing dropped, placeholder lift best-effort"
+    summary: "importShape limits: geometry rescale DONE; lifted-shape timing dropped + placeholder lift best-effort remain"
     current_project_notes: |
       importShape/importShapes copy one or more shapes (autoshape, picture,
       table/chart graphic frame, connector, group) from a source slide onto a
       slide of this presentation, dragging dependent media/charts and rewriting
-      rels/ids. v1 limitations (same posture as importSlide): source and target
-      slide sizes must match (no geometry rescale); the source slide's build
-      animation/timing for the lifted shape is dropped (editable static layout);
-      lifting a placeholder is best-effort (preserve bakes its inherited
-      geometry/colour/size, but prefer lifting concrete content shapes/tables/
-      charts). Downstream follow-up: the stitch/harvest map grows sourceDeck +
-      sourceSlide + shapeIndices.
+      rels/ids.
+
+      RESOLVED 2026-06-25 — geometry rescale: importShape now accepts
+      `rescale?: boolean | 'fit' | 'stretch'` (mirrors importSlide), reusing the
+      stateless toolkit (computeRescale/rescaleSpTree/rescaleXfrm/rescaleTableGrid)
+      already in src/read/api/presentation.ts. The equal-size pre-flight now throws
+      only when sizes differ AND rescale is falsy; otherwise the transform is
+      computed once and applied per lifted shape after the preserve-flatten pass (so
+      a placeholder's just-baked inherited a:xfrm scales too). Explicit
+      left/top/width/height overrides are applied last and win. Tests in
+      test/read/import-shape.test.js (fit/stretch/true alias, override precedence,
+      table-grid scaling, still-throws-without-rescale, schema-valid).
+
+      Still deferred (two distinct limits): the source slide's build animation/timing
+      for the lifted shape is dropped (editable static layout — see
+      dn-flatten-slide-animations; needs a read-side timing model + p:spTgt id
+      remapping, low value per corpus scan); lifting a placeholder stays best-effort
+      (preserve bakes inherited geometry/colour/size, but prefer lifting concrete
+      content shapes/tables/charts). Downstream follow-up: the stitch/harvest map
+      grows sourceDeck + sourceSlide + shapeIndices.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
         - src/read/api/presentation.ts
+        - test/read/import-shape.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null

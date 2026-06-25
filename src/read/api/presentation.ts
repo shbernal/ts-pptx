@@ -327,6 +327,26 @@ export interface ImportShapeOptions {
 	 * given order starting at this position.
 	 */
 	at?: number
+	/**
+	 * What to do when the source slide size differs from this deck's. Default
+	 * (`false`/omitted) throws on any mismatch. Set it to rescale the lifted
+	 * shape's geometry onto this deck's canvas instead (mirrors
+	 * {@link ImportSlideOptions.rescale}, scoped to one shape):
+	 *
+	 * - `'fit'` (or `true`): uniform scale by `min(sx, sy)`, slack centered — the
+	 *   shape keeps its aspect ratio (circles stay circles, rotations hold) and
+	 *   lands at the position it would occupy on a centered copy of the source
+	 *   canvas. Matches PowerPoint's "Ensure Fit".
+	 * - `'stretch'`: independent per-axis scale; distorts. Matches "Maximize".
+	 *
+	 * Only *geometry* is rescaled — the shape/group/graphicFrame transform
+	 * (`a:off`/`a:ext`) and any table grid (`a:gridCol@w`, `a:tr@h`). Font sizes,
+	 * line widths, and other absolute sizes are left as authored, so heavy
+	 * down-scaling can leave text overflowing its (now smaller) box. Explicit
+	 * `left`/`top`/`width`/`height` overrides are applied *after* rescale and win.
+	 * @default false
+	 */
+	rescale?: boolean | 'fit' | 'stretch'
 }
 
 /** A master brought across by {@link Presentation.importSlideMasters}. */
@@ -1362,12 +1382,19 @@ export class Presentation {
 	importShapes(target: Slide, source: Slide, shapeIndices: number[], options: ImportShapeOptions = {}): Shape[] {
 		if (target.presentation !== this) throw new Error('importShape: target slide must belong to this presentation')
 
-		// Pre-flight: v1 does not rescale geometry, so slide sizes must match.
+		// Pre-flight: slide sizes must match unless { rescale } opts into scaling the
+		// lifted geometry onto this canvas (computed once, applied per shape below).
 		const targetSize = this.slideSize
 		const sourceSize = source.presentation.slideSize
-		if (!targetSize || !sourceSize || targetSize.widthEmu !== sourceSize.widthEmu || targetSize.heightEmu !== sourceSize.heightEmu) {
-			const fmt = (s: SlideSize | null): string => (s ? `${s.widthEmu}×${s.heightEmu} EMU` : 'unknown')
-			throw new Error(`importShape requires equal slide sizes; target is ${fmt(targetSize)}, source is ${fmt(sourceSize)}`)
+		const sizesMatch =
+			!!targetSize && !!sourceSize && targetSize.widthEmu === sourceSize.widthEmu && targetSize.heightEmu === sourceSize.heightEmu
+		let transform: RescaleTransform | null = null
+		if (!sizesMatch) {
+			if (!options.rescale || !targetSize || !sourceSize) {
+				const fmt = (s: SlideSize | null): string => (s ? `${s.widthEmu}×${s.heightEmu} EMU` : 'unknown')
+				throw new Error(`importShape requires equal slide sizes (or { rescale }); target is ${fmt(targetSize)}, source is ${fmt(sourceSize)}`)
+			}
+			transform = computeRescale(sourceSize, targetSize, options.rescale === 'stretch' ? 'stretch' : 'fit')
 		}
 
 		// Resolve + validate every index up front so a bad batch throws before mutating.
@@ -1410,6 +1437,14 @@ export class Presentation {
 				const holder = createElement(targetDoc, 'p:spTree')
 				holder.appendChild(imported)
 				flattenShape(holder, ctx)
+			}
+
+			// Rescale geometry onto this canvas (after flatten, so a placeholder's just-baked
+			// inherited a:xfrm is scaled too). rescaleSpTree wants a p:spTree, so wrap the shape.
+			if (transform) {
+				const holder = createElement(targetDoc, 'p:spTree')
+				holder.appendChild(imported)
+				rescaleSpTree(holder, transform)
 			}
 
 			// Give the shape and any group children collision-free host ids.

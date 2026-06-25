@@ -85,6 +85,17 @@ function geometryTuples(element) {
 	return out
 }
 
+/** Table column widths (`a:gridCol@w`, EMU) within a subtree, document order. */
+function gridColWidths(element) {
+	const live = element.getElementsByTagNameNS(A_NS, 'gridCol')
+	const out = []
+	for (let i = 0; i < live.length; i++) {
+		const w = live[i].getAttribute('w')
+		if (w != null) out.push(Number(w))
+	}
+	return out
+}
+
 function schemeClrCount(element) {
 	return element.getElementsByTagNameNS(A_NS, 'schemeClr').length
 }
@@ -339,6 +350,96 @@ describe('Presentation.importShape', () => {
 		const grpSlide = source.slides.findIndex((s) => s.shapes.some((sh) => sh.shapeType === 'group'))
 		const grpIndex = findShapeIndex(source.slides[grpSlide], (s) => s.shapeType === 'group')
 		target.importShape(target.slides[0], source.slides[grpSlide], grpIndex)
+		const errors = await validateBuf(Buffer.from(await target.save()))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+})
+
+describe('Presentation.importShape({ rescale })', () => {
+	// image/table (16:9, 12192000×6858000) → mixed (4:3, 9144000×6858000):
+	// fit scale = min(0.75, 1.0) = 0.75; centering dx = 0, dy = 857250.
+	const near = (got, want, label) => assert(Math.abs(got - want) <= 2, `${label}: ${got} ≈ ${want}`)
+
+	test("'fit' scales the lifted shape uniformly and centers the slack", async () => {
+		const target = await open('mixed') // 4:3
+		const source = await open('image') // 16:9
+		const idx = findShapeIndex(source.slides[0], (s) => s.shapeType === 'picture')
+		const src = source.slides[0].shapes[idx].absoluteFrame
+
+		const shape = target.importShape(target.slides[0], source.slides[0], idx, { rescale: 'fit' })
+		near(shape.left, Math.round(src.left * 0.75), 'left scaled by 0.75')
+		near(shape.top, Math.round(src.top * 0.75 + 857250), 'top scaled + centered')
+		near(shape.width, Math.round(src.width * 0.75), 'width scaled by 0.75')
+		near(shape.height, Math.round(src.height * 0.75), 'height scaled by 0.75')
+	})
+
+	test("'stretch' scales each axis independently (height holds when only width differs)", async () => {
+		const target = await open('mixed')
+		const source = await open('image')
+		const idx = findShapeIndex(source.slides[0], (s) => s.shapeType === 'picture')
+		const src = source.slides[0].shapes[idx].absoluteFrame
+
+		const shape = target.importShape(target.slides[0], source.slides[0], idx, { rescale: 'stretch' })
+		near(shape.width, Math.round(src.width * 0.75), 'width scaled by sx (0.75)')
+		near(shape.height, src.height, 'height unchanged (sy = 1.0)')
+		near(shape.top, src.top, 'top unchanged (no centering, sy = 1.0)')
+	})
+
+	test('true is an alias for fit', async () => {
+		const target = await open('mixed')
+		const source = await open('image')
+		const idx = findShapeIndex(source.slides[0], (s) => s.shapeType === 'picture')
+		const src = source.slides[0].shapes[idx].absoluteFrame
+
+		const shape = target.importShape(target.slides[0], source.slides[0], idx, { rescale: true })
+		near(shape.width, Math.round(src.width * 0.75), 'rescale:true scales like fit')
+		near(shape.top, Math.round(src.top * 0.75 + 857250), 'rescale:true centers like fit')
+	})
+
+	test('explicit left/width overrides win over rescale', async () => {
+		const target = await open('mixed')
+		const source = await open('image')
+		const idx = findShapeIndex(source.slides[0], (s) => s.shapeType === 'picture')
+
+		const shape = target.importShape(target.slides[0], source.slides[0], idx, {
+			rescale: 'fit',
+			left: 123456,
+			width: 654321,
+		})
+		assertEqual(shape.left, 123456, 'left override beats rescale')
+		assertEqual(shape.width, 654321, 'width override beats rescale')
+	})
+
+	test('scales a lifted table grid (gridCol@w, tr@h)', async () => {
+		const target = await open('mixed') // 4:3
+		const source = await open('table') // 16:9
+		const idx = findShapeIndex(source.slides[0], (s) => s.shapeType === 'graphicFrame' && s.table)
+		assert(idx >= 0, 'source slide has a table')
+		const srcCols = gridColWidths(source.slides[0].shapes[idx].element_)
+		assert(srcCols.length > 0, 'source table has grid columns')
+
+		const shape = target.importShape(target.slides[0], source.slides[0], idx, { rescale: 'fit' })
+		const gotCols = gridColWidths(shape.element_)
+		assertEqual(gotCols.length, srcCols.length, 'column count preserved')
+		for (let i = 0; i < srcCols.length; i++) {
+			near(gotCols[i], Math.round(srcCols[i] * 0.75), `col ${i} width scaled by 0.75`)
+		}
+	})
+
+	test('still throws on a size mismatch when rescale is not requested', async () => {
+		const target = await open('mixed')
+		const source = await open('image')
+		assert(
+			throws(() => target.importShape(target.slides[0], source.slides[0], 0)),
+			'a size mismatch without rescale throws'
+		)
+	})
+
+	test.skipIf(!validatorInstalled)('a rescaled lifted shape stays schema-valid', async () => {
+		const target = await open('mixed')
+		const source = await open('image')
+		const idx = findShapeIndex(source.slides[0], (s) => s.shapeType === 'picture')
+		target.importShape(target.slides[0], source.slides[0], idx, { rescale: 'fit' })
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 	})

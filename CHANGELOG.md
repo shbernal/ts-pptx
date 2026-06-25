@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`importShape(target, source, i, { rescale })` — lift shapes across decks of different
+  slide sizes:** by default `importShape`/`importShapes` still throws on a slide-size
+  mismatch (now with a hint pointing at the option); set `rescale` to scale the lifted
+  shape's geometry onto this deck's canvas instead. Mirrors `importSlide`'s option:
+  `'fit'` (alias `true`) scales by `min(sx, sy)` and centers the slack, holding aspect
+  ratio (matches "Ensure Fit"); `'stretch'` scales each axis independently (matches
+  "Maximize"). Only **geometry** is rewritten — the shape/group/`graphicFrame` transform
+  (`a:off`/`a:ext`) and any table grid (`a:gridCol@w`, `a:tr@h`); font sizes and line
+  widths are left as authored. The transform is applied after the `preserve`-flatten pass
+  (so a placeholder's just-baked inherited `a:xfrm` scales too), and explicit
+  `left`/`top`/`width`/`height` overrides are applied last and win. Reuses the stateless
+  rescale toolkit added for `importSlide`. Lands in `src/read/api/presentation.ts`.
+  Implements the geometry-rescale gap of backlog `dn-importshape-v1-limits` (its
+  timing-drop and best-effort-placeholder limits remain deferred).
+
 ## [8.0.0](https://github.com/shbernal/PptxGenJS/releases/tag/v8.0.0) - 2026-06-25
 
 ### Added
