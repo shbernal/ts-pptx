@@ -250,29 +250,38 @@ items:
     source: "gitbrent/PptxGenJS#1435"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-20
-    status: deferred
+    last_reviewed: 2026-06-25
+    status: superseded
     priority: none
     target_area:
       - package-boundary
-    applies_to_current_project: unknown
+    applies_to_current_project: yes
     non_target_reasons:
       - legacy-dist-artifact
       - upstream-build-system
       - insufficient-evidence
     summary: PR titled as a bold inline text wrapping fix, but with no body and a broad unrelated diff.
     current_project_notes: >
-      The underlying text-wrapping topic may be relevant, but this PR cannot be
-      used as-is: it rewrites generated dist artifacts, package metadata, demos,
-      and large source areas without a focused reproduction.
+      Superseded — the valuable kernel (bold inline text producing unwanted line
+      breaks) was the multiple-`<a:pPr>`-per-`<a:p>` defect, already fixed in
+      commit f929ce0a "fix(gen-xml): emit a:pPr exactly once per a:p". Our guard
+      in `genXmlTextBody()` (src/gen-xml.ts ~L1907) emits paragraph properties
+      once from the first run yielding non-empty pPr XML, which is more robust
+      than this PR's blind `idx === 0` check. The PR's broad, body-less diff
+      (rewritten dist artifacts, package metadata, demos, large source areas)
+      remains unusable as-is and is not adopted.
     evidence:
-      kinds: []
-      local_files: []
+      kinds:
+        - local-source-inspection
+        - regression-test
+      local_files:
+        - src/gen-xml.ts
+        - test/bug-01.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: revisit-only-if-focused-issue-or-repro-appears
+    next_action: none
 
   - id: upstream-pr-1302
     source: "gitbrent/PptxGenJS#1302"
@@ -1097,8 +1106,8 @@ items:
     source: "gitbrent/PptxGenJS#951"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-20
-    status: deferred
+    last_reviewed: 2026-06-25
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -1107,27 +1116,32 @@ items:
     non_target_reasons: []
     summary: Asked for text height calculation in Node without browser DOM measurement.
     current_project_notes: >
-      Current table autoPage uses heuristic text wrapping and line-height weights
-      instead of a public text-measurement API. This may be useful for future
-      layout work but is not directly an OOXML validity or PowerPoint repair item.
-      Deferred 2026-06-20 (legacy upstream signal, no downstream need recorded;
-      upstream tracking is retired so there is no thread to watch). Same Node-first
-      "the library does no glyph measurement / line-breaking" root cause as
-      dn-doc-render-caveats — if a measurement API is ever pursued, do both together.
+      Implemented (2026-06-21+). A calibrated, DOM-free text-measurement engine now
+      ships: pptx.measureText(text, opts) returns a TextMeasurement (heightIn,
+      widthIn, line count, heightExact) using a metric-based wrap model with real
+      glyph widths from pptx.registerFontMetrics(face, ttf) and an unregistered-font
+      heuristic fallback. The same engine drives export-time autofit baking
+      (fit:'shrink' -> normAutofit fontScale, fit:'resize' -> spAutoFit height) so
+      the layout-time prediction never drifts from baked output, and is exposed as a
+      standalone subpath `pptxgenjs/measure` plus pptx.tableLayout / measureLayout
+      for cell geometry. Landed in commits 9b2704ef, a25b0708, b9640ebf, bd4e36c8,
+      40e0eb14, 58c11e35 (all after the prior 2026-06-20 review, which is why this
+      entry still read 'deferred'). Same Node-first root cause as
+      dn-doc-render-caveats, which this also addresses.
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/gen-tables.ts:39
-        - src/gen-tables.ts:44
-        - src/gen-tables.ts:372
-        - src/core-interfaces.ts:770
-        - src/core-interfaces.ts:834
+        - src/measure.ts
+        - src/measure-fit.ts:437
+        - src/text-fit.ts
+        - src/pptxgen.ts:993
+        - src/pptxgen.ts:908
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: reconsider-text-measurement-api-if-layout-engine-work-starts
+    next_action: none
 
   - id: upstream-issue-904
     source: "gitbrent/PptxGenJS#904"
@@ -1766,55 +1780,42 @@ items:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    summary: "importShape limits: geometry rescale DONE; robust placeholder lift DONE; only lifted-shape animation/timing drop remains (deferred)"
+    summary: "importShape drops the lifted shape's build animation/timing — shapes land static"
     current_project_notes: |
-      importShape/importShapes copy one or more shapes (autoshape, picture,
-      table/chart graphic frame, connector, group) from a source slide onto a
-      slide of this presentation, dragging dependent media/charts and rewriting
-      rels/ids.
+      A shape lifted via importShape/importShapes lands STATIC: the source slide's
+      build animation and <p:timing> references for that shape are not carried over.
+      The shape's geometry, fill, and (for placeholders) inherited formatting are
+      preserved, but any entrance/emphasis/exit build it had on the source slide is
+      silently dropped, so it renders/edits as its final at-rest state.
 
-      RESOLVED 2026-06-25 — geometry rescale: importShape now accepts
-      `rescale?: boolean | 'fit' | 'stretch'` (mirrors importSlide), reusing the
-      stateless toolkit (computeRescale/rescaleSpTree/rescaleXfrm/rescaleTableGrid)
-      already in src/read/api/presentation.ts. The equal-size pre-flight now throws
-      only when sizes differ AND rescale is falsy; otherwise the transform is
-      computed once and applied per lifted shape after the preserve-flatten pass (so
-      a placeholder's just-baked inherited a:xfrm scales too). Explicit
-      left/top/width/height overrides are applied last and win. Tests in
-      test/read/import-shape.test.js (fit/stretch/true alias, override precedence,
-      table-grid scaling, still-throws-without-rescale, schema-valid).
+      To close this, importShape would need to carry the lifted shape's animation
+      across the deck boundary:
+        - a read-side timing model that can locate the build node(s) targeting the
+          source shape inside the source slide's <p:timing> timeline;
+        - remap of the timing target ids onto the lifted shape's NEW id — at minimum
+          <p:spTgt @spid> and the <p:bldP @spid> build-list entry, plus any other
+          node referencing the old shape id;
+        - a merge of those nodes into the host slide's <p:timing> (creating one if the
+          host has none), preserving relative ordering without colliding with the
+          host's existing build sequence;
+        - downstream, the downstream stitch/harvest map grows
+          sourceDeck + sourceSlide + shapeIndices so the lift can find the source
+          timeline at all.
 
-      RESOLVED 2026-06-25 — robust placeholder lift (preserve): flattenShape in
-      src/read/oxml/theme.ts now bakes a lifted placeholder self-contained, then
-      DEMOTES it to a plain shape (strips p:ph) so it neither re-resolves against the
-      host deck's layout/master placeholder of the same type/idx nor collides with the
-      host's own placeholder of that type. Two new bakes back the demotion, on top of
-      the pre-existing geometry/colour/run-size passes: resolvePlaceholderBodyPr (the
-      inherited a:bodyPr/@anchor, via placeholderInheritedAnchor) and
-      resolvePlaceholderListStyle (per-level a:lstStyle paragraph defaults — indent,
-      bullets, algn, defRPr — resolved layout ph -> master ph -> master p:txStyles
-      category, most-specific tier per level; whole-element overlay, slide's own level
-      wins; runs before resolveSchemeColors so cloned levels' schemeClr flatten). New
-      passes (resolvePlaceholderBodyPr, resolvePlaceholderListStyle, demotePlaceholders)
-      are scoped to flattenShape only — flattenSlide keeps placeholders as placeholders
-      by design; restyle/copy keep p:ph so the shape re-brands. Tests in
-      test/read/import-shape.test.js (demote + no host collision, anchor bake, list-style
-      enrichment, restyle keeps p:ph, schema-valid).
+      Companion item dn-flatten-slide-animations is the inverse, whole-slide pass
+      (strip <p:timing> so a slide renders as its final static state); the two share
+      the read-side timing model but are distinct capabilities — keep "carry a shape's
+      animation across decks" separate from "drop a slide's animations".
 
-      STILL DEFERRED (one limit): the source slide's build animation/timing for the
-      lifted shape is dropped (the shape lands static — see dn-flatten-slide-animations;
-      needs a read-side timing model + p:spTgt/p:bldP id remapping + timeline merge, low
-      value per corpus scan: 3/640 reference slides animate). Downstream follow-up: the
-      stitch/harvest map grows sourceDeck + sourceSlide + shapeIndices.
+      Low value per a reference-corpus scan: only 3 of 640 slides carry any animation
+      and none of the chosen references do, so this is parked until a deck actually
+      depends on animated source shapes.
     evidence:
       kinds:
         - local-source-inspection
-        - regression-test
-        - validator-result
       local_files:
         - src/read/api/presentation.ts
         - src/read/oxml/theme.ts
-        - test/read/import-shape.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
