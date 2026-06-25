@@ -278,30 +278,46 @@ items:
     source: "gitbrent/PptxGenJS#1302"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-11
-    status: non-target
+    last_reviewed: 2026-06-25
+    status: superseded
     priority: none
     target_area:
       - missing-pptx-feature
       - relationship-or-content-type
       - package-boundary
-    applies_to_current_project: no
-    non_target_reasons:
-      - out-of-project-scope
+    applies_to_current_project: yes
+    non_target_reasons: []
     summary: Add an addFonts API for embedding fonts into generated presentations.
     current_project_notes: >
-      Dismissed. Font embedding adds new OPC parts with significant package-size
-      cost, font-licensing/obfuscation landmines, and PowerPoint-specific
-      embedding rules, for a niche benefit. Not in scope for the fork's core
-      primitives; revisit only with a concrete, recurring need.
+      Superseded — the original "niche benefit, out of scope" dismissal is
+      obsolete now that the concrete downstream need materialized
+      (dn-importslide-v1-limits). Whole-face font embedding now ships via three
+      coordinated surfaces on the shared model in src/embedded-fonts.ts:
+      (1) author-side pptx.embedFont() emitted at write time
+      (gen-xml.ts: fntdata Default, per-face presentation rels, .fntdata parts,
+      embedTrueTypeFonts="1"/saveSubsetFonts="0", p:embeddedFontLst at
+      CT_Presentation index 7); (2) importSlide({ embedFonts: true }) carrying a
+      source deck's embedded fonts (read/api/presentation.ts #carryEmbeddedFonts);
+      (3) appendSlides carrying a generator's embedded fonts into the destination
+      deck (#carryGeneratedEmbeddedFonts, sharing the merge core
+      #mergeEmbeddedFontEntries). Licensing/obfuscation are explicitly the
+      caller's responsibility (whole faces, no subsetting) — see
+      docs/embedded-fonts.md and CHANGELOG.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - validator-result
       local_files:
-        - src/pptxgen.ts:577
-        - src/gen-xml.ts:1813
-      schema_fixture: null
-      validator_result: null
+        - src/embedded-fonts.ts
+        - src/pptxgen.ts (embedFont, extractSlides)
+        - src/gen-xml.ts (content types, presentation rels, embeddedFontLst)
+        - src/read/api/presentation.ts (#carryEmbeddedFonts, #carryGeneratedEmbeddedFonts, #mergeEmbeddedFontEntries)
+        - test/regression/embed-font.test.js
+        - test/read/embedded-fonts.test.js
+        - test/read/append-embedded-fonts.test.js
+      schema_fixture: "test/read/append-embedded-fonts.test.js (schema-valid appended fonts)"
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
     next_action: none
@@ -1691,6 +1707,12 @@ items:
           test/read/fixtures/embedded-fonts.pptx + embedded-fonts.oracle.json. The
           author-side counterpart (pptx.embedFont) shipped in the same effort — see
           CHANGELOG (write-side embedding is its own feature, recorded there, not here).
+          Companion (2026-06-25): the author-side embedFont faces now also flow
+          through appendSlides — extractSlides surfaces them on ExtractedSlides and
+          #carryGeneratedEmbeddedFonts carries them into the destination deck,
+          sharing the merge core #mergeEmbeddedFontEntries with #carryEmbeddedFonts;
+          tests in test/read/append-embedded-fonts.test.js. So a generator that
+          embeds fonts no longer loses them when appended onto a fromTemplate deck.
         - Source notes are dropped by design (the notesSlide relationship is
           skipped so the import doesn't drag in a notesMaster + its own theme).
           Follow-up: opt-in notes import that copies/merges the notes master.
@@ -1708,6 +1730,7 @@ items:
         - src/read/api/presentation.ts
         - src/embedded-fonts.ts
         - test/read/embedded-fonts.test.js
+        - test/read/append-embedded-fonts.test.js
         - test/read/import-slide.test.js
         - test/schema.test.js
       schema_fixture: test/read/embedded-fonts.test.js

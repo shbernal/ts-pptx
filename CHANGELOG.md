@@ -48,10 +48,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     relationships, and merges entries into this deck's `p:embeddedFontLst` (de-duped by
     `typeface` + face slot, so repeated imports carry each face once). Default off — the
     deck is unchanged without the flag. Lands in `src/read/api/presentation.ts`.
+  - **Append-carry** — `appendSlides(generator, …)` now carries the **generator's**
+    author-side embedded fonts (`pptx.embedFont`) into the destination deck instead of
+    silently dropping them: `extractSlides()` surfaces them on `ExtractedSlides`, and the
+    append path writes the `.fntdata` parts, adds the `fntdata` Default + font
+    relationships, and merges into the deck's `p:embeddedFontLst` (de-duped by `typeface`
+    + face slot, so appending the same generator twice — or onto a template that already
+    embeds the face — carries each face once). So a generator that calls `embedFont()`
+    keeps its embedded fonts when grafted onto a `fromTemplate` deck. Shares one merge
+    core with import-carry in `src/read/api/presentation.ts`.
 
   Note: when no fonts are embedded, output is unchanged — the historical inert
   `saveSubsetFonts="1"` and absent `embedTrueTypeFonts` are preserved. Implements backlog
-  `dn-importslide-v1-limits` gap #1.
+  `dn-importslide-v1-limits` gap #1; supersedes the dismissed `upstream-pr-1302`.
 
 - **`addTable(rows, { fitColumns: 'shrink' })` — shrink columns to fit the slide:**
   when a table's total column width exceeds the space between its `x` and the right

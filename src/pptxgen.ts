@@ -882,7 +882,10 @@ export default class PptxGenJS {
 			}
 		})
 
-		return { widthEmu: this.presLayout.width, heightEmu: this.presLayout.height, slides }
+		// Presentation-level embedded fonts (pptx.embedFont) ride alongside the slides
+		// so appendSlides can carry them into the destination deck; same model the
+		// write path serializes (see src/embedded-fonts.ts), passed through unchanged.
+		return { widthEmu: this.presLayout.width, heightEmu: this.presLayout.height, slides, embeddedFonts: this._embeddedFonts }
 	}
 
 	// FONT METRICS (measured text fit)

@@ -9,7 +9,7 @@ import type { Part } from '../opc/part.js'
 import type { Relationships } from '../opc/relationships.js'
 import { relativePartName, relsPartNameFor } from '../opc/partnames.js'
 import { ELEMENT_NODE, OOXML_NS, attr, createElement, firstChild, getElements, getOrAddChild, insertInOrder, intValue, removeChildrenByQName, setAttr, type Element } from '../oxml/dom.js'
-import { EMBEDDED_FONT_SLOTS, FONT_DATA_CONTENT_TYPE, FONT_DATA_EXTENSION, FONT_REL_TYPE, type EmbeddedFontSlot } from '../../embedded-fonts.js'
+import { EMBEDDED_FONT_SLOTS, FONT_DATA_CONTENT_TYPE, FONT_DATA_EXTENSION, FONT_REL_TYPE, type EmbeddedFont, type EmbeddedFontSlot } from '../../embedded-fonts.js'
 import { flattenShape, flattenSlide, remapLiteralColors, restyleSlide, type FlattenContext } from '../oxml/theme.js'
 import { resolveSlideThemeParts } from './theme-context.js'
 import { Slide } from './slide.js'
@@ -102,6 +102,22 @@ const EMBEDDED_FONT_FACE_SUCCESSORS: Record<EmbeddedFontSlot, string[]> = {
 	bold: ['p:italic', 'p:boldItalic'],
 	italic: ['p:boldItalic'],
 	boldItalic: [],
+}
+
+/**
+ * One typeface's faces normalized for the embedded-font merge core (`#mergeEmbeddedFontEntries`):
+ * the `p:font` identity attributes plus, per face slot, a thunk that creates the
+ * binary font part on demand and returns its partname. The thunk runs only for a
+ * face actually being added (after the typeface+slot de-dupe), so no orphan part is
+ * created for a face the deck already embeds. Lets the import-side (copy a part out
+ * of a source package) and append-side (write raw generator bytes) callers share one
+ * merge core while differing only in how the binary part is produced.
+ */
+interface IncomingEmbeddedFont {
+	typeface: string
+	/** `p:font` identity attrs other than `typeface` (panose/pitchFamily/charset), in document order. */
+	identity: Array<{ name: string; value: string }>
+	faces: Array<{ slot: EmbeddedFontSlot; createPart: () => string }>
 }
 
 /** ST_SlideId minimum (ECMA-376): slide ids live in [256, 2147483647]. */
@@ -419,6 +435,12 @@ export interface ExtractedSlides {
 	widthEmu: number
 	heightEmu: number
 	slides: ExtractedSlide[]
+	/**
+	 * The generator's presentation-level embedded font faces (`pptx.embedFont`),
+	 * carried into the destination deck by {@link Presentation.appendSlides}. Each
+	 * face carries its raw `bytes`. Empty when the generator embeds no fonts.
+	 */
+	embeddedFonts: EmbeddedFont[]
 }
 
 /**
@@ -761,13 +783,87 @@ export class Presentation {
 		const sourceEntries = sourceLst ? getElements(sourceLst, 'p:embeddedFont') : []
 		if (sourceEntries.length === 0) return
 
+		const sourcePresRels = source.opc.relationshipsFor(source.presentationPart.partName)
+		const incoming: IncomingEmbeddedFont[] = []
+		for (const srcEntry of sourceEntries) {
+			const srcFont = firstChild(srcEntry, 'p:font')
+			const typeface = srcFont ? attr(srcFont, 'typeface') : null
+			if (!srcFont || !typeface) continue
+
+			// Copy the source p:font identity attributes (panose/pitchFamily/charset).
+			const identity: IncomingEmbeddedFont['identity'] = []
+			for (const name of ['panose', 'pitchFamily', 'charset']) {
+				const value = attr(srcFont, name)
+				if (value !== null) identity.push({ name, value })
+			}
+
+			const faces: IncomingEmbeddedFont['faces'] = []
+			for (const slot of EMBEDDED_FONT_SLOTS) {
+				const srcFace = firstChild(srcEntry, `p:${slot}`)
+				const srcRid = srcFace && attr(srcFace, 'r:id')
+				if (!srcFace || !srcRid) continue
+				// Binary comes across via #copyPart, so the per-source registry dedupes faces
+				// shared across repeated imports; the thunk runs only when the face is added.
+				faces.push({ slot, createPart: () => this.#copyPart(source.opc, sourcePresRels.resolveTarget(srcRid)) })
+			}
+			incoming.push({ typeface, identity, faces })
+		}
+		this.#mergeEmbeddedFontEntries(incoming)
+	}
+
+	/**
+	 * Carry a generator's presentation-level embedded fonts ({@link ExtractedSlides.embeddedFonts},
+	 * from `pptx.embedFont`) into this deck during {@link appendSlides}. Each face's raw bytes are
+	 * written as a fresh `/ppt/fonts/fontN.fntdata` part; merge/de-dupe by typeface + slot is shared
+	 * with {@link #carryEmbeddedFonts} via {@link #mergeEmbeddedFontEntries}, so appending the same
+	 * generator twice (or onto a deck that already embeds the face) carries each face once.
+	 */
+	#carryGeneratedEmbeddedFonts(fonts: EmbeddedFont[]): void {
+		const incoming: IncomingEmbeddedFont[] = []
+		for (const font of fonts) {
+			if (!font.typeface) continue
+			const identity: IncomingEmbeddedFont['identity'] = []
+			if (font.panose !== undefined) identity.push({ name: 'panose', value: font.panose })
+			if (font.pitchFamily !== undefined) identity.push({ name: 'pitchFamily', value: String(font.pitchFamily) })
+			if (font.charset !== undefined) identity.push({ name: 'charset', value: String(font.charset) })
+
+			const faces: IncomingEmbeddedFont['faces'] = []
+			for (const slot of EMBEDDED_FONT_SLOTS) {
+				const face = font.faces.find(f => f.slot === slot)
+				if (!face?.bytes) continue
+				const bytes = face.bytes
+				faces.push({
+					slot,
+					createPart: () => {
+						const partName = this.opc.reservePartNameLike('/ppt/fonts/font1.fntdata')
+						this.opc.addPart(partName, FONT_DATA_CONTENT_TYPE, bytes)
+						return partName
+					},
+				})
+			}
+			if (faces.length > 0) incoming.push({ typeface: font.typeface, identity, faces })
+		}
+		this.#mergeEmbeddedFontEntries(incoming)
+	}
+
+	/**
+	 * Merge normalized {@link IncomingEmbeddedFont} entries into this deck's
+	 * `p:embeddedFontLst` — the shared core of {@link #carryEmbeddedFonts} (import-side)
+	 * and {@link #carryGeneratedEmbeddedFonts} (append-side). Entries merge by `typeface`,
+	 * faces de-dupe by slot (a face this deck already embeds is left as is). For each newly
+	 * added face the `fntdata` Default is ensured, the binary part is created via the face's
+	 * `createPart` thunk, a `font` rel is added to presentation.xml, and the `p:<slot>` element
+	 * is inserted in schema child order. The list is created at CT_Presentation index 7 when
+	 * the deck has none yet. No-op for empty input.
+	 */
+	#mergeEmbeddedFontEntries(entries: IncomingEmbeddedFont[]): void {
+		if (entries.length === 0) return
+
 		const presPart = this.presentationPart
 		const presRoot = presPart.dom.documentElement
 		if (!presRoot) throw new Error('presentation.xml has no document element to carry embedded fonts into')
 		const presRels = this.opc.relationshipsFor(presPart.partName)
-		const sourcePresRels = source.opc.relationshipsFor(source.presentationPart.partName)
 
-		// Target list, created at CT_Presentation index 7 when this deck has none yet.
 		const targetLst = getOrAddChild(presRoot, 'p:embeddedFontLst', PRESENTATION_EMBEDDED_FONT_LST_SUCCESSORS)
 		const targetByTypeface = new Map<string, Element>()
 		for (const entry of getElements(targetLst, 'p:embeddedFont')) {
@@ -777,42 +873,32 @@ export class Presentation {
 		}
 
 		let copiedAny = false
-		for (const srcEntry of sourceEntries) {
-			const srcFont = firstChild(srcEntry, 'p:font')
-			const typeface = srcFont ? attr(srcFont, 'typeface') : null
-			if (!srcFont || !typeface) continue
-
-			// Find or create the target entry for this typeface, cloning the source
+		for (const incoming of entries) {
+			// Find or create the target entry for this typeface, carrying its
 			// p:font identity attributes (typeface + optional panose/pitchFamily/charset).
-			let targetEntry = targetByTypeface.get(typeface)
+			let targetEntry = targetByTypeface.get(incoming.typeface)
 			if (!targetEntry) {
 				targetEntry = createElement(presPart.dom, 'p:embeddedFont')
 				const targetFont = createElement(presPart.dom, 'p:font')
-				for (const name of ['typeface', 'panose', 'pitchFamily', 'charset']) {
-					const value = attr(srcFont, name)
-					if (value !== null) setAttr(targetFont, name, value)
-				}
+				setAttr(targetFont, 'typeface', incoming.typeface)
+				for (const { name, value } of incoming.identity) setAttr(targetFont, name, value)
 				targetEntry.appendChild(targetFont)
 				targetLst.appendChild(targetEntry)
-				targetByTypeface.set(typeface, targetEntry)
+				targetByTypeface.set(incoming.typeface, targetEntry)
 			}
 
-			for (const slot of EMBEDDED_FONT_SLOTS) {
-				const srcFace = firstChild(srcEntry, `p:${slot}`)
-				if (!srcFace) continue
-				if (firstChild(targetEntry, `p:${slot}`)) continue // de-dupe: face already present
-				const srcRid = attr(srcFace, 'r:id')
-				if (!srcRid) continue
+			for (const face of incoming.faces) {
+				if (firstChild(targetEntry, `p:${face.slot}`)) continue // de-dupe: face already present
 
-				// Ensure the fntdata Default exists *before* copying the part, so #copyPart's
-				// addPart resolves the content type via the Default (no per-part Override).
+				// Ensure the fntdata Default exists *before* creating the part, so addPart
+				// resolves the content type via the Default (no per-part Override).
 				this.opc.contentTypes.ensureDefault(FONT_DATA_EXTENSION, FONT_DATA_CONTENT_TYPE)
-				const newFontPart = this.#copyPart(source.opc, sourcePresRels.resolveTarget(srcRid))
+				const newFontPart = face.createPart()
 				const relId = presRels.add(FONT_REL_TYPE, relativePartName(presPart.partName, newFontPart)).id
 
-				const targetFace = createElement(presPart.dom, `p:${slot}`)
+				const targetFace = createElement(presPart.dom, `p:${face.slot}`)
 				setAttr(targetFace, 'r:id', relId)
-				insertInOrder(targetEntry, targetFace, EMBEDDED_FONT_FACE_SUCCESSORS[slot])
+				insertInOrder(targetEntry, targetFace, EMBEDDED_FONT_FACE_SUCCESSORS[face.slot])
 				copiedAny = true
 			}
 		}
@@ -957,6 +1043,11 @@ export class Presentation {
 	 * (chart XML + `.rels` + embedded workbook) are injected under fresh names, and a
 	 * `slide:N` link is repointed at the Nth appended slide's new partname.
 	 *
+	 * The generator's presentation-level embedded fonts (`pptx.embedFont`) are also
+	 * carried into this deck and merged into its `p:embeddedFontLst`, de-duped by
+	 * typeface + face slot — so author-side embedded fonts survive the append onto a
+	 * template that may itself already embed fonts.
+	 *
 	 * Limitations:
 	 * - Audio/video media in an appended slide throws (fixture-gated; backlog
 	 *   `dn-append-av-media`).
@@ -1081,6 +1172,10 @@ export class Presentation {
 			const at = options.at === undefined ? undefined : options.at + i
 			added.push(this.#insertSlidePart(part, at))
 		})
+
+		// Carry the generator's presentation-level embedded fonts (pptx.embedFont) into
+		// this deck, so author-side embedded fonts survive the append onto a template.
+		this.#carryGeneratedEmbeddedFonts(extracted.embeddedFonts || [])
 
 		return added
 	}
