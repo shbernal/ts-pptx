@@ -300,9 +300,12 @@ export interface ImportShapeOptions {
 	 * but scoped to one shape subtree:
 	 *
 	 * - `'preserve'` (default): bake the shape's scheme/style-matrix colours (and,
-	 *   for a lifted placeholder, its inherited geometry/colour/size) to literals
-	 *   using the *source* slide's theme, so it keeps its look on a host slide whose
-	 *   theme differs. The safe default for composing across decks.
+	 *   for a lifted placeholder, its inherited geometry/colour/size/anchor/list
+	 *   style) to literals using the *source* slide's theme, so it keeps its look on
+	 *   a host slide whose theme differs. A lifted placeholder is also *demoted* to a
+	 *   plain shape (its `p:ph` stripped) once everything it inherited is baked, so it
+	 *   neither re-resolves against the host's placeholder of the same type/idx nor
+	 *   collides with it. The safe default for composing across decks.
 	 * - `'restyle'`: leave the shape's theme references symbolic so it re-brands to
 	 *   the host theme. Only *symbolic* colours re-brand — literal `a:srgbClr` the
 	 *   source baked in stays put (same limitation as `importSlide` restyle).
@@ -1362,11 +1365,11 @@ export class Presentation {
 	 * renders the same on a foreign host; `restyle` leaves them symbolic to re-brand;
 	 * `copy` brings the XML across untouched — see {@link ImportShapeOptions}.
 	 *
-	 * v1 limitations: source and target slide sizes must match (no geometry rescale,
-	 * as with `importSlide`); the source slide's build animation/timing for the shape
-	 * is dropped; and lifting a *placeholder* is best-effort — `preserve` bakes its
-	 * inherited geometry/colour/size, but for clean results prefer lifting concrete
-	 * content shapes/tables/charts over placeholders.
+	 * Differing slide sizes need `{ rescale }` (see {@link ImportShapeOptions.rescale});
+	 * a lifted `preserve` placeholder is baked self-contained and demoted to a plain
+	 * shape (see {@link ImportShapeOptions.theme}), so it neither re-inherits from nor
+	 * collides with the host. Remaining limitation: the source slide's build
+	 * animation/timing for the shape is dropped (the shape lands static).
 	 */
 	importShape(target: Slide, source: Slide, shapeIndex: number, options: ImportShapeOptions = {}): Shape {
 		return this.importShapes(target, source, [shapeIndex], options)[0]

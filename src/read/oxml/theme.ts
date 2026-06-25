@@ -221,10 +221,21 @@ export function flattenSlide(slideRoot: Element, ctx: FlattenContext): void {
  * Flatten a single lifted shape's theme dependencies in place — the shape-scoped
  * subset of {@link flattenSlide} used by `Presentation.importShape` `preserve`
  * mode. It runs every pass that resolves a *shape's* theme references against the
- * source theme (style-matrix refs, placeholder-inherited geometry/colour/size,
- * scheme colours) but deliberately **omits** the two slide-scoped background
- * passes (`applyInheritedBackground`/`materializeBackground`): a background
- * belongs to a slide, not to a shape being composed onto a foreign host.
+ * source theme (style-matrix refs, placeholder-inherited geometry/colour/size/
+ * anchor/list-style, scheme colours) but deliberately **omits** the two
+ * slide-scoped background passes (`applyInheritedBackground`/`materializeBackground`):
+ * a background belongs to a slide, not to a shape being composed onto a foreign host.
+ *
+ * Unlike {@link flattenSlide}, this also **demotes** a lifted placeholder to a
+ * plain shape ({@link demotePlaceholders}) once everything it inherited is baked.
+ * A placeholder makes sense on its own slide, where it resolves against that deck's
+ * master/layout; lifted onto a foreign host its surviving `p:ph` would re-resolve
+ * against the *host* placeholder of the same type/idx (wrong inheritance, or a
+ * fallback when absent) and could collide with the host's own placeholder. The
+ * extra bakes here (anchor + list style, on top of the geometry/colour/size the
+ * shared passes cover) make the shape self-contained so demotion loses nothing
+ * visible. This is why the demotion is scoped to `flattenShape`: `flattenSlide`
+ * keeps placeholders as placeholders by design.
  *
  * `shapeRoot` must be an element whose *descendants* include the lifted shape
  * (the passes match via `getElementsByTagNameNS`, which excludes the root element
@@ -236,7 +247,10 @@ export function flattenShape(shapeRoot: Element, ctx: FlattenContext): void {
 	resolvePlaceholderGeometry(shapeRoot, ctx)
 	resolvePlaceholderRunColors(shapeRoot, ctx)
 	resolvePlaceholderRunSizes(shapeRoot, ctx)
+	resolvePlaceholderBodyPr(shapeRoot, ctx)
+	resolvePlaceholderListStyle(shapeRoot, ctx) // before resolveSchemeColors: cloned levels carry schemeClr
 	resolveSchemeColors(shapeRoot, ctx)
+	demotePlaceholders(shapeRoot) // last: the passes above key on p:ph
 }
 
 /**
@@ -645,6 +659,123 @@ export function placeholderInheritedAnchor(type: string | null, idx: string, ctx
 		if (anchor) return anchor
 	}
 	return null
+}
+
+/**
+ * Bake the placeholder-inherited vertical anchor onto a lifted shape's text body
+ * (the {@link flattenShape} placeholder-demotion path). A placeholder whose own
+ * `a:bodyPr` sets no `@anchor` inherits it from the source layout/master placeholder;
+ * once {@link demotePlaceholders} strips the `p:ph` the shape would lose that
+ * inheritance and fall back to top-anchored, so a vertically-centred title jumps.
+ * We resolve the effective anchor from the source chain (via
+ * {@link placeholderInheritedAnchor}) and write it explicitly. Shapes whose
+ * `a:bodyPr` already fixes `@anchor`, and placeholders with no resolvable inherited
+ * anchor, are left untouched. Other `a:bodyPr` knobs (insets, autofit) are left as
+ * authored — they have sane defaults a plain shape keeps.
+ */
+function resolvePlaceholderBodyPr(shapeRoot: Element, ctx: FlattenContext): void {
+	if (!ctx.layoutRoot && !ctx.masterRoot) return
+	for (const sp of elementsByTag(shapeRoot, OOXML_NS.p, 'sp')) {
+		const ph = placeholderOf(sp)
+		if (!ph) continue
+		const txBody = firstChild(sp, 'p:txBody')
+		if (!txBody) continue
+		const bodyPr = firstChild(txBody, 'a:bodyPr')
+		if (bodyPr && attr(bodyPr, 'anchor') != null) continue // slide fixes it — not inherited
+		const anchor = placeholderInheritedAnchor(attr(ph, 'type'), attr(ph, 'idx') ?? '0', ctx)
+		if (!anchor) continue
+		setAttr(bodyPr ?? getOrAddChild(txBody, 'a:bodyPr', ['a:lstStyle', 'a:p']), 'anchor', anchor)
+	}
+}
+
+/** The ordered children of a `CT_TextListStyle` (`a:lstStyle` / a `p:txStyles` style). */
+const LST_STYLE_LEVELS = ['a:defPPr', 'a:lvl1pPr', 'a:lvl2pPr', 'a:lvl3pPr', 'a:lvl4pPr', 'a:lvl5pPr', 'a:lvl6pPr', 'a:lvl7pPr', 'a:lvl8pPr', 'a:lvl9pPr']
+
+/**
+ * Bake the placeholder-inherited list style onto a lifted shape's text body (the
+ * {@link flattenShape} placeholder-demotion path). A placeholder's per-level
+ * *paragraph* formatting — indent (`marL`/`indent`), bullets (`a:buChar`/
+ * `a:buAutoNum`/`a:buNone`), alignment, and the level `a:defRPr` — is inherited
+ * from the source layout/master placeholder `a:lstStyle` and the master
+ * `p:txStyles` category style. Run colour/size are baked onto each run by the
+ * sibling passes, but paragraph-level defaults live here; once
+ * {@link demotePlaceholders} strips the `p:ph` the shape stops inheriting them, so
+ * bullets and indents would vanish. We materialize the effective list style onto
+ * the shape's `p:txBody/a:lstStyle`.
+ *
+ * Resolution is per *level*, most specific tier wins whole: the slide's own level
+ * (if it defines one) is kept verbatim, else the first source tier that defines it
+ * (layout placeholder, then master placeholder, then master category style) is
+ * cloned. This is a whole-element overlay, not the per-attribute merge PowerPoint
+ * does — but explicit paragraph `a:pPr` on the slide's own runs travels with the
+ * shape and still wins, so this only supplies defaults for the inherited case
+ * (paragraphs that set no `a:pPr` of their own). Scheme colours in the cloned
+ * levels are resolved by the later {@link resolveSchemeColors} pass.
+ */
+function resolvePlaceholderListStyle(shapeRoot: Element, ctx: FlattenContext): void {
+	if (!ctx.layoutRoot && !ctx.masterRoot) return
+	for (const sp of elementsByTag(shapeRoot, OOXML_NS.p, 'sp')) {
+		const ph = placeholderOf(sp)
+		if (!ph) continue
+		const txBody = firstChild(sp, 'p:txBody')
+		if (!txBody) continue
+		const tiers = placeholderInheritedListStyles(attr(ph, 'type'), attr(ph, 'idx') ?? '0', ctx)
+		if (tiers.length === 0) continue
+		const slideLst = firstChild(txBody, 'a:lstStyle')
+		const merged = createElement(txBody.ownerDocument!, 'a:lstStyle')
+		let any = false
+		for (const level of LST_STYLE_LEVELS) {
+			// Slide's own level wins; otherwise the most-specific source tier that defines it.
+			const own = slideLst && firstChild(slideLst, level)
+			const src = own ?? tiers.map((t) => firstChild(t, level)).find((e): e is Element => !!e) ?? null
+			if (!src) continue
+			merged.appendChild(src.cloneNode(true) as Element)
+			any = true
+		}
+		if (!any) continue
+		if (slideLst) txBody.replaceChild(merged, slideLst)
+		else insertInOrder(txBody, merged, ['a:p'])
+	}
+}
+
+/**
+ * The source list-style tiers a placeholder inherits paragraph formatting from,
+ * most specific first: layout placeholder `a:lstStyle`, master placeholder
+ * `a:lstStyle`, then the master `p:txStyles` category style (itself a
+ * `CT_TextListStyle`). The paragraph-level sibling of {@link placeholderInheritedDefRPrs}.
+ */
+function placeholderInheritedListStyles(type: string | null, idx: string, ctx: FlattenContext): Element[] {
+	const tiers: (Element | null)[] = []
+	if (ctx.layoutRoot) {
+		const layoutPh = findPlaceholder(ctx.layoutRoot, type, idx)
+		tiers.push(layoutPh && placeholderLstStyle(layoutPh))
+	}
+	if (ctx.masterRoot) {
+		const masterPh = findPlaceholder(ctx.masterRoot, type, idx)
+		tiers.push(masterPh && placeholderLstStyle(masterPh))
+		const txStyles = firstChild(ctx.masterRoot, 'p:txStyles')
+		tiers.push(txStyles && firstChild(txStyles, TX_STYLE_NAME[phCategory(type)]))
+	}
+	return tiers.filter((t): t is Element => t !== null)
+}
+
+/**
+ * Strip the `p:ph` marker from every placeholder shape in a lifted subtree so it
+ * becomes a self-contained ordinary shape (the {@link flattenShape} path only). By
+ * the time this runs, the shape's inherited geometry, colour, run size, anchor, and
+ * list style are all baked explicitly, so it no longer needs — and must not keep —
+ * its placeholder identity: a surviving `p:ph` would re-resolve against the *host*
+ * deck's layout/master placeholder of the same type/idx (wrong inheritance, or a
+ * fallback when the host has none) and could collide with the host slide's own
+ * placeholder of that type. Removing the marker severs both. The `p:nvPr` itself is
+ * kept (it can carry media/custom-data children); only the `p:ph` child goes.
+ */
+function demotePlaceholders(shapeRoot: Element): void {
+	for (const sp of elementsByTag(shapeRoot, OOXML_NS.p, 'sp')) {
+		const nvSpPr = firstChild(sp, 'p:nvSpPr')
+		const nvPr = nvSpPr && firstChild(nvSpPr, 'p:nvPr')
+		if (nvPr) removeChildrenByQName(nvPr, ['p:ph'])
+	}
 }
 
 /** Inheritable run properties baked under `preserve`: size and weight/slant (not typeface). */

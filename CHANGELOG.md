@@ -24,6 +24,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Implements the geometry-rescale gap of backlog `dn-importshape-v1-limits` (its
   timing-drop and best-effort-placeholder limits remain deferred).
 
+- **`importShape(..., { theme: 'preserve' })` now lifts placeholders robustly:** a lifted
+  placeholder is baked **self-contained** and **demoted** to a plain shape (its `p:ph`
+  stripped) once everything it inherited is materialized, so it no longer re-resolves
+  against the *host* deck's layout/master placeholder of the same `type`/`idx` (wrong
+  inheritance, or a fallback when the host has none) and can no longer collide with the
+  host slide's own placeholder of that type. Two new bakes back the demotion, alongside the
+  existing geometry/colour/run-size passes: the placeholder-inherited **vertical anchor**
+  (`a:bodyPr/@anchor`, so a centred title doesn't jump to top-anchored) and the inherited
+  **list style** (per-level `a:lstStyle` paragraph defaults — indent, bullets, alignment,
+  `a:defRPr` — resolved layout placeholder → master placeholder → master `p:txStyles`
+  category, most-specific tier per level; explicit paragraph `a:pPr` on the slide's own runs
+  still wins). Scoped to `flattenShape` (the `importShape` `preserve` path) — `flattenSlide`
+  keeps placeholders as placeholders by design, and `restyle`/`copy` keep `p:ph` so the
+  shape re-brands. Lands in `src/read/oxml/theme.ts`. Closes the best-effort-placeholder
+  limit of backlog `dn-importshape-v1-limits`; only the animation/timing drop remains
+  deferred (tracked with `dn-flatten-slide-animations`).
+
 ## [8.0.0](https://github.com/shbernal/PptxGenJS/releases/tag/v8.0.0) - 2026-06-25
 
 ### Added

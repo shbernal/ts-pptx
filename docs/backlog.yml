@@ -1766,7 +1766,7 @@ items:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    summary: "importShape limits: geometry rescale DONE; lifted-shape timing dropped + placeholder lift best-effort remain"
+    summary: "importShape limits: geometry rescale DONE; robust placeholder lift DONE; only lifted-shape animation/timing drop remains (deferred)"
     current_project_notes: |
       importShape/importShapes copy one or more shapes (autoshape, picture,
       table/chart graphic frame, connector, group) from a source slide onto a
@@ -1784,19 +1784,36 @@ items:
       test/read/import-shape.test.js (fit/stretch/true alias, override precedence,
       table-grid scaling, still-throws-without-rescale, schema-valid).
 
-      Still deferred (two distinct limits): the source slide's build animation/timing
-      for the lifted shape is dropped (editable static layout — see
-      dn-flatten-slide-animations; needs a read-side timing model + p:spTgt id
-      remapping, low value per corpus scan); lifting a placeholder stays best-effort
-      (preserve bakes inherited geometry/colour/size, but prefer lifting concrete
-      content shapes/tables/charts). Downstream follow-up: the stitch/harvest map
-      grows sourceDeck + sourceSlide + shapeIndices.
+      RESOLVED 2026-06-25 — robust placeholder lift (preserve): flattenShape in
+      src/read/oxml/theme.ts now bakes a lifted placeholder self-contained, then
+      DEMOTES it to a plain shape (strips p:ph) so it neither re-resolves against the
+      host deck's layout/master placeholder of the same type/idx nor collides with the
+      host's own placeholder of that type. Two new bakes back the demotion, on top of
+      the pre-existing geometry/colour/run-size passes: resolvePlaceholderBodyPr (the
+      inherited a:bodyPr/@anchor, via placeholderInheritedAnchor) and
+      resolvePlaceholderListStyle (per-level a:lstStyle paragraph defaults — indent,
+      bullets, algn, defRPr — resolved layout ph -> master ph -> master p:txStyles
+      category, most-specific tier per level; whole-element overlay, slide's own level
+      wins; runs before resolveSchemeColors so cloned levels' schemeClr flatten). New
+      passes (resolvePlaceholderBodyPr, resolvePlaceholderListStyle, demotePlaceholders)
+      are scoped to flattenShape only — flattenSlide keeps placeholders as placeholders
+      by design; restyle/copy keep p:ph so the shape re-brands. Tests in
+      test/read/import-shape.test.js (demote + no host collision, anchor bake, list-style
+      enrichment, restyle keeps p:ph, schema-valid).
+
+      STILL DEFERRED (one limit): the source slide's build animation/timing for the
+      lifted shape is dropped (the shape lands static — see dn-flatten-slide-animations;
+      needs a read-side timing model + p:spTgt/p:bldP id remapping + timeline merge, low
+      value per corpus scan: 3/640 reference slides animate). Downstream follow-up: the
+      stitch/harvest map grows sourceDeck + sourceSlide + shapeIndices.
     evidence:
       kinds:
         - local-source-inspection
         - regression-test
+        - validator-result
       local_files:
         - src/read/api/presentation.ts
+        - src/read/oxml/theme.ts
         - test/read/import-shape.test.js
       schema_fixture: null
       validator_result: null

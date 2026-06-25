@@ -100,6 +100,27 @@ function schemeClrCount(element) {
 	return element.getElementsByTagNameNS(A_NS, 'schemeClr').length
 }
 
+/** All `p:ph` (placeholder marker) elements within a subtree. */
+function phElements(element) {
+	return Array.from(element.getElementsByTagNameNS(P_NS, 'ph'))
+}
+
+/** Whether a shape subtree carries an explicit `a:xfrm` (baked or authored geometry). */
+function hasXfrm(element) {
+	return element.getElementsByTagNameNS(A_NS, 'xfrm').length > 0
+}
+
+/** Direct level-children local names of a subtree's first `a:lstStyle` (empty when none). */
+function lstStyleLevels(element) {
+	const live = element.getElementsByTagNameNS(A_NS, 'lstStyle')
+	if (live.length === 0) return []
+	const out = []
+	for (let node = live[0].firstChild; node; node = node.nextSibling) {
+		if (node.nodeType === 1) out.push(node.localName)
+	}
+	return out
+}
+
 function srgbClrCount(element) {
 	return element.getElementsByTagNameNS(A_NS, 'srgbClr').length
 }
@@ -350,6 +371,70 @@ describe('Presentation.importShape', () => {
 		const grpSlide = source.slides.findIndex((s) => s.shapes.some((sh) => sh.shapeType === 'group'))
 		const grpIndex = findShapeIndex(source.slides[grpSlide], (s) => s.shapeType === 'group')
 		target.importShape(target.slides[0], source.slides[grpSlide], grpIndex)
+		const errors = await validateBuf(Buffer.from(await target.save()))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+})
+
+describe('Presentation.importShape (placeholder lift)', () => {
+	test('preserve demotes a lifted placeholder to a self-contained plain shape', async () => {
+		const source = await open('mixed') // slide 0 shape 0: ctrTitle placeholder, no own geometry
+		const target = await open('mixed') // host slide 0 already has its OWN ctrTitle placeholder
+		const srcEl = source.slides[0].shapes[0].element_
+		assertEqual(phElements(srcEl).length, 1, 'source shape is a placeholder')
+		assert(!hasXfrm(srcEl), 'source placeholder inherits its geometry (no own a:xfrm)')
+
+		const shape = target.importShape(target.slides[0], source.slides[0], 0, { theme: 'preserve' })
+
+		// Demoted: no surviving p:ph, so it cannot re-inherit from the host placeholder…
+		assertEqual(phElements(shape.element_).length, 0, 'lifted placeholder demoted to a plain shape')
+		// …and its inherited geometry was baked before demotion, so it keeps position/size.
+		assert(hasXfrm(shape.element_), 'inherited geometry baked onto the lifted shape')
+		// …and it does not collide with the host's own ctrTitle (host keeps exactly one).
+		const hostPhTypes = phElements(target.slides[0].shapeTree()).map((ph) => ph.getAttribute('type'))
+		assertEqual(
+			hostPhTypes.filter((t) => t === 'ctrTitle').length,
+			1,
+			'host keeps its single ctrTitle; the lift added none'
+		)
+	})
+
+	test('preserve bakes the placeholder-inherited vertical anchor before demotion', async () => {
+		const source = await open('layout-placeholder-bodypr') // slide 0 shape 0: title, inherits anchor "b"
+		const target = await open('layout-placeholder-bodypr')
+		assertEqual(source.slides[0].shapes[0].textFrame.resolvedAnchor, 'b', 'source title inherits a bottom anchor')
+
+		const shape = target.importShape(target.slides[0], source.slides[0], 0, { theme: 'preserve' })
+		const bodyPr = shape.element_.getElementsByTagNameNS(A_NS, 'bodyPr')[0]
+		assert(bodyPr && bodyPr.getAttribute('anchor') === 'b', 'inherited anchor baked onto the lifted shape')
+		assertEqual(phElements(shape.element_).length, 0, 'lifted placeholder demoted')
+	})
+
+	test('preserve bakes the inherited list style so demotion keeps bullets/indent', async () => {
+		const source = await open('multi-theme') // slide 1 shape 1: body placeholder, empty own lstStyle
+		const target = await open('multi-theme')
+		assertEqual(
+			lstStyleLevels(source.slides[1].shapes[1].element_).length,
+			0,
+			'source body placeholder defines no list levels of its own'
+		)
+
+		const shape = target.importShape(target.slides[1], source.slides[1], 1, { theme: 'preserve' })
+		assert(lstStyleLevels(shape.element_).length > 0, 'inherited list-style levels baked onto the lifted shape')
+		assertEqual(phElements(shape.element_).length, 0, 'lifted placeholder demoted')
+	})
+
+	test('restyle keeps the placeholder identity (no demotion, so it re-brands)', async () => {
+		const source = await open('mixed')
+		const target = await open('mixed')
+		const shape = target.importShape(target.slides[0], source.slides[0], 0, { theme: 'restyle' })
+		assertEqual(phElements(shape.element_).length, 1, 'restyle leaves p:ph intact to re-resolve against the host theme')
+	})
+
+	test.skipIf(!validatorInstalled)('a deck with a lifted+demoted placeholder stays schema-valid', async () => {
+		const source = await open('mixed')
+		const target = await open('mixed')
+		target.importShape(target.slides[0], source.slides[0], 0, { theme: 'preserve' })
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 	})
