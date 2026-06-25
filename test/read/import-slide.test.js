@@ -20,6 +20,7 @@ import { isInstalled, validateBuf } from '../validator.js'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const validatorInstalled = await isInstalled()
 
+const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
 const SLIDE_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster'
 const THEME_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme'
@@ -580,6 +581,129 @@ describe('Presentation.importSlide({ rescale })', () => {
 		const target = await open('mixed')
 		const source = await open('image')
 		target.importSlide(source, 0, { rescale: 'fit' })
+		const errors = await validateBuf(Buffer.from(await target.save()))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+})
+
+// Speaker-notes import (`importNotes`). The notesSlide is dropped by default; the
+// opt-in carries it across, repointing its slide back-rel at the new slide and
+// merging onto a single notesMaster (a presentation has at most one). The
+// `notes-slide-image` fixture's slide 0 has real notes text + a notesMaster.
+describe('Presentation.importSlide({ importNotes })', () => {
+	const NOTES_SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
+	const NOTES_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster'
+	const NOTES_TEXT = 'Speaker notes so PowerPoint emits the notes slide.'
+
+	/** Concatenated <a:t> text of the part, or null when the part is absent. */
+	function partNotesText(bodies, partName) {
+		const xml = partText(bodies, partName)
+		if (!xml) return null
+		return [...xml.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map((m) => m[1]).join('\n')
+	}
+
+	/** notesMaster partnames registered in presentation.xml's p:notesMasterIdLst. */
+	function registeredNotesMasters(opc) {
+		const rootRels = opc.relationshipsFor('/')
+		const officeDoc = [...rootRels].find((rel) => rel.type === OFFICE_DOCUMENT_REL)
+		const presName = rootRels.resolveTarget(officeDoc.id)
+		const root = opc.part(presName).dom.documentElement
+		const rels = opc.relationshipsFor(presName)
+		const out = []
+		for (let n = root.firstChild; n; n = n.nextSibling) {
+			if (n.nodeType !== 1 || n.localName !== 'notesMasterIdLst') continue
+			for (let e = n.firstChild; e; e = e.nextSibling) {
+				if (e.nodeType !== 1 || e.localName !== 'notesMasterId') continue
+				const relId = e.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id')
+				out.push(rels.resolveTarget(relId))
+			}
+		}
+		return out
+	}
+
+	test('default drops the source slide notes (no notesSlide rel on the import)', async () => {
+		const target = await open('empty')
+		const source = await open('notes-slide-image')
+		const imported = target.importSlide(source, 0)
+
+		const reopened = await Presentation.load(await target.save())
+		const importedName = reopened.slides[imported.index].partName
+		assertEqual(
+			resolveSingle(reopened.opc, importedName, NOTES_SLIDE_REL),
+			null,
+			'imported slide has no notesSlide rel by default'
+		)
+		assertEqual(registeredNotesMasters(reopened.opc).length, 0, 'no notesMaster registered when notes are dropped')
+		assertNoDanglingRels(reopened.opc)
+	})
+
+	test('importNotes carries the notes text and registers a notesMaster (target had none)', async () => {
+		const target = await open('empty') // empty.pptx has no notesMaster
+		const source = await open('notes-slide-image')
+		const imported = target.importSlide(source, 0, { importNotes: true })
+
+		const savedBytes = await target.save()
+		const bodies = await partBodies(savedBytes)
+		const reopened = await Presentation.load(savedBytes)
+		const importedName = reopened.slides[imported.index].partName
+
+		const notesName = resolveSingle(reopened.opc, importedName, NOTES_SLIDE_REL)
+		assert(notesName && reopened.opc.part(notesName), 'imported slide resolves to a notesSlide part')
+		assert(partNotesText(bodies, notesName).includes(NOTES_TEXT), 'the notes body text round-trips')
+
+		// notesSlide → slide back-rel points at the imported slide (not the source's).
+		assertEqual(
+			resolveSingle(reopened.opc, notesName, SLIDE_REL),
+			importedName,
+			'notesSlide back-rel repointed at the imported slide'
+		)
+		// A notesMaster was copied and registered exactly once.
+		const masters = registeredNotesMasters(reopened.opc)
+		assertEqual(masters.length, 1, 'exactly one notesMaster registered')
+		assertEqual(
+			resolveSingle(reopened.opc, notesName, NOTES_MASTER_REL),
+			masters[0],
+			'notesSlide binds to the registered notesMaster'
+		)
+		assertNoDanglingRels(reopened.opc)
+	})
+
+	test('importNotes reuses the destination notesMaster (target already had one)', async () => {
+		const target = await open('mixed') // mixed.pptx already ships a notesMaster
+		const before = registeredNotesMasters(target.opc)
+		assertEqual(before.length, 1, 'mixed starts with one notesMaster')
+		const source = await open('notes-slide-image')
+
+		const imported = target.importSlide(source, 0, { importNotes: true, rescale: 'fit' })
+
+		const reopened = await Presentation.load(await target.save())
+		const importedName = reopened.slides[imported.index].partName
+		const notesName = resolveSingle(reopened.opc, importedName, NOTES_SLIDE_REL)
+		assert(notesName, 'imported slide has a notesSlide')
+
+		// Still exactly one notesMaster, and the imported notes bind to it.
+		const after = registeredNotesMasters(reopened.opc)
+		assertEqual(after.length, 1, 'still exactly one notesMaster after importing notes')
+		assertEqual(
+			resolveSingle(reopened.opc, notesName, NOTES_MASTER_REL),
+			after[0],
+			'imported notesSlide reuses the destination notesMaster'
+		)
+		assertNoDanglingRels(reopened.opc)
+	})
+
+	test.skipIf(!validatorInstalled)('a deck with imported notes stays schema-valid (register branch)', async () => {
+		const target = await open('empty')
+		const source = await open('notes-slide-image')
+		target.importSlide(source, 0, { importNotes: true })
+		const errors = await validateBuf(Buffer.from(await target.save()))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+
+	test.skipIf(!validatorInstalled)('a deck with imported notes stays schema-valid (reuse branch)', async () => {
+		const target = await open('mixed')
+		const source = await open('notes-slide-image')
+		target.importSlide(source, 0, { importNotes: true, rescale: 'fit' })
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 	})

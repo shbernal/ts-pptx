@@ -1666,14 +1666,14 @@ items:
     type: downstream-need
     first_seen: 2026-06-18
     last_reviewed: 2026-06-25
-    status: partially-implemented
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
       - speaker-notes-masters-layouts
     applies_to_current_project: partial
     non_target_reasons: []
-    summary: "importSlide v1 gaps: embedded fonts (DONE), slide-size rescale (DONE), notes import"
+    summary: "importSlide v1 gaps: embedded fonts (DONE), slide-size rescale (DONE), notes import (DONE)"
     current_project_notes: |
       importSlide copies a slide's slideLayout -> slideMaster -> theme plus used
       media/chart/embedding parts. Gap status:
@@ -1713,10 +1713,27 @@ items:
           sharing the merge core #mergeEmbeddedFontEntries with #carryEmbeddedFonts;
           tests in test/read/append-embedded-fonts.test.js. So a generator that
           embeds fonts no longer loses them when appended onto a fromTemplate deck.
-        - Source notes are dropped by design (the notesSlide relationship is
-          skipped so the import doesn't drag in a notesMaster + its own theme).
-          Follow-up: opt-in notes import that copies/merges the notes master.
-          (STILL OPEN)
+        - Notes import: IMPLEMENTED (2026-06-25). importSlide now takes an opt-in
+          { importNotes: true } flag. Default off keeps the prior behaviour (the
+          notesSlide rel is dropped during the slide-part copy). When set,
+          #carryNotes copies the source notesSlide into a fresh part, wires a
+          slide->notesSlide rel on the imported slide, repoints the notesSlide's
+          own slide back-rel at the new slide (the source slide is NOT copied —
+          would be circular), and routes its notesMaster rel through
+          #ensureNotesMaster. A presentation has at most one notesMaster
+          (CT_NotesMasterIdList holds 0..1 p:notesMasterId), so #ensureNotesMaster
+          reuses this deck's existing notesMaster when present (source notesMaster
+          + theme NOT copied — destination notes styling wins) and only copies +
+          registers (p:notesMasterIdLst after p:sldMasterIdLst in CT_Presentation)
+          the source's when the deck has none. Other notesSlide rels (media) copy
+          via #copyPart; content types fall out of addPart/#copyPart's
+          ensureRegistered. Works across all three theme modes since it runs after
+          the slide part is created, not inside #copyPart/#importSlideRebind.
+          Landed in src/read/api/presentation.ts (#carryNotes / #ensureNotesMaster);
+          tests in test/read/import-slide.test.js (default-drops / register-branch /
+          reuse-branch / back-rel-repoint / both schema-valid branches). Fixtures
+          already existed: notes-slide-image.pptx (source, real notes text),
+          empty.pptx (target without notesMaster), mixed.pptx (target with one).
       Known limitations of the rescale (documented, not bugs): font sizes and line
       widths are not scaled, so heavy down-scaling can overflow text boxes; 'stretch'
       cannot faithfully reposition rotated shapes (off/ext alone can't express it).
@@ -1737,7 +1754,7 @@ items:
       validator_result: clean
       powerpoint_result: null
       spec_refs: []
-    next_action: "remaining gap: notes import"
+    next_action: none
   - id: dn-importshape-v1-limits
     source: downstream
     type: downstream-need

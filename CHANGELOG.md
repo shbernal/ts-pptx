@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`importSlide(source, i, { importNotes: true })` — carry the source slide's speaker
+  notes across decks:** by default `importSlide` still drops the slide's `notesSlide`
+  (the prior behaviour, so an import doesn't drag a notes master across); set `importNotes`
+  to copy the notes onto the imported slide. The source `notesSlide` is copied under a
+  fresh partname and wired to the new slide; its `slide` back-relationship is repointed at
+  the imported slide (the source slide is **not** copied); any notes media travels along.
+  Because a presentation may have **at most one** `notesMaster` (`CT_NotesMasterIdList`
+  holds 0..1 `p:notesMasterId`), the imported notes **reuse this deck's existing notes
+  master** when it has one — the source notes master and its theme are not copied, so the
+  destination's notes styling wins — and only when the deck has none is the source notes
+  master (plus its theme) copied and registered (`p:notesMasterIdLst`, after
+  `p:sldMasterIdLst` in `CT_Presentation`). Works across all three `theme` modes. Lands in
+  `src/read/api/presentation.ts` (`#carryNotes` / `#ensureNotesMaster`). Implements backlog
+  `dn-importslide-v1-limits` gap #3 (the last one — the item is now fully implemented).
+
 - **`importSlide(source, i, { rescale })` — import a slide across decks of different
   slide sizes:** by default `importSlide` still throws on a `p:sldSz` mismatch (now with
   a hint pointing at the option); set `rescale` to remap the imported geometry onto this

@@ -20,6 +20,7 @@ const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relatio
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
 const SLIDE_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster'
 const NOTES_SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
+const NOTES_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster'
 const IMAGE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 const HYPERLINK_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
 const CHART_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart'
@@ -275,6 +276,21 @@ export interface ImportSlideOptions {
 	 * @default false
 	 */
 	rescale?: boolean | 'fit' | 'stretch'
+
+	/**
+	 * Carry the source slide's speaker notes across. By default (`false`) the
+	 * `notesSlide` relationship is dropped, so the imported slide has no notes.
+	 *
+	 * When set, the source `notesSlide` is copied and wired to the imported slide.
+	 * Its `slide` back-relationship is repointed at the new slide (the source slide
+	 * is *not* copied). A presentation has at most one `notesMaster`: if this deck
+	 * already has one, the imported notes reuse it (the source notesMaster and its
+	 * theme are not copied); if it has none, the source notesMaster (and its theme)
+	 * are copied and registered. The destination's notes styling therefore wins
+	 * when both decks define one.
+	 * @default false
+	 */
+	importNotes?: boolean
 }
 
 /** Options for {@link Presentation.importShape} / {@link Presentation.importShapes}. */
@@ -723,7 +739,7 @@ export class Presentation {
 	 * v1 limitations: by default the source slide size must equal this
 	 * presentation's — pass `{ rescale: 'fit' | 'stretch' }` to rescale the imported
 	 * geometry onto this deck's canvas instead (geometry only, not fonts/line
-	 * widths). Source notes are dropped.
+	 * widths). Source notes are dropped unless you pass `{ importNotes: true }`.
 	 */
 	importSlide(source: Presentation, index: number, options: ImportSlideOptions = {}): Slide {
 		const sourceSlide = source.slides[index]
@@ -762,11 +778,114 @@ export class Presentation {
 		// 3. Wire the new slide into the presentation (rel + p:sldId entry) at `at`.
 		const slide = this.#insertSlidePart(newPart, options.at)
 
-		// 4. Optionally carry the source deck's embedded fonts (presentation-level, so
+		// 4. Optionally carry the source slide's speaker notes. The slide copy above
+		//    drops the notesSlide rel (both #copyPart and #importSlideRebind do); this
+		//    re-adds it wired to the new slide and merged onto a single notesMaster.
+		if (options.importNotes) this.#carryNotes(source, sourceSlide.partName, newPartName)
+
+		// 5. Optionally carry the source deck's embedded fonts (presentation-level, so
 		//    a separate traversal from the slide-part copy chain above).
 		if (options.embedFonts) this.#carryEmbeddedFonts(source)
 
 		return slide
+	}
+
+	/**
+	 * Carry the source slide's speaker notes onto the just-imported slide (the
+	 * `importNotes` option). The slide copy itself dropped the `notesSlide` rel, so
+	 * this copies the source `notesSlide` part into a fresh partname, wires a
+	 * `slide → notesSlide` rel on the new slide, and rebuilds the copied notesSlide's
+	 * own relationships:
+	 *
+	 * - its `slide` back-rel is repointed at the new slide (`newSlidePartName`) — the
+	 *   source slide is *not* copied (that would be circular);
+	 * - its `notesMaster` rel is resolved through {@link #ensureNotesMaster}, which
+	 *   reuses this deck's notesMaster when it has one and copies the source's only
+	 *   when it has none (a deck may have at most one notesMaster);
+	 * - any other internal target (media, etc.) is copied via {@link #copyPart}.
+	 *
+	 * No-op when the source slide has no notes. Content-type registration for the
+	 * copied parts is handled by `addPart`/`#copyPart`.
+	 */
+	#carryNotes(source: Presentation, sourceSlidePartName: string, newSlidePartName: string): void {
+		const sourceSlideRels = source.opc.relationshipsFor(sourceSlidePartName)
+		const notesRel = sourceSlideRels.byType(NOTES_SLIDE_REL)[0]
+		if (!notesRel) return // slide has no speaker notes
+		const sourceNotesPartName = sourceSlideRels.resolveTarget(notesRel.id)
+		const sourceNotesPart = source.opc.part(sourceNotesPartName)
+		if (!sourceNotesPart) return
+
+		// Copy the notesSlide bytes into a fresh partname, then wire slide → notesSlide.
+		const newNotesPartName = this.opc.reservePartNameLike(sourceNotesPartName)
+		this.opc.addPart(newNotesPartName, sourceNotesPart.contentType, sourceNotesPart.bytes)
+		this.opc.relationshipsFor(newSlidePartName).add(NOTES_SLIDE_REL, relativePartName(newSlidePartName, newNotesPartName))
+
+		// Rebuild the copied notesSlide's relationships. Preserve each source rel id so
+		// the notesSlide body's r:id references stay valid; only the targets are rewritten.
+		const notesSourceRels = source.opc.relationshipsFor(sourceNotesPartName)
+		const notesTargetRels = this.opc.relationshipsFor(newNotesPartName)
+		for (const rel of notesSourceRels) {
+			if (rel.type === SLIDE_REL) {
+				// Back-reference to the annotated slide → repoint at the new slide (don't copy it).
+				notesTargetRels.addWithId(rel.id, SLIDE_REL, relativePartName(newNotesPartName, newSlidePartName))
+				continue
+			}
+			if (rel.type === NOTES_MASTER_REL) {
+				const notesMaster = this.#ensureNotesMaster(source.opc, notesSourceRels.resolveTarget(rel.id))
+				notesTargetRels.addWithId(rel.id, NOTES_MASTER_REL, relativePartName(newNotesPartName, notesMaster))
+				continue
+			}
+			if (rel.targetMode === 'External') {
+				notesTargetRels.addWithId(rel.id, rel.type, rel.target, 'External')
+				continue
+			}
+			const newTarget = this.#copyPart(source.opc, notesSourceRels.resolveTarget(rel.id))
+			notesTargetRels.addWithId(rel.id, rel.type, relativePartName(newNotesPartName, newTarget))
+		}
+	}
+
+	/**
+	 * Resolve the notesMaster an imported `notesSlide` should bind to, honouring the
+	 * single-notesMaster-per-presentation rule (`p:notesMasterIdLst` holds 0..1
+	 * `p:notesMasterId`). If this deck already has a notesMaster it is reused and the
+	 * source's is *not* copied (the destination's notes styling wins); otherwise the
+	 * source notesMaster (and, via {@link #copyPart}, its theme) is copied and
+	 * registered in `presentation.xml`. Returns the destination notesMaster partname.
+	 */
+	#ensureNotesMaster(sourceOpc: OpcPackage, sourceNotesMasterPartName: string): string {
+		const presPart = this.presentationPart
+		const presRels = this.opc.relationshipsFor(presPart.partName)
+		const existing = presRels.byType(NOTES_MASTER_REL)[0]
+		if (existing) return presRels.resolveTarget(existing.id)
+
+		// No notesMaster yet: copy the source's (pulls its theme) and register it.
+		const newNotesMasterPartName = this.#copyPart(sourceOpc, sourceNotesMasterPartName)
+		const relId = presRels.add(NOTES_MASTER_REL, relativePartName(presPart.partName, newNotesMasterPartName)).id
+
+		const root = presPart.dom.documentElement
+		if (!root) throw new Error('presentation.xml has no document element to register a notes master in')
+		// `p:notesMasterIdLst` follows `p:sldMasterIdLst` in CT_Presentation order.
+		const lst = getOrAddChild(root, 'p:notesMasterIdLst', [
+			'p:handoutMasterIdLst',
+			'p:sldIdLst',
+			'p:sldSz',
+			'p:notesSz',
+			'p:embeddedFontLst',
+			'p:custShowLst',
+			'p:photoAlbum',
+			'p:custDataLst',
+			'p:kinsoku',
+			'p:defaultTextStyle',
+			'p:modifyVerifier',
+			'p:extLst',
+		])
+		// CT_NotesMasterIdList holds a single p:notesMasterId; replace any stray entry.
+		removeChildrenByQName(lst, ['p:notesMasterId'])
+		const entry = createElement(presPart.dom, 'p:notesMasterId')
+		setAttr(entry, 'r:id', relId)
+		lst.appendChild(entry)
+		presPart.markDirty()
+		return newNotesMasterPartName
 	}
 
 	/**
