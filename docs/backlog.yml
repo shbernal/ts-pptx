@@ -1657,10 +1657,27 @@ items:
       - speaker-notes-masters-layouts
     applies_to_current_project: partial
     non_target_reasons: []
-    summary: "importSlide v1 gaps: embedded fonts (DONE), slide-size rescale, notes import"
+    summary: "importSlide v1 gaps: embedded fonts (DONE), slide-size rescale (DONE), notes import"
     current_project_notes: |
       importSlide copies a slide's slideLayout -> slideMaster -> theme plus used
       media/chart/embedding parts. Gap status:
+        - Slide-size rescale: IMPLEMENTED (2026-06-25). importSlide now takes an
+          opt-in { rescale: 'fit' | 'stretch' | true } option. Default false keeps
+          the equal-size pre-flight (throws on mismatch, now with a hint pointing at
+          the option). 'fit' (alias true) scales by min(sx,sy) and centers the slack
+          (aspect preserved); 'stretch' scales per-axis to fill (distorts). Only
+          geometry is rewritten — top-level shape/group/graphicFrame transforms
+          (a:off scale+translate, a:ext scale) plus table grid (a:gridCol@w by sx,
+          a:tr@h by sy); groups are not recursed (children remap via untouched
+          chOff/chExt). Fonts/line widths are deliberately left as authored. In copy
+          mode the imported layout + master shape trees are rescaled too (resolved via
+          slide->layout->master rels), idempotently via a #rescaledParts set so a
+          registry-shared master is scaled once; preserve/restyle rebind to this
+          deck's own master/layout (already destination size) so only the slide is
+          touched. Landed in src/read/api/presentation.ts (#rescaleImportedGeometry /
+          #rescalePartGeometry + module helpers computeRescale/rescaleSpTree/
+          rescaleXfrm/rescaleTableGrid); tests in test/read/import-slide.test.js
+          (fit/stretch/true/copy-layout/throws-without-opt-in + schema validity).
         - Embedded fonts: IMPLEMENTED (2026-06-25). importSlide now takes an opt-in
           { embedFonts: true } flag that carries the source deck's presentation-level
           embedded fonts: the binary ppt/fonts/*.fntdata parts (via #copyPart, so the
@@ -1674,13 +1691,13 @@ items:
           test/read/fixtures/embedded-fonts.pptx + embedded-fonts.oracle.json. The
           author-side counterpart (pptx.embedFont) shipped in the same effort — see
           CHANGELOG (write-side embedding is its own feature, recorded there, not here).
-        - Slide size must match. importSlide asserts source/target p:sldSz are
-          equal and throws otherwise; no geometry rescaling. Follow-up: optional
-          EMU rescale when sizes differ. (STILL OPEN)
         - Source notes are dropped by design (the notesSlide relationship is
           skipped so the import doesn't drag in a notesMaster + its own theme).
           Follow-up: opt-in notes import that copies/merges the notes master.
           (STILL OPEN)
+      Known limitations of the rescale (documented, not bugs): font sizes and line
+      widths are not scaled, so heavy down-scaling can overflow text boxes; 'stretch'
+      cannot faithfully reposition rotated shapes (off/ext alone can't express it).
     evidence:
       kinds:
         - local-source-inspection
@@ -1691,12 +1708,13 @@ items:
         - src/read/api/presentation.ts
         - src/embedded-fonts.ts
         - test/read/embedded-fonts.test.js
+        - test/read/import-slide.test.js
         - test/schema.test.js
       schema_fixture: test/read/embedded-fonts.test.js
       validator_result: clean
       powerpoint_result: null
       spec_refs: []
-    next_action: "remaining gaps: slide-size rescale + notes import"
+    next_action: "remaining gap: notes import"
   - id: dn-importshape-v1-limits
     source: downstream
     type: downstream-need

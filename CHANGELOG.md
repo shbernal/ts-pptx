@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`importSlide(source, i, { rescale })` — import a slide across decks of different
+  slide sizes:** by default `importSlide` still throws on a `p:sldSz` mismatch (now with
+  a hint pointing at the option); set `rescale` to remap the imported geometry onto this
+  deck's canvas instead. `'fit'` (alias `true`) scales by `min(sx, sy)` and centers the
+  slack, preserving aspect ratio (circles stay circles, rotations hold), matching
+  PowerPoint's "Ensure Fit"; `'stretch'` scales each axis independently to fill the
+  canvas (distorts shapes), matching "Maximize". Only **geometry** is rewritten — every
+  top-level shape/group/`graphicFrame` transform (`a:off` scale+translate, `a:ext` scale;
+  groups are not recursed, so children remap via the untouched `chOff`/`chExt`) plus table
+  grids (`a:gridCol@w` by `sx`, `a:tr@h` by `sy`). Font sizes and line widths are left as
+  authored, so heavy down-scaling can leave text overflowing its (now smaller) box. In
+  `copy` mode the imported layout and master shape trees are rescaled too (idempotently,
+  so a master shared across repeated imports is scaled once), keeping inherited
+  placeholder/background geometry aligned; `preserve`/`restyle` rebind to this deck's own
+  master/layout (already the destination size) so only the slide is touched. Lands in
+  `src/read/api/presentation.ts`. Implements backlog `dn-importslide-v1-limits` gap #2.
+
 - **Embedded fonts — author-side `pptx.embedFont()` and import-carry
   `importSlide(..., { embedFonts: true })`:** embed font faces so a deck renders with
   them on machines that lack the font, mirroring PowerPoint's "Embed fonts in the file".

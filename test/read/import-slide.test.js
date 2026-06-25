@@ -475,3 +475,112 @@ describe('generate → read import bridge', () => {
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 	})
 })
+
+// ---------------------------------------------------------------------------
+// importSlide({ rescale }) — bring a slide across decks of *different* sizes by
+// rescaling its geometry onto the destination canvas (instead of throwing).
+// ---------------------------------------------------------------------------
+
+/** First `a:ext` `cx` value in an XML string (document order), or null. */
+function firstExtCx(xml) {
+	const m = xml.match(/<a:ext\b[^>]*\bcx="(\d+)"/)
+	return m ? Number(m[1]) : null
+}
+
+/** Decode a part's raw body from a save()'d zip bodies map (keys have no leading slash). */
+function partText(bodies, partName) {
+	const body = bodies.get(partName.replace(/^\//, ''))
+	return body ? new TextDecoder().decode(body) : null
+}
+
+/** The picture shape on the last slide of a reopened deck. */
+function lastSlidePicture(pres) {
+	const last = pres.slides[pres.slides.length - 1]
+	return last.shapes.find((s) => s.shapeType === 'picture')
+}
+
+describe('Presentation.importSlide({ rescale })', () => {
+	// image (16:9, 12192000×6858000) → mixed (4:3, 9144000×6858000):
+	// fit scale = min(0.75, 1.0) = 0.75; centering dx = 0, dy = 857250.
+	const near = (got, want, label) => assert(Math.abs(got - want) <= 2, `${label}: ${got} ≈ ${want}`)
+
+	test("'fit' rescales slide geometry uniformly and centers the slack", async () => {
+		const target = await open('mixed') // 4:3
+		const source = await open('image') // 16:9
+		const src = source.slides[0].shapes.find((s) => s.shapeType === 'picture').absoluteFrame
+
+		target.importSlide(source, 0, { rescale: 'fit' })
+		const reopened = await Presentation.load(await target.save())
+		const pic = lastSlidePicture(reopened).absoluteFrame
+
+		near(pic.left, Math.round(src.left * 0.75), 'left scaled by 0.75')
+		near(pic.top, Math.round(src.top * 0.75 + 857250), 'top scaled + centered')
+		near(pic.width, Math.round(src.width * 0.75), 'width scaled by 0.75')
+		near(pic.height, Math.round(src.height * 0.75), 'height scaled by 0.75')
+		assertGraphResolves(reopened.opc, reopened.slides[reopened.slides.length - 1].partName)
+		assertNoDanglingRels(reopened.opc)
+	})
+
+	test("'stretch' scales each axis independently (height unchanged when only width differs)", async () => {
+		const target = await open('mixed')
+		const source = await open('image')
+		const src = source.slides[0].shapes.find((s) => s.shapeType === 'picture').absoluteFrame
+
+		target.importSlide(source, 0, { rescale: 'stretch' })
+		const reopened = await Presentation.load(await target.save())
+		const pic = lastSlidePicture(reopened).absoluteFrame
+
+		near(pic.width, Math.round(src.width * 0.75), 'width scaled by sx (0.75)')
+		near(pic.height, src.height, 'height unchanged (sy = 1.0)')
+		near(pic.top, src.top, 'top unchanged (no centering, sy = 1.0)')
+	})
+
+	test('true is an alias for fit', async () => {
+		const target = await open('mixed')
+		const source = await open('image')
+		const src = source.slides[0].shapes.find((s) => s.shapeType === 'picture').absoluteFrame
+
+		target.importSlide(source, 0, { rescale: true })
+		const reopened = await Presentation.load(await target.save())
+		const pic = lastSlidePicture(reopened).absoluteFrame
+		near(pic.width, Math.round(src.width * 0.75), 'rescale:true scales like fit')
+	})
+
+	test('copy mode also rescales the imported layout (inherited geometry stays aligned)', async () => {
+		const target = await open('mixed')
+		const source = await open('image')
+
+		const srcLayout = resolveSingle(source.opc, source.slides[0].partName, SLIDE_LAYOUT_REL)
+		const srcLayoutCx = firstExtCx(partText(await partBodies(await readFile(fixturePath('image'))), srcLayout))
+
+		target.importSlide(source, 0, { rescale: 'fit' })
+		const savedBytes = await target.save()
+		const reopened = await Presentation.load(savedBytes)
+		const importedLayout = resolveSingle(
+			reopened.opc,
+			reopened.slides[reopened.slides.length - 1].partName,
+			SLIDE_LAYOUT_REL
+		)
+		const importedCx = firstExtCx(partText(await partBodies(savedBytes), importedLayout))
+
+		assert(srcLayoutCx !== null && importedCx !== null, 'both layouts expose a measurable ext')
+		near(importedCx, Math.round(srcLayoutCx * 0.75), 'imported layout ext scaled by 0.75')
+	})
+
+	test('still throws on a size mismatch when rescale is not requested', async () => {
+		const target = await open('mixed')
+		const source = await open('image')
+		assert(
+			throws(() => target.importSlide(source, 0)),
+			'a size mismatch without rescale throws'
+		)
+	})
+
+	test.skipIf(!validatorInstalled)('a rescaled import stays schema-valid', async () => {
+		const target = await open('mixed')
+		const source = await open('image')
+		target.importSlide(source, 0, { rescale: 'fit' })
+		const errors = await validateBuf(Buffer.from(await target.save()))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+})
