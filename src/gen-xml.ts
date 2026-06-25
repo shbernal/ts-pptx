@@ -67,6 +67,7 @@ import {
 	valToPts,
 } from './gen-utils.js'
 import { pixelsToEmu, type Emu } from './units.js'
+import { type EmbeddedFont, FONT_DATA_CONTENT_TYPE, FONT_DATA_EXTENSION, FONT_REL_TYPE, flattenEmbeddedFaces, serializeEmbeddedFontLst } from './embedded-fonts.js'
 
 // Warn once per distinct message so a recurring out-of-range value (e.g. the same
 // bad fontSize across every cell of a table) does not flood the console.
@@ -2039,7 +2040,7 @@ export function genXmlPlaceholder (placeholderObj: ISlideObject): string {
  * @param {PresSlideInternal} masterSlide - master slide
  * @returns XML
  */
-export function makeXmlContTypes (slides: PresSlideInternal[], slideLayouts: SlideLayoutInternal[], masterSlide?: PresSlideInternal, hasCustomProps?: boolean): string {
+export function makeXmlContTypes (slides: PresSlideInternal[], slideLayouts: SlideLayoutInternal[], masterSlide?: PresSlideInternal, hasCustomProps?: boolean, embeddedFonts?: EmbeddedFont[]): string {
 	let strXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + CRLF
 	strXml += '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
 	strXml += '<Default Extension="xml" ContentType="application/xml"/>'
@@ -2075,6 +2076,10 @@ export function makeXmlContTypes (slides: PresSlideInternal[], slideLayouts: Sli
 	// Charts embed an xlsx workbook part; emit the Default only when at least one chart is present.
 	if (ctHasChart) {
 		strXml += '<Default Extension="xlsx" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"/>'
+	}
+	// Embedded fonts: one Default covers every `.fntdata` part (emitted only when fonts are embedded).
+	if ((embeddedFonts || []).some(font => font.faces.some(face => face.bytes))) {
+		strXml += `<Default Extension="${FONT_DATA_EXTENSION}" ContentType="${FONT_DATA_CONTENT_TYPE}"/>`
 	}
 
 	// STEP 2: Add presentation and slide master(s)/slide(s)
@@ -2252,7 +2257,21 @@ export function makeXmlCustomProperties (props: Array<{ name: string; value: Cus
  * @param {PresSlideInternal[]} slides - Presenation Slides
  * @returns XML
  */
-export function makeXmlPresentationRels (slides: PresSlideInternal[]): string {
+/**
+ * The first relationship id free for embedded-font rels in `presentation.xml.rels`,
+ * i.e. one past the last fixed rel {@link makeXmlPresentationRels} emits. Shared by
+ * the rels writer and {@link makeXmlPresentation} so the `embeddedFontLst` face
+ * `r:id`s match the relationships that back them.
+ *
+ * Layout: rId1 = slideMaster, rId2..(N+1) = N slides, then notesMaster/presProps/
+ * viewProps/theme1/tableStyles (5), then commentAuthors (1, only with comments).
+ */
+function presentationFontRelStart (slides: PresSlideInternal[]): number {
+	const hasComments = (slides || []).some(slide => (slide._comments || []).length > 0)
+	return slides.length + 7 + (hasComments ? 1 : 0)
+}
+
+export function makeXmlPresentationRels (slides: PresSlideInternal[], embeddedFonts?: EmbeddedFont[]): string {
 	let intRelNum = 1
 	let strXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + CRLF
 	strXml += '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
@@ -2271,6 +2290,10 @@ export function makeXmlPresentationRels (slides: PresSlideInternal[]): string {
 	// related once from the presentation (only when the deck has at least one comment).
 	if ((slides || []).some(slide => (slide._comments || []).length > 0)) {
 		strXml += `<Relationship Id="rId${intRelNum + 5}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/commentAuthors" Target="commentAuthors.xml"/>`
+	}
+	// Embedded fonts: one `font` rel per face, ids continuing past the fixed rels above.
+	for (const face of flattenEmbeddedFaces(embeddedFonts || [], presentationFontRelStart(slides))) {
+		strXml += `<Relationship Id="rId${face.rId}" Type="${FONT_REL_TYPE}" Target="fonts/font${face.partIndex}.fntdata"/>`
 	}
 	strXml += '</Relationships>'
 
@@ -2920,7 +2943,10 @@ export function makeXmlPresentation (pres: IPresentationProps): string {
 	let strXml =
 		`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}` +
 		'<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
-		`xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" ${pres.rtlMode ? 'rtl="1"' : ''} saveSubsetFonts="1" autoCompressPictures="0"${pres.firstSlideNum !== 1 ? ` firstSlideNum="${pres.firstSlideNum}"` : ''}>`
+		// When fonts are embedded we carry WHOLE faces, so `embedTrueTypeFonts="1"` (so
+		// PowerPoint honors the embed) and `saveSubsetFonts="0"` (we did not subset).
+		// With no embedded fonts, keep the historical inert `saveSubsetFonts="1"`.
+		`xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" ${pres.rtlMode ? 'rtl="1"' : ''} ${(pres.embeddedFonts || []).some(font => font.faces.some(face => face.bytes)) ? 'embedTrueTypeFonts="1" saveSubsetFonts="0"' : 'saveSubsetFonts="1"'} autoCompressPictures="0"${pres.firstSlideNum !== 1 ? ` firstSlideNum="${pres.firstSlideNum}"` : ''}>`
 
 	// STEP 1: Add slide master (SPEC: tag 1 under <presentation>)
 	strXml += '<p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>'
@@ -2941,6 +2967,15 @@ export function makeXmlPresentation (pres: IPresentationProps): string {
 	// STEP 4: Add sizes
 	strXml += `<p:sldSz cx="${pres.presLayout.width}" cy="${pres.presLayout.height}"/>`
 	strXml += `<p:notesSz cx="${pres.presLayout.height}" cy="${pres.presLayout.width}"/>`
+
+	// STEP 4b: Embedded fonts (CT_Presentation index 7 — after notesSz, before defaultTextStyle).
+	// rIds continue past the fixed presentation rels and must match makeXmlPresentationRels.
+	{
+		const fonts = pres.embeddedFonts || []
+		const flat = flattenEmbeddedFaces(fonts, presentationFontRelStart(pres.slides))
+		const rIdOf = new Map(flat.map(face => [`${face.fontIndex}:${face.slot}`, face.rId]))
+		strXml += serializeEmbeddedFontLst(fonts, (fontIndex, slot) => rIdOf.get(`${fontIndex}:${slot}`))
+	}
 
 	// STEP 5: Add text styles
 	strXml += '<p:defaultTextStyle>'

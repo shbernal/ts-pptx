@@ -4,6 +4,7 @@
  */
 
 import type { CHART_NAME, PLACEHOLDER_TYPE, SHAPE_NAME, SLIDE_OBJECT_TYPES, TABLE_STYLE, TEXT_HALIGN, TEXT_VALIGN, WRITE_OUTPUT_TYPE } from './core-enums.js'
+import type { EmbeddedFont } from './embedded-fonts.js'
 
 // Core Types
 // ==========
@@ -3393,4 +3394,6 @@ export interface IPresentationProps extends PresentationProps {
 	sections: SectionInternalProps[]
 	slideLayouts: SlideLayoutInternal[]
 	slides: PresSlideInternal[]
+	/** Author-side embedded fonts (see {@link PptxGenJS.embedFont}); empty when none. */
+	embeddedFonts: EmbeddedFont[]
 }

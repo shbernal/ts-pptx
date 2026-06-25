@@ -112,6 +112,7 @@ import * as genTable from './gen-tables.js'
 import * as genXml from './gen-xml.js'
 import type { RuntimeAdapter } from './runtime/types.js'
 import { FontMetricsRegistry, parseFontMetrics } from './font-metrics.js'
+import { type EmbeddedFont, type EmbeddedFontSlot, EMBEDDED_FONT_SLOTS, flattenEmbeddedFaces } from './embedded-fonts.js'
 import { applyMeasuredFit, computeTableLayout, measureText } from './measure-fit.js'
 import { getUuid, decodeBase64ToBytes, imageContentType, avContentType } from './gen-utils.js'
 import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
@@ -408,6 +409,7 @@ export default class PptxGenJS {
 			subject: this.subject,
 			theme: this.theme,
 			title: this.title,
+			embeddedFonts: this._embeddedFonts,
 		}
 	}
 
@@ -477,6 +479,9 @@ export default class PptxGenJS {
 
 	/** Write-side font metrics for measured text fit (`fit:'shrink'`). @see registerFontMetrics */
 	private readonly _fontMetrics = new FontMetricsRegistry()
+
+	/** Author-side embedded font faces, accumulated by {@link embedFont} and emitted at write time. */
+	private readonly _embeddedFonts: EmbeddedFont[] = []
 
 	constructor(runtime: RuntimeAdapter) {
 		this._runtime = runtime
@@ -671,14 +676,19 @@ export default class PptxGenJS {
 			// directory entries, so there is no folder scaffolding to set up (and no
 			// stray empty-directory entries to guard against on minimal decks).
 			const hasCustomProps = this._customProperties.length > 0
-			zip.add('[Content_Types].xml', genXml.makeXmlContTypes(this._slides, this._slideLayouts, this._masterSlide, hasCustomProps)) // TODO: pass only `this` like below! 20200206
+			zip.add('[Content_Types].xml', genXml.makeXmlContTypes(this._slides, this._slideLayouts, this._masterSlide, hasCustomProps, this._embeddedFonts)) // TODO: pass only `this` like below! 20200206
 			zip.add('_rels/.rels', genXml.makeXmlRootRels(hasCustomProps))
 			zip.add('docProps/app.xml', genXml.makeXmlApp(this._slides, this.company)) // TODO: pass only `this` like below! 20200206
 			zip.add('docProps/core.xml', genXml.makeXmlCore(this.title, this.subject, this.author, this.revision)) // TODO: pass only `this` like below! 20200206
 			if (hasCustomProps) {
 				zip.add('docProps/custom.xml', genXml.makeXmlCustomProperties(this._customProperties))
 			}
-			zip.add('ppt/_rels/presentation.xml.rels', genXml.makeXmlPresentationRels(this._slides))
+			zip.add('ppt/_rels/presentation.xml.rels', genXml.makeXmlPresentationRels(this._slides, this._embeddedFonts))
+			// Embedded font parts (raw whole faces). Fonts are already compact binary, so STORE
+			// (no DEFLATE) like already-compressed media. Part index matches the rels Target above.
+			for (const face of flattenEmbeddedFaces(this._embeddedFonts, 1)) {
+				zip.add(`ppt/fonts/font${face.partIndex}.fntdata`, face.bytes, { store: true })
+			}
 			zip.add('ppt/theme/theme1.xml', genXml.makeXmlTheme(this.internalPresentation))
 			// emit a separate theme2.xml part so notesMaster1.xml.rels resolves
 			zip.add('ppt/theme/theme2.xml', genXml.makeXmlTheme(this.internalPresentation))
@@ -899,6 +909,66 @@ export default class PptxGenJS {
 		else bytes = new Uint8Array(source)
 		const metrics = await parseFontMetrics(bytes)
 		this._fontMetrics.set(face, metrics, opts)
+	}
+
+	/**
+	 * Embed a font face so the deck renders with it even on machines that do not
+	 * have it installed. The **whole** face is embedded (not glyph-subset) under
+	 * `/ppt/fonts/` and wired into `presentation.xml` (`p:embeddedFontLst` +
+	 * `embedTrueTypeFonts="1"`), exactly as PowerPoint's "Embed fonts in the file"
+	 * does. Call once per face/weight you use.
+	 *
+	 * The declared `typeface` MUST match the family name used in your run/`fontFace`
+	 * typefaces (e.g. `addText('hi', { fontFace: 'Silkscreen' })`) or PowerPoint
+	 * will not bind the embedded bytes to the text. Repeated calls with the same
+	 * `typeface` and different `style` accumulate into one `p:embeddedFont` entry.
+	 *
+	 * Font licensing is the caller's responsibility: the bytes are embedded as
+	 * handed over; `OS/2.fsType` embedding-permission bits are not enforced.
+	 * @param {object} opts - font source + identity
+	 * @param {string} [opts.path] - font file path (Node) or URL (web) to a `.ttf`/`.otf`
+	 * @param {ArrayBuffer | Uint8Array | string} [opts.data] - raw font bytes, or a base64 string, in lieu of `path`
+	 * @param {string} opts.typeface - family name as referenced by run/`fontFace` typefaces
+	 * @param {EmbeddedFontSlot} [opts.style] - face slot; defaults to `'regular'`
+	 * @example await pptx.embedFont({ path: '/fonts/Silkscreen-Regular.ttf', typeface: 'Silkscreen' })
+	 * @example await pptx.embedFont({ path: '/fonts/Silkscreen-Bold.ttf', typeface: 'Silkscreen', style: 'bold' })
+	 */
+	async embedFont(opts: { path?: string; data?: ArrayBuffer | Uint8Array | string; typeface: string; style?: EmbeddedFontSlot }): Promise<void> {
+		if (!opts || typeof opts.typeface !== 'string' || opts.typeface.trim() === '') {
+			throw new Error('embedFont: `typeface` is required (the family name your runs reference)')
+		}
+		const slot: EmbeddedFontSlot = opts.style ?? 'regular'
+		if (!EMBEDDED_FONT_SLOTS.includes(slot)) {
+			throw new Error(`embedFont: invalid style "${slot}"; expected one of ${EMBEDDED_FONT_SLOTS.join(', ')}`)
+		}
+
+		// Resolve bytes: a path/URL via the runtime loader, else in-memory data
+		// (Uint8Array / ArrayBuffer / base64 string).
+		let bytes: Uint8Array
+		if (typeof opts.path === 'string') {
+			bytes = await this._runtime.loadFontData(opts.path)
+		} else if (opts.data instanceof Uint8Array) {
+			bytes = opts.data
+		} else if (opts.data instanceof ArrayBuffer) {
+			bytes = new Uint8Array(opts.data)
+		} else if (typeof opts.data === 'string') {
+			const decoded = decodeBase64ToBytes(opts.data.includes(',') ? opts.data : `application/x-fontdata;base64,${opts.data}`)
+			if (!decoded) throw new Error('embedFont: `data` string is not valid base64')
+			bytes = decoded
+		} else {
+			throw new Error('embedFont: provide either `path` or `data`')
+		}
+
+		// Accumulate faces of one family under a single embeddedFont entry; a repeat
+		// of the same typeface+style replaces the prior bytes (last call wins).
+		let font = this._embeddedFonts.find(f => f.typeface === opts.typeface)
+		if (!font) {
+			font = { typeface: opts.typeface, faces: [] }
+			this._embeddedFonts.push(font)
+		}
+		const existing = font.faces.find(f => f.slot === slot)
+		if (existing) existing.bytes = bytes
+		else font.faces.push({ slot, bytes })
 	}
 
 	/**

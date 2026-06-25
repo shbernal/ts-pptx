@@ -7,8 +7,16 @@
 //
 // Run with: pnpm run test:schema
 
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import JSZip from 'jszip'
+import PptxGenJS from '../dist/node.js'
 import { build, assert, readEntry, assertIncludes, firstXmlBlock, listEntries } from './helpers.js'
 import { validateBuf } from './validator.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const fontsDir = path.join(__dirname, 'read', 'fixtures', 'fonts')
 
 async function expectNoSchemaErrors(buf, label) {
 	const errors = await validateBuf(buf)
@@ -679,6 +687,42 @@ export default [
 				)
 			})
 			await expectNoSchemaErrors(buf, 'table-merged-cell-borders')
+		},
+	},
+	{
+		// Author-side embedded fonts (Feature B): pptx.embedFont() emits raw .fntdata parts,
+		// an `application/x-fontdata` Default, presentation font rels, and a p:embeddedFontLst
+		// at CT_Presentation index 7. Validate the whole package against the oracle structure
+		// (verbatim list from embedded-fonts.oracle.json) and the OpenXmlValidator.
+		name: 'author-side embedded fonts (regular + bold)',
+		fn: async () => {
+			const reg = await readFile(path.join(fontsDir, 'Silkscreen-Regular.ttf'))
+			const bold = await readFile(path.join(fontsDir, 'Silkscreen-Bold.ttf'))
+			const p = new PptxGenJS()
+			await p.embedFont({ data: new Uint8Array(reg), typeface: 'Silkscreen' })
+			await p.embedFont({ data: new Uint8Array(bold), typeface: 'Silkscreen', style: 'bold' })
+			p.addSlide().addText('Silkscreen', { x: 1, y: 1, w: 8, h: 1, fontFace: 'Silkscreen', fontSize: 24 })
+			const buf = await p.stream()
+
+			const zip = await JSZip.loadAsync(buf)
+			const names = listEntries(zip)
+			assert(
+				names.includes('ppt/fonts/font1.fntdata') && names.includes('ppt/fonts/font2.fntdata'),
+				'two .fntdata parts present'
+			)
+			const ct = await readEntry(zip, '[Content_Types].xml')
+			assertIncludes(ct, '<Default Extension="fntdata" ContentType="application/x-fontdata"/>', 'fntdata Default')
+			const pres = await readEntry(zip, 'ppt/presentation.xml')
+			assertIncludes(pres, 'embedTrueTypeFonts="1"', 'embedTrueTypeFonts on')
+			assertIncludes(pres, 'saveSubsetFonts="0"', 'saveSubsetFonts off (whole faces)')
+			// Matches embedded-fonts.oracle.json embeddedFontLstXml (modulo the panose/pitchFamily/
+			// charset PowerPoint inferred — the authoring API declares only typeface in v1).
+			assertIncludes(
+				pres,
+				'<p:embeddedFontLst><p:embeddedFont><p:font typeface="Silkscreen"/><p:regular r:id="rId8"/><p:bold r:id="rId9"/></p:embeddedFont></p:embeddedFontLst>',
+				'embeddedFontLst entry'
+			)
+			await expectNoSchemaErrors(buf, 'embedded-fonts')
 		},
 	},
 	{

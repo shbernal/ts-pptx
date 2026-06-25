@@ -8,7 +8,8 @@ import { OpcPackage, type OpcInput } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
 import type { Relationships } from '../opc/relationships.js'
 import { relativePartName, relsPartNameFor } from '../opc/partnames.js'
-import { ELEMENT_NODE, OOXML_NS, attr, createElement, firstChild, getElements, getOrAddChild, intValue, removeChildrenByQName, setAttr, type Element } from '../oxml/dom.js'
+import { ELEMENT_NODE, OOXML_NS, attr, createElement, firstChild, getElements, getOrAddChild, insertInOrder, intValue, removeChildrenByQName, setAttr, type Element } from '../oxml/dom.js'
+import { EMBEDDED_FONT_SLOTS, FONT_DATA_CONTENT_TYPE, FONT_DATA_EXTENSION, FONT_REL_TYPE, type EmbeddedFontSlot } from '../../embedded-fonts.js'
 import { flattenShape, flattenSlide, remapLiteralColors, restyleSlide, type FlattenContext } from '../oxml/theme.js'
 import { resolveSlideThemeParts } from './theme-context.js'
 import { Slide } from './slide.js'
@@ -83,6 +84,25 @@ const PRESENTATION_SLD_ID_LST_SUCCESSORS = [
 	'p:modifyVerifier',
 	'p:extLst',
 ]
+
+/**
+ * `p:embeddedFontLst`'s document-order successors in `CT_Presentation` (index 7,
+ * after `smartTags`): everything that may legally follow it, so a created list
+ * lands in the right slot when the deck has none yet.
+ */
+const PRESENTATION_EMBEDDED_FONT_LST_SUCCESSORS = ['p:custShowLst', 'p:photoAlbum', 'p:custDataLst', 'p:kinsoku', 'p:defaultTextStyle', 'p:modifyVerifier', 'p:extLst']
+
+/**
+ * A face slot's document-order successors in `CT_EmbeddedFontListEntry`
+ * (`font`, `regular`, `bold`, `italic`, `boldItalic`), so a newly-inserted face
+ * keeps the schema's child order regardless of which slots already exist.
+ */
+const EMBEDDED_FONT_FACE_SUCCESSORS: Record<EmbeddedFontSlot, string[]> = {
+	regular: ['p:bold', 'p:italic', 'p:boldItalic'],
+	bold: ['p:italic', 'p:boldItalic'],
+	italic: ['p:boldItalic'],
+	boldItalic: [],
+}
 
 /** ST_SlideId minimum (ECMA-376): slide ids live in [256, 2147483647]. */
 const MIN_SLIDE_ID = 256
@@ -196,6 +216,25 @@ export interface ImportSlideOptions {
 	 * around generator-authored interior slides regardless of import order.
 	 */
 	at?: number
+
+	/**
+	 * Carry the *source deck's* embedded fonts (`p:embeddedFontLst` in its
+	 * `presentation.xml`) into this deck, so an imported slide that renders with an
+	 * embedded face keeps it on machines that lack the font. Off by default —
+	 * fonts live on the presentation, not the slide, so they are only worth copying
+	 * when you want the embed to travel.
+	 *
+	 * The font binary parts are copied under fresh `/ppt/fonts/` names (deduped via
+	 * the per-source copy registry, so repeated imports copy each face once), the
+	 * `application/x-fontdata` Default is added, and entries are merged into this
+	 * deck's `p:embeddedFontLst` — de-duplicated by `typeface` + face slot, so a
+	 * face this deck already embeds is reused rather than duplicated. The carry is a
+	 * whole-deck operation (it copies *all* the source's embedded fonts, not just the
+	 * faces this one slide uses), since the source list does not record which slide
+	 * uses which face.
+	 * @default false
+	 */
+	embedFonts?: boolean
 }
 
 /** Options for {@link Presentation.importShape} / {@link Presentation.importShapes}. */
@@ -660,7 +699,86 @@ export class Presentation {
 		if (!newPart) throw new Error(`Imported slide part went missing: ${newPartName}`)
 
 		// 3. Wire the new slide into the presentation (rel + p:sldId entry) at `at`.
-		return this.#insertSlidePart(newPart, options.at)
+		const slide = this.#insertSlidePart(newPart, options.at)
+
+		// 4. Optionally carry the source deck's embedded fonts (presentation-level, so
+		//    a separate traversal from the slide-part copy chain above).
+		if (options.embedFonts) this.#carryEmbeddedFonts(source)
+
+		return slide
+	}
+
+	/**
+	 * Copy `source`'s embedded fonts into this deck and merge them into our
+	 * `p:embeddedFontLst`. Font binaries come across via {@link #copyPart} (so the
+	 * per-source registry dedupes faces shared across repeated imports); entries are
+	 * merged by `typeface` + face slot, so a face this deck already embeds is reused
+	 * rather than duplicated. No-op when the source embeds no fonts. See
+	 * {@link ImportSlideOptions.embedFonts}.
+	 */
+	#carryEmbeddedFonts(source: Presentation): void {
+		const sourceRoot = source.presentationPart.dom.documentElement
+		const sourceLst = sourceRoot && firstChild(sourceRoot, 'p:embeddedFontLst')
+		const sourceEntries = sourceLst ? getElements(sourceLst, 'p:embeddedFont') : []
+		if (sourceEntries.length === 0) return
+
+		const presPart = this.presentationPart
+		const presRoot = presPart.dom.documentElement
+		if (!presRoot) throw new Error('presentation.xml has no document element to carry embedded fonts into')
+		const presRels = this.opc.relationshipsFor(presPart.partName)
+		const sourcePresRels = source.opc.relationshipsFor(source.presentationPart.partName)
+
+		// Target list, created at CT_Presentation index 7 when this deck has none yet.
+		const targetLst = getOrAddChild(presRoot, 'p:embeddedFontLst', PRESENTATION_EMBEDDED_FONT_LST_SUCCESSORS)
+		const targetByTypeface = new Map<string, Element>()
+		for (const entry of getElements(targetLst, 'p:embeddedFont')) {
+			const font = firstChild(entry, 'p:font')
+			const typeface = font && attr(font, 'typeface')
+			if (typeface) targetByTypeface.set(typeface, entry)
+		}
+
+		let copiedAny = false
+		for (const srcEntry of sourceEntries) {
+			const srcFont = firstChild(srcEntry, 'p:font')
+			const typeface = srcFont ? attr(srcFont, 'typeface') : null
+			if (!srcFont || !typeface) continue
+
+			// Find or create the target entry for this typeface, cloning the source
+			// p:font identity attributes (typeface + optional panose/pitchFamily/charset).
+			let targetEntry = targetByTypeface.get(typeface)
+			if (!targetEntry) {
+				targetEntry = createElement(presPart.dom, 'p:embeddedFont')
+				const targetFont = createElement(presPart.dom, 'p:font')
+				for (const name of ['typeface', 'panose', 'pitchFamily', 'charset']) {
+					const value = attr(srcFont, name)
+					if (value !== null) setAttr(targetFont, name, value)
+				}
+				targetEntry.appendChild(targetFont)
+				targetLst.appendChild(targetEntry)
+				targetByTypeface.set(typeface, targetEntry)
+			}
+
+			for (const slot of EMBEDDED_FONT_SLOTS) {
+				const srcFace = firstChild(srcEntry, `p:${slot}`)
+				if (!srcFace) continue
+				if (firstChild(targetEntry, `p:${slot}`)) continue // de-dupe: face already present
+				const srcRid = attr(srcFace, 'r:id')
+				if (!srcRid) continue
+
+				// Ensure the fntdata Default exists *before* copying the part, so #copyPart's
+				// addPart resolves the content type via the Default (no per-part Override).
+				this.opc.contentTypes.ensureDefault(FONT_DATA_EXTENSION, FONT_DATA_CONTENT_TYPE)
+				const newFontPart = this.#copyPart(source.opc, sourcePresRels.resolveTarget(srcRid))
+				const relId = presRels.add(FONT_REL_TYPE, relativePartName(presPart.partName, newFontPart)).id
+
+				const targetFace = createElement(presPart.dom, `p:${slot}`)
+				setAttr(targetFace, 'r:id', relId)
+				insertInOrder(targetEntry, targetFace, EMBEDDED_FONT_FACE_SUCCESSORS[slot])
+				copiedAny = true
+			}
+		}
+
+		if (copiedAny) presPart.markDirty()
 	}
 
 	/**

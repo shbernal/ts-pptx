@@ -1649,41 +1649,54 @@ items:
     source: downstream
     type: downstream-need
     first_seen: 2026-06-18
-    last_reviewed: 2026-06-18
-    status: deferred
+    last_reviewed: 2026-06-25
+    status: partially-implemented
     priority: p3
     target_area:
       - missing-pptx-feature
       - speaker-notes-masters-layouts
     applies_to_current_project: partial
     non_target_reasons: []
-    summary: "importSlide v1 gaps: embedded fonts, slide-size rescale, notes import"
+    summary: "importSlide v1 gaps: embedded fonts (DONE), slide-size rescale, notes import"
     current_project_notes: |
       importSlide copies a slide's slideLayout -> slideMaster -> theme plus used
-      media/chart/embedding parts. Three gaps are deliberately out of scope for v1:
-        - Embedded fonts are not copied. Fonts embedded via embedTrueType live in
-          ppt/fonts/* and are referenced from presentation.xml (p:embeddedFontLst),
-          not from the slide, so importSlide does not bring them across; a slide
-          relying on an embedded font may substitute on render. Deferred (low
-          priority): the first consumer normalizes lifted text to Aptos during the
-          edit pass, so font fidelity doesn't depend on carrying embedded faces.
-          Follow-up: copy the font parts and merge p:embeddedFontLst.
+      media/chart/embedding parts. Gap status:
+        - Embedded fonts: IMPLEMENTED (2026-06-25). importSlide now takes an opt-in
+          { embedFonts: true } flag that carries the source deck's presentation-level
+          embedded fonts: the binary ppt/fonts/*.fntdata parts (via #copyPart, so the
+          per-source registry dedupes faces shared across repeated imports), the
+          application/x-fontdata content-type Default, the presentation font rels, and
+          a merged p:embeddedFontLst (CT_Presentation index 7) de-duped by typeface +
+          face slot. Default off (unchanged behaviour). Landed in
+          src/read/api/presentation.ts (#carryEmbeddedFonts) on the shared model in
+          src/embedded-fonts.ts; tests in test/read/embedded-fonts.test.js (incl.
+          schema validity) + the author-side case in test/schema.test.js. Oracle:
+          test/read/fixtures/embedded-fonts.pptx + embedded-fonts.oracle.json. The
+          author-side counterpart (pptx.embedFont) shipped in the same effort — see
+          CHANGELOG (write-side embedding is its own feature, recorded there, not here).
         - Slide size must match. importSlide asserts source/target p:sldSz are
           equal and throws otherwise; no geometry rescaling. Follow-up: optional
-          EMU rescale when sizes differ.
+          EMU rescale when sizes differ. (STILL OPEN)
         - Source notes are dropped by design (the notesSlide relationship is
           skipped so the import doesn't drag in a notesMaster + its own theme).
           Follow-up: opt-in notes import that copies/merges the notes master.
+          (STILL OPEN)
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - schema-fixture
+        - validator-result
       local_files:
         - src/read/api/presentation.ts
-      schema_fixture: null
-      validator_result: null
+        - src/embedded-fonts.ts
+        - test/read/embedded-fonts.test.js
+        - test/schema.test.js
+      schema_fixture: test/read/embedded-fonts.test.js
+      validator_result: clean
       powerpoint_result: null
       spec_refs: []
-    next_action: revisit-per-need
+    next_action: "remaining gaps: slide-size rescale + notes import"
   - id: dn-importshape-v1-limits
     source: downstream
     type: downstream-need

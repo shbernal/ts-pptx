@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Embedded fonts — author-side `pptx.embedFont()` and import-carry
+  `importSlide(..., { embedFonts: true })`:** embed font faces so a deck renders with
+  them on machines that lack the font, mirroring PowerPoint's "Embed fonts in the file".
+  Two independent entry points sharing one OOXML model (`src/embedded-fonts.ts`):
+  - **Author-side** — `await pptx.embedFont({ path | data, typeface, style })` embeds a
+    **whole** face (not glyph-subset) from a file path/URL or in-memory bytes
+    (`Uint8Array` / `ArrayBuffer` / base64). Repeated calls with the same `typeface` and
+    different `style` (`'regular'` | `'bold'` | `'italic'` | `'boldItalic'`) accumulate
+    into one `p:embeddedFont` entry. The declared `typeface` MUST match the family name
+    used in `fontFace`/run typefaces or PowerPoint won't bind it. At write time this emits
+    `/ppt/fonts/fontN.fntdata` parts (raw bytes, STORE-compressed), a single
+    `application/x-fontdata` content-type Default, one `font` relationship per face, and a
+    `p:embeddedFontLst` at `CT_Presentation` index 7, and sets `embedTrueTypeFonts="1"` +
+    `saveSubsetFonts="0"` on `p:presentation`. Font licensing (`OS/2.fsType` permission
+    bits) is the caller's responsibility — not enforced. Lands in `src/pptxgen.ts`,
+    `src/gen-xml.ts`, `src/core-interfaces.ts`.
+  - **Import-carry** — `importSlide(source, i, { embedFonts: true })` brings the source
+    deck's presentation-level embedded fonts across: copies the `.fntdata` parts (deduped
+    via the per-source copy registry), adds the `fntdata` Default, rebuilds the font
+    relationships, and merges entries into this deck's `p:embeddedFontLst` (de-duped by
+    `typeface` + face slot, so repeated imports carry each face once). Default off — the
+    deck is unchanged without the flag. Lands in `src/read/api/presentation.ts`.
+
+  Note: when no fonts are embedded, output is unchanged — the historical inert
+  `saveSubsetFonts="1"` and absent `embedTrueTypeFonts` are preserved. Implements backlog
+  `dn-importslide-v1-limits` gap #1.
+
 - **`addTable(rows, { fitColumns: 'shrink' })` — shrink columns to fit the slide:**
   when a table's total column width exceeds the space between its `x` and the right
   slide margin, scale every column down by the same factor so the whole table fits.
