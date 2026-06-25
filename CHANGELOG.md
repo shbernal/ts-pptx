@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.0.0](https://github.com/shbernal/PptxGenJS/releases/tag/v8.0.0) - 2026-06-25
+
 ### Added
 
 - **`importSlide(source, i, { importNotes: true })` — carry the source slide's speaker
