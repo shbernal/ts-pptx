@@ -14,6 +14,7 @@ import { flattenShape, flattenSlide, remapLiteralColors, restyleSlide, type Flat
 import { resolveSlideThemeParts } from './theme-context.js'
 import { Slide } from './slide.js'
 import { wrapShapeElement, type Shape } from './shapes.js'
+import { carryShapeAnimations } from './animation.js'
 
 const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
 const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
@@ -350,6 +351,17 @@ export interface ImportShapeOptions {
 	 * @default false
 	 */
 	rescale?: boolean | 'fit' | 'stretch'
+	/**
+	 * Carry the lifted shape's build animation across (default `false`). A shape's
+	 * entrance/emphasis/exit build lives in the slide-scoped `p:timing`, not in the
+	 * shape subtree, so it is dropped unless opted in. When set, the shape's effect
+	 * click-group(s) and `<p:bldP>` are copied into the destination `p:timing`
+	 * (created if absent), their `spid` references remapped to the shape's new id and
+	 * their `<p:cTn>` ids renumbered to stay collision-free, and appended after any
+	 * existing build — mirroring how PowerPoint merges a pasted shape's animation
+	 * (see the `import-animation-merge` oracle). @default false
+	 */
+	carryAnimation?: boolean
 }
 
 /** A master brought across by {@link Presentation.importSlideMasters}. */
@@ -1450,13 +1462,27 @@ export class Presentation {
 				rescaleSpTree(holder, transform)
 			}
 
-			// Give the shape and any group children collision-free host ids.
+			// Give the shape and any group children collision-free host ids, recording the
+			// source id → new id map so a carried build animation can be remapped onto it.
 			let nextId = target.nextShapeId()
+			const spidMap = new Map<number, number>()
 			const cNvPrs = imported.getElementsByTagNameNS(OOXML_NS.p, 'cNvPr')
-			for (let i = 0; i < cNvPrs.length; i++) setAttr(cNvPrs[i], 'id', String(nextId++))
+			for (let i = 0; i < cNvPrs.length; i++) {
+				const oldId = intValue(attr(cNvPrs[i], 'id'))
+				if (oldId !== null) spidMap.set(oldId, nextId)
+				setAttr(cNvPrs[i], 'id', String(nextId++))
+			}
 
 			// Insert into the host tree (this reparents it out of any holder).
 			spTree.insertBefore(imported, anchor)
+
+			// Carry the shape's slide-scoped build animation (opt-in): append its effect
+			// click-group(s) + <p:bldP> into the destination timing, remapped to the new id.
+			if (options.carryAnimation) {
+				const sourceRoot = source.part.dom.documentElement
+				const targetRoot = target.part.dom.documentElement
+				if (sourceRoot && targetRoot) carryShapeAnimations(sourceRoot, targetRoot, spidMap)
+			}
 
 			const shape = wrapShapeElement(imported, target)
 			if (!shape) throw new Error(`importShape: unsupported shape element <${imported.localName}>`)

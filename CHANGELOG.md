@@ -35,6 +35,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     byte-for-byte (asserted in tests). Implements backlog `gitbrent/PptxGenJS#1431` (Phase 1;
     `importShape` timing carry-through, an expanded preset set, and transition sounds remain
     Phase 2).
+  - **Phase 2 capability B — expanded preset set (2026-06-26).** `PresetEffect` now covers
+    eight presets: the entrance set adds `appear` and `wipe`, emphasis adds `spin`, and exit
+    adds `flyOut` (alongside the Phase 1 `fadeIn`/`flyIn`/`grow`/`fadeOut`). Each is a verbatim
+    PowerPoint template captured from `slide-animation-presets.pptx`; the writer reproduces all
+    eight byte-for-byte (regression + schema fixtures). `flyOut` faithfully mirrors PowerPoint's
+    exit-fly serialization (bare `ppt_x`/`ppt_y` run-time variables with no leading `#`, no
+    `fill="hold"` on the motion node, and a trailing visibility `set`).
+  - **Phase 2 capability C — transition sounds (2026-06-26).** `slide.transition.sound`
+    (`TransitionSoundProps`) adds a `p:sndAc` to the transition: an embedded start sound
+    (`{ data | path, name?, loop? }` → `p:stSnd`/`p:snd r:embed`, optionally `loop="1"`) or the
+    stop-previous form (`{ stopPrevious: true }` → `p:endSnd`). A start sound registers an ECMA
+    `audio` relationship, embeds the WAV as a `ppt/media/*` part, and adds a
+    `wav=audio/x-wav` Default content type; identical sound bytes are deduped to a single part
+    across slides. Read side (`pptxgenjs/read`): `slide.transition.sound` decodes the `sndAc`
+    into a `TransitionSoundInfo` (`form`/`loop`/`embedRid`/`name`).
+  - **`avContentType('wav')` now returns `audio/x-wav`** (was `audio/wav`), matching what
+    PowerPoint authors for embedded audio; affects both `addMedia` WAV audio and transition
+    sounds.
+  - **Phase 2 capability A — `importShape` build-animation carry (2026-06-26).**
+    `Presentation.importShape`/`importShapes` gained an opt-in `{ carryAnimation: true }`
+    (`ImportShapeOptions`). By default a lifted shape still lands static (its slide-scoped build
+    is dropped); when set, the shape's effect click-group(s) and `<p:bldP>` are copied into the
+    destination `p:timing` (created from scratch when the host has none), their `spid` references
+    remapped to the shape's new id and their `<p:cTn>` ids renumbered to stay collision-free, and
+    appended after any existing build — the programmatic analogue of PowerPoint's
+    copy/paste-with-animation merge.
 
 - **`addChart(type, data, { metadata })` — custom chart-level metadata via a schema-valid
   extension:** pass a `Record<string, string>` of annotations (e.g. a source-data id, a

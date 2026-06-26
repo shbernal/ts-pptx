@@ -3358,6 +3358,34 @@ export interface TransitionProps {
 	advanceAfterMs?: number
 	/** Type-specific variant attributes, e.g. `{ dir: 'd' }` for push, `{ spokes: '2' }` for wheel. */
 	variant?: Record<string, string>
+	/** Sound played with the transition (`p:sndAc`): a start sound (embedded WAV) or the stop-previous form. */
+	sound?: TransitionSoundProps
+	/**
+	 * Internal: the slide relationship id assigned to the embedded sound part, stamped
+	 * by the export-time registration pass. Not part of the authoring surface.
+	 */
+	_sndRId?: number
+}
+
+/**
+ * A transition sound (`p:sndAc`). Either a **start sound** — an embedded WAV played
+ * when the transition runs (`p:stSnd` → `p:snd`), optionally looped — or the
+ * **stop-previous** form (`p:endSnd`) that silences a still-playing transition
+ * sound. Built-in PowerPoint sounds embed identically to a custom file, so there is
+ * no separate built-in path: supply the WAV bytes via `data` or `path`.
+ * See `docs/animations-and-transitions.md`.
+ */
+export interface TransitionSoundProps {
+	/** Embedded sound bytes as a base64 data URI (e.g. `data:audio/wav;base64,…`) or raw base64. */
+	data?: string
+	/** Path to a sound file, read at export time (alternative to `data`). */
+	path?: string
+	/** Display name emitted on `<p:snd @name>` (e.g. `ding.wav`); defaults to the file name. */
+	name?: string
+	/** Loop the sound until the next sound starts (`<p:stSnd loop="1">`). @default false */
+	loop?: boolean
+	/** Emit the stop-previous form (`<p:endSnd/>`) instead of a start sound. Mutually exclusive with `data`/`path`. */
+	stopPrevious?: boolean
 }
 
 /**
@@ -3365,7 +3393,7 @@ export interface TransitionProps {
  * template captured from PowerPoint); adding one means adding a fixture + template,
  * not a new code path. See `docs/animations-and-transitions.md`.
  */
-export type PresetEffect = 'fadeIn' | 'flyIn' | 'grow' | 'fadeOut'
+export type PresetEffect = 'fadeIn' | 'flyIn' | 'appear' | 'wipe' | 'grow' | 'spin' | 'fadeOut' | 'flyOut'
 
 /** When a build-animation effect starts relative to the preceding one. */
 export type AnimationTrigger = 'onClick' | 'withPrevious' | 'afterPrevious'

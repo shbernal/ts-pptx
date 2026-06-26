@@ -213,10 +213,11 @@ Three operations, all purely structural (no semantic parse):
   ids are not generally renumbered, so timing usually survives, but this must be
   **verified by fixture** and remap applied if ids do change.
 - **`importShape`** — lifts a single `p:sp` and **reassigns its id**; slide-scoped
-  timing is not part of the shape subtree (documented limitation at
-  `presentation.ts:~1372`). Phase 2 option: carry that shape's `p:bldP` + effect
-  nodes into the destination timing with a remap. Phase 1: keep the current
-  drop, but ensure we never leave a dangling reference on either side.
+  timing is not part of the shape subtree. Default behaviour drops the build (a
+  lifted shape lands static). **Phase 2 (implemented):** the opt-in
+  `{ carryAnimation: true }` carries that shape's effect click-group(s) + `p:bldP`
+  into the destination timing with an spid remap and a `p:cTn`-id renumber, never
+  leaving a dangling reference on either side (`carryShapeAnimations`).
 
 ## Public API surface (sketch — to be finalized in implementation)
 
@@ -276,22 +277,43 @@ check date). Record the fixtures as the blocking precondition in
   arbitrary effects, no animation paths/triggers beyond the preset set.
 - **Phase 1:** transitions (full, both ways); animation opaque preserve + spid
   enumerate/remap/prune; preset-template authoring for the fixtured effect set.
-- **Phase 2 (fixture gate satisfied 2026-06-26; code pending):** carry a shape's
-  build animation through `importShape` (remap into destination timing); expand the
-  preset set; transition sounds (`sndAc`, which pulls in audio rels). The three
-  PowerPoint-authored oracle decks that gate this work are now authored + verified
-  clean (`see PHASE2-FIXTURE-PLAN.md` and `test/read/fixtures/README.md`):
-  - `slide-animation-presets.pptx` (+ `presetTemplates` oracle) — verbatim write-side
-    templates for the new presets `appear`/`wipe`/`spin`/`flyOut` (and a byte-for-byte
-    reconfirmation of `fadeIn`/`flyIn`/`grow`/`fadeOut`). Note: opacity-based emphasis
-    "Pulse" is not reachable via COM `AddEffect`, so the emphasis pair is grow + spin.
-  - `slide-transition-sound.pptx` (+ `soundRels` oracle) — `p:sndAc/p:stSnd/p:snd`
-    embedded start sound, looped (`stSnd loop="1"`), and stop-previous (`p:endSnd`);
-    the ECMA `audio` rel → `ppt/media/*.wav` part + `wav=audio/x-wav` Default. Built-in
-    sounds embed identically to a custom import (recorded, not committed — license-clean).
-  - `import-animation-merge.pptx` (+ `mergeMap` oracle) — PowerPoint's ground truth for
-    cross-slide copy: the pasted shape takes the next free spid, the carried build's
-    `spTgt`/`bldP` are renumbered onto it and appended after the host's build.
+- **Phase 2 — all three capabilities implemented (2026-06-26).**
+  Capabilities: carry a shape's build animation through `importShape` (remap into
+  destination timing) [A, **done**]; expand the preset set [B, **done**]; transition
+  sounds (`sndAc`, which pulls in audio rels) [C, **done**]. The three PowerPoint-authored oracle decks
+  that gate this work are authored + verified clean (`see PHASE2-FIXTURE-PLAN.md` and
+  `test/read/fixtures/README.md`):
+  - **[B — implemented]** `slide-animation-presets.pptx` (+ `presetTemplates` oracle) —
+    verbatim write-side templates for the new presets `appear`/`wipe`/`spin`/`flyOut`
+    (and a byte-for-byte reconfirmation of `fadeIn`/`flyIn`/`grow`/`fadeOut`). The
+    `PresetEffect` type and `ANIM_PRESETS` (`src/gen-xml.ts`) now carry all eight; the
+    regression case "emits every preset … byte-for-byte" pins the full timing tree
+    against the oracle and a `test/schema.test.js` fixture validates the new templates.
+    Note: opacity-based emphasis "Pulse" is not reachable via COM `AddEffect`, so the
+    emphasis pair is grow + spin.
+  - **[C — implemented]** `slide-transition-sound.pptx` (+ `soundRels` oracle) —
+    `p:sndAc/p:stSnd/p:snd` embedded start sound, looped (`stSnd loop="1"`), and
+    stop-previous (`p:endSnd`); the ECMA `audio` rel → `ppt/media/*.wav` part +
+    `wav=audio/x-wav` Default. Built-in sounds embed identically to a custom import
+    (recorded, not committed — license-clean). Write: `slide.transition.sound`
+    (`TransitionSoundProps` — `data`/`path`/`name`/`loop`, or `stopPrevious`) emits the
+    `sndAc`; an export-time pass (`registerTransitionSounds`, `src/pptxgen.ts`) registers
+    the audio rel + media part and the cross-deck media dedup collapses identical sound
+    bytes to one part. Read: `slide.transition.sound` decodes the `sndAc` into a
+    `TransitionSoundInfo`. The rId is PptxGenJS's own (not PowerPoint's `rId2`), so the
+    regression compares the `sndAc` rId-normalized. `avContentType('wav')` was corrected
+    to `audio/x-wav`.
+  - **[A — implemented]** `import-animation-merge.pptx` (+ `mergeMap` oracle) —
+    PowerPoint's ground truth for cross-slide copy: the pasted shape takes the next
+    free spid, the carried build's `spTgt`/`bldP` are renumbered onto it and appended
+    after the host's build. `importShape`/`importShapes` gained an opt-in
+    `{ carryAnimation: true }`: `carryShapeAnimations` (`src/read/api/animation.ts`)
+    copies the lifted shape's mainSeq click-group(s) + `<p:bldP>` into the destination
+    `p:timing` (built from scratch when the host has none), remapping spids to the
+    shape's new id and renumbering `<p:cTn>` ids to stay collision-free. The
+    destination timing is PptxGenJS's own construction, so the test asserts the
+    `mergeMap` semantics (new spid, appended-after-host, no dangling refs,
+    schema-valid) rather than byte-for-byte.
 - **Open questions:** (a) preset animations as a per-shape option vs a
   slide-level ordered list (ordering/sequence semantics favor a slide-level
   list); (b) whether to always emit the `mc:AlternateContent` form or only when

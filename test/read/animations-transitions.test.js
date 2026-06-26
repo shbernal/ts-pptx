@@ -13,8 +13,10 @@ import assert from 'node:assert/strict'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
+import { isInstalled, validateBuf } from '../validator.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const validatorInstalled = await isInstalled()
 
 function fixturePath(name) {
 	return path.join(__dirname, 'fixtures', `${name}.pptx`)
@@ -201,10 +203,11 @@ describe('slide animations (opaque, spid-aware)', () => {
 	})
 })
 
-// --- Phase 2 fixtures (docs/animations-and-transitions.md). The capabilities they
-// gate (preset expansion, transition sounds, importShape animation carry) are not
-// yet implemented; these assert the fixtures load + their oracles match the bytes
-// against the existing opaque, spid-aware read model. ---
+// --- Phase 2 fixtures (docs/animations-and-transitions.md). Preset expansion (B)
+// and transition sounds (C) are implemented write-side (see test/regression); the
+// importShape animation carry (A) is exercised at the end of this file. These
+// blocks assert the fixtures load + their oracles match the bytes against the
+// opaque, spid-aware read model. ---
 
 describe('slide-animation-presets (read fixture, Phase 2 gate B)', () => {
 	test('hasAnimations + animationSpids match the oracle', async () => {
@@ -243,6 +246,13 @@ describe('slide-transition-sound (read fixture, Phase 2 gate C)', () => {
 			assert.ok(info, `slide ${s.slide} has a transition`)
 			assert.equal(info.type, 'fade', `slide ${s.slide} type`)
 			assert.equal(info.durationMs, 2000, `slide ${s.slide} durationMs`)
+			// sndAc decode: start sound (with optional loop) vs the stop-previous form.
+			const sr = s.soundRels
+			assert.ok(info.sound, `slide ${s.slide} decodes a sound`)
+			assert.equal(info.sound.form, sr.form === 'endSnd' ? 'stop' : 'start', `slide ${s.slide} sound form`)
+			assert.equal(info.sound.loop, sr.loop, `slide ${s.slide} sound loop`)
+			assert.equal(info.sound.embedRid, sr.sndEmbedRid, `slide ${s.slide} sound embedRid`)
+			assert.equal(info.sound.name, sr.sndName, `slide ${s.slide} sound name`)
 		}
 	})
 
@@ -306,5 +316,82 @@ describe('import-animation-merge (read fixture, Phase 2 gate A)', () => {
 		assert.deepEqual(reopened.slides[1].animationSpids(), [20, 30])
 		// mergeMap sanity: the carried shape was renumbered to spid 3 on the destination.
 		assert.equal(oracle.mergeMap.carriedShape.mergedSpid, 3)
+	})
+})
+
+// Phase 2 capability A: importShape({ carryAnimation: true }) carries the lifted
+// shape's build animation into the destination timing — the programmatic analogue
+// of PowerPoint's copy/paste-with-animation captured by the import-animation-merge
+// oracle. The destination timing is PptxGenJS's own construction (not byte-equal to
+// PowerPoint's full-tree renumber), so the contract asserted is the mergeMap
+// semantics: the carried shape takes a new spid, its spTgt/bldP are remapped to it
+// and appended after any existing build, and no reference dangles.
+describe('importShape carryAnimation (Phase 2 capability A)', () => {
+	/** Every animation spid on a slide resolves to a real shape id (no dangling reference). */
+	function assertNoDanglingSpids(xml) {
+		const shapeIds = new Set([...xml.matchAll(/<p:cNvPr id="(\d+)"/g)].map((m) => Number(m[1])))
+		for (const m of xml.matchAll(/<p:(?:spTgt|bldP) spid="(\d+)"/g)) {
+			assert.ok(shapeIds.has(Number(m[1])), `spid ${m[1]} targets a real shape`)
+		}
+	}
+
+	test('drops animation by default (opt-in only)', async () => {
+		const target = await open('slide-transition')
+		const source = await open('slide-animation-basic')
+		target.importShape(target.slides[0], source.slides[0], 0, { theme: 'copy' })
+		assert.equal(target.slides[0].hasAnimations, false, 'no animation carried without the flag')
+	})
+
+	test('appends the carried build after the host build, remapped to the new spid', async () => {
+		// Host already animates spids 2..5; the lifted basic shape takes the next id (6).
+		const target = await open('slide-animation-rich')
+		const source = await open('slide-animation-basic')
+		const slide = target.slides[0]
+		const newSpid = slide.nextShapeId()
+		target.importShape(slide, source.slides[0], 0, { carryAnimation: true, theme: 'copy' })
+
+		assert.deepEqual(slide.animationSpids(), [2, 3, 4, 5, newSpid])
+		const saved = await target.save()
+		const xml = await slidePartXml(saved, 1)
+		// bldP for the carried shape is appended last.
+		const bldOrder = [...xml.matchAll(/<p:bldP spid="(\d+)"/g)].map((m) => Number(m[1]))
+		assert.deepEqual(bldOrder, [2, 3, 4, 5, newSpid], 'carried bldP appended after the host builds')
+		// The carried entrance Fade (presetID 10) targets the new spid.
+		assert.ok(
+			new RegExp(`presetID="10"[\\s\\S]*?<p:spTgt spid="${newSpid}"/>`).test(xml),
+			'carried fade effect targets the new spid'
+		)
+		// cTn ids stay unique and nothing dangles, across a reopen.
+		const cTnIds = [...xml.matchAll(/<p:cTn id="(\d+)"/g)].map((m) => Number(m[1]))
+		assert.equal(new Set(cTnIds).size, cTnIds.length, 'cTn ids are unique')
+		assertNoDanglingSpids(xml)
+		assert.deepEqual((await Presentation.load(saved)).slides[0].animationSpids(), [2, 3, 4, 5, newSpid])
+	})
+
+	test('creates a fresh timing scaffold when the host has no animation', async () => {
+		// Target slide carries a transition but no animation; carry must build the
+		// tmRoot/mainSeq/bldLst scaffold and leave the transition intact.
+		const target = await open('slide-transition')
+		const source = await open('slide-animation-basic')
+		const slide = target.slides[0]
+		assert.equal(slide.hasAnimations, false)
+		const newSpid = slide.nextShapeId()
+		target.importShape(slide, source.slides[0], 0, { carryAnimation: true, theme: 'copy' })
+
+		const saved = await target.save()
+		const xml = await slidePartXml(saved, 1)
+		assert.ok(/nodeType="tmRoot"/.test(xml) && /nodeType="mainSeq"/.test(xml), 'built tmRoot + mainSeq')
+		assert.ok(new RegExp(`<p:bldP spid="${newSpid}" grpId="0"/>`).test(xml), 'carried bldP present')
+		assert.ok(/<\/p:clrMapOvr><p:transition/.test(xml) || /<p:fade\/>/.test(xml), 'transition preserved')
+		assertNoDanglingSpids(xml)
+		assert.equal((await Presentation.load(saved)).slides[0].hasAnimations, true)
+	})
+
+	test.skipIf(!validatorInstalled)('the carried package stays schema-valid', async () => {
+		const target = await open('slide-animation-rich')
+		const source = await open('slide-animation-basic')
+		target.importShape(target.slides[0], source.slides[0], 0, { carryAnimation: true, theme: 'copy' })
+		const errors = await validateBuf(Buffer.from(await target.save()))
+		assert.equal(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 	})
 })

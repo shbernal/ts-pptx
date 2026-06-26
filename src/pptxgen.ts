@@ -114,7 +114,7 @@ import type { RuntimeAdapter } from './runtime/types.js'
 import { FontMetricsRegistry, parseFontMetrics } from './font-metrics.js'
 import { type EmbeddedFont, type EmbeddedFontSlot, EMBEDDED_FONT_SLOTS, flattenEmbeddedFaces } from './embedded-fonts.js'
 import { applyMeasuredFit, computeTableLayout, measureText } from './measure-fit.js'
-import { getUuid, decodeBase64ToBytes, imageContentType, avContentType } from './gen-utils.js'
+import { getUuid, decodeBase64ToBytes, imageContentType, avContentType, getNewRelId } from './gen-utils.js'
 import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
 import type { ExtractedSlide, ExtractedSlides } from './read/api/presentation.js'
 
@@ -627,10 +627,46 @@ export default class PptxGenJS {
 	 * @param {WRITE_OUTPUT_TYPE} outputType - output file type
 	 * @return {Promise<string | ArrayBuffer | Blob | Uint8Array>} Promise with data or stream (node) or filename (browser)
 	 */
+	/**
+	 * Register an audio media part + relationship for each slide-transition start sound
+	 * (`transition.sound` with `data`/`path`), stamping the assigned relationship id onto
+	 * `transition._sndRId` for the `p:sndAc/p:snd r:embed`. Runs before media encoding so
+	 * the bytes are loaded; idempotent (skips a sound already registered) so re-export is
+	 * safe. The stop-previous form (`sound.stopPrevious`) needs no part and is skipped.
+	 */
+	private readonly registerTransitionSounds = (): void => {
+		this._slides.forEach(slide => {
+			const transition = slide.transition
+			const sound = transition?.sound
+			if (!sound || sound.stopPrevious || typeof transition._sndRId === 'number') return
+			if (!sound.data && !sound.path) return
+
+			// Derive the file extension from the data-URI mime, else the path, defaulting to wav.
+			const dataMime = /audio\/([\w-]+)[;,]/.exec(sound.data ?? '')
+			const pathFile = sound.path ? (sound.path.split('/').pop() ?? '').split('?')[0] : ''
+			const extn = (dataMime?.[1] ?? pathFile.split('.').pop() ?? 'wav').toLowerCase()
+
+			const rId = getNewRelId(slide)
+			const mediaSlideKey = slide._slideNum == null ? 'sm' : slide._slideNum >= 1000 ? `sl-${slide._slideNum}` : slide._slideNum
+			slide._relsMedia.push({
+				path: sound.path ?? `preencoded.${extn}`,
+				type: `audio/${extn}`,
+				extn,
+				data: sound.data ?? '',
+				rId,
+				Target: `../media/audio-${mediaSlideKey}-${slide._relsMedia.length + 1}.${extn}`,
+			})
+			transition._sndRId = rId
+		})
+	}
+
 	private readonly exportPresentation = async (props: WriteProps): Promise<string | ArrayBuffer | Blob | Uint8Array> => {
 		const arrChartPromises: Promise<string>[] = []
 		let arrMediaPromises: Promise<string>[] = []
 		const zip = new ZipWriter()
+
+		// STEP 0: Register transition-sound media parts/rels before encoding picks them up.
+		this.registerTransitionSounds()
 
 		// STEP 1: Read/Encode all Media before zip as base64 content, etc. is required
 		const onMediaError = props.onMediaError ?? 'throw'

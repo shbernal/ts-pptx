@@ -2472,6 +2472,45 @@ export default [
 		},
 	},
 	{
+		// Phase 2 capability B (docs/animations-and-transitions.md): the expanded
+		// preset set adds appear/wipe (entr), spin (emph), and flyOut (exit) on top
+		// of the Phase 1 four. Emits one on-click effect per preset across all three
+		// classes (mirrors slide-animation-presets.pptx). Asserts the timing tree +
+		// p:bldLst for the new templates stays schema-valid.
+		name: 'expanded preset build animations (appear/wipe/spin/flyOut)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				const presets = ['appear', 'wipe', 'spin', 'flyOut']
+				presets.forEach((preset, i) => {
+					const nm = `shape-${preset}`
+					s.addText(nm, { x: 1, y: 1 + i, w: 3, h: 1, objectName: nm })
+					s.addAnimation({ preset, shapeIndex: i, trigger: 'onClick' })
+				})
+			})
+			await expectNoSchemaErrors(buf, 'expanded-preset-animations')
+		},
+	},
+	{
+		// Phase 2 capability C (docs/animations-and-transitions.md): transition sounds.
+		// A start sound (p:sndAc/p:stSnd/p:snd r:embed) pulls in an audio relationship,
+		// an embedded WAV media part, and a wav=audio/x-wav Default content type; the
+		// looped form adds @loop and the stop-previous form is a bare p:endSnd (no rel/
+		// part). Mirrors slide-transition-sound.pptx. Asserts the whole package — slide
+		// XML, slide rels, and content types — stays schema-valid.
+		name: 'slide transition sounds (p:sndAc start/loop/stop + audio rel graph)',
+		fn: async () => {
+			// Minimal valid 16-bit PCM mono WAV (silent), enough to embed a real audio part.
+			const wav = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA='
+			const { buf } = await build((p) => {
+				p.addSlide().transition = { type: 'fade', durationMs: 2000, sound: { data: wav, name: 'ding.wav' } }
+				p.addSlide().transition = { type: 'fade', durationMs: 2000, sound: { data: wav, name: 'ding.wav', loop: true } }
+				p.addSlide().transition = { type: 'fade', durationMs: 2000, sound: { stopPrevious: true } }
+			})
+			await expectNoSchemaErrors(buf, 'transition-sounds')
+		},
+	},
+	{
 		// Speaker-notes hyperlinks + rich runs (upstream-issue-1250): notes runs carry
 		// inline formatting and external `url` hyperlinks. The hyperlink emits an
 		// <a:hlinkClick> in the notes body and an external relationship in the notes

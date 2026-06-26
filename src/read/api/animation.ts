@@ -10,7 +10,21 @@
  * structural operations: **enumerate**, **remap**, and **prune**. See
  * `docs/animations-and-transitions.md` ("spid-awareness").
  */
-import { OOXML_NS, attr, childElements, firstChild, intValue, setAttr, type Element } from '../oxml/dom.js'
+import {
+	OOXML_NS,
+	attr,
+	childElements,
+	createElement,
+	firstChild,
+	insertInOrder,
+	intValue,
+	parseXml,
+	setAttr,
+	type Document,
+	type Element,
+} from '../oxml/dom.js'
+
+const P_NS = OOXML_NS.p
 
 /** Every element carrying an animation `spid` reference, across the timing tree and build list. */
 function spidElements(root: Element): Element[] {
@@ -152,4 +166,155 @@ export function pruneSpids(root: Element, spids: Iterable<number>): boolean {
 	}
 
 	return changed
+}
+
+// --- carry: bring a copied shape's build animation into a destination slide ---
+
+const P_XMLNS = `xmlns:p="${P_NS}"`
+/** A fresh `p:timing` carrying only an empty `tmRoot` (no effects yet). */
+const TIMING_SCAFFOLD = `<p:timing ${P_XMLNS}><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst/></p:cTn></p:par></p:tnLst></p:timing>`
+/** A fresh `mainSeq` `p:seq` (its `cTn@id` is filled in by the caller). */
+const MAIN_SEQ_SCAFFOLD =
+	`<p:seq ${P_XMLNS} concurrent="1" nextAc="seek"><p:cTn id="0" dur="indefinite" nodeType="mainSeq"><p:childTnLst/></p:cTn>` +
+	'<p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst>' +
+	'<p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst></p:seq>'
+
+/** Largest `<p:cTn @id>` in a subtree (0 when none). */
+function maxCTnId(scope: Element): number {
+	let max = 0
+	const cTns = scope.getElementsByTagNameNS(P_NS, 'cTn')
+	for (let i = 0; i < cTns.length; i++) {
+		const id = intValue(attr(cTns[i], 'id'))
+		if (id !== null && id > max) max = id
+	}
+	return max
+}
+
+/** Renumber every `<p:cTn @id>` in `node` (document order) starting at `start`; returns the next free id. */
+function renumberCTnIds(node: Element, start: number): number {
+	let id = start
+	const cTns = node.getElementsByTagNameNS(P_NS, 'cTn')
+	for (let i = 0; i < cTns.length; i++) setAttr(cTns[i], 'id', String(id++))
+	return id
+}
+
+/** Whether `par`'s subtree targets any of `spids` via a `<p:spTgt>`. */
+function targetsAnySpid(par: Element, spids: Set<number>): boolean {
+	const spTgts = par.getElementsByTagNameNS(P_NS, 'spTgt')
+	for (let i = 0; i < spTgts.length; i++) {
+		const spid = intValue(attr(spTgts[i], 'spid'))
+		if (spid !== null && spids.has(spid)) return true
+	}
+	return false
+}
+
+/** Parse a namespaced scaffold string and import its root into `doc`. */
+function importScaffold(doc: Document, xml: string): Element {
+	return doc.importNode(parseXml(xml).documentElement as Element, true) as Element
+}
+
+/** The destination `mainSeq` `p:childTnLst` to append click groups into, creating the timing/seq scaffold as needed. */
+function getOrCreateMainSeqChildTnLst(root: Element, doc: Document): Element {
+	let timing = firstChild(root, 'p:timing')
+	if (!timing) {
+		timing = importScaffold(doc, TIMING_SCAFFOLD)
+		insertInOrder(root, timing, ['p:extLst'])
+	}
+	// Reuse an existing mainSeq if present.
+	const existingSeq = timing.getElementsByTagNameNS(P_NS, 'seq')[0] as Element | undefined
+	if (existingSeq) {
+		const seqCTn = firstChild(existingSeq, 'p:cTn')
+		if (seqCTn) {
+			let childLst = firstChild(seqCTn, 'p:childTnLst')
+			if (!childLst) {
+				childLst = createElement(doc, 'p:childTnLst')
+				seqCTn.appendChild(childLst)
+			}
+			return childLst
+		}
+	}
+	// Otherwise insert a fresh mainSeq into the tmRoot child list (before any media nodes).
+	let tmRootChildLst = timing.getElementsByTagNameNS(P_NS, 'childTnLst')[0] as Element | undefined
+	if (!tmRootChildLst) {
+		// Degenerate timing with no tmRoot child list — graft the full scaffold's tnLst.
+		const fresh = importScaffold(doc, TIMING_SCAFFOLD)
+		const freshTnLst = firstChild(fresh, 'p:tnLst')
+		if (freshTnLst) insertInOrder(timing, freshTnLst, ['p:bldLst', 'p:extLst'])
+		tmRootChildLst = timing.getElementsByTagNameNS(P_NS, 'childTnLst')[0] as Element
+	}
+	const seq = importScaffold(doc, MAIN_SEQ_SCAFFOLD)
+	setAttr(firstChild(seq, 'p:cTn') as Element, 'id', String(maxCTnId(timing) + 1))
+	tmRootChildLst.insertBefore(seq, tmRootChildLst.firstChild)
+	return firstChild(firstChild(seq, 'p:cTn') as Element, 'p:childTnLst') as Element
+}
+
+/** The destination `p:bldLst` (under `p:timing`), creating it before any `p:extLst`. */
+function getOrCreateBldLst(timing: Element, doc: Document): Element {
+	let bldLst = firstChild(timing, 'p:bldLst')
+	if (!bldLst) {
+		bldLst = createElement(doc, 'p:bldLst')
+		insertInOrder(timing, bldLst, ['p:extLst'])
+	}
+	return bldLst
+}
+
+/**
+ * Carry the build animation of one or more copied shapes from `sourceRoot`'s
+ * timing into `targetRoot`'s, remapping shape ids via `spidMap` (source id → new
+ * id on the destination). For each mapped shape: its mainSeq click-group `<p:par>`
+ * (the whole click step) and `<p:bldP>` are cloned, their `spid`s remapped, their
+ * `<p:cTn>` ids renumbered to stay collision-free in the destination, and appended
+ * after any existing build — matching how PowerPoint merges a pasted shape's
+ * animation. Returns `true` when anything was carried (so the caller can
+ * `markDirty()`), `false` when the source shapes have no animation.
+ */
+export function carryShapeAnimations(sourceRoot: Element, targetRoot: Element, spidMap: Map<number, number>): boolean {
+	const sourceTiming = firstChild(sourceRoot, 'p:timing')
+	if (!sourceTiming) return false
+	const carriedSpids = new Set(spidMap.keys())
+
+	// Source click groups (direct children of the mainSeq child list) that target a carried shape.
+	const sourceSeq = sourceTiming.getElementsByTagNameNS(P_NS, 'seq')[0] as Element | undefined
+	const groups: Element[] = []
+	if (sourceSeq) {
+		const seqCTn = firstChild(sourceSeq, 'p:cTn')
+		const seqChildLst = seqCTn ? firstChild(seqCTn, 'p:childTnLst') : null
+		if (seqChildLst) {
+			for (const par of childElements(seqChildLst)) {
+				if (targetsAnySpid(par, carriedSpids)) groups.push(par)
+			}
+		}
+	}
+	// Source build-list entries for the carried shapes.
+	const sourceBldLst = firstChild(sourceTiming, 'p:bldLst')
+	const bldPs: Element[] = []
+	if (sourceBldLst) {
+		for (const bldP of childElements(sourceBldLst)) {
+			const spid = intValue(attr(bldP, 'spid'))
+			if (spid !== null && carriedSpids.has(spid)) bldPs.push(bldP)
+		}
+	}
+	if (groups.length === 0 && bldPs.length === 0) return false
+
+	const doc = targetRoot.ownerDocument as Document
+	const destChildLst = getOrCreateMainSeqChildTnLst(targetRoot, doc)
+	const destTiming = firstChild(targetRoot, 'p:timing') as Element
+	let nextId = maxCTnId(destTiming) + 1
+
+	for (const par of groups) {
+		const clone = doc.importNode(par, true) as Element
+		remapSpids(clone, spidMap)
+		nextId = renumberCTnIds(clone, nextId)
+		destChildLst.appendChild(clone)
+	}
+	if (bldPs.length > 0) {
+		const destBldLst = getOrCreateBldLst(destTiming, doc)
+		for (const bldP of bldPs) {
+			const clone = doc.importNode(bldP, true) as Element
+			const spid = intValue(attr(clone, 'spid'))
+			if (spid !== null && spidMap.has(spid)) setAttr(clone, 'spid', String(spidMap.get(spid)))
+			destBldLst.appendChild(clone)
+		}
+	}
+	return true
 }

@@ -20,6 +20,7 @@ import {
 } from './core-enums.js'
 import type {
 	AnimationProps,
+	TransitionProps,
 	BorderProps,
 	CustomPropertyValue,
 	IPresentationProps,
@@ -2401,6 +2402,23 @@ function transitionSpeedForDuration (durationMs: number): 'slow' | 'med' | 'fast
  * `docs/animations-and-transitions.md`.
  * @returns {string} the transition XML, or `''` when the slide has no transition
  */
+/**
+ * Build the `p:sndAc` sound-action child of `p:transition` (positioned after the
+ * transition-type element). A start sound is `<p:stSnd [loop="1"]><p:snd r:embed
+ * name/></p:stSnd>` referencing the embedded WAV by the relationship id stamped on
+ * `transition._sndRId`; the stop-previous form is `<p:endSnd/>` (no rel). Returns
+ * `''` when the transition has no sound.
+ */
+function transitionSoundToXml (transition: TransitionProps): string {
+	const sound = transition.sound
+	if (!sound) return ''
+	if (sound.stopPrevious) return '<p:sndAc><p:endSnd/></p:sndAc>'
+	if (typeof transition._sndRId !== 'number') return '' // no embedded part registered
+	const loopAttr = sound.loop ? ' loop="1"' : ''
+	const nameAttr = sound.name ? ` name="${encodeXmlEntities(sound.name)}"` : ''
+	return `<p:sndAc><p:stSnd${loopAttr}><p:snd r:embed="rId${transition._sndRId}"${nameAttr}/></p:stSnd></p:sndAc>`
+}
+
 function slideTransitionToXml (slide: PresSlideInternal): string {
 	const transition = slide.transition
 	if (!transition?.type) return ''
@@ -2409,6 +2427,7 @@ function slideTransitionToXml (slide: PresSlideInternal): string {
 		.map(([name, value]) => ` ${name}="${encodeXmlEntities(String(value))}"`)
 		.join('')
 	const typeEl = `<p:${transition.type}${variantAttrs}/>`
+	const sndAc = transitionSoundToXml(transition)
 
 	const hasDuration = typeof transition.durationMs === 'number' && isFinite(transition.durationMs)
 	const speed = transition.speed ?? (hasDuration ? transitionSpeedForDuration(transition.durationMs as number) : null)
@@ -2417,16 +2436,16 @@ function slideTransitionToXml (slide: PresSlideInternal): string {
 		`${transition.advanceOnClick === false ? ' advClick="0"' : ''}` +
 		`${typeof transition.advanceAfterMs === 'number' ? ` advTm="${Math.round(transition.advanceAfterMs)}"` : ''}`
 
-	if (!hasDuration) return `<p:transition${baseAttrs}>${typeEl}</p:transition>`
+	if (!hasDuration) return `<p:transition${baseAttrs}>${typeEl}${sndAc}</p:transition>`
 
 	const dur = Math.round(transition.durationMs as number)
 	return (
 		'<mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006">' +
 		'<mc:Choice xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" Requires="p14">' +
-		`<p:transition${baseAttrs} p14:dur="${dur}">${typeEl}</p:transition>` +
+		`<p:transition${baseAttrs} p14:dur="${dur}">${typeEl}${sndAc}</p:transition>` +
 		'</mc:Choice>' +
 		'<mc:Fallback>' +
-		`<p:transition${baseAttrs}>${typeEl}</p:transition>` +
+		`<p:transition${baseAttrs}>${typeEl}${sndAc}</p:transition>` +
 		'</mc:Fallback>' +
 		'</mc:AlternateContent>'
 	)
@@ -2456,16 +2475,45 @@ const ANIM_SET_VISIBLE = (spid: number, next: () => number): string =>
 	`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr>` +
 	'<p:to><p:strVal val="visible"/></p:to></p:set>'
 
-const ANIM_FADE = (transition: 'in' | 'out', spid: number, dur: number, next: () => number): string =>
-	`<p:animEffect transition="${transition}" filter="fade"><p:cBhvr><p:cTn id="${next()}" dur="${dur}"/>` +
+const ANIM_SET_HIDDEN = (spid: number, dur: number, next: () => number): string =>
+	`<p:set><p:cBhvr><p:cTn id="${next()}" dur="1" fill="hold"><p:stCondLst><p:cond delay="${Math.max(0, dur - 1)}"/></p:stCondLst></p:cTn>` +
+	`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr>` +
+	'<p:to><p:strVal val="hidden"/></p:to></p:set>'
+
+/** `p:animEffect` filter transition (fade/wipe(down)/…), shared by entrance and exit presets. */
+const ANIM_EFFECT = (transition: 'in' | 'out', filter: string, spid: number, dur: number, next: () => number): string =>
+	`<p:animEffect transition="${transition}" filter="${filter}"><p:cBhvr><p:cTn id="${next()}" dur="${dur}"/>` +
 	`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl></p:cBhvr></p:animEffect>`
 
-const ANIM_FLY_AXIS = (axis: 'x' | 'y', spid: number, dur: number, next: () => number): string => {
-	const from = axis === 'x' ? '#ppt_x' : '1+#ppt_h/2'
-	const to = axis === 'x' ? '#ppt_x' : '#ppt_y'
+const ANIM_FADE = (transition: 'in' | 'out', spid: number, dur: number, next: () => number): string =>
+	ANIM_EFFECT(transition, 'fade', spid, dur, next)
+
+/**
+ * One `ppt_x`/`ppt_y` motion `<p:anim>` for Fly In (entrance) / Fly Out (exit).
+ * PowerPoint authors the two directions differently (captured in
+ * `slide-animation-presets.oracle.json`): the entrance form references the
+ * hashed run-time variables (`#ppt_x`) and holds (`fill="hold"`) starting
+ * off-screen and ending in place; the exit form uses the bare variables
+ * (`ppt_x`, no `#`), omits `fill="hold"`, and ends off-screen.
+ */
+const ANIM_FLY_AXIS = (direction: 'in' | 'out', axis: 'x' | 'y', spid: number, dur: number, next: () => number): string => {
+	const h = direction === 'in' ? '#' : ''
+	let from: string
+	let to: string
+	if (axis === 'x') {
+		from = `${h}ppt_x`
+		to = `${h}ppt_x`
+	} else if (direction === 'in') {
+		from = `1+${h}ppt_h/2`
+		to = `${h}ppt_y`
+	} else {
+		from = `${h}ppt_y`
+		to = `1+${h}ppt_h/2`
+	}
+	const fillAttr = direction === 'in' ? ' fill="hold"' : ''
 	return (
 		'<p:anim calcmode="lin" valueType="num"><p:cBhvr additive="base">' +
-		`<p:cTn id="${next()}" dur="${dur}" fill="hold"/><p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+		`<p:cTn id="${next()}" dur="${dur}"${fillAttr}/><p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
 		`<p:attrNameLst><p:attrName>ppt_${axis}</p:attrName></p:attrNameLst></p:cBhvr>` +
 		`<p:tavLst><p:tav tm="0"><p:val><p:strVal val="${from}"/></p:val></p:tav>` +
 		`<p:tav tm="100000"><p:val><p:strVal val="${to}"/></p:val></p:tav></p:tavLst></p:anim>`
@@ -2485,7 +2533,22 @@ const ANIM_PRESETS: Record<string, AnimPresetMeta> = {
 		presetClass: 'entr',
 		presetSubtype: 4,
 		defaultDurationMs: 500,
-		behaviors: (spid, dur, next) => ANIM_SET_VISIBLE(spid, next) + ANIM_FLY_AXIS('x', spid, dur, next) + ANIM_FLY_AXIS('y', spid, dur, next),
+		behaviors: (spid, dur, next) =>
+			ANIM_SET_VISIBLE(spid, next) + ANIM_FLY_AXIS('in', 'x', spid, dur, next) + ANIM_FLY_AXIS('in', 'y', spid, dur, next),
+	},
+	appear: {
+		presetID: 1,
+		presetClass: 'entr',
+		presetSubtype: 0,
+		defaultDurationMs: 500,
+		behaviors: (spid, _dur, next) => ANIM_SET_VISIBLE(spid, next),
+	},
+	wipe: {
+		presetID: 22,
+		presetClass: 'entr',
+		presetSubtype: 4,
+		defaultDurationMs: 500,
+		behaviors: (spid, dur, next) => ANIM_SET_VISIBLE(spid, next) + ANIM_EFFECT('in', 'wipe(down)', spid, dur, next),
 	},
 	grow: {
 		presetID: 6,
@@ -2496,16 +2559,29 @@ const ANIM_PRESETS: Record<string, AnimPresetMeta> = {
 			`<p:animScale><p:cBhvr><p:cTn id="${next()}" dur="${dur}" fill="hold"/>` +
 			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl></p:cBhvr><p:by x="150000" y="150000"/></p:animScale>`,
 	},
+	spin: {
+		presetID: 8,
+		presetClass: 'emph',
+		presetSubtype: 0,
+		defaultDurationMs: 2000,
+		behaviors: (spid, dur, next) =>
+			`<p:animRot by="21600000"><p:cBhvr><p:cTn id="${next()}" dur="${dur}" fill="hold"/>` +
+			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl><p:attrNameLst><p:attrName>r</p:attrName></p:attrNameLst></p:cBhvr></p:animRot>`,
+	},
 	fadeOut: {
 		presetID: 10,
 		presetClass: 'exit',
 		presetSubtype: 0,
 		defaultDurationMs: 500,
+		behaviors: (spid, dur, next) => ANIM_FADE('out', spid, dur, next) + ANIM_SET_HIDDEN(spid, dur, next),
+	},
+	flyOut: {
+		presetID: 2,
+		presetClass: 'exit',
+		presetSubtype: 4,
+		defaultDurationMs: 500,
 		behaviors: (spid, dur, next) =>
-			ANIM_FADE('out', spid, dur, next) +
-			`<p:set><p:cBhvr><p:cTn id="${next()}" dur="1" fill="hold"><p:stCondLst><p:cond delay="${Math.max(0, dur - 1)}"/></p:stCondLst></p:cTn>` +
-			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr>` +
-			'<p:to><p:strVal val="hidden"/></p:to></p:set>',
+			ANIM_FLY_AXIS('out', 'x', spid, dur, next) + ANIM_FLY_AXIS('out', 'y', spid, dur, next) + ANIM_SET_HIDDEN(spid, dur, next),
 	},
 }
 

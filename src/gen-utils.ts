@@ -594,7 +594,7 @@ export function avContentType (extn: string, mtype: 'audio' | 'video'): string {
 		// audio
 		case 'mp3': return 'audio/mpeg'
 		case 'm4a': return 'audio/mp4'
-		case 'wav': return 'audio/wav'
+		case 'wav': return 'audio/x-wav' // PowerPoint authors the x- form (e.g. embedded transition sounds)
 		case 'wma': return 'audio/x-ms-wma'
 		case 'aac': return 'audio/aac'
 		case 'oga':

@@ -605,7 +605,7 @@ items:
 
       Phase 2 FIXTURE GATE SATISFIED (2026-06-26) — the three Phase 2 oracle decks are now
       AUTHORED + verified clean via COM (no repair prompt), so each capability is unblocked for
-      implementation (code not yet written):
+      implementation:
       - test/read/fixtures/slide-animation-presets.pptx (+ .oracle.json) — one labeled shape per
         downstream preset across all three classes; pins the verbatim write-side templates for
         the NEW presets appear (presetID 1), wipe (22, filter "wipe(down)"), spin (8, animRot
@@ -613,19 +613,46 @@ items:
         byte-for-byte. presetTemplates maps preset -> {key, effectParXml, behaviorsXml, bldPXml}.
         NOTE: opacity-based emphasis "Pulse" is NOT reachable via COM AddEffect (legacy MsoAnimEffect
         enum, probed 1..150) so the emphasis pair is grow+spin; Pulse recorded as a gap.
+        CAPABILITY B IMPLEMENTED (2026-06-26). ANIM_PRESETS in src/gen-xml.ts gained appear/wipe/spin/
+        flyOut and PresetEffect (src/core-interfaces.ts) was extended to the 8-preset set. flyOut
+        captures PowerPoint's exit-fly quirks verbatim: bare ppt_x/ppt_y run-time vars (NO leading #,
+        unlike entrance flyIn), no fill="hold" on the motion cTn, and a trailing set-hidden at delay
+        dur-1; the fade/fly/set-hidden helpers were refactored direction-aware (ANIM_EFFECT,
+        ANIM_FLY_AXIS('in'|'out'), ANIM_SET_HIDDEN) to share code. Verified byte-for-byte: the new
+        regression case "emits every preset … byte-for-byte" asserts the full 8-shape timing tree
+        equals slide-animation-presets.oracle.json timingXml; a new test/schema.test.js fixture
+        ("expanded preset build animations") validates the new templates clean.
       - test/read/fixtures/slide-transition-sound.pptx (+ .oracle.json) — sndAc: embedded start sound
         (p:sndAc/p:stSnd/p:snd r:embed -> audio rel -> ppt/media/audio1.wav, Default wav=audio/x-wav),
         looped (stSnd loop="1"), and stop-previous (p:endSnd, no rel). Built-in sounds embed
         IDENTICALLY to a custom import (probed SoundEffect.Name="Applause" -> applause.wav); committed
         fixture uses a self-generated WAV to stay license-clean of Microsoft's bundled audio.
+        CAPABILITY C IMPLEMENTED (2026-06-26). Write: slide.transition.sound (TransitionSoundProps:
+        data/path/name/loop, or stopPrevious) makes slideTransitionToXml emit the p:sndAc after the
+        transition-type element (in both the p14 Choice and the base Fallback). An export-time pass
+        registerTransitionSounds() in src/pptxgen.ts (runs before encodeSlideMediaRels) registers the
+        ECMA audio relationship + ppt/media/*.wav part and stamps transition._sndRId for the r:embed;
+        the existing cross-deck media dedup collapses identical sound bytes to one part. avContentType
+        ('wav') corrected audio/wav -> audio/x-wav (src/gen-utils.ts) to match PowerPoint; affects
+        addMedia WAV audio too. Read: TransitionInfo.sound (TransitionSoundInfo: form/loop/embedRid/
+        name) decodes p:sndAc in src/read/api/transition.ts. The assigned rId is PptxGenJS's own
+        (not PowerPoint's rId2), so the regression compares the sndAc rId-normalized. Verified: 3 new
+        regression cases (sndAc forms vs oracle, audio rel + embedded part wiring, cross-slide dedup +
+        wav content type), a new test/schema.test.js fixture ("slide transition sounds") validating the
+        embedded-sound package clean, and the slide-transition-sound read test extended to assert the
+        decoded TransitionInfo.sound.
       - test/read/fixtures/import-animation-merge.pptx (+ .oracle.json) — cross-slide copy: "Source"
         (slide 1 spid 2, fade) pasted onto slide 2 (host "HostExisting" spid 2, fly). PowerPoint's
         merge ground truth: pasted shape takes next free spid (2->3), the carried build's spTgt/bldP
         are renumbered to it, appended as a new click group after the host's build + bldP, and all
         cTn ids renumbered in document order. mergeMap pins the spid remap + build ordering. Gate for
         dn-importshape-v1-limits.
-      Import-path spid remap (remapAnimationSpids) is available but not yet wired into importSlide /
-      importShape preserve/restyle.
+        CAPABILITY A IMPLEMENTED (2026-06-26): importShape/importShapes gained an opt-in
+        { carryAnimation } that copies the lifted shape's mainSeq click-group(s) + <p:bldP> into
+        the destination p:timing, remapped to the shape's new id and appended after any existing
+        build (carryShapeAnimations in src/read/api/animation.ts). See companion dn-importshape-v1-limits.
+      Import-path spid remap (remapAnimationSpids) is wired into importShape's carryAnimation; it is
+      still available but not auto-applied by importSlide preserve/restyle (those keep ids stable).
     evidence:
       kinds:
         - local-source-inspection
@@ -1879,65 +1906,60 @@ items:
     type: downstream-need
     first_seen: 2026-06-18
     last_reviewed: 2026-06-26
-    status: deferred
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
-    summary: "importShape drops the lifted shape's build animation/timing — shapes land static"
+    summary: "importShape can carry the lifted shape's build animation into the destination timing"
     current_project_notes: |
-      FIXTURE GATE NOW SATISFIED (2026-06-26): test/read/fixtures/import-animation-merge.pptx
-      (+ .oracle.json) is the PowerPoint-authored cross-slide copy/merge oracle this needs —
-      "Source" (slide 1 spid 2, fade) pasted onto slide 2 (host spid 2, fly). It pins the
-      observed merge: pasted shape takes the next free spid (2->3); the carried build's
-      <p:spTgt @spid>/<p:bldP @spid> are renumbered onto it; the build is appended as a new
-      click group after the host's, its bldP appended after the host's; all <p:cTn id> are
-      renumbered in document order. mergeMap records the spid remap + build ordering. Still
-      DEFERRED (low value, below) — the oracle exists so the remap+merge can be written against
-      a fixed target when a deck depends on it.
+      IMPLEMENTED (2026-06-26) as Phase 2 capability A of docs/animations-and-transitions.md,
+      against the fixture gate test/read/fixtures/import-animation-merge.pptx (+ .oracle.json) —
+      the PowerPoint-authored cross-slide copy/merge oracle ("Source" slide 1 spid 2 fade pasted
+      onto slide 2 host spid 2 fly): pasted shape takes the next free spid (2->3); the carried
+      build's <p:spTgt @spid>/<p:bldP @spid> renumbered onto it; build appended as a new click
+      group after the host's; bldP appended after the host's; mergeMap pins the remap + ordering.
 
-      A shape lifted via importShape/importShapes lands STATIC: the source slide's
-      build animation and <p:timing> references for that shape are not carried over.
-      The shape's geometry, fill, and (for placeholders) inherited formatting are
-      preserved, but any entrance/emphasis/exit build it had on the source slide is
-      silently dropped, so it renders/edits as its final at-rest state.
+      importShape/importShapes gained an opt-in option { carryAnimation?: boolean } (default
+      false — a lifted shape still lands static unless asked, since most slides have no animation
+      and carrying changes the host timeline). When set, importShapes records the source-id ->
+      new-id map while it renumbers the lifted subtree's cNvPr ids, then carryShapeAnimations()
+      (src/read/api/animation.ts) copies the shape's mainSeq click-group <p:par>(s) and <p:bldP>
+      into the destination p:timing: spids remapped via the id map (reusing remapSpids), <p:cTn>
+      ids renumbered from the destination's max+1 to stay collision-free, click groups appended
+      after any existing build, bldP appended to (or a fresh) <p:bldLst>. getOrCreateMainSeqChild
+      TnLst builds the tmRoot/mainSeq scaffold (parsed from a namespaced template) when the host
+      has no timing, inserting it at the schema slot (after p:transition, before p:extLst) so a
+      transition-bearing host keeps its transition.
 
-      To close this, importShape would need to carry the lifted shape's animation
-      across the deck boundary:
-        - a read-side timing model that can locate the build node(s) targeting the
-          source shape inside the source slide's <p:timing> timeline;
-        - remap of the timing target ids onto the lifted shape's NEW id — at minimum
-          <p:spTgt @spid> and the <p:bldP @spid> build-list entry, plus any other
-          node referencing the old shape id;
-        - a merge of those nodes into the host slide's <p:timing> (creating one if the
-          host has none), preserving relative ordering without colliding with the
-          host's existing build sequence;
-        - downstream, the downstream stitch/harvest map grows
-          sourceDeck + sourceSlide + shapeIndices so the lift can find the source
-          timeline at all.
+      Verified: the destination timing is PptxGenJS's own construction (not byte-equal to
+      PowerPoint's full-tree cTn renumber), so the test asserts the mergeMap semantics rather than
+      byte-for-byte — test/read/animations-transitions.test.js "importShape carryAnimation"
+      (default-drop; append-after-host with the carried bldP last + the carried fade targeting the
+      new spid + unique cTn ids + no dangling spids across a reopen; fresh-scaffold-on-no-animation
+      host with the transition preserved; and a schema-valid carried package via the OOXML
+      validator).
 
-      Companion item dn-flatten-slide-animations is the inverse, whole-slide pass
-      (strip <p:timing> so a slide renders as its final static state); the two share
-      the read-side timing model but are distinct capabilities — keep "carry a shape's
-      animation across decks" separate from "drop a slide's animations".
-
-      Low value per a reference-corpus scan: only 3 of 640 slides carry any animation
-      and none of the chosen references do, so this is parked until a deck actually
-      depends on animated source shapes.
+      Companion item dn-flatten-slide-animations remains the inverse, whole-slide pass (strip
+      <p:timing>); distinct capability, still deferred.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - powerpoint-authored-comparison
+        - validator-result
       local_files:
         - src/read/api/presentation.ts
-        - src/read/oxml/theme.ts
+        - src/read/api/animation.ts
+        - test/read/animations-transitions.test.js
         - test/read/fixtures/import-animation-merge.pptx
         - test/read/fixtures/import-animation-merge.oracle.json
-      schema_fixture: null
-      validator_result: null
+      schema_fixture: test/read/animations-transitions.test.js
+      validator_result: clean
       powerpoint_result: "Cross-slide copy/merge oracle authored + reopened clean via Windows desktop PowerPoint COM 2026-06-26 (no repair prompt). See test/read/fixtures/README.md."
       spec_refs: []
-    next_action: revisit-per-need
+    next_action: none
   - id: dn-flatten-slide-animations
     source: downstream
     type: downstream-need

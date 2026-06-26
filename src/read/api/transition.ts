@@ -50,6 +50,20 @@ export interface TransitionInfo {
 	advanceAfterMs: number | null
 	/** Type-specific variant attributes (e.g. `{ dir: 'd' }` for push, `{ spokes: '2' }` for wheel). */
 	variant: Record<string, string>
+	/** Transition sound (`p:sndAc`), or `null` when the transition is silent. */
+	sound: TransitionSoundInfo | null
+}
+
+/** Decoded transition sound (`p:sndAc`). A start sound (`p:stSnd`) or the stop-previous form (`p:endSnd`). */
+export interface TransitionSoundInfo {
+	/** `start` for an embedded start sound (`p:stSnd`), `stop` for the stop-previous form (`p:endSnd`). */
+	form: 'start' | 'stop'
+	/** Whether the start sound loops until the next sound (`p:stSnd @loop`). Always `false` for `stop`. */
+	loop: boolean
+	/** Relationship id of the embedded WAV (`p:snd @r:embed`), or `null` (stop form / missing). */
+	embedRid: string | null
+	/** Display name on `p:snd @name`, or `null`. */
+	name: string | null
 }
 
 /** Transition fields accepted by the {@link Slide.transition} setter. `speed` defaults are derived from `durationMs`. */
@@ -141,7 +155,26 @@ export function parseTransition(root: Element): TransitionInfo | null {
 		advanceOnClick: advClick ?? true,
 		advanceAfterMs: advTm,
 		variant: variantAttrs(type),
+		sound: parseSound(transition),
 	}
+}
+
+/** Decode the `p:sndAc` sound-action child of a transition into a {@link TransitionSoundInfo}, or `null`. */
+function parseSound(transition: Element): TransitionSoundInfo | null {
+	const sndAc = firstChild(transition, 'p:sndAc')
+	if (!sndAc) return null
+	const stSnd = firstChild(sndAc, 'p:stSnd')
+	if (stSnd) {
+		const snd = firstChild(stSnd, 'p:snd')
+		return {
+			form: 'start',
+			loop: boolValue(attr(stSnd, 'loop')) ?? false,
+			embedRid: snd ? attr(snd, 'r:embed') : null,
+			name: snd ? attr(snd, 'name') : null,
+		}
+	}
+	if (firstChild(sndAc, 'p:endSnd')) return { form: 'stop', loop: false, embedRid: null, name: null }
+	return null
 }
 
 /** Map an exact duration (ms) to PowerPoint's coarse speed bucket. */

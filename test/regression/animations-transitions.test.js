@@ -29,6 +29,18 @@ function transitionOf(xml) {
 	return m ? m[0] : null
 }
 
+function sndAcOf(xml) {
+	const m = xml.match(/<p:sndAc>[\s\S]*?<\/p:sndAc>/)
+	return m ? m[0] : null
+}
+
+// PptxGenJS numbers slide rels by its own deterministic scheme (media first), so an
+// embedded sound's rId differs from PowerPoint's authored value; normalize for the
+// structural comparison (internal consistency is asserted separately).
+function normRid(s) {
+	return s == null ? s : s.replace(/rId\d+/g, 'rId#')
+}
+
 defineRegressionSuite('Slide transitions (write)', [
 	{
 		name: 'emits each PowerPoint transition form byte-for-byte (bare + mc:AlternateContent)',
@@ -74,6 +86,34 @@ defineRegressionSuite('Slide transitions (write)', [
 
 defineRegressionSuite('Preset build animations (write)', [
 	{
+		// Phase 2 capability B: the expanded preset set. One on-click effect per
+		// preset across all three classes (entr/emph/exit), reproducing
+		// slide-animation-presets.pptx (spids 2..9). Asserts the whole timing tree
+		// byte-for-byte — reconfirms fadeIn/flyIn/grow/fadeOut and pins the new
+		// appear/wipe/spin/flyOut templates against the PowerPoint oracle.
+		name: 'emits every preset (incl. appear/wipe/spin/flyOut) byte-for-byte',
+		fn: async () => {
+			const oracle = await loadOracle('slide-animation-presets')
+			const order = ['fadeIn', 'flyIn', 'appear', 'wipe', 'grow', 'spin', 'fadeOut', 'flyOut']
+			const names = [
+				'entr-fadeIn',
+				'entr-flyIn',
+				'entr-appear',
+				'entr-wipe',
+				'emph-grow',
+				'emph-spin',
+				'exit-fadeOut',
+				'exit-flyOut',
+			]
+			const xml = await slideXml((p) => {
+				const s = p.addSlide()
+				names.forEach((nm) => s.addText(nm, { x: 1, y: 1, w: 3, h: 1, objectName: nm }))
+				order.forEach((preset, i) => s.addAnimation({ preset, shapeIndex: i, trigger: 'onClick' }))
+			})
+			assert(timingOf(xml) === oracle.timingXml, 'full preset timing tree matches PowerPoint oracle')
+		},
+	},
+	{
 		name: 'emits the rich multi-effect mainSeq byte-for-byte',
 		fn: async () => {
 			const oracle = await loadOracle('slide-animation-rich')
@@ -112,6 +152,77 @@ defineRegressionSuite('Preset build animations (write)', [
 			})
 			assert(/<p:bldP spid="3" grpId="0"\/>/.test(xml), 'bldP targets resolved spid 3')
 			assert(/<p:spTgt spid="3"\/>/.test(xml), 'effect targets resolved spid 3')
+		},
+	},
+])
+
+// Phase 2 capability C: transition sounds (p:sndAc). The writer reproduces
+// PowerPoint's sndAc forms (embedded start / looped / stop-previous) plus the audio
+// rel + media part + content-type graph, deduping identical sound bytes. rIds use
+// PptxGenJS's own numbering, so the sndAc is compared rId-normalized to the oracle.
+const SOUND_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA='
+
+defineRegressionSuite('Transition sounds (write)', [
+	{
+		name: 'emits the sndAc start/loop/stop forms matching the PowerPoint oracle (rId-normalized)',
+		fn: async () => {
+			const oracle = await loadOracle('slide-transition-sound')
+			const { zip } = await build((p) => {
+				p.addSlide().transition = { type: 'fade', durationMs: 2000, sound: { data: SOUND_WAV, name: 'ding.wav' } }
+				p.addSlide().transition = {
+					type: 'fade',
+					durationMs: 2000,
+					sound: { data: SOUND_WAV, name: 'ding.wav', loop: true },
+				}
+				p.addSlide().transition = { type: 'fade', durationMs: 2000, sound: { stopPrevious: true } }
+			})
+			for (let i = 0; i < oracle.slides.length; i++) {
+				const xml = await readEntry(zip, `ppt/slides/slide${i + 1}.xml`)
+				assert(
+					normRid(sndAcOf(xml)) === normRid(oracle.slides[i].soundRels.sndAcXml),
+					`slide ${i + 1} sndAc matches oracle`
+				)
+				// sndAc sits inside the transition, after the type element.
+				assert(/<p:fade\/><p:sndAc>/.test(xml), `slide ${i + 1} sndAc follows the transition type element`)
+			}
+		},
+	},
+	{
+		name: 'wires each start sound to a real audio rel + embeds the WAV; stop-previous adds neither',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().transition = { type: 'fade', sound: { data: SOUND_WAV, name: 'ding.wav' } }
+				p.addSlide().transition = { type: 'fade', sound: { stopPrevious: true } }
+			})
+			const xml1 = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const rels1 = await readEntry(zip, 'ppt/slides/_rels/slide1.xml.rels')
+			const embedRid = xml1.match(/<p:snd r:embed="(rId\d+)"/)[1]
+			// The r:embed points at a real ECMA audio relationship to an embedded media part.
+			const relMatch = rels1.match(
+				new RegExp(`<Relationship Id="${embedRid}"[^>]*relationships/audio[^>]*Target="([^"]+)"`)
+			)
+			assert(relMatch, 'start sound r:embed resolves to an audio relationship')
+			const part = relMatch[1].replace('..', 'ppt')
+			assert(zip.file(part) != null, `embedded WAV part ${part} is present`)
+			// Stop-previous slide carries no sndAc rel and no media reference.
+			const rels2 = await readEntry(zip, 'ppt/slides/_rels/slide2.xml.rels')
+			assert(!/relationships\/audio/.test(rels2), 'stop-previous slide has no audio rel')
+		},
+	},
+	{
+		name: 'dedups identical sound bytes to one media part across slides + emits the wav content type',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().transition = { type: 'fade', sound: { data: SOUND_WAV, name: 'ding.wav' } }
+				p.addSlide().transition = { type: 'fade', sound: { data: SOUND_WAV, name: 'ding.wav', loop: true } }
+			})
+			const wavParts = Object.keys(zip.files).filter((k) => k.startsWith('ppt/media/') && k.endsWith('.wav'))
+			assert(wavParts.length === 1, 'identical sound bytes collapse to a single media part')
+			const ct = await readEntry(zip, '[Content_Types].xml')
+			assert(
+				/<Default Extension="wav" ContentType="audio\/x-wav"\/>/.test(ct),
+				'wav Default content type is audio/x-wav'
+			)
 		},
 	},
 ])
