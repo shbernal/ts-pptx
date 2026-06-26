@@ -129,6 +129,8 @@ vocabulary:
     - vertical-text #         <a:bodyPr vert="…"> text direction
     - style-ref-color #       <p:style> <a:fillRef>/<a:lnRef> theme colour
     - blip-fill-shape #       <a:blipFill> as the fill of a <p:sp>
+    - slide-transition #      <p:transition> slide transition (added 2026-06-26 for docs/animations-and-transitions.md)
+    - build-animation #       <p:timing>/<p:bldLst> per-shape build animation (added 2026-06-26 for docs/animations-and-transitions.md)
 
 item_fields:
   id: stable local identifier; upstream-issue-N / upstream-pr-N for upstream, sf-<slug> for downstream
@@ -495,7 +497,7 @@ items:
     source: "gitbrent/PptxGenJS#1431"
     type: pull-request
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-20
+    last_reviewed: 2026-06-26
     status: deferred
     priority: p3
     target_area:
@@ -505,6 +507,9 @@ items:
       - legacy-dist-artifact
       - upstream-build-system
     summary: Large animation engine for entrance, emphasis, exit, and motion-path animations.
+    constructs:
+      - build-animation
+      - slide-transition
     current_project_notes: |
       Animation OOXML is a broad new feature, not a repair signal. The PR touches
       generated bundles and legacy typings; take the OOXML intent and re-implement
@@ -547,17 +552,49 @@ items:
         class as the engine grows; validate against the oracle decks. Keep p3: a
         low-priority research signal, so oracle decks can be authored opportunistically
         to unblock the model design.
+
+      SCOPE DECISION + FIXTURE GATE SATISFIED (2026-06-26). docs/animations-and-transitions.md
+      is the locked scoping decision for this work and narrows the wholesale #1431 engine to:
+      transitions = full typed model (read + write); animations = OPAQUE spid-aware
+      preservation on read + preset-template authoring (no semantic p:timing AST). The
+      blocking PowerPoint-authored oracle fixtures (the gate) are now AUTHORED and verified
+      clean via COM (no repair prompt):
+      - test/read/fixtures/slide-transition.pptx (+ .oracle.json) — 6 slides covering
+        fade/push(dir)/wipe(dir)/cut/dissolve, fast/med/slow buckets, the bare p:transition
+        form vs the mc:AlternateContent (p14:dur) exact-duration form, and advClick vs advTm.
+        The oracle embeds the full 158-row probed PpEntryEffect(int) -> {element, ns, variant,
+        modernOnly} write-side preset table (159 valid ints incl. 0; the family<<8 intuition
+        is wrong, e.g. 1537 -> dissolve; 95 effects are modern p14/p15/p159-only with a fade
+        fallback).
+      - test/read/fixtures/slide-animation-basic.pptx (+ .oracle.json) — one entrance Fade
+        on click; pins the p:timing/p:bldLst tree, the (presetID=10, presetClass=entr,
+        presetSubtype=0) triple, and spid 2.
+      - test/read/fixtures/slide-animation-rich.pptx (+ .oracle.json) — four shapes spanning
+        entr/emph/exit x clickEffect/afterEffect/withEffect (emphasis Grow/Shrink presetID=6
+        via MsoAnimEffect=59, probed — the entrance-block 36 is NOT emphasis); the source deck
+        for the write-side preset templates and the spid enumerate/remap/prune tests.
+      Implementation stays ON STAND-BY (do not build until scheduled), but is no longer
+      fixture-blocked.
     evidence:
       kinds:
         - local-source-inspection
+        - extracted-xml
+        - powerpoint-authored-comparison
       local_files:
         - src/gen-xml.ts:2176
         - test/schema.test.js:2242
+        - docs/animations-and-transitions.md
+        - test/read/fixtures/slide-transition.pptx
+        - test/read/fixtures/slide-transition.oracle.json
+        - test/read/fixtures/slide-animation-basic.pptx
+        - test/read/fixtures/slide-animation-basic.oracle.json
+        - test/read/fixtures/slide-animation-rich.pptx
+        - test/read/fixtures/slide-animation-rich.oracle.json
       schema_fixture: null
       validator_result: null
-      powerpoint_result: null
+      powerpoint_result: "Oracle decks authored + reopened clean via Windows desktop PowerPoint COM 2026-06-26 (no repair prompt); see test/read/fixtures/README.md."
       spec_refs: []
-    next_action: revisit-only-if-scheduled-for-build
+    next_action: implement-when-scheduled-fixtures-authored
 
   - id: upstream-issue-1360
     source: "gitbrent/PptxGenJS#1360"

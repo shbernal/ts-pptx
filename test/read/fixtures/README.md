@@ -66,6 +66,12 @@ by the `pptxgenjs/read` harness. Two groups:
   `docs/plans/embedded-fonts.md`). Its sibling `embedded-fonts.oracle.json` records
   the verbatim `embeddedFontLst`, the font rels, the part list, and the raw-face
   hashes; the whole OFL faces it embeds live under `fonts/` (below).
+- **Transitions / animations**: `slide-transition.pptx`, `slide-animation-basic.pptx`,
+  and `slide-animation-rich.pptx` (the fixture gate for `docs/animations-and-transitions.md`
+  — Phase 1 transition read+write and animation opaque-preserve + spid
+  enumerate/remap/prune). Each pairs with a `*.oracle.json` recording the verbatim
+  `p:transition` / `p:timing` XML and decoded fields; the transition oracle also embeds
+  the full probed `PpEntryEffect → element` table (the write-side preset table).
 
 | Local name                    | Application                 | AppVersion | Slides |
 | ----------------------------- | --------------------------- | ---------- | ------ |
@@ -77,6 +83,9 @@ by the `pptxgenjs/read` harness. Two groups:
 | `av-media.pptx`               | Microsoft Office PowerPoint | 16.0000    | 2      |
 | `online-video.pptx`           | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `embedded-fonts.pptx`         | Microsoft Office PowerPoint | 16.0000    | 1      |
+| `slide-transition.pptx`       | Microsoft Office PowerPoint | 16.0000    | 6      |
+| `slide-animation-basic.pptx`  | Microsoft Office PowerPoint | 16.0000    | 1      |
+| `slide-animation-rich.pptx`   | Microsoft Office PowerPoint | 16.0000    | 1      |
 
 ### Derived from a vendored fixture
 
@@ -112,6 +121,9 @@ d88cb77b480d3c84a16307cbe503e9ee64f5fa8bdfee6d7b5a7167847d1cb8e6  math-omml.pptx
 82d8907ae23c0e8c0b54e0575cba728ff56c82fd6b055827923a8dde9c4dc20c  online-video.pptx
 dd96acd1f395cb961f2222047e03263df4cbe1bdacce3735bcd934783fad0556  template.potx
 bfa889fb328989d93f7e5fb07303d38f6981e11261bc2754ff5b087ab32d35f4  embedded-fonts.pptx
+243a579025c1b61c9b86060ba252759d74e545a7a5589feab95729b2b8b64013  slide-transition.pptx
+20b20688c2d71b349f1bec30f501e4c6d629f86ee2ffba8f6aae2b8f550a9ccb  slide-animation-basic.pptx
+b78a6009d72cf871c76b9a5364822135f9786344e92bbb618f3f68a0d3e79fea  slide-animation-rich.pptx
 ```
 
 ### Embedded font faces (`fonts/`)
@@ -383,6 +395,48 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
     is recorded in `embedded-fonts.oracle.json`. The genuine package validates clean
     (`[]`) through the OOXML-Validator CLI, confirming the validator accepts the
     `fntdata` Default and `embeddedFontLst` placement (plan §1.3).
+- `slide-transition.pptx` — **authoring oracle** and read fixture for slide
+  transitions (`docs/animations-and-transitions.md`, Phase 1). Six blank 16:9 slides,
+  each with one distinct `p:transition` (positioned in `CT_Slide` between
+  `p:clrMapOvr` and `p:timing`), authored via `SlideShowTransition`: **slide 1** fade,
+  fast bucket (the `spd` attribute is **absent** = the ECMA-376 default `fast`),
+  advance-on-click; **slide 2** push `dir="d"` at an exact 1.25 s — the off-bucket
+  duration makes PowerPoint emit the `mc:AlternateContent` form (`mc:Choice
+  Requires="p14"` carrying `p14:dur="1250"`, `mc:Fallback` without it); **slide 3**
+  wipe `dir="u"`, `spd="med"`; **slide 4** cut, fast (`spd` absent); **slide 5**
+  dissolve at exact 2.0 s (`p14:dur="2000"`, `spd="slow"`); **slide 6** fade,
+  `spd="med"` with `advClick="0"` + `advTm="3000"` (timed auto-advance, no click). Its
+  sibling `slide-transition.oracle.json` pins each slide's verbatim transition XML +
+  decoded fields **and** the full 158-row probed `PpEntryEffect(int) → {element, ns,
+  variant, modernOnly}` table — the write-side preset table, captured by iterating every
+  accepted `SlideShowTransition.EntryEffect` value `0..4096` (159 valid incl. `0`=no
+  transition). The `family<<8` packing intuition is wrong (e.g. `1537` → `dissolve`);
+  95 of the 158 effects are modern (`p14`/`p15`/`p159`, e.g. `p159:morph`) and appear
+  only inside `mc:Choice` with a `<p:fade/>` fallback.
+- `slide-animation-basic.pptx` — **authoring oracle** for the minimal build-animation
+  case (`docs/animations-and-transitions.md`, Phase 1 opaque-preserve + spid enumerate).
+  One blank 16:9 slide whose text box `fade-target` (shape id / spid `2`) carries a
+  single entrance Fade-on-click (`MsoAnimEffect=10`). The `p:timing` tree
+  (`tnLst → par → cTn[tmRoot] → seq[mainSeq]`) has one effect `cTn`
+  `presetID="10" presetClass="entr" presetSubtype="0" nodeType="clickEffect"` with a
+  `p:set` (style.visibility) + `p:animEffect filter="fade"`, both targeting `p:spTgt
+  spid="2"`; the sibling `p:bldLst` holds `<p:bldP spid="2" grpId="0"/>`.
+  `slide-animation-basic.oracle.json` pins the verbatim `p:timing`/`p:bldLst`, the
+  `(presetID, presetClass, presetSubtype)` triple, and the referenced spid (the only
+  structured data the read model extracts — the tree is otherwise preserved opaquely).
+- `slide-animation-rich.pptx` — **authoring oracle** for the multi-effect case and the
+  source deck for the write-side preset templates (`docs/animations-and-transitions.md`,
+  Phase 1 spid enumerate/remap/prune). One blank 16:9 slide with four text boxes, one
+  effect each spanning all three preset classes and all three triggers: `ent-fade-click`
+  (spid 2) entrance Fade `presetID=10` `clickEffect`; `ent-fly-after` (spid 3) entrance
+  Fly `presetID=2` `subtype=4` `afterEffect`; `emph-grow-with` (spid 4) emphasis
+  Grow/Shrink `presetID=6` `withEffect` (authored with `MsoAnimEffect=59` — the
+  entrance-block value `36` is **not** an emphasis, confirmed by probing
+  `MsoAnimEffect → presetClass`); `exit-fade-click` (spid 5) exit Fade `presetID=10`
+  `clickEffect` (authored via `AddEffect` then `Effect.Exit=msoTrue`). `p:bldLst` has one
+  `<p:bldP spid grpId>` per shape (spids `2,3,4,5`). `slide-animation-rich.oracle.json`
+  pins the verbatim `p:timing`/`p:bldLst`, the per-effect `(presetID, presetClass,
+  presetSubtype, nodeType)` tuples keyed by shape name, and the enumerated spid set.
 
 ## Autofit calibration oracle (`docs/measured-text-fit.md`)
 
@@ -515,6 +569,9 @@ fixtures opened clean with no repair prompt:
 - [x] `template.potx` — Windows desktop PowerPoint, 2026-06-24 (authored + reopened clean via COM, no repair prompt)
 - [x] `online-video.pptx` — Windows desktop PowerPoint, 2026-06-24 (authored + opened clean via COM)
 - [x] `embedded-fonts.pptx` — Windows desktop PowerPoint, 2026-06-25 (authored + reopened clean via COM, no repair prompt; `Presentation.Fonts` reports `Silkscreen` in use)
+- [x] `slide-transition.pptx` — Windows desktop PowerPoint, 2026-06-26 (authored + reopened clean via COM, no repair prompt)
+- [x] `slide-animation-basic.pptx` — Windows desktop PowerPoint, 2026-06-26 (authored + reopened clean via COM, no repair prompt)
+- [x] `slide-animation-rich.pptx` — Windows desktop PowerPoint, 2026-06-26 (authored + reopened clean via COM, no repair prompt)
 
 **Further testing needed on PowerPoint desktop.** The web loader is more lenient
 than desktop PowerPoint, whose stricter OOXML validation is what produces the

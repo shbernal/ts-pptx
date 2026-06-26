@@ -1,0 +1,29 @@
+{
+	"deck": "slide-animation-basic",
+	"schema": "slide-animation-oracle@1",
+	"application": "Microsoft Office PowerPoint",
+	"appVersion": "16.0000",
+	"sha256": "20b20688c2d71b349f1bec30f501e4c6d629f86ee2ffba8f6aae2b8f550a9ccb",
+	"notes": "PowerPoint-authored basic-animation oracle for docs/animations-and-transitions.md (Phase 1 animation opaque-preserve + spid enumerate). One blank 16:9 slide whose text box \"fade-target\" (shape id/spid 2) carries a single entrance effect: Fade on click (MsoAnimEffect=10). The p:timing tree is CT_TimeNodeList: tnLst > par > cTn(tmRoot) > seq(mainSeq) with one nested par/cTn carrying presetID=\"10\" presetClass=\"entr\" presetSubtype=\"0\" nodeType=\"clickEffect\", a p:set of style.visibility + p:animEffect filter=\"fade\", both targeting p:spTgt spid=\"2\"; the sibling p:bldLst holds <p:bldP spid=\"2\" grpId=\"0\"/>. The (presetID, presetClass, presetSubtype) triple and the referenced spid are the structured data the read model extracts; the tree itself is preserved opaquely.",
+	"shapeIds": {
+		"1": "",
+		"2": "fade-target"
+	},
+	"effects": [
+		{
+			"presetID": 10,
+			"presetClass": "entr",
+			"presetSubtype": 0,
+			"nodeType": "clickEffect",
+			"grpId": 0,
+			"spid": 2,
+			"shapeName": "fade-target"
+		}
+	],
+	"animationSpids": [2],
+	"bldList": {
+		"spids": [2],
+		"xml": "<p:bldLst><p:bldP spid=\"2\" grpId=\"0\"/></p:bldLst>"
+	},
+	"timingXml": "<p:timing><p:tnLst><p:par><p:cTn id=\"1\" dur=\"indefinite\" restart=\"never\" nodeType=\"tmRoot\"><p:childTnLst><p:seq concurrent=\"1\" nextAc=\"seek\"><p:cTn id=\"2\" dur=\"indefinite\" nodeType=\"mainSeq\"><p:childTnLst><p:par><p:cTn id=\"3\" fill=\"hold\"><p:stCondLst><p:cond delay=\"indefinite\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"4\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"5\" presetID=\"10\" presetClass=\"entr\" presetSubtype=\"0\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:set><p:cBhvr><p:cTn id=\"6\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"2\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set><p:animEffect transition=\"in\" filter=\"fade\"><p:cBhvr><p:cTn id=\"7\" dur=\"500\"/><p:tgtEl><p:spTgt spid=\"2\"/></p:tgtEl></p:cBhvr></p:animEffect></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn><p:prevCondLst><p:cond evt=\"onPrev\" delay=\"0\"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst><p:nextCondLst><p:cond evt=\"onNext\" delay=\"0\"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst></p:seq></p:childTnLst></p:cTn></p:par></p:tnLst><p:bldLst><p:bldP spid=\"2\" grpId=\"0\"/></p:bldLst></p:timing>"
+}

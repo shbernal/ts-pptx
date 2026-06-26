@@ -1,0 +1,59 @@
+{
+	"deck": "slide-animation-rich",
+	"schema": "slide-animation-oracle@1",
+	"application": "Microsoft Office PowerPoint",
+	"appVersion": "16.0000",
+	"sha256": "b78a6009d72cf871c76b9a5364822135f9786344e92bbb618f3f68a0d3e79fea",
+	"notes": "PowerPoint-authored rich-animation oracle for docs/animations-and-transitions.md (Phase 1 spid enumerate/remap/prune + write-side preset templates). One blank 16:9 slide with four text boxes, each with one effect spanning all three preset classes and all three triggers: \"ent-fade-click\" (spid 2) entrance Fade presetID=10 nodeType=\"clickEffect\"; \"ent-fly-after\" (spid 3) entrance Fly presetID=2 subtype=4 nodeType=\"afterEffect\"; \"emph-grow-with\" (spid 4) emphasis Grow/Shrink presetID=6 nodeType=\"withEffect\" (MsoAnimEffect=59 — the entrance-block value 36 is NOT an emphasis); \"exit-fade-click\" (spid 5) exit Fade presetID=10 nodeType=\"clickEffect\" (authored via AddEffect then Effect.Exit=msoTrue). p:bldLst has one <p:bldP spid grpId> per shape (spids 2,3,4,5). This is the source deck for the write-side preset templates keyed by (presetID, presetClass, presetSubtype, nodeType) and the enumerate/remap/prune spid-coherence tests.",
+	"shapeIds": {
+		"1": "",
+		"2": "ent-fade-click",
+		"3": "ent-fly-after",
+		"4": "emph-grow-with",
+		"5": "exit-fade-click"
+	},
+	"effects": [
+		{
+			"presetID": 10,
+			"presetClass": "entr",
+			"presetSubtype": 0,
+			"nodeType": "clickEffect",
+			"grpId": 0,
+			"spid": 2,
+			"shapeName": "ent-fade-click"
+		},
+		{
+			"presetID": 2,
+			"presetClass": "entr",
+			"presetSubtype": 4,
+			"nodeType": "afterEffect",
+			"grpId": 0,
+			"spid": 3,
+			"shapeName": "ent-fly-after"
+		},
+		{
+			"presetID": 6,
+			"presetClass": "emph",
+			"presetSubtype": 0,
+			"nodeType": "withEffect",
+			"grpId": 0,
+			"spid": 4,
+			"shapeName": "emph-grow-with"
+		},
+		{
+			"presetID": 10,
+			"presetClass": "exit",
+			"presetSubtype": 0,
+			"nodeType": "clickEffect",
+			"grpId": 0,
+			"spid": 5,
+			"shapeName": "exit-fade-click"
+		}
+	],
+	"animationSpids": [2, 3, 4, 5],
+	"bldList": {
+		"spids": [2, 3, 4, 5],
+		"xml": "<p:bldLst><p:bldP spid=\"2\" grpId=\"0\"/><p:bldP spid=\"3\" grpId=\"0\"/><p:bldP spid=\"4\" grpId=\"0\"/><p:bldP spid=\"5\" grpId=\"0\"/></p:bldLst>"
+	},
+	"timingXml": "<p:timing><p:tnLst><p:par><p:cTn id=\"1\" dur=\"indefinite\" restart=\"never\" nodeType=\"tmRoot\"><p:childTnLst><p:seq concurrent=\"1\" nextAc=\"seek\"><p:cTn id=\"2\" dur=\"indefinite\" nodeType=\"mainSeq\"><p:childTnLst><p:par><p:cTn id=\"3\" fill=\"hold\"><p:stCondLst><p:cond delay=\"indefinite\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"4\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"5\" presetID=\"10\" presetClass=\"entr\" presetSubtype=\"0\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:set><p:cBhvr><p:cTn id=\"6\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"2\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set><p:animEffect transition=\"in\" filter=\"fade\"><p:cBhvr><p:cTn id=\"7\" dur=\"500\"/><p:tgtEl><p:spTgt spid=\"2\"/></p:tgtEl></p:cBhvr></p:animEffect></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par><p:par><p:cTn id=\"8\" fill=\"hold\"><p:stCondLst><p:cond delay=\"500\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"9\" presetID=\"2\" presetClass=\"entr\" presetSubtype=\"4\" fill=\"hold\" grpId=\"0\" nodeType=\"afterEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:set><p:cBhvr><p:cTn id=\"10\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"3\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set><p:anim calcmode=\"lin\" valueType=\"num\"><p:cBhvr additive=\"base\"><p:cTn id=\"11\" dur=\"500\" fill=\"hold\"/><p:tgtEl><p:spTgt spid=\"3\"/></p:tgtEl><p:attrNameLst><p:attrName>ppt_x</p:attrName></p:attrNameLst></p:cBhvr><p:tavLst><p:tav tm=\"0\"><p:val><p:strVal val=\"#ppt_x\"/></p:val></p:tav><p:tav tm=\"100000\"><p:val><p:strVal val=\"#ppt_x\"/></p:val></p:tav></p:tavLst></p:anim><p:anim calcmode=\"lin\" valueType=\"num\"><p:cBhvr additive=\"base\"><p:cTn id=\"12\" dur=\"500\" fill=\"hold\"/><p:tgtEl><p:spTgt spid=\"3\"/></p:tgtEl><p:attrNameLst><p:attrName>ppt_y</p:attrName></p:attrNameLst></p:cBhvr><p:tavLst><p:tav tm=\"0\"><p:val><p:strVal val=\"1+#ppt_h/2\"/></p:val></p:tav><p:tav tm=\"100000\"><p:val><p:strVal val=\"#ppt_y\"/></p:val></p:tav></p:tavLst></p:anim></p:childTnLst></p:cTn></p:par><p:par><p:cTn id=\"13\" presetID=\"6\" presetClass=\"emph\" presetSubtype=\"0\" fill=\"hold\" grpId=\"0\" nodeType=\"withEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:animScale><p:cBhvr><p:cTn id=\"14\" dur=\"2000\" fill=\"hold\"/><p:tgtEl><p:spTgt spid=\"4\"/></p:tgtEl></p:cBhvr><p:by x=\"150000\" y=\"150000\"/></p:animScale></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par><p:par><p:cTn id=\"15\" fill=\"hold\"><p:stCondLst><p:cond delay=\"indefinite\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"16\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"17\" presetID=\"10\" presetClass=\"exit\" presetSubtype=\"0\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:animEffect transition=\"out\" filter=\"fade\"><p:cBhvr><p:cTn id=\"18\" dur=\"500\"/><p:tgtEl><p:spTgt spid=\"5\"/></p:tgtEl></p:cBhvr></p:animEffect><p:set><p:cBhvr><p:cTn id=\"19\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"499\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"5\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"hidden\"/></p:to></p:set></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn><p:prevCondLst><p:cond evt=\"onPrev\" delay=\"0\"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst><p:nextCondLst><p:cond evt=\"onNext\" delay=\"0\"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst></p:seq></p:childTnLst></p:cTn></p:par></p:tnLst><p:bldLst><p:bldP spid=\"2\" grpId=\"0\"/><p:bldP spid=\"3\" grpId=\"0\"/><p:bldP spid=\"4\" grpId=\"0\"/><p:bldP spid=\"5\" grpId=\"0\"/></p:bldLst></p:timing>"
+}

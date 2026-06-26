@@ -1,0 +1,1574 @@
+{
+	"deck": "slide-transition",
+	"schema": "slide-transition-oracle@1",
+	"application": "Microsoft Office PowerPoint",
+	"appVersion": "16.0000",
+	"sha256": "243a579025c1b61c9b86060ba252759d74e545a7a5589feab95729b2b8b64013",
+	"notes": "PowerPoint-authored slide-transition oracle for docs/animations-and-transitions.md (Phase 1 transition read+write). Six slides, each with one distinct p:transition authored via SlideShowTransition: fade (fast bucket, spd attr absent = default fast), push dir=\"d\" (exact 1.25s -> mc:AlternateContent p14:dur=\"1250\"), wipe dir=\"u\" (med bucket), cut (fast bucket), dissolve (exact 2.0s -> p14:dur=\"2000\"), and fade (med bucket, advClick=\"0\" + advTm=\"3000\" timed auto-advance). Position in CT_Slide: between p:clrMapOvr and p:timing. PowerPoint emits a bare <p:transition> when the duration matches a speed bucket and the mc:AlternateContent form (mc:Choice Requires=\"p14\" carrying p14:dur, mc:Fallback without) only for an off-bucket exact duration. spd is omitted entirely for the default \"fast\" bucket. entryEffectTable is the full 158-row probed PpEntryEffect(int) -> {element, ns, variant attrs, modernOnly} mapping (the int 0 = no transition is excluded), captured by iterating every accepted SlideShowTransition.EntryEffect value 0..4096 (159 valid incl. 0); it is the write-side preset table (the family<<8 packing intuition is wrong, e.g. 1537 -> dissolve). ns \"p\" is base ECMA-376; \"p14\"/\"p15\"/\"p159\" elements appear only inside mc:Choice with a base fade fallback.",
+	"slides": [
+		{
+			"slide": 1,
+			"part": "slide1.xml",
+			"wrapped": false,
+			"transitionXml": "<p:transition><p:fade/></p:transition>",
+			"fallback": {
+				"element": "fade",
+				"ns": "p",
+				"variant": {},
+				"spd": null,
+				"p14dur": null,
+				"advClick": null,
+				"advTm": null
+			},
+			"choice": null,
+			"decoded": {
+				"type": "fade",
+				"ns": "p",
+				"variant": {},
+				"speed": "fast",
+				"speedAttrPresent": false,
+				"durationMs": null,
+				"advanceOnClick": true,
+				"advanceAfterMs": null
+			}
+		},
+		{
+			"slide": 2,
+			"part": "slide2.xml",
+			"wrapped": true,
+			"transitionXml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\" p14:dur=\"1250\"><p:push dir=\"d\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:push dir=\"d\"/></p:transition></mc:Fallback></mc:AlternateContent>",
+			"requires": "p14",
+			"choice": {
+				"element": "push",
+				"ns": "p",
+				"variant": {
+					"dir": "d"
+				},
+				"spd": "slow",
+				"p14dur": "1250",
+				"advClick": null,
+				"advTm": null
+			},
+			"fallback": {
+				"element": "push",
+				"ns": "p",
+				"variant": {
+					"dir": "d"
+				},
+				"spd": "slow",
+				"p14dur": null,
+				"advClick": null,
+				"advTm": null
+			},
+			"decoded": {
+				"type": "push",
+				"ns": "p",
+				"variant": {
+					"dir": "d"
+				},
+				"speed": "slow",
+				"speedAttrPresent": true,
+				"durationMs": 1250,
+				"advanceOnClick": true,
+				"advanceAfterMs": null
+			}
+		},
+		{
+			"slide": 3,
+			"part": "slide3.xml",
+			"wrapped": false,
+			"transitionXml": "<p:transition spd=\"med\"><p:wipe dir=\"u\"/></p:transition>",
+			"fallback": {
+				"element": "wipe",
+				"ns": "p",
+				"variant": {
+					"dir": "u"
+				},
+				"spd": "med",
+				"p14dur": null,
+				"advClick": null,
+				"advTm": null
+			},
+			"choice": null,
+			"decoded": {
+				"type": "wipe",
+				"ns": "p",
+				"variant": {
+					"dir": "u"
+				},
+				"speed": "med",
+				"speedAttrPresent": true,
+				"durationMs": null,
+				"advanceOnClick": true,
+				"advanceAfterMs": null
+			}
+		},
+		{
+			"slide": 4,
+			"part": "slide4.xml",
+			"wrapped": false,
+			"transitionXml": "<p:transition><p:cut/></p:transition>",
+			"fallback": {
+				"element": "cut",
+				"ns": "p",
+				"variant": {},
+				"spd": null,
+				"p14dur": null,
+				"advClick": null,
+				"advTm": null
+			},
+			"choice": null,
+			"decoded": {
+				"type": "cut",
+				"ns": "p",
+				"variant": {},
+				"speed": "fast",
+				"speedAttrPresent": false,
+				"durationMs": null,
+				"advanceOnClick": true,
+				"advanceAfterMs": null
+			}
+		},
+		{
+			"slide": 5,
+			"part": "slide5.xml",
+			"wrapped": true,
+			"transitionXml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\" p14:dur=\"2000\"><p:dissolve/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:dissolve/></p:transition></mc:Fallback></mc:AlternateContent>",
+			"requires": "p14",
+			"choice": {
+				"element": "dissolve",
+				"ns": "p",
+				"variant": {},
+				"spd": "slow",
+				"p14dur": "2000",
+				"advClick": null,
+				"advTm": null
+			},
+			"fallback": {
+				"element": "dissolve",
+				"ns": "p",
+				"variant": {},
+				"spd": "slow",
+				"p14dur": null,
+				"advClick": null,
+				"advTm": null
+			},
+			"decoded": {
+				"type": "dissolve",
+				"ns": "p",
+				"variant": {},
+				"speed": "slow",
+				"speedAttrPresent": true,
+				"durationMs": 2000,
+				"advanceOnClick": true,
+				"advanceAfterMs": null
+			}
+		},
+		{
+			"slide": 6,
+			"part": "slide6.xml",
+			"wrapped": false,
+			"transitionXml": "<p:transition spd=\"med\" advClick=\"0\" advTm=\"3000\"><p:fade/></p:transition>",
+			"fallback": {
+				"element": "fade",
+				"ns": "p",
+				"variant": {},
+				"spd": "med",
+				"p14dur": null,
+				"advClick": "0",
+				"advTm": "3000"
+			},
+			"choice": null,
+			"decoded": {
+				"type": "fade",
+				"ns": "p",
+				"variant": {},
+				"speed": "med",
+				"speedAttrPresent": true,
+				"durationMs": null,
+				"advanceOnClick": false,
+				"advanceAfterMs": 3000
+			}
+		}
+	],
+	"entryEffectTable": [
+		{
+			"entryEffect": 257,
+			"element": "cut",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 258,
+			"element": "cut",
+			"ns": "p",
+			"variant": {
+				"thruBlk": "1"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 513,
+			"element": "random",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 769,
+			"element": "blinds",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 770,
+			"element": "blinds",
+			"ns": "p",
+			"variant": {
+				"dir": "vert"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 1025,
+			"element": "checker",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 1026,
+			"element": "checker",
+			"ns": "p",
+			"variant": {
+				"dir": "vert"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 1281,
+			"element": "cover",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 1282,
+			"element": "cover",
+			"ns": "p",
+			"variant": {
+				"dir": "u"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 1283,
+			"element": "cover",
+			"ns": "p",
+			"variant": {
+				"dir": "r"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 1284,
+			"element": "cover",
+			"ns": "p",
+			"variant": {
+				"dir": "d"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 1285,
+			"element": "cover",
+			"ns": "p",
+			"variant": {
+				"dir": "lu"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 1286,
+			"element": "cover",
+			"ns": "p",
+			"variant": {
+				"dir": "ru"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 1287,
+			"element": "cover",
+			"ns": "p",
+			"variant": {
+				"dir": "ld"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 1288,
+			"element": "cover",
+			"ns": "p",
+			"variant": {
+				"dir": "rd"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 1537,
+			"element": "dissolve",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 1793,
+			"element": "fade",
+			"ns": "p",
+			"variant": {
+				"thruBlk": "1"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2049,
+			"element": "pull",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2050,
+			"element": "pull",
+			"ns": "p",
+			"variant": {
+				"dir": "u"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2051,
+			"element": "pull",
+			"ns": "p",
+			"variant": {
+				"dir": "r"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2052,
+			"element": "pull",
+			"ns": "p",
+			"variant": {
+				"dir": "d"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2053,
+			"element": "pull",
+			"ns": "p",
+			"variant": {
+				"dir": "lu"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2054,
+			"element": "pull",
+			"ns": "p",
+			"variant": {
+				"dir": "ru"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2055,
+			"element": "pull",
+			"ns": "p",
+			"variant": {
+				"dir": "ld"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2056,
+			"element": "pull",
+			"ns": "p",
+			"variant": {
+				"dir": "rd"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2305,
+			"element": "randomBar",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2306,
+			"element": "randomBar",
+			"ns": "p",
+			"variant": {
+				"dir": "vert"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2561,
+			"element": "strips",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2562,
+			"element": "strips",
+			"ns": "p",
+			"variant": {
+				"dir": "ru"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2563,
+			"element": "strips",
+			"ns": "p",
+			"variant": {
+				"dir": "ld"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2564,
+			"element": "strips",
+			"ns": "p",
+			"variant": {
+				"dir": "rd"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2565,
+			"element": "strips",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2566,
+			"element": "strips",
+			"ns": "p",
+			"variant": {
+				"dir": "ru"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2567,
+			"element": "strips",
+			"ns": "p",
+			"variant": {
+				"dir": "ld"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2568,
+			"element": "strips",
+			"ns": "p",
+			"variant": {
+				"dir": "rd"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2817,
+			"element": "wipe",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2818,
+			"element": "wipe",
+			"ns": "p",
+			"variant": {
+				"dir": "u"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2819,
+			"element": "wipe",
+			"ns": "p",
+			"variant": {
+				"dir": "r"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 2820,
+			"element": "wipe",
+			"ns": "p",
+			"variant": {
+				"dir": "d"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3073,
+			"element": "zoom",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3074,
+			"element": "zoom",
+			"ns": "p",
+			"variant": {
+				"dir": "in"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3585,
+			"element": "split",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3586,
+			"element": "split",
+			"ns": "p",
+			"variant": {
+				"dir": "in"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3587,
+			"element": "split",
+			"ns": "p",
+			"variant": {
+				"orient": "vert"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3588,
+			"element": "split",
+			"ns": "p",
+			"variant": {
+				"orient": "vert",
+				"dir": "in"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3844,
+			"element": "cut",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3845,
+			"element": "circle",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3846,
+			"element": "diamond",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3847,
+			"element": "comb",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3848,
+			"element": "comb",
+			"ns": "p",
+			"variant": {
+				"dir": "vert"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3849,
+			"element": "fade",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3850,
+			"element": "newsflash",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3851,
+			"element": "plus",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3852,
+			"element": "push",
+			"ns": "p",
+			"variant": {
+				"dir": "d"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3853,
+			"element": "push",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3854,
+			"element": "push",
+			"ns": "p",
+			"variant": {
+				"dir": "r"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3855,
+			"element": "push",
+			"ns": "p",
+			"variant": {
+				"dir": "u"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3856,
+			"element": "wedge",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3857,
+			"element": "wheel",
+			"ns": "p",
+			"variant": {
+				"spokes": "1"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3858,
+			"element": "wheel",
+			"ns": "p",
+			"variant": {
+				"spokes": "2"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3859,
+			"element": "wheel",
+			"ns": "p",
+			"variant": {
+				"spokes": "3"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3860,
+			"element": "wheel",
+			"ns": "p",
+			"variant": {},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3861,
+			"element": "wheel",
+			"ns": "p",
+			"variant": {
+				"spokes": "8"
+			},
+			"modernOnly": false
+		},
+		{
+			"entryEffect": 3862,
+			"element": "wheelReverse",
+			"ns": "p14",
+			"variant": {
+				"spokes": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3863,
+			"element": "vortex",
+			"ns": "p14",
+			"variant": {},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3864,
+			"element": "vortex",
+			"ns": "p14",
+			"variant": {
+				"dir": "u"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3865,
+			"element": "vortex",
+			"ns": "p14",
+			"variant": {
+				"dir": "r"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3866,
+			"element": "vortex",
+			"ns": "p14",
+			"variant": {
+				"dir": "d"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3867,
+			"element": "ripple",
+			"ns": "p14",
+			"variant": {},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3868,
+			"element": "ripple",
+			"ns": "p14",
+			"variant": {
+				"dir": "ru"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3869,
+			"element": "ripple",
+			"ns": "p14",
+			"variant": {
+				"dir": "lu"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3870,
+			"element": "ripple",
+			"ns": "p14",
+			"variant": {
+				"dir": "ld"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3871,
+			"element": "ripple",
+			"ns": "p14",
+			"variant": {
+				"dir": "rd"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3872,
+			"element": "glitter",
+			"ns": "p14",
+			"variant": {
+				"dir": "r"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3873,
+			"element": "glitter",
+			"ns": "p14",
+			"variant": {
+				"dir": "d"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3874,
+			"element": "glitter",
+			"ns": "p14",
+			"variant": {},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3875,
+			"element": "glitter",
+			"ns": "p14",
+			"variant": {
+				"dir": "u"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3876,
+			"element": "glitter",
+			"ns": "p14",
+			"variant": {
+				"dir": "r",
+				"pattern": "hexagon"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3877,
+			"element": "glitter",
+			"ns": "p14",
+			"variant": {
+				"dir": "d",
+				"pattern": "hexagon"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3878,
+			"element": "glitter",
+			"ns": "p14",
+			"variant": {
+				"pattern": "hexagon"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3879,
+			"element": "glitter",
+			"ns": "p14",
+			"variant": {
+				"dir": "u",
+				"pattern": "hexagon"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3880,
+			"element": "gallery",
+			"ns": "p14",
+			"variant": {
+				"dir": "l"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3881,
+			"element": "gallery",
+			"ns": "p14",
+			"variant": {
+				"dir": "r"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3882,
+			"element": "conveyor",
+			"ns": "p14",
+			"variant": {
+				"dir": "l"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3883,
+			"element": "conveyor",
+			"ns": "p14",
+			"variant": {
+				"dir": "r"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3884,
+			"element": "doors",
+			"ns": "p14",
+			"variant": {
+				"dir": "vert"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3885,
+			"element": "doors",
+			"ns": "p14",
+			"variant": {},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3886,
+			"element": "window",
+			"ns": "p14",
+			"variant": {
+				"dir": "vert"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3887,
+			"element": "window",
+			"ns": "p14",
+			"variant": {},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3888,
+			"element": "warp",
+			"ns": "p14",
+			"variant": {
+				"dir": "in"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3889,
+			"element": "warp",
+			"ns": "p14",
+			"variant": {},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3890,
+			"element": "flythrough",
+			"ns": "p14",
+			"variant": {},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3891,
+			"element": "flythrough",
+			"ns": "p14",
+			"variant": {
+				"dir": "out"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3892,
+			"element": "flythrough",
+			"ns": "p14",
+			"variant": {
+				"hasBounce": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3893,
+			"element": "flythrough",
+			"ns": "p14",
+			"variant": {
+				"dir": "out",
+				"hasBounce": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3894,
+			"element": "reveal",
+			"ns": "p14",
+			"variant": {},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3895,
+			"element": "reveal",
+			"ns": "p14",
+			"variant": {
+				"dir": "r"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3896,
+			"element": "reveal",
+			"ns": "p14",
+			"variant": {
+				"thruBlk": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3897,
+			"element": "reveal",
+			"ns": "p14",
+			"variant": {
+				"thruBlk": "1",
+				"dir": "r"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3898,
+			"element": "honeycomb",
+			"ns": "p14",
+			"variant": {},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3899,
+			"element": "ferris",
+			"ns": "p14",
+			"variant": {
+				"dir": "l"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3900,
+			"element": "ferris",
+			"ns": "p14",
+			"variant": {
+				"dir": "r"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3901,
+			"element": "switch",
+			"ns": "p14",
+			"variant": {
+				"dir": "l"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3902,
+			"element": "switch",
+			"ns": "p14",
+			"variant": {
+				"dir": "r"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3903,
+			"element": "switch",
+			"ns": "p14",
+			"variant": {
+				"dir": "r"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3904,
+			"element": "switch",
+			"ns": "p14",
+			"variant": {
+				"dir": "r"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3905,
+			"element": "flip",
+			"ns": "p14",
+			"variant": {
+				"dir": "l"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3906,
+			"element": "flip",
+			"ns": "p14",
+			"variant": {
+				"dir": "r"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3907,
+			"element": "flip",
+			"ns": "p14",
+			"variant": {
+				"dir": "r"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3908,
+			"element": "flip",
+			"ns": "p14",
+			"variant": {
+				"dir": "r"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3909,
+			"element": "flash",
+			"ns": "p14",
+			"variant": {},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3910,
+			"element": "shred",
+			"ns": "p14",
+			"variant": {},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3911,
+			"element": "shred",
+			"ns": "p14",
+			"variant": {
+				"dir": "out"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3912,
+			"element": "shred",
+			"ns": "p14",
+			"variant": {
+				"pattern": "rectangle"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3913,
+			"element": "shred",
+			"ns": "p14",
+			"variant": {
+				"pattern": "rectangle",
+				"dir": "out"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3914,
+			"element": "prism",
+			"ns": "p14",
+			"variant": {},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3915,
+			"element": "prism",
+			"ns": "p14",
+			"variant": {
+				"dir": "u"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3916,
+			"element": "prism",
+			"ns": "p14",
+			"variant": {
+				"dir": "r"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3917,
+			"element": "prism",
+			"ns": "p14",
+			"variant": {
+				"dir": "d"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3918,
+			"element": "prism",
+			"ns": "p14",
+			"variant": {
+				"isContent": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3919,
+			"element": "prism",
+			"ns": "p14",
+			"variant": {
+				"dir": "u",
+				"isContent": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3920,
+			"element": "prism",
+			"ns": "p14",
+			"variant": {
+				"dir": "r",
+				"isContent": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3921,
+			"element": "prism",
+			"ns": "p14",
+			"variant": {
+				"dir": "d",
+				"isContent": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3922,
+			"element": "prism",
+			"ns": "p14",
+			"variant": {
+				"isInverted": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3923,
+			"element": "prism",
+			"ns": "p14",
+			"variant": {
+				"dir": "u",
+				"isInverted": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3924,
+			"element": "prism",
+			"ns": "p14",
+			"variant": {
+				"dir": "r",
+				"isInverted": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3925,
+			"element": "prism",
+			"ns": "p14",
+			"variant": {
+				"dir": "d",
+				"isInverted": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3926,
+			"element": "prism",
+			"ns": "p14",
+			"variant": {
+				"isContent": "1",
+				"isInverted": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3927,
+			"element": "prism",
+			"ns": "p14",
+			"variant": {
+				"dir": "u",
+				"isContent": "1",
+				"isInverted": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3928,
+			"element": "prism",
+			"ns": "p14",
+			"variant": {
+				"dir": "r",
+				"isContent": "1",
+				"isInverted": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3929,
+			"element": "prism",
+			"ns": "p14",
+			"variant": {
+				"dir": "d",
+				"isContent": "1",
+				"isInverted": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3930,
+			"element": "pan",
+			"ns": "p14",
+			"variant": {},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3931,
+			"element": "pan",
+			"ns": "p14",
+			"variant": {
+				"dir": "u"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3932,
+			"element": "pan",
+			"ns": "p14",
+			"variant": {
+				"dir": "r"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3933,
+			"element": "pan",
+			"ns": "p14",
+			"variant": {
+				"dir": "d"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3934,
+			"element": "prstTrans",
+			"ns": "p15",
+			"variant": {
+				"prst": "fallOver"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3935,
+			"element": "prstTrans",
+			"ns": "p15",
+			"variant": {
+				"prst": "fallOver",
+				"invX": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3936,
+			"element": "prstTrans",
+			"ns": "p15",
+			"variant": {
+				"prst": "drape"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3937,
+			"element": "prstTrans",
+			"ns": "p15",
+			"variant": {
+				"prst": "drape",
+				"invX": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3938,
+			"element": "prstTrans",
+			"ns": "p15",
+			"variant": {
+				"prst": "curtains"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3939,
+			"element": "prstTrans",
+			"ns": "p15",
+			"variant": {
+				"prst": "wind",
+				"invX": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3940,
+			"element": "prstTrans",
+			"ns": "p15",
+			"variant": {
+				"prst": "wind"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3941,
+			"element": "prstTrans",
+			"ns": "p15",
+			"variant": {
+				"prst": "prestige"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3942,
+			"element": "prstTrans",
+			"ns": "p15",
+			"variant": {
+				"prst": "fracture"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3943,
+			"element": "prstTrans",
+			"ns": "p15",
+			"variant": {
+				"prst": "crush"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3944,
+			"element": "prstTrans",
+			"ns": "p15",
+			"variant": {
+				"prst": "peelOff"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3945,
+			"element": "prstTrans",
+			"ns": "p15",
+			"variant": {
+				"prst": "peelOff",
+				"invX": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3946,
+			"element": "prstTrans",
+			"ns": "p15",
+			"variant": {
+				"prst": "pageCurlSingle"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3947,
+			"element": "prstTrans",
+			"ns": "p15",
+			"variant": {
+				"prst": "pageCurlSingle",
+				"invX": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3948,
+			"element": "prstTrans",
+			"ns": "p15",
+			"variant": {
+				"prst": "pageCurlDouble"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3949,
+			"element": "prstTrans",
+			"ns": "p15",
+			"variant": {
+				"prst": "pageCurlDouble",
+				"invX": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3950,
+			"element": "prstTrans",
+			"ns": "p15",
+			"variant": {
+				"prst": "airplane",
+				"invX": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3951,
+			"element": "prstTrans",
+			"ns": "p15",
+			"variant": {
+				"prst": "airplane"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3952,
+			"element": "prstTrans",
+			"ns": "p15",
+			"variant": {
+				"prst": "origami",
+				"invX": "1"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3953,
+			"element": "prstTrans",
+			"ns": "p15",
+			"variant": {
+				"prst": "origami"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3954,
+			"element": "morph",
+			"ns": "p159",
+			"variant": {
+				"option": "byObject"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3955,
+			"element": "morph",
+			"ns": "p159",
+			"variant": {
+				"option": "byWord"
+			},
+			"modernOnly": true
+		},
+		{
+			"entryEffect": 3956,
+			"element": "morph",
+			"ns": "p159",
+			"variant": {
+				"option": "byChar"
+			},
+			"modernOnly": true
+		}
+	]
+}
