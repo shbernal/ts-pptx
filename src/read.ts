@@ -29,6 +29,7 @@ export {
 	type ExtractedSlides,
 } from './read/api/presentation.js'
 export { Slide, type AddTextBoxOptions, type AddPictureOptions } from './read/api/slide.js'
+export { type TransitionInfo, type TransitionInput, type TransitionSpeed } from './read/api/transition.js'
 export {
 	Shape,
 	AutoShape,

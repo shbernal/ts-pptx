@@ -14,22 +14,32 @@ doc_type: "decision"
 
 ## Status
 
-**Scoping locked; fixtures authored; not yet implemented.** This doc records the
-agreed read/write scope so the fixtures + oracles could be authored against a
-fixed target. Per `AGENTS.md` ("OOXML And PowerPoint Work" → fixture-gated work),
-implementation was **blocked on the PowerPoint-authored fixtures + oracles**
-enumerated in §7; those are the precondition, not synthetic XML.
+**Phase 1 implemented (2026-06-26).** Transitions are a full typed model both
+ways; animations are opaque spid-aware preservation on read plus preset-template
+authoring on write. The write emitters reproduce the PowerPoint-authored oracles
+byte-for-byte. See the backlog entry `gitbrent/PptxGenJS#1431` (status
+`implemented`) and `CHANGELOG.md` for the landed surface. Code:
+`src/read/api/transition.ts`, `src/read/api/animation.ts`,
+`src/read/api/slide.ts` (read accessors); `src/core-interfaces.ts`,
+`src/slide.ts`, `src/gen-xml.ts` (write). Tests:
+`test/read/animations-transitions.test.js`,
+`test/regression/animations-transitions.test.js`, and two
+`test/schema.test.js` validator fixtures.
+
+This doc records the agreed read/write scope so the fixtures + oracles could be
+authored against a fixed target. Per `AGENTS.md` ("OOXML And PowerPoint Work" →
+fixture-gated work), implementation was **blocked on the PowerPoint-authored
+fixtures + oracles** enumerated in §7; those are the precondition, not synthetic
+XML.
 
 Authorability was proven 2026-06-26: desktop PowerPoint COM bakes both
 `p:transition` and `p:timing` into slide XML non-interactively (probe
 `.tmp/author-anim-probe.ps1`). See the memory
 `animations-transitions-fixture-authorability`.
 
-**The §7 fixture gate is now satisfied (2026-06-26).** All three decks + oracles
-are authored, verified clean via COM, and documented in
-`test/read/fixtures/README.md`; the backlog entry `gitbrent/PptxGenJS#1431`
-records the satisfaction. The implementation is unblocked but remains ON STAND-BY
-until scheduled:
+**The §7 fixture gate was satisfied (2026-06-26)** ahead of implementation. All
+three decks + oracles are authored, verified clean via COM, and documented in
+`test/read/fixtures/README.md`:
 
 - `slide-transition.pptx` / `.oracle.json` — fade/push(dir)/wipe(dir)/cut/dissolve
   across fast/med/slow buckets, bare vs `mc:AlternateContent` (`p14:dur`) forms,

@@ -498,7 +498,7 @@ items:
     type: pull-request
     first_seen: 2026-06-07
     last_reviewed: 2026-06-26
-    status: deferred
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -573,16 +573,59 @@ items:
         entr/emph/exit x clickEffect/afterEffect/withEffect (emphasis Grow/Shrink presetID=6
         via MsoAnimEffect=59, probed — the entrance-block 36 is NOT emphasis); the source deck
         for the write-side preset templates and the spid enumerate/remap/prune tests.
-      Implementation stays ON STAND-BY (do not build until scheduled), but is no longer
-      fixture-blocked.
+      IMPLEMENTED (2026-06-26) per docs/animations-and-transitions.md, Phase 1, re-implemented
+      against the fork's ESM/TS boundary (the upstream PR's dist/CJS/bundle changes discarded).
+
+      Read (src/read/): src/read/api/transition.ts decodes p:transition (bare or the
+      mc:AlternateContent p14 Choice, preferring the Choice for durationMs) into a typed
+      TransitionInfo and rebuilds it; slide.transition is a get/set accessor on
+      src/read/api/slide.ts inserted at the schema slot (after p:clrMapOvr, before
+      p:timing/p:extLst). src/read/api/animation.ts handles the opaque, spid-aware animation
+      tree: slide.hasAnimations + internal animationSpids()/remapAnimationSpids()/
+      pruneAnimationSpids() — enumerate, remap, prune over <p:spTgt @spid>/<p:bldP @spid>
+      with no semantic AST (unmodified slides still round-trip the tree byte-identically).
+      p14 added to the OOXML_NS registry (src/read/oxml/dom.ts) so p14:dur reads namespace-aware.
+
+      Write (src/): TransitionProps/TransitionType + AnimationProps/PresetEffect/AnimationTrigger
+      in src/core-interfaces.ts; slide.transition setter + slide.addAnimation() on src/slide.ts
+      (slide._animations ordered list). gen-xml.ts: slideTransitionToXml() emitted between
+      p:clrMapOvr and p:timing (bare form for a speed bucket, mc:AlternateContent p14 Choice +
+      base Fallback when durationMs is set); slideTimingToXml() EXTENDED (not replaced) so a
+      slide carries the media-loop tmRoot OR a build-animation mainSeq (+ p:bldLst) assembled
+      from captured preset templates (fadeIn/flyIn/grow/fadeOut), grouped into click steps by
+      trigger, with PowerPoint's exact id numbering. The media-only path is byte-unchanged.
+
+      Verification is the strongest possible: the write emitters reproduce the PowerPoint-authored
+      oracles BYTE-FOR-BYTE — test/regression/animations-transitions.test.js asserts the emitted
+      p:timing equals slide-animation-{basic,rich}.oracle.json timingXml and each p:transition
+      equals slide-transition.oracle.json transitionXml. Read decode/round-trip + spid
+      enumerate/remap/prune are covered in test/read/animations-transitions.test.js against the
+      same oracles. Two new test/schema.test.js fixtures ('slide transitions …', 'preset build
+      animations …') validate clean under the OpenXmlValidator.
+
+      Phase 2 (not built): carry a shape's build animation through importShape (remap into the
+      destination timing — needs an import fixture); expand the preset set; transition sounds
+      (sndAc + audio rels). Import-path spid remap is available (remapAnimationSpids) but not yet
+      wired into importSlide preserve/restyle, which lacks an animation oracle to verify against.
     evidence:
       kinds:
         - local-source-inspection
         - extracted-xml
         - powerpoint-authored-comparison
+        - regression-test
+        - schema-fixture
+        - validator-result
       local_files:
-        - src/gen-xml.ts:2176
-        - test/schema.test.js:2242
+        - src/read/api/transition.ts
+        - src/read/api/animation.ts
+        - src/read/api/slide.ts
+        - src/read/oxml/dom.ts
+        - src/core-interfaces.ts
+        - src/slide.ts
+        - src/gen-xml.ts
+        - test/read/animations-transitions.test.js
+        - test/regression/animations-transitions.test.js
+        - test/schema.test.js
         - docs/animations-and-transitions.md
         - test/read/fixtures/slide-transition.pptx
         - test/read/fixtures/slide-transition.oracle.json
@@ -590,11 +633,11 @@ items:
         - test/read/fixtures/slide-animation-basic.oracle.json
         - test/read/fixtures/slide-animation-rich.pptx
         - test/read/fixtures/slide-animation-rich.oracle.json
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: "Oracle decks authored + reopened clean via Windows desktop PowerPoint COM 2026-06-26 (no repair prompt); see test/read/fixtures/README.md."
+      schema_fixture: "test/schema.test.js: 'slide transitions (p:transition bare + mc:AlternateContent)' + 'preset build animations (p:timing mainSeq + p:bldLst)'"
+      validator_result: pass
+      powerpoint_result: "Oracle decks authored + reopened clean via Windows desktop PowerPoint COM 2026-06-26 (no repair prompt); the write emitters reproduce those oracles byte-for-byte. See test/read/fixtures/README.md."
       spec_refs: []
-    next_action: implement-when-scheduled-fixtures-authored
+    next_action: none
 
   - id: upstream-issue-1360
     source: "gitbrent/PptxGenJS#1360"

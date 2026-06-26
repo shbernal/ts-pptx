@@ -19,6 +19,7 @@ import {
 	VALID_SHAPE_PRESETS,
 } from './core-enums.js'
 import type {
+	AnimationProps,
 	BorderProps,
 	CustomPropertyValue,
 	IPresentationProps,
@@ -2326,37 +2327,276 @@ function slideTimingToXml (slide: PresSlideInternal): string {
 			typeof obj.mediaRid === 'number' &&
 			(obj.loop === true || (typeof obj.loopCount === 'number' && obj.loopCount > 0))
 	)
-	if (loopMedia.length === 0) return ''
 
-	// `<p:cTn id="1">` is the tmRoot; each media node gets the next id
-	let nodeId = 1
-	const mediaNodes = loopMedia
-		.map(obj => {
-			const spid = (obj.mediaRid as number) + 2
-			const repeatCount = obj.loop === true ? 'indefinite' : String(Math.round((obj.loopCount as number) * 1000))
-			// EG_TimeNodeChoice: audio loops via <p:audio>, video via <p:video> (both CT_TLCommonMediaNodeData)
-			const mediaEl = obj.mtype === 'audio' ? 'p:audio' : 'p:video'
-			nodeId += 1
-			return (
-				`<${mediaEl}>` +
-				'<p:cMediaNode>' +
-				`<p:cTn id="${nodeId}" repeatCount="${repeatCount}" fill="hold" display="0">` +
-				'<p:stCondLst><p:cond delay="indefinite"/></p:stCondLst>' +
-				'</p:cTn>' +
-				`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
-				'</p:cMediaNode>' +
-				`</${mediaEl}>`
-			)
-		})
-		.join('')
+	// Resolve preset build animations to their target shape ids (`spid = idx + 2`).
+	const animations = (slide._animations ?? [])
+		.map(anim => ({ anim, spid: resolveAnimationSpid(slide, anim) }))
+		.filter((entry): entry is { anim: AnimationProps; spid: number } => entry.spid !== null)
+
+	const mediaNode = (obj: ISlideObject, nodeId: number): string => {
+		const spid = (obj.mediaRid as number) + 2
+		const repeatCount = obj.loop === true ? 'indefinite' : String(Math.round((obj.loopCount as number) * 1000))
+		// EG_TimeNodeChoice: audio loops via <p:audio>, video via <p:video> (both CT_TLCommonMediaNodeData)
+		const mediaEl = obj.mtype === 'audio' ? 'p:audio' : 'p:video'
+		return (
+			`<${mediaEl}>` +
+			'<p:cMediaNode>' +
+			`<p:cTn id="${nodeId}" repeatCount="${repeatCount}" fill="hold" display="0">` +
+			'<p:stCondLst><p:cond delay="indefinite"/></p:stCondLst>' +
+			'</p:cTn>' +
+			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+			'</p:cMediaNode>' +
+			`</${mediaEl}>`
+		)
+	}
+
+	// Media-only path: unchanged legacy output (`<p:cTn id="1">` tmRoot, media nodes follow).
+	if (animations.length === 0) {
+		if (loopMedia.length === 0) return ''
+		let nodeId = 1
+		const mediaNodes = loopMedia.map(obj => mediaNode(obj, (nodeId += 1))).join('')
+		return (
+			'<p:timing><p:tnLst><p:par>' +
+			'<p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot">' +
+			`<p:childTnLst>${mediaNodes}</p:childTnLst>` +
+			'</p:cTn>' +
+			'</p:par></p:tnLst></p:timing>'
+		)
+	}
+
+	// Animation path: a `mainSeq` of preset effects (plus any looping media as sibling nodes).
+	// A monotonically increasing id is assigned to every `<p:cTn>` in document order, matching
+	// how PowerPoint numbers the tree (tmRoot=1, mainSeq=2, then wrappers/effects/behaviors).
+	let id = 2 // tmRoot=1, mainSeq=2 are fixed
+	const next = (): number => (id += 1)
+
+	const seq = buildAnimationSeq(animations, next)
+	const mediaNodes = loopMedia.map(obj => mediaNode(obj, next())).join('')
+	const bldLst = buildBldList(animations)
 
 	return (
 		'<p:timing><p:tnLst><p:par>' +
-		'<p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot">' +
-		`<p:childTnLst>${mediaNodes}</p:childTnLst>` +
-		'</p:cTn>' +
-		'</p:par></p:tnLst></p:timing>'
+		'<p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst>' +
+		seq +
+		mediaNodes +
+		'</p:childTnLst></p:cTn>' +
+		'</p:par></p:tnLst>' +
+		bldLst +
+		'</p:timing>'
 	)
+}
+
+/** Map a `ST_TransitionSpeed`-less exact duration (ms) to PowerPoint's coarse `spd` bucket. */
+function transitionSpeedForDuration (durationMs: number): 'slow' | 'med' | 'fast' {
+	if (durationMs <= 500) return 'fast'
+	if (durationMs <= 1000) return 'med'
+	return 'slow'
+}
+
+/**
+ * Build the slide-show transition tree (`p:transition`), positioned in `CT_Slide`
+ * between `p:clrMapOvr` and `p:timing`. Emits PowerPoint's `mc:AlternateContent`
+ * form (a `p14` Choice carrying the exact `p14:dur`, plus a base `mc:Fallback`)
+ * when `durationMs` is set, and the bare `<p:transition>` otherwise. See
+ * `docs/animations-and-transitions.md`.
+ * @returns {string} the transition XML, or `''` when the slide has no transition
+ */
+function slideTransitionToXml (slide: PresSlideInternal): string {
+	const transition = slide.transition
+	if (!transition?.type) return ''
+
+	const variantAttrs = Object.entries(transition.variant ?? {})
+		.map(([name, value]) => ` ${name}="${encodeXmlEntities(String(value))}"`)
+		.join('')
+	const typeEl = `<p:${transition.type}${variantAttrs}/>`
+
+	const hasDuration = typeof transition.durationMs === 'number' && isFinite(transition.durationMs)
+	const speed = transition.speed ?? (hasDuration ? transitionSpeedForDuration(transition.durationMs as number) : null)
+	const baseAttrs =
+		`${speed ? ` spd="${speed}"` : ''}` +
+		`${transition.advanceOnClick === false ? ' advClick="0"' : ''}` +
+		`${typeof transition.advanceAfterMs === 'number' ? ` advTm="${Math.round(transition.advanceAfterMs)}"` : ''}`
+
+	if (!hasDuration) return `<p:transition${baseAttrs}>${typeEl}</p:transition>`
+
+	const dur = Math.round(transition.durationMs as number)
+	return (
+		'<mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006">' +
+		'<mc:Choice xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" Requires="p14">' +
+		`<p:transition${baseAttrs} p14:dur="${dur}">${typeEl}</p:transition>` +
+		'</mc:Choice>' +
+		'<mc:Fallback>' +
+		`<p:transition${baseAttrs}>${typeEl}</p:transition>` +
+		'</mc:Fallback>' +
+		'</mc:AlternateContent>'
+	)
+}
+
+/** Resolved animation target's shape id (`spid`), or `null` when it cannot be resolved. */
+function resolveAnimationSpid (slide: PresSlideInternal, anim: AnimationProps): number | null {
+	if (typeof anim.shapeIndex === 'number' && anim.shapeIndex >= 0) return anim.shapeIndex + 2
+	if (anim.objectName) {
+		const idx = slide._slideObjects.findIndex(obj => obj.options?.objectName === anim.objectName)
+		if (idx >= 0) return idx + 2
+	}
+	return null
+}
+
+interface AnimPresetMeta {
+	presetID: number
+	presetClass: 'entr' | 'emph' | 'exit'
+	presetSubtype: number
+	defaultDurationMs: number
+	/** Emit the effect's behavior nodes (each `<p:cTn>` consumes one id via `next`). */
+	behaviors: (spid: number, dur: number, next: () => number) => string
+}
+
+const ANIM_SET_VISIBLE = (spid: number, next: () => number): string =>
+	`<p:set><p:cBhvr><p:cTn id="${next()}" dur="1" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn>` +
+	`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr>` +
+	'<p:to><p:strVal val="visible"/></p:to></p:set>'
+
+const ANIM_FADE = (transition: 'in' | 'out', spid: number, dur: number, next: () => number): string =>
+	`<p:animEffect transition="${transition}" filter="fade"><p:cBhvr><p:cTn id="${next()}" dur="${dur}"/>` +
+	`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl></p:cBhvr></p:animEffect>`
+
+const ANIM_FLY_AXIS = (axis: 'x' | 'y', spid: number, dur: number, next: () => number): string => {
+	const from = axis === 'x' ? '#ppt_x' : '1+#ppt_h/2'
+	const to = axis === 'x' ? '#ppt_x' : '#ppt_y'
+	return (
+		'<p:anim calcmode="lin" valueType="num"><p:cBhvr additive="base">' +
+		`<p:cTn id="${next()}" dur="${dur}" fill="hold"/><p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+		`<p:attrNameLst><p:attrName>ppt_${axis}</p:attrName></p:attrNameLst></p:cBhvr>` +
+		`<p:tavLst><p:tav tm="0"><p:val><p:strVal val="${from}"/></p:val></p:tav>` +
+		`<p:tav tm="100000"><p:val><p:strVal val="${to}"/></p:val></p:tav></p:tavLst></p:anim>`
+	)
+}
+
+const ANIM_PRESETS: Record<string, AnimPresetMeta> = {
+	fadeIn: {
+		presetID: 10,
+		presetClass: 'entr',
+		presetSubtype: 0,
+		defaultDurationMs: 500,
+		behaviors: (spid, dur, next) => ANIM_SET_VISIBLE(spid, next) + ANIM_FADE('in', spid, dur, next),
+	},
+	flyIn: {
+		presetID: 2,
+		presetClass: 'entr',
+		presetSubtype: 4,
+		defaultDurationMs: 500,
+		behaviors: (spid, dur, next) => ANIM_SET_VISIBLE(spid, next) + ANIM_FLY_AXIS('x', spid, dur, next) + ANIM_FLY_AXIS('y', spid, dur, next),
+	},
+	grow: {
+		presetID: 6,
+		presetClass: 'emph',
+		presetSubtype: 0,
+		defaultDurationMs: 2000,
+		behaviors: (spid, dur, next) =>
+			`<p:animScale><p:cBhvr><p:cTn id="${next()}" dur="${dur}" fill="hold"/>` +
+			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl></p:cBhvr><p:by x="150000" y="150000"/></p:animScale>`,
+	},
+	fadeOut: {
+		presetID: 10,
+		presetClass: 'exit',
+		presetSubtype: 0,
+		defaultDurationMs: 500,
+		behaviors: (spid, dur, next) =>
+			ANIM_FADE('out', spid, dur, next) +
+			`<p:set><p:cBhvr><p:cTn id="${next()}" dur="1" fill="hold"><p:stCondLst><p:cond delay="${Math.max(0, dur - 1)}"/></p:stCondLst></p:cTn>` +
+			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr>` +
+			'<p:to><p:strVal val="hidden"/></p:to></p:set>',
+	},
+}
+
+const ANIM_NODE_TYPE: Record<string, string> = {
+	onClick: 'clickEffect',
+	withPrevious: 'withEffect',
+	afterPrevious: 'afterEffect',
+}
+
+type ResolvedAnimation = { anim: AnimationProps; spid: number }
+
+/**
+ * Assemble the `mainSeq` from preset effects. Effects are grouped into click
+ * steps: an `onClick` effect opens a new click group; `afterPrevious` opens a new
+ * sub-step (delayed by the previous effect's duration) within it; `withPrevious`
+ * joins the current sub-step. This reproduces PowerPoint's interactive build tree.
+ */
+function buildAnimationSeq (animations: ResolvedAnimation[], next: () => number): string {
+	interface SubGroup { delay: number; effects: ResolvedAnimation[] }
+	interface ClickGroup { subs: SubGroup[] }
+	const groups: ClickGroup[] = []
+	let prevDuration = 0
+	for (const entry of animations) {
+		const meta = ANIM_PRESETS[entry.anim.preset]
+		if (!meta) continue
+		const trigger = entry.anim.trigger ?? 'onClick'
+		const duration = typeof entry.anim.durationMs === 'number' ? entry.anim.durationMs : meta.defaultDurationMs
+		if (trigger === 'onClick' || groups.length === 0) {
+			groups.push({ subs: [{ delay: 0, effects: [entry] }] })
+		} else if (trigger === 'afterPrevious') {
+			groups[groups.length - 1].subs.push({ delay: prevDuration, effects: [entry] })
+		} else {
+			// withPrevious — join the current sub-step
+			const subs = groups[groups.length - 1].subs
+			subs[subs.length - 1].effects.push(entry)
+		}
+		prevDuration = duration
+	}
+
+	const emitEffect = (entry: ResolvedAnimation): string => {
+		const meta = ANIM_PRESETS[entry.anim.preset]
+		const nodeType = ANIM_NODE_TYPE[entry.anim.trigger ?? 'onClick']
+		const duration = typeof entry.anim.durationMs === 'number' ? entry.anim.durationMs : meta.defaultDurationMs
+		const effectId = next()
+		const behaviors = meta.behaviors(entry.spid, duration, next)
+		return (
+			`<p:par><p:cTn id="${effectId}" presetID="${meta.presetID}" presetClass="${meta.presetClass}" presetSubtype="${meta.presetSubtype}" fill="hold" grpId="0" nodeType="${nodeType}">` +
+			'<p:stCondLst><p:cond delay="0"/></p:stCondLst>' +
+			`<p:childTnLst>${behaviors}</p:childTnLst></p:cTn></p:par>`
+		)
+	}
+
+	const emitSub = (sub: SubGroup): string => {
+		const subId = next()
+		const effects = sub.effects.map(emitEffect).join('')
+		return (
+			`<p:par><p:cTn id="${subId}" fill="hold"><p:stCondLst><p:cond delay="${sub.delay}"/></p:stCondLst>` +
+			`<p:childTnLst>${effects}</p:childTnLst></p:cTn></p:par>`
+		)
+	}
+
+	const emitGroup = (group: ClickGroup): string => {
+		const groupId = next()
+		const subs = group.subs.map(emitSub).join('')
+		return (
+			`<p:par><p:cTn id="${groupId}" fill="hold"><p:stCondLst><p:cond delay="indefinite"/></p:stCondLst>` +
+			`<p:childTnLst>${subs}</p:childTnLst></p:cTn></p:par>`
+		)
+	}
+
+	const clickGroups = groups.map(emitGroup).join('')
+	return (
+		'<p:seq concurrent="1" nextAc="seek">' +
+		'<p:cTn id="2" dur="indefinite" nodeType="mainSeq">' +
+		`<p:childTnLst>${clickGroups}</p:childTnLst></p:cTn>` +
+		'<p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst>' +
+		'<p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst>' +
+		'</p:seq>'
+	)
+}
+
+/** One `<p:bldP>` per animated shape, in order of first appearance. */
+function buildBldList (animations: ResolvedAnimation[]): string {
+	const seen = new Set<number>()
+	const bldPs: string[] = []
+	for (const { spid } of animations) {
+		if (seen.has(spid)) continue
+		seen.add(spid)
+		bldPs.push(`<p:bldP spid="${spid}" grpId="0"/>`)
+	}
+	return `<p:bldLst>${bldPs.join('')}</p:bldLst>`
 }
 
 export function makeXmlSlide (slide: PresSlideInternal): string {
@@ -2367,6 +2607,7 @@ export function makeXmlSlide (slide: PresSlideInternal): string {
 		`${slide?.hidden ? ' show="0"' : ''}>` +
 		`${slideObjectToXml(slide)}` +
 		'<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>' +
+		slideTransitionToXml(slide) +
 		slideTimingToXml(slide) +
 		'</p:sld>'
 	)

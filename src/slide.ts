@@ -5,6 +5,7 @@
 import { CHART_NAME, SHAPE_NAME } from './core-enums.js'
 import {
 	AddSlideProps,
+	AnimationProps,
 	BackgroundProps,
 	CommentProps,
 	ConnectorProps,
@@ -33,6 +34,7 @@ import {
 	TableRow,
 	TextProps,
 	TextPropsOptions,
+	TransitionProps,
 } from './core-interfaces.js'
 import * as genObj from './gen-objects.js'
 import { emuToInches } from './units.js'
@@ -55,6 +57,7 @@ export default class Slide {
 	public _slideObjects: ISlideObject[]
 	public _comments: ISlideComment[] = []
 	public _newAutoPagedSlides: PresSlideInternal[] = []
+	public _animations: AnimationProps[] = []
 
 	constructor(params: {
 		addSlide: (options?: AddSlideProps) => PresSlideInternal
@@ -147,6 +150,19 @@ export default class Slide {
 
 	public get hidden(): boolean {
 		return this._hidden
+	}
+
+	/**
+	 * Slide-show transition (`p:transition`) played when advancing to this slide.
+	 * @type {TransitionProps}
+	 */
+	private _transition?: TransitionProps
+	public set transition(value: TransitionProps | undefined) {
+		this._transition = value
+	}
+
+	public get transition(): TransitionProps | undefined {
+		return this._transition
 	}
 
 	/**
@@ -308,6 +324,20 @@ export default class Slide {
 	addText(text: string | number | TextProps[], options?: TextPropsOptions): Slide {
 		const textParam = typeof text === 'string' || typeof text === 'number' ? [{ text, options }] : text
 		genObj.addTextDefinition(this, textParam, options || {}, false)
+		return this
+	}
+
+	/**
+	 * Add a preset build animation (entrance/emphasis/exit) to a shape on this slide.
+	 * Effects play in the order added and are grouped into click steps by `trigger`.
+	 * Target the shape by its 0-based add order (`shapeIndex`) or by `objectName`.
+	 * @param {AnimationProps} options - preset, target shape, trigger, and duration
+	 * @return {Slide} this Slide
+	 * @example slide.addAnimation({ preset: 'fadeIn', shapeIndex: 0 })
+	 * @example slide.addAnimation({ preset: 'grow', objectName: 'logo', trigger: 'afterPrevious' })
+	 */
+	addAnimation(options: AnimationProps): Slide {
+		this._animations.push(options)
 		return this
 	}
 }

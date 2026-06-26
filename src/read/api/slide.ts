@@ -4,11 +4,13 @@
 import type { Part } from '../opc/part.js'
 import { relativePartName } from '../opc/partnames.js'
 import type { Relationships } from '../opc/relationships.js'
-import { OOXML_NS, attr, createElement, firstChild, intValue, removeAttr, setAttr, type Document, type Element } from '../oxml/dom.js'
+import { OOXML_NS, attr, createElement, firstChild, insertInOrder, intValue, removeAttr, setAttr, type Document, type Element } from '../oxml/dom.js'
 import type { FlattenContext } from '../oxml/theme.js'
 import { resolveSlideColorContext } from './theme-context.js'
 import type { Presentation } from './presentation.js'
 import { AutoShape, Picture, buildShapes, type Shape } from './shapes.js'
+import { buildTransition, parseTransition, removeTransition, type TransitionInfo, type TransitionInput } from './transition.js'
+import { enumerateSpids, hasAnimations, pruneSpids, remapSpids } from './animation.js'
 
 const IMAGE_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 
@@ -137,6 +139,75 @@ export class Slide {
 		if (value) setAttr(root, 'show', '0')
 		else removeAttr(root, 'show')
 		this.part.markDirty()
+	}
+
+	/**
+	 * The slide's show transition (`p:transition`), decoded into a typed model, or
+	 * `null` when the slide has none. Handles both PowerPoint forms: the bare
+	 * `<p:transition>` and the `mc:AlternateContent` wrapper that carries the exact
+	 * `p14:dur` duration (the `p14` Choice is preferred so `durationMs` is recovered).
+	 */
+	get transition(): TransitionInfo | null {
+		const root = this.part.dom.documentElement
+		return root ? parseTransition(root) : null
+	}
+
+	/**
+	 * Set or clear the slide's show transition. Assigning `null` removes it.
+	 * Writing a transition with `durationMs` emits the `mc:AlternateContent` form
+	 * (a `p14` Choice carrying `p14:dur` plus a base `mc:Fallback`); otherwise the
+	 * bare `<p:transition>` is written. The node is inserted at its schema slot —
+	 * after `p:clrMapOvr`, before `p:timing`/`p:extLst`. Marks the slide part dirty.
+	 */
+	set transition(value: TransitionInput | null) {
+		const root = this.part.dom.documentElement
+		if (!root) throw new Error(`Slide ${this.partName} has no root <p:sld> element`)
+		removeTransition(root)
+		if (value) {
+			const doc = this.part.dom
+			insertInOrder(root, buildTransition(doc, value), ['p:timing', 'p:extLst'])
+		}
+		this.part.markDirty()
+	}
+
+	/**
+	 * Whether the slide carries build animations (`p:timing` with a `<p:bldP>` or a
+	 * `presetID`-bearing time node). The animation tree itself is preserved opaquely;
+	 * see {@link animationSpids}.
+	 */
+	get hasAnimations(): boolean {
+		const root = this.part.dom.documentElement
+		return root ? hasAnimations(root) : false
+	}
+
+	/**
+	 * @internal The sorted, de-duplicated set of shape ids (`spid`) referenced by
+	 * the slide's animations (`<p:spTgt spid>` and `<p:bldP spid>`). Exposed for the
+	 * import paths' spid-coherence checks.
+	 */
+	animationSpids(): number[] {
+		const root = this.part.dom.documentElement
+		return root ? enumerateSpids(root) : []
+	}
+
+	/**
+	 * @internal Rewrite every animation `spid` per `mapping` (old → new), keeping
+	 * the opaque timing tree coherent when shape ids are reassigned. Marks the slide
+	 * part dirty only when a reference changed.
+	 */
+	remapAnimationSpids(mapping: Map<number, number>): void {
+		const root = this.part.dom.documentElement
+		if (root && remapSpids(root, mapping)) this.part.markDirty()
+	}
+
+	/**
+	 * @internal Remove the build animations targeting the given shape ids (their
+	 * `<p:bldP>` and effect nodes), so deleting a shape never leaves a dangling
+	 * `spid` reference. Marks the slide part dirty only when something was removed.
+	 */
+	pruneAnimationSpids(spids: Iterable<number>): void {
+		const root = this.part.dom.documentElement
+		if (root && pruneSpids(root, spids)) this.part.markDirty()
 	}
 
 	/** Top-level shapes in the slide's shape tree, in document order. */

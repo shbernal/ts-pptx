@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Slide transitions & preset build animations (`docs/animations-and-transitions.md`, Phase 1):**
+  two complementary subsystems, faithful to how PowerPoint authors the XML.
+  - **Transitions — full typed model, both ways.** Write side: `slide.transition = { type,
+    durationMs?, speed?, advanceOnClick?, advanceAfterMs?, variant? }` emits `p:transition`
+    between `p:clrMapOvr` and `p:timing` — the bare `<p:transition>` form for a coarse `spd`
+    speed bucket, or PowerPoint's `mc:AlternateContent` form (a `p14` Choice carrying the exact
+    `p14:dur` plus a base `mc:Fallback`) when `durationMs` is set. Read side (`pptxgenjs/read`):
+    `slide.transition` is a typed get/set accessor (`TransitionInfo`) handling both forms and
+    preferring the `p14` Choice so `durationMs` round-trips. Types `TransitionProps` /
+    `TransitionType` (the 21 base ECMA-376 types: `fade`, `push`, `wipe`, `cut`, `dissolve`, …),
+    with type-specific variants (e.g. `{ dir: 'd' }`) via `variant`.
+  - **Animations — opaque, spid-aware preservation + preset-template authoring.** The
+    `p:timing`/`p:bldLst` build tree is modeled opaquely (no semantic AST): an unmodified slide
+    round-trips it byte-identically, and the read model exposes only `slide.hasAnimations` plus
+    the internal `spid` operations needed to keep references coherent — enumerate
+    (`animationSpids()`), remap (`remapAnimationSpids()`), and prune (`pruneAnimationSpids()`)
+    over `<p:spTgt @spid>`/`<p:bldP @spid>`. Authoring uses a fixed preset set (no general
+    timing builder): `slide.addAnimation({ preset: 'fadeIn'|'flyIn'|'grow'|'fadeOut', shapeIndex
+    |objectName, trigger?, durationMs? })` emits verbatim PowerPoint templates assembled into a
+    `mainSeq`, grouped into click steps by `trigger` (`onClick`/`withPrevious`/`afterPrevious`),
+    with one `<p:bldP>` per animated shape. `slideTimingToXml` was **extended** (not replaced) so
+    a slide carries either the looping-media tree or a build-animation tree; the media-only path
+    is byte-unchanged. The write emitters reproduce the PowerPoint-authored oracle decks
+    byte-for-byte (asserted in tests). Implements backlog `gitbrent/PptxGenJS#1431` (Phase 1;
+    `importShape` timing carry-through, an expanded preset set, and transition sounds remain
+    Phase 2).
+
 - **`addChart(type, data, { metadata })` — custom chart-level metadata via a schema-valid
   extension:** pass a `Record<string, string>` of annotations (e.g. a source-data id, a
   generator tag, a semantic role) that should travel with the chart. They are emitted as the

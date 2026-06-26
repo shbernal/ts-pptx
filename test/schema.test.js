@@ -2436,6 +2436,42 @@ export default [
 		},
 	},
 	{
+		// Slide transitions (docs/animations-and-transitions.md, Phase 1): p:transition
+		// is emitted between p:clrMapOvr and p:timing. Bare form for a speed bucket;
+		// mc:AlternateContent (p14 Choice with p14:dur + base Fallback) for an exact
+		// duration. Asserts both forms — and their type-variant attrs — stay schema-valid.
+		name: 'slide transitions (p:transition bare + mc:AlternateContent)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().transition = { type: 'fade' }
+				p.addSlide().transition = { type: 'push', durationMs: 1250, variant: { dir: 'd' } }
+				p.addSlide().transition = { type: 'wipe', speed: 'med', variant: { dir: 'u' } }
+				p.addSlide().transition = { type: 'dissolve', durationMs: 2000, speed: 'slow' }
+				p.addSlide().transition = { type: 'fade', speed: 'med', advanceOnClick: false, advanceAfterMs: 3000 }
+			})
+			await expectNoSchemaErrors(buf, 'slide-transitions')
+		},
+	},
+	{
+		// Preset build animations (docs/animations-and-transitions.md, Phase 1): the
+		// p:timing mainSeq is assembled from captured preset templates, grouped into
+		// click steps by trigger, with one p:bldP per animated shape. Mirrors the rich
+		// fixture (entrance/emphasis/exit x click/after/with). Asserts schema validity.
+		name: 'preset build animations (p:timing mainSeq + p:bldLst)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				for (const nm of ['fadeShape', 'flyShape', 'growShape', 'exitShape'])
+					s.addText(nm, { x: 1, y: 1, w: 3, h: 1, objectName: nm })
+				s.addAnimation({ preset: 'fadeIn', shapeIndex: 0, trigger: 'onClick' })
+				s.addAnimation({ preset: 'flyIn', shapeIndex: 1, trigger: 'afterPrevious' })
+				s.addAnimation({ preset: 'grow', shapeIndex: 2, trigger: 'withPrevious' })
+				s.addAnimation({ preset: 'fadeOut', objectName: 'exitShape', trigger: 'onClick' })
+			})
+			await expectNoSchemaErrors(buf, 'preset-animations')
+		},
+	},
+	{
 		// Speaker-notes hyperlinks + rich runs (upstream-issue-1250): notes runs carry
 		// inline formatting and external `url` hyperlinks. The hyperlink emits an
 		// <a:hlinkClick> in the notes body and an external relationship in the notes

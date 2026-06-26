@@ -538,8 +538,10 @@ export default class PptxGenJS {
 			addShape: null,
 			addTable: null,
 			addText: null,
+			addAnimation: null,
 			//
 			_name: null,
+			_animations: [],
 			_presLayout: this._presLayout,
 			_rId: null,
 			_rels: [],

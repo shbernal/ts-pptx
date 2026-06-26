@@ -40,6 +40,7 @@ export const OOXML_NS: Readonly<Record<string, string>> = Object.freeze({
 	ep: 'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties',
 	mc: 'http://schemas.openxmlformats.org/markup-compatibility/2006',
 	p: 'http://schemas.openxmlformats.org/presentationml/2006/main',
+	p14: 'http://schemas.microsoft.com/office/powerpoint/2010/main',
 	pr: 'http://schemas.openxmlformats.org/package/2006/relationships',
 	r: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
 })

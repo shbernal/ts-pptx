@@ -3308,6 +3308,88 @@ export interface SlideLayoutInternal extends SlideBaseProps, SlideLayout {
 		hidden?: boolean
 	} | null
 }
+/**
+ * Base ECMA-376 slide-transition type (`p:transition`'s single type child). Each
+ * maps to a `<p:TYPE/>` element; type-specific variants (e.g. direction) go in
+ * {@link TransitionProps.variant}. Modern PowerPoint-only transitions (Morph,
+ * Vortex, …) live in the `p14`/`p15`/`p159` namespaces and are out of authoring
+ * scope for now. See `docs/animations-and-transitions.md`.
+ */
+export type TransitionType =
+	| 'blinds'
+	| 'checker'
+	| 'circle'
+	| 'comb'
+	| 'cover'
+	| 'cut'
+	| 'diamond'
+	| 'dissolve'
+	| 'fade'
+	| 'newsflash'
+	| 'plus'
+	| 'pull'
+	| 'push'
+	| 'random'
+	| 'randomBar'
+	| 'split'
+	| 'strips'
+	| 'wedge'
+	| 'wheel'
+	| 'wipe'
+	| 'zoom'
+
+/**
+ * Slide-show transition applied between slides (`p:transition`). Assign to
+ * {@link PresSlide.transition}. Setting `durationMs` emits PowerPoint's
+ * `mc:AlternateContent` form (a `p14` Choice carrying `p14:dur` plus a base
+ * `mc:Fallback`); otherwise only the coarse `speed` bucket is written.
+ * @example slide.transition = { type: 'push', durationMs: 1250, variant: { dir: 'd' } }
+ */
+export interface TransitionProps {
+	/** Transition type (the `<p:TYPE/>` element), e.g. `fade`, `push`, `wipe`, `cut`, `dissolve`. */
+	type: TransitionType
+	/** Exact duration in milliseconds (`p14:dur`); emits the `mc:AlternateContent` form. */
+	durationMs?: number
+	/** Coarse speed bucket (`spd`); derived from `durationMs` when omitted, else defaults to `fast`. */
+	speed?: 'slow' | 'med' | 'fast'
+	/** Advance on mouse click (`advClick`). @default true */
+	advanceOnClick?: boolean
+	/** Auto-advance after this many milliseconds (`advTm`). */
+	advanceAfterMs?: number
+	/** Type-specific variant attributes, e.g. `{ dir: 'd' }` for push, `{ spokes: '2' }` for wheel. */
+	variant?: Record<string, string>
+}
+
+/**
+ * A preset build-animation effect. The supported set is fixed (each is a verbatim
+ * template captured from PowerPoint); adding one means adding a fixture + template,
+ * not a new code path. See `docs/animations-and-transitions.md`.
+ */
+export type PresetEffect = 'fadeIn' | 'flyIn' | 'grow' | 'fadeOut'
+
+/** When a build-animation effect starts relative to the preceding one. */
+export type AnimationTrigger = 'onClick' | 'withPrevious' | 'afterPrevious'
+
+/**
+ * A preset build animation on a shape (entrance/emphasis/exit), added via
+ * {@link PresSlide.addAnimation}. Target the shape by its 0-based add order
+ * (`shapeIndex`, mapping to the generated `spid = shapeIndex + 2`) or by
+ * `objectName`. Effects play in the order added, grouped into click steps by
+ * `trigger`.
+ */
+export interface AnimationProps {
+	/** The preset effect to play. */
+	preset: PresetEffect
+	/** 0-based add order of the target shape on the slide (`spid = shapeIndex + 2`). */
+	shapeIndex?: number
+	/** Target shape by its `objectName` (alternative to `shapeIndex`). */
+	objectName?: string
+	/** Trigger relative to the previous effect. @default 'onClick' */
+	trigger?: AnimationTrigger
+	/** Effect duration in milliseconds; preset-specific default when omitted. */
+	durationMs?: number
+}
+
 export interface PresSlide {
 	addChart(type: CHART_NAME, data: OptsChartData[], options?: IChartOpts): PresSlide
 	addChart(type: IChartMulti[], options?: IChartOpts): PresSlide
@@ -3319,8 +3401,15 @@ export interface PresSlide {
 	addShape: (shapeName: SHAPE_NAME, options?: ShapeProps) => PresSlide
 	addTable: (tableRows: TableRow[], options?: TableProps) => PresSlide
 	addText: (text: string | number | TextProps[], options?: TextPropsOptions) => PresSlide
+	addAnimation: (options: AnimationProps) => PresSlide
 
 	readonly newAutoPagedSlides?: PresSlide[]
+
+	/**
+	 * Slide-show transition played when advancing to this slide (`p:transition`).
+	 * @example slide.transition = { type: 'fade', durationMs: 1500 }
+	 */
+	transition?: TransitionProps
 
 	/**
 	 * Slide width in inches, resolved from the active presentation layout.
@@ -3367,6 +3456,8 @@ export interface PresSlideInternal extends SlideBaseProps, PresSlide {
 	_rId: number
 	_slideLayout: SlideLayoutInternal | null
 	_slideId: number
+	/** Preset build animations on this slide, in play order (see {@link PresSlide.addAnimation}). */
+	_animations: AnimationProps[]
 }
 export interface AddSlideProps {
 	masterName?: string // TODO: 20200528: rename to "masterTitle" (createMaster uses `title` so lets be consistent)
