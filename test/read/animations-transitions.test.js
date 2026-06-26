@@ -203,6 +203,49 @@ describe('slide animations (opaque, spid-aware)', () => {
 	})
 })
 
+describe('slide.flattenAnimations (whole-slide flatten pass)', () => {
+	test('strips the whole timing block, leaving every shape in place', async () => {
+		const pres = await open('slide-animation-rich')
+		const slide = pres.slides[0]
+		const shapeCountBefore = slide.shapes.length
+		assert.equal(slide.hasAnimations, true)
+
+		assert.equal(slide.flattenAnimations(), true)
+
+		assert.equal(slide.hasAnimations, false)
+		assert.deepEqual(slide.animationSpids(), [])
+		assert.equal(slide.shapes.length, shapeCountBefore, 'no shapes removed')
+
+		const saved = await pres.save()
+		assert.ok(!(await slidePartXml(saved, 1)).includes('<p:timing'), 'p:timing gone from the bytes')
+		const reopened = await Presentation.load(saved)
+		assert.equal(reopened.slides[0].hasAnimations, false)
+		assert.equal(reopened.slides[0].shapes.length, shapeCountBefore)
+		if (validatorInstalled) assert.deepEqual(await validateBuf(Buffer.from(saved)), [])
+	})
+
+	test('flattening the basic fixture clears its animations', async () => {
+		const pres = await open('slide-animation-basic')
+		const slide = pres.slides[0]
+		assert.equal(slide.flattenAnimations(), true)
+		assert.equal(slide.hasAnimations, false)
+		assert.deepEqual(slide.animationSpids(), [])
+	})
+
+	test('is a no-op on an unanimated slide and is idempotent', async () => {
+		const pres = await open('slide-transition')
+		const slide = pres.slides[0]
+		assert.equal(slide.hasAnimations, false)
+		assert.equal(slide.flattenAnimations(), false, 'nothing to flatten')
+		// the slide-show transition is untouched by an animation flatten
+		assert.notEqual(slide.transition, null)
+
+		const rich = (await open('slide-animation-rich')).slides[0]
+		assert.equal(rich.flattenAnimations(), true)
+		assert.equal(rich.flattenAnimations(), false, 'second call is a no-op')
+	})
+})
+
 // --- Phase 2 fixtures (docs/animations-and-transitions.md). Preset expansion (B)
 // and transition sounds (C) are implemented write-side (see test/regression); the
 // importShape animation carry (A) is exercised at the end of this file. These

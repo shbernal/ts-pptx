@@ -168,6 +168,28 @@ export function pruneSpids(root: Element, spids: Iterable<number>): boolean {
 	return changed
 }
 
+/**
+ * Flatten the whole slide to its final static state by removing the build
+ * animation timeline: drop the `<p:timing>` block (which carries the `<p:bldLst>`
+ * and the effect tree) so every shape renders at once with no click-through
+ * staging. Gated on {@link hasAnimations}: a `<p:timing>` that is purely a
+ * media loop (no `<p:bldP>` and no `presetID`-bearing node) is left untouched so
+ * media playback survives. Returns `true` when a timing block was removed.
+ *
+ * This is the whole-slide counterpart to {@link pruneSpids} (which drops the
+ * builds of specific shapes). It only removes staging; it never deletes shapes,
+ * so a slide that animated alternating states over the same region will show
+ * them all at once after flattening — that is "drop animations", distinct from
+ * "remove staged/duplicate shapes".
+ */
+export function flattenAnimations(root: Element): boolean {
+	if (!hasAnimations(root)) return false
+	const timing = firstChild(root, 'p:timing')
+	if (!timing) return false
+	timing.parentNode?.removeChild(timing)
+	return true
+}
+
 // --- carry: bring a copied shape's build animation into a destination slide ---
 
 const P_XMLNS = `xmlns:p="${P_NS}"`

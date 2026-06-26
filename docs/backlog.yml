@@ -1964,8 +1964,8 @@ items:
     source: downstream
     type: downstream-need
     first_seen: 2026-06-18
-    last_reviewed: 2026-06-18
-    status: deferred
+    last_reviewed: 2026-06-26
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
@@ -1973,27 +1973,37 @@ items:
     non_target_reasons: []
     summary: "Optional whole-slide animation/timing flatten pass (strip <p:timing>)"
     current_project_notes: |
-      A slide-level pass to strip a slide's animation timeline so it renders/edits
-      as its final static state: remove the <p:timing> block and any per-shape
-      build references, leaving every shape visible at once. Generic OOXML surgery,
-      a natural companion to importShape (which already drops the lifted shape's
-      build/timing). Low priority: a scan of the reference corpus found only 3 of
-      640 slides carry any animation and none of the chosen references do; the
-      heaviness that actually blocks lifting is static shape complexity, which this
-      would not touch. Caveat if built: flattening only removes click-through
-      behavior; if a slide animated alternating states over the same region,
-      showing them all at once can clutter the render — keep "drop animations"
-      distinct from "remove staging/duplicate shapes". Revisit only if a future
-      deck depends on animation-staged source slides.
+      Implemented as slide.flattenAnimations() in the read/edit model
+      (src/read/api/animation.ts flattenAnimations(); exposed on Slide in
+      src/read/api/slide.ts). The pass removes the slide's <p:timing> block
+      (which carries the <p:bldLst> and the effect tree), flattening the slide to
+      its final static state with every shape shown at once. It is gated on
+      hasAnimations() so a <p:timing> that is purely a media loop (no <p:bldP> and
+      no presetID node) is left untouched and media playback survives; returns
+      true / marks the part dirty only when a timing block is removed, and is
+      idempotent. It is the whole-slide counterpart to pruneSpids() (which drops
+      the builds of specific shapes) and never deletes shapes — so the design
+      caveat still stands for callers: a slide that animated alternating states
+      over the same region shows them all at once after flattening; keep "drop
+      animations" distinct from "remove staged/duplicate shapes". Validated via
+      the OpenXmlValidator (saved flattened deck is clean) and round-trip
+      save/reopen in test/read/animations-transitions.test.js. Low corpus
+      relevance is unchanged (3 of 640 reference slides animate, none chosen), but
+      the capability now exists for animation-staged source slides.
     evidence:
       kinds:
         - local-source-inspection
-      local_files: []
-      schema_fixture: null
-      validator_result: null
+        - regression-test
+        - validator-result
+      local_files:
+        - src/read/api/animation.ts
+        - src/read/api/slide.ts
+        - test/read/animations-transitions.test.js
+      schema_fixture: test/read/animations-transitions.test.js
+      validator_result: clean
       powerpoint_result: null
       spec_refs: []
-    next_action: revisit-if-needed
+    next_action: none
   - id: dn-image-shape-fill
     source: downstream
     type: downstream-need

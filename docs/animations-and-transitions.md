@@ -204,6 +204,12 @@ Three operations, all purely structural (no semantic parse):
   Needed by any id-reassigning op.
 - **prune** — when a shape is removed, drop its `p:bldP` and the effect nodes
   whose `spTgt` targets it, so no dangling reference survives.
+- **flatten** — the whole-slide counterpart to prune: `slide.flattenAnimations()`
+  removes the entire `<p:timing>` block, flattening the slide to its final static
+  state (every shape shown at once). Gated on `hasAnimations`, so a purely
+  media-loop timing (no `p:bldP` / `presetID`) is preserved. Removes staging
+  only; it never deletes shapes (`flattenAnimations` in
+  `src/read/api/animation.ts`).
 
 ### Interaction with import paths (`src/read/api/presentation.ts`)
 
@@ -225,6 +231,7 @@ Three operations, all purely structural (no semantic parse):
 // Read (src/read): typed transition; animation stays opaque.
 slide.transition // -> TransitionInfo | null   (get/set)
 slide.hasAnimations // -> boolean
+slide.flattenAnimations() // -> boolean  (strip <p:timing>; flatten to final state)
 
 // Write (core): slide-level transition + preset animations.
 interface TransitionProps {

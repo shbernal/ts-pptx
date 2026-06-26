@@ -10,7 +10,7 @@ import { resolveSlideColorContext } from './theme-context.js'
 import type { Presentation } from './presentation.js'
 import { AutoShape, Picture, buildShapes, type Shape } from './shapes.js'
 import { buildTransition, parseTransition, removeTransition, type TransitionInfo, type TransitionInput } from './transition.js'
-import { enumerateSpids, hasAnimations, pruneSpids, remapSpids } from './animation.js'
+import { enumerateSpids, flattenAnimations, hasAnimations, pruneSpids, remapSpids } from './animation.js'
 
 const IMAGE_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 
@@ -208,6 +208,27 @@ export class Slide {
 	pruneAnimationSpids(spids: Iterable<number>): void {
 		const root = this.part.dom.documentElement
 		if (root && pruneSpids(root, spids)) this.part.markDirty()
+	}
+
+	/**
+	 * Flatten the slide's build animations: remove the `<p:timing>` block so the
+	 * slide renders and edits as its final static state, with every shape shown at
+	 * once. Gated like {@link hasAnimations} — a `<p:timing>` that is purely a media
+	 * loop (no `<p:bldP>` or `presetID`) is preserved so media playback survives.
+	 * Marks the slide part dirty and returns `true` only when a timing block was
+	 * removed.
+	 *
+	 * This removes click-through staging only; it does not delete shapes. If a slide
+	 * animated alternating states over the same region, the flattened render shows
+	 * them all at once — keep that distinct from removing staged/duplicate shapes.
+	 */
+	flattenAnimations(): boolean {
+		const root = this.part.dom.documentElement
+		if (root && flattenAnimations(root)) {
+			this.part.markDirty()
+			return true
+		}
+		return false
 	}
 
 	/** Top-level shapes in the slide's shape tree, in document order. */

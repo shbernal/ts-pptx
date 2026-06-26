@@ -61,6 +61,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     remapped to the shape's new id and their `<p:cTn>` ids renumbered to stay collision-free, and
     appended after any existing build — the programmatic analogue of PowerPoint's
     copy/paste-with-animation merge.
+  - **Whole-slide animation flatten — `slide.flattenAnimations()` (2026-06-26).** Removes the
+    slide's `<p:timing>` block (the `<p:bldLst>` and effect tree), flattening the slide to its
+    final static state with every shape shown at once. The whole-slide counterpart to the
+    per-shape `pruneAnimationSpids()`. Gated like `hasAnimations`: a `<p:timing>` that is purely a
+    media loop (no `<p:bldP>` / `presetID`) is left untouched so media playback survives. Marks
+    the part dirty and returns `true` only when a timing block is removed; idempotent; never
+    deletes shapes. Implements backlog `dn-flatten-slide-animations`.
 
 - **`addChart(type, data, { metadata })` — custom chart-level metadata via a schema-valid
   extension:** pass a `Record<string, string>` of annotations (e.g. a source-data id, a
