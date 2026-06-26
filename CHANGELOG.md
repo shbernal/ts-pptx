@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [8.1.0](https://github.com/shbernal/PptxGenJS/releases/tag/v8.1.0) - 2026-06-26
+
 ### Added
 
 - **Slide transitions & preset build animations (`docs/animations-and-transitions.md`, Phase 1):**
