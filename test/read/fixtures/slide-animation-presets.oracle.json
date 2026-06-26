@@ -1,0 +1,197 @@
+{
+	"deck": "slide-animation-presets",
+	"schema": "slide-animation-oracle@1",
+	"application": "Microsoft Office PowerPoint",
+	"appVersion": "16.0000",
+	"sha256": "1ada4298e879ede2dc335e00d925376027b65e89a265501d0bc570fecd6a7298",
+	"notes": "PowerPoint-authored preset-template oracle for docs/animations-and-transitions.md (Phase 2 capability B: expand the write-side preset set). One blank 16:9 slide, one labeled text box per preset, one on-click effect each, spanning all three preset classes: entrance fadeIn (presetID 10), flyIn (2/sub4), appear (1), wipe (22/sub4, filter \"wipe(down)\"); emphasis grow/shrink (6) and spin (8, animRot by=\"21600000\" on attr \"r\"); exit fadeOut (10) and flyOut (2/sub4). fadeIn/flyIn/grow/fadeOut reconfirm the Phase 1 ANIM_PRESETS templates byte-for-byte; appear/wipe/spin/flyOut are the NEW templates to add. presetTemplates maps each preset name -> { key:(presetID,presetClass,presetSubtype,nodeType), effectParXml (verbatim <p:par> effect node), behaviorsXml (verbatim childTnLst inner — the parameterizable write template, by spid/dur/id), bldPXml }. NOTE on Pulse: the recommended downstream set named emphasis \"pulse\", but the opacity-based Pulse is NOT reachable through PowerPoint COM AddEffect (the legacy MsoAnimEffect enum exposes no opacity-pulse; probed 1..150 — none emit a style.opacity node), so the emphasis pair authored here is grow + spin and Pulse is recorded as a gap. Exit flyOut differs from entrance flyIn in two PowerPoint-authored ways captured verbatim: the ppt_x/ppt_y strVal expressions carry NO leading \"#\" (e.g. \"ppt_x\", \"1+ppt_h/2\") and the behavior <p:cTn> omits fill=\"hold\".",
+	"shapeIds": {
+		"1": "",
+		"2": "entr-fadeIn",
+		"3": "entr-flyIn",
+		"4": "entr-appear",
+		"5": "entr-wipe",
+		"6": "emph-grow",
+		"7": "emph-spin",
+		"8": "exit-fadeOut",
+		"9": "exit-flyOut"
+	},
+	"effects": [
+		{
+			"presetID": 10,
+			"presetClass": "entr",
+			"presetSubtype": 0,
+			"nodeType": "clickEffect",
+			"grpId": 0,
+			"spid": 2,
+			"shapeName": "entr-fadeIn",
+			"presetName": "fadeIn"
+		},
+		{
+			"presetID": 2,
+			"presetClass": "entr",
+			"presetSubtype": 4,
+			"nodeType": "clickEffect",
+			"grpId": 0,
+			"spid": 3,
+			"shapeName": "entr-flyIn",
+			"presetName": "flyIn"
+		},
+		{
+			"presetID": 1,
+			"presetClass": "entr",
+			"presetSubtype": 0,
+			"nodeType": "clickEffect",
+			"grpId": 0,
+			"spid": 4,
+			"shapeName": "entr-appear",
+			"presetName": "appear"
+		},
+		{
+			"presetID": 22,
+			"presetClass": "entr",
+			"presetSubtype": 4,
+			"nodeType": "clickEffect",
+			"grpId": 0,
+			"spid": 5,
+			"shapeName": "entr-wipe",
+			"presetName": "wipe"
+		},
+		{
+			"presetID": 6,
+			"presetClass": "emph",
+			"presetSubtype": 0,
+			"nodeType": "clickEffect",
+			"grpId": 0,
+			"spid": 6,
+			"shapeName": "emph-grow",
+			"presetName": "grow"
+		},
+		{
+			"presetID": 8,
+			"presetClass": "emph",
+			"presetSubtype": 0,
+			"nodeType": "clickEffect",
+			"grpId": 0,
+			"spid": 7,
+			"shapeName": "emph-spin",
+			"presetName": "spin"
+		},
+		{
+			"presetID": 10,
+			"presetClass": "exit",
+			"presetSubtype": 0,
+			"nodeType": "clickEffect",
+			"grpId": 0,
+			"spid": 8,
+			"shapeName": "exit-fadeOut",
+			"presetName": "fadeOut"
+		},
+		{
+			"presetID": 2,
+			"presetClass": "exit",
+			"presetSubtype": 4,
+			"nodeType": "clickEffect",
+			"grpId": 0,
+			"spid": 9,
+			"shapeName": "exit-flyOut",
+			"presetName": "flyOut"
+		}
+	],
+	"animationSpids": [2, 3, 4, 5, 6, 7, 8, 9],
+	"bldList": {
+		"spids": [2, 3, 4, 5, 6, 7, 8, 9],
+		"xml": "<p:bldLst><p:bldP spid=\"2\" grpId=\"0\"/><p:bldP spid=\"3\" grpId=\"0\"/><p:bldP spid=\"4\" grpId=\"0\"/><p:bldP spid=\"5\" grpId=\"0\"/><p:bldP spid=\"6\" grpId=\"0\"/><p:bldP spid=\"7\" grpId=\"0\"/><p:bldP spid=\"8\" grpId=\"0\"/><p:bldP spid=\"9\" grpId=\"0\"/></p:bldLst>"
+	},
+	"presetTemplates": {
+		"fadeIn": {
+			"key": {
+				"presetID": 10,
+				"presetClass": "entr",
+				"presetSubtype": 0,
+				"nodeType": "clickEffect"
+			},
+			"effectParXml": "<p:par><p:cTn id=\"5\" presetID=\"10\" presetClass=\"entr\" presetSubtype=\"0\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:set><p:cBhvr><p:cTn id=\"6\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"2\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set><p:animEffect transition=\"in\" filter=\"fade\"><p:cBhvr><p:cTn id=\"7\" dur=\"500\"/><p:tgtEl><p:spTgt spid=\"2\"/></p:tgtEl></p:cBhvr></p:animEffect></p:childTnLst></p:cTn></p:par>",
+			"behaviorsXml": "<p:set><p:cBhvr><p:cTn id=\"6\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"2\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set><p:animEffect transition=\"in\" filter=\"fade\"><p:cBhvr><p:cTn id=\"7\" dur=\"500\"/><p:tgtEl><p:spTgt spid=\"2\"/></p:tgtEl></p:cBhvr></p:animEffect>",
+			"bldPXml": "<p:bldP spid=\"2\" grpId=\"0\"/>"
+		},
+		"flyIn": {
+			"key": {
+				"presetID": 2,
+				"presetClass": "entr",
+				"presetSubtype": 4,
+				"nodeType": "clickEffect"
+			},
+			"effectParXml": "<p:par><p:cTn id=\"10\" presetID=\"2\" presetClass=\"entr\" presetSubtype=\"4\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:set><p:cBhvr><p:cTn id=\"11\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"3\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set><p:anim calcmode=\"lin\" valueType=\"num\"><p:cBhvr additive=\"base\"><p:cTn id=\"12\" dur=\"500\" fill=\"hold\"/><p:tgtEl><p:spTgt spid=\"3\"/></p:tgtEl><p:attrNameLst><p:attrName>ppt_x</p:attrName></p:attrNameLst></p:cBhvr><p:tavLst><p:tav tm=\"0\"><p:val><p:strVal val=\"#ppt_x\"/></p:val></p:tav><p:tav tm=\"100000\"><p:val><p:strVal val=\"#ppt_x\"/></p:val></p:tav></p:tavLst></p:anim><p:anim calcmode=\"lin\" valueType=\"num\"><p:cBhvr additive=\"base\"><p:cTn id=\"13\" dur=\"500\" fill=\"hold\"/><p:tgtEl><p:spTgt spid=\"3\"/></p:tgtEl><p:attrNameLst><p:attrName>ppt_y</p:attrName></p:attrNameLst></p:cBhvr><p:tavLst><p:tav tm=\"0\"><p:val><p:strVal val=\"1+#ppt_h/2\"/></p:val></p:tav><p:tav tm=\"100000\"><p:val><p:strVal val=\"#ppt_y\"/></p:val></p:tav></p:tavLst></p:anim></p:childTnLst></p:cTn></p:par>",
+			"behaviorsXml": "<p:set><p:cBhvr><p:cTn id=\"11\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"3\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set><p:anim calcmode=\"lin\" valueType=\"num\"><p:cBhvr additive=\"base\"><p:cTn id=\"12\" dur=\"500\" fill=\"hold\"/><p:tgtEl><p:spTgt spid=\"3\"/></p:tgtEl><p:attrNameLst><p:attrName>ppt_x</p:attrName></p:attrNameLst></p:cBhvr><p:tavLst><p:tav tm=\"0\"><p:val><p:strVal val=\"#ppt_x\"/></p:val></p:tav><p:tav tm=\"100000\"><p:val><p:strVal val=\"#ppt_x\"/></p:val></p:tav></p:tavLst></p:anim><p:anim calcmode=\"lin\" valueType=\"num\"><p:cBhvr additive=\"base\"><p:cTn id=\"13\" dur=\"500\" fill=\"hold\"/><p:tgtEl><p:spTgt spid=\"3\"/></p:tgtEl><p:attrNameLst><p:attrName>ppt_y</p:attrName></p:attrNameLst></p:cBhvr><p:tavLst><p:tav tm=\"0\"><p:val><p:strVal val=\"1+#ppt_h/2\"/></p:val></p:tav><p:tav tm=\"100000\"><p:val><p:strVal val=\"#ppt_y\"/></p:val></p:tav></p:tavLst></p:anim>",
+			"bldPXml": "<p:bldP spid=\"3\" grpId=\"0\"/>"
+		},
+		"appear": {
+			"key": {
+				"presetID": 1,
+				"presetClass": "entr",
+				"presetSubtype": 0,
+				"nodeType": "clickEffect"
+			},
+			"effectParXml": "<p:par><p:cTn id=\"16\" presetID=\"1\" presetClass=\"entr\" presetSubtype=\"0\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:set><p:cBhvr><p:cTn id=\"17\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"4\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set></p:childTnLst></p:cTn></p:par>",
+			"behaviorsXml": "<p:set><p:cBhvr><p:cTn id=\"17\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"4\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set>",
+			"bldPXml": "<p:bldP spid=\"4\" grpId=\"0\"/>"
+		},
+		"wipe": {
+			"key": {
+				"presetID": 22,
+				"presetClass": "entr",
+				"presetSubtype": 4,
+				"nodeType": "clickEffect"
+			},
+			"effectParXml": "<p:par><p:cTn id=\"20\" presetID=\"22\" presetClass=\"entr\" presetSubtype=\"4\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:set><p:cBhvr><p:cTn id=\"21\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"5\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set><p:animEffect transition=\"in\" filter=\"wipe(down)\"><p:cBhvr><p:cTn id=\"22\" dur=\"500\"/><p:tgtEl><p:spTgt spid=\"5\"/></p:tgtEl></p:cBhvr></p:animEffect></p:childTnLst></p:cTn></p:par>",
+			"behaviorsXml": "<p:set><p:cBhvr><p:cTn id=\"21\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"5\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set><p:animEffect transition=\"in\" filter=\"wipe(down)\"><p:cBhvr><p:cTn id=\"22\" dur=\"500\"/><p:tgtEl><p:spTgt spid=\"5\"/></p:tgtEl></p:cBhvr></p:animEffect>",
+			"bldPXml": "<p:bldP spid=\"5\" grpId=\"0\"/>"
+		},
+		"grow": {
+			"key": {
+				"presetID": 6,
+				"presetClass": "emph",
+				"presetSubtype": 0,
+				"nodeType": "clickEffect"
+			},
+			"effectParXml": "<p:par><p:cTn id=\"25\" presetID=\"6\" presetClass=\"emph\" presetSubtype=\"0\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:animScale><p:cBhvr><p:cTn id=\"26\" dur=\"2000\" fill=\"hold\"/><p:tgtEl><p:spTgt spid=\"6\"/></p:tgtEl></p:cBhvr><p:by x=\"150000\" y=\"150000\"/></p:animScale></p:childTnLst></p:cTn></p:par>",
+			"behaviorsXml": "<p:animScale><p:cBhvr><p:cTn id=\"26\" dur=\"2000\" fill=\"hold\"/><p:tgtEl><p:spTgt spid=\"6\"/></p:tgtEl></p:cBhvr><p:by x=\"150000\" y=\"150000\"/></p:animScale>",
+			"bldPXml": "<p:bldP spid=\"6\" grpId=\"0\"/>"
+		},
+		"spin": {
+			"key": {
+				"presetID": 8,
+				"presetClass": "emph",
+				"presetSubtype": 0,
+				"nodeType": "clickEffect"
+			},
+			"effectParXml": "<p:par><p:cTn id=\"29\" presetID=\"8\" presetClass=\"emph\" presetSubtype=\"0\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:animRot by=\"21600000\"><p:cBhvr><p:cTn id=\"30\" dur=\"2000\" fill=\"hold\"/><p:tgtEl><p:spTgt spid=\"7\"/></p:tgtEl><p:attrNameLst><p:attrName>r</p:attrName></p:attrNameLst></p:cBhvr></p:animRot></p:childTnLst></p:cTn></p:par>",
+			"behaviorsXml": "<p:animRot by=\"21600000\"><p:cBhvr><p:cTn id=\"30\" dur=\"2000\" fill=\"hold\"/><p:tgtEl><p:spTgt spid=\"7\"/></p:tgtEl><p:attrNameLst><p:attrName>r</p:attrName></p:attrNameLst></p:cBhvr></p:animRot>",
+			"bldPXml": "<p:bldP spid=\"7\" grpId=\"0\"/>"
+		},
+		"fadeOut": {
+			"key": {
+				"presetID": 10,
+				"presetClass": "exit",
+				"presetSubtype": 0,
+				"nodeType": "clickEffect"
+			},
+			"effectParXml": "<p:par><p:cTn id=\"33\" presetID=\"10\" presetClass=\"exit\" presetSubtype=\"0\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:animEffect transition=\"out\" filter=\"fade\"><p:cBhvr><p:cTn id=\"34\" dur=\"500\"/><p:tgtEl><p:spTgt spid=\"8\"/></p:tgtEl></p:cBhvr></p:animEffect><p:set><p:cBhvr><p:cTn id=\"35\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"499\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"8\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"hidden\"/></p:to></p:set></p:childTnLst></p:cTn></p:par>",
+			"behaviorsXml": "<p:animEffect transition=\"out\" filter=\"fade\"><p:cBhvr><p:cTn id=\"34\" dur=\"500\"/><p:tgtEl><p:spTgt spid=\"8\"/></p:tgtEl></p:cBhvr></p:animEffect><p:set><p:cBhvr><p:cTn id=\"35\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"499\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"8\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"hidden\"/></p:to></p:set>",
+			"bldPXml": "<p:bldP spid=\"8\" grpId=\"0\"/>"
+		},
+		"flyOut": {
+			"key": {
+				"presetID": 2,
+				"presetClass": "exit",
+				"presetSubtype": 4,
+				"nodeType": "clickEffect"
+			},
+			"effectParXml": "<p:par><p:cTn id=\"38\" presetID=\"2\" presetClass=\"exit\" presetSubtype=\"4\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:anim calcmode=\"lin\" valueType=\"num\"><p:cBhvr additive=\"base\"><p:cTn id=\"39\" dur=\"500\"/><p:tgtEl><p:spTgt spid=\"9\"/></p:tgtEl><p:attrNameLst><p:attrName>ppt_x</p:attrName></p:attrNameLst></p:cBhvr><p:tavLst><p:tav tm=\"0\"><p:val><p:strVal val=\"ppt_x\"/></p:val></p:tav><p:tav tm=\"100000\"><p:val><p:strVal val=\"ppt_x\"/></p:val></p:tav></p:tavLst></p:anim><p:anim calcmode=\"lin\" valueType=\"num\"><p:cBhvr additive=\"base\"><p:cTn id=\"40\" dur=\"500\"/><p:tgtEl><p:spTgt spid=\"9\"/></p:tgtEl><p:attrNameLst><p:attrName>ppt_y</p:attrName></p:attrNameLst></p:cBhvr><p:tavLst><p:tav tm=\"0\"><p:val><p:strVal val=\"ppt_y\"/></p:val></p:tav><p:tav tm=\"100000\"><p:val><p:strVal val=\"1+ppt_h/2\"/></p:val></p:tav></p:tavLst></p:anim><p:set><p:cBhvr><p:cTn id=\"41\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"499\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"9\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"hidden\"/></p:to></p:set></p:childTnLst></p:cTn></p:par>",
+			"behaviorsXml": "<p:anim calcmode=\"lin\" valueType=\"num\"><p:cBhvr additive=\"base\"><p:cTn id=\"39\" dur=\"500\"/><p:tgtEl><p:spTgt spid=\"9\"/></p:tgtEl><p:attrNameLst><p:attrName>ppt_x</p:attrName></p:attrNameLst></p:cBhvr><p:tavLst><p:tav tm=\"0\"><p:val><p:strVal val=\"ppt_x\"/></p:val></p:tav><p:tav tm=\"100000\"><p:val><p:strVal val=\"ppt_x\"/></p:val></p:tav></p:tavLst></p:anim><p:anim calcmode=\"lin\" valueType=\"num\"><p:cBhvr additive=\"base\"><p:cTn id=\"40\" dur=\"500\"/><p:tgtEl><p:spTgt spid=\"9\"/></p:tgtEl><p:attrNameLst><p:attrName>ppt_y</p:attrName></p:attrNameLst></p:cBhvr><p:tavLst><p:tav tm=\"0\"><p:val><p:strVal val=\"ppt_y\"/></p:val></p:tav><p:tav tm=\"100000\"><p:val><p:strVal val=\"1+ppt_h/2\"/></p:val></p:tav></p:tavLst></p:anim><p:set><p:cBhvr><p:cTn id=\"41\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"499\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"9\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"hidden\"/></p:to></p:set>",
+			"bldPXml": "<p:bldP spid=\"9\" grpId=\"0\"/>"
+		}
+	},
+	"timingXml": "<p:timing><p:tnLst><p:par><p:cTn id=\"1\" dur=\"indefinite\" restart=\"never\" nodeType=\"tmRoot\"><p:childTnLst><p:seq concurrent=\"1\" nextAc=\"seek\"><p:cTn id=\"2\" dur=\"indefinite\" nodeType=\"mainSeq\"><p:childTnLst><p:par><p:cTn id=\"3\" fill=\"hold\"><p:stCondLst><p:cond delay=\"indefinite\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"4\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"5\" presetID=\"10\" presetClass=\"entr\" presetSubtype=\"0\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:set><p:cBhvr><p:cTn id=\"6\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"2\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set><p:animEffect transition=\"in\" filter=\"fade\"><p:cBhvr><p:cTn id=\"7\" dur=\"500\"/><p:tgtEl><p:spTgt spid=\"2\"/></p:tgtEl></p:cBhvr></p:animEffect></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par><p:par><p:cTn id=\"8\" fill=\"hold\"><p:stCondLst><p:cond delay=\"indefinite\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"9\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"10\" presetID=\"2\" presetClass=\"entr\" presetSubtype=\"4\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:set><p:cBhvr><p:cTn id=\"11\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"3\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set><p:anim calcmode=\"lin\" valueType=\"num\"><p:cBhvr additive=\"base\"><p:cTn id=\"12\" dur=\"500\" fill=\"hold\"/><p:tgtEl><p:spTgt spid=\"3\"/></p:tgtEl><p:attrNameLst><p:attrName>ppt_x</p:attrName></p:attrNameLst></p:cBhvr><p:tavLst><p:tav tm=\"0\"><p:val><p:strVal val=\"#ppt_x\"/></p:val></p:tav><p:tav tm=\"100000\"><p:val><p:strVal val=\"#ppt_x\"/></p:val></p:tav></p:tavLst></p:anim><p:anim calcmode=\"lin\" valueType=\"num\"><p:cBhvr additive=\"base\"><p:cTn id=\"13\" dur=\"500\" fill=\"hold\"/><p:tgtEl><p:spTgt spid=\"3\"/></p:tgtEl><p:attrNameLst><p:attrName>ppt_y</p:attrName></p:attrNameLst></p:cBhvr><p:tavLst><p:tav tm=\"0\"><p:val><p:strVal val=\"1+#ppt_h/2\"/></p:val></p:tav><p:tav tm=\"100000\"><p:val><p:strVal val=\"#ppt_y\"/></p:val></p:tav></p:tavLst></p:anim></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par><p:par><p:cTn id=\"14\" fill=\"hold\"><p:stCondLst><p:cond delay=\"indefinite\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"15\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"16\" presetID=\"1\" presetClass=\"entr\" presetSubtype=\"0\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:set><p:cBhvr><p:cTn id=\"17\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"4\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par><p:par><p:cTn id=\"18\" fill=\"hold\"><p:stCondLst><p:cond delay=\"indefinite\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"19\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"20\" presetID=\"22\" presetClass=\"entr\" presetSubtype=\"4\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:set><p:cBhvr><p:cTn id=\"21\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"5\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set><p:animEffect transition=\"in\" filter=\"wipe(down)\"><p:cBhvr><p:cTn id=\"22\" dur=\"500\"/><p:tgtEl><p:spTgt spid=\"5\"/></p:tgtEl></p:cBhvr></p:animEffect></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par><p:par><p:cTn id=\"23\" fill=\"hold\"><p:stCondLst><p:cond delay=\"indefinite\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"24\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"25\" presetID=\"6\" presetClass=\"emph\" presetSubtype=\"0\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:animScale><p:cBhvr><p:cTn id=\"26\" dur=\"2000\" fill=\"hold\"/><p:tgtEl><p:spTgt spid=\"6\"/></p:tgtEl></p:cBhvr><p:by x=\"150000\" y=\"150000\"/></p:animScale></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par><p:par><p:cTn id=\"27\" fill=\"hold\"><p:stCondLst><p:cond delay=\"indefinite\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"28\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"29\" presetID=\"8\" presetClass=\"emph\" presetSubtype=\"0\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:animRot by=\"21600000\"><p:cBhvr><p:cTn id=\"30\" dur=\"2000\" fill=\"hold\"/><p:tgtEl><p:spTgt spid=\"7\"/></p:tgtEl><p:attrNameLst><p:attrName>r</p:attrName></p:attrNameLst></p:cBhvr></p:animRot></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par><p:par><p:cTn id=\"31\" fill=\"hold\"><p:stCondLst><p:cond delay=\"indefinite\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"32\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"33\" presetID=\"10\" presetClass=\"exit\" presetSubtype=\"0\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:animEffect transition=\"out\" filter=\"fade\"><p:cBhvr><p:cTn id=\"34\" dur=\"500\"/><p:tgtEl><p:spTgt spid=\"8\"/></p:tgtEl></p:cBhvr></p:animEffect><p:set><p:cBhvr><p:cTn id=\"35\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"499\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"8\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"hidden\"/></p:to></p:set></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par><p:par><p:cTn id=\"36\" fill=\"hold\"><p:stCondLst><p:cond delay=\"indefinite\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"37\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"38\" presetID=\"2\" presetClass=\"exit\" presetSubtype=\"4\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:anim calcmode=\"lin\" valueType=\"num\"><p:cBhvr additive=\"base\"><p:cTn id=\"39\" dur=\"500\"/><p:tgtEl><p:spTgt spid=\"9\"/></p:tgtEl><p:attrNameLst><p:attrName>ppt_x</p:attrName></p:attrNameLst></p:cBhvr><p:tavLst><p:tav tm=\"0\"><p:val><p:strVal val=\"ppt_x\"/></p:val></p:tav><p:tav tm=\"100000\"><p:val><p:strVal val=\"ppt_x\"/></p:val></p:tav></p:tavLst></p:anim><p:anim calcmode=\"lin\" valueType=\"num\"><p:cBhvr additive=\"base\"><p:cTn id=\"40\" dur=\"500\"/><p:tgtEl><p:spTgt spid=\"9\"/></p:tgtEl><p:attrNameLst><p:attrName>ppt_y</p:attrName></p:attrNameLst></p:cBhvr><p:tavLst><p:tav tm=\"0\"><p:val><p:strVal val=\"ppt_y\"/></p:val></p:tav><p:tav tm=\"100000\"><p:val><p:strVal val=\"1+ppt_h/2\"/></p:val></p:tav></p:tavLst></p:anim><p:set><p:cBhvr><p:cTn id=\"41\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"499\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"9\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"hidden\"/></p:to></p:set></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn><p:prevCondLst><p:cond evt=\"onPrev\" delay=\"0\"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst><p:nextCondLst><p:cond evt=\"onNext\" delay=\"0\"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst></p:seq></p:childTnLst></p:cTn></p:par></p:tnLst><p:bldLst><p:bldP spid=\"2\" grpId=\"0\"/><p:bldP spid=\"3\" grpId=\"0\"/><p:bldP spid=\"4\" grpId=\"0\"/><p:bldP spid=\"5\" grpId=\"0\"/><p:bldP spid=\"6\" grpId=\"0\"/><p:bldP spid=\"7\" grpId=\"0\"/><p:bldP spid=\"8\" grpId=\"0\"/><p:bldP spid=\"9\" grpId=\"0\"/></p:bldLst></p:timing>"
+}

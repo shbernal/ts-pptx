@@ -1,0 +1,86 @@
+{
+	"deck": "import-animation-merge",
+	"schema": "slide-animation-oracle@1",
+	"application": "Microsoft Office PowerPoint",
+	"appVersion": "16.0000",
+	"sha256": "ad583c449024bce9f531ce91faf81849ef8489202966ef29dcf9ced0a24289e3",
+	"notes": "PowerPoint-authored cross-slide animation-merge oracle for docs/animations-and-transitions.md (Phase 2 capability A: carry a build animation through importShape, remapping into the destination p:timing; backlog dn-1863). Two blank 16:9 slides. Slide 1 \"Source\" (spid 2) has an entrance Fade-on-click (presetID 10), mirroring slide-animation-basic. Slide 2 \"HostExisting\" (spid 2) has its own entrance Fly-on-click (presetID 2 subtype 4); then in PowerPoint \"Source\" was copied from slide 1 and pasted onto slide 2 WITH its animation. PowerPoint's observed merge behavior (the ground truth importShape's remap+merge must reproduce): (1) the pasted shape takes the next free shape id on the destination — Source 2 -> 3, HostExisting keeps 2; (2) the carried build's every <p:spTgt spid> and <p:bldP spid> is renumbered from the source spid (2) to the new destination spid (3); (3) the carried build is APPENDED as a new click group after the host's existing build(s), and its <p:bldP> appended after the host's in <p:bldLst>; (4) every <p:cTn id> in the merged tree is renumbered sequentially in document order (the host's fly effect keeps ids 3-8, the carried fade effect becomes ids 9-13). The `source` block pins slide 1, `merged` pins slide 2's post-merge tree, and `mergeMap` records the spid remap + build ordering. Assert no dangling spTgt/bldP on either side after a programmatic remap.",
+	"source": {
+		"slide": 1,
+		"shapeIds": {
+			"1": "",
+			"2": "Source"
+		},
+		"effects": [
+			{
+				"presetID": 10,
+				"presetClass": "entr",
+				"presetSubtype": 0,
+				"nodeType": "clickEffect",
+				"grpId": 0,
+				"spid": 2,
+				"shapeName": "Source"
+			}
+		],
+		"animationSpids": [2],
+		"bldList": {
+			"spids": [2],
+			"xml": "<p:bldLst><p:bldP spid=\"2\" grpId=\"0\"/></p:bldLst>"
+		},
+		"timingXml": "<p:timing><p:tnLst><p:par><p:cTn id=\"1\" dur=\"indefinite\" restart=\"never\" nodeType=\"tmRoot\"><p:childTnLst><p:seq concurrent=\"1\" nextAc=\"seek\"><p:cTn id=\"2\" dur=\"indefinite\" nodeType=\"mainSeq\"><p:childTnLst><p:par><p:cTn id=\"3\" fill=\"hold\"><p:stCondLst><p:cond delay=\"indefinite\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"4\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"5\" presetID=\"10\" presetClass=\"entr\" presetSubtype=\"0\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:set><p:cBhvr><p:cTn id=\"6\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"2\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set><p:animEffect transition=\"in\" filter=\"fade\"><p:cBhvr><p:cTn id=\"7\" dur=\"500\"/><p:tgtEl><p:spTgt spid=\"2\"/></p:tgtEl></p:cBhvr></p:animEffect></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn><p:prevCondLst><p:cond evt=\"onPrev\" delay=\"0\"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst><p:nextCondLst><p:cond evt=\"onNext\" delay=\"0\"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst></p:seq></p:childTnLst></p:cTn></p:par></p:tnLst><p:bldLst><p:bldP spid=\"2\" grpId=\"0\"/></p:bldLst></p:timing>"
+	},
+	"merged": {
+		"slide": 2,
+		"shapeIds": {
+			"1": "",
+			"2": "HostExisting",
+			"3": "Source"
+		},
+		"effects": [
+			{
+				"presetID": 2,
+				"presetClass": "entr",
+				"presetSubtype": 4,
+				"nodeType": "clickEffect",
+				"grpId": 0,
+				"spid": 2,
+				"shapeName": "HostExisting"
+			},
+			{
+				"presetID": 10,
+				"presetClass": "entr",
+				"presetSubtype": 0,
+				"nodeType": "clickEffect",
+				"grpId": 0,
+				"spid": 3,
+				"shapeName": "Source"
+			}
+		],
+		"animationSpids": [2, 3],
+		"bldList": {
+			"spids": [2, 3],
+			"xml": "<p:bldLst><p:bldP spid=\"2\" grpId=\"0\"/><p:bldP spid=\"3\" grpId=\"0\"/></p:bldLst>"
+		},
+		"timingXml": "<p:timing><p:tnLst><p:par><p:cTn id=\"1\" dur=\"indefinite\" restart=\"never\" nodeType=\"tmRoot\"><p:childTnLst><p:seq concurrent=\"1\" nextAc=\"seek\"><p:cTn id=\"2\" dur=\"indefinite\" nodeType=\"mainSeq\"><p:childTnLst><p:par><p:cTn id=\"3\" fill=\"hold\"><p:stCondLst><p:cond delay=\"indefinite\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"4\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"5\" presetID=\"2\" presetClass=\"entr\" presetSubtype=\"4\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:set><p:cBhvr><p:cTn id=\"6\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"2\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set><p:anim calcmode=\"lin\" valueType=\"num\"><p:cBhvr additive=\"base\"><p:cTn id=\"7\" dur=\"500\" fill=\"hold\"/><p:tgtEl><p:spTgt spid=\"2\"/></p:tgtEl><p:attrNameLst><p:attrName>ppt_x</p:attrName></p:attrNameLst></p:cBhvr><p:tavLst><p:tav tm=\"0\"><p:val><p:strVal val=\"#ppt_x\"/></p:val></p:tav><p:tav tm=\"100000\"><p:val><p:strVal val=\"#ppt_x\"/></p:val></p:tav></p:tavLst></p:anim><p:anim calcmode=\"lin\" valueType=\"num\"><p:cBhvr additive=\"base\"><p:cTn id=\"8\" dur=\"500\" fill=\"hold\"/><p:tgtEl><p:spTgt spid=\"2\"/></p:tgtEl><p:attrNameLst><p:attrName>ppt_y</p:attrName></p:attrNameLst></p:cBhvr><p:tavLst><p:tav tm=\"0\"><p:val><p:strVal val=\"1+#ppt_h/2\"/></p:val></p:tav><p:tav tm=\"100000\"><p:val><p:strVal val=\"#ppt_y\"/></p:val></p:tav></p:tavLst></p:anim></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par><p:par><p:cTn id=\"9\" fill=\"hold\"><p:stCondLst><p:cond delay=\"indefinite\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"10\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:par><p:cTn id=\"11\" presetID=\"10\" presetClass=\"entr\" presetSubtype=\"0\" fill=\"hold\" grpId=\"0\" nodeType=\"clickEffect\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst><p:childTnLst><p:set><p:cBhvr><p:cTn id=\"12\" dur=\"1\" fill=\"hold\"><p:stCondLst><p:cond delay=\"0\"/></p:stCondLst></p:cTn><p:tgtEl><p:spTgt spid=\"3\"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr><p:to><p:strVal val=\"visible\"/></p:to></p:set><p:animEffect transition=\"in\" filter=\"fade\"><p:cBhvr><p:cTn id=\"13\" dur=\"500\"/><p:tgtEl><p:spTgt spid=\"3\"/></p:tgtEl></p:cBhvr></p:animEffect></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn><p:prevCondLst><p:cond evt=\"onPrev\" delay=\"0\"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst><p:nextCondLst><p:cond evt=\"onNext\" delay=\"0\"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst></p:seq></p:childTnLst></p:cTn></p:par></p:tnLst><p:bldLst><p:bldP spid=\"2\" grpId=\"0\"/><p:bldP spid=\"3\" grpId=\"0\"/></p:bldLst></p:timing>"
+	},
+	"mergeMap": {
+		"hostShape": {
+			"name": "HostExisting",
+			"spid": 2,
+			"presetID": 2,
+			"presetClass": "entr"
+		},
+		"carriedShape": {
+			"name": "Source",
+			"sourceSpid": 2,
+			"mergedSpid": 3,
+			"presetID": 10,
+			"presetClass": "entr"
+		},
+		"spidRemap": {
+			"2": 3
+		},
+		"buildOrder": ["HostExisting (spid 2, fly)", "Source (spid 3, fade — carried, appended last)"],
+		"bldListOrder": [2, 3]
+	}
+}

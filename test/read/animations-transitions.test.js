@@ -200,3 +200,111 @@ describe('slide animations (opaque, spid-aware)', () => {
 		assert.deepEqual(slide.animationSpids(), [3, 4, 5])
 	})
 })
+
+// --- Phase 2 fixtures (docs/animations-and-transitions.md). The capabilities they
+// gate (preset expansion, transition sounds, importShape animation carry) are not
+// yet implemented; these assert the fixtures load + their oracles match the bytes
+// against the existing opaque, spid-aware read model. ---
+
+describe('slide-animation-presets (read fixture, Phase 2 gate B)', () => {
+	test('hasAnimations + animationSpids match the oracle', async () => {
+		const oracle = await loadOracle('slide-animation-presets')
+		const slide = (await open('slide-animation-presets')).slides[0]
+		assert.equal(slide.hasAnimations, true)
+		assert.deepEqual(slide.animationSpids(), oracle.animationSpids)
+	})
+
+	test('every preset template appears verbatim in the slide', async () => {
+		const oracle = await loadOracle('slide-animation-presets')
+		const xml = await slidePartXml(await readFile(fixturePath('slide-animation-presets')), 1)
+		for (const [name, t] of Object.entries(oracle.presetTemplates)) {
+			assert.ok(xml.includes(t.effectParXml), `${name} effect node present verbatim`)
+			assert.ok(xml.includes(t.behaviorsXml), `${name} behaviors present verbatim`)
+			assert.ok(xml.includes(t.bldPXml), `${name} bldP present`)
+		}
+	})
+
+	test('untouched presets slide round-trips byte-identically', async () => {
+		const original = await readFile(fixturePath('slide-animation-presets'))
+		const before = await partBodies(original)
+		const after = await partBodies(await (await Presentation.load(original)).save())
+		for (const [name, body] of before) {
+			if (name.startsWith('ppt/slides/slide')) assert.equal(after.get(name), body, `${name} unchanged`)
+		}
+	})
+})
+
+describe('slide-transition-sound (read fixture, Phase 2 gate C)', () => {
+	test('decodes the fade transition on every slide', async () => {
+		const oracle = await loadOracle('slide-transition-sound')
+		const pres = await open('slide-transition-sound')
+		for (const s of oracle.slides) {
+			const info = pres.slides[s.slide - 1].transition
+			assert.ok(info, `slide ${s.slide} has a transition`)
+			assert.equal(info.type, 'fade', `slide ${s.slide} type`)
+			assert.equal(info.durationMs, 2000, `slide ${s.slide} durationMs`)
+		}
+	})
+
+	test('sndAc + audio rel graph appear verbatim in the package', async () => {
+		const oracle = await loadOracle('slide-transition-sound')
+		const bytes = await readFile(fixturePath('slide-transition-sound'))
+		const zip = await JSZip.loadAsync(bytes)
+		for (const s of oracle.slides) {
+			const xml = await slidePartXml(bytes, s.slide)
+			assert.ok(xml.includes(s.soundRels.sndAcXml), `slide ${s.slide} sndAc present verbatim`)
+			if (s.soundRels.audioRel) {
+				const rels = await zip.file(`ppt/slides/_rels/slide${s.slide}.xml.rels`).async('string')
+				assert.ok(rels.includes(s.soundRels.audioRel.target), `slide ${s.slide} audio rel target`)
+				assert.ok(rels.includes('relationships/audio'), `slide ${s.slide} audio rel type`)
+			}
+		}
+		const ct = await zip.file('[Content_Types].xml').async('string')
+		assert.ok(ct.includes('<Default Extension="wav" ContentType="audio/x-wav"/>'), 'wav Default content type')
+	})
+
+	test('untouched transition-sound slides round-trip byte-identically', async () => {
+		const original = await readFile(fixturePath('slide-transition-sound'))
+		const before = await partBodies(original)
+		const after = await partBodies(await (await Presentation.load(original)).save())
+		for (const [name, body] of before) {
+			if (name.startsWith('ppt/slides/slide') || name.startsWith('ppt/media/')) {
+				assert.equal(after.get(name), body, `${name} unchanged`)
+			}
+		}
+	})
+})
+
+describe('import-animation-merge (read fixture, Phase 2 gate A)', () => {
+	test('enumerates spids on both slides per the oracle', async () => {
+		const oracle = await loadOracle('import-animation-merge')
+		const pres = await open('import-animation-merge')
+		assert.deepEqual(pres.slides[0].animationSpids(), oracle.source.animationSpids)
+		assert.deepEqual(pres.slides[1].animationSpids(), oracle.merged.animationSpids)
+	})
+
+	test('the merged slide matches the oracle timing verbatim', async () => {
+		const oracle = await loadOracle('import-animation-merge')
+		const xml = await slidePartXml(await readFile(fixturePath('import-animation-merge')), 2)
+		assert.ok(xml.includes(oracle.merged.timingXml), 'merged timing tree present verbatim')
+		assert.ok(xml.includes(oracle.merged.bldList.xml), 'merged bldLst present verbatim')
+	})
+
+	test('remapAnimationSpids stays coherent across the merged build', async () => {
+		const oracle = await loadOracle('import-animation-merge')
+		const pres = await open('import-animation-merge')
+		const slide = pres.slides[1]
+		// Apply the oracle's spid remap (host stays, carried 2->3 simulated as a shift).
+		slide.remapAnimationSpids(
+			new Map([
+				[2, 20],
+				[3, 30],
+			])
+		)
+		assert.deepEqual(slide.animationSpids(), [20, 30])
+		const reopened = await Presentation.load(await pres.save())
+		assert.deepEqual(reopened.slides[1].animationSpids(), [20, 30])
+		// mergeMap sanity: the carried shape was renumbered to spid 3 on the destination.
+		assert.equal(oracle.mergeMap.carriedShape.mergedSpid, 3)
+	})
+})

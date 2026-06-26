@@ -603,10 +603,29 @@ items:
       same oracles. Two new test/schema.test.js fixtures ('slide transitions …', 'preset build
       animations …') validate clean under the OpenXmlValidator.
 
-      Phase 2 (not built): carry a shape's build animation through importShape (remap into the
-      destination timing — needs an import fixture); expand the preset set; transition sounds
-      (sndAc + audio rels). Import-path spid remap is available (remapAnimationSpids) but not yet
-      wired into importSlide preserve/restyle, which lacks an animation oracle to verify against.
+      Phase 2 FIXTURE GATE SATISFIED (2026-06-26) — the three Phase 2 oracle decks are now
+      AUTHORED + verified clean via COM (no repair prompt), so each capability is unblocked for
+      implementation (code not yet written):
+      - test/read/fixtures/slide-animation-presets.pptx (+ .oracle.json) — one labeled shape per
+        downstream preset across all three classes; pins the verbatim write-side templates for
+        the NEW presets appear (presetID 1), wipe (22, filter "wipe(down)"), spin (8, animRot
+        by="21600000" on attr "r"), flyOut (exit 2/sub4), and RECONFIRMS fadeIn/flyIn/grow/fadeOut
+        byte-for-byte. presetTemplates maps preset -> {key, effectParXml, behaviorsXml, bldPXml}.
+        NOTE: opacity-based emphasis "Pulse" is NOT reachable via COM AddEffect (legacy MsoAnimEffect
+        enum, probed 1..150) so the emphasis pair is grow+spin; Pulse recorded as a gap.
+      - test/read/fixtures/slide-transition-sound.pptx (+ .oracle.json) — sndAc: embedded start sound
+        (p:sndAc/p:stSnd/p:snd r:embed -> audio rel -> ppt/media/audio1.wav, Default wav=audio/x-wav),
+        looped (stSnd loop="1"), and stop-previous (p:endSnd, no rel). Built-in sounds embed
+        IDENTICALLY to a custom import (probed SoundEffect.Name="Applause" -> applause.wav); committed
+        fixture uses a self-generated WAV to stay license-clean of Microsoft's bundled audio.
+      - test/read/fixtures/import-animation-merge.pptx (+ .oracle.json) — cross-slide copy: "Source"
+        (slide 1 spid 2, fade) pasted onto slide 2 (host "HostExisting" spid 2, fly). PowerPoint's
+        merge ground truth: pasted shape takes next free spid (2->3), the carried build's spTgt/bldP
+        are renumbered to it, appended as a new click group after the host's build + bldP, and all
+        cTn ids renumbered in document order. mergeMap pins the spid remap + build ordering. Gate for
+        dn-importshape-v1-limits.
+      Import-path spid remap (remapAnimationSpids) is available but not yet wired into importSlide /
+      importShape preserve/restyle.
     evidence:
       kinds:
         - local-source-inspection
@@ -633,6 +652,12 @@ items:
         - test/read/fixtures/slide-animation-basic.oracle.json
         - test/read/fixtures/slide-animation-rich.pptx
         - test/read/fixtures/slide-animation-rich.oracle.json
+        - test/read/fixtures/slide-animation-presets.pptx
+        - test/read/fixtures/slide-animation-presets.oracle.json
+        - test/read/fixtures/slide-transition-sound.pptx
+        - test/read/fixtures/slide-transition-sound.oracle.json
+        - test/read/fixtures/import-animation-merge.pptx
+        - test/read/fixtures/import-animation-merge.oracle.json
       schema_fixture: "test/schema.test.js: 'slide transitions (p:transition bare + mc:AlternateContent)' + 'preset build animations (p:timing mainSeq + p:bldLst)'"
       validator_result: pass
       powerpoint_result: "Oracle decks authored + reopened clean via Windows desktop PowerPoint COM 2026-06-26 (no repair prompt); the write emitters reproduce those oracles byte-for-byte. See test/read/fixtures/README.md."
@@ -1853,7 +1878,7 @@ items:
     source: downstream
     type: downstream-need
     first_seen: 2026-06-18
-    last_reviewed: 2026-06-25
+    last_reviewed: 2026-06-26
     status: deferred
     priority: p3
     target_area:
@@ -1862,6 +1887,16 @@ items:
     non_target_reasons: []
     summary: "importShape drops the lifted shape's build animation/timing — shapes land static"
     current_project_notes: |
+      FIXTURE GATE NOW SATISFIED (2026-06-26): test/read/fixtures/import-animation-merge.pptx
+      (+ .oracle.json) is the PowerPoint-authored cross-slide copy/merge oracle this needs —
+      "Source" (slide 1 spid 2, fade) pasted onto slide 2 (host spid 2, fly). It pins the
+      observed merge: pasted shape takes the next free spid (2->3); the carried build's
+      <p:spTgt @spid>/<p:bldP @spid> are renumbered onto it; the build is appended as a new
+      click group after the host's, its bldP appended after the host's; all <p:cTn id> are
+      renumbered in document order. mergeMap records the spid remap + build ordering. Still
+      DEFERRED (low value, below) — the oracle exists so the remap+merge can be written against
+      a fixed target when a deck depends on it.
+
       A shape lifted via importShape/importShapes lands STATIC: the source slide's
       build animation and <p:timing> references for that shape are not carried over.
       The shape's geometry, fill, and (for placeholders) inherited formatting are
@@ -1896,9 +1931,11 @@ items:
       local_files:
         - src/read/api/presentation.ts
         - src/read/oxml/theme.ts
+        - test/read/fixtures/import-animation-merge.pptx
+        - test/read/fixtures/import-animation-merge.oracle.json
       schema_fixture: null
       validator_result: null
-      powerpoint_result: null
+      powerpoint_result: "Cross-slide copy/merge oracle authored + reopened clean via Windows desktop PowerPoint COM 2026-06-26 (no repair prompt). See test/read/fixtures/README.md."
       spec_refs: []
     next_action: revisit-per-need
   - id: dn-flatten-slide-animations

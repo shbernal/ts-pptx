@@ -1,0 +1,72 @@
+{
+	"deck": "slide-transition-sound",
+	"schema": "slide-transition-oracle@1",
+	"application": "Microsoft Office PowerPoint",
+	"appVersion": "16.0000",
+	"sha256": "392784623d9269bf1a71f58f20e6aa9b820c4a3bb539ebd50e9ae974f0675923",
+	"notes": "PowerPoint-authored transition-sound oracle for docs/animations-and-transitions.md (Phase 2 capability C: transition sounds, p:sndAc). Three blank 16:9 slides, each a fade transition: slide 1 an embedded start sound (p:sndAc/p:stSnd/p:snd), slide 2 the same embedded sound looped until next (p:stSnd loop=\"1\"), slide 3 the stop-previous-sound form (p:sndAc/p:endSnd, no rel, no media part). Structure (confirmed against CT_TransitionSoundAction): p:transition > p:sndAc (after the transition-type element, before extLst) > choice(p:stSnd[@loop] | p:endSnd); p:stSnd > p:snd (CT_EmbeddedWAVAudioFile) with required r:embed + optional name. The sound is referenced by an ECMA audio relationship (.../2006/relationships/audio) to an embedded WAV part (ppt/media/audioN.wav), content type via a single <Default Extension=\"wav\" ContentType=\"audio/x-wav\"/> (not an Override). PowerPoint dedups identical sound bytes: slides 1 and 2 share one media part (audio1.wav) via the same rId. All three transitions also carry PowerPoint's default exact fade duration, so each is emitted in the mc:AlternateContent (p14:dur=\"2000\") form; the sndAc lives inside both the p14 Choice and the base Fallback transition, identical in each. BUILT-IN sounds: probed via SoundEffect.Name=\"Applause\" — PowerPoint resolves the built-in to applause.wav and embeds it IDENTICALLY to a custom import (same audio rel, same audio/x-wav Default, same sndAc/stSnd/snd; only the embedded bytes + name differ), so the writer needs no separate built-in path. The committed fixture uses only a self-generated WAV to stay license-clean of Microsoft's bundled audio; the built-in equivalence is recorded here rather than embedded.",
+	"slides": [
+		{
+			"slide": 1,
+			"part": "slide1.xml",
+			"wrapped": true,
+			"transitionXml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\" p14:dur=\"2000\"><p:fade/><p:sndAc><p:stSnd><p:snd r:embed=\"rId2\" name=\"ding.wav\"/></p:stSnd></p:sndAc></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/><p:sndAc><p:stSnd><p:snd r:embed=\"rId2\" name=\"ding.wav\"/></p:stSnd></p:sndAc></p:transition></mc:Fallback></mc:AlternateContent>",
+			"soundRels": {
+				"sndAcXml": "<p:sndAc><p:stSnd><p:snd r:embed=\"rId2\" name=\"ding.wav\"/></p:stSnd></p:sndAc>",
+				"form": "stSnd",
+				"loop": false,
+				"sndEmbedRid": "rId2",
+				"sndName": "ding.wav",
+				"audioRel": {
+					"id": "rId2",
+					"type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio",
+					"target": "../media/audio1.wav"
+				}
+			}
+		},
+		{
+			"slide": 2,
+			"part": "slide2.xml",
+			"wrapped": true,
+			"transitionXml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\" p14:dur=\"2000\"><p:fade/><p:sndAc><p:stSnd loop=\"1\"><p:snd r:embed=\"rId2\" name=\"ding.wav\"/></p:stSnd></p:sndAc></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/><p:sndAc><p:stSnd loop=\"1\"><p:snd r:embed=\"rId2\" name=\"ding.wav\"/></p:stSnd></p:sndAc></p:transition></mc:Fallback></mc:AlternateContent>",
+			"soundRels": {
+				"sndAcXml": "<p:sndAc><p:stSnd loop=\"1\"><p:snd r:embed=\"rId2\" name=\"ding.wav\"/></p:stSnd></p:sndAc>",
+				"form": "stSnd",
+				"loop": true,
+				"sndEmbedRid": "rId2",
+				"sndName": "ding.wav",
+				"audioRel": {
+					"id": "rId2",
+					"type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio",
+					"target": "../media/audio1.wav"
+				}
+			}
+		},
+		{
+			"slide": 3,
+			"part": "slide3.xml",
+			"wrapped": true,
+			"transitionXml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\" p14:dur=\"2000\"><p:fade/><p:sndAc><p:endSnd/></p:sndAc></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/><p:sndAc><p:endSnd/></p:sndAc></p:transition></mc:Fallback></mc:AlternateContent>",
+			"soundRels": {
+				"sndAcXml": "<p:sndAc><p:endSnd/></p:sndAc>",
+				"form": "endSnd",
+				"loop": false,
+				"sndEmbedRid": null,
+				"sndName": null,
+				"audioRel": null
+			}
+		}
+	],
+	"contentTypes": {
+		"wav": "audio/x-wav"
+	},
+	"mediaParts": [
+		{
+			"part": "ppt/media/audio1.wav",
+			"bytes": 844,
+			"sha256": "f880320a71fa89553218512eb2f83d238dc6b84fc9fba3a74da398ebd5f041d1",
+			"sharedBySlides": [1, 2]
+		}
+	],
+	"soundProvenance": "Embedded WAV (ppt/media/audio1.wav) is a tiny self-generated 16-bit PCM mono 8kHz sine (.tmp/ding.wav), not a Microsoft asset — license-clean."
+}

@@ -276,9 +276,22 @@ check date). Record the fixtures as the blocking precondition in
   arbitrary effects, no animation paths/triggers beyond the preset set.
 - **Phase 1:** transitions (full, both ways); animation opaque preserve + spid
   enumerate/remap/prune; preset-template authoring for the fixtured effect set.
-- **Phase 2 (candidate):** carry a shape's build animation through `importShape`
-  (remap into destination timing); expand the preset set; transition sounds
-  (`sndAc`, which pulls in audio rels).
+- **Phase 2 (fixture gate satisfied 2026-06-26; code pending):** carry a shape's
+  build animation through `importShape` (remap into destination timing); expand the
+  preset set; transition sounds (`sndAc`, which pulls in audio rels). The three
+  PowerPoint-authored oracle decks that gate this work are now authored + verified
+  clean (`see PHASE2-FIXTURE-PLAN.md` and `test/read/fixtures/README.md`):
+  - `slide-animation-presets.pptx` (+ `presetTemplates` oracle) — verbatim write-side
+    templates for the new presets `appear`/`wipe`/`spin`/`flyOut` (and a byte-for-byte
+    reconfirmation of `fadeIn`/`flyIn`/`grow`/`fadeOut`). Note: opacity-based emphasis
+    "Pulse" is not reachable via COM `AddEffect`, so the emphasis pair is grow + spin.
+  - `slide-transition-sound.pptx` (+ `soundRels` oracle) — `p:sndAc/p:stSnd/p:snd`
+    embedded start sound, looped (`stSnd loop="1"`), and stop-previous (`p:endSnd`);
+    the ECMA `audio` rel → `ppt/media/*.wav` part + `wav=audio/x-wav` Default. Built-in
+    sounds embed identically to a custom import (recorded, not committed — license-clean).
+  - `import-animation-merge.pptx` (+ `mergeMap` oracle) — PowerPoint's ground truth for
+    cross-slide copy: the pasted shape takes the next free spid, the carried build's
+    `spTgt`/`bldP` are renumbered onto it and appended after the host's build.
 - **Open questions:** (a) preset animations as a per-shape option vs a
   slide-level ordered list (ordering/sequence semantics favor a slide-level
   list); (b) whether to always emit the `mc:AlternateContent` form or only when

@@ -72,6 +72,12 @@ by the `pptxgenjs/read` harness. Two groups:
   enumerate/remap/prune). Each pairs with a `*.oracle.json` recording the verbatim
   `p:transition` / `p:timing` XML and decoded fields; the transition oracle also embeds
   the full probed `PpEntryEffect → element` table (the write-side preset table).
+- **Transitions / animations — Phase 2 gate**: `slide-animation-presets.pptx`,
+  `slide-transition-sound.pptx`, and `import-animation-merge.pptx` (the fixture gate for
+  the Phase 2 capabilities of `docs/animations-and-transitions.md` — expand the preset set,
+  transition sounds, and carry a build animation through `importShape`). Each pairs with a
+  `*.oracle.json` recording verbatim XML + decoded fields (`presetTemplates`, `soundRels`,
+  and `mergeMap` respectively). See the per-fixture purpose notes below.
 
 | Local name                    | Application                 | AppVersion | Slides |
 | ----------------------------- | --------------------------- | ---------- | ------ |
@@ -86,6 +92,9 @@ by the `pptxgenjs/read` harness. Two groups:
 | `slide-transition.pptx`       | Microsoft Office PowerPoint | 16.0000    | 6      |
 | `slide-animation-basic.pptx`  | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `slide-animation-rich.pptx`   | Microsoft Office PowerPoint | 16.0000    | 1      |
+| `slide-animation-presets.pptx`| Microsoft Office PowerPoint | 16.0000    | 1      |
+| `slide-transition-sound.pptx` | Microsoft Office PowerPoint | 16.0000    | 3      |
+| `import-animation-merge.pptx` | Microsoft Office PowerPoint | 16.0000    | 2      |
 
 ### Derived from a vendored fixture
 
@@ -124,6 +133,9 @@ bfa889fb328989d93f7e5fb07303d38f6981e11261bc2754ff5b087ab32d35f4  embedded-fonts
 243a579025c1b61c9b86060ba252759d74e545a7a5589feab95729b2b8b64013  slide-transition.pptx
 20b20688c2d71b349f1bec30f501e4c6d629f86ee2ffba8f6aae2b8f550a9ccb  slide-animation-basic.pptx
 b78a6009d72cf871c76b9a5364822135f9786344e92bbb618f3f68a0d3e79fea  slide-animation-rich.pptx
+1ada4298e879ede2dc335e00d925376027b65e89a265501d0bc570fecd6a7298  slide-animation-presets.pptx
+392784623d9269bf1a71f58f20e6aa9b820c4a3bb539ebd50e9ae974f0675923  slide-transition-sound.pptx
+ad583c449024bce9f531ce91faf81849ef8489202966ef29dcf9ced0a24289e3  import-animation-merge.pptx
 ```
 
 ### Embedded font faces (`fonts/`)
@@ -437,6 +449,58 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   `<p:bldP spid grpId>` per shape (spids `2,3,4,5`). `slide-animation-rich.oracle.json`
   pins the verbatim `p:timing`/`p:bldLst`, the per-effect `(presetID, presetClass,
   presetSubtype, nodeType)` tuples keyed by shape name, and the enumerated spid set.
+- `slide-animation-presets.pptx` — **authoring oracle** for the Phase 2 write-side preset
+  expansion (`docs/animations-and-transitions.md`, capability B). One blank 16:9 slide, one
+  labeled text box per preset, one on-click effect each, across all three preset classes
+  (spids `2..9`): entrance `entr-fadeIn` (presetID 10), `entr-flyIn` (2/sub4), `entr-appear`
+  (1), `entr-wipe` (22/sub4, `filter="wipe(down)"`); emphasis `emph-grow` (6, `animScale`
+  `by x=150000 y=150000`) and `emph-spin` (8, `animRot by="21600000"` on attr `r`); exit
+  `exit-fadeOut` (10) and `exit-flyOut` (2/sub4). `fadeIn`/`flyIn`/`grow`/`fadeOut` **reconfirm**
+  the Phase 1 `ANIM_PRESETS` templates byte-for-byte; `appear`/`wipe`/`spin`/`flyOut` are the
+  NEW templates to add. `slide-animation-presets.oracle.json` adds a `presetTemplates` map:
+  preset → `{ key:(presetID,presetClass,presetSubtype,nodeType), effectParXml, behaviorsXml,
+  bldPXml }` (`behaviorsXml` is the parameterizable write template, by spid/dur/id). Two
+  PowerPoint-authored details captured verbatim: exit `flyOut`'s `ppt_x`/`ppt_y` `strVal`
+  expressions carry **no** leading `#` (e.g. `ppt_x`, `1+ppt_h/2`) and its behavior `<p:cTn>`
+  omits `fill="hold"` — both unlike entrance `flyIn`. **Pulse gap:** the opacity-based emphasis
+  "Pulse" is **not** reachable through COM `AddEffect` (the legacy `MsoAnimEffect` enum exposes
+  no opacity-pulse — probed `1..150`, none emit a `style.opacity` node), so the emphasis pair
+  authored is grow + spin and Pulse is recorded as a gap rather than mislabeled.
+- `slide-transition-sound.pptx` — **authoring oracle** for transition sounds
+  (`docs/animations-and-transitions.md`, capability C: `p:sndAc`). Three blank 16:9 slides,
+  each a fade transition: **slide 1** an embedded start sound, **slide 2** the same sound
+  looped, **slide 3** the stop-previous form. Pins the `sndAc` structure and rel graph
+  (confirmed against `CT_TransitionSoundAction`):
+  - `<p:transition>…<p:sndAc><p:stSnd><p:snd r:embed="rId2" name="ding.wav"/></p:stSnd></p:sndAc></p:transition>`
+    — `sndAc` follows the transition-type element; `p:snd` (`CT_EmbeddedWAVAudioFile`) carries
+    required `r:embed` + optional `name`.
+  - **Loop** is `<p:stSnd loop="1">`; **stop-previous** is `<p:sndAc><p:endSnd/></p:sndAc>`
+    (no `snd`, no rel, no media part).
+  - The sound is an ECMA **audio** relationship
+    (`…/2006/relationships/audio`) to an embedded WAV part (`ppt/media/audio1.wav`),
+    content type via a single `<Default Extension="wav" ContentType="audio/x-wav"/>` (not an
+    Override). PowerPoint **dedups** identical sound bytes: slides 1 and 2 share one media part.
+  - All three transitions also carry PowerPoint's default exact fade duration, so each is the
+    `mc:AlternateContent` (`p14:dur="2000"`) form, with the `sndAc` identical inside both the
+    `p14` Choice and the base Fallback.
+  - **Built-in sounds embed identically:** probed `SoundEffect.Name="Applause"` →
+    PowerPoint resolves to `applause.wav` and embeds it exactly like a custom import (same
+    audio rel, same `audio/x-wav` Default, same `sndAc/stSnd/snd`; only the bytes + `name`
+    differ), so the writer needs no separate built-in path. The committed fixture embeds only
+    a tiny **self-generated** WAV (16-bit PCM mono 8 kHz sine, 844 bytes) to stay license-clean
+    of Microsoft's bundled audio; the built-in equivalence is recorded in the oracle, not embedded.
+- `import-animation-merge.pptx` — **authoring oracle** for carrying a build animation through
+  `importShape` (`docs/animations-and-transitions.md`, capability A; backlog
+  `dn-importshape-v1-limits`). Two blank 16:9 slides. **Slide 1** `Source` (spid 2) has an
+  entrance Fade-on-click (presetID 10). **Slide 2** `HostExisting` (spid 2) has its own entrance
+  Fly-on-click (presetID 2/sub4); then in PowerPoint `Source` was **copied from slide 1 and
+  pasted onto slide 2 with its animation**. The merged result is PowerPoint's ground truth for
+  the remap+merge: (1) the pasted shape takes the next free shape id — `Source` 2 → **3**,
+  `HostExisting` keeps 2; (2) the carried build's every `<p:spTgt spid>` and `<p:bldP spid>` is
+  renumbered 2 → 3; (3) the carried build is **appended** as a new click group after the host's,
+  its `<p:bldP>` appended after the host's in `<p:bldLst>`; (4) every `<p:cTn id>` is renumbered
+  sequentially in document order. `import-animation-merge.oracle.json` pins the `source` (slide 1)
+  and `merged` (slide 2) timing trees plus a `mergeMap` recording the spid remap and build ordering.
 
 ## Autofit calibration oracle (`docs/measured-text-fit.md`)
 
@@ -572,6 +636,9 @@ fixtures opened clean with no repair prompt:
 - [x] `slide-transition.pptx` — Windows desktop PowerPoint, 2026-06-26 (authored + reopened clean via COM, no repair prompt)
 - [x] `slide-animation-basic.pptx` — Windows desktop PowerPoint, 2026-06-26 (authored + reopened clean via COM, no repair prompt)
 - [x] `slide-animation-rich.pptx` — Windows desktop PowerPoint, 2026-06-26 (authored + reopened clean via COM, no repair prompt)
+- [x] `slide-animation-presets.pptx` — Windows desktop PowerPoint, 2026-06-26 (authored + reopened clean via COM, no repair prompt)
+- [x] `slide-transition-sound.pptx` — Windows desktop PowerPoint, 2026-06-26 (authored + reopened clean via COM, no repair prompt)
+- [x] `import-animation-merge.pptx` — Windows desktop PowerPoint, 2026-06-26 (authored + reopened clean via COM, no repair prompt)
 
 **Further testing needed on PowerPoint desktop.** The web loader is more lenient
 than desktop PowerPoint, whose stricter OOXML validation is what produces the
