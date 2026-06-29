@@ -24,6 +24,7 @@ export default defineConfig([
 			inspect: 'src/inspect.ts',
 			measure: 'src/measure.ts',
 			read: 'src/read.ts',
+			zip: 'src/zip.ts',
 			node: 'src/node.ts',
 			browser: 'src/browser.ts',
 		},

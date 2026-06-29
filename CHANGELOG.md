@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`@shbernal/pptxgenjs/zip` subpath export.** The fflate-backed ZIP toolkit
+  (`ZipWriter`, `readZip`, and the `ZipInput` type) is now a published entry
+  point, so consumers that need to post-process a generated `.pptx` package
+  (read parts, rewrite XML, re-zip) can reuse the same backend the writer uses
+  instead of pulling in a second ZIP library. Downstream: `@shbernal/html2pptx`
+  drops its `jszip` dependency in favour of this export.
+
 ## [8.1.0](https://github.com/shbernal/PptxGenJS/releases/tag/v8.1.0) - 2026-06-26
 
 ### Added

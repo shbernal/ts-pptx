@@ -37,6 +37,10 @@
 			"types": "./dist/read.d.ts",
 			"default": "./dist/read.js"
 		},
+		"./zip": {
+			"types": "./dist/zip.d.ts",
+			"default": "./dist/zip.js"
+		},
 		"./node": {
 			"types": "./dist/node.d.ts",
 			"node": "./dist/node.js",
