@@ -142,15 +142,17 @@ track null/undefined flow).
   body already treated it optional (widened to `BackgroundProps | undefined`).
 - Three `new Array(n).fill(x)` sites (`any[]`) → `new Array<T>(n).fill(x)`
   (`gen-utils.ts`, `gen-tables.ts`, `read/api/chart.ts`).
-- `gen-xml.ts` read `cell._optImp` (typed `any`) for fill resolution. Retyped
-  `_optImp: any → unknown` and added a typed `importedFillColor(unknown)` helper
-  that narrows structurally (no casts), deduping the two identical blocks. **This
-  exposed a real bug:** the old `x || opts.fill ? opts.fill : ''` precedence was
-  provably equivalent to `opts.fill ?? ''`, i.e. the imported (`_optImp`) fill was
-  silently discarded for merged/normal table cells. Corrected to
-  `importedFillColor(...) || opts.fill || ''`. Full unit + schema + read suites
-  pass, but this changes emitted XML for cells carrying an `_optImp` fill — worth a
-  targeted regression fixture.
+- `gen-xml.ts` read `cell._optImp` (typed `any`) for table-cell fill resolution.
+  Retyping `any → unknown` forced the read into a narrowing helper, which in turn
+  exposed that `TableCell._optImp` is **dead**: it is *read* at two fill sites but
+  never *written* anywhere in the fork (`git log -S"_optImp ="` is empty), and
+  `addTableDefinition` rebuilds every cell as a fresh object that drops it, so it is
+  always `undefined` at emission. It is a vestige of the browser HTML-import path
+  (`tableToSlides`, out of active scope), which no longer populates it. Rather than
+  keep an always-`undefined` field and a helper guarding an unreachable branch, the
+  field, the helper, and both reads were removed; the fill lines are now plain
+  `cellOpts.fill || ''` / `originOpts.fill || ''`. Full unit suite (406) unchanged,
+  confirming zero observable-output impact.
 
 **Guardrail note — type-aware `--fix` is not safe to trust blindly:** it removed
 two *load-bearing* assertions (a `IChartOptsLib` subtype cast in `slide.ts` that
@@ -273,5 +275,3 @@ Gaps 1, 2, and 3 are done. Remaining:
    the cheap ones and ratchet the expensive ones. The `CHART_NAME`/`CHART_TYPE`
    unification noted here is also what would let `no-unsafe-enum-comparison` be
    turned back on.
-2. **Regression fixture** for the table-cell `_optImp` fill fix landed under Gap 2
-   (behavior change to emitted XML; currently covered only indirectly).

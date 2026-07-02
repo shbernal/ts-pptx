@@ -38,7 +38,6 @@ import type {
 	PresSlideInternal,
 	ResolvedCommentAuthor,
 	ShadowProps,
-	ShapeFillProps,
 	SlideLayoutInternal,
 	TableCell,
 	TableCellProps,
@@ -342,19 +341,6 @@ const PLACEHOLDER_TYPE_MAP = PLACEHOLDER_TYPES as Record<string, string>
  * @param {BorderProps[]} cellBorder - 4-tuple of border props in [top, right, bottom, left] order
  * @return {string} concatenated border element XML, in the LRTB document order PowerPoint expects
  */
-/**
- * Extract a fill color string from a cell's resolved `_optImp` (untyped imported options).
- * `_optImp.fill` may be a raw color string or a `{ color }` object; anything else yields ''.
- */
-function importedFillColor (optImp: unknown): string {
-	if (!optImp || typeof optImp !== 'object' || !('fill' in optImp)) return ''
-	const fill: unknown = optImp.fill
-	if (fill && typeof fill === 'object' && 'color' in fill) {
-		return typeof fill.color === 'string' ? fill.color : ''
-	}
-	return typeof fill === 'string' ? fill : ''
-}
-
 function genTableCellBorderXml (cellBorder: BorderProps[]): string {
 	let strXml = ''
 	// NOTE: *** IMPORTANT! *** LRTB order matters! (Reorder a line below to watch the borders go wonky in MS-PPT-2013!!)
@@ -652,7 +638,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 								if (originBorder) spanPrXml += genTableCellBorderXml(originBorder)
 								// Resolve the origin's fill with the same precedence the origin cell itself uses below,
 								// so the whole merged region fills uniformly.
-								const spanFill: string | ShapeFillProps = importedFillColor(origin._optImp) || originOpts.fill || ''
+								const spanFill = originOpts.fill || ''
 								if (spanFill) spanPrXml += genXmlColorSelection(spanFill)
 							}
 							strXml += `<a:tc${cellSpanAttrStr}><a:tcPr>${spanPrXml}</a:tcPr></a:tc>`
@@ -676,7 +662,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 							: ''
 						const cellTextDir = (cellOpts.textDirection && cellOpts.textDirection !== 'horz') ? ` vert="${cellOpts.textDirection}"` : ''
 
-						const fillColor: string | ShapeFillProps = importedFillColor(cell._optImp) || cellOpts.fill || ''
+						const fillColor = cellOpts.fill || ''
 						const cellFill = fillColor ? genXmlColorSelection(fillColor) : ''
 
 						let cellMargin = cellOpts.margin === 0 || cellOpts.margin ? cellOpts.margin : DEF_CELL_MARGIN_IN
