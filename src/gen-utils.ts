@@ -2,7 +2,7 @@
  * PptxGenJS: Utility Methods
  */
 
-import { REGEX_HEX_COLOR, DEF_FONT_COLOR, EMU, ONEPT, SchemeColor, SCHEME_COLORS } from './core-enums.js'
+import { REGEX_HEX_COLOR, DEF_FONT_COLOR, EMU, ONEPT, SchemeColor, type SCHEME_COLORS } from './core-enums.js'
 import { coordToEmu, inchesToEmu, type Emu } from './units.js'
 import type {
 	PresLayout,

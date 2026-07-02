@@ -75,9 +75,9 @@ import {
 	SLIDE_OBJECT_TYPES,
 	SchemeColor,
 	ShapeType,
-	WRITE_OUTPUT_TYPE,
+	type WRITE_OUTPUT_TYPE,
 } from './core-enums.js'
-import {
+import type {
 	AddSlideProps,
 	CustomPropertyValue,
 	IPresentationProps,

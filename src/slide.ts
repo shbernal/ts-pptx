@@ -2,8 +2,8 @@
  * PptxGenJS: Slide Class
  */
 
-import { asChartType, CHART_NAME, SHAPE_NAME } from './core-enums.js'
-import {
+import { asChartType, type CHART_NAME, type SHAPE_NAME } from './core-enums.js'
+import type {
 	AddSlideProps,
 	AnimationProps,
 	BackgroundProps,
