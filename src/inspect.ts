@@ -171,8 +171,8 @@ export async function readPresentationSize(
 	const parsed = asNode(parser.parse(presentationXml))
 	const presentation = nodeChild(parsed, 'p:presentation')
 	const size = nodeChild(presentation, 'p:sldSz')
-	const cx = numericValue(size?.cx)
-	const cy = numericValue(size?.cy)
+	const cx = numericValue(size?.['cx'])
+	const cy = numericValue(size?.['cy'])
 	if (cx === null || cy === null) return fallback
 
 	return {
@@ -205,7 +205,7 @@ export async function extractSlides(pptxPackage: PptxPackage, size?: PptxSlideSi
 
 		slides.push({
 			index,
-			name: stringValue(cSld?.name) || `Slide ${index + 1}`,
+			name: stringValue(cSld?.['name']) || `Slide ${index + 1}`,
 			path,
 			size: slideSize,
 			elements,
@@ -267,14 +267,14 @@ function normalizeElement(node: XmlNode, zIndex: number): PptxSlideElement | nul
 
 	return {
 		id:
-			stringOrNumberValue(cNvPr(node, 'p:nvSpPr')?.id) ||
-			stringOrNumberValue(cNvPr(node, 'p:nvPicPr')?.id) ||
-			stringOrNumberValue(cNvPr(node, 'p:nvCxnSpPr')?.id) ||
+			stringOrNumberValue(cNvPr(node, 'p:nvSpPr')?.['id']) ||
+			stringOrNumberValue(cNvPr(node, 'p:nvPicPr')?.['id']) ||
+			stringOrNumberValue(cNvPr(node, 'p:nvCxnSpPr')?.['id']) ||
 			zIndex + 1,
 		name:
-			stringValue(cNvPr(node, 'p:nvSpPr')?.name) ||
-			stringValue(cNvPr(node, 'p:nvPicPr')?.name) ||
-			stringValue(cNvPr(node, 'p:nvCxnSpPr')?.name) ||
+			stringValue(cNvPr(node, 'p:nvSpPr')?.['name']) ||
+			stringValue(cNvPr(node, 'p:nvPicPr')?.['name']) ||
+			stringValue(cNvPr(node, 'p:nvCxnSpPr')?.['name']) ||
 			`${kind} ${zIndex + 1}`,
 		kind,
 		zIndex,
@@ -288,7 +288,7 @@ function normalizeElement(node: XmlNode, zIndex: number): PptxSlideElement | nul
 		colors: [...new Set(textRuns.map((run) => run.color).filter((color): color is string => Boolean(color)))],
 		fill: readFill(spPr),
 		line: readLine(spPr),
-		shapeType: stringValue(nodeChild(spPr, 'a:prstGeom')?.prst),
+		shapeType: stringValue(nodeChild(spPr, 'a:prstGeom')?.['prst']),
 	}
 }
 
@@ -301,10 +301,10 @@ function readBox(xfrm: XmlNode | null): PptxBox | null {
 	const ext = nodeChild(xfrm, 'a:ext')
 	if (!off || !ext) return null
 	return {
-		x: emuToInches(numericValue(off.x) || 0),
-		y: emuToInches(numericValue(off.y) || 0),
-		w: emuToInches(numericValue(ext.cx) || 0),
-		h: emuToInches(numericValue(ext.cy) || 0),
+		x: emuToInches(numericValue(off['x']) || 0),
+		y: emuToInches(numericValue(off['y']) || 0),
+		w: emuToInches(numericValue(ext['cx']) || 0),
+		h: emuToInches(numericValue(ext['cy']) || 0),
 	}
 }
 
@@ -320,7 +320,7 @@ function extractTextRuns(textBody: XmlNode | null): PptxTextRun[] {
 			const props = nodeChild(run, 'a:rPr')
 			runs.push({
 				text,
-				fontSizePt: props?.sz ? Number(props.sz) / 100 : null,
+				fontSizePt: props?.['sz'] ? Number(props['sz']) / 100 : null,
 				color: readTextColor(props),
 			})
 		}
@@ -329,19 +329,19 @@ function extractTextRuns(textBody: XmlNode | null): PptxTextRun[] {
 }
 
 function readTextColor(props: XmlNode | null): string | null {
-	return stringValue(nodeChild(nodeChild(props, 'a:solidFill'), 'a:srgbClr')?.val)
+	return stringValue(nodeChild(nodeChild(props, 'a:solidFill'), 'a:srgbClr')?.['val'])
 }
 
 function readFill(spPr: XmlNode | null): string | null {
-	return stringValue(nodeChild(nodeChild(spPr, 'a:solidFill'), 'a:srgbClr')?.val)
+	return stringValue(nodeChild(nodeChild(spPr, 'a:solidFill'), 'a:srgbClr')?.['val'])
 }
 
 function readLine(spPr: XmlNode | null): string | null {
-	return stringValue(nodeChild(nodeChild(nodeChild(spPr, 'a:ln'), 'a:solidFill'), 'a:srgbClr')?.val)
+	return stringValue(nodeChild(nodeChild(nodeChild(spPr, 'a:ln'), 'a:solidFill'), 'a:srgbClr')?.['val'])
 }
 
 function readTextWrap(textBody: XmlNode | null): string | null {
-	return stringValue(nodeChild(textBody, 'a:bodyPr')?.wrap)
+	return stringValue(nodeChild(textBody, 'a:bodyPr')?.['wrap'])
 }
 
 // PowerPoint body-inset defaults (ECMA-376 §21.1.2.1.1 prose; the XSD leaves
@@ -361,10 +361,10 @@ function readBodyInsets(textBody: XmlNode | null): PptxBodyInsets | null {
 	const bodyPr = nodeChild(textBody, 'a:bodyPr')
 	if (!bodyPr) return null
 	return {
-		left: emuToInches(numericValue(bodyPr.lIns) ?? DEFAULT_INSET_LR_EMU),
-		top: emuToInches(numericValue(bodyPr.tIns) ?? DEFAULT_INSET_TB_EMU),
-		right: emuToInches(numericValue(bodyPr.rIns) ?? DEFAULT_INSET_LR_EMU),
-		bottom: emuToInches(numericValue(bodyPr.bIns) ?? DEFAULT_INSET_TB_EMU),
+		left: emuToInches(numericValue(bodyPr['lIns']) ?? DEFAULT_INSET_LR_EMU),
+		top: emuToInches(numericValue(bodyPr['tIns']) ?? DEFAULT_INSET_TB_EMU),
+		right: emuToInches(numericValue(bodyPr['rIns']) ?? DEFAULT_INSET_LR_EMU),
+		bottom: emuToInches(numericValue(bodyPr['bIns']) ?? DEFAULT_INSET_TB_EMU),
 	}
 }
 

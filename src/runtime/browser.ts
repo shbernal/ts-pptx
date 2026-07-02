@@ -70,7 +70,7 @@ async function createSvgPngPreview(rel: ISlideRelMedia): Promise<string> {
 async function writeFile(fileName: string, data: string | ArrayBuffer | Blob | Uint8Array): Promise<string> {
 	const eleLink = document.createElement('a')
 	eleLink.setAttribute('style', 'display:none;')
-	eleLink.dataset.interception = 'off'
+	eleLink.dataset['interception'] = 'off'
 	document.body.appendChild(eleLink)
 
 	const url = window.URL.createObjectURL(
