@@ -8,6 +8,9 @@ import {
 	readPptxTextPart,
 } from '../../dist/inspect.js'
 import { defineRegressionSuite, build, assert, assertEqual } from '../helpers.js'
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 const PNG_1X1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 
@@ -123,6 +126,44 @@ defineRegressionSuite('PPTX inspection primitives', [
 			assertEqual(boxAnchor({ x: 1, y: 2, w: 3, h: 4 }, 'right', 'x'), 4, 'right anchor')
 			assertEqual(boxAnchor({ x: 1, y: 2, w: 3, h: 4 }, 'middle', 'y'), 4, 'middle anchor')
 			assertEqual(overlapArea({ x: 0, y: 0, w: 2, h: 2 }, { x: 1, y: 1, w: 2, h: 2 }), 1, 'overlap area')
+		},
+	},
+	{
+		name: 'loadPptxPackage accepts a filesystem path (string), and names the path on error',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addText('On disk', { x: 1, y: 1, w: 1, h: 0.4 })
+			})
+
+			const dir = mkdtempSync(join(tmpdir(), 'pptx-inspect-'))
+			const filePath = join(dir, 'deck.pptx')
+			try {
+				writeFileSync(filePath, buf)
+
+				// A string input is a filesystem path, read from disk — NOT latin1
+				// binary content (the old JSZip footgun that turned a path into garbage
+				// bytes → "Not a valid ZIP archive").
+				const fromPath = await loadPptxPackage(filePath)
+				assert(listPptxParts(fromPath).includes('ppt/slides/slide1.xml'), 'path input loads the slide part')
+
+				let missingError = null
+				try {
+					await loadPptxPackage(join(dir, 'does-not-exist.pptx'))
+				} catch (err) {
+					missingError = err
+				}
+				assert(missingError, 'a missing path throws')
+				assert(
+					missingError.message.includes('does-not-exist.pptx'),
+					'the error names the offending path rather than an opaque zip error'
+				)
+				assert(
+					!missingError.message.includes('Not a valid ZIP archive'),
+					'a missing path is not misreported as a corrupt archive'
+				)
+			} finally {
+				rmSync(dir, { recursive: true, force: true })
+			}
 		},
 	},
 	{

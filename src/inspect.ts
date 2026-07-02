@@ -4,6 +4,12 @@ import { STANDARD_LAYOUTS, emuToInches } from './units.js'
 
 type XmlNode = Record<string, unknown>
 
+/**
+ * Input to the inspect surface. A `string` is a **filesystem path** (Node) read
+ * from disk; pass `Uint8Array`/`ArrayBuffer`/`Blob`/`number[]` for an in-memory
+ * archive. (A string is a path, not JSZip's latin1 binary content — see
+ * {@link ZipInput}.)
+ */
 type PptxInspectInputValue = string | number[] | Uint8Array | ArrayBuffer | Blob
 
 export type PptxInspectInput = PptxInspectInputValue | Promise<PptxInspectInputValue>

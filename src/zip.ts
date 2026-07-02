@@ -59,8 +59,16 @@ export class ZipWriter {
 }
 
 /**
- * Inputs the read path accepts, mirroring what JSZip's `loadAsync` auto-detected.
- * A `Promise` wrapper is allowed so callers can forward an unawaited byte source.
+ * Inputs the read path accepts. A `string` is a **filesystem path** (Node) read
+ * from disk; in-memory archives are passed as `Uint8Array`/`ArrayBuffer`/`Blob`/
+ * `number[]`. A `Promise` wrapper is allowed so callers can forward an unawaited
+ * byte source.
+ *
+ * Note: unlike JSZip's `loadAsync`, a string is NOT a latin1 binary-content
+ * string. That JSZip-compat interpretation was a footgun — every real consumer
+ * passes a path, and a path silently became garbage bytes → "Not a valid ZIP
+ * archive". To read a `binarystring`/`base64` write-path output back in, convert
+ * it to bytes first (e.g. `Uint8Array.from(atob(b64), c => c.charCodeAt(0))`).
  */
 type ZipInputValue = string | number[] | Uint8Array | ArrayBuffer | Blob
 export type ZipInput = ZipInputValue | Promise<ZipInputValue>
@@ -91,23 +99,42 @@ export async function readZip (input: ZipInput): Promise<Map<string, Uint8Array>
 }
 
 /**
- * Normalize a read-path input to `Uint8Array`, matching JSZip's default
- * `loadAsync` handling: strings are treated as latin1 binary strings (not
- * base64), `ArrayBuffer`/`Blob`/`number[]` are copied/wrapped, and a `Buffer`
- * passes through as the `Uint8Array` it already is.
+ * Normalize a read-path input to `Uint8Array`: a `Buffer`/`Uint8Array` passes
+ * through, `ArrayBuffer`/`Blob`/`number[]` are copied/wrapped, and a `string` is
+ * a **filesystem path** read from disk (Node). See {@link ZipInput} for why a
+ * string is a path rather than JSZip's latin1 binary-content string.
  */
 async function toUint8Array (input: ZipInput): Promise<Uint8Array> {
 	const data = await input
 	if (data instanceof Uint8Array) return data
 	if (data instanceof ArrayBuffer) return new Uint8Array(data)
-	if (typeof data === 'string') {
-		const bytes = new Uint8Array(data.length)
-		for (let i = 0; i < data.length; i++) bytes[i] = data.charCodeAt(i) & 0xff
-		return bytes
-	}
+	if (typeof data === 'string') return readFileAsBytes(data)
 	if (Array.isArray(data)) return Uint8Array.from(data)
 	if (typeof Blob !== 'undefined' && data instanceof Blob) return new Uint8Array(await data.arrayBuffer())
-	throw new Error('Unsupported zip input type; expected string, number[], Uint8Array, ArrayBuffer, or Blob')
+	throw new Error('Unsupported zip input type; expected a filesystem path (string), number[], Uint8Array, ArrayBuffer, or Blob')
+}
+
+/**
+ * Read a `.pptx` (or any zip) from a filesystem path into bytes. Node-only:
+ * `node:fs` is imported lazily so the browser build stays free of a Node
+ * dependency, and a missing filesystem (browser) or missing file both throw a
+ * clear error naming the path — never the opaque "Not a valid ZIP archive".
+ */
+async function readFileAsBytes (filePath: string): Promise<Uint8Array> {
+	let readFile: (typeof import('node:fs/promises'))['readFile']
+	try {
+		;({ readFile } = await import('node:fs/promises'))
+	} catch {
+		throw new Error(
+			`Cannot read zip from path "${filePath}": filesystem access requires Node. ` +
+				'Pass a Uint8Array/ArrayBuffer/Blob for an in-memory archive.'
+		)
+	}
+	try {
+		return new Uint8Array(await readFile(filePath))
+	} catch (cause) {
+		throw new Error(`Cannot read .pptx at "${filePath}": ${(cause as Error).message}`, { cause })
+	}
 }
 
 const PPTX_MIME = 'application/vnd.openxmlformats-officedocument.presentationml.presentation'

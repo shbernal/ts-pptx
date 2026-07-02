@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING: a `string` zip/inspect input is now a filesystem path, not latin1
+  binary content.** `readZip`, `loadPptxPackage`/`inspectPptx`
+  (`@shbernal/pptxgenjs/inspect`), and `OpcPackage.load` (`/read`) all previously
+  treated a `string` input the way JSZip's `loadAsync` did — as a latin1 binary
+  *content* string. That was a footgun: the natural call `loadPptxPackage("deck.pptx")`
+  turned the path characters into bytes and failed with an opaque `Not a valid ZIP
+  archive`. A string is now read from disk (Node, via lazily-imported `node:fs`),
+  so `await loadPptxPackage("deck.pptx")` Just Works, and a missing file throws a
+  clear error naming the path instead of a corrupt-archive error. In-memory
+  archives are unaffected — keep passing `Uint8Array`/`ArrayBuffer`/`Blob`/`number[]`.
+  Migration: to re-read a `binarystring`/`base64` write-path output, convert it to
+  bytes first (e.g. `Uint8Array.from(atob(b64), c => c.charCodeAt(0))`) rather than
+  passing the string. Downstream: `downstream`'s slide-library tooling can read
+  `.pptx` parts (e.g. per-slide `_rels`) directly through the inspect API instead
+  of shelling out to `unzip`.
+
 ### Added
 
 - **`@shbernal/pptxgenjs/zip` subpath export.** The fflate-backed ZIP toolkit

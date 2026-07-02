@@ -4,6 +4,11 @@ import { Part } from './part.js'
 import { Relationships } from './relationships.js'
 import { partNameToZipPath, relsPartNameFor, zipPathToPartName } from './partnames.js'
 
+/**
+ * Input to {@link OpcPackage.load}. A `string` is a **filesystem path** (Node)
+ * read from disk; pass `Uint8Array`/`ArrayBuffer`/`Blob`/`number[]` for an
+ * in-memory archive. (A string is a path, not JSZip's latin1 binary content.)
+ */
 export type OpcInput = string | number[] | Uint8Array | ArrayBuffer | Blob
 
 const CONTENT_TYPES_ZIP_PATH = '[Content_Types].xml'
