@@ -47,7 +47,12 @@ export default tseslint.config(
 			'@stylistic/no-tabs': ['error', { allowIndentationTabs: true }],
 			'@stylistic/quotes': ['error', 'single'],
 			'@stylistic/semi': ['error', 'never'],
+			// Gate both compile-time escape hatches from the null-safety work: a bare `!`
+			// (Gap 3) and a provably-redundant `as` cast (Gap 4). no-unnecessary-type-assertion
+			// already ships on in recommendedTypeChecked; it is pinned here so the `!`/`as`
+			// symmetry is explicit and survives any upstream preset change.
 			'@typescript-eslint/no-non-null-assertion': 'error',
+			'@typescript-eslint/no-unnecessary-type-assertion': 'error',
 			// --- type-aware rules intentionally relaxed for this codebase ---
 			// CHART_NAME (string union) and CHART_TYPE (enum) are parallel definitions with
 			// identical string values, and scheme-color checks compare runtime strings to the

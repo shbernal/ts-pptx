@@ -116,7 +116,7 @@ Suggested order (cheapest / highest-confidence first):
 ### The gap (closed)
 
 `eslint.config.mjs` extended `tseslint.configs.recommended` — the purely syntactic
-rule set. rule set. The type-aware set (`recommendedTypeChecked`) was off, so rules that need
+rule set. The type-aware set (`recommendedTypeChecked`) was off, so rules that need
 type information did not run: `no-floating-promises`, `no-unsafe-*` (untyped `any`
 flowing through), `await-thenable`, etc. These are genuinely valuable for OOXML
 string-assembly code and pair naturally with the `strictNullChecks` work (both
@@ -170,7 +170,9 @@ inline rationale in `eslint.config.mjs`:**
 
 The high-value type-flow rules (`no-unsafe-*`, `no-floating-promises`,
 `no-misused-promises`, `await-thenable`, `no-unnecessary-type-assertion`) remain
-**on and enforced**.
+**on and enforced**. `no-unnecessary-type-assertion` is additionally pinned
+explicitly in the rules block (alongside `no-non-null-assertion`) so the `!`/`as`
+symmetry is legible and survives any upstream preset change.
 
 ---
 
@@ -231,14 +233,24 @@ to enable them.
 - [ ] Treat `exactOptionalPropertyTypes` and `verbatimModuleSyntax` as their own
       ratchets if the error count is large.
 
-### The `as`-cast enforcement asymmetry
+### The `as`-cast enforcement asymmetry — ✅ resolved
 
 Gap 1/3 guardrails repeatedly say "fix with real narrowing, **not `!` or `as`**."
-The `!` half is now enforced (`no-non-null-assertion`), but `as` casts have no
-corresponding lint gate. Consider `@typescript-eslint/no-unnecessary-type-assertion`
-(type-aware, arrives free with Gap 2's `recommendedTypeChecked`) to catch
-provably-redundant casts, and evaluate `consistent-type-assertions` for the rest.
-This is folded into Gap 2 triage since the rule ships with the type-checked set.
+The `!` half is enforced by `no-non-null-assertion`; the `as` half is now covered
+by `@typescript-eslint/no-unnecessary-type-assertion` (arrived with Gap 2's
+`recommendedTypeChecked` and pinned explicitly in the rules block).
+
+Note the two rules gate *different* things: `no-non-null-assertion` bans **every**
+`!`, whereas `no-unnecessary-type-assertion` only removes casts the compiler can
+prove are redundant. A cast that genuinely changes the type — e.g. `number as Emu`
+(branding a plain number into the `Emu` nominal type) or `unknown as T` — is by
+definition *not* redundant, so it is correctly left in place. The two adjacent
+`Math.round(...)` image-sizing lines in `gen-xml.ts` illustrate this: `cy` is a
+plain `number` so its cast was dropped, while `cx` is typed `Emu` (its initializer
+`getSmartParseNumber()` returns `Emu`) so `as Emu` is load-bearing and stays. The
+lint gate distinguishes the two automatically. `consistent-type-assertions` remains
+an open option if we later want to constrain the *form* of the intentional casts
+that survive.
 
 ---
 
