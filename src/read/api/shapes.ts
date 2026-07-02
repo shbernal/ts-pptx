@@ -140,7 +140,7 @@ function nonVisualCNvPr(element: Element): Element | null {
 	for (let node = element.firstChild; node; node = node.nextSibling) {
 		if (node.nodeType !== ELEMENT_NODE) continue
 		const child = node as Element
-		if (child.namespaceURI === OOXML_NS.p && child.localName.startsWith('nv')) {
+		if (child.namespaceURI === OOXML_NS.p && child.localName?.startsWith('nv')) {
 			return firstChild(child, 'p:cNvPr')
 		}
 	}
@@ -593,7 +593,8 @@ export abstract class Shape {
 	 */
 	get absoluteFrame(): AbsoluteFrame | null {
 		const xfrm = this.xfrm()
-		let box = xfrm && readBox(xfrm, 'a:off', 'a:ext')
+		if (!xfrm) return null
+		let box = readBox(xfrm, 'a:off', 'a:ext')
 		if (!box) return null
 		let center = { x: box.x + box.cx / 2, y: box.y + box.cy / 2 }
 		let width = box.cx

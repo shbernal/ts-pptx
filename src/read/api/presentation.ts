@@ -1712,7 +1712,7 @@ export class Presentation {
 				const a = attrs.item(i)
 				if (!a || a.namespaceURI !== OOXML_NS.r || !a.value) continue
 				if (!sourceRels.get(a.value)) continue // an r-namespaced attribute that isn't a relationship id
-				refs.push({ local: a.localName, id: a.value })
+				refs.push({ local: a.localName ?? a.name, id: a.value })
 			}
 			for (const { local, id } of refs) {
 				setAttr(el, `r:${local}`, this.#carryRel(sourceOpc, sourceRels, id, newPartName, slideRels, relIdMap))

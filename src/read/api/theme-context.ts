@@ -215,7 +215,7 @@ export interface ResolvedColor {
 export function resolveColorElement(colorEl: Element | null, ctx: ColorContext): ResolvedColor | null {
 	const resolved = resolveColor(colorEl, ctx)
 	if (!resolved) return null
-	const transforms = resolved.transforms.map((t) => ({ name: t.localName, value: attr(t, 'val') }))
+	const transforms = resolved.transforms.map((t) => ({ name: t.localName ?? '', value: attr(t, 'val') }))
 	const { hex, alpha } = applyColorTransforms(resolved.hex, transforms)
 	return alpha === undefined
 		? { hex: resolved.hex, transforms, effectiveHex: hex }

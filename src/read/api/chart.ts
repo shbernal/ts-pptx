@@ -28,7 +28,7 @@ export class Chart {
 	 * from the plot-area element local names (`lineChart` → `line`).
 	 */
 	get chartTypes(): string[] {
-		return this.#chartGroups().map((group) => group.localName.replace(/Chart$/, ''))
+		return this.#chartGroups().map((group) => (group.localName ?? '').replace(/Chart$/, ''))
 	}
 
 	/** The first chart-group type, or `null` for an empty plot area. */
@@ -88,7 +88,7 @@ export class Chart {
 		for (let node = plotArea.firstChild; node; node = node.nextSibling) {
 			if (node.nodeType !== 1) continue
 			const element = node as Element
-			if (element.namespaceURI === OOXML_NS.c && element.localName.endsWith('Chart')) groups.push(element)
+			if (element.namespaceURI === OOXML_NS.c && element.localName?.endsWith('Chart')) groups.push(element)
 		}
 		return groups
 	}
