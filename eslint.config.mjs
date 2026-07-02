@@ -41,6 +41,7 @@ export default tseslint.config(
 			'@stylistic/no-tabs': ['error', { allowIndentationTabs: true }],
 			'@stylistic/quotes': ['error', 'single'],
 			'@stylistic/semi': ['error', 'never'],
+			'@typescript-eslint/no-non-null-assertion': 'error',
 			'no-lone-blocks': 0,
 		},
 	},
