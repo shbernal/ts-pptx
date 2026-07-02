@@ -2,7 +2,7 @@
  * PptxGenJS: Slide Class
  */
 
-import { CHART_NAME, SHAPE_NAME } from './core-enums.js'
+import { asChartType, CHART_NAME, SHAPE_NAME } from './core-enums.js'
 import {
 	AddSlideProps,
 	AnimationProps,
@@ -205,7 +205,7 @@ export default class Slide {
 		// FUTURE: TODO-VERSION-4: Remove first arg - only take data and opts, with "type" required on opts
 		// Set `_type` on IChartOptsLib as its what is used as object is passed around
 		const optionsWithType: IChartOptsLib | undefined = Array.isArray(type) && !Array.isArray(dataOrOptions) ? dataOrOptions : options
-		if (optionsWithType) optionsWithType._type = type
+		if (optionsWithType) optionsWithType._type = Array.isArray(type) ? type : asChartType(type)
 		genObj.addChartDefinition(this, type, dataOrOptions, options)
 		return this
 	}

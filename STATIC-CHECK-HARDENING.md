@@ -165,7 +165,7 @@ inline rationale in `eslint.config.mjs`:**
 
 | Rule | Count | Why off |
 | ---- | ----: | ------- |
-| `no-unsafe-enum-comparison`    | 60 | `CHART_NAME`(union)/`CHART_TYPE`(enum) + string/`SCHEME_COLORS` comparisons are same-valued-string safe (see Gap 4) |
+| `no-unsafe-enum-comparison`    | 15 | Chart half resolved (see Gap 4); remainder is `SchemeColor`/`SLIDE_OBJECT_TYPES`/valign enum-vs-string comparisons that are same-valued-string safe |
 | `require-await`                |  6 | async methods conform to a uniform Promise-returning contract (runtime adapters, zip/opc save) with no `await` |
 | `no-base-to-string`           |  6 | deliberate `String()`/`.toString()` coercion of `unknown`/union values in OOXML string-assembly paths |
 | `no-redundant-type-constituents` | 2 | public color types are `literal-union \| string` on purpose (autocomplete + escape hatch) |
@@ -273,5 +273,10 @@ Gaps 1, 2, and 3 are done. Remaining:
 
 1. **Gap 4 (other strictness knobs)** — survey error counts per knob, then enable
    the cheap ones and ratchet the expensive ones. The `CHART_NAME`/`CHART_TYPE`
-   unification noted here is also what would let `no-unsafe-enum-comparison` be
-   turned back on.
+   unification noted here is **done** (`CHART_NAME` is now derived from the
+   `CHART_TYPE` enum via `` `${CHART_TYPE}` ``, internal `_type`/`make*` chart
+   code carries the enum, and `asChartType()` is the single boundary cast). That
+   removed the chart half of `no-unsafe-enum-comparison` (60 → 15). Turning the
+   rule fully back on now only needs the remaining non-chart comparisons resolved
+   (`SchemeColor` colour-validation in `gen-utils.ts`, `SLIDE_OBJECT_TYPES` in
+   `gen-objects.ts`/`gen-xml.ts`, valign anchor in `measure-fit.ts`).

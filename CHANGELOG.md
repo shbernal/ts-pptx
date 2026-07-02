@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`CHART_NAME` is now derived from the `CHART_TYPE` enum** (`` `${CHART_TYPE}` ``)
+  instead of a hand-maintained duplicate string union, so the public chart-type
+  name set and the enum can no longer drift — adding a member to the enum extends
+  the accepted names automatically. The public type is identical (`'area' | 'bar' |
+  …`) and `addChart()` signatures are unchanged, so this is not a breaking change.
+  Internally, a chart's resolved `_type` and the `make*` chart-XML helpers now
+  carry the `CHART_TYPE` enum, normalized once at the public boundary by the new
+  `asChartType()` helper; emitted OOXML is byte-identical. This also removes the
+  chart share of the suppressed `no-unsafe-enum-comparison` lint rule.
+
 - **BREAKING: a `string` zip/inspect input is now a filesystem path, not latin1
   binary content.** `readZip`, `loadPptxPackage`/`inspectPptx`
   (`@shbernal/pptxgenjs/inspect`), and `OpcPackage.load` (`/read`) all previously

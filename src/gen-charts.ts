@@ -8,8 +8,8 @@ import {
 	AXIS_ID_SERIES_PRIMARY,
 	AXIS_ID_VALUE_PRIMARY,
 	AXIS_ID_VALUE_SECONDARY,
+	asChartType,
 	BARCHART_COLORS,
-	CHART_NAME,
 	CHART_TYPE,
 	DEF_CHART_GRIDLINE,
 	DEF_FONT_COLOR,
@@ -535,8 +535,8 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
 	// or PowerPoint flags the file for repair (#1355). Track, per category axis,
 	// the scatter/bubble subchart type that owns it (if any) and whether a
 	// category-based subchart also references it (an unsatisfiable conflict).
-	let primaryCatAxisValType: CHART_NAME | null = null
-	let secondaryCatAxisValType: CHART_NAME | null = null
+	let primaryCatAxisValType: CHART_TYPE | null = null
+	let secondaryCatAxisValType: CHART_TYPE | null = null
 	let primaryCatAxisHasCategoryChart = false
 	let secondaryCatAxisHasCategoryChart = false
 
@@ -608,17 +608,18 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
 			const catAxisId = options.secondaryCatAxis ? AXIS_ID_CATEGORY_SECONDARY : AXIS_ID_CATEGORY_PRIMARY
 			usesSecondaryValAxis = usesSecondaryValAxis || (options.secondaryValAxis ?? false)
 			usesSecondaryCatAxis = usesSecondaryCatAxis || (options.secondaryCatAxis ?? false)
+			const subType = asChartType(type.type)
 			// Record whether this subchart needs a value-based X axis (scatter/bubble)
 			// or a category-based X axis, keyed to the primary/secondary cat axis it uses.
-			const usesValueXAxis = type.type === CHART_TYPE.SCATTER || type.type === CHART_TYPE.BUBBLE || type.type === CHART_TYPE.BUBBLE3D
+			const usesValueXAxis = subType === CHART_TYPE.SCATTER || subType === CHART_TYPE.BUBBLE || subType === CHART_TYPE.BUBBLE3D
 			if (options.secondaryCatAxis) {
-				if (usesValueXAxis) secondaryCatAxisValType = type.type
+				if (usesValueXAxis) secondaryCatAxisValType = subType
 				else secondaryCatAxisHasCategoryChart = true
 			} else {
-				if (usesValueXAxis) primaryCatAxisValType = type.type
+				if (usesValueXAxis) primaryCatAxisValType = subType
 				else primaryCatAxisHasCategoryChart = true
 			}
-			strXml += makeChartType(type.type, type.data as IOptsChartData[], options, valAxisId, catAxisId)
+			strXml += makeChartType(subType, type.data as IOptsChartData[], options, valAxisId, catAxisId)
 		})
 	} else if (rel.opts._type) {
 		strXml += makeChartType(rel.opts._type, rel.data, rel.opts, AXIS_ID_VALUE_PRIMARY, AXIS_ID_CATEGORY_PRIMARY)
@@ -634,7 +635,7 @@ export function makeXmlCharts (rel: ISlideRelChart): string {
 		// Resolve the effective `_type` for a combo category axis so scatter/bubble
 		// subcharts get a `<c:valAx>` X axis. Returns the scatter/bubble type when
 		// that axis is owned only by such a subchart, else null (category axis).
-		const comboCatAxisType = (isSecondary: boolean): { _type: CHART_NAME } | Record<string, never> => {
+		const comboCatAxisType = (isSecondary: boolean): { _type: CHART_TYPE } | Record<string, never> => {
 			const valType = isSecondary ? secondaryCatAxisValType : primaryCatAxisValType
 			const hasCategoryChart = isSecondary ? secondaryCatAxisHasCategoryChart : primaryCatAxisHasCategoryChart
 			if (!valType) return {}
@@ -872,7 +873,7 @@ function genXmlChartMetadata (metadata?: Record<string, string>): string {
 
 /**
  * Create XML string for any given chart type
- * @param {CHART_NAME} chartType chart type name
+ * @param {CHART_TYPE} chartType chart type name
  * @param {IOptsChartData[]} data chart data
  * @param {IChartOptsLib} opts chart options
  * @param {string} valAxisId chart val axis id
@@ -881,7 +882,7 @@ function genXmlChartMetadata (metadata?: Record<string, string>): string {
  * @example '<c:lineChart>'
  * @return {string} XML chart
  */
-function makeChartType (chartType: CHART_NAME, data: IOptsChartData[], opts: IChartOptsLib, valAxisId: string, catAxisId: string): string {
+function makeChartType (chartType: CHART_TYPE, data: IOptsChartData[], opts: IChartOptsLib, valAxisId: string, catAxisId: string): string {
 	// NOTE: "Chart Range" (as shown in "select Chart Area dialog") is calculated.
 	// ....: Ensure each X/Y Axis/Col has same row height (esp. applicable to XY Scatter where X can often be larger than Y's)
 	let colorIndex = -1 // Maintain the color index by region
@@ -1982,7 +1983,7 @@ function makeValAxis (opts: IChartOptsLib, valAxisId: string): string {
 		' <c:crossBetween val="' +
 		(opts.valAxisCrossBetween
 			? opts.valAxisCrossBetween
-			: opts._type === CHART_TYPE.SCATTER || (!!(Array.isArray(opts._type) && opts._type.some(type => type.type === CHART_TYPE.AREA)))
+			: opts._type === CHART_TYPE.SCATTER || (!!(Array.isArray(opts._type) && opts._type.some(type => asChartType(type.type) === CHART_TYPE.AREA)))
 				? 'midCat'
 				: 'between') +
 		'"/>'
@@ -2249,7 +2250,7 @@ function numCachePt (idx: number, value: number | null | undefined): string {
  * @param errorBars - one config, or an array (X+Y) for scatter/area; bar/line keep only the first
  * @param obj - the series data object (only `name`, for warnings)
  */
-function makeChartErrorBarsXml (chartType: CHART_NAME, errorBars: ChartErrorBarOptions | ChartErrorBarOptions[] | undefined, obj: IOptsChartData): string {
+function makeChartErrorBarsXml (chartType: CHART_TYPE, errorBars: ChartErrorBarOptions | ChartErrorBarOptions[] | undefined, obj: IOptsChartData): string {
 	if (!errorBars) return ''
 	const bars = Array.isArray(errorBars) ? errorBars : [errorBars]
 	// CT_BarSer/CT_LineSer allow a single <c:errBars>; only scatter/area permit two (x + y).
@@ -2401,7 +2402,7 @@ function createChartBorderLine (border: BorderProps): string {
  * @param opts       - chart options (fill/shadow/lineSize context)
  * @param varyColors - color array when single-series color-vary applies, else `null`
  */
-function makeSeriesDataPointsXml (chartType: CHART_NAME, obj: IOptsChartData, opts: IChartOptsLib, varyColors: string[] | null): string {
+function makeSeriesDataPointsXml (chartType: CHART_TYPE, obj: IOptsChartData, opts: IChartOptsLib, varyColors: string[] | null): string {
 	if (chartType === CHART_TYPE.RADAR) return ''
 	const pointStyles = obj.pointStyles
 	if (!varyColors && !pointStyles?.length) return ''

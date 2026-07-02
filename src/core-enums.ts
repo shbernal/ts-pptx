@@ -40,7 +40,12 @@ export const AXIS_ID_SERIES_PRIMARY = '2094734556'
 
 export type JSZIP_OUTPUT_TYPE = 'arraybuffer' | 'base64' | 'binarystring' | 'blob' | 'nodebuffer' | 'uint8array'
 export type WRITE_OUTPUT_TYPE = JSZIP_OUTPUT_TYPE | 'STREAM'
-export type CHART_NAME = 'area' | 'bar' | 'bar3D' | 'bubble' | 'bubble3D' | 'doughnut' | 'line' | 'pie' | 'radar' | 'scatter'
+/**
+ * Public chart-type name accepted by `addChart()`. Derived from the internal
+ * `CHART_TYPE` enum (see below) so the two never drift: adding a member to the
+ * enum extends this union automatically.
+ */
+export type CHART_NAME = `${CHART_TYPE}`
 export type SCHEME_COLORS = 'tx1' | 'tx2' | 'bg1' | 'bg2' | 'accent1' | 'accent2' | 'accent3' | 'accent4' | 'accent5' | 'accent6'
 
 export const LETTERS: string[] = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
@@ -734,6 +739,17 @@ export enum CHART_TYPE {
 	'PIE' = 'pie',
 	'RADAR' = 'radar',
 	'SCATTER' = 'scatter',
+}
+
+/**
+ * Narrow a public `CHART_NAME` to the internal `CHART_TYPE` enum. Because
+ * `CHART_NAME` is derived from `CHART_TYPE`, every `CHART_NAME` value is by
+ * construction a valid enum value, so this conversion is total and safe — it is
+ * the single boundary cast that lets internal code compare against the enum
+ * (enum-to-enum) instead of enum-to-string.
+ */
+export function asChartType (name: CHART_NAME): CHART_TYPE {
+	return name as CHART_TYPE
 }
 
 export enum SCHEME_COLOR_NAMES {

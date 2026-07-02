@@ -3,6 +3,7 @@
  */
 
 import {
+	asChartType,
 	BARCHART_COLORS,
 	CHART_NAME,
 	CHART_TYPE,
@@ -339,7 +340,7 @@ export function addChartDefinition(target: PresSlideInternal, type: CHART_NAME |
 
 	// STEP 2: Set default options/decode user options
 	// A: Core
-	options._type = type
+	options._type = Array.isArray(type) ? type : asChartType(type)
 	options.x = typeof options.x !== 'undefined' && options.x != null && !isNaN(Number(options.x)) ? options.x : 1
 	options.y = typeof options.y !== 'undefined' && options.y != null && !isNaN(Number(options.y)) ? options.y : 1
 	options.w = options.w || '50%'

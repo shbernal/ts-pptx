@@ -3,7 +3,7 @@
  * PptxGenJS Interfaces
  */
 
-import type { CHART_NAME, PLACEHOLDER_TYPE, SHAPE_NAME, SLIDE_OBJECT_TYPES, TABLE_STYLE, TEXT_HALIGN, TEXT_VALIGN, WRITE_OUTPUT_TYPE } from './core-enums.js'
+import type { CHART_NAME, CHART_TYPE, PLACEHOLDER_TYPE, SHAPE_NAME, SLIDE_OBJECT_TYPES, TABLE_STYLE, TEXT_HALIGN, TEXT_VALIGN, WRITE_OUTPUT_TYPE } from './core-enums.js'
 import type { EmbeddedFont } from './embedded-fonts.js'
 
 // Core Types
@@ -2962,7 +2962,7 @@ export interface IChartOpts
 	metadata?: Record<string, string>
 }
 export interface IChartOptsLib extends IChartOpts {
-	_type?: CHART_NAME | IChartMulti[] // TODO: v3.4.0 - move to `IChartOpts`, remove `IChartOptsLib`
+	_type?: CHART_TYPE | IChartMulti[] // internal, normalized from `CHART_NAME`; TODO: v3.4.0 - move to `IChartOpts`, remove `IChartOptsLib`
 }
 export interface ISlideRelChart extends OptsChartData {
 	type: CHART_NAME | IChartMulti[]
