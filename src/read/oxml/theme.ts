@@ -35,16 +35,54 @@
  * `clrMap` / `clrScheme` / `fmtScheme` parts (and the source layout/master roots
  * for the placeholder inheritance passes) and owns marking the slide dirty.
  */
-import { ELEMENT_NODE, OOXML_NS, attr, createElement, firstChild, getElements, getOrAddChild, insertInOrder, intValue, ownerDocumentOf, removeChildrenByQName, replaceInParent, setAttr, type Element } from './dom.js'
+import {
+	ELEMENT_NODE,
+	OOXML_NS,
+	attr,
+	createElement,
+	firstChild,
+	getElements,
+	getOrAddChild,
+	insertInOrder,
+	intValue,
+	ownerDocumentOf,
+	removeChildrenByQName,
+	replaceInParent,
+	setAttr,
+	type Element,
+} from './dom.js'
 import { FILL_CHOICES } from './fill.js'
 
 /** The 12 `a:clrScheme` slot names, in schema order. */
-const SCHEME_SLOTS = ['dk1', 'lt1', 'dk2', 'lt2', 'accent1', 'accent2', 'accent3', 'accent4', 'accent5', 'accent6', 'hlink', 'folHlink']
+const SCHEME_SLOTS = [
+	'dk1',
+	'lt1',
+	'dk2',
+	'lt2',
+	'accent1',
+	'accent2',
+	'accent3',
+	'accent4',
+	'accent5',
+	'accent6',
+	'hlink',
+	'folHlink',
+]
 /** Scheme tokens that name a `clrScheme` slot directly, bypassing the `clrMap`. */
 const DIRECT_SLOT_TOKENS = new Set(['dk1', 'lt1', 'dk2', 'lt2'])
 
 /** Schema successors for ordered insertion into `p:spPr` (CT_ShapeProperties). */
-const SPPR_XFRM_AFTER = ['a:custGeom', 'a:prstGeom', ...FILL_CHOICES, 'a:ln', 'a:effectLst', 'a:effectDag', 'a:scene3d', 'a:sp3d', 'a:extLst']
+const SPPR_XFRM_AFTER = [
+	'a:custGeom',
+	'a:prstGeom',
+	...FILL_CHOICES,
+	'a:ln',
+	'a:effectLst',
+	'a:effectDag',
+	'a:scene3d',
+	'a:sp3d',
+	'a:extLst',
+]
 const SPPR_FILL_AFTER = ['a:ln', 'a:effectLst', 'a:effectDag', 'a:scene3d', 'a:sp3d', 'a:extLst']
 const SPPR_LN_AFTER = ['a:effectLst', 'a:effectDag', 'a:scene3d', 'a:sp3d', 'a:extLst']
 const SPPR_EFFECT_AFTER = ['a:scene3d', 'a:sp3d', 'a:extLst']
@@ -116,7 +154,20 @@ export function parseClrScheme(clrScheme: Element | null): Map<string, string> {
 export function parseClrMap(clrMap: Element | null): Map<string, string> {
 	const out = new Map<string, string>()
 	if (!clrMap) return out
-	for (const token of ['bg1', 'tx1', 'bg2', 'tx2', 'accent1', 'accent2', 'accent3', 'accent4', 'accent5', 'accent6', 'hlink', 'folHlink']) {
+	for (const token of [
+		'bg1',
+		'tx1',
+		'bg2',
+		'tx2',
+		'accent1',
+		'accent2',
+		'accent3',
+		'accent4',
+		'accent5',
+		'accent6',
+		'hlink',
+		'folHlink',
+	]) {
 		const slot = attr(clrMap, token)
 		if (slot) out.set(token, slot)
 	}
@@ -348,7 +399,12 @@ function materializeBackground(slideRoot: Element, ctx: FlattenContext): void {
 		if (!bgRef) continue
 		const idx = intAttr(bgRef, 'idx')
 		const ref = resolveColor(firstChildElement(bgRef), ctx)
-		const fill = idx !== null && idx > 0 ? (idx >= 1000 ? fmtEntry(ctx, 'a:bgFillStyleLst', idx - 1000) : fmtEntry(ctx, 'a:fillStyleLst', idx)) : null
+		const fill =
+			idx !== null && idx > 0
+				? idx >= 1000
+					? fmtEntry(ctx, 'a:bgFillStyleLst', idx - 1000)
+					: fmtEntry(ctx, 'a:fillStyleLst', idx)
+				: null
 		const bgPr = createElement(doc, 'p:bgPr')
 		if (fill && ref) {
 			substitutePhClr(fill, ref)
@@ -509,7 +565,12 @@ export function lstStyleLevelFill(listStyle: Element | null, level: number): Ele
  * `resolveColorElement` for the `effectiveHex`; the flatten path resolves it
  * directly via {@link placeholderInheritedColor}.
  */
-export function placeholderInheritedFill(type: string | null, idx: string, level: number, ctx: FlattenContext): Element | null {
+export function placeholderInheritedFill(
+	type: string | null,
+	idx: string,
+	level: number,
+	ctx: FlattenContext
+): Element | null {
 	const tiers: (Element | null)[] = []
 	if (ctx.layoutRoot) {
 		const layoutPh = findPlaceholder(ctx.layoutRoot, type, idx)
@@ -537,7 +598,12 @@ export function placeholderInheritedFill(type: string | null, idx: string, level
  * and *typeface* resolution (the size/face sibling of {@link placeholderInheritedFill}),
  * read directly by the flatten path and the read-model font getters.
  */
-export function placeholderInheritedDefRPrs(type: string | null, idx: string, level: number, ctx: FlattenContext): Element[] {
+export function placeholderInheritedDefRPrs(
+	type: string | null,
+	idx: string,
+	level: number,
+	ctx: FlattenContext
+): Element[] {
 	const tiers: (Element | null)[] = []
 	if (ctx.layoutRoot) {
 		const layoutPh = findPlaceholder(ctx.layoutRoot, type, idx)
@@ -580,7 +646,12 @@ export function resolveThemeFont(typeface: string | null, fontScheme: Element | 
  * when nothing in the chain defines a resolvable colour (the run then re-binds to
  * the destination).
  */
-function placeholderInheritedColor(type: string | null, idx: string, level: number, ctx: FlattenContext): ResolvedColor | null {
+function placeholderInheritedColor(
+	type: string | null,
+	idx: string,
+	level: number,
+	ctx: FlattenContext
+): ResolvedColor | null {
 	const colorEl = placeholderInheritedFill(type, idx, level, ctx)
 	return colorEl ? resolveColor(colorEl, ctx) : null
 }
@@ -689,7 +760,18 @@ function resolvePlaceholderBodyPr(shapeRoot: Element, ctx: FlattenContext): void
 }
 
 /** The ordered children of a `CT_TextListStyle` (`a:lstStyle` / a `p:txStyles` style). */
-const LST_STYLE_LEVELS = ['a:defPPr', 'a:lvl1pPr', 'a:lvl2pPr', 'a:lvl3pPr', 'a:lvl4pPr', 'a:lvl5pPr', 'a:lvl6pPr', 'a:lvl7pPr', 'a:lvl8pPr', 'a:lvl9pPr']
+const LST_STYLE_LEVELS = [
+	'a:defPPr',
+	'a:lvl1pPr',
+	'a:lvl2pPr',
+	'a:lvl3pPr',
+	'a:lvl4pPr',
+	'a:lvl5pPr',
+	'a:lvl6pPr',
+	'a:lvl7pPr',
+	'a:lvl8pPr',
+	'a:lvl9pPr',
+]
 
 /**
  * Bake the placeholder-inherited list style onto a lifted shape's text body (the
@@ -825,7 +907,12 @@ function resolvePlaceholderRunSizes(slideRoot: Element, ctx: FlattenContext): vo
  * the first tier that defines it (properties resolve independently). Returns
  * `null` when no tier defines any of them.
  */
-function placeholderInheritedRunProps(type: string | null, idx: string, level: number, ctx: FlattenContext): RunProps | null {
+function placeholderInheritedRunProps(
+	type: string | null,
+	idx: string,
+	level: number,
+	ctx: FlattenContext
+): RunProps | null {
 	const tiers = placeholderInheritedDefRPrs(type, idx, level, ctx)
 	const props = {} as RunProps
 	let any = false
@@ -842,7 +929,13 @@ function placeholderInheritedRunProps(type: string | null, idx: string, level: n
 }
 
 /** Whether the *slide itself* already fixes a run property (so a rebind cannot change it). */
-function slideDefinesProp(name: string, run: Element, pPr: Element | null, slideLst: Element | null, level: number): boolean {
+function slideDefinesProp(
+	name: string,
+	run: Element,
+	pPr: Element | null,
+	slideLst: Element | null,
+	level: number
+): boolean {
 	const rPr = firstChild(run, 'a:rPr')
 	if (rPr && attr(rPr, name) != null) return true
 	const defRPr = pPr && firstChild(pPr, 'a:defRPr')
@@ -852,7 +945,13 @@ function slideDefinesProp(name: string, run: Element, pPr: Element | null, slide
 }
 
 /** Write each resolved run property onto a run's `a:rPr`, skipping ones the slide already fixes. */
-function writeRunProps(run: Element, props: RunProps, pPr: Element | null, slideLst: Element | null, level: number): void {
+function writeRunProps(
+	run: Element,
+	props: RunProps,
+	pPr: Element | null,
+	slideLst: Element | null,
+	level: number
+): void {
 	let rPr: Element | null = null
 	for (const name of RUN_PROP_NAMES) {
 		const value = props[name]

@@ -30,7 +30,7 @@ export class ZipWriter {
 	 * @param data - XML string (UTF-8 encoded) or already-decoded bytes (media)
 	 * @param opts.store - skip DEFLATE for this entry (already-compressed media, #1006)
 	 */
-	add (path: string, data: string | Uint8Array, opts?: { store?: boolean }): void {
+	add(path: string, data: string | Uint8Array, opts?: { store?: boolean }): void {
 		const bytes = typeof data === 'string' ? strToU8(data) : data
 		// Pin mtime so archive bytes are reproducible across runs (stable fixtures).
 		const fileOpts: ZipOptions = { mtime: FIXED_MTIME }
@@ -42,7 +42,7 @@ export class ZipWriter {
 	 * Compress all accumulated entries to raw zip bytes.
 	 * @param compression - false stores every entry uncompressed (level 0)
 	 */
-	toBytes (compression = true): Uint8Array {
+	toBytes(compression = true): Uint8Array {
 		// Global level is the per-entry default; entries added with `store` keep their level 0.
 		return zipSync(this.#entries, { level: compression ? 6 : 0, mtime: FIXED_MTIME })
 	}
@@ -52,7 +52,10 @@ export class ZipWriter {
 	 * @param type - JSZip-compatible output type
 	 * @param opts.compression - false stores every entry uncompressed
 	 */
-	async generate (type: JSZIP_OUTPUT_TYPE, opts: { compression: boolean }): Promise<string | ArrayBuffer | Blob | Uint8Array> {
+	async generate(
+		type: JSZIP_OUTPUT_TYPE,
+		opts: { compression: boolean }
+	): Promise<string | ArrayBuffer | Blob | Uint8Array> {
 		const bytes = this.toBytes(opts.compression)
 		return convertZipOutput(bytes, type)
 	}
@@ -82,7 +85,7 @@ export type ZipInput = ZipInputValue | Promise<ZipInputValue>
  * `/`) are dropped — fflate surfaces them but no consumer wants empty-dir
  * entries, and the write path emits none.
  */
-export async function readZip (input: ZipInput): Promise<Map<string, Uint8Array>> {
+export async function readZip(input: ZipInput): Promise<Map<string, Uint8Array>> {
 	const bytes = await toUint8Array(input)
 	let entries: Unzipped
 	try {
@@ -104,14 +107,16 @@ export async function readZip (input: ZipInput): Promise<Map<string, Uint8Array>
  * a **filesystem path** read from disk (Node). See {@link ZipInput} for why a
  * string is a path rather than JSZip's latin1 binary-content string.
  */
-async function toUint8Array (input: ZipInput): Promise<Uint8Array> {
+async function toUint8Array(input: ZipInput): Promise<Uint8Array> {
 	const data = await input
 	if (data instanceof Uint8Array) return data
 	if (data instanceof ArrayBuffer) return new Uint8Array(data)
 	if (typeof data === 'string') return readFileAsBytes(data)
 	if (Array.isArray(data)) return Uint8Array.from(data)
 	if (typeof Blob !== 'undefined' && data instanceof Blob) return new Uint8Array(await data.arrayBuffer())
-	throw new Error('Unsupported zip input type; expected a filesystem path (string), number[], Uint8Array, ArrayBuffer, or Blob')
+	throw new Error(
+		'Unsupported zip input type; expected a filesystem path (string), number[], Uint8Array, ArrayBuffer, or Blob'
+	)
 }
 
 /**
@@ -120,7 +125,7 @@ async function toUint8Array (input: ZipInput): Promise<Uint8Array> {
  * dependency, and a missing filesystem (browser) or missing file both throw a
  * clear error naming the path — never the opaque "Not a valid ZIP archive".
  */
-async function readFileAsBytes (filePath: string): Promise<Uint8Array> {
+async function readFileAsBytes(filePath: string): Promise<Uint8Array> {
 	let readFile: (typeof import('node:fs/promises'))['readFile']
 	try {
 		;({ readFile } = await import('node:fs/promises'))
@@ -140,7 +145,7 @@ async function readFileAsBytes (filePath: string): Promise<Uint8Array> {
 const PPTX_MIME = 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
 
 /** Map fflate's `Uint8Array` to a JSZip-compatible output type. */
-function convertZipOutput (bytes: Uint8Array, type: JSZIP_OUTPUT_TYPE): string | ArrayBuffer | Blob | Uint8Array {
+function convertZipOutput(bytes: Uint8Array, type: JSZIP_OUTPUT_TYPE): string | ArrayBuffer | Blob | Uint8Array {
 	switch (type) {
 		case 'uint8array':
 			return bytes
@@ -173,7 +178,7 @@ function convertZipOutput (bytes: Uint8Array, type: JSZIP_OUTPUT_TYPE): string |
  * limit of `String.fromCharCode(...spread)` on large archives), optionally
  * base64-encoding it. `btoa` is isomorphic (Node >=16 and browsers).
  */
-function bytesToBinaryString (bytes: Uint8Array, base64: boolean): string {
+function bytesToBinaryString(bytes: Uint8Array, base64: boolean): string {
 	let binary = ''
 	const CHUNK = 0x8000
 	for (let i = 0; i < bytes.length; i += CHUNK) {

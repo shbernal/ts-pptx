@@ -98,7 +98,12 @@ const isWhitespace = (ch: string): boolean => ch === ' ' || ch === '\t' || ch ==
  * (a break is only allowed at whitespace). Returns `null` if any run's face has no
  * registered metrics (the paragraph cannot be measured).
  */
-function tokenizeParagraph (para: FitParagraph, resolve: MetricsResolver, fontScalePct: number, widthSafety: number): Token[] | null {
+function tokenizeParagraph(
+	para: FitParagraph,
+	resolve: MetricsResolver,
+	fontScalePct: number,
+	widthSafety: number
+): Token[] | null {
 	const tokens: Token[] = []
 	let curWord: WordToken | null = null
 	const flushWord = (): void => {
@@ -148,7 +153,7 @@ interface LineLayout {
  * toward width (Findings #7), which slightly over-reports — the conservative
  * direction, consistent with the wrap model erring wide.
  */
-function countLines (tokens: Token[], innerWidthPt: number): LineLayout {
+function countLines(tokens: Token[], innerWidthPt: number): LineLayout {
 	let lines = 1
 	let lineW = 0
 	let maxLineWidthPt = 0
@@ -201,7 +206,7 @@ function countLines (tokens: Token[], innerWidthPt: number): LineLayout {
 }
 
 /** Max run size in a paragraph (line height follows the tallest run — Findings #7). */
-function maxRunSizePt (para: FitParagraph): number {
+function maxRunSizePt(para: FitParagraph): number {
 	let max = 0
 	for (const run of para.runs) if (run.sizePt > max) max = run.sizePt
 	return max
@@ -227,7 +232,7 @@ export interface LayoutResult {
  * pitch. The single source of truth for both {@link measureHeightPt} (the solvers)
  * and the public layout-time measure API.
  */
-export function measureLayout (
+export function measureLayout(
 	paragraphs: FitParagraph[],
 	innerWidthPt: number,
 	resolve: MetricsResolver,
@@ -246,9 +251,10 @@ export function measureLayout (
 		lineCount += lines
 		if (maxLineWidthPt > widestLineWidthPt) widestLineWidthPt = maxLineWidthPt
 		const scaledMax = maxRunSizePt(para) * (fontScalePct / 100)
-		let lineHeight = para.lineSpacingPts != null && para.lineSpacingPts > 0
-			? para.lineSpacingPts
-			: SINGLE_LINE_PITCH * scaledMax * ((para.lineSpacingPct ?? 100) / 100)
+		let lineHeight =
+			para.lineSpacingPts != null && para.lineSpacingPts > 0
+				? para.lineSpacingPts
+				: SINGLE_LINE_PITCH * scaledMax * ((para.lineSpacingPct ?? 100) / 100)
 		lineHeight *= 1 - lnSpcReductionPct / 100
 		total += lines * lineHeight + (para.spaceBeforePts ?? 0) + (para.spaceAfterPts ?? 0)
 	}
@@ -259,7 +265,7 @@ export function measureLayout (
  * Total laid-out height (points) at a given scale/reduction, or `null` if any
  * paragraph is unmeasurable. Thin wrapper over {@link measureLayout}.
  */
-export function measureHeightPt (
+export function measureHeightPt(
 	paragraphs: FitParagraph[],
 	innerWidthPt: number,
 	resolve: MetricsResolver,
@@ -293,13 +299,13 @@ export type ResizeOutcome =
  * and the laid-out height by the calibrated height factor, so the computed `cy` is
  * ≥ PowerPoint's and ≥ the LibreOffice-rendered height across the resize oracle.
  */
-export function solveResize (paragraphs: FitParagraph[], box: FitBox, resolve: MetricsResolver): ResizeOutcome {
+export function solveResize(paragraphs: FitParagraph[], box: FitBox, resolve: MetricsResolver): ResizeOutcome {
 	const h = measureHeightPt(paragraphs, box.innerWidthPt, resolve, 100, 0, WIDTH_SAFETY_FACTOR)
 	if (h === null) return { kind: 'unmeasurable' }
 	return { kind: 'resize', neededInnerHeightPt: h * HEIGHT_SAFETY_FACTOR }
 }
 
-export function solveShrink (paragraphs: FitParagraph[], box: FitBox, resolve: MetricsResolver): ShrinkOutcome {
+export function solveShrink(paragraphs: FitParagraph[], box: FitBox, resolve: MetricsResolver): ShrinkOutcome {
 	// Inflate measured width (earlier wrap) and height by the calibrated safety
 	// factors so the fit threshold is conservative against PowerPoint.
 	const fits = (scale: number): boolean | null => {

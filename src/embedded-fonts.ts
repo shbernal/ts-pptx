@@ -73,7 +73,7 @@ export function flattenEmbeddedFaces(fonts: EmbeddedFont[], firstRId: number): F
 	let rId = firstRId
 	fonts.forEach((font, fontIndex) => {
 		for (const slot of EMBEDDED_FONT_SLOTS) {
-			const face = font.faces.find(f => f.slot === slot)
+			const face = font.faces.find((f) => f.slot === slot)
 			if (!face || !face.bytes) continue
 			flat.push({ fontIndex, slot, bytes: face.bytes, partIndex: ++partIndex, rId: rId++ })
 		}
@@ -93,7 +93,10 @@ function escapeAttr(value: string): string {
  * the enclosing document declares the `p:` and `r:` prefixes (presentation.xml
  * does), so no namespace declarations are emitted here.
  */
-export function serializeEmbeddedFontLst(fonts: EmbeddedFont[], rIdForFace: (fontIndex: number, slot: EmbeddedFontSlot) => number | undefined): string {
+export function serializeEmbeddedFontLst(
+	fonts: EmbeddedFont[],
+	rIdForFace: (fontIndex: number, slot: EmbeddedFontSlot) => number | undefined
+): string {
 	const entries: string[] = []
 	fonts.forEach((font, fontIndex) => {
 		const faceXml: string[] = []

@@ -23,7 +23,14 @@ import {
 import { fitSrcRectPercents, getImageSizeFromBytes } from '../../gen-utils.js'
 import { relativePartName } from '../opc/partnames.js'
 import { FILL_CHOICES, normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
-import { resolveColorElement, resolveSolidFillColor, resolveStyleFillColor, resolveStyleLineColor, type PlaceholderRef, type ResolvedColor } from './theme-context.js'
+import {
+	resolveColorElement,
+	resolveSolidFillColor,
+	resolveStyleFillColor,
+	resolveStyleLineColor,
+	type PlaceholderRef,
+	type ResolvedColor,
+} from './theme-context.js'
 import { Chart } from './chart.js'
 import { Table } from './table.js'
 import { TextFrame } from './text.js'
@@ -179,16 +186,21 @@ function readGeometryPath(path: Element): CustomGeometryPath {
 			case 'cubicBezTo':
 				commands.push({
 					cmd: 'cubicBezTo',
-					x1: ptAxis(pts[0], 'x'), y1: ptAxis(pts[0], 'y'),
-					x2: ptAxis(pts[1], 'x'), y2: ptAxis(pts[1], 'y'),
-					x: ptAxis(pts[2], 'x'), y: ptAxis(pts[2], 'y'),
+					x1: ptAxis(pts[0], 'x'),
+					y1: ptAxis(pts[0], 'y'),
+					x2: ptAxis(pts[1], 'x'),
+					y2: ptAxis(pts[1], 'y'),
+					x: ptAxis(pts[2], 'x'),
+					y: ptAxis(pts[2], 'y'),
 				})
 				break
 			case 'quadBezTo':
 				commands.push({
 					cmd: 'quadBezTo',
-					x1: ptAxis(pts[0], 'x'), y1: ptAxis(pts[0], 'y'),
-					x: ptAxis(pts[1], 'x'), y: ptAxis(pts[1], 'y'),
+					x1: ptAxis(pts[0], 'x'),
+					y1: ptAxis(pts[0], 'y'),
+					x: ptAxis(pts[1], 'x'),
+					y: ptAxis(pts[1], 'y'),
 				})
 				break
 			case 'arcTo':
@@ -239,7 +251,11 @@ function firstChildElement(parent: Element): Element | null {
 }
 
 /** A point + extent pair (`a:off`/`a:ext` or `a:chOff`/`a:chExt`) from a transform, or `null` if either is incomplete. */
-function readBox(xfrm: Element, offName: string, extName: string): { x: number; y: number; cx: number; cy: number } | null {
+function readBox(
+	xfrm: Element,
+	offName: string,
+	extName: string
+): { x: number; y: number; cx: number; cy: number } | null {
 	const off = firstChild(xfrm, offName)
 	const ext = firstChild(xfrm, extName)
 	const x = off && intValue(attr(off, 'x'))
@@ -277,7 +293,11 @@ function transformFlipV(xfrm: Element): boolean {
 	return boolValue(attr(xfrm, 'flipV')) === true
 }
 
-function rotatePoint(point: { x: number; y: number }, center: { x: number; y: number }, degrees: number): { x: number; y: number } {
+function rotatePoint(
+	point: { x: number; y: number },
+	center: { x: number; y: number },
+	degrees: number
+): { x: number; y: number } {
 	if (degrees === 0) return point
 	const angle = (degrees * Math.PI) / 180
 	const cos = Math.cos(angle)

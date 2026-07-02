@@ -61,7 +61,8 @@ export function resolveRelativePartName(sourcePartName: string, target: string):
 	for (const segment of path.split('/')) {
 		if (segment === '' || segment === '.') continue
 		if (segment === '..') {
-			if (segments.length === 0) throw new Error(`Relationship target ${target} escapes the package root (source ${sourcePartName})`)
+			if (segments.length === 0)
+				throw new Error(`Relationship target ${target} escapes the package root (source ${sourcePartName})`)
 			segments.pop()
 		} else {
 			segments.push(segment)

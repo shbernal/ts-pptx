@@ -26,10 +26,25 @@ export const DEF_FONT_TITLE_SIZE = 18
 export const DEF_PRES_LAYOUT = 'LAYOUT_16x9'
 export const DEF_PRES_LAYOUT_NAME = 'DEFAULT'
 export const DEF_SHAPE_LINE_COLOR = '333333'
-export const DEF_SHAPE_SHADOW = { type: 'outer', blur: 3, offset: 23000 / 12700, angle: 90, color: '000000', opacity: 0.35, rotateWithShape: true }
+export const DEF_SHAPE_SHADOW = {
+	type: 'outer',
+	blur: 3,
+	offset: 23000 / 12700,
+	angle: 90,
+	color: '000000',
+	opacity: 0.35,
+	rotateWithShape: true,
+}
 export const DEF_SLIDE_BKGD = 'FFFFFF'
 export const DEF_SLIDE_MARGIN_IN: [number, number, number, number] = [0.5, 0.5, 0.5, 0.5] // TRBL-style
-export const DEF_TEXT_SHADOW: ShadowProps = { type: 'outer', blur: 8, offset: 4, angle: 270, color: '000000', opacity: 0.75 }
+export const DEF_TEXT_SHADOW: ShadowProps = {
+	type: 'outer',
+	blur: 8,
+	offset: 4,
+	angle: 270,
+	color: '000000',
+	opacity: 0.75,
+}
 export const DEF_TEXT_GLOW = { size: 8, color: 'FFFFFF', opacity: 0.75 }
 
 export const AXIS_ID_VALUE_PRIMARY = '2094734552'
@@ -46,7 +61,17 @@ export type WRITE_OUTPUT_TYPE = JSZIP_OUTPUT_TYPE | 'STREAM'
  * enum extends this union automatically.
  */
 export type CHART_NAME = `${CHART_TYPE}`
-export type SCHEME_COLORS = 'tx1' | 'tx2' | 'bg1' | 'bg2' | 'accent1' | 'accent2' | 'accent3' | 'accent4' | 'accent5' | 'accent6'
+export type SCHEME_COLORS =
+	| 'tx1'
+	| 'tx2'
+	| 'bg1'
+	| 'bg2'
+	| 'accent1'
+	| 'accent2'
+	| 'accent3'
+	| 'accent4'
+	| 'accent5'
+	| 'accent6'
 
 export const LETTERS: string[] = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 export const BARCHART_COLORS: string[] = [
@@ -65,7 +90,7 @@ export const BARCHART_COLORS: string[] = [
 	'4BACC6',
 	'F79646',
 	'628FC6',
-	'C86360'
+	'C86360',
 ]
 export const PIECHART_COLORS: string[] = [
 	'5DA5DA',
@@ -704,8 +729,14 @@ export type SHAPE_NAME =
  */
 const EXTRA_SHAPE_PRESETS = [
 	'straightConnector1',
-	'bentConnector2', 'bentConnector3', 'bentConnector4', 'bentConnector5',
-	'curvedConnector2', 'curvedConnector3', 'curvedConnector4', 'curvedConnector5',
+	'bentConnector2',
+	'bentConnector3',
+	'bentConnector4',
+	'bentConnector5',
+	'curvedConnector2',
+	'curvedConnector3',
+	'curvedConnector4',
+	'curvedConnector5',
 ] as const
 
 /**
@@ -716,7 +747,7 @@ const EXTRA_SHAPE_PRESETS = [
  * truth and cannot drift. Use `addConnector` for live, endpoint-bound connectors;
  * pass these to `addShape` for a static box-positioned connector geometry.
  */
-export type CONNECTOR_PRESET_NAME = typeof EXTRA_SHAPE_PRESETS[number]
+export type CONNECTOR_PRESET_NAME = (typeof EXTRA_SHAPE_PRESETS)[number]
 
 /**
  * Every shape geometry name PptxGenJS can serialize without corrupting the
@@ -726,7 +757,10 @@ export type CONNECTOR_PRESET_NAME = typeof EXTRA_SHAPE_PRESETS[number]
  * before they become an invalid `<a:prstGeom prst="...">` that triggers
  * PowerPoint's "needs repair" dialog and drops the shape.
  */
-export const VALID_SHAPE_PRESETS: ReadonlySet<string> = new Set<string>([...Object.values(SHAPE_TYPE), ...EXTRA_SHAPE_PRESETS])
+export const VALID_SHAPE_PRESETS: ReadonlySet<string> = new Set<string>([
+	...Object.values(SHAPE_TYPE),
+	...EXTRA_SHAPE_PRESETS,
+])
 
 export enum CHART_TYPE {
 	'AREA' = 'area',
@@ -748,7 +782,7 @@ export enum CHART_TYPE {
  * the single boundary cast that lets internal code compare against the enum
  * (enum-to-enum) instead of enum-to-string.
  */
-export function asChartType (name: CHART_NAME): CHART_TYPE {
+export function asChartType(name: CHART_NAME): CHART_TYPE {
 	return name as CHART_TYPE
 }
 
@@ -809,7 +843,7 @@ export const CONNECTOR_PRESETS = {
  * @param {number} bends - number of adjustable bends (1–3); ignored for `straight`
  * @return {CONNECTOR_PRESET_NAME} OOXML preset geometry name (e.g. `bentConnector4`)
  */
-export function connectorPresetFor (type: 'straight' | 'elbow' | 'curved', bends: number): CONNECTOR_PRESET_NAME {
+export function connectorPresetFor(type: 'straight' | 'elbow' | 'curved', bends: number): CONNECTOR_PRESET_NAME {
 	if (type === 'straight') return CONNECTOR_PRESETS.straight
 	return `${CONNECTOR_PRESETS[type]}${bends + 2}` as CONNECTOR_PRESET_NAME
 }

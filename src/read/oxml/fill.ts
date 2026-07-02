@@ -6,7 +6,16 @@
  * fill first clears any competing choice, then inserts `a:solidFill` in document
  * order. These helpers never mark a part dirty — callers own that.
  */
-import { attr, createElement, firstChild, getOrAddChild, ownerDocumentOf, removeChildrenByQName, setAttr, type Element } from './dom.js'
+import {
+	attr,
+	createElement,
+	firstChild,
+	getOrAddChild,
+	ownerDocumentOf,
+	removeChildrenByQName,
+	setAttr,
+	type Element,
+} from './dom.js'
 
 /** The mutually-exclusive fill choices (`EG_FillProperties`); a parent has at most one. */
 export const FILL_CHOICES = ['a:noFill', 'a:solidFill', 'a:gradFill', 'a:blipFill', 'a:pattFill', 'a:grpFill']

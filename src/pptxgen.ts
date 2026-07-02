@@ -112,7 +112,12 @@ import * as genTable from './gen-tables.js'
 import * as genXml from './gen-xml.js'
 import type { RuntimeAdapter } from './runtime/types.js'
 import { FontMetricsRegistry, parseFontMetrics } from './font-metrics.js'
-import { type EmbeddedFont, type EmbeddedFontSlot, EMBEDDED_FONT_SLOTS, flattenEmbeddedFaces } from './embedded-fonts.js'
+import {
+	type EmbeddedFont,
+	type EmbeddedFontSlot,
+	EMBEDDED_FONT_SLOTS,
+	flattenEmbeddedFaces,
+} from './embedded-fonts.js'
 import { applyMeasuredFit, computeTableLayout, measureText } from './measure-fit.js'
 import { getUuid, decodeBase64ToBytes, imageContentType, avContentType, getNewRelId } from './gen-utils.js'
 import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
@@ -215,9 +220,28 @@ const VERSION = '8.1.0'
  * are deliberately excluded so they keep inheriting the global compression.
  */
 const ALREADY_COMPRESSED_MEDIA_EXTN = new Set([
-	'jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'avif',
-	'mp4', 'm4v', 'mov', 'avi', 'mpg', 'mpeg', 'wmv', 'webm', 'mkv',
-	'mp3', 'm4a', 'aac', 'ogg', 'oga',
+	'jpg',
+	'jpeg',
+	'png',
+	'gif',
+	'webp',
+	'heic',
+	'heif',
+	'avif',
+	'mp4',
+	'm4v',
+	'mov',
+	'avi',
+	'mpg',
+	'mpeg',
+	'wmv',
+	'webm',
+	'mkv',
+	'mp3',
+	'm4a',
+	'aac',
+	'ogg',
+	'oga',
 ])
 
 function standardLayoutToPresLayout(layout: StandardLayout): PresLayout {
@@ -570,7 +594,7 @@ export default class PptxGenJS {
 		// Search for the section that owns the current last slide rather than assuming it is
 		// the last section — the originating slide may not be at the tail of the deck.
 		const lastSlide = this._slides[this._slides.length - 1]
-		const sourceSection = this._sections.find(sect => sect._slides.some(s => s._slideNum === lastSlide?._slideNum))
+		const sourceSection = this._sections.find((sect) => sect._slides.some((s) => s._slideNum === lastSlide?._slideNum))
 		nextOptions.sectionTitle = sourceSection?.title ?? undefined
 
 		return this.addSlide(nextOptions) as PresSlideInternal
@@ -582,7 +606,8 @@ export default class PptxGenJS {
 	 * @return {PresSlide} Slide
 	 * @since 3.0.0
 	 */
-	private readonly getSlide = (slideNum: number): PresSlideInternal | undefined => this._slides.find(slide => slide._slideNum === slideNum)
+	private readonly getSlide = (slideNum: number): PresSlideInternal | undefined =>
+		this._slides.find((slide) => slide._slideNum === slideNum)
 
 	/**
 	 * Enables the `Slide` class to set PptxGenJS [Presentation] master/layout slidenumbers
@@ -593,7 +618,7 @@ export default class PptxGenJS {
 		this._masterSlide._slideNumberProps = slideNum
 
 		// 2: Add slideNumber to DEF_PRES_LAYOUT_NAME layout
-		const defLayout = this._slideLayouts.find(layout => layout._name === DEF_PRES_LAYOUT_NAME)
+		const defLayout = this._slideLayouts.find((layout) => layout._name === DEF_PRES_LAYOUT_NAME)
 		if (defLayout) defLayout._slideNumberProps = slideNum
 	}
 
@@ -603,9 +628,13 @@ export default class PptxGenJS {
 	 * @param {ZipWriter} zip - zip writer
 	 * @param {Promise<string>[]} chartPromises - promise array
 	 */
-	private readonly createChartMediaRels = (slide: PresSlideInternal | SlideLayoutInternal, zip: ZipWriter, chartPromises: Promise<string>[]): void => {
-		slide._relsChart.forEach(rel => chartPromises.push(genCharts.createExcelWorksheet(rel, zip)))
-		slide._relsMedia.forEach(rel => {
+	private readonly createChartMediaRels = (
+		slide: PresSlideInternal | SlideLayoutInternal,
+		zip: ZipWriter,
+		chartPromises: Promise<string>[]
+	): void => {
+		slide._relsChart.forEach((rel) => chartPromises.push(genCharts.createExcelWorksheet(rel, zip)))
+		slide._relsMedia.forEach((rel) => {
 			if (rel.type !== 'online' && rel.type !== 'hyperlink') {
 				// A: Loop vars
 				let data: string = rel.data && typeof rel.data === 'string' ? rel.data : ''
@@ -640,7 +669,7 @@ export default class PptxGenJS {
 	 * safe. The stop-previous form (`sound.stopPrevious`) needs no part and is skipped.
 	 */
 	private readonly registerTransitionSounds = (): void => {
-		this._slides.forEach(slide => {
+		this._slides.forEach((slide) => {
 			const transition = slide.transition
 			const sound = transition?.sound
 			if (!sound || sound.stopPrevious || typeof transition._sndRId === 'number') return
@@ -652,7 +681,8 @@ export default class PptxGenJS {
 			const extn = (dataMime?.[1] ?? pathFile.split('.').pop() ?? 'wav').toLowerCase()
 
 			const rId = getNewRelId(slide)
-			const mediaSlideKey = slide._slideNum == null ? 'sm' : slide._slideNum >= 1000 ? `sl-${slide._slideNum}` : slide._slideNum
+			const mediaSlideKey =
+				slide._slideNum == null ? 'sm' : slide._slideNum >= 1000 ? `sl-${slide._slideNum}` : slide._slideNum
 			slide._relsMedia.push({
 				path: sound.path ?? `preencoded.${extn}`,
 				type: `audio/${extn}`,
@@ -665,7 +695,9 @@ export default class PptxGenJS {
 		})
 	}
 
-	private readonly exportPresentation = async (props: WriteProps): Promise<string | ArrayBuffer | Blob | Uint8Array> => {
+	private readonly exportPresentation = async (
+		props: WriteProps
+	): Promise<string | ArrayBuffer | Blob | Uint8Array> => {
 		const arrChartPromises: Promise<string>[] = []
 		let arrMediaPromises: Promise<string>[] = []
 		const zip = new ZipWriter()
@@ -675,13 +707,15 @@ export default class PptxGenJS {
 
 		// STEP 1: Read/Encode all Media before zip as base64 content, etc. is required
 		const onMediaError = props.onMediaError ?? 'throw'
-		this._slides.forEach(slide => {
+		this._slides.forEach((slide) => {
 			arrMediaPromises = arrMediaPromises.concat(genMedia.encodeSlideMediaRels(slide, this._runtime, onMediaError))
 		})
-		this._slideLayouts.forEach(layout => {
+		this._slideLayouts.forEach((layout) => {
 			arrMediaPromises = arrMediaPromises.concat(genMedia.encodeSlideMediaRels(layout, this._runtime, onMediaError))
 		})
-		arrMediaPromises = arrMediaPromises.concat(genMedia.encodeSlideMediaRels(this._masterSlide, this._runtime, onMediaError))
+		arrMediaPromises = arrMediaPromises.concat(
+			genMedia.encodeSlideMediaRels(this._masterSlide, this._runtime, onMediaError)
+		)
 
 		// STEP 2: Wait for Promises (if any) then generate the PPTX file
 		return await Promise.all(arrMediaPromises).then(async () => {
@@ -707,7 +741,7 @@ export default class PptxGenJS {
 			}
 
 			// A: Add empty placeholder objects to slides that don't already have them
-			this._slides.forEach(slide => {
+			this._slides.forEach((slide) => {
 				if (slide._slideLayout) genObj.addPlaceholdersToSlideLayouts(slide)
 			})
 
@@ -719,7 +753,16 @@ export default class PptxGenJS {
 			// directory entries, so there is no folder scaffolding to set up (and no
 			// stray empty-directory entries to guard against on minimal decks).
 			const hasCustomProps = this._customProperties.length > 0
-			zip.add('[Content_Types].xml', genXml.makeXmlContTypes(this._slides, this._slideLayouts, this._masterSlide, hasCustomProps, this._embeddedFonts)) // TODO: pass only `this` like below! 20200206
+			zip.add(
+				'[Content_Types].xml',
+				genXml.makeXmlContTypes(
+					this._slides,
+					this._slideLayouts,
+					this._masterSlide,
+					hasCustomProps,
+					this._embeddedFonts
+				)
+			) // TODO: pass only `this` like below! 20200206
 			zip.add('_rels/.rels', genXml.makeXmlRootRels(hasCustomProps))
 			zip.add('docProps/app.xml', genXml.makeXmlApp(this._slides, this.company)) // TODO: pass only `this` like below! 20200206
 			zip.add('docProps/core.xml', genXml.makeXmlCore(this.title, this.subject, this.author, this.revision)) // TODO: pass only `this` like below! 20200206
@@ -743,17 +786,26 @@ export default class PptxGenJS {
 			// C: Create a Layout/Master/Rel/Slide file for each SlideLayout and Slide
 			this._slideLayouts.forEach((layout, idx) => {
 				zip.add(`ppt/slideLayouts/slideLayout${idx + 1}.xml`, genXml.makeXmlLayout(layout))
-				zip.add(`ppt/slideLayouts/_rels/slideLayout${idx + 1}.xml.rels`, genXml.makeXmlSlideLayoutRel(idx + 1, this._slideLayouts))
+				zip.add(
+					`ppt/slideLayouts/_rels/slideLayout${idx + 1}.xml.rels`,
+					genXml.makeXmlSlideLayoutRel(idx + 1, this._slideLayouts)
+				)
 			})
 			this._slides.forEach((slide, idx) => {
 				zip.add(`ppt/slides/slide${idx + 1}.xml`, genXml.makeXmlSlide(slide))
-				zip.add(`ppt/slides/_rels/slide${idx + 1}.xml.rels`, genXml.makeXmlSlideRel(this._slides, this._slideLayouts, idx + 1))
+				zip.add(
+					`ppt/slides/_rels/slide${idx + 1}.xml.rels`,
+					genXml.makeXmlSlideRel(this._slides, this._slideLayouts, idx + 1)
+				)
 				// Create all slide notes related items. Notes of empty strings are created for slides which do not have notes specified, to keep track of _rels.
 				zip.add(`ppt/notesSlides/notesSlide${idx + 1}.xml`, genXml.makeXmlNotesSlide(slide))
 				zip.add(`ppt/notesSlides/_rels/notesSlide${idx + 1}.xml.rels`, genXml.makeXmlNotesSlideRel(slide, idx + 1))
 			})
 			zip.add('ppt/slideMasters/slideMaster1.xml', genXml.makeXmlMaster(this._masterSlide, this._slideLayouts))
-			zip.add('ppt/slideMasters/_rels/slideMaster1.xml.rels', genXml.makeXmlMasterRel(this._masterSlide, this._slideLayouts))
+			zip.add(
+				'ppt/slideMasters/_rels/slideMaster1.xml.rels',
+				genXml.makeXmlMasterRel(this._masterSlide, this._slideLayouts)
+			)
 			zip.add('ppt/notesMasters/notesMaster1.xml', genXml.makeXmlNotesMaster())
 			zip.add('ppt/notesMasters/_rels/notesMaster1.xml.rels', genXml.makeXmlNotesMasterRel())
 
@@ -770,10 +822,10 @@ export default class PptxGenJS {
 			}
 
 			// D: Create all Rels (images, media, chart data)
-			this._slideLayouts.forEach(layout => {
+			this._slideLayouts.forEach((layout) => {
 				this.createChartMediaRels(layout, zip, arrChartPromises)
 			})
-			this._slides.forEach(slide => {
+			this._slides.forEach((slide) => {
 				this.createChartMediaRels(slide, zip, arrChartPromises)
 			})
 			this.createChartMediaRels(this._masterSlide, zip, arrChartPromises)
@@ -813,21 +865,21 @@ export default class PptxGenJS {
 
 		// STEP 1: Encode every slide's media (populates rel.data), mirroring exportPresentation.
 		let mediaPromises: Promise<string>[] = []
-		this._slides.forEach(slide => {
+		this._slides.forEach((slide) => {
 			mediaPromises = mediaPromises.concat(genMedia.encodeSlideMediaRels(slide, this._runtime, onMediaError))
 		})
 		await Promise.all(mediaPromises)
 
 		// STEP 2: Backfill placeholders + bake measured fit exactly as exportPresentation
 		// does before its sync XML pass, so extracted bodies match a normal write.
-		this._slides.forEach(slide => {
+		this._slides.forEach((slide) => {
 			if (slide._slideLayout) genObj.addPlaceholdersToSlideLayouts(slide)
 		})
 		applyMeasuredFit(this._slides, this._fontMetrics)
 
 		// STEP 3: Serialize each slide body and resolve its image media to bytes.
-		const slides: ExtractedSlide[] = this._slides.map(slide => {
-			const relByRid = new Map(slide._relsMedia.map(rel => [rel.rId, rel] as const))
+		const slides: ExtractedSlide[] = this._slides.map((slide) => {
+			const relByRid = new Map(slide._relsMedia.map((rel) => [rel.rId, rel] as const))
 
 			// Embedded audio/video. addMedia (gen-objects) pushes three consecutive
 			// _relsMedia entries per item off `mediaRid`: the ECMA audio/video rel
@@ -837,8 +889,10 @@ export default class PptxGenJS {
 			// media (external link) is excluded — it has a different rel shape and no part.
 			const avPreviewRids = new Set<number>()
 			const avMedia = slide._slideObjects
-				.filter(obj => obj._type === SLIDE_OBJECT_TYPES.media && obj.mtype !== 'online' && typeof obj.mediaRid === 'number')
-				.map(obj => {
+				.filter(
+					(obj) => obj._type === SLIDE_OBJECT_TYPES.media && obj.mtype !== 'online' && typeof obj.mediaRid === 'number'
+				)
+				.map((obj) => {
 					const mtype: 'audio' | 'video' = obj.mtype === 'audio' ? 'audio' : 'video'
 					const mediaRid = obj.mediaRid as number
 					const mediaRel = relByRid.get(mediaRid)
@@ -868,8 +922,8 @@ export default class PptxGenJS {
 			const media = slide._relsMedia
 				// A/V preview images live in _relsMedia as image rels too; they are carried
 				// by their A/V descriptor, so exclude them from the plain-image media list.
-				.filter(rel => rel.type.toLowerCase().includes('image') && !avPreviewRids.has(rel.rId))
-				.map(rel => {
+				.filter((rel) => rel.type.toLowerCase().includes('image') && !avPreviewRids.has(rel.rId))
+				.map((rel) => {
 					// Normalize the base64 payload's data-URI prefix, mirroring createChartMediaRels.
 					let data: string = rel.data && typeof rel.data === 'string' ? rel.data : ''
 					if (!data.includes(',') && !data.includes(';')) data = 'image/png;base64,' + data
@@ -887,8 +941,10 @@ export default class PptxGenJS {
 			// (mediaRid+2, carried by `media` below as a normal image). No media binary
 			// part exists; appendSlides reproduces only the two external rels + poster.
 			const onlineMedia = slide._slideObjects
-				.filter(obj => obj._type === SLIDE_OBJECT_TYPES.media && obj.mtype === 'online' && typeof obj.mediaRid === 'number')
-				.map(obj => {
+				.filter(
+					(obj) => obj._type === SLIDE_OBJECT_TYPES.media && obj.mtype === 'online' && typeof obj.mediaRid === 'number'
+				)
+				.map((obj) => {
 					const mediaRid = obj.mediaRid as number
 					const videoRel = relByRid.get(mediaRid)
 					if (!videoRel || typeof videoRel.Target !== 'string' || !videoRel.Target) return null
@@ -897,18 +953,18 @@ export default class PptxGenJS {
 				.filter((m): m is NonNullable<typeof m> => m !== null)
 
 			const hyperlinks = slide._rels
-				.filter(rel => rel.type.toLowerCase().includes('hyperlink') && rel.data !== 'slide')
-				.map(rel => ({ rId: rel.rId, target: rel.Target }))
+				.filter((rel) => rel.type.toLowerCase().includes('hyperlink') && rel.data !== 'slide')
+				.map((rel) => ({ rId: rel.rId, target: rel.Target }))
 
 			// Internal slide-to-slide links: rel.data === 'slide', rel.Target is the
 			// 1-based source slide number (see addText's hyperlink.slide handling).
 			const slideLinks = slide._rels
-				.filter(rel => rel.type.toLowerCase().includes('hyperlink') && rel.data === 'slide')
-				.map(rel => ({ rId: rel.rId, sourceSlideNumber: Number(rel.Target) }))
+				.filter((rel) => rel.type.toLowerCase().includes('hyperlink') && rel.data === 'slide')
+				.map((rel) => ({ rId: rel.rId, sourceSlideNumber: Number(rel.Target) }))
 
 			// Charts: serialize the chart part XML + its embedded workbook bytes. The
 			// chart part's own .rels (workbook reference) is rebuilt on injection.
-			const charts = (slide._relsChart || []).map(rel => ({
+			const charts = (slide._relsChart || []).map((rel) => ({
 				rId: rel.rId,
 				chartXml: genCharts.makeXmlCharts(rel),
 				embeddingBytes: genCharts.buildEmbeddedWorksheet(rel),
@@ -928,7 +984,12 @@ export default class PptxGenJS {
 		// Presentation-level embedded fonts (pptx.embedFont) ride alongside the slides
 		// so appendSlides can carry them into the destination deck; same model the
 		// write path serializes (see src/embedded-fonts.ts), passed through unchanged.
-		return { widthEmu: this.presLayout.width, heightEmu: this.presLayout.height, slides, embeddedFonts: this._embeddedFonts }
+		return {
+			widthEmu: this.presLayout.width,
+			heightEmu: this.presLayout.height,
+			slides,
+			embeddedFonts: this._embeddedFonts,
+		}
 	}
 
 	// FONT METRICS (measured text fit)
@@ -948,7 +1009,11 @@ export default class PptxGenJS {
 	 * @example await pptx.registerFontMetrics('Aptos', aptosBoldBytes, { bold: true })
 	 * @since v6.1.0
 	 */
-	async registerFontMetrics(face: string, source: string | Uint8Array | ArrayBuffer, opts?: { bold?: boolean; italic?: boolean }): Promise<void> {
+	async registerFontMetrics(
+		face: string,
+		source: string | Uint8Array | ArrayBuffer,
+		opts?: { bold?: boolean; italic?: boolean }
+	): Promise<void> {
 		let bytes: Uint8Array
 		if (typeof source === 'string') bytes = await this._runtime.loadFontData(source)
 		else if (source instanceof Uint8Array) bytes = source
@@ -979,7 +1044,12 @@ export default class PptxGenJS {
 	 * @example await pptx.embedFont({ path: '/fonts/Silkscreen-Regular.ttf', typeface: 'Silkscreen' })
 	 * @example await pptx.embedFont({ path: '/fonts/Silkscreen-Bold.ttf', typeface: 'Silkscreen', style: 'bold' })
 	 */
-	async embedFont(opts: { path?: string; data?: ArrayBuffer | Uint8Array | string; typeface: string; style?: EmbeddedFontSlot }): Promise<void> {
+	async embedFont(opts: {
+		path?: string
+		data?: ArrayBuffer | Uint8Array | string
+		typeface: string
+		style?: EmbeddedFontSlot
+	}): Promise<void> {
 		if (!opts || typeof opts.typeface !== 'string' || opts.typeface.trim() === '') {
 			throw new Error('embedFont: `typeface` is required (the family name your runs reference)')
 		}
@@ -998,7 +1068,9 @@ export default class PptxGenJS {
 		} else if (opts.data instanceof ArrayBuffer) {
 			bytes = new Uint8Array(opts.data)
 		} else if (typeof opts.data === 'string') {
-			const decoded = decodeBase64ToBytes(opts.data.includes(',') ? opts.data : `application/x-fontdata;base64,${opts.data}`)
+			const decoded = decodeBase64ToBytes(
+				opts.data.includes(',') ? opts.data : `application/x-fontdata;base64,${opts.data}`
+			)
 			if (!decoded) throw new Error('embedFont: `data` string is not valid base64')
 			bytes = decoded
 		} else {
@@ -1007,12 +1079,12 @@ export default class PptxGenJS {
 
 		// Accumulate faces of one family under a single embeddedFont entry; a repeat
 		// of the same typeface+style replaces the prior bytes (last call wins).
-		let font = this._embeddedFonts.find(f => f.typeface === opts.typeface)
+		let font = this._embeddedFonts.find((f) => f.typeface === opts.typeface)
 		if (!font) {
 			font = { typeface: opts.typeface, faces: [] }
 			this._embeddedFonts.push(font)
 		}
-		const existing = font.faces.find(f => f.slot === slot)
+		const existing = font.faces.find((f) => f.slot === slot)
 		if (existing) existing.bytes = bytes
 		else font.faces.push({ slot, bytes })
 	}
@@ -1097,7 +1169,12 @@ export default class PptxGenJS {
 	 */
 	async write(props?: WriteProps | WRITE_OUTPUT_TYPE): Promise<string | ArrayBuffer | Blob | Uint8Array> {
 		// DEPRECATED: @deprecated v3.5.0 - outputType - [[remove in v4.0.0]]
-		const propsOutpType = typeof props === 'object' && props?.outputType ? props.outputType : props ? (props as WRITE_OUTPUT_TYPE) : undefined
+		const propsOutpType =
+			typeof props === 'object' && props?.outputType
+				? props.outputType
+				: props
+					? (props as WRITE_OUTPUT_TYPE)
+					: undefined
 		const propsCompress = typeof props === 'object' ? props?.compression : undefined
 		const propsMediaError = typeof props === 'object' ? props?.onMediaError : undefined
 
@@ -1123,7 +1200,11 @@ export default class PptxGenJS {
 		const { fileName: rawName = 'Presentation.pptx', compression, onMediaError } = props as WriteFileProps
 		const fileName = rawName.toLowerCase().endsWith('.pptx') ? rawName : `${rawName}.pptx`
 
-		const data = await this.exportPresentation({ compression, outputType: this._runtime.writeFileOutputType ?? undefined, onMediaError })
+		const data = await this.exportPresentation({
+			compression,
+			outputType: this._runtime.writeFileOutputType ?? undefined,
+			onMediaError,
+		})
 		return await this._runtime.writeFile(fileName, data)
 	}
 
@@ -1136,7 +1217,7 @@ export default class PptxGenJS {
 	 * @param value - string, integer/float number, boolean, or Date
 	 */
 	setCustomProperty(name: string, value: CustomPropertyValue): void {
-		this._customProperties = this._customProperties.filter(p => p.name !== name)
+		this._customProperties = this._customProperties.filter((p) => p.name !== name)
 		this._customProperties.push({ name, value })
 	}
 
@@ -1152,7 +1233,7 @@ export default class PptxGenJS {
 		} else if (!section.title) {
 			console.warn('addSection requires a title')
 			return
-		} else if (this._sections.some(sect => sect.title === section.title)) {
+		} else if (this._sections.some((sect) => sect.title === section.title)) {
 			console.warn(`addSection: a section titled "${section.title}" already exists; ignoring duplicate`)
 			return
 		}
@@ -1188,7 +1269,7 @@ export default class PptxGenJS {
 		}
 
 		if (masterSlideName) {
-			const tmpLayout = this._slideLayouts.find(layout => layout._name === masterSlideName)
+			const tmpLayout = this._slideLayouts.find((layout) => layout._name === masterSlideName)
 			if (tmpLayout) slideLayout = tmpLayout
 		}
 
@@ -1210,10 +1291,10 @@ export default class PptxGenJS {
 		// B-1: Add slide to section (if any provided)
 		// B-2: Handle slides without a section when sections are already is use ("loose" slides arent allowed, they all need a section)
 		if (options?.sectionTitle) {
-			const sect = this._sections.find(section => section.title === options.sectionTitle)
+			const sect = this._sections.find((section) => section.title === options.sectionTitle)
 			if (!sect) console.warn(`addSlide: unable to find section with title: "${options.sectionTitle}"`)
 			else sect._slides.push(newSlide)
-		} else if (this._sections && this._sections.length > 0 && (!options?.sectionTitle)) {
+		} else if (this._sections && this._sections.length > 0 && !options?.sectionTitle) {
 			const lastSect = this._sections[this._sections.length - 1]
 
 			// CASE 1: The latest section is a default type - just add this one
@@ -1221,7 +1302,7 @@ export default class PptxGenJS {
 			// CASE 2: There latest section is NOT a default type - create the defualt, add this slide
 			else {
 				this._sections.push({
-					title: `Default-${this._sections.filter(sect => sect._type === 'default').length + 1}`,
+					title: `Default-${this._sections.filter((sect) => sect._type === 'default').length + 1}`,
 					_type: 'default',
 					_slides: [newSlide],
 				})
@@ -1262,7 +1343,10 @@ export default class PptxGenJS {
 		// (ISSUE#406;PULL#1176) deep clone the props object to avoid mutating the original object.
 		// structuredClone preserves the `SlideMasterProps` type (unlike JSON round-tripping, which widens to `any`).
 		const propsClone = structuredClone(props)
-		if (!propsClone.title) throw new Error('defineSlideMaster() object argument requires a `title` value. (https://gitbrent.github.io/PptxGenJS/docs/masters.html)')
+		if (!propsClone.title)
+			throw new Error(
+				'defineSlideMaster() object argument requires a `title` value. (https://gitbrent.github.io/PptxGenJS/docs/masters.html)'
+			)
 
 		const newLayout: SlideLayoutInternal = {
 			_margin: propsClone.margin || DEF_SLIDE_MARGIN_IN,
@@ -1295,7 +1379,8 @@ export default class PptxGenJS {
 		if (propsClone.background || propsClone.bkgd) genObj.addBackgroundDefinition(propsClone.background, newLayout)
 
 		// STEP 4: Add slideNumber to master slide (if any)
-		if (newLayout._slideNumberProps && !this._masterSlide._slideNumberProps) this._masterSlide._slideNumberProps = newLayout._slideNumberProps
+		if (newLayout._slideNumberProps && !this._masterSlide._slideNumberProps)
+			this._masterSlide._slideNumberProps = newLayout._slideNumberProps
 	}
 
 	/**
@@ -1314,7 +1399,8 @@ export default class PptxGenJS {
 	 * slide.addTable(rows, { tableStyle: brand, hasHeader:true, hasBandedRows:true })
 	 */
 	defineTableStyle(props: TableStyleProps): string {
-		if (!props || typeof props !== 'object') throw new Error('defineTableStyle() requires a `{ name, ... }` object argument')
+		if (!props || typeof props !== 'object')
+			throw new Error('defineTableStyle() requires a `{ name, ... }` object argument')
 		if (!props.name || typeof props.name !== 'string') throw new Error('defineTableStyle() requires a non-empty `name`')
 
 		const guid = `{${getUuid('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx').toUpperCase()}}`
@@ -1335,7 +1421,9 @@ export default class PptxGenJS {
 			this,
 			eleId,
 			options,
-			options?.masterSlideName ? this._slideLayouts.find(layout => layout._name === options.masterSlideName) : undefined
+			options?.masterSlideName
+				? this._slideLayouts.find((layout) => layout._name === options.masterSlideName)
+				: undefined
 		)
 	}
 }

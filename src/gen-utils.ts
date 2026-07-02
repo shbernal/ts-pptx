@@ -4,7 +4,20 @@
 
 import { REGEX_HEX_COLOR, DEF_FONT_COLOR, EMU, ONEPT, SchemeColor, SCHEME_COLORS } from './core-enums.js'
 import { coordToEmu, inchesToEmu, type Emu } from './units.js'
-import type { PresLayout, TextGlowProps, PresSlideInternal, ShapeFillProps, Color, ShapeLineProps, Coord, ShadowProps, GradientFillProps, GradientStopProps, PatternFillProps, LineCap } from './core-interfaces.js'
+import type {
+	PresLayout,
+	TextGlowProps,
+	PresSlideInternal,
+	ShapeFillProps,
+	Color,
+	ShapeLineProps,
+	Coord,
+	ShadowProps,
+	GradientFillProps,
+	GradientStopProps,
+	PatternFillProps,
+	LineCap,
+} from './core-interfaces.js'
 
 /**
  * Resolve a user `Coord` (x/y/w/h) to EMU — the single user-coordinate → EMU boundary.
@@ -17,7 +30,7 @@ import type { PresLayout, TextGlowProps, PresSlideInternal, ShapeFillProps, Colo
  * @param {PresLayout} layout - presentation layout (EMU dimensions)
  * @returns {Emu} resolved EMU value
  */
-export function getSmartParseNumber (size: Coord | null | undefined, xyDir: 'X' | 'Y', layout: PresLayout): Emu {
+export function getSmartParseNumber(size: Coord | null | undefined, xyDir: 'X' | 'Y', layout: PresLayout): Emu {
 	if (size === null || size === undefined) return 0 as Emu
 
 	// GUARD: A NaN/Infinity coordinate is always a mistake (commonly arithmetic on an
@@ -40,7 +53,7 @@ export function getSmartParseNumber (size: Coord | null | undefined, xyDir: 'X' 
  * @param {string} uuidFormat - UUID format
  * @returns {string} UUID
  */
-export function getUuid (uuidFormat: string): string {
+export function getUuid(uuidFormat: string): string {
 	return uuidFormat.replace(/[xy]/g, function (c) {
 		const r = (Math.random() * 16) | 0
 		const v = c === 'x' ? r : (r & 0x3) | 0x8
@@ -53,7 +66,7 @@ export function getUuid (uuidFormat: string): string {
  * @param {string} xml - XML string to encode
  * @returns {string} escaped XML
  */
-export function encodeXmlEntities (xml: string): string {
+export function encodeXmlEntities(xml: string): string {
 	// NOTE: Dont use short-circuit eval here as value c/b "0" (zero) etc.!
 	if (typeof xml === 'undefined' || xml == null) return ''
 	// Strip XML 1.0 illegal control chars (e.g. \v) before escaping to prevent PowerPoint repair dialogs.
@@ -90,20 +103,26 @@ const MAX_OBJECT_NAME_LENGTH = 255
  * @param {string} kind - object kind for the warning message (e.g. 'text')
  * @returns {string} the name unchanged (validation only)
  */
-export function validateObjectName (name: string, kind: string): string {
+export function validateObjectName(name: string, kind: string): string {
 	if (typeof name !== 'string') return name
 	if (name.trim().length === 0) {
-		console.warn(`Warning: ${kind} objectName is empty or whitespace-only; it will not provide a stable Selection Pane identity.`)
+		console.warn(
+			`Warning: ${kind} objectName is empty or whitespace-only; it will not provide a stable Selection Pane identity.`
+		)
 		return name
 	}
 	// Same illegal-XML-char set that `encodeXmlEntities` strips; detect so the caller knows the name will change.
 	const cc = String.fromCharCode
 	const illegalXmlCharsRe = new RegExp(`[${cc(0)}-${cc(8)}${cc(11)}${cc(12)}${cc(14)}-${cc(31)}${cc(127)}]`)
 	if (illegalXmlCharsRe.test(name)) {
-		console.warn(`Warning: ${kind} objectName "${name}" contains control characters that will be stripped, changing the stored name.`)
+		console.warn(
+			`Warning: ${kind} objectName "${name}" contains control characters that will be stripped, changing the stored name.`
+		)
 	}
 	if (name.length > MAX_OBJECT_NAME_LENGTH) {
-		console.warn(`Warning: ${kind} objectName exceeds ${MAX_OBJECT_NAME_LENGTH} characters and may not be preserved by PowerPoint.`)
+		console.warn(
+			`Warning: ${kind} objectName exceeds ${MAX_OBJECT_NAME_LENGTH} characters and may not be preserved by PowerPoint.`
+		)
 	}
 	return name
 }
@@ -115,10 +134,10 @@ export function validateObjectName (name: string, kind: string): string {
  * @param {string[]} names - object names emitted on one slide
  * @returns {string[]} the duplicated names (each listed once)
  */
-export function getDuplicateObjectNames (names: string[]): string[] {
+export function getDuplicateObjectNames(names: string[]): string[] {
 	const seen = new Set<string>()
 	const dupes = new Set<string>()
-	names.forEach(name => {
+	names.forEach((name) => {
 		if (typeof name !== 'string' || name.length === 0) return
 		if (seen.has(name)) dupes.add(name)
 		else seen.add(name)
@@ -134,7 +153,7 @@ export function getDuplicateObjectNames (names: string[]): string[] {
  * @param {number|string} inches - inches as number or string
  * @returns {Emu} EMU value
  */
-export function inch2Emu (inches: number | string): Emu {
+export function inch2Emu(inches: number | string): Emu {
 	if (typeof inches === 'string') inches = Number(inches.replace(/in*/gi, ''))
 	return inchesToEmu(inches)
 }
@@ -157,7 +176,11 @@ export function inch2Emu (inches: number | string): Emu {
  * @param {number} colCount - number of grid columns (counting colspans)
  * @returns {number[]} per-column widths in EMU (length `colCount`)
  */
-export function resolveTableColWidthsEmu (colW: Coord[] | Coord | undefined, totalWidthEmu: number, colCount: number): number[] {
+export function resolveTableColWidthsEmu(
+	colW: Coord[] | Coord | undefined,
+	totalWidthEmu: number,
+	colCount: number
+): number[] {
 	if (!(colCount > 0)) return []
 	const even = totalWidthEmu > 0 ? Math.round(totalWidthEmu / colCount) : EMU
 	if (Array.isArray(colW)) {
@@ -176,7 +199,7 @@ export function resolveTableColWidthsEmu (colW: Coord[] | Coord | undefined, tot
  * @param {number|string} pt
  * @returns {number} value in points (`ONEPT`)
  */
-export function valToPts (pt: number | string): number {
+export function valToPts(pt: number | string): number {
 	const points = Number(pt) || 0
 	return isNaN(points) ? 0 : Math.round(points * ONEPT)
 }
@@ -186,14 +209,15 @@ export function valToPts (pt: number | string): number {
  * (ST_PositiveFixedPercentage, 0-100000). Out-of-range transparency yields an
  * alpha that PowerPoint rejects as needing repair, so clamp into range and warn.
  */
-export function transparencyToAlpha (transparency: number): number {
+export function transparencyToAlpha(transparency: number): number {
 	const pct = Math.min(100, Math.max(0, transparency))
-	if (pct !== transparency) console.warn(`Warning: transparency ${transparency} is outside the valid range 0-100; using ${pct}.`)
+	if (pct !== transparency)
+		console.warn(`Warning: transparency ${transparency} is outside the valid range 0-100; using ${pct}.`)
 	return Math.round((100 - pct) * 1000)
 }
 
 /** Convert an opacity (0-1) into a schema-valid `<a:alpha>` value (0-100000); clamps + warns on out-of-range input. */
-export function opacityToAlpha (opacity: number): number {
+export function opacityToAlpha(opacity: number): number {
 	const o = Math.min(1, Math.max(0, opacity))
 	if (o !== opacity) console.warn(`Warning: opacity ${opacity} is outside the valid range 0-1; using ${o}.`)
 	return Math.round(o * 100000)
@@ -204,10 +228,11 @@ export function opacityToAlpha (opacity: number): number {
  * i.e. 0-1584pt). Out-of-range widths make PowerPoint report the package as needing
  * repair, so clamp into range and warn.
  */
-export function lineWidthToEmu (widthPts: number | string): number {
+export function lineWidthToEmu(widthPts: number | string): number {
 	const raw = valToPts(widthPts)
 	const clamped = Math.min(20116800, Math.max(0, raw))
-	if (clamped !== raw) console.warn(`Warning: line width ${widthPts} is outside the valid range 0-1584pt; using ${clamped / ONEPT}.`)
+	if (clamped !== raw)
+		console.warn(`Warning: line width ${widthPts} is outside the valid range 0-1584pt; using ${clamped / ONEPT}.`)
 	return clamped
 }
 
@@ -216,7 +241,7 @@ export function lineWidthToEmu (widthPts: number | string): number {
  * @param {number} d degrees
  * @returns {number} calculated `rot` value
  */
-export function convertRotationDegrees (d: number): number {
+export function convertRotationDegrees(d: number): number {
 	d = d || 0
 	return Math.round((d > 360 ? d - 360 : d) * 60000)
 }
@@ -226,7 +251,7 @@ export function convertRotationDegrees (d: number): number {
  * @param {number} c - component color
  * @returns {string} hex string
  */
-export function componentToHex (c: number): string {
+export function componentToHex(c: number): string {
 	const hex = c.toString(16)
 	return hex.length === 1 ? '0' + hex : hex
 }
@@ -238,7 +263,7 @@ export function componentToHex (c: number): string {
  * @param {number} b - blue value
  * @returns {string} XML string
  */
-export function rgbToHex (r: number, g: number, b: number): string {
+export function rgbToHex(r: number, g: number, b: number): string {
 	return (componentToHex(r) + componentToHex(g) + componentToHex(b)).toUpperCase()
 }
 
@@ -255,9 +280,11 @@ export function rgbToHex (r: number, g: number, b: number): string {
  * @param {string} innerElements - additional elements that adjust the color and are enclosed by the color element
  * @returns {string} XML string
  */
-export function createColorElement (colorStr: string | SCHEME_COLORS, innerElements?: string): string {
+export function createColorElement(colorStr: string | SCHEME_COLORS, innerElements?: string): string {
 	if (typeof colorStr !== 'string') {
-		console.warn(`createColorElement: expected a string color value, got ${typeof colorStr}. "${DEF_FONT_COLOR}" used instead.`)
+		console.warn(
+			`createColorElement: expected a string color value, got ${typeof colorStr}. "${DEF_FONT_COLOR}" used instead.`
+		)
 		colorStr = DEF_FONT_COLOR
 	}
 	let colorVal = (colorStr || '').replace('#', '')
@@ -290,7 +317,9 @@ export function createColorElement (colorStr: string | SCHEME_COLORS, innerEleme
 		colorVal !== SchemeColor.accent5 &&
 		colorVal !== SchemeColor.accent6
 	) {
-		console.warn(`"${colorVal}" is not a valid scheme color or hex RGB! "${DEF_FONT_COLOR}" used instead. Only provide 6-digit RGB or 'pptx.SchemeColor' values!`)
+		console.warn(
+			`"${colorVal}" is not a valid scheme color or hex RGB! "${DEF_FONT_COLOR}" used instead. Only provide 6-digit RGB or 'pptx.SchemeColor' values!`
+		)
 		colorVal = DEF_FONT_COLOR
 	}
 
@@ -307,7 +336,7 @@ export function createColorElement (colorStr: string | SCHEME_COLORS, innerEleme
  * @see http://officeopenxml.com/drwSp-effects.php
  * { size: 8, color: 'FFFFFF', opacity: 0.75 };
  */
-export function createGlowElement (options: TextGlowProps, defaults: TextGlowProps): string {
+export function createGlowElement(options: TextGlowProps, defaults: TextGlowProps): string {
 	let strXml = ''
 	const opts = { ...defaults, ...options }
 	const size = Math.round(opts.size * ONEPT)
@@ -330,7 +359,7 @@ export function createGlowElement (options: TextGlowProps, defaults: TextGlowPro
  * @see http://officeopenxml.com/drwSp-effects.php
  * @returns {string} XML string, or '' when type is 'none'
  */
-export function createShadowElement (options: ShadowProps | undefined, defaults: ShadowProps): string {
+export function createShadowElement(options: ShadowProps | undefined, defaults: ShadowProps): string {
 	const opts = { ...defaults, ...options }
 	if (opts.type === 'none') return ''
 
@@ -351,28 +380,29 @@ export function createShadowElement (options: ShadowProps | undefined, defaults:
 	return strXml
 }
 
-function boolToXml (value: boolean): string {
+function boolToXml(value: boolean): string {
 	return value ? '1' : '0'
 }
 
-function normalizeGradientAngle (angle: number | undefined): number {
+function normalizeGradientAngle(angle: number | undefined): number {
 	const degrees = angle ?? 0
-	if (typeof degrees !== 'number' || !Number.isFinite(degrees)) throw new Error('Gradient angle must be a finite number.')
+	if (typeof degrees !== 'number' || !Number.isFinite(degrees))
+		throw new Error('Gradient angle must be a finite number.')
 	return convertRotationDegrees(((degrees % 360) + 360) % 360)
 }
 
-function gradientStopColorAdjustments (stop: GradientStopProps): string {
+function gradientStopColorAdjustments(stop: GradientStopProps): string {
 	let internalElements = ''
 	if (stop.alpha) internalElements += `<a:alpha val="${transparencyToAlpha(stop.alpha)}"/>` // DEPRECATED: @deprecated v3.3.0
 	if (stop.transparency) internalElements += `<a:alpha val="${transparencyToAlpha(stop.transparency)}"/>`
 	return internalElements
 }
 
-function normalizeGradientStops (stops: GradientStopProps[] | undefined): GradientStopProps[] {
+function normalizeGradientStops(stops: GradientStopProps[] | undefined): GradientStopProps[] {
 	if (!Array.isArray(stops) || stops.length < 2) throw new Error('Gradient fill requires at least two stops.')
 
 	return stops
-		.map(stop => {
+		.map((stop) => {
 			if (!stop || typeof stop.position !== 'number' || !Number.isFinite(stop.position)) {
 				throw new Error('Gradient stop position must be a finite number from 0 to 100.')
 			}
@@ -387,7 +417,7 @@ function normalizeGradientStops (stops: GradientStopProps[] | undefined): Gradie
  * @param {GradientFillProps} gradient gradient fill options
  * @returns XML string
  */
-export function genXmlGradientFill (gradient: GradientFillProps | undefined): string {
+export function genXmlGradientFill(gradient: GradientFillProps | undefined): string {
 	if (!gradient || (gradient.kind !== 'linear' && gradient.kind !== 'radial')) {
 		throw new Error('Gradient fill currently supports only linear and radial gradients.')
 	}
@@ -400,7 +430,7 @@ export function genXmlGradientFill (gradient: GradientFillProps | undefined): st
 
 	let strXml = `<a:gradFill rotWithShape="${boolToXml(rotWithShape)}">`
 	strXml += '<a:gsLst>'
-	stops.forEach(stop => {
+	stops.forEach((stop) => {
 		const position = Math.round(stop.position * 1000)
 		strXml += `<a:gs pos="${position}">${createColorElement(stop.color, gradientStopColorAdjustments(stop))}</a:gs>`
 	})
@@ -417,7 +447,8 @@ export function genXmlGradientFill (gradient: GradientFillProps | undefined): st
 		const b = Math.round((100 - cy) * 1000)
 		strXml += `<a:path path="circle"><a:fillToRect l="${l}" t="${t}" r="${r}" b="${b}"/></a:path>`
 	} else {
-		if (typeof gradient.scaled !== 'undefined' && typeof gradient.scaled !== 'boolean') throw new Error('Gradient scaled must be a boolean.')
+		if (typeof gradient.scaled !== 'undefined' && typeof gradient.scaled !== 'boolean')
+			throw new Error('Gradient scaled must be a boolean.')
 		const scaledAttr = typeof gradient.scaled === 'boolean' ? ` scaled="${boolToXml(gradient.scaled)}"` : ''
 		strXml += `<a:lin ang="${normalizeGradientAngle(gradient.angle)}"${scaledAttr}/>`
 	}
@@ -431,7 +462,7 @@ export function genXmlGradientFill (gradient: GradientFillProps | undefined): st
  * @param {PatternFillProps} pattern pattern fill options
  * @returns XML string
  */
-export function genXmlPatternFill (pattern: PatternFillProps | undefined): string {
+export function genXmlPatternFill(pattern: PatternFillProps | undefined): string {
 	if (!pattern) throw new Error('Pattern fill requires a pattern object.')
 	const fgColor = pattern.fgColor ?? '000000'
 	const bgColor = pattern.bgColor ?? 'FFFFFF'
@@ -450,9 +481,11 @@ export function genXmlPatternFill (pattern: PatternFillProps | undefined): strin
  * @param {ShapeFillProps} props fill props (must carry a resolved `_imgRid`)
  * @returns XML string
  */
-export function genXmlImageFill (props: ShapeFillProps | undefined): string {
+export function genXmlImageFill(props: ShapeFillProps | undefined): string {
 	if (!props || typeof props._imgRid !== 'number') {
-		console.warn('Warning: image fill is missing its resolved media reference; falling back to no fill. Provide `image: { path }` or `image: { data }`.')
+		console.warn(
+			'Warning: image fill is missing its resolved media reference; falling back to no fill. Provide `image: { path }` or `image: { data }`.'
+		)
 		return '<a:noFill/>'
 	}
 	const alpha = props.transparency ?? props.alpha
@@ -470,7 +503,7 @@ export function genXmlImageFill (props: ShapeFillProps | undefined): string {
  * @param {LineCap} [lineCap] - line cap style (defaults to `flat`)
  * @returns {string} value for the `cap` attribute on `<a:ln>`
  */
-export function createLineCap (lineCap?: LineCap): string {
+export function createLineCap(lineCap?: LineCap): string {
 	if (!lineCap || lineCap === 'flat') {
 		return 'flat'
 	} else if (lineCap === 'square') {
@@ -483,7 +516,7 @@ export function createLineCap (lineCap?: LineCap): string {
 	}
 }
 
-export function genXmlColorSelection (props: Color | ShapeFillProps | ShapeLineProps): string {
+export function genXmlColorSelection(props: Color | ShapeFillProps | ShapeLineProps): string {
 	let fillType = 'solid'
 	let colorVal = ''
 	let internalElements = ''
@@ -532,7 +565,7 @@ export function genXmlColorSelection (props: Color | ShapeFillProps | ShapeLineP
  * @param {ShapeLineProps} [line] line options
  * @returns XML string
  */
-export function genXmlLineFill (line: ShapeLineProps | undefined): string {
+export function genXmlLineFill(line: ShapeLineProps | undefined): string {
 	if (!line) return ''
 	// `gradient` presence selects a gradient stroke even when `type` was omitted.
 	if (line.gradient || line.type === 'gradient') return genXmlGradientFill(line.gradient)
@@ -546,7 +579,7 @@ export function genXmlLineFill (line: ShapeLineProps | undefined): string {
  * @param {PresSlideInternal} target - the slide to use
  * @returns {number} count of all current rels plus 1 for the caller to use as its "rId"
  */
-export function getNewRelId (target: PresSlideInternal): number {
+export function getNewRelId(target: PresSlideInternal): number {
 	return target._rels.length + target._relsChart.length + target._relsMedia.length + 1
 }
 
@@ -560,14 +593,19 @@ export function getNewRelId (target: PresSlideInternal): number {
  * @param {string} extn - image file extension (e.g. `png`, `jpg`, `emf`)
  * @returns {string} OOXML content type (e.g. `image/png`, `image/x-emf`)
  */
-export function imageContentType (extn: string): string {
+export function imageContentType(extn: string): string {
 	switch ((extn || '').toLowerCase()) {
-		case 'emf': return 'image/x-emf'
-		case 'wmf': return 'image/x-wmf'
-		case 'svg': return 'image/svg+xml'
+		case 'emf':
+			return 'image/x-emf'
+		case 'wmf':
+			return 'image/x-wmf'
+		case 'svg':
+			return 'image/svg+xml'
 		case 'jpg':
-		case 'jpeg': return 'image/jpeg'
-		default: return 'image/' + (extn || '').toLowerCase()
+		case 'jpeg':
+			return 'image/jpeg'
+		default:
+			return 'image/' + (extn || '').toLowerCase()
 	}
 }
 
@@ -579,28 +617,44 @@ export function imageContentType (extn: string): string {
  * @param {string} extn - media file extension (no dot), case-insensitive
  * @param {'audio' | 'video'} mtype - whether the item is audio or video
  */
-export function avContentType (extn: string, mtype: 'audio' | 'video'): string {
+export function avContentType(extn: string, mtype: 'audio' | 'video'): string {
 	switch ((extn || '').toLowerCase()) {
 		// video
-		case 'mp4': return mtype === 'audio' ? 'audio/mp4' : 'video/mp4'
-		case 'm4v': return 'video/mp4'
-		case 'mov': return 'video/quicktime'
-		case 'avi': return 'video/avi'
-		case 'wmv': return 'video/x-ms-wmv'
+		case 'mp4':
+			return mtype === 'audio' ? 'audio/mp4' : 'video/mp4'
+		case 'm4v':
+			return 'video/mp4'
+		case 'mov':
+			return 'video/quicktime'
+		case 'avi':
+			return 'video/avi'
+		case 'wmv':
+			return 'video/x-ms-wmv'
 		case 'mpg':
-		case 'mpeg': return mtype === 'audio' ? 'audio/mpeg' : 'video/mpeg'
-		case 'ogv': return 'video/ogg'
-		case 'webm': return 'video/webm'
+		case 'mpeg':
+			return mtype === 'audio' ? 'audio/mpeg' : 'video/mpeg'
+		case 'ogv':
+			return 'video/ogg'
+		case 'webm':
+			return 'video/webm'
 		// audio
-		case 'mp3': return 'audio/mpeg'
-		case 'm4a': return 'audio/mp4'
-		case 'wav': return 'audio/x-wav' // PowerPoint authors the x- form (e.g. embedded transition sounds)
-		case 'wma': return 'audio/x-ms-wma'
-		case 'aac': return 'audio/aac'
+		case 'mp3':
+			return 'audio/mpeg'
+		case 'm4a':
+			return 'audio/mp4'
+		case 'wav':
+			return 'audio/x-wav' // PowerPoint authors the x- form (e.g. embedded transition sounds)
+		case 'wma':
+			return 'audio/x-ms-wma'
+		case 'aac':
+			return 'audio/aac'
 		case 'oga':
-		case 'ogg': return 'audio/ogg'
-		case 'flac': return 'audio/flac'
-		default: return mtype + '/' + (extn || '').toLowerCase()
+		case 'ogg':
+			return 'audio/ogg'
+		case 'flac':
+			return 'audio/flac'
+		default:
+			return mtype + '/' + (extn || '').toLowerCase()
 	}
 }
 
@@ -608,7 +662,7 @@ export function avContentType (extn: string, mtype: 'audio' | 'video'): string {
  * Checks shadow options passed by user and performs corrections if needed.
  * @param {ShadowProps} ShadowProps - shadow options
  */
-export function correctShadowOptions (ShadowProps?: ShadowProps | null): ShadowProps | undefined {
+export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowProps | undefined {
 	if (!ShadowProps || typeof ShadowProps !== 'object') {
 		// console.warn("`shadow` options must be an object. Ex: `{shadow: {type:'none'}}`")
 		return
@@ -674,7 +728,7 @@ export function correctShadowOptions (ShadowProps?: ShadowProps | null): ShadowP
  * @param {string} svg - SVG markup, e.g. `'<svg ...>...</svg>'`
  * @returns {string} a `data:image/svg+xml;base64,...` URI
  */
-export function svgMarkupToDataUri (svg: string): string {
+export function svgMarkupToDataUri(svg: string): string {
 	const bytes = new TextEncoder().encode(svg)
 	let binary = ''
 	for (const byte of bytes) binary += String.fromCharCode(byte)
@@ -687,7 +741,7 @@ export function svgMarkupToDataUri (svg: string): string {
  * @param {string} b64 - base64 string or data URI
  * @returns {Uint8Array | null} decoded bytes, or `null` when the payload is empty/undecodable
  */
-export function decodeBase64ToBytes (b64: string): Uint8Array | null {
+export function decodeBase64ToBytes(b64: string): Uint8Array | null {
 	if (!b64) return null
 	// Strip any `data:...;base64,` prefix and surrounding whitespace
 	const comma = b64.indexOf('base64,')
@@ -715,7 +769,7 @@ export function decodeBase64ToBytes (b64: string): Uint8Array | null {
  * @param {string} dataB64 - base64 image payload or `data:` URI
  * @returns {{ w: number, h: number } | null} natural size, or `null` when unmeasurable
  */
-export function getImageSizeFromBase64 (dataB64: string): { w: number, h: number } | null {
+export function getImageSizeFromBase64(dataB64: string): { w: number; h: number } | null {
 	const b = decodeBase64ToBytes(dataB64)
 	return b ? getImageSizeFromBytes(b) : null
 }
@@ -727,7 +781,7 @@ export function getImageSizeFromBase64 (dataB64: string): { w: number, h: number
  * @param {Uint8Array} b - image bytes
  * @returns {{ w: number, h: number } | null} natural size, or `null` when unmeasurable
  */
-export function getImageSizeFromBytes (b: Uint8Array): { w: number, h: number } | null {
+export function getImageSizeFromBytes(b: Uint8Array): { w: number; h: number } | null {
 	if (!b || b.length < 24) return null
 
 	// Bounds-checked byte read: every access below is already guarded by an
@@ -758,12 +812,21 @@ export function getImageSizeFromBytes (b: Uint8Array): { w: number, h: number } 
 	}
 
 	// WebP: "RIFF"...."WEBP" then a VP8 / VP8L / VP8X chunk
-	if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) {
+	if (
+		b[0] === 0x52 &&
+		b[1] === 0x49 &&
+		b[2] === 0x46 &&
+		b[3] === 0x46 &&
+		b[8] === 0x57 &&
+		b[9] === 0x45 &&
+		b[10] === 0x42 &&
+		b[11] === 0x50
+	) {
 		const fourCC = String.fromCharCode(u(12), u(13), u(14), u(15))
 		if (fourCC === 'VP8 ' && b.length >= 30) {
 			// Lossy: 14-bit width/height at offset 26/28 (little-endian, mask off scale bits)
-			const w = ((u(26) | (u(27) << 8)) & 0x3fff)
-			const h = ((u(28) | (u(29) << 8)) & 0x3fff)
+			const w = (u(26) | (u(27) << 8)) & 0x3fff
+			const h = (u(28) | (u(29) << 8)) & 0x3fff
 			return w > 0 && h > 0 ? { w, h } : null
 		}
 		if (fourCC === 'VP8L' && b.length >= 25) {
@@ -786,7 +849,10 @@ export function getImageSizeFromBytes (b: Uint8Array): { w: number, h: number } 
 	if (b[0] === 0xff && b[1] === 0xd8) {
 		let i = 2
 		while (i + 9 < b.length) {
-			if (b[i] !== 0xff) { i++; continue }
+			if (b[i] !== 0xff) {
+				i++
+				continue
+			}
 			const marker = u(i + 1)
 			// SOF0..SOF15 carry frame dimensions, excluding DHT(C4)/JPG(C8)/DAC(CC)
 			if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
@@ -795,7 +861,10 @@ export function getImageSizeFromBytes (b: Uint8Array): { w: number, h: number } 
 				return w > 0 && h > 0 ? { w, h } : null
 			}
 			// Standalone markers (RSTn / SOI / EOI / TEM) have no length payload
-			if ((marker >= 0xd0 && marker <= 0xd9) || marker === 0x01) { i += 2; continue }
+			if ((marker >= 0xd0 && marker <= 0xd9) || marker === 0x01) {
+				i += 2
+				continue
+			}
 			// Otherwise skip this segment using its 2-byte big-endian length
 			const segLen = (u(i + 2) << 8) | u(i + 3)
 			if (segLen < 2) break
@@ -829,11 +898,11 @@ export function getImageSizeFromBytes (b: Uint8Array): { w: number, h: number } 
  * @param {{ w: number, h: number }} box - displayed frame size (any consistent unit)
  * @returns {{ l: number, r: number, t: number, b: number }} srcRect percentages
  */
-export function fitSrcRectPercents (
+export function fitSrcRectPercents(
 	type: 'cover' | 'contain',
-	img: { w: number, h: number },
-	box: { w: number, h: number },
-): { l: number, r: number, t: number, b: number } {
+	img: { w: number; h: number },
+	box: { w: number; h: number }
+): { l: number; r: number; t: number; b: number } {
 	const imgRatio = img.h / img.w
 	const boxRatio = box.h / box.w
 	let width: number
@@ -860,10 +929,11 @@ export function fitSrcRectPercents (
  * @param {string} svg - SVG markup
  * @returns {{ w: number, h: number } | null} intrinsic size, or `null` when undeterminable
  */
-function getSvgSizeFromMarkup (svg: string): { w: number, h: number } | null {
+function getSvgSizeFromMarkup(svg: string): { w: number; h: number } | null {
 	const openTag = /<svg\b[^>]*>/i.exec(svg)?.[0]
 	if (!openTag) return null
-	const attr = (name: string): string | null => new RegExp(`\\b${name}\\s*=\\s*["']([^"']*)["']`, 'i').exec(openTag)?.[1] ?? null
+	const attr = (name: string): string | null =>
+		new RegExp(`\\b${name}\\s*=\\s*["']([^"']*)["']`, 'i').exec(openTag)?.[1] ?? null
 	// Leading number with an optional absolute unit; a percentage is not an intrinsic length.
 	const absLength = (val: string | null): number => {
 		if (val == null || /%\s*$/.test(val)) return NaN
@@ -874,15 +944,23 @@ function getSvgSizeFromMarkup (svg: string): { w: number, h: number } | null {
 	let h = absLength(attr('height'))
 	if (!(w > 0 && h > 0)) {
 		const vb = attr('viewBox')
-		const p = vb ? vb.trim().split(/[\s,]+/).map(Number) : []
+		const p = vb
+			? vb
+					.trim()
+					.split(/[\s,]+/)
+					.map(Number)
+			: []
 		const vw = p[2]
 		const vh = p[3]
-		if (p.length === 4 && vw != null && vh != null && vw > 0 && vh > 0) { w = vw; h = vh }
+		if (p.length === 4 && vw != null && vh != null && vw > 0 && vh > 0) {
+			w = vw
+			h = vh
+		}
 	}
 	return w > 0 && h > 0 ? { w, h } : null
 }
 
 /** Decode UTF-8 bytes to a string, isomorphic across Node and browsers. */
-function utf8Decode (bytes: Uint8Array): string {
+function utf8Decode(bytes: Uint8Array): string {
 	return new TextDecoder().decode(bytes)
 }

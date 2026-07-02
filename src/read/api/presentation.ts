@@ -8,8 +8,29 @@ import { OpcPackage, type OpcInput } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
 import type { Relationships } from '../opc/relationships.js'
 import { relativePartName, relsPartNameFor } from '../opc/partnames.js'
-import { ELEMENT_NODE, OOXML_NS, attr, createElement, firstChild, getElements, getOrAddChild, insertInOrder, intValue, ownerDocumentOf, removeChildrenByQName, setAttr, type Element } from '../oxml/dom.js'
-import { EMBEDDED_FONT_SLOTS, FONT_DATA_CONTENT_TYPE, FONT_DATA_EXTENSION, FONT_REL_TYPE, type EmbeddedFont, type EmbeddedFontSlot } from '../../embedded-fonts.js'
+import {
+	ELEMENT_NODE,
+	OOXML_NS,
+	attr,
+	createElement,
+	firstChild,
+	getElements,
+	getOrAddChild,
+	insertInOrder,
+	intValue,
+	ownerDocumentOf,
+	removeChildrenByQName,
+	setAttr,
+	type Element,
+} from '../oxml/dom.js'
+import {
+	EMBEDDED_FONT_SLOTS,
+	FONT_DATA_CONTENT_TYPE,
+	FONT_DATA_EXTENSION,
+	FONT_REL_TYPE,
+	type EmbeddedFont,
+	type EmbeddedFontSlot,
+} from '../../embedded-fonts.js'
 import { flattenShape, flattenSlide, remapLiteralColors, restyleSlide, type FlattenContext } from '../oxml/theme.js'
 import { resolveSlideThemeParts } from './theme-context.js'
 import { Slide } from './slide.js'
@@ -43,9 +64,11 @@ const CHART_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.drawin
 const XLSX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
 /** Content type of the main part in an editable `.pptx` package. */
-const PRESENTATION_MAIN_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml'
+const PRESENTATION_MAIN_CONTENT_TYPE =
+	'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml'
 /** Content type of the main part in a `.potx` template package — flipped to {@link PRESENTATION_MAIN_CONTENT_TYPE} by {@link Presentation.fromTemplate}. */
-const PRESENTATION_TEMPLATE_MAIN_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.template.main+xml'
+const PRESENTATION_TEMPLATE_MAIN_CONTENT_TYPE =
+	'application/vnd.openxmlformats-officedocument.presentationml.template.main+xml'
 
 const textEncoder = new TextEncoder()
 
@@ -92,7 +115,15 @@ const PRESENTATION_SLD_ID_LST_SUCCESSORS = [
  * after `smartTags`): everything that may legally follow it, so a created list
  * lands in the right slot when the deck has none yet.
  */
-const PRESENTATION_EMBEDDED_FONT_LST_SUCCESSORS = ['p:custShowLst', 'p:photoAlbum', 'p:custDataLst', 'p:kinsoku', 'p:defaultTextStyle', 'p:modifyVerifier', 'p:extLst']
+const PRESENTATION_EMBEDDED_FONT_LST_SUCCESSORS = [
+	'p:custShowLst',
+	'p:photoAlbum',
+	'p:custDataLst',
+	'p:kinsoku',
+	'p:defaultTextStyle',
+	'p:modifyVerifier',
+	'p:extLst',
+]
 
 /**
  * A face slot's document-order successors in `CT_EmbeddedFontListEntry`
@@ -694,7 +725,9 @@ export class Presentation {
 		// The slide's internal targets, captured before its rels are dropped, so the
 		// parts it privately owned can be pruned afterwards.
 		const slideRels = this.opc.relationshipsFor(partName)
-		const formerTargets = [...slideRels].filter((rel) => rel.targetMode !== 'External').map((rel) => slideRels.resolveTarget(rel.id))
+		const formerTargets = [...slideRels]
+			.filter((rel) => rel.targetMode !== 'External')
+			.map((rel) => slideRels.resolveTarget(rel.id))
 
 		// Unwire from presentation.xml: remove the matching p:sldId and the rel.
 		const presPart = this.presentationPart
@@ -731,7 +764,9 @@ export class Presentation {
 		if (!part || SHARED_CHROME_CONTENT_TYPES.has(part.contentType)) return
 		if (this.#isReferenced(partName)) return
 		const rels = this.opc.relationshipsFor(partName)
-		const childTargets = [...rels].filter((rel) => rel.targetMode !== 'External').map((rel) => rels.resolveTarget(rel.id))
+		const childTargets = [...rels]
+			.filter((rel) => rel.targetMode !== 'External')
+			.map((rel) => rels.resolveTarget(rel.id))
 		this.opc.removePart(relsPartNameFor(partName))
 		this.opc.removePart(partName)
 		for (const child of childTargets) this.#pruneIfOrphan(child)
@@ -784,10 +819,13 @@ export class Presentation {
 		// 1. Pre-flight: slide sizes must match unless the caller opts into a rescale.
 		const target = this.slideSize
 		const incoming = source.slideSize
-		const sizesDiffer = !target || !incoming || target.widthEmu !== incoming.widthEmu || target.heightEmu !== incoming.heightEmu
+		const sizesDiffer =
+			!target || !incoming || target.widthEmu !== incoming.widthEmu || target.heightEmu !== incoming.heightEmu
 		if (sizesDiffer && !options.rescale) {
 			const fmt = (s: SlideSize | null): string => (s ? `${s.widthEmu}×${s.heightEmu} EMU` : 'unknown')
-			throw new Error(`importSlide requires equal slide sizes (pass { rescale: 'fit' | 'stretch' } to rescale); target is ${fmt(target)}, source is ${fmt(incoming)}`)
+			throw new Error(
+				`importSlide requires equal slide sizes (pass { rescale: 'fit' | 'stretch' } to rescale); target is ${fmt(target)}, source is ${fmt(incoming)}`
+			)
 		}
 		if (sizesDiffer && options.rescale && (!target || !incoming)) {
 			throw new Error('importSlide rescale requires both decks to declare a slide size (p:sldSz)')
@@ -801,14 +839,25 @@ export class Presentation {
 			options.theme === 'preserve'
 				? this.#importSlidePreserve(source, sourceSlide, options.carryMasterGraphics === true)
 				: options.theme === 'restyle'
-					? this.#importSlideRestyle(source, sourceSlide, options.carryMasterGraphics === true, options.remapLiterals === true)
+					? this.#importSlideRestyle(
+							source,
+							sourceSlide,
+							options.carryMasterGraphics === true,
+							options.remapLiterals === true
+						)
 					: this.#copyPart(source.opc, sourceSlide.partName)
 		const newPart = this.opc.part(newPartName)
 		if (!newPart) throw new Error(`Imported slide part went missing: ${newPartName}`)
 
 		// 2b. Rescale the imported geometry to this deck's canvas when sizes differ.
 		if (sizesDiffer && options.rescale && target && incoming) {
-			this.#rescaleImportedGeometry(newPartName, options.theme, incoming, target, options.rescale === true ? 'fit' : options.rescale)
+			this.#rescaleImportedGeometry(
+				newPartName,
+				options.theme,
+				incoming,
+				target,
+				options.rescale === true ? 'fit' : options.rescale
+			)
 		}
 
 		// 3. Wire the new slide into the presentation (rel + p:sldId entry) at `at`.
@@ -854,7 +903,9 @@ export class Presentation {
 		// Copy the notesSlide bytes into a fresh partname, then wire slide → notesSlide.
 		const newNotesPartName = this.opc.reservePartNameLike(sourceNotesPartName)
 		this.opc.addPart(newNotesPartName, sourceNotesPart.contentType, sourceNotesPart.bytes)
-		this.opc.relationshipsFor(newSlidePartName).add(NOTES_SLIDE_REL, relativePartName(newSlidePartName, newNotesPartName))
+		this.opc
+			.relationshipsFor(newSlidePartName)
+			.add(NOTES_SLIDE_REL, relativePartName(newSlidePartName, newNotesPartName))
 
 		// Rebuild the copied notesSlide's relationships. Preserve each source rel id so
 		// the notesSlide body's r:id references stay valid; only the targets are rewritten.
@@ -984,7 +1035,7 @@ export class Presentation {
 
 			const faces: IncomingEmbeddedFont['faces'] = []
 			for (const slot of EMBEDDED_FONT_SLOTS) {
-				const face = font.faces.find(f => f.slot === slot)
+				const face = font.faces.find((f) => f.slot === slot)
 				if (!face?.bytes) continue
 				const bytes = face.bytes
 				faces.push({
@@ -1071,7 +1122,13 @@ export class Presentation {
 	 * already the destination size — so only the slide is touched. Geometry only:
 	 * font sizes and line widths are left as authored.
 	 */
-	#rescaleImportedGeometry(slidePartName: string, theme: ImportSlideOptions['theme'], source: SlideSize, target: SlideSize, mode: 'fit' | 'stretch'): void {
+	#rescaleImportedGeometry(
+		slidePartName: string,
+		theme: ImportSlideOptions['theme'],
+		source: SlideSize,
+		target: SlideSize,
+		mode: 'fit' | 'stretch'
+	): void {
 		const transform = computeRescale(source, target, mode)
 		this.#rescalePartGeometry(slidePartName, transform)
 		if (theme === undefined || theme === 'copy') {
@@ -1131,7 +1188,9 @@ export class Presentation {
 			const incoming = source.slideSize
 			if (!target || !incoming || target.widthEmu !== incoming.widthEmu || target.heightEmu !== incoming.heightEmu) {
 				const fmt = (s: SlideSize | null): string => (s ? `${s.widthEmu}×${s.heightEmu} EMU` : 'unknown')
-				throw new Error(`importSlideMasters requires equal slide sizes (pass { requireEqualSize: false } to override); target is ${fmt(target)}, source is ${fmt(incoming)}`)
+				throw new Error(
+					`importSlideMasters requires equal slide sizes (pass { requireEqualSize: false } to override); target is ${fmt(target)}, source is ${fmt(incoming)}`
+				)
 			}
 		}
 
@@ -1220,19 +1279,23 @@ export class Presentation {
 		const gallery = this.layouts()
 		let target: LayoutHandle
 		if (typeof options.layout === 'string') {
-			const matches = gallery.filter(l => l.name === options.layout)
+			const matches = gallery.filter((l) => l.name === options.layout)
 			if (matches.length > 1) {
-				throw new Error(`appendSlides: layout name ${JSON.stringify(options.layout)} is ambiguous (${matches.length} layouts share it); pass a LayoutHandle from layouts() instead`)
+				throw new Error(
+					`appendSlides: layout name ${JSON.stringify(options.layout)} is ambiguous (${matches.length} layouts share it); pass a LayoutHandle from layouts() instead`
+				)
 			}
 			const [only] = matches
 			if (!only) {
-				const names = gallery.map(l => JSON.stringify(l.name)).join(', ')
-				throw new Error(`appendSlides: no layout named ${JSON.stringify(options.layout)}; available: ${names || '(none)'}`)
+				const names = gallery.map((l) => JSON.stringify(l.name)).join(', ')
+				throw new Error(
+					`appendSlides: no layout named ${JSON.stringify(options.layout)}; available: ${names || '(none)'}`
+				)
 			}
 			target = only
 		} else {
 			const handle = options.layout
-			if (!gallery.some(l => l.partName === handle.partName)) {
+			if (!gallery.some((l) => l.partName === handle.partName)) {
 				throw new Error(`appendSlides: layout ${handle.partName} does not belong to this presentation`)
 			}
 			target = handle
@@ -1243,7 +1306,9 @@ export class Presentation {
 		const size = this.slideSize
 		if (!size || size.widthEmu !== extracted.widthEmu || size.heightEmu !== extracted.heightEmu) {
 			const fmt = (w: number, h: number): string => `${w}×${h} EMU`
-			throw new Error(`appendSlides requires equal slide sizes; target is ${size ? fmt(size.widthEmu, size.heightEmu) : 'unknown'}, source is ${fmt(extracted.widthEmu, extracted.heightEmu)}`)
+			throw new Error(
+				`appendSlides requires equal slide sizes; target is ${size ? fmt(size.widthEmu, size.heightEmu) : 'unknown'}, source is ${fmt(extracted.widthEmu, extracted.heightEmu)}`
+			)
 		}
 
 		// Any existing slide partname seeds the fresh-partname family; fall back to a
@@ -1256,7 +1321,7 @@ export class Presentation {
 		// each part immediately claims its name — reservePartNameLike returns max+1
 		// from the existing parts, so the next reservation sees it. (addPart registers
 		// the slide's Override content type.)
-		const placed = extracted.slides.map(slide => {
+		const placed = extracted.slides.map((slide) => {
 			const partName = this.opc.reservePartNameLike(slideTemplate)
 			const part = this.opc.addPart(partName, SLIDE_CONTENT_TYPE, textEncoder.encode(slide.xml))
 			return { slide, part, partName }
@@ -1312,13 +1377,17 @@ export class Presentation {
 				const embeddingPartName = this.opc.reservePartNameLike('/ppt/embeddings/Microsoft_Excel_Worksheet1.xlsx')
 				this.opc.contentTypes.ensureDefault('xlsx', XLSX_CONTENT_TYPE)
 				this.opc.addPart(embeddingPartName, XLSX_CONTENT_TYPE, c.embeddingBytes)
-				this.opc.relationshipsFor(chartPartName).addWithId('rId1', PACKAGE_REL, relativePartName(chartPartName, embeddingPartName))
+				this.opc
+					.relationshipsFor(chartPartName)
+					.addWithId('rId1', PACKAGE_REL, relativePartName(chartPartName, embeddingPartName))
 				rels.addWithId(`rId${c.rId}`, CHART_REL, relativePartName(partName, chartPartName))
 			}
 			for (const link of slide.slideLinks) {
 				const targetPartName = partBySourceNumber.get(link.sourceSlideNumber)
 				if (!targetPartName) {
-					throw new Error(`appendSlides: slide ${i} links to source slide ${link.sourceSlideNumber}, which is not among the appended slides`)
+					throw new Error(
+						`appendSlides: slide ${i} links to source slide ${link.sourceSlideNumber}, which is not among the appended slides`
+					)
 				}
 				rels.addWithId(`rId${link.rId}`, SLIDE_REL, relativePartName(partName, targetPartName))
 			}
@@ -1406,12 +1475,17 @@ export class Presentation {
 		const targetSize = this.slideSize
 		const sourceSize = source.presentation.slideSize
 		const sizesMatch =
-			!!targetSize && !!sourceSize && targetSize.widthEmu === sourceSize.widthEmu && targetSize.heightEmu === sourceSize.heightEmu
+			!!targetSize &&
+			!!sourceSize &&
+			targetSize.widthEmu === sourceSize.widthEmu &&
+			targetSize.heightEmu === sourceSize.heightEmu
 		let transform: RescaleTransform | null = null
 		if (!sizesMatch) {
 			if (!options.rescale || !targetSize || !sourceSize) {
 				const fmt = (s: SlideSize | null): string => (s ? `${s.widthEmu}×${s.heightEmu} EMU` : 'unknown')
-				throw new Error(`importShape requires equal slide sizes (or { rescale }); target is ${fmt(targetSize)}, source is ${fmt(sourceSize)}`)
+				throw new Error(
+					`importShape requires equal slide sizes (or { rescale }); target is ${fmt(targetSize)}, source is ${fmt(sourceSize)}`
+				)
 			}
 			transform = computeRescale(sourceSize, targetSize, options.rescale === 'stretch' ? 'stretch' : 'fit')
 		}
@@ -1536,7 +1610,12 @@ export class Presentation {
 	 * source table style into this deck — the two things plain `restyle` cannot
 	 * re-brand (see {@link ImportSlideOptions.remapLiterals}).
 	 */
-	#importSlideRestyle(source: Presentation, sourceSlide: Slide, carryGraphics: boolean, remapLiterals: boolean): string {
+	#importSlideRestyle(
+		source: Presentation,
+		sourceSlide: Slide,
+		carryGraphics: boolean,
+		remapLiterals: boolean
+	): string {
 		const { newPartName, slideRoot, newPart } = this.#importSlideRebind(source, sourceSlide, carryGraphics)
 		restyleSlide(slideRoot)
 		if (remapLiterals) {
@@ -1622,7 +1701,11 @@ export class Presentation {
 	 * `preserve` adds that via {@link flattenSlide}'s context; `restyle` must not,
 	 * so the background stays symbolic and re-brands.
 	 */
-	#importSlideRebind(source: Presentation, sourceSlide: Slide, carryGraphics: boolean): { newPartName: string; slideRoot: Element; newPart: Part } {
+	#importSlideRebind(
+		source: Presentation,
+		sourceSlide: Slide,
+		carryGraphics: boolean
+	): { newPartName: string; slideRoot: Element; newPart: Part } {
 		const destLayout = this.#destinationLayoutPartName()
 
 		// Copy the slide bytes into a fresh partname; we then mutate that copy's DOM
@@ -1704,7 +1787,14 @@ export class Presentation {
 	 * the referenced part into this package on first sight. `relIdMap` (keyed by
 	 * source part + source rel id) dedupes references shared within one import call.
 	 */
-	#rewriteCarriedRels(node: Element, sourceOpc: OpcPackage, sourceRels: Relationships, newPartName: string, slideRels: Relationships, relIdMap: Map<string, string>): void {
+	#rewriteCarriedRels(
+		node: Element,
+		sourceOpc: OpcPackage,
+		sourceRels: Relationships,
+		newPartName: string,
+		slideRels: Relationships,
+		relIdMap: Map<string, string>
+	): void {
 		const elements: Element[] = []
 		collectElements(node, elements)
 		for (const el of elements) {
@@ -1723,7 +1813,14 @@ export class Presentation {
 	}
 
 	/** Resolve a carried decoration's source relationship to a fresh slide-local id, copying its internal target. */
-	#carryRel(sourceOpc: OpcPackage, sourceRels: Relationships, id: string, newPartName: string, slideRels: Relationships, relIdMap: Map<string, string>): string {
+	#carryRel(
+		sourceOpc: OpcPackage,
+		sourceRels: Relationships,
+		id: string,
+		newPartName: string,
+		slideRels: Relationships,
+		relIdMap: Map<string, string>
+	): string {
 		const key = `${sourceRels.sourcePartName}|${id}`
 		const cached = relIdMap.get(key)
 		if (cached) return cached
@@ -1732,7 +1829,10 @@ export class Presentation {
 		const newId =
 			rel.targetMode === 'External'
 				? slideRels.add(rel.type, rel.target, 'External').id
-				: slideRels.add(rel.type, relativePartName(newPartName, this.#copyPart(sourceOpc, sourceRels.resolveTarget(id)))).id
+				: slideRels.add(
+						rel.type,
+						relativePartName(newPartName, this.#copyPart(sourceOpc, sourceRels.resolveTarget(id)))
+					).id
 		relIdMap.set(key, newId)
 		return newId
 	}
@@ -1767,7 +1867,12 @@ export class Presentation {
 			clrMap: parts.clrMap,
 			clrScheme: parts.clrScheme,
 			fmtScheme: themeElements ? firstChild(themeElements, 'a:fmtScheme') : null,
-			inheritedBackground: this.#effectiveBackground(sourceOpc, parts.slideRoot, parts.layoutPartName, parts.masterPartName),
+			inheritedBackground: this.#effectiveBackground(
+				sourceOpc,
+				parts.slideRoot,
+				parts.layoutPartName,
+				parts.masterPartName
+			),
 			layoutRoot: parts.layoutRoot,
 			masterRoot: parts.masterRoot,
 		}
@@ -1778,7 +1883,12 @@ export class Presentation {
 	 * layout's `p:bg`, else the master's. Returns `null` when the slide carries its
 	 * own `p:bg` (it stays on the slide and is flattened directly) or none exists.
 	 */
-	#effectiveBackground(sourceOpc: OpcPackage, slideRoot: Element | null, layoutPartName: string | null, masterPartName: string | null): Element | null {
+	#effectiveBackground(
+		sourceOpc: OpcPackage,
+		slideRoot: Element | null,
+		layoutPartName: string | null,
+		masterPartName: string | null
+	): Element | null {
 		if (slideRoot && this.#backgroundOf(slideRoot)) return null
 		const layoutRoot = layoutPartName ? (sourceOpc.part(layoutPartName)?.dom.documentElement ?? null) : null
 		const masterRoot = masterPartName ? (sourceOpc.part(masterPartName)?.dom.documentElement ?? null) : null
@@ -1931,7 +2041,11 @@ export class Presentation {
 	 * master→layout relationship and append a `p:sldLayoutId` entry. Called once
 	 * per copied layout, so the master accumulates exactly the imported layouts.
 	 */
-	#linkLayoutIntoMaster(sourceOpc: OpcPackage, layoutSourceRels: ReturnType<OpcPackage['relationshipsFor']>, layoutPartName: string): void {
+	#linkLayoutIntoMaster(
+		sourceOpc: OpcPackage,
+		layoutSourceRels: ReturnType<OpcPackage['relationshipsFor']>,
+		layoutPartName: string
+	): void {
 		const masterRel = layoutSourceRels.byType(SLIDE_MASTER_REL)[0]
 		if (!masterRel) return
 		const masterPartName = this.#registryFor(sourceOpc).get(layoutSourceRels.resolveTarget(masterRel.id))

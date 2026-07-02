@@ -1,5 +1,8 @@
 pre-commit:
-  parallel: true
+  # Sequential (not parallel): eslint --fix and prettier --write now both touch
+  # the same staged *.ts files, so running them concurrently could race on writes.
+  # eslint first (non-format autofixes), then prettier as the final formatting pass.
+  piped: true
   jobs:
     - name: eslint
       glob: '*.{ts,mjs,js}'
@@ -9,7 +12,6 @@ pre-commit:
     - name: prettier
       glob: '*.{json,yaml,yml,mjs,mts,ts,js}'
       exclude:
-        - 'src/**'
         - 'pnpm-lock.yaml'
       run: pnpm exec prettier --write --ignore-unknown {staged_files}
       stage_fixed: true

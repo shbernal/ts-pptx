@@ -36,7 +36,9 @@ async function createSvgPngPreview(rel: ISlideRelMedia): Promise<string> {
 		const image = new Image()
 		const fail = (reason?: unknown) => {
 			rel.data = IMG_SVG_PLACEHOLDER
-			reject(new Error(`ERROR! Unable to load image (image.onerror): ${rel.path}${reason ? ` - ${String(reason)}` : ''}`))
+			reject(
+				new Error(`ERROR! Unable to load image (image.onerror): ${rel.path}${reason ? ` - ${String(reason)}` : ''}`)
+			)
 		}
 
 		image.onload = () => {
@@ -71,7 +73,9 @@ async function writeFile(fileName: string, data: string | ArrayBuffer | Blob | U
 	eleLink.dataset.interception = 'off'
 	document.body.appendChild(eleLink)
 
-	const url = window.URL.createObjectURL(new Blob([data as Blob], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }))
+	const url = window.URL.createObjectURL(
+		new Blob([data as Blob], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' })
+	)
 	eleLink.href = url
 	eleLink.download = fileName
 	eleLink.click()

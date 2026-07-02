@@ -1,5 +1,5 @@
 import eslint from '@eslint/js'
-import stylistic from '@stylistic/eslint-plugin'
+import prettier from 'eslint-config-prettier/flat'
 import tseslint from 'typescript-eslint'
 
 const nodeGlobals = {
@@ -32,9 +32,6 @@ export default tseslint.config(
 	{
 		files: ['src/**/*.ts'],
 		extends: [eslint.configs.recommended, tseslint.configs.recommendedTypeChecked],
-		plugins: {
-			'@stylistic': stylistic,
-		},
 		languageOptions: {
 			parserOptions: {
 				projectService: true,
@@ -42,11 +39,6 @@ export default tseslint.config(
 			},
 		},
 		rules: {
-			'@stylistic/comma-dangle': ['error', 'only-multiline'],
-			'@stylistic/indent': ['error', 'tab', { SwitchCase: 1, ImportDeclaration: 1 }],
-			'@stylistic/no-tabs': ['error', { allowIndentationTabs: true }],
-			'@stylistic/quotes': ['error', 'single'],
-			'@stylistic/semi': ['error', 'never'],
 			// Gate both compile-time escape hatches from the null-safety work: a bare `!`
 			// (Gap 3) and a provably-redundant `as` cast (Gap 4). no-unnecessary-type-assertion
 			// already ships on in recommendedTypeChecked; it is pinned here so the `!`/`as`
@@ -79,5 +71,8 @@ export default tseslint.config(
 			globals: nodeGlobals,
 			sourceType: 'module',
 		},
-	}
+	},
+	// Must be last: turns off any ESLint rules that would conflict with Prettier,
+	// which is now the sole formatter of record (see .prettierrc.json).
+	prettier
 )

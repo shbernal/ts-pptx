@@ -37,12 +37,7 @@ export {
 
 // Font-metrics provider + registry, so a consumer can build its own resolver and
 // measure without threading a whole PptxGenJS instance through its layout context.
-export {
-	parseFontMetrics,
-	getHeuristicFontMetrics,
-	FontMetricsRegistry,
-	type FontMetrics,
-} from './font-metrics.js'
+export { parseFontMetrics, getHeuristicFontMetrics, FontMetricsRegistry, type FontMetrics } from './font-metrics.js'
 
 // Higher-level helpers shared with the export pass: the public-props → FitParagraph
 // converter, the registry-backed resolver factory, and the inches-based measure used

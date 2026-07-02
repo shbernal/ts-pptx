@@ -76,10 +76,14 @@ export class ContentTypes {
 			'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">',
 		]
 		for (const [extension, contentType] of this.#defaults) {
-			lines.push(`<Default Extension="${escapeXmlAttribute(extension)}" ContentType="${escapeXmlAttribute(contentType)}"/>`)
+			lines.push(
+				`<Default Extension="${escapeXmlAttribute(extension)}" ContentType="${escapeXmlAttribute(contentType)}"/>`
+			)
 		}
 		for (const [partName, contentType] of this.#overrides) {
-			lines.push(`<Override PartName="${escapeXmlAttribute(partName)}" ContentType="${escapeXmlAttribute(contentType)}"/>`)
+			lines.push(
+				`<Override PartName="${escapeXmlAttribute(partName)}" ContentType="${escapeXmlAttribute(contentType)}"/>`
+			)
 		}
 		lines.push('</Types>')
 		return lines.join('')

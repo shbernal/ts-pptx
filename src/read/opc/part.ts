@@ -27,7 +27,9 @@ export class Part {
 
 	/** Whether this part's body is XML (by content type). */
 	get isXmlPart(): boolean {
-		return this.contentType.endsWith('+xml') || this.contentType === 'application/xml' || this.contentType === 'text/xml'
+		return (
+			this.contentType.endsWith('+xml') || this.contentType === 'application/xml' || this.contentType === 'text/xml'
+		)
 	}
 
 	/** True once the body has been materialized as a DOM. */
@@ -45,14 +47,16 @@ export class Part {
 	 * dirty; call `markDirty()` after mutating the tree.
 	 */
 	get dom(): Document {
-		if (!this.isXmlPart) throw new Error(`Part ${this.partName} (${this.contentType}) is not an XML part and has no DOM`)
+		if (!this.isXmlPart)
+			throw new Error(`Part ${this.partName} (${this.contentType}) is not an XML part and has no DOM`)
 		if (!this.#dom) this.#dom = parseXml(textDecoder.decode(this.#bytes))
 		return this.#dom
 	}
 
 	/** Call after mutating the DOM so `serialize()` reserializes this part. */
 	markDirty(): void {
-		if (!this.isXmlPart) throw new Error(`Part ${this.partName} (${this.contentType}) is not an XML part and cannot be marked dirty`)
+		if (!this.isXmlPart)
+			throw new Error(`Part ${this.partName} (${this.contentType}) is not an XML part and cannot be marked dirty`)
 		this.#dirty = true
 	}
 

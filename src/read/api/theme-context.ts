@@ -11,7 +11,21 @@
  */
 import { applyColorTransforms } from '../oxml/color-transform.js'
 import { ELEMENT_NODE, attr, firstChild, intValue, type Element } from '../oxml/dom.js'
-import { lstStyleLevelDefRPr, lstStyleLevelFill, parseClrMap, parseClrScheme, placeholderInheritedAnchor, placeholderInheritedDefRPrs, placeholderInheritedFill, resolveColor, resolveThemeFont, styleRefFill, styleRefLine, type ColorContext, type FlattenContext } from '../oxml/theme.js'
+import {
+	lstStyleLevelDefRPr,
+	lstStyleLevelFill,
+	parseClrMap,
+	parseClrScheme,
+	placeholderInheritedAnchor,
+	placeholderInheritedDefRPrs,
+	placeholderInheritedFill,
+	resolveColor,
+	resolveThemeFont,
+	styleRefFill,
+	styleRefLine,
+	type ColorContext,
+	type FlattenContext,
+} from '../oxml/theme.js'
 import type { OpcPackage } from '../opc/package.js'
 
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
@@ -113,7 +127,13 @@ export interface PlaceholderRef {
  * The first tier that defines a colour wins. `null` when the run is not in a
  * placeholder, nothing in the chain defines a colour, or it cannot be made literal.
  */
-export function resolveInheritedRunColor(ph: PlaceholderRef, level: number, pPr: Element | null, slideLstStyle: Element | null, ctx: FlattenContext): ResolvedColor | null {
+export function resolveInheritedRunColor(
+	ph: PlaceholderRef,
+	level: number,
+	pPr: Element | null,
+	slideLstStyle: Element | null,
+	ctx: FlattenContext
+): ResolvedColor | null {
 	const defRPr = pPr && firstChild(pPr, 'a:defRPr')
 	const paraFill = defRPr && firstChild(defRPr, 'a:solidFill')
 	if (paraFill) return resolveColorElement(firstChildElement(paraFill), ctx)
@@ -131,7 +151,13 @@ export function resolveInheritedRunColor(ph: PlaceholderRef, level: number, pPr:
  * The first tier that defines the property wins — each property resolves
  * independently, mirroring how the colour resolver walks the same chain.
  */
-function inheritedRunDefRPrs(ph: PlaceholderRef, level: number, pPr: Element | null, slideLstStyle: Element | null, ctx: FlattenContext): Element[] {
+function inheritedRunDefRPrs(
+	ph: PlaceholderRef,
+	level: number,
+	pPr: Element | null,
+	slideLstStyle: Element | null,
+	ctx: FlattenContext
+): Element[] {
 	const tiers: Element[] = []
 	const paraDefRPr = pPr && firstChild(pPr, 'a:defRPr')
 	if (paraDefRPr) tiers.push(paraDefRPr)
@@ -149,7 +175,13 @@ function inheritedRunDefRPrs(ph: PlaceholderRef, level: number, pPr: Element | n
  * points. `null` when the run is not in a placeholder or nothing in the chain
  * defines a size.
  */
-export function resolveInheritedRunSize(ph: PlaceholderRef, level: number, pPr: Element | null, slideLstStyle: Element | null, ctx: FlattenContext): number | null {
+export function resolveInheritedRunSize(
+	ph: PlaceholderRef,
+	level: number,
+	pPr: Element | null,
+	slideLstStyle: Element | null,
+	ctx: FlattenContext
+): number | null {
 	for (const defRPr of inheritedRunDefRPrs(ph, level, pPr, slideLstStyle, ctx)) {
 		const sz = intValue(attr(defRPr, 'sz'))
 		if (sz !== null) return sz / 100
@@ -165,7 +197,13 @@ export function resolveInheritedRunSize(ph: PlaceholderRef, level: number, pPr: 
  * the run is not in a placeholder, nothing in the chain names a face, or the token
  * cannot be resolved.
  */
-export function resolveInheritedRunFontFace(ph: PlaceholderRef, level: number, pPr: Element | null, slideLstStyle: Element | null, ctx: FlattenContext): string | null {
+export function resolveInheritedRunFontFace(
+	ph: PlaceholderRef,
+	level: number,
+	pPr: Element | null,
+	slideLstStyle: Element | null,
+	ctx: FlattenContext
+): string | null {
 	for (const defRPr of inheritedRunDefRPrs(ph, level, pPr, slideLstStyle, ctx)) {
 		const latin = firstChild(defRPr, 'a:latin')
 		const typeface = latin && attr(latin, 'typeface')

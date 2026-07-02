@@ -24,7 +24,15 @@ import {
 } from '../oxml/dom.js'
 import { normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
 import { resolveThemeFont, type FlattenContext } from '../oxml/theme.js'
-import { resolveInheritedAnchor, resolveInheritedRunColor, resolveInheritedRunFontFace, resolveInheritedRunSize, resolveSolidFillColor, type PlaceholderRef, type ResolvedColor } from './theme-context.js'
+import {
+	resolveInheritedAnchor,
+	resolveInheritedRunColor,
+	resolveInheritedRunFontFace,
+	resolveInheritedRunSize,
+	resolveSolidFillColor,
+	type PlaceholderRef,
+	type ResolvedColor,
+} from './theme-context.js'
 
 /**
  * What a {@link Run}'s text body needs to resolve a *placeholder-inherited* run
@@ -301,9 +309,15 @@ export class Paragraph {
 	/** The runs (`a:r`) in document order. Fields (`a:fld`) and breaks are not runs; see `text`. */
 	get runs(): Run[] {
 		const inheritedColor = this.#inheritedColorResolver()
-		const inheritedSize = this.#inheritedResolver((ph, level, pPr, slideLst, ctx) => resolveInheritedRunSize(ph, level, pPr, slideLst, ctx))
-		const inheritedFace = this.#inheritedResolver((ph, level, pPr, slideLst, ctx) => resolveInheritedRunFontFace(ph, level, pPr, slideLst, ctx))
-		return getElements(this.element, 'a:r').map((element) => new Run(element, this.part, this.themeContext, inheritedColor, inheritedSize, inheritedFace))
+		const inheritedSize = this.#inheritedResolver((ph, level, pPr, slideLst, ctx) =>
+			resolveInheritedRunSize(ph, level, pPr, slideLst, ctx)
+		)
+		const inheritedFace = this.#inheritedResolver((ph, level, pPr, slideLst, ctx) =>
+			resolveInheritedRunFontFace(ph, level, pPr, slideLst, ctx)
+		)
+		return getElements(this.element, 'a:r').map(
+			(element) => new Run(element, this.part, this.themeContext, inheritedColor, inheritedSize, inheritedFace)
+		)
 	}
 
 	/**
@@ -313,7 +327,9 @@ export class Paragraph {
 	 * once per paragraph and only when a colourless run actually asks for it.
 	 */
 	#inheritedColorResolver(): (() => ResolvedColor | null) | undefined {
-		return this.#inheritedResolver((ph, level, pPr, slideLst, ctx) => resolveInheritedRunColor(ph, level, pPr, slideLst, ctx))
+		return this.#inheritedResolver((ph, level, pPr, slideLst, ctx) =>
+			resolveInheritedRunColor(ph, level, pPr, slideLst, ctx)
+		)
 	}
 
 	/**
@@ -322,13 +338,22 @@ export class Paragraph {
 	 * a paragraph share its level and `a:pPr`, so each `resolve` runs at most once
 	 * and only when a run actually lacks its own value and asks.
 	 */
-	#inheritedResolver<T>(resolve: (ph: PlaceholderRef, level: number, pPr: Element | null, slideLstStyle: Element | null, ctx: FlattenContext) => T | null): (() => T | null) | undefined {
+	#inheritedResolver<T>(
+		resolve: (
+			ph: PlaceholderRef,
+			level: number,
+			pPr: Element | null,
+			slideLstStyle: Element | null,
+			ctx: FlattenContext
+		) => T | null
+	): (() => T | null) | undefined {
 		if (!this.inherit) return undefined
 		const { placeholder, slideLstStyle } = this.inherit
 		const pPr = firstChild(this.element, 'a:pPr')
 		const level = this.level
 		let cached: T | null | undefined
-		return () => (cached === undefined ? (cached = resolve(placeholder.ph, level, pPr, slideLstStyle, placeholder.flatten)) : cached)
+		return () =>
+			cached === undefined ? (cached = resolve(placeholder.ph, level, pPr, slideLstStyle, placeholder.flatten)) : cached
 	}
 
 	/** Indent level (`a:pPr/@lvl`), 0 when unset. */
@@ -465,8 +490,12 @@ export class TextFrame {
 	get paragraphs(): Paragraph[] {
 		// The slide text body's own list style is the tier just below the run/paragraph
 		// in the placeholder inheritance chain; resolve it once and share it.
-		const inherit = this.placeholder ? { placeholder: this.placeholder, slideLstStyle: firstChild(this.txBody, 'a:lstStyle') } : undefined
-		return getElements(this.txBody, 'a:p').map((element) => new Paragraph(element, this.part, this.themeContext, inherit))
+		const inherit = this.placeholder
+			? { placeholder: this.placeholder, slideLstStyle: firstChild(this.txBody, 'a:lstStyle') }
+			: undefined
+		return getElements(this.txBody, 'a:p').map(
+			(element) => new Paragraph(element, this.part, this.themeContext, inherit)
+		)
 	}
 
 	/**

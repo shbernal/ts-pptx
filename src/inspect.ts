@@ -181,13 +181,10 @@ export async function readPresentationSize(
 	}
 }
 
-export async function extractSlides(
-	pptxPackage: PptxPackage,
-	size?: PptxSlideSize
-): Promise<PptxSlideInspection[]> {
+export async function extractSlides(pptxPackage: PptxPackage, size?: PptxSlideSize): Promise<PptxSlideInspection[]> {
 	const slideSize = size || (await readPresentationSize(pptxPackage))
 	const slidePaths = listPptxParts(pptxPackage)
-		.filter(path => /^ppt\/slides\/slide\d+\.xml$/.test(path))
+		.filter((path) => /^ppt\/slides\/slide\d+\.xml$/.test(path))
 		.sort((a, b) => slideNumberFromPath(a) - slideNumberFromPath(b))
 
 	const slides: PptxSlideInspection[] = []
@@ -201,7 +198,10 @@ export async function extractSlides(
 		const elements = collectElements(nodeChild(cSld, 'p:spTree'))
 			.map((el, zIndex) => normalizeElement(el, zIndex))
 			.filter((element): element is PptxSlideElement => Boolean(element))
-		const text = elements.map(el => el.text).filter(Boolean).join(' ')
+		const text = elements
+			.map((el) => el.text)
+			.filter(Boolean)
+			.join(' ')
 
 		slides.push({
 			index,
@@ -240,7 +240,7 @@ function slideNumberFromPath(path: string): number {
 
 function collectElements(node: XmlNode | null): XmlNode[] {
 	const elements: XmlNode[] = []
-	walk(node, candidate => {
+	walk(node, (candidate) => {
 		for (const key of ['p:sp', 'p:pic', 'p:cxnSp']) {
 			for (const child of asArray(candidate[key])) {
 				const element = asNode(child)
@@ -258,7 +258,11 @@ function normalizeElement(node: XmlNode, zIndex: number): PptxSlideElement | nul
 
 	const textBody = nodeChild(node, 'p:txBody')
 	const textRuns = extractTextRuns(textBody)
-	const text = textRuns.map(run => run.text).join('').replace(/\s+/g, ' ').trim()
+	const text = textRuns
+		.map((run) => run.text)
+		.join('')
+		.replace(/\s+/g, ' ')
+		.trim()
 	const kind: PptxSlideElementKind = text ? 'text' : nodeChild(node, 'p:blipFill') ? 'image' : 'shape'
 
 	return {
@@ -280,8 +284,8 @@ function normalizeElement(node: XmlNode, zIndex: number): PptxSlideElement | nul
 		autofit: readAutofit(textBody),
 		bodyInsets: readBodyInsets(textBody),
 		textRuns,
-		fontSizes: [...new Set(textRuns.map(run => run.fontSizePt).filter((size): size is number => size !== null))],
-		colors: [...new Set(textRuns.map(run => run.color).filter((color): color is string => Boolean(color)))],
+		fontSizes: [...new Set(textRuns.map((run) => run.fontSizePt).filter((size): size is number => size !== null))],
+		colors: [...new Set(textRuns.map((run) => run.color).filter((color): color is string => Boolean(color)))],
 		fill: readFill(spPr),
 		line: readLine(spPr),
 		shapeType: stringValue(nodeChild(spPr, 'a:prstGeom')?.prst),
@@ -307,7 +311,7 @@ function readBox(xfrm: XmlNode | null): PptxBox | null {
 function extractTextRuns(textBody: XmlNode | null): PptxTextRun[] {
 	if (!textBody) return []
 	const runs: PptxTextRun[] = []
-	walk(textBody, node => {
+	walk(textBody, (node) => {
 		for (const item of asArray(node['a:r'])) {
 			const run = asNode(item)
 			if (!run) continue
@@ -385,7 +389,7 @@ function nodeChild(node: XmlNode | null | undefined, key: string): XmlNode | nul
 }
 
 function asNode(value: unknown): XmlNode | null {
-	return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as XmlNode : null
+	return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as XmlNode) : null
 }
 
 function numericValue(value: unknown): number | null {

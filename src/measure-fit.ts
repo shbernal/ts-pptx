@@ -15,8 +15,33 @@ import { DEF_CELL_MARGIN_IN, DEF_FONT_SIZE, LINEH_MODIFIER } from './core-enums.
 import { EMU_PER_POINT, POINTS_PER_INCH, emuToInches } from './units.js'
 import { getSmartParseNumber, inch2Emu, resolveTableColWidthsEmu, valToPts } from './gen-utils.js'
 import { getHeuristicFontMetrics, type FontMetricsRegistry } from './font-metrics.js'
-import { solveShrink, solveResize, measureLayout, WIDTH_SAFETY_FACTOR, HEIGHT_SAFETY_FACTOR, type FitBox, type FitParagraph, type FitRun, type MetricsResolver } from './text-fit.js'
-import type { ISlideObject, Margin, MeasureTextOptions, ObjectOptions, PresLayout, PresSlideInternal, TableCell, TableCellLayout, TableCellProps, TableLayoutResult, TableProps, TextMeasurement, TextProps, TextPropsOptions } from './core-interfaces.js'
+import {
+	solveShrink,
+	solveResize,
+	measureLayout,
+	WIDTH_SAFETY_FACTOR,
+	HEIGHT_SAFETY_FACTOR,
+	type FitBox,
+	type FitParagraph,
+	type FitRun,
+	type MetricsResolver,
+} from './text-fit.js'
+import type {
+	ISlideObject,
+	Margin,
+	MeasureTextOptions,
+	ObjectOptions,
+	PresLayout,
+	PresSlideInternal,
+	TableCell,
+	TableCellLayout,
+	TableCellProps,
+	TableLayoutResult,
+	TableProps,
+	TextMeasurement,
+	TextProps,
+	TextPropsOptions,
+} from './core-interfaces.js'
 
 // PowerPoint's default text-frame insets (EMU): l/r = 0.1in, t/b = 0.05in.
 const DEF_INS_LR_EMU = 91440
@@ -27,21 +52,21 @@ const CRLF_RE = /\r*\n/g
 type RunOpts = TextPropsOptions & ObjectOptions
 
 /** Normalize `slideObj.text` (string | TextProps | TextProps[]) to a run list. */
-function normalizeRuns (obj: ISlideObject): TextProps[] {
-	const opts = (obj.options ?? {})
+function normalizeRuns(obj: ISlideObject): TextProps[] {
+	const opts = obj.options ?? {}
 	const text = obj.text as unknown
 	if (text == null) return []
 	if (typeof text === 'string' || typeof text === 'number') return [{ text: String(text), options: opts }]
-	if (!Array.isArray(text) && typeof text === 'object' && 'text' in (text)) {
+	if (!Array.isArray(text) && typeof text === 'object' && 'text' in text) {
 		const t = text as TextProps
 		return [{ text: t.text, options: t.options ?? opts }]
 	}
-	if (Array.isArray(text)) return (text as TextProps[]).map(t => ({ text: t.text, options: t.options ?? opts }))
+	if (Array.isArray(text)) return (text as TextProps[]).map((t) => ({ text: t.text, options: t.options ?? opts }))
 	return []
 }
 
 /** Build a measurable `FitParagraph[]` from a text object, or null if not measurable. */
-function extractParagraphs (obj: ISlideObject): FitParagraph[] | null {
+function extractParagraphs(obj: ISlideObject): FitParagraph[] | null {
 	const opts = (obj.options ?? {}) as RunOpts
 	const runs = normalizeRuns(obj)
 	if (runs.length === 0) return null
@@ -54,12 +79,16 @@ function extractParagraphs (obj: ISlideObject): FitParagraph[] | null {
  * export-time pass ({@link extractParagraphs}) and the public layout-time
  * `measureText` API, so a layout-time prediction and the baked export never drift.
  */
-export function buildFitParagraphs (runs: TextProps[], opts: RunOpts): FitParagraph[] | null {
+export function buildFitParagraphs(runs: TextProps[], opts: RunOpts): FitParagraph[] | null {
 	if (runs.length === 0) return null
 
 	// Expand "\n" inside a run into separate pieces, flagging the paragraph break
 	// after each (mirrors gen-xml STEP 4). `breakLine` ends a paragraph too.
-	interface Piece { text: string, options: RunOpts, breakAfter: boolean }
+	interface Piece {
+		text: string
+		options: RunOpts
+		breakAfter: boolean
+	}
 	const pieces: Piece[] = []
 	for (const run of runs) {
 		const ro = (run.options ?? opts) as RunOpts
@@ -93,7 +122,8 @@ export function buildFitParagraphs (runs: TextProps[], opts: RunOpts): FitParagr
 		return {
 			runs: runsForPara,
 			lineSpacingPts: typeof lineSpacing === 'number' && lineSpacing > 0 ? lineSpacing : undefined,
-			lineSpacingPct: typeof lineSpacingMultiple === 'number' && lineSpacingMultiple > 0 ? lineSpacingMultiple * 100 : 100,
+			lineSpacingPct:
+				typeof lineSpacingMultiple === 'number' && lineSpacingMultiple > 0 ? lineSpacingMultiple * 100 : 100,
 			spaceBeforePts: Number(paraOpts.paraSpaceBefore ?? opts.paraSpaceBefore ?? 0) || 0,
 			spaceAfterPts: Number(paraOpts.paraSpaceAfter ?? opts.paraSpaceAfter ?? 0) || 0,
 		}
@@ -114,10 +144,15 @@ export function buildFitParagraphs (runs: TextProps[], opts: RunOpts): FitParagr
 	return paras.length > 0 ? paras : null
 }
 
-interface InsetsEmu { lIns: number, rIns: number, tIns: number, bIns: number }
+interface InsetsEmu {
+	lIns: number
+	rIns: number
+	tIns: number
+	bIns: number
+}
 
 /** Resolve text-frame insets (EMU): explicit `_bodyProp` (from `inset`) → `margin` → PowerPoint defaults. */
-function resolveInsetsEmu (opts: RunOpts): InsetsEmu {
+function resolveInsetsEmu(opts: RunOpts): InsetsEmu {
 	const bp = opts._bodyProp ?? {}
 	const margin = opts.margin
 	let lIns = bp.lIns
@@ -143,7 +178,10 @@ function resolveInsetsEmu (opts: RunOpts): InsetsEmu {
 }
 
 /** Resolve the inner box (shape minus insets) in points; null if degenerate. */
-function computeBox (obj: ISlideObject, presLayout: PresSlideInternal['_presLayout']): { innerWidthPt: number, innerHeightPt: number } | null {
+function computeBox(
+	obj: ISlideObject,
+	presLayout: PresSlideInternal['_presLayout']
+): { innerWidthPt: number; innerHeightPt: number } | null {
 	const opts = (obj.options ?? {}) as RunOpts
 	const wEmu = getSmartParseNumber(opts.w, 'X', presLayout)
 	const hEmu = getSmartParseNumber(opts.h, 'Y', presLayout)
@@ -161,7 +199,7 @@ function computeBox (obj: ISlideObject, presLayout: PresSlideInternal['_presLayo
 }
 
 /** Vertical-anchor share of a height change that moves the box top up (`off.y` shift). */
-function anchorTopShareOfDelta (opts: RunOpts): number {
+function anchorTopShareOfDelta(opts: RunOpts): number {
 	// `_bodyProp.anchor` is the resolved valign ('t' | 'ctr' | 'b'); default 'ctr'.
 	const anchor = (opts._bodyProp ?? {}).anchor
 	if (anchor === 't') return 0 // grow downward — top fixed
@@ -176,10 +214,21 @@ function anchorTopShareOfDelta (opts: RunOpts): number {
 // which both PowerPoint and LibreOffice render identically with no edit/resize.
 
 /** Text/format options that a cell inherits from the table when it sets none itself (mirrors gen-xml). */
-const CELL_INHERIT_KEYS = ['fontFace', 'fontSize', 'bold', 'italic', 'charSpacing', 'align', 'lineSpacing', 'lineSpacingMultiple', 'valign', 'margin'] as const
+const CELL_INHERIT_KEYS = [
+	'fontFace',
+	'fontSize',
+	'bold',
+	'italic',
+	'charSpacing',
+	'align',
+	'lineSpacing',
+	'lineSpacingMultiple',
+	'valign',
+	'margin',
+] as const
 
 /** Effective cell options: the cell's own values, with table-level values filled in where unset. */
-function effectiveCellOpts (cellOpts: TableCellProps, tableOpts: RunOpts): RunOpts {
+function effectiveCellOpts(cellOpts: TableCellProps, tableOpts: RunOpts): RunOpts {
 	const merged = { ...cellOpts } as RunOpts
 	for (const k of CELL_INHERIT_KEYS) {
 		if (merged[k] === undefined && tableOpts[k] !== undefined) (merged as Record<string, unknown>)[k] = tableOpts[k]
@@ -187,13 +236,19 @@ function effectiveCellOpts (cellOpts: TableCellProps, tableOpts: RunOpts): RunOp
 	return merged
 }
 
-interface CellInsetsEmu { marL: number, marR: number, marT: number, marB: number }
+interface CellInsetsEmu {
+	marL: number
+	marR: number
+	marT: number
+	marB: number
+}
 
 /** Resolve a cell's margins to EMU insets, mirroring gen-xml (array is `[T,R,B,L]`; ≥1 ⇒ points, else inches). */
-function resolveCellInsetsEmu (margin: Margin | undefined): CellInsetsEmu {
+function resolveCellInsetsEmu(margin: Margin | undefined): CellInsetsEmu {
 	let m: Margin = margin === 0 || margin ? margin : DEF_CELL_MARGIN_IN
 	if (typeof m === 'number') m = [m, m, m, m]
-	if (!Array.isArray(m) || m.length !== 4 || m.some(v => typeof v !== 'number' || !isFinite(v))) m = DEF_CELL_MARGIN_IN
+	if (!Array.isArray(m) || m.length !== 4 || m.some((v) => typeof v !== 'number' || !isFinite(v)))
+		m = DEF_CELL_MARGIN_IN
 	const arr = m
 	const toEmu = arr[0] >= 1 ? valToPts : inch2Emu
 	return { marT: toEmu(arr[0]), marR: toEmu(arr[1]), marB: toEmu(arr[2]), marL: toEmu(arr[3]) }
@@ -204,12 +259,12 @@ function resolveCellInsetsEmu (margin: Margin | undefined): CellInsetsEmu {
  * options object before mutating: a plain-string cell shares the table's `opt`
  * object (gen-objects), so in-place mutation would corrupt every other such cell.
  */
-function scaleCellFontSizes (cell: TableCell, eff: RunOpts, f: number): void {
+function scaleCellFontSizes(cell: TableCell, eff: RunOpts, f: number): void {
 	const shrink = (sizePt: number): number => Math.floor(sizePt * f * 10) / 10 // floor: stay on the conservative (smaller) side
 	const baseSize = Number(eff.fontSize ?? DEF_FONT_SIZE)
 	cell.options = { ...(cell.options ?? {}), fontSize: shrink(baseSize) }
 	if (Array.isArray(cell.text)) {
-		cell.text = (cell.text).map(run =>
+		cell.text = cell.text.map((run) =>
 			run && typeof run === 'object' && typeof run.options?.fontSize === 'number'
 				? { ...run, options: { ...run.options, fontSize: shrink(run.options.fontSize) } }
 				: run
@@ -218,7 +273,7 @@ function scaleCellFontSizes (cell: TableCell, eff: RunOpts, f: number): void {
 }
 
 /** Grid column count of a table (sums the first row's colspans), mirroring gen-xml. */
-function tableColCount (rows: TableCell[][]): number {
+function tableColCount(rows: TableCell[][]): number {
 	const first = rows[0]
 	return first ? first.reduce((n, c) => n + (Number(c?.options?.colspan) || 1), 0) : 0
 }
@@ -243,7 +298,7 @@ interface GridPlacement {
  * the single traversal shared by the measured-fit shrink pass and
  * {@link computeTableLayout}, so cell placement cannot drift between them.
  */
-function * walkTableGrid (rows: TableCell[][], numCols: number): Generator<GridPlacement> {
+function* walkTableGrid(rows: TableCell[][], numCols: number): Generator<GridPlacement> {
 	// occupied[c] = rows still covered by a rowspan started above (incl. current row).
 	const occupied = new Array<number>(numCols).fill(0)
 	for (let r = 0; r < rows.length; r++) {
@@ -278,7 +333,12 @@ function * walkTableGrid (rows: TableCell[][], numCols: number): Generator<GridP
  * `autoPage` paging across slides is not modeled. Rowspan cells do not drive a row's
  * estimated height (mirrors gen-tables, which exempts them from line-height growth).
  */
-export function computeTableLayout (rows: TableCell[][], opts: TableProps, presLayout: PresLayout, registry: FontMetricsRegistry): TableLayoutResult {
+export function computeTableLayout(
+	rows: TableCell[][],
+	opts: TableProps,
+	presLayout: PresLayout,
+	registry: FontMetricsRegistry
+): TableLayoutResult {
 	const empty: TableLayoutResult = { cells: [], widthIn: 0, heightIn: 0, heightExact: true }
 	if (!rows || rows.length === 0 || !rows[0]) return empty
 	const numRows = rows.length
@@ -288,7 +348,8 @@ export function computeTableLayout (rows: TableCell[][], opts: TableProps, presL
 
 	const tableXEmu = opts.x != null ? getSmartParseNumber(opts.x, 'X', presLayout) : 0
 	const tableYEmu = opts.y != null ? getSmartParseNumber(opts.y, 'Y', presLayout) : 0
-	const cxEmu = opts.w != null ? getSmartParseNumber(opts.w, 'X', presLayout) : getSmartParseNumber('75%', 'X', presLayout)
+	const cxEmu =
+		opts.w != null ? getSmartParseNumber(opts.w, 'X', presLayout) : getSmartParseNumber('75%', 'X', presLayout)
 	const colWidthsEmu = resolveTableColWidthsEmu(opts.colW, cxEmu, numCols)
 
 	// Prefix-sum column x offsets (length numCols+1): colXEmu[c] = left edge of column c.
@@ -325,13 +386,20 @@ export function computeTableLayout (rows: TableCell[][], opts: TableProps, presL
 	}
 
 	// PASS 1: place every origin cell and resolve each row's height.
-	interface Placed { p: GridPlacement, colStart: number, colEnd: number }
+	interface Placed {
+		p: GridPlacement
+		colStart: number
+		colEnd: number
+	}
 	const placed: Placed[] = []
 	const rowHeightsEmu = new Array<number>(numRows).fill(0)
 	const rowExact = new Array<boolean>(numRows).fill(false)
 	for (let r = 0; r < numRows; r++) {
 		const ex = explicitRowHEmu(r)
-		if (ex != null) { rowHeightsEmu[r] = ex; rowExact[r] = true }
+		if (ex != null) {
+			rowHeightsEmu[r] = ex
+			rowExact[r] = true
+		}
 	}
 
 	for (const p of walkTableGrid(rows, numCols)) {
@@ -343,7 +411,7 @@ export function computeTableLayout (rows: TableCell[][], opts: TableProps, presL
 		if (p.rowSpan === 1 && !rowExact[p.row]) {
 			let widthEmu = 0
 			for (let c = colStart; c < colEnd; c++) widthEmu += colWidthsEmu[c] ?? 0
-			const eff = effectiveCellOpts((p.cell?.options ?? {}), o)
+			const eff = effectiveCellOpts(p.cell?.options ?? {}, o)
 			const ins = resolveCellInsetsEmu(eff.margin)
 			const innerWidthPt = (widthEmu - ins.marL - ins.marR) / EMU_PER_POINT
 			const contentEmu = estimateContentHeightEmu(p.cell, eff, innerWidthPt) + ins.marT + ins.marB
@@ -392,8 +460,11 @@ export function computeTableLayout (rows: TableCell[][], opts: TableProps, presL
  * (theme-default) face that cannot be guessed. `onHeuristic` is called with each
  * named face that fell back to the heuristic (for the export pass's warn-once).
  */
-export function makeRegistryResolver (registry: FontMetricsRegistry, onHeuristic?: (face: string) => void): MetricsResolver {
-	return run => {
+export function makeRegistryResolver(
+	registry: FontMetricsRegistry,
+	onHeuristic?: (face: string) => void
+): MetricsResolver {
+	return (run) => {
 		const exact = registry.get(run.fontFace, run.bold, run.italic)
 		if (exact) return exact
 		if (typeof run.fontFace === 'string' && run.fontFace.length > 0) {
@@ -405,7 +476,7 @@ export function makeRegistryResolver (registry: FontMetricsRegistry, onHeuristic
 }
 
 /** Map the public {@link MeasureTextOptions} onto the internal run-option shape. */
-function measureOptsToRunOpts (opts: MeasureTextOptions): RunOpts {
+function measureOptsToRunOpts(opts: MeasureTextOptions): RunOpts {
 	return {
 		fontSize: opts.fontSize,
 		fontFace: opts.fontFace,
@@ -439,10 +510,13 @@ const UNMEASURABLE: TextMeasurement = Object.freeze({
  * with no exact metrics silently uses the conservative heuristic (same as export);
  * an unnamed theme-default face returns `measurable: false`.
  */
-export function measureText (registry: FontMetricsRegistry, text: string | TextProps[], opts: MeasureTextOptions): TextMeasurement {
-	const runs: TextProps[] = typeof text === 'string' || typeof text === 'number'
-		? [{ text: String(text) }]
-		: Array.isArray(text) ? text : []
+export function measureText(
+	registry: FontMetricsRegistry,
+	text: string | TextProps[],
+	opts: MeasureTextOptions
+): TextMeasurement {
+	const runs: TextProps[] =
+		typeof text === 'string' || typeof text === 'number' ? [{ text: String(text) }] : Array.isArray(text) ? text : []
 	const paragraphs = buildFitParagraphs(runs, measureOptsToRunOpts(opts))
 	if (!paragraphs) return UNMEASURABLE
 
@@ -486,7 +560,7 @@ export function measureText (registry: FontMetricsRegistry, text: string | TextP
  * Safe to call with an empty registry (no-op). Warns once if any opted-in box could
  * not be measured (missing metrics) so overflow is not silently ignored.
  */
-export function applyMeasuredFit (slides: PresSlideInternal[], registry: FontMetricsRegistry): void {
+export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetricsRegistry): void {
 	if (registry.size === 0) return
 
 	// A deck that registered *some* metrics has opted into measured fit, so a named
@@ -494,12 +568,13 @@ export function applyMeasuredFit (slides: PresSlideInternal[], registry: FontMet
 	// than degrading to the bare flag — overflow still self-corrects, just less precisely.
 	// An unnamed (theme-default) face stays unmeasurable: we cannot guess which face it is.
 	const heuristicFaces = new Set<string>()
-	const resolve = makeRegistryResolver(registry, face => heuristicFaces.add(face))
+	const resolve = makeRegistryResolver(registry, (face) => heuristicFaces.add(face))
 	const unmeasuredShrink = new Set<string>()
 	const unmeasuredResize = new Set<string>()
 
 	const collectUnmeasured = (paragraphs: FitParagraph[], into: Set<string>): void => {
-		for (const para of paragraphs) for (const run of para.runs) if (!resolve(run)) into.add(run.fontFace ?? '(theme default)')
+		for (const para of paragraphs)
+			for (const run of para.runs) if (!resolve(run)) into.add(run.fontFace ?? '(theme default)')
 	}
 
 	/**
@@ -516,19 +591,26 @@ export function applyMeasuredFit (slides: PresSlideInternal[], registry: FontMet
 		const numCols = tableColCount(rows)
 		if (!(numCols > 0)) return
 
-		const cxEmu = tableOpts.w != null ? getSmartParseNumber(tableOpts.w, 'X', layout) : getSmartParseNumber('75%', 'X', layout)
+		const cxEmu =
+			tableOpts.w != null ? getSmartParseNumber(tableOpts.w, 'X', layout) : getSmartParseNumber('75%', 'X', layout)
 		const colWidthsEmu = resolveTableColWidthsEmu(tableOpts.colW, cxEmu, numCols)
-		const tableHeightEmu = tableOpts.h != null ? getSmartParseNumber(tableOpts.h, 'Y', layout) : (typeof tableOpts.cy === 'number' ? tableOpts.cy : 0)
+		const tableHeightEmu =
+			tableOpts.h != null
+				? getSmartParseNumber(tableOpts.h, 'Y', layout)
+				: typeof tableOpts.cy === 'number'
+					? tableOpts.cy
+					: 0
 		const rowHeightEmu = (rIdx: number): number => {
 			if (Array.isArray(tableOpts.rowH) && tableOpts.rowH[rIdx]) return inch2Emu(Number(tableOpts.rowH[rIdx]))
-			if (tableOpts.rowH != null && !Array.isArray(tableOpts.rowH) && !isNaN(Number(tableOpts.rowH))) return inch2Emu(Number(tableOpts.rowH))
+			if (tableOpts.rowH != null && !Array.isArray(tableOpts.rowH) && !isNaN(Number(tableOpts.rowH)))
+				return inch2Emu(Number(tableOpts.rowH))
 			if (tableHeightEmu > 0) return Math.round(tableHeightEmu / numRows)
 			return 0 // auto-height row → grows to fit, no shrink
 		}
 
 		for (const { cell, row: r, col: colStart, colSpan, rowSpan } of walkTableGrid(rows, numCols)) {
 			const colEnd = colStart + colSpan
-			const cellOpts = (cell?.options ?? {})
+			const cellOpts = cell?.options ?? {}
 			const fit = cellOpts.fit ?? (tableOpts.fit === 'shrink' ? 'shrink' : undefined)
 			if (fit !== 'shrink') continue
 
@@ -538,7 +620,10 @@ export function applyMeasuredFit (slides: PresSlideInternal[], registry: FontMet
 			let autoHeight = false
 			for (let rr = r; rr < r + rowSpan; rr++) {
 				const h = rowHeightEmu(rr)
-				if (h <= 0) { autoHeight = true; break }
+				if (h <= 0) {
+					autoHeight = true
+					break
+				}
 				heightEmu += h
 			}
 			if (autoHeight) continue

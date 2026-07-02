@@ -258,7 +258,8 @@ function getOrCreateMainSeqChildTnLst(root: Element, doc: Document): Element {
 		if (freshTnLst) insertInOrder(timing, freshTnLst, ['p:bldLst', 'p:extLst'])
 		tmRootChildLst = timing.getElementsByTagNameNS(P_NS, 'childTnLst')[0]
 	}
-	if (!tmRootChildLst) throw new Error('getOrCreateMainSeqChildTnLst: failed to resolve or create the tmRoot child list')
+	if (!tmRootChildLst)
+		throw new Error('getOrCreateMainSeqChildTnLst: failed to resolve or create the tmRoot child list')
 	const seq = importScaffold(doc, MAIN_SEQ_SCAFFOLD)
 	setAttr(firstChild(seq, 'p:cTn') as Element, 'id', String(maxCTnId(timing) + 1))
 	tmRootChildLst.insertBefore(seq, tmRootChildLst.firstChild)
