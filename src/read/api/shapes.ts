@@ -806,7 +806,16 @@ export abstract class Shape {
 	 */
 	get gradientStops(): GradientStop[] | null {
 		const props = this.properties()
-		const grad = props && firstChild(props, 'a:gradFill')
+		return props ? this.#gradientStopsIn(props) : null
+	}
+
+	/**
+	 * Read `a:gradFill/a:gsLst` stops from a container (either `spPr` for a fill or
+	 * `a:ln` for a line stroke). `null` when the container has no gradient; `[]`
+	 * when the gradient carries no stop list.
+	 */
+	#gradientStopsIn(container: Element): GradientStop[] | null {
+		const grad = firstChild(container, 'a:gradFill')
 		if (!grad) return null
 		const gsLst = firstChild(grad, 'a:gsLst')
 		if (!gsLst) return []
@@ -827,15 +836,12 @@ export abstract class Shape {
 	}
 
 	/**
-	 * The shape's gradient fill with its geometry (`spPr/a:gradFill`), or `null`
-	 * when the fill is not a gradient. Unlike {@link gradientStops} (stops only),
-	 * this also carries the linear {@link GradientFill.angleDeg} or the
-	 * {@link GradientFill.path} shape — the geometry a faithful replica needs and
-	 * which the bare stop list omits.
+	 * Read the full `a:gradFill` (stops + linear angle / path shape) from a
+	 * container (`spPr` for a fill or `a:ln` for a line stroke). `null` when the
+	 * container has no gradient.
 	 */
-	get gradientFill(): GradientFill | null {
-		const props = this.properties()
-		const grad = props && firstChild(props, 'a:gradFill')
+	#gradientFillIn(container: Element): GradientFill | null {
+		const grad = firstChild(container, 'a:gradFill')
 		if (!grad) return null
 		const lin = firstChild(grad, 'a:lin')
 		const path = firstChild(grad, 'a:path')
@@ -844,8 +850,33 @@ export abstract class Shape {
 			kind: lin ? 'linear' : path ? 'path' : null,
 			angleDeg: ang === null ? null : ang / 60000,
 			path: path ? (attr(path, 'path') ?? null) : null,
-			stops: this.gradientStops ?? [],
+			stops: this.#gradientStopsIn(container) ?? [],
 		}
+	}
+
+	/**
+	 * The shape's gradient fill with its geometry (`spPr/a:gradFill`), or `null`
+	 * when the fill is not a gradient. Unlike {@link gradientStops} (stops only),
+	 * this also carries the linear {@link GradientFill.angleDeg} or the
+	 * {@link GradientFill.path} shape — the geometry a faithful replica needs and
+	 * which the bare stop list omits.
+	 */
+	get gradientFill(): GradientFill | null {
+		const props = this.properties()
+		return props ? this.#gradientFillIn(props) : null
+	}
+
+	/**
+	 * The shape's line/border **gradient** stroke (`spPr/a:ln/a:gradFill`), or
+	 * `null` when the line is a solid, absent, or inherited border (see
+	 * {@link resolvedLine}). The line counterpart of {@link gradientFill}: a
+	 * gradient-stroked connector — common for the faded process arrows in downstream
+	 * decks — otherwise surfaces only its {@link lineWidthPt}, dropping the colour
+	 * entirely, so a replica cannot reproduce the stroke.
+	 */
+	get lineGradient(): GradientFill | null {
+		const ln = this.#line()
+		return ln ? this.#gradientFillIn(ln) : null
 	}
 
 	/**

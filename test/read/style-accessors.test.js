@@ -251,6 +251,41 @@ describe('Shape line dash / explicit no-line reads (off-fixture)', () => {
 		const inherited = sp('<p:spPr/>')
 		assertEqual(inherited.lineNoFill, false, 'no a:ln (inherited line) is not an explicit no-line')
 	})
+
+	// lineGradient points the (fixture-validated, see gradient-fill.pptx) a:gradFill
+	// reader at the a:ln container instead of spPr. Explicit srgb stops resolve
+	// without a theme, so a minimal themeContext stub is enough off-fixture.
+	const spGrad = (spPr) => {
+		const xml = `<p:spTree xmlns:p="${P_NS}" xmlns:a="${A_NS}"><p:sp>${spPr}</p:sp></p:spTree>`
+		const spTree = new DOMParser().parseFromString(xml, 'text/xml').documentElement
+		const el = spTree.getElementsByTagNameNS(P_NS, 'sp')[0]
+		return new AutoShape(el, { themeContext: () => ({}) })
+	}
+
+	test('lineGradient reads a:ln/a:gradFill stops + linear angle', () => {
+		const shape = spGrad(
+			'<p:spPr><a:ln w="57150"><a:gradFill><a:gsLst>' +
+				'<a:gs pos="0"><a:srgbClr val="451DC7"/></a:gs>' +
+				'<a:gs pos="100000"><a:srgbClr val="BEADF3"/></a:gs>' +
+				'</a:gsLst><a:lin ang="0" scaled="1"/></a:gradFill></a:ln></p:spPr>'
+		)
+		const grad = shape.lineGradient
+		assert(grad, 'a gradient-stroked line surfaces a lineGradient')
+		assertEqual(grad.kind, 'linear', 'a:lin ⇒ linear line gradient')
+		assertEqual(grad.angleDeg, 0, 'a:lin/@ang (60000ths) ÷ 60000 ⇒ degrees')
+		assertEqual(grad.stops.length, 2, 'both stops surfaced')
+		assertEqual(grad.stops[0].position, 0, 'first stop at 0%')
+		assertEqual(grad.stops[0].effectiveHex, '451DC7', 'explicit srgb stop resolves to itself')
+		assertEqual(grad.stops[1].position, 1, 'last stop at 100%')
+		assertEqual(grad.stops[1].effectiveHex, 'BEADF3', 'second explicit srgb stop resolves to itself')
+	})
+
+	test('lineGradient is null for a solid line and when there is no a:ln', () => {
+		const solid = spGrad('<p:spPr><a:ln w="12700"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln></p:spPr>')
+		assertEqual(solid.lineGradient, null, 'a solid-stroked line has no lineGradient')
+		const noLine = spGrad('<p:spPr/>')
+		assertEqual(noLine.lineGradient, null, 'no a:ln ⇒ null lineGradient')
+	})
 })
 
 describe('TextFrame.resolvedAnchor — real PowerPoint XML (layout-placeholder-bodypr.pptx)', () => {
