@@ -500,12 +500,14 @@ export default class PptxGenJS {
 		this._subject = 'PptxGenJS Presentation'
 		this._title = 'PptxGenJS Presentation'
 		// PptxGenJS props
+		const defLayout = this.LAYOUTS[DEF_PRES_LAYOUT]
+		if (!defLayout) throw new Error(`Default presentation layout "${DEF_PRES_LAYOUT}" is not registered`)
 		this._presLayout = {
-			name: this.LAYOUTS[DEF_PRES_LAYOUT].name,
-			_sizeW: this.LAYOUTS[DEF_PRES_LAYOUT].width,
-			_sizeH: this.LAYOUTS[DEF_PRES_LAYOUT].height,
-			width: this.LAYOUTS[DEF_PRES_LAYOUT].width,
-			height: this.LAYOUTS[DEF_PRES_LAYOUT].height,
+			name: defLayout.name,
+			_sizeW: defLayout.width,
+			_sizeH: defLayout.height,
+			width: defLayout.width,
+			height: defLayout.height,
 		}
 		this._firstSlideNum = 1
 		this._rtlMode = false
@@ -568,7 +570,7 @@ export default class PptxGenJS {
 		// Search for the section that owns the current last slide rather than assuming it is
 		// the last section — the originating slide may not be at the tail of the deck.
 		const lastSlide = this._slides[this._slides.length - 1]
-		const sourceSection = this._sections.find(sect => sect._slides.some(s => s._slideNum === lastSlide._slideNum))
+		const sourceSection = this._sections.find(sect => sect._slides.some(s => s._slideNum === lastSlide?._slideNum))
 		nextOptions.sectionTitle = sourceSection?.title ?? undefined
 
 		return this.addSlide(nextOptions) as PresSlideInternal
@@ -646,7 +648,7 @@ export default class PptxGenJS {
 
 			// Derive the file extension from the data-URI mime, else the path, defaulting to wav.
 			const dataMime = /audio\/([\w-]+)[;,]/.exec(sound.data ?? '')
-			const pathFile = sound.path ? (sound.path.split('/').pop() ?? '').split('?')[0] : ''
+			const pathFile = sound.path ? ((sound.path.split('/').pop() ?? '').split('?')[0] ?? '') : ''
 			const extn = (dataMime?.[1] ?? pathFile.split('.').pop() ?? 'wav').toLowerCase()
 
 			const rId = getNewRelId(slide)
@@ -1173,8 +1175,10 @@ export default class PptxGenJS {
 	addSlide(options?: AddSlideProps): PresSlide {
 		// TODO: DEPRECATED: arg0 string "masterSlideName" dep as of 3.2.0
 		const masterSlideName = typeof options === 'string' ? options : options?.masterName ? options.masterName : ''
+		const defLayout = this.LAYOUTS[DEF_PRES_LAYOUT]
+		if (!defLayout) throw new Error(`Default presentation layout "${DEF_PRES_LAYOUT}" is not registered`)
 		let slideLayout: SlideLayoutInternal = {
-			_name: this.LAYOUTS[DEF_PRES_LAYOUT].name,
+			_name: defLayout.name,
 			_presLayout: this.presLayout,
 			_rels: [],
 			_relsChart: [],
@@ -1213,7 +1217,7 @@ export default class PptxGenJS {
 			const lastSect = this._sections[this._sections.length - 1]
 
 			// CASE 1: The latest section is a default type - just add this one
-			if (lastSect._type === 'default') lastSect._slides.push(newSlide)
+			if (lastSect?._type === 'default') lastSect._slides.push(newSlide)
 			// CASE 2: There latest section is NOT a default type - create the defualt, add this slide
 			else {
 				this._sections.push({

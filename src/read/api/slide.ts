@@ -364,9 +364,8 @@ export class Slide {
 		const root = this.part.dom.documentElement
 		let max = 1
 		if (root) {
-			const cNvPrs = root.getElementsByTagNameNS(OOXML_NS.p, 'cNvPr')
-			for (let i = 0; i < cNvPrs.length; i++) {
-				const id = intValue(attr(cNvPrs[i], 'id'))
+			for (const cNvPr of root.getElementsByTagNameNS(OOXML_NS.p, 'cNvPr')) {
+				const id = intValue(attr(cNvPr, 'id'))
 				if (id !== null && id > max) max = id
 			}
 		}

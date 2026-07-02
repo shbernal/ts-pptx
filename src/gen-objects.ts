@@ -572,7 +572,7 @@ function registerImageFillMedia(target: PresSlideInternal, fill: ShapeFillProps)
 	const imagePathFile = strImagePath.slice(strImagePath.lastIndexOf('/') + 1).split('?')[0] || ''
 	let strImgExtn = ((imagePathFile.split('.').pop() || 'png').split('#')[0] || 'png').toLowerCase()
 	const imageMimeMatch = /image\/(\w+);/.exec(strImageData)
-	if (strImageData && imageMimeMatch) strImgExtn = imageMimeMatch[1]
+	if (strImageData && imageMimeMatch) strImgExtn = imageMimeMatch[1] ?? strImgExtn
 	else if (strImageData?.toLowerCase().includes('image/svg+xml')) strImgExtn = 'svg'
 
 	if (strImgExtn === 'svg') {
@@ -665,7 +665,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	// However, pre-encoded images can be whatever mime-type they want (and good for them!)
 	const imageMimeMatch = /image\/(\w+);/.exec(strImageData)
 	if (strImageData && imageMimeMatch) {
-		strImgExtn = imageMimeMatch[1]
+		strImgExtn = imageMimeMatch[1] ?? strImgExtn
 	} else if (strImageData?.toLowerCase().includes('image/svg+xml')) {
 		strImgExtn = 'svg'
 	}
@@ -840,7 +840,7 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 
 	// FIXME: 20190707
 	// strType = strData ? strData.split(';')[0].split('/')[0] : strType
-	strExtn = opt.extn || (strData ? strData.split(';')[0].split('/')[1] : strPath.split('.').pop()) || 'mp3'
+	strExtn = opt.extn || (strData ? (strData.split(';')[0] ?? '').split('/')[1] : strPath.split('.').pop()) || 'mp3'
 
 	// STEP 2: Set type, media
 	slideData.mtype = strType
@@ -980,9 +980,11 @@ export function addNotesDefinition(target: PresSlideInternal, notes: string | No
  */
 function deriveAuthorInitials(author: string): string {
 	const words = author.trim().split(/\s+/).filter(Boolean)
-	if (words.length === 0) return '?'
-	if (words.length === 1) return words[0].charAt(0).toUpperCase()
-	return (words[0].charAt(0) + words[words.length - 1].charAt(0)).toUpperCase()
+	const first = words[0]
+	if (!first) return '?'
+	if (words.length === 1) return first.charAt(0).toUpperCase()
+	const last = words[words.length - 1] ?? first
+	return (first.charAt(0) + last.charAt(0)).toUpperCase()
 }
 
 /**
@@ -1427,7 +1429,7 @@ export function addTableDefinition(
 	 * The API does not require a `w` value, but XML generation does, hence, code to calc a width below using colW value(s)
 	 */
 	if (opt.colW) {
-		const firstRowColCnt = arrRows[0].reduce((totalLen, c) => {
+		const firstRowColCnt = (arrRows[0] ?? []).reduce((totalLen, c) => {
 			if (c?.options?.colspan && typeof c.options.colspan === 'number') {
 				totalLen += c.options.colspan
 			} else {
@@ -1493,15 +1495,17 @@ export function addTableDefinition(
 				// Grab table formatting `opts` to use here so text style/format inherits as it should
 				row[idy] = { _type: SLIDE_OBJECT_TYPES.tablecell, text: String(row[idy]), options: opt }
 			} else if (typeof cell === 'object') {
+				const target = row[idy]
+				if (!target) return
 				// ARG0: `text`
-				if (typeof cell.text === 'number') row[idy].text = cell.text.toString()
-				else if (typeof cell.text === 'undefined' || cell.text === null) row[idy].text = ''
+				if (typeof cell.text === 'number') target.text = cell.text.toString()
+				else if (typeof cell.text === 'undefined' || cell.text === null) target.text = ''
 
 				// ARG1: `options`: ensure options exists
-				row[idy].options = cell.options || {}
+				target.options = cell.options || {}
 
 				// Set type to tabelcell
-				row[idy]._type = SLIDE_OBJECT_TYPES.tablecell
+				target._type = SLIDE_OBJECT_TYPES.tablecell
 			}
 
 			// B: Check for fine-grained formatting, disable auto-page when found
@@ -1798,7 +1802,7 @@ function createBulletImageRels(target: PresSlideInternal, objectOptions: ObjectO
 			strImgExtn = ((imagePathFile.split('.').pop() || 'png').split('#')[0] || 'png').toLowerCase()
 		}
 		const imageMimeMatch = /image\/(\w+);/.exec(img.data || '')
-		if (img.data && imageMimeMatch) strImgExtn = imageMimeMatch[1]
+		if (img.data && imageMimeMatch) strImgExtn = imageMimeMatch[1] ?? strImgExtn
 		// `image/svg+xml` does not match the `\w+` sniff above (the `+`), so detect it explicitly (mirror addImageDefinition())
 		else if (img.data?.toLowerCase().includes('image/svg+xml')) strImgExtn = 'svg'
 		// Path-based SVG sniffing is already handled by the extension parse above.
@@ -1888,7 +1892,7 @@ export function addBackgroundDefinition(props: BackgroundProps, target: SlideLay
 	if (props && (props.path || props.data)) {
 		// Allow the use of only the data key (`path` isnt reqd)
 		props.path = props.path || 'preencoded.png'
-		let strImgExtn = (props.path.split('.').pop() || 'png').split('?')[0] // Handle "blah.jpg?width=540" etc.
+		let strImgExtn = (props.path.split('.').pop() || 'png').split('?')[0] ?? 'png' // Handle "blah.jpg?width=540" etc.
 		if (strImgExtn === 'jpg') strImgExtn = 'jpeg' // base64-encoded jpg's come out as "data:image/jpeg;base64,/9j/[...]", so correct exttnesion to avoid content warnings at PPT startup
 
 		target._relsMedia = target._relsMedia || []

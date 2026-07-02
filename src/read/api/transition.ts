@@ -107,7 +107,7 @@ function variantAttrs(element: Element): Record<string, string> {
 	const attrs = element.attributes
 	for (let i = 0; i < attrs.length; i++) {
 		const a = attrs[i]
-		if (a.prefix === 'xmlns' || a.name === 'xmlns') continue
+		if (!a || a.prefix === 'xmlns' || a.name === 'xmlns') continue
 		out[a.localName ?? a.name] = a.value
 	}
 	return out

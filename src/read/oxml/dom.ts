@@ -29,7 +29,7 @@ export function serializeXml(doc: Document): string {
 }
 
 /** Canonical OOXML prefix → namespace URI registry. */
-export const OOXML_NS: Readonly<Record<string, string>> = Object.freeze({
+export const OOXML_NS = Object.freeze({
 	a: 'http://schemas.openxmlformats.org/drawingml/2006/main',
 	c: 'http://schemas.openxmlformats.org/drawingml/2006/chart',
 	cp: 'http://schemas.openxmlformats.org/package/2006/metadata/core-properties',
@@ -55,7 +55,7 @@ function splitQName(qname: string): { uri: string; local: string } {
 	const colon = qname.indexOf(':')
 	if (colon < 0) throw new Error(`Expected a prefixed qname like "p:sld", got: ${qname}`)
 	const prefix = qname.slice(0, colon)
-	const uri = OOXML_NS[prefix]
+	const uri = (OOXML_NS as Record<string, string>)[prefix]
 	if (!uri) throw new Error(`Unknown OOXML namespace prefix: ${prefix}`)
 	return { uri, local: qname.slice(colon + 1) }
 }

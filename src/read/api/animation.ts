@@ -29,10 +29,8 @@ const P_NS = OOXML_NS.p
 /** Every element carrying an animation `spid` reference, across the timing tree and build list. */
 function spidElements(root: Element): Element[] {
 	const out: Element[] = []
-	const spTgts = root.getElementsByTagNameNS(OOXML_NS.p, 'spTgt')
-	for (let i = 0; i < spTgts.length; i++) out.push(spTgts[i])
-	const bldPs = root.getElementsByTagNameNS(OOXML_NS.p, 'bldP')
-	for (let i = 0; i < bldPs.length; i++) out.push(bldPs[i])
+	for (const el of root.getElementsByTagNameNS(OOXML_NS.p, 'spTgt')) out.push(el)
+	for (const el of root.getElementsByTagNameNS(OOXML_NS.p, 'bldP')) out.push(el)
 	return out
 }
 
@@ -43,9 +41,8 @@ function spidElements(root: Element): Element[] {
  */
 export function hasAnimations(root: Element): boolean {
 	if (root.getElementsByTagNameNS(OOXML_NS.p, 'bldP').length > 0) return true
-	const cTns = root.getElementsByTagNameNS(OOXML_NS.p, 'cTn')
-	for (let i = 0; i < cTns.length; i++) {
-		if (attr(cTns[i], 'presetID') !== null) return true
+	for (const cTn of root.getElementsByTagNameNS(OOXML_NS.p, 'cTn')) {
+		if (attr(cTn, 'presetID') !== null) return true
 	}
 	return false
 }
@@ -204,9 +201,8 @@ const MAIN_SEQ_SCAFFOLD =
 /** Largest `<p:cTn @id>` in a subtree (0 when none). */
 function maxCTnId(scope: Element): number {
 	let max = 0
-	const cTns = scope.getElementsByTagNameNS(P_NS, 'cTn')
-	for (let i = 0; i < cTns.length; i++) {
-		const id = intValue(attr(cTns[i], 'id'))
+	for (const cTn of scope.getElementsByTagNameNS(P_NS, 'cTn')) {
+		const id = intValue(attr(cTn, 'id'))
 		if (id !== null && id > max) max = id
 	}
 	return max
@@ -215,16 +211,14 @@ function maxCTnId(scope: Element): number {
 /** Renumber every `<p:cTn @id>` in `node` (document order) starting at `start`; returns the next free id. */
 function renumberCTnIds(node: Element, start: number): number {
 	let id = start
-	const cTns = node.getElementsByTagNameNS(P_NS, 'cTn')
-	for (let i = 0; i < cTns.length; i++) setAttr(cTns[i], 'id', String(id++))
+	for (const cTn of node.getElementsByTagNameNS(P_NS, 'cTn')) setAttr(cTn, 'id', String(id++))
 	return id
 }
 
 /** Whether `par`'s subtree targets any of `spids` via a `<p:spTgt>`. */
 function targetsAnySpid(par: Element, spids: Set<number>): boolean {
-	const spTgts = par.getElementsByTagNameNS(P_NS, 'spTgt')
-	for (let i = 0; i < spTgts.length; i++) {
-		const spid = intValue(attr(spTgts[i], 'spid'))
+	for (const spTgt of par.getElementsByTagNameNS(P_NS, 'spTgt')) {
+		const spid = intValue(attr(spTgt, 'spid'))
 		if (spid !== null && spids.has(spid)) return true
 	}
 	return false

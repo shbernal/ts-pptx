@@ -604,10 +604,11 @@ export class Presentation {
 		if (this.#presentationPart) return this.#presentationPart
 		const packageRels = this.opc.relationshipsFor('/')
 		const officeDocument = packageRels.byType(OFFICE_DOCUMENT_REL)
-		if (officeDocument.length !== 1) {
+		const officeDocumentRel = officeDocument[0]
+		if (officeDocument.length !== 1 || !officeDocumentRel) {
 			throw new Error(`Expected exactly one officeDocument relationship, found ${officeDocument.length}`)
 		}
-		const partName = packageRels.resolveTarget(officeDocument[0].id)
+		const partName = packageRels.resolveTarget(officeDocumentRel.id)
 		const part = this.opc.part(partName)
 		if (!part) throw new Error(`officeDocument relationship targets a missing part: ${partName}`)
 		this.#presentationPart = part
@@ -1220,14 +1221,15 @@ export class Presentation {
 		let target: LayoutHandle
 		if (typeof options.layout === 'string') {
 			const matches = gallery.filter(l => l.name === options.layout)
-			if (matches.length === 0) {
-				const names = gallery.map(l => JSON.stringify(l.name)).join(', ')
-				throw new Error(`appendSlides: no layout named ${JSON.stringify(options.layout)}; available: ${names || '(none)'}`)
-			}
 			if (matches.length > 1) {
 				throw new Error(`appendSlides: layout name ${JSON.stringify(options.layout)} is ambiguous (${matches.length} layouts share it); pass a LayoutHandle from layouts() instead`)
 			}
-			target = matches[0]
+			const [only] = matches
+			if (!only) {
+				const names = gallery.map(l => JSON.stringify(l.name)).join(', ')
+				throw new Error(`appendSlides: no layout named ${JSON.stringify(options.layout)}; available: ${names || '(none)'}`)
+			}
+			target = only
 		} else {
 			const handle = options.layout
 			if (!gallery.some(l => l.partName === handle.partName)) {
@@ -1384,7 +1386,9 @@ export class Presentation {
 	 * animation/timing for the shape is dropped (the shape lands static).
 	 */
 	importShape(target: Slide, source: Slide, shapeIndex: number, options: ImportShapeOptions = {}): Shape {
-		return this.importShapes(target, source, [shapeIndex], options)[0]
+		const [shape] = this.importShapes(target, source, [shapeIndex], options)
+		if (!shape) throw new Error(`importShape: source slide has no shape at index ${shapeIndex}`)
+		return shape
 	}
 
 	/**
@@ -1466,11 +1470,10 @@ export class Presentation {
 			// source id → new id map so a carried build animation can be remapped onto it.
 			let nextId = target.nextShapeId()
 			const spidMap = new Map<number, number>()
-			const cNvPrs = imported.getElementsByTagNameNS(OOXML_NS.p, 'cNvPr')
-			for (let i = 0; i < cNvPrs.length; i++) {
-				const oldId = intValue(attr(cNvPrs[i], 'id'))
+			for (const cNvPr of imported.getElementsByTagNameNS(OOXML_NS.p, 'cNvPr')) {
+				const oldId = intValue(attr(cNvPr, 'id'))
 				if (oldId !== null) spidMap.set(oldId, nextId)
-				setAttr(cNvPrs[i], 'id', String(nextId++))
+				setAttr(cNvPr, 'id', String(nextId++))
 			}
 
 			// Insert into the host tree (this reparents it out of any holder).
@@ -1559,9 +1562,8 @@ export class Presentation {
 	 */
 	#copySourceTableStyles(sourceOpc: OpcPackage, slideRoot: Element): void {
 		const ids = new Set<string>()
-		const idEls = slideRoot.getElementsByTagNameNS(OOXML_NS.a, 'tableStyleId')
-		for (let i = 0; i < idEls.length; i++) {
-			const id = idEls[i].textContent?.trim()
+		for (const idEl of slideRoot.getElementsByTagNameNS(OOXML_NS.a, 'tableStyleId')) {
+			const id = idEl.textContent?.trim()
 			if (id) ids.add(id)
 		}
 		if (ids.size === 0) return
@@ -1971,7 +1973,8 @@ export class Presentation {
 
 		const inRange = at !== undefined && at >= 0 && at < existing.length
 		const newIndex = inRange ? at : existing.length
-		if (inRange) sldIdLst.insertBefore(sldId, existing[at])
+		const before = inRange ? existing[at] : null
+		if (before) sldIdLst.insertBefore(sldId, before)
 		else sldIdLst.appendChild(sldId)
 		presPart.markDirty()
 

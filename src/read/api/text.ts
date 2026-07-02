@@ -549,7 +549,10 @@ export function setTextBodyText(txBody: Element, value: string): void {
 	const rPrTemplate = firstRun && firstChild(firstRun, 'a:rPr')
 
 	// Collapse to a single paragraph, dropping any extras.
-	for (let i = paragraphs.length - 1; i >= 1; i--) txBody.removeChild(paragraphs[i])
+	for (let i = paragraphs.length - 1; i >= 1; i--) {
+		const extra = paragraphs[i]
+		if (extra) txBody.removeChild(extra)
+	}
 	let p = paragraphs[0]
 	if (!p) {
 		p = createElement(doc, 'a:p')

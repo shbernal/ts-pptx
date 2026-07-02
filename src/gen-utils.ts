@@ -677,9 +677,7 @@ export function correctShadowOptions (ShadowProps?: ShadowProps | null): ShadowP
 export function svgMarkupToDataUri (svg: string): string {
 	const bytes = new TextEncoder().encode(svg)
 	let binary = ''
-	for (let i = 0; i < bytes.length; i++) {
-		binary += String.fromCharCode(bytes[i])
-	}
+	for (const byte of bytes) binary += String.fromCharCode(byte)
 	return `data:image/svg+xml;base64,${btoa(binary)}`
 }
 
@@ -732,24 +730,28 @@ export function getImageSizeFromBase64 (dataB64: string): { w: number, h: number
 export function getImageSizeFromBytes (b: Uint8Array): { w: number, h: number } | null {
 	if (!b || b.length < 24) return null
 
+	// Bounds-checked byte read: every access below is already guarded by an
+	// explicit length check, so the `?? 0` fallback is unreachable in practice.
+	const u = (n: number): number => b[n] ?? 0
+
 	// PNG: 8-byte signature, then IHDR with width@16 / height@20 (big-endian uint32)
 	if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) {
-		const w = (b[16] << 24) | (b[17] << 16) | (b[18] << 8) | b[19]
-		const h = (b[20] << 24) | (b[21] << 16) | (b[22] << 8) | b[23]
+		const w = (u(16) << 24) | (u(17) << 16) | (u(18) << 8) | u(19)
+		const h = (u(20) << 24) | (u(21) << 16) | (u(22) << 8) | u(23)
 		return w > 0 && h > 0 ? { w, h } : null
 	}
 
 	// GIF: "GIF87a"/"GIF89a", width@6 / height@8 (little-endian uint16)
 	if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) {
-		const w = b[6] | (b[7] << 8)
-		const h = b[8] | (b[9] << 8)
+		const w = u(6) | (u(7) << 8)
+		const h = u(8) | (u(9) << 8)
 		return w > 0 && h > 0 ? { w, h } : null
 	}
 
 	// BMP: "BM", width@18 / height@22 (little-endian int32; height may be negative for top-down)
 	if (b[0] === 0x42 && b[1] === 0x4d) {
-		const w = b[18] | (b[19] << 8) | (b[20] << 16) | (b[21] << 24)
-		const h = b[22] | (b[23] << 8) | (b[24] << 16) | (b[25] << 24)
+		const w = u(18) | (u(19) << 8) | (u(20) << 16) | (u(21) << 24)
+		const h = u(22) | (u(23) << 8) | (u(24) << 16) | (u(25) << 24)
 		const aw = Math.abs(w)
 		const ah = Math.abs(h)
 		return aw > 0 && ah > 0 ? { w: aw, h: ah } : null
@@ -757,24 +759,24 @@ export function getImageSizeFromBytes (b: Uint8Array): { w: number, h: number } 
 
 	// WebP: "RIFF"...."WEBP" then a VP8 / VP8L / VP8X chunk
 	if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) {
-		const fourCC = String.fromCharCode(b[12], b[13], b[14], b[15])
+		const fourCC = String.fromCharCode(u(12), u(13), u(14), u(15))
 		if (fourCC === 'VP8 ' && b.length >= 30) {
 			// Lossy: 14-bit width/height at offset 26/28 (little-endian, mask off scale bits)
-			const w = ((b[26] | (b[27] << 8)) & 0x3fff)
-			const h = ((b[28] | (b[29] << 8)) & 0x3fff)
+			const w = ((u(26) | (u(27) << 8)) & 0x3fff)
+			const h = ((u(28) | (u(29) << 8)) & 0x3fff)
 			return w > 0 && h > 0 ? { w, h } : null
 		}
 		if (fourCC === 'VP8L' && b.length >= 25) {
 			// Lossless: 14-bit width/height packed starting at bit 0 of offset 21
-			const bits = b[21] | (b[22] << 8) | (b[23] << 16) | (b[24] << 24)
+			const bits = u(21) | (u(22) << 8) | (u(23) << 16) | (u(24) << 24)
 			const w = (bits & 0x3fff) + 1
 			const h = ((bits >> 14) & 0x3fff) + 1
 			return w > 0 && h > 0 ? { w, h } : null
 		}
 		if (fourCC === 'VP8X' && b.length >= 30) {
 			// Extended: 24-bit canvas width/height minus one at offset 24/27 (little-endian)
-			const w = (b[24] | (b[25] << 8) | (b[26] << 16)) + 1
-			const h = (b[27] | (b[28] << 8) | (b[29] << 16)) + 1
+			const w = (u(24) | (u(25) << 8) | (u(26) << 16)) + 1
+			const h = (u(27) | (u(28) << 8) | (u(29) << 16)) + 1
 			return w > 0 && h > 0 ? { w, h } : null
 		}
 		return null
@@ -785,17 +787,17 @@ export function getImageSizeFromBytes (b: Uint8Array): { w: number, h: number } 
 		let i = 2
 		while (i + 9 < b.length) {
 			if (b[i] !== 0xff) { i++; continue }
-			const marker = b[i + 1]
+			const marker = u(i + 1)
 			// SOF0..SOF15 carry frame dimensions, excluding DHT(C4)/JPG(C8)/DAC(CC)
 			if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
-				const h = (b[i + 5] << 8) | b[i + 6]
-				const w = (b[i + 7] << 8) | b[i + 8]
+				const h = (u(i + 5) << 8) | u(i + 6)
+				const w = (u(i + 7) << 8) | u(i + 8)
 				return w > 0 && h > 0 ? { w, h } : null
 			}
 			// Standalone markers (RSTn / SOI / EOI / TEM) have no length payload
 			if ((marker >= 0xd0 && marker <= 0xd9) || marker === 0x01) { i += 2; continue }
 			// Otherwise skip this segment using its 2-byte big-endian length
-			const segLen = (b[i + 2] << 8) | b[i + 3]
+			const segLen = (u(i + 2) << 8) | u(i + 3)
 			if (segLen < 2) break
 			i += 2 + segLen
 		}
@@ -866,14 +868,16 @@ function getSvgSizeFromMarkup (svg: string): { w: number, h: number } | null {
 	const absLength = (val: string | null): number => {
 		if (val == null || /%\s*$/.test(val)) return NaN
 		const m = /^\s*\+?(\d*\.?\d+)/.exec(val)
-		return m ? parseFloat(m[1]) : NaN
+		return m ? parseFloat(m[1] ?? '') : NaN
 	}
 	let w = absLength(attr('width'))
 	let h = absLength(attr('height'))
 	if (!(w > 0 && h > 0)) {
 		const vb = attr('viewBox')
 		const p = vb ? vb.trim().split(/[\s,]+/).map(Number) : []
-		if (p.length === 4 && p[2] > 0 && p[3] > 0) { w = p[2]; h = p[3] }
+		const vw = p[2]
+		const vh = p[3]
+		if (p.length === 4 && vw != null && vh != null && vw > 0 && vh > 0) { w = vw; h = vh }
 	}
 	return w > 0 && h > 0 ? { w, h } : null
 }

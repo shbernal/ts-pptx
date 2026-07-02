@@ -865,9 +865,8 @@ function writeRunProps(run: Element, props: RunProps, pPr: Element | null, slide
 
 /** Snapshot all descendant elements of `root` matching a namespace + local name. */
 function elementsByTag(root: Element, ns: string, local: string): Element[] {
-	const live = root.getElementsByTagNameNS(ns, local)
 	const out: Element[] = []
-	for (let i = 0; i < live.length; i++) out.push(live[i])
+	for (const el of root.getElementsByTagNameNS(ns, local)) out.push(el)
 	return out
 }
 

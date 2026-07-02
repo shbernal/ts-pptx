@@ -425,7 +425,7 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 
 			// E-3: **MAIN** Parse cell contents into lines based upon col width, font, etc
 			const tableColW = Array.isArray(tableProps.colW) ? tableProps.colW : []
-			let totalColW = tableColW[iCell]
+			let totalColW = tableColW[iCell] ?? 0
 			const cellColspan = cell.options?.colspan
 			if (cellColspan) {
 				totalColW = tableColW.filter((_cell, idx) => idx >= iCell && idx < idx + cellColspan).reduce((prev, curr) => prev + curr)
@@ -481,7 +481,8 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 		let isDone = false
 		while (!isDone) {
 			const srcCell = rowCellLines[currCellIdx]
-			let tgtCell: TableCell = currTableRow[currCellIdx] // NOTE: may be redefined below (a new row may be created, thus changing this value)
+			if (!srcCell) break
+			let tgtCell = currTableRow[currCellIdx] // NOTE: may be redefined below (a new row may be created, thus changing this value)
 
 			// 1: calc emuLineMaxH
 			rowCellLines.forEach(cell => {
@@ -548,7 +549,7 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 			const currLine = srcCell._lines.shift()
 
 			// 4: create new line by adding all words from curr line (or add empty if there are no words to avoid "needs repair" issue triggered when cells have null content)
-			if (Array.isArray(tgtCell.text)) {
+			if (tgtCell && Array.isArray(tgtCell.text)) {
 				if (currLine) tgtCell.text = tgtCell.text.concat(currLine)
 				else if (tgtCell.text.length === 0) tgtCell.text = tgtCell.text.concat({ _type: SLIDE_OBJECT_TYPES.tablecell, text: '' })
 				// IMPORTANT: ^^^ add empty if there are no words to avoid "needs repair" issue triggered when cells have null content
@@ -577,7 +578,7 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 		const occupiedBefore = [...colSpanDepths]
 		let colCursor = 0
 		row.forEach(cell => {
-			while (colCursor < numCols && occupiedBefore[colCursor] > 0) colCursor++
+			while (colCursor < numCols && (occupiedBefore[colCursor] ?? 0) > 0) colCursor++
 			const cellColspan = cell.options?.colspan ?? 1
 			const cellRowspan = cell.options?.rowspan ?? 1
 			if (cellRowspan > 1) {
@@ -589,7 +590,8 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 		})
 		// Consume one row from every active span (including ones just opened above).
 		for (let c = 0; c < numCols; c++) {
-			if (colSpanDepths[c] > 0) colSpanDepths[c]--
+			const depth = colSpanDepths[c] ?? 0
+			if (depth > 0) colSpanDepths[c] = depth - 1
 		}
 
 		if (tableProps.verbose) {
@@ -766,7 +768,7 @@ export function genTableToSlides(pptx: TableToSlidesHost, tabEleId: string, opti
 					fill: { color: rgbToHex(Number(arrRGB2[0]), Number(arrRGB2[1]), Number(arrRGB2[2])) },
 					fontSize: Number(window.getComputedStyle(cell).getPropertyValue('font-size').replace(/[a-z]/gi, '')),
 				}
-				const fontFace = (window.getComputedStyle(cell).getPropertyValue('font-family') || '').split(',')[0].replace(/"/g, '').replace('inherit', '').replace('initial', '')
+				const fontFace = ((window.getComputedStyle(cell).getPropertyValue('font-family') || '').split(',')[0] ?? '').replace(/"/g, '').replace('inherit', '').replace('initial', '')
 				const colspan = Number(cell.getAttribute('colspan')) || undefined
 				const rowspan = Number(cell.getAttribute('rowspan')) || undefined
 				if (fontFace) cellOpts.fontFace = fontFace

@@ -43,9 +43,8 @@ export class Chart {
 		const tx = firstChild(title, 'c:tx')
 		const rich = tx && firstChild(tx, 'c:rich')
 		if (!rich) return null
-		const texts = rich.getElementsByTagNameNS(OOXML_NS.a, 't')
 		let out = ''
-		for (let i = 0; i < texts.length; i++) out += texts[i].textContent ?? ''
+		for (const t of rich.getElementsByTagNameNS(OOXML_NS.a, 't')) out += t.textContent ?? ''
 		return out === '' ? null : out
 	}
 

@@ -230,7 +230,7 @@ function genXmlPresetGeom (shapeName: string, options: ObjectOptions, cx: number
 		}
 	} else if (options.angleRange) {
 		for (let i = 0; i < 2; i++) {
-			const angle = options.angleRange[i]
+			const angle = options.angleRange[i] ?? 0
 			emitGuide(`adj${i + 1}`, convertRotationDegrees(angle))
 		}
 
@@ -497,7 +497,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				// Calc number of columns
 				// NOTE: Cells may have a colspan, so merely taking the length of the [0] (or any other) row is not
 				// ....: sufficient to determine column count. Therefore, check each cell for a colspan and total cols as reqd
-				arrTabRows[0].forEach(cell => {
+				;(arrTabRows[0] ?? []).forEach(cell => {
 					cellOpts = cell.options || null
 					intColCnt += cellOpts?.colspan ? Number(cellOpts.colspan) : 1
 				})
@@ -559,6 +559,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				arrTabRows.forEach(cells => {
 					for (let cIdx = 0; cIdx < cells.length;) {
 						const cell = cells[cIdx]
+						if (!cell) break
 						const colspan = cell.options?.colspan
 						const rowspan = cell.options?.rowspan
 						if (colspan && colspan > 1) {
@@ -1854,7 +1855,7 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 		// A: Align or Bullet trigger new line
 		if (arrTexts.length > 0 && (textObj.options.align || opts.align)) {
 			// Only start a new paragraph when align *changes*
-			if (textObj.options.align !== arrTextObjects[idx - 1].options.align) {
+			if (textObj.options.align !== arrTextObjects[idx - 1]?.options.align) {
 				arrLines.push(arrTexts)
 				arrTexts = []
 			}
@@ -1883,8 +1884,9 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 	// STEP 6: Loop over each line and create paragraph props, text run, etc.
 	arrLines.forEach(line => {
 		// A native equation (#1456) owns its whole paragraph: emit the OMML wrapper and skip runs.
-		if (line.length === 1 && line[0].math) {
-			strSlideXml += genXmlMathParagraph(line[0].math)
+		const firstRun = line[0]
+		if (line.length === 1 && firstRun?.math) {
+			strSlideXml += genXmlMathParagraph(firstRun.math)
 			return
 		}
 
@@ -1893,7 +1895,7 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 		// A: Start paragraph, add paraProps
 		strSlideXml += '<a:p>'
 		// NOTE: `rtlMode` is like other opts, its propagated up to each text:options, so just check the 1st one
-		let paragraphPropXml = `<a:pPr ${line[0].options?.rtlMode ? ' rtl="1" ' : ''}`
+		let paragraphPropXml = `<a:pPr ${line[0]?.options?.rtlMode ? ' rtl="1" ' : ''}`
 		let paragraphPropEmitted = false
 
 		// B: Start paragraph, loop over lines and add text runs
@@ -1942,7 +1944,7 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 			// from the paragraph-level `<a:buChar/>` and one from the literal glyph
 			// in `<a:t>`. Mid-text glyphs and `bullet:false`/no-bullet are unaffected.
 			let _textRunObj = textObj
-			if (idx === 0 && line[0].options.bullet && typeof textObj.text === 'string') {
+			if (idx === 0 && line[0]?.options.bullet && typeof textObj.text === 'string') {
 				const _stripped = textObj.text.replace(/^[\u2022\u25E6\u25AA\u25AB\u25CF\u25CB\u2023\u2043\u2219]\s*/, '')
 				if (_stripped !== textObj.text) {
 					_textRunObj = { text: _stripped, options: textObj.options }
@@ -2620,17 +2622,19 @@ function buildAnimationSeq (animations: ResolvedAnimation[], next: () => number)
 		if (trigger === 'onClick' || groups.length === 0) {
 			groups.push({ subs: [{ delay: 0, effects: [entry] }] })
 		} else if (trigger === 'afterPrevious') {
-			groups[groups.length - 1].subs.push({ delay: prevDuration, effects: [entry] })
+			groups[groups.length - 1]?.subs.push({ delay: prevDuration, effects: [entry] })
 		} else {
 			// withPrevious — join the current sub-step
-			const subs = groups[groups.length - 1].subs
-			subs[subs.length - 1].effects.push(entry)
+			const subs = groups[groups.length - 1]?.subs
+			const lastSub = subs?.[subs.length - 1]
+			if (lastSub) lastSub.effects.push(entry)
 		}
 		prevDuration = duration
 	}
 
 	const emitEffect = (entry: ResolvedAnimation): string => {
 		const meta = ANIM_PRESETS[entry.anim.preset]
+		if (!meta) return ''
 		const nodeType = ANIM_NODE_TYPE[entry.anim.trigger ?? 'onClick']
 		const duration = typeof entry.anim.durationMs === 'number' ? entry.anim.durationMs : meta.defaultDurationMs
 		const effectId = next()
@@ -2785,7 +2789,7 @@ function genXmlNotesParagraphs (slide: PresSlideInternal): string {
 		segments.forEach((segment, idx) => {
 			if (idx > 0) paragraphs.push([]) // a newline starts a new paragraph
 			const text = segment.replace(/\r/g, '')
-			if (text !== '') paragraphs[paragraphs.length - 1].push({ text, options: run.options || {} })
+			if (text !== '') paragraphs[paragraphs.length - 1]?.push({ text, options: run.options || {} })
 		})
 	})
 
@@ -3005,7 +3009,9 @@ export function makeXmlMaster (slide: PresSlideInternal, layouts: SlideLayoutInt
  * @return {string} XML
  */
 export function makeXmlSlideLayoutRel (layoutNumber: number, slideLayouts: SlideLayoutInternal[]): string {
-	return slideObjectRelationsToXml(slideLayouts[layoutNumber - 1], [
+	const slideLayout = slideLayouts[layoutNumber - 1]
+	if (!slideLayout) throw new Error(`makeXmlSlideLayoutRel: no slide layout at index ${layoutNumber - 1}`)
+	return slideObjectRelationsToXml(slideLayout, [
 		{
 			target: '../slideMasters/slideMaster1.xml',
 			type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster',
@@ -3022,6 +3028,7 @@ export function makeXmlSlideLayoutRel (layoutNumber: number, slideLayouts: Slide
  */
 export function makeXmlSlideRel (slides: PresSlideInternal[], slideLayouts: SlideLayoutInternal[], slideNumber: number): string {
 	const slide = slides[slideNumber - 1]
+	if (!slide) throw new Error(`makeXmlSlideRel: no slide at index ${slideNumber - 1}`)
 	const defaultRels = [
 		{
 			target: `../slideLayouts/slideLayout${getLayoutIdxForSlide(slides, slideLayouts, slideNumber)}.xml`,
@@ -3187,7 +3194,7 @@ export function makeXmlNotesMasterRel (): string {
  */
 function getLayoutIdxForSlide (slides: PresSlideInternal[], slideLayouts: SlideLayoutInternal[], slideNumber: number): number {
 	for (let i = 0; i < slideLayouts.length; i++) {
-		if (slideLayouts[i]._name === slides[slideNumber - 1]._slideLayout?._name) {
+		if (slideLayouts[i]?._name === slides[slideNumber - 1]?._slideLayout?._name) {
 			return i + 1
 		}
 	}
@@ -3412,7 +3419,7 @@ function genXmlTableStyleRegion (name: string, region: TableStyleRegionProps): s
  */
 function genXmlTableStyleBorders (border: BorderProps | BorderProps[]): string {
 	// NOTE: order MUST be left,right,top,bottom,insideH,insideV (CT_TableCellBorderStyle sequence)
-	let sides: Array<[string, BorderProps]>
+	let sides: Array<[string, BorderProps | undefined]>
 	if (Array.isArray(border)) {
 		const [top, right, bottom, left] = border // TRBL input order
 		sides = [['left', left], ['right', right], ['top', top], ['bottom', bottom]]

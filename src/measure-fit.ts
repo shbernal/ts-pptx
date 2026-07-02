@@ -247,9 +247,11 @@ function * walkTableGrid (rows: TableCell[][], numCols: number): Generator<GridP
 	// occupied[c] = rows still covered by a rowspan started above (incl. current row).
 	const occupied = new Array<number>(numCols).fill(0)
 	for (let r = 0; r < rows.length; r++) {
+		const row = rows[r]
+		if (!row) continue
 		let col = 0
-		for (const cell of rows[r]) {
-			while (col < numCols && occupied[col] > 0) col++
+		for (const cell of row) {
+			while (col < numCols && (occupied[col] ?? 0) > 0) col++
 			if (col >= numCols) break
 			const colspan = Math.max(1, Number(cell?.options?.colspan) || 1)
 			const rowspan = Math.min(Math.max(1, Number(cell?.options?.rowspan) || 1), rows.length - r)
@@ -259,7 +261,10 @@ function * walkTableGrid (rows: TableCell[][], numCols: number): Generator<GridP
 			col = colEnd
 			yield { cell, row: r, col: colStart, rowSpan: rowspan, colSpan: colEnd - colStart }
 		}
-		for (let c = 0; c < numCols; c++) if (occupied[c] > 0) occupied[c]--
+		for (let c = 0; c < numCols; c++) {
+			const cur = occupied[c] ?? 0
+			if (cur > 0) occupied[c] = cur - 1
+		}
 	}
 }
 
@@ -288,7 +293,7 @@ export function computeTableLayout (rows: TableCell[][], opts: TableProps, presL
 
 	// Prefix-sum column x offsets (length numCols+1): colXEmu[c] = left edge of column c.
 	const colXEmu = new Array<number>(numCols + 1).fill(0)
-	for (let c = 0; c < numCols; c++) colXEmu[c + 1] = colXEmu[c] + (colWidthsEmu[c] ?? 0)
+	for (let c = 0; c < numCols; c++) colXEmu[c + 1] = (colXEmu[c] ?? 0) + (colWidthsEmu[c] ?? 0)
 
 	const tableHeightEmu = opts.h != null ? getSmartParseNumber(opts.h, 'Y', presLayout) : 0
 	// Explicit row height (EMU) or null when the row is auto-height. An array `rowH`
@@ -342,17 +347,17 @@ export function computeTableLayout (rows: TableCell[][], opts: TableProps, presL
 			const ins = resolveCellInsetsEmu(eff.margin)
 			const innerWidthPt = (widthEmu - ins.marL - ins.marR) / EMU_PER_POINT
 			const contentEmu = estimateContentHeightEmu(p.cell, eff, innerWidthPt) + ins.marT + ins.marB
-			if (contentEmu > rowHeightsEmu[p.row]) rowHeightsEmu[p.row] = contentEmu
+			if (contentEmu > (rowHeightsEmu[p.row] ?? 0)) rowHeightsEmu[p.row] = contentEmu
 		}
 	}
 
 	// A row touched only by rowspans (no single-row cell, no explicit height) still
 	// needs a non-zero height: give it one default line.
-	for (let r = 0; r < numRows; r++) if (rowHeightsEmu[r] <= 0) rowHeightsEmu[r] = defLineEmu
+	for (let r = 0; r < numRows; r++) if ((rowHeightsEmu[r] ?? 0) <= 0) rowHeightsEmu[r] = defLineEmu
 
 	// Prefix-sum row y offsets.
 	const rowYEmu = new Array<number>(numRows + 1).fill(0)
-	for (let r = 0; r < numRows; r++) rowYEmu[r + 1] = rowYEmu[r] + rowHeightsEmu[r]
+	for (let r = 0; r < numRows; r++) rowYEmu[r + 1] = (rowYEmu[r] ?? 0) + (rowHeightsEmu[r] ?? 0)
 
 	// PASS 2: emit one rect per origin cell.
 	const cells: TableCellLayout[] = placed.map(({ p, colStart, colEnd }) => {
@@ -364,18 +369,18 @@ export function computeTableLayout (rows: TableCell[][], opts: TableProps, presL
 			col: p.col,
 			rowSpan: p.rowSpan,
 			colSpan: p.colSpan,
-			xIn: emuToInches(tableXEmu + colXEmu[colStart]),
-			yIn: emuToInches(tableYEmu + rowYEmu[p.row]),
-			wIn: emuToInches(colXEmu[colEnd] - colXEmu[colStart]),
-			hIn: emuToInches(rowYEmu[rowEnd] - rowYEmu[p.row]),
+			xIn: emuToInches(tableXEmu + (colXEmu[colStart] ?? 0)),
+			yIn: emuToInches(tableYEmu + (rowYEmu[p.row] ?? 0)),
+			wIn: emuToInches((colXEmu[colEnd] ?? 0) - (colXEmu[colStart] ?? 0)),
+			hIn: emuToInches((rowYEmu[rowEnd] ?? 0) - (rowYEmu[p.row] ?? 0)),
 			heightExact,
 		}
 	})
 
 	return {
 		cells,
-		widthIn: emuToInches(colXEmu[numCols]),
-		heightIn: emuToInches(rowYEmu[numRows]),
+		widthIn: emuToInches(colXEmu[numCols] ?? 0),
+		heightIn: emuToInches(rowYEmu[numRows] ?? 0),
 		heightExact: rowExact.every(Boolean),
 	}
 }

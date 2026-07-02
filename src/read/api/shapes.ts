@@ -63,7 +63,7 @@ function extFromContentType(contentType: string): string {
 	const known = IMAGE_EXTENSION_BY_CONTENT_TYPE[contentType.toLowerCase()]
 	if (known) return known
 	const subtype = contentType.toLowerCase().split('/')[1] ?? ''
-	const ext = subtype.split('+')[0].replace(/^x-/, '')
+	const ext = (subtype.split('+')[0] ?? '').replace(/^x-/, '')
 	if (!ext) throw new Error(`Cannot derive a file extension from content type "${contentType}"; pass { extension }`)
 	return ext
 }
@@ -645,10 +645,12 @@ export abstract class Shape {
 		let orientation = 1
 		for (let index = groups.length - 1; index >= 0; index--) {
 			const group = groups[index]
+			if (!group) continue
 			const groupRotation = group.rotation * orientation
 			center = rotatePoint(center, group.center, groupRotation)
 			for (let innerIndex = 0; innerIndex < index; innerIndex++) {
-				groups[innerIndex].center = rotatePoint(groups[innerIndex].center, group.center, groupRotation)
+				const inner = groups[innerIndex]
+				if (inner) inner.center = rotatePoint(inner.center, group.center, groupRotation)
 			}
 			rotation += groupRotation
 			if (group.flipH !== group.flipV) orientation *= -1
