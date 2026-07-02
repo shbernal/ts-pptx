@@ -204,7 +204,7 @@ export default class Slide {
 	addChart(type: CHART_NAME | IChartMulti[], dataOrOptions: OptsChartData[] | IChartOpts = [], options?: IChartOpts): Slide {
 		// FUTURE: TODO-VERSION-4: Remove first arg - only take data and opts, with "type" required on opts
 		// Set `_type` on IChartOptsLib as its what is used as object is passed around
-		const optionsWithType = (Array.isArray(type) && !Array.isArray(dataOrOptions) ? dataOrOptions : options) as IChartOptsLib | undefined
+		const optionsWithType: IChartOptsLib | undefined = Array.isArray(type) && !Array.isArray(dataOrOptions) ? dataOrOptions : options
 		if (optionsWithType) optionsWithType._type = type
 		genObj.addChartDefinition(this, type, dataOrOptions, options)
 		return this

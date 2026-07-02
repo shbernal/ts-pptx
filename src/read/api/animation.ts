@@ -226,7 +226,7 @@ function targetsAnySpid(par: Element, spids: Set<number>): boolean {
 
 /** Parse a namespaced scaffold string and import its root into `doc`. */
 function importScaffold(doc: Document, xml: string): Element {
-	return doc.importNode(parseXml(xml).documentElement as Element, true) as Element
+	return doc.importNode(parseXml(xml).documentElement as Element, true)
 }
 
 /** The destination `mainSeq` `p:childTnLst` to append click groups into, creating the timing/seq scaffold as needed. */
@@ -237,7 +237,7 @@ function getOrCreateMainSeqChildTnLst(root: Element, doc: Document): Element {
 		insertInOrder(root, timing, ['p:extLst'])
 	}
 	// Reuse an existing mainSeq if present.
-	const existingSeq = timing.getElementsByTagNameNS(P_NS, 'seq')[0] as Element | undefined
+	const existingSeq = timing.getElementsByTagNameNS(P_NS, 'seq')[0]
 	if (existingSeq) {
 		const seqCTn = firstChild(existingSeq, 'p:cTn')
 		if (seqCTn) {
@@ -250,14 +250,15 @@ function getOrCreateMainSeqChildTnLst(root: Element, doc: Document): Element {
 		}
 	}
 	// Otherwise insert a fresh mainSeq into the tmRoot child list (before any media nodes).
-	let tmRootChildLst = timing.getElementsByTagNameNS(P_NS, 'childTnLst')[0] as Element | undefined
+	let tmRootChildLst = timing.getElementsByTagNameNS(P_NS, 'childTnLst')[0]
 	if (!tmRootChildLst) {
 		// Degenerate timing with no tmRoot child list — graft the full scaffold's tnLst.
 		const fresh = importScaffold(doc, TIMING_SCAFFOLD)
 		const freshTnLst = firstChild(fresh, 'p:tnLst')
 		if (freshTnLst) insertInOrder(timing, freshTnLst, ['p:bldLst', 'p:extLst'])
-		tmRootChildLst = timing.getElementsByTagNameNS(P_NS, 'childTnLst')[0] as Element
+		tmRootChildLst = timing.getElementsByTagNameNS(P_NS, 'childTnLst')[0]
 	}
+	if (!tmRootChildLst) throw new Error('getOrCreateMainSeqChildTnLst: failed to resolve or create the tmRoot child list')
 	const seq = importScaffold(doc, MAIN_SEQ_SCAFFOLD)
 	setAttr(firstChild(seq, 'p:cTn') as Element, 'id', String(maxCTnId(timing) + 1))
 	tmRootChildLst.insertBefore(seq, tmRootChildLst.firstChild)
@@ -290,7 +291,7 @@ export function carryShapeAnimations(sourceRoot: Element, targetRoot: Element, s
 	const carriedSpids = new Set(spidMap.keys())
 
 	// Source click groups (direct children of the mainSeq child list) that target a carried shape.
-	const sourceSeq = sourceTiming.getElementsByTagNameNS(P_NS, 'seq')[0] as Element | undefined
+	const sourceSeq = sourceTiming.getElementsByTagNameNS(P_NS, 'seq')[0]
 	const groups: Element[] = []
 	if (sourceSeq) {
 		const seqCTn = firstChild(sourceSeq, 'p:cTn')
@@ -318,7 +319,7 @@ export function carryShapeAnimations(sourceRoot: Element, targetRoot: Element, s
 	let nextId = maxCTnId(destTiming) + 1
 
 	for (const par of groups) {
-		const clone = doc.importNode(par, true) as Element
+		const clone = doc.importNode(par, true)
 		remapSpids(clone, spidMap)
 		nextId = renumberCTnIds(clone, nextId)
 		destChildLst.appendChild(clone)
@@ -326,7 +327,7 @@ export function carryShapeAnimations(sourceRoot: Element, targetRoot: Element, s
 	if (bldPs.length > 0) {
 		const destBldLst = getOrCreateBldLst(destTiming, doc)
 		for (const bldP of bldPs) {
-			const clone = doc.importNode(bldP, true) as Element
+			const clone = doc.importNode(bldP, true)
 			const spid = intValue(attr(clone, 'spid'))
 			if (spid !== null && spidMap.has(spid)) setAttr(clone, 'spid', String(spidMap.get(spid)))
 			destBldLst.appendChild(clone)

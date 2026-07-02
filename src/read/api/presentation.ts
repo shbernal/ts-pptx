@@ -1445,7 +1445,7 @@ export class Presentation {
 
 		const result: Shape[] = []
 		for (const shapeEl of sourceElements) {
-			const imported = targetDoc.importNode(shapeEl, true) as Element
+			const imported = targetDoc.importNode(shapeEl, true)
 
 			// Drag media/charts/embeddings across and rewrite refs to fresh host rels.
 			this.#rewriteCarriedRels(imported, sourceOpc, sourceRels, target.partName, targetRels, relIdMap)
@@ -1691,7 +1691,7 @@ export class Presentation {
 			if (decorations.length === 0) continue
 			const sourceRels = sourceOpc.relationshipsFor(partName)
 			for (const deco of decorations) {
-				const imported = doc.importNode(deco, true) as Element
+				const imported = doc.importNode(deco, true)
 				this.#rewriteCarriedRels(imported, sourceOpc, sourceRels, newPartName, slideRels, relIdMap)
 				spTree.insertBefore(imported, anchor)
 			}

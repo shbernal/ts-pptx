@@ -158,7 +158,7 @@ function readPoints(cache: Element | null): (string | null)[] {
 		const idx = intValue(attr(pt, 'idx')) ?? 0
 		if (idx + 1 > count) count = idx + 1
 	}
-	const points: (string | null)[] = new Array(count).fill(null)
+	const points: (string | null)[] = new Array<string | null>(count).fill(null)
 	for (const pt of pts) {
 		const idx = intValue(attr(pt, 'idx')) ?? 0
 		points[idx] = firstChild(pt, 'c:v')?.textContent ?? null

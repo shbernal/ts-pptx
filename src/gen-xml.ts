@@ -38,6 +38,7 @@ import type {
 	PresSlideInternal,
 	ResolvedCommentAuthor,
 	ShadowProps,
+	ShapeFillProps,
 	SlideLayoutInternal,
 	TableCell,
 	TableCellProps,
@@ -341,6 +342,19 @@ const PLACEHOLDER_TYPE_MAP = PLACEHOLDER_TYPES as Record<string, string>
  * @param {BorderProps[]} cellBorder - 4-tuple of border props in [top, right, bottom, left] order
  * @return {string} concatenated border element XML, in the LRTB document order PowerPoint expects
  */
+/**
+ * Extract a fill color string from a cell's resolved `_optImp` (untyped imported options).
+ * `_optImp.fill` may be a raw color string or a `{ color }` object; anything else yields ''.
+ */
+function importedFillColor (optImp: unknown): string {
+	if (!optImp || typeof optImp !== 'object' || !('fill' in optImp)) return ''
+	const fill: unknown = optImp.fill
+	if (fill && typeof fill === 'object' && 'color' in fill) {
+		return typeof fill.color === 'string' ? fill.color : ''
+	}
+	return typeof fill === 'string' ? fill : ''
+}
+
 function genTableCellBorderXml (cellBorder: BorderProps[]): string {
 	let strXml = ''
 	// NOTE: *** IMPORTANT! *** LRTB order matters! (Reorder a line below to watch the borders go wonky in MS-PPT-2013!!)
@@ -638,13 +652,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 								if (originBorder) spanPrXml += genTableCellBorderXml(originBorder)
 								// Resolve the origin's fill with the same precedence the origin cell itself uses below,
 								// so the whole merged region fills uniformly.
-								let spanFill =
-									origin._optImp?.fill?.color
-										? origin._optImp.fill.color
-										: origin._optImp?.fill && typeof origin._optImp.fill === 'string'
-											? origin._optImp.fill
-											: ''
-								spanFill = spanFill || originOpts.fill ? originOpts.fill : ''
+								const spanFill: string | ShapeFillProps = importedFillColor(origin._optImp) || originOpts.fill || ''
 								if (spanFill) spanPrXml += genXmlColorSelection(spanFill)
 							}
 							strXml += `<a:tc${cellSpanAttrStr}><a:tcPr>${spanPrXml}</a:tcPr></a:tc>`
@@ -668,13 +676,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 							: ''
 						const cellTextDir = (cellOpts.textDirection && cellOpts.textDirection !== 'horz') ? ` vert="${cellOpts.textDirection}"` : ''
 
-						let fillColor =
-							cell._optImp?.fill?.color
-								? cell._optImp.fill.color
-								: cell._optImp?.fill && typeof cell._optImp.fill === 'string'
-									? cell._optImp.fill
-									: ''
-						fillColor = fillColor || cellOpts.fill ? cellOpts.fill : ''
+						const fillColor: string | ShapeFillProps = importedFillColor(cell._optImp) || cellOpts.fill || ''
 						const cellFill = fillColor ? genXmlColorSelection(fillColor) : ''
 
 						let cellMargin = cellOpts.margin === 0 || cellOpts.margin ? cellOpts.margin : DEF_CELL_MARGIN_IN
@@ -914,7 +916,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 							cy = pixelsToEmu(natural.h, 96)
 						} else if (szAuto.h) {
 							// Width supplied, derive height
-							cy = Math.round(cx * (natural.h / natural.w)) as Emu
+							cy = Math.round(cx * (natural.h / natural.w))
 						} else if (szAuto.w) {
 							// Height supplied, derive width
 							cx = Math.round(cy * (natural.w / natural.h)) as Emu

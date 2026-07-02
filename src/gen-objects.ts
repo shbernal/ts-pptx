@@ -1874,7 +1874,7 @@ export function addPlaceholdersToSlideLayouts(slide: PresSlideInternal): void {
  * @param {BackgroundProps} props - color string or an object with image definition
  * @param {PresSlideInternal} target - slide object that the background is set to
  */
-export function addBackgroundDefinition(props: BackgroundProps, target: SlideLayoutInternal): void {
+export function addBackgroundDefinition(props: BackgroundProps | undefined, target: SlideLayoutInternal): void {
 	// A: @deprecated
 	if (target.bkgd) {
 		if (!target.background) target.background = {}
@@ -1926,7 +1926,7 @@ function createHyperlinkRels(
 	if (typeof text === 'string' || typeof text === 'number') return
 	// IMPORTANT: "else if" Array.isArray must come before typeof===object! Otherwise, code will exhaust recursion!
 	else if (Array.isArray(text)) textObjs = text
-	else if (typeof text === 'object') textObjs = [text as HyperlinkTextObject]
+	else if (typeof text === 'object') textObjs = [text]
 
 	textObjs.forEach((text: HyperlinkTextObject | TableCell[], idx: number) => {
 		// NOTE: `text` can be an array of other `text` objects (table cell word-level formatting), continue parsing using recursion

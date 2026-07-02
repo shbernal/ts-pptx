@@ -332,7 +332,7 @@ function applyInheritedBackground(slideRoot: Element, ctx: FlattenContext): void
 	const cSld = firstChild(slideRoot, 'p:cSld')
 	if (!cSld || firstChild(cSld, 'p:bg')) return // no cSld, or the slide already owns a background
 	const doc = ownerDocumentOf(slideRoot)
-	const bg = doc.importNode(inherited, true) as Element
+	const bg = doc.importNode(inherited, true)
 	insertInOrder(cSld, bg, ['p:spTree', 'p:custDataLst', 'p:controls', 'p:extLst'])
 }
 
@@ -601,7 +601,7 @@ function writeRunColor(run: Element, color: ResolvedColor): void {
 	const fill = createElement(doc, 'a:solidFill')
 	const srgb = createElement(doc, 'a:srgbClr')
 	setAttr(srgb, 'val', color.hex)
-	for (const t of color.transforms) srgb.appendChild(t.cloneNode(true) as Element)
+	for (const t of color.transforms) srgb.appendChild(t.cloneNode(true))
 	fill.appendChild(srgb)
 	insertInOrder(rPr, fill, RPR_FILL_AFTER)
 }
@@ -626,7 +626,7 @@ function resolvePlaceholderGeometry(slideRoot: Element, ctx: FlattenContext): vo
 		const xfrm = placeholderInheritedXfrm(attr(ph, 'type'), attr(ph, 'idx') ?? '0', ctx)
 		if (!xfrm) continue
 		const target = getOrAddChild(sp, 'p:spPr', SHAPE_AFTER_SPPR)
-		insertInOrder(target, xfrm.cloneNode(true) as Element, SPPR_XFRM_AFTER)
+		insertInOrder(target, xfrm.cloneNode(true), SPPR_XFRM_AFTER)
 	}
 }
 
@@ -729,7 +729,7 @@ function resolvePlaceholderListStyle(shapeRoot: Element, ctx: FlattenContext): v
 			const own = slideLst && firstChild(slideLst, level)
 			const src = own ?? tiers.map((t) => firstChild(t, level)).find((e): e is Element => !!e) ?? null
 			if (!src) continue
-			merged.appendChild(src.cloneNode(true) as Element)
+			merged.appendChild(src.cloneNode(true))
 			any = true
 		}
 		if (!any) continue

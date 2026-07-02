@@ -319,7 +319,7 @@ export function getSlidesForTableRows(tableRows: TableCell[][] = [], tableProps:
 	// Track per-column remaining rowspan depths so we can suppress page breaks that would
 	// fall inside a rowspan group. colSpanDepths[c] = how many more rows column c is still
 	// occupied by a rowspan that started in a previous row.
-	const colSpanDepths: number[] = new Array(numCols).fill(0)
+	const colSpanDepths: number[] = new Array<number>(numCols).fill(0)
 
 	// STEP 3: Calculate width using tableProps.colW if possible
 	if (!tablePropW && tableProps.colW) {

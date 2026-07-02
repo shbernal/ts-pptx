@@ -28,11 +28,11 @@ type RunOpts = TextPropsOptions & ObjectOptions
 
 /** Normalize `slideObj.text` (string | TextProps | TextProps[]) to a run list. */
 function normalizeRuns (obj: ISlideObject): TextProps[] {
-	const opts = (obj.options ?? {}) as ObjectOptions
+	const opts = (obj.options ?? {})
 	const text = obj.text as unknown
 	if (text == null) return []
 	if (typeof text === 'string' || typeof text === 'number') return [{ text: String(text), options: opts }]
-	if (!Array.isArray(text) && typeof text === 'object' && 'text' in (text as object)) {
+	if (!Array.isArray(text) && typeof text === 'object' && 'text' in (text)) {
 		const t = text as TextProps
 		return [{ text: t.text, options: t.options ?? opts }]
 	}
@@ -194,7 +194,7 @@ function resolveCellInsetsEmu (margin: Margin | undefined): CellInsetsEmu {
 	let m: Margin = margin === 0 || margin ? margin : DEF_CELL_MARGIN_IN
 	if (typeof m === 'number') m = [m, m, m, m]
 	if (!Array.isArray(m) || m.length !== 4 || m.some(v => typeof v !== 'number' || !isFinite(v))) m = DEF_CELL_MARGIN_IN
-	const arr = m as [number, number, number, number]
+	const arr = m
 	const toEmu = arr[0] >= 1 ? valToPts : inch2Emu
 	return { marT: toEmu(arr[0]), marR: toEmu(arr[1]), marB: toEmu(arr[2]), marL: toEmu(arr[3]) }
 }
@@ -209,7 +209,7 @@ function scaleCellFontSizes (cell: TableCell, eff: RunOpts, f: number): void {
 	const baseSize = Number(eff.fontSize ?? DEF_FONT_SIZE)
 	cell.options = { ...(cell.options ?? {}), fontSize: shrink(baseSize) }
 	if (Array.isArray(cell.text)) {
-		cell.text = (cell.text as TableCell[]).map(run =>
+		cell.text = (cell.text).map(run =>
 			run && typeof run === 'object' && typeof run.options?.fontSize === 'number'
 				? { ...run, options: { ...run.options, fontSize: shrink(run.options.fontSize) } }
 				: run
@@ -343,7 +343,7 @@ export function computeTableLayout (rows: TableCell[][], opts: TableProps, presL
 		if (p.rowSpan === 1 && !rowExact[p.row]) {
 			let widthEmu = 0
 			for (let c = colStart; c < colEnd; c++) widthEmu += colWidthsEmu[c] ?? 0
-			const eff = effectiveCellOpts((p.cell?.options ?? {}) as TableCellProps, o)
+			const eff = effectiveCellOpts((p.cell?.options ?? {}), o)
 			const ins = resolveCellInsetsEmu(eff.margin)
 			const innerWidthPt = (widthEmu - ins.marL - ins.marR) / EMU_PER_POINT
 			const contentEmu = estimateContentHeightEmu(p.cell, eff, innerWidthPt) + ins.marT + ins.marB
@@ -416,7 +416,7 @@ function measureOptsToRunOpts (opts: MeasureTextOptions): RunOpts {
 		lineSpacingMultiple: opts.lineSpacingMultiple,
 		paraSpaceBefore: opts.paraSpaceBefore,
 		paraSpaceAfter: opts.paraSpaceAfter,
-	} as RunOpts
+	}
 }
 
 const UNMEASURABLE: TextMeasurement = Object.freeze({
@@ -528,7 +528,7 @@ export function applyMeasuredFit (slides: PresSlideInternal[], registry: FontMet
 
 		for (const { cell, row: r, col: colStart, colSpan, rowSpan } of walkTableGrid(rows, numCols)) {
 			const colEnd = colStart + colSpan
-			const cellOpts = (cell?.options ?? {}) as TableCellProps
+			const cellOpts = (cell?.options ?? {})
 			const fit = cellOpts.fit ?? (tableOpts.fit === 'shrink' ? 'shrink' : undefined)
 			if (fit !== 'shrink') continue
 

@@ -1259,8 +1259,9 @@ export default class PptxGenJS {
 	 * @param {SlideMasterProps} props - layout properties
 	 */
 	defineSlideMaster(props: SlideMasterProps): void {
-		// (ISSUE#406;PULL#1176) deep clone the props object to avoid mutating the original object
-		const propsClone = JSON.parse(JSON.stringify(props))
+		// (ISSUE#406;PULL#1176) deep clone the props object to avoid mutating the original object.
+		// structuredClone preserves the `SlideMasterProps` type (unlike JSON round-tripping, which widens to `any`).
+		const propsClone = structuredClone(props)
 		if (!propsClone.title) throw new Error('defineSlideMaster() object argument requires a `title` value. (https://gitbrent.github.io/PptxGenJS/docs/masters.html)')
 
 		const newLayout: SlideLayoutInternal = {
@@ -1274,8 +1275,8 @@ export default class PptxGenJS {
 			_slideNum: 1000 + this._slideLayouts.length + 1,
 			_slideNumberProps: propsClone.slideNumber || null,
 			_slideObjects: [],
-			background: propsClone.background || null,
-			bkgd: propsClone.bkgd || null,
+			background: propsClone.background,
+			bkgd: propsClone.bkgd,
 		}
 
 		// STEP 1: Create the Slide Master/Layout

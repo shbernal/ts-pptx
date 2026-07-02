@@ -168,7 +168,7 @@ export function resolveTableColWidthsEmu (colW: Coord[] | Coord | undefined, tot
 			return typeof n === 'number' && Number.isFinite(n) ? Math.round(inch2Emu(n)) : even
 		})
 	}
-	return new Array(colCount).fill(even)
+	return new Array<number>(colCount).fill(even)
 }
 
 /**
