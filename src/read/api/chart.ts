@@ -38,7 +38,8 @@ export class Chart {
 
 	/** The chart title (`c:chart/c:title` rich text), or `null` when absent/auto. */
 	get title(): string | null {
-		const title = this.#chart() && firstChild(this.#chart()!, 'c:title')
+		const chart = this.#chart()
+		const title = chart && firstChild(chart, 'c:title')
 		if (!title) return null
 		const tx = firstChild(title, 'c:tx')
 		const rich = tx && firstChild(tx, 'c:rich')

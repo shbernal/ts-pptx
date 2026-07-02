@@ -8,7 +8,7 @@ import { OpcPackage, type OpcInput } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
 import type { Relationships } from '../opc/relationships.js'
 import { relativePartName, relsPartNameFor } from '../opc/partnames.js'
-import { ELEMENT_NODE, OOXML_NS, attr, createElement, firstChild, getElements, getOrAddChild, insertInOrder, intValue, removeChildrenByQName, setAttr, type Element } from '../oxml/dom.js'
+import { ELEMENT_NODE, OOXML_NS, attr, createElement, firstChild, getElements, getOrAddChild, insertInOrder, intValue, ownerDocumentOf, removeChildrenByQName, setAttr, type Element } from '../oxml/dom.js'
 import { EMBEDDED_FONT_SLOTS, FONT_DATA_CONTENT_TYPE, FONT_DATA_EXTENSION, FONT_REL_TYPE, type EmbeddedFont, type EmbeddedFontSlot } from '../../embedded-fonts.js'
 import { flattenShape, flattenSlide, remapLiteralColors, restyleSlide, type FlattenContext } from '../oxml/theme.js'
 import { resolveSlideThemeParts } from './theme-context.js'
@@ -1582,7 +1582,7 @@ export class Presentation {
 			if (present.has(id)) continue
 			const src = sourceStyles.get(id)
 			if (!src) continue
-			destList.appendChild(destList.ownerDocument!.importNode(src, true))
+			destList.appendChild(ownerDocumentOf(destList).importNode(src, true))
 			present.add(id)
 			added = true
 		}
@@ -1679,7 +1679,7 @@ export class Presentation {
 		const spTree = cSld && firstChild(cSld, 'p:spTree')
 		if (!spTree) return
 
-		const doc = slideRoot.ownerDocument!
+		const doc = ownerDocumentOf(slideRoot)
 		const slideRels = this.opc.relationshipsFor(newPartName)
 		const relIdMap = new Map<string, string>()
 		// Insert ahead of the slide's own first shape so decorations render behind it.
@@ -1727,7 +1727,8 @@ export class Presentation {
 		const key = `${sourceRels.sourcePartName}|${id}`
 		const cached = relIdMap.get(key)
 		if (cached) return cached
-		const rel = sourceRels.get(id)!
+		const rel = sourceRels.get(id)
+		if (!rel) throw new Error(`Relationships of ${sourceRels.sourcePartName}: no relationship with id ${id}`)
 		const newId =
 			rel.targetMode === 'External'
 				? slideRels.add(rel.type, rel.target, 'External').id

@@ -35,7 +35,7 @@
  * `clrMap` / `clrScheme` / `fmtScheme` parts (and the source layout/master roots
  * for the placeholder inheritance passes) and owns marking the slide dirty.
  */
-import { ELEMENT_NODE, OOXML_NS, attr, createElement, firstChild, getElements, getOrAddChild, insertInOrder, intValue, removeChildrenByQName, setAttr, type Element } from './dom.js'
+import { ELEMENT_NODE, OOXML_NS, attr, createElement, firstChild, getElements, getOrAddChild, insertInOrder, intValue, ownerDocumentOf, removeChildrenByQName, replaceInParent, setAttr, type Element } from './dom.js'
 import { FILL_CHOICES } from './fill.js'
 
 /** The 12 `a:clrScheme` slot names, in schema order. */
@@ -292,7 +292,7 @@ export function remapLiteralColors(slideRoot: Element, ctx: ColorContext): void 
 	const slotByHex = reverseClrScheme(ctx.clrScheme)
 	if (slotByHex.size === 0) return
 	const tokenBySlot = reverseClrMap(ctx.clrMap)
-	const doc = slideRoot.ownerDocument!
+	const doc = ownerDocumentOf(slideRoot)
 	for (const srgb of elementsByTag(slideRoot, OOXML_NS.a, 'srgbClr')) {
 		const hex = attr(srgb, 'val')
 		const slot = hex ? slotByHex.get(hex.toUpperCase()) : undefined
@@ -300,7 +300,7 @@ export function remapLiteralColors(slideRoot: Element, ctx: ColorContext): void 
 		const scheme = createElement(doc, 'a:schemeClr')
 		setAttr(scheme, 'val', tokenBySlot.get(slot) ?? slot) // route through the source clrMap; dk1/lt1/… are themselves valid tokens
 		while (srgb.firstChild) scheme.appendChild(srgb.firstChild) // carry transforms
-		srgb.parentNode!.replaceChild(scheme, srgb)
+		replaceInParent(srgb, scheme)
 	}
 }
 
@@ -331,7 +331,7 @@ function applyInheritedBackground(slideRoot: Element, ctx: FlattenContext): void
 	if (!inherited) return
 	const cSld = firstChild(slideRoot, 'p:cSld')
 	if (!cSld || firstChild(cSld, 'p:bg')) return // no cSld, or the slide already owns a background
-	const doc = slideRoot.ownerDocument!
+	const doc = ownerDocumentOf(slideRoot)
 	const bg = doc.importNode(inherited, true) as Element
 	insertInOrder(cSld, bg, ['p:spTree', 'p:custDataLst', 'p:controls', 'p:extLst'])
 }
@@ -342,7 +342,7 @@ function applyInheritedBackground(slideRoot: Element, ctx: FlattenContext): void
  * theme's `fmtScheme`. A `bgPr` background is left for the scheme-colour sweep.
  */
 function materializeBackground(slideRoot: Element, ctx: FlattenContext): void {
-	const doc = slideRoot.ownerDocument!
+	const doc = ownerDocumentOf(slideRoot)
 	for (const bg of elementsByTag(slideRoot, OOXML_NS.p, 'bg')) {
 		const bgRef = firstChild(bg, 'p:bgRef')
 		if (!bgRef) continue
@@ -362,7 +362,7 @@ function materializeBackground(slideRoot: Element, ctx: FlattenContext): void {
 
 /** Rewrite every `a:schemeClr` under `root` to a literal `a:srgbClr` when resolvable. */
 function resolveSchemeColors(root: Element, ctx: FlattenContext): void {
-	const doc = root.ownerDocument!
+	const doc = ownerDocumentOf(root)
 	for (const schemeClr of elementsByTag(root, OOXML_NS.a, 'schemeClr')) {
 		const token = attr(schemeClr, 'val')
 		const hex = token ? resolveSchemeToken(token, ctx) : null
@@ -370,7 +370,7 @@ function resolveSchemeColors(root: Element, ctx: FlattenContext): void {
 		const srgb = createElement(doc, 'a:srgbClr')
 		setAttr(srgb, 'val', hex)
 		while (schemeClr.firstChild) srgb.appendChild(schemeClr.firstChild) // carry transforms
-		schemeClr.parentNode!.replaceChild(srgb, schemeClr)
+		replaceInParent(schemeClr, srgb)
 	}
 }
 
@@ -596,7 +596,7 @@ function slideDefinesColor(run: Element, pPr: Element | null, slideLst: Element 
 
 /** Write a resolved colour as an explicit `a:solidFill` (with carried transforms) onto a run's `a:rPr`. */
 function writeRunColor(run: Element, color: ResolvedColor): void {
-	const doc = run.ownerDocument!
+	const doc = ownerDocumentOf(run)
 	const rPr = getOrAddChild(run, 'a:rPr', ['a:t'])
 	const fill = createElement(doc, 'a:solidFill')
 	const srgb = createElement(doc, 'a:srgbClr')
@@ -722,7 +722,7 @@ function resolvePlaceholderListStyle(shapeRoot: Element, ctx: FlattenContext): v
 		const tiers = placeholderInheritedListStyles(attr(ph, 'type'), attr(ph, 'idx') ?? '0', ctx)
 		if (tiers.length === 0) continue
 		const slideLst = firstChild(txBody, 'a:lstStyle')
-		const merged = createElement(txBody.ownerDocument!, 'a:lstStyle')
+		const merged = createElement(ownerDocumentOf(txBody), 'a:lstStyle')
 		let any = false
 		for (const level of LST_STYLE_LEVELS) {
 			// Slide's own level wins; otherwise the most-specific source tier that defines it.
@@ -889,14 +889,14 @@ function materializeStyleRefs(root: Element, ctx: FlattenContext): void {
 
 /** Replace every `phClr` under `el` with the ref colour (ref transforms first, then the `phClr`'s own). */
 function substitutePhClr(el: Element, ref: ResolvedColor): void {
-	const doc = el.ownerDocument!
+	const doc = ownerDocumentOf(el)
 	for (const phClr of elementsByTag(el, OOXML_NS.a, 'schemeClr')) {
 		if (attr(phClr, 'val') !== 'phClr') continue
 		const srgb = createElement(doc, 'a:srgbClr')
 		setAttr(srgb, 'val', ref.hex)
 		for (const t of ref.transforms) srgb.appendChild(t.cloneNode(true))
 		while (phClr.firstChild) srgb.appendChild(phClr.firstChild)
-		phClr.parentNode!.replaceChild(srgb, phClr)
+		replaceInParent(phClr, srgb)
 	}
 }
 

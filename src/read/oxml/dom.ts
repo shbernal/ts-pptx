@@ -122,6 +122,30 @@ export function createElement(doc: Document, qname: string): Element {
 }
 
 /**
+ * The owning document of a node. `Node.ownerDocument` is typed `Document | null`
+ * (it is null only for a `Document` itself), but every element parsed from or
+ * created within a package document has one; this encodes that invariant and
+ * throws loudly if it is ever violated rather than deferring to a downstream NPE.
+ */
+export function ownerDocumentOf(node: Node): Document {
+	const doc = node.ownerDocument
+	if (!doc) throw new Error('Node has no ownerDocument')
+	return doc
+}
+
+/**
+ * Replace `oldNode` with `newNode` in `oldNode`'s parent. `Node.parentNode` is
+ * typed `Node | null`; a node reached by walking a tree always has a parent, so
+ * this captures the common replace-in-place pattern and fails clearly when the
+ * node is unexpectedly detached.
+ */
+export function replaceInParent(oldNode: Node, newNode: Node): void {
+	const parent = oldNode.parentNode
+	if (!parent) throw new Error('Node has no parent to replace within')
+	parent.replaceChild(newNode, oldNode)
+}
+
+/**
  * Set an attribute by qname. An unprefixed name (`sz`, `x`) sets a plain
  * attribute; a prefixed name (`r:id`) resolves the prefix to its namespace and
  * sets it via `setAttributeNS`. The reserved `xml:` prefix is handled by the

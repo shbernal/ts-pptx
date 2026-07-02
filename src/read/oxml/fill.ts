@@ -6,7 +6,7 @@
  * fill first clears any competing choice, then inserts `a:solidFill` in document
  * order. These helpers never mark a part dirty — callers own that.
  */
-import { attr, createElement, firstChild, getOrAddChild, removeChildrenByQName, setAttr, type Element } from './dom.js'
+import { attr, createElement, firstChild, getOrAddChild, ownerDocumentOf, removeChildrenByQName, setAttr, type Element } from './dom.js'
 
 /** The mutually-exclusive fill choices (`EG_FillProperties`); a parent has at most one. */
 export const FILL_CHOICES = ['a:noFill', 'a:solidFill', 'a:gradFill', 'a:blipFill', 'a:pattFill', 'a:grpFill']
@@ -34,7 +34,7 @@ export function solidFillColor(parent: Element | null, qname: string): string | 
 export function setSolidFill(parent: Element, afterOrder: string[], color: { qname: string; val: string }): void {
 	removeChildrenByQName(parent, FILL_CHOICES)
 	const fill = getOrAddChild(parent, 'a:solidFill', afterOrder)
-	const clr = createElement(parent.ownerDocument!, color.qname)
+	const clr = createElement(ownerDocumentOf(parent), color.qname)
 	setAttr(clr, 'val', color.val)
 	fill.appendChild(clr)
 }

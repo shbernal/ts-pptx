@@ -572,7 +572,9 @@ export function applyMeasuredFit (slides: PresSlideInternal[], registry: FontMet
 			if (obj._type !== SLIDE_OBJECT_TYPES.text) continue
 			// Only the bare string forms opt into measurement; an explicit object form is
 			// already baked by the caller, and 'none' is a no-op.
-			const fit = obj.options?.fit
+			const options = obj.options
+			if (!options) continue
+			const fit = options.fit
 			if (fit !== 'shrink' && fit !== 'resize') continue
 
 			const paragraphs = extractParagraphs(obj)
@@ -584,7 +586,7 @@ export function applyMeasuredFit (slides: PresSlideInternal[], registry: FontMet
 				const outcome = solveShrink(paragraphs, box, resolve)
 				if (outcome.kind === 'shrink') {
 					const { fontScalePct, lnSpcReductionPct } = outcome.result
-					obj.options!.fit = {
+					options.fit = {
 						type: 'shrink',
 						fontScale: fontScalePct,
 						lnSpcReduction: lnSpcReductionPct || undefined,
