@@ -212,28 +212,38 @@ silently defeat them.
 
 ### The gap
 
-Gaps 1–3 closed the null-safety knobs, but `tsconfig.base.json` leaves several
-other strictness options off. None have been assessed for cost/value, so their
-status is simply unknown — this gap tracks *deciding* on each, not a commitment
-to enable them.
+Gaps 1–3 closed the null-safety knobs, but `tsconfig.base.json` left several
+other strictness options off. Each has now been surveyed in isolation
+(`tsc -p tsconfig.json --<flag>`, tsc 6.0.3) and the cost recorded below, so the
+"unknown" status is resolved. This gap now tracks the two remaining expensive
+ratchets, not a blanket survey.
 
-| Option                              | Guards against                                   |
-| ----------------------------------- | ------------------------------------------------ |
-| `exactOptionalPropertyTypes`        | `{x?: T}` silently accepting an explicit `undefined` |
-| `noImplicitReturns`                 | a code path that falls off the end without a value |
-| `noFallthroughCasesInSwitch`        | an unintended `case` fallthrough                 |
-| `noImplicitOverride`                | a method that shadows a base method by accident  |
-| `noUnusedLocals` / `noUnusedParameters` | dead bindings (partly covered by ESLint today) |
-| `noPropertyAccessFromIndexSignature`| natural companion to `noUncheckedIndexedAccess`  |
-| `verbatimModuleSyntax`              | type-only imports leaking into the JS output     |
+| Option                              | Errors | Guards against                                   | Status |
+| ----------------------------------- | -----: | ------------------------------------------------ | ------ |
+| `noImplicitReturns`                 |      0 | a code path that falls off the end without a value | ✅ enabled |
+| `noFallthroughCasesInSwitch`        |      0 | an unintended `case` fallthrough                 | ✅ enabled |
+| `noImplicitOverride`                |      0 | a method that shadows a base method by accident  | ✅ enabled |
+| `noUnusedLocals`                    |      0 | dead local bindings                              | ✅ enabled |
+| `noUnusedParameters`                |      0 | dead parameters                                  | ✅ enabled |
+| `noPropertyAccessFromIndexSignature`|     25 | natural companion to `noUncheckedIndexedAccess`  | deferred (ratchet) |
+| `verbatimModuleSyntax`              |     63 | type-only imports leaking into the JS output     | deferred (ratchet) |
+| `exactOptionalPropertyTypes`        |    112 | `{x?: T}` silently accepting an explicit `undefined` | deferred (ratchet) |
 
 ### Approach
 
-- [ ] Flip each on in isolation, count the errors, and record cost per knob.
-- [ ] Enable the cheap/high-value ones (likely `noImplicitReturns`,
-      `noFallthroughCasesInSwitch`, `noImplicitOverride`) directly.
-- [ ] Treat `exactOptionalPropertyTypes` and `verbatimModuleSyntax` as their own
-      ratchets if the error count is large.
+- [x] Flip each on in isolation, count the errors, and record cost per knob
+      (table above).
+- [x] Enable the five zero-cost knobs directly in `tsconfig.base.json`
+      (`noImplicitReturns`, `noFallthroughCasesInSwitch`, `noImplicitOverride`,
+      `noUnusedLocals`, `noUnusedParameters`). Build, typecheck, and lint all stay
+      green — no source changes were required.
+- [ ] `noPropertyAccessFromIndexSignature` (25) — smallest remaining; a natural
+      follow-on to `noUncheckedIndexedAccess`. Do when touching the affected
+      index-signature access sites.
+- [ ] `verbatimModuleSyntax` (63) — mechanical (`import type` splits); ratchet or
+      one-shot with `--fix`-style codemods.
+- [ ] `exactOptionalPropertyTypes` (112) — largest and most semantically subtle;
+      treat as its own ratchet.
 
 ### The `as`-cast enforcement asymmetry — ✅ resolved
 
@@ -269,10 +279,13 @@ that survive.
 
 ## Suggested sequencing
 
-Gaps 1, 2, and 3 are done. Remaining:
+Gaps 1, 2, and 3 are done. Gap 4's survey is done and the five zero-cost knobs
+are enabled. Remaining:
 
-1. **Gap 4 (other strictness knobs)** — survey error counts per knob, then enable
-   the cheap ones and ratchet the expensive ones. The `CHART_NAME`/`CHART_TYPE`
+1. **Gap 4 (expensive knobs)** — three ratchets remain, cheapest first:
+   `noPropertyAccessFromIndexSignature` (25), `verbatimModuleSyntax` (63),
+   `exactOptionalPropertyTypes` (112). Enable the cheap ones and ratchet the
+   expensive ones. The `CHART_NAME`/`CHART_TYPE`
    unification noted here is **done** (`CHART_NAME` is now derived from the
    `CHART_TYPE` enum via `` `${CHART_TYPE}` ``, internal `_type`/`make*` chart
    code carries the enum, and `asChartType()` is the single boundary cast). That
