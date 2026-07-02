@@ -330,7 +330,7 @@ export function createGlowElement (options: TextGlowProps, defaults: TextGlowPro
  * @see http://officeopenxml.com/drwSp-effects.php
  * @returns {string} XML string, or '' when type is 'none'
  */
-export function createShadowElement (options: ShadowProps, defaults: ShadowProps): string {
+export function createShadowElement (options: ShadowProps | undefined, defaults: ShadowProps): string {
 	const opts = { ...defaults, ...options }
 	if (opts.type === 'none') return ''
 

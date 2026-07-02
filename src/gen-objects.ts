@@ -1235,7 +1235,7 @@ export function addTableDefinition(
 	slideLayout: SlideLayoutInternal | null,
 	presLayout: PresLayout,
 	addSlide: (options?: AddSlideProps) => PresSlideInternal,
-	getSlide: (slideNumber: number) => PresSlideInternal
+	getSlide: (slideNumber: number) => PresSlideInternal | undefined
 ): PresSlideInternal[] {
 	const slides: PresSlideInternal[] = [target] // Create array of Slides as more may be added by auto-paging
 	const opt: TableProps = options && typeof options === 'object' ? options : {}
@@ -1542,7 +1542,11 @@ export function addTableDefinition(
 		// Loop over rows and create 1-N tables as needed (ISSUE#21)
 		getSlidesForTableRows(arrRows, opt, presLayout, slideLayout).forEach((slide, idx) => {
 			// A: Create new Slide when needed, otherwise, use existing (NOTE: More than 1 table can be on a Slide, so we will go up AND down the Slide chain)
-			if (!getSlide(target._slideNum + idx)) slides.push(addSlide({ masterName: slideLayout?._name || undefined }))
+			let newSlide = getSlide(target._slideNum + idx)
+			if (!newSlide) {
+				newSlide = addSlide({ masterName: slideLayout?._name || undefined })
+				slides.push(newSlide)
+			}
 
 			// B: Reset opt.y to `option`/`margin` after first Slide (ISSUE#43, ISSUE#47, ISSUE#48)
 			// Keep raw inches — resolved to EMU once at emission. (No pre-conversion.)
@@ -1550,8 +1554,6 @@ export function addTableDefinition(
 
 			// C: Add this table to new Slide
 			{
-				const newSlide: PresSlideInternal = getSlide(target._slideNum + idx)
-
 				opt.autoPage = false
 
 				// #1136: copy the source slide's populated placeholders onto each overflow slide

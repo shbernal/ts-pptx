@@ -243,7 +243,7 @@ export default class PptxGenJS {
 	 * @type {string}
 	 * @see https://support.office.com/en-us/article/Change-the-size-of-your-slides-040a811c-be43-40b9-8d04-0de5ed79987e
 	 */
-	private _layout: string
+	private _layout: string = DEF_PRES_LAYOUT
 	public set layout(value: string | StandardLayout) {
 		// Accept either a layout key string or a STANDARD_LAYOUTS preset object directly.
 		const layoutKey = typeof value === 'string' ? value : value?.layout
@@ -321,7 +321,7 @@ export default class PptxGenJS {
 	/**
 	 * @type {ThemeProps}
 	 */
-	private _theme: ThemeProps
+	private _theme: ThemeProps = {}
 	public set theme(value: ThemeProps) {
 		this._theme = value
 	}
@@ -552,7 +552,9 @@ export default class PptxGenJS {
 			_slideNum: null,
 			_slideNumberProps: null,
 			_slideObjects: [],
-		}
+			// Deliberately-partial internal stub: the master slide carries only rels/objects,
+			// so its authoring methods and ids are intentionally null (never invoked on the master).
+		} as unknown as PresSlideInternal
 	}
 
 	/**
@@ -567,7 +569,7 @@ export default class PptxGenJS {
 		// the last section — the originating slide may not be at the tail of the deck.
 		const lastSlide = this._slides[this._slides.length - 1]
 		const sourceSection = this._sections.find(sect => sect._slides.some(s => s._slideNum === lastSlide._slideNum))
-		nextOptions.sectionTitle = sourceSection?.title ?? null
+		nextOptions.sectionTitle = sourceSection?.title ?? undefined
 
 		return this.addSlide(nextOptions) as PresSlideInternal
 	}
@@ -578,7 +580,7 @@ export default class PptxGenJS {
 	 * @return {PresSlide} Slide
 	 * @since 3.0.0
 	 */
-	private readonly getSlide = (slideNum: number): PresSlideInternal => this._slides.find(slide => slide._slideNum === slideNum)
+	private readonly getSlide = (slideNum: number): PresSlideInternal | undefined => this._slides.find(slide => slide._slideNum === slideNum)
 
 	/**
 	 * Enables the `Slide` class to set PptxGenJS [Presentation] master/layout slidenumbers
@@ -589,7 +591,8 @@ export default class PptxGenJS {
 		this._masterSlide._slideNumberProps = slideNum
 
 		// 2: Add slideNumber to DEF_PRES_LAYOUT_NAME layout
-		this._slideLayouts.find(layout => layout._name === DEF_PRES_LAYOUT_NAME)._slideNumberProps = slideNum
+		const defLayout = this._slideLayouts.find(layout => layout._name === DEF_PRES_LAYOUT_NAME)
+		if (defLayout) defLayout._slideNumberProps = slideNum
 	}
 
 	/**
@@ -1092,7 +1095,7 @@ export default class PptxGenJS {
 	 */
 	async write(props?: WriteProps | WRITE_OUTPUT_TYPE): Promise<string | ArrayBuffer | Blob | Uint8Array> {
 		// DEPRECATED: @deprecated v3.5.0 - outputType - [[remove in v4.0.0]]
-		const propsOutpType = typeof props === 'object' && props?.outputType ? props.outputType : props ? (props as WRITE_OUTPUT_TYPE) : null
+		const propsOutpType = typeof props === 'object' && props?.outputType ? props.outputType : props ? (props as WRITE_OUTPUT_TYPE) : undefined
 		const propsCompress = typeof props === 'object' ? props?.compression : undefined
 		const propsMediaError = typeof props === 'object' ? props?.onMediaError : undefined
 
@@ -1118,7 +1121,7 @@ export default class PptxGenJS {
 		const { fileName: rawName = 'Presentation.pptx', compression, onMediaError } = props as WriteFileProps
 		const fileName = rawName.toLowerCase().endsWith('.pptx') ? rawName : `${rawName}.pptx`
 
-		const data = await this.exportPresentation({ compression, outputType: this._runtime.writeFileOutputType, onMediaError })
+		const data = await this.exportPresentation({ compression, outputType: this._runtime.writeFileOutputType ?? undefined, onMediaError })
 		return await this._runtime.writeFile(fileName, data)
 	}
 
@@ -1327,7 +1330,7 @@ export default class PptxGenJS {
 			this,
 			eleId,
 			options,
-			options?.masterSlideName ? this._slideLayouts.find(layout => layout._name === options.masterSlideName) : null
+			options?.masterSlideName ? this._slideLayouts.find(layout => layout._name === options.masterSlideName) : undefined
 		)
 	}
 }

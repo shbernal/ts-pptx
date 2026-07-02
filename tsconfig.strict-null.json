@@ -14,6 +14,9 @@
 		"src/read/api/shapes.ts",
 		"src/read/api/theme-context.ts",
 		"src/read/api/chart.ts",
-		"src/read/api/presentation.ts"
+		"src/read/api/presentation.ts",
+		"src/gen-charts.ts",
+		"src/gen-xml.ts",
+		"src/pptxgen.ts"
 	]
 }

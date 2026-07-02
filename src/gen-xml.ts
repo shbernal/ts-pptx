@@ -354,8 +354,8 @@ function genTableCellBorderXml (cellBorder: BorderProps[]): string {
 		if (!border) return
 		const cap = createLineCap(border.cap)
 		if (border.type !== 'none') {
-			strXml += `<a:${obj.name} w="${valToPts(border.pt)}" cap="${cap}" cmpd="sng" algn="ctr">`
-			strXml += `<a:solidFill>${createColorElement(border.color)}</a:solidFill>`
+			strXml += `<a:${obj.name} w="${valToPts(border.pt ?? 1)}" cap="${cap}" cmpd="sng" algn="ctr">`
+			strXml += `<a:solidFill>${createColorElement(border.color ?? '363636')}</a:solidFill>`
 			strXml += `<a:prstDash val="${border.type === 'dash' ? 'sysDash' : 'solid'
 			}"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/>`
 			strXml += `</a:${obj.name}>`
@@ -441,29 +441,27 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 		let y = 0
 		let cx = getSmartParseNumber('75%', 'X', slide._presLayout)
 		let cy = 0
-		let placeholderObj: ISlideObject
+		let placeholderObj: ISlideObject | null = null
 		let locationAttr = ''
-		let arrTabRows: TableCell[][] = null
-		let objTabOpts: ObjectOptions = null
+		let arrTabRows: TableCell[][] = []
+		let objTabOpts: ObjectOptions = {}
 		let intColCnt = 0
-		let cellOpts: TableCellProps = null
-		let strXml: string = null
+		let cellOpts: TableCellProps | null = null
+		let strXml = ''
 		const sizing: ObjectOptions['sizing'] = slideItemObj.options?.sizing
 		const rounding = slideItemObj.options?.rounding
 
-		if (
-			(slide as PresSlideInternal)._slideLayout !== undefined &&
-			(slide as PresSlideInternal)._slideLayout._slideObjects !== undefined &&
-			slideItemObj.options &&
-			slideItemObj.options.placeholder
-		) {
-			placeholderObj = (slide as PresSlideInternal)._slideLayout._slideObjects.filter(
-				(object: ISlideObject) => object.options.placeholder === slideItemObj.options.placeholder
-			)[0]
+		const slideLayout = (slide as PresSlideInternal)._slideLayout
+		const wantedPlaceholder = slideItemObj.options?.placeholder
+		if (slideLayout?._slideObjects !== undefined && wantedPlaceholder) {
+			placeholderObj = slideLayout._slideObjects.filter(
+				(object: ISlideObject) => object.options?.placeholder === wantedPlaceholder
+			)[0] ?? null
 		}
 
 		// A: Set option vars
 		slideItemObj.options = slideItemObj.options || {}
+		const itemOpts = slideItemObj.options
 
 		if (typeof slideItemObj.options.x !== 'undefined') x = getSmartParseNumber(slideItemObj.options.x, 'X', slide._presLayout)
 		if (typeof slideItemObj.options.y !== 'undefined') y = getSmartParseNumber(slideItemObj.options.y, 'Y', slide._presLayout)
@@ -476,10 +474,11 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 
 		// If using a placeholder then inherit it's position
 		if (placeholderObj) {
-			if (placeholderObj.options.x || placeholderObj.options.x === 0) x = getSmartParseNumber(placeholderObj.options.x, 'X', slide._presLayout)
-			if (placeholderObj.options.y || placeholderObj.options.y === 0) y = getSmartParseNumber(placeholderObj.options.y, 'Y', slide._presLayout)
-			if (placeholderObj.options.w || placeholderObj.options.w === 0) cx = getSmartParseNumber(placeholderObj.options.w, 'X', slide._presLayout)
-			if (placeholderObj.options.h || placeholderObj.options.h === 0) cy = getSmartParseNumber(placeholderObj.options.h, 'Y', slide._presLayout)
+			const phOpts = placeholderObj.options ?? {}
+			if (phOpts.x || phOpts.x === 0) x = getSmartParseNumber(phOpts.x, 'X', slide._presLayout)
+			if (phOpts.y || phOpts.y === 0) y = getSmartParseNumber(phOpts.y, 'Y', slide._presLayout)
+			if (phOpts.w || phOpts.w === 0) cx = getSmartParseNumber(phOpts.w, 'X', slide._presLayout)
+			if (phOpts.h || phOpts.h === 0) cy = getSmartParseNumber(phOpts.h, 'Y', slide._presLayout)
 		}
 		//
 		if (slideItemObj.options.flipH) locationAttr += ' flipH="1"'
@@ -491,7 +490,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 			case SLIDE_OBJECT_TYPES.table:
 				// Shallow-clone each row so splice() in the merge-grid builder does not mutate the stored
 				// arrTabRows, which would corrupt output on repeated write()/writeFile() calls (issue #911).
-				arrTabRows = slideItemObj.arrTabRows.map(row => [...row])
+				arrTabRows = (slideItemObj.arrTabRows ?? []).map(row => [...row])
 				objTabOpts = slideItemObj.options
 				intColCnt = 0
 
@@ -597,11 +596,11 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					let intRowH = 0 // IMPORTANT: Default must be zero for auto-sizing to work
 					if (Array.isArray(objTabOpts.rowH) && objTabOpts.rowH[rIdx]) intRowH = inch2Emu(Number(objTabOpts.rowH[rIdx]))
 					else if (objTabOpts.rowH && !isNaN(Number(objTabOpts.rowH))) intRowH = inch2Emu(Number(objTabOpts.rowH))
-					else if (slideItemObj.options.cy || slideItemObj.options.h) {
+					else if (itemOpts.cy || itemOpts.h) {
 						// `cy` already holds the table height resolved to EMU (line ~276), correctly handling
 						// inches/percent/unit-string inputs — reuse it rather than re-parsing options.h.
 						intRowH = Math.round(
-							(slideItemObj.options.h ? cy : typeof slideItemObj.options.cy === 'number' ? slideItemObj.options.cy : 1) /
+							(itemOpts.h ? cy : typeof itemOpts.cy === 'number' ? itemOpts.cy : 1) /
 							arrTabRows.length
 						)
 					}
@@ -614,8 +613,8 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 						const cell: TableCell = cellObj
 
 						const cellSpanAttrs = {
-							rowSpan: cell.options?.rowspan > 1 ? cell.options.rowspan : undefined,
-							gridSpan: cell.options?.colspan > 1 ? cell.options.colspan : undefined,
+							rowSpan: cell.options?.rowspan && cell.options.rowspan > 1 ? cell.options.rowspan : undefined,
+							gridSpan: cell.options?.colspan && cell.options.colspan > 1 ? cell.options.colspan : undefined,
 							vMerge: cell._vmerge ? 1 : undefined,
 							hMerge: cell._hmerge ? 1 : undefined,
 						}
@@ -791,7 +790,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				if (slideItemObj.shape === 'custGeom') {
 					strSlideXml += genXmlCustGeom(slideItemObj.options.points, cx, cy, slide._presLayout)
 				} else {
-					strSlideXml += genXmlPresetGeom(slideItemObj.shape, slideItemObj.options, cx, cy)
+					strSlideXml += genXmlPresetGeom(slideItemObj.shape ?? '', slideItemObj.options, cx, cy)
 				}
 
 				// Option: FILL
@@ -926,7 +925,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				strSlideXml += '<p:pic>'
 				strSlideXml += '  <p:nvPicPr>'
 				strSlideXml += `<p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(
-					slideItemObj.options.altText || slideItemObj.image
+					slideItemObj.options.altText || slideItemObj.image || ''
 				)}">`
 				if (slideItemObj.hyperlink?.url) {
 					strSlideXml += `<a:hlinkClick r:id="rId${slideItemObj.hyperlink._rId}" tooltip="${slideItemObj.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.hyperlink.tooltip) : ''
@@ -947,7 +946,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 				strSlideXml += '<p:blipFill>'
 				// NOTE: This works for both cases: either `path` or `data` contains the SVG
 				if ((slide._relsMedia || []).find(rel => rel.rId === slideItemObj.imageRid)?.extn === 'svg') {
-					strSlideXml += `<a:blip r:embed="rId${slideItemObj.imageRid - 1}">`
+					strSlideXml += `<a:blip r:embed="rId${(slideItemObj.imageRid ?? 0) - 1}">`
 					strSlideXml += slideItemObj.options.transparency ? ` <a:alphaModFix amt="${Math.round((100 - slideItemObj.options.transparency) * 1000)}"/>` : ''
 					strSlideXml += slideItemObj.options.duotone ? `<a:duotone>${createColorElement(slideItemObj.options.duotone.shadow)}${createColorElement(slideItemObj.options.duotone.highlight)}</a:duotone>` : ''
 					strSlideXml += ' <a:extLst>'
@@ -1050,7 +1049,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					strSlideXml += '<p:pic>'
 					strSlideXml += ' <p:nvPicPr>'
 					// IMPORTANT: <p:cNvPr id="" value is critical - if its not the same number as preview image `rId`, PowerPoint throws error!
-					strSlideXml += `<p:cNvPr id="${slideItemObj.mediaRid + 2}" name="${slideItemObj.options.objectName
+					strSlideXml += `<p:cNvPr id="${(slideItemObj.mediaRid ?? 0) + 2}" name="${slideItemObj.options.objectName
 					}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"><a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr>`
 					strSlideXml += ` <p:cNvPicPr>${genXmlObjectLock('a:picLocks', PICTURE_LOCK_ATTRS, { noChangeAspect: true, ...slideItemObj.options.objectLock }, slideItemObj.options.objectName)}</p:cNvPicPr>`
 					strSlideXml += ' <p:nvPr>'
@@ -1060,12 +1059,12 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					strSlideXml += `  <a:videoFile r:link="rId${slideItemObj.mediaRid}"/>`
 					strSlideXml += '  <p:extLst>'
 					strSlideXml += '   <p:ext uri="{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}">'
-					strSlideXml += `    <p14:media xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" r:link="rId${slideItemObj.mediaRid + 1}"/>`
+					strSlideXml += `    <p14:media xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" r:link="rId${(slideItemObj.mediaRid ?? 0) + 1}"/>`
 					strSlideXml += '   </p:ext>'
 					strSlideXml += '  </p:extLst>'
 					strSlideXml += ' </p:nvPr>'
 					strSlideXml += ' </p:nvPicPr>'
-					strSlideXml += ` <p:blipFill><a:blip r:embed="rId${slideItemObj.mediaRid + 2}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>` // NOTE: Preview image is required!
+					strSlideXml += ` <p:blipFill><a:blip r:embed="rId${(slideItemObj.mediaRid ?? 0) + 2}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>` // NOTE: Preview image is required!
 					strSlideXml += ' <p:spPr>'
 					strSlideXml += `  <a:xfrm${locationAttr}><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>`
 					strSlideXml += '  <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'
@@ -1075,7 +1074,7 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					strSlideXml += '<p:pic>'
 					strSlideXml += ' <p:nvPicPr>'
 					// IMPORTANT: <p:cNvPr id="" value is critical - if not the same number as preiew image rId, PowerPoint throws error!
-					strSlideXml += `<p:cNvPr id="${slideItemObj.mediaRid + 2}" name="${slideItemObj.options.objectName
+					strSlideXml += `<p:cNvPr id="${(slideItemObj.mediaRid ?? 0) + 2}" name="${slideItemObj.options.objectName
 					}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"><a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr>`
 					strSlideXml += ` <p:cNvPicPr>${genXmlObjectLock('a:picLocks', PICTURE_LOCK_ATTRS, { noChangeAspect: true, ...slideItemObj.options.objectLock }, slideItemObj.options.objectName)}</p:cNvPicPr>`
 					strSlideXml += ' <p:nvPr>'
@@ -1083,12 +1082,12 @@ function slideObjectToXml (slide: PresSlideInternal | SlideLayoutInternal): stri
 					strSlideXml += `  <a:${slideItemObj.mtype === 'audio' ? 'audioFile' : 'videoFile'} r:link="rId${slideItemObj.mediaRid}"/>`
 					strSlideXml += '  <p:extLst>'
 					strSlideXml += '   <p:ext uri="{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}">'
-					strSlideXml += `    <p14:media xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" r:embed="rId${slideItemObj.mediaRid + 1}"/>`
+					strSlideXml += `    <p14:media xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" r:embed="rId${(slideItemObj.mediaRid ?? 0) + 1}"/>`
 					strSlideXml += '   </p:ext>'
 					strSlideXml += '  </p:extLst>'
 					strSlideXml += ' </p:nvPr>'
 					strSlideXml += ' </p:nvPicPr>'
-					strSlideXml += ` <p:blipFill><a:blip r:embed="rId${slideItemObj.mediaRid + 2}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>` // NOTE: Preview image is required!
+					strSlideXml += ` <p:blipFill><a:blip r:embed="rId${(slideItemObj.mediaRid ?? 0) + 2}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>` // NOTE: Preview image is required!
 					strSlideXml += ' <p:spPr>'
 					strSlideXml += `  <a:xfrm${locationAttr}><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>`
 					strSlideXml += '  <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'
@@ -1301,6 +1300,9 @@ function slideObjectRelationsToXml (slide: PresSlideInternal | SlideLayoutIntern
  * @return {string} XML
  */
 function genXmlParagraphProperties (textObj: ISlideObject | TextProps, isDefault: boolean): string {
+	// `options` is always present on text objects reaching here; narrow it once (both union
+	// members have all-optional props, so an empty object is a valid fallback).
+	const opts: NonNullable<typeof textObj.options> = textObj.options ?? {}
 	let strXmlBullet = ''
 	let strXmlBulletColor = ''
 	let strXmlLnSpc = ''
@@ -1309,13 +1311,13 @@ function genXmlParagraphProperties (textObj: ISlideObject | TextProps, isDefault
 	const tag = isDefault ? 'a:lvl1pPr' : 'a:pPr'
 	let bulletMarL = valToPts(DEF_BULLET_MARGIN)
 
-	let paragraphPropXml = `<${tag}${textObj.options.rtlMode ? ' rtl="1" ' : ''}`
+	let paragraphPropXml = `<${tag}${opts.rtlMode ? ' rtl="1" ' : ''}`
 
 	// A: Build paragraphProperties
 	{
 		// OPTION: align
-		if (textObj.options.align) {
-			switch (textObj.options.align) {
+		if (opts.align) {
+			switch (opts.align) {
 				case 'left':
 					paragraphPropXml += ' algn="l"'
 					break
@@ -1334,39 +1336,39 @@ function genXmlParagraphProperties (textObj: ISlideObject | TextProps, isDefault
 			}
 		}
 
-		if (textObj.options.lineSpacing) {
-			strXmlLnSpc = `<a:lnSpc><a:spcPts val="${clampLineSpacingPts(textObj.options.lineSpacing)}"/></a:lnSpc>`
-		} else if (textObj.options.lineSpacingMultiple) {
-			strXmlLnSpc = `<a:lnSpc><a:spcPct val="${Math.round(textObj.options.lineSpacingMultiple * 100000)}"/></a:lnSpc>`
+		if (opts.lineSpacing) {
+			strXmlLnSpc = `<a:lnSpc><a:spcPts val="${clampLineSpacingPts(opts.lineSpacing)}"/></a:lnSpc>`
+		} else if (opts.lineSpacingMultiple) {
+			strXmlLnSpc = `<a:lnSpc><a:spcPct val="${Math.round(opts.lineSpacingMultiple * 100000)}"/></a:lnSpc>`
 		}
 
 		// OPTION: indent
-		if (textObj.options.indentLevel && !isNaN(Number(textObj.options.indentLevel)) && textObj.options.indentLevel > 0) {
-			paragraphPropXml += ` lvl="${textObj.options.indentLevel}"`
+		if (opts.indentLevel && !isNaN(Number(opts.indentLevel)) && opts.indentLevel > 0) {
+			paragraphPropXml += ` lvl="${opts.indentLevel}"`
 		}
 
 		// OPTION: Paragraph Spacing: Before/After
-		if (textObj.options.paraSpaceBefore && !isNaN(Number(textObj.options.paraSpaceBefore)) && textObj.options.paraSpaceBefore > 0) {
-			strXmlParaSpc += `<a:spcBef><a:spcPts val="${Math.round(textObj.options.paraSpaceBefore * 100)}"/></a:spcBef>`
+		if (opts.paraSpaceBefore && !isNaN(Number(opts.paraSpaceBefore)) && opts.paraSpaceBefore > 0) {
+			strXmlParaSpc += `<a:spcBef><a:spcPts val="${Math.round(opts.paraSpaceBefore * 100)}"/></a:spcBef>`
 		}
-		if (textObj.options.paraSpaceAfter && !isNaN(Number(textObj.options.paraSpaceAfter)) && textObj.options.paraSpaceAfter > 0) {
-			strXmlParaSpc += `<a:spcAft><a:spcPts val="${Math.round(textObj.options.paraSpaceAfter * 100)}"/></a:spcAft>`
+		if (opts.paraSpaceAfter && !isNaN(Number(opts.paraSpaceAfter)) && opts.paraSpaceAfter > 0) {
+			strXmlParaSpc += `<a:spcAft><a:spcPts val="${Math.round(opts.paraSpaceAfter * 100)}"/></a:spcAft>`
 		}
 
 		// OPTION: bullet
 		// NOTE: OOXML uses the unicode character set for Bullets
 		// EX: Unicode Character 'BULLET' (U+2022) ==> '<a:buChar char="&#x2022;"/>'
-		if (typeof textObj.options.bullet === 'object') {
-			const bulletImage = textObj.options.bullet.image
+		if (typeof opts.bullet === 'object') {
+			const bulletImage = opts.bullet.image
 			const isPictureBullet = !!(bulletImage && (bulletImage.path || bulletImage.data))
-			if (textObj?.options?.bullet?.indent) bulletMarL = valToPts(textObj.options.bullet.indent)
+			if (opts.bullet?.indent) bulletMarL = valToPts(opts.bullet.indent)
 			// `buClr` colors a glyph/number; it has no effect on a picture bullet, so skip it for `buBlip`.
-			if (textObj.options.bullet.color && !isPictureBullet) strXmlBulletColor = `<a:buClr>${createColorElement(textObj.options.bullet.color)}</a:buClr>`
+			if (opts.bullet.color && !isPictureBullet) strXmlBulletColor = `<a:buClr>${createColorElement(opts.bullet.color)}</a:buClr>`
 
 			// `<a:buSzPct/>` val is thousandths of a percent; ST_TextBulletSizePercent allows 25%-400%
 			let bulletSizePct = 100000
-			if (textObj.options.bullet.size !== undefined) {
-				const bulletSize = Number(textObj.options.bullet.size)
+			if (opts.bullet.size !== undefined) {
+				const bulletSize = Number(opts.bullet.size)
 				if (isNaN(bulletSize) || bulletSize < 25 || bulletSize > 400) {
 					console.warn('Warning: `bullet.size` must be a percentage between 25 and 400!')
 				} else {
@@ -1374,85 +1376,85 @@ function genXmlParagraphProperties (textObj: ISlideObject | TextProps, isDefault
 				}
 			}
 			const strXmlBulletSize = `<a:buSzPct val="${bulletSizePct}"/>`
-			const strXmlBulletFont = textObj.options.bullet.fontFace ? `<a:buFont typeface="${encodeXmlEntities(textObj.options.bullet.fontFace)}"/>` : ''
+			const strXmlBulletFont = opts.bullet.fontFace ? `<a:buFont typeface="${encodeXmlEntities(opts.bullet.fontFace)}"/>` : ''
 
 			if (isPictureBullet) {
 				// Picture bullet: <a:buBlip> references a slide media rel registered in addText() (`_rId`).
 				// No `buFont` (there is no glyph typeface), but `buSzPct` still scales the image height.
-				paragraphPropXml += ` marL="${textObj.options.indentLevel && textObj.options.indentLevel > 0 ? bulletMarL + bulletMarL * textObj.options.indentLevel : bulletMarL
+				paragraphPropXml += ` marL="${opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
 				}" indent="-${bulletMarL}"`
-				if (textObj.options.bullet._rId) {
-					if (textObj.options.bullet._rIdSvg) {
+				if (opts.bullet._rId) {
+					if (opts.bullet._rIdSvg) {
 						// SVG bullet: the blip embeds the PNG preview (`_rId`) and references the SVG via the
 						// `asvg:svgBlip` extension (`_rIdSvg`), the same dual-rel form addImage() emits for SVG.
 						strXmlBullet =
-							`${strXmlBulletSize}<a:buBlip><a:blip r:embed="rId${textObj.options.bullet._rId}">` +
+							`${strXmlBulletSize}<a:buBlip><a:blip r:embed="rId${opts.bullet._rId}">` +
 							'<a:extLst><a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}">' +
-							`<asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="rId${textObj.options.bullet._rIdSvg}"/>` +
+							`<asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="rId${opts.bullet._rIdSvg}"/>` +
 							'</a:ext></a:extLst></a:blip></a:buBlip>'
 					} else {
-						strXmlBullet = `${strXmlBulletSize}<a:buBlip><a:blip r:embed="rId${textObj.options.bullet._rId}"/></a:buBlip>`
+						strXmlBullet = `${strXmlBulletSize}<a:buBlip><a:blip r:embed="rId${opts.bullet._rId}"/></a:buBlip>`
 					}
 				} else {
 					// rel was not registered (eg: bullet on a context without a slide target) - fall back to a glyph
 					console.warn('Warning: picture `bullet.image` could not be embedded; using a default bullet glyph')
 					strXmlBullet = `${strXmlBulletSize}${strXmlBulletFont}<a:buChar char="${BULLET_TYPES.DEFAULT}"/>`
 				}
-			} else if (textObj.options.bullet.type && textObj.options.bullet.type.toString().toLowerCase() === 'number') {
-				paragraphPropXml += ` marL="${textObj.options.indentLevel && textObj.options.indentLevel > 0 ? bulletMarL + bulletMarL * textObj.options.indentLevel : bulletMarL
+			} else if (opts.bullet.type && opts.bullet.type.toString().toLowerCase() === 'number') {
+				paragraphPropXml += ` marL="${opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
 				}" indent="-${bulletMarL}"`
-				strXmlBullet = `${strXmlBulletSize}${strXmlBulletFont || '<a:buFont typeface="+mj-lt"/>'}<a:buAutoNum type="${textObj.options.bullet.style || 'arabicPeriod'}" startAt="${textObj.options.bullet.numberStartAt || textObj.options.bullet.startAt || '1'
+				strXmlBullet = `${strXmlBulletSize}${strXmlBulletFont || '<a:buFont typeface="+mj-lt"/>'}<a:buAutoNum type="${opts.bullet.style || 'arabicPeriod'}" startAt="${opts.bullet.numberStartAt || opts.bullet.startAt || '1'
 				}"/>`
-			} else if (textObj.options.bullet.characterCode) {
-				let bulletCode = `&#x${textObj.options.bullet.characterCode};`
+			} else if (opts.bullet.characterCode) {
+				let bulletCode = `&#x${opts.bullet.characterCode};`
 
 				// Check value for hex-ness (s/b 4 char hex)
-				if (!/^[0-9A-Fa-f]{4}$/.test(textObj.options.bullet.characterCode)) {
+				if (!/^[0-9A-Fa-f]{4}$/.test(opts.bullet.characterCode)) {
 					console.warn('Warning: `bullet.characterCode should be a 4-digit unicode charatcer (ex: 22AB)`!')
 					bulletCode = BULLET_TYPES.DEFAULT
 				}
 
-				paragraphPropXml += ` marL="${textObj.options.indentLevel && textObj.options.indentLevel > 0 ? bulletMarL + bulletMarL * textObj.options.indentLevel : bulletMarL
+				paragraphPropXml += ` marL="${opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
 				}" indent="-${bulletMarL}"`
 				strXmlBullet = strXmlBulletSize + strXmlBulletFont + '<a:buChar char="' + bulletCode + '"/>'
-			} else if (textObj.options.bullet.code) {
+			} else if (opts.bullet.code) {
 				// @deprecated `bullet.code` v3.3.0
-				let bulletCode = `&#x${textObj.options.bullet.code};`
+				let bulletCode = `&#x${opts.bullet.code};`
 
 				// Check value for hex-ness (s/b 4 char hex)
-				if (!/^[0-9A-Fa-f]{4}$/.test(textObj.options.bullet.code)) {
+				if (!/^[0-9A-Fa-f]{4}$/.test(opts.bullet.code)) {
 					console.warn('Warning: `bullet.code should be a 4-digit hex code (ex: 22AB)`!')
 					bulletCode = BULLET_TYPES.DEFAULT
 				}
 
-				paragraphPropXml += ` marL="${textObj.options.indentLevel && textObj.options.indentLevel > 0 ? bulletMarL + bulletMarL * textObj.options.indentLevel : bulletMarL
+				paragraphPropXml += ` marL="${opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
 				}" indent="-${bulletMarL}"`
 				strXmlBullet = strXmlBulletSize + strXmlBulletFont + '<a:buChar char="' + bulletCode + '"/>'
 			} else {
-				paragraphPropXml += ` marL="${textObj.options.indentLevel && textObj.options.indentLevel > 0 ? bulletMarL + bulletMarL * textObj.options.indentLevel : bulletMarL
+				paragraphPropXml += ` marL="${opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
 				}" indent="-${bulletMarL}"`
 				strXmlBullet = `${strXmlBulletSize}${strXmlBulletFont}<a:buChar char="${BULLET_TYPES.DEFAULT}"/>`
 			}
-		} else if (textObj.options.bullet) {
-			paragraphPropXml += ` marL="${textObj.options.indentLevel && textObj.options.indentLevel > 0 ? bulletMarL + bulletMarL * textObj.options.indentLevel : bulletMarL
+		} else if (opts.bullet) {
+			paragraphPropXml += ` marL="${opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
 			}" indent="-${bulletMarL}"`
 			strXmlBullet = `<a:buSzPct val="100000"/><a:buChar char="${BULLET_TYPES.DEFAULT}"/>`
-		} else if (!textObj.options.bullet) {
+		} else if (!opts.bullet) {
 			// We only add this when the user explicitely asks for no bullet, otherwise, it can override the master defaults!
 			paragraphPropXml += ' indent="0" marL="0"' // FIX: ISSUE#589 - specify zero indent and marL or default will be hanging paragraph
 			strXmlBullet = '<a:buNone/>'
 		}
 
 		// OPTION: tabStops
-		if (textObj.options.tabStops && Array.isArray(textObj.options.tabStops)) {
-			const tabStopsXml = textObj.options.tabStops.map(stop => `<a:tab pos="${inch2Emu(stop.position || 1)}" algn="${stop.alignment || 'l'}"/>`).join('')
+		if (opts.tabStops && Array.isArray(opts.tabStops)) {
+			const tabStopsXml = opts.tabStops.map(stop => `<a:tab pos="${inch2Emu(stop.position || 1)}" algn="${stop.alignment || 'l'}"/>`).join('')
 			strXmlTabStops = `<a:tabLst>${tabStopsXml}</a:tabLst>`
 		}
 
 		// B: Close Paragraph-Properties
 		// IMPORTANT: strXmlLnSpc, strXmlParaSpc, and strXmlBullet require strict ordering - anything out of order is ignored. (PPT-Online, PPT for Mac)
 		paragraphPropXml += '>' + strXmlLnSpc + strXmlParaSpc + strXmlBulletColor + strXmlBullet + strXmlTabStops
-		if (isDefault) paragraphPropXml += genXmlTextRunProperties(textObj.options, true)
+		if (isDefault) paragraphPropXml += genXmlTextRunProperties(opts, true)
 		paragraphPropXml += '</' + tag + '>'
 	}
 
@@ -1588,7 +1590,7 @@ function genXmlTextRun (textObj: TextProps): string {
 
 	// Return paragraph with text run
 	if (textObj.text === undefined || textObj.text === null) return ''
-	return `<a:r>${genXmlTextRunProperties(textObj.options, false)}<a:t>${encodeXmlEntities(String(textObj.text))}</a:t></a:r>`
+	return `<a:r>${genXmlTextRunProperties(textObj.options ?? {}, false)}<a:t>${encodeXmlEntities(String(textObj.text))}</a:t></a:r>`
 }
 
 /**
@@ -1629,36 +1631,40 @@ function genXmlBodyProperties (slideObject: ISlideObject | TableCell): string {
 	// Placeholders (incl. master/layout placeholders) carry their margin/valign in `_bodyProp` just
 	// like text boxes, so they must emit the same configured `<a:bodyPr>` — otherwise a placeholder
 	// authored with insets or a vertical anchor silently degrades to the default (#1247, #1208).
-	if (slideObject && (slideObject._type === SLIDE_OBJECT_TYPES.text || slideObject._type === SLIDE_OBJECT_TYPES.placeholder) && (slideObject as ISlideObject).options._bodyProp) {
+	// `_bodyProp`/`options` are optional on the type but present on text/placeholder objects that reach
+	// this branch; bind them once so the body reads a narrowed, non-undefined value.
+	const options = (slideObject as ISlideObject).options
+	const bodyProp = options?._bodyProp
+	if (slideObject && (slideObject._type === SLIDE_OBJECT_TYPES.text || slideObject._type === SLIDE_OBJECT_TYPES.placeholder) && bodyProp) {
 		// PPT-2019 EX: <a:bodyPr wrap="square" lIns="1270" tIns="1270" rIns="1270" bIns="1270" rtlCol="0" anchor="ctr"/>
 
 		// A: Enable or disable textwrapping none or square
-		bodyProperties += slideObject.options._bodyProp.wrap ? ' wrap="square"' : ' wrap="none"'
+		bodyProperties += bodyProp.wrap ? ' wrap="square"' : ' wrap="none"'
 
 		// B: Textbox margins [padding]
-		if (slideObject.options._bodyProp.lIns || slideObject.options._bodyProp.lIns === 0) bodyProperties += ` lIns="${slideObject.options._bodyProp.lIns}"`
-		if (slideObject.options._bodyProp.tIns || slideObject.options._bodyProp.tIns === 0) bodyProperties += ` tIns="${slideObject.options._bodyProp.tIns}"`
-		if (slideObject.options._bodyProp.rIns || slideObject.options._bodyProp.rIns === 0) bodyProperties += ` rIns="${slideObject.options._bodyProp.rIns}"`
-		if (slideObject.options._bodyProp.bIns || slideObject.options._bodyProp.bIns === 0) bodyProperties += ` bIns="${slideObject.options._bodyProp.bIns}"`
+		if (bodyProp.lIns || bodyProp.lIns === 0) bodyProperties += ` lIns="${bodyProp.lIns}"`
+		if (bodyProp.tIns || bodyProp.tIns === 0) bodyProperties += ` tIns="${bodyProp.tIns}"`
+		if (bodyProp.rIns || bodyProp.rIns === 0) bodyProperties += ` rIns="${bodyProp.rIns}"`
+		if (bodyProp.bIns || bodyProp.bIns === 0) bodyProperties += ` bIns="${bodyProp.bIns}"`
 
 		// C.1: Text columns (numCol/spcCol). Spacing is only meaningful when there is more than one column.
-		if (slideObject.options._bodyProp.numCol) bodyProperties += ` numCol="${slideObject.options._bodyProp.numCol}"`
-		if (slideObject.options._bodyProp.spcCol) bodyProperties += ` spcCol="${slideObject.options._bodyProp.spcCol}"`
+		if (bodyProp.numCol) bodyProperties += ` numCol="${bodyProp.numCol}"`
+		if (bodyProp.spcCol) bodyProperties += ` spcCol="${bodyProp.spcCol}"`
 
 		// C: Add rtl after margins
 		bodyProperties += ' rtlCol="0"'
 
 		// D: Add anchorPoints
-		if (slideObject.options._bodyProp.anchor) bodyProperties += ' anchor="' + slideObject.options._bodyProp.anchor + '"' // VALS: [t,ctr,b]
-		if (slideObject.options._bodyProp.vert) bodyProperties += ' vert="' + slideObject.options._bodyProp.vert + '"' // VALS: [eaVert,horz,mongolianVert,vert,vert270,wordArtVert,wordArtVertRtl]
+		if (bodyProp.anchor) bodyProperties += ' anchor="' + bodyProp.anchor + '"' // VALS: [t,ctr,b]
+		if (bodyProp.vert) bodyProperties += ' vert="' + bodyProp.vert + '"' // VALS: [eaVert,horz,mongolianVert,vert,vert270,wordArtVert,wordArtVertRtl]
 
 		// E: Close <a:bodyPr element
 		bodyProperties += '>'
 
 		// E.1: Preset text warp (`<a:prstTxWarp>`). Per CT_TextBodyProperties this child
 		// comes before the autofit group, so emit it immediately after the attributes.
-		if (slideObject.options._bodyProp.prstTxWarp) {
-			bodyProperties += `<a:prstTxWarp prst="${slideObject.options._bodyProp.prstTxWarp}"><a:avLst/></a:prstTxWarp>`
+		if (bodyProp.prstTxWarp) {
+			bodyProperties += `<a:prstTxWarp prst="${bodyProp.prstTxWarp}"><a:avLst/></a:prstTxWarp>`
 		}
 
 		/**
@@ -1666,8 +1672,8 @@ function genXmlBodyProperties (slideObject: ISlideObject | TableCell): string {
 		 * @see: http://officeopenxml.com/drwSp-text-bodyPr-fit.php
 		 * @see: http://www.datypic.com/sc/ooxml/g-a_EG_TextAutofit.html
 		 */
-		if (slideObject.options.fit) {
-			const fit = slideObject.options.fit
+		if (options?.fit) {
+			const fit = options.fit
 			// NOTE: Use of '<a:noAutofit/>' instead of '' causes issues in PPT-2013!
 			if (fit === 'none') bodyProperties += ''
 			// NOTE: Bare shrink does not work automatically - PowerPoint calculates fontScale/lnSpcReduction dynamically upon edit/resize.
@@ -1678,12 +1684,12 @@ function genXmlBodyProperties (slideObject: ISlideObject | TableCell): string {
 		}
 		//
 		// DEPRECATED: below (@deprecated v3.3.0)
-		if (slideObject.options.shrinkText) bodyProperties += '<a:normAutofit/>' // MS-PPT > Format shape > Text Options: "Shrink text on overflow"
+		if (options?.shrinkText) bodyProperties += '<a:normAutofit/>' // MS-PPT > Format shape > Text Options: "Shrink text on overflow"
 		/* DEPRECATED: below (@deprecated v3.3.0)
 		 * MS-PPT > Format shape > Text Options: "Resize shape to fit text" [spAutoFit]
 		 * NOTE: Use of '<a:noAutofit/>' in lieu of '' below causes issues in PPT-2013
 		 */
-		bodyProperties += slideObject.options._bodyProp.autoFit ? '<a:spAutoFit/>' : ''
+		bodyProperties += bodyProp.autoFit ? '<a:spAutoFit/>' : ''
 
 		// LAST: Close _bodyProp
 		bodyProperties += '</a:bodyPr>'
@@ -1754,8 +1760,10 @@ function genXmlMathParagraph (omml: string): string {
  */
 export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 	const opts: ObjectOptions = slideObj.options || {}
+	// Every run reaching STEP 5/6 carries an `options` bag (assigned in STEP 4), so model it as required.
+	type RunProps = TextProps & { options: TextPropsOptions }
 	let tmpTextObjects: TextProps[] = []
-	const arrTextObjects: TextProps[] = []
+	const arrTextObjects: RunProps[] = []
 
 	// FIRST: Shapes without text reach this point with `slideObj.text` null/undefined.
 	// We MUST still emit a `<p:txBody>` with at least an empty `<a:p>` paragraph;
@@ -1824,16 +1832,16 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
 				const isLast = lineIdx === lines.length - 1
 				// Non-last pieces need a paragraph break after them (the \n implies it).
 				// The last piece inherits the caller's breakLine intent — do not mutate the original options object.
-				arrTextObjects.push({ text: line, options: { ...itext.options, breakLine: isLast ? itext.options.breakLine : true } })
+				arrTextObjects.push({ text: line, options: { ...itext.options, breakLine: isLast ? itext.options?.breakLine : true } })
 			})
 		} else {
-			arrTextObjects.push(itext)
+			arrTextObjects.push({ ...itext, options: itext.options ?? {} })
 		}
 	})
 
 	// STEP 5: Group textObj into lines by checking for lineBreak, bullets, alignment change, etc.
-	const arrLines: TextProps[][] = []
-	let arrTexts: TextProps[] = []
+	const arrLines: RunProps[][] = []
+	let arrTexts: RunProps[] = []
 	arrTextObjects.forEach((textObj, idx) => {
 		// A0: A math equation (#1456) is a display-level paragraph — flush any pending runs and
 		// give it its own line so STEP 6 can emit the <a14:m> wrapper instead of text runs.
@@ -2006,7 +2014,7 @@ export function genXmlTextBody (slideObj: ISlideObject | TableCell): string {
  * @param {ISlideObject} placeholderObj
  * @returns XML
  */
-export function genXmlPlaceholder (placeholderObj: ISlideObject): string {
+export function genXmlPlaceholder (placeholderObj: ISlideObject | null): string {
 	if (!placeholderObj) return ''
 
 	const placeholderIdx = placeholderObj.options?._placeholderIdx ? placeholderObj.options._placeholderIdx : ''
@@ -2133,7 +2141,7 @@ export function makeXmlContTypes (slides: PresSlideInternal[], slideLayouts: Sli
 	}
 
 	// STEP 6: Add rels
-	masterSlide._relsChart.forEach(rel => {
+	masterSlide?._relsChart.forEach(rel => {
 		strXml += ' <Override PartName="' + rel.Target + '" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>'
 	})
 	// master _relsMedia extensions are already covered by the unified ctTargets walk above; no per-master Default block needed here.
@@ -2744,7 +2752,7 @@ export function buildNotesSlideRels (slide: PresSlideInternal): ISlideRel[] {
 			// Notes support external `url` links only. Drop unsupported (e.g. `slide`) targets so the
 			// run serializer doesn't emit a dangling <a:hlinkClick> with no matching relationship.
 			if (hyperlink.slide) console.warn('Warning: notes hyperlinks support `url` only (ignoring `slide` target)')
-			delete run.options.hyperlink
+			if (run.options) delete run.options.hyperlink
 			return
 		}
 
@@ -3179,7 +3187,7 @@ export function makeXmlNotesMasterRel (): string {
  */
 function getLayoutIdxForSlide (slides: PresSlideInternal[], slideLayouts: SlideLayoutInternal[], slideNumber: number): number {
 	for (let i = 0; i < slideLayouts.length; i++) {
-		if (slideLayouts[i]._name === slides[slideNumber - 1]._slideLayout._name) {
+		if (slideLayouts[i]._name === slides[slideNumber - 1]._slideLayout?._name) {
 			return i + 1
 		}
 	}

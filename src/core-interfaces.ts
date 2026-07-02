@@ -2397,6 +2397,8 @@ export interface ChartErrorBarOptions {
 // Used internally, probably shouldn't be used by end users
 export interface IOptsChartData extends OptsChartData {
 	labels?: string[][]
+	/** Series index; always assigned by addChartDefinition() before this internal shape is built. */
+	_dataIndex: number
 }
 export interface OptsChartGridLine {
 	/**

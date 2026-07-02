@@ -43,7 +43,7 @@ export default class Slide {
 	private readonly _setSlideNum: (value: SlideNumberProps) => void
 
 	public addSlide: (options?: AddSlideProps) => PresSlideInternal
-	public getSlide: (slideNum: number) => PresSlideInternal
+	public getSlide: (slideNum: number) => PresSlideInternal | undefined
 	public _name: string
 	public _presLayout: PresLayout
 	public _rels: ISlideRel[]
@@ -61,7 +61,7 @@ export default class Slide {
 
 	constructor(params: {
 		addSlide: (options?: AddSlideProps) => PresSlideInternal
-		getSlide: (slideNum: number) => PresSlideInternal
+		getSlide: (slideNum: number) => PresSlideInternal | undefined
 		presLayout: PresLayout
 		setSlideNum: (value: SlideNumberProps) => void
 		slideId: number
