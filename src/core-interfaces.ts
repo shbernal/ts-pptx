@@ -2881,6 +2881,11 @@ export interface IChartOpts
 		OptsChartGridLine,
 		PositionProps {
 	/**
+	 * Chart type — required when using the canonical `addChart(data, options)` signature.
+	 * - Omit only for multi-type (combo) charts, where each `IChartMulti` entry carries its own `type`.
+	 */
+	type?: CHART_NAME
+	/**
 	 * Alt Text value ("How would you describe this object and its contents to someone who is blind?")
 	 * - PowerPoint: [right-click on a chart] > "Edit Alt Text..."
 	 */
@@ -3343,8 +3348,10 @@ export interface AnimationProps {
 }
 
 export interface PresSlide {
+	addChart(data: OptsChartData[], options: IChartOpts & { type: CHART_NAME }): PresSlide
+	addChart(charts: IChartMulti[], options?: IChartOpts): PresSlide
+	/** @deprecated Pass `type` on the options object: `addChart(data, { type, ...options })`. */
 	addChart(type: CHART_NAME, data: OptsChartData[], options?: IChartOpts): PresSlide
-	addChart(type: IChartMulti[], options?: IChartOpts): PresSlide
 	addConnector: (options: ConnectorProps) => PresSlide
 	addImage: (options: ImageProps) => PresSlide
 	addMedia: (options: MediaProps) => PresSlide

@@ -2304,7 +2304,7 @@ items:
     type: fork-internal-proposal
     first_seen: 2026-07-03
     last_reviewed: 2026-07-03
-    status: deferred
+    status: implemented
     priority: p3
     target_area:
       - typescript-api
@@ -2312,23 +2312,40 @@ items:
     non_target_reasons: []
     summary: Drop the positional `type` argument from addChart(); take only data + opts with `type` required on opts
     current_project_notes: |
-      `Slide.addChart(type, dataOrOptions, options)` still accepts the chart type as a
-      leading positional argument. The internal flow already normalizes onto `_type`
-      (IChartOptsLib), so the positional arg is redundant surface area. Proposal: make
-      the signature `addChart(data, opts)` with `type` required on `opts`, matching how
-      every other option is passed. Recorded from the comment-cleanup pass that removed
-      the inline `// FUTURE: TODO-VERSION-4: Remove first arg` note at src/slide.ts. Ties
-      into fork-ts-api-cleanup's IChartOptsLib fold. Breaking change.
+      IMPLEMENTED (additive phase, mirroring fork-transparency-width-props). The
+      canonical signature is now `addChart(data, { type, ...options })` with `type`
+      required on the options object; the single-type overload enforces it via
+      `IChartOpts & { type: CHART_NAME }` and the runtime throws when it is missing
+      (no more silent typeless chart). The old positional form
+      `addChart(type, data, options)` is retained as a `@deprecated` overload that
+      logs a one-time `warnOnce` deprecation and normalizes to the same internal path.
+      Multi-type (combo) charts are unchanged — `addChart(IChartMulti[], options)` —
+      because the combo array already lived in the first positional slot; an
+      `isMultiChart` shape guard (element has both `type` and `data`) distinguishes it
+      from single-chart `OptsChartData[]`.
+
+      Wiring: dispatch + overloads in src/slide.ts (addChart), facade overloads in
+      src/core-interfaces.ts PresSlide, new optional `IChartOpts.type`. Internal
+      `addChartDefinition` (src/gen-objects.ts) signature is untouched — for combo
+      charts the shared options are still passed in its legacy `data` slot.
+
+      Deferred (not part of this change): dropping the deprecated positional overload
+      itself, and migrating the ~140 legacy demo/test call sites off it (they keep
+      working under the deprecation). Downstream: downstream should move to the
+      `addChart(data, { type })` form before the positional overload is removed.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
         - src/slide.ts
+        - src/core-interfaces.ts
+        - test/regression/addchart-signature.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: Design the single-object addChart signature and migrate demos/tests
+    next_action: none
 
   - id: fork-transparency-width-props
     source: fork:src/core-interfaces.ts

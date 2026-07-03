@@ -37,7 +37,14 @@ import type {
 	TransitionProps,
 } from './core-interfaces.js'
 import * as genObj from './gen-objects.js'
+import { warnOnce } from './log.js'
 import { emuToInches } from './units.js'
+
+/** Distinguish a multi-type (combo) chart array (`IChartMulti[]`) from a single chart's data (`OptsChartData[]`). */
+function isMultiChart(arg: OptsChartData[] | IChartMulti[]): arg is IChartMulti[] {
+	const first = arg[0] as Partial<IChartMulti> | undefined
+	return !!first && typeof first === 'object' && 'type' in first && 'data' in first
+}
 
 export default class Slide {
 	private readonly _setSlideNum: (value: SlideNumberProps) => void
@@ -176,23 +183,68 @@ export default class Slide {
 
 	/**
 	 * Add chart to Slide
-	 * @param {CHART_NAME|IChartMulti[]} type - chart type
-	 * @param {object[]} data - data object
-	 * @param {IChartOpts} options - chart options
+	 * @param {OptsChartData[]} data - chart data
+	 * @param {IChartOpts & { type: CHART_NAME }} options - chart options; `type` is required here
 	 * @return {Slide} this Slide
 	 */
+	addChart(data: OptsChartData[], options: IChartOpts & { type: CHART_NAME }): Slide
+	/**
+	 * Add a multi-type (combo) chart to Slide
+	 * @param {IChartMulti[]} charts - per-type chart definitions (each carries its own `type`/`data`)
+	 * @param {IChartOpts} options - shared chart options
+	 * @return {Slide} this Slide
+	 */
+	addChart(charts: IChartMulti[], options?: IChartOpts): Slide
+	/**
+	 * @deprecated Pass the chart type on the options object instead: `addChart(data, { type, ...options })`.
+	 * The leading positional `type` argument is redundant and will be removed on the fork's normal
+	 * breaking-change cadence.
+	 */
 	addChart(type: CHART_NAME, data: OptsChartData[], options?: IChartOpts): Slide
-	addChart(type: IChartMulti[], options?: IChartOpts): Slide
 	addChart(
-		type: CHART_NAME | IChartMulti[],
-		dataOrOptions: OptsChartData[] | IChartOpts = [],
-		options?: IChartOpts
+		arg1: CHART_NAME | OptsChartData[] | IChartMulti[],
+		arg2?: OptsChartData[] | (IChartOpts & { type?: CHART_NAME }),
+		arg3?: IChartOpts
 	): Slide {
-		// Set `_type` on IChartOptsLib as its what is used as object is passed around
-		const optionsWithType: IChartOptsLib | undefined =
-			Array.isArray(type) && !Array.isArray(dataOrOptions) ? dataOrOptions : options
-		if (optionsWithType) optionsWithType._type = Array.isArray(type) ? type : asChartType(type)
-		genObj.addChartDefinition(this, type, dataOrOptions, options)
+		let type: CHART_NAME | IChartMulti[]
+		let data: OptsChartData[]
+		let options: IChartOpts
+
+		if (typeof arg1 === 'string') {
+			// DEPRECATED positional form: addChart(type, data, options)
+			warnOnce(
+				'addChart(type, data, options) is deprecated; pass the chart type on the options object instead: ' +
+					'addChart(data, { type, ...options }). The positional `type` argument will be removed in a future release.'
+			)
+			type = arg1
+			data = (arg2 as OptsChartData[]) ?? []
+			options = arg3 ?? {}
+		} else if (Array.isArray(arg1) && isMultiChart(arg1)) {
+			// Multi-type (combo) chart: addChart(IChartMulti[], options?)
+			type = arg1
+			data = []
+			options = (arg2 as IChartOpts) ?? {}
+		} else {
+			// Canonical single-type form: addChart(data, { type, ...options })
+			data = arg1 ?? []
+			options = (arg2 as IChartOpts & { type?: CHART_NAME }) ?? {}
+			const optType = (options as IChartOpts & { type?: CHART_NAME }).type
+			if (!optType) {
+				throw new Error(
+					'addChart: a chart `type` is required on the options object, e.g. addChart(data, { type: pptx.ChartType.bar }).'
+				)
+			}
+			type = optType
+		}
+
+		// Set `_type` on IChartOptsLib as it is what is used as the object is passed around
+		;(options as IChartOptsLib)._type = Array.isArray(type) ? type : asChartType(type)
+		// addChartDefinition's multi-type branch reads the shared options from its `data` slot
+		if (Array.isArray(type)) {
+			genObj.addChartDefinition(this, type, options, undefined)
+		} else {
+			genObj.addChartDefinition(this, type, data, options)
+		}
 		return this
 	}
 

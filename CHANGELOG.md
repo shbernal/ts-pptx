@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`addChart(data, options)` — chart type on the options object.** The canonical
+  signature is now `slide.addChart(data, { type, ...options })`, matching how every
+  other option is passed. This is additive: the old positional form
+  `addChart(type, data, options)` still works but is now `@deprecated` and logs a
+  one-time console warning; it will be removed on the fork's normal breaking-change
+  cadence.
+  - Migration: move the leading `type` argument onto the options object.
+    - Before: `slide.addChart(pptx.ChartType.bar, data, { x: 1, y: 1 })`
+    - After: `slide.addChart(data, { type: pptx.ChartType.bar, x: 1, y: 1 })`
+  - Multi-type (combo) charts are unchanged: `addChart(chartsArray, options)` — each
+    `IChartMulti` entry already carries its own `type`.
+  - Omitting `type` on the options object of the canonical form now throws with a
+    clear message rather than silently emitting a typeless chart.
+
 - **PowerPoint-aligned border and shadow style props.** These are additive: the
   new names read verbatim off the PowerPoint UI, and the old names still work but
   are now `@deprecated` and will be removed on the fork's normal breaking-change
