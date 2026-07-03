@@ -208,7 +208,6 @@ export function addGroupDefinition(target: PresSlideInternal, children: GroupChi
  */
 export function createSlideMaster(props: SlideMasterProps, target: SlideLayoutInternal): void {
 	// STEP 1: Add background if either the slide or layout has background props
-	// if (props.background || target.background) addBackgroundDefinition(props.background, target)
 	if (props.bkgd) target.bkgd = props.bkgd // DEPRECATED: (remove in v4.0.0)
 
 	// STEP 2: Add all Slide Master objects in the order they were given
@@ -1665,8 +1664,6 @@ export function addTableDefinition(
 			// B: Check for fine-grained formatting, disable auto-page when found
 			// Since genXmlTextBody already checks for text array ( text:[{},..{}] ) we're done!
 			// Text in individual cells will be formatted as they are added by calls to genXmlTextBody within table builder
-			// if (cell.text && Array.isArray(cell.text)) opt.autoPage = false
-			// TODO: FIXME: WIP: 20210807: We cant do this anymore
 		})
 	})
 

@@ -89,7 +89,6 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 	if (verbose) {
 		console.log('[1/4] inputCells')
 		inputCells.forEach((cell, idx) => console.log(`[1/4] [${idx + 1}] cell: ${JSON.stringify(cell)}`))
-		// console.log('...............................................\n\n')
 	}
 
 	// STEP 2: Group table cells into lines based on "\n" or `breakLine` prop
@@ -139,7 +138,6 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 	if (verbose) {
 		console.log(`[2/4] inputLines1 (${inputLines1.length})`)
 		inputLines1.forEach((line, idx) => console.log(`[2/4] [${idx + 1}] line: ${JSON.stringify(line)}`))
-		// console.log('...............................................\n\n')
 	}
 
 	// STEP 3: Tokenize every text object into words. All runs of one logical paragraph
@@ -167,7 +165,6 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 	if (verbose) {
 		console.log(`[3/4] inputLines2 (${inputLines2.length})`)
 		inputLines2.forEach((line) => console.log(`[3/4] line: ${JSON.stringify(line)}`))
-		// console.log('...............................................\n\n')
 	}
 
 	// STEP 4: Group cells/words into lines based upon space consumed by word letters
@@ -179,7 +176,6 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 			const wordText = String(word.text || '')
 			// A: create new line when horizontal space is exhausted
 			if (strCurrLine.length + wordText.length > CPL) {
-				// if (verbose) console.log(`STEP 4: New line added: (${strCurrLine.length} + ${word.text.length} > ${CPL})`);
 				parsedLines.push(lineCells)
 				lineCells = []
 				strCurrLine = ''
@@ -238,8 +234,6 @@ export function getSlidesForTableRows(
 		if (tableRowSlides.length > 0)
 			emuStartY = inch2Emu(tableProps.autoPageSlideStartY || tableProps.newSlideStartY || arrInchMargins[0])
 		emuSlideTabH = (tablePropH || presLayout.height) - emuStartY - inch2Emu(arrInchMargins[2])
-		// console.log(`| startY .......................................... = ${(emuStartY / EMU).toFixed(1)}`)
-		// console.log(`| emuSlideTabH .................................... = ${(emuSlideTabH / EMU).toFixed(1)}`)
 		// EXPLICIT-H FIX (upstream #1264): an explicit `h` is the table's height (an extent), not a
 		// bottom coordinate, so — unlike `presLayout.height` — the first slide must NOT subtract the
 		// start-Y from it. Otherwise a table that begins mid-slide gets a tiny first page (only a few
@@ -430,9 +424,10 @@ export function getSlidesForTableRows(
 				options: cell.options,
 			})
 
-			/** FUTURE: DEPRECATED:
-			 * - Backwards-Compat: Oops! Discovered we were still using points for cell margin before v3.8.0 (UGH!)
-			 * - We cant introduce a breaking change before v4.0, so...
+			/**
+			 * Cell margins use a magnitude heuristic for legacy reasons: a value `>= 1` is interpreted as
+			 * points (the pre-v3.8.0 behavior), while a value `< 1` is interpreted as inches. Unifying on a
+			 * single unit is a breaking change tracked in the backlog (dn-table-cell-margin-units).
 			 */
 			const cellMargin = Array.isArray(cell.options?.margin) ? cell.options.margin : undefined
 			const tableMargin = Array.isArray(tableProps.margin) ? tableProps.margin : null

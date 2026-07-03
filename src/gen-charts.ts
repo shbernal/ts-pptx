@@ -637,7 +637,6 @@ export function makeXmlCharts(rel: ISlideRelChart): string {
 		rel.opts._type.forEach((type) => {
 			// TODO: FIXME: theres `options` on chart rels??
 			const options = { ...rel.opts, ...type.options }
-			// let options: IChartOptsLib = { type: type.type, }
 			const valAxisId = options.secondaryValAxis ? AXIS_ID_VALUE_SECONDARY : AXIS_ID_VALUE_PRIMARY
 			const catAxisId = options.secondaryCatAxis ? AXIS_ID_CATEGORY_SECONDARY : AXIS_ID_CATEGORY_PRIMARY
 			usesSecondaryValAxis = usesSecondaryValAxis || (options.secondaryValAxis ?? false)

@@ -858,9 +858,8 @@ export enum PLACEHOLDER_TYPES {
 export type PLACEHOLDER_TYPE = 'title' | 'body' | 'pic' | 'chart' | 'tbl' | 'media'
 
 /**
- * NOTE: 20170304: BULLET_TYPES: Only default is used so far. I'd like to combine the two pieces of code that use these before implementing these as options
- * Since we close <p> within the text object bullets, its slightly more difficult than combining into a func and calling to get the paraProp
- * and i'm not sure if anyone will even use these... so, skipping for now.
+ * Bullet glyph presets. Only `DEFAULT` is currently wired through to output; the remaining entries are
+ * reserved and not yet selectable via options.
  */
 export enum BULLET_TYPES {
 	'DEFAULT' = '&#x2022;',

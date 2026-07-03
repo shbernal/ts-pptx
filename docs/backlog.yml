@@ -2160,3 +2160,45 @@ items:
       powerpoint_result: pass (Windows desktop PowerPoint 16.0, 2026-06-24; online-video.pptx authored + opened clean via COM)
       spec_refs: []
     next_action: none
+  - id: dn-inline-math
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-07-03
+    last_reviewed: 2026-07-03
+    status: deferred
+    priority: p3
+    target_area:
+      - missing-pptx-feature
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: "Inline (in-sentence) math: a14:m equation run inside a text paragraph, not its own oMathPara block"
+    current_project_notes: "Carved off the LaTeX->OMML converter design (2026-07-03). The shipped math: option on addText authors a DISPLAY equation only: the emitter wraps the OMML in <m:oMathPara> as its own paragraph block (gen-xml.ts ~L1703), inside the oracle-pinned mc:AlternateContent/a14:m envelope. PowerPoint also authors INLINE equations - an <a14:m><m:oMath> run flowing mid-sentence between plain <a:r> runs in the same <a:p> - which the writer cannot express: a math item is always its own paragraph. Feature: let a text-run array mix plain runs and math runs in one paragraph, e.g. addText([{text:'where '},{math:...,inline:true},{text:' holds'}]). Work is in the core emitter (a new inline emission path in gen-xml.ts: a14:m without oMathPara, positioned within the run sequence, envelope semantics re-checked for run-level AlternateContent), NOT in the LaTeX/MathML converter - the converter's display flag already covers the MathML side. Fixture-gated: needs a PowerPoint-authored oracle of an inline equation mid-sentence (the existing math-omml.pptx oracle covers only the display form) to pin how PowerPoint scopes the AlternateContent envelope at run level before implementing."
+    evidence:
+      kinds: []
+      local_files: []
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: reconsider-after-latex-omml-display-converter-ships
+  - id: dn-table-cell-margin-units
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-07-03
+    last_reviewed: 2026-07-03
+    status: target
+    priority: p3
+    target_area:
+      - table-ooxml
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: Table cell margins use a magnitude heuristic (value >=1 => points, <1 => inches); unify on a single explicit unit
+    current_project_notes: "Cell margin values are interpreted by magnitude for backward compatibility with pre-v3.8.0 behaviour: a component >= 1 is treated as POINTS, while a component < 1 is treated as INCHES. This is applied in two places that must stay in lockstep: (1) src/gen-tables.ts autoPage margin accumulation, and (2) src/gen-xml.ts cell marL/marR/marT/marB emission. The heuristic is a footgun — a legitimate 1-inch margin is silently reinterpreted as 1 point — but fixing it means changing how existing margin numbers are read, which is a breaking change. Candidate fix: accept only inches (matching the rest of the API) or a typed unit, warn on the legacy points path, then drop the >=1 branch. Recorded from the comment-cleanup pass that replaced the old 'cant introduce a breaking change before v4.0' notes at those two sites."
+    evidence:
+      kinds: []
+      local_files: []
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: Design a single-unit cell-margin API and migration; remove the >=1 points fallback

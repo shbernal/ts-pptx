@@ -273,7 +273,6 @@ export default class Slide {
 		// But React/TypeScript users are passing the shapeName from an enum, which is a simple string, so lets cast
 		// <script./> => `pptx.shapes.RECTANGLE` [string] "rect" ... shapeName['name'] = 'rect'
 		// TypeScript => `pptxgen.shapes.RECTANGLE` [string] "rect" ... shapeName = 'rect'
-		// let shapeNameDecode = typeof shapeName === 'object' && shapeName['name'] ? shapeName['name'] : shapeName
 		genObj.addShapeDefinition(this, shapeName, options || {})
 		return this
 	}

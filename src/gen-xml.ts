@@ -786,9 +786,10 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 						) {
 							cellMargin = DEF_CELL_MARGIN_IN
 						}
-						/** FUTURE: DEPRECATED:
-						 * - Backwards-Compat: Oops! Discovered we were still using points for cell margin before v3.8.0 (UGH!)
-						 * - We cant introduce a breaking change before v4.0, so...
+						/**
+						 * Cell margins use a magnitude heuristic for legacy reasons: a value `>= 1` is interpreted as
+						 * points (the pre-v3.8.0 behavior), while a value `< 1` is interpreted as inches. Unifying on a
+						 * single unit is a breaking change tracked in the backlog (dn-table-cell-margin-units).
 						 */
 						let cellMarginXml: string
 						if (cellMargin[0] >= 1) {
