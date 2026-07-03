@@ -730,7 +730,7 @@ export function resolveHtmlColWidth(calcWidth: number, setWidth: number, minWidt
  * Reproduces an HTML table as a PowerPoint table - including column widths, style, etc. - creates 1 or more slides as needed
  * @param {TableToSlidesHost} pptx - pptxgenjs instance
  * @param {string} tabEleId - HTMLElementID of the table
- * @param {ITableToSlidesOpts} options - array of options (e.g.: tabsize)
+ * @param {TableToSlidesProps} options - array of options (e.g.: tabsize)
  * @param {SlideLayoutInternal} masterSlide - masterSlide
  */
 export function genTableToSlides(
@@ -946,7 +946,7 @@ export function genTableToSlides(
 		masterSlide
 	).forEach((slide, idxTr) => {
 		// A: Create new Slide
-		const newSlide = pptx.addSlide({ masterName: opts.masterSlideName || undefined })
+		const newSlide = pptx.addSlide({ masterTitle: opts.masterSlideName || undefined })
 
 		// B: DESIGN: Reset `y` to startY or margin after first Slide (ISSUE#43, ISSUE#47, ISSUE#48)
 		if (idxTr === 0) opts.y = opts.y || arrInchMargins[0]

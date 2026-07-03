@@ -198,7 +198,7 @@ defineRegressionSuite('Object identity', 'legacy bug-21', [
 						},
 					],
 				})
-				p.addSlide({ masterName: 'OBJECT_IDENTITY_MASTER' })
+				p.addSlide({ masterTitle: 'OBJECT_IDENTITY_MASTER' })
 			})
 
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')

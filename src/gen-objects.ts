@@ -27,7 +27,7 @@ import {
 	VALID_SHAPE_PRESETS,
 } from './core-enums.js'
 import type { PLACEHOLDER_TYPE } from './core-enums.js'
-import { warn } from './log.js'
+import { warn, warnOnce } from './log.js'
 import type {
 	AddSlideProps,
 	BackgroundProps,
@@ -37,11 +37,11 @@ import type {
 	Coord,
 	GroupChildProps,
 	GroupProps,
-	IChartMulti,
-	IChartOpts,
-	IChartOptsLib,
-	IOptsChartData,
-	ISlideObject,
+	ChartMulti,
+	ChartOpts,
+	ChartOptsLib,
+	OptsChartDataInternal,
+	SlideObject,
 	ImageProps,
 	MediaProps,
 	NotesProps,
@@ -83,7 +83,7 @@ let _chartCounter = 0
 const IMAGE_NATURAL_DPI = 96
 
 type BorderTuple = [BorderProps, BorderProps, BorderProps, BorderProps]
-type HyperlinkTextObject = (TextProps | ISlideObject | TableCell) & {
+type HyperlinkTextObject = (TextProps | SlideObject | TableCell) & {
 	options?: TextPropsOptions | ObjectOptions
 	text?: string | number | TextProps[] | TableCell[]
 }
@@ -142,8 +142,8 @@ let _groupNameCounter = 0
  * @param children - the child-object descriptors
  * @param opts - group position/size/name options
  */
-function buildGroupObject(target: PresSlideInternal, children: GroupChildProps[], opts: GroupProps): ISlideObject {
-	const groupObjects: ISlideObject[] = []
+function buildGroupObject(target: PresSlideInternal, children: GroupChildProps[], opts: GroupProps): SlideObject {
+	const groupObjects: SlideObject[] = []
 
 	;(children || []).forEach((child) => {
 		// Nested group: recurse and embed the child group object directly (no slide splice — its own
@@ -254,9 +254,9 @@ function clampChartPct(value: number | undefined, min: number, max: number, name
  * Generate the chart based on input data.
  * OOXML Chart Spec: ISO/IEC 29500-1:2016(E)
  *
- * @param {CHART_NAME | IChartMulti[]} `type` should belong to: 'column', 'pie'
+ * @param {CHART_NAME | ChartMulti[]} `type` should belong to: 'column', 'pie'
  * @param {[]} `data` a JSON object with follow the following format
- * @param {IChartOptsLib} `opt` chart options
+ * @param {ChartOptsLib} `opt` chart options
  * @param {PresSlideInternal} `target` slide object that the chart will be added to
  * @return {object} chart object
  * {
@@ -277,9 +277,9 @@ function clampChartPct(value: number | undefined, min: number, max: number, name
  */
 export function addChartDefinition(
 	target: PresSlideInternal,
-	type: CHART_NAME | IChartMulti[],
-	data: OptsChartData[] | IChartOpts,
-	opt?: IChartOptsLib
+	type: CHART_NAME | ChartMulti[],
+	data: OptsChartData[] | ChartOpts,
+	opt?: ChartOptsLib
 ): object {
 	function correctGridLineOptions(glOpts: OptsChartGridLine): void {
 		if (!glOpts || glOpts.style === 'none') return
@@ -298,13 +298,13 @@ export function addChartDefinition(
 	}
 
 	const chartId = ++_chartCounter
-	const resultObject: ISlideObject = {
+	const resultObject: SlideObject = {
 		_type: SLIDE_OBJECT_TYPES.chart,
 	}
 	// DESIGN: `type` can an object (ex: `pptx.charts.DOUGHNUT`) or an array of chart objects
 	// EX: addChartDefinition([ { type:pptx.charts.BAR, data:{name:'', labels:[], values[]} }, {<etc>} ])
 	// Multi-Type Charts
-	let tmpOpt: IChartOpts | IChartOptsLib | undefined
+	let tmpOpt: ChartOpts | ChartOptsLib | undefined
 	let tmpData: OptsChartData[] = []
 	if (Array.isArray(type)) {
 		// For multi-type charts there needs to be data for each type,
@@ -327,7 +327,7 @@ export function addChartDefinition(
 			item.labels = [item.labels as string[]]
 		}
 	})
-	const options: IChartOptsLib = tmpOpt && typeof tmpOpt === 'object' ? tmpOpt : {}
+	const options: ChartOptsLib = tmpOpt && typeof tmpOpt === 'object' ? tmpOpt : {}
 
 	// STEP 1: Set default options/decode user options
 	// A: Core
@@ -403,7 +403,16 @@ export function addChartDefinition(
 	if (!['circle', 'dash', 'diamond', 'dot', 'none', 'square', 'triangle'].includes(options.lineDataSymbol || ''))
 		options.lineDataSymbol = 'circle'
 	if (!['gap', 'span', 'zero'].includes(options.displayBlanksAs || '')) options.displayBlanksAs = 'gap'
-	if (!['standard', 'marker', 'filled'].includes(options.radarStyle || '')) options.radarStyle = 'standard'
+	// radarStyle: canonical values are the PowerPoint-UI names ('radar'|'markers'|'filled');
+	// migrate the deprecated OOXML-wire spellings ('standard'|'marker') and warn once.
+	if (options.radarStyle === 'standard') {
+		warnOnce("radarStyle: 'standard' is deprecated; use 'radar' (matches the PowerPoint UI).")
+		options.radarStyle = 'radar'
+	} else if (options.radarStyle === 'marker') {
+		warnOnce("radarStyle: 'marker' is deprecated; use 'markers' (matches the PowerPoint UI).")
+		options.radarStyle = 'markers'
+	}
+	if (!['radar', 'markers', 'filled'].includes(options.radarStyle || '')) options.radarStyle = 'radar'
 	// Marker size emits as `<c:size val>` (ST_MarkerSize): an integer in [2,72] points.
 	// Out-of-range or non-integer values make PowerPoint report the file as needing
 	// repair, so round and clamp into range and warn when the input is coerced.
@@ -573,7 +582,7 @@ export function addChartDefinition(
 	// STEP 5: Add this chart to this Slide Rels (rId/rels count spans all slides! Count all images to get next rId)
 	target._relsChart.push({
 		rId: getNewRelId(target),
-		data: tmpData as IOptsChartData[],
+		data: tmpData as OptsChartDataInternal[],
 		opts: options,
 		type: options._type,
 		globalId: chartId,
@@ -655,7 +664,7 @@ function registerImageFillMedia(target: PresSlideInternal, fill: ShapeFillProps)
 }
 
 export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): void {
-	const newObject: ISlideObject = {
+	const newObject: SlideObject = {
 		_type: SLIDE_OBJECT_TYPES.image,
 	}
 
@@ -890,7 +899,7 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	const objectName = opt.objectName
 		? encodeXmlEntities(validateObjectName(opt.objectName, 'media'))
 		: `Media ${target._slideObjects.filter((obj) => obj._type === SLIDE_OBJECT_TYPES.media).length}`
-	const slideData: ISlideObject = { _type: SLIDE_OBJECT_TYPES.media }
+	const slideData: SlideObject = { _type: SLIDE_OBJECT_TYPES.media }
 
 	// STEP 1: REALITY-CHECK
 	if (!strPath && !strData && strType !== 'online') {
@@ -1114,7 +1123,7 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 	// OOXML preset spellings before storing on the slide object.
 	const resolvedShapeName: SHAPE_NAME =
 		typeof shapeName === 'string' && SHAPE_NAME_ALIASES[shapeName] ? SHAPE_NAME_ALIASES[shapeName] : shapeName
-	const newObject: ISlideObject = {
+	const newObject: SlideObject = {
 		_type: SLIDE_OBJECT_TYPES.text,
 		shape: resolvedShapeName || SHAPE_TYPE.RECTANGLE,
 		options,
@@ -1259,7 +1268,7 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 	const x2 = getSmartParseNumber(opts.x2, 'X', target._presLayout) / EMU
 	const y2 = getSmartParseNumber(opts.y2, 'Y', target._presLayout) / EMU
 
-	const newObject: ISlideObject = {
+	const newObject: SlideObject = {
 		_type: SLIDE_OBJECT_TYPES.connector,
 		// store the connector preset on `shape`; the serializer emits it as the prstGeom `prst`
 		shape: preset,
@@ -1571,7 +1580,7 @@ export function addTableDefinition(
 		}
 	}
 
-	// STEP 5: Loop over cells: transform each to ITableCell; check to see whether to unset `autoPage` while here
+	// STEP 5: Loop over cells: transform each to TableCell; check to see whether to unset `autoPage` while here
 	arrRows.forEach((row) => {
 		row.forEach((cell, idy) => {
 			// A: Transform cell data if needed
@@ -1588,9 +1597,8 @@ export function addTableDefinition(
 			} else if (typeof cell === 'object') {
 				const target = row[idy]
 				if (!target) return
-				// ARG0: `text`
-				if (typeof cell.text === 'number') target.text = cell.text.toString()
-				else if (typeof cell.text === 'undefined' || cell.text === null) target.text = ''
+				// ARG0: `text` (numeric input was already coerced to a string in the first pass)
+				if (typeof cell.text === 'undefined' || cell.text === null) target.text = ''
 
 				// ARG1: `options`: ensure options exists
 				target.options = cell.options || {}
@@ -1638,7 +1646,7 @@ export function addTableDefinition(
 			// A: Create new Slide when needed, otherwise, use existing (NOTE: More than 1 table can be on a Slide, so we will go up AND down the Slide chain)
 			let newSlide = getSlide(target._slideNum + idx)
 			if (!newSlide) {
-				newSlide = addSlide({ masterName: slideLayout?._name || undefined })
+				newSlide = addSlide({ masterTitle: slideLayout?._name || undefined })
 				slides.push(newSlide)
 			}
 
@@ -1694,7 +1702,7 @@ export function addTextDefinition(
 ): void {
 	const textObjects = !text || text.length === 0 ? [{ text: '' }] : text
 	const objectOptions: ObjectOptions = opts || {}
-	const newObject: ISlideObject = {
+	const newObject: SlideObject = {
 		_type: isPlaceholder ? SLIDE_OBJECT_TYPES.placeholder : SLIDE_OBJECT_TYPES.text,
 		shape: opts.shape || SHAPE_TYPE.RECTANGLE,
 		text: textObjects,
@@ -1999,11 +2007,11 @@ export function addBackgroundDefinition(props: BackgroundProps | undefined, targ
 /**
  * Parses text/text-objects from `addText()` and `addTable()` methods; creates 'hyperlink'-type Slide Rels for each hyperlink found
  * @param {PresSlideInternal} target - slide object that any hyperlinks will be be added to
- * @param {number | string | TextProps | TextProps[] | ITableCell[][]} text - text to parse
+ * @param {number | string | TextProps | TextProps[] | TableCell[][]} text - text to parse
  */
 function createHyperlinkRels(
 	target: PresSlideInternal,
-	text: number | string | ISlideObject | TextProps | TextProps[] | TableCell[] | TableCell[][],
+	text: number | string | SlideObject | TextProps | TextProps[] | TableCell[] | TableCell[][],
 	options?: TextPropsOptions[]
 ): void {
 	let textObjs: Array<HyperlinkTextObject | TableCell[]> = []

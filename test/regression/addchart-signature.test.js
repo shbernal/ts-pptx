@@ -37,7 +37,7 @@ defineRegressionSuite('addChart signature', [
 		},
 	},
 	{
-		name: 'multi-type (combo) charts are unchanged: addChart(IChartMulti[], options)',
+		name: 'multi-type (combo) charts are unchanged: addChart(ChartMulti[], options)',
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addChart(

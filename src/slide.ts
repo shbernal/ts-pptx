@@ -12,14 +12,14 @@ import type {
 	GroupChildProps,
 	GroupProps,
 	HexColor,
-	IChartMulti,
-	IChartOpts,
-	IChartOptsLib,
-	ISlideComment,
-	ISlideObject,
-	ISlideRel,
-	ISlideRelChart,
-	ISlideRelMedia,
+	ChartMulti,
+	ChartOpts,
+	ChartOptsLib,
+	SlideComment,
+	SlideObject,
+	SlideRel,
+	SlideRelChart,
+	SlideRelMedia,
 	ImageProps,
 	MediaProps,
 	NotesProps,
@@ -40,9 +40,9 @@ import * as genObj from './gen-objects.js'
 import { warnOnce } from './log.js'
 import { emuToInches } from './units.js'
 
-/** Distinguish a multi-type (combo) chart array (`IChartMulti[]`) from a single chart's data (`OptsChartData[]`). */
-function isMultiChart(arg: OptsChartData[] | IChartMulti[]): arg is IChartMulti[] {
-	const first = arg[0] as Partial<IChartMulti> | undefined
+/** Distinguish a multi-type (combo) chart array (`ChartMulti[]`) from a single chart's data (`OptsChartData[]`). */
+function isMultiChart(arg: OptsChartData[] | ChartMulti[]): arg is ChartMulti[] {
+	const first = arg[0] as Partial<ChartMulti> | undefined
 	return !!first && typeof first === 'object' && 'type' in first && 'data' in first
 }
 
@@ -53,16 +53,16 @@ export default class Slide {
 	public getSlide: (slideNum: number) => PresSlideInternal | undefined
 	public _name: string
 	public _presLayout: PresLayout
-	public _rels: ISlideRel[]
-	public _relsChart: ISlideRelChart[]
-	public _relsMedia: ISlideRelMedia[]
+	public _rels: SlideRel[]
+	public _relsChart: SlideRelChart[]
+	public _relsMedia: SlideRelMedia[]
 	public _rId: number
 	public _slideId: number
 	public _slideLayout: SlideLayoutInternal | null
 	public _slideNum: number
 	public _slideNumberProps: SlideNumberProps | null
-	public _slideObjects: ISlideObject[]
-	public _comments: ISlideComment[] = []
+	public _slideObjects: SlideObject[]
+	public _comments: SlideComment[] = []
 	public _newAutoPagedSlides: PresSlideInternal[] = []
 	public _animations: AnimationProps[] = []
 
@@ -184,31 +184,31 @@ export default class Slide {
 	/**
 	 * Add chart to Slide
 	 * @param {OptsChartData[]} data - chart data
-	 * @param {IChartOpts & { type: CHART_NAME }} options - chart options; `type` is required here
+	 * @param {ChartOpts & { type: CHART_NAME }} options - chart options; `type` is required here
 	 * @return {Slide} this Slide
 	 */
-	addChart(data: OptsChartData[], options: IChartOpts & { type: CHART_NAME }): Slide
+	addChart(data: OptsChartData[], options: ChartOpts & { type: CHART_NAME }): Slide
 	/**
 	 * Add a multi-type (combo) chart to Slide
-	 * @param {IChartMulti[]} charts - per-type chart definitions (each carries its own `type`/`data`)
-	 * @param {IChartOpts} options - shared chart options
+	 * @param {ChartMulti[]} charts - per-type chart definitions (each carries its own `type`/`data`)
+	 * @param {ChartOpts} options - shared chart options
 	 * @return {Slide} this Slide
 	 */
-	addChart(charts: IChartMulti[], options?: IChartOpts): Slide
+	addChart(charts: ChartMulti[], options?: ChartOpts): Slide
 	/**
 	 * @deprecated Pass the chart type on the options object instead: `addChart(data, { type, ...options })`.
 	 * The leading positional `type` argument is redundant and will be removed on the fork's normal
 	 * breaking-change cadence.
 	 */
-	addChart(type: CHART_NAME, data: OptsChartData[], options?: IChartOpts): Slide
+	addChart(type: CHART_NAME, data: OptsChartData[], options?: ChartOpts): Slide
 	addChart(
-		arg1: CHART_NAME | OptsChartData[] | IChartMulti[],
-		arg2?: OptsChartData[] | (IChartOpts & { type?: CHART_NAME }),
-		arg3?: IChartOpts
+		arg1: CHART_NAME | OptsChartData[] | ChartMulti[],
+		arg2?: OptsChartData[] | (ChartOpts & { type?: CHART_NAME }),
+		arg3?: ChartOpts
 	): Slide {
-		let type: CHART_NAME | IChartMulti[]
+		let type: CHART_NAME | ChartMulti[]
 		let data: OptsChartData[]
-		let options: IChartOpts
+		let options: ChartOpts
 
 		if (typeof arg1 === 'string') {
 			// DEPRECATED positional form: addChart(type, data, options)
@@ -220,15 +220,15 @@ export default class Slide {
 			data = (arg2 as OptsChartData[]) ?? []
 			options = arg3 ?? {}
 		} else if (Array.isArray(arg1) && isMultiChart(arg1)) {
-			// Multi-type (combo) chart: addChart(IChartMulti[], options?)
+			// Multi-type (combo) chart: addChart(ChartMulti[], options?)
 			type = arg1
 			data = []
-			options = (arg2 as IChartOpts) ?? {}
+			options = (arg2 as ChartOpts) ?? {}
 		} else {
 			// Canonical single-type form: addChart(data, { type, ...options })
 			data = arg1 ?? []
-			options = (arg2 as IChartOpts & { type?: CHART_NAME }) ?? {}
-			const optType = (options as IChartOpts & { type?: CHART_NAME }).type
+			options = (arg2 as ChartOpts & { type?: CHART_NAME }) ?? {}
+			const optType = (options as ChartOpts & { type?: CHART_NAME }).type
 			if (!optType) {
 				throw new Error(
 					'addChart: a chart `type` is required on the options object, e.g. addChart(data, { type: pptx.ChartType.bar }).'
@@ -237,8 +237,8 @@ export default class Slide {
 			type = optType
 		}
 
-		// Set `_type` on IChartOptsLib as it is what is used as the object is passed around
-		;(options as IChartOptsLib)._type = Array.isArray(type) ? type : asChartType(type)
+		// Set `_type` on ChartOptsLib as it is what is used as the object is passed around
+		;(options as ChartOptsLib)._type = Array.isArray(type) ? type : asChartType(type)
 		// addChartDefinition's multi-type branch reads the shared options from its `data` slot
 		if (Array.isArray(type)) {
 			genObj.addChartDefinition(this, type, options, undefined)

@@ -15,7 +15,7 @@ function deck(autoPagePlaceholder) {
 				{ placeholder: { options: { name: 'title', type: 'title', x: 0.5, y: 0.05, w: 9, h: 0.25 }, text: '' } },
 			],
 		})
-		const s = p.addSlide({ masterName: 'TEST_MASTER_1136' })
+		const s = p.addSlide({ masterTitle: 'TEST_MASTER_1136' })
 		s.addText(TITLE, { placeholder: 'title' })
 		// Enough rows to overflow several slides by natural slide height (no `h` cap, which can
 		// otherwise produce a degenerate empty overflow page in getSlidesForTableRows).

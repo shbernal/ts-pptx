@@ -38,6 +38,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     (`transparency: 25` ≡ `opacity: 0.75`). `opacity` is deprecated; when both are
     set, `transparency` wins (with a warning).
 
+- **`AddSlideProps.masterTitle` — renamed from `masterName`.** The property that
+  selects which slide master a new slide uses is now `masterTitle`, matching the
+  `title` you pass to `defineSlideMaster`. This is additive: `masterName` still
+  works but is now `@deprecated` and logs a one-time console warning; it will be
+  removed on the fork's normal breaking-change cadence. When both are set,
+  `masterTitle` wins.
+  - Migration: `addSlide({ masterName: 'MyMaster' })` → `addSlide({ masterTitle: 'MyMaster' })`.
+
+- **Radar chart `radarStyle` values renamed to match the PowerPoint UI.** The
+  canonical values are now `'radar'` / `'markers'` / `'filled'` (was
+  `'standard'` / `'marker'` / `'filled'`). This is additive: the old
+  `'standard'` / `'marker'` spellings still work but are now `@deprecated` and log
+  a one-time console warning. The emitted OOXML (`<c:radarStyle val="…"/>`,
+  `ST_RadarStyle`) is unchanged — the rename is a public-API name only.
+  - Migration: `radarStyle: 'standard'` → `radarStyle: 'radar'`; `radarStyle: 'marker'` → `radarStyle: 'markers'`.
+
+### Changed
+
+- **`TableCell.text` no longer accepts `number` in its TypeScript type.** The type
+  is now `string | TableCell[]` (was `string | number | TableCell[]`). Plain-JS
+  callers passing a number are still coerced to a string at runtime, but
+  TypeScript callers should pass `String(n)`. This removes a `number` branch that
+  every consumer of the type had to account for.
+
+- **Dropped the legacy `I` prefix from exported interface names.** The chart and
+  slide interface types are now un-prefixed for consistency with the rest of the
+  public surface (`IChartOpts` → `ChartOpts`, `IChartMulti` → `ChartMulti`, the
+  whole `IChartProps*` family, `ISlideObject` → `SlideObject`, `ISlideRel*` →
+  `SlideRel*`, `ISlideComment` → `SlideComment`). Two internal augmented shapes
+  moved to the codebase's `*Internal` convention: `IOptsChartData` →
+  `OptsChartDataInternal`, `IPresentationProps` → `PresentationPropsInternal`.
+  This is additive: every old `I`-prefixed name is retained as a `@deprecated`
+  type alias, so existing imports keep compiling; the aliases will be removed on
+  the fork's normal breaking-change cadence.
+  - Migration: drop the `I` prefix in type imports/annotations, e.g.
+    `import type { IChartOpts } from '...'` → `import type { ChartOpts } from '...'`.
+
 ### Removed
 
 - **BREAKING: removed the long-deprecated compatibility aliases.** These options

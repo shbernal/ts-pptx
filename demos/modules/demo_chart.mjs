@@ -443,7 +443,7 @@ function genSlide04(pptx) {
 	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-charts.html");
 	slide.addTable(
 		[[{ text: "Chart Examples: Bar Chart: Stacked/PercentStacked and DataTable", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]],
-		BASE_TABLE_OPTS
+		BASE_TABLE_OPTS,
 	);
 
 	let arrDataRegions = [
@@ -581,7 +581,7 @@ function genSlide05(pptx) {
 				BASE_TEXT_OPTS_R,
 			],
 		],
-		BASE_TABLE_OPTS
+		BASE_TABLE_OPTS,
 	);
 
 	// TOP-LEFT
@@ -618,7 +618,7 @@ function genSlide05(pptx) {
 			title: "Categories can be Multi-Color",
 			titleColor: "0088CC",
 			titleFontSize: 14,
-		}
+		},
 	);
 
 	// TOP-RIGHT
@@ -655,7 +655,7 @@ function genSlide05(pptx) {
 			valAxisMajorUnit: 0.2,
 			chartColors: ["0077BF", "4E9D2D", "ECAA00", "5FC4E3", "DE4216", "154384", "7D666A", "A3C961", "EF907B", "9BA0A3"],
 			barGapWidthPct: 25,
-		}
+		},
 	);
 
 	// BOTTOM-LEFT
@@ -692,7 +692,7 @@ function genSlide05(pptx) {
 			showLegend: true,
 			legendPos: "r",
 			legendColor: "F1F1F1",
-		}
+		},
 	);
 
 	// BOTTOM-RIGHT
@@ -731,7 +731,7 @@ function genSlide05(pptx) {
 			valAxisOrientation: "maxMin",
 			valAxisMaxVal: 200,
 			valAxisMajorUnit: 25,
-		}
+		},
 	);
 }
 
@@ -917,7 +917,7 @@ function genSlide07(pptx) {
 			invertedColors: ["0065A2", "428526", "C99100", "51A7C1", "BD3813", "123970", "6A575A", "8BAB52", "CB7A69", "84888B"],
 			barGapWidthPct: 25,
 			valAxisMajorUnit: 0.2,
-		}
+		},
 	);
 }
 
@@ -966,7 +966,7 @@ function genSlide09(pptx) {
 	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-charts.html");
 	slide.addTable(
 		[[{ text: "Chart Examples: Line Smoothing, Line Size, Line Shadow, Symbol Size", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]],
-		BASE_TABLE_OPTS
+		BASE_TABLE_OPTS,
 	);
 
 	let optsChartLine1 = {
@@ -1044,7 +1044,7 @@ function genSlide10(pptx) {
 			y: idx < 3 ? 0.5 : idx < 6 ? 2.85 : 5.1,
 			w: 4.25,
 			h: 2.25,
-			lineCap: 'round',
+			lineCap: "round",
 			lineDataSymbol: opt,
 			lineDataSymbolSize: idx == 5 ? 9 : idx == 6 ? 12 : null,
 			chartColors: COLORS_VIVID,
@@ -1544,13 +1544,13 @@ function genSlide16(pptx) {
 			h: 3.0,
 			chartArea: { fill: { color: "F9F9F9" } },
 			//
-			radarStyle: "standard",
+			radarStyle: "radar",
 			//
 			showTitle: true,
 			titleColor: "7F7F7F",
 			titleFontFace: "Segoe UI",
 			titleFontSize: 12,
-			title: "radarStyle: 'standard'",
+			title: "radarStyle: 'radar'",
 			//
 			lineDataSymbol: "none",
 		};
@@ -1564,13 +1564,13 @@ function genSlide16(pptx) {
 			h: 3.0,
 			chartArea: { fill: { color: "F9F9F9" } },
 			//
-			radarStyle: "marker",
+			radarStyle: "markers",
 			//
 			showTitle: true,
 			titleColor: "7F7F7F",
 			titleFontFace: "Segoe UI",
 			titleFontSize: 12,
-			title: "radarStyle: 'marker'",
+			title: "radarStyle: 'markers'",
 		};
 		slide.addChart(pptx.charts.RADAR, arrDataRegions, optsChartRadar2);
 
@@ -1603,7 +1603,7 @@ function genSlide16(pptx) {
 			h: 3.5,
 			chartArea: { fill: { color: "F1F1F1" } },
 			//
-			radarStyle: "marker",
+			radarStyle: "markers",
 			catAxisLabelColor: "0088CC",
 			catAxisLabelFontFace: "Courier",
 			catAxisLabelFontSize: 11,
@@ -2447,7 +2447,7 @@ function devSlide03(pptx) {
 			valAxisOrientation: "maxMin",
 			valAxisMaxVal: 10,
 			valAxisMajorUnit: 1,
-		}
+		},
 	);
 }
 

@@ -3,13 +3,13 @@
  */
 
 import { IMG_BROKEN } from './core-enums.js'
-import type { PresSlideInternal, SlideLayoutInternal, ISlideRelMedia } from './core-interfaces.js'
+import type { PresSlideInternal, SlideLayoutInternal, SlideRelMedia } from './core-interfaces.js'
 import type { RuntimeAdapter } from './runtime/types.js'
 import { warn } from './log.js'
 
-type SlideMediaRelWithPath = ISlideRelMedia & { path: string }
+type SlideMediaRelWithPath = SlideRelMedia & { path: string }
 
-function hasEncodingPath(rel: ISlideRelMedia): rel is SlideMediaRelWithPath {
+function hasEncodingPath(rel: SlideRelMedia): rel is SlideMediaRelWithPath {
 	return typeof rel.path === 'string' && rel.path.length > 0 && !rel.path.includes('preencoded')
 }
 

@@ -12,7 +12,7 @@ defineRegressionSuite('Slide master placeholders', 'legacy bug-18', [
 						{ placeholder: { options: { name: 'body', type: 'body', x: 0.5, y: 2, w: 9, h: 5 }, text: '' } },
 					],
 				})
-				const s = p.addSlide({ masterName: 'TEST_MASTER_B18' })
+				const s = p.addSlide({ masterTitle: 'TEST_MASTER_B18' })
 				s.addText('Title Only', { placeholder: 'title' })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
@@ -48,7 +48,7 @@ defineRegressionSuite('Slide master placeholders', 'legacy bug-18', [
 						{ placeholder: { options: { name: 'title', type: 'title', x: 0.5, y: 0.5, w: 9, h: 1 }, text: '' } },
 					],
 				})
-				const s = p.addSlide({ masterName: 'TEST_MASTER_B18_SINGLE' })
+				const s = p.addSlide({ masterTitle: 'TEST_MASTER_B18_SINGLE' })
 				s.addText('Filled', { placeholder: 'title' })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
@@ -74,7 +74,7 @@ defineRegressionSuite('Slide master placeholders', 'legacy bug-18', [
 						{ placeholder: { options: { name: 'body', type: 'body', x: 0.5, y: 2, w: 9, h: 5 }, text: '' } },
 					],
 				})
-				const s = p.addSlide({ masterName: 'TEST_MASTER_B18_BOTH' })
+				const s = p.addSlide({ masterTitle: 'TEST_MASTER_B18_BOTH' })
 				s.addText('My Title', { placeholder: 'title' })
 				s.addText('My Body', { placeholder: 'body' })
 			})

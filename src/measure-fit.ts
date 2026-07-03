@@ -28,7 +28,7 @@ import {
 	type MetricsResolver,
 } from './text-fit.js'
 import type {
-	ISlideObject,
+	SlideObject,
 	Margin,
 	MeasureTextOptions,
 	ObjectOptions,
@@ -53,7 +53,7 @@ const CRLF_RE = /\r*\n/g
 type RunOpts = TextPropsOptions & ObjectOptions
 
 /** Normalize `slideObj.text` (string | TextProps | TextProps[]) to a run list. */
-function normalizeRuns(obj: ISlideObject): TextProps[] {
+function normalizeRuns(obj: SlideObject): TextProps[] {
 	const opts = obj.options ?? {}
 	const text = obj.text as unknown
 	if (text == null) return []
@@ -67,7 +67,7 @@ function normalizeRuns(obj: ISlideObject): TextProps[] {
 }
 
 /** Build a measurable `FitParagraph[]` from a text object, or null if not measurable. */
-function extractParagraphs(obj: ISlideObject): FitParagraph[] | null {
+function extractParagraphs(obj: SlideObject): FitParagraph[] | null {
 	const opts = (obj.options ?? {}) as RunOpts
 	const runs = normalizeRuns(obj)
 	if (runs.length === 0) return null
@@ -180,7 +180,7 @@ function resolveInsetsEmu(opts: RunOpts): InsetsEmu {
 
 /** Resolve the inner box (shape minus insets) in points; null if degenerate. */
 function computeBox(
-	obj: ISlideObject,
+	obj: SlideObject,
 	presLayout: PresSlideInternal['_presLayout']
 ): { innerWidthPt: number; innerHeightPt: number } | null {
 	const opts = (obj.options ?? {}) as RunOpts
@@ -379,7 +379,7 @@ export function computeTableLayout(
 		const fontSizePt = Number(eff.fontSize ?? DEF_FONT_SIZE) || DEF_FONT_SIZE
 		const oneLineEmu = inch2Emu((fontSizePt * LINEH_MODIFIER) / 100)
 		if (!(innerWidthPt > 0)) return oneLineEmu
-		const paragraphs = extractParagraphs({ text: cell.text, options: eff } as unknown as ISlideObject)
+		const paragraphs = extractParagraphs({ text: cell.text, options: eff } as unknown as SlideObject)
 		if (!paragraphs) return oneLineEmu
 		const layout = measureLayout(paragraphs, innerWidthPt, resolve, 100, 0, WIDTH_SAFETY_FACTOR)
 		if (layout === null) return oneLineEmu
@@ -584,7 +584,7 @@ export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetr
 	 * then lowers the run font sizes of any `fit:'shrink'` cell that overflows. Cells
 	 * in auto-height rows (no fixed `rowH`/table `h`) are skipped — the row grows instead.
 	 */
-	const measureTableCells = (tableObj: ISlideObject, layout: PresSlideInternal['_presLayout']): void => {
+	const measureTableCells = (tableObj: SlideObject, layout: PresSlideInternal['_presLayout']): void => {
 		const rows = tableObj.arrTabRows
 		if (!rows || rows.length === 0 || !rows[0]) return
 		const tableOpts = (tableObj.options ?? {}) as RunOpts
@@ -635,7 +635,7 @@ export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetr
 			const innerHeightPt = (heightEmu - ins.marT - ins.marB) / EMU_PER_POINT
 			if (!(innerWidthPt > 0) || !(innerHeightPt > 0)) continue
 
-			const paragraphs = extractParagraphs({ text: cell.text, options: eff } as unknown as ISlideObject)
+			const paragraphs = extractParagraphs({ text: cell.text, options: eff } as unknown as SlideObject)
 			if (!paragraphs) continue
 			const box: FitBox = { innerWidthPt, innerHeightPt }
 			const outcome = solveShrink(paragraphs, box, resolve)

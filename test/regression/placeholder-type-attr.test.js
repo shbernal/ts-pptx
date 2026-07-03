@@ -17,7 +17,7 @@ defineRegressionSuite('Placeholder type attribute', 'genXmlPlaceholder-type-map'
 						{ placeholder: { options: { name: 'tbl1', type: 'tbl', x: 5, y: 0.5, w: 4, h: 3 }, text: '' } },
 					],
 				})
-				p.addSlide({ masterName: 'PH_TYPE_MASTER' })
+				p.addSlide({ masterTitle: 'PH_TYPE_MASTER' })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			assert(/<p:ph[^>]*type="pic"/.test(xml), 'expected <p:ph type="pic"/>; got: ' + xml)
@@ -35,7 +35,7 @@ defineRegressionSuite('Placeholder type attribute', 'genXmlPlaceholder-type-map'
 						{ placeholder: { options: { name: 'tbl1', type: 'table', x: 5, y: 0.5, w: 4, h: 3 }, text: '' } },
 					],
 				})
-				p.addSlide({ masterName: 'PH_TYPE_MASTER_KEYS' })
+				p.addSlide({ masterTitle: 'PH_TYPE_MASTER_KEYS' })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			assert(/<p:ph[^>]*type="pic"/.test(xml), 'expected <p:ph type="pic"/>; got: ' + xml)

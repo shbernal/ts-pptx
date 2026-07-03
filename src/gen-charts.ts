@@ -20,11 +20,11 @@ import {
 	ONEPT,
 } from './core-enums.js'
 import type {
-	IChartOptsLib,
-	ISlideRelChart,
-	IChartPropsTitle,
+	ChartOptsLib,
+	SlideRelChart,
+	ChartPropsTitle,
 	OptsChartGridLine,
-	IOptsChartData,
+	OptsChartDataInternal,
 	BorderProps,
 	ChartErrorBarOptions,
 } from './core-interfaces.js'
@@ -47,14 +47,14 @@ import { ZipWriter } from './zip.js'
 const VALID_CHART_TIME_UNITS = ['days', 'months', 'years']
 
 // The normalized (internal) chart-series arrays are populated at addChart time but stay
-// optional on IOptsChartData; read them through these accessors with an empty-array
+// optional on OptsChartDataInternal; read them through these accessors with an empty-array
 // fallback so the OOXML/worksheet assembly never dereferences `undefined`. They also
 // tolerate an absent series (`data[0]` on an empty set) by returning an empty array.
-const dataLabels = (d: IOptsChartData | undefined): string[][] => d?.labels ?? []
-const dataValues = (d: IOptsChartData | undefined): number[] => d?.values ?? []
-const dataSizes = (d: IOptsChartData | undefined): number[] => d?.sizes ?? []
+const dataLabels = (d: OptsChartDataInternal | undefined): string[][] => d?.labels ?? []
+const dataValues = (d: OptsChartDataInternal | undefined): number[] => d?.values ?? []
+const dataSizes = (d: OptsChartDataInternal | undefined): number[] => d?.sizes ?? []
 // The first label group of a series (`labels[0]`), empty when the series or group is absent.
-const firstLabelGroup = (d: IOptsChartData | undefined): string[] => dataLabels(d)[0] ?? []
+const firstLabelGroup = (d: OptsChartDataInternal | undefined): string[] => dataLabels(d)[0] ?? []
 // DEF_CHART_GRIDLINE.color is optional on the type but always present on the constant.
 const DEF_GRIDLINE_COLOR: string = DEF_CHART_GRIDLINE.color ?? '888888'
 
@@ -64,10 +64,10 @@ const DEF_GRIDLINE_COLOR: string = DEF_CHART_GRIDLINE.color ?? '888888'
  * chart's data. Pure (no zip side effects), so both the package write path
  * ({@link createExcelWorksheet}) and the read-side injection path
  * (`PptxGenJS.extractSlides`) can reuse it.
- * @param {ISlideRelChart} chartObject - chart object
+ * @param {SlideRelChart} chartObject - chart object
  * @return {Uint8Array} the embedded `.xlsx` package bytes
  */
-export function buildEmbeddedWorksheet(chartObject: ISlideRelChart): Uint8Array {
+export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 	const data = chartObject.data
 
 	{
@@ -502,11 +502,11 @@ export function buildChartRelsXml(embeddingTarget: string): string {
  * to `zip` (package write path). The read-side injection path builds the same
  * parts itself from {@link buildEmbeddedWorksheet}, {@link buildChartRelsXml}, and
  * {@link makeXmlCharts}.
- * @param {ISlideRelChart} chartObject - chart object
+ * @param {SlideRelChart} chartObject - chart object
  * @param {ZipWriter} zip - zip writer the resulting XLSX (and chart parts) are added to
  * @return {Promise} promise of generating the XLSX file
  */
-export async function createExcelWorksheet(chartObject: ISlideRelChart, zip: ZipWriter): Promise<string> {
+export async function createExcelWorksheet(chartObject: SlideRelChart, zip: ZipWriter): Promise<string> {
 	// 1: Embed the workbook. The xlsx is itself a zip, so STORE it — re-DEFLATING
 	//    already-compressed bytes wastes CPU.
 	zip.add(`ppt/embeddings/Microsoft_Excel_Worksheet${chartObject.globalId}.xlsx`, buildEmbeddedWorksheet(chartObject), {
@@ -543,10 +543,10 @@ function createChartTextFonts(typeface: string): string {
 /**
  * Main entry point method for create charts
  * @see: http://www.datypic.com/sc/ooxml/s-dml-chart.xsd.html
- * @param {ISlideRelChart} rel - chart object
+ * @param {SlideRelChart} rel - chart object
  * @return {string} XML
  */
-export function makeXmlCharts(rel: ISlideRelChart): string {
+export function makeXmlCharts(rel: SlideRelChart): string {
 	let strXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
 	// `chartArea`/`plotArea` are always populated by addChartDefinition() but stay optional on the type.
 	const chartArea = rel.opts.chartArea ?? {}
@@ -641,7 +641,7 @@ export function makeXmlCharts(rel: ISlideRelChart): string {
 				if (usesValueXAxis) primaryCatAxisValType = subType
 				else primaryCatAxisHasCategoryChart = true
 			}
-			strXml += makeChartType(subType, type.data as IOptsChartData[], options, valAxisId, catAxisId)
+			strXml += makeChartType(subType, type.data as OptsChartDataInternal[], options, valAxisId, catAxisId)
 		})
 	} else if (rel.opts._type) {
 		strXml += makeChartType(rel.opts._type, rel.data, rel.opts, AXIS_ID_VALUE_PRIMARY, AXIS_ID_CATEGORY_PRIMARY)
@@ -915,8 +915,8 @@ function genXmlChartMetadata(metadata?: Record<string, string>): string {
 /**
  * Create XML string for any given chart type
  * @param {CHART_TYPE} chartType chart type name
- * @param {IOptsChartData[]} data chart data
- * @param {IChartOptsLib} opts chart options
+ * @param {OptsChartDataInternal[]} data chart data
+ * @param {ChartOptsLib} opts chart options
  * @param {string} valAxisId chart val axis id
  * @param {string} catAxisId chart cat axis id
  * @example 'bubble' returns <c:bubbleChart></c>
@@ -925,8 +925,8 @@ function genXmlChartMetadata(metadata?: Record<string, string>): string {
  */
 function makeChartType(
 	chartType: CHART_TYPE,
-	data: IOptsChartData[],
-	opts: IChartOptsLib,
+	data: OptsChartDataInternal[],
+	opts: ChartOptsLib,
 	valAxisId: string,
 	catAxisId: string
 ): string {
@@ -934,7 +934,7 @@ function makeChartType(
 	// ....: Ensure each X/Y Axis/Col has same row height (esp. applicable to XY Scatter where X can often be larger than Y's)
 	let colorIndex = -1 // Maintain the color index by region
 	let idxColLtr = 1
-	let optsChartData: IOptsChartData
+	let optsChartData: OptsChartDataInternal
 	let strXml = ''
 
 	// PowerPoint and Google Slides render values using the cached *source* number format carried in
@@ -968,7 +968,13 @@ function makeChartType(
 			}
 
 			if (chartType === CHART_TYPE.RADAR) {
-				strXml += '<c:radarStyle val="' + opts.radarStyle + '"/>'
+				// Map the public PowerPoint-UI names to ST_RadarStyle wire values (also accepts the
+				// deprecated wire spellings directly, in case an un-normalized value reaches here).
+				const radarStyleWire =
+					{ radar: 'standard', markers: 'marker', filled: 'filled', standard: 'standard', marker: 'marker' }[
+						opts.radarStyle || 'radar'
+					] ?? 'standard'
+				strXml += '<c:radarStyle val="' + radarStyleWire + '"/>'
 			}
 
 			strXml += '<c:varyColors val="0"/>'
@@ -1908,12 +1914,12 @@ function makeChartType(
 
 /**
  * Create Category axis
- * @param {IChartOptsLib} opts - chart options
+ * @param {ChartOptsLib} opts - chart options
  * @param {string} axisId - value
  * @param {string} valAxisId - value
  * @return {string} XML
  */
-function makeCatAxis(opts: IChartOptsLib, axisId: string, valAxisId: string): string {
+function makeCatAxis(opts: ChartOptsLib, axisId: string, valAxisId: string): string {
 	let strXml = ''
 	const usesValueAxisForCategories =
 		opts._type === CHART_TYPE.SCATTER || opts._type === CHART_TYPE.BUBBLE || opts._type === CHART_TYPE.BUBBLE3D
@@ -2037,11 +2043,11 @@ function makeCatAxis(opts: IChartOptsLib, axisId: string, valAxisId: string): st
 
 /**
  * Create Value Axis (Used by `bar3D`)
- * @param {IChartOptsLib} opts - chart options
+ * @param {ChartOptsLib} opts - chart options
  * @param {string} valAxisId - value
  * @return {string} XML
  */
-function makeValAxis(opts: IChartOptsLib, valAxisId: string): string {
+function makeValAxis(opts: ChartOptsLib, valAxisId: string): string {
 	let axisPos =
 		valAxisId === AXIS_ID_VALUE_PRIMARY ? (opts.barDir === 'col' ? 'l' : 'b') : opts.barDir !== 'col' ? 'r' : 't'
 	if (valAxisId === AXIS_ID_VALUE_SECONDARY) axisPos = 'r' // default behavior for PPT is showing 2nd val axis on right (primary axis on left)
@@ -2130,12 +2136,12 @@ function makeValAxis(opts: IChartOptsLib, valAxisId: string): string {
 
 /**
  * Create Series Axis (Used by `bar3D`)
- * @param {IChartOptsLib} opts - chart options
+ * @param {ChartOptsLib} opts - chart options
  * @param {string} axisId - axis ID
  * @param {string} valAxisId - value
  * @return {string} XML
  */
-function makeSerAxis(opts: IChartOptsLib, axisId: string, valAxisId: string): string {
+function makeSerAxis(opts: ChartOptsLib, axisId: string, valAxisId: string): string {
 	let strXml = ''
 
 	// Build ser axis tag
@@ -2211,10 +2217,10 @@ function makeSerAxis(opts: IChartOptsLib, axisId: string, valAxisId: string): st
 
 /**
  * Create char title elements
- * @param {IChartPropsTitle} opts - options
+ * @param {ChartPropsTitle} opts - options
  * @return {string} XML `<c:title>`
  */
-function genXmlTitle(opts: IChartPropsTitle, chartX?: number, chartY?: number): string {
+function genXmlTitle(opts: ChartPropsTitle, chartX?: number, chartY?: number): string {
 	const align =
 		opts.titleAlign === 'left' || opts.titleAlign === 'right'
 			? `<a:pPr algn="${opts.titleAlign.slice(0, 1)}">`
@@ -2357,7 +2363,7 @@ function numCachePt(idx: number, value: number | null | undefined): string {
 function makeChartErrorBarsXml(
 	chartType: CHART_TYPE,
 	errorBars: ChartErrorBarOptions | ChartErrorBarOptions[] | undefined,
-	obj: IOptsChartData
+	obj: OptsChartDataInternal
 ): string {
 	if (!errorBars) return ''
 	const bars = Array.isArray(errorBars) ? errorBars : [errorBars]
@@ -2455,7 +2461,7 @@ function createSerLinesElement(opt?: boolean | OptsChartGridLine): string {
  *
  * @param opts - chart options (reads `showLeaderLines`, `leaderLineColor`, `leaderLineSize`)
  */
-function createLeaderLinesElement(opts: IChartOptsLib): string {
+function createLeaderLinesElement(opts: ChartOptsLib): string {
 	if (!opts.showLeaderLines) return ''
 	if (!opts.leaderLineColor && opts.leaderLineSize == null) return ''
 	const w = valToPts(opts.leaderLineSize ?? 0.75)
@@ -2467,7 +2473,7 @@ function createLeaderLinesElement(opts: IChartOptsLib): string {
 	)
 }
 
-function makeCustomDLblXml(idx: number, text: string, opts: IChartOptsLib): string {
+function makeCustomDLblXml(idx: number, text: string, opts: ChartOptsLib): string {
 	const sz = ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE)
 	const bold = opts.dataLabelFontBold ? '1' : '0'
 	const italic = opts.dataLabelFontItalic ? '1' : '0'
@@ -2516,8 +2522,8 @@ function createChartBorderLine(border: BorderProps): string {
  */
 function makeSeriesDataPointsXml(
 	chartType: CHART_TYPE,
-	obj: IOptsChartData,
-	opts: IChartOptsLib,
+	obj: OptsChartDataInternal,
+	opts: ChartOptsLib,
 	varyColors: string[] | null
 ): string {
 	if (chartType === CHART_TYPE.RADAR) return ''

@@ -16,7 +16,7 @@ defineRegressionSuite('Master text styles (#1360)', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.defineSlideMaster({ title: 'PLAIN_MASTER' })
-				p.addSlide({ masterName: 'PLAIN_MASTER' })
+				p.addSlide({ masterTitle: 'PLAIN_MASTER' })
 			})
 			const xml = await masterXml(zip)
 			// Spot-check the verbatim Office defaults remain.
@@ -46,7 +46,7 @@ defineRegressionSuite('Master text styles (#1360)', [
 						],
 					},
 				})
-				p.addSlide({ masterName: 'CONFIGURED_MASTER' })
+				p.addSlide({ masterTitle: 'CONFIGURED_MASTER' })
 			})
 			const xml = await masterXml(zip)
 			assertIncludes(xml, 'sz="2400" b="1" i="1"', 'lvl1 24pt bold italic')
@@ -64,7 +64,7 @@ defineRegressionSuite('Master text styles (#1360)', [
 					title: 'NOBULLET_MASTER',
 					textStyles: { body: [{ bullet: false }] },
 				})
-				p.addSlide({ masterName: 'NOBULLET_MASTER' })
+				p.addSlide({ masterTitle: 'NOBULLET_MASTER' })
 			})
 			const xml = await masterXml(zip)
 			const lvl1 = xml.slice(xml.indexOf('<a:lvl1pPr marL="342900"'), xml.indexOf('<a:lvl2pPr'))
@@ -80,7 +80,7 @@ defineRegressionSuite('Master text styles (#1360)', [
 			const { zip } = await build((p) => {
 				p.defineSlideMaster({ title: 'M1', textStyles: { title: { fontSize: 30 }, body: [{ fontSize: 18 }] } })
 				p.defineSlideMaster({ title: 'M2', textStyles: { body: [{ fontSize: 22 }] } })
-				p.addSlide({ masterName: 'M1' })
+				p.addSlide({ masterTitle: 'M1' })
 			})
 			const xml = await masterXml(zip)
 			const bodyStyle = xml.slice(xml.indexOf('<p:bodyStyle>'), xml.indexOf('</p:bodyStyle>'))
@@ -106,7 +106,7 @@ defineRegressionSuite('Master text styles (#1360)', [
 						title: 'OVERFLOW_MASTER',
 						textStyles: { body: Array.from({ length: 11 }, () => ({ fontSize: 12 })) },
 					})
-					p.addSlide({ masterName: 'OVERFLOW_MASTER' })
+					p.addSlide({ masterTitle: 'OVERFLOW_MASTER' })
 				})
 				const xml = await masterXml(zip)
 				assertIncludes(xml, '<a:lvl9pPr', 'lvl9 still emitted')

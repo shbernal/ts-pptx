@@ -30,7 +30,7 @@ defineRegressionSuite('Slide master rich-text arrays (#962)', [
 						},
 					],
 				})
-				p.addSlide({ masterName: 'TEST_MASTER_962' })
+				p.addSlide({ masterTitle: 'TEST_MASTER_962' })
 			})
 			const xml = await findLayoutXmlContaining(zip, 'BoldRun962')
 			const runs = xml.match(/<a:r>[\s\S]*?<\/a:r>/g) || []
@@ -51,7 +51,7 @@ defineRegressionSuite('Slide master rich-text arrays (#962)', [
 					title: 'TEST_MASTER_962_STR',
 					objects: [{ text: { text: 'PlainString962', options: { x: 0.5, y: 0.5, w: 9, h: 1 } } }],
 				})
-				p.addSlide({ masterName: 'TEST_MASTER_962_STR' })
+				p.addSlide({ masterTitle: 'TEST_MASTER_962_STR' })
 			})
 			const xml = await findLayoutXmlContaining(zip, 'PlainString962')
 			const runs = (xml.match(/<a:r>[\s\S]*?<\/a:r>/g) || []).filter((r) => r.includes('PlainString962'))

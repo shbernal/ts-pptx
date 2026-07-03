@@ -1759,7 +1759,12 @@ export interface TableCell {
 	 * inherit the origin's border/fill and render the merged region's outer edges (Issue #680) */
 	_spanOrigin?: TableCell
 
-	text?: string | number | TableCell[]
+	/**
+	 * Cell content: a plain string, or an array of `TableCell` runs for mixed formatting.
+	 * (A `number` is still coerced to a string at runtime for plain-JS callers, but is no
+	 * longer part of the type — pass `String(n)` from TypeScript.)
+	 */
+	text?: string | TableCell[]
 	options?: TableCellProps
 }
 export interface TableRowSlide {
@@ -2151,7 +2156,7 @@ export interface CommentProps {
 }
 
 /** Internal normalized comment stored on a slide (`_comments`). x/y are inches; `date` is ISO-8601 when present. */
-export interface ISlideComment {
+export interface SlideComment {
 	author: string
 	initials: string
 	text: string
@@ -2329,7 +2334,7 @@ export interface ChartErrorBarOptions {
 	size?: number
 }
 // Used internally, probably shouldn't be used by end users
-export interface IOptsChartData extends OptsChartData {
+export interface OptsChartDataInternal extends OptsChartData {
 	labels?: string[][]
 	/** Series index; always assigned by addChartDefinition() before this internal shape is built. */
 	_dataIndex: number
@@ -2355,12 +2360,12 @@ export interface OptsChartGridLine {
 	 */
 	style?: 'solid' | 'dash' | 'dot' | 'none'
 }
-export interface IChartMulti {
+export interface ChartMulti {
 	type: CHART_NAME
 	data: OptsChartData[]
-	options: IChartOptsLib
+	options: ChartOptsLib
 }
-export interface IChartPropsFillLine {
+export interface ChartPropsFillLine {
 	/**
 	 * PowerPoint: Format Chart Area/Plot > Border ["Line"]
 	 * @example border: {color: 'FF0000', pt: 1} // hex RGB color, 1 pt line
@@ -2374,7 +2379,7 @@ export interface IChartPropsFillLine {
 	 */
 	fill?: ShapeFillProps
 }
-export interface IChartAreaProps extends IChartPropsFillLine {
+export interface ChartAreaProps extends ChartPropsFillLine {
 	/**
 	 * Whether the chart area has rounded corners
 	 * - only applies when either `fill` or `border` is used
@@ -2383,7 +2388,7 @@ export interface IChartAreaProps extends IChartPropsFillLine {
 	 */
 	roundedCorners?: boolean
 }
-export interface IChartPropsBase {
+export interface ChartPropsBase {
 	/**
 	 * Axis position
 	 */
@@ -2475,12 +2480,12 @@ export interface IChartPropsBase {
 	 * PowerPoint: Format Chart Area (Fill & Border/Line)
 	 * @since v3.11
 	 */
-	chartArea?: IChartAreaProps
+	chartArea?: ChartAreaProps
 	/**
 	 * PowerPoint: Format Plot Area (Fill & Border/Line)
 	 * @since v3.11
 	 */
-	plotArea?: IChartPropsFillLine
+	plotArea?: ChartPropsFillLine
 
 	/**
 	 * Per-series style overrides.
@@ -2488,13 +2493,13 @@ export interface IChartPropsBase {
 	 * Missing indices or unset fields fall back to the chart-level option.
 	 * @since v4.0.0
 	 */
-	seriesOptions?: IChartSeriesOpts[]
+	seriesOptions?: ChartSeriesOpts[]
 }
-export interface IChartPropsAxisCat {
+export interface ChartPropsAxisCat {
 	/**
 	 * Multi-Chart prop: array of cat axes
 	 */
-	catAxes?: IChartPropsAxisCat[]
+	catAxes?: ChartPropsAxisCat[]
 	catAxisBaseTimeUnit?: string
 	catAxisCrossesAt?: number | 'autoZero'
 	catAxisHidden?: boolean
@@ -2542,7 +2547,7 @@ export interface IChartPropsAxisCat {
 	secondaryCatAxis?: boolean
 	showCatAxisTitle?: boolean
 }
-export interface IChartPropsAxisSer {
+export interface ChartPropsAxisSer {
 	serAxisBaseTimeUnit?: string
 	serAxisHidden?: boolean
 	serAxisLabelColor?: string
@@ -2568,7 +2573,7 @@ export interface IChartPropsAxisSer {
 	serLabelFormatCode?: string
 	showSerAxisTitle?: boolean
 }
-export interface IChartPropsAxisVal {
+export interface ChartPropsAxisVal {
 	/**
 	 * Whether data should use secondary value axis (instead of primary)
 	 * @default false
@@ -2578,7 +2583,7 @@ export interface IChartPropsAxisVal {
 	/**
 	 * Multi-Chart prop: array of val axes
 	 */
-	valAxes?: IChartPropsAxisVal[]
+	valAxes?: ChartPropsAxisVal[]
 	valAxisCrossesAt?: number | 'autoZero'
 	/**
 	 * Controls where axis values are plotted relative to tick marks
@@ -2639,7 +2644,7 @@ export interface IChartPropsAxisVal {
 	 */
 	valLabelFormatCode?: string
 }
-export interface IChartPropsChartBar {
+export interface ChartPropsChartBar {
 	bar3DShape?: string
 	barDir?: string
 	barGapDepthPct?: number
@@ -2674,11 +2679,11 @@ export interface IChartPropsChartBar {
 	 */
 	barSeriesLine?: boolean | OptsChartGridLine
 }
-export interface IChartPropsChartDoughnut {
+export interface ChartPropsChartDoughnut {
 	dataNoEffects?: boolean
 	holeSize?: number
 }
-export interface IChartPropsChartLine {
+export interface ChartPropsChartLine {
 	/**
 	 * MS-PPT > Chart format > Format Data Series > Line > Cap type
 	 * - line cap type
@@ -2736,7 +2741,7 @@ export interface IChartPropsChartLine {
 	 */
 	lineSmooth?: boolean
 }
-export interface IChartPropsChartPie {
+export interface ChartPropsChartPie {
 	dataNoEffects?: boolean
 	/**
 	 * MS-PPT > Format chart > Format Data Series > Series Options >  "Angle of first slice"
@@ -2747,20 +2752,27 @@ export interface IChartPropsChartPie {
 	 */
 	firstSliceAng?: number
 }
-export interface IChartPropsChartRadar {
+export interface ChartPropsChartRadar {
 	/**
-	 * MS-PPT > Chart Type > Waterfall
-	 * - radar chart type
-	 * @default standard
+	 * Radar chart sub-type, named to match the PowerPoint UI ("Radar", "Radar with
+	 * Markers", "Filled Radar").
+	 * @default radar
 	 */
-	radarStyle?: 'standard' | 'marker' | 'filled'
+	radarStyle?:
+		| 'radar'
+		| 'markers'
+		| 'filled'
+		/** @deprecated v4.0.0 - use `'radar'` (matches the PowerPoint UI). */
+		| 'standard'
+		/** @deprecated v4.0.0 - use `'markers'` (matches the PowerPoint UI). */
+		| 'marker'
 }
 /**
  * Per-series style overrides for a chart.
  * Each entry applies to the series at the same index in the data array.
  * Unset fields fall back to the chart-level option.
  */
-export interface IChartSeriesOpts {
+export interface ChartSeriesOpts {
 	/** Series fill / line color (hex, e.g. `'FF0000'`) */
 	color?: HexColor
 	/** Data-label font color */
@@ -2788,7 +2800,7 @@ export interface IChartSeriesOpts {
 	lineSize?: number
 }
 
-export interface IChartPropsDataLabel {
+export interface ChartPropsDataLabel {
 	dataLabelBkgrdColors?: boolean
 	dataLabelColor?: string
 	dataLabelFontBold?: boolean
@@ -2805,7 +2817,7 @@ export interface IChartPropsDataLabel {
 	dataLabelFormatScatter?: 'custom' | 'customXY' | 'XY'
 	dataLabelPosition?: 'b' | 'bestFit' | 'ctr' | 'l' | 'r' | 't' | 'inEnd' | 'outEnd'
 }
-export interface IChartPropsDataTable {
+export interface ChartPropsDataTable {
 	dataTableFontSize?: number
 	/**
 	 * Data table format code
@@ -2825,7 +2837,7 @@ export interface IChartPropsDataTable {
 	showDataTableOutline?: boolean
 	showDataTableVertBorder?: boolean
 }
-export interface IChartPropsLegend {
+export interface ChartPropsLegend {
 	legendColor?: string
 	legendFontFace?: string
 	legendFontSize?: number
@@ -2845,7 +2857,7 @@ export interface IChartPropsLegend {
 	legendLayout?: PositionProps
 	legendPos?: 'b' | 'l' | 'r' | 't' | 'tr'
 }
-export interface IChartPropsTitle extends TextBaseProps {
+export interface ChartPropsTitle extends TextBaseProps {
 	title?: string
 	titleAlign?: string
 	titleBold?: boolean
@@ -2862,27 +2874,27 @@ export interface IChartPropsTitle extends TextBaseProps {
 	titlePos?: { x?: number; y?: number }
 	titleRotate?: number
 }
-export interface IChartOpts
+export interface ChartOpts
 	extends
-		IChartPropsAxisCat,
-		IChartPropsAxisSer,
-		IChartPropsAxisVal,
-		IChartPropsBase,
-		IChartPropsChartBar,
-		IChartPropsChartDoughnut,
-		IChartPropsChartLine,
-		IChartPropsChartPie,
-		IChartPropsChartRadar,
-		IChartPropsDataLabel,
-		IChartPropsDataTable,
-		IChartPropsLegend,
-		IChartPropsTitle,
+		ChartPropsAxisCat,
+		ChartPropsAxisSer,
+		ChartPropsAxisVal,
+		ChartPropsBase,
+		ChartPropsChartBar,
+		ChartPropsChartDoughnut,
+		ChartPropsChartLine,
+		ChartPropsChartPie,
+		ChartPropsChartRadar,
+		ChartPropsDataLabel,
+		ChartPropsDataTable,
+		ChartPropsLegend,
+		ChartPropsTitle,
 		ObjectNameProps,
 		OptsChartGridLine,
 		PositionProps {
 	/**
 	 * Chart type — required when using the canonical `addChart(data, options)` signature.
-	 * - Omit only for multi-type (combo) charts, where each `IChartMulti` entry carries its own `type`.
+	 * - Omit only for multi-type (combo) charts, where each `ChartMulti` entry carries its own `type`.
 	 */
 	type?: CHART_NAME
 	/**
@@ -2902,13 +2914,13 @@ export interface IChartOpts
 	 */
 	metadata?: Record<string, string>
 }
-export interface IChartOptsLib extends IChartOpts {
-	_type?: CHART_TYPE | IChartMulti[] // internal, normalized from `CHART_NAME`
+export interface ChartOptsLib extends ChartOpts {
+	_type?: CHART_TYPE | ChartMulti[] // internal, normalized from `CHART_NAME`
 }
-export interface ISlideRelChart extends OptsChartData {
-	type: CHART_NAME | IChartMulti[]
-	opts: IChartOptsLib
-	data: IOptsChartData[]
+export interface SlideRelChart extends OptsChartData {
+	type: CHART_NAME | ChartMulti[]
+	opts: ChartOptsLib
+	data: OptsChartDataInternal[]
 	// internal below
 	rId: number
 	Target: string
@@ -2919,18 +2931,18 @@ export interface ISlideRelChart extends OptsChartData {
 // Core
 // ====
 // PRIVATE vvv
-export interface ISlideRel {
+export interface SlideRel {
 	type: SLIDE_OBJECT_TYPES
 	Target: string
 	fileName?: string
 	data: any[] | string
-	opts?: IChartOpts
+	opts?: ChartOpts
 	path?: string
 	extn?: string
 	globalId?: number
 	rId: number
 }
-export interface ISlideRelMedia {
+export interface SlideRelMedia {
 	type: string
 	opts?: MediaProps
 	path?: string
@@ -2943,7 +2955,7 @@ export interface ISlideRelMedia {
 	rId: number
 	Target: string
 }
-export interface ISlideObject {
+export interface SlideObject {
 	_type: SLIDE_OBJECT_TYPES
 	options?: ObjectOptions
 	// text
@@ -2964,7 +2976,7 @@ export interface ISlideObject {
 	loopCount?: number
 	shape?: SHAPE_NAME
 	// group (flat group): child render-objects emitted inside this object's `<p:grpSp>`
-	_groupObjects?: ISlideObject[]
+	_groupObjects?: SlideObject[]
 }
 // PRIVATE ^^^
 
@@ -3037,10 +3049,10 @@ export interface SlideNumberProps extends PositionProps, TextBaseProps {
 	margin?: Margin
 }
 export interface SlideMasterChartProps {
-	type: CHART_NAME | IChartMulti[]
+	type: CHART_NAME | ChartMulti[]
 	data: OptsChartData[]
-	options?: IChartOptsLib
-	opts?: IChartOptsLib
+	options?: ChartOptsLib
+	opts?: ChartOptsLib
 }
 export type SlideMasterObject =
 	| { chart: SlideMasterChartProps }
@@ -3214,15 +3226,15 @@ export interface SlideBaseProps {
 	_margin?: Margin
 	_name?: string
 	_presLayout: PresLayout
-	_rels: ISlideRel[]
-	_relsChart: ISlideRelChart[] // needed as we use args:"PresSlide|SlideLayout" often
-	_relsMedia: ISlideRelMedia[] // needed as we use args:"PresSlide|SlideLayout" often
-	_relsNotes?: ISlideRel[] // hyperlink rels emitted in the notes-slide part (notesSlideN.xml.rels)
-	_comments?: ISlideComment[] // review comments emitted in the per-slide comments part (commentN.xml)
+	_rels: SlideRel[]
+	_relsChart: SlideRelChart[] // needed as we use args:"PresSlide|SlideLayout" often
+	_relsMedia: SlideRelMedia[] // needed as we use args:"PresSlide|SlideLayout" often
+	_relsNotes?: SlideRel[] // hyperlink rels emitted in the notes-slide part (notesSlideN.xml.rels)
+	_comments?: SlideComment[] // review comments emitted in the per-slide comments part (commentN.xml)
 	_txStyles?: MasterTextStyleProps // per-level master text styles emitted in slideMaster1.xml <p:txStyles> (deck-wide; set via defineSlideMaster textStyles)
 	_slideNum: number
 	_slideNumberProps?: SlideNumberProps | null
-	_slideObjects: ISlideObject[]
+	_slideObjects: SlideObject[]
 
 	background?: BackgroundProps
 }
@@ -3348,10 +3360,10 @@ export interface AnimationProps {
 }
 
 export interface PresSlide {
-	addChart(data: OptsChartData[], options: IChartOpts & { type: CHART_NAME }): PresSlide
-	addChart(charts: IChartMulti[], options?: IChartOpts): PresSlide
+	addChart(data: OptsChartData[], options: ChartOpts & { type: CHART_NAME }): PresSlide
+	addChart(charts: ChartMulti[], options?: ChartOpts): PresSlide
 	/** @deprecated Pass `type` on the options object: `addChart(data, { type, ...options })`. */
-	addChart(type: CHART_NAME, data: OptsChartData[], options?: IChartOpts): PresSlide
+	addChart(type: CHART_NAME, data: OptsChartData[], options?: ChartOpts): PresSlide
 	addConnector: (options: ConnectorProps) => PresSlide
 	addImage: (options: ImageProps) => PresSlide
 	addMedia: (options: MediaProps) => PresSlide
@@ -3415,6 +3427,9 @@ export interface PresSlideInternal extends SlideBaseProps, PresSlide {
 	_animations: AnimationProps[]
 }
 export interface AddSlideProps {
+	/** Title of the slide master to use for the new slide (the `title` passed to {@link SlideMasterProps} via `defineSlideMaster`). */
+	masterTitle?: string
+	/** @deprecated v4.0.0 - use `masterTitle` (consistent with the master's own `title`). */
 	masterName?: string
 	sectionTitle?: string
 }
@@ -3446,7 +3461,7 @@ export interface PresentationProps {
 	title: string
 }
 // PRIVATE interface
-export interface IPresentationProps extends PresentationProps {
+export interface PresentationPropsInternal extends PresentationProps {
 	masterSlide: PresSlideInternal
 	sections: SectionInternalProps[]
 	slideLayouts: SlideLayoutInternal[]
@@ -3454,3 +3469,64 @@ export interface IPresentationProps extends PresentationProps {
 	/** Author-side embedded fonts (see {@link PptxGenJS.embedFont}); empty when none. */
 	embeddedFonts: EmbeddedFont[]
 }
+
+// ----------------------------------------------------------------------------
+// DEPRECATED type aliases (v4.0.0): the legacy `I`-prefixed names for the types
+// above. The `I` prefix was dropped for consistency with the rest of the public
+// surface; these aliases keep older imports compiling and will be removed on the
+// fork's normal breaking-change cadence. Prefer the un-prefixed names.
+// (The two internal augmented shapes moved to the `*Internal` convention used
+// elsewhere in this file, e.g. `PresSlideInternal`/`SlideLayoutInternal`.)
+// ----------------------------------------------------------------------------
+/** @deprecated v4.0.0 - renamed to {@link ChartAreaProps} (dropped the legacy `I` prefix). */
+export type IChartAreaProps = ChartAreaProps
+/** @deprecated v4.0.0 - renamed to {@link ChartMulti} (dropped the legacy `I` prefix). */
+export type IChartMulti = ChartMulti
+/** @deprecated v4.0.0 - renamed to {@link ChartOpts} (dropped the legacy `I` prefix). */
+export type IChartOpts = ChartOpts
+/** @deprecated v4.0.0 - renamed to {@link ChartOptsLib} (dropped the legacy `I` prefix). */
+export type IChartOptsLib = ChartOptsLib
+/** @deprecated v4.0.0 - renamed to {@link ChartPropsAxisCat} (dropped the legacy `I` prefix). */
+export type IChartPropsAxisCat = ChartPropsAxisCat
+/** @deprecated v4.0.0 - renamed to {@link ChartPropsAxisSer} (dropped the legacy `I` prefix). */
+export type IChartPropsAxisSer = ChartPropsAxisSer
+/** @deprecated v4.0.0 - renamed to {@link ChartPropsAxisVal} (dropped the legacy `I` prefix). */
+export type IChartPropsAxisVal = ChartPropsAxisVal
+/** @deprecated v4.0.0 - renamed to {@link ChartPropsBase} (dropped the legacy `I` prefix). */
+export type IChartPropsBase = ChartPropsBase
+/** @deprecated v4.0.0 - renamed to {@link ChartPropsChartBar} (dropped the legacy `I` prefix). */
+export type IChartPropsChartBar = ChartPropsChartBar
+/** @deprecated v4.0.0 - renamed to {@link ChartPropsChartDoughnut} (dropped the legacy `I` prefix). */
+export type IChartPropsChartDoughnut = ChartPropsChartDoughnut
+/** @deprecated v4.0.0 - renamed to {@link ChartPropsChartLine} (dropped the legacy `I` prefix). */
+export type IChartPropsChartLine = ChartPropsChartLine
+/** @deprecated v4.0.0 - renamed to {@link ChartPropsChartPie} (dropped the legacy `I` prefix). */
+export type IChartPropsChartPie = ChartPropsChartPie
+/** @deprecated v4.0.0 - renamed to {@link ChartPropsChartRadar} (dropped the legacy `I` prefix). */
+export type IChartPropsChartRadar = ChartPropsChartRadar
+/** @deprecated v4.0.0 - renamed to {@link ChartPropsDataLabel} (dropped the legacy `I` prefix). */
+export type IChartPropsDataLabel = ChartPropsDataLabel
+/** @deprecated v4.0.0 - renamed to {@link ChartPropsDataTable} (dropped the legacy `I` prefix). */
+export type IChartPropsDataTable = ChartPropsDataTable
+/** @deprecated v4.0.0 - renamed to {@link ChartPropsFillLine} (dropped the legacy `I` prefix). */
+export type IChartPropsFillLine = ChartPropsFillLine
+/** @deprecated v4.0.0 - renamed to {@link ChartPropsLegend} (dropped the legacy `I` prefix). */
+export type IChartPropsLegend = ChartPropsLegend
+/** @deprecated v4.0.0 - renamed to {@link ChartPropsTitle} (dropped the legacy `I` prefix). */
+export type IChartPropsTitle = ChartPropsTitle
+/** @deprecated v4.0.0 - renamed to {@link ChartSeriesOpts} (dropped the legacy `I` prefix). */
+export type IChartSeriesOpts = ChartSeriesOpts
+/** @deprecated v4.0.0 - renamed to {@link SlideComment} (dropped the legacy `I` prefix). */
+export type ISlideComment = SlideComment
+/** @deprecated v4.0.0 - renamed to {@link SlideObject} (dropped the legacy `I` prefix). */
+export type ISlideObject = SlideObject
+/** @deprecated v4.0.0 - renamed to {@link SlideRel} (dropped the legacy `I` prefix). */
+export type ISlideRel = SlideRel
+/** @deprecated v4.0.0 - renamed to {@link SlideRelChart} (dropped the legacy `I` prefix). */
+export type ISlideRelChart = SlideRelChart
+/** @deprecated v4.0.0 - renamed to {@link SlideRelMedia} (dropped the legacy `I` prefix). */
+export type ISlideRelMedia = SlideRelMedia
+/** @deprecated v4.0.0 - renamed to {@link OptsChartDataInternal} (internal shape; now uses the `*Internal` convention). */
+export type IOptsChartData = OptsChartDataInternal
+/** @deprecated v4.0.0 - renamed to {@link PresentationPropsInternal} (internal shape; now uses the `*Internal` convention). */
+export type IPresentationProps = PresentationPropsInternal

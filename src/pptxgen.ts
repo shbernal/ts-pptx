@@ -60,7 +60,7 @@
  */
 
 import { ZipWriter } from './zip.js'
-import { warn } from './log.js'
+import { warn, warnOnce } from './log.js'
 import Slide from './slide.js'
 import {
 	AlignH,
@@ -80,7 +80,7 @@ import {
 import type {
 	AddSlideProps,
 	CustomPropertyValue,
-	IPresentationProps,
+	PresentationPropsInternal,
 	MeasureTextOptions,
 	OverflowBoxOptions,
 	PresLayout,
@@ -134,23 +134,23 @@ export type {
 	DataOrPathRequiredProps,
 	HAlign,
 	HexColor,
-	IChartAreaProps,
-	IChartMulti,
-	IChartOpts,
-	IChartPropsAxisCat,
-	IChartPropsAxisSer,
-	IChartPropsAxisVal,
-	IChartPropsBase,
-	IChartPropsChartBar,
-	IChartPropsChartDoughnut,
-	IChartPropsChartLine,
-	IChartPropsChartPie,
-	IChartPropsChartRadar,
-	IChartPropsDataLabel,
-	IChartPropsDataTable,
-	IChartPropsFillLine,
-	IChartPropsLegend,
-	IChartPropsTitle,
+	ChartAreaProps,
+	ChartMulti,
+	ChartOpts,
+	ChartPropsAxisCat,
+	ChartPropsAxisSer,
+	ChartPropsAxisVal,
+	ChartPropsBase,
+	ChartPropsChartBar,
+	ChartPropsChartDoughnut,
+	ChartPropsChartLine,
+	ChartPropsChartPie,
+	ChartPropsChartRadar,
+	ChartPropsDataLabel,
+	ChartPropsDataTable,
+	ChartPropsFillLine,
+	ChartPropsLegend,
+	ChartPropsTitle,
 	ImageProps,
 	Margin,
 	MeasureTextOptions,
@@ -417,7 +417,7 @@ export default class PptxGenJS {
 		return this._slideLayouts
 	}
 
-	private get internalPresentation(): IPresentationProps {
+	private get internalPresentation(): PresentationPropsInternal {
 		return {
 			author: this.author,
 			company: this.company,
@@ -585,7 +585,7 @@ export default class PptxGenJS {
 
 	/**
 	 * Provides an API for `addTableDefinition` to create slides as needed for auto-paging
-	 * @param {AddSlideProps} options - slide masterName and/or sectionTitle
+	 * @param {AddSlideProps} options - slide masterTitle and/or sectionTitle
 	 * @return {PresSlide} new Slide
 	 */
 	private readonly addNewSlide = (options?: AddSlideProps): PresSlideInternal => {
@@ -1208,7 +1208,7 @@ export default class PptxGenJS {
 
 	/**
 	 * Add a new Section to Presentation
-	 * @param {ISectionProps} section - section properties
+	 * @param {SectionProps} section - section properties
 	 * @example pptx.addSection({ title:'Charts' });
 	 */
 	addSection(section: SectionProps): void {
@@ -1239,7 +1239,12 @@ export default class PptxGenJS {
 	 * @returns {PresSlide} the new Slide
 	 */
 	addSlide(options?: AddSlideProps): PresSlide {
-		const masterSlideName = options?.masterName ?? ''
+		if (options?.masterName !== undefined && options?.masterTitle === undefined) {
+			warnOnce(
+				"AddSlideProps.masterName is deprecated; use `masterTitle` (consistent with the slide master's own `title`). `masterName` will be removed in a future release."
+			)
+		}
+		const masterSlideName = options?.masterTitle ?? options?.masterName ?? ''
 		const defLayout = this.LAYOUTS[DEF_PRES_LAYOUT]
 		if (!defLayout) throw new Error(`Default presentation layout "${DEF_PRES_LAYOUT}" is not registered`)
 		let slideLayout: SlideLayoutInternal = {

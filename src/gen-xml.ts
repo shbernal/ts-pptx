@@ -23,12 +23,12 @@ import type {
 	TransitionProps,
 	BorderProps,
 	CustomPropertyValue,
-	IPresentationProps,
-	ISlideComment,
-	ISlideObject,
-	ISlideRel,
-	ISlideRelChart,
-	ISlideRelMedia,
+	PresentationPropsInternal,
+	SlideComment,
+	SlideObject,
+	SlideRel,
+	SlideRelChart,
+	SlideRelMedia,
 	MasterBulletProps,
 	MasterTextStyleLevel,
 	MasterTextStyleProps,
@@ -485,7 +485,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 	// x/y/w/h) this recurses into `_groupObjects` and returns their bounding box — so a parent group
 	// can size around a nested auto-sized child group. The group rendering below uses the same helper
 	// for both a child's bounds and a group's own off/ext, keeping every level consistent.
-	const resolveObjBounds = (obj: ISlideObject): { x: number; y: number; cx: number; cy: number } => {
+	const resolveObjBounds = (obj: SlideObject): { x: number; y: number; cx: number; cy: number } => {
 		const o = obj.options || {}
 		const hasExplicit =
 			typeof o.x !== 'undefined' ||
@@ -513,13 +513,13 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 	// Closes over `slide`, the `intTableNum` counter, and `childIdxAlloc`. Uses a local
 	// `strSlideXml` accumulator (shadowing the slide-level one) so the existing per-object
 	// `strSlideXml +=` appends compose into the returned fragment unchanged.
-	const renderSlideObjectXml = (slideItemObj: ISlideObject, idx: number): string => {
+	const renderSlideObjectXml = (slideItemObj: SlideObject, idx: number): string => {
 		let strSlideXml = ''
 		let x = 0
 		let y = 0
 		let cx = getSmartParseNumber('75%', 'X', slide._presLayout)
 		let cy = 0
-		let placeholderObj: ISlideObject | null = null
+		let placeholderObj: SlideObject | null = null
 		let locationAttr = ''
 		let arrTabRows: TableCell[][] = []
 		let objTabOpts: ObjectOptions = {}
@@ -534,7 +534,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 		if (slideLayout?._slideObjects !== undefined && wantedPlaceholder) {
 			placeholderObj =
 				slideLayout._slideObjects.filter(
-					(object: ISlideObject) => object.options?.placeholder === wantedPlaceholder
+					(object: SlideObject) => object.options?.placeholder === wantedPlaceholder
 				)[0] ?? null
 		}
 
@@ -1267,7 +1267,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 		return strSlideXml
 	}
 
-	slide._slideObjects.forEach((slideItemObj: ISlideObject, idx: number) => {
+	slide._slideObjects.forEach((slideItemObj: SlideObject, idx: number) => {
 		strSlideXml += renderSlideObjectXml(slideItemObj, idx)
 	})
 
@@ -1354,7 +1354,7 @@ function slideObjectRelationsToXml(
 		'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
 
 	// STEP 1: Add all rels for this Slide
-	slide._rels.forEach((rel: ISlideRel) => {
+	slide._rels.forEach((rel: SlideRel) => {
 		lastRid = Math.max(lastRid, rel.rId)
 		if (rel.type.toLowerCase().includes('hyperlink')) {
 			if (rel.data === 'slide') {
@@ -1366,11 +1366,11 @@ function slideObjectRelationsToXml(
 			strXml += `<Relationship Id="rId${rel.rId}" Target="${rel.Target}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide"/>`
 		}
 	})
-	;(slide._relsChart || []).forEach((rel: ISlideRelChart) => {
+	;(slide._relsChart || []).forEach((rel: SlideRelChart) => {
 		lastRid = Math.max(lastRid, rel.rId)
 		strXml += `<Relationship Id="rId${rel.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="${rel.Target}"/>`
 	})
-	;(slide._relsMedia || []).forEach((rel: ISlideRelMedia) => {
+	;(slide._relsMedia || []).forEach((rel: SlideRelMedia) => {
 		const relRid = rel.rId.toString()
 		lastRid = Math.max(lastRid, rel.rId)
 		if (rel.type.toLowerCase().includes('image')) {
@@ -1447,11 +1447,11 @@ function slideObjectRelationsToXml(
 
 /**
  * Generate XML Paragraph Properties
- * @param {ISlideObject|TextProps} textObj - text object
+ * @param {SlideObject|TextProps} textObj - text object
  * @param {boolean} isDefault - array of default relations
  * @return {string} XML
  */
-function genXmlParagraphProperties(textObj: ISlideObject | TextProps, isDefault: boolean): string {
+function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDefault: boolean): string {
 	// `options` is always present on text objects reaching here; narrow it once (both union
 	// members have all-optional props, so an empty object is a valid fallback).
 	const opts: NonNullable<typeof textObj.options> = textObj.options ?? {}
@@ -1783,10 +1783,10 @@ function genXmlNormAutofit(fit: TextFitShrinkProps): string {
 
 /**
  * Builds `<a:bodyPr></a:bodyPr>` tag for "genXmlTextBody()"
- * @param {ISlideObject | TableCell} slideObject - various options
+ * @param {SlideObject | TableCell} slideObject - various options
  * @return {string} XML string
  */
-function genXmlBodyProperties(slideObject: ISlideObject | TableCell): string {
+function genXmlBodyProperties(slideObject: SlideObject | TableCell): string {
 	let bodyProperties = '<a:bodyPr'
 
 	// Placeholders (incl. master/layout placeholders) carry their margin/valign in `_bodyProp` just
@@ -1794,7 +1794,7 @@ function genXmlBodyProperties(slideObject: ISlideObject | TableCell): string {
 	// authored with insets or a vertical anchor silently degrades to the default (#1247, #1208).
 	// `_bodyProp`/`options` are optional on the type but present on text/placeholder objects that reach
 	// this branch; bind them once so the body reads a narrowed, non-undefined value.
-	const options = (slideObject as ISlideObject).options
+	const options = (slideObject as SlideObject).options
 	const bodyProp = options?._bodyProp
 	if (
 		slideObject &&
@@ -1873,7 +1873,7 @@ function genXmlBodyProperties(slideObject: ISlideObject | TableCell): string {
  * @returns {string} an `<a:p>` math paragraph
  */
 /** Whether a slide object carries a native equation (`math` raw OMML) on any of its text items (#1456). */
-function objectHasMath(slideObj: ISlideObject): boolean {
+function objectHasMath(slideObj: SlideObject): boolean {
 	const text = slideObj.text as TextProps | TextProps[] | string | number | undefined
 	if (Array.isArray(text)) return text.some((item) => item && typeof item === 'object' && !!item.math)
 	if (text && typeof text === 'object') return !!text.math
@@ -1895,7 +1895,7 @@ function genXmlMathParagraph(omml: string): string {
 
 /**
  * Generate the XML for text and its options (bold, bullet, etc) including text runs (word-level formatting)
- * @param {ISlideObject|TableCell} slideObj - slideObj or tableCell
+ * @param {SlideObject|TableCell} slideObj - slideObj or tableCell
  * @note PPT text lines [lines followed by line-breaks] are created using <p>-aragraph's
  * @note Bullets are a paragragh-level formatting device
  * @template
@@ -1915,7 +1915,7 @@ function genXmlMathParagraph(omml: string): string {
  *    </p:txBody>
  * @returns XML containing the param object's text and formatting
  */
-export function genXmlTextBody(slideObj: ISlideObject | TableCell): string {
+export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 	const opts: ObjectOptions = slideObj.options || {}
 	// Every run reaching STEP 5/6 carries an `options` bag (assigned in STEP 4), so model it as required.
 	type RunProps = TextProps & { options: TextPropsOptions }
@@ -2198,10 +2198,10 @@ export function genXmlTextBody(slideObj: ISlideObject | TableCell): string {
 
 /**
  * Generate an XML Placeholder
- * @param {ISlideObject} placeholderObj
+ * @param {SlideObject} placeholderObj
  * @returns XML
  */
-export function genXmlPlaceholder(placeholderObj: ISlideObject | null): string {
+export function genXmlPlaceholder(placeholderObj: SlideObject | null): string {
 	if (!placeholderObj) return ''
 
 	const placeholderIdx = placeholderObj.options?._placeholderIdx ? placeholderObj.options._placeholderIdx : ''
@@ -2255,7 +2255,7 @@ export function makeXmlContTypes(
 	// Walk slides + slideLayouts + masterSlide _relsMedia[] and dedupe by extension.
 	// Skip 'online' rels (no part written) and rels missing extn/type.
 	const extnTypeMap = new Map<string, string>()
-	const ctTargets: Array<{ _relsMedia?: ISlideRelMedia[]; _relsChart?: ISlideRelChart[] }> = []
+	const ctTargets: Array<{ _relsMedia?: SlideRelMedia[]; _relsChart?: SlideRelChart[] }> = []
 	;(slides || []).forEach((s) => ctTargets.push(s))
 	;(slideLayouts || []).forEach((l) => ctTargets.push(l))
 	if (masterSlide) ctTargets.push(masterSlide)
@@ -2560,7 +2560,7 @@ function slideTimingToXml(slide: PresSlideInternal): string {
 		.map((anim) => ({ anim, spid: resolveAnimationSpid(slide, anim) }))
 		.filter((entry): entry is { anim: AnimationProps; spid: number } => entry.spid !== null)
 
-	const mediaNode = (obj: ISlideObject, nodeId: number): string => {
+	const mediaNode = (obj: SlideObject, nodeId: number): string => {
 		const spid = (obj.mediaRid as number) + 2
 		const repeatCount = obj.loop === true ? 'indefinite' : String(Math.round((obj.loopCount as number) * 1000))
 		// EG_TimeNodeChoice: audio loops via <p:audio>, video via <p:video> (both CT_TLCommonMediaNodeData)
@@ -2971,13 +2971,13 @@ function getNotesRuns(slide: PresSlideInternal): TextProps[] {
  * Idempotent: the result is cached on `slide._relsNotes` and reused by both callers.
  * Only external `url` hyperlinks are supported; `slide` targets are ignored with a warning.
  * @param {PresSlideInternal} slide - the slide object
- * @return {ISlideRel[]} notes hyperlink relationships
+ * @return {SlideRel[]} notes hyperlink relationships
  */
-export function buildNotesSlideRels(slide: PresSlideInternal): ISlideRel[] {
+export function buildNotesSlideRels(slide: PresSlideInternal): SlideRel[] {
 	if (slide._relsNotes) return slide._relsNotes
 
 	const NOTES_REL_RESERVED = 2 // rId1=notesMaster, rId2=slide
-	const rels: ISlideRel[] = []
+	const rels: SlideRel[] = []
 	let lastRid = NOTES_REL_RESERVED
 
 	getNotesRuns(slide).forEach((run) => {
@@ -3403,7 +3403,7 @@ export interface ResolvedComments {
 	/** Authors in first-appearance order, ready to serialize to `commentAuthors.xml`. */
 	authors: ResolvedCommentAuthor[]
 	/** Per-comment `authorId`/`idx` keyed by the stored comment object. */
-	meta: Map<ISlideComment, { authorId: number; idx: number }>
+	meta: Map<SlideComment, { authorId: number; idx: number }>
 }
 
 /**
@@ -3419,7 +3419,7 @@ export function resolveCommentAuthors(slides: PresSlideInternal[]): ResolvedComm
 	const byKey = new Map<string, ResolvedCommentAuthor>()
 	const authors: ResolvedCommentAuthor[] = []
 	const perAuthorCount = new Map<number, number>()
-	const meta = new Map<ISlideComment, { authorId: number; idx: number }>()
+	const meta = new Map<SlideComment, { authorId: number; idx: number }>()
 
 	;(slides || []).forEach((slide) => {
 		;(slide._comments || []).forEach((comment) => {
@@ -3473,7 +3473,7 @@ export function makeXmlCommentAuthors(authors: ResolvedCommentAuthor[]): string 
  */
 export function makeXmlComments(
 	slide: PresSlideInternal,
-	meta: Map<ISlideComment, { authorId: number; idx: number }>
+	meta: Map<SlideComment, { authorId: number; idx: number }>
 ): string {
 	let strXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + CRLF
 	strXml +=
@@ -3594,7 +3594,7 @@ function buildThemeClrScheme(scheme?: ThemeColorScheme): string {
  * Creates `ppt/theme/theme1.xml`
  * @return {string} XML
  */
-export function makeXmlTheme(pres: IPresentationProps): string {
+export function makeXmlTheme(pres: PresentationPropsInternal): string {
 	const majorFont = pres.theme?.headFontFace
 		? `<a:latin typeface="${pres.theme?.headFontFace}"/>`
 		: '<a:latin typeface="Calibri Light" panose="020F0302020204030204"/>'
@@ -3615,10 +3615,10 @@ export function makeXmlTheme(pres: IPresentationProps): string {
  * Create presentation file (`ppt/presentation.xml`)
  * @see https://docs.microsoft.com/en-us/office/open-xml/structure-of-a-presentationml-document
  * @see http://www.datypic.com/sc/ooxml/t-p_CT_Presentation.html
- * @param {IPresentationProps} pres - presentation
+ * @param {PresentationPropsInternal} pres - presentation
  * @return {string} XML
  */
-export function makeXmlPresentation(pres: IPresentationProps): string {
+export function makeXmlPresentation(pres: PresentationPropsInternal): string {
 	let strXml =
 		`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}` +
 		'<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +

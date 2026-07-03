@@ -748,7 +748,7 @@ export default [
 					title: 'PIC_MASTER',
 					objects: [{ placeholder: { options: { name: 'picph', type: 'pic', x: 1, y: 1, w: 4, h: 3 }, text: '' } }],
 				})
-				const slide = p.addSlide({ masterName: 'PIC_MASTER' })
+				const slide = p.addSlide({ masterTitle: 'PIC_MASTER' })
 				// No w/h supplied: geometry must come from the placeholder, not the 1px natural size.
 				slide.addImage({ placeholder: 'picph', data: 'image/png;base64,' + b64 })
 			})
@@ -806,7 +806,7 @@ export default [
 						},
 					],
 				})
-				p.addSlide({ masterName: 'BODYPR_MASTER' })
+				p.addSlide({ masterTitle: 'BODYPR_MASTER' })
 			})
 			await expectNoSchemaErrors(buf, 'master-placeholder-bodypr')
 			// The defineSlideMaster placeholders are emitted on the master's layout part; find it.
@@ -845,7 +845,7 @@ export default [
 						},
 					],
 				})
-				const slide = p.addSlide({ masterName: 'TBL_MASTER' })
+				const slide = p.addSlide({ masterTitle: 'TBL_MASTER' })
 				// No x/y/w/h: geometry must come from the placeholder.
 				slide.addTable(
 					[
@@ -1005,7 +1005,7 @@ export default [
 						],
 					},
 				})
-				p.addSlide({ masterName: 'TXSTYLE_MASTER' }).addText('Body', { x: 1, y: 1, w: 6, h: 1 })
+				p.addSlide({ masterTitle: 'TXSTYLE_MASTER' }).addText('Body', { x: 1, y: 1, w: 6, h: 1 })
 			})
 			await expectNoSchemaErrors(buf, 'master-txstyles')
 			const masterXml = await readEntry(zip, 'ppt/slideMasters/slideMaster1.xml')
@@ -2123,7 +2123,7 @@ export default [
 						},
 					],
 				})
-				p.addSlide({ masterName: 'ROUNDRECT_MASTER' })
+				p.addSlide({ masterTitle: 'ROUNDRECT_MASTER' })
 			})
 			await expectNoSchemaErrors(buf, 'slide-master-roundrect')
 		},

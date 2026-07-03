@@ -2269,35 +2269,112 @@ items:
     current_project_notes: |
       A cluster of long-standing TypeScript-surface cleanups the fork can now make
       freely (no external backward-compat obligation). Recorded from the comment-cleanup
-      pass that removed the stale, version-numbered inline TODOs proposing them:
-      - Rationalize exported enum names/casing across the ts-defs (was core-enums.ts
-        `// TODO: 3.5 or v4.0: rationalize ts-def exported enum names/case`).
-      - Rename the `Color` enum to `ThemeColor` (core-enums.ts).
-      - Drop the legacy `I` prefix on the chart-type interfaces/consts and fold
-        `IChartOptsLib` (its only member is the internal `_type`) back into `IChartOpts`,
-        so there is one public chart-options type (core-interfaces.ts IChartMulti /
-        IChartOptsLib).
-      - Rename `radarStyle` values `'standard'|'marker'|'filled'` ->
-        `'radar'|'markers'|'filled'` to read verbatim with the PowerPoint UI.
-      - Rename `AddSlideProps.masterName` -> `masterTitle` for consistency with
-        `createMaster`'s `title`.
-      - Tighten `TableCell.text` from `string | number | TableCell[]` toward
-        `string | TableCell[]` (the `number` branch complicates every consumer).
+      pass that removed the stale, version-numbered inline TODOs proposing them.
 
-      These are independent renames but share one root (public-name/type hygiene) and
-      one migration surface, so tracked as a single grouped proposal. Each is a breaking
-      change; document per-rename migration notes in CHANGELOG when scheduled.
+      DONE:
+      - `AddSlideProps.masterName` -> `masterTitle` (matches the `title` passed to
+        `defineSlideMaster`). Implemented additively: `masterTitle` is canonical,
+        `masterName` retained as a `@deprecated` alias that logs a one-time warnOnce and
+        loses to `masterTitle` when both are set. Wiring: src/core-interfaces.ts
+        (AddSlideProps), resolution + warning in src/pptxgen.ts addSlide; internal
+        producers (src/gen-tables.ts, src/gen-objects.ts) and the test suite migrated to
+        `masterTitle`; regression test/regression/addslide-mastertitle.test.js;
+        CHANGELOG Unreleased/Added.
+      - `radarStyle` values renamed to the PowerPoint-UI names `'radar'|'markers'|'filled'`
+        (was `'standard'|'marker'|'filled'`). Implemented additively with the public->wire
+        map noted below: deprecated `'standard'|'marker'` still accepted, normalized to the
+        new names in src/gen-objects.ts (warnOnce), and mapped to ST_RadarStyle wire values
+        (`standard|marker|filled`) at emit in src/gen-charts.ts. Emitted OOXML unchanged.
+        Interface src/core-interfaces.ts; demo demos/modules/demo_chart.mjs migrated;
+        regression test/regression/radar-style.test.js; CHANGELOG Added.
+      - `TableCell.text` tightened to `string | TableCell[]` (dropped `number`). Numbers
+        are still coerced to strings at the input boundary (src/gen-objects.ts
+        addTableDefinition) for plain-JS callers; the now-dead numeric branch in the second
+        normalize loop was removed. Type in src/core-interfaces.ts; CHANGELOG Changed.
+      - Dropped the legacy `I` prefix from all 26 exported `I*` interfaces. 24 are simple
+        de-prefix renames (IChartOpts->ChartOpts, IChartMulti->ChartMulti, IChartOptsLib->
+        ChartOptsLib, the IChartProps* family, IChartSeriesOpts, IChartAreaProps,
+        ISlideComment->SlideComment, ISlideObject->SlideObject, ISlideRel*->SlideRel*).
+        Two internal augmented shapes that would collide with their base name were moved to
+        the existing `*Internal` convention instead: IOptsChartData->OptsChartDataInternal,
+        IPresentationProps->PresentationPropsInternal. Implemented additively: every old
+        `I*` name kept as a `@deprecated` type alias in a marked block at the end of
+        src/core-interfaces.ts (index.d.ts `export *` re-exports them, so consumer imports
+        keep compiling). Sweep across src/*.ts; pptxgen.ts re-export barrel updated to the
+        new names; stale JSDoc @param refs (ISectionProps/ITableCell/ITableToSlidesOpts)
+        corrected; CHANGELOG Changed. NOTE: the `IChartOptsLib` fold into `IChartOpts` was
+        intentionally NOT done here (see below) — this was a rename only.
+
+      STALE (corrected on 2026-07-03 review):
+      - "Rename the `Color` enum to `ThemeColor`" — obsolete: there is no `enum Color`
+        in src/core-enums.ts; the theme-color enum is already `SchemeColor`. Drop this
+        bullet.
+
+      REMAINING (still-open surface):
+      - Fold `ChartOptsLib` (formerly `IChartOptsLib`) into `ChartOpts`. Deferred from the
+        `I`-prefix sweep because it is a structural change, not a rename: `ChartOptsLib` is
+        referenced in ~6 places (ChartMulti.options, the addChart facade overloads in
+        core-interfaces.ts, the internal `_type` carrier), so collapsing it needs its own
+        scoped change, not a mechanical edit.
+      - Rationalize exported enum names/casing across the ts-defs (was core-enums.ts
+        `// TODO: 3.5 or v4.0: rationalize ts-def exported enum names/case`). A concrete
+        convention proposal was drafted on 2026-07-03 (see the enum survey below); pending
+        maintainer approval before any rename lands.
+
+      The four well-scoped renames (masterTitle, radarStyle, TableCell.text, the `I`-prefix
+      sweep) are DONE. What remains is the `ChartOptsLib` fold and the enum-casing pass,
+      each a breaking change to document in CHANGELOG when scheduled.
+
+      ENUM SURVEY + PROPOSED CONVENTION (drafted 2026-07-03, awaiting maintainer sign-off):
+      src/core-enums.ts currently ships TWO parallel enum styles that partly duplicate each
+      other:
+        * Modern PascalCase type / lowercase members (the public-facing set):
+          OutputType, ChartType, ShapeType, SchemeColor, AlignH, AlignV.
+        * Legacy SCREAMING_CASE type / UPPER members:
+          TEXT_HALIGN, TEXT_VALIGN, SHAPE_TYPE, CHART_TYPE, SCHEME_COLOR_NAMES,
+          MASTER_OBJECTS, SLIDE_OBJECT_TYPES, PLACEHOLDER_TYPES, BULLET_TYPES, TABLE_STYLE.
+      Several are exact value-duplicates differing only in casing:
+        ChartType == CHART_TYPE, ShapeType == SHAPE_TYPE, AlignH == TEXT_HALIGN,
+        AlignV == TEXT_VALIGN, SchemeColor == SCHEME_COLOR_NAMES.
+      The SCREAMING-only enums with no PascalCase twin: MASTER_OBJECTS, SLIDE_OBJECT_TYPES,
+      PLACEHOLDER_TYPES, BULLET_TYPES, TABLE_STYLE.
+
+      Proposed convention:
+        (1) Enum TYPE names are PascalCase (TS idiom): ChartType, ShapeType, SchemeColor,
+            AlignH, AlignV, OutputType — already conform. The SCREAMING type names become
+            `@deprecated` aliases of the PascalCase canonical.
+        (2) Enum MEMBER keys are lowercase/camelCase matching the value (ChartType.bar),
+            not SCREAMING (CHART_TYPE.BAR). Members are string enums whose *values* (the
+            OOXML tokens) never change; only the access key casing changes.
+        (3) Collapse each duplicate pair to ONE canonical PascalCase enum; internal code
+            (which today uses CHART_TYPE.BAR, SHAPE_TYPE.*, etc.) migrates to it. Proposed
+            canonical names for the SCREAMING-only enums: MASTER_OBJECTS -> MasterObjectType,
+            SLIDE_OBJECT_TYPES -> SlideObjectType, PLACEHOLDER_TYPES -> PlaceholderType,
+            BULLET_TYPES -> BulletType, TABLE_STYLE -> TableStyle. Old SCREAMING names kept
+            as `@deprecated` aliases.
+      Scope/risk: this touches a lot of INTERNAL enum member access (CHART_TYPE.BAR ->
+      ChartType.bar, SLIDE_OBJECT_TYPES.* etc.) across gen-*.ts, plus the public re-export
+      barrels (pptxgen.ts, core-enums exports in index). Bigger internal churn than the
+      `I`-prefix sweep. Recommend landing as its own PR AFTER maintainer approves the
+      canonical names in (3).
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
         - src/core-enums.ts
         - src/core-interfaces.ts
+        - src/pptxgen.ts
+        - src/gen-tables.ts
+        - src/gen-objects.ts
+        - src/gen-charts.ts
+        - test/regression/addslide-mastertitle.test.js
+        - test/regression/radar-style.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: Batch the renames into one breaking-change PR with codemod/migration notes
+    next_action: Get maintainer sign-off on the drafted enum-casing convention, then land it and the `ChartOptsLib` fold as breaking changes
 
   - id: fork-addchart-signature
     source: fork:src/slide.ts
