@@ -188,7 +188,6 @@ export default class Slide {
 		dataOrOptions: OptsChartData[] | IChartOpts = [],
 		options?: IChartOpts
 	): Slide {
-		// FUTURE: TODO-VERSION-4: Remove first arg - only take data and opts, with "type" required on opts
 		// Set `_type` on IChartOptsLib as its what is used as object is passed around
 		const optionsWithType: IChartOptsLib | undefined =
 			Array.isArray(type) && !Array.isArray(dataOrOptions) ? dataOrOptions : options
@@ -296,7 +295,6 @@ export default class Slide {
 	 * @return {Slide} this Slide
 	 */
 	addTable(tableRows: TableRow[], options?: TableProps): Slide {
-		// FUTURE: we pass `this` - we dont need to pass layouts - they can be read from this!
 		this._newAutoPagedSlides = genObj.addTableDefinition(
 			this,
 			tableRows,

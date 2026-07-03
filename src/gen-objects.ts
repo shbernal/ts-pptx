@@ -213,7 +213,6 @@ export function createSlideMaster(props: SlideMasterProps, target: SlideLayoutIn
 			if (addChildDefinition(tgt, object)) {
 				// handled by the shared chart/image/shape/text dispatch
 			} else if ('placeholder' in object) {
-				// TODO: 20180820: Check for existing `name`?
 				const placeholder = object.placeholder
 				const { name, type, ...rawPlaceholderOptions } = placeholder.options
 				const placeholderOptions = rawPlaceholderOptions as TextPropsOptions & ObjectOptions
@@ -221,7 +220,7 @@ export function createSlideMaster(props: SlideMasterProps, target: SlideLayoutIn
 				placeholderOptions._placeholderType = type
 				placeholderOptions._placeholderIdx = 100 + idx
 				addTextDefinition(tgt, [{ text: placeholder.text }], placeholderOptions, true)
-				// TODO: ISSUE#599 - only text is suported now (add more below)
+				// NOTE: only text placeholders are supported (image/other placeholder kinds are not emitted)
 			}
 		})
 	}
@@ -330,22 +329,7 @@ export function addChartDefinition(
 	})
 	const options: IChartOptsLib = tmpOpt && typeof tmpOpt === 'object' ? tmpOpt : {}
 
-	// STEP 1: TODO: check for reqd fields, correct type, etc
-	// `type` exists in CHART_TYPE
-	// Array.isArray(data)
-	/*
-		if ( Array.isArray(rel.data) && rel.data.length > 0 && typeof rel.data[0] === 'object'
-			&& rel.data[0].labels && Array.isArray(rel.data[0].labels)
-			&& rel.data[0].values && Array.isArray(rel.data[0].values) ) {
-			obj = rel.data[0];
-		}
-		else {
-			warn("USAGE: addChart( 'pie', [ {name:'Sales', labels:['Jan','Feb'], values:[10,20]} ], {x:1, y:1} )");
-			return;
-		}
-		*/
-
-	// STEP 2: Set default options/decode user options
+	// STEP 1: Set default options/decode user options
 	// A: Core
 	options._type = Array.isArray(type) ? type : asChartType(type)
 	options.x = typeof options.x !== 'undefined' && options.x != null && !isNaN(Number(options.x)) ? options.x : 1
@@ -1361,14 +1345,6 @@ export function addTableDefinition(
 				"addTable: 'rows' should be an array of cells! EX: 'slide.addTable( [ ['A'], ['B'], {text:'C',options:{align:'center'}} ] );' (https://gitbrent.github.io/PptxGenJS/docs/api-tables.html)"
 			)
 		}
-
-		// TODO: FUTURE: This is wacky and wont function right (shows .w value when there is none from demo.js?!) 20191219
-		/*
-		if (opt.w && opt.colW) {
-			warn('addTable: please use either `colW` or `w` - not both (table will use `colW` and ignore `w`)')
-			console.log(`${opt.w} ${opt.colW}`)
-		}
-		*/
 	}
 
 	// STEP 1.5: `headerRow` inline sugar — bake header styling into row 0 as direct per-cell
@@ -1518,7 +1494,7 @@ export function addTableDefinition(
 	// Set/Calc table width
 	// Get slide margins - start with default values, then adjust if master or slide margins exist
 	let arrTableMargin = DEF_SLIDE_MARGIN_IN
-	// Case 1: Master margins
+	// Master margins override the defaults, if present
 	if (slideLayout && typeof slideLayout._margin !== 'undefined') {
 		if (Array.isArray(slideLayout._margin)) arrTableMargin = slideLayout._margin
 		else if (!isNaN(Number(slideLayout._margin))) {
@@ -1530,13 +1506,6 @@ export function addTableDefinition(
 			]
 		}
 	}
-	// Case 2: Table margins
-	/* FIXME: add `_margin` option to slide options
-		else if ( addNewSlide._margin ) {
-			if ( Array.isArray(addNewSlide._margin) ) arrTableMargin = addNewSlide._margin;
-			else if ( !isNaN(Number(addNewSlide._margin)) ) arrTableMargin = [Number(addNewSlide._margin), Number(addNewSlide._margin), Number(addNewSlide._margin), Number(addNewSlide._margin)];
-		}
-	*/
 
 	/**
 	 * Calc table width depending upon what data we have - several scenarios exist (including bad data, eg: colW doesnt match col count)

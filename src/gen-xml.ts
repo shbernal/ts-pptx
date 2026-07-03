@@ -802,7 +802,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 							)}"`
 						}
 
-						// FUTURE: Cell NOWRAP property (textwrap: add to a:tcPr (horzOverflow="overflow" or whatever options exist)
+						// FUTURE: cell no-wrap support (add `horzOverflow="overflow"` to the cell's `<a:tcPr>`)
 
 						// 4: Set CELL content and properties ==================================
 						strXml += `<a:tc${cellSpanAttrStr}>${genXmlTextBody(cell)}<a:tcPr${cellMarginXml}${cellValign}${cellTextDir}>`
@@ -916,7 +916,8 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 						strSlideXml += `<a:headEnd type="${slideItemObj.options.line.beginArrowType}"/>`
 					if (slideItemObj.options.line.endArrowType)
 						strSlideXml += `<a:tailEnd type="${slideItemObj.options.line.endArrowType}"/>`
-					// FUTURE: `endArrowSize` < a: headEnd type = "arrow" w = "lg" len = "lg" /> 'sm' | 'med' | 'lg'(values are 1 - 9, making a 3x3 grid of w / len possibilities)
+					// FUTURE: arrow-size support via the `w`/`len` attrs on headEnd/tailEnd
+					// (e.g. `<a:headEnd type="arrow" w="lg" len="lg"/>`; each is 'sm'|'med'|'lg', a 3x3 grid)
 					strSlideXml += '</a:ln>'
 				}
 
@@ -924,17 +925,6 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 				if (slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none') {
 					strSlideXml += createShadowEffectLst(slideItemObj.options.shadow, DEF_TEXT_SHADOW)
 				}
-
-				/* TODO: FUTURE: Text wrapping (copied from MS-PPTX export)
-					// Commented out b/c i'm not even sure this works - current code produces text that wraps in shapes and textboxes, so...
-					if ( slideItemObj.options.textWrap ) {
-						strSlideXml += '<a:extLst>'
-									+ '<a:ext uri="{C572A759-6A51-4108-AA02-DFA0A04FC94B}">'
-									+ '<ma14:wrappingTextBoxFlag xmlns:ma14="http://schemas.microsoft.com/office/mac/drawingml/2011/main" val="1"/>'
-									+ '</a:ext>'
-									+ '</a:extLst>';
-					}
-				*/
 
 				// B: Close shape Properties
 				strSlideXml += '</p:spPr>'
@@ -1947,7 +1937,7 @@ export function genXmlTextBody(slideObj: ISlideObject | TableCell): string {
 
 		// B: 'lstStyle'
 		// NOTE: shape type 'LINE' has different text align needs (a lstStyle.lvl1pPr between bodyPr and p)
-		// FIXME: LINE horiz-align doesnt work (text is always to the left inside line) (FYI: the PPT code diff is substantial!)
+		// KNOWN LIMITATION: horizontal align on a LINE does not work — text is always left-aligned inside the line.
 		if (opts.h === 0 && opts.line && opts.align) strSlideXml += '<a:lstStyle><a:lvl1pPr algn="l"/></a:lstStyle>'
 		else if (slideObj._type === SLIDE_OBJECT_TYPES.placeholder)
 			strSlideXml += `<a:lstStyle>${genXmlParagraphProperties(slideObj, true)}</a:lstStyle>`

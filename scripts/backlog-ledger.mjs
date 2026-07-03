@@ -8,7 +8,7 @@ import { ROOT } from './script-utils.mjs'
 export const DEFAULT_LEDGER = path.join(ROOT, 'docs', 'backlog.yml')
 
 const COMMANDS = new Set(['list', 'show', 'values', 'validate', 'remove', 'set-status', 'add'])
-const ITEM_TYPES = ['issue', 'pull-request', 'downstream-need']
+const ITEM_TYPES = ['issue', 'pull-request', 'downstream-need', 'fork-internal-proposal']
 const REQUIRED_ITEM_FIELDS = [
 	'id',
 	'source',
@@ -53,14 +53,14 @@ Options:
   --json                                  Print machine-readable JSON (full items for list/show)
   --print-limit <n>                       Max list rows to print; 0 prints all (default: 50)
   --status <value[,value...]>             Filter list by status; sets status on add
-  --type <issue|pull-request|pr|downstream-need>  Filter list by type; sets type on add
+  --type <issue|pull-request|pr|downstream-need|fork-internal-proposal>  Filter list by type; sets type on add
   --priority <value[,value...]>           Filter list by priority; sets priority on add
   --target-area <value[,value...]>        Filter list by target area; sets target_area on add
   --applies <yes|partial|no|unknown>      Filter list by applies_to_current_project; sets it on add
   --search <text>                         Filter list by id, source, summary, notes, or next_action
   --review-date <YYYY-MM-DD>              Date written by set-status (default: today)
   --id <id>                               Item id (add)
-  --source <ref>                          Item source: owner/repo#N, a github URL, or downstream[:path] (add)
+  --source <ref>                          Item source: owner/repo#N, a github URL, downstream[:path], or fork[:path] (add)
   --summary <text>                        One-line summary (add)
   --notes <text>                          current_project_notes body (add)
   --stopgap <path>                        downstream file the gap forces a workaround in (add, optional)
@@ -320,6 +320,10 @@ function isDownstreamSource(source) {
 	return typeof source === 'string' && /^downstream(:\S.*)?$/.test(source)
 }
 
+function isForkSource(source) {
+	return typeof source === 'string' && /^fork(:\S.*)?$/.test(source)
+}
+
 export function validateLedgerData(data) {
 	const errors = []
 	if (!data || typeof data !== 'object' || Array.isArray(data)) return ['ledger root must be a mapping']
@@ -362,6 +366,10 @@ export function validateLedgerData(data) {
 		} else if (item.type === 'downstream-need') {
 			if (!isDownstreamSource(item.source)) {
 				errors.push(label + ': downstream-need source must be "downstream" or "downstream:<path>"')
+			}
+		} else if (item.type === 'fork-internal-proposal') {
+			if (!isForkSource(item.source)) {
+				errors.push(label + ': fork-internal-proposal source must be "fork" or "fork:<path>"')
 			}
 		} else if (item.type === 'issue' || item.type === 'pull-request') {
 			if (!isGithubRef(item.source)) {
@@ -697,6 +705,7 @@ export function setLedgerItemStatusText(text, id, status, reviewDate = todayIsoD
 
 const ADD_DEFAULTS_BY_TYPE = {
 	'downstream-need': { status: 'target', priority: 'p2', applies: 'yes' },
+	'fork-internal-proposal': { status: 'deferred', priority: 'p3', applies: 'no' },
 }
 
 function buildItemSkeleton(fields, reviewDate) {

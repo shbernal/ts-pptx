@@ -466,16 +466,6 @@ export function buildEmbeddedWorksheet(chartObject: ISlideRelChart): Uint8Array 
 			}
 			strSheetXml += '</sheetData>'
 
-			/* FIXME: support multi-level
-            if (IS_MULTI_CAT_AXES) {
-				strSheetXml += '<mergeCells count="3">'
-				strSheetXml += ' <mergeCell ref="A2:A4"/>'
-				strSheetXml += ' <mergeCell ref="A10:A12"/>'
-				strSheetXml += ' <mergeCell ref="A5:A9"/>'
-				strSheetXml += '</mergeCells>'
-            }
-            */
-
 			strSheetXml += '<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>'
 			// Link the `table1.xml` file to define an actual Table in Excel
 			// NOTE: Intentionally no `<tableParts>` here. A tablePart only works for scatter charts;
@@ -633,7 +623,6 @@ export function makeXmlCharts(rel: ISlideRelChart): string {
 	// A: Create Chart XML -----------------------------------------------------------
 	if (Array.isArray(rel.opts._type)) {
 		rel.opts._type.forEach((type) => {
-			// TODO: FIXME: theres `options` on chart rels??
 			const options = { ...rel.opts, ...type.options }
 			const valAxisId = options.secondaryValAxis ? AXIS_ID_VALUE_SECONDARY : AXIS_ID_VALUE_PRIMARY
 			const catAxisId = options.secondaryCatAxis ? AXIS_ID_CATEGORY_SECONDARY : AXIS_ID_CATEGORY_PRIMARY

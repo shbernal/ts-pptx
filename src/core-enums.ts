@@ -126,8 +126,6 @@ export enum TEXT_VALIGN {
 export const SLDNUMFLDID = '{F7021451-1387-4CA6-816F-3879F97B5CBC}'
 
 // ENUM
-// TODO: 3.5 or v4.0: rationalize ts-def exported enum names/case!
-// NOTE: First tsdef enum named correctly (shapes -> 'Shape', colors -> 'Color'), etc.
 export enum OutputType {
 	'arraybuffer' = 'arraybuffer',
 	'base64' = 'base64',
@@ -329,9 +327,6 @@ export enum ShapeType {
 	'wedgeRectCallout' = 'wedgeRectCallout',
 	'wedgeRoundRectCallout' = 'wedgeRoundRectCallout',
 }
-/**
- * TODO: FUTURE: v4.0: rename to `ThemeColor`
- */
 export enum SchemeColor {
 	'text1' = 'tx1',
 	'text2' = 'tx2',

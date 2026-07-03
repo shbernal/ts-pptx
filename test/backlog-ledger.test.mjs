@@ -24,6 +24,7 @@ vocabulary:
     - interesting-with-tweaks
     - non-target
     - watch
+    - deferred
     - implemented
     - superseded
   priorities:
@@ -293,6 +294,36 @@ describe('backlog ledger tooling', () => {
 		expect(added.status).toBe('target')
 		expect(added.priority).toBe('p2')
 		expect(added.stopgap).toBe('registry/components/quadrant-matrix.ts')
+	})
+
+	test('accepts a fork-internal-proposal item with a fork source', () => {
+		const updated = addLedgerItemText(
+			fixture,
+			{
+				id: 'fork-units-pt-vs-inches',
+				source: 'fork:src/core-interfaces.ts',
+				type: 'fork-internal-proposal',
+				summary: 'library uses points where the rest of the API uses inches',
+			},
+			'2026-07-03'
+		)
+		const validation = validateLedgerText(updated)
+
+		expect(validation.errors).toEqual([])
+		const added = validation.data.items.find((item) => item.id === 'fork-units-pt-vs-inches')
+		expect(added.type).toBe('fork-internal-proposal')
+		expect(added.status).toBe('deferred')
+		expect(added.priority).toBe('p3')
+	})
+
+	test('rejects a non-fork source on a fork-internal-proposal', () => {
+		expect(() =>
+			addLedgerItemText(
+				fixture,
+				{ id: 'fork-bad', source: 'downstream', type: 'fork-internal-proposal', summary: 'x' },
+				'2026-07-03'
+			)
+		).toThrow(/fork/)
 	})
 
 	test('rejects an inconsistent source for the item type', () => {

@@ -762,10 +762,10 @@ export default class PptxGenJS {
 					hasCustomProps,
 					this._embeddedFonts
 				)
-			) // TODO: pass only `this` like below! 20200206
+			)
 			zip.add('_rels/.rels', genXml.makeXmlRootRels(hasCustomProps))
-			zip.add('docProps/app.xml', genXml.makeXmlApp(this._slides, this.company)) // TODO: pass only `this` like below! 20200206
-			zip.add('docProps/core.xml', genXml.makeXmlCore(this.title, this.subject, this.author, this.revision)) // TODO: pass only `this` like below! 20200206
+			zip.add('docProps/app.xml', genXml.makeXmlApp(this._slides, this.company))
+			zip.add('docProps/core.xml', genXml.makeXmlCore(this.title, this.subject, this.author, this.revision))
 			if (hasCustomProps) {
 				zip.add('docProps/custom.xml', genXml.makeXmlCustomProperties(this._customProperties))
 			}

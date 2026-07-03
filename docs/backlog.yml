@@ -6,13 +6,16 @@ source_repo: gitbrent/PptxGenJS
 purpose: >
   The fork's project backlog ledger. It records work this project intends to do
   and decisions it has made: `downstream-need` items raised by the downstream
-  consumer for generic PPTX behavior that belongs in this package, plus a set of
-  retained upstream-derived signals from gitbrent/PptxGenJS that were judged
-  relevant before upstream tracking was retired. New entries are project needs.
-  The `source` field carries a github reference (owner/repo#N or a github.com
-  issues/pull URL) for the retained legacy entries, or `downstream[:path]` for
-  downstream needs. This file is no longer synced against GitHub; the upstream
-  reconciliation tooling has been removed.
+  consumer for generic PPTX behavior that belongs in this package;
+  `fork-internal-proposal` items for API-evolution / breaking-change candidates the
+  fork proposes for itself (not driven by a downstream consumer or an upstream
+  issue); plus a set of retained upstream-derived signals from gitbrent/PptxGenJS
+  that were judged relevant before upstream tracking was retired. New entries are
+  project needs or fork proposals. The `source` field carries a github reference
+  (owner/repo#N or a github.com issues/pull URL) for the retained legacy entries,
+  `downstream[:path]` for downstream needs, or `fork[:path]` for fork-internal
+  proposals (path points at the source file the proposal concerns). This file is no
+  longer synced against GitHub; the upstream reconciliation tooling has been removed.
 project_target_docs:
   - docs/project-target.md
   - docs/runtime-and-package-support.md
@@ -31,8 +34,10 @@ project_target_docs:
 # - After ANY edit to this file, run `pnpm run backlog:validate` and fix every
 #   error before committing. The validator keys on the `vocabulary:` lists in THIS file.
 # - `source` must be consistent with `type`: issue/pull-request entries need a github
-#   reference; downstream-need entries need `downstream` or `downstream:<path>`.
-#   New downstream needs are easiest to add with `pnpm run backlog -- add` (see --help).
+#   reference; downstream-need entries need `downstream` or `downstream:<path>`;
+#   fork-internal-proposal entries need `fork` or `fork:<path>`.
+#   New downstream needs / fork proposals are easiest to add with
+#   `pnpm run backlog -- add` (see --help).
 
 vocabulary:
   statuses:
@@ -135,7 +140,7 @@ vocabulary:
 item_fields:
   id: stable local identifier; upstream-issue-N / upstream-pr-N for upstream, sf-<slug> for downstream
   source: github reference (owner/repo#N or github.com issues/pull URL) for upstream; downstream[:path] for downstream-need
-  type: issue, pull-request, or downstream-need
+  type: issue, pull-request, downstream-need, or fork-internal-proposal
   first_seen: ISO date when recorded locally
   last_reviewed: ISO date when last classified
   status: one vocabulary.statuses value
@@ -2202,3 +2207,159 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: Design a single-unit cell-margin API and migration; remove the >=1 points fallback
+
+  - id: fork-units-pt-vs-inches
+    source: fork:src/core-interfaces.ts
+    type: fork-internal-proposal
+    first_seen: 2026-07-03
+    last_reviewed: 2026-07-03
+    status: deferred
+    priority: p2
+    target_area:
+      - typescript-api
+    applies_to_current_project: no
+    non_target_reasons: []
+    summary: Size/spacing props are expressed in points while the positional API uses inches; reconsider unifying on one unit
+    current_project_notes: |
+      The library's positional API (x/y/w/h) is in inches, but several size/spacing
+      properties have "always been points" and PowerPoint's own UI shows them in
+      inches. This mismatch is a footgun (a caller reading the PPT dialog enters an
+      inch value that the library treats as points). Recorded from the comment-cleanup
+      pass that removed the stale, version-numbered inline `// TODO ... update in v4.0`
+      notes at these sites; the units question was explicitly left open by the
+      deprecated-alias removal commit rather than resolved.
+
+      Affected props (all currently points):
+      - TextBaseProps `margin` (src/core-interfaces.ts, was the `[20220219]` TODO)
+      - shadow `offset` (PPT UI: "Distance") and `blur` (ShadowProps)
+      - `margin?: Margin` on the "margin (points)" interface (~L3027)
+      - border `pt` (see fork-transparency-width-props for the `pt` -> `width` rename)
+
+      Companion: table cell margins have their own magnitude heuristic tracked
+      separately in dn-table-cell-margin-units. A unified fix would ideally settle the
+      whole-API unit story (accept inches, or accept a typed unit, warn on the legacy
+      points path) rather than fixing cell margins in isolation. Breaking change; needs
+      a migration note in CHANGELOG when scheduled.
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/core-interfaces.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: Decide the fork's unit policy (inches vs typed unit) and design one migration covering margin/offset/blur/border
+
+  - id: fork-ts-api-cleanup
+    source: fork:src/core-interfaces.ts
+    type: fork-internal-proposal
+    first_seen: 2026-07-03
+    last_reviewed: 2026-07-03
+    status: deferred
+    priority: p3
+    target_area:
+      - typescript-api
+    applies_to_current_project: no
+    non_target_reasons: []
+    summary: Rationalize exported TypeScript names and types for clarity/consistency (enum casing, legacy prefixes, PPT-aligned value names, tighter unions)
+    current_project_notes: |
+      A cluster of long-standing TypeScript-surface cleanups the fork can now make
+      freely (no external backward-compat obligation). Recorded from the comment-cleanup
+      pass that removed the stale, version-numbered inline TODOs proposing them:
+      - Rationalize exported enum names/casing across the ts-defs (was core-enums.ts
+        `// TODO: 3.5 or v4.0: rationalize ts-def exported enum names/case`).
+      - Rename the `Color` enum to `ThemeColor` (core-enums.ts).
+      - Drop the legacy `I` prefix on the chart-type interfaces/consts and fold
+        `IChartOptsLib` (its only member is the internal `_type`) back into `IChartOpts`,
+        so there is one public chart-options type (core-interfaces.ts IChartMulti /
+        IChartOptsLib).
+      - Rename `radarStyle` values `'standard'|'marker'|'filled'` ->
+        `'radar'|'markers'|'filled'` to read verbatim with the PowerPoint UI.
+      - Rename `AddSlideProps.masterName` -> `masterTitle` for consistency with
+        `createMaster`'s `title`.
+      - Tighten `TableCell.text` from `string | number | TableCell[]` toward
+        `string | TableCell[]` (the `number` branch complicates every consumer).
+
+      These are independent renames but share one root (public-name/type hygiene) and
+      one migration surface, so tracked as a single grouped proposal. Each is a breaking
+      change; document per-rename migration notes in CHANGELOG when scheduled.
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/core-enums.ts
+        - src/core-interfaces.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: Batch the renames into one breaking-change PR with codemod/migration notes
+
+  - id: fork-addchart-signature
+    source: fork:src/slide.ts
+    type: fork-internal-proposal
+    first_seen: 2026-07-03
+    last_reviewed: 2026-07-03
+    status: deferred
+    priority: p3
+    target_area:
+      - typescript-api
+    applies_to_current_project: no
+    non_target_reasons: []
+    summary: Drop the positional `type` argument from addChart(); take only data + opts with `type` required on opts
+    current_project_notes: |
+      `Slide.addChart(type, dataOrOptions, options)` still accepts the chart type as a
+      leading positional argument. The internal flow already normalizes onto `_type`
+      (IChartOptsLib), so the positional arg is redundant surface area. Proposal: make
+      the signature `addChart(data, opts)` with `type` required on `opts`, matching how
+      every other option is passed. Recorded from the comment-cleanup pass that removed
+      the inline `// FUTURE: TODO-VERSION-4: Remove first arg` note at src/slide.ts. Ties
+      into fork-ts-api-cleanup's IChartOptsLib fold. Breaking change.
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/slide.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: Design the single-object addChart signature and migrate demos/tests
+
+  - id: fork-transparency-width-props
+    source: fork:src/core-interfaces.ts
+    type: fork-internal-proposal
+    first_seen: 2026-07-03
+    last_reviewed: 2026-07-03
+    status: deferred
+    priority: p3
+    target_area:
+      - typescript-api
+      - missing-pptx-feature
+    applies_to_current_project: no
+    non_target_reasons: []
+    summary: Add PowerPoint-aligned `transparency`/`width` props (Borders, shadow) and deprecate `opacity`/`pt`
+    current_project_notes: |
+      Several style props use library-invented names that diverge from the PowerPoint
+      UI, and a couple of documented-but-missing props were flagged inline. Recorded
+      from the comment-cleanup pass that removed the inline TODOs:
+      - Borders: add a `transparency` prop (0-100%, PPT terminology) (core-interfaces.ts
+        BorderProps).
+      - Borders: add a `width` prop and deprecate `pt` (aligns with the unit story in
+        fork-units-pt-vs-inches).
+      - ShadowProps `opacity` (0.0-1.0) is "Transparency (0-100%)" in the PPT UI;
+        add a `transparency` prop and deprecate `opacity`.
+
+      Additive first (new props), with the old names warned-then-removed on the fork's
+      normal breaking-change cadence.
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/core-interfaces.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: Design the transparency/width prop additions and the opacity/pt deprecation path

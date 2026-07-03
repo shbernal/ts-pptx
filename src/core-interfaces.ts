@@ -287,9 +287,6 @@ export interface BorderProps {
 	 */
 	color?: HexColor
 
-	// TODO: add `transparency` prop to Borders (0-100%)
-
-	// TODO: add `width` - deprecate `pt`
 	/**
 	 * Border size (points)
 	 * @default 1
@@ -329,7 +326,7 @@ export interface ShadowProps {
 	 * - range: 0.0-1.0
 	 * @example 0.5 // 50% opaque
 	 */
-	opacity?: number // TODO: "Transparency (0-100%)" in PPT // TODO: deprecate and add `transparency`
+	opacity?: number // PowerPoint UI: "Transparency (0-100%)"
 	/**
 	 * blur (points)
 	 * - range: 0-100
@@ -347,7 +344,7 @@ export interface ShadowProps {
 	 * - range: 0-200
 	 * @default 0
 	 */
-	offset?: number // TODO: "Distance" in PPT
+	offset?: number // PowerPoint UI: "Distance"
 	/**
 	 * shadow color (hex format)
 	 * @example 'FF3399'
@@ -1303,7 +1300,6 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	rotate?: number
 	/**
 	 * Shadow options
-	 * TODO: need new demo.js entry for shape shadow
 	 */
 	shadow?: ShadowProps
 }
@@ -1739,7 +1735,7 @@ export interface TableCell {
 	 * inherit the origin's border/fill and render the merged region's outer edges (Issue #680) */
 	_spanOrigin?: TableCell
 
-	text?: string | number | TableCell[] // TODO: FUTURE: 20210815: ONly allow `TableCell[]` dealing with string|TableCell[] *SUCKS*
+	text?: string | number | TableCell[]
 	options?: TableCellProps
 }
 export interface TableRowSlide {
@@ -1903,7 +1899,6 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 * @since v3.5.0
 	 */
 	lineSpacingMultiple?: number
-	// TODO: [20220219] powerpoint uses inches but library has always been pt... @future @deprecated - update in v4.0? [range: 0.0-22.0]
 	/**
 	 * Margin (points)
 	 * - PowerPoint: Format Shape > Shape Options > Size & Properties > Text Box > Left/Right/Top/Bottom margin
@@ -2161,15 +2156,6 @@ export function textRuns(runs: TextProps[]): TextProps[] {
 }
 
 // charts =========================================================================================
-// FUTURE: BREAKING-CHANGE: (soln: use `OptsDataLabelPosition|string` until 3.5/4.0)
-/*
-export interface OptsDataLabelPosition {
-	pie: 'ctr' | 'inEnd' | 'outEnd' | 'bestFit'
-	scatter: 'b' | 'ctr' | 'l' | 'r' | 't'
-	// TODO: add all othere chart types
-}
-*/
-
 export type ChartAxisTickMark = 'none' | 'inside' | 'outside' | 'cross'
 /**
  * Line end cap style. Maps to the OOXML `cap` attribute on `<a:ln>` (`flat`/`sq`/`rnd`).
@@ -2240,10 +2226,6 @@ export interface OptsChartData {
 	 * @since v6.0.0
 	 */
 	errorBars?: ChartErrorBarOptions | ChartErrorBarOptions[]
-	/**
-	 * Override `chartColors`
-	 */
-	// color?: string // TODO: WIP: (Pull #727)
 }
 /**
  * Per-data-point style override for a chart series.
@@ -2349,7 +2331,6 @@ export interface OptsChartGridLine {
 	 */
 	style?: 'solid' | 'dash' | 'dot' | 'none'
 }
-// TODO: 202008: chart types remain with predicated with "I" in v3.3.0 (ran out of time!)
 export interface IChartMulti {
 	type: CHART_NAME
 	data: OptsChartData[]
@@ -2748,7 +2729,7 @@ export interface IChartPropsChartRadar {
 	 * - radar chart type
 	 * @default standard
 	 */
-	radarStyle?: 'standard' | 'marker' | 'filled' // TODO: convert to 'radar'|'markers'|'filled' in 4.0 (verbatim with PPT app UI)
+	radarStyle?: 'standard' | 'marker' | 'filled'
 }
 /**
  * Per-series style overrides for a chart.
@@ -2893,7 +2874,7 @@ export interface IChartOpts
 	metadata?: Record<string, string>
 }
 export interface IChartOptsLib extends IChartOpts {
-	_type?: CHART_TYPE | IChartMulti[] // internal, normalized from `CHART_NAME`; TODO: v3.4.0 - move to `IChartOpts`, remove `IChartOptsLib`
+	_type?: CHART_TYPE | IChartMulti[] // internal, normalized from `CHART_NAME`
 }
 export interface ISlideRelChart extends OptsChartData {
 	type: CHART_NAME | IChartMulti[]
@@ -3024,7 +3005,7 @@ export interface SlideNumberProps extends PositionProps, TextBaseProps {
 	/**
 	 * margin (points)
 	 */
-	margin?: Margin // TODO: convert to inches in 4.0 (valid values are 0-22)
+	margin?: Margin
 }
 export interface SlideMasterChartProps {
 	type: CHART_NAME | IChartMulti[]
@@ -3403,7 +3384,7 @@ export interface PresSlideInternal extends SlideBaseProps, PresSlide {
 	_animations: AnimationProps[]
 }
 export interface AddSlideProps {
-	masterName?: string // TODO: 20200528: rename to "masterTitle" (createMaster uses `title` so lets be consistent)
+	masterName?: string
 	sectionTitle?: string
 }
 export type CustomPropertyValue = string | number | boolean | Date

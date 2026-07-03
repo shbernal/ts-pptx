@@ -597,7 +597,9 @@ export function getSlidesForTableRows(
 						newTableRowSlide.rows.push(newHeadRow)
 						// Repeated header rows are the original leading rows, so carry their configured height (#1145).
 						newTableRowSlide.rowH?.push(resolveRowH(headIdx))
-						emuTabCurrH += maxLineHeight // TODO: what about margins? dont we need to include cell margin in line height?
+						// NOTE: possible imprecision — this accumulates line height only; cell top/bottom
+						// margins are not added, so autoPage row-height estimates can run slightly short.
+						emuTabCurrH += maxLineHeight
 					})
 				}
 
