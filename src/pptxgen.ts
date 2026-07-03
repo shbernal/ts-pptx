@@ -60,6 +60,7 @@
  */
 
 import { ZipWriter } from './zip.js'
+import { warn } from './log.js'
 import Slide from './slide.js'
 import {
 	AlignH,
@@ -1194,7 +1195,7 @@ export default class PptxGenJS {
 	async writeFile(props?: WriteFileProps | string): Promise<string> {
 		if (typeof props === 'string') {
 			// DEPRECATED: @deprecated v3.5.0 - fileName - [[remove in v4.0.0]]
-			console.warn('[WARNING] writeFile(string) is deprecated - pass { fileName } instead.')
+			warn('writeFile(string) is deprecated - pass { fileName } instead.')
 			props = { fileName: props }
 		}
 		const { fileName: rawName = 'Presentation.pptx', compression, onMediaError } = props as WriteFileProps
@@ -1228,13 +1229,13 @@ export default class PptxGenJS {
 	 */
 	addSection(section: SectionProps): void {
 		if (!section) {
-			console.warn('addSection requires an argument')
+			warn('addSection requires an argument')
 			return
 		} else if (!section.title) {
-			console.warn('addSection requires a title')
+			warn('addSection requires a title')
 			return
 		} else if (this._sections.some((sect) => sect.title === section.title)) {
-			console.warn(`addSection: a section titled "${section.title}" already exists; ignoring duplicate`)
+			warn(`addSection: a section titled "${section.title}" already exists; ignoring duplicate`)
 			return
 		}
 
@@ -1292,7 +1293,7 @@ export default class PptxGenJS {
 		// B-2: Handle slides without a section when sections are already is use ("loose" slides arent allowed, they all need a section)
 		if (options?.sectionTitle) {
 			const sect = this._sections.find((section) => section.title === options.sectionTitle)
-			if (!sect) console.warn(`addSlide: unable to find section with title: "${options.sectionTitle}"`)
+			if (!sect) warn(`addSlide: unable to find section with title: "${options.sectionTitle}"`)
 			else sect._slides.push(newSlide)
 		} else if (this._sections && this._sections.length > 0 && !options?.sectionTitle) {
 			const lastSect = this._sections[this._sections.length - 1]
@@ -1319,12 +1320,12 @@ export default class PptxGenJS {
 	 */
 	defineLayout(layout: PresLayout): void {
 		// @see https://support.office.com/en-us/article/Change-the-size-of-your-slides-040a811c-be43-40b9-8d04-0de5ed79987e
-		if (!layout) console.warn('defineLayout requires `{name, width, height}`')
-		else if (!layout.name) console.warn('defineLayout requires `name`')
-		else if (!layout.width) console.warn('defineLayout requires `width`')
-		else if (!layout.height) console.warn('defineLayout requires `height`')
-		else if (typeof layout.height !== 'number') console.warn('defineLayout `height` should be a number (inches)')
-		else if (typeof layout.width !== 'number') console.warn('defineLayout `width` should be a number (inches)')
+		if (!layout) warn('defineLayout requires `{name, width, height}`')
+		else if (!layout.name) warn('defineLayout requires `name`')
+		else if (!layout.width) warn('defineLayout requires `width`')
+		else if (!layout.height) warn('defineLayout requires `height`')
+		else if (typeof layout.height !== 'number') warn('defineLayout `height` should be a number (inches)')
+		else if (typeof layout.width !== 'number') warn('defineLayout `width` should be a number (inches)')
 
 		this.LAYOUTS[layout.name] = {
 			name: layout.name,

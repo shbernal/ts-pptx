@@ -27,6 +27,7 @@ import {
 	VALID_SHAPE_PRESETS,
 } from './core-enums.js'
 import type { PLACEHOLDER_TYPE } from './core-enums.js'
+import { warn } from './log.js'
 import type {
 	AddSlideProps,
 	BackgroundProps,
@@ -154,7 +155,7 @@ function buildGroupObject(target: PresSlideInternal, children: GroupChildProps[]
 		}
 		// Reject object types grouping does not support yet (rels/ID/transform work pending).
 		if ('chart' in child || 'placeholder' in child || 'table' in child || 'media' in child) {
-			console.warn(`Warning: addGroup() does not support '${Object.keys(child)[0]}' children yet; skipping.`)
+			warn(`addGroup() does not support '${Object.keys(child)[0]}' children yet; skipping.`)
 			return
 		}
 		// Reuse the existing add*Definition logic (which registers any image/chart rels on the slide,
@@ -162,9 +163,7 @@ function buildGroupObject(target: PresSlideInternal, children: GroupChildProps[]
 		// just-appended object(s) off the slide's top-level list into this group's child list.
 		const before = target._slideObjects.length
 		if (!addChildDefinition(target, child)) {
-			console.warn(
-				`Warning: addGroup() received an unrecognized child descriptor (${Object.keys(child).join(', ')}); skipping.`
-			)
+			warn(`addGroup() received an unrecognized child descriptor (${Object.keys(child).join(', ')}); skipping.`)
 			return
 		}
 		groupObjects.push(...target._slideObjects.splice(before))
@@ -266,8 +265,7 @@ export function createSlideMaster(props: SlideMasterProps, target: SlideLayoutIn
 function clampChartPct(value: number | undefined, min: number, max: number, name: string): number | undefined {
 	if (typeof value !== 'number' || isNaN(value)) return undefined
 	const clamped = Math.min(max, Math.max(min, Math.round(value)))
-	if (clamped !== value)
-		console.warn(`Warning: ${name} ${value} is outside the valid range ${min}-${max}; using ${clamped}.`)
+	if (clamped !== value) warn(`${name} ${value} is outside the valid range ${min}-${max}; using ${clamped}.`)
 	return clamped
 }
 
@@ -305,15 +303,15 @@ export function addChartDefinition(
 	function correctGridLineOptions(glOpts: OptsChartGridLine): void {
 		if (!glOpts || glOpts.style === 'none') return
 		if (glOpts.size !== undefined && (isNaN(Number(glOpts.size)) || glOpts.size <= 0)) {
-			console.warn('Warning: chart.gridLine.size must be greater than 0.')
+			warn('chart.gridLine.size must be greater than 0.')
 			delete glOpts.size // delete prop to used defaults
 		}
 		if (glOpts.style && !['solid', 'dash', 'dot'].includes(glOpts.style)) {
-			console.warn('Warning: chart.gridLine.style options: `solid`, `dash`, `dot`.')
+			warn('chart.gridLine.style options: `solid`, `dash`, `dot`.')
 			delete glOpts.style
 		}
 		if (glOpts.cap && !['flat', 'square', 'round'].includes(glOpts.cap)) {
-			console.warn('Warning: chart.gridLine.cap options: `flat`, `square`, `round`.')
+			warn('chart.gridLine.cap options: `flat`, `square`, `round`.')
 			delete glOpts.cap
 		}
 	}
@@ -360,7 +358,7 @@ export function addChartDefinition(
 			obj = rel.data[0];
 		}
 		else {
-			console.warn("USAGE: addChart( 'pie', [ {name:'Sales', labels:['Jan','Feb'], values:[10,20]} ], {x:1, y:1} )");
+			warn("USAGE: addChart( 'pie', [ {name:'Sales', labels:['Jan','Feb'], values:[10,20]} ], {x:1, y:1} )");
 			return;
 		}
 		*/
@@ -448,8 +446,8 @@ export function addChartDefinition(
 		const hasSymbolSize = rawSymbolSize != null && !isNaN(rawSymbolSize)
 		const symbolSize = Math.min(72, Math.max(2, Math.round(hasSymbolSize ? rawSymbolSize : 6)))
 		if (hasSymbolSize && symbolSize !== rawSymbolSize) {
-			console.warn(
-				`Warning: lineDataSymbolSize ${rawSymbolSize} is outside the valid marker size range (integer 2-72); using ${symbolSize}.`
+			warn(
+				`lineDataSymbolSize ${rawSymbolSize} is outside the valid marker size range (integer 2-72); using ${symbolSize}.`
 			)
 		}
 		options.lineDataSymbolSize = symbolSize
@@ -465,7 +463,7 @@ export function addChartDefinition(
 			const val = chartLayout[key]
 			const numVal = Number(val)
 			if (isNaN(numVal) || numVal < 0 || numVal > 1) {
-				console.warn('Warning: chart.layout.' + key + ' can only be 0-1')
+				warn('chart.layout.' + key + ' can only be 0-1')
 				delete chartLayout[key] // remove invalid value so that default will be used
 			}
 		})
@@ -650,14 +648,12 @@ function registerImageFillMedia(target: PresSlideInternal, fill: ShapeFillProps)
 	const strImageData = fill.image?.data || ''
 
 	if (!strImagePath && !strImageData) {
-		console.warn('Warning: image fill requires `image.path` or `image.data`; ignoring image fill.')
+		warn('image fill requires `image.path` or `image.data`; ignoring image fill.')
 		fill.type = 'none'
 		return
 	}
 	if (strImageData && !strImageData.toLowerCase().includes('base64,')) {
-		console.warn(
-			"Warning: image fill `data` value lacks a base64 header (ex: 'image/png;base64,...'); ignoring image fill."
-		)
+		warn("Warning: image fill `data` value lacks a base64 header (ex: 'image/png;base64,...'); ignoring image fill.")
 		fill.type = 'none'
 		return
 	}
@@ -670,9 +666,7 @@ function registerImageFillMedia(target: PresSlideInternal, fill: ShapeFillProps)
 	else if (strImageData?.toLowerCase().includes('image/svg+xml')) strImgExtn = 'svg'
 
 	if (strImgExtn === 'svg') {
-		console.warn(
-			'Warning: SVG image fills are not supported; ignoring image fill. Use a raster format (PNG/JPEG/GIF/BMP/WebP).'
-		)
+		warn('SVG image fills are not supported; ignoring image fill. Use a raster format (PNG/JPEG/GIF/BMP/WebP).')
 		fill.type = 'none'
 		return
 	}
@@ -1117,11 +1111,11 @@ export function addCommentDefinition(target: PresSlideInternal, opts: CommentPro
 	// Don't silently coerce: a comment with no author or no body is meaningless, so warn + skip
 	// rather than emit a degenerate <p:cm> (API policy: warn over silent coercion).
 	if (!author) {
-		console.warn('Warning: addComment() requires a non-empty `author`; comment ignored.')
+		warn('addComment() requires a non-empty `author`; comment ignored.')
 		return
 	}
 	if (!text) {
-		console.warn('Warning: addComment() requires non-empty `text`; comment ignored.')
+		warn('addComment() requires non-empty `text`; comment ignored.')
 		return
 	}
 
@@ -1261,9 +1255,7 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 	let connectorAdj: number[] = []
 	if (type === 'straight') {
 		if (opts.bends !== undefined || opts.adj !== undefined) {
-			console.warn(
-				'Warning: addConnector `bends`/`adj` are ignored for type "straight" (a straight connector has no bends).'
-			)
+			warn('addConnector `bends`/`adj` are ignored for type "straight" (a straight connector has no bends).')
 		}
 	} else {
 		if (bends !== 1 && bends !== 2 && bends !== 3) {
@@ -1284,9 +1276,7 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 				)
 			}
 			if (pct < 0 || pct > 100) {
-				console.warn(
-					`Warning: addConnector \`adj\` value ${pct} is outside 0–100; the bend will sit beyond the endpoint box.`
-				)
+				warn(`addConnector \`adj\` value ${pct} is outside 0–100; the bend will sit beyond the endpoint box.`)
 			}
 			return Math.round(pct * FIXED_PCT_PER_PERCENT)
 		})
@@ -1415,7 +1405,7 @@ export function addTableDefinition(
 		// TODO: FUTURE: This is wacky and wont function right (shows .w value when there is none from demo.js?!) 20191219
 		/*
 		if (opt.w && opt.colW) {
-			console.warn('addTable: please use either `colW` or `w` - not both (table will use `colW` and ignore `w`)')
+			warn('addTable: please use either `colW` or `w` - not both (table will use `colW` and ignore `w`)')
 			console.log(`${opt.w} ${opt.colW}`)
 		}
 		*/
@@ -1533,7 +1523,7 @@ export function addTableDefinition(
 		if (!opt.color) opt.color = opt.color || DEF_FONT_COLOR // Set default color if needed (table option > inherit from Slide > default to black)
 	}
 	if (typeof opt.border === 'string') {
-		console.warn("addTable `border` option must be an object. Ex: `{border: {type:'none'}}`")
+		warn("addTable `border` option must be an object. Ex: `{border: {type:'none'}}`")
 		opt.border = undefined
 	} else if (Array.isArray(opt.border)) {
 		const border = opt.border
@@ -1612,9 +1602,7 @@ export function addTableDefinition(
 			opt.colW = undefined // IMPORTANT: Unset `colW` so table is created using `opt.w`, which will evenly divide cols
 		} else if (opt.colW && Array.isArray(opt.colW) && opt.colW.length !== firstRowColCnt) {
 			// Err: Mismatched colW and cols count
-			console.warn(
-				'addTable: mismatch: (colW.length != data.length) Therefore, defaulting to evenly distributed col widths.'
-			)
+			warn('addTable: mismatch: (colW.length != data.length) Therefore, defaulting to evenly distributed col widths.')
 			opt.colW = undefined
 		}
 	} else if (opt.w) {
@@ -1872,14 +1860,14 @@ export function addTextDefinition(
 					itemOpts.columns < 1 ||
 					itemOpts.columns > 16
 				) {
-					console.warn('Warning: text `columns` must be a number 1-16 (ignoring value)')
+					warn('text `columns` must be a number 1-16 (ignoring value)')
 				} else {
 					itemOpts._bodyProp.numCol = Math.round(itemOpts.columns)
 				}
 			}
 			if (itemOpts.columnSpacing !== undefined) {
 				if (typeof itemOpts.columnSpacing !== 'number' || isNaN(itemOpts.columnSpacing) || itemOpts.columnSpacing < 0) {
-					console.warn('Warning: text `columnSpacing` must be a number >= 0 (ignoring value)')
+					warn('text `columnSpacing` must be a number >= 0 (ignoring value)')
 				} else {
 					itemOpts._bodyProp.spcCol = valToPts(itemOpts.columnSpacing)
 				}

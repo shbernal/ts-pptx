@@ -7,7 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Shadows now honor scheme colors (e.g. `accent1`) on shapes, images, and
+  charts.** Shadow XML was emitted by four divergent copies of the same logic;
+  three of them (`gen-charts.ts`, plus two inline blocks in `gen-xml.ts`)
+  hardcoded `<a:srgbClr val="…">` and so emitted schema-invalid OOXML when a
+  shadow `color` was a scheme-color constant. All four paths now route through the
+  single `createShadowElement`/`createShadowEffectLst` helpers in `gen-utils.ts`,
+  which build the color via `createColorElement` (scheme-aware) — a hex `color`
+  is byte-identical to before, and a scheme `color` now correctly emits
+  `<a:schemeClr>`. The chart copy also no longer forces `sx/sy/kx/ky/algn` onto
+  `a:innerShdw` (valid only on `a:outerShdw`), and `shadow.rotateWithShape` is now
+  honored on shape/image shadows, not just charts. A dead duplicate
+  `correctShadowOptions` in `gen-xml.ts` (shadowed by the live one in
+  `gen-utils.ts`) was removed.
+
 ### Changed
+
+- **All library warnings now go through a single sink and carry a `PptxGenJS:`
+  prefix.** A new `src/log.ts` exports `warn()` and `warnOnce()`; every
+  `console.warn` call site across the source (~80, plus the ad-hoc
+  `warnTextRangeOnce` deduper) now routes through them. Warnings gained a
+  consistent `PptxGenJS: …` prefix (and shed the inconsistent `Warning:` /
+  `[WARNING]` prefixes), so console noise is attributable to the library and
+  there is now one place to later mute or redirect diagnostics via a handler.
+  Message bodies are unchanged.
+
+- **`createColorElement` is documented as the low-level color primitive it is,
+  and manual `<a:solidFill>` wrapping now uses `genXmlColorSelection()`.** A stale
+  TODO claimed `createColorElement` should become private with every call switched
+  to `genXmlColorSelection()`; that was incorrect (the primitive is required for
+  non-solid-fill color contexts — gradient stops, `<a:alpha>` on effects, line
+  fills, highlight, …). The comment is corrected, and the ~34 sites that hand-wrote
+  `` `<a:solidFill>${createColorElement(x)}</a:solidFill>` `` now call
+  `genXmlColorSelection(x)` instead; emitted OOXML is unchanged.
 
 - **`CHART_NAME` is now derived from the `CHART_TYPE` enum** (`` `${CHART_TYPE}` ``)
   instead of a hand-maintained duplicate string union, so the public chart-type

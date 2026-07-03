@@ -16,6 +16,7 @@ import type {
 	TableCellProps,
 } from './core-interfaces.js'
 import { getSmartParseNumber, inch2Emu, rgbToHex, valToPts } from './gen-utils.js'
+import { warn } from './log.js'
 
 type MarginTuple = [number, number, number, number]
 type BorderTuple = [BorderProps, BorderProps, BorderProps, BorderProps]
@@ -278,7 +279,7 @@ export function getSlidesForTableRows(
 					: inch2Emu(tableProps.autoPageSlideStartY || tableProps.newSlideStartY || arrInchMargins[0])
 			const fallbackH = presLayout.height - emuStartY - inch2Emu(arrInchMargins[2])
 			if (!warnedNoTabH) {
-				console.warn(
+				warn(
 					'addTable/autoPage: the table height (`h`) leaves no room to paginate; ignoring it and using the slide height. Increase `h` or decrease `y`.'
 				)
 				warnedNoTabH = true
@@ -975,7 +976,7 @@ export function genTableToSlides(
 		if (opts.addImage) {
 			opts.addImage.options = opts.addImage.options || {}
 			if (!opts.addImage.image || (!opts.addImage.image.path && !opts.addImage.image.data)) {
-				console.warn('Warning: tableToSlides.addImage requires either `path` or `data`')
+				warn('tableToSlides.addImage requires either `path` or `data`')
 			} else {
 				const imageProps = opts.addImage.image.path
 					? { path: opts.addImage.image.path }

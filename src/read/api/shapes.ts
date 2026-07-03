@@ -21,6 +21,7 @@ import {
 	type Element,
 } from '../oxml/dom.js'
 import { fitSrcRectPercents, getImageSizeFromBytes } from '../../gen-utils.js'
+import { warn } from '../../log.js'
 import { relativePartName } from '../opc/partnames.js'
 import { FILL_CHOICES, normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
 import {
@@ -1321,7 +1322,7 @@ export class Picture extends Shape {
 		}
 		const natural = getImageSizeFromBytes(bytes)
 		if (!natural) {
-			console.warn(
+			warn(
 				`setImage fit '${fit}': could not measure the new image's natural size; leaving the crop unchanged (it may look stretched). Provide a raster (PNG/JPEG/GIF/BMP/WebP) or an SVG with width/height or a viewBox.`
 			)
 			return

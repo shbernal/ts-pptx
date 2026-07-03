@@ -1,3 +1,4 @@
+import { warn } from './log.js'
 /**
  * Public unit conversion helpers and standard PowerPoint slide-layout constants.
  */
@@ -128,7 +129,7 @@ export function coordToEmu(value: number | string, axisEmu: number): Emu {
 	if (typeof value === 'number') {
 		assertFiniteNumber(value, 'coordinate')
 		if (Math.abs(value) > IMPLAUSIBLE_INCHES) {
-			console.warn(
+			warn(
 				`PptxGenJS: coordinate ${value} interpreted as ${value} inches. A bare number is always inches; ` +
 					`if you meant EMU, pass it as a string like "${Math.round(value)}emu".`
 			)

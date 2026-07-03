@@ -3,6 +3,7 @@
  */
 
 import { REGEX_HEX_COLOR, DEF_FONT_COLOR, EMU, ONEPT, SchemeColor, type SCHEME_COLORS } from './core-enums.js'
+import { warn } from './log.js'
 import {
 	ANGLE_UNITS_PER_DEGREE,
 	coordToEmu,
@@ -113,23 +114,17 @@ const MAX_OBJECT_NAME_LENGTH = 255
 export function validateObjectName(name: string, kind: string): string {
 	if (typeof name !== 'string') return name
 	if (name.trim().length === 0) {
-		console.warn(
-			`Warning: ${kind} objectName is empty or whitespace-only; it will not provide a stable Selection Pane identity.`
-		)
+		warn(`${kind} objectName is empty or whitespace-only; it will not provide a stable Selection Pane identity.`)
 		return name
 	}
 	// Same illegal-XML-char set that `encodeXmlEntities` strips; detect so the caller knows the name will change.
 	const cc = String.fromCharCode
 	const illegalXmlCharsRe = new RegExp(`[${cc(0)}-${cc(8)}${cc(11)}${cc(12)}${cc(14)}-${cc(31)}${cc(127)}]`)
 	if (illegalXmlCharsRe.test(name)) {
-		console.warn(
-			`Warning: ${kind} objectName "${name}" contains control characters that will be stripped, changing the stored name.`
-		)
+		warn(`${kind} objectName "${name}" contains control characters that will be stripped, changing the stored name.`)
 	}
 	if (name.length > MAX_OBJECT_NAME_LENGTH) {
-		console.warn(
-			`Warning: ${kind} objectName exceeds ${MAX_OBJECT_NAME_LENGTH} characters and may not be preserved by PowerPoint.`
-		)
+		warn(`${kind} objectName exceeds ${MAX_OBJECT_NAME_LENGTH} characters and may not be preserved by PowerPoint.`)
 	}
 	return name
 }
@@ -218,15 +213,14 @@ export function valToPts(pt: number | string): number {
  */
 export function transparencyToAlpha(transparency: number): number {
 	const pct = Math.min(100, Math.max(0, transparency))
-	if (pct !== transparency)
-		console.warn(`Warning: transparency ${transparency} is outside the valid range 0-100; using ${pct}.`)
+	if (pct !== transparency) warn(`transparency ${transparency} is outside the valid range 0-100; using ${pct}.`)
 	return Math.round((100 - pct) * FIXED_PCT_PER_PERCENT)
 }
 
 /** Convert an opacity (0-1) into a schema-valid `<a:alpha>` value (0-100000); clamps + warns on out-of-range input. */
 export function opacityToAlpha(opacity: number): number {
 	const o = Math.min(1, Math.max(0, opacity))
-	if (o !== opacity) console.warn(`Warning: opacity ${opacity} is outside the valid range 0-1; using ${o}.`)
+	if (o !== opacity) warn(`opacity ${opacity} is outside the valid range 0-1; using ${o}.`)
 	return Math.round(o * PERCENT_SCALE)
 }
 
@@ -238,8 +232,7 @@ export function opacityToAlpha(opacity: number): number {
 export function lineWidthToEmu(widthPts: number | string): number {
 	const raw = valToPts(widthPts)
 	const clamped = Math.min(20116800, Math.max(0, raw))
-	if (clamped !== raw)
-		console.warn(`Warning: line width ${widthPts} is outside the valid range 0-1584pt; using ${clamped / ONEPT}.`)
+	if (clamped !== raw) warn(`line width ${widthPts} is outside the valid range 0-1584pt; using ${clamped / ONEPT}.`)
 	return clamped
 }
 
@@ -274,24 +267,24 @@ export function rgbToHex(r: number, g: number, b: number): string {
 	return (componentToHex(r) + componentToHex(g) + componentToHex(b)).toUpperCase()
 }
 
-/**  TODO: FUTURE: TODO-4.0:
- * @date 2022-04-10
- * @tldr this s/b a private method with all current calls switched to `genXmlColorSelection()`
- * @desc lots of code calls this method
- * @example [gen-charts.tx] `strXml += '<a:solidFill>' + createColorElement(seriesColor, `<a:alpha val="${Math.round(opts.chartColorsOpacity * 1000)}"/>`) + '</a:solidFill>'`
- * Thi sis wrong. We s/b calling `genXmlColorSelection()` instead as it returns `<a:solidfill>BLAH</a:solidFill>`!!
- */
 /**
- * Create either a `a:schemeClr` - (scheme color) or `a:srgbClr` (hexa representation).
- * @param {string|SCHEME_COLORS} colorStr - hexa representation (eg. "FFFF00") or a scheme color constant (eg. pptx.SchemeColor.ACCENT1)
- * @param {string} innerElements - additional elements that adjust the color and are enclosed by the color element
+ * Emit a bare DrawingML color element — either `<a:schemeClr>` (scheme color) or `<a:srgbClr>`
+ * (hex RGB). This is a low-level primitive: it is the shared building block for every color
+ * context (solid fills, gradient stops, `<a:alpha>` on shadows/glow, line fills, highlight,
+ * underline, patterns, …), so it is intentionally NOT limited to solid fills and cannot be
+ * folded into {@link genXmlColorSelection}.
+ *
+ * When you specifically want a *solid fill*, prefer {@link genXmlColorSelection}, which wraps
+ * this in `<a:solidFill>…</a:solidFill>` and also handles `alpha`/`transparency` and the
+ * gradient/pattern/image fill types — reach for `createColorElement` directly only when you
+ * need the raw color element (e.g. inside `<a:ln>`, `<a:gs>`, an effect, or a highlight).
+ * @param {string|SCHEME_COLORS} colorStr - hex RGB (e.g. "FFFF00") or a scheme color constant (e.g. pptx.SchemeColor.ACCENT1)
+ * @param {string} [innerElements] - additional elements that adjust the color, nested inside the color element
  * @returns {string} XML string
  */
 export function createColorElement(colorStr: string | SCHEME_COLORS, innerElements?: string): string {
 	if (typeof colorStr !== 'string') {
-		console.warn(
-			`createColorElement: expected a string color value, got ${typeof colorStr}. "${DEF_FONT_COLOR}" used instead.`
-		)
+		warn(`createColorElement: expected a string color value, got ${typeof colorStr}. "${DEF_FONT_COLOR}" used instead.`)
 		colorStr = DEF_FONT_COLOR
 	}
 	let colorVal = (colorStr || '').replace('#', '')
@@ -312,7 +305,7 @@ export function createColorElement(colorStr: string | SCHEME_COLORS, innerElemen
 	}
 
 	if (!REGEX_HEX_COLOR.test(colorVal) && !Object.values(SchemeColor).includes(colorVal as SchemeColor)) {
-		console.warn(
+		warn(
 			`"${colorVal}" is not a valid scheme color or hex RGB! "${DEF_FONT_COLOR}" used instead. Only provide 6-digit RGB or 'pptx.SchemeColor' values!`
 		)
 		colorVal = DEF_FONT_COLOR
@@ -346,9 +339,13 @@ export function createGlowElement(options: TextGlowProps, defaults: TextGlowProp
 }
 
 /**
- * Creates an `a:outerShdw`/`a:innerShdw` element for a text run or shape.
- * Returns the shadow element only (no wrapping `a:effectLst`) so callers can
- * combine it with other effects (e.g. glow) inside a single `a:effectLst`.
+ * Creates an `a:outerShdw`/`a:innerShdw` element for a text run, shape, image, or chart.
+ * Returns the shadow element only (no wrapping `a:effectLst`) so callers can either combine
+ * it with other effects (e.g. glow) inside one `a:effectLst`, or wrap a lone shadow via
+ * {@link createShadowEffectLst}.
+ *
+ * Colors go through {@link createColorElement}, so scheme colors (e.g. `accent1`) are honored
+ * — earlier per-site copies hardcoded `a:srgbClr` and silently emitted invalid OOXML for them.
  * @param {ShadowProps} options shadow properties
  * @param {ShadowProps} defaults defaults for unspecified properties in `options`
  * @see http://officeopenxml.com/drwSp-effects.php
@@ -367,12 +364,33 @@ export function createShadowElement(options: ShadowProps | undefined, defaults: 
 	const opacity = Math.round((opts.opacity ?? 0.75) * PERCENT_SCALE)
 	const color = opts.color || DEF_FONT_COLOR
 
-	const extraAttrs = type === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0" ' : ''
+	// sx/sy/kx/ky/algn/rotWithShape are valid only on `a:outerShdw` (CT_OuterShadowEffect);
+	// `a:innerShdw` (CT_InnerShadowEffect) accepts only blurRad/dist/dir.
+	const extraAttrs =
+		type === 'outer'
+			? `sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="${opts.rotateWithShape ? 1 : 0}" `
+			: ''
 	let strXml = `<a:${type}Shdw ${extraAttrs}blurRad="${blur}" dist="${offset}" dir="${angle}">`
 	strXml += createColorElement(color, `<a:alpha val="${opacity}"/>`)
 	strXml += `</a:${type}Shdw>`
 
 	return strXml
+}
+
+/**
+ * Wraps a lone shadow in the `a:effectLst` that CT_ShapeProperties (shapes/images) and chart
+ * marker/data-point properties require. Returns a self-closing `<a:effectLst/>` when there is
+ * no shadow (missing/non-object options, or `type: 'none'`), matching the "no effects" element
+ * PowerPoint emits. Use this instead of {@link createShadowElement} when the shadow is the only
+ * effect; use `createShadowElement` directly when combining with other effects (e.g. glow).
+ * @param {ShadowProps} options shadow properties
+ * @param {ShadowProps} defaults defaults for unspecified properties in `options`
+ * @returns {string} `<a:effectLst>…</a:effectLst>` or `<a:effectLst/>`
+ */
+export function createShadowEffectLst(options: ShadowProps | undefined, defaults: ShadowProps): string {
+	if (!options || typeof options !== 'object') return '<a:effectLst/>'
+	const inner = createShadowElement(options, defaults)
+	return inner ? `<a:effectLst>${inner}</a:effectLst>` : '<a:effectLst/>'
 }
 
 function boolToXml(value: boolean): string {
@@ -478,8 +496,8 @@ export function genXmlPatternFill(pattern: PatternFillProps | undefined): string
  */
 export function genXmlImageFill(props: ShapeFillProps | undefined): string {
 	if (!props || typeof props._imgRid !== 'number') {
-		console.warn(
-			'Warning: image fill is missing its resolved media reference; falling back to no fill. Provide `image: { path }` or `image: { data }`.'
+		warn(
+			'image fill is missing its resolved media reference; falling back to no fill. Provide `image: { path }` or `image: { data }`.'
 		)
 		return '<a:noFill/>'
 	}
@@ -659,13 +677,13 @@ export function avContentType(extn: string, mtype: 'audio' | 'video'): string {
  */
 export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowProps | undefined {
 	if (!ShadowProps || typeof ShadowProps !== 'object') {
-		// console.warn("`shadow` options must be an object. Ex: `{shadow: {type:'none'}}`")
+		// warn("`shadow` options must be an object. Ex: `{shadow: {type:'none'}}`")
 		return
 	}
 
 	// OPT: `type`
 	if (ShadowProps.type !== 'outer' && ShadowProps.type !== 'inner' && ShadowProps.type !== 'none') {
-		console.warn('Warning: shadow.type options are `outer`, `inner` or `none`.')
+		warn('shadow.type options are `outer`, `inner` or `none`.')
 		ShadowProps.type = 'outer'
 	}
 
@@ -673,7 +691,7 @@ export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowPr
 	if (ShadowProps.angle) {
 		// A: REALITY-CHECK
 		if (isNaN(Number(ShadowProps.angle)) || ShadowProps.angle < 0 || ShadowProps.angle > 359) {
-			console.warn('Warning: shadow.angle can only be 0-359')
+			warn('shadow.angle can only be 0-359')
 			ShadowProps.angle = 270
 		}
 
@@ -685,7 +703,7 @@ export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowPr
 	if (ShadowProps.opacity) {
 		// A: REALITY-CHECK
 		if (isNaN(Number(ShadowProps.opacity)) || ShadowProps.opacity < 0 || ShadowProps.opacity > 1) {
-			console.warn('Warning: shadow.opacity can only be 0-1')
+			warn('shadow.opacity can only be 0-1')
 			ShadowProps.opacity = 0.75
 		}
 
@@ -697,7 +715,7 @@ export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowPr
 	if (ShadowProps.color) {
 		// INCORRECT FORMAT
 		if (ShadowProps.color.startsWith('#')) {
-			console.warn('Warning: shadow.color should not include hash (#) character, , e.g. "FF0000"')
+			warn('shadow.color should not include hash (#) character, , e.g. "FF0000"')
 			ShadowProps.color = ShadowProps.color.replace('#', '')
 		}
 

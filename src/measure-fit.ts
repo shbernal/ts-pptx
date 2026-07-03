@@ -14,6 +14,7 @@ import { SLIDE_OBJECT_TYPES, TEXT_VALIGN } from './core-enums.js'
 import { DEF_CELL_MARGIN_IN, DEF_FONT_SIZE, LINEH_MODIFIER } from './core-enums.js'
 import { EMU_PER_POINT, POINTS_PER_INCH, emuToInches } from './units.js'
 import { getSmartParseNumber, inch2Emu, resolveTableColWidthsEmu, valToPts } from './gen-utils.js'
+import { warn } from './log.js'
 import { getHeuristicFontMetrics, type FontMetricsRegistry } from './font-metrics.js'
 import {
 	solveShrink,
@@ -701,21 +702,21 @@ export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetr
 	}
 
 	if (unmeasuredShrink.size > 0) {
-		console.warn(
-			`Warning: fit:'shrink' could not be measured for font(s) [${[...unmeasuredShrink].join(', ')}] — ` +
+		warn(
+			`fit:'shrink' could not be measured for font(s) [${[...unmeasuredShrink].join(', ')}] — ` +
 				'no registered metrics. Emitting bare <a:normAutofit/> (text will not pre-shrink in headless renders). ' +
 				'Call pptx.registerFontMetrics(face, fontFilePathOrBytes) to enable measured fit.'
 		)
 	}
 	if (unmeasuredResize.size > 0) {
-		console.warn(
-			`Warning: fit:'resize' could not be measured for font(s) [${[...unmeasuredResize].join(', ')}] — ` +
+		warn(
+			`fit:'resize' could not be measured for font(s) [${[...unmeasuredResize].join(', ')}] — ` +
 				'no registered metrics. Emitting bare <a:spAutoFit/> with the authored height (box will not auto-grow in headless renders). ' +
 				'Call pptx.registerFontMetrics(face, fontFilePathOrBytes) to enable measured fit.'
 		)
 	}
 	if (heuristicFaces.size > 0) {
-		console.warn(
+		warn(
 			`Note: measured fit used a conservative average-advance estimate for font(s) [${[...heuristicFaces].join(', ')}] — ` +
 				'no exact metrics registered. Fit is approximate (may shrink/grow more than necessary). ' +
 				'Call pptx.registerFontMetrics(face, fontFilePathOrBytes) for an exact fit.'

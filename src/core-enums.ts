@@ -26,7 +26,7 @@ export const DEF_FONT_TITLE_SIZE = 18
 export const DEF_PRES_LAYOUT = 'LAYOUT_16x9'
 export const DEF_PRES_LAYOUT_NAME = 'DEFAULT'
 export const DEF_SHAPE_LINE_COLOR = '333333'
-export const DEF_SHAPE_SHADOW = {
+export const DEF_SHAPE_SHADOW: ShadowProps = {
 	type: 'outer',
 	blur: 3,
 	offset: 23000 / 12700,

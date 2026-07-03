@@ -37,7 +37,6 @@ import type {
 	PresLayout,
 	PresSlideInternal,
 	ResolvedCommentAuthor,
-	ShadowProps,
 	SlideLayoutInternal,
 	TableCell,
 	TableCellProps,
@@ -54,6 +53,7 @@ import {
 	createColorElement,
 	createGlowElement,
 	createShadowElement,
+	createShadowEffectLst,
 	createLineCap,
 	encodeXmlEntities,
 	fitSrcRectPercents,
@@ -69,7 +69,6 @@ import {
 	valToPts,
 } from './gen-utils.js'
 import {
-	ANGLE_UNITS_PER_DEGREE,
 	FIXED_PCT_PER_PERCENT,
 	HUNDREDTHS_PER_POINT,
 	PERCENT_SCALE,
@@ -77,6 +76,7 @@ import {
 	ptToHundredths,
 	type Emu,
 } from './units.js'
+import { warn, warnOnce } from './log.js'
 import {
 	type EmbeddedFont,
 	FONT_DATA_CONTENT_TYPE,
@@ -85,15 +85,6 @@ import {
 	flattenEmbeddedFaces,
 	serializeEmbeddedFontLst,
 } from './embedded-fonts.js'
-
-// Warn once per distinct message so a recurring out-of-range value (e.g. the same
-// bad fontSize across every cell of a table) does not flood the console.
-const _warnedTextRangeMsgs = new Set<string>()
-function warnTextRangeOnce(msg: string): void {
-	if (_warnedTextRangeMsgs.has(msg)) return
-	_warnedTextRangeMsgs.add(msg)
-	console.warn(msg)
-}
 
 /**
  * Clamp a font size (points) into ST_TextFontSize (1-4000pt) and return it in
@@ -104,9 +95,7 @@ function clampFontSizeSz(fontSizePts: number): number {
 	const raw = ptToHundredths(fontSizePts)
 	const clamped = Math.min(400000, Math.max(100, raw))
 	if (clamped !== raw)
-		warnTextRangeOnce(
-			`Warning: fontSize ${fontSizePts} is outside the valid range 1-4000pt; using ${clamped / HUNDREDTHS_PER_POINT}.`
-		)
+		warnOnce(`fontSize ${fontSizePts} is outside the valid range 1-4000pt; using ${clamped / HUNDREDTHS_PER_POINT}.`)
 	return clamped
 }
 
@@ -115,8 +104,8 @@ function clampCharSpacingSpc(charSpacingPts: number): number {
 	const raw = ptToHundredths(charSpacingPts)
 	const clamped = Math.min(400000, Math.max(-400000, raw))
 	if (clamped !== raw)
-		warnTextRangeOnce(
-			`Warning: charSpacing ${charSpacingPts} is outside the valid range -4000..4000pt; using ${clamped / HUNDREDTHS_PER_POINT}.`
+		warnOnce(
+			`charSpacing ${charSpacingPts} is outside the valid range -4000..4000pt; using ${clamped / HUNDREDTHS_PER_POINT}.`
 		)
 	return clamped
 }
@@ -126,8 +115,8 @@ function clampLineSpacingPts(lineSpacingPts: number): number {
 	const raw = ptToHundredths(lineSpacingPts)
 	const clamped = Math.min(158400, Math.max(0, raw))
 	if (clamped !== raw)
-		warnTextRangeOnce(
-			`Warning: lineSpacing ${lineSpacingPts} is outside the valid range 0-1584pt; using ${clamped / HUNDREDTHS_PER_POINT}.`
+		warnOnce(
+			`lineSpacing ${lineSpacingPts} is outside the valid range 0-1584pt; using ${clamped / HUNDREDTHS_PER_POINT}.`
 		)
 	return clamped
 }
@@ -257,9 +246,7 @@ function genXmlObjectLock(
 	const lockMap = locks as Record<string, boolean | undefined>
 	for (const key of Object.keys(lockMap)) {
 		if (lockMap[key] && !allowed.includes(key)) {
-			console.warn(
-				`Warning: objectLock.${key} is not supported on <${tag}> (object "${objectName ?? ''}") and was ignored.`
-			)
+			warn(`objectLock.${key} is not supported on <${tag}> (object "${objectName ?? ''}") and was ignored.`)
 		}
 	}
 	const attrs = allowed.filter((name) => lockMap[name] === true).map((name) => `${name}="1"`)
@@ -314,15 +301,13 @@ function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: number,
 				typeof adj.value !== 'number' ||
 				!isFinite(adj.value)
 			) {
-				console.warn(
-					`Warning: shapeAdjust entry ${JSON.stringify(adj)} is invalid (needs { name:string, value:number }) and was ignored.`
+				warn(
+					`shapeAdjust entry ${JSON.stringify(adj)} is invalid (needs { name:string, value:number }) and was ignored.`
 				)
 				return
 			}
 			if (emittedAdjNames.has(adj.name)) {
-				console.warn(
-					`Warning: shapeAdjust "${adj.name}" was ignored because rectRadius/angleRange already set that handle.`
-				)
+				warn(`shapeAdjust "${adj.name}" was ignored because rectRadius/angleRange already set that handle.`)
 				return
 			}
 			// `value` is a 0.0-1.0 fraction of the handle range, emitted as a percentage guide (1/100000 units).
@@ -441,7 +426,7 @@ function genTableCellBorderXml(cellBorder: BorderProps[]): string {
 		const cap = createLineCap(border.cap)
 		if (border.type !== 'none') {
 			strXml += `<a:${obj.name} w="${valToPts(border.pt ?? 1)}" cap="${cap}" cmpd="sng" algn="ctr">`
-			strXml += `<a:solidFill>${createColorElement(border.color ?? '363636')}</a:solidFill>`
+			strXml += genXmlColorSelection(border.color ?? '363636')
 			strXml += `<a:prstDash val="${
 				border.type === 'dash' ? 'sysDash' : 'solid'
 			}"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/>`
@@ -468,8 +453,8 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 		slide._slideObjects.map((obj) => obj.options?.objectName).filter((name): name is string => typeof name === 'string')
 	)
 	if (duplicateObjectNames.length > 0) {
-		console.warn(
-			`Warning: duplicate objectName value(s) emitted on a single slide: ${duplicateObjectNames.join(', ')}. Selection Pane identities should be unique.`
+		warn(
+			`duplicate objectName value(s) emitted on a single slide: ${duplicateObjectNames.join(', ')}. Selection Pane identities should be unique.`
 		)
 	}
 
@@ -939,22 +924,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 
 				// EFFECTS > SHADOW: REF: @see http://officeopenxml.com/drwSp-effects.php
 				if (slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none') {
-					// derive emit-time values into locals so we don't mutate the user's options.shadow
-					// (re-emission would otherwise re-convert pt→EMU and produce absurd values).
-					const sh = slideItemObj.options.shadow
-					const shadowType = sh.type || 'outer'
-					const shadowBlur = valToPts(sh.blur ?? 8)
-					const shadowOffset = valToPts(sh.offset ?? 4)
-					const shadowAngle = Math.round((sh.angle ?? 270) * ANGLE_UNITS_PER_DEGREE)
-					const shadowOpacity = Math.round((sh.opacity ?? 0.75) * PERCENT_SCALE)
-					const shadowColor = sh.color || DEF_TEXT_SHADOW.color
-
-					strSlideXml += '<a:effectLst>'
-					strSlideXml += ` <a:${shadowType}Shdw ${shadowType === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0"' : ''} blurRad="${shadowBlur}" dist="${shadowOffset}" dir="${shadowAngle}">`
-					strSlideXml += ` <a:srgbClr val="${shadowColor}">`
-					strSlideXml += ` <a:alpha val="${shadowOpacity}"/></a:srgbClr>`
-					strSlideXml += ` </a:${shadowType}Shdw>`
-					strSlideXml += '</a:effectLst>'
+					strSlideXml += createShadowEffectLst(slideItemObj.options.shadow, DEF_TEXT_SHADOW)
 				}
 
 				/* TODO: FUTURE: Text wrapping (copied from MS-PPTX export)
@@ -995,8 +965,8 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 						if (!binding) return ''
 						const i = slide._slideObjects.findIndex((o) => o.options?.objectName === binding.name)
 						if (i < 0) {
-							console.warn(
-								`Warning: addConnector could not bind to shape "${binding.name}" (no shape with that objectName on the slide); using endpoint coordinates instead.`
+							warn(
+								`addConnector could not bind to shape "${binding.name}" (no shape with that objectName on the slide); using endpoint coordinates instead.`
 							)
 							return ''
 						}
@@ -1108,8 +1078,8 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 					// directly, so it wins over the inch-based `sizing` crop and works for SVG/unmeasurable
 					// formats; the picture's normal w/h box stays the display extent.
 					if (sizing?.type)
-						console.warn(
-							`Warning: addImage 'crop' and 'sizing' are mutually exclusive for image "${slideItemObj.options.objectName}"; 'sizing' was ignored.`
+						warn(
+							`addImage 'crop' and 'sizing' are mutually exclusive for image "${slideItemObj.options.objectName}"; 'sizing' was ignored.`
 						)
 					strSlideXml += genXmlImageCrop(slideItemObj.options.crop, slideItemObj.options.objectName)
 				} else if (sizing?.type) {
@@ -1129,8 +1099,8 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 						if (natural) {
 							cropSize = natural
 						} else {
-							console.warn(
-								`Warning: sizing '${sizing.type}' could not measure natural dimensions for image "${slideItemObj.options.objectName}"; falling back to displayed aspect ratio (crop may be inexact). Provide a raster image (PNG/JPEG/GIF/BMP/WebP) or an SVG with width/height or a viewBox to enable an aspect-correct crop.`
+							warn(
+								`sizing '${sizing.type}' could not measure natural dimensions for image "${slideItemObj.options.objectName}"; falling back to displayed aspect ratio (crop may be inexact). Provide a raster image (PNG/JPEG/GIF/BMP/WebP) or an SVG with width/height or a viewBox to enable an aspect-correct crop.`
 							)
 						}
 					}
@@ -1178,22 +1148,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 
 				// EFFECTS > SHADOW: REF: @see http://officeopenxml.com/drwSp-effects.php
 				if (slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none') {
-					// derive emit-time values into locals so we don't mutate the user's options.shadow
-					// (re-emission would otherwise re-convert pt→EMU and produce absurd values).
-					const sh = slideItemObj.options.shadow
-					const shadowType = sh.type || 'outer'
-					const shadowBlur = valToPts(sh.blur ?? 8)
-					const shadowOffset = valToPts(sh.offset ?? 4)
-					const shadowAngle = Math.round((sh.angle ?? 270) * ANGLE_UNITS_PER_DEGREE)
-					const shadowOpacity = Math.round((sh.opacity ?? 0.75) * PERCENT_SCALE)
-					const shadowColor = sh.color || DEF_TEXT_SHADOW.color
-
-					strSlideXml += '<a:effectLst>'
-					strSlideXml += `<a:${shadowType}Shdw ${shadowType === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0"' : ''} blurRad="${shadowBlur}" dist="${shadowOffset}" dir="${shadowAngle}">`
-					strSlideXml += `<a:srgbClr val="${shadowColor}">`
-					strSlideXml += `<a:alpha val="${shadowOpacity}"/></a:srgbClr>`
-					strSlideXml += `</a:${shadowType}Shdw>`
-					strSlideXml += '</a:effectLst>'
+					strSlideXml += createShadowEffectLst(slideItemObj.options.shadow, DEF_TEXT_SHADOW)
 				}
 				strSlideXml += '</p:spPr>'
 				strSlideXml += '</p:pic>'
@@ -1579,7 +1534,7 @@ function genXmlParagraphProperties(textObj: ISlideObject | TextProps, isDefault:
 			if (opts.bullet.size !== undefined) {
 				const bulletSize = Number(opts.bullet.size)
 				if (isNaN(bulletSize) || bulletSize < 25 || bulletSize > 400) {
-					console.warn('Warning: `bullet.size` must be a percentage between 25 and 400!')
+					warn('`bullet.size` must be a percentage between 25 and 400!')
 				} else {
 					bulletSizePct = Math.round(bulletSize * FIXED_PCT_PER_PERCENT)
 				}
@@ -1609,7 +1564,7 @@ function genXmlParagraphProperties(textObj: ISlideObject | TextProps, isDefault:
 					}
 				} else {
 					// rel was not registered (eg: bullet on a context without a slide target) - fall back to a glyph
-					console.warn('Warning: picture `bullet.image` could not be embedded; using a default bullet glyph')
+					warn('picture `bullet.image` could not be embedded; using a default bullet glyph')
 					strXmlBullet = `${strXmlBulletSize}${strXmlBulletFont}<a:buChar char="${BULLET_TYPES.DEFAULT}"/>`
 				}
 			} else if (opts.bullet.type && opts.bullet.type.toString().toLowerCase() === 'number') {
@@ -1624,7 +1579,7 @@ function genXmlParagraphProperties(textObj: ISlideObject | TextProps, isDefault:
 
 				// Check value for hex-ness (s/b 4 char hex)
 				if (!/^[0-9A-Fa-f]{4}$/.test(opts.bullet.characterCode)) {
-					console.warn('Warning: `bullet.characterCode should be a 4-digit unicode charatcer (ex: 22AB)`!')
+					warn('`bullet.characterCode should be a 4-digit unicode charatcer (ex: 22AB)`!')
 					bulletCode = BULLET_TYPES.DEFAULT
 				}
 
@@ -1638,7 +1593,7 @@ function genXmlParagraphProperties(textObj: ISlideObject | TextProps, isDefault:
 
 				// Check value for hex-ness (s/b 4 char hex)
 				if (!/^[0-9A-Fa-f]{4}$/.test(opts.bullet.code)) {
-					console.warn('Warning: `bullet.code should be a 4-digit hex code (ex: 22AB)`!')
+					warn('`bullet.code should be a 4-digit hex code (ex: 22AB)`!')
 					bulletCode = BULLET_TYPES.DEFAULT
 				}
 
@@ -1840,9 +1795,7 @@ function genXmlNormAutofit(fit: TextFitShrinkProps): string {
 	const pct = (val: number | undefined, name: string): number | null => {
 		if (val === undefined || val === null) return null
 		if (typeof val !== 'number' || isNaN(val) || val < 0 || val > 100) {
-			console.warn(
-				`Warning: fit.${name} must be a number between 0 and 100 (percent); received ${String(val)} - attribute ignored.`
-			)
+			warn(`fit.${name} must be a number between 0 and 100 (percent); received ${String(val)} - attribute ignored.`)
 			return null
 		}
 		return Math.round(val * FIXED_PCT_PER_PERCENT)
@@ -3071,7 +3024,7 @@ export function buildNotesSlideRels(slide: PresSlideInternal): ISlideRel[] {
 		if (!hyperlink.url) {
 			// Notes support external `url` links only. Drop unsupported (e.g. `slide`) targets so the
 			// run serializer doesn't emit a dangling <a:hlinkClick> with no matching relationship.
-			if (hyperlink.slide) console.warn('Warning: notes hyperlinks support `url` only (ignoring `slide` target)')
+			if (hyperlink.slide) warn('notes hyperlinks support `url` only (ignoring `slide` target)')
 			if (run.options) delete run.options.hyperlink
 			return
 		}
@@ -3307,8 +3260,8 @@ function masterLevelXml(levelNum: number, base: MasterLevelDefault, ov: MasterTe
 	let sz = base.sz
 	if (typeof ov.fontSize === 'number') {
 		if (isNaN(ov.fontSize) || ov.fontSize <= 0)
-			console.warn(
-				`Warning: master textStyles fontSize "${ov.fontSize}" is invalid; keeping default ${base.sz / HUNDREDTHS_PER_POINT}pt.`
+			warn(
+				`master textStyles fontSize "${ov.fontSize}" is invalid; keeping default ${base.sz / HUNDREDTHS_PER_POINT}pt.`
 			)
 		else sz = ptToHundredths(ov.fontSize)
 	}
@@ -3326,8 +3279,7 @@ function masterLevelXml(levelNum: number, base: MasterLevelDefault, ov: MasterTe
 /** Clamp a caller-provided per-level override array to the 9 valid list levels, warning on overflow. */
 function masterLevelOverrides(levels: MasterTextStyleLevel[] | undefined, group: string): MasterTextStyleLevel[] {
 	if (!Array.isArray(levels)) return []
-	if (levels.length > 9)
-		console.warn(`Warning: master textStyles.${group} has ${levels.length} levels; only the first 9 are used.`)
+	if (levels.length > 9) warn(`master textStyles.${group} has ${levels.length} levels; only the first 9 are used.`)
 	return levels.slice(0, 9)
 }
 
@@ -3669,9 +3621,7 @@ function buildThemeClrScheme(scheme?: ThemeColorScheme): string {
 			const hex = override.replace('#', '')
 			if (REGEX_HEX_COLOR.test(hex)) child = `<a:srgbClr val="${hex.toUpperCase()}"/>`
 			else
-				console.warn(
-					`makeXmlTheme: colorScheme.${slot} "${override}" is not a 6-digit hex color; keeping the Office default.`
-				)
+				warn(`makeXmlTheme: colorScheme.${slot} "${override}" is not a 6-digit hex color; keeping the Office default.`)
 		}
 		return `<a:${slot}>${child}</a:${slot}>`
 	}).join('')
@@ -3840,8 +3790,7 @@ function genXmlTableStyleRegion(name: string, region: TableStyleRegionProps): st
 	if (region.border !== undefined || region.fill !== undefined) {
 		xml += '<a:tcStyle>'
 		if (region.border !== undefined) xml += genXmlTableStyleBorders(region.border)
-		if (region.fill !== undefined)
-			xml += `<a:fill><a:solidFill>${createColorElement(region.fill)}</a:solidFill></a:fill>`
+		if (region.fill !== undefined) xml += `<a:fill>${genXmlColorSelection(region.fill)}</a:fill>`
 		xml += '</a:tcStyle>'
 	}
 
@@ -3886,7 +3835,7 @@ function genXmlTableStyleBorders(border: BorderProps | BorderProps[]): string {
 			xml += '<a:ln><a:noFill/></a:ln>'
 		} else {
 			xml += `<a:ln w="${lineWidthToEmu(b.pt ?? 1)}" cap="flat" cmpd="sng" algn="ctr">`
-			xml += `<a:solidFill>${createColorElement(b.color ?? '666666')}</a:solidFill>`
+			xml += genXmlColorSelection(b.color ?? '666666')
 			xml += `<a:prstDash val="${b.type === 'dash' ? 'sysDash' : 'solid'}"/>`
 			xml += '</a:ln>'
 		}
@@ -3902,45 +3851,4 @@ function genXmlTableStyleBorders(border: BorderProps | BorderProps[]): string {
  */
 export function makeXmlViewProps(): string {
 	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}<p:viewPr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:normalViewPr horzBarState="maximized"><p:restoredLeft sz="15611"/><p:restoredTop sz="94610"/></p:normalViewPr><p:slideViewPr><p:cSldViewPr snapToGrid="0" snapToObjects="1"><p:cViewPr varScale="1"><p:scale><a:sx n="136" d="100"/><a:sy n="136" d="100"/></p:scale><p:origin x="216" y="312"/></p:cViewPr><p:guideLst/></p:cSldViewPr></p:slideViewPr><p:notesTextViewPr><p:cViewPr><p:scale><a:sx n="1" d="1"/><a:sy n="1" d="1"/></p:scale><p:origin x="0" y="0"/></p:cViewPr></p:notesTextViewPr><p:gridSpacing cx="76200" cy="76200"/></p:viewPr>`
-}
-
-/**
- * Checks shadow options passed by user and performs corrections if needed.
- * @param {ShadowProps} shadowProps - shadow options
- */
-export function correctShadowOptions(shadowProps: ShadowProps): void {
-	if (!shadowProps || typeof shadowProps !== 'object') {
-		// console.warn("`shadow` options must be an object. Ex: `{shadow: {type:'none'}}`")
-		return
-	}
-
-	// OPT: `type`
-	if (shadowProps.type !== 'outer' && shadowProps.type !== 'inner' && shadowProps.type !== 'none') {
-		console.warn('Warning: shadow.type options are `outer`, `inner` or `none`.')
-		shadowProps.type = 'outer'
-	}
-
-	// OPT: `angle`
-	if (shadowProps.angle) {
-		// A: REALITY-CHECK
-		if (isNaN(Number(shadowProps.angle)) || shadowProps.angle < 0 || shadowProps.angle > 359) {
-			console.warn('Warning: shadow.angle can only be 0-359')
-			shadowProps.angle = 270
-		}
-
-		// B: ROBUST: Cast any type of valid arg to int: '12', 12.3, etc. -> 12
-		shadowProps.angle = Math.round(Number(shadowProps.angle))
-	}
-
-	// OPT: `opacity`
-	if (shadowProps.opacity) {
-		// A: REALITY-CHECK
-		if (isNaN(Number(shadowProps.opacity)) || shadowProps.opacity < 0 || shadowProps.opacity > 1) {
-			console.warn('Warning: shadow.opacity can only be 0-1')
-			shadowProps.opacity = 0.75
-		}
-
-		// B: ROBUST: Cast any type of valid arg to int: '12', 12.3, etc. -> 12
-		shadowProps.opacity = Number(shadowProps.opacity)
-	}
 }
