@@ -208,15 +208,15 @@ silently defeat them.
 
 ---
 
-## Gap 4 — other strictness knobs are not yet evaluated
+## Gap 4 — other strictness knobs (surveyed; all resolved)
 
 ### The gap
 
 Gaps 1–3 closed the null-safety knobs, but `tsconfig.base.json` left several
 other strictness options off. Each has now been surveyed in isolation
-(`tsc -p tsconfig.json --<flag>`, tsc 6.0.3) and the cost recorded below, so the
-"unknown" status is resolved. This gap now tracks the two remaining expensive
-ratchets, not a blanket survey.
+(`tsc -p tsconfig.json --<flag>`, tsc 6.0.3), the cost recorded below, and a
+decision reached for every one. Seven of the eight are enabled; the eighth
+(`exactOptionalPropertyTypes`) is deliberately deferred with the rationale below.
 
 | Option                              | Errors | Guards against                                   | Status |
 | ----------------------------------- | -----: | ------------------------------------------------ | ------ |
@@ -225,9 +225,9 @@ ratchets, not a blanket survey.
 | `noImplicitOverride`                |      0 | a method that shadows a base method by accident  | ✅ enabled |
 | `noUnusedLocals`                    |      0 | dead local bindings                              | ✅ enabled |
 | `noUnusedParameters`                |      0 | dead parameters                                  | ✅ enabled |
-| `noPropertyAccessFromIndexSignature`|     25 | natural companion to `noUncheckedIndexedAccess`  | deferred (ratchet) |
-| `verbatimModuleSyntax`              |     63 | type-only imports leaking into the JS output     | deferred (ratchet) |
-| `exactOptionalPropertyTypes`        |    112 | `{x?: T}` silently accepting an explicit `undefined` | deferred (ratchet) |
+| `noPropertyAccessFromIndexSignature`|     25 | natural companion to `noUncheckedIndexedAccess`  | ✅ enabled |
+| `verbatimModuleSyntax`              |     63 | type-only imports leaking into the JS output     | ✅ enabled |
+| `exactOptionalPropertyTypes`        |    112 | `{x?: T}` silently accepting an explicit `undefined` | ⛔ deferred (deliberate) |
 
 ### Approach
 
@@ -237,13 +237,43 @@ ratchets, not a blanket survey.
       (`noImplicitReturns`, `noFallthroughCasesInSwitch`, `noImplicitOverride`,
       `noUnusedLocals`, `noUnusedParameters`). Build, typecheck, and lint all stay
       green — no source changes were required.
-- [ ] `noPropertyAccessFromIndexSignature` (25) — smallest remaining; a natural
-      follow-on to `noUncheckedIndexedAccess`. Do when touching the affected
-      index-signature access sites.
-- [ ] `verbatimModuleSyntax` (63) — mechanical (`import type` splits); ratchet or
-      one-shot with `--fix`-style codemods.
-- [ ] `exactOptionalPropertyTypes` (112) — largest and most semantically subtle;
-      treat as its own ratchet.
+- [x] `noPropertyAccessFromIndexSignature` (25) — converted the 25 dot-accesses of
+      index-signature properties to bracket notation (24 dynamic `fast-xml-parser`
+      `XmlNode` reads in `inspect.ts`, one DOM `DOMStringMap` `dataset` access in
+      `runtime/browser.ts`). These are genuinely dynamic maps, so bracket access is
+      correct, not a workaround. Enabled in `tsconfig.base.json`.
+- [x] `verbatimModuleSyntax` (63) — marked the 63 type-only imports (all TS1484):
+      converted the two all-type import blocks (`core-interfaces` in `pptxgen.ts`
+      and `slide.ts`) to `import type`, and added inline `type` modifiers to the
+      type names mixed into value-import blocks. Enabled in `tsconfig.base.json`.
+
+### `exactOptionalPropertyTypes` — why it is deferred (deliberate, not un-surveyed)
+
+The survey produced 112 errors, but — unlike the other seven knobs — enabling it
+is **low-value and high-risk on this codebase**, so it is intentionally left off:
+
+- **The targets are internal *normalized* types, not the public input surface.**
+  The flagged interfaces (`IChartOptsLib`, `ObjectOptions`, `IChartPropsTitle`,
+  `BorderProps`, `ShapeLineProps`, …) are the mutable working state built up during
+  option normalization, and they legitimately hold `T | undefined` mid-flight.
+- **The codebase idiom is the opposite of what the flag enforces.** Normalization
+  is written around "`undefined` means use-the-default / omit" (e.g. the eight
+  explicit `… : undefined` assignments and the many `x || !x ? x : default` lines
+  in `gen-objects.ts`). `exactOptionalPropertyTypes` exists to forbid a
+  present-but-`undefined` property, which is exactly this pattern.
+- **The "clean" fixes carry real behavior risk.** The `x || !x ? x : false` lines
+  are latent no-ops: `x || !x` is always truthy, so the `: false` default is dead
+  and `undefined` is preserved. Rewriting them to `x ?? false` (the tidy way to
+  satisfy the flag) would change output (`undefined → false`). The only zero-risk
+  alternative — widening the internal interfaces back to `| undefined` — just
+  re-admits the present-but-`undefined` state the flag is meant to catch, so it
+  enforces the constraint only at the public boundary and is largely cosmetic.
+
+Net: the flag fights the library's own normalization design, and closing 112 sites
+buys little while risking output regressions. Revisit only if the chart/shape
+option-normalization code is ever refactored to separate "raw input props" from a
+"resolved options" type — at which point `exactOptionalPropertyTypes` on the input
+type becomes cheap and genuinely useful.
 
 ### The `as`-cast enforcement asymmetry — ✅ resolved
 
@@ -279,13 +309,13 @@ that survive.
 
 ## Suggested sequencing
 
-Gaps 1, 2, and 3 are done. Gap 4's survey is done and the five zero-cost knobs
-are enabled. Remaining:
+Gaps 1, 2, and 3 are done. Gap 4 is now fully resolved: seven of the eight
+strictness knobs are enabled (five zero-cost, plus `noPropertyAccessFromIndexSignature`
+and `verbatimModuleSyntax`), and `exactOptionalPropertyTypes` is deliberately
+deferred with the rationale documented under Gap 4. Remaining:
 
-1. **Gap 4 (expensive knobs)** — three ratchets remain, cheapest first:
-   `noPropertyAccessFromIndexSignature` (25), `verbatimModuleSyntax` (63),
-   `exactOptionalPropertyTypes` (112). Enable the cheap ones and ratchet the
-   expensive ones. The `CHART_NAME`/`CHART_TYPE`
+1. **`no-unsafe-enum-comparison`** — the only open static-check item. The
+   `CHART_NAME`/`CHART_TYPE`
    unification noted here is **done** (`CHART_NAME` is now derived from the
    `CHART_TYPE` enum via `` `${CHART_TYPE}` ``, internal `_type`/`make*` chart
    code carries the enum, and `asChartType()` is the single boundary cast). That
