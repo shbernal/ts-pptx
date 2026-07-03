@@ -39,6 +39,7 @@ import {
 	getUuid,
 	valToPts,
 } from './gen-utils.js'
+import { ANGLE_UNITS_PER_DEGREE, FIXED_PCT_PER_PERCENT, PERCENT_SCALE, ptToHundredths } from './units.js'
 import { ZipWriter } from './zip.js'
 
 const VALID_CHART_TIME_UNITS = ['days', 'months', 'years']
@@ -761,7 +762,7 @@ export function makeXmlCharts(rel: ISlideRelChart): string {
 			strXml += '   <a:lstStyle/>'
 			strXml += '   <a:p>'
 			strXml += '     <a:pPr rtl="0">'
-			strXml += `       <a:defRPr sz="${Math.round((rel.opts.dataTableFontSize || DEF_FONT_SIZE) * 100)}" b="0" i="0" u="none" strike="noStrike" kern="1200" baseline="0">`
+			strXml += `       <a:defRPr sz="${ptToHundredths(rel.opts.dataTableFontSize || DEF_FONT_SIZE)}" b="0" i="0" u="none" strike="noStrike" kern="1200" baseline="0">`
 			strXml +=
 				'         <a:solidFill><a:schemeClr val="tx1"><a:lumMod val="65000"/><a:lumOff val="35000"/></a:schemeClr></a:solidFill>'
 			strXml += '         <a:latin typeface="+mn-lt"/>'
@@ -842,7 +843,7 @@ export function makeXmlCharts(rel: ISlideRelChart): string {
 				strXml += '  <a:p>'
 				strXml += '    <a:pPr>'
 				strXml += rel.opts.legendFontSize
-					? `<a:defRPr sz="${Math.round(Number(rel.opts.legendFontSize) * 100)}">`
+					? `<a:defRPr sz="${ptToHundredths(Number(rel.opts.legendFontSize))}">`
 					: '<a:defRPr>'
 				if (rel.opts.legendColor) strXml += genXmlColorSelection(rel.opts.legendColor)
 				if (rel.opts.legendFontFace) strXml += createChartTextFonts(rel.opts.legendFontFace)
@@ -1048,7 +1049,10 @@ function makeChartType(
 				} else if (opts.chartColorsOpacity) {
 					strXml +=
 						'<a:solidFill>' +
-						createColorElement(seriesColor, `<a:alpha val="${Math.round(opts.chartColorsOpacity * 1000)}"/>`) +
+						createColorElement(
+							seriesColor,
+							`<a:alpha val="${Math.round(opts.chartColorsOpacity * FIXED_PCT_PER_PERCENT)}"/>`
+						) +
 						'</a:solidFill>'
 				} else {
 					strXml += '<a:solidFill>' + createColorElement(seriesColor) + '</a:solidFill>'
@@ -1129,7 +1133,7 @@ function makeChartType(
 					if (opts.dataLabelBkgrdColors)
 						strXml += `<c:spPr><a:solidFill>${createColorElement(seriesColor)}</a:solidFill></c:spPr>`
 					strXml += '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr>'
-					strXml += `<a:defRPr b="${lblBold ? 1 : 0}" i="${lblItalic ? 1 : 0}" strike="noStrike" sz="${Math.round(lblSize * 100)}" u="none">`
+					strXml += `<a:defRPr b="${lblBold ? 1 : 0}" i="${lblItalic ? 1 : 0}" strike="noStrike" sz="${ptToHundredths(lblSize)}" u="none">`
 					strXml += `<a:solidFill>${createColorElement(lblColor)}</a:solidFill>`
 					strXml += createChartTextFonts(lblFace)
 					strXml += '</a:defRPr></a:pPr></a:p></c:txPr>'
@@ -1219,7 +1223,7 @@ function makeChartType(
 				strXml += '      <a:bodyPr/>'
 				strXml += '      <a:lstStyle/>'
 				strXml += '      <a:p><a:pPr>'
-				strXml += `        <a:defRPr b="${opts.dataLabelFontBold ? 1 : 0}" i="${opts.dataLabelFontItalic ? 1 : 0}" strike="noStrike" sz="${Math.round((opts.dataLabelFontSize || DEF_FONT_SIZE) * 100)}" u="none">`
+				strXml += `        <a:defRPr b="${opts.dataLabelFontBold ? 1 : 0}" i="${opts.dataLabelFontItalic ? 1 : 0}" strike="noStrike" sz="${ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE)}" u="none">`
 				strXml +=
 					'          <a:solidFill>' + createColorElement(opts.dataLabelColor || DEF_FONT_COLOR) + '</a:solidFill>'
 				strXml += '          ' + createChartTextFonts(opts.dataLabelFontFace || 'Arial')
@@ -1314,7 +1318,7 @@ function makeChartType(
 								'<a:solidFill>' +
 								createColorElement(
 									tmpSerColor,
-									'<a:alpha val="' + Math.round(opts.chartColorsOpacity * 1000).toString() + '"/>'
+									'<a:alpha val="' + Math.round(opts.chartColorsOpacity * FIXED_PCT_PER_PERCENT).toString() + '"/>'
 								) +
 								'</a:solidFill>'
 						} else {
@@ -1385,7 +1389,7 @@ function makeChartType(
 									strXml += '            <a:lstStyle/>'
 									strXml += '            <a:p>'
 									strXml += '                <a:pPr>'
-									strXml += `                    <a:defRPr sz="${Math.round((opts.dataLabelFontSize || DEF_FONT_SIZE) * 100)}" b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike">`
+									strXml += `                    <a:defRPr sz="${ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE)}" b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike">`
 									strXml +=
 										'                        <a:solidFill>' +
 										createColorElement(opts.dataLabelColor || DEF_FONT_COLOR) +
@@ -1394,7 +1398,7 @@ function makeChartType(
 									strXml += '                    </a:defRPr>'
 									strXml += '                </a:pPr>'
 									strXml += '              <a:r>'
-									strXml += `                    <a:rPr lang="${opts.lang || 'en-US'}" sz="${Math.round((opts.dataLabelFontSize || DEF_FONT_SIZE) * 100)}" b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike" dirty="0">`
+									strXml += `                    <a:rPr lang="${opts.lang || 'en-US'}" sz="${ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE)}" b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike" dirty="0">`
 									strXml +=
 										'                        <a:solidFill>' +
 										createColorElement(opts.dataLabelColor || DEF_FONT_COLOR) +
@@ -1488,7 +1492,7 @@ function makeChartType(
 							strXml += '        <a:lstStyle/>'
 							strXml += '        <a:p>'
 							strXml += '            <a:pPr>'
-							strXml += `                <a:defRPr sz="${Math.round((opts.dataLabelFontSize || DEF_FONT_SIZE) * 100)}" b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike">`
+							strXml += `                <a:defRPr sz="${ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE)}" b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike">`
 							strXml +=
 								'                    <a:solidFill>' +
 								createColorElement(opts.dataLabelColor || DEF_FONT_COLOR) +
@@ -1566,7 +1570,7 @@ function makeChartType(
 				strXml += '      <a:bodyPr/>'
 				strXml += '      <a:lstStyle/>'
 				strXml += '      <a:p><a:pPr>'
-				strXml += `        <a:defRPr b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" strike="noStrike" sz="${Math.round((opts.dataLabelFontSize || DEF_FONT_SIZE) * 100)}" u="none">`
+				strXml += `        <a:defRPr b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" strike="noStrike" sz="${ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE)}" u="none">`
 				strXml +=
 					'          <a:solidFill>' + createColorElement(opts.dataLabelColor || DEF_FONT_COLOR) + '</a:solidFill>'
 				strXml += '          ' + createChartTextFonts(opts.dataLabelFontFace || 'Arial')
@@ -1637,7 +1641,7 @@ function makeChartType(
 						if (tmpSerColor === 'transparent') {
 							strXml += '<a:noFill/>'
 						} else if (opts.chartColorsOpacity) {
-							strXml += `<a:solidFill>${createColorElement(tmpSerColor, '<a:alpha val="' + Math.round(opts.chartColorsOpacity * 1000).toString() + '"/>')}</a:solidFill>`
+							strXml += `<a:solidFill>${createColorElement(tmpSerColor, '<a:alpha val="' + Math.round(opts.chartColorsOpacity * FIXED_PCT_PER_PERCENT).toString() + '"/>')}</a:solidFill>`
 						} else {
 							strXml += '<a:solidFill>' + createColorElement(tmpSerColor) + '</a:solidFill>'
 						}
@@ -1718,9 +1722,7 @@ function makeChartType(
 				strXml += '<c:dLbls>'
 				strXml += `<c:numFmt formatCode="${encodeXmlEntities(opts.dataLabelFormatCode ?? '') || 'General'}" sourceLinked="0"/>`
 				strXml += '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr>'
-				strXml += `<a:defRPr b="${opts.dataLabelFontBold ? 1 : 0}" i="${opts.dataLabelFontItalic ? 1 : 0}" strike="noStrike" sz="${Math.round(
-					Math.round(opts.dataLabelFontSize || DEF_FONT_SIZE) * 100
-				)}" u="none">`
+				strXml += `<a:defRPr b="${opts.dataLabelFontBold ? 1 : 0}" i="${opts.dataLabelFontItalic ? 1 : 0}" strike="noStrike" sz="${ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE)}" u="none">`
 				strXml += `<a:solidFill>${createColorElement(opts.dataLabelColor || DEF_FONT_COLOR)}</a:solidFill>`
 				strXml += createChartTextFonts(opts.dataLabelFontFace || 'Arial')
 				strXml += '</a:defRPr></a:pPr></a:p></c:txPr>'
@@ -1840,7 +1842,7 @@ function makeChartType(
 				strXml += '  <c:spPr/><c:txPr>'
 				strXml += '   <a:bodyPr/><a:lstStyle/>'
 				strXml += '   <a:p><a:pPr>'
-				strXml += `   <a:defRPr sz="${Math.round((opts.dataLabelFontSize || DEF_FONT_SIZE) * 100)}" b="${opts.dataLabelFontBold ? 1 : 0}" i="${
+				strXml += `   <a:defRPr sz="${ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE)}" b="${opts.dataLabelFontBold ? 1 : 0}" i="${
 					opts.dataLabelFontItalic ? 1 : 0
 				}" u="none" strike="noStrike">`
 				strXml += '    <a:solidFill>' + createColorElement(opts.dataLabelColor || DEF_FONT_COLOR) + '</a:solidFill>'
@@ -1864,7 +1866,7 @@ function makeChartType(
 			strXml += '      <a:lstStyle/>'
 			strXml += '      <a:p>'
 			strXml += '        <a:pPr>'
-			strXml += `          <a:defRPr sz="${Math.round((opts.dataLabelFontSize || DEF_FONT_SIZE) * 100)}" b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike">`
+			strXml += `          <a:defRPr sz="${ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE)}" b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike">`
 			strXml +=
 				'            <a:solidFill>' + createColorElement(opts.dataLabelColor || DEF_FONT_COLOR) + '</a:solidFill>'
 			strXml += '            ' + createChartTextFonts(opts.dataLabelFontFace || 'Arial')
@@ -2005,7 +2007,7 @@ function makeCatAxis(opts: IChartOptsLib, axisId: string, valAxisId: string): st
 	strXml += '    <a:lstStyle/>'
 	strXml += '    <a:p>'
 	strXml += '    <a:pPr>'
-	strXml += `      <a:defRPr sz="${Math.round((opts.catAxisLabelFontSize || DEF_FONT_SIZE) * 100)}" b="${opts.catAxisLabelFontBold ? 1 : 0}" i="${opts.catAxisLabelFontItalic ? 1 : 0}" u="none" strike="noStrike">`
+	strXml += `      <a:defRPr sz="${ptToHundredths(opts.catAxisLabelFontSize || DEF_FONT_SIZE)}" b="${opts.catAxisLabelFontBold ? 1 : 0}" i="${opts.catAxisLabelFontItalic ? 1 : 0}" u="none" strike="noStrike">`
 	strXml += '      <a:solidFill>' + createColorElement(opts.catAxisLabelColor || DEF_FONT_COLOR) + '</a:solidFill>'
 	strXml += '      ' + createChartTextFonts(opts.catAxisLabelFontFace || 'Arial')
 	strXml += '   </a:defRPr>'
@@ -2116,7 +2118,7 @@ function makeValAxis(opts: IChartOptsLib, valAxisId: string): string {
 	strXml += '  <a:lstStyle/>'
 	strXml += '  <a:p>'
 	strXml += '    <a:pPr>'
-	strXml += `      <a:defRPr sz="${Math.round((opts.valAxisLabelFontSize || DEF_FONT_SIZE) * 100)}" b="${opts.valAxisLabelFontBold ? 1 : 0}" i="${opts.valAxisLabelFontItalic ? 1 : 0}" u="none" strike="noStrike">`
+	strXml += `      <a:defRPr sz="${ptToHundredths(opts.valAxisLabelFontSize || DEF_FONT_SIZE)}" b="${opts.valAxisLabelFontBold ? 1 : 0}" i="${opts.valAxisLabelFontItalic ? 1 : 0}" u="none" strike="noStrike">`
 	strXml += '        <a:solidFill>' + createColorElement(opts.valAxisLabelColor || DEF_FONT_COLOR) + '</a:solidFill>'
 	strXml += '        ' + createChartTextFonts(opts.valAxisLabelFontFace || 'Arial')
 	strXml += '      </a:defRPr>'
@@ -2201,7 +2203,7 @@ function makeSerAxis(opts: IChartOptsLib, axisId: string, valAxisId: string): st
 	strXml += '    <a:lstStyle/>'
 	strXml += '    <a:p>'
 	strXml += '    <a:pPr>'
-	strXml += `    <a:defRPr sz="${Math.round((opts.serAxisLabelFontSize || DEF_FONT_SIZE) * 100)}" b="${opts.serAxisLabelFontBold ? '1' : '0'}" i="${opts.serAxisLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike">`
+	strXml += `    <a:defRPr sz="${ptToHundredths(opts.serAxisLabelFontSize || DEF_FONT_SIZE)}" b="${opts.serAxisLabelFontBold ? '1' : '0'}" i="${opts.serAxisLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike">`
 	strXml += `      <a:solidFill>${createColorElement(opts.serAxisLabelColor || DEF_FONT_COLOR)}</a:solidFill>`
 	strXml += '      ' + createChartTextFonts(opts.serAxisLabelFontFace || 'Arial')
 	strXml += '   </a:defRPr>'
@@ -2247,7 +2249,7 @@ function genXmlTitle(opts: IChartPropsTitle, chartX?: number, chartY?: number): 
 			? `<a:pPr algn="${opts.titleAlign.slice(0, 1)}">`
 			: '<a:pPr>'
 	const rotate = opts.titleRotate ? `<a:bodyPr rot="${convertRotationDegrees(opts.titleRotate)}"/>` : '<a:bodyPr/>' // don't specify rotation to get default (ex. vertical for cat axis)
-	const sizeAttr = opts.fontSize ? `sz="${Math.round(opts.fontSize * 100)}"` : '' // only set the font size if specified.  Powerpoint will handle the default size
+	const sizeAttr = opts.fontSize ? `sz="${ptToHundredths(opts.fontSize)}"` : '' // only set the font size if specified.  Powerpoint will handle the default size
 	const titleBold = opts.titleBold ? 1 : 0
 	const titleItalic = opts.titleItalic ? 1 : 0
 	const titleUnderline = opts.titleUnderline ? 'sng' : 'none'
@@ -2352,9 +2354,9 @@ function createShadowElement(options: ShadowProps | undefined, defaults: object)
 	const type = opts.type || 'outer'
 	const blur = valToPts(opts.blur ?? 0)
 	const offset = valToPts(opts.offset ?? 0)
-	const angle = Math.round((opts.angle ?? 0) * 60000)
+	const angle = Math.round((opts.angle ?? 0) * ANGLE_UNITS_PER_DEGREE)
 	const color = opts.color
-	const opacity = Math.round((opts.opacity ?? 0.75) * 100000)
+	const opacity = Math.round((opts.opacity ?? 0.75) * PERCENT_SCALE)
 	const rotShape = opts.rotateWithShape ? 1 : 0
 
 	strXml += `<a:${type}Shdw sx="100000" sy="100000" kx="0" ky="0"  algn="bl" blurRad="${blur}" rotWithShape="${rotShape}" dist="${offset}" dir="${angle}">`
@@ -2534,7 +2536,7 @@ function createLeaderLinesElement(opts: IChartOptsLib): string {
 }
 
 function makeCustomDLblXml(idx: number, text: string, opts: IChartOptsLib): string {
-	const sz = Math.round((opts.dataLabelFontSize || DEF_FONT_SIZE) * 100)
+	const sz = ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE)
 	const bold = opts.dataLabelFontBold ? '1' : '0'
 	const italic = opts.dataLabelFontItalic ? '1' : '0'
 	const color = createColorElement(opts.dataLabelColor || DEF_FONT_COLOR)

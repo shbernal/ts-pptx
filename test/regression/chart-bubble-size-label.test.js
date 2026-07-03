@@ -59,4 +59,25 @@ defineRegressionSuite('Chart bubble size data label (upstream #744)', [
 			assert(!xml.includes('<c:showBubbleSize val="1"/>'), 'expected no enabled bubble size flag by default')
 		},
 	},
+	{
+		// The bubble data-label font size must preserve fractional points (sz is hundredths of a
+		// point), matching every other chart data-label site. It previously rounded the size to a
+		// whole point first (10.5pt -> sz="1100"); now it converts directly (10.5pt -> sz="1050").
+		name: 'bubble chart: fractional dataLabelFontSize keeps half-point precision',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addChart(p.ChartType.bubble, BUBBLE_DATA, {
+					x: 1,
+					y: 1,
+					w: 6,
+					h: 3,
+					showLabel: true,
+					dataLabelFontSize: 10.5,
+				})
+			})
+			const xml = await chartXml(zip)
+			assertIncludes(xml, 'sz="1050"', '10.5pt data-label font emits sz="1050"')
+			assert(!xml.includes('sz="1100"'), 'expected no whole-point rounding of the data-label size')
+		},
+	},
 ])

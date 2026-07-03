@@ -7,6 +7,43 @@ export const EMU_PER_POINT = 12700
 export const POINTS_PER_INCH = 72
 
 /**
+ * DrawingML angle unit. `ST_Angle` (`rot`, shadow `dir`, gradient `ang`, …) is measured in
+ * sixtieths-of-a-thousandth of a degree, i.e. 60000 units per degree. Multiply a value in
+ * degrees by this to get the OOXML integer.
+ */
+export const ANGLE_UNITS_PER_DEGREE = 60000
+
+/**
+ * DrawingML fixed-point percentage scale. `ST_Percentage` / `ST_PositiveFixedPercentage` and
+ * related types (`<a:alpha>`, `<a:spcPct>`, shape adjustment guides, `<p:tav tm>`, …) encode
+ * 100% as the integer 100000. Multiply a 0-1 fraction by this to get the OOXML value.
+ */
+export const PERCENT_SCALE = 100000
+
+/**
+ * Scale for a percentage supplied as 0-100 (rather than a 0-1 fraction) into the same
+ * fixed-point percentage integer as {@link PERCENT_SCALE} (1% = 1000 units, i.e. thousandths
+ * of a percent). Use for inputs documented as percents: transparency/alpha, image crop insets,
+ * gradient stops, bullet size, connector adjust, etc.
+ */
+export const FIXED_PCT_PER_PERCENT = PERCENT_SCALE / 100
+
+/**
+ * DrawingML text measures font size (`sz`), character spacing (`spc`) and point line/paragraph
+ * spacing (`<a:spcPts val>`) in hundredths of a point. Multiply a value in points by this to get
+ * the OOXML integer.
+ */
+export const HUNDREDTHS_PER_POINT = 100
+
+/**
+ * Convert a value in points to hundredths of a point (rounded), the integer unit DrawingML uses
+ * for `sz`, `spc`, and `<a:spcPts val>`. See {@link HUNDREDTHS_PER_POINT}.
+ */
+export function ptToHundredths(pt: number): number {
+	return Math.round(pt * HUNDREDTHS_PER_POINT)
+}
+
+/**
  * English Metric Units — the integer unit OOXML serializes geometry in (914400 per inch).
  *
  * Branded so a value that has already been resolved to EMU cannot be silently fed back into a

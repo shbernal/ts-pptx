@@ -44,6 +44,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of pulling in a second ZIP library. Downstream: `@shbernal/html2pptx`
   drops its `jszip` dependency in favour of this export.
 
+### Fixed
+
+- **Bubble-chart data labels now honour fractional `dataLabelFontSize`.** The
+  bubble/bubble3D data-label block rounded the font size to a whole point before
+  converting to the OOXML `sz` unit (hundredths of a point), so `dataLabelFontSize:
+  10.5` emitted `sz="1100"` (11pt) instead of `sz="1050"` (10.5pt). It now converts
+  directly like every other chart data-label site. Only fractional sizes on bubble
+  charts are affected; integer sizes are unchanged. This surfaced while extracting
+  the DrawingML unit factors (`60000` angle units, `100000`/`1000` percentage
+  scales, `100` point-to-hundredths) into named constants/helpers in `units.ts`
+  (`ANGLE_UNITS_PER_DEGREE`, `PERCENT_SCALE`, `FIXED_PCT_PER_PERCENT`,
+  `HUNDREDTHS_PER_POINT`, `ptToHundredths()`); that extraction is otherwise
+  byte-identical.
+
 ## [8.1.0](https://github.com/shbernal/PptxGenJS/releases/tag/v8.1.0) - 2026-06-26
 
 ### Added

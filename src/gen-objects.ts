@@ -62,6 +62,7 @@ import type {
 	TextPropsOptions,
 } from './core-interfaces.js'
 import { getSlidesForTableRows } from './gen-tables.js'
+import { FIXED_PCT_PER_PERCENT } from './units.js'
 import {
 	encodeXmlEntities,
 	getNewRelId,
@@ -1287,7 +1288,7 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 					`Warning: addConnector \`adj\` value ${pct} is outside 0–100; the bend will sit beyond the endpoint box.`
 				)
 			}
-			return Math.round(pct * 1000)
+			return Math.round(pct * FIXED_PCT_PER_PERCENT)
 		})
 	}
 	const preset = connectorPresetFor(type, bends)

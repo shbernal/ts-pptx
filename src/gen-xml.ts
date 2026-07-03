@@ -68,7 +68,15 @@ import {
 	resolveTableColWidthsEmu,
 	valToPts,
 } from './gen-utils.js'
-import { pixelsToEmu, type Emu } from './units.js'
+import {
+	ANGLE_UNITS_PER_DEGREE,
+	FIXED_PCT_PER_PERCENT,
+	HUNDREDTHS_PER_POINT,
+	PERCENT_SCALE,
+	pixelsToEmu,
+	ptToHundredths,
+	type Emu,
+} from './units.js'
 import {
 	type EmbeddedFont,
 	FONT_DATA_CONTENT_TYPE,
@@ -93,31 +101,33 @@ function warnTextRangeOnce(msg: string): void {
  * PowerPoint report the package as needing repair (e.g. `sz` > 400000 or < 100).
  */
 function clampFontSizeSz(fontSizePts: number): number {
-	const raw = Math.round(fontSizePts * 100)
+	const raw = ptToHundredths(fontSizePts)
 	const clamped = Math.min(400000, Math.max(100, raw))
 	if (clamped !== raw)
-		warnTextRangeOnce(`Warning: fontSize ${fontSizePts} is outside the valid range 1-4000pt; using ${clamped / 100}.`)
+		warnTextRangeOnce(
+			`Warning: fontSize ${fontSizePts} is outside the valid range 1-4000pt; using ${clamped / HUNDREDTHS_PER_POINT}.`
+		)
 	return clamped
 }
 
 /** Clamp character spacing (points) into ST_TextPoint (-4000..4000pt); returns hundredths for the `spc` attribute. */
 function clampCharSpacingSpc(charSpacingPts: number): number {
-	const raw = Math.round(charSpacingPts * 100)
+	const raw = ptToHundredths(charSpacingPts)
 	const clamped = Math.min(400000, Math.max(-400000, raw))
 	if (clamped !== raw)
 		warnTextRangeOnce(
-			`Warning: charSpacing ${charSpacingPts} is outside the valid range -4000..4000pt; using ${clamped / 100}.`
+			`Warning: charSpacing ${charSpacingPts} is outside the valid range -4000..4000pt; using ${clamped / HUNDREDTHS_PER_POINT}.`
 		)
 	return clamped
 }
 
 /** Clamp line spacing (points) into ST_TextSpacingPoint (0..1584pt); returns hundredths for `<a:spcPts val>`. */
 function clampLineSpacingPts(lineSpacingPts: number): number {
-	const raw = Math.round(lineSpacingPts * 100)
+	const raw = ptToHundredths(lineSpacingPts)
 	const clamped = Math.min(158400, Math.max(0, raw))
 	if (clamped !== raw)
 		warnTextRangeOnce(
-			`Warning: lineSpacing ${lineSpacingPts} is outside the valid range 0-1584pt; using ${clamped / 100}.`
+			`Warning: lineSpacing ${lineSpacingPts} is outside the valid range 0-1584pt; using ${clamped / HUNDREDTHS_PER_POINT}.`
 		)
 	return clamped
 }
@@ -179,7 +189,7 @@ function genXmlImageCrop(crop: { l?: number; t?: number; r?: number; b?: number 
 		throw new Error(`addImage crop: left+right insets (${edges.l}%+${edges.r}%) must be < 100%${where}.`)
 	if (edges.t + edges.b >= 100)
 		throw new Error(`addImage crop: top+bottom insets (${edges.t}%+${edges.b}%) must be < 100%${where}.`)
-	const v = (perc: number): number => Math.round(perc * 1000)
+	const v = (perc: number): number => Math.round(perc * FIXED_PCT_PER_PERCENT)
 	return `<a:srcRect l="${v(edges.l)}" t="${v(edges.t)}" r="${v(edges.r)}" b="${v(edges.b)}"/><a:stretch><a:fillRect/></a:stretch>`
 }
 
@@ -274,7 +284,7 @@ function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: number,
 		emittedAdjNames.add(name)
 	}
 	if (options.rectRadius) {
-		const adjVal = Math.round((options.rectRadius * EMU * 100000) / Math.min(cx, cy))
+		const adjVal = Math.round((options.rectRadius * EMU * PERCENT_SCALE) / Math.min(cx, cy))
 		if (RECT_RADIUS_ADJ1_SHAPES.has(shapeName)) {
 			emitGuide('adj1', adjVal)
 			emitGuide('adj2', 0)
@@ -288,7 +298,7 @@ function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: number,
 		}
 
 		if (options.arcThicknessRatio) {
-			emitGuide('adj3', Math.round(options.arcThicknessRatio * 50000))
+			emitGuide('adj3', Math.round(options.arcThicknessRatio * (PERCENT_SCALE / 2)))
 		}
 	}
 	// Generic adjustment handles (`shapeAdjust`) for any preset shape (Issue #1300).
@@ -316,7 +326,7 @@ function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: number,
 				return
 			}
 			// `value` is a 0.0-1.0 fraction of the handle range, emitted as a percentage guide (1/100000 units).
-			emitGuide(adj.name, Math.round(adj.value * 100000))
+			emitGuide(adj.name, Math.round(adj.value * PERCENT_SCALE))
 		})
 	}
 	return `<a:prstGeom prst="${shapeName}"><a:avLst>${avLst}</a:avLst></a:prstGeom>`
@@ -935,8 +945,8 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 					const shadowType = sh.type || 'outer'
 					const shadowBlur = valToPts(sh.blur ?? 8)
 					const shadowOffset = valToPts(sh.offset ?? 4)
-					const shadowAngle = Math.round((sh.angle ?? 270) * 60000)
-					const shadowOpacity = Math.round((sh.opacity ?? 0.75) * 100000)
+					const shadowAngle = Math.round((sh.angle ?? 270) * ANGLE_UNITS_PER_DEGREE)
+					const shadowOpacity = Math.round((sh.opacity ?? 0.75) * PERCENT_SCALE)
 					const shadowColor = sh.color || DEF_TEXT_SHADOW.color
 
 					strSlideXml += '<a:effectLst>'
@@ -1072,7 +1082,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 				if ((slide._relsMedia || []).find((rel) => rel.rId === slideItemObj.imageRid)?.extn === 'svg') {
 					strSlideXml += `<a:blip r:embed="rId${(slideItemObj.imageRid ?? 0) - 1}">`
 					strSlideXml += slideItemObj.options.transparency
-						? ` <a:alphaModFix amt="${Math.round((100 - slideItemObj.options.transparency) * 1000)}"/>`
+						? ` <a:alphaModFix amt="${Math.round((100 - slideItemObj.options.transparency) * FIXED_PCT_PER_PERCENT)}"/>`
 						: ''
 					strSlideXml += slideItemObj.options.duotone
 						? `<a:duotone>${createColorElement(slideItemObj.options.duotone.shadow)}${createColorElement(slideItemObj.options.duotone.highlight)}</a:duotone>`
@@ -1086,7 +1096,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 				} else {
 					strSlideXml += `<a:blip r:embed="rId${slideItemObj.imageRid}">`
 					strSlideXml += slideItemObj.options.transparency
-						? `<a:alphaModFix amt="${Math.round((100 - slideItemObj.options.transparency) * 1000)}"/>`
+						? `<a:alphaModFix amt="${Math.round((100 - slideItemObj.options.transparency) * FIXED_PCT_PER_PERCENT)}"/>`
 						: ''
 					strSlideXml += slideItemObj.options.duotone
 						? `<a:duotone>${createColorElement(slideItemObj.options.duotone.shadow)}${createColorElement(slideItemObj.options.duotone.highlight)}</a:duotone>`
@@ -1174,8 +1184,8 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 					const shadowType = sh.type || 'outer'
 					const shadowBlur = valToPts(sh.blur ?? 8)
 					const shadowOffset = valToPts(sh.offset ?? 4)
-					const shadowAngle = Math.round((sh.angle ?? 270) * 60000)
-					const shadowOpacity = Math.round((sh.opacity ?? 0.75) * 100000)
+					const shadowAngle = Math.round((sh.angle ?? 270) * ANGLE_UNITS_PER_DEGREE)
+					const shadowOpacity = Math.round((sh.opacity ?? 0.75) * PERCENT_SCALE)
 					const shadowColor = sh.color || DEF_TEXT_SHADOW.color
 
 					strSlideXml += '<a:effectLst>'
@@ -1537,7 +1547,7 @@ function genXmlParagraphProperties(textObj: ISlideObject | TextProps, isDefault:
 		if (opts.lineSpacing) {
 			strXmlLnSpc = `<a:lnSpc><a:spcPts val="${clampLineSpacingPts(opts.lineSpacing)}"/></a:lnSpc>`
 		} else if (opts.lineSpacingMultiple) {
-			strXmlLnSpc = `<a:lnSpc><a:spcPct val="${Math.round(opts.lineSpacingMultiple * 100000)}"/></a:lnSpc>`
+			strXmlLnSpc = `<a:lnSpc><a:spcPct val="${Math.round(opts.lineSpacingMultiple * PERCENT_SCALE)}"/></a:lnSpc>`
 		}
 
 		// OPTION: indent
@@ -1547,10 +1557,10 @@ function genXmlParagraphProperties(textObj: ISlideObject | TextProps, isDefault:
 
 		// OPTION: Paragraph Spacing: Before/After
 		if (opts.paraSpaceBefore && !isNaN(Number(opts.paraSpaceBefore)) && opts.paraSpaceBefore > 0) {
-			strXmlParaSpc += `<a:spcBef><a:spcPts val="${Math.round(opts.paraSpaceBefore * 100)}"/></a:spcBef>`
+			strXmlParaSpc += `<a:spcBef><a:spcPts val="${ptToHundredths(opts.paraSpaceBefore)}"/></a:spcBef>`
 		}
 		if (opts.paraSpaceAfter && !isNaN(Number(opts.paraSpaceAfter)) && opts.paraSpaceAfter > 0) {
-			strXmlParaSpc += `<a:spcAft><a:spcPts val="${Math.round(opts.paraSpaceAfter * 100)}"/></a:spcAft>`
+			strXmlParaSpc += `<a:spcAft><a:spcPts val="${ptToHundredths(opts.paraSpaceAfter)}"/></a:spcAft>`
 		}
 
 		// OPTION: bullet
@@ -1565,13 +1575,13 @@ function genXmlParagraphProperties(textObj: ISlideObject | TextProps, isDefault:
 				strXmlBulletColor = `<a:buClr>${createColorElement(opts.bullet.color)}</a:buClr>`
 
 			// `<a:buSzPct/>` val is thousandths of a percent; ST_TextBulletSizePercent allows 25%-400%
-			let bulletSizePct = 100000
+			let bulletSizePct = PERCENT_SCALE
 			if (opts.bullet.size !== undefined) {
 				const bulletSize = Number(opts.bullet.size)
 				if (isNaN(bulletSize) || bulletSize < 25 || bulletSize > 400) {
 					console.warn('Warning: `bullet.size` must be a percentage between 25 and 400!')
 				} else {
-					bulletSizePct = Math.round(bulletSize * 1000)
+					bulletSizePct = Math.round(bulletSize * FIXED_PCT_PER_PERCENT)
 				}
 			}
 			const strXmlBulletSize = `<a:buSzPct val="${bulletSizePct}"/>`
@@ -1835,7 +1845,7 @@ function genXmlNormAutofit(fit: TextFitShrinkProps): string {
 			)
 			return null
 		}
-		return Math.round(val * 1000)
+		return Math.round(val * FIXED_PCT_PER_PERCENT)
 	}
 
 	const fontScale = pct(fit.fontScale, 'fontScale')
@@ -3298,9 +3308,9 @@ function masterLevelXml(levelNum: number, base: MasterLevelDefault, ov: MasterTe
 	if (typeof ov.fontSize === 'number') {
 		if (isNaN(ov.fontSize) || ov.fontSize <= 0)
 			console.warn(
-				`Warning: master textStyles fontSize "${ov.fontSize}" is invalid; keeping default ${base.sz / 100}pt.`
+				`Warning: master textStyles fontSize "${ov.fontSize}" is invalid; keeping default ${base.sz / HUNDREDTHS_PER_POINT}pt.`
 			)
-		else sz = Math.round(ov.fontSize * 100)
+		else sz = ptToHundredths(ov.fontSize)
 	}
 	const boldAttr = ov.bold ? ' b="1"' : ''
 	const italicAttr = ov.italic ? ' i="1"' : ''

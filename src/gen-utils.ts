@@ -3,7 +3,14 @@
  */
 
 import { REGEX_HEX_COLOR, DEF_FONT_COLOR, EMU, ONEPT, SchemeColor, type SCHEME_COLORS } from './core-enums.js'
-import { coordToEmu, inchesToEmu, type Emu } from './units.js'
+import {
+	ANGLE_UNITS_PER_DEGREE,
+	coordToEmu,
+	FIXED_PCT_PER_PERCENT,
+	inchesToEmu,
+	PERCENT_SCALE,
+	type Emu,
+} from './units.js'
 import type {
 	PresLayout,
 	TextGlowProps,
@@ -213,14 +220,14 @@ export function transparencyToAlpha(transparency: number): number {
 	const pct = Math.min(100, Math.max(0, transparency))
 	if (pct !== transparency)
 		console.warn(`Warning: transparency ${transparency} is outside the valid range 0-100; using ${pct}.`)
-	return Math.round((100 - pct) * 1000)
+	return Math.round((100 - pct) * FIXED_PCT_PER_PERCENT)
 }
 
 /** Convert an opacity (0-1) into a schema-valid `<a:alpha>` value (0-100000); clamps + warns on out-of-range input. */
 export function opacityToAlpha(opacity: number): number {
 	const o = Math.min(1, Math.max(0, opacity))
 	if (o !== opacity) console.warn(`Warning: opacity ${opacity} is outside the valid range 0-1; using ${o}.`)
-	return Math.round(o * 100000)
+	return Math.round(o * PERCENT_SCALE)
 }
 
 /**
@@ -243,7 +250,7 @@ export function lineWidthToEmu(widthPts: number | string): number {
  */
 export function convertRotationDegrees(d: number): number {
 	d = d || 0
-	return Math.round((d > 360 ? d - 360 : d) * 60000)
+	return Math.round((d > 360 ? d - 360 : d) * ANGLE_UNITS_PER_DEGREE)
 }
 
 /**
@@ -298,7 +305,7 @@ export function createColorElement(colorStr: string | SCHEME_COLORS, innerElemen
 		// <a:alpha> children and produce schema-invalid OOXML (CT_SRgbColor allows one).
 		if (!innerElements?.includes('<a:alpha')) {
 			const alphaHex = colorVal.slice(6, 8)
-			const alphaVal = Math.round((parseInt(alphaHex, 16) / 255) * 100000)
+			const alphaVal = Math.round((parseInt(alphaHex, 16) / 255) * PERCENT_SCALE)
 			innerElements = `<a:alpha val="${alphaVal}"/>${innerElements || ''}`
 		}
 		colorVal = colorVal.slice(0, 6)
@@ -356,8 +363,8 @@ export function createShadowElement(options: ShadowProps | undefined, defaults: 
 	const type = opts.type || 'outer'
 	const blur = valToPts(opts.blur ?? 0)
 	const offset = valToPts(opts.offset ?? 0)
-	const angle = Math.round((opts.angle ?? 0) * 60000)
-	const opacity = Math.round((opts.opacity ?? 0.75) * 100000)
+	const angle = Math.round((opts.angle ?? 0) * ANGLE_UNITS_PER_DEGREE)
+	const opacity = Math.round((opts.opacity ?? 0.75) * PERCENT_SCALE)
 	const color = opts.color || DEF_FONT_COLOR
 
 	const extraAttrs = type === 'outer' ? 'sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="0" ' : ''
@@ -419,7 +426,7 @@ export function genXmlGradientFill(gradient: GradientFillProps | undefined): str
 	let strXml = `<a:gradFill rotWithShape="${boolToXml(rotWithShape)}">`
 	strXml += '<a:gsLst>'
 	stops.forEach((stop) => {
-		const position = Math.round(stop.position * 1000)
+		const position = Math.round(stop.position * FIXED_PCT_PER_PERCENT)
 		strXml += `<a:gs pos="${position}">${createColorElement(stop.color, gradientStopColorAdjustments(stop))}</a:gs>`
 	})
 	strXml += '</a:gsLst>'
@@ -429,10 +436,10 @@ export function genXmlGradientFill(gradient: GradientFillProps | undefined): str
 		// and the `center` percentage shifts it (l/t = center, r/b = 100 - center).
 		const cx = Math.max(0, Math.min(100, gradient.center?.x ?? 50))
 		const cy = Math.max(0, Math.min(100, gradient.center?.y ?? 50))
-		const l = Math.round(cx * 1000)
-		const t = Math.round(cy * 1000)
-		const r = Math.round((100 - cx) * 1000)
-		const b = Math.round((100 - cy) * 1000)
+		const l = Math.round(cx * FIXED_PCT_PER_PERCENT)
+		const t = Math.round(cy * FIXED_PCT_PER_PERCENT)
+		const r = Math.round((100 - cx) * FIXED_PCT_PER_PERCENT)
+		const b = Math.round((100 - cy) * FIXED_PCT_PER_PERCENT)
 		strXml += `<a:path path="circle"><a:fillToRect l="${l}" t="${t}" r="${r}" b="${b}"/></a:path>`
 	} else {
 		if (typeof gradient.scaled !== 'undefined' && typeof gradient.scaled !== 'boolean')
@@ -477,7 +484,7 @@ export function genXmlImageFill(props: ShapeFillProps | undefined): string {
 		return '<a:noFill/>'
 	}
 	const alpha = props.transparency ?? props.alpha
-	const blipInner = alpha ? `<a:alphaModFix amt="${Math.round((100 - alpha) * 1000)}"/>` : ''
+	const blipInner = alpha ? `<a:alphaModFix amt="${Math.round((100 - alpha) * FIXED_PCT_PER_PERCENT)}"/>` : ''
 	return `<a:blipFill dpi="0" rotWithShape="1"><a:blip r:embed="rId${props._imgRid}">${blipInner}</a:blip><a:srcRect/><a:stretch><a:fillRect/></a:stretch></a:blipFill>`
 }
 
