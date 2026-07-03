@@ -3,7 +3,7 @@
  */
 
 import {
-	BULLET_TYPES,
+	BulletType,
 	CRLF,
 	DEF_BULLET_MARGIN,
 	DEF_CELL_MARGIN_IN,
@@ -12,10 +12,10 @@ import {
 	DEF_TEXT_SHADOW,
 	EMU,
 	LAYOUT_IDX_SERIES_BASE,
-	PLACEHOLDER_TYPES,
+	PlaceholderType,
 	REGEX_HEX_COLOR,
 	SLDNUMFLDID,
-	SLIDE_OBJECT_TYPES,
+	SlideObjectType,
 	VALID_SHAPE_PRESETS,
 } from './core-enums.js'
 import type {
@@ -260,7 +260,7 @@ function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: number,
 	// the "needs repair" dialog and drop the shape. Fail loudly instead.
 	if (!VALID_SHAPE_PRESETS.has(shapeName)) {
 		throw new Error(
-			`Invalid shape "${String(shapeName)}"! Use a value from \`pptxgen.shapes.*\` (e.g. \`pptxgen.shapes.RECTANGLE\`). PowerPoint can't render unknown preset geometries and will drop the shape during repair.`
+			`Invalid shape "${String(shapeName)}"! Use a value from \`pptxgen.ShapeType.*\` (e.g. \`pptxgen.ShapeType.rect\`). PowerPoint can't render unknown preset geometries and will drop the shape during repair.`
 		)
 	}
 	// Collect adjustment guides; track names so the generic `shapeAdjust` passthrough
@@ -402,7 +402,7 @@ type TableInheritableOption =
 	| 'underline'
 	| 'valign'
 type TableInheritableValue = ObjectOptions[TableInheritableOption]
-const PLACEHOLDER_TYPE_MAP = PLACEHOLDER_TYPES as Record<string, string>
+const PLACEHOLDER_TYPE_MAP = PlaceholderType as Record<string, string>
 
 /**
  * Emit the `<a:lnL>/<a:lnR>/<a:lnT>/<a:lnB>` border children of an `<a:tcPr>` for a table cell.
@@ -492,7 +492,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 			typeof o.y !== 'undefined' ||
 			typeof o.w !== 'undefined' ||
 			typeof o.h !== 'undefined'
-		if (obj._type === SLIDE_OBJECT_TYPES.group && !hasExplicit) {
+		if (obj._type === SlideObjectType.group && !hasExplicit) {
 			const kids = (obj._groupObjects || []).map(resolveObjBounds)
 			if (kids.length === 0) return { x: 0, y: 0, cx: 0, cy: 0 }
 			const minX = Math.min(...kids.map((b) => b.x))
@@ -570,7 +570,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 
 		// B: Add OBJECT to the current Slide
 		switch (slideItemObj._type) {
-			case SLIDE_OBJECT_TYPES.table:
+			case SlideObjectType.table:
 				// Shallow-clone each row so splice() in the merge-grid builder does not mutate the stored
 				// arrTabRows, which would corrupt output on repeated write()/writeFile() calls (issue #911).
 				arrTabRows = (slideItemObj.arrTabRows ?? []).map((row) => [...row])
@@ -649,7 +649,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 						if (colspan && colspan > 1) {
 							const vMergeCells = new Array(colspan - 1).fill(undefined).map(() => {
 								return {
-									_type: SLIDE_OBJECT_TYPES.tablecell,
+									_type: SlideObjectType.tablecell,
 									options: { rowspan },
 									_hmerge: true,
 									_spanOrigin: cell,
@@ -675,7 +675,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 							// (combined colspan+rowspan), use its origin rather than the dummy (Issue #680).
 							const _spanOrigin = cell._spanOrigin || cell
 							const hMergeCell = {
-								_type: SLIDE_OBJECT_TYPES.tablecell,
+								_type: SlideObjectType.tablecell,
 								options: { colspan },
 								_rowContinue: rowspan - 1,
 								_vmerge: true,
@@ -835,8 +835,8 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 				intTableNum++
 				break
 
-			case SLIDE_OBJECT_TYPES.text:
-			case SLIDE_OBJECT_TYPES.placeholder:
+			case SlideObjectType.text:
+			case SlideObjectType.placeholder:
 				// Lines can have zero cy, but text should not
 				if (!slideItemObj.options.line && cy === 0) cy = EMU * 0.3
 
@@ -889,7 +889,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 				}
 				// Prefer the resolved slide-layout placeholder; otherwise fall back to the shape's own
 				// placeholder type (#1298) so a standalone title/body text box still emits a real <p:ph>.
-				strSlideXml += `<p:nvPr>${genXmlPlaceholder(slideItemObj._type === SLIDE_OBJECT_TYPES.placeholder || (placeholderObj == null && slideItemObj.options?._placeholderType) ? slideItemObj : placeholderObj)}</p:nvPr>`
+				strSlideXml += `<p:nvPr>${genXmlPlaceholder(slideItemObj._type === SlideObjectType.placeholder || (placeholderObj == null && slideItemObj.options?._placeholderType) ? slideItemObj : placeholderObj)}</p:nvPr>`
 				strSlideXml += '</p:nvSpPr><p:spPr>'
 				strSlideXml += `<a:xfrm${locationAttr}>`
 				strSlideXml += `<a:off x="${x}" y="${y}"/>`
@@ -940,7 +940,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 				if (objectHasMath(slideItemObj)) strSlideXml += '</mc:Choice></mc:AlternateContent>'
 				break
 
-			case SLIDE_OBJECT_TYPES.connector: {
+			case SlideObjectType.connector: {
 				// A connector is emitted as <p:cxnSp> (a connector shape) rather than <p:sp>, so
 				// PowerPoint treats it as a connector. Geometry/flip come from the shared resolution
 				// above; the preset (straightConnector1 / bentConnector3 / curvedConnector3) is on `shape`.
@@ -989,7 +989,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 				break
 			}
 
-			case SLIDE_OBJECT_TYPES.image:
+			case SlideObjectType.image:
 				// Backfill any omitted dimension of a path-based image from its natural pixel ratio.
 				// The bytes weren't available synchronously in `addImage()`, but `_relsMedia[].data` is
 				// populated by now, so measure it here and keep aspect ratio (issue #1217).
@@ -1143,7 +1143,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 				strSlideXml += '</p:pic>'
 				break
 
-			case SLIDE_OBJECT_TYPES.media:
+			case SlideObjectType.media:
 				if (slideItemObj.mtype === 'online') {
 					strSlideXml += '<p:pic>'
 					strSlideXml += ' <p:nvPicPr>'
@@ -1197,7 +1197,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 				}
 				break
 
-			case SLIDE_OBJECT_TYPES.chart:
+			case SlideObjectType.chart:
 				strSlideXml += '<p:graphicFrame>'
 				strSlideXml += ' <p:nvGraphicFramePr>'
 				strSlideXml += `   <p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"/>`
@@ -1213,7 +1213,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 				strSlideXml += '</p:graphicFrame>'
 				break
 
-			case SLIDE_OBJECT_TYPES.group: {
+			case SlideObjectType.group: {
 				const groupChildren = slideItemObj._groupObjects || []
 
 				// Render children (recursively for nested groups). Each child gets a unique id via
@@ -1554,7 +1554,7 @@ function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDefault: 
 				} else {
 					// rel was not registered (eg: bullet on a context without a slide target) - fall back to a glyph
 					warn('picture `bullet.image` could not be embedded; using a default bullet glyph')
-					strXmlBullet = `${strXmlBulletSize}${strXmlBulletFont}<a:buChar char="${BULLET_TYPES.DEFAULT}"/>`
+					strXmlBullet = `${strXmlBulletSize}${strXmlBulletFont}<a:buChar char="${BulletType.DEFAULT}"/>`
 				}
 			} else if (opts.bullet.type && opts.bullet.type.toString().toLowerCase() === 'number') {
 				paragraphPropXml += ` marL="${
@@ -1569,7 +1569,7 @@ function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDefault: 
 				// Check value for hex-ness (s/b 4 char hex)
 				if (!/^[0-9A-Fa-f]{4}$/.test(opts.bullet.characterCode)) {
 					warn('`bullet.characterCode should be a 4-digit unicode charatcer (ex: 22AB)`!')
-					bulletCode = BULLET_TYPES.DEFAULT
+					bulletCode = BulletType.DEFAULT
 				}
 
 				paragraphPropXml += ` marL="${
@@ -1580,13 +1580,13 @@ function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDefault: 
 				paragraphPropXml += ` marL="${
 					opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
 				}" indent="-${bulletMarL}"`
-				strXmlBullet = `${strXmlBulletSize}${strXmlBulletFont}<a:buChar char="${BULLET_TYPES.DEFAULT}"/>`
+				strXmlBullet = `${strXmlBulletSize}${strXmlBulletFont}<a:buChar char="${BulletType.DEFAULT}"/>`
 			}
 		} else if (opts.bullet) {
 			paragraphPropXml += ` marL="${
 				opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
 			}" indent="-${bulletMarL}"`
-			strXmlBullet = `<a:buSzPct val="100000"/><a:buChar char="${BULLET_TYPES.DEFAULT}"/>`
+			strXmlBullet = `<a:buSzPct val="100000"/><a:buChar char="${BulletType.DEFAULT}"/>`
 		} else if (!opts.bullet) {
 			// We only add this when the user explicitely asks for no bullet, otherwise, it can override the master defaults!
 			paragraphPropXml += ' indent="0" marL="0"' // FIX: ISSUE#589 - specify zero indent and marL or default will be hanging paragraph
@@ -1798,7 +1798,7 @@ function genXmlBodyProperties(slideObject: SlideObject | TableCell): string {
 	const bodyProp = options?._bodyProp
 	if (
 		slideObject &&
-		(slideObject._type === SLIDE_OBJECT_TYPES.text || slideObject._type === SLIDE_OBJECT_TYPES.placeholder) &&
+		(slideObject._type === SlideObjectType.text || slideObject._type === SlideObjectType.placeholder) &&
 		bodyProp
 	) {
 		// PPT-2019 EX: <a:bodyPr wrap="square" lIns="1270" tIns="1270" rIns="1270" bIns="1270" rtlCol="0" anchor="ctr"/>
@@ -1857,7 +1857,7 @@ function genXmlBodyProperties(slideObject: SlideObject | TableCell): string {
 	}
 
 	// LAST: Return Close _bodyProp
-	return slideObject._type === SLIDE_OBJECT_TYPES.tablecell ? '<a:bodyPr/>' : bodyProperties
+	return slideObject._type === SlideObjectType.tablecell ? '<a:bodyPr/>' : bodyProperties
 }
 
 /**
@@ -1929,7 +1929,7 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 	// `<p:txBody>`, which PowerPoint reports as a needs-repair error (#1441).
 
 	// STEP 1: Start textBody
-	let strSlideXml = slideObj._type === SLIDE_OBJECT_TYPES.tablecell ? '<a:txBody>' : '<p:txBody>'
+	let strSlideXml = slideObj._type === SlideObjectType.tablecell ? '<a:txBody>' : '<p:txBody>'
 
 	// STEP 2: Add bodyProperties
 	{
@@ -1940,7 +1940,7 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 		// NOTE: shape type 'LINE' has different text align needs (a lstStyle.lvl1pPr between bodyPr and p)
 		// KNOWN LIMITATION: horizontal align on a LINE does not work — text is always left-aligned inside the line.
 		if (opts.h === 0 && opts.line && opts.align) strSlideXml += '<a:lstStyle><a:lvl1pPr algn="l"/></a:lstStyle>'
-		else if (slideObj._type === SLIDE_OBJECT_TYPES.placeholder)
+		else if (slideObj._type === SlideObjectType.placeholder)
 			strSlideXml += `<a:lstStyle>${genXmlParagraphProperties(slideObj, true)}</a:lstStyle>`
 		else strSlideXml += '<a:lstStyle/>'
 	}
@@ -2145,7 +2145,7 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 		/* C: Append 'endParaRPr' (when needed) and close current open paragraph
 		 * NOTE: (ISSUE#20, ISSUE#193): Add 'endParaRPr' with font/size props or PPT default (Arial/18pt en-us) is used making row "too tall"/not honoring options
 		 */
-		if (slideObj._type === SLIDE_OBJECT_TYPES.tablecell && (opts.fontSize || opts.fontFace)) {
+		if (slideObj._type === SlideObjectType.tablecell && (opts.fontSize || opts.fontFace)) {
 			if (opts.fontFace) {
 				strSlideXml +=
 					`<a:endParaRPr lang="${opts.lang || 'en-US'}"` +
@@ -2190,7 +2190,7 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 	}
 
 	// STEP 7: Close the textBody
-	strSlideXml += slideObj._type === SLIDE_OBJECT_TYPES.tablecell ? '</a:txBody>' : '</p:txBody>'
+	strSlideXml += slideObj._type === SlideObjectType.tablecell ? '</a:txBody>' : '</p:txBody>'
 
 	// LAST: Return XML
 	return strSlideXml
@@ -2206,19 +2206,19 @@ export function genXmlPlaceholder(placeholderObj: SlideObject | null): string {
 
 	const placeholderIdx = placeholderObj.options?._placeholderIdx ? placeholderObj.options._placeholderIdx : ''
 	const placeholderTyp = placeholderObj.options?._placeholderType ? placeholderObj.options._placeholderType : ''
-	// Normalize to the OOXML ST_PlaceholderType value, accepting either a friendly PLACEHOLDER_TYPES
+	// Normalize to the OOXML ST_PlaceholderType value, accepting either a friendly PlaceholderType
 	// key ('image', 'table') or the mapped value ('pic', 'tbl') - the latter is what `PLACEHOLDER_TYPE`
 	// actually declares. Unknown strings emit no type rather than an invalid attribute.
 	const placeholderType = PLACEHOLDER_TYPE_MAP[placeholderTyp]
 		? PLACEHOLDER_TYPE_MAP[placeholderTyp].toString()
-		: (Object.values(PLACEHOLDER_TYPES) as string[]).includes(placeholderTyp)
+		: (Object.values(PlaceholderType) as string[]).includes(placeholderTyp)
 			? placeholderTyp
 			: ''
 
 	// `hasCustomPrompt` flags a placeholder *definition* (layout/master) that carries custom
 	// prompt text; it must not be set on a populated slide-level text shape promoted to a
 	// placeholder (#1298), or PowerPoint would treat the visible text as prompt text.
-	const isPlaceholderDef = placeholderObj._type === SLIDE_OBJECT_TYPES.placeholder
+	const isPlaceholderDef = placeholderObj._type === SlideObjectType.placeholder
 
 	// NOTE: `placeholderType` is already the mapped OOXML value (e.g. 'pic', 'tbl') validated on
 	// the line above; do NOT re-look it up in PLACEHOLDER_TYPE_MAP (its keys are the input names,
@@ -2549,7 +2549,7 @@ export function makeXmlPresentationRels(slides: PresSlideInternal[], embeddedFon
 function slideTimingToXml(slide: PresSlideInternal): string {
 	const loopMedia = slide._slideObjects.filter(
 		(obj) =>
-			obj._type === SLIDE_OBJECT_TYPES.media &&
+			obj._type === SlideObjectType.media &&
 			obj.mtype !== 'online' &&
 			typeof obj.mediaRid === 'number' &&
 			(obj.loop === true || (typeof obj.loopCount === 'number' && obj.loopCount > 0))
@@ -2941,7 +2941,7 @@ export function getNotesFromSlide(slide: PresSlideInternal): string {
 	let notesText = ''
 
 	slide._slideObjects.forEach((data) => {
-		if (data._type === SLIDE_OBJECT_TYPES.notes) notesText += data?.text && data.text[0] ? data.text[0].text : ''
+		if (data._type === SlideObjectType.notes) notesText += data?.text && data.text[0] ? data.text[0].text : ''
 	})
 
 	return notesText.replace(/\r*\n/g, CRLF)
@@ -2955,7 +2955,7 @@ export function getNotesFromSlide(slide: PresSlideInternal): string {
 function getNotesRuns(slide: PresSlideInternal): TextProps[] {
 	const runs: TextProps[] = []
 	slide._slideObjects.forEach((obj) => {
-		if (obj._type === SLIDE_OBJECT_TYPES.notes && obj.text) runs.push(...obj.text)
+		if (obj._type === SlideObjectType.notes && obj.text) runs.push(...obj.text)
 	})
 	return runs
 }
@@ -2994,7 +2994,7 @@ export function buildNotesSlideRels(slide: PresSlideInternal): SlideRel[] {
 		lastRid++
 		hyperlink._rId = lastRid
 		rels.push({
-			type: SLIDE_OBJECT_TYPES.hyperlink,
+			type: SlideObjectType.hyperlink,
 			data: 'dummy',
 			rId: lastRid,
 			Target: encodeXmlEntities(hyperlink.url),

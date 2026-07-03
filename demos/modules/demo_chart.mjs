@@ -102,7 +102,7 @@ function genSlide01(pptx) {
 	};
 
 	// TEST `getExcelColName()` to ensure Excel Column names are generated correctly above >26 chars/cols
-	slide.addChart(pptx.charts.BAR, dataChartBar8Series, optsChart);
+	slide.addChart(pptx.ChartType.bar, dataChartBar8Series, optsChart);
 }
 
 // SLIDE 2: Bar Chart: Various Designs
@@ -136,7 +136,7 @@ function genSlide02(pptx) {
 		w: 6.0,
 		h: 3.0,
 		chartArea: { border: { color: COLORS_SPECTRUM[0], pt: 1 } },
-		//chartArea: { fill: { color: pptx.colors.BACKGROUND2 }, border: { color: pptx.colors.BACKGROUND2, pt: 1 }  },
+		//chartArea: { fill: { color: pptx.SchemeColor.background2 }, border: { color: pptx.SchemeColor.background2, pt: 1 }  },
 		plotArea: { fill: { color: "DAE3F3" } },
 		chartColors: COLORS_SPECTRUM,
 
@@ -156,7 +156,7 @@ function genSlide02(pptx) {
 		//valAxisLabelColor: COLORS_ACCENT[0],
 		//valAxisCrossesAt: 100,
 	};
-	slide.addChart(pptx.charts.BAR, arrDataSersCats, optsChartBar1);
+	slide.addChart(pptx.ChartType.bar, arrDataSersCats, optsChartBar1);
 
 	// TOP-RIGHT: V/col
 	let optsChartBar2 = {
@@ -165,9 +165,9 @@ function genSlide02(pptx) {
 		w: 6.0,
 		h: 3.0,
 		chartArea: { border: { color: COLORS_SPECTRUM[0], pt: 1 } },
-		//chartArea: { fill: { color: pptx.colors.BACKGROUND2 } },
+		//chartArea: { fill: { color: pptx.SchemeColor.background2 } },
 		plotArea: { fill: { color: "DAE3F3" } },
-		//plotArea: { fill: { color: pptx.colors.BACKGROUND1 }, border: { color: pptx.colors.BACKGROUND2, pt: 1 } },
+		//plotArea: { fill: { color: pptx.SchemeColor.background1 }, border: { color: pptx.SchemeColor.background2, pt: 1 } },
 		chartColors: COLORS_SPECTRUM,
 
 		objectName: "bar chart (top R)",
@@ -197,7 +197,7 @@ function genSlide02(pptx) {
 		showLegend: false,
 		showTitle: false,
 	};
-	slide.addChart(pptx.charts.BAR, arrDataRegions, optsChartBar2);
+	slide.addChart(pptx.ChartType.bar, arrDataRegions, optsChartBar2);
 
 	// BTM-LEFT: H/bar - TITLE and LEGEND
 	let optsChartBar3 = {
@@ -207,8 +207,8 @@ function genSlide02(pptx) {
 		h: 3.5,
 		barDir: "bar",
 
-		chartArea: { fill: { color: pptx.colors.BACKGROUND2 }, border: { color: pptx.colors.ACCENT3, pt: 2 } },
-		//chartArea: { fill: { color: pptx.colors.BACKGROUND2 } },
+		chartArea: { fill: { color: pptx.SchemeColor.background2 }, border: { color: pptx.SchemeColor.accent3, pt: 2 } },
+		//chartArea: { fill: { color: pptx.SchemeColor.background2 } },
 		//chartArea: { fill: { color: "F1F1F1", transparency: 75 } },
 		//chartArea: { fill: { color: "F1F1F1" } },
 		plotArea: { fill: { color: "F2F9FC" } },
@@ -227,7 +227,7 @@ function genSlide02(pptx) {
 		showTitle: true,
 		title: "Sales by Region",
 	};
-	slide.addChart(pptx.charts.BAR, dataChartBar3Series, optsChartBar3);
+	slide.addChart(pptx.ChartType.bar, dataChartBar3Series, optsChartBar3);
 
 	// BTM-RIGHT: V/col - TITLE and LEGEND
 	let optsChartBar4 = {
@@ -252,8 +252,8 @@ function genSlide02(pptx) {
 		valAxisLabelColor: COLORS_ACCENT[0],
 		//
 		//dataBorder: { pt: 1, color: "F1F1F1" },
-		//dataBorder: { pt: 1, color: pptx.colors.BACKGROUND2 },
-		dataBorder: { pt: 1, color: pptx.colors.ACCENT1 },
+		//dataBorder: { pt: 1, color: pptx.SchemeColor.background2 },
+		dataBorder: { pt: 1, color: pptx.SchemeColor.accent1 },
 		dataLabelColor: "FFFFFF",
 		dataLabelFontFace: "Arial",
 		dataLabelFontSize: 10,
@@ -268,7 +268,7 @@ function genSlide02(pptx) {
 		title: "Device Prices",
 		titleColor: COLORS_ACCENT[0],
 	};
-	slide.addChart(pptx.charts.BAR, dataChartBar3Series, optsChartBar4);
+	slide.addChart(pptx.ChartType.bar, dataChartBar3Series, optsChartBar4);
 }
 
 // SLIDE 3: Bar Chart Options: Axis, DataLabel, Grid
@@ -330,7 +330,7 @@ function genSlide03(pptx) {
 		titleFontFace: "Helvetica Neue",
 		titleFontSize: 11,
 	};
-	slide.addChart(pptx.charts.BAR, arrDataRegions, optsChartBar1);
+	slide.addChart(pptx.ChartType.bar, arrDataRegions, optsChartBar1);
 
 	// TOP-RIGHT: V/col
 	let optsChartBar2 = {
@@ -359,7 +359,7 @@ function genSlide03(pptx) {
 		legendPos: "b",
 		showTitle: false,
 	};
-	slide.addChart(pptx.charts.BAR, arrDataRegions, optsChartBar2);
+	slide.addChart(pptx.ChartType.bar, arrDataRegions, optsChartBar2);
 
 	// BTM-LEFT: H/bar - TITLE and LEGEND
 	let optsChartBar3 = {
@@ -396,7 +396,7 @@ function genSlide03(pptx) {
 		showTitle: true,
 		title: "Sales by Region",
 	};
-	slide.addChart(pptx.charts.BAR, arrDataHighVals, optsChartBar3);
+	slide.addChart(pptx.ChartType.bar, arrDataHighVals, optsChartBar3);
 
 	// BTM-RIGHT: V/col - TITLE and LEGEND
 	let optsChartBar4 = {
@@ -434,7 +434,7 @@ function genSlide03(pptx) {
 		showLegend: false,
 		showTitle: false,
 	};
-	slide.addChart(pptx.charts.BAR, arrDataHighVals, optsChartBar4);
+	slide.addChart(pptx.ChartType.bar, arrDataHighVals, optsChartBar4);
 }
 
 // SLIDE 4: Bar Chart: Stacked
@@ -483,7 +483,7 @@ function genSlide04(pptx) {
 		dataLabelColor: "FFFFFF",
 		showValue: true,
 	};
-	slide.addChart(pptx.charts.BAR, arrDataRegions, optsChartBar1);
+	slide.addChart(pptx.ChartType.bar, arrDataRegions, optsChartBar1);
 
 	// TOP-RIGHT: V/col
 	let optsChartBar2 = {
@@ -514,7 +514,7 @@ function genSlide04(pptx) {
 		showLegend: false,
 		showTitle: false,
 	};
-	slide.addChart(pptx.charts.BAR, dataChartBar3Series, optsChartBar2);
+	slide.addChart(pptx.ChartType.bar, dataChartBar3Series, optsChartBar2);
 
 	// BTM-LEFT: H/bar - 100% layout without axis labels
 	let optsChartBar3 = {
@@ -539,7 +539,7 @@ function genSlide04(pptx) {
 		showDataTableOutline: false,
 		dataTableFontSize: 10,
 	};
-	slide.addChart(pptx.charts.BAR, arrDataRegions, optsChartBar3);
+	slide.addChart(pptx.ChartType.bar, arrDataRegions, optsChartBar3);
 
 	// BTM-RIGHT: V/col - TITLE and LEGEND
 	let optsChartBar4 = {
@@ -564,7 +564,7 @@ function genSlide04(pptx) {
 		//dataTableFormatCode: '0.00%' // @since v3.3.0
 		//dataTableFormatCode: '$0.00' // @since v3.3.0
 	};
-	slide.addChart(pptx.charts.BAR, dataChartBar3Series, optsChartBar4);
+	slide.addChart(pptx.ChartType.bar, dataChartBar3Series, optsChartBar4);
 }
 
 // SLIDE 5: Bar Chart: Data Series Colors, majorUnits, and valAxisLabelFormatCode
@@ -586,7 +586,7 @@ function genSlide05(pptx) {
 
 	// TOP-LEFT
 	slide.addChart(
-		pptx.charts.BAR,
+		pptx.ChartType.bar,
 		[
 			{
 				name: "Excel Date Values",
@@ -624,7 +624,7 @@ function genSlide05(pptx) {
 	// TOP-RIGHT
 	// NOTE: Labels are ppt/excel dates (days past 1900)
 	slide.addChart(
-		pptx.charts.BAR,
+		pptx.ChartType.bar,
 		[
 			{
 				name: "Too Many Colors Series",
@@ -660,7 +660,7 @@ function genSlide05(pptx) {
 
 	// BOTTOM-LEFT
 	slide.addChart(
-		pptx.charts.BAR,
+		pptx.ChartType.bar,
 		[
 			{
 				name: "Two Color Series",
@@ -697,7 +697,7 @@ function genSlide05(pptx) {
 
 	// BOTTOM-RIGHT
 	slide.addChart(
-		pptx.charts.BAR,
+		pptx.ChartType.bar,
 		[
 			{
 				name: "EV",
@@ -780,14 +780,14 @@ function genSlide06(pptx) {
 		serAxisLabelFontSize: 10,
 		serAxisLabelColor: COLORS_SPECTRUM[1],
 		serAxisLineColor: COLORS_SPECTRUM[1],
-		//serAxisLineColor: pptx.colors.ACCENT6,
+		//serAxisLineColor: pptx.SchemeColor.accent6,
 		//
 		//valAxisHidden: true,
 		valAxisLabelColor: COLORS_SPECTRUM[0],
 		valAxisLineColor: COLORS_SPECTRUM[0],
 		valAxisLabelFontSize: 10,
 	};
-	slide.addChart(pptx.charts.BAR3D, arrDataRegions, optsChartBar1);
+	slide.addChart(pptx.ChartType.bar3d, arrDataRegions, optsChartBar1);
 
 	// TOP-RIGHT: V/col
 	let optsChartBar2 = {
@@ -816,7 +816,7 @@ function genSlide06(pptx) {
 		dataLabelBkgrdColors: true,
 		showValue: true,
 	};
-	slide.addChart(pptx.charts.BAR3D, arrDataRegions, optsChartBar2);
+	slide.addChart(pptx.ChartType.bar3d, arrDataRegions, optsChartBar2);
 
 	// BTM-LEFT: H/bar - TITLE and LEGEND
 	let optsChartBar3 = {
@@ -844,7 +844,7 @@ function genSlide06(pptx) {
 		titleFontSize: 18,
 		titleColor: COLORS_ACCENT[0],
 	};
-	slide.addChart(pptx.charts.BAR3D, arrDataRegions, optsChartBar3);
+	slide.addChart(pptx.ChartType.bar3d, arrDataRegions, optsChartBar3);
 
 	// BTM-RIGHT: V/col - TITLE and LEGEND
 	let optsChartBar4 = {
@@ -872,7 +872,7 @@ function genSlide06(pptx) {
 		dataLabelFontSize: 10,
 		dataLabelPosition: "ctr",
 	};
-	slide.addChart(pptx.charts.BAR3D, arrDataRegions, optsChartBar4);
+	slide.addChart(pptx.ChartType.bar3d, arrDataRegions, optsChartBar4);
 }
 
 // SLIDE 7: Tornado Chart
@@ -882,7 +882,7 @@ function genSlide07(pptx) {
 	slide.addTable([[{ text: "Tornado Chart - Grid and Axis Formatting", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
 
 	slide.addChart(
-		pptx.charts.BAR,
+		pptx.ChartType.bar,
 		[
 			{
 				name: "High",
@@ -957,7 +957,7 @@ function genSlide08(pptx) {
 		titleFontFace: "Arial",
 		titleFontSize: 18,
 	};
-	slide.addChart(pptx.charts.LINE, CHART_DATA.Fedi_MAU.chartData, OPTS_CHART);
+	slide.addChart(pptx.ChartType.line, CHART_DATA.Fedi_MAU.chartData, OPTS_CHART);
 }
 
 // SLIDE 9: Line Chart: Line Smoothing, Line Size, Symbol Size
@@ -982,7 +982,7 @@ function genSlide09(pptx) {
 		legendPos: "t",
 		catAxisLabelPos: "high",
 	};
-	slide.addChart(pptx.charts.LINE, arrDataLineStat, optsChartLine1);
+	slide.addChart(pptx.ChartType.line, arrDataLineStat, optsChartLine1);
 
 	let optsChartLine2 = {
 		x: 7.0,
@@ -996,7 +996,7 @@ function genSlide09(pptx) {
 		showLegend: true,
 		legendPos: "r",
 	};
-	slide.addChart(pptx.charts.LINE, arrDataLineStat, optsChartLine2);
+	slide.addChart(pptx.ChartType.line, arrDataLineStat, optsChartLine2);
 
 	let optsChartLine3 = {
 		x: 0.5,
@@ -1011,7 +1011,7 @@ function genSlide09(pptx) {
 		showLegend: true,
 		legendPos: "l",
 	};
-	slide.addChart(pptx.charts.LINE, arrDataLineStat, optsChartLine3);
+	slide.addChart(pptx.ChartType.line, arrDataLineStat, optsChartLine3);
 
 	// QA: DEMO: Test shadow option
 	let shadowOpts = { type: "outer", color: "cd0011", blur: 3, offset: 12, angle: 75, opacity: 0.8 };
@@ -1027,7 +1027,7 @@ function genSlide09(pptx) {
 		showLegend: true,
 		legendPos: "b",
 	};
-	slide.addChart(pptx.charts.LINE, arrDataLineStat, optsChartLine4);
+	slide.addChart(pptx.ChartType.line, arrDataLineStat, optsChartLine4);
 }
 
 // SLIDE 10: Line Chart: `lineDataSymbol` and `lineDataSymbolSize`
@@ -1039,7 +1039,7 @@ function genSlide10(pptx) {
 	slide.addTable([[{ text: "Chart Examples: Line Chart: lineDataSymbol options", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
 
 	opts_lineDataSymbol.forEach((opt, idx) => {
-		slide.addChart(pptx.charts.LINE, arrDataLineStat, {
+		slide.addChart(pptx.ChartType.line, arrDataLineStat, {
 			x: (idx < 3 ? idx * intWgap : idx < 6 ? (idx - 3) * intWgap : (idx - 6) * intWgap) + 0.3,
 			y: idx < 3 ? 0.5 : idx < 6 ? 2.85 : 5.1,
 			w: 4.25,
@@ -1104,7 +1104,7 @@ function genSlide11(pptx) {
 		chartColorsOpacity: 25,
 		//showValue: true,
 	};
-	slide.addChart(pptx.charts.AREA, CHART_DATA.CeoPayRatio_Comp.chartData, optsChartLine1);
+	slide.addChart(pptx.ChartType.area, CHART_DATA.CeoPayRatio_Comp.chartData, optsChartLine1);
 
 	// TOP-RIGHT (stacked area chart)
 	let optsChartLine2 = {
@@ -1121,7 +1121,7 @@ function genSlide11(pptx) {
 		showValue: false,
 		barGrouping: "stacked",
 	};
-	slide.addChart(pptx.charts.AREA, arrDataTimeline2ser, optsChartLine2);
+	slide.addChart(pptx.ChartType.area, arrDataTimeline2ser, optsChartLine2);
 
 	// BOTTOM-LEFT
 	let optsChartLine3 = {
@@ -1133,11 +1133,11 @@ function genSlide11(pptx) {
 		chartColorsOpacity: 50,
 		valAxisLabelFormatCode: "#,K",
 	};
-	slide.addChart(pptx.charts.AREA, arrDataTimeline2ser, optsChartLine3);
+	slide.addChart(pptx.ChartType.area, arrDataTimeline2ser, optsChartLine3);
 
 	// BOTTOM-RIGHT
 	let optsChartLine4 = { x: 7, y: 4.0, w: "45%", h: 3, chartColors: ["CC8833", "CCFF69"], chartColorsOpacity: 75 };
-	slide.addChart(pptx.charts.AREA, arrDataTimeline2ser, optsChartLine4);
+	slide.addChart(pptx.ChartType.area, arrDataTimeline2ser, optsChartLine4);
 }
 
 // SLIDE 12: Pie Chart
@@ -1147,7 +1147,7 @@ function genSlide12(pptx) {
 	slide.addTable([[{ text: "Chart Examples: Pie Charts: Legends", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
 
 	// TOP-LEFT
-	slide.addChart(pptx.charts.PIE, dataChartPieStat, {
+	slide.addChart(pptx.ChartType.pie, dataChartPieStat, {
 		x: 0.5,
 		y: 0.6,
 		w: 4.0,
@@ -1169,7 +1169,7 @@ function genSlide12(pptx) {
 	});
 
 	// TOP-MIDDLE
-	slide.addChart(pptx.charts.PIE, dataChartPieStat, {
+	slide.addChart(pptx.ChartType.pie, dataChartPieStat, {
 		x: 4.67,
 		y: 0.6,
 		w: 4.0,
@@ -1184,7 +1184,7 @@ function genSlide12(pptx) {
 	});
 
 	// TOP-RIGHT (DEMO: `legendFontSize`, `titleAlign`, `titlePos`)
-	slide.addChart(pptx.charts.PIE, dataChartPieLocs, {
+	slide.addChart(pptx.ChartType.pie, dataChartPieLocs, {
 		x: 8.83,
 		y: 0.6,
 		w: 4.0,
@@ -1204,7 +1204,7 @@ function genSlide12(pptx) {
 	});
 
 	// BTM-LEFT
-	slide.addChart(pptx.charts.PIE, dataChartPieLocs, {
+	slide.addChart(pptx.ChartType.pie, dataChartPieLocs, {
 		x: 0.5,
 		y: 4.0,
 		w: 4.0,
@@ -1222,7 +1222,7 @@ function genSlide12(pptx) {
 	});
 
 	// BTM-MIDDLE
-	slide.addChart(pptx.charts.PIE, dataChartPieLocs, {
+	slide.addChart(pptx.ChartType.pie, dataChartPieLocs, {
 		x: 4.67,
 		y: 4.0,
 		w: 4.0,
@@ -1237,7 +1237,7 @@ function genSlide12(pptx) {
 	});
 
 	// BOTH: BTM-RIGHT
-	slide.addChart(pptx.charts.PIE, dataChartPieLocs, {
+	slide.addChart(pptx.ChartType.pie, dataChartPieLocs, {
 		x: 8.83,
 		y: 4.0,
 		w: 4.0,
@@ -1283,7 +1283,7 @@ function genSlide13(pptx) {
 		titleFontFace: "Helvetica Neue",
 		titleFontSize: 24,
 	};
-	slide.addChart(pptx.charts.DOUGHNUT, dataChartPieStat, optsChartPie1);
+	slide.addChart(pptx.ChartType.doughnut, dataChartPieStat, optsChartPie1);
 
 	let optsChartPie2 = {
 		x: 6.83,
@@ -1311,7 +1311,7 @@ function genSlide13(pptx) {
 			blur: 20,
 		},
 	};
-	slide.addChart(pptx.charts.DOUGHNUT, dataChartPieLocs, optsChartPie2);
+	slide.addChart(pptx.ChartType.doughnut, dataChartPieLocs, optsChartPie2);
 }
 
 // SLIDE 14: XY Scatter Chart
@@ -1355,7 +1355,7 @@ function genSlide14(pptx) {
 		showLabel: true, // Must be set to true or labels will not be shown
 		dataLabelPosition: "b", // Options: 't'|'b'|'l'|'r'|'ctr'
 	};
-	slide.addChart(pptx.charts.SCATTER, arrDataScatter1, optsChartScat1);
+	slide.addChart(pptx.ChartType.scatter, arrDataScatter1, optsChartScat1);
 
 	// TOP-RIGHT
 	let optsChartScat2 = {
@@ -1376,7 +1376,7 @@ function genSlide14(pptx) {
 		chartColors: COLORS_RYGU,
 		chartColorsOpacity: 25,
 	};
-	slide.addChart(pptx.charts.SCATTER, arrDataScatter2, optsChartScat2);
+	slide.addChart(pptx.ChartType.scatter, arrDataScatter2, optsChartScat2);
 
 	// BOTTOM-LEFT: (Labels)
 	let optsChartScat3 = {
@@ -1404,11 +1404,11 @@ function genSlide14(pptx) {
 		dataLabelPosition: "r", // Options: 't'|'b'|'l'|'r'|'ctr'
 		dataLabelFormatScatter: "custom", // Can be set to `custom` (default), `customXY`, or `XY`.
 	};
-	slide.addChart(pptx.charts.SCATTER, arrDataScatterLabels, optsChartScat3);
+	slide.addChart(pptx.ChartType.scatter, arrDataScatterLabels, optsChartScat3);
 
 	// BOTTOM-RIGHT
 	let optsChartScat4 = { x: 7.0, y: 4.0, w: "45%", h: 3 };
-	slide.addChart(pptx.charts.SCATTER, arrDataScatter2, optsChartScat4);
+	slide.addChart(pptx.ChartType.scatter, arrDataScatter2, optsChartScat4);
 }
 
 // SLIDE 15: Bubble Chart
@@ -1448,7 +1448,7 @@ function genSlide15(pptx) {
 		showSerName: true,
 		showLeaderLines: true,
 	};
-	slide.addChart(pptx.charts.BUBBLE, arrDataBubble1, optsChartBubble1);
+	slide.addChart(pptx.ChartType.bubble, arrDataBubble1, optsChartBubble1);
 
 	// TOP-RIGHT
 	let optsChartBubble2 = {
@@ -1468,7 +1468,7 @@ function genSlide15(pptx) {
 		lineDataSymbolSize: 12,
 		lineDataSymbolLineColor: "FFFFFF",
 	};
-	slide.addChart(pptx.charts.BUBBLE, arrDataBubble2, optsChartBubble2);
+	slide.addChart(pptx.ChartType.bubble, arrDataBubble2, optsChartBubble2);
 
 	// BOTTOM-LEFT
 	let optsChartBubble3 = {
@@ -1496,11 +1496,11 @@ function genSlide15(pptx) {
 		dataLabelColor: "e1e1e1",
 		showValue: true,
 	};
-	slide.addChart(pptx.charts.BUBBLE, arrDataBubble1, optsChartBubble3);
+	slide.addChart(pptx.ChartType.bubble, arrDataBubble1, optsChartBubble3);
 
 	// BOTTOM-RIGHT
 	let optsChartBubble4 = { x: 7.0, y: 4.0, w: "45%", h: 3, lineSize: 0, chartColors: COLORS_RYGU };
-	slide.addChart(pptx.charts.BUBBLE3D, arrDataBubble2, optsChartBubble4);
+	slide.addChart(pptx.ChartType.bubble3d, arrDataBubble2, optsChartBubble4);
 }
 
 // SLIDE 16: Radar Chart
@@ -1554,7 +1554,7 @@ function genSlide16(pptx) {
 			//
 			lineDataSymbol: "none",
 		};
-		slide.addChart(pptx.charts.RADAR, arrDataRegions, optsChartRadar1);
+		slide.addChart(pptx.ChartType.radar, arrDataRegions, optsChartRadar1);
 
 		// TOP-C: `{ radar:'marker' }` Cat Axis options
 		let optsChartRadar2 = {
@@ -1572,7 +1572,7 @@ function genSlide16(pptx) {
 			titleFontSize: 12,
 			title: "radarStyle: 'markers'",
 		};
-		slide.addChart(pptx.charts.RADAR, arrDataRegions, optsChartRadar2);
+		slide.addChart(pptx.ChartType.radar, arrDataRegions, optsChartRadar2);
 
 		// TOP-R: `{ radar:'marker' }` Cat Axis options
 		let optsChartRadar3 = {
@@ -1590,7 +1590,7 @@ function genSlide16(pptx) {
 			titleFontSize: 12,
 			title: "radarStyle: 'filled'",
 		};
-		slide.addChart(pptx.charts.RADAR, arrDataRegions, optsChartRadar3);
+		slide.addChart(pptx.ChartType.radar, arrDataRegions, optsChartRadar3);
 	}
 
 	// BTM-ROW
@@ -1626,7 +1626,7 @@ function genSlide16(pptx) {
 			titleFontFace: "Helvetica Neue",
 			titleFontSize: 12,
 		};
-		slide.addChart(pptx.charts.RADAR, arrDataStudents, optsChartRadar10);
+		slide.addChart(pptx.ChartType.radar, arrDataStudents, optsChartRadar10);
 
 		// BTM-R: Filled/Axis Options
 		let optsChartRadar11 = {
@@ -1660,7 +1660,7 @@ function genSlide16(pptx) {
 			showTitle: true,
 			title: "Filled/Axis Options",
 		};
-		slide.addChart(pptx.charts.RADAR, arrDataStudents, optsChartRadar11);
+		slide.addChart(pptx.ChartType.radar, arrDataStudents, optsChartRadar11);
 	}
 }
 
@@ -1735,10 +1735,10 @@ function genSlide17(pptx) {
 		catAxisMultiLevelLabels: true,
 	};
 
-	slide.addChart(pptx.charts.AREA, arrDataRegions, opts1);
-	slide.addChart(pptx.charts.BAR, arrDataRegions, opts2);
-	slide.addChart(pptx.charts.BAR3D, arrDataRegions, opts3);
-	slide.addChart(pptx.charts.LINE, arrDataRegions, opts4);
+	slide.addChart(pptx.ChartType.area, arrDataRegions, opts1);
+	slide.addChart(pptx.ChartType.bar, arrDataRegions, opts2);
+	slide.addChart(pptx.ChartType.bar3d, arrDataRegions, opts3);
+	slide.addChart(pptx.ChartType.line, arrDataRegions, opts4);
 }
 
 // SLIDE 18: Multi-Level Category Axes (3 Levels)
@@ -1769,7 +1769,7 @@ function genSlide18(pptx) {
 		chartColors: ["C0504D", "C0504D", "C0504D", "C0504D", "FFC000", "FFC000", "FFC000", "FFC000"],
 	};
 
-	slide.addChart(pptx.charts.BAR, arrDataRegions, opts1);
+	slide.addChart(pptx.ChartType.bar, arrDataRegions, opts1);
 }
 
 // SLIDE 19: Combo Chart
@@ -1823,12 +1823,12 @@ function genSlide19(pptx) {
 	};
 	const comboTypes = [
 		{
-			type: pptx.charts.BAR,
+			type: pptx.ChartType.bar,
 			data: CHART_DATA.EvSales_Vol.chartData,
 			options: { chartColors: COLORS_SPECTRUM, barGrouping: "stacked" },
 		},
 		{
-			type: pptx.charts.LINE,
+			type: pptx.ChartType.line,
 			data: CHART_DATA.EvSales_Pct.chartData,
 			options: { chartColors: ["F38940"], secondaryValAxis: true, secondaryCatAxis: true },
 		},
@@ -1885,7 +1885,7 @@ function genSlide20(pptx) {
 		let labels = ["April", "May", "June", "July", "August"];
 		let chartTypes = [
 			{
-				type: pptx.charts.AREA,
+				type: pptx.ChartType.area,
 				data: [
 					{
 						name: "Current",
@@ -1901,7 +1901,7 @@ function genSlide20(pptx) {
 				},
 			},
 			{
-				type: pptx.charts.BAR,
+				type: pptx.ChartType.bar,
 				data: [
 					{
 						name: "Bottom",
@@ -1915,7 +1915,7 @@ function genSlide20(pptx) {
 				},
 			},
 			{
-				type: pptx.charts.LINE,
+				type: pptx.ChartType.line,
 				data: [
 					{
 						name: "Current",
@@ -1956,7 +1956,7 @@ function genSlide20(pptx) {
 		let labels = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 		let chartTypes = [
 			{
-				type: pptx.charts.BAR,
+				type: pptx.ChartType.bar,
 				data: [
 					{
 						name: "Bottom",
@@ -1979,7 +1979,7 @@ function genSlide20(pptx) {
 				},
 			},
 			{
-				type: pptx.charts.LINE,
+				type: pptx.ChartType.line,
 				data: [
 					{
 						name: "Current",
@@ -2051,7 +2051,7 @@ function genSlide20(pptx) {
 		let labels = ["Q1", "Q2", "Q3", "Q4", "OT"];
 		let chartTypes = [
 			{
-				type: pptx.charts.BAR,
+				type: pptx.ChartType.bar,
 				data: [
 					{
 						name: "Bottom",
@@ -2074,7 +2074,7 @@ function genSlide20(pptx) {
 				},
 			},
 			{
-				type: pptx.charts.LINE,
+				type: pptx.ChartType.line,
 				data: [
 					{
 						name: "Current",
@@ -2141,7 +2141,7 @@ function genSlide20(pptx) {
 		let labels = ["Q1", "Q2", "Q3", "Q4", "OT"];
 		let chartTypes = [
 			{
-				type: pptx.charts.BAR,
+				type: pptx.ChartType.bar,
 				data: [
 					{
 						name: "Bottom",
@@ -2164,7 +2164,7 @@ function genSlide20(pptx) {
 				},
 			},
 			{
-				type: pptx.charts.BAR,
+				type: pptx.ChartType.bar,
 				data: [
 					{
 						name: "Current",
@@ -2325,10 +2325,10 @@ function genSlide21(pptx) {
 		},
 	};
 
-	slide.addChart(pptx.charts.BAR, single, optsChartBar1);
-	slide.addChart(pptx.charts.PIE, dataChartPieStat, pieOptions);
-	slide.addChart(pptx.charts.BAR, arrDataRegions, optsChartBar3);
-	slide.addChart(pptx.charts.BAR, arrDataHighVals, optsChartBar4);
+	slide.addChart(pptx.ChartType.bar, single, optsChartBar1);
+	slide.addChart(pptx.ChartType.pie, dataChartPieStat, pieOptions);
+	slide.addChart(pptx.ChartType.bar, arrDataRegions, optsChartBar3);
+	slide.addChart(pptx.ChartType.bar, arrDataHighVals, optsChartBar4);
 }
 
 // --------------------------------------------------------------------------------
@@ -2373,7 +2373,7 @@ function devSlide01(pptx) {
 	};
 
 	// TEST `getExcelColName()` to ensure Excel Column names are generated correctly above >26 chars/cols
-	slide.addChart(pptx.charts.BAR, arrDataHighVals, optsChart);
+	slide.addChart(pptx.ChartType.bar, arrDataHighVals, optsChart);
 }
 
 // DEV/TEST 02: Line Chart: Lots of Series
@@ -2410,7 +2410,7 @@ function devSlide02(pptx) {
 		showLegend: true,
 		legendPos: "r",
 	};
-	slide.addChart(pptx.charts.LINE, arrDataTimeline, optsChartLine1);
+	slide.addChart(pptx.ChartType.line, arrDataTimeline, optsChartLine1);
 }
 
 // DEV/TEST 03: escaped-XML
@@ -2420,7 +2420,7 @@ function devSlide03(pptx) {
 	slide.addTable([[{ text: "DEV-TEST: escaped-xml", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
 
 	slide.addChart(
-		pptx.charts.BAR,
+		pptx.ChartType.bar,
 		[
 			{
 				name: "Escaped XML chars",
@@ -2460,7 +2460,7 @@ function devSlide04(pptx) {
 	let labels = ["Q1", "Q2", "Q3", "Q4", "OT"];
 	let chartTypes = [
 		{
-			type: pptx.charts.BAR,
+			type: pptx.ChartType.bar,
 			data: [
 				{
 					name: "Projected",
@@ -2474,7 +2474,7 @@ function devSlide04(pptx) {
 			},
 		},
 		{
-			type: pptx.charts.LINE,
+			type: pptx.ChartType.line,
 			data: [
 				{
 					name: "Current",
@@ -2553,7 +2553,7 @@ function devSlide05(pptx) {
 		titleFontFace: "Helvetica Neue",
 		titleFontSize: 24,
 	};
-	slide.addChart(pptx.charts.DOUGHNUT, dataChartPieStat, optsChartPie1);
+	slide.addChart(pptx.ChartType.doughnut, dataChartPieStat, optsChartPie1);
 
 	// [TEST][INTERNAL]: Used for ensuring ref counting works across mixed object types (eg: `rId` check/test)
 	slide.addImage({
@@ -2584,8 +2584,8 @@ function devSlide06(pptx) {
 		y: 0.6,
 		w: 6.0,
 		h: 3.0,
-		chartArea: { fill: { color: pptx.colors.BACKGROUND2 } },
-		plotArea: { fill: { color: pptx.colors.BACKGROUND1 }, border: { color: pptx.colors.BACKGROUND2, pt: 1 } },
+		chartArea: { fill: { color: pptx.SchemeColor.background2 } },
+		plotArea: { fill: { color: pptx.SchemeColor.background1 }, border: { color: pptx.SchemeColor.background2, pt: 1 } },
 		//
 		objectName: "bar chart (top L)",
 		altText: "this is the alt text content",
@@ -2608,7 +2608,7 @@ function devSlide06(pptx) {
 		titleFontFace: "Helvetica Neue",
 		titleFontSize: 24,
 	};
-	slide.addChart(pptx.charts.BAR, arrDataHighVals, optsChartBar1);
+	slide.addChart(pptx.ChartType.bar, arrDataHighVals, optsChartBar1);
 }
 
 // DEV/TEST 07: title-options & inverted-colors
@@ -2652,7 +2652,7 @@ function devSlide07(pptx) {
 		valAxisTitleFontSize: 16,
 	};
 
-	slide.addChart(pptx.charts.BAR, arrDataHighVals, optsChart);
+	slide.addChart(pptx.ChartType.bar, arrDataHighVals, optsChart);
 }
 
 /**

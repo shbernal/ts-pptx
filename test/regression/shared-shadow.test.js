@@ -31,8 +31,8 @@ defineRegressionSuite('Shared shadow options', 'legacy bug-05', [
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
 			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', opacity: 0.15 }
-			slide.addShape(pres.shapes.RECTANGLE, { x: 1, y: 1, w: 2, h: 1, shadow })
-			slide.addShape(pres.shapes.RECTANGLE, { x: 1, y: 3, w: 2, h: 1, shadow })
+			slide.addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, shadow })
+			slide.addShape(pres.ShapeType.rect, { x: 1, y: 3, w: 2, h: 1, shadow })
 
 			const xml = await buildSlideXml(pres)
 			const effects = extractEffectLsts(xml)
@@ -63,8 +63,8 @@ defineRegressionSuite('Shared shadow options', 'legacy bug-05', [
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
 			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', opacity: 0.15 }
-			slide.addShape(pres.shapes.RECTANGLE, { x: 1, y: 1, w: 2, h: 1, shadow })
-			slide.addShape(pres.shapes.RECTANGLE, { x: 1, y: 3, w: 2, h: 1, shadow })
+			slide.addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, shadow })
+			slide.addShape(pres.ShapeType.rect, { x: 1, y: 3, w: 2, h: 1, shadow })
 			await buildSlideXml(pres)
 
 			assert(shadow.blur === 6, 'shadow.blur changed: ' + shadow.blur)
@@ -82,7 +82,7 @@ defineRegressionSuite('Shared shadow options', 'legacy bug-05', [
 			const png =
 				'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII='
 			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', opacity: 0.15 }
-			slide.addShape(pres.shapes.RECTANGLE, { x: 1, y: 1, w: 2, h: 1, shadow })
+			slide.addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, shadow })
 			slide.addImage({ data: png, x: 1, y: 3, w: 1, h: 1, shadow })
 
 			const xml = await buildSlideXml(pres)

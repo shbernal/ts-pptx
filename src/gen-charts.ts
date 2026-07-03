@@ -10,7 +10,7 @@ import {
 	AXIS_ID_VALUE_SECONDARY,
 	asChartType,
 	BARCHART_COLORS,
-	CHART_TYPE,
+	ChartType,
 	DEF_CHART_GRIDLINE,
 	DEF_FONT_COLOR,
 	DEF_FONT_SIZE,
@@ -170,9 +170,9 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 		{
 			// A: Start XML
 			let strSharedStrings = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-			if (chartObject.opts._type === CHART_TYPE.BUBBLE || chartObject.opts._type === CHART_TYPE.BUBBLE3D) {
+			if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
 				strSharedStrings += `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${intBubbleCols}" uniqueCount="${intBubbleCols}">`
-			} else if (chartObject.opts._type === CHART_TYPE.SCATTER) {
+			} else if (chartObject.opts._type === ChartType.scatter) {
 				strSharedStrings += `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${data.length}" uniqueCount="${data.length}">`
 			} else if (IS_MULTI_CAT_AXES) {
 				let totCount = data.length + 1 // +1 for the blank entry at index 0
@@ -194,7 +194,7 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 			}
 
 			// C: Add `name`/Series
-			if (chartObject.opts._type === CHART_TYPE.BUBBLE || chartObject.opts._type === CHART_TYPE.BUBBLE3D) {
+			if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
 				data.forEach((objData, idx) => {
 					if (idx === 0) strSharedStrings += '<si><t>X-Axis</t></si>'
 					else {
@@ -210,9 +210,9 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 
 			// D: Add `labels`/Categories
 			if (
-				chartObject.opts._type !== CHART_TYPE.BUBBLE &&
-				chartObject.opts._type !== CHART_TYPE.BUBBLE3D &&
-				chartObject.opts._type !== CHART_TYPE.SCATTER
+				chartObject.opts._type !== ChartType.bubble &&
+				chartObject.opts._type !== ChartType.bubble3d &&
+				chartObject.opts._type !== ChartType.scatter
 			) {
 				// Use forEach backwards & check for '' to support multi-cat axes
 				dataLabels(data[0])
@@ -235,7 +235,7 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 		// tables/table1.xml
 		{
 			let strTableXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-			if (chartObject.opts._type === CHART_TYPE.BUBBLE || chartObject.opts._type === CHART_TYPE.BUBBLE3D) {
+			if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
 				strTableXml += `<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="Table1" displayName="Table1" ref="A1:${getExcelColName(intBubbleCols)}${intBubbleCols}" totalsRowShown="0">`
 				strTableXml += `<tableColumns count="${intBubbleCols}">`
 				let idxColLtr = 1
@@ -248,7 +248,7 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 						strTableXml += `<tableColumn id="${idx + idxColLtr}" name="Size${idx}"/>`
 					}
 				})
-			} else if (chartObject.opts._type === CHART_TYPE.SCATTER) {
+			} else if (chartObject.opts._type === ChartType.scatter) {
 				strTableXml += `<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="Table1" displayName="Table1" ref="A1:${getExcelColName(data.length)}${dataValues(data[0]).length + 1}" totalsRowShown="0">`
 				strTableXml += `<tableColumns count="${data.length}">`
 				data.forEach((_obj, idx) => {
@@ -276,9 +276,9 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 			strSheetXml +=
 				'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac">'
 
-			if (chartObject.opts._type === CHART_TYPE.BUBBLE || chartObject.opts._type === CHART_TYPE.BUBBLE3D) {
+			if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
 				strSheetXml += `<dimension ref="A1:${getExcelColName(intBubbleCols)}${dataValues(data[0]).length + 1}"/>`
-			} else if (chartObject.opts._type === CHART_TYPE.SCATTER) {
+			} else if (chartObject.opts._type === ChartType.scatter) {
 				strSheetXml += `<dimension ref="A1:${getExcelColName(data.length)}${dataValues(data[0]).length + 1}"/>`
 			} else {
 				strSheetXml += `<dimension ref="A1:${getExcelColName(data.length + dataLabels(data[0]).length)}${dataValues(data[0]).length + 1}"/>`
@@ -287,7 +287,7 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 			strSheetXml +=
 				'<sheetViews><sheetView tabSelected="1" workbookViewId="0"><selection activeCell="B1" sqref="B1"/></sheetView></sheetViews>'
 			strSheetXml += '<sheetFormatPr baseColWidth="10" defaultRowHeight="16"/>'
-			if (chartObject.opts._type === CHART_TYPE.BUBBLE || chartObject.opts._type === CHART_TYPE.BUBBLE3D) {
+			if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
 				// UNUSED: strSheetXml += `<cols><col min="1" max="${data.length}" width="11" customWidth="1" /></cols>`
 
 				/* EX: INPUT: `data`
@@ -330,7 +330,7 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 					}
 					strSheetXml += '</row>'
 				})
-			} else if (chartObject.opts._type === CHART_TYPE.SCATTER) {
+			} else if (chartObject.opts._type === ChartType.scatter) {
 				/* UNUSED:
 					strSheetXml += '<cols>'
 					strSheetXml += '<col min="1" max="' + data.length + '" width="11" customWidth="1" />'
@@ -558,8 +558,8 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 	// or PowerPoint flags the file for repair (#1355). Track, per category axis,
 	// the scatter/bubble subchart type that owns it (if any) and whether a
 	// category-based subchart also references it (an unsatisfiable conflict).
-	let primaryCatAxisValType: CHART_TYPE | null = null
-	let secondaryCatAxisValType: CHART_TYPE | null = null
+	let primaryCatAxisValType: ChartType | null = null
+	let secondaryCatAxisValType: ChartType | null = null
 	let primaryCatAxisHasCategoryChart = false
 	let secondaryCatAxisHasCategoryChart = false
 
@@ -598,7 +598,7 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 		/** Add 3D view tag
 		 * @see: https://c-rex.net/projects/samples/ooxml/e1/Part4/OOXML_P4_DOCX_perspective_topic_ID0E6BUQB.html
 		 */
-		if (rel.opts._type === CHART_TYPE.BAR3D) {
+		if (rel.opts._type === ChartType.bar3d) {
 			strXml += `<c:view3D><c:rotX val="${rel.opts.v3DRotX}"/><c:rotY val="${rel.opts.v3DRotY}"/><c:rAngAx val="${!rel.opts.v3DRAngAx ? 0 : 1}"/><c:perspective val="${rel.opts.v3DPerspective}"/></c:view3D>`
 		}
 
@@ -633,7 +633,7 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 			// Record whether this subchart needs a value-based X axis (scatter/bubble)
 			// or a category-based X axis, keyed to the primary/secondary cat axis it uses.
 			const usesValueXAxis =
-				subType === CHART_TYPE.SCATTER || subType === CHART_TYPE.BUBBLE || subType === CHART_TYPE.BUBBLE3D
+				subType === ChartType.scatter || subType === ChartType.bubble || subType === ChartType.bubble3d
 			if (options.secondaryCatAxis) {
 				if (usesValueXAxis) secondaryCatAxisValType = subType
 				else secondaryCatAxisHasCategoryChart = true
@@ -648,7 +648,7 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 	}
 
 	// B: Axes -----------------------------------------------------------
-	if (rel.opts._type !== CHART_TYPE.PIE && rel.opts._type !== CHART_TYPE.DOUGHNUT) {
+	if (rel.opts._type !== ChartType.pie && rel.opts._type !== ChartType.doughnut) {
 		// Param check
 		if (rel.opts.valAxes && rel.opts.valAxes.length > 1 && !usesSecondaryValAxis) {
 			throw new Error('Secondary axis must be used by one of the multiple charts')
@@ -657,7 +657,7 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 		// Resolve the effective `_type` for a combo category axis so scatter/bubble
 		// subcharts get a `<c:valAx>` X axis. Returns the scatter/bubble type when
 		// that axis is owned only by such a subchart, else null (category axis).
-		const comboCatAxisType = (isSecondary: boolean): { _type: CHART_TYPE } | Record<string, never> => {
+		const comboCatAxisType = (isSecondary: boolean): { _type: ChartType } | Record<string, never> => {
 			const valType = isSecondary ? secondaryCatAxisValType : primaryCatAxisValType
 			const hasCategoryChart = isSecondary ? secondaryCatAxisHasCategoryChart : primaryCatAxisHasCategoryChart
 			if (!valType) return {}
@@ -699,7 +699,7 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 			strXml += makeValAxis(rel.opts, AXIS_ID_VALUE_PRIMARY)
 
 			// Add series axis for 3D bar
-			if (rel.opts._type === CHART_TYPE.BAR3D) {
+			if (rel.opts._type === ChartType.bar3d) {
 				strXml += makeSerAxis(rel.opts, AXIS_ID_SERIES_PRIMARY, AXIS_ID_VALUE_PRIMARY)
 			}
 
@@ -845,7 +845,7 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 
 	strXml += '  <c:plotVisOnly val="1"/>'
 	strXml += '  <c:dispBlanksAs val="' + rel.opts.displayBlanksAs + '"/>'
-	if (rel.opts._type === CHART_TYPE.SCATTER) strXml += '<c:showDLblsOverMax val="1"/>'
+	if (rel.opts._type === ChartType.scatter) strXml += '<c:showDLblsOverMax val="1"/>'
 
 	strXml += '</c:chart>'
 
@@ -914,7 +914,7 @@ function genXmlChartMetadata(metadata?: Record<string, string>): string {
 
 /**
  * Create XML string for any given chart type
- * @param {CHART_TYPE} chartType chart type name
+ * @param {ChartType} chartType chart type name
  * @param {OptsChartDataInternal[]} data chart data
  * @param {ChartOptsLib} opts chart options
  * @param {string} valAxisId chart val axis id
@@ -924,7 +924,7 @@ function genXmlChartMetadata(metadata?: Record<string, string>): string {
  * @return {string} XML chart
  */
 function makeChartType(
-	chartType: CHART_TYPE,
+	chartType: ChartType,
 	data: OptsChartDataInternal[],
 	opts: ChartOptsLib,
 	valAxisId: string,
@@ -949,25 +949,25 @@ function makeChartType(
 	)
 
 	switch (chartType) {
-		case CHART_TYPE.AREA:
-		case CHART_TYPE.BAR:
-		case CHART_TYPE.BAR3D:
-		case CHART_TYPE.LINE:
-		case CHART_TYPE.RADAR:
+		case ChartType.area:
+		case ChartType.bar:
+		case ChartType.bar3d:
+		case ChartType.line:
+		case ChartType.radar:
 			// 1: Start Chart
 			strXml += `<c:${chartType}Chart>`
-			if (chartType === CHART_TYPE.AREA || chartType === CHART_TYPE.LINE) {
+			if (chartType === ChartType.area || chartType === ChartType.line) {
 				const lineGrouping =
 					opts.barGrouping === 'stacked' || opts.barGrouping === 'percentStacked' ? opts.barGrouping : 'standard'
 				strXml += '<c:grouping val="' + lineGrouping + '"/>'
 			}
 
-			if (chartType === CHART_TYPE.BAR || chartType === CHART_TYPE.BAR3D) {
+			if (chartType === ChartType.bar || chartType === ChartType.bar3d) {
 				strXml += '<c:barDir val="' + opts.barDir + '"/>'
 				strXml += '<c:grouping val="' + (opts.barGrouping || 'clustered') + '"/>'
 			}
 
-			if (chartType === CHART_TYPE.RADAR) {
+			if (chartType === ChartType.radar) {
 				// Map the public PowerPoint-UI names to ST_RadarStyle wire values (also accepts the
 				// deprecated wire spellings directly, in case an un-normalized value reaches here).
 				const radarStyleWire =
@@ -1050,7 +1050,7 @@ function makeChartType(
 					strXml += genXmlColorSelection(seriesColor)
 				}
 
-				if (chartType === CHART_TYPE.LINE || chartType === CHART_TYPE.RADAR) {
+				if (chartType === ChartType.line || chartType === ChartType.radar) {
 					const effectiveLineSize = seriesOverride?.lineSize ?? opts.lineSize ?? 2
 					if (effectiveLineSize === 0) {
 						strXml += '<a:ln><a:noFill/></a:ln>'
@@ -1066,10 +1066,10 @@ function makeChartType(
 
 				strXml += '  </c:spPr>'
 				// `invertIfNegative` is bar-only in the schema (CT_BarSer); area/line/radar series must omit it
-				if (chartType === CHART_TYPE.BAR || chartType === CHART_TYPE.BAR3D) strXml += '  <c:invertIfNegative val="0"/>'
+				if (chartType === ChartType.bar || chartType === ChartType.bar3d) strXml += '  <c:invertIfNegative val="0"/>'
 
 				// 'c:marker' must precede 'c:dLbls' in CT_LineSer (schema order: spPr → marker → dPt → dLbls)
-				if (chartType === CHART_TYPE.LINE || chartType === CHART_TYPE.RADAR) {
+				if (chartType === ChartType.line || chartType === ChartType.radar) {
 					strXml += '<c:marker>'
 					strXml += '  <c:symbol val="' + opts.lineDataSymbol + '"/>'
 					if (opts.lineDataSymbolSize) strXml += `<c:size val="${opts.lineDataSymbolSize}"/>` // Defaults to "auto" otherwise (but this is usually too small, so there is a default)
@@ -1093,7 +1093,7 @@ function makeChartType(
 				// Covers legacy single-series bar color-vary AND per-point `pointStyles` overrides.
 				{
 					const barVaryColors =
-						(chartType === CHART_TYPE.BAR || chartType === CHART_TYPE.BAR3D) &&
+						(chartType === ChartType.bar || chartType === ChartType.bar3d) &&
 						data.length === 1 &&
 						((opts.chartColors && opts.chartColors !== BARCHART_COLORS && opts.chartColors.length > 1) ||
 							opts.invertedColors?.length)
@@ -1104,7 +1104,7 @@ function makeChartType(
 
 				// Data Labels per series
 				// NOTE: [20190117] Adding these to RADAR chart causes unrecoverable corruption!
-				if (chartType !== CHART_TYPE.RADAR) {
+				if (chartType !== ChartType.radar) {
 					const lblColor = seriesOverride?.dataLabelColor ?? opts.dataLabelColor ?? DEF_FONT_COLOR
 					const lblBold = seriesOverride?.dataLabelFontBold ?? opts.dataLabelFontBold ?? false
 					const lblItalic = seriesOverride?.dataLabelFontItalic ?? opts.dataLabelFontItalic ?? false
@@ -1135,7 +1135,7 @@ function makeChartType(
 
 				// Error bars (`<c:errBars>`) — schema order places them after dLbls, before cat.
 				// RADAR has no error bars in CT_RadarSer, so it is excluded.
-				if (chartType !== CHART_TYPE.RADAR) strXml += makeChartErrorBarsXml(chartType, obj.errorBars, obj)
+				if (chartType !== ChartType.radar) strXml += makeChartErrorBarsXml(chartType, obj.errorBars, obj)
 
 				// 2: "Categories"
 				{
@@ -1197,7 +1197,7 @@ function makeChartType(
 				}
 
 				// Option: `smooth`
-				if (chartType === CHART_TYPE.LINE) strXml += '<c:smooth val="' + (opts.lineSmooth ? '1' : '0') + '"/>'
+				if (chartType === ChartType.line) strXml += '<c:smooth val="' + (opts.lineSmooth ? '1' : '0') + '"/>'
 
 				// 4: Close "SERIES"
 				strXml += '</c:ser>'
@@ -1229,17 +1229,17 @@ function makeChartType(
 			}
 
 			// 4: Add more chart options (gapWidth, line Marker, etc.)
-			if (chartType === CHART_TYPE.BAR) {
+			if (chartType === ChartType.bar) {
 				strXml += `  <c:gapWidth val="${opts.barGapWidthPct}"/>`
 				strXml += `  <c:overlap val="${opts.barOverlapPct != null ? opts.barOverlapPct : (opts.barGrouping || '').includes('tacked') ? 100 : 0}"/>`
 				// `<c:serLines>` ("Series Lines") connects data points across stacked bar/column series.
 				// Schema order (CT_BarChart): gapWidth → overlap → serLines → axId.
 				strXml += createSerLinesElement(opts.barSeriesLine)
-			} else if (chartType === CHART_TYPE.BAR3D) {
+			} else if (chartType === ChartType.bar3d) {
 				strXml += `  <c:gapWidth val="${opts.barGapWidthPct}"/>`
 				strXml += `  <c:gapDepth val="${opts.barGapDepthPct}"/>`
 				strXml += '  <c:shape val="' + opts.bar3DShape + '"/>'
-			} else if (chartType === CHART_TYPE.LINE) {
+			} else if (chartType === ChartType.line) {
 				strXml += '  <c:marker val="1"/>'
 			}
 
@@ -1249,7 +1249,7 @@ function makeChartType(
 			// that violated the OOXML invariant (every axId in <c:plotArea>
 			// must resolve to a defined catAx/valAx).
 			strXml += `<c:axId val="${catAxisId}"/><c:axId val="${valAxisId}"/>`
-			if (chartType === CHART_TYPE.BAR3D) {
+			if (chartType === ChartType.bar3d) {
 				strXml += `<c:axId val="${AXIS_ID_SERIES_PRIMARY}"/>`
 			}
 
@@ -1259,7 +1259,7 @@ function makeChartType(
 			// end switch
 			break
 
-		case CHART_TYPE.SCATTER:
+		case ChartType.scatter:
 			/*
 				`data` = [
 					{ name:'X-Axis',    values:[1,2,3,4,5,6,7,8,9,10,11,12] },
@@ -1579,8 +1579,8 @@ function makeChartType(
 			// end switch
 			break
 
-		case CHART_TYPE.BUBBLE:
-		case CHART_TYPE.BUBBLE3D:
+		case ChartType.bubble:
+		case ChartType.bubble3d:
 			/*
 				`data` = [
 					{ name:'X-Axis',     values:[1,2,3,4,5,6,7,8,9,10,11,12] },
@@ -1694,7 +1694,7 @@ function makeChartType(
 					strXml += '      </c:numCache>'
 					strXml += '    </c:numRef>'
 					strXml += '  </c:bubbleSize>'
-					strXml += '  <c:bubble3D val="' + (chartType === CHART_TYPE.BUBBLE3D ? '1' : '0') + '"/>'
+					strXml += '  <c:bubble3D val="' + (chartType === ChartType.bubble3d ? '1' : '0') + '"/>'
 
 					// F: Close "SERIES"
 					strXml += '</c:ser>'
@@ -1735,8 +1735,8 @@ function makeChartType(
 			// end switch
 			break
 
-		case CHART_TYPE.DOUGHNUT:
-		case CHART_TYPE.PIE:
+		case ChartType.doughnut:
+		case ChartType.pie:
 			// Use the same let name so code blocks from barChart are interchangeable
 			{
 				const first = data[0]
@@ -1834,7 +1834,7 @@ function makeChartType(
 				strXml += '   </a:defRPr>'
 				strXml += '      </a:pPr></a:p>'
 				strXml += '    </c:txPr>'
-				if (chartType === CHART_TYPE.PIE && opts.dataLabelPosition)
+				if (chartType === ChartType.pie && opts.dataLabelPosition)
 					strXml += `<c:dLblPos val="${opts.dataLabelPosition}"/>`
 				strXml += '    <c:showLegendKey val="0"/>'
 				strXml += '    <c:showVal val="' + (customLbl ? '0' : opts.showValue ? '1' : '0') + '"/>'
@@ -1857,7 +1857,7 @@ function makeChartType(
 			strXml += '        </a:pPr>'
 			strXml += '      </a:p>'
 			strXml += '    </c:txPr>'
-			strXml += chartType === CHART_TYPE.PIE ? `<c:dLblPos val="${opts.dataLabelPosition || 'ctr'}"/>` : ''
+			strXml += chartType === ChartType.pie ? `<c:dLblPos val="${opts.dataLabelPosition || 'ctr'}"/>` : ''
 			strXml += '    <c:showLegendKey val="0"/>'
 			strXml += '    <c:showVal val="0"/>'
 			strXml += '    <c:showCatName val="1"/>'
@@ -1898,7 +1898,7 @@ function makeChartType(
 			// 4: Close "SERIES"
 			strXml += '  </c:ser>'
 			strXml += `  <c:firstSliceAng val="${opts.firstSliceAng ? Math.round(opts.firstSliceAng) : 0}"/>`
-			if (chartType === CHART_TYPE.DOUGHNUT)
+			if (chartType === ChartType.doughnut)
 				strXml += `<c:holeSize val="${typeof opts.holeSize === 'number' ? opts.holeSize : '50'}"/>`
 			strXml += '</c:' + chartType + 'Chart>'
 
@@ -1922,7 +1922,7 @@ function makeChartType(
 function makeCatAxis(opts: ChartOptsLib, axisId: string, valAxisId: string): string {
 	let strXml = ''
 	const usesValueAxisForCategories =
-		opts._type === CHART_TYPE.SCATTER || opts._type === CHART_TYPE.BUBBLE || opts._type === CHART_TYPE.BUBBLE3D
+		opts._type === ChartType.scatter || opts._type === ChartType.bubble || opts._type === ChartType.bubble3d
 	const usesCategoryAxis = !usesValueAxisForCategories && !opts.catLabelFormatCode
 
 	// Build cat axis tag
@@ -1952,7 +1952,7 @@ function makeCatAxis(opts: ChartOptsLib, axisId: string, valAxisId: string): str
 		})
 	}
 	// NOTE: Adding Val Axis Formatting if scatter or bubble charts
-	if (opts._type === CHART_TYPE.SCATTER || opts._type === CHART_TYPE.BUBBLE || opts._type === CHART_TYPE.BUBBLE3D) {
+	if (opts._type === ChartType.scatter || opts._type === ChartType.bubble || opts._type === ChartType.bubble3d) {
 		const xAxisFmtCode = opts.catAxisLabelFormatCode ?? opts.valAxisLabelFormatCode
 		strXml +=
 			'  <c:numFmt formatCode="' + (xAxisFmtCode ? encodeXmlEntities(xAxisFmtCode) : 'General') + '" sourceLinked="1"/>'
@@ -1962,7 +1962,7 @@ function makeCatAxis(opts: ChartOptsLib, axisId: string, valAxisId: string): str
 			(encodeXmlEntities(opts.catLabelFormatCode ?? '') || 'General') +
 			'" sourceLinked="1"/>'
 	}
-	if (opts._type === CHART_TYPE.SCATTER) {
+	if (opts._type === ChartType.scatter) {
 		strXml += '  <c:majorTickMark val="none"/>'
 		strXml += '  <c:minorTickMark val="none"/>'
 		strXml += '  <c:tickLblPos val="' + (opts.catAxisLabelPos || 'nextTo') + '"/>'
@@ -2076,7 +2076,7 @@ function makeValAxis(opts: ChartOptsLib, valAxisId: string): string {
 		})
 	}
 	strXml += `<c:numFmt formatCode="${opts.valAxisLabelFormatCode ? encodeXmlEntities(opts.valAxisLabelFormatCode) : 'General'}" sourceLinked="0"/>`
-	if (opts._type === CHART_TYPE.SCATTER) {
+	if (opts._type === ChartType.scatter) {
 		strXml += '  <c:majorTickMark val="none"/>'
 		strXml += '  <c:minorTickMark val="none"/>'
 		strXml += '  <c:tickLblPos val="nextTo"/>'
@@ -2119,8 +2119,8 @@ function makeValAxis(opts: ChartOptsLib, valAxisId: string): string {
 		' <c:crossBetween val="' +
 		(opts.valAxisCrossBetween
 			? opts.valAxisCrossBetween
-			: opts._type === CHART_TYPE.SCATTER ||
-				  !!(Array.isArray(opts._type) && opts._type.some((type) => asChartType(type.type) === CHART_TYPE.AREA))
+			: opts._type === ChartType.scatter ||
+				  !!(Array.isArray(opts._type) && opts._type.some((type) => asChartType(type.type) === ChartType.area))
 				? 'midCat'
 				: 'between') +
 		'"/>'
@@ -2361,14 +2361,14 @@ function numCachePt(idx: number, value: number | null | undefined): string {
  * @param obj - the series data object (only `name`, for warnings)
  */
 function makeChartErrorBarsXml(
-	chartType: CHART_TYPE,
+	chartType: ChartType,
 	errorBars: ChartErrorBarOptions | ChartErrorBarOptions[] | undefined,
 	obj: OptsChartDataInternal
 ): string {
 	if (!errorBars) return ''
 	const bars = Array.isArray(errorBars) ? errorBars : [errorBars]
 	// CT_BarSer/CT_LineSer allow a single <c:errBars>; only scatter/area permit two (x + y).
-	const maxBars = chartType === CHART_TYPE.SCATTER || chartType === CHART_TYPE.AREA ? 2 : 1
+	const maxBars = chartType === ChartType.scatter || chartType === ChartType.area ? 2 : 1
 	let strXml = ''
 
 	bars.slice(0, maxBars).forEach((eb) => {
@@ -2521,17 +2521,17 @@ function createChartBorderLine(border: BorderProps): string {
  * @param varyColors - color array when single-series color-vary applies, else `null`
  */
 function makeSeriesDataPointsXml(
-	chartType: CHART_TYPE,
+	chartType: ChartType,
 	obj: OptsChartDataInternal,
 	opts: ChartOptsLib,
 	varyColors: string[] | null
 ): string {
-	if (chartType === CHART_TYPE.RADAR) return ''
+	if (chartType === ChartType.radar) return ''
 	const pointStyles = obj.pointStyles
 	if (!varyColors && !pointStyles?.length) return ''
 
-	const isBar = chartType === CHART_TYPE.BAR || chartType === CHART_TYPE.BAR3D
-	const isScatter = chartType === CHART_TYPE.SCATTER
+	const isBar = chartType === ChartType.bar || chartType === ChartType.bar3d
+	const isScatter = chartType === ChartType.scatter
 	let xml = ''
 	dataValues(obj).forEach((value, index) => {
 		const ptStyle = pointStyles?.[index]
@@ -2561,7 +2561,7 @@ function makeSeriesDataPointsXml(
 				xml += genXmlPatternFill(fillColor && !pattern.fgColor ? { ...pattern, fgColor: fillColor } : pattern)
 			} else if (fillColor) {
 				// BAR3D color-vary historically tints the edge line, not the face fill
-				if (chartType === CHART_TYPE.BAR3D) xml += `<a:ln>${genXmlColorSelection(fillColor)}</a:ln>`
+				if (chartType === ChartType.bar3d) xml += `<a:ln>${genXmlColorSelection(fillColor)}</a:ln>`
 				else xml += genXmlColorSelection(fillColor)
 			}
 			if (border) xml += createChartBorderLine(border)

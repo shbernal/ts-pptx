@@ -5,13 +5,13 @@
 
 import type {
 	CHART_NAME,
-	CHART_TYPE,
+	ChartType,
 	PLACEHOLDER_TYPE,
 	SHAPE_NAME,
-	SLIDE_OBJECT_TYPES,
-	TABLE_STYLE,
-	TEXT_HALIGN,
-	TEXT_VALIGN,
+	SlideObjectType,
+	TableStyle,
+	AlignH,
+	TextAnchor,
 	WRITE_OUTPUT_TYPE,
 } from './core-enums.js'
 import type { EmbeddedFont } from './embedded-fonts.js'
@@ -264,7 +264,7 @@ export type TextVertType = 'eaVert' | 'horz' | 'mongolianVert' | 'vert' | 'vert2
 /**
  * A single node of a freeform (`custGeom`) path.
  * - coordinates are authored in the object's own inch/EMU space (0..width, 0..height), not slide-relative and not normalized
- * - used by shapes (`pptx.shapes.CUSTOM_GEOMETRY`) and by images (clips the picture to the path)
+ * - used by shapes (`pptx.ShapeType.custGeom`) and by images (clips the picture to the path)
  */
 export type GeometryPoint =
 	| { x: Coord; y: Coord; moveTo?: boolean }
@@ -1244,8 +1244,8 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 */
 	align?: HAlign
 	/**
-	 * Radius (only for pptx.shapes.PIE, pptx.shapes.ARC, pptx.shapes.BLOCK_ARC)
-	 * - In the case of pptx.shapes.BLOCK_ARC you have to setup the arcThicknessRatio
+	 * Radius (only for pptx.ShapeType.pie, pptx.ShapeType.arc, pptx.ShapeType.blockArc)
+	 * - In the case of pptx.ShapeType.blockArc you have to setup the arcThicknessRatio
 	 * - values: [0-359, 0-359]
 	 * @since v3.4.0
 	 * @default [270, 0]
@@ -1265,7 +1265,7 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 */
 	shapeAdjust?: ShapeAdjustValue | ShapeAdjustValue[]
 	/**
-	 * Radius (only for pptx.shapes.BLOCK_ARC)
+	 * Radius (only for pptx.ShapeType.blockArc)
 	 * - You have to setup the angleRange values too
 	 * - values: 0.0-1.0
 	 * @since v3.4.0
@@ -1299,7 +1299,7 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 */
 	line?: ShapeLineProps
 	/**
-	 * Points (only for pptx.shapes.CUSTOM_GEOMETRY)
+	 * Points (only for pptx.ShapeType.custGeom)
 	 * - type: 'arc'
 	 * - `hR` Shape Arc Height Radius
 	 * - `wR` Shape Arc Width Radius
@@ -1310,7 +1310,7 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 */
 	points?: GeometryPoint[]
 	/**
-	 * Rounded rectangle radius (only for pptx.shapes.ROUNDED_RECTANGLE)
+	 * Rounded rectangle radius (only for pptx.ShapeType.roundRect)
 	 * - values: 0.0 to 1.0
 	 * @default 0
 	 */
@@ -1501,7 +1501,7 @@ export interface TableStyleRegionProps {
 /**
  * A reusable custom table style written to `ppt/tableStyles.xml`.
  * Pass to `pptx.defineTableStyle()`, which registers it and returns a GUID to use
- * as `TableProps.tableStyle`. Unlike the fixed built-in `TABLE_STYLE` set, a custom
+ * as `TableProps.tableStyle`. Unlike the fixed built-in `TableStyle` set, a custom
  * style can use arbitrary brand colors, is editable in PowerPoint's Table Styles
  * gallery, and bands correctly across any row/column count (including auto-paged tables).
  * @example
@@ -1687,17 +1687,17 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 */
 	rtl?: boolean
 	/**
-	 * Table style to apply, either a built-in `TABLE_STYLE` member or the GUID
+	 * Table style to apply, either a built-in `TableStyle` member or the GUID
 	 * returned by `pptx.defineTableStyle()` for a custom style.
 	 * Emits `<a:tableStyleId>` inside `<a:tblPr>` with the corresponding GUID.
 	 * Style flags (`hasHeader`, `hasFooter`, `hasBandedRows`, etc.) select which
 	 * regions of the chosen style are activated; they have no visible effect without
 	 * a `tableStyle` set.
 	 *
-	 * @example tableStyle: pptx.TABLE_STYLE.MEDIUM_STYLE_2_ACCENT_1 // built-in
+	 * @example tableStyle: pptx.TableStyle.MEDIUM_STYLE_2_ACCENT_1 // built-in
 	 * @example const brand = pptx.defineTableStyle({ name:'Brand', firstRow:{ fill:'1A2B3C', color:'FFFFFF', bold:true } }); tableStyle: brand
 	 */
-	tableStyle?: TABLE_STYLE | string
+	tableStyle?: TableStyle | string
 	/**
 	 * Inline styling for the header (first) row, applied as direct per-cell formatting.
 	 *
@@ -1745,7 +1745,7 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	verbose?: boolean // Undocumented; shows verbose output
 }
 export interface TableCell {
-	_type?: SLIDE_OBJECT_TYPES.tablecell
+	_type?: SlideObjectType.tablecell
 	/** lines in this cell (autoPage) */
 	_lines?: TableCell[][]
 	/** `text` prop but guaranteed to hold "TableCell[]" */
@@ -1825,8 +1825,8 @@ export interface TextFitShrinkProps {
 export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBaseProps, ObjectNameProps {
 	_bodyProp?: {
 		// Note: Many of these duplicated as user options are transformed to _bodyProp options for XML processing
-		align?: TEXT_HALIGN
-		anchor?: TEXT_VALIGN
+		align?: AlignH
+		anchor?: TextAnchor
 		lIns?: number
 		rIns?: number
 		tIns?: number
@@ -1953,7 +1953,7 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 */
 	placeholder?: string
 	/**
-	 * Rounded rectangle radius (only for pptx.shapes.ROUNDED_RECTANGLE)
+	 * Rounded rectangle radius (only for pptx.ShapeType.roundRect)
 	 * - values: 0.0 to 1.0
 	 * @default 0
 	 */
@@ -2915,7 +2915,7 @@ export interface ChartOpts
 	metadata?: Record<string, string>
 }
 export interface ChartOptsLib extends ChartOpts {
-	_type?: CHART_TYPE | ChartMulti[] // internal, normalized from `CHART_NAME`
+	_type?: ChartType | ChartMulti[] // internal, normalized from `CHART_NAME`
 }
 export interface SlideRelChart extends OptsChartData {
 	type: CHART_NAME | ChartMulti[]
@@ -2932,7 +2932,7 @@ export interface SlideRelChart extends OptsChartData {
 // ====
 // PRIVATE vvv
 export interface SlideRel {
-	type: SLIDE_OBJECT_TYPES
+	type: SlideObjectType
 	Target: string
 	fileName?: string
 	data: any[] | string
@@ -2956,7 +2956,7 @@ export interface SlideRelMedia {
 	Target: string
 }
 export interface SlideObject {
-	_type: SLIDE_OBJECT_TYPES
+	_type: SlideObjectType
 	options?: ObjectOptions
 	// text
 	text?: TextProps[]
@@ -3219,7 +3219,7 @@ export interface ObjectOptions extends ImageBaseProps, PositionProps, ShapeProps
 	hasFirstColumn?: boolean // table
 	hasLastColumn?: boolean // table
 	rtl?: boolean // table
-	tableStyle?: TABLE_STYLE | string // table
+	tableStyle?: TableStyle | string // table
 }
 export interface SlideBaseProps {
 	_bkgdImgRid?: number

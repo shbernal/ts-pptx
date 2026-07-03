@@ -56,10 +56,10 @@ export type JSZIP_OUTPUT_TYPE = 'arraybuffer' | 'base64' | 'binarystring' | 'blo
 export type WRITE_OUTPUT_TYPE = JSZIP_OUTPUT_TYPE | 'STREAM'
 /**
  * Public chart-type name accepted by `addChart()`. Derived from the internal
- * `CHART_TYPE` enum (see below) so the two never drift: adding a member to the
+ * `ChartType` enum (see below) so the two never drift: adding a member to the
  * enum extends this union automatically.
  */
-export type CHART_NAME = `${CHART_TYPE}`
+export type CHART_NAME = `${ChartType}`
 export type SCHEME_COLORS =
 	| 'tx1'
 	| 'tx2'
@@ -111,13 +111,7 @@ export const PIECHART_COLORS: string[] = [
 	'F15854',
 	'A7A7A7',
 ]
-export enum TEXT_HALIGN {
-	'left' = 'left',
-	'center' = 'center',
-	'right' = 'right',
-	'justify' = 'justify',
-}
-export enum TEXT_VALIGN {
+export enum TextAnchor {
 	'b' = 'b',
 	'ctr' = 'ctr',
 	't' = 't',
@@ -351,189 +345,6 @@ export enum AlignV {
 	'bottom' = 'bottom',
 }
 
-export enum SHAPE_TYPE {
-	ACTION_BUTTON_BACK_OR_PREVIOUS = 'actionButtonBackPrevious',
-	ACTION_BUTTON_BEGINNING = 'actionButtonBeginning',
-	ACTION_BUTTON_CUSTOM = 'actionButtonBlank',
-	ACTION_BUTTON_DOCUMENT = 'actionButtonDocument',
-	ACTION_BUTTON_END = 'actionButtonEnd',
-	ACTION_BUTTON_FORWARD_OR_NEXT = 'actionButtonForwardNext',
-	ACTION_BUTTON_HELP = 'actionButtonHelp',
-	ACTION_BUTTON_HOME = 'actionButtonHome',
-	ACTION_BUTTON_INFORMATION = 'actionButtonInformation',
-	ACTION_BUTTON_MOVIE = 'actionButtonMovie',
-	ACTION_BUTTON_RETURN = 'actionButtonReturn',
-	ACTION_BUTTON_SOUND = 'actionButtonSound',
-	ARC = 'arc',
-	BALLOON = 'wedgeRoundRectCallout',
-	BENT_ARROW = 'bentArrow',
-	BENT_UP_ARROW = 'bentUpArrow',
-	BEVEL = 'bevel',
-	BLOCK_ARC = 'blockArc',
-	CAN = 'can',
-	CHART_PLUS = 'chartPlus',
-	CHART_STAR = 'chartStar',
-	CHART_X = 'chartX',
-	CHEVRON = 'chevron',
-	CHORD = 'chord',
-	CIRCULAR_ARROW = 'circularArrow',
-	CLOUD = 'cloud',
-	CLOUD_CALLOUT = 'cloudCallout',
-	CORNER = 'corner',
-	CORNER_TABS = 'cornerTabs',
-	CROSS = 'plus',
-	CUBE = 'cube',
-	CURVED_DOWN_ARROW = 'curvedDownArrow',
-	CURVED_DOWN_RIBBON = 'ellipseRibbon',
-	CURVED_LEFT_ARROW = 'curvedLeftArrow',
-	CURVED_RIGHT_ARROW = 'curvedRightArrow',
-	CURVED_UP_ARROW = 'curvedUpArrow',
-	CURVED_UP_RIBBON = 'ellipseRibbon2',
-	CUSTOM_GEOMETRY = 'custGeom',
-	DECAGON = 'decagon',
-	DIAGONAL_STRIPE = 'diagStripe',
-	DIAMOND = 'diamond',
-	DODECAGON = 'dodecagon',
-	DONUT = 'donut',
-	DOUBLE_BRACE = 'bracePair',
-	DOUBLE_BRACKET = 'bracketPair',
-	DOUBLE_WAVE = 'doubleWave',
-	DOWN_ARROW = 'downArrow',
-	DOWN_ARROW_CALLOUT = 'downArrowCallout',
-	DOWN_RIBBON = 'ribbon',
-	EXPLOSION1 = 'irregularSeal1',
-	EXPLOSION2 = 'irregularSeal2',
-	FLOWCHART_ALTERNATE_PROCESS = 'flowChartAlternateProcess',
-	FLOWCHART_CARD = 'flowChartPunchedCard',
-	FLOWCHART_COLLATE = 'flowChartCollate',
-	FLOWCHART_CONNECTOR = 'flowChartConnector',
-	FLOWCHART_DATA = 'flowChartInputOutput',
-	FLOWCHART_DECISION = 'flowChartDecision',
-	FLOWCHART_DELAY = 'flowChartDelay',
-	FLOWCHART_DIRECT_ACCESS_STORAGE = 'flowChartMagneticDrum',
-	FLOWCHART_DISPLAY = 'flowChartDisplay',
-	FLOWCHART_DOCUMENT = 'flowChartDocument',
-	FLOWCHART_EXTRACT = 'flowChartExtract',
-	FLOWCHART_INTERNAL_STORAGE = 'flowChartInternalStorage',
-	FLOWCHART_MAGNETIC_DISK = 'flowChartMagneticDisk',
-	FLOWCHART_MANUAL_INPUT = 'flowChartManualInput',
-	FLOWCHART_MANUAL_OPERATION = 'flowChartManualOperation',
-	FLOWCHART_MERGE = 'flowChartMerge',
-	FLOWCHART_MULTIDOCUMENT = 'flowChartMultidocument',
-	FLOWCHART_OFFLINE_STORAGE = 'flowChartOfflineStorage',
-	FLOWCHART_OFFPAGE_CONNECTOR = 'flowChartOffpageConnector',
-	FLOWCHART_OR = 'flowChartOr',
-	FLOWCHART_PREDEFINED_PROCESS = 'flowChartPredefinedProcess',
-	FLOWCHART_PREPARATION = 'flowChartPreparation',
-	FLOWCHART_PROCESS = 'flowChartProcess',
-	FLOWCHART_PUNCHED_TAPE = 'flowChartPunchedTape',
-	FLOWCHART_SEQUENTIAL_ACCESS_STORAGE = 'flowChartMagneticTape',
-	FLOWCHART_SORT = 'flowChartSort',
-	FLOWCHART_STORED_DATA = 'flowChartOnlineStorage',
-	FLOWCHART_SUMMING_JUNCTION = 'flowChartSummingJunction',
-	FLOWCHART_TERMINATOR = 'flowChartTerminator',
-	FOLDED_CORNER = 'foldedCorner',
-	FRAME = 'frame',
-	FUNNEL = 'funnel',
-	GEAR_6 = 'gear6',
-	GEAR_9 = 'gear9',
-	HALF_FRAME = 'halfFrame',
-	HEART = 'heart',
-	HEPTAGON = 'heptagon',
-	HEXAGON = 'hexagon',
-	HORIZONTAL_SCROLL = 'horizontalScroll',
-	ISOSCELES_TRIANGLE = 'triangle',
-	LEFT_ARROW = 'leftArrow',
-	LEFT_ARROW_CALLOUT = 'leftArrowCallout',
-	LEFT_BRACE = 'leftBrace',
-	LEFT_BRACKET = 'leftBracket',
-	LEFT_CIRCULAR_ARROW = 'leftCircularArrow',
-	LEFT_RIGHT_ARROW = 'leftRightArrow',
-	LEFT_RIGHT_ARROW_CALLOUT = 'leftRightArrowCallout',
-	LEFT_RIGHT_CIRCULAR_ARROW = 'leftRightCircularArrow',
-	LEFT_RIGHT_RIBBON = 'leftRightRibbon',
-	LEFT_RIGHT_UP_ARROW = 'leftRightUpArrow',
-	LEFT_UP_ARROW = 'leftUpArrow',
-	LIGHTNING_BOLT = 'lightningBolt',
-	LINE_CALLOUT_1 = 'borderCallout1',
-	LINE_CALLOUT_1_ACCENT_BAR = 'accentCallout1',
-	LINE_CALLOUT_1_BORDER_AND_ACCENT_BAR = 'accentBorderCallout1',
-	LINE_CALLOUT_1_NO_BORDER = 'callout1',
-	LINE_CALLOUT_2 = 'borderCallout2',
-	LINE_CALLOUT_2_ACCENT_BAR = 'accentCallout2',
-	LINE_CALLOUT_2_BORDER_AND_ACCENT_BAR = 'accentBorderCallout2',
-	LINE_CALLOUT_2_NO_BORDER = 'callout2',
-	LINE_CALLOUT_3 = 'borderCallout3',
-	LINE_CALLOUT_3_ACCENT_BAR = 'accentCallout3',
-	LINE_CALLOUT_3_BORDER_AND_ACCENT_BAR = 'accentBorderCallout3',
-	LINE_CALLOUT_3_NO_BORDER = 'callout3',
-	LINE = 'line',
-	LINE_INVERSE = 'lineInv',
-	MATH_DIVIDE = 'mathDivide',
-	MATH_EQUAL = 'mathEqual',
-	MATH_MINUS = 'mathMinus',
-	MATH_MULTIPLY = 'mathMultiply',
-	MATH_NOT_EQUAL = 'mathNotEqual',
-	MATH_PLUS = 'mathPlus',
-	MOON = 'moon',
-	NON_ISOSCELES_TRAPEZOID = 'nonIsoscelesTrapezoid',
-	NOTCHED_RIGHT_ARROW = 'notchedRightArrow',
-	NO_SYMBOL = 'noSmoking',
-	OCTAGON = 'octagon',
-	OVAL = 'ellipse',
-	OVAL_CALLOUT = 'wedgeEllipseCallout',
-	PARALLELOGRAM = 'parallelogram',
-	PENTAGON = 'homePlate',
-	PIE = 'pie',
-	PIE_WEDGE = 'pieWedge',
-	PLAQUE = 'plaque',
-	PLAQUE_TABS = 'plaqueTabs',
-	QUAD_ARROW = 'quadArrow',
-	QUAD_ARROW_CALLOUT = 'quadArrowCallout',
-	RECTANGLE = 'rect',
-	RECTANGULAR_CALLOUT = 'wedgeRectCallout',
-	REGULAR_PENTAGON = 'pentagon',
-	RIGHT_ARROW = 'rightArrow',
-	RIGHT_ARROW_CALLOUT = 'rightArrowCallout',
-	RIGHT_BRACE = 'rightBrace',
-	RIGHT_BRACKET = 'rightBracket',
-	RIGHT_TRIANGLE = 'rtTriangle',
-	ROUNDED_RECTANGLE = 'roundRect',
-	// eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values
-	ROUNDED_RECTANGULAR_CALLOUT = 'wedgeRoundRectCallout',
-	ROUND_1_RECTANGLE = 'round1Rect',
-	ROUND_2_DIAG_RECTANGLE = 'round2DiagRect',
-	ROUND_2_SAME_RECTANGLE = 'round2SameRect',
-	SMILEY_FACE = 'smileyFace',
-	SNIP_1_RECTANGLE = 'snip1Rect',
-	SNIP_2_DIAG_RECTANGLE = 'snip2DiagRect',
-	SNIP_2_SAME_RECTANGLE = 'snip2SameRect',
-	SNIP_ROUND_RECTANGLE = 'snipRoundRect',
-	SQUARE_TABS = 'squareTabs',
-	STAR_10_POINT = 'star10',
-	STAR_12_POINT = 'star12',
-	STAR_16_POINT = 'star16',
-	STAR_24_POINT = 'star24',
-	STAR_32_POINT = 'star32',
-	STAR_4_POINT = 'star4',
-	STAR_5_POINT = 'star5',
-	STAR_6_POINT = 'star6',
-	STAR_7_POINT = 'star7',
-	STAR_8_POINT = 'star8',
-	STRIPED_RIGHT_ARROW = 'stripedRightArrow',
-	SUN = 'sun',
-	SWOOSH_ARROW = 'swooshArrow',
-	TEAR = 'teardrop',
-	TRAPEZOID = 'trapezoid',
-	UP_ARROW = 'upArrow',
-	UP_ARROW_CALLOUT = 'upArrowCallout',
-	UP_DOWN_ARROW = 'upDownArrow',
-	UP_DOWN_ARROW_CALLOUT = 'upDownArrowCallout',
-	UP_RIBBON = 'ribbon2',
-	U_TURN_ARROW = 'uturnArrow',
-	VERTICAL_SCROLL = 'verticalScroll',
-	WAVE = 'wave',
-}
 export type SHAPE_NAME =
 	| 'accentBorderCallout1'
 	| 'accentBorderCallout2'
@@ -718,7 +529,7 @@ export type SHAPE_NAME =
 
 /**
  * Valid ECMA-376 `ST_ShapeType` presets that are not surfaced with a friendly
- * `SHAPE_TYPE` name. They are still legal geometries PowerPoint renders, so the
+ * `ShapeType` name. They are still legal geometries PowerPoint renders, so the
  * preset-validation set must accept them.
  */
 const EXTRA_SHAPE_PRESETS = [
@@ -736,7 +547,7 @@ const EXTRA_SHAPE_PRESETS = [
 /**
  * Connector preset geometries (`straightConnector1` / `bentConnector{2-5}` /
  * `curvedConnector{2-5}`) that `addShape` can serialize but that are not surfaced
- * as friendly `SHAPE_TYPE` names. Derived from `EXTRA_SHAPE_PRESETS` so the public
+ * as friendly `ShapeType` names. Derived from `EXTRA_SHAPE_PRESETS` so the public
  * `SHAPE_NAME` union and the runtime `VALID_SHAPE_PRESETS` set share one source of
  * truth and cannot drift. Use `addConnector` for live, endpoint-bound connectors;
  * pass these to `addShape` for a static box-positioned connector geometry.
@@ -745,55 +556,29 @@ export type CONNECTOR_PRESET_NAME = (typeof EXTRA_SHAPE_PRESETS)[number]
 
 /**
  * Every shape geometry name PptxGenJS can serialize without corrupting the
- * package: the OOXML preset geometries (`ST_ShapeType` — `SHAPE_TYPE` values
+ * package: the OOXML preset geometries (`ST_ShapeType` — `ShapeType` values
  * plus the unexposed connectors above) and `custGeom` (freeform paths, emitted
  * as `<a:custGeom>` rather than `<a:prstGeom>`). Used to reject bogus presets
  * before they become an invalid `<a:prstGeom prst="...">` that triggers
  * PowerPoint's "needs repair" dialog and drops the shape.
  */
 export const VALID_SHAPE_PRESETS: ReadonlySet<string> = new Set<string>([
-	...Object.values(SHAPE_TYPE),
+	...Object.values(ShapeType),
 	...EXTRA_SHAPE_PRESETS,
 ])
 
-export enum CHART_TYPE {
-	'AREA' = 'area',
-	'BAR' = 'bar',
-	'BAR3D' = 'bar3D',
-	'BUBBLE' = 'bubble',
-	'BUBBLE3D' = 'bubble3D',
-	'DOUGHNUT' = 'doughnut',
-	'LINE' = 'line',
-	'PIE' = 'pie',
-	'RADAR' = 'radar',
-	'SCATTER' = 'scatter',
-}
-
 /**
- * Narrow a public `CHART_NAME` to the internal `CHART_TYPE` enum. Because
- * `CHART_NAME` is derived from `CHART_TYPE`, every `CHART_NAME` value is by
+ * Narrow a public `CHART_NAME` to the internal `ChartType` enum. Because
+ * `CHART_NAME` is derived from `ChartType`, every `CHART_NAME` value is by
  * construction a valid enum value, so this conversion is total and safe — it is
  * the single boundary cast that lets internal code compare against the enum
  * (enum-to-enum) instead of enum-to-string.
  */
-export function asChartType(name: CHART_NAME): CHART_TYPE {
-	return name as CHART_TYPE
+export function asChartType(name: CHART_NAME): ChartType {
+	return name as ChartType
 }
 
-export enum SCHEME_COLOR_NAMES {
-	'TEXT1' = 'tx1',
-	'TEXT2' = 'tx2',
-	'BACKGROUND1' = 'bg1',
-	'BACKGROUND2' = 'bg2',
-	'ACCENT1' = 'accent1',
-	'ACCENT2' = 'accent2',
-	'ACCENT3' = 'accent3',
-	'ACCENT4' = 'accent4',
-	'ACCENT5' = 'accent5',
-	'ACCENT6' = 'accent6',
-}
-
-export enum MASTER_OBJECTS {
+export enum MasterObjectType {
 	'chart' = 'chart',
 	'image' = 'image',
 	'line' = 'line',
@@ -802,7 +587,7 @@ export enum MASTER_OBJECTS {
 	'placeholder' = 'placeholder',
 }
 
-export enum SLIDE_OBJECT_TYPES {
+export enum SlideObjectType {
 	'chart' = 'chart',
 	'connector' = 'connector',
 	'group' = 'group',
@@ -841,7 +626,7 @@ export function connectorPresetFor(type: 'straight' | 'elbow' | 'curved', bends:
 	if (type === 'straight') return CONNECTOR_PRESETS.straight
 	return `${CONNECTOR_PRESETS[type]}${bends + 2}` as CONNECTOR_PRESET_NAME
 }
-export enum PLACEHOLDER_TYPES {
+export enum PlaceholderType {
 	'title' = 'title',
 	'body' = 'body',
 	'image' = 'pic',
@@ -855,7 +640,7 @@ export type PLACEHOLDER_TYPE = 'title' | 'body' | 'pic' | 'chart' | 'tbl' | 'med
  * Bullet glyph presets. Only `DEFAULT` is currently wired through to output; the remaining entries are
  * reserved and not yet selectable via options.
  */
-export enum BULLET_TYPES {
+export enum BulletType {
 	'DEFAULT' = '&#x2022;',
 	'CHECK' = '&#x2713;',
 	'STAR' = '&#x2605;',
@@ -870,9 +655,9 @@ export enum BULLET_TYPES {
  * resolved by PowerPoint without embedding any style definition in the file.
  *
  * Only these enum members are supported. Raw GUID strings are not accepted;
- * use `TABLE_STYLE` members exclusively.
+ * use `TableStyle` members exclusively.
  */
-export enum TABLE_STYLE {
+export enum TableStyle {
 	// ── No style ────────────────────────────────────────────────────────────
 	NO_STYLE_NO_GRID = '{2D5ABB26-0587-4C30-8999-92F81FD0307C}',
 	NO_STYLE_TABLE_GRID = '{5940675A-B579-460E-94D1-54222C63F5DA}',

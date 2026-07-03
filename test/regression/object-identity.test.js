@@ -18,7 +18,7 @@ defineRegressionSuite('Object identity', 'legacy bug-21', [
 			const { zip } = await build((p) => {
 				const slide = p.addSlide()
 				slide.addText('Named text', { x: 0.4, y: 0.3, w: 2, h: 0.4, objectName: 'identity:text' })
-				slide.addShape(p.shapes.RECTANGLE, { x: 0.4, y: 0.9, w: 1, h: 0.4, objectName: 'identity:shape' })
+				slide.addShape(p.ShapeType.rect, { x: 0.4, y: 0.9, w: 1, h: 0.4, objectName: 'identity:shape' })
 				slide.addImage({
 					data: `image/png;base64,${PNG_1X1}`,
 					x: 1.7,
@@ -28,7 +28,7 @@ defineRegressionSuite('Object identity', 'legacy bug-21', [
 					objectName: 'identity:image',
 					altText: 'Identity image',
 				})
-				slide.addChart(p.charts.BAR, [{ name: 'Series 1', labels: ['A', 'B'], values: [1, 2] }], {
+				slide.addChart(p.ChartType.bar, [{ name: 'Series 1', labels: ['A', 'B'], values: [1, 2] }], {
 					x: 2.4,
 					y: 0.4,
 					w: 2,
@@ -75,7 +75,7 @@ defineRegressionSuite('Object identity', 'legacy bug-21', [
 			const { zip } = await build((p) => {
 				const slide = p.addSlide()
 				slide.addText('Named text', { x: 0.4, y: 0.3, w: 2, h: 0.4, objectName: 'alt:text', altText: 'Text alt' })
-				slide.addShape(p.shapes.RECTANGLE, {
+				slide.addShape(p.ShapeType.rect, {
 					x: 0.4,
 					y: 0.9,
 					w: 1,
@@ -116,7 +116,7 @@ defineRegressionSuite('Object identity', 'legacy bug-21', [
 			const { zip } = await build((p) => {
 				const slide = p.addSlide()
 				slide.addText('Text', { x: 0.4, y: 0.3, w: 2, h: 0.4 })
-				slide.addShape(p.shapes.RECTANGLE, { x: 0.4, y: 0.9, w: 1, h: 0.4 })
+				slide.addShape(p.ShapeType.rect, { x: 0.4, y: 0.9, w: 1, h: 0.4 })
 				slide.addImage({ data: `image/png;base64,${PNG_1X1}`, x: 1.7, y: 0.9, w: 0.4, h: 0.4 })
 				slide.addTable([[{ text: 'A1' }]], { x: 4.8, y: 0.4, w: 2, h: 0.6 })
 			})
@@ -139,7 +139,7 @@ defineRegressionSuite('Object identity', 'legacy bug-21', [
 				await build((p) => {
 					const slide = p.addSlide()
 					slide.addText('Blank name', { x: 0.4, y: 0.3, w: 2, h: 0.4, objectName: '   ' })
-					slide.addShape(p.shapes.RECTANGLE, { x: 0.4, y: 0.9, w: 1, h: 0.4, objectName: 'ctrlname' })
+					slide.addShape(p.ShapeType.rect, { x: 0.4, y: 0.9, w: 1, h: 0.4, objectName: 'ctrlname' })
 				})
 				const messages = warnSpy.mock.calls.map((call) => String(call[0]))
 				assert(

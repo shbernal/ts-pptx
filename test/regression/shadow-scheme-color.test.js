@@ -20,7 +20,7 @@ defineRegressionSuite('Shadow scheme colors', 'shadow-consolidation', [
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
-			slide.addShape(pres.shapes.RECTANGLE, {
+			slide.addShape(pres.ShapeType.rect, {
 				x: 1,
 				y: 1,
 				w: 2,

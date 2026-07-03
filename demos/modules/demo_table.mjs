@@ -221,17 +221,17 @@ function genSlide02(pptx) {
 		align: "center",
 		valign: "middle",
 		fontSize: 16,
-		border: { pt: 2, color: pptx.colors.TEXT2 },
+		border: { pt: 2, color: pptx.SchemeColor.text2 },
 		fill: { color: "F1F1F1" },
 	};
 	let arrTabRows3 = [
 		[
-			{ text: "A1\nA2\nA3", options: { rowspan: 3, fill: { color: pptx.colors.ACCENT6 } } },
-			{ text: "B1\nB2", options: { rowspan: 2, fill: { color: pptx.colors.ACCENT2 } } },
-			{ text: "C1", options: { fill: { color: pptx.colors.ACCENT4 } } },
+			{ text: "A1\nA2\nA3", options: { rowspan: 3, fill: { color: pptx.SchemeColor.accent6 } } },
+			{ text: "B1\nB2", options: { rowspan: 2, fill: { color: pptx.SchemeColor.accent2 } } },
+			{ text: "C1", options: { fill: { color: pptx.SchemeColor.accent4 } } },
 		],
-		[{ text: "C2", options: { fill: { color: pptx.colors.ACCENT4 } } }],
-		[{ text: "B3 -> C3", options: { colspan: 2, fill: { color: pptx.colors.ACCENT5 } } }],
+		[{ text: "C2", options: { fill: { color: pptx.SchemeColor.accent4 } } }],
+		[{ text: "B3 -> C3", options: { colspan: 2, fill: { color: pptx.SchemeColor.accent5 } } }],
 	];
 	slide.addTable(arrTabRows3, tabOpts3);
 
@@ -245,17 +245,17 @@ function genSlide02(pptx) {
 		align: "center",
 		valign: "middle",
 		fontSize: 16,
-		border: { pt: 1, color: pptx.colors.TEXT2 },
+		border: { pt: 1, color: pptx.SchemeColor.text2 },
 		fill: { color: "f2f9fc" },
 	};
 	let arrTabRows4 = [
 		[
-			{ text: "A1", options: { fill: { color: pptx.colors.ACCENT4, transparency: 25 } } },
-			{ text: "B1\nB2", options: { rowspan: 2, fill: { color: pptx.colors.ACCENT2, transparency: 25 } } },
-			{ text: "C1\nC2\nC3", options: { rowspan: 3, fill: { color: pptx.colors.ACCENT6, transparency: 25 } } },
+			{ text: "A1", options: { fill: { color: pptx.SchemeColor.accent4, transparency: 25 } } },
+			{ text: "B1\nB2", options: { rowspan: 2, fill: { color: pptx.SchemeColor.accent2, transparency: 25 } } },
+			{ text: "C1\nC2\nC3", options: { rowspan: 3, fill: { color: pptx.SchemeColor.accent6, transparency: 25 } } },
 		],
-		[{ text: "A2", options: { fill: { color: pptx.colors.ACCENT4, transparency: 25 } } }],
-		[{ text: "A3 -> B3", options: { colspan: 2, fill: { color: pptx.colors.ACCENT5, transparency: 25 } } }],
+		[{ text: "A2", options: { fill: { color: pptx.SchemeColor.accent4, transparency: 25 } } }],
+		[{ text: "A3 -> B3", options: { colspan: 2, fill: { color: pptx.SchemeColor.accent5, transparency: 25 } } }],
 	];
 	slide.addTable(arrTabRows4, tabOpts4);
 }
@@ -486,7 +486,7 @@ function genSlide06(pptx) {
 		{ text: "Green ", options: { color: "00FF00" } },
 		{ text: "Blue", options: { color: "0000FF" } },
 	];
-	let arrCell3 = [{ text: "google", options: { bullet: true, color: pptx.colors.ACCENT1, hyperlink: { url: "https://www.google.com" } } }];
+	let arrCell3 = [{ text: "google", options: { bullet: true, color: pptx.SchemeColor.accent1, hyperlink: { url: "https://www.google.com" } } }];
 
 	let arrCell4 = [{ text: "Numbers\nNumbers\nNumbers", options: { color: "0088cc", bullet: { type: "number" } } }];
 	slide.addTable(

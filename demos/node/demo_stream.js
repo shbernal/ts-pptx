@@ -21,11 +21,11 @@ const pptx = new pptxgen();
 const slide = pptx.addSlide();
 slide.addText(
 	[
-		{ text: "PptxGenJS", options: { fontSize: 48, color: pptx.colors.ACCENT1, breakLine: true } },
-		{ text: "Node Stream Demo", options: { fontSize: 24, color: pptx.colors.ACCENT6, breakLine: true } },
-		{ text: "(pretty cool huh?)", options: { fontSize: 24, color: pptx.colors.ACCENT3 } },
+		{ text: "PptxGenJS", options: { fontSize: 48, color: pptx.SchemeColor.accent1, breakLine: true } },
+		{ text: "Node Stream Demo", options: { fontSize: 24, color: pptx.SchemeColor.accent6, breakLine: true } },
+		{ text: "(pretty cool huh?)", options: { fontSize: 24, color: pptx.SchemeColor.accent3 } },
 	],
-	{ x: 1, y: 1, w: "80%", h: 3, align: "center", fill: pptx.colors.BACKGROUND2 }
+	{ x: 1, y: 1, w: "80%", h: 3, align: "center", fill: pptx.SchemeColor.background2 },
 );
 
 // Export presentation: Save to stream (instead of `write` or `writeFile`)

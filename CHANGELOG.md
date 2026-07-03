@@ -56,6 +56,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING: enum names rationalized to one PascalCase set.** `core-enums.ts` had
+  shipped two parallel enum styles — a modern PascalCase set (`ChartType`, `ShapeType`,
+  `SchemeColor`, `AlignH`, `AlignV`, `OutputType`) and a legacy `SCREAMING_CASE` set that
+  partly duplicated it. The `SCREAMING_CASE` type names are gone (a clean break, no
+  deprecated aliases, per the fork's API-evolution policy). Migrate as follows:
+
+  - **Value-identical duplicates — use the PascalCase twin.** Member keys are now
+    lowercase/camelCase mirroring the (unchanged) OOXML token value:
+    - `CHART_TYPE.BAR` → `ChartType.bar` (likewise `BAR3D`→`bar3d`, `BUBBLE3D`→`bubble3d`, …)
+    - `SHAPE_TYPE.RECTANGLE` → `ShapeType.rect`, `SHAPE_TYPE.OVAL` → `ShapeType.ellipse`,
+      `SHAPE_TYPE.OVAL_CALLOUT` → `ShapeType.wedgeEllipseCallout` (keys are the OOXML
+      preset tokens; the old readable SCREAMING names are gone)
+    - `SCHEME_COLOR_NAMES.ACCENT1` → `SchemeColor.accent1` (`TEXT1`→`text1`, `BACKGROUND2`→`background2`, …)
+    - `TEXT_HALIGN` → `AlignH` (values and keys were already identical, e.g. `AlignH.left`)
+  - **SCREAMING-only enums — renamed to PascalCase, member keys unchanged:**
+    `MASTER_OBJECTS`→`MasterObjectType`, `SLIDE_OBJECT_TYPES`→`SlideObjectType`,
+    `PLACEHOLDER_TYPES`→`PlaceholderType`, `BULLET_TYPES`→`BulletType`,
+    `TABLE_STYLE`→`TableStyle`. `PlaceholderType.title`, `BulletType.DEFAULT`, and
+    `TableStyle.MEDIUM_STYLE_2_ACCENT_1` keep their existing keys (they are the readable
+    handle on opaque values, so they were not lowercased).
+  - **`TEXT_VALIGN` → `TextAnchor`.** This is *not* the same enum as `AlignV`: `AlignV`
+    is the friendly `top`/`middle`/`bottom`, while `TextAnchor` is the OOXML bodyPr anchor
+    token `b`/`ctr`/`t`. Both are kept.
+  - **Removed the deprecated `pptx.charts` / `pptx.colors` / `pptx.shapes` getters.** Use
+    `pptx.ChartType` / `pptx.SchemeColor` / `pptx.ShapeType` (which already existed).
+    Note this is unrelated to the read-model `slide.shapes` array, which is unchanged.
+
 - **`TableCell.text` no longer accepts `number` in its TypeScript type.** The type
   is now `string | TableCell[]` (was `string | number | TableCell[]`). Plain-JS
   callers passing a number are still coerced to a string at runtime, but

@@ -2,7 +2,7 @@
  * PptxGenJS: Table Generation
  */
 
-import { DEF_FONT_SIZE, DEF_SLIDE_MARGIN_IN, EMU, LINEH_MODIFIER, ONEPT, SLIDE_OBJECT_TYPES } from './core-enums.js'
+import { DEF_FONT_SIZE, DEF_SLIDE_MARGIN_IN, EMU, LINEH_MODIFIER, ONEPT, SlideObjectType } from './core-enums.js'
 import type {
 	AddSlideProps,
 	BorderProps,
@@ -80,9 +80,9 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 	// STEP 1: Ensure inputCells is an array of TableCells
 	if (cell.text && cell.text.toString().trim().length === 0) {
 		// Allow a single space/whitespace as cell text (user-requested feature)
-		inputCells.push({ _type: SLIDE_OBJECT_TYPES.tablecell, text: ' ' })
+		inputCells.push({ _type: SlideObjectType.tablecell, text: ' ' })
 	} else if (typeof cell.text === 'number' || typeof cell.text === 'string') {
-		inputCells.push({ _type: SLIDE_OBJECT_TYPES.tablecell, text: (cell.text || '').toString().trim() })
+		inputCells.push({ _type: SlideObjectType.tablecell, text: (cell.text || '').toString().trim() })
 	} else if (Array.isArray(cell.text)) {
 		inputCells = cell.text
 	}
@@ -109,10 +109,10 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 			parts.forEach((part, partIdx) => {
 				const isLastPart = partIdx === parts.length - 1
 				if (isLastPart) {
-					newLine.push({ _type: SLIDE_OBJECT_TYPES.tablecell, text: part, options: cell.options })
+					newLine.push({ _type: SlideObjectType.tablecell, text: part, options: cell.options })
 				} else {
 					newLine.push({
-						_type: SLIDE_OBJECT_TYPES.tablecell,
+						_type: SlideObjectType.tablecell,
 						text: part,
 						options: { ...cell.options, breakLine: true },
 					})
@@ -121,7 +121,7 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 				}
 			})
 		} else {
-			newLine.push({ _type: SLIDE_OBJECT_TYPES.tablecell, text: cell.text.trim(), options: cell.options })
+			newLine.push({ _type: SlideObjectType.tablecell, text: cell.text.trim(), options: cell.options })
 		}
 
 		if (cell.options?.breakLine) {
@@ -154,7 +154,7 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 				// IMPORTANT: Handle `breakLine` prop - we cannot apply to each word - only apply to very last word!
 				if (cellProps?.breakLine) cellProps.breakLine = idx + 1 === lineWords.length
 				lineTokens.push({
-					_type: SLIDE_OBJECT_TYPES.tablecell,
+					_type: SlideObjectType.tablecell,
 					text: word + (idx + 1 < lineWords.length ? ' ' : ''),
 					options: cellProps,
 				})
@@ -346,7 +346,7 @@ export function getSlidesForTableRows(
 		// ....: sufficient to determine column count. Therefore, check each cell for a colspan and total cols as reqd
 		const firstRow = tableRows[0] || []
 		firstRow.forEach((cell) => {
-			if (!cell) cell = { _type: SLIDE_OBJECT_TYPES.tablecell }
+			if (!cell) cell = { _type: SlideObjectType.tablecell }
 			const cellOpts = cell.options || null
 			numCols += Number(cellOpts?.colspan ? cellOpts.colspan : 1)
 		})
@@ -415,7 +415,7 @@ export function getSlidesForTableRows(
 		let currTableRow: TableRow = []
 		row.forEach((cell) => {
 			currTableRow.push({
-				_type: SLIDE_OBJECT_TYPES.tablecell,
+				_type: SlideObjectType.tablecell,
 				text: [],
 				options: cell.options,
 			})
@@ -454,7 +454,7 @@ export function getSlidesForTableRows(
 		row.forEach((cell, iCell) => {
 			const newCellOptions = cell.options || {}
 			const newCell: AutoPageCell = {
-				_type: SLIDE_OBJECT_TYPES.tablecell,
+				_type: SlideObjectType.tablecell,
 				_lines: [],
 				_lineHeight: inch2Emu(
 					((cell.options?.fontSize
@@ -572,9 +572,7 @@ export function getSlidesForTableRows(
 
 				// D: reset working/curr row
 				currTableRow = []
-				row.forEach((cell) =>
-					currTableRow.push({ _type: SLIDE_OBJECT_TYPES.tablecell, text: [], options: cell.options })
-				)
+				row.forEach((cell) => currTableRow.push({ _type: SlideObjectType.tablecell, text: [], options: cell.options }))
 
 				// E: Calc usable vertical space/table height now as we may still be in the same row and code above ("C: Calc usable vertical space/table height.") calc may now be invalid
 				calcSlideTabH()
@@ -614,7 +612,7 @@ export function getSlidesForTableRows(
 			if (tgtCell && Array.isArray(tgtCell.text)) {
 				if (currLine) tgtCell.text = tgtCell.text.concat(currLine)
 				else if (tgtCell.text.length === 0)
-					tgtCell.text = tgtCell.text.concat({ _type: SLIDE_OBJECT_TYPES.tablecell, text: '' })
+					tgtCell.text = tgtCell.text.concat({ _type: SlideObjectType.tablecell, text: '' })
 				// IMPORTANT: ^^^ add empty if there are no words to avoid "needs repair" issue triggered when cells have null content
 			}
 
@@ -913,7 +911,7 @@ export function genTableToSlides(
 
 				// LAST: Add cell
 				arrObjTabCells.push({
-					_type: SLIDE_OBJECT_TYPES.tablecell,
+					_type: SlideObjectType.tablecell,
 					text: cell.innerText, // `innerText` returns <br> as "\n", so linebreak etc. work later!
 					options: cellOpts,
 				})

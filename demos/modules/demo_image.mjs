@@ -257,22 +257,22 @@ function genSlide03(pptx) {
 
 	// TOP: 2
 	slide.addText("Sizing: `contain, w:3`", { x: 0.6, y: 4.25, w: 3.0, h: 0.3, color: COLOR_BLUE });
-	slide.addShape(pptx.shapes.RECTANGLE, { x: 0.6, y: 4.65, w: 3, h: 2, fill: { color: BKGD_LRGRAY } });
+	slide.addShape(pptx.ShapeType.rect, { x: 0.6, y: 4.65, w: 3, h: 2, fill: { color: BKGD_LRGRAY } });
 	slide.addImage({ data: KRITA_SPLASHSCREEN, x: 0.6, y: 4.65, w: 5.0, h: 1.5, sizing: { type: "contain", w: 3, h: 2 } });
 
 	// TOP: 3
 	slide.addText("Sizing: `cover, w:3, h:2`", { x: 5.3, y: 4.25, w: 3.0, h: 0.3, color: COLOR_BLUE });
-	slide.addShape(pptx.shapes.RECTANGLE, { x: 5.3, y: 4.65, w: 3, h: 2, fill: { color: BKGD_LRGRAY } });
+	slide.addShape(pptx.ShapeType.rect, { x: 5.3, y: 4.65, w: 3, h: 2, fill: { color: BKGD_LRGRAY } });
 	slide.addImage({ data: KRITA_SPLASHSCREEN, x: 5.3, y: 4.65, w: 3.0, h: 1.5, sizing: { type: "cover", w: 3, h: 2 } });
 
 	// TOP: 4
 	slide.addText("Sizing: `crop, w:3, h:2`", { x: 10.0, y: 4.25, w: 3.0, h: 0.3, color: COLOR_BLUE });
-	slide.addShape(pptx.shapes.RECTANGLE, { x: 10, y: 4.65, w: 3, h: 1.5, fill: { color: BKGD_LRGRAY } });
+	slide.addShape(pptx.ShapeType.rect, { x: 10, y: 4.65, w: 3, h: 1.5, fill: { color: BKGD_LRGRAY } });
 	slide.addImage({ data: KRITA_SPLASHSCREEN, x: 10.0, y: 4.65, w: 5.0, h: 1.5, sizing: { type: "crop", w: 3, h: 1.0, x: 0.5, y: 0.25 } });
 
 	// TOP-RIGHT:
 	slide.addText("Rounding: `rounding:true`", { x: 7.0, y: 0.6, w: 3.0, h: 0.3, color: COLOR_BLUE });
-	slide.addShape(pptx.shapes.RECTANGLE, { x: 7, y: 1.0, w: 6.0, h: 3.0, fill: { color: BKGD_LRGRAY } });
+	slide.addShape(pptx.ShapeType.rect, { x: 7, y: 1.0, w: 6.0, h: 3.0, fill: { color: BKGD_LRGRAY } });
 	slide.addImage({ path: IMAGE_PATHS.kritaSquare.path, x: 7.42, y: 1.28, w: 2.5, h: 2.5, rounding: false });
 	slide.addImage({ path: IMAGE_PATHS.kritaSquare.path, x: 10.25, y: 1.28, w: 2.5, h: 2.5, rounding: true });
 }

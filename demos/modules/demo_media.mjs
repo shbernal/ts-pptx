@@ -174,7 +174,7 @@ function genSlide03(pptx) {
 
 	// FOOTER
 	slide.addText("Note: YouTube videos require newer versions of PowerPoint (v16+/M365). Older versions will show content warning messages.", {
-		shape: pptx.shapes.RECTANGLE,
+		shape: pptx.ShapeType.rect,
 		x: 0.0,
 		y: 7.0,
 		w: "100%",

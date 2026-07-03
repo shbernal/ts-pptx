@@ -10,8 +10,8 @@ defineRegressionSuite('Combo chart axes', 'legacy bug-06', [
 				const data2 = [{ name: 'b', labels: ['x', 'y'], values: [10, 20] }]
 				s.addChart(
 					[
-						{ type: p.charts.BAR, data: data, options: {} },
-						{ type: p.charts.LINE, data: data2, options: { secondaryValAxis: true, secondaryCatAxis: true } },
+						{ type: p.ChartType.bar, data: data, options: {} },
+						{ type: p.ChartType.line, data: data2, options: { secondaryValAxis: true, secondaryCatAxis: true } },
 					],
 					{ x: 1, y: 1, w: 6, h: 3 }
 				)

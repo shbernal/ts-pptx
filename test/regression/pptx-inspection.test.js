@@ -30,7 +30,7 @@ defineRegressionSuite('PPTX inspection primitives', [
 					fontSize: 18,
 					color: '336699',
 				})
-				slide.addShape(p.shapes.RECTANGLE, {
+				slide.addShape(p.ShapeType.rect, {
 					x: 4,
 					y: 1,
 					w: 1.5,

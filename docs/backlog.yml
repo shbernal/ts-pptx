@@ -2304,8 +2304,40 @@ items:
         new names; stale JSDoc @param refs (ISectionProps/ITableCell/ITableToSlidesOpts)
         corrected; CHANGELOG Changed. NOTE: the `IChartOptsLib` fold into `IChartOpts` was
         intentionally NOT done here (see below) — this was a rename only.
+      - Enum names/casing rationalized (the enum-casing pass below). Landed as a CLEAN
+        BREAK, not additive: the fork has no external compat obligation and the recent
+        "remove long-deprecated compatibility aliases" commit set the precedent, so no
+        `@deprecated` SCREAMING aliases were kept. Changes:
+          * Collapsed the value-identical duplicate pairs to the PascalCase canonical and
+            deleted the SCREAMING twin: CHART_TYPE->ChartType, SHAPE_TYPE->ShapeType,
+            SCHEME_COLOR_NAMES->SchemeColor, TEXT_HALIGN->AlignH.
+          * Renamed the SCREAMING-only enums: MASTER_OBJECTS->MasterObjectType,
+            SLIDE_OBJECT_TYPES->SlideObjectType, PLACEHOLDER_TYPES->PlaceholderType,
+            BULLET_TYPES->BulletType, TABLE_STYLE->TableStyle. Member keys left as-is for
+            these: PlaceholderType keys are friendly (title/body/image), and BulletType /
+            TableStyle keys are the only readable handle on opaque values (glyph entities /
+            GUIDs), so lowercasing them would lose meaning — proposal point (2) applies only
+            where the key mirrors an OOXML token.
+          * TEXT_VALIGN was NOT collapsed into AlignV (the survey's "AlignV == TEXT_VALIGN"
+            claim was wrong — see STALE below); renamed to `TextAnchor` and kept as the
+            distinct internal bodyPr-anchor token enum (b/ctr/t).
+          * Removed the `@depricated` PptxGenJS getters `charts`/`colors`/`shapes` (exact
+            duplicates of the `ChartType`/`SchemeColor`/`ShapeType` getters once the twins
+            collapsed). NOTE: ShapeType uses OOXML-token member keys, so the readable shape
+            names (`shapes.RECTANGLE` -> `ShapeType.rect`, `OVAL` -> `ellipse`,
+            `OVAL_CALLOUT` -> `wedgeEllipseCallout`) are gone — a real if minor readability
+            loss that follows the maintainer's already-established token-key ShapeType.
+        Wiring: enum defs in src/core-enums.ts; internal member access migrated across
+        src/gen-charts.ts, gen-objects.ts, gen-tables.ts, gen-xml.ts, measure-fit.ts,
+        slide.ts, pptxgen.ts, core-interfaces.ts, read/api/presentation.ts; user-facing
+        error messages + JSDoc pointed at the modern getters; whole test + demo suite
+        migrated. All 425 unit + 112 schema tests pass. CHANGELOG Changed.
 
       STALE (corrected on 2026-07-03 review):
+      - "AlignV == TEXT_VALIGN" (claimed below as a value-duplicate pair) is FALSE: AlignV
+        is top/middle/bottom (friendly) while TEXT_VALIGN is b/ctr/t (OOXML anchor token).
+        They are two layers, not a casing twin, and were kept separate (TEXT_VALIGN ->
+        TextAnchor). Only AlignH == TEXT_HALIGN is a true value-identical pair.
       - "Rename the `Color` enum to `ThemeColor`" — obsolete: there is no `enum Color`
         in src/core-enums.ts; the theme-color enum is already `SchemeColor`. Drop this
         bullet.
@@ -2316,16 +2348,12 @@ items:
         referenced in ~6 places (ChartMulti.options, the addChart facade overloads in
         core-interfaces.ts, the internal `_type` carrier), so collapsing it needs its own
         scoped change, not a mechanical edit.
-      - Rationalize exported enum names/casing across the ts-defs (was core-enums.ts
-        `// TODO: 3.5 or v4.0: rationalize ts-def exported enum names/case`). A concrete
-        convention proposal was drafted on 2026-07-03 (see the enum survey below); pending
-        maintainer approval before any rename lands.
+      The five well-scoped renames (masterTitle, radarStyle, TableCell.text, the `I`-prefix
+      sweep) plus the enum-casing pass are DONE. What remains is only the `ChartOptsLib`
+      fold, a breaking change to document in CHANGELOG when scheduled.
 
-      The four well-scoped renames (masterTitle, radarStyle, TableCell.text, the `I`-prefix
-      sweep) are DONE. What remains is the `ChartOptsLib` fold and the enum-casing pass,
-      each a breaking change to document in CHANGELOG when scheduled.
-
-      ENUM SURVEY + PROPOSED CONVENTION (drafted 2026-07-03, awaiting maintainer sign-off):
+      ENUM SURVEY + PROPOSED CONVENTION (drafted 2026-07-03; IMPLEMENTED 2026-07-03 — see
+      the enum-casing DONE bullet above for what actually landed and where it deviated):
       src/core-enums.ts currently ships TWO parallel enum styles that partly duplicate each
       other:
         * Modern PascalCase type / lowercase members (the public-facing set):
@@ -2368,13 +2396,17 @@ items:
         - src/gen-tables.ts
         - src/gen-objects.ts
         - src/gen-charts.ts
+        - src/gen-xml.ts
+        - src/measure-fit.ts
+        - src/slide.ts
+        - src/read/api/presentation.ts
         - test/regression/addslide-mastertitle.test.js
         - test/regression/radar-style.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: Get maintainer sign-off on the drafted enum-casing convention, then land it and the `ChartOptsLib` fold as breaking changes
+    next_action: Land the `ChartOptsLib` fold into `ChartOpts` as its own breaking change (the enum-casing pass is done)
 
   - id: fork-addchart-signature
     source: fork:src/slide.ts

@@ -10,7 +10,7 @@
  * untouched (current behavior) and warns once. See `docs/measured-text-fit.md`.
  */
 
-import { SLIDE_OBJECT_TYPES, TEXT_VALIGN } from './core-enums.js'
+import { SlideObjectType, TextAnchor } from './core-enums.js'
 import { DEF_CELL_MARGIN_IN, DEF_FONT_SIZE, LINEH_MODIFIER } from './core-enums.js'
 import { EMU_PER_POINT, POINTS_PER_INCH, emuToInches } from './units.js'
 import { getSmartParseNumber, inch2Emu, resolveTableColWidthsEmu, valToPts } from './gen-utils.js'
@@ -203,8 +203,8 @@ function computeBox(
 function anchorTopShareOfDelta(opts: RunOpts): number {
 	// `_bodyProp.anchor` is the resolved valign ('t' | 'ctr' | 'b'); default 'ctr'.
 	const anchor = (opts._bodyProp ?? {}).anchor
-	if (anchor === TEXT_VALIGN.t) return 0 // grow downward — top fixed
-	if (anchor === TEXT_VALIGN.b) return 1 // grow upward — bottom fixed
+	if (anchor === TextAnchor.t) return 0 // grow downward — top fixed
+	if (anchor === TextAnchor.b) return 1 // grow upward — bottom fixed
 	return 0.5 // centered growth (default)
 }
 
@@ -651,11 +651,11 @@ export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetr
 
 	for (const slide of slides) {
 		for (const obj of slide._slideObjects ?? []) {
-			if (obj._type === SLIDE_OBJECT_TYPES.table) {
+			if (obj._type === SlideObjectType.table) {
 				measureTableCells(obj, slide._presLayout)
 				continue
 			}
-			if (obj._type !== SLIDE_OBJECT_TYPES.text) continue
+			if (obj._type !== SlideObjectType.text) continue
 			// Only the bare string forms opt into measurement; an explicit object form is
 			// already baked by the caller, and 'none' is a no-op.
 			const options = obj.options

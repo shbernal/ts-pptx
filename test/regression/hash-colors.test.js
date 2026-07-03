@@ -16,7 +16,7 @@ defineRegressionSuite('Hash-prefixed colors', 'legacy bug-07', [
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
-			slide.addShape(pres.shapes.RECTANGLE, {
+			slide.addShape(pres.ShapeType.rect, {
 				x: 1,
 				y: 1,
 				w: 2,
@@ -55,7 +55,7 @@ defineRegressionSuite('Hash-prefixed colors', 'legacy bug-07', [
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
-			slide.addShape(pres.shapes.RECTANGLE, {
+			slide.addShape(pres.ShapeType.rect, {
 				x: 1,
 				y: 1,
 				w: 2,
@@ -76,7 +76,7 @@ defineRegressionSuite('Hash-prefixed colors', 'legacy bug-07', [
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
-			slide.addShape(pres.shapes.RECTANGLE, {
+			slide.addShape(pres.ShapeType.rect, {
 				x: 1,
 				y: 1,
 				w: 2,

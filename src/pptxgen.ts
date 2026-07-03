@@ -65,17 +65,14 @@ import Slide from './slide.js'
 import {
 	AlignH,
 	AlignV,
-	CHART_TYPE,
 	ChartType,
 	DEF_PRES_LAYOUT,
 	DEF_PRES_LAYOUT_NAME,
 	DEF_SLIDE_MARGIN_IN,
 	OutputType,
-	SCHEME_COLOR_NAMES,
-	SHAPE_TYPE,
-	SLIDE_OBJECT_TYPES,
 	SchemeColor,
 	ShapeType,
+	SlideObjectType,
 } from './core-enums.js'
 import type {
 	AddSlideProps,
@@ -197,14 +194,14 @@ export type {
 } from './core-interfaces.js'
 export type {
 	CHART_NAME,
-	CHART_TYPE,
+	ChartType,
 	JSZIP_OUTPUT_TYPE,
 	PLACEHOLDER_TYPE,
-	PLACEHOLDER_TYPES,
-	SCHEME_COLOR_NAMES,
+	PlaceholderType,
+	SchemeColor,
 	SCHEME_COLORS,
 	SHAPE_NAME,
-	SHAPE_TYPE,
+	ShapeType,
 	WRITE_OUTPUT_TYPE,
 } from './core-enums.js'
 
@@ -473,30 +470,6 @@ export default class PptxGenJS {
 	private readonly _shapeType = ShapeType
 	public get ShapeType(): typeof ShapeType {
 		return this._shapeType
-	}
-
-	/**
-	 * @depricated use `ChartType`
-	 */
-	private readonly _charts = CHART_TYPE
-	public get charts(): typeof CHART_TYPE {
-		return this._charts
-	}
-
-	/**
-	 * @depricated use `SchemeColor`
-	 */
-	private readonly _colors = SCHEME_COLOR_NAMES
-	public get colors(): typeof SCHEME_COLOR_NAMES {
-		return this._colors
-	}
-
-	/**
-	 * @depricated use `ShapeType`
-	 */
-	private readonly _shapes = SHAPE_TYPE
-	public get shapes(): typeof SHAPE_TYPE {
-		return this._shapes
 	}
 
 	private readonly _runtime: RuntimeAdapter
@@ -890,7 +863,7 @@ export default class PptxGenJS {
 			const avPreviewRids = new Set<number>()
 			const avMedia = slide._slideObjects
 				.filter(
-					(obj) => obj._type === SLIDE_OBJECT_TYPES.media && obj.mtype !== 'online' && typeof obj.mediaRid === 'number'
+					(obj) => obj._type === SlideObjectType.media && obj.mtype !== 'online' && typeof obj.mediaRid === 'number'
 				)
 				.map((obj) => {
 					const mtype: 'audio' | 'video' = obj.mtype === 'audio' ? 'audio' : 'video'
@@ -942,7 +915,7 @@ export default class PptxGenJS {
 			// part exists; appendSlides reproduces only the two external rels + poster.
 			const onlineMedia = slide._slideObjects
 				.filter(
-					(obj) => obj._type === SLIDE_OBJECT_TYPES.media && obj.mtype === 'online' && typeof obj.mediaRid === 'number'
+					(obj) => obj._type === SlideObjectType.media && obj.mtype === 'online' && typeof obj.mediaRid === 'number'
 				)
 				.map((obj) => {
 					const mediaRid = obj.mediaRid as number

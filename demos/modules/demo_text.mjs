@@ -115,30 +115,30 @@ function genSlide02(pptx) {
 	// LEFT COLUMN ------------------------------------------------------------
 
 	// 1: Multi-Line Formatting
-	slide.addText("Word-Level Formatting:", { x: 0.5, y: 0.6, w: "40%", h: 0.3, margin: 0, color: pptx.colors.ACCENT1 });
+	slide.addText("Word-Level Formatting:", { x: 0.5, y: 0.6, w: "40%", h: 0.3, margin: 0, color: pptx.SchemeColor.accent1 });
 	slide.addText(
 		[
-			{ text: "Courier New ", options: { fontSize: 36, fontFace: "Courier New", color: pptx.colors.ACCENT6 } },
-			{ text: "36", options: { fontSize: 36, fontFace: "Courier New", color: pptx.colors.ACCENT1, breakLine: true } },
-			{ text: "Arial ", options: { fontSize: 48, fontFace: "Arial", color: pptx.colors.ACCENT2 } },
-			{ text: "48", options: { fontSize: 48, fontFace: "Courier New", color: pptx.colors.ACCENT1, breakLine: true } },
-			{ text: "Verdana 48", options: { fontSize: 48, fontFace: "Verdana", color: pptx.colors.ACCENT3, align: "left", breakLine: true } },
+			{ text: "Courier New ", options: { fontSize: 36, fontFace: "Courier New", color: pptx.SchemeColor.accent6 } },
+			{ text: "36", options: { fontSize: 36, fontFace: "Courier New", color: pptx.SchemeColor.accent1, breakLine: true } },
+			{ text: "Arial ", options: { fontSize: 48, fontFace: "Arial", color: pptx.SchemeColor.accent2 } },
+			{ text: "48", options: { fontSize: 48, fontFace: "Courier New", color: pptx.SchemeColor.accent1, breakLine: true } },
+			{ text: "Verdana 48", options: { fontSize: 48, fontFace: "Verdana", color: pptx.SchemeColor.accent3, align: "left", breakLine: true } },
 			{
 				text: "\nStrikethrough",
-				options: { fontSize: 36, fontFace: "Arial", color: pptx.colors.ACCENT6, align: "center", strike: true, breakLine: true },
+				options: { fontSize: 36, fontFace: "Arial", color: pptx.SchemeColor.accent6, align: "center", strike: true, breakLine: true },
 			},
 			{
 				text: "Underline",
-				options: { fontSize: 36, fontFace: "Arial", color: pptx.colors.ACCENT2, align: "center", underline: true, breakLine: true },
+				options: { fontSize: 36, fontFace: "Arial", color: pptx.SchemeColor.accent2, align: "center", underline: true, breakLine: true },
 			},
 			{
 				text: "FUN",
 				options: {
 					fontFace: "Arial",
 					fontSize: 48,
-					color: pptx.colors.ACCENT6,
+					color: pptx.SchemeColor.accent6,
 					align: "center",
-					underline: { style: "wavy", color: pptx.colors.ACCENT4 },
+					underline: { style: "wavy", color: pptx.SchemeColor.accent4 },
 				},
 			},
 			{
@@ -146,24 +146,24 @@ function genSlide02(pptx) {
 				options: {
 					fontFace: "Arial",
 					fontSize: 48,
-					color: pptx.colors.ACCENT4,
+					color: pptx.SchemeColor.accent4,
 					align: "center",
-					underline: { style: "wavy", color: pptx.colors.ACCENT5 },
+					underline: { style: "wavy", color: pptx.SchemeColor.accent5 },
 					breakLine: true,
 				},
 			},
 			{ text: " ", options: { breakLine: true } },
-			{ text: "Also: ", options: { fontSize: 36, fontFace: "Arial", color: pptx.colors.ACCENT5, align: "right" } },
-			{ text: "highlighted", options: { fontSize: 36, fontFace: "Arial", color: pptx.colors.ACCENT5, align: "right", highlight: "FFFF00" } },
-			{ text: " text!", options: { fontSize: 36, fontFace: "Arial", color: pptx.colors.ACCENT5, align: "right" } },
+			{ text: "Also: ", options: { fontSize: 36, fontFace: "Arial", color: pptx.SchemeColor.accent5, align: "right" } },
+			{ text: "highlighted", options: { fontSize: 36, fontFace: "Arial", color: pptx.SchemeColor.accent5, align: "right", highlight: "FFFF00" } },
+			{ text: " text!", options: { fontSize: 36, fontFace: "Arial", color: pptx.SchemeColor.accent5, align: "right" } },
 		],
-		{ x: 0.5, y: 1.0, w: 5.75, h: 6.0, margin: 5, fill: { color: pptx.colors.TEXT1 } },
+		{ x: 0.5, y: 1.0, w: 5.75, h: 6.0, margin: 5, fill: { color: pptx.SchemeColor.text1 } },
 	);
 
 	// RIGHT COLUMN ------------------------------------------------------------
 
 	// 1: Line-Breaks
-	slide.addText("Line-Breaks:", { x: 7.0, y: 0.6, w: "40%", h: 0.3, margin: 0, color: pptx.colors.ACCENT1 });
+	slide.addText("Line-Breaks:", { x: 7.0, y: 0.6, w: "40%", h: 0.3, margin: 0, color: pptx.SchemeColor.accent1 });
 	slide.addText("***Line Breaks / Multi Lines***\nFirst line\nSecond line\nThird line", {
 		x: 7.0,
 		y: 1.0,
@@ -178,7 +178,7 @@ function genSlide02(pptx) {
 	});
 
 	// 2: Line-Spacing (exact)
-	slide.addText("Line-Spacing (text):", { x: 7.0, y: 2.7, w: "40%", h: 0.3, margin: 0, color: pptx.colors.ACCENT1 });
+	slide.addText("Line-Spacing (text):", { x: 7.0, y: 2.7, w: "40%", h: 0.3, margin: 0, color: pptx.SchemeColor.accent1 });
 	slide.addText(
 		"lineSpacing (Exactly)\n40pt",
 		{ x: 7.0, y: 3.1, w: 5.75, h: 1.17, align: "center", fill: { color: "F1F1F1" }, color: "363636", lineSpacing: 39.9 }, // TEST-CASE: `lineSpacing` decimal value
@@ -197,7 +197,7 @@ function genSlide02(pptx) {
 	});
 
 	// 4: Line-Spacing (bullets)
-	slide.addText("Line-Spacing (bullets):", { x: 7.0, y: 5.6, w: "40%", h: 0.3, margin: 0, color: pptx.colors.ACCENT1 });
+	slide.addText("Line-Spacing (bullets):", { x: 7.0, y: 5.6, w: "40%", h: 0.3, margin: 0, color: pptx.SchemeColor.accent1 });
 	slide.addText([{ text: "lineSpacing\n35pt", options: { fontSize: 24, bullet: true, color: "99ABCC", lineSpacing: 35 } }], {
 		x: 7.0,
 		y: 6.0,
@@ -220,68 +220,68 @@ function genSlide03(pptx) {
 	// LEFT COLUMN ------------------------------------------------------------
 
 	// 1: Bullets with indent levels
-	slide.addText("Bullet Indent-Levels:", { x: 0.5, y: 0.6, w: "40%", h: 0.3, margin: 0, color: pptx.colors.ACCENT1 });
+	slide.addText("Bullet Indent-Levels:", { x: 0.5, y: 0.6, w: "40%", h: 0.3, margin: 0, color: pptx.SchemeColor.accent1 });
 	slide.addText(
 		[
-			{ text: "Root-Level    ", options: { fontSize: 32, bullet: true, color: pptx.colors.ACCENT3, indentLevel: 0 } },
-			{ text: "Indent-Level 1", options: { fontSize: 32, bullet: true, color: pptx.colors.ACCENT4, indentLevel: 1 } },
-			{ text: "Indent-Level 2", options: { fontSize: 32, bullet: true, color: pptx.colors.ACCENT5, indentLevel: 2 } },
-			{ text: "Indent-Level 3", options: { fontSize: 32, bullet: true, color: pptx.colors.ACCENT6, indentLevel: 3 } },
+			{ text: "Root-Level    ", options: { fontSize: 32, bullet: true, color: pptx.SchemeColor.accent3, indentLevel: 0 } },
+			{ text: "Indent-Level 1", options: { fontSize: 32, bullet: true, color: pptx.SchemeColor.accent4, indentLevel: 1 } },
+			{ text: "Indent-Level 2", options: { fontSize: 32, bullet: true, color: pptx.SchemeColor.accent5, indentLevel: 2 } },
+			{ text: "Indent-Level 3", options: { fontSize: 32, bullet: true, color: pptx.SchemeColor.accent6, indentLevel: 3 } },
 		],
 		{ x: 0.5, y: 1.0, w: 5.75, h: 2.4, fill: { color: "232323" } },
 	);
 
-	slide.addText("Bullet Spacing (Indentation):", { x: 0.5, y: 3.5, w: "40%", h: 0.3, margin: 0, color: pptx.colors.ACCENT1 });
+	slide.addText("Bullet Spacing (Indentation):", { x: 0.5, y: 3.5, w: "40%", h: 0.3, margin: 0, color: pptx.SchemeColor.accent1 });
 	slide.addText(
 		[
 			{ text: "bullet indent: 10", options: { bullet: { indent: 10 } } },
 			{ text: "bullet indent: 30", options: { bullet: { indent: 30 } } },
 		],
-		{ x: 0.5, y: 3.9, w: 5.75, h: 0.5, color: "393939", fontFace: "Arial", fontSize: 12, fill: { color: pptx.colors.BACKGROUND2 } },
+		{ x: 0.5, y: 3.9, w: 5.75, h: 0.5, color: "393939", fontFace: "Arial", fontSize: 12, fill: { color: pptx.SchemeColor.background2 } },
 	);
 
-	slide.addText("Bullet Styles:", { x: 0.5, y: 4.6, w: "40%", h: 0.3, margin: 0, color: pptx.colors.ACCENT1 });
+	slide.addText("Bullet Styles:", { x: 0.5, y: 4.6, w: "40%", h: 0.3, margin: 0, color: pptx.SchemeColor.accent1 });
 	slide.addText(
 		[
-			{ text: "style: arabicPeriod", options: { color: pptx.colors.ACCENT2, bullet: { type: "number", numberType: "arabicPeriod" } } },
-			{ text: "style: arabicPeriod", options: { color: pptx.colors.ACCENT2, bullet: { type: "number", numberType: "arabicPeriod" } } },
+			{ text: "style: arabicPeriod", options: { color: pptx.SchemeColor.accent2, bullet: { type: "number", numberType: "arabicPeriod" } } },
+			{ text: "style: arabicPeriod", options: { color: pptx.SchemeColor.accent2, bullet: { type: "number", numberType: "arabicPeriod" } } },
 			{
 				text: "style: alphaLcPeriod",
-				options: { color: pptx.colors.ACCENT5, bullet: { type: "number", numberType: "alphaLcPeriod" }, indentLevel: 1 },
+				options: { color: pptx.SchemeColor.accent5, bullet: { type: "number", numberType: "alphaLcPeriod" }, indentLevel: 1 },
 			},
 			{
 				text: "style: alphaLcPeriod",
-				options: { color: pptx.colors.ACCENT5, bullet: { type: "number", numberType: "alphaLcPeriod" }, indentLevel: 1 },
+				options: { color: pptx.SchemeColor.accent5, bullet: { type: "number", numberType: "alphaLcPeriod" }, indentLevel: 1 },
 			},
 			{
 				text: "style: romanLcPeriod",
-				options: { color: pptx.colors.ACCENT6, bullet: { type: "number", numberType: "romanLcPeriod" }, indentLevel: 2 },
+				options: { color: pptx.SchemeColor.accent6, bullet: { type: "number", numberType: "romanLcPeriod" }, indentLevel: 2 },
 			},
 			{
 				text: "style: romanLcPeriod",
-				options: { color: pptx.colors.ACCENT6, bullet: { type: "number", numberType: "romanLcPeriod" }, indentLevel: 2 },
+				options: { color: pptx.SchemeColor.accent6, bullet: { type: "number", numberType: "romanLcPeriod" }, indentLevel: 2 },
 			},
 		],
-		{ x: 0.5, y: 5.0, w: 5.75, h: 2.0, fill: { color: pptx.colors.BACKGROUND2 }, color: pptx.colors.ACCENT1 },
+		{ x: 0.5, y: 5.0, w: 5.75, h: 2.0, fill: { color: pptx.SchemeColor.background2 }, color: pptx.SchemeColor.accent1 },
 	);
 
 	// RIGHT COLUMN ------------------------------------------------------------
 
 	// 1: Regular bullets
-	slide.addText('Bullet "Start At" number option:', { x: 7.0, y: 0.6, w: 5.75, h: 0.3, margin: 0, color: pptx.colors.ACCENT1 });
+	slide.addText('Bullet "Start At" number option:', { x: 7.0, y: 0.6, w: 5.75, h: 0.3, margin: 0, color: pptx.SchemeColor.accent1 });
 	slide.addText("type:'number'\nnumberStartAt:'5'", {
 		x: 7.0,
 		y: 1.0,
 		w: 5.75,
 		h: 0.75,
-		fill: { color: pptx.colors.BACKGROUND2 },
-		color: pptx.colors.ACCENT6,
+		fill: { color: pptx.SchemeColor.background2 },
+		color: pptx.SchemeColor.accent6,
 		fontFace: "Courier New",
 		bullet: { type: "number", numberStartAt: "5" },
 	});
 
 	// 2: Bullets: Text With Line-Breaks
-	slide.addText("Bullets made with line breaks:", { x: 7.0, y: 1.95, w: 5.75, h: 0.3, margin: 0, color: pptx.colors.ACCENT1 });
+	slide.addText("Bullets made with line breaks:", { x: 7.0, y: 1.95, w: 5.75, h: 0.3, margin: 0, color: pptx.SchemeColor.accent1 });
 	slide.addText("Line 1\nLine 2\nLine 3", {
 		x: 7.0,
 		y: 2.35,
@@ -289,32 +289,32 @@ function genSlide03(pptx) {
 		h: 1.0,
 		color: "393939",
 		fontSize: 16,
-		fill: pptx.colors.BACKGROUND2,
+		fill: pptx.SchemeColor.background2,
 		bullet: { type: "number" },
 	});
 
 	// 3: Bullets: Soft-Line-Breaks
-	slide.addText("Bullets and soft-line-break (shift+enter):", { x: 7.0, y: 3.5, w: 5.75, h: 0.3, margin: 0, color: pptx.colors.ACCENT1 });
+	slide.addText("Bullets and soft-line-break (shift+enter):", { x: 7.0, y: 3.5, w: 5.75, h: 0.3, margin: 0, color: pptx.SchemeColor.accent1 });
 	slide.addText(
 		[
 			{ text: "First line", options: { bullet: true, breakLine: true } },
 			{ text: "Second line", options: { bullet: true } },
 			{ text: "Third line via `softBreakBefore:true`", options: { softBreakBefore: true } },
 		],
-		{ x: 7.0, y: 3.9, w: 5.75, h: 1.0, color: "393939", fontSize: 16, fill: pptx.colors.BACKGROUND2 },
+		{ x: 7.0, y: 3.9, w: 5.75, h: 1.0, color: "393939", fontSize: 16, fill: pptx.SchemeColor.background2 },
 	);
 
 	// 3: Bullets: With custom unicode bullet characters
-	slide.addText("Bullets with text objects:", { x: 7.0, y: 5.05, w: 5.75, h: 0.3, margin: 0, color: pptx.colors.ACCENT1 });
+	slide.addText("Bullets with text objects:", { x: 7.0, y: 5.05, w: 5.75, h: 0.3, margin: 0, color: pptx.SchemeColor.accent1 });
 	slide.addText(
 		[
-			{ text: "`bullet: { characterCode: '25BA' }`", options: { fontSize: 18, color: pptx.colors.ACCENT1, bullet: { characterCode: "25BA" } } },
-			{ text: "`bullet: { characterCode: '25D1' }`", options: { fontSize: 18, color: pptx.colors.ACCENT5, bullet: { characterCode: "25D1" } } },
-			{ text: "`bullet: { characterCode: '25CC' }`", options: { fontSize: 18, color: pptx.colors.ACCENT6, bullet: { characterCode: "25CC" } } },
+			{ text: "`bullet: { characterCode: '25BA' }`", options: { fontSize: 18, color: pptx.SchemeColor.accent1, bullet: { characterCode: "25BA" } } },
+			{ text: "`bullet: { characterCode: '25D1' }`", options: { fontSize: 18, color: pptx.SchemeColor.accent5, bullet: { characterCode: "25D1" } } },
+			{ text: "`bullet: { characterCode: '25CC' }`", options: { fontSize: 18, color: pptx.SchemeColor.accent6, bullet: { characterCode: "25CC" } } },
 			{ text: "Mix and... ", options: { fontSize: 24, color: "FF0000", bullet: { characterCode: "25BA" } } },
 			{ text: "match formatting as well.", options: { fontSize: 16, color: "00CD00" } },
 		],
-		{ x: 7.0, y: 5.5, w: 5.75, h: 1.5, fontFace: "Arial", fill: pptx.colors.BACKGROUND2 },
+		{ x: 7.0, y: 5.5, w: 5.75, h: 1.5, fontFace: "Arial", fill: pptx.SchemeColor.background2 },
 	);
 }
 
@@ -332,7 +332,7 @@ function genSlide04(pptx) {
 	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-text.html");
 
 	// 1: TOP_ROW: Hyperlinks
-	slide.addText("Hyperlinks:", { x: 0.5, y: 0.6, w: "90%", h: 0.3, margin: 0.123, color: pptx.colors.ACCENT1 });
+	slide.addText("Hyperlinks:", { x: 0.5, y: 0.6, w: "90%", h: 0.3, margin: 0.123, color: pptx.SchemeColor.accent1 });
 	slide.addText([{ text: "Link with Tooltip", options: { hyperlink: { url: "https://github.com/gitbrent/pptxgenjs", tooltip: "Visit Homepage" } } }], {
 		x: 0.5,
 		y: 1.0,
@@ -375,13 +375,13 @@ function genSlide04(pptx) {
 	});
 
 	// 2: CTR_ROW: Tab Stops: Set tab points (inches), then use "\t" to add tab characters in your text string
-	slide.addText("Tab Stops:", { x: 0.5, y: 2.1, w: 12.0, h: 0.3, margin: 0, color: pptx.colors.ACCENT1 });
+	slide.addText("Tab Stops:", { x: 0.5, y: 2.1, w: 12.0, h: 0.3, margin: 0, color: pptx.SchemeColor.accent1 });
 	slide.addText([{ text: "text...\tTab1\tTab2\tTab3", options: { tabStops: [{ position: 1 }, { position: 3 }, { position: 7 }] } }], {
 		x: 0.5,
 		y: 2.5,
 		w: 12.3,
 		h: 0.6,
-		fill: { color: pptx.colors.BACKGROUND2 },
+		fill: { color: pptx.SchemeColor.background2 },
 	});
 	slide.addText(
 		"// Code for example above\n" +
@@ -393,7 +393,7 @@ function genSlide04(pptx) {
 	);
 
 	// 3a: BTM_ROW: Text Effects: Outline
-	slide.addText("Text Outline:", { x: 0.5, y: 5.8, w: 3.0, h: 0.3, margin: 0, color: pptx.colors.ACCENT1 });
+	slide.addText("Text Outline:", { x: 0.5, y: 5.8, w: 3.0, h: 0.3, margin: 0, color: pptx.SchemeColor.accent1 });
 	slide.addText("size:2", {
 		x: 0.5,
 		y: 6.2,
@@ -401,25 +401,25 @@ function genSlide04(pptx) {
 		h: 1.1,
 		fontSize: 72,
 		bold: true,
-		color: pptx.colors.ACCENT1,
-		outline: { size: 2, color: pptx.colors.ACCENT4 },
+		color: pptx.SchemeColor.accent1,
+		outline: { size: 2, color: pptx.SchemeColor.accent4 },
 	});
 
 	// 3b: Text Effects: Glow
-	slide.addText("Text Glow:", { x: 3.9, y: 5.8, w: 5.0, h: 0.3, margin: 0, color: pptx.colors.ACCENT1 });
+	slide.addText("Text Glow:", { x: 3.9, y: 5.8, w: 5.0, h: 0.3, margin: 0, color: pptx.SchemeColor.accent1 });
 	slide.addText("size:10", {
 		x: 3.9,
 		y: 6.2,
 		w: 3.0,
 		h: 1.1,
 		fontSize: 72,
-		color: pptx.colors.ACCENT1,
-		glow: { size: 10, opacity: 0.25, color: pptx.colors.ACCENT2 },
+		color: pptx.SchemeColor.accent1,
+		glow: { size: 10, opacity: 0.25, color: pptx.SchemeColor.accent2 },
 	});
 
 	// 3c: Text Effects: Shadow
 	let shadowOpts = { type: "outer", color: "696969", blur: 3, offset: 10, angle: 45, opacity: 0.6 };
-	slide.addText("Text Shadow:", { x: 7.5, y: 5.8, w: 5.0, h: 0.3, margin: 0, color: pptx.colors.ACCENT1 });
+	slide.addText("Text Shadow:", { x: 7.5, y: 5.8, w: 5.0, h: 0.3, margin: 0, color: pptx.SchemeColor.accent1 });
 	slide.addText("type:outer, offset:10, blur:3", { x: 7.5, y: 6.2, w: 5.5, h: 1.1, fontSize: 32, color: "0088cc", shadow: shadowOpts });
 }
 
@@ -438,9 +438,9 @@ function genSlide05(pptx) {
 	slide.addText(LOREM_IPSUM_ENG.substring(0, 1200), { x: 8.5, y: 1.3, w: 4, h: 4, fontSize: 12, fit: "resize" });
 
 	// titles last so they overlay the overflowing text from above
-	slide.addText("fit:'none'  ", { x: 0.5, y: 0.6, w: 4, h: 0.3, color: pptx.colors.ACCENT1, fill: { color: "ffffff" } });
-	slide.addText("fit:'shrink'", { x: 4.5, y: 0.6, w: 4, h: 0.3, color: pptx.colors.ACCENT1, fill: { color: "ffffff" } });
-	slide.addText("fit:'resize'", { x: 8.5, y: 0.6, w: 4, h: 0.3, color: pptx.colors.ACCENT1, fill: { color: "ffffff" } });
+	slide.addText("fit:'none'  ", { x: 0.5, y: 0.6, w: 4, h: 0.3, color: pptx.SchemeColor.accent1, fill: { color: "ffffff" } });
+	slide.addText("fit:'shrink'", { x: 4.5, y: 0.6, w: 4, h: 0.3, color: pptx.SchemeColor.accent1, fill: { color: "ffffff" } });
+	slide.addText("fit:'resize'", { x: 8.5, y: 0.6, w: 4, h: 0.3, color: pptx.SchemeColor.accent1, fill: { color: "ffffff" } });
 
 	slide.addText(
 		[
@@ -472,16 +472,16 @@ function genSlide06(pptx) {
 
 	// MISC ------------------------------------------------------------
 
-	slide.addText("TEXT1 on BACKGROUND2", { x: 0.5, y: 0.7, w: 6.0, h: 2.0, color: pptx.colors.TEXT1, fill: { color: pptx.colors.BACKGROUND2 } });
-	slide.addText("TEXT2 on BACKGROUND1", { x: 7.0, y: 0.7, w: 6.0, h: 2.0, color: pptx.colors.TEXT2, fill: { color: pptx.colors.BACKGROUND1 } });
+	slide.addText("TEXT1 on BACKGROUND2", { x: 0.5, y: 0.7, w: 6.0, h: 2.0, color: pptx.SchemeColor.text1, fill: { color: pptx.SchemeColor.background2 } });
+	slide.addText("TEXT2 on BACKGROUND1", { x: 7.0, y: 0.7, w: 6.0, h: 2.0, color: pptx.SchemeColor.text2, fill: { color: pptx.SchemeColor.background1 } });
 
-	slide.addText("ACCENT1", { x: 0.5, y: 3.25, w: 6.0, h: 1.0, color: "FFFFFF", fill: { color: pptx.colors.ACCENT1 } });
-	slide.addText("ACCENT2", { x: 7.0, y: 3.25, w: 6.0, h: 1.0, color: "FFFFFF", fill: { color: pptx.colors.ACCENT2 } });
-	slide.addText("ACCENT3", { x: 0.5, y: 4.7, w: 6.0, h: 1.0, color: "FFFFFF", fill: { color: pptx.colors.ACCENT3 } });
-	slide.addText("ACCENT4", { x: 7.0, y: 4.7, w: 6.0, h: 1.0, color: "FFFFFF", fill: { color: pptx.colors.ACCENT4 } });
-	slide.addText("ACCENT5", { x: 0.5, y: 6.15, w: 6.0, h: 1.0, color: "FFFFFF", fill: { color: pptx.colors.ACCENT5 } });
-	slide.addText("ACCENT6", { x: 7.0, y: 6.15, w: 6.0, h: 1.0, color: "FFFFFF", fill: { color: pptx.colors.ACCENT6 } });
+	slide.addText("ACCENT1", { x: 0.5, y: 3.25, w: 6.0, h: 1.0, color: "FFFFFF", fill: { color: pptx.SchemeColor.accent1 } });
+	slide.addText("ACCENT2", { x: 7.0, y: 3.25, w: 6.0, h: 1.0, color: "FFFFFF", fill: { color: pptx.SchemeColor.accent2 } });
+	slide.addText("ACCENT3", { x: 0.5, y: 4.7, w: 6.0, h: 1.0, color: "FFFFFF", fill: { color: pptx.SchemeColor.accent3 } });
+	slide.addText("ACCENT4", { x: 7.0, y: 4.7, w: 6.0, h: 1.0, color: "FFFFFF", fill: { color: pptx.SchemeColor.accent4 } });
+	slide.addText("ACCENT5", { x: 0.5, y: 6.15, w: 6.0, h: 1.0, color: "FFFFFF", fill: { color: pptx.SchemeColor.accent5 } });
+	slide.addText("ACCENT6", { x: 7.0, y: 6.15, w: 6.0, h: 1.0, color: "FFFFFF", fill: { color: pptx.SchemeColor.accent6 } });
 
 	// NEGATIVE TEST:
-	//slide.addText("NEGTEST / NEGTEST", { x:0.5, y:0.5, w:'40%', h:0.38, color:pptx.colors.NEGTEST01, fill:{color:pptx.colors.NEGTEST02} });
+	//slide.addText("NEGTEST / NEGTEST", { x:0.5, y:0.5, w:'40%', h:0.38, color:pptx.SchemeColor.negtest01, fill:{color:pptx.SchemeColor.negtest02} });
 }

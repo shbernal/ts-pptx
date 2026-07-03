@@ -169,7 +169,7 @@ export function createMasterSlides(pptx) {
 	// MARGIN_SLIDE (used for demo/test)
 	const MARGINS = [0.5, 0.5, 0.5, 0.5];
 	const TEXT_PROPS = {
-		shape: pptx.shapes.RECTANGLE,
+		shape: pptx.ShapeType.rect,
 		fill: { color: "FFFCCC" },
 		color: "9f9f9f",
 		align: "center",

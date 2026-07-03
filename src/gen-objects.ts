@@ -6,7 +6,7 @@ import {
 	asChartType,
 	BARCHART_COLORS,
 	type CHART_NAME,
-	CHART_TYPE,
+	ChartType,
 	connectorPresetFor,
 	DEF_CELL_BORDER,
 	DEF_CELL_MARGIN_IN,
@@ -18,12 +18,12 @@ import {
 	EMU,
 	IMG_PLAYBTN,
 	PIECHART_COLORS,
-	SCHEME_COLOR_NAMES,
+	SchemeColor,
 	type SHAPE_NAME,
-	SHAPE_TYPE,
-	SLIDE_OBJECT_TYPES,
-	TEXT_HALIGN,
-	TEXT_VALIGN,
+	ShapeType,
+	SlideObjectType,
+	AlignH,
+	TextAnchor,
 	VALID_SHAPE_PRESETS,
 } from './core-enums.js'
 import type { PLACEHOLDER_TYPE } from './core-enums.js'
@@ -107,9 +107,9 @@ function addChildDefinition(target: PresSlideInternal, object: SlideMasterObject
 	if ('chart' in object)
 		addChartDefinition(target, object.chart.type, object.chart.data, object.chart.opts || object.chart.options || {})
 	else if ('image' in object) addImageDefinition(target, object.image)
-	else if ('line' in object) addShapeDefinition(target, SHAPE_TYPE.LINE, object.line)
-	else if ('rect' in object) addShapeDefinition(target, SHAPE_TYPE.RECTANGLE, object.rect)
-	else if ('roundRect' in object) addShapeDefinition(target, SHAPE_TYPE.ROUNDED_RECTANGLE, object.roundRect)
+	else if ('line' in object) addShapeDefinition(target, ShapeType.line, object.line)
+	else if ('rect' in object) addShapeDefinition(target, ShapeType.rect, object.rect)
+	else if ('roundRect' in object) addShapeDefinition(target, ShapeType.roundRect, object.roundRect)
 	else if ('shape' in object) addShapeDefinition(target, object.shape.type, object.shape.options || {})
 	else if ('text' in object)
 		addTextDefinition(
@@ -173,7 +173,7 @@ function buildGroupObject(target: PresSlideInternal, children: GroupChildProps[]
 		: `Group ${++_groupNameCounter}`
 
 	return {
-		_type: SLIDE_OBJECT_TYPES.group,
+		_type: SlideObjectType.group,
 		_groupObjects: groupObjects,
 		options: {
 			x: opts.x,
@@ -299,10 +299,10 @@ export function addChartDefinition(
 
 	const chartId = ++_chartCounter
 	const resultObject: SlideObject = {
-		_type: SLIDE_OBJECT_TYPES.chart,
+		_type: SlideObjectType.chart,
 	}
-	// DESIGN: `type` can an object (ex: `pptx.charts.DOUGHNUT`) or an array of chart objects
-	// EX: addChartDefinition([ { type:pptx.charts.BAR, data:{name:'', labels:[], values[]} }, {<etc>} ])
+	// DESIGN: `type` can an object (ex: `pptx.ChartType.doughnut`) or an array of chart objects
+	// EX: addChartDefinition([ { type:pptx.ChartType.bar, data:{name:'', labels:[], values[]} }, {<etc>} ])
 	// Multi-Type Charts
 	let tmpOpt: ChartOpts | ChartOptsLib | undefined
 	let tmpData: OptsChartData[] = []
@@ -338,21 +338,21 @@ export function addChartDefinition(
 	options.h = options.h || '50%'
 	options.objectName = options.objectName
 		? encodeXmlEntities(validateObjectName(options.objectName, 'chart'))
-		: `Chart ${target._slideObjects.filter((obj) => obj._type === SLIDE_OBJECT_TYPES.chart).length}`
+		: `Chart ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.chart).length}`
 
 	// B: Options: misc
 	if (!['bar', 'col'].includes(options.barDir || '')) options.barDir = 'col'
 
 	// barGrouping: "21.2.3.17 ST_Grouping (Grouping)"
 	// barGrouping must be handled before data label validation as it can affect valid label positioning
-	if (options._type === CHART_TYPE.AREA) {
+	if (options._type === ChartType.area) {
 		if (!['stacked', 'standard', 'percentStacked'].includes(options.barGrouping || '')) options.barGrouping = 'standard'
 	}
-	if (options._type === CHART_TYPE.BAR) {
+	if (options._type === ChartType.bar) {
 		if (!['clustered', 'stacked', 'percentStacked'].includes(options.barGrouping || ''))
 			options.barGrouping = 'clustered'
 	}
-	if (options._type === CHART_TYPE.BAR3D) {
+	if (options._type === ChartType.bar3d) {
 		if (!['clustered', 'stacked', 'standard', 'percentStacked'].includes(options.barGrouping || ''))
 			options.barGrouping = 'standard'
 	}
@@ -364,25 +364,25 @@ export function addChartDefinition(
 	if (options.dataLabelPosition) {
 		const dataLabelPosition = options.dataLabelPosition
 		if (
-			options._type === CHART_TYPE.AREA ||
-			options._type === CHART_TYPE.BAR3D ||
-			options._type === CHART_TYPE.DOUGHNUT ||
-			options._type === CHART_TYPE.RADAR
+			options._type === ChartType.area ||
+			options._type === ChartType.bar3d ||
+			options._type === ChartType.doughnut ||
+			options._type === ChartType.radar
 		) {
 			delete options.dataLabelPosition
 		}
-		if (options._type === CHART_TYPE.PIE) {
+		if (options._type === ChartType.pie) {
 			if (!['bestFit', 'ctr', 'inEnd', 'outEnd'].includes(dataLabelPosition)) delete options.dataLabelPosition
 		}
 		if (
-			options._type === CHART_TYPE.BUBBLE ||
-			options._type === CHART_TYPE.BUBBLE3D ||
-			options._type === CHART_TYPE.LINE ||
-			options._type === CHART_TYPE.SCATTER
+			options._type === ChartType.bubble ||
+			options._type === ChartType.bubble3d ||
+			options._type === ChartType.line ||
+			options._type === ChartType.scatter
 		) {
 			if (!['b', 'ctr', 'l', 'r', 't'].includes(dataLabelPosition)) delete options.dataLabelPosition
 		}
-		if (options._type === CHART_TYPE.BAR) {
+		if (options._type === ChartType.bar) {
 			if (!['stacked', 'percentStacked'].includes(options.barGrouping || '')) {
 				if (!['ctr', 'inBase', 'inEnd'].includes(dataLabelPosition)) delete options.dataLabelPosition
 			}
@@ -446,11 +446,10 @@ export function addChartDefinition(
 
 	// Set gridline defaults
 	options.catGridLine =
-		options.catGridLine || (options._type === CHART_TYPE.SCATTER ? { color: 'D9D9D9', size: 1 } : { style: 'none' })
-	options.valGridLine =
-		options.valGridLine || (options._type === CHART_TYPE.SCATTER ? { color: 'D9D9D9', size: 1 } : {})
+		options.catGridLine || (options._type === ChartType.scatter ? { color: 'D9D9D9', size: 1 } : { style: 'none' })
+	options.valGridLine = options.valGridLine || (options._type === ChartType.scatter ? { color: 'D9D9D9', size: 1 } : {})
 	options.serGridLine =
-		options.serGridLine || (options._type === CHART_TYPE.SCATTER ? { color: 'D9D9D9', size: 1 } : { style: 'none' })
+		options.serGridLine || (options._type === ChartType.scatter ? { color: 'D9D9D9', size: 1 } : { style: 'none' })
 	correctGridLineOptions(options.catGridLine)
 	correctGridLineOptions(options.valGridLine)
 	correctGridLineOptions(options.serGridLine)
@@ -504,7 +503,7 @@ export function addChartDefinition(
 
 	options.chartColors = Array.isArray(options.chartColors)
 		? options.chartColors
-		: options._type === CHART_TYPE.PIE || options._type === CHART_TYPE.DOUGHNUT
+		: options._type === ChartType.pie || options._type === ChartType.doughnut
 			? PIECHART_COLORS
 			: BARCHART_COLORS
 	options.chartColorsOpacity =
@@ -542,14 +541,14 @@ export function addChartDefinition(
 			typeof options.dataBorder.color === 'string' &&
 			options.dataBorder.color.length === 6 &&
 			/^[0-9A-Fa-f]{6}$/.test(options.dataBorder.color)
-		const isSchemeColor = Object.values(SCHEME_COLOR_NAMES).includes(options.dataBorder.color as SCHEME_COLOR_NAMES)
+		const isSchemeColor = Object.values(SchemeColor).includes(options.dataBorder.color as SchemeColor)
 		if (!isHexColor && !isSchemeColor) {
 			options.dataBorder.color = 'F9F9F9' // Fallback if neither hex nor scheme color
 		}
 	}
 	//
-	if (!options.dataLabelFormatCode && options._type === CHART_TYPE.SCATTER) options.dataLabelFormatCode = 'General'
-	if (!options.dataLabelFormatCode && (options._type === CHART_TYPE.PIE || options._type === CHART_TYPE.DOUGHNUT)) {
+	if (!options.dataLabelFormatCode && options._type === ChartType.scatter) options.dataLabelFormatCode = 'General'
+	if (!options.dataLabelFormatCode && (options._type === ChartType.pie || options._type === ChartType.doughnut)) {
 		options.dataLabelFormatCode = options.showPercent ? '0%' : 'General'
 	}
 	options.dataLabelFormatCode =
@@ -558,16 +557,16 @@ export function addChartDefinition(
 			: '#,##0'
 	//
 	// Set default format for Scatter chart labels to custom string if not defined
-	if (!options.dataLabelFormatScatter && options._type === CHART_TYPE.SCATTER) options.dataLabelFormatScatter = 'custom'
+	if (!options.dataLabelFormatScatter && options._type === ChartType.scatter) options.dataLabelFormatScatter = 'custom'
 	//
 	options.lineSize = typeof options.lineSize === 'number' ? options.lineSize : 2
 	options.valAxisMajorUnit = typeof options.valAxisMajorUnit === 'number' ? options.valAxisMajorUnit : undefined
 
 	if (
-		options._type === CHART_TYPE.AREA ||
-		options._type === CHART_TYPE.BAR ||
-		options._type === CHART_TYPE.BAR3D ||
-		options._type === CHART_TYPE.LINE
+		options._type === ChartType.area ||
+		options._type === ChartType.bar ||
+		options._type === ChartType.bar3d ||
+		options._type === ChartType.line
 	) {
 		options.catAxisMultiLevelLabels = !!options.catAxisMultiLevelLabels
 	} else {
@@ -575,7 +574,7 @@ export function addChartDefinition(
 	}
 
 	// STEP 4: Set props
-	resultObject._type = SLIDE_OBJECT_TYPES.chart
+	resultObject._type = SlideObjectType.chart
 	resultObject.options = options
 	resultObject.chartRid = getNewRelId(target)
 
@@ -665,7 +664,7 @@ function registerImageFillMedia(target: PresSlideInternal, fill: ShapeFillProps)
 
 export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): void {
 	const newObject: SlideObject = {
-		_type: SLIDE_OBJECT_TYPES.image,
+		_type: SlideObjectType.image,
 	}
 
 	// Inherit geometry from a matching layout placeholder (issue #1258): an image targeting a
@@ -679,7 +678,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	let phH: Coord | undefined
 	if (opt.placeholder && target._slideLayout?._slideObjects) {
 		const placeHold = target._slideLayout._slideObjects.find(
-			(item) => item._type === SLIDE_OBJECT_TYPES.placeholder && item.options?.placeholder === opt.placeholder
+			(item) => item._type === SlideObjectType.placeholder && item.options?.placeholder === opt.placeholder
 		)
 		if (placeHold?.options) {
 			phX = placeHold.options.x
@@ -703,7 +702,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	let imageRelId = getNewRelId(target)
 	const objectName = opt.objectName
 		? encodeXmlEntities(validateObjectName(opt.objectName, 'image'))
-		: `Image ${target._slideObjects.filter((obj) => obj._type === SLIDE_OBJECT_TYPES.image).length}`
+		: `Image ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.image).length}`
 
 	// REALITY-CHECK:
 	if (!strImagePath && !strImageData) {
@@ -738,7 +737,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	}
 
 	// STEP 2: Set type/path
-	newObject._type = SLIDE_OBJECT_TYPES.image
+	newObject._type = SlideObjectType.image
 	newObject.image = strImagePath || 'preencoded.png'
 
 	// STEP 3: Default any missing dimension from the image's intrinsic (natural) size.
@@ -865,7 +864,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 			imageRelId++
 
 			target._rels.push({
-				type: SLIDE_OBJECT_TYPES.hyperlink,
+				type: SlideObjectType.hyperlink,
 				data: objHyperlink.slide ? 'slide' : 'dummy',
 				rId: imageRelId,
 				Target: objHyperlink.url ? encodeXmlEntities(objHyperlink.url) : String(objHyperlink.slide),
@@ -898,8 +897,8 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	const strCover = opt.cover || IMG_PLAYBTN
 	const objectName = opt.objectName
 		? encodeXmlEntities(validateObjectName(opt.objectName, 'media'))
-		: `Media ${target._slideObjects.filter((obj) => obj._type === SLIDE_OBJECT_TYPES.media).length}`
-	const slideData: SlideObject = { _type: SLIDE_OBJECT_TYPES.media }
+		: `Media ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.media).length}`
+	const slideData: SlideObject = { _type: SlideObjectType.media }
 
 	// STEP 1: REALITY-CHECK
 	if (!strPath && !strData && strType !== 'online') {
@@ -1047,7 +1046,7 @@ export function addNotesDefinition(target: PresSlideInternal, notes: string | No
 			: (Array.isArray(notes) ? notes : [notes]).map((run) => ({ text: run.text, options: run.options }))
 
 	target._slideObjects.push({
-		_type: SLIDE_OBJECT_TYPES.notes,
+		_type: SlideObjectType.notes,
 		text: runs,
 	})
 }
@@ -1124,22 +1123,24 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 	const resolvedShapeName: SHAPE_NAME =
 		typeof shapeName === 'string' && SHAPE_NAME_ALIASES[shapeName] ? SHAPE_NAME_ALIASES[shapeName] : shapeName
 	const newObject: SlideObject = {
-		_type: SLIDE_OBJECT_TYPES.text,
-		shape: resolvedShapeName || SHAPE_TYPE.RECTANGLE,
+		_type: SlideObjectType.text,
+		shape: resolvedShapeName || ShapeType.rect,
 		options,
 	}
 
 	// Reality check
 	if (!shapeName)
-		throw new Error('Missing/Invalid shape parameter! Example: `addShape(pptxgen.shapes.LINE, {x:1, y:1, w:1, h:1});`')
+		throw new Error(
+			'Missing/Invalid shape parameter! Example: `addShape(pptxgen.ShapeType.line, {x:1, y:1, w:1, h:1});`'
+		)
 
 	// Reject presets PowerPoint can't parse. An invalid `prst` value (a typo or an
 	// unmapped friendly name) corrupts the package and triggers the repair dialog,
-	// so fail loudly here rather than emit degenerate OOXML. Use `pptxgen.shapes.*`
+	// so fail loudly here rather than emit degenerate OOXML. Use `pptxgen.ShapeType.*`
 	// for the canonical names.
 	if (!VALID_SHAPE_PRESETS.has(resolvedShapeName)) {
 		throw new Error(
-			`Invalid shape "${String(shapeName)}"! Use a value from \`pptxgen.shapes.*\` (e.g. \`pptxgen.shapes.RECTANGLE\`). PowerPoint can't render unknown preset geometries and will drop the shape during repair.`
+			`Invalid shape "${String(shapeName)}"! Use a value from \`pptxgen.ShapeType.*\` (e.g. \`pptxgen.ShapeType.rect\`). PowerPoint can't render unknown preset geometries and will drop the shape during repair.`
 		)
 	}
 
@@ -1168,7 +1169,7 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 	options.h = options.h || (options.h === 0 ? 0 : 1)
 	options.objectName = options.objectName
 		? encodeXmlEntities(validateObjectName(options.objectName, 'shape'))
-		: `Shape ${target._slideObjects.filter((obj) => obj._type === SLIDE_OBJECT_TYPES.text).length}`
+		: `Shape ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.text).length}`
 
 	// 3: Create hyperlink rels
 	createHyperlinkRels(target, newObject)
@@ -1269,7 +1270,7 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 	const y2 = getSmartParseNumber(opts.y2, 'Y', target._presLayout) / EMU
 
 	const newObject: SlideObject = {
-		_type: SLIDE_OBJECT_TYPES.connector,
+		_type: SlideObjectType.connector,
 		// store the connector preset on `shape`; the serializer emits it as the prstGeom `prst`
 		shape: preset,
 		options: {
@@ -1293,7 +1294,7 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 			altText: opts.altText,
 			objectName: opts.objectName
 				? encodeXmlEntities(validateObjectName(opts.objectName, 'connector'))
-				: `Connector ${target._slideObjects.filter((obj) => obj._type === SLIDE_OBJECT_TYPES.connector).length}`,
+				: `Connector ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.connector).length}`,
 		},
 	}
 
@@ -1323,7 +1324,7 @@ export function addTableDefinition(
 	const opt: TableProps = options && typeof options === 'object' ? options : {}
 	opt.objectName = opt.objectName
 		? encodeXmlEntities(validateObjectName(opt.objectName, 'table'))
-		: `Table ${target._slideObjects.filter((obj) => obj._type === SLIDE_OBJECT_TYPES.table).length}`
+		: `Table ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.table).length}`
 
 	// STEP 0: PLACEHOLDER — a table targeting a layout placeholder inherits that placeholder's
 	// position/size for any of x/y/w/h the caller omits (#1151), mirroring the image (#1258) and
@@ -1331,7 +1332,7 @@ export function addTableDefinition(
 	// the table fills the placeholder geometry rather than the default 1in/full-width fallback.
 	if (opt.placeholder && slideLayout?._slideObjects) {
 		const placeHold = slideLayout._slideObjects.find(
-			(item) => item._type === SLIDE_OBJECT_TYPES.placeholder && item.options?.placeholder === opt.placeholder
+			(item) => item._type === SlideObjectType.placeholder && item.options?.placeholder === opt.placeholder
 		)
 		if (placeHold?.options) {
 			if (opt.x === undefined) opt.x = placeHold.options.x
@@ -1392,7 +1393,7 @@ export function addTableDefinition(
 				// A:
 				const newCellOptions = typeof cell === 'object' && cell.options ? cell.options : {}
 				const newCell: TableCell = {
-					_type: SLIDE_OBJECT_TYPES.tablecell,
+					_type: SlideObjectType.tablecell,
 					text: '',
 					options: newCellOptions,
 				}
@@ -1593,7 +1594,7 @@ export function addTableDefinition(
 			*/
 			if (typeof cell === 'number' || typeof cell === 'string') {
 				// Grab table formatting `opts` to use here so text style/format inherits as it should
-				row[idy] = { _type: SLIDE_OBJECT_TYPES.tablecell, text: String(row[idy]), options: opt }
+				row[idy] = { _type: SlideObjectType.tablecell, text: String(row[idy]), options: opt }
 			} else if (typeof cell === 'object') {
 				const target = row[idy]
 				if (!target) return
@@ -1604,7 +1605,7 @@ export function addTableDefinition(
 				target.options = cell.options || {}
 
 				// Set type to tabelcell
-				target._type = SLIDE_OBJECT_TYPES.tablecell
+				target._type = SlideObjectType.tablecell
 			}
 
 			// B: Check for fine-grained formatting, disable auto-page when found
@@ -1624,7 +1625,7 @@ export function addTableDefinition(
 
 		// Add slideObjects (NOTE: Use `extend` to avoid mutation)
 		target._slideObjects.push({
-			_type: SLIDE_OBJECT_TYPES.table,
+			_type: SlideObjectType.table,
 			arrTabRows: arrRows,
 			options: { ...opt },
 		})
@@ -1638,7 +1639,7 @@ export function addTableDefinition(
 		// the loop so the table object added per-slide below is never included.
 		const sourcePlaceholders =
 			opt.autoPagePlaceholder && Array.isArray(target._slideObjects)
-				? target._slideObjects.filter((obj) => obj._type !== SLIDE_OBJECT_TYPES.table && obj.options?.placeholder)
+				? target._slideObjects.filter((obj) => obj._type !== SlideObjectType.table && obj.options?.placeholder)
 				: []
 
 		// Loop over rows and create 1-N tables as needed (ISSUE#21)
@@ -1703,8 +1704,8 @@ export function addTextDefinition(
 	const textObjects = !text || text.length === 0 ? [{ text: '' }] : text
 	const objectOptions: ObjectOptions = opts || {}
 	const newObject: SlideObject = {
-		_type: isPlaceholder ? SLIDE_OBJECT_TYPES.placeholder : SLIDE_OBJECT_TYPES.text,
-		shape: opts.shape || SHAPE_TYPE.RECTANGLE,
+		_type: isPlaceholder ? SlideObjectType.placeholder : SlideObjectType.text,
+		shape: opts.shape || ShapeType.rect,
 		text: textObjects,
 		options: objectOptions,
 	}
@@ -1735,7 +1736,7 @@ export function addTextDefinition(
 			if (itemOpts.placeholder && target._slideLayout && target._slideLayout._slideObjects) {
 				const placeHold = target._slideLayout._slideObjects.filter(
 					(item) =>
-						item._type === SLIDE_OBJECT_TYPES.placeholder &&
+						item._type === SlideObjectType.placeholder &&
 						item.options &&
 						item.options.placeholder &&
 						item.options.placeholder === itemOpts.placeholder
@@ -1746,10 +1747,10 @@ export function addTextDefinition(
 			// A.4: Other options
 			itemOpts.objectName = itemOpts.objectName
 				? encodeXmlEntities(validateObjectName(itemOpts.objectName, 'text'))
-				: `Text ${target._slideObjects.filter((obj) => obj._type === SLIDE_OBJECT_TYPES.text).length}`
+				: `Text ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.text).length}`
 
 			// B:
-			if (itemOpts.shape === SHAPE_TYPE.LINE) {
+			if (itemOpts.shape === ShapeType.line) {
 				const itemLine = typeof itemOpts.line === 'object' && itemOpts.line ? itemOpts.line : {}
 				// ShapeLineProps defaults
 				const newLineOpts: ShapeLineProps = {
@@ -1772,7 +1773,7 @@ export function addTextDefinition(
 
 			// D: Transform text options to bodyProperties as thats how we build XML
 			itemOpts._bodyProp = itemOpts._bodyProp || {}
-			itemOpts._bodyProp.anchor = !itemOpts.placeholder ? TEXT_VALIGN.ctr : undefined // VALS: [t,ctr,b]
+			itemOpts._bodyProp.anchor = !itemOpts.placeholder ? TextAnchor.ctr : undefined // VALS: [t,ctr,b]
 			// `textDirection` is the documented public option; `vert` is a legacy/extended alias kept as an
 			// escape hatch for the full ST_TextVerticalType range (eaVert, mongolianVert, wordArtVertRtl).
 			// Both map directly to the `<a:bodyPr vert="…">` attribute, so prefer the documented one.
@@ -1809,14 +1810,14 @@ export function addTextDefinition(
 		{
 			const align = (itemOpts.align || '').toLowerCase()
 			const valign = (itemOpts.valign || '').toLowerCase()
-			if (align.startsWith('c')) itemOpts._bodyProp.align = TEXT_HALIGN.center
-			else if (align.startsWith('l')) itemOpts._bodyProp.align = TEXT_HALIGN.left
-			else if (align.startsWith('r')) itemOpts._bodyProp.align = TEXT_HALIGN.right
-			else if (align.startsWith('j')) itemOpts._bodyProp.align = TEXT_HALIGN.justify
+			if (align.startsWith('c')) itemOpts._bodyProp.align = AlignH.center
+			else if (align.startsWith('l')) itemOpts._bodyProp.align = AlignH.left
+			else if (align.startsWith('r')) itemOpts._bodyProp.align = AlignH.right
+			else if (align.startsWith('j')) itemOpts._bodyProp.align = AlignH.justify
 
-			if (valign.startsWith('b')) itemOpts._bodyProp.anchor = TEXT_VALIGN.b
-			else if (valign.startsWith('m')) itemOpts._bodyProp.anchor = TEXT_VALIGN.ctr
-			else if (valign.startsWith('t')) itemOpts._bodyProp.anchor = TEXT_VALIGN.t
+			if (valign.startsWith('b')) itemOpts._bodyProp.anchor = TextAnchor.b
+			else if (valign.startsWith('m')) itemOpts._bodyProp.anchor = TextAnchor.ctr
+			else if (valign.startsWith('t')) itemOpts._bodyProp.anchor = TextAnchor.t
 		}
 
 		// STEP 3: ROBUST: Set rational values for some shadow props if needed
@@ -1958,7 +1959,7 @@ function createBulletImageRels(
 export function addPlaceholdersToSlideLayouts(slide: PresSlideInternal): void {
 	if (!slide._slideLayout) return // Add all placeholders on this Slide that dont already exist
 	;(slide._slideLayout._slideObjects || []).forEach((slideLayoutObj) => {
-		if (slideLayoutObj._type === SLIDE_OBJECT_TYPES.placeholder) {
+		if (slideLayoutObj._type === SlideObjectType.placeholder) {
 			const slideLayoutOptions = slideLayoutObj.options || {}
 			// A: Search for this placeholder on Slide before we add
 			// NOTE: Check to ensure a placeholder does not already exist on the Slide
@@ -2055,7 +2056,7 @@ function createHyperlinkRels(
 				const relId = getNewRelId(target)
 
 				target._rels.push({
-					type: SLIDE_OBJECT_TYPES.hyperlink,
+					type: SlideObjectType.hyperlink,
 					data: hyperlink.slide ? 'slide' : 'dummy',
 					rId: relId,
 					Target: hyperlink.url ? encodeXmlEntities(hyperlink.url) : String(hyperlink.slide),
@@ -2075,7 +2076,7 @@ function createHyperlinkRels(
 			// NOTE: auto-paging will create new slides, but skip above as _rId exists, BUT this is a new slide, so add rels!
 			if (hyperlinkRelId && !target._rels.some((rel) => rel.rId === hyperlinkRelId)) {
 				target._rels.push({
-					type: SLIDE_OBJECT_TYPES.hyperlink,
+					type: SlideObjectType.hyperlink,
 					data: hyperlink.slide ? 'slide' : 'dummy',
 					rId: hyperlinkRelId,
 					Target: hyperlink.url ? encodeXmlEntities(hyperlink.url) : String(hyperlink.slide),

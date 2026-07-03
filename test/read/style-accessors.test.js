@@ -511,7 +511,7 @@ describe('Group-child absolute geometry (absoluteFrame)', () => {
 	test('a top-level shape resolves to its own geometry', async () => {
 		const presentation = await (async () => {
 			const pres = new PptxGenJS()
-			pres.addSlide().addShape(pres.shapes.RECTANGLE, { x: 1, y: 1, w: 3, h: 1, fill: { color: 'CCCCCC' } })
+			pres.addSlide().addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 3, h: 1, fill: { color: 'CCCCCC' } })
 			return Presentation.load(await pres.stream())
 		})()
 		const shape = presentation.slides[0].shapes.find((s) => s.presetGeometry === 'rect')

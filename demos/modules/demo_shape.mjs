@@ -42,14 +42,14 @@ function genSlide01(pptx) {
 
 	// TOP-ROW
 
-	slide.addShape(pptx.shapes.RECTANGLE, { x: 0.5, y: 0.8, w: 1.5, h: 3.0, fill: { color: pptx.colors.ACCENT1 }, line: { type: "none" } });
-	slide.addShape(pptx.shapes.OVAL, { x: 2.2, y: 0.8, w: 3.0, h: 1.5, fill: { type: "solid", color: pptx.colors.ACCENT2 } });
-	slide.addShape(pptx.shapes.CUSTOM_GEOMETRY, {
+	slide.addShape(pptx.ShapeType.rect, { x: 0.5, y: 0.8, w: 1.5, h: 3.0, fill: { color: pptx.SchemeColor.accent1 }, line: { type: "none" } });
+	slide.addShape(pptx.ShapeType.ellipse, { x: 2.2, y: 0.8, w: 3.0, h: 1.5, fill: { type: "solid", color: pptx.SchemeColor.accent2 } });
+	slide.addShape(pptx.ShapeType.custGeom, {
 		x: 2.5,
 		y: 2.6,
 		w: 2.0,
 		h: 1.0,
-		fill: { color: pptx.colors.ACCENT3 },
+		fill: { color: pptx.SchemeColor.accent3 },
 		line: { color: "151515", width: 1 },
 		points: [
 			{ x: 0.0, y: 0.0 },
@@ -61,54 +61,54 @@ function genSlide01(pptx) {
 			{ close: true },
 		],
 	});
-	slide.addShape(pptx.shapes.RECTANGLE, { x: 5.7, y: 0.8, w: 1.5, h: 3.0, fill: { color: pptx.colors.ACCENT4 }, rotate: 45 });
-	slide.addShape(pptx.shapes.OVAL, { x: 7.4, y: 1.5, w: 3.0, h: 1.5, fill: { color: pptx.colors.ACCENT6 }, rotate: 90 }); // TEST: no type
-	slide.addShape(pptx.shapes.ROUNDED_RECTANGLE, {
+	slide.addShape(pptx.ShapeType.rect, { x: 5.7, y: 0.8, w: 1.5, h: 3.0, fill: { color: pptx.SchemeColor.accent4 }, rotate: 45 });
+	slide.addShape(pptx.ShapeType.ellipse, { x: 7.4, y: 1.5, w: 3.0, h: 1.5, fill: { color: pptx.SchemeColor.accent6 }, rotate: 90 }); // TEST: no type
+	slide.addShape(pptx.ShapeType.roundRect, {
 		x: 10,
 		y: 0.8,
 		w: 3.0,
 		h: 1.5,
 		rectRadius: 1,
-		fill: { color: pptx.colors.ACCENT5 },
+		fill: { color: pptx.SchemeColor.accent5 },
 		line: { color: "151515", width: 1 },
 	});
-	slide.addShape(pptx.shapes.ARC, { x: 10.75, y: 2.45, w: 1.5, h: 1.45, fill: { color: pptx.colors.ACCENT3 }, angleRange: [45, 315] });
+	slide.addShape(pptx.ShapeType.arc, { x: 10.75, y: 2.45, w: 1.5, h: 1.45, fill: { color: pptx.SchemeColor.accent3 }, angleRange: [45, 315] });
 
 	// BOTTOM ROW
 
-	slide.addShape(pptx.shapes.LINE, { x: 4.2, y: 4.4, w: 5.0, h: 0.0, line: { color: pptx.colors.ACCENT2, width: 1, dashType: "lgDash" } });
-	slide.addShape(pptx.shapes.LINE, {
+	slide.addShape(pptx.ShapeType.line, { x: 4.2, y: 4.4, w: 5.0, h: 0.0, line: { color: pptx.SchemeColor.accent2, width: 1, dashType: "lgDash" } });
+	slide.addShape(pptx.ShapeType.line, {
 		x: 4.2,
 		y: 4.8,
 		w: 5.0,
 		h: 0.0,
-		line: { color: pptx.colors.ACCENT2, width: 2, dashType: "dashDot", beginArrowType: "arrow" },
+		line: { color: pptx.SchemeColor.accent2, width: 2, dashType: "dashDot", beginArrowType: "arrow" },
 	});
-	slide.addShape(pptx.shapes.LINE, { x: 4.2, y: 5.2, w: 5.0, h: 0.0, line: { color: pptx.colors.ACCENT2, width: 3, endArrowType: "triangle" } });
-	slide.addShape(pptx.shapes.LINE, {
+	slide.addShape(pptx.ShapeType.line, { x: 4.2, y: 5.2, w: 5.0, h: 0.0, line: { color: pptx.SchemeColor.accent2, width: 3, endArrowType: "triangle" } });
+	slide.addShape(pptx.ShapeType.line, {
 		x: 4.2,
 		y: 5.6,
 		w: 5.0,
 		h: 0.0,
-		line: { color: pptx.colors.ACCENT2, width: 4, beginArrowType: "diamond", endArrowType: "oval" },
+		line: { color: pptx.SchemeColor.accent2, width: 4, beginArrowType: "diamond", endArrowType: "oval" },
 	});
 
-	slide.addShape(pptx.shapes.RIGHT_TRIANGLE, {
+	slide.addShape(pptx.ShapeType.rtTriangle, {
 		x: 0.4,
 		y: 4.3,
 		w: 6.0,
 		h: 3.0,
-		fill: { color: pptx.colors.ACCENT5 },
-		line: { color: pptx.colors.ACCENT1, width: 3 },
+		fill: { color: pptx.SchemeColor.accent5 },
+		line: { color: pptx.SchemeColor.accent1, width: 3 },
 		objectName: "First Right Triangle",
 	});
-	slide.addShape(pptx.shapes.RIGHT_TRIANGLE, {
+	slide.addShape(pptx.ShapeType.rtTriangle, {
 		x: 7.0,
 		y: 4.3,
 		w: 6.0,
 		h: 3.0,
-		fill: { color: pptx.colors.ACCENT5 },
-		line: { color: pptx.colors.ACCENT1, width: 2 },
+		fill: { color: pptx.SchemeColor.accent5 },
+		line: { color: pptx.SchemeColor.accent1, width: 2 },
 		flipH: true,
 	});
 }
@@ -124,32 +124,32 @@ function genSlide02(pptx) {
 	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-shapes.html");
 
 	slide.addText("RECTANGLE", {
-		shape: pptx.shapes.RECTANGLE,
+		shape: pptx.ShapeType.rect,
 		x: 0.5,
 		y: 0.8,
 		w: 1.5,
 		h: 3.0,
-		fill: { color: pptx.colors.ACCENT1 },
+		fill: { color: pptx.SchemeColor.accent1 },
 		align: "center",
 		fontSize: 14,
 	});
 	slide.addText("OVAL (transparency:50)", {
-		shape: pptx.shapes.OVAL,
+		shape: pptx.ShapeType.ellipse,
 		x: 2.2,
 		y: 0.8,
 		w: 3.0,
 		h: 1.5,
-		fill: { type: "solid", color: pptx.colors.ACCENT2, transparency: 50 },
+		fill: { type: "solid", color: pptx.SchemeColor.accent2, transparency: 50 },
 		align: "center",
 		fontSize: 14,
 	});
 	slide.addText("CUSTOM", {
-		shape: pptx.shapes.CUSTOM_GEOMETRY,
+		shape: pptx.ShapeType.custGeom,
 		x: 2.5,
 		y: 2.6,
 		w: 2.0,
 		h: 1.0,
-		fill: { color: pptx.colors.ACCENT3 },
+		fill: { color: pptx.SchemeColor.accent3 },
 		line: { color: "151515", width: 1 },
 		points: [
 			{ x: 0.0, y: 0.0 },
@@ -164,106 +164,106 @@ function genSlide02(pptx) {
 		fontSize: 14,
 	});
 	slide.addText("RECTANGLE (rotate:45)", {
-		shape: pptx.shapes.RECTANGLE,
+		shape: pptx.ShapeType.rect,
 		x: 5.7,
 		y: 0.8,
 		w: 1.5,
 		h: 3.0,
-		fill: { color: pptx.colors.ACCENT4 },
+		fill: { color: pptx.SchemeColor.accent4 },
 		rotate: 45,
 		align: "center",
 		fontSize: 14,
 	});
 	// TEST: DEPRECATED: `alpha`
 	slide.addText("OVAL (rotate:90, transparency:75)", {
-		shape: pptx.shapes.OVAL,
+		shape: pptx.ShapeType.ellipse,
 		x: 7.4,
 		y: 1.5,
 		w: 3.0,
 		h: 1.5,
-		fill: { type: "solid", color: pptx.colors.ACCENT6, transparency: 75 },
+		fill: { type: "solid", color: pptx.SchemeColor.accent6, transparency: 75 },
 		rotate: 90,
 		align: "center",
 		fontSize: 14,
 	});
 	slide.addText("ROUNDED-RECTANGLE\ndashType:dash\nrectRadius:1", {
-		shape: pptx.shapes.ROUNDED_RECTANGLE,
+		shape: pptx.ShapeType.roundRect,
 		x: 10,
 		y: 0.8,
 		w: 3.0,
 		h: 1.5,
-		fill: { color: pptx.colors.ACCENT5 },
+		fill: { color: pptx.SchemeColor.accent5 },
 		align: "center",
 		fontSize: 14,
 		line: { color: "151515", size: 1, dashType: "dash" },
 		rectRadius: 1,
 	});
 	slide.addText("ARC", {
-		shape: pptx.shapes.ARC,
+		shape: pptx.ShapeType.arc,
 		x: 10.75,
 		y: 2.45,
 		w: 1.5,
 		h: 1.45,
-		fill: { color: pptx.colors.ACCENT3 },
+		fill: { color: pptx.SchemeColor.accent3 },
 		angleRange: [45, 315],
 		line: { color: "151515", width: 1 },
 		fontSize: 14,
 	});
 	//
 	slide.addText("LINE size=1", {
-		shape: pptx.shapes.LINE,
+		shape: pptx.ShapeType.line,
 		align: "center",
 		x: 4.15,
 		y: 4.4,
 		w: 5,
 		h: 0,
-		line: { color: pptx.colors.ACCENT2, width: 1, dashType: "lgDash" },
+		line: { color: pptx.SchemeColor.accent2, width: 1, dashType: "lgDash" },
 	});
 	slide.addText("LINE size=2", {
-		shape: pptx.shapes.LINE,
+		shape: pptx.ShapeType.line,
 		align: "left",
 		x: 4.15,
 		y: 4.8,
 		w: 5,
 		h: 0,
-		line: { color: pptx.colors.ACCENT2, width: 2, dashType: "dashDot", endArrowType: "arrow" },
+		line: { color: pptx.SchemeColor.accent2, width: 2, dashType: "dashDot", endArrowType: "arrow" },
 	});
 	slide.addText("LINE size=3", {
-		shape: pptx.shapes.LINE,
+		shape: pptx.ShapeType.line,
 		align: "right",
 		x: 4.15,
 		y: 5.2,
 		w: 5,
 		h: 0,
-		line: { color: pptx.colors.ACCENT2, width: 3, beginArrowType: "triangle" },
+		line: { color: pptx.SchemeColor.accent2, width: 3, beginArrowType: "triangle" },
 	});
 	slide.addText("LINE size=4", {
-		shape: pptx.shapes.LINE,
+		shape: pptx.ShapeType.line,
 		x: 4.15,
 		y: 5.6,
 		w: 5,
 		h: 0,
-		line: { color: pptx.colors.ACCENT2, width: 4, beginArrowType: "diamond", endArrowType: "oval", transparency: 50 },
+		line: { color: pptx.SchemeColor.accent2, width: 4, beginArrowType: "diamond", endArrowType: "oval", transparency: 50 },
 	});
 	//
 	slide.addText("RIGHT-TRIANGLE", {
-		shape: pptx.shapes.RIGHT_TRIANGLE,
+		shape: pptx.ShapeType.rtTriangle,
 		align: "center",
 		x: 0.4,
 		y: 4.3,
 		w: 6,
 		h: 3,
-		fill: { color: pptx.colors.ACCENT5 },
+		fill: { color: pptx.SchemeColor.accent5 },
 		line: { color: "696969", width: 3 },
 	});
 	slide.addText("HYPERLINK-SHAPE", {
-		shape: pptx.shapes.RIGHT_TRIANGLE,
+		shape: pptx.ShapeType.rtTriangle,
 		align: "center",
 		x: 7.0,
 		y: 4.3,
 		w: 6,
 		h: 3,
-		fill: { color: pptx.colors.ACCENT5 },
+		fill: { color: pptx.SchemeColor.accent5 },
 		line: { color: "696969", width: 2 },
 		flipH: true,
 		hyperlink: { url: "https://github.com/gitbrent/pptxgenjs", tooltip: "Visit Homepage" },

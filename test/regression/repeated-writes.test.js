@@ -17,7 +17,7 @@ defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
 			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', opacity: 0.15 }
-			slide.addShape(pres.shapes.RECTANGLE, { x: 1, y: 1, w: 4, h: 2, shadow })
+			slide.addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 4, h: 2, shadow })
 
 			const xml1 = await buildOnce(pres)
 			const xml2 = await buildOnce(pres)
@@ -33,7 +33,7 @@ defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
 			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', opacity: 0.15 }
-			slide.addShape(pres.shapes.RECTANGLE, { x: 1, y: 1, w: 4, h: 2, shadow })
+			slide.addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 4, h: 2, shadow })
 
 			await buildOnce(pres)
 			await buildOnce(pres)
@@ -72,7 +72,7 @@ defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
-			slide.addShape(pres.shapes.RECTANGLE, {
+			slide.addShape(pres.ShapeType.rect, {
 				x: 1,
 				y: 1,
 				w: 4,

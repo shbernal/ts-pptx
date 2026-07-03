@@ -42,8 +42,12 @@ defineRegressionSuite('addChart signature', [
 			const { zip } = await build((p) => {
 				p.addSlide().addChart(
 					[
-						{ type: p.charts.BAR, data: DATA, options: {} },
-						{ type: p.charts.LINE, data: [{ name: 'B', labels: ['Q1', 'Q2', 'Q3'], values: [1, 2, 3] }], options: {} },
+						{ type: p.ChartType.bar, data: DATA, options: {} },
+						{
+							type: p.ChartType.line,
+							data: [{ name: 'B', labels: ['Q1', 'Q2', 'Q3'], values: [1, 2, 3] }],
+							options: {},
+						},
 					],
 					{ x: 1, y: 1, w: 6, h: 3 }
 				)

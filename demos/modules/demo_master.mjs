@@ -89,7 +89,7 @@ function genSlide05(pptx) {
 	let slide = pptx.addSlide({ masterName: "MASTER_SLIDE", sectionTitle: "Masters" });
 	slide.addNotes("Master name: `MASTER_SLIDE` using pre-filled placeholders\nAPI Docs: https://gitbrent.github.io/PptxGenJS/docs/masters.html");
 	slide.addText("Chart Placeholder", { placeholder: "header" });
-	slide.addChart(pptx.charts.PIE, dataChartPieLocs, { showLegend: true, legendPos: "l", placeholder: "body" });
+	slide.addChart(pptx.ChartType.pie, dataChartPieLocs, { showLegend: true, legendPos: "l", placeholder: "body" });
 }
 
 /**
