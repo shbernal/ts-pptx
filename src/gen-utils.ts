@@ -162,25 +162,28 @@ export function inch2Emu(inches: number | string): Emu {
 }
 
 /**
- * Convert a single table cell/table `margin` component to EMU.
+ * Convert a single `margin` component (table cell/table margin, or text-box/placeholder body
+ * inset) to EMU.
  *
- * Cell margins are INCHES, consistent with the positional API (`x`/`y`/`w`/`h`) and the value
- * PowerPoint's own dialog shows. Historically the library applied a magnitude heuristic — a
- * component `>= 1` was read as POINTS (pre-v3.8.0 behavior), `< 1` as inches — which silently
- * turned a legitimate 1-inch margin into ~1pt. That fallback is gone: every value is now inches.
- * A `>= 1` value is honored as inches but warns once, because it is almost certainly a legacy
- * points value that should be divided by 72 (e.g. `10` points → `0.139` inches).
+ * Margins are INCHES, consistent with the positional API (`x`/`y`/`w`/`h`) and the value
+ * PowerPoint's own dialog shows (both the table cell-margin and the text-box internal-margin
+ * fields are inches). Historically the library read these as POINTS (table cells used a magnitude
+ * heuristic — `>= 1` points, `< 1` inches; text-box margins were straight points), so a legitimate
+ * fraction-of-an-inch value entered from the PowerPoint dialog became a tiny points value. Every
+ * value is now inches. A `>= 1` value is honored as inches but warns once, because it is almost
+ * certainly a legacy points value that should be divided by 72 (e.g. `10` points → `0.139` inches).
  *
- * Shared by the cell XML emitter (`gen-xml`) and the autoPage row-height pass (`gen-tables`) so the
- * two stay in lockstep.
+ * Shared by every margin site so they stay in lockstep: the cell XML emitter and text-box/slide-
+ * number insets (`gen-xml`), the autoPage row-height pass (`gen-tables`), and the measured-fit pass
+ * (`measure-fit`).
  * @param {number} inches - margin component in inches
  * @returns {Emu} EMU value
  */
-export function cellMarginToEmu(inches: number): Emu {
+export function marginToEmu(inches: number): Emu {
 	if (inches >= 1)
 		warnOnce(
-			'table cell margins are interpreted as inches (matching the rest of the API and the PowerPoint dialog); ' +
-				'a value >= 1 is likely a legacy points value — divide by 72 to convert (e.g. 10pt => 0.139in).'
+			'margins (table cell and text-box) are interpreted as inches (matching the rest of the API and the ' +
+				'PowerPoint dialog); a value >= 1 is likely a legacy points value — divide by 72 to convert (e.g. 10pt => 0.139in).'
 		)
 	return inch2Emu(inches)
 }

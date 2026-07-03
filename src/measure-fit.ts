@@ -13,7 +13,7 @@
 import { SlideObjectType, TextAnchor } from './core-enums.js'
 import { DEF_CELL_MARGIN_IN, DEF_FONT_SIZE, LINEH_MODIFIER } from './core-enums.js'
 import { EMU_PER_POINT, POINTS_PER_INCH, emuToInches } from './units.js'
-import { cellMarginToEmu, getSmartParseNumber, inch2Emu, resolveTableColWidthsEmu, valToPts } from './gen-utils.js'
+import { marginToEmu, getSmartParseNumber, inch2Emu, resolveTableColWidthsEmu } from './gen-utils.js'
 import { warn } from './log.js'
 import { getHeuristicFontMetrics, type FontMetricsRegistry } from './font-metrics.js'
 import {
@@ -162,12 +162,12 @@ function resolveInsetsEmu(opts: RunOpts): InsetsEmu {
 	let bIns = bp.bIns
 	if (lIns == null && rIns == null && tIns == null && bIns == null && margin != null) {
 		if (Array.isArray(margin)) {
-			tIns = valToPts(margin[0] ?? 0)
-			rIns = valToPts(margin[1] ?? 0)
-			bIns = valToPts(margin[2] ?? 0)
-			lIns = valToPts(margin[3] ?? 0)
+			tIns = marginToEmu(margin[0] ?? 0)
+			rIns = marginToEmu(margin[1] ?? 0)
+			bIns = marginToEmu(margin[2] ?? 0)
+			lIns = marginToEmu(margin[3] ?? 0)
 		} else if (typeof margin === 'number') {
-			lIns = rIns = tIns = bIns = valToPts(margin)
+			lIns = rIns = tIns = bIns = marginToEmu(margin)
 		}
 	}
 	return {
@@ -244,7 +244,7 @@ interface CellInsetsEmu {
 	marB: number
 }
 
-/** Resolve a cell's margins to EMU insets, mirroring gen-xml (array is `[T,R,B,L]`, inches; see `cellMarginToEmu`). */
+/** Resolve a cell's margins to EMU insets, mirroring gen-xml (array is `[T,R,B,L]`, inches; see `marginToEmu`). */
 function resolveCellInsetsEmu(margin: Margin | undefined): CellInsetsEmu {
 	let m: Margin = margin === 0 || margin ? margin : DEF_CELL_MARGIN_IN
 	if (typeof m === 'number') m = [m, m, m, m]
@@ -252,10 +252,10 @@ function resolveCellInsetsEmu(margin: Margin | undefined): CellInsetsEmu {
 		m = DEF_CELL_MARGIN_IN
 	const arr = m
 	return {
-		marT: cellMarginToEmu(arr[0]),
-		marR: cellMarginToEmu(arr[1]),
-		marB: cellMarginToEmu(arr[2]),
-		marL: cellMarginToEmu(arr[3]),
+		marT: marginToEmu(arr[0]),
+		marR: marginToEmu(arr[1]),
+		marB: marginToEmu(arr[2]),
+		marL: marginToEmu(arr[3]),
 	}
 }
 

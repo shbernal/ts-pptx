@@ -2205,17 +2205,17 @@ items:
       is gone. Per the maintainer's units-policy decision (2026-07-03), the fix took the
       "inches, warn on legacy" option over a typed-unit object.
 
-      A single shared helper `cellMarginToEmu(inches)` (src/gen-utils.ts) is the one source
-      of truth: it always converts as inches (`inch2Emu`) and, when a component is `>= 1`,
-      emits a one-time `warnOnce` that the value is likely a legacy points value (divide by
-      72). The three previously-lockstep sites all call it instead of branching on magnitude:
+      A single shared helper (src/gen-utils.ts) is the one source of truth: it always converts
+      as inches (`inch2Emu`) and, when a component is `>= 1`, emits a one-time `warnOnce` that
+      the value is likely a legacy points value (divide by 72). The three previously-lockstep
+      sites all call it instead of branching on magnitude:
         - src/gen-xml.ts (cell marL/marR/marT/marB emission)
         - src/gen-tables.ts (autoPage row-height margin accumulation)
         - src/measure-fit.ts (resolveCellInsetsEmu, the measured-fit pass)
       Breaking change: a caller who was passing points (e.g. `margin: 10`) now gets 10
-      inches (and a warning) instead of ~10pt; they must divide by 72. Text-box / placeholder
-      body margins (TextBaseProps `margin`, still points via `valToPts`) are UNCHANGED and
-      remain tracked under fork-units-pt-vs-inches.
+      inches (and a warning) instead of ~10pt; they must divide by 72. NOTE: the helper was
+      introduced as `cellMarginToEmu` and then generalized/renamed to `marginToEmu` when the
+      companion text-box margin migration reused it (see fork-units-pt-vs-inches).
 
       Regression: test/regression/table-cell-margin-inches.test.js proves 0.5in => 457200 EMU
       and that a `>= 1` value is honored as inches (1828800 EMU) rather than the old points
@@ -2249,37 +2249,38 @@ items:
     non_target_reasons: []
     summary: Size/spacing props are expressed in points while the positional API uses inches; reconsider unifying on one unit
     current_project_notes: |
-      The library's positional API (x/y/w/h) is in inches, but several size/spacing
-      properties have "always been points" and PowerPoint's own UI shows them in
-      inches. This mismatch is a footgun (a caller reading the PPT dialog enters an
-      inch value that the library treats as points). Recorded from the comment-cleanup
-      pass that removed the stale, version-numbered inline `// TODO ... update in v4.0`
-      notes at these sites; the units question was explicitly left open by the
-      deprecated-alias removal commit rather than resolved.
+      The library's positional API (x/y/w/h) is in inches. The original framing of this item
+      was "all size/spacing props are points, PowerPoint's UI shows inches, so migrate them
+      all to inches." The 2026-07-03 review found that framing too broad: only the MARGIN
+      family is actually shown in inches by PowerPoint; shadow blur/offset and border width
+      are shown in POINTS and already match. So the item narrowed to the margin props.
 
-      UNITS POLICY DECIDED (2026-07-03): the fork standardizes on INCHES (matching the
-      positional API and the PowerPoint dialog), NOT a typed-unit object. The migration
-      shape is "interpret as inches, warn once on values that look like the legacy points
-      usage." First application landed for table cell margins — see the DONE bullet.
+      UNITS POLICY DECIDED (2026-07-03): where a prop's PowerPoint dialog is inches, the fork
+      standardizes on INCHES (NOT a typed-unit object). The migration shape is "interpret as
+      inches, warn once on values that look like the legacy points usage (a component >= 1)."
 
-      DONE:
-      - Table cell / table-level `margin` (the magnitude-heuristic footgun) now always
-        inches, via the shared `cellMarginToEmu` helper. Fully tracked and described in
-        dn-table-cell-margin-units (status implemented). This is the first prop moved to
-        the decided inches policy.
+      DONE (both via the shared `marginToEmu` helper in src/gen-utils.ts):
+      - Table cell / table-level `margin` (the magnitude-heuristic footgun) — see
+        dn-table-cell-margin-units (status implemented).
+      - Text-box / placeholder / slide-number body `margin` (TextBaseProps `margin`, the old
+        `[20220219]` TODO) — was straight points via `valToPts`, now inches. Sites: gen-xml
+        text/placeholder bodyPr insets (~L838) and slide-number insets (~L1286), measure-fit
+        resolveInsetsEmu. Doc comments on TextBaseProps/PlaceholderProps/SlideNumberProps
+        `margin` updated from "(points)" to "(inches)". Tests: text-margin-order.test.js and
+        schema.test.js placeholder-bodyPr fixture migrated to inch values (e.g. 18pt -> 0.25in
+        = 228600 EMU). CHANGELOG Changed (unified margin entry).
 
-      STILL OPEN (all currently points; to migrate under the same inches policy):
-      - TextBaseProps `margin` (src/core-interfaces.ts, was the `[20220219]` TODO) — the
-        text-box / placeholder body margins emitted via `valToPts` (tIns/rIns/bIns/lIns).
-      - shadow `offset` (PPT UI: "Distance") and `blur` (ShadowProps).
-      - `margin?: Margin` on the "margin (points)" interface (~L3027).
-      - border `pt` — the PPT-aligned `width` alias is IMPLEMENTED (see
-        fork-transparency-width-props); `pt` remains as a deprecated alias pending removal.
-        This item still owns the eventual `pt` drop.
+      NOT A FOOTGUN — leave as points (they already match PowerPoint's points UI, do NOT
+      migrate to inches):
+      - shadow `offset` (PPT UI: "Distance", pt) and `blur` (ShadowProps, pt).
+      - border `width` (PPT line-weight UI: pt). The old `pt` alias -> `width` rename is done
+        (fork-transparency-width-props); the only remaining task there is dropping the
+        deprecated `pt` alias, which is an alias cleanup, not a units migration.
 
-      Each remaining prop is a breaking change and needs a CHANGELOG migration note when
-      scheduled. The cell-margin work establishes the pattern (shared inches helper +
-      warnOnce on legacy-looking magnitudes) to reuse.
+      With margins done and shadow/border reclassified as correct-as-points, the substantive
+      units work under this item is COMPLETE. What remains is the deprecated border-`pt` alias
+      removal (owned jointly with fork-transparency-width-props); keeping status
+      partially-implemented until that alias is dropped.
     evidence:
       kinds:
         - local-source-inspection
@@ -2287,11 +2288,14 @@ items:
       local_files:
         - src/core-interfaces.ts
         - src/gen-utils.ts
+        - src/gen-xml.ts
+        - src/measure-fit.ts
+        - test/regression/text-margin-order.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: Migrate the remaining points props (TextBaseProps margin, shadow offset/blur, drop border `pt`) to the decided inches policy using the cellMarginToEmu pattern
+    next_action: Drop the deprecated border `pt` alias (the only remaining units task; jointly owned with fork-transparency-width-props). Shadow blur/offset and border width stay points by design.
 
   - id: fork-ts-api-cleanup
     source: fork:src/core-interfaces.ts

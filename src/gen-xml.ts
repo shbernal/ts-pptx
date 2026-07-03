@@ -60,7 +60,7 @@ import {
 	genXmlColorSelection,
 	genXmlLineFill,
 	getDuplicateObjectNames,
-	cellMarginToEmu,
+	marginToEmu,
 	getImageSizeFromBase64,
 	getSmartParseNumber,
 	getUuid,
@@ -788,10 +788,10 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 						) {
 							cellMargin = DEF_CELL_MARGIN_IN
 						}
-						// Cell margins are inches (see `cellMarginToEmu`); a `>= 1` value warns once as a likely legacy points value.
-						const cellMarginXml = ` marL="${cellMarginToEmu(cellMargin[3])}" marR="${cellMarginToEmu(cellMargin[1])}" marT="${cellMarginToEmu(
+						// Cell margins are inches (see `marginToEmu`); a `>= 1` value warns once as a likely legacy points value.
+						const cellMarginXml = ` marL="${marginToEmu(cellMargin[3])}" marR="${marginToEmu(cellMargin[1])}" marT="${marginToEmu(
 							cellMargin[0]
-						)}" marB="${cellMarginToEmu(cellMargin[2])}"`
+						)}" marB="${marginToEmu(cellMargin[2])}"`
 
 						// FUTURE: cell no-wrap support (add `horzOverflow="overflow"` to the cell's `<a:tcPr>`)
 
@@ -835,15 +835,16 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 				if (slideItemObj.options.margin && Array.isArray(slideItemObj.options.margin)) {
 					// Margin arrays are documented as [Top, Right, Bottom, Left] (CSS order) and table cells /
 					// slide numbers already map them that way. Keep textboxes consistent: index 0=Top, 3=Left.
-					slideItemObj.options._bodyProp.tIns = valToPts(slideItemObj.options.margin[0] || 0)
-					slideItemObj.options._bodyProp.rIns = valToPts(slideItemObj.options.margin[1] || 0)
-					slideItemObj.options._bodyProp.bIns = valToPts(slideItemObj.options.margin[2] || 0)
-					slideItemObj.options._bodyProp.lIns = valToPts(slideItemObj.options.margin[3] || 0)
+					// Margins are inches (see `marginToEmu`), matching cell margins and the PowerPoint dialog.
+					slideItemObj.options._bodyProp.tIns = marginToEmu(slideItemObj.options.margin[0] || 0)
+					slideItemObj.options._bodyProp.rIns = marginToEmu(slideItemObj.options.margin[1] || 0)
+					slideItemObj.options._bodyProp.bIns = marginToEmu(slideItemObj.options.margin[2] || 0)
+					slideItemObj.options._bodyProp.lIns = marginToEmu(slideItemObj.options.margin[3] || 0)
 				} else if (typeof slideItemObj.options.margin === 'number') {
-					slideItemObj.options._bodyProp.lIns = valToPts(slideItemObj.options.margin)
-					slideItemObj.options._bodyProp.rIns = valToPts(slideItemObj.options.margin)
-					slideItemObj.options._bodyProp.bIns = valToPts(slideItemObj.options.margin)
-					slideItemObj.options._bodyProp.tIns = valToPts(slideItemObj.options.margin)
+					slideItemObj.options._bodyProp.lIns = marginToEmu(slideItemObj.options.margin)
+					slideItemObj.options._bodyProp.rIns = marginToEmu(slideItemObj.options.margin)
+					slideItemObj.options._bodyProp.bIns = marginToEmu(slideItemObj.options.margin)
+					slideItemObj.options._bodyProp.tIns = marginToEmu(slideItemObj.options.margin)
 				}
 
 				// A: Start SHAPE =======================================================
@@ -1283,15 +1284,16 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 		strSlideXml += '<p:txBody>'
 		strSlideXml += '<a:bodyPr'
 		if (slide._slideNumberProps.margin && Array.isArray(slide._slideNumberProps.margin)) {
-			strSlideXml += ` lIns="${valToPts(slide._slideNumberProps.margin[3] || 0)}"`
-			strSlideXml += ` tIns="${valToPts(slide._slideNumberProps.margin[0] || 0)}"`
-			strSlideXml += ` rIns="${valToPts(slide._slideNumberProps.margin[1] || 0)}"`
-			strSlideXml += ` bIns="${valToPts(slide._slideNumberProps.margin[2] || 0)}"`
+			// Margins are inches (see `marginToEmu`), matching text-box and cell margins.
+			strSlideXml += ` lIns="${marginToEmu(slide._slideNumberProps.margin[3] || 0)}"`
+			strSlideXml += ` tIns="${marginToEmu(slide._slideNumberProps.margin[0] || 0)}"`
+			strSlideXml += ` rIns="${marginToEmu(slide._slideNumberProps.margin[1] || 0)}"`
+			strSlideXml += ` bIns="${marginToEmu(slide._slideNumberProps.margin[2] || 0)}"`
 		} else if (typeof slide._slideNumberProps.margin === 'number') {
-			strSlideXml += ` lIns="${valToPts(slide._slideNumberProps.margin || 0)}"`
-			strSlideXml += ` tIns="${valToPts(slide._slideNumberProps.margin || 0)}"`
-			strSlideXml += ` rIns="${valToPts(slide._slideNumberProps.margin || 0)}"`
-			strSlideXml += ` bIns="${valToPts(slide._slideNumberProps.margin || 0)}"`
+			strSlideXml += ` lIns="${marginToEmu(slide._slideNumberProps.margin || 0)}"`
+			strSlideXml += ` tIns="${marginToEmu(slide._slideNumberProps.margin || 0)}"`
+			strSlideXml += ` rIns="${marginToEmu(slide._slideNumberProps.margin || 0)}"`
+			strSlideXml += ` bIns="${marginToEmu(slide._slideNumberProps.margin || 0)}"`
 		}
 		if (slide._slideNumberProps.valign) {
 			strSlideXml += ` anchor="${slide._slideNumberProps.valign.replace('top', 't').replace('middle', 'ctr').replace('bottom', 'b')}"`

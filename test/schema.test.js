@@ -77,7 +77,7 @@ export default [
 		name: 'text box with margins',
 		fn: async () => {
 			const { buf } = await build((p) => {
-				p.addSlide().addText('hello', { x: 1, y: 1, w: 4, h: 1, margin: [10, 5, 10, 5] })
+				p.addSlide().addText('hello', { x: 1, y: 1, w: 4, h: 1, margin: [0.1, 0.05, 0.1, 0.05] })
 			})
 			await expectNoSchemaErrors(buf, 'text-margins')
 		},
@@ -772,7 +772,7 @@ export default [
 				p.defineSlideMaster({
 					title: 'BODYPR_MASTER',
 					objects: [
-						// margin is [Top, Right, Bottom, Left] (pt) → tIns/rIns/bIns/lIns; valign → anchor.
+						// margin is [Top, Right, Bottom, Left] (inches) → tIns/rIns/bIns/lIns; valign → anchor.
 						{
 							placeholder: {
 								options: {
@@ -783,7 +783,7 @@ export default [
 									w: 9,
 									h: 1.2,
 									valign: 'bottom',
-									margin: [9, 18, 9, 18],
+									margin: [0.1, 0.25, 0.1, 0.25],
 								},
 								text: '',
 							},
@@ -799,7 +799,7 @@ export default [
 									w: 9,
 									h: 4,
 									valign: 'middle',
-									margin: [15, 12, 6, 24],
+									margin: [0.2, 0.15, 0.05, 0.3],
 								},
 								text: '',
 							},
@@ -814,16 +814,16 @@ export default [
 			const layoutXmls = await Promise.all(layoutNames.map((n) => readEntry(zip, n)))
 			const layoutXml = layoutXmls.find((xml) => xml.includes('anchor="b"') && xml.includes('lIns="228600"'))
 			assert(layoutXml, `found the BODYPR_MASTER layout part among ${layoutNames.join(', ')}`)
-			// Title placeholder: bottom anchor, 18pt L/R + 9pt T/B insets (EMU @ 12700/pt).
+			// Title placeholder: bottom anchor, 0.25in L/R + 0.1in T/B insets (EMU @ 914400/in).
 			assertIncludes(
 				layoutXml,
-				'lIns="228600" tIns="114300" rIns="228600" bIns="114300" rtlCol="0" anchor="b"',
+				'lIns="228600" tIns="91440" rIns="228600" bIns="91440" rtlCol="0" anchor="b"',
 				'title placeholder bodyPr'
 			)
-			// Body placeholder: center anchor, asymmetric 24/15/12/6pt insets.
+			// Body placeholder: center anchor, asymmetric 0.3/0.2/0.15/0.05in insets.
 			assertIncludes(
 				layoutXml,
-				'lIns="304800" tIns="190500" rIns="152400" bIns="76200" rtlCol="0" anchor="ctr"',
+				'lIns="274320" tIns="182880" rIns="137160" bIns="45720" rtlCol="0" anchor="ctr"',
 				'body placeholder bodyPr'
 			)
 		},

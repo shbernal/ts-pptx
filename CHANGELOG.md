@@ -56,17 +56,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **BREAKING: table cell margins are now inches, not a points/inches magnitude guess.**
-  Table cell (and table-level) `margin` values used a legacy magnitude heuristic — a
-  component `>= 1` was read as **points**, `< 1` as **inches** — so a legitimate 1-inch
-  margin silently became ~1pt and there was no way to express it. Margins are now always
-  **inches**, matching `x`/`y`/`w`/`h` and the value PowerPoint's own dialog shows. A
-  component `>= 1` is still honored as inches but logs a one-time warning that it is likely
-  a legacy points value. **Migration:** if you were passing points (e.g. `margin: 10`),
-  divide by 72 (`10pt` → `~0.139in`). Fractional margins (`0.05`, `0.1`, the defaults) are
-  unaffected. Text-box / placeholder body margins (`TextProps.margin`) are unchanged and
-  remain in points. Implemented via a shared `cellMarginToEmu` helper used by the cell XML
-  emitter, the autoPage row-height pass, and the measured-fit pass.
+- **BREAKING: `margin` is now inches everywhere, not points.** Both kinds of `margin`
+  are now interpreted as **inches**, matching `x`/`y`/`w`/`h` and the values PowerPoint's
+  own dialogs show (the table cell-margin field and the text-box internal-margin field are
+  both inches in PowerPoint):
+  - **Table cell / table-level `margin`** previously used a magnitude heuristic — a
+    component `>= 1` was read as points, `< 1` as inches — so a legitimate 1-inch margin
+    silently became ~1pt with no way to express it. The heuristic is gone.
+  - **Text-box / placeholder / slide-number body `margin`** (`TextProps.margin`) previously
+    read as straight points (e.g. the PowerPoint "Normal" default `[3.5, 7.0, 3.5, 7.0]` pt).
+    It is now inches (`[0.05, 0.1, 0.05, 0.1]`).
+
+  A component `>= 1` is still honored as inches but logs a one-time warning that it is
+  likely a legacy points value. **Migration:** if you were passing points (e.g. `margin: 10`
+  or `margin: [9, 18, 9, 18]`), divide by 72 (`10pt` → `~0.139in`, `18pt` → `0.25in`).
+  Fractional margins (`0.05`, `0.1`, the defaults) are unaffected. Shadow `blur`/`offset`
+  and border `width` remain points — PowerPoint shows those in points, so they already
+  match. Implemented via a shared `marginToEmu` helper used by the cell XML emitter, the
+  text-box/slide-number insets, the autoPage row-height pass, and the measured-fit pass.
 
 - **BREAKING: enum names rationalized to one PascalCase set.** `core-enums.ts` had
   shipped two parallel enum styles — a modern PascalCase set (`ChartType`, `ShapeType`,

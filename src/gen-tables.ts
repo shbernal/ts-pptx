@@ -15,7 +15,7 @@ import type {
 	TableRowSlide,
 	TableCellProps,
 } from './core-interfaces.js'
-import { cellMarginToEmu, getSmartParseNumber, inch2Emu, rgbToHex } from './gen-utils.js'
+import { marginToEmu, getSmartParseNumber, inch2Emu, rgbToHex } from './gen-utils.js'
 import { warn } from './log.js'
 
 type MarginTuple = [number, number, number, number]
@@ -420,17 +420,17 @@ export function getSlidesForTableRows(
 				options: cell.options,
 			})
 
-			// Cell margins are inches (see `cellMarginToEmu`); prefer the cell's own top/bottom margin, else the table's.
+			// Cell margins are inches (see `marginToEmu`); prefer the cell's own top/bottom margin, else the table's.
 			const cellMargin = Array.isArray(cell.options?.margin) ? cell.options.margin : undefined
 			const tableMargin = Array.isArray(tableProps.margin) ? tableProps.margin : null
-			if (cellMargin?.[0] && cellMarginToEmu(cellMargin[0]) > maxCellMarTopEmu)
-				maxCellMarTopEmu = cellMarginToEmu(cellMargin[0])
-			else if (tableMargin?.[0] && cellMarginToEmu(tableMargin[0]) > maxCellMarTopEmu)
-				maxCellMarTopEmu = cellMarginToEmu(tableMargin[0])
-			if (cellMargin?.[2] && cellMarginToEmu(cellMargin[2]) > maxCellMarBtmEmu)
-				maxCellMarBtmEmu = cellMarginToEmu(cellMargin[2])
-			else if (tableMargin?.[2] && cellMarginToEmu(tableMargin[2]) > maxCellMarBtmEmu)
-				maxCellMarBtmEmu = cellMarginToEmu(tableMargin[2])
+			if (cellMargin?.[0] && marginToEmu(cellMargin[0]) > maxCellMarTopEmu)
+				maxCellMarTopEmu = marginToEmu(cellMargin[0])
+			else if (tableMargin?.[0] && marginToEmu(tableMargin[0]) > maxCellMarTopEmu)
+				maxCellMarTopEmu = marginToEmu(tableMargin[0])
+			if (cellMargin?.[2] && marginToEmu(cellMargin[2]) > maxCellMarBtmEmu)
+				maxCellMarBtmEmu = marginToEmu(cellMargin[2])
+			else if (tableMargin?.[2] && marginToEmu(tableMargin[2]) > maxCellMarBtmEmu)
+				maxCellMarBtmEmu = marginToEmu(tableMargin[2])
 		})
 
 		// C: Calc usable vertical space/table height. Set default value first, adjust below when necessary.

@@ -796,7 +796,7 @@ export interface PlaceholderProps extends PositionProps, TextBaseProps, ObjectNa
 	name: string
 	type: PLACEHOLDER_TYPE
 	/**
-	 * margin (points)
+	 * margin (inches) — text-frame internal margin; a value `>= 1` warns as a likely legacy points value
 	 */
 	margin?: Margin
 	/**
@@ -1929,12 +1929,14 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 */
 	lineSpacingMultiple?: number
 	/**
-	 * Margin (points)
-	 * - PowerPoint: Format Shape > Shape Options > Size & Properties > Text Box > Left/Right/Top/Bottom margin
-	 * @default "Normal" margin in PowerPoint [3.5, 7.0, 3.5, 7.0] // (this library sets no value, but PowerPoint defaults to "Normal" [0.05", 0.1", 0.05", 0.1"])
-	 * @example 0 // Top/Right/Bottom/Left margin 0 [0.0" in powerpoint]
-	 * @example 10 // Top/Right/Bottom/Left margin 10 [0.14" in powerpoint]
-	 * @example [10,5,10,5] // Top margin 10, Right margin 5, Bottom margin 10, Left margin 5
+	 * Margin (inches) — the text-frame internal margin/padding
+	 * - PowerPoint: Format Shape > Shape Options > Size & Properties > Text Box > Left/Right/Top/Bottom margin (shown in inches)
+	 * - array order is `[top, right, bottom, left]`
+	 * - a value `>= 1` is honored as inches but warns once (it is likely a legacy points value; divide by 72)
+	 * @default (unset) PowerPoint's "Normal" internal margin [0.05", 0.1", 0.05", 0.1"]
+	 * @example 0 // Top/Right/Bottom/Left margin 0
+	 * @example 0.1 // Top/Right/Bottom/Left margin 0.1 inch
+	 * @example [0.05, 0.1, 0.05, 0.1] // top 0.05", right 0.1", bottom 0.05", left 0.1"
 	 */
 	margin?: Margin
 	outline?: { color: Color; size: number }
@@ -3044,7 +3046,7 @@ export interface PresLayout {
 }
 export interface SlideNumberProps extends PositionProps, TextBaseProps {
 	/**
-	 * margin (points)
+	 * margin (inches) — text-frame internal margin; a value `>= 1` warns as a likely legacy points value
 	 */
 	margin?: Margin
 }
