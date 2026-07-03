@@ -46,11 +46,6 @@ export default tseslint.config(
 			'@typescript-eslint/no-non-null-assertion': 'error',
 			'@typescript-eslint/no-unnecessary-type-assertion': 'error',
 			// --- type-aware rules intentionally relaxed for this codebase ---
-			// CHART_NAME (string union) and CHART_TYPE (enum) are parallel definitions with
-			// identical string values, and scheme-color checks compare runtime strings to the
-			// SCHEME_COLORS enum. Those comparisons are value-safe; unifying the type/enum pairs
-			// is a public-API refactor (see STATIC-CHECK-HARDENING.md, Gap 4).
-			'@typescript-eslint/no-unsafe-enum-comparison': 'off',
 			// Several async methods exist only to satisfy a uniform Promise-returning contract
 			// (runtime adapters, zip/opc save, excel worksheet) even when a given impl has no await.
 			'@typescript-eslint/require-await': 'off',

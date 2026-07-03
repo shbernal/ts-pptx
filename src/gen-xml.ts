@@ -895,7 +895,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 				}
 				// Prefer the resolved slide-layout placeholder; otherwise fall back to the shape's own
 				// placeholder type (#1298) so a standalone title/body text box still emits a real <p:ph>.
-				strSlideXml += `<p:nvPr>${genXmlPlaceholder(slideItemObj._type === 'placeholder' || (placeholderObj == null && slideItemObj.options?._placeholderType) ? slideItemObj : placeholderObj)}</p:nvPr>`
+				strSlideXml += `<p:nvPr>${genXmlPlaceholder(slideItemObj._type === SLIDE_OBJECT_TYPES.placeholder || (placeholderObj == null && slideItemObj.options?._placeholderType) ? slideItemObj : placeholderObj)}</p:nvPr>`
 				strSlideXml += '</p:nvSpPr><p:spPr>'
 				strSlideXml += `<a:xfrm${locationAttr}>`
 				strSlideXml += `<a:off x="${x}" y="${y}"/>`
@@ -2013,7 +2013,7 @@ export function genXmlTextBody(slideObj: ISlideObject | TableCell): string {
 		// NOTE: shape type 'LINE' has different text align needs (a lstStyle.lvl1pPr between bodyPr and p)
 		// FIXME: LINE horiz-align doesnt work (text is always to the left inside line) (FYI: the PPT code diff is substantial!)
 		if (opts.h === 0 && opts.line && opts.align) strSlideXml += '<a:lstStyle><a:lvl1pPr algn="l"/></a:lstStyle>'
-		else if (slideObj._type === 'placeholder')
+		else if (slideObj._type === SLIDE_OBJECT_TYPES.placeholder)
 			strSlideXml += `<a:lstStyle>${genXmlParagraphProperties(slideObj, true)}</a:lstStyle>`
 		else strSlideXml += '<a:lstStyle/>'
 	}

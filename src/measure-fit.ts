@@ -10,7 +10,7 @@
  * untouched (current behavior) and warns once. See `docs/measured-text-fit.md`.
  */
 
-import { SLIDE_OBJECT_TYPES } from './core-enums.js'
+import { SLIDE_OBJECT_TYPES, TEXT_VALIGN } from './core-enums.js'
 import { DEF_CELL_MARGIN_IN, DEF_FONT_SIZE, LINEH_MODIFIER } from './core-enums.js'
 import { EMU_PER_POINT, POINTS_PER_INCH, emuToInches } from './units.js'
 import { getSmartParseNumber, inch2Emu, resolveTableColWidthsEmu, valToPts } from './gen-utils.js'
@@ -202,8 +202,8 @@ function computeBox(
 function anchorTopShareOfDelta(opts: RunOpts): number {
 	// `_bodyProp.anchor` is the resolved valign ('t' | 'ctr' | 'b'); default 'ctr'.
 	const anchor = (opts._bodyProp ?? {}).anchor
-	if (anchor === 't') return 0 // grow downward — top fixed
-	if (anchor === 'b') return 1 // grow upward — bottom fixed
+	if (anchor === TEXT_VALIGN.t) return 0 // grow downward — top fixed
+	if (anchor === TEXT_VALIGN.b) return 1 // grow upward — bottom fixed
 	return 0.5 // centered growth (default)
 }
 

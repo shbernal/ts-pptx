@@ -165,10 +165,12 @@ inline rationale in `eslint.config.mjs`:**
 
 | Rule | Count | Why off |
 | ---- | ----: | ------- |
-| `no-unsafe-enum-comparison`    | 15 | Chart half resolved (see Gap 4); remainder is `SchemeColor`/`SLIDE_OBJECT_TYPES`/valign enum-vs-string comparisons that are same-valued-string safe |
 | `require-await`                |  6 | async methods conform to a uniform Promise-returning contract (runtime adapters, zip/opc save) with no `await` |
 | `no-base-to-string`           |  6 | deliberate `String()`/`.toString()` coercion of `unknown`/union values in OOXML string-assembly paths |
 | `no-redundant-type-constituents` | 2 | public color types are `literal-union \| string` on purpose (autocomplete + escape hatch) |
+
+> `no-unsafe-enum-comparison` was on this list (15 findings) but is now **on and
+> enforced** — see the "`no-unsafe-enum-comparison` — ✅ resolved" section below.
 
 The high-value type-flow rules (`no-unsafe-*`, `no-floating-promises`,
 `no-misused-promises`, `await-thenable`, `no-unnecessary-type-assertion`) remain
@@ -309,17 +311,28 @@ that survive.
 
 ## Suggested sequencing
 
-Gaps 1, 2, and 3 are done. Gap 4 is now fully resolved: seven of the eight
-strictness knobs are enabled (five zero-cost, plus `noPropertyAccessFromIndexSignature`
-and `verbatimModuleSyntax`), and `exactOptionalPropertyTypes` is deliberately
-deferred with the rationale documented under Gap 4. Remaining:
+Gaps 1, 2, 3, and 4 are done, and `no-unsafe-enum-comparison` (the last open
+static-check item) is now enforced. All static-check gates are green with every
+type-flow rule on. Nothing remains.
 
-1. **`no-unsafe-enum-comparison`** — the only open static-check item. The
-   `CHART_NAME`/`CHART_TYPE`
-   unification noted here is **done** (`CHART_NAME` is now derived from the
-   `CHART_TYPE` enum via `` `${CHART_TYPE}` ``, internal `_type`/`make*` chart
-   code carries the enum, and `asChartType()` is the single boundary cast). That
-   removed the chart half of `no-unsafe-enum-comparison` (60 → 15). Turning the
-   rule fully back on now only needs the remaining non-chart comparisons resolved
-   (`SchemeColor` colour-validation in `gen-utils.ts`, `SLIDE_OBJECT_TYPES` in
-   `gen-objects.ts`/`gen-xml.ts`, valign anchor in `measure-fit.ts`).
+## `no-unsafe-enum-comparison` — ✅ resolved
+
+The `CHART_NAME`/`CHART_TYPE` unification done earlier removed the chart half of
+the findings (60 → 15). The remaining 15 non-chart comparisons were all
+enum-member-vs-string-literal checks that happened to be value-safe but were
+opaque to the rule; each was rewritten to compare against the enum member so the
+rule is satisfied structurally rather than suppressed:
+
+- **`gen-utils.ts` (10)** — the 10 chained `colorVal !== SchemeColor.<member>`
+  comparisons in `createColorElement`'s validation collapsed to a single
+  `!Object.values(SchemeColor).includes(colorVal as SchemeColor)`, matching the
+  existing scheme-color idiom in `gen-objects.ts` (`SCHEME_COLOR_NAMES`).
+- **`gen-objects.ts` (1) / `gen-xml.ts` (2)** — `_type === 'placeholder'` string
+  literals replaced with `SLIDE_OBJECT_TYPES.placeholder` (already the dominant
+  usage in both files).
+- **`measure-fit.ts` (2)** — `anchor === 't'` / `'b'` replaced with
+  `TEXT_VALIGN.t` / `TEXT_VALIGN.b` (the field is typed `TEXT_VALIGN`).
+
+The rule now comes on by default from `recommendedTypeChecked`; its explicit
+`off` override was removed from `eslint.config.mjs`. Build, typecheck, lint, and
+the full unit suite (406) stay green.

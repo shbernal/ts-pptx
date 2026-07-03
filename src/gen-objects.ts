@@ -1803,7 +1803,7 @@ export function addTextDefinition(
 			if (itemOpts.placeholder && target._slideLayout && target._slideLayout._slideObjects) {
 				const placeHold = target._slideLayout._slideObjects.filter(
 					(item) =>
-						item._type === 'placeholder' &&
+						item._type === SLIDE_OBJECT_TYPES.placeholder &&
 						item.options &&
 						item.options.placeholder &&
 						item.options.placeholder === itemOpts.placeholder
