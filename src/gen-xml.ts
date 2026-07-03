@@ -806,9 +806,6 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 
 						// 4: Set CELL content and properties ==================================
 						strXml += `<a:tc${cellSpanAttrStr}>${genXmlTextBody(cell)}<a:tcPr${cellMarginXml}${cellValign}${cellTextDir}>`
-						// strXml += `<a:tc${cellColspan}${cellRowspan}>${genXmlTextBody(cell)}<a:tcPr${cellMarginXml}${cellValign}${cellTextDir}>`
-						// FIXME: 20200525: ^^^
-						// <a:tcPr marL="38100" marR="38100" marT="38100" marB="38100" vert="vert270">
 
 						// 5: Borders: Add any borders
 						const cellBorder = Array.isArray(cellOpts.border) ? cellOpts.border : null
@@ -1975,7 +1972,6 @@ export function genXmlTextBody(slideObj: ISlideObject | TableCell): string {
 		typeof slideObj.text === 'object' &&
 		Object.keys(slideObj.text).includes('text')
 	) {
-		// } else if (!Array.isArray(slideObj.text) && slideObj.text!.hasOwnProperty('text')) { // 20210706: replaced with below as ts compiler rejected it
 		// Handle case 3
 		tmpTextObjects.push({
 			text: slideObj.text || '',
@@ -2122,7 +2118,6 @@ export function genXmlTextBody(slideObj: ISlideObject | TableCell): string {
 			Object.entries(opts)
 				.filter(([key]) => !(textObj.options.hyperlink && key === 'color'))
 				.forEach(([key, val]) => {
-					// if (textObj.options.hyperlink && key === 'color') null
 					// NOTE: This loop will pick up unecessary keys (`x`, etc.), but it doesnt hurt anything
 					if (key !== 'bullet' && !textOptions[key]) textOptions[key] = val
 				})

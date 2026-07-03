@@ -222,19 +222,6 @@ export function createSlideMaster(props: SlideMasterProps, target: SlideLayoutIn
 				placeholderOptions._placeholderIdx = 100 + idx
 				addTextDefinition(tgt, [{ text: placeholder.text }], placeholderOptions, true)
 				// TODO: ISSUE#599 - only text is suported now (add more below)
-				// else if (placeholder.image) addImageDefinition(tgt, placeholder.image)
-				/* 20200120: So... image placeholders go into the "slideLayoutN.xml" file and addImage doesnt do this yet...
-					<p:sp>
-				  <p:nvSpPr>
-					<p:cNvPr id="7" name="Picture Placeholder 6">
-					  <a:extLst>
-						<a:ext uri="{FF2B5EF4-FFF2-40B4-BE49-F238E27FC236}">
-						  <a16:creationId xmlns:a16="http://schemas.microsoft.com/office/drawing/2014/main" id="{CE1AE45D-8641-0F4F-BDB5-080E69CCB034}"/>
-						</a:ext>
-					  </a:extLst>
-					</p:cNvPr>
-					<p:cNvSpPr>
-				*/
 			}
 		})
 	}
@@ -932,8 +919,6 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 		throw new Error('addMedia() error: online videos require `link` value')
 	}
 
-	// FIXME: 20190707
-	// strType = strData ? strData.split(';')[0].split('/')[0] : strType
 	strExtn = opt.extn || (strData ? (strData.split(';')[0] ?? '').split('/')[1] : strPath.split('.').pop()) || 'mp3'
 
 	// STEP 2: Set type, media

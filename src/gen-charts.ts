@@ -372,7 +372,6 @@ export function buildEmbeddedWorksheet(chartObject: ISlideRelChart): Uint8Array 
 					strSheetXml += '</row>'
 				})
 			} else {
-				// strSheetXml += '<cols><col min="1" max="1" width="11" customWidth="1" /></cols>'
 				strSheetXml += '<sheetData>'
 
 				/* EX: INPUT: `data`
@@ -479,10 +478,9 @@ export function buildEmbeddedWorksheet(chartObject: ISlideRelChart): Uint8Array 
 
 			strSheetXml += '<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>'
 			// Link the `table1.xml` file to define an actual Table in Excel
-			// NOTE: This only works with scatter charts - all others give a "cannot find linked file" error
-			// ....: Since we dont need the table anyway (chart data can be edited/range selected, etc.), just dont use this
-			// ....: Leaving this so nobody foolishly attempts to add this in the future
-			// strSheetXml += '<tableParts count="1"><tablePart r:id="rId1"/></tableParts>'
+			// NOTE: Intentionally no `<tableParts>` here. A tablePart only works for scatter charts;
+			// every other chart type reports a "cannot find linked file" error. The chart data can be
+			// edited / range-selected without it, so it is deliberately never emitted.
 			strSheetXml += '</worksheet>\n'
 			zipExcel.add('xl/worksheets/sheet1.xml', strSheetXml)
 		}
@@ -832,8 +830,6 @@ export function makeXmlCharts(rel: ISlideRelChart): string {
 				if (hasLegendW) vals += `<c:w val="${legendLayout.w}"/>`
 				if (hasLegendH) vals += `<c:h val="${legendLayout.h}"/>`
 				strXml += `<c:layout><c:manualLayout>${modes}${vals}</c:manualLayout></c:layout>`
-			} else {
-				// strXml += '<c:layout/>'
 			}
 			strXml += '<c:overlay val="0"/>'
 			if (rel.opts.legendFontFace || rel.opts.legendFontSize || rel.opts.legendColor) {
@@ -1731,9 +1727,8 @@ function makeChartType(
 			}
 
 			// 4: Bubble options
-			// strXml += '  <c:bubbleScale val="100"/>';
-			// strXml += '  <c:showNegBubbles val="0"/>';
-			// Commented out to let it default to PPT until we create options
+			// `<c:bubbleScale>` / `<c:showNegBubbles>` are intentionally omitted so PowerPoint
+			// applies its own defaults; no library option exposes them yet.
 
 			// 5: AxisId (NOTE: order matters! (category comes first))
 			strXml += `<c:axId val="${catAxisId}"/><c:axId val="${valAxisId}"/>`
@@ -1788,7 +1783,6 @@ function makeChartType(
 				strXml += createShadowEffectLst(opts.shadow, DEF_SHAPE_SHADOW)
 			}
 			strXml += '  </c:spPr>'
-			// strXml += '<c:explosion val="0"/>'
 
 			// 2: "Data Point" block for every data row
 			firstLabelGroup(optsChartData).forEach((_label, idx) => {
