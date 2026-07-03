@@ -13,7 +13,7 @@
 import { SlideObjectType, TextAnchor } from './core-enums.js'
 import { DEF_CELL_MARGIN_IN, DEF_FONT_SIZE, LINEH_MODIFIER } from './core-enums.js'
 import { EMU_PER_POINT, POINTS_PER_INCH, emuToInches } from './units.js'
-import { getSmartParseNumber, inch2Emu, resolveTableColWidthsEmu, valToPts } from './gen-utils.js'
+import { cellMarginToEmu, getSmartParseNumber, inch2Emu, resolveTableColWidthsEmu, valToPts } from './gen-utils.js'
 import { warn } from './log.js'
 import { getHeuristicFontMetrics, type FontMetricsRegistry } from './font-metrics.js'
 import {
@@ -244,15 +244,19 @@ interface CellInsetsEmu {
 	marB: number
 }
 
-/** Resolve a cell's margins to EMU insets, mirroring gen-xml (array is `[T,R,B,L]`; ≥1 ⇒ points, else inches). */
+/** Resolve a cell's margins to EMU insets, mirroring gen-xml (array is `[T,R,B,L]`, inches; see `cellMarginToEmu`). */
 function resolveCellInsetsEmu(margin: Margin | undefined): CellInsetsEmu {
 	let m: Margin = margin === 0 || margin ? margin : DEF_CELL_MARGIN_IN
 	if (typeof m === 'number') m = [m, m, m, m]
 	if (!Array.isArray(m) || m.length !== 4 || m.some((v) => typeof v !== 'number' || !isFinite(v)))
 		m = DEF_CELL_MARGIN_IN
 	const arr = m
-	const toEmu = arr[0] >= 1 ? valToPts : inch2Emu
-	return { marT: toEmu(arr[0]), marR: toEmu(arr[1]), marB: toEmu(arr[2]), marL: toEmu(arr[3]) }
+	return {
+		marT: cellMarginToEmu(arr[0]),
+		marR: cellMarginToEmu(arr[1]),
+		marB: cellMarginToEmu(arr[2]),
+		marL: cellMarginToEmu(arr[3]),
+	}
 }
 
 /**

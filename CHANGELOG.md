@@ -56,6 +56,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING: table cell margins are now inches, not a points/inches magnitude guess.**
+  Table cell (and table-level) `margin` values used a legacy magnitude heuristic — a
+  component `>= 1` was read as **points**, `< 1` as **inches** — so a legitimate 1-inch
+  margin silently became ~1pt and there was no way to express it. Margins are now always
+  **inches**, matching `x`/`y`/`w`/`h` and the value PowerPoint's own dialog shows. A
+  component `>= 1` is still honored as inches but logs a one-time warning that it is likely
+  a legacy points value. **Migration:** if you were passing points (e.g. `margin: 10`),
+  divide by 72 (`10pt` → `~0.139in`). Fractional margins (`0.05`, `0.1`, the defaults) are
+  unaffected. Text-box / placeholder body margins (`TextProps.margin`) are unchanged and
+  remain in points. Implemented via a shared `cellMarginToEmu` helper used by the cell XML
+  emitter, the autoPage row-height pass, and the measured-fit pass.
+
 - **BREAKING: enum names rationalized to one PascalCase set.** `core-enums.ts` had
   shipped two parallel enum styles — a modern PascalCase set (`ChartType`, `ShapeType`,
   `SchemeColor`, `AlignH`, `AlignV`, `OutputType`) and a legacy `SCREAMING_CASE` set that

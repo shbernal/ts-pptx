@@ -3,7 +3,7 @@
  */
 
 import { REGEX_HEX_COLOR, DEF_FONT_COLOR, EMU, ONEPT, SchemeColor, type SCHEME_COLORS } from './core-enums.js'
-import { warn } from './log.js'
+import { warn, warnOnce } from './log.js'
 import {
 	ANGLE_UNITS_PER_DEGREE,
 	coordToEmu,
@@ -159,6 +159,30 @@ export function getDuplicateObjectNames(names: string[]): string[] {
 export function inch2Emu(inches: number | string): Emu {
 	if (typeof inches === 'string') inches = Number(inches.replace(/in*/gi, ''))
 	return inchesToEmu(inches)
+}
+
+/**
+ * Convert a single table cell/table `margin` component to EMU.
+ *
+ * Cell margins are INCHES, consistent with the positional API (`x`/`y`/`w`/`h`) and the value
+ * PowerPoint's own dialog shows. Historically the library applied a magnitude heuristic — a
+ * component `>= 1` was read as POINTS (pre-v3.8.0 behavior), `< 1` as inches — which silently
+ * turned a legitimate 1-inch margin into ~1pt. That fallback is gone: every value is now inches.
+ * A `>= 1` value is honored as inches but warns once, because it is almost certainly a legacy
+ * points value that should be divided by 72 (e.g. `10` points → `0.139` inches).
+ *
+ * Shared by the cell XML emitter (`gen-xml`) and the autoPage row-height pass (`gen-tables`) so the
+ * two stay in lockstep.
+ * @param {number} inches - margin component in inches
+ * @returns {Emu} EMU value
+ */
+export function cellMarginToEmu(inches: number): Emu {
+	if (inches >= 1)
+		warnOnce(
+			'table cell margins are interpreted as inches (matching the rest of the API and the PowerPoint dialog); ' +
+				'a value >= 1 is likely a legacy points value — divide by 72 to convert (e.g. 10pt => 0.139in).'
+		)
+	return inch2Emu(inches)
 }
 
 /**

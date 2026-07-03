@@ -60,6 +60,7 @@ import {
 	genXmlColorSelection,
 	genXmlLineFill,
 	getDuplicateObjectNames,
+	cellMarginToEmu,
 	getImageSizeFromBase64,
 	getSmartParseNumber,
 	getUuid,
@@ -787,21 +788,10 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 						) {
 							cellMargin = DEF_CELL_MARGIN_IN
 						}
-						/**
-						 * Cell margins use a magnitude heuristic for legacy reasons: a value `>= 1` is interpreted as
-						 * points (the pre-v3.8.0 behavior), while a value `< 1` is interpreted as inches. Unifying on a
-						 * single unit is a breaking change tracked in the backlog (dn-table-cell-margin-units).
-						 */
-						let cellMarginXml: string
-						if (cellMargin[0] >= 1) {
-							cellMarginXml = ` marL="${valToPts(cellMargin[3])}" marR="${valToPts(cellMargin[1])}" marT="${valToPts(cellMargin[0])}" marB="${valToPts(
-								cellMargin[2]
-							)}"`
-						} else {
-							cellMarginXml = ` marL="${inch2Emu(cellMargin[3])}" marR="${inch2Emu(cellMargin[1])}" marT="${inch2Emu(cellMargin[0])}" marB="${inch2Emu(
-								cellMargin[2]
-							)}"`
-						}
+						// Cell margins are inches (see `cellMarginToEmu`); a `>= 1` value warns once as a likely legacy points value.
+						const cellMarginXml = ` marL="${cellMarginToEmu(cellMargin[3])}" marR="${cellMarginToEmu(cellMargin[1])}" marT="${cellMarginToEmu(
+							cellMargin[0]
+						)}" marB="${cellMarginToEmu(cellMargin[2])}"`
 
 						// FUTURE: cell no-wrap support (add `horzOverflow="overflow"` to the cell's `<a:tcPr>`)
 

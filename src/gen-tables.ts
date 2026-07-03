@@ -15,7 +15,7 @@ import type {
 	TableRowSlide,
 	TableCellProps,
 } from './core-interfaces.js'
-import { getSmartParseNumber, inch2Emu, rgbToHex, valToPts } from './gen-utils.js'
+import { cellMarginToEmu, getSmartParseNumber, inch2Emu, rgbToHex } from './gen-utils.js'
 import { warn } from './log.js'
 
 type MarginTuple = [number, number, number, number]
@@ -420,28 +420,17 @@ export function getSlidesForTableRows(
 				options: cell.options,
 			})
 
-			/**
-			 * Cell margins use a magnitude heuristic for legacy reasons: a value `>= 1` is interpreted as
-			 * points (the pre-v3.8.0 behavior), while a value `< 1` is interpreted as inches. Unifying on a
-			 * single unit is a breaking change tracked in the backlog (dn-table-cell-margin-units).
-			 */
+			// Cell margins are inches (see `cellMarginToEmu`); prefer the cell's own top/bottom margin, else the table's.
 			const cellMargin = Array.isArray(cell.options?.margin) ? cell.options.margin : undefined
 			const tableMargin = Array.isArray(tableProps.margin) ? tableProps.margin : null
-			if (cellMargin && cellMargin[0] >= 1) {
-				if (cellMargin[0] && valToPts(cellMargin[0]) > maxCellMarTopEmu) maxCellMarTopEmu = valToPts(cellMargin[0])
-				else if (tableMargin?.[0] && valToPts(tableMargin[0]) > maxCellMarTopEmu)
-					maxCellMarTopEmu = valToPts(tableMargin[0])
-				if (cellMargin[2] && valToPts(cellMargin[2]) > maxCellMarBtmEmu) maxCellMarBtmEmu = valToPts(cellMargin[2])
-				else if (tableMargin?.[2] && valToPts(tableMargin[2]) > maxCellMarBtmEmu)
-					maxCellMarBtmEmu = valToPts(tableMargin[2])
-			} else {
-				if (cellMargin?.[0] && inch2Emu(cellMargin[0]) > maxCellMarTopEmu) maxCellMarTopEmu = inch2Emu(cellMargin[0])
-				else if (tableMargin?.[0] && inch2Emu(tableMargin[0]) > maxCellMarTopEmu)
-					maxCellMarTopEmu = inch2Emu(tableMargin[0])
-				if (cellMargin?.[2] && inch2Emu(cellMargin[2]) > maxCellMarBtmEmu) maxCellMarBtmEmu = inch2Emu(cellMargin[2])
-				else if (tableMargin?.[2] && inch2Emu(tableMargin[2]) > maxCellMarBtmEmu)
-					maxCellMarBtmEmu = inch2Emu(tableMargin[2])
-			}
+			if (cellMargin?.[0] && cellMarginToEmu(cellMargin[0]) > maxCellMarTopEmu)
+				maxCellMarTopEmu = cellMarginToEmu(cellMargin[0])
+			else if (tableMargin?.[0] && cellMarginToEmu(tableMargin[0]) > maxCellMarTopEmu)
+				maxCellMarTopEmu = cellMarginToEmu(tableMargin[0])
+			if (cellMargin?.[2] && cellMarginToEmu(cellMargin[2]) > maxCellMarBtmEmu)
+				maxCellMarBtmEmu = cellMarginToEmu(cellMargin[2])
+			else if (tableMargin?.[2] && cellMarginToEmu(tableMargin[2]) > maxCellMarBtmEmu)
+				maxCellMarBtmEmu = cellMarginToEmu(tableMargin[2])
 		})
 
 		// C: Calc usable vertical space/table height. Set default value first, adjust below when necessary.
