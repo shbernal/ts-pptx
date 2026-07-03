@@ -40,9 +40,9 @@ export default tseslint.config(
 		},
 		rules: {
 			// Gate both compile-time escape hatches from the null-safety work: a bare `!`
-			// (Gap 3) and a provably-redundant `as` cast (Gap 4). no-unnecessary-type-assertion
-			// already ships on in recommendedTypeChecked; it is pinned here so the `!`/`as`
-			// symmetry is explicit and survives any upstream preset change.
+			// and a provably-redundant `as` cast. no-unnecessary-type-assertion already ships
+			// on in recommendedTypeChecked; it is pinned here so the `!`/`as` symmetry is
+			// explicit and survives any upstream preset change.
 			'@typescript-eslint/no-non-null-assertion': 'error',
 			'@typescript-eslint/no-unnecessary-type-assertion': 'error',
 			// --- type-aware rules intentionally relaxed for this codebase ---

@@ -71,6 +71,54 @@ Smoke-test the maintained demos against the built workspace package:
 pnpm run test:demos
 ```
 
+## Static Checks
+
+Three gates keep the source statically sound. All are green and expected to stay
+that way:
+
+```bash
+pnpm run typecheck     # tsc -p tsconfig.json --noEmit
+pnpm run lint          # eslint . --no-warn-ignored
+pnpm run format:check  # prettier --check (includes src/**/*.ts)
+```
+
+### TypeScript strictness
+
+Strictness is configured once in `tsconfig.base.json` and applies to all of
+`src/`. Beyond `strict: true`, the codebase enables `strictNullChecks`,
+`noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature`,
+`verbatimModuleSyntax`, and the zero-cost path/usage knobs
+(`noImplicitReturns`, `noFallthroughCasesInSwitch`, `noImplicitOverride`,
+`noUnusedLocals`, `noUnusedParameters`). Fix new errors with real narrowing or
+guards — not `!` assertions or `as` casts (both are lint errors; see below).
+
+`exactOptionalPropertyTypes` is deliberately **left off**. The interfaces it
+flags (`IChartOptsLib`, `ObjectOptions`, `BorderProps`, …) are internal
+*normalized* option state, and normalization is built around "`undefined` means
+use-the-default / omit" — the exact present-but-`undefined` pattern the flag
+forbids. Enabling it either fights that design or risks output changes (e.g.
+rewriting the latent `x || !x ? x : false` no-ops to `x ?? false` flips
+`undefined → false`). Revisit only if the chart/shape option code is ever split
+into distinct "raw input" and "resolved options" types, at which point the flag
+becomes cheap on the input type.
+
+### Lint policy
+
+`src/**/*.ts` runs the type-aware set (`recommendedTypeChecked`), wired to type
+info via `parserOptions.projectService`. `test/` and `scripts/` run the plain
+recommended set. Two guardrail rules are pinned as **errors** to close the
+compile-time escape hatches from the null-safety work:
+
+- `@typescript-eslint/no-non-null-assertion` — bans a bare `!`.
+- `@typescript-eslint/no-unnecessary-type-assertion` — bans a provably-redundant
+  `as` (an intentional branding/`unknown as T` cast is not redundant and stays).
+
+A handful of type-aware rules are intentionally relaxed to `off`
+(`require-await`, `no-base-to-string`, `no-redundant-type-constituents`), each
+with an inline rationale in `eslint.config.mjs`. Prettier is the sole formatter
+of record; `eslint-config-prettier` disables any formatting rules that would
+conflict.
+
 ## OOXML Changes
 
 Before changing emitted OOXML, read
