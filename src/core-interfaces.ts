@@ -2363,7 +2363,7 @@ export interface OptsChartGridLine {
 export interface ChartMulti {
 	type: CHART_NAME
 	data: OptsChartData[]
-	options: ChartOptsLib
+	options: ChartOptsInternal
 }
 export interface ChartPropsFillLine {
 	/**
@@ -2914,12 +2914,12 @@ export interface ChartOpts
 	 */
 	metadata?: Record<string, string>
 }
-export interface ChartOptsLib extends ChartOpts {
+export interface ChartOptsInternal extends ChartOpts {
 	_type?: ChartType | ChartMulti[] // internal, normalized from `CHART_NAME`
 }
 export interface SlideRelChart extends OptsChartData {
 	type: CHART_NAME | ChartMulti[]
-	opts: ChartOptsLib
+	opts: ChartOptsInternal
 	data: OptsChartDataInternal[]
 	// internal below
 	rId: number
@@ -3051,8 +3051,8 @@ export interface SlideNumberProps extends PositionProps, TextBaseProps {
 export interface SlideMasterChartProps {
 	type: CHART_NAME | ChartMulti[]
 	data: OptsChartData[]
-	options?: ChartOptsLib
-	opts?: ChartOptsLib
+	options?: ChartOptsInternal
+	opts?: ChartOptsInternal
 }
 export type SlideMasterObject =
 	| { chart: SlideMasterChartProps }
@@ -3484,8 +3484,8 @@ export type IChartAreaProps = ChartAreaProps
 export type IChartMulti = ChartMulti
 /** @deprecated v4.0.0 - renamed to {@link ChartOpts} (dropped the legacy `I` prefix). */
 export type IChartOpts = ChartOpts
-/** @deprecated v4.0.0 - renamed to {@link ChartOptsLib} (dropped the legacy `I` prefix). */
-export type IChartOptsLib = ChartOptsLib
+/** @deprecated v4.0.0 - renamed to {@link ChartOptsInternal} (internal shape; now uses the `*Internal` convention). */
+export type IChartOptsLib = ChartOptsInternal
 /** @deprecated v4.0.0 - renamed to {@link ChartPropsAxisCat} (dropped the legacy `I` prefix). */
 export type IChartPropsAxisCat = ChartPropsAxisCat
 /** @deprecated v4.0.0 - renamed to {@link ChartPropsAxisSer} (dropped the legacy `I` prefix). */

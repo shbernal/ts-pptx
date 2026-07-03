@@ -102,6 +102,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Migration: drop the `I` prefix in type imports/annotations, e.g.
     `import type { IChartOpts } from '...'` → `import type { ChartOpts } from '...'`.
 
+- **Renamed the internal `ChartOptsLib` shape to `ChartOptsInternal`.** This type
+  is `ChartOpts` plus the internal `_type` carrier and was never meant as a public
+  entry point; it now follows the same `*Internal` convention as
+  `OptsChartDataInternal` / `PresentationPropsInternal`. Additive: the deprecated
+  `IChartOptsLib` alias now points at `ChartOptsInternal`, so existing imports keep
+  compiling.
+
 ### Removed
 
 - **BREAKING: removed the long-deprecated compatibility aliases.** These options

@@ -39,7 +39,7 @@ import type {
 	GroupProps,
 	ChartMulti,
 	ChartOpts,
-	ChartOptsLib,
+	ChartOptsInternal,
 	OptsChartDataInternal,
 	SlideObject,
 	ImageProps,
@@ -256,7 +256,7 @@ function clampChartPct(value: number | undefined, min: number, max: number, name
  *
  * @param {CHART_NAME | ChartMulti[]} `type` should belong to: 'column', 'pie'
  * @param {[]} `data` a JSON object with follow the following format
- * @param {ChartOptsLib} `opt` chart options
+ * @param {ChartOptsInternal} `opt` chart options
  * @param {PresSlideInternal} `target` slide object that the chart will be added to
  * @return {object} chart object
  * {
@@ -279,7 +279,7 @@ export function addChartDefinition(
 	target: PresSlideInternal,
 	type: CHART_NAME | ChartMulti[],
 	data: OptsChartData[] | ChartOpts,
-	opt?: ChartOptsLib
+	opt?: ChartOptsInternal
 ): object {
 	function correctGridLineOptions(glOpts: OptsChartGridLine): void {
 		if (!glOpts || glOpts.style === 'none') return
@@ -304,7 +304,7 @@ export function addChartDefinition(
 	// DESIGN: `type` can an object (ex: `pptx.ChartType.doughnut`) or an array of chart objects
 	// EX: addChartDefinition([ { type:pptx.ChartType.bar, data:{name:'', labels:[], values[]} }, {<etc>} ])
 	// Multi-Type Charts
-	let tmpOpt: ChartOpts | ChartOptsLib | undefined
+	let tmpOpt: ChartOpts | ChartOptsInternal | undefined
 	let tmpData: OptsChartData[] = []
 	if (Array.isArray(type)) {
 		// For multi-type charts there needs to be data for each type,
@@ -327,7 +327,7 @@ export function addChartDefinition(
 			item.labels = [item.labels as string[]]
 		}
 	})
-	const options: ChartOptsLib = tmpOpt && typeof tmpOpt === 'object' ? tmpOpt : {}
+	const options: ChartOptsInternal = tmpOpt && typeof tmpOpt === 'object' ? tmpOpt : {}
 
 	// STEP 1: Set default options/decode user options
 	// A: Core

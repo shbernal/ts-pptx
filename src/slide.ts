@@ -14,7 +14,7 @@ import type {
 	HexColor,
 	ChartMulti,
 	ChartOpts,
-	ChartOptsLib,
+	ChartOptsInternal,
 	SlideComment,
 	SlideObject,
 	SlideRel,
@@ -237,8 +237,8 @@ export default class Slide {
 			type = optType
 		}
 
-		// Set `_type` on ChartOptsLib as it is what is used as the object is passed around
-		;(options as ChartOptsLib)._type = Array.isArray(type) ? type : asChartType(type)
+		// Set `_type` on ChartOptsInternal as it is what is used as the object is passed around
+		;(options as ChartOptsInternal)._type = Array.isArray(type) ? type : asChartType(type)
 		// addChartDefinition's multi-type branch reads the shared options from its `data` slot
 		if (Array.isArray(type)) {
 			genObj.addChartDefinition(this, type, options, undefined)

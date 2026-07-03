@@ -20,7 +20,7 @@ import {
 	ONEPT,
 } from './core-enums.js'
 import type {
-	ChartOptsLib,
+	ChartOptsInternal,
 	SlideRelChart,
 	ChartPropsTitle,
 	OptsChartGridLine,
@@ -916,7 +916,7 @@ function genXmlChartMetadata(metadata?: Record<string, string>): string {
  * Create XML string for any given chart type
  * @param {ChartType} chartType chart type name
  * @param {OptsChartDataInternal[]} data chart data
- * @param {ChartOptsLib} opts chart options
+ * @param {ChartOptsInternal} opts chart options
  * @param {string} valAxisId chart val axis id
  * @param {string} catAxisId chart cat axis id
  * @example 'bubble' returns <c:bubbleChart></c>
@@ -926,7 +926,7 @@ function genXmlChartMetadata(metadata?: Record<string, string>): string {
 function makeChartType(
 	chartType: ChartType,
 	data: OptsChartDataInternal[],
-	opts: ChartOptsLib,
+	opts: ChartOptsInternal,
 	valAxisId: string,
 	catAxisId: string
 ): string {
@@ -1914,12 +1914,12 @@ function makeChartType(
 
 /**
  * Create Category axis
- * @param {ChartOptsLib} opts - chart options
+ * @param {ChartOptsInternal} opts - chart options
  * @param {string} axisId - value
  * @param {string} valAxisId - value
  * @return {string} XML
  */
-function makeCatAxis(opts: ChartOptsLib, axisId: string, valAxisId: string): string {
+function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: string): string {
 	let strXml = ''
 	const usesValueAxisForCategories =
 		opts._type === ChartType.scatter || opts._type === ChartType.bubble || opts._type === ChartType.bubble3d
@@ -2043,11 +2043,11 @@ function makeCatAxis(opts: ChartOptsLib, axisId: string, valAxisId: string): str
 
 /**
  * Create Value Axis (Used by `bar3D`)
- * @param {ChartOptsLib} opts - chart options
+ * @param {ChartOptsInternal} opts - chart options
  * @param {string} valAxisId - value
  * @return {string} XML
  */
-function makeValAxis(opts: ChartOptsLib, valAxisId: string): string {
+function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string {
 	let axisPos =
 		valAxisId === AXIS_ID_VALUE_PRIMARY ? (opts.barDir === 'col' ? 'l' : 'b') : opts.barDir !== 'col' ? 'r' : 't'
 	if (valAxisId === AXIS_ID_VALUE_SECONDARY) axisPos = 'r' // default behavior for PPT is showing 2nd val axis on right (primary axis on left)
@@ -2136,12 +2136,12 @@ function makeValAxis(opts: ChartOptsLib, valAxisId: string): string {
 
 /**
  * Create Series Axis (Used by `bar3D`)
- * @param {ChartOptsLib} opts - chart options
+ * @param {ChartOptsInternal} opts - chart options
  * @param {string} axisId - axis ID
  * @param {string} valAxisId - value
  * @return {string} XML
  */
-function makeSerAxis(opts: ChartOptsLib, axisId: string, valAxisId: string): string {
+function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: string): string {
 	let strXml = ''
 
 	// Build ser axis tag
@@ -2461,7 +2461,7 @@ function createSerLinesElement(opt?: boolean | OptsChartGridLine): string {
  *
  * @param opts - chart options (reads `showLeaderLines`, `leaderLineColor`, `leaderLineSize`)
  */
-function createLeaderLinesElement(opts: ChartOptsLib): string {
+function createLeaderLinesElement(opts: ChartOptsInternal): string {
 	if (!opts.showLeaderLines) return ''
 	if (!opts.leaderLineColor && opts.leaderLineSize == null) return ''
 	const w = valToPts(opts.leaderLineSize ?? 0.75)
@@ -2473,7 +2473,7 @@ function createLeaderLinesElement(opts: ChartOptsLib): string {
 	)
 }
 
-function makeCustomDLblXml(idx: number, text: string, opts: ChartOptsLib): string {
+function makeCustomDLblXml(idx: number, text: string, opts: ChartOptsInternal): string {
 	const sz = ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE)
 	const bold = opts.dataLabelFontBold ? '1' : '0'
 	const italic = opts.dataLabelFontItalic ? '1' : '0'
@@ -2523,7 +2523,7 @@ function createChartBorderLine(border: BorderProps): string {
 function makeSeriesDataPointsXml(
 	chartType: ChartType,
 	obj: OptsChartDataInternal,
-	opts: ChartOptsLib,
+	opts: ChartOptsInternal,
 	varyColors: string[] | null
 ): string {
 	if (chartType === ChartType.radar) return ''

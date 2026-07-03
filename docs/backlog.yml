@@ -2259,7 +2259,7 @@ items:
     type: fork-internal-proposal
     first_seen: 2026-07-03
     last_reviewed: 2026-07-03
-    status: deferred
+    status: implemented
     priority: p3
     target_area:
       - typescript-api
@@ -2342,15 +2342,19 @@ items:
         in src/core-enums.ts; the theme-color enum is already `SchemeColor`. Drop this
         bullet.
 
-      REMAINING (still-open surface):
-      - Fold `ChartOptsLib` (formerly `IChartOptsLib`) into `ChartOpts`. Deferred from the
-        `I`-prefix sweep because it is a structural change, not a rename: `ChartOptsLib` is
-        referenced in ~6 places (ChartMulti.options, the addChart facade overloads in
-        core-interfaces.ts, the internal `_type` carrier), so collapsing it needs its own
-        scoped change, not a mechanical edit.
+      ChartOptsLib (DONE 2026-07-03): resolved as a RENAME to `ChartOptsInternal`, not a
+      fold into `ChartOpts`. Inspection showed `ChartOptsLib` is `ChartOpts` plus one
+      INTERNAL field (`_type?: ChartType | ChartMulti[]`); folding it into `ChartOpts`
+      would leak that internal carrier onto the public interface. The convention-consistent
+      move was to rename it to `ChartOptsInternal`, matching the `*Internal` shapes the
+      `I`-prefix sweep already established (OptsChartDataInternal, PresentationPropsInternal).
+      Mechanical `\bChartOptsLib\b` rename across src/slide.ts, gen-objects.ts, gen-charts.ts,
+      core-interfaces.ts (27 refs); the deprecated `IChartOptsLib` alias now targets
+      `ChartOptsInternal` with the `*Internal`-convention JSDoc. build + typecheck + 425 unit
+      tests green. CHANGELOG Unreleased/Changed.
       The five well-scoped renames (masterTitle, radarStyle, TableCell.text, the `I`-prefix
-      sweep) plus the enum-casing pass are DONE. What remains is only the `ChartOptsLib`
-      fold, a breaking change to document in CHANGELOG when scheduled.
+      sweep), the enum-casing pass, and the `ChartOptsInternal` rename are all DONE. No
+      surface remains open under this item.
 
       ENUM SURVEY + PROPOSED CONVENTION (drafted 2026-07-03; IMPLEMENTED 2026-07-03 — see
       the enum-casing DONE bullet above for what actually landed and where it deviated):
@@ -2406,7 +2410,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: Land the `ChartOptsLib` fold into `ChartOpts` as its own breaking change (the enum-casing pass is done)
+    next_action: none
 
   - id: fork-addchart-signature
     source: fork:src/slide.ts
