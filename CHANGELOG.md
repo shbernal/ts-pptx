@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **PowerPoint-aligned border and shadow style props.** These are additive: the
+  new names read verbatim off the PowerPoint UI, and the old names still work but
+  are now `@deprecated` and will be removed on the fork's normal breaking-change
+  cadence.
+  - `BorderProps.width` (points) — the canonical name for what was `pt`, matching
+    `ShapeLineProps.width` and PowerPoint's "Line > Width" field. `pt` is
+    deprecated; when both are set, `width` wins. Applies to table cell borders and
+    chart `plotArea`/`chartArea`/`dataBorder`.
+  - `BorderProps.transparency` (0–100 percent) — new; emits `<a:alpha>` on the
+    line fill, matching PowerPoint's "Line > Transparency".
+  - `ShadowProps.transparency` (0–100 percent) — the value PowerPoint's shadow
+    dialog actually shows, as a friendlier alias of the legacy 0.0–1.0 `opacity`
+    (`transparency: 25` ≡ `opacity: 0.75`). `opacity` is deprecated; when both are
+    set, `transparency` wins (with a warning).
+
 ### Removed
 
 - **BREAKING: removed the long-deprecated compatibility aliases.** These options

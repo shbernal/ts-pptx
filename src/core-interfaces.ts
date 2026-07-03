@@ -288,10 +288,25 @@ export interface BorderProps {
 	color?: HexColor
 
 	/**
-	 * Border size (points)
+	 * Border width (points)
+	 * - MS-PPT > Format Shape > Fill & Line > Line > Width
+	 * - PowerPoint-aligned name; preferred over the legacy `pt`
 	 * @default 1
 	 */
+	width?: number
+	/**
+	 * Border size (points)
+	 * @default 1
+	 * @deprecated v4.0.0 - use `width` (aligns with the PowerPoint UI and `ShapeLineProps.width`)
+	 */
 	pt?: number
+	/**
+	 * Border transparency (percent)
+	 * - MS-PPT > Format Shape > Fill & Line > Line > Transparency
+	 * - range: 0-100
+	 * @default 0
+	 */
+	transparency?: number
 	/**
 	 * Line end cap style
 	 * @default 'flat'
@@ -322,11 +337,20 @@ export interface ShadowProps {
 	 */
 	type: 'outer' | 'inner' | 'none'
 	/**
+	 * shadow transparency (percent)
+	 * - MS-PPT > Format Shape > Effects > Shadow > Transparency
+	 * - range: 0-100 (0 = fully opaque, 100 = fully transparent)
+	 * - PowerPoint-aligned name; preferred over the legacy `opacity`
+	 * @example 25 // 25% transparent
+	 */
+	transparency?: number
+	/**
 	 * opacity (percent)
 	 * - range: 0.0-1.0
 	 * @example 0.5 // 50% opaque
+	 * @deprecated v4.0.0 - use `transparency` (0-100, matches the PowerPoint UI which shows "Transparency")
 	 */
-	opacity?: number // PowerPoint UI: "Transparency (0-100%)"
+	opacity?: number
 	/**
 	 * blur (points)
 	 * - range: 0-100

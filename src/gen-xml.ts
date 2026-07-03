@@ -65,6 +65,7 @@ import {
 	getUuid,
 	inch2Emu,
 	lineWidthToEmu,
+	resolveBorderWidth,
 	resolveTableColWidthsEmu,
 	valToPts,
 } from './gen-utils.js'
@@ -425,8 +426,8 @@ function genTableCellBorderXml(cellBorder: BorderProps[]): string {
 		if (!border) return
 		const cap = createLineCap(border.cap)
 		if (border.type !== 'none') {
-			strXml += `<a:${obj.name} w="${valToPts(border.pt ?? 1)}" cap="${cap}" cmpd="sng" algn="ctr">`
-			strXml += genXmlColorSelection(border.color ?? '363636')
+			strXml += `<a:${obj.name} w="${valToPts(resolveBorderWidth(border, 1))}" cap="${cap}" cmpd="sng" algn="ctr">`
+			strXml += genXmlColorSelection({ color: border.color ?? '363636', transparency: border.transparency })
 			strXml += `<a:prstDash val="${
 				border.type === 'dash' ? 'sysDash' : 'solid'
 			}"/><a:round/><a:headEnd type="none" w="med" len="med"/><a:tailEnd type="none" w="med" len="med"/>`
@@ -3795,8 +3796,8 @@ function genXmlTableStyleBorders(border: BorderProps | BorderProps[]): string {
 		if (b.type === 'none') {
 			xml += '<a:ln><a:noFill/></a:ln>'
 		} else {
-			xml += `<a:ln w="${lineWidthToEmu(b.pt ?? 1)}" cap="flat" cmpd="sng" algn="ctr">`
-			xml += genXmlColorSelection(b.color ?? '666666')
+			xml += `<a:ln w="${lineWidthToEmu(resolveBorderWidth(b, 1))}" cap="flat" cmpd="sng" algn="ctr">`
+			xml += genXmlColorSelection({ color: b.color ?? '666666', transparency: b.transparency })
 			xml += `<a:prstDash val="${b.type === 'dash' ? 'sysDash' : 'solid'}"/>`
 			xml += '</a:ln>'
 		}

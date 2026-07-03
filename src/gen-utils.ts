@@ -13,6 +13,7 @@ import {
 	type Emu,
 } from './units.js'
 import type {
+	BorderProps,
 	PresLayout,
 	TextGlowProps,
 	PresSlideInternal,
@@ -515,6 +516,18 @@ export function genXmlImageFill(props: ShapeFillProps | undefined): string {
  * @param {LineCap} [lineCap] - line cap style (defaults to `flat`)
  * @returns {string} value for the `cap` attribute on `<a:ln>`
  */
+/**
+ * Resolve a border's line width in points, preferring the PowerPoint-aligned `width`
+ * over the legacy `pt` alias. Falls back to `defaultPt` when neither is a usable number.
+ * @param {BorderProps} border - border properties (may carry `width` and/or `pt`)
+ * @param {number} defaultPt - width to use when neither `width` nor `pt` is a finite number
+ * @returns {number} resolved width in points
+ */
+export function resolveBorderWidth(border: BorderProps, defaultPt: number): number {
+	const val = border.width ?? border.pt
+	return typeof val === 'number' && !isNaN(val) ? val : defaultPt
+}
+
 export function createLineCap(lineCap?: LineCap): string {
 	if (!lineCap || lineCap === 'flat') {
 		return 'flat'
@@ -695,6 +708,19 @@ export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowPr
 
 		// B: ROBUST: Cast any type of valid arg to int: '12', 12.3, etc. -> 12
 		ShadowProps.angle = Math.round(Number(ShadowProps.angle))
+	}
+
+	// OPT: `transparency` (PowerPoint UI term, 0-100). Canonicalize onto `opacity` (0.0-1.0),
+	// which every emit site reads, so downstream code stays unchanged. `transparency` wins when
+	// both are set. Handled before the `opacity` block below so the derived value is validated there.
+	if (ShadowProps.transparency !== undefined) {
+		const pct = Number(ShadowProps.transparency)
+		if (isNaN(pct) || pct < 0 || pct > 100) {
+			warn('shadow.transparency can only be 0-100')
+		} else {
+			if (ShadowProps.opacity !== undefined) warn('shadow: both `transparency` and `opacity` set; using `transparency`')
+			ShadowProps.opacity = 1 - pct / 100
+		}
 	}
 
 	// OPT: `opacity`

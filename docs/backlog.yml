@@ -2233,7 +2233,10 @@ items:
       - TextBaseProps `margin` (src/core-interfaces.ts, was the `[20220219]` TODO)
       - shadow `offset` (PPT UI: "Distance") and `blur` (ShadowProps)
       - `margin?: Margin` on the "margin (points)" interface (~L3027)
-      - border `pt` (see fork-transparency-width-props for the `pt` -> `width` rename)
+      - border `pt` — the PPT-aligned `width` alias is now IMPLEMENTED (see
+        fork-transparency-width-props); `pt` remains as a deprecated alias pending
+        removal. This item still owns the units *policy* decision and the eventual
+        `pt` drop.
 
       Companion: table cell margins have their own magnitude heuristic tracked
       separately in dn-table-cell-margin-units. A unified fix would ideally settle the
@@ -2332,7 +2335,7 @@ items:
     type: fork-internal-proposal
     first_seen: 2026-07-03
     last_reviewed: 2026-07-03
-    status: deferred
+    status: implemented
     priority: p3
     target_area:
       - typescript-api
@@ -2341,25 +2344,38 @@ items:
     non_target_reasons: []
     summary: Add PowerPoint-aligned `transparency`/`width` props (Borders, shadow) and deprecate `opacity`/`pt`
     current_project_notes: |
-      Several style props use library-invented names that diverge from the PowerPoint
-      UI, and a couple of documented-but-missing props were flagged inline. Recorded
-      from the comment-cleanup pass that removed the inline TODOs:
-      - Borders: add a `transparency` prop (0-100%, PPT terminology) (core-interfaces.ts
-        BorderProps).
-      - Borders: add a `width` prop and deprecate `pt` (aligns with the unit story in
-        fork-units-pt-vs-inches).
-      - ShadowProps `opacity` (0.0-1.0) is "Transparency (0-100%)" in the PPT UI;
-        add a `transparency` prop and deprecate `opacity`.
+      IMPLEMENTED (additive phase). New PPT-aligned props added; the old names remain
+      accepted but are now `@deprecated`:
+      - `BorderProps.width` (points) is the canonical alias of `pt`; `pt` deprecated.
+        When both are set `width` wins (resolveBorderWidth in src/gen-utils.ts).
+      - `BorderProps.transparency` (0-100) emits `<a:alpha>` on the line fill.
+      - `ShadowProps.transparency` (0-100) is canonicalized onto `opacity` (0.0-1.0)
+        in correctShadowOptions (src/gen-utils.ts) so every emit site stays unchanged;
+        `transparency: 25` == `opacity: 0.75`. `opacity` deprecated; `transparency`
+        wins when both are set (with a warning).
 
-      Additive first (new props), with the old names warned-then-removed on the fork's
-      normal breaking-change cadence.
+      Wiring: table cell borders (src/gen-xml.ts) and chart plotArea/chartArea/
+      dataBorder borders (src/gen-charts.ts) resolve width via resolveBorderWidth and
+      thread transparency through genXmlColorSelection. Border normalization sites in
+      src/gen-objects.ts canonicalize `width`->`pt` and preserve `transparency`.
+
+      Deferred (not part of this change): the deprecated `pt`/`opacity` removal itself,
+      and the wider unit story (see fork-units-pt-vs-inches). The border `width` name
+      now matches ShapeLineProps.width, which advances that item.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - validator-result
       local_files:
         - src/core-interfaces.ts
+        - src/gen-utils.ts
+        - src/gen-xml.ts
+        - src/gen-charts.ts
+        - src/gen-objects.ts
+        - test/regression/border-shadow-ppt-props.test.js
       schema_fixture: null
-      validator_result: null
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: Design the transparency/width prop additions and the opacity/pt deprecation path
+    next_action: none

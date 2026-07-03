@@ -518,7 +518,9 @@ export function addChartDefinition(
 	if (options.chartArea.border) {
 		options.chartArea.border = {
 			color: options.chartArea.border.color || DEF_CHART_BORDER.color,
-			pt: options.chartArea.border.pt || DEF_CHART_BORDER.pt,
+			// canonicalize the PPT-aligned `width` onto `pt`; preserve any `transparency`
+			pt: options.chartArea.border.width || options.chartArea.border.pt || DEF_CHART_BORDER.pt,
+			transparency: options.chartArea.border.transparency,
 		}
 	}
 	options.chartArea.roundedCorners =
@@ -1416,10 +1418,14 @@ export function addTableDefinition(
 				// set complete BorderOptions for all sides
 				const arrSides = [0, 1, 2, 3] as const
 				arrSides.forEach((idx) => {
+					const side = cellBorderTuple[idx]
+					const sideWidth = side.width ?? side.pt
 					cellBorderTuple[idx] = {
-						type: cellBorderTuple[idx].type || DEF_CELL_BORDER.type,
-						color: cellBorderTuple[idx].color || DEF_CELL_BORDER.color,
-						pt: typeof cellBorderTuple[idx].pt === 'number' ? cellBorderTuple[idx].pt : DEF_CELL_BORDER.pt,
+						type: side.type || DEF_CELL_BORDER.type,
+						color: side.color || DEF_CELL_BORDER.color,
+						// canonicalize the PPT-aligned `width` onto `pt`; preserve any `transparency`
+						pt: typeof sideWidth === 'number' ? sideWidth : DEF_CELL_BORDER.pt,
+						transparency: side.transparency,
 					}
 				})
 				newCellOptions.border = cellBorderTuple
@@ -1468,7 +1474,9 @@ export function addTableDefinition(
 				? {
 						type: border[idx].type || DEF_CELL_BORDER.type,
 						color: border[idx].color || DEF_CELL_BORDER.color,
-						pt: border[idx].pt || DEF_CELL_BORDER.pt,
+						// canonicalize the PPT-aligned `width` onto `pt`; preserve any `transparency`
+						pt: border[idx].width || border[idx].pt || DEF_CELL_BORDER.pt,
+						transparency: border[idx].transparency,
 					}
 				: { type: 'none' }
 		})

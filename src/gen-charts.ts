@@ -38,6 +38,7 @@ import {
 	convertRotationDegrees,
 	encodeXmlEntities,
 	getUuid,
+	resolveBorderWidth,
 	valToPts,
 } from './gen-utils.js'
 import { FIXED_PCT_PER_PERCENT, ptToHundredths } from './units.js'
@@ -770,7 +771,7 @@ export function makeXmlCharts(rel: ISlideRelChart): string {
 
 		// OPTION: Border
 		strXml += plotArea.border
-			? `<a:ln w="${valToPts(plotArea.border.pt ?? 1)}" cap="flat">${genXmlColorSelection(plotArea.border.color ?? '363636')}</a:ln>`
+			? `<a:ln w="${valToPts(resolveBorderWidth(plotArea.border, 1))}" cap="flat">${genXmlColorSelection({ color: plotArea.border.color ?? '363636', transparency: plotArea.border.transparency })}</a:ln>`
 			: '<a:ln><a:noFill/></a:ln>'
 
 		// Close shapeProp/plotArea before Legend
@@ -852,7 +853,7 @@ export function makeXmlCharts(rel: ISlideRelChart): string {
 	strXml += '<c:spPr>'
 	strXml += chartArea.fill?.color ? genXmlColorSelection(chartArea.fill) : '<a:noFill/>'
 	strXml += chartArea.border
-		? `<a:ln w="${valToPts(chartArea.border.pt ?? 1)}" cap="flat">${genXmlColorSelection(chartArea.border.color ?? '363636')}</a:ln>`
+		? `<a:ln w="${valToPts(resolveBorderWidth(chartArea.border, 1))}" cap="flat">${genXmlColorSelection({ color: chartArea.border.color ?? '363636', transparency: chartArea.border.transparency })}</a:ln>`
 		: '<a:ln><a:noFill/></a:ln>'
 	strXml += '  <a:effectLst/>'
 	strXml += '</c:spPr>'
@@ -1052,7 +1053,7 @@ function makeChartType(
 						strXml += `<a:prstDash val="${opts.lineDashValues?.[colorIndex] ?? opts.lineDash ?? 'solid'}"/><a:round/></a:ln>`
 					}
 				} else if (opts.dataBorder) {
-					strXml += `<a:ln w="${valToPts(opts.dataBorder.pt ?? 0.75)}" cap="${createLineCap(opts.lineCap)}">${genXmlColorSelection(opts.dataBorder.color ?? '363636')}<a:prstDash val="solid"/><a:round/></a:ln>`
+					strXml += `<a:ln w="${valToPts(resolveBorderWidth(opts.dataBorder, 0.75))}" cap="${createLineCap(opts.lineCap)}">${genXmlColorSelection({ color: opts.dataBorder.color ?? '363636', transparency: opts.dataBorder.transparency })}<a:prstDash val="solid"/><a:round/></a:ln>`
 				}
 
 				strXml += createShadowEffectLst(opts.shadow, DEF_SHAPE_SHADOW)
@@ -1625,7 +1626,7 @@ function makeChartType(
 						if (opts.lineSize === 0) {
 							strXml += '<a:ln><a:noFill/></a:ln>'
 						} else if (opts.dataBorder) {
-							strXml += `<a:ln w="${valToPts(opts.dataBorder.pt ?? 0.75)}" cap="flat">${genXmlColorSelection(opts.dataBorder.color ?? '363636')}<a:prstDash val="solid"/><a:round/></a:ln>`
+							strXml += `<a:ln w="${valToPts(resolveBorderWidth(opts.dataBorder, 0.75))}" cap="flat">${genXmlColorSelection({ color: opts.dataBorder.color ?? '363636', transparency: opts.dataBorder.transparency })}<a:prstDash val="solid"/><a:round/></a:ln>`
 						} else {
 							strXml += `<a:ln w="${valToPts(opts.lineSize ?? 2)}" cap="flat">${genXmlColorSelection(tmpSerColor)}`
 							strXml += `<a:prstDash val="${opts.lineDashValues?.[colorIndex] ?? opts.lineDash ?? 'solid'}"/><a:round/></a:ln>`
@@ -1790,9 +1791,12 @@ function makeChartType(
 				if (ptStyle?.border) {
 					strXml += createChartBorderLine(ptStyle.border)
 				} else if (opts.dataBorder) {
-					strXml += `<a:ln w="${valToPts(opts.dataBorder.pt ?? 0.75)}" cap="flat"><a:solidFill>${createColorElement(
-						opts.dataBorder.color ?? '363636'
-					)}</a:solidFill><a:prstDash val="solid"/><a:round/></a:ln>`
+					strXml += `<a:ln w="${valToPts(resolveBorderWidth(opts.dataBorder, 0.75))}" cap="flat">${genXmlColorSelection(
+						{
+							color: opts.dataBorder.color ?? '363636',
+							transparency: opts.dataBorder.transparency,
+						}
+					)}<a:prstDash val="solid"/><a:round/></a:ln>`
 				}
 				strXml += createShadowEffectLst(opts.shadow, DEF_SHAPE_SHADOW)
 				strXml += '  </c:spPr>'
@@ -2491,7 +2495,7 @@ function makeCustomDLblXml(idx: number, text: string, opts: IChartOptsLib): stri
 function createChartBorderLine(border: BorderProps): string {
 	if (border.type === 'none') return '<a:ln><a:noFill/></a:ln>'
 	const dash = border.type === 'dash' ? 'dash' : 'solid'
-	return `<a:ln w="${valToPts(border.pt ?? 1)}" cap="flat">${genXmlColorSelection(border.color || '666666')}<a:prstDash val="${dash}"/><a:round/></a:ln>`
+	return `<a:ln w="${valToPts(resolveBorderWidth(border, 1))}" cap="flat">${genXmlColorSelection({ color: border.color || '666666', transparency: border.transparency })}<a:prstDash val="${dash}"/><a:round/></a:ln>`
 }
 
 /**
