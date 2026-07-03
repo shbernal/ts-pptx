@@ -68,7 +68,6 @@ import {
 	encodeXmlEntities,
 	getNewRelId,
 	getSmartParseNumber,
-	inch2Emu,
 	valToPts,
 	correctShadowOptions,
 	validateObjectName,
@@ -207,10 +206,7 @@ export function addGroupDefinition(target: PresSlideInternal, children: GroupChi
  * @param {PresSlideInternal|SlideLayoutInternal} target - empty slide object that should be updated by the passed definition
  */
 export function createSlideMaster(props: SlideMasterProps, target: SlideLayoutInternal): void {
-	// STEP 1: Add background if either the slide or layout has background props
-	if (props.bkgd) target.bkgd = props.bkgd // DEPRECATED: (remove in v4.0.0)
-
-	// STEP 2: Add all Slide Master objects in the order they were given
+	// STEP 1: Add all Slide Master objects in the order they were given
 	if (props.objects && Array.isArray(props.objects) && props.objects.length > 0) {
 		props.objects.forEach((object, idx) => {
 			const tgt = target as PresSlideInternal
@@ -243,7 +239,7 @@ export function createSlideMaster(props: SlideMasterProps, target: SlideLayoutIn
 		})
 	}
 
-	// STEP 3: Add Slide Numbers (NOTE: Do this last so numbers are not covered by objects!)
+	// STEP 2: Add Slide Numbers (NOTE: Do this last so numbers are not covered by objects!)
 	if (props.slideNumber && typeof props.slideNumber === 'object') target._slideNumberProps = props.slideNumber
 }
 
@@ -533,12 +529,6 @@ export function addChartDefinition(
 			: BARCHART_COLORS
 	options.chartColorsOpacity =
 		options.chartColorsOpacity && !isNaN(options.chartColorsOpacity) ? options.chartColorsOpacity : undefined
-	// DEPRECATED: v3.11.0 - use `plotArea.border` vvv
-	options.border = options.border && typeof options.border === 'object' ? options.border : undefined
-	if (options.border && (!options.border.pt || isNaN(options.border.pt))) options.border.pt = DEF_CHART_BORDER.pt
-	if (options.border && (!options.border.color || typeof options.border.color !== 'string'))
-		options.border.color = DEF_CHART_BORDER.color
-	// DEPRECATED: (remove above in v4.0) ^^^
 	options.plotArea = options.plotArea || {}
 	options.plotArea.border =
 		options.plotArea.border && typeof options.plotArea.border === 'object' ? options.plotArea.border : undefined
@@ -550,10 +540,7 @@ export function addChartDefinition(
 	) {
 		options.plotArea.border.color = DEF_CHART_BORDER.color
 	}
-	if (options.border) options.plotArea.border = options.border // @deprecated [[remove in v4.0]]
 	options.plotArea.fill = options.plotArea.fill || {}
-	if (options.fill) options.plotArea.fill.color = options.fill // @deprecated [[remove in v4.0]]
-	//
 	options.chartArea = options.chartArea || {}
 	options.chartArea.border =
 		options.chartArea.border && typeof options.chartArea.border === 'object' ? options.chartArea.border : undefined
@@ -607,7 +594,7 @@ export function addChartDefinition(
 
 	// STEP 4: Set props
 	resultObject._type = SLIDE_OBJECT_TYPES.chart
-	resultObject.options = options as unknown as ObjectOptions
+	resultObject.options = options
 	resultObject.chartRid = getNewRelId(target)
 
 	// STEP 5: Add this chart to this Slide Rels (rId/rels count spans all slides! Count all images to get next rId)
@@ -1203,18 +1190,7 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 		? encodeXmlEntities(validateObjectName(options.objectName, 'shape'))
 		: `Shape ${target._slideObjects.filter((obj) => obj._type === SLIDE_OBJECT_TYPES.text).length}`
 
-	// 3: Handle line (lots of deprecated opts)
-	if (typeof options.line === 'string') {
-		const tmpOpts = newLineOpts
-		tmpOpts.color = String(options.line) // @deprecated `options.line` string (was line color)
-		options.line = tmpOpts
-	}
-	if (typeof options.lineSize === 'number') options.line.width = options.lineSize // @deprecated (part of `ShapeLineProps` now)
-	if (typeof options.lineDash === 'string') options.line.dashType = options.lineDash // @deprecated (part of `ShapeLineProps` now)
-	if (typeof options.lineHead === 'string') options.line.beginArrowType = options.lineHead // @deprecated (part of `ShapeLineProps` now)
-	if (typeof options.lineTail === 'string') options.line.endArrowType = options.lineTail // @deprecated (part of `ShapeLineProps` now)
-
-	// 4: Create hyperlink rels
+	// 3: Create hyperlink rels
 	createHyperlinkRels(target, newObject)
 
 	// 5: Register an image fill (if any) as a media relationship for serialize-time blipFill
@@ -1706,7 +1682,7 @@ export function addTableDefinition(
 
 			// B: Reset opt.y to `option`/`margin` after first Slide (ISSUE#43, ISSUE#47, ISSUE#48)
 			// Keep raw inches — resolved to EMU once at emission. (No pre-conversion.)
-			if (idx > 0) opt.y = opt.autoPageSlideStartY || opt.newSlideStartY || arrTableMargin[0]
+			if (idx > 0) opt.y = opt.autoPageSlideStartY || arrTableMargin[0]
 
 			// C: Add this table to new Slide
 			{
@@ -1816,20 +1792,6 @@ export function addTextDefinition(
 					endArrowType: itemLine.endArrowType,
 				}
 				if (typeof itemOpts.line === 'object') itemOpts.line = newLineOpts
-
-				// 3: Handle line (lots of deprecated opts)
-				if (typeof itemOpts.line === 'string') {
-					const tmpOpts = newLineOpts
-					if (typeof itemOpts.line === 'string') tmpOpts.color = itemOpts.line // @deprecated [remove in v4.0]
-					// tmpOpts.color = itemOpts.line!.toString() // @deprecated `itemOpts.line`:[string] (was line color)
-					itemOpts.line = tmpOpts
-				}
-				const lineOpts = itemOpts.line || newLineOpts
-				itemOpts.line = lineOpts
-				if (typeof itemOpts.lineSize === 'number') lineOpts.width = itemOpts.lineSize // @deprecated (part of `ShapeLineProps` now)
-				if (typeof itemOpts.lineDash === 'string') lineOpts.dashType = itemOpts.lineDash // @deprecated (part of `ShapeLineProps` now)
-				if (typeof itemOpts.lineHead === 'string') lineOpts.beginArrowType = itemOpts.lineHead // @deprecated (part of `ShapeLineProps` now)
-				if (typeof itemOpts.lineTail === 'string') lineOpts.endArrowType = itemOpts.lineTail // @deprecated (part of `ShapeLineProps` now)
 			}
 
 			// C: Line opts
@@ -1840,7 +1802,6 @@ export function addTextDefinition(
 
 			// D: Transform text options to bodyProperties as thats how we build XML
 			itemOpts._bodyProp = itemOpts._bodyProp || {}
-			itemOpts._bodyProp.autoFit = itemOpts.autoFit || false // DEPRECATED: (3.3.0) If true, shape will collapse to text size (Fit To shape)
 			itemOpts._bodyProp.anchor = !itemOpts.placeholder ? TEXT_VALIGN.ctr : undefined // VALS: [t,ctr,b]
 			// `textDirection` is the documented public option; `vert` is a legacy/extended alias kept as an
 			// escape hatch for the full ST_TextVerticalType range (eaVert, mongolianVert, wordArtVertRtl).
@@ -1870,16 +1831,7 @@ export function addTextDefinition(
 				}
 			}
 
-			// E: Inset
-			// @deprecated 3.10.0 (`inset` - use `margin`)
-			if ((itemOpts.inset && !isNaN(Number(itemOpts.inset))) || itemOpts.inset === 0) {
-				itemOpts._bodyProp.lIns = inch2Emu(itemOpts.inset)
-				itemOpts._bodyProp.rIns = inch2Emu(itemOpts.inset)
-				itemOpts._bodyProp.tIns = inch2Emu(itemOpts.inset)
-				itemOpts._bodyProp.bIns = inch2Emu(itemOpts.inset)
-			}
-
-			// F: Transform @deprecated props
+			// E: Normalize shorthand `underline: true` to the object form
 			if (typeof itemOpts.underline === 'boolean' && itemOpts.underline === true) itemOpts.underline = { style: 'sng' }
 		}
 
@@ -2060,20 +2012,7 @@ export function addPlaceholdersToSlideLayouts(slide: PresSlideInternal): void {
  * @param {PresSlideInternal} target - slide object that the background is set to
  */
 export function addBackgroundDefinition(props: BackgroundProps | undefined, target: SlideLayoutInternal): void {
-	// A: @deprecated
-	if (target.bkgd) {
-		if (!target.background) target.background = {}
-
-		if (typeof target.bkgd === 'string') target.background.color = target.bkgd
-		else {
-			if (target.bkgd.data) target.background.data = target.bkgd.data
-			if (target.bkgd.path) target.background.path = target.bkgd.path
-			if (target.bkgd.src) target.background.path = target.bkgd.src // @deprecated (drop in 4.x)
-		}
-	}
-	if (target.background?.fill) target.background.color = target.background.fill
-
-	// B: Handle media
+	// Handle media
 	if (props && (props.path || props.data)) {
 		// Allow the use of only the data key (`path` isnt reqd)
 		props.path = props.path || 'preencoded.png'

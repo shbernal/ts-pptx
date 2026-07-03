@@ -463,7 +463,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 		strSlideXml += `<p:bg><p:bgPr><a:blipFill dpi="0" rotWithShape="1"><a:blip r:embed="rId${slide._bkgdImgRid}"><a:lum/></a:blip><a:srcRect/><a:stretch><a:fillRect/></a:stretch></a:blipFill><a:effectLst/></p:bgPr></p:bg>`
 	} else if (slide.background?.color || slide.background?.type === 'gradient') {
 		strSlideXml += `<p:bg><p:bgPr>${genXmlColorSelection(slide.background)}<a:effectLst/></p:bgPr></p:bg>`
-	} else if (!slide.bkgd && slide._name && slide._name === DEF_PRES_LAYOUT_NAME) {
+	} else if (!slide.background && slide._name && slide._name === DEF_PRES_LAYOUT_NAME) {
 		// NOTE: Default [white] background is needed on slideMaster1.xml to avoid gray background in Keynote (and Finder previews)
 		strSlideXml += '<p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg>'
 	}
@@ -1572,8 +1572,8 @@ function genXmlParagraphProperties(textObj: ISlideObject | TextProps, isDefault:
 				paragraphPropXml += ` marL="${
 					opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
 				}" indent="-${bulletMarL}"`
-				strXmlBullet = `${strXmlBulletSize}${strXmlBulletFont || '<a:buFont typeface="+mj-lt"/>'}<a:buAutoNum type="${opts.bullet.style || 'arabicPeriod'}" startAt="${
-					opts.bullet.numberStartAt || opts.bullet.startAt || '1'
+				strXmlBullet = `${strXmlBulletSize}${strXmlBulletFont || '<a:buFont typeface="+mj-lt"/>'}<a:buAutoNum type="${opts.bullet.numberType || 'arabicPeriod'}" startAt="${
+					opts.bullet.numberStartAt || '1'
 				}"/>`
 			} else if (opts.bullet.characterCode) {
 				let bulletCode = `&#x${opts.bullet.characterCode};`
@@ -1581,20 +1581,6 @@ function genXmlParagraphProperties(textObj: ISlideObject | TextProps, isDefault:
 				// Check value for hex-ness (s/b 4 char hex)
 				if (!/^[0-9A-Fa-f]{4}$/.test(opts.bullet.characterCode)) {
 					warn('`bullet.characterCode should be a 4-digit unicode charatcer (ex: 22AB)`!')
-					bulletCode = BULLET_TYPES.DEFAULT
-				}
-
-				paragraphPropXml += ` marL="${
-					opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
-				}" indent="-${bulletMarL}"`
-				strXmlBullet = strXmlBulletSize + strXmlBulletFont + '<a:buChar char="' + bulletCode + '"/>'
-			} else if (opts.bullet.code) {
-				// @deprecated `bullet.code` v3.3.0
-				let bulletCode = `&#x${opts.bullet.code};`
-
-				// Check value for hex-ness (s/b 4 char hex)
-				if (!/^[0-9A-Fa-f]{4}$/.test(opts.bullet.code)) {
-					warn('`bullet.code should be a 4-digit hex code (ex: 22AB)`!')
 					bulletCode = BULLET_TYPES.DEFAULT
 				}
 
@@ -1658,9 +1644,6 @@ function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, isDefau
 	runProps += opts?.caps ? ` cap="${opts.caps}"` : ''
 	if (typeof opts.underline === 'object' && opts.underline?.style) {
 		runProps += ` u="${opts.underline.style}"`
-	} else if (typeof opts.underline === 'string') {
-		// DEPRECATED: opts.underline is an object as of v3.5.0
-		runProps += ` u="${String(opts.underline)}"`
 	} else if (opts.hyperlink) {
 		runProps += ' u="sng"'
 	}
@@ -1876,14 +1859,6 @@ function genXmlBodyProperties(slideObject: ISlideObject | TableCell): string {
 			else if (fit === 'resize') bodyProperties += '<a:spAutoFit/>'
 			else if (typeof fit === 'object' && fit.type === 'shrink') bodyProperties += genXmlNormAutofit(fit)
 		}
-		//
-		// DEPRECATED: below (@deprecated v3.3.0)
-		if (options?.shrinkText) bodyProperties += '<a:normAutofit/>' // MS-PPT > Format shape > Text Options: "Shrink text on overflow"
-		/* DEPRECATED: below (@deprecated v3.3.0)
-		 * MS-PPT > Format shape > Text Options: "Resize shape to fit text" [spAutoFit]
-		 * NOTE: Use of '<a:noAutofit/>' in lieu of '' below causes issues in PPT-2013
-		 */
-		bodyProperties += bodyProp.autoFit ? '<a:spAutoFit/>' : ''
 
 		// LAST: Close _bodyProp
 		bodyProperties += '</a:bodyPr>'

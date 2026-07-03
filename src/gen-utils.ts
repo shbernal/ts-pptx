@@ -406,7 +406,6 @@ function normalizeGradientAngle(angle: number | undefined): number {
 
 function gradientStopColorAdjustments(stop: GradientStopProps): string {
 	let internalElements = ''
-	if (stop.alpha) internalElements += `<a:alpha val="${transparencyToAlpha(stop.alpha)}"/>` // DEPRECATED: @deprecated v3.3.0
 	if (stop.transparency) internalElements += `<a:alpha val="${transparencyToAlpha(stop.transparency)}"/>`
 	return internalElements
 }
@@ -501,7 +500,7 @@ export function genXmlImageFill(props: ShapeFillProps | undefined): string {
 		)
 		return '<a:noFill/>'
 	}
-	const alpha = props.transparency ?? props.alpha
+	const alpha = props.transparency
 	const blipInner = alpha ? `<a:alphaModFix amt="${Math.round((100 - alpha) * FIXED_PCT_PER_PERCENT)}"/>` : ''
 	return `<a:blipFill dpi="0" rotWithShape="1"><a:blip r:embed="rId${props._imgRid}">${blipInner}</a:blip><a:srcRect/><a:stretch><a:fillRect/></a:stretch></a:blipFill>`
 }
@@ -540,7 +539,6 @@ export function genXmlColorSelection(props: Color | ShapeFillProps | ShapeLinePr
 		else {
 			if (props.type) fillType = props.type
 			if (props.color) colorVal = props.color
-			if (props.alpha) internalElements += `<a:alpha val="${transparencyToAlpha(props.alpha)}"/>` // DEPRECATED: @deprecated v3.3.0
 			if (props.transparency) internalElements += `<a:alpha val="${transparencyToAlpha(props.transparency)}"/>`
 		}
 

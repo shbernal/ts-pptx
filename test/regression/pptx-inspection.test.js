@@ -84,8 +84,8 @@ defineRegressionSuite('PPTX inspection primitives', [
 				slide.addText('Shrink', { x: 1, y: 2, w: 2, h: 0.5, fit: 'shrink', objectName: 'fit:shrink' })
 				// Resize-shape-to-fit (spAutoFit) — authored height is an output, cannot overflow.
 				slide.addText('Resize', { x: 1, y: 3, w: 2, h: 0.5, fit: 'resize', objectName: 'fit:resize' })
-				// Custom zero insets via the `inset` option (inches).
-				slide.addText('Tight', { x: 1, y: 4, w: 2, h: 0.5, inset: 0, objectName: 'fit:inset0' })
+				// Custom zero insets via the `margin` option.
+				slide.addText('Tight', { x: 1, y: 4, w: 2, h: 0.5, margin: 0, objectName: 'fit:margin0' })
 				slide.addImage({ data: `image/png;base64,${PNG_1X1}`, x: 6, y: 1, w: 1, h: 1, objectName: 'fit:image' })
 			})
 
@@ -102,10 +102,10 @@ defineRegressionSuite('PPTX inspection primitives', [
 			assertEqual(elements.get('fit:shrink').autofit, 'normAutofit', 'shrink box reports normAutofit')
 			assertEqual(elements.get('fit:resize').autofit, 'spAutoFit', 'resize box reports spAutoFit')
 
-			const tight = elements.get('fit:inset0')
-			assertEqual(tight.autofit, 'none', 'inset-only box still reports none')
-			assertEqual(tight.bodyInsets.left, 0, 'zero inset is preserved, not defaulted')
-			assertEqual(tight.bodyInsets.bottom, 0, 'zero inset is preserved, not defaulted')
+			const tight = elements.get('fit:margin0')
+			assertEqual(tight.autofit, 'none', 'margin-only box still reports none')
+			assertEqual(tight.bodyInsets.left, 0, 'zero margin is preserved, not defaulted')
+			assertEqual(tight.bodyInsets.bottom, 0, 'zero margin is preserved, not defaulted')
 
 			const image = elements.get('fit:image')
 			assertEqual(image.autofit, null, 'image without a text frame has no autofit')

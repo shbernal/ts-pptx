@@ -44,7 +44,7 @@ defineRegressionSuite('Table autoPage continuation-slide overflow (upstream #131
 	{
 		name: 'continuation slides honor the row budget (no progressive overflow), matching the reported case',
 		fn: async () => {
-			// The reporter's exact option shape: no explicit `h`, repeated header, newSlideStartY.
+			// The reporter's exact option shape: no explicit `h`, repeated header, autoPageSlideStartY.
 			const { zip } = await build((p) => {
 				p.defineLayout({ name: 'L1319', width: 10, height: 5.625 })
 				p.layout = 'L1319'
@@ -54,7 +54,7 @@ defineRegressionSuite('Table autoPage continuation-slide overflow (upstream #131
 					w: 9,
 					autoPage: true,
 					autoPageRepeatHeader: true,
-					newSlideStartY: 0.5,
+					autoPageSlideStartY: 0.5,
 				})
 			})
 			const counts = await rowsPerSlide(zip)

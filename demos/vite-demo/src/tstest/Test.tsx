@@ -37,7 +37,7 @@ export function testMainMethods() {
 	// PPTX Method 2:
 	pptx.defineSlideMaster({
 		title: "MASTER_SLIDE",
-		background: { fill: "FFFFFF" },
+		background: { color: "FFFFFF" },
 		margin: [0.5, 0.25, 1.0, 0.25],
 		slideNumber: { x: 0.6, y: 7.0, color: "FFFFFF", fontFace: "Arial", fontSize: 10, align: pptx.AlignH.center },
 		objects: [
@@ -423,13 +423,13 @@ function testMethod_Shape(pptx: pptxgen) {
 
 	slide.addShape(pptx.ShapeType.rect, { x: 7.6, y: 2.8, w: 3, h: 3, fill: { color: "66ff99" } });
 
-	slide.addText("OVAL (alpha:50)", {
+	slide.addText("OVAL (transparency:50)", {
 		shape: pptx.ShapeType.ellipse,
 		x: 5.4,
 		y: 0.8,
 		w: 3.0,
 		h: 1.5,
-		fill: { type: "solid", color: "0088CC", alpha: 50 }, // DEPRECATED: TEST: `alpha`
+		fill: { type: "solid", color: "0088CC", transparency: 50 },
 		align: "center",
 		fontSize: 14,
 	});
@@ -448,7 +448,7 @@ function testMethod_Shape(pptx: pptxgen) {
 		y: 3.3,
 		w: 2.5,
 		h: 0,
-		line: { color: "FF0000", size: 2, transparency: 50 }, // DEPRECATED: TEST: `size`
+		line: { color: "FF0000", width: 2, transparency: 50 },
 		rotate: 360 - 45,
 	});
 	slide.addText("RIGHT-TRIANGLE", {
@@ -517,7 +517,6 @@ function testMethod_Masters(pptx: pptxgen) {
 	pptx.defineSlideMaster({
 		title: "TITLE_SLIDE",
 		background: objBkg,
-		//bkgd: objBkg, // TEST: @deprecated
 		objects: [
 			//{ 'line':  { x:3.5, y:1.0, w:6.0, h:0.0, line:{color:'0088CC'}, lineSize:5 } },
 			//{ 'chart': { type:'PIE', data:[{labels:['R','G','B'], values:[10,10,5]}], options:{x:11.3, y:0.0, w:2, h:2, dataLabelFontSize:9} } },
@@ -546,7 +545,7 @@ function testMethod_Masters(pptx: pptxgen) {
 	// MASTER_PLAIN
 	pptx.defineSlideMaster({
 		title: "MASTER_PLAIN",
-		background: { fill: "F1F1F1" }, // [[BACKWARDS-COMPAT/DEPRECATED CHECK:changed to `color` in v3.5.0]]
+		background: { color: "F1F1F1" },
 		margin: [0.5, 0.25, 1.0, 0.25],
 		objects: [
 			{ rect: { x: 0.0, y: 6.9, w: "100%", h: 0.6, fill: { color: "003b75" } } },
@@ -609,7 +608,6 @@ function testMethod_Masters(pptx: pptxgen) {
 	pptx.defineSlideMaster({
 		title: "THANKS_SLIDE",
 		background: { color: "36ABFF" }, // CORRECT WAY TO SET BACKGROUND COLOR
-		//bkgd: "36ABFF", // [[BACKWARDS-COMPAT/DEPRECATED/UAT (`bkgd` will be removed in v4.x)]] **DO NOT USE THIS IN YOUR CODE**
 		objects: [
 			{ rect: { x: 0.0, y: 3.4, w: "100%", h: 2.0, fill: { color: "FFFFFF" } } },
 			{ image: objImg },

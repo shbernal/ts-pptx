@@ -88,19 +88,7 @@ export interface DataOrPathProps {
 	data?: string
 }
 export type DataOrPathRequiredProps = (DataOrPathProps & { data: string }) | (DataOrPathProps & { path: string })
-export interface BackgroundProps extends DataOrPathProps, ShapeFillProps {
-	/**
-	 * Color (hex format)
-	 * @deprecated v3.6.0 - use `ShapeFillProps` instead
-	 */
-	fill?: HexColor
-
-	/**
-	 * source URL
-	 * @deprecated v3.6.0 - use `DataOrPathProps` instead - remove in v4.0.0
-	 */
-	src?: string
-}
+export interface BackgroundProps extends DataOrPathProps, ShapeFillProps {}
 /**
  * Color in Hex format
  * @example 'FF3399'
@@ -135,11 +123,6 @@ export interface GradientStopProps {
 	 * @default 0
 	 */
 	transparency?: number
-	/**
-	 * Transparency (percent)
-	 * @deprecated v3.3.0 - use `transparency`
-	 */
-	alpha?: number
 }
 export interface LinearGradientFillProps {
 	/**
@@ -415,12 +398,6 @@ export interface ShapeFillProps {
 	image?: ImageFillProps
 
 	/**
-	 * Transparency (percent)
-	 * @deprecated v3.3.0 - use `transparency`
-	 */
-	alpha?: number
-
-	/**
 	 * Resolved media relationship id for an image fill, assigned at add-time.
 	 * @internal
 	 */
@@ -463,30 +440,6 @@ export interface ShapeLineProps extends ShapeFillProps {
 	endArrowType?: 'none' | 'arrow' | 'diamond' | 'oval' | 'stealth' | 'triangle'
 	// FUTURE: beginArrowSize (1-9)
 	// FUTURE: endArrowSize (1-9)
-
-	/**
-	 * Dash type
-	 * @deprecated v3.3.0 - use `dashType`
-	 */
-	lineDash?: 'solid' | 'dash' | 'dashDot' | 'lgDash' | 'lgDashDot' | 'lgDashDotDot' | 'sysDash' | 'sysDot'
-	/**
-	 * @deprecated v3.3.0 - use `beginArrowType`
-	 */
-	lineHead?: 'none' | 'arrow' | 'diamond' | 'oval' | 'stealth' | 'triangle'
-	/**
-	 * @deprecated v3.3.0 - use `endArrowType`
-	 */
-	lineTail?: 'none' | 'arrow' | 'diamond' | 'oval' | 'stealth' | 'triangle'
-	/**
-	 * Line width (pt)
-	 * @deprecated v3.3.0 - use `width`
-	 */
-	pt?: number
-	/**
-	 * Line size (pt)
-	 * @deprecated v3.3.0 - use `width`
-	 */
-	size?: number
 }
 /**
  * Connector routing style. Maps to a connector preset geometry. The exact preset
@@ -695,30 +648,6 @@ export interface TextBaseProps {
 				 * @internal populated by `addText()`; do not set directly
 				 */
 				_rIdSvg?: number
-
-				// DEPRECATED
-
-				/**
-				 * Bullet code (unicode)
-				 * @deprecated v3.3.0 - use `characterCode`
-				 */
-				code?: string
-				/**
-				 * Margin between bullet and text
-				 * @since v3.2.1
-				 * @deprecated v3.3.0 - use `indent`
-				 */
-				marginPt?: number
-				/**
-				 * Number to start with (only applies to type:number)
-				 * @deprecated v3.3.0 - use `numberStartAt`
-				 */
-				startAt?: number
-				/**
-				 * Number type
-				 * @deprecated v3.3.0 - use `numberType`
-				 */
-				style?: string
 				/**
 				 * Bullet glyph color (separate from the text run color)
 				 * @since v4.0.0
@@ -1377,28 +1306,6 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 * TODO: need new demo.js entry for shape shadow
 	 */
 	shadow?: ShadowProps
-
-	/**
-	 * @deprecated v3.3.0
-	 */
-	lineSize?: number
-	/**
-	 * @deprecated v3.3.0
-	 */
-	lineDash?: 'dash' | 'dashDot' | 'lgDash' | 'lgDashDot' | 'lgDashDotDot' | 'solid' | 'sysDash' | 'sysDot'
-	/**
-	 * @deprecated v3.3.0
-	 */
-	lineHead?: 'arrow' | 'diamond' | 'none' | 'oval' | 'stealth' | 'triangle'
-	/**
-	 * @deprecated v3.3.0
-	 */
-	lineTail?: 'arrow' | 'diamond' | 'none' | 'oval' | 'stealth' | 'triangle'
-	/**
-	 * Shape name (used instead of default "Shape N" name)
-	 * @deprecated v3.10.0 - use `objectName`
-	 */
-	shapeName?: string
 }
 
 // tables =========================================================================================
@@ -1476,15 +1383,6 @@ export interface TableToSlidesProps extends TableProps {
 	 * - this margin will be across all slides created by auto-paging
 	 */
 	slideMargin?: Margin
-
-	/**
-	 * @deprecated v3.3.0 - use `autoPageRepeatHeader`
-	 */
-	addHeaderToEach?: boolean
-	/**
-	 * @deprecated v3.3.0 - use `autoPageSlideStartY`
-	 */
-	newSlideStartY?: number
 }
 export interface TableCellProps extends TextBaseProps {
 	/**
@@ -1825,11 +1723,6 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * @default false // obviously
 	 */
 	verbose?: boolean // Undocumented; shows verbose output
-
-	/**
-	 * @deprecated v3.3.0 - use `autoPageSlideStartY`
-	 */
-	newSlideStartY?: number
 }
 export interface TableCell {
 	_type?: SLIDE_OBJECT_TYPES.tablecell
@@ -1907,7 +1800,6 @@ export interface TextFitShrinkProps {
 export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBaseProps, ObjectNameProps {
 	_bodyProp?: {
 		// Note: Many of these duplicated as user options are transformed to _bodyProp options for XML processing
-		autoFit?: boolean
 		align?: TEXT_HALIGN
 		anchor?: TEXT_VALIGN
 		lIns?: number
@@ -2071,39 +1963,6 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 * @default true
 	 */
 	wrap?: boolean
-
-	/**
-	 * Whether "Fit to Shape?" is enabled
-	 * @deprecated v3.3.0 - use `fit`
-	 */
-	autoFit?: boolean
-	/**
-	 * Whather "Shrink Text on Overflow?" is enabled
-	 * @deprecated v3.3.0 - use `fit`
-	 */
-	shrinkText?: boolean
-	/**
-	 * Inset
-	 * @deprecated v3.10.0 - use `margin`
-	 */
-	inset?: number
-	/**
-	 * Dash type
-	 * @deprecated v3.3.0 - use `line.dashType`
-	 */
-	lineDash?: 'solid' | 'dash' | 'dashDot' | 'lgDash' | 'lgDashDot' | 'lgDashDotDot' | 'sysDash' | 'sysDot'
-	/**
-	 * @deprecated v3.3.0 - use `line.beginArrowType`
-	 */
-	lineHead?: 'none' | 'arrow' | 'diamond' | 'oval' | 'stealth' | 'triangle'
-	/**
-	 * @deprecated v3.3.0 - use `line.width`
-	 */
-	lineSize?: number
-	/**
-	 * @deprecated v3.3.0 - use `line.endArrowType`
-	 */
-	lineTail?: 'none' | 'arrow' | 'diamond' | 'oval' | 'stealth' | 'triangle'
 }
 export interface TextProps {
 	text?: string | number
@@ -2316,8 +2175,6 @@ export type ChartAxisTickMark = 'none' | 'inside' | 'outside' | 'cross'
  * Line end cap style. Maps to the OOXML `cap` attribute on `<a:ln>` (`flat`/`sq`/`rnd`).
  */
 export type LineCap = 'flat' | 'round' | 'square'
-/** @deprecated use `LineCap` (the cap type is not chart-specific) */
-export type ChartLineCap = LineCap
 export type ChartLineDash =
 	| 'dash'
 	| 'dashDot'
@@ -2477,7 +2334,7 @@ export interface OptsChartGridLine {
 	 * - line cap type
 	 * @default flat
 	 */
-	cap?: ChartLineCap
+	cap?: LineCap
 	/**
 	 * Gridline color (hex)
 	 * @example 'FF3399'
@@ -2620,14 +2477,6 @@ export interface IChartPropsBase {
 	 */
 	plotArea?: IChartPropsFillLine
 
-	/**
-	 * @deprecated v3.11.0 - use `plotArea.border`
-	 */
-	border?: BorderProps
-	/**
-	 * @deprecated v3.11.0 - use `plotArea.fill`
-	 */
-	fill?: HexColor
 	/**
 	 * Per-series style overrides.
 	 * Element at index N applies to the series at data[N].
@@ -2830,7 +2679,7 @@ export interface IChartPropsChartLine {
 	 * - line cap type
 	 * @default flat
 	 */
-	lineCap?: ChartLineCap
+	lineCap?: LineCap
 	/**
 	 * MS-PPT > Chart format > Format Data Series > Line > Dash type (chart-level default)
 	 * - applies to every series that has no entry in `lineDashValues`
@@ -3317,11 +3166,6 @@ export interface SlideMasterProps {
 	 * @example textStyles: { body: [{ fontSize: 24, color: 'C00000', bullet: { characterCode: '25AA' } }] }
 	 */
 	textStyles?: MasterTextStyleProps
-
-	/**
-	 * @deprecated v3.3.0 - use `background`
-	 */
-	bkgd?: string | BackgroundProps
 }
 export interface ObjectOptions extends ImageBaseProps, PositionProps, ShapeProps, TableCellProps, TextPropsOptions {
 	_placeholderIdx?: number
@@ -3371,17 +3215,9 @@ export interface SlideBaseProps {
 	_slideObjects: ISlideObject[]
 
 	background?: BackgroundProps
-	/**
-	 * @deprecated v3.3.0 - use `background`
-	 */
-	bkgd?: string | BackgroundProps
 }
 export interface SlideLayout {
 	background?: BackgroundProps
-	/**
-	 * @deprecated v3.3.0 - use `background`
-	 */
-	bkgd?: string | BackgroundProps
 }
 export interface SlideLayoutInternal extends SlideBaseProps, SlideLayout {
 	_slide?: {
@@ -3543,10 +3379,6 @@ export interface PresSlide {
 	 * @since v3.3.0
 	 */
 	background?: BackgroundProps
-	/**
-	 * @deprecated v3.3.0 - use `background`
-	 */
-	bkgd?: string | BackgroundProps
 	/**
 	 * Default text color (hex format)
 	 * @example 'FF3399'

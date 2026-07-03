@@ -17,7 +17,7 @@ import {
 	DEMO_TITLE_TEXTBK,
 	LOREM_IPSUM,
 	TABLE_NAMES_F,
-	TESTMODE
+	TESTMODE,
 } from "./enums.mjs";
 import { TABLE_AUTO_PAGE_TEST } from "./enums_tables.mjs";
 
@@ -352,7 +352,7 @@ function genSlide04(pptx) {
 				{ text: 0, options: { margin: 0.05 } },
 			],
 		],
-		{ x: 0.5, y: 1.9, fill: { color: "f2f9fc" }, border: { type: "none" }, colW: [2.5, 0.5] }
+		{ x: 0.5, y: 1.9, fill: { color: "f2f9fc" }, border: { type: "none" }, colW: [2.5, 0.5] },
 	);
 	slide.addTable([[{ text: "text-obj margin:0", options: { margin: 0 } }]], { x: 4.0, y: 1.9, w: 2, fill: { color: "f2f9fc" } });
 
@@ -431,15 +431,15 @@ function genSlide05(pptx) {
 
 	slide.addText(
 		"The following textbox and table cell use the same array of text/options objects, making word-level formatting familiar and consistent across the library.",
-		{ x: 0.5, y: 0.5, w: "95%", h: 0.5, margin: 0.1, fontSize: 14 }
+		{ x: 0.5, y: 0.5, w: "95%", h: 0.5, margin: 0.1, fontSize: 14 },
 	);
 	slide.addText(
 		"[\n" +
-		"  { text:'1st line', options:{ fontSize:24, color:'99ABCC', align:'right',  breakLine:true } },\n" +
-		"  { text:'2nd line', options:{ fontSize:36, color:'FFFF00', align:'center', breakLine:true } },\n" +
-		"  { text:'3rd line', options:{ fontSize:48, color:'0088CC', align:'left'    } }\n" +
-		"]",
-		{ x: 1, y: 1.1, w: 11, h: 1.25, margin: 0.1, fontFace: "Courier", fontSize: 13, fill: { color: "F1F1F1" }, color: "333333" }
+			"  { text:'1st line', options:{ fontSize:24, color:'99ABCC', align:'right',  breakLine:true } },\n" +
+			"  { text:'2nd line', options:{ fontSize:36, color:'FFFF00', align:'center', breakLine:true } },\n" +
+			"  { text:'3rd line', options:{ fontSize:48, color:'0088CC', align:'left'    } }\n" +
+			"]",
+		{ x: 1, y: 1.1, w: 11, h: 1.25, margin: 0.1, fontFace: "Courier", fontSize: 13, fill: { color: "F1F1F1" }, color: "333333" },
 	);
 
 	// Textbox: Text word-level formatting
@@ -498,7 +498,7 @@ function genSlide06(pptx) {
 				{ text: arrCell4, options: { valign: "bottom" } },
 			],
 		],
-		{ x: 0.6, y: 1.25, w: 12, h: 3, fontSize: 24, border: { pt: 1 }, fill: { color: "F1F1F1" } }
+		{ x: 0.6, y: 1.25, w: 12, h: 3, fontSize: 24, border: { pt: 1 }, fill: { color: "F1F1F1" } },
 	);
 
 	// EX 2:
@@ -507,8 +507,8 @@ function genSlide06(pptx) {
 			[
 				{
 					text: [
-						{ text: "I am a text object with bullets ", options: { color: "CC0000", bullet: { code: "2605" } } },
-						{ text: "and i am the next text object", options: { color: "00CD00", bullet: { code: "25BA" } } },
+						{ text: "I am a text object with bullets ", options: { color: "CC0000", bullet: { characterCode: "2605" } } },
+						{ text: "and i am the next text object", options: { color: "00CD00", bullet: { characterCode: "25BA" } } },
 						{ text: "Final text object w/ bullet:true", options: { color: "0000AB", bullet: true } },
 					],
 				},
@@ -527,7 +527,7 @@ function genSlide06(pptx) {
 				},
 			],
 		],
-		{ x: 0.6, y: 4.75, h: 2, fontSize: 24, colW: [8, 2, 2], valign: "middle", border: { pt: 1 }, fill: { color: "F1F1F1" } }
+		{ x: 0.6, y: 4.75, h: 2, fontSize: 24, colW: [8, 2, 2], valign: "middle", border: { pt: 1 }, fill: { color: "F1F1F1" } },
 	);
 }
 
@@ -571,7 +571,7 @@ function genSlide07(pptx) {
 				{ text: "Table Examples: ", options: DEMO_TITLE_TEXT },
 				{ text: "Basic Auto-Paging Example", options: DEMO_TITLE_OPTS },
 			],
-			{ x: 0.5, y: 0.13, w: "90%" }
+			{ x: 0.5, y: 0.13, w: "90%" },
 		);
 		slide.addTable(arrRows, { x: 0.5, y: 0.5, colW: [0.75, 1.75, 10], margin: 0.05, border: { color: "CFCFCF" }, autoPage: true });
 	}
@@ -584,7 +584,7 @@ function genSlide07(pptx) {
 				{ text: "Table Examples: ", options: DEMO_TITLE_TEXT },
 				{ text: "Paging with smaller table area (50% width)", options: DEMO_TITLE_OPTS },
 			],
-			{ x: 0.5, y: 0.13, w: "90%" }
+			{ x: 0.5, y: 0.13, w: "90%" },
 		);
 		slide.addTable(arrRows, {
 			x: "50%",
@@ -605,7 +605,7 @@ function genSlide07(pptx) {
 				{ text: "Table Examples: ", options: DEMO_TITLE_TEXT },
 				{ text: "Master Page with Auto-Paging", options: DEMO_TITLE_OPTS },
 			],
-			{ x: 0.5, y: 0.13, w: "90%" }
+			{ x: 0.5, y: 0.13, w: "90%" },
 		);
 		slide.addText("Auto-Paging table", { placeholder: "footer" });
 		slide.addTable(arrRows, { x: 1.0, y: 0.6, colW: [0.75, 1.75, 7], margin: 0.05, border: { color: "CFCFCF" }, autoPage: true });
@@ -622,7 +622,7 @@ function genSlide07(pptx) {
 				{ text: "Table Examples: ", options: DEMO_TITLE_TEXT },
 				{ text: "Auto-Paging Disabled", options: DEMO_TITLE_OPTS },
 			],
-			{ x: 0.5, y: 0.13, w: "90%" }
+			{ x: 0.5, y: 0.13, w: "90%" },
 		);
 		slide.addTable(arrRows, { x: 1.0, y: 0.6, colW: [0.75, 1.75, 7], margin: 0.05, border: { color: "CFCFCF" } }); // Negative-Test: no `autoPage:false`
 	}
@@ -635,7 +635,7 @@ function genSlide07(pptx) {
 				{ text: "Table Examples: ", options: DEMO_TITLE_TEXT },
 				{ text: "Start at `{ y:4.0 }`, subsequent slides start at slide top margin", options: DEMO_TITLE_OPTS },
 			],
-			{ x: 3.0, y: 0.75, w: "75%", h: 0.5 }
+			{ x: 3.0, y: 0.75, w: "75%", h: 0.5 },
 		);
 		slide.addTable(arrRows, {
 			x: 3.0,
@@ -657,7 +657,7 @@ function genSlide07(pptx) {
 				{ text: "Table Examples: ", options: DEMO_TITLE_TEXT },
 				{ text: "Start at `{ y: 4.0 }`, subsequent slides start at `{ autoPageSlideStartY: 1.5 }`", options: DEMO_TITLE_OPTS },
 			],
-			{ x: 3.0, y: 0.75, w: "75%", h: 0.5 }
+			{ x: 3.0, y: 0.75, w: "75%", h: 0.5 },
 		);
 		slide.addTable(arrRows, {
 			x: 3.0,
@@ -681,7 +681,7 @@ function genSlide07(pptx) {
 				{ text: "Table Examples: `autoPageHeaderRows`", options: DEMO_TITLE_TEXTBK },
 				{ text: "no `autoPageHeaderRows` prop", options: DEMO_TITLE_OPTS },
 			],
-			{ x: 0.23, y: 0.13, w: 4, h: 0.4 }
+			{ x: 0.23, y: 0.13, w: 4, h: 0.4 },
 		);
 		slide.addTable(arrRowsHead1, {
 			x: 0.23,
@@ -699,7 +699,7 @@ function genSlide07(pptx) {
 				{ text: "Table Examples: autoPageHeaderRows", options: DEMO_TITLE_TEXTBK },
 				{ text: "`{ autoPageHeaderRows: 1 }`", options: DEMO_TITLE_OPTS },
 			],
-			{ x: 4.75, y: 0.13, w: 4, h: 0.4 }
+			{ x: 4.75, y: 0.13, w: 4, h: 0.4 },
 		);
 		slide.addTable(arrRowsHead1, {
 			x: 4.75,
@@ -718,7 +718,7 @@ function genSlide07(pptx) {
 				{ text: "Table Examples: autoPageHeaderRows", options: DEMO_TITLE_TEXTBK },
 				{ text: "`{ autoPageHeaderRows: 2 }`", options: DEMO_TITLE_OPTS },
 			],
-			{ x: 9.1, y: 0.13, w: 4, h: 0.4 }
+			{ x: 9.1, y: 0.13, w: 4, h: 0.4 },
 		);
 		slide.addTable(arrRowsHead2, {
 			x: 9.1,
@@ -742,7 +742,7 @@ function genSlide07(pptx) {
 				{ text: "Table Examples: Line Weight Options", options: DEMO_TITLE_TEXTBK },
 				{ text: "autoPageLineWeight:0.0", options: DEMO_TITLE_OPTS },
 			],
-			{ x: 0.23, y: 0.13, w: 4, h: 0.4 }
+			{ x: 0.23, y: 0.13, w: 4, h: 0.4 },
 		);
 		slide.addTable(arrText, { x: 0.23, y: 0.6, w: 4, margin: 0.05, border: { color: "CFCFCF" }, autoPage: true, autoPageLineWeight: 0.0 });
 
@@ -751,7 +751,7 @@ function genSlide07(pptx) {
 				{ text: "Table Examples: Line Weight Options", options: DEMO_TITLE_TEXTBK },
 				{ text: "autoPageLineWeight:0.5", options: DEMO_TITLE_OPTS },
 			],
-			{ x: 4.75, y: 0.13, w: 4, h: 0.4 }
+			{ x: 4.75, y: 0.13, w: 4, h: 0.4 },
 		);
 		slide.addTable(arrText, { x: 4.75, y: 0.6, w: 4, margin: 0.05, border: { color: "CFCFCF" }, autoPage: true, autoPageLineWeight: 0.5 });
 
@@ -760,7 +760,7 @@ function genSlide07(pptx) {
 				{ text: "Table Examples: Line Weight Options", options: DEMO_TITLE_TEXTBK },
 				{ text: "autoPageLineWeight:-0.5", options: DEMO_TITLE_OPTS },
 			],
-			{ x: 9.1, y: 0.13, w: 4, h: 0.4 }
+			{ x: 9.1, y: 0.13, w: 4, h: 0.4 },
 		);
 		slide.addTable(arrText, { x: 9.1, y: 0.6, w: 4, margin: 0.05, border: { color: "CFCFCF" }, autoPage: true, autoPageLineWeight: -0.5 });
 	}
@@ -774,7 +774,7 @@ function genSlide07(pptx) {
 				{ text: "Table Examples: Char Weight Options", options: DEMO_TITLE_TEXTBK },
 				{ text: "autoPageCharWeight:0.0", options: DEMO_TITLE_OPTS },
 			],
-			{ x: 0.23, y: 0.13, w: 4, h: 0.4 }
+			{ x: 0.23, y: 0.13, w: 4, h: 0.4 },
 		);
 		slide.addTable(arrText, { x: 0.23, y: 0.6, w: 4, margin: 0.05, border: { color: "CFCFCF" }, autoPage: true, autoPageCharWeight: 0.0 });
 
@@ -783,7 +783,7 @@ function genSlide07(pptx) {
 				{ text: "Table Examples: Char Weight Options", options: DEMO_TITLE_TEXTBK },
 				{ text: "autoPageCharWeight:0.25", options: DEMO_TITLE_OPTS },
 			],
-			{ x: 4.75, y: 0.13, w: 4, h: 0.4 }
+			{ x: 4.75, y: 0.13, w: 4, h: 0.4 },
 		);
 		slide.addTable(arrText, { x: 4.75, y: 0.6, w: 4, margin: 0.05, border: { color: "CFCFCF" }, autoPage: true, autoPageCharWeight: 0.25 });
 
@@ -792,7 +792,7 @@ function genSlide07(pptx) {
 				{ text: "Table Examples: Char Weight Options", options: DEMO_TITLE_TEXTBK },
 				{ text: "autoPageCharWeight:-0.25", options: DEMO_TITLE_OPTS },
 			],
-			{ x: 9.1, y: 0.13, w: 4, h: 0.4 }
+			{ x: 9.1, y: 0.13, w: 4, h: 0.4 },
 		);
 		slide.addTable(arrText, { x: 9.1, y: 0.6, w: 4, margin: 0.05, border: { color: "CFCFCF" }, autoPage: true, autoPageCharWeight: -0.25 });
 	}
@@ -1041,14 +1041,8 @@ function genSlide10(pptx) {
 				{ text: "id", options: { bold: true, fill: "1F3864", color: "ffffff" } },
 				{ text: "Content", options: { bold: true, fill: "ffaacc", color: "ffffff" } },
 			],
-			[
-				{ text: "1" },
-				{ text: TABLE_AUTO_PAGE_TEST.replace(/\n/g, '') },
-			],
-			[
-				{ text: "2" },
-				{ text: TABLE_AUTO_PAGE_TEST },
-			]
+			[{ text: "1" }, { text: TABLE_AUTO_PAGE_TEST.replace(/\n/g, "") }],
+			[{ text: "2" }, { text: TABLE_AUTO_PAGE_TEST }],
 		];
 
 		slide.addTable(projRows, {
@@ -1093,13 +1087,13 @@ function genSlide11(pptx) {
 			{ text: "white color", options: { fill: { color: "6699CC" }, align: "left", color: "FFFFFF" } },
 			{ text: "yellow color", options: { fill: { color: "99AACC" }, color: "FFFFAA" } },
 			{ text: "hyperlink here", options: { fill: { color: "AACCFF" }, hyperlink: { slide: 1 } } },
-		]
+		],
 	];
 
 	const arrTabRows = [];
 	for (let i = 0; i < 36; i++) {
 		arrTabRows.push(...baseTabRows);
-	};
+	}
 
-	slide.addTable(arrTabRows, { x: 0.5, y: 1.0, w:10, autoPage: true });
+	slide.addTable(arrTabRows, { x: 0.5, y: 1.0, w: 10, autoPage: true });
 }

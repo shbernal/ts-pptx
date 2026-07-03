@@ -29,8 +29,8 @@ function genSlide01(pptx) {
 
 	// Slide title
 	slide.addTable([[{ text: "Text Examples: Text alignment, percent x/y, etc.", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
-	// Slide colors: bkgd/fore
-	slide.bkgd = "030303";
+	// Slide colors: background/fore
+	slide.background = { color: "030303" };
 	slide.color = "9F9F9F";
 	// Slide notes
 	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-text.html");
@@ -42,21 +42,21 @@ function genSlide01(pptx) {
 			{ text: "Character Spacing 16", options: { fontSize: 16, charSpacing: 16, breakLine: true } },
 			{ text: "Transparency 50%", options: { fontSize: 16, transparency: 50 } },
 		],
-		{ x: 0.5, y: 0.75, w: 8.5, h: 2.5, color: "FFFFFF", fill: { color: "0000FF" }, valign: "middle", align: "center", isTextBox: true }
+		{ x: 0.5, y: 0.75, w: 8.5, h: 2.5, color: "FFFFFF", fill: { color: "0000FF" }, valign: "middle", align: "center", isTextBox: true },
 	);
 	slide.addText(
 		[
 			{ text: "(left/top)", options: { fontSize: 12, breakLine: true } },
 			{ text: "Textbox", options: { bold: true } },
 		],
-		{ x: 10, y: 0.75, w: 3.0, h: 1.0, color: "FFFFFF", fill: { color: "00B050" }, valign: "top", align: "left", margin: 15 }
+		{ x: 10, y: 0.75, w: 3.0, h: 1.0, color: "FFFFFF", fill: { color: "00B050" }, valign: "top", align: "left", margin: 15 },
 	);
 	slide.addText(
 		[
 			{ text: "Textbox", options: { breakLine: true } },
 			{ text: "(right/bottom)", options: { fontSize: 12 } },
 		],
-		{ x: 10, y: 2.25, w: 3.0, h: 1.0, color: "FFFFFF", fill: { color: "C00000" }, valign: "bottom", align: "right", margin: 0 }
+		{ x: 10, y: 2.25, w: 3.0, h: 1.0, color: "FFFFFF", fill: { color: "C00000" }, valign: "bottom", align: "right", margin: 0 },
 	);
 
 	slide.addText("^ (50%/50%)", { x: "50%", y: "50%", w: 2 });
@@ -66,13 +66,8 @@ function genSlide01(pptx) {
 	slide.addText("Escaped chars: ' \" & < >", { x: 10, y: 5.35, w: 3 });
 
 	slide.addText(
-		[
-			{ text: "Sub" },
-			{ text: "Subscript", options: { subscript: true } },
-			{ text: " // Super" },
-			{ text: "Superscript", options: { superscript: true } },
-		],
-		{ x: 10, y: 6.3, w: 3.3 }
+		[{ text: "Sub" }, { text: "Subscript", options: { subscript: true } }, { text: " // Super" }, { text: "Superscript", options: { superscript: true } }],
+		{ x: 10, y: 6.3, w: 3.3 },
 	);
 
 	// TEST: using {option}: Add text box with multiline options:
@@ -84,7 +79,7 @@ function genSlide01(pptx) {
 			},
 			{ text: "...in the same textbox", options: { fontSize: 48, fontFace: "Arial", color: "FFFF00", align: "center" } },
 		],
-		{ x: 0.5, y: 4.3, w: 8.5, h: 2.5, margin: 0.1, fill: { color: "232323" } }
+		{ x: 0.5, y: 4.3, w: 8.5, h: 2.5, margin: 0.1, fill: { color: "232323" } },
 	);
 
 	let objOptions = {
@@ -114,7 +109,7 @@ function genSlide02(pptx) {
 	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-text.html");
 	slide.addTable(
 		[[{ text: "Text Examples: Multi-Line Formatting, Line Breaks, Line Spacing", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]],
-		BASE_TABLE_OPTS
+		BASE_TABLE_OPTS,
 	);
 
 	// LEFT COLUMN ------------------------------------------------------------
@@ -162,7 +157,7 @@ function genSlide02(pptx) {
 			{ text: "highlighted", options: { fontSize: 36, fontFace: "Arial", color: pptx.colors.ACCENT5, align: "right", highlight: "FFFF00" } },
 			{ text: " text!", options: { fontSize: 36, fontFace: "Arial", color: pptx.colors.ACCENT5, align: "right" } },
 		],
-		{ x: 0.5, y: 1.0, w: 5.75, h: 6.0, margin: 5, fill: { color: pptx.colors.TEXT1 } }
+		{ x: 0.5, y: 1.0, w: 5.75, h: 6.0, margin: 5, fill: { color: pptx.colors.TEXT1 } },
 	);
 
 	// RIGHT COLUMN ------------------------------------------------------------
@@ -186,7 +181,7 @@ function genSlide02(pptx) {
 	slide.addText("Line-Spacing (text):", { x: 7.0, y: 2.7, w: "40%", h: 0.3, margin: 0, color: pptx.colors.ACCENT1 });
 	slide.addText(
 		"lineSpacing (Exactly)\n40pt",
-		{ x: 7.0, y: 3.1, w: 5.75, h: 1.17, align: "center", fill: { color: "F1F1F1" }, color: "363636", lineSpacing: 39.9 } // TEST-CASE: `lineSpacing` decimal value
+		{ x: 7.0, y: 3.1, w: 5.75, h: 1.17, align: "center", fill: { color: "F1F1F1" }, color: "363636", lineSpacing: 39.9 }, // TEST-CASE: `lineSpacing` decimal value
 	);
 
 	// 3: Line-Spacing (multiple)
@@ -233,7 +228,7 @@ function genSlide03(pptx) {
 			{ text: "Indent-Level 2", options: { fontSize: 32, bullet: true, color: pptx.colors.ACCENT5, indentLevel: 2 } },
 			{ text: "Indent-Level 3", options: { fontSize: 32, bullet: true, color: pptx.colors.ACCENT6, indentLevel: 3 } },
 		],
-		{ x: 0.5, y: 1.0, w: 5.75, h: 2.4, fill: { color: "232323" } }
+		{ x: 0.5, y: 1.0, w: 5.75, h: 2.4, fill: { color: "232323" } },
 	);
 
 	slide.addText("Bullet Spacing (Indentation):", { x: 0.5, y: 3.5, w: "40%", h: 0.3, margin: 0, color: pptx.colors.ACCENT1 });
@@ -242,32 +237,32 @@ function genSlide03(pptx) {
 			{ text: "bullet indent: 10", options: { bullet: { indent: 10 } } },
 			{ text: "bullet indent: 30", options: { bullet: { indent: 30 } } },
 		],
-		{ x: 0.5, y: 3.9, w: 5.75, h: 0.5, color: "393939", fontFace: "Arial", fontSize: 12, fill: { color: pptx.colors.BACKGROUND2 } }
+		{ x: 0.5, y: 3.9, w: 5.75, h: 0.5, color: "393939", fontFace: "Arial", fontSize: 12, fill: { color: pptx.colors.BACKGROUND2 } },
 	);
 
 	slide.addText("Bullet Styles:", { x: 0.5, y: 4.6, w: "40%", h: 0.3, margin: 0, color: pptx.colors.ACCENT1 });
 	slide.addText(
 		[
-			{ text: "style: arabicPeriod", options: { color: pptx.colors.ACCENT2, bullet: { type: "number", style: "arabicPeriod" } } },
-			{ text: "style: arabicPeriod", options: { color: pptx.colors.ACCENT2, bullet: { type: "number", style: "arabicPeriod" } } },
+			{ text: "style: arabicPeriod", options: { color: pptx.colors.ACCENT2, bullet: { type: "number", numberType: "arabicPeriod" } } },
+			{ text: "style: arabicPeriod", options: { color: pptx.colors.ACCENT2, bullet: { type: "number", numberType: "arabicPeriod" } } },
 			{
 				text: "style: alphaLcPeriod",
-				options: { color: pptx.colors.ACCENT5, bullet: { type: "number", style: "alphaLcPeriod" }, indentLevel: 1 },
+				options: { color: pptx.colors.ACCENT5, bullet: { type: "number", numberType: "alphaLcPeriod" }, indentLevel: 1 },
 			},
 			{
 				text: "style: alphaLcPeriod",
-				options: { color: pptx.colors.ACCENT5, bullet: { type: "number", style: "alphaLcPeriod" }, indentLevel: 1 },
+				options: { color: pptx.colors.ACCENT5, bullet: { type: "number", numberType: "alphaLcPeriod" }, indentLevel: 1 },
 			},
 			{
 				text: "style: romanLcPeriod",
-				options: { color: pptx.colors.ACCENT6, bullet: { type: "number", style: "romanLcPeriod" }, indentLevel: 2 },
+				options: { color: pptx.colors.ACCENT6, bullet: { type: "number", numberType: "romanLcPeriod" }, indentLevel: 2 },
 			},
 			{
 				text: "style: romanLcPeriod",
-				options: { color: pptx.colors.ACCENT6, bullet: { type: "number", style: "romanLcPeriod" }, indentLevel: 2 },
+				options: { color: pptx.colors.ACCENT6, bullet: { type: "number", numberType: "romanLcPeriod" }, indentLevel: 2 },
 			},
 		],
-		{ x: 0.5, y: 5.0, w: 5.75, h: 2.0, fill: { color: pptx.colors.BACKGROUND2 }, color: pptx.colors.ACCENT1 }
+		{ x: 0.5, y: 5.0, w: 5.75, h: 2.0, fill: { color: pptx.colors.BACKGROUND2 }, color: pptx.colors.ACCENT1 },
 	);
 
 	// RIGHT COLUMN ------------------------------------------------------------
@@ -306,20 +301,20 @@ function genSlide03(pptx) {
 			{ text: "Second line", options: { bullet: true } },
 			{ text: "Third line via `softBreakBefore:true`", options: { softBreakBefore: true } },
 		],
-		{ x: 7.0, y: 3.9, w: 5.75, h: 1.0, color: "393939", fontSize: 16, fill: pptx.colors.BACKGROUND2 }
+		{ x: 7.0, y: 3.9, w: 5.75, h: 1.0, color: "393939", fontSize: 16, fill: pptx.colors.BACKGROUND2 },
 	);
 
 	// 3: Bullets: With custom unicode bullet characters
 	slide.addText("Bullets with text objects:", { x: 7.0, y: 5.05, w: 5.75, h: 0.3, margin: 0, color: pptx.colors.ACCENT1 });
 	slide.addText(
 		[
-			{ text: "`bullet: { code: '25BA' }`", options: { fontSize: 18, color: pptx.colors.ACCENT1, bullet: { code: "25BA" } } },
-			{ text: "`bullet: { code: '25D1' }`", options: { fontSize: 18, color: pptx.colors.ACCENT5, bullet: { code: "25D1" } } },
-			{ text: "`bullet: { code: '25CC' }`", options: { fontSize: 18, color: pptx.colors.ACCENT6, bullet: { code: "25CC" } } },
-			{ text: "Mix and... ", options: { fontSize: 24, color: "FF0000", bullet: { code: "25BA" } } },
+			{ text: "`bullet: { characterCode: '25BA' }`", options: { fontSize: 18, color: pptx.colors.ACCENT1, bullet: { characterCode: "25BA" } } },
+			{ text: "`bullet: { characterCode: '25D1' }`", options: { fontSize: 18, color: pptx.colors.ACCENT5, bullet: { characterCode: "25D1" } } },
+			{ text: "`bullet: { characterCode: '25CC' }`", options: { fontSize: 18, color: pptx.colors.ACCENT6, bullet: { characterCode: "25CC" } } },
+			{ text: "Mix and... ", options: { fontSize: 24, color: "FF0000", bullet: { characterCode: "25BA" } } },
 			{ text: "match formatting as well.", options: { fontSize: 16, color: "00CD00" } },
 		],
-		{ x: 7.0, y: 5.5, w: 5.75, h: 1.5, fontFace: "Arial", fill: pptx.colors.BACKGROUND2 }
+		{ x: 7.0, y: 5.5, w: 5.75, h: 1.5, fontFace: "Arial", fill: pptx.colors.BACKGROUND2 },
 	);
 }
 
@@ -332,16 +327,22 @@ function genSlide04(pptx) {
 
 	slide.addTable(
 		[[{ text: "Text Examples: Hyperlinks, Tab Stops, Text Effects: Shadow, Outline, and Glow", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]],
-		BASE_TABLE_OPTS
+		BASE_TABLE_OPTS,
 	);
 	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-text.html");
 
 	// 1: TOP_ROW: Hyperlinks
 	slide.addText("Hyperlinks:", { x: 0.5, y: 0.6, w: "90%", h: 0.3, margin: 0.123, color: pptx.colors.ACCENT1 });
-	slide.addText(
-		[{ text: "Link with Tooltip", options: { hyperlink: { url: "https://github.com/gitbrent/pptxgenjs", tooltip: "Visit Homepage" } } }],
-		{ x: 0.5, y: 1.0, w: 2.5, h: 0.6, margin: 10, fill: { color: "F1F1F1" }, fontSize: 14, align: "center" }
-	);
+	slide.addText([{ text: "Link with Tooltip", options: { hyperlink: { url: "https://github.com/gitbrent/pptxgenjs", tooltip: "Visit Homepage" } } }], {
+		x: 0.5,
+		y: 1.0,
+		w: 2.5,
+		h: 0.6,
+		margin: 10,
+		fill: { color: "F1F1F1" },
+		fontSize: 14,
+		align: "center",
+	});
 	slide.addText([{ text: "Link without Tooltip", options: { hyperlink: { url: "https://github.com/gitbrent" } } }], {
 		x: 3.78,
 		y: 1.0,
@@ -388,7 +389,7 @@ function genSlide04(pptx) {
 			"  text: 'text...\\tTab1\\tTab2\\tTab3',\n" +
 			"  options: { tabStops: [{ position: 1 }, { position: 3 }, { position: 7 }] },\n" +
 			"};",
-		{ x: 0.5, y: 3.3, w: 12.3, h: 2.0, fontFace: "Courier", fontSize: 13, fill: { color: "D1E1F1" }, color: "363636" }
+		{ x: 0.5, y: 3.3, w: 12.3, h: 2.0, fontFace: "Courier", fontSize: 13, fill: { color: "D1E1F1" }, color: "363636" },
 	);
 
 	// 3a: BTM_ROW: Text Effects: Outline
@@ -456,7 +457,7 @@ function genSlide05(pptx) {
 				text: "- the textboxes above have their shrink & resize props set already, just add a space or resize them to trigger shrink and resize behavior",
 			},
 		],
-		{ x: 0.5, y: 6.0, w: 12, h: 1.1, margin: 10, fontSize: 12, color: "393939", fill: { color: "fffccc" } }
+		{ x: 0.5, y: 6.0, w: 12, h: 1.1, margin: 10, fontSize: 12, color: "393939", fill: { color: "fffccc" } },
 	);
 }
 

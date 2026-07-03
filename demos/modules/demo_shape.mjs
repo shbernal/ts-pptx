@@ -70,9 +70,8 @@ function genSlide01(pptx) {
 		h: 1.5,
 		rectRadius: 1,
 		fill: { color: pptx.colors.ACCENT5 },
-		line: "151515",
-		lineSize: 1,
-	}); // TEST: DEPRECATED: `fill`,`line`,`lineSize`
+		line: { color: "151515", width: 1 },
+	});
 	slide.addShape(pptx.shapes.ARC, { x: 10.75, y: 2.45, w: 1.5, h: 1.45, fill: { color: pptx.colors.ACCENT3 }, angleRange: [45, 315] });
 
 	// BOTTOM ROW
@@ -83,9 +82,8 @@ function genSlide01(pptx) {
 		y: 4.8,
 		w: 5.0,
 		h: 0.0,
-		line: { color: pptx.colors.ACCENT2, width: 2, dashType: "dashDot" },
-		lineHead: "arrow",
-	}); // TEST: DEPRECATED: lineHead
+		line: { color: pptx.colors.ACCENT2, width: 2, dashType: "dashDot", beginArrowType: "arrow" },
+	});
 	slide.addShape(pptx.shapes.LINE, { x: 4.2, y: 5.2, w: 5.0, h: 0.0, line: { color: pptx.colors.ACCENT2, width: 3, endArrowType: "triangle" } });
 	slide.addShape(pptx.shapes.LINE, {
 		x: 4.2,
@@ -102,7 +100,7 @@ function genSlide01(pptx) {
 		h: 3.0,
 		fill: { color: pptx.colors.ACCENT5 },
 		line: { color: pptx.colors.ACCENT1, width: 3 },
-		shapeName: "First Right Triangle",
+		objectName: "First Right Triangle",
 	});
 	slide.addShape(pptx.shapes.RIGHT_TRIANGLE, {
 		x: 7.0,
@@ -183,7 +181,7 @@ function genSlide02(pptx) {
 		y: 1.5,
 		w: 3.0,
 		h: 1.5,
-		fill: { type: "solid", color: pptx.colors.ACCENT6, alpha: 75 },
+		fill: { type: "solid", color: pptx.colors.ACCENT6, transparency: 75 },
 		rotate: 90,
 		align: "center",
 		fontSize: 14,

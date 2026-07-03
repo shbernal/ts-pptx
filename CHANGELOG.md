@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **BREAKING: removed the long-deprecated compatibility aliases.** These options
+  had been marked `@deprecated` (mostly since v3.3.0) but were still silently
+  accepted and coerced to their modern equivalents. Per the fork's API-evolution
+  policy (no external backward-compat obligation; silent coercion of legacy input
+  is a footgun), they are now removed — passing them has no effect. Migrate as
+  follows:
+
+  - **Slide/master/chart background** — `bkgd` → `background`. The `slide.bkgd`
+    getter/setter is gone; use `slide.background = { color: 'FF0000' }` (or
+    `{ path }` / `{ data }`). On `defineSlideMaster`, replace `bkgd: '…'` with
+    `background: { color: '…' }`. `AddSlideProps` never applied a background, so
+    a per-slide background must be set on the returned slide object.
+  - **Background color/source** — `background.fill` → `background.color`;
+    `background.src` → `background.path`.
+  - **Color transparency** — `alpha` → `transparency` (on solid fills, gradient
+    stops, and image fills). The 8-char RGBA hex form (e.g. `'0000FF40'`) is
+    unaffected.
+  - **Shape/text line** — the flat `line: '<color>'`, `lineSize`, `lineDash`,
+    `lineHead`, `lineTail` forms → the `line` object: `line: { color, width,
+    dashType, beginArrowType, endArrowType }`. The `ShapeLineProps` inner aliases
+    `pt`/`size` (→ `width`), `lineDash` (→ `dashType`), `lineHead` (→
+    `beginArrowType`), `lineTail` (→ `endArrowType`) are removed. (Chart
+    `lineSize`/`lineDash` options are unaffected — they were never deprecated.)
+  - **Bullets** — `code` → `characterCode`, `startAt` → `numberStartAt`, `style`
+    → `numberType`; the dead `marginPt` alias (→ `indent`) is removed.
+  - **Text fit/inset** — `autoFit` and `shrinkText` → `fit` (`'resize'` /
+    `'shrink'`); `inset` → `margin`.
+  - **Underline** — the deprecated `underline: '<style>'` string form → the
+    object form `underline: { style }`. (`underline: true` shorthand still works.)
+  - **Table auto-paging** — `newSlideStartY` → `autoPageSlideStartY`;
+    `addHeaderToEach` → `autoPageRepeatHeader`.
+  - **Chart plot area** — the flat `border` / `fill` chart options →
+    `plotArea.border` / `plotArea.fill`.
+  - **Shape name** — the dead `ShapeProps.shapeName` alias (→ `objectName`) is
+    removed (it was never wired up).
+  - **Method signatures** — `write('<type>')` → `write({ outputType: '<type>' })`;
+    `writeFile('<name>')` → `writeFile({ fileName: '<name>' })`;
+    `addSlide('<masterName>')` → `addSlide({ masterName: '<masterName>' })`.
+  - **Types** — the `ChartLineCap` alias is removed (use `LineCap`). The internal
+    deprecated `DEF_CELL_MARGIN_PT` constant is removed.
+
+  The pt-vs-inches unit reconsideration (`core-interfaces.ts` TODO) is a separate
+  open design question and was intentionally left untouched.
+
 ### Fixed
 
 - **Shadows now honor scheme colors (e.g. `accent1`) on shapes, images, and

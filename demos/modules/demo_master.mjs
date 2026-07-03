@@ -54,7 +54,7 @@ function genSlide03(pptx) {
 			{ text: "Add any text, charts, whatever", options: { bullet: true, indentLevel: 1, color: "0000AB" } },
 			{ text: "Check out the online API docs for more", options: { bullet: true, indentLevel: 2, color: "0000AB" } },
 		],
-		{ placeholder: "body", valign: "top" }
+		{ placeholder: "body", valign: "top" },
 	);
 }
 
@@ -113,11 +113,12 @@ function genSlide07(pptx) {
 		let slide2 = pptx.addSlide(pptx.masters.MASTER_SLIDE);
 		let slide3 = pptx.addSlide(pptx.masters.THANKS_SLIDE);
 
-		let slide4 = pptx.addSlide(pptx.masters.TITLE_SLIDE, { bkgd: "0088CC", slideNumber: { x: "50%", y: "90%", color: "0088CC" } });
-		let slide5 = pptx.addSlide(pptx.masters.MASTER_SLIDE, {
-			bkgd: { path: "../common/images/title_bkgd_alt.jpg" },
-		});
-		let slide6 = pptx.addSlide(pptx.masters.THANKS_SLIDE, { bkgd: "ffab33" });
+		let slide4 = pptx.addSlide(pptx.masters.TITLE_SLIDE, { slideNumber: { x: "50%", y: "90%", color: "0088CC" } });
+		slide4.background = { color: "0088CC" };
+		let slide5 = pptx.addSlide(pptx.masters.MASTER_SLIDE);
+		slide5.background = { path: "../common/images/title_bkgd_alt.jpg" };
+		let slide6 = pptx.addSlide(pptx.masters.THANKS_SLIDE);
+		slide6.background = { color: "ffab33" };
 		//let slide7 = pptx.addSlide( pptx.masters.LEGACY_TEST_ONLY );
 		//let slide7 = pptx.addSlide('PLACEHOLDER_SLIDE');
 	}

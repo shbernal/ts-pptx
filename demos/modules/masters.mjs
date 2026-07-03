@@ -18,7 +18,6 @@ export function createMasterSlides(pptx) {
 	pptx.defineSlideMaster({
 		title: "TITLE_SLIDE",
 		background: objBkg,
-		//bkgd: objBkg, // TEST: @deprecated
 		objects: [
 			//{ 'line':  { x:3.5, y:1.0, w:6.0, h:0.0, line:{color:'0088CC'}, lineSize:5 } },
 			//{ 'chart': { type:'PIE', data:[{labels:['R','G','B'], values:[10,10,5]}], options:{x:11.3, y:0.0, w:2, h:2, dataLabelFontSize:9} } },
@@ -47,7 +46,7 @@ export function createMasterSlides(pptx) {
 	// MASTER_PLAIN
 	pptx.defineSlideMaster({
 		title: "MASTER_PLAIN",
-		background: { fill: "F1F1F1" }, // [[BACKWARDS-COMPAT/DEPRECATED CHECK:changed to `color` in v3.5.0]]
+		background: { color: "F1F1F1" },
 		margin: [0.5, 0.25, 1.0, 0.25],
 		objects: [
 			{ rect: { x: 0.0, y: 6.9, w: "100%", h: 0.6, fill: { color: "003b75" } } },
@@ -65,7 +64,7 @@ export function createMasterSlides(pptx) {
 	// MASTER_AUTO_PAGE_TABLE_PLACEHOLDER
 	pptx.defineSlideMaster({
 		title: "MASTER_AUTO_PAGE_TABLE_PLACEHOLDER",
-		background: { fill: "F1F1F1" },
+		background: { color: "F1F1F1" },
 		margin: [0.5, 0.25, 1.0, 0.25],
 		objects: [
 			{ rect: { x: 0.0, y: 6.9, w: "100%", h: 0.6, fill: { color: "003b75" } } },
@@ -128,7 +127,6 @@ export function createMasterSlides(pptx) {
 	pptx.defineSlideMaster({
 		title: "THANKS_SLIDE",
 		background: { color: "36ABFF" }, // CORRECT WAY TO SET BACKGROUND COLOR
-		//bkgd: "36ABFF", // [[BACKWARDS-COMPAT/DEPRECATED/UAT (`bkgd` will be removed in v4.x)]] **DO NOT USE THIS IN YOUR CODE**
 		objects: [
 			{ rect: { x: 0.0, y: 3.4, w: "100%", h: 2.0, fill: { color: "FFFFFF" } } },
 			{ image: objImg },
@@ -206,7 +204,7 @@ export function createMasterSlides(pptx) {
 		pptx.defineSlideMaster({
 		  title : 'PLACEHOLDER_SLIDE',
 		  margin: [0.5, 0.25, 1.00, 0.25],
-		  bkgd  : 'FFFFFF',
+		  background: { color: 'FFFFFF' },
 		  objects: [
 			  { 'placeholder':
 			  	{
@@ -244,8 +242,8 @@ export function createMasterSlides(pptx) {
  */
 export function testSlideBackgrounds(pptx) {
 	let slide1 = pptx.addSlide();
-	slide1.bkgd = "909090";
-	slide1.addText([{ text: "TEST `bkgd:string`" }], { x: 1, y: 1, w: "80%", h: 3, align: "center", fill: { color: "a1a1a1" } });
+	slide1.background = { color: "909090" };
+	slide1.addText([{ text: "TEST `background:{color}`" }], { x: 1, y: 1, w: "80%", h: 3, align: "center", fill: { color: "a1a1a1" } });
 
 	let slide2 = pptx.addSlide();
 	slide2.background = { fill: "909090" };

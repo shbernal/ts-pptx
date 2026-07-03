@@ -90,24 +90,6 @@ export default class Slide {
 	}
 
 	/**
-	 * Background color
-	 * @type {string|BackgroundProps}
-	 * @deprecated in v3.3.0 - use `background` instead
-	 */
-	private _bkgd?: string | BackgroundProps
-	public set bkgd(value: string | BackgroundProps) {
-		this._bkgd = value
-		if (!this._background || !this._background.color) {
-			if (!this._background) this._background = {}
-			if (typeof value === 'string') this._background.color = value
-		}
-	}
-
-	public get bkgd(): string | BackgroundProps | undefined {
-		return this._bkgd
-	}
-
-	/**
 	 * Background color or image
 	 * @type {BackgroundProps}
 	 * @example solid color `background: { color:'FF0000' }`

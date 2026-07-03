@@ -76,7 +76,6 @@ import {
 	SLIDE_OBJECT_TYPES,
 	SchemeColor,
 	ShapeType,
-	type WRITE_OUTPUT_TYPE,
 } from './core-enums.js'
 import type {
 	AddSlideProps,
@@ -1168,21 +1167,11 @@ export default class PptxGenJS {
 	 * @param {WriteProps} props output properties
 	 * @returns {Promise<string | ArrayBuffer | Blob | Uint8Array>} file content in selected type
 	 */
-	async write(props?: WriteProps | WRITE_OUTPUT_TYPE): Promise<string | ArrayBuffer | Blob | Uint8Array> {
-		// DEPRECATED: @deprecated v3.5.0 - outputType - [[remove in v4.0.0]]
-		const propsOutpType =
-			typeof props === 'object' && props?.outputType
-				? props.outputType
-				: props
-					? (props as WRITE_OUTPUT_TYPE)
-					: undefined
-		const propsCompress = typeof props === 'object' ? props?.compression : undefined
-		const propsMediaError = typeof props === 'object' ? props?.onMediaError : undefined
-
+	async write(props?: WriteProps): Promise<string | ArrayBuffer | Blob | Uint8Array> {
 		return await this.exportPresentation({
-			compression: propsCompress,
-			outputType: propsOutpType,
-			onMediaError: propsMediaError,
+			compression: props?.compression,
+			outputType: props?.outputType,
+			onMediaError: props?.onMediaError,
 		})
 	}
 
@@ -1192,13 +1181,8 @@ export default class PptxGenJS {
 	 * @param {WriteFileProps} props - output file properties
 	 * @returns {Promise<string>} the presentation name
 	 */
-	async writeFile(props?: WriteFileProps | string): Promise<string> {
-		if (typeof props === 'string') {
-			// DEPRECATED: @deprecated v3.5.0 - fileName - [[remove in v4.0.0]]
-			warn('writeFile(string) is deprecated - pass { fileName } instead.')
-			props = { fileName: props }
-		}
-		const { fileName: rawName = 'Presentation.pptx', compression, onMediaError } = props as WriteFileProps
+	async writeFile(props?: WriteFileProps): Promise<string> {
+		const { fileName: rawName = 'Presentation.pptx', compression, onMediaError } = props ?? {}
 		const fileName = rawName.toLowerCase().endsWith('.pptx') ? rawName : `${rawName}.pptx`
 
 		const data = await this.exportPresentation({
@@ -1255,8 +1239,7 @@ export default class PptxGenJS {
 	 * @returns {PresSlide} the new Slide
 	 */
 	addSlide(options?: AddSlideProps): PresSlide {
-		// TODO: DEPRECATED: arg0 string "masterSlideName" dep as of 3.2.0
-		const masterSlideName = typeof options === 'string' ? options : options?.masterName ? options.masterName : ''
+		const masterSlideName = options?.masterName ?? ''
 		const defLayout = this.LAYOUTS[DEF_PRES_LAYOUT]
 		if (!defLayout) throw new Error(`Default presentation layout "${DEF_PRES_LAYOUT}" is not registered`)
 		let slideLayout: SlideLayoutInternal = {
@@ -1361,7 +1344,6 @@ export default class PptxGenJS {
 			_slideNumberProps: propsClone.slideNumber || null,
 			_slideObjects: [],
 			background: propsClone.background,
-			bkgd: propsClone.bkgd,
 		}
 
 		// STEP 1: Create the Slide Master/Layout
@@ -1377,7 +1359,7 @@ export default class PptxGenJS {
 		this._slideLayouts.push(newLayout)
 
 		// STEP 3: Add background (image data/path must be captured before `exportPresentation()` is called)
-		if (propsClone.background || propsClone.bkgd) genObj.addBackgroundDefinition(propsClone.background, newLayout)
+		if (propsClone.background) genObj.addBackgroundDefinition(propsClone.background, newLayout)
 
 		// STEP 4: Add slideNumber to master slide (if any)
 		if (newLayout._slideNumberProps && !this._masterSlide._slideNumberProps)
