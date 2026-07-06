@@ -80,6 +80,6 @@ defineRegressionSuite('Table merged-cell borders', 'upstream-issue-680', [
 ])
 
 function makeBorder(color) {
-	const side = { type: 'solid', color, pt: 2 }
+	const side = { type: 'solid', color, width: 2 }
 	return [side, side, side, side]
 }

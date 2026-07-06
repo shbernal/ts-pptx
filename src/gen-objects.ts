@@ -511,8 +511,8 @@ export function addChartDefinition(
 	options.plotArea = options.plotArea || {}
 	options.plotArea.border =
 		options.plotArea.border && typeof options.plotArea.border === 'object' ? options.plotArea.border : undefined
-	if (options.plotArea.border && (!options.plotArea.border.pt || isNaN(options.plotArea.border.pt)))
-		options.plotArea.border.pt = DEF_CHART_BORDER.pt
+	if (options.plotArea.border && (!options.plotArea.border.width || isNaN(options.plotArea.border.width)))
+		options.plotArea.border.width = DEF_CHART_BORDER.width
 	if (
 		options.plotArea.border &&
 		(!options.plotArea.border.color || typeof options.plotArea.border.color !== 'string')
@@ -526,8 +526,7 @@ export function addChartDefinition(
 	if (options.chartArea.border) {
 		options.chartArea.border = {
 			color: options.chartArea.border.color || DEF_CHART_BORDER.color,
-			// canonicalize the PPT-aligned `width` onto `pt`; preserve any `transparency`
-			pt: options.chartArea.border.width || options.chartArea.border.pt || DEF_CHART_BORDER.pt,
+			width: options.chartArea.border.width || DEF_CHART_BORDER.width,
 			transparency: options.chartArea.border.transparency,
 		}
 	}
@@ -535,7 +534,8 @@ export function addChartDefinition(
 		typeof options.chartArea.roundedCorners === 'boolean' ? options.chartArea.roundedCorners : true
 	//
 	options.dataBorder = options.dataBorder && typeof options.dataBorder === 'object' ? options.dataBorder : undefined
-	if (options.dataBorder && (!options.dataBorder.pt || isNaN(options.dataBorder.pt))) options.dataBorder.pt = 0.75
+	if (options.dataBorder && (!options.dataBorder.width || isNaN(options.dataBorder.width)))
+		options.dataBorder.width = 0.75
 	if (options.dataBorder && options.dataBorder.color) {
 		const isHexColor =
 			typeof options.dataBorder.color === 'string' &&
@@ -1429,12 +1429,10 @@ export function addTableDefinition(
 				const arrSides = [0, 1, 2, 3] as const
 				arrSides.forEach((idx) => {
 					const side = cellBorderTuple[idx]
-					const sideWidth = side.width ?? side.pt
 					cellBorderTuple[idx] = {
 						type: side.type || DEF_CELL_BORDER.type,
 						color: side.color || DEF_CELL_BORDER.color,
-						// canonicalize the PPT-aligned `width` onto `pt`; preserve any `transparency`
-						pt: typeof sideWidth === 'number' ? sideWidth : DEF_CELL_BORDER.pt,
+						width: typeof side.width === 'number' ? side.width : DEF_CELL_BORDER.width,
 						transparency: side.transparency,
 					}
 				})
@@ -1484,8 +1482,7 @@ export function addTableDefinition(
 				? {
 						type: border[idx].type || DEF_CELL_BORDER.type,
 						color: border[idx].color || DEF_CELL_BORDER.color,
-						// canonicalize the PPT-aligned `width` onto `pt`; preserve any `transparency`
-						pt: border[idx].width || border[idx].pt || DEF_CELL_BORDER.pt,
+						width: border[idx].width || DEF_CELL_BORDER.width,
 						transparency: border[idx].transparency,
 					}
 				: { type: 'none' }

@@ -135,8 +135,8 @@ function genSlide02(pptx) {
 		y: 0.6,
 		w: 6.0,
 		h: 3.0,
-		chartArea: { border: { color: COLORS_SPECTRUM[0], pt: 1 } },
-		//chartArea: { fill: { color: pptx.SchemeColor.background2 }, border: { color: pptx.SchemeColor.background2, pt: 1 }  },
+		chartArea: { border: { color: COLORS_SPECTRUM[0], width: 1 } },
+		//chartArea: { fill: { color: pptx.SchemeColor.background2 }, border: { color: pptx.SchemeColor.background2, width: 1 }  },
 		plotArea: { fill: { color: "DAE3F3" } },
 		chartColors: COLORS_SPECTRUM,
 
@@ -164,10 +164,10 @@ function genSlide02(pptx) {
 		y: 0.6,
 		w: 6.0,
 		h: 3.0,
-		chartArea: { border: { color: COLORS_SPECTRUM[0], pt: 1 } },
+		chartArea: { border: { color: COLORS_SPECTRUM[0], width: 1 } },
 		//chartArea: { fill: { color: pptx.SchemeColor.background2 } },
 		plotArea: { fill: { color: "DAE3F3" } },
-		//plotArea: { fill: { color: pptx.SchemeColor.background1 }, border: { color: pptx.SchemeColor.background2, pt: 1 } },
+		//plotArea: { fill: { color: pptx.SchemeColor.background1 }, border: { color: pptx.SchemeColor.background2, width: 1 } },
 		chartColors: COLORS_SPECTRUM,
 
 		objectName: "bar chart (top R)",
@@ -180,7 +180,7 @@ function genSlide02(pptx) {
 		catAxisMajorTickMark: "none",
 		catAxisMinorTickMark: "none",
 
-		dataBorder: { pt: 1, color: "F1F1F1" },
+		dataBorder: { width: 1, color: "F1F1F1" },
 		dataLabelColor: COLORS_ACCENT[0],
 		dataLabelFontFace: "Courier",
 		dataLabelFontSize: 10,
@@ -207,13 +207,13 @@ function genSlide02(pptx) {
 		h: 3.5,
 		barDir: "bar",
 
-		chartArea: { fill: { color: pptx.SchemeColor.background2 }, border: { color: pptx.SchemeColor.accent3, pt: 2 } },
+		chartArea: { fill: { color: pptx.SchemeColor.background2 }, border: { color: pptx.SchemeColor.accent3, width: 2 } },
 		//chartArea: { fill: { color: pptx.SchemeColor.background2 } },
 		//chartArea: { fill: { color: "F1F1F1", transparency: 75 } },
 		//chartArea: { fill: { color: "F1F1F1" } },
 		plotArea: { fill: { color: "F2F9FC" } },
-		//plotArea: { border: { pt: 3, color: "CF0909" }, fill: { color: "F1C1C1" } },
-		//plotArea: { border: { pt: 3, color: "CF0909" }, fill: { color: "F1C1C1", transparency: 10 } },
+		//plotArea: { border: { width: 3, color: "CF0909" }, fill: { color: "F1C1C1" } },
+		//plotArea: { border: { width: 3, color: "CF0909" }, fill: { color: "F1C1C1", transparency: 10 } },
 
 		catAxisLabelColor: "CC0000",
 		catAxisLabelFontFace: "Helvetica Neue",
@@ -251,9 +251,9 @@ function genSlide02(pptx) {
 		valAxisMaxVal: 5000,
 		valAxisLabelColor: COLORS_ACCENT[0],
 		//
-		//dataBorder: { pt: 1, color: "F1F1F1" },
-		//dataBorder: { pt: 1, color: pptx.SchemeColor.background2 },
-		dataBorder: { pt: 1, color: pptx.SchemeColor.accent1 },
+		//dataBorder: { width: 1, color: "F1F1F1" },
+		//dataBorder: { width: 1, color: pptx.SchemeColor.background2 },
+		dataBorder: { width: 1, color: pptx.SchemeColor.accent1 },
 		dataLabelColor: "FFFFFF",
 		dataLabelFontFace: "Arial",
 		dataLabelFontSize: 10,
@@ -341,7 +341,7 @@ function genSlide03(pptx) {
 		barDir: "col",
 		plotArea: { fill: { color: "E1F1FF" } },
 
-		dataBorder: { pt: 1, color: "F1F1F1" },
+		dataBorder: { width: 1, color: "F1F1F1" },
 		dataLabelColor: "696969",
 		dataLabelFontFace: "Arial",
 		dataLabelFontSize: 11,
@@ -369,7 +369,7 @@ function genSlide03(pptx) {
 		h: 3.5,
 
 		chartArea: { fill: { color: "F1F1F1" } },
-		plotArea: { border: { pt: 3, color: "CF0909" }, fill: { color: "F1C1C1" } },
+		plotArea: { border: { width: 3, color: "CF0909" }, fill: { color: "F1C1C1" } },
 
 		barDir: "bar",
 		barOverlapPct: -50,
@@ -420,7 +420,7 @@ function genSlide03(pptx) {
 		catAxisLabelFrequency: 1,
 		catAxisOrientation: "minMax",
 
-		dataBorder: { pt: 1, color: "F1F1F1" },
+		dataBorder: { width: 1, color: "F1F1F1" },
 		dataLabelColor: "696969",
 		dataLabelFontFace: "Arial",
 		dataLabelFontSize: 10,
@@ -525,7 +525,7 @@ function genSlide04(pptx) {
 		barDir: "bar",
 		barGrouping: "percentStacked",
 		chartColors: ["F2AF00", "4472C4"],
-		dataBorder: { pt: 1, color: "F1F1F1" },
+		dataBorder: { width: 1, color: "F1F1F1" },
 		catAxisHidden: true,
 		valAxisHidden: true,
 		valGridLine: { style: "none" },
@@ -866,7 +866,7 @@ function genSlide06(pptx) {
 		serAxisLabelFontFace: "Helvetica Neue Thin",
 		serAxisLabelColor: COLORS_ACCENT[0],
 		//
-		dataBorder: { pt: 1, color: "F1F1F1" },
+		dataBorder: { width: 1, color: "F1F1F1" },
 		dataLabelColor: "696969",
 		dataLabelFontFace: "Arial",
 		dataLabelFontSize: 10,
@@ -1089,7 +1089,7 @@ function genSlide11(pptx) {
 		chartArea: { fill: { color: "e9e9e9" } },
 		plotArea: { fill: { color: "f2f9fc" } },
 		chartColors: COLORS_VIVID,
-		dataBorder: { pt: 1, color: "F1F1F1" },
+		dataBorder: { width: 1, color: "F1F1F1" },
 		showTitle: true,
 		title: CHART_DATA.CeoPayRatio_Comp.chartTitle,
 		titleFontSize: 11,
@@ -1117,7 +1117,7 @@ function genSlide11(pptx) {
 		chartColors: ["0088CC", "99FFCC"],
 		chartColorsOpacity: 25,
 		valAxisLabelRotate: 5,
-		dataBorder: { pt: 2, color: "FFFFFF" },
+		dataBorder: { width: 2, color: "FFFFFF" },
 		showValue: false,
 		barGrouping: "stacked",
 	};
@@ -1154,7 +1154,7 @@ function genSlide12(pptx) {
 		h: 3.2,
 		chartArea: { fill: { color: "F1F1F1" } },
 		chartColors: COLORS_RYGU,
-		dataBorder: { pt: 2, color: "F1F1F1" },
+		dataBorder: { width: 2, color: "F1F1F1" },
 		//
 		legendPos: "l",
 		legendFontFace: "Courier New",
@@ -1176,7 +1176,7 @@ function genSlide12(pptx) {
 		h: 3.2,
 		chartArea: { fill: { color: "F1F1F1" } },
 		chartColors: COLORS_SPECTRUM,
-		dataBorder: { pt: 1, color: "404040" },
+		dataBorder: { width: 1, color: "404040" },
 		dataLabelColor: "f2f9fc",
 		showPercent: true,
 		showLegend: true,
@@ -1191,7 +1191,7 @@ function genSlide12(pptx) {
 		h: 3.2,
 		chartArea: { fill: { color: "F1F1F1" } },
 		chartColors: COLORS_SPECTRUM,
-		dataBorder: { pt: "1", color: "F1F1F1" },
+		dataBorder: { width: 1, color: "F1F1F1" },
 		showLegend: true,
 		showPercent: true,
 		legendPos: "t",
@@ -1211,7 +1211,7 @@ function genSlide12(pptx) {
 		h: 3.2,
 		chartArea: { fill: { color: "F1F1F1" } },
 		chartColors: COLORS_CHART,
-		dataBorder: { pt: "1", color: "F1F1F1" },
+		dataBorder: { width: 1, color: "F1F1F1" },
 		//
 		showValue: true,
 		showLabel: true,
@@ -1228,7 +1228,7 @@ function genSlide12(pptx) {
 		w: 4.0,
 		h: 3.2,
 		chartArea: { fill: { color: "F1F1F1" } },
-		dataBorder: { pt: "1", color: "F1F1F1" },
+		dataBorder: { width: 1, color: "F1F1F1" },
 		chartColors: COLORS_SPECTRUM,
 		dataLabelColor: "F1F1F1",
 		showPercent: true,
@@ -1243,7 +1243,7 @@ function genSlide12(pptx) {
 		w: 4.0,
 		h: 3.2,
 		chartArea: { fill: { color: "F1F1F1" } },
-		dataBorder: { pt: "1", color: "F1F1F1" },
+		dataBorder: { width: 1, color: "F1F1F1" },
 		showPercent: true,
 		showLegend: true,
 		legendPos: "b",
@@ -1273,7 +1273,7 @@ function genSlide13(pptx) {
 		legendPos: "b",
 		//
 		chartColors: COLORS_RYGU,
-		dataBorder: { pt: "2", color: "F1F1F1" },
+		dataBorder: { width: 2, color: "F1F1F1" },
 		dataLabelColor: "FFFFFF",
 		dataLabelFontSize: 14,
 		//
@@ -1292,7 +1292,7 @@ function genSlide13(pptx) {
 		h: 6.4,
 		chartArea: { fill: { color: "404040" } },
 		chartColors: COLORS_VIVID,
-		dataBorder: { pt: "1", color: "F1F1F1" },
+		dataBorder: { width: 1, color: "F1F1F1" },
 		dataLabelColor: "FFFFFF",
 		showLabel: true,
 		showValue: true,
@@ -1438,7 +1438,7 @@ function genSlide15(pptx) {
 		chartArea: { fill: { color: "F1F1F1" } },
 		chartColors: COLORS_ACCENT,
 		chartColorsOpacity: 40,
-		dataBorder: { pt: 1, color: "FFFFFF" },
+		dataBorder: { width: 1, color: "FFFFFF" },
 		//valAxisCrossesAt: 4,
 		//catAxisCrossesAt: 4,
 		dataLabelFontFace: "Arial",
@@ -1490,7 +1490,7 @@ function genSlide15(pptx) {
 		valAxisOrientation: "maxMin",
 		showValAxisTitle: false,
 		//
-		dataBorder: { pt: 2, color: "e1e1e1" },
+		dataBorder: { width: 2, color: "e1e1e1" },
 		dataLabelFontFace: "Arial",
 		dataLabelFontSize: 10,
 		dataLabelColor: "e1e1e1",
@@ -2543,7 +2543,7 @@ function devSlide05(pptx) {
 		legendPos: "b",
 		//
 		chartColors: COLORS_SPECTRUM,
-		dataBorder: { pt: 2, color: "F1F1F1" },
+		dataBorder: { width: 2, color: "F1F1F1" },
 		dataLabelColor: "FFFFFF",
 		dataLabelFontSize: 14,
 		//
@@ -2585,12 +2585,12 @@ function devSlide06(pptx) {
 		w: 6.0,
 		h: 3.0,
 		chartArea: { fill: { color: pptx.SchemeColor.background2 } },
-		plotArea: { fill: { color: pptx.SchemeColor.background1 }, border: { color: pptx.SchemeColor.background2, pt: 1 } },
+		plotArea: { fill: { color: pptx.SchemeColor.background1 }, border: { color: pptx.SchemeColor.background2, width: 1 } },
 		//
 		objectName: "bar chart (top L)",
 		altText: "this is the alt text content",
 		barDir: "bar",
-		border: { pt: "3", color: "00CE00" }, // @deprecated - legacy text only (dont use this syntax - use `plotArea`)
+		border: { width: 3, color: "00CE00" }, // @deprecated - legacy text only (dont use this syntax - use `plotArea`)
 		fill: "F1F1F1", // @deprecated - legacy text only (dont use this syntax - use `plotArea`)
 		//
 		catAxisLabelColor: "CC0000",

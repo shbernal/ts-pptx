@@ -28,9 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are now `@deprecated` and will be removed on the fork's normal breaking-change
   cadence.
   - `BorderProps.width` (points) — the canonical name for what was `pt`, matching
-    `ShapeLineProps.width` and PowerPoint's "Line > Width" field. `pt` is
-    deprecated; when both are set, `width` wins. Applies to table cell borders and
-    chart `plotArea`/`chartArea`/`dataBorder`.
+    `ShapeLineProps.width` and PowerPoint's "Line > Width" field. Applies to table
+    cell borders and chart `plotArea`/`chartArea`/`dataBorder`. (The legacy `pt`
+    alias has since been removed — see Removed below.)
   - `BorderProps.transparency` (0–100 percent) — new; emits `<a:alpha>` on the
     line fill, matching PowerPoint's "Line > Transparency".
   - `ShadowProps.transparency` (0–100 percent) — the value PowerPoint's shadow
@@ -129,6 +129,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   compiling.
 
 ### Removed
+
+- **BREAKING: `BorderProps.pt` removed — use `width`.** The deprecated `pt` border
+  width alias (introduced alongside `width` earlier this same cycle) is gone;
+  `width` is now the single source of truth for border line width (points) on table
+  cell borders and chart `plotArea`/`chartArea`/`dataBorder`. `width` is also the
+  internal carrier now, so no `pt`/`width` reconciliation happens at emit time.
+  - Migration: `border: { pt: 1 }` → `border: { width: 1 }`.
 
 - **BREAKING: removed the long-deprecated compatibility aliases.** These options
   had been marked `@deprecated` (mostly since v3.3.0) but were still silently

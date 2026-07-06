@@ -2241,7 +2241,7 @@ items:
     type: fork-internal-proposal
     first_seen: 2026-07-03
     last_reviewed: 2026-07-03
-    status: partially-implemented
+    status: implemented
     priority: p2
     target_area:
       - typescript-api
@@ -2278,24 +2278,39 @@ items:
         deprecated `pt` alias, which is an alias cleanup, not a units migration.
 
       With margins done and shadow/border reclassified as correct-as-points, the substantive
-      units work under this item is COMPLETE. What remains is the deprecated border-`pt` alias
-      removal (owned jointly with fork-transparency-width-props); keeping status
-      partially-implemented until that alias is dropped.
+      units work under this item is COMPLETE.
+
+      BORDER `pt` ALIAS DROPPED (2026-07-03) — the last remaining task. `BorderProps.pt` is
+      removed; `width` (points) is now the single public prop AND the internal carrier, so the
+      old `width ?? pt` reconciliation is gone. resolveBorderWidth (src/gen-utils.ts) reads
+      only `.width`; the table-cell and chart border normalizers in src/gen-objects.ts write
+      `width:`; DEF_CELL_BORDER/DEF_CHART_BORDER (src/core-enums.ts) use `width: 1`; the
+      tableToSlides HTML helper htmlBorderToProps (src/gen-tables.ts) emits `width`. Demos
+      (demo_table/demo_chart/enums, vite Test.tsx) and fixtures/tests migrated `pt:` -> `width:`;
+      the two `pt`-precedence cases in border-shadow-ppt-props.test.js were removed as obsolete.
+      CHANGELOG Removed (BREAKING). All 426 unit + 112 schema tests pass; node demo smoke green.
+      This also discharges the border half of fork-transparency-width-props's deferred removal
+      (the `opacity` half remains deprecated, tracked there).
     evidence:
       kinds:
         - local-source-inspection
         - regression-test
       local_files:
         - src/core-interfaces.ts
+        - src/core-enums.ts
         - src/gen-utils.ts
+        - src/gen-objects.ts
+        - src/gen-tables.ts
         - src/gen-xml.ts
         - src/measure-fit.ts
         - test/regression/text-margin-order.test.js
+        - test/regression/border-shadow-ppt-props.test.js
+        - test/regression/html-table-border-width.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: Drop the deprecated border `pt` alias (the only remaining units task; jointly owned with fork-transparency-width-props). Shadow blur/offset and border width stay points by design.
+    next_action: none
 
   - id: fork-ts-api-cleanup
     source: fork:src/core-interfaces.ts
@@ -2532,9 +2547,14 @@ items:
       thread transparency through genXmlColorSelection. Border normalization sites in
       src/gen-objects.ts canonicalize `width`->`pt` and preserve `transparency`.
 
-      Deferred (not part of this change): the deprecated `pt`/`opacity` removal itself,
-      and the wider unit story (see fork-units-pt-vs-inches). The border `width` name
-      now matches ShapeLineProps.width, which advances that item.
+      Deferred (not part of this change): the wider unit story (see fork-units-pt-vs-inches).
+      The border `width` name now matches ShapeLineProps.width, which advanced that item.
+
+      UPDATE 2026-07-03: the deprecated border `pt` alias has now been REMOVED (see
+      fork-units-pt-vs-inches for the landing details) — `width` is the sole border-width prop
+      and the internal carrier. The remaining deferred removal under this item is the shadow
+      `opacity` alias (still `@deprecated` in favor of `transparency`); dropping it is a
+      separate, still-open follow-up.
     evidence:
       kinds:
         - local-source-inspection

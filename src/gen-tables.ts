@@ -690,7 +690,7 @@ export function htmlBorderToProps(widthStr: string, colorStr: string): BorderPro
 		.replace('rgb(', '')
 		.replace(')', '')
 		.split(',')
-	return { pt, color: rgbToHex(Number(arrRGB[0]), Number(arrRGB[1]), Number(arrRGB[2])) }
+	return { width: pt, color: rgbToHex(Number(arrRGB[0]), Number(arrRGB[1]), Number(arrRGB[2])) }
 }
 
 /**

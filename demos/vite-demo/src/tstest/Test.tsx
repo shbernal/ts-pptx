@@ -154,7 +154,7 @@ function testMethod_Table(pptx: pptxgen) {
 			fill: { color: "F7F7F7" },
 			fontSize: 14,
 			color: "363636",
-			border: { pt: 1, color: "BBCCDD" },
+			border: { width: 1, color: "BBCCDD" },
 			verbose: true,
 		});
 		// Pass default cell style as tabOpts, then just style/override individual cells as needed
@@ -190,7 +190,7 @@ function testMethod_Table(pptx: pptxgen) {
 			fontSize: 16,
 			valign: "middle",
 			align: "center",
-			border: { pt: 1, color: "FFFFFF" },
+			border: { width: 1, color: "FFFFFF" },
 		});
 
 		// DEMO: Row/Col Width/Heights ----------------------------------------------------------------
@@ -211,7 +211,7 @@ function testMethod_Table(pptx: pptxgen) {
 			fontSize: 14,
 			valign: "middle",
 			align: "center",
-			border: { pt: 1, color: "BBCCDD" },
+			border: { width: 1, color: "BBCCDD" },
 		});
 	}
 
@@ -234,7 +234,7 @@ function testMethod_Table(pptx: pptxgen) {
 			fill: { color: "F5F5F5" },
 			color: "3D3D3D",
 			fontSize: 16,
-			border: { pt: 4, color: "FFFFFF" },
+			border: { width: 4, color: "FFFFFF" },
 			align: "center",
 			valign: "middle",
 		};
@@ -264,7 +264,7 @@ function testMethod_Table(pptx: pptxgen) {
 			align: "center",
 			valign: "middle",
 			fill: { color: "F9F9F9" },
-			border: { pt: 1, color: "c7c7c7" },
+			border: { width: 1, color: "c7c7c7" },
 		};
 		const arrTabRows2: TableRow[] = [
 			[
@@ -287,7 +287,7 @@ function testMethod_Table(pptx: pptxgen) {
 			align: "center",
 			valign: "middle",
 			fontSize: 16,
-			border: { pt: 1, color: "c7c7c7" },
+			border: { width: 1, color: "c7c7c7" },
 			fill: { color: "F1F1F1" },
 		};
 		const arrTabRows3: TableRow[] = [
@@ -310,7 +310,7 @@ function testMethod_Table(pptx: pptxgen) {
 			align: "center",
 			valign: "middle",
 			fontSize: 16,
-			border: { pt: 1, color: "c7c7c7" },
+			border: { width: 1, color: "c7c7c7" },
 			fill: { color: "F2F9FC" },
 		};
 		const arrTabRows4: TableRow[] = [
@@ -351,7 +351,7 @@ function testMethod_Table(pptx: pptxgen) {
 				{ text: "Hyperlink", options: { hyperlink: { url: "https://github.com/gitbrent/pptxgenjs" } } },
 			],
 		];
-		slide.addTable(arrTextObjects, { x: 0.5, y: 2.7, w: 12.25, fill: { color: "F1F1F1" }, border: { pt: 1, color: "696969" } });
+		slide.addTable(arrTextObjects, { x: 0.5, y: 2.7, w: 12.25, fill: { color: "F1F1F1" }, border: { width: 1, color: "696969" } });
 	}
 }
 /*
@@ -381,7 +381,7 @@ function testMethod_Tables(pptx: pptxgen) {
 		//h: 1.25,
 		colW: [4, 4, 4, 4],
 		rowH: 1.0,
-		border: { type: "solid", pt: 1, color: "a9a9a9" },
+		border: { type: "solid", width: 1, color: "a9a9a9" },
 	});
 }
 */

@@ -544,14 +544,14 @@ export function genXmlImageFill(props: ShapeFillProps | undefined): string {
  * @returns {string} value for the `cap` attribute on `<a:ln>`
  */
 /**
- * Resolve a border's line width in points, preferring the PowerPoint-aligned `width`
- * over the legacy `pt` alias. Falls back to `defaultPt` when neither is a usable number.
- * @param {BorderProps} border - border properties (may carry `width` and/or `pt`)
- * @param {number} defaultPt - width to use when neither `width` nor `pt` is a finite number
+ * Resolve a border's line width in points, falling back to `defaultPt` when `width`
+ * is not a usable number.
+ * @param {BorderProps} border - border properties (may carry `width`)
+ * @param {number} defaultPt - width to use when `width` is not a finite number
  * @returns {number} resolved width in points
  */
 export function resolveBorderWidth(border: BorderProps, defaultPt: number): number {
-	const val = border.width ?? border.pt
+	const val = border.width
 	return typeof val === 'number' && !isNaN(val) ? val : defaultPt
 }
 

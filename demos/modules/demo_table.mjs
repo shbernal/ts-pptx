@@ -85,7 +85,7 @@ function genSlide01(pptx) {
 		fill: { color: "F7F7F7" },
 		fontSize: 14,
 		color: "363636",
-		border: { pt: 1, color: "BBCCDD" },
+		border: { width: 1, color: "BBCCDD" },
 	});
 	// Pass default cell style as tabOpts, then just style/override individual cells as needed
 
@@ -120,7 +120,7 @@ function genSlide01(pptx) {
 		fontSize: 16,
 		valign: "center",
 		align: "center",
-		border: { pt: 5, color: "FFFFFF" },
+		border: { width: 5, color: "FFFFFF" },
 	});
 
 	// DEMO: Row/Col Width/Heights
@@ -141,7 +141,7 @@ function genSlide01(pptx) {
 		fontSize: 14,
 		valign: "center",
 		align: "center",
-		border: { pt: 2, color: "BBCCDD" },
+		border: { width: 2, color: "BBCCDD" },
 	});
 }
 
@@ -167,7 +167,7 @@ function genSlide02(pptx) {
 		fill: { color: "F9F9F9" },
 		color: "3D3D3D",
 		fontSize: 16,
-		border: { pt: 4, color: "FFFFFF" },
+		border: { width: 4, color: "FFFFFF" },
 		align: "center",
 		valign: "middle",
 	};
@@ -197,7 +197,7 @@ function genSlide02(pptx) {
 		align: "center",
 		valign: "middle",
 		fill: { color: "F9F9F9" },
-		border: { pt: 1, color: "c7c7c7" },
+		border: { width: 1, color: "c7c7c7" },
 	};
 	let arrTabRows2 = [
 		[
@@ -221,7 +221,7 @@ function genSlide02(pptx) {
 		align: "center",
 		valign: "middle",
 		fontSize: 16,
-		border: { pt: 2, color: pptx.SchemeColor.text2 },
+		border: { width: 2, color: pptx.SchemeColor.text2 },
 		fill: { color: "F1F1F1" },
 	};
 	let arrTabRows3 = [
@@ -245,7 +245,7 @@ function genSlide02(pptx) {
 		align: "center",
 		valign: "middle",
 		fontSize: 16,
-		border: { pt: 1, color: pptx.SchemeColor.text2 },
+		border: { width: 1, color: pptx.SchemeColor.text2 },
 		fill: { color: "f2f9fc" },
 	};
 	let arrTabRows4 = [
@@ -320,7 +320,7 @@ function genSlide03(pptx) {
 		["C5", "D5", "E5", "F5", { text: "G5 -> H5", options: { colspan: 2, fill: { color: "9999FF" } } }, "J5", "K5", "L5"],
 	];
 
-	let taboptions5 = { x: 0.6, y: 1.3, w: "90%", h: 5.5, margin: 0, fontSize: 14, align: "center", valign: "middle", border: { pt: 1 } };
+	let taboptions5 = { x: 0.6, y: 1.3, w: "90%", h: 5.5, margin: 0, fontSize: 14, align: "center", valign: "middle", border: { width: 1 } };
 
 	slide.addTable(arrTabRows5, taboptions5);
 }
@@ -339,7 +339,7 @@ function genSlide04(pptx) {
 	let optsSub = JSON.parse(JSON.stringify(BASE_OPTS_SUBTITLE));
 	slide.addText("Cell Margins:", optsSub);
 
-	slide.addTable([["margin:0"]], { x: 0.5, y: 1.1, margin: 0, w: 1.2, fill: "FFFCCC", border: { pt: 0 } });
+	slide.addTable([["margin:0"]], { x: 0.5, y: 1.1, margin: 0, w: 1.2, fill: "FFFCCC", border: { width: 0 } });
 	slide.addTable([["margin:[0, 0, 0, 0.3]"]], { x: 2.5, y: 1.1, margin: [0, 0, 0, 0.3], w: 2.0, fill: "FFFCCC", align: "right" });
 	slide.addTable([["margin:0.05"]], { x: 5.5, y: 1.1, margin: 0.05, w: 1.0, fill: pptx.SchemeColor.background2 });
 	slide.addTable([["margin:[0.6, 0.05, 0.05, 0.3]"]], { x: 7.1, y: 1.1, margin: [0.6, 0.05, 0.05, 0.3], w: 2.6, fill: "F1F1F1" });
@@ -365,16 +365,16 @@ function genSlide04(pptx) {
 			{ text: "Hyperlink", options: { hyperlink: { url: "https://github.com/gitbrent/pptxgenjs" } } },
 		],
 	];
-	slide.addTable(arrTextObjects, { x: 0.5, y: 2.7, w: 12.25, margin: 8, fill: { color: "F1F1F1" }, border: { pt: 1, color: "696969" } }); // DEPRECATED: `margin` in points
+	slide.addTable(arrTextObjects, { x: 0.5, y: 2.7, w: 12.25, margin: 8, fill: { color: "F1F1F1" }, border: { width: 1, color: "696969" } }); // DEPRECATED: `margin` in points
 
 	// Complex/Compound border
 	optsSub.y = 3.9;
 	slide.addText("Complex Cell Borders:", optsSub);
 	let arrBorder1 = [
-		{ color: "FF0000", pt: 1 },
-		{ color: "00ff00", pt: 3 },
-		{ color: "0000ff", pt: 5 },
-		{ color: "9e9e9e", pt: 7 },
+		{ color: "FF0000", width: 1 },
+		{ color: "00ff00", width: 3 },
+		{ color: "0000ff", width: 5 },
+		{ color: "9e9e9e", width: 7 },
 	];
 	slide.addTable([["Borders 4!"]], {
 		x: 0.5,
@@ -388,7 +388,7 @@ function genSlide04(pptx) {
 		align: "center",
 		valign: "middle",
 	});
-	let arrBorder2 = [{ type: "dash", color: "ff0000", pt: 2 }, null, { type: "dash", color: "0000ff", pt: 5 }, null];
+	let arrBorder2 = [{ type: "dash", color: "ff0000", width: 2 }, null, { type: "dash", color: "0000ff", width: 5 }, null];
 	slide.addTable([["Borders 2!"]], {
 		x: 6.75,
 		y: 4.3,
@@ -413,7 +413,7 @@ function genSlide04(pptx) {
 		rowH: 0.5,
 		fill: { color: "F9F9F9" },
 		color: "3D3D3D",
-		border: { pt: 1, color: "FFFFFF" },
+		border: { width: 1, color: "FFFFFF" },
 		align: "center",
 		valign: "middle",
 	});
@@ -455,7 +455,7 @@ function genSlide05(pptx) {
 	// Table cell: Use the exact same code from addText to do the same word-level formatting within a cell
 	slide.addText("Table:", { x: 1, y: 5, w: 3, h: 2, fontSize: 18, fontFace: "Arial", color: "0088CC" });
 
-	let opts2 = { x: 2.5, y: 5, h: 2, align: "center", valign: "middle", colW: [1.5, 1.5, 6.5], border: { pt: 1 }, fill: { color: "F1F1F1" } };
+	let opts2 = { x: 2.5, y: 5, h: 2, align: "center", valign: "middle", colW: [1.5, 1.5, 6.5], border: { width: 1 }, fill: { color: "F1F1F1" } };
 	let arrTabRows = [
 		[
 			{ text: "Cell 1A", options: { fontFace: "Arial" } },
@@ -498,7 +498,7 @@ function genSlide06(pptx) {
 				{ text: arrCell4, options: { valign: "bottom" } },
 			],
 		],
-		{ x: 0.6, y: 1.25, w: 12, h: 3, fontSize: 24, border: { pt: 1 }, fill: { color: "F1F1F1" } },
+		{ x: 0.6, y: 1.25, w: 12, h: 3, fontSize: 24, border: { width: 1 }, fill: { color: "F1F1F1" } },
 	);
 
 	// EX 2:
@@ -527,7 +527,7 @@ function genSlide06(pptx) {
 				},
 			],
 		],
-		{ x: 0.6, y: 4.75, h: 2, fontSize: 24, colW: [8, 2, 2], valign: "middle", border: { pt: 1 }, fill: { color: "F1F1F1" } },
+		{ x: 0.6, y: 4.75, h: 2, fontSize: 24, colW: [8, 2, 2], valign: "middle", border: { width: 1 }, fill: { color: "F1F1F1" } },
 	);
 }
 
@@ -928,7 +928,7 @@ function genSlide10(pptx) {
 			x: 0.4,
 			y: 5.25,
 			colW: [0.5, 1.8, 5, 0.9, 1.0, 0.95, 0.8, 1.5],
-			border: { pt: 0.1, color: "818181" },
+			border: { width: 0.1, color: "818181" },
 			align: "left",
 			valign: "middle",
 			fontFace: "Segoe UI",
@@ -973,7 +973,7 @@ function genSlide10(pptx) {
 			x: 0.4,
 			y: 5.25,
 			colW: [0.5, 1.8, 5, 0.9, 1.0, 0.95, 0.8, 1.5],
-			border: { pt: 0.1, color: "818181" },
+			border: { width: 0.1, color: "818181" },
 			align: "left",
 			valign: "middle",
 			fontFace: "Segoe UI",
@@ -1020,7 +1020,7 @@ function genSlide10(pptx) {
 			x: 0.4,
 			y: 5.25,
 			colW: [0.5, 3.4, 3.4, 0.9, 1.0, 0.95, 0.8, 1.5],
-			border: { pt: 0.1, color: "818181" },
+			border: { width: 0.1, color: "818181" },
 			align: "left",
 			valign: "middle",
 			fontFace: "Segoe UI",
@@ -1049,7 +1049,7 @@ function genSlide10(pptx) {
 			x: 0.4,
 			y: 2.0,
 			colW: [0.5, 8.0],
-			border: { pt: 0.2, color: "818181" },
+			border: { width: 0.2, color: "818181" },
 			align: "left",
 			valign: "middle",
 			fontFace: "Arial",

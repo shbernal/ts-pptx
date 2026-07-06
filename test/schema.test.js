@@ -571,7 +571,7 @@ export default [
 			const { buf } = await build((p) => {
 				const style = p.defineTableStyle({
 					name: 'Brand & <Banded>',
-					wholeTbl: { border: { type: 'solid', color: 'D9D9D9', pt: 0.5 } },
+					wholeTbl: { border: { type: 'solid', color: 'D9D9D9', width: 0.5 } },
 					firstRow: { fill: '1A2B3C', color: 'FFFFFF', bold: true },
 					lastRow: { fill: 'CCCCCC', bold: true, italic: true },
 					firstCol: { color: '1A2B3C', bold: true },
@@ -615,9 +615,9 @@ export default [
 						fill: '004400',
 						color: 'FFFFFF',
 						border: [
-							{ type: 'solid', color: '000000', pt: 2 },
+							{ type: 'solid', color: '000000', width: 2 },
 							{ type: 'none' },
-							{ type: 'dash', color: '888888', pt: 1 },
+							{ type: 'dash', color: '888888', width: 1 },
 							{ type: 'none' },
 						],
 					},
@@ -644,10 +644,10 @@ export default [
 								text: 'capped',
 								options: {
 									border: [
-										{ type: 'solid', color: '000000', pt: 2, cap: 'round' },
-										{ type: 'solid', color: '000000', pt: 2, cap: 'square' },
+										{ type: 'solid', color: '000000', width: 2, cap: 'round' },
+										{ type: 'solid', color: '000000', width: 2, cap: 'square' },
 										{ type: 'none', cap: 'round' },
-										{ type: 'solid', color: '000000', pt: 2 },
+										{ type: 'solid', color: '000000', width: 2 },
 									],
 								},
 							},
@@ -664,16 +664,16 @@ export default [
 		fn: async () => {
 			const { buf } = await build((p) => {
 				const red = [
-					{ type: 'solid', color: 'FF0000', pt: 2 },
-					{ type: 'solid', color: 'FF0000', pt: 2 },
-					{ type: 'solid', color: 'FF0000', pt: 2 },
-					{ type: 'solid', color: 'FF0000', pt: 2 },
+					{ type: 'solid', color: 'FF0000', width: 2 },
+					{ type: 'solid', color: 'FF0000', width: 2 },
+					{ type: 'solid', color: 'FF0000', width: 2 },
+					{ type: 'solid', color: 'FF0000', width: 2 },
 				]
 				const blue = [
-					{ type: 'solid', color: '0000FF', pt: 2 },
-					{ type: 'solid', color: '0000FF', pt: 2 },
-					{ type: 'solid', color: '0000FF', pt: 2 },
-					{ type: 'solid', color: '0000FF', pt: 2 },
+					{ type: 'solid', color: '0000FF', width: 2 },
+					{ type: 'solid', color: '0000FF', width: 2 },
+					{ type: 'solid', color: '0000FF', width: 2 },
+					{ type: 'solid', color: '0000FF', width: 2 },
 				]
 				p.addSlide().addTable(
 					[
@@ -2180,7 +2180,7 @@ export default [
 							labels: ['A', 'B', 'C', 'D'],
 							values: [10, 20, 38, 2],
 							pointStyles: [
-								{ border: { pt: 2, color: 'FF0000' } },
+								{ border: { width: 2, color: 'FF0000' } },
 								{},
 								{ fill: '00B050', border: { type: 'dash', color: '404040' } },
 								{ border: { type: 'none' } },
@@ -2210,7 +2210,7 @@ export default [
 								// explicit fg/bg colors
 								{ pattern: { preset: 'diagCross', fgColor: 'C00000', bgColor: 'FFFFFF' } },
 								// pattern alongside a border
-								{ pattern: { preset: 'pct25' }, border: { pt: 2, color: '404040' } },
+								{ pattern: { preset: 'pct25' }, border: { width: 2, color: '404040' } },
 								{},
 							],
 						},
@@ -2232,7 +2232,7 @@ export default [
 							name: 'Status',
 							labels: ['Red', 'Amber', 'Green'],
 							values: [10, 30, 60],
-							pointStyles: [{ border: { pt: 3, color: 'C00000' } }, {}, { fill: '70AD47' }],
+							pointStyles: [{ border: { width: 3, color: 'C00000' } }, {}, { fill: '70AD47' }],
 						},
 					],
 					{ x: 1, y: 1, w: 4, h: 3 }
@@ -2284,7 +2284,7 @@ export default [
 							values: [4, 8, 6, 10],
 							pointStyles: [
 								{},
-								{ border: { pt: 2, color: 'FF0000' } },
+								{ border: { width: 2, color: 'FF0000' } },
 								{},
 								{ border: { type: 'dash', color: '0070C0' } },
 							],
@@ -2307,7 +2307,7 @@ export default [
 							name: 'Series 1',
 							labels: ['A', 'B', 'C'],
 							values: [5, 9, 7],
-							pointStyles: [{ fill: 'FFC000' }, {}, { border: { pt: 1, color: '404040' } }],
+							pointStyles: [{ fill: 'FFC000' }, {}, { border: { width: 1, color: '404040' } }],
 						},
 					],
 					{ x: 1, y: 1, w: 6, h: 3 }
@@ -2327,7 +2327,7 @@ export default [
 						{
 							name: 'Y-Values',
 							values: [3, 6, 2, 8],
-							pointStyles: [{ border: { pt: 2, color: 'FF0000' } }, {}, { fill: '00B050' }, {}],
+							pointStyles: [{ border: { width: 2, color: 'FF0000' } }, {}, { fill: '00B050' }, {}],
 						},
 					],
 					{ x: 1, y: 1, w: 6, h: 3 }

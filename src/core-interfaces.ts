@@ -290,16 +290,9 @@ export interface BorderProps {
 	/**
 	 * Border width (points)
 	 * - MS-PPT > Format Shape > Fill & Line > Line > Width
-	 * - PowerPoint-aligned name; preferred over the legacy `pt`
 	 * @default 1
 	 */
 	width?: number
-	/**
-	 * Border size (points)
-	 * @default 1
-	 * @deprecated v4.0.0 - use `width` (aligns with the PowerPoint UI and `ShapeLineProps.width`)
-	 */
-	pt?: number
 	/**
 	 * Border transparency (percent)
 	 * - MS-PPT > Format Shape > Fill & Line > Line > Transparency
@@ -1507,7 +1500,7 @@ export interface TableStyleRegionProps {
  * @example
  * const brand = pptx.defineTableStyle({
  *   name: 'Brand Banded',
- *   wholeTbl: { border: { type:'solid', color:'D9D9D9', pt:0.5 } },
+ *   wholeTbl: { border: { type:'solid', color:'D9D9D9', width:0.5 } },
  *   firstRow: { fill:'1A2B3C', color:'FFFFFF', bold:true },
  *   band1H:   { fill:'EAF1F8' },
  *   band2H:   { fill:'FFFFFF' },
@@ -2240,7 +2233,7 @@ export interface OptsChartData {
 	 * Supported for BAR, LINE, AREA, SCATTER, PIE, and DOUGHNUT chart types.
 	 * @example
 	 * pointStyles: [
-	 *   { border: { pt: 2, color: 'FF0000' } }, // point 0: red 2pt border
+	 *   { border: { width: 2, color: 'FF0000' } }, // point 0: red 2pt border
 	 *   {},                                     // point 1: default
 	 *   { fill: '00B050', border: { type: 'dash', color: '404040' } }, // point 2
 	 * ]
@@ -2267,7 +2260,7 @@ export interface ChartDataPointStyle {
 	/**
 	 * Data-point border (line). Reuses {@link BorderProps}.
 	 * - `type: 'none'` hides the border; `'dash'` draws a dashed border.
-	 * @example { pt: 2, color: 'FF0000' }
+	 * @example { width: 2, color: 'FF0000' }
 	 */
 	border?: BorderProps
 	/**
@@ -2370,7 +2363,7 @@ export interface ChartMulti {
 export interface ChartPropsFillLine {
 	/**
 	 * PowerPoint: Format Chart Area/Plot > Border ["Line"]
-	 * @example border: {color: 'FF0000', pt: 1} // hex RGB color, 1 pt line
+	 * @example border: {color: 'FF0000', width: 1} // hex RGB color, 1 pt line
 	 */
 	border?: BorderProps
 	/**

@@ -10,7 +10,7 @@ import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 // declared spans, and (2) every cell — including span continuation (hMerge/vMerge) cells — carries
 // the full four-sided border when a uniform border is configured.
 
-const SOLID = { type: 'solid', pt: 1, color: 'FF0000' }
+const SOLID = { type: 'solid', width: 1, color: 'FF0000' }
 const BORDER4 = [SOLID, SOLID, SOLID, SOLID]
 
 async function tableXml(zip) {
