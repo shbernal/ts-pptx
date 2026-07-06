@@ -19,7 +19,7 @@ import {
 import type { FlattenContext } from '../oxml/theme.js'
 import { resolveSlideColorContext } from './theme-context.js'
 import type { Presentation } from './presentation.js'
-import { AutoShape, Picture, buildShapes, type Shape } from './shapes.js'
+import { AutoShape, Picture, buildShapes, type AnyShape } from './shapes.js'
 import {
 	buildTransition,
 	parseTransition,
@@ -266,18 +266,18 @@ export class Slide {
 	}
 
 	/** Top-level shapes in the slide's shape tree, in document order. */
-	get shapes(): Shape[] {
+	get shapes(): AnyShape[] {
 		const spTree = this.#spTree()
 		return spTree ? buildShapes(spTree, this) : []
 	}
 
 	/** The first top-level shape with the given drawing id (`p:cNvPr/@id`), or `undefined`. */
-	shapeById(id: number): Shape | undefined {
+	shapeById(id: number): AnyShape | undefined {
 		return this.shapes.find((shape) => shape.id === id)
 	}
 
 	/** The first top-level shape with the given name (`p:cNvPr/@name`), or `undefined`. */
-	shapeByName(name: string): Shape | undefined {
+	shapeByName(name: string): AnyShape | undefined {
 		return this.shapes.find((shape) => shape.name === name)
 	}
 

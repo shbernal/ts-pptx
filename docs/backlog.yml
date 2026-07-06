@@ -2577,7 +2577,7 @@ items:
     type: fork-internal-proposal
     first_seen: 2026-07-06
     last_reviewed: 2026-07-06
-    status: deferred
+    status: implemented
     priority: p3
     target_area:
       - typescript-api
@@ -2610,14 +2610,39 @@ items:
       Scope note: this is an API-shape improvement with no OOXML/runtime change;
       it is safe under the fork's no-backcompat policy but is p3 because the read
       model is young and the workaround (cast at the call site) is cheap.
+      IMPLEMENTED 2026-07-06: `src/read/api/shapes.ts` now exports the
+      discriminated union `AnyShape = AutoShape | Picture | Connector |
+      GraphicFrame | GroupShape` (keyed on the `shapeType` literal each subclass
+      already carries) plus five type-guard helpers (`isAutoShape`, `isPicture`,
+      `isConnector`, `isGraphicFrame`, `isGroupShape`). The read API surfaces that
+      return shapes were retyped from the abstract base `Shape` to `AnyShape`:
+      `wrapShapeElement`/`buildShapes`, `GroupShape.shapes`, `Slide.shapes` /
+      `Slide.shapeById` / `Slide.shapeByName`, and
+      `Presentation.importShape` / `importShapes`. The abstract `Shape` stays
+      exported for the common-members-only case and `instanceof`. `read.ts`
+      re-exports `AnyShape` and the guards. Consumers now narrow via
+      `if (shape.shapeType === 'graphicFrame') shape.chart` (or the guards) with
+      no cast. Regression: `test/read/model.test.js` asserts the guards partition
+      shapes by their discriminant across the mixed coverage deck.
+      FOLLOW-UP (decoupled): the union was the "single largest blocker" to full
+      test-file typechecking and is gone (a probe tsconfig scoped to test/**
+      dropped TS2339 narrowing errors from ~124 to a handful). Enabling the full
+      `typecheck:test` gate now surfaces ~117 residual errors that are unrelated
+      type drift — stale test mocks (e.g. a `MetricsResolver` missing
+      `hasCodepoint`), un-narrowed union results (`ResizeOutcome`,
+      zip-buffer `string | ArrayBuffer | Uint8Array | Blob`), and similar — each a
+      per-site fix. That gate is its own initiative, not part of this API change.
     evidence:
       kinds:
         - local-source-inspection
       local_files:
         - src/read/api/shapes.ts
         - src/read/api/slide.ts
+        - src/read/api/presentation.ts
+        - src/read.ts
+        - test/read/model.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: Redesign the read-model Shape return type into a discriminated union keyed on ShapeType so getShape()/getShapes() narrow safely; then enable full test-file typechecking (tsconfig scoped to test/**) which is currently blocked mainly by this gap
+    next_action: none

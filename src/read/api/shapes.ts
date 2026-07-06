@@ -1449,9 +1449,46 @@ export class GroupShape extends Shape {
 	}
 
 	/** The shapes nested directly inside this group, in document order. */
-	get shapes(): Shape[] {
+	get shapes(): AnyShape[] {
 		return buildShapes(this.element, this.slide)
 	}
+}
+
+/**
+ * The concrete shape kinds as a discriminated union keyed on the
+ * {@link Shape.shapeType} literal. The read API (`Slide.shapes`,
+ * `Slide.shapeById`, `GroupShape.shapes`, `Presentation.importShape`, …) returns
+ * this rather than the abstract {@link Shape} base, so a consumer can narrow to a
+ * subtype by its discriminant and reach the subtype-only members — e.g.
+ * `if (shape.shapeType === 'graphicFrame') shape.chart` or, equivalently, the
+ * {@link isGraphicFrame} guard. The abstract {@link Shape} base is still exported
+ * for the "common members only" case and for `instanceof` checks.
+ */
+export type AnyShape = AutoShape | Picture | Connector | GraphicFrame | GroupShape
+
+/** Narrow a shape to an {@link AutoShape} (`p:sp` — auto shape, text box, or placeholder). */
+export function isAutoShape(shape: Shape): shape is AutoShape {
+	return shape.shapeType === 'autoShape'
+}
+
+/** Narrow a shape to a {@link Picture} (`p:pic`). */
+export function isPicture(shape: Shape): shape is Picture {
+	return shape.shapeType === 'picture'
+}
+
+/** Narrow a shape to a {@link Connector} (`p:cxnSp`). */
+export function isConnector(shape: Shape): shape is Connector {
+	return shape.shapeType === 'connector'
+}
+
+/** Narrow a shape to a {@link GraphicFrame} (`p:graphicFrame` — table/chart host). */
+export function isGraphicFrame(shape: Shape): shape is GraphicFrame {
+	return shape.shapeType === 'graphicFrame'
+}
+
+/** Narrow a shape to a {@link GroupShape} (`p:grpSp`). */
+export function isGroupShape(shape: Shape): shape is GroupShape {
+	return shape.shapeType === 'group'
 }
 
 /** Get-or-add `p:spPr/a:xfrm` for shapes whose transform lives in `p:spPr` (`p:sp`, `p:pic`, `p:cxnSp`). */
@@ -1465,7 +1502,7 @@ function getOrAddSpPrXfrm(shapeElement: Element): Element {
  * `p:grpSp`) in its concrete `Shape` proxy, or `null` if it is not a shape kind
  * (e.g. `p:nvGrpSpPr`, `p:grpSpPr`, `p:extLst`).
  */
-export function wrapShapeElement(element: Element, slide: Slide): Shape | null {
+export function wrapShapeElement(element: Element, slide: Slide): AnyShape | null {
 	if (element.namespaceURI !== OOXML_NS.p) return null
 	switch (element.localName) {
 		case 'sp':
@@ -1487,8 +1524,8 @@ export function wrapShapeElement(element: Element, slide: Slide): Shape | null {
  * Build shape proxies for the shape-tree children of `parent` (a `p:spTree` or
  * `p:grpSp`), skipping non-shape children (`p:nvGrpSpPr`, `p:grpSpPr`, …).
  */
-export function buildShapes(parent: Element, slide: Slide): Shape[] {
-	const shapes: Shape[] = []
+export function buildShapes(parent: Element, slide: Slide): AnyShape[] {
+	const shapes: AnyShape[] = []
 	for (let node = parent.firstChild; node; node = node.nextSibling) {
 		if (node.nodeType !== ELEMENT_NODE) continue
 		const shape = wrapShapeElement(node as Element, slide)

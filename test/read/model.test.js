@@ -9,7 +9,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
-import { Presentation } from '../../dist/read.js'
+import { Presentation, isAutoShape, isConnector, isGraphicFrame, isGroupShape, isPicture } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -228,5 +228,36 @@ describe('mixed.pptx — connectors, groups, graphic frames', () => {
 		const smartArt = frameOn(1) // slide2: dgm diagram
 		assert(smartArt, 'slide2 has a graphic frame')
 		assert(!smartArt.hasTable && !smartArt.hasChart, 'SmartArt frame is neither table nor chart')
+	})
+
+	// The exported type guards must agree with the `shapeType` discriminant they
+	// narrow on: exactly one guard matches each shape, across every kind the deck
+	// contains (autoShape/picture/connector/graphicFrame/group).
+	test('type guards partition shapes by their shapeType discriminant', async () => {
+		function allShapes(shapes) {
+			return shapes.flatMap((shape) => (shape.shapeType === 'group' ? [shape, ...allShapes(shape.shapes)] : [shape]))
+		}
+		const guards = {
+			autoShape: isAutoShape,
+			picture: isPicture,
+			connector: isConnector,
+			graphicFrame: isGraphicFrame,
+			group: isGroupShape,
+		}
+		const slides = (await open('mixed')).slides
+		const shapes = slides.flatMap((slide) => allShapes(slide.shapes))
+		assert(shapes.length > 0, 'mixed deck yields shapes')
+		const seen = new Set()
+		for (const shape of shapes) {
+			seen.add(shape.shapeType)
+			for (const [kind, guard] of Object.entries(guards)) {
+				assertEqual(guard(shape), shape.shapeType === kind, `is${kind}(${shape.shapeType})`)
+			}
+		}
+		// The coverage deck exercises multiple non-trivial kinds, so the partition
+		// check above is meaningfully hit (this deck has no pictures).
+		for (const kind of ['autoShape', 'connector', 'graphicFrame', 'group']) {
+			assert(seen.has(kind), `mixed deck should contain at least one ${kind}`)
+		}
 	})
 })

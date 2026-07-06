@@ -34,7 +34,7 @@ import {
 import { flattenShape, flattenSlide, remapLiteralColors, restyleSlide, type FlattenContext } from '../oxml/theme.js'
 import { resolveSlideThemeParts } from './theme-context.js'
 import { Slide } from './slide.js'
-import { wrapShapeElement, type Shape } from './shapes.js'
+import { wrapShapeElement, type AnyShape } from './shapes.js'
 import { carryShapeAnimations } from './animation.js'
 
 const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
@@ -1454,7 +1454,7 @@ export class Presentation {
 	 * collides with the host. Remaining limitation: the source slide's build
 	 * animation/timing for the shape is dropped (the shape lands static).
 	 */
-	importShape(target: Slide, source: Slide, shapeIndex: number, options: ImportShapeOptions = {}): Shape {
+	importShape(target: Slide, source: Slide, shapeIndex: number, options: ImportShapeOptions = {}): AnyShape {
 		const [shape] = this.importShapes(target, source, [shapeIndex], options)
 		if (!shape) throw new Error(`importShape: source slide has no shape at index ${shapeIndex}`)
 		return shape
@@ -1467,7 +1467,7 @@ export class Presentation {
 	 * once via the copy registry, and shared images resolve to a single host-slide
 	 * relationship. Returns the new {@link Shape}s in `shapeIndices` order.
 	 */
-	importShapes(target: Slide, source: Slide, shapeIndices: number[], options: ImportShapeOptions = {}): Shape[] {
+	importShapes(target: Slide, source: Slide, shapeIndices: number[], options: ImportShapeOptions = {}): AnyShape[] {
 		if (target.presentation !== this) throw new Error('importShape: target slide must belong to this presentation')
 
 		// Pre-flight: slide sizes must match unless { rescale } opts into scaling the
@@ -1517,7 +1517,7 @@ export class Presentation {
 		const extLst = firstChild(spTree, 'p:extLst')
 		const anchor = options.at == null ? extLst : (nthShapeChild(spTree, options.at) ?? extLst)
 
-		const result: Shape[] = []
+		const result: AnyShape[] = []
 		for (const shapeEl of sourceElements) {
 			const imported = targetDoc.importNode(shapeEl, true)
 

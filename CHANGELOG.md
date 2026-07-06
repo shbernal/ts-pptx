@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Read model: `Shape` return types are now a narrowable discriminated union.**
+  `pptxgenjs/read` exports `AnyShape = AutoShape | Picture | Connector |
+  GraphicFrame | GroupShape` (discriminated on the `shapeType` literal), and the
+  shape-returning API — `Slide.shapes` / `shapeById` / `shapeByName`,
+  `GroupShape.shapes`, and `Presentation.importShape` / `importShapes` — now
+  returns `AnyShape` instead of the abstract base `Shape`. A consumer can reach a
+  subtype's own members without a cast by narrowing on the discriminant:
+  `if (shape.shapeType === 'graphicFrame') shape.chart`. Five type-guard helpers
+  (`isAutoShape`, `isPicture`, `isConnector`, `isGraphicFrame`, `isGroupShape`)
+  are exported for the same narrowing in expression position (`.filter(isPicture)`).
+  - This is additive at runtime (the objects are unchanged) and non-breaking for
+    TypeScript consumers: `AnyShape` is assignable to `Shape`, so code that
+    annotated variables as `Shape` still compiles. The abstract `Shape` remains
+    exported for the common-members-only case and for `instanceof` checks.
+
 - **`addChart(data, options)` — chart type on the options object.** The canonical
   signature is now `slide.addChart(data, { type, ...options })`, matching how every
   other option is passed. This is additive: the old positional form
