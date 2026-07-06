@@ -15,3 +15,19 @@ pre-commit:
         - 'pnpm-lock.yaml'
       run: pnpm exec prettier --write --ignore-unknown {staged_files}
       stage_fixed: true
+
+pre-push:
+  # The whole-repo static gates that CI enforces but pre-commit's per-file
+  # autofix cannot catch: a lint/type/format error that is not auto-fixable
+  # would otherwise only surface in CI. These are read-only (no writes), so
+  # they run in parallel. Tests are intentionally left to CI to keep push fast.
+  parallel: true
+  jobs:
+    - name: lint
+      run: pnpm run lint
+    - name: format
+      run: pnpm run format:check
+    - name: typecheck
+      run: pnpm run typecheck
+    - name: typecheck-scripts
+      run: pnpm run typecheck:scripts
