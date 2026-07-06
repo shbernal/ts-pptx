@@ -69,7 +69,7 @@
 		"prepare": "lefthook install",
 		"start": "pnpm run watch",
 		"watch": "tsdown --watch",
-		"test": "pnpm run build && vitest run test/regression test/schema-validation.test.mjs",
+		"test": "pnpm run build && vitest run test/regression test/schema-validation.test.mjs test/read test/backlog-ledger.test.mjs",
 		"test:unit": "pnpm run build && vitest run test/regression",
 		"test:schema": "pnpm run build && vitest run test/schema-validation.test.mjs",
 		"test:read": "pnpm run build && vitest run test/read",
