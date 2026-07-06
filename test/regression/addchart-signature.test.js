@@ -65,7 +65,8 @@ defineRegressionSuite('addChart signature', [
 			const p = new PptxGenJS()
 			let threw = false
 			try {
-				p.addSlide().addChart(DATA, { x: 1, y: 1, w: 6, h: 3 })
+				// Negative test: `type` is intentionally omitted; cast past the required-`type` overload.
+				p.addSlide().addChart(DATA, /** @type {any} */ ({ x: 1, y: 1, w: 6, h: 3 }))
 			} catch (err) {
 				threw = true
 				assert(/type/.test(String(err && err.message)), 'error should mention the missing `type`; got: ' + err)

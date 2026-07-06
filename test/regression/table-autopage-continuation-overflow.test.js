@@ -15,6 +15,7 @@ const header = [
 ]
 
 function rows(n) {
+	/** @type {Array<Array<{ text: string, options?: { bold: boolean } }>>} */
 	const r = [header]
 	for (let i = 0; i < n; i++) {
 		r.push([

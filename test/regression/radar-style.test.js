@@ -72,7 +72,7 @@ defineRegressionSuite('radarStyle values', [
 	{
 		name: 'deprecated \'standard\' still maps to val="standard" and warns',
 		fn: async () => {
-			let xml
+			let xml = ''
 			const warnings = await withCapturedWarnings(async () => {
 				xml = await radarXml('standard')
 			})
@@ -89,7 +89,7 @@ defineRegressionSuite('radarStyle values', [
 	{
 		name: 'deprecated \'marker\' still maps to val="marker" and warns',
 		fn: async () => {
-			let xml
+			let xml = ''
 			const warnings = await withCapturedWarnings(async () => {
 				xml = await radarXml('marker')
 			})

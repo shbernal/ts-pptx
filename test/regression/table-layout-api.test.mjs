@@ -16,6 +16,8 @@ const mono = (emPerChar = 0.5) => ({
 		const n = [...text].length
 		return n * emPerChar * sizePt + n * charSpacingPt
 	},
+	// No cmap: like the unregistered-font heuristic, treat every code point as covered.
+	hasCodepoint: () => true,
 })
 const regWith = (face = 'Mono') => {
 	const r = new FontMetricsRegistry()

@@ -81,8 +81,9 @@ describe('Table read model', () => {
 		const presentation = await open('table')
 		const tables = presentation.slides
 			.flatMap((slide) => slide.shapes)
-			.filter((shape) => shape.shapeType === 'graphicFrame' && shape.table)
-			.map((shape) => shape.table)
+			.filter((shape) => shape.shapeType === 'graphicFrame')
+			.filter((frame) => frame.table)
+			.map((frame) => frame.table)
 		assert(tables.length >= 2, `expected ≥2 tables, got ${tables.length}`)
 		assert(
 			tables.some((table) => table.bandedRows),

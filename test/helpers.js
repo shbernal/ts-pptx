@@ -10,7 +10,9 @@ import { describe, test } from 'vitest'
 async function build(buildFn) {
 	const pres = new PptxGenJS()
 	buildFn(pres)
-	const buf = await pres.stream()
+	// stream() is typed for every output target (string/Blob/ArrayBuffer/Uint8Array);
+	// under Node it resolves to a Uint8Array, which the tests rely on for byte reads.
+	const buf = /** @type {Uint8Array} */ (await pres.stream())
 	const zip = await JSZip.loadAsync(buf)
 	return { pres, zip, buf }
 }
@@ -38,6 +40,11 @@ function defineRegressionSuite(suiteName, legacyIssueOrCases, maybeCases) {
 	})
 }
 
+/**
+ * @param {unknown} cond
+ * @param {string} [msg]
+ * @returns {asserts cond}
+ */
 function assert(cond, msg) {
 	if (!cond) throw new Error('assertion failed: ' + msg)
 }

@@ -29,7 +29,10 @@ describe('media load failure policy (upstream #1310)', () => {
 	})
 
 	test("onMediaError:'placeholder' substitutes a placeholder and resolves", async () => {
-		const buf = await deckWithMissingImage().write({ outputType: 'nodebuffer', onMediaError: 'placeholder' })
+		// write({ outputType: 'nodebuffer' }) resolves to a Buffer; the return type is the union of all targets.
+		const buf = /** @type {Buffer} */ (
+			await deckWithMissingImage().write({ outputType: 'nodebuffer', onMediaError: 'placeholder' })
+		)
 		assert(buf && buf.length > 0, 'placeholder mode must produce a non-empty package')
 	})
 })

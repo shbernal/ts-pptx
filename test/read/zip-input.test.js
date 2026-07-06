@@ -110,8 +110,8 @@ describe('readZip error branches report a specific message', () => {
 	test('unsupported input type names the accepted shapes', async () => {
 		let error = null
 		try {
-			// A bare number is none of the accepted input shapes.
-			await readZip(42)
+			// A bare number is none of the accepted input shapes (negative test — cast past ZipInput).
+			await readZip(/** @type {any} */ (42))
 		} catch (err) {
 			error = err
 		}

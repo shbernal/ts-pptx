@@ -16,6 +16,7 @@ defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
+			/** @type {import('../../dist/node.js').ShadowProps} */
 			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', opacity: 0.15 }
 			slide.addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 4, h: 2, shadow })
 
@@ -32,6 +33,7 @@ defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
+			/** @type {import('../../dist/node.js').ShadowProps} */
 			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', opacity: 0.15 }
 			slide.addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 4, h: 2, shadow })
 
@@ -53,6 +55,7 @@ defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 			// 1x1 transparent PNG, base64
 			const png =
 				'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII='
+			/** @type {import('../../dist/node.js').ShadowProps} */
 			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', opacity: 0.15 }
 			slide.addImage({ data: png, x: 1, y: 1, w: 1, h: 1, shadow })
 

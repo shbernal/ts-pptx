@@ -72,7 +72,7 @@ describe('Slide.addPicture', () => {
 		const saved = await presentation.save()
 		const reopened = await Presentation.load(saved)
 		const reloaded = reopened.slides[0].shapes.find((shape) => shape.shapeType === 'picture' && shape.name === 'Logo')
-		assert(reloaded, 'added picture reloads')
+		assert(reloaded?.shapeType === 'picture', 'added picture reloads')
 		assertEqual(reloaded.width, 1828800, 'geometry reloads')
 
 		const mediaPartName = reloaded.imagePartName

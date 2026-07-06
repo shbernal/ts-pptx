@@ -113,9 +113,14 @@ describe('PptxGenJS.embedFont', () => {
 
 	test('validates input: missing typeface and missing source throw', async () => {
 		const p = new PptxGenJS()
-		await assertRejects(() => p.embedFont({ data: regular }), 'missing typeface throws')
+		// Intentionally invalid inputs (negative tests): cast past the compile-time
+		// types to prove the runtime validation still rejects them.
+		await assertRejects(() => p.embedFont(/** @type {any} */ ({ data: regular })), 'missing typeface throws')
 		await assertRejects(() => p.embedFont({ typeface: 'X' }), 'missing source throws')
-		await assertRejects(() => p.embedFont({ data: regular, typeface: 'X', style: 'heavy' }), 'invalid style throws')
+		await assertRejects(
+			() => p.embedFont(/** @type {any} */ ({ data: regular, typeface: 'X', style: 'heavy' })),
+			'invalid style throws'
+		)
 	})
 
 	test('no embedFont calls: deck is unchanged (no font parts/list, historical flags)', async () => {

@@ -159,7 +159,7 @@ describe('acceptance: target a shape, swap text + image, untouched parts byte-st
 
 		slide.shapeByName('Textfeld 1').text = 'swapped caption'
 		const picture = slide.shapeByName('Grafik 5')
-		assertEqual(picture.shapeType, 'picture', 'Grafik 5 is the picture')
+		assert(picture?.shapeType === 'picture', 'Grafik 5 is the picture')
 		const oldPartName = picture.imagePartName
 		picture.setImage(PNG_1X1, { contentType: 'image/png' })
 
@@ -189,7 +189,9 @@ describe('acceptance: target a shape, swap text + image, untouched parts byte-st
 		// Re-read the saved deck and confirm the edits took.
 		const reopened = await Presentation.load(saved)
 		assertEqual(reopened.slides[0].shapeByName('Textfeld 1').text, 'swapped caption', 'caption edit reloads')
-		const newPartName = reopened.slides[0].shapeByName('Grafik 5').imagePartName
+		const reloadedPic = reopened.slides[0].shapeByName('Grafik 5')
+		assert(reloadedPic?.shapeType === 'picture', 'Grafik 5 reloads as a picture')
+		const newPartName = reloadedPic.imagePartName
 		assert(newPartName !== oldPartName, 'picture points at a new media part')
 		assert(bytesEqual(reopened.opc.part(newPartName).bytes, PNG_1X1), 'new media holds the supplied bytes')
 	})
@@ -198,7 +200,9 @@ describe('acceptance: target a shape, swap text + image, untouched parts byte-st
 		const presentation = await open('image')
 		const slide = presentation.slides[0]
 		slide.shapeByName('Textfeld 1').text = 'swapped caption'
-		slide.shapeByName('Grafik 5').setImage(PNG_1X1, { contentType: 'image/png' })
+		const grafik = slide.shapeByName('Grafik 5')
+		assert(grafik?.shapeType === 'picture', 'Grafik 5 is a picture')
+		grafik.setImage(PNG_1X1, { contentType: 'image/png' })
 		const errors = await validateBuf(Buffer.from(await presentation.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 	})

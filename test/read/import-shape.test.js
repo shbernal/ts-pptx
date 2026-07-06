@@ -141,7 +141,7 @@ describe('Presentation.importShape', () => {
 		const hostShapesBefore = targetSlide.shapes.length
 
 		const shape = target.importShape(targetSlide, source.slides[0], picIndex)
-		assertEqual(shape.shapeType, 'picture', 'returns a Picture proxy')
+		assert(shape.shapeType === 'picture', 'returns a Picture proxy')
 		assertEqual(targetSlide.shapes.length, hostShapesBefore + 1, 'one shape was appended to the host slide')
 
 		// Exactly one media part was copied in, and the blip points at it.
@@ -159,19 +159,21 @@ describe('Presentation.importShape', () => {
 		const source = await open('table')
 		const tableIndex = findShapeIndex(source.slides[0], (s) => s.shapeType === 'graphicFrame' && s.table)
 		assert(tableIndex >= 0, 'source slide has a table')
-		const srcTable = source.slides[0].shapes[tableIndex].table
+		const srcFrame = source.slides[0].shapes[tableIndex]
+		assert(srcFrame.shapeType === 'graphicFrame', 'source shape at tableIndex is a graphic frame')
+		const srcTable = srcFrame.table
 		const srcRows = srcTable.rowCount
 		const srcFirstCell = srcTable.rows[0].cells[0].text
 
 		const shape = target.importShape(target.slides[0], source.slides[0], tableIndex)
-		assertEqual(shape.shapeType, 'graphicFrame', 'returns the graphic frame')
+		assert(shape.shapeType === 'graphicFrame', 'returns the graphic frame')
 		assert(shape.table, 'the lifted frame still hosts a table')
 		assertEqual(shape.table.rowCount, srcRows, 'row count preserved')
 		assertEqual(shape.table.rows[0].cells[0].text, srcFirstCell, 'first cell text preserved')
 
 		const reopened = await Presentation.load(await target.save())
 		assertNoDanglingRels(reopened.opc)
-		const table = reopened.slides[0].shapes.find((s) => s.shapeType === 'graphicFrame' && s.table)?.table
+		const table = reopened.slides[0].shapes.filter((s) => s.shapeType === 'graphicFrame').find((f) => f.table)?.table
 		assert(table && table.rowCount === srcRows, 'table survives the round-trip')
 	})
 
@@ -186,6 +188,7 @@ describe('Presentation.importShape', () => {
 		const chartsBefore = countParts(target.opc, /\/charts\/chart\d+\.xml$/)
 
 		const shape = target.importShape(target.slides[0], source.slides[chartSlide], chartIndex)
+		assert(shape.shapeType === 'graphicFrame', 'returns the graphic frame')
 		assert(shape.chart, 'the lifted frame still hosts a chart')
 
 		const reopened = await Presentation.load(await target.save())
@@ -307,6 +310,7 @@ describe('Presentation.importShape', () => {
 
 		const a = target.importShape(target.slides[0], source.slides[0], picIndex)
 		const b = target.importShape(target.slides[0], source.slides[0], picIndex)
+		assert(a.shapeType === 'picture' && b.shapeType === 'picture', 'both imports return pictures')
 
 		// The same source image was copied exactly once (registry dedupe), even though
 		// the two pictures get distinct host relationships.

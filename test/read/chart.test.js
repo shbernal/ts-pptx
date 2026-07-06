@@ -87,7 +87,8 @@ describe('Chart read model', () => {
 		const slides = (await open('mixed')).slides
 		const tableFrame = slides
 			.flatMap((s) => s.shapes)
-			.find((shape) => shape.shapeType === 'graphicFrame' && shape.hasTable)
+			.filter((shape) => shape.shapeType === 'graphicFrame')
+			.find((frame) => frame.hasTable)
 		assert(tableFrame, 'mixed.pptx has a table graphic frame')
 		assertEqual(tableFrame.chart, null, 'table frame has no chart')
 	})

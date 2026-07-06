@@ -174,7 +174,7 @@ describe('Presentation.importSlide', () => {
 		const imported = target.importSlide(source, sourceTableSlide)
 		const reopened = await Presentation.load(await target.save())
 		const last = reopened.slides[reopened.slides.length - 1]
-		const table = last.shapes.find((s) => s.shapeType === 'graphicFrame' && s.table)?.table
+		const table = last.shapes.filter((s) => s.shapeType === 'graphicFrame').find((f) => f.table)?.table
 		assert(table, 'imported slide still has a table')
 		assertGraphResolves(reopened.opc, last.partName)
 		assertNoDanglingRels(reopened.opc)
@@ -450,7 +450,7 @@ describe('generate → read import bridge', () => {
 		pres.addSlide().addText('interior slide one', { x: 1, y: 1, w: 6, h: 1 })
 		pres.addSlide().addText('interior slide two', { x: 1, y: 1, w: 6, h: 1 })
 		const out = await pres.stream()
-		return out instanceof Uint8Array ? out : new Uint8Array(out)
+		return out instanceof Uint8Array ? out : new Uint8Array(/** @type {ArrayBuffer} */ (out))
 	}
 
 	test('a pptxgen-generated deck loads and accepts an imported bookend', async () => {

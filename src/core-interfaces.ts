@@ -1628,6 +1628,19 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 */
 	fitColumns?: 'shrink'
 	/**
+	 * Table-level text-fit policy, cascaded to every cell that does not set its own
+	 * {@link TableCellProps.fit}.
+	 * - `'shrink'`: each cell whose row has a **fixed** height that its wrapped text
+	 *   would exceed gets a reduced literal font size baked onto its runs so the text
+	 *   fits (see {@link TableCellProps.fit} for the full semantics and the font-metrics
+	 *   requirement). Cells that set their own `fit` win over this table default.
+	 * - `'none'` / `'resize'` / the object form are accepted for parity with
+	 *   {@link TextPropsOptions.fit} but only `'shrink'` is acted on for table cells.
+	 * @default undefined (cells keep their authored size)
+	 * @example 'shrink'
+	 */
+	fit?: 'none' | 'shrink' | 'resize' | TextFitShrinkProps
+	/**
 	 * Mark the first row as a header row.
 	 * Emits `firstRow="1"` on `<a:tblPr>`, activating the first-row style region of
 	 * the table style and satisfying the PowerPoint accessibility checker's "table header" rule.

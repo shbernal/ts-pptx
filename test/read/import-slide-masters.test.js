@@ -245,7 +245,7 @@ describe('generate → read slide-master graft bridge', () => {
 		pres.addSlide().addText('interior one', { x: 1, y: 1, w: 6, h: 1 })
 		pres.addSlide().addText('interior two', { x: 1, y: 1, w: 6, h: 1 })
 		const out = await pres.stream()
-		return out instanceof Uint8Array ? out : new Uint8Array(out)
+		return out instanceof Uint8Array ? out : new Uint8Array(/** @type {ArrayBuffer} */ (out))
 	}
 
 	test('a generated deck ships a grafted master without changing its slides', async () => {

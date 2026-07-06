@@ -23,11 +23,25 @@ const mono = (emPerChar = 0.5) => ({
 		const n = [...text].length
 		return n * emPerChar * sizePt + n * charSpacingPt
 	},
+	// Synthetic metrics have no cmap; like the unregistered-font heuristic they
+	// treat every code point as covered.
+	hasCodepoint: () => true,
 })
 
 const para = (text, extra = {}) => ({ runs: [{ text, sizePt: 18, fontFace: 'Mono' }], ...extra })
 const resolveMono = () => mono()
 const linesOf = (height, sizePt = 18) => Math.round(height / (SINGLE_LINE_PITCH * sizePt))
+
+// Narrow a solver's discriminated outcome to the expected variant (and fail
+// loudly otherwise), so the test can reach the variant-only members.
+const shrinkResult = (out) => {
+	if (out.kind !== 'shrink') throw new Error(`expected a shrink outcome, got ${out.kind}`)
+	return out.result
+}
+const resizeHeight = (out) => {
+	if (out.kind !== 'resize') throw new Error(`expected a resize outcome, got ${out.kind}`)
+	return out.neededInnerHeightPt
+}
 
 describe('text-fit: measureHeightPt', () => {
 	test('single short line height = pitch * size', () => {
@@ -102,8 +116,7 @@ describe('text-fit: solveShrink', () => {
 		const paras = [para('aaaaaaaaaa bbbbbbbbbb cccccccccc dddddddddd eeeeeeeeee')]
 		const b = box(120, 30)
 		const out = solveShrink(paras, b, resolveMono)
-		expect(out.kind).toBe('shrink')
-		const { fontScalePct } = out.result
+		const { fontScalePct } = shrinkResult(out)
 		// On the 2.5% grid, ≤ 100, ≥ floor.
 		expect(Number.isInteger(fontScalePct / FONT_SCALE_STEP_PCT)).toBe(true)
 		expect(fontScalePct).toBeLessThan(100)
@@ -137,22 +150,20 @@ describe('text-fit: solveResize', () => {
 
 	test('needed height = pitch * size, inflated by the height safety factor', () => {
 		const out = solveResize([para('hi')], box(1000, 5), resolveMono)
-		expect(out.kind).toBe('resize')
-		expect(out.neededInnerHeightPt).toBeCloseTo(SINGLE_LINE_PITCH * 18 * HEIGHT_SAFETY_FACTOR, 6)
+		expect(resizeHeight(out)).toBeCloseTo(SINGLE_LINE_PITCH * 18 * HEIGHT_SAFETY_FACTOR, 6)
 	})
 
 	test('never under-estimates: needed height ≥ the true laid-out height (no overflow)', () => {
 		const paras = [para('aaaaaaaaaa bbbbbbbbbb cccccccccc dddddddddd')]
 		const out = solveResize(paras, box(120, 30), resolveMono)
-		expect(out.kind).toBe('resize')
 		const trueHeight = measureHeightPt(paras, 120, resolveMono, 100, 0)
-		expect(out.neededInnerHeightPt).toBeGreaterThanOrEqual(trueHeight)
+		expect(resizeHeight(out)).toBeGreaterThanOrEqual(trueHeight)
 	})
 
 	test('wraps to more lines as width shrinks → taller needed height', () => {
 		const paras = [para('aaaaaaaaaa bbbbbbbbbb cccccccccc')]
-		const wide = solveResize(paras, box(10000, 1), resolveMono).neededInnerHeightPt
-		const narrow = solveResize(paras, box(100, 1), resolveMono).neededInnerHeightPt
+		const wide = resizeHeight(solveResize(paras, box(10000, 1), resolveMono))
+		const narrow = resizeHeight(solveResize(paras, box(100, 1), resolveMono))
 		expect(linesOf(wide / HEIGHT_SAFETY_FACTOR)).toBe(1)
 		expect(narrow).toBeGreaterThan(wide)
 	})

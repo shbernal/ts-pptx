@@ -716,7 +716,7 @@ export function avContentType(extn: string, mtype: 'audio' | 'video'): string {
 export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowProps | undefined {
 	if (!ShadowProps || typeof ShadowProps !== 'object') {
 		// warn("`shadow` options must be an object. Ex: `{shadow: {type:'none'}}`")
-		return
+		return undefined
 	}
 
 	// OPT: `type`

@@ -2624,14 +2624,23 @@ items:
       `if (shape.shapeType === 'graphicFrame') shape.chart` (or the guards) with
       no cast. Regression: `test/read/model.test.js` asserts the guards partition
       shapes by their discriminant across the mixed coverage deck.
-      FOLLOW-UP (decoupled): the union was the "single largest blocker" to full
-      test-file typechecking and is gone (a probe tsconfig scoped to test/**
-      dropped TS2339 narrowing errors from ~124 to a handful). Enabling the full
-      `typecheck:test` gate now surfaces ~117 residual errors that are unrelated
-      type drift — stale test mocks (e.g. a `MetricsResolver` missing
-      `hasCodepoint`), un-narrowed union results (`ResizeOutcome`,
-      zip-buffer `string | ArrayBuffer | Uint8Array | Blob`), and similar — each a
-      per-site fix. That gate is its own initiative, not part of this API change.
+      FOLLOW-UP DONE 2026-07-06: the full test-file typecheck gate that this union
+      unblocked is now shipped. `tsconfig.test.json` (allowJs + checkJs, relaxing
+      the annotation-demanding strictness that is pure noise on fixture-driven test
+      code — noImplicitAny, index-signature access, unused locals/params, unchecked
+      index access, strict-null, unknown catch vars — while keeping property
+      existence / argument assignability / object-literal shape), a
+      `typecheck:test` script (`pnpm run build && tsc -p tsconfig.test.json`), and a
+      CI "Typecheck tests" step now gate the whole suite's types. The ~117 residual
+      errors after the relaxations were all fixed at the source: stale font-metric
+      mocks gained `hasCodepoint`; solver outcomes (`ShrinkOutcome`/`ResizeOutcome`)
+      are narrowed via small helpers; the shared `assert()` helper became a TS
+      assertion function so `assert(shape.shapeType === 'x')` narrows the union;
+      read-model access sites narrow with the new discriminant/guards; negative
+      tests cast intentionally-invalid inputs; stream/write byte reads are typed off
+      the Node Uint8Array result. Two real source fixes fell out: `TableProps.fit`
+      was undeclared though honored at export time (now typed), and
+      `correctShadowOptions` had a mixed implicit/explicit return.
     evidence:
       kinds:
         - local-source-inspection
@@ -2640,7 +2649,13 @@ items:
         - src/read/api/slide.ts
         - src/read/api/presentation.ts
         - src/read.ts
+        - src/core-interfaces.ts
+        - src/gen-utils.ts
         - test/read/model.test.js
+        - test/helpers.js
+        - tsconfig.test.json
+        - package.json
+        - .github/workflows/ci.yml
       schema_fixture: null
       validator_result: null
       powerpoint_result: null

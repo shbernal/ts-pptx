@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`TableProps.fit` is now a declared option.** Table-level `fit` (`'none'` /
+  `'shrink'` / `'resize'` / the `TextFitShrinkProps` object form) was already
+  honored at export time — a `'shrink'` table cascades the shrink policy to every
+  cell that doesn't set its own `fit` — but the type omitted it, so `addTable(rows,
+  { fit: 'shrink' })` failed to typecheck. The property is now on the interface,
+  documented, and matching the existing runtime behavior. No behavior change.
+
 - **Read model: `Shape` return types are now a narrowable discriminated union.**
   `pptxgenjs/read` exports `AnyShape = AutoShape | Picture | Connector |
   GraphicFrame | GroupShape` (discriminated on the `shapeType` literal), and the

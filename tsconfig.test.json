@@ -1,0 +1,31 @@
+{
+	"$schema": "https://json.schemastore.org/tsconfig",
+	"display": "PptxGenJS tests",
+	"extends": "./tsconfig.base.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"types": ["node"],
+		"allowJs": true,
+		"checkJs": true,
+		"allowImportingTsExtensions": true,
+		// The test suite is plain untyped ESM (`.js`/`.mjs`) run through Vitest.
+		// Relax the strictness that only makes sense for annotated `.ts` sources and
+		// would otherwise force ceremony on tests that operate on known fixtures:
+		// implicit `any` params/vars, index-signature property access, unused
+		// locals/params (tests routinely bind for clarity or destructure a subset),
+		// unchecked index access and null-safety (a test knows its fixture has the
+		// shape it asserts), and `unknown` catch variables (an assert-on-throw test
+		// controls what it throws). What stays on is the high-value signal: property
+		// existence, argument assignability, and object-literal shape against the
+		// package's public types — the checks that catch real API drift, e.g. a test
+		// calling a renamed/removed method or passing an option that no longer exists.
+		"noImplicitAny": false,
+		"noPropertyAccessFromIndexSignature": false,
+		"noUnusedLocals": false,
+		"noUnusedParameters": false,
+		"noUncheckedIndexedAccess": false,
+		"strictNullChecks": false,
+		"useUnknownInCatchVariables": false
+	},
+	"include": ["test/**/*.js", "test/**/*.mjs"]
+}

@@ -159,7 +159,7 @@ describe('autofit calibration oracle: resize solver is conservative vs PowerPoin
 			}
 
 			const out = solveResize(paragraphs, box, resolve)
-			expect(out.kind).toBe('resize')
+			if (out.kind !== 'resize') throw new Error(`expected a resize outcome, got ${out.kind}`)
 			// Bake the same way measure-fit does: needed inner height + top/bottom insets.
 			const insetsPt = (c.insetsPt?.t ?? 0) + (c.insetsPt?.b ?? 0)
 			const computedCyEmu = Math.round(out.neededInnerHeightPt * EMU_PER_PT) + Math.round(insetsPt * EMU_PER_PT)

@@ -133,8 +133,9 @@ defineRegressionSuite('ZIP package compression default (#1268)', [
 		fn: async () => {
 			const presA = await buildPres()
 			const presB = await buildPres()
-			const deflated = await presA.stream()
-			const stored = await presB.stream({ compression: false })
+			// stream() is typed for every output target; under Node it is a Uint8Array.
+			const deflated = /** @type {Uint8Array} */ (await presA.stream())
+			const stored = /** @type {Uint8Array} */ (await presB.stream({ compression: false }))
 			assert(
 				deflated.length < stored.length,
 				`expected DEFLATE output (${deflated.length}B) smaller than STORE output (${stored.length}B)`

@@ -33,6 +33,8 @@ const mono = (emPerChar = 0.5) => ({
 		const n = [...text].length
 		return n * emPerChar * sizePt + n * charSpacingPt
 	},
+	// No cmap: like the unregistered-font heuristic, treat every code point as covered.
+	hasCodepoint: () => true,
 })
 
 const regWith = (face = 'Mono') => {
@@ -53,7 +55,7 @@ describe('measureText core (synthetic metrics)', () => {
 		const paras = buildFitParagraphs([{ text: SENTENCE }], { fontSize: 18, fontFace: 'Mono' })
 		const innerWidthPt = opts.wIn * 72
 		const outcome = solveResize(paras, { innerWidthPt, innerHeightPt: 9999 }, makeRegistryResolver(reg))
-		expect(outcome.kind).toBe('resize')
+		if (outcome.kind !== 'resize') throw new Error(`expected a resize outcome, got ${outcome.kind}`)
 		expect(m.heightIn * 72).toBeCloseTo(outcome.neededInnerHeightPt, 6)
 	})
 

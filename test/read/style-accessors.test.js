@@ -259,7 +259,8 @@ describe('Shape line dash / explicit no-line reads (off-fixture)', () => {
 		const xml = `<p:spTree xmlns:p="${P_NS}" xmlns:a="${A_NS}"><p:sp>${spPr}</p:sp></p:spTree>`
 		const spTree = new DOMParser().parseFromString(xml, 'text/xml').documentElement
 		const el = spTree.getElementsByTagNameNS(P_NS, 'sp')[0]
-		return new AutoShape(el, { themeContext: () => ({}) })
+		// Minimal slide fake: only themeContext is exercised by these unit reads.
+		return new AutoShape(el, /** @type {any} */ ({ themeContext: () => ({}) }))
 	}
 
 	test('lineGradient reads a:ln/a:gradFill stops + linear angle', () => {
@@ -514,7 +515,7 @@ describe('Group-child absolute geometry (absoluteFrame)', () => {
 			pres.addSlide().addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 3, h: 1, fill: { color: 'CCCCCC' } })
 			return Presentation.load(await pres.stream())
 		})()
-		const shape = presentation.slides[0].shapes.find((s) => s.presetGeometry === 'rect')
+		const shape = presentation.slides[0].shapes.find((s) => s.shapeType === 'autoShape' && s.presetGeometry === 'rect')
 		const frame = shape.absoluteFrame
 		assertEqual(frame.left, shape.left, 'an ungrouped shape: absolute left == own left')
 		assertEqual(frame.top, shape.top, 'an ungrouped shape: absolute top == own top')
