@@ -128,6 +128,20 @@ function todayIsoDate() {
 }
 
 export function parseArgs(argv) {
+	/**
+	 * @type {{
+	 *   command: string | null,
+	 *   args: string[],
+	 *   ledger: string,
+	 *   json: boolean,
+	 *   printLimit: number,
+	 *   filters: Record<string, any>,
+	 *   fields: Record<string, any>,
+	 *   reviewDate: string,
+	 *   dryRun: boolean,
+	 *   help: boolean,
+	 * }}
+	 */
 	const options = {
 		command: null,
 		args: [],
@@ -233,9 +247,10 @@ export function parseArgs(argv) {
 		}
 	}
 
-	options.command = positional.shift() || 'list'
+	const command = positional.shift() || 'list'
+	options.command = command
 	options.args = positional
-	if (!COMMANDS.has(options.command) && !options.help) throw new Error('unknown command: ' + options.command)
+	if (!COMMANDS.has(command) && !options.help) throw new Error('unknown command: ' + command)
 	options.filters.type = options.filters.type?.map(normalizeType)
 	return options
 }
@@ -254,7 +269,7 @@ export function parseLedgerText(text) {
 	try {
 		return { data: doc.toJS(), errors: [] }
 	} catch (error) {
-		return { data: null, errors: ['YAML: ' + error.message] }
+		return { data: null, errors: ['YAML: ' + (error instanceof Error ? error.message : String(error))] }
 	}
 }
 
@@ -824,7 +839,7 @@ export async function runLedgerCommand(argv, io = defaultIo()) {
 		const text = await fs.readFile(options.ledger, 'utf8')
 		const updated = addLedgerItemText(text, fields, options.reviewDate)
 		if (!options.dryRun) await fs.writeFile(options.ledger, updated)
-		io.stdout((options.dryRun ? 'Would add ' : 'Added ') + fields.id)
+		io.stdout((options.dryRun ? 'Would add ' : 'Added ') + options.fields.id)
 		return 0
 	}
 

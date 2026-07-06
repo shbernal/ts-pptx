@@ -18,9 +18,8 @@ import { unzipSync, strFromU8 } from 'fflate'
 import { XMLParser } from 'fast-xml-parser'
 
 const FIX = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'test', 'read', 'fixtures')
-const LO_DIR = process.argv.includes('--lo-dir')
-	? process.argv[process.argv.indexOf('--lo-dir') + 1]
-	: resolve(dirname(fileURLToPath(import.meta.url)), '..', '.tmp')
+const loDirArg = process.argv.includes('--lo-dir') ? process.argv[process.argv.indexOf('--lo-dir') + 1] : undefined
+const LO_DIR = loDirArg ?? resolve(dirname(fileURLToPath(import.meta.url)), '..', '.tmp')
 
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_', isArray: () => false })
 
@@ -87,9 +86,12 @@ function readDeck(pptxPath) {
 	const zip = unzipSync(readFileSync(pptxPath))
 	const slideNames = Object.keys(zip)
 		.filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n))
-		.sort((a, b) => parseInt(a.match(/(\d+)/)[1], 10) - parseInt(b.match(/(\d+)/)[1], 10))
+		.sort((a, b) => parseInt(a.match(/(\d+)/)?.[1] ?? '0', 10) - parseInt(b.match(/(\d+)/)?.[1] ?? '0', 10))
 	const out = {}
-	for (const n of slideNames) Object.assign(out, readSlideShapes(strFromU8(zip[n])))
+	for (const n of slideNames) {
+		const data = zip[n]
+		if (data) Object.assign(out, readSlideShapes(strFromU8(data)))
+	}
 	return out
 }
 

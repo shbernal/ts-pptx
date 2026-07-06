@@ -82,6 +82,7 @@
 		"test:demo:vite": "node scripts/demo-smoke.mjs vite",
 		"test:demos": "node scripts/demo-smoke.mjs",
 		"typecheck": "tsc -p tsconfig.json --noEmit",
+		"typecheck:scripts": "tsc -p tsconfig.scripts.json --noEmit",
 		"lint": "eslint . --no-warn-ignored",
 		"lint:fix": "pnpm run lint -- --fix",
 		"format": "prettier \"src/**/*.ts\" package.json pnpm-workspace.yaml typedoc.docs.json tsconfig*.json docs/docs.json docs/tsconfig.json docs/.vitepress/config.mts eslint.config.mjs tsdown.config.ts vitest.config.ts \"scripts/**/*.mjs\" \"test/**/*.mjs\" \"test/**/*.js\" \".github/**/*.yml\" --write",

@@ -2572,3 +2572,52 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: none
+  - id: fork-read-shape-discriminated-union
+    source: fork:src/read/api/shapes.ts
+    type: fork-internal-proposal
+    first_seen: 2026-07-06
+    last_reviewed: 2026-07-06
+    status: deferred
+    priority: p3
+    target_area:
+      - typescript-api
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: Read-model Shape base type is not a discriminated union; consumers cannot narrow to AutoShape/Picture/GraphicFrame by .type to access subtype members (chart/table/setImage/imagePartName)
+    current_project_notes: >
+      Surfaced 2026-07-06 while scoping a tooling-hardening pass (typechecking
+      tests + scripts). `src/read/api/shapes.ts` defines `abstract class Shape`
+      with a `ShapeType` discriminant ('autoShape' | 'picture' | 'connector' |
+      'graphicFrame' | 'group') and subclasses AutoShape, Picture, Connector,
+      GraphicFrame, GroupShape. Subtype-only members (Picture.setImage /
+      .imagePartName, GraphicFrame.chart / .table, etc.) live on the subclasses,
+      but the read API (getShape/getShapes via slide.ts) is typed to return the
+      base `Shape`. Because `Shape` is not a discriminated union, a consumer that
+      does `if (shape.type === 'graphicFrame') shape.chart` does NOT narrow, so
+      every subtype access is a compile error (TS2339). Turning full `checkJs`
+      typechecking on for test/** produced ~124 of these across ~30 test files —
+      the single largest blocker to gating the test suite's types, and the same
+      footgun any external TS consumer of the read model hits.
+      Design: make the public return type a union `AutoShape | Picture |
+      Connector | GraphicFrame | GroupShape` (or add a discriminated
+      `type`-narrowing overload / type-guard helpers like `isPicture(shape)`),
+      keeping the abstract base internal. Once consumers can narrow by `.type`,
+      re-attempt the deferred full test-file typecheck: add a `tsconfig` scoped to
+      test/** (allowJs + checkJs, relaxing noImplicitAny / strictNullChecks /
+      noUncheckedIndexedAccess the way tsconfig.scripts.json does for scripts) and
+      wire a `typecheck:test` script + CI step. The scripts/** half of that pass
+      already shipped (tsconfig.scripts.json, `typecheck:scripts`).
+      Scope note: this is an API-shape improvement with no OOXML/runtime change;
+      it is safe under the fork's no-backcompat policy but is p3 because the read
+      model is young and the workaround (cast at the call site) is cheap.
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/read/api/shapes.ts
+        - src/read/api/slide.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: Redesign the read-model Shape return type into a discriminated union keyed on ShapeType so getShape()/getShapes() narrow safely; then enable full test-file typechecking (tsconfig scoped to test/**) which is currently blocked mainly by this gap
