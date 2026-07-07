@@ -28,7 +28,8 @@ defineRegressionSuite('Object identity', 'legacy bug-21', [
 					objectName: 'identity:image',
 					altText: 'Identity image',
 				})
-				slide.addChart(p.ChartType.bar, [{ name: 'Series 1', labels: ['A', 'B'], values: [1, 2] }], {
+				slide.addChart([{ name: 'Series 1', labels: ['A', 'B'], values: [1, 2] }], {
+					type: p.ChartType.bar,
 					x: 2.4,
 					y: 0.4,
 					w: 2,

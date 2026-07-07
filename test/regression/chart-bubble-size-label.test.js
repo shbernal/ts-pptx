@@ -20,7 +20,8 @@ defineRegressionSuite('Chart bubble size data label', [
 		name: 'bubble chart: showBubbleSize true emits <c:showBubbleSize val="1"/>',
 		fn: async () => {
 			const { zip } = await build((p) => {
-				p.addSlide().addChart(p.ChartType.bubble, BUBBLE_DATA, {
+				p.addSlide().addChart(BUBBLE_DATA, {
+					type: p.ChartType.bubble,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -36,7 +37,8 @@ defineRegressionSuite('Chart bubble size data label', [
 		name: 'bubble3D chart: showBubbleSize true emits <c:showBubbleSize val="1"/>',
 		fn: async () => {
 			const { zip } = await build((p) => {
-				p.addSlide().addChart(p.ChartType.bubble3d, BUBBLE_DATA, {
+				p.addSlide().addChart(BUBBLE_DATA, {
+					type: p.ChartType.bubble3d,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -52,7 +54,7 @@ defineRegressionSuite('Chart bubble size data label', [
 		name: 'bubble chart: default (omitted) keeps <c:showBubbleSize val="0"/>',
 		fn: async () => {
 			const { zip } = await build((p) => {
-				p.addSlide().addChart(p.ChartType.bubble, BUBBLE_DATA, { x: 1, y: 1, w: 6, h: 3 })
+				p.addSlide().addChart(BUBBLE_DATA, { type: p.ChartType.bubble, x: 1, y: 1, w: 6, h: 3 })
 			})
 			const xml = await chartXml(zip)
 			assertIncludes(xml, '<c:showBubbleSize val="0"/>', 'bubble size label off by default')
@@ -66,7 +68,8 @@ defineRegressionSuite('Chart bubble size data label', [
 		name: 'bubble chart: fractional dataLabelFontSize keeps half-point precision',
 		fn: async () => {
 			const { zip } = await build((p) => {
-				p.addSlide().addChart(p.ChartType.bubble, BUBBLE_DATA, {
+				p.addSlide().addChart(BUBBLE_DATA, {
+					type: p.ChartType.bubble,
 					x: 1,
 					y: 1,
 					w: 6,

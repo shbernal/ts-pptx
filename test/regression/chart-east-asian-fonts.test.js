@@ -25,7 +25,8 @@ defineRegressionSuite('Chart East Asian fonts', [
 		name: 'chart title font emits latin/ea/cs trio',
 		fn: async () => {
 			const { zip } = await build((p) => {
-				p.addSlide().addChart(p.ChartType.bar, [{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
+				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
+					type: p.ChartType.bar,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -43,7 +44,8 @@ defineRegressionSuite('Chart East Asian fonts', [
 		name: 'legend font emits latin/ea/cs trio (no orphaned latin-only run)',
 		fn: async () => {
 			const { zip } = await build((p) => {
-				p.addSlide().addChart(p.ChartType.bar, [{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
+				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
+					type: p.ChartType.bar,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -60,7 +62,8 @@ defineRegressionSuite('Chart East Asian fonts', [
 		name: 'category and value axis label fonts emit latin/ea/cs trio',
 		fn: async () => {
 			const { zip } = await build((p) => {
-				p.addSlide().addChart(p.ChartType.bar, [{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
+				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
+					type: p.ChartType.bar,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -78,7 +81,8 @@ defineRegressionSuite('Chart East Asian fonts', [
 		name: 'data label font emits latin/ea/cs trio',
 		fn: async () => {
 			const { zip } = await build((p) => {
-				p.addSlide().addChart(p.ChartType.bar, [{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
+				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
+					type: p.ChartType.bar,
 					x: 1,
 					y: 1,
 					w: 6,

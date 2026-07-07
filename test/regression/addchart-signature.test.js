@@ -11,6 +11,22 @@ function chartPart(zip) {
 	return readEntry(zip, path)
 }
 
+// Capture warnings emitted while running `fn` (console.warn is the library's warning sink, see
+// src/log.ts). This is the one place that intentionally exercises the deprecated positional
+// `addChart(type, data, options)` form, so it swaps out console.warn to keep the deprecation
+// notice out of the test-run stderr and asserts on it instead.
+async function withCapturedWarnings(fn) {
+	const original = console.warn
+	const messages = []
+	console.warn = (msg) => messages.push(String(msg))
+	try {
+		await fn()
+	} finally {
+		console.warn = original
+	}
+	return messages
+}
+
 defineRegressionSuite('addChart signature', [
 	{
 		name: 'canonical form addChart(data, { type }) emits a bar chart',
@@ -28,9 +44,18 @@ defineRegressionSuite('addChart signature', [
 			const canonical = await build((p) => {
 				p.addSlide().addChart(DATA, { type: p.ChartType.bar, x: 1, y: 1, w: 6, h: 3 })
 			})
-			const legacy = await build((p) => {
-				p.addSlide().addChart(p.ChartType.bar, DATA, { x: 1, y: 1, w: 6, h: 3 })
+			let legacy
+			const warnings = await withCapturedWarnings(async () => {
+				legacy = await build((p) => {
+					p.addSlide().addChart(p.ChartType.bar, DATA, { x: 1, y: 1, w: 6, h: 3 })
+				})
 			})
+			// The deprecated positional form must still emit its one-time deprecation notice. (warnOnce
+			// dedupes per process, and this is the suite's only positional call, so it fires here.)
+			assert(
+				warnings.some((m) => /addChart\(type, data, options\) is deprecated/.test(m)),
+				'expected a deprecation warning from the positional form; got: ' + JSON.stringify(warnings)
+			)
 			const a = await chartPart(canonical.zip)
 			const b = await chartPart(legacy.zip)
 			assert(a === b, 'canonical and legacy chart XML differ')

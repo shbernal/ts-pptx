@@ -34,7 +34,8 @@ defineRegressionSuite('Chart value format code', [
 		name: 'bar chart: dataLabelFormatCode flows into the c:val numCache formatCode',
 		fn: async () => {
 			const { zip } = await build((p) => {
-				p.addSlide().addChart(p.ChartType.bar, [{ name: 'S1', labels: ['A', 'B', 'C'], values: [0.1, 0.2, 0.3] }], {
+				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B', 'C'], values: [0.1, 0.2, 0.3] }], {
+					type: p.ChartType.bar,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -56,7 +57,8 @@ defineRegressionSuite('Chart value format code', [
 		name: 'bar chart: explicit valLabelFormatCode wins over dataLabelFormatCode for the value cache',
 		fn: async () => {
 			const { zip } = await build((p) => {
-				p.addSlide().addChart(p.ChartType.bar, [{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
+				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
+					type: p.ChartType.bar,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -79,7 +81,8 @@ defineRegressionSuite('Chart value format code', [
 			// `dataLabelFormatCode` defaults to '#,##0' (gen-objects). Mirroring it into the value cache
 			// makes PowerPoint/Google Slides agree with LibreOffice, which already honored that default.
 			const { zip } = await build((p) => {
-				p.addSlide().addChart(p.ChartType.bar, [{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
+				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
+					type: p.ChartType.bar,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -98,7 +101,8 @@ defineRegressionSuite('Chart value format code', [
 		name: 'pie chart: dataLabelFormatCode is stamped onto the (previously format-less) c:val numCache',
 		fn: async () => {
 			const { zip } = await build((p) => {
-				p.addSlide().addChart(p.ChartType.pie, [{ name: 'S1', labels: ['A', 'B', 'C'], values: [0.5, 0.3, 0.2] }], {
+				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B', 'C'], values: [0.5, 0.3, 0.2] }], {
+					type: p.ChartType.pie,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -119,12 +123,11 @@ defineRegressionSuite('Chart value format code', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addChart(
-					p.ChartType.scatter,
 					[
 						{ name: 'X-Axis', values: [1, 2, 3] },
 						{ name: 'Y1', values: [0.1, 0.2, 0.3] },
 					],
-					{ x: 1, y: 1, w: 6, h: 3, showValue: true, dataLabelFormatCode: '0%' }
+					{ type: p.ChartType.scatter, x: 1, y: 1, w: 6, h: 3, showValue: true, dataLabelFormatCode: '0%' }
 				)
 			})
 			const xml = await chartXml(zip)
