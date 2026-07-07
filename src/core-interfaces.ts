@@ -1991,11 +1991,12 @@ export interface TextProps {
 	text?: string | number
 	options?: TextPropsOptions
 	/**
-	 * Raw OMML (Office MathML) for a native, editable PowerPoint equation, emitted as its own
-	 * display-math paragraph (`<a14:m><m:oMathPara><m:oMath>…`). When set, this item is a math
-	 * paragraph and `text` is ignored. Accepts either the inner OMML (children of `<m:oMath>`),
-	 * a full `<m:oMath>…</m:oMath>`, or a full `<m:oMathPara>…</m:oMathPara>`; the `m:` prefix is
-	 * resolved by the wrapper, so the markup does not need its own namespace declarations.
+	 * Raw OMML (Office MathML) for a native, editable PowerPoint equation. By default it is emitted
+	 * as its own centered display-math paragraph (`<a14:m><m:oMathPara><m:oMath>…`) and `text` is
+	 * ignored; set `inline` to instead flow it as an equation run mid-paragraph. Accepts either the
+	 * inner OMML (children of `<m:oMath>`), a full `<m:oMath>…</m:oMath>`, or a full
+	 * `<m:oMathPara>…</m:oMathPara>`; the `m:` prefix is resolved by the wrapper, so the markup does
+	 * not need its own namespace declarations.
 	 * This is the raw-OMML entry point. To author from LaTeX or MathML, convert with
 	 * `latexToOmml()` / `mathmlToOmml()` from the `@shbernal/pptxgenjs/math` subpath.
 	 * @example { math: '<m:r><m:t>x^2+1=y</m:t></m:r>' } // raw OMML
@@ -2003,6 +2004,15 @@ export interface TextProps {
 	 * @since v5.4.0
 	 */
 	math?: string
+	/**
+	 * Emit this item's `math` equation *inline* — an `<a14:m><m:oMath>` run flowing mid-paragraph
+	 * between the surrounding plain text runs — instead of as its own centered display-math
+	 * paragraph. Has no effect unless `math` is set. Pair with the bare-`<m:oMath>` inline form of
+	 * the equation: `latexToOmml(tex, { display: false })` or `mathmlToOmml(mathml)`.
+	 * @example addText([{ text: 'where ' }, { math: latexToOmml('x^2+1=y', { display: false }), inline: true }, { text: ' holds' }])
+	 * @since v9.1.0
+	 */
+	inline?: boolean
 }
 
 /**

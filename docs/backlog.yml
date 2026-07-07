@@ -2175,27 +2175,31 @@ items:
     type: downstream-need
     first_seen: 2026-07-03
     last_reviewed: 2026-07-07
-    status: deferred
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
     applies_to_current_project: yes
     non_target_reasons: []
     summary: "Inline (in-sentence) math: a14:m equation run inside a text paragraph, not its own oMathPara block"
-    current_project_notes: "Carved off the LaTeX->OMML converter design (2026-07-03). The shipped math: option on addText authors a DISPLAY equation only: the emitter wraps the OMML in <m:oMathPara> as its own paragraph block (gen-xml.ts ~L1703), inside the oracle-pinned mc:AlternateContent/a14:m envelope. PowerPoint also authors INLINE equations - an <a14:m><m:oMath> run flowing mid-sentence between plain <a:r> runs in the same <a:p> - which the writer cannot express: a math item is always its own paragraph. Feature: let a text-run array mix plain runs and math runs in one paragraph, e.g. addText([{text:'where '},{math:...,inline:true},{text:' holds'}]). Work is in the core emitter (a new inline emission path in gen-xml.ts: a14:m without oMathPara, positioned within the run sequence, envelope semantics re-checked for run-level AlternateContent), NOT in the LaTeX/MathML converter - the converter's display flag already covers the MathML side. FIXTURE GATE SATISFIED (2026-07-07): authored math-omml-inline.pptx (test/read/fixtures/, sibling of math-omml.pptx) - one text box holding 'where x^2+1=y holds' with the equation as an inline math zone, built in Word (OMaths.Add over a substring of a text paragraph -> OMath.Type==1 wdOMathInline) then pasted into a PowerPoint text box and re-serialised by PowerPoint on SaveAs. It ANSWERS the open envelope-scoping question: PowerPoint keeps the mc:AlternateContent envelope at the SHAPE level exactly as in the display case (whole <p:sp> wrapped in one Choice/Fallback) - there is NO run-level mc:AlternateContent around the math run. Inline-ness is expressed purely at the paragraph level: the single <a:p> holds <a:r>where </a:r> -> <a14:m><m:oMath>..</m:oMath></a14:m> -> <a:r> holds</a:r>, and the a14:m wraps m:oMath DIRECTLY with no m:oMathPara and no m:oMathParaPr/m:jc justification (the only structural delta from the display fixture). So the emitter change is: for inline:true, emit a14:m/m:oMath positioned within the run sequence (not its own oMathPara paragraph), leaving the existing shape-level AlternateContent envelope unchanged. Not yet implemented (fixture only)."
+    current_project_notes: "Carved off the LaTeX->OMML converter design (2026-07-03). The shipped math: option on addText authors a DISPLAY equation only: the emitter wraps the OMML in <m:oMathPara> as its own paragraph block (gen-xml.ts ~L1703), inside the oracle-pinned mc:AlternateContent/a14:m envelope. PowerPoint also authors INLINE equations - an <a14:m><m:oMath> run flowing mid-sentence between plain <a:r> runs in the same <a:p> - which the writer cannot express: a math item is always its own paragraph. Feature: let a text-run array mix plain runs and math runs in one paragraph, e.g. addText([{text:'where '},{math:...,inline:true},{text:' holds'}]). Work is in the core emitter (a new inline emission path in gen-xml.ts: a14:m without oMathPara, positioned within the run sequence, envelope semantics re-checked for run-level AlternateContent), NOT in the LaTeX/MathML converter - the converter's display flag already covers the MathML side. FIXTURE GATE SATISFIED (2026-07-07): authored math-omml-inline.pptx (test/read/fixtures/, sibling of math-omml.pptx) - one text box holding 'where x^2+1=y holds' with the equation as an inline math zone, built in Word (OMaths.Add over a substring of a text paragraph -> OMath.Type==1 wdOMathInline) then pasted into a PowerPoint text box and re-serialised by PowerPoint on SaveAs. It ANSWERS the open envelope-scoping question: PowerPoint keeps the mc:AlternateContent envelope at the SHAPE level exactly as in the display case (whole <p:sp> wrapped in one Choice/Fallback) - there is NO run-level mc:AlternateContent around the math run. Inline-ness is expressed purely at the paragraph level: the single <a:p> holds <a:r>where </a:r> -> <a14:m><m:oMath>..</m:oMath></a14:m> -> <a:r> holds</a:r>, and the a14:m wraps m:oMath DIRECTLY with no m:oMathPara and no m:oMathParaPr/m:jc justification (the only structural delta from the display fixture). So the emitter change is: for inline:true, emit a14:m/m:oMath positioned within the run sequence (not its own oMathPara paragraph), leaving the existing shape-level AlternateContent envelope unchanged. IMPLEMENTED (2026-07-07): added an `inline?: boolean` sibling of `math` on TextProps (core-interfaces.ts); pair it with the bare-oMath converter form `latexToOmml(tex, {display:false})` / `mathmlToOmml()`. In gen-xml.ts genXmlTextBody: `inline` is threaded through STEP 3's text-object mapping; STEP 5's math-owns-its-own-line branch (A0) now fires only for DISPLAY math (`math && !inline`) so inline math falls through to normal run buffering; the STEP 6 lone-line display shortcut is likewise guarded with `!inline`; and the run loop emits the equation via the new genXmlInlineMath() helper (a14:m wrapping a bare m:oMath, namespaces declared locally, no oMathPara) instead of genXmlTextRun. The shape-level mc:AlternateContent envelope needed NO change - objectHasMath already fires for any item carrying `.math`, inline included. genXmlInlineMath accepts the same three input shapes as the display helper, unwrapping a display m:oMathPara to its inner m:oMath when handed one. Generated output matches the oracle paragraph structure (verified) and the deck validates clean (test/schema.test.js 'inline native math equation (OMML) text run')."
     evidence:
       kinds:
         - powerpoint-authored-comparison
         - local-source-inspection
+        - schema-fixture
+        - validator-result
       local_files:
+        - src/core-interfaces.ts
+        - src/gen-xml.ts
+        - test/schema.test.js
         - test/read/fixtures/math-omml-inline.pptx
         - test/read/fixtures/README.md
-        - src/gen-xml.ts
-      schema_fixture: null
-      validator_result: null
+      schema_fixture: "test/schema.test.js: inline native math equation (OMML) text run"
+      validator_result: pass (pnpm run test:schema, 2026-07-07)
       powerpoint_result: pass (Windows desktop PowerPoint 16.0, 2026-07-07; math-omml-inline.pptx authored via Word->PowerPoint paste + opened clean via COM, no repair prompt; SHA-256 74ef4bd84b39fb8668277c0300372b13bdc984f311a0e2783d630ac5b8c9f7f8)
       spec_refs: []
-    next_action: implement-inline-emission-path-in-gen-xml (fixture gate satisfied)
+    next_action: none
   - id: dn-table-cell-margin-units
     source: downstream
     type: downstream-need

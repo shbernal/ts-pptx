@@ -1032,6 +1032,54 @@ export default [
 		},
 	},
 	{
+		// dn-inline-math: an inline (in-sentence) equation. With `inline: true`, a text item's `math`
+		// OMML is emitted as a bare <a14:m><m:oMath> run flowing mid-paragraph between the plain
+		// text runs (no <m:oMathPara>/<m:oMathParaPr>, unlike the display form). The mc:AlternateContent
+		// envelope stays at the shape level. Oracle: math-omml-inline.pptx (PowerPoint-authored
+		// "where x^2+1=y holds"), which validates clean with the same run-level a14:m/oMath structure.
+		name: 'inline native math equation (OMML) text run',
+		fn: async () => {
+			const omml =
+				'<m:oMath><m:sSup><m:e><m:r><m:t>x</m:t></m:r></m:e><m:sup><m:r><m:t>2</m:t></m:r></m:sup></m:sSup><m:r><m:t>+1=y</m:t></m:r></m:oMath>'
+			const { buf, zip } = await build((p) => {
+				p.addSlide().addText([{ text: 'where ' }, { math: omml, inline: true }, { text: ' holds' }], {
+					x: 1,
+					y: 2,
+					w: 8,
+					h: 1,
+				})
+			})
+			await expectNoSchemaErrors(buf, 'native-math-omml-inline')
+			const slideXml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// Shape-level a14 envelope, exactly as the display form (per the oracle, math runs do not
+			// carry a run-level AlternateContent).
+			assertIncludes(
+				slideXml,
+				'<mc:Choice xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main" Requires="a14">',
+				'a14 mc:Choice envelope'
+			)
+			const ac = firstXmlBlock(slideXml, 'mc:AlternateContent', 'inline math AlternateContent')
+			// A SINGLE paragraph holds the plain runs and the inline equation run.
+			const paras = ac.match(/<a:p>/g) || []
+			assert(paras.length === 1, `inline math flows in one <a:p> (got ${paras.length})`)
+			// The equation is a bare a14:m/oMath run — NO oMathPara/oMathParaPr for inline.
+			assertIncludes(ac, '<a14:m', 'a14:m equation marker')
+			assert(ac.indexOf('<m:oMathPara') === -1, 'inline math has no m:oMathPara wrapper')
+			assertIncludes(ac, '<a14:m xmlns:a14=', 'a14 declared on the run marker')
+			assertIncludes(
+				ac,
+				'xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:oMath><m:sSup>',
+				'bare oMath wrapping the OMML'
+			)
+			// The equation run sits between the two plain text runs, in document order.
+			assert(
+				ac.indexOf('<a:t>where </a:t>') < ac.indexOf('<a14:m') &&
+					ac.indexOf('<a14:m') < ac.indexOf('<a:t> holds</a:t>'),
+				'a14:m run flows between the surrounding plain runs'
+			)
+		},
+	},
+	{
 		// upstream-issue-1360: defineSlideMaster({ textStyles }) configures the shared slide
 		// master's per-level <p:txStyles>. Assert the configured master is schema-valid and that
 		// the body level overrides (bullet char, font size, color) landed in slideMaster1.xml.

@@ -75,7 +75,9 @@ Convert a LaTeX math expression to OMML.
   `displayMode` and wrap the result in a centered `<m:oMathPara>` display paragraph.
   With `display: false`, temml renders in inline mode and a bare `<m:oMath>` is returned.
 - **Returns** OMML: `<m:oMathPara>…</m:oMathPara>` (display) or `<m:oMath>…</m:oMath>`
-  (inline). Both are accepted by the `math:` option.
+  (inline). Both are accepted by the `math:` option; pass the `display: false` form
+  together with `inline: true` on the text item to flow the equation mid-paragraph
+  (see [Inline math](#inline-math)).
 - **Throws** on invalid LaTeX, surfacing temml's parse position, e.g.
   `Invalid LaTeX (position 6): …`.
 
@@ -95,11 +97,32 @@ namespace with **no namespace declarations of their own** — the `<a14:m>` enve
 `display: false`. All three shapes (inner OMML, `<m:oMath>`, `<m:oMathPara>`) are valid
 inputs to `math:`.
 
+## Inline math
+
+By default a `math:` item is emitted as its own centered display-math paragraph. To
+flow an equation *in a sentence*, between plain text runs, set `inline: true` on the
+text item and give it the bare `<m:oMath>` form (`latexToOmml(tex, { display: false })`
+or `mathmlToOmml(mathml)`):
+
+```js
+import { latexToOmml } from '@shbernal/pptxgenjs/math'
+
+slide.addText(
+  [
+    { text: 'where ' },
+    { math: latexToOmml('x^2+1=y', { display: false }), inline: true },
+    { text: ' holds' },
+  ],
+  { x: 1, y: 1, w: 8, h: 1 }
+)
+```
+
+The equation is emitted as an `<a14:m><m:oMath>` run (no `<m:oMathPara>`) within the
+same paragraph as the surrounding runs. The `Requires="a14"` envelope stays at the
+shape level, exactly as for display math.
+
 ## Scope and limits
 
-- **Display math only** in v1 — the display paragraph is the unit the `math:` emitter
-  authors. In-sentence inline math (mixing an equation with surrounding runs in one
-  paragraph) is tracked separately (backlog `dn-inline-math`).
 - **No LaTeX preprocessing / macro packages** — the input goes straight to temml. Custom
   macros, `\usepackage`, and environments temml does not support are out of scope.
 - **No raster fallback** — output relies on the `Requires="a14"` envelope, understood by

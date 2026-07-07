@@ -13,8 +13,11 @@
  *
  * This subpath is **Node-only**: it loads the converters synchronously via
  * `node:module`'s `createRequire`, so `latexToOmml()` / `mathmlToOmml()` stay
- * synchronous. v1 is **display-math only**; inline (in-sentence) math is tracked
- * separately (backlog `dn-inline-math`).
+ * synchronous. Both display and inline (in-sentence) equations are supported: a
+ * default `latexToOmml()` returns a centered display `<m:oMathPara>`, while
+ * `latexToOmml(tex, { display: false })` (and `mathmlToOmml()`) return the bare
+ * `<m:oMath>` form you pass to a text item with `inline: true` to flow it
+ * mid-paragraph (see {@link TextProps.inline}).
  *
  * @module
  */

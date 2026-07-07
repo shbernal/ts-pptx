@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Inline (in-sentence) math via `inline: true`.** A text item's `math` OMML was
+  previously always emitted as its own centered display-math paragraph
+  (`<a14:m><m:oMathPara><m:oMath>…`). Setting `inline: true` alongside `math` now
+  emits the equation as a bare `<a14:m><m:oMath>` run flowing mid-paragraph between
+  the surrounding plain text runs (no `<m:oMathPara>`), so a single `addText` call
+  can mix prose and equations in one line:
+  `addText([{ text: 'where ' }, { math: latexToOmml('x^2+1=y', { display: false }), inline: true }, { text: ' holds' }])`.
+  Pair `inline` with the bare-`<m:oMath>` converter form (`latexToOmml(tex, { display: false })`
+  or `mathmlToOmml(mathml)`). The `mc:AlternateContent` (`Requires="a14"`) envelope
+  stays at the shape level, exactly as for display math. Structure pinned by the
+  PowerPoint-authored `math-omml-inline.pptx` oracle; completes backlog `dn-inline-math`.
+
 ## [9.0.0](https://github.com/shbernal/PptxGenJS/releases/tag/v9.0.0) - 2026-07-07
 
 ### Added

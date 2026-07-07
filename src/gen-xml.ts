@@ -1886,6 +1886,32 @@ function genXmlMathParagraph(omml: string): string {
 }
 
 /**
+ * Build an INLINE native-equation run (dn-inline-math) from raw OMML.
+ *
+ * Unlike the display form ({@link genXmlMathParagraph}), an inline equation is *not* its own
+ * paragraph: PowerPoint authors an `<a14:m>` marker wrapping a bare `<m:oMath>` (no `<m:oMathPara>`,
+ * no `<m:oMathParaPr>`/`<m:jc>`) that flows between the surrounding `<a:r>` runs in one `<a:p>` —
+ * pinned by the `math-omml-inline.pptx` oracle. The `mc:AlternateContent` envelope stays at the
+ * shape level (see `objectHasMath`), so nothing wraps the run itself. We declare the `a14` and `m`
+ * namespaces on the `<a14:m>` element so the supplied OMML needs none of its own, and accept the
+ * same three input shapes as the display helper: a full `<m:oMathPara>` (its inner `<m:oMath>` is
+ * unwrapped, since a paragraph block cannot flow inline), a full `<m:oMath>`, or the inner OMML.
+ *
+ * @param {string} omml - raw OMML markup for the equation
+ * @returns {string} an `<a14:m>` inline equation run
+ */
+function genXmlInlineMath(omml: string): string {
+	const M_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
+	const A14_NS = 'http://schemas.microsoft.com/office/drawing/2010/main'
+	const trimmed = (omml || '').trim()
+	// Extract a bare <m:oMath>…</m:oMath> — this both strips a display <m:oMathPara> wrapper and
+	// leaves an already-bare <m:oMath> untouched; inner-only OMML is wrapped in <m:oMath>.
+	const oMathMatch = trimmed.match(/<m:oMath[\s>][\s\S]*<\/m:oMath>/)
+	const mathXml = oMathMatch ? oMathMatch[0] : `<m:oMath>${trimmed}</m:oMath>`
+	return `<a14:m xmlns:a14="${A14_NS}" xmlns:m="${M_NS}">${mathXml}</a14:m>`
+}
+
+/**
  * Generate the XML for text and its options (bold, bullet, etc) including text runs (word-level formatting)
  * @param {SlideObject|TableCell} slideObj - slideObj or tableCell
  * @note PPT text lines [lines followed by line-breaks] are created using <p>-aragraph's
@@ -1960,6 +1986,7 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 			text: slideObj.text || '',
 			options: slideObj.options || {},
 			math: (slideObj.text as TextProps).math,
+			inline: (slideObj.text as TextProps).inline,
 		})
 	} else if (Array.isArray(slideObj.text)) {
 		// Handle cases 4,5,6
@@ -1969,6 +1996,7 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 			text: item.text,
 			options: item.options,
 			math: item.math,
+			inline: item.inline,
 		}))
 	}
 
@@ -2008,9 +2036,11 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 	const arrLines: RunProps[][] = []
 	let arrTexts: RunProps[] = []
 	arrTextObjects.forEach((textObj, idx) => {
-		// A0: A math equation (#1456) is a display-level paragraph — flush any pending runs and
-		// give it its own line so STEP 6 can emit the <a14:m> wrapper instead of text runs.
-		if (textObj.math) {
+		// A0: A DISPLAY math equation (#1456) is its own paragraph — flush any pending runs and
+		// give it its own line so STEP 6 emits the <a14:m><m:oMathPara> wrapper instead of text runs.
+		// Inline math (dn-inline-math) flows mid-paragraph, so it falls through to the run-buffering
+		// path below and STEP 6 emits a bare <a14:m><m:oMath> run alongside the plain text runs.
+		if (textObj.math && !textObj.inline) {
 			if (arrTexts.length > 0) {
 				arrLines.push(arrTexts)
 				arrTexts = []
@@ -2050,9 +2080,10 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 
 	// STEP 6: Loop over each line and create paragraph props, text run, etc.
 	arrLines.forEach((line) => {
-		// A native equation (#1456) owns its whole paragraph: emit the OMML wrapper and skip runs.
+		// A DISPLAY equation (#1456) owns its whole paragraph: emit the oMathPara wrapper and skip runs.
+		// An inline equation (even when it is the line's only run) flows as a run and is emitted below.
 		const firstRun = line[0]
-		if (line.length === 1 && firstRun?.math) {
+		if (line.length === 1 && firstRun?.math && !firstRun.inline) {
 			strSlideXml += genXmlMathParagraph(firstRun.math)
 			return
 		}
@@ -2125,7 +2156,12 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 			// itself (an intentional blank paragraph, eg: "line1\n\nline3"), so keep it when it is the
 			// only run on the line.
 			const isEmptyBreakArtifact = _textRunObj.text === '' && line.length > 1
-			if (!isEmptyBreakArtifact) strSlideXml += genXmlTextRun(_textRunObj)
+			if (_textRunObj.math) {
+				// Inline native equation (dn-inline-math): a bare <a14:m><m:oMath> run between plain runs.
+				strSlideXml += genXmlInlineMath(_textRunObj.math)
+			} else if (!isEmptyBreakArtifact) {
+				strSlideXml += genXmlTextRun(_textRunObj)
+			}
 
 			// E: Flag close fontSize for empty [lineBreak] elements
 			if ((!textObj.text && opts.fontSize) || textObj.options.fontSize) {
