@@ -1,0 +1,57 @@
+{
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"extends": ["config:recommended", ":dependencyDashboard", ":semanticCommits", "group:monorepos", "group:recommended"],
+	"timezone": "UTC",
+	"schedule": ["before 6am on monday"],
+	"labels": ["dependencies"],
+	"rangeStrategy": "bump",
+	"lockFileMaintenance": {
+		"enabled": true,
+		"schedule": ["before 6am on monday"]
+	},
+	"packageRules": [
+		{
+			"description": "Separate major updates into their own PRs; keep them off the weekly batch.",
+			"matchUpdateTypes": ["major"],
+			"schedule": ["before 6am on the first day of the month"]
+		},
+		{
+			"description": "Group all @types/* devDependencies together.",
+			"matchPackageNames": ["@types/**"],
+			"groupName": "type definitions"
+		},
+		{
+			"description": "Group the ESLint / typescript-eslint / prettier toolchain.",
+			"matchPackageNames": [
+				"eslint",
+				"@eslint/**",
+				"typescript-eslint",
+				"@typescript-eslint/**",
+				"eslint-config-prettier",
+				"prettier"
+			],
+			"groupName": "lint & format toolchain"
+		},
+		{
+			"description": "Group the Vitest test toolchain.",
+			"matchPackageNames": ["vitest", "@vitest/**"],
+			"groupName": "vitest"
+		},
+		{
+			"description": "Group the TypeDoc docs toolchain.",
+			"matchPackageNames": ["typedoc", "typedoc-plugin-**"],
+			"groupName": "typedoc"
+		},
+		{
+			"description": "Keep temml + mathml2omml (the optional /math peer deps) in lockstep.",
+			"matchPackageNames": ["temml", "mathml2omml"],
+			"groupName": "math (temml / mathml2omml)"
+		},
+		{
+			"description": "Pin GitHub Actions to commit SHAs and batch their updates.",
+			"matchManagers": ["github-actions"],
+			"pinDigests": true,
+			"groupName": "github-actions"
+		}
+	]
+}
