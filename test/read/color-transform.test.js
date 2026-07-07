@@ -98,3 +98,44 @@ describe('applyColorTransforms — PowerPoint fixture oracle', () => {
 		assertHexClose(hex, 'FFFFFF', 1, 'lumOff 100% saturates to white')
 	})
 })
+
+// Synthetic (non-fixture) coverage for the saturation/hue/alpha modifiers that
+// the PowerPoint oracle deck above does not exercise. Pure colours with known
+// HSL make the expected output exact rather than approximate.
+describe('applyColorTransforms — saturation/hue/alpha modifiers', () => {
+	test('satMod 0 desaturates to gray (equal channels)', () => {
+		const { hex } = applyColorTransforms('FF0000', tf(['satMod', 0]))
+		const [r, g, b] = channels(hex)
+		assert(r === g && g === b, `satMod 0 → gray, got ${hex}`)
+		assertHexClose(hex, '808080', 1, 'red at 0% saturation is mid-gray')
+	})
+
+	test('satOff raises saturation of a gray toward its hue (red at h=0)', () => {
+		const { hex } = applyColorTransforms('808080', tf(['satOff', 50000]))
+		const [r, g, b] = channels(hex)
+		assert(r > g && g === b, `satOff on gray (h=0) tilts red: expected r>g===b, got ${hex}`)
+	})
+
+	test('hueOff rotates the hue by an angle in 60000ths of a degree', () => {
+		// +120° maps pure red onto pure green; +240° onto pure blue.
+		assertHexClose(applyColorTransforms('FF0000', tf(['hueOff', 120 * 60000])).hex, '00FF00', 1, 'hueOff +120°')
+		assertHexClose(applyColorTransforms('FF0000', tf(['hueOff', 240 * 60000])).hex, '0000FF', 1, 'hueOff +240°')
+	})
+
+	test('hueMod scales the hue by a percentage (green→yellow at 50%)', () => {
+		const { hex } = applyColorTransforms('00FF00', tf(['hueMod', 50000]))
+		assertHexClose(hex, 'FFFF00', 1, 'hue 120° scaled by 0.5 → 60° (yellow)')
+	})
+
+	test('alphaOff adds to the running opacity', () => {
+		const { alpha } = applyColorTransforms('451DC7', tf(['alpha', 30000], ['alphaOff', 50000]))
+		assert(Math.abs(alpha - 0.8) < 1e-9, `alpha 0.3 then alphaOff 0.5 → 0.8, got ${alpha}`)
+	})
+
+	test('null values skip each modifier (identity)', () => {
+		for (const name of ['satMod', 'satOff', 'hueMod', 'hueOff', 'alphaOff']) {
+			const { hex } = applyColorTransforms('451DC7', [{ name, value: null }])
+			assert(hex === '451DC7', `${name} with null value is a no-op, got ${hex}`)
+		}
+	})
+})

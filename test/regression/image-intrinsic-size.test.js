@@ -40,6 +40,49 @@ const PNG_10000x1 =
 		Buffer.from([0, 0, 0, 0x01]), // height = 1
 	]).toString('base64')
 
+// A JPEG whose marker stream forces the scanner through every skip path before the
+// SOF that carries the dimensions: an APP0 segment (length-skipped), a stray non-0xFF
+// pad byte, and a standalone TEM marker (0x01, no payload). SOF0 declares 60x40.
+// 60px/96 → 571500 EMU, 40px/96 → 381000 EMU.
+const JPEG_60x40_OBSTACLE =
+	'image/jpeg;base64,' +
+	Buffer.from([
+		0xff,
+		0xd8, // SOI
+		0xff,
+		0xe0,
+		0x00,
+		0x04,
+		0x00,
+		0x00, // APP0, segLen=4 → skipped by length
+		0x00, // stray non-0xFF byte → advanced past one at a time
+		0xff,
+		0x01, // TEM: standalone marker, no length payload
+		0xff,
+		0xc0,
+		0x00,
+		0x11,
+		0x08, // SOF0
+		0x00,
+		0x28, // height = 40
+		0x00,
+		0x3c, // width = 60
+		0x00,
+		0x00,
+		0x00,
+		0x00, // pad to keep length >= 24
+	]).toString('base64')
+
+// A JPEG with only an APP0 segment and no SOF: the scanner walks off the end and
+// reports no measurable size → the 1in fallback applies.
+const JPEG_NO_SOF =
+	'image/jpeg;base64,' +
+	Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]), Buffer.alloc(18)]).toString('base64')
+
+// 24 bytes matching no known image signature: getImageSizeFromBytes returns null and,
+// for a data image, the 1in fallback applies (same as SVG).
+const UNKNOWN_24B = 'image/png;base64,' + Buffer.from(Array.from({ length: 24 }, (_, i) => i)).toString('base64')
+
 async function extFor(opts) {
 	const { zip } = await build((p) => {
 		const s = p.addSlide()
@@ -108,6 +151,31 @@ defineRegressionSuite('Image intrinsic-size defaults', [
 		fn: async () => {
 			const r = await extFor({ data: PNG_10000x1, x: 1, y: 1 })
 			assert(r.cx === 95250000 && r.cy === 9525, `expected cx=95250000 cy=9525; got ${JSON.stringify(r)}`)
+		},
+	},
+	{
+		// JPEG marker scanner must skip an APP0 segment, a stray pad byte, and a standalone TEM
+		// marker before reading the SOF dimensions (60x40 → 571500x381000 EMU).
+		name: 'no w/h: jpeg with APP0/pad/standalone markers still reads SOF dimensions',
+		fn: async () => {
+			const r = await extFor({ data: JPEG_60x40_OBSTACLE, x: 1, y: 1 })
+			assert(r.cx === 571500 && r.cy === 381000, `expected cx=571500 cy=381000; got ${JSON.stringify(r)}`)
+		},
+	},
+	{
+		// JPEG with no SOF marker is unmeasurable → 1in fallback.
+		name: 'no w/h: jpeg without an SOF marker falls back to 1in',
+		fn: async () => {
+			const r = await extFor({ data: JPEG_NO_SOF, x: 1, y: 1 })
+			assert(r.cx === 914400 && r.cy === 914400, `expected cx=914400 cy=914400; got ${JSON.stringify(r)}`)
+		},
+	},
+	{
+		// Bytes matching no known signature are unmeasurable → 1in fallback.
+		name: 'no w/h: unknown-signature bytes fall back to 1in',
+		fn: async () => {
+			const r = await extFor({ data: UNKNOWN_24B, x: 1, y: 1 })
+			assert(r.cx === 914400 && r.cy === 914400, `expected cx=914400 cy=914400; got ${JSON.stringify(r)}`)
 		},
 	},
 	{

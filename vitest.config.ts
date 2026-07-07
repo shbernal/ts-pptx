@@ -16,8 +16,8 @@ export default defineConfig({
 			include: ['dist/**/*.js'],
 			reporter: ['text-summary', 'text', 'html'],
 			thresholds: {
-				statements: 83,
-				branches: 69,
+				statements: 84,
+				branches: 70,
 				functions: 91,
 				lines: 87,
 			},
