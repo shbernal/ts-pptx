@@ -1862,17 +1862,49 @@ export default [
 	{
 		name: 'line chart with transparent marker fill',
 		fn: async () => {
-			const { buf } = await build((p) => {
-				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
-					type: p.ChartType.line,
-					x: 1,
-					y: 1,
-					w: 6,
-					h: 3,
-					chartColors: ['transparent'],
-				})
-			})
+			// `chartColors: ['transparent']` means an invisible series: the fill, the connecting line,
+			// and the marker (fill + border) must all resolve to <a:noFill/> — never a black 000000
+			// fallback, and without warning that 'transparent' is an invalid colour.
+			const origWarn = console.warn
+			const warnings = []
+			console.warn = (m) => warnings.push(String(m))
+			let buf, zip
+			try {
+				;({ buf, zip } = await build((p) => {
+					p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
+						type: p.ChartType.line,
+						x: 1,
+						y: 1,
+						w: 6,
+						h: 3,
+						chartColors: ['transparent'],
+					})
+				}))
+			} finally {
+				console.warn = origWarn
+			}
 			await expectNoSchemaErrors(buf, 'line-chart-transparent-marker')
+			const chartPath = listEntries(zip).find((f) => /^ppt\/charts\/chart\d+\.xml$/.test(f))
+			assert(chartPath, 'chart part not found: ' + listEntries(zip).join(', '))
+			const chartXml = await readEntry(zip, chartPath)
+			const ser = firstXmlBlock(chartXml, 'c:ser', 'line series')
+			// The visual fill/line/marker of the series is everything up to the marker close; the data
+			// labels that follow (CT_LineSer order: spPr → marker → dPt → dLbls) carry their own legit
+			// black text colour and are excluded from the "no black fallback" check.
+			const serVisual = ser.slice(0, ser.indexOf('</c:marker>') + '</c:marker>'.length)
+			assert(
+				!warnings.some((m) => /transparent.*not a valid/i.test(m)),
+				"'transparent' chartColors must not warn as an invalid colour; got: " + JSON.stringify(warnings)
+			)
+			assert(
+				!serVisual.includes('<a:srgbClr'),
+				'transparent series fill/line/marker must not fall back to any solid colour: ' + serVisual
+			)
+			// Four <a:noFill/>: series fill, series line, marker fill, marker border.
+			assert(
+				(serVisual.match(/<a:noFill\/>/g) || []).length === 4,
+				'expected 4 <a:noFill/> (series fill+line, marker fill+border); got: ' + serVisual
+			)
 		},
 	},
 	{

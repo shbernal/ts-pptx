@@ -59,6 +59,20 @@ const firstLabelGroup = (d: OptsChartDataInternal | undefined): string[] => data
 const DEF_GRIDLINE_COLOR: string = DEF_CHART_GRIDLINE.color ?? '888888'
 
 /**
+ * Fill fragment for a `chartColors`-derived series/line/marker colour.
+ *
+ * A `'transparent'` entry means "no fill" — an invisible series, connecting line, or marker
+ * stroke — and maps to `<a:noFill/>`. Any real colour goes through the normal solid-fill path.
+ * The series and marker *fill* paths already special-case `'transparent'`; without this the
+ * *stroke* paths (`<a:ln>` on the series line and marker border) would instead pass the literal
+ * `'transparent'` through colour validation, warn "not a valid scheme color or hex RGB", and
+ * render as black — leaving a stray black line/border where a transparent series was requested.
+ */
+function chartColorLineFill(color: string): string {
+	return color === 'transparent' ? '<a:noFill/>' : genXmlColorSelection(color)
+}
+
+/**
  * Build the chart's embedded Excel workbook as a standalone OPC package and
  * return its bytes — the data source PowerPoint opens when a user edits the
  * chart's data. Pure (no zip side effects), so both the package write path
@@ -1055,7 +1069,7 @@ function makeChartType(
 					if (effectiveLineSize === 0) {
 						strXml += '<a:ln><a:noFill/></a:ln>'
 					} else {
-						strXml += `<a:ln w="${valToPts(effectiveLineSize)}" cap="${createLineCap(opts.lineCap)}">${genXmlColorSelection(seriesColor)}`
+						strXml += `<a:ln w="${valToPts(effectiveLineSize)}" cap="${createLineCap(opts.lineCap)}">${chartColorLineFill(seriesColor)}`
 						strXml += `<a:prstDash val="${opts.lineDashValues?.[colorIndex] ?? opts.lineDash ?? 'solid'}"/><a:round/></a:ln>`
 					}
 				} else if (opts.dataBorder) {
@@ -1083,7 +1097,7 @@ function makeChartType(
 							] ?? '000000'
 						strXml += markerColor === 'transparent' ? '<a:noFill/>' : genXmlColorSelection(markerColor)
 					}
-					strXml += `    <a:ln w="${opts.lineDataSymbolLineSize}" cap="flat">${genXmlColorSelection(opts.lineDataSymbolLineColor || seriesColor)}<a:prstDash val="solid"/><a:round/></a:ln>`
+					strXml += `    <a:ln w="${opts.lineDataSymbolLineSize}" cap="flat">${chartColorLineFill(opts.lineDataSymbolLineColor || seriesColor)}<a:prstDash val="solid"/><a:round/></a:ln>`
 					strXml += '    <a:effectLst/>'
 					strXml += '  </c:spPr>'
 					strXml += '</c:marker>'
@@ -1315,7 +1329,7 @@ function makeChartType(
 						if (opts.lineSize === 0) {
 							strXml += '<a:ln><a:noFill/></a:ln>'
 						} else {
-							strXml += `<a:ln w="${valToPts(opts.lineSize ?? 2)}" cap="${createLineCap(opts.lineCap)}">${genXmlColorSelection(tmpSerColor)}`
+							strXml += `<a:ln w="${valToPts(opts.lineSize ?? 2)}" cap="${createLineCap(opts.lineCap)}">${chartColorLineFill(tmpSerColor)}`
 							strXml += `<a:prstDash val="${opts.lineDashValues?.[colorIndex] ?? opts.lineDash ?? 'solid'}"/><a:round/></a:ln>`
 						}
 
@@ -1339,7 +1353,7 @@ function makeChartType(
 								'000000'
 							strXml += markerColor === 'transparent' ? '<a:noFill/>' : genXmlColorSelection(markerColor)
 						}
-						strXml += `<a:ln w="${opts.lineDataSymbolLineSize}" cap="flat"><a:solidFill>${createColorElement(opts.lineDataSymbolLineColor || (chartColors[colorIndex % chartColors.length] ?? '000000'))}</a:solidFill><a:prstDash val="solid"/><a:round/></a:ln>`
+						strXml += `<a:ln w="${opts.lineDataSymbolLineSize}" cap="flat">${chartColorLineFill(opts.lineDataSymbolLineColor || (chartColors[colorIndex % chartColors.length] ?? '000000'))}<a:prstDash val="solid"/><a:round/></a:ln>`
 						strXml += '<a:effectLst/>'
 						strXml += '</c:spPr>'
 						strXml += '</c:marker>'

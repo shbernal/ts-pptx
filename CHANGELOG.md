@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`chartColors: ['transparent']` now yields a fully invisible series** instead of
+  a black one. The series/marker *fill* already honoured `'transparent'` (→
+  `<a:noFill/>`), but the *stroke* paths (the connecting line and the marker border,
+  for both the line/radar and scatter/bubble renderers) passed the literal
+  `'transparent'` through colour validation — which warned "not a valid scheme color
+  or hex RGB" and rendered the stroke as black `000000`. All four surfaces (series
+  fill + line, marker fill + border) now consistently emit `<a:noFill/>` for a
+  `'transparent'` entry, with no warning. Only affects the `'transparent'` value;
+  output for real colours is byte-identical.
+
 ### Changed
 
 - **BREAKING: renamed the exported type `JSZIP_OUTPUT_TYPE` → `ZIP_OUTPUT_TYPE`.**
