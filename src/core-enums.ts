@@ -52,8 +52,8 @@ export const AXIS_ID_CATEGORY_PRIMARY = '2094734554'
 export const AXIS_ID_CATEGORY_SECONDARY = '2094734555'
 export const AXIS_ID_SERIES_PRIMARY = '2094734556'
 
-export type JSZIP_OUTPUT_TYPE = 'arraybuffer' | 'base64' | 'binarystring' | 'blob' | 'nodebuffer' | 'uint8array'
-export type WRITE_OUTPUT_TYPE = JSZIP_OUTPUT_TYPE | 'STREAM'
+export type ZIP_OUTPUT_TYPE = 'arraybuffer' | 'base64' | 'binarystring' | 'blob' | 'nodebuffer' | 'uint8array'
+export type WRITE_OUTPUT_TYPE = ZIP_OUTPUT_TYPE | 'STREAM'
 /**
  * Public chart-type name accepted by `addChart()`. Derived from the internal
  * `ChartType` enum (see below) so the two never drift: adding a member to the

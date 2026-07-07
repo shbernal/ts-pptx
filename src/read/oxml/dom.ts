@@ -109,7 +109,7 @@ export function firstChildMatchingAny(parent: Node, qnames: string[]): Element |
 	return null
 }
 
-// --- Mutation helpers (Phase 3 editing) -----------------------------------
+// --- Mutation helpers (editing) --------------------------------------------
 //
 // `src/read/` mutates the live DOM in place; these are the only sanctioned way
 // to create elements, set attributes, and keep a parent's children in the

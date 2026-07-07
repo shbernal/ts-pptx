@@ -788,7 +788,7 @@ export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowPr
 /**
  * Encode raw SVG markup as a base64 `image/svg+xml` data URI.
  * - lets callers pass inline SVG to `addImage({ svg })` without hand-rolling base64
- * - isomorphic and UTF-8 safe: uses the global `TextEncoder`/`btoa` (Node >=16, browsers)
+ * - isomorphic and UTF-8 safe: uses the global `TextEncoder`/`btoa` (Node and browsers)
  * @param {string} svg - SVG markup, e.g. `'<svg ...>...</svg>'`
  * @returns {string} a `data:image/svg+xml;base64,...` URI
  */

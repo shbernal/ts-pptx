@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING: renamed the exported type `JSZIP_OUTPUT_TYPE` → `ZIP_OUTPUT_TYPE`.**
+  The name referenced JSZip, which was fully replaced by fflate; the type is just
+  the set of supported ZIP output shapes (`arraybuffer` | `base64` | `binarystring`
+  | `blob` | `nodebuffer` | `uint8array`) and no longer describes a JSZip-compat
+  contract. The member list is unchanged, and `WRITE_OUTPUT_TYPE` (the type
+  actually referenced by `WriteProps.outputType`) is unaffected. Migration:
+  consumers importing `JSZIP_OUTPUT_TYPE` should import `ZIP_OUTPUT_TYPE` instead.
+
 ## [9.2.0](https://github.com/shbernal/PptxGenJS/releases/tag/v9.2.0) - 2026-07-07
 
 ### Added

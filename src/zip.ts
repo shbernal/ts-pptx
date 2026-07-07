@@ -1,5 +1,5 @@
 import { strToU8, unzipSync, zipSync, type Unzipped, type Zippable, type ZipOptions } from 'fflate'
-import type { JSZIP_OUTPUT_TYPE } from './core-enums.js'
+import type { ZIP_OUTPUT_TYPE } from './core-enums.js'
 
 /**
  * ZIP backend seam for the write path.
@@ -49,11 +49,11 @@ export class ZipWriter {
 
 	/**
 	 * Finalize the archive in the requested output shape.
-	 * @param type - JSZip-compatible output type
+	 * @param type - one of the supported {@link ZIP_OUTPUT_TYPE} output shapes
 	 * @param opts.compression - false stores every entry uncompressed
 	 */
 	async generate(
-		type: JSZIP_OUTPUT_TYPE,
+		type: ZIP_OUTPUT_TYPE,
 		opts: { compression: boolean }
 	): Promise<string | ArrayBuffer | Blob | Uint8Array> {
 		const bytes = this.toBytes(opts.compression)
@@ -144,8 +144,8 @@ async function readFileAsBytes(filePath: string): Promise<Uint8Array> {
 
 const PPTX_MIME = 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
 
-/** Map fflate's `Uint8Array` to a JSZip-compatible output type. */
-function convertZipOutput(bytes: Uint8Array, type: JSZIP_OUTPUT_TYPE): string | ArrayBuffer | Blob | Uint8Array {
+/** Map fflate's `Uint8Array` to the requested {@link ZIP_OUTPUT_TYPE} output shape. */
+function convertZipOutput(bytes: Uint8Array, type: ZIP_OUTPUT_TYPE): string | ArrayBuffer | Blob | Uint8Array {
 	switch (type) {
 		case 'uint8array':
 			return bytes
@@ -176,7 +176,7 @@ function convertZipOutput(bytes: Uint8Array, type: JSZIP_OUTPUT_TYPE): string | 
 /**
  * Build a latin1 binary string from bytes (chunked to dodge the argument-count
  * limit of `String.fromCharCode(...spread)` on large archives), optionally
- * base64-encoding it. `btoa` is isomorphic (Node >=16 and browsers).
+ * base64-encoding it. `btoa` is isomorphic (Node and browsers).
  */
 function bytesToBinaryString(bytes: Uint8Array, base64: boolean): string {
 	let binary = ''

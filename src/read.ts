@@ -6,14 +6,14 @@
  * is the caller's job.
  */
 
-// OPC layer (Phase 1) — low-level package, parts, content types, relationships.
+// OPC layer — low-level package, parts, content types, relationships.
 export { OpcPackage, type OpcInput } from './read/opc/package.js'
 export { Part } from './read/opc/part.js'
 export { ContentTypes } from './read/opc/content-types.js'
 export { Relationships, type Relationship } from './read/opc/relationships.js'
 export { resolveRelativePartName, relsPartNameFor } from './read/opc/partnames.js'
 
-// Read object model (Phase 2) — navigable presentation → slides → shapes → text.
+// Read object model — navigable presentation → slides → shapes → text.
 export {
 	Presentation,
 	type SlideSize,

@@ -1560,7 +1560,7 @@ function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDefault: 
 
 				// Check value for hex-ness (s/b 4 char hex)
 				if (!/^[0-9A-Fa-f]{4}$/.test(opts.bullet.characterCode)) {
-					warn('`bullet.characterCode should be a 4-digit unicode charatcer (ex: 22AB)`!')
+					warn('`bullet.characterCode` should be a 4-digit unicode character (ex: 22AB)!')
 					bulletCode = BulletType.DEFAULT
 				}
 

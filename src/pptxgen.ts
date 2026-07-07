@@ -195,7 +195,7 @@ export type {
 export type {
 	CHART_NAME,
 	ChartType,
-	JSZIP_OUTPUT_TYPE,
+	ZIP_OUTPUT_TYPE,
 	PLACEHOLDER_TYPE,
 	PlaceholderType,
 	SchemeColor,
