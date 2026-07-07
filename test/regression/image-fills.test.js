@@ -60,6 +60,38 @@ defineRegressionSuite('Image (blip) fills', [
 		},
 	},
 	{
+		name: 'custGeom shape image fill emits a blipFill clipped by the custom geometry',
+		fn: async () => {
+			// The ledger capability `blip-fill-shape` is specifically "a <p:sp> whose fill is an
+			// <a:blipFill>, with the shape's geometry as the clip". A custom-geometry shape is the
+			// sharpest form: the <a:custGeom> path is the clip and the blipFill must follow it,
+			// in CT_ShapeProperties order (geometry, then fill, then line).
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape(p.ShapeType.custGeom, {
+					x: 1,
+					y: 1,
+					w: 3,
+					h: 2,
+					points: [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 3, y: 2 }, { close: true }],
+					fill: { type: 'image', image: { data: PNG_1x1 } },
+				})
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const shapeBlock = firstXmlBlock(xml, 'p:sp', 'shape')
+
+			assertIncludes(shapeBlock, '<a:custGeom>', 'custom geometry present')
+			const m = /<a:blip r:embed="(rId\d+)">/.exec(shapeBlock)
+			assert(m, `expected a blipFill referencing a media rel; got: ${shapeBlock}`)
+			// The geometry must precede the fill so the custom path clips the image
+			assertXmlOrder(shapeBlock, '<a:custGeom>', '<a:blipFill', 'shape properties')
+
+			const rels = await readEntry(zip, 'ppt/slides/_rels/slide1.xml.rels')
+			assertIncludes(rels, `Id="${m[1]}"`, 'media relationship id present')
+			assertIncludes(rels, '/relationships/image', 'media relationship is an image type')
+		},
+	},
+	{
 		name: 'image fill set via `image` alone (no explicit type) still emits a blipFill',
 		fn: async () => {
 			const { zip } = await build((p) => {
