@@ -213,6 +213,27 @@ export function resolveInheritedRunFontFace(
 }
 
 /**
+ * Whether a placeholder run effectively renders bold when its own `a:rPr` sets no
+ * `@b`, walking the same chain as {@link resolveInheritedRunSize}: the first
+ * `a:defRPr/@b` (`1`/`true` → `true`, `0`/`false` → `false`) in the paragraph →
+ * slide → layout → master → `p:txStyles` chain. `null` when the run is not in a
+ * placeholder or nothing in the chain defines bold.
+ */
+export function resolveInheritedRunBold(
+	ph: PlaceholderRef,
+	level: number,
+	pPr: Element | null,
+	slideLstStyle: Element | null,
+	ctx: FlattenContext
+): boolean | null {
+	for (const defRPr of inheritedRunDefRPrs(ph, level, pPr, slideLstStyle, ctx)) {
+		const b = attr(defRPr, 'b')
+		if (b !== null) return b === '1' || b === 'true'
+	}
+	return null
+}
+
+/**
  * The vertical anchor a placeholder text frame effectively renders when its own
  * `a:bodyPr` sets no `@anchor`: the value inherited from the layout → master
  * placeholder `a:bodyPr` (see {@link placeholderInheritedAnchor}). `null` when the

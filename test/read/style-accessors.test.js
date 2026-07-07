@@ -445,6 +445,33 @@ describe('Placeholder-inherited run size + typeface — real PowerPoint XML (mul
 	})
 })
 
+describe('Placeholder-inherited run bold — real PowerPoint XML', () => {
+	// Sibling of the size/face leg. The multi-theme master text styles carry an
+	// explicit b="0" on their level defRPrs, so a placeholder run with no own @b
+	// resolves to false — an INHERITED non-bold, deliberately distinct from a null
+	// "sets none and inherits none". A plain text box has no placeholder chain, so
+	// its resolvedBold falls back to the run's own value (null here).
+	test('a placeholder run with no own @b resolves inherited bold from the master text style', async () => {
+		const shape = shapeNamed((await open('multi-theme')).slides[1], 'inherited-title')
+		const run = shape.textFrame.paragraphs[0].runs[0]
+		assertEqual(run.bold, null, 'the run sets no own @b')
+		assertEqual(run.resolvedBold, false, 'inherits titleStyle b="0" from the master (explicit non-bold, not null)')
+	})
+
+	test('a colourful body placeholder run also resolves its inherited bold', async () => {
+		const shape = shapeNamed((await open('multi-theme')).slides[1], 'explicit-body')
+		const run = shape.textFrame.paragraphs[0].runs[0]
+		assertEqual(run.bold, null, 'the run sets no own @b')
+		assertEqual(run.resolvedBold, false, 'inherits bodyStyle lvl1 b="0" from the master')
+	})
+
+	test('a non-placeholder run reports no inherited bold (own value governs)', async () => {
+		const shape = shapeNamed((await open('theme-colors')).slides[0], 'text-accent5-run')
+		const run = shape.textFrame.paragraphs[0].runs[0]
+		assertEqual(run.resolvedBold, null, 'no own @b and no placeholder chain to inherit from')
+	})
+})
+
 describe('Picture recolour reads (recolor)', () => {
 	test('reads a real PowerPoint a:duotone, preserving the prstClr/srgbClr stop split (image.pptx)', async () => {
 		// image.pptx slide2 carries an icon recoloured with the duotone tint trick:

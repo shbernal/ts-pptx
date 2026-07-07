@@ -201,6 +201,35 @@ describe('FontMetrics.hasCodepoint (cmap coverage)', () => {
 	})
 })
 
+describe('FontMetricsRegistry.hasCodepoint (face-keyed coverage)', () => {
+	// Silkscreen is a committed pixel font with a small cmap: covers ASCII, lacks
+	// the U+2011 non-breaking hyphen — a deterministic covered/uncovered contrast
+	// with no fontconfig dependency.
+	const silkscreen = 'test/read/fixtures/fonts/Silkscreen-Regular.ttf'
+
+	test('a registered face reports true/false from its cmap', async () => {
+		const reg = new FontMetricsRegistry()
+		reg.set('Silkscreen', await parseFontMetrics(new Uint8Array(readFileSync(silkscreen))))
+		expect(reg.hasCodepoint('Silkscreen', 0x41)).toBe(true) // 'A' — covered
+		expect(reg.hasCodepoint('Silkscreen', 0x2011)).toBe(false) // non-breaking hyphen — not covered
+	})
+
+	test('an unregistered face returns undefined (unknown, not a false "not covered")', async () => {
+		const reg = new FontMetricsRegistry()
+		reg.set('Silkscreen', await parseFontMetrics(new Uint8Array(readFileSync(silkscreen))))
+		expect(reg.hasCodepoint('Nope', 0x41)).toBe(undefined)
+		expect(reg.hasCodepoint(undefined, 0x41)).toBe(undefined)
+	})
+
+	test('a bold query falls back to the registered regular variant', async () => {
+		const reg = new FontMetricsRegistry()
+		reg.set('Silkscreen', await parseFontMetrics(new Uint8Array(readFileSync(silkscreen))))
+		// Only the regular variant is registered; a bold lookup resolves through it.
+		expect(reg.hasCodepoint('Silkscreen', 0x41, { bold: true })).toBe(true)
+		expect(reg.hasCodepoint('Silkscreen', 0x2011, { bold: true })).toBe(false)
+	})
+})
+
 describe('pptx.measureText() / overflowsBox() instance methods (heuristic path)', () => {
 	test('named face is measurable via the heuristic even with no metrics registered', () => {
 		const pptx = new PptxGenJS()

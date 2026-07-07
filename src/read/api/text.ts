@@ -26,6 +26,7 @@ import { normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
 import { resolveThemeFont, type FlattenContext } from '../oxml/theme.js'
 import {
 	resolveInheritedAnchor,
+	resolveInheritedRunBold,
 	resolveInheritedRunColor,
 	resolveInheritedRunFontFace,
 	resolveInheritedRunSize,
@@ -92,7 +93,13 @@ export class Run {
 		 * Built by the owning {@link Paragraph} for placeholder text; absent otherwise.
 		 * Called lazily.
 		 */
-		private readonly inheritedFace?: () => string | null
+		private readonly inheritedFace?: () => string | null,
+		/**
+		 * Resolves whether this run inherits bold from the same chain when it sets no
+		 * own `@b`. Built by the owning {@link Paragraph} for placeholder text; absent
+		 * for non-placeholder runs. Called lazily.
+		 */
+		private readonly inheritedBold?: () => boolean | null
 	) {}
 
 	/** The run's text (`a:t`), verbatim — whitespace is not normalized. */
@@ -238,6 +245,18 @@ export class Run {
 		return this.inheritedFace?.() ?? null
 	}
 
+	/**
+	 * Whether this run effectively renders bold. It is the run's own `@b`
+	 * ({@link bold}) when set; otherwise, for a run inside a placeholder, the bold
+	 * state it inherits from the placeholder/list-style chain (paragraph `a:defRPr` →
+	 * slide `a:lstStyle` → layout → master placeholder `a:lstStyle` → master
+	 * `p:txStyles`). `null` when the run sets no `@b` and inherits none — the
+	 * resolved counterpart of {@link bold}, which reports only the run's own value.
+	 */
+	get resolvedBold(): boolean | null {
+		return this.bold ?? this.inheritedBold?.() ?? null
+	}
+
 	/** The underlying `a:r` element, for advanced reads and future mutation. */
 	get element_(): Element {
 		return this.element
@@ -315,8 +334,12 @@ export class Paragraph {
 		const inheritedFace = this.#inheritedResolver((ph, level, pPr, slideLst, ctx) =>
 			resolveInheritedRunFontFace(ph, level, pPr, slideLst, ctx)
 		)
+		const inheritedBold = this.#inheritedResolver((ph, level, pPr, slideLst, ctx) =>
+			resolveInheritedRunBold(ph, level, pPr, slideLst, ctx)
+		)
 		return getElements(this.element, 'a:r').map(
-			(element) => new Run(element, this.part, this.themeContext, inheritedColor, inheritedSize, inheritedFace)
+			(element) =>
+				new Run(element, this.part, this.themeContext, inheritedColor, inheritedSize, inheritedFace, inheritedBold)
 		)
 	}
 

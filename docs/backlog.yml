@@ -185,91 +185,6 @@ item_fields:
 #     spec_refs: []
 #   next_action: create-minimal-repro
 items:
-  - id: upstream-pr-1435
-    source: "gitbrent/PptxGenJS#1435"
-    type: pull-request
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-25
-    status: superseded
-    priority: none
-    target_area:
-      - package-boundary
-    applies_to_current_project: yes
-    non_target_reasons:
-      - legacy-dist-artifact
-      - upstream-build-system
-      - insufficient-evidence
-    summary: PR titled as a bold inline text wrapping fix, but with no body and a broad unrelated diff.
-    current_project_notes: >
-      Superseded — the valuable kernel (bold inline text producing unwanted line
-      breaks) was the multiple-`<a:pPr>`-per-`<a:p>` defect, already fixed in
-      commit f929ce0a "fix(gen-xml): emit a:pPr exactly once per a:p". Our guard
-      in `genXmlTextBody()` (src/gen-xml.ts ~L1907) emits paragraph properties
-      once from the first run yielding non-empty pPr XML, which is more robust
-      than this PR's blind `idx === 0` check. The PR's broad, body-less diff
-      (rewritten dist artifacts, package metadata, demos, large source areas)
-      remains unusable as-is and is not adopted.
-    evidence:
-      kinds:
-        - local-source-inspection
-        - regression-test
-      local_files:
-        - src/gen-xml.ts
-        - test/bug-01.test.js
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
-  - id: upstream-pr-1302
-    source: "gitbrent/PptxGenJS#1302"
-    type: pull-request
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-25
-    status: superseded
-    priority: none
-    target_area:
-      - missing-pptx-feature
-      - relationship-or-content-type
-      - package-boundary
-    applies_to_current_project: yes
-    non_target_reasons: []
-    summary: Add an addFonts API for embedding fonts into generated presentations.
-    current_project_notes: >
-      Superseded — the original "niche benefit, out of scope" dismissal is
-      obsolete now that the concrete downstream need materialized
-      (dn-importslide-v1-limits). Whole-face font embedding now ships via three
-      coordinated surfaces on the shared model in src/embedded-fonts.ts:
-      (1) author-side pptx.embedFont() emitted at write time
-      (gen-xml.ts: fntdata Default, per-face presentation rels, .fntdata parts,
-      embedTrueTypeFonts="1"/saveSubsetFonts="0", p:embeddedFontLst at
-      CT_Presentation index 7); (2) importSlide({ embedFonts: true }) carrying a
-      source deck's embedded fonts (read/api/presentation.ts #carryEmbeddedFonts);
-      (3) appendSlides carrying a generator's embedded fonts into the destination
-      deck (#carryGeneratedEmbeddedFonts, sharing the merge core
-      #mergeEmbeddedFontEntries). Licensing/obfuscation are explicitly the
-      caller's responsibility (whole faces, no subsetting) — see
-      docs/embedded-fonts.md and CHANGELOG.
-    evidence:
-      kinds:
-        - local-source-inspection
-        - regression-test
-        - validator-result
-      local_files:
-        - src/embedded-fonts.ts
-        - src/pptxgen.ts (embedFont, extractSlides)
-        - src/gen-xml.ts (content types, presentation rels, embeddedFontLst)
-        - src/read/api/presentation.ts (#carryEmbeddedFonts, #carryGeneratedEmbeddedFonts, #mergeEmbeddedFontEntries)
-        - test/regression/embed-font.test.js
-        - test/read/embedded-fonts.test.js
-        - test/read/append-embedded-fonts.test.js
-      schema_fixture: "test/read/append-embedded-fonts.test.js (schema-valid appended fonts)"
-      validator_result: pass
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
   - id: upstream-issue-1423
     source: "gitbrent/PptxGenJS#1423"
     type: issue
@@ -1280,45 +1195,85 @@ items:
     type: downstream-need
     first_seen: 2026-07-07
     last_reviewed: 2026-07-07
-    status: target
+    status: implemented
     priority: p2
     target_area:
       - typescript-api
     applies_to_current_project: yes
     non_target_reasons: []
     summary: Cmap-backed per-codepoint glyph-coverage accessor on the measure module (replace downstream's fc-match shell)
-    current_project_notes: Downstream's replication audit scans source-bundle text for codepoints the replica face cannot render (scripts/slide-analysis/replication/glyph-coverage.ts). It currently shells out to `fc-match <face>:charset=<cp>` for per-codepoint coverage — the same fontconfig toolchain registry/lib/measure.ts already needs — and degrades to a notice when fontconfig is absent (e.g. a managed Windows box). The fork already parses the font via opentype for advances (measure module) but exposes only advances + hasFace, with no per-codepoint coverage. Add a cmap-backed accessor on @shbernal/pptxgenjs/measure (e.g. metricsRegistry().hasCodepoint(face, cp), or a coverage query). Then downstream drops the fc-match shell for the in-process cmap check and the fontconfig-absent Windows degrade path goes away. Reap the glyph-coverage.ts STOPGAP marker once this lands.
-    stopgap: scripts/slide-analysis/replication/glyph-coverage.ts
+    current_project_notes: >-
+      Landed. The per-face cmap primitive already existed (FontMetrics.hasCodepoint(cp)
+      in src/font-metrics.ts, backed by opentype hasChar — glyph index > 0, not .notdef),
+      exported from @shbernal/pptxgenjs/measure and tested against the Silkscreen fixture
+      (U+2011 as the canonical missing glyph). This item added the face-keyed convenience
+      the consumer wanted: FontMetricsRegistry.hasCodepoint(face, cp, opts?) resolves the
+      face with the same exact→regular→any-variant fallback as get() and returns
+      boolean|undefined, where undefined means the face has no registered metrics
+      (unknown) — deliberately distinct from a false "registered but not covered", so a
+      coverage audit never treats an unregistered face as fully covered. No pptx-instance
+      method was added (downstream uses the standalone measure module, not a
+      presentation instance). Downstream reap (out of scope here): downstream registers
+      the replica face once via parseFontMetrics + registry.set and swaps its fc-match
+      shell in scripts/slide-analysis/replication/glyph-coverage.ts for the in-process
+      accessor, removing the fontconfig-absent Windows degrade path.
     evidence:
-      kinds: []
-      local_files: []
+      kinds:
+        - local-source-inspection
+        - regression-test
+      local_files:
+        - src/font-metrics.ts
+        - test/regression/measure-text-api.test.mjs
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add cmap-backed hasCodepoint/coverage accessor to the measure module
+    next_action: none
   - id: dn-readmodel-placeholder-font
     source: downstream:decks/replication-lab/scripts/slides/2025-data-ai-governance__008/a.ts
     type: downstream-need
     first_seen: 2026-07-07
     last_reviewed: 2026-07-07
-    status: target
+    status: implemented
     priority: p3
     target_area:
       - speaker-notes-masters-layouts
     applies_to_current_project: partial
     non_target_reasons: []
     summary: "Read API: resolve placeholder-inherited text run size/face (sibling of the colour-resolution leg)"
-    current_project_notes: Harvested slide bundles resolve run colours into style.json but not placeholder-inherited text size/face. When a run carries no explicit sz=/typeface and inherits it from its layout/master placeholder, the resolved style is left empty and downstream replicas hand-guess the point size — see the 28pt/11pt literals in the replication-lab header (decks/replication-lab/scripts/slides/2025-data-ai-governance__008/a.ts). Resolving this requires walking sp -> layout ph -> master ph -> theme and applying OOXML placeholder inheritance, a generic READ-model capability that belongs in the fork's read API (src/read/api/presentation.ts) as the sibling of the colour-resolution leg already there. Expose effective run text properties (size/face/bold) with inheritance applied so the harvester read-model can record them and replicas read exact values instead of guessing. Reap the a.ts hand-guessed literals once landed.
-    stopgap: decks/replication-lab/scripts/slides/2025-data-ai-governance__008/a.ts
+    current_project_notes: >-
+      Landed. The size + face legs already existed when this need was filed:
+      Run.resolvedSizePt and Run.resolvedFontFace (src/read/api/text.ts), backed by
+      resolveInheritedRunSize / resolveInheritedRunFontFace (src/read/api/theme-context.ts),
+      walk the pPr a:defRPr -> slide a:lstStyle -> layout ph -> master ph -> master
+      p:txStyles chain and resolve +mj-*/+mn-* tokens through the theme fontScheme —
+      already tested against desktop-authored XML (multi-theme.pptx slide 2). This item
+      completed the size/face/bold trio the note calls for by adding the bold leg:
+      resolveInheritedRunBold over the same inheritedRunDefRPrs tiers, threaded as an
+      inheritedBold thunk through Paragraph.runs, exposed as Run.resolvedBold (own @b ??
+      inherited ?? null). Real-XML coverage asserts the inherited-false direction
+      (multi-theme master text styles carry an explicit b="0", so a placeholder run with
+      no own @b resolves to false, distinct from a null "inherits none") and the
+      no-inheritance null direction (a plain text box). No genuine PowerPoint fixture with
+      a bold-inheriting placeholder exists in-repo to assert the true direction; that
+      branch shares the resolver/chain-walk already validated by the size/face and
+      bold-false cases (it differs only by the b === '1' string compare). Downstream reap
+      (out of scope here): the harvester records resolvedSizePt/FontFace/Bold and the a.ts
+      28pt/11pt hand-guessed literals in decks/replication-lab go away.
     evidence:
-      kinds: []
-      local_files: []
+      kinds:
+        - local-source-inspection
+        - regression-test
+        - powerpoint-authored-comparison
+      local_files:
+        - src/read/api/text.ts
+        - src/read/api/theme-context.ts
+        - test/read/style-accessors.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: resolve placeholder-inherited run size/face in the read API (sibling of the colour leg)
+    next_action: none
   - id: dn-image-shape-fill
     source: downstream:scripts/slide-analysis/replication/capability-map.ts
     type: downstream-need

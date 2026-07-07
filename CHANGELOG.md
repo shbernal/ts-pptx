@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`FontMetricsRegistry.hasCodepoint(face, cp, opts?)` — face-keyed glyph coverage**
+  (`pptxgenjs/measure`). The per-face `FontMetrics.hasCodepoint(cp)` cmap check
+  already existed; this adds a convenience on the registry that resolves the face
+  (exact → regular → any-variant fallback, same as `get()`) and returns
+  `boolean | undefined`, where `undefined` means the face has **no** registered
+  metrics — "unknown", deliberately distinct from a `false` "registered but not
+  covered". A coverage audit can now register the replica face once and query
+  per-codepoint coverage in-process instead of shelling out to `fc-match`.
+- **`Run.resolvedBold` — placeholder-inherited bold in the read API.** Completes the
+  `resolvedSizePt`/`resolvedFontFace` inheritance trio: for a placeholder run that
+  sets no own `@b`, it walks the paragraph `a:defRPr` → slide `a:lstStyle` → layout
+  → master placeholder → master `p:txStyles` chain (via the existing
+  `inheritedRunDefRPrs` tiers) and reports the first `@b` found. `null` when the run
+  sets none and inherits none — distinct from an inherited explicit `false`.
+
 ## [9.1.0](https://github.com/shbernal/PptxGenJS/releases/tag/v9.1.0) - 2026-07-07
 
 ### Added
