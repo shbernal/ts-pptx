@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.2.0](https://github.com/shbernal/PptxGenJS/releases/tag/v9.2.0) - 2026-07-07
+
 ### Added
 
 - **`FontMetricsRegistry.hasCodepoint(face, cp, opts?)` — face-keyed glyph coverage**
