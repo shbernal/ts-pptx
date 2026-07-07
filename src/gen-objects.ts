@@ -1035,7 +1035,6 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
  * Adds Notes to a slide.
  * @param {PresSlideInternal} `target` slide object
  * @param {string | NotesProps | NotesProps[]} `notes` plain text, or rich runs (inline formatting / hyperlinks)
- * @since 2.3.0
  */
 export function addNotesDefinition(target: PresSlideInternal, notes: string | NotesProps | NotesProps[]): void {
 	// Normalize all input forms to a TextProps[] run list so the notes-slide serializer
@@ -1068,7 +1067,6 @@ function deriveAuthorInitials(author: string): string {
  * Adds a review comment to a slide (legacy ISO/IEC 29500 §13 comment).
  * @param {PresSlideInternal} target slide object the comment is attached to
  * @param {CommentProps} opts comment author/text/position options
- * @since v4.1.0
  */
 export function addCommentDefinition(target: PresSlideInternal, opts: CommentProps): void {
 	const author = typeof opts?.author === 'string' ? opts.author.trim() : ''
@@ -1688,7 +1686,6 @@ export function addTableDefinition(
  * @param {string|TextProps[]} text text string or object
  * @param {TextPropsOptions} opts text options
  * @param {boolean} isPlaceholder whether this a placeholder object
- * @since: 1.0.0
  */
 export function addTextDefinition(
 	target: PresSlideInternal,

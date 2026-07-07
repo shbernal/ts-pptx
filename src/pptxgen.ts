@@ -573,7 +573,6 @@ export default class PptxGenJS {
 	 * Provides an API for `addTableDefinition` to get slide reference by number
 	 * @param {number} slideNum - slide number
 	 * @return {PresSlide} Slide
-	 * @since 3.0.0
 	 */
 	private readonly getSlide = (slideNum: number): PresSlideInternal | undefined =>
 		this._slides.find((slide) => slide._slideNum === slideNum)
@@ -976,7 +975,6 @@ export default class PptxGenJS {
 	 * @param {object} [opts] - variant flags; advances differ per weight/style
 	 * @example await pptx.registerFontMetrics('Aptos', '/usr/share/fonts/Aptos.ttf')
 	 * @example await pptx.registerFontMetrics('Aptos', aptosBoldBytes, { bold: true })
-	 * @since v6.1.0
 	 */
 	async registerFontMetrics(
 		face: string,
@@ -1072,7 +1070,6 @@ export default class PptxGenJS {
 	 * @returns {TextMeasurement} laid-out height + line count + fit helpers
 	 * @example const m = pptx.measureText('Long heading…', { wIn: 3, fontSize: 18, fontFace: 'Aptos' })
 	 * @example if (pptx.measureText(runs, { wIn, fontSize, fontFace }).heightIn > cardHeightIn) growCard()
-	 * @since v6.1.0
 	 */
 	measureText(text: string | TextProps[], opts: MeasureTextOptions): TextMeasurement {
 		return measureText(this._fontMetrics, text, opts)
@@ -1087,7 +1084,6 @@ export default class PptxGenJS {
 	 * @param {string | TextProps[]} text - a string or run array
 	 * @param {OverflowBoxOptions} opts - {@link MeasureTextOptions} plus the box inner height `hIn`
 	 * @returns {boolean} true if the text overflows the box
-	 * @since v6.1.0
 	 */
 	overflowsBox(text: string | TextProps[], opts: OverflowBoxOptions): boolean {
 		const m = measureText(this._fontMetrics, text, opts)
@@ -1111,7 +1107,6 @@ export default class PptxGenJS {
 	 * const g = pptx.tableLayout(rows, { x: 1, y: 1, w: 8, colW: [2, 3, 3] })
 	 * const c = g.cells.find(c => c.row === 0 && c.col === 2)
 	 * slide.addImage({ path: 'logo.png', x: c.xIn, y: c.yIn, w: c.wIn, h: c.hIn })
-	 * @since v7.1.0
 	 */
 	tableLayout(rows: TableRow[], opts: TableProps): TableLayoutResult {
 		return computeTableLayout(rows, opts, this._presLayout, this._fontMetrics)

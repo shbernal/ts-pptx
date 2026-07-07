@@ -435,12 +435,10 @@ export interface ShapeLineProps extends ShapeFillProps {
 	cap?: LineCap
 	/**
 	 * Begin arrow type
-	 * @since v3.3.0
 	 */
 	beginArrowType?: 'none' | 'arrow' | 'diamond' | 'oval' | 'stealth' | 'triangle'
 	/**
 	 * End arrow type
-	 * @since v3.3.0
 	 */
 	endArrowType?: 'none' | 'arrow' | 'diamond' | 'oval' | 'stealth' | 'triangle'
 	// FUTURE: beginArrowSize (1-9)
@@ -556,7 +554,6 @@ export interface TextBaseProps {
 	 * Preset text warp / WordArt shape (`<a:bodyPr><a:prstTxWarp prst="..">`), which
 	 * bends the text along a preset path (arch, circle, wave, …). The value is an
 	 * OOXML `ST_TextShapeType` preset name.
-	 * @since v4.0.0
 	 * @example 'textArchUp' // bend text along an upward arch (e.g. a label following a ring/arc)
 	 * @example 'textCircle'
 	 */
@@ -577,33 +574,28 @@ export interface TextBaseProps {
 				type?: 'bullet' | 'number'
 				/**
 				 * Bullet character code (unicode)
-				 * @since v3.3.0
 				 * @example '25BA' // 'BLACK RIGHT-POINTING POINTER' (U+25BA)
 				 */
 				characterCode?: string
 				/**
 				 * Bullet glyph font typeface (`<a:buFont/>`), e.g. for symbol-font bullets
-				 * @since v4.0.0
 				 * @example 'Wingdings' // render `characterCode` using the Wingdings font
 				 */
 				fontFace?: string
 				/**
 				 * Bullet glyph size as a percentage of the run's text size (25–400)
-				 * @since v4.0.0
 				 * @default 100
 				 * @example 80 // bullet glyph is 80% of the text size
 				 */
 				size?: number
 				/**
 				 * Indentation (space between bullet and text) (points)
-				 * @since v3.3.0
 				 * @default 27 // DEF_BULLET_MARGIN
 				 * @example 10 // Indents text 10 points from bullet
 				 */
 				indent?: number
 				/**
 				 * Number type
-				 * @since v3.3.0
 				 * @example 'romanLcParenR' // roman numerals lower-case with paranthesis right
 				 */
 				numberType?:
@@ -625,7 +617,6 @@ export interface TextBaseProps {
 					| 'romanUcPeriod'
 				/**
 				 * Number bullets start at
-				 * @since v3.3.0
 				 * @default 1
 				 * @example 10 // numbered bullets start with 10
 				 */
@@ -636,7 +627,6 @@ export interface TextBaseProps {
 				 * - raster formats (PNG/JPG/GIF) and SVG are supported; use `size` to scale relative to the text height
 				 * - SVG bullets embed a PNG preview plus the SVG (the same dual-rel handling as `addImage()`)
 				 * - takes precedence over `type`/`characterCode` when set
-				 * @since v4.0.0
 				 * @example image: { path: 'images/star.png' }
 				 * @example image: { data: 'image/png;base64,iVBOR...' }
 				 * @example image: { path: 'images/star.svg' }
@@ -655,7 +645,6 @@ export interface TextBaseProps {
 				_rIdSvg?: number
 				/**
 				 * Bullet glyph color (separate from the text run color)
-				 * @since v4.0.0
 				 * @example 'FF0000' // red bullet
 				 */
 				color?: HexColor
@@ -719,7 +708,6 @@ export interface TextBaseProps {
 	/**
 	 * Add a soft line-break (shift+enter) before line text content
 	 * @default false
-	 * @since v3.5.0
 	 */
 	softBreakBefore?: boolean
 	/**
@@ -799,7 +787,6 @@ export interface ObjectNameProps {
 	 * Object name
 	 * - used instead of default "Object N" name
 	 * - PowerPoint: Home > Arrange > Selection Pane...
-	 * @since v3.10.0
 	 * @default 'Object 1'
 	 * @example 'Antenna Design 9'
 	 */
@@ -808,7 +795,6 @@ export interface ObjectNameProps {
 	 * Alt Text value ("How would you describe this object and its contents to someone who is blind?")
 	 * - serialized to the generated object's `p:cNvPr` `descr` attribute
 	 * - PowerPoint: [right-click on the object] > "Edit Alt Text..."
-	 * @since v4.0.0
 	 * @example 'Quarterly revenue bar chart'
 	 */
 	altText?: string
@@ -819,7 +805,6 @@ export interface ObjectNameProps {
 	 * - PowerPoint UI: Selection Pane / right-click protections (most locks are honored at edit time, not as a password)
 	 * - flags only apply to the object types that support them (see each flag); flags set on an unsupported
 	 *   object type are ignored with a console warning
-	 * @since v4.0.0
 	 * @example { noMove: true, noResize: true } // pin an object in place
 	 * @example { noGrp: true } // exclude from grouping
 	 */
@@ -833,7 +818,6 @@ export interface ObjectNameProps {
  *
  * Each property mirrors the OOXML attribute name. A flag is only serialized for object types whose
  * locking element defines it (noted per-flag); setting an unsupported flag logs a warning and is ignored.
- * @since v4.0.0
  */
 export interface ObjectLockProps {
 	/** Disallow grouping/ungrouping with other objects. (shapes, images, tables) */
@@ -1034,7 +1018,6 @@ interface ImageBaseProps extends PositionProps, ObjectNameProps {
 	 * Preset-geometry adjustment handles (`<a:avLst>` guides) for the clip `shape`.
 	 * - tune adjustment handles that lack a dedicated option, e.g. chevron point depth
 	 * - accepts a single guide or an array; each `value` is a `0.0–1.0` fraction (see {@link ShapeAdjustValue})
-	 * @since v4.0.0
 	 * @example { name: 'adj', value: 0.25 }
 	 */
 	shapeAdjust?: ShapeAdjustValue | ShapeAdjustValue[]
@@ -1149,14 +1132,12 @@ export type ImageProps = ImageBaseProps & (DataOrPathRequiredProps | (DataOrPath
 interface MediaBaseProps extends PositionProps, ObjectNameProps {
 	/**
 	 * Cover image
-	 * @since 3.9.0
 	 * @default "play button" image, gray background
 	 */
 	cover?: string
 	/**
 	 * media file extension
 	 * - use when the media file path does not already have an extension, ex: "/folder/SomeSong"
-	 * @since 3.9.0
 	 * @default extension from file provided
 	 */
 	extn?: string
@@ -1164,7 +1145,6 @@ interface MediaBaseProps extends PositionProps, ObjectNameProps {
 	 * Loop playback indefinitely (PowerPoint "Playback > Loop until Stopped")
 	 * - emits a slide timing tree so the embedded audio/video repeats when played
 	 * - not supported for `type: 'online'` (e.g. YouTube) embeds
-	 * @since 4.0.0
 	 * @default false
 	 */
 	loop?: boolean
@@ -1172,7 +1152,6 @@ interface MediaBaseProps extends PositionProps, ObjectNameProps {
 	 * Total number of times to play the media (a finite loop), ex: `3` plays it three times
 	 * - ignored when `loop` is `true` (which repeats forever)
 	 * - not supported for `type: 'online'` (e.g. YouTube) embeds
-	 * @since 4.0.0
 	 */
 	loopCount?: number
 }
@@ -1214,7 +1193,6 @@ export type MediaProps = MediaBaseProps &
  *   Most adjustment handles (corner radius, chevron point, callout depth, bevel
  *   width, …) are percentage-based and map directly; some shapes accept values
  *   beyond `1.0`. For angle-based handles, prefer the `angleRange` shortcut.
- * @since v4.0.0
  */
 export interface ShapeAdjustValue {
 	name: string
@@ -1231,7 +1209,6 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 * Radius (only for pptx.ShapeType.pie, pptx.ShapeType.arc, pptx.ShapeType.blockArc)
 	 * - In the case of pptx.ShapeType.blockArc you have to setup the arcThicknessRatio
 	 * - values: [0-359, 0-359]
-	 * @since v3.4.0
 	 * @default [270, 0]
 	 */
 	angleRange?: [number, number]
@@ -1243,7 +1220,6 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 *   the handle's range (see {@link ShapeAdjustValue}).
 	 * - `rectRadius` / `angleRange` remain friendly shortcuts; any `shapeAdjust`
 	 *   guide that does not collide with a shortcut name is emitted in addition.
-	 * @since v4.0.0
 	 * @example { name: 'adj', value: 0.25 } // set the single adjust handle to 25%
 	 * @example [{ name: 'adj1', value: 0.5 }, { name: 'adj2', value: 0.25 }] // two handles
 	 */
@@ -1252,7 +1228,6 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 * Radius (only for pptx.ShapeType.blockArc)
 	 * - You have to setup the angleRange values too
 	 * - values: 0.0-1.0
-	 * @since v3.4.0
 	 * @default 0.5
 	 */
 	arcThicknessRatio?: number
@@ -1361,7 +1336,6 @@ export interface TableToSlidesProps extends TableProps {
 	autoPageLineWeight?: number
 	/**
 	 * Whether to repeat head row(s) on new tables created by autopaging
-	 * @since v3.3.0
 	 * @default false
 	 */
 	autoPageRepeatHeader?: boolean
@@ -1442,7 +1416,6 @@ export interface TableCellProps extends TextBaseProps {
 	 *   here: a table row already auto-grows to fit its tallest cell (the cell equivalent
 	 *   of `spAutoFit`), so there is nothing to bake. (The wider union is shared with
 	 *   {@link TextPropsOptions.fit} so table-level `fit` can cascade to cells.)
-	 * @since v4.0.0
 	 * @example 'shrink' // measured when the cell font is registered; else no-op
 	 */
 	fit?: 'none' | 'shrink' | 'resize' | TextFitShrinkProps
@@ -1562,7 +1535,6 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * Whether table header row(s) should be repeated on each new slide creating by autoPage.
 	 * Use `autoPageHeaderRows` to designate how many rows comprise the table header (1+).
 	 * @default false
-	 * @since v3.3.0
 	 */
 	autoPageRepeatHeader?: boolean
 	/**
@@ -1570,7 +1542,6 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * - required when `autoPageRepeatHeader` is set to true.
 	 * @example 2 - repeats the first two table rows on each new slide created
 	 * @default 1
-	 * @since v3.3.0
 	 */
 	autoPageHeaderRows?: number
 	/**
@@ -1673,7 +1644,6 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * This controls only the table/column direction; per-cell text direction is set
 	 * with each cell's `rtlMode` option.
 	 * @default false
-	 * @since v4.0.0
 	 */
 	rtl?: boolean
 	/**
@@ -1704,7 +1674,6 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 *
 	 * Setting `headerRow` also implies `hasHeader: true` (emits `firstRow="1"` for the
 	 * accessibility "table header" marker) unless `hasHeader` is explicitly set to `false`.
-	 * @since v7.1.0
 	 * @example headerRow: { fill: { color:'1A2B3C' }, color:'FFFFFF', bold:true, align:'center' }
 	 */
 	headerRow?: TableCellProps
@@ -1838,7 +1807,6 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 * Number of text columns in the text body
 	 * - PowerPoint: Format Shape > Shape Options > Size & Properties > Text Box > Columns > "Number"
 	 * - range: 1-16
-	 * @since v5.3.0
 	 * @default 1
 	 * @example 2 // flow text into two columns
 	 */
@@ -1847,7 +1815,6 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 * Spacing between text columns (points)
 	 * - PowerPoint: Format Shape > Shape Options > Size & Properties > Text Box > Columns > "Spacing"
 	 * - only applies when `columns` > 1
-	 * @since v5.3.0
 	 * @default 0
 	 * @example 10 // 10pt gap between columns
 	 */
@@ -1875,7 +1842,6 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 * **Note** Bare `'shrink'`/`'resize'` (no metrics) only take effect after editing
 	 * text / resizing the shape; PowerPoint calculates the result then. The object form
 	 * of `'shrink'` always bakes the explicit values you pass.
-	 * @since v3.3.0
 	 * @example 'shrink' // measured when metrics are registered; else bare <a:normAutofit/>
 	 * @example 'resize' // measured when metrics are registered; else bare <a:spAutoFit/>
 	 * @example { type: 'shrink', fontScale: 85, lnSpcReduction: 20 } // pre-shrink with explicit values
@@ -1915,7 +1881,6 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 * - range: 0.0-9.99
 	 * - PowerPoint: Paragraph > Indents and Spacing > Line Spacing: > "Multiple"
 	 * @example 1.5 // 1.5X line spacing
-	 * @since v3.5.0
 	 */
 	lineSpacingMultiple?: number
 	/**
@@ -1975,7 +1940,6 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	vert?: TextVertType
 	/**
 	 * Text wrap
-	 * @since v3.3.0
 	 * @default true
 	 */
 	wrap?: boolean
@@ -1994,7 +1958,6 @@ export interface TextProps {
 	 * `latexToOmml()` / `mathmlToOmml()` from the `@shbernal/pptxgenjs/math` subpath.
 	 * @example { math: '<m:r><m:t>x^2+1=y</m:t></m:r>' } // raw OMML
 	 * @example import { latexToOmml } from '@shbernal/pptxgenjs/math'; ({ math: latexToOmml('x^2+1=y') })
-	 * @since v5.4.0
 	 */
 	math?: string
 	/**
@@ -2003,7 +1966,6 @@ export interface TextProps {
 	 * paragraph. Has no effect unless `math` is set. Pair with the bare-`<m:oMath>` inline form of
 	 * the equation: `latexToOmml(tex, { display: false })` or `mathmlToOmml(mathml)`.
 	 * @example addText([{ text: 'where ' }, { math: latexToOmml('x^2+1=y', { display: false }), inline: true }, { text: ' holds' }])
-	 * @since v9.1.0
 	 */
 	inline?: boolean
 }
@@ -2014,7 +1976,6 @@ export interface TextProps {
  * measured face must have metrics registered via {@link PptxGenJS.registerFontMetrics}
  * (a named face without exact metrics uses a conservative heuristic; an unnamed
  * theme-default face is unmeasurable).
- * @since v6.1.0
  */
 export interface MeasureTextOptions {
 	/** Available text width in inches (the box width minus L/R inset, unless `insetIn` is given). */
@@ -2044,7 +2005,6 @@ export interface MeasureTextOptions {
  * they match the value the export-time autofit bake uses, so the laid-out height is
  * ≥ what PowerPoint/LibreOffice render. Use it to grow a container; for an overflow
  * check it may slightly over-report (good for a warning, not a hard gate).
- * @since v6.1.0
  */
 export interface TextMeasurement {
 	/** Laid-out height in inches at the given `fontSize` (conservative/tall). */
@@ -2056,7 +2016,6 @@ export interface TextMeasurement {
 	 * marginally early, so this errs slightly wide). With an unconstrained `wIn` it
 	 * is the natural single-line width; constrained, it is the widest wrapped line.
 	 * A box set to this width will not re-wrap the text.
-	 * @since v7.0.0
 	 */
 	widestLineIn: number
 	/** `false` only for an unnamed theme-default face that could not be measured. */
@@ -2067,7 +2026,7 @@ export interface TextMeasurement {
 	shrinkScaleFor: (hIn: number) => number
 }
 
-/** Options for {@link PptxGenJS.overflowsBox}: a measure plus the box inner height to test against. @since v6.1.0 */
+/** Options for {@link PptxGenJS.overflowsBox}: a measure plus the box inner height to test against. */
 export interface OverflowBoxOptions extends MeasureTextOptions {
 	/** Box inner height in inches to test for overflow. */
 	hIn: number
@@ -2078,7 +2037,6 @@ export interface OverflowBoxOptions extends MeasureTextOptions {
  * inches; `x`/`y` are absolute (offset from the table's `x`/`y`). For a merged cell,
  * `row`/`col` are the top-left origin and `wIn`/`hIn` cover the whole span; the
  * cells it covers are not emitted separately.
- * @since v7.1.0
  */
 export interface TableCellLayout {
 	/** Zero-based grid row of the cell's top-left origin. */
@@ -2111,7 +2069,6 @@ export interface TableCellLayout {
  * for a single, un-paginated table laid out at `opts.x`/`y`/`w`; `autoPage` paging
  * is not modeled. Widths are exact; auto-height row heights are conservative
  * estimates (see {@link TableCellLayout.heightExact}).
- * @since v7.1.0
  */
 export interface TableLayoutResult {
 	/** One entry per non-merged origin cell, in row-major order. */
@@ -2142,7 +2099,6 @@ export interface NotesProps {
 
 /**
  * A review comment attached to a slide (legacy ISO/IEC 29500 §13 comment).
- * @since v4.1.0
  */
 export interface CommentProps {
 	/** Author display name (required). Comments sharing the same `author`+`initials` are grouped under one author entry. */
@@ -2204,7 +2160,6 @@ export interface OptsChartData {
 	 * category labels
 	 * @example ['Year 2000', 'Year 2010', 'Year 2020'] // single-level category axes labels
 	 * @example [['Year 2000', 'Year 2010', 'Year 2020'], ['Decades', '', '']] // multi-level category axes labels
-	 * @since `labels` string[][] type added v3.11.0
 	 */
 	labels?: string[] | string[][]
 	/**
@@ -2239,7 +2194,6 @@ export interface OptsChartData {
 	 *   {},                                     // point 1: default
 	 *   { fill: '00B050', border: { type: 'dash', color: '404040' } }, // point 2
 	 * ]
-	 * @since v5.3.0
 	 */
 	pointStyles?: ChartDataPointStyle[]
 	/**
@@ -2249,7 +2203,6 @@ export interface OptsChartData {
 	 * @example { valueType: 'percentage', value: 5 } // ±5% error bars
 	 * @example { valueType: 'fixedVal', value: 2, barType: 'plus', noEndCap: true }
 	 * @example { valueType: 'cust', plusValues: [1, 2, 1], minusValues: [0.5, 1, 0.5] }
-	 * @since v6.0.0
 	 */
 	errorBars?: ChartErrorBarOptions | ChartErrorBarOptions[]
 }
@@ -2381,7 +2334,6 @@ export interface ChartAreaProps extends ChartPropsFillLine {
 	 * Whether the chart area has rounded corners
 	 * - only applies when either `fill` or `border` is used
 	 * @default true
-	 * @since v3.11
 	 */
 	roundedCorners?: boolean
 }
@@ -2475,12 +2427,10 @@ export interface ChartPropsBase {
 
 	/**
 	 * PowerPoint: Format Chart Area (Fill & Border/Line)
-	 * @since v3.11
 	 */
 	chartArea?: ChartAreaProps
 	/**
 	 * PowerPoint: Format Plot Area (Fill & Border/Line)
-	 * @since v3.11
 	 */
 	plotArea?: ChartPropsFillLine
 
@@ -2488,7 +2438,6 @@ export interface ChartPropsBase {
 	 * Per-series style overrides.
 	 * Element at index N applies to the series at data[N].
 	 * Missing indices or unset fields fall back to the chart-level option.
-	 * @since v4.0.0
 	 */
 	seriesOptions?: ChartSeriesOpts[]
 }
@@ -2527,7 +2476,6 @@ export interface ChartPropsAxisCat {
 	catAxisMinorTimeUnit?: string
 	catAxisMinorUnit?: number
 	catAxisMinVal?: number
-	/** @since v3.11.0 */
 	catAxisMultiLevelLabels?: boolean
 	catAxisOrientation?: 'minMax' | 'maxMin'
 	catAxisTitle?: string
@@ -2616,7 +2564,6 @@ export interface ChartPropsAxisVal {
 	/**
 	 * PowerPoint: Format Axis > Axis Options > Logarithmic scale - Base
 	 * - range: 2-99
-	 * @since v3.5.0
 	 */
 	valAxisLogScaleBase?: number
 	valAxisMajorTickMark?: ChartAxisTickMark
@@ -2634,7 +2581,6 @@ export interface ChartPropsAxisVal {
 	/**
 	 * Value label format code
 	 * - this also directs Data Table formatting
-	 * @since v3.3.0
 	 * @example '#%' // round percent
 	 * @example '0.00%' // shows values as '0.00%'
 	 * @example '$0.00' // shows values as '$0.00'
@@ -2657,7 +2603,6 @@ export interface ChartPropsChartBar {
 	 * MS-PPT > Format chart > Format Data Point > Series Options >  "Series Overlap"
 	 * - overlap (percent)
 	 * - range: `-100`-`100`
-	 * @since v3.9.0
 	 * @default 0
 	 */
 	barOverlapPct?: number
@@ -2744,7 +2689,6 @@ export interface ChartPropsChartPie {
 	 * MS-PPT > Format chart > Format Data Series > Series Options >  "Angle of first slice"
 	 * - angle (degrees)
 	 * - range: 0-359
-	 * @since v3.4.0
 	 * @default 0
 	 */
 	firstSliceAng?: number
@@ -2818,7 +2762,6 @@ export interface ChartPropsDataTable {
 	dataTableFontSize?: number
 	/**
 	 * Data table format code
-	 * @since v3.3.0
 	 * @example '#%' // round percent
 	 * @example '0.00%' // shows values as '0.00%'
 	 * @example '$0.00' // shows values as '$0.00'
@@ -2982,7 +2925,6 @@ export interface WriteBaseProps {
 	 * Whether to DEFLATE-compress the package (PowerPoint itself always compresses;
 	 * set `false` only if export time matters more than file size)
 	 * @default true
-	 * @since v3.5.0 (default changed false→true in v4.0.0)
 	 */
 	compression?: boolean
 	/**
@@ -3083,7 +3025,6 @@ export type SlideMasterObject =
  * coordinate space is kept at every depth, so descendants keep their slide-absolute
  * coordinates). Charts, media, tables, and placeholders are intentionally excluded (see
  * `addGroup`); passing one logs a warning and skips it.
- * @since v4.0.0
  */
 export type GroupChildProps =
 	| { image: ImageProps }
@@ -3099,7 +3040,6 @@ export type GroupChildProps =
  * The group keeps an identity child coordinate space (`chOff/chExt == off/ext`) at every depth:
  * children — including nested groups — keep their slide-absolute `x/y/w/h`. When `x/y/w/h` are
  * omitted the group's bounds are auto-computed as the bounding box of its children.
- * @since v4.0.0
  */
 export interface GroupProps extends PositionProps, ObjectNameProps {
 	/** Rotation in degrees (applied to the whole group) */
@@ -3114,7 +3054,6 @@ export interface GroupProps extends PositionProps, ObjectNameProps {
  * A focused subset of the run-level bullet model — picture bullets and per-glyph sizing are not
  * supported in master defaults (those require slide rels). Set `bullet: false` to suppress the
  * level's bullet entirely.
- * @since v4.0.0
  */
 export interface MasterBulletProps {
 	/** `'bullet'` emits a character bullet (`a:buChar`); `'number'` emits an auto-number (`a:buAutoNum`). @default 'bullet' */
@@ -3132,7 +3071,6 @@ export interface MasterBulletProps {
  * Styling for one paragraph level (`a:lvlNpPr`) of a slide-master text style. Every field is
  * optional; an unset field keeps PowerPoint's built-in default for that level. Configure via
  * {@link SlideMasterProps.textStyles}.
- * @since v4.0.0
  */
 export interface MasterTextStyleLevel {
 	/** Font size in points (`a:defRPr@sz`), e.g. `24`. */
@@ -3158,7 +3096,6 @@ export interface MasterTextStyleLevel {
  * Per-level slide-master text styles, written to `slideMaster1.xml`'s `<p:txStyles>`.
  * Because a deck has a single shared slide master, these styles are **deck-wide**: when set on more
  * than one `defineSlideMaster()` call the last value for each group (`title`/`body`/`other`) wins.
- * @since v4.0.0
  */
 export interface MasterTextStyleProps {
 	/** Title placeholder style (`p:titleStyle`, single level). */
@@ -3181,7 +3118,6 @@ export interface SlideMasterProps {
 	 * Per-level master text styles (title / body / other) written to the shared slide master's
 	 * `<p:txStyles>`. Configure nested bullet character, font size, color, alignment, and indent
 	 * for each of the nine list levels. Deck-wide (see {@link MasterTextStyleProps}).
-	 * @since v4.0.0
 	 * @example textStyles: { body: [{ fontSize: 24, color: 'C00000', bullet: { characterCode: '25AA' } }] }
 	 */
 	textStyles?: MasterTextStyleProps
@@ -3397,7 +3333,6 @@ export interface PresSlide {
 	 * @example { path: 'https://onedrives.com/myimg.png` } - retrieve image via URL
 	 * @example { path: '/home/user/images/myimg.png` } - retrieve image via local path
 	 * @example { data: 'image/png;base64,iVtDaDrF[...]=' } - base64 string
-	 * @since v3.3.0
 	 */
 	background?: BackgroundProps
 	/**
