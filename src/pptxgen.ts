@@ -1,7 +1,7 @@
 /**
  *  :: pptxgen.ts ::
  *
- *  JavaScript framework that creates PowerPoint (pptx) presentations
+ *  TypeScript/ESM library that creates PowerPoint (pptx) presentations
  *  https://github.com/gitbrent/PptxGenJS
  *
  *  This framework is released under the MIT Public License (MIT)
@@ -33,15 +33,11 @@
 /**
  * Units of Measure used in PowerPoint documents
  *
- * PowerPoint units are in `DXA` (except for font sizing)
- * - 1 inch is 1440 DXA
- * - 1 inch is 72 points
- * -  1 DXA is 1/20th's of a point
- * - 20 DXA is 1 point
- *
- * Another form of measurement using is an `EMU`
+ * PowerPoint (DrawingML) positions and sizes shapes in `EMU`; font sizing is in points.
+ * This library takes user coordinates in inches and converts to EMU on output.
  * - 914400 EMUs is 1 inch
  * -  12700 EMUs is 1 point
+ * -      72 points is 1 inch
  *
  * @see https://startbigthinksmall.wordpress.com/2010/01/04/points-inches-and-emus-measuring-units-in-office-open-xml/
  */
@@ -212,7 +208,7 @@ const VERSION = '9.2.0'
  * DEFLATE pass over them costs CPU for a negligible size gain. For these we set
  * the per-entry ZIP compression to STORE while leaving XML parts on DEFLATE.
  * In image/video-heavy decks media dominates the byte count, so this is the
- * dominant cost when writing large presentations (see #1006).
+ * dominant cost when writing large presentations.
  * Formats that genuinely benefit from DEFLATE (bmp, wav, tiff, emf, wmf, svg)
  * are deliberately excluded so they keep inheriting the global compression.
  */
@@ -620,7 +616,7 @@ export default class PptxGenJS {
 				// C: Add media. fflate needs decoded bytes (no base64 convenience), so
 				// decode the payload here. Already-compressed formats (JPEG/PNG/video/…)
 				// gain ~nothing from DEFLATE, so STORE them to avoid wasted compression
-				// CPU on large decks (#1006); other parts inherit global compression.
+				// CPU on large decks; other parts inherit global compression.
 				const bytes = decodeBase64ToBytes(data)
 				if (!bytes) return
 				const extn = (rel.extn || rel.Target.split('.').pop() || '').toLowerCase()
@@ -699,7 +695,7 @@ export default class PptxGenJS {
 			// `rel.data`, so we can point later duplicates at the first occurrence's `Target`
 			// (slide `.rels` reference media by rId, and sharing a part across slides is valid
 			// OOXML). This subsumes the per-slide path/data de-dup for cross-slide reuse and
-			// also covers background images (issue #1339).
+			// also covers background images.
 			const canonicalMediaTargets = new Map<string, string>()
 			for (const target of [...this._slides, ...this._slideLayouts, this._masterSlide]) {
 				for (const rel of target._relsMedia || []) {
@@ -1302,13 +1298,10 @@ export default class PptxGenJS {
 	 * @param {SlideMasterProps} props - layout properties
 	 */
 	defineSlideMaster(props: SlideMasterProps): void {
-		// (ISSUE#406;PULL#1176) deep clone the props object to avoid mutating the original object.
+		// deep clone the props object to avoid mutating the original object.
 		// structuredClone preserves the `SlideMasterProps` type (unlike JSON round-tripping, which widens to `any`).
 		const propsClone = structuredClone(props)
-		if (!propsClone.title)
-			throw new Error(
-				'defineSlideMaster() object argument requires a `title` value. (https://gitbrent.github.io/PptxGenJS/docs/masters.html)'
-			)
+		if (!propsClone.title) throw new Error('defineSlideMaster() object argument requires a `title` value.')
 
 		const newLayout: SlideLayoutInternal = {
 			_margin: propsClone.margin || DEF_SLIDE_MARGIN_IN,

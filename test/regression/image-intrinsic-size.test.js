@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
 // addImage() previously fell back to a 1in x 1in square whenever `w`/`h` were omitted, which
-// squished every dimensionless image into the wrong aspect ratio (issue #1351). For base64
+// squished every dimensionless image into the wrong aspect ratio. For base64
 // `data` images the bytes are in hand, so we read the natural pixel size synchronously and
 // default the missing dimension(s) from it. PowerPoint inserts raster images at 96 DPI, so
 // natural pixels / 96 == inches, and inches * 914400 == EMU (the units in the emitted <a:ext>).
@@ -55,7 +55,7 @@ async function extFor(opts) {
 
 // A path-based 4x2 PNG written to a temp file. Path images can't be measured synchronously in
 // addImage() (bytes are loaded async during export), so the missing extent is backfilled at
-// serialize time from the embedded media bytes (issue #1217).
+// serialize time from the embedded media bytes.
 const tmpDir = mkdtempSync(join(tmpdir(), 'pptx-img-'))
 const PNG_4x2_PATH = join(tmpDir, 'raster-4x2.png')
 writeFileSync(PNG_4x2_PATH, Buffer.from(RASTER_4x2.png.split('base64,')[1], 'base64'))
@@ -119,7 +119,7 @@ defineRegressionSuite('Image intrinsic-size defaults', [
 		},
 	},
 	{
-		// Path image, no w/h: measured at serialize time → natural 4x2 px → 38100x19050 EMU (issue #1217).
+		// Path image, no w/h: measured at serialize time → natural 4x2 px → 38100x19050 EMU.
 		name: 'no w/h: path image is measured at serialize time (natural pixel size)',
 		fn: async () => {
 			const r = await extFor({ path: PNG_4x2_PATH, x: 1, y: 1 })

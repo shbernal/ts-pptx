@@ -1,6 +1,6 @@
 import { defineRegressionSuite, build, readEntry, listEntries, assert, assertIncludes } from '../helpers.js'
 
-// Upstream gitbrent/PptxGenJS#1420: chart title, legend, and axis/category label font settings did not
+// chart title, legend, and axis/category label font settings did not
 // take effect for Chinese (and other East Asian) text, most visibly on PowerPoint for Mac.
 // Root cause: chart text runs emitted only `<a:latin typeface="...">`. In DrawingML a typeface applies
 // only to the script class of its element — `<a:latin>` covers Latin/ASCII, `<a:ea>` East Asian, `<a:cs>`
@@ -20,7 +20,7 @@ function assertFontTrio(xml, face, label) {
 	assertIncludes(xml, `<a:cs typeface="${face}"/>`, `${label}: cs`)
 }
 
-defineRegressionSuite('Chart East Asian fonts (upstream #1420)', [
+defineRegressionSuite('Chart East Asian fonts', [
 	{
 		name: 'chart title font emits latin/ea/cs trio',
 		fn: async () => {

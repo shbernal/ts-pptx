@@ -1,6 +1,6 @@
 import { defineRegressionSuite, build, readEntry, assert, assertIncludes, assertNotIncludes } from '../helpers.js'
 
-// gitbrent/PptxGenJS#1159: slide numbers defined on a master disappeared on slides that
+// slide numbers defined on a master disappeared on slides that
 // PowerPoint inserts from that master. Root cause: makeXmlMaster always emitted
 // <p:hf sldNum="0" .../>, and CT_HeaderFooter/@sldNum defaults to true (ECMA-376), so the
 // explicit "0" disabled the slide-number placeholder for inherited/new slides even though the

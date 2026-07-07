@@ -8,7 +8,7 @@ async function masterXml(zip) {
 	return readEntry(zip, 'ppt/slideMasters/slideMaster1.xml')
 }
 
-defineRegressionSuite('Master text styles (#1360)', [
+defineRegressionSuite('Master text styles', [
 	{
 		// Regression guard: a deck that does NOT set textStyles must keep the exact built-in default
 		// <p:txStyles> (byte-for-byte literal), so existing decks are unaffected.

@@ -6,7 +6,7 @@ import { defineRegressionSuite, build, listEntries, assert } from '../helpers.js
 // the unusable height (falling back to the slide height) and warns.
 //
 // NOTE: `h` is the table's *height* (an extent), not a bottom coordinate — `y` does not eat into
-// it (upstream gitbrent/PptxGenJS#1264, see table-autopage-mid-slide.test.js). So a small-but-
+// it (see table-autopage-mid-slide.test.js). So a small-but-
 // usable `h` like 0.7" paginates normally regardless of `y`; only an `h` smaller than one line of
 // the base font is genuinely unusable.
 

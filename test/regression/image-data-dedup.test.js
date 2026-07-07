@@ -4,7 +4,7 @@ import { defineRegressionSuite, build, readEntry, listEntries, assert } from '..
 // insertion: the duplicate-media check matched on `path`, but inline images carry no real
 // path (they all share the `preencoded.<extn>` placeholder), so it never fired. Such images
 // are now matched by their data payload, so an identical inline image reuses the original
-// `Target` and is embedded once (issue #1339). Distinct images must still embed separately.
+// `Target` and is embedded once. Distinct images must still embed separately.
 
 // Two visibly-distinct 1x1 PNGs (different pixel bytes → different base64 payloads).
 const PNG_A =
@@ -21,7 +21,7 @@ function countPics(xml) {
 	return (xml.match(/<p:pic>/g) || []).length
 }
 
-defineRegressionSuite('Image base64 data de-duplication (#1339)', [
+defineRegressionSuite('Image base64 data de-duplication', [
 	{
 		// Same inline image twice on one slide → both pictures render, but one media part.
 		name: 'identical data images on a slide embed a single media part',

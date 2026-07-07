@@ -1,6 +1,6 @@
 import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
-// Custom bullet glyph font and size (upstream #800, #743). Authored decks emit
+// Custom bullet glyph font and size. Authored decks emit
 // `<a:buFont typeface="Wingdings"/>` for symbol bullets and `<a:buSzPct/>` values
 // other than 100% for resized glyphs; neither was previously controllable.
 
@@ -11,7 +11,7 @@ async function getPPr(zip) {
 	return { xml, ppr: m[0] }
 }
 
-defineRegressionSuite('Bullet glyph font and size (#800, #743)', [
+defineRegressionSuite('Bullet glyph font and size', [
 	{
 		name: 'bullet.fontFace emits <a:buFont/> between <a:buSzPct/> and <a:buChar/>',
 		fn: async () => {

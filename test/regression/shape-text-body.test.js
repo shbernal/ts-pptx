@@ -6,7 +6,7 @@ defineRegressionSuite('Shape text bodies', 'legacy bug-13', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				// no text passed — this is the failing case for #1441
+				// no text passed — this is the failing case
 				s.addShape(p.ShapeType.rect, { x: 1, y: 1, w: 2, h: 1 })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')

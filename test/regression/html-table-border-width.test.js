@@ -5,10 +5,10 @@ import { htmlBorderToProps } from '../../src/gen-tables.ts'
 // Acceptance: HTML-table conversion must preserve FRACTIONAL CSS border widths.
 // A hairline border such as `0.5px` previously went through `Math.round(...)` and
 // collapsed to `0pt`, so the border silently vanished even though the table
-// serializer (`valToPts`) emits fractional points fine (upstream gitbrent/PptxGenJS#1235).
+// serializer (`valToPts`) emits fractional points fine.
 // A computed width of exactly `0` must instead yield `{ type: 'none' }` (no zero-width line).
 
-describe('HTML table fractional border width (upstream #1235)', () => {
+describe('HTML table fractional border width', () => {
 	test('sub-1px width is preserved, not rounded to zero', () => {
 		const b = htmlBorderToProps('0.5px', 'rgb(102, 102, 102)')
 		assert(b.width === 0.5, `expected width=0.5, got ${JSON.stringify(b)}`)

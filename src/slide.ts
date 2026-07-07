@@ -270,12 +270,11 @@ export default class Slide {
 
 	/**
 	 * Add speaker notes to Slide
-	 * @docs https://gitbrent.github.io/PptxGenJS/docs/speaker-notes.html
 	 * @param {string | NotesProps | NotesProps[]} notes - notes text, or rich runs with inline
 	 * formatting / hyperlinks. A plain string is the single-run case; pass run objects to add
 	 * hyperlinks (external `url` only) or per-run bold/italic/underline/color/fontSize/fontFace.
 	 * @example slide.addNotes('Remember to smile')
-	 * @example slide.addNotes([{ text: 'See ' }, { text: 'the docs', options: { hyperlink: { url: 'https://gitbrent.github.io/PptxGenJS/' } } }])
+	 * @example slide.addNotes([{ text: 'See ' }, { text: 'the docs', options: { hyperlink: { url: 'https://example.com/' } } }])
 	 * @return {Slide} this Slide
 	 */
 	addNotes(notes: string | NotesProps | NotesProps[]): Slide {

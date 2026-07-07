@@ -3,9 +3,9 @@ import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 // Regression: ThemeProps must let callers set the theme's East Asian (<a:ea>) and complex-script
 // (<a:cs>) font slots for both the major and minor fonts. PowerPoint emits these empty by default
 // and resolves per-script via the <a:font script="..."> list; setting them lets CJK / complex-script
-// runs fall back to a caller-chosen theme font (upstream gitbrent/PptxGenJS#1288).
+// runs fall back to a caller-chosen theme font.
 
-defineRegressionSuite('Theme East Asian / complex-script fonts (upstream #1288)', [
+defineRegressionSuite('Theme East Asian / complex-script fonts', [
 	{
 		name: 'EA and CS faces populate <a:ea>/<a:cs> for major and minor fonts',
 		fn: async () => {

@@ -1,6 +1,6 @@
 /**
  * NAME: demo_images.mjs
- * AUTH: Brent Ely (https://github.com/gitbrent/)
+ * AUTH: Brent Ely
  * DESC: Common test/demo slides for all library features
  * DEPS: Used by maintained demos (./demos/node, ./demos/vite-demo).
  * VER.: 3.12.0
@@ -47,7 +47,6 @@ function genSlide01(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Images" });
 
 	slide.addTable([[{ text: "Image Examples: Image Types", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-images.html");
 	slide.slideNumber = { x: "50%", y: "95%", color: COLOR_BLUE };
 
 	// TOP
@@ -130,7 +129,7 @@ function genSlide01(pptx) {
 			w: 1.36,
 			h: 1.5,
 			data: HYPERLINK_SVG,
-			hyperlink: { url: "https://github.com/gitbrent/pptxgenjs", tooltip: "Visit Homepage" },
+			hyperlink: { url: "https://example.com", tooltip: "Visit Homepage" },
 		});
 	}
 
@@ -203,7 +202,6 @@ function genSlide02(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Images" });
 
 	slide.addTable([[{ text: "Image Examples: Image URLs", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-images.html");
 	slide.slideNumber = { x: "50%", y: "95%", color: COLOR_BLUE };
 
 	// TOP-LEFT: jpg
@@ -248,7 +246,6 @@ function genSlide03(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Images" });
 
 	slide.addTable([[{ text: "Image Examples: Image Sizing/Rounding", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-images.html");
 	slide.slideNumber = { x: "50%", y: "95%", w: 1, h: 1, color: COLOR_BLUE };
 
 	// TOP: 1
@@ -285,7 +282,6 @@ function genSlide04(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Images" });
 
 	slide.addTable([[{ text: "Image Examples: Image Rotation", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-images.html");
 	slide.slideNumber = { x: "50%", y: "95%", w: 1, h: 1, color: COLOR_BLUE };
 
 	// EXAMPLES
@@ -306,7 +302,6 @@ function genSlide05(pptx) {
 	const slide = pptx.addSlide({ sectionTitle: "Images" });
 
 	slide.addTable([[{ text: "Image Examples: Image Shadows", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-images.html");
 	slide.slideNumber = { x: "50%", y: "95%", w: 1, h: 1, color: COLOR_BLUE };
 
 	// EXAMPLES
@@ -341,7 +336,6 @@ function genSlide06(pptx) {
 	const slide = pptx.addSlide({ sectionTitle: "Images" });
 
 	slide.addTable([[{ text: "Image Examples: Image Embedded In A Shape", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-images.html");
 	slide.slideNumber = { x: "50%", y: "95%", w: 1, h: 1, color: COLOR_BLUE };
 
 	const photo = IMAGE_PATHS.nycSubway.path;

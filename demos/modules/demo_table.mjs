@@ -1,6 +1,6 @@
 /**
  * NAME: demo_tables.mjs
- * AUTH: Brent Ely (https://github.com/gitbrent/)
+ * AUTH: Brent Ely
  * DESC: Common test/demo slides for all library features
  * DEPS: Used by maintained demos (./demos/node, ./demos/vite-demo).
  * VER.: 4.0.1
@@ -54,7 +54,6 @@ function genSlide01(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Tables" });
 
 	slide.addTable([[{ text: "Table Examples 1", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
-	slide.addNotes("API Docs:\nhttps://gitbrent.github.io/PptxGenJS/docs/api-tables.html");
 
 	// DEMO: align/valign
 	let objOpts1 = { x: 0.5, y: 0.7, w: 4, h: 0.3, margin: 0, fontSize: 18, fontFace: "Arial", color: "0088CC" };
@@ -153,7 +152,6 @@ function genSlide02(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Tables" });
 
 	slide.addTable([[{ text: "Table Examples 2", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], { x: "4%", y: "2%", w: "95%", h: "4%" }); // QA: this table's x,y,w,h all using %
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-tables.html");
 
 	// DEMO: Rowspans/Colspans
 	let optsSub = JSON.parse(JSON.stringify(BASE_OPTS_SUBTITLE));
@@ -268,7 +266,6 @@ function genSlide03(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Tables" });
 
 	slide.addTable([[{ text: "Table Examples 3", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-tables.html");
 
 	// DEMO: Rowspans/Colspans ----------------------------------------------------------------
 	let optsSub = JSON.parse(JSON.stringify(BASE_OPTS_SUBTITLE));
@@ -333,7 +330,6 @@ function genSlide04(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Tables" });
 
 	slide.addTable([[{ text: "Table Examples 4", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-tables.html");
 
 	// Cell Margins
 	let optsSub = JSON.parse(JSON.stringify(BASE_OPTS_SUBTITLE));
@@ -362,7 +358,7 @@ function genSlide04(pptx) {
 		[
 			{ text: "Text Objects", options: { color: "99ABCC", align: "right" } },
 			{ text: "2nd cell", options: { color: "0000EE", align: "center" } },
-			{ text: "Hyperlink", options: { hyperlink: { url: "https://github.com/gitbrent/pptxgenjs" } } },
+			{ text: "Hyperlink", options: { hyperlink: { url: "https://example.com" } } },
 		],
 	];
 	slide.addTable(arrTextObjects, { x: 0.5, y: 2.7, w: 12.25, margin: 8, fill: { color: "F1F1F1" }, border: { width: 1, color: "696969" } }); // DEPRECATED: `margin` in points
@@ -427,7 +423,6 @@ function genSlide05(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Tables" });
 
 	slide.addTable([[{ text: "Table Examples 5", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-tables.html");
 
 	slide.addText(
 		"The following textbox and table cell use the same array of text/options objects, making word-level formatting familiar and consistent across the library.",
@@ -474,7 +469,6 @@ function genSlide06(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Tables" });
 
 	slide.addTable([[{ text: "Table Examples 6", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-tables.html");
 
 	let optsSub = JSON.parse(JSON.stringify(BASE_OPTS_SUBTITLE));
 	slide.addText("Table Cell Word-Level Formatting:", optsSub);
@@ -565,7 +559,6 @@ function genSlide07(pptx) {
 	// EX-1: "Basic Auto-Paging Example"
 	{
 		slide = pptx.addSlide({ sectionTitle: "Tables: Auto-Paging" });
-		slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-tables.html");
 		slide.addText(
 			[
 				{ text: "Table Examples: ", options: DEMO_TITLE_TEXT },
@@ -610,7 +603,7 @@ function genSlide07(pptx) {
 		slide.addText("Auto-Paging table", { placeholder: "footer" });
 		slide.addTable(arrRows, { x: 1.0, y: 0.6, colW: [0.75, 1.75, 7], margin: 0.05, border: { color: "CFCFCF" }, autoPage: true });
 		// HOWTO: In cases where you want to add custom text, placeholders, etc. to slidemasters, a reference to these slide(s) is needed
-		// HOWTO: Use the `newAutoPagedSlides` to access references (see [Issue #625](https://github.com/gitbrent/PptxGenJS/issues/625))
+		// HOWTO: Use the `newAutoPagedSlides` to access references
 		slide.newAutoPagedSlides.forEach((slide) => slide.addText("Auto-Paging table continued...", { placeholder: "footer" }));
 	}
 
@@ -808,7 +801,6 @@ function genSlide08(pptx) {
 	let arrRows = [];
 
 	slide = pptx.addSlide({ sectionTitle: "Tables: Auto-Paging Complex" });
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-tables.html");
 	slide.addText([{ text: "Table Examples: Auto-Paging Using Complex Text Example", options: DEMO_TITLE_TEXTBK }], {
 		x: 0.23,
 		y: 0.13,
@@ -853,7 +845,6 @@ function genSlide09(pptx) {
 	let arrRows = [];
 
 	slide = pptx.addSlide({ sectionTitle: "Tables: Auto-Paging Calc" });
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-tables.html");
 	slide.addText([{ text: "Table Examples: Auto-Paging Calculations", options: DEMO_TITLE_TEXTBK }], {
 		x: 0.23,
 		y: 0.13,

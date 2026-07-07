@@ -1,6 +1,6 @@
 /**
  * NAME: demos.mjs
- * AUTH: Brent Ely (https://github.com/gitbrent/)
+ * AUTH: Brent Ely
  * DESC: Common test/demo slides for all library features
  * DEPS: Used by maintained demos (./demos/node, ./demos/vite-demo).
  * VER.: 3.12.0

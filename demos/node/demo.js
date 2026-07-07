@@ -1,6 +1,6 @@
 /*
  * NAME: demo.js
- * AUTH: Brent Ely (https://github.com/gitbrent/)
+ * AUTH: Brent Ely
  * DATE: 20210502
  * DESC: PptxGenJS feature demos for Node.js
  * REQS: install dependencies with pnpm, npm, or yarn

@@ -3,7 +3,7 @@ import { defineRegressionSuite, assert } from '../helpers.js'
 
 // Exports previously defaulted to STORE (and the typed-output `write()` branch
 // ignored `compression` entirely), producing packages several times larger than
-// the same deck re-saved by PowerPoint, which always DEFLATEs (upstream #1268).
+// the same deck re-saved by PowerPoint, which always DEFLATEs.
 // DEFLATE is now the default; `compression: false` opts back out.
 
 // Compression method of each ZIP local file header (offset 8 after PK\x03\x04):
@@ -54,7 +54,7 @@ async function buildPres() {
 	return pres
 }
 
-defineRegressionSuite('ZIP package compression default (#1268)', [
+defineRegressionSuite('ZIP package compression default', [
 	{
 		name: 'stream() defaults to DEFLATE entries',
 		fn: async () => {
@@ -96,7 +96,7 @@ defineRegressionSuite('ZIP package compression default (#1268)', [
 		},
 	},
 	{
-		// #1006: DEFLATE-ing already-compressed media wastes CPU on large decks.
+		// DEFLATE-ing already-compressed media wastes CPU on large decks.
 		// Media parts are STORE-d per-entry while XML stays DEFLATE.
 		name: 'already-compressed media is STORE while XML stays DEFLATE',
 		fn: async () => {

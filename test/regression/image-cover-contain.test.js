@@ -24,7 +24,7 @@ function pngOf(w, h) {
 
 // A srcRect is PowerPoint-valid only if the cropped source keeps positive area: l+r and t+b must
 // each stay below 100% (100000). Negative edges (outset/letterbox) are legal. Out-of-range values
-// are exactly what triggered the #1286 repair dialog, so every case asserts this invariant.
+// are exactly what triggered the repair dialog, so every case asserts this invariant.
 function assertValidSrcRect(r, label) {
 	for (const k of ['l', 'r', 't', 'b']) {
 		assert(Number.isInteger(r[k]), `${label}: srcRect ${k} must be a finite integer; got ${r[k]}`)
@@ -91,7 +91,7 @@ defineRegressionSuite('Image cover/contain natural-ratio crop', [
 			)
 		},
 	},
-	// upstream #1286: mixed "pixel-like" dimensions straddling 100 (some <100, some ≥100) once
+	// mixed "pixel-like" dimensions straddling 100 (some <100, some ≥100) once
 	// produced invalid out-of-range srcRect crop values and a PowerPoint repair. The old converter
 	// guessed units by magnitude (a number ≥100 was treated as already-EMU, <100 as inches), so a
 	// single object's two dimensions could be resolved in *different* units, wrecking the box ratio.
@@ -102,7 +102,7 @@ defineRegressionSuite('Image cover/contain natural-ratio crop', [
 		// contain is the original repair surface: with mixed units the letterbox inset blew up to a
 		// wildly out-of-range negative percentage. natural 200×80 (ratio 0.4) into a 120×80 box must
 		// pad top/bottom by a modest, in-bounds inset and leave left/right flush.
-		name: 'contain: dimensions straddling 100 stay in-bounds (no #1286 repair)',
+		name: 'contain: dimensions straddling 100 stay in-bounds (no repair)',
 		fn: async () => {
 			const r = await srcRectFor({
 				data: pngOf(200, 80),
@@ -121,7 +121,7 @@ defineRegressionSuite('Image cover/contain natural-ratio crop', [
 	},
 	{
 		// cover counterpart: same straddling-100 shape crops left/right from the natural 0.4 ratio.
-		name: 'cover: dimensions straddling 100 crop from natural ratio (no #1286 repair)',
+		name: 'cover: dimensions straddling 100 crop from natural ratio (no repair)',
 		fn: async () => {
 			const r = await srcRectFor({
 				data: pngOf(200, 80),

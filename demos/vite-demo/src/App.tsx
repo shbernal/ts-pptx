@@ -51,7 +51,7 @@ function App() {
 	const htmlNav = () => {
 		return <nav className="navbar navbar-expand-lg bg-primary" data-bs-theme="dark">
 			<div className="container-fluid">
-				<a className="navbar-brand" href="https://gitbrent.github.io/PptxGenJS/">
+				<a className="navbar-brand" href="https://github.com/shbernal/PptxGenJS">
 					<img src={logo} alt="logo" width="30" height="30" className="d-inline-block align-text-center me-2" />
 					PptxGenJS
 				</a>
@@ -67,23 +67,23 @@ function App() {
 				<div className="collapse navbar-collapse" id="navbarText">
 					<ul className="navbar-nav me-auto mb-2 mb-lg-0">
 						<li className="nav-item">
-							<a className="nav-link active" aria-current="page" href="https://gitbrent.github.io/PptxGenJS/demo/react/">
+							<a className="nav-link active" aria-current="page" href="https://github.com/shbernal/PptxGenJS">
 								Vite+React Demo Home
 							</a>
 						</li>
 					</ul>
 					<div className="hstack gap-1">
-						<button type="button" className="btn btn-primary" title="Releases" onClick={() => "window.open('https://github.com/gitbrent/PptxGenJS/releases')"}>
+						<button type="button" className="btn btn-primary" title="Releases" onClick={() => "window.open('https://github.com/shbernal/PptxGenJS/releases')"}>
 							<i className="bi bi-box-arrow-up-right me-2"></i>Latest Release
 						</button>
-						<button type="button" className="btn btn-primary" title="Docs" onClick={() => "window.open('https://gitbrent.github.io/PptxGenJS/docs/installation/')"}>
+						<button type="button" className="btn btn-primary" title="Docs" onClick={() => "window.open('https://github.com/shbernal/PptxGenJS#readme')"}>
 							<i className="bi bi-box-arrow-up-right me-2"></i>Docs
 						</button>
 						<div className="vr my-2 mx-2"></div>
-						<button type="button" className="btn btn-primary" title="@gitbrent@fosstodon.org" onClick={() => "window.open('https://fosstodon.org/@gitbrent')"}>
+						<button type="button" className="btn btn-primary" title="Homepage" onClick={() => "window.open('https://github.com/shbernal/PptxGenJS')"}>
 							<i className="bi bi-mastodon"></i>
 						</button>
-						<button type="button" className="btn btn-primary" title="GitHub" onClick={() => "window.open('https://gitbrent.github.io/PptxGenJS')"}>
+						<button type="button" className="btn btn-primary" title="GitHub" onClick={() => "window.open('https://github.com/shbernal/PptxGenJS')"}>
 							<i className="bi bi-github"></i>
 						</button>
 					</div>

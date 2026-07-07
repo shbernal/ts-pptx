@@ -290,7 +290,7 @@ function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: number,
 			emitGuide('adj3', Math.round(options.arcThicknessRatio * (PERCENT_SCALE / 2)))
 		}
 	}
-	// Generic adjustment handles (`shapeAdjust`) for any preset shape (Issue #1300).
+	// Generic adjustment handles (`shapeAdjust`) for any preset shape.
 	if (options.shapeAdjust) {
 		const adjusts = Array.isArray(options.shapeAdjust) ? options.shapeAdjust : [options.shapeAdjust]
 		adjusts.forEach((adj) => {
@@ -408,7 +408,7 @@ const PLACEHOLDER_TYPE_MAP = PlaceholderType as Record<string, string>
 /**
  * Emit the `<a:lnL>/<a:lnR>/<a:lnT>/<a:lnB>` border children of an `<a:tcPr>` for a table cell.
  * Shared by normal cells and the dummy span (`_hmerge`/`_vmerge`) cells so a merged region's
- * outer edges render with the same border as its origin cell (Issue #680).
+ * outer edges render with the same border as its origin cell.
  * @param {BorderProps[]} cellBorder - 4-tuple of border props in [top, right, bottom, left] order
  * @return {string} concatenated border element XML, in the LRTB document order PowerPoint expects
  */
@@ -573,7 +573,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 		switch (slideItemObj._type) {
 			case SlideObjectType.table:
 				// Shallow-clone each row so splice() in the merge-grid builder does not mutate the stored
-				// arrTabRows, which would corrupt output on repeated write()/writeFile() calls (issue #911).
+				// arrTabRows, which would corrupt output on repeated write()/writeFile() calls.
 				arrTabRows = (slideItemObj.arrTabRows ?? []).map((row) => [...row])
 				objTabOpts = slideItemObj.options
 				intColCnt = 0
@@ -592,7 +592,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 				strXml +=
 					`<p:cNvGraphicFramePr>${genXmlObjectLock('a:graphicFrameLocks', GRAPHIC_FRAME_LOCK_ATTRS, { noGrp: true, ...slideItemObj.options.objectLock }, slideItemObj.options.objectName)}</p:cNvGraphicFramePr>` +
 					// A table bound to a layout placeholder emits that placeholder's <p:ph> (idx/type) so
-					// PowerPoint treats the graphicFrame as filling the placeholder (#1151). The <p:ph>
+					// PowerPoint treats the graphicFrame as filling the placeholder. The <p:ph>
 					// precedes <p:extLst> per CT_ApplicationNonVisualDrawingProps document order.
 					`  <p:nvPr>${genXmlPlaceholder(placeholderObj)}<p:extLst><p:ext uri="{D42A27DB-BD31-4B8C-83A1-F6EECF244321}"><p14:modId xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" val="1579011935"/></p:ext></p:extLst></p:nvPr>` +
 					'</p:nvGraphicFramePr>'
@@ -627,7 +627,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 					strXml += '</a:tblGrid>'
 				}
 
-				// STEP 3: Build our row arrays into an actual grid to match the XML we will be building next (ISSUE #36)
+				// STEP 3: Build our row arrays into an actual grid to match the XML we will be building next
 				// Note row arrays can arrive "lopsided" as in row1:[1,2,3] row2:[3] when first two cols rowspan!,
 				// so a simple loop below in XML building wont suffice to build table correctly.
 				// We have to build an actual grid now
@@ -673,7 +673,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 						const _hmerge = cell._hmerge
 						if (rowspan && rowspan > 1) {
 							// Point back to the true origin cell: when `cell` is itself an `_hmerge` dummy
-							// (combined colspan+rowspan), use its origin rather than the dummy (Issue #680).
+							// (combined colspan+rowspan), use its origin rather than the dummy.
 							const _spanOrigin = cell._spanOrigin || cell
 							const hMergeCell = {
 								_type: SlideObjectType.tablecell,
@@ -724,7 +724,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 						// 1: COLSPAN/ROWSPAN: Emit the dummy covered cell for any active span. PowerPoint defines a
 						// merged region's outer edges (e.g. the right border of a colspan, the bottom border of a
 						// rowspan) on the *covered* cells, so inherit the origin cell's border + fill here instead of
-						// emitting an empty `<a:tcPr/>` that drops those edges (Issue #680).
+						// emitting an empty `<a:tcPr/>` that drops those edges.
 						if (cell._hmerge || cell._vmerge) {
 							const origin = cell._spanOrigin
 							let spanPrXml = ''
@@ -848,7 +848,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 				}
 
 				// A: Start SHAPE =======================================================
-				// A native equation (#1456) uses the `a14` (drawing-2010) markup-compatibility extension.
+				// A native equation uses the `a14` (drawing-2010) markup-compatibility extension.
 				// PowerPoint wraps the whole shape in <mc:AlternateContent><mc:Choice Requires="a14"> so
 				// non-a14 consumers (and schema validators) treat the a14:m subtree as a known extension.
 				if (objectHasMath(slideItemObj)) {
@@ -879,7 +879,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 					strSlideXml += spLockXml ? `>${spLockXml}</p:cNvSpPr>` : '/>'
 				}
 				// Prefer the resolved slide-layout placeholder; otherwise fall back to the shape's own
-				// placeholder type (#1298) so a standalone title/body text box still emits a real <p:ph>.
+				// placeholder type so a standalone title/body text box still emits a real <p:ph>.
 				strSlideXml += `<p:nvPr>${genXmlPlaceholder(slideItemObj._type === SlideObjectType.placeholder || (placeholderObj == null && slideItemObj.options?._placeholderType) ? slideItemObj : placeholderObj)}</p:nvPr>`
 				strSlideXml += '</p:nvSpPr><p:spPr>'
 				strSlideXml += `<a:xfrm${locationAttr}>`
@@ -927,7 +927,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 				// LAST: Close SHAPE =======================================================
 				strSlideXml += '</p:sp>'
 
-				// Close the a14 markup-compatibility envelope for an equation-bearing shape (#1456).
+				// Close the a14 markup-compatibility envelope for an equation-bearing shape.
 				if (objectHasMath(slideItemObj)) strSlideXml += '</mc:Choice></mc:AlternateContent>'
 				break
 
@@ -983,7 +983,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 			case SlideObjectType.image:
 				// Backfill any omitted dimension of a path-based image from its natural pixel ratio.
 				// The bytes weren't available synchronously in `addImage()`, but `_relsMedia[].data` is
-				// populated by now, so measure it here and keep aspect ratio (issue #1217).
+				// populated by now, so measure it here and keep aspect ratio.
 				// PowerPoint inserts images at 96 DPI, so natural pixels / 96 * EMU == display EMU.
 				if (slideItemObj.options._szAuto) {
 					const szAuto = slideItemObj.options._szAuto
@@ -1581,7 +1581,7 @@ function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDefault: 
 			strXmlBullet = `<a:buSzPct val="100000"/><a:buChar char="${BulletType.DEFAULT}"/>`
 		} else if (!opts.bullet) {
 			// We only add this when the user explicitely asks for no bullet, otherwise, it can override the master defaults!
-			paragraphPropXml += ' indent="0" marL="0"' // FIX: ISSUE#589 - specify zero indent and marL or default will be hanging paragraph
+			paragraphPropXml += ' indent="0" marL="0"' // FIX: specify zero indent and marL or default will be hanging paragraph
 			strXmlBullet = '<a:buNone/>'
 		}
 
@@ -1666,7 +1666,7 @@ function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, isDefau
 			// Latin (`<a:latin>`) and complex-script (`<a:cs>`) slots. The East Asian slot (`<a:ea>`) is
 			// only written when an EA face is explicitly chosen (`fontFaceEA`); otherwise it inherits the
 			// theme. Forcing a Latin-only font into `<a:ea>` — especially with the bogus charset values
-			// PowerPoint never emits on ea/cs — duplicates/ghosts text in Office 365 (Issue #1301).
+			// PowerPoint never emits on ea/cs — duplicates/ghosts text in Office 365.
 			// NOTE: order must be latin, ea, cs per CT_TextCharacterProperties.
 			runProps += `<a:latin typeface="${opts.fontFace}" pitchFamily="34" charset="0"/>`
 			if (opts.fontFaceEA) runProps += `<a:ea typeface="${opts.fontFaceEA}"/>`
@@ -1681,7 +1681,7 @@ function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, isDefau
 		else if (!opts.hyperlink.url && !opts.hyperlink.slide)
 			throw new Error("ERROR: 'hyperlink requires either `url` or `slide`'")
 		else if (opts.hyperlink.url) {
-			// runProps += '<a:uFill>'+ genXmlColorSelection('0000FF') +'</a:uFill>'; // Breaks PPT2010! (Issue#74)
+			// runProps += '<a:uFill>'+ genXmlColorSelection('0000FF') +'</a:uFill>'; // Breaks PPT2010!
 			runProps += `<a:hlinkClick r:id="rId${opts.hyperlink._rId}" invalidUrl="" action="" tgtFrame="" tooltip="${
 				opts.hyperlink.tooltip ? encodeXmlEntities(opts.hyperlink.tooltip) : ''
 			}" history="1" highlightClick="0" endSnd="0"${opts.color ? '>' : '/>'}`
@@ -1783,7 +1783,7 @@ function genXmlBodyProperties(slideObject: SlideObject | TableCell): string {
 
 	// Placeholders (incl. master/layout placeholders) carry their margin/valign in `_bodyProp` just
 	// like text boxes, so they must emit the same configured `<a:bodyPr>` — otherwise a placeholder
-	// authored with insets or a vertical anchor silently degrades to the default (#1247, #1208).
+	// authored with insets or a vertical anchor silently degrades to the default.
 	// `_bodyProp`/`options` are optional on the type but present on text/placeholder objects that reach
 	// this branch; bind them once so the body reads a narrowed, non-undefined value.
 	const options = (slideObject as SlideObject).options
@@ -1853,7 +1853,7 @@ function genXmlBodyProperties(slideObject: SlideObject | TableCell): string {
 }
 
 /**
- * Build a native-equation paragraph (`<a:p>`) from raw OMML (#1456).
+ * Build a native-equation paragraph (`<a:p>`) from raw OMML.
  *
  * PowerPoint stores an editable equation inside a text body as an `<a14:m>` marker wrapping
  * `<m:oMathPara><m:oMath>…`. We declare both the `a14` (drawing-2010) and `m` (math) namespaces
@@ -1864,7 +1864,7 @@ function genXmlBodyProperties(slideObject: SlideObject | TableCell): string {
  * @param {string} omml - raw OMML markup for the equation
  * @returns {string} an `<a:p>` math paragraph
  */
-/** Whether a slide object carries a native equation (`math` raw OMML) on any of its text items (#1456). */
+/** Whether a slide object carries a native equation (`math` raw OMML) on any of its text items. */
 function objectHasMath(slideObj: SlideObject): boolean {
 	const text = slideObj.text as TextProps | TextProps[] | string | number | undefined
 	if (Array.isArray(text)) return text.some((item) => item && typeof item === 'object' && !!item.math)
@@ -1944,7 +1944,7 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 	// We MUST still emit a `<p:txBody>` with at least an empty `<a:p>` paragraph;
 	// the empty-txBody fallback below appends `<a:p><a:endParaRPr/></a:p>` when no
 	// `<a:p>` was produced. Returning early here would emit `<p:sp>` without
-	// `<p:txBody>`, which PowerPoint reports as a needs-repair error (#1441).
+	// `<p:txBody>`, which PowerPoint reports as a needs-repair error.
 
 	// STEP 1: Start textBody
 	let strSlideXml = slideObj._type === SlideObjectType.tablecell ? '<a:txBody>' : '<p:txBody>'
@@ -1991,7 +1991,7 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 	} else if (Array.isArray(slideObj.text)) {
 		// Handle cases 4,5,6
 		// NOTE: use cast as text is TextProps[]|TableCell[] and their `options` dont overlap (they share the same TextBaseProps though)
-		// `math` carries raw OMML for native equation paragraphs (#1456) — preserved here so STEP 5/6 can isolate it.
+		// `math` carries raw OMML for native equation paragraphs — preserved here so STEP 5/6 can isolate it.
 		tmpTextObjects = (slideObj.text as TextProps[]).map((item) => ({
 			text: item.text,
 			options: item.options,
@@ -2036,7 +2036,7 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 	const arrLines: RunProps[][] = []
 	let arrTexts: RunProps[] = []
 	arrTextObjects.forEach((textObj, idx) => {
-		// A0: A DISPLAY math equation (#1456) is its own paragraph — flush any pending runs and
+		// A0: A DISPLAY math equation is its own paragraph — flush any pending runs and
 		// give it its own line so STEP 6 emits the <a14:m><m:oMathPara> wrapper instead of text runs.
 		// Inline math (dn-inline-math) flows mid-paragraph, so it falls through to the run-buffering
 		// path below and STEP 6 emits a bare <a14:m><m:oMath> run alongside the plain text runs.
@@ -2080,7 +2080,7 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 
 	// STEP 6: Loop over each line and create paragraph props, text run, etc.
 	arrLines.forEach((line) => {
-		// A DISPLAY equation (#1456) owns its whole paragraph: emit the oMathPara wrapper and skip runs.
+		// A DISPLAY equation owns its whole paragraph: emit the oMathPara wrapper and skip runs.
 		// An inline equation (even when it is the line's only run) flows as a run and is emitted below.
 		const firstRun = line[0]
 		if (line.length === 1 && firstRun?.math && !firstRun.inline) {
@@ -2171,7 +2171,7 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 		})
 
 		/* C: Append 'endParaRPr' (when needed) and close current open paragraph
-		 * NOTE: (ISSUE#20, ISSUE#193): Add 'endParaRPr' with font/size props or PPT default (Arial/18pt en-us) is used making row "too tall"/not honoring options
+		 * NOTE: Add 'endParaRPr' with font/size props or PPT default (Arial/18pt en-us) is used making row "too tall"/not honoring options
 		 */
 		if (slideObj._type === SlideObjectType.tablecell && (opts.fontSize || opts.fontFace)) {
 			if (opts.fontFace) {
@@ -2180,7 +2180,7 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 					(opts.fontSize ? ` sz="${clampFontSizeSz(opts.fontSize)}"` : '') +
 					' dirty="0">'
 				// Mirror genXmlTextRunProperties: Latin + complex-script slots carry the face; East Asian slot
-				// inherits the theme unless `fontFaceEA` is set (see Issue #1301).
+				// inherits the theme unless `fontFaceEA` is set.
 				strSlideXml += `<a:latin typeface="${opts.fontFace}" charset="0"/>`
 				if (opts.fontFaceEA) strSlideXml += `<a:ea typeface="${opts.fontFaceEA}"/>`
 				strSlideXml += `<a:cs typeface="${opts.fontFace}"/>`
@@ -2245,7 +2245,7 @@ export function genXmlPlaceholder(placeholderObj: SlideObject | null): string {
 
 	// `hasCustomPrompt` flags a placeholder *definition* (layout/master) that carries custom
 	// prompt text; it must not be set on a populated slide-level text shape promoted to a
-	// placeholder (#1298), or PowerPoint would treat the visible text as prompt text.
+	// placeholder, or PowerPoint would treat the visible text as prompt text.
 	const isPlaceholderDef = placeholderObj._type === SlideObjectType.placeholder
 
 	// NOTE: `placeholderType` is already the mapped OOXML value (e.g. 'pic', 'tbl') validated on
@@ -3274,7 +3274,7 @@ function masterLevelOverrides(levels: MasterTextStyleLevel[] | undefined, group:
 }
 
 /**
- * Build the `<p:txStyles>` block from caller overrides layered onto the Office master defaults (#1360).
+ * Build the `<p:txStyles>` block from caller overrides layered onto the Office master defaults.
  * Only invoked when `defineSlideMaster({ textStyles })` was set; the unconfigured deck keeps the
  * verbatim default literal in `makeXmlMaster` for byte-identical output.
  */
@@ -3315,7 +3315,7 @@ export function makeXmlMaster(slide: PresSlideInternal, layouts: SlideLayoutInte
 	strXml += '<p:sldLayoutIdLst>' + layoutDefs.join('') + '</p:sldLayoutIdLst>'
 	// CT_HeaderFooter/@sldNum defaults to true (ECMA-376). When a slide-number placeholder is
 	// defined on the master we must NOT disable it here, otherwise slides that PowerPoint inserts
-	// from this master inherit sldNum="0" and the master slide number disappears (gitbrent/PptxGenJS#1159).
+	// from this master inherit sldNum="0" and the master slide number disappears.
 	strXml += `<p:hf${slide._slideNumberProps ? '' : ' sldNum="0"'} hdr="0" ftr="0" dt="0"/>`
 	strXml += slide._txStyles
 		? makeXmlMasterTxStyles(slide._txStyles)
@@ -3631,7 +3631,7 @@ export function makeXmlTheme(pres: PresentationPropsInternal): string {
 		: '<a:latin typeface="Calibri" panose="020F0502020204030204"/>'
 	// East Asian (`<a:ea>`) and complex-script (`<a:cs>`) theme font slots. PowerPoint emits these
 	// empty by default and resolves per-script via the `<a:font>` list that follows; setting them
-	// lets CJK / complex-script runs fall back to a caller-chosen theme font (issue #1288).
+	// lets CJK / complex-script runs fall back to a caller-chosen theme font.
 	const majorEa = `<a:ea typeface="${pres.theme?.headFontFaceEA ?? ''}"/>`
 	const minorEa = `<a:ea typeface="${pres.theme?.bodyFontFaceEA ?? ''}"/>`
 	const majorCs = `<a:cs typeface="${pres.theme?.headFontFaceCS ?? ''}"/>`

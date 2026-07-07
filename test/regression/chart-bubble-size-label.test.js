@@ -1,6 +1,6 @@
 import { defineRegressionSuite, build, readEntry, listEntries, assert, assertIncludes } from '../helpers.js'
 
-// Upstream gitbrent/PptxGenJS#744: bubble charts could not show each bubble's size as a data label.
+// bubble charts could not show each bubble's size as a data label.
 // The bubble `sizes` data already flowed into <c:bubbleSize>, but the data-label block hard-coded
 // <c:showBubbleSize val="0"/>. A new `showBubbleSize` chart option now toggles that flag.
 
@@ -15,7 +15,7 @@ const BUBBLE_DATA = [
 	{ name: 'Y-Values 1', values: [13, 20, 21, 25], sizes: [10, 5, 20, 15] },
 ]
 
-defineRegressionSuite('Chart bubble size data label (upstream #744)', [
+defineRegressionSuite('Chart bubble size data label', [
 	{
 		name: 'bubble chart: showBubbleSize true emits <c:showBubbleSize val="1"/>',
 		fn: async () => {

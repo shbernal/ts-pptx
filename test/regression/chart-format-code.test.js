@@ -9,7 +9,7 @@ import {
 	firstXmlBlock,
 } from '../helpers.js'
 
-// Upstream gitbrent/PptxGenJS#1309: a chart's `dataLabelFormatCode` / `valLabelFormatCode` renders in
+// a chart's `dataLabelFormatCode` / `valLabelFormatCode` renders in
 // LibreOffice but is ignored by PowerPoint and Google Slides (e.g. `0.1` shows instead of `10%`).
 // Root cause: PowerPoint and Google Slides display values using the cached *source* number format in
 // each series' `<c:val><c:numRef><c:numCache><c:formatCode>` — which was hard-coded to "General" — not
@@ -29,7 +29,7 @@ function valCacheFormatCode(xml, valTag) {
 	return cacheMatch[1]
 }
 
-defineRegressionSuite('Chart value format code (upstream #1309)', [
+defineRegressionSuite('Chart value format code', [
 	{
 		name: 'bar chart: dataLabelFormatCode flows into the c:val numCache formatCode',
 		fn: async () => {

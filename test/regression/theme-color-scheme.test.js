@@ -2,9 +2,9 @@ import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
 // Regression: ThemeProps.colorScheme must let callers override the theme1.xml <a:clrScheme>
 // slots; unset slots keep the Office defaults, dk1/lt1 overrides switch from <a:sysClr> to
-// <a:srgbClr>, and invalid hex warns + keeps the default (upstream gitbrent/PptxGenJS#1243).
+// <a:srgbClr>, and invalid hex warns + keeps the default.
 
-defineRegressionSuite('Theme color scheme overrides (upstream #1243)', [
+defineRegressionSuite('Theme color scheme overrides', [
 	{
 		name: 'overridden slots emit srgbClr; unset slots keep Office defaults',
 		fn: async () => {

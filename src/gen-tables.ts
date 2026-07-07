@@ -233,14 +233,14 @@ export function getSlidesForTableRows(
 		if (tableRowSlides.length === 0) emuStartY = tablePropY || inch2Emu(arrInchMargins[0])
 		if (tableRowSlides.length > 0) emuStartY = inch2Emu(tableProps.autoPageSlideStartY || arrInchMargins[0])
 		emuSlideTabH = (tablePropH || presLayout.height) - emuStartY - inch2Emu(arrInchMargins[2])
-		// EXPLICIT-H FIX (upstream #1264): an explicit `h` is the table's height (an extent), not a
+		// EXPLICIT-H FIX: an explicit `h` is the table's height (an extent), not a
 		// bottom coordinate, so — unlike `presLayout.height` — the first slide must NOT subtract the
 		// start-Y from it. Otherwise a table that begins mid-slide gets a tiny first page (only a few
 		// rows) while later pages, which already clamp to `h`, render normally. Mirror the
 		// subsequent-slide rule below: never let an explicit `h` shrink the usable height below `h`.
 		if (tableRowSlides.length === 0 && tablePropH && emuSlideTabH < tablePropH) emuSlideTabH = tablePropH
 		if (tableRowSlides.length > 1) {
-			// D: RULE: Use margins for starting point after the initial Slide, not `opt.y` (ISSUE #43, ISSUE #47, ISSUE #48)
+			// D: RULE: Use margins for starting point after the initial Slide, not `opt.y`
 			if (typeof tableProps.autoPageSlideStartY === 'number') {
 				emuSlideTabH = (tablePropH || presLayout.height) - inch2Emu(tableProps.autoPageSlideStartY + arrInchMargins[2])
 			} else if (tablePropY) {
@@ -395,7 +395,7 @@ export function getSlidesForTableRows(
 
 	// Resolve a row's explicit height (inches) from the original `rowH` *array*, keyed by original
 	// row index. A single-number `rowH` is left to propagate via table options (it applies uniformly,
-	// so it needs no per-row remapping); only the array form is index-sensitive after pagination (#1145).
+	// so it needs no per-row remapping); only the array form is index-sensitive after pagination.
 	const resolveRowH = (origRowIdx: number): number | undefined =>
 		Array.isArray(tableProps.rowH) && typeof tableProps.rowH[origRowIdx] === 'number'
 			? tableProps.rowH[origRowIdx]
@@ -582,7 +582,7 @@ export function getSlidesForTableRows(
 							if ((cell._lineHeight || 0) > maxLineHeight) maxLineHeight = cell._lineHeight || 0
 						})
 						newTableRowSlide.rows.push(newHeadRow)
-						// Repeated header rows are the original leading rows, so carry their configured height (#1145).
+						// Repeated header rows are the original leading rows, so carry their configured height.
 						newTableRowSlide.rowH?.push(resolveRowH(headIdx))
 						// NOTE: possible imprecision — this accumulates line height only; cell top/bottom
 						// margins are not added, so autoPage row-height estimates can run slightly short.
@@ -674,7 +674,7 @@ export function getSlidesForTableRows(
  *
  * Preserves *fractional* widths: a hairline CSS border such as `0.5px` must not be rounded to
  * `0pt` and silently vanish — the table serializer (`valToPts`) emits fractional points just
- * fine, so there is no reason to integer-round here (upstream gitbrent/PptxGenJS#1235). A
+ * fine, so there is no reason to integer-round here. A
  * computed width of `0` (or a non-finite value) yields `{ type: 'none' }` so we never emit a
  * zero-width line.
  * @param {string} widthStr - computed `border-<side>-width`, e.g. `"0.5px"`
@@ -701,7 +701,7 @@ export function htmlBorderToProps(widthStr: string, colorStr: string): BorderPro
  *
  * Hidden tables report `offsetWidth` 0 for every cell, which makes `calcWidth` non-finite (a 0/0
  * proportional calc). Fall back to `0` there so an explicit `data-pptx-width` / `data-pptx-min-width`
- * override still drives the column instead of emitting a `NaN` width (upstream gitbrent/PptxGenJS#1157).
+ * override still drives the column instead of emitting a `NaN` width.
  * @param {number} calcWidth - proportional width derived from `offsetWidth` (may be `NaN` for hidden tables)
  * @param {number} setWidth - `data-pptx-width` override (`0`/`NaN` when absent or invalid)
  * @param {number} minWidth - `data-pptx-min-width` floor (`0`/`NaN` when absent or invalid)
@@ -820,7 +820,7 @@ export function genTableToSlides(
 					.replace(')', '')
 					.split(',')
 				if (
-					// NOTE: (ISSUE#57): Default for unstyled tables is black bkgd, so use white instead
+					// NOTE: Default for unstyled tables is black bkgd, so use white instead
 					window.getComputedStyle(cell).getPropertyValue('background-color') === 'rgba(0, 0, 0, 0)' ||
 					window.getComputedStyle(cell).getPropertyValue('transparent')
 				) {
@@ -935,7 +935,7 @@ export function genTableToSlides(
 		// A: Create new Slide
 		const newSlide = pptx.addSlide({ masterTitle: opts.masterSlideName || undefined })
 
-		// B: DESIGN: Reset `y` to startY or margin after first Slide (ISSUE#43, ISSUE#47, ISSUE#48)
+		// B: DESIGN: Reset `y` to startY or margin after first Slide
 		if (idxTr === 0) opts.y = opts.y || arrInchMargins[0]
 		if (idxTr > 0) opts.y = opts.autoPageSlideStartY || arrInchMargins[0]
 		if (opts.verbose)

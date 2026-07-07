@@ -54,8 +54,8 @@ by the `pptxgenjs/read` harness. Two groups:
   bodyPr → `upstream-pr-1247`/`upstream-issue-1208`; table-in-placeholder →
   `upstream-pr-1151`; notes `sldImg` → `upstream-issue-446`).
 - **Feature serialization**: `bar-chart-data-labels.pptx` (per-point bar
-  `c:dPt`/`c:dLbl` + workbook cache, #727), `math-omml.pptx` (native **display**
-  equation OMML `a14:m`/`m:oMathPara`, #1456), and `math-omml-inline.pptx` (an
+  `c:dPt`/`c:dLbl` + workbook cache), `math-omml.pptx` (native **display**
+  equation OMML `a14:m`/`m:oMathPara`), and `math-omml-inline.pptx` (an
   **inline**, in-sentence equation `a14:m`/`m:oMath` with no `m:oMathPara`, flowing
   between plain `a:r` runs in one `a:p` — backlog `dn-inline-math`).
 - **A/V media rel graph**: `av-media.pptx` (embedded video + audio rel/content-type

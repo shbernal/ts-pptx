@@ -3,7 +3,7 @@ import { defineRegressionSuite, build, readEntry, listEntries, assert } from '..
 // Regression: an autoPage table that overflows onto continuation slides should be able to
 // carry the source slide's populated placeholders (e.g. a title) onto every overflow slide.
 // Overflow slides otherwise inherit only the layout's empty placeholders, so a title set on
-// the first slide vanishes on continuation slides (upstream gitbrent/PptxGenJS#1136).
+// the first slide vanishes on continuation slides.
 
 const TITLE = 'Quarterly Report'
 
@@ -40,7 +40,7 @@ function overflowSlideFiles(zip) {
 		.sort()
 }
 
-defineRegressionSuite('Table autoPage placeholder propagation (upstream #1136)', [
+defineRegressionSuite('Table autoPage placeholder propagation', [
 	{
 		name: 'autoPagePlaceholder:true copies the title onto every overflow slide',
 		fn: async () => {

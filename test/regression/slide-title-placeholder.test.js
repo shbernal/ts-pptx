@@ -1,6 +1,6 @@
 import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
-// #1298: PowerPoint's accessibility checker reports "Missing Slide Title" unless a
+// PowerPoint's accessibility checker reports "Missing Slide Title" unless a
 // slide has a shape with a title placeholder (<p:ph type="title"/>). A standalone
 // `addText(..., { placeholder: 'title' })` on a blank/default layout must therefore
 // still emit a real <p:ph type="title"/> on its slide shape.

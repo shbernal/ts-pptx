@@ -2,10 +2,10 @@ import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
 // Verification suite for several historical upstream table reports that the current fork already
 // emits correctly. These guard against regressing back into the reported symptoms:
-//   #1290 — colspan > 1 produced extra empty cells/columns
-//   #1318 — top/left borders missing on non-first rows/columns
-//   #1055 — rowspan continuation cells lost borders
-//   #1224 — border of the cell adjacent to a rowspan was not applied
+//   colspan > 1 produced extra empty cells/columns
+//   top/left borders missing on non-first rows/columns
+//   rowspan continuation cells lost borders
+//   border of the cell adjacent to a rowspan was not applied
 // All four reduce to two invariants in the generated <a:tbl>: (1) the grid/cell counts match the
 // declared spans, and (2) every cell — including span continuation (hMerge/vMerge) cells — carries
 // the full four-sided border when a uniform border is configured.
@@ -28,7 +28,7 @@ function hasAllFourBorders(cellXml) {
 
 defineRegressionSuite('Table span + border structure (verified correct)', [
 	{
-		name: 'colspan produces correct grid/cell counts, no extra empty columns (#1290)',
+		name: 'colspan produces correct grid/cell counts, no extra empty columns',
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addTable(
@@ -53,7 +53,7 @@ defineRegressionSuite('Table span + border structure (verified correct)', [
 		},
 	},
 	{
-		name: 'uniform border renders on every cell incl. non-first rows/columns (#1318)',
+		name: 'uniform border renders on every cell incl. non-first rows/columns',
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addTable(
@@ -71,7 +71,7 @@ defineRegressionSuite('Table span + border structure (verified correct)', [
 		},
 	},
 	{
-		name: 'rowspan continuation + adjacent cells keep borders (#1055, #1224)',
+		name: 'rowspan continuation + adjacent cells keep borders',
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addTable([[{ text: 'A', options: { rowspan: 2 } }, { text: 'B' }], [{ text: 'C' }]], {

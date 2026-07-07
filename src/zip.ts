@@ -28,7 +28,7 @@ export class ZipWriter {
 	 * Add a package part.
 	 * @param path - full zip path, e.g. `ppt/slides/slide1.xml`
 	 * @param data - XML string (UTF-8 encoded) or already-decoded bytes (media)
-	 * @param opts.store - skip DEFLATE for this entry (already-compressed media, #1006)
+	 * @param opts.store - skip DEFLATE for this entry (already-compressed media)
 	 */
 	add(path: string, data: string | Uint8Array, opts?: { store?: boolean }): void {
 		const bytes = typeof data === 'string' ? strToU8(data) : data

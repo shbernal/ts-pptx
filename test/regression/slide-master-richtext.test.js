@@ -3,7 +3,7 @@ import { defineRegressionSuite, build, readEntry, listEntries, assert } from '..
 // `defineSlideMaster` text objects previously wrapped `text.text` in a fresh
 // one-item array unconditionally. A rich-text array (`text: [{ text, options }, ...]`)
 // therefore arrived at addTextDefinition as `[{ text: TextProps[] }]` and the runs
-// were lost or stringified instead of serialized (upstream issue #962).
+// were lost or stringified instead of serialized.
 
 async function findLayoutXmlContaining(zip, needle) {
 	const layouts = listEntries(zip).filter((p) => /^ppt\/slideLayouts\/slideLayout\d+\.xml$/.test(p))
@@ -14,7 +14,7 @@ async function findLayoutXmlContaining(zip, needle) {
 	throw new Error(`no slideLayout XML contains "${needle}"; layouts: ${layouts.join(', ')}`)
 }
 
-defineRegressionSuite('Slide master rich-text arrays (#962)', [
+defineRegressionSuite('Slide master rich-text arrays', [
 	{
 		name: 'master text object with TextProps[] emits one run per item with run options',
 		fn: async () => {

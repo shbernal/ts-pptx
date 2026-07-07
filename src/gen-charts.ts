@@ -532,7 +532,7 @@ export async function createExcelWorksheet(chartObject: SlideRelChart, zip: ZipW
  * (e.g. Chinese) and complex-script glyphs falling back to the theme font, so a
  * user-specified font never takes effect for that text — most visibly on
  * PowerPoint for Mac. Stamping the same typeface onto all three classes is what
- * choosing a font in PowerPoint's UI does (upstream gitbrent/PptxGenJS#1420).
+ * choosing a font in PowerPoint's UI does.
  * @param {string} typeface - font face name
  * @return {string} `<a:latin/><a:ea/><a:cs/>` XML
  */
@@ -555,7 +555,7 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 	let usesSecondaryCatAxis = false
 	// Combo charts: a scatter/bubble subchart draws numbers on its category (X)
 	// axis, so that axis must be emitted as a `<c:valAx>` rather than a `<c:catAx>`
-	// or PowerPoint flags the file for repair (#1355). Track, per category axis,
+	// or PowerPoint flags the file for repair. Track, per category axis,
 	// the scatter/bubble subchart type that owns it (if any) and whether a
 	// category-based subchart also references it (an unsatisfiable conflict).
 	let primaryCatAxisValType: ChartType | null = null
@@ -942,7 +942,7 @@ function makeChartType(
 	// `<c:dLbls><c:numFmt>` mask — so when the value cache is left as "General" those engines display
 	// raw values (e.g. `0.1` instead of `10%`) even though LibreOffice honors the dLbls mask. Resolve a
 	// single effective value format and stamp it onto every value cache below so all three engines agree.
-	// See upstream gitbrent/PptxGenJS#1309. Precedence keeps the historical `valLabelFormatCode` winner,
+	// Precedence keeps the historical `valLabelFormatCode` winner,
 	// then the data-table format, and finally falls back to `dataLabelFormatCode` (the most common knob).
 	const valFmtCode = encodeXmlEntities(
 		opts.valLabelFormatCode || opts.dataTableFormatCode || opts.dataLabelFormatCode || 'General'
@@ -2008,7 +2008,7 @@ function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: string)
 		strXml += ` <c:noMultiLvlLbl val="${opts.catAxisMultiLevelLabels ? 0 : 1}"/>`
 	}
 
-	// Issue#149: PPT will auto-adjust these as needed after calcing the date bounds, so we only include them when specified by user
+	// PPT will auto-adjust these as needed after calcing the date bounds, so we only include them when specified by user
 	// Allow major and minor units to be set for double value axis charts
 	if (opts.catLabelFormatCode || usesValueAxisForCategories) {
 		if (opts.catLabelFormatCode) {
@@ -2192,7 +2192,7 @@ function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: string)
 	strXml += ' <c:crosses val="autoZero"/>'
 	if (opts.serAxisLabelFrequency) strXml += ' <c:tickLblSkip val="' + opts.serAxisLabelFrequency + '"/>'
 
-	// Issue#149: PPT will auto-adjust these as needed after calcing the date bounds, so we only include them when specified by user
+	// PPT will auto-adjust these as needed after calcing the date bounds, so we only include them when specified by user
 	if (opts.serLabelFormatCode) {
 		;(['serAxisBaseTimeUnit', 'serAxisMajorTimeUnit', 'serAxisMinorTimeUnit'] as const).forEach((opt) => {
 			// Validate input as poorly chosen/garbage options will cause chart corruption and it wont render at all!
@@ -2238,7 +2238,7 @@ function genXmlTitle(opts: ChartPropsTitle, chartX?: number, chartY?: number): s
 		// NOTE: manualLayout x/y vals are *relative to entire slide*. Each axis is
 		// independent in CT_ManualLayout: omitting xMode/x (or yMode/y) leaves that
 		// axis on automatic layout, so a caller can center horizontally while still
-		// applying a manual vertical offset (and vice-versa). (upstream #1363)
+		// applying a manual vertical offset (and vice-versa).
 		// Schema order is xMode, yMode, x, y.
 		let modes = ''
 		let vals = ''
@@ -2319,7 +2319,7 @@ function createGridLineElement(glOpts: OptsChartGridLine): string {
 	let strXml = '<c:majorGridlines>'
 	strXml += ' <c:spPr>'
 	strXml += `  <a:ln w="${valToPts(glOpts.size || DEF_CHART_GRIDLINE.size || 1)}" cap="${createLineCap(glOpts.cap || DEF_CHART_GRIDLINE.cap)}">`
-	strXml += '  <a:solidFill><a:srgbClr val="' + (glOpts.color || DEF_CHART_GRIDLINE.color) + '"/></a:solidFill>' // should accept scheme colors as implemented in [Pull #135]
+	strXml += '  <a:solidFill><a:srgbClr val="' + (glOpts.color || DEF_CHART_GRIDLINE.color) + '"/></a:solidFill>' // should accept scheme colors
 	strXml += '   <a:prstDash val="' + (glOpts.style || DEF_CHART_GRIDLINE.style) + '"/><a:round/>'
 	strXml += '  </a:ln>'
 	strXml += ' </c:spPr>'

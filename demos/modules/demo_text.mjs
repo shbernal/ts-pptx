@@ -1,6 +1,6 @@
 /**
  * NAME: demo_text.mjs
- * AUTH: Brent Ely (https://github.com/gitbrent/)
+ * AUTH: Brent Ely
  * DESC: Common test/demo slides for all library features
  * DEPS: Used by maintained demos (./demos/node, ./demos/vite-demo).
  * VER.: 3.6.0
@@ -33,7 +33,6 @@ function genSlide01(pptx) {
 	slide.background = { color: "030303" };
 	slide.color = "9F9F9F";
 	// Slide notes
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-text.html");
 
 	// Actual Textbox shape (can have any Height, can wrap text, etc.)
 	slide.addText(
@@ -106,7 +105,6 @@ function genSlide01(pptx) {
  */
 function genSlide02(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Text" });
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-text.html");
 	slide.addTable(
 		[[{ text: "Text Examples: Multi-Line Formatting, Line Breaks, Line Spacing", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]],
 		BASE_TABLE_OPTS,
@@ -214,7 +212,6 @@ function genSlide02(pptx) {
  */
 function genSlide03(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Text" });
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-text.html");
 	slide.addTable([[{ text: "Text Examples: Bullets", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
 
 	// LEFT COLUMN ------------------------------------------------------------
@@ -329,11 +326,10 @@ function genSlide04(pptx) {
 		[[{ text: "Text Examples: Hyperlinks, Tab Stops, Text Effects: Shadow, Outline, and Glow", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]],
 		BASE_TABLE_OPTS,
 	);
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-text.html");
 
 	// 1: TOP_ROW: Hyperlinks
 	slide.addText("Hyperlinks:", { x: 0.5, y: 0.6, w: "90%", h: 0.3, margin: 0.123, color: pptx.SchemeColor.accent1 });
-	slide.addText([{ text: "Link with Tooltip", options: { hyperlink: { url: "https://github.com/gitbrent/pptxgenjs", tooltip: "Visit Homepage" } } }], {
+	slide.addText([{ text: "Link with Tooltip", options: { hyperlink: { url: "https://example.com", tooltip: "Visit Homepage" } } }], {
 		x: 0.5,
 		y: 1.0,
 		w: 2.5,
@@ -343,7 +339,7 @@ function genSlide04(pptx) {
 		fontSize: 14,
 		align: "center",
 	});
-	slide.addText([{ text: "Link without Tooltip", options: { hyperlink: { url: "https://github.com/gitbrent" } } }], {
+	slide.addText([{ text: "Link without Tooltip", options: { hyperlink: { url: "https://example.com" } } }], {
 		x: 3.78,
 		y: 1.0,
 		w: 2.5,
@@ -353,7 +349,7 @@ function genSlide04(pptx) {
 		fontSize: 14,
 		align: "center",
 	});
-	slide.addText([{ text: "Link with custom color", options: { hyperlink: { url: "https://github.com/gitbrent" }, color: "EE40EE" } }], {
+	slide.addText([{ text: "Link with custom color", options: { hyperlink: { url: "https://example.com" }, color: "EE40EE" } }], {
 		x: 7.05,
 		y: 1.0,
 		w: 2.5,
@@ -431,7 +427,6 @@ function genSlide05(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Text" });
 
 	slide.addTable([[{ text: "Text Examples: Text Fit", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-text.html");
 
 	slide.addText(LOREM_IPSUM_ENG.substring(0, 1200), { x: 0.5, y: 1.3, w: 4, h: 4, fontSize: 12, fit: "none" });
 	slide.addText(LOREM_IPSUM_ENG.substring(0, 1200), { x: 4.5, y: 1.3, w: 4, h: 4, fontSize: 12, fit: "shrink" });
@@ -467,7 +462,6 @@ function genSlide05(pptx) {
  */
 function genSlide06(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Text" });
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-text.html");
 	slide.addTable([[{ text: "Text Examples: Scheme Colors", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
 
 	// MISC ------------------------------------------------------------

@@ -9,7 +9,7 @@ const SLIDE_XML = 'ppt/slides/slide1.xml'
 // override — pinning the link to black and suppressing the automatic theme
 // hyperlink/visited colors. The run must now carry a bare <a:hlinkClick/> with
 // no fill and no hlinkClr override so PowerPoint applies the theme colors.
-defineRegressionSuite('Slide hyperlink theme colors (upstream #1165)', [
+defineRegressionSuite('Slide hyperlink theme colors', [
 	{
 		name: 'external hyperlink without color emits bare hlinkClick (no fill, no hlinkClr)',
 		fn: async () => {

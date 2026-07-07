@@ -521,7 +521,7 @@ export default [
 		},
 	},
 	{
-		name: 'table with rtl emits rtl="1" on tblPr (upstream #1291)',
+		name: 'table with rtl emits rtl="1" on tblPr',
 		fn: async () => {
 			const { buf, zip } = await build((p) => {
 				p.addSlide().addTable(
@@ -1327,7 +1327,7 @@ export default [
 		},
 	},
 	{
-		// upstream #1309: value number format must reach the series numCache (and stay schema-valid)
+		// value number format must reach the series numCache (and stay schema-valid)
 		// so PowerPoint/Google Slides honor it, not just LibreOffice via the dLbls mask.
 		name: 'charts with dataLabelFormatCode in the value numCache (bar, pie, scatter)',
 		fn: async () => {
@@ -1411,10 +1411,10 @@ export default [
 		},
 	},
 	{
-		// Upstream #744: bubble/bubble3D charts can show each bubble's size as a data label.
+		// bubble/bubble3D charts can show each bubble's size as a data label.
 		// The `showBubbleSize` option flips the previously hard-coded <c:showBubbleSize val="0"/>;
 		// lock in that the enabled flag stays schema-valid in CT_DLbls.
-		name: 'bubble charts show bubble-size data labels (upstream #744)',
+		name: 'bubble charts show bubble-size data labels',
 		fn: async () => {
 			const { buf } = await build((p) => {
 				p.addSlide().addChart(
@@ -1438,10 +1438,10 @@ export default [
 		},
 	},
 	{
-		// Upstream #1420: chart text fonts (title, legend, axis labels, data labels) emit the
+		// chart text fonts (title, legend, axis labels, data labels) emit the
 		// `<a:latin>/<a:ea>/<a:cs>` typeface trio so East Asian text honors the requested font.
 		// Lock in that the ea/cs additions stay schema-valid (correct CT_TextCharacterProperties order).
-		name: 'chart text fonts emit schema-valid latin/ea/cs typeface trio (upstream #1420)',
+		name: 'chart text fonts emit schema-valid latin/ea/cs typeface trio',
 		fn: async () => {
 			const { buf } = await build((p) => {
 				p.addSlide().addChart(p.ChartType.bar, [{ name: '系列', labels: ['甲', '乙', '丙'], values: [1, 2, 3] }], {
@@ -1464,10 +1464,10 @@ export default [
 		},
 	},
 	{
-		// Upstream #1021: legendLayout emits a <c:manualLayout> inside <c:legend> so the
+		// legendLayout emits a <c:manualLayout> inside <c:legend> so the
 		// legend can be positioned and sized manually. Schema order inside CT_ManualLayout
 		// is xMode, yMode, x, y, w, h; <c:layout> sits between legendEntry and overlay.
-		name: 'chart legend with manual layout emits schema-valid manualLayout (upstream #1021)',
+		name: 'chart legend with manual layout emits schema-valid manualLayout',
 		fn: async () => {
 			const { buf, zip } = await build((p) => {
 				p.addSlide().addChart(p.ChartType.bar, [{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
@@ -1509,7 +1509,7 @@ export default [
 		},
 	},
 	{
-		name: 'stacked bar chart with series lines (upstream #1329)',
+		name: 'stacked bar chart with series lines',
 		fn: async () => {
 			const { buf } = await build((p) => {
 				const s = p.addSlide()
@@ -1533,7 +1533,7 @@ export default [
 		},
 	},
 	{
-		name: 'stacked bar chart with automatic series lines (upstream #1329)',
+		name: 'stacked bar chart with automatic series lines',
 		fn: async () => {
 			const { buf } = await build((p) => {
 				const s = p.addSlide()
@@ -1550,7 +1550,7 @@ export default [
 		},
 	},
 	{
-		name: 'chart with non-finite (NaN) values emits a valid sparse numCache (upstream #1357)',
+		name: 'chart with non-finite (NaN) values emits a valid sparse numCache',
 		fn: async () => {
 			const warnings = []
 			const origWarn = console.warn
@@ -1580,7 +1580,7 @@ export default [
 		},
 	},
 	{
-		name: 'line chart marker size out of range is clamped to valid ST_MarkerSize (upstream #1233)',
+		name: 'line chart marker size out of range is clamped to valid ST_MarkerSize',
 		fn: async () => {
 			const warnings = []
 			const origWarn = console.warn
@@ -1618,7 +1618,7 @@ export default [
 		},
 	},
 	{
-		name: 'out-of-range chart gap/overlap/holeSize/firstSliceAng are clamped to valid ranges (upstream #1233)',
+		name: 'out-of-range chart gap/overlap/holeSize/firstSliceAng are clamped to valid ranges',
 		fn: async () => {
 			const warnings = []
 			const origWarn = console.warn
@@ -1738,7 +1738,7 @@ export default [
 		},
 	},
 	{
-		name: 'chart title with italic and underline styling (upstream #1188)',
+		name: 'chart title with italic and underline styling',
 		fn: async () => {
 			const { buf } = await build((p) => {
 				const s = p.addSlide()
@@ -1939,7 +1939,7 @@ export default [
 		},
 	},
 	{
-		// #1355: a scatter subchart in a combo chart needs its category (X) axis
+		// a scatter subchart in a combo chart needs its category (X) axis
 		// emitted as a <c:valAx>, not a <c:catAx>. Emitting a catAx made
 		// PowerPoint flag the file for repair. Scatter rides the secondary axes.
 		name: 'combo chart with bar and scatter on secondary axes',
@@ -2429,7 +2429,7 @@ export default [
 		},
 	},
 	{
-		// upstream #1243: theme color scheme overrides must stay schema-valid, including dk1/lt1
+		// theme color scheme overrides must stay schema-valid, including dk1/lt1
 		// switching from <a:sysClr> to <a:srgbClr> when overridden.
 		name: 'theme color scheme overrides (incl. dk1/lt1 as srgbClr)',
 		fn: async () => {
@@ -2456,7 +2456,7 @@ export default [
 		},
 	},
 	{
-		// upstream #1288: theme East Asian (<a:ea>) and complex-script (<a:cs>) font slots must stay
+		// theme East Asian (<a:ea>) and complex-script (<a:cs>) font slots must stay
 		// schema-valid when populated from ThemeProps for both the major and minor fonts.
 		name: 'theme East Asian / complex-script font faces',
 		fn: async () => {
@@ -2475,7 +2475,7 @@ export default [
 		},
 	},
 	{
-		// upstream #1059: connectors emit <p:cxnSp> with connector preset geometries and must stay
+		// connectors emit <p:cxnSp> with connector preset geometries and must stay
 		// schema-valid, including flipped boxes and arrowheads/dashes on the <a:ln>.
 		name: 'connectors (straight/elbow/curved, flipped, arrowheads)',
 		fn: async () => {
@@ -2620,7 +2620,7 @@ export default [
 					{ text: 'Intro. ' },
 					{
 						text: 'bold link',
-						options: { bold: true, hyperlink: { url: 'https://gitbrent.github.io/PptxGenJS/', tooltip: 'Docs' } },
+						options: { bold: true, hyperlink: { url: 'https://example.com/', tooltip: 'Docs' } },
 					},
 					{ text: '\nNext line ' },
 					{ text: 'red', options: { color: 'FF0000', italic: true } },
@@ -2633,7 +2633,7 @@ export default [
 		// upstream-issue-1301: a custom `fontFace` fills the Latin (<a:latin>) + complex-script (<a:cs>)
 		// slots only, and `fontFaceEA` adds an explicit East Asian (<a:ea>) face. Lock in that the
 		// resulting run properties stay schema-valid (correct CT_TextCharacterProperties child order).
-		name: 'custom fontFace + fontFaceEA emit schema-valid latin/ea/cs runs (upstream #1301)',
+		name: 'custom fontFace + fontFaceEA emit schema-valid latin/ea/cs runs',
 		fn: async () => {
 			const { buf } = await build((p) => {
 				const s = p.addSlide()
@@ -2648,7 +2648,7 @@ export default [
 		// color, so it must emit a bare <a:hlinkClick/> (no solidFill, no hlinkClr override);
 		// a hyperlink with an explicit color emits solidFill + ahyp:hlinkClr. Lock in that both
 		// the theme-colored and explicitly-colored hyperlink runs stay schema-valid.
-		name: 'slide hyperlink runs stay schema-valid with and without color (upstream #1165)',
+		name: 'slide hyperlink runs stay schema-valid with and without color',
 		fn: async () => {
 			const { buf } = await build((p) => {
 				const s = p.addSlide()

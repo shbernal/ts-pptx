@@ -4,7 +4,7 @@ const NOTES_XML = (n) => `ppt/notesSlides/notesSlide${n}.xml`
 const NOTES_RELS = (n) => `ppt/notesSlides/_rels/notesSlide${n}.xml.rels`
 const HYPERLINK_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
 
-defineRegressionSuite('Speaker notes hyperlinks & rich runs (upstream #1250)', [
+defineRegressionSuite('Speaker notes hyperlinks & rich runs', [
 	{
 		name: 'plain string notes still emit a single text run',
 		fn: async () => {
@@ -27,7 +27,7 @@ defineRegressionSuite('Speaker notes hyperlinks & rich runs (upstream #1250)', [
 					{ text: 'See ' },
 					{
 						text: 'the docs',
-						options: { hyperlink: { url: 'https://gitbrent.github.io/PptxGenJS/', tooltip: 'Docs' } },
+						options: { hyperlink: { url: 'https://example.com/', tooltip: 'Docs' } },
 					},
 				])
 			})
@@ -40,7 +40,7 @@ defineRegressionSuite('Speaker notes hyperlinks & rich runs (upstream #1250)', [
 			const rels = await readEntry(zip, NOTES_RELS(1))
 			assertIncludes(rels, 'Id="rId3"', 'rId3 relationship present')
 			assertIncludes(rels, HYPERLINK_REL_TYPE, 'hyperlink rel type')
-			assertIncludes(rels, 'Target="https://gitbrent.github.io/PptxGenJS/"', 'rel target url')
+			assertIncludes(rels, 'Target="https://example.com/"', 'rel target url')
 			assertIncludes(rels, 'TargetMode="External"', 'external target mode')
 		},
 	},

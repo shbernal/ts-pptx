@@ -1,6 +1,6 @@
 /**
  * NAME: demo_shapes.mjs
- * AUTH: Brent Ely (https://github.com/gitbrent/)
+ * AUTH: Brent Ely
  * DESC: Common test/demo slides for all library features
  * DEPS: Used by maintained demos (./demos/node, ./demos/vite-demo).
  * VER.: 3.5.0
@@ -9,7 +9,6 @@
 
 /**
  * CUSTOM GEOMETRY:
- * @see https://github.com/gitbrent/PptxGenJS/pull/872
  * Notes from the author [apresmoi](https://github.com/apresmoi):
  * I've implemented this by using a similar spec to the one used by `svg-points`.
  * The path or contour of the custom geometry is declared under the property points of the ShapeProps object.
@@ -38,7 +37,6 @@ function genSlide01(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Shapes" });
 
 	slide.addTable([[{ text: "Shape Examples 1: Misc Shape Types (no text)", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-shapes.html");
 
 	// TOP-ROW
 
@@ -121,7 +119,6 @@ function genSlide02(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Shapes" });
 
 	slide.addTable([[{ text: "Shape Examples 2: Misc Shape Types (with text)", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-shapes.html");
 
 	slide.addText("RECTANGLE", {
 		shape: pptx.ShapeType.rect,
@@ -266,6 +263,6 @@ function genSlide02(pptx) {
 		fill: { color: pptx.SchemeColor.accent5 },
 		line: { color: "696969", width: 2 },
 		flipH: true,
-		hyperlink: { url: "https://github.com/gitbrent/pptxgenjs", tooltip: "Visit Homepage" },
+		hyperlink: { url: "https://example.com", tooltip: "Visit Homepage" },
 	});
 }

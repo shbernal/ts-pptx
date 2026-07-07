@@ -1,6 +1,6 @@
 import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
-// Acceptance for `fitColumns: 'shrink'` (#1451): an explicit `colW` array (or a `w`)
+// Acceptance for `fitColumns: 'shrink'`: an explicit `colW` array (or a `w`)
 // wider than the space between the table's `x` and the right slide margin is scaled
 // down proportionally so the whole table fits the slide. Opt-in: without the flag the
 // over-wide widths are emitted as-is. Default layout is 10in wide; default margin 0.5in,

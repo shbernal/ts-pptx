@@ -7,9 +7,9 @@ import { resolveHtmlColWidth } from '../../src/gen-tables.ts'
 // hidden. Hidden tables report offsetWidth 0 for every cell, so the proportional
 // width is a 0/0 = NaN calc. Previously the `data-pptx-width` value was assigned into
 // the min-width variable while the set-width variable stayed a const 0, so an explicit
-// width never applied and hidden tables emitted NaN widths (upstream gitbrent/PptxGenJS#1157).
+// width never applied and hidden tables emitted NaN widths.
 
-describe('HTML table column width resolution (upstream #1157)', () => {
+describe('HTML table column width resolution', () => {
 	test('explicit data-pptx-width wins over the proportional calc', () => {
 		assert(resolveHtmlColWidth(3, 5, 0) === 5, 'set width must override calc width')
 	})

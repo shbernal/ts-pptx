@@ -1,6 +1,6 @@
 /**
  * NAME: demo_media.mjs
- * AUTH: Brent Ely (https://github.com/gitbrent/)
+ * AUTH: Brent Ely
  * DESC: Common test/demo slides for all library features
  * DEPS: Used by maintained demos (./demos/node, ./demos/vite-demo).
  * VER.: 3.12.0
@@ -57,7 +57,7 @@ function genSlide01(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Media" });
 	slide.addTable([[{ text: "Media Examples: Video Types", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
 	slide.addNotes(
-		"API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-media.html\r\nIt's worth noting that even if a video file format is supported by PowerPoint, you may still encounter issues with playing the video if the video is encoded using a codec that is not supported by the computer you are using to present the slideshow. It's a good idea to test your slideshow on the computer you will be using to present it to ensure that your videos will play correctly.",
+		"It's worth noting that even if a video file format is supported by PowerPoint, you may still encounter issues with playing the video if the video is encoded using a codec that is not supported by the computer you are using to present the slideshow. It's a good idea to test your slideshow on the computer you will be using to present it to ensure that your videos will play correctly.",
 	);
 
 	slide.addText([{ text: "Type: m4v" }], { ...BASE_CODE_OPTS, ...{ x: 0.5, y: 0.6, h: 0.4, w: 3.56 }, ...TITLE_STYLE });
@@ -109,7 +109,6 @@ function genSlide01(pptx) {
  */
 function genSlide02(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Media" });
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-media.html");
 	slide.addTable([[{ text: "Media Examples: Audio Types", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
 
 	slide.addText([{ text: "Type: mp3" }], { ...BASE_CODE_OPTS, ...{ x: 0.5, y: 0.6, h: 0.4, w: 3.5 }, ...TITLE_STYLE });
@@ -146,7 +145,7 @@ function genSlide02(pptx) {
 		loop: true, // loops the audio until stopped
 	});
 
-	if (typeof window !== "undefined" && window.location.href.indexOf("gitbrent") > 0) {
+	if (typeof window !== "undefined" && window.location.href.indexOf("shbernal") > 0) {
 		// TEST USING LOCAL FILES (OFFICE.COM)
 		slide.addText('Audio: MP3 (path:"../media")', { x: 0.5, y: 4.6, w: 4.0, h: 0.4, color: "0088CC" });
 		slide.addMedia({ x: 0.5, y: 5.0, w: 4.0, h: 0.3, type: "audio", path: "media/sample.mp3" });
@@ -159,7 +158,6 @@ function genSlide02(pptx) {
  */
 function genSlide03(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Media" });
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-media.html");
 	slide.addTable([[{ text: "Media Examples: YouTube Embed", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
 
 	slide.addText("Online: YouTube", { ...{ x: 0.5, y: 0.75, h: 5.6, w: 12.3 }, ...TITLE_STYLE });
@@ -193,7 +191,6 @@ function genSlide03(pptx) {
  */
 function genSlide_Test_LargeMedia(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Media" });
-	slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-media.html");
 	slide.addTable([[{ text: "Media: Test: Large Files Only Added Once", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
 
 	slide.addText([{ text: IMAGE_PATHS.big_earth_mp4.path }], {

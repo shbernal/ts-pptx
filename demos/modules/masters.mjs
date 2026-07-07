@@ -1,6 +1,6 @@
 /**
  * NAME: masters.mjs
- * AUTH: Brent Ely (https://github.com/gitbrent/)
+ * AUTH: Brent Ely
  * DESC: Common test/demo slides for all library features
  * DEPS: Used by maintained demos (./demos/node, ./demos/vite-demo).
  * VER.: 3.6.0
@@ -229,7 +229,7 @@ export function createMasterSlides(pptx) {
 			{ rect: { x: 0.0, y: 7.1, w: "100%", h: 0.4, fill: { color: "F1F1F1" } } },
 			{
 				text: {
-					text: "PptxGenJS - JavaScript PowerPoint Library - (github.com/gitbrent/PptxGenJS)",
+					text: "PptxGenJS - JavaScript PowerPoint Library",
 					options: { x: 0.0, y: 7.1, w: "100%", h: 0.4, color: "6c6c6c", fontSize: 10, align: "center" },
 				},
 			},

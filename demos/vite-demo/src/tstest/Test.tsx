@@ -19,7 +19,7 @@ export function testMainMethods() {
 	pptx.defineLayout({ name: "TST", width: 13.4, height: 7.5 });
 	pptx.layout = "TST";
 
-	// TEST/FIX: For [Issue #921](https://github.com/gitbrent/PptxGenJS/issues/921)
+	// TEST/FIX: slide master placeholder handling
 	pptx.defineSlideMaster({
 		title: "PLACEHOLDER_SLIDE",
 		background: { color: "F1F1F1" },
@@ -122,7 +122,6 @@ function testMethod_Table(pptx: pptxgen) {
 	// SLIDE 1: Table text alignment and cell styles
 	{
 		const slide = pptx.addSlide({ sectionTitle: "Tables" });
-		slide.addNotes("API Docs:\nhttps://gitbrent.github.io/PptxGenJS/docs/api-tables.html");
 		//slide.addTable( [ [{ text:'Table Examples 1', options:BASE_TEXT_OPTS_L },BASE_TEXT_OPTS_R] ], gOptsTabOpts );
 
 		// DEMO: align/valign -------------------------------------------------------------------------
@@ -218,7 +217,6 @@ function testMethod_Table(pptx: pptxgen) {
 	// SLIDE 2: Table row/col-spans
 	{
 		const slide = pptx.addSlide({ sectionTitle: "Tables" });
-		slide.addNotes("API Docs: https://gitbrent.github.io/PptxGenJS/docs/api-tables.html");
 		// 2: Slide title
 		//slide.addTable([ [{ text:'Table Examples 2', options:BASE_TEXT_OPTS_L },BASE_TEXT_OPTS_R] ], { x:'4%', y:'2%', w:'95%', h:'4%' }); // QA: this table's x,y,w,h all using %
 
@@ -348,7 +346,7 @@ function testMethod_Table(pptx: pptxgen) {
 			[
 				{ text: "Text Objects", options: { color: "99ABCC", align: "right" } },
 				{ text: "2nd cell", options: { color: "0000EE", align: "center" } },
-				{ text: "Hyperlink", options: { hyperlink: { url: "https://github.com/gitbrent/pptxgenjs" } } },
+				{ text: "Hyperlink", options: { hyperlink: { url: "https://example.com" } } },
 			],
 		];
 		slide.addTable(arrTextObjects, { x: 0.5, y: 2.7, w: 12.25, fill: { color: "F1F1F1" }, border: { width: 1, color: "696969" } });
@@ -477,7 +475,7 @@ function testMethod_Text(pptx: pptxgen) {
 	const slide = pptx.addSlide();
 
 	slide.addText(
-		[{ text: "Link without Tooltip", options: { hyperlink: { /*slide: '1',*/ tooltip: "hi world", url: "https://github.com/gitbrent" } } }],
+		[{ text: "Link without Tooltip", options: { hyperlink: { /*slide: '1',*/ tooltip: "hi world", url: "https://example.com" } } }],
 		{
 			x: 2,
 			y: 2,
@@ -697,7 +695,7 @@ function testMethod_Masters(pptx: pptxgen) {
 			{ rect: { x: 0.0, y: 7.1, w: "100%", h: 0.4, fill: { color: "F1F1F1" } } },
 			{
 				text: {
-					text: "PptxGenJS - JavaScript PowerPoint Library - (github.com/gitbrent/PptxGenJS)",
+					text: "PptxGenJS - JavaScript PowerPoint Library",
 					options: { x: 0.0, y: 7.1, w: "100%", h: 0.4, color: "6c6c6c", fontSize: 10, align: "center" },
 				},
 			},

@@ -3,10 +3,10 @@ import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 // Regression: a custom `fontFace` must be written the way PowerPoint writes a font picked from the
 // UI — into the Latin (<a:latin>) and complex-script (<a:cs>) slots only. Forcing a Latin-only face
 // into the East Asian (<a:ea>) slot, especially with the bogus charset values PowerPoint never emits
-// on ea/cs (charset="-122"/"-120"), duplicates/ghosts text in Office 365 (upstream gitbrent/PptxGenJS#1301).
-// `fontFaceEA` opts back into an explicit <a:ea> face for CJK text (preserves upstream #174).
+// on ea/cs (charset="-122"/"-120"), duplicates/ghosts text in Office 365.
+// `fontFaceEA` opts back into an explicit <a:ea> face for CJK text.
 
-defineRegressionSuite('Text fontFace latin/ea/cs slots (upstream #1301)', [
+defineRegressionSuite('Text fontFace latin/ea/cs slots', [
 	{
 		name: 'fontFace fills latin + cs only, leaving ea to inherit the theme',
 		fn: async () => {

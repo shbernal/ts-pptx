@@ -76,7 +76,7 @@ export interface DataOrPathProps {
 	 * URL or relative path
 	 *
 	 * @example 'https://onedrives.com/myimg.png` // retrieve image via URL
-	 * @example '/home/gitbrent/images/myimg.png` // retrieve image via local path
+	 * @example '/home/user/images/myimg.png` // retrieve image via local path
 	 */
 	path?: string
 	/**
@@ -988,7 +988,7 @@ interface ImageBaseProps extends PositionProps, ObjectNameProps {
 	/**
 	 * Name of a picture placeholder defined on the slide layout/master to populate
 	 * - when it matches a layout/master placeholder, the image inherits that placeholder's
-	 *   position and size for any of `x`/`y`/`w`/`h` not supplied explicitly (issue #1258);
+	 *   position and size for any of `x`/`y`/`w`/`h` not supplied explicitly;
 	 *   explicit values always win
 	 * @example 'picph'
 	 * @see https://docs.microsoft.com/en-us/office/vba/api/powerpoint.ppplaceholdertype
@@ -1275,7 +1275,7 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	flipV?: boolean
 	/**
 	 * Add hyperlink to shape
-	 * @example hyperlink: { url: "https://github.com/gitbrent/pptxgenjs", tooltip: "Visit Homepage" },
+	 * @example hyperlink: { url: "https://example.com", tooltip: "Visit Homepage" },
 	 */
 	hyperlink?: HyperlinkProps
 	/**
@@ -1347,7 +1347,6 @@ export interface TableToSlidesProps extends TableProps {
 	 * Auto-paging character weight
 	 * - adjusts how many characters are used before lines wrap
 	 * - range: -1.0 to 1.0
-	 * @see https://gitbrent.github.io/PptxGenJS/docs/api-tables.html
 	 * @default 0.0
 	 * @example 0.5 // lines are longer (increases the number of characters that can fit on a given line)
 	 */
@@ -1356,7 +1355,6 @@ export interface TableToSlidesProps extends TableProps {
 	 * Auto-paging line weight
 	 * - adjusts how many lines are used before slides wrap
 	 * - range: -1.0 to 1.0
-	 * @see https://gitbrent.github.io/PptxGenJS/docs/api-tables.html
 	 * @default 0.0
 	 * @example 0.5 // tables are taller (increases the number of lines that can fit on a given slide)
 	 */
@@ -1379,7 +1377,6 @@ export interface TableToSlidesProps extends TableProps {
 	/**
 	 * Master slide name
 	 * - define a master slide to have your auto-paged slides have corporate design, etc.
-	 * @see https://gitbrent.github.io/PptxGenJS/docs/masters.html
 	 */
 	masterSlideName?: string
 	/**
@@ -1393,7 +1390,6 @@ export interface TableCellProps extends TextBaseProps {
 	 * Auto-paging character weight
 	 * - adjusts how many characters are used before lines wrap
 	 * - range: -1.0 to 1.0
-	 * @see https://gitbrent.github.io/PptxGenJS/docs/api-tables.html
 	 * @default 0.0
 	 * @example 0.5 // lines are longer (increases the number of characters that can fit on a given line)
 	 */
@@ -1402,7 +1398,6 @@ export interface TableCellProps extends TextBaseProps {
 	 * Auto-paging line weight
 	 * - adjusts how many lines are used before slides wrap
 	 * - range: -1.0 to 1.0
-	 * @see https://gitbrent.github.io/PptxGenJS/docs/api-tables.html
 	 * @default 0.0
 	 * @example 0.5 // tables are taller (increases the number of lines that can fit on a given slide)
 	 */
@@ -1551,7 +1546,6 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * Auto-paging character weight
 	 * - adjusts how many characters are used before lines wrap
 	 * - range: -1.0 to 1.0
-	 * @see https://gitbrent.github.io/PptxGenJS/docs/api-tables.html
 	 * @default 0.0
 	 * @example 0.5 // lines are longer (increases the number of characters that can fit on a given line)
 	 */
@@ -1560,7 +1554,6 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * Auto-paging line weight
 	 * - adjusts how many lines are used before slides wrap
 	 * - range: -1.0 to 1.0
-	 * @see https://gitbrent.github.io/PptxGenJS/docs/api-tables.html
 	 * @default 0.0
 	 * @example 0.5 // tables are taller (increases the number of lines that can fit on a given slide)
 	 */
@@ -1589,7 +1582,7 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * Whether populated placeholders on the source slide (e.g. a title set via
 	 * `addText(text, { placeholder })`) are copied onto each overflow slide created by autoPage.
 	 * - new slides otherwise inherit only the layout's empty placeholders, so a title set on the
-	 *   first slide would not appear on continuation slides (upstream gitbrent/PptxGenJS#1136).
+	 *   first slide would not appear on continuation slides.
 	 * @default false
 	 */
 	autoPagePlaceholder?: boolean
@@ -1753,7 +1746,7 @@ export interface TableCell {
 	_vmerge?: boolean
 	_rowContinue?: number
 	/** origin cell of a colspan/rowspan span, set on the dummy `_hmerge`/`_vmerge` cells so they can
-	 * inherit the origin's border/fill and render the merged region's outer edges (Issue #680) */
+	 * inherit the origin's border/fill and render the merged region's outer edges */
 	_spanOrigin?: TableCell
 
 	/**
@@ -1771,7 +1764,7 @@ export interface TableRowSlide {
 	 * Auto-paging splits/reorders rows across slides and inserts repeated headers, so the caller's
 	 * `rowH[i]` (keyed by *original* row index) can no longer be applied by physical row index on
 	 * each generated slide. This carries each output row's resolved height so a configured height
-	 * follows its source row instead of being re-applied to whatever lands at that index (#1145).
+	 * follows its source row instead of being re-applied to whatever lands at that index.
 	 * Entries are `undefined` where no explicit height was configured (auto-distributed height).
 	 */
 	rowH?: Array<number | undefined>
@@ -3402,7 +3395,7 @@ export interface PresSlide {
 	 * @example { color: 'FF3399' } - hex color
 	 * @example { color: 'FF3399', transparency:50 } - hex color with 50% transparency
 	 * @example { path: 'https://onedrives.com/myimg.png` } - retrieve image via URL
-	 * @example { path: '/home/gitbrent/images/myimg.png` } - retrieve image via local path
+	 * @example { path: '/home/user/images/myimg.png` } - retrieve image via local path
 	 * @example { data: 'image/png;base64,iVtDaDrF[...]=' } - base64 string
 	 * @since v3.3.0
 	 */

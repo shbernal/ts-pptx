@@ -38,7 +38,7 @@ defineRegressionSuite('Table autoPage rowspan', 'upstream-pr-1391', [
 				// margin:0 / slideMargin:0 eliminate per-row margin overhead so the math is
 				// deterministic.  With fontSize:12 each row line is ~0.2004 in tall.
 				// emuSlideTabH = h(0.3 in); `h` is the table's height (an extent) so `y` does not
-				// shrink it (upstream #1264).
+				// shrink it.
 				// Row 0 (0.20 in) fits.  Row 1 (under rowspan) would push to 0.40 in > 0.30 —
 				// without the fix the break fires here; with the fix it is suppressed.
 				// Row 2 (0.60 in > 0.30) triggers the real break on the now-span-free row.
@@ -57,7 +57,7 @@ defineRegressionSuite('Table autoPage rowspan', 'upstream-pr-1391', [
 
 			// The table overflows across slides. The regression is about *where* breaks land and
 			// the resulting column count, not the total slide count: with an explicit `h` every page
-			// has the same usable height (upstream #1264), so these rows legitimately span >2 slides.
+			// has the same usable height, so these rows legitimately span >2 slides.
 			const slideFiles = listEntries(zip)
 				.filter((f) => /ppt\/slides\/slide\d+\.xml$/.test(f))
 				.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))

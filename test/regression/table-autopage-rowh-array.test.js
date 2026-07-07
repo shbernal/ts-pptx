@@ -1,6 +1,6 @@
 import { defineRegressionSuite, build, readEntry, listEntries, assert } from '../helpers.js'
 
-// Regression (upstream gitbrent/PptxGenJS#1145): a `rowH` *array* is keyed by the ORIGINAL row
+// Regression: a `rowH` *array* is keyed by the ORIGINAL row
 // index. Auto-paging splits rows across slides (and can repeat the header row), so applying the
 // array by physical row index on each generated slide is wrong: the height configured for original
 // row 0 would land on the *first row of every overflow slide* instead of following its source row.
@@ -27,7 +27,7 @@ function makeRows(n) {
 	])
 }
 
-defineRegressionSuite('Table autoPage rowH array follows original rows (#1145)', [
+defineRegressionSuite('Table autoPage rowH array follows original rows', [
 	{
 		name: 'tall first-row height does not repeat on every overflow slide',
 		fn: async () => {

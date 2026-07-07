@@ -1,6 +1,6 @@
 import { defineRegressionSuite, build, listEntries, readEntry, assert } from '../helpers.js'
 
-// Regression (upstream gitbrent/PptxGenJS#1319): autoPage created a continuation slide, but the
+// Regression: autoPage created a continuation slide, but the
 // reporter saw rows on that *new* slide overflow past the bottom — pagination was applied to the
 // first slide only, not to subsequently generated ones.
 //
@@ -41,7 +41,7 @@ async function rowsPerSlide(zip) {
 	return counts
 }
 
-defineRegressionSuite('Table autoPage continuation-slide overflow (upstream #1319)', [
+defineRegressionSuite('Table autoPage continuation-slide overflow', [
 	{
 		name: 'continuation slides honor the row budget (no progressive overflow), matching the reported case',
 		fn: async () => {

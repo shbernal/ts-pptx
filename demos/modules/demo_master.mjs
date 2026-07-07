@@ -1,6 +1,6 @@
 /**
  * NAME: demo_master.js
- * AUTH: Brent Ely (https://github.com/gitbrent/)
+ * AUTH: Brent Ely
  * DESC: Common test/demo slides for all library features
  * DEPS: Used by maintained demos (./demos/node, ./demos/vite-demo).
  * VER.: 3.5.0
@@ -28,7 +28,7 @@ export function genSlides_Master(pptx) {
 function genSlide01(pptx) {
 	let slide = pptx.addSlide({ masterName: "TITLE_SLIDE", sectionTitle: "Masters" });
 	//let slide1 = pptx.addSlide({masterName:'TITLE_SLIDE', sectionTitle:'FAILTEST'}); // TEST: Should show console warning ("title not found")
-	slide.addNotes("Master name: `TITLE_SLIDE`\nAPI Docs: https://gitbrent.github.io/PptxGenJS/docs/masters.html");
+	slide.addNotes("Master name: `TITLE_SLIDE`");
 }
 
 /**
@@ -37,7 +37,7 @@ function genSlide01(pptx) {
  */
 function genSlide02(pptx) {
 	let slide = pptx.addSlide({ masterName: "MASTER_SLIDE", sectionTitle: "Masters" });
-	slide.addNotes("Master name: `MASTER_SLIDE`\nAPI Docs: https://gitbrent.github.io/PptxGenJS/docs/masters.html");
+	slide.addNotes("Master name: `MASTER_SLIDE`");
 }
 
 /**
@@ -46,7 +46,7 @@ function genSlide02(pptx) {
  */
 function genSlide03(pptx) {
 	let slide = pptx.addSlide({ masterName: "MASTER_SLIDE", sectionTitle: "Masters" });
-	slide.addNotes("Master name: `MASTER_SLIDE` using pre-filled placeholders\nAPI Docs: https://gitbrent.github.io/PptxGenJS/docs/masters.html");
+	slide.addNotes("Master name: `MASTER_SLIDE` using pre-filled placeholders");
 	slide.addText("Text Placeholder", { placeholder: "header" });
 	slide.addText(
 		[
@@ -64,7 +64,7 @@ function genSlide03(pptx) {
  */
 function genSlide04(pptx) {
 	let slide = pptx.addSlide({ masterName: "MASTER_SLIDE", sectionTitle: "Masters" });
-	slide.addNotes("Master name: `MASTER_SLIDE` using pre-filled placeholders\nAPI Docs: https://gitbrent.github.io/PptxGenJS/docs/masters.html");
+	slide.addNotes("Master name: `MASTER_SLIDE` using pre-filled placeholders");
 	slide.addText("Image Placeholder", { placeholder: "header" });
 	slide.addImage({
 		placeholder: "body",
@@ -87,7 +87,7 @@ function genSlide05(pptx) {
 		},
 	];
 	let slide = pptx.addSlide({ masterName: "MASTER_SLIDE", sectionTitle: "Masters" });
-	slide.addNotes("Master name: `MASTER_SLIDE` using pre-filled placeholders\nAPI Docs: https://gitbrent.github.io/PptxGenJS/docs/masters.html");
+	slide.addNotes("Master name: `MASTER_SLIDE` using pre-filled placeholders");
 	slide.addText("Chart Placeholder", { placeholder: "header" });
 	slide.addChart(pptx.ChartType.pie, dataChartPieLocs, { showLegend: true, legendPos: "l", placeholder: "body" });
 }
@@ -98,9 +98,9 @@ function genSlide05(pptx) {
  */
 function genSlide06(pptx) {
 	let slide = pptx.addSlide({ masterName: "THANKS_SLIDE", sectionTitle: "Masters" });
-	slide.addNotes("Master name: `THANKS_SLIDE`\nAPI Docs: https://gitbrent.github.io/PptxGenJS/docs/masters.html");
+	slide.addNotes("Master name: `THANKS_SLIDE`");
 	slide.addText("Thank You!", { placeholder: "thanksText" });
-	//slide.addText('github.com/gitbrent', { placeholder:'body' });
+	//slide.addText('example.com', { placeholder:'body' });
 }
 
 /**

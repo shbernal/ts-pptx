@@ -605,7 +605,7 @@ export function addChartDefinition(
  * Register a raster image fill as a slide media relationship and stash the resolved
  * rId on the fill object so serialization can emit `<a:blipFill r:embed="rIdN">`.
  * Mirrors the non-SVG media-registration path used by `addImageDefinition()`,
- * including de-duplication of identical sources (issue #1339). SVG sources are not
+ * including de-duplication of identical sources. SVG sources are not
  * supported as fills yet.
  * @param {PresSlideInternal} target - slide the owning object belongs to
  * @param {ShapeFillProps} fill - fill options carrying `image: { path | data }`
@@ -667,11 +667,11 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 		_type: SlideObjectType.image,
 	}
 
-	// Inherit geometry from a matching layout placeholder (issue #1258): an image targeting a
+	// Inherit geometry from a matching layout placeholder: an image targeting a
 	// placeholder adopts that placeholder's position/size for any of x/y/w/h the caller omits.
 	// Explicit `opt` values always win; this only fills the gaps so a picture placeholder no longer
 	// collapses to the image's natural/1in fallback when no dimensions are supplied. Mirrors the
-	// text-object placeholder inheritance in addTextDefinition() (issue #640).
+	// text-object placeholder inheritance in addTextDefinition().
 	let phX: Coord | undefined
 	let phY: Coord | undefined
 	let phW: Coord | undefined
@@ -743,10 +743,10 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	// STEP 3: Default any missing dimension from the image's intrinsic (natural) size.
 	// For base64 `data` images the bytes are already in hand, so we can read the
 	// natural pixel size synchronously and avoid the legacy 1x1 fallback that
-	// squished data-only images into a 1in square (issue #1351).
+	// squished data-only images into a 1in square.
 	// Path images can't be measured synchronously (bytes load async during export),
 	// so the missing extent is flagged via `_szAuto` and backfilled at serialize time
-	// once the media bytes are available (issue #1217).
+	// once the media bytes are available.
 	// PowerPoint inserts images at 96 DPI, so natural pixels / 96 == inches.
 	let defWidth = intWidth
 	let defHeight = intHeight
@@ -801,7 +801,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 
 	// STEP 5: Add this image to this Slide Rels (rId/rels count spans all slides! Count all images to get next rId)
 	// Use a namespaced key for media targets so slide master (sm) and slide layouts (sl-N, _slideNum >= 1000)
-	// never collide with regular slide media names in large decks (issue #1416).
+	// never collide with regular slide media names in large decks.
 	const mediaSlideKey =
 		target._slideNum == null ? 'sm' : target._slideNum >= 1000 ? `sl-${target._slideNum}` : target._slideNum
 	if (strImgExtn === 'svg') {
@@ -835,7 +835,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 		// PERF: Duplicate media should reuse existing `Target` value and not create an additional copy.
 		// File-path images are matched by `path`; base64/`data` images have no real path
 		// (all share the `preencoded.<extn>` placeholder), so they are matched by their data
-		// payload instead so identical inline images are embedded once (issue #1339).
+		// payload instead so identical inline images are embedded once.
 		const imgContentType = imageContentType(strImgExtn)
 		const dupeItem = target._relsMedia.find((item) => {
 			if (item.isDuplicate || !item.Target || item.type !== imgContentType) return false
@@ -982,7 +982,7 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	} else {
 		// PERF: Duplicate media should reuse existing `Target` value and not create an additional copy.
 		// Path-based media match by `path`; base64/`data` media (which share the `preencoded`
-		// placeholder path) match by their data payload so identical inline media embed once (issue #1339).
+		// placeholder path) match by their data payload so identical inline media embed once.
 		const dupeItem = target._relsMedia.find((item) => {
 			if (item.isDuplicate || !item.Target || item.type !== strType + '/' + strExtn) return false
 			return strPath ? item.path === strPath : !!strData && item.data === strData
@@ -1327,8 +1327,8 @@ export function addTableDefinition(
 		: `Table ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.table).length}`
 
 	// STEP 0: PLACEHOLDER — a table targeting a layout placeholder inherits that placeholder's
-	// position/size for any of x/y/w/h the caller omits (#1151), mirroring the image (#1258) and
-	// text (#640) placeholder inheritance. Explicit values always win; this only fills the gaps so
+	// position/size for any of x/y/w/h the caller omits, mirroring the image and
+	// text placeholder inheritance. Explicit values always win; this only fills the gaps so
 	// the table fills the placeholder geometry rather than the default 1in/full-width fallback.
 	if (opt.placeholder && slideLayout?._slideObjects) {
 		const placeHold = slideLayout._slideObjects.find(
@@ -1346,15 +1346,13 @@ export function addTableDefinition(
 	{
 		// A: check for empty
 		if (tableRows === null || tableRows.length === 0 || !Array.isArray(tableRows)) {
-			throw new Error(
-				"addTable: Array expected! EX: 'slide.addTable( [rows], {options} );' (https://gitbrent.github.io/PptxGenJS/docs/api-tables.html)"
-			)
+			throw new Error("addTable: Array expected! EX: 'slide.addTable( [rows], {options} );'")
 		}
 
 		// B: check for non-well-formatted array (ex: rows=['a','b'] instead of [['a','b']])
 		if (!tableRows[0] || !Array.isArray(tableRows[0])) {
 			throw new Error(
-				"addTable: 'rows' should be an array of cells! EX: 'slide.addTable( [ ['A'], ['B'], {text:'C',options:{align:'center'}} ] );' (https://gitbrent.github.io/PptxGenJS/docs/api-tables.html)"
+				"addTable: 'rows' should be an array of cells! EX: 'slide.addTable( [ ['A'], ['B'], {text:'C',options:{align:'center'}} ] );'"
 			)
 		}
 	}
@@ -1555,7 +1553,7 @@ export function addTableDefinition(
 		opt.w = Math.floor((presLayout._sizeW || presLayout.width) / EMU - arrTableMargin[1] - arrTableMargin[3])
 	}
 
-	// Shrink-to-fit (`fitColumns: 'shrink'`, #1451): proportionally scale columns down so a
+	// Shrink-to-fit (`fitColumns: 'shrink'`): proportionally scale columns down so a
 	// too-wide table fits between `x` and the right slide margin. Runs after the width-calc
 	// above so it sees the resolved form — either a surviving per-column `colW` array, or a
 	// single `w`. Rewriting the widths here (the table definition) means both the emitter and
@@ -1630,7 +1628,7 @@ export function addTableDefinition(
 		if (opt.autoPageRepeatHeader)
 			opt._arrObjTabHeadRows = arrRows.filter((_row, idx) => idx < (opt.autoPageHeaderRows || 1))
 
-		// #1136: snapshot populated placeholders on the source slide (e.g. a title added via
+		// snapshot populated placeholders on the source slide (e.g. a title added via
 		// `addText(text, { placeholder })`) so they can be re-rendered on each overflow slide.
 		// Overflow slides otherwise inherit only the layout's empty placeholders. Captured before
 		// the loop so the table object added per-slide below is never included.
@@ -1639,7 +1637,7 @@ export function addTableDefinition(
 				? target._slideObjects.filter((obj) => obj._type !== SlideObjectType.table && obj.options?.placeholder)
 				: []
 
-		// Loop over rows and create 1-N tables as needed (ISSUE#21)
+		// Loop over rows and create 1-N tables as needed
 		getSlidesForTableRows(arrRows, opt, presLayout, slideLayout).forEach((slide, idx) => {
 			// A: Create new Slide when needed, otherwise, use existing (NOTE: More than 1 table can be on a Slide, so we will go up AND down the Slide chain)
 			let newSlide = getSlide(target._slideNum + idx)
@@ -1648,7 +1646,7 @@ export function addTableDefinition(
 				slides.push(newSlide)
 			}
 
-			// B: Reset opt.y to `option`/`margin` after first Slide (ISSUE#43, ISSUE#47, ISSUE#48)
+			// B: Reset opt.y to `option`/`margin` after first Slide
 			// Keep raw inches — resolved to EMU once at emission. (No pre-conversion.)
 			if (idx > 0) opt.y = opt.autoPageSlideStartY || arrTableMargin[0]
 
@@ -1656,7 +1654,7 @@ export function addTableDefinition(
 			{
 				opt.autoPage = false
 
-				// #1136: copy the source slide's populated placeholders onto each overflow slide
+				// copy the source slide's populated placeholders onto each overflow slide
 				// (idx 0 is the source slide itself and already has them).
 				if (idx > 0 && sourcePlaceholders.length > 0) {
 					sourcePlaceholders.forEach((ph) => newSlide._slideObjects.push(structuredClone(ph)))
@@ -1668,7 +1666,7 @@ export function addTableDefinition(
 				// Add rows to new slide. When `rowH` is an array it is keyed by *original* row index,
 				// which no longer matches the per-slide physical row order after pagination; use the
 				// per-slide heights the auto-pager resolved so each row keeps its configured height
-				// instead of inheriting whatever row lands at the same index (#1145).
+				// instead of inheriting whatever row lands at the same index.
 				// `slide.rowH` may contain `undefined` holes (auto-height rows); the table serializer
 				// treats a falsy per-row height as "auto", so the cast to number[] is safe.
 				newSlide.addTable(slide.rows, {
@@ -1716,7 +1714,7 @@ export function addTextDefinition(
 				// (a:schemeClr hlink, and folHlink once visited), which PowerPoint applies automatically
 				// when the run carries no explicit fill. Defaulting it to DEF_FONT_COLOR would emit a
 				// solidFill plus hlinkClr="tx", pinning the link to black and suppressing the theme
-				// hyperlink/visited colors (#1165). Only non-hyperlink text falls back to DEF_FONT_COLOR.
+				// hyperlink/visited colors. Only non-hyperlink text falls back to DEF_FONT_COLOR.
 				itemOpts.color =
 					itemOpts.color ||
 					objectOptions.color ||
@@ -1729,7 +1727,7 @@ export function addTextDefinition(
 				itemOpts.bullet = itemOpts.bullet || false
 			}
 
-			// A.3: Text targeting a placeholder need to inherit the placeholders options (eg: margin, valign, etc.) (Issue #640)
+			// A.3: Text targeting a placeholder need to inherit the placeholders options (eg: margin, valign, etc.)
 			if (itemOpts.placeholder && target._slideLayout && target._slideLayout._slideObjects) {
 				const placeHold = target._slideLayout._slideObjects.filter(
 					(item) =>
@@ -1826,7 +1824,7 @@ export function addTextDefinition(
 	// STEP 1: Create/Clean object options
 	newObject.options = cleanOpts(objectOptions)
 
-	// STEP 1b: Standalone placeholder type (#1298 - accessibility "Missing Slide Title")
+	// STEP 1b: Standalone placeholder type (accessibility "Missing Slide Title")
 	// `placeholder` is documented as a placeholder *type* ('title', 'body', et. al.). When it
 	// resolves to a layout placeholder the layout object supplies the <p:ph> at serialize time,
 	// but with a blank/default layout there is no match and no <p:ph> was emitted - so PowerPoint's

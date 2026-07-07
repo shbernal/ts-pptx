@@ -11,7 +11,7 @@ import {
 } from '../helpers.js'
 
 // 1x1 transparent PNG (data URI). Used to exercise the picture-fill (`<a:blipFill>`) path
-// for shapes and text boxes (issue #1317).
+// for shapes and text boxes.
 const PNG_1x1 =
 	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 

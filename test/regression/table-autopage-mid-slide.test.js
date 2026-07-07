@@ -1,6 +1,6 @@
 import { defineRegressionSuite, build, listEntries, readEntry, assert } from '../helpers.js'
 
-// Regression (upstream gitbrent/PptxGenJS#1264): an autoPage table that starts mid-slide with an
+// Regression: an autoPage table that starts mid-slide with an
 // explicit height `h` rendered only a few rows on the FIRST slide while later slides filled up.
 //
 // Root cause: the first-slide usable-height calc subtracted the start-Y from `h`, but `h` is the
@@ -38,7 +38,7 @@ const baseOpts = {
 	fontSize: 12,
 }
 
-defineRegressionSuite('Table autoPage mid-slide first-page row count (upstream #1264)', [
+defineRegressionSuite('Table autoPage mid-slide first-page row count', [
 	{
 		name: 'a table starting mid-slide fills its first page (not just a few rows)',
 		fn: async () => {

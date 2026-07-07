@@ -299,7 +299,7 @@ interface GridPlacement {
 /**
  * Walk a table's cell grid in row-major order, resolving each authored cell to its
  * grid origin (`row`/`col`) and clamped colspan/rowspan. Tracks rowspan occupancy so
- * a cell never lands beneath one spanned from above (ISSUE #36 grid build). This is
+ * a cell never lands beneath one spanned from above (grid build). This is
  * the single traversal shared by the measured-fit shrink pass and
  * {@link computeTableLayout}, so cell placement cannot drift between them.
  */
