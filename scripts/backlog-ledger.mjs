@@ -45,7 +45,7 @@ Commands:
   values <field>               Print unique values and counts for an item field
   validate                     Validate ledger structure and vocabulary use
   add                          Append a new ledger item from flags, then validate
-  remove <id>                  Remove one ledger item by exact id
+  remove [id]                  Remove one item by exact id, or all items matching a filter (e.g. --status implemented)
   set-status <id> <status>     Update status and last_reviewed
 
 Options:
@@ -82,6 +82,7 @@ Examples:
     --source downstream:registry/components/quadrant-matrix.ts \\
     --summary "textDirection typed but not serialized" --priority p2
   pnpm run backlog -- remove upstream-issue-1440
+  pnpm run backlog -- remove --status implemented
   pnpm run backlog -- set-status upstream-issue-1440 implemented
 `
 }
@@ -818,12 +819,27 @@ export async function runLedgerCommand(argv, io = defaultIo()) {
 	}
 
 	if (options.command === 'remove') {
-		const id = options.args[0]
-		if (!id || options.args.length !== 1) throw new Error('remove requires exactly one item id')
-		const text = await fs.readFile(options.ledger, 'utf8')
-		const updated = removeLedgerItemText(text, id)
-		if (!options.dryRun) await fs.writeFile(options.ledger, updated)
-		io.stdout((options.dryRun ? 'Would remove ' : 'Removed ') + id)
+		const ids = options.args
+		const hasFilters = Object.values(options.filters).some((value) => value !== undefined)
+		if (ids.length > 1) throw new Error('remove accepts at most one item id')
+		if (ids.length === 1 && hasFilters) throw new Error('remove takes either an item id or filters, not both')
+
+		let text = await fs.readFile(options.ledger, 'utf8')
+		let targetIds
+		if (ids.length === 1) {
+			targetIds = [ids[0]]
+		} else if (hasFilters) {
+			const { data } = validateLedgerText(text)
+			targetIds = filterItems(data.items || [], options.filters).map((item) => item.id)
+			if (targetIds.length === 0) throw new Error('no ledger items match the given filter')
+		} else {
+			throw new Error('remove requires an item id or a filter (e.g. --status implemented)')
+		}
+		for (const id of targetIds) {
+			text = removeLedgerItemText(text, id)
+		}
+		if (!options.dryRun) await fs.writeFile(options.ledger, text)
+		io.stdout((options.dryRun ? 'Would remove ' : 'Removed ') + targetIds.join(', '))
 		return 0
 	}
 

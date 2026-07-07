@@ -136,6 +136,59 @@ describe('backlog ledger tooling', () => {
 		expect(updated).not.toContain('Chart labels need a local reproduction.')
 	})
 
+	test('remove --status deletes every matching item and refuses empty or ambiguous input', async () => {
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-ledger-'))
+		try {
+			const ledger = path.join(tmpDir, 'backlog.yml')
+			await fs.writeFile(ledger, fixture)
+			const io = { stdout: () => {}, stderr: () => {} }
+
+			// id and filter are mutually exclusive
+			await expect(
+				runLedgerCommand(['remove', 'upstream-issue-1', '--status', 'needs-repro', '--ledger', ledger], io)
+			).rejects.toThrow('either an item id or filters')
+
+			// neither an id nor a filter is an error
+			await expect(runLedgerCommand(['remove', '--ledger', ledger], io)).rejects.toThrow(
+				'requires an item id or a filter'
+			)
+
+			// a filter that matches nothing is an error and leaves the file untouched
+			await expect(runLedgerCommand(['remove', '--status', 'implemented', '--ledger', ledger], io)).rejects.toThrow(
+				'no ledger items match'
+			)
+
+			const code = await runLedgerCommand(['remove', '--status', 'non-target', '--ledger', ledger], io)
+			expect(code).toBe(0)
+
+			const validation = validateLedgerText(await fs.readFile(ledger, 'utf8'))
+			expect(validation.errors).toEqual([])
+			expect(validation.data.items.map((item) => item.id)).toEqual(['upstream-issue-1'])
+		} finally {
+			await fs.rm(tmpDir, { recursive: true, force: true })
+		}
+	})
+
+	test('remove --dry-run reports matches without writing', async () => {
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-ledger-'))
+		try {
+			const ledger = path.join(tmpDir, 'backlog.yml')
+			await fs.writeFile(ledger, fixture)
+			const stdout = []
+			const code = await runLedgerCommand(['remove', '--status', 'non-target', '--dry-run', '--ledger', ledger], {
+				stdout: (message) => stdout.push(message),
+				stderr: () => {},
+			})
+
+			expect(code).toBe(0)
+			expect(stdout[0]).toBe('Would remove upstream-pr-2')
+			const validation = validateLedgerText(await fs.readFile(ledger, 'utf8'))
+			expect(validation.data.items.map((item) => item.id)).toEqual(['upstream-issue-1', 'upstream-pr-2'])
+		} finally {
+			await fs.rm(tmpDir, { recursive: true, force: true })
+		}
+	})
+
 	test('updates status and last_reviewed for one exact item', () => {
 		const updated = setLedgerItemStatusText(fixture, 'upstream-issue-1', 'implemented', '2026-06-08')
 		const validation = validateLedgerText(updated)
