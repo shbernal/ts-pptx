@@ -12,6 +12,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
 import PptxGenJS from '../dist/node.js'
+import { latexToOmml } from '../dist/math.js'
 import { build, assert, readEntry, assertIncludes, firstXmlBlock, listEntries } from './helpers.js'
 import { validateBuf } from './validator.js'
 
@@ -985,6 +986,49 @@ export default [
 				'xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"',
 				'math namespace declared'
 			)
+		},
+	},
+	{
+		// upstream-issue-1456 (LaTeX leg): the `@shbernal/pptxgenjs/math` subpath converts LaTeX to
+		// OMML via latexToOmml() (LaTeX --temml--> MathML --mathml2omml--> OMML). Feeding that OMML to
+		// the `math:` option must produce the same schema-valid a14 display-math envelope as raw OMML.
+		// A representative corpus (fraction, radical, sum/int limits, matrix, cases, greek, accents,
+		// fences) goes one-per-slide; the deck must validate clean.
+		name: 'native math equation (LaTeX via /math) text runs',
+		fn: async () => {
+			const corpus = [
+				'x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}',
+				'\\sqrt{1+\\sqrt{1+x}}',
+				'\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}',
+				'\\int_0^\\infty e^{-x}\\,dx = 1',
+				'\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}',
+				'f(x) = \\begin{cases} 1 & x>0 \\\\ 0 & x\\le 0 \\end{cases}',
+				'\\alpha + \\beta = \\gamma',
+				'\\hat{a} + \\bar{b}',
+				'\\left( \\frac{a}{b} \\right)',
+			]
+			const { buf, zip } = await build((p) => {
+				for (const latex of corpus) {
+					p.addSlide().addText([{ math: latexToOmml(latex) }], { x: 1, y: 2, w: 8, h: 1 })
+				}
+			})
+			await expectNoSchemaErrors(buf, 'native-math-latex')
+			// Structural check: the LaTeX path lands in the same envelope as the raw-OMML oracle
+			// (math-omml.pptx) — mc:Choice Requires="a14" → a14:m → m:oMathPara → m:oMath.
+			const slideXml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assertIncludes(
+				slideXml,
+				'<mc:Choice xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main" Requires="a14">',
+				'a14 mc:Choice envelope'
+			)
+			const ac = firstXmlBlock(slideXml, 'mc:AlternateContent', 'math AlternateContent')
+			assertIncludes(ac, '<a14:m', 'a14:m equation marker')
+			assertIncludes(
+				ac,
+				'<m:oMathPara><m:oMathParaPr><m:jc m:val="centerGroup"/></m:oMathParaPr><m:oMath>',
+				'oMathPara/oMath wrapping the converted OMML'
+			)
+			assertIncludes(ac, '<m:f>', 'the fraction converted to an m:f')
 		},
 	},
 	{

@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **LaTeX / MathML → OMML converter: new `@shbernal/pptxgenjs/math` subpath.** The
+  `math:` option on a text item takes raw OMML; the new subpath lets you author the
+  equation in LaTeX or MathML instead. It exports `latexToOmml(latex, { display? })`
+  and `mathmlToOmml(mathml)`, composing `temml` (LaTeX → MathML) and `mathml2omml`
+  (MathML → OMML) over the pipeline `LaTeX → MathML → OMML`.
+  - Usage: `import { latexToOmml } from '@shbernal/pptxgenjs/math'` then
+    `slide.addText([{ math: latexToOmml('x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}') }], {…})`.
+  - `temml` (MIT) and `mathml2omml` (LGPL-3.0-or-later) are **optional peer
+    dependencies** — the core package doesn't pull them in; install them
+    (`npm install temml mathml2omml`) to use this subpath. They are never bundled
+    into the package output, so the LGPL dependency stays separate, replaceable, and
+    opt-in. This subpath is **Node-only** (it loads the converters via
+    `node:module`'s `createRequire`, keeping the API synchronous).
+  - Scope: **display (block) math** only in v1; `display: false` yields a bare
+    `<m:oMath>` for inline embedding. Invalid LaTeX **throws** with temml's parse
+    position (no silent coercion). No LaTeX macro packages and no `mc:Fallback` raster
+    (output relies on the `Requires="a14"` envelope understood by PowerPoint 2010+).
+  - Downstream (downstream): equation authoring can drop its external LaTeX→OMML
+    step and call `latexToOmml()` directly once it adds the two peer deps.
+  - See `docs/math-latex.md`. Implements the LaTeX/MathML leg of upstream issue #1456.
+
 - **`TableProps.fit` is now a declared option.** Table-level `fit` (`'none'` /
   `'shrink'` / `'resize'` / the `TextFitShrinkProps` object form) was already
   honored at export time — a `'shrink'` table cascades the shrink policy to every

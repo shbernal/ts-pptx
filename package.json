@@ -37,6 +37,10 @@
 			"types": "./dist/read.d.ts",
 			"default": "./dist/read.js"
 		},
+		"./math": {
+			"types": "./dist/math.d.ts",
+			"default": "./dist/math.js"
+		},
 		"./zip": {
 			"types": "./dist/zip.d.ts",
 			"default": "./dist/zip.js"
@@ -113,6 +117,18 @@
 		"fflate": "^0.8.3",
 		"opentype.js": "^2.0.0"
 	},
+	"peerDependencies": {
+		"mathml2omml": "^0.5.0",
+		"temml": "^0.13.3"
+	},
+	"peerDependenciesMeta": {
+		"mathml2omml": {
+			"optional": true
+		},
+		"temml": {
+			"optional": true
+		}
+	},
 	"publishConfig": {
 		"access": "public"
 	},
@@ -129,8 +145,10 @@
 		"eslint-config-prettier": "^10.1.8",
 		"jszip": "^3.10.1",
 		"lefthook": "^2.1.9",
+		"mathml2omml": "^0.5.0",
 		"prettier": "^3.8.3",
 		"publint": "^0.3.21",
+		"temml": "^0.13.3",
 		"tsdown": "^0.22.2",
 		"tslib": "^2.8.1",
 		"typedoc": "^0.28.19",

@@ -326,4 +326,3 @@ check date). Record the fixtures as the blocking precondition in
   list); (b) whether to always emit the `mc:AlternateContent` form or only when
   `durationMs` is set; (c) exact `spd`↔`durationMs` bucketing when both are
   given.
-```

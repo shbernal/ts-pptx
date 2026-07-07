@@ -342,8 +342,8 @@ items:
     source: "gitbrent/PptxGenJS#1456"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-24
-    status: partially-implemented
+    last_reviewed: 2026-07-07
+    status: implemented
     priority: p2
     target_area:
       - missing-pptx-feature
@@ -351,43 +351,48 @@ items:
     non_target_reasons: []
     summary: Requests native editable PowerPoint math equations via LaTeX, MathML, or raw OMML.
     current_project_notes: >
-      Raw-OMML leg implemented 2026-06-19. A text item gained a `math?: string`
-      property (core-interfaces.ts TextProps) carrying raw OMML. genXmlTextBody
-      emits it as a display-math paragraph via genXmlMathParagraph
+      All three requested input paths now implemented. (1) Raw-OMML leg (2026-06-19):
+      a text item's `math?: string` (core-interfaces.ts TextProps) carries raw OMML;
+      genXmlTextBody emits it as a display-math paragraph via genXmlMathParagraph
       (<a14:m xmlns:a14 xmlns:m><m:oMathPara><m:oMathParaPr><m:jc m:val="centerGroup"/>
       <m:oMath>{OMML}</m:oMath></m:oMathPara></a14:m><a:endParaRPr/>), accepting inner
-      OMML, a full <m:oMath>, or a full <m:oMathPara>. STEP 5/6 isolate the equation
-      onto its own paragraph; objectHasMath then wraps the whole shape in
-      <mc:AlternateContent><mc:Choice Requires="a14"> exactly as PowerPoint does, so
-      validators/non-a14 consumers treat the a14 subtree as a known extension (the
-      oracle math-omml.pptx uses the same envelope and validates clean). Pinned by the
-      schema fixture 'native math equation (OMML) text run' (test/schema.test.js),
-      validator-clean. REMAINING (DEFERRED 2026-06-19, no implementation planned):
-      a LaTeX/MathML→OMML conversion path and an mc:Fallback raster. Both are out of
-      active scope under the Node-first, minimal-dependency charter — LaTeX→OMML needs
-      a typesetting parser dependency and the fallback raster requires actually
-      rendering the equation (no browser/Office). The raw-OMML entry point is the
-      deliberate, supported deliverable; callers convert from LaTeX/MathML with an
-      external tool and supply OMML directly. A dependency-free MathML→OMML subset
-      converter remains a possible future in-scope addition if a concrete consumer
-      need appears; note it's not required for validity (Requires="a14" is understood
-      by PowerPoint 2010+, so current output opens and validates clean without it).
+      OMML, a full <m:oMath>, or a full <m:oMathPara>; objectHasMath wraps the shape in
+      <mc:AlternateContent><mc:Choice Requires="a14"> exactly as PowerPoint does (oracle
+      math-omml.pptx uses the same envelope and validates clean). (2) LaTeX + MathML legs
+      (2026-07-07): new `@shbernal/pptxgenjs/math` subpath (src/math.ts) exports
+      latexToOmml(latex,{display}) and mathmlToOmml(mathml), composing temml (LaTeX→MathML,
+      MIT) and mathml2omml (MathML→OMML, LGPL-3.0-or-later) — both OPTIONAL peerDependencies
+      loaded synchronously via createRequire (Node-only; a clear "install temml & mathml2omml"
+      error if absent), never bundled into dist so the LGPL dep stays a separate, opt-in
+      package. Canonical output: mathmlToOmml → bare <m:oMath> (ns-decl-stripped, envelope
+      supplies m); latexToOmml → that <m:oMath> wrapped in a centered <m:oMathPara> unless
+      display:false. Invalid LaTeX throws with temml's parse position (no silent coercion).
+      Pinned by unit tests (test/regression/math-latex-omml.test.js) and the schema fixture
+      'native math equation (LaTeX via /math) text runs' (test/schema.test.js, validator-clean).
+      Docs: docs/math-latex.md. DEFERRED / out of active scope (not required — Requires="a14"
+      is understood by PowerPoint 2010+, so output opens and validates clean without it): the
+      mc:Fallback raster for non-a14 consumers (needs an equation rasterizer, no browser/Office
+      in the Node charter). Inline (in-sentence) math is tracked separately (dn-inline-math).
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
         - schema-fixture
         - validator-result
         - powerpoint-authored-comparison
       local_files:
         - src/core-interfaces.ts
         - src/gen-xml.ts
+        - src/math.ts
+        - test/regression/math-latex-omml.test.js
         - test/schema.test.js
         - test/read/fixtures/math-omml.pptx
-      schema_fixture: "test/schema.test.js: native math equation (OMML) text run"
-      validator_result: pass (pnpm run test:schema, 2026-06-19)
+        - docs/math-latex.md
+      schema_fixture: "test/schema.test.js: native math equation (LaTeX via /math) text runs"
+      validator_result: pass (pnpm run test:schema, 2026-07-07)
       powerpoint_result: oracle test/read/fixtures/math-omml.pptx opened clean in Windows desktop PowerPoint 16.0 on 2026-06-19
       spec_refs: []
-    next_action: none-remaining-legs-deferred-out-of-active-scope
+    next_action: none-raster-fallback-deferred-out-of-active-scope
 
   - id: upstream-issue-1451
     source: "gitbrent/PptxGenJS#1451"
@@ -2656,6 +2661,27 @@ items:
         - tsconfig.test.json
         - package.json
         - .github/workflows/ci.yml
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: none
+  - id: fork-temml-accent-fidelity
+    source: fork:src/math.ts
+    type: fork-internal-proposal
+    first_seen: 2026-07-07
+    last_reviewed: 2026-07-07
+    status: on-hold
+    priority: p3
+    target_area:
+      - missing-pptx-feature
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: latexToOmml accents (\hat, \bar, \vec, ...) degrade to m:limUpp because temml omits accent="true" on <mover>
+    current_project_notes: "Temml renders accent commands (\\hat \\bar \\vec \\dot \\tilde \\ddot \\acute \\grave \\check \\breve \\widehat \\overline ...) as <mover> WITHOUT the accent=\"true\" attribute (and under-accents \\underline/\\utilde as <munder> without accentunder=\"true\"). Browsers derive accent positioning from the MathML operator dictionary so it renders fine in a browser, but mathml2omml keys off the attribute: <mover accent=\"true\"> -> <m:acc> (correct accent, script hugs the base) vs a bare <mover> -> <m:limUpp> (over-limit: wrong spacing/semantics). So latexToOmml('\\\\hat{a}') currently emits a limit-over construct in the .pptx rather than a true accent. The output is still valid OMML and opens clean in PowerPoint, so this is a fidelity limit, not a correctness bug - already documented in docs/math-latex.md 'Scope and limits' (the '\\hat renders via <m:limUpp> rather than <m:acc>' note). The full write-up (repro, affected commands, suggested fix) is captured in ../temml-issue.md, distilled from the retired MATH-LATEX-OMML plan. The clean fix is an explicit accent=\"true\"/accentunder=\"true\" from temml, but on closer inspection that temml change is not as straightforward as first thought; there is no upstream fix or PR and it is not clear it will be fixed. Parked on-hold (owner-gated): do NOT re-raise until either a temml fix lands or the maintainer green-lights a local shim (post-process temml's MathML to stamp accent=\"true\" on known accent operators before handing it to mathml2omml). Companions: upstream-issue-1456 (the shipped math feature), dn-inline-math."
+    evidence:
+      kinds: []
+      local_files: []
       schema_fixture: null
       validator_result: null
       powerpoint_result: null

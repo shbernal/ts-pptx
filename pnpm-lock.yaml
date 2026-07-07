@@ -57,12 +57,18 @@ importers:
       lefthook:
         specifier: ^2.1.9
         version: 2.1.9
+      mathml2omml:
+        specifier: ^0.5.0
+        version: 0.5.0
       prettier:
         specifier: ^3.8.3
         version: 3.8.3
       publint:
         specifier: ^0.3.21
         version: 0.3.21
+      temml:
+        specifier: ^0.13.3
+        version: 0.13.3
       tsdown:
         specifier: ^0.22.2
         version: 0.22.2(@arethetypeswrong/core@0.18.3)(publint@0.3.21)(typescript@6.0.3)
@@ -2179,6 +2185,9 @@ packages:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
     engines: {node: '>= 0.4'}
 
+  mathml2omml@0.5.0:
+    resolution: {integrity: sha512-4eLs37a+TH+CL/M5XZZrlc75SNRJNPiZzIaeSSvH0UFCRaCdSYRHWvrlA7MUbeQks/z4sVhfg+GlcZhVVUHzqg==}
+
   mdast-util-to-hast@13.2.1:
     resolution: {integrity: sha512-cctsq2wp5vTsLIcaymblUriiTcZd0CwWtCbLvrOzYCDZoWyMNV8sZ7krj09FSnsiJi3WVsHLM4k6Dq/yaPyCXA==}
 
@@ -2733,6 +2742,10 @@ packages:
 
   tabbable@6.4.0:
     resolution: {integrity: sha512-05PUHKSNE8ou2dwIxTngl4EzcnsCDZGJ/iCLtDflR/SHB/ny14rXc+qU5P4mG9JkusiV7EivzY9Mhm55AzAvCg==}
+
+  temml@0.13.3:
+    resolution: {integrity: sha512-GLNEdf5qBWux3adbOxFus4jlds8nCdEIkkKq99m/4GGTfqnsjlVlK/i371Ux7yYSg/WNmOyAkNT/GJlZoJ0v+w==}
+    engines: {node: '>=18.13.0'}
 
   thenify-all@1.6.0:
     resolution: {integrity: sha512-RNxQH/qI8/t3thXJDwcstUO4zeqo64+Uy/+sNVRBx4Xn2OX+OZ9oP+iJnNFqplFra2ZUVeKCSa2oVWi3T4uVmA==}
@@ -5000,6 +5013,8 @@ snapshots:
 
   math-intrinsics@1.1.0: {}
 
+  mathml2omml@0.5.0: {}
+
   mdast-util-to-hast@13.2.1:
     dependencies:
       '@types/hast': 3.0.4
@@ -5581,6 +5596,8 @@ snapshots:
   sync-message-port@1.2.0: {}
 
   tabbable@6.4.0: {}
+
+  temml@0.13.3: {}
 
   thenify-all@1.6.0:
     dependencies:

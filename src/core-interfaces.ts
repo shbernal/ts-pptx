@@ -2005,8 +2005,10 @@ export interface TextProps {
 	 * paragraph and `text` is ignored. Accepts either the inner OMML (children of `<m:oMath>`),
 	 * a full `<m:oMath>…</m:oMath>`, or a full `<m:oMathPara>…</m:oMathPara>`; the `m:` prefix is
 	 * resolved by the wrapper, so the markup does not need its own namespace declarations.
-	 * This is the raw-OMML entry point; LaTeX/MathML→OMML conversion is not yet provided.
-	 * @example { math: '<m:r><m:t>x^2+1=y</m:t></m:r>' } // (use real OMML, not LaTeX)
+	 * This is the raw-OMML entry point. To author from LaTeX or MathML, convert with
+	 * `latexToOmml()` / `mathmlToOmml()` from the `@shbernal/pptxgenjs/math` subpath.
+	 * @example { math: '<m:r><m:t>x^2+1=y</m:t></m:r>' } // raw OMML
+	 * @example import { latexToOmml } from '@shbernal/pptxgenjs/math'; ({ math: latexToOmml('x^2+1=y') })
 	 * @since v5.4.0
 	 */
 	math?: string

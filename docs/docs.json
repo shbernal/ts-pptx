@@ -21,6 +21,7 @@
         "reference/pptx-read",
         "reference/object-identity",
         "image-in-shape",
+        "math-latex",
         "reference/api/index",
         "ooxml-agent-context",
         "RELEASING"
