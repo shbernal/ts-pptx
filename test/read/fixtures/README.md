@@ -54,8 +54,10 @@ by the `pptxgenjs/read` harness. Two groups:
   bodyPr → `upstream-pr-1247`/`upstream-issue-1208`; table-in-placeholder →
   `upstream-pr-1151`; notes `sldImg` → `upstream-issue-446`).
 - **Feature serialization**: `bar-chart-data-labels.pptx` (per-point bar
-  `c:dPt`/`c:dLbl` + workbook cache, #727) and `math-omml.pptx` (native equation
-  OMML `a14:m`/`m:oMath`, #1456).
+  `c:dPt`/`c:dLbl` + workbook cache, #727), `math-omml.pptx` (native **display**
+  equation OMML `a14:m`/`m:oMathPara`, #1456), and `math-omml-inline.pptx` (an
+  **inline**, in-sentence equation `a14:m`/`m:oMath` with no `m:oMathPara`, flowing
+  between plain `a:r` runs in one `a:p` — backlog `dn-inline-math`).
 - **A/V media rel graph**: `av-media.pptx` (embedded video + audio rel/content-type
   oracle for `appendSlides`, backlog `dn-append-av-media`); `online-video.pptx`
   (external-link/online video rel graph for `appendSlides`, backlog
@@ -86,6 +88,7 @@ by the `pptxgenjs/read` harness. Two groups:
 | `notes-slide-image.pptx`      | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `bar-chart-data-labels.pptx`  | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `math-omml.pptx`              | Microsoft Office PowerPoint | 16.0000    | 1      |
+| `math-omml-inline.pptx`       | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `av-media.pptx`               | Microsoft Office PowerPoint | 16.0000    | 2      |
 | `online-video.pptx`           | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `embedded-fonts.pptx`         | Microsoft Office PowerPoint | 16.0000    | 1      |
@@ -126,6 +129,7 @@ f18ae67b1df1cc1cf7dc616451c3e548a4ea0c80f807c06a87521b010597af75  table-placehol
 2f41c301147518686fb63e262ea1eb2ede6873fdc22d913dc869d8a924190fc7  notes-slide-image.pptx
 edeb1dafe790edf45152485753245928a06786d923364d7647354393d891a74f  bar-chart-data-labels.pptx
 d88cb77b480d3c84a16307cbe503e9ee64f5fa8bdfee6d7b5a7167847d1cb8e6  math-omml.pptx
+74ef4bd84b39fb8668277c0300372b13bdc984f311a0e2783d630ac5b8c9f7f8  math-omml-inline.pptx
 39aafb02e448a860136c20c46daf89d446d1d34140de1c533b1fe537dee6f0af  av-media.pptx
 82d8907ae23c0e8c0b54e0575cba728ff56c82fd6b055827923a8dde9c4dc20c  online-video.pptx
 dd96acd1f395cb961f2222047e03263df4cbe1bdacce3735bcd934783fad0556  template.potx
@@ -335,6 +339,35 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   the PowerPoint text box; **PowerPoint re-serialised it on `SaveAs`, so the
   `.pptx` package XML is genuine PowerPoint output.** Pins the `<a:p>` → `a14:m` /
   `m:oMathPara` / `m:oMath` structure and namespace declarations.
+- `math-omml-inline.pptx` — **authoring oracle** for an **inline** (in-sentence)
+  equation run — the write-side gate for backlog `dn-inline-math` (the sibling of
+  the display-form `math-omml.pptx`). One slide with a text box (`inline-equation-box`)
+  holding the single paragraph **"where 𝑥²+1=𝑦 holds"**: an ordinary text run, an
+  inline equation, and another text run all in one `<a:p>`. Authored the same way as
+  `math-omml.pptx` (Word `OMaths.Add` + `BuildUp`, copy, paste into a PowerPoint text
+  box, PowerPoint re-serialises on `SaveAs`), except the math zone is wrapped over a
+  *substring* of a paragraph that also carries plain text, so Word makes it inline
+  (`OMath.Type == 1 = wdOMathInline`, confirmed at author time) rather than display.
+  Pins **how PowerPoint scopes the `mc:AlternateContent` envelope for run-level math**
+  — the open question `dn-inline-math` was gated on:
+  - **The envelope stays at the *shape* level, exactly as in the display case.** The
+    whole `<p:sp>` is still wrapped in one `mc:AlternateContent` (`mc:Choice
+    Requires="a14"` shape + `mc:Fallback` raster shape). PowerPoint does **not** emit a
+    run-level `mc:AlternateContent` inside the `<a:p>` around just the math run.
+  - **Inline-ness is expressed purely at the paragraph level:** inside the `mc:Choice`
+    shape the single `<a:p>` holds, in document order, `<a:r><a:t>where </a:t></a:r>` →
+    `<a14:m><m:oMath>…</m:oMath></a14:m>` → `<a:r><a:t> holds</a:t></a:r>`. The `a14:m`
+    wraps `m:oMath` **directly** — **no** `<m:oMathPara>` and **no** `<m:oMathParaPr>` /
+    `<m:jc>` centered-group justification (contrast the display fixture, whose `a14:m` →
+    `m:oMathPara` → `m:oMath` occupies the paragraph alone). This is the structure the
+    core emitter must produce for `inline:true`: an `a14:m`/`m:oMath` positioned within
+    the run sequence, not its own `oMathPara` paragraph block.
+  - The plain runs are `Aptos` `sz="1800"` (upright, `kern="100"`); the math runs are
+    `Cambria Math` `i="1"` and the variables are the same Unicode mathematical-italic
+    letters (`U+1D465` 𝑥 / `U+1D466` 𝑦) as the display fixture. The paragraph carries
+    the paste-derived `<a:pPr marL="0" marR="0">` (115% `lnSpc`, `spcAft` 800, `buNone`).
+  - The `<mc:Fallback>` is the same back-compat raster `blipFill` (`ppt/media/image1.png`,
+    `rId2` image rel, `png` `Default` content-type) PowerPoint emits for the whole shape.
 - `av-media.pptx` — **authoring oracle** for embedded audio/video in appended
   slides (backlog `dn-append-av-media`). Two blank slides, each with one media
   shape embedded by PowerPoint's `AddMediaObject2` (no link-to-file): **slide 1**
@@ -630,6 +663,7 @@ fixtures opened clean with no repair prompt:
 - [x] `notes-slide-image.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
 - [x] `bar-chart-data-labels.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
 - [x] `math-omml.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored via Word→PowerPoint paste + opened clean via COM)
+- [x] `math-omml-inline.pptx` — Windows desktop PowerPoint, 2026-07-07 (authored via Word→PowerPoint paste + opened clean via COM, no repair prompt)
 - [x] `template.potx` — Windows desktop PowerPoint, 2026-06-24 (authored + reopened clean via COM, no repair prompt)
 - [x] `online-video.pptx` — Windows desktop PowerPoint, 2026-06-24 (authored + opened clean via COM)
 - [x] `embedded-fonts.pptx` — Windows desktop PowerPoint, 2026-06-25 (authored + reopened clean via COM, no repair prompt; `Presentation.Fonts` reports `Silkscreen` in use)
