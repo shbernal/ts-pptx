@@ -2696,3 +2696,47 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: none
+  - id: dn-measure-glyph-coverage
+    source: downstream:scripts/slide-analysis/replication/glyph-coverage.ts
+    type: downstream-need
+    first_seen: 2026-07-07
+    last_reviewed: 2026-07-07
+    status: target
+    priority: p2
+    target_area:
+      - typescript-api
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: Cmap-backed per-codepoint glyph-coverage accessor on the measure module (replace downstream's fc-match shell)
+    current_project_notes: Downstream's replication audit scans source-bundle text for codepoints the replica face cannot render (scripts/slide-analysis/replication/glyph-coverage.ts). It currently shells out to `fc-match <face>:charset=<cp>` for per-codepoint coverage — the same fontconfig toolchain registry/lib/measure.ts already needs — and degrades to a notice when fontconfig is absent (e.g. a managed Windows box). The fork already parses the font via opentype for advances (measure module) but exposes only advances + hasFace, with no per-codepoint coverage. Add a cmap-backed accessor on @shbernal/pptxgenjs/measure (e.g. metricsRegistry().hasCodepoint(face, cp), or a coverage query). Then downstream drops the fc-match shell for the in-process cmap check and the fontconfig-absent Windows degrade path goes away. Reap the glyph-coverage.ts STOPGAP marker once this lands.
+    stopgap: scripts/slide-analysis/replication/glyph-coverage.ts
+    evidence:
+      kinds: []
+      local_files: []
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: add cmap-backed hasCodepoint/coverage accessor to the measure module
+  - id: dn-readmodel-placeholder-font
+    source: downstream:decks/replication-lab/scripts/slides/2025-data-ai-governance__008/a.ts
+    type: downstream-need
+    first_seen: 2026-07-07
+    last_reviewed: 2026-07-07
+    status: target
+    priority: p3
+    target_area:
+      - speaker-notes-masters-layouts
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: "Read API: resolve placeholder-inherited text run size/face (sibling of the colour-resolution leg)"
+    current_project_notes: Harvested slide bundles resolve run colours into style.json but not placeholder-inherited text size/face. When a run carries no explicit sz=/typeface and inherits it from its layout/master placeholder, the resolved style is left empty and downstream replicas hand-guess the point size — see the 28pt/11pt literals in the replication-lab header (decks/replication-lab/scripts/slides/2025-data-ai-governance__008/a.ts). Resolving this requires walking sp -> layout ph -> master ph -> theme and applying OOXML placeholder inheritance, a generic READ-model capability that belongs in the fork's read API (src/read/api/presentation.ts) as the sibling of the colour-resolution leg already there. Expose effective run text properties (size/face/bold) with inheritance applied so the harvester read-model can record them and replicas read exact values instead of guessing. Reap the a.ts hand-guessed literals once landed.
+    stopgap: decks/replication-lab/scripts/slides/2025-data-ai-governance__008/a.ts
+    evidence:
+      kinds: []
+      local_files: []
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: resolve placeholder-inherited run size/face in the read API (sibling of the colour leg)
