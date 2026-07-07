@@ -1304,3 +1304,61 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: none
+  - id: fork-table-cell-style-fixture
+    source: fork:test/read/fixtures/table.pptx
+    type: fork-internal-proposal
+    first_seen: 2026-07-07
+    last_reviewed: 2026-07-07
+    status: deferred
+    priority: p3
+    target_area:
+      - table-ooxml
+    applies_to_current_project: partial
+    non_target_reasons: []
+    constructs:
+      - vertical-text
+    summary: PowerPoint-authored fixture needed to test TableCell verticalText/anchor/tcPr-margins read accessors (populated paths)
+    current_project_notes: |
+      Raised by an internal test-coverage review of src/read/api/table.ts, which
+      sits at ~62% (the weakest in-scope read file). The uncovered lines are the
+      TableCell appearance accessors: resolvedFill, fillSchemeColor, verticalText
+      (a:tcPr/@vert), anchor (a:tcPr/@anchor), and marginsEmu (a:tcPr/@marL/@marR/
+      @marT/@marB), plus the element_ escape hatches.
+
+      Split by fixture availability against test/read/fixtures/table.pptx:
+        - COVERABLE NOW (landed alongside this entry): resolvedFill and
+          fillSchemeColor have real data — TableWithFormattedCells on slide3 has
+          cells with <a:tcPr><a:solidFill><a:schemeClr val="accent3"><a:lumMod
+          val="60000"/><a:lumOff val="40000"/> …, which resolves to hex A5A5A5 /
+          effectiveHex C9C9C9. Null paths for verticalText/anchor/marginsEmu and
+          the element_ getters are also exercised. See test/read/table.test.js
+          ('Table cell styling').
+        - FIXTURE-GATED (this entry): the POPULATED paths of verticalText, anchor,
+          and cell-level margins. The fixture has no a:tcPr with @vert, @anchor, or
+          @marL/@marR/@marT/@marB — the marL/marR="0" present in the fixture are on
+          <a:pPr> (paragraph props), not <a:tcPr>, so marginsEmu only ever returns
+          null here.
+
+      Per docs/backlog-workflow.md "Fixture-Gated Work", these are read-model
+      accessors whose oracle must be genuine PowerPoint output; do not test them
+      against synthetic or round-tripped XML. Author a PowerPoint table (via the
+      powerpoint-fixture-authoring skill) containing at least one cell with a
+      rotated text direction (e.g. a:tcPr/@vert="vert270"), one with an explicit
+      vertical anchor (@anchor="ctr" or "b"), and one with explicit cell text
+      insets (@marL/@marR/@marT/@marB on a:tcPr). Record provenance + SHA-256 in
+      test/read/fixtures/README.md, then extend test/read/table.test.js to assert
+      the populated values and close this entry.
+    evidence:
+      kinds:
+        - local-source-inspection
+        - extracted-xml
+        - regression-test
+      local_files:
+        - src/read/api/table.ts
+        - test/read/table.test.js
+        - test/read/fixtures/table.pptx
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: await-fixture-then-author-table-cell-vert-anchor-margin-tests

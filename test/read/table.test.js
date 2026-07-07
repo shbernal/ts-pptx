@@ -35,6 +35,23 @@ function firstTable(presentation) {
 	return null
 }
 
+/** All tables on any slide of the fixture, in document order. */
+function allTables(presentation) {
+	return presentation.slides
+		.flatMap((slide) => slide.shapes)
+		.filter((shape) => shape.shapeType === 'graphicFrame' && shape.table)
+		.map((shape) => shape.table)
+}
+
+/**
+ * The fixture's `TableWithFormattedCells` table (slide 3): its cells carry an
+ * explicit `a:tcPr/a:solidFill` of `accent3` with `lumMod`/`lumOff`, so it is the
+ * one table that exercises the cell-fill accessors.
+ */
+function formattedTable(presentation) {
+	return allTables(presentation).find((table) => table.cell(0, 0)?.fillSchemeColor === 'accent3') ?? null
+}
+
 async function partBodies(pptxBytes) {
 	const zip = await JSZip.loadAsync(pptxBytes)
 	const bodies = new Map()
@@ -148,5 +165,52 @@ describe('Table cell editing', () => {
 		table.cell(0, 1).textFrame.paragraphs[0].runs[0].text = 'B'
 		const errors = await validateBuf(Buffer.from(await presentation.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+})
+
+describe('Table cell styling', () => {
+	// The fixture's `TableWithFormattedCells` cells carry
+	// `a:tcPr/a:solidFill/a:schemeClr val="accent3"` with `lumMod`/`lumOff`.
+	// Populated `verticalText`/`anchor`/`marginsEmu` paths need a PowerPoint-authored
+	// fixture that does not exist yet — tracked by backlog `fork-table-cell-style-fixture`.
+	test('resolvedFill resolves a scheme fill through the theme, applying lum transforms', async () => {
+		const cell = formattedTable(await open('table')).cell(0, 0)
+		const fill = cell.resolvedFill
+		assert(fill, 'formatted cell has a resolved fill')
+		assertEqual(fill.hex, 'A5A5A5', 'base accent3 hex')
+		assertEqual(fill.effectiveHex, 'C9C9C9', 'effective hex after lumMod 60% / lumOff 40%')
+		assert(
+			fill.transforms.some((t) => t.name === 'lumMod') && fill.transforms.some((t) => t.name === 'lumOff'),
+			'lumMod and lumOff transforms are reported'
+		)
+	})
+
+	test('fillSchemeColor exposes the raw scheme token', async () => {
+		assertEqual(formattedTable(await open('table')).cell(0, 0).fillSchemeColor, 'accent3', 'raw scheme token')
+	})
+
+	test('cells with no explicit fill report null for both fill accessors', async () => {
+		// The first table's cells have no a:tcPr fill.
+		const cell = firstTable(await open('table')).cell(0, 0)
+		assertEqual(cell.fillSchemeColor, null, 'no scheme token without a fill')
+		assertEqual(cell.resolvedFill, null, 'no resolved fill without a fill')
+	})
+
+	test('verticalText / anchor / marginsEmu are null when the cell sets none', async () => {
+		// No a:tcPr in the fixture carries @vert, @anchor, or @marL/@marR/@marT/@marB,
+		// so every cell exercises the unset (null) branch of these accessors.
+		const cell = firstTable(await open('table')).cell(0, 0)
+		assertEqual(cell.verticalText, null, 'no @vert -> null')
+		assertEqual(cell.anchor, null, 'no @anchor -> null')
+		assertEqual(cell.marginsEmu, null, 'no tcPr margins -> null')
+	})
+
+	test('element_ escape hatches expose the underlying a:tbl / a:tr / a:tc nodes', async () => {
+		const table = firstTable(await open('table'))
+		const row = table.rows[0]
+		const cell = row.cells[0]
+		assertEqual(table.element_.nodeName, 'a:tbl', 'table element_ is the a:tbl')
+		assertEqual(row.element_.nodeName, 'a:tr', 'row element_ is the a:tr')
+		assertEqual(cell.element_.nodeName, 'a:tc', 'cell element_ is the a:tc')
 	})
 })

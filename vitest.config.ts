@@ -13,13 +13,13 @@ export default defineConfig({
 	test: {
 		coverage: {
 			provider: 'v8',
-			include: ['dist/**'],
+			include: ['dist/**/*.js'],
 			reporter: ['text-summary', 'text', 'html'],
 			thresholds: {
-				statements: 80,
-				branches: 66,
-				functions: 88,
-				lines: 84,
+				statements: 83,
+				branches: 69,
+				functions: 91,
+				lines: 87,
 			},
 		},
 	},
