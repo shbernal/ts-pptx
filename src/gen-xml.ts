@@ -642,7 +642,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 				*/
 				// A: add _hmerge cell for colspan. should reserve rowspan
 				arrTabRows.forEach((cells) => {
-					for (let cIdx = 0; cIdx < cells.length; ) {
+					for (let cIdx = 0; cIdx < cells.length;) {
 						const cell = cells[cIdx]
 						if (!cell) break
 						const colspan = cell.options?.colspan

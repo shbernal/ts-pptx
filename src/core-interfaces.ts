@@ -95,16 +95,7 @@ export interface BackgroundProps extends DataOrPathProps, ShapeFillProps {}
  */
 export type HexColor = string
 export type ThemeColor =
-	| 'tx1'
-	| 'tx2'
-	| 'bg1'
-	| 'bg2'
-	| 'accent1'
-	| 'accent2'
-	| 'accent3'
-	| 'accent4'
-	| 'accent5'
-	| 'accent6'
+	'tx1' | 'tx2' | 'bg1' | 'bg2' | 'accent1' | 'accent2' | 'accent3' | 'accent4' | 'accent5' | 'accent6'
 export type Color = HexColor | ThemeColor
 export interface GradientStopProps {
 	/**
@@ -2201,14 +2192,7 @@ export type ChartAxisTickMark = 'none' | 'inside' | 'outside' | 'cross'
  */
 export type LineCap = 'flat' | 'round' | 'square'
 export type ChartLineDash =
-	| 'dash'
-	| 'dashDot'
-	| 'lgDash'
-	| 'lgDashDot'
-	| 'lgDashDotDot'
-	| 'solid'
-	| 'sysDash'
-	| 'sysDot'
+	'dash' | 'dashDot' | 'lgDash' | 'lgDashDot' | 'lgDashDotDot' | 'solid' | 'sysDash' | 'sysDot'
 
 export interface OptsChartData {
 	_dataIndex?: number

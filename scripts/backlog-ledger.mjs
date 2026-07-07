@@ -156,7 +156,7 @@ export function parseArgs(argv) {
 	}
 	const positional = []
 
-	for (let i = 0; i < argv.length; ) {
+	for (let i = 0; i < argv.length;) {
 		const arg = argv[i]
 		if (arg === '--') {
 			i += 1
