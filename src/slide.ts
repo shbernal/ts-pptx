@@ -302,10 +302,7 @@ export default class Slide {
 	 * @return {Slide} this Slide
 	 */
 	addShape(shapeName: SHAPE_NAME, options?: ShapeProps): Slide {
-		// NOTE: As of v3.1.0, <script> users are passing the old shape object from the shapes file (orig to the project)
-		// But React/TypeScript users are passing the shapeName from an enum, which is a simple string, so lets cast
-		// <script./> => `pptx.ShapeType.rect` [string] "rect" ... shapeName['name'] = 'rect'
-		// TypeScript => `pptxgen.ShapeType.rect` [string] "rect" ... shapeName = 'rect'
+		// `shapeName` is a plain string preset name (e.g. `pptxgen.ShapeType.rect` === "rect").
 		genObj.addShapeDefinition(this, shapeName, options || {})
 		return this
 	}

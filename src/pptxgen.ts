@@ -210,9 +210,9 @@ const VERSION = '9.1.0'
 /**
  * Media extensions whose bytes are already entropy-coded, so running the ZIP's
  * DEFLATE pass over them costs CPU for a negligible size gain. For these we set
- * the JSZip per-entry compression to STORE while leaving XML parts on DEFLATE.
+ * the per-entry ZIP compression to STORE while leaving XML parts on DEFLATE.
  * In image/video-heavy decks media dominates the byte count, so this is the
- * dominant cost in `generateAsync` for large presentations (see #1006).
+ * dominant cost when writing large presentations (see #1006).
  * Formats that genuinely benefit from DEFLATE (bmp, wav, tiff, emf, wmf, svg)
  * are deliberately excluded so they keep inheriting the global compression.
  */
@@ -1136,7 +1136,7 @@ export default class PptxGenJS {
 	}
 
 	/**
-	 * Export the current Presentation as JSZip content with the selected type
+	 * Export the current Presentation as ZIP content with the selected type
 	 * @param {WriteProps} props output properties
 	 * @returns {Promise<string | ArrayBuffer | Blob | Uint8Array>} file content in selected type
 	 */

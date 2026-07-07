@@ -2206,7 +2206,7 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 	})
 
 	// IMPORTANT: An empty txBody will cause "needs repair" error! Add <p> content if missing.
-	// [FIXED in v3.13.0]: This fixes issue with table auto-paging where some cells w/b empty on subsequent pages.
+	// This fixes an issue with table auto-paging where some cells would be empty on subsequent pages.
 	/*
 		<a:txBody>
 			<a:bodyPr/>
