@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.1.0](https://github.com/shbernal/PptxGenJS/releases/tag/v9.1.0) - 2026-07-07
+
 ### Added
 
 - **Inline (in-sentence) math via `inline: true`.** A text item's `math` OMML was
