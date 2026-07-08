@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`TableProps.columns` — per-column cell styling for wide colored matrices**
+  (`addTable`). A `TableCellProps[]` whose entry `columns[i]` is merged as direct
+  per-cell formatting onto every cell starting in column `i` (`fill`, `color`, `bold`,
+  `align`, `border`, `margin`, …), so a wide (~15-column) **colored** assessment /
+  scorecard / maturity grid no longer needs a fill hand-written onto every cell.
+  Entries may be sparse and the whole option is optional — omit it and output is
+  unchanged (degrades cleanly to text-on-white). Precedence, matching how PowerPoint
+  resolves styling (direct formatting overrides a style region): explicit per-cell
+  `options` > `headerRow` (row 0) > `columns[colIdx]` > `tableStyle`/defaults. Because
+  the merge is property-level, a **maturity-gradient header** is just shared typography
+  on `headerRow` (bold/white/centered, no fill) plus a graduated `columns[i].fill` per
+  column. The column index counts each cell's `colspan` within a row. There is
+  deliberately no built-in "group bracket" annotation primitive: label a span of
+  columns by composing existing shapes — `addShape('rightBrace', …)` (or `'bracePair'`)
+  plus `addText`, positioned from the table's `x` and `colW`.
 - **`Slide.text` — flatten all of a slide's text in one read** (`pptxgenjs/read`).
   A getter on the read-model `Slide` that walks the shape tree in document order and
   concatenates every text-bearing shape's text, **recursing into groups** and

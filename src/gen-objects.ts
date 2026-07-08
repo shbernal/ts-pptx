@@ -1355,24 +1355,37 @@ export function addTableDefinition(
 		}
 	}
 
-	// STEP 1.5: `headerRow` inline sugar — bake header styling into row 0 as direct per-cell
-	// formatting so it flows through the normal cell pipeline (incl. border defaulting below).
-	// Explicit per-cell options win over `headerRow`; `headerRow` wins over a `tableStyle`'s
-	// `firstRow` region (direct formatting overrides a style region, as PowerPoint resolves it).
+	// STEP 1.5: `headerRow` / `columns` inline sugar — bake blanket styling into cells as
+	// direct per-cell formatting so it flows through the normal cell pipeline (incl. border
+	// defaulting below). Precedence (highest wins), matching how PowerPoint resolves styling
+	// (direct formatting overrides a style region): explicit per-cell `options` > `headerRow`
+	// (row 0) > `columns[colIdx]` > `tableStyle`/defaults. The merge is property-level, so a
+	// header cell keeps `headerRow` typography and takes its column's fill when they differ.
 	// Setting `headerRow` implies `hasHeader` unless the caller set it explicitly. The caller's
-	// `tableRows` array is not mutated — only a shallow copy of row 0 (and its cells) is rebuilt.
+	// `tableRows` array is not mutated — only affected rows (and their cells) are shallow-copied.
+	const hdr = opt.headerRow && typeof opt.headerRow === 'object' ? opt.headerRow : undefined
+	const cols = Array.isArray(opt.columns) && opt.columns.length ? opt.columns : undefined
 	let srcRows: TableRow[] = tableRows
-	if (opt.headerRow && typeof opt.headerRow === 'object' && Array.isArray(tableRows[0])) {
-		if (opt.hasHeader === undefined) opt.hasHeader = true
-		const hdr = opt.headerRow
+	if ((hdr || cols) && Array.isArray(tableRows[0])) {
+		if (hdr && opt.hasHeader === undefined) opt.hasHeader = true
 		srcRows = tableRows.map((row, rowIdx) => {
-			if (rowIdx !== 0 || !Array.isArray(row)) return row
+			if (!Array.isArray(row)) return row
+			// Column-scoped defaults only apply when we actually have `columns`; the header row
+			// alone is a cheaper positional map. Skip untouched body rows to avoid needless copies.
+			if (!cols && rowIdx !== 0) return row
+			let colCursor = 0
 			return row.map((cell: number | string | TableCell): TableCell => {
 				const cellObj: TableCell =
 					typeof cell === 'string' || typeof cell === 'number'
 						? { text: String(cell), options: {} }
 						: { ...cell, options: { ...(cell.options || {}) } }
-				cellObj.options = { ...hdr, ...cellObj.options }
+				const colDef = cols ? cols[colCursor] : undefined
+				colCursor += cellObj.options?.colspan || 1
+				cellObj.options = {
+					...(colDef && typeof colDef === 'object' ? colDef : {}),
+					...(rowIdx === 0 && hdr ? hdr : {}),
+					...cellObj.options,
+				}
 				return cellObj
 			})
 		})
@@ -1617,10 +1630,13 @@ export function addTableDefinition(
 		createHyperlinkRels(target, arrRows)
 
 		// Add slideObjects (NOTE: Use `extend` to avoid mutation)
+		// `columns` (per-column TableCellProps[]) is consumed in STEP 1.5 and baked into cells;
+		// drop it here so it is not carried into `ObjectOptions`, where `columns` is the unrelated
+		// text-column *count* (`number`). Leaving it in would be both meaningless and a type clash.
 		target._slideObjects.push({
 			_type: SlideObjectType.table,
 			arrTabRows: arrRows,
-			options: { ...opt },
+			options: { ...opt, columns: undefined },
 		})
 	} else {
 		if (opt.autoPageRepeatHeader)

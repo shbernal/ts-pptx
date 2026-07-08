@@ -521,6 +521,43 @@ export default [
 		},
 	},
 	{
+		name: 'table with per-column fills + gradient header (dn-wide-matrix-fills)',
+		fn: async () => {
+			const { buf, zip } = await build((p) => {
+				p.addSlide().addTable(
+					[
+						[{ text: 'Area' }, { text: 'L1' }, { text: 'L2' }, { text: 'L3' }],
+						// row 1: label col + three graded body cells; last cell overrides its column fill
+						[{ text: 'Access' }, { text: 'a' }, { text: 'b' }, { text: 'c', options: { fill: { color: '111111' } } }],
+					],
+					{
+						x: 1,
+						y: 1,
+						w: 8,
+						// shared header typography (no fill) so each column's fill supplies the gradient
+						headerRow: { color: 'FFFFFF', bold: true, align: 'center' },
+						columns: [
+							{ fill: { color: 'DDDDDD' } },
+							{ fill: { color: 'BBD3FB' } },
+							{ fill: { color: '89AEF6' } },
+							{ fill: { color: '4B7BE5' } },
+						],
+					}
+				)
+			})
+			const slideXml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// each column's fill reaches its cells (header + body)
+			assertIncludes(slideXml, '<a:srgbClr val="BBD3FB"/>', 'column 1 fill applied')
+			assertIncludes(slideXml, '<a:srgbClr val="89AEF6"/>', 'column 2 fill applied')
+			assertIncludes(slideXml, '<a:srgbClr val="4B7BE5"/>', 'column 3 header fill applied')
+			// gradient header keeps its shared typography from headerRow
+			assertIncludes(slideXml, 'firstRow="1"', 'headerRow implies hasHeader')
+			// explicit per-cell fill wins over the column default (precedence)
+			assertIncludes(slideXml, '<a:srgbClr val="111111"/>', 'per-cell fill overrides column fill')
+			await expectNoSchemaErrors(buf, 'table-columns-fill')
+		},
+	},
+	{
 		name: 'table with rtl emits rtl="1" on tblPr',
 		fn: async () => {
 			const { buf, zip } = await build((p) => {

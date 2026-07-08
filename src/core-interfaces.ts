@@ -1678,6 +1678,42 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 */
 	headerRow?: TableCellProps
 	/**
+	 * Per-column default cell styling, applied as direct per-cell formatting.
+	 *
+	 * `columns[i]` is merged onto every cell that starts in column `i` (`fill`, `color`,
+	 * `bold`, `align`, `valign`, `border`, `margin`, …), so a wide **colored** matrix —
+	 * per-column fills, maturity-gradient headers — does not require hand-writing a fill
+	 * onto every cell. Entries may be sparse (`columns[2]` alone styles only column 2);
+	 * an `undefined`/omitted entry leaves that column untouched. The whole option is
+	 * optional and degrades cleanly to today's text-on-white when not given.
+	 *
+	 * Precedence (highest wins), matching how PowerPoint resolves styling — direct cell
+	 * formatting overrides a table-style region:
+	 * 1. explicit per-cell `options`
+	 * 2. `headerRow` (row 0 only)
+	 * 3. this `columns[colIdx]`
+	 * 4. `wholeTbl` / `tableStyle` / defaults
+	 *
+	 * The merge is property-level, so a header cell keeps `headerRow`'s typography **and**
+	 * takes its column's `fill` when they set different properties. For a graduated header
+	 * band, put shared header typography (bold/white/centered, **no fill**) in `headerRow`
+	 * and let each `columns[i].fill` supply that column's fill.
+	 *
+	 * Column index counts each cell's `colspan` (default 1) within a row, so merged cells
+	 * map to the correct column; it does not track `rowspan`s inherited from earlier rows.
+	 *
+	 * There is deliberately no built-in "group bracket" annotation. Label a span of columns
+	 * by composing existing primitives: `addShape('rightBrace', …)` (or `'bracePair'`) plus
+	 * `addText`, positioned from the table's `x` and `colW` (a span's `x`/`w` is the running
+	 * sum of the preceding/covered column widths).
+	 *
+	 * @example columns: [{}, { fill: { color:'E8F0FE' } }, { fill: { color:'C6DAFC' } }] // per-column solid fills
+	 * @example // gradient header: shared typography on headerRow, graduated fills per column
+	 * headerRow: { color:'FFFFFF', bold:true, align:'center' },
+	 * columns: [{}, { fill:{color:'BBD3FB'} }, { fill:{color:'89AEF6'} }, { fill:{color:'4B7BE5'} }]
+	 */
+	columns?: TableCellProps[]
+	/**
 	 * Cell background color
 	 * @example { color:'FF0000' } // hex color (red)
 	 * @example { color:'0088CC', transparency:50 } // hex color, 50% transparent

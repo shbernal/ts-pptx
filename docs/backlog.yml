@@ -1401,7 +1401,7 @@ items:
     type: downstream-need
     first_seen: 2026-07-08
     last_reviewed: 2026-07-08
-    status: target
+    status: implemented
     priority: p2
     target_area:
       - missing-pptx-feature
@@ -1431,18 +1431,32 @@ items:
       optional "group bracket" annotation layer keyed to a span of columns. It
       should degrade cleanly to today's text-on-white when no fills are given.
 
-      Until it lands, a consumer builds such a slide as a hand-laid table (native
-      cells with explicit fills + a drawn brace shape), marked downstream as a
-      workaround referencing this id. Do NOT generalize that workaround into a
-      shared primitive; graduate only the upstream feature.
+      IMPLEMENTED as `TableProps.columns` (a `TableCellProps[]`): entry `columns[i]`
+      is merged as direct per-cell formatting onto every cell starting in column `i`
+      (fill/color/bold/align/border/margin/…), baked in the `headerRow` sugar step
+      (`src/gen-objects.ts` STEP 1.5) so it flows through the normal cell pipeline.
+      Precedence: explicit per-cell `options` > `headerRow` (row 0) > `columns[colIdx]`
+      > `tableStyle`/defaults. A maturity-gradient header falls out of the
+      property-level merge: shared typography on `headerRow`, graduated fills per
+      `columns[i].fill`. The column index counts each cell's `colspan` within a row.
+      Optional; degrades byte-for-byte to text-on-white when omitted.
+
+      The bracket / column-group annotation is intentionally NOT a new primitive.
+      Composing the existing brace preset shapes (`rightBrace` / `bracePair`) with
+      `addText`, positioned from the table `x` and `colW`, covers it; documented on
+      the `columns` JSDoc and in CHANGELOG. This keeps PptxGenJS low-level and avoids
+      a table-coupled annotation layer.
     evidence:
       kinds:
         - local-source-inspection
         - extracted-xml
+        - validator-result
       local_files:
-        - src/gen-xml.ts
-      schema_fixture: null
-      validator_result: null
+        - src/gen-objects.ts
+        - src/core-interfaces.ts
+        - test/schema.test.js
+      schema_fixture: table-columns-fill
+      validator_result: clean
       powerpoint_result: null
       spec_refs: []
-    next_action: Design the wide colored-matrix / annotated-bracket table API upstream; until it ships, the feature stays a hand-laid downstream workaround.
+    next_action: none
