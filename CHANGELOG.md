@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.0.0](https://github.com/shbernal/PptxGenJS/releases/tag/v10.0.0) - 2026-07-08
+
 ### Added
 
 - **`TableProps.columns` — per-column cell styling for wide colored matrices**
