@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { coverageConfigDefaults, defineConfig } from 'vitest/config'
 
 // The suite runs against the built package (`pnpm run build` then `vitest run`),
 // so tests import from `dist/`, not `src/`. v8 collects coverage for the code it
@@ -14,6 +14,18 @@ export default defineConfig({
 		coverage: {
 			provider: 'v8',
 			include: ['dist/**/*.js'],
+			// Browser-only entry points are out of the Node suite's scope (they call
+			// `fetch`, `document`, DOM layout APIs that cannot run headless). They map
+			// to their own bundled chunks, so exclude those chunks rather than the
+			// shared `pptxgen` chunk. Partial-file browser code that shares a chunk with
+			// tested code (e.g. `genTableToSlides`) is fenced with `v8 ignore` comments
+			// at the source instead. See docs/project-target.md "Out Of Active Scope".
+			exclude: [
+				...coverageConfigDefaults.exclude,
+				'dist/browser.js', // src/browser.ts — browser entry
+				'dist/browser-*.js', // src/runtime/browser.ts — browser runtime adapter
+				'dist/standalone.js', // src/standalone.ts — browser IIFE bundle (not exercised)
+			],
 			reporter: ['text-summary', 'text', 'html'],
 			thresholds: {
 				statements: 84,

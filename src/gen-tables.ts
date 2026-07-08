@@ -720,6 +720,7 @@ export function resolveHtmlColWidth(calcWidth: number, setWidth: number, minWidt
  * @param {TableToSlidesProps} options - array of options (e.g.: tabsize)
  * @param {SlideLayoutInternal} masterSlide - masterSlide
  */
+/* v8 ignore start -- browser/DOM-only (getComputedStyle, offsetWidth); out of Node test scope, see docs/project-target.md */
 export function genTableToSlides(
 	pptx: TableToSlidesHost,
 	tabEleId: string,
@@ -975,3 +976,4 @@ export function genTableToSlides(
 		if (opts.addText) newSlide.addText(opts.addText.text, opts.addText.options || {})
 	})
 }
+/* v8 ignore stop */
