@@ -5,7 +5,7 @@ summary: "Implementation plan for native PPTX gradient fills on slide background
 read_when:
   - Planning native gradient fill support
   - Changing slide background or shape fill OOXML
-  - Deciding whether downstream can replace raster gradient backgrounds
+  - Deciding whether a consumer can replace raster gradient backgrounds
 doc_type: "decision"
 ---
 
@@ -32,7 +32,7 @@ Add reliable native PPTX gradient fill support for reusable PptxGenJS surfaces,
 starting with simple linear gradients on slide backgrounds and shape fills.
 
 This belongs in PptxGenJS when the behavior is generic, schema-valid, and stable
-across PowerPoint-compatible consumers. Downstream should continue using
+across PowerPoint-compatible consumers. A consumer should continue using
 deterministic raster backgrounds when exact rendered appearance is more reliable
 than native PPTX gradients.
 
@@ -325,7 +325,7 @@ accepted.
 
 ## Downstream Fallback Guidance
 
-Do not remove raster gradient guidance from downstream immediately.
+A consumer should not remove its raster gradient guidance immediately.
 
 Native gradients can replace deterministic raster backgrounds only after:
 
@@ -335,6 +335,5 @@ Native gradients can replace deterministic raster backgrounds only after:
 4. A single native background object remains easier to preserve semantically
    than an image object.
 
-Until then, downstream should continue preferring one deterministic image
-object over many adjacent solid-color rectangles for continuous gradient
-backgrounds.
+Until then, a consumer should continue preferring one deterministic image object
+over many adjacent solid-color rectangles for continuous gradient backgrounds.

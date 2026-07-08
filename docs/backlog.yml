@@ -5,17 +5,19 @@ schema: 1
 source_repo: gitbrent/PptxGenJS
 purpose: >
   The fork's project backlog ledger. It records work this project intends to do
-  and decisions it has made: `downstream-need` items raised by the downstream
-  consumer for generic PPTX behavior that belongs in this package;
-  `fork-internal-proposal` items for API-evolution / breaking-change candidates the
-  fork proposes for itself (not driven by a downstream consumer or an upstream
-  issue); plus a set of retained upstream-derived signals from gitbrent/PptxGenJS
-  that were judged relevant before upstream tracking was retired. New entries are
-  project needs or fork proposals. The `source` field carries a github reference
-  (owner/repo#N or a github.com issues/pull URL) for the retained legacy entries,
-  `downstream[:path]` for downstream needs, or `fork[:path]` for fork-internal
-  proposals (path points at the source file the proposal concerns). This file is no
-  longer synced against GitHub; the upstream reconciliation tooling has been removed.
+  and decisions it has made: `downstream-need` items for generic PPTX behavior a
+  downstream consumer needs that belongs in this package; `fork-internal-proposal`
+  items for API-evolution / breaking-change candidates the fork proposes for itself
+  (not driven by a downstream consumer or an upstream issue); plus a set of retained
+  upstream-derived signals from gitbrent/PptxGenJS that were judged relevant before
+  upstream tracking was retired. New entries are project needs or fork proposals.
+  Downstream needs are recorded generically: describe the missing PPTX behavior and
+  its generic reproduction, never a private consumer's name, files, or content. The
+  `source` field carries a github reference (owner/repo#N or a github.com
+  issues/pull URL) for the retained legacy entries, `downstream` for downstream
+  needs, or `fork[:path]` for fork-internal proposals (path points at the source
+  file in THIS repo the proposal concerns). This file is no longer synced against
+  GitHub; the upstream reconciliation tooling has been removed.
 project_target_docs:
   - docs/project-target.md
   - docs/runtime-and-package-support.md
@@ -34,10 +36,13 @@ project_target_docs:
 # - After ANY edit to this file, run `pnpm run backlog:validate` and fix every
 #   error before committing. The validator keys on the `vocabulary:` lists in THIS file.
 # - `source` must be consistent with `type`: issue/pull-request entries need a github
-#   reference; downstream-need entries need `downstream` or `downstream:<path>`;
-#   fork-internal-proposal entries need `fork` or `fork:<path>`.
+#   reference; downstream-need entries need `downstream`; fork-internal-proposal
+#   entries need `fork` or `fork:<path>`.
 #   New downstream needs / fork proposals are easiest to add with
 #   `pnpm run backlog -- add` (see --help).
+# - Downstream needs are ANONYMOUS. Never write a private consumer's name, its file
+#   paths, deck/client names, or its content into any entry. Describe only the
+#   generic PPTX gap and how any consumer would reproduce it.
 
 vocabulary:
   statuses:
@@ -113,11 +118,11 @@ vocabulary:
     - powerpoint-result
     - powerpoint-authored-comparison
   constructs:
-    # OOXML construct identity for the downstream replication capability audit
-    # (scripts/slide-analysis/replication). An entry tags the OOXML construct(s) it
-    # gates so the consumer joins detected-construct -> gating-entry -> live status
-    # directly off this ledger, with no hand-curated construct map. Keys are the
-    # stable detector keys; the comment names the DrawingML element each identifies.
+    # OOXML construct identity for a downstream replication capability audit. An
+    # entry tags the OOXML construct(s) it gates so a consumer can join
+    # detected-construct -> gating-entry -> live status directly off this ledger,
+    # with no hand-curated construct map. Keys are the stable detector keys; the
+    # comment names the DrawingML element each identifies.
     - gradient-fill #         <a:gradFill> shape fill
     - gradient-line-stroke #  <a:gradFill> inside <a:ln>
     - custom-geom #           <a:custGeom> freeform geometry
@@ -138,8 +143,8 @@ vocabulary:
     - build-animation #       <p:timing>/<p:bldLst> per-shape build animation (added 2026-06-26 for docs/animations-and-transitions.md)
 
 item_fields:
-  id: stable local identifier; upstream-issue-N / upstream-pr-N for upstream, sf-<slug> for downstream
-  source: github reference (owner/repo#N or github.com issues/pull URL) for upstream; downstream[:path] for downstream-need
+  id: stable local identifier; upstream-issue-N / upstream-pr-N for upstream, dn-<slug> for downstream-need, fork-<slug> for fork-internal-proposal
+  source: github reference (owner/repo#N or github.com issues/pull URL) for upstream; "downstream" for downstream-need; fork[:path] for fork-internal-proposal
   type: issue, pull-request, downstream-need, or fork-internal-proposal
   first_seen: ISO date when recorded locally
   last_reviewed: ISO date when last classified
@@ -149,15 +154,14 @@ item_fields:
   applies_to_current_project: one vocabulary.applies_to_current_project value
   non_target_reasons: list of vocabulary.non_target_reasons values
   summary: short one-line summary
-  constructs: optional; list of vocabulary.constructs OOXML construct keys this entry gates (read by the downstream replication capability audit)
-  current_project_notes: local decision note; for downstream-need, the full design rationale belongs here
-  stopgap: optional; the downstream file the gap forces a workaround in (downstream-need only)
+  constructs: optional; list of vocabulary.constructs OOXML construct keys this entry gates (read by a downstream replication capability audit)
+  current_project_notes: local decision note; for downstream-need, the full generic design rationale belongs here (no private consumer names/paths/content)
   evidence: local evidence gathered against this checkout
   next_action: next local action or none
 
 # Add an upstream item by hand following the example below. Add a downstream-need
-# the easy way with `pnpm run backlog -- add` (see --help), then write its design
-# rationale into current_project_notes as a block scalar.
+# the easy way with `pnpm run backlog -- add` (see --help), then write its generic
+# design rationale into current_project_notes as a block scalar.
 #
 # items:
 # - id: upstream-issue-1234
@@ -1045,9 +1049,10 @@ items:
       Because PptxGenJS does no glyph measurement or line-breaking, several text
       behaviors emit correct OOXML yet render differently across PowerPoint,
       LibreOffice, and the intended layout. These are documented limitations, not
-      bugs, and their guard lives downstream (downstream has fonts + LibreOffice
-      and can measure/resize before addText). Write them down in the fork docs so
-      every consumer knows what schema fixtures intentionally do NOT assert:
+      bugs, and their guard lives downstream (a consumer with the fonts and a
+      headless renderer can measure/resize before addText). Write them down in the
+      fork docs so every consumer knows what schema fixtures intentionally do NOT
+      assert:
         - fit:'shrink' emits a bare <a:normAutofit/>; the fontScale/lnSpcReduction
           variant is deliberately omitted because PowerPoint computes it on
           edit/resize, so generated decks overflow until a human touches the shape.
@@ -1068,7 +1073,7 @@ items:
       spec_refs: []
     next_action: On hold per user request — do not surface in suggestions; reactivate (and re-derive the caveat list, which is likely stale) only when the user asks.
   - id: dn-registry-components
-    source: downstream:registry/components
+    source: downstream
     type: downstream-need
     first_seen: 2026-06-18
     last_reviewed: 2026-06-24
@@ -1084,24 +1089,23 @@ items:
       ON HOLD — owner-gated. Do NOT propose, plan, re-raise, or surface this item
       in suggestions until the maintainer explicitly green-lights it, regardless of
       its p2-shaped value. Parked 2026-06-24 after a readiness review found the
-      precondition unmet: the registry contract that matters is not the 46-line
-      RenderResult shape but the whole registry/lib/* + theme/downstream.ts substrate
-      every component reaches into (Theme token schema, Region/layout, layout-time
-      text measure, slide-semantics.v1, icons, catalog) — much of it brand/workflow
-      coupled and meant to stay downstream — and that substrate is still under heavy
-      active churn (ongoing graduate/drop/add commits). Graduating now would be a
-      hard cross-repo move that freezes a still-moving API. Reactivate only on the
-      owner's word, and re-derive the candidate list below (it will likely be stale).
+      precondition unmet: the contract that matters is not the small per-component
+      render-result shape but the whole layout/theme substrate every component
+      reaches into (a theme token schema, region/layout, layout-time text measure,
+      a design-intent/semantics layer, icons, catalog) — much of it brand/workflow
+      coupled and meant to stay in the consumer — and that substrate is still under
+      heavy active churn. Graduating now would be a hard cross-repo move that freezes
+      a still-moving API. Reactivate only on the owner's word, and re-derive the
+      candidate list below (it will likely be stale).
 
-      downstream composes decks from a typed component registry. The generic,
-      brand-free building blocks are fork candidates once the component contract
-      stabilizes; defer the actual move until then. Brand chrome
-      (section-header, source-footer) and the downstream theme stay downstream; the
-      upstream form of asset-bearing components takes resolved image paths
-      (resolution stays in downstream's lib/assets.ts). The registry/lib/*
-      region/semantics/names helpers are also generic candidates.
+      A downstream consumer composes decks from a typed component registry. The
+      generic, brand-free building blocks are fork candidates once the component
+      contract stabilizes; defer the actual move until then. Brand chrome and the
+      consumer's theme stay downstream; the upstream form of asset-bearing components
+      takes already-resolved image paths (asset resolution stays downstream). The
+      generic region/semantics/naming layout helpers are also candidates.
 
-      Candidates:
+      Generic candidate primitives:
         - metric-card-grid — grid of metric cards (value + label + icon).
         - stat-callout — single hero number; degenerate single-card sibling of
           metric-card-grid.
@@ -1111,17 +1115,14 @@ items:
         - icon-label-row — row/column of icon+label pairs.
         - process-steps — ordered process/timeline with native arrow endcaps
           (connectors lean on line.endArrowType, already upstream).
-        - two-column-split — LAYOUT primitive returning a TwoColumnResult
-          ({ ...RenderResult, left, right }); surfaces the layout-component
-          return-shape extension. Both the primitive AND the RenderResult-extension
-          contract are upstreamable; a pure twoColumnRegions() helper exposes the
-          layout without chrome.
+        - two-column-split — LAYOUT primitive returning a two-column result
+          (render result plus left/right regions); surfaces the layout-component
+          return-shape extension. Both the primitive AND the return-shape extension
+          are upstreamable; a pure regions helper exposes the layout without chrome.
         - logo-group-panel — grouped brand-logo panels (seeded chip scatter);
           shape generic, asset resolution downstream.
         - quadrant-matrix — 2x2 positioning matrix with native line arrowheads
-          (rotated y-axis title uses the rotate workaround; see
-          dn-text-direction-serialization).
-    stopgap: registry/components
+          (rotated y-axis title needs the text-direction workaround).
     evidence:
       kinds:
         - local-source-inspection
@@ -1133,7 +1134,7 @@ items:
       spec_refs: []
     next_action: none-until-owner-greenlights
   - id: dn-logo-cloud-helper
-    source: downstream:registry/lib/logo-cloud.ts
+    source: downstream
     type: downstream-need
     first_seen: 2026-06-18
     last_reviewed: 2026-06-25
@@ -1153,13 +1154,12 @@ items:
 
       The logo-cloud geometry — uniform white chips laid out as a deterministic
       FNV-1a seeded scatter, one shared chip scale fitted across several zones,
-      and a text-chip fallback for unresolved marks — was extracted from
-      logo-group-panel into registry/lib/logo-cloud.ts so other cluster components
-      reuse it. Surfaces: fitChipScale, placeChipCloud, renderChip, hasMemberLogo.
-      Genuinely generic and a candidate to move alongside the other registry/lib/*
-      layout primitives, but today it depends on downstream's lib/assets.ts
-      resolver and the downstream Theme, so the move waits on those boundaries.
-    stopgap: registry/lib/logo-cloud.ts
+      and a text-chip fallback for unresolved marks — was extracted downstream into
+      a shared helper so other cluster components reuse it (fit-chip-scale,
+      place-chip-cloud, render-chip, has-member-logo). Genuinely generic and a
+      candidate to move alongside the other layout primitives, but today it depends
+      on the consumer's asset resolver and theme, so the move waits on those
+      boundaries.
     evidence:
       kinds:
         - local-source-inspection
@@ -1181,7 +1181,7 @@ items:
     applies_to_current_project: yes
     non_target_reasons: []
     summary: latexToOmml accents (\hat, \bar, \vec, ...) degrade to m:limUpp because temml omits accent="true" on <mover>
-    current_project_notes: "Temml renders accent commands (\\hat \\bar \\vec \\dot \\tilde \\ddot \\acute \\grave \\check \\breve \\widehat \\overline ...) as <mover> WITHOUT the accent=\"true\" attribute (and under-accents \\underline/\\utilde as <munder> without accentunder=\"true\"). Browsers derive accent positioning from the MathML operator dictionary so it renders fine in a browser, but mathml2omml keys off the attribute: <mover accent=\"true\"> -> <m:acc> (correct accent, script hugs the base) vs a bare <mover> -> <m:limUpp> (over-limit: wrong spacing/semantics). So latexToOmml('\\\\hat{a}') currently emits a limit-over construct in the .pptx rather than a true accent. The output is still valid OMML and opens clean in PowerPoint, so this is a fidelity limit, not a correctness bug - already documented in docs/math-latex.md 'Scope and limits' (the '\\hat renders via <m:limUpp> rather than <m:acc>' note). The full write-up (repro, affected commands, suggested fix) is captured in ../temml-issue.md, distilled from the retired MATH-LATEX-OMML plan. The clean fix is an explicit accent=\"true\"/accentunder=\"true\" from temml, but on closer inspection that temml change is not as straightforward as first thought; there is no upstream fix or PR and it is not clear it will be fixed. Parked on-hold (owner-gated): do NOT re-raise until either a temml fix lands or the maintainer green-lights a local shim (post-process temml's MathML to stamp accent=\"true\" on known accent operators before handing it to mathml2omml). Companions: upstream-issue-1456 (the shipped math feature), dn-inline-math."
+    current_project_notes: "Temml renders accent commands (\\hat \\bar \\vec \\dot \\tilde \\ddot \\acute \\grave \\check \\breve \\widehat \\overline ...) as <mover> WITHOUT the accent=\"true\" attribute (and under-accents \\underline/\\utilde as <munder> without accentunder=\"true\"). Browsers derive accent positioning from the MathML operator dictionary so it renders fine in a browser, but mathml2omml keys off the attribute: <mover accent=\"true\"> -> <m:acc> (correct accent, script hugs the base) vs a bare <mover> -> <m:limUpp> (over-limit: wrong spacing/semantics). So latexToOmml('\\\\hat{a}') currently emits a limit-over construct in the .pptx rather than a true accent. The output is still valid OMML and opens clean in PowerPoint, so this is a fidelity limit, not a correctness bug - already documented in docs/math-latex.md 'Scope and limits' (the '\\hat renders via <m:limUpp> rather than <m:acc>' note). The full write-up (repro, affected commands, suggested fix) is captured in ../temml-issue.md, distilled from the retired MATH-LATEX-OMML plan. The clean fix is an explicit accent=\"true\"/accentunder=\"true\" from temml, but on closer inspection that temml change is not as straightforward as first thought; there is no upstream fix or PR and it is not clear it will be fixed. Parked on-hold (owner-gated): do NOT re-raise until either a temml fix lands or the maintainer green-lights a local shim (post-process temml's MathML to stamp accent=\"true\" on known accent operators before handing it to mathml2omml). Companion: upstream-issue-1456 (the shipped math feature)."
     evidence:
       kinds: []
       local_files: []
@@ -1191,7 +1191,7 @@ items:
       spec_refs: []
     next_action: none
   - id: dn-measure-glyph-coverage
-    source: downstream:scripts/slide-analysis/replication/glyph-coverage.ts
+    source: downstream
     type: downstream-need
     first_seen: 2026-07-07
     last_reviewed: 2026-07-07
@@ -1201,22 +1201,21 @@ items:
       - typescript-api
     applies_to_current_project: yes
     non_target_reasons: []
-    summary: Cmap-backed per-codepoint glyph-coverage accessor on the measure module (replace downstream's fc-match shell)
+    summary: Cmap-backed per-codepoint glyph-coverage accessor on the measure module (replace a downstream fc-match shell)
     current_project_notes: >-
       Landed. The per-face cmap primitive already existed (FontMetrics.hasCodepoint(cp)
       in src/font-metrics.ts, backed by opentype hasChar — glyph index > 0, not .notdef),
       exported from @shbernal/pptxgenjs/measure and tested against the Silkscreen fixture
       (U+2011 as the canonical missing glyph). This item added the face-keyed convenience
-      the consumer wanted: FontMetricsRegistry.hasCodepoint(face, cp, opts?) resolves the
+      a consumer wanted: FontMetricsRegistry.hasCodepoint(face, cp, opts?) resolves the
       face with the same exact→regular→any-variant fallback as get() and returns
       boolean|undefined, where undefined means the face has no registered metrics
       (unknown) — deliberately distinct from a false "registered but not covered", so a
       coverage audit never treats an unregistered face as fully covered. No pptx-instance
-      method was added (downstream uses the standalone measure module, not a
-      presentation instance). Downstream reap (out of scope here): downstream registers
-      the replica face once via parseFontMetrics + registry.set and swaps its fc-match
-      shell in scripts/slide-analysis/replication/glyph-coverage.ts for the in-process
-      accessor, removing the fontconfig-absent Windows degrade path.
+      method was added (the standalone measure module is the consumption path, not a
+      presentation instance). Downstream reap (out of scope here): a consumer registers
+      the checked face once via parseFontMetrics + registry.set and swaps its fc-match
+      shell for the in-process accessor, removing the fontconfig-absent degrade path.
     evidence:
       kinds:
         - local-source-inspection
@@ -1230,7 +1229,7 @@ items:
       spec_refs: []
     next_action: none
   - id: dn-readmodel-placeholder-font
-    source: downstream:decks/replication-lab/scripts/slides/2025-data-ai-governance__008/a.ts
+    source: downstream
     type: downstream-need
     first_seen: 2026-07-07
     last_reviewed: 2026-07-07
@@ -1258,8 +1257,8 @@ items:
       a bold-inheriting placeholder exists in-repo to assert the true direction; that
       branch shares the resolver/chain-walk already validated by the size/face and
       bold-false cases (it differs only by the b === '1' string compare). Downstream reap
-      (out of scope here): the harvester records resolvedSizePt/FontFace/Bold and the a.ts
-      28pt/11pt hand-guessed literals in decks/replication-lab go away.
+      (out of scope here): a consumer's harvester records resolvedSizePt/FontFace/Bold and
+      the hand-guessed font-size literals in generated slides go away.
     evidence:
       kinds:
         - local-source-inspection
@@ -1275,7 +1274,7 @@ items:
       spec_refs: []
     next_action: none
   - id: dn-image-shape-fill
-    source: downstream:scripts/slide-analysis/replication/capability-map.ts
+    source: downstream
     type: downstream-need
     first_seen: 2026-07-07
     last_reviewed: 2026-07-07
@@ -1286,7 +1285,7 @@ items:
     applies_to_current_project: partial
     non_target_reasons: []
     summary: Emit an <a:blipFill> as the fill of a <p:sp> (image as shape fill)
-    current_project_notes: "Already emittable by the kit: a shape fill of type 'image' (ShapeFillProps.type='image' with image:{path|data}, added in the #1317 image-fill work) serializes as an <a:blipFill> directly inside the shape's <p:spPr>, in CT_ShapeProperties order (geometry, then fill, then line). This holds for preset shapes AND for custGeom shapes, so the shape's own geometry (the <a:custGeom> path) is the clip — exactly the blip-fill-shape capability. genXmlColorSelection's 'image' branch (src/gen-utils.ts genXmlImageFill) emits the blipFill; registerImageFillMedia (src/gen-objects.ts, called from addShapeDefinition/addTextDefinition) registers the bitmap as a slide media rel and stashes the rId. The ledger note's earlier 'not emittable, use a <p:pic>+custGeom clip instead' claim predated confirmation and is superseded. Locked in by a custGeom-specific regression asserting <a:custGeom> precedes <a:blipFill>. Note: downstream capability-map.ts blip-fill-shape auto-greens from this status flip, but its human-readable note: string still says 'not emittable' and should be refreshed in a downstream task (out of scope here)."
+    current_project_notes: "Already emittable by the kit: a shape fill of type 'image' (ShapeFillProps.type='image' with image:{path|data}, added in the #1317 image-fill work) serializes as an <a:blipFill> directly inside the shape's <p:spPr>, in CT_ShapeProperties order (geometry, then fill, then line). This holds for preset shapes AND for custGeom shapes, so the shape's own geometry (the <a:custGeom> path) is the clip — exactly the blip-fill-shape capability. genXmlColorSelection's 'image' branch (src/gen-utils.ts genXmlImageFill) emits the blipFill; registerImageFillMedia (src/gen-objects.ts, called from addShapeDefinition/addTextDefinition) registers the bitmap as a slide media rel and stashes the rId. The ledger note's earlier 'not emittable, use a <p:pic>+custGeom clip instead' claim predated confirmation and is superseded. Locked in by a custGeom-specific regression asserting <a:custGeom> precedes <a:blipFill>. Note: a downstream capability audit keyed on the blip-fill-shape construct auto-greens from this status flip, but any human-readable note it carries saying 'not emittable' should be refreshed downstream (out of scope here)."
     constructs:
       - blip-fill-shape
     evidence:
@@ -1388,7 +1387,7 @@ items:
     applies_to_current_project: no
     non_target_reasons: []
     summary: defineSlideMaster placeholders all default objectName to 'Text 0' (non-unique Selection Pane identities)
-    current_project_notes: "Root cause: addTextDefinition (src/gen-objects.ts) tags placeholders with _type=SlideObjectType.placeholder (line ~1699), but the default objectName is computed as `Text ${target._slideObjects.filter(o => o._type === SlideObjectType.text).length}` (line ~1742) — a counter that only counts text-typed objects. Every placeholder therefore sees a text-count of 0 and defaults to 'Text 0', so a master/layout with 2+ text placeholders emits duplicate objectName values. The shape default at line ~1170 ('Shape ${...text...length}') has the same text-only miscount. Surfaced as the 'duplicate objectName value(s) ... Text 0. Selection Pane identities should be unique.' warning fired (twice) by the schema fixture 'master/layout placeholder carries bodyPr insets + anchor' (test/schema.test.js), which defines two named placeholders (title-ph, body-ph) whose names are consumed as the placeholder idx reference, not as objectName. Output is otherwise valid OOXML; the defect is non-unique PowerPoint Selection Pane names. Proposed fix: count all _slideObjects (or per-type) when synthesizing the default name, and/or fall back to the placeholder's name/type for a stable identity. Deferred from the transparent-chartColors cleanup because changing the default-naming scheme shifts emitted objectName across many existing chart/shape/text fixtures and needs its own regression pass. applies_to_current_project=no: downstream sets explicit names. RESOLVED 2026-07-08: fixed the addTextDefinition naming site (src/gen-objects.ts) — a placeholder now defaults its objectName to its declared name (then _placeholderType, then `Placeholder ${_placeholderIdx}`) instead of the text-object counter, giving unique, meaningful Selection Pane identities. Scope was narrower than first written: the Shape default (line ~1170) never actually collides because addShape stores shapes as _type=text and the counter increments per shape (distinct 'Shape N' from 'Text N' by prefix); the only duplicate-producer was placeholders, which are _type=placeholder and thus uncounted. Regression churn was nil — no test asserted exact default numbers. Verified: full test/regression + test/schema-validation suites pass (568 tests), incl. the two-placeholder BODYPR_MASTER schema fixture which no longer fires the duplicate-objectName warning; new regression 'master placeholders default to distinct names' in test/regression/object-identity.test.js."
+    current_project_notes: "Root cause: addTextDefinition (src/gen-objects.ts) tags placeholders with _type=SlideObjectType.placeholder (line ~1699), but the default objectName is computed as `Text ${target._slideObjects.filter(o => o._type === SlideObjectType.text).length}` (line ~1742) — a counter that only counts text-typed objects. Every placeholder therefore sees a text-count of 0 and defaults to 'Text 0', so a master/layout with 2+ text placeholders emits duplicate objectName values. The shape default at line ~1170 ('Shape ${...text...length}') has the same text-only miscount. Surfaced as the 'duplicate objectName value(s) ... Text 0. Selection Pane identities should be unique.' warning fired (twice) by the schema fixture 'master/layout placeholder carries bodyPr insets + anchor' (test/schema.test.js), which defines two named placeholders (title-ph, body-ph) whose names are consumed as the placeholder idx reference, not as objectName. Output is otherwise valid OOXML; the defect is non-unique PowerPoint Selection Pane names. Proposed fix: count all _slideObjects (or per-type) when synthesizing the default name, and/or fall back to the placeholder's name/type for a stable identity. Deferred from the transparent-chartColors cleanup because changing the default-naming scheme shifts emitted objectName across many existing chart/shape/text fixtures and needs its own regression pass. applies_to_current_project=no: the primary consumer sets explicit names. RESOLVED 2026-07-08: fixed the addTextDefinition naming site (src/gen-objects.ts) — a placeholder now defaults its objectName to its declared name (then _placeholderType, then `Placeholder ${_placeholderIdx}`) instead of the text-object counter, giving unique, meaningful Selection Pane identities. Scope was narrower than first written: the Shape default (line ~1170) never actually collides because addShape stores shapes as _type=text and the counter increments per shape (distinct 'Shape N' from 'Text N' by prefix); the only duplicate-producer was placeholders, which are _type=placeholder and thus uncounted. Regression churn was nil — no test asserted exact default numbers. Verified: full test/regression + test/schema-validation suites pass (568 tests), incl. the two-placeholder BODYPR_MASTER schema fixture which no longer fires the duplicate-objectName warning; new regression 'master placeholders default to distinct names' in test/regression/object-identity.test.js."
     evidence:
       kinds: []
       local_files: []
@@ -1397,3 +1396,53 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: none
+  - id: dn-wide-matrix-fills
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-07-08
+    last_reviewed: 2026-07-08
+    status: target
+    priority: p2
+    target_area:
+      - missing-pptx-feature
+      - typescript-api
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: Wide many-column matrix table with per-column fills / maturity-gradient headers and bracket annotations spanning column groups (comparison-table is deliberately text-on-white with no fills)
+    current_project_notes: |
+      A consumer building an assessment / scorecard / maturity grid needs a wide,
+      many-column (~15) COLORED matrix table that the current primitives do not
+      cover. The target visual language:
+        - a maturity RAMP across a group of requirement columns (e.g. four levels
+          L1→L4), each column header carrying its own fill in a graduated palette
+          (paler → deeper);
+        - column-group BRACKET annotations above the header band — a right-brace /
+          bracket spanning several columns, with a caption — that label what a span
+          of columns means.
+      The comparison-table primitive is deliberately a quiet text-on-white matrix:
+      its column type is `{ id, label }` only — no per-column fill, no header
+      gradient, no bracket/annotation layer — and it is not meant to scale to ~15
+      columns. There is no other primitive for a wide COLORED matrix.
+
+      Proposed upstream shape (public, generic — every consumer building an
+      assessment/scorecard/maturity grid wants this): a table/matrix construct (or
+      an extension of the comparison-table family) that accepts per-column fill
+      specs (solid or a ramp across a column group), styled header cells, and an
+      optional "group bracket" annotation layer keyed to a span of columns. It
+      should degrade cleanly to today's text-on-white when no fills are given.
+
+      Until it lands, a consumer builds such a slide as a hand-laid table (native
+      cells with explicit fills + a drawn brace shape), marked downstream as a
+      workaround referencing this id. Do NOT generalize that workaround into a
+      shared primitive; graduate only the upstream feature.
+    evidence:
+      kinds:
+        - local-source-inspection
+        - extracted-xml
+      local_files:
+        - src/gen-xml.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: Design the wide colored-matrix / annotated-bracket table API upstream; until it ships, the feature stays a hand-laid downstream workaround.

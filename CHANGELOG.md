@@ -106,7 +106,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `<m:oMath>` for inline embedding. Invalid LaTeX **throws** with temml's parse
     position (no silent coercion). No LaTeX macro packages and no `mc:Fallback` raster
     (output relies on the `Requires="a14"` envelope understood by PowerPoint 2010+).
-  - Downstream (downstream): equation authoring can drop its external LaTeX→OMML
+  - Downstream: a consumer's equation authoring can drop its external LaTeX→OMML
     step and call `latexToOmml()` directly once it adds the two peer deps.
   - See `docs/math-latex.md`. Implements the LaTeX/MathML leg of upstream issue #1456.
 
@@ -362,7 +362,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   archives are unaffected — keep passing `Uint8Array`/`ArrayBuffer`/`Blob`/`number[]`.
   Migration: to re-read a `binarystring`/`base64` write-path output, convert it to
   bytes first (e.g. `Uint8Array.from(atob(b64), c => c.charCodeAt(0))`) rather than
-  passing the string. Downstream: `downstream`'s slide-library tooling can read
+  passing the string. Downstream: a consumer's slide-library tooling can read
   `.pptx` parts (e.g. per-slide `_rels`) directly through the inspect API instead
   of shelling out to `unzip`.
 
@@ -950,7 +950,7 @@ removal, and external slide-master grafting. See `docs/measured-text-fit.md`.
   accessor now also accepts `async('uint8array')` alongside `async('string')`. This lets a
   consumer pull embedded media (SVG/PNG/EMF blobs, fonts) out of a `.pptx` without a second
   zip library — previously the inspect surface only exposed text parts, so callers extracting
-  media bytes had to keep their own JSZip dependency. Used by downstream's icon extractor
+  media bytes had to keep their own JSZip dependency. Used by a consumer's icon extractor
   to drop JSZip entirely.
 - **`pptxgenjs/read` resolves placeholder-inherited run size + typeface
   (`Run.resolvedSizePt`/`Run.resolvedFontFace`):** the size/face sibling of the
@@ -1023,8 +1023,8 @@ removal, and external slide-master grafting. See `docs/measured-text-fit.md`.
   `requireEqualSize` (default `true`) guards against mis-scaled layouts. Reuses
   the existing cross-package copy engine; untouched parts stay byte-identical and
   the result is schema-valid (`test/read/import-slide-masters.test.js`, 9 cases).
-  Brand-agnostic: the caller supplies the source `.pptx` (downstream points it
-  at the downstream template to ship the brand layout gallery).
+  Brand-agnostic: the caller supplies the source `.pptx` (a consumer points it
+  at its own brand template to ship a layout gallery).
 - **Read model applies DrawingML colour transforms (`effectiveHex`):** the
   `pptxgenjs/read` colour resolver now computes the colour a renderer actually
   paints, not just the base token. `ResolvedColor` (from `Shape.resolvedFill` /

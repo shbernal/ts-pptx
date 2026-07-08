@@ -33,8 +33,8 @@ package boundary explicit.
   boundary.
 - Keep OOXML behavior grounded in fixtures, schema validation, and small local
   notes.
-- Keep downstream-specific deck production behavior in `downstream`, not this
-  package.
+- Keep consumer-specific deck production behavior in the downstream consumer, not
+  this package.
 
 ## Standard Verification
 

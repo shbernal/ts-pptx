@@ -27,7 +27,7 @@ in the file*. Two independent entry points share one OOXML model:
   Source: `src/read/api/presentation.ts` (`#carryEmbeddedFonts`).
 
 Both converge on the shared model and serializer in `src/embedded-fonts.ts`.
-See `CHANGELOG.md` and backlog `dn-importslide-v1-limits` (gap #1). Tests:
+See `CHANGELOG.md` for the import-carry limits. Tests:
 `test/regression/embed-font.test.js` (author-side), `test/read/embedded-fonts.test.js`
 (import-carry, incl. schema validity), and an author-side case in
 `test/schema.test.js` (validator-checked against the oracle).

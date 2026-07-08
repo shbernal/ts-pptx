@@ -1,9 +1,9 @@
 ---
 doc-schema-version: 1
 title: "Backlog Workflow"
-summary: "How to record and classify this fork's own project work in docs/backlog.yml: downstream downstream needs plus the retained upstream-derived entries, without reintroducing dropped package targets."
+summary: "How to record and classify this fork's own project work in docs/backlog.yml: anonymous downstream consumer needs plus the retained upstream-derived entries, without reintroducing dropped package targets."
 read_when:
-  - Recording a downstream need raised by downstream
+  - Recording a downstream need raised by a consumer
   - Updating backlog classifications
   - Closing a backlog item after a fix lands
   - Deciding whether a behavior belongs in this fork
@@ -16,9 +16,11 @@ This workflow maintains the fork's backlog ledger, `docs/backlog.yml`. It is a
 **project backlog**: a record of work this fork intends to do and decisions it
 has made. It holds two kinds of entry:
 
-1. **Downstream needs** — generic PPTX behavior the downstream consumer needs
-   that belongs in this package (`type: downstream-need`, `source:
-   downstream[:path]`). These are the primary, ongoing source of new work.
+1. **Downstream needs** — generic PPTX behavior a downstream consumer needs that
+   belongs in this package (`type: downstream-need`, `source: downstream`). These
+   are the primary, ongoing source of new work, and they are recorded
+   **anonymously**: describe the missing PPTX behavior and its generic
+   reproduction, never a private consumer's name, file paths, or content.
 2. **Retained upstream-derived signals** — a set of gitbrent/PptxGenJS issues and
    PRs that were judged relevant to this fork before upstream tracking was
    retired. They carry a github reference (`owner/repo#N`) in `source` and remain
@@ -31,8 +33,8 @@ has made. It holds two kinds of entry:
 > file are kept as-is unless a local change closes one.
 
 The `source` field still discriminates the two kinds, and the validator enforces
-it: github references for the retained legacy entries, `downstream[:path]` for
-downstream needs.
+it: github references for the retained legacy entries, the bare token `downstream`
+for downstream needs (never a consumer path — that would leak private structure).
 
 ## Out-Of-Target Work
 
@@ -226,8 +228,8 @@ Instead, record the fixture as the blocking precondition in the backlog and stop
   must capture, then leave the feature unimplemented until the fixture lands.
 - Tag the entry with the relevant `constructs:` key(s) (see the
   `vocabulary.constructs` list in `backlog.yml`, e.g. `custom-geom`,
-  `style-ref-color`, `group-rot-flip`) so the downstream replication audit can
-  join the detected construct to this gating entry.
+  `style-ref-color`, `group-rot-flip`) so a downstream replication audit can join
+  the detected construct to this gating entry.
 
 Author the fixture itself with the `powerpoint-fixture-authoring` skill, verify it
 with `scripts/verify-powerpoint-fixture.ps1`, record provenance + SHA-256 in
@@ -274,7 +276,8 @@ For each fixed item:
 - set `schema_fixture` and `validator_result` when a schema fixture was added;
 - add relevant OOXML or Microsoft references used for the fix;
 - set `next_action` to `none`;
-- delete any downstream `stopgap` the entry referenced.
+- remove the downstream workaround the entry gated (tracked downstream by the
+  in-code comment that references this entry's id, not by any field here).
 
 Validate the ledger before finishing:
 
@@ -283,56 +286,62 @@ pnpm run backlog -- validate
 pnpm run backlog -- show <id>
 ```
 
-## Downstream Needs (downstream)
+## Downstream Needs
 
-downstream is a consumer of this package, not part of its source. When a
-downstream task exposes a generic PPTX gap that belongs here — an OOXML
-serialization fix, an API/typing gap, a repeated layout primitive, media/SVG
-handling, post-processing that patches generated XML — record it as a
-`downstream-need` instead of leaving a one-off workaround undocumented. These are
-now the main source of new backlog work.
+A downstream consumer of this package (not part of its source) is the main source
+of new backlog work. When a consumer task exposes a generic PPTX gap that belongs
+here — an OOXML serialization fix, an API/typing gap, a repeated layout primitive,
+media/SVG handling, post-processing that patches generated XML — record it as a
+`downstream-need` instead of leaving a one-off workaround undocumented.
 
-A downstream need is something we already believe is valuable, so the full design
-rationale and any long-form analysis are welcome in `current_project_notes`.
+**Record it anonymously.** This ledger is public; the consumer is not. Describe
+the missing PPTX behavior and how *any* consumer would reproduce it. Do NOT name
+the consumer project, quote its file paths, deck/client names, or content. Frame
+the rationale generically ("a consumer building an assessment grid needs …"), and
+let `evidence.local_files` point only at files in THIS repo.
+
+A downstream need is something we already believe is valuable, so the full generic
+design rationale and any long-form analysis are welcome in `current_project_notes`.
 
 Add one with the ledger CLI, then write the rationale into the file:
 
 ```bash
-pnpm run backlog -- add --id sf-<slug> --type downstream-need \
-  --source downstream:<path/that/needs/it> \
-  --summary "<one line>" --priority p2 \
-  --stopgap <downstream path the gap forces a workaround in>
+pnpm run backlog -- add --id dn-<slug> --type downstream-need \
+  --source downstream \
+  --summary "<one generic line>" --priority p2
 ```
 
 `add` writes a valid skeleton (defaults: `status: target`, `priority:
 p2`, `applies_to_current_project: yes`, today's dates) and validates the result.
-Then edit the entry to add `target_area`, evidence, and the design essay under
-`current_project_notes` (a `|` block scalar). The `stopgap` field records the
-downstream file carrying the temporary workaround, so the loop is closeable:
-when the fix lands here, flip `status` to `implemented` and delete the stopgap
-downstream.
+Then edit the entry to add `target_area`, evidence, and the (generic) design essay
+under `current_project_notes` (a `|` block scalar).
 
-`id` uses an `sf-<slug>` prefix.
+There is no `stopgap` field: the temporary workaround lives downstream and is
+tracked there by an in-code comment referencing this entry's id, keeping the
+consumer's paths out of this public ledger. When the fix lands here, flip `status`
+to `implemented` and remove that downstream workaround.
+
+`id` uses a `dn-<slug>` prefix.
 
 ## Promotion Checklist (before moving a candidate into the fork)
 
-1. Prove the need with a downstream deck or eval.
+1. Prove the need with a minimal, consumer-agnostic reproduction.
 2. Reduce the behavior to a minimal PptxGenJS fixture.
 3. Add a PptxGenJS regression or schema test.
-4. Pack or link the fork into downstream.
-5. Run the relevant downstream build/render/lint/eval command.
-6. Keep only generic code in PptxGenJS; keep project policy in downstream.
+4. Pack or link the fork into the downstream consumer to verify.
+5. Run the consumer's build/render/lint/eval path against the linked fork.
+6. Keep only generic code in PptxGenJS; keep project policy downstream.
 
-## Keep In downstream (not fork candidates)
+## Keep Downstream (not fork candidates)
 
-These encode downstream/downstream specifics or deck workflow and stay downstream —
-do not raise them as backlog items:
+These encode a specific consumer's brand, content, or deck workflow and stay
+downstream — do not raise them as backlog items:
 
-- downstream brand guidance, CV workflow scripts, and workflow-specific content.
-- Aptos as a project default font.
-- Lucide and Dashboard Icons policy, imports, aliases, and provenance manifests.
-- Pexels or other external asset sourcing helpers.
-- `slide-lint` quality thresholds, annotated screenshots, and human-review artifacts.
+- Brand guidance, workflow-specific scripts, and consumer content.
+- A consumer's default font choice.
+- Icon-set policy, imports, aliases, and provenance manifests.
+- External stock-asset sourcing helpers.
+- Lint quality thresholds, annotated screenshots, and human-review artifacts.
 - Slide semantics manifests as agent-facing design-intent contracts.
-- Greenfield deck eval prompts, scorecards, and Codex adapter behavior.
+- Greenfield deck eval prompts, scorecards, and generator-adapter behavior.
 - LibreOffice/ImageMagick rendering orchestration for local visual QA.

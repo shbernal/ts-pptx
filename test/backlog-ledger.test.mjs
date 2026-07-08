@@ -332,10 +332,9 @@ describe('backlog ledger tooling', () => {
 			fixture,
 			{
 				id: 'dn-text-direction',
-				source: 'downstream:registry/components/quadrant-matrix.ts',
+				source: 'downstream',
 				type: 'downstream-need',
 				summary: 'textDirection typed but not serialized',
-				stopgap: 'registry/components/quadrant-matrix.ts',
 			},
 			'2026-06-18'
 		)
@@ -346,7 +345,6 @@ describe('backlog ledger tooling', () => {
 		expect(added.type).toBe('downstream-need')
 		expect(added.status).toBe('target')
 		expect(added.priority).toBe('p2')
-		expect(added.stopgap).toBe('registry/components/quadrant-matrix.ts')
 	})
 
 	test('accepts a fork-internal-proposal item with a fork source', () => {
@@ -408,7 +406,7 @@ describe('backlog ledger tooling', () => {
 			fixture,
 			{
 				id: 'dn-vert-text',
-				source: 'downstream:registry/components/quadrant-matrix.ts',
+				source: 'downstream',
 				type: 'downstream-need',
 				summary: 'vertical text gate',
 				constructs: ['vertical-text'],

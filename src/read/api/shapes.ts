@@ -894,8 +894,8 @@ export abstract class Shape {
 	 * The shape's line/border **gradient** stroke (`spPr/a:ln/a:gradFill`), or
 	 * `null` when the line is a solid, absent, or inherited border (see
 	 * {@link resolvedLine}). The line counterpart of {@link gradientFill}: a
-	 * gradient-stroked connector — common for the faded process arrows in downstream
-	 * decks — otherwise surfaces only its {@link lineWidthPt}, dropping the colour
+	 * gradient-stroked connector — common for faded process arrows in styled decks
+	 * — otherwise surfaces only its {@link lineWidthPt}, dropping the colour
 	 * entirely, so a replica cannot reproduce the stroke.
 	 */
 	get lineGradient(): GradientFill | null {

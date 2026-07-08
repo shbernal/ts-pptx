@@ -36,7 +36,7 @@ exports and let this repository own the internal OOXML generation details.
 - `dist/` is generated release output, not hand-edited source.
 - Internal OOXML generators are implementation details unless deliberately
   exposed through `package.json` exports and public declarations.
-- Downstream deck-production workflows belong in `downstream` unless the
+- Downstream deck-production workflows belong in the consuming project unless the
   behavior is broadly reusable for PptxGenJS consumers.
 
 ## Data And Control Flow

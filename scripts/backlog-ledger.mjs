@@ -60,10 +60,9 @@ Options:
   --search <text>                         Filter list by id, source, summary, notes, or next_action
   --review-date <YYYY-MM-DD>              Date written by set-status (default: today)
   --id <id>                               Item id (add)
-  --source <ref>                          Item source: owner/repo#N, a github URL, downstream[:path], or fork[:path] (add)
+  --source <ref>                          Item source: owner/repo#N, a github URL, "downstream", or fork[:path] (add)
   --summary <text>                        One-line summary (add)
   --notes <text>                          current_project_notes body (add)
-  --stopgap <path>                        downstream file the gap forces a workaround in (add, optional)
   --constructs <key[,key...]>             OOXML construct keys this entry gates (add, optional; vocabulary.constructs)
   --next-action <text>                    next_action (add; default: none)
   --first-seen <YYYY-MM-DD>               first_seen date (add; default: today)
@@ -79,7 +78,7 @@ Examples:
   pnpm run backlog -- values status
   pnpm run backlog -- validate
   pnpm run backlog -- add --id dn-text-direction --type downstream-need \\
-    --source downstream:registry/components/quadrant-matrix.ts \\
+    --source downstream \\
     --summary "textDirection typed but not serialized" --priority p2
   pnpm run backlog -- remove upstream-issue-1440
   pnpm run backlog -- remove --status implemented
@@ -228,10 +227,6 @@ export function parseArgs(argv) {
 			const result = readOptionValue(argv, i, '--notes')
 			options.fields.notes = result.value
 			i += result.consumed
-		} else if (arg.startsWith('--stopgap')) {
-			const result = readOptionValue(argv, i, '--stopgap')
-			options.fields.stopgap = result.value
-			i += result.consumed
 		} else if (arg.startsWith('--constructs')) {
 			const result = readOptionValue(argv, i, '--constructs')
 			options.fields.constructs = parseCsv(result.value)
@@ -333,7 +328,7 @@ function isGithubRef(source) {
 }
 
 function isDownstreamSource(source) {
-	return typeof source === 'string' && /^downstream(:\S.*)?$/.test(source)
+	return source === 'downstream'
 }
 
 function isForkSource(source) {
@@ -381,7 +376,7 @@ export function validateLedgerData(data) {
 			errors.push(label + ': source must be a string')
 		} else if (item.type === 'downstream-need') {
 			if (!isDownstreamSource(item.source)) {
-				errors.push(label + ': downstream-need source must be "downstream" or "downstream:<path>"')
+				errors.push(label + ': downstream-need source must be "downstream"')
 			}
 		} else if (item.type === 'fork-internal-proposal') {
 			if (!isForkSource(item.source)) {
@@ -466,7 +461,6 @@ function itemSearchText(item) {
 		item.applies_to_current_project,
 		item.summary,
 		item.current_project_notes,
-		item.stopgap,
 		item.next_action,
 	]
 		.filter(Boolean)
@@ -593,7 +587,6 @@ function printItem(item, options) {
 		'summary: ' + item.summary,
 		'current_project_notes: ' + item.current_project_notes,
 	]
-	if (item.stopgap) lines.push('stopgap: ' + item.stopgap)
 	if (Array.isArray(item.constructs) && item.constructs.length > 0)
 		lines.push('constructs: ' + item.constructs.join(', '))
 	lines.push(...formatEvidence(item.evidence))
@@ -746,7 +739,6 @@ function buildItemSkeleton(fields, reviewDate) {
 		non_target_reasons: [],
 		summary: fields.summary || '',
 		current_project_notes: fields.notes || '',
-		...(fields.stopgap ? { stopgap: fields.stopgap } : {}),
 		...(fields.constructs?.length ? { constructs: fields.constructs } : {}),
 		evidence: {
 			kinds: [],

@@ -1,8 +1,8 @@
 // Read-model coverage for the per-shape / per-paragraph STYLE accessors:
 // Shape.lineWidthPt / adjustValues / gradientStops / hidden, and
 // Paragraph.align / spaceBeforePt / spaceAfterPt / marginLeftPt / indentPt /
-// bullet. These power a faithful style dump of a source slide (see
-// downstream's bundle `style.json`), so the reads must hold against both real
+// bullet. These power a faithful style dump of a source slide (e.g. a downstream
+// `style.json` bundle), so the reads must hold against both real
 // PowerPoint-authored XML and our own serializer.
 //
 // Strategy:

@@ -31,8 +31,8 @@
 ## API Evolution Policy
 
 - This fork is maintained for our own use; there is no external backward-compat
-  obligation. Prefer fixing root causes here rather than asking consumers (e.g.
-  `downstream`) to work around them — a fix in this public package helps every
+  obligation. Prefer fixing root causes here rather than asking a downstream
+  consumer to work around them — a fix in this public package helps every
   consumer.
 - Breaking changes are acceptable and encouraged when they make the API clearer
   or safer. Do not block an improvement on reverse compatibility. When you make
@@ -96,10 +96,11 @@ MCPs' corpora.
 
 ## Backlog Workflow
 
-- `docs/backlog.yml` is the fork's project backlog ledger. New work is recorded as `downstream-need` items raised by the downstream consumer (`source: downstream[:path]`); a set of retained gitbrent/PptxGenJS issues/PRs remain from before upstream tracking was retired (`source: owner/repo#N`). The validator enforces that the source matches the type. The full process lives in `docs/backlog-workflow.md`. Upstream tracking is retired — do not re-add a GitHub sync step.
+- `docs/backlog.yml` is the fork's project backlog ledger. New work is recorded as `downstream-need` items — generic PPTX behavior a downstream consumer needs (`source: downstream`); a set of retained gitbrent/PptxGenJS issues/PRs remain from before upstream tracking was retired (`source: owner/repo#N`). The validator enforces that the source matches the type. The full process lives in `docs/backlog-workflow.md`. Upstream tracking is retired — do not re-add a GitHub sync step.
+- **Downstream needs are ANONYMOUS.** This ledger is public; the consumer is not. Describe the generic PPTX gap and how any consumer reproduces it — never the consumer's name, file paths, deck/client names, or content.
 - Record a not-yet-implemented candidate here only; if you implement a change immediately, its record is the fork's own commit history, tests, and `CHANGELOG.md` — do not also add a backlog entry.
-- To add a downstream need, use `pnpm run backlog -- add --id sf-<slug> --type downstream-need --source downstream:<path> --summary "…"`, then write the design rationale into `current_project_notes`. For these we DO want full design detail (they are believed-valuable).
-- When you implement a fix or feature derived from a backlog item, update the corresponding entry: set `status` to `implemented`, update `last_reviewed` to today's date, update `current_project_notes` with where the fix landed, update `evidence.local_files`, set `next_action` to `none`, and delete any downstream `stopgap` it referenced.
+- To add a downstream need, use `pnpm run backlog -- add --id dn-<slug> --type downstream-need --source downstream --summary "…"`, then write the generic design rationale into `current_project_notes`. For these we DO want full design detail (they are believed-valuable).
+- When you implement a fix or feature derived from a backlog item, update the corresponding entry: set `status` to `implemented`, update `last_reviewed` to today's date, update `current_project_notes` with where the fix landed, update `evidence.local_files`, and set `next_action` to `none`. The temporary workaround lives downstream (tracked there by an in-code comment referencing the entry id); remove it when the fix lands.
 - Also update any companion items that share the same root cause.
 - Every field constrained by `vocabulary` (`status`, `priority`, `target_area`, `applies_to_current_project`, `non_target_reasons`, `evidence.kinds`) MUST use a value already listed under that file's top-level `vocabulary:` block. Before writing a value, scan the `vocabulary:` lists and reuse the closest existing term — do not invent synonyms (`validator-pass` for `validator-result`, `repro-confirmed` for `minimal-repro`, etc.), as the validator rejects them.
 - If no listed value genuinely fits the situation, do not force an approximation: add the new value to the appropriate `vocabulary:` list (with a one-line rationale in your message) in the same change, then use it. Extending the controlled vocabulary deliberately is fine; drifting away from it by typo is not.

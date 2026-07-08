@@ -27,18 +27,19 @@ calibrated against PowerPoint-authored fixtures. Source:
 
 Held conservative by `test/read/autofit-calibration-oracle.test.mjs` (computed
 shrink `fontScale` ≤ PowerPoint's; computed resize `cy` ≥ PowerPoint's *and* ≥
-LibreOffice's). See `CHANGELOG.md` and backlog `dn-measured-text-fit`.
+LibreOffice's). See `CHANGELOG.md` for the change history.
 
-Downstream driver: downstream overflow (text spilling out of cards/components).
+Downstream driver: a consumer hitting text overflow (text spilling out of
+cards/components) in a headless render pipeline.
 
 ## The problem
 
-The `fit` autofit markup already existed in the fork and downstream already
-used `fit:'shrink'` heavily, but the fork emitted the **bare flag with no baked
-result** (`<a:normAutofit/>` / `<a:spAutoFit/>`). A bare flag defers the fit
+The `fit` autofit markup already existed in the fork and downstream consumers
+already used `fit:'shrink'` heavily, but the fork emitted the **bare flag with no
+baked result** (`<a:normAutofit/>` / `<a:spAutoFit/>`). A bare flag defers the fit
 computation to an interactive edit/resize event that a headless render never
-fires, so in downstream's headless LibreOffice → PNG pipeline (and on plain
-file-open) nothing recomputes and the text still overflows.
+fires, so in a headless LibreOffice → PNG pipeline (and on plain file-open)
+nothing recomputes and the text still overflows.
 
 This is **not** an inherent renderer limitation — both PowerPoint and LibreOffice
 honor a fit that is already baked into the file. The catch is that the two
@@ -219,7 +220,7 @@ The hard problem the fixtures pin down is **vertical line metrics**: laid-out
 height = `lineCount × lineHeight`, and `lineHeight` is where renderers diverge ("single"
 spacing is font-metric-derived; a font carries hhea vs OS/2 win-* vs typo-* pairs,
 gated by the `USE_TYPO_METRICS` bit; PowerPoint and LibreOffice can pick different
-pairs). downstream renders through headless LibreOffice but the file must also
+pairs). A consumer may render through headless LibreOffice, but the file must also
 be correct in PowerPoint, so the solver is conservative against the **taller** of
 the two — which is why the fixtures measure both engines.
 
@@ -271,7 +272,7 @@ Provenance, SHA-256 hashes, and the case-id scheme are in
 - **resize ≠ "extend the card".** Baking `ext.cy` grows only the *text box*. A card
   background rectangle and an adjacent icon are separate shapes the library does not
   know are related, so resize alone will not "extend the card" or un-overlap the
-  icon — that layout coordination lives in the downstream component. This makes
+  icon — that layout coordination lives in the consumer's component. This makes
   **shrink** the higher-leverage fix for the actual driver; resize is a partial
   answer for grouped card components.
 - Metric fidelity vs PowerPoint's layout engine (kerning, ligatures, GPOS) and vs

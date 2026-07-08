@@ -21,12 +21,13 @@
 # ---------------------------------------------------------------------------
 # Example 1 — downstream-need (the primary, ongoing kind of new work)
 # ---------------------------------------------------------------------------
-# A generic PPTX gap the downstream consumer needs that belongs in this
-# package. Full design rationale is welcome in current_project_notes.
+# A generic PPTX gap a downstream consumer needs that belongs in this package.
+# Full GENERIC design rationale is welcome in current_project_notes — describe the
+# missing behavior, never a private consumer's name, paths, or content.
 # Defaults applied by `add` for this type: status=target, priority=p2, applies=yes.
 
-- id: dn-example-slug                       # `sf-<slug>` for downstream needs
-  source: downstream:path/that/needs/it  # downstream or downstream:<path>
+- id: dn-example-slug                        # `dn-<slug>` for downstream needs
+  source: downstream                         # always "downstream" for downstream needs
   type: downstream-need                      # downstream-need | issue | pull-request
   first_seen: 2026-06-18                      # YYYY-MM-DD; when it entered the ledger
   last_reviewed: 2026-06-19                   # YYYY-MM-DD; bump on every status change
@@ -46,12 +47,9 @@
     <a:gradFill> inside <a:ln>, reusing the genXmlGradientFill builder used for shape
     fills. Validated by schema fixture 'shape with gradient line stroke' in
     test/schema.test.js.
-  # OPTIONAL: `stopgap` — the downstream file carrying a temporary workaround
-  # this gap forces. Present while the gap is open; DELETE it when the fix lands.
-  # stopgap: downstream/registry/replication/kit.ts
   # OPTIONAL: `constructs` — OOXML construct keys this entry gates, from
-  # vocabulary.constructs, so the downstream replication audit can join a
-  # detected construct to its gating entry. Omit when not gating a construct.
+  # vocabulary.constructs, so a downstream replication audit can join a detected
+  # construct to its gating entry. Omit when not gating a construct.
   constructs:
     - gradient-line-stroke
   evidence:                                    # required block; lists prove the claim

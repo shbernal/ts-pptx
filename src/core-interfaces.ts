@@ -2850,7 +2850,7 @@ export interface ChartOpts
 	 *   extension untouched and ignores it for rendering.
 	 * - Keys must be non-empty strings; values must be strings. Invalid entries are dropped with a
 	 *   console warning rather than emitting degenerate XML.
-	 * @example { sourceId: 'q3-revenue', generator: 'downstream' }
+	 * @example { sourceId: 'q3-revenue', generator: 'my-deck-tool' }
 	 */
 	metadata?: Record<string, string>
 }
