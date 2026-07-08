@@ -32,8 +32,12 @@ jobs:
           package-manager-cache: false
 
       - name: Ensure npm supports trusted publishing
+        # Pin to the npm 11.x line rather than @latest: npm 12.0.0 ships a broken
+        # provenance bundle (`Cannot find module 'sigstore'`), which fails
+        # `npm publish --provenance`. 11.x (>= 11.5.1) supports trusted publishing
+        # and has working provenance. Revisit once npm 12's provenance is fixed.
         run: |
-          npm install -g npm@latest
+          npm install -g npm@^11
           npm --version
 
       - name: Enable pnpm
