@@ -44,6 +44,7 @@ defineRegressionSuite('addChart signature', [
 			const canonical = await build((p) => {
 				p.addSlide().addChart(DATA, { type: p.ChartType.bar, x: 1, y: 1, w: 6, h: 3 })
 			})
+			/** @type {Awaited<ReturnType<typeof build>> | undefined} */
 			let legacy
 			const warnings = await withCapturedWarnings(async () => {
 				legacy = await build((p) => {
@@ -56,6 +57,7 @@ defineRegressionSuite('addChart signature', [
 				warnings.some((m) => /addChart\(type, data, options\) is deprecated/.test(m)),
 				'expected a deprecation warning from the positional form; got: ' + JSON.stringify(warnings)
 			)
+			assert(legacy, 'positional addChart build did not run')
 			const a = await chartPart(canonical.zip)
 			const b = await chartPart(legacy.zip)
 			assert(a === b, 'canonical and legacy chart XML differ')
