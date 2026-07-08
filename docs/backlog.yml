@@ -1308,8 +1308,8 @@ items:
     source: fork:test/read/fixtures/table.pptx
     type: fork-internal-proposal
     first_seen: 2026-07-07
-    last_reviewed: 2026-07-07
-    status: deferred
+    last_reviewed: 2026-07-08
+    status: implemented
     priority: p3
     target_area:
       - table-ooxml
@@ -1341,27 +1341,41 @@ items:
 
       Per docs/backlog-workflow.md "Fixture-Gated Work", these are read-model
       accessors whose oracle must be genuine PowerPoint output; do not test them
-      against synthetic or round-tripped XML. Author a PowerPoint table (via the
-      powerpoint-fixture-authoring skill) containing at least one cell with a
-      rotated text direction (e.g. a:tcPr/@vert="vert270"), one with an explicit
-      vertical anchor (@anchor="ctr" or "b"), and one with explicit cell text
-      insets (@marL/@marR/@marT/@marB on a:tcPr). Record provenance + SHA-256 in
-      test/read/fixtures/README.md, then extend test/read/table.test.js to assert
-      the populated values and close this entry.
+      against synthetic or round-tripped XML.
+
+      RESOLVED 2026-07-08. Authored test/read/fixtures/table-cell-style.pptx via
+      the powerpoint-fixture-authoring skill (desktop PowerPoint COM, Office
+      16.0000): a single-slide 2×2 table (cell-style-table) whose cells each
+      isolate one accessor — (0,0) <a:tcPr vert="vert270"/>, (0,1) <a:tcPr
+      anchor="b"/>, (1,0) <a:tcPr marL="228600" marR="342900" marT="114300"
+      marB="457200"/> (all four insets non-default and distinct), (1,1) a bare
+      <a:tcPr/> negative control. The isolation lets each test assert the populated
+      value AND that the other two accessors stay null on the same cell. Opens
+      clean via COM with no repair prompt; validates [] through the OOXML-Validator
+      CLI. Provenance + SHA-256 recorded in test/read/fixtures/README.md; the
+      populated-path assertions live in test/read/table.test.js ('Table cell
+      styling (populated a:tcPr paths)'). Incidental fix landed alongside:
+      test/validator.js resolved the CLI binary without its .exe suffix, so
+      isInstalled() was always false on Windows (test:schema hard-failed there and
+      the validator-gated read legs silently skipped) — now platform-resolved.
     evidence:
       kinds:
         - local-source-inspection
         - extracted-xml
         - regression-test
+        - powerpoint-authored-comparison
+        - validator-result
       local_files:
         - src/read/api/table.ts
         - test/read/table.test.js
-        - test/read/fixtures/table.pptx
+        - test/read/fixtures/table-cell-style.pptx
+        - test/read/fixtures/README.md
+        - test/validator.js
       schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
+      validator_result: clean
+      powerpoint_result: opens-clean-powerpoint-16
       spec_refs: []
-    next_action: await-fixture-then-author-table-cell-vert-anchor-margin-tests
+    next_action: none
   - id: fork-placeholder-objectname-collision
     source: fork:src/gen-objects.ts
     type: fork-internal-proposal

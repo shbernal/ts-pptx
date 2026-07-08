@@ -39,6 +39,7 @@ PowerPoint.
 | `multi-theme.pptx`     | Microsoft Office PowerPoint    | 16.0000    | 3      |
 | `rotation-flip.pptx`   | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `custgeom.pptx`        | Microsoft Office PowerPoint    | 16.0000    | 1      |
+| `table-cell-style.pptx`| Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `template.potx`        | Microsoft Office PowerPoint    | 16.0000    | 0      |
 
 #### Authoring oracles (inspection only — not loaded by `test:read`)
@@ -122,6 +123,7 @@ b7430f562b8b836f54b84f2c846c7f80dc03677d79884aa7722203d66c775cc2  theme-colors.p
 ea2b973147e9ac6f8f716f88cc5a6b692177786816462dd971c2606b533dd9af  multi-theme.pptx
 e8c0ca04154f6365813aee28d0fa8556cea5e1429af060d6061dd02db5ff1a85  rotation-flip.pptx
 d52da9c162f5a700f8e3a225f054e823682f201d83dabe38fc27c2e500d7451d  custgeom.pptx
+cf3c352dfd81ccdd0938637a047ab54f67b879410a5b1e88fdc6e4411315c1e7  table-cell-style.pptx
 c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
 1a59832d7e5c926e4aff11e9f62bc90c9e8430fb68e1d77a1b4a2fb0800e05d2  textbox.pptx
 69fd092ced7067af23b7cbb4d65cc7de1c44d06c0a62b0f49b32dbc9f7ef954e  layout-placeholder-bodypr.pptx
@@ -194,6 +196,25 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   in `ppt/media/`; exercises binary parts and `Default` content-type
   resolution by extension.
 - `table.pptx` — slides containing tables (`a:tbl` graphic frames).
+- `table-cell-style.pptx` — a locally authored single-slide deck with one 2×2 table
+  (`cell-style-table`) whose cells each isolate one `TableCell` appearance accessor,
+  the fixture gate for backlog `fork-table-cell-style-fixture`. Authored via desktop
+  PowerPoint COM on Windows (2026-07-08) by setting `TextFrame2` properties on
+  individual cells, so every `a:tcPr` attribute below is genuine PowerPoint output:
+  - **(0,0) `Vert270`** — `<a:tcPr vert="vert270"/>` (COM
+    `Orientation = msoTextOrientationUpward`); the populated `TableCell.verticalText`
+    path, with `anchor`/`marginsEmu` null.
+  - **(0,1) `AnchorB`** — `<a:tcPr anchor="b"/>` (COM `VerticalAnchor =
+    msoAnchorBottom`); the populated `TableCell.anchor` path, with
+    `verticalText`/`marginsEmu` null.
+  - **(1,0) `Margins`** — `<a:tcPr marL="228600" marR="342900" marT="114300"
+    marB="457200"/>` (COM `MarginLeft/Right/Top/Bottom` = 18/27/9/36 pt); the
+    populated `TableCell.marginsEmu` path. All four insets differ from the OOXML
+    defaults (`marL`/`marR` 91440, `marT`/`marB` 45720) **and** from each other, so
+    each side is independently pinned; `verticalText`/`anchor` null.
+  - **(1,1) `Plain`** — a bare `<a:tcPr/>` negative control (all three accessors
+    null). The table itself carries no cell fills; its `a:tblStyle` is the default
+    Medium Style 2 - Accent 1 (`{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}`).
 - `hidden.pptx` — `textbox.pptx` with `show="0"` on slide 2; exercises the
   `Slide.hidden` getter (hidden slide vs. shown-by-default absent attribute).
 - `mixed.pptx` — an 11-slide real-world deck that exercises the shape kinds the

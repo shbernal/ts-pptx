@@ -214,3 +214,51 @@ describe('Table cell styling', () => {
 		assertEqual(cell.element_.nodeName, 'a:tc', 'cell element_ is the a:tc')
 	})
 })
+
+describe('Table cell styling (populated a:tcPr paths)', () => {
+	// The `table-cell-style.pptx` fixture is a PowerPoint-authored 2×2 table whose
+	// cells each isolate one appearance accessor (backlog fork-table-cell-style-fixture):
+	//   (0,0) <a:tcPr vert="vert270"/>                              -> verticalText
+	//   (0,1) <a:tcPr anchor="b"/>                                  -> anchor
+	//   (1,0) <a:tcPr marL/marR/marT/marB=228600/342900/114300/457200/> -> marginsEmu
+	//   (1,1) <a:tcPr/>                                             -> negative control
+	// The isolation lets each test assert the populated value AND that the other
+	// two accessors stay null on the same cell.
+	test('verticalText reports the a:tcPr @vert token (and leaves anchor/margins null)', async () => {
+		const cell = firstTable(await open('table-cell-style')).cell(0, 0)
+		assertEqual(cell.verticalText, 'vert270', 'populated @vert')
+		assertEqual(cell.anchor, null, 'no @anchor on the vert cell')
+		assertEqual(cell.marginsEmu, null, 'no tcPr margins on the vert cell')
+	})
+
+	test('anchor reports the a:tcPr @anchor token (and leaves vert/margins null)', async () => {
+		const cell = firstTable(await open('table-cell-style')).cell(0, 1)
+		assertEqual(cell.anchor, 'b', 'populated @anchor')
+		assertEqual(cell.verticalText, null, 'no @vert on the anchor cell')
+		assertEqual(cell.marginsEmu, null, 'no tcPr margins on the anchor cell')
+	})
+
+	test('marginsEmu reports all four a:tcPr insets in EMU (and leaves vert/anchor null)', async () => {
+		const cell = firstTable(await open('table-cell-style')).cell(1, 0)
+		const m = cell.marginsEmu
+		assert(m, 'populated marginsEmu object')
+		assertEqual(m.left, 228600, 'marL EMU')
+		assertEqual(m.right, 342900, 'marR EMU')
+		assertEqual(m.top, 114300, 'marT EMU')
+		assertEqual(m.bottom, 457200, 'marB EMU')
+		assertEqual(cell.verticalText, null, 'no @vert on the margins cell')
+		assertEqual(cell.anchor, null, 'no @anchor on the margins cell')
+	})
+
+	test('a bare a:tcPr cell reports null for vert / anchor / margins', async () => {
+		const cell = firstTable(await open('table-cell-style')).cell(1, 1)
+		assertEqual(cell.verticalText, null, 'no @vert -> null')
+		assertEqual(cell.anchor, null, 'no @anchor -> null')
+		assertEqual(cell.marginsEmu, null, 'no tcPr margins -> null')
+	})
+
+	test.skipIf(!validatorInstalled)('the fixture is schema-valid', async () => {
+		const errors = await validateBuf(await readFile(fixturePath('table-cell-style')))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+})
