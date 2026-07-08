@@ -349,7 +349,11 @@ export function computeTableLayout(
 	const numRows = rows.length
 	const numCols = tableColCount(rows)
 	if (!(numCols > 0)) return empty
-	const o = opts as RunOpts
+	// Reuse TableProps as a bag of inheritable text props; only CELL_INHERIT_KEYS are
+	// read from it. Route through `unknown` because TableProps.columns (per-column cell
+	// styling, TableCellProps[]) collides by name with TextPropsOptions.columns (text
+	// column count, number) — the two never overlap here since `columns` isn't inherited.
+	const o = opts as unknown as RunOpts
 
 	const tableXEmu = opts.x != null ? getSmartParseNumber(opts.x, 'X', presLayout) : 0
 	const tableYEmu = opts.y != null ? getSmartParseNumber(opts.y, 'Y', presLayout) : 0
