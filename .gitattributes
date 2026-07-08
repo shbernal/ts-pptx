@@ -1,0 +1,24 @@
+# Canonical LF in the repo and in every working tree (Windows included), so
+# checkouts match Linux/CI and Prettier's default endOfLine:lf is satisfied.
+# This makes line-ending behavior independent of each contributor's core.autocrlf.
+* text=auto eol=lf
+
+# Binary assets — never touch line endings.
+*.pptx binary
+*.potx binary
+*.ttf  binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.mp4  binary
+*.m4v  binary
+*.mp3  binary
+*.wav  binary
+*.avi  binary
+*.mov  binary
+*.mpg  binary
+*.aif  binary
+
+# SVG is text; keep it LF like the rest.
+*.svg  text eol=lf

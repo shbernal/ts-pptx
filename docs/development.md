@@ -82,6 +82,25 @@ pnpm run lint          # eslint . --no-warn-ignored
 pnpm run format:check  # prettier --check (includes src/**/*.ts)
 ```
 
+### Line endings (LF)
+
+All text files are checked in and checked out as **LF**, enforced by
+`.gitattributes` (`* text=auto eol=lf`, with binary asset types marked `binary`).
+Prettier's default `endOfLine: "lf"` relies on this. Do not depend on your local
+`core.autocrlf` setting — the repo config is self-contained.
+
+On Windows, a working tree that predates the `.gitattributes` (or a fresh clone
+with `core.autocrlf=true` and no attributes applied) can materialize files as
+CRLF, which makes `pnpm run format:check` report every text file as mis-formatted
+and makes `pnpm run format --write` rewrite all of them. If that happens, do **not**
+run `format --write`; instead re-normalize the working tree to LF (the blobs are
+already LF, so this changes only line endings, not content):
+
+```bash
+git rm -r --cached -q .
+git reset --hard        # re-checks-out every tracked file as LF per .gitattributes
+```
+
 ### TypeScript strictness
 
 Strictness is configured once in `tsconfig.base.json` and applies to all of
