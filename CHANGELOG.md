@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`Slide.text` — flatten all of a slide's text in one read** (`pptxgenjs/read`).
+  A getter on the read-model `Slide` that walks the shape tree in document order and
+  concatenates every text-bearing shape's text, **recursing into groups** and
+  **reading table cells** (cells tab-joined within a row, rows newline-joined);
+  text-free shapes (pictures, connectors, empty boxes) contribute nothing. It is the
+  slide-level counterpart to `TextFrame.text` and closes a footgun in the raw API: a
+  naive `slide.shapes.map(s => s.text)` silently drops grouped and tabular text,
+  because `GroupShape`/`GraphicFrame` have no text frame of their own. Extract a whole
+  deck with `deck.slides.map(s => s.text)`. Scoped to the slide's own shape tree —
+  chart data labels are intentionally excluded (read those via `GraphicFrame.chart`),
+  and speaker notes have their own accessor (below).
+- **`Slide.notesText` — read a slide's speaker notes** (`pptxgenjs/read`). Resolves
+  the slide's `notesSlide` relationship and flattens the notes **body** placeholder's
+  text (the `sldImg` thumbnail and `sldNum` slide-number placeholders a notes slide
+  also carries are ignored). Returns `null` when the slide has no notes slide part at
+  all, distinct from `''` for a notes slide whose body is empty — a distinction
+  PowerPoint makes routinely, since it often attaches an empty notes slide to every
+  slide. Companion to `Slide.text`.
+
 ### Fixed
 
 - **`chartColors: ['transparent']` now yields a fully invisible series** instead of

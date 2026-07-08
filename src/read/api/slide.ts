@@ -9,6 +9,7 @@ import {
 	attr,
 	createElement,
 	firstChild,
+	getElements,
 	insertInOrder,
 	intValue,
 	removeAttr,
@@ -19,7 +20,8 @@ import {
 import type { FlattenContext } from '../oxml/theme.js'
 import { resolveSlideColorContext } from './theme-context.js'
 import type { Presentation } from './presentation.js'
-import { AutoShape, Picture, buildShapes, type AnyShape } from './shapes.js'
+import { AutoShape, GraphicFrame, GroupShape, Picture, buildShapes, type AnyShape } from './shapes.js'
+import { TextFrame } from './text.js'
 import {
 	buildTransition,
 	parseTransition,
@@ -30,6 +32,7 @@ import {
 import { enumerateSpids, flattenAnimations, hasAnimations, pruneSpids, remapSpids } from './animation.js'
 
 const IMAGE_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
+const NOTES_SLIDE_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
 
 /** Options for {@link Slide.addTextBox}. Geometry is in EMU. */
 export interface AddTextBoxOptions {
@@ -269,6 +272,77 @@ export class Slide {
 	get shapes(): AnyShape[] {
 		const spTree = this.#spTree()
 		return spTree ? buildShapes(spTree, this) : []
+	}
+
+	/**
+	 * All text on the slide, flattened in document order — the read-model
+	 * counterpart to {@link TextFrame.text} one level up. Every text-bearing shape
+	 * contributes its text, recursing into groups ({@link GroupShape}) and reading
+	 * table cells ({@link GraphicFrame.table}); text-free shapes (pictures,
+	 * connectors, empty boxes) contribute nothing. Blocks are joined by `\n`; within
+	 * a table, cells in a row are joined by `\t` and rows by `\n`.
+	 *
+	 * This is deliberately scoped to the slide's own shape tree. It does **not**
+	 * include speaker notes (read those via {@link notesText}) or chart data labels
+	 * (read those via {@link GraphicFrame.chart}); folding those in would force
+	 * ordering and separator choices a caller is better placed to make. Extract a
+	 * whole deck with `deck.slides.map((s) => s.text)`.
+	 */
+	get text(): string {
+		const blocks: string[] = []
+		const walk = (shapes: AnyShape[]): void => {
+			for (const shape of shapes) {
+				if (shape instanceof GroupShape) {
+					walk(shape.shapes)
+				} else if (shape instanceof GraphicFrame) {
+					const table = shape.table
+					if (!table) continue
+					for (const row of table.rows) {
+						const cells = row.cells.map((cell) => cell.text)
+						if (cells.some((cell) => cell.length > 0)) blocks.push(cells.join('\t'))
+					}
+				} else {
+					const text = shape.text
+					if (text.length > 0) blocks.push(text)
+				}
+			}
+		}
+		walk(this.shapes)
+		return blocks.join('\n')
+	}
+
+	/**
+	 * The slide's speaker-note text — the companion to {@link text} for the notes
+	 * that {@link text} deliberately excludes. Resolves the slide's `notesSlide`
+	 * relationship, finds the notes body placeholder (`p:ph` `type="body"`), and
+	 * flattens its text frame the same way {@link TextFrame.text} does (paragraphs
+	 * joined by `\n`).
+	 *
+	 * Returns `null` when the slide has **no notes slide part at all** — distinct
+	 * from `''`, which means a notes slide exists but its body is empty (PowerPoint
+	 * often attaches an empty notes slide to every slide). Only the body placeholder
+	 * is read; the slide-thumbnail (`sldImg`) and slide-number (`sldNum`)
+	 * placeholders a notes slide also carries are ignored.
+	 */
+	get notesText(): string | null {
+		const notesRel = this.relationships.byType(NOTES_SLIDE_REL_TYPE)[0]
+		if (!notesRel) return null
+		const notesPart = this.presentation.opc.part(this.relationships.resolveTarget(notesRel.id))
+		if (!notesPart) return null
+		const root = notesPart.dom.documentElement
+		const cSld = root && firstChild(root, 'p:cSld')
+		const spTree = cSld && firstChild(cSld, 'p:spTree')
+		if (!spTree) return ''
+		for (const sp of getElements(spTree, 'p:sp')) {
+			const nvSpPr = firstChild(sp, 'p:nvSpPr')
+			const nvPr = nvSpPr && firstChild(nvSpPr, 'p:nvPr')
+			const ph = nvPr && firstChild(nvPr, 'p:ph')
+			if (ph && attr(ph, 'type') === 'body') {
+				const txBody = firstChild(sp, 'p:txBody')
+				return txBody ? new TextFrame(txBody, notesPart).text : ''
+			}
+		}
+		return ''
 	}
 
 	/** The first top-level shape with the given drawing id (`p:cNvPr/@id`), or `undefined`. */

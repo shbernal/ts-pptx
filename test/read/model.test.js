@@ -261,3 +261,72 @@ describe('mixed.pptx — connectors, groups, graphic frames', () => {
 		}
 	})
 })
+
+describe('Slide.text', () => {
+	test('flattens a text box slide, joining paragraphs with newlines', async () => {
+		const slide = (await open('textbox')).slides[0]
+		const text = slide.text
+		assert(text.startsWith('This is test content.'), 'starts with the first paragraph text')
+		assert(text.includes('Some colorful Text'), 'includes a later paragraph')
+		assert(text.includes('\n'), 'paragraphs are newline-joined')
+		// A shape's own text uses TextFrame.text; the slide joins shapes the same way.
+		assertEqual(text.includes('\t'), false, 'a table-free slide has no tab separators')
+	})
+
+	test('reads table cells row by row (cells tab-joined, rows newline-joined)', async () => {
+		const slide = (await open('table')).slides[0]
+		const text = slide.text
+		assert(text.includes('Header 1\tHeader 2\tHeader 3\tHeader 4'), 'header row cells are tab-joined')
+		assert(text.includes('cell\tcell\tcell\tcell'), 'body row cells are tab-joined')
+		assert(text.includes('\n'), 'rows are newline-joined')
+	})
+
+	test('recurses into groups, surfacing nested shape text', async () => {
+		// mixed slide index 4 lays its bullets out inside grouped shapes; a
+		// non-recursing walk (slide.shapes.map(s => s.text)) would drop them.
+		const slide = (await open('mixed')).slides[4]
+		const text = slide.text
+		assert(text.includes('Model Components'), 'top-level heading present')
+		assert(text.includes('Uncontrollable Inputs'), 'text nested inside a group is surfaced')
+		assert(text.includes('Use probability distribution'), 'deeply nested group text is surfaced')
+	})
+
+	test('mixes shape text and an embedded table in document order', async () => {
+		// mixed slide index 6 has both prose shapes and a graphicFrame table.
+		const text = (await open('mixed')).slides[6].text
+		assert(text.includes('Breakeven analysis'), 'prose shape text present')
+		assert(text.includes('Fixed costs\t200 000 €'), 'embedded table row is tab-joined into the flatten')
+	})
+
+	test('text-free shapes contribute nothing; a whole deck maps cleanly', async () => {
+		const deck = await open('mixed')
+		// Every slide yields a string; a picture/connector adds no text of its own.
+		const all = deck.slides.map((slide) => slide.text)
+		assertEqual(all.length, deck.slides.length, 'one text block per slide')
+		assert(
+			all.every((text) => typeof text === 'string'),
+			'each slide.text is a string'
+		)
+		assertEqual(deck.slides[0].text, 'Data Modelling using Spreadsheets', 'title slide flattens to its title')
+	})
+})
+
+describe('Slide.notesText', () => {
+	test('reads the notes body placeholder, ignoring sldImg/sldNum placeholders', async () => {
+		const slide = (await open('notes-slide-image')).slides[0]
+		assertEqual(
+			slide.notesText,
+			'Speaker notes so PowerPoint emits the notes slide.',
+			'body placeholder text only (no slide-number "1")'
+		)
+	})
+
+	test('returns "" when a notes slide exists but its body is empty', async () => {
+		// mixed's notes slides carry only a slide-number placeholder, no body text.
+		assertEqual((await open('mixed')).slides[0].notesText, '', 'empty notes body flattens to ""')
+	})
+
+	test('returns null when the slide has no notes slide part', async () => {
+		assertEqual((await open('textbox')).slides[0].notesText, null, 'no notesSlide rel → null')
+	})
+})
