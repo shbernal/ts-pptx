@@ -83,6 +83,15 @@ describe('Chart read model', () => {
 		assertEqual(chart.categories.length, chart.series[0].values.length, 'categories align with values')
 	})
 
+	test('element_ escape hatches expose the underlying chartSpace and c:ser elements', async () => {
+		const chart = firstChart(await open('mixed'))
+		const space = chart.element_
+		assert(space, 'chart.element_ returns the chartSpace document element')
+		assertEqual(space.localName, 'chartSpace', 'element_ is the c:chartSpace root')
+		const serEl = chart.series[0].element_
+		assertEqual(serEl.localName, 'ser', 'series.element_ is the underlying c:ser element')
+	})
+
 	test('a non-chart graphic frame has a null chart', async () => {
 		const slides = (await open('mixed')).slides
 		const tableFrame = slides
