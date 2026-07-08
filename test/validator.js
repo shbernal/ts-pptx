@@ -13,7 +13,13 @@ import { promisify } from 'node:util'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const execFile = promisify(execFileCallback)
 
-const VALIDATOR = path.resolve(__dirname, '..', 'tools', 'ooxml-validator', 'bin', 'OOXMLValidatorCLI')
+// The upstream release ships the binary as `OOXMLValidatorCLI` on
+// Linux/macOS and `OOXMLValidatorCLI.exe` on Windows (install.sh probes
+// both). Resolve to whichever this platform installed so `isInstalled`
+// and `execFile` agree — a bare extensionless path never resolves on
+// Windows, silently disabling schema validation there.
+const BIN_DIR = path.resolve(__dirname, '..', 'tools', 'ooxml-validator', 'bin')
+const VALIDATOR = path.join(BIN_DIR, process.platform === 'win32' ? 'OOXMLValidatorCLI.exe' : 'OOXMLValidatorCLI')
 
 async function isInstalled() {
 	try {
