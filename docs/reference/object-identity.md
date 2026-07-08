@@ -26,9 +26,11 @@ The explicit `objectName` contract applies to:
 - slide master placeholders.
 
 When `objectName` is omitted, PptxGenJS emits an internal default such as
-`Text 0`, `Shape 0`, `Image 0`, `Chart 0`, `Table 0`, or `Media 0`. Consumers
-that need stable semantic identity should set `objectName` explicitly instead
-of depending on generated default names.
+`Text 0`, `Shape 0`, `Image 0`, `Chart 0`, `Table 0`, or `Media 0`. Slide master
+and layout placeholders instead default to their declared `name` (falling back to
+their placeholder `type`, then their index) so that multiple placeholders keep
+distinct Selection Pane identities. Consumers that need stable semantic identity
+should set `objectName` explicitly instead of depending on generated default names.
 
 ## Alt text
 

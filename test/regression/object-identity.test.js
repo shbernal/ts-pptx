@@ -7,6 +7,7 @@ import {
 	assertNonVisualDrawingProperty,
 	xmlAttributes,
 	xmlOpeningTags,
+	listEntries,
 } from '../helpers.js'
 
 const PNG_1X1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
@@ -209,6 +210,59 @@ defineRegressionSuite('Object identity', 'legacy bug-21', [
 				return attrs.idx === '100' && attrs.type === 'title'
 			})
 			assert(placeholder, 'expected title placeholder metadata; got: ' + xml)
+		},
+	},
+	{
+		// fork-placeholder-objectname-collision: a master/layout placeholder without an explicit
+		// objectName defaults to its declared name (then type, then idx) rather than the plain
+		// text-box counter, which counts only `_type === text` objects and so would tag every
+		// placeholder with a duplicate `Text 0`. Two named placeholders must get distinct
+		// Selection Pane identities and must not fire the duplicate-objectName warning.
+		name: 'master placeholders default to distinct names (no duplicate objectName)',
+		fn: async () => {
+			const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+			try {
+				const { zip } = await build((p) => {
+					p.defineSlideMaster({
+						title: 'PH_IDENTITY_MASTER',
+						objects: [
+							{ placeholder: { options: { name: 'title-ph', type: 'title', x: 0.5, y: 0.3, w: 9, h: 1 }, text: '' } },
+							{
+								placeholder: {
+									options: { name: 'body-ph', type: 'body', idx: 1, x: 0.5, y: 1.5, w: 9, h: 4 },
+									text: '',
+								},
+							},
+						],
+					})
+					p.addSlide({ masterTitle: 'PH_IDENTITY_MASTER' })
+				})
+
+				const messages = warnSpy.mock.calls.map((call) => String(call[0]))
+				assert(
+					!messages.some((m) => m.includes('duplicate objectName')),
+					`expected no duplicate-objectName warning; got: ${messages.join(' | ')}`
+				)
+
+				// Placeholders are emitted on the master's layout part.
+				const layoutNames = listEntries(zip).filter((n) => /ppt\/slideLayouts\/slideLayout\d+\.xml$/.test(n))
+				const layoutXmls = await Promise.all(layoutNames.map((n) => readEntry(zip, n)))
+				const layoutXml = layoutXmls.find((xml) => xml.includes('name="title-ph"'))
+				assert(layoutXml, `expected a layout carrying the placeholder default names; got: ${layoutNames.join(', ')}`)
+				const phNames = xmlOpeningTags(layoutXml, 'p:cNvPr')
+					.map((tag) => xmlAttributes(tag).name)
+					.filter((n) => n === 'title-ph' || n === 'body-ph')
+				assert(
+					phNames.includes('title-ph') && phNames.includes('body-ph'),
+					`expected both placeholder default names; got: ${phNames.join(', ')}`
+				)
+				assert(
+					new Set(phNames).size === phNames.length,
+					`expected distinct placeholder names; got: ${phNames.join(', ')}`
+				)
+			} finally {
+				warnSpy.mockRestore()
+			}
 		},
 	},
 ])

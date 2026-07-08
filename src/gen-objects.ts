@@ -1736,10 +1736,21 @@ export function addTextDefinition(
 				if (placeHold?.options) itemOpts = { ...itemOpts, ...placeHold.options }
 			}
 
-			// A.4: Other options
+			// A.4: Other options. A placeholder's default Selection Pane identity is its declared
+			// name (falling back to its type, then its idx). Placeholders are `placeholder`-typed
+			// objects, so the plain text-box counter below (which counts only `_type === text`) sees
+			// zero of them and would default every placeholder to a duplicate `Text 0`.
 			itemOpts.objectName = itemOpts.objectName
 				? encodeXmlEntities(validateObjectName(itemOpts.objectName, 'text'))
-				: `Text ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.text).length}`
+				: isPlaceholder
+					? encodeXmlEntities(
+							String(
+								itemOpts.placeholder ||
+									itemOpts._placeholderType ||
+									`Placeholder ${itemOpts._placeholderIdx ?? target._slideObjects.length}`
+							)
+						)
+					: `Text ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.text).length}`
 
 			// B:
 			if (itemOpts.shape === ShapeType.line) {
