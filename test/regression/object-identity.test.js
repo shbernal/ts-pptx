@@ -72,6 +72,32 @@ defineRegressionSuite('Object identity', 'legacy bug-21', [
 		},
 	},
 	{
+		// fork-table-cnvpr-id-collision: a table's cNvPr id must come from the same
+		// per-slide `idx + 2` space as every other shape. The legacy table formula
+		// (`tableCounter * slideNumber + 1`) could equal another shape's `idx + 2` on the
+		// same slide — e.g. on slide 2 a table (→ 1*2+1 = 3) followed by a text box
+		// (idx 1 → 1+2 = 3) — yielding a duplicate cNvPr id. PowerPoint then reports the
+		// deck as corrupt/unreadable (0x80070570); LibreOffice silently tolerates it.
+		name: 'table cNvPr id does not collide with sibling shapes on the same slide',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addText('slide one', { x: 0.5, y: 0.5, w: 3, h: 0.5 })
+				const slide = p.addSlide() // slide 2 — triggers the legacy table-id collision
+				slide.addTable([[{ text: 'A1' }, { text: 'B1' }]], { x: 0.5, y: 0.5, w: 4, h: 0.6 })
+				slide.addText('sibling text', { x: 0.5, y: 1.5, w: 3, h: 0.5 })
+				slide.addShape(p.ShapeType.rect, { x: 0.5, y: 2.5, w: 2, h: 0.5 })
+			})
+
+			const xml = await readEntry(zip, 'ppt/slides/slide2.xml')
+			const ids = xmlOpeningTags(xml, 'p:cNvPr').map((tag) => xmlAttributes(tag).id)
+			assert(ids.length >= 4, `expected the spTree id plus table/text/shape ids; got: ${ids.join(', ')}`)
+			assert(
+				new Set(ids).size === ids.length,
+				`expected unique cNvPr ids on the slide; got duplicates in: ${ids.join(', ')}`
+			)
+		},
+	},
+	{
 		name: 'altText is emitted as cNvPr descr for text, shapes, tables, and media',
 		fn: async () => {
 			const { zip } = await build((p) => {

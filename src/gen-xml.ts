@@ -447,7 +447,6 @@ function genTableCellBorderXml(cellBorder: BorderProps[]): string {
  */
 function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): string {
 	let strSlideXml: string = slide._name ? '<p:cSld name="' + slide._name + '">' : '<p:cSld>'
-	let intTableNum = 1
 
 	// Warn on duplicate Selection Pane identities within this slide. Unique `objectName`
 	// values are what consumers (e.g. semantic manifests) rely on, so flag collisions loudly.
@@ -511,7 +510,7 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 	}
 
 	// Render one slide object — and, for a group, its children recursively — to an XML fragment.
-	// Closes over `slide`, the `intTableNum` counter, and `childIdxAlloc`. Uses a local
+	// Closes over `slide` and `childIdxAlloc`. Uses a local
 	// `strSlideXml` accumulator (shadowing the slide-level one) so the existing per-object
 	// `strSlideXml +=` appends compose into the returned fragment unchanged.
 	const renderSlideObjectXml = (slideItemObj: SlideObject, idx: number): string => {
@@ -587,8 +586,13 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 				})
 
 				// STEP 1: Start Table XML
-				// NOTE: Non-numeric cNvPr id values will trigger "presentation needs repair" type warning in MS-PPT-2013
-				strXml = `<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="${intTableNum * slide._slideNum + 1}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"/>`
+				// NOTE: The cNvPr id must be unique among ALL shapes on the slide. A table is an
+				// ordinary top-level slide object, so it uses the same `idx + 2` scheme as every other
+				// object type below. The legacy `intTableNum * slide._slideNum + 1` formula could collide
+				// with another shape's `idx + 2` on the same slide (e.g. a table plus enough sibling
+				// shapes on slide 7), producing a duplicate id that makes PowerPoint report the file as
+				// corrupt/unreadable (0x80070570) while LibreOffice silently tolerates it.
+				strXml = `<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"/>`
 				strXml +=
 					`<p:cNvGraphicFramePr>${genXmlObjectLock('a:graphicFrameLocks', GRAPHIC_FRAME_LOCK_ATTRS, { noGrp: true, ...slideItemObj.options.objectLock }, slideItemObj.options.objectName)}</p:cNvGraphicFramePr>` +
 					// A table bound to a layout placeholder emits that placeholder's <p:ph> (idx/type) so
@@ -820,9 +824,6 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 
 				// STEP 6: Set table XML
 				strSlideXml += strXml
-
-				// LAST: Increment counter
-				intTableNum++
 				break
 
 			case SlideObjectType.text:
