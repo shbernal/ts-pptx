@@ -156,10 +156,10 @@ interface IncomingEmbeddedFont {
 /** ST_SlideId minimum (ECMA-376): slide ids live in [256, 2147483647]. */
 const MIN_SLIDE_ID = 256
 
-/** ST_SlideLayoutId minimum (ECMA-376): slide-layout ids start at 2147483648. */
-const MIN_SLIDE_LAYOUT_ID = 2147483648
-
-/** ST_SlideMasterId minimum (ECMA-376): slide-master ids start at 2147483648. */
+/**
+ * ST_SlideMasterId / ST_SlideLayoutId minimum (ECMA-376): both slide-master and
+ * slide-layout ids start at 2147483648 and share one presentation-wide id space.
+ */
 const MIN_SLIDE_MASTER_ID = 2147483648
 
 /** Slide dimensions, in both EMU (the OOXML unit) and inches. */
@@ -2010,18 +2010,47 @@ export class Presentation {
 			'p:extLst',
 		])
 		const entry = createElement(presPart.dom, 'p:sldMasterId')
-		setAttr(entry, 'id', String(this.#nextSlideMasterId(lst)))
+		setAttr(entry, 'id', String(this.#nextMasterLayoutId()))
 		setAttr(entry, 'r:id', relId)
 		lst.appendChild(entry)
 		presPart.markDirty()
 	}
 
-	/** A slide-master id one past the highest in `sldMasterIdLst`, floored at ST_SlideMasterId's minimum. */
-	#nextSlideMasterId(sldMasterIdLst: Element): number {
+	/**
+	 * The next free id in the presentation-wide slide-master / slide-layout id space.
+	 *
+	 * `p:sldMasterId/@id` and every master's `p:sldLayoutId/@id` draw from ONE shared
+	 * id space (both ST_SlideMasterId/ST_SlideLayoutId, floor 2147483648) and must be
+	 * unique across the WHOLE presentation, not just within their own list. A duplicate
+	 * anywhere in this space makes PowerPoint report the file as corrupt on open
+	 * ("found a problem with content" / 0x80070570), even though LibreOffice silently
+	 * tolerates it — so an imported master AND each of its layouts must take an id past
+	 * the max of both the master-id list and every layout-id list. Recomputed per
+	 * allocation so ids appended earlier in the same import are counted.
+	 */
+	#nextMasterLayoutId(): number {
+		// ST_SlideMasterId and ST_SlideLayoutId share this floor.
 		let max = MIN_SLIDE_MASTER_ID - 1
-		for (const entry of getElements(sldMasterIdLst, 'p:sldMasterId')) {
-			const id = intValue(attr(entry, 'id'))
-			if (id !== null && id > max) max = id
+		const presPart = this.presentationPart
+		const root = presPart.dom.documentElement
+		const masterLst = root && firstChild(root, 'p:sldMasterIdLst')
+		if (masterLst) {
+			for (const entry of getElements(masterLst, 'p:sldMasterId')) {
+				const id = intValue(attr(entry, 'id'))
+				if (id !== null && id > max) max = id
+			}
+		}
+		// Every master's layout-id list shares the same id space; scan them all.
+		const presRels = this.opc.relationshipsFor(presPart.partName)
+		for (const rel of presRels.byType(SLIDE_MASTER_REL)) {
+			const masterPart = this.opc.part(presRels.resolveTarget(rel.id))
+			const masterRoot = masterPart?.dom.documentElement
+			const layoutLst = masterRoot && firstChild(masterRoot, 'p:sldLayoutIdLst')
+			if (!layoutLst) continue
+			for (const entry of getElements(layoutLst, 'p:sldLayoutId')) {
+				const id = intValue(attr(entry, 'id'))
+				if (id !== null && id > max) max = id
+			}
 		}
 		return max + 1
 	}
@@ -2058,7 +2087,7 @@ export class Presentation {
 		const relId = masterRels.add(SLIDE_LAYOUT_REL, relativePartName(masterPartName, layoutPartName)).id
 		const lst = getOrAddChild(root, 'p:sldLayoutIdLst', ['p:transition', 'p:timing', 'p:hf', 'p:txStyles', 'p:extLst'])
 		const entry = createElement(masterPart.dom, 'p:sldLayoutId')
-		setAttr(entry, 'id', String(this.#nextSlideLayoutId(lst)))
+		setAttr(entry, 'id', String(this.#nextMasterLayoutId()))
 		setAttr(entry, 'r:id', relId)
 		lst.appendChild(entry)
 		masterPart.markDirty()
@@ -2101,16 +2130,6 @@ export class Presentation {
 		let max = MIN_SLIDE_ID - 1
 		for (const sldId of sldIds) {
 			const id = intValue(attr(sldId, 'id'))
-			if (id !== null && id > max) max = id
-		}
-		return max + 1
-	}
-
-	/** A slide-layout id one past the highest in `sldLayoutIdLst`, floored at ST_SlideLayoutId's minimum. */
-	#nextSlideLayoutId(sldLayoutIdLst: Element): number {
-		let max = MIN_SLIDE_LAYOUT_ID - 1
-		for (const entry of getElements(sldLayoutIdLst, 'p:sldLayoutId')) {
-			const id = intValue(attr(entry, 'id'))
 			if (id !== null && id > max) max = id
 		}
 		return max + 1

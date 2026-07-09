@@ -106,6 +106,35 @@ function sourceLayoutCount(opc) {
 	return masterLayoutList(opc, registeredMasters(opc)[0]).length
 }
 
+/** ST_SlideMasterId / ST_SlideLayoutId floor (ECMA-376); both ids share this space. */
+const ST_MASTER_LAYOUT_ID_MIN = 2147483648
+
+/**
+ * Every p:sldMasterId/@id (in presentation.xml) plus every p:sldLayoutId/@id (across
+ * all masters), as raw numbers. These draw from ONE presentation-wide id space and
+ * must all be unique — a duplicate makes PowerPoint report the file as corrupt.
+ */
+function allMasterAndLayoutIds(opc) {
+	const ids = []
+	const presRoot = opc.part(presentationPartName(opc)).dom.documentElement
+	for (let n = presRoot.firstChild; n; n = n.nextSibling) {
+		if (n.nodeType !== 1 || n.localName !== 'sldMasterIdLst') continue
+		for (let e = n.firstChild; e; e = e.nextSibling) {
+			if (e.nodeType === 1 && e.localName === 'sldMasterId') ids.push(Number(e.getAttribute('id')))
+		}
+	}
+	for (const master of registeredMasters(opc)) {
+		const root = opc.part(master).dom.documentElement
+		for (let n = root.firstChild; n; n = n.nextSibling) {
+			if (n.nodeType !== 1 || n.localName !== 'sldLayoutIdLst') continue
+			for (let e = n.firstChild; e; e = e.nextSibling) {
+				if (e.nodeType === 1 && e.localName === 'sldLayoutId') ids.push(Number(e.getAttribute('id')))
+			}
+		}
+	}
+	return ids
+}
+
 /** Every internal relationship of every part resolves to a part that exists. */
 function assertNoDanglingRels(opc) {
 	for (const partName of opc.parts.keys()) {
@@ -146,6 +175,35 @@ describe('Presentation.importSlideMasters', () => {
 		assert(resolveSingle(opc, grafted, THEME_REL), 'grafted master carries a theme')
 		for (const layout of listed) assert(opc.part(layout), `listed layout exists (${layout})`)
 		assertNoDanglingRels(opc)
+	})
+
+	test('grafted master + layout ids stay unique across the whole presentation id space', async () => {
+		// Regression: p:sldMasterId/@id and every master's p:sldLayoutId/@id share ONE
+		// presentation-wide id space. The destination already owns a master + layouts
+		// numbered from the floor, and the source master's family is numbered the same
+		// way — so a grafted master/layout that reuses its own list's floor (rather than
+		// offsetting past the destination's ids) collides. PowerPoint rejects the saved
+		// file as corrupt on such a duplicate; LibreOffice silently tolerates it, so this
+		// invariant has to be asserted directly.
+		const target = await open('empty')
+		const source = await open('image')
+		assert(sourceLayoutCount(source.opc) > 1, 'source has a multi-layout family (collisions are possible)')
+		assert(allMasterAndLayoutIds(target.opc).length > 1, 'destination already owns master+layout ids to collide with')
+
+		target.importSlideMasters(source)
+		const opc = (await Presentation.load(await target.save())).opc
+
+		const ids = allMasterAndLayoutIds(opc)
+		assert(ids.length >= 4, `two masters with layout families contribute several ids (got ${ids.length})`)
+		assertEqual(
+			new Set(ids).size,
+			ids.length,
+			`all sldMasterId/sldLayoutId ids are unique presentation-wide: ${[...ids].sort((a, b) => a - b).join(',')}`
+		)
+		assert(
+			ids.every((id) => Number.isInteger(id) && id >= ST_MASTER_LAYOUT_ID_MIN),
+			'every id respects the ST_SlideMasterId/ST_SlideLayoutId floor'
+		)
 	})
 
 	test('grafted master + layouts + theme are added; existing parts stay byte-identical', async () => {
