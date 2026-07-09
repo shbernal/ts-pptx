@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [10.0.0](https://github.com/shbernal/PptxGenJS/releases/tag/v10.0.0) - 2026-07-08
+### Fixed
+
+- **Media (`addMedia`) no longer corrupts decks that pair media with other shapes.**
+  A media picture's `<p:cNvPr>` id was computed as `mediaRid + 2` (the media
+  relationship id), a different numbering space than the `index + 2` every other shape
+  uses. When a sibling shape's slide-object index equalled the media's relationship id,
+  the two collided into a **duplicate `cNvPr` id** and PowerPoint rejected the file as
+  corrupt/unreadable (`0x80070570`). A second instance of the same root cause: the
+  slide-level `<p:timing>` node for looping media (`loop`/`loopCount`) targeted the
+  picture by `spid = mediaRid + 2`, which desynced from the shape id and pointed the
+  playback timing at the wrong (or a nonexistent) shape — same corruption. Both now use
+  the slide-object index (`index + 2`), consistent with animation spids, so every id is
+  unique per slide and the timing target always resolves to its own media picture. This
+  affected any slide mixing media with text/shapes — including the bundled Node demo,
+  whose media slides previously would not open in PowerPoint.
 
 ### Added
 

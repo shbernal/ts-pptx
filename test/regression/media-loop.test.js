@@ -30,14 +30,13 @@ defineRegressionSuite('Media looping', [
 		},
 	},
 	{
-		name: 'media node targets the picture by spid (cNvPr id = mediaRid + 2)',
+		name: 'media node targets the picture by spid (matches the cNvPr id)',
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addMedia({ type: 'video', data: 'video/mp4;base64,AAAA', x: 1, y: 1, w: 3, h: 2, loop: true })
 			})
 
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
-			// First media on slide 1: video rId=2, so the picture's cNvPr id = mediaRid + 2 = 4
 			const cNvPrMatch = xml.match(/<p:cNvPr id="(\d+)"[^>]*><a:hlinkClick[^>]*action="ppaction:\/\/media"/)
 			assert(cNvPrMatch, 'expected the media picture cNvPr with media hlink action')
 			const spid = cNvPrMatch[1]
@@ -45,6 +44,66 @@ defineRegressionSuite('Media looping', [
 				xml.includes(`<p:spTgt spid="${spid}"/>`),
 				`expected timing target spid="${spid}" to match the media cNvPr id`
 			)
+		},
+	},
+	{
+		// Regression: the timing spid used to be computed as `mediaRid + 2` while every shape's
+		// <p:cNvPr> id is the slide-object index + 2. When a shape precedes the media (so its
+		// index differs from the media's relationship id), the two formulas diverge: the timing
+		// node targeted a text box (or a nonexistent shape) instead of the media, and PowerPoint
+		// rejected the file as corrupt (0x80070570). Every cNvPr id must be unique per slide and
+		// the timing spid must equal the media's own id.
+		name: 'timing spid matches the media cNvPr id when other shapes precede the media (index != mediaRid)',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				// Three text boxes first, so the media's slide-object index (3) != its mediaRid (1).
+				s.addText('a', { x: 0.5, y: 0.5, w: 2, h: 0.4 })
+				s.addText('b', { x: 3, y: 0.5, w: 2, h: 0.4 })
+				s.addText('c', { x: 5.5, y: 0.5, w: 2, h: 0.4 })
+				s.addMedia({ type: 'video', data: 'video/mp4;base64,AAAA', x: 1, y: 1, w: 3, h: 2, loop: true })
+			})
+
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+
+			// The media picture's cNvPr id must equal the timing target spid.
+			const mediaCNvPr = xml.match(/<p:cNvPr id="(\d+)"[^>]*><a:hlinkClick[^>]*action="ppaction:\/\/media"/)
+			assert(mediaCNvPr, 'expected the media picture cNvPr with media hlink action')
+			const mediaId = mediaCNvPr[1]
+			assert(
+				xml.includes(`<p:spTgt spid="${mediaId}"/>`),
+				`expected timing target spid="${mediaId}" to match the media cNvPr id`
+			)
+
+			// The timing must NOT target any other shape on the slide (no desynced spid).
+			const spidTargets = [...xml.matchAll(/<p:spTgt spid="(\d+)"\/>/g)].map((m) => m[1])
+			assert(
+				spidTargets.every((s) => s === mediaId),
+				`timing spid(s) ${spidTargets.join(',')} should all be the media id ${mediaId}`
+			)
+
+			// Every <p:cNvPr> id on the slide must be unique (duplicate ids => PowerPoint corrupt).
+			const ids = [...xml.matchAll(/<p:cNvPr id="(\d+)"/g)].map((m) => m[1])
+			assert(new Set(ids).size === ids.length, `duplicate cNvPr ids on slide: ${ids.join(',')}`)
+		},
+	},
+	{
+		// Regression: the media <p:cNvPr> id used to be `mediaRid + 2`, a different numbering
+		// space than the `index + 2` every other shape uses. A sibling shape whose index equals
+		// the media's relationship id produced a duplicate id -> PowerPoint corrupt (0x80070570).
+		// This holds even without looping (no <p:timing> involved).
+		name: 'non-looping media preceded by shapes still gets a unique cNvPr id',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addText('a', { x: 0.5, y: 0.5, w: 2, h: 0.4 })
+				s.addText('b', { x: 3, y: 0.5, w: 2, h: 0.4 })
+				s.addMedia({ type: 'video', data: 'video/mp4;base64,AAAA', x: 1, y: 1, w: 3, h: 2 })
+			})
+
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const ids = [...xml.matchAll(/<p:cNvPr id="(\d+)"/g)].map((m) => m[1])
+			assert(new Set(ids).size === ids.length, `duplicate cNvPr ids on slide: ${ids.join(',')}`)
 		},
 	},
 	{

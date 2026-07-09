@@ -1139,8 +1139,11 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 				if (slideItemObj.mtype === 'online') {
 					strSlideXml += '<p:pic>'
 					strSlideXml += ' <p:nvPicPr>'
-					// IMPORTANT: <p:cNvPr id="" value is critical - if its not the same number as preview image `rId`, PowerPoint throws error!
-					strSlideXml += `<p:cNvPr id="${(slideItemObj.mediaRid ?? 0) + 2}" name="${
+					// cNvPr/@id must be unique across every shape on the slide, so it uses the slide-object
+					// index (idx + 2) like all other shapes — NOT mediaRid, which lives in the relationship-id
+					// space and collides with a sibling shape's idx (duplicate ids => PowerPoint reports the
+					// file corrupt, 0x80070570). The preview image is still bound via <a:blip r:embed> below.
+					strSlideXml += `<p:cNvPr id="${idx + 2}" name="${
 						slideItemObj.options.objectName
 					}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"><a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr>`
 					strSlideXml += ` <p:cNvPicPr>${genXmlObjectLock('a:picLocks', PICTURE_LOCK_ATTRS, { noChangeAspect: true, ...slideItemObj.options.objectLock }, slideItemObj.options.objectName)}</p:cNvPicPr>`
@@ -1165,8 +1168,11 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 				} else {
 					strSlideXml += '<p:pic>'
 					strSlideXml += ' <p:nvPicPr>'
-					// IMPORTANT: <p:cNvPr id="" value is critical - if not the same number as preiew image rId, PowerPoint throws error!
-					strSlideXml += `<p:cNvPr id="${(slideItemObj.mediaRid ?? 0) + 2}" name="${
+					// cNvPr/@id must be unique across every shape on the slide, so it uses the slide-object
+					// index (idx + 2) like all other shapes — NOT mediaRid, which lives in the relationship-id
+					// space and collides with a sibling shape's idx (duplicate ids => PowerPoint reports the
+					// file corrupt, 0x80070570). The preview image is still bound via <a:blip r:embed> below.
+					strSlideXml += `<p:cNvPr id="${idx + 2}" name="${
 						slideItemObj.options.objectName
 					}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"><a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr>`
 					strSlideXml += ` <p:cNvPicPr>${genXmlObjectLock('a:picLocks', PICTURE_LOCK_ATTRS, { noChangeAspect: true, ...slideItemObj.options.objectLock }, slideItemObj.options.objectName)}</p:cNvPicPr>`
@@ -2571,7 +2577,7 @@ export function makeXmlPresentationRels(slides: PresSlideInternal[], embeddedFon
  *   the slide timing tree rather than on the `<p:pic>` itself.
  * - A slide has at most one `<p:timing>`; all looping media share its `tmRoot` node.
  * - Audio loops via `<p:audio>`, video via `<p:video>` (both `CT_TLCommonMediaNodeData`).
- * - The media node targets the picture by `spid` (its `<p:cNvPr>` id = `mediaRid + 2`).
+ * - The media node targets the picture by `spid` (its `<p:cNvPr>` id = slide-object index + 2).
  * @param {PresSlideInternal} slide - the slide to inspect for looping media
  * @returns {string} the `<p:timing>` XML, or `''` when no media loops
  */
@@ -2590,7 +2596,10 @@ function slideTimingToXml(slide: PresSlideInternal): string {
 		.filter((entry): entry is { anim: AnimationProps; spid: number } => entry.spid !== null)
 
 	const mediaNode = (obj: SlideObject, nodeId: number): string => {
-		const spid = (obj.mediaRid as number) + 2
+		// spid must equal the picture's <p:cNvPr> id, which is the slide-object index + 2
+		// (same basis as animation spids). Using mediaRid + 2 here desyncs from the shape id
+		// and targets the wrong/nonexistent shape => PowerPoint reports the file corrupt.
+		const spid = slide._slideObjects.indexOf(obj) + 2
 		const repeatCount = obj.loop === true ? 'indefinite' : String(Math.round((obj.loopCount as number) * 1000))
 		// EG_TimeNodeChoice: audio loops via <p:audio>, video via <p:video> (both CT_TLCommonMediaNodeData)
 		const mediaEl = obj.mtype === 'audio' ? 'p:audio' : 'p:video'
