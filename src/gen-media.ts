@@ -51,10 +51,15 @@ export function encodeSlideMediaRels(
 				(async () => {
 					try {
 						rel.data = await runtime.loadMedia(rel)
-						candidateRels
-							.filter((dupe) => dupe.isDuplicate && dupe.path === rel.path)
-							.forEach((dupe) => (dupe.data = rel.data))
+						const dupes = candidateRels.filter((dupe) => dupe.isDuplicate && dupe.path === rel.path)
+						dupes.forEach((dupe) => (dupe.data = rel.data))
 						if (rel.isSvgPng) await runtime.createSvgPngPreview(rel)
+						// A path-deduped rel can itself be an SVG-PNG preview (the same SVG *file*
+						// placed 2+ times on one slide: each placement pushes its own fallback rel).
+						// Such dupes are skipped by STEP 5 — its `rel.data` filter runs synchronously,
+						// before this async load populates `dupe.data` — so convert them here, or the
+						// fallback keeps raw SVG bytes in a `.png` part and corrupts the deck.
+						await Promise.all(dupes.filter((dupe) => dupe.isSvgPng).map((dupe) => runtime.createSvgPngPreview(dupe)))
 						return 'done'
 					} catch (ex) {
 						if (onMediaError === 'placeholder') {
