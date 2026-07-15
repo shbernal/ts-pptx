@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.2.0](https://github.com/shbernal/PptxGenJS/releases/tag/v10.2.0) - 2026-07-15
+
+### Fixed
+
+- **The same SVG file used more than once on a slide no longer leaves raw SVG
+  bytes in a `.png` fallback part.** Each placement of one SVG *file* pushes its
+  own png-fallback relationship (`isSvgPng`) that shares the svg's path. The load
+  step only converted the path-unique primary; the path-duplicate fallbacks had
+  the primary's data copied but never ran `createSvgPngPreview`, and the later
+  catch-all step's `rel.isSvgPng && rel.data` filter ran synchronously — before
+  the async load populated the duplicate's data — so the duplicate was skipped by
+  both paths and kept raw SVG bytes in a `.png` part. That content-type/magic
+  mismatch made PowerPoint repair (and drop) the deck. Duplicates are now
+  converted right after their data is copied, so no `.png` fallback part contains
+  SVG bytes and every `svgBlip` picture survives.
+
 ## [10.1.0](https://github.com/shbernal/PptxGenJS/releases/tag/v10.1.0) - 2026-07-09
 
 ### Fixed
