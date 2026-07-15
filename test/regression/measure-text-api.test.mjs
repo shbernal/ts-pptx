@@ -103,11 +103,46 @@ describe('measureText core (synthetic metrics)', () => {
 		expect(m.shrinkScaleFor(tightIn)).toBeLessThan(100)
 	})
 
-	test('named face without exact metrics is still measurable (heuristic)', () => {
+	test('named face without exact metrics is still measurable (heuristic), and is reported', () => {
 		const reg = regWith() // only 'Mono' registered
 		const m = measureText(reg, 'hello world', { wIn: 5, fontSize: 12, fontFace: 'SomeOtherFace' })
 		expect(m.measurable).toBe(true)
 		expect(m.heightIn).toBeGreaterThan(0)
+		expect(m.approximatedFaces).toEqual(['SomeOtherFace'])
+	})
+
+	test('approximatedFaces is empty when every run is measured exactly', () => {
+		const reg = regWith()
+		const m = measureText(reg, SENTENCE, { wIn: 2, fontSize: 18, fontFace: 'Mono' })
+		expect(m.measurable).toBe(true)
+		expect(m.approximatedFaces).toEqual([])
+	})
+
+	test('approximatedFaces lists each guessed face once, exact runs excluded', () => {
+		const reg = regWith() // only 'Mono' registered
+		const m = measureText(
+			reg,
+			[
+				{ text: 'exact ', options: { fontFace: 'Mono' } },
+				{ text: 'guessed ', options: { fontFace: 'FaceA' } },
+				{ text: 'guessed again ', options: { fontFace: 'FaceA' } },
+				{ text: 'other', options: { fontFace: 'FaceB' } },
+			],
+			{ wIn: 20, fontSize: 12, fontFace: 'Mono' }
+		)
+		expect([...m.approximatedFaces].sort()).toEqual(['FaceA', 'FaceB'])
+	})
+
+	test('approximatedFaces is a caller-owned snapshot: mutating it cannot corrupt later calls', () => {
+		const reg = regWith()
+		const m = measureText(reg, 'hello world', { wIn: 5, fontSize: 12, fontFace: 'SomeOtherFace' })
+		m.approximatedFaces.push('Injected')
+		// shrinkScaleFor re-enters the same resolver; the returned array must not track it.
+		m.shrinkScaleFor(0.1)
+		expect(m.approximatedFaces).toEqual(['SomeOtherFace', 'Injected'])
+		expect(
+			measureText(reg, 'hello world', { wIn: 5, fontSize: 12, fontFace: 'SomeOtherFace' }).approximatedFaces
+		).toEqual(['SomeOtherFace'])
 	})
 
 	test('widestLineIn: single line == natural width (advance × WIDTH_SAFETY)', () => {
@@ -136,6 +171,7 @@ describe('measureText core (synthetic metrics)', () => {
 		expect(m.heightIn).toBe(0)
 		expect(m.fitsBox(100)).toBe(false)
 		expect(m.shrinkScaleFor(100)).toBe(100)
+		expect(m.approximatedFaces).toEqual([]) // nothing was measured, so nothing was guessed
 	})
 
 	test('TextProps[] runs honor per-run overrides', () => {
@@ -237,6 +273,8 @@ describe('pptx.measureText() / overflowsBox() instance methods (heuristic path)'
 		expect(m.measurable).toBe(true)
 		expect(m.heightIn).toBeGreaterThan(0)
 		expect(m.lineCount).toBeGreaterThanOrEqual(1)
+		// Zero setup → every face is guessed, and the result says so.
+		expect(m.approximatedFaces).toEqual(['Arial'])
 	})
 
 	test('unnamed face returns measurable:false', () => {

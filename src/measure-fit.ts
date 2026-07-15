@@ -499,11 +499,13 @@ function measureOptsToRunOpts(opts: MeasureTextOptions): RunOpts {
 	}
 }
 
-const UNMEASURABLE: TextMeasurement = Object.freeze({
+/** A fresh result each call: `approximatedFaces` is caller-owned, so it cannot be shared. */
+const unmeasurable = (): TextMeasurement => ({
 	heightIn: 0,
 	lineCount: 0,
 	widestLineIn: 0,
 	measurable: false,
+	approximatedFaces: [],
 	fitsBox: () => false,
 	shrinkScaleFor: () => 100,
 })
@@ -513,11 +515,18 @@ const UNMEASURABLE: TextMeasurement = Object.freeze({
  * behind `pptx.measureText()`. Uses the **same** calibrated wrap model, resolver
  * semantics, and conservative safety factors as the export-time bake
  * ({@link applyMeasuredFit} / {@link solveResize} / {@link solveShrink}), so a
- * layout-time prediction matches the value the export would bake.
+ * layout-time prediction matches the value the export would bake **for any deck
+ * that opted into measured fit (i.e. registered at least one face)**.
+ *
+ * With an **empty** registry the two intentionally diverge: {@link applyMeasuredFit}
+ * treats "no metrics" as "not opted in" and bakes nothing, while this returns
+ * heuristic numbers so the API is useful with zero setup. Check
+ * `approximatedFaces` if that distinction matters.
  *
  * Synchronous: assumes metrics are pre-registered (lookup is sync). A named face
- * with no exact metrics silently uses the conservative heuristic (same as export);
- * an unnamed theme-default face returns `measurable: false`.
+ * with no exact metrics silently uses the conservative heuristic (same as export)
+ * and is reported in `approximatedFaces`; an unnamed theme-default face returns
+ * `measurable: false`.
  */
 export function measureText(
 	registry: FontMetricsRegistry,
@@ -527,16 +536,18 @@ export function measureText(
 	const runs: TextProps[] =
 		typeof text === 'string' || typeof text === 'number' ? [{ text: String(text) }] : Array.isArray(text) ? text : []
 	const paragraphs = buildFitParagraphs(runs, measureOptsToRunOpts(opts))
-	if (!paragraphs) return UNMEASURABLE
+	if (!paragraphs) return unmeasurable()
 
 	const inset = opts.insetIn ?? 0
 	const innerWidthPt = (opts.wIn - 2 * inset) * POINTS_PER_INCH
-	const resolve = makeRegistryResolver(registry)
+	const heuristicFaces = new Set<string>()
+	const resolve = makeRegistryResolver(registry, (face) => heuristicFaces.add(face))
 
 	// Conservative (tall) layout at full size, mirroring solveResize: inflate width
-	// (earlier wrap) by WIDTH_SAFETY and the height by HEIGHT_SAFETY.
+	// (earlier wrap) by WIDTH_SAFETY and the height by HEIGHT_SAFETY. The resolver runs
+	// during layout, so `heuristicFaces` is only populated once this returns.
 	const layout = measureLayout(paragraphs, innerWidthPt, resolve, 100, 0, WIDTH_SAFETY_FACTOR)
-	if (layout === null) return UNMEASURABLE
+	if (layout === null) return unmeasurable()
 	const heightPt = layout.heightPt * HEIGHT_SAFETY_FACTOR
 	const heightIn = heightPt / POINTS_PER_INCH
 
@@ -545,6 +556,8 @@ export function measureText(
 		lineCount: layout.lineCount,
 		widestLineIn: layout.widestLineWidthPt / POINTS_PER_INCH,
 		measurable: true,
+		// Snapshot: shrinkScaleFor() re-enters the same resolver, so the live set must not leak.
+		approximatedFaces: [...heuristicFaces],
 		// Mirrors solveShrink's fit check at scale 100 (height already inflated).
 		fitsBox: (hIn: number) => heightPt <= hIn * POINTS_PER_INCH,
 		shrinkScaleFor: (hIn: number) => {

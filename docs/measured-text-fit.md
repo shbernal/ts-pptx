@@ -152,15 +152,35 @@ result + warns once, instead of degrading to the bare flag. A deck that register
 no metrics at all is unaffected (measured fit stays off); an unnamed
 (theme-default) face stays unmeasurable (the face cannot be guessed).
 
+The **layout-time** side (`measureText`) resolves runs identically, with one
+deliberate difference: the empty-registry case. `applyMeasuredFit` reads "no metrics"
+as "this deck never opted into measured fit" and bakes nothing, but `measureText` is
+a read-only query with nothing to opt into, so it returns heuristic numbers and stays
+useful with zero setup. The two therefore diverge for an empty registry — the query
+predicts a shrink the export will not bake — and that is intentional, not a bug:
+
+| | `measureText` | `applyMeasuredFit` |
+|---|---|---|
+| kind | read-only query | mutates the deck at export |
+| empty registry | heuristic, useful with zero setup | no-op — the deck never opted in |
+
+The library cannot tell "never intended to register" from "intended to register and
+the load silently failed"; detecting the latter is the caller's job, at font-load
+time. `measureText` reports every named face it had to guess at in
+`approximatedFaces`, so a caller that needs exact numbers can check rather than
+assume. `measured-fit-integration.test.mjs` pins this divergence so it cannot change
+silently.
+
 ## Layout-time measurement (public API)
 
 The same calibrated engine is also exposed for **layout-time** use, so a consumer
 can size its own geometry *before* export (grow a card to fit its text, reflow a
-grid, detect overflow) instead of relying only on the export-time bake. A
-layout-time prediction must never disagree with what the export then bakes, so both
-paths share one converter (`buildFitParagraphs`), one resolver
-(`makeRegistryResolver`), and one layout function (`measureLayout`) — there is no
-second wrap model. Source: `src/measure.ts` (subpath entry), `measureText` +
+grid, detect overflow) instead of relying only on the export-time bake. For any deck
+that opted into measured fit (i.e. registered at least one face), a layout-time
+prediction must never disagree with what the export then bakes, so both paths share
+one converter (`buildFitParagraphs`), one resolver (`makeRegistryResolver`), and one
+layout function (`measureLayout`) — there is no second wrap model. The one deliberate
+exception is an **empty** registry (see below). Source: `src/measure.ts` (subpath entry), `measureText` +
 `buildFitParagraphs` + `makeRegistryResolver` in `src/measure-fit.ts`, and
 `measureLayout` in `src/text-fit.ts`.
 
@@ -175,6 +195,7 @@ const m = pptx.measureText('A long heading…', { wIn: 3, fontSize: 18, fontFace
 // m.widestLineIn → width of the widest laid-out line (natural width when wIn is
 //                  unconstrained; widest wrapped line otherwise; errs slightly wide)
 // m.measurable → false only for an unnamed theme-default face
+// m.approximatedFaces → named faces guessed via the heuristic ([] when all exact)
 // m.fitsBox(hIn)         → does it fit a box of inner height hIn?
 // m.shrinkScaleFor(hIn)  → the fontScale (%) that fits hIn (100 if it already does)
 
@@ -183,10 +204,12 @@ if (pptx.overflowsBox(text, { wIn, hIn, fontSize, fontFace })) warn() // conserv
 
 `measureText` is **synchronous** and assumes metrics are pre-registered (the async
 `registerFontMetrics` runs ahead of time; lookup is sync). Resolver semantics match
-the export pass exactly: exact metrics → conservative heuristic for any **named**
-face without exact metrics → `measurable:false` only for an unnamed theme-default
-face. Units are inches (width/height) + points (type/spacing); `insetIn` is
-subtracted from `wIn` on both sides if a raw box width is passed.
+the export pass run-for-run: exact metrics → conservative heuristic for any **named**
+face without exact metrics (reported in `approximatedFaces`) → `measurable:false`
+only for an unnamed theme-default face. The one place the two paths differ by design
+is an empty registry — see "Unregistered-font heuristic" above. Units are inches
+(width/height) + points (type/spacing); `insetIn` is subtracted from `wIn` on both
+sides if a raw box width is passed.
 
 Because the model errs **tall** (the same `WIDTH_SAFETY`/`HEIGHT_SAFETY` factors as
 the resize bake), `heightIn` is ≥ what PowerPoint/LibreOffice render — right for

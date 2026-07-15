@@ -53,6 +53,25 @@ describe("measured fit: fit:'shrink' integration", () => {
 		expect(xml).not.toContain('fontScale')
 	})
 
+	test('DOCUMENTED DIVERGENCE: empty registry → measureText predicts a shrink the export does not bake', async () => {
+		// Intentional, not a bug (docs/measured-text-fit.md "Unregistered-font heuristic"):
+		// applyMeasuredFit reads "no metrics" as "never opted into measured fit" and bakes
+		// nothing, while measureText is a read-only query that stays useful with zero setup.
+		// Pinned so the asymmetry cannot change silently; approximatedFaces is how a caller
+		// that needs exact numbers detects it.
+		const pres = new PptxGenJS()
+		const m = pres.measureText(OVERFLOW, { wIn: 3, fontSize: 18, fontFace: 'Aptos' })
+		expect(m.measurable).toBe(true)
+		expect(m.approximatedFaces).toEqual(['Aptos']) // nothing registered → the face was guessed
+		expect(m.shrinkScaleFor(1)).toBeLessThan(100) // the query predicts a shrink…
+
+		const slide = pres.addSlide()
+		slide.addText(OVERFLOW, { x: 1, y: 1, w: 3, h: 1, fontFace: 'Aptos', fontSize: 18, fit: 'shrink' })
+		const xml = await slide1Xml(pres)
+		expect(xml).toContain('<a:normAutofit/>') // …but the export bakes the bare flag
+		expect(xml).not.toContain('fontScale')
+	})
+
 	test('registered metrics for a DIFFERENT named face → heuristic shrink (P3: approximate, no throw)', async () => {
 		const path = aptosPath()
 		if (!path) return expect(true).toBe(true)

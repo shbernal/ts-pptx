@@ -2056,6 +2056,15 @@ export interface TextMeasurement {
 	widestLineIn: number
 	/** `false` only for an unnamed theme-default face that could not be measured. */
 	measurable: boolean
+	/**
+	 * The **named** faces laid out with the conservative average-advance heuristic
+	 * instead of their real metrics — i.e. faces with no registered metrics. Empty
+	 * when every run was measured exactly (and for an unmeasurable result, which
+	 * guessed nothing). The numbers stay conservative (they err tall/wide), but a
+	 * non-empty list means they are an approximation, not a measurement; register
+	 * the face via {@link PptxGenJS.registerFontMetrics} for an exact result.
+	 */
+	approximatedFaces: string[]
 	/** True if the text fits a box of inner height `hIn` (inches) at full size. */
 	fitsBox: (hIn: number) => boolean
 	/** The `fontScale` (percent) that fits inner height `hIn`; `100` if it already fits, never below the shrink floor. */

@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`TextMeasurement.approximatedFaces` reports which faces `measureText()` had to
+  guess at.** The resolver falls back to a conservative average-advance heuristic for
+  any **named** face with no registered metrics, but a layout-time caller had no way
+  to tell an exact measurement from an approximate one — the signal existed
+  (`makeRegistryResolver`'s `onHeuristic`, used by the export pass to warn once) and
+  `measureText` simply discarded it. It now collects those faces and returns them:
+  `[]` when every run was measured exactly (and for an unmeasurable result, which
+  guessed nothing), otherwise the named faces that fell back. Numbers are unchanged
+  and still conservative; this only makes their provenance visible, so a caller
+  needing exact values can check instead of assume. No warning is emitted —
+  `measureText` is a per-layout query, so warn-once would either spam or go stale;
+  the caller decides.
+
+  **Breaking for implementers only.** `approximatedFaces` is a required field on the
+  `TextMeasurement` interface. Consumers *reading* the result of `measureText()` /
+  `pptx.measureText()` are unaffected — this is purely additive for them. Anyone
+  *implementing* or hand-mocking `TextMeasurement` (e.g. a test double) must add
+  `approximatedFaces: []` to satisfy the type.
+
+### Fixed
+
+- **The layout-time/export-time "never disagree" invariant is now stated accurately.**
+  `measureText`'s docstring and `docs/measured-text-fit.md` claimed a layout-time
+  prediction always matches what the export bakes. That holds only for a deck that
+  opted into measured fit (registered ≥1 face). With an **empty** registry the two
+  intentionally diverge: `applyMeasuredFit` reads "no metrics" as "not opted in" and
+  bakes nothing, while `measureText` returns heuristic numbers so the API is useful
+  with zero setup. Behaviour is unchanged and correct — the docs oversold it. The
+  guarantee is now scoped, the asymmetry documented as deliberate, and a regression
+  test pins the divergence so it cannot change silently.
+
 ## [10.2.0](https://github.com/shbernal/PptxGenJS/releases/tag/v10.2.0) - 2026-07-15
 
 ### Fixed
