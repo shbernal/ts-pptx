@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.3.0](https://github.com/shbernal/PptxGenJS/releases/tag/v10.3.0) - 2026-07-15
+
 ### Added
 
 - **`TextMeasurement.approximatedFaces` reports which faces `measureText()` had to
