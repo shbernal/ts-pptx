@@ -504,6 +504,90 @@ describe('Presentation.importSlideMasters({ tableStyles })', () => {
 	})
 })
 
+// importSlideMasters({ primary: true }) moves the grafted masters to the front of
+// p:sldMasterIdLst, so the deck presents as their theme (PowerPoint's Designs(1)).
+// This reorders the id list only — it changes no existing slide's appearance, since
+// a slide resolves its theme through its own layout's master, not through list order.
+describe('Presentation.importSlideMasters({ primary })', () => {
+	test('grafted master leads p:sldMasterIdLst; without the flag it trails', async () => {
+		const graftedFirst = await open('empty')
+		const sourceA = await open('image')
+		const beforeCount = registeredMasters(graftedFirst.opc).length
+		const result = graftedFirst.importSlideMasters(sourceA, { primary: true })
+		assertEqual(result.length, 1, 'one master grafted')
+
+		const withFlag = registeredMasters((await Presentation.load(await graftedFirst.save())).opc)
+		assertEqual(withFlag.length, beforeCount + 1, 'the grafted master is registered')
+		assertEqual(withFlag[0], result[0].partName, 'the grafted master now leads the list')
+
+		// Same graft without the flag: the grafted master appends after the original.
+		const appended = await open('empty')
+		const sourceB = await open('image')
+		const trailing = appended.importSlideMasters(sourceB)
+		const withoutFlag = registeredMasters((await Presentation.load(await appended.save())).opc)
+		assertEqual(
+			withoutFlag[withoutFlag.length - 1],
+			trailing[0].partName,
+			'without the flag the grafted master trails, confirming the flag is what moved it'
+		)
+	})
+
+	test('reorders the id list only — every other part stays byte-identical', async () => {
+		const input = await readFile(fixturePath('empty'))
+		const withPrimary = await Presentation.load(input)
+		const source = await open('image')
+		withPrimary.importSlideMasters(source, { primary: true })
+
+		// A plain graft (append) and a primary graft from the same inputs differ in
+		// exactly one part: presentation.xml, where the id list is reordered.
+		const plain = await Presentation.load(input)
+		plain.importSlideMasters(await open('image'))
+
+		const primaryBodies = await partBodies(await withPrimary.save())
+		const plainBodies = await partBodies(await plain.save())
+		const differing = [...primaryBodies.keys()].filter(
+			(name) => !bytesEqual(primaryBodies.get(name), plainBodies.get(name))
+		)
+		assertEqual(
+			differing.join(','),
+			'ppt/presentation.xml',
+			'primary vs append differ in presentation.xml alone (id-list order)'
+		)
+	})
+
+	test('is idempotent: a second primary graft does not reshuffle', async () => {
+		const target = await open('empty')
+		const source = await open('image')
+		target.importSlideMasters(source, { primary: true })
+		const once = registeredMasters((await Presentation.load(await target.save())).opc)
+
+		// Re-carrying the SAME source is a copy-registry no-op; the promotion must not
+		// reorder the already-leading master, and it must not double-register.
+		target.importSlideMasters(source, { primary: true })
+		const twice = registeredMasters((await Presentation.load(await target.save())).opc)
+		assertEqual(twice.join('|'), once.join('|'), 'the master list is unchanged by a repeat primary graft')
+	})
+
+	test('the promotion adds no slide and leaves no dangling rels', async () => {
+		const target = await open('empty')
+		const source = await open('image')
+		const slidesBefore = target.slides.length
+		target.importSlideMasters(source, { primary: true })
+
+		const reopened = await Presentation.load(await target.save())
+		assertEqual(reopened.slides.length, slidesBefore, 'no slide was added by promoting the master')
+		assertNoDanglingRels(reopened.opc)
+	})
+
+	test.skipIf(!validatorInstalled)('a primary graft stays schema-valid', async () => {
+		const target = await open('empty')
+		const source = await open('image')
+		target.importSlideMasters(source, { primary: true })
+		const errors = await validateBuf(Buffer.from(await target.save()))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+})
+
 // Generate → read bridge: the real use case. Interior slides are authored with
 // the generate API; the brand master is then grafted in on the read/import model
 // so the generated deck ships the template's layout gallery without applying it.

@@ -467,6 +467,27 @@ export interface ImportSlideMastersOptions {
 	 * @default false
 	 */
 	tableStyles?: boolean
+
+	/**
+	 * Move the grafted masters to the front of `p:sldMasterIdLst`, ahead of the ones
+	 * this deck already had, keeping their import order. Off by default: which master
+	 * leads is a statement about what the deck *is*, so it is the caller's call rather
+	 * than a side effect of grafting.
+	 *
+	 * `p:sldMasterIdLst` order is not part of theme resolution — a slide resolves
+	 * through its own layout's master, so this changes no existing slide's appearance.
+	 * What it changes is the deck's identity in PowerPoint's UI: the list's first entry
+	 * becomes `Designs(1)`, which is the theme the Design tab shows and the one
+	 * Design ▸ Variants applies. Graft a brand master into a generated deck without
+	 * this and the deck still presents as the generator's stock theme, because the
+	 * stub master was there first.
+	 *
+	 * Reordering rewrites nothing but the list: relationships, ids, and every part
+	 * outside `presentation.xml` are untouched, and a re-call is a no-op once the
+	 * grafted masters already lead.
+	 * @default false
+	 */
+	primary?: boolean
 }
 
 /** A layout in this deck's gallery, addressable as an {@link AppendSlidesOptions} target. */
@@ -1223,7 +1244,9 @@ export class Presentation {
 	 * {@link ImportSlideMastersOptions}).
 	 *
 	 * Presentation-level parts are carried only on request: embedded fonts via
-	 * `options.embedFonts` and table styles via `options.tableStyles` (see
+	 * `options.embedFonts` and table styles via `options.tableStyles`. By default a
+	 * grafted master is appended after the deck's existing masters; `options.primary`
+	 * moves the grafted masters to the front so the deck presents as their theme (see
 	 * {@link ImportSlideMastersOptions}). The v1 limitation mirroring
 	 * {@link importSlide} is that geometry is not rescaled.
 	 */
@@ -1264,6 +1287,7 @@ export class Presentation {
 		// whole-deck: neither part records which font/style belongs to which master.
 		if (options.embedFonts) this.#carryEmbeddedFonts(source)
 		if (options.tableStyles) this.#carryTableStyles(source)
+		if (options.primary) this.#promoteMasters(imported.map((m) => m.partName))
 
 		return imported
 	}
@@ -2115,6 +2139,34 @@ export class Presentation {
 		setAttr(entry, 'id', String(this.#nextMasterLayoutId()))
 		setAttr(entry, 'r:id', relId)
 		lst.appendChild(entry)
+		presPart.markDirty()
+	}
+
+	/**
+	 * Move the `p:sldMasterId` entries for `masterPartNames` to the front of
+	 * `p:sldMasterIdLst`, preserving their existing relative order, so the first of
+	 * them becomes the deck's `Designs(1)` — the theme PowerPoint's Design tab shows.
+	 * Reorders the id list only; relationships, ids, and all other parts are left as
+	 * they are. A no-op when the named masters already lead (idempotent re-call).
+	 */
+	#promoteMasters(masterPartNames: string[]): void {
+		if (masterPartNames.length === 0) return
+		const presPart = this.presentationPart
+		const root = presPart.dom.documentElement
+		const lst = root && firstChild(root, 'p:sldMasterIdLst')
+		if (!lst) return
+		const rels = this.opc.relationshipsFor(presPart.partName)
+		const promote = new Set(masterPartNames)
+		const entries = getElements(lst, 'p:sldMasterId')
+		// Entries whose relationship resolves to a promoted master, kept in their
+		// current order, then everyone else in theirs — a stable partition.
+		const isPromoted = (entry: Element): boolean => {
+			const relId = attr(entry, 'r:id')
+			return relId ? promote.has(rels.resolveTarget(relId)) : false
+		}
+		const desired = [...entries.filter(isPromoted), ...entries.filter((e) => !isPromoted(e))]
+		if (desired.every((entry, i) => entry === entries[i])) return
+		for (const entry of desired) lst.appendChild(entry)
 		presPart.markDirty()
 	}
 

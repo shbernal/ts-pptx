@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`importSlideMasters({ primary })` moves the grafted masters to the front of
+  `p:sldMasterIdLst`.** By default a grafted master is appended after the ones the deck
+  already had, so a brand master grafted into a generated deck trails the generator's
+  stock master. List order is not part of theme resolution — a slide resolves through
+  its own layout's master, so no existing slide changes appearance — but the list's
+  first entry is the deck's `Designs(1)`: the theme PowerPoint's Design tab shows and
+  the one Design ▸ Variants applies. With `primary`, the grafted masters lead (in import
+  order) and the deck presents as their theme. Off by default: which master leads is a
+  statement about what the deck *is*, so it is the caller's call, not a side effect of
+  grafting. Reordering rewrites the id list only — relationships, ids, and every part
+  outside `presentation.xml` are untouched, and a re-call is a no-op once the grafted
+  masters already lead.
+
 - **`importSlideMasters({ tableStyles })` carries the source deck's table styles.**
   Grafting a master shipped its layout gallery but not the deck's table styling, which
   lives in the presentation-level `ppt/tableStyles.xml`. A table then inserted on a
