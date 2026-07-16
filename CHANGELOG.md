@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Measured `fit:'shrink'` now shrinks non-wrapping text that overflows horizontally.**
+  The measured-fit pass already baked a real `fontScale` onto `<a:normAutofit>` for
+  vertical overflow (text taller than its box) when a font's metrics are registered via
+  `registerFontMetrics`. But `normAutofit` is a vertical mechanism, so a `wrap:false`
+  (`wrap="none"`) frame never triggered it: a single unwrapped line always fits the box
+  height, so no scale was baked and the line ran out of the box sideways in PowerPoint
+  (LibreOffice re-derives shrink-to-fit at render time and hid it). The shrink solver now
+  carries the frame's wrap mode: a non-wrapping frame lays out one line per paragraph and
+  the solver additionally keeps the widest line within the box width, on the same 2.5%
+  `fontScale` grid and with the same conservative width inflation, so the baked scale
+  never overflows PowerPoint. Gated on registered metrics, so decks that do not opt into
+  measured fit are unchanged; wrapping frames, table cells, and `measureText` are
+  unaffected.
+
+- **`inspect` read model exposes run font properties, paragraph structure, and the baked
+  autofit `fontScale`.** `PptxTextRun` now carries `fontFace`, `bold`, `italic`, and
+  `charSpacingPt` alongside `text`/`fontSizePt`/`color`; `PptxSlideElement` gains
+  `paragraphs: PptxParagraph[]` (runs grouped by their source `<a:p>`, preserving the
+  line boundaries the flat `textRuns` list discards) and `autofitFontScale` (the
+  `<a:normAutofit@fontScale>` value as a percent, or `null` for a bare `<a:normAutofit/>`).
+  This lets a consumer re-derive a frame's rendered text extent — e.g. an overflow linter
+  that must measure each `wrap="none"` line at the size PowerPoint will actually draw it —
+  entirely off `inspectPptx`, with no raw slide-XML parsing of its own. All fields are
+  additive; existing fields are unchanged.
+
 ## [10.4.0](https://github.com/shbernal/PptxGenJS/releases/tag/v10.4.0) - 2026-07-16
 
 ### Added

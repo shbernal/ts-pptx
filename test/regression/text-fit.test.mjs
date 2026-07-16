@@ -141,6 +141,51 @@ describe('text-fit: solveShrink', () => {
 	})
 })
 
+// dn-autofit-shrink-horizontal: a wrap=false (`wrap="none"`) frame lays out one line
+// per paragraph, so a single over-wide line always fits the box HEIGHT and never
+// triggers the vertical shrink. solveShrink must then also enforce the box WIDTH
+// against the widest line, or the line spills out of the box in PowerPoint.
+describe('text-fit: solveShrink wrap=false (horizontal overflow)', () => {
+	const noWrapBox = (innerWidthPt, innerHeightPt) => ({ innerWidthPt, innerHeightPt, wrap: false })
+	// Natural width of `n` mono chars at 18pt·scale, with the solver's width-safety inflation.
+	const naturalWidthAt = (n, scale) => n * (0.5 * 18 * (scale / 100)) * WIDTH_SAFETY_FACTOR
+
+	test('single line too wide → shrinks on width even though height fits', () => {
+		// 10 chars ≈ 92.7pt wide; a 50pt-wide but very tall box: height always fits.
+		const b = noWrapBox(50, 10000)
+		const out = solveShrink([para('aaaaaaaaaa')], b, resolveMono)
+		const { fontScalePct } = shrinkResult(out)
+		expect(Number.isInteger(fontScalePct / FONT_SCALE_STEP_PCT)).toBe(true)
+		expect(fontScalePct).toBeLessThan(100)
+		expect(fontScalePct).toBeGreaterThanOrEqual(MIN_FONT_SCALE_PCT)
+		// The chosen scale keeps the widest line inside the box…
+		expect(naturalWidthAt(10, fontScalePct)).toBeLessThanOrEqual(b.innerWidthPt)
+		// …and the next step up does NOT (it is the largest that fits).
+		if (fontScalePct + FONT_SCALE_STEP_PCT <= 100) {
+			expect(naturalWidthAt(10, fontScalePct + FONT_SCALE_STEP_PCT)).toBeGreaterThan(b.innerWidthPt)
+		}
+	})
+
+	test('same over-wide line WRAPS (default) → fits at 100%, no shrink', () => {
+		// With wrapping, the over-long word character-wraps to fit the width and the
+		// tall box swallows the extra lines: the horizontal case is what differs.
+		expect(solveShrink([para('aaaaaaaaaa')], { innerWidthPt: 50, innerHeightPt: 10000 }, resolveMono)).toEqual({
+			kind: 'fits',
+		})
+	})
+
+	test('non-wrapping line that already fits the width → no shrink', () => {
+		expect(solveShrink([para('hi')], noWrapBox(1000, 1000), resolveMono)).toEqual({ kind: 'fits' })
+	})
+
+	test('height is still enforced when width fits (many hard-newline lines)', () => {
+		// Eight short lines (each fits the width) overflow a short box vertically.
+		const out = solveShrink([para('a\na\na\na\na\na\na\na')], noWrapBox(1000, 30), resolveMono)
+		const { fontScalePct } = shrinkResult(out)
+		expect(fontScalePct).toBeLessThan(100)
+	})
+})
+
 describe('text-fit: solveResize', () => {
 	const box = (innerWidthPt, innerHeightPt) => ({ innerWidthPt, innerHeightPt })
 

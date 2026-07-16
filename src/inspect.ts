@@ -40,6 +40,23 @@ export interface PptxTextRun {
 	text: string
 	fontSizePt: number | null
 	color: string | null
+	/** Run font face (`a:rPr > a:latin@typeface`), or null when it inherits from the theme/placeholder. */
+	fontFace: string | null
+	/** Bold (`a:rPr@b`). */
+	bold: boolean
+	/** Italic (`a:rPr@i`). */
+	italic: boolean
+	/** Character spacing in points (`a:rPr@spc`, authored in hundredths of a point), or null when unset. */
+	charSpacingPt: number | null
+}
+
+/**
+ * One paragraph (`a:p`): its runs in document order. Preserves the paragraph/line
+ * boundaries that the flat {@link PptxSlideElement.textRuns} list discards — needed
+ * to measure a `wrap="none"` frame line-by-line (each paragraph is one unwrapped line).
+ */
+export interface PptxParagraph {
+	runs: PptxTextRun[]
 }
 
 export type PptxSlideElementKind = 'text' | 'image' | 'shape'
@@ -76,8 +93,16 @@ export interface PptxSlideElement {
 	text: string
 	textWrap: string | null
 	autofit: PptxAutofitMode | null
+	/**
+	 * Baked shrink scale from `<a:normAutofit@fontScale>` as a percent (62.5 = 62.5%),
+	 * or null when the frame has no `normAutofit` or bakes no scale (a bare
+	 * `<a:normAutofit/>`, which PowerPoint draws at 100% until edited).
+	 */
+	autofitFontScale: number | null
 	bodyInsets: PptxBodyInsets | null
 	textRuns: PptxTextRun[]
+	/** Runs grouped by their source paragraph (`a:p`), in document order. */
+	paragraphs: PptxParagraph[]
 	fontSizes: number[]
 	colors: string[]
 	fill: string | null
@@ -282,8 +307,10 @@ function normalizeElement(node: XmlNode, zIndex: number): PptxSlideElement | nul
 		text,
 		textWrap: readTextWrap(textBody),
 		autofit: readAutofit(textBody),
+		autofitFontScale: readAutofitFontScale(textBody),
 		bodyInsets: readBodyInsets(textBody),
 		textRuns,
+		paragraphs: extractParagraphs(textBody),
 		fontSizes: [...new Set(textRuns.map((run) => run.fontSizePt).filter((size): size is number => size !== null))],
 		colors: [...new Set(textRuns.map((run) => run.color).filter((color): color is string => Boolean(color)))],
 		fill: readFill(spPr),
@@ -308,6 +335,23 @@ function readBox(xfrm: XmlNode | null): PptxBox | null {
 	}
 }
 
+/** Read one `<a:r>` run's text + character properties, or null if it has no text node. */
+function readTextRun(run: XmlNode): PptxTextRun | null {
+	const text = stringValue(run['a:t'])
+	if (text === null) return null
+	const props = nodeChild(run, 'a:rPr')
+	const spc = numericValue(props?.['spc'])
+	return {
+		text,
+		fontSizePt: props?.['sz'] ? Number(props['sz']) / 100 : null,
+		color: readTextColor(props),
+		fontFace: stringValue(nodeChild(props, 'a:latin')?.['typeface']),
+		bold: readXmlBool(props?.['b']),
+		italic: readXmlBool(props?.['i']),
+		charSpacingPt: spc === null ? null : spc / 100,
+	}
+}
+
 function extractTextRuns(textBody: XmlNode | null): PptxTextRun[] {
 	if (!textBody) return []
 	const runs: PptxTextRun[] = []
@@ -315,17 +359,35 @@ function extractTextRuns(textBody: XmlNode | null): PptxTextRun[] {
 		for (const item of asArray(node['a:r'])) {
 			const run = asNode(item)
 			if (!run) continue
-			const text = stringValue(run['a:t'])
-			if (text === null) continue
-			const props = nodeChild(run, 'a:rPr')
-			runs.push({
-				text,
-				fontSizePt: props?.['sz'] ? Number(props['sz']) / 100 : null,
-				color: readTextColor(props),
-			})
+			const built = readTextRun(run)
+			if (built) runs.push(built)
 		}
 	})
 	return runs
+}
+
+/** Runs grouped by their source paragraph (`a:p`), preserving line boundaries. */
+function extractParagraphs(textBody: XmlNode | null): PptxParagraph[] {
+	if (!textBody) return []
+	const paragraphs: PptxParagraph[] = []
+	for (const item of asArray(textBody['a:p'])) {
+		const paragraph = asNode(item)
+		if (!paragraph) continue
+		const runs: PptxTextRun[] = []
+		for (const rItem of asArray(paragraph['a:r'])) {
+			const run = asNode(rItem)
+			if (!run) continue
+			const built = readTextRun(run)
+			if (built) runs.push(built)
+		}
+		paragraphs.push({ runs })
+	}
+	return paragraphs
+}
+
+/** OOXML boolean attributes arrive as 1/0 or "true"/"false" depending on the writer. */
+function readXmlBool(value: unknown): boolean {
+	return value === 1 || value === '1' || value === true || value === 'true'
 }
 
 function readTextColor(props: XmlNode | null): string | null {
@@ -355,6 +417,15 @@ function readAutofit(textBody: XmlNode | null): PptxAutofitMode | null {
 	if ('a:spAutoFit' in bodyPr) return 'spAutoFit'
 	if ('a:normAutofit' in bodyPr) return 'normAutofit'
 	return 'none'
+}
+
+/** Baked `<a:normAutofit@fontScale>` as a percent (62.5 = 62.5%), or null when unset. */
+function readAutofitFontScale(textBody: XmlNode | null): number | null {
+	const norm = nodeChild(nodeChild(textBody, 'a:bodyPr'), 'a:normAutofit')
+	if (!norm) return null
+	// OOXML stores fontScale in 1000ths of a percent (62500 = 62.5%). Return a percent.
+	const raw = numericValue(norm['fontScale'])
+	return raw === null ? null : raw / 1000
 }
 
 function readBodyInsets(textBody: XmlNode | null): PptxBodyInsets | null {

@@ -117,6 +117,27 @@ describe("measured fit: fit:'shrink' integration", () => {
 		expect(scale % 2500).toBe(0)
 	})
 
+	test('wrap:false single line too wide → horizontal fontScale baked (dn-autofit-shrink-horizontal)', async () => {
+		const path = aptosPath()
+		if (!path) return expect(true).toBe(true)
+		const pres = new PptxGenJS()
+		await pres.registerFontMetrics('Aptos', path)
+		const slide = pres.addSlide()
+		// One long line, no wrap, in a box that is plenty TALL (2in) but too NARROW
+		// (2in): the single line fits the height and only the horizontal check catches it.
+		const ONE_LINE = 'This single line is deliberately far too wide to ever fit the narrow box'
+		slide.addText(ONE_LINE, { x: 1, y: 1, w: 2, h: 2, fontFace: 'Aptos', fontSize: 28, fit: 'shrink', wrap: false })
+		const xml = await slide1Xml(pres)
+		expect(xml).toContain('wrap="none"') // it is genuinely a non-wrapping frame
+		const m = xml.match(/<a:normAutofit fontScale="(\d+)"/)
+		expect(m).not.toBeNull() // before the fix this was a bare <a:normAutofit/>
+		const scale = Number(m[1])
+		expect(scale).toBeGreaterThanOrEqual(25000)
+		expect(scale).toBeLessThan(100000)
+		expect(scale % 2500).toBe(0)
+		expect(firstXfrm(xml).cy).toBe(2 * EMU_PER_IN) // shrink, not resize: box height unchanged
+	})
+
 	test('registered metrics + text that fits → bare flag (no needless shrink)', async () => {
 		const path = aptosPath()
 		if (!path) return expect(true).toBe(true)

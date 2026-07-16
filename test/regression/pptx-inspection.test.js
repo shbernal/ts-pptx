@@ -113,6 +113,55 @@ defineRegressionSuite('PPTX inspection primitives', [
 		},
 	},
 	{
+		name: 'inspect exposes per-run font props, paragraph structure, and baked normAutofit fontScale',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const slide = p.addSlide()
+				// Two paragraphs (breakLine ends the first), each a run with distinct props.
+				slide.addText(
+					[
+						{ text: 'Bold', options: { bold: true, fontFace: 'Arial', breakLine: true } },
+						{ text: 'Ital', options: { italic: true, charSpacing: 2 } },
+					],
+					{ x: 1, y: 1, w: 3, h: 1, fontSize: 18, objectName: 'runs' }
+				)
+				// Object-form shrink bakes an explicit fontScale we can read back.
+				slide.addText('Scaled', {
+					x: 1,
+					y: 3,
+					w: 2,
+					h: 0.5,
+					fit: { type: 'shrink', fontScale: 62.5 },
+					objectName: 'scaled',
+				})
+				// Bare shrink → <a:normAutofit/> with no fontScale.
+				slide.addText('Bare', { x: 1, y: 4, w: 2, h: 0.5, fit: 'shrink', objectName: 'bare' })
+			})
+
+			const inspection = await inspectPptx(buf)
+			const elements = new Map(inspection.slides[0].elements.map((element) => [element.name, element]))
+
+			const runs = elements.get('runs')
+			assert(runs, 'expected named multi-run element')
+			assertEqual(runs.paragraphs.length, 2, 'two source paragraphs preserved')
+			const first = runs.paragraphs[0].runs[0]
+			const second = runs.paragraphs[1].runs[0]
+			assertEqual(first.text, 'Bold', 'first paragraph run text')
+			assertEqual(first.bold, true, 'bold flag read from a:rPr@b')
+			assertEqual(first.italic, false, 'first run is not italic')
+			assertEqual(first.fontFace, 'Arial', 'fontFace read from a:latin@typeface')
+			assertEqual(second.italic, true, 'italic flag read from a:rPr@i')
+			assertEqual(second.charSpacingPt, 2, 'charSpacing read from a:rPr@spc (hundredths→pt)')
+			// Flat textRuns still carries the same enriched props.
+			assertEqual(runs.textRuns[0].fontFace, 'Arial', 'flat textRuns also carry fontFace')
+
+			assertEqual(elements.get('scaled').autofit, 'normAutofit', 'object shrink reports normAutofit')
+			assertEqual(elements.get('scaled').autofitFontScale, 62.5, 'baked fontScale read back as a percent')
+			assertEqual(elements.get('bare').autofit, 'normAutofit', 'bare shrink still reports normAutofit')
+			assertEqual(elements.get('bare').autofitFontScale, null, 'bare normAutofit bakes no scale → null')
+		},
+	},
+	{
 		name: 'low-level package and geometry helpers are available',
 		fn: async () => {
 			const { buf } = await build((p) => {

@@ -69,6 +69,16 @@ export interface FitParagraph {
 export interface FitBox {
 	innerWidthPt: number
 	innerHeightPt: number
+	/**
+	 * `false` when the frame does not wrap (`wrap:false` / `wrap="none"`): text lays
+	 * out as one line per paragraph (no width-wrapping), and the shrink solver must
+	 * additionally keep the widest line within `innerWidthPt`. A too-wide line
+	 * overflows HORIZONTALLY — `normAutofit`'s vertical shrink never catches it, so
+	 * without this check a non-wrapping line is never shrunk and spills out of the box
+	 * in PowerPoint. Defaults to wrapping (`true`), so table cells and `measureText`
+	 * are unaffected.
+	 */
+	wrap?: boolean
 }
 
 /** Resolve the metrics for a run, or `undefined` if the face is not registered. */
@@ -299,19 +309,37 @@ export type ResizeOutcome =
  * and the laid-out height by the calibrated height factor, so the computed `cy` is
  * ≥ PowerPoint's and ≥ the LibreOffice-rendered height across the resize oracle.
  */
+/**
+ * Width used for wrap layout: the inner box width when wrapping, or unbounded for a
+ * non-wrapping frame (`wrap:false`) so each paragraph lays out as a single line. A
+ * non-wrapping frame's width constraint is enforced separately, against the widest
+ * laid-out line — see {@link solveShrink}.
+ */
+function layoutWidthPt(box: FitBox): number {
+	return box.wrap === false ? Infinity : box.innerWidthPt
+}
+
 export function solveResize(paragraphs: FitParagraph[], box: FitBox, resolve: MetricsResolver): ResizeOutcome {
-	const h = measureHeightPt(paragraphs, box.innerWidthPt, resolve, 100, 0, WIDTH_SAFETY_FACTOR)
+	const h = measureHeightPt(paragraphs, layoutWidthPt(box), resolve, 100, 0, WIDTH_SAFETY_FACTOR)
 	if (h === null) return { kind: 'unmeasurable' }
 	return { kind: 'resize', neededInnerHeightPt: h * HEIGHT_SAFETY_FACTOR }
 }
 
 export function solveShrink(paragraphs: FitParagraph[], box: FitBox, resolve: MetricsResolver): ShrinkOutcome {
+	const width = layoutWidthPt(box)
+	const noWrap = box.wrap === false
 	// Inflate measured width (earlier wrap) and height by the calibrated safety
-	// factors so the fit threshold is conservative against PowerPoint.
+	// factors so the fit threshold is conservative against PowerPoint. For a
+	// non-wrapping frame the single line always fits the box HEIGHT, so height alone
+	// never triggers a shrink: also require the widest (unwrapped) line to fit the box
+	// WIDTH. `widestLineWidthPt` already carries the WIDTH_SAFETY_FACTOR inflation, so
+	// comparing it straight to `innerWidthPt` stays on the conservative (shrink-more) side.
 	const fits = (scale: number): boolean | null => {
-		const h = measureHeightPt(paragraphs, box.innerWidthPt, resolve, scale, 0, WIDTH_SAFETY_FACTOR)
-		if (h === null) return null
-		return h * HEIGHT_SAFETY_FACTOR <= box.innerHeightPt
+		const layout = measureLayout(paragraphs, width, resolve, scale, 0, WIDTH_SAFETY_FACTOR)
+		if (layout === null) return null
+		if (layout.heightPt * HEIGHT_SAFETY_FACTOR > box.innerHeightPt) return false
+		if (noWrap && layout.widestLineWidthPt > box.innerWidthPt) return false
+		return true
 	}
 
 	const at100 = fits(100)

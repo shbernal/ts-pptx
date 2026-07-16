@@ -1053,9 +1053,12 @@ items:
       headless renderer can measure/resize before addText). Write them down in the
       fork docs so every consumer knows what schema fixtures intentionally do NOT
       assert:
-        - fit:'shrink' emits a bare <a:normAutofit/>; the fontScale/lnSpcReduction
-          variant is deliberately omitted because PowerPoint computes it on
-          edit/resize, so generated decks overflow until a human touches the shape.
+        - fit:'shrink' emits a bare <a:normAutofit/> ONLY in the no-metrics fallback:
+          when a font's metrics are registered, the measured-fit pass now bakes a real
+          fontScale (vertical overflow, and horizontal for wrap=false frames — see
+          dn-autofit-shrink-horizontal). Without registered metrics the bare flag is
+          kept and PowerPoint computes the scale on edit/resize, so such decks overflow
+          until a human touches the shape.
         - wrap:false reliably emits wrap="none", but whether text overflows or is
           clipped is renderer-defined (PowerPoint spills, LibreOffice may clip).
         - breakLine faithfully splits paragraphs, but the resulting visual line
@@ -1501,3 +1504,172 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: Add a fixture-backed groupObjects API and document z-order semantics.
+  - id: dn-autofit-shrink-horizontal
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-07-16
+    last_reviewed: 2026-07-16
+    status: implemented
+    priority: p2
+    target_area:
+      - missing-pptx-feature
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: Bake normAutofit fontScale for wrap=false text that overflows its box horizontally (single-line width)
+    current_project_notes: |
+      Extends the measured-text-fit shrink solver to the horizontal (width) axis.
+
+      Background: for `fit:'shrink'`, the measured-fit pass already bakes a real
+      `fontScale` onto `<a:normAutofit>` when a font's metrics are registered — but
+      only for VERTICAL overflow (text taller than the box height). `normAutofit` is
+      architecturally a vertical mechanism, so a `wrap:false` (`wrap="none"`) frame
+      never triggers it: a single unwrapped line always fits the box HEIGHT, so the
+      solver reports "fits" and bakes no scale, and the line simply runs out of the
+      box sideways. PowerPoint draws the baked scale (here 100%) and overflows;
+      LibreOffice re-derives shrink-to-fit at render time and scales the line to the
+      frame, so the same deck looks correct there and ships broken to a PowerPoint
+      audience — a silent PowerPoint-vs-LibreOffice divergence.
+
+      Reproduction (any consumer): a text box with `fit:'shrink'`, `wrap:false`, a
+      fixed width, and a single line of text wider than the inner box, with the run's
+      font metrics registered via `registerFontMetrics`. Expected: the widest
+      non-wrapping line is shrunk to fit the box width and a `<a:normAutofit
+      fontScale=…/>` is emitted. Actual (before fix): bare `<a:normAutofit/>`.
+
+      Design: carry the frame's wrap mode onto the shrink solver's `FitBox`
+      (`text-fit.ts`). When not wrapping, lay text out unbounded (one line per
+      paragraph, as the height path already does) and, in `solveShrink`, additionally
+      require the widest laid-out line to fit `innerWidthPt` — searching the same
+      2.5% fontScale grid, conservative (width already inflated by WIDTH_SAFETY_FACTOR)
+      so the baked scale never overflows PowerPoint. `computeBox`/`solveResize`
+      (`measure-fit.ts`) pass the wrap flag instead of collapsing the non-wrapping
+      width to Infinity. Backward compatible: the wrapping table-cell and
+      `measureText` paths default to wrap=true and are unchanged. Supersedes, for the
+      metrics-registered case, the "fontScale deliberately omitted" caveat recorded in
+      dn-doc-render-caveats (that caveat now describes only the no-metrics fallback).
+
+      IMPLEMENTED (2026-07-16): `FitBox` gained a `wrap` flag; `solveShrink` lays a
+      non-wrapping frame out unbounded and additionally requires the widest laid-out
+      line to fit `innerWidthPt` on the 2.5% grid; `computeBox`/`solveResize` pass the
+      flag. Deterministic unit coverage in test/regression/text-fit.test.mjs
+      ("solveShrink wrap=false (horizontal overflow)") plus an end-to-end
+      registerFontMetrics assertion in test/regression/measured-fit-integration.test.mjs.
+      Full suite green (1091 regression/read/schema tests).
+    constructs:
+      - autofit-shrink
+    evidence:
+      kinds:
+        - local-source-inspection
+        - regression-test
+      local_files:
+        - src/text-fit.ts
+        - src/measure-fit.ts
+        - test/regression/text-fit.test.mjs
+        - test/regression/measured-fit-integration.test.mjs
+      schema_fixture: test/regression/text-fit.test.mjs (solveShrink wrap=false horizontal overflow)
+      validator_result: pass
+      powerpoint_result: null
+      spec_refs:
+        - ECMA-376 CT_TextNormAutofit (fontScale in 1000ths of a percent)
+    next_action: none
+  - id: dn-inspect-bodypr-runs
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-07-16
+    last_reviewed: 2026-07-16
+    status: implemented
+    priority: p2
+    target_area:
+      - package-boundary
+      - typescript-api
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: Expose bodyPr autofit fontScale, per-run font props, and paragraph structure on the inspect read model
+    current_project_notes: |
+      The `inspect` read model already surfaces a text frame's box, wrap mode,
+      autofit MODE, body insets, and a flat run list — but a consumer that wants to
+      re-derive a frame's rendered text extent (e.g. an overflow linter, a layout
+      auditor) still has to drop to raw slide-part XML with a generic XML parser to
+      get three things the read model omits:
+
+        1. the `<a:normAutofit>` `fontScale` VALUE (the read model returns only the
+           mode string 'normAutofit', not the baked scale, so a consumer cannot tell
+           what size PowerPoint will actually draw the text at);
+        2. per-run font properties beyond size/color — `fontFace` (`a:latin@typeface`),
+           `bold` (`a:rPr@b`), `italic` (`a:rPr@i`), and character spacing
+           (`a:rPr@spc`) — all required to measure a run's width;
+        3. paragraph STRUCTURE — runs grouped by `<a:p>`. The flat `textRuns` list
+           loses paragraph boundaries, so a width measurement that must be per-line
+           (each `<a:p>` is an independent line when `wrap="none"`) cannot be done
+           from the read model alone.
+
+      Hand-parsing slide XML downstream re-implements read-model territory this
+      package owns and drifts from the writer's own inset/scale conventions. Add to
+      the read model: enrich `PptxTextRun` with `fontFace`/`bold`/`italic`/
+      `charSpacingPt`; add a paragraph-structured view (`PptxParagraph[]`) to
+      `PptxSlideElement`; and expose the normAutofit `fontScale` (as a percent, or
+      null when unbaked). All additive — no change to existing fields. A downstream
+      overflow/layout auditor can then run entirely off `inspectPptx` with no zip or
+      XML dependency of its own.
+
+      IMPLEMENTED (2026-07-16): `PptxTextRun` gained `fontFace`/`bold`/`italic`/
+      `charSpacingPt`; `PptxSlideElement` gained `paragraphs: PptxParagraph[]` (runs
+      grouped by `a:p`) and `autofitFontScale` (percent, null for a bare normAutofit).
+      All additive; existing fields unchanged. Covered by a new case in
+      test/regression/pptx-inspection.test.js and the full read suite stays green.
+    evidence:
+      kinds:
+        - local-source-inspection
+        - regression-test
+      local_files:
+        - src/inspect.ts
+        - test/regression/pptx-inspection.test.js
+      schema_fixture: test/regression/pptx-inspection.test.js (per-run font props, paragraph structure, baked fontScale)
+      validator_result: pass
+      powerpoint_result: null
+      spec_refs:
+        - ECMA-376 CT_TextParagraph (a:p) / CT_RegularTextRun (a:r) / CT_TextCharacterProperties (a:rPr)
+    next_action: none
+  - id: dn-freeform-arcto
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-07-16
+    last_reviewed: 2026-07-16
+    status: target
+    priority: p3
+    target_area:
+      - missing-pptx-feature
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: Freeform (custGeom) path support for a:arcTo segments (arc radii + sweep, computed end point)
+    current_project_notes: |
+      The write DSL's freeform path (`<a:custGeom>` path commands) models moveTo /
+      lineTo / cubic + quadratic bezier / close, but has no arc segment, so it cannot
+      round-trip an OOXML `<a:path>` that contains `<a:arcTo>`. `a:arcTo`
+      (CT_Path2DArcTo) is specified by two radii (`wR`/`hR`) plus a start angle
+      (`stAng`) and swept angle (`swAng`) — it does NOT carry an explicit end point;
+      the renderer computes the arc's end from the current pen position, the radii,
+      and the sweep. A consumer converting an existing PowerPoint freeform to the
+      write DSL therefore hits an unconvertible segment whenever a shape uses arcs.
+
+      In practice PowerPoint's own freeform tool emits cubic beziers, so authored
+      freeforms rarely contain `arcTo`; the gap surfaces mainly when transcribing a
+      programmatically-generated or hand-authored path. Two ways to close it, either
+      acceptable: (a) the write DSL accepts an arc segment expressed as OOXML radii +
+      angles and emits `<a:arcTo>` directly (faithful, no solver); or (b) the read
+      model computes the arc's end point (and, if the DSL stays bezier-only, a bezier
+      approximation of the sweep) so a converter can emit an equivalent path. Until
+      one lands, a downstream freeform converter must reject arc segments and ask for
+      a hand transcription.
+    constructs:
+      - custom-geom
+    evidence:
+      kinds:
+        - ooxml-reference
+      local_files: []
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs:
+        - ECMA-376 CT_Path2DArcTo (a:arcTo — wR/hR/stAng/swAng, no explicit end point)
+    next_action: Decide DSL arc-segment vs read-model end-point computation; no consumer is blocked (PowerPoint freeforms emit beziers).

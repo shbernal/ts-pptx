@@ -179,10 +179,7 @@ function resolveInsetsEmu(opts: RunOpts): InsetsEmu {
 }
 
 /** Resolve the inner box (shape minus insets) in points; null if degenerate. */
-function computeBox(
-	obj: SlideObject,
-	presLayout: PresSlideInternal['_presLayout']
-): { innerWidthPt: number; innerHeightPt: number } | null {
+function computeBox(obj: SlideObject, presLayout: PresSlideInternal['_presLayout']): FitBox | null {
 	const opts = (obj.options ?? {}) as RunOpts
 	const wEmu = getSmartParseNumber(opts.w, 'X', presLayout)
 	const hEmu = getSmartParseNumber(opts.h, 'Y', presLayout)
@@ -190,13 +187,16 @@ function computeBox(
 
 	const { lIns, rIns, tIns, bIns } = resolveInsetsEmu(opts)
 
-	// wrap=none means no width wrapping (only hard breaks): unbounded line width.
+	// wrap=none lays text out one line per paragraph (no width-wrapping, handled by
+	// the solver via the wrap flag), but the box width is still a real constraint:
+	// solveShrink enforces it against the widest line so an over-wide non-wrapping
+	// line shrinks to fit horizontally instead of spilling out of the box.
 	const wrap = (opts._bodyProp ?? {}).wrap !== false
-	const innerWidthPt = wrap ? (wEmu - lIns - rIns) / EMU_PER_POINT : Infinity
+	const innerWidthPt = (wEmu - lIns - rIns) / EMU_PER_POINT
 	const innerHeightPt = (hEmu - tIns - bIns) / EMU_PER_POINT
 	if (!(innerHeightPt > 0)) return null
-	if (wrap && !(innerWidthPt > 0)) return null
-	return { innerWidthPt, innerHeightPt }
+	if (!(innerWidthPt > 0)) return null
+	return { innerWidthPt, innerHeightPt, wrap }
 }
 
 /** Vertical-anchor share of a height change that moves the box top up (`off.y` shift). */
