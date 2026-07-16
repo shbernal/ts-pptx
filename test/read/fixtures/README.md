@@ -40,6 +40,7 @@ PowerPoint.
 | `rotation-flip.pptx`   | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `custgeom.pptx`        | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `table-cell-style.pptx`| Microsoft Office PowerPoint    | 16.0000    | 1      |
+| `table-styles.pptx`    | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `template.potx`        | Microsoft Office PowerPoint    | 16.0000    | 0      |
 
 #### Authoring oracles (inspection only — not loaded by `test:read`)
@@ -124,6 +125,7 @@ ea2b973147e9ac6f8f716f88cc5a6b692177786816462dd971c2606b533dd9af  multi-theme.pp
 e8c0ca04154f6365813aee28d0fa8556cea5e1429af060d6061dd02db5ff1a85  rotation-flip.pptx
 d52da9c162f5a700f8e3a225f054e823682f201d83dabe38fc27c2e500d7451d  custgeom.pptx
 cf3c352dfd81ccdd0938637a047ab54f67b879410a5b1e88fdc6e4411315c1e7  table-cell-style.pptx
+9fb63bf437c6be154c7e791538fa7a71f1ef3bbd1ce959a33f610d3e65e259c1  table-styles.pptx
 c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
 1a59832d7e5c926e4aff11e9f62bc90c9e8430fb68e1d77a1b4a2fb0800e05d2  textbox.pptx
 69fd092ced7067af23b7cbb4d65cc7de1c44d06c0a62b0f49b32dbc9f7ef954e  layout-placeholder-bodypr.pptx
@@ -196,6 +198,25 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   in `ppt/media/`; exercises binary parts and `Default` content-type
   resolution by extension.
 - `table.pptx` — slides containing tables (`a:tbl` graphic frames).
+- `table-styles.pptx` — a locally authored single-slide deck carrying a real
+  `ppt/tableStyles.xml`, the fixture for `importSlideMasters({ tableStyles })`. Three
+  tables (`tbl-medium2-accent3`, `tbl-medium4-accent4`, `tbl-light2-accent1`) each have
+  a **Microsoft built-in** table style applied, which makes PowerPoint materialise that
+  style's full definition into the part — four genuine `a:tblStyle` defs (the deck's own
+  default is always written too). Only built-in style GUIDs are used, so the fixture
+  carries no third-party branding. Slide size is 12192000×6858000 EMU, matching
+  `empty.pptx`, so a graft passes `requireEqualSize` without an override.
+  - **`a:tblStyleLst@def` is `{F5AB1C69-…}` "Medium Style 2 - Accent 3"** — deliberately
+    *not* the standard `{5C22544A-…}` "Medium Style 2 - Accent 1" default that
+    `empty.pptx` (and this library's own stub) carries. Without that difference the
+    `def` carry would be untestable, since source and destination defaults would match.
+  - **The `def` was set by hand; everything else is COM-authored** (`.tmp/author-table-styles.ps1`).
+    PowerPoint exposes **no COM surface for the default table style** — `Table` has only
+    `ApplyStyle` and a read-only `Style`, with no equivalent of Word's
+    `Document.SetDefaultTableStyle` or Excel's `Workbook.DefaultTableStyle`. Setting it
+    requires the interactive *Table Design ▸ right-click a style ▸ Set as Default Table
+    Style*, then a re-save. Re-authoring the deck via the script alone will silently
+    reset `def` to the standard GUID and weaken the test — redo the manual step.
 - `table-cell-style.pptx` — a locally authored single-slide deck with one 2×2 table
   (`cell-style-table`) whose cells each isolate one `TableCell` appearance accessor,
   the fixture gate for backlog `fork-table-cell-style-fixture`. Authored via desktop
@@ -685,6 +706,7 @@ fixtures opened clean with no repair prompt:
 - [x] `bar-chart-data-labels.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored + opened clean via COM)
 - [x] `math-omml.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored via Word→PowerPoint paste + opened clean via COM)
 - [x] `math-omml-inline.pptx` — Windows desktop PowerPoint, 2026-07-07 (authored via Word→PowerPoint paste + opened clean via COM, no repair prompt)
+- [x] `table-styles.pptx` — Windows desktop PowerPoint, 2026-07-15 (COM-authored, then the default table style set interactively — no COM surface exists for it — and re-saved; reopened clean via COM, no repair prompt)
 - [x] `template.potx` — Windows desktop PowerPoint, 2026-06-24 (authored + reopened clean via COM, no repair prompt)
 - [x] `online-video.pptx` — Windows desktop PowerPoint, 2026-06-24 (authored + opened clean via COM)
 - [x] `embedded-fonts.pptx` — Windows desktop PowerPoint, 2026-06-25 (authored + reopened clean via COM, no repair prompt; `Presentation.Fonts` reports `Silkscreen` in use)

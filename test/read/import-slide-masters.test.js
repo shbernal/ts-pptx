@@ -291,6 +291,219 @@ describe('Presentation.importSlideMasters', () => {
 	})
 })
 
+// Embedded-font carry on the graft path. A master whose layouts render with an
+// embedded face is only self-sufficient if the face travels with it, so
+// importSlideMasters({ embedFonts: true }) carries the source deck's
+// presentation-level fonts — same semantics as importSlide({ embedFonts }), which
+// this shares an implementation with. Off by default: fonts live on the
+// presentation, not the master, and copying them can add megabytes.
+// Oracle: test/read/fixtures/embedded-fonts.pptx (PowerPoint-authored, SIL OFL
+// 'Silkscreen', regular + bold) + embedded-fonts.oracle.json.
+describe('Presentation.importSlideMasters({ embedFonts })', () => {
+	async function graft(options) {
+		const target = await open('empty')
+		const source = await open('embedded-fonts')
+		target.importSlideMasters(source, options)
+		return JSZip.loadAsync(await target.save())
+	}
+
+	test('carries font parts, content-type Default, rels, and a merged embeddedFontLst', async () => {
+		const zip = await graft({ embedFonts: true })
+
+		const fontParts = Object.keys(zip.files)
+			.filter((n) => /^ppt\/fonts\/font\d+\.fntdata$/.test(n))
+			.sort()
+		assertEqual(fontParts.length, 2, `both faces carried (got ${JSON.stringify(fontParts)})`)
+
+		const ct = await zip.file('[Content_Types].xml').async('string')
+		assert(/<Default Extension="fntdata" ContentType="application\/x-fontdata"\/>/.test(ct), 'fntdata Default added')
+		assertEqual((ct.match(/x-fontdata/g) || []).length, 1, 'content type registered once (Default, no Override)')
+
+		const rels = await zip.file('ppt/_rels/presentation.xml.rels').async('string')
+		assertEqual(
+			[...rels.matchAll(/<Relationship[^>]*\/relationships\/font"[^>]*\/>/g)].length,
+			2,
+			'two font relationships on presentation.xml'
+		)
+
+		const pres = await zip.file('ppt/presentation.xml').async('string')
+		const lst = pres.match(/<p:embeddedFontLst>[\s\S]*?<\/p:embeddedFontLst>/)?.[0]
+		assert(lst, 'embeddedFontLst present')
+		assert(
+			/<p:font typeface="Silkscreen" pitchFamily="2" charset="0"\/>/.test(lst),
+			`p:font identity carried; got ${lst}`
+		)
+		assert(
+			/<p:regular r:id="[^"]+"\/>/.test(lst) && /<p:bold r:id="[^"]+"\/>/.test(lst),
+			'regular + bold faces carried'
+		)
+		// embeddedFontLst sits before defaultTextStyle (CT_Presentation index 7).
+		assert(
+			pres.indexOf('<p:embeddedFontLst>') < pres.indexOf('<p:defaultTextStyle'),
+			'embeddedFontLst precedes defaultTextStyle'
+		)
+	})
+
+	test('default (flag off) carries no fonts — the graft alone is unchanged', async () => {
+		const zip = await graft(undefined)
+		assert(!Object.keys(zip.files).some((n) => /fntdata/.test(n)), 'no font parts without embedFonts')
+		const pres = await zip.file('ppt/presentation.xml').async('string')
+		assert(!/embeddedFontLst/.test(pres), 'no embeddedFontLst without embedFonts')
+	})
+
+	test('is idempotent: grafting the same source twice carries each face once', async () => {
+		const target = await open('empty')
+		const source = await open('embedded-fonts')
+		target.importSlideMasters(source, { embedFonts: true })
+		target.importSlideMasters(source, { embedFonts: true })
+
+		const zip = await JSZip.loadAsync(await target.save())
+		const fontParts = Object.keys(zip.files).filter((n) => /^ppt\/fonts\/font\d+\.fntdata$/.test(n))
+		assertEqual(fontParts.length, 2, 'each face copied exactly once across repeated grafts')
+
+		const pres = await zip.file('ppt/presentation.xml').async('string')
+		assertEqual(
+			(pres.match(/<p:embeddedFont>/g) || []).length,
+			1,
+			'a single embeddedFont entry for the shared typeface'
+		)
+		assertEqual((pres.match(/<p:regular /g) || []).length, 1, 'regular face not duplicated')
+		assertEqual((pres.match(/<p:bold /g) || []).length, 1, 'bold face not duplicated')
+	})
+
+	test('the carry adds no slide — the master stays gallery-only', async () => {
+		const target = await open('empty')
+		const source = await open('embedded-fonts')
+		const slidesBefore = target.slides.length
+		target.importSlideMasters(source, { embedFonts: true })
+
+		const reopened = await Presentation.load(await target.save())
+		assertEqual(reopened.slides.length, slidesBefore, 'no slide was added alongside the fonts')
+		assertNoDanglingRels(reopened.opc)
+	})
+
+	test.skipIf(!validatorInstalled)('a graft with carried embedded fonts stays schema-valid', async () => {
+		const target = await open('empty')
+		const source = await open('embedded-fonts')
+		target.importSlideMasters(source, { embedFonts: true })
+		const errors = await validateBuf(Buffer.from(await target.save()))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+})
+
+// Table-style carry on the graft path. A grafted master's layouts arrive but the
+// deck's table styling does not, so a table inserted on a grafted layout resolves
+// against the destination's tableStyles.xml — for a generated deck, a stub defining
+// zero styles whose default is the standard "Medium Style 2 - Accent 1". The same
+// table then renders in a different accent than it would in the source deck.
+// importSlideMasters({ tableStyles: true }) carries the source's whole list.
+// Fixture: test/read/fixtures/table-styles.pptx (PowerPoint-authored; three tables
+// styled with Microsoft built-in styles, so PowerPoint materialised four real
+// a:tblStyle definitions, and a default of Medium Style 2 - Accent 3 — deliberately
+// NOT the standard default, so the def carry is observable).
+describe('Presentation.importSlideMasters({ tableStyles })', () => {
+	const ACCENT3 = '{F5AB1C69-6EDB-4FF4-983F-18BD219EF322}' // fixture's default
+	const ACCENT1 = '{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}' // the standard default
+
+	async function tableStylesXmlOf(pptxBytes) {
+		const zip = await JSZip.loadAsync(pptxBytes)
+		const file = zip.file('ppt/tableStyles.xml')
+		return file ? file.async('string') : null
+	}
+	function styleIds(xml) {
+		return [...xml.matchAll(/<a:tblStyle[^>]*styleId="([^"]+)"/g)].map((m) => m[1])
+	}
+	function defOf(xml) {
+		return xml.match(/<a:tblStyleLst[^>]*\bdef="([^"]+)"/)?.[1]
+	}
+
+	test('carries every source style and the source default', async () => {
+		const target = await open('empty')
+		const source = await open('table-styles')
+
+		const before = await tableStylesXmlOf(await target.save())
+		assertEqual(styleIds(before).length, 0, 'precondition: destination defines no table styles')
+		assertEqual(defOf(before), ACCENT1, 'precondition: destination default is the standard one')
+
+		target.importSlideMasters(source, { tableStyles: true })
+		const after = await tableStylesXmlOf(await target.save())
+
+		const sourceIds = styleIds(await tableStylesXmlOf(await readFile(fixturePath('table-styles'))))
+		assertEqual(sourceIds.length, 4, `precondition: source defines four styles (got ${sourceIds.length})`)
+		for (const id of sourceIds) assert(styleIds(after).includes(id), `source style ${id} carried`)
+
+		// The def carry is the load-bearing half: ACCENT1 is a style the source ALSO
+		// defines, so keeping the destination's def would silently resolve a new table
+		// to the wrong style rather than visibly to none.
+		assertEqual(defOf(after), ACCENT3, 'the source default table style won')
+	})
+
+	test('default (flag off) leaves the destination table styles untouched', async () => {
+		const target = await open('empty')
+		const source = await open('table-styles')
+		const before = await tableStylesXmlOf(await target.save())
+
+		target.importSlideMasters(source)
+		const after = await tableStylesXmlOf(await target.save())
+
+		assertEqual(styleIds(after).length, 0, 'no styles carried without the flag')
+		assertEqual(defOf(after), defOf(before), 'default table style unchanged')
+	})
+
+	test('is idempotent: grafting twice defines each style once', async () => {
+		const target = await open('empty')
+		const source = await open('table-styles')
+		target.importSlideMasters(source, { tableStyles: true })
+		const once = await tableStylesXmlOf(await target.save())
+
+		target.importSlideMasters(source, { tableStyles: true })
+		const twice = await tableStylesXmlOf(await target.save())
+
+		const ids = styleIds(twice)
+		assertEqual(new Set(ids).size, ids.length, 'no duplicate styleId across repeated grafts')
+		assertEqual(ids.length, styleIds(once).length, 'a re-graft adds no styles')
+		assertEqual(defOf(twice), ACCENT3, 'def stays the source default')
+	})
+
+	test('a style the destination already defines wins over the source', async () => {
+		// Union is destination-wins per id, matching the embedded-font carry's de-dupe.
+		const target = await open('empty')
+		const source = await open('table-styles')
+		target.importSlideMasters(source, { tableStyles: true })
+		const first = await tableStylesXmlOf(await target.save())
+		const marker = first.match(new RegExp(`<a:tblStyle[^>]*styleId="\\${ACCENT3}"[\\s\\S]*?</a:tblStyle>`))?.[0]
+		assert(marker, 'the carried Accent 3 style is a full definition, not an empty stub')
+
+		// Re-carrying must not append a second copy of an id already present.
+		target.importSlideMasters(source, { tableStyles: true })
+		const second = await tableStylesXmlOf(await target.save())
+		assertEqual(
+			(second.match(new RegExp(`styleId="\\${ACCENT3}"`, 'g')) || []).length,
+			1,
+			'the already-defined style was not duplicated'
+		)
+	})
+
+	test('the carry adds no slide — the master stays gallery-only', async () => {
+		const target = await open('empty')
+		const source = await open('table-styles')
+		const slidesBefore = target.slides.length
+		target.importSlideMasters(source, { tableStyles: true })
+
+		const reopened = await Presentation.load(await target.save())
+		assertEqual(reopened.slides.length, slidesBefore, 'no slide was added alongside the table styles')
+		assertNoDanglingRels(reopened.opc)
+	})
+
+	test.skipIf(!validatorInstalled)('a graft with carried table styles stays schema-valid', async () => {
+		const target = await open('empty')
+		const source = await open('table-styles')
+		target.importSlideMasters(source, { tableStyles: true })
+		const errors = await validateBuf(Buffer.from(await target.save()))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+})
+
 // Generate → read bridge: the real use case. Interior slides are authored with
 // the generate API; the brand master is then grafted in on the read/import model
 // so the generated deck ships the template's layout gallery without applying it.

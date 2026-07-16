@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`importSlideMasters({ tableStyles })` carries the source deck's table styles.**
+  Grafting a master shipped its layout gallery but not the deck's table styling, which
+  lives in the presentation-level `ppt/tableStyles.xml`. A table then inserted on a
+  grafted layout resolved against the *destination's* table styles instead — for a
+  generated deck, this library's own stub, which defines zero styles and defaults to the
+  standard *Medium Style 2 - Accent 1*. The result was visible and easy to mistake for a
+  theme bug: the same table rendered in a different accent than it did in the source
+  deck, even though the grafted master, its layouts, and its theme were all correct.
+
+  The option carries the source's whole list. Styles union by `styleId` — a style the
+  destination already defines wins, so a re-call is idempotent, matching the
+  embedded-font carry's de-dupe. `a:tblStyleLst@def` (the default table style) is
+  **source-wins**: carrying the styles without it does not fix the mismatch, because the
+  standard default GUID is one most templates *also* define, so a new table would still
+  resolve to the wrong style rather than visibly to none. A caller opting into the
+  source's table styling wants its default too, and a destination `def` is typically a
+  generator stub rather than a deliberate choice.
+
+  **Off by default**, like `embedFonts`: unlike the rest of the graft it rewrites an
+  existing part rather than only adding new ones. The carry is whole-deck — it copies
+  *all* the source's table styles, not only those the grafted masters use, because
+  `tableStyles.xml` does not record which style belongs to which master. Slides are
+  untouched either way: the graft still ships a gallery without applying it.
+
+- **`importSlideMasters({ embedFonts })` carries the source deck's embedded fonts.**
+  Grafting a master brought its whole layout family, theme, and media across, but
+  presentation-level embedded fonts (`p:embeddedFontLst`) were left behind — a
+  documented v1 limitation. A grafted layout whose text depends on an embedded face
+  therefore fell back to a substitute on any machine lacking that face locally,
+  making the graft's fidelity machine-dependent. The option closes that gap, so a
+  shipped layout gallery can be self-sufficient.
+
+  This is the same carry `importSlide({ embedFonts })` already performed, and shares
+  its implementation: binaries land under fresh `/ppt/fonts/` names (deduped through
+  the per-source copy registry, so a re-call stays idempotent), the
+  `application/x-fontdata` Default is added, and entries merge into the destination's
+  `p:embeddedFontLst` de-duplicated by `typeface` + face slot. `importSlideMasters`
+  was the only import path lacking it.
+
+  **Off by default**, matching `importSlide({ embedFonts })`: fonts live on the
+  presentation rather than the master, and carrying them can add megabytes, so the
+  embed travels only when asked for. The carry is whole-deck — it copies *all* the
+  source's embedded fonts, not only faces the grafted masters use, because
+  `p:embeddedFontLst` does not record which face belongs to which master.
+
 ## [10.3.0](https://github.com/shbernal/PptxGenJS/releases/tag/v10.3.0) - 2026-07-15
 
 ### Added

@@ -424,6 +424,49 @@ export interface ImportSlideMastersOptions {
 	 * in that gallery, so the guard is on by default. Pass `false` to graft anyway.
 	 */
 	requireEqualSize?: boolean
+
+	/**
+	 * Carry the *source deck's* embedded fonts (`p:embeddedFontLst` in its
+	 * `presentation.xml`) into this deck, so a slide later bound to a grafted layout
+	 * keeps that layout's embedded faces on machines that lack the font locally.
+	 * Off by default — fonts live on the presentation, not the master, and copying
+	 * them can add megabytes — so they are only worth carrying when you want the
+	 * embed to travel with the gallery.
+	 *
+	 * Semantics are identical to {@link ImportSlideOptions.embedFonts}: binaries are
+	 * copied under fresh `/ppt/fonts/` names (deduped via the per-source copy
+	 * registry, so a re-call carries each face once), the `application/x-fontdata`
+	 * Default is added, and entries merge into this deck's `p:embeddedFontLst`
+	 * de-duplicated by `typeface` + face slot. The carry is a whole-deck operation —
+	 * it copies *all* the source's embedded fonts, not only the faces the grafted
+	 * masters use, since the source list does not record which face belongs to which
+	 * master.
+	 * @default false
+	 */
+	embedFonts?: boolean
+
+	/**
+	 * Carry the *source deck's* table styles (`ppt/tableStyles.xml`) into this deck,
+	 * so a table inserted on a grafted layout picks up the source's table styling
+	 * instead of this deck's. Off by default: it rewrites an existing part rather than
+	 * only adding new ones, so it is opt-in like {@link embedFonts}.
+	 *
+	 * Without it a grafted master's layouts arrive but its table styling does not, and
+	 * a new table falls back to whatever default this deck carries — for a generated
+	 * deck, a stub whose default is the standard *Medium Style 2 - Accent 1*. The
+	 * mismatch is visible: the same table renders in a different accent than it would
+	 * in the source deck.
+	 *
+	 * Styles union by `styleId` (a style this deck already defines wins, so a re-call
+	 * is idempotent), while `a:tblStyleLst@def` — the default table style — is
+	 * **source-wins**. Carrying the styles without the `def` would not fix the
+	 * mismatch: the standard default GUID is one most templates *also* define, so the
+	 * default would still resolve to the wrong style. The carry is whole-deck — it
+	 * copies *all* the source's table styles, not only those the grafted masters use,
+	 * since `tableStyles.xml` does not record which style belongs to which master.
+	 * @default false
+	 */
+	tableStyles?: boolean
 }
 
 /** A layout in this deck's gallery, addressable as an {@link AppendSlidesOptions} target. */
@@ -1179,8 +1222,10 @@ export class Presentation {
 	 * must match unless `options.requireEqualSize` is `false` (see
 	 * {@link ImportSlideMastersOptions}).
 	 *
-	 * v1 limitations mirror {@link importSlide}: no geometry rescaling, and
-	 * presentation-level embedded fonts are not copied.
+	 * Presentation-level parts are carried only on request: embedded fonts via
+	 * `options.embedFonts` and table styles via `options.tableStyles` (see
+	 * {@link ImportSlideMastersOptions}). The v1 limitation mirroring
+	 * {@link importSlide} is that geometry is not rescaled.
 	 */
 	importSlideMasters(source: Presentation, options: ImportSlideMastersOptions = {}): ImportedSlideMaster[] {
 		if (options.requireEqualSize !== false) {
@@ -1213,6 +1258,13 @@ export class Presentation {
 
 			imported.push({ partName: newMasterPartName, layoutPartNames })
 		})
+
+		// Optionally carry the source deck's presentation-level styling parts. Both are
+		// separate traversals from the master/layout copy chain above, and both are
+		// whole-deck: neither part records which font/style belongs to which master.
+		if (options.embedFonts) this.#carryEmbeddedFonts(source)
+		if (options.tableStyles) this.#carryTableStyles(source)
+
 		return imported
 	}
 
@@ -1654,18 +1706,68 @@ export class Presentation {
 		const destPart = this.#ensureTableStylesPart()
 		const destList = destPart.dom.documentElement
 		if (!destList) return
-		const present = new Set(getElements(destList, 'a:tblStyle').map((st) => attr(st, 'styleId')))
 
-		let added = false
+		const referenced: Element[] = []
 		for (const id of ids) {
-			if (present.has(id)) continue
 			const src = sourceStyles.get(id)
-			if (!src) continue
-			destList.appendChild(ownerDocumentOf(destList).importNode(src, true))
+			if (src) referenced.push(src)
+		}
+		if (this.#addTableStyles(destList, referenced)) destPart.markDirty()
+	}
+
+	/**
+	 * Append each source `<a:tblStyle>` this deck does not already define, keyed by
+	 * `styleId` — the shared core of {@link #copySourceTableStyles} (which offers only
+	 * the styles a restyled slide references) and {@link #carryTableStyles} (which
+	 * offers the source's whole list). Destination-wins per id: a style this deck
+	 * already defines is left untouched, so a re-call adds nothing. Returns whether
+	 * anything was added.
+	 */
+	#addTableStyles(destList: Element, styles: Iterable<Element>): boolean {
+		const present = new Set(getElements(destList, 'a:tblStyle').map((st) => attr(st, 'styleId')))
+		let added = false
+		for (const style of styles) {
+			const id = attr(style, 'styleId')
+			if (!id || present.has(id)) continue
+			destList.appendChild(ownerDocumentOf(destList).importNode(style, true))
 			present.add(id)
 			added = true
 		}
-		if (added) destPart.markDirty()
+		return added
+	}
+
+	/**
+	 * Copy the source deck's **whole** `tableStyles.xml` into this deck: every
+	 * `<a:tblStyle>` it defines, plus its `a:tblStyleLst@def` (the default table
+	 * style). Presentation-level, so a separate traversal from the master/layout copy
+	 * chain — and whole-deck, since `tableStyles.xml` does not record which style
+	 * belongs to which master. See {@link ImportSlideMastersOptions.tableStyles}.
+	 *
+	 * Styles union by `styleId` (destination-wins per id, via {@link #addTableStyles}),
+	 * but `def` is **source-wins**: a caller asking for the source's table styling
+	 * wants its default too, and the destination's `def` is typically a generator stub
+	 * rather than a deliberate choice. Carrying the styles without the `def` would be
+	 * the worse half-measure — the standard default GUID is one most templates also
+	 * define, so a new table would silently resolve to the wrong style rather than
+	 * visibly to none. Idempotent: a re-call re-adds nothing and re-sets `def` to the
+	 * same value.
+	 */
+	#carryTableStyles(source: Presentation): void {
+		const sourceList = this.#tableStyleList(source.opc)
+		if (!sourceList) return
+
+		const destPart = this.#ensureTableStylesPart()
+		const destList = destPart.dom.documentElement
+		if (!destList) return
+
+		let changed = this.#addTableStyles(destList, getElements(sourceList, 'a:tblStyle'))
+
+		const sourceDef = attr(sourceList, 'def')
+		if (sourceDef && attr(destList, 'def') !== sourceDef) {
+			destList.setAttribute('def', sourceDef)
+			changed = true
+		}
+		if (changed) destPart.markDirty()
 	}
 
 	/** The `a:tblStyleLst` root of a package's `tableStyles.xml`, or `null` when it has none. */
