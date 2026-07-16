@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [10.4.0](https://github.com/shbernal/PptxGenJS/releases/tag/v10.4.0) - 2026-07-16
+
 ### Added
 
 - **`importSlideMasters({ primary })` moves the grafted masters to the front of
