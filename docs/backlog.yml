@@ -1460,3 +1460,44 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: none
+  - id: dn-group-existing-slide-objects
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-07-16
+    last_reviewed: 2026-07-16
+    status: target
+    priority: p2
+    target_area:
+      - missing-pptx-feature
+      - typescript-api
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: Group already-authored named slide objects into editable PowerPoint groups without recreating their descriptors
+    current_project_notes: |
+      A consumer that composes a slide from reusable renderers already has fully
+      authored text, shape, image, connector, and nested-group objects with stable
+      object names. It needs to turn selected existing objects into an editable
+      PowerPoint group after composition, while preserving their relationships,
+      ids, geometry, and relative z-order. The current `addGroup()` API only accepts
+      fresh child descriptors, so using it would require every renderer to expose
+      and replay its internal descriptors instead of grouping the objects it emitted.
+
+      Proposed public API: `slide.groupObjects(objectNames, options?)`, operating on
+      already-authored top-level objects. It should move the named objects into one
+      `<p:grpSp>`, preserve their order within the group, define the wrapper's z-order
+      deterministically (for example at the highest selected object's former slot),
+      auto-compute bounds when no explicit frame is supplied, reject or clearly warn
+      for unsupported object kinds, and report missing or duplicate names. Existing
+      group objects should be accepted so consumers can build nested logical groups.
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/slide.ts
+        - src/gen-objects.ts
+        - src/core-interfaces.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: Add a fixture-backed groupObjects API and document z-order semantics.
