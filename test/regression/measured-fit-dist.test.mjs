@@ -154,6 +154,52 @@ describe("applyMeasuredFit: fit:'shrink' through dist export", () => {
 		const xml = await slide1Xml(pres)
 		expect(xml).toMatch(/<a:normAutofit fontScale="\d+"/)
 	})
+
+	test('grouped overflow text still receives a baked fontScale', async () => {
+		const pres = await pptxWithSilkscreen()
+		pres.addSlide().addGroup([
+			{ rect: { x: 1, y: 1, w: 3, h: 1 } },
+			{
+				text: {
+					text: OVERFLOW,
+					options: { x: 1, y: 1, w: 3, h: 1, fontFace: 'Silkscreen', fontSize: 18, fit: 'shrink' },
+				},
+			},
+		])
+		const xml = await slide1Xml(pres)
+		expect(xml).toMatch(/<p:grpSp>.*<a:normAutofit fontScale="\d+"/s)
+	})
+
+	test('nested grouped overflow text still receives a baked fontScale', async () => {
+		const pres = await pptxWithSilkscreen()
+		pres.addSlide().addGroup([
+			{ rect: { x: 1, y: 1, w: 3, h: 1 } },
+			{
+				group: {
+					children: [
+						{ rect: { x: 1, y: 1, w: 3, h: 1 } },
+						{
+							text: {
+								text: OVERFLOW,
+								options: {
+									x: 1,
+									y: 1,
+									w: 3,
+									h: 1,
+									fontFace: 'Silkscreen',
+									fontSize: 18,
+									fit: 'shrink',
+								},
+							},
+						},
+					],
+				},
+			},
+		])
+		const xml = await slide1Xml(pres)
+		expect((xml.match(/<p:grpSp>/g) ?? []).length).toBe(2)
+		expect(xml).toMatch(/<a:normAutofit fontScale="\d+"/)
+	})
 })
 
 describe("applyMeasuredFit: fit:'resize' through dist export", () => {

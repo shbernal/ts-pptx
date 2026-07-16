@@ -670,56 +670,65 @@ export function applyMeasuredFit(slides: PresSlideInternal[], registry: FontMetr
 		}
 	}
 
-	for (const slide of slides) {
-		for (const obj of slide._slideObjects ?? []) {
-			if (obj._type === SlideObjectType.table) {
-				measureTableCells(obj, slide._presLayout)
-				continue
+	const measureObject = (obj: SlideObject, layout: PresSlideInternal['_presLayout']): void => {
+		// Groups keep their children outside slide._slideObjects. Descend through every
+		// nesting level so grouping remains a visual/editability operation and does not
+		// disable the export-time fit pass for contained text.
+		if (obj._type === SlideObjectType.group) {
+			for (const child of obj._groupObjects ?? []) measureObject(child, layout)
+			return
+		}
+		if (obj._type === SlideObjectType.table) {
+			measureTableCells(obj, layout)
+			return
+		}
+		if (obj._type !== SlideObjectType.text) return
+		// Only the bare string forms opt into measurement; an explicit object form is
+		// already baked by the caller, and 'none' is a no-op.
+		const options = obj.options
+		if (!options) return
+		const fit = options.fit
+		if (fit !== 'shrink' && fit !== 'resize') return
+
+		const paragraphs = extractParagraphs(obj)
+		if (!paragraphs) return
+		const box = computeBox(obj, layout)
+		if (!box) return
+
+		if (fit === 'shrink') {
+			const outcome = solveShrink(paragraphs, box, resolve)
+			if (outcome.kind === 'shrink') {
+				const { fontScalePct, lnSpcReductionPct } = outcome.result
+				options.fit = {
+					type: 'shrink',
+					fontScale: fontScalePct,
+					lnSpcReduction: lnSpcReductionPct || undefined,
+				}
+			} else if (outcome.kind === 'unmeasurable') {
+				collectUnmeasured(paragraphs, unmeasuredShrink)
 			}
-			if (obj._type !== SlideObjectType.text) continue
-			// Only the bare string forms opt into measurement; an explicit object form is
-			// already baked by the caller, and 'none' is a no-op.
-			const options = obj.options
-			if (!options) continue
-			const fit = options.fit
-			if (fit !== 'shrink' && fit !== 'resize') continue
-
-			const paragraphs = extractParagraphs(obj)
-			if (!paragraphs) continue
-			const box = computeBox(obj, slide._presLayout)
-			if (!box) continue
-
-			if (fit === 'shrink') {
-				const outcome = solveShrink(paragraphs, box, resolve)
-				if (outcome.kind === 'shrink') {
-					const { fontScalePct, lnSpcReductionPct } = outcome.result
-					options.fit = {
-						type: 'shrink',
-						fontScale: fontScalePct,
-						lnSpcReduction: lnSpcReductionPct || undefined,
-					}
-				} else if (outcome.kind === 'unmeasurable') {
-					collectUnmeasured(paragraphs, unmeasuredShrink)
-				}
-				// 'fits' → leave the bare flag; the text already fits, so no scale is needed.
+			// 'fits' → leave the bare flag; the text already fits, so no scale is needed.
+		} else {
+			const outcome = solveResize(paragraphs, box, resolve)
+			if (outcome.kind === 'resize') {
+				const opts = obj.options as RunOpts
+				const { tIns, bIns } = resolveInsetsEmu(opts)
+				const oldHeightEmu = getSmartParseNumber(opts.h, 'Y', layout)
+				const newHeightEmu = Math.round(outcome.neededInnerHeightPt * EMU_PER_POINT) + tIns + bIns
+				// Shift the box origin so growth/shrink honors the vertical anchor; `off.y`
+				// moves up by the anchor's share of the height delta (0 / half / full for t / ctr / b).
+				const oldYEmu = getSmartParseNumber(opts.y, 'Y', layout)
+				const shiftEmu = Math.round((newHeightEmu - oldHeightEmu) * anchorTopShareOfDelta(opts))
+				opts.h = `${newHeightEmu}emu`
+				if (shiftEmu !== 0) opts.y = `${oldYEmu - shiftEmu}emu`
 			} else {
-				const outcome = solveResize(paragraphs, box, resolve)
-				if (outcome.kind === 'resize') {
-					const opts = obj.options as RunOpts
-					const { tIns, bIns } = resolveInsetsEmu(opts)
-					const oldHeightEmu = getSmartParseNumber(opts.h, 'Y', slide._presLayout)
-					const newHeightEmu = Math.round(outcome.neededInnerHeightPt * EMU_PER_POINT) + tIns + bIns
-					// Shift the box origin so growth/shrink honors the vertical anchor; `off.y`
-					// moves up by the anchor's share of the height delta (0 / half / full for t / ctr / b).
-					const oldYEmu = getSmartParseNumber(opts.y, 'Y', slide._presLayout)
-					const shiftEmu = Math.round((newHeightEmu - oldHeightEmu) * anchorTopShareOfDelta(opts))
-					opts.h = `${newHeightEmu}emu`
-					if (shiftEmu !== 0) opts.y = `${oldYEmu - shiftEmu}emu`
-				} else {
-					collectUnmeasured(paragraphs, unmeasuredResize)
-				}
+				collectUnmeasured(paragraphs, unmeasuredResize)
 			}
 		}
+	}
+
+	for (const slide of slides) {
+		for (const obj of slide._slideObjects ?? []) measureObject(obj, slide._presLayout)
 	}
 
 	if (unmeasuredShrink.size > 0) {
