@@ -488,6 +488,58 @@ const hasCompleteGroupFrame = (options: ObjectOptions): boolean =>
 	givenGroupFrameAxes(options).length === GROUP_FRAME_AXES.length
 
 /**
+ * Every object a slide renders, paired with the `<p:cNvPr>` id it is rendered with: top-level
+ * objects first (`index + 2`, in add order), then group children, seeded past the last top-level id
+ * and allocated pre-order (a nested group takes an id before its own children do).
+ *
+ * This **mirrors** the allocation in `slideObjectToXml`, which hands out ids as it walks the tree.
+ * A reference that must name an id *before* the walk reaches it — a connector's `<a:stCxn>`, an
+ * animation's `<p:spTgt spid>` — cannot wait for that, so it resolves through this map instead.
+ * The two must stay in step: `test/regression/group-shapes.test.js` parses the emitted `cNvPr` ids
+ * back out and asserts each reference points at the shape it names, so drift fails there.
+ * @param slideObjects - the slide's top-level objects
+ * @returns each object's `<p:cNvPr>` id, keyed by object identity, in id order
+ */
+function collectSlideShapeIds(slideObjects: SlideObject[]): Map<SlideObject, number> {
+	const shapeIds = new Map<SlideObject, number>()
+	slideObjects.forEach((obj, idx) => shapeIds.set(obj, idx + 2))
+
+	let childIdxAlloc = slideObjects.length
+	const allocGroupChildren = (children: SlideObject[]): void => {
+		children.forEach((child) => {
+			shapeIds.set(child, childIdxAlloc++ + 2)
+			if (child._type === SlideObjectType.group) allocGroupChildren(child._groupObjects || [])
+		})
+	}
+	slideObjects.forEach((obj) => {
+		if (obj._type === SlideObjectType.group) allocGroupChildren(obj._groupObjects || [])
+	})
+
+	return shapeIds
+}
+
+/**
+ * The `<p:cNvPr>` id of the object named `objectName`, or `null` when the slide has no such object.
+ *
+ * Group children are searched too: `buildGroupObject` splices them out of `_slideObjects` and into
+ * their group's `_groupObjects`, but they are still `<p:cNvPr>`-named on this same slide and so are
+ * legitimate targets for a connector binding or an animation. Searching only `_slideObjects` is what
+ * silently dropped both.
+ *
+ * A top-level object wins over a group child of the same name (`slideObjectToXml` warns separately
+ * about the duplicate), which leaves resolution unchanged for every deck without groups.
+ * @param shapeIds - the slide's shape ids, from `collectSlideShapeIds` (iterated in id order)
+ * @param objectName - the `objectName` to resolve
+ * @returns the object's `<p:cNvPr>` id, or `null` when unresolved
+ */
+function resolveObjectNameToId(shapeIds: Map<SlideObject, number>, objectName: string): number | null {
+	for (const [obj, id] of shapeIds) {
+		if (obj.options?.objectName === objectName) return id
+	}
+	return null
+}
+
+/**
  * Transforms a slide or slideLayout to resulting XML string - Creates `ppt/slide*.xml`
  * @param {PresSlideInternal|SlideLayoutInternal} slideObject - slide object created within createSlideObject
  * @return {string} XML string with <p:cSld> as the root
@@ -527,6 +579,11 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 	strSlideXml += '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>'
 	strSlideXml += '<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/>'
 	strSlideXml += '<a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>'
+
+	// Every object's <p:cNvPr> id, up front, for the references that cannot wait for the walk below
+	// to reach their target (connector shape bindings, animation spids). `collectSlideShapeIds`
+	// mirrors the allocation performed here — keep the two in step.
+	const shapeIds = collectSlideShapeIds(slide._slideObjects)
 
 	// STEP 3: Loop over all Slide.data objects and add them to this slide.
 	// Allocates <p:cNvPr id> values for group children, which are not in `slide._slideObjects`
@@ -989,19 +1046,22 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 				strSlideXml += '<p:cxnSp><p:nvCxnSpPr>'
 				strSlideXml += `<p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"/>`
 				{
-					// Shape binding: resolve each bound target's objectName to its cNvPr id (= slide-object
-					// index + 2) and emit <a:stCxn>/<a:endCxn> in schema order. An unresolved name falls
-					// back to the static endpoint geometry (warn, don't corrupt) rather than a dangling id.
+					// Shape binding: resolve each bound target's objectName to its cNvPr id and emit
+					// <a:stCxn>/<a:endCxn> in schema order. Resolution goes through `shapeIds`, so a shape
+					// inside a group binds like any other (it is cNvPr-named on this slide); the old
+					// `_slideObjects`-only lookup missed those and warned that the shape did not exist.
+					// An unresolved name falls back to the static endpoint geometry (warn, don't corrupt)
+					// rather than a dangling id.
 					const cxnTag = (binding: { name: string; idx: number } | undefined, tag: 'a:stCxn' | 'a:endCxn'): string => {
 						if (!binding) return ''
-						const i = slide._slideObjects.findIndex((o) => o.options?.objectName === binding.name)
-						if (i < 0) {
+						const id = resolveObjectNameToId(shapeIds, binding.name)
+						if (id === null) {
 							warn(
-								`addConnector could not bind to shape "${binding.name}" (no shape with that objectName on the slide); using endpoint coordinates instead.`
+								`addConnector could not bind to shape "${binding.name}" (no object with that objectName on the slide); using endpoint coordinates instead.`
 							)
 							return ''
 						}
-						return `<${tag} id="${i + 2}" idx="${binding.idx}"/>`
+						return `<${tag} id="${id}" idx="${binding.idx}"/>`
 					}
 					const cxnSpPr =
 						cxnTag(slideItemObj.options._startCxn, 'a:stCxn') + cxnTag(slideItemObj.options._endCxn, 'a:endCxn')
@@ -2644,9 +2704,11 @@ function slideTimingToXml(slide: PresSlideInternal): string {
 			(obj.loop === true || (typeof obj.loopCount === 'number' && obj.loopCount > 0))
 	)
 
-	// Resolve preset build animations to their target shape ids (`spid = idx + 2`).
+	// Resolve preset build animations to their target shape ids. `collectSlideShapeIds` covers group
+	// children as well as top-level objects, so `objectName` addresses any shape on the slide.
+	const shapeIds = collectSlideShapeIds(slide._slideObjects)
 	const animations = (slide._animations ?? [])
-		.map((anim) => ({ anim, spid: resolveAnimationSpid(slide, anim) }))
+		.map((anim) => ({ anim, spid: resolveAnimationSpid(shapeIds, anim) }))
 		.filter((entry): entry is { anim: AnimationProps; spid: number } => entry.spid !== null)
 
 	const mediaNode = (obj: SlideObject, nodeId: number): string => {
@@ -2769,13 +2831,27 @@ function slideTransitionToXml(slide: PresSlideInternal): string {
 	)
 }
 
-/** Resolved animation target's shape id (`spid`), or `null` when it cannot be resolved. */
-function resolveAnimationSpid(slide: PresSlideInternal, anim: AnimationProps): number | null {
+/**
+ * Resolved animation target's shape id (`spid`), or `null` when it cannot be resolved — in which
+ * case the effect is dropped, so every `null` warns rather than leaving the animation silently
+ * missing from the deck.
+ *
+ * `objectName` resolves through `shapeIds`, which covers group children: they are `<p:cNvPr>`-named
+ * on the slide and animate like any other shape, but are not in `_slideObjects`, so the old lookup
+ * there dropped every animation targeting one.
+ * @param shapeIds - the slide's shape ids, from `collectSlideShapeIds`
+ * @param anim - the animation to resolve
+ * @returns the target's `<p:cNvPr>` id, or `null`
+ */
+function resolveAnimationSpid(shapeIds: Map<SlideObject, number>, anim: AnimationProps): number | null {
 	if (typeof anim.shapeIndex === 'number' && anim.shapeIndex >= 0) return anim.shapeIndex + 2
 	if (anim.objectName) {
-		const idx = slide._slideObjects.findIndex((obj) => obj.options?.objectName === anim.objectName)
-		if (idx >= 0) return idx + 2
+		const id = resolveObjectNameToId(shapeIds, anim.objectName)
+		if (id !== null) return id
+		warn(`addAnimation: no object named "${anim.objectName}" on the slide, so its "${anim.preset}" effect was dropped.`)
+		return null
 	}
+	warn(`addAnimation: the "${anim.preset}" effect names no target (pass shapeIndex or objectName), so it was dropped.`)
 	return null
 }
 

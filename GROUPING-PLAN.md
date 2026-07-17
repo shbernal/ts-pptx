@@ -1,7 +1,7 @@
 # Grouping — audit findings & remediation plan
 
 Status: **Phase 1 landed (D1, D2, D3); Phase 2 landed (D5, D6); Phase 3 landed
-(D4); Phases 4–6 outstanding.** Every defect
+(D4); Phase 4 landed (§3 name resolution); Phases 5–6 outstanding.** Every defect
 below was verified by generating or re-reading a package, not by reading source
 alone; the measured evidence is quoted inline so each item can be re-checked
 independently.
@@ -37,6 +37,20 @@ shared (`hasCompleteGroupFrame`, `src/gen-xml.ts`) between `resolveObjBounds` an
 the group renderer, so a partial frame resolves identically where a parent group
 sizes around it; the warning is emitted at the render site only, which runs once
 per group object, so a nested partial frame warns exactly once.
+
+Phase 4 notes: both drops were one lookup (`_slideObjects.findIndex` by
+`objectName`), so both were replaced by one — `collectSlideShapeIds` (`src/gen-xml.ts`)
+maps every object on the slide, group children included, to the `<p:cNvPr>` id it is
+rendered with, and `resolveObjectNameToId` searches it. Top-level objects are inserted
+first, so they still win a duplicate name and no existing deck's bindings move. The map
+**mirrors** the id allocation the render walk performs (it must: a reference can be
+emitted before the walk reaches its target), so the new tests parse the emitted `cNvPr`
+ids back out and assert each reference points at the shape it names — a hardcoded id
+would let the two drift while still passing. PowerPoint (COM) confirms it resolves the
+references, not merely that the package opens: a connector bound to a grouped shape at
+both ends reports `begin=GroupedBox end=DeepBox`, and all three animations land on their
+named shapes. Not folded in: connectors as group *children* (§3) — that is an
+`addGroup` scope question (a `<p:cxnSp>` child kind), not a name-resolution one.
 
 Scope: `<p:grpSp>` across the three surfaces that touch it — the **write** path
 (`addGroup`), the **read** path (`Presentation` / `Shape.absoluteFrame`), and the
@@ -218,15 +232,15 @@ rather than absorbing it here.
 Each fails quietly. Per AGENTS.md, none should be silent — minimum bar is a
 `warn()`; the parenthesised note is the real fix.
 
-- **Animations on group children are dropped.** `resolveAnimationSpid`
-  (`src/gen-xml.ts:2733-2740`) resolves `objectName` only against
-  `slide._slideObjects` — group children were spliced out — and returns `null`,
-  which the caller filters at `:2609-2610` with no warning. Animating the *group*
-  works. (Fix: resolve names through `_groupObjects` too.)
-- **Connector shape-binding to a grouped shape fails.** `src/gen-xml.ts:961` uses
-  `slide._slideObjects.findIndex(...)`; it warns "no shape with that objectName on
-  the slide" — a *misleading* message, since the shape exists — and falls back to
-  static endpoints. (Fix: same name-resolution change; correct the message.)
+- ~~**Animations on group children are dropped.**~~ **FIXED** (Phase 4).
+  `resolveAnimationSpid` resolved `objectName` only against `slide._slideObjects` —
+  group children were spliced out — and returned `null`, which the caller filtered
+  with no warning. Now resolves through `collectSlideShapeIds` (every object on the
+  slide, any depth); an unresolvable target warns that its effect was dropped.
+- ~~**Connector shape-binding to a grouped shape fails.**~~ **FIXED** (Phase 4).
+  Same lookup, same fix; the misleading "no shape with that objectName on the
+  slide" now reads "no object with that objectName" and is emitted only when the
+  name truly resolves to nothing.
 - **Connectors cannot be group children.** `GroupChildProps` has no `connector`
   key and `addChildDefinition` (`src/gen-objects.ts:106-123`) has no branch, so
   `{ connector }` hits the generic "unrecognized child descriptor" warn+skip.
@@ -241,6 +255,13 @@ Each fails quietly. Per AGENTS.md, none should be silent — minimum bar is a
   **read** API can already write a group fill. Write/read asymmetry.
 
 ### Adjacent risk (not group-specific)
+
+`resolveAnimationSpid` validates `shapeIndex` only as `>= 0`, so an index past the
+last top-level object emits `spid = shapeIndex + 2` targeting no shape — the
+dangling-`spid` class the desktop-smoke skill names as a 0x80070570 source. Phase 4
+un-silenced the *name* path around it but deliberately left this: it is a distinct
+input-validation defect (and the fix, checking the index against the resolved shape
+ids, is now one line away). Record separately rather than absorbing it.
 
 `src/gen-xml.ts:1293` hardcodes `id="25"` for the slide-number placeholder. Since
 group children allocate ids past `_slideObjects.length`, a grouped slide reaches
@@ -280,13 +301,18 @@ must be, for nested logical groups.
   as of Phase 3.)
 
 **Existing coverage (do not duplicate):** `test/regression/group-shapes.test.js`
-(14 cases: identity xfrm, auto-bounds, unique ids, nested, unsupported-child warn,
+(18 cases: identity xfrm, auto-bounds, unique ids, nested, unsupported-child warn,
 plus Phase 2's cross-boundary name uniqueness, group-aware duplicate warning,
 per-process group-name determinism, per-slide/inside-out group numbering, and the
 write→read round-trip; plus Phase 3's partial-frame warn+fallback, complete-frame
 verbatim, nested partial frame warning once with its parent sizing around the
-fallback, and a partial-frame write→read round-trip),
-schema fixtures `flat-group` / `nested-group` (`test/schema.test.js:2734`, `:2760`),
+fallback, and a partial-frame write→read round-trip; plus Phase 4's connector bound to
+a grouped shape, animation targeting a nested group child, unresolvable-animation-target
+warning, and top-level-wins-a-duplicate-name resolution — the first two assert against
+the `cNvPr` ids parsed out of the emitted XML, which is what guards the id-allocation
+mirror described in the Phase 4 notes),
+schema fixtures `flat-group` / `nested-group` / `group-cross-references`
+(`test/schema.test.js:2734`, `:2760`, `:2782`),
 grouped + nested measured-fit (`test/regression/measured-fit-dist.test.mjs:158`,
 `:173`), and rich read-side coverage against `group-transform.pptx`.
 
@@ -330,7 +356,13 @@ BREAKING, TSDoc on `GroupProps`/`addGroup` stating the all-or-nothing rule, and 
 PowerPoint desktop smoke pass.
 
 **Phase 4 — un-silence the drops.** §3 animation + connector name resolution
-(shared fix), and correct the misleading connector warning.
+(shared fix), and correct the misleading connector warning. **Done** — see the
+Phase 4 notes at the top. Landed with four regression tests, a schema fixture
+(`group-cross-references`), a CHANGELOG entry, TSDoc on `startShape` /
+`AnimationProps`, and a PowerPoint desktop smoke pass that checked the references
+resolve, not just that the deck opens. The remaining §3 items are scope questions
+for `addGroup` (connector children, group fill/line/effects), not defects of this
+shape.
 
 **Phase 5 — `groupObjects()`.** §4, fixture-backed, only after Phase 2.
 
@@ -339,8 +371,8 @@ docs page, an `addGroup` demo, and the `upstream-issue-307` cleanup. Fold the
 `measure-fit.ts` invariant comment (§1) in here.
 
 Phases 1–4 are independent of each other and can land in any order; only Phase 5
-has a hard dependency (on Phase 2). Phases 1–3 have landed; Phase 4 is next and
-Phase 5 is unblocked.
+has a hard dependency (on Phase 2). Phases 1–4 have landed; Phase 5 is unblocked
+and is next, with Phase 6 (cover and document) after it.
 
 ---
 

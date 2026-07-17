@@ -8,6 +8,19 @@ const PNG_DATA =
 // Group shapes (upstream-issue-307): slide.addGroup() wraps child objects in a PowerPoint group
 // (<p:grpSp>) with an identity child coordinate space (chOff/chExt == off/ext) at every depth, so
 // children — including nested groups — keep their slide-absolute coordinates.
+
+/**
+ * The `<p:cNvPr>` id the writer actually emitted for the object named `name`.
+ * The cross-boundary reference tests below compare against this rather than a hardcoded number:
+ * ids for group children are allocated by a walk in `slideObjectToXml`, and the references to them
+ * are resolved up front by `collectSlideShapeIds`, so a hardcoded id would let those two drift apart
+ * while every assertion still passed.
+ */
+const cNvPrIdOf = (xml, name) => {
+	const m = xml.match(new RegExp(`<p:cNvPr id="(\\d+)" name="${name}"`))
+	return m ? Number(m[1]) : null
+}
+
 defineRegressionSuite('Group shapes', [
 	{
 		name: 'addGroup emits one p:grpSp wrapping its children with identity chOff/chExt',
@@ -378,6 +391,106 @@ defineRegressionSuite('Group shapes', [
 			assert(frame, 'expected a resolvable absoluteFrame, not null (degenerate chExt)')
 			assertEqual(frame.width, 1828800, 'expected the child to keep its 2in width')
 			assertEqual(frame.left, 914400, 'expected the child to keep its 1in x — a group frame never moves children')
+		},
+	},
+	{
+		name: 'a connector binds to a shape inside a group',
+		fn: async () => {
+			// Binding used to resolve only against `_slideObjects`, which group children are spliced out
+			// of, so this fell back to static endpoints and warned that the shape did not exist.
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (msg) => warnings.push(String(msg))
+			let xml
+			try {
+				const { zip } = await build((p) => {
+					const s = p.addSlide()
+					s.addGroup([{ rect: { x: 1, y: 1, w: 2, h: 1, objectName: 'boxInGroup' } }], { objectName: 'Grp' })
+					s.addConnector({ type: 'elbow', x1: 3, y1: 1.5, x2: 6, y2: 4.5, startShape: 'boxInGroup', startShapeIdx: 3 })
+				})
+				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			} finally {
+				console.warn = origWarn
+			}
+			assertEqual(warnings.length, 0, 'a resolvable binding must not warn; got: ' + JSON.stringify(warnings))
+			const childId = cNvPrIdOf(xml, 'boxInGroup')
+			assert(childId !== null, 'expected the grouped child to be emitted; got: ' + xml)
+			const cxn = (xml.match(/<p:cxnSp>[\s\S]*?<\/p:cxnSp>/g) || [])[0]
+			assert(
+				cxn.includes(`<a:stCxn id="${childId}" idx="3"/>`),
+				`expected stCxn to point at the grouped child's cNvPr id (${childId}); got: ${cxn}`
+			)
+		},
+	},
+	{
+		name: 'an animation targets a shape inside a nested group by objectName',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addGroup([
+					{ rect: { x: 1, y: 1, w: 1, h: 1 } },
+					{ group: { children: [{ rect: { x: 3, y: 1, w: 1, h: 1, objectName: 'deepBox' } }] } },
+				])
+				s.addAnimation({ preset: 'fadeIn', objectName: 'deepBox' })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const deepId = cNvPrIdOf(xml, 'deepBox')
+			assert(deepId !== null, 'expected the nested child to be emitted; got: ' + xml)
+			const timing = (xml.match(/<p:timing>[\s\S]*<\/p:timing>/) || [])[0]
+			assert(timing, 'expected a <p:timing> tree — the effect was dropped; got: ' + xml)
+			const spids = [...timing.matchAll(/<p:spTgt spid="(\d+)"\/>/g)].map((m) => Number(m[1]))
+			assert(spids.length > 0, 'expected the effect to target a shape; got: ' + timing)
+			assert(
+				spids.every((spid) => spid === deepId),
+				`expected every spid to be the nested child's cNvPr id (${deepId}); got: ${spids.join(',')}`
+			)
+		},
+	},
+	{
+		name: 'an animation naming no object on the slide warns instead of vanishing',
+		fn: async () => {
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (msg) => warnings.push(String(msg))
+			let xml
+			try {
+				const { zip } = await build((p) => {
+					const s = p.addSlide()
+					s.addShape('rect', { x: 1, y: 1, w: 1, h: 1, objectName: 'real' })
+					s.addAnimation({ preset: 'fadeIn', objectName: 'ghost' })
+				})
+				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			} finally {
+				console.warn = origWarn
+			}
+			assert(
+				warnings.some((w) => /no object named "ghost"/.test(w)),
+				'expected an unresolved-target warning; got: ' + JSON.stringify(warnings)
+			)
+			assert(!/<p:spTgt/.test(xml), 'an unresolvable effect must not emit a dangling spid; got: ' + xml)
+		},
+	},
+	{
+		name: 'a group child and a top-level object of the same name resolve to the top-level one',
+		fn: async () => {
+			// Duplicate names are warned about separately; resolution must stay as it was before group
+			// children were searched at all, so no existing deck changes its bindings.
+			const origWarn = console.warn
+			console.warn = () => {}
+			let xml
+			try {
+				const { zip } = await build((p) => {
+					const s = p.addSlide()
+					s.addShape('rect', { x: 1, y: 1, w: 1, h: 1, objectName: 'dupe' })
+					s.addGroup([{ rect: { x: 4, y: 1, w: 1, h: 1, objectName: 'dupe' } }])
+					s.addConnector({ type: 'straight', x1: 2, y1: 1, x2: 4, y2: 1, endShape: 'dupe' })
+				})
+				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			} finally {
+				console.warn = origWarn
+			}
+			const cxn = (xml.match(/<p:cxnSp>[\s\S]*?<\/p:cxnSp>/g) || [])[0]
+			assert(cxn.includes('<a:endCxn id="2" idx="0"/>'), `expected the top-level "dupe" (id 2) to win; got: ${cxn}`)
 		},
 	},
 ])

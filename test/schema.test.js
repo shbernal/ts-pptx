@@ -2780,6 +2780,34 @@ export default [
 		},
 	},
 	{
+		// Cross-boundary references into a group: a connector bound to a grouped shape (<a:stCxn>)
+		// and an animation targeting one (<p:spTgt spid>). Both name a <p:cNvPr> id that lives
+		// inside <p:grpSp> rather than at the top of the spTree, which is where the id-space is
+		// shared slide-wide; both used to resolve to nothing and be dropped.
+		name: 'connector + animation referencing shapes inside a group (addGroup)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addGroup(
+					[
+						{ rect: { x: 1, y: 1, w: 2, h: 1, fill: { color: 'CC0000' }, objectName: 'GroupedBox' } },
+						{
+							group: {
+								children: [{ rect: { x: 5, y: 3, w: 1.5, h: 1, fill: { color: '0000CC' }, objectName: 'DeepBox' } }],
+								options: { objectName: 'InnerRefGroup' },
+							},
+						},
+					],
+					{ objectName: 'OuterRefGroup' }
+				)
+				s.addConnector({ type: 'elbow', x1: 3, y1: 1.5, x2: 5, y2: 3.5, startShape: 'GroupedBox', endShape: 'DeepBox' })
+				s.addAnimation({ preset: 'fadeIn', objectName: 'GroupedBox' })
+				s.addAnimation({ preset: 'grow', objectName: 'DeepBox', trigger: 'afterPrevious' })
+			})
+			await expectNoSchemaErrors(buf, 'group-cross-references')
+		},
+	},
+	{
 		// upstream-pr-1447: native (legacy ISO/IEC 29500 §13) PowerPoint comments. One author,
 		// one comment: assert the comment part, the commentAuthors part, both Content-Types
 		// Overrides, and the slide->comments / presentation->commentAuthors relationships.

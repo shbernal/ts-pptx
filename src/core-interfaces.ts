@@ -493,6 +493,9 @@ export interface ConnectorProps {
 	 * attached: it reroutes when the shape moves and its elbow auto-router can engage.
 	 * The shape's `objectName` must be set and unique on the slide. `x1`/`y1` remain the static
 	 * fallback geometry (and are used if the name can't be resolved).
+	 *
+	 * A shape inside a group is a valid target — group children are named on the same slide — though
+	 * the connector itself cannot be a group child (see {@link PresSlide.addGroup}).
 	 */
 	startShape?: string
 	/**
@@ -3343,9 +3346,15 @@ export type AnimationTrigger = 'onClick' | 'withPrevious' | 'afterPrevious'
 export interface AnimationProps {
 	/** The preset effect to play. */
 	preset: PresetEffect
-	/** 0-based add order of the target shape on the slide (`spid = shapeIndex + 2`). */
+	/**
+	 * 0-based add order of the target shape on the slide (`spid = shapeIndex + 2`).
+	 * Counts top-level objects only; use `objectName` to target a shape inside a group.
+	 */
 	shapeIndex?: number
-	/** Target shape by its `objectName` (alternative to `shapeIndex`). */
+	/**
+	 * Target shape by its `objectName` (alternative to `shapeIndex`). Any shape on the slide,
+	 * including one inside a group; an unresolved name warns and drops the effect.
+	 */
 	objectName?: string
 	/** Trigger relative to the previous effect. @default 'onClick' */
 	trigger?: AnimationTrigger

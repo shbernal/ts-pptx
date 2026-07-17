@@ -55,6 +55,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Connectors and animations can now reference a shape inside a group by `objectName`.**
+  Both resolved names only against the slide's top-level object list, which `addGroup()`
+  splices its children out of, so both silently failed on a grouped target: an animation
+  was dropped with no warning at all, and a connector binding fell back to static endpoint
+  coordinates while warning `no shape with that objectName on the slide` — a shape that did
+  exist, and was visible in the Selection Pane. Group children are `<p:cNvPr>`-named on the
+  same slide and share its id space, so they are now resolved like any other object, at any
+  nesting depth. Verified in desktop PowerPoint: a connector bound to a grouped shape at
+  both ends reports those shapes as its connected endpoints, and animations targeting
+  grouped shapes appear on the correct shapes in the timeline. Where a name is genuinely
+  unresolvable, the connector's warning now says `no object with that objectName`, and an
+  animation that names a missing object — or names no target at all — warns that its effect
+  was dropped instead of vanishing silently. A top-level object still wins over a group
+  child of the same name, so no existing deck's bindings change.
 - **BREAKING (`addGroup`): a partial group frame no longer emits a degenerate group.** The
   frame is now all-or-nothing — pass all four of `x/y/w/h` to set it explicitly, or none to
   get auto-bounds (the bounding box of the children). Passing *some* axes previously let the
