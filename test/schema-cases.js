@@ -1,11 +1,23 @@
-// Schema-validation fixtures. Each case builds a representative `.pptx`
-// and asserts the OpenXmlValidator (via OOXMLValidatorCLI) reports no
-// errors.
+// Schema-validation fixtures — a DATA MODULE, not a runnable test file.
 //
-// Fixtures are intentionally small and orthogonal — they exercise one
-// API surface each — so when an error appears we can localise it.
+// This exports a flat `[{ name, fn }, …]` array that `schema-validation.test.mjs`
+// imports and wraps in `test()` calls. It has no `test()`/`describe()` of its own,
+// so it is deliberately named `schema-cases.js` (not `*.test.js`) to keep vitest's
+// discovery from treating it as a suite. Run the fixtures with: pnpm run test:schema
 //
-// Run with: pnpm run test:schema
+// Each case builds a representative `.pptx` and asserts the OpenXmlValidator (via
+// OOXMLValidatorCLI) reports zero errors. Fixtures are intentionally small and
+// orthogonal — one API surface each — so a validation error localizes cleanly.
+//
+// Finding a fixture: the array is append-ordered (new cases are added at the end
+// over time), so it is not grouped strictly by domain. Grep the `name:` string —
+// every case has a descriptive name, many tagged with the upstream issue/PR or the
+// internal `dn-…` design-note id they cover. Domains present: text & rich runs,
+// shapes (effects/fills/gradients/geometry), tables (styles/borders/merges/layout
+// placeholders), images & media (crop/sizing/custGeom/duotone/hyperlink), masters &
+// layout placeholders, charts (every type + per-point/per-series/error-bars/axes/
+// titles/labels), native math (OMML/LaTeX), bullets, groups, transitions/animations,
+// theme & fonts, notes/comments, and value-clamp/metadata edge cases.
 
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'

@@ -4,7 +4,7 @@
 // accumulation under one typeface, and input validation — plus the emitted package
 // pieces (font parts, content-type Default, presentation rels, embeddedFontLst,
 // embedTrueTypeFonts/saveSubsetFonts). Schema validity is covered in
-// test/schema.test.js; structural emit is covered here without the validator.
+// test/schema-cases.js; structural emit is covered here without the validator.
 
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'

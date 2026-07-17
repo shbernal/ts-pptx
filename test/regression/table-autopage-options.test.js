@@ -1,0 +1,235 @@
+import { defineRegressionSuite, build, readEntry, listEntries, assert, assertEqual } from '../helpers.js'
+
+// Exercises the option surface of the auto-paging engine (getSlidesForTableRows /
+// parseTextToLines in src/gen-tables.ts) through the public `addTable({autoPage:true})`
+// path: uniform vs. array `colW`, `colW` without `w`, `colspan`, per-cell/table
+// `margin`, `slideMargin`, `autoPageRepeatHeader`, per-cell `fontSize`, and degenerate
+// cell text (empty / numeric / whitespace-only). These paths were unreached by the
+// existing table suite, which clusters on rowspan/tiny-height/mid-slide geometry.
+//
+// margin:0 / slideMargin:0 and fontSize:12 (~0.2 in per line) are used where the
+// assertion depends on deterministic row heights.
+
+function slideFiles(zip) {
+	return listEntries(zip)
+		.filter((f) => /^ppt\/slides\/slide\d+\.xml$/.test(f))
+		.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+}
+
+function gridColCount(xml) {
+	return (xml.match(/<a:gridCol\b/g) || []).length
+}
+
+// N two-column body rows with distinctive text.
+function bodyRows(n) {
+	return Array.from({ length: n }, (_, i) => [{ text: `Row ${i} A` }, { text: `Row ${i} B` }])
+}
+
+defineRegressionSuite('Table autoPage option surface', [
+	{
+		name: 'uniform numeric colW is applied to every column and paginates',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				// colW as a single number → the engine fans it out to one width per column.
+				p.addSlide().addTable(bodyRows(40), {
+					x: 0.5,
+					y: 0.5,
+					h: 5,
+					colW: 1.5,
+					margin: 0,
+					slideMargin: 0,
+					autoPage: true,
+					fontSize: 12,
+				})
+			})
+			const files = slideFiles(zip)
+			assert(files.length >= 2, `expected overflow to multiple slides; got ${files.length}`)
+			for (const name of files) {
+				const xml = await readEntry(zip, name)
+				assertEqual(gridColCount(xml), 2, `every page keeps 2 columns (${name})`)
+				// 1.5 in → 1371600 EMU per column.
+				assert(xml.includes('<a:gridCol w="1371600"'), `expected 1.5in (1371600 EMU) columns on ${name}`)
+			}
+		},
+	},
+	{
+		name: 'array colW with no `w` derives table width from the columns',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				// No `w`: total width must come from summing colW.
+				p.addSlide().addTable(bodyRows(30), {
+					x: 0.5,
+					y: 0.5,
+					h: 5,
+					colW: [2, 3],
+					margin: 0,
+					slideMargin: 0,
+					autoPage: true,
+					fontSize: 12,
+				})
+			})
+			const files = slideFiles(zip)
+			assert(files.length >= 2, `expected overflow to multiple slides; got ${files.length}`)
+			const xml = await readEntry(zip, files[0])
+			assert(xml.includes('<a:gridCol w="1828800"'), 'expected a 2in (1828800 EMU) column')
+			assert(xml.includes('<a:gridCol w="2743200"'), 'expected a 3in (2743200 EMU) column')
+		},
+	},
+	{
+		name: 'a colspan in the header row sets the column count for every page',
+		fn: async () => {
+			const rows = [
+				[{ text: 'Wide Header', options: { colspan: 2 } }],
+				...Array.from({ length: 30 }, (_, i) => [{ text: `L${i}` }, { text: `R${i}` }]),
+			]
+			const { zip } = await build((p) => {
+				p.addSlide().addTable(rows, {
+					x: 0.5,
+					y: 0.5,
+					h: 5,
+					colW: [4.5, 4.5],
+					margin: 0,
+					slideMargin: 0,
+					autoPage: true,
+					fontSize: 12,
+				})
+			})
+			const files = slideFiles(zip)
+			assert(files.length >= 2, `expected overflow to multiple slides; got ${files.length}`)
+			for (const name of files) {
+				const xml = await readEntry(zip, name)
+				// numCols is derived from the header colspan (2), so continuation pages keep 2 columns.
+				assertEqual(gridColCount(xml), 2, `colspan header must set 2 columns on ${name}`)
+			}
+		},
+	},
+	{
+		name: 'cell and table margins consume vertical space (fewer rows per page)',
+		fn: async () => {
+			async function pageCount(useMargins) {
+				const { zip } = await build((p) => {
+					const rows = Array.from({ length: 24 }, (_, i) => [
+						// One cell carries its own margin; the paginator takes the max of cell vs table margin.
+						{ text: `Row ${i} A`, options: useMargins ? { margin: [0.15, 0.05, 0.15, 0.05] } : {} },
+						{ text: `Row ${i} B` },
+					])
+					p.addSlide().addTable(rows, {
+						x: 0.5,
+						y: 0.5,
+						h: 4,
+						colW: [4.5, 4.5],
+						margin: useMargins ? [0.1, 0.05, 0.1, 0.05] : 0,
+						slideMargin: 0,
+						autoPage: true,
+						fontSize: 12,
+					})
+				})
+				return slideFiles(zip).length
+			}
+			const withMargins = await pageCount(true)
+			const without = await pageCount(false)
+			assert(withMargins >= 2, `margined table should still paginate; got ${withMargins}`)
+			// Per-row top+bottom margins eat vertical space, so fewer rows fit per page → at least as many pages.
+			assert(
+				withMargins >= without,
+				`margins must not increase rows-per-page: withMargins=${withMargins} without=${without}`
+			)
+		},
+	},
+	{
+		name: 'slideMargin as a 4-tuple bounds the usable area (no explicit h)',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				// No `h`: usable height comes from the slide height minus the slideMargin tuple.
+				p.addSlide().addTable(bodyRows(60), {
+					x: 0.5,
+					w: 9,
+					colW: [4.5, 4.5],
+					margin: 0,
+					slideMargin: [0.5, 0.5, 0.5, 0.5],
+					autoPage: true,
+					fontSize: 14,
+				})
+			})
+			assert(slideFiles(zip).length >= 2, 'a 60-row table with margins should overflow')
+		},
+	},
+	{
+		name: 'autoPageRepeatHeader repeats the header row on every continuation slide',
+		fn: async () => {
+			const rows = [
+				[
+					{ text: 'HEADER-A', options: { bold: true } },
+					{ text: 'HEADER-B', options: { bold: true } },
+				],
+				...bodyRows(40),
+			]
+			const { zip } = await build((p) => {
+				p.addSlide().addTable(rows, {
+					x: 0.5,
+					y: 0.5,
+					h: 4,
+					colW: [4.5, 4.5],
+					margin: 0,
+					slideMargin: 0,
+					autoPage: true,
+					autoPageRepeatHeader: true,
+					fontSize: 12,
+				})
+			})
+			const files = slideFiles(zip)
+			assert(files.length >= 2, `expected overflow to multiple slides; got ${files.length}`)
+			// The header text must reappear on the second page, not only the first.
+			const page2 = await readEntry(zip, files[1])
+			assert(page2.includes('HEADER-A'), `expected repeated header on ${files[1]}; got: ${page2.slice(0, 400)}`)
+		},
+	},
+	{
+		name: 'degenerate cell text (empty / numeric / whitespace) does not crash autoPage',
+		fn: async () => {
+			const rows = [
+				[{ text: '' }, { text: 2024 }],
+				[{ text: '   ' }, { text: 'ok', options: { fontSize: 18 } }],
+				...bodyRows(30),
+			]
+			const { zip } = await build((p) => {
+				p.addSlide().addTable(rows, {
+					x: 0.5,
+					y: 0.5,
+					h: 5,
+					colW: [4.5, 4.5],
+					margin: 0,
+					slideMargin: 0,
+					autoPage: true,
+					autoPageCharWeight: 0.2,
+					fontSize: 12,
+				})
+			})
+			const files = slideFiles(zip)
+			assert(files.length >= 1, 'expected at least one slide')
+			const page1 = await readEntry(zip, files[0])
+			// A nonzero numeric cell renders its digits; the per-cell fontSize cell renders its text.
+			assert(page1.includes('2024'), 'expected the numeric cell text "2024" to render')
+			assert(page1.includes('>ok<'), 'expected the per-cell fontSize cell text to render')
+		},
+	},
+	{
+		name: 'no `y` and no `h` paginates using the full slide height',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				// Neither y nor h given → first-page start falls back to the top margin and the
+				// usable height is the slide height between margins.
+				p.addSlide().addTable(bodyRows(80), {
+					x: 0.5,
+					w: 9,
+					colW: [4.5, 4.5],
+					margin: 0,
+					slideMargin: 0,
+					autoPage: true,
+					fontSize: 12,
+				})
+			})
+			assert(slideFiles(zip).length >= 2, 'an 80-row full-height table should overflow')
+		},
+	},
+])

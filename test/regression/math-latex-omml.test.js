@@ -6,7 +6,7 @@ import { latexToOmml, mathmlToOmml } from '../../dist/math.js'
 // addText (upstream-issue-1456). Pipeline: LaTeX --temml--> MathML --mathml2omml--> OMML.
 // These tests pin the canonical output shape, well-formedness, the display/inline
 // distinction, and the throw-on-invalid-input policy. Schema validity of the emitted
-// deck is covered separately by test/schema.test.js.
+// deck is covered separately by test/schema-cases.js.
 
 const M_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
 
