@@ -76,9 +76,6 @@ import {
 	imageContentType,
 } from './gen-utils.js'
 
-/** counter for included charts (used for index in their filenames) */
-let _chartCounter = 0
-
 /**
  * Take the next slide-wide index for `type`'s default Selection Pane name (`Shape 0`, `Image 1`,
  * `Group 1`, …).
@@ -454,7 +451,12 @@ export function addChartDefinition(
 		}
 	}
 
-	const chartId = ++_chartCounter
+	// Placeholder part identity, unique only within this target. The authoritative,
+	// package-unique chart part filename is assigned at write time by a per-presentation
+	// pass in `exportPresentation` (see backlog fork-chart-counter-nondeterminism): a
+	// module-global counter here was never reset, so two identical decks built in one
+	// process emitted different chart part filenames (same input, different bytes).
+	const chartId = target._relsChart.length + 1
 	const resultObject: SlideObject = {
 		_type: SlideObjectType.chart,
 	}

@@ -1422,7 +1422,8 @@ export default [
 				})
 			})
 			await expectNoSchemaErrors(buf, 'chart-metadata-extlst')
-			// _chartCounter is a process-global, so the chart part name is not necessarily chart1.xml.
+			// Chart part names are assigned per-presentation at write time; locate the single
+			// chart part by pattern rather than hard-coding the index.
 			const chartPath = listEntries(zip).find((f) => /^ppt\/charts\/chart\d+\.xml$/.test(f))
 			const chartXml = await readEntry(zip, chartPath)
 			const extLst = firstXmlBlock(chartXml, 'c:extLst', 'chartSpace extLst')
@@ -1525,8 +1526,8 @@ export default [
 					legendLayout: { x: 0.7, y: 0.3, w: 0.25, h: 0.4 },
 				})
 			})
-			// _chartCounter is global across the test run, so the chart file number is
-			// not deterministic here; locate the single chart part by pattern.
+			// Chart part names are assigned per-presentation at write time; locate the single
+			// chart part by pattern rather than hard-coding the index.
 			const chartPath = Object.keys(zip.files).find((p) => /^ppt\/charts\/chart\d+\.xml$/.test(p))
 			const chartXml = await readEntry(zip, chartPath)
 			assertIncludes(

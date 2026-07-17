@@ -1863,7 +1863,7 @@ items:
     type: fork-internal-proposal
     first_seen: 2026-07-17
     last_reviewed: 2026-07-17
-    status: deferred
+    status: implemented
     priority: p3
     target_area:
       - chart-ooxml
@@ -1871,39 +1871,38 @@ items:
     non_target_reasons: []
     summary: _chartCounter is a never-reset module global, so two identical presentations built in one process emit different chart part filenames (same input, different bytes)
     current_project_notes: |
-      Carried forward from GROUPING-PLAN.md D6, which is being removed now that all
-      six grouping phases have landed. D6's user-visible half — group names leaking
-      across presentations — was fixed in Phase 2 by moving to a per-slide counter.
-      `_chartCounter` has the same module-global shape but could NOT copy that fix,
-      so it is recorded here rather than absorbed.
+      IMPLEMENTED 2026-07-17. Chart part filenames are now assigned from a
+      per-presentation counter at write time, not from a process-global.
 
-      `_chartCounter` (src/gen-objects.ts:80) is a module-level `let` incremented at
-      `++_chartCounter` (:457) and never reset. Two identical, independent
-      presentations built in one process get different chart part filenames
-      (`ppt/charts/chart1.xml` vs `chart2.xml`) — same input, different bytes.
+      Root cause: `_chartCounter` was a module-level `let` in `gen-objects.ts`
+      incremented in `addChartDefinition` and never reset, so two identical decks
+      built in one process got different chart part filenames (chart1/chart2 vs
+      chart3/chart4) — same input, different bytes.
 
-      Why the per-slide fix does not transfer: chart part filenames must be unique
-      per *presentation* (they live in one package), but `addChartDefinition` only
-      receives the `Slide`, and a Slide holds no back-reference to its Presentation.
-      A per-slide counter would collide across slides; the correct scope is
-      presentation-wide.
-
-      Internal-only, unlike the group-name half: chart part filenames are not
-      user-visible in the Selection Pane, only in the package zip. Still a
-      reproducibility defect (identical decks should be byte-identical).
-
-      FIX: thread a presentation-scoped counter (or reset `_chartCounter` per
-      `writeFile`/presentation) through `Slide` to `addChartDefinition`, mirroring
-      the per-slide object-name counter Phase 2 introduced.
+      Fix (chosen over threading a counter through `Slide`, which would not have
+      covered charts added to masters/layouts and would have collided across a
+      mid-deck `pptx.layout=` change): removed the module global entirely and made
+      `exportPresentation` the single authoritative assigner. Right after the
+      existing media-dedup pass, a per-presentation loop walks every chart-bearing
+      target (`[...slides, ...slideLayouts, master]` — one shared `ppt/charts/`
+      namespace) and renumbers `globalId`/`fileName`/`Target` from 1. That pass runs
+      before content-types, slide rels, and the chart/embedding parts, the only
+      consumers of those fields in the write path (the append/`extractSlides` path
+      rejects charts in v1 and identifies them by per-slide rId, not globalId).
+      `addChartDefinition` now sets only a target-local placeholder id. The counter
+      is local to each `exportPresentation` call, so filenames are a pure function of
+      deck structure and stable across re-exports of the same presentation.
     constructs: []
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/gen-objects.ts:80
-        - src/gen-objects.ts:457
+        - src/gen-objects.ts
+        - src/pptxgen.ts
+        - test/regression/chart-part-name-determinism.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: thread a presentation-scoped chart counter through Slide (or reset per presentation) so identical decks emit identical chart part filenames
+    next_action: none

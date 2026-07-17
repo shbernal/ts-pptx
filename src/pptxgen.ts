@@ -708,6 +708,24 @@ export default class PptxGenJS {
 				}
 			}
 
+			// DETERMINISM: Assign chart part filenames from a per-presentation counter here,
+			// at write time, so two identical decks built in one process produce byte-identical
+			// packages. Chart parts share one `ppt/charts/` namespace across slides, layouts, and
+			// the master, so the id must be package-wide; `addChartDefinition` only sets a
+			// target-local placeholder. This is the authoritative assignment consumed by content
+			// types, slide rels, and the chart/embedding parts below — all emitted after this pass.
+			// A never-reset module global previously drove this (same input, different bytes).
+			// See backlog fork-chart-counter-nondeterminism.
+			let chartPartIdx = 0
+			for (const target of [...this._slides, ...this._slideLayouts, this._masterSlide]) {
+				for (const rel of target._relsChart || []) {
+					const chartId = ++chartPartIdx
+					rel.globalId = chartId
+					rel.fileName = `chart${chartId}.xml`
+					rel.Target = `/ppt/charts/chart${chartId}.xml`
+				}
+			}
+
 			// A: Add empty placeholder objects to slides that don't already have them
 			this._slides.forEach((slide) => {
 				if (slide._slideLayout) genObj.addPlaceholdersToSlideLayouts(slide)
