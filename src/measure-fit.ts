@@ -178,7 +178,16 @@ function resolveInsetsEmu(opts: RunOpts): InsetsEmu {
 	}
 }
 
-/** Resolve the inner box (shape minus insets) in points; null if degenerate. */
+/**
+ * Resolve the inner box (shape minus insets) in points; null if degenerate.
+ *
+ * Reads the object's own `opts.w/h` with no ancestor walk — correct only because a group keeps an
+ * identity child coordinate space (`chOff/chExt == off/ext`, see `src/gen-xml.ts` group renderer and
+ * `docs/groups.md`), so a group never scales its children and a grouped text box's authored w/h is its
+ * true rendered size. `applyMeasuredFit` reaches here for grouped text via its explicit group descent
+ * (`measureObject`). If `addGroup` ever authored a scaled group (non-identity `chExt`), this would need
+ * the same ancestor-scale composition `Shape.absoluteFrame` performs on the read path.
+ */
 function computeBox(obj: SlideObject, presLayout: PresSlideInternal['_presLayout']): FitBox | null {
 	const opts = (obj.options ?? {}) as RunOpts
 	const wEmu = getSmartParseNumber(opts.w, 'X', presLayout)

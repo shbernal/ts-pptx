@@ -53,6 +53,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   appear on other members of the `GeometryPoint` union), so existing code keeps
   compiling and behaves as before; a runtime warning now flags the ignored coordinate.
 
+- **`addGroup()` with no renderable children now warns instead of silently emitting a
+  zero-size group.** Auto-bounds over an empty child set is a `0×0` box, so `addGroup([])`
+  — or a group whose children were all unsupported kinds and skipped — used to produce a
+  degenerate `<p:grpSp>` with `<a:ext cx="0" cy="0"/>` with no signal. It now warns (naming
+  the group), matching the partial-frame fallback and the project's rule against silently
+  emitting degenerate geometry. The group is still emitted (not dropped), so the only change
+  is the warning. This closed the last write-side coverage gap for groups; the new
+  [Grouping objects](docs/groups.md) guide and `demos/modules/demo_group.mjs` runnable demo
+  document `addGroup()`/`groupObjects()`, and regression tests now cover group
+  `rotate`/`flipH`/`flipV`, `objectLock` (plus its unsupported-flag warning), `altText`, and
+  the empty-group case.
+
 ### Fixed
 
 - **Connectors and animations can now reference a shape inside a group by `objectName`.**

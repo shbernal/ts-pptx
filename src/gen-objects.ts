@@ -191,6 +191,17 @@ function buildGroupObject(target: PresSlideInternal, children: GroupChildProps[]
 		groupObjects.push(...target._slideObjects.splice(before))
 	})
 
+	// A group with no renderable children resolves to a zero-size <p:grpSp> (auto-bounds over an empty
+	// bbox is 0×0). That is the degenerate result AGENTS.md says to warn on rather than emit silently —
+	// the same class as the partial-frame fallback. Warn once here, at the group that is actually empty:
+	// a nested empty group has already warned in its own recursion, and its non-empty parent has not.
+	if (groupObjects.length === 0) {
+		warn(
+			`addGroup(): group "${opts.objectName ?? ''}" has no renderable children; emitting an empty, zero-size group. ` +
+				'Pass at least one supported child (text/shape, image, or a nested group).'
+		)
+	}
+
 	// Called after the children above so nested groups number inside-out (see `makeGroupObject`).
 	return makeGroupObject(target, groupObjects, opts)
 }

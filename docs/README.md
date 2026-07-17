@@ -34,6 +34,20 @@ artifacts.
 - [Backlog workflow](backlog-workflow.md): how to classify
   upstream issues and PRs without reintroducing dropped package targets.
 
+## Feature Guides
+
+- [Grouping objects](groups.md): `addGroup()` / `groupObjects()`, the identity
+  child space, framing, nesting, and cross-references into a group.
+- [Image embedded in a shape](image-in-shape.md): clip a picture to a preset or
+  freeform shape and crop it to fill the box.
+- [Animations and transitions](animations-and-transitions.md): slide/shape
+  animation and transition emit.
+- [Native backgrounds and gradients](native-backgrounds-and-gradients.md):
+  native PPTX gradient fills and required review gates.
+- [Math and LaTeX](math-latex.md): OMML math emit.
+- [Embedded fonts](embedded-fonts.md): font embedding, merge, and fixtures.
+- [Measured text fit](measured-text-fit.md): the export-time shrink/resize pass.
+
 ## Documentation Rules
 
 - Keep docs aligned with the current package target.

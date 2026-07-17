@@ -5,9 +5,9 @@ import { defineRegressionSuite, build, readEntry, assert, assertEqual } from '..
 const PNG_DATA =
 	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 
-// Group shapes (upstream-issue-307): slide.addGroup() wraps child objects in a PowerPoint group
-// (<p:grpSp>) with an identity child coordinate space (chOff/chExt == off/ext) at every depth, so
-// children — including nested groups — keep their slide-absolute coordinates.
+// Group shapes: slide.addGroup() wraps child objects in a PowerPoint group (<p:grpSp>) with an
+// identity child coordinate space (chOff/chExt == off/ext) at every depth, so children — including
+// nested groups — keep their slide-absolute coordinates.
 
 /**
  * The `<p:cNvPr>` id the writer actually emitted for the object named `name`.
@@ -491,6 +491,130 @@ defineRegressionSuite('Group shapes', [
 			}
 			const cxn = (xml.match(/<p:cxnSp>[\s\S]*?<\/p:cxnSp>/g) || [])[0]
 			assert(cxn.includes('<a:endCxn id="2" idx="0"/>'), `expected the top-level "dupe" (id 2) to win; got: ${cxn}`)
+		},
+	},
+
+	// --- write-side group frame/identity options (rotate/flip/lock/altText/empty) ---
+	{
+		name: 'group rotate/flipH/flipV land on the group xfrm',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addGroup([{ rect: { x: 1, y: 1, w: 2, h: 1 } }], {
+					rotate: 45,
+					flipH: true,
+					flipV: true,
+					objectName: 'Rotated',
+				})
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			// The transform is applied to the whole group: flipH/flipV then rot on the grpSpPr xfrm.
+			// 45deg -> 45 * 60000 = 2700000 (convertRotationDegrees). chOff/chExt still track off/ext.
+			assert(
+				/<p:grpSpPr><a:xfrm flipH="1" flipV="1" rot="2700000"><a:off x="914400" y="914400"\/><a:ext cx="1828800" cy="914400"\/><a:chOff x="914400" y="914400"\/><a:chExt cx="1828800" cy="914400"\/>/.test(
+					xml
+				),
+				'expected flipH/flipV/rot on the group xfrm with identity child space; got: ' + xml
+			)
+		},
+	},
+	{
+		name: 'group objectLock emits a:grpSpLocks; a flag it does not support warns',
+		fn: async () => {
+			// A supported flag (noMove) is emitted; an unsupported one (noCrop, valid only on shapes/pics)
+			// is dropped with a warning rather than silently coerced.
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (msg) => warnings.push(String(msg))
+			let xml
+			try {
+				const { zip } = await build((p) => {
+					const s = p.addSlide()
+					s.addGroup([{ rect: { x: 1, y: 1, w: 2, h: 1 } }], {
+						objectLock: { noMove: true, noResize: true },
+						objectName: 'Locked',
+					})
+					s.addGroup([{ rect: { x: 4, y: 1, w: 1, h: 1 } }], { objectLock: { noCrop: true }, objectName: 'BadLock' })
+				})
+				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			} finally {
+				console.warn = origWarn
+			}
+			assert(
+				/<p:cNvGrpSpPr><a:grpSpLocks noMove="1" noResize="1"\/><\/p:cNvGrpSpPr>/.test(xml),
+				'expected the supported lock flags on a:grpSpLocks; got: ' + xml
+			)
+			// The unsupported flag yields no grpSpLocks element at all (empty), and warns.
+			assert(/name="BadLock"/.test(xml), 'expected the second group emitted; got: ' + xml)
+			assert(
+				warnings.some((w) => /objectLock\.noCrop is not supported/.test(w) && /a:grpSpLocks/.test(w)),
+				'expected a warning for the unsupported lock flag; got: ' + JSON.stringify(warnings)
+			)
+		},
+	},
+	{
+		name: 'group altText is written to the group cNvPr descr, entity-encoded',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addGroup([{ rect: { x: 1, y: 1, w: 2, h: 1 } }], {
+					altText: 'Logo & wordmark',
+					objectName: 'Described',
+				})
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(
+				/<p:cNvPr id="\d+" name="Described" descr="Logo &amp; wordmark"\/>/.test(xml),
+				'expected altText on the group cNvPr descr, entity-encoded; got: ' + xml
+			)
+		},
+	},
+	{
+		name: 'an empty group warns rather than silently emitting a zero-size group',
+		fn: async () => {
+			// Auto-bounds over no children is a 0x0 box — the degenerate result AGENTS.md says to warn on.
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (msg) => warnings.push(String(msg))
+			let xml
+			try {
+				const { zip } = await build((p) => {
+					p.addSlide().addGroup([], { objectName: 'Empty' })
+				})
+				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			} finally {
+				console.warn = origWarn
+			}
+			assert(
+				warnings.some((w) => /addGroup/.test(w) && /Empty/.test(w) && /no renderable children/.test(w)),
+				'expected an empty-group warning naming the group; got: ' + JSON.stringify(warnings)
+			)
+			// It still emits the requested (degenerate) group rather than dropping it silently.
+			assert(
+				/<p:grpSp>[\s\S]*name="Empty"[\s\S]*<a:ext cx="0" cy="0"\/>/.test(xml),
+				'expected the empty group still emitted with a zero-size box; got: ' + xml
+			)
+		},
+	},
+	{
+		name: 'a group whose only children are unsupported kinds warns about both the child and the empty result',
+		fn: async () => {
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (msg) => warnings.push(String(msg))
+			try {
+				await build((p) => {
+					p.addSlide().addGroup([{ table: { rows: [[{ text: 'x' }]] } }], { objectName: 'AllSkipped' })
+				})
+			} finally {
+				console.warn = origWarn
+			}
+			assert(
+				warnings.some((w) => /addGroup/.test(w) && /table/.test(w)),
+				'expected the unsupported-child warning; got: ' + JSON.stringify(warnings)
+			)
+			assert(
+				warnings.some((w) => /no renderable children/.test(w) && /AllSkipped/.test(w)),
+				'expected the empty-result warning after every child was skipped; got: ' + JSON.stringify(warnings)
+			)
 		},
 	},
 

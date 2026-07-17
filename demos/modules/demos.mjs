@@ -10,6 +10,7 @@
 import { COMPRESS, CUST_NAME } from "../modules/enums.mjs";
 import { createMasterSlides, testSlideBackgrounds } from "./masters.mjs";
 import { genSlides_Chart } from "./demo_chart.mjs";
+import { genSlides_Group } from "./demo_group.mjs";
 import { genSlides_Image } from "./demo_image.mjs";
 import { genSlides_Master } from "./demo_master.mjs";
 import { genSlides_Media } from "./demo_media.mjs";
@@ -22,7 +23,7 @@ const DEPRECATED_TEST_MODE = false;
 // ==================================================================================================================
 
 export function runEveryTest(pptxgen) {
-	return execGenSlidesFuncs(["Master", "Chart", "Image", "Media", "Shape", "Text", "Table"], pptxgen);
+	return execGenSlidesFuncs(["Master", "Chart", "Image", "Media", "Shape", "Text", "Table", "Group"], pptxgen);
 
 	// NOTE: Html2Pptx needs table to be visible (otherwise col widths are even and look horrible)
 	// ....: Therefore, run it manually. // if ( typeof table2slides1 !== 'undefined' ) table2slides1();
@@ -65,6 +66,7 @@ export function execGenSlidesFuncs(type, pptxgen) {
 		else if (type === "Shape") genSlides_Shape(pptx);
 		else if (type === "Table") genSlides_Table(pptx);
 		else if (type === "Text") genSlides_Text(pptx);
+		else if (type === "Group") genSlides_Group(pptx);
 		//if (console.timeEnd) console.timeEnd(type);
 	});
 

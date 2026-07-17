@@ -20,6 +20,7 @@
         "reference/pptx-inspection",
         "reference/pptx-read",
         "reference/object-identity",
+        "groups",
         "image-in-shape",
         "math-latex",
         "reference/api/index",

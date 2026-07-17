@@ -2729,7 +2729,7 @@ export default [
 		},
 	},
 	{
-		// upstream-issue-307: a flat group (<p:grpSp>) wrapping a shape, a text box, and an image.
+		// addGroup: a flat group (<p:grpSp>) wrapping a shape, a text box, and an image.
 		// Identity child coordinate space; children keep their slide-absolute coordinates.
 		name: 'flat group of shape + text + image (addGroup)',
 		fn: async () => {
@@ -2755,7 +2755,7 @@ export default [
 		},
 	},
 	{
-		// upstream-issue-307: a nested group (<p:grpSp> inside <p:grpSp>). Identity child coordinate
+		// addGroup: a nested group (<p:grpSp> inside <p:grpSp>). Identity child coordinate
 		// space at every depth; children keep their slide-absolute coordinates.
 		name: 'nested group of rect + (group of rect + text) (addGroup)',
 		fn: async () => {
