@@ -132,6 +132,13 @@ type HyperlinkTextObject = (TextProps | SlideObject | TableCell) & {
 	text?: string | number | TextProps[] | TableCell[]
 }
 
+/**
+ * Expand a cell/table border into the 4-side tuple the rest of the pipeline expects.
+ * A single `BorderProps` is broadcast to all four sides `[top, right, bottom, left]`;
+ * an already-4-element `BorderTuple` passes through unchanged.
+ * @param border - one border style (applied to every side) or a per-side tuple
+ * @return {BorderTuple} a 4-element `[top, right, bottom, left]` tuple
+ */
 function normalizeBorderTuple(border: BorderProps | BorderTuple): BorderTuple {
 	return Array.isArray(border) ? border : [border, border, border, border]
 }
@@ -850,6 +857,17 @@ function registerImageFillMedia(target: PresSlideInternal, fill: ShapeFillProps)
 	fill._imgRid = imageRelId
 }
 
+/**
+ * Normalize an `addImage()` call into a slide image object and register its media relationships.
+ *
+ * Resolves the image source (path or base64 `data:`), allocates the drawing relationship id(s)
+ * — SVG needs a second rId for its PNG rasterization fallback — appends the bytes to
+ * `target._relsMedia` (deduping identical sources), and inherits any omitted x/y/w/h from a
+ * matching layout picture placeholder. The resulting `SlideObject` is pushed onto the slide;
+ * `gen-xml.ts` later emits the `<p:pic>`.
+ * @param target - slide (or master/group) the image is appended to
+ * @param opt - the caller's `ImageProps` (path/data, geometry, sizing, hyperlink, placeholder, …)
+ */
 export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): void {
 	const newObject: SlideObject = {
 		_type: SlideObjectType.image,

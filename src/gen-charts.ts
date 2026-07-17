@@ -2512,6 +2512,18 @@ function createLeaderLinesElement(opts: ChartOptsInternal): string {
 	)
 }
 
+/**
+ * Build a single custom `<c:dLbl>` (rich-text data label) overriding one data point's label.
+ *
+ * Used when a series supplies explicit per-point label text: the emitted `<c:idx>` pins the
+ * override to that point, and the `<c:rich>` run carries the label's own font styling (size,
+ * bold, italic, color, face) resolved from the chart-level dataLabel* options. All the
+ * `show*` flags are forced off so only the literal `text` renders (no value/category/percent).
+ * @param idx - zero-based data-point index this label overrides
+ * @param text - the literal label text (XML-escaped here)
+ * @param opts - chart options supplying dataLabel font/color defaults and `lang`
+ * @return {string} a `<c:dLbl>` element
+ */
 function makeCustomDLblXml(idx: number, text: string, opts: ChartOptsInternal): string {
 	const sz = ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE)
 	const bold = opts.dataLabelFontBold ? '1' : '0'
