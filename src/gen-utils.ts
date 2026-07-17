@@ -275,6 +275,20 @@ export function convertRotationDegrees(d: number): number {
 }
 
 /**
+ * Convert a freeform arc angle (degrees) to an `<a:arcTo>` ST_AdjAngle value (60000ths).
+ * Unlike a shape rotation, a sweep is not modular: a 400 degree swAng draws a different
+ * arc than a 40 degree one, so the value is never wrapped into 0..360.
+ * @param {number} d degrees
+ * @param {'stAng' | 'swAng'} attr - attribute being emitted, for the error message
+ * @returns {number} ST_AdjAngle value (60000ths of a degree)
+ */
+export function convertArcAngle(d: number, attr: 'stAng' | 'swAng'): number {
+	if (typeof d !== 'number' || !Number.isFinite(d))
+		throw new Error(`Arc ${attr} must be a finite number of degrees; received ${String(d)}.`)
+	return Math.round(d * ANGLE_UNITS_PER_DEGREE)
+}
+
+/**
  * Converts component value to hex value
  * @param {number} c - component color
  * @returns {string} hex string

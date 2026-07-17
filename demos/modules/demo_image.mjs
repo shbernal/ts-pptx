@@ -378,7 +378,7 @@ function genSlide06(pptx) {
 			{ x: dW, y: 0 },
 			{ x: dW, y: dH },
 			{ x: fx, y: dH },
-			{ x: 0, y: dH / 2, curve: { type: "arc", hR: dH / 2, wR: fx, stAng: 90, swAng: 180 } },
+			{ curve: { type: "arc", hR: dH / 2, wR: fx, stAng: 90, swAng: 180 } },
 			{ close: true },
 		],
 		sizing: { type: "cover", w: dW, h: dH },

@@ -16,8 +16,10 @@
  *
  * A translation of an svg path to a custom geometry could be achieved by using the svg-points package and adding a custom translation between the arcs.
  * The svg arc is described by the variables x, y, rx, ry, xAxisRotation, largeArcFlag and sweepFlag.
- * On the other side the pptx freeform arc is described by x, y, hR, wR, stAng, swAng.
- * In order to add some sort of translation between svg-path and a custom geometry points array we should create a translation between those two representations of the arc.
+ * On the other side the pptx freeform arc is described by hR, wR, stAng, swAng — and no end point, which
+ * the renderer derives from the pen position, the radii and the sweep. So an svg->pptx arc translation
+ * has to solve angles from the svg end point; there is no such solver here, and the DSL takes the OOXML
+ * form directly.
  */
 
 import { BASE_TABLE_OPTS, BASE_TEXT_OPTS_L, BASE_TEXT_OPTS_R } from "./enums.mjs";

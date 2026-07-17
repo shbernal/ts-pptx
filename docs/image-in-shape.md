@@ -98,12 +98,19 @@ slide.addImage({
     { x: w,  y: h },               // bottom-right
     { x: fx, y: h },               // bottom, back to the flat edge
     // curved left edge: an ellipse arc bulging left, from the bottom sweeping 180°
-    { x: 0, y: h / 2, curve: { type: 'arc', hR: h / 2, wR: fx, stAng: 90, swAng: 180 } },
+    { curve: { type: 'arc', hR: h / 2, wR: fx, stAng: 90, swAng: 180 } },
     { close: true },
   ],
   sizing: { type: 'cover', w, h }, // center-crop the (wide) photo into the tall "D"
 })
 ```
+
+An `arc` node takes no `x`/`y`. An `<a:arcTo>` carries no explicit end point —
+PowerPoint derives it from the current pen position, the radii and the swept
+angle — so the arc above ends where the 180° sweep lands, back at the flat edge.
+Supplying an end point emits a warning and is otherwise ignored. Unlike a shape
+rotation, arc angles are not wrapped into `0..360`: `swAng: 400` draws a 400°
+sweep, not a 40° one.
 
 The wide source photo is cropped to the box aspect — not squashed — and the curved
 edge is a smooth ellipse arc. See `demos/common/image-in-shape.js` for a runnable

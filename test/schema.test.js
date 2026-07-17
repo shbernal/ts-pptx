@@ -1302,7 +1302,7 @@ export default [
 						{ x: 2, y: 0 },
 						{ x: 2, y: 3 },
 						{ x: 0.64, y: 3 },
-						{ x: 0, y: 1.5, curve: { type: 'arc', hR: 1.5, wR: 0.64, stAng: 90, swAng: 180 } },
+						{ curve: { type: 'arc', hR: 1.5, wR: 0.64, stAng: 90, swAng: 180 } },
 						{ close: true },
 					],
 					sizing: { type: 'cover', w: 2, h: 3 },

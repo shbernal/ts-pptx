@@ -23,6 +23,7 @@ import type {
 	TransitionProps,
 	BorderProps,
 	CustomPropertyValue,
+	GeometryPoint,
 	PresentationPropsInternal,
 	SlideComment,
 	SlideObject,
@@ -49,6 +50,7 @@ import type {
 } from './core-interfaces.js'
 import {
 	avContentType,
+	convertArcAngle,
 	convertRotationDegrees,
 	createColorElement,
 	createGlowElement,
@@ -320,6 +322,14 @@ function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: number,
 }
 
 /**
+ * Narrow a freeform path node to an arc segment. An arc is the one curve node with no end
+ * point, so it must be split off before the remaining curve nodes can be read for x/y.
+ */
+function isArcPoint(point: GeometryPoint): point is Extract<GeometryPoint, { curve: { type: 'arc' } }> {
+	return 'curve' in point && point.curve.type === 'arc'
+}
+
+/**
  * Emit an `<a:custGeom>` for a freeform path built from `points`.
  * Shared by the shape and image code paths so that path emission stays in one place.
  * Points are authored in the object's own inch/EMU space (0..cx, 0..cy) — not slide-relative and not normalized.
@@ -342,15 +352,19 @@ function genXmlCustGeom(points: ObjectOptions['points'], cx: number, cy: number,
 	strXml += `<a:path w="${cx}" h="${cy}">`
 
 	points?.forEach((point, i) => {
-		if ('curve' in point) {
+		if (isArcPoint(point)) {
+			// An `<a:arcTo>` has no end point: it is derived from the pen position, radii and sweep.
+			// An authored x/y is silently unused, so say so rather than let it read as meaningful.
+			// (A union excess-property check does not reject one, so this is the only signal.)
+			if ('x' in point || 'y' in point)
+				warn('freeform arc node: x/y are ignored — an arcTo end point is computed from stAng/swAng and the radii.')
+			strXml += `<a:arcTo hR="${getSmartParseNumber(point.curve.hR, 'Y', layout)}" wR="${getSmartParseNumber(
+				point.curve.wR,
+				'X',
+				layout
+			)}" stAng="${convertArcAngle(point.curve.stAng, 'stAng')}" swAng="${convertArcAngle(point.curve.swAng, 'swAng')}" />`
+		} else if ('curve' in point) {
 			switch (point.curve.type) {
-				case 'arc':
-					strXml += `<a:arcTo hR="${getSmartParseNumber(point.curve.hR, 'Y', layout)}" wR="${getSmartParseNumber(
-						point.curve.wR,
-						'X',
-						layout
-					)}" stAng="${convertRotationDegrees(point.curve.stAng)}" swAng="${convertRotationDegrees(point.curve.swAng)}" />`
-					break
 				case 'cubic':
 					strXml += `<a:cubicBezTo>
 					<a:pt x="${getSmartParseNumber(point.curve.x1, 'X', layout)}" y="${getSmartParseNumber(point.curve.y1, 'Y', layout)}" />

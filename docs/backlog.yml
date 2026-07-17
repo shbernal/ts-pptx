@@ -1634,42 +1634,92 @@ items:
     source: downstream
     type: downstream-need
     first_seen: 2026-07-16
-    last_reviewed: 2026-07-16
-    status: target
+    last_reviewed: 2026-07-17
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
-    applies_to_current_project: partial
+    applies_to_current_project: yes
     non_target_reasons: []
-    summary: Freeform (custGeom) path support for a:arcTo segments (arc radii + sweep, computed end point)
+    summary: Freeform (custGeom) a:arcTo — write DSL, emitter and reader all handle arcs; a computed end point was considered and deliberately not built
     current_project_notes: |
-      The write DSL's freeform path (`<a:custGeom>` path commands) models moveTo /
-      lineTo / cubic + quadratic bezier / close, but has no arc segment, so it cannot
-      round-trip an OOXML `<a:path>` that contains `<a:arcTo>`. `a:arcTo`
-      (CT_Path2DArcTo) is specified by two radii (`wR`/`hR`) plus a start angle
-      (`stAng`) and swept angle (`swAng`) — it does NOT carry an explicit end point;
-      the renderer computes the arc's end from the current pen position, the radii,
-      and the sweep. A consumer converting an existing PowerPoint freeform to the
-      write DSL therefore hits an unconvertible segment whenever a shape uses arcs.
+      NOTE: this entry's original premise ("the write DSL has no arc segment") was
+      wrong on filing. Both sides already handled arcs: `genXmlCustGeom` emitted
+      `<a:arcTo>` from `{ curve: { type: 'arc', hR, wR, stAng, swAng } }`, and the read
+      model parsed `arcTo` into `{ cmd: 'arcTo', wR, hR, stAng, swAng }` with angles in
+      degrees. The half-disc clip in `docs/image-in-shape.md` ships on it.
 
-      In practice PowerPoint's own freeform tool emits cubic beziers, so authored
-      freeforms rarely contain `arcTo`; the gap surfaces mainly when transcribing a
-      programmatically-generated or hand-authored path. Two ways to close it, either
-      acceptable: (a) the write DSL accepts an arc segment expressed as OOXML radii +
-      angles and emits `<a:arcTo>` directly (faithful, no solver); or (b) the read
-      model computes the arc's end point (and, if the DSL stays bezier-only, a bezier
-      approximation of the sweep) so a converter can emit an equivalent path. Until
-      one lands, a downstream freeform converter must reject arc segments and ask for
-      a hand transcription.
+      What was actually wrong, fixed 2026-07-17 (option (a) in the original filing,
+      completed rather than started):
+        - The DSL's arc node *required* `x`/`y` that the emitter discarded. An
+          `<a:arcTo>` has no explicit end point — the renderer derives it from the pen
+          position, radii and sweep — so the type forced a converter to invent the one
+          coordinate OOXML does not carry. The arc member of `GeometryPoint` no longer
+          takes `x`/`y`; supplying one warns. (TS union excess-property checking does
+          not reject the old form, so the warning is the only signal at a call site.)
+        - `stAng`/`swAng` went through `convertRotationDegrees`, a shape-rotation helper
+          that wraps once and coerces nullish/NaN to 0. A sweep is not modular:
+          `swAng: 400` drew a 40 degree arc. Now `convertArcAngle` — no wrap, throws on
+          non-finite.
+      With the phantom end point gone, a read -> write converter maps `arcTo` one-to-one
+      with no solver and no invented data, which was the stated blocker. Nothing is
+      blocked now.
+
+      NOT BUILT, BY DECISION (2026-07-17): option (b), a *computed* arc end point for
+      consumers that must reason about the path (bounding box, SVG export) rather than
+      merely re-emit it. No consumer needs one — the need that opened this entry was a
+      round-trip converter, and that works without it. Building it would mean shipping
+      computed coordinates whose angle convention is not pinned by any evidence we
+      hold (see below), which the fixture-gating rule in AGENTS.md forbids. So this is
+      closed as implemented rather than left open on a speculative remainder.
+
+      If a consumer ever does need it, the design and its blocker are recorded here so
+      the analysis is not redone. It belongs in a pure opt-in helper
+      (`arcEndPoint({ x0, y0, wR, hR, stAng, swAng })`), pattern-matching
+      `resolveHtmlColWidth` — deliberately NOT on `GeometryCommand`, since the read
+      model is documented as faithful/raw and a derived coordinate would be its only
+      computed field.
+
+      The blocker is that the angle convention is not pinned. Spec prose (Part 1
+      §20.1.9.4) describes a "supposed circle ... described using the hR and wR
+      attributes", and the VML ancestor (Part 4 §19.1.2.1) says angles "are calculated
+      on the basis of a circle (width equal to height) which is then scaled
+      anisotropically" — both point to the PARAMETRIC reading:
+        cx = x0 - wR*cos(stAng); cy = y0 - hR*sin(stAng)
+        x1 = cx + wR*cos(stAng+swAng); y1 = cy + hR*sin(stAng+swAng)
+      (y-down and a clockwise sweep cancel, so no sign flip). But the VECTOR-angle
+      reading (ray at theta intersected with the ellipse) is also defensible from the
+      prose, and the two diverge for every elliptical arc except at multiples of 90
+      degrees. Apache POI implements parametric, but a reimplementation is not an
+      oracle. Per the fixture-gating rule in AGENTS.md, do not ship computed
+      coordinates on prose alone.
+
+      PRECONDITION IF REOPENED (fixture): no fixture in `test/read/fixtures/` contains
+      an `arcTo` (checked 2026-07-17), and our own shipped example (stAng 90, swAng 180)
+      sits exactly on the boundary where the two conventions agree, so it cannot
+      discriminate — it looks like coverage and is not. Author a custGeom with an
+      elliptical arc (wR != hR, off-axis stAng e.g. 30 degrees), open it in PowerPoint
+      via COM, and read back `Shape.Nodes(i).Points` — PowerPoint reports its own
+      resolved node coordinates, which separates the two conventions directly. Author
+      that oracle FIRST, then the helper.
     constructs:
       - custom-geom
     evidence:
       kinds:
         - ooxml-reference
-      local_files: []
+        - local-source-inspection
+        - regression-test
+      local_files:
+        - src/core-interfaces.ts
+        - src/gen-utils.ts
+        - src/gen-xml.ts
+        - src/read/api/shapes.ts
+        - test/regression/image-shape.test.js
+        - test/schema.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs:
-        - ECMA-376 CT_Path2DArcTo (a:arcTo — wR/hR/stAng/swAng, no explicit end point)
-    next_action: Decide DSL arc-segment vs read-model end-point computation; no consumer is blocked (PowerPoint freeforms emit beziers).
+        - ECMA-376 Part 1 §20.1.9.4 arcTo / CT_Path2DArcTo (wR/hR/stAng/swAng, no explicit end point)
+        - ECMA-376 Part 4 §19.1.2.1 v:arc (angles computed on a circle, then scaled anisotropically)
+    next_action: None — closed. A computed arc end point was considered and deliberately not built (no consumer needs one; the convention is unpinned). Reopen only if a consumer needs to reason about the path rather than re-emit it, and author the elliptical-arc PowerPoint oracle above before writing the helper.

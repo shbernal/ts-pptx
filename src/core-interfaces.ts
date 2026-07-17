@@ -256,10 +256,14 @@ export type TextVertType = 'eaVert' | 'horz' | 'mongolianVert' | 'vert' | 'vert2
  * A single node of a freeform (`custGeom`) path.
  * - coordinates are authored in the object's own inch/EMU space (0..width, 0..height), not slide-relative and not normalized
  * - used by shapes (`pptx.ShapeType.custGeom`) and by images (clips the picture to the path)
+ *
+ * The `arc` node carries no `x`/`y`: an `<a:arcTo>` has no explicit end point. The renderer
+ * derives it from the current pen position, the radii and the swept angle, so an end point
+ * authored here would be discarded (a warning is emitted if one is supplied).
  */
 export type GeometryPoint =
 	| { x: Coord; y: Coord; moveTo?: boolean }
-	| { x: Coord; y: Coord; curve: { type: 'arc'; hR: Coord; wR: Coord; stAng: number; swAng: number } }
+	| { curve: { type: 'arc'; hR: Coord; wR: Coord; stAng: number; swAng: number } }
 	| { x: Coord; y: Coord; curve: { type: 'cubic'; x1: Coord; y1: Coord; x2: Coord; y2: Coord } }
 	| { x: Coord; y: Coord; curve: { type: 'quadratic'; x1: Coord; y1: Coord } }
 	| { close: true }
@@ -1259,11 +1263,11 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	line?: ShapeLineProps
 	/**
 	 * Points (only for pptx.ShapeType.custGeom)
-	 * - type: 'arc'
+	 * - type: 'arc' (no end point — it is computed from the pen position, radii and sweep)
 	 * - `hR` Shape Arc Height Radius
 	 * - `wR` Shape Arc Width Radius
-	 * - `stAng` Shape Arc Start Angle
-	 * - `swAng` Shape Arc Swing Angle
+	 * - `stAng` Shape Arc Start Angle (degrees, not wrapped into 0..360)
+	 * - `swAng` Shape Arc Swing Angle (degrees, not wrapped into 0..360)
 	 * @see http://www.datypic.com/sc/ooxml/e-a_arcTo-1.html
 	 * @example [{ x: 0, y: 0 }, { x: 10, y: 10 }] // draw a line between those two points
 	 */

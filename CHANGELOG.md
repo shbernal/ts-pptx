@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING (types): a freeform `arc` node no longer takes `x`/`y`.** An `<a:arcTo>`
+  carries no explicit end point — PowerPoint derives it from the current pen position,
+  the radii and the swept angle — and the emitter always discarded the authored `x`/`y`.
+  Requiring them made the DSL demand a coordinate it ignored, and forced anyone
+  converting an existing PowerPoint freeform into the DSL to invent one. The `arc`
+  member of `GeometryPoint` is now `{ curve: { type: 'arc', hR, wR, stAng, swAng } }`.
+  *Migration:* delete the `x`/`y` from arc nodes — e.g.
+  `{ x: 0, y: h / 2, curve: { type: 'arc', … } }` becomes `{ curve: { type: 'arc', … } }`.
+  Note that TypeScript's excess-property check does not reject the old form (`x`/`y`
+  appear on other members of the `GeometryPoint` union), so existing code keeps
+  compiling and behaves as before; a runtime warning now flags the ignored coordinate.
+
+### Fixed
+
+- **Freeform arc angles are no longer wrapped into `0..360`, and a non-finite angle now
+  throws.** `stAng`/`swAng` on an `<a:arcTo>` were converted with the *shape rotation*
+  helper, which wraps once (`d > 360 ? d - 360 : d`) and coerces a nullish or `NaN` input
+  to `0`. A sweep is not modular: `swAng: 400` silently drew a 40° arc instead of a 400°
+  one, and a `NaN` angle from upstream arithmetic silently drew a zero-length arc rather
+  than reporting the mistake. Arc angles now convert via a dedicated `convertArcAngle`,
+  which preserves the authored angle and throws on a non-finite value. Shape/chart-label
+  rotation is unaffected.
+
 ### Added
 
 - **Measured `fit:'shrink'` now shrinks non-wrapping text that overflows horizontally.**

@@ -142,7 +142,7 @@ defineRegressionSuite('Image shape clipping', [
 						{ x: 2, y: 0 },
 						{ x: 2, y: 3 },
 						{ x: 0.64, y: 3 },
-						{ x: 0, y: 1.5, curve: { type: 'arc', hR: 1.5, wR: 0.64, stAng: 90, swAng: 180 } },
+						{ curve: { type: 'arc', hR: 1.5, wR: 0.64, stAng: 90, swAng: 180 } },
 						{ close: true },
 					],
 				})
@@ -153,6 +153,59 @@ defineRegressionSuite('Image shape clipping', [
 				/<a:arcTo hR="\d+" wR="\d+" stAng="-?\d+" swAng="-?\d+" \/>/.test(xml),
 				'expected a valid arcTo with hR/wR/stAng/swAng; got: ' + xml
 			)
+			assert(/stAng="5400000" swAng="10800000"/.test(xml), 'expected angles in 60000ths of a degree; got: ' + xml)
+		},
+	},
+	{
+		// An arc sweep is not modular: the old emitter routed these through the shape-rotation
+		// helper, which wrapped >360 once and turned a 400 degree sweep into a 40 degree one.
+		name: 'addImage({ points: [...arcTo] }) does not wrap an arc angle into 0..360',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addImage({
+					data: PNG_DATA,
+					x: 1,
+					y: 1,
+					w: 2,
+					h: 3,
+					points: [
+						{ x: 0, y: 0 },
+						{ curve: { type: 'arc', hR: 1.5, wR: 0.64, stAng: 0, swAng: 400 } },
+						{ close: true },
+					],
+				})
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(/swAng="24000000"/.test(xml), 'expected swAng=400deg (24000000) unwrapped; got: ' + xml)
+		},
+	},
+	{
+		// A NaN sweep used to coerce to a zero-length arc via `d || 0`. Fail loud instead.
+		name: 'addImage({ points: [...arcTo] }) rejects a non-finite arc angle',
+		fn: async () => {
+			let threw = null
+			try {
+				await build((p) => {
+					const s = p.addSlide()
+					s.addImage({
+						data: PNG_DATA,
+						x: 1,
+						y: 1,
+						w: 2,
+						h: 3,
+						points: [
+							{ x: 0, y: 0 },
+							{ curve: { type: 'arc', hR: 1.5, wR: 0.64, stAng: 0, swAng: Number.NaN } },
+							{ close: true },
+						],
+					})
+				})
+			} catch (err) {
+				threw = err
+			}
+			assert(threw !== null, 'expected a non-finite swAng to throw')
+			assert(/swAng must be a finite number/.test(threw.message), 'expected a targeted message; got: ' + threw.message)
 		},
 	},
 	{
