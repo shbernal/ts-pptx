@@ -454,6 +454,39 @@ function genTableCellBorderXml(cellBorder: BorderProps[]): string {
 	return strXml
 }
 
+/** The four axes that make up an explicit group frame. All or nothing — see `givenGroupFrameAxes`. */
+const GROUP_FRAME_AXES = ['x', 'y', 'w', 'h'] as const
+
+/**
+ * Which of `x`/`y`/`w`/`h` a group's caller actually supplied.
+ *
+ * A group frame is explicit only when **all four** are given; anything less falls back to
+ * auto-bounds on every axis. Partial frames used to be honoured per-axis, which let the unset ones
+ * take the shared per-object defaults (`x=0`, `y=0`, `cx=75%` of the layout width, `cy=0`) — so
+ * `addGroup([rect], { x: 5, y: 2 })` emitted a zero-height group whose width was a silent
+ * slide-width fraction, and every child of it then re-read as `null` through the read path's
+ * degenerate-`chExt` guard.
+ *
+ * Per-axis fallback was the other candidate, but it cannot mean what it reads like: the writer keeps
+ * an identity child space (`chOff/chExt == off/ext`), so a group's frame never moves or scales its
+ * children — it only places the selection handle and the rotate pivot. `{ x: 5 }` would leave the
+ * children where they were and put the group's box somewhere they are not. Falling back whole, with
+ * a warning, keeps the group box around its content and says so out loud.
+ * @param options - the group object's options
+ * @returns the supplied axis names, in `x`/`y`/`w`/`h` order
+ */
+const givenGroupFrameAxes = (options: ObjectOptions): Array<(typeof GROUP_FRAME_AXES)[number]> =>
+	GROUP_FRAME_AXES.filter((axis) => typeof options[axis] !== 'undefined')
+
+/**
+ * Whether a group's frame is fully explicit (all four of `x`/`y`/`w`/`h`), and so should be used
+ * verbatim instead of the children's bounding box. See `givenGroupFrameAxes`.
+ * @param options - the group object's options
+ * @returns true when every axis is supplied
+ */
+const hasCompleteGroupFrame = (options: ObjectOptions): boolean =>
+	givenGroupFrameAxes(options).length === GROUP_FRAME_AXES.length
+
 /**
  * Transforms a slide or slideLayout to resulting XML string - Creates `ppt/slide*.xml`
  * @param {PresSlideInternal|SlideLayoutInternal} slideObject - slide object created within createSlideObject
@@ -507,12 +540,9 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 	// for both a child's bounds and a group's own off/ext, keeping every level consistent.
 	const resolveObjBounds = (obj: SlideObject): { x: number; y: number; cx: number; cy: number } => {
 		const o = obj.options || {}
-		const hasExplicit =
-			typeof o.x !== 'undefined' ||
-			typeof o.y !== 'undefined' ||
-			typeof o.w !== 'undefined' ||
-			typeof o.h !== 'undefined'
-		if (obj._type === SlideObjectType.group && !hasExplicit) {
+		// Shares `hasCompleteGroupFrame` with the group renderer below, so a partial frame resolves to
+		// the same auto-bounds here (where a parent group sizes around this one) as it does there.
+		if (obj._type === SlideObjectType.group && !hasCompleteGroupFrame(o)) {
 			const kids = (obj._groupObjects || []).map(resolveObjBounds)
 			if (kids.length === 0) return { x: 0, y: 0, cx: 0, cy: 0 }
 			const minX = Math.min(...kids.map((b) => b.x))
@@ -1244,14 +1274,18 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 				})
 
 				// Identity child coordinate space (chOff/chExt == off/ext) at every depth, so children
-				// keep their slide-absolute coordinates. Use explicit x/y/w/h when given, else the
-				// bounding box of the children (recursing into nested auto-sized groups).
-				const hasExplicit =
-					typeof slideItemObj.options.x !== 'undefined' ||
-					typeof slideItemObj.options.y !== 'undefined' ||
-					typeof slideItemObj.options.w !== 'undefined' ||
-					typeof slideItemObj.options.h !== 'undefined'
-				const gb = hasExplicit ? { x, y, cx, cy } : resolveObjBounds(slideItemObj)
+				// keep their slide-absolute coordinates. Use explicit x/y/w/h when all four are given,
+				// else the bounding box of the children (recursing into nested auto-sized groups).
+				// A partial frame warns and falls back whole rather than letting the unset axes take the
+				// per-object defaults above (`cy` = 0 among them) and emit a degenerate group.
+				const givenAxes = givenGroupFrameAxes(slideItemObj.options)
+				if (givenAxes.length > 0 && givenAxes.length < GROUP_FRAME_AXES.length) {
+					const missingAxes = GROUP_FRAME_AXES.filter((axis) => !givenAxes.includes(axis))
+					warn(
+						`addGroup: group "${slideItemObj.options.objectName ?? ''}" has a partial frame (${givenAxes.join('/')} given, ${missingAxes.join('/')} missing); using auto-bounds (the bounding box of its children) instead. Pass all of x/y/w/h, or none.`
+					)
+				}
+				const gb = hasCompleteGroupFrame(slideItemObj.options) ? { x, y, cx, cy } : resolveObjBounds(slideItemObj)
 				const gx: number = gb.x
 				const gy: number = gb.y
 				const gcx: number = gb.cx

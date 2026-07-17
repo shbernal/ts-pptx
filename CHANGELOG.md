@@ -55,6 +55,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **BREAKING (`addGroup`): a partial group frame no longer emits a degenerate group.** The
+  frame is now all-or-nothing — pass all four of `x/y/w/h` to set it explicitly, or none to
+  get auto-bounds (the bounding box of the children). Passing *some* axes previously let the
+  unset ones fall through to the shared per-object defaults (`x=0`, `y=0`, `cx=75%` of the
+  layout width, and `cy=0`), so `addGroup([rect], { x: 5, y: 2 })` silently emitted a
+  zero-height group whose width was a slide-width fraction; on re-read every child of it
+  resolved to `null` through the degenerate-`chExt` guard. A partial frame now warns and
+  falls back to auto-bounds on every axis. *Migration:* calls passing a partial frame change
+  geometry — from a broken group to its children's bbox — and gain a warning; pass all four
+  axes to keep an explicit frame. Note that per-axis fallback was rejected deliberately: the
+  writer keeps an identity child space (`chOff/chExt == off/ext`), so a group's frame never
+  moves or scales its children — it only places the selection handle and the rotate pivot.
+  `{ x: 5 }` would have left the children where they were and put the group's box somewhere
+  they are not, which reads like a reposition but is not one.
 - **Default object names no longer collide across a group boundary, and group names no
   longer depend on what else the process has built.** Two defects in one naming model:
   - `addGroup()` moves its children off the slide's top-level object list, but default

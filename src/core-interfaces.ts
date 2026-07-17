@@ -3087,8 +3087,13 @@ export type GroupChildProps =
  * Options for `slide.addGroup()`.
  *
  * The group keeps an identity child coordinate space (`chOff/chExt == off/ext`) at every depth:
- * children — including nested groups — keep their slide-absolute `x/y/w/h`. When `x/y/w/h` are
- * omitted the group's bounds are auto-computed as the bounding box of its children.
+ * children — including nested groups — keep their slide-absolute `x/y/w/h`. A consequence worth
+ * knowing: a group's own frame never moves or scales its children, it only places the selection
+ * handle and the rotate pivot.
+ *
+ * The frame is all-or-nothing. Pass all four of `x/y/w/h` to set it explicitly, or none to have it
+ * auto-computed as the bounding box of the children. A partial frame is ambiguous, so it warns and
+ * falls back to auto-bounds on every axis.
  */
 export interface GroupProps extends PositionProps, ObjectNameProps {
 	/** Rotation in degrees (applied to the whole group) */

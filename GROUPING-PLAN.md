@@ -1,7 +1,7 @@
 # Grouping — audit findings & remediation plan
 
-Status: **Phase 1 landed (D1, D2, D3); Phase 2 landed (D5, D6); Phases 3–6
-outstanding.** Every defect
+Status: **Phase 1 landed (D1, D2, D3); Phase 2 landed (D5, D6); Phase 3 landed
+(D4); Phases 4–6 outstanding.** Every defect
 below was verified by generating or re-reading a package, not by reading source
 alone; the measured evidence is quoted inline so each item can be re-checked
 independently.
@@ -26,6 +26,17 @@ named or not, which is what keeps the pre-existing non-group numbering intact
 hold no back-reference to their presentation, so it needs threading rather than
 the same one-line move; it remains a real "same input, different bytes" defect
 and is recorded below.
+
+Phase 3 notes: **(b) was chosen** — a partial frame warns and falls back to
+auto-bounds on every axis. (a) per-axis fallback was rejected on the grounds
+recorded under D4: with an identity child space the frame never moves or scales
+the children, so `{ x: 5 }` would read like a reposition, leave the children
+where they were, and put the group's box somewhere they are not. Falling back
+whole keeps the box around its content and says so out loud. The predicate is
+shared (`hasCompleteGroupFrame`, `src/gen-xml.ts`) between `resolveObjBounds` and
+the group renderer, so a partial frame resolves identically where a parent group
+sizes around it; the warning is emitted at the render site only, which runs once
+per group object, so a nested partial frame warns exactly once.
 
 Scope: `<p:grpSp>` across the three surfaces that touch it — the **write** path
 (`addGroup`), the **read** path (`Presentation` / `Shape.absoluteFrame`), and the
@@ -112,7 +123,7 @@ should be fixed alongside D1/D2 while the file is open.
 
 **Fix:** walk children in document order rather than per-key.
 
-### D4 — Partial group options emit a degenerate group (P1)
+### D4 — Partial group options emit a degenerate group (P1) — **FIXED** (option (b))
 
 `hasExplicit` (`src/gen-xml.ts:1243-1247`) is an **OR** over `x/y/w/h`. When any
 one is set, the unset axes fall back to the shared defaults (`src/gen-xml.ts:534`:
@@ -141,6 +152,11 @@ a zero-size object)."*
 does **not** move children: `chOff` tracks `off`, so the mapping stays identity
 and only the group handle and rotate pivot move. If that is surprising, (b) is
 the honest choice. Either way the current behaviour is indefensible.
+
+**Decided: (b).** Precisely because `{ x }` reads as a reposition and is not one —
+(a) would satisfy the reading silently and put the group's box where its children
+are not, which is the same class of footgun as the zero-extent group it replaces.
+A complete frame (all four axes) is still honoured verbatim, unchanged.
 
 ### D5 — Default object names collide across the group boundary (P1) — **FIXED**
 
@@ -258,16 +274,18 @@ must be, for nested logical groups.
   (`src/core-interfaces.ts:3094-3099`), emitted via the shared `locationAttr`
   (`src/gen-xml.ts:1266`), and verified by hand here —
   `<a:xfrm flipH="1" rot="2700000">` — but **zero tests** set them on a group.
-- Explicit `x/y/w/h` on a group; `objectLock` on groups
-  (`GROUP_SHAPE_LOCK_ATTRS`, `src/gen-xml.ts:231`); group `altText`; empty group.
-  (~~default `Group N` naming~~ and ~~no write→read round-trip test~~ are covered
-  as of Phase 2.)
+- `objectLock` on groups (`GROUP_SHAPE_LOCK_ATTRS`, `src/gen-xml.ts:231`); group
+  `altText`; empty group. (~~default `Group N` naming~~ and ~~no write→read
+  round-trip test~~ are covered as of Phase 2; ~~explicit `x/y/w/h` on a group~~
+  as of Phase 3.)
 
 **Existing coverage (do not duplicate):** `test/regression/group-shapes.test.js`
-(10 cases: identity xfrm, auto-bounds, unique ids, nested, unsupported-child warn,
+(14 cases: identity xfrm, auto-bounds, unique ids, nested, unsupported-child warn,
 plus Phase 2's cross-boundary name uniqueness, group-aware duplicate warning,
 per-process group-name determinism, per-slide/inside-out group numbering, and the
-write→read round-trip),
+write→read round-trip; plus Phase 3's partial-frame warn+fallback, complete-frame
+verbatim, nested partial frame warning once with its parent sizing around the
+fallback, and a partial-frame write→read round-trip),
 schema fixtures `flat-group` / `nested-group` (`test/schema.test.js:2734`, `:2760`),
 grouped + nested measured-fit (`test/regression/measured-fit-dist.test.mjs:158`,
 `:173`), and rich read-side coverage against `group-transform.pptx`.
@@ -306,7 +324,10 @@ deck, asserting unique ids + names across the whole tree) landed in
 gap is closed.
 
 **Phase 3 — close the degenerate-bounds trap.** D4. Needs the (a)/(b) decision
-above; it is a behaviour change, so CHANGELOG it.
+above; it is a behaviour change, so CHANGELOG it. **Done** — (b) was chosen; see
+the Phase 3 notes at the top. Landed with four tests, a CHANGELOG entry marked
+BREAKING, TSDoc on `GroupProps`/`addGroup` stating the all-or-nothing rule, and a
+PowerPoint desktop smoke pass.
 
 **Phase 4 — un-silence the drops.** §3 animation + connector name resolution
 (shared fix), and correct the misleading connector warning.
@@ -318,7 +339,8 @@ docs page, an `addGroup` demo, and the `upstream-issue-307` cleanup. Fold the
 `measure-fit.ts` invariant comment (§1) in here.
 
 Phases 1–4 are independent of each other and can land in any order; only Phase 5
-has a hard dependency (on Phase 2).
+has a hard dependency (on Phase 2). Phases 1–3 have landed; Phase 4 is next and
+Phase 5 is unblocked.
 
 ---
 

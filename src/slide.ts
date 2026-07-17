@@ -310,8 +310,9 @@ export default class Slide {
 	 *
 	 * Children keep their slide-absolute `x/y/w/h` (identity child coordinate space at every depth),
 	 * and the objects become one selectable/movable group in PowerPoint. A `group` child nests
-	 * another group. When `options.x/y/w/h` are omitted the group's bounds are the bounding box of
-	 * its children (recursing into nested groups). Charts, media, tables, and placeholders are not
+	 * another group. The group's frame is all-or-nothing: pass all four of `options.x/y/w/h`, or none
+	 * to have the bounds be the bounding box of the children (recursing into nested groups). A
+	 * partial frame warns and uses auto-bounds. Charts, media, tables, and placeholders are not
 	 * supported as group children yet (each is skipped with a warning).
 	 * @param {GroupChildProps[]} children - child object descriptors (`{ text }`, `{ image }`, `{ shape }`, `{ rect }`, `{ roundRect }`, `{ line }`, `{ group }`)
 	 * @param {GroupProps} options - group position/size/name options

@@ -267,4 +267,117 @@ defineRegressionSuite('Group shapes', [
 			)
 		},
 	},
+	{
+		name: 'a partial group frame warns and falls back to auto-bounds',
+		fn: async () => {
+			// A partial frame used to take the shared per-object defaults on the unset axes, emitting
+			// `cy="0"` and a `cx` that was silently 75% of the layout width.
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (msg) => warnings.push(String(msg))
+			let xml
+			try {
+				const { zip } = await build((p) => {
+					// rect at (1,1) 2x2in -> bbox off=(914400,914400) ext=(1828800,1828800)
+					p.addSlide().addGroup([{ rect: { x: 1, y: 1, w: 2, h: 2 } }], { x: 5, y: 2, objectName: 'Partial' })
+				})
+				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			} finally {
+				console.warn = origWarn
+			}
+			assert(
+				/<a:off x="914400" y="914400"\/><a:ext cx="1828800" cy="1828800"\/>/.test(xml),
+				'expected auto-bounds, not the partial frame; got: ' + xml
+			)
+			assert(
+				warnings.some((w) => /addGroup/.test(w) && /Partial/.test(w) && /partial frame/.test(w)),
+				'expected a partial-frame warning naming the group; got: ' + JSON.stringify(warnings)
+			)
+		},
+	},
+	{
+		name: 'a complete group frame is honored verbatim and warns nothing',
+		fn: async () => {
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (msg) => warnings.push(String(msg))
+			let xml
+			try {
+				const { zip } = await build((p) => {
+					p.addSlide().addGroup([{ rect: { x: 1, y: 1, w: 2, h: 2 } }], { x: 5, y: 2, w: 3, h: 1 })
+				})
+				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			} finally {
+				console.warn = origWarn
+			}
+			// all four given -> used as-is (5,2) 3x1in, and chOff/chExt still track off/ext
+			assert(
+				/<a:off x="4572000" y="1828800"\/><a:ext cx="2743200" cy="914400"\/><a:chOff x="4572000" y="1828800"\/><a:chExt cx="2743200" cy="914400"\/>/.test(
+					xml
+				),
+				'expected the explicit frame verbatim with identity child space; got: ' + xml
+			)
+			assert(
+				!warnings.some((w) => /partial frame/.test(w)),
+				'expected no partial-frame warning; got: ' + JSON.stringify(warnings)
+			)
+		},
+	},
+	{
+		name: 'a partial frame on a nested group falls back once, and its parent sizes around the fallback',
+		fn: async () => {
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (msg) => warnings.push(String(msg))
+			let xml
+			try {
+				const { zip } = await build((p) => {
+					// inner group: partial frame -> auto-bounds of its rect at (3,1) 1x1in
+					// outer group: auto-bounds over rect (1,1) 1x1in + the inner group -> (1,1) 3x1in
+					p.addSlide().addGroup([
+						{ rect: { x: 1, y: 1, w: 1, h: 1 } },
+						{ group: { children: [{ rect: { x: 3, y: 1, w: 1, h: 1 } }], options: { w: 9 } } },
+					])
+				})
+				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			} finally {
+				console.warn = origWarn
+			}
+			const partialWarnings = warnings.filter((w) => /partial frame/.test(w))
+			assertEqual(
+				partialWarnings.length,
+				1,
+				'expected exactly one partial-frame warning; got: ' + JSON.stringify(warnings)
+			)
+			// outer bbox must be the inner group's fallback bounds, not its bogus w=9in
+			assert(
+				/<a:off x="914400" y="914400"\/><a:ext cx="2743200" cy="914400"\/>/.test(xml),
+				'expected the parent to size around the resolved inner bounds; got: ' + xml
+			)
+		},
+	},
+	{
+		name: 'write -> read round-trip: a partial-frame group resolves its children',
+		fn: async () => {
+			// The degenerate `cy="0"` group this used to emit made every child re-read as `null`
+			// through the read path's degenerate-chExt guard.
+			const origWarn = console.warn
+			console.warn = () => {}
+			let buf
+			try {
+				;({ buf } = await build((p) => {
+					p.addSlide().addGroup([{ rect: { x: 1, y: 1, w: 2, h: 2 } }], { x: 5, y: 2 })
+				}))
+			} finally {
+				console.warn = origWarn
+			}
+			const [slide] = (await Presentation.load(buf)).slides
+			const [group] = slide.shapes
+			assertEqual(group.shapes.length, 1, 'expected the group to have one child')
+			const frame = group.shapes[0].absoluteFrame
+			assert(frame, 'expected a resolvable absoluteFrame, not null (degenerate chExt)')
+			assertEqual(frame.width, 1828800, 'expected the child to keep its 2in width')
+			assertEqual(frame.left, 914400, 'expected the child to keep its 1in x — a group frame never moves children')
+		},
+	},
 ])
