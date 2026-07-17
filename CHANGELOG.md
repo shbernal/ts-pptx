@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING (`inspect`): `PptxSlideElement.box` is now slide-absolute, and `zIndex` is
+  document order.** Two silent-wrongness fixes to the same read model, plus the group
+  container itself:
+  - `box` composes every enclosing `<p:grpSp>` transform (`off + (p - chOff) * (ext / chExt)`,
+    with group `@rot`/`@flipH`/`@flipV`) instead of reporting the shape's raw `<a:xfrm>`.
+    A group child's own transform is authored in the group's *child* space, so the old
+    value was not placeable on the slide. It was right only by coincidence — this
+    library's own writer hardcodes an identity child space (`chOff/chExt == off/ext`) —
+    and wrong for any deck PowerPoint has touched, where resizing a group alone makes
+    `chExt` non-identity. Measured against the `group-transform.pptx` fixture, a child of
+    a scaled group was reported ~32% too wide and ~0.45in off-position, with its
+    rotation absent. *Migration:* boxes of grouped children change value (top-level
+    elements are unaffected); if you were compensating for this downstream, remove the
+    workaround. Elements whose position cannot be resolved (an enclosing group with a
+    degenerate zero `chExt`) are now omitted with a warning rather than reported wrong.
+  - `zIndex` now follows a depth-first walk of `p:spTree` in document order, so it is
+    real paint order. It previously came from the harvest order — every `<p:sp>` of a
+    node, then every `<p:pic>`, then every `<p:cxnSp>`, then recurse — so an image
+    authored between two text boxes sorted after both, and grouped children always
+    sorted after every top-level shape. This was wrong for mixed-type slides with or
+    without groups. *Migration:* if you relied on `zIndex` to key elements, note the
+    values shift; a group's children now immediately follow it.
+  - Added `kind: 'group'` for `<p:grpSp>`, carrying its `cNvPr` id/name and `grpSpPr`
+    fill. Groups previously reached the output only as a side effect of the generic
+    walker recursing into every object value, and the flat element list gave no
+    indication which elements were grouped. `parentZIndex` (the enclosing group, or
+    `null` at slide level) and `childZIndices` (a group's direct children in document
+    order) now expose that structure, and `rotation`/`flipH`/`flipV` report effective
+    orientation after group composition. *Migration:* consumers that assume every
+    element is a leaf should skip `kind === 'group'` — its box overlaps its children by
+    construction, so an overlap linter would otherwise report a false positive per group.
+
 - **BREAKING (types): a freeform `arc` node no longer takes `x`/`y`.** An `<a:arcTo>`
   carries no explicit end point — PowerPoint derives it from the current pen position,
   the radii and the swept angle — and the emitter always discarded the authored `x`/`y`.

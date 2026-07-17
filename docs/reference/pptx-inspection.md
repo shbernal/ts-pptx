@@ -24,8 +24,39 @@ import { inspectPptx, loadPptxPackage, listPptxParts } from "@shbernal/pptxgenjs
 - `slideSize`: presentation width and height in inches.
 - `slides[]`: generated slide entries in package order.
 - `slides[].elements[]`: normalized objects with `id`, `name`, `kind`,
-  `zIndex`, `box`, `text`, `textRuns`, `fontSizes`, `colors`, `fill`, `line`,
-  `shapeType`, `textWrap`, `autofit`, and `bodyInsets`.
+  `zIndex`, `box`, `rotation`, `flipH`, `flipV`, `parentZIndex`, `childZIndices`,
+  `text`, `textRuns`, `paragraphs`, `fontSizes`, `colors`, `fill`, `line`,
+  `shapeType`, `textWrap`, `autofit`, `autofitFontScale`, and `bodyInsets`.
+
+## Geometry, groups, and z-order
+
+`box` is **slide-absolute** inches, composing every enclosing group transform, so
+boxes are directly comparable whether or not an element is grouped. A group
+(`<p:grpSp>`) authors its children in a private coordinate space (`a:chOff`/`a:chExt`)
+that need not match its slide frame — PowerPoint makes it non-identity as soon as a
+user resizes a group — so a child's raw `a:xfrm` is not placeable on the slide and is
+never what you get here.
+
+For a rotated element, `box` is the *unrotated* placement box (what PowerPoint writes
+after Ungroup) and `rotation` (degrees, `[0, 360)`) / `flipH` / `flipV` report its
+effective orientation after group composition. This mirrors `Shape.absoluteFrame` on
+the read API, which shares the same implementation.
+
+An element whose position cannot be resolved — an enclosing group with a degenerate
+(zero) `a:chExt` — is omitted with a warning rather than reported at a wrong position.
+
+`zIndex` is `0`-based paint order: a depth-first walk of the shape tree in document
+order, so higher draws on top. Elements are linked by it:
+
+- `kind: 'group'` is a group container. It has an id, name, box, and fill, but no text
+  of its own.
+- `parentZIndex` is the enclosing group's `zIndex`, or `null` at slide level.
+- `childZIndices` lists a group's direct children in document order; empty for
+  every other kind.
+
+A group's box overlaps its children by construction, so tools that reason about layout
+(overlap, coverage) usually want the leaves only — filter out `kind === 'group'`, or
+keep elements with `childZIndices.length === 0`.
 
 `autofit` and `bodyInsets` describe the text frame's `a:bodyPr` so a consumer can
 tell a bounded text box from an auto-growing one and compute its inner box:

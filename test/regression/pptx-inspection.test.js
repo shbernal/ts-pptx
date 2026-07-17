@@ -7,12 +7,67 @@ import {
 	readPptxBinaryPart,
 	readPptxTextPart,
 } from '../../dist/inspect.js'
+import JSZip from 'jszip'
 import { defineRegressionSuite, build, assert, assertEqual } from '../helpers.js'
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const PNG_1X1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+
+const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), '..', 'read', 'fixtures')
+
+/** Inches, generous next to the ~0.4in group-scale error this guards, tight next to PowerPoint's own EMU rounding (2 EMU ≈ 2.2e-6in). */
+const INCH_TOLERANCE = 1e-5
+
+function assertWithin(actual, expected, tolerance, msg) {
+	assert(
+		Math.abs(actual - expected) <= tolerance,
+		`${msg}: expected ${expected} ± ${tolerance}, got ${actual} (off by ${Math.abs(actual - expected)})`
+	)
+}
+
+/**
+ * A minimal package holding `spTreeXml` — enough for inspect, which reads only
+ * `presentation.xml` and the slide parts. Built with jszip so the fflate reader
+ * under test is not also the writer (see helpers.js).
+ */
+async function packageWithSpTree(spTreeXml) {
+	const zip = new JSZip()
+	zip.file(
+		'ppt/presentation.xml',
+		`<?xml version="1.0"?><p:presentation xmlns:p="${P_NS}"><p:sldSz cx="12192000" cy="6858000"/></p:presentation>`
+	)
+	zip.file(
+		'ppt/slides/slide1.xml',
+		`<?xml version="1.0"?><p:sld xmlns:p="${P_NS}" xmlns:a="${A_NS}"><p:cSld><p:spTree>${spTreeXml}</p:spTree></p:cSld></p:sld>`
+	)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
+const P_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main'
+const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+
+/** `<p:sp>` with a name and an explicit transform, for hand-authored shape trees. */
+function spXml(id, name, { x = 0, y = 0, cx = 100, cy = 100 } = {}) {
+	return `<p:sp>
+		<p:nvSpPr><p:cNvPr id="${id}" name="${name}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>
+		<p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm></p:spPr>
+	</p:sp>`
+}
+
+/** Collect `console.warn` output while `fn` runs. */
+async function captureWarnings(fn) {
+	const warnings = []
+	const original = console.warn
+	console.warn = (...args) => warnings.push(args.join(' '))
+	try {
+		return { result: await fn(), warnings }
+	} finally {
+		console.warn = original
+	}
+}
 
 defineRegressionSuite('PPTX inspection primitives', [
 	{
@@ -159,6 +214,137 @@ defineRegressionSuite('PPTX inspection primitives', [
 			assertEqual(elements.get('scaled').autofitFontScale, 62.5, 'baked fontScale read back as a percent')
 			assertEqual(elements.get('bare').autofit, 'normAutofit', 'bare shrink still reports normAutofit')
 			assertEqual(elements.get('bare').autofitFontScale, null, 'bare normAutofit bakes no scale → null')
+		},
+	},
+	{
+		// D1: inspect used to report each shape's raw a:xfrm, which for a group child is
+		// authored in the group's child space (a:chOff/a:chExt) — not placeable on the
+		// slide. That was silently right only for packages this library authored (its
+		// writer hardcodes an identity child space) and wrong for any deck PowerPoint has
+		// touched: resizing a group alone makes chExt non-identity.
+		//
+		// Ground truth is PowerPoint's own: slide 1 of the fixture holds the groups and
+		// slide 2 the same shapes after a PowerPoint Ungroup, so each grouped child has a
+		// twin whose raw geometry IS its absolute geometry. No oracle of ours is involved.
+		name: 'inspect composes enclosing group transforms into slide-absolute boxes',
+		fn: async () => {
+			const inspection = await inspectPptx(join(FIXTURES, 'group-transform.pptx'))
+			const [grouped, ungrouped] = inspection.slides
+			assertEqual(
+				ungrouped.elements.filter((el) => el.kind === 'group').length,
+				0,
+				'slide 2 is PowerPoint-ungrouped ground truth'
+			)
+
+			const twins = new Map(ungrouped.elements.map((el) => [el.name, el]))
+			const children = grouped.elements.filter((el) => el.name.includes(' child '))
+			assert(children.length >= 21, `expected the fixture's grouped children, got ${children.length}`)
+
+			let scaled = 0
+			for (const child of children) {
+				const expected = twins.get(child.name.replace(/^(.+?) child /, '$1-ungrouped child '))
+				assert(expected, `expected a PowerPoint-ungrouped twin for "${child.name}"`)
+				assertWithin(child.box.x, expected.box.x, INCH_TOLERANCE, `${child.name} absolute x`)
+				assertWithin(child.box.y, expected.box.y, INCH_TOLERANCE, `${child.name} absolute y`)
+				assertWithin(child.box.w, expected.box.w, INCH_TOLERANCE, `${child.name} absolute w`)
+				assertWithin(child.box.h, expected.box.h, INCH_TOLERANCE, `${child.name} absolute h`)
+				assertWithin(child.rotation, expected.rotation, 1e-6, `${child.name} effective rotation`)
+				assertEqual(child.flipH, expected.flipH, `${child.name} effective flipH`)
+				assertEqual(child.flipV, expected.flipV, `${child.name} effective flipV`)
+				if (child.name.startsWith('scale-rot child ')) scaled++
+			}
+			// The scale cases are the ones the old raw-a:xfrm read got wrong by ~32% on
+			// width; without them this test would pass against the identity-child-space bug.
+			assert(scaled > 0, 'expected the scale+rotation group children to be covered')
+		},
+	},
+	{
+		// D2: 'p:grpSp' was absent from the harvested key list, so a group reached the
+		// output only as a side effect of the generic walker recursing into every object
+		// value — its identity and fill were dropped, and the flat element list gave no
+		// indication which elements were grouped.
+		name: 'inspect reports the group itself and links it to its children',
+		fn: async () => {
+			const inspection = await inspectPptx(join(FIXTURES, 'group-transform.pptx'))
+			const [grouped] = inspection.slides
+
+			const groups = grouped.elements.filter((el) => el.kind === 'group')
+			assert(groups.length > 0, 'expected the fixture groups to be reported as elements')
+
+			const byZ = new Map(grouped.elements.map((el) => [el.zIndex, el]))
+			const nested = groups.find((group) => group.parentZIndex !== null)
+			assert(nested, 'expected the fixture nested group to name its enclosing group')
+			assertEqual(byZ.get(nested.parentZIndex).kind, 'group', 'a parentZIndex resolves to a group element')
+
+			for (const group of groups) {
+				assert(group.name, 'a group reports its cNvPr name')
+				assert(group.childZIndices.length > 0, `group "${group.name}" reports its children`)
+				for (const zIndex of group.childZIndices) {
+					const child = byZ.get(zIndex)
+					assert(child, `child z=${zIndex} of "${group.name}" resolves to an element`)
+					assertEqual(child.parentZIndex, group.zIndex, `child "${child.name}" points back at its group`)
+				}
+			}
+
+			// Top-level shapes must not claim a parent, and only groups have children.
+			for (const el of grouped.elements) {
+				if (el.kind !== 'group') assertEqual(el.childZIndices.length, 0, `"${el.name}" is not a group`)
+			}
+			assert(
+				grouped.elements.some((el) => el.parentZIndex === null),
+				'expected at least one slide-level element'
+			)
+		},
+	},
+	{
+		// D3: zIndex came from the harvest order ("every p:sp of a node, then every p:pic,
+		// then every p:cxnSp, then recurse"), not document order — so an image authored
+		// between two text boxes sorted after both. Wrong for any mixed-type slide, with
+		// or without groups.
+		name: 'inspect zIndex follows document order across element kinds',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const slide = p.addSlide()
+				slide.addText('First', { x: 1, y: 1, w: 1, h: 0.4, objectName: 'z:first' })
+				slide.addImage({ data: `image/png;base64,${PNG_1X1}`, x: 2, y: 1, w: 1, h: 1, objectName: 'z:middle' })
+				slide.addText('Last', { x: 3, y: 1, w: 1, h: 0.4, objectName: 'z:last' })
+			})
+
+			const [slide] = (await inspectPptx(buf)).slides
+			const order = slide.elements.sort((a, b) => a.zIndex - b.zIndex).map((el) => el.name)
+			assertEqual(order.join(' < '), 'z:first < z:middle < z:last', 'z order matches authored document order')
+		},
+	},
+	{
+		// A group whose a:chExt is zero has no child-space ratio, so its children have no
+		// resolvable slide position. Reporting the raw child-space box would be a
+		// confidently wrong number; per AGENTS.md the element is dropped with a warning
+		// instead. (The read API's absoluteFrame returns null on the same input.)
+		name: 'inspect omits children of a degenerate group and says so',
+		fn: async () => {
+			const buf = await packageWithSpTree(`
+				${spXml(2, 'healthy sibling', { x: 10, y: 20, cx: 30, cy: 40 })}
+				<p:grpSp>
+					<p:nvGrpSpPr><p:cNvPr id="3" name="degenerate group"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
+					<p:grpSpPr><a:xfrm>
+						<a:off x="0" y="0"/><a:ext cx="6858000" cy="0"/>
+						<a:chOff x="0" y="0"/><a:chExt cx="6858000" cy="0"/>
+					</a:xfrm></p:grpSpPr>
+					${spXml(4, 'unresolvable child')}
+				</p:grpSp>`)
+
+			const { result, warnings } = await captureWarnings(() => inspectPptx(buf))
+			const names = result.slides[0].elements.map((el) => el.name)
+
+			assert(!names.includes('unresolvable child'), 'a child with no resolvable position is not reported')
+			assert(
+				warnings.some((line) => line.includes('unresolvable child') && line.includes('degenerate')),
+				`expected a warning naming the dropped child; got ${JSON.stringify(warnings)}`
+			)
+			// The group itself sits at slide level, so its own box still resolves — only
+			// what it maps is unresolvable. And one bad group must not poison the slide.
+			assert(names.includes('degenerate group'), 'the degenerate group itself is still reported')
+			assert(names.includes('healthy sibling'), 'an unrelated sibling is unaffected')
 		},
 	},
 	{
