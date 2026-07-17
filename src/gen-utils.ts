@@ -1,5 +1,17 @@
 /**
  * PptxGenJS: Utility Methods
+ *
+ * Shared pure helpers used across the generators — no state, no I/O. Roughly grouped:
+ *   - Units & coordinates   getSmartParseNumber, inch2Emu, marginToEmu, valToPts, rotation/arc angles
+ *   - Identifiers & naming   getUuid, validateObjectName, getDuplicateObjectNames, getNewRelId
+ *   - XML text               encodeXmlEntities
+ *   - Color                  componentToHex, rgbToHex, createColorElement, genXmlColorSelection
+ *   - Effects                createGlowElement, createShadowElement(+EffectLst), correctShadowOptions
+ *   - Fills & lines          genXmlGradientFill / genXmlPatternFill / genXmlImageFill / genXmlLineFill, createLineCap
+ *   - Content types          imageContentType, avContentType
+ *   - Image decoding         decodeBase64ToBytes, getImageSizeFromBase64/Bytes, SVG size sniffing, fitSrcRectPercents
+ *
+ * `getSmartParseNumber` is the single user-coordinate → EMU boundary; keep unit handling here.
  */
 
 import { REGEX_HEX_COLOR, DEF_FONT_COLOR, EMU, ONEPT, SchemeColor, type SCHEME_COLORS } from './core-enums.js'

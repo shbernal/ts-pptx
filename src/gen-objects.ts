@@ -1,5 +1,24 @@
 /**
  * PptxGenJS: Slide Object Generators
+ *
+ * The `add*Definition` layer behind the public `Slide` methods (`slide.addText`,
+ * `addChart`, `addTable`, …). Each function validates and normalizes caller options
+ * into an internal `SlideObject` and pushes it onto the slide model — so unlike the
+ * pure string builders in `gen-xml.ts` / `gen-charts.ts`, code here **mutates** the
+ * presentation model (and registers media/hyperlink relationships). The XML for
+ * these objects is emitted later by `gen-xml.ts` at export time.
+ *
+ * Contents — jump by grepping the `// ===== <region> =====` banners:
+ *   - Shared helpers          object-name indexing, border-tuple normalization
+ *   - Groups                  addGroup / groupObjects and the child-descriptor dispatch
+ *   - Slide masters           createSlideMaster
+ *   - Charts                  addChartDefinition (+ percentage/angle clamping)
+ *   - Images & media          addImageDefinition / addMediaDefinition and image-fill media rels
+ *   - Notes & comments        addNotesDefinition / addCommentDefinition
+ *   - Shapes & connectors     addShapeDefinition / addConnectorDefinition
+ *   - Tables                  addTableDefinition
+ *   - Text                    addTextDefinition (+ bullet-image rels)
+ *   - Placeholders, background & hyperlink rels
  */
 
 import {
@@ -76,6 +95,8 @@ import {
 	imageContentType,
 } from './gen-utils.js'
 
+// ===== Shared helpers =====
+
 /**
  * Take the next slide-wide index for `type`'s default Selection Pane name (`Shape 0`, `Image 1`,
  * `Group 1`, …).
@@ -114,6 +135,8 @@ type HyperlinkTextObject = (TextProps | SlideObject | TableCell) & {
 function normalizeBorderTuple(border: BorderProps | BorderTuple): BorderTuple {
 	return Array.isArray(border) ? border : [border, border, border, border]
 }
+
+// ===== Groups =====
 
 /**
  * Dispatch a key-tagged child-object descriptor (`{ text }`, `{ image }`, `{ shape }`, …) to the
@@ -354,6 +377,8 @@ export function groupObjectsDefinition(target: PresSlideInternal, objectNames: s
 	target._slideObjects.splice(0, target._slideObjects.length, ...regrouped)
 }
 
+// ===== Slide masters =====
+
 /**
  * Transforms a slide definition to a slide object that is then passed to the XML transformation process.
  * @param {SlideMasterProps} props - slide definition
@@ -382,6 +407,8 @@ export function createSlideMaster(props: SlideMasterProps, target: SlideLayoutIn
 	// STEP 2: Add Slide Numbers (NOTE: Do this last so numbers are not covered by objects!)
 	if (props.slideNumber && typeof props.slideNumber === 'object') target._slideNumberProps = props.slideNumber
 }
+
+// ===== Charts =====
 
 /**
  * Round and clamp an integer chart percentage/angle option into a schema-valid range.
@@ -760,6 +787,8 @@ export function addChartDefinition(
  * @note: Remote images (eg: "http://whatev.com/blah"/from web and/or remote server arent supported yet - we'd need to create an <img>, load it, then send to canvas
  * @see: https://stackoverflow.com/questions/164181/how-to-fetch-a-remote-image-to-display-in-a-canvas)
  */
+// ===== Images & media =====
+
 /**
  * Register a raster image fill as a slide media relationship and stash the resolved
  * rId on the fill object so serialization can emit `<a:blipFill r:embed="rIdN">`.
@@ -1192,6 +1221,8 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	target._slideObjects.push(slideData)
 }
 
+// ===== Notes & comments =====
+
 /**
  * Adds Notes to a slide.
  * @param {PresSlideInternal} `target` slide object
@@ -1266,6 +1297,8 @@ const SHAPE_NAME_ALIASES: { [key: string]: SHAPE_NAME } = {
 	roundedRectangle: 'roundRect',
 	roundedrectangle: 'roundRect',
 }
+
+// ===== Shapes & connectors =====
 
 /**
  * Adds a shape object to a slide definition.
@@ -1463,6 +1496,8 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 
 	target._slideObjects.push(newObject)
 }
+
+// ===== Tables =====
 
 /**
  * Adds a table object to a slide definition.
@@ -1861,6 +1896,8 @@ export function addTableDefinition(
 	return newAutoPagedSlides
 }
 
+// ===== Text =====
+
 /**
  * Adds a text object to a slide definition.
  * @param {PresSlideInternal} target - slide object that the text should be added to
@@ -2138,6 +2175,8 @@ function createBulletImageRels(
 		}
 	})
 }
+
+// ===== Placeholders, background & hyperlink rels =====
 
 /**
  * Adds placeholder objects to slide

@@ -245,6 +245,21 @@ function standardLayoutToPresLayout(layout: StandardLayout): PresLayout {
 	}
 }
 
+/**
+ * Main presentation class and package export flow — the public entry point consumers
+ * instantiate (`new PptxGenJS()`). Owns presentation-level state and metadata, exposes
+ * the enum bundles (`AlignH`, `ChartType`, `ShapeType`, …), collects slides, and drives
+ * `write`/`writeFile`/`stream`. The actual OOXML string building is delegated to the
+ * `gen-*` modules; runtime file/stream output goes through the injected `RuntimeAdapter`.
+ *
+ * Rough layout of the class body:
+ *   - Metadata accessors      layout / author / company / title / theme / sections getters+setters
+ *   - Enum accessors          AlignH / AlignV / ChartType / OutputType / SchemeColor / ShapeType
+ *   - Private slide helpers    addNewSlide, getSlide, setSlideNumber, chart/media & transition rels
+ *   - exportPresentation      assemble every package part and hand bytes to the zip writer
+ *   - Public export methods    stream / write / writeFile
+ *   - Public authoring methods addSlide / defineLayout / defineSlideMaster / tableToSlides
+ */
 export default class PptxGenJS {
 	// Property getters/setters
 

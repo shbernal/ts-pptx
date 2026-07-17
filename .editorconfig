@@ -1,0 +1,34 @@
+# EditorConfig — baseline for editors/agents writing files that fall outside the
+# Prettier pipeline (Prettier owns src/**/*.ts and the globs in package.json's
+# `format` script; everything else — most .md, .json, .yml, config — relies on
+# this). Values mirror .prettierrc.json and .gitattributes so the two never drift.
+# https://editorconfig.org
+root = true
+
+# Repo-wide defaults. LF matches .gitattributes (`* text=auto eol=lf`); the final
+# newline + trailing-whitespace trim match Prettier's defaults.
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# TypeScript source: tabs, 120-col wrap — mirrors .prettierrc.json
+# (`"useTabs": true`, `"printWidth": 120`).
+[*.ts]
+indent_style = tab
+max_line_length = 120
+
+# Data/config files Prettier formats with its 2-space default.
+[*.{json,yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# Python tooling in scripts/ follows PEP 8 (4-space indent).
+[*.py]
+indent_style = space
+indent_size = 4
+
+# Markdown: keep trailing whitespace — two trailing spaces is a hard line break.
+[*.md]
+trim_trailing_whitespace = false

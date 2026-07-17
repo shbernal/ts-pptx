@@ -1,5 +1,22 @@
 /**
  * PptxGenJS: XML Generation
+ *
+ * The bulk of the OOXML emitter: turns the in-memory slide/presentation model into
+ * the many XML parts of a `.pptx` package (slides, masters, layouts, notes, theme,
+ * `[Content_Types].xml`, `.rels`, app/core/custom props, table styles, view props).
+ * Every export is a pure string builder — no I/O; the `pptxgen.ts` export flow calls
+ * these and hands the strings to the zip writer. Charts live in `gen-charts.ts`.
+ *
+ * Contents — jump by grepping the `// ===== <region> =====` banners:
+ *   - Value clamps & shape/geometry helpers   font/spacing clamps, crop, preset & custom geometry, cell borders
+ *   - Slide serialization                     slideObjectToXml (the per-shape spTree builder) + its rels
+ *   - Text body generation                    paragraph/run props, runs, math, genXmlTextBody, placeholders
+ *   - Package-level parts                     [Content_Types].xml, root rels, app/core/custom props, presentation rels
+ *   - Transitions & animations                slide timing, transitions, the p:anim* sequence builders
+ *   - Slides, notes & layouts                 makeXmlSlide / notes parts / makeXmlLayout
+ *   - Masters & text styles                   master txStyles defaults + makeXmlMaster
+ *   - Slide/master rels & comments            per-part .rels and the comment author/thread parts
+ *   - Theme, presentation & root files        theme, makeXmlPresentation, presProps, table styles, viewProps
  */
 
 import {
@@ -89,6 +106,8 @@ import {
 	flattenEmbeddedFaces,
 	serializeEmbeddedFontLst,
 } from './embedded-fonts.js'
+
+// ===== Value clamps & shape/geometry helpers =====
 
 /**
  * Clamp a font size (points) into ST_TextFontSize (1-4000pt) and return it in
@@ -340,6 +359,9 @@ function isArcPoint(point: GeometryPoint): point is Extract<GeometryPoint, { cur
  * @return {string} `<a:custGeom>` XML
  */
 function genXmlCustGeom(points: ObjectOptions['points'], cx: number, cy: number, layout: PresLayout): string {
+	// custGeom preamble — the sub-lists OOXML requires before `<a:pathLst>`: adjust values
+	// (avLst), guide formulas (gdLst), adjust handles (ahLst), connection sites (cxnLst), and the
+	// text rectangle (rect). PptxGenJS drives geometry entirely from the path, so all stay empty.
 	let strXml = '<a:custGeom><a:avLst />'
 	strXml += '<a:gdLst>'
 	strXml += '</a:gdLst>'
@@ -453,6 +475,8 @@ function genTableCellBorderXml(cellBorder: BorderProps[]): string {
 	})
 	return strXml
 }
+
+// ===== Slide serialization =====
 
 /** The four axes that make up an explicit group frame. All or nothing — see `givenGroupFrameAxes`. */
 const GROUP_FRAME_AXES = ['x', 'y', 'w', 'h'] as const
@@ -575,6 +599,10 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 	}
 
 	// STEP 2: Continue slide by starting spTree node
+	// spTree root — OOXML requires the shape tree to open with the implicit top-level group's
+	// non-visual props (`<p:nvGrpSpPr>`, the reserved `cNvPr id="1"`) and an identity group
+	// transform (off/ext and chOff/chExt all zero) before any child shape. This is the slide's
+	// built-in root group, not a user-authored `addGroup` — hence the zeroed frame.
 	strSlideXml += '<p:spTree>'
 	strSlideXml += '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>'
 	strSlideXml += '<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/>'
@@ -1565,6 +1593,8 @@ function slideObjectRelationsToXml(
 	return strXml
 }
 
+// ===== Text body generation =====
+
 /**
  * Generate XML Paragraph Properties
  * @param {SlideObject|TextProps} textObj - text object
@@ -2388,6 +2418,8 @@ export function genXmlPlaceholder(placeholderObj: SlideObject | null): string {
 
 // XML-GEN: First 6 functions create the base /ppt files
 
+// ===== Package-level parts =====
+
 /**
  * Generate XML ContentType
  * @param {PresSlideInternal[]} slides - slides
@@ -2691,6 +2723,8 @@ export function makeXmlPresentationRels(slides: PresSlideInternal[], embeddedFon
  * @param {PresSlideInternal} slide - the slide object to transform into XML
  * @return {string} XML
  */
+// ===== Transitions & animations =====
+
 /**
  * Build the slide-level `<p:timing>` tree that makes embedded media loop.
  * - PowerPoint stores playback looping as `repeatCount` on the media node's `<p:cTn>`
@@ -3110,6 +3144,8 @@ function buildBldList(animations: ResolvedAnimation[]): string {
 	return `<p:bldLst>${bldPs.join('')}</p:bldLst>`
 }
 
+// ===== Slides, notes & layouts =====
+
 export function makeXmlSlide(slide: PresSlideInternal): string {
 	return (
 		`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>${CRLF}` +
@@ -3253,7 +3289,7 @@ export function makeXmlLayout(layout: SlideLayoutInternal): string {
 		<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>`
 }
 
-// --- Master text styles (<p:txStyles>) -------------------------------------------------
+// ===== Masters & text styles =====
 // Default per-level values mirroring the built-in Office master (used as the base that
 // `MasterTextStyleProps` overrides are layered onto). `bu` describes the level's default
 // bullet: 'none' -> <a:buNone/>, undefined -> no bullet element (otherStyle), or a glyph.
@@ -3516,6 +3552,8 @@ export function makeXmlMaster(slide: PresSlideInternal, layouts: SlideLayoutInte
 	return strXml
 }
 
+// ===== Slide/master rels & comments =====
+
 /**
  * Generates XML string for a slide layout relation file
  * @param {number} layoutNumber - 1-indexed number of a layout that relations are generated for
@@ -3714,6 +3752,8 @@ export function makeXmlNotesMasterRel(): string {
 		<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme2.xml"/>
 		</Relationships>`
 }
+
+// ===== Theme, presentation & root files =====
 
 /**
  * For the passed slide number, resolves name of a layout that is used for.

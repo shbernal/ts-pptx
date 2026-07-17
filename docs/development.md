@@ -37,6 +37,30 @@ pnpm install
 Do not hand-edit generated `dist/` outputs unless the task explicitly asks to
 refresh release artifacts.
 
+## Source Conventions
+
+The large generator modules (`gen-xml.ts`, `gen-charts.ts`, `gen-objects.ts`) use two
+comment conventions so a reader can navigate without scrolling:
+
+- **File module map.** Each of these files opens with a TSDoc block that states the
+  module's job and lists its regions. Read it first to orient.
+- **Region banners.** File-level sections are marked with a single-line banner:
+
+  ```ts
+  // ===== Region Name =====
+  ```
+
+  The region names match the entries in that file's module-map header, so you can jump
+  to a region by grepping `===== <name> =====`. Use these for coarse file structure
+  (roughly one per group of related functions), not for every function.
+- **Intra-function steps.** Sequential steps *inside* a function stay as `// STEP N:`
+  (e.g. `// STEP 1: …`). Do not use `===== … =====` banners inside a function body.
+
+When adding a new top-level region to one of these files, add both the banner and a
+matching line in the module-map header. Prefer ASCII `=====` banners over box-drawing
+characters. (A few enums, such as `TableStyle` in `core-enums.ts`, group their members
+with `// ── Name ──` sub-headers; that is an intra-construct grouping, not a file region.)
+
 ## Common Commands
 
 Build the source bundle used by tests:

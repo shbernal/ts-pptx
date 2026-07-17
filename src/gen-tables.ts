@@ -1,5 +1,18 @@
 /**
  * PptxGenJS: Table Generation
+ *
+ * Table auto-paging and column/row layout: given rows that overflow a slide, split
+ * them across as many slides as needed, measuring wrapped text to compute line counts
+ * and row heights. `getSlidesForTableRows` is the in-memory core (fully Node-testable).
+ * `genTableToSlides` / `htmlBorderToProps` back the browser-only `tableToSlides()` DOM
+ * path, which is out of active scope (see AGENTS.md) — the DOM-independent parts are
+ * factored into pure helpers (`resolveHtmlColWidth`) that are unit-tested directly.
+ *
+ * Contents:
+ *   - parseTextToLines        break a cell's text into wrapped lines for a given column width
+ *   - getSlidesForTableRows   the auto-page engine: rows in → array of per-slide row groups
+ *   - htmlBorderToProps / resolveHtmlColWidth   DOM-table helpers (browser path)
+ *   - genTableToSlides        entry for the live-DOM tableToSlides() flow
  */
 
 import { DEF_FONT_SIZE, DEF_SLIDE_MARGIN_IN, EMU, LINEH_MODIFIER, ONEPT, SlideObjectType } from './core-enums.js'

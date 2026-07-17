@@ -1,5 +1,19 @@
 /**
  * PptxGenJS: Chart Generation
+ *
+ * Emits a chart's package parts: the DrawingML `chart.xml` plus the embedded XLSX
+ * workbook that backs its cached data. Reached from `gen-objects.ts`
+ * (`addChartDefinition`, which normalizes user options) and the `pptxgen.ts` export
+ * flow. Everything here is a pure string/bytes builder — no I/O, no mutation of the
+ * presentation model.
+ *
+ * Contents — jump by grepping the `// ===== <region> =====` banners:
+ *   - Series-data accessors      empty-array-safe reads over OptsChartDataInternal
+ *   - Embedded worksheet         buildEmbeddedWorksheet / createExcelWorksheet (the xlsx a chart links to)
+ *   - Chart XML assembly         makeXmlCharts: the top-level <c:chartSpace> envelope
+ *   - Chart-type plotting        makeChartType: per-ChartType <c:*Chart> series/points (the big switch)
+ *   - Axes                       makeCatAxis / makeValAxis / makeSerAxis
+ *   - Titles & shared builders   titles, gridlines, error bars, data labels, number caches
  */
 
 import {
@@ -46,6 +60,7 @@ import { ZipWriter } from './zip.js'
 
 const VALID_CHART_TIME_UNITS = ['days', 'months', 'years']
 
+// ===== Series-data accessors =====
 // The normalized (internal) chart-series arrays are populated at addChart time but stay
 // optional on OptsChartDataInternal; read them through these accessors with an empty-array
 // fallback so the OOXML/worksheet assembly never dereferences `undefined`. They also
@@ -81,6 +96,8 @@ function chartColorLineFill(color: string): string {
  * @param {SlideRelChart} chartObject - chart object
  * @return {Uint8Array} the embedded `.xlsx` package bytes
  */
+// ===== Embedded worksheet =====
+
 export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 	const data = chartObject.data
 
@@ -550,6 +567,8 @@ export async function createExcelWorksheet(chartObject: SlideRelChart, zip: ZipW
  * @param {string} typeface - font face name
  * @return {string} `<a:latin/><a:ea/><a:cs/>` XML
  */
+// ===== Chart XML assembly =====
+
 function createChartTextFonts(typeface: string): string {
 	return `<a:latin typeface="${typeface}"/><a:ea typeface="${typeface}"/><a:cs typeface="${typeface}"/>`
 }
@@ -635,7 +654,7 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 		}
 	}
 
-	// A: Create Chart XML -----------------------------------------------------------
+	// STEP 2: Create chart-type XML (plot each subchart's series/points)
 	if (Array.isArray(rel.opts._type)) {
 		rel.opts._type.forEach((type) => {
 			const options = { ...rel.opts, ...type.options }
@@ -661,7 +680,7 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 		strXml += makeChartType(rel.opts._type, rel.data, rel.opts, AXIS_ID_VALUE_PRIMARY, AXIS_ID_CATEGORY_PRIMARY)
 	}
 
-	// B: Axes -----------------------------------------------------------
+	// STEP 3: Axes
 	if (rel.opts._type !== ChartType.pie && rel.opts._type !== ChartType.doughnut) {
 		// Param check
 		if (rel.opts.valAxes && rel.opts.valAxes.length > 1 && !usesSecondaryValAxis) {
@@ -743,7 +762,7 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 		}
 	}
 
-	// C: Chart Properties and plotArea Options: Border, Data Table, Fill, Legend
+	// STEP 4: Chart properties and plotArea options: border, data table, fill, legend
 	{
 		// NOTE: DataTable goes between '</c:valAx>' and '<c:spPr>'
 		if (rel.opts.showDataTable) {
@@ -863,7 +882,7 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 
 	strXml += '</c:chart>'
 
-	// D: CHARTSPACE SHAPE PROPS
+	// STEP 5: chartSpace shape props
 	strXml += '<c:spPr>'
 	strXml += chartArea.fill?.color ? genXmlColorSelection(chartArea.fill) : '<a:noFill/>'
 	strXml += chartArea.border
@@ -872,10 +891,10 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 	strXml += '  <a:effectLst/>'
 	strXml += '</c:spPr>'
 
-	// E: DATA (Add relID)
+	// STEP 6: Data (add relId)
 	strXml += '<c:externalData r:id="rId1"><c:autoUpdate val="0"/></c:externalData>'
 
-	// F: METADATA (custom chart-level annotations via the schema-valid extension list)
+	// STEP 7: Metadata (custom chart-level annotations via the schema-valid extension list)
 	// CT_ChartSpace document order: externalData → printSettings → userShapes → extLst (extLst LAST).
 	strXml += genXmlChartMetadata(rel.opts.metadata)
 
@@ -937,6 +956,8 @@ function genXmlChartMetadata(metadata?: Record<string, string>): string {
  * @example '<c:lineChart>'
  * @return {string} XML chart
  */
+// ===== Chart-type plotting =====
+
 function makeChartType(
 	chartType: ChartType,
 	data: OptsChartDataInternal[],
@@ -1933,6 +1954,8 @@ function makeChartType(
  * @param {string} valAxisId - value
  * @return {string} XML
  */
+// ===== Axes =====
+
 function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: string): string {
 	let strXml = ''
 	const usesValueAxisForCategories =
@@ -2234,6 +2257,8 @@ function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: string)
  * @param {ChartPropsTitle} opts - options
  * @return {string} XML `<c:title>`
  */
+// ===== Titles & shared builders =====
+
 function genXmlTitle(opts: ChartPropsTitle, chartX?: number, chartY?: number): string {
 	const align =
 		opts.titleAlign === 'left' || opts.titleAlign === 'right'

@@ -1,6 +1,23 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * PptxGenJS Interfaces
+ *
+ * The public typed contract (plus the internal `*Internal` shapes the generators pass
+ * around). This is a types-only module — no runtime code. The `I`-prefixed aliases at
+ * the bottom are deprecated (v4.0.0) and re-export the unprefixed names.
+ *
+ * Rough top-to-bottom order:
+ *   - Core types          Coord/PositionProps, colors, gradient/pattern/image fills, borders,
+ *                         shadows, lines, connectors, hyperlinks
+ *   - Text base           TextBaseProps, placeholder, object name/lock, theme scheme
+ *   - Media & images      MediaType, ImageProps, MediaProps
+ *   - Shapes              ShapeProps and adjust values
+ *   - Tables              TableProps/TableCell(+Props), table styles, tableToSlides, layout results
+ *   - Text props          TextPropsOptions/TextProps, measurement, notes, comments
+ *   - Charts              OptsChartData(+Internal), per-axis and per-type chart props, ChartOpts
+ *   - Internals (PRIVATE) SlideRel(+Media), SlideObject — see the `PRIVATE vvv/^^^` markers
+ *   - Write/pres model    WriteProps, sections, layout, masters, groups, slide & presentation props
+ *   - Deprecated aliases  legacy `I`-prefixed type names (v4.0.0)
  */
 
 import type {
