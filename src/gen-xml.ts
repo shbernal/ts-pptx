@@ -3413,19 +3413,23 @@ function masterAlignAttr(align: MasterTextStyleLevel['align']): string {
 }
 
 /** Build the bullet element for a master level: caller override wins over the level default. */
-function masterBulletXml(ov: boolean | MasterBulletProps | undefined, base: MasterLevelDefault['bu']): string {
+function masterBulletXml(
+	bulletOverride: boolean | MasterBulletProps | undefined,
+	base: MasterLevelDefault['bu']
+): string {
 	// Explicit override
-	if (ov === false) return '<a:buNone/>'
-	if (ov && typeof ov === 'object') {
-		const font = ov.fontFace ? `<a:buFont typeface="${encodeXmlEntities(ov.fontFace)}"/>` : ''
-		if (ov.type === 'number') {
-			const type = ov.numberType || 'arabicPeriod'
-			const startAt = typeof ov.numberStartAt === 'number' ? ` startAt="${Math.round(ov.numberStartAt)}"` : ''
+	if (bulletOverride === false) return '<a:buNone/>'
+	if (bulletOverride && typeof bulletOverride === 'object') {
+		const font = bulletOverride.fontFace ? `<a:buFont typeface="${encodeXmlEntities(bulletOverride.fontFace)}"/>` : ''
+		if (bulletOverride.type === 'number') {
+			const type = bulletOverride.numberType || 'arabicPeriod'
+			const startAt =
+				typeof bulletOverride.numberStartAt === 'number' ? ` startAt="${Math.round(bulletOverride.numberStartAt)}"` : ''
 			return `${font}<a:buAutoNum type="${type}"${startAt}/>`
 		}
 		// character bullet (default)
-		const char = ov.characterCode ? `&#x${ov.characterCode};` : '•'
-		const buFont = ov.fontFace ? font : '<a:buFont typeface="Arial" pitchFamily="34" charset="0"/>'
+		const char = bulletOverride.characterCode ? `&#x${bulletOverride.characterCode};` : '•'
+		const buFont = bulletOverride.fontFace ? font : '<a:buFont typeface="Arial" pitchFamily="34" charset="0"/>'
 		return `${buFont}<a:buChar char="${char}"/>`
 	}
 	// No override (undefined / true): keep the level's default bullet
@@ -3436,30 +3440,36 @@ function masterBulletXml(ov: boolean | MasterBulletProps | undefined, base: Mast
 }
 
 /** Serialize one `<a:lvlNpPr>` from its default, layering an optional caller override. */
-function masterLevelXml(levelNum: number, base: MasterLevelDefault, ov: MasterTextStyleLevel = {}): string {
-	const marL = typeof ov.marginLeft === 'number' && !isNaN(ov.marginLeft) ? inch2Emu(ov.marginLeft) : base.marL
-	const indentEmu = typeof ov.indent === 'number' && !isNaN(ov.indent) ? inch2Emu(ov.indent) : base.indent
-	const algn = (ov.align && masterAlignAttr(ov.align)) || base.algn
+function masterLevelXml(levelNum: number, base: MasterLevelDefault, levelOverride: MasterTextStyleLevel = {}): string {
+	const marL =
+		typeof levelOverride.marginLeft === 'number' && !isNaN(levelOverride.marginLeft)
+			? inch2Emu(levelOverride.marginLeft)
+			: base.marL
+	const indentEmu =
+		typeof levelOverride.indent === 'number' && !isNaN(levelOverride.indent)
+			? inch2Emu(levelOverride.indent)
+			: base.indent
+	const algn = (levelOverride.align && masterAlignAttr(levelOverride.align)) || base.algn
 	const indentAttr = typeof indentEmu === 'number' ? ` indent="${indentEmu}"` : ''
 
 	let xml = `<a:lvl${levelNum}pPr marL="${marL}"${indentAttr} algn="${algn}" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">`
 	if (typeof base.spcBefPct === 'number') xml += `<a:spcBef><a:spcPct val="${base.spcBefPct}"/></a:spcBef>`
-	xml += masterBulletXml(ov.bullet, base.bu)
+	xml += masterBulletXml(levelOverride.bullet, base.bu)
 
 	// defRPr
 	let sz = base.sz
-	if (typeof ov.fontSize === 'number') {
-		if (isNaN(ov.fontSize) || ov.fontSize <= 0)
+	if (typeof levelOverride.fontSize === 'number') {
+		if (isNaN(levelOverride.fontSize) || levelOverride.fontSize <= 0)
 			warn(
-				`master textStyles fontSize "${ov.fontSize}" is invalid; keeping default ${base.sz / HUNDREDTHS_PER_POINT}pt.`
+				`master textStyles fontSize "${levelOverride.fontSize}" is invalid; keeping default ${base.sz / HUNDREDTHS_PER_POINT}pt.`
 			)
-		else sz = ptToHundredths(ov.fontSize)
+		else sz = ptToHundredths(levelOverride.fontSize)
 	}
-	const boldAttr = ov.bold ? ' b="1"' : ''
-	const italicAttr = ov.italic ? ' i="1"' : ''
-	const colorXml = ov.color ? createColorElement(ov.color) : '<a:schemeClr val="tx1"/>'
-	const latinXml = ov.fontFace
-		? `<a:latin typeface="${encodeXmlEntities(ov.fontFace)}"/>`
+	const boldAttr = levelOverride.bold ? ' b="1"' : ''
+	const italicAttr = levelOverride.italic ? ' i="1"' : ''
+	const colorXml = levelOverride.color ? createColorElement(levelOverride.color) : '<a:schemeClr val="tx1"/>'
+	const latinXml = levelOverride.fontFace
+		? `<a:latin typeface="${encodeXmlEntities(levelOverride.fontFace)}"/>`
 		: `<a:latin typeface="+${base.font}-lt"/>`
 	xml += `<a:defRPr sz="${sz}"${boldAttr}${italicAttr} kern="1200"><a:solidFill>${colorXml}</a:solidFill>${latinXml}<a:ea typeface="+${base.font}-ea"/><a:cs typeface="+${base.font}-cs"/></a:defRPr>`
 	xml += `</a:lvl${levelNum}pPr>`
@@ -3478,12 +3488,12 @@ function masterLevelOverrides(levels: MasterTextStyleLevel[] | undefined, group:
  * Only invoked when `defineSlideMaster({ textStyles })` was set; the unconfigured deck keeps the
  * verbatim default literal in `makeXmlMaster` for byte-identical output.
  */
-function makeXmlMasterTxStyles(ts: MasterTextStyleProps): string {
-	const title = masterLevelXml(1, MASTER_TITLE_DEFAULT, ts.title)
-	const bodyOv = masterLevelOverrides(ts.body, 'body')
-	const body = MASTER_BODY_DEFAULTS.map((base, i) => masterLevelXml(i + 1, base, bodyOv[i])).join('')
-	const otherOv = masterLevelOverrides(ts.other, 'other')
-	const other = MASTER_OTHER_DEFAULTS.map((base, i) => masterLevelXml(i + 1, base, otherOv[i])).join('')
+function makeXmlMasterTxStyles(textStyles: MasterTextStyleProps): string {
+	const title = masterLevelXml(1, MASTER_TITLE_DEFAULT, textStyles.title)
+	const bodyOverrides = masterLevelOverrides(textStyles.body, 'body')
+	const body = MASTER_BODY_DEFAULTS.map((base, i) => masterLevelXml(i + 1, base, bodyOverrides[i])).join('')
+	const otherOverrides = masterLevelOverrides(textStyles.other, 'other')
+	const other = MASTER_OTHER_DEFAULTS.map((base, i) => masterLevelXml(i + 1, base, otherOverrides[i])).join('')
 	return (
 		'<p:txStyles>' +
 		`<p:titleStyle>${title}</p:titleStyle>` +
