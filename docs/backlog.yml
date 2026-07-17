@@ -1748,22 +1748,22 @@ items:
     type: fork-internal-proposal
     first_seen: 2026-07-17
     last_reviewed: 2026-07-17
-    status: deferred
+    status: implemented
     priority: p2
     target_area:
       - powerpoint-repair
       - invalid-ooxml
     applies_to_current_project: yes
     non_target_reasons: []
-    summary: resolveAnimationSpid validates shapeIndex only as >= 0, so an out-of-range index emits a dangling p:spid (0x80070570 repair source)
+    summary: resolveAnimationSpid validated shapeIndex only as >= 0, so an out-of-range index emitted a dangling p:spid (0x80070570 repair source)
     current_project_notes: |
       Carried forward from GROUPING-PLAN.md §3 ("Adjacent risk"), which is being
       removed now that all six grouping phases have landed. Recorded here so the
       analysis is not lost.
 
-      resolveAnimationSpid (src/gen-xml.ts:2846-2847) accepts any
-      `anim.shapeIndex >= 0` and emits `spid = shapeIndex + 2` with no upper-bound
-      check. An index past the last top-level object therefore targets a
+      resolveAnimationSpid (src/gen-xml.ts:2846-2847) accepted any
+      `anim.shapeIndex >= 0` and emitted `spid = shapeIndex + 2` with no upper-bound
+      check. An index past the last top-level object therefore targeted a
       `<p:spid>` that names no shape on the slide — the dangling-spid class the
       powerpoint-desktop-smoke skill names as a 0x80070570 ("repair") source.
       Distinct from the objectName path, which Phase 4 already un-silenced around
@@ -1774,21 +1774,34 @@ items:
       out of the grouping phases on purpose (GROUPING-PLAN §3): folding it in would
       have widened Phase 4's scope past name resolution.
 
-      FIX (one line, per the plan): validate `shapeIndex` against the resolved
-      shape-id set rather than only `>= 0` — `collectSlideShapeIds` already gives
-      the id map, so a past-end index can warn + drop exactly like an unresolvable
-      objectName does today. Add a regression test asserting an out-of-range
-      shapeIndex warns and emits no dangling spid.
+      IMPLEMENTED (2026-07-17): `resolveAnimationSpid` now takes the top-level object
+      count (`slide._slideObjects.length`, passed from the caller) and accepts a
+      `shapeIndex` only in `[0, topLevelCount)` — the exact range whose `spid =
+      shapeIndex + 2` mirrors the `idx + 2` top-level allocation in
+      `collectSlideShapeIds` (group children take ids past that range and are
+      addressable by `objectName` only, per the AnimationProps doc "Counts top-level
+      objects only"). An out-of-range index now warns ("shapeIndex N is out of range
+      (slide has M top-level object(s))") and drops the effect, exactly like an
+      unresolvable objectName — so no `<p:timing>` tree and no dangling spid are
+      emitted. A numeric `shapeIndex` is handled exclusively now (a negative one warns
+      + drops rather than silently falling through to `objectName`), which surfaces the
+      caller error instead of masking it. Two regressions added in
+      test/regression/animations-transitions.test.js: an out-of-range index warns and
+      emits no dangling spid / no timing tree, and the last valid slot
+      (`shapeIndex === topLevelCount - 1`) still resolves (exclusive-bound / off-by-one
+      guard). Full suite green (1127 regression/read/schema tests); typecheck clean.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
         - src/gen-xml.ts:2846
+        - test/regression/animations-transitions.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: validate shapeIndex against the resolved shape-id set (collectSlideShapeIds); warn + drop on an out-of-range index and add a regression test
+    next_action: none
 
   - id: fork-slide-number-placeholder-hardcoded-id
     source: fork:src/gen-xml.ts

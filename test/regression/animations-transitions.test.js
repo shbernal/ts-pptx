@@ -154,6 +154,48 @@ defineRegressionSuite('Preset build animations (write)', [
 			assert(/<p:spTgt spid="3"\/>/.test(xml), 'effect targets resolved spid 3')
 		},
 	},
+	{
+		// A shapeIndex past the last top-level object would emit `spid = shapeIndex + 2` naming no
+		// shape on the slide — a dangling <p:spTgt> PowerPoint reports as a repair (0x80070570).
+		// The out-of-range index must warn and drop the effect, exactly like an unresolvable
+		// objectName, leaving no <p:timing> and no dangling spid. (backlog: fork-animation-spid-index-unvalidated)
+		name: 'drops an out-of-range shapeIndex with a warning (no dangling spid)',
+		fn: async () => {
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (msg) => warnings.push(String(msg))
+			let xml
+			try {
+				xml = await slideXml((p) => {
+					const s = p.addSlide()
+					s.addText('only', { x: 1, y: 1, w: 1, h: 1, objectName: 'only' }) // 1 top-level object => valid index is 0
+					s.addAnimation({ preset: 'fadeIn', shapeIndex: 5 }) // out of range: spid 7 names no shape
+				})
+			} finally {
+				console.warn = origWarn
+			}
+			assert(
+				warnings.some((w) => /shapeIndex 5 is out of range/.test(w) && /1 top-level object/.test(w)),
+				'expected an out-of-range shapeIndex warning; got: ' + JSON.stringify(warnings)
+			)
+			assert(timingOf(xml) === null, 'the dropped effect emits no <p:timing> tree')
+			assert(!/<p:spTgt spid="7"/.test(xml), 'no dangling spid for the out-of-range index')
+		},
+	},
+	{
+		// The valid boundary: shapeIndex === topLevelCount - 1 still resolves (regression guard that
+		// the new upper bound is exclusive, not off-by-one).
+		name: 'resolves shapeIndex at the last valid top-level slot',
+		fn: async () => {
+			const xml = await slideXml((p) => {
+				const s = p.addSlide()
+				s.addText('a', { x: 1, y: 1, w: 1, h: 1, objectName: 'a' })
+				s.addText('b', { x: 1, y: 2, w: 1, h: 1, objectName: 'b' })
+				s.addAnimation({ preset: 'fadeIn', shapeIndex: 1 }) // last valid index => spid 3
+			})
+			assert(/<p:spTgt spid="3"\/>/.test(xml), 'effect targets spid 3 for the last valid index')
+		},
+	},
 ])
 
 // Phase 2 capability C: transition sounds (p:sndAc). The writer reproduces

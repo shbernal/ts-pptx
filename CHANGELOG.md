@@ -67,6 +67,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An out-of-range animation `shapeIndex` now warns and drops the effect instead of
+  emitting a dangling target.** `addAnimation({ shapeIndex })` validated only that the
+  index was `>= 0`, then emitted `spid = shapeIndex + 2` with no upper bound — so an index
+  past the last top-level object produced a `<p:spTgt spid>` naming no shape on the slide, a
+  dangling target PowerPoint reports as a repair (`0x80070570`). The index is now bounded to
+  the slide's top-level objects (the range whose `spid` mirrors the writer's `id + 2`
+  allocation; group children remain addressable by `objectName` only, as documented). An
+  out-of-range index warns (`shapeIndex N is out of range (slide has M top-level object(s))`)
+  and drops the effect, exactly like an unresolvable `objectName` — no timing tree, no
+  dangling spid. A numeric `shapeIndex` is now also handled exclusively: a negative value
+  warns and drops rather than silently falling through to `objectName`, surfacing the caller
+  error instead of masking it.
 - **Connectors and animations can now reference a shape inside a group by `objectName`.**
   Both resolved names only against the slide's top-level object list, which `addGroup()`
   splices its children out of, so both silently failed on a grouped target: an animation

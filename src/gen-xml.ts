@@ -2708,7 +2708,7 @@ function slideTimingToXml(slide: PresSlideInternal): string {
 	// children as well as top-level objects, so `objectName` addresses any shape on the slide.
 	const shapeIds = collectSlideShapeIds(slide._slideObjects)
 	const animations = (slide._animations ?? [])
-		.map((anim) => ({ anim, spid: resolveAnimationSpid(shapeIds, anim) }))
+		.map((anim) => ({ anim, spid: resolveAnimationSpid(shapeIds, slide._slideObjects.length, anim) }))
 		.filter((entry): entry is { anim: AnimationProps; spid: number } => entry.spid !== null)
 
 	const mediaNode = (obj: SlideObject, nodeId: number): string => {
@@ -2839,12 +2839,29 @@ function slideTransitionToXml(slide: PresSlideInternal): string {
  * `objectName` resolves through `shapeIds`, which covers group children: they are `<p:cNvPr>`-named
  * on the slide and animate like any other shape, but are not in `_slideObjects`, so the old lookup
  * there dropped every animation targeting one.
+ *
+ * `shapeIndex` is a 0-based index into the top-level objects only (its `spid = shapeIndex + 2`
+ * mirrors the `idx + 2` top-level allocation in `collectSlideShapeIds`; group children take ids past
+ * that range). An index outside `[0, topLevelCount)` would emit a `<p:spTgt spid>` naming no shape on
+ * the slide — a dangling spid PowerPoint reports as a repair (0x80070570) — so it warns and drops,
+ * exactly like an unresolvable `objectName` does.
  * @param shapeIds - the slide's shape ids, from `collectSlideShapeIds`
+ * @param topLevelCount - number of top-level slide objects a `shapeIndex` may address
  * @param anim - the animation to resolve
  * @returns the target's `<p:cNvPr>` id, or `null`
  */
-function resolveAnimationSpid(shapeIds: Map<SlideObject, number>, anim: AnimationProps): number | null {
-	if (typeof anim.shapeIndex === 'number' && anim.shapeIndex >= 0) return anim.shapeIndex + 2
+function resolveAnimationSpid(
+	shapeIds: Map<SlideObject, number>,
+	topLevelCount: number,
+	anim: AnimationProps
+): number | null {
+	if (typeof anim.shapeIndex === 'number') {
+		if (anim.shapeIndex >= 0 && anim.shapeIndex < topLevelCount) return anim.shapeIndex + 2
+		warn(
+			`addAnimation: shapeIndex ${anim.shapeIndex} is out of range (slide has ${topLevelCount} top-level object(s)), so its "${anim.preset}" effect was dropped.`
+		)
+		return null
+	}
 	if (anim.objectName) {
 		const id = resolveObjectNameToId(shapeIds, anim.objectName)
 		if (id !== null) return id
