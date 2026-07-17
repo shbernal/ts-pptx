@@ -21,6 +21,7 @@ import {
 	type Element,
 } from '../oxml/dom.js'
 import { fitSrcRectPercents, getImageSizeFromBytes } from '../../gen-utils.js'
+import { composeGroupFrame, type GroupTransform } from '../../group-transform.js'
 import { warn } from '../../log.js'
 import { relativePartName } from '../opc/partnames.js'
 import { FILL_CHOICES, normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
@@ -282,33 +283,12 @@ function rotationDegrees(xfrm: Element): number {
 	return rot === null ? 0 : rot / 60000
 }
 
-function normalizeDegrees(value: number): number {
-	return ((value % 360) + 360) % 360
-}
-
 function transformFlipH(xfrm: Element): boolean {
 	return boolValue(attr(xfrm, 'flipH')) === true
 }
 
 function transformFlipV(xfrm: Element): boolean {
 	return boolValue(attr(xfrm, 'flipV')) === true
-}
-
-function rotatePoint(
-	point: { x: number; y: number },
-	center: { x: number; y: number },
-	degrees: number
-): { x: number; y: number } {
-	if (degrees === 0) return point
-	const angle = (degrees * Math.PI) / 180
-	const cos = Math.cos(angle)
-	const sin = Math.sin(angle)
-	const dx = point.x - center.x
-	const dy = point.y - center.y
-	return {
-		x: center.x + cos * dx - sin * dy,
-		y: center.y + sin * dx + cos * dy,
-	}
 }
 
 /** One stop of a gradient fill (`a:gsLst/a:gs`), as read from a shape. */
@@ -615,19 +595,10 @@ export abstract class Shape {
 	get absoluteFrame(): AbsoluteFrame | null {
 		const xfrm = this.xfrm()
 		if (!xfrm) return null
-		let box = readBox(xfrm, 'a:off', 'a:ext')
+		const box = readBox(xfrm, 'a:off', 'a:ext')
 		if (!box) return null
-		let center = { x: box.x + box.cx / 2, y: box.y + box.cy / 2 }
-		let width = box.cx
-		let height = box.cy
-		const groups: {
-			center: { x: number; y: number }
-			rotation: number
-			flipH: boolean
-			flipV: boolean
-		}[] = []
-		let flipH = transformFlipH(xfrm)
-		let flipV = transformFlipV(xfrm)
+
+		const groups: GroupTransform[] = []
 		for (let node = this.element.parentNode; node && node.nodeType === ELEMENT_NODE; node = node.parentNode) {
 			const parent = node as Element
 			if (parent.namespaceURI !== OOXML_NS.p || parent.localName !== 'grpSp') break // reached the shape tree (or a non-group)
@@ -636,56 +607,28 @@ export abstract class Shape {
 			const outer = groupXfrm && readBox(groupXfrm, 'a:off', 'a:ext')
 			const child = groupXfrm && readBox(groupXfrm, 'a:chOff', 'a:chExt')
 			if (!groupXfrm || !outer || !child) return null
-			if (child.cx === 0 || child.cy === 0) return null // degenerate child frame — no resolvable mapping
-			const ratioX = outer.cx / child.cx
-			const ratioY = outer.cy / child.cy
-			const groupFlipH = transformFlipH(groupXfrm)
-			const groupFlipV = transformFlipV(groupXfrm)
-
-			const mapPoint = (point: { x: number; y: number }): { x: number; y: number } => {
-				let x = outer.x + (point.x - child.x) * ratioX
-				let y = outer.y + (point.y - child.y) * ratioY
-				if (groupFlipH) x = outer.x + outer.cx - (x - outer.x)
-				if (groupFlipV) y = outer.y + outer.cy - (y - outer.y)
-				return { x, y }
-			}
-			center = mapPoint(center)
-			for (const group of groups) group.center = mapPoint(group.center)
-			width *= Math.abs(ratioX)
-			height *= Math.abs(ratioY)
 			groups.push({
-				center: { x: outer.x + outer.cx / 2, y: outer.y + outer.cy / 2 },
+				outer,
+				child,
 				rotation: rotationDegrees(groupXfrm),
-				flipH: groupFlipH,
-				flipV: groupFlipV,
+				flipH: transformFlipH(groupXfrm),
+				flipV: transformFlipV(groupXfrm),
 			})
-			flipH = flipH !== groupFlipH
-			flipV = flipV !== groupFlipV
 		}
-		let rotation = 0
-		let orientation = 1
-		for (let index = groups.length - 1; index >= 0; index--) {
-			const group = groups[index]
-			if (!group) continue
-			const groupRotation = group.rotation * orientation
-			center = rotatePoint(center, group.center, groupRotation)
-			for (let innerIndex = 0; innerIndex < index; innerIndex++) {
-				const inner = groups[innerIndex]
-				if (inner) inner.center = rotatePoint(inner.center, group.center, groupRotation)
-			}
-			rotation += groupRotation
-			if (group.flipH !== group.flipV) orientation *= -1
-		}
-		rotation = normalizeDegrees(rotation + rotationDegrees(xfrm) * orientation)
-		box = { x: center.x - width / 2, y: center.y - height / 2, cx: width, cy: height }
+
+		const frame = composeGroupFrame(
+			{ box, rotation: rotationDegrees(xfrm), flipH: transformFlipH(xfrm), flipV: transformFlipV(xfrm) },
+			groups
+		)
+		if (!frame) return null
 		return {
-			left: Math.round(box.x),
-			top: Math.round(box.y),
-			width: Math.round(box.cx),
-			height: Math.round(box.cy),
-			rotation,
-			flipH,
-			flipV,
+			left: Math.round(frame.box.x),
+			top: Math.round(frame.box.y),
+			width: Math.round(frame.box.cx),
+			height: Math.round(frame.box.cy),
+			rotation: frame.rotation,
+			flipH: frame.flipH,
+			flipV: frame.flipV,
 		}
 	}
 
