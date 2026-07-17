@@ -53,6 +53,19 @@ package part, relationship, OOXML element, attribute, or absence of generated
 parts. Name the file after the behavior, and include bug or upstream issue
 context in the suite metadata or test name only when it helps future triage.
 
+### `.test.js` vs `.test.mjs`
+
+Both extensions coexist under `test/regression/` (the bulk are `.test.js`; a
+handful are `.test.mjs`). The package is `"type": "module"`, so `.js` is
+already ESM and Vitest resolves and runs both identically — the suffix has **no
+functional effect** here (no build, transform, or resolution difference), and
+both can import from `dist/` or `src/`. The `.mjs` files are a historical subset
+that made the ESM boundary explicit for tests exercising built entry points or
+the measurement/runtime subsystems directly with Vitest's `describe`/`test`
+API, rather than the shared `defineRegressionSuite()` harness. Prefer
+`.test.js` for new regression files to match the majority; use `.mjs` only if
+you have a specific reason to signal the ESM boundary.
+
 ## OOXML Schema Validation
 
 Install the validator once:
@@ -68,7 +81,8 @@ pnpm run test:schema
 ```
 
 Use this path for emitted OOXML changes. Add or update focused fixtures in
-`test/schema.test.js`.
+`test/schema-cases.js` (a flat fixture data module — not a Vitest suite despite
+living under `test/`; the runner `test/schema-validation.test.mjs` consumes it).
 
 ## Read/Round-Trip Suite (`pptxgenjs/read`)
 
