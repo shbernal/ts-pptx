@@ -326,6 +326,33 @@ export default class Slide {
 	}
 
 	/**
+	 * Group objects already added to this slide into a single PowerPoint group (`<p:grpSp>`),
+	 * addressed by their `objectName`. The counterpart to {@link Slide.addGroup} for slides composed
+	 * from independent renderers, where the objects exist already and replaying their descriptors just
+	 * to group them is not practical.
+	 *
+	 * Grouping is visually a no-op: children keep their slide-absolute geometry and their relative
+	 * z-order, and the group takes the topmost member's former slot in the stack. Name the objects in
+	 * any order — z-order decides the children's order, not the array. Groups may be named, so groups
+	 * can be nested into larger logical groups. Charts, media, tables, and placeholders cannot be
+	 * grouped yet.
+	 *
+	 * Unlike `addGroup()`, every problem throws: a name that matches nothing, matches an object
+	 * already inside another group, is ambiguous across two same-named objects, or names an
+	 * ungroupable kind. Each would otherwise leave the object loose on the slide, silently.
+	 * @param {string[]} objectNames - `objectName`s of the top-level objects to group
+	 * @param {GroupProps} options - group position/size/name options (frame is all-or-nothing, as with `addGroup`)
+	 * @return {Slide} this Slide
+	 * @example slide.addText('Hi', { x: 1, y: 1, w: 2, h: 1, objectName: 'Caption' })
+	 * @example slide.addImage({ path: 'logo.png', x: 1, y: 2, w: 2, h: 2, objectName: 'Logo' })
+	 * @example slide.groupObjects(['Caption', 'Logo'], { objectName: 'Branding' })
+	 */
+	groupObjects(objectNames: string[], options?: GroupProps): Slide {
+		genObj.groupObjectsDefinition(this, objectNames, options || {})
+		return this
+	}
+
+	/**
 	 * Add a connector (a line drawn between two points, emitted as a PowerPoint `<p:cxnSp>`).
 	 * @param {ConnectorProps} options - connector endpoints (`x1,y1,x2,y2`) and line styling
 	 * @return {Slide} this Slide

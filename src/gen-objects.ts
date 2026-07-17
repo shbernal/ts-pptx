@@ -191,9 +191,27 @@ function buildGroupObject(target: PresSlideInternal, children: GroupChildProps[]
 		groupObjects.push(...target._slideObjects.splice(before))
 	})
 
-	// Taken after the children above so nested groups number inside-out, and per slide rather than
-	// per process: a module-global counter made two identical presentations built in one process
-	// disagree on their group names. `Group N` is 1-based, matching PowerPoint's own default.
+	// Called after the children above so nested groups number inside-out (see `makeGroupObject`).
+	return makeGroupObject(target, groupObjects, opts)
+}
+
+/**
+ * Wrap already-built child render-objects in a group (`<p:grpSp>`) render-object, without appending
+ * the group anywhere. Shared by `buildGroupObject` (children built from descriptors) and
+ * `groupObjectsDefinition` (children lifted off the slide) so both entry points name and frame a
+ * group identically — including the all-or-nothing frame, which is left to `gen-xml` to resolve:
+ * passing `x/y/w/h` through unset is what makes the bounds auto-compute to the children's bounding
+ * box, so neither caller needs bounds math of its own.
+ *
+ * Call this *after* the children exist, so nested groups number inside-out: the name index is taken
+ * here, and a child group that was built first has already taken a lower one.
+ * @param target - slide the group belongs to (owns the name counter)
+ * @param groupObjects - the group's child render-objects, in z-order
+ * @param opts - group position/size/name options
+ */
+function makeGroupObject(target: PresSlideInternal, groupObjects: SlideObject[], opts: GroupProps): SlideObject {
+	// Per slide rather than per process: a module-global counter made two identical presentations
+	// built in one process disagree on their group names. `Group N` is 1-based, matching PowerPoint.
 	const groupNameIdx = nextObjectNameIdx(target, SlideObjectType.group)
 	const objectName = opts.objectName
 		? encodeXmlEntities(validateObjectName(opts.objectName, 'group'))
@@ -225,6 +243,107 @@ function buildGroupObject(target: PresSlideInternal, children: GroupChildProps[]
  */
 export function addGroupDefinition(target: PresSlideInternal, children: GroupChildProps[], opts: GroupProps): void {
 	target._slideObjects.push(buildGroupObject(target, children, opts))
+}
+
+/**
+ * Object kinds `groupObjects()` accepts. Text (which shapes and text boxes both are), images,
+ * connectors, and groups — the last so consumers can build nested logical groups out of groups they
+ * already made. Charts, media, tables, and placeholders are excluded for the same reason
+ * `addGroup()` excludes them (rels/id/transform work pending); a placeholder is excluded on top of
+ * that because grouping it would sever the layout inheritance that makes it a placeholder.
+ */
+const GROUPABLE_TYPES: readonly SlideObjectType[] = [
+	SlideObjectType.text,
+	SlideObjectType.image,
+	SlideObjectType.connector,
+	SlideObjectType.group,
+]
+
+/** Depth-first search for an object named `name` among group children, used only to explain a failed lookup. */
+function findNameInGroups(objects: SlideObject[], name: string): boolean {
+	return objects.some((obj) => {
+		if (obj._type !== SlideObjectType.group) return false
+		return (obj._groupObjects || []).some(
+			(child) => child.options?.objectName === name || findNameInGroups([child], name)
+		)
+	})
+}
+
+/**
+ * Move already-authored, top-level slide objects into one group (`<p:grpSp>`), addressed by
+ * `objectName`. The counterpart to `addGroup()` for consumers that compose a slide from independent
+ * renderers: the objects already exist, so replaying their descriptors just to group them would mean
+ * every renderer exposing its internals.
+ *
+ * Grouping is visually a no-op — children keep their slide-absolute geometry, their ids, their rels,
+ * and their relative z-order, exactly as with `addGroup()`. Two ordering rules make that true:
+ * children are ordered by their existing slide z-order (**not** by the order they are named, which
+ * would silently restack the slide), and the group itself takes the topmost member's former slot, so
+ * it lands where the selection's top edge already was.
+ *
+ * Every failure here throws rather than warns. An unmatched name is not a degenerate deck the author
+ * might still want — it means the intended object is silently still loose on the slide, which is the
+ * footgun the group was meant to remove.
+ * @param target - slide holding the objects
+ * @param objectNames - `objectName`s of the top-level objects to group
+ * @param opts - group position/size/name options (same semantics as `addGroup()`)
+ */
+export function groupObjectsDefinition(target: PresSlideInternal, objectNames: string[], opts: GroupProps): void {
+	if (!Array.isArray(objectNames) || objectNames.length === 0) {
+		throw new Error(
+			"groupObjects() requires a non-empty array of objectNames. Ex: `slide.groupObjects(['Title', 'Logo'])`"
+		)
+	}
+
+	const requested = new Set<string>()
+	objectNames.forEach((name) => {
+		if (typeof name !== 'string' || name.trim().length === 0) {
+			throw new Error(`groupObjects(): every objectName must be a non-empty string (got ${JSON.stringify(name)}).`)
+		}
+		if (requested.has(name)) throw new Error(`groupObjects(): objectName "${name}" was named more than once.`)
+		requested.add(name)
+	})
+
+	// Resolve every name before moving anything, so a bad name leaves the slide untouched instead of
+	// half-grouped.
+	const members: SlideObject[] = []
+	objectNames.forEach((name) => {
+		const matches = target._slideObjects.filter((obj) => obj.options?.objectName === name)
+		const [obj, ambiguous] = matches
+		if (!obj) {
+			// Distinguish "no such object" from "already grouped": both leave the caller's name
+			// unresolved, but only one of them is a typo.
+			const hint = findNameInGroups(target._slideObjects, name)
+				? 'it is already inside a group (an object can only belong to one group)'
+				: 'no top-level object on this slide has that objectName'
+			throw new Error(`groupObjects(): cannot group "${name}" — ${hint}.`)
+		}
+		if (ambiguous) {
+			throw new Error(
+				`groupObjects(): objectName "${name}" is ambiguous — ${matches.length} objects on this slide share it. Give them unique objectNames.`
+			)
+		}
+		if (!GROUPABLE_TYPES.includes(obj._type) || obj.options?.placeholder) {
+			const kind = obj.options?.placeholder ? 'placeholder' : obj._type
+			throw new Error(`groupObjects(): cannot group "${name}" — grouping a ${String(kind)} is not supported yet.`)
+		}
+		members.push(obj)
+	})
+
+	// Order children by existing z-order, not by the order named: grouping must not restack the slide.
+	const memberSet = new Set(members)
+	const children = target._slideObjects.filter((obj) => memberSet.has(obj))
+
+	// The wrapper takes the topmost member's former slot — i.e. it sits above everything the selection
+	// sat above, and below everything it sat below. Counting the *survivors* ahead of that slot gives
+	// the post-removal index directly, so the removal below cannot shift it.
+	const topmostIdx = Math.max(...members.map((obj) => target._slideObjects.indexOf(obj)))
+	const insertAt = target._slideObjects.slice(0, topmostIdx).filter((obj) => !memberSet.has(obj)).length
+
+	const regrouped = target._slideObjects.filter((obj) => !memberSet.has(obj))
+	regrouped.splice(insertAt, 0, makeGroupObject(target, children, opts))
+	// Rewrite in place (rather than reassigning `_slideObjects`) so any held reference stays live.
+	target._slideObjects.splice(0, target._slideObjects.length, ...regrouped)
 }
 
 /**

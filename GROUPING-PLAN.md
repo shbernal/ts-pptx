@@ -1,7 +1,8 @@
 # Grouping — audit findings & remediation plan
 
 Status: **Phase 1 landed (D1, D2, D3); Phase 2 landed (D5, D6); Phase 3 landed
-(D4); Phase 4 landed (§3 name resolution); Phases 5–6 outstanding.** Every defect
+(D4); Phase 4 landed (§3 name resolution); Phase 5 landed (`groupObjects()`);
+Phase 6 outstanding.** Every defect
 below was verified by generating or re-reading a package, not by reading source
 alone; the measured evidence is quoted inline so each item can be re-checked
 independently.
@@ -51,6 +52,25 @@ references, not merely that the package opens: a connector bound to a grouped sh
 both ends reports `begin=GroupedBox end=DeepBox`, and all three animations land on their
 named shapes. Not folded in: connectors as group *children* (§3) — that is an
 `addGroup` scope question (a `<p:cxnSp>` child kind), not a name-resolution one.
+
+Phase 5 notes: `slide.groupObjects(objectNames, options?)` lifts already-authored
+top-level objects into one `<p:grpSp>` in place, addressed by `objectName`. It shares the
+group render-object builder with `addGroup()` (extracted as `makeGroupObject`,
+`src/gen-objects.ts`), so both entry points name and frame a group identically — including
+leaving the all-or-nothing auto-bounds to `gen-xml`: passing `x/y/w/h` through unset is what
+makes the frame the children's bounding box, so neither caller does bounds math. The two
+design choices worth recording: **z-order** — children are ordered by their existing slide
+z-order, not the order they are named (naming order is a selection, not a restack), and the
+wrapper takes the topmost member's former slot, so the lift is visually a no-op; and
+**failure is a throw, not a warn** — the §4 proposal said "reject or clearly warn", but
+every failure path here (missing name, name already inside another group, ambiguous
+duplicate, ungroupable kind, empty/duplicate input) leaves the intended object silently
+loose on the slide, which is the footgun (AGENTS.md) the group was meant to remove, so it
+throws. Resolution runs fully before any object moves, so a bad name leaves the slide
+untouched rather than half-grouped. PowerPoint (COM) confirms a two-level nested lift opens
+without repair, keeps ids unique across the tree, and still resolves a connector bound to a
+lifted member (`begin=Header end=Loose`). Not folded in: charts/media/tables/placeholders
+as members (throw — same pending rels/id/transform work that excludes them from `addGroup`).
 
 Scope: `<p:grpSp>` across the three surfaces that touch it — the **write** path
 (`addGroup`), the **read** path (`Presentation` / `Shape.absoluteFrame`), and the
@@ -270,21 +290,24 @@ strictly out of scope here — record separately rather than absorbing it.
 
 ---
 
-## 4. Tracked feature — `dn-group-existing-slide-objects`
+## 4. Tracked feature — `dn-group-existing-slide-objects` — **DONE (Phase 5)**
 
-`docs/backlog.yml:1466` — status `target`, priority `p2`, `applies_to_current_project: yes`.
-Proposes `slide.groupObjects(objectNames, options?)` to group already-authored
-objects without replaying their descriptors.
-next_action (`:1506`): *"Add a fixture-backed groupObjects API and document z-order semantics."*
+`docs/backlog.yml:1466` — status `implemented`. `slide.groupObjects(objectNames,
+options?)` groups already-authored objects without replaying their descriptors.
 
-**Dependency:** ~~blocked on **D5**~~ — **unblocked**: default names are now
-unique slide-wide (Phase 2), so a name-keyed API can address every object.
+**Dependency:** ~~blocked on **D5**~~ — was unblocked by Phase 2 (default names unique
+slide-wide, so a name-keyed API can address every object).
 
-Design questions to settle in the entry before coding: wrapper z-order (proposal:
-the highest selected object's former slot); auto-bounds when no frame is given
-(reuse `resolveObjBounds`, `src/gen-xml.ts:502`); behaviour for missing/duplicate
-names (fail, per the footgun rule); and which kinds are accepted — existing groups
-must be, for nested logical groups.
+Every design question below was settled as proposed except the failure mode, which the
+footgun rule sharpened from "warn" to "throw":
+- **Wrapper z-order** — the topmost selected object's former slot. **Done.**
+- **Auto-bounds when no frame is given** — deferred to `gen-xml`, not reusing
+  `resolveObjBounds` directly: passing `x/y/w/h` through unset already makes the renderer
+  auto-size the group, so `groupObjects` does no bounds math of its own. **Done.**
+- **Missing/duplicate/ungroupable names** — **throw**, not warn (see Phase 5 notes):
+  each alternative leaves the object silently loose on the slide. **Done.**
+- **Accepted kinds** — text/shape, image, connector, and group (nesting); charts, media,
+  tables, placeholders throw. **Done.**
 
 ---
 
@@ -301,7 +324,7 @@ must be, for nested logical groups.
   as of Phase 3.)
 
 **Existing coverage (do not duplicate):** `test/regression/group-shapes.test.js`
-(18 cases: identity xfrm, auto-bounds, unique ids, nested, unsupported-child warn,
+(25 cases: identity xfrm, auto-bounds, unique ids, nested, unsupported-child warn,
 plus Phase 2's cross-boundary name uniqueness, group-aware duplicate warning,
 per-process group-name determinism, per-slide/inside-out group numbering, and the
 write→read round-trip; plus Phase 3's partial-frame warn+fallback, complete-frame
@@ -310,9 +333,13 @@ fallback, and a partial-frame write→read round-trip; plus Phase 4's connector 
 a grouped shape, animation targeting a nested group child, unresolvable-animation-target
 warning, and top-level-wins-a-duplicate-name resolution — the first two assert against
 the `cNvPr` ids parsed out of the emitted XML, which is what guards the id-allocation
-mirror described in the Phase 4 notes),
-schema fixtures `flat-group` / `nested-group` / `group-cross-references`
-(`test/schema.test.js:2734`, `:2760`, `:2782`),
+mirror described in the Phase 4 notes; plus Phase 5's `groupObjects` — wrap the named
+objects leaving unnamed ones loose, z-order preserved regardless of naming order, wrapper
+at the topmost member's slot, nesting an existing group, the throw matrix, no-partial-lift
+on a bad name, and a grouped-after-the-fact write→read round-trip),
+schema fixtures `flat-group` / `nested-group` / `group-cross-references` /
+`group-existing-objects`
+(`test/schema.test.js:2734`, `:2760`, `:2782`, `:2810`),
 grouped + nested measured-fit (`test/regression/measured-fit-dist.test.mjs:158`,
 `:173`), and rich read-side coverage against `group-transform.pptx`.
 
@@ -364,15 +391,19 @@ resolve, not just that the deck opens. The remaining §3 items are scope questio
 for `addGroup` (connector children, group fill/line/effects), not defects of this
 shape.
 
-**Phase 5 — `groupObjects()`.** §4, fixture-backed, only after Phase 2.
+**Phase 5 — `groupObjects()`.** §4, fixture-backed, only after Phase 2. **Done** —
+see the Phase 5 notes at the top. Landed with seven regression tests, a schema fixture
+(`group-existing-objects`), a CHANGELOG entry, TSDoc on `Slide.groupObjects`, the backlog
+entry flipped to `implemented`, and a PowerPoint desktop smoke pass that checked a nested
+lift opens and its connector still binds, not just that the deck opens.
 
 **Phase 6 — cover and document.** Write-side rotate/flip/lock tests, a groups
 docs page, an `addGroup` demo, and the `upstream-issue-307` cleanup. Fold the
 `measure-fit.ts` invariant comment (§1) in here.
 
 Phases 1–4 are independent of each other and can land in any order; only Phase 5
-has a hard dependency (on Phase 2). Phases 1–4 have landed; Phase 5 is unblocked
-and is next, with Phase 6 (cover and document) after it.
+had a hard dependency (on Phase 2). Phases 1–5 have landed; Phase 6 (cover and
+document) is the only one outstanding.
 
 ---
 
@@ -403,6 +434,8 @@ not both. This document is a working plan, not a substitute for either.
   `dn-<slug>` entry tagging `constructs: [group-scale]` (D1) or
   `[group-rot-flip]` (write-side tests) — which would make those two vocabulary
   keys used for the first time.
-- **`dn-group-existing-slide-objects`**: on implementing, set `status:
-  implemented`, `last_reviewed` to that date, `next_action: none`, and update
-  `current_project_notes` / `evidence.local_files`.
+- **`dn-group-existing-slide-objects`**: **done** (Phase 5) — `status: implemented`,
+  `last_reviewed: 2026-07-17`, `next_action: none`, `current_project_notes` carries the
+  IMPLEMENTED note, and `evidence` records the `group-existing-objects` fixture with a
+  clean validator + PowerPoint pass. No `constructs` tag: the API emits an ordinary
+  `<p:grpSp>`, not a new DrawingML detector key.

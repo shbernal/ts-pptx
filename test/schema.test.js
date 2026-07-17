@@ -2808,6 +2808,24 @@ export default [
 		},
 	},
 	{
+		// groupObjects(): fold already-authored top-level objects into a <p:grpSp> after the fact.
+		// The emitted tree is a normal group, so this proves the lift produces schema-valid XML —
+		// notably that ids stay unique once the wrapper joins the walk, and that a connector bound to
+		// a now-grouped shape still resolves. One member stays loose to prove partial selection works.
+		name: 'group existing slide objects after the fact (groupObjects)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, fill: { color: 'CC0000' }, objectName: 'Header' })
+				s.addText('Caption', { x: 1.2, y: 2.2, w: 1.6, h: 0.6, color: 'FFFFFF', objectName: 'Caption' })
+				s.addShape('rect', { x: 5, y: 1, w: 1, h: 1, fill: { color: '00CC00' }, objectName: 'Loose' })
+				s.addConnector({ type: 'straight', x1: 3, y1: 1.5, x2: 5, y2: 1.5, startShape: 'Header', endShape: 'Loose' })
+				s.groupObjects(['Header', 'Caption'], { objectName: 'Banner' })
+			})
+			await expectNoSchemaErrors(buf, 'group-existing-objects')
+		},
+	},
+	{
 		// upstream-pr-1447: native (legacy ISO/IEC 29500 §13) PowerPoint comments. One author,
 		// one comment: assert the comment part, the commentAuthors part, both Content-Types
 		// Overrides, and the slide->comments / presentation->commentAuthors relationships.

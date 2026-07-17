@@ -493,4 +493,200 @@ defineRegressionSuite('Group shapes', [
 			assert(cxn.includes('<a:endCxn id="2" idx="0"/>'), `expected the top-level "dupe" (id 2) to win; got: ${cxn}`)
 		},
 	},
+
+	// --- groupObjects(): group objects already on the slide, addressed by objectName ---
+	{
+		name: 'groupObjects wraps the named objects in one group, leaving unnamed ones top-level',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, fill: { color: 'CC0000' }, objectName: 'Box' })
+				s.addText('Hi', { x: 3.5, y: 1, w: 1, h: 1, objectName: 'Caption' })
+				s.addText('Loose', { x: 6, y: 1, w: 1, h: 1, objectName: 'Loose' })
+				s.groupObjects(['Box', 'Caption'], { objectName: 'Branding' })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert((xml.match(/<p:grpSp>/g) || []).length === 1, 'expected exactly one <p:grpSp>; got: ' + xml)
+			const grp = xml.match(/<p:grpSp>[\s\S]*?<\/p:grpSp>/)[0]
+			assert(/name="Branding"/.test(grp), 'expected the group objectName; got: ' + grp)
+			assert(
+				/name="Box"/.test(grp) && /name="Caption"/.test(grp),
+				'expected both named objects inside the group; got: ' + grp
+			)
+			assert(!/name="Loose"/.test(grp), 'expected the unnamed object to stay outside the group; got: ' + grp)
+			assert(/name="Loose"/.test(xml), 'expected the unnamed object to still be on the slide; got: ' + xml)
+			// Frame omitted -> auto-bounds over the members: x=1..4.5in, y=1..2in (same rule as addGroup).
+			const m = grp.match(
+				/<a:off x="(\d+)" y="(\d+)"\/><a:ext cx="(\d+)" cy="(\d+)"\/><a:chOff x="(\d+)" y="(\d+)"\/><a:chExt cx="(\d+)" cy="(\d+)"\/>/
+			)
+			assert(m, 'expected the group xfrm; got: ' + grp)
+			assertEqual(m.slice(1, 5).join(','), '914400,914400,3200400,914400', 'auto-bounds over the grouped members')
+			assertEqual(m.slice(5, 9).join(','), m.slice(1, 5).join(','), 'identity chOff/chExt == off/ext')
+		},
+	},
+	{
+		name: 'groupObjects keeps slide z-order regardless of the order names are passed',
+		fn: async () => {
+			// Naming order is a selection, not a restack: PowerPoint grouping never reorders shapes,
+			// so passing ['Top','Bottom'] must not lift Top above Bottom inside the group.
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape('rect', { x: 1, y: 1, w: 1, h: 1, objectName: 'Bottom' })
+				s.addShape('rect', { x: 1.5, y: 1, w: 1, h: 1, objectName: 'Top' })
+				s.groupObjects(['Top', 'Bottom'])
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const order = (xml.match(/name="(Bottom|Top)"/g) || []).map((s) => s.match(/"(.*)"/)[1])
+			assertEqual(order.join(','), 'Bottom,Top', 'children must keep their existing z-order, not the naming order')
+		},
+	},
+	{
+		name: 'the group takes the topmost member former slot in the slide z-order',
+		fn: async () => {
+			// Under, [A, C] grouped, Over: the wrapper belongs where C was — above Under and below
+			// Over. B sits between the members and must surface above the group, not vanish under it.
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape('rect', { x: 1, y: 1, w: 1, h: 1, objectName: 'Under' })
+				s.addShape('rect', { x: 2, y: 1, w: 1, h: 1, objectName: 'A' })
+				s.addShape('rect', { x: 3, y: 1, w: 1, h: 1, objectName: 'B' })
+				s.addShape('rect', { x: 4, y: 1, w: 1, h: 1, objectName: 'C' })
+				s.addShape('rect', { x: 5, y: 1, w: 1, h: 1, objectName: 'Over' })
+				s.groupObjects(['A', 'C'], { objectName: 'Wrapper' })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const order = (xml.match(/name="(Under|A|B|C|Over|Wrapper)"/g) || []).map((s) => s.match(/"(.*)"/)[1])
+			// Wrapper is emitted before its own children, so it stands in for the A,C pair here.
+			assertEqual(order.join(','), 'Under,B,Wrapper,A,C,Over', 'wrapper sits at the topmost member (C) former slot')
+		},
+	},
+	{
+		name: 'groupObjects can nest an existing group into a larger logical group',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addGroup([{ rect: { x: 1, y: 1, w: 1, h: 1 } }], { objectName: 'Inner' })
+				s.addText('Label', { x: 3, y: 1, w: 1, h: 1, objectName: 'Label' })
+				s.groupObjects(['Inner', 'Label'], { objectName: 'Outer' })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const outer = xml.match(/<p:grpSp>[\s\S]*<\/p:grpSp>/)[0]
+			assert(
+				(xml.match(/<p:grpSp>/g) || []).length === 2,
+				'expected the outer group to wrap the inner one; got: ' + xml
+			)
+			assert(
+				outer.indexOf('name="Outer"') < outer.indexOf('name="Inner"'),
+				'expected Inner nested inside Outer; got: ' + outer
+			)
+			// Every id in the tree must still be unique once the wrapper joins the walk.
+			const ids = (xml.match(/<p:cNvPr id="(\d+)"/g) || []).map((s) => s.match(/"(\d+)"/)[1])
+			assertEqual(
+				new Set(ids).size,
+				ids.length,
+				'expected unique cNvPr ids across the nested tree; got: ' + ids.join(',')
+			)
+		},
+	},
+	{
+		name: 'groupObjects throws rather than silently leaving an object loose on the slide',
+		fn: async () => {
+			// Each of these leaves the caller believing an object was grouped when it was not — the
+			// exact footgun the throw exists to prevent. The messages must tell the cases apart.
+			const grouped = (fn) => {
+				const origWarn = console.warn
+				console.warn = () => {}
+				try {
+					return build((p) => fn(p.addSlide()))
+				} finally {
+					console.warn = origWarn
+				}
+			}
+			const rejects = async (fn, re, label) => {
+				let err = null
+				try {
+					await grouped(fn)
+				} catch (ex) {
+					err = ex
+				}
+				assert(err, `expected ${label} to throw`)
+				assert(re.test(err.message), `expected ${label} message to match ${re}; got: ${err.message}`)
+			}
+
+			await rejects(
+				(s) => {
+					s.addShape('rect', { x: 1, y: 1, w: 1, h: 1, objectName: 'Real' })
+					s.groupObjects(['Ghost'])
+				},
+				/no top-level object on this slide has that objectName/,
+				'an unmatched name'
+			)
+			await rejects(
+				(s) => {
+					s.addGroup([{ rect: { x: 1, y: 1, w: 1, h: 1, objectName: 'Child' } }])
+					s.groupObjects(['Child'])
+				},
+				/already inside a group/,
+				'a name that is already grouped'
+			)
+			await rejects(
+				(s) => {
+					s.addShape('rect', { x: 1, y: 1, w: 1, h: 1, objectName: 'Dupe' })
+					s.addShape('rect', { x: 2, y: 1, w: 1, h: 1, objectName: 'Dupe' })
+					s.groupObjects(['Dupe'])
+				},
+				/ambiguous/,
+				'an ambiguous name'
+			)
+			await rejects(
+				(s) => {
+					s.addTable([[{ text: 'a' }]], { x: 1, y: 1, w: 2, h: 1, objectName: 'Grid' })
+					s.groupObjects(['Grid'])
+				},
+				/grouping a table is not supported yet/,
+				'an ungroupable kind'
+			)
+			await rejects((s) => s.groupObjects([]), /non-empty array/, 'an empty selection')
+		},
+	},
+	{
+		name: 'a failed groupObjects leaves the slide exactly as it was',
+		fn: async () => {
+			// Resolution happens before any move, so a bad name in the list cannot half-group the rest.
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape('rect', { x: 1, y: 1, w: 1, h: 1, objectName: 'Good' })
+				try {
+					s.groupObjects(['Good', 'Ghost'])
+				} catch {
+					/* expected */
+				}
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(!/<p:grpSp>/.test(xml), 'expected no partial group to be emitted; got: ' + xml)
+			assert(/name="Good"/.test(xml), 'expected the resolvable object to stay on the slide; got: ' + xml)
+		},
+	},
+	{
+		name: 'write -> read round-trip: grouped-after-the-fact objects read back inside the group',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape('rect', { x: 1, y: 1, w: 1, h: 1, objectName: 'Box' })
+				s.addText('Hi', { x: 2, y: 1, w: 1, h: 1, objectName: 'Caption' })
+				s.groupObjects(['Box', 'Caption'], { objectName: 'Branding' })
+			})
+			const [slide] = (await Presentation.load(buf)).slides
+			assertEqual(slide.shapes.length, 1, 'expected a single top-level group after grouping')
+			const [group] = slide.shapes
+			assertEqual(group.name, 'Branding', 'group name')
+			assertEqual(
+				(group.shapes || []).map((sh) => sh.name).join(','),
+				'Box,Caption',
+				'expected both members to read back as children of the group'
+			)
+			// (The members' geometry is unchanged by grouping; that is asserted against the emitted
+			// xfrm above, since the read model exposes `xfrm()` as a raw element rather than as x/y/w/h.)
+		},
+	},
 ])

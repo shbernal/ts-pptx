@@ -1467,8 +1467,8 @@ items:
     source: downstream
     type: downstream-need
     first_seen: 2026-07-16
-    last_reviewed: 2026-07-16
-    status: target
+    last_reviewed: 2026-07-17
+    status: implemented
     priority: p2
     target_area:
       - missing-pptx-feature
@@ -1492,18 +1492,37 @@ items:
       auto-compute bounds when no explicit frame is supplied, reject or clearly warn
       for unsupported object kinds, and report missing or duplicate names. Existing
       group objects should be accepted so consumers can build nested logical groups.
+
+      IMPLEMENTED (2026-07-17, GROUPING-PLAN.md Phase 5): `slide.groupObjects(objectNames,
+      options?)` lifts the named top-level objects into one `<p:grpSp>` in place, sharing
+      the group render-object builder (`makeGroupObject`) with `addGroup()` so both name
+      and frame a group identically — including deferring the all-or-nothing auto-bounds to
+      `gen-xml` (passing `x/y/w/h` through unset is what makes the frame the children's
+      bounding box, so neither entry point does bounds math). Two z-order rules keep the
+      lift visually a no-op: children are ordered by their existing slide z-order (not the
+      naming order, which would restack the slide), and the wrapper takes the topmost
+      member's former slot. Departing from the proposal's "reject or clearly warn": every
+      failure THROWS (missing name, name already inside another group, ambiguous duplicate
+      name, ungroupable kind, empty/duplicate input) — per AGENTS.md's footgun rule, since
+      each alternative silently leaves the intended object loose on the slide. Resolution
+      runs fully before any move, so a bad name leaves the slide untouched. Accepted kinds:
+      text/shape, image, connector, and group (for nesting); charts, media, tables, and
+      placeholders throw. Verified in desktop PowerPoint (opens without repair, unique ids
+      across the nested tree, a connector bound to a lifted member still resolves).
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
         - src/slide.ts
         - src/gen-objects.ts
-        - src/core-interfaces.ts
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
+        - test/regression/group-shapes.test.js
+        - test/schema.test.js
+      schema_fixture: group-existing-objects
+      validator_result: pass
+      powerpoint_result: opens cleanly; nested tree, unique ids, connector bound to a lifted member all resolve
       spec_refs: []
-    next_action: Add a fixture-backed groupObjects API and document z-order semantics.
+    next_action: none
   - id: dn-autofit-shrink-horizontal
     source: downstream
     type: downstream-need

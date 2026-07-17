@@ -115,6 +115,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`slide.groupObjects(objectNames, options?)` groups objects already on the slide by
+  `objectName`.** The counterpart to `addGroup()` for slides composed from independent
+  renderers: those renderers each emit finished objects with stable names, so grouping
+  them after the fact previously meant re-authoring every child descriptor through
+  `addGroup()`. `groupObjects()` instead lifts the named top-level objects into one
+  `<p:grpSp>` in place. Grouping is visually a no-op — children keep their slide-absolute
+  geometry, their ids, their rels, and their relative z-order; the wrapper takes the
+  topmost member's former slot in the stack, and the children's order follows the existing
+  z-order rather than the order they are named (naming order is a selection, not a
+  restack). The frame is all-or-nothing exactly as with `addGroup()` (omit `x/y/w/h` for
+  auto-bounds over the members). Existing groups may be named, so consumers can nest logical
+  groups. Every failure throws rather than warns — a name that matches nothing, matches an
+  object already inside another group, is ambiguous across two same-named objects, or names
+  an ungroupable kind (charts, media, tables, placeholders) — because the alternative is
+  leaving the intended object silently loose on the slide. Verified in desktop PowerPoint:
+  the nested tree opens without repair, ids stay unique, and a connector bound to a member
+  still resolves after the lift.
+
 - **Measured `fit:'shrink'` now shrinks non-wrapping text that overflows horizontally.**
   The measured-fit pass already baked a real `fontScale` onto `<a:normAutofit>` for
   vertical overflow (text taller than its box) when a font's metrics are registered via
