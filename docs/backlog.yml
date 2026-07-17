@@ -1742,3 +1742,144 @@ items:
         - ECMA-376 Part 1 §20.1.9.4 arcTo / CT_Path2DArcTo (wR/hR/stAng/swAng, no explicit end point)
         - ECMA-376 Part 4 §19.1.2.1 v:arc (angles computed on a circle, then scaled anisotropically)
     next_action: None — closed. A computed arc end point was considered and deliberately not built (no consumer needs one; the convention is unpinned). Reopen only if a consumer needs to reason about the path rather than re-emit it, and author the elliptical-arc PowerPoint oracle above before writing the helper.
+
+  - id: fork-animation-spid-index-unvalidated
+    source: fork:src/gen-xml.ts
+    type: fork-internal-proposal
+    first_seen: 2026-07-17
+    last_reviewed: 2026-07-17
+    status: deferred
+    priority: p2
+    target_area:
+      - powerpoint-repair
+      - invalid-ooxml
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: resolveAnimationSpid validates shapeIndex only as >= 0, so an out-of-range index emits a dangling p:spid (0x80070570 repair source)
+    current_project_notes: |
+      Carried forward from GROUPING-PLAN.md §3 ("Adjacent risk"), which is being
+      removed now that all six grouping phases have landed. Recorded here so the
+      analysis is not lost.
+
+      resolveAnimationSpid (src/gen-xml.ts:2846-2847) accepts any
+      `anim.shapeIndex >= 0` and emits `spid = shapeIndex + 2` with no upper-bound
+      check. An index past the last top-level object therefore targets a
+      `<p:spid>` that names no shape on the slide — the dangling-spid class the
+      powerpoint-desktop-smoke skill names as a 0x80070570 ("repair") source.
+      Distinct from the objectName path, which Phase 4 already un-silenced around
+      this code (it warns + drops on an unresolvable name); the numeric-index path
+      was deliberately left because it is a separate input-validation defect.
+
+      NOT a grouping defect — it predates grouping and fires for any slide. Kept
+      out of the grouping phases on purpose (GROUPING-PLAN §3): folding it in would
+      have widened Phase 4's scope past name resolution.
+
+      FIX (one line, per the plan): validate `shapeIndex` against the resolved
+      shape-id set rather than only `>= 0` — `collectSlideShapeIds` already gives
+      the id map, so a past-end index can warn + drop exactly like an unresolvable
+      objectName does today. Add a regression test asserting an out-of-range
+      shapeIndex warns and emits no dangling spid.
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/gen-xml.ts:2846
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: validate shapeIndex against the resolved shape-id set (collectSlideShapeIds); warn + drop on an out-of-range index and add a regression test
+
+  - id: fork-slide-number-placeholder-hardcoded-id
+    source: fork:src/gen-xml.ts
+    type: fork-internal-proposal
+    first_seen: 2026-07-17
+    last_reviewed: 2026-07-17
+    status: deferred
+    priority: p3
+    target_area:
+      - invalid-ooxml
+      - powerpoint-repair
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: slide-number placeholder hardcodes cNvPr id=25; group children allocate ids past _slideObjects.length so a grouped slide can collide with it
+    current_project_notes: |
+      Carried forward from GROUPING-PLAN.md §3, which is being removed now that all
+      six grouping phases have landed.
+
+      src/gen-xml.ts:1393 emits the slide-number placeholder with a hardcoded
+      `<p:cNvPr id="25" …>`. Object ids are otherwise allocated from
+      `_slideObjects.length` upward, and group children allocate ids *past* that
+      length (childIdxAlloc, seeded beyond the last top-level id), so a slide with
+      groups reaches id 25 sooner than a flat slide with the same object count. A
+      sufficiently populated grouped slide can therefore emit id 25 twice — a
+      duplicate `<p:cNvPr>` id, which PowerPoint repairs.
+
+      PRE-EXISTING and hard to hit: 24 top-level objects on a single slide already
+      suffices to collide even without groups, so this is not a grouping-introduced
+      defect — grouping only lowers the object count needed to reach it. Left out
+      of the grouping phases as strictly out of scope.
+
+      FIX: allocate the slide-number placeholder's id from the same monotonic
+      counter as every other object on the slide instead of the literal 25, so it
+      cannot alias a shape or group-child id regardless of slide population.
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/gen-xml.ts:1393
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: allocate the slide-number placeholder cNvPr id from the slide's monotonic id counter instead of the hardcoded 25
+
+  - id: fork-chart-counter-nondeterminism
+    source: fork:src/gen-objects.ts
+    type: fork-internal-proposal
+    first_seen: 2026-07-17
+    last_reviewed: 2026-07-17
+    status: deferred
+    priority: p3
+    target_area:
+      - chart-ooxml
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: _chartCounter is a never-reset module global, so two identical presentations built in one process emit different chart part filenames (same input, different bytes)
+    current_project_notes: |
+      Carried forward from GROUPING-PLAN.md D6, which is being removed now that all
+      six grouping phases have landed. D6's user-visible half — group names leaking
+      across presentations — was fixed in Phase 2 by moving to a per-slide counter.
+      `_chartCounter` has the same module-global shape but could NOT copy that fix,
+      so it is recorded here rather than absorbed.
+
+      `_chartCounter` (src/gen-objects.ts:80) is a module-level `let` incremented at
+      `++_chartCounter` (:457) and never reset. Two identical, independent
+      presentations built in one process get different chart part filenames
+      (`ppt/charts/chart1.xml` vs `chart2.xml`) — same input, different bytes.
+
+      Why the per-slide fix does not transfer: chart part filenames must be unique
+      per *presentation* (they live in one package), but `addChartDefinition` only
+      receives the `Slide`, and a Slide holds no back-reference to its Presentation.
+      A per-slide counter would collide across slides; the correct scope is
+      presentation-wide.
+
+      Internal-only, unlike the group-name half: chart part filenames are not
+      user-visible in the Selection Pane, only in the package zip. Still a
+      reproducibility defect (identical decks should be byte-identical).
+
+      FIX: thread a presentation-scoped counter (or reset `_chartCounter` per
+      `writeFile`/presentation) through `Slide` to `addChartDefinition`, mirroring
+      the per-slide object-name counter Phase 2 introduced.
+    constructs: []
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/gen-objects.ts:80
+        - src/gen-objects.ts:457
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: thread a presentation-scoped chart counter through Slide (or reset per presentation) so identical decks emit identical chart part filenames
