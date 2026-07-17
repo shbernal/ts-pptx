@@ -1388,9 +1388,16 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 		// Set some defaults (done here b/c SlideNumber canbe added to masters or slides and has numerous entry points)
 		if (!slide._slideNumberProps.align) slide._slideNumberProps.align = 'left'
 
+		// Allocate this placeholder's <p:cNvPr> id from the same monotonic counter as every other
+		// shape on the slide (top-level objects took `idx + 2`; group children advanced `childIdxAlloc`
+		// past that). A hardcoded id here (formerly 25) aliases a shape or group-child id once a slide
+		// holds enough objects — a duplicate `<p:cNvPr>` id PowerPoint repairs — so take the next free
+		// slot instead. `childIdxAlloc` is the next unused index after the walk above; its id is `+ 2`.
+		const slideNumberId = childIdxAlloc++ + 2
+
 		strSlideXml += '<p:sp>'
 		strSlideXml += ' <p:nvSpPr>'
-		strSlideXml += '  <p:cNvPr id="25" name="Slide Number Placeholder 0"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr>'
+		strSlideXml += `  <p:cNvPr id="${slideNumberId}" name="Slide Number Placeholder 0"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr>`
 		strSlideXml += '  <p:nvPr><p:ph type="sldNum" sz="quarter" idx="4294967295"/></p:nvPr>'
 		strSlideXml += ' </p:nvSpPr>'
 		strSlideXml += ' <p:spPr>'

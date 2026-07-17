@@ -98,6 +98,70 @@ defineRegressionSuite('Object identity', 'legacy bug-21', [
 		},
 	},
 	{
+		// fork-slide-number-placeholder-hardcoded-id: the slide-number placeholder formerly emitted a
+		// hardcoded `<p:cNvPr id="25">`. Object ids are otherwise allocated `idx + 2` from
+		// `_slideObjects`, so a slide with 24 top-level objects gives its 24th object (idx 23) id 25 too
+		// — a duplicate cNvPr id PowerPoint repairs (0x80070570). The id now comes from the same
+		// monotonic counter, so it cannot alias any shape regardless of slide population.
+		name: 'slide-number placeholder id does not collide with a populous slide (formerly hardcoded 25)',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const slide = p.addSlide()
+				slide.slideNumber = { x: 0.5, y: '90%' }
+				for (let i = 0; i < 24; i++) {
+					// idx 0..23 -> ids 2..25; object 23 lands on the old hardcoded slide-number id 25
+					slide.addShape(p.ShapeType.rect, { x: 0.2, y: 0.2 + i * 0.1, w: 1, h: 0.08 })
+				}
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const ids = xmlOpeningTags(xml, 'p:cNvPr').map((tag) => Number(xmlAttributes(tag).id))
+			assert(new Set(ids).size === ids.length, `expected unique cNvPr ids; got duplicates in: ${ids.join(', ')}`)
+
+			const snTag = xmlOpeningTags(xml, 'p:cNvPr').find(
+				(tag) => xmlAttributes(tag).name === 'Slide Number Placeholder 0'
+			)
+			assert(snTag, 'expected a slide-number placeholder cNvPr; got: ' + xml)
+			const snId = Number(xmlAttributes(snTag).id)
+			assert(
+				snId === Math.max(...ids),
+				`expected the slide-number id to be the highest (next free) id; got ${snId} among ${ids.join(', ')}`
+			)
+		},
+	},
+	{
+		// Group children allocate ids PAST `_slideObjects.length`, so the slide-number id must be taken
+		// after the whole walk (top-level objects + group children), not from the top-level count alone.
+		name: 'slide-number placeholder id is allocated past group-child ids',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const slide = p.addSlide()
+				slide.slideNumber = { x: 0.5, y: '90%' }
+				slide.addShape(p.ShapeType.rect, { x: 0.2, y: 0.2, w: 1, h: 0.4 }) // idx 0 -> id 2
+				// group is idx 1 -> id 3; its children seed past length (2) -> ids 4, 5, 6
+				slide.addGroup([
+					{ rect: { x: 1, y: 1, w: 1, h: 1 } },
+					{ rect: { x: 2, y: 1, w: 1, h: 1 } },
+					{ rect: { x: 3, y: 1, w: 1, h: 1 } },
+				])
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const ids = xmlOpeningTags(xml, 'p:cNvPr').map((tag) => Number(xmlAttributes(tag).id))
+			assert(
+				new Set(ids).size === ids.length,
+				`expected unique cNvPr ids across the nested tree; got: ${ids.join(', ')}`
+			)
+
+			const snTag = xmlOpeningTags(xml, 'p:cNvPr').find(
+				(tag) => xmlAttributes(tag).name === 'Slide Number Placeholder 0'
+			)
+			assert(snTag, 'expected a slide-number placeholder cNvPr; got: ' + xml)
+			assert(
+				Number(xmlAttributes(snTag).id) === Math.max(...ids),
+				`expected the slide-number id past every group-child id; got ${xmlAttributes(snTag).id} among ${ids.join(', ')}`
+			)
+		},
+	},
+	{
 		name: 'altText is emitted as cNvPr descr for text, shapes, tables, and media',
 		fn: async () => {
 			const { zip } = await build((p) => {

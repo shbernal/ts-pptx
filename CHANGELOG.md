@@ -67,6 +67,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The slide-number placeholder no longer emits a hardcoded `cNvPr` id that can collide.**
+  The placeholder was written with a literal `<p:cNvPr id="25">`, while every other shape
+  allocates its id `idx + 2` from the slide's objects and group children allocate ids past
+  that range — so a sufficiently populated slide (24 top-level objects is enough on its own;
+  groups reach it sooner) emitted id 25 twice, a duplicate `<p:cNvPr>` id PowerPoint reports
+  as a repair (`0x80070570`). The placeholder now takes its id from the same monotonic
+  counter as every other object (the next free slot after the whole object/group walk), so it
+  cannot alias a shape or group-child id regardless of slide population.
 - **An out-of-range animation `shapeIndex` now warns and drops the effect instead of
   emitting a dangling target.** `addAnimation({ shapeIndex })` validated only that the
   index was `>= 0`, then emitted `spid = shapeIndex + 2` with no upper bound — so an index

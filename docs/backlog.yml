@@ -1808,44 +1808,55 @@ items:
     type: fork-internal-proposal
     first_seen: 2026-07-17
     last_reviewed: 2026-07-17
-    status: deferred
+    status: implemented
     priority: p3
     target_area:
       - invalid-ooxml
       - powerpoint-repair
     applies_to_current_project: yes
     non_target_reasons: []
-    summary: slide-number placeholder hardcodes cNvPr id=25; group children allocate ids past _slideObjects.length so a grouped slide can collide with it
+    summary: slide-number placeholder hardcoded cNvPr id=25; group children allocate ids past _slideObjects.length so a grouped slide could collide with it
     current_project_notes: |
       Carried forward from GROUPING-PLAN.md §3, which is being removed now that all
       six grouping phases have landed.
 
-      src/gen-xml.ts:1393 emits the slide-number placeholder with a hardcoded
+      src/gen-xml.ts:1393 emitted the slide-number placeholder with a hardcoded
       `<p:cNvPr id="25" …>`. Object ids are otherwise allocated from
       `_slideObjects.length` upward, and group children allocate ids *past* that
       length (childIdxAlloc, seeded beyond the last top-level id), so a slide with
       groups reaches id 25 sooner than a flat slide with the same object count. A
-      sufficiently populated grouped slide can therefore emit id 25 twice — a
+      sufficiently populated grouped slide could therefore emit id 25 twice — a
       duplicate `<p:cNvPr>` id, which PowerPoint repairs.
 
       PRE-EXISTING and hard to hit: 24 top-level objects on a single slide already
-      suffices to collide even without groups, so this is not a grouping-introduced
+      sufficed to collide even without groups, so this was not a grouping-introduced
       defect — grouping only lowers the object count needed to reach it. Left out
       of the grouping phases as strictly out of scope.
 
-      FIX: allocate the slide-number placeholder's id from the same monotonic
-      counter as every other object on the slide instead of the literal 25, so it
-      cannot alias a shape or group-child id regardless of slide population.
+      IMPLEMENTED (2026-07-17): the placeholder id is now taken from the same
+      monotonic counter as every other shape. `childIdxAlloc` (the counter that seeds
+      group-child ids past the top-level `idx + 2` range) holds the next unused index
+      after the whole object/group walk, so STEP 4 allocates `childIdxAlloc++ + 2` —
+      the next free slot — instead of the literal 25. It therefore cannot alias a
+      shape or group-child id at any slide population, and the derivation is identical
+      for masters/layouts (same `_slideObjects`/`childIdxAlloc`). Two regressions in
+      test/regression/object-identity.test.js: a flat 24-object slide (the old id 25
+      aliased the object at idx 23) now emits unique ids with the placeholder as the
+      highest/next-free id, and a grouped slide proves the id lands past every
+      group-child id. No test pinned the literal 25; full suite green (1149
+      regression/read/schema tests), typecheck clean.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
         - src/gen-xml.ts:1393
+        - test/regression/object-identity.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: allocate the slide-number placeholder cNvPr id from the slide's monotonic id counter instead of the hardcoded 25
+    next_action: none
 
   - id: fork-chart-counter-nondeterminism
     source: fork:src/gen-objects.ts
