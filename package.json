@@ -105,8 +105,9 @@
 		"docs:new": "python3 scripts/docs-new.py",
 		"docs:api": "node scripts/docs-api.mjs",
 		"docs:llms": "node scripts/generate-llms-docs.mjs",
+		"docs:index": "python3 scripts/docs-index.py",
 		"docs:check": "pnpm run docs:api && python3 scripts/docs-check.py",
-		"docs:prepare": "pnpm run docs:api && pnpm run docs:llms",
+		"docs:prepare": "pnpm run docs:api && pnpm run docs:llms && pnpm run docs:index",
 		"docs:dev": "pnpm run docs:prepare && vitepress dev docs",
 		"docs:build": "pnpm run docs:prepare && python3 scripts/docs-check.py && vitepress build docs",
 		"docs:preview": "vitepress preview docs"
