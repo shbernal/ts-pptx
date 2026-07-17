@@ -1,4 +1,5 @@
-import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
+import { Presentation } from '../../dist/read.js'
+import { defineRegressionSuite, build, readEntry, assert, assertEqual } from '../helpers.js'
 
 // 1x1 transparent PNG
 const PNG_DATA =
@@ -124,6 +125,120 @@ defineRegressionSuite('Group shapes', [
 			// all cNvPr ids unique across nesting depth
 			const ids = (xml.match(/<p:cNvPr id="(\d+)"/g) || []).map((s) => Number(s.match(/"(\d+)"/)[1]))
 			assert(ids.length === new Set(ids).size, 'expected unique cNvPr ids across nesting; got: ' + ids.join(','))
+		},
+	},
+	{
+		name: 'default object names stay unique across the group boundary',
+		fn: async () => {
+			// Group children are spliced out of the slide's object list, so a name counter derived
+			// from that list never advanced past them and the later top-level shape reused the
+			// grouped child's `Shape 0` in the Selection Pane.
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (msg) => warnings.push(String(msg))
+			let xml
+			try {
+				const { zip } = await build((p) => {
+					const s = p.addSlide()
+					s.addGroup([{ rect: { x: 1, y: 1, w: 1, h: 1 } }])
+					s.addShape('rect', { x: 3, y: 1, w: 1, h: 1 })
+					s.addText('Hi', { x: 5, y: 1, w: 1, h: 1 })
+					s.addImage({ data: PNG_DATA, x: 7, y: 1, w: 1, h: 1 })
+				})
+				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			} finally {
+				console.warn = origWarn
+			}
+			const names = (xml.match(/<p:cNvPr id="\d+" name="([^"]*)"/g) || []).map((s) => s.match(/name="([^"]*)"/)[1])
+			assert(names.length === new Set(names).size, 'expected unique objectNames slide-wide; got: ' + names.join(','))
+			assert(
+				!warnings.some((w) => /duplicate objectName/.test(w)),
+				'expected no duplicate-objectName warning; got: ' + JSON.stringify(warnings)
+			)
+			// grouped child takes `Shape 0`, so the later top-level shape must take `Shape 1`
+			assert(names.includes('Shape 0') && names.includes('Shape 1'), 'expected Shape 0 + Shape 1; got: ' + names)
+		},
+	},
+	{
+		name: 'the duplicate-objectName warning sees names inside groups',
+		fn: async () => {
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (msg) => warnings.push(String(msg))
+			try {
+				await build((p) => {
+					const s = p.addSlide()
+					s.addGroup([{ rect: { x: 1, y: 1, w: 1, h: 1, objectName: 'Dupe' } }])
+					s.addShape('rect', { x: 3, y: 1, w: 1, h: 1, objectName: 'Dupe' })
+				})
+			} finally {
+				console.warn = origWarn
+			}
+			assert(
+				warnings.some((w) => /duplicate objectName/.test(w) && /Dupe/.test(w)),
+				'expected a duplicate warning for a name colliding across the group boundary; got: ' + JSON.stringify(warnings)
+			)
+		},
+	},
+	{
+		name: 'identical presentations built in one process get identical group names',
+		fn: async () => {
+			// A module-global group counter made `Group N` depend on how many groups the *process*
+			// had built, so the same deck emitted different bytes on the second build.
+			const names = []
+			for (let run = 0; run < 3; run++) {
+				const { zip } = await build((p) => {
+					p.addSlide().addGroup([{ rect: { x: 1, y: 1, w: 1, h: 1 } }])
+				})
+				const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+				names.push((xml.match(/name="(Group \d+)"/) || [])[1])
+			}
+			assert(
+				names.every((n) => n === 'Group 1'),
+				'expected every independent presentation to name its first group "Group 1"; got: ' + names.join(',')
+			)
+		},
+	},
+	{
+		name: 'group names number per slide and inside-out across nesting',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s1 = p.addSlide()
+				s1.addGroup([{ rect: { x: 1, y: 1, w: 1, h: 1 } }]) // Group 1
+				s1.addGroup([{ group: { children: [{ rect: { x: 3, y: 1, w: 1, h: 1 } }] } }]) // nested -> Group 2, outer -> Group 3
+				p.addSlide().addGroup([{ rect: { x: 1, y: 1, w: 1, h: 1 } }]) // slide 2 restarts at Group 1
+			})
+			const groupNames = (xml) => (xml.match(/name="Group \d+"/g) || []).map((s) => s.match(/"(.*)"/)[1])
+			const slide1 = groupNames(await readEntry(zip, 'ppt/slides/slide1.xml'))
+			assertEqual(slide1.join(','), 'Group 1,Group 3,Group 2', 'slide 1 group names (outer emitted before nested)')
+			assertEqual(groupNames(await readEntry(zip, 'ppt/slides/slide2.xml')).join(','), 'Group 1', 'slide 2 restarts')
+		},
+	},
+	{
+		name: 'write -> read round-trip: every object in the tree has a unique id and name',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape('rect', { x: 0.2, y: 0.2, w: 1, h: 1 })
+				s.addGroup([
+					{ rect: { x: 1, y: 1, w: 1, h: 1 } },
+					{ text: { text: 'Hi', options: { x: 2, y: 1, w: 1, h: 1 } } },
+					{ group: { children: [{ rect: { x: 3, y: 1, w: 1, h: 1 } }] } },
+				])
+				s.addText('After', { x: 5, y: 1, w: 1, h: 1 })
+			})
+			const [slide] = (await Presentation.load(buf)).slides
+			const flatten = (shapes) => shapes.flatMap((sh) => [sh, ...(sh.shapes ? flatten(sh.shapes) : [])])
+			const all = flatten(slide.shapes)
+			assertEqual(all.length, 7, 'expected 2 top-level + group + 2 children + nested group + its child')
+			const names = all.map((sh) => sh.name)
+			const ids = all.map((sh) => sh.id)
+			assert(
+				names.every((n) => n),
+				'expected every shape to read back with a name; got: ' + names.join(',')
+			)
+			assertEqual(new Set(names).size, names.length, 'objectNames unique through a real read: ' + names.join(','))
+			assertEqual(new Set(ids).size, ids.length, 'drawing ids unique through a real read: ' + ids.join(','))
 		},
 	},
 	{

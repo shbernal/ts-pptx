@@ -79,6 +79,32 @@ import {
 /** counter for included charts (used for index in their filenames) */
 let _chartCounter = 0
 
+/**
+ * Take the next slide-wide index for `type`'s default Selection Pane name (`Shape 0`, `Image 1`,
+ * `Group 1`, …).
+ *
+ * Default names used to be derived by counting the matching objects already in
+ * `target._slideObjects`. `buildGroupObject` splices group children back out of that array, so the
+ * count never advanced past them and a later top-level object reused a grouped child's name. This
+ * counter is immune to the splice: every object of a kind consumes an index when it is added,
+ * whether it stays top-level or moves into a group — at any nesting depth, since `target` stays the
+ * slide all the way down.
+ *
+ * Shapes and text boxes deliberately share the `text` bucket (both are `_type === text`), which is
+ * what keeps `Shape 0` and `Text 0` from colliding on one slide. Callers take an index
+ * unconditionally, including when the caller supplied an explicit `objectName`, so an object's
+ * index is its ordinal among its kind rather than a count of the defaulted ones.
+ * @param target - slide (or master) the object is being added to
+ * @param type - the object's `_type`
+ * @returns the index this object takes
+ */
+function nextObjectNameIdx(target: PresSlideInternal, type: SlideObjectType): number {
+	const counts = (target._objectNameCounts ??= {})
+	const idx = counts[type] ?? 0
+	counts[type] = idx + 1
+	return idx
+}
+
 /** DPI PowerPoint assumes when sizing an inserted raster image (natural pixels / 96 == inches) */
 const IMAGE_NATURAL_DPI = 96
 
@@ -121,9 +147,6 @@ function addChildDefinition(target: PresSlideInternal, object: SlideMasterObject
 	else return false
 	return true
 }
-
-/** Counter for default group names (`Group N`), incremented across nesting depth within a slide. */
-let _groupNameCounter = 0
 
 /**
  * Build a group (`<p:grpSp>`) render-object from its child descriptors, without appending the
@@ -168,9 +191,13 @@ function buildGroupObject(target: PresSlideInternal, children: GroupChildProps[]
 		groupObjects.push(...target._slideObjects.splice(before))
 	})
 
+	// Taken after the children above so nested groups number inside-out, and per slide rather than
+	// per process: a module-global counter made two identical presentations built in one process
+	// disagree on their group names. `Group N` is 1-based, matching PowerPoint's own default.
+	const groupNameIdx = nextObjectNameIdx(target, SlideObjectType.group)
 	const objectName = opts.objectName
 		? encodeXmlEntities(validateObjectName(opts.objectName, 'group'))
-		: `Group ${++_groupNameCounter}`
+		: `Group ${groupNameIdx + 1}`
 
 	return {
 		_type: SlideObjectType.group,
@@ -700,9 +727,10 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	const strImageData = opt.data || (opt.svg && !opt.path ? svgMarkupToDataUri(opt.svg) : '')
 	const strImagePath = opt.path || ''
 	let imageRelId = getNewRelId(target)
+	const imageNameIdx = nextObjectNameIdx(target, SlideObjectType.image)
 	const objectName = opt.objectName
 		? encodeXmlEntities(validateObjectName(opt.objectName, 'image'))
-		: `Image ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.image).length}`
+		: `Image ${imageNameIdx}`
 
 	// REALITY-CHECK:
 	if (!strImagePath && !strImageData) {
@@ -895,9 +923,10 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	const strType = opt.type || 'audio'
 	let strExtn = ''
 	const strCover = opt.cover || IMG_PLAYBTN
+	const mediaNameIdx = nextObjectNameIdx(target, SlideObjectType.media)
 	const objectName = opt.objectName
 		? encodeXmlEntities(validateObjectName(opt.objectName, 'media'))
-		: `Media ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.media).length}`
+		: `Media ${mediaNameIdx}`
 	const slideData: SlideObject = { _type: SlideObjectType.media }
 
 	// STEP 1: REALITY-CHECK
@@ -1165,9 +1194,12 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 	options.y = options.y || (options.y === 0 ? 0 : 1)
 	options.w = options.w || (options.w === 0 ? 0 : 1)
 	options.h = options.h || (options.h === 0 ? 0 : 1)
+	// Shapes are `_type === text` objects, so they share the text-box name bucket (`Shape 0`,
+	// `Text 1`, …) — which is what stops a shape and a text box colliding on `0`.
+	const shapeNameIdx = nextObjectNameIdx(target, SlideObjectType.text)
 	options.objectName = options.objectName
 		? encodeXmlEntities(validateObjectName(options.objectName, 'shape'))
-		: `Shape ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.text).length}`
+		: `Shape ${shapeNameIdx}`
 
 	// 3: Create hyperlink rels
 	createHyperlinkRels(target, newObject)
@@ -1258,6 +1290,7 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 	}
 	const startCxn = resolveCxn(opts.startShape, opts.startShapeIdx, 'startShape')
 	const endCxn = resolveCxn(opts.endShape, opts.endShapeIdx, 'endShape')
+	const connectorNameIdx = nextObjectNameIdx(target, SlideObjectType.connector)
 
 	// Resolve all four endpoints to inches up front (handles every `Coord` form: number,
 	// '50%', '2in', etc.). The connector box uses the min corner as its origin and flips
@@ -1292,7 +1325,7 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 			altText: opts.altText,
 			objectName: opts.objectName
 				? encodeXmlEntities(validateObjectName(opts.objectName, 'connector'))
-				: `Connector ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.connector).length}`,
+				: `Connector ${connectorNameIdx}`,
 		},
 	}
 
@@ -1717,6 +1750,9 @@ export function addTextDefinition(
 		text: textObjects,
 		options: objectOptions,
 	}
+	// One index for the whole text object, taken here rather than inside `cleanOpts` — that runs once
+	// for the object and again for every run, so naming from inside it would burn an index per run.
+	const textNameIdx = nextObjectNameIdx(target, newObject._type)
 
 	function cleanOpts(itemOpts: ObjectOptions): TextPropsOptions {
 		// STEP 1: Set some options
@@ -1754,8 +1790,8 @@ export function addTextDefinition(
 
 			// A.4: Other options. A placeholder's default Selection Pane identity is its declared
 			// name (falling back to its type, then its idx). Placeholders are `placeholder`-typed
-			// objects, so the plain text-box counter below (which counts only `_type === text`) sees
-			// zero of them and would default every placeholder to a duplicate `Text 0`.
+			// objects and so take their name index from their own bucket; naming them `Text N` off
+			// the text-box bucket would collide with the slide's real text boxes.
 			itemOpts.objectName = itemOpts.objectName
 				? encodeXmlEntities(validateObjectName(itemOpts.objectName, 'text'))
 				: isPlaceholder
@@ -1766,7 +1802,7 @@ export function addTextDefinition(
 									`Placeholder ${itemOpts._placeholderIdx ?? target._slideObjects.length}`
 							)
 						)
-					: `Text ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.text).length}`
+					: `Text ${textNameIdx}`
 
 			// B:
 			if (itemOpts.shape === ShapeType.line) {

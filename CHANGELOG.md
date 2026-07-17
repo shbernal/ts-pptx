@@ -55,6 +55,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Default object names no longer collide across a group boundary, and group names no
+  longer depend on what else the process has built.** Two defects in one naming model:
+  - `addGroup()` moves its children off the slide's top-level object list, but default
+    Selection Pane names (`Shape 0`, `Text 1`, `Image 0`, …) were derived by *counting*
+    that list — so a grouped child never advanced the count and the next top-level object
+    of the same kind reused its name. `addGroup([{ rect }])` followed by
+    `addShape('rect', …)` emitted `name="Shape 0"` twice on one slide. (`<p:cNvPr>` ids
+    were already unique, so packages were valid; the collision was in Selection Pane
+    identity, which name-keyed consumers rely on.) Names now come from a monotonic
+    per-slide, per-kind counter that a group child consumes at any nesting depth.
+    *Migration:* an object that follows a group in add order takes a higher default
+    index than before; pass an explicit `objectName` if you depend on the exact string.
+  - `Group N` counted from a module-global that was never reset, so three identical,
+    independent presentations built in one process named their groups `Group 1`,
+    `Group 2`, `Group 3` — same input, different bytes. Group names are now per slide
+    and 1-based, matching PowerPoint's own default. *Migration:* the first default group
+    on every slide is `Group 1`.
+  - The duplicate-`objectName` warning now recurses into groups. It mapped only
+    top-level objects, so it could not see either collision above — or a name a caller
+    explicitly duplicated across the boundary.
+
 - **Freeform arc angles are no longer wrapped into `0..360`, and a non-finite angle now
   throws.** `stAng`/`swAng` on an `<a:arcTo>` were converted with the *shape rotation*
   helper, which wraps once (`d > 360 ? d - 360 : d`) and coerces a nullish or `NaN` input

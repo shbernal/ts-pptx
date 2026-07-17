@@ -464,9 +464,15 @@ function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): strin
 
 	// Warn on duplicate Selection Pane identities within this slide. Unique `objectName`
 	// values are what consumers (e.g. semantic manifests) rely on, so flag collisions loudly.
-	const duplicateObjectNames = getDuplicateObjectNames(
-		slide._slideObjects.map((obj) => obj.options?.objectName).filter((name): name is string => typeof name === 'string')
-	)
+	// Groups are recursed into: a group's children are `<p:cNvPr>`-named on this same slide, so a
+	// child colliding with a top-level object (or with a child of another group) is a collision the
+	// Selection Pane shows — checking only the top level cannot see it.
+	const collectObjectNames = (objects: SlideObject[]): string[] =>
+		objects.flatMap((obj) => [
+			...(typeof obj.options?.objectName === 'string' ? [obj.options.objectName] : []),
+			...collectObjectNames(obj._groupObjects || []),
+		])
+	const duplicateObjectNames = getDuplicateObjectNames(collectObjectNames(slide._slideObjects))
 	if (duplicateObjectNames.length > 0) {
 		warn(
 			`duplicate objectName value(s) emitted on a single slide: ${duplicateObjectNames.join(', ')}. Selection Pane identities should be unique.`
