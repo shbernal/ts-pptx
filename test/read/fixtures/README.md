@@ -41,6 +41,7 @@ PowerPoint.
 | `custgeom.pptx`        | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `table-cell-style.pptx`| Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `table-styles.pptx`    | Microsoft Office PowerPoint    | 16.0000    | 1      |
+| `placeholder-inherit.pptx` | Microsoft Office PowerPoint | 16.0000  | 1      |
 | `template.potx`        | Microsoft Office PowerPoint    | 16.0000    | 0      |
 
 #### Authoring oracles (inspection only — not loaded by `test:read`)
@@ -144,6 +145,7 @@ b78a6009d72cf871c76b9a5364822135f9786344e92bbb618f3f68a0d3e79fea  slide-animatio
 1ada4298e879ede2dc335e00d925376027b65e89a265501d0bc570fecd6a7298  slide-animation-presets.pptx
 392784623d9269bf1a71f58f20e6aa9b820c4a3bb539ebd50e9ae974f0675923  slide-transition-sound.pptx
 ad583c449024bce9f531ce91faf81849ef8489202966ef29dcf9ced0a24289e3  import-animation-merge.pptx
+527404b131935bc297c37a3305998162a14d908e6b83faf8dad519fae0329782  placeholder-inherit.pptx
 ```
 
 ### Embedded font faces (`fonts/`)
@@ -289,6 +291,14 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   `style-accessors.test.js`): `rotated-45` carries `<a:xfrm rot="2700000">`
   (2700000 / 60000 = 45°, no flip) and `flipped-h` carries `<a:xfrm flipH="1">`
   (no rotation). Read by the "Per-shape rotation / flip" suite.
+- `placeholder-inherit.pptx` — a minimal deck (one slide, a title + a body
+  placeholder) whose text was typed with no run-level formatting, so PowerPoint
+  emits bare `<a:rPr lang="en-US"/>` runs. It pins the placeholder → master
+  `p:txStyles` inheritance reads (`Run.resolved{SizePt,FontFace,Bold}`) against
+  genuine output: the title inherits 44pt / `+mj-lt` and the body 28pt / `+mn-lt`,
+  each theme token resolving through the baked-in `fontScheme` (this deck ships
+  Aptos, so `Aptos Display` / `Aptos`). Authored via PowerPoint COM on Windows
+  (2026-07-17). Read by the "placeholder text-property inheritance" suite.
 - `custgeom.pptx` — a minimal deck with PowerPoint-authored freeform
   (`a:custGeom`) shapes for the `customGeometry` read accessor, plus a preset-rect
   negative control. Authored via the COM `BuildFreeform`/`AddNodes`/`ConvertToShape`
