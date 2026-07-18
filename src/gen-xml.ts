@@ -98,6 +98,7 @@ import {
 import { genXmlCustGeom, genXmlPresetGeom } from './gen/drawingml/geometry.js'
 import { genXmlImageCrop, ImageSizingXml } from './gen/drawingml/image.js'
 import { genTableCellBorderXml } from './gen/drawingml/table-border.js'
+import { genXmlInlineMath, genXmlMathParagraph } from './gen/drawingml/math.js'
 import { warn } from './log.js'
 import {
 	type EmbeddedFont,
@@ -1785,63 +1786,12 @@ function genXmlBodyProperties(slideObject: SlideObject | TableCell): string {
 	return slideObject._type === SlideObjectType.tablecell ? '<a:bodyPr/>' : bodyProperties
 }
 
-/**
- * Build a native-equation paragraph (`<a:p>`) from raw OMML.
- *
- * PowerPoint stores an editable equation inside a text body as an `<a14:m>` marker wrapping
- * `<m:oMathPara><m:oMath>…`. We declare both the `a14` (drawing-2010) and `m` (math) namespaces
- * on the `<a14:m>` element so the supplied OMML needs no namespace declarations of its own, then
- * accept three input shapes: a full `<m:oMathPara>`, a full `<m:oMath>`, or the inner OMML
- * (children of `<m:oMath>`). A trailing `<a:endParaRPr>` matches what PowerPoint authors.
- *
- * @param {string} omml - raw OMML markup for the equation
- * @returns {string} an `<a:p>` math paragraph
- */
 /** Whether a slide object carries a native equation (`math` raw OMML) on any of its text items. */
 function objectHasMath(slideObj: SlideObject): boolean {
 	const text = slideObj.text as TextProps | TextProps[] | string | number | undefined
 	if (Array.isArray(text)) return text.some((item) => item && typeof item === 'object' && !!item.math)
 	if (text && typeof text === 'object') return !!text.math
 	return false
-}
-
-function genXmlMathParagraph(omml: string): string {
-	const M_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
-	const A14_NS = 'http://schemas.microsoft.com/office/drawing/2010/main'
-	const trimmed = (omml || '').trim()
-	const paraPr = '<m:oMathParaPr><m:jc m:val="centerGroup"/></m:oMathParaPr>'
-	const mathXml = trimmed.startsWith('<m:oMathPara')
-		? trimmed
-		: trimmed.includes('<m:oMath')
-			? `<m:oMathPara>${paraPr}${trimmed}</m:oMathPara>`
-			: `<m:oMathPara>${paraPr}<m:oMath>${trimmed}</m:oMath></m:oMathPara>`
-	return `<a:p><a14:m xmlns:a14="${A14_NS}" xmlns:m="${M_NS}">${mathXml}</a14:m><a:endParaRPr lang="en-US"/></a:p>`
-}
-
-/**
- * Build an INLINE native-equation run (dn-inline-math) from raw OMML.
- *
- * Unlike the display form ({@link genXmlMathParagraph}), an inline equation is *not* its own
- * paragraph: PowerPoint authors an `<a14:m>` marker wrapping a bare `<m:oMath>` (no `<m:oMathPara>`,
- * no `<m:oMathParaPr>`/`<m:jc>`) that flows between the surrounding `<a:r>` runs in one `<a:p>` —
- * pinned by the `math-omml-inline.pptx` oracle. The `mc:AlternateContent` envelope stays at the
- * shape level (see `objectHasMath`), so nothing wraps the run itself. We declare the `a14` and `m`
- * namespaces on the `<a14:m>` element so the supplied OMML needs none of its own, and accept the
- * same three input shapes as the display helper: a full `<m:oMathPara>` (its inner `<m:oMath>` is
- * unwrapped, since a paragraph block cannot flow inline), a full `<m:oMath>`, or the inner OMML.
- *
- * @param {string} omml - raw OMML markup for the equation
- * @returns {string} an `<a14:m>` inline equation run
- */
-function genXmlInlineMath(omml: string): string {
-	const M_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
-	const A14_NS = 'http://schemas.microsoft.com/office/drawing/2010/main'
-	const trimmed = (omml || '').trim()
-	// Extract a bare <m:oMath>…</m:oMath> — this both strips a display <m:oMathPara> wrapper and
-	// leaves an already-bare <m:oMath> untouched; inner-only OMML is wrapped in <m:oMath>.
-	const oMathMatch = trimmed.match(/<m:oMath[\s>][\s\S]*<\/m:oMath>/)
-	const mathXml = oMathMatch ? oMathMatch[0] : `<m:oMath>${trimmed}</m:oMath>`
-	return `<a14:m xmlns:a14="${A14_NS}" xmlns:m="${M_NS}">${mathXml}</a14:m>`
 }
 
 // A run of formatted text within a paragraph. Every run reaching STEP 5/6 of genXmlTextBody
