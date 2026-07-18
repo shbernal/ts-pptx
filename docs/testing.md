@@ -66,6 +66,32 @@ API, rather than the shared `defineRegressionSuite()` harness. Prefer
 `.test.js` for new regression files to match the majority; use `.mjs` only if
 you have a specific reason to signal the ESM boundary.
 
+## Coverage Gate
+
+Coverage is enforced by thresholds in `vitest.config.ts`:
+
+```bash
+pnpm run test:coverage
+```
+
+The suite executes the **built** package (tests import from `dist/`), so v8
+collects coverage on the bundled `dist/**` output and remaps line/branch data
+back to `src/` via the sourcemaps `tsdown` emits. Instrumenting `src/**` instead
+would report only ~8%, because almost nothing under `src/` is executed directly.
+
+Thresholds (statements / branches / functions / lines) are pinned a notch below
+the current measured numbers so an accidental regression fails CI without the
+gate being flaky. **Ratchet them upward as coverage improves; never loosen them
+to make a red build pass.**
+
+Reading the report has one trap: a line shown **red in the dist report may
+already be covered** by a `src/`-importing unit test. Some helpers (for example
+the HTML-table `htmlBorderToProps` / `resolveHtmlColWidth`) are only reached in
+the bundle through the browser-only path, which is fenced with `v8 ignore`, so
+the dist bundle never executes them even though `src/`-level unit tests do.
+Before adding a case for a red line, check whether an existing `src/`-importing
+test already exercises it — otherwise the gate cannot credit the redundant test.
+
 ## OOXML Schema Validation
 
 Install the validator once:

@@ -207,7 +207,7 @@ path:
   not obvious from schema alone.
 
 For emitted OOXML changes, the implementation handoff should require a focused
-fixture in `test/schema.test.js` and `pnpm run test:schema` when practical.
+fixture in `test/schema-cases.js` and `pnpm run test:schema` when practical.
 
 ## Fixture-Gated Work: Ask For The Fixture, Don't Guess
 
@@ -234,7 +234,7 @@ Instead, record the fixture as the blocking precondition in the backlog and stop
 Author the fixture itself with the `powerpoint-fixture-authoring` skill, verify it
 with `scripts/verify-powerpoint-fixture.ps1`, record provenance + SHA-256 in
 `test/read/fixtures/README.md`, then wire the test to the fixture (read harness
-for read accessors; a `test/schema.test.js` comparison/inspection check for
+for read accessors; a `test/schema-cases.js` comparison/inspection check for
 write-side oracles). Only then implement and close the entry.
 
 ## Reopening Dismissed Items

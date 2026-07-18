@@ -299,7 +299,7 @@ Add executable evidence with a small blast radius:
 
 1. Add regression tests that inspect `ppt/slides/slide1.xml` for `a:gradFill`
    under a shape `p:spPr` and under slide background `p:bgPr`.
-2. Add schema fixtures in `test/schema.test.js` for a native shape gradient and
+2. Add schema fixtures in `test/schema-cases.js` for a native shape gradient and
    a native slide background gradient.
 3. Assert that slide background gradients keep `<a:effectLst/>` after
    `a:gradFill` inside `p:bgPr`.

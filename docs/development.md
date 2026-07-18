@@ -37,6 +37,12 @@ pnpm install
 Do not hand-edit generated `dist/` outputs unless the task explicitly asks to
 refresh release artifacts.
 
+This repository is developed on case-insensitive filesystems (Windows, default
+macOS). Never introduce a file whose name differs from an existing one only by
+case — for example a generated `INDEX.md` collides with the VitePress home page
+`index.md` and silently overwrites it. The generated `read_when` discovery index
+is named `doc-index.md` for exactly this reason.
+
 ## Source Conventions
 
 The large generator modules (`gen-xml.ts`, `gen-charts.ts`, `gen-objects.ts`) use two
@@ -174,7 +180,7 @@ For serialization changes:
    attributes, enums, namespaces, and OPC package metadata.
 3. Use the configured Microsoft Learn MCP server for PowerPoint and Open XML
    SDK behavior.
-4. Add or update a focused fixture in `test/schema.test.js`.
+4. Add or update a focused fixture in `test/schema-cases.js`.
 5. Run schema validation:
 
 ```bash

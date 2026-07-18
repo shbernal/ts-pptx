@@ -30,7 +30,7 @@ Both converge on the shared model and serializer in `src/embedded-fonts.ts`.
 See `CHANGELOG.md` for the import-carry limits. Tests:
 `test/regression/embed-font.test.js` (author-side), `test/read/embedded-fonts.test.js`
 (import-carry, incl. schema validity), and an author-side case in
-`test/schema.test.js` (validator-checked against the oracle).
+`test/schema-cases.js` (validator-checked against the oracle).
 
 ## OOXML target (ECMA-376 transitional)
 

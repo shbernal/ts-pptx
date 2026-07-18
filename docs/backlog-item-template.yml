@@ -46,7 +46,7 @@
     `gradient?: GradientFillProps` field; genXmlLineFill (src/gen-utils.ts) emits a
     <a:gradFill> inside <a:ln>, reusing the genXmlGradientFill builder used for shape
     fills. Validated by schema fixture 'shape with gradient line stroke' in
-    test/schema.test.js.
+    test/schema-cases.js.
   # OPTIONAL: `constructs` — OOXML construct keys this entry gates, from
   # vocabulary.constructs, so a downstream replication audit can join a detected
   # construct to its gating entry. Omit when not gating a construct.
@@ -59,8 +59,8 @@
       - validator-result
     local_files:                               # repo paths touched / asserting the behavior
       - src/gen-utils.ts:503
-      - test/schema.test.js
-    schema_fixture: test/schema.test.js (shape-gradient-line-stroke)  # or null
+      - test/schema-cases.js
+    schema_fixture: test/schema-cases.js (shape-gradient-line-stroke)  # or null
     validator_result: pass                     # pass | fail | null
     powerpoint_result: null                    # PowerPoint open/repair result, or null
     spec_refs: []                              # ECMA-376 / MS-PPTX section refs, or []
@@ -92,7 +92,7 @@
     Take only the OOXML/package-part intent as reusable signal; discard the
     upstream dist/CJS/bundle changes, which do not fit this fork's ESM/TS boundary.
     ON STAND-BY — do not build until scheduled. When built, the primary evidence is
-    a serialization schema fixture in test/schema.test.js; a PowerPoint-authored
+    a serialization schema fixture in test/schema-cases.js; a PowerPoint-authored
     .pptx is an authoring ORACLE only (no read accessor for comments).
   evidence:
     kinds: []

@@ -24,7 +24,7 @@ byte-for-byte. See the backlog entry `gitbrent/PptxGenJS#1431` (status
 `src/slide.ts`, `src/gen-xml.ts` (write). Tests:
 `test/read/animations-transitions.test.js`,
 `test/regression/animations-transitions.test.js`, and two
-`test/schema.test.js` validator fixtures.
+`test/schema-cases.js` validator fixtures.
 
 This doc records the agreed read/write scope so the fixtures + oracles could be
 authored against a fixed target. Per `AGENTS.md` ("OOXML And PowerPoint Work" →
@@ -295,7 +295,7 @@ check date). Record the fixtures as the blocking precondition in
     (and a byte-for-byte reconfirmation of `fadeIn`/`flyIn`/`grow`/`fadeOut`). The
     `PresetEffect` type and `ANIM_PRESETS` (`src/gen-xml.ts`) now carry all eight; the
     regression case "emits every preset … byte-for-byte" pins the full timing tree
-    against the oracle and a `test/schema.test.js` fixture validates the new templates.
+    against the oracle and a `test/schema-cases.js` fixture validates the new templates.
     Note: opacity-based emphasis "Pulse" is not reachable via COM `AddEffect`, so the
     emphasis pair is grow + spin.
   - **[C — implemented]** `slide-transition-sound.pptx` (+ `soundRels` oracle) —

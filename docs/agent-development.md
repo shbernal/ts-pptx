@@ -36,7 +36,7 @@ Use:
   enums, namespaces, and OPC metadata;
 - the Microsoft Learn MCP server for Microsoft Open Specifications,
   PowerPoint-specific behavior, and Open XML SDK behavior;
-- minimal generated fixtures in `test/schema.test.js` for regression evidence.
+- minimal generated fixtures in `test/schema-cases.js` for regression evidence.
 
 Avoid copying large standards text into the repository. Keep notes small and
 reference section numbers or source pages when they matter.

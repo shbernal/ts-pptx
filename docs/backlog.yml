@@ -1300,7 +1300,7 @@ items:
         - src/gen-utils.ts
         - src/gen-objects.ts
         - test/regression/image-fills.test.js
-        - test/schema.test.js
+        - test/schema-cases.js
       schema_fixture: "shape with image (blip) fill"
       validator_result: null
       powerpoint_result: null
@@ -1390,7 +1390,7 @@ items:
     applies_to_current_project: no
     non_target_reasons: []
     summary: defineSlideMaster placeholders all default objectName to 'Text 0' (non-unique Selection Pane identities)
-    current_project_notes: "Root cause: addTextDefinition (src/gen-objects.ts) tags placeholders with _type=SlideObjectType.placeholder (line ~1699), but the default objectName is computed as `Text ${target._slideObjects.filter(o => o._type === SlideObjectType.text).length}` (line ~1742) — a counter that only counts text-typed objects. Every placeholder therefore sees a text-count of 0 and defaults to 'Text 0', so a master/layout with 2+ text placeholders emits duplicate objectName values. The shape default at line ~1170 ('Shape ${...text...length}') has the same text-only miscount. Surfaced as the 'duplicate objectName value(s) ... Text 0. Selection Pane identities should be unique.' warning fired (twice) by the schema fixture 'master/layout placeholder carries bodyPr insets + anchor' (test/schema.test.js), which defines two named placeholders (title-ph, body-ph) whose names are consumed as the placeholder idx reference, not as objectName. Output is otherwise valid OOXML; the defect is non-unique PowerPoint Selection Pane names. Proposed fix: count all _slideObjects (or per-type) when synthesizing the default name, and/or fall back to the placeholder's name/type for a stable identity. Deferred from the transparent-chartColors cleanup because changing the default-naming scheme shifts emitted objectName across many existing chart/shape/text fixtures and needs its own regression pass. applies_to_current_project=no: the primary consumer sets explicit names. RESOLVED 2026-07-08: fixed the addTextDefinition naming site (src/gen-objects.ts) — a placeholder now defaults its objectName to its declared name (then _placeholderType, then `Placeholder ${_placeholderIdx}`) instead of the text-object counter, giving unique, meaningful Selection Pane identities. Scope was narrower than first written: the Shape default (line ~1170) never actually collides because addShape stores shapes as _type=text and the counter increments per shape (distinct 'Shape N' from 'Text N' by prefix); the only duplicate-producer was placeholders, which are _type=placeholder and thus uncounted. Regression churn was nil — no test asserted exact default numbers. Verified: full test/regression + test/schema-validation suites pass (568 tests), incl. the two-placeholder BODYPR_MASTER schema fixture which no longer fires the duplicate-objectName warning; new regression 'master placeholders default to distinct names' in test/regression/object-identity.test.js."
+    current_project_notes: "Root cause: addTextDefinition (src/gen-objects.ts) tags placeholders with _type=SlideObjectType.placeholder (line ~1699), but the default objectName is computed as `Text ${target._slideObjects.filter(o => o._type === SlideObjectType.text).length}` (line ~1742) — a counter that only counts text-typed objects. Every placeholder therefore sees a text-count of 0 and defaults to 'Text 0', so a master/layout with 2+ text placeholders emits duplicate objectName values. The shape default at line ~1170 ('Shape ${...text...length}') has the same text-only miscount. Surfaced as the 'duplicate objectName value(s) ... Text 0. Selection Pane identities should be unique.' warning fired (twice) by the schema fixture 'master/layout placeholder carries bodyPr insets + anchor' (test/schema-cases.js), which defines two named placeholders (title-ph, body-ph) whose names are consumed as the placeholder idx reference, not as objectName. Output is otherwise valid OOXML; the defect is non-unique PowerPoint Selection Pane names. Proposed fix: count all _slideObjects (or per-type) when synthesizing the default name, and/or fall back to the placeholder's name/type for a stable identity. Deferred from the transparent-chartColors cleanup because changing the default-naming scheme shifts emitted objectName across many existing chart/shape/text fixtures and needs its own regression pass. applies_to_current_project=no: the primary consumer sets explicit names. RESOLVED 2026-07-08: fixed the addTextDefinition naming site (src/gen-objects.ts) — a placeholder now defaults its objectName to its declared name (then _placeholderType, then `Placeholder ${_placeholderIdx}`) instead of the text-object counter, giving unique, meaningful Selection Pane identities. Scope was narrower than first written: the Shape default (line ~1170) never actually collides because addShape stores shapes as _type=text and the counter increments per shape (distinct 'Shape N' from 'Text N' by prefix); the only duplicate-producer was placeholders, which are _type=placeholder and thus uncounted. Regression churn was nil — no test asserted exact default numbers. Verified: full test/regression + test/schema-validation suites pass (568 tests), incl. the two-placeholder BODYPR_MASTER schema fixture which no longer fires the duplicate-objectName warning; new regression 'master placeholders default to distinct names' in test/regression/object-identity.test.js."
     evidence:
       kinds: []
       local_files: []
@@ -1457,7 +1457,7 @@ items:
       local_files:
         - src/gen-objects.ts
         - src/core-interfaces.ts
-        - test/schema.test.js
+        - test/schema-cases.js
       schema_fixture: table-columns-fill
       validator_result: clean
       powerpoint_result: null
@@ -1517,7 +1517,7 @@ items:
         - src/slide.ts
         - src/gen-objects.ts
         - test/regression/group-shapes.test.js
-        - test/schema.test.js
+        - test/schema-cases.js
       schema_fixture: group-existing-objects
       validator_result: pass
       powerpoint_result: opens cleanly; nested tree, unique ids, connector bound to a lifted member all resolve
@@ -1734,7 +1734,7 @@ items:
         - src/gen-xml.ts
         - src/read/api/shapes.ts
         - test/regression/image-shape.test.js
-        - test/schema.test.js
+        - test/schema-cases.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null

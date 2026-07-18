@@ -110,6 +110,6 @@ MCPs' corpora.
 
 - For source changes, run `pnpm run build` and `pnpm run typecheck` when practical.
 - For behavior changes, run `pnpm run test:unit`.
-- For OOXML serialization changes, add or update a fixture in `test/schema.test.js` and run `pnpm run test:schema`.
+- For OOXML serialization changes, add or update a fixture in `test/schema-cases.js` and run `pnpm run test:schema`.
 - `pnpm run test:schema` requires the validator installed with `./tools/ooxml-validator/install.sh`.
 - For release/package boundary changes, consult `docs/testing.md` and run the relevant package or demo smoke commands.
