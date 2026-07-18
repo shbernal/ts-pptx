@@ -112,7 +112,14 @@ import {
 	flattenEmbeddedFaces,
 } from './embedded-fonts.js'
 import { applyMeasuredFit, computeTableLayout, measureText } from './measure-fit.js'
-import { getUuid, decodeBase64ToBytes, imageContentType, avContentType, getNewRelId } from './gen-utils.js'
+import {
+	getUuid,
+	decodeBase64ToBytes,
+	imageContentType,
+	avContentType,
+	getNewRelId,
+	isHyperlinkRel,
+} from './gen-utils.js'
 import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
 import type { ExtractedSlide, ExtractedSlides } from './read/api/presentation.js'
 
@@ -954,13 +961,13 @@ export default class PptxGenJS {
 				.filter((m): m is NonNullable<typeof m> => m !== null)
 
 			const hyperlinks = slide._rels
-				.filter((rel) => rel.type.toLowerCase().includes('hyperlink') && rel.data !== 'slide')
+				.filter((rel) => isHyperlinkRel(rel) && rel.data !== 'slide')
 				.map((rel) => ({ rId: rel.rId, target: rel.Target }))
 
 			// Internal slide-to-slide links: rel.data === 'slide', rel.Target is the
 			// 1-based source slide number (see addText's hyperlink.slide handling).
 			const slideLinks = slide._rels
-				.filter((rel) => rel.type.toLowerCase().includes('hyperlink') && rel.data === 'slide')
+				.filter((rel) => isHyperlinkRel(rel) && rel.data === 'slide')
 				.map((rel) => ({ rId: rel.rId, sourceSlideNumber: Number(rel.Target) }))
 
 			// Charts: serialize the chart part XML + its embedded workbook bytes. The

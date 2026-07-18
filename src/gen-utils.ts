@@ -661,6 +661,20 @@ export function getNewRelId(target: PresSlideInternal): number {
 }
 
 /**
+ * Whether a slide relationship is a hyperlink (external URL or internal slide
+ * link). The relationship `type` is stringly-typed (`'hyperlink'`, `'online'`,
+ * mixed-case variants), so this centralizes the case-insensitive predicate that
+ * was duplicated across the slide-rels writer (gen-xml) and the inspect path
+ * (pptxgen). For an internal slide-to-slide link, `rel.data === 'slide'` and
+ * `rel.Target` is the 1-based target slide number.
+ * @param {{ type: string }} rel - a slide relationship
+ * @returns {boolean} true if the rel is any kind of hyperlink
+ */
+export function isHyperlinkRel(rel: { type: string }): boolean {
+	return rel.type.toLowerCase().includes('hyperlink')
+}
+
+/**
  * Map an image file extension to its OOXML content type.
  * Inverse of the read-side `IMAGE_EXTENSION_BY_CONTENT_TYPE` (src/read/api/shapes.ts):
  * EMF/WMF use the `x-`-prefixed forms PowerPoint authors (and that the read side

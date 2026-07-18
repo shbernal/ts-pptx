@@ -120,6 +120,10 @@ export enum TextAnchor {
 // field and auto-updates the page number. Consumed in gen-xml.ts (`slideObjectToXml`).
 export const SLDNUMFLDID = '{F7021451-1387-4CA6-816F-3879F97B5CBC}'
 
+// The XML prolog every emitted OOXML part begins with. Kept as one constant so a
+// stray edit can't desync one part's declaration from the rest.
+export const XML_DECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+
 // ENUM
 export enum OutputType {
 	arraybuffer = 'arraybuffer',

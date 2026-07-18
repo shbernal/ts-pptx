@@ -32,6 +32,7 @@ import {
 	DEF_SHAPE_SHADOW,
 	LETTERS,
 	ONEPT,
+	XML_DECL,
 } from './core-enums.js'
 import type {
 	ChartOptsInternal,
@@ -112,7 +113,8 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 		{
 			zipExcel.add(
 				'[Content_Types].xml',
-				'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+				XML_DECL +
+					'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
 					'  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
 					'  <Default Extension="xml" ContentType="application/xml"/>' +
 					'  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
@@ -127,7 +129,8 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 			)
 			zipExcel.add(
 				'_rels/.rels',
-				'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+				XML_DECL +
+					'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
 					'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>' +
 					'<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>' +
 					'<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
@@ -135,7 +138,8 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 			)
 			zipExcel.add(
 				'docProps/app.xml',
-				'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">' +
+				XML_DECL +
+					'<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">' +
 					'<Application>Microsoft Macintosh Excel</Application>' +
 					'<DocSecurity>0</DocSecurity>' +
 					'<ScaleCrop>false</ScaleCrop>' +
@@ -146,7 +150,8 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 			)
 			zipExcel.add(
 				'docProps/core.xml',
-				'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
+				XML_DECL +
+					'<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
 					'<dc:creator>PptxGenJS</dc:creator>' +
 					'<cp:lastModifiedBy>PptxGenJS</cp:lastModifiedBy>' +
 					'<dcterms:created xsi:type="dcterms:W3CDTF">' +
@@ -159,7 +164,7 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 			)
 			zipExcel.add(
 				'xl/_rels/workbook.xml.rels',
-				'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+				XML_DECL +
 					'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
 					'<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
 					'<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>' +
@@ -169,17 +174,19 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 			)
 			zipExcel.add(
 				'xl/styles.xml',
-				'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="0" formatCode="General"/></numFmts><fonts count="4"><font><sz val="9"/><color indexed="8"/><name val="Geneva"/></font><font><sz val="9"/><color indexed="8"/><name val="Geneva"/></font><font><sz val="10"/><color indexed="8"/><name val="Geneva"/></font><font><sz val="18"/><color indexed="8"/>' +
+				XML_DECL +
+					'<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="0" formatCode="General"/></numFmts><fonts count="4"><font><sz val="9"/><color indexed="8"/><name val="Geneva"/></font><font><sz val="9"/><color indexed="8"/><name val="Geneva"/></font><font><sz val="10"/><color indexed="8"/><name val="Geneva"/></font><font><sz val="18"/><color indexed="8"/>' +
 					'<name val="Arial"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><dxfs count="0"/><tableStyles count="0"/><colors><indexedColors><rgbColor rgb="ff000000"/><rgbColor rgb="ffffffff"/><rgbColor rgb="ffff0000"/><rgbColor rgb="ff00ff00"/><rgbColor rgb="ff0000ff"/>' +
 					'<rgbColor rgb="ffffff00"/><rgbColor rgb="ffff00ff"/><rgbColor rgb="ff00ffff"/><rgbColor rgb="ff000000"/><rgbColor rgb="ffffffff"/><rgbColor rgb="ff878787"/><rgbColor rgb="fff9f9f9"/></indexedColors></colors></styleSheet>\n'
 			)
 			zipExcel.add(
 				'xl/theme/theme1.xml',
-				'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Office Theme"><a:themeElements><a:clrScheme name="Office"><a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1><a:lt1><a:sysClr val="window" lastClr="FFFFFF"/></a:lt1><a:dk2><a:srgbClr val="44546A"/></a:dk2><a:lt2><a:srgbClr val="E7E6E6"/></a:lt2><a:accent1><a:srgbClr val="4472C4"/></a:accent1><a:accent2><a:srgbClr val="ED7D31"/></a:accent2><a:accent3><a:srgbClr val="A5A5A5"/></a:accent3><a:accent4><a:srgbClr val="FFC000"/></a:accent4><a:accent5><a:srgbClr val="5B9BD5"/></a:accent5><a:accent6><a:srgbClr val="70AD47"/></a:accent6><a:hlink><a:srgbClr val="0563C1"/></a:hlink><a:folHlink><a:srgbClr val="954F72"/></a:folHlink></a:clrScheme><a:fontScheme name="Office"><a:majorFont><a:latin typeface="Calibri Light" panose="020F0302020204030204"/><a:ea typeface=""/><a:cs typeface=""/><a:font script="Jpan" typeface="Yu Gothic Light"/><a:font script="Hang" typeface="맑은 고딕"/><a:font script="Hans" typeface="DengXian Light"/><a:font script="Hant" typeface="新細明體"/><a:font script="Arab" typeface="Times New Roman"/><a:font script="Hebr" typeface="Times New Roman"/><a:font script="Thai" typeface="Tahoma"/><a:font script="Ethi" typeface="Nyala"/><a:font script="Beng" typeface="Vrinda"/><a:font script="Gujr" typeface="Shruti"/><a:font script="Khmr" typeface="MoolBoran"/><a:font script="Knda" typeface="Tunga"/><a:font script="Guru" typeface="Raavi"/><a:font script="Cans" typeface="Euphemia"/><a:font script="Cher" typeface="Plantagenet Cherokee"/><a:font script="Yiii" typeface="Microsoft Yi Baiti"/><a:font script="Tibt" typeface="Microsoft Himalaya"/><a:font script="Thaa" typeface="MV Boli"/><a:font script="Deva" typeface="Mangal"/><a:font script="Telu" typeface="Gautami"/><a:font script="Taml" typeface="Latha"/><a:font script="Syrc" typeface="Estrangelo Edessa"/><a:font script="Orya" typeface="Kalinga"/><a:font script="Mlym" typeface="Kartika"/><a:font script="Laoo" typeface="DokChampa"/><a:font script="Sinh" typeface="Iskoola Pota"/><a:font script="Mong" typeface="Mongolian Baiti"/><a:font script="Viet" typeface="Times New Roman"/><a:font script="Uigh" typeface="Microsoft Uighur"/><a:font script="Geor" typeface="Sylfaen"/></a:majorFont><a:minorFont><a:latin typeface="Calibri" panose="020F0502020204030204"/><a:ea typeface=""/><a:cs typeface=""/><a:font script="Jpan" typeface="Yu Gothic"/><a:font script="Hang" typeface="맑은 고딕"/><a:font script="Hans" typeface="DengXian"/><a:font script="Hant" typeface="新細明體"/><a:font script="Arab" typeface="Arial"/><a:font script="Hebr" typeface="Arial"/><a:font script="Thai" typeface="Tahoma"/><a:font script="Ethi" typeface="Nyala"/><a:font script="Beng" typeface="Vrinda"/><a:font script="Gujr" typeface="Shruti"/><a:font script="Khmr" typeface="DaunPenh"/><a:font script="Knda" typeface="Tunga"/><a:font script="Guru" typeface="Raavi"/><a:font script="Cans" typeface="Euphemia"/><a:font script="Cher" typeface="Plantagenet Cherokee"/><a:font script="Yiii" typeface="Microsoft Yi Baiti"/><a:font script="Tibt" typeface="Microsoft Himalaya"/><a:font script="Thaa" typeface="MV Boli"/><a:font script="Deva" typeface="Mangal"/><a:font script="Telu" typeface="Gautami"/><a:font script="Taml" typeface="Latha"/><a:font script="Syrc" typeface="Estrangelo Edessa"/><a:font script="Orya" typeface="Kalinga"/><a:font script="Mlym" typeface="Kartika"/><a:font script="Laoo" typeface="DokChampa"/><a:font script="Sinh" typeface="Iskoola Pota"/><a:font script="Mong" typeface="Mongolian Baiti"/><a:font script="Viet" typeface="Arial"/><a:font script="Uigh" typeface="Microsoft Uighur"/><a:font script="Geor" typeface="Sylfaen"/></a:minorFont></a:fontScheme><a:fmtScheme name="Office"><a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="phClr"><a:lumMod val="110000"/><a:satMod val="105000"/><a:tint val="67000"/></a:schemeClr></a:gs><a:gs pos="50000"><a:schemeClr val="phClr"><a:lumMod val="105000"/><a:satMod val="103000"/><a:tint val="73000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="phClr"><a:lumMod val="105000"/><a:satMod val="109000"/><a:tint val="81000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill><a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="phClr"><a:satMod val="103000"/><a:lumMod val="102000"/><a:tint val="94000"/></a:schemeClr></a:gs><a:gs pos="50000"><a:schemeClr val="phClr"><a:satMod val="110000"/><a:lumMod val="100000"/><a:shade val="100000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="phClr"><a:lumMod val="99000"/><a:satMod val="120000"/><a:shade val="78000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill></a:fillStyleLst><a:lnStyleLst><a:ln w="6350" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln><a:ln w="12700" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln><a:ln w="19050" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln></a:lnStyleLst><a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst><a:outerShdw blurRad="57150" dist="19050" dir="5400000" algn="ctr" rotWithShape="0"><a:srgbClr val="000000"><a:alpha val="63000"/></a:srgbClr></a:outerShdw></a:effectLst></a:effectStyle></a:effectStyleLst><a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"><a:tint val="95000"/><a:satMod val="170000"/></a:schemeClr></a:solidFill><a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="phClr"><a:tint val="93000"/><a:satMod val="150000"/><a:shade val="98000"/><a:lumMod val="102000"/></a:schemeClr></a:gs><a:gs pos="50000"><a:schemeClr val="phClr"><a:tint val="98000"/><a:satMod val="130000"/><a:shade val="90000"/><a:lumMod val="103000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="phClr"><a:shade val="63000"/><a:satMod val="120000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill></a:bgFillStyleLst></a:fmtScheme></a:themeElements><a:objectDefaults/><a:extraClrSchemeLst/><a:extLst><a:ext uri="{05A4C25C-085E-4340-85A3-A5531E510DB2}"><thm15:themeFamily xmlns:thm15="http://schemas.microsoft.com/office/thememl/2012/main" name="Office Theme" id="{62F939B6-93AF-4DB8-9C6B-D6C7DFDC589F}" vid="{4A3C46E8-61CC-4603-A589-7422A47A8E4A}"/></a:ext></a:extLst></a:theme>'
+				XML_DECL +
+					'<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Office Theme"><a:themeElements><a:clrScheme name="Office"><a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1><a:lt1><a:sysClr val="window" lastClr="FFFFFF"/></a:lt1><a:dk2><a:srgbClr val="44546A"/></a:dk2><a:lt2><a:srgbClr val="E7E6E6"/></a:lt2><a:accent1><a:srgbClr val="4472C4"/></a:accent1><a:accent2><a:srgbClr val="ED7D31"/></a:accent2><a:accent3><a:srgbClr val="A5A5A5"/></a:accent3><a:accent4><a:srgbClr val="FFC000"/></a:accent4><a:accent5><a:srgbClr val="5B9BD5"/></a:accent5><a:accent6><a:srgbClr val="70AD47"/></a:accent6><a:hlink><a:srgbClr val="0563C1"/></a:hlink><a:folHlink><a:srgbClr val="954F72"/></a:folHlink></a:clrScheme><a:fontScheme name="Office"><a:majorFont><a:latin typeface="Calibri Light" panose="020F0302020204030204"/><a:ea typeface=""/><a:cs typeface=""/><a:font script="Jpan" typeface="Yu Gothic Light"/><a:font script="Hang" typeface="맑은 고딕"/><a:font script="Hans" typeface="DengXian Light"/><a:font script="Hant" typeface="新細明體"/><a:font script="Arab" typeface="Times New Roman"/><a:font script="Hebr" typeface="Times New Roman"/><a:font script="Thai" typeface="Tahoma"/><a:font script="Ethi" typeface="Nyala"/><a:font script="Beng" typeface="Vrinda"/><a:font script="Gujr" typeface="Shruti"/><a:font script="Khmr" typeface="MoolBoran"/><a:font script="Knda" typeface="Tunga"/><a:font script="Guru" typeface="Raavi"/><a:font script="Cans" typeface="Euphemia"/><a:font script="Cher" typeface="Plantagenet Cherokee"/><a:font script="Yiii" typeface="Microsoft Yi Baiti"/><a:font script="Tibt" typeface="Microsoft Himalaya"/><a:font script="Thaa" typeface="MV Boli"/><a:font script="Deva" typeface="Mangal"/><a:font script="Telu" typeface="Gautami"/><a:font script="Taml" typeface="Latha"/><a:font script="Syrc" typeface="Estrangelo Edessa"/><a:font script="Orya" typeface="Kalinga"/><a:font script="Mlym" typeface="Kartika"/><a:font script="Laoo" typeface="DokChampa"/><a:font script="Sinh" typeface="Iskoola Pota"/><a:font script="Mong" typeface="Mongolian Baiti"/><a:font script="Viet" typeface="Times New Roman"/><a:font script="Uigh" typeface="Microsoft Uighur"/><a:font script="Geor" typeface="Sylfaen"/></a:majorFont><a:minorFont><a:latin typeface="Calibri" panose="020F0502020204030204"/><a:ea typeface=""/><a:cs typeface=""/><a:font script="Jpan" typeface="Yu Gothic"/><a:font script="Hang" typeface="맑은 고딕"/><a:font script="Hans" typeface="DengXian"/><a:font script="Hant" typeface="新細明體"/><a:font script="Arab" typeface="Arial"/><a:font script="Hebr" typeface="Arial"/><a:font script="Thai" typeface="Tahoma"/><a:font script="Ethi" typeface="Nyala"/><a:font script="Beng" typeface="Vrinda"/><a:font script="Gujr" typeface="Shruti"/><a:font script="Khmr" typeface="DaunPenh"/><a:font script="Knda" typeface="Tunga"/><a:font script="Guru" typeface="Raavi"/><a:font script="Cans" typeface="Euphemia"/><a:font script="Cher" typeface="Plantagenet Cherokee"/><a:font script="Yiii" typeface="Microsoft Yi Baiti"/><a:font script="Tibt" typeface="Microsoft Himalaya"/><a:font script="Thaa" typeface="MV Boli"/><a:font script="Deva" typeface="Mangal"/><a:font script="Telu" typeface="Gautami"/><a:font script="Taml" typeface="Latha"/><a:font script="Syrc" typeface="Estrangelo Edessa"/><a:font script="Orya" typeface="Kalinga"/><a:font script="Mlym" typeface="Kartika"/><a:font script="Laoo" typeface="DokChampa"/><a:font script="Sinh" typeface="Iskoola Pota"/><a:font script="Mong" typeface="Mongolian Baiti"/><a:font script="Viet" typeface="Arial"/><a:font script="Uigh" typeface="Microsoft Uighur"/><a:font script="Geor" typeface="Sylfaen"/></a:minorFont></a:fontScheme><a:fmtScheme name="Office"><a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="phClr"><a:lumMod val="110000"/><a:satMod val="105000"/><a:tint val="67000"/></a:schemeClr></a:gs><a:gs pos="50000"><a:schemeClr val="phClr"><a:lumMod val="105000"/><a:satMod val="103000"/><a:tint val="73000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="phClr"><a:lumMod val="105000"/><a:satMod val="109000"/><a:tint val="81000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill><a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="phClr"><a:satMod val="103000"/><a:lumMod val="102000"/><a:tint val="94000"/></a:schemeClr></a:gs><a:gs pos="50000"><a:schemeClr val="phClr"><a:satMod val="110000"/><a:lumMod val="100000"/><a:shade val="100000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="phClr"><a:lumMod val="99000"/><a:satMod val="120000"/><a:shade val="78000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill></a:fillStyleLst><a:lnStyleLst><a:ln w="6350" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln><a:ln w="12700" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln><a:ln w="19050" cap="flat" cmpd="sng" algn="ctr"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/><a:miter lim="800000"/></a:ln></a:lnStyleLst><a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst><a:outerShdw blurRad="57150" dist="19050" dir="5400000" algn="ctr" rotWithShape="0"><a:srgbClr val="000000"><a:alpha val="63000"/></a:srgbClr></a:outerShdw></a:effectLst></a:effectStyle></a:effectStyleLst><a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"><a:tint val="95000"/><a:satMod val="170000"/></a:schemeClr></a:solidFill><a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="phClr"><a:tint val="93000"/><a:satMod val="150000"/><a:shade val="98000"/><a:lumMod val="102000"/></a:schemeClr></a:gs><a:gs pos="50000"><a:schemeClr val="phClr"><a:tint val="98000"/><a:satMod val="130000"/><a:shade val="90000"/><a:lumMod val="103000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="phClr"><a:shade val="63000"/><a:satMod val="120000"/></a:schemeClr></a:gs></a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill></a:bgFillStyleLst></a:fmtScheme></a:themeElements><a:objectDefaults/><a:extraClrSchemeLst/><a:extLst><a:ext uri="{05A4C25C-085E-4340-85A3-A5531E510DB2}"><thm15:themeFamily xmlns:thm15="http://schemas.microsoft.com/office/thememl/2012/main" name="Office Theme" id="{62F939B6-93AF-4DB8-9C6B-D6C7DFDC589F}" vid="{4A3C46E8-61CC-4603-A589-7422A47A8E4A}"/></a:ext></a:extLst></a:theme>'
 			)
 			zipExcel.add(
 				'xl/workbook.xml',
-				'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+				XML_DECL +
 					'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x15" xmlns:x15="http://schemas.microsoft.com/office/spreadsheetml/2010/11/main">' +
 					'<fileVersion appName="xl" lastEdited="7" lowestEdited="6" rupBuild="10507"/>' +
 					'<workbookPr/>' +
@@ -190,7 +197,7 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 			)
 			zipExcel.add(
 				'xl/worksheets/_rels/sheet1.xml.rels',
-				'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+				XML_DECL +
 					'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
 					'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/table" Target="../tables/table1.xml"/>' +
 					'</Relationships>\n'
@@ -215,7 +222,7 @@ function buildXlsxSharedStrings(
 	intBubbleCols: number,
 	IS_MULTI_CAT_AXES: boolean
 ): string {
-	let strSharedStrings = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+	let strSharedStrings = XML_DECL
 	if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
 		strSharedStrings += `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${intBubbleCols}" uniqueCount="${intBubbleCols}">`
 	} else if (chartObject.opts._type === ChartType.scatter) {
@@ -280,7 +287,7 @@ function buildXlsxSharedStrings(
  * Build the embedded workbook's `xl/tables/table1.xml` (the data table over the sheet range).
  */
 function buildXlsxTable(chartObject: SlideRelChart, data: OptsChartDataInternal[], intBubbleCols: number): string {
-	let strTableXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+	let strTableXml = XML_DECL
 	if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
 		strTableXml += `<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="Table1" displayName="Table1" ref="A1:${getExcelColName(intBubbleCols)}${intBubbleCols}" totalsRowShown="0">`
 		strTableXml += `<tableColumns count="${intBubbleCols}">`
@@ -325,7 +332,7 @@ function buildXlsxSheet(
 	intBubbleCols: number,
 	IS_MULTI_CAT_AXES: boolean
 ): string {
-	let strSheetXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+	let strSheetXml = XML_DECL
 	strSheetXml +=
 		'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac">'
 
@@ -538,7 +545,7 @@ function buildXlsxSheet(
  */
 export function buildChartRelsXml(embeddingTarget: string): string {
 	return (
-		'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+		XML_DECL +
 		'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
 		`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/package" Target="${embeddingTarget}"/>` +
 		'</Relationships>'
@@ -877,7 +884,7 @@ function makeChartPlotAreaPropsXml(rel: SlideRelChart): string {
  * @return {string} XML
  */
 export function makeXmlCharts(rel: SlideRelChart): string {
-	let strXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+	let strXml = XML_DECL
 	// `chartArea`/`plotArea` are always populated by addChartDefinition() but stay optional on the type.
 	const chartArea = rel.opts.chartArea ?? {}
 	let usesSecondaryValAxis = false
@@ -1138,7 +1145,7 @@ function makeCatAxisPlot(
 		strXml += `  <c:idx val="${obj._dataIndex}"/><c:order val="${obj._dataIndex}"/>`
 		strXml += '  <c:tx>'
 		strXml += '    <c:strRef>'
-		strXml += '      <c:f>Sheet1!$' + getExcelColName(obj._dataIndex + dataLabels(obj).length + 1) + '$1</c:f>'
+		strXml += `      <c:f>${sheetCellRef(obj._dataIndex + dataLabels(obj).length + 1, 1)}</c:f>`
 		strXml +=
 			'      <c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>' +
 			encodeXmlEntities(obj.name ?? '') +
@@ -1280,7 +1287,7 @@ function makeCatAxisPlot(
 				strXml += '  </c:strRef>'
 			} else {
 				strXml += '  <c:multiLvlStrRef>'
-				strXml += `    <c:f>Sheet1!$A$2:$${getExcelColName(dataLabels(obj).length)}$${firstLabelGroup(obj).length + 1}</c:f>`
+				strXml += `    <c:f>${sheetRangeRef(1, 2, dataLabels(obj).length, firstLabelGroup(obj).length + 1)}</c:f>`
 				strXml += '    <c:multiLvlStrCache>'
 				strXml += `      <c:ptCount val="${firstLabelGroup(obj).length}"/>`
 				dataLabels(obj).forEach((labelsGroup) => {
@@ -1300,7 +1307,7 @@ function makeCatAxisPlot(
 		{
 			strXml += '<c:val>'
 			strXml += '  <c:numRef>'
-			strXml += `<c:f>Sheet1!$${getExcelColName(obj._dataIndex + dataLabels(obj).length + 1)}$2:$${getExcelColName(obj._dataIndex + dataLabels(obj).length + 1)}$${firstLabelGroup(obj).length + 1}</c:f>`
+			strXml += `<c:f>${sheetRangeRef(obj._dataIndex + dataLabels(obj).length + 1, 2, obj._dataIndex + dataLabels(obj).length + 1, firstLabelGroup(obj).length + 1)}</c:f>`
 			strXml += '    <c:numCache>'
 			strXml += '      <c:formatCode>' + valFmtCode + '</c:formatCode>'
 			strXml += `      <c:ptCount val="${firstLabelGroup(obj).length}"/>`
@@ -1412,7 +1419,7 @@ function makeScatterPlot(
 			strXml += `  <c:order val="${idx}"/>`
 			strXml += '  <c:tx>'
 			strXml += '    <c:strRef>'
-			strXml += `      <c:f>Sheet1!$${getExcelColName(idx + 2)}$1</c:f>`
+			strXml += `      <c:f>${sheetCellRef(idx + 2, 1)}</c:f>`
 			strXml +=
 				'      <c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>' +
 				encodeXmlEntities(obj.name ?? '') +
@@ -1648,7 +1655,7 @@ function makeScatterPlot(
 				// Y-Axis vals are this object's `values`
 				strXml += '<c:yVal>'
 				strXml += '  <c:numRef>'
-				strXml += `    <c:f>Sheet1!$${getExcelColName(idx + 2)}$2:$${getExcelColName(idx + 2)}$${dataValues(data[0]).length + 1}</c:f>`
+				strXml += `    <c:f>${sheetRangeRef(idx + 2, 2, idx + 2, dataValues(data[0]).length + 1)}</c:f>`
 				strXml += '    <c:numCache>'
 				strXml += '      <c:formatCode>' + valFmtCode + '</c:formatCode>'
 				// NOTE: Use pt count and iterate over data[0] (X-Axis) as user can have more values than data (eg: timeline where only first few months are populated)
@@ -1739,7 +1746,7 @@ function makeBubblePlot(
 			// A: `<c:tx>`
 			strXml += '  <c:tx>'
 			strXml += '    <c:strRef>'
-			strXml += '      <c:f>Sheet1!$' + getExcelColName(idxColLtr + 1) + '$1</c:f>'
+			strXml += `      <c:f>${sheetCellRef(idxColLtr + 1, 1)}</c:f>`
 			strXml +=
 				'      <c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>' +
 				encodeXmlEntities(obj.name ?? '') +
@@ -1799,7 +1806,7 @@ function makeBubblePlot(
 				// Y-Axis vals are this object's `values`
 				strXml += '<c:yVal>'
 				strXml += '  <c:numRef>'
-				strXml += `<c:f>Sheet1!$${getExcelColName(idxColLtr + 1)}$2:$${getExcelColName(idxColLtr + 1)}$${dataValues(data[0]).length + 1}</c:f>`
+				strXml += `<c:f>${sheetRangeRef(idxColLtr + 1, 2, idxColLtr + 1, dataValues(data[0]).length + 1)}</c:f>`
 				idxColLtr++
 				strXml += '    <c:numCache>'
 				strXml += '      <c:formatCode>' + valFmtCode + '</c:formatCode>'
@@ -1816,7 +1823,7 @@ function makeBubblePlot(
 			// E: '<c:bubbleSize>'
 			strXml += '  <c:bubbleSize>'
 			strXml += '    <c:numRef>'
-			strXml += `<c:f>Sheet1!$${getExcelColName(idxColLtr + 1)}$2:$${getExcelColName(idxColLtr + 1)}$${dataSizes(obj).length + 1}</c:f>`
+			strXml += `<c:f>${sheetRangeRef(idxColLtr + 1, 2, idxColLtr + 1, dataSizes(obj).length + 1)}</c:f>`
 			idxColLtr++
 			strXml += '      <c:numCache>'
 			strXml += '        <c:formatCode>General</c:formatCode>'
@@ -2441,6 +2448,32 @@ function getExcelColName(colIndex: number): string {
 	}
 
 	return colStr
+}
+
+/**
+ * Build an absolute single-cell reference into the embedded workbook's `Sheet1`,
+ * as emitted in a chart series `<c:f>` formula: `Sheet1!$C$2`. Centralizes the
+ * `$`-anchoring so the column letter and `$` placement can't drift between sites.
+ * @param colIndex 1-based column index (1 => 'A')
+ * @param row 1-based row number
+ */
+function sheetCellRef(colIndex: number, row: number): string {
+	return `Sheet1!$${getExcelColName(colIndex)}$${row}`
+}
+
+/**
+ * Build an absolute range reference into the embedded workbook's `Sheet1`, as
+ * emitted in a chart series `<c:f>` formula: `Sheet1!$C$2:$C$6`. A same-column
+ * range (the common case) passes the same index for `colFrom`/`colTo`; deriving
+ * the column letter once per endpoint removes the duplicated `getExcelColName`
+ * call that was a real off-by-one surface.
+ * @param colFrom 1-based start column index
+ * @param rowFrom 1-based start row
+ * @param colTo 1-based end column index
+ * @param rowTo 1-based end row
+ */
+function sheetRangeRef(colFrom: number, rowFrom: number, colTo: number, rowTo: number): string {
+	return `Sheet1!$${getExcelColName(colFrom)}$${rowFrom}:$${getExcelColName(colTo)}$${rowTo}`
 }
 
 /**
