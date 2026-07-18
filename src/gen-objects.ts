@@ -1527,60 +1527,12 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
  * @param {Function} addSlide - method
  * @param {Function} getSlide - method
  */
-export function addTableDefinition(
-	target: PresSlideInternal,
-	tableRows: TableRow[],
-	options: TableProps,
-	slideLayout: SlideLayoutInternal | null,
-	presLayout: PresLayout,
-	addSlide: (options?: AddSlideProps) => PresSlideInternal,
-	getSlide: (slideNumber: number) => PresSlideInternal | undefined
-): PresSlideInternal[] {
-	const slides: PresSlideInternal[] = [target] // Create array of Slides as more may be added by auto-paging
-	const opt: TableProps = options && typeof options === 'object' ? options : {}
-	opt.objectName = opt.objectName
-		? encodeXmlEntities(validateObjectName(opt.objectName, 'table'))
-		: `Table ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.table).length}`
-
-	// STEP 0: PLACEHOLDER — a table targeting a layout placeholder inherits that placeholder's
-	// position/size for any of x/y/w/h the caller omits, mirroring the image and
-	// text placeholder inheritance. Explicit values always win; this only fills the gaps so
-	// the table fills the placeholder geometry rather than the default 1in/full-width fallback.
-	if (opt.placeholder && slideLayout?._slideObjects) {
-		const placeHold = slideLayout._slideObjects.find(
-			(item) => item._type === SlideObjectType.placeholder && item.options?.placeholder === opt.placeholder
-		)
-		if (placeHold?.options) {
-			if (opt.x === undefined) opt.x = placeHold.options.x
-			if (opt.y === undefined) opt.y = placeHold.options.y
-			if (opt.w === undefined) opt.w = placeHold.options.w
-			if (opt.h === undefined) opt.h = placeHold.options.h
-		}
-	}
-
-	// STEP 1: REALITY-CHECK
-	{
-		// A: check for empty
-		if (tableRows === null || tableRows.length === 0 || !Array.isArray(tableRows)) {
-			throw new Error("addTable: Array expected! EX: 'slide.addTable( [rows], {options} );'")
-		}
-
-		// B: check for non-well-formatted array (ex: rows=['a','b'] instead of [['a','b']])
-		if (!tableRows[0] || !Array.isArray(tableRows[0])) {
-			throw new Error(
-				"addTable: 'rows' should be an array of cells! EX: 'slide.addTable( [ ['A'], ['B'], {text:'C',options:{align:'center'}} ] );'"
-			)
-		}
-	}
-
-	// STEP 1.5: `headerRow` / `columns` inline sugar — bake blanket styling into cells as
-	// direct per-cell formatting so it flows through the normal cell pipeline (incl. border
-	// defaulting below). Precedence (highest wins), matching how PowerPoint resolves styling
-	// (direct formatting overrides a style region): explicit per-cell `options` > `headerRow`
-	// (row 0) > `columns[colIdx]` > `tableStyle`/defaults. The merge is property-level, so a
-	// header cell keeps `headerRow` typography and takes its column's fill when they differ.
-	// Setting `headerRow` implies `hasHeader` unless the caller set it explicitly. The caller's
-	// `tableRows` array is not mutated — only affected rows (and their cells) are shallow-copied.
+/**
+ * Apply the `headerRow` / `columns` inline-styling sugar: bake blanket header/column
+ * formatting into per-cell options so it flows through the normal cell pipeline. Sets
+ * `opt.hasHeader` when `headerRow` implies it. Returns the (possibly shallow-copied) rows.
+ */
+function applyTableHeaderColumnSugar(tableRows: TableRow[], opt: TableProps): TableRow[] {
 	const hdr = opt.headerRow && typeof opt.headerRow === 'object' ? opt.headerRow : undefined
 	const cols = Array.isArray(opt.columns) && opt.columns.length ? opt.columns : undefined
 	let srcRows: TableRow[] = tableRows
@@ -1608,9 +1560,14 @@ export function addTableDefinition(
 			})
 		})
 	}
+	return srcRows
+}
 
-	// STEP 2: Transform `tableRows` into well-formatted TableCell's
-	// tableRows can be object or plain text array: `[{text:'cell 1'}, {text:'cell 2', options:{color:'ff0000'}}]` | `["cell 1", "cell 2"]`
+/**
+ * Transform loosely-typed table rows (strings / numbers / TableCell) into a grid of
+ * well-formed TableCell objects with fully-resolved 4-side cell borders.
+ */
+function normalizeTableRows(srcRows: TableRow[], opt: TableProps): TableCell[][] {
 	const arrRows: TableCell[][] = []
 	srcRows.forEach((row) => {
 		const newRow: TableCell[] = []
@@ -1675,6 +1632,68 @@ export function addTableDefinition(
 
 		arrRows.push(newRow)
 	})
+	return arrRows
+}
+
+export function addTableDefinition(
+	target: PresSlideInternal,
+	tableRows: TableRow[],
+	options: TableProps,
+	slideLayout: SlideLayoutInternal | null,
+	presLayout: PresLayout,
+	addSlide: (options?: AddSlideProps) => PresSlideInternal,
+	getSlide: (slideNumber: number) => PresSlideInternal | undefined
+): PresSlideInternal[] {
+	const slides: PresSlideInternal[] = [target] // Create array of Slides as more may be added by auto-paging
+	const opt: TableProps = options && typeof options === 'object' ? options : {}
+	opt.objectName = opt.objectName
+		? encodeXmlEntities(validateObjectName(opt.objectName, 'table'))
+		: `Table ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.table).length}`
+
+	// STEP 0: PLACEHOLDER — a table targeting a layout placeholder inherits that placeholder's
+	// position/size for any of x/y/w/h the caller omits, mirroring the image and
+	// text placeholder inheritance. Explicit values always win; this only fills the gaps so
+	// the table fills the placeholder geometry rather than the default 1in/full-width fallback.
+	if (opt.placeholder && slideLayout?._slideObjects) {
+		const placeHold = slideLayout._slideObjects.find(
+			(item) => item._type === SlideObjectType.placeholder && item.options?.placeholder === opt.placeholder
+		)
+		if (placeHold?.options) {
+			if (opt.x === undefined) opt.x = placeHold.options.x
+			if (opt.y === undefined) opt.y = placeHold.options.y
+			if (opt.w === undefined) opt.w = placeHold.options.w
+			if (opt.h === undefined) opt.h = placeHold.options.h
+		}
+	}
+
+	// STEP 1: REALITY-CHECK
+	{
+		// A: check for empty
+		if (tableRows === null || tableRows.length === 0 || !Array.isArray(tableRows)) {
+			throw new Error("addTable: Array expected! EX: 'slide.addTable( [rows], {options} );'")
+		}
+
+		// B: check for non-well-formatted array (ex: rows=['a','b'] instead of [['a','b']])
+		if (!tableRows[0] || !Array.isArray(tableRows[0])) {
+			throw new Error(
+				"addTable: 'rows' should be an array of cells! EX: 'slide.addTable( [ ['A'], ['B'], {text:'C',options:{align:'center'}} ] );'"
+			)
+		}
+	}
+
+	// STEP 1.5: `headerRow` / `columns` inline sugar — bake blanket styling into cells as
+	// direct per-cell formatting so it flows through the normal cell pipeline (incl. border
+	// defaulting below). Precedence (highest wins), matching how PowerPoint resolves styling
+	// (direct formatting overrides a style region): explicit per-cell `options` > `headerRow`
+	// (row 0) > `columns[colIdx]` > `tableStyle`/defaults. The merge is property-level, so a
+	// header cell keeps `headerRow` typography and takes its column's fill when they differ.
+	// Setting `headerRow` implies `hasHeader` unless the caller set it explicitly. The caller's
+	// `tableRows` array is not mutated — only affected rows (and their cells) are shallow-copied.
+	const srcRows = applyTableHeaderColumnSugar(tableRows, opt)
+
+	// STEP 2: Transform `tableRows` into well-formatted TableCell's
+	// tableRows can be object or plain text array: `[{text:'cell 1'}, {text:'cell 2', options:{color:'ff0000'}}]` | `["cell 1", "cell 2"]`
+	const arrRows = normalizeTableRows(srcRows, opt)
 
 	// STEP 3: Set options
 	// Keep x/y/w/h as raw user `Coord` (inches/percent/unit-string). They are resolved to EMU
