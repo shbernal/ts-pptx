@@ -16,6 +16,15 @@ pre-commit:
       run: pnpm exec prettier --write --ignore-unknown {staged_files}
       stage_fixed: true
 
+commit-msg:
+  # Backstop against a shell-quoting slip mangling a multi-line message (e.g. a
+  # PowerShell `@'...'@` here-string run through POSIX sh, which leaks a literal
+  # `@` onto the subject). Multi-line messages should be written to a file and
+  # committed with `git commit -F <file>`. `{1}` is git's commit-message path.
+  jobs:
+    - name: check-message
+      run: node scripts/check-commit-msg.mjs {1}
+
 pre-push:
   # The whole-repo static gates that CI enforces but pre-commit's per-file
   # autofix cannot catch: a lint/type/format error that is not auto-fixable
