@@ -197,223 +197,245 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 			)
 		}
 
-		// sharedStrings.xml
-		{
-			// A: Start XML
-			let strSharedStrings = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-			if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
-				strSharedStrings += `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${intBubbleCols}" uniqueCount="${intBubbleCols}">`
-			} else if (chartObject.opts._type === ChartType.scatter) {
-				strSharedStrings += `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${data.length}" uniqueCount="${data.length}">`
-			} else if (IS_MULTI_CAT_AXES) {
-				let totCount = data.length + 1 // +1 for the blank entry at index 0
-				dataLabels(data[0]).forEach(
-					(arrLabel) => (totCount += arrLabel.filter((label) => label && label !== '').length)
-				)
-				strSharedStrings += `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${totCount}" uniqueCount="${totCount}">`
-				strSharedStrings += '<si><t/></si>'
-			} else {
-				// series names + all labels of one series + number of label groups (data.labels.length) of one series (i.e. how many times the blank string is used)
-				const totCount =
-					data.length + dataLabels(data[0]).length * firstLabelGroup(data[0]).length + dataLabels(data[0]).length
-				// series names + labels of one series + blank string (same for all label groups)
-				const unqCount = data.length + dataLabels(data[0]).length * firstLabelGroup(data[0]).length + 1
-				// start `sst`
-				strSharedStrings += `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${totCount}" uniqueCount="${unqCount}">`
-				// B: Add 'blank' for A1, B1, ..., of every label group inside data[n].labels
-				strSharedStrings += '<si><t xml:space="preserve"></t></si>'
-			}
+		zipExcel.add('xl/sharedStrings.xml', buildXlsxSharedStrings(chartObject, data, intBubbleCols, IS_MULTI_CAT_AXES))
+		zipExcel.add('xl/tables/table1.xml', buildXlsxTable(chartObject, data, intBubbleCols))
+		zipExcel.add('xl/worksheets/sheet1.xml', buildXlsxSheet(chartObject, data, intBubbleCols, IS_MULTI_CAT_AXES))
 
-			// C: Add `name`/Series
-			if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
-				data.forEach((objData, idx) => {
-					if (idx === 0) strSharedStrings += '<si><t>X-Axis</t></si>'
-					else {
-						strSharedStrings += `<si><t>${encodeXmlEntities(objData.name || `Y-Axis${idx}`)}</t></si>`
-						strSharedStrings += `<si><t>${encodeXmlEntities(`Size${idx}`)}</t></si>`
-					}
-				})
-			} else {
-				data.forEach((objData) => {
-					strSharedStrings += `<si><t>${encodeXmlEntities((objData.name || ' ').replace('X-Axis', 'X-Values'))}</t></si>`
-				})
-			}
+		// Done — return the embedded workbook bytes for the caller to place.
+		return zipExcel.toBytes()
+	}
+}
 
-			// D: Add `labels`/Categories
-			if (
-				chartObject.opts._type !== ChartType.bubble &&
-				chartObject.opts._type !== ChartType.bubble3d &&
-				chartObject.opts._type !== ChartType.scatter
-			) {
-				// Use forEach backwards & check for '' to support multi-cat axes
-				dataLabels(data[0])
-					.slice()
-					.reverse()
-					.forEach((labelsGroup) => {
-						labelsGroup
-							.filter((label) => label && label !== '')
-							.forEach((label) => {
-								strSharedStrings += `<si><t>${encodeXmlEntities(label)}</t></si>`
-							})
+/**
+ * Build the embedded workbook's `xl/sharedStrings.xml` (series names + category labels).
+ */
+function buildXlsxSharedStrings(
+	chartObject: SlideRelChart,
+	data: OptsChartDataInternal[],
+	intBubbleCols: number,
+	IS_MULTI_CAT_AXES: boolean
+): string {
+	let strSharedStrings = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+	if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
+		strSharedStrings += `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${intBubbleCols}" uniqueCount="${intBubbleCols}">`
+	} else if (chartObject.opts._type === ChartType.scatter) {
+		strSharedStrings += `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${data.length}" uniqueCount="${data.length}">`
+	} else if (IS_MULTI_CAT_AXES) {
+		let totCount = data.length + 1 // +1 for the blank entry at index 0
+		dataLabels(data[0]).forEach((arrLabel) => (totCount += arrLabel.filter((label) => label && label !== '').length))
+		strSharedStrings += `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${totCount}" uniqueCount="${totCount}">`
+		strSharedStrings += '<si><t/></si>'
+	} else {
+		// series names + all labels of one series + number of label groups (data.labels.length) of one series (i.e. how many times the blank string is used)
+		const totCount =
+			data.length + dataLabels(data[0]).length * firstLabelGroup(data[0]).length + dataLabels(data[0]).length
+		// series names + labels of one series + blank string (same for all label groups)
+		const unqCount = data.length + dataLabels(data[0]).length * firstLabelGroup(data[0]).length + 1
+		// start `sst`
+		strSharedStrings += `<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${totCount}" uniqueCount="${unqCount}">`
+		// B: Add 'blank' for A1, B1, ..., of every label group inside data[n].labels
+		strSharedStrings += '<si><t xml:space="preserve"></t></si>'
+	}
+
+	// C: Add `name`/Series
+	if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
+		data.forEach((objData, idx) => {
+			if (idx === 0) strSharedStrings += '<si><t>X-Axis</t></si>'
+			else {
+				strSharedStrings += `<si><t>${encodeXmlEntities(objData.name || `Y-Axis${idx}`)}</t></si>`
+				strSharedStrings += `<si><t>${encodeXmlEntities(`Size${idx}`)}</t></si>`
+			}
+		})
+	} else {
+		data.forEach((objData) => {
+			strSharedStrings += `<si><t>${encodeXmlEntities((objData.name || ' ').replace('X-Axis', 'X-Values'))}</t></si>`
+		})
+	}
+
+	// D: Add `labels`/Categories
+	if (
+		chartObject.opts._type !== ChartType.bubble &&
+		chartObject.opts._type !== ChartType.bubble3d &&
+		chartObject.opts._type !== ChartType.scatter
+	) {
+		// Use forEach backwards & check for '' to support multi-cat axes
+		dataLabels(data[0])
+			.slice()
+			.reverse()
+			.forEach((labelsGroup) => {
+				labelsGroup
+					.filter((label) => label && label !== '')
+					.forEach((label) => {
+						strSharedStrings += `<si><t>${encodeXmlEntities(label)}</t></si>`
 					})
-			}
+			})
+	}
 
-			// DONE:
-			strSharedStrings += '</sst>\n'
-			zipExcel.add('xl/sharedStrings.xml', strSharedStrings)
-		}
+	// DONE:
+	strSharedStrings += '</sst>\n'
+	return strSharedStrings
+}
 
-		// tables/table1.xml
-		{
-			let strTableXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-			if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
-				strTableXml += `<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="Table1" displayName="Table1" ref="A1:${getExcelColName(intBubbleCols)}${intBubbleCols}" totalsRowShown="0">`
-				strTableXml += `<tableColumns count="${intBubbleCols}">`
-				let idxColLtr = 1
-				data.forEach((obj, idx) => {
-					if (idx === 0) {
-						strTableXml += `<tableColumn id="${idx + 1}" name="X-Values"/>`
-					} else {
-						strTableXml += `<tableColumn id="${idx + idxColLtr}" name="${obj.name}"/>`
-						idxColLtr++
-						strTableXml += `<tableColumn id="${idx + idxColLtr}" name="Size${idx}"/>`
-					}
-				})
-			} else if (chartObject.opts._type === ChartType.scatter) {
-				strTableXml += `<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="Table1" displayName="Table1" ref="A1:${getExcelColName(data.length)}${dataValues(data[0]).length + 1}" totalsRowShown="0">`
-				strTableXml += `<tableColumns count="${data.length}">`
-				data.forEach((_obj, idx) => {
-					strTableXml += `<tableColumn id="${idx + 1}" name="${idx === 0 ? 'X-Values' : 'Y-Value '}${idx}"/>`
-				})
+/**
+ * Build the embedded workbook's `xl/tables/table1.xml` (the data table over the sheet range).
+ */
+function buildXlsxTable(chartObject: SlideRelChart, data: OptsChartDataInternal[], intBubbleCols: number): string {
+	let strTableXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+	if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
+		strTableXml += `<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="Table1" displayName="Table1" ref="A1:${getExcelColName(intBubbleCols)}${intBubbleCols}" totalsRowShown="0">`
+		strTableXml += `<tableColumns count="${intBubbleCols}">`
+		let idxColLtr = 1
+		data.forEach((obj, idx) => {
+			if (idx === 0) {
+				strTableXml += `<tableColumn id="${idx + 1}" name="X-Values"/>`
 			} else {
-				strTableXml += `<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="Table1" displayName="Table1" ref="A1:${getExcelColName(data.length + dataLabels(data[0]).length)}${firstLabelGroup(data[0]).length + 1}" totalsRowShown="0">`
-				strTableXml += `<tableColumns count="${data.length + dataLabels(data[0]).length}">`
-				dataLabels(data[0]).forEach((_labelsGroup, idx) => {
-					strTableXml += `<tableColumn id="${idx + 1}" name="Column${idx + 1}"/>`
-				})
-				data.forEach((obj, idx) => {
-					strTableXml += `<tableColumn id="${idx + dataLabels(data[0]).length + 1}" name="${encodeXmlEntities(obj.name ?? '')}"/>`
-				})
+				strTableXml += `<tableColumn id="${idx + idxColLtr}" name="${obj.name}"/>`
+				idxColLtr++
+				strTableXml += `<tableColumn id="${idx + idxColLtr}" name="Size${idx}"/>`
 			}
-			strTableXml += '</tableColumns>'
-			strTableXml += '<tableStyleInfo showFirstColumn="0" showLastColumn="0" showRowStripes="1" showColumnStripes="0"/>'
-			strTableXml += '</table>'
-			zipExcel.add('xl/tables/table1.xml', strTableXml)
-		}
+		})
+	} else if (chartObject.opts._type === ChartType.scatter) {
+		strTableXml += `<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="Table1" displayName="Table1" ref="A1:${getExcelColName(data.length)}${dataValues(data[0]).length + 1}" totalsRowShown="0">`
+		strTableXml += `<tableColumns count="${data.length}">`
+		data.forEach((_obj, idx) => {
+			strTableXml += `<tableColumn id="${idx + 1}" name="${idx === 0 ? 'X-Values' : 'Y-Value '}${idx}"/>`
+		})
+	} else {
+		strTableXml += `<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="Table1" displayName="Table1" ref="A1:${getExcelColName(data.length + dataLabels(data[0]).length)}${firstLabelGroup(data[0]).length + 1}" totalsRowShown="0">`
+		strTableXml += `<tableColumns count="${data.length + dataLabels(data[0]).length}">`
+		dataLabels(data[0]).forEach((_labelsGroup, idx) => {
+			strTableXml += `<tableColumn id="${idx + 1}" name="Column${idx + 1}"/>`
+		})
+		data.forEach((obj, idx) => {
+			strTableXml += `<tableColumn id="${idx + dataLabels(data[0]).length + 1}" name="${encodeXmlEntities(obj.name ?? '')}"/>`
+		})
+	}
+	strTableXml += '</tableColumns>'
+	strTableXml += '<tableStyleInfo showFirstColumn="0" showLastColumn="0" showRowStripes="1" showColumnStripes="0"/>'
+	strTableXml += '</table>'
+	return strTableXml
+}
 
-		// worksheets/sheet1.xml
-		{
-			let strSheetXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-			strSheetXml +=
-				'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac">'
+/**
+ * Build the embedded workbook's `xl/worksheets/sheet1.xml` (header row + per-series data rows).
+ */
+function buildXlsxSheet(
+	chartObject: SlideRelChart,
+	data: OptsChartDataInternal[],
+	intBubbleCols: number,
+	IS_MULTI_CAT_AXES: boolean
+): string {
+	let strSheetXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+	strSheetXml +=
+		'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac">'
 
-			if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
-				strSheetXml += `<dimension ref="A1:${getExcelColName(intBubbleCols)}${dataValues(data[0]).length + 1}"/>`
-			} else if (chartObject.opts._type === ChartType.scatter) {
-				strSheetXml += `<dimension ref="A1:${getExcelColName(data.length)}${dataValues(data[0]).length + 1}"/>`
-			} else {
-				strSheetXml += `<dimension ref="A1:${getExcelColName(data.length + dataLabels(data[0]).length)}${dataValues(data[0]).length + 1}"/>`
-			}
+	if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
+		strSheetXml += `<dimension ref="A1:${getExcelColName(intBubbleCols)}${dataValues(data[0]).length + 1}"/>`
+	} else if (chartObject.opts._type === ChartType.scatter) {
+		strSheetXml += `<dimension ref="A1:${getExcelColName(data.length)}${dataValues(data[0]).length + 1}"/>`
+	} else {
+		strSheetXml += `<dimension ref="A1:${getExcelColName(data.length + dataLabels(data[0]).length)}${dataValues(data[0]).length + 1}"/>`
+	}
 
-			strSheetXml +=
-				'<sheetViews><sheetView tabSelected="1" workbookViewId="0"><selection activeCell="B1" sqref="B1"/></sheetView></sheetViews>'
-			strSheetXml += '<sheetFormatPr baseColWidth="10" defaultRowHeight="16"/>'
-			if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
-				// UNUSED: strSheetXml += `<cols><col min="1" max="${data.length}" width="11" customWidth="1" /></cols>`
+	strSheetXml +=
+		'<sheetViews><sheetView tabSelected="1" workbookViewId="0"><selection activeCell="B1" sqref="B1"/></sheetView></sheetViews>'
+	strSheetXml += '<sheetFormatPr baseColWidth="10" defaultRowHeight="16"/>'
+	if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
+		// UNUSED: strSheetXml += `<cols><col min="1" max="${data.length}" width="11" customWidth="1" /></cols>`
 
-				/* EX: INPUT: `data`
+		/* EX: INPUT: `data`
 				[
 					{ name:'X-Axis'  , values:[10,11,12,13,14,15,16,17,18,19,20] },
 					{ name:'Y-Axis 1', values:[ 1, 6, 7, 8, 9], sizes:[ 4, 5, 6, 7, 8] },
 					{ name:'Y-Axis 2', values:[33,32,42,53,63], sizes:[11,12,13,14,15] }
 				];
 				*/
-				/* EX: OUTPUT: bubbleChart Worksheet:
+		/* EX: OUTPUT: bubbleChart Worksheet:
 					-|----A-----|------B-----|------C-----|------D-----|------E-----|
 					1| X-Values | Y-Values 1 | Y-Sizes 1  | Y-Values 2 | Y-Sizes 2  |
 					2|    11    |     22     |      4     |     33     |      8     |
 					-|----------|------------|------------|------------|------------|
 				*/
-				strSheetXml += '<sheetData>'
+		strSheetXml += '<sheetData>'
 
-				// A: Create header row first (NOTE: Start at index=1 as headers cols start with 'B')
-				strSheetXml += `<row r="1" spans="1:${intBubbleCols}">`
-				strSheetXml += '<c r="A1" t="s"><v>0</v></c>'
-				for (let idx = 1; idx < intBubbleCols; idx++) {
-					strSheetXml += `<c r="${getExcelColName(idx + 1)}1" t="s"><v>${idx}</v></c>` // NOTE: add `t="s"` for label cols!
-				}
-				strSheetXml += '</row>'
+		// A: Create header row first (NOTE: Start at index=1 as headers cols start with 'B')
+		strSheetXml += `<row r="1" spans="1:${intBubbleCols}">`
+		strSheetXml += '<c r="A1" t="s"><v>0</v></c>'
+		for (let idx = 1; idx < intBubbleCols; idx++) {
+			strSheetXml += `<c r="${getExcelColName(idx + 1)}1" t="s"><v>${idx}</v></c>` // NOTE: add `t="s"` for label cols!
+		}
+		strSheetXml += '</row>'
 
-				// B: Add row for each X-Axis value (Y-Axis* value is optional)
-				dataValues(data[0]).forEach((val, idx) => {
-					// Leading col is reserved for the 'X-Axis' value, so hard-code it, then loop over col values
-					strSheetXml += `<row r="${idx + 2}" spans="1:${intBubbleCols}">`
-					strSheetXml += `<c r="A${idx + 2}"><v>${val}</v></c>`
-					// Add Y-Axis 1->N (idy=0 = Xaxis)
-					let idxColLtr = 2
-					for (let idy = 1; idy < data.length; idy++) {
-						// y-value
-						strSheetXml += `<c r="${getExcelColName(idxColLtr)}${idx + 2}"><v>${dataValues(data[idy])[idx] ?? ''}</v></c>`
-						idxColLtr++
-						// y-size
-						strSheetXml += `<c r="${getExcelColName(idxColLtr)}${idx + 2}"><v>${dataSizes(data[idy])[idx] ?? ''}</v></c>`
-						idxColLtr++
-					}
-					strSheetXml += '</row>'
-				})
-			} else if (chartObject.opts._type === ChartType.scatter) {
-				/* UNUSED:
+		// B: Add row for each X-Axis value (Y-Axis* value is optional)
+		dataValues(data[0]).forEach((val, idx) => {
+			// Leading col is reserved for the 'X-Axis' value, so hard-code it, then loop over col values
+			strSheetXml += `<row r="${idx + 2}" spans="1:${intBubbleCols}">`
+			strSheetXml += `<c r="A${idx + 2}"><v>${val}</v></c>`
+			// Add Y-Axis 1->N (idy=0 = Xaxis)
+			let idxColLtr = 2
+			for (let idy = 1; idy < data.length; idy++) {
+				// y-value
+				strSheetXml += `<c r="${getExcelColName(idxColLtr)}${idx + 2}"><v>${dataValues(data[idy])[idx] ?? ''}</v></c>`
+				idxColLtr++
+				// y-size
+				strSheetXml += `<c r="${getExcelColName(idxColLtr)}${idx + 2}"><v>${dataSizes(data[idy])[idx] ?? ''}</v></c>`
+				idxColLtr++
+			}
+			strSheetXml += '</row>'
+		})
+	} else if (chartObject.opts._type === ChartType.scatter) {
+		/* UNUSED:
 					strSheetXml += '<cols>'
 					strSheetXml += '<col min="1" max="' + data.length + '" width="11" customWidth="1" />'
 					//data.forEach((obj,idx)=>{ strSheetXml += '<col min="'+(idx+1)+'" max="'+(idx+1)+'" width="11" customWidth="1" />' });
 					strSheetXml += '</cols>'
 				*/
-				/* EX: INPUT: `data`
+		/* EX: INPUT: `data`
 					[
 						{ name:'X-AxisA', values:[ 1, 2, 3, 4, 5] },
 						{ name:'Y-AxisB', values:[ 2,22,42,52,62] },
 						{ name:'Y-AxisC', values:[ 3,33,43,53,63] }
 					];
 				*/
-				/* EX: OUTPUT: sheet1.xml:
+		/* EX: OUTPUT: sheet1.xml:
 					-|----A----|----B----|----C----|
 					1| X-AxisA | Y-AxisB | Y-AxisC |
 					2|    1    |    2    |    3    |
 					-|---------|---------|---------|
 				*/
-				strSheetXml += '<sheetData>'
+		strSheetXml += '<sheetData>'
 
-				// A: Create header row first (every `name` row provided)
-				strSheetXml += `<row r="1" spans="1:${data.length}">`
-				for (let idx = 0; idx < data.length; idx++) {
-					strSheetXml += `<c r="${getExcelColName(idx + 1)}1" t="s"><v>${idx}</v></c>` // NOTE: add `t="s"` for label cols!
-				}
-				strSheetXml += '</row>'
+		// A: Create header row first (every `name` row provided)
+		strSheetXml += `<row r="1" spans="1:${data.length}">`
+		for (let idx = 0; idx < data.length; idx++) {
+			strSheetXml += `<c r="${getExcelColName(idx + 1)}1" t="s"><v>${idx}</v></c>` // NOTE: add `t="s"` for label cols!
+		}
+		strSheetXml += '</row>'
 
-				// B: Add row for each X-Axis value (Y-Axis* value is optional)
-				dataValues(data[0]).forEach((val, idx) => {
-					// Leading col is reserved for the 'X-Axis' value, so hard-code it, then loop over col values
-					strSheetXml += `<row r="${idx + 2}" spans="1:${data.length}">`
-					strSheetXml += `<c r="A${idx + 2}"><v>${val}</v></c>`
-					// Add Y-Axis 1->N
-					for (let idy = 1; idy < data.length; idy++) {
-						strSheetXml += `<c r="${getExcelColName(idy + 1)}${idx + 2}"><v>${
-							dataValues(data[idy])[idx] || dataValues(data[idy])[idx] === 0 ? dataValues(data[idy])[idx] : ''
-						}</v></c>`
-					}
-					strSheetXml += '</row>'
-				})
-			} else {
-				strSheetXml += '<sheetData>'
+		// B: Add row for each X-Axis value (Y-Axis* value is optional)
+		dataValues(data[0]).forEach((val, idx) => {
+			// Leading col is reserved for the 'X-Axis' value, so hard-code it, then loop over col values
+			strSheetXml += `<row r="${idx + 2}" spans="1:${data.length}">`
+			strSheetXml += `<c r="A${idx + 2}"><v>${val}</v></c>`
+			// Add Y-Axis 1->N
+			for (let idy = 1; idy < data.length; idy++) {
+				strSheetXml += `<c r="${getExcelColName(idy + 1)}${idx + 2}"><v>${
+					dataValues(data[idy])[idx] || dataValues(data[idy])[idx] === 0 ? dataValues(data[idy])[idx] : ''
+				}</v></c>`
+			}
+			strSheetXml += '</row>'
+		})
+	} else {
+		strSheetXml += '<sheetData>'
 
-				/* EX: INPUT: `data`
+		/* EX: INPUT: `data`
 					[
 						{ name:'Red', labels:['Jan..May-17'], values:[11,13,14,15,16] },
 						{ name:'Amb', labels:['Jan..May-17'], values:[22, 6, 7, 8, 9] },
 						{ name:'Grn', labels:['Jan..May-17'], values:[33,32,42,53,63] }
 					];
 				*/
-				/* EX: OUTPUT: lineChart Worksheet:
+		/* EX: OUTPUT: lineChart Worksheet:
 					-|---A---|--B--|--C--|--D--|
 					1|       | Red | Amb | Grn |
 					2|Jan-17 |   11|   22|   33|
@@ -424,92 +446,87 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 					-|-------|-----|-----|-----|
 				*/
 
-				if (!IS_MULTI_CAT_AXES) {
-					// A: Create header row first
-					strSheetXml += `<row r="1" spans="1:${data.length + dataLabels(data[0]).length}">`
-					dataLabels(data[0]).forEach((_labelsGroup, idx) => {
-						strSheetXml += `<c r="${getExcelColName(idx + 1)}1" t="s"><v>0</v></c>`
-					})
-					for (let idx = 0; idx < data.length; idx++) {
-						strSheetXml += `<c r="${getExcelColName(idx + 1 + dataLabels(data[0]).length)}1" t="s"><v>${idx + 1}</v></c>` // NOTE: use `t="s"` for label cols!
-					}
-					strSheetXml += '</row>'
-
-					// B: Add data row(s) for each category
-					firstLabelGroup(data[0]).forEach((_cat, idx) => {
-						strSheetXml += `<row r="${idx + 2}" spans="1:${data.length + dataLabels(data[0]).length}">`
-						// Leading cols are reserved for the label groups
-						for (let idx2 = dataLabels(data[0]).length - 1; idx2 >= 0; idx2--) {
-							strSheetXml += `<c r="${getExcelColName(dataLabels(data[0]).length - idx2)}${idx + 2}" t="s">`
-							strSheetXml += `<v>${data.length + idx + 1}</v>`
-							strSheetXml += '</c>'
-						}
-						for (let idy = 0; idy < data.length; idy++) {
-							strSheetXml += `<c r="${getExcelColName(dataLabels(data[0]).length + idy + 1)}${idx + 2}"><v>${dataValues(data[idy])[idx] ?? ''}</v></c>`
-						}
-						strSheetXml += '</row>'
-					})
-				} else {
-					const TOT_SER = data.length
-					const TOT_CAT = firstLabelGroup(data[0]).length
-					const TOT_LVL = dataLabels(data[0]).length
-					// labels[0] is the leaf (inner) level; labels[TOT_LVL-1] is the outermost.
-					// Reversed so that the outermost group occupies column A and the leaf occupies column TOT_LVL.
-					const revLabelGroups = dataLabels(data[0]).slice().reverse()
-
-					// Pre-build a map from (revLevelIdx, rowIdx) -> shared-string index.
-					// SST layout: 0=blank, 1..TOT_SER=series names, then non-empty labels per
-					// reversed level in appearance order.
-					const ssLabelMap = new Map<string, number>()
-					let ssIdx = TOT_SER + 1
-					revLabelGroups.forEach((labelsGroup, revLevelIdx) => {
-						labelsGroup.forEach((label, rowIdx) => {
-							if (label && label !== '') ssLabelMap.set(`${revLevelIdx}:${rowIdx}`, ssIdx++)
-						})
-					})
-
-					// Header row: label columns blank (index 0), series name columns use indices 1..TOT_SER
-					strSheetXml += `<row r="1" spans="1:${TOT_SER + TOT_LVL}">`
-					for (let col = 1; col <= TOT_LVL; col++) {
-						strSheetXml += `<c r="${getExcelColName(col)}1" t="s"><v>0</v></c>`
-					}
-					for (let ser = 0; ser < TOT_SER; ser++) {
-						strSheetXml += `<c r="${getExcelColName(TOT_LVL + ser + 1)}1" t="s"><v>${ser + 1}</v></c>`
-					}
-					strSheetXml += '</row>'
-
-					// One data row per leaf category
-					for (let idx = 0; idx < TOT_CAT; idx++) {
-						strSheetXml += `<row r="${idx + 2}" spans="1:${TOT_SER + TOT_LVL}">`
-						// Label columns: column idy+1 holds revLabelGroups[idy]; emit only non-empty cells
-						revLabelGroups.forEach((labelsGroup, idy) => {
-							const colLabel = labelsGroup[idx]
-							if (colLabel && colLabel !== '') {
-								strSheetXml += `<c r="${getExcelColName(idy + 1)}${idx + 2}" t="s"><v>${ssLabelMap.get(`${idy}:${idx}`)}</v></c>`
-							}
-						})
-						// Data columns
-						for (let idy = 0; idy < TOT_SER; idy++) {
-							strSheetXml += `<c r="${getExcelColName(TOT_LVL + idy + 1)}${idx + 2}"><v>${dataValues(data[idy])[idx] ?? ''}</v></c>`
-						}
-						strSheetXml += '</row>'
-					}
-				}
+		if (!IS_MULTI_CAT_AXES) {
+			// A: Create header row first
+			strSheetXml += `<row r="1" spans="1:${data.length + dataLabels(data[0]).length}">`
+			dataLabels(data[0]).forEach((_labelsGroup, idx) => {
+				strSheetXml += `<c r="${getExcelColName(idx + 1)}1" t="s"><v>0</v></c>`
+			})
+			for (let idx = 0; idx < data.length; idx++) {
+				strSheetXml += `<c r="${getExcelColName(idx + 1 + dataLabels(data[0]).length)}1" t="s"><v>${idx + 1}</v></c>` // NOTE: use `t="s"` for label cols!
 			}
-			strSheetXml += '</sheetData>'
+			strSheetXml += '</row>'
 
-			strSheetXml += '<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>'
-			// Link the `table1.xml` file to define an actual Table in Excel
-			// NOTE: Intentionally no `<tableParts>` here. A tablePart only works for scatter charts;
-			// every other chart type reports a "cannot find linked file" error. The chart data can be
-			// edited / range-selected without it, so it is deliberately never emitted.
-			strSheetXml += '</worksheet>\n'
-			zipExcel.add('xl/worksheets/sheet1.xml', strSheetXml)
+			// B: Add data row(s) for each category
+			firstLabelGroup(data[0]).forEach((_cat, idx) => {
+				strSheetXml += `<row r="${idx + 2}" spans="1:${data.length + dataLabels(data[0]).length}">`
+				// Leading cols are reserved for the label groups
+				for (let idx2 = dataLabels(data[0]).length - 1; idx2 >= 0; idx2--) {
+					strSheetXml += `<c r="${getExcelColName(dataLabels(data[0]).length - idx2)}${idx + 2}" t="s">`
+					strSheetXml += `<v>${data.length + idx + 1}</v>`
+					strSheetXml += '</c>'
+				}
+				for (let idy = 0; idy < data.length; idy++) {
+					strSheetXml += `<c r="${getExcelColName(dataLabels(data[0]).length + idy + 1)}${idx + 2}"><v>${dataValues(data[idy])[idx] ?? ''}</v></c>`
+				}
+				strSheetXml += '</row>'
+			})
+		} else {
+			const TOT_SER = data.length
+			const TOT_CAT = firstLabelGroup(data[0]).length
+			const TOT_LVL = dataLabels(data[0]).length
+			// labels[0] is the leaf (inner) level; labels[TOT_LVL-1] is the outermost.
+			// Reversed so that the outermost group occupies column A and the leaf occupies column TOT_LVL.
+			const revLabelGroups = dataLabels(data[0]).slice().reverse()
+
+			// Pre-build a map from (revLevelIdx, rowIdx) -> shared-string index.
+			// SST layout: 0=blank, 1..TOT_SER=series names, then non-empty labels per
+			// reversed level in appearance order.
+			const ssLabelMap = new Map<string, number>()
+			let ssIdx = TOT_SER + 1
+			revLabelGroups.forEach((labelsGroup, revLevelIdx) => {
+				labelsGroup.forEach((label, rowIdx) => {
+					if (label && label !== '') ssLabelMap.set(`${revLevelIdx}:${rowIdx}`, ssIdx++)
+				})
+			})
+
+			// Header row: label columns blank (index 0), series name columns use indices 1..TOT_SER
+			strSheetXml += `<row r="1" spans="1:${TOT_SER + TOT_LVL}">`
+			for (let col = 1; col <= TOT_LVL; col++) {
+				strSheetXml += `<c r="${getExcelColName(col)}1" t="s"><v>0</v></c>`
+			}
+			for (let ser = 0; ser < TOT_SER; ser++) {
+				strSheetXml += `<c r="${getExcelColName(TOT_LVL + ser + 1)}1" t="s"><v>${ser + 1}</v></c>`
+			}
+			strSheetXml += '</row>'
+
+			// One data row per leaf category
+			for (let idx = 0; idx < TOT_CAT; idx++) {
+				strSheetXml += `<row r="${idx + 2}" spans="1:${TOT_SER + TOT_LVL}">`
+				// Label columns: column idy+1 holds revLabelGroups[idy]; emit only non-empty cells
+				revLabelGroups.forEach((labelsGroup, idy) => {
+					const colLabel = labelsGroup[idx]
+					if (colLabel && colLabel !== '') {
+						strSheetXml += `<c r="${getExcelColName(idy + 1)}${idx + 2}" t="s"><v>${ssLabelMap.get(`${idy}:${idx}`)}</v></c>`
+					}
+				})
+				// Data columns
+				for (let idy = 0; idy < TOT_SER; idy++) {
+					strSheetXml += `<c r="${getExcelColName(TOT_LVL + idy + 1)}${idx + 2}"><v>${dataValues(data[idy])[idx] ?? ''}</v></c>`
+				}
+				strSheetXml += '</row>'
+			}
 		}
-
-		// Done — return the embedded workbook bytes for the caller to place.
-		return zipExcel.toBytes()
 	}
+	strSheetXml += '</sheetData>'
+
+	strSheetXml += '<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>'
+	// Link the `table1.xml` file to define an actual Table in Excel
+	// NOTE: Intentionally no `<tableParts>` here. A tablePart only works for scatter charts;
+	// every other chart type reports a "cannot find linked file" error. The chart data can be
+	// edited / range-selected without it, so it is deliberately never emitted.
+	strSheetXml += '</worksheet>\n'
+	return strSheetXml
 }
 
 /**
