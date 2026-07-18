@@ -22,18 +22,13 @@
 import { CRLF, REGEX_HEX_COLOR, TableStyle, XML_DECL } from './core-enums.js'
 import type {
 	BorderProps,
-	CustomPropertyValue,
 	PresentationPropsInternal,
-	SlideRelChart,
-	SlideRelMedia,
 	PresSlideInternal,
-	SlideLayoutInternal,
 	TableStyleInternal,
 	TableStyleRegionProps,
 	ThemeColorScheme,
 } from './core-interfaces.js'
 import {
-	avContentType,
 	createColorElement,
 	encodeXmlEntities,
 	genXmlColorSelection,
@@ -58,266 +53,16 @@ export { makeXmlMaster, makeXmlMasterRel } from './gen/slide/master.js'
 // Slide + layout parts live in gen/slide/{slide,layout}.ts; re-exported for pptxgen.ts's `genXml.*` access.
 export { makeXmlSlide, makeXmlSlideLayoutRel, makeXmlSlideRel } from './gen/slide/slide.js'
 export { makeXmlLayout } from './gen/slide/layout.js'
+// OPC package parts live in gen/opc/*; re-exported for pptxgen.ts's `genXml.*` access.
+export { makeXmlContTypes } from './gen/opc/content-types.js'
+export { makeXmlRootRels } from './gen/opc/root-rels.js'
+export { makeXmlApp } from './gen/opc/app.js'
+export { makeXmlCore } from './gen/opc/core.js'
+export { makeXmlCustomProperties } from './gen/opc/custom-props.js'
 import { warn } from './log.js'
-import {
-	type EmbeddedFont,
-	FONT_DATA_CONTENT_TYPE,
-	FONT_DATA_EXTENSION,
-	FONT_REL_TYPE,
-	flattenEmbeddedFaces,
-	serializeEmbeddedFontLst,
-} from './embedded-fonts.js'
-
-// XML-GEN: First 6 functions create the base /ppt files
+import { type EmbeddedFont, FONT_REL_TYPE, flattenEmbeddedFaces, serializeEmbeddedFontLst } from './embedded-fonts.js'
 
 // ===== Package-level parts =====
-
-/**
- * Generate XML ContentType
- * @param {PresSlideInternal[]} slides - slides
- * @param {SlideLayoutInternal[]} slideLayouts - slide layouts
- * @param {PresSlideInternal} masterSlide - master slide
- * @returns XML
- */
-export function makeXmlContTypes(
-	slides: PresSlideInternal[],
-	slideLayouts: SlideLayoutInternal[],
-	masterSlide?: PresSlideInternal,
-	hasCustomProps?: boolean,
-	embeddedFonts?: EmbeddedFont[]
-): string {
-	let strXml = XML_DECL + CRLF
-	strXml += '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
-	strXml += '<Default Extension="xml" ContentType="application/xml"/>'
-	strXml += '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
-
-	// STEP 1 - Emit Default Extension entries only for media types actually used by the deck.
-	// Walk slides + slideLayouts + masterSlide _relsMedia[] and dedupe by extension.
-	// Skip 'online' rels (no part written) and rels missing extn/type.
-	const extnTypeMap = new Map<string, string>()
-	const ctTargets: Array<{ _relsMedia?: SlideRelMedia[]; _relsChart?: SlideRelChart[] }> = []
-	;(slides || []).forEach((s) => ctTargets.push(s))
-	;(slideLayouts || []).forEach((l) => ctTargets.push(l))
-	if (masterSlide) ctTargets.push(masterSlide)
-	let ctHasChart = false
-	ctTargets.forEach((target) => {
-		;(target._relsMedia || []).forEach((rel) => {
-			if (rel.type === 'online' || !rel.extn || !rel.type) return
-			// A/V rel `type` is `${mtype}/${extn}` (e.g. `audio/mp3`); resolve the part's
-			// Default content type to what PowerPoint authors (`audio/mpeg`). Image rels
-			// already carry their final content type (imageContentType).
-			const contentType = rel.type.startsWith('audio/')
-				? avContentType(rel.extn, 'audio')
-				: rel.type.startsWith('video/')
-					? avContentType(rel.extn, 'video')
-					: rel.type
-			if (!extnTypeMap.has(rel.extn)) extnTypeMap.set(rel.extn, contentType)
-		})
-		if ((target._relsChart || []).length > 0) ctHasChart = true
-	})
-	extnTypeMap.forEach((type, extn) => {
-		strXml += '<Default Extension="' + extn + '" ContentType="' + type + '"/>'
-	})
-	// Charts embed an xlsx workbook part; emit the Default only when at least one chart is present.
-	if (ctHasChart) {
-		strXml +=
-			'<Default Extension="xlsx" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"/>'
-	}
-	// Embedded fonts: one Default covers every `.fntdata` part (emitted only when fonts are embedded).
-	if ((embeddedFonts || []).some((font) => font.faces.some((face) => face.bytes))) {
-		strXml += `<Default Extension="${FONT_DATA_EXTENSION}" ContentType="${FONT_DATA_CONTENT_TYPE}"/>`
-	}
-
-	// STEP 2: Add presentation and slide master(s)/slide(s)
-	strXml +=
-		'<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>'
-	strXml +=
-		'<Override PartName="/ppt/notesMasters/notesMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml"/>'
-	// Only one slideMaster part (`slideMaster1.xml`) is written; emit a single matching Override
-	// rather than one per slide (which would dangle, since `slideMaster2..N.xml` do not exist).
-	strXml +=
-		'<Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>'
-	slides.forEach((slide, idx) => {
-		strXml += `<Override PartName="/ppt/slides/slide${idx + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`
-		// Add charts if any
-		slide._relsChart.forEach((rel) => {
-			strXml += `<Override PartName="${rel.Target}" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>`
-		})
-	})
-
-	// STEP 3: Core PPT
-	strXml +=
-		'<Override PartName="/ppt/presProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presProps+xml"/>'
-	strXml +=
-		'<Override PartName="/ppt/viewProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml"/>'
-	strXml +=
-		'<Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>'
-	// notesMaster1.xml.rels references ../theme/theme2.xml; emit a matching Override so the part resolves
-	strXml +=
-		'<Override PartName="/ppt/theme/theme2.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>'
-	strXml +=
-		'<Override PartName="/ppt/tableStyles.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml"/>'
-
-	// STEP 4: Add Slide Layouts
-	slideLayouts.forEach((layout, idx) => {
-		strXml += `<Override PartName="/ppt/slideLayouts/slideLayout${idx + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>`
-		;(layout._relsChart || []).forEach((rel) => {
-			strXml +=
-				' <Override PartName="' +
-				rel.Target +
-				'" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>'
-		})
-	})
-
-	// STEP 5: Add notes slide(s)
-	slides.forEach((_slide, idx) => {
-		strXml += `<Override PartName="/ppt/notesSlides/notesSlide${idx + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"/>`
-	})
-
-	// STEP 5b: Comments — per-slide comment part Override for slides that have comments, plus the
-	// single presentation-level commentAuthors part Override when the deck has any comments.
-	let hasAnyComment = false
-	slides.forEach((slide, idx) => {
-		if ((slide._comments || []).length > 0) {
-			hasAnyComment = true
-			strXml += `<Override PartName="/ppt/comments/comment${idx + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.comments+xml"/>`
-		}
-	})
-	if (hasAnyComment) {
-		strXml +=
-			'<Override PartName="/ppt/commentAuthors.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.commentAuthors+xml"/>'
-	}
-
-	// STEP 6: Add rels
-	masterSlide?._relsChart.forEach((rel) => {
-		strXml +=
-			' <Override PartName="' +
-			rel.Target +
-			'" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>'
-	})
-	// master _relsMedia extensions are already covered by the unified ctTargets walk above; no per-master Default block needed here.
-
-	// LAST: Finish XML (Resume core)
-	strXml +=
-		' <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>'
-	strXml +=
-		' <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>'
-	if (hasCustomProps) {
-		strXml +=
-			' <Override PartName="/docProps/custom.xml" ContentType="application/vnd.openxmlformats-officedocument.custom-properties+xml"/>'
-	}
-	strXml += '</Types>'
-
-	return strXml
-}
-
-/**
- * Creates `_rels/.rels`
- * @returns XML
- */
-export function makeXmlRootRels(hasCustomProps?: boolean): string {
-	let xml = `${XML_DECL}${CRLF}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-		<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
-		<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
-		<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>`
-	if (hasCustomProps) {
-		xml +=
-			'\n\t\t<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties" Target="docProps/custom.xml"/>'
-	}
-	xml += '\n\t\t</Relationships>'
-	return xml
-}
-
-/**
- * Creates `docProps/app.xml`
- * @param {PresSlideInternal[]} slides - Presenation Slides
- * @param {string} company - "Company" metadata
- * @returns XML
- */
-export function makeXmlApp(slides: PresSlideInternal[], company: string): string {
-	return `${XML_DECL}${CRLF}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
-	<TotalTime>0</TotalTime>
-	<Words>0</Words>
-	<Application>Microsoft Office PowerPoint</Application>
-	<PresentationFormat>On-screen Show (16:9)</PresentationFormat>
-	<Paragraphs>0</Paragraphs>
-	<Slides>${slides.length}</Slides>
-	<Notes>${slides.length}</Notes>
-	<HiddenSlides>0</HiddenSlides>
-	<MMClips>0</MMClips>
-	<ScaleCrop>false</ScaleCrop>
-	<HeadingPairs>
-		<vt:vector size="6" baseType="variant">
-			<vt:variant><vt:lpstr>Fonts Used</vt:lpstr></vt:variant>
-			<vt:variant><vt:i4>2</vt:i4></vt:variant>
-			<vt:variant><vt:lpstr>Theme</vt:lpstr></vt:variant>
-			<vt:variant><vt:i4>1</vt:i4></vt:variant>
-			<vt:variant><vt:lpstr>Slide Titles</vt:lpstr></vt:variant>
-			<vt:variant><vt:i4>${slides.length}</vt:i4></vt:variant>
-		</vt:vector>
-	</HeadingPairs>
-	<TitlesOfParts>
-		<vt:vector size="${slides.length + 1 + 2}" baseType="lpstr">
-			<vt:lpstr>Arial</vt:lpstr>
-			<vt:lpstr>Calibri</vt:lpstr>
-			<vt:lpstr>Office Theme</vt:lpstr>
-			${slides.map((_slideObj, idx) => `<vt:lpstr>Slide ${idx + 1}</vt:lpstr>`).join('')}
-		</vt:vector>
-	</TitlesOfParts>
-	<Company>${encodeXmlEntities(company)}</Company>
-	<LinksUpToDate>false</LinksUpToDate>
-	<SharedDoc>false</SharedDoc>
-	<HyperlinksChanged>false</HyperlinksChanged>
-	<AppVersion>16.0000</AppVersion>
-	</Properties>`
-}
-
-/**
- * Creates `docProps/core.xml`
- * @param {string} title - metadata data
- * @param {string} subject - metadata data
- * @param {string} author - metadata value
- * @param {string} revision - metadata value
- * @returns XML
- */
-export function makeXmlCore(title: string, subject: string, author: string, revision: string): string {
-	return `${XML_DECL}
-	<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-		<dc:title>${encodeXmlEntities(title)}</dc:title>
-		<dc:subject>${encodeXmlEntities(subject)}</dc:subject>
-		<dc:creator>${encodeXmlEntities(author)}</dc:creator>
-		<cp:lastModifiedBy>${encodeXmlEntities(author)}</cp:lastModifiedBy>
-		<cp:revision>${revision}</cp:revision>
-		<dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().replace(/\.\d\d\dZ/, 'Z')}</dcterms:created>
-		<dcterms:modified xsi:type="dcterms:W3CDTF">${new Date().toISOString().replace(/\.\d\d\dZ/, 'Z')}</dcterms:modified>
-	</cp:coreProperties>`
-}
-
-const CUSTOM_PROPS_FMTID = '{D5CDD505-2E9C-101B-9397-08002B2CF9AE}'
-
-/**
- * Creates `docProps/custom.xml`
- * @param props - custom property name/value pairs
- * @returns XML
- */
-export function makeXmlCustomProperties(props: Array<{ name: string; value: CustomPropertyValue }>): string {
-	const propertiesXml = props
-		.map(({ name, value }, idx) => {
-			let valueXml: string
-			if (typeof value === 'boolean') {
-				valueXml = `<vt:bool>${value}</vt:bool>`
-			} else if (value instanceof Date) {
-				valueXml = `<vt:filetime>${value.toISOString().replace(/\.\d{3}Z$/, 'Z')}</vt:filetime>`
-			} else if (typeof value === 'number') {
-				valueXml = Number.isInteger(value) ? `<vt:i4>${value}</vt:i4>` : `<vt:r8>${value}</vt:r8>`
-			} else {
-				valueXml = `<vt:lpwstr>${encodeXmlEntities(String(value))}</vt:lpwstr>`
-			}
-			return `<property fmtid="${CUSTOM_PROPS_FMTID}" pid="${idx + 2}" name="${encodeXmlEntities(name)}">${valueXml}</property>`
-		})
-		.join('')
-	return `${XML_DECL}${CRLF}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">${propertiesXml}</Properties>`
-}
 
 /**
  * Creates `ppt/_rels/presentation.xml.rels`
