@@ -1858,6 +1858,48 @@ items:
       spec_refs: []
     next_action: none
 
+  - id: fork-write-side-branch-coverage
+    source: fork:src/gen-tables.ts
+    type: fork-internal-proposal
+    first_seen: 2026-07-18
+    last_reviewed: 2026-07-18
+    status: deferred
+    priority: p3
+    target_area: []
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: Raise write-side branch coverage on the big emitters (gen-tables, gen-objects, measure-fit, text-fit) still below the branch gate
+    current_project_notes: |
+      Carried over from the retired REPO-IMPROVEMENT-PLAN (its P6) after the read-side
+      branch-coverage sweep landed (commits bbf8d3b4..106cc3fc) and the gate was
+      ratcheted to 90/76/96/93 (8479a722). The read-side gaps that plan named
+      (read/api/chart.ts, theme-context, shapes, oxml/theme, animation, transition)
+      are now covered; the remaining below-average branch coverage is on the WRITE
+      side:
+        - gen-tables.ts — lowest overall; the getSlidesForTableRows auto-paging
+          engine is the largest untested branch surface.
+        - gen-objects.ts — biggest low-coverage surface by volume (~859 stmts).
+        - the text-fit path — measure-fit.ts and text-fit.ts branch coverage lag.
+      No missing files — the gap is within-file branches, and per docs/testing.md some
+      red dist lines are already covered via src-importing tests, so read
+      coverage/coverage-summary.json before assuming a real gap. Ongoing ratchet work,
+      not a discrete deliverable: add branch tests, then bump the vitest.config.ts
+      thresholds in lockstep (ratchet upward, never loosen). Nothing here changes
+      emitted OOXML.
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/gen-tables.ts
+        - src/gen-objects.ts
+        - src/measure-fit.ts
+        - src/text-fit.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: add-write-side-branch-tests-and-ratchet-thresholds
+
   - id: fork-chart-counter-nondeterminism
     source: fork:src/gen-objects.ts
     type: fork-internal-proposal
