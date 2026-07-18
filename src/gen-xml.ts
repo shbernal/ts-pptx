@@ -2190,128 +2190,15 @@ function genXmlInlineMath(omml: string): string {
 	return `<a14:m xmlns:a14="${A14_NS}" xmlns:m="${M_NS}">${mathXml}</a14:m>`
 }
 
+// A run of formatted text within a paragraph. Every run reaching STEP 5/6 of genXmlTextBody
+// carries an `options` bag (assigned in STEP 4), so model it as required.
+type RunProps = TextProps & { options: TextPropsOptions }
+
 /**
- * Generate the XML for text and its options (bold, bullet, etc) including text runs (word-level formatting)
- * @param {SlideObject|TableCell} slideObj - slideObj or tableCell
- * @note PPT text lines [lines followed by line-breaks] are created using <p>-aragraph's
- * @note Bullets are a paragragh-level formatting device
- * @template
- *    <p:txBody>
- *        <a:bodyPr wrap="square" rtlCol="0">
- *            <a:spAutoFit/>
- *        </a:bodyPr>
- *        <a:lstStyle/>
- *        <a:p>
- *            <a:pPr algn="ctr"/>
- *            <a:r>
- *                <a:rPr lang="en-US" dirty="0" err="1"/>
- *                <a:t>textbox text</a:t>
- *            </a:r>
- *            <a:endParaRPr lang="en-US" dirty="0"/>
- *        </a:p>
- *    </p:txBody>
- * @returns XML containing the param object's text and formatting
+ * Group the flat run list into paragraphs (lines): a new line starts on a display-math run,
+ * an alignment change, or a bullet, and closes after a breakLine. Returns the per-line run arrays.
  */
-export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
-	const opts: ObjectOptions = slideObj.options || {}
-	// Every run reaching STEP 5/6 carries an `options` bag (assigned in STEP 4), so model it as required.
-	type RunProps = TextProps & { options: TextPropsOptions }
-	let tmpTextObjects: TextProps[] = []
-	const arrTextObjects: RunProps[] = []
-
-	// FIRST: Shapes without text reach this point with `slideObj.text` null/undefined.
-	// We MUST still emit a `<p:txBody>` with at least an empty `<a:p>` paragraph;
-	// the empty-txBody fallback below appends `<a:p><a:endParaRPr/></a:p>` when no
-	// `<a:p>` was produced. Returning early here would emit `<p:sp>` without
-	// `<p:txBody>`, which PowerPoint reports as a needs-repair error.
-
-	// STEP 1: Start textBody
-	let strSlideXml = slideObj._type === SlideObjectType.tablecell ? '<a:txBody>' : '<p:txBody>'
-
-	// STEP 2: Add bodyProperties
-	{
-		// A: 'bodyPr'
-		strSlideXml += genXmlBodyProperties(slideObj)
-
-		// B: 'lstStyle'
-		// NOTE: shape type 'LINE' has different text align needs (a lstStyle.lvl1pPr between bodyPr and p)
-		// KNOWN LIMITATION: horizontal align on a LINE does not work — text is always left-aligned inside the line.
-		if (opts.h === 0 && opts.line && opts.align) strSlideXml += '<a:lstStyle><a:lvl1pPr algn="l"/></a:lstStyle>'
-		else if (slideObj._type === SlideObjectType.placeholder)
-			strSlideXml += `<a:lstStyle>${genXmlParagraphProperties(slideObj, true)}</a:lstStyle>`
-		else strSlideXml += '<a:lstStyle/>'
-	}
-
-	/* STEP 3: Modify slideObj.text to array
-		CASES:
-		addText( 'string' ) // string
-		addText( 'line1\n line2' ) // string with lineBreak
-		addText( {text:'word1'} ) // TextProps object
-		addText( ['barry','allen'] ) // array of strings
-		addText( [{text:'word1'}, {text:'word2'}] ) // TextProps object array
-		addText( [{text:'line1\n line2'}, {text:'end word'}] ) // TextProps object array with lineBreak
-	*/
-	if (typeof slideObj.text === 'string' || typeof slideObj.text === 'number') {
-		// Handle cases 1,2
-		tmpTextObjects.push({ text: slideObj.text.toString(), options: opts || {} })
-	} else if (
-		slideObj.text &&
-		!Array.isArray(slideObj.text) &&
-		typeof slideObj.text === 'object' &&
-		Object.keys(slideObj.text).includes('text')
-	) {
-		// Handle case 3
-		tmpTextObjects.push({
-			text: slideObj.text || '',
-			options: slideObj.options || {},
-			math: (slideObj.text as TextProps).math,
-			inline: (slideObj.text as TextProps).inline,
-		})
-	} else if (Array.isArray(slideObj.text)) {
-		// Handle cases 4,5,6
-		// NOTE: use cast as text is TextProps[]|TableCell[] and their `options` dont overlap (they share the same TextBaseProps though)
-		// `math` carries raw OMML for native equation paragraphs — preserved here so STEP 5/6 can isolate it.
-		tmpTextObjects = (slideObj.text as TextProps[]).map((item) => ({
-			text: item.text,
-			options: item.options,
-			math: item.math,
-			inline: item.inline,
-		}))
-	}
-
-	// STEP 4: Iterate over text objects, set text/options, break into pieces if '\n'/breakLine found
-	tmpTextObjects.forEach((itext, idx) => {
-		if (!itext.text) itext.text = ''
-
-		// A: Set options
-		itext.options = itext.options || opts || {}
-		if (idx === 0 && itext.options && !itext.options.bullet && opts.bullet) itext.options.bullet = opts.bullet
-
-		// B: Cast to text-object and fix line-breaks (if needed)
-		if (typeof itext.text === 'string' || typeof itext.text === 'number') {
-			// 1: Convert "\n" or any variation into CRLF
-			itext.text = itext.text.toString().replace(/\r*\n/g, CRLF)
-		}
-
-		// C: If text string has line-breaks, then create a separate text-object for each (much easier than dealing with split inside a loop below)
-		// NOTE: Filter for trailing lineBreak prevents the creation of an empty textObj as the last item
-		if (itext.text.includes(CRLF) && itext.text.match(/\n$/g) === null) {
-			const lines = itext.text.split(CRLF)
-			lines.forEach((line, lineIdx) => {
-				const isLast = lineIdx === lines.length - 1
-				// Non-last pieces need a paragraph break after them (the \n implies it).
-				// The last piece inherits the caller's breakLine intent — do not mutate the original options object.
-				arrTextObjects.push({
-					text: line,
-					options: { ...itext.options, breakLine: isLast ? itext.options?.breakLine : true },
-				})
-			})
-		} else {
-			arrTextObjects.push({ ...itext, options: itext.options ?? {} })
-		}
-	})
-
-	// STEP 5: Group textObj into lines by checking for lineBreak, bullets, alignment change, etc.
+function groupRunsIntoLines(arrTextObjects: RunProps[], opts: ObjectOptions): RunProps[][] {
 	const arrLines: RunProps[][] = []
 	let arrTexts: RunProps[] = []
 	arrTextObjects.forEach((textObj, idx) => {
@@ -2356,8 +2243,19 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 		// D: Flush buffer
 		if (idx + 1 === arrTextObjects.length) arrLines.push(arrTexts)
 	})
+	return arrLines
+}
 
-	// STEP 6: Loop over each line and create paragraph props, text run, etc.
+/**
+ * Render each grouped line to an `<a:p>` paragraph: paragraph props, inherited run options,
+ * text runs (and inline/display math), and the closing endParaRPr.
+ */
+function renderTextParagraphsXml(
+	arrLines: RunProps[][],
+	slideObj: SlideObject | TableCell,
+	opts: ObjectOptions
+): string {
+	let strSlideXml = ''
 	arrLines.forEach((line) => {
 		// A DISPLAY equation owns its whole paragraph: emit the oMathPara wrapper and skip runs.
 		// An inline equation (even when it is the line's only run) flows as a run and is emitted below.
@@ -2483,6 +2381,133 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 		// D: End paragraph
 		strSlideXml += '</a:p>'
 	})
+	return strSlideXml
+}
+
+/**
+ * Generate the XML for text and its options (bold, bullet, etc) including text runs (word-level formatting)
+ * @param {SlideObject|TableCell} slideObj - slideObj or tableCell
+ * @note PPT text lines [lines followed by line-breaks] are created using <p>-aragraph's
+ * @note Bullets are a paragragh-level formatting device
+ * @template
+ *    <p:txBody>
+ *        <a:bodyPr wrap="square" rtlCol="0">
+ *            <a:spAutoFit/>
+ *        </a:bodyPr>
+ *        <a:lstStyle/>
+ *        <a:p>
+ *            <a:pPr algn="ctr"/>
+ *            <a:r>
+ *                <a:rPr lang="en-US" dirty="0" err="1"/>
+ *                <a:t>textbox text</a:t>
+ *            </a:r>
+ *            <a:endParaRPr lang="en-US" dirty="0"/>
+ *        </a:p>
+ *    </p:txBody>
+ * @returns XML containing the param object's text and formatting
+ */
+export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
+	const opts: ObjectOptions = slideObj.options || {}
+	let tmpTextObjects: TextProps[] = []
+	const arrTextObjects: RunProps[] = []
+
+	// FIRST: Shapes without text reach this point with `slideObj.text` null/undefined.
+	// We MUST still emit a `<p:txBody>` with at least an empty `<a:p>` paragraph;
+	// the empty-txBody fallback below appends `<a:p><a:endParaRPr/></a:p>` when no
+	// `<a:p>` was produced. Returning early here would emit `<p:sp>` without
+	// `<p:txBody>`, which PowerPoint reports as a needs-repair error.
+
+	// STEP 1: Start textBody
+	let strSlideXml = slideObj._type === SlideObjectType.tablecell ? '<a:txBody>' : '<p:txBody>'
+
+	// STEP 2: Add bodyProperties
+	{
+		// A: 'bodyPr'
+		strSlideXml += genXmlBodyProperties(slideObj)
+
+		// B: 'lstStyle'
+		// NOTE: shape type 'LINE' has different text align needs (a lstStyle.lvl1pPr between bodyPr and p)
+		// KNOWN LIMITATION: horizontal align on a LINE does not work — text is always left-aligned inside the line.
+		if (opts.h === 0 && opts.line && opts.align) strSlideXml += '<a:lstStyle><a:lvl1pPr algn="l"/></a:lstStyle>'
+		else if (slideObj._type === SlideObjectType.placeholder)
+			strSlideXml += `<a:lstStyle>${genXmlParagraphProperties(slideObj, true)}</a:lstStyle>`
+		else strSlideXml += '<a:lstStyle/>'
+	}
+
+	/* STEP 3: Modify slideObj.text to array
+		CASES:
+		addText( 'string' ) // string
+		addText( 'line1\n line2' ) // string with lineBreak
+		addText( {text:'word1'} ) // TextProps object
+		addText( ['barry','allen'] ) // array of strings
+		addText( [{text:'word1'}, {text:'word2'}] ) // TextProps object array
+		addText( [{text:'line1\n line2'}, {text:'end word'}] ) // TextProps object array with lineBreak
+	*/
+	if (typeof slideObj.text === 'string' || typeof slideObj.text === 'number') {
+		// Handle cases 1,2
+		tmpTextObjects.push({ text: slideObj.text.toString(), options: opts || {} })
+	} else if (
+		slideObj.text &&
+		!Array.isArray(slideObj.text) &&
+		typeof slideObj.text === 'object' &&
+		Object.keys(slideObj.text).includes('text')
+	) {
+		// Handle case 3
+		tmpTextObjects.push({
+			text: slideObj.text || '',
+			options: slideObj.options || {},
+			math: (slideObj.text as TextProps).math,
+			inline: (slideObj.text as TextProps).inline,
+		})
+	} else if (Array.isArray(slideObj.text)) {
+		// Handle cases 4,5,6
+		// NOTE: use cast as text is TextProps[]|TableCell[] and their `options` dont overlap (they share the same TextBaseProps though)
+		// `math` carries raw OMML for native equation paragraphs — preserved here so STEP 5/6 can isolate it.
+		tmpTextObjects = (slideObj.text as TextProps[]).map((item) => ({
+			text: item.text,
+			options: item.options,
+			math: item.math,
+			inline: item.inline,
+		}))
+	}
+
+	// STEP 4: Iterate over text objects, set text/options, break into pieces if '\n'/breakLine found
+	tmpTextObjects.forEach((itext, idx) => {
+		if (!itext.text) itext.text = ''
+
+		// A: Set options
+		itext.options = itext.options || opts || {}
+		if (idx === 0 && itext.options && !itext.options.bullet && opts.bullet) itext.options.bullet = opts.bullet
+
+		// B: Cast to text-object and fix line-breaks (if needed)
+		if (typeof itext.text === 'string' || typeof itext.text === 'number') {
+			// 1: Convert "\n" or any variation into CRLF
+			itext.text = itext.text.toString().replace(/\r*\n/g, CRLF)
+		}
+
+		// C: If text string has line-breaks, then create a separate text-object for each (much easier than dealing with split inside a loop below)
+		// NOTE: Filter for trailing lineBreak prevents the creation of an empty textObj as the last item
+		if (itext.text.includes(CRLF) && itext.text.match(/\n$/g) === null) {
+			const lines = itext.text.split(CRLF)
+			lines.forEach((line, lineIdx) => {
+				const isLast = lineIdx === lines.length - 1
+				// Non-last pieces need a paragraph break after them (the \n implies it).
+				// The last piece inherits the caller's breakLine intent — do not mutate the original options object.
+				arrTextObjects.push({
+					text: line,
+					options: { ...itext.options, breakLine: isLast ? itext.options?.breakLine : true },
+				})
+			})
+		} else {
+			arrTextObjects.push({ ...itext, options: itext.options ?? {} })
+		}
+	})
+
+	// STEP 5: Group textObj into lines by checking for lineBreak, bullets, alignment change, etc.
+	const arrLines = groupRunsIntoLines(arrTextObjects, opts)
+
+	// STEP 6: Loop over each line and create paragraph props, text run, etc.
+	strSlideXml += renderTextParagraphsXml(arrLines, slideObj, opts)
 
 	// IMPORTANT: An empty txBody will cause "needs repair" error! Add <p> content if missing.
 	// This fixes an issue with table auto-paging where some cells would be empty on subsequent pages.
