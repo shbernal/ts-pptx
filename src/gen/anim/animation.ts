@@ -1,0 +1,283 @@
+/**
+ * PptxGenJS: slide build animations
+ *
+ * Resolve preset build animations to their target shape ids and assemble the
+ * `mainSeq` / `bldLst` trees that PowerPoint reads for click-triggered entrance,
+ * emphasis and exit effects. Consumed by the slide `<p:timing>` builder.
+ */
+
+import type { AnimationProps, SlideObject } from '../../core-interfaces.js'
+import { warn } from '../../log.js'
+import { resolveObjectNameToId } from '../slide/shape-ids.js'
+
+/**
+ * Resolved animation target's shape id (`spid`), or `null` when it cannot be resolved — in which
+ * case the effect is dropped, so every `null` warns rather than leaving the animation silently
+ * missing from the deck.
+ *
+ * `objectName` resolves through `shapeIds`, which covers group children: they are `<p:cNvPr>`-named
+ * on the slide and animate like any other shape, but are not in `_slideObjects`, so the old lookup
+ * there dropped every animation targeting one.
+ *
+ * `shapeIndex` is a 0-based index into the top-level objects only (its `spid = shapeIndex + 2`
+ * mirrors the `idx + 2` top-level allocation in `collectSlideShapeIds`; group children take ids past
+ * that range). An index outside `[0, topLevelCount)` would emit a `<p:spTgt spid>` naming no shape on
+ * the slide — a dangling spid PowerPoint reports as a repair (0x80070570) — so it warns and drops,
+ * exactly like an unresolvable `objectName` does.
+ * @param shapeIds - the slide's shape ids, from `collectSlideShapeIds`
+ * @param topLevelCount - number of top-level slide objects a `shapeIndex` may address
+ * @param anim - the animation to resolve
+ * @returns the target's `<p:cNvPr>` id, or `null`
+ */
+export function resolveAnimationSpid(
+	shapeIds: Map<SlideObject, number>,
+	topLevelCount: number,
+	anim: AnimationProps
+): number | null {
+	if (typeof anim.shapeIndex === 'number') {
+		if (anim.shapeIndex >= 0 && anim.shapeIndex < topLevelCount) return anim.shapeIndex + 2
+		warn(
+			`addAnimation: shapeIndex ${anim.shapeIndex} is out of range (slide has ${topLevelCount} top-level object(s)), so its "${anim.preset}" effect was dropped.`
+		)
+		return null
+	}
+	if (anim.objectName) {
+		const id = resolveObjectNameToId(shapeIds, anim.objectName)
+		if (id !== null) return id
+		warn(`addAnimation: no object named "${anim.objectName}" on the slide, so its "${anim.preset}" effect was dropped.`)
+		return null
+	}
+	warn(`addAnimation: the "${anim.preset}" effect names no target (pass shapeIndex or objectName), so it was dropped.`)
+	return null
+}
+
+interface AnimPresetMeta {
+	presetID: number
+	presetClass: 'entr' | 'emph' | 'exit'
+	presetSubtype: number
+	defaultDurationMs: number
+	/** Emit the effect's behavior nodes (each `<p:cTn>` consumes one id via `next`). */
+	behaviors: (spid: number, dur: number, next: () => number) => string
+}
+
+const ANIM_SET_VISIBLE = (spid: number, next: () => number): string =>
+	`<p:set><p:cBhvr><p:cTn id="${next()}" dur="1" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn>` +
+	`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr>` +
+	'<p:to><p:strVal val="visible"/></p:to></p:set>'
+
+const ANIM_SET_HIDDEN = (spid: number, dur: number, next: () => number): string =>
+	`<p:set><p:cBhvr><p:cTn id="${next()}" dur="1" fill="hold"><p:stCondLst><p:cond delay="${Math.max(0, dur - 1)}"/></p:stCondLst></p:cTn>` +
+	`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr>` +
+	'<p:to><p:strVal val="hidden"/></p:to></p:set>'
+
+/** `p:animEffect` filter transition (fade/wipe(down)/…), shared by entrance and exit presets. */
+const ANIM_EFFECT = (transition: 'in' | 'out', filter: string, spid: number, dur: number, next: () => number): string =>
+	`<p:animEffect transition="${transition}" filter="${filter}"><p:cBhvr><p:cTn id="${next()}" dur="${dur}"/>` +
+	`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl></p:cBhvr></p:animEffect>`
+
+const ANIM_FADE = (transition: 'in' | 'out', spid: number, dur: number, next: () => number): string =>
+	ANIM_EFFECT(transition, 'fade', spid, dur, next)
+
+/**
+ * One `ppt_x`/`ppt_y` motion `<p:anim>` for Fly In (entrance) / Fly Out (exit).
+ * PowerPoint authors the two directions differently (captured in
+ * `slide-animation-presets.oracle.json`): the entrance form references the
+ * hashed run-time variables (`#ppt_x`) and holds (`fill="hold"`) starting
+ * off-screen and ending in place; the exit form uses the bare variables
+ * (`ppt_x`, no `#`), omits `fill="hold"`, and ends off-screen.
+ */
+const ANIM_FLY_AXIS = (
+	direction: 'in' | 'out',
+	axis: 'x' | 'y',
+	spid: number,
+	dur: number,
+	next: () => number
+): string => {
+	const h = direction === 'in' ? '#' : ''
+	let from: string
+	let to: string
+	if (axis === 'x') {
+		from = `${h}ppt_x`
+		to = `${h}ppt_x`
+	} else if (direction === 'in') {
+		from = `1+${h}ppt_h/2`
+		to = `${h}ppt_y`
+	} else {
+		from = `${h}ppt_y`
+		to = `1+${h}ppt_h/2`
+	}
+	const fillAttr = direction === 'in' ? ' fill="hold"' : ''
+	return (
+		'<p:anim calcmode="lin" valueType="num"><p:cBhvr additive="base">' +
+		`<p:cTn id="${next()}" dur="${dur}"${fillAttr}/><p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+		`<p:attrNameLst><p:attrName>ppt_${axis}</p:attrName></p:attrNameLst></p:cBhvr>` +
+		`<p:tavLst><p:tav tm="0"><p:val><p:strVal val="${from}"/></p:val></p:tav>` +
+		`<p:tav tm="100000"><p:val><p:strVal val="${to}"/></p:val></p:tav></p:tavLst></p:anim>`
+	)
+}
+
+const ANIM_PRESETS: Record<string, AnimPresetMeta> = {
+	fadeIn: {
+		presetID: 10,
+		presetClass: 'entr',
+		presetSubtype: 0,
+		defaultDurationMs: 500,
+		behaviors: (spid, dur, next) => ANIM_SET_VISIBLE(spid, next) + ANIM_FADE('in', spid, dur, next),
+	},
+	flyIn: {
+		presetID: 2,
+		presetClass: 'entr',
+		presetSubtype: 4,
+		defaultDurationMs: 500,
+		behaviors: (spid, dur, next) =>
+			ANIM_SET_VISIBLE(spid, next) +
+			ANIM_FLY_AXIS('in', 'x', spid, dur, next) +
+			ANIM_FLY_AXIS('in', 'y', spid, dur, next),
+	},
+	appear: {
+		presetID: 1,
+		presetClass: 'entr',
+		presetSubtype: 0,
+		defaultDurationMs: 500,
+		behaviors: (spid, _dur, next) => ANIM_SET_VISIBLE(spid, next),
+	},
+	wipe: {
+		presetID: 22,
+		presetClass: 'entr',
+		presetSubtype: 4,
+		defaultDurationMs: 500,
+		behaviors: (spid, dur, next) => ANIM_SET_VISIBLE(spid, next) + ANIM_EFFECT('in', 'wipe(down)', spid, dur, next),
+	},
+	grow: {
+		presetID: 6,
+		presetClass: 'emph',
+		presetSubtype: 0,
+		defaultDurationMs: 2000,
+		behaviors: (spid, dur, next) =>
+			`<p:animScale><p:cBhvr><p:cTn id="${next()}" dur="${dur}" fill="hold"/>` +
+			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl></p:cBhvr><p:by x="150000" y="150000"/></p:animScale>`,
+	},
+	spin: {
+		presetID: 8,
+		presetClass: 'emph',
+		presetSubtype: 0,
+		defaultDurationMs: 2000,
+		behaviors: (spid, dur, next) =>
+			`<p:animRot by="21600000"><p:cBhvr><p:cTn id="${next()}" dur="${dur}" fill="hold"/>` +
+			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl><p:attrNameLst><p:attrName>r</p:attrName></p:attrNameLst></p:cBhvr></p:animRot>`,
+	},
+	fadeOut: {
+		presetID: 10,
+		presetClass: 'exit',
+		presetSubtype: 0,
+		defaultDurationMs: 500,
+		behaviors: (spid, dur, next) => ANIM_FADE('out', spid, dur, next) + ANIM_SET_HIDDEN(spid, dur, next),
+	},
+	flyOut: {
+		presetID: 2,
+		presetClass: 'exit',
+		presetSubtype: 4,
+		defaultDurationMs: 500,
+		behaviors: (spid, dur, next) =>
+			ANIM_FLY_AXIS('out', 'x', spid, dur, next) +
+			ANIM_FLY_AXIS('out', 'y', spid, dur, next) +
+			ANIM_SET_HIDDEN(spid, dur, next),
+	},
+}
+
+const ANIM_NODE_TYPE: Record<string, string> = {
+	onClick: 'clickEffect',
+	withPrevious: 'withEffect',
+	afterPrevious: 'afterEffect',
+}
+
+type ResolvedAnimation = { anim: AnimationProps; spid: number }
+
+/**
+ * Assemble the `mainSeq` from preset effects. Effects are grouped into click
+ * steps: an `onClick` effect opens a new click group; `afterPrevious` opens a new
+ * sub-step (delayed by the previous effect's duration) within it; `withPrevious`
+ * joins the current sub-step. This reproduces PowerPoint's interactive build tree.
+ */
+export function buildAnimationSeq(animations: ResolvedAnimation[], next: () => number): string {
+	interface SubGroup {
+		delay: number
+		effects: ResolvedAnimation[]
+	}
+	interface ClickGroup {
+		subs: SubGroup[]
+	}
+	const groups: ClickGroup[] = []
+	let prevDuration = 0
+	for (const entry of animations) {
+		const meta = ANIM_PRESETS[entry.anim.preset]
+		if (!meta) continue
+		const trigger = entry.anim.trigger ?? 'onClick'
+		const duration = typeof entry.anim.durationMs === 'number' ? entry.anim.durationMs : meta.defaultDurationMs
+		if (trigger === 'onClick' || groups.length === 0) {
+			groups.push({ subs: [{ delay: 0, effects: [entry] }] })
+		} else if (trigger === 'afterPrevious') {
+			groups[groups.length - 1]?.subs.push({ delay: prevDuration, effects: [entry] })
+		} else {
+			// withPrevious — join the current sub-step
+			const subs = groups[groups.length - 1]?.subs
+			const lastSub = subs?.[subs.length - 1]
+			if (lastSub) lastSub.effects.push(entry)
+		}
+		prevDuration = duration
+	}
+
+	const emitEffect = (entry: ResolvedAnimation): string => {
+		const meta = ANIM_PRESETS[entry.anim.preset]
+		if (!meta) return ''
+		const nodeType = ANIM_NODE_TYPE[entry.anim.trigger ?? 'onClick']
+		const duration = typeof entry.anim.durationMs === 'number' ? entry.anim.durationMs : meta.defaultDurationMs
+		const effectId = next()
+		const behaviors = meta.behaviors(entry.spid, duration, next)
+		return (
+			`<p:par><p:cTn id="${effectId}" presetID="${meta.presetID}" presetClass="${meta.presetClass}" presetSubtype="${meta.presetSubtype}" fill="hold" grpId="0" nodeType="${nodeType}">` +
+			'<p:stCondLst><p:cond delay="0"/></p:stCondLst>' +
+			`<p:childTnLst>${behaviors}</p:childTnLst></p:cTn></p:par>`
+		)
+	}
+
+	const emitSub = (sub: SubGroup): string => {
+		const subId = next()
+		const effects = sub.effects.map(emitEffect).join('')
+		return (
+			`<p:par><p:cTn id="${subId}" fill="hold"><p:stCondLst><p:cond delay="${sub.delay}"/></p:stCondLst>` +
+			`<p:childTnLst>${effects}</p:childTnLst></p:cTn></p:par>`
+		)
+	}
+
+	const emitGroup = (group: ClickGroup): string => {
+		const groupId = next()
+		const subs = group.subs.map(emitSub).join('')
+		return (
+			`<p:par><p:cTn id="${groupId}" fill="hold"><p:stCondLst><p:cond delay="indefinite"/></p:stCondLst>` +
+			`<p:childTnLst>${subs}</p:childTnLst></p:cTn></p:par>`
+		)
+	}
+
+	const clickGroups = groups.map(emitGroup).join('')
+	return (
+		'<p:seq concurrent="1" nextAc="seek">' +
+		'<p:cTn id="2" dur="indefinite" nodeType="mainSeq">' +
+		`<p:childTnLst>${clickGroups}</p:childTnLst></p:cTn>` +
+		'<p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst>' +
+		'<p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst>' +
+		'</p:seq>'
+	)
+}
+
+/** One `<p:bldP>` per animated shape, in order of first appearance. */
+export function buildBldList(animations: ResolvedAnimation[]): string {
+	const seen = new Set<number>()
+	const bldPs: string[] = []
+	for (const { spid } of animations) {
+		if (seen.has(spid)) continue
+		seen.add(spid)
+		bldPs.push(`<p:bldP spid="${spid}" grpId="0"/>`)
+	}
+	return `<p:bldLst>${bldPs.join('')}</p:bldLst>`
+}
