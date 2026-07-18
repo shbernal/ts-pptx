@@ -3,21 +3,19 @@
  * PptxGenJS Interfaces
  *
  * The public typed contract (plus the internal `*Internal` shapes the generators pass
- * around). This is a types-only module — no runtime code. The `I`-prefixed aliases at
- * the bottom are deprecated (v4.0.0) and re-export the unprefixed names.
+ * around). This is a types-only module — no runtime code.
  *
- * Rough top-to-bottom order:
- *   - Core types          Coord/PositionProps, colors, gradient/pattern/image fills, borders,
+ * Rough top-to-bottom order (grep the `// <name> ====` banners to jump):
+ *   - core types          Coord/PositionProps, colors, gradient/pattern/image fills, borders,
  *                         shadows, lines, connectors, hyperlinks
- *   - Text base           TextBaseProps, placeholder, object name/lock, theme scheme
- *   - Media & images      MediaType, ImageProps, MediaProps
- *   - Shapes              ShapeProps and adjust values
- *   - Tables              TableProps/TableCell(+Props), table styles, tableToSlides, layout results
- *   - Text props          TextPropsOptions/TextProps, measurement, notes, comments
- *   - Charts              OptsChartData(+Internal), per-axis and per-type chart props, ChartOpts
- *   - Internals (PRIVATE) SlideRel(+Media), SlideObject — see the `PRIVATE vvv/^^^` markers
- *   - Write/pres model    WriteProps, sections, layout, masters, groups, slide & presentation props
- *   - Deprecated aliases  legacy `I`-prefixed type names (v4.0.0)
+ *   - text base           TextBaseProps, placeholder, object name/lock, theme scheme
+ *   - media & images      MediaType, ImageProps, MediaProps
+ *   - shapes              ShapeProps and adjust values
+ *   - tables              TableProps/TableCell(+Props), table styles, tableToSlides, layout results
+ *   - text props          TextPropsOptions/TextProps, measurement, notes, comments
+ *   - charts              OptsChartData(+Internal), per-axis and per-type chart props, ChartOpts
+ *   - internals (PRIVATE) SlideRel(+Media), SlideObject — see the `PRIVATE vvv/^^^` markers
+ *   - write/pres model    WriteProps, sections, layout, masters, groups, slide & presentation props
  */
 
 import type {
@@ -33,8 +31,7 @@ import type {
 } from './core-enums.js'
 import type { EmbeddedFont } from './embedded-fonts.js'
 
-// Core Types
-// ==========
+// core types =====================================================================================
 
 /**
  * Coordinate value. A bare `number` is **always inches** — there is no magnitude-based unit
@@ -284,6 +281,8 @@ export type GeometryPoint =
 	| { x: Coord; y: Coord; curve: { type: 'cubic'; x1: Coord; y1: Coord; x2: Coord; y2: Coord } }
 	| { x: Coord; y: Coord; curve: { type: 'quadratic'; x1: Coord; y1: Coord } }
 	| { close: true }
+
+// borders, shadows, lines & connectors ===========================================================
 
 // used by charts, shape, text
 export interface BorderProps {
@@ -557,6 +556,8 @@ export interface ConnectorProps {
 	/** Accessibility alt text */
 	altText?: string
 }
+// text base ======================================================================================
+
 // used by: chart, slide, table, text
 export interface TextBaseProps {
 	/**
@@ -788,6 +789,8 @@ export interface TextBaseProps {
 	 */
 	valign?: VAlign
 }
+
+// placeholders, object identity & theme ==========================================================
 export interface PlaceholderProps extends PositionProps, TextBaseProps, ObjectNameProps {
 	name: string
 	type: PLACEHOLDER_TYPE

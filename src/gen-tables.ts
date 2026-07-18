@@ -8,11 +8,11 @@
  * path, which is out of active scope (see AGENTS.md) — the DOM-independent parts are
  * factored into pure helpers (`resolveHtmlColWidth`) that are unit-tested directly.
  *
- * Contents:
- *   - parseTextToLines        break a cell's text into wrapped lines for a given column width
- *   - getSlidesForTableRows   the auto-page engine: rows in → array of per-slide row groups
- *   - htmlBorderToProps / resolveHtmlColWidth   DOM-table helpers (browser path)
- *   - genTableToSlides        entry for the live-DOM tableToSlides() flow
+ * Contents — jump by grepping the `// ===== <region> =====` banners:
+ *   - Cell text wrapping      parseTextToLines: break a cell's text into wrapped lines for a given column width
+ *   - Auto-page engine        getSlidesForTableRows: rows in → array of per-slide row groups
+ *   - DOM-table helpers        htmlBorderToProps / resolveHtmlColWidth (browser path)
+ *   - Live-DOM tableToSlides    genTableToSlides: entry for the live-DOM tableToSlides() flow
  */
 
 import { DEF_FONT_SIZE, DEF_SLIDE_MARGIN_IN, EMU, LINEH_MODIFIER, ONEPT, SlideObjectType } from './core-enums.js'
@@ -43,6 +43,8 @@ type TableToSlidesHost = {
 	addSlide: (options?: AddSlideProps) => PresSlide
 	presLayout: PresLayout
 }
+
+// ===== Cell text wrapping =====
 
 /**
  * Break cell text into lines based upon table column width (e.g.: Magic Happens Here(tm))
@@ -213,6 +215,11 @@ function parseTextToLines(cell: TableCell, colWidth: number, verbose?: boolean):
 	// Done:
 	return parsedLines
 }
+
+// ===== Auto-page engine =====
+// The in-memory core (fully Node-testable). Internally signposted by the
+// `// STEP 1..7` markers below: margins → column count → widths → the main
+// row-iteration/overflow loop (STEP 6) → final-slide flush (STEP 7).
 
 /**
  * Takes an array of table rows and breaks into an array of slides, which contain the calculated amount of table rows that fit on that slide
@@ -681,6 +688,10 @@ export function getSlidesForTableRows(
 	return tableRowSlides
 }
 
+// ===== DOM-table helpers (browser path) =====
+// DOM-independent helpers factored out of the browser-only tableToSlides() flow
+// so they can be unit-tested without a rendered page (see AGENTS.md scope note).
+
 /**
  * Convert a computed CSS border (width string + color string) from `getComputedStyle` into a
  * pptx `BorderProps`.
@@ -725,6 +736,10 @@ export function resolveHtmlColWidth(calcWidth: number, setWidth: number, minWidt
 	if (isFinite(setWidth) && setWidth > 0) return setWidth
 	return isFinite(minWidth) && minWidth > safeCalc ? minWidth : safeCalc
 }
+
+// ===== Live-DOM tableToSlides() flow =====
+// Browser-only entry (reads a rendered table via getComputedStyle/offsetWidth);
+// out of active scope — see AGENTS.md. Internally signposted by `// STEP 1..5`.
 
 /**
  * Reproduces an HTML table as a PowerPoint table - including column widths, style, etc. - creates 1 or more slides as needed
