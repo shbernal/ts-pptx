@@ -203,6 +203,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   entirely off `inspectPptx`, with no raw slide-XML parsing of its own. All fields are
   additive; existing fields are unchanged.
 
+### Internal
+
+- **Write-side emitter restructured into a layered `src/gen/` tree (no API change).**
+  The 4,206-line `gen-xml.ts` monolith was split into focused modules mirroring the read
+  side's `opc` / `pres` / `slide` / `drawingml` / `anim` layering, and reduced to a thin
+  re-export barrel so `pptxgen.ts`'s `import * as genXml` is untouched. Pure code motion:
+  every step was gated byte-for-byte against a full demo deck (1,437 OOXML parts, including
+  recursing into embedded `.xlsx`), so emitted `.pptx` bytes are unchanged. No public types
+  or exports changed. (`gen-objects.ts` / `gen-charts.ts` / `gen-tables.ts` remain to split.)
+
 ## [10.4.0](https://github.com/shbernal/PptxGenJS/releases/tag/v10.4.0) - 2026-07-16
 
 ### Added
