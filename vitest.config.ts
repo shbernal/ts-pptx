@@ -26,7 +26,10 @@ export default defineConfig({
 				'dist/browser-*.js', // src/runtime/browser.ts — browser runtime adapter
 				'dist/standalone.js', // src/standalone.ts — browser IIFE bundle (not exercised)
 			],
-			reporter: ['text-summary', 'text', 'html'],
+			// `json-summary` writes coverage/coverage-summary.json (per-file + total
+			// rollup) and `json` writes coverage/coverage-final.json (raw per-line map)
+			// so agents and ratchet scripts can read coverage without scraping the HTML.
+			reporter: ['text-summary', 'text', 'html', 'json-summary', 'json'],
 			thresholds: {
 				statements: 89,
 				branches: 74,

@@ -26,6 +26,49 @@ pnpm run test:unit
 For documentation-only changes, no automated test is required unless the docs
 change package, build, or testing claims.
 
+## Fast inner loop (edit → test)
+
+The suite imports from `dist/`, **not** `src/`. Every `test:*` script front-loads
+a full `pnpm run build` (9 entry bundles + `.d.ts` + a browser `standalone`
+bundle), which is far too slow for a one-assertion change. For the inner loop,
+run a `tsdown` watcher and a Vitest watcher in **two terminals**:
+
+```bash
+# terminal 1 — rebuild dist/ on every src/ edit (fast: no .d.ts, no browser bundle)
+pnpm run watch:dev
+
+# terminal 2 — rerun tests on every dist/ (or test) change, no rebuild of its own
+pnpm run test:watch:fast
+```
+
+`watch:dev` uses `tsdown.dev.config.ts`, which drops the two most expensive build
+steps (`.d.ts` emit and the `standalone` browser bundle) while still emitting
+every Node-side entry the suites import. `test:watch:fast` is a bare
+`vitest --watch` that assumes `dist/` is kept current by the watcher.
+
+> **Caveat — stale `dist/` trap.** Running a Vitest watcher (or a bare
+> `vitest run`, see below) **without** a `tsdown` watcher tests the last-built
+> `dist/`, so `src/**` edits appear to have no effect. Either keep `watch:dev`
+> running, or rebuild first.
+
+The single-command `pnpm run test:watch` does one dev build up front and then
+watches — convenient, but it only picks up **test-file** edits; `src/**` edits
+still need the two-terminal loop above (or a manual rebuild).
+
+### Running a single test
+
+Once `dist/` is current (a `watch:dev` running, or after `pnpm run build`), drive
+Vitest directly — these skip the build, so mind the stale-`dist/` caveat:
+
+```bash
+pnpm exec vitest run test/regression/object-identity.test.js   # one file
+pnpm exec vitest run test/regression -t "content type default"  # by test name
+```
+
+You can also add `.only` to a `test(...)`/`describe(...)` while iterating. Bare
+`vitest run test/regression/foo.test.js` does **not** rebuild — if you edited
+`src/**` without a running watcher, rebuild first or you are testing stale code.
+
 ## Regression Suite Layout
 
 Regression tests live in `test/regression/` and are organized by behavior, not
