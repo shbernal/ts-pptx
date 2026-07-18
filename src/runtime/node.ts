@@ -1,7 +1,7 @@
 import { Buffer } from 'node:buffer'
 import fs from 'node:fs/promises'
 import { IMG_SVG_PLACEHOLDER } from '../core-enums.js'
-import type { ISlideRelMedia } from '../core-interfaces.js'
+import type { SlideRelMedia } from '../core-interfaces.js'
 import type { RuntimeAdapter } from './types.js'
 
 export function createNodeRuntime(): RuntimeAdapter {
@@ -27,7 +27,7 @@ async function loadFontData(source: string): Promise<Uint8Array> {
 	}
 }
 
-async function loadMedia(rel: ISlideRelMedia & { path: string }): Promise<string> {
+async function loadMedia(rel: SlideRelMedia & { path: string }): Promise<string> {
 	if (rel.path.startsWith('http')) {
 		const response = await fetch(rel.path)
 		if (!response.ok) throw new Error(`ERROR! Unable to load image (fetch): ${rel.path}`)
@@ -41,7 +41,7 @@ async function loadMedia(rel: ISlideRelMedia & { path: string }): Promise<string
 	}
 }
 
-async function createSvgPngPreview(rel: ISlideRelMedia): Promise<string> {
+async function createSvgPngPreview(rel: SlideRelMedia): Promise<string> {
 	rel.data = IMG_SVG_PLACEHOLDER
 	return 'done'
 }
