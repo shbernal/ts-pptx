@@ -34,7 +34,6 @@ import {
 	SLDNUMFLDID,
 	SlideObjectType,
 	TableStyle,
-	VALID_SHAPE_PRESETS,
 	XML_DECL,
 } from './core-enums.js'
 import type {
@@ -42,7 +41,6 @@ import type {
 	TransitionProps,
 	BorderProps,
 	CustomPropertyValue,
-	GeometryPoint,
 	PresentationPropsInternal,
 	SlideComment,
 	SlideObject,
@@ -53,7 +51,6 @@ import type {
 	MasterTextStyleLevel,
 	MasterTextStyleProps,
 	ObjectOptions,
-	PresLayout,
 	PresSlideInternal,
 	ResolvedCommentAuthor,
 	SlideLayoutInternal,
@@ -68,7 +65,6 @@ import type {
 } from './core-interfaces.js'
 import {
 	avContentType,
-	convertArcAngle,
 	convertRotationDegrees,
 	createColorElement,
 	createGlowElement,
@@ -100,6 +96,7 @@ import {
 	PICTURE_LOCK_ATTRS,
 	SHAPE_LOCK_ATTRS,
 } from './gen/drawingml/locks.js'
+import { genXmlCustGeom, genXmlPresetGeom } from './gen/drawingml/geometry.js'
 import { warn } from './log.js'
 import {
 	type EmbeddedFont,
@@ -171,169 +168,6 @@ function genXmlImageCrop(crop: { l?: number; t?: number; r?: number; b?: number 
 		throw new Error(`addImage crop: top+bottom insets (${edges.t}%+${edges.b}%) must be < 100%${where}.`)
 	const v = (perc: number): number => Math.round(perc * FIXED_PCT_PER_PERCENT)
 	return `<a:srcRect l="${v(edges.l)}" t="${v(edges.t)}" r="${v(edges.r)}" b="${v(edges.b)}"/><a:stretch><a:fillRect/></a:stretch>`
-}
-
-/**
- * Emit an `<a:prstGeom>` for a preset shape, including any adjust values (`<a:avLst>`).
- * Shared by the shape and image code paths so that geometry + adjust handling stays in one place.
- * @param {string} shapeName - preset geometry name (e.g. `rect`, `ellipse`, `roundRect`, `hexagon`)
- * @param {ObjectOptions} options - object options carrying optional `rectRadius`/`angleRange`/`arcThicknessRatio`
- * @param {number} cx - shape width (EMU), used to scale `rectRadius`
- * @param {number} cy - shape height (EMU), used to scale `rectRadius`
- * @return {string} `<a:prstGeom>` XML
- */
-// Shapes whose corner-radius adjust value is named adj1 (+ adj2) instead of adj.
-// Sourced from ECMA-376 Annex D electronic addenda (presetShapeDefinitions.xml).
-const RECT_RADIUS_ADJ1_SHAPES = new Set(['round2SameRect', 'round2DiagRect'])
-
-function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: number, cy: number): string {
-	// Safety net for every prstGeom emitter (addShape, addText/addImage `shape`):
-	// an unknown preset becomes an invalid `prst` value that makes PowerPoint show
-	// the "needs repair" dialog and drop the shape. Fail loudly instead.
-	if (!VALID_SHAPE_PRESETS.has(shapeName)) {
-		throw new Error(
-			`Invalid shape "${String(shapeName)}"! Use a value from \`pptxgen.ShapeType.*\` (e.g. \`pptxgen.ShapeType.rect\`). PowerPoint can't render unknown preset geometries and will drop the shape during repair.`
-		)
-	}
-	// Collect adjustment guides; track names so the generic `shapeAdjust` passthrough
-	// never emits a duplicate `<a:gd>` for a handle a friendly shortcut already set.
-	let avLst = ''
-	const emittedAdjNames = new Set<string>()
-	const emitGuide = (name: string, fmlaVal: number): void => {
-		avLst += `<a:gd name="${name}" fmla="val ${fmlaVal}"/>`
-		emittedAdjNames.add(name)
-	}
-	if (options.rectRadius) {
-		const adjVal = Math.round((options.rectRadius * EMU * PERCENT_SCALE) / Math.min(cx, cy))
-		if (RECT_RADIUS_ADJ1_SHAPES.has(shapeName)) {
-			emitGuide('adj1', adjVal)
-			emitGuide('adj2', 0)
-		} else {
-			emitGuide('adj', adjVal)
-		}
-	} else if (options.angleRange) {
-		for (let i = 0; i < 2; i++) {
-			const angle = options.angleRange[i] ?? 0
-			emitGuide(`adj${i + 1}`, convertRotationDegrees(angle))
-		}
-
-		if (options.arcThicknessRatio) {
-			emitGuide('adj3', Math.round(options.arcThicknessRatio * (PERCENT_SCALE / 2)))
-		}
-	}
-	// Generic adjustment handles (`shapeAdjust`) for any preset shape.
-	if (options.shapeAdjust) {
-		const adjusts = Array.isArray(options.shapeAdjust) ? options.shapeAdjust : [options.shapeAdjust]
-		adjusts.forEach((adj) => {
-			// Silent coercion of a bad guide produces a shape PowerPoint silently drops or repairs,
-			// so warn and skip instead of emitting a degenerate `<a:gd>`.
-			if (
-				!adj ||
-				typeof adj.name !== 'string' ||
-				adj.name.length === 0 ||
-				typeof adj.value !== 'number' ||
-				!isFinite(adj.value)
-			) {
-				warn(
-					`shapeAdjust entry ${JSON.stringify(adj)} is invalid (needs { name:string, value:number }) and was ignored.`
-				)
-				return
-			}
-			if (emittedAdjNames.has(adj.name)) {
-				warn(`shapeAdjust "${adj.name}" was ignored because rectRadius/angleRange already set that handle.`)
-				return
-			}
-			// `value` is a 0.0-1.0 fraction of the handle range, emitted as a percentage guide (1/100000 units).
-			emitGuide(adj.name, Math.round(adj.value * PERCENT_SCALE))
-		})
-	}
-	return `<a:prstGeom prst="${shapeName}"><a:avLst>${avLst}</a:avLst></a:prstGeom>`
-}
-
-/**
- * Narrow a freeform path node to an arc segment. An arc is the one curve node with no end
- * point, so it must be split off before the remaining curve nodes can be read for x/y.
- */
-function isArcPoint(point: GeometryPoint): point is Extract<GeometryPoint, { curve: { type: 'arc' } }> {
-	return 'curve' in point && point.curve.type === 'arc'
-}
-
-/**
- * Emit an `<a:custGeom>` for a freeform path built from `points`.
- * Shared by the shape and image code paths so that path emission stays in one place.
- * Points are authored in the object's own inch/EMU space (0..cx, 0..cy) — not slide-relative and not normalized.
- * @param {ObjectOptions['points']} points - freeform path DSL (`moveTo`/`lnTo`/`cubicBezTo`/`quadBezTo`/`arcTo`/`close`)
- * @param {number} cx - object width (EMU), used as the path viewport width
- * @param {number} cy - object height (EMU), used as the path viewport height
- * @param {PresLayout} layout - presentation layout used to resolve point coordinates to EMU
- * @return {string} `<a:custGeom>` XML
- */
-function genXmlCustGeom(points: ObjectOptions['points'], cx: number, cy: number, layout: PresLayout): string {
-	// custGeom preamble — the sub-lists OOXML requires before `<a:pathLst>`: adjust values
-	// (avLst), guide formulas (gdLst), adjust handles (ahLst), connection sites (cxnLst), and the
-	// text rectangle (rect). PptxGenJS drives geometry entirely from the path, so all stay empty.
-	let strXml = '<a:custGeom><a:avLst />'
-	strXml += '<a:gdLst>'
-	strXml += '</a:gdLst>'
-	strXml += '<a:ahLst />'
-	strXml += '<a:cxnLst>'
-	strXml += '</a:cxnLst>'
-	strXml += '<a:rect l="l" t="t" r="r" b="b" />'
-
-	strXml += '<a:pathLst>'
-	strXml += `<a:path w="${cx}" h="${cy}">`
-
-	points?.forEach((point, i) => {
-		if (isArcPoint(point)) {
-			// An `<a:arcTo>` has no end point: it is derived from the pen position, radii and sweep.
-			// An authored x/y is silently unused, so say so rather than let it read as meaningful.
-			// (A union excess-property check does not reject one, so this is the only signal.)
-			if ('x' in point || 'y' in point)
-				warn('freeform arc node: x/y are ignored — an arcTo end point is computed from stAng/swAng and the radii.')
-			strXml += `<a:arcTo hR="${getSmartParseNumber(point.curve.hR, 'Y', layout)}" wR="${getSmartParseNumber(
-				point.curve.wR,
-				'X',
-				layout
-			)}" stAng="${convertArcAngle(point.curve.stAng, 'stAng')}" swAng="${convertArcAngle(point.curve.swAng, 'swAng')}" />`
-		} else if ('curve' in point) {
-			switch (point.curve.type) {
-				case 'cubic':
-					strXml += `<a:cubicBezTo>
-					<a:pt x="${getSmartParseNumber(point.curve.x1, 'X', layout)}" y="${getSmartParseNumber(point.curve.y1, 'Y', layout)}" />
-					<a:pt x="${getSmartParseNumber(point.curve.x2, 'X', layout)}" y="${getSmartParseNumber(point.curve.y2, 'Y', layout)}" />
-					<a:pt x="${getSmartParseNumber(point.x, 'X', layout)}" y="${getSmartParseNumber(point.y, 'Y', layout)}" />
-					</a:cubicBezTo>`
-					break
-				case 'quadratic':
-					strXml += `<a:quadBezTo>
-					<a:pt x="${getSmartParseNumber(point.curve.x1, 'X', layout)}" y="${getSmartParseNumber(point.curve.y1, 'Y', layout)}" />
-					<a:pt x="${getSmartParseNumber(point.x, 'X', layout)}" y="${getSmartParseNumber(point.y, 'Y', layout)}" />
-					</a:quadBezTo>`
-					break
-				default:
-					break
-			}
-		} else if ('close' in point) {
-			strXml += '<a:close />'
-		} else if (point.moveTo || i === 0) {
-			strXml += `<a:moveTo><a:pt x="${getSmartParseNumber(point.x, 'X', layout)}" y="${getSmartParseNumber(
-				point.y,
-				'Y',
-				layout
-			)}" /></a:moveTo>`
-		} else {
-			strXml += `<a:lnTo><a:pt x="${getSmartParseNumber(point.x, 'X', layout)}" y="${getSmartParseNumber(
-				point.y,
-				'Y',
-				layout
-			)}" /></a:lnTo>`
-		}
-	})
-
-	strXml += '</a:path>'
-	strXml += '</a:pathLst>'
-	strXml += '</a:custGeom>'
-	return strXml
 }
 
 type TableInheritableOption =
