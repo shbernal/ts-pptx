@@ -31,10 +31,10 @@ export default defineConfig({
 			// so agents and ratchet scripts can read coverage without scraping the HTML.
 			reporter: ['text-summary', 'text', 'html', 'json-summary', 'json'],
 			thresholds: {
-				statements: 89,
-				branches: 74,
-				functions: 95,
-				lines: 92,
+				statements: 90,
+				branches: 76,
+				functions: 96,
+				lines: 93,
 			},
 		},
 	},
