@@ -2551,6 +2551,34 @@ export default [
 		},
 	},
 	{
+		// Theme font faces are caller-supplied and were interpolated into the `typeface`
+		// attribute unescaped, so a name containing `"`, `&` or `<` closed the attribute
+		// early and emitted non-parseable theme1.xml ("PowerPoint needs to repair"). Every
+		// theme font slot is exercised because they are six separate interpolation sites.
+		name: 'theme font faces containing XML metacharacters are escaped',
+		fn: async () => {
+			const { buf, zip } = await build((p) => {
+				p.theme = {
+					headFontFace: 'Ma"lic&ious <Font>',
+					bodyFontFace: "O'Reilly & Sons",
+					headFontFaceEA: 'Yu <Gothic>',
+					bodyFontFaceEA: 'Yu & Mincho',
+					headFontFaceCS: 'Arial "CS"',
+					bodyFontFaceCS: "Times 'New' Roman",
+				}
+				p.addSlide().addText('escaped', { x: 1, y: 1, w: 4, h: 0.5 })
+			})
+			// Schema validation parses the part, so a broken attribute fails here first.
+			await expectNoSchemaErrors(buf, 'theme-font-face-escaping')
+			// Assert the escaping directly too: a well-formed part could still carry a
+			// mangled font name, which validation alone would not catch.
+			const themeXml = await readEntry(zip, 'ppt/theme/theme1.xml')
+			assertIncludes(themeXml, '<a:latin typeface="Ma&quot;lic&amp;ious &lt;Font&gt;"/>')
+			assertIncludes(themeXml, '<a:ea typeface="Yu &lt;Gothic&gt;"/>')
+			assertIncludes(themeXml, '<a:cs typeface="Arial &quot;CS&quot;"/>')
+		},
+	},
+	{
 		// connectors emit <p:cxnSp> with connector preset geometries and must stay
 		// schema-valid, including flipped boxes and arrowheads/dashes on the <a:ln>.
 		name: 'connectors (straight/elbow/curved, flipped, arrowheads)',
