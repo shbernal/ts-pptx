@@ -16,8 +16,22 @@ import { ChartType, XML_DECL } from '../../core-enums.js'
 import type { SlideRelChart, OptsChartDataInternal } from '../../core-interfaces.js'
 import { encodeXmlEntities } from '../../gen-utils.js'
 import { ZipWriter } from '../../zip.js'
+import { el, raw, voidEl } from '../oxml/el.js'
 import { dataLabels, dataValues, dataSizes, firstLabelGroup, getExcelColName } from './data-refs.js'
 import { makeXmlCharts } from './chart-xml.js'
+
+const SCHEMA_BASE = 'http://schemas.openxmlformats.org/'
+const PACKAGE_REL_NS = SCHEMA_BASE + 'package/2006/relationships'
+const OFFICE_REL = SCHEMA_BASE + 'officeDocument/2006/relationships/'
+
+function relationship(id: string, type: string, target: string): string {
+	return voidEl('Relationship', { Id: id, Type: type, Target: target })
+}
+
+/** `<Relationships>` wrapper shared by the workbook's `.rels` parts (all flat, no indent). */
+function relationships(rels: string[]): string {
+	return el('Relationships', { xmlns: PACKAGE_REL_NS }, rels.map(raw))
+}
 
 /**
  * Build the chart's embedded Excel workbook as a standalone OPC package and
@@ -61,11 +75,12 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 			zipExcel.add(
 				'_rels/.rels',
 				XML_DECL +
-					'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-					'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>' +
-					'<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>' +
-					'<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>' +
-					'</Relationships>\n'
+					relationships([
+						relationship('rId1', PACKAGE_REL_NS + '/metadata/core-properties', 'docProps/core.xml'),
+						relationship('rId2', OFFICE_REL + 'extended-properties', 'docProps/app.xml'),
+						relationship('rId3', OFFICE_REL + 'officeDocument', 'xl/workbook.xml'),
+					]) +
+					'\n'
 			)
 			zipExcel.add(
 				'docProps/app.xml',
@@ -96,12 +111,14 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 			zipExcel.add(
 				'xl/_rels/workbook.xml.rels',
 				XML_DECL +
-					'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-					'<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
-					'<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>' +
-					'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
-					'<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>' +
-					'</Relationships>'
+					// Ids are deliberately out of order (3/2/1/4) — that is how this part has
+					// always been emitted, and rel order is byte-significant.
+					relationships([
+						relationship('rId3', OFFICE_REL + 'styles', 'styles.xml'),
+						relationship('rId2', OFFICE_REL + 'theme', 'theme/theme1.xml'),
+						relationship('rId1', OFFICE_REL + 'worksheet', 'worksheets/sheet1.xml'),
+						relationship('rId4', OFFICE_REL + 'sharedStrings', 'sharedStrings.xml'),
+					])
 			)
 			zipExcel.add(
 				'xl/styles.xml',
@@ -128,10 +145,7 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 			)
 			zipExcel.add(
 				'xl/worksheets/_rels/sheet1.xml.rels',
-				XML_DECL +
-					'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-					'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/table" Target="../tables/table1.xml"/>' +
-					'</Relationships>\n'
+				XML_DECL + relationships([relationship('rId1', OFFICE_REL + 'table', '../tables/table1.xml')]) + '\n'
 			)
 		}
 
@@ -475,12 +489,10 @@ function buildXlsxSheet(
  * @return {string} the chart part's `.rels` XML
  */
 export function buildChartRelsXml(embeddingTarget: string): string {
-	return (
-		XML_DECL +
-		'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
-		`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/package" Target="${embeddingTarget}"/>` +
-		'</Relationships>'
-	)
+	// `voidEl` escapes the Target. The one in-tree caller passes an internally built
+	// `../embeddings/Microsoft_Excel_WorksheetN.xlsx`, so that is a no-op on bytes;
+	// it matters only for the read-side injection path, which supplies its own target.
+	return XML_DECL + relationships([relationship('rId1', OFFICE_REL + 'package', embeddingTarget)])
 }
 
 /**
