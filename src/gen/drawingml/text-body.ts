@@ -8,6 +8,7 @@
 
 import { CRLF, PlaceholderType, SlideObjectType } from '../../core-enums.js'
 import type { ObjectOptions, SlideObject, TableCell, TextProps } from '../../core-interfaces.js'
+import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import {
 	genXmlNormAutofit,
 	genXmlParagraphProperties,
@@ -24,7 +25,9 @@ const PLACEHOLDER_TYPE_MAP = PlaceholderType as Record<string, string>
  * @return {string} XML string
  */
 function genXmlBodyProperties(slideObject: SlideObject | TableCell): string {
-	let bodyProperties = '<a:bodyPr'
+	// A table cell always emits bare body properties, whatever else is configured. (This used to be
+	// a ternary on the return, which built the full element first and then threw it away.)
+	if (slideObject._type === SlideObjectType.tablecell) return voidEl('a:bodyPr')
 
 	// Placeholders (incl. master/layout placeholders) carry their margin/valign in `_bodyProp` just
 	// like text boxes, so they must emit the same configured `<a:bodyPr>` — otherwise a placeholder
@@ -34,67 +37,60 @@ function genXmlBodyProperties(slideObject: SlideObject | TableCell): string {
 	const options = (slideObject as SlideObject).options
 	const bodyProp = options?._bodyProp
 	if (
-		slideObject &&
-		(slideObject._type === SlideObjectType.text || slideObject._type === SlideObjectType.placeholder) &&
-		bodyProp
+		!slideObject ||
+		(slideObject._type !== SlideObjectType.text && slideObject._type !== SlideObjectType.placeholder) ||
+		!bodyProp
 	) {
-		// PPT-2019 EX: <a:bodyPr wrap="square" lIns="1270" tIns="1270" rIns="1270" bIns="1270" rtlCol="0" anchor="ctr"/>
-
-		// A: Enable or disable textwrapping none or square
-		bodyProperties += bodyProp.wrap ? ' wrap="square"' : ' wrap="none"'
-
-		// B: Textbox margins [padding]
-		if (bodyProp.lIns || bodyProp.lIns === 0) bodyProperties += ` lIns="${bodyProp.lIns}"`
-		if (bodyProp.tIns || bodyProp.tIns === 0) bodyProperties += ` tIns="${bodyProp.tIns}"`
-		if (bodyProp.rIns || bodyProp.rIns === 0) bodyProperties += ` rIns="${bodyProp.rIns}"`
-		if (bodyProp.bIns || bodyProp.bIns === 0) bodyProperties += ` bIns="${bodyProp.bIns}"`
-
-		// C.1: Text columns (numCol/spcCol). Spacing is only meaningful when there is more than one column.
-		if (bodyProp.numCol) bodyProperties += ` numCol="${bodyProp.numCol}"`
-		if (bodyProp.spcCol) bodyProperties += ` spcCol="${bodyProp.spcCol}"`
-
-		// C: Add rtl after margins
-		bodyProperties += ' rtlCol="0"'
-
-		// D: Add anchorPoints
-		if (bodyProp.anchor) bodyProperties += ' anchor="' + bodyProp.anchor + '"' // VALS: [t,ctr,b]
-		if (bodyProp.vert) bodyProperties += ' vert="' + bodyProp.vert + '"' // VALS: [eaVert,horz,mongolianVert,vert,vert270,wordArtVert,wordArtVertRtl]
-
-		// E: Close <a:bodyPr element
-		bodyProperties += '>'
-
-		// E.1: Preset text warp (`<a:prstTxWarp>`). Per CT_TextBodyProperties this child
-		// comes before the autofit group, so emit it immediately after the attributes.
-		if (bodyProp.prstTxWarp) {
-			bodyProperties += `<a:prstTxWarp prst="${bodyProp.prstTxWarp}"><a:avLst/></a:prstTxWarp>`
-		}
-
-		/**
-		 * F: Text Fit/AutoFit/Shrink option
-		 * @see: http://officeopenxml.com/drwSp-text-bodyPr-fit.php
-		 * @see: http://www.datypic.com/sc/ooxml/g-a_EG_TextAutofit.html
-		 */
-		if (options?.fit) {
-			const fit = options.fit
-			// NOTE: Use of '<a:noAutofit/>' instead of '' causes issues in PPT-2013!
-			if (fit === 'none') bodyProperties += ''
-			// NOTE: Bare shrink does not work automatically - PowerPoint calculates fontScale/lnSpcReduction dynamically upon edit/resize.
-			// The object form bakes explicit values into the file (MS-PPT > Format shape > Text Options: "Shrink text on overflow").
-			else if (fit === 'shrink') bodyProperties += '<a:normAutofit/>'
-			else if (fit === 'resize') bodyProperties += '<a:spAutoFit/>'
-			else if (typeof fit === 'object' && fit.type === 'shrink') bodyProperties += genXmlNormAutofit(fit)
-		}
-
-		// LAST: Close _bodyProp
-		bodyProperties += '</a:bodyPr>'
-	} else {
-		// DEFAULT:
-		bodyProperties += ' wrap="square" rtlCol="0">'
-		bodyProperties += '</a:bodyPr>'
+		// DEFAULT: paired, not self-closing — `<a:bodyPr .../>` would be a byte change.
+		return el('a:bodyPr', { wrap: 'square', rtlCol: '0' })
 	}
 
-	// LAST: Return Close _bodyProp
-	return slideObject._type === SlideObjectType.tablecell ? '<a:bodyPr/>' : bodyProperties
+	// PPT-2019 EX: <a:bodyPr wrap="square" lIns="1270" tIns="1270" rIns="1270" bIns="1270" rtlCol="0" anchor="ctr"/>
+	// NOTE: attribute ORDER is byte-significant; `rtlCol` sits after the margins and columns but
+	// before the anchor points, which is why this is one ordered literal rather than grouped writes.
+	const attrs: XmlAttrs = {
+		// A: Enable or disable textwrapping none or square
+		wrap: bodyProp.wrap ? 'square' : 'none',
+		// B: Textbox margins [padding] — an explicit zero is meaningful, so test for it separately
+		lIns: bodyProp.lIns || bodyProp.lIns === 0 ? bodyProp.lIns : null,
+		tIns: bodyProp.tIns || bodyProp.tIns === 0 ? bodyProp.tIns : null,
+		rIns: bodyProp.rIns || bodyProp.rIns === 0 ? bodyProp.rIns : null,
+		bIns: bodyProp.bIns || bodyProp.bIns === 0 ? bodyProp.bIns : null,
+		// C.1: Text columns (numCol/spcCol). Spacing is only meaningful when there is more than one column.
+		numCol: bodyProp.numCol ? bodyProp.numCol : null,
+		spcCol: bodyProp.spcCol ? bodyProp.spcCol : null,
+		// C: Add rtl after margins
+		rtlCol: '0',
+		// D: Add anchorPoints
+		anchor: bodyProp.anchor ? bodyProp.anchor : null, // VALS: [t,ctr,b]
+		vert: bodyProp.vert ? bodyProp.vert : null, // VALS: [eaVert,horz,mongolianVert,vert,vert270,wordArtVert,wordArtVertRtl]
+	}
+
+	const children: string[] = []
+
+	// E.1: Preset text warp (`<a:prstTxWarp>`). Per CT_TextBodyProperties this child
+	// comes before the autofit group, so emit it immediately after the attributes.
+	// NOTE: this `<a:avLst/>` has NO space before the slash, unlike the one `custGeom` writes.
+	if (bodyProp.prstTxWarp) {
+		children.push(el('a:prstTxWarp', { prst: bodyProp.prstTxWarp }, raw(voidEl('a:avLst'))))
+	}
+
+	/**
+	 * F: Text Fit/AutoFit/Shrink option
+	 * @see: http://officeopenxml.com/drwSp-text-bodyPr-fit.php
+	 * @see: http://www.datypic.com/sc/ooxml/g-a_EG_TextAutofit.html
+	 */
+	if (options?.fit) {
+		const fit = options.fit
+		// NOTE: Use of '<a:noAutofit/>' instead of '' causes issues in PPT-2013! ('none' emits nothing.)
+		// NOTE: Bare shrink does not work automatically - PowerPoint calculates fontScale/lnSpcReduction dynamically upon edit/resize.
+		// The object form bakes explicit values into the file (MS-PPT > Format shape > Text Options: "Shrink text on overflow").
+		if (fit === 'shrink') children.push(voidEl('a:normAutofit'))
+		else if (fit === 'resize') children.push(voidEl('a:spAutoFit'))
+		else if (typeof fit === 'object' && fit.type === 'shrink') children.push(genXmlNormAutofit(fit))
+	}
+
+	return el('a:bodyPr', attrs, children.map(raw))
 }
 
 /** Whether a slide object carries a native equation (`math` raw OMML) on any of its text items. */
@@ -138,8 +134,9 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 	// `<a:p>` was produced. Returning early here would emit `<p:sp>` without
 	// `<p:txBody>`, which PowerPoint reports as a needs-repair error.
 
-	// STEP 1: Start textBody
-	let strSlideXml = slideObj._type === SlideObjectType.tablecell ? '<a:txBody>' : '<p:txBody>'
+	// STEP 1: Accumulate the body's children; the `<p:txBody>`/`<a:txBody>` wrapper closes over
+	// them in STEP 7.
+	let strSlideXml = ''
 
 	// STEP 2: Add bodyProperties
 	{
@@ -149,10 +146,11 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 		// B: 'lstStyle'
 		// NOTE: shape type 'LINE' has different text align needs (a lstStyle.lvl1pPr between bodyPr and p)
 		// KNOWN LIMITATION: horizontal align on a LINE does not work — text is always left-aligned inside the line.
-		if (opts.h === 0 && opts.line && opts.align) strSlideXml += '<a:lstStyle><a:lvl1pPr algn="l"/></a:lstStyle>'
+		if (opts.h === 0 && opts.line && opts.align)
+			strSlideXml += el('a:lstStyle', null, raw(voidEl('a:lvl1pPr', { algn: 'l' })))
 		else if (slideObj._type === SlideObjectType.placeholder)
-			strSlideXml += `<a:lstStyle>${genXmlParagraphProperties(slideObj, true)}</a:lstStyle>`
-		else strSlideXml += '<a:lstStyle/>'
+			strSlideXml += el('a:lstStyle', null, raw(genXmlParagraphProperties(slideObj, true)))
+		else strSlideXml += voidEl('a:lstStyle')
 	}
 
 	/* STEP 3: Modify slideObj.text to array
@@ -238,15 +236,16 @@ export function genXmlTextBody(slideObj: SlideObject | TableCell): string {
 			<a:lstStyle/>
 		</a:txBody>
 	*/
+	// NOTE: this scans the accumulated CHILDREN, which no longer include the opening `<p:txBody>`.
+	// That does not change the result: neither `<a:bodyPr>` nor `<a:lstStyle>` can contain the
+	// exact substring `<a:p>` (`<a:pPr`/`<a:lvl1pPr` do not match), so only real paragraphs do.
 	if (!strSlideXml.includes('<a:p>')) {
-		strSlideXml += '<a:p><a:endParaRPr/></a:p>'
+		strSlideXml += el('a:p', null, raw(voidEl('a:endParaRPr')))
 	}
 
 	// STEP 7: Close the textBody
-	strSlideXml += slideObj._type === SlideObjectType.tablecell ? '</a:txBody>' : '</p:txBody>'
-
 	// LAST: Return XML
-	return strSlideXml
+	return el(slideObj._type === SlideObjectType.tablecell ? 'a:txBody' : 'p:txBody', null, raw(strSlideXml))
 }
 
 /**
@@ -276,6 +275,13 @@ export function genXmlPlaceholder(placeholderObj: SlideObject | null): string {
 	// NOTE: `placeholderType` is already the mapped OOXML value (e.g. 'pic', 'tbl') validated on
 	// the line above; do NOT re-look it up in PLACEHOLDER_TYPE_MAP (its keys are the input names,
 	// not the mapped values), or the type attribute is silently dropped for image/table placeholders.
+	//
+	// NOT built with the element builder, deliberately. This template's own source indentation
+	// reaches the file: attributes are separated by a newline + two tabs, each carries an extra
+	// leading space, and an ABSENT attribute still emits its separator — so the whitespace depends
+	// on which attributes are missing. `voidEl` joins attributes with exactly one space and omits
+	// absent ones entirely, so this layout is not expressible. 105 baseline parts carry `<p:ph`,
+	// so tidying it is a visible byte change and belongs in its own fixture-gated commit.
 	return `<p:ph
 		${placeholderIdx ? ' idx="' + placeholderIdx.toString() + '"' : ''}
 		${placeholderType ? ` type="${placeholderType}"` : ''}
