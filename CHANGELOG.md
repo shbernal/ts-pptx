@@ -211,7 +211,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   re-export barrel so `pptxgen.ts`'s `import * as genXml` is untouched. Pure code motion:
   every step was gated byte-for-byte against a full demo deck (1,437 OOXML parts, including
   recursing into embedded `.xlsx`), so emitted `.pptx` bytes are unchanged. No public types
-  or exports changed. (`gen-objects.ts` / `gen-charts.ts` / `gen-tables.ts` remain to split.)
+  or exports changed.
+
+- **Remaining write-side monoliths split into `src/gen/` too (no API change).** The same
+  byte-identity-gated code motion was applied to the other four generators: `gen-tables.ts`
+  → `gen/table/{autopage,html-dom}.ts`, `gen-charts.ts` → `gen/chart/{data-refs,chart-xml,embed-xlsx}.ts`,
+  and the `add*Definition` layer of `gen-objects.ts` → one module per object kind under
+  `gen/define/` (`group`, `chart`, `image`, `media`, `notes`, `comment`, `shape`, `connector`,
+  `table`, `text`, `placeholder`, `background`, plus shared `object-name` / `hyperlinks` helpers).
+  Each original file is now a thin re-export barrel, so `pptxgen.ts` / `slide.ts` import sites
+  (`genCharts.*` / `genObj.*`) are untouched. Every step gated byte-for-byte against the full
+  demo deck (1,437 OOXML parts, incl. embedded `.xlsx`); emitted `.pptx` bytes and all public
+  types/exports are unchanged. This completes the write-side restructure begun with `gen-xml.ts`.
 
 ## [10.4.0](https://github.com/shbernal/PptxGenJS/releases/tag/v10.4.0) - 2026-07-16
 
