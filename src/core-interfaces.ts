@@ -3249,7 +3249,7 @@ export interface SlideBaseProps {
 	 * Per-kind counters backing default Selection Pane names (`Shape 0`, `Image 1`, `Group 1`, …),
 	 * keyed by `SlideObjectType`. Monotonic for the life of the slide: an object consumes its index
 	 * when it is added, whether it stays top-level or is moved into a group's `_groupObjects`.
-	 * Lazily created by `nextObjectNameIdx` (`gen-objects.ts`).
+	 * Lazily created by `nextObjectNameIdx` (`gen/define/object-name.ts`).
 	 */
 	_objectNameCounts?: Partial<Record<SlideObjectType, number>>
 
