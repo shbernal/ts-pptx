@@ -22,7 +22,9 @@ import {
 } from '../../core-enums.js'
 import type {
 	ObjectOptions,
+	HyperlinkProps,
 	PresSlideInternal,
+	ShapeLineProps,
 	SlideLayoutInternal,
 	SlideObject,
 	SlideRel,
@@ -62,13 +64,77 @@ import {
 } from '../drawingml/locks.js'
 import { genTableCellBorderXml } from '../drawingml/table-border.js'
 import { genXmlPlaceholder, genXmlTextBody, objectHasMath } from '../drawingml/text-body.js'
-import { el, raw, voidEl } from '../oxml/el.js'
+import { el, raw, voidEl, type XmlAttrs, type XmlChild } from '../oxml/el.js'
 import { collectSlideShapeIds, resolveObjectNameToId } from './shape-ids.js'
 
 const PACKAGE_REL_NS = 'http://schemas.openxmlformats.org/package/2006/relationships'
 const OFFICE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
 /** The MS-2007 `media` rel that pairs with an ECMA audio/video/online rel on the same Target. */
 const MS_MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media'
+const DML_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+const CHART_NS = 'http://schemas.openxmlformats.org/drawingml/2006/chart'
+const P14_NS = 'http://schemas.microsoft.com/office/powerpoint/2010/main'
+
+/**
+ * The `<p:cNvPr>` OPEN tag shared by every shape renderer. Callers append `/>` or
+ * `>`+children+`</p:cNvPr>` — the element is self-closing for some shape kinds and paired
+ * (hyperlink / media-action children) for others.
+ *
+ * NOT built with the element builder, deliberately. `descr` is escaped but `name` is **not**,
+ * and that asymmetry is load-bearing to preserve: `objectName` is caller-supplied free text, so
+ * `addText(…, { objectName: 'Q&A' })` reaches the file raw and emits a non-parseable part today.
+ * Escaping it here would be a silent behavior change that no baseline part can witness (no
+ * demo-deck `objectName` carries a special character), so it belongs in its own fixture-gated
+ * commit. This helper exists so that fix is one line in one place instead of eight call sites.
+ * @param id - the shape's `<p:cNvPr>` id, unique slide-wide
+ * @param name - caller-supplied `objectName` (emitted UNESCAPED, see above)
+ * @param descr - alt text (escaped)
+ * @param openPrefix - byte-significant indentation before `<p:cNvPr`
+ * @returns the open tag, without its closing delimiter
+ */
+function cNvPrOpen(id: number, name: string | undefined, descr: string, openPrefix = ''): string {
+	return `${openPrefix}<p:cNvPr id="${id}" name="${name}" descr="${encodeXmlEntities(descr)}"`
+}
+
+/**
+ * The `<a:hlinkClick>` children of a shape's `<p:cNvPr>` — a URL link and/or a jump to another
+ * slide. Shared by the text and image renderers, which emitted identical copies.
+ *
+ * NOTE: the tooltip is passed through UNESCAPED and escaped once by the element builder. Escaping
+ * it here as well would emit `&amp;amp;` for a tooltip containing `&`.
+ * @param link - the shape's hyperlink, if any
+ * @returns zero, one or two `<a:hlinkClick>` elements
+ */
+function cNvPrHyperlink(link: HyperlinkProps | undefined): string {
+	if (!link) return ''
+	const tooltip = link.tooltip ?? ''
+	return (
+		(link.url ? voidEl('a:hlinkClick', { 'r:id': `rId${link._rId}`, tooltip }) : '') +
+		(link.slide
+			? voidEl('a:hlinkClick', { 'r:id': `rId${link._rId}`, tooltip, action: 'ppaction://hlinksldjump' })
+			: '')
+	)
+}
+
+/**
+ * A shape outline: `<a:ln>` with its fill, dash pattern and arrow ends.
+ *
+ * The text, connector and image renderers each carried a byte-identical copy of this block; they
+ * now share one. Attribute and child order are byte-significant and preserved as written.
+ *
+ * FUTURE: arrow-size support via the `w`/`len` attrs on headEnd/tailEnd
+ * (e.g. `<a:headEnd type="arrow" w="lg" len="lg"/>`; each is 'sm'|'med'|'lg', a 3x3 grid)
+ * @param ln - the shape's line properties
+ * @returns the `<a:ln>` element
+ */
+function genXmlShapeLine(ln: ShapeLineProps): string {
+	return el('a:ln', { w: ln.width ? lineWidthToEmu(ln.width) : null, cap: ln.cap ? createLineCap(ln.cap) : null }, [
+		raw(genXmlLineFill(ln)),
+		ln.dashType ? raw(voidEl('a:prstDash', { val: ln.dashType })) : null,
+		ln.beginArrowType ? raw(voidEl('a:headEnd', { type: ln.beginArrowType })) : null,
+		ln.endArrowType ? raw(voidEl('a:tailEnd', { type: ln.endArrowType })) : null,
+	])
+}
 
 type TableInheritableOption =
 	| 'align'
@@ -123,6 +189,10 @@ const hasCompleteGroupFrame = (options: ObjectOptions): boolean =>
  * @return {string} XML string with <p:cSld> as the root
  */
 export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): string {
+	// NOTE: `name` is emitted UNESCAPED, the same latent bug `cNvPrOpen` carries and for the same
+	// reason — escaping it would change emitted bytes for decks with a `&`/`"` in a layout name,
+	// which no baseline part exercises. Preserved here; see `cNvPrOpen` for the full rationale.
+	// The element stays a template because it wraps the entire slide, built by append below.
 	let strSlideXml: string = slide._name ? '<p:cSld name="' + slide._name + '">' : '<p:cSld>'
 
 	// Warn on duplicate Selection Pane identities within this slide. Unique `objectName`
@@ -144,12 +214,31 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 
 	// STEP 1: Add background color/image (ensure only a single `<p:bg>` tag is created, ex: when master-baskground has both `color` and `path`)
 	if (slide._bkgdImgRid) {
-		strSlideXml += `<p:bg><p:bgPr><a:blipFill dpi="0" rotWithShape="1"><a:blip r:embed="rId${slide._bkgdImgRid}"><a:lum/></a:blip><a:srcRect/><a:stretch><a:fillRect/></a:stretch></a:blipFill><a:effectLst/></p:bgPr></p:bg>`
+		strSlideXml += el(
+			'p:bg',
+			null,
+			raw(
+				el('p:bgPr', null, [
+					raw(
+						el('a:blipFill', { dpi: '0', rotWithShape: '1' }, [
+							raw(el('a:blip', { 'r:embed': `rId${slide._bkgdImgRid}` }, raw(voidEl('a:lum')))),
+							raw(voidEl('a:srcRect')),
+							raw(el('a:stretch', null, raw(voidEl('a:fillRect')))),
+						])
+					),
+					raw(voidEl('a:effectLst')),
+				])
+			)
+		)
 	} else if (slide.background?.color || slide.background?.type === 'gradient') {
-		strSlideXml += `<p:bg><p:bgPr>${genXmlColorSelection(slide.background)}<a:effectLst/></p:bgPr></p:bg>`
+		strSlideXml += el(
+			'p:bg',
+			null,
+			raw(el('p:bgPr', null, [raw(genXmlColorSelection(slide.background)), raw(voidEl('a:effectLst'))]))
+		)
 	} else if (!slide.background && slide._name && slide._name === DEF_PRES_LAYOUT_NAME) {
 		// NOTE: Default [white] background is needed on slideMaster1.xml to avoid gray background in Keynote (and Finder previews)
-		strSlideXml += '<p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg>'
+		strSlideXml += el('p:bg', null, raw(el('p:bgRef', { idx: '1001' }, raw(voidEl('a:schemeClr', { val: 'bg1' })))))
 	}
 
 	// STEP 2: Continue slide by starting spTree node
@@ -158,9 +247,23 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 	// transform (off/ext and chOff/chExt all zero) before any child shape. This is the slide's
 	// built-in root group, not a user-authored `addGroup` — hence the zeroed frame.
 	strSlideXml += '<p:spTree>'
-	strSlideXml += '<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>'
-	strSlideXml += '<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/>'
-	strSlideXml += '<a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>'
+	strSlideXml += el('p:nvGrpSpPr', null, [
+		raw(voidEl('p:cNvPr', { id: '1', name: '' })),
+		raw(voidEl('p:cNvGrpSpPr')),
+		raw(voidEl('p:nvPr')),
+	])
+	strSlideXml += el(
+		'p:grpSpPr',
+		null,
+		raw(
+			el('a:xfrm', null, [
+				raw(voidEl('a:off', { x: '0', y: '0' })),
+				raw(voidEl('a:ext', { cx: '0', cy: '0' })),
+				raw(voidEl('a:chOff', { x: '0', y: '0' })),
+				raw(voidEl('a:chExt', { cx: '0', cy: '0' })),
+			])
+		)
+	)
 
 	// Every object's <p:cNvPr> id, up front, for the references that cannot wait for the walk below
 	// to reach their target (connector shape bindings, animation spids). `collectSlideShapeIds`
@@ -209,7 +312,6 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 		let cx = getSmartParseNumber('75%', 'X', slide._presLayout)
 		let cy = 0
 		let placeholderObj: SlideObject | null = null
-		let locationAttr = ''
 		const sizing: ObjectOptions['sizing'] = slideItemObj.options?.sizing
 		const rounding = slideItemObj.options?.rounding
 
@@ -247,10 +349,14 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 			if (phOpts.w || phOpts.w === 0) cx = getSmartParseNumber(phOpts.w, 'X', slide._presLayout)
 			if (phOpts.h || phOpts.h === 0) cy = getSmartParseNumber(phOpts.h, 'Y', slide._presLayout)
 		}
-		//
-		if (slideItemObj.options.flipH) locationAttr += ' flipH="1"'
-		if (slideItemObj.options.flipV) locationAttr += ' flipV="1"'
-		if (slideItemObj.options.rotate) locationAttr += ` rot="${convertRotationDegrees(slideItemObj.options.rotate)}"`
+		// The `<a:xfrm>` placement attributes, shared by every shape kind that has a transform.
+		// NOTE: order is byte-significant (flipH, flipV, rot), and `null` means omitted — `rotate: 0`
+		// stays absent, matching the truthiness test this replaced.
+		const locationAttrs: XmlAttrs = {
+			flipH: slideItemObj.options.flipH ? '1' : null,
+			flipV: slideItemObj.options.flipV ? '1' : null,
+			rot: slideItemObj.options.rotate ? convertRotationDegrees(slideItemObj.options.rotate) : null,
+		}
 
 		// B: Add OBJECT to the current Slide
 		switch (slideItemObj._type) {
@@ -259,10 +365,10 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 				break
 			case SlideObjectType.text:
 			case SlideObjectType.placeholder:
-				strSlideXml += renderTextObject(slideItemObj, idx, slide, x, y, cx, cy, placeholderObj, locationAttr)
+				strSlideXml += renderTextObject(slideItemObj, idx, slide, x, y, cx, cy, placeholderObj, locationAttrs)
 				break
 			case SlideObjectType.connector:
-				strSlideXml += renderConnectorObject(slideItemObj, idx, x, y, cx, cy, locationAttr, shapeIds)
+				strSlideXml += renderConnectorObject(slideItemObj, idx, x, y, cx, cy, locationAttrs, shapeIds)
 				break
 			case SlideObjectType.image:
 				strSlideXml += renderImageObject(
@@ -276,13 +382,13 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 					imgWidth,
 					imgHeight,
 					placeholderObj,
-					locationAttr,
+					locationAttrs,
 					sizing,
 					rounding
 				)
 				break
 			case SlideObjectType.media:
-				strSlideXml += renderMediaObject(slideItemObj, idx, x, y, cx, cy, locationAttr)
+				strSlideXml += renderMediaObject(slideItemObj, idx, x, y, cx, cy, locationAttrs)
 				break
 			case SlideObjectType.chart:
 				strSlideXml += renderChartObject(slideItemObj, idx, x, y, cx, cy, placeholderObj)
@@ -325,15 +431,24 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 					slideItemObj.options.objectName
 				)
 				strSlideXml += '<p:grpSp>'
-				strSlideXml += '<p:nvGrpSpPr>'
-				strSlideXml += `<p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"/>`
-				strSlideXml += grpLockXml ? `<p:cNvGrpSpPr>${grpLockXml}</p:cNvGrpSpPr>` : '<p:cNvGrpSpPr/>'
-				strSlideXml += '<p:nvPr/>'
-				strSlideXml += '</p:nvGrpSpPr>'
-				strSlideXml += `<p:grpSpPr><a:xfrm${locationAttr}>`
-				strSlideXml += `<a:off x="${gx}" y="${gy}"/><a:ext cx="${gcx}" cy="${gcy}"/>`
-				strSlideXml += `<a:chOff x="${gx}" y="${gy}"/><a:chExt cx="${gcx}" cy="${gcy}"/>`
-				strSlideXml += '</a:xfrm></p:grpSpPr>'
+				strSlideXml += el('p:nvGrpSpPr', null, [
+					raw(cNvPrOpen(idx + 2, slideItemObj.options.objectName, slideItemObj.options.altText || '') + '/>'),
+					// Paired only when there are locks to carry; otherwise self-closing.
+					raw(grpLockXml ? el('p:cNvGrpSpPr', null, raw(grpLockXml)) : voidEl('p:cNvGrpSpPr')),
+					raw(voidEl('p:nvPr')),
+				])
+				strSlideXml += el(
+					'p:grpSpPr',
+					null,
+					raw(
+						el('a:xfrm', locationAttrs, [
+							raw(voidEl('a:off', { x: gx, y: gy })),
+							raw(voidEl('a:ext', { cx: gcx, cy: gcy })),
+							raw(voidEl('a:chOff', { x: gx, y: gy })),
+							raw(voidEl('a:chExt', { cx: gcx, cy: gcy })),
+						])
+					)
+				)
 				strSlideXml += innerXml
 				strSlideXml += '</p:grpSp>'
 				break
@@ -362,58 +477,105 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 		// slot instead. `childIdxAlloc` is the next unused index after the walk above; its id is `+ 2`.
 		const slideNumberId = childIdxAlloc++ + 2
 
+		const snProps = slide._slideNumberProps
 		strSlideXml += '<p:sp>'
 		strSlideXml += ' <p:nvSpPr>'
-		strSlideXml += `  <p:cNvPr id="${slideNumberId}" name="Slide Number Placeholder 0"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr>`
-		strSlideXml += '  <p:nvPr><p:ph type="sldNum" sz="quarter" idx="4294967295"/></p:nvPr>'
+		strSlideXml +=
+			voidEl('p:cNvPr', { id: slideNumberId, name: 'Slide Number Placeholder 0' }, { openPrefix: '  ' }) +
+			el('p:cNvSpPr', null, raw(voidEl('a:spLocks', { noGrp: '1' })))
+		strSlideXml += el('p:nvPr', null, raw(voidEl('p:ph', { type: 'sldNum', sz: 'quarter', idx: '4294967295' })), {
+			openPrefix: '  ',
+		})
 		strSlideXml += ' </p:nvSpPr>'
 		strSlideXml += ' <p:spPr>'
 		strSlideXml +=
-			'<a:xfrm>' +
-			`<a:off x="${getSmartParseNumber(slide._slideNumberProps.x, 'X', slide._presLayout)}" y="${getSmartParseNumber(slide._slideNumberProps.y, 'Y', slide._presLayout)}"/>` +
-			`<a:ext cx="${slide._slideNumberProps.w ? getSmartParseNumber(slide._slideNumberProps.w, 'X', slide._presLayout) : '800000'}" cy="${slide._slideNumberProps.h ? getSmartParseNumber(slide._slideNumberProps.h, 'Y', slide._presLayout) : '300000'}"/>` +
-			'</a:xfrm>' +
-			' <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>' +
-			' <a:extLst><a:ext uri="{C572A759-6A51-4108-AA02-DFA0A04FC94B}"><ma14:wrappingTextBoxFlag val="0" xmlns:ma14="http://schemas.microsoft.com/office/mac/drawingml/2011/main"/></a:ext></a:extLst>' +
+			el('a:xfrm', null, [
+				raw(
+					voidEl('a:off', {
+						x: getSmartParseNumber(snProps.x, 'X', slide._presLayout),
+						y: getSmartParseNumber(snProps.y, 'Y', slide._presLayout),
+					})
+				),
+				raw(
+					voidEl('a:ext', {
+						cx: snProps.w ? getSmartParseNumber(snProps.w, 'X', slide._presLayout) : '800000',
+						cy: snProps.h ? getSmartParseNumber(snProps.h, 'Y', slide._presLayout) : '300000',
+					})
+				),
+			]) +
+			el('a:prstGeom', { prst: 'rect' }, raw(voidEl('a:avLst')), { openPrefix: ' ' }) +
+			el(
+				'a:extLst',
+				null,
+				raw(
+					el(
+						'a:ext',
+						{ uri: '{C572A759-6A51-4108-AA02-DFA0A04FC94B}' },
+						raw(
+							voidEl('ma14:wrappingTextBoxFlag', {
+								val: '0',
+								'xmlns:ma14': 'http://schemas.microsoft.com/office/mac/drawingml/2011/main',
+							})
+						)
+					)
+				),
+				{ openPrefix: ' ' }
+			) +
 			'</p:spPr>'
 		strSlideXml += '<p:txBody>'
-		strSlideXml += '<a:bodyPr'
-		if (slide._slideNumberProps.margin && Array.isArray(slide._slideNumberProps.margin)) {
-			// Margins are inches (see `marginToEmu`), matching text-box and cell margins.
-			strSlideXml += ` lIns="${marginToEmu(slide._slideNumberProps.margin[3] || 0)}"`
-			strSlideXml += ` tIns="${marginToEmu(slide._slideNumberProps.margin[0] || 0)}"`
-			strSlideXml += ` rIns="${marginToEmu(slide._slideNumberProps.margin[1] || 0)}"`
-			strSlideXml += ` bIns="${marginToEmu(slide._slideNumberProps.margin[2] || 0)}"`
-		} else if (typeof slide._slideNumberProps.margin === 'number') {
-			strSlideXml += ` lIns="${marginToEmu(slide._slideNumberProps.margin || 0)}"`
-			strSlideXml += ` tIns="${marginToEmu(slide._slideNumberProps.margin || 0)}"`
-			strSlideXml += ` rIns="${marginToEmu(slide._slideNumberProps.margin || 0)}"`
-			strSlideXml += ` bIns="${marginToEmu(slide._slideNumberProps.margin || 0)}"`
+		// Margins are inches (see `marginToEmu`), matching text-box and cell margins.
+		// NOTE: attribute ORDER is byte-significant, and note the margin order is lIns/tIns/rIns/bIns
+		// while the source array is [Top, Right, Bottom, Left] — hence the 3/0/1/2 indexing.
+		const snMargin = snProps.margin
+		const snMarginAt = (arrIdx: number): number | null =>
+			Array.isArray(snMargin)
+				? marginToEmu(snMargin[arrIdx] || 0)
+				: typeof snMargin === 'number'
+					? marginToEmu(snMargin || 0)
+					: null
+		strSlideXml += voidEl('a:bodyPr', {
+			lIns: snMarginAt(3),
+			tIns: snMarginAt(0),
+			rIns: snMarginAt(1),
+			bIns: snMarginAt(2),
+			anchor: snProps.valign
+				? snProps.valign.replace('top', 't').replace('middle', 'ctr').replace('bottom', 'b')
+				: null,
+		})
+		let defRPr = ''
+		if (snProps.fontFace || snProps.fontSize || snProps.color) {
+			// The typeface is caller-supplied via `slide.slideNumber({ fontFace })`; the element builder
+			// escapes it, so a `"`/`&` in the name cannot close the attribute early.
+			const face = snProps.fontFace
+			defRPr = el('a:defRPr', { sz: clampFontSizeSz(snProps.fontSize || 12) }, [
+				snProps.color ? raw(genXmlColorSelection(snProps.color)) : null,
+				face ? raw(voidEl('a:latin', { typeface: face })) : null,
+				face ? raw(voidEl('a:ea', { typeface: face })) : null,
+				face ? raw(voidEl('a:cs', { typeface: face })) : null,
+			])
 		}
-		if (slide._slideNumberProps.valign) {
-			strSlideXml += ` anchor="${slide._slideNumberProps.valign.replace('top', 't').replace('middle', 'ctr').replace('bottom', 'b')}"`
-		}
-		strSlideXml += '/>'
-		strSlideXml += '  <a:lstStyle><a:lvl1pPr>'
-		if (slide._slideNumberProps.fontFace || slide._slideNumberProps.fontSize || slide._slideNumberProps.color) {
-			strSlideXml += `<a:defRPr sz="${clampFontSizeSz(slide._slideNumberProps.fontSize || 12)}">`
-			if (slide._slideNumberProps.color) strSlideXml += genXmlColorSelection(slide._slideNumberProps.color)
-			if (slide._slideNumberProps.fontFace) {
-				// Caller-supplied via `slide.slideNumber({ fontFace })`; escaped so a `"`/`&` in the
-				// name cannot close the attribute early and emit a non-parseable slide part.
-				const slideNumFace = encodeXmlEntities(slide._slideNumberProps.fontFace)
-				strSlideXml += `<a:latin typeface="${slideNumFace}"/><a:ea typeface="${slideNumFace}"/><a:cs typeface="${slideNumFace}"/>`
-			}
-			strSlideXml += '</a:defRPr>'
-		}
-		strSlideXml += '</a:lvl1pPr></a:lstStyle>'
-		strSlideXml += '<a:p>'
-		if (slide._slideNumberProps.align.startsWith('l')) strSlideXml += '<a:pPr algn="l"/>'
-		else if (slide._slideNumberProps.align.startsWith('c')) strSlideXml += '<a:pPr algn="ctr"/>'
-		else if (slide._slideNumberProps.align.startsWith('r')) strSlideXml += '<a:pPr algn="r"/>'
-		else strSlideXml += '<a:pPr algn="l"/>'
-		strSlideXml += `<a:fld id="${SLDNUMFLDID}" type="slidenum"><a:rPr b="${slide._slideNumberProps.bold ? 1 : 0}" lang="en-US"/>`
-		strSlideXml += `<a:t>${slide._slideNum}</a:t></a:fld><a:endParaRPr lang="en-US"/></a:p>`
+		strSlideXml += el('a:lstStyle', null, raw(el('a:lvl1pPr', null, raw(defRPr))), { openPrefix: '  ' })
+
+		// `align` is normalized to 'left' above when unset; anything not starting c/r falls back to 'l'.
+		// `align` is defaulted to 'left' on the props object above; read it through a local so the
+		// narrowing survives (the mutation is kept — other readers rely on it).
+		const snAlignRaw = snProps.align ?? 'left'
+		const snAlign = snAlignRaw.startsWith('c') ? 'ctr' : snAlignRaw.startsWith('r') ? 'r' : 'l'
+		strSlideXml += el('a:p', null, [
+			raw(voidEl('a:pPr', { algn: snAlign })),
+			raw(
+				el('a:fld', { id: SLDNUMFLDID, type: 'slidenum' }, [
+					// NOTE: `b` is emitted as "0" when unset, unlike the run properties elsewhere which omit it.
+					raw(voidEl('a:rPr', { b: snProps.bold ? 1 : 0, lang: 'en-US' })),
+					// NOTE: `String(...)` is load-bearing. A slide MASTER has no `_slideNum`, and the
+					// template this replaced stringified that `null` into the literal text "null"
+					// (visible in slideMaster1.xml). `el()` skips a null child entirely, which would
+					// silently drop it — a byte change. Preserved; fixing it is its own commit.
+					raw(el('a:t', null, String(slide._slideNum))),
+				])
+			),
+			raw(voidEl('a:endParaRPr', { lang: 'en-US' })),
+		])
 		strSlideXml += '</p:txBody></p:sp>'
 	}
 
@@ -438,13 +600,13 @@ function renderTableObject(
 	placeholderObj: SlideObject | null,
 	itemOpts: ObjectOptions
 ): string {
-	let strSlideXml = ''
 	// Caller guarantees options is set (see slideObjectToXml); re-narrow for this scope.
 	slideItemObj.options = slideItemObj.options || {}
-	let strXml = ''
+	let strXml: string
 	let arrTabRows: TableCell[][] = []
 	let objTabOpts: ObjectOptions = {}
 	let intColCnt = 0
+	let tblInner = ''
 	let cellOpts: TableCellProps | null = null
 	// Shallow-clone each row so splice() in the merge-grid builder does not mutate the stored
 	// arrTabRows, which would corrupt output on repeated write()/writeFile() calls.
@@ -467,30 +629,71 @@ function renderTableObject(
 	// with another shape's `idx + 2` on the same slide (e.g. a table plus enough sibling
 	// shapes on slide 7), producing a duplicate id that makes PowerPoint report the file as
 	// corrupt/unreadable (0x80070570) while LibreOffice silently tolerates it.
-	strXml = `<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"/>`
+	strXml =
+		'<p:graphicFrame><p:nvGraphicFramePr>' +
+		cNvPrOpen(idx + 2, slideItemObj.options.objectName, slideItemObj.options.altText || '') +
+		'/>'
 	strXml +=
-		`<p:cNvGraphicFramePr>${genXmlObjectLock('a:graphicFrameLocks', GRAPHIC_FRAME_LOCK_ATTRS, { noGrp: true, ...slideItemObj.options.objectLock }, slideItemObj.options.objectName)}</p:cNvGraphicFramePr>` +
+		el(
+			'p:cNvGraphicFramePr',
+			null,
+			raw(
+				genXmlObjectLock(
+					'a:graphicFrameLocks',
+					GRAPHIC_FRAME_LOCK_ATTRS,
+					{ noGrp: true, ...slideItemObj.options.objectLock },
+					slideItemObj.options.objectName
+				)
+			)
+		) +
 		// A table bound to a layout placeholder emits that placeholder's <p:ph> (idx/type) so
 		// PowerPoint treats the graphicFrame as filling the placeholder. The <p:ph>
 		// precedes <p:extLst> per CT_ApplicationNonVisualDrawingProps document order.
-		`  <p:nvPr>${genXmlPlaceholder(placeholderObj)}<p:extLst><p:ext uri="{D42A27DB-BD31-4B8C-83A1-F6EECF244321}"><p14:modId xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" val="1579011935"/></p:ext></p:extLst></p:nvPr>` +
+		el(
+			'p:nvPr',
+			null,
+			[
+				raw(genXmlPlaceholder(placeholderObj)),
+				raw(
+					el(
+						'p:extLst',
+						null,
+						raw(
+							el(
+								'p:ext',
+								{ uri: '{D42A27DB-BD31-4B8C-83A1-F6EECF244321}' },
+								raw(voidEl('p14:modId', { 'xmlns:p14': P14_NS, val: '1579011935' }))
+							)
+						)
+					)
+				),
+			],
+			{ openPrefix: '  ' }
+		) +
 		'</p:nvGraphicFramePr>'
-	strXml += `<p:xfrm><a:off x="${x || (x === 0 ? 0 : EMU)}" y="${y || (y === 0 ? 0 : EMU)}"/><a:ext cx="${cx || (cx === 0 ? 0 : EMU)}" cy="${
-		cy || EMU
-	}"/></p:xfrm>`
+	strXml += el('p:xfrm', null, [
+		raw(voidEl('a:off', { x: x || (x === 0 ? 0 : EMU), y: y || (y === 0 ? 0 : EMU) })),
+		raw(voidEl('a:ext', { cx: cx || (cx === 0 ? 0 : EMU), cy: cy || EMU })),
+	])
 	{
-		const tblPrAttrs =
-			(objTabOpts.rtl ? ' rtl="1"' : '') +
-			(objTabOpts.hasHeader ? ' firstRow="1"' : '') +
-			(objTabOpts.hasFooter ? ' lastRow="1"' : '') +
-			(objTabOpts.hasBandedRows ? ' bandRow="1"' : '') +
-			(objTabOpts.hasBandedColumns ? ' bandCol="1"' : '') +
-			(objTabOpts.hasFirstColumn ? ' firstCol="1"' : '') +
-			(objTabOpts.hasLastColumn ? ' lastCol="1"' : '')
+		// NOTE: attribute ORDER is byte-significant. None of these flags appears in the byte-gate
+		// baseline (zero parts each), so their emission is pinned by test/regression instead.
+		const tblPrAttrs: XmlAttrs = {
+			rtl: objTabOpts.rtl ? '1' : null,
+			firstRow: objTabOpts.hasHeader ? '1' : null,
+			lastRow: objTabOpts.hasFooter ? '1' : null,
+			bandRow: objTabOpts.hasBandedRows ? '1' : null,
+			bandCol: objTabOpts.hasBandedColumns ? '1' : null,
+			firstCol: objTabOpts.hasFirstColumn ? '1' : null,
+			lastCol: objTabOpts.hasLastColumn ? '1' : null,
+		}
+		// Paired when a style id is carried, else self-closing — an arity difference.
 		const tblPr = objTabOpts.tableStyle
-			? `<a:tblPr${tblPrAttrs}><a:tableStyleId>${objTabOpts.tableStyle}</a:tableStyleId></a:tblPr>`
-			: `<a:tblPr${tblPrAttrs}/>`
-		strXml += `<a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl>${tblPr}`
+			? el('a:tblPr', tblPrAttrs, raw(el('a:tableStyleId', null, objTabOpts.tableStyle)))
+			: voidEl('a:tblPr', tblPrAttrs)
+		// The `<a:tbl>` children accumulate here and are wrapped once at STEP 5, so the byte-significant
+		// (and non-depth-regular) indentation on the closing tags is described in one place.
+		tblInner = tblPr
 	}
 
 	// STEP 2: Set column widths
@@ -501,9 +704,11 @@ function renderTableObject(
 	// tables to ~0-EMU columns (e.g. `w=9` → `gridCol w="3"`).
 	{
 		const gridColsEmu = resolveTableColWidthsEmu(objTabOpts.colW, cx, intColCnt)
-		strXml += '<a:tblGrid>'
-		for (const w of gridColsEmu) strXml += `<a:gridCol w="${w}"/>`
-		strXml += '</a:tblGrid>'
+		tblInner += el(
+			'a:tblGrid',
+			null,
+			gridColsEmu.map((w) => raw(voidEl('a:gridCol', { w })))
+		)
 	}
 
 	// STEP 3: Build our row arrays into an actual grid to match the XML we will be building next
@@ -579,24 +784,21 @@ function renderTableObject(
 			intRowH = Math.round((itemOpts.h ? cy : typeof itemOpts.cy === 'number' ? itemOpts.cy : 1) / arrTabRows.length)
 		}
 
-		// B: Start row
-		strXml += `<a:tr h="${intRowH}">`
+		// B: Start row — cells accumulate here and the row wraps them once, below.
+		const rowCells: string[] = []
 
 		// C: Loop over each CELL
 		cells.forEach((cellObj) => {
 			const cell: TableCell = cellObj
 
-			const cellSpanAttrs = {
+			// NOTE: attribute ORDER is byte-significant; `undefined` omits the attribute entirely,
+			// which is what the old `.filter(([, v]) => !!v)` did.
+			const cellSpanAttrs: XmlAttrs = {
 				rowSpan: cell.options?.rowspan && cell.options.rowspan > 1 ? cell.options.rowspan : undefined,
 				gridSpan: cell.options?.colspan && cell.options.colspan > 1 ? cell.options.colspan : undefined,
 				vMerge: cell._vmerge ? 1 : undefined,
 				hMerge: cell._hmerge ? 1 : undefined,
 			}
-			let cellSpanAttrStr = Object.entries(cellSpanAttrs)
-				.filter(([, v]) => !!v)
-				.map(([k, v]) => `${String(k)}="${String(v)}"`)
-				.join(' ')
-			if (cellSpanAttrStr) cellSpanAttrStr = ' ' + cellSpanAttrStr
 
 			// 1: COLSPAN/ROWSPAN: Emit the dummy covered cell for any active span. PowerPoint defines a
 			// merged region's outer edges (e.g. the right border of a colspan, the bottom border of a
@@ -614,7 +816,9 @@ function renderTableObject(
 					const spanFill = originOpts.fill || ''
 					if (spanFill) spanPrXml += genXmlColorSelection(spanFill)
 				}
-				strXml += `<a:tc${cellSpanAttrStr}><a:tcPr>${spanPrXml}</a:tcPr></a:tc>`
+				// NOTE: the covered cell is FLAT, unlike the real cell below, which carries indentation
+				// before its `</a:tcPr>` and `</a:tc>`.
+				rowCells.push(el('a:tc', cellSpanAttrs, raw(el('a:tcPr', null, raw(spanPrXml)))))
 				return
 			}
 
@@ -646,10 +850,16 @@ function renderTableObject(
 			})
 
 			const cellValign = cellOpts.valign
-				? ` anchor="${cellOpts.valign.replace(/^c$/i, 'ctr').replace(/^m$/i, 'ctr').replace('center', 'ctr').replace('middle', 'ctr').replace('top', 't').replace('btm', 'b').replace('bottom', 'b')}"`
-				: ''
-			const cellTextDir =
-				cellOpts.textDirection && cellOpts.textDirection !== 'horz' ? ` vert="${cellOpts.textDirection}"` : ''
+				? cellOpts.valign
+						.replace(/^c$/i, 'ctr')
+						.replace(/^m$/i, 'ctr')
+						.replace('center', 'ctr')
+						.replace('middle', 'ctr')
+						.replace('top', 't')
+						.replace('btm', 'b')
+						.replace('bottom', 'b')
+				: null
+			const cellTextDir = cellOpts.textDirection && cellOpts.textDirection !== 'horz' ? cellOpts.textDirection : null
 
 			const fillColor = cellOpts.fill || ''
 			const cellFill = fillColor ? genXmlColorSelection(fillColor) : ''
@@ -666,38 +876,60 @@ function renderTableObject(
 				cellMargin = DEF_CELL_MARGIN_IN
 			}
 			// Cell margins are inches (see `marginToEmu`); a `>= 1` value warns once as a likely legacy points value.
-			const cellMarginXml = ` marL="${marginToEmu(cellMargin[3])}" marR="${marginToEmu(cellMargin[1])}" marT="${marginToEmu(
-				cellMargin[0]
-			)}" marB="${marginToEmu(cellMargin[2])}"`
+			// NOTE: attribute ORDER is byte-significant (margins, then anchor, then vert).
+			const tcPrAttrs: XmlAttrs = {
+				marL: marginToEmu(cellMargin[3]),
+				marR: marginToEmu(cellMargin[1]),
+				marT: marginToEmu(cellMargin[0]),
+				marB: marginToEmu(cellMargin[2]),
+				anchor: cellValign,
+				vert: cellTextDir,
+			}
 
 			// FUTURE: cell no-wrap support (add `horzOverflow="overflow"` to the cell's `<a:tcPr>`)
 
-			// 4: Set CELL content and properties ==================================
-			strXml += `<a:tc${cellSpanAttrStr}>${genXmlTextBody(cell)}<a:tcPr${cellMarginXml}${cellValign}${cellTextDir}>`
-
-			// 5: Borders: Add any borders
+			// 4: Set CELL content and properties; 5: borders; 6: fill ==============
+			// The trailing indentation before `</a:tcPr>` and `</a:tc>` is byte-significant.
 			const cellBorder = Array.isArray(cellOpts.border) ? cellOpts.border : null
-			if (cellBorder) strXml += genTableCellBorderXml(cellBorder)
-
-			// 6: Close cell Properties & Cell
-			strXml += cellFill
-			strXml += '  </a:tcPr>'
-			strXml += ' </a:tc>'
+			rowCells.push(
+				el(
+					'a:tc',
+					cellSpanAttrs,
+					[
+						raw(genXmlTextBody(cell)),
+						raw(
+							el('a:tcPr', tcPrAttrs, [cellBorder ? raw(genTableCellBorderXml(cellBorder)) : null, raw(cellFill)], {
+								closePrefix: '  ',
+							})
+						),
+					],
+					{ closePrefix: ' ' }
+				)
+			)
 		})
 
 		// D: Complete row
-		strXml += '</a:tr>'
+		tblInner += el('a:tr', { h: intRowH }, rowCells.map(raw))
 	})
 
-	// STEP 5: Complete table
-	strXml += '      </a:tbl>'
-	strXml += '    </a:graphicData>'
-	strXml += '  </a:graphic>'
+	// STEP 5: Complete table. NOTE: the closing tags carry indentation the opening tags do not,
+	// so each `closePrefix` is stated explicitly rather than derived from depth.
+	strXml += el(
+		'a:graphic',
+		null,
+		raw(
+			el(
+				'a:graphicData',
+				{ uri: 'http://schemas.openxmlformats.org/drawingml/2006/table' },
+				raw(el('a:tbl', null, raw(tblInner), { closePrefix: '      ' })),
+				{ closePrefix: '    ' }
+			)
+		),
+		{ closePrefix: '  ' }
+	)
 	strXml += '</p:graphicFrame>'
 
-	// STEP 6: Set table XML
-	strSlideXml += strXml
-	return strSlideXml
+	return strXml
 }
 
 /**
@@ -712,7 +944,7 @@ function renderTextObject(
 	cx: number,
 	cy: number,
 	placeholderObj: SlideObject | null,
-	locationAttr: string
+	locationAttrs: XmlAttrs
 ): string {
 	let strSlideXml = ''
 	// Caller guarantees options is set (see slideObjectToXml); re-narrow for this scope.
@@ -748,33 +980,36 @@ function renderTextObject(
 	strSlideXml += '<p:sp>'
 
 	// B: The addition of the "txBox" attribute is the sole determiner of if an object is a shape or textbox
-	strSlideXml += `<p:nvSpPr><p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}">`
-	// <Hyperlink>
-	if (slideItemObj.options.hyperlink?.url) {
-		strSlideXml += `<a:hlinkClick r:id="rId${slideItemObj.options.hyperlink._rId}" tooltip="${slideItemObj.options.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.options.hyperlink.tooltip) : ''}"/>`
-	}
-	if (slideItemObj.options.hyperlink?.slide) {
-		strSlideXml += `<a:hlinkClick r:id="rId${slideItemObj.options.hyperlink._rId}" tooltip="${slideItemObj.options.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.options.hyperlink.tooltip) : ''}" action="ppaction://hlinksldjump"/>`
-	}
-	// </Hyperlink>
-	strSlideXml += '</p:cNvPr>'
+	const txtOpts = slideItemObj.options
+	strSlideXml +=
+		'<p:nvSpPr>' +
+		cNvPrOpen(idx + 2, txtOpts.objectName, txtOpts.altText || '') +
+		'>' +
+		cNvPrHyperlink(txtOpts.hyperlink) +
+		'</p:cNvPr>'
 	{
-		const spLockXml = genXmlObjectLock(
-			'a:spLocks',
-			SHAPE_LOCK_ATTRS,
-			slideItemObj.options.objectLock,
-			slideItemObj.options.objectName
-		)
-		strSlideXml += '<p:cNvSpPr' + (slideItemObj.options?.isTextBox ? ' txBox="1"' : '')
-		strSlideXml += spLockXml ? `>${spLockXml}</p:cNvSpPr>` : '/>'
+		const spLockXml = genXmlObjectLock('a:spLocks', SHAPE_LOCK_ATTRS, txtOpts.objectLock, txtOpts.objectName)
+		// NOTE: paired only when there are locks to carry; otherwise self-closing. That is an arity
+		// difference, so it cannot be expressed as one `el()` call.
+		const cNvSpPrAttrs: XmlAttrs = { txBox: txtOpts?.isTextBox ? '1' : null }
+		strSlideXml += spLockXml ? el('p:cNvSpPr', cNvSpPrAttrs, raw(spLockXml)) : voidEl('p:cNvSpPr', cNvSpPrAttrs)
 	}
 	// Prefer the resolved slide-layout placeholder; otherwise fall back to the shape's own
 	// placeholder type so a standalone title/body text box still emits a real <p:ph>.
-	strSlideXml += `<p:nvPr>${genXmlPlaceholder(slideItemObj._type === SlideObjectType.placeholder || (placeholderObj == null && slideItemObj.options?._placeholderType) ? slideItemObj : placeholderObj)}</p:nvPr>`
+	strSlideXml += el(
+		'p:nvPr',
+		null,
+		raw(
+			genXmlPlaceholder(
+				slideItemObj._type === SlideObjectType.placeholder ||
+					(placeholderObj == null && slideItemObj.options?._placeholderType)
+					? slideItemObj
+					: placeholderObj
+			)
+		)
+	)
 	strSlideXml += '</p:nvSpPr><p:spPr>'
-	strSlideXml += `<a:xfrm${locationAttr}>`
-	strSlideXml += `<a:off x="${x}" y="${y}"/>`
-	strSlideXml += `<a:ext cx="${cx}" cy="${cy}"/></a:xfrm>`
+	strSlideXml += el('a:xfrm', locationAttrs, [raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx, cy }))])
 
 	if (slideItemObj.shape === 'custGeom') {
 		strSlideXml += genXmlCustGeom(slideItemObj.options.points, cx, cy, slide._presLayout)
@@ -786,21 +1021,7 @@ function renderTextObject(
 	strSlideXml += slideItemObj.options.fill ? genXmlColorSelection(slideItemObj.options.fill) : '<a:noFill/>'
 
 	// shape Type: LINE: line color
-	if (slideItemObj.options.line) {
-		const lnAttrs =
-			(slideItemObj.options.line.width ? ` w="${lineWidthToEmu(slideItemObj.options.line.width)}"` : '') +
-			(slideItemObj.options.line.cap ? ` cap="${createLineCap(slideItemObj.options.line.cap)}"` : '')
-		strSlideXml += `<a:ln${lnAttrs}>`
-		strSlideXml += genXmlLineFill(slideItemObj.options.line)
-		if (slideItemObj.options.line.dashType) strSlideXml += `<a:prstDash val="${slideItemObj.options.line.dashType}"/>`
-		if (slideItemObj.options.line.beginArrowType)
-			strSlideXml += `<a:headEnd type="${slideItemObj.options.line.beginArrowType}"/>`
-		if (slideItemObj.options.line.endArrowType)
-			strSlideXml += `<a:tailEnd type="${slideItemObj.options.line.endArrowType}"/>`
-		// FUTURE: arrow-size support via the `w`/`len` attrs on headEnd/tailEnd
-		// (e.g. `<a:headEnd type="arrow" w="lg" len="lg"/>`; each is 'sm'|'med'|'lg', a 3x3 grid)
-		strSlideXml += '</a:ln>'
-	}
+	if (slideItemObj.options.line) strSlideXml += genXmlShapeLine(slideItemObj.options.line)
 
 	// EFFECTS > SHADOW: REF: @see http://officeopenxml.com/drwSp-effects.php
 	if (slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none') {
@@ -831,7 +1052,7 @@ function renderConnectorObject(
 	y: number,
 	cx: number,
 	cy: number,
-	locationAttr: string,
+	locationAttrs: XmlAttrs,
 	shapeIds: Map<SlideObject, number>
 ): string {
 	let strSlideXml = ''
@@ -841,7 +1062,7 @@ function renderConnectorObject(
 	// PowerPoint treats it as a connector. Geometry/flip come from the shared resolution
 	// above; the preset (straightConnector1 / bentConnector3 / curvedConnector3) is on `shape`.
 	strSlideXml += '<p:cxnSp><p:nvCxnSpPr>'
-	strSlideXml += `<p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"/>`
+	strSlideXml += cNvPrOpen(idx + 2, slideItemObj.options.objectName, slideItemObj.options.altText || '') + '/>'
 	{
 		// Shape binding: resolve each bound target's objectName to its cNvPr id and emit
 		// <a:stCxn>/<a:endCxn> in schema order. Resolution goes through `shapeIds`, so a shape
@@ -864,25 +1085,15 @@ function renderConnectorObject(
 		strSlideXml += cxnSpPr ? `<p:cNvCxnSpPr>${cxnSpPr}</p:cNvCxnSpPr>` : '<p:cNvCxnSpPr/>'
 	}
 	strSlideXml += '<p:nvPr/></p:nvCxnSpPr><p:spPr>'
-	strSlideXml += `<a:xfrm${locationAttr}><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>`
+	strSlideXml += el('a:xfrm', locationAttrs, [raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx, cy }))])
 	{
 		// Bent/curved connectors carry adjustable jogs as `<a:gd name="adjN" fmla="val …"/>`
 		// (1000ths-of-a-percent). With none, the empty `<a:avLst/>` leaves the preset default (50%).
 		const adj = slideItemObj.options._connectorAdj || []
-		const avLst = adj.map((val, i) => `<a:gd name="adj${i + 1}" fmla="val ${val}"/>`).join('')
-		strSlideXml += `<a:prstGeom prst="${slideItemObj.shape}"><a:avLst>${avLst}</a:avLst></a:prstGeom>`
+		const avLst = adj.map((val, i) => voidEl('a:gd', { name: `adj${i + 1}`, fmla: `val ${val}` })).join('')
+		strSlideXml += el('a:prstGeom', { prst: slideItemObj.shape }, raw(el('a:avLst', null, raw(avLst))))
 	}
-	{
-		const ln = slideItemObj.options.line || {}
-		const lnAttrs =
-			(ln.width ? ` w="${lineWidthToEmu(ln.width)}"` : '') + (ln.cap ? ` cap="${createLineCap(ln.cap)}"` : '')
-		strSlideXml += `<a:ln${lnAttrs}>`
-		strSlideXml += genXmlLineFill(ln)
-		if (ln.dashType) strSlideXml += `<a:prstDash val="${ln.dashType}"/>`
-		if (ln.beginArrowType) strSlideXml += `<a:headEnd type="${ln.beginArrowType}"/>`
-		if (ln.endArrowType) strSlideXml += `<a:tailEnd type="${ln.endArrowType}"/>`
-		strSlideXml += '</a:ln>'
-	}
+	strSlideXml += genXmlShapeLine(slideItemObj.options.line || {})
 	strSlideXml += '</p:spPr></p:cxnSp>'
 	return strSlideXml
 }
@@ -901,7 +1112,7 @@ function renderImageObject(
 	imgWidth: number,
 	imgHeight: number,
 	placeholderObj: SlideObject | null,
-	locationAttr: string,
+	locationAttrs: XmlAttrs,
 	sizing: ObjectOptions['sizing'],
 	rounding: ObjectOptions['rounding']
 ): string {
@@ -931,54 +1142,87 @@ function renderImageObject(
 			imgHeight = cy
 		}
 	}
+	const imgOpts = slideItemObj.options
+	const imgLink = slideItemObj.hyperlink
 	strSlideXml += '<p:pic>'
 	strSlideXml += '  <p:nvPicPr>'
-	strSlideXml += `<p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(
-		slideItemObj.options.altText || slideItemObj.image || ''
-	)}">`
-	if (slideItemObj.hyperlink?.url) {
-		strSlideXml += `<a:hlinkClick r:id="rId${slideItemObj.hyperlink._rId}" tooltip="${
-			slideItemObj.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.hyperlink.tooltip) : ''
-		}"/>`
-	}
-	if (slideItemObj.hyperlink?.slide) {
-		strSlideXml += `<a:hlinkClick r:id="rId${slideItemObj.hyperlink._rId}" tooltip="${
-			slideItemObj.hyperlink.tooltip ? encodeXmlEntities(slideItemObj.hyperlink.tooltip) : ''
-		}" action="ppaction://hlinksldjump"/>`
-	}
+	strSlideXml +=
+		cNvPrOpen(idx + 2, imgOpts.objectName, imgOpts.altText || slideItemObj.image || '') + '>' + cNvPrHyperlink(imgLink)
 	strSlideXml += '    </p:cNvPr>'
 	// Default to locking aspect ratio (PowerPoint's own behavior); user `objectLock` overrides any flag, incl. noChangeAspect.
-	strSlideXml += `    <p:cNvPicPr>${genXmlObjectLock('a:picLocks', PICTURE_LOCK_ATTRS, { noChangeAspect: true, ...slideItemObj.options.objectLock }, slideItemObj.options.objectName)}</p:cNvPicPr>`
-	strSlideXml += '    <p:nvPr>' + genXmlPlaceholder(placeholderObj) + '</p:nvPr>'
+	strSlideXml += el(
+		'p:cNvPicPr',
+		null,
+		raw(
+			genXmlObjectLock(
+				'a:picLocks',
+				PICTURE_LOCK_ATTRS,
+				{ noChangeAspect: true, ...imgOpts.objectLock },
+				imgOpts.objectName
+			)
+		),
+		{ openPrefix: '    ' }
+	)
+	strSlideXml += el('p:nvPr', null, raw(genXmlPlaceholder(placeholderObj)), { openPrefix: '    ' })
 	strSlideXml += '  </p:nvPicPr>'
-	// Duotone recolor: maps shadows→shadow color, highlights→highlight color.
-	// `<a:duotone>` is one of the `<a:blip>` image-effect children (CT_Blip);
-	// it sits alongside `alphaModFix` and before any `extLst`.
+
+	// The `<a:blip>` image-effect children (CT_Blip), shared by the SVG and raster branches:
+	// transparency as `alphaModFix`, then duotone recolor (shadows→shadow, highlights→highlight),
+	// both before any `extLst`.
+	// NOTE: the SVG branch writes ` <a:alphaModFix` with a LEADING space and the raster branch
+	// writes none. That space is byte-significant, so it is passed in rather than normalized away.
+	const blipEffects = (alphaPrefix: string): XmlChild[] => [
+		imgOpts.transparency
+			? raw(
+					voidEl(
+						'a:alphaModFix',
+						{ amt: Math.round((100 - imgOpts.transparency) * FIXED_PCT_PER_PERCENT) },
+						{ openPrefix: alphaPrefix }
+					)
+				)
+			: null,
+		imgOpts.duotone
+			? raw(
+					el('a:duotone', null, [
+						raw(createColorElement(imgOpts.duotone.shadow)),
+						raw(createColorElement(imgOpts.duotone.highlight)),
+					])
+				)
+			: null,
+	]
+
 	strSlideXml += '<p:blipFill>'
 	// NOTE: This works for both cases: either `path` or `data` contains the SVG
 	if ((slide._relsMedia || []).find((rel) => rel.rId === slideItemObj.imageRid)?.extn === 'svg') {
-		strSlideXml += `<a:blip r:embed="rId${(slideItemObj.imageRid ?? 0) - 1}">`
-		strSlideXml += slideItemObj.options.transparency
-			? ` <a:alphaModFix amt="${Math.round((100 - slideItemObj.options.transparency) * FIXED_PCT_PER_PERCENT)}"/>`
-			: ''
-		strSlideXml += slideItemObj.options.duotone
-			? `<a:duotone>${createColorElement(slideItemObj.options.duotone.shadow)}${createColorElement(slideItemObj.options.duotone.highlight)}</a:duotone>`
-			: ''
-		strSlideXml += ' <a:extLst>'
-		strSlideXml += '  <a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}">'
-		strSlideXml += `   <asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="rId${slideItemObj.imageRid}"/>`
-		strSlideXml += '  </a:ext>'
-		strSlideXml += ' </a:extLst>'
-		strSlideXml += '</a:blip>'
+		strSlideXml += el('a:blip', { 'r:embed': `rId${(slideItemObj.imageRid ?? 0) - 1}` }, [
+			...blipEffects(' '),
+			raw(
+				el(
+					'a:extLst',
+					null,
+					raw(
+						el(
+							'a:ext',
+							{ uri: '{96DAC541-7B7A-43D3-8B79-37D633B846F1}' },
+							raw(
+								voidEl(
+									'asvg:svgBlip',
+									{
+										'xmlns:asvg': 'http://schemas.microsoft.com/office/drawing/2016/SVG/main',
+										'r:embed': `rId${slideItemObj.imageRid}`,
+									},
+									{ openPrefix: '   ' }
+								)
+							),
+							{ openPrefix: '  ', closePrefix: '  ' }
+						)
+					),
+					{ openPrefix: ' ', closePrefix: ' ' }
+				)
+			),
+		])
 	} else {
-		strSlideXml += `<a:blip r:embed="rId${slideItemObj.imageRid}">`
-		strSlideXml += slideItemObj.options.transparency
-			? `<a:alphaModFix amt="${Math.round((100 - slideItemObj.options.transparency) * FIXED_PCT_PER_PERCENT)}"/>`
-			: ''
-		strSlideXml += slideItemObj.options.duotone
-			? `<a:duotone>${createColorElement(slideItemObj.options.duotone.shadow)}${createColorElement(slideItemObj.options.duotone.highlight)}</a:duotone>`
-			: ''
-		strSlideXml += '</a:blip>'
+		strSlideXml += el('a:blip', { 'r:embed': `rId${slideItemObj.imageRid}` }, blipEffects(''))
 	}
 	if (slideItemObj.options.crop) {
 		// Explicit OOXML srcRect (percentage edge insets), emitted verbatim. Crops the source
@@ -1016,14 +1260,16 @@ function renderImageObject(
 		imgWidth = boxW
 		imgHeight = boxH
 	} else {
-		strSlideXml += '  <a:stretch><a:fillRect/></a:stretch>'
+		strSlideXml += el('a:stretch', null, raw(voidEl('a:fillRect')), { openPrefix: '  ' })
 	}
 	strSlideXml += '</p:blipFill>'
 	strSlideXml += '<p:spPr>'
-	strSlideXml += ' <a:xfrm' + locationAttr + '>'
-	strSlideXml += `  <a:off x="${x}" y="${y}"/>`
-	strSlideXml += `  <a:ext cx="${imgWidth}" cy="${imgHeight}"/>`
-	strSlideXml += ' </a:xfrm>'
+	strSlideXml += el(
+		'a:xfrm',
+		locationAttrs,
+		[raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx: imgWidth, cy: imgHeight }))],
+		{ openPrefix: ' ', childPrefix: '  ', closePrefix: ' ' }
+	)
 	// Clip the picture to a geometry. `points` (freeform custGeom) takes precedence over `shape`/`rounding`;
 	// otherwise `shape` wins over `rounding` (shorthand for an ellipse), falling back to a plain rectangle.
 	if (slideItemObj.options.points) {
@@ -1040,18 +1286,7 @@ function renderImageObject(
 	}
 
 	// BORDER: `<a:ln>` outline (must precede `<a:effectLst>` per CT_ShapeProperties order)
-	if (slideItemObj.options.line) {
-		const imgLine = slideItemObj.options.line
-		const lnAttrs =
-			(imgLine.width ? ` w="${lineWidthToEmu(imgLine.width)}"` : '') +
-			(imgLine.cap ? ` cap="${createLineCap(imgLine.cap)}"` : '')
-		strSlideXml += `<a:ln${lnAttrs}>`
-		strSlideXml += genXmlLineFill(imgLine)
-		if (imgLine.dashType) strSlideXml += `<a:prstDash val="${imgLine.dashType}"/>`
-		if (imgLine.beginArrowType) strSlideXml += `<a:headEnd type="${imgLine.beginArrowType}"/>`
-		if (imgLine.endArrowType) strSlideXml += `<a:tailEnd type="${imgLine.endArrowType}"/>`
-		strSlideXml += '</a:ln>'
-	}
+	if (slideItemObj.options.line) strSlideXml += genXmlShapeLine(slideItemObj.options.line)
 
 	// EFFECTS > SHADOW: REF: @see http://officeopenxml.com/drwSp-effects.php
 	if (slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none') {
@@ -1072,69 +1307,116 @@ function renderMediaObject(
 	y: number,
 	cx: number,
 	cy: number,
-	locationAttr: string
+	locationAttrs: XmlAttrs
 ): string {
-	let strSlideXml = ''
 	// Caller guarantees options is set (see slideObjectToXml); re-narrow for this scope.
 	slideItemObj.options = slideItemObj.options || {}
-	if (slideItemObj.mtype === 'online') {
-		strSlideXml += '<p:pic>'
-		strSlideXml += ' <p:nvPicPr>'
-		// cNvPr/@id must be unique across every shape on the slide, so it uses the slide-object
-		// index (idx + 2) like all other shapes — NOT mediaRid, which lives in the relationship-id
-		// space and collides with a sibling shape's idx (duplicate ids => PowerPoint reports the
-		// file corrupt, 0x80070570). The preview image is still bound via <a:blip r:embed> below.
-		strSlideXml += `<p:cNvPr id="${idx + 2}" name="${
-			slideItemObj.options.objectName
-		}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"><a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr>`
-		strSlideXml += ` <p:cNvPicPr>${genXmlObjectLock('a:picLocks', PICTURE_LOCK_ATTRS, { noChangeAspect: true, ...slideItemObj.options.objectLock }, slideItemObj.options.objectName)}</p:cNvPicPr>`
-		strSlideXml += ' <p:nvPr>'
-		// External-link video: <a:videoFile r:link> at the ECMA rel, <p14:media r:link>
-		// at the MS-2007 media rel (both External, sharing the link Target). Mirrors the
-		// embedded branch but uses r:link (no media binary part).
-		strSlideXml += `  <a:videoFile r:link="rId${slideItemObj.mediaRid}"/>`
-		strSlideXml += '  <p:extLst>'
-		strSlideXml += '   <p:ext uri="{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}">'
-		strSlideXml += `    <p14:media xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" r:link="rId${(slideItemObj.mediaRid ?? 0) + 1}"/>`
-		strSlideXml += '   </p:ext>'
-		strSlideXml += '  </p:extLst>'
-		strSlideXml += ' </p:nvPr>'
-		strSlideXml += ' </p:nvPicPr>'
-		strSlideXml += ` <p:blipFill><a:blip r:embed="rId${(slideItemObj.mediaRid ?? 0) + 2}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>` // NOTE: Preview image is required!
-		strSlideXml += ' <p:spPr>'
-		strSlideXml += `  <a:xfrm${locationAttr}><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>`
-		strSlideXml += '  <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'
-		strSlideXml += ' </p:spPr>'
-		strSlideXml += '</p:pic>'
-	} else {
-		strSlideXml += '<p:pic>'
-		strSlideXml += ' <p:nvPicPr>'
-		// cNvPr/@id must be unique across every shape on the slide, so it uses the slide-object
-		// index (idx + 2) like all other shapes — NOT mediaRid, which lives in the relationship-id
-		// space and collides with a sibling shape's idx (duplicate ids => PowerPoint reports the
-		// file corrupt, 0x80070570). The preview image is still bound via <a:blip r:embed> below.
-		strSlideXml += `<p:cNvPr id="${idx + 2}" name="${
-			slideItemObj.options.objectName
-		}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"><a:hlinkClick r:id="" action="ppaction://media"/></p:cNvPr>`
-		strSlideXml += ` <p:cNvPicPr>${genXmlObjectLock('a:picLocks', PICTURE_LOCK_ATTRS, { noChangeAspect: true, ...slideItemObj.options.objectLock }, slideItemObj.options.objectName)}</p:cNvPicPr>`
-		strSlideXml += ' <p:nvPr>'
-		// EG_Media choice: audio embeds use <a:audioFile>, video uses <a:videoFile>
-		strSlideXml += `  <a:${slideItemObj.mtype === 'audio' ? 'audioFile' : 'videoFile'} r:link="rId${slideItemObj.mediaRid}"/>`
-		strSlideXml += '  <p:extLst>'
-		strSlideXml += '   <p:ext uri="{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}">'
-		strSlideXml += `    <p14:media xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" r:embed="rId${(slideItemObj.mediaRid ?? 0) + 1}"/>`
-		strSlideXml += '   </p:ext>'
-		strSlideXml += '  </p:extLst>'
-		strSlideXml += ' </p:nvPr>'
-		strSlideXml += ' </p:nvPicPr>'
-		strSlideXml += ` <p:blipFill><a:blip r:embed="rId${(slideItemObj.mediaRid ?? 0) + 2}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>` // NOTE: Preview image is required!
-		strSlideXml += ' <p:spPr>'
-		strSlideXml += `  <a:xfrm${locationAttr}><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>`
-		strSlideXml += '  <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'
-		strSlideXml += ' </p:spPr>'
-		strSlideXml += '</p:pic>'
-	}
-	return strSlideXml
+	const opts = slideItemObj.options
+	const mediaRid = slideItemObj.mediaRid ?? 0
+
+	// The online (external-link) and embedded forms differ in exactly two tokens, so they share
+	// one body rather than two near-identical branches:
+	//  - EG_Media choice: audio embeds use <a:audioFile>, video and online video <a:videoFile>;
+	//  - the paired <p14:media> rel is bound by r:link for an external link (no media binary
+	//    part, sharing the link Target with the ECMA rel) and by r:embed for an embedded file.
+	// Note the ECMA media element itself is r:link in BOTH forms.
+	const mediaTag = slideItemObj.mtype === 'audio' ? 'a:audioFile' : 'a:videoFile'
+	const p14MediaAttr = slideItemObj.mtype === 'online' ? 'r:link' : 'r:embed'
+
+	return el('p:pic', null, [
+		raw(
+			el(
+				'p:nvPicPr',
+				null,
+				[
+					// cNvPr/@id must be unique across every shape on the slide, so it uses the slide-object
+					// index (idx + 2) like all other shapes — NOT mediaRid, which lives in the relationship-id
+					// space and collides with a sibling shape's idx (duplicate ids => PowerPoint reports the
+					// file corrupt, 0x80070570). The preview image is still bound via <a:blip r:embed> below.
+					raw(
+						cNvPrOpen(idx + 2, opts.objectName, opts.altText || '') +
+							'>' +
+							voidEl('a:hlinkClick', { 'r:id': '', action: 'ppaction://media' }) +
+							'</p:cNvPr>'
+					),
+					raw(
+						el(
+							'p:cNvPicPr',
+							null,
+							raw(
+								genXmlObjectLock(
+									'a:picLocks',
+									PICTURE_LOCK_ATTRS,
+									{ noChangeAspect: true, ...opts.objectLock },
+									opts.objectName
+								)
+							),
+							{ openPrefix: ' ' }
+						)
+					),
+					raw(
+						el(
+							'p:nvPr',
+							null,
+							[
+								raw(voidEl(mediaTag, { 'r:link': `rId${mediaRid}` }, { openPrefix: '  ' })),
+								raw(
+									el(
+										'p:extLst',
+										null,
+										raw(
+											el(
+												'p:ext',
+												{ uri: '{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}' },
+												raw(
+													voidEl(
+														'p14:media',
+														{ 'xmlns:p14': P14_NS, [p14MediaAttr]: `rId${mediaRid + 1}` },
+														{ openPrefix: '    ' }
+													)
+												),
+												{ openPrefix: '   ', closePrefix: '   ' }
+											)
+										),
+										{ openPrefix: '  ', closePrefix: '  ' }
+									)
+								),
+							],
+							{ openPrefix: ' ', closePrefix: ' ' }
+						)
+					),
+				],
+				{ openPrefix: ' ', closePrefix: ' ' }
+			)
+		),
+		// NOTE: Preview image is required!
+		raw(
+			el(
+				'p:blipFill',
+				null,
+				[
+					raw(voidEl('a:blip', { 'r:embed': `rId${mediaRid + 2}` })),
+					raw(el('a:stretch', null, raw(voidEl('a:fillRect')))),
+				],
+				{ openPrefix: ' ' }
+			)
+		),
+		raw(
+			el(
+				'p:spPr',
+				null,
+				[
+					raw(
+						el('a:xfrm', locationAttrs, [raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx, cy }))], {
+							openPrefix: '  ',
+						})
+					),
+					raw(el('a:prstGeom', { prst: 'rect' }, raw(voidEl('a:avLst')), { openPrefix: '  ' })),
+				],
+				{ openPrefix: ' ', closePrefix: ' ' }
+			)
+		),
+	])
 }
 
 /**
@@ -1149,23 +1431,42 @@ function renderChartObject(
 	cy: number,
 	placeholderObj: SlideObject | null
 ): string {
-	let strSlideXml = ''
 	// Caller guarantees options is set (see slideObjectToXml); re-narrow for this scope.
 	slideItemObj.options = slideItemObj.options || {}
-	strSlideXml += '<p:graphicFrame>'
-	strSlideXml += ' <p:nvGraphicFramePr>'
-	strSlideXml += `   <p:cNvPr id="${idx + 2}" name="${slideItemObj.options.objectName}" descr="${encodeXmlEntities(slideItemObj.options.altText || '')}"/>`
-	strSlideXml += '   <p:cNvGraphicFramePr/>'
-	strSlideXml += `   <p:nvPr>${genXmlPlaceholder(placeholderObj)}</p:nvPr>`
-	strSlideXml += ' </p:nvGraphicFramePr>'
-	strSlideXml += ` <p:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/></p:xfrm>`
-	strSlideXml += ' <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
-	strSlideXml += '  <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">'
-	strSlideXml += `   <c:chart r:id="rId${slideItemObj.chartRid}" xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"/>`
-	strSlideXml += '  </a:graphicData>'
-	strSlideXml += ' </a:graphic>'
-	strSlideXml += '</p:graphicFrame>'
-	return strSlideXml
+	const opts = slideItemObj.options
+
+	return el('p:graphicFrame', null, [
+		raw(
+			el(
+				'p:nvGraphicFramePr',
+				null,
+				[
+					raw(cNvPrOpen(idx + 2, opts.objectName, opts.altText || '', '   ') + '/>'),
+					raw(voidEl('p:cNvGraphicFramePr', null, { openPrefix: '   ' })),
+					raw(el('p:nvPr', null, raw(genXmlPlaceholder(placeholderObj)), { openPrefix: '   ' })),
+				],
+				{ openPrefix: ' ', closePrefix: ' ' }
+			)
+		),
+		raw(el('p:xfrm', null, [raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx, cy }))], { openPrefix: ' ' })),
+		raw(
+			el(
+				'a:graphic',
+				{ 'xmlns:a': DML_NS },
+				raw(
+					el(
+						'a:graphicData',
+						{ uri: CHART_NS },
+						raw(
+							voidEl('c:chart', { 'r:id': `rId${slideItemObj.chartRid}`, 'xmlns:c': CHART_NS }, { openPrefix: '   ' })
+						),
+						{ openPrefix: '  ', closePrefix: '  ' }
+					)
+				),
+				{ openPrefix: ' ', closePrefix: ' ' }
+			)
+		),
+	])
 }
 
 /**
