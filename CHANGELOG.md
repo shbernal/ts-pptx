@@ -224,6 +224,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   demo deck (1,437 OOXML parts, incl. embedded `.xlsx`); emitted `.pptx` bytes and all public
   types/exports are unchanged. This completes the write-side restructure begun with `gen-xml.ts`.
 
+- **XML element builder added for the write side, and the byte-identity gate committed
+  (no API change).** `src/gen/oxml/el.ts` (`el` / `voidEl` / `raw`) centralizes attribute
+  and text escaping so an emitter cannot omit `encodeXmlEntities`, mirroring the read
+  side's `src/read/oxml/dom.ts`. It reproduces the existing byte layout exactly —
+  self-closing is decided by which function you call rather than by the child's value
+  (`encodeXmlEntities(undefined)` is `''`, so a value-based rule would rewrite
+  `<dc:title></dc:title>` as `<dc:title/>`), and whitespace is placed explicitly per
+  element. `docProps/core.xml` and `_rels/.rels` are the first parts migrated onto it,
+  byte-for-byte unchanged. The harness that proves this is now a committed script rather
+  than an ad-hoc one: `pnpm run byte-identity:baseline` / `:check`.
+
 ## [10.4.0](https://github.com/shbernal/PptxGenJS/releases/tag/v10.4.0) - 2026-07-16
 
 ### Added

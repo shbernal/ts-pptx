@@ -6,20 +6,36 @@
  */
 
 import { CRLF, XML_DECL } from '../../core-enums.js'
+import { el, raw, voidEl } from '../oxml/el.js'
+
+const SCHEMA_BASE = 'http://schemas.openxmlformats.org/'
+
+function relationship(id: string, type: string, target: string): string {
+	return voidEl('Relationship', { Id: id, Type: SCHEMA_BASE + type, Target: target }, { openPrefix: '\n\t\t' })
+}
 
 /**
  * Creates `_rels/.rels`
  * @returns XML
  */
 export function makeXmlRootRels(hasCustomProps?: boolean): string {
-	let xml = `${XML_DECL}${CRLF}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-		<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
-		<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
-		<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>`
-	if (hasCustomProps) {
-		xml +=
-			'\n\t\t<Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties" Target="docProps/custom.xml"/>'
-	}
-	xml += '\n\t\t</Relationships>'
-	return xml
+	return (
+		XML_DECL +
+		CRLF +
+		el(
+			'Relationships',
+			{ xmlns: SCHEMA_BASE + 'package/2006/relationships' },
+			[
+				raw(relationship('rId1', 'officeDocument/2006/relationships/extended-properties', 'docProps/app.xml')),
+				raw(relationship('rId2', 'package/2006/relationships/metadata/core-properties', 'docProps/core.xml')),
+				raw(relationship('rId3', 'officeDocument/2006/relationships/officeDocument', 'ppt/presentation.xml')),
+				hasCustomProps
+					? raw(relationship('rId4', 'officeDocument/2006/relationships/custom-properties', 'docProps/custom.xml'))
+					: null,
+			],
+			// The closing tag is indented to child depth, not parent depth. That is
+			// how this part has always been emitted; kept verbatim for byte-identity.
+			{ closePrefix: '\n\t\t' }
+		)
+	)
 }

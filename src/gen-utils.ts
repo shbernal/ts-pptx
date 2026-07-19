@@ -84,10 +84,10 @@ export function getUuid(uuidFormat: string): string {
 
 /**
  * Replace special XML characters with HTML-encoded strings
- * @param {string} xml - XML string to encode
+ * @param {string | number} xml - value to encode (numbers are stringified, as callers pass counts/sizes)
  * @returns {string} escaped XML
  */
-export function encodeXmlEntities(xml: string): string {
+export function encodeXmlEntities(xml: string | number): string {
 	// NOTE: Dont use short-circuit eval here as value c/b "0" (zero) etc.!
 	if (typeof xml === 'undefined' || xml == null) return ''
 	// Strip XML 1.0 illegal control chars (e.g. \v) before escaping to prevent PowerPoint repair dialogs.

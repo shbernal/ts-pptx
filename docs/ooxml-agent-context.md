@@ -108,6 +108,27 @@ fallbacks are:
 - Do not treat Microsoft extension namespaces as ECMA-defined without checking
   the Microsoft documentation.
 
+## Emitting XML: The `el()` Builder
+
+`src/gen/oxml/el.ts` is the write-side element builder (mirror of `src/read/oxml/dom.ts`).
+Prefer it over template-string concatenation in new emitter code: it escapes text and
+attribute values centrally, so a forgotten `encodeXmlEntities` cannot produce invalid XML.
+
+- `el(name, attrs, children, fmt)` always emits a **paired** tag; `voidEl(name, attrs, fmt)`
+  always **self-closes**. Self-closing is chosen by which function you call, never by the
+  child's value — `encodeXmlEntities(undefined)` is `''`, so a value-based rule would
+  silently rewrite `<dc:title></dc:title>` as `<dc:title/>`.
+- `raw(xml)` interpolates already-serialized markup verbatim (child elements, or values
+  that are deliberately not escaped).
+- Nullish attributes and children are dropped, so optional parts inline as
+  `cond ? raw(...) : null`.
+- `fmt` (`openPrefix`/`childPrefix`/`closePrefix`) places whitespace explicitly. Most parts
+  are flat and need no `fmt`; the pretty-printed ones are not always depth-regular, so
+  indentation is described per element rather than derived.
+
+Migrating an existing emitter onto it is a byte-preserving refactor — gate it with
+`pnpm run byte-identity:baseline` / `:check` (see AGENTS.md "Verification").
+
 ## Local Validation Tools
 
 - Install the validator once with `./tools/ooxml-validator/install.sh`.
@@ -123,3 +144,5 @@ Useful local files:
 - `test/schema-validation.test.mjs`
 - `test/validator.js`
 - `src/gen/` (OOXML generators: `define/*` normalize, `slide|drawingml|chart|pres|opc|anim|table/*` serialize)
+- `src/gen/oxml/el.ts` (XML element builder used by the emitters)
+- `scripts/byte-identity.mjs` (byte-identity gate for emitter refactors)
