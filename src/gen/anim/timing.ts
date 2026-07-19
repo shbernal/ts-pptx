@@ -8,6 +8,7 @@
 
 import { SlideObjectType } from '../../core-enums.js'
 import type { AnimationProps, PresSlideInternal, SlideObject } from '../../core-interfaces.js'
+import { el, raw, voidEl } from '../oxml/el.js'
 import { collectSlideShapeIds } from '../slide/shape-ids.js'
 import { buildAnimationSeq, buildBldList, resolveAnimationSpid } from './animation.js'
 
@@ -45,16 +46,22 @@ export function slideTimingToXml(slide: PresSlideInternal): string {
 		const spid = slide._slideObjects.indexOf(obj) + 2
 		const repeatCount = obj.loop === true ? 'indefinite' : String(Math.round((obj.loopCount as number) * 1000))
 		// EG_TimeNodeChoice: audio loops via <p:audio>, video via <p:video> (both CT_TLCommonMediaNodeData)
-		const mediaEl = obj.mtype === 'audio' ? 'p:audio' : 'p:video'
-		return (
-			`<${mediaEl}>` +
-			'<p:cMediaNode>' +
-			`<p:cTn id="${nodeId}" repeatCount="${repeatCount}" fill="hold" display="0">` +
-			'<p:stCondLst><p:cond delay="indefinite"/></p:stCondLst>' +
-			'</p:cTn>' +
-			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
-			'</p:cMediaNode>' +
-			`</${mediaEl}>`
+		const mediaTag = obj.mtype === 'audio' ? 'p:audio' : 'p:video'
+		return el(
+			mediaTag,
+			null,
+			raw(
+				el('p:cMediaNode', null, [
+					raw(
+						el(
+							'p:cTn',
+							{ id: nodeId, repeatCount, fill: 'hold', display: 0 },
+							raw(el('p:stCondLst', null, raw(voidEl('p:cond', { delay: 'indefinite' }))))
+						)
+					),
+					raw(el('p:tgtEl', null, raw(voidEl('p:spTgt', { spid })))),
+				])
+			)
 		)
 	}
 
@@ -63,12 +70,28 @@ export function slideTimingToXml(slide: PresSlideInternal): string {
 		if (loopMedia.length === 0) return ''
 		let nodeId = 1
 		const mediaNodes = loopMedia.map((obj) => mediaNode(obj, (nodeId += 1))).join('')
-		return (
-			'<p:timing><p:tnLst><p:par>' +
-			'<p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot">' +
-			`<p:childTnLst>${mediaNodes}</p:childTnLst>` +
-			'</p:cTn>' +
-			'</p:par></p:tnLst></p:timing>'
+		return el(
+			'p:timing',
+			null,
+			raw(
+				el(
+					'p:tnLst',
+					null,
+					raw(
+						el(
+							'p:par',
+							null,
+							raw(
+								el(
+									'p:cTn',
+									{ id: 1, dur: 'indefinite', restart: 'never', nodeType: 'tmRoot' },
+									raw(el('p:childTnLst', null, raw(mediaNodes)))
+								)
+							)
+						)
+					)
+				)
+			)
 		)
 	}
 
@@ -82,14 +105,26 @@ export function slideTimingToXml(slide: PresSlideInternal): string {
 	const mediaNodes = loopMedia.map((obj) => mediaNode(obj, next())).join('')
 	const bldLst = buildBldList(animations)
 
-	return (
-		'<p:timing><p:tnLst><p:par>' +
-		'<p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst>' +
-		seq +
-		mediaNodes +
-		'</p:childTnLst></p:cTn>' +
-		'</p:par></p:tnLst>' +
-		bldLst +
-		'</p:timing>'
-	)
+	return el('p:timing', null, [
+		raw(
+			el(
+				'p:tnLst',
+				null,
+				raw(
+					el(
+						'p:par',
+						null,
+						raw(
+							el(
+								'p:cTn',
+								{ id: 1, dur: 'indefinite', restart: 'never', nodeType: 'tmRoot' },
+								raw(el('p:childTnLst', null, raw(seq + mediaNodes)))
+							)
+						)
+					)
+				)
+			)
+		),
+		raw(bldLst),
+	])
 }

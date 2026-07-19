@@ -8,6 +8,7 @@
 
 import type { AnimationProps, SlideObject } from '../../core-interfaces.js'
 import { warn } from '../../log.js'
+import { el, raw, voidEl } from '../oxml/el.js'
 import { resolveObjectNameToId } from '../slide/shape-ids.js'
 
 /**
@@ -61,19 +62,53 @@ interface AnimPresetMeta {
 }
 
 const ANIM_SET_VISIBLE = (spid: number, next: () => number): string =>
-	`<p:set><p:cBhvr><p:cTn id="${next()}" dur="1" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn>` +
-	`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr>` +
-	'<p:to><p:strVal val="visible"/></p:to></p:set>'
+	el('p:set', null, [
+		raw(
+			el('p:cBhvr', null, [
+				raw(
+					el(
+						'p:cTn',
+						{ id: next(), dur: 1, fill: 'hold' },
+						raw(el('p:stCondLst', null, raw(voidEl('p:cond', { delay: 0 }))))
+					)
+				),
+				raw(el('p:tgtEl', null, raw(voidEl('p:spTgt', { spid })))),
+				raw(el('p:attrNameLst', null, raw(el('p:attrName', null, 'style.visibility')))),
+			])
+		),
+		raw(el('p:to', null, raw(voidEl('p:strVal', { val: 'visible' })))),
+	])
 
 const ANIM_SET_HIDDEN = (spid: number, dur: number, next: () => number): string =>
-	`<p:set><p:cBhvr><p:cTn id="${next()}" dur="1" fill="hold"><p:stCondLst><p:cond delay="${Math.max(0, dur - 1)}"/></p:stCondLst></p:cTn>` +
-	`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl><p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr>` +
-	'<p:to><p:strVal val="hidden"/></p:to></p:set>'
+	el('p:set', null, [
+		raw(
+			el('p:cBhvr', null, [
+				raw(
+					el(
+						'p:cTn',
+						{ id: next(), dur: 1, fill: 'hold' },
+						raw(el('p:stCondLst', null, raw(voidEl('p:cond', { delay: Math.max(0, dur - 1) }))))
+					)
+				),
+				raw(el('p:tgtEl', null, raw(voidEl('p:spTgt', { spid })))),
+				raw(el('p:attrNameLst', null, raw(el('p:attrName', null, 'style.visibility')))),
+			])
+		),
+		raw(el('p:to', null, raw(voidEl('p:strVal', { val: 'hidden' })))),
+	])
 
 /** `p:animEffect` filter transition (fade/wipe(down)/…), shared by entrance and exit presets. */
 const ANIM_EFFECT = (transition: 'in' | 'out', filter: string, spid: number, dur: number, next: () => number): string =>
-	`<p:animEffect transition="${transition}" filter="${filter}"><p:cBhvr><p:cTn id="${next()}" dur="${dur}"/>` +
-	`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl></p:cBhvr></p:animEffect>`
+	el(
+		'p:animEffect',
+		{ transition, filter },
+		raw(
+			el('p:cBhvr', null, [
+				raw(voidEl('p:cTn', { id: next(), dur })),
+				raw(el('p:tgtEl', null, raw(voidEl('p:spTgt', { spid })))),
+			])
+		)
+	)
 
 const ANIM_FADE = (transition: 'in' | 'out', spid: number, dur: number, next: () => number): string =>
 	ANIM_EFFECT(transition, 'fade', spid, dur, next)
@@ -106,14 +141,22 @@ const ANIM_FLY_AXIS = (
 		from = `${h}ppt_y`
 		to = `1+${h}ppt_h/2`
 	}
-	const fillAttr = direction === 'in' ? ' fill="hold"' : ''
-	return (
-		'<p:anim calcmode="lin" valueType="num"><p:cBhvr additive="base">' +
-		`<p:cTn id="${next()}" dur="${dur}"${fillAttr}/><p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
-		`<p:attrNameLst><p:attrName>ppt_${axis}</p:attrName></p:attrNameLst></p:cBhvr>` +
-		`<p:tavLst><p:tav tm="0"><p:val><p:strVal val="${from}"/></p:val></p:tav>` +
-		`<p:tav tm="100000"><p:val><p:strVal val="${to}"/></p:val></p:tav></p:tavLst></p:anim>`
-	)
+	const fill = direction === 'in' ? 'hold' : null
+	return el('p:anim', { calcmode: 'lin', valueType: 'num' }, [
+		raw(
+			el('p:cBhvr', { additive: 'base' }, [
+				raw(voidEl('p:cTn', { id: next(), dur, fill })),
+				raw(el('p:tgtEl', null, raw(voidEl('p:spTgt', { spid })))),
+				raw(el('p:attrNameLst', null, raw(el('p:attrName', null, `ppt_${axis}`)))),
+			])
+		),
+		raw(
+			el('p:tavLst', null, [
+				raw(el('p:tav', { tm: 0 }, raw(el('p:val', null, raw(voidEl('p:strVal', { val: from })))))),
+				raw(el('p:tav', { tm: 100000 }, raw(el('p:val', null, raw(voidEl('p:strVal', { val: to })))))),
+			])
+		),
+	])
 }
 
 const ANIM_PRESETS: Record<string, AnimPresetMeta> = {
@@ -154,8 +197,15 @@ const ANIM_PRESETS: Record<string, AnimPresetMeta> = {
 		presetSubtype: 0,
 		defaultDurationMs: 2000,
 		behaviors: (spid, dur, next) =>
-			`<p:animScale><p:cBhvr><p:cTn id="${next()}" dur="${dur}" fill="hold"/>` +
-			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl></p:cBhvr><p:by x="150000" y="150000"/></p:animScale>`,
+			el('p:animScale', null, [
+				raw(
+					el('p:cBhvr', null, [
+						raw(voidEl('p:cTn', { id: next(), dur, fill: 'hold' })),
+						raw(el('p:tgtEl', null, raw(voidEl('p:spTgt', { spid })))),
+					])
+				),
+				raw(voidEl('p:by', { x: 150000, y: 150000 })),
+			]),
 	},
 	spin: {
 		presetID: 8,
@@ -163,8 +213,15 @@ const ANIM_PRESETS: Record<string, AnimPresetMeta> = {
 		presetSubtype: 0,
 		defaultDurationMs: 2000,
 		behaviors: (spid, dur, next) =>
-			`<p:animRot by="21600000"><p:cBhvr><p:cTn id="${next()}" dur="${dur}" fill="hold"/>` +
-			`<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl><p:attrNameLst><p:attrName>r</p:attrName></p:attrNameLst></p:cBhvr></p:animRot>`,
+			el('p:animRot', { by: 21600000 }, [
+				raw(
+					el('p:cBhvr', null, [
+						raw(voidEl('p:cTn', { id: next(), dur, fill: 'hold' })),
+						raw(el('p:tgtEl', null, raw(voidEl('p:spTgt', { spid })))),
+						raw(el('p:attrNameLst', null, raw(el('p:attrName', null, 'r')))),
+					])
+				),
+			]),
 	},
 	fadeOut: {
 		presetID: 10,
@@ -234,40 +291,80 @@ export function buildAnimationSeq(animations: ResolvedAnimation[], next: () => n
 		const duration = typeof entry.anim.durationMs === 'number' ? entry.anim.durationMs : meta.defaultDurationMs
 		const effectId = next()
 		const behaviors = meta.behaviors(entry.spid, duration, next)
-		return (
-			`<p:par><p:cTn id="${effectId}" presetID="${meta.presetID}" presetClass="${meta.presetClass}" presetSubtype="${meta.presetSubtype}" fill="hold" grpId="0" nodeType="${nodeType}">` +
-			'<p:stCondLst><p:cond delay="0"/></p:stCondLst>' +
-			`<p:childTnLst>${behaviors}</p:childTnLst></p:cTn></p:par>`
+		return el(
+			'p:par',
+			null,
+			raw(
+				el(
+					'p:cTn',
+					{
+						id: effectId,
+						presetID: meta.presetID,
+						presetClass: meta.presetClass,
+						presetSubtype: meta.presetSubtype,
+						fill: 'hold',
+						grpId: 0,
+						nodeType,
+					},
+					[
+						raw(el('p:stCondLst', null, raw(voidEl('p:cond', { delay: 0 })))),
+						raw(el('p:childTnLst', null, raw(behaviors))),
+					]
+				)
+			)
 		)
 	}
 
 	const emitSub = (sub: SubGroup): string => {
 		const subId = next()
 		const effects = sub.effects.map(emitEffect).join('')
-		return (
-			`<p:par><p:cTn id="${subId}" fill="hold"><p:stCondLst><p:cond delay="${sub.delay}"/></p:stCondLst>` +
-			`<p:childTnLst>${effects}</p:childTnLst></p:cTn></p:par>`
+		return el(
+			'p:par',
+			null,
+			raw(
+				el('p:cTn', { id: subId, fill: 'hold' }, [
+					raw(el('p:stCondLst', null, raw(voidEl('p:cond', { delay: sub.delay })))),
+					raw(el('p:childTnLst', null, raw(effects))),
+				])
+			)
 		)
 	}
 
 	const emitGroup = (group: ClickGroup): string => {
 		const groupId = next()
 		const subs = group.subs.map(emitSub).join('')
-		return (
-			`<p:par><p:cTn id="${groupId}" fill="hold"><p:stCondLst><p:cond delay="indefinite"/></p:stCondLst>` +
-			`<p:childTnLst>${subs}</p:childTnLst></p:cTn></p:par>`
+		return el(
+			'p:par',
+			null,
+			raw(
+				el('p:cTn', { id: groupId, fill: 'hold' }, [
+					raw(el('p:stCondLst', null, raw(voidEl('p:cond', { delay: 'indefinite' })))),
+					raw(el('p:childTnLst', null, raw(subs))),
+				])
+			)
 		)
 	}
 
 	const clickGroups = groups.map(emitGroup).join('')
-	return (
-		'<p:seq concurrent="1" nextAc="seek">' +
-		'<p:cTn id="2" dur="indefinite" nodeType="mainSeq">' +
-		`<p:childTnLst>${clickGroups}</p:childTnLst></p:cTn>` +
-		'<p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst>' +
-		'<p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst>' +
-		'</p:seq>'
-	)
+	return el('p:seq', { concurrent: 1, nextAc: 'seek' }, [
+		raw(
+			el('p:cTn', { id: 2, dur: 'indefinite', nodeType: 'mainSeq' }, raw(el('p:childTnLst', null, raw(clickGroups))))
+		),
+		raw(
+			el(
+				'p:prevCondLst',
+				null,
+				raw(el('p:cond', { evt: 'onPrev', delay: 0 }, raw(el('p:tgtEl', null, raw(voidEl('p:sldTgt'))))))
+			)
+		),
+		raw(
+			el(
+				'p:nextCondLst',
+				null,
+				raw(el('p:cond', { evt: 'onNext', delay: 0 }, raw(el('p:tgtEl', null, raw(voidEl('p:sldTgt'))))))
+			)
+		),
+	])
 }
 
 /** One `<p:bldP>` per animated shape, in order of first appearance. */
@@ -277,7 +374,7 @@ export function buildBldList(animations: ResolvedAnimation[]): string {
 	for (const { spid } of animations) {
 		if (seen.has(spid)) continue
 		seen.add(spid)
-		bldPs.push(`<p:bldP spid="${spid}" grpId="0"/>`)
+		bldPs.push(voidEl('p:bldP', { spid, grpId: 0 }))
 	}
-	return `<p:bldLst>${bldPs.join('')}</p:bldLst>`
+	return el('p:bldLst', null, raw(bldPs.join('')))
 }

@@ -9,6 +9,7 @@ import { CRLF, XML_DECL } from '../../core-enums.js'
 import type { PresSlideInternal, SlideLayoutInternal } from '../../core-interfaces.js'
 import { slideTimingToXml } from '../anim/timing.js'
 import { slideTransitionToXml } from '../anim/transition.js'
+import { el, raw, voidEl } from '../oxml/el.js'
 import { slideObjectRelationsToXml, slideObjectToXml } from './object.js'
 
 /**
@@ -18,15 +19,23 @@ import { slideObjectRelationsToXml, slideObjectToXml } from './object.js'
  */
 export function makeXmlSlide(slide: PresSlideInternal): string {
 	return (
-		`${XML_DECL}${CRLF}` +
-		'<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
-		'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"' +
-		`${slide?.hidden ? ' show="0"' : ''}>` +
-		`${slideObjectToXml(slide)}` +
-		'<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>' +
-		slideTransitionToXml(slide) +
-		slideTimingToXml(slide) +
-		'</p:sld>'
+		XML_DECL +
+		CRLF +
+		el(
+			'p:sld',
+			{
+				'xmlns:a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
+				'xmlns:r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+				'xmlns:p': 'http://schemas.openxmlformats.org/presentationml/2006/main',
+				show: slide?.hidden ? '0' : null,
+			},
+			[
+				raw(slideObjectToXml(slide)),
+				raw(el('p:clrMapOvr', null, raw(voidEl('a:masterClrMapping')))),
+				raw(slideTransitionToXml(slide)),
+				raw(slideTimingToXml(slide)),
+			]
+		)
 	)
 }
 

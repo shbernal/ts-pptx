@@ -7,7 +7,7 @@
  */
 
 import type { PresSlideInternal, TransitionProps } from '../../core-interfaces.js'
-import { encodeXmlEntities } from '../../gen-utils.js'
+import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 
 /** Map a `ST_TransitionSpeed`-less exact duration (ms) to PowerPoint's coarse `spd` bucket. */
 function transitionSpeedForDuration(durationMs: number): 'slow' | 'med' | 'fast' {
@@ -34,41 +34,47 @@ function transitionSpeedForDuration(durationMs: number): 'slow' | 'med' | 'fast'
 function transitionSoundToXml(transition: TransitionProps): string {
 	const sound = transition.sound
 	if (!sound) return ''
-	if (sound.stopPrevious) return '<p:sndAc><p:endSnd/></p:sndAc>'
+	if (sound.stopPrevious) return el('p:sndAc', null, raw(voidEl('p:endSnd')))
 	if (typeof transition._sndRId !== 'number') return '' // no embedded part registered
-	const loopAttr = sound.loop ? ' loop="1"' : ''
-	const nameAttr = sound.name ? ` name="${encodeXmlEntities(sound.name)}"` : ''
-	return `<p:sndAc><p:stSnd${loopAttr}><p:snd r:embed="rId${transition._sndRId}"${nameAttr}/></p:stSnd></p:sndAc>`
+	return el(
+		'p:sndAc',
+		null,
+		raw(
+			el(
+				'p:stSnd',
+				{ loop: sound.loop ? '1' : null },
+				raw(voidEl('p:snd', { 'r:embed': `rId${transition._sndRId}`, name: sound.name || null }))
+			)
+		)
+	)
 }
 
 export function slideTransitionToXml(slide: PresSlideInternal): string {
 	const transition = slide.transition
 	if (!transition?.type) return ''
 
-	const variantAttrs = Object.entries(transition.variant ?? {})
-		.map(([name, value]) => ` ${name}="${encodeXmlEntities(String(value))}"`)
-		.join('')
-	const typeEl = `<p:${transition.type}${variantAttrs}/>`
+	const typeEl = voidEl(`p:${transition.type}`, transition.variant ?? null)
 	const sndAc = transitionSoundToXml(transition)
 
 	const hasDuration = typeof transition.durationMs === 'number' && isFinite(transition.durationMs)
 	const speed = transition.speed ?? (hasDuration ? transitionSpeedForDuration(transition.durationMs as number) : null)
-	const baseAttrs =
-		`${speed ? ` spd="${speed}"` : ''}` +
-		`${transition.advanceOnClick === false ? ' advClick="0"' : ''}` +
-		`${typeof transition.advanceAfterMs === 'number' ? ` advTm="${Math.round(transition.advanceAfterMs)}"` : ''}`
+	const baseAttrs: XmlAttrs = {
+		spd: speed || null,
+		advClick: transition.advanceOnClick === false ? '0' : null,
+		advTm: typeof transition.advanceAfterMs === 'number' ? Math.round(transition.advanceAfterMs) : null,
+	}
 
-	if (!hasDuration) return `<p:transition${baseAttrs}>${typeEl}${sndAc}</p:transition>`
+	if (!hasDuration) return el('p:transition', baseAttrs, [raw(typeEl), raw(sndAc)])
 
 	const dur = Math.round(transition.durationMs as number)
-	return (
-		'<mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006">' +
-		'<mc:Choice xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" Requires="p14">' +
-		`<p:transition${baseAttrs} p14:dur="${dur}">${typeEl}${sndAc}</p:transition>` +
-		'</mc:Choice>' +
-		'<mc:Fallback>' +
-		`<p:transition${baseAttrs}>${typeEl}${sndAc}</p:transition>` +
-		'</mc:Fallback>' +
-		'</mc:AlternateContent>'
-	)
+	return el('mc:AlternateContent', { 'xmlns:mc': 'http://schemas.openxmlformats.org/markup-compatibility/2006' }, [
+		raw(
+			el(
+				'mc:Choice',
+				{ 'xmlns:p14': 'http://schemas.microsoft.com/office/powerpoint/2010/main', Requires: 'p14' },
+				raw(el('p:transition', { ...baseAttrs, 'p14:dur': dur }, [raw(typeEl), raw(sndAc)]))
+			)
+		),
+		raw(el('mc:Fallback', null, raw(el('p:transition', baseAttrs, [raw(typeEl), raw(sndAc)])))),
+	])
 }
