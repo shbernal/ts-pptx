@@ -7,9 +7,22 @@
 
 import { CRLF, XML_DECL } from '../../core-enums.js'
 import type { CustomPropertyValue } from '../../core-interfaces.js'
-import { encodeXmlEntities } from '../../gen-utils.js'
+import { el, raw } from '../oxml/el.js'
 
 const CUSTOM_PROPS_FMTID = '{D5CDD505-2E9C-101B-9397-08002B2CF9AE}'
+
+const PROPS_NS = {
+	xmlns: 'http://schemas.openxmlformats.org/officeDocument/2006/custom-properties',
+	'xmlns:vt': 'http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes',
+}
+
+/** Serialize one custom-property value to its typed `vt:` element. */
+function valueEl(value: CustomPropertyValue): string {
+	if (typeof value === 'boolean') return el('vt:bool', null, String(value))
+	if (value instanceof Date) return el('vt:filetime', null, value.toISOString().replace(/\.\d{3}Z$/, 'Z'))
+	if (typeof value === 'number') return el(Number.isInteger(value) ? 'vt:i4' : 'vt:r8', null, value)
+	return el('vt:lpwstr', null, String(value))
+}
 
 /**
  * Creates `docProps/custom.xml`
@@ -17,20 +30,9 @@ const CUSTOM_PROPS_FMTID = '{D5CDD505-2E9C-101B-9397-08002B2CF9AE}'
  * @returns XML
  */
 export function makeXmlCustomProperties(props: Array<{ name: string; value: CustomPropertyValue }>): string {
-	const propertiesXml = props
-		.map(({ name, value }, idx) => {
-			let valueXml: string
-			if (typeof value === 'boolean') {
-				valueXml = `<vt:bool>${value}</vt:bool>`
-			} else if (value instanceof Date) {
-				valueXml = `<vt:filetime>${value.toISOString().replace(/\.\d{3}Z$/, 'Z')}</vt:filetime>`
-			} else if (typeof value === 'number') {
-				valueXml = Number.isInteger(value) ? `<vt:i4>${value}</vt:i4>` : `<vt:r8>${value}</vt:r8>`
-			} else {
-				valueXml = `<vt:lpwstr>${encodeXmlEntities(String(value))}</vt:lpwstr>`
-			}
-			return `<property fmtid="${CUSTOM_PROPS_FMTID}" pid="${idx + 2}" name="${encodeXmlEntities(name)}">${valueXml}</property>`
-		})
-		.join('')
-	return `${XML_DECL}${CRLF}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">${propertiesXml}</Properties>`
+	// pid is 1-based with 1 reserved by the spec, so caller properties start at 2.
+	const properties = props.map(({ name, value }, idx) =>
+		raw(el('property', { fmtid: CUSTOM_PROPS_FMTID, pid: idx + 2, name }, raw(valueEl(value))))
+	)
+	return XML_DECL + CRLF + el('Properties', PROPS_NS, properties)
 }

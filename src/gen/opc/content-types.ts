@@ -10,6 +10,28 @@ import { CRLF, XML_DECL } from '../../core-enums.js'
 import type { PresSlideInternal, SlideLayoutInternal, SlideRelChart, SlideRelMedia } from '../../core-interfaces.js'
 import { avContentType } from '../../gen-utils.js'
 import { type EmbeddedFont, FONT_DATA_CONTENT_TYPE, FONT_DATA_EXTENSION } from '../../embedded-fonts.js'
+import { el, raw, voidEl } from '../oxml/el.js'
+
+/** Content-type prefixes; spelled out per part below so each entry stays greppable by its suffix. */
+const OD = 'application/vnd.openxmlformats-officedocument.'
+const PKG = 'application/vnd.openxmlformats-package.'
+const CT_CHART = OD + 'drawingml.chart+xml'
+const CT_THEME = OD + 'theme+xml'
+
+/**
+ * Some Override entries have always been emitted with a leading space. It is insignificant
+ * whitespace, but it is in the bytes this library has shipped for years, so it is reproduced
+ * verbatim rather than normalized (see AGENTS.md "Verification": whitespace diffs are a STOP).
+ */
+const LEADING_SPACE = { openPrefix: ' ' }
+
+function contentDefault(extension: string, contentType: string): string {
+	return voidEl('Default', { Extension: extension, ContentType: contentType })
+}
+
+function override(partName: string, contentType: string, fmt?: { openPrefix: string }): string {
+	return voidEl('Override', { PartName: partName, ContentType: contentType }, fmt)
+}
 
 /**
  * Generate XML ContentType
@@ -25,10 +47,7 @@ export function makeXmlContTypes(
 	hasCustomProps?: boolean,
 	embeddedFonts?: EmbeddedFont[]
 ): string {
-	let strXml = XML_DECL + CRLF
-	strXml += '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
-	strXml += '<Default Extension="xml" ContentType="application/xml"/>'
-	strXml += '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+	const parts: string[] = [contentDefault('xml', 'application/xml'), contentDefault('rels', PKG + 'relationships+xml')]
 
 	// STEP 1 - Emit Default Extension entries only for media types actually used by the deck.
 	// Walk slides + slideLayouts + masterSlide _relsMedia[] and dedupe by extension.
@@ -55,62 +74,48 @@ export function makeXmlContTypes(
 		if ((target._relsChart || []).length > 0) ctHasChart = true
 	})
 	extnTypeMap.forEach((type, extn) => {
-		strXml += '<Default Extension="' + extn + '" ContentType="' + type + '"/>'
+		parts.push(contentDefault(extn, type))
 	})
 	// Charts embed an xlsx workbook part; emit the Default only when at least one chart is present.
-	if (ctHasChart) {
-		strXml +=
-			'<Default Extension="xlsx" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"/>'
-	}
+	if (ctHasChart) parts.push(contentDefault('xlsx', OD + 'spreadsheetml.sheet'))
 	// Embedded fonts: one Default covers every `.fntdata` part (emitted only when fonts are embedded).
 	if ((embeddedFonts || []).some((font) => font.faces.some((face) => face.bytes))) {
-		strXml += `<Default Extension="${FONT_DATA_EXTENSION}" ContentType="${FONT_DATA_CONTENT_TYPE}"/>`
+		parts.push(contentDefault(FONT_DATA_EXTENSION, FONT_DATA_CONTENT_TYPE))
 	}
 
 	// STEP 2: Add presentation and slide master(s)/slide(s)
-	strXml +=
-		'<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>'
-	strXml +=
-		'<Override PartName="/ppt/notesMasters/notesMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml"/>'
+	parts.push(override('/ppt/presentation.xml', OD + 'presentationml.presentation.main+xml'))
+	parts.push(override('/ppt/notesMasters/notesMaster1.xml', OD + 'presentationml.notesMaster+xml'))
 	// Only one slideMaster part (`slideMaster1.xml`) is written; emit a single matching Override
 	// rather than one per slide (which would dangle, since `slideMaster2..N.xml` do not exist).
-	strXml +=
-		'<Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>'
+	parts.push(override('/ppt/slideMasters/slideMaster1.xml', OD + 'presentationml.slideMaster+xml'))
 	slides.forEach((slide, idx) => {
-		strXml += `<Override PartName="/ppt/slides/slide${idx + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`
+		parts.push(override(`/ppt/slides/slide${idx + 1}.xml`, OD + 'presentationml.slide+xml'))
 		// Add charts if any
 		slide._relsChart.forEach((rel) => {
-			strXml += `<Override PartName="${rel.Target}" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>`
+			parts.push(override(rel.Target, CT_CHART))
 		})
 	})
 
 	// STEP 3: Core PPT
-	strXml +=
-		'<Override PartName="/ppt/presProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presProps+xml"/>'
-	strXml +=
-		'<Override PartName="/ppt/viewProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml"/>'
-	strXml +=
-		'<Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>'
+	parts.push(override('/ppt/presProps.xml', OD + 'presentationml.presProps+xml'))
+	parts.push(override('/ppt/viewProps.xml', OD + 'presentationml.viewProps+xml'))
+	parts.push(override('/ppt/theme/theme1.xml', CT_THEME))
 	// notesMaster1.xml.rels references ../theme/theme2.xml; emit a matching Override so the part resolves
-	strXml +=
-		'<Override PartName="/ppt/theme/theme2.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>'
-	strXml +=
-		'<Override PartName="/ppt/tableStyles.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml"/>'
+	parts.push(override('/ppt/theme/theme2.xml', CT_THEME))
+	parts.push(override('/ppt/tableStyles.xml', OD + 'presentationml.tableStyles+xml'))
 
 	// STEP 4: Add Slide Layouts
 	slideLayouts.forEach((layout, idx) => {
-		strXml += `<Override PartName="/ppt/slideLayouts/slideLayout${idx + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>`
+		parts.push(override(`/ppt/slideLayouts/slideLayout${idx + 1}.xml`, OD + 'presentationml.slideLayout+xml'))
 		;(layout._relsChart || []).forEach((rel) => {
-			strXml +=
-				' <Override PartName="' +
-				rel.Target +
-				'" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>'
+			parts.push(override(rel.Target, CT_CHART, LEADING_SPACE))
 		})
 	})
 
 	// STEP 5: Add notes slide(s)
 	slides.forEach((_slide, idx) => {
-		strXml += `<Override PartName="/ppt/notesSlides/notesSlide${idx + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"/>`
+		parts.push(override(`/ppt/notesSlides/notesSlide${idx + 1}.xml`, OD + 'presentationml.notesSlide+xml'))
 	})
 
 	// STEP 5b: Comments — per-slide comment part Override for slides that have comments, plus the
@@ -119,33 +124,25 @@ export function makeXmlContTypes(
 	slides.forEach((slide, idx) => {
 		if ((slide._comments || []).length > 0) {
 			hasAnyComment = true
-			strXml += `<Override PartName="/ppt/comments/comment${idx + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.comments+xml"/>`
+			parts.push(override(`/ppt/comments/comment${idx + 1}.xml`, OD + 'presentationml.comments+xml'))
 		}
 	})
-	if (hasAnyComment) {
-		strXml +=
-			'<Override PartName="/ppt/commentAuthors.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.commentAuthors+xml"/>'
-	}
+	if (hasAnyComment) parts.push(override('/ppt/commentAuthors.xml', OD + 'presentationml.commentAuthors+xml'))
 
 	// STEP 6: Add rels
 	masterSlide?._relsChart.forEach((rel) => {
-		strXml +=
-			' <Override PartName="' +
-			rel.Target +
-			'" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>'
+		parts.push(override(rel.Target, CT_CHART, LEADING_SPACE))
 	})
 	// master _relsMedia extensions are already covered by the unified ctTargets walk above; no per-master Default block needed here.
 
 	// LAST: Finish XML (Resume core)
-	strXml +=
-		' <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>'
-	strXml +=
-		' <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>'
-	if (hasCustomProps) {
-		strXml +=
-			' <Override PartName="/docProps/custom.xml" ContentType="application/vnd.openxmlformats-officedocument.custom-properties+xml"/>'
-	}
-	strXml += '</Types>'
+	parts.push(override('/docProps/core.xml', PKG + 'core-properties+xml', LEADING_SPACE))
+	parts.push(override('/docProps/app.xml', OD + 'extended-properties+xml', LEADING_SPACE))
+	if (hasCustomProps) parts.push(override('/docProps/custom.xml', OD + 'custom-properties+xml', LEADING_SPACE))
 
-	return strXml
+	return (
+		XML_DECL +
+		CRLF +
+		el('Types', { xmlns: 'http://schemas.openxmlformats.org/package/2006/content-types' }, parts.map(raw))
+	)
 }
