@@ -1210,15 +1210,11 @@ export function slideObjectRelationsToXml(
 					})
 				)
 			}
-		} else if (rel.type.toLowerCase().includes('notesSlide')) {
-			// DEAD BRANCH, preserved verbatim: `toLowerCase()` can never contain a capital `S`,
-			// so this never fires. Harmless today because the notesSlide rel every slide needs
-			// is emitted from `defaultRels` in `makeXmlSlideRel` instead. Left as-is rather than
-			// "fixed" here, since making it live would add a rel to real output — that belongs in
-			// a separate change with a fixture, not in a byte-identity refactor.
-			// NOTE: attribute order here is Id/Target/Type, not Id/Type/Target as elsewhere.
-			rels.push(voidEl('Relationship', { Id: `rId${rel.rId}`, Target: rel.Target, Type: OFFICE_REL + 'notesSlide' }))
 		}
+		// NOTE: there is no `else` here on purpose. `_rels` only ever holds hyperlinks —
+		// it is initialized empty (`slide.ts`) and the three sites that append to it
+		// (`define/hyperlinks.ts` ×2, `define/image.ts`) all push `SlideObjectType.hyperlink`.
+		// The notesSlide rel every slide needs comes from `defaultRels` in `makeXmlSlideRel`.
 	})
 	;(slide._relsChart || []).forEach((rel: SlideRelChart) => {
 		lastRid = Math.max(lastRid, rel.rId)
