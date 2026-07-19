@@ -77,7 +77,8 @@ export function buildNotesSlideRels(slide: PresSlideInternal): SlideRel[] {
 			type: SlideObjectType.hyperlink,
 			data: 'dummy',
 			rId: lastRid,
-			Target: encodeXmlEntities(hyperlink.url),
+			// `Target` is stored RAW; every emitter escapes it. See the note on `SlideRel.Target`.
+			Target: hyperlink.url,
 		})
 	})
 
@@ -140,7 +141,7 @@ export function makeXmlNotesSlideRel(slide: PresSlideInternal, slideNumber: numb
 	const hlinkRels = buildNotesSlideRels(slide)
 		.map(
 			(rel) =>
-				`<Relationship Id="rId${rel.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${rel.Target}" TargetMode="External"/>`
+				`<Relationship Id="rId${rel.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${encodeXmlEntities(rel.Target)}" TargetMode="External"/>`
 		)
 		.join('')
 

@@ -1182,79 +1182,83 @@ export function slideObjectRelationsToXml(
 		lastRid = Math.max(lastRid, rel.rId)
 		if (isHyperlinkRel(rel)) {
 			if (rel.data === 'slide') {
-				strXml += `<Relationship Id="rId${rel.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slide${rel.Target}.xml"/>`
+				strXml += `<Relationship Id="rId${rel.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slide${encodeXmlEntities(rel.Target)}.xml"/>`
 			} else {
-				strXml += `<Relationship Id="rId${rel.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${rel.Target}" TargetMode="External"/>`
+				strXml += `<Relationship Id="rId${rel.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${encodeXmlEntities(rel.Target)}" TargetMode="External"/>`
 			}
 		} else if (rel.type.toLowerCase().includes('notesSlide')) {
-			strXml += `<Relationship Id="rId${rel.rId}" Target="${rel.Target}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide"/>`
+			strXml += `<Relationship Id="rId${rel.rId}" Target="${encodeXmlEntities(rel.Target)}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide"/>`
 		}
 	})
 	;(slide._relsChart || []).forEach((rel: SlideRelChart) => {
 		lastRid = Math.max(lastRid, rel.rId)
-		strXml += `<Relationship Id="rId${rel.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="${rel.Target}"/>`
+		strXml += `<Relationship Id="rId${rel.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="${encodeXmlEntities(rel.Target)}"/>`
 	})
 	;(slide._relsMedia || []).forEach((rel: SlideRelMedia) => {
 		const relRid = rel.rId.toString()
+		// Escaped once, and reused by the "second rel of a pair" probe below so that probe
+		// compares against what was actually emitted (an online-video link carrying `&`
+		// would otherwise never match its own first rel).
+		const relTarget = encodeXmlEntities(rel.Target)
 		lastRid = Math.max(lastRid, rel.rId)
 		if (rel.type.toLowerCase().includes('image')) {
 			strXml +=
 				'<Relationship Id="rId' +
 				relRid +
 				'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="' +
-				rel.Target +
+				relTarget +
 				'"/>'
 		} else if (rel.type.toLowerCase().includes('audio')) {
 			// As media has *TWO* rel entries per item, check for first one, if found add second rel with alt style
-			if (strXml.includes(' Target="' + rel.Target + '"')) {
+			if (strXml.includes(' Target="' + relTarget + '"')) {
 				strXml +=
 					'<Relationship Id="rId' +
 					relRid +
 					'" Type="http://schemas.microsoft.com/office/2007/relationships/media" Target="' +
-					rel.Target +
+					relTarget +
 					'"/>'
 			} else {
 				strXml +=
 					'<Relationship Id="rId' +
 					relRid +
 					'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio" Target="' +
-					rel.Target +
+					relTarget +
 					'"/>'
 			}
 		} else if (rel.type.toLowerCase().includes('video')) {
 			// As media has *TWO* rel entries per item, check for first one, if found add second rel with alt style
-			if (strXml.includes(' Target="' + rel.Target + '"')) {
+			if (strXml.includes(' Target="' + relTarget + '"')) {
 				strXml +=
 					'<Relationship Id="rId' +
 					relRid +
 					'" Type="http://schemas.microsoft.com/office/2007/relationships/media" Target="' +
-					rel.Target +
+					relTarget +
 					'"/>'
 			} else {
 				strXml +=
 					'<Relationship Id="rId' +
 					relRid +
 					'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/video" Target="' +
-					rel.Target +
+					relTarget +
 					'"/>'
 			}
 		} else if (rel.type.toLowerCase().includes('online')) {
 			// Online video has *TWO* external rels sharing the link Target: the ECMA video
 			// rel (first) and the MS-2007 media rel (second). Both TargetMode="External",
 			// no media binary part. Detect the second by its Target already being present.
-			if (strXml.includes(' Target="' + rel.Target + '"')) {
+			if (strXml.includes(' Target="' + relTarget + '"')) {
 				strXml +=
 					'<Relationship Id="rId' +
 					relRid +
 					'" Type="http://schemas.microsoft.com/office/2007/relationships/media" Target="' +
-					rel.Target +
+					relTarget +
 					'" TargetMode="External"/>'
 			} else {
 				strXml +=
 					'<Relationship Id="rId' +
 					relRid +
 					'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/video" Target="' +
-					rel.Target +
+					relTarget +
 					'" TargetMode="External"/>'
 			}
 		}

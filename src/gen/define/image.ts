@@ -317,7 +317,8 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 				type: SlideObjectType.hyperlink,
 				data: objHyperlink.slide ? 'slide' : 'dummy',
 				rId: imageRelId,
-				Target: objHyperlink.url ? encodeXmlEntities(objHyperlink.url) : String(objHyperlink.slide),
+				// `Target` is stored RAW; every emitter escapes it. See the note on `SlideRel.Target`.
+				Target: objHyperlink.url ? objHyperlink.url : String(objHyperlink.slide),
 			})
 
 			objHyperlink._rId = imageRelId

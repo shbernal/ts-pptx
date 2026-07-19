@@ -14,7 +14,7 @@ import type {
 	TextProps,
 	TextPropsOptions,
 } from '../../core-interfaces.js'
-import { encodeXmlEntities, getNewRelId } from '../../gen-utils.js'
+import { getNewRelId } from '../../gen-utils.js'
 
 type HyperlinkTextObject = (TextProps | SlideObject | TableCell) & {
 	options?: TextPropsOptions | ObjectOptions
@@ -75,7 +75,8 @@ export function createHyperlinkRels(
 					type: SlideObjectType.hyperlink,
 					data: hyperlink.slide ? 'slide' : 'dummy',
 					rId: relId,
-					Target: hyperlink.url ? encodeXmlEntities(hyperlink.url) : String(hyperlink.slide),
+					// `Target` is stored RAW; every emitter escapes it. See the note on `SlideRel.Target`.
+					Target: hyperlink.url ? hyperlink.url : String(hyperlink.slide),
 				})
 
 				hyperlink._rId = relId
@@ -95,7 +96,8 @@ export function createHyperlinkRels(
 					type: SlideObjectType.hyperlink,
 					data: hyperlink.slide ? 'slide' : 'dummy',
 					rId: hyperlinkRelId,
-					Target: hyperlink.url ? encodeXmlEntities(hyperlink.url) : String(hyperlink.slide),
+					// `Target` is stored RAW; every emitter escapes it. See the note on `SlideRel.Target`.
+					Target: hyperlink.url ? hyperlink.url : String(hyperlink.slide),
 				})
 			}
 		}

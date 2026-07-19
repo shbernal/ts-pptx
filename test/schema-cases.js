@@ -2627,6 +2627,48 @@ export default [
 		},
 	},
 	{
+		// Relationship `Target` escaping. Query-string URLs carry `&` as a matter of course
+		// (`?rel=0&t=5`), and an unescaped one makes the .rels part non-parseable.
+		//
+		// `SlideRel.Target` is stored UNESCAPED and escaped by each emitter. The inverse
+		// convention (escape at definition time) is what this fixture guards against: it
+		// left online-video links raw here while double-escaping hyperlinks on the append
+		// path, where `read/opc/relationships.ts` escapes a second time. So both a link
+		// that must be escaped exactly once and one that must not be escaped twice are
+		// asserted, on both the slide rels and the notes rels.
+		name: 'relationship Target containing & is escaped exactly once (hyperlink, online video, notes)',
+		fn: async () => {
+			const URL_LINK = 'https://x.com/?a=1&b=2'
+			const URL_VIDEO = 'https://youtube.com/embed/ID?rel=0&t=5'
+			const ESC_LINK = 'https://x.com/?a=1&amp;b=2'
+			const ESC_VIDEO = 'https://youtube.com/embed/ID?rel=0&amp;t=5'
+			const { buf, zip } = await build((p) => {
+				const s1 = p.addSlide()
+				s1.addText([{ text: 'link', options: { hyperlink: { url: URL_LINK } } }], { x: 1, y: 1, w: 4, h: 1 })
+				// Online video pushes TWO External rels sharing the link Target; the emitter
+				// tells the second from the first by probing for the Target it already wrote,
+				// so an escaping change that misses that probe silently mistypes the pair.
+				s1.addMedia({ type: 'online', link: URL_VIDEO, x: 1, y: 3, w: 4, h: 3 })
+				// Notes hyperlinks are a separate rels emitter with its own part.
+				s1.addNotes([{ text: 'note link', options: { hyperlink: { url: URL_LINK } } }])
+			})
+			await expectNoSchemaErrors(buf, 'rel-target-escaping')
+
+			// Assert the bytes: a rels part can be well-formed while carrying a corrupted
+			// URL, which validation alone accepts. `&amp;amp;` is the double-escape failure.
+			const rels1 = await readEntry(zip, 'ppt/slides/_rels/slide1.xml.rels')
+			assertIncludes(rels1, `Target="${ESC_LINK}" TargetMode="External"`)
+			assert(!rels1.includes('&amp;amp;'), 'slide1 rels hyperlink Target is not double-escaped')
+			// Both halves of the online-video pair, and the types the probe assigns them.
+			assertIncludes(rels1, `/relationships/video" Target="${ESC_VIDEO}" TargetMode="External"`)
+			assertIncludes(rels1, `2007/relationships/media" Target="${ESC_VIDEO}" TargetMode="External"`)
+
+			const notesRels = await readEntry(zip, 'ppt/notesSlides/_rels/notesSlide1.xml.rels')
+			assertIncludes(notesRels, `Target="${ESC_LINK}" TargetMode="External"`)
+			assert(!notesRels.includes('&amp;amp;'), 'notes rels hyperlink Target is not double-escaped')
+		},
+	},
+	{
 		// connectors emit <p:cxnSp> with connector preset geometries and must stay
 		// schema-valid, including flipped boxes and arrowheads/dashes on the <a:ln>.
 		name: 'connectors (straight/elbow/curved, flipped, arrowheads)',

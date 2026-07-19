@@ -29,6 +29,7 @@ const NOTES_SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/r
 const AUDIO_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio'
 const VIDEO_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/video'
 const MS_MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media'
+const HYPERLINK_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
 
 // 1×1 transparent PNG.
 const PNG_1PX =
@@ -498,6 +499,32 @@ describe('Presentation.appendSlides', () => {
 		const reopened = await Presentation.load(await pres.save())
 		const linkTarget = resolveSingle(reopened.opc, added[0].partName, SLIDE_REL)
 		assertEqual(linkTarget, added[1].partName, 'the internal link resolves to the 2nd appended slide')
+	})
+
+	test('round-trips & in hyperlink and online-video Targets without double-escaping', async () => {
+		// `SlideRel.Target` is stored unescaped and escaped by whichever emitter writes it —
+		// here `read/opc/relationships.ts`. Escaping at definition time instead would land a
+		// literal `&amp;` in the URL on this path (the serializer escaping it a second time),
+		// which is well-formed XML and so invisible to the validator. Reading the targets back
+		// through the parser is what catches it: they must equal the URLs that went in.
+		const LINK = 'https://example.com/?a=1&b=2'
+		const VIDEO = 'https://example.com/embed/ID?rel=0&t=5'
+
+		const pres = await Presentation.load(await readFile(fixturePath('theme-colors')))
+		const pptx = wideGenerator()
+		const slide = pptx.addSlide()
+		slide.addText([{ text: 'link', options: { hyperlink: { url: LINK } } }], { x: 1, y: 1, w: 6, h: 1 })
+		slide.addMedia({ type: 'online', link: VIDEO, cover: PNG_1PX, x: 1, y: 3, w: 4, h: 3 })
+
+		const [added] = await pres.appendSlides(pptx, { layout: 'Blank' })
+		const reopened = await Presentation.load(await pres.save())
+		const rels = [...reopened.opc.relationshipsFor(added.partName)]
+
+		const hyperlink = rels.find((r) => r.type === HYPERLINK_REL)
+		assertEqual(hyperlink.target, LINK, 'hyperlink Target survives the round-trip unmangled')
+		// Both halves of the online-video pair share the link and must agree.
+		assertEqual(rels.find((r) => r.type === VIDEO_REL).target, VIDEO, 'ECMA video rel Target is unmangled')
+		assertEqual(rels.find((r) => r.type === MS_MEDIA_REL).target, VIDEO, 'MS-2007 media rel Target is unmangled')
 	})
 
 	test('rejects an internal link to a source slide outside the appended batch', async () => {

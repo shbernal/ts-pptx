@@ -2945,6 +2945,13 @@ export interface SlideRelChart extends OptsChartData {
 // PRIVATE vvv
 export interface SlideRel {
 	type: SlideObjectType
+	/**
+	 * Relationship target, stored **unescaped**. Every emitter escapes it on the way out
+	 * (`gen/slide/object.ts`, `gen/slide/notes.ts`, and `read/opc/relationships.ts` for the
+	 * append path). Escaping at definition time instead would double-escape on append,
+	 * where the serializer escapes again — so `&` in a hyperlink or online-video URL must
+	 * arrive here verbatim.
+	 */
 	Target: string
 	fileName?: string
 	data: any[] | string
@@ -2965,6 +2972,7 @@ export interface SlideRelMedia {
 	isSvgPng?: boolean
 	svgSize?: { w: number; h: number }
 	rId: number
+	/** Unescaped — see {@link SlideRel.Target}. Doubles as the zip entry name for embedded media. */
 	Target: string
 }
 export interface SlideObject {
