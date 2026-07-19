@@ -8,7 +8,8 @@
 
 import { CRLF, XML_DECL } from '../../core-enums.js'
 import type { PresSlideInternal, ResolvedCommentAuthor, SlideComment } from '../../core-interfaces.js'
-import { encodeXmlEntities, inch2Emu } from '../../gen-utils.js'
+import { inch2Emu } from '../../gen-utils.js'
+import { el, raw, voidEl } from '../oxml/el.js'
 
 /** Result of resolving every slide's comments into a deck-wide author registry + per-comment numbering. */
 export interface ResolvedComments {
@@ -65,16 +66,30 @@ export function resolveCommentAuthors(slides: PresSlideInternal[]): ResolvedComm
  * @return {string} XML
  */
 export function makeXmlCommentAuthors(authors: ResolvedCommentAuthor[]): string {
-	let strXml = XML_DECL + CRLF
-	strXml +=
-		'<p:cmAuthorLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ' +
-		'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
-		'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">'
-	authors.forEach((author) => {
-		strXml += `<p:cmAuthor id="${author.id}" name="${encodeXmlEntities(author.name)}" initials="${encodeXmlEntities(author.initials)}" lastIdx="${author.lastIdx}" clrIdx="${author.clrIdx}"/>`
-	})
-	strXml += '</p:cmAuthorLst>'
-	return strXml
+	const cmAuthors = authors
+		.map((author) =>
+			voidEl('p:cmAuthor', {
+				id: author.id,
+				name: author.name,
+				initials: author.initials,
+				lastIdx: author.lastIdx,
+				clrIdx: author.clrIdx,
+			})
+		)
+		.join('')
+	return (
+		XML_DECL +
+		CRLF +
+		el(
+			'p:cmAuthorLst',
+			{
+				'xmlns:a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
+				'xmlns:r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+				'xmlns:p': 'http://schemas.openxmlformats.org/presentationml/2006/main',
+			},
+			raw(cmAuthors)
+		)
+	)
 }
 
 /**
@@ -87,21 +102,28 @@ export function makeXmlComments(
 	slide: PresSlideInternal,
 	meta: Map<SlideComment, { authorId: number; idx: number }>
 ): string {
-	let strXml = XML_DECL + CRLF
-	strXml +=
-		'<p:cmLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ' +
-		'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
-		'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">'
-	;(slide._comments || []).forEach((comment) => {
-		const m = meta.get(comment)
-		if (!m) return // defensive: comment must have been seen by resolveCommentAuthors
-		const dt = comment.date ? ` dt="${encodeXmlEntities(comment.date)}"` : ''
-		// Child order is fixed by CT_Comment: <p:pos> then <p:text>. pos x/y are ST_Coordinate (EMU).
-		strXml += `<p:cm authorId="${m.authorId}"${dt} idx="${m.idx}">`
-		strXml += `<p:pos x="${Math.round(inch2Emu(comment.x))}" y="${Math.round(inch2Emu(comment.y))}"/>`
-		strXml += `<p:text>${encodeXmlEntities(comment.text)}</p:text>`
-		strXml += '</p:cm>'
-	})
-	strXml += '</p:cmLst>'
-	return strXml
+	const cms = (slide._comments || [])
+		.map((comment) => {
+			const m = meta.get(comment)
+			if (!m) return '' // defensive: comment must have been seen by resolveCommentAuthors
+			// Child order is fixed by CT_Comment: <p:pos> then <p:text>. pos x/y are ST_Coordinate (EMU).
+			return el('p:cm', { authorId: m.authorId, dt: comment.date || null, idx: m.idx }, [
+				raw(voidEl('p:pos', { x: Math.round(inch2Emu(comment.x)), y: Math.round(inch2Emu(comment.y)) })),
+				raw(el('p:text', null, comment.text)),
+			])
+		})
+		.join('')
+	return (
+		XML_DECL +
+		CRLF +
+		el(
+			'p:cmLst',
+			{
+				'xmlns:a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
+				'xmlns:r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+				'xmlns:p': 'http://schemas.openxmlformats.org/presentationml/2006/main',
+			},
+			raw(cms)
+		)
+	)
 }
