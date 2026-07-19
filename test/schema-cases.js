@@ -2579,6 +2579,54 @@ export default [
 		},
 	},
 	{
+		// Same bug class as the theme case above, on the far more widely used `fontFace`
+		// option. Four independent interpolation sites were unescaped: text-run runProps,
+		// the table-cell `endParaRPr` fallback, every chart font (via createChartTextFonts)
+		// and the slide-number placeholder. Each is exercised here because fixing one does
+		// not fix the others.
+		name: 'fontFace containing XML metacharacters is escaped (text, table, chart, slide number)',
+		fn: async () => {
+			const BAD = 'Ma"lic&ious <Font>'
+			const BAD_EA = 'Yu <Gothic>'
+			const ESC = 'Ma&quot;lic&amp;ious &lt;Font&gt;'
+			const { buf, zip } = await build((p) => {
+				const s1 = p.addSlide()
+				s1.slideNumber = { x: 0.5, y: '90%', fontFace: BAD }
+				s1.addText('run', { x: 1, y: 1, w: 4, h: 0.5, fontFace: BAD, fontFaceEA: BAD_EA })
+
+				// Table cells take the `endParaRPr` branch, a separate emitter from text runs.
+				p.addSlide().addTable([[{ text: 'cell', options: { fontFace: BAD } }]], { x: 1, y: 1, w: 4 })
+
+				// catAxisLabelFontFace is emitted unconditionally, so it always reaches
+				// createChartTextFonts (which all other chart font options also route through).
+				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
+					type: p.ChartType.bar,
+					x: 0.5,
+					y: 0.5,
+					w: 4,
+					h: 3,
+					catAxisLabelFontFace: BAD,
+				})
+			})
+			// Schema validation parses each part, so a broken attribute fails here first.
+			await expectNoSchemaErrors(buf, 'font-face-escaping')
+			// Assert the escaped bytes too: a well-formed part could still carry a mangled
+			// font name, which validation alone would not catch.
+			const slide1 = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assertIncludes(slide1, `<a:latin typeface="${ESC}" pitchFamily="34" charset="0"/>`)
+			assertIncludes(slide1, '<a:ea typeface="Yu &lt;Gothic&gt;"/>')
+			assertIncludes(slide1, `<a:cs typeface="${ESC}"/>`)
+			// slide-number placeholder: latin/ea/cs all carry the same face
+			assertIncludes(slide1, `<a:latin typeface="${ESC}"/><a:ea typeface="${ESC}"/><a:cs typeface="${ESC}"/>`)
+
+			const slide2 = await readEntry(zip, 'ppt/slides/slide2.xml')
+			assertIncludes(slide2, `<a:latin typeface="${ESC}" charset="0"/>`)
+
+			const chart1 = await readEntry(zip, 'ppt/charts/chart1.xml')
+			assertIncludes(chart1, `<a:latin typeface="${ESC}"/><a:ea typeface="${ESC}"/><a:cs typeface="${ESC}"/>`)
+		},
+	},
+	{
 		// connectors emit <p:cxnSp> with connector preset geometries and must stay
 		// schema-valid, including flipped boxes and arrowheads/dashes on the <a:ln>.
 		name: 'connectors (straight/elbow/curved, flipped, arrowheads)',

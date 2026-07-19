@@ -265,9 +265,12 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 			// theme. Forcing a Latin-only font into `<a:ea>` — especially with the bogus charset values
 			// PowerPoint never emits on ea/cs — duplicates/ghosts text in Office 365.
 			// NOTE: order must be latin, ea, cs per CT_TextCharacterProperties.
-			runProps += `<a:latin typeface="${opts.fontFace}" pitchFamily="34" charset="0"/>`
-			if (opts.fontFaceEA) runProps += `<a:ea typeface="${opts.fontFaceEA}"/>`
-			runProps += `<a:cs typeface="${opts.fontFace}"/>`
+			// `fontFace`/`fontFaceEA` are caller-supplied and unsanitized upstream, so they are escaped
+			// here: an unescaped `"` or `&` in a font name closes the attribute early and emits a
+			// non-parseable slide part, which PowerPoint reports as a file needing repair.
+			runProps += `<a:latin typeface="${encodeXmlEntities(opts.fontFace)}" pitchFamily="34" charset="0"/>`
+			if (opts.fontFaceEA) runProps += `<a:ea typeface="${encodeXmlEntities(opts.fontFaceEA)}"/>`
+			runProps += `<a:cs typeface="${encodeXmlEntities(opts.fontFace)}"/>`
 		}
 	}
 
@@ -538,9 +541,9 @@ export function renderTextParagraphsXml(
 					' dirty="0">'
 				// Mirror genXmlTextRunProperties: Latin + complex-script slots carry the face; East Asian slot
 				// inherits the theme unless `fontFaceEA` is set.
-				strSlideXml += `<a:latin typeface="${opts.fontFace}" charset="0"/>`
-				if (opts.fontFaceEA) strSlideXml += `<a:ea typeface="${opts.fontFaceEA}"/>`
-				strSlideXml += `<a:cs typeface="${opts.fontFace}"/>`
+				strSlideXml += `<a:latin typeface="${encodeXmlEntities(opts.fontFace)}" charset="0"/>`
+				if (opts.fontFaceEA) strSlideXml += `<a:ea typeface="${encodeXmlEntities(opts.fontFaceEA)}"/>`
+				strSlideXml += `<a:cs typeface="${encodeXmlEntities(opts.fontFace)}"/>`
 				strSlideXml += '</a:endParaRPr>'
 			} else {
 				strSlideXml +=

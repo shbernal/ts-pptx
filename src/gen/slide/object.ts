@@ -393,7 +393,10 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 			strSlideXml += `<a:defRPr sz="${clampFontSizeSz(slide._slideNumberProps.fontSize || 12)}">`
 			if (slide._slideNumberProps.color) strSlideXml += genXmlColorSelection(slide._slideNumberProps.color)
 			if (slide._slideNumberProps.fontFace) {
-				strSlideXml += `<a:latin typeface="${slide._slideNumberProps.fontFace}"/><a:ea typeface="${slide._slideNumberProps.fontFace}"/><a:cs typeface="${slide._slideNumberProps.fontFace}"/>`
+				// Caller-supplied via `slide.slideNumber({ fontFace })`; escaped so a `"`/`&` in the
+				// name cannot close the attribute early and emit a non-parseable slide part.
+				const slideNumFace = encodeXmlEntities(slide._slideNumberProps.fontFace)
+				strSlideXml += `<a:latin typeface="${slideNumFace}"/><a:ea typeface="${slideNumFace}"/><a:cs typeface="${slideNumFace}"/>`
 			}
 			strSlideXml += '</a:defRPr>'
 		}

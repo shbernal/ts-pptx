@@ -86,7 +86,11 @@ function chartColorLineFill(color: string): string {
 // ===== Chart XML assembly =====
 
 function createChartTextFonts(typeface: string): string {
-	return `<a:latin typeface="${typeface}"/><a:ea typeface="${typeface}"/><a:cs typeface="${typeface}"/>`
+	// Every caller passes a caller-supplied font option (dataLabelFontFace, catAxisLabelFontFace,
+	// legendFontFace, ...), so escaping happens here — one site covers all of them. An unescaped
+	// `"` or `&` would close the attribute early and emit a non-parseable chart part.
+	const face = encodeXmlEntities(typeface)
+	return `<a:latin typeface="${face}"/><a:ea typeface="${face}"/><a:cs typeface="${face}"/>`
 }
 
 /**
