@@ -111,5 +111,6 @@ MCPs' corpora.
 - For source changes, run `pnpm run build` and `pnpm run typecheck` when practical.
 - For behavior changes, run `pnpm run test:unit`.
 - For OOXML serialization changes, add or update a fixture in `test/schema-cases.js` and run `pnpm run test:schema`.
+- For a *behavior-preserving* refactor of the `src/gen/` emitters, gate every step on the byte-identity harness: `pnpm run byte-identity:baseline` before the refactor, then `pnpm run byte-identity:check` after each step. It generates the full demo deck, recurses into every embedded `.xlsx`, and diffs all 1437 parts; only three nondeterministic patterns (core.xml timestamps, `p14:section` ids, `c16:uniqueId`) are normalized. Any other byte change is a real regression — do not accept one as cleanup.
 - `pnpm run test:schema` requires the validator installed with `./tools/ooxml-validator/install.sh`.
 - For release/package boundary changes, consult `docs/testing.md` and run the relevant package or demo smoke commands.

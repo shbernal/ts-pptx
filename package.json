@@ -100,6 +100,8 @@
 		"backlog:list": "node scripts/backlog-ledger.mjs list",
 		"backlog:validate": "node scripts/backlog-ledger.mjs validate",
 		"test:tools": "vitest run test/backlog-ledger.test.mjs",
+		"byte-identity:baseline": "node scripts/byte-identity.mjs baseline",
+		"byte-identity:check": "node scripts/byte-identity.mjs check",
 		"prepack": "pnpm run build",
 		"check-validator": "node tools/ooxml-validator/check-updates.js",
 		"pack:check": "pnpm pack --dry-run --json",
