@@ -8,9 +8,12 @@
 
 import { CRLF, SLDNUMFLDID, SlideObjectType, XML_DECL } from '../../core-enums.js'
 import type { PresSlideInternal, SlideRel, TextProps } from '../../core-interfaces.js'
-import { encodeXmlEntities } from '../../gen-utils.js'
 import { warn } from '../../log.js'
 import { genXmlTextRun } from '../drawingml/text-run.js'
+import { el, raw, voidEl } from '../oxml/el.js'
+
+const PACKAGE_REL_NS = 'http://schemas.openxmlformats.org/package/2006/relationships'
+const OFFICE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
 
 /**
  * Get text content of Notes from Slide
@@ -138,18 +141,46 @@ export function makeXmlNotesSlide(slide: PresSlideInternal): string {
  * @return {string} XML
  */
 export function makeXmlNotesSlideRel(slide: PresSlideInternal, slideNumber: number): string {
+	// Flat: the hyperlink rels run together on one line, after the indented rId1/rId2 pair.
 	const hlinkRels = buildNotesSlideRels(slide)
-		.map(
-			(rel) =>
-				`<Relationship Id="rId${rel.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${encodeXmlEntities(rel.Target)}" TargetMode="External"/>`
+		.map((rel) =>
+			voidEl('Relationship', {
+				Id: `rId${rel.rId}`,
+				Type: OFFICE_REL + 'hyperlink',
+				Target: rel.Target,
+				TargetMode: 'External',
+			})
 		)
 		.join('')
 
-	return `${XML_DECL}
-		<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-			<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster" Target="../notesMasters/notesMaster1.xml"/>
-			<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="../slides/slide${slideNumber}.xml"/>
-			${hlinkRels}</Relationships>`
+	return (
+		XML_DECL +
+		el(
+			'Relationships',
+			{ xmlns: PACKAGE_REL_NS },
+			[
+				raw(
+					voidEl('Relationship', {
+						Id: 'rId1',
+						Type: OFFICE_REL + 'notesMaster',
+						Target: '../notesMasters/notesMaster1.xml',
+					})
+				),
+				raw(
+					voidEl('Relationship', {
+						Id: 'rId2',
+						Type: OFFICE_REL + 'slide',
+						Target: `../slides/slide${slideNumber}.xml`,
+					})
+				),
+				// Always a child, even when empty, so its `childPrefix` indent is still emitted.
+				raw(hlinkRels),
+			],
+			// Two quirks kept verbatim: this part alone follows XML_DECL with a bare `\n`
+			// rather than CRLF, and the closing tag hugs the last child with no prefix.
+			{ openPrefix: '\n\t\t', childPrefix: '\n\t\t\t', closePrefix: '' }
+		)
+	)
 }
 
 /**
@@ -157,7 +188,15 @@ export function makeXmlNotesSlideRel(slide: PresSlideInternal, slideNumber: numb
  * @return {string} XML
  */
 export function makeXmlNotesMasterRel(): string {
-	return `${XML_DECL}${CRLF}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-		<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme2.xml"/>
-		</Relationships>`
+	return (
+		XML_DECL +
+		CRLF +
+		el(
+			'Relationships',
+			{ xmlns: PACKAGE_REL_NS },
+			raw(voidEl('Relationship', { Id: 'rId1', Type: OFFICE_REL + 'theme', Target: '../theme/theme2.xml' })),
+			// The closing tag is indented to child depth, not parent depth — as emitted today.
+			{ childPrefix: '\n\t\t', closePrefix: '\n\t\t' }
+		)
+	)
 }

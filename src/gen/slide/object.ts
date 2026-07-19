@@ -62,7 +62,13 @@ import {
 } from '../drawingml/locks.js'
 import { genTableCellBorderXml } from '../drawingml/table-border.js'
 import { genXmlPlaceholder, genXmlTextBody, objectHasMath } from '../drawingml/text-body.js'
+import { el, raw, voidEl } from '../oxml/el.js'
 import { collectSlideShapeIds, resolveObjectNameToId } from './shape-ids.js'
+
+const PACKAGE_REL_NS = 'http://schemas.openxmlformats.org/package/2006/relationships'
+const OFFICE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
+/** The MS-2007 `media` rel that pairs with an ECMA audio/video/online rel on the same Target. */
+const MS_MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media'
 
 type TableInheritableOption =
 	| 'align'
@@ -1175,100 +1181,75 @@ export function slideObjectRelationsToXml(
 	defaultRels: Array<{ target: string; type: string }>
 ): string {
 	let lastRid = 0 // stores maximum rId used for dynamic relations
-	let strXml = XML_DECL + CRLF + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+	const rels: string[] = []
+
+	/**
+	 * Has a rel with this Target already been emitted? Media items produce *TWO* rels
+	 * sharing one Target, and the second is told from the first by the Target already
+	 * being present. `target` must therefore be the ESCAPED form — what actually got
+	 * written — or an online-video link carrying `&` never matches its own first rel
+	 * and the pair is mistyped (media emitted as video). See `SlideRel.Target`.
+	 */
+	const hasTarget = (target: string): boolean => rels.some((xml) => xml.includes(` Target="${target}"`))
 
 	// STEP 1: Add all rels for this Slide
 	slide._rels.forEach((rel: SlideRel) => {
 		lastRid = Math.max(lastRid, rel.rId)
 		if (isHyperlinkRel(rel)) {
 			if (rel.data === 'slide') {
-				strXml += `<Relationship Id="rId${rel.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slide${encodeXmlEntities(rel.Target)}.xml"/>`
+				rels.push(
+					voidEl('Relationship', { Id: `rId${rel.rId}`, Type: OFFICE_REL + 'slide', Target: `slide${rel.Target}.xml` })
+				)
 			} else {
-				strXml += `<Relationship Id="rId${rel.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${encodeXmlEntities(rel.Target)}" TargetMode="External"/>`
+				rels.push(
+					voidEl('Relationship', {
+						Id: `rId${rel.rId}`,
+						Type: OFFICE_REL + 'hyperlink',
+						Target: rel.Target,
+						TargetMode: 'External',
+					})
+				)
 			}
 		} else if (rel.type.toLowerCase().includes('notesSlide')) {
-			strXml += `<Relationship Id="rId${rel.rId}" Target="${encodeXmlEntities(rel.Target)}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide"/>`
+			// DEAD BRANCH, preserved verbatim: `toLowerCase()` can never contain a capital `S`,
+			// so this never fires. Harmless today because the notesSlide rel every slide needs
+			// is emitted from `defaultRels` in `makeXmlSlideRel` instead. Left as-is rather than
+			// "fixed" here, since making it live would add a rel to real output — that belongs in
+			// a separate change with a fixture, not in a byte-identity refactor.
+			// NOTE: attribute order here is Id/Target/Type, not Id/Type/Target as elsewhere.
+			rels.push(voidEl('Relationship', { Id: `rId${rel.rId}`, Target: rel.Target, Type: OFFICE_REL + 'notesSlide' }))
 		}
 	})
 	;(slide._relsChart || []).forEach((rel: SlideRelChart) => {
 		lastRid = Math.max(lastRid, rel.rId)
-		strXml += `<Relationship Id="rId${rel.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="${encodeXmlEntities(rel.Target)}"/>`
+		rels.push(voidEl('Relationship', { Id: `rId${rel.rId}`, Type: OFFICE_REL + 'chart', Target: rel.Target }))
 	})
 	;(slide._relsMedia || []).forEach((rel: SlideRelMedia) => {
-		const relRid = rel.rId.toString()
-		// Escaped once, and reused by the "second rel of a pair" probe below so that probe
-		// compares against what was actually emitted (an online-video link carrying `&`
-		// would otherwise never match its own first rel).
+		const relType = rel.type.toLowerCase()
+		// `voidEl` escapes the Target on the way out; the probe has to compare against
+		// those emitted bytes, so it needs the escaped form computed separately here.
 		const relTarget = encodeXmlEntities(rel.Target)
+		const media = (type: string, targetMode?: string): string =>
+			voidEl('Relationship', { Id: `rId${rel.rId}`, Type: type, Target: rel.Target, TargetMode: targetMode })
 		lastRid = Math.max(lastRid, rel.rId)
-		if (rel.type.toLowerCase().includes('image')) {
-			strXml +=
-				'<Relationship Id="rId' +
-				relRid +
-				'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="' +
-				relTarget +
-				'"/>'
-		} else if (rel.type.toLowerCase().includes('audio')) {
-			// As media has *TWO* rel entries per item, check for first one, if found add second rel with alt style
-			if (strXml.includes(' Target="' + relTarget + '"')) {
-				strXml +=
-					'<Relationship Id="rId' +
-					relRid +
-					'" Type="http://schemas.microsoft.com/office/2007/relationships/media" Target="' +
-					relTarget +
-					'"/>'
-			} else {
-				strXml +=
-					'<Relationship Id="rId' +
-					relRid +
-					'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/audio" Target="' +
-					relTarget +
-					'"/>'
-			}
-		} else if (rel.type.toLowerCase().includes('video')) {
-			// As media has *TWO* rel entries per item, check for first one, if found add second rel with alt style
-			if (strXml.includes(' Target="' + relTarget + '"')) {
-				strXml +=
-					'<Relationship Id="rId' +
-					relRid +
-					'" Type="http://schemas.microsoft.com/office/2007/relationships/media" Target="' +
-					relTarget +
-					'"/>'
-			} else {
-				strXml +=
-					'<Relationship Id="rId' +
-					relRid +
-					'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/video" Target="' +
-					relTarget +
-					'"/>'
-			}
-		} else if (rel.type.toLowerCase().includes('online')) {
+		if (relType.includes('image')) {
+			rels.push(media(OFFICE_REL + 'image'))
+		} else if (relType.includes('audio')) {
+			rels.push(hasTarget(relTarget) ? media(MS_MEDIA_REL) : media(OFFICE_REL + 'audio'))
+		} else if (relType.includes('video')) {
+			rels.push(hasTarget(relTarget) ? media(MS_MEDIA_REL) : media(OFFICE_REL + 'video'))
+		} else if (relType.includes('online')) {
 			// Online video has *TWO* external rels sharing the link Target: the ECMA video
 			// rel (first) and the MS-2007 media rel (second). Both TargetMode="External",
-			// no media binary part. Detect the second by its Target already being present.
-			if (strXml.includes(' Target="' + relTarget + '"')) {
-				strXml +=
-					'<Relationship Id="rId' +
-					relRid +
-					'" Type="http://schemas.microsoft.com/office/2007/relationships/media" Target="' +
-					relTarget +
-					'" TargetMode="External"/>'
-			} else {
-				strXml +=
-					'<Relationship Id="rId' +
-					relRid +
-					'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/video" Target="' +
-					relTarget +
-					'" TargetMode="External"/>'
-			}
+			// no media binary part.
+			rels.push(hasTarget(relTarget) ? media(MS_MEDIA_REL, 'External') : media(OFFICE_REL + 'video', 'External'))
 		}
 	})
 
 	// STEP 2: Add default rels
 	defaultRels.forEach((rel, idx) => {
-		strXml += `<Relationship Id="rId${lastRid + idx + 1}" Type="${rel.type}" Target="${rel.target}"/>`
+		rels.push(voidEl('Relationship', { Id: `rId${lastRid + idx + 1}`, Type: rel.type, Target: rel.target }))
 	})
 
-	strXml += '</Relationships>'
-	return strXml
+	return XML_DECL + CRLF + el('Relationships', { xmlns: PACKAGE_REL_NS }, rels.map(raw))
 }
