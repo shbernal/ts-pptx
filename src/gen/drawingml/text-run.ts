@@ -20,7 +20,6 @@ import {
 	createColorElement,
 	createGlowElement,
 	createShadowElement,
-	encodeXmlEntities,
 	genXmlColorSelection,
 	inch2Emu,
 	lineWidthToEmu,
@@ -28,8 +27,42 @@ import {
 } from '../../gen-utils.js'
 import { FIXED_PCT_PER_PERCENT, PERCENT_SCALE, ptToHundredths } from '../../units.js'
 import { warn } from '../../log.js'
+import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { clampCharSpacingSpc, clampFontSizeSz, clampLineSpacingPts } from './clamp.js'
 import { genXmlInlineMath, genXmlMathParagraph } from './math.js'
+
+/** The 2018 hyperlink-color extension namespace, written on the `<ahyp:hlinkClr>` element itself. */
+const AHYP_NS = 'http://schemas.microsoft.com/office/drawing/2018/hyperlinkcolor'
+
+/**
+ * `<a:buChar>` cannot go through the element builder. Its `char` attribute carries a *pre-escaped*
+ * numeric character reference (`&#x2022;` — see `BulletType`), and the builder escapes every
+ * attribute value, which would emit `&amp;#x2022;` and render that text literally as the bullet.
+ * There is no raw-attribute escape hatch, so this one stays a template.
+ */
+function buChar(char: string): string {
+	return `<a:buChar char="${char}"/>`
+}
+
+/**
+ * `<a:extLst>` marking a hyperlink whose color should follow the text color rather than the
+ * theme's hyperlink color. The leading spaces are byte-significant: this block was authored as
+ * indented string concatenation and that indentation reaches the file, so it is described here
+ * with `openPrefix`/`closePrefix` rather than being tidied away.
+ */
+const HLINK_TEXT_COLOR_EXT = el(
+	'a:extLst',
+	null,
+	raw(
+		el(
+			'a:ext',
+			{ uri: '{A12FA001-AC4F-418D-AE19-62706E023703}' },
+			raw(voidEl('ahyp:hlinkClr', { 'xmlns:ahyp': AHYP_NS, val: 'tx' }, { openPrefix: '   ' })),
+			{ openPrefix: '  ', closePrefix: '  ' }
+		)
+	),
+	{ openPrefix: ' ', closePrefix: ' ' }
+)
 
 /**
  * Generate XML Paragraph Properties
@@ -49,6 +82,12 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 	const tag = isDefault ? 'a:lvl1pPr' : 'a:pPr'
 	let bulletMarL = valToPts(DEF_BULLET_MARGIN)
 
+	// NOTE: this open tag is deliberately NOT built with `openTag`/`el`. When `rtlMode` is set the
+	// historical template emits `rtl="1" ` with a TRAILING space while every attribute appended
+	// below contributes a LEADING one, so `rtl` + `algn` produces a DOUBLE space between them.
+	// `openTag` joins attributes with exactly one space, so that layout is not expressible — and
+	// the demo deck contains no RTL text (zero `rtl="1"` parts), so the byte gate could not catch
+	// the change. Left as-is; the children below are built with the element builder.
 	let paragraphPropXml = `<${tag}${opts.rtlMode ? ' rtl="1" ' : ''}`
 
 	// A: Build paragraphProperties
@@ -75,9 +114,10 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 		}
 
 		if (opts.lineSpacing) {
-			strXmlLnSpc = `<a:lnSpc><a:spcPts val="${clampLineSpacingPts(opts.lineSpacing)}"/></a:lnSpc>`
+			strXmlLnSpc = el('a:lnSpc', null, raw(voidEl('a:spcPts', { val: clampLineSpacingPts(opts.lineSpacing) })))
 		} else if (opts.lineSpacingMultiple) {
-			strXmlLnSpc = `<a:lnSpc><a:spcPct val="${Math.round(opts.lineSpacingMultiple * PERCENT_SCALE)}"/></a:lnSpc>`
+			const val = Math.round(opts.lineSpacingMultiple * PERCENT_SCALE)
+			strXmlLnSpc = el('a:lnSpc', null, raw(voidEl('a:spcPct', { val })))
 		}
 
 		// OPTION: indent
@@ -87,10 +127,10 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 
 		// OPTION: Paragraph Spacing: Before/After
 		if (opts.paraSpaceBefore && !isNaN(Number(opts.paraSpaceBefore)) && opts.paraSpaceBefore > 0) {
-			strXmlParaSpc += `<a:spcBef><a:spcPts val="${ptToHundredths(opts.paraSpaceBefore)}"/></a:spcBef>`
+			strXmlParaSpc += el('a:spcBef', null, raw(voidEl('a:spcPts', { val: ptToHundredths(opts.paraSpaceBefore) })))
 		}
 		if (opts.paraSpaceAfter && !isNaN(Number(opts.paraSpaceAfter)) && opts.paraSpaceAfter > 0) {
-			strXmlParaSpc += `<a:spcAft><a:spcPts val="${ptToHundredths(opts.paraSpaceAfter)}"/></a:spcAft>`
+			strXmlParaSpc += el('a:spcAft', null, raw(voidEl('a:spcPts', { val: ptToHundredths(opts.paraSpaceAfter) })))
 		}
 
 		// OPTION: bullet
@@ -102,7 +142,7 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 			if (opts.bullet?.indent) bulletMarL = valToPts(opts.bullet.indent)
 			// `buClr` colors a glyph/number; it has no effect on a picture bullet, so skip it for `buBlip`.
 			if (opts.bullet.color && !isPictureBullet)
-				strXmlBulletColor = `<a:buClr>${createColorElement(opts.bullet.color)}</a:buClr>`
+				strXmlBulletColor = el('a:buClr', null, raw(createColorElement(opts.bullet.color)))
 
 			// `<a:buSzPct/>` val is thousandths of a percent; ST_TextBulletSizePercent allows 25%-400%
 			let bulletSizePct = PERCENT_SCALE
@@ -117,41 +157,61 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 					bulletSizePct = Math.round(bulletSize * FIXED_PCT_PER_PERCENT)
 				}
 			}
-			const strXmlBulletSize = `<a:buSzPct val="${bulletSizePct}"/>`
-			const strXmlBulletFont = opts.bullet.fontFace
-				? `<a:buFont typeface="${encodeXmlEntities(opts.bullet.fontFace)}"/>`
-				: ''
+			const strXmlBulletSize = voidEl('a:buSzPct', { val: bulletSizePct })
+			// NOTE: the builder escapes `typeface`, so the manual `encodeXmlEntities` that used to
+			// wrap it here is gone — keeping both would double-escape (`&` -> `&amp;amp;`).
+			const strXmlBulletFont = opts.bullet.fontFace ? voidEl('a:buFont', { typeface: opts.bullet.fontFace }) : ''
+
+			// Every bullet form below hangs the first line by the same margin; the attributes belong to
+			// the hand-built open tag above, so they stay a fragment rather than becoming builder attrs.
+			const bulletIndentAttrs = (): string =>
+				` marL="${
+					opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
+				}" indent="-${bulletMarL}"`
 
 			if (isPictureBullet) {
 				// Picture bullet: <a:buBlip> references a slide media rel registered in addText() (`_rId`).
 				// No `buFont` (there is no glyph typeface), but `buSzPct` still scales the image height.
-				paragraphPropXml += ` marL="${
-					opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
-				}" indent="-${bulletMarL}"`
+				paragraphPropXml += bulletIndentAttrs()
 				if (opts.bullet._rId) {
-					if (opts.bullet._rIdSvg) {
-						// SVG bullet: the blip embeds the PNG preview (`_rId`) and references the SVG via the
-						// `asvg:svgBlip` extension (`_rIdSvg`), the same dual-rel form addImage() emits for SVG.
-						strXmlBullet =
-							`${strXmlBulletSize}<a:buBlip><a:blip r:embed="rId${opts.bullet._rId}">` +
-							'<a:extLst><a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}">' +
-							`<asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="rId${opts.bullet._rIdSvg}"/>` +
-							'</a:ext></a:extLst></a:blip></a:buBlip>'
-					} else {
-						strXmlBullet = `${strXmlBulletSize}<a:buBlip><a:blip r:embed="rId${opts.bullet._rId}"/></a:buBlip>`
-					}
+					// SVG bullet: the blip embeds the PNG preview (`_rId`) and references the SVG via the
+					// `asvg:svgBlip` extension (`_rIdSvg`), the same dual-rel form addImage() emits for SVG.
+					const svgExt = opts.bullet._rIdSvg
+						? el(
+								'a:extLst',
+								null,
+								raw(
+									el(
+										'a:ext',
+										{ uri: '{96DAC541-7B7A-43D3-8B79-37D633B846F1}' },
+										raw(
+											voidEl('asvg:svgBlip', {
+												'xmlns:asvg': 'http://schemas.microsoft.com/office/drawing/2016/SVG/main',
+												'r:embed': `rId${opts.bullet._rIdSvg}`,
+											})
+										)
+									)
+								)
+							)
+						: ''
+					const blip = svgExt
+						? el('a:blip', { 'r:embed': `rId${opts.bullet._rId}` }, raw(svgExt))
+						: voidEl('a:blip', { 'r:embed': `rId${opts.bullet._rId}` })
+					strXmlBullet = strXmlBulletSize + el('a:buBlip', null, raw(blip))
 				} else {
 					// rel was not registered (eg: bullet on a context without a slide target) - fall back to a glyph
 					warn('picture `bullet.image` could not be embedded; using a default bullet glyph')
-					strXmlBullet = `${strXmlBulletSize}${strXmlBulletFont}<a:buChar char="${BulletType.DEFAULT}"/>`
+					strXmlBullet = strXmlBulletSize + strXmlBulletFont + buChar(BulletType.DEFAULT)
 				}
 			} else if (opts.bullet.type && opts.bullet.type.toString().toLowerCase() === 'number') {
-				paragraphPropXml += ` marL="${
-					opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
-				}" indent="-${bulletMarL}"`
-				strXmlBullet = `${strXmlBulletSize}${strXmlBulletFont || '<a:buFont typeface="+mj-lt"/>'}<a:buAutoNum type="${opts.bullet.numberType || 'arabicPeriod'}" startAt="${
-					opts.bullet.numberStartAt || '1'
-				}"/>`
+				paragraphPropXml += bulletIndentAttrs()
+				strXmlBullet =
+					strXmlBulletSize +
+					(strXmlBulletFont || voidEl('a:buFont', { typeface: '+mj-lt' })) +
+					voidEl('a:buAutoNum', {
+						type: opts.bullet.numberType || 'arabicPeriod',
+						startAt: opts.bullet.numberStartAt || '1',
+					})
 			} else if (opts.bullet.characterCode) {
 				let bulletCode = `&#x${opts.bullet.characterCode};`
 
@@ -161,33 +221,29 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 					bulletCode = BulletType.DEFAULT
 				}
 
-				paragraphPropXml += ` marL="${
-					opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
-				}" indent="-${bulletMarL}"`
-				strXmlBullet = strXmlBulletSize + strXmlBulletFont + '<a:buChar char="' + bulletCode + '"/>'
+				paragraphPropXml += bulletIndentAttrs()
+				strXmlBullet = strXmlBulletSize + strXmlBulletFont + buChar(bulletCode)
 			} else {
-				paragraphPropXml += ` marL="${
-					opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
-				}" indent="-${bulletMarL}"`
-				strXmlBullet = `${strXmlBulletSize}${strXmlBulletFont}<a:buChar char="${BulletType.DEFAULT}"/>`
+				paragraphPropXml += bulletIndentAttrs()
+				strXmlBullet = strXmlBulletSize + strXmlBulletFont + buChar(BulletType.DEFAULT)
 			}
 		} else if (opts.bullet) {
 			paragraphPropXml += ` marL="${
 				opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
 			}" indent="-${bulletMarL}"`
-			strXmlBullet = `<a:buSzPct val="100000"/><a:buChar char="${BulletType.DEFAULT}"/>`
+			strXmlBullet = voidEl('a:buSzPct', { val: '100000' }) + buChar(BulletType.DEFAULT)
 		} else if (!opts.bullet) {
 			// We only add this when the user explicitely asks for no bullet, otherwise, it can override the master defaults!
 			paragraphPropXml += ' indent="0" marL="0"' // FIX: specify zero indent and marL or default will be hanging paragraph
-			strXmlBullet = '<a:buNone/>'
+			strXmlBullet = voidEl('a:buNone')
 		}
 
 		// OPTION: tabStops
 		if (opts.tabStops && Array.isArray(opts.tabStops)) {
 			const tabStopsXml = opts.tabStops
-				.map((stop) => `<a:tab pos="${inch2Emu(stop.position || 1)}" algn="${stop.alignment || 'l'}"/>`)
+				.map((stop) => voidEl('a:tab', { pos: inch2Emu(stop.position || 1), algn: stop.alignment || 'l' }))
 				.join('')
-			strXmlTabStops = `<a:tabLst>${tabStopsXml}</a:tabLst>`
+			strXmlTabStops = el('a:tabLst', null, raw(tabStopsXml))
 		}
 
 		// B: Close Paragraph-Properties
@@ -211,28 +267,35 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 	const runPropsTag = isDefault ? 'a:defRPr' : 'a:rPr'
 
 	// BEGIN runProperties (ex: `<a:rPr lang="en-US" sz="1600" b="1" dirty="0">`)
-	runProps +=
-		'<' + runPropsTag + ' lang="' + (opts.lang ? opts.lang : 'en-US') + '"' + (opts.lang ? ' altLang="en-US"' : '')
-	runProps += opts.fontSize ? ` sz="${clampFontSizeSz(opts.fontSize)}"` : '' // NOTE: clamp+round so sizes like '7.5' or out-of-range values wont cause corrupt presentations
-	runProps += opts?.bold ? ` b="${opts.bold ? '1' : '0'}"` : ''
-	runProps += opts?.italic ? ` i="${opts.italic ? '1' : '0'}"` : ''
+	const underline =
+		typeof opts.underline === 'object' && opts.underline?.style ? opts.underline.style : opts.hyperlink ? 'sng' : null
+	const baseline = opts.baseline
+		? Math.round(opts.baseline * 50)
+		: opts.subscript
+			? -40000
+			: opts.superscript
+				? 30000
+				: null
+	// NOTE: attribute ORDER is byte-significant. Listing every attribute in emission order (null =
+	// omitted) makes that order reviewable, where the old `+=` chain buried it in control flow.
+	const attrs: XmlAttrs = {
+		lang: opts.lang ? opts.lang : 'en-US',
+		altLang: opts.lang ? 'en-US' : null,
+		// NOTE: clamp+round so sizes like '7.5' or out-of-range values wont cause corrupt presentations
+		sz: opts.fontSize ? clampFontSizeSz(opts.fontSize) : null,
+		// NOTE: `b`/`i` were written as `opts.bold ? '1' : '0'` inside a truthiness guard, so the
+		// "0" arm was unreachable — the emitted value is always "1".
+		b: opts?.bold ? '1' : null,
+		i: opts?.italic ? '1' : null,
+		strike: opts?.strike ? (typeof opts.strike === 'string' ? opts.strike : 'sngStrike') : null,
+		cap: opts?.caps ? opts.caps : null,
+		u: underline,
+		baseline,
+		spc: opts.charSpacing ? clampCharSpacingSpc(opts.charSpacing) : null,
+		kern: opts.charSpacing ? 0 : null, // IMPORTANT: Also disable kerning; otherwise text won't actually expand
+		dirty: '0',
+	}
 
-	runProps += opts?.strike ? ` strike="${typeof opts.strike === 'string' ? opts.strike : 'sngStrike'}"` : ''
-	runProps += opts?.caps ? ` cap="${opts.caps}"` : ''
-	if (typeof opts.underline === 'object' && opts.underline?.style) {
-		runProps += ` u="${opts.underline.style}"`
-	} else if (opts.hyperlink) {
-		runProps += ' u="sng"'
-	}
-	if (opts.baseline) {
-		runProps += ` baseline="${Math.round(opts.baseline * 50)}"`
-	} else if (opts.subscript) {
-		runProps += ' baseline="-40000"'
-	} else if (opts.superscript) {
-		runProps += ' baseline="30000"'
-	}
-	runProps += opts.charSpacing ? ` spc="${clampCharSpacingSpc(opts.charSpacing)}" kern="0"` : '' // IMPORTANT: Also disable kerning; otherwise text won't actually expand
-	runProps += ' dirty="0">'
 	// Color / Font / Highlight / Outline / Effects are children of <a:rPr>, so add them now before closing the runProperties tag
 	const hasShadow = !!opts.shadow && opts.shadow.type !== 'none'
 	if (
@@ -245,19 +308,23 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 	) {
 		// NOTE: children must follow CT_TextCharacterProperties order: ln, fill, effectLst, highlight, uFill, latin/ea/cs
 		if (opts.outline && typeof opts.outline === 'object') {
-			runProps += `<a:ln w="${lineWidthToEmu(opts.outline.size || 0.75)}">${genXmlColorSelection(opts.outline.color || 'FFFFFF')}</a:ln>`
+			runProps += el(
+				'a:ln',
+				{ w: lineWidthToEmu(opts.outline.size || 0.75) },
+				raw(genXmlColorSelection(opts.outline.color || 'FFFFFF'))
+			)
 		}
 		if (opts.color) runProps += genXmlColorSelection({ color: opts.color, transparency: opts.transparency })
 		// EFFECTS: glow and shadow share a single <a:effectLst> (only one is allowed per CT_TextCharacterProperties; glow precedes shadow per CT_EffectList)
 		if (opts.glow || hasShadow) {
-			runProps += '<a:effectLst>'
-			if (opts.glow) runProps += createGlowElement(opts.glow, DEF_TEXT_GLOW)
-			if (hasShadow) runProps += createShadowElement(opts.shadow, DEF_TEXT_SHADOW)
-			runProps += '</a:effectLst>'
+			runProps += el('a:effectLst', null, [
+				opts.glow ? raw(createGlowElement(opts.glow, DEF_TEXT_GLOW)) : null,
+				hasShadow ? raw(createShadowElement(opts.shadow, DEF_TEXT_SHADOW)) : null,
+			])
 		}
-		if (opts.highlight) runProps += `<a:highlight>${createColorElement(opts.highlight)}</a:highlight>`
+		if (opts.highlight) runProps += el('a:highlight', null, raw(createColorElement(opts.highlight)))
 		if (typeof opts.underline === 'object' && opts.underline.color)
-			runProps += `<a:uFill>${genXmlColorSelection(opts.underline.color)}</a:uFill>`
+			runProps += el('a:uFill', null, raw(genXmlColorSelection(opts.underline.color)))
 		if (opts.fontFace) {
 			// Match how PowerPoint writes a font picked from the UI: the chosen typeface goes in the
 			// Latin (`<a:latin>`) and complex-script (`<a:cs>`) slots. The East Asian slot (`<a:ea>`) is
@@ -265,12 +332,14 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 			// theme. Forcing a Latin-only font into `<a:ea>` — especially with the bogus charset values
 			// PowerPoint never emits on ea/cs — duplicates/ghosts text in Office 365.
 			// NOTE: order must be latin, ea, cs per CT_TextCharacterProperties.
-			// `fontFace`/`fontFaceEA` are caller-supplied and unsanitized upstream, so they are escaped
-			// here: an unescaped `"` or `&` in a font name closes the attribute early and emits a
-			// non-parseable slide part, which PowerPoint reports as a file needing repair.
-			runProps += `<a:latin typeface="${encodeXmlEntities(opts.fontFace)}" pitchFamily="34" charset="0"/>`
-			if (opts.fontFaceEA) runProps += `<a:ea typeface="${encodeXmlEntities(opts.fontFaceEA)}"/>`
-			runProps += `<a:cs typeface="${encodeXmlEntities(opts.fontFace)}"/>`
+			// `fontFace`/`fontFaceEA` are caller-supplied and unsanitized upstream, so they are escaped:
+			// an unescaped `"` or `&` in a font name closes the attribute early and emits a
+			// non-parseable slide part, which PowerPoint reports as a file needing repair. The builder
+			// does that escaping now, so the manual `encodeXmlEntities` calls are gone (keeping both
+			// would double-escape).
+			runProps += voidEl('a:latin', { typeface: opts.fontFace, pitchFamily: '34', charset: '0' })
+			if (opts.fontFaceEA) runProps += voidEl('a:ea', { typeface: opts.fontFaceEA })
+			runProps += voidEl('a:cs', { typeface: opts.fontFace })
 		}
 	}
 
@@ -280,31 +349,36 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 			throw new Error("ERROR: text `hyperlink` option should be an object. Ex: `hyperlink:{url:'https://github.com'}` ")
 		else if (!opts.hyperlink.url && !opts.hyperlink.slide)
 			throw new Error("ERROR: 'hyperlink requires either `url` or `slide`'")
-		else if (opts.hyperlink.url) {
+		else {
 			// runProps += '<a:uFill>'+ genXmlColorSelection('0000FF') +'</a:uFill>'; // Breaks PPT2010!
-			runProps += `<a:hlinkClick r:id="rId${opts.hyperlink._rId}" invalidUrl="" action="" tgtFrame="" tooltip="${
-				opts.hyperlink.tooltip ? encodeXmlEntities(opts.hyperlink.tooltip) : ''
-			}" history="1" highlightClick="0" endSnd="0"${opts.color ? '>' : '/>'}`
-		} else if (opts.hyperlink.slide) {
-			runProps += `<a:hlinkClick r:id="rId${opts.hyperlink._rId}" action="ppaction://hlinksldjump" tooltip="${
-				opts.hyperlink.tooltip ? encodeXmlEntities(opts.hyperlink.tooltip) : ''
-			}"${opts.color ? '>' : '/>'}`
-		}
-		if (opts.color) {
-			runProps += ' <a:extLst>'
-			runProps += '  <a:ext uri="{A12FA001-AC4F-418D-AE19-62706E023703}">'
-			runProps +=
-				'   <ahyp:hlinkClr xmlns:ahyp="http://schemas.microsoft.com/office/drawing/2018/hyperlinkcolor" val="tx"/>'
-			runProps += '  </a:ext>'
-			runProps += ' </a:extLst>'
-			runProps += '</a:hlinkClick>'
+			// NOTE: `tooltip` is escaped by the builder now (the manual `encodeXmlEntities` is gone), and
+			// it is written even when absent — an empty `tooltip=""` is part of today's bytes.
+			const linkAttrs: XmlAttrs = opts.hyperlink.url
+				? {
+						'r:id': `rId${opts.hyperlink._rId}`,
+						invalidUrl: '',
+						action: '',
+						tgtFrame: '',
+						tooltip: opts.hyperlink.tooltip ?? '',
+						history: '1',
+						highlightClick: '0',
+						endSnd: '0',
+					}
+				: {
+						'r:id': `rId${opts.hyperlink._rId}`,
+						action: 'ppaction://hlinksldjump',
+						tooltip: opts.hyperlink.tooltip ?? '',
+					}
+			// An explicit text color means the link must carry the "follow text color" extension, so
+			// the element becomes paired; otherwise it self-closes.
+			runProps += opts.color
+				? el('a:hlinkClick', linkAttrs, raw(HLINK_TEXT_COLOR_EXT))
+				: voidEl('a:hlinkClick', linkAttrs)
 		}
 	}
 
 	// END runProperties
-	runProps += `</${runPropsTag}>`
-
-	return runProps
+	return el(runPropsTag, attrs, raw(runProps))
 }
 
 /**
@@ -343,7 +417,11 @@ export function genXmlTextRun(textObj: TextProps): string {
 
 	// Return paragraph with text run
 	if (textObj.text === undefined || textObj.text === null) return ''
-	return `<a:r>${genXmlTextRunProperties(textObj.options ?? {}, false)}<a:t>${encodeXmlEntities(String(textObj.text))}</a:t></a:r>`
+	// `<a:t>` takes a TEXT child, so the builder escapes it — same `encodeXmlEntities` this used to call.
+	return el('a:r', null, [
+		raw(genXmlTextRunProperties(textObj.options ?? {}, false)),
+		raw(el('a:t', null, String(textObj.text))),
+	])
 }
 
 /**
@@ -353,8 +431,6 @@ export function genXmlTextRun(textObj: TextProps): string {
  * @see ECMA-376 CT_TextNormAutofit (attributes in 1000ths of a percent)
  */
 export function genXmlNormAutofit(fit: TextFitShrinkProps): string {
-	let attrs = ''
-
 	// NOTE: fontScale/lnSpcReduction are authored as a percent (0-100); OOXML stores them in 1000ths of a percent.
 	const pct = (val: number | undefined, name: string): number | null => {
 		if (val === undefined || val === null) return null
@@ -365,12 +441,11 @@ export function genXmlNormAutofit(fit: TextFitShrinkProps): string {
 		return Math.round(val * FIXED_PCT_PER_PERCENT)
 	}
 
-	const fontScale = pct(fit.fontScale, 'fontScale')
-	if (fontScale !== null) attrs += ` fontScale="${fontScale}"`
-	const lnSpcReduction = pct(fit.lnSpcReduction, 'lnSpcReduction')
-	if (lnSpcReduction !== null) attrs += ` lnSpcReduction="${lnSpcReduction}"`
-
-	return `<a:normAutofit${attrs}/>`
+	// `pct` returns null for an absent/rejected value, and the builder omits null attributes.
+	return voidEl('a:normAutofit', {
+		fontScale: pct(fit.fontScale, 'fontScale'),
+		lnSpcReduction: pct(fit.lnSpcReduction, 'lnSpcReduction'),
+	})
 }
 
 // A run of formatted text within a paragraph. Every run reaching STEP 5/6 of genXmlTextBody
@@ -450,8 +525,8 @@ export function renderTextParagraphsXml(
 
 		let reqsClosingFontSize = false
 
-		// A: Start paragraph, add paraProps
-		strSlideXml += '<a:p>'
+		// A: Accumulate the paragraph's children; the `<a:p>` wrapper closes over them at the end.
+		let paraXml = ''
 		// NOTE: `rtlMode` is like other opts, its propagated up to each text:options, so just check the 1st one
 		let paragraphPropXml = `<a:pPr ${line[0]?.options?.rtlMode ? ' rtl="1" ' : ''}`
 		let paragraphPropEmitted = false
@@ -463,7 +538,7 @@ export function renderTextParagraphsXml(
 
 			// A.1: Add soft break if not the first run of the line.
 			if (idx > 0 && textObj.options.softBreakBefore) {
-				strSlideXml += '<a:br/>'
+				paraXml += voidEl('a:br')
 			}
 
 			// B: Inherit pPr-type options from parent shape's `options`
@@ -480,7 +555,7 @@ export function renderTextParagraphsXml(
 				paragraphPropXml = genXmlParagraphProperties(textObj, false)
 				const cleaned = paragraphPropXml.replace('<a:pPr></a:pPr>', '') // IMPORTANT: Empty "pPr" blocks will generate needs-repair/corrupt msg
 				if (cleaned) {
-					strSlideXml += cleaned
+					paraXml += cleaned
 					paragraphPropEmitted = true
 				}
 			}
@@ -518,9 +593,9 @@ export function renderTextParagraphsXml(
 			const isEmptyBreakArtifact = _textRunObj.text === '' && line.length > 1
 			if (_textRunObj.math) {
 				// Inline native equation (dn-inline-math): a bare <a14:m><m:oMath> run between plain runs.
-				strSlideXml += genXmlInlineMath(_textRunObj.math)
+				paraXml += genXmlInlineMath(_textRunObj.math)
 			} else if (!isEmptyBreakArtifact) {
-				strSlideXml += genXmlTextRun(_textRunObj)
+				paraXml += genXmlTextRun(_textRunObj)
 			}
 
 			// E: Flag close fontSize for empty [lineBreak] elements
@@ -533,36 +608,35 @@ export function renderTextParagraphsXml(
 		/* C: Append 'endParaRPr' (when needed) and close current open paragraph
 		 * NOTE: Add 'endParaRPr' with font/size props or PPT default (Arial/18pt en-us) is used making row "too tall"/not honoring options
 		 */
+		// `sz` rides along in the first two branches only: the last one omits it even when
+		// `opts.fontSize` is set, which is why the attribute set is built per-branch.
+		const sizedAttrs = (): XmlAttrs => ({
+			lang: opts.lang || 'en-US',
+			sz: opts.fontSize ? clampFontSizeSz(opts.fontSize) : null,
+			dirty: '0',
+		})
 		if (slideObj._type === SlideObjectType.tablecell && (opts.fontSize || opts.fontFace)) {
 			if (opts.fontFace) {
-				strSlideXml +=
-					`<a:endParaRPr lang="${opts.lang || 'en-US'}"` +
-					(opts.fontSize ? ` sz="${clampFontSizeSz(opts.fontSize)}"` : '') +
-					' dirty="0">'
 				// Mirror genXmlTextRunProperties: Latin + complex-script slots carry the face; East Asian slot
-				// inherits the theme unless `fontFaceEA` is set.
-				strSlideXml += `<a:latin typeface="${encodeXmlEntities(opts.fontFace)}" charset="0"/>`
-				if (opts.fontFaceEA) strSlideXml += `<a:ea typeface="${encodeXmlEntities(opts.fontFaceEA)}"/>`
-				strSlideXml += `<a:cs typeface="${encodeXmlEntities(opts.fontFace)}"/>`
-				strSlideXml += '</a:endParaRPr>'
+				// inherits the theme unless `fontFaceEA` is set. Escaping is the builder's job now.
+				paraXml += el('a:endParaRPr', sizedAttrs(), [
+					raw(voidEl('a:latin', { typeface: opts.fontFace, charset: '0' })),
+					opts.fontFaceEA ? raw(voidEl('a:ea', { typeface: opts.fontFaceEA })) : null,
+					raw(voidEl('a:cs', { typeface: opts.fontFace })),
+				])
 			} else {
-				strSlideXml +=
-					`<a:endParaRPr lang="${opts.lang || 'en-US'}"` +
-					(opts.fontSize ? ` sz="${clampFontSizeSz(opts.fontSize)}"` : '') +
-					' dirty="0"/>'
+				paraXml += voidEl('a:endParaRPr', sizedAttrs())
 			}
 		} else if (reqsClosingFontSize) {
 			// Empty [lineBreak] lines should not contain runProp, however, they need to specify fontSize in `endParaRPr`
-			strSlideXml +=
-				`<a:endParaRPr lang="${opts.lang || 'en-US'}"` +
-				(opts.fontSize ? ` sz="${clampFontSizeSz(opts.fontSize)}"` : '') +
-				' dirty="0"/>'
+			paraXml += voidEl('a:endParaRPr', sizedAttrs())
 		} else {
-			strSlideXml += `<a:endParaRPr lang="${opts.lang || 'en-US'}" dirty="0"/>` // Added 20180101 to address PPT-2007 issues
+			// Added 20180101 to address PPT-2007 issues
+			paraXml += voidEl('a:endParaRPr', { lang: opts.lang || 'en-US', dirty: '0' })
 		}
 
 		// D: End paragraph
-		strSlideXml += '</a:p>'
+		strSlideXml += el('a:p', null, raw(paraXml))
 	})
 	return strSlideXml
 }
