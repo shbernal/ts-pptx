@@ -14,9 +14,10 @@ import type {
 	PresSlideInternal,
 	SlideLayoutInternal,
 } from '../../core-interfaces.js'
-import { createColorElement, encodeXmlEntities, inch2Emu } from '../../gen-utils.js'
+import { createColorElement, inch2Emu } from '../../gen-utils.js'
 import { HUNDREDTHS_PER_POINT, ptToHundredths } from '../../units.js'
 import { warn } from '../../log.js'
+import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { slideObjectRelationsToXml, slideObjectToXml } from './object.js'
 
 // Default per-level values mirroring the built-in Office master (used as the base that
@@ -147,24 +148,28 @@ function masterBulletXml(
 	base: MasterLevelDefault['bu']
 ): string {
 	// Explicit override
-	if (bulletOverride === false) return '<a:buNone/>'
+	if (bulletOverride === false) return voidEl('a:buNone')
 	if (bulletOverride && typeof bulletOverride === 'object') {
-		const font = bulletOverride.fontFace ? `<a:buFont typeface="${encodeXmlEntities(bulletOverride.fontFace)}"/>` : ''
+		const font = bulletOverride.fontFace ? voidEl('a:buFont', { typeface: bulletOverride.fontFace }) : ''
 		if (bulletOverride.type === 'number') {
 			const type = bulletOverride.numberType || 'arabicPeriod'
-			const startAt =
-				typeof bulletOverride.numberStartAt === 'number' ? ` startAt="${Math.round(bulletOverride.numberStartAt)}"` : ''
-			return `${font}<a:buAutoNum type="${type}"${startAt}/>`
+			const startAt = typeof bulletOverride.numberStartAt === 'number' ? Math.round(bulletOverride.numberStartAt) : null
+			return font + voidEl('a:buAutoNum', { type, startAt })
 		}
-		// character bullet (default)
+		// character bullet (default). NOTE: `char` is a pre-escaped numeric char ref (e.g.
+		// `&#x25AA;` from `characterCode`) — the same quirk `<a:buChar>` carries in text-run.ts.
+		// The builder would double-escape the `&`, so this one attribute stays a raw template;
+		// see text-run.ts's `<a:buChar>` note for the fuller rationale.
 		const char = bulletOverride.characterCode ? `&#x${bulletOverride.characterCode};` : '•'
-		const buFont = bulletOverride.fontFace ? font : '<a:buFont typeface="Arial" pitchFamily="34" charset="0"/>'
+		const buFont = bulletOverride.fontFace
+			? font
+			: voidEl('a:buFont', { typeface: 'Arial', pitchFamily: 34, charset: 0 })
 		return `${buFont}<a:buChar char="${char}"/>`
 	}
 	// No override (undefined / true): keep the level's default bullet
-	if (base === 'none') return '<a:buNone/>'
+	if (base === 'none') return voidEl('a:buNone')
 	if (base && typeof base === 'object')
-		return `<a:buFont typeface="${base.font}" pitchFamily="34" charset="0"/><a:buChar char="${base.char}"/>`
+		return voidEl('a:buFont', { typeface: base.font, pitchFamily: 34, charset: 0 }) + `<a:buChar char="${base.char}"/>`
 	return '' // otherStyle: no bullet element by default
 }
 
@@ -179,13 +184,7 @@ function masterLevelXml(levelNum: number, base: MasterLevelDefault, levelOverrid
 			? inch2Emu(levelOverride.indent)
 			: base.indent
 	const algn = (levelOverride.align && masterAlignAttr(levelOverride.align)) || base.algn
-	const indentAttr = typeof indentEmu === 'number' ? ` indent="${indentEmu}"` : ''
 
-	let xml = `<a:lvl${levelNum}pPr marL="${marL}"${indentAttr} algn="${algn}" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">`
-	if (typeof base.spcBefPct === 'number') xml += `<a:spcBef><a:spcPct val="${base.spcBefPct}"/></a:spcBef>`
-	xml += masterBulletXml(levelOverride.bullet, base.bu)
-
-	// defRPr
 	let sz = base.sz
 	if (typeof levelOverride.fontSize === 'number') {
 		if (isNaN(levelOverride.fontSize) || levelOverride.fontSize <= 0)
@@ -194,15 +193,29 @@ function masterLevelXml(levelNum: number, base: MasterLevelDefault, levelOverrid
 			)
 		else sz = ptToHundredths(levelOverride.fontSize)
 	}
-	const boldAttr = levelOverride.bold ? ' b="1"' : ''
-	const italicAttr = levelOverride.italic ? ' i="1"' : ''
-	const colorXml = levelOverride.color ? createColorElement(levelOverride.color) : '<a:schemeClr val="tx1"/>'
+	const colorXml = levelOverride.color ? createColorElement(levelOverride.color) : voidEl('a:schemeClr', { val: 'tx1' })
 	const latinXml = levelOverride.fontFace
-		? `<a:latin typeface="${encodeXmlEntities(levelOverride.fontFace)}"/>`
-		: `<a:latin typeface="+${base.font}-lt"/>`
-	xml += `<a:defRPr sz="${sz}"${boldAttr}${italicAttr} kern="1200"><a:solidFill>${colorXml}</a:solidFill>${latinXml}<a:ea typeface="+${base.font}-ea"/><a:cs typeface="+${base.font}-cs"/></a:defRPr>`
-	xml += `</a:lvl${levelNum}pPr>`
-	return xml
+		? voidEl('a:latin', { typeface: levelOverride.fontFace })
+		: voidEl('a:latin', { typeface: `+${base.font}-lt` })
+
+	return el(
+		`a:lvl${levelNum}pPr`,
+		{ marL, indent: indentEmu, algn, defTabSz: 914400, rtl: 0, eaLnBrk: 1, latinLnBrk: 0, hangingPunct: 1 },
+		[
+			typeof base.spcBefPct === 'number'
+				? raw(el('a:spcBef', null, raw(voidEl('a:spcPct', { val: base.spcBefPct }))))
+				: null,
+			raw(masterBulletXml(levelOverride.bullet, base.bu)),
+			raw(
+				el('a:defRPr', { sz, b: levelOverride.bold ? '1' : null, i: levelOverride.italic ? '1' : null, kern: 1200 }, [
+					raw(el('a:solidFill', null, raw(colorXml))),
+					raw(latinXml),
+					raw(voidEl('a:ea', { typeface: `+${base.font}-ea` })),
+					raw(voidEl('a:cs', { typeface: `+${base.font}-cs` })),
+				])
+			),
+		]
+	)
 }
 
 /** Clamp a caller-provided per-level override array to the 9 valid list levels, warning on overflow. */
@@ -223,12 +236,79 @@ function makeXmlMasterTxStyles(textStyles: MasterTextStyleProps): string {
 	const body = MASTER_BODY_DEFAULTS.map((base, i) => masterLevelXml(i + 1, base, bodyOverrides[i])).join('')
 	const otherOverrides = masterLevelOverrides(textStyles.other, 'other')
 	const other = MASTER_OTHER_DEFAULTS.map((base, i) => masterLevelXml(i + 1, base, otherOverrides[i])).join('')
-	return (
-		'<p:txStyles>' +
-		`<p:titleStyle>${title}</p:titleStyle>` +
-		`<p:bodyStyle>${body}</p:bodyStyle>` +
-		`<p:otherStyle><a:defPPr><a:defRPr lang="en-US"/></a:defPPr>${other}</p:otherStyle>` +
-		'</p:txStyles>'
+	return el('p:txStyles', null, [
+		raw(el('p:titleStyle', null, raw(title))),
+		raw(el('p:bodyStyle', null, raw(body))),
+		raw(el('p:otherStyle', null, [raw(el('a:defPPr', null, raw(voidEl('a:defRPr', { lang: 'en-US' })))), raw(other)])),
+	])
+}
+
+/**
+ * The built-in Office master's `<p:txStyles>`, used verbatim when `defineSlideMaster({ textStyles })`
+ * was never called. Deliberately NOT built via `masterLevelXml`: a configured title level always
+ * carries `marL="0"` (from `MASTER_TITLE_DEFAULT.marL`), but the true unconfigured default titleStyle
+ * has no `marL`/`indent` attribute at all — a pre-existing asymmetry between the two paths, preserved
+ * exactly rather than unified.
+ */
+function makeXmlMasterDefaultTxStyles(): string {
+	const defaultLevel = (
+		n: number,
+		attrs: XmlAttrs,
+		bullet: string,
+		sz: number,
+		font: 'mj' | 'mn',
+		spcBefPct?: number
+	): string =>
+		el(`a:lvl${n}pPr`, { ...attrs, defTabSz: 914400, rtl: 0, eaLnBrk: 1, latinLnBrk: 0, hangingPunct: 1 }, [
+			typeof spcBefPct === 'number' ? raw(el('a:spcBef', null, raw(voidEl('a:spcPct', { val: spcBefPct })))) : null,
+			raw(bullet),
+			raw(
+				el('a:defRPr', { sz, kern: 1200 }, [
+					raw(el('a:solidFill', null, raw(voidEl('a:schemeClr', { val: 'tx1' })))),
+					raw(voidEl('a:latin', { typeface: `+${font}-lt` })),
+					raw(voidEl('a:ea', { typeface: `+${font}-ea` })),
+					raw(voidEl('a:cs', { typeface: `+${font}-cs` })),
+				])
+			),
+		])
+
+	const title = defaultLevel(1, { algn: 'ctr' }, voidEl('a:buNone'), 4400, 'mj', 0)
+
+	const bodyLevels = MASTER_BODY_DEFAULTS.map((base, i) => {
+		const bu = base.bu as { char: string; font: string }
+		return defaultLevel(
+			i + 1,
+			{ marL: base.marL, indent: base.indent, algn: base.algn },
+			voidEl('a:buFont', { typeface: bu.font, pitchFamily: 34, charset: 0 }) + voidEl('a:buChar', { char: bu.char }),
+			base.sz,
+			'mn',
+			base.spcBefPct
+		)
+	})
+
+	const otherLevels = MASTER_OTHER_DEFAULTS.map((base, i) =>
+		defaultLevel(i + 1, { marL: base.marL, algn: base.algn }, '', base.sz, 'mn')
+	)
+
+	// NOTE: the source template's own indentation reaches the file here — each style block's
+	// children are preceded by two spaces and its own closing tag by one (see `fmt` below) —
+	// same class of quirk as `genXmlPlaceholder` in text-body.ts. Preserved, not reformatted.
+	return el(
+		'p:txStyles',
+		null,
+		[
+			raw(el('p:titleStyle', null, raw(title), { childPrefix: '  ', closePrefix: ' ' })),
+			raw(el('p:bodyStyle', null, bodyLevels.map(raw), { childPrefix: '  ', closePrefix: ' ' })),
+			raw(
+				el(
+					'p:otherStyle',
+					null,
+					[raw(el('a:defPPr', null, raw(voidEl('a:defRPr', { lang: 'en-US' })))), ...otherLevels.map(raw)],
+					{ childPrefix: '  ', closePrefix: ' ' }
+				)
+			),
+		],
+		{ childPrefix: ' ' }
 	)
 }
 
@@ -240,55 +320,53 @@ function makeXmlMasterTxStyles(textStyles: MasterTextStyleProps): string {
  */
 export function makeXmlMaster(slide: PresSlideInternal, layouts: SlideLayoutInternal[]): string {
 	// NOTE: Pass layouts as static rels because they are not referenced any time
-	const layoutDefs = layouts.map(
-		(_layoutDef, idx) =>
-			`<p:sldLayoutId id="${LAYOUT_IDX_SERIES_BASE + idx}" r:id="rId${slide._rels.length + idx + 1}"/>`
-	)
+	const layoutDefs = layouts
+		.map((_layoutDef, idx) =>
+			voidEl('p:sldLayoutId', { id: LAYOUT_IDX_SERIES_BASE + idx, 'r:id': `rId${slide._rels.length + idx + 1}` })
+		)
+		.join('')
 
-	let strXml = XML_DECL + CRLF
-	strXml +=
-		'<p:sldMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">'
-	strXml += slideObjectToXml(slide)
-	strXml +=
-		'<p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/>'
-	strXml += '<p:sldLayoutIdLst>' + layoutDefs.join('') + '</p:sldLayoutIdLst>'
+	const clrMap = voidEl('p:clrMap', {
+		bg1: 'lt1',
+		tx1: 'dk1',
+		bg2: 'lt2',
+		tx2: 'dk2',
+		accent1: 'accent1',
+		accent2: 'accent2',
+		accent3: 'accent3',
+		accent4: 'accent4',
+		accent5: 'accent5',
+		accent6: 'accent6',
+		hlink: 'hlink',
+		folHlink: 'folHlink',
+	})
+
 	// CT_HeaderFooter/@sldNum defaults to true (ECMA-376). When a slide-number placeholder is
 	// defined on the master we must NOT disable it here, otherwise slides that PowerPoint inserts
 	// from this master inherit sldNum="0" and the master slide number disappears.
-	strXml += `<p:hf${slide._slideNumberProps ? '' : ' sldNum="0"'} hdr="0" ftr="0" dt="0"/>`
-	strXml += slide._txStyles
-		? makeXmlMasterTxStyles(slide._txStyles)
-		: '<p:txStyles>' +
-			' <p:titleStyle>' +
-			'  <a:lvl1pPr algn="ctr" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:spcBef><a:spcPct val="0"/></a:spcBef><a:buNone/><a:defRPr sz="4400" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mj-lt"/><a:ea typeface="+mj-ea"/><a:cs typeface="+mj-cs"/></a:defRPr></a:lvl1pPr>' +
-			' </p:titleStyle>' +
-			' <p:bodyStyle>' +
-			'  <a:lvl1pPr marL="342900" indent="-342900" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:spcBef><a:spcPct val="20000"/></a:spcBef><a:buFont typeface="Arial" pitchFamily="34" charset="0"/><a:buChar char="•"/><a:defRPr sz="3200" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl1pPr>' +
-			'  <a:lvl2pPr marL="742950" indent="-285750" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:spcBef><a:spcPct val="20000"/></a:spcBef><a:buFont typeface="Arial" pitchFamily="34" charset="0"/><a:buChar char="–"/><a:defRPr sz="2800" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl2pPr>' +
-			'  <a:lvl3pPr marL="1143000" indent="-228600" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:spcBef><a:spcPct val="20000"/></a:spcBef><a:buFont typeface="Arial" pitchFamily="34" charset="0"/><a:buChar char="•"/><a:defRPr sz="2400" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl3pPr>' +
-			'  <a:lvl4pPr marL="1600200" indent="-228600" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:spcBef><a:spcPct val="20000"/></a:spcBef><a:buFont typeface="Arial" pitchFamily="34" charset="0"/><a:buChar char="–"/><a:defRPr sz="2000" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl4pPr>' +
-			'  <a:lvl5pPr marL="2057400" indent="-228600" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:spcBef><a:spcPct val="20000"/></a:spcBef><a:buFont typeface="Arial" pitchFamily="34" charset="0"/><a:buChar char="»"/><a:defRPr sz="2000" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl5pPr>' +
-			'  <a:lvl6pPr marL="2514600" indent="-228600" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:spcBef><a:spcPct val="20000"/></a:spcBef><a:buFont typeface="Arial" pitchFamily="34" charset="0"/><a:buChar char="•"/><a:defRPr sz="2000" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl6pPr>' +
-			'  <a:lvl7pPr marL="2971800" indent="-228600" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:spcBef><a:spcPct val="20000"/></a:spcBef><a:buFont typeface="Arial" pitchFamily="34" charset="0"/><a:buChar char="•"/><a:defRPr sz="2000" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl7pPr>' +
-			'  <a:lvl8pPr marL="3429000" indent="-228600" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:spcBef><a:spcPct val="20000"/></a:spcBef><a:buFont typeface="Arial" pitchFamily="34" charset="0"/><a:buChar char="•"/><a:defRPr sz="2000" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl8pPr>' +
-			'  <a:lvl9pPr marL="3886200" indent="-228600" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:spcBef><a:spcPct val="20000"/></a:spcBef><a:buFont typeface="Arial" pitchFamily="34" charset="0"/><a:buChar char="•"/><a:defRPr sz="2000" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl9pPr>' +
-			' </p:bodyStyle>' +
-			' <p:otherStyle>' +
-			'  <a:defPPr><a:defRPr lang="en-US"/></a:defPPr>' +
-			'  <a:lvl1pPr marL="0" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1800" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl1pPr>' +
-			'  <a:lvl2pPr marL="457200" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1800" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl2pPr>' +
-			'  <a:lvl3pPr marL="914400" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1800" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl3pPr>' +
-			'  <a:lvl4pPr marL="1371600" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1800" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl4pPr>' +
-			'  <a:lvl5pPr marL="1828800" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1800" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl5pPr>' +
-			'  <a:lvl6pPr marL="2286000" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1800" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl6pPr>' +
-			'  <a:lvl7pPr marL="2743200" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1800" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl7pPr>' +
-			'  <a:lvl8pPr marL="3200400" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1800" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl8pPr>' +
-			'  <a:lvl9pPr marL="3657600" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1"><a:defRPr sz="1800" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/></a:defRPr></a:lvl9pPr>' +
-			' </p:otherStyle>' +
-			'</p:txStyles>'
-	strXml += '</p:sldMaster>'
+	const hf = voidEl('p:hf', { sldNum: slide._slideNumberProps ? null : 0, hdr: 0, ftr: 0, dt: 0 })
 
-	return strXml
+	const txStyles = slide._txStyles ? makeXmlMasterTxStyles(slide._txStyles) : makeXmlMasterDefaultTxStyles()
+
+	return (
+		XML_DECL +
+		CRLF +
+		el(
+			'p:sldMaster',
+			{
+				'xmlns:a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
+				'xmlns:r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+				'xmlns:p': 'http://schemas.openxmlformats.org/presentationml/2006/main',
+			},
+			[
+				raw(slideObjectToXml(slide)),
+				raw(clrMap),
+				raw(el('p:sldLayoutIdLst', null, raw(layoutDefs))),
+				raw(hf),
+				raw(txStyles),
+			]
+		)
+	)
 }
 
 /**
