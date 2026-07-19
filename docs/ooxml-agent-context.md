@@ -122,6 +122,4 @@ Useful local files:
 - `test/schema-cases.js`
 - `test/schema-validation.test.mjs`
 - `test/validator.js`
-- `src/gen-xml.ts`
-- `src/gen-charts.ts`
-- `src/gen-objects.ts`
+- `src/gen/` (OOXML generators: `define/*` normalize, `slide|drawingml|chart|pres|opc|anim|table/*` serialize)

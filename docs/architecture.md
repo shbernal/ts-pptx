@@ -23,8 +23,12 @@ exports and let this repository own the internal OOXML generation details.
   exports.
 - `src/pptxgen.ts` owns the main presentation class and package export flow.
 - `src/slide.ts` owns slide-level object collection and public slide methods.
-- `src/gen-*.ts` files own internal generation primitives for XML, charts,
-  objects, media, and tables.
+- `src/gen/` holds the internal OOXML generators as a layered tree mirroring
+  `src/read/`: `gen/define/*` normalizes user options onto the slide model, and
+  `gen/{drawingml,slide,pres,opc,chart,table,anim}/*` serialize that model to
+  OOXML at export time. The legacy `src/gen-{xml,objects,charts,tables}.ts`
+  files are now thin re-export barrels retained only so existing
+  `import * as genXml` namespace imports keep resolving.
 - `src/core-interfaces.ts` and `src/core-enums.ts` define the public typed
   contract.
 - `scripts/package-smoke.mjs` verifies the packed package boundary from a
@@ -33,30 +37,30 @@ exports and let this repository own the internal OOXML generation details.
 ## Where Does X Live? (task → file → function)
 
 A starting point for "which function do I touch?". Two-phase pattern for most content:
-an `add*Definition` in `gen-objects.ts` normalizes user options onto the slide model,
-then `gen-xml.ts` (or `gen-charts.ts`) serializes it to OOXML at export time. Each file
-opens with a module-map header and `// ===== region =====` banners — grep those to
-jump within a file.
+an `add*Definition` in `gen/define/*` normalizes user options onto the slide model,
+then a serializer under `gen/{slide,drawingml,chart,anim,pres,opc}/*` emits OOXML at
+export time. Each module opens with a TSDoc header stating its job; larger files add
+`// ===== region =====` banners — grep those to jump within a file.
 
 | Task | Add / normalize (`src/…`) | Emit OOXML (`src/…`) |
 | --- | --- | --- |
-| Add text | `gen-objects.ts` `addTextDefinition` | `gen-xml.ts` `genXmlTextBody` |
-| Add a shape | `gen-objects.ts` `addShapeDefinition` | `gen-xml.ts` `genXmlPresetGeom` / `genXmlCustGeom` |
-| Add a connector | `gen-objects.ts` `addConnectorDefinition` | `gen-xml.ts` `slideObjectToXml` |
-| Add an image | `gen-objects.ts` `addImageDefinition` | `gen-xml.ts` `slideObjectToXml` |
-| Add audio/video | `gen-objects.ts` `addMediaDefinition` | `gen-xml.ts` `slideObjectToXml` + `slideTimingToXml` |
-| Add a chart | `gen-objects.ts` `addChartDefinition` | `gen-charts.ts` `makeXmlCharts` / `makeChartType` (+ `buildEmbeddedWorksheet`) |
-| Add a table | `gen-objects.ts` `addTableDefinition`; auto-paging `gen-tables.ts` `getSlidesForTableRows` | `gen-xml.ts` `slideObjectToXml` (table branch) |
-| Group objects | `gen-objects.ts` `addGroupDefinition` / `groupObjectsDefinition` | `gen-xml.ts` `slideObjectToXml` |
-| Notes | `gen-objects.ts` `addNotesDefinition` | `gen-xml.ts` `makeXmlNotesSlide` |
-| Comments | `gen-objects.ts` `addCommentDefinition` | `gen-xml.ts` `makeXmlComments` |
-| Slide number | `pptxgen.ts` `setSlideNumber` | `gen-xml.ts` `slideObjectToXml` (`SLDNUMFLDID`) |
-| Transitions / animations | slide props (`slide.ts`) | `gen-xml.ts` `slideTransitionToXml` / `buildAnimationSeq` |
-| Slide master / layout | `gen-objects.ts` `createSlideMaster` | `gen-xml.ts` `makeXmlMaster` / `makeXmlLayout` |
-| Theme colors | — | `gen-xml.ts` `buildThemeClrScheme` / `makeXmlTheme` |
+| Add text | `gen/define/text.ts` `addTextDefinition` | `gen/drawingml/text-body.ts` `genXmlTextBody` |
+| Add a shape | `gen/define/shape.ts` `addShapeDefinition` | `gen/drawingml/geometry.ts` `genXmlPresetGeom` / `genXmlCustGeom` |
+| Add a connector | `gen/define/connector.ts` `addConnectorDefinition` | `gen/slide/object.ts` `slideObjectToXml` |
+| Add an image | `gen/define/image.ts` `addImageDefinition` | `gen/slide/object.ts` `slideObjectToXml` |
+| Add audio/video | `gen/define/media.ts` `addMediaDefinition` | `gen/slide/object.ts` `slideObjectToXml` + `gen/anim/timing.ts` `slideTimingToXml` |
+| Add a chart | `gen/define/chart.ts` `addChartDefinition` | `gen/chart/chart-xml.ts` `makeXmlCharts` / `makeChartType` (+ `gen/chart/embed-xlsx.ts` `buildEmbeddedWorksheet`) |
+| Add a table | `gen/define/table.ts` `addTableDefinition`; auto-paging `gen/table/autopage.ts` `getSlidesForTableRows` | `gen/slide/object.ts` `slideObjectToXml` (table branch) |
+| Group objects | `gen/define/group.ts` `addGroupDefinition` / `groupObjectsDefinition` | `gen/slide/object.ts` `slideObjectToXml` |
+| Notes | `gen/define/notes.ts` `addNotesDefinition` | `gen/slide/notes.ts` `makeXmlNotesSlide` |
+| Comments | `gen/define/comment.ts` `addCommentDefinition` | `gen/slide/comments.ts` `makeXmlComments` |
+| Slide number | `pptxgen.ts` `setSlideNumber` | `gen/slide/object.ts` `slideObjectToXml` (`SLDNUMFLDID`) |
+| Transitions / animations | slide props (`slide.ts`) | `gen/anim/transition.ts` `slideTransitionToXml` / `gen/anim/animation.ts` `buildAnimationSeq` |
+| Slide master / layout | `gen/define/master.ts` `createSlideMaster` | `gen/slide/master.ts` `makeXmlMaster` / `gen/slide/layout.ts` `makeXmlLayout` |
+| Theme colors | — | `gen/pres/theme.ts` `buildThemeClrScheme` / `makeXmlTheme` |
 | Coordinates & units (in → EMU) | `gen-utils.ts` `getSmartParseNumber`; `units.ts` | — |
 | Colors, fills, borders, shadows | `gen-utils.ts` `createColorElement` / `genXml*Fill` / `createShadowElement` | — |
-| Package assembly & export | `pptxgen.ts` `exportPresentation` (`write` / `writeFile` / `stream`) | `gen-xml.ts` `makeXmlContTypes` / `makeXmlRootRels` / per-part rels |
+| Package assembly & export | `pptxgen.ts` `exportPresentation` (`write` / `writeFile` / `stream`) | `gen/opc/content-types.ts` `makeXmlContTypes` / `gen/opc/root-rels.ts` `makeXmlRootRels` / per-part rels |
 | Public API surface | `pptxgen.ts` (class), `slide.ts` (slide methods) | — |
 | Option / type definitions | `core-interfaces.ts` | — |
 | Enums & shared constants | `core-enums.ts` | — |

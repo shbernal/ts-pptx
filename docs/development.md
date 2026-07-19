@@ -45,11 +45,14 @@ is named `doc-index.md` for exactly this reason.
 
 ## Source Conventions
 
-The large generator modules (`gen-xml.ts`, `gen-charts.ts`, `gen-objects.ts`) use two
-comment conventions so a reader can navigate without scrolling:
+The OOXML generators live under `src/gen/` as a layered tree (mirroring `src/read/`):
+`gen/define/*` normalizes user options onto the slide model, and
+`gen/{drawingml,slide,pres,opc,chart,table,anim}/*` serialize it to OOXML. (The old
+`src/gen-{xml,objects,charts,tables}.ts` files are now re-export barrels.) These
+modules use two comment conventions so a reader can navigate without scrolling:
 
-- **File module map.** Each of these files opens with a TSDoc block that states the
-  module's job and lists its regions. Read it first to orient.
+- **File module map.** Each module opens with a TSDoc block that states its job and,
+  for larger files, lists its regions. Read it first to orient.
 - **Region banners.** File-level sections are marked with a single-line banner:
 
   ```ts
