@@ -6,6 +6,16 @@
  * inline run that flows between the surrounding `<a:r>` runs (`genXmlInlineMath`).
  */
 
+import { el, raw, voidEl } from '../oxml/el.js'
+
+const M_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
+const A14_NS = 'http://schemas.microsoft.com/office/drawing/2010/main'
+
+/** The `<a14:m>` marker, carrying both namespace declarations so the supplied OMML needs none. */
+function a14Math(mathXml: string): string {
+	return el('a14:m', { 'xmlns:a14': A14_NS, 'xmlns:m': M_NS }, raw(mathXml))
+}
+
 /**
  * Build a native-equation paragraph (`<a:p>`) from raw OMML.
  *
@@ -19,16 +29,14 @@
  * @returns {string} an `<a:p>` math paragraph
  */
 export function genXmlMathParagraph(omml: string): string {
-	const M_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
-	const A14_NS = 'http://schemas.microsoft.com/office/drawing/2010/main'
 	const trimmed = (omml || '').trim()
-	const paraPr = '<m:oMathParaPr><m:jc m:val="centerGroup"/></m:oMathParaPr>'
+	const paraPr = el('m:oMathParaPr', null, raw(voidEl('m:jc', { 'm:val': 'centerGroup' })))
 	const mathXml = trimmed.startsWith('<m:oMathPara')
 		? trimmed
 		: trimmed.includes('<m:oMath')
-			? `<m:oMathPara>${paraPr}${trimmed}</m:oMathPara>`
-			: `<m:oMathPara>${paraPr}<m:oMath>${trimmed}</m:oMath></m:oMathPara>`
-	return `<a:p><a14:m xmlns:a14="${A14_NS}" xmlns:m="${M_NS}">${mathXml}</a14:m><a:endParaRPr lang="en-US"/></a:p>`
+			? el('m:oMathPara', null, [paraPr, trimmed].map(raw))
+			: el('m:oMathPara', null, [paraPr, el('m:oMath', null, raw(trimmed))].map(raw))
+	return el('a:p', null, [a14Math(mathXml), voidEl('a:endParaRPr', { lang: 'en-US' })].map(raw))
 }
 
 /**
@@ -47,12 +55,9 @@ export function genXmlMathParagraph(omml: string): string {
  * @returns {string} an `<a14:m>` inline equation run
  */
 export function genXmlInlineMath(omml: string): string {
-	const M_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
-	const A14_NS = 'http://schemas.microsoft.com/office/drawing/2010/main'
 	const trimmed = (omml || '').trim()
 	// Extract a bare <m:oMath>…</m:oMath> — this both strips a display <m:oMathPara> wrapper and
 	// leaves an already-bare <m:oMath> untouched; inner-only OMML is wrapped in <m:oMath>.
 	const oMathMatch = trimmed.match(/<m:oMath[\s>][\s\S]*<\/m:oMath>/)
-	const mathXml = oMathMatch ? oMathMatch[0] : `<m:oMath>${trimmed}</m:oMath>`
-	return `<a14:m xmlns:a14="${A14_NS}" xmlns:m="${M_NS}">${mathXml}</a14:m>`
+	return a14Math(oMathMatch ? oMathMatch[0] : el('m:oMath', null, raw(trimmed)))
 }

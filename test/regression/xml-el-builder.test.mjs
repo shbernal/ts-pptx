@@ -30,6 +30,13 @@ describe('el() / voidEl() XML builder', () => {
 		expect(voidEl('Relationship', { Id: 'rId1' })).toBe('<Relationship Id="rId1"/>')
 	})
 
+	test('voidEl() closePrefix goes before the self-closing slash', () => {
+		// Several DrawingML emitters write `<a:avLst />` with a space; that space is
+		// byte-significant, so it has to be expressible rather than normalized away.
+		expect(voidEl('a:avLst', null, { closePrefix: ' ' })).toBe('<a:avLst />')
+		expect(voidEl('a:rect', { l: 'l', b: 'b' }, { closePrefix: ' ' })).toBe('<a:rect l="l" b="b" />')
+	})
+
 	test('escapes attribute values and preserves insertion order', () => {
 		expect(voidEl('p:tag', { name: 'A&B', val: '"<x>"' })).toBe('<p:tag name="A&amp;B" val="&quot;&lt;x&gt;&quot;"/>')
 	})

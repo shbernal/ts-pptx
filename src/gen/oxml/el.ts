@@ -42,7 +42,7 @@ export type XmlAttrs = Record<string, string | number | null | undefined>
  * Byte-layout control. Omit for flat output.
  * - `openPrefix` — emitted before `<name`
  * - `childPrefix` — emitted before each child
- * - `closePrefix` — emitted before `</name>`
+ * - `closePrefix` — emitted before the closing delimiter (`</name>`, or `/>` for `voidEl`)
  */
 export interface XmlFmt {
 	openPrefix?: string
@@ -82,7 +82,11 @@ export function el(name: string, attrs?: XmlAttrs | null, children?: XmlChild | 
 	return out + (fmt?.closePrefix ?? '') + '</' + name + '>'
 }
 
-/** Self-closing element: `<name …/>`. */
+/**
+ * Self-closing element: `<name …/>`. `fmt.closePrefix` goes before the `/>` — a
+ * handful of emitters write `<a:avLst />` with a space there, and that space is
+ * byte-significant like any other.
+ */
 export function voidEl(name: string, attrs?: XmlAttrs | null, fmt?: XmlFmt): string {
-	return openTag(name, attrs, fmt) + '/>'
+	return openTag(name, attrs, fmt) + (fmt?.closePrefix ?? '') + '/>'
 }

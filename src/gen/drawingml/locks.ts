@@ -7,6 +7,7 @@
  */
 
 import type { ObjectLockProps } from '../../core-interfaces.js'
+import { voidEl } from '../oxml/el.js'
 import { warn } from '../../log.js'
 
 // Object lock attributes valid for each DrawingML locking element, in emit order (ECMA-376 §20.1.2.2.x / §20.1.2.2.34).
@@ -70,6 +71,6 @@ export function genXmlObjectLock(
 			warn(`objectLock.${key} is not supported on <${tag}> (object "${objectName ?? ''}") and was ignored.`)
 		}
 	}
-	const attrs = allowed.filter((name) => lockMap[name] === true).map((name) => `${name}="1"`)
-	return attrs.length > 0 ? `<${tag} ${attrs.join(' ')}/>` : ''
+	const set = allowed.filter((name) => lockMap[name] === true)
+	return set.length > 0 ? voidEl(tag, Object.fromEntries(set.map((name) => [name, '1']))) : ''
 }

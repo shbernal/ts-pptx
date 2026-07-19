@@ -7,15 +7,19 @@
 
 import { fitSrcRectPercents } from '../../gen-utils.js'
 import { FIXED_PCT_PER_PERCENT } from '../../units.js'
+import { el, raw, voidEl } from '../oxml/el.js'
+
+/** Every `<a:srcRect>` below is followed by this same fill directive. */
+const STRETCH = el('a:stretch', null, raw(voidEl('a:fillRect')))
 
 export const ImageSizingXml = {
 	cover: function (imgSize: { w: number; h: number }, boxDim: { w: number; h: number; x: number; y: number }) {
 		const { l, r, t, b } = fitSrcRectPercents('cover', imgSize, boxDim)
-		return `<a:srcRect l="${l}" r="${r}" t="${t}" b="${b}"/><a:stretch><a:fillRect/></a:stretch>`
+		return voidEl('a:srcRect', { l, r, t, b }) + STRETCH
 	},
 	contain: function (imgSize: { w: number; h: number }, boxDim: { w: number; h: number; x: number; y: number }) {
 		const { l, r, t, b } = fitSrcRectPercents('contain', imgSize, boxDim)
-		return `<a:srcRect l="${l}" r="${r}" t="${t}" b="${b}"/><a:stretch><a:fillRect/></a:stretch>`
+		return voidEl('a:srcRect', { l, r, t, b }) + STRETCH
 	},
 	crop: function (imgSize: { w: number; h: number }, boxDim: { w: number; h: number; x: number; y: number }) {
 		const l = boxDim.x
@@ -39,7 +43,7 @@ export const ImageSizingXml = {
 		const rPerc = Math.round(1e5 * (r / imgSize.w))
 		const tPerc = Math.round(1e5 * (t / imgSize.h))
 		const bPerc = Math.round(1e5 * (b / imgSize.h))
-		return `<a:srcRect l="${lPerc}" r="${rPerc}" t="${tPerc}" b="${bPerc}"/><a:stretch><a:fillRect/></a:stretch>`
+		return voidEl('a:srcRect', { l: lPerc, r: rPerc, t: tPerc, b: bPerc }) + STRETCH
 	},
 }
 
@@ -66,5 +70,7 @@ export function genXmlImageCrop(crop: { l?: number; t?: number; r?: number; b?: 
 	if (edges.t + edges.b >= 100)
 		throw new Error(`addImage crop: top+bottom insets (${edges.t}%+${edges.b}%) must be < 100%${where}.`)
 	const v = (perc: number): number => Math.round(perc * FIXED_PCT_PER_PERCENT)
-	return `<a:srcRect l="${v(edges.l)}" t="${v(edges.t)}" r="${v(edges.r)}" b="${v(edges.b)}"/><a:stretch><a:fillRect/></a:stretch>`
+	// NOTE: attribute order here is l/t/r/b, where the sizing modes above emit l/r/t/b. Attribute
+	// order is byte-significant, so the two orderings are kept as they are rather than unified.
+	return voidEl('a:srcRect', { l: v(edges.l), t: v(edges.t), r: v(edges.r), b: v(edges.b) }) + STRETCH
 }

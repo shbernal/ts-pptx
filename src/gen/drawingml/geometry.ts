@@ -7,10 +7,24 @@
  */
 
 import { EMU, VALID_SHAPE_PRESETS } from '../../core-enums.js'
-import type { GeometryPoint, ObjectOptions, PresLayout } from '../../core-interfaces.js'
+import type { Coord, GeometryPoint, ObjectOptions, PresLayout } from '../../core-interfaces.js'
 import { convertArcAngle, convertRotationDegrees, getSmartParseNumber } from '../../gen-utils.js'
 import { PERCENT_SCALE } from '../../units.js'
+import { el, raw, voidEl } from '../oxml/el.js'
 import { warn } from '../../log.js'
+
+/**
+ * Several `<a:custGeom>` children are emitted as `<a:avLst />` — with a space before the
+ * slash — where the rest of the tree writes `<a:avLst/>`. Byte-significant, so it stays.
+ */
+const SPACE_BEFORE_SLASH = { closePrefix: ' ' }
+
+/**
+ * The path nodes inside `<a:cubicBezTo>`/`<a:quadBezTo>` are newline-and-tab separated,
+ * an artifact of the source indentation these were originally written with. It reaches
+ * the emitted bytes, so it is described here rather than left to leak from a literal.
+ */
+const BEZ_INDENT = { childPrefix: '\n\t\t\t\t\t', closePrefix: '\n\t\t\t\t\t' }
 
 /**
  * Emit an `<a:prstGeom>` for a preset shape, including any adjust values (`<a:avLst>`).
@@ -39,7 +53,10 @@ export function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: 
 	let avLst = ''
 	const emittedAdjNames = new Set<string>()
 	const emitGuide = (name: string, fmlaVal: number): void => {
-		avLst += `<a:gd name="${name}" fmla="val ${fmlaVal}"/>`
+		// `voidEl` escapes the guide name, which the `shapeAdjust` passthrough takes from the
+		// caller. It is validated as a non-empty string but not charset-checked, so escaping is
+		// a real (if narrow) hardening; every in-tree name is a plain `adj*` so bytes don't move.
+		avLst += voidEl('a:gd', { name, fmla: `val ${fmlaVal}` })
 		emittedAdjNames.add(name)
 	}
 	if (options.rectRadius) {
@@ -86,7 +103,7 @@ export function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: 
 			emitGuide(adj.name, Math.round(adj.value * PERCENT_SCALE))
 		})
 	}
-	return `<a:prstGeom prst="${shapeName}"><a:avLst>${avLst}</a:avLst></a:prstGeom>`
+	return el('a:prstGeom', { prst: shapeName }, raw(el('a:avLst', null, raw(avLst))))
 }
 
 /**
@@ -108,20 +125,15 @@ function isArcPoint(point: GeometryPoint): point is Extract<GeometryPoint, { cur
  * @return {string} `<a:custGeom>` XML
  */
 export function genXmlCustGeom(points: ObjectOptions['points'], cx: number, cy: number, layout: PresLayout): string {
-	// custGeom preamble — the sub-lists OOXML requires before `<a:pathLst>`: adjust values
-	// (avLst), guide formulas (gdLst), adjust handles (ahLst), connection sites (cxnLst), and the
-	// text rectangle (rect). PptxGenJS drives geometry entirely from the path, so all stay empty.
-	let strXml = '<a:custGeom><a:avLst />'
-	strXml += '<a:gdLst>'
-	strXml += '</a:gdLst>'
-	strXml += '<a:ahLst />'
-	strXml += '<a:cxnLst>'
-	strXml += '</a:cxnLst>'
-	strXml += '<a:rect l="l" t="t" r="r" b="b" />'
+	/** `<a:pt>` in the object's own EMU space. */
+	const pt = (x: Coord | undefined, y: Coord | undefined): string =>
+		voidEl(
+			'a:pt',
+			{ x: getSmartParseNumber(x, 'X', layout), y: getSmartParseNumber(y, 'Y', layout) },
+			SPACE_BEFORE_SLASH
+		)
 
-	strXml += '<a:pathLst>'
-	strXml += `<a:path w="${cx}" h="${cy}">`
-
+	const nodes: string[] = []
 	points?.forEach((point, i) => {
 		if (isArcPoint(point)) {
 			// An `<a:arcTo>` has no end point: it is derived from the pen position, radii and sweep.
@@ -129,48 +141,60 @@ export function genXmlCustGeom(points: ObjectOptions['points'], cx: number, cy: 
 			// (A union excess-property check does not reject one, so this is the only signal.)
 			if ('x' in point || 'y' in point)
 				warn('freeform arc node: x/y are ignored — an arcTo end point is computed from stAng/swAng and the radii.')
-			strXml += `<a:arcTo hR="${getSmartParseNumber(point.curve.hR, 'Y', layout)}" wR="${getSmartParseNumber(
-				point.curve.wR,
-				'X',
-				layout
-			)}" stAng="${convertArcAngle(point.curve.stAng, 'stAng')}" swAng="${convertArcAngle(point.curve.swAng, 'swAng')}" />`
+			nodes.push(
+				voidEl(
+					'a:arcTo',
+					{
+						hR: getSmartParseNumber(point.curve.hR, 'Y', layout),
+						wR: getSmartParseNumber(point.curve.wR, 'X', layout),
+						stAng: convertArcAngle(point.curve.stAng, 'stAng'),
+						swAng: convertArcAngle(point.curve.swAng, 'swAng'),
+					},
+					SPACE_BEFORE_SLASH
+				)
+			)
 		} else if ('curve' in point) {
 			switch (point.curve.type) {
 				case 'cubic':
-					strXml += `<a:cubicBezTo>
-					<a:pt x="${getSmartParseNumber(point.curve.x1, 'X', layout)}" y="${getSmartParseNumber(point.curve.y1, 'Y', layout)}" />
-					<a:pt x="${getSmartParseNumber(point.curve.x2, 'X', layout)}" y="${getSmartParseNumber(point.curve.y2, 'Y', layout)}" />
-					<a:pt x="${getSmartParseNumber(point.x, 'X', layout)}" y="${getSmartParseNumber(point.y, 'Y', layout)}" />
-					</a:cubicBezTo>`
+					nodes.push(
+						el(
+							'a:cubicBezTo',
+							null,
+							[pt(point.curve.x1, point.curve.y1), pt(point.curve.x2, point.curve.y2), pt(point.x, point.y)].map(raw),
+							BEZ_INDENT
+						)
+					)
 					break
 				case 'quadratic':
-					strXml += `<a:quadBezTo>
-					<a:pt x="${getSmartParseNumber(point.curve.x1, 'X', layout)}" y="${getSmartParseNumber(point.curve.y1, 'Y', layout)}" />
-					<a:pt x="${getSmartParseNumber(point.x, 'X', layout)}" y="${getSmartParseNumber(point.y, 'Y', layout)}" />
-					</a:quadBezTo>`
+					nodes.push(
+						el('a:quadBezTo', null, [pt(point.curve.x1, point.curve.y1), pt(point.x, point.y)].map(raw), BEZ_INDENT)
+					)
 					break
 				default:
 					break
 			}
 		} else if ('close' in point) {
-			strXml += '<a:close />'
+			nodes.push(voidEl('a:close', null, SPACE_BEFORE_SLASH))
 		} else if (point.moveTo || i === 0) {
-			strXml += `<a:moveTo><a:pt x="${getSmartParseNumber(point.x, 'X', layout)}" y="${getSmartParseNumber(
-				point.y,
-				'Y',
-				layout
-			)}" /></a:moveTo>`
+			nodes.push(el('a:moveTo', null, raw(pt(point.x, point.y))))
 		} else {
-			strXml += `<a:lnTo><a:pt x="${getSmartParseNumber(point.x, 'X', layout)}" y="${getSmartParseNumber(
-				point.y,
-				'Y',
-				layout
-			)}" /></a:lnTo>`
+			nodes.push(el('a:lnTo', null, raw(pt(point.x, point.y))))
 		}
 	})
 
-	strXml += '</a:path>'
-	strXml += '</a:pathLst>'
-	strXml += '</a:custGeom>'
-	return strXml
+	// custGeom preamble — the sub-lists OOXML requires before `<a:pathLst>`: adjust values
+	// (avLst), guide formulas (gdLst), adjust handles (ahLst), connection sites (cxnLst), and the
+	// text rectangle (rect). PptxGenJS drives geometry entirely from the path, so all stay empty.
+	return el(
+		'a:custGeom',
+		null,
+		[
+			voidEl('a:avLst', null, SPACE_BEFORE_SLASH),
+			el('a:gdLst'),
+			voidEl('a:ahLst', null, SPACE_BEFORE_SLASH),
+			el('a:cxnLst'),
+			voidEl('a:rect', { l: 'l', t: 't', r: 'r', b: 'b' }, SPACE_BEFORE_SLASH),
+			el('a:pathLst', null, raw(el('a:path', { w: cx, h: cy }, nodes.map(raw)))),
+		].map(raw)
+	)
 }
