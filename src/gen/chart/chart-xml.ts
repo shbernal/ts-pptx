@@ -1603,13 +1603,9 @@ function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: string)
 	// NOTE: Adding Val Axis Formatting if scatter or bubble charts
 	if (opts._type === ChartType.scatter || opts._type === ChartType.bubble || opts._type === ChartType.bubble3d) {
 		const xAxisFmtCode = opts.catAxisLabelFormatCode ?? opts.valAxisLabelFormatCode
-		strXml +=
-			'  <c:numFmt formatCode="' + (xAxisFmtCode ? encodeXmlEntities(xAxisFmtCode) : 'General') + '" sourceLinked="1"/>'
+		strXml += '  ' + voidEl('c:numFmt', { formatCode: xAxisFmtCode || 'General', sourceLinked: 1 })
 	} else {
-		strXml +=
-			'  <c:numFmt formatCode="' +
-			(encodeXmlEntities(opts.catLabelFormatCode ?? '') || 'General') +
-			'" sourceLinked="1"/>'
+		strXml += '  ' + voidEl('c:numFmt', { formatCode: (opts.catLabelFormatCode ?? '') || 'General', sourceLinked: 1 })
 	}
 	if (opts._type === ChartType.scatter) {
 		strXml += '  <c:majorTickMark val="none"/>'
@@ -1724,7 +1720,7 @@ function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string {
 			title: opts.valAxisTitle || 'Axis Title',
 		})
 	}
-	strXml += `<c:numFmt formatCode="${opts.valAxisLabelFormatCode ? encodeXmlEntities(opts.valAxisLabelFormatCode) : 'General'}" sourceLinked="0"/>`
+	strXml += voidEl('c:numFmt', { formatCode: opts.valAxisLabelFormatCode || 'General', sourceLinked: 0 })
 	if (opts._type === ChartType.scatter) {
 		strXml += '  <c:majorTickMark val="none"/>'
 		strXml += '  <c:minorTickMark val="none"/>'
@@ -1813,7 +1809,7 @@ function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: string)
 			title: opts.serAxisTitle || 'Axis Title',
 		})
 	}
-	strXml += `  <c:numFmt formatCode="${encodeXmlEntities(opts.serLabelFormatCode ?? '') || 'General'}" sourceLinked="0"/>`
+	strXml += '  ' + voidEl('c:numFmt', { formatCode: (opts.serLabelFormatCode ?? '') || 'General', sourceLinked: 0 })
 	strXml += '  <c:majorTickMark val="out"/>'
 	strXml += '  <c:minorTickMark val="none"/>'
 	strXml += `  <c:tickLblPos val="${opts.serAxisLabelPos || opts.barDir === 'col' ? 'low' : 'nextTo'}"/>`
@@ -1929,7 +1925,7 @@ function genXmlTitle(opts: ChartPropsTitle, chartX?: number, chartY?: number): s
               ${genXmlColorSelection(opts.color || DEF_FONT_COLOR)}
               ${createChartTextFonts(opts.fontFace || 'Arial')}
             </a:rPr>
-            <a:t>${encodeXmlEntities(opts.title ?? '') || ''}</a:t>
+            ${el('a:t', null, opts.title ?? '')}
           </a:r>
         </a:p>
         </c:rich>
@@ -2128,7 +2124,8 @@ function makeCustomDLblXml(idx: number, text: string, opts: ChartOptsInternal): 
 		`<a:solidFill>${color}</a:solidFill>${createChartTextFonts(face)}</a:defRPr></a:pPr>` +
 		`<a:r><a:rPr lang="${lang}" sz="${sz}" b="${bold}" i="${italic}" u="none" strike="noStrike" dirty="0">` +
 		`<a:solidFill>${color}</a:solidFill>${createChartTextFonts(face)}</a:rPr>` +
-		`<a:t>${encodeXmlEntities(text)}</a:t></a:r></a:p>` +
+		el('a:t', null, text) +
+		'</a:r></a:p>' +
 		'</c:rich></c:tx>' +
 		'<c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/>' +
 		'<c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbl>'
