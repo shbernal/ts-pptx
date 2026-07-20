@@ -16,16 +16,11 @@ import type {
 	ShapeFillProps,
 	SlideObject,
 } from '../../core-interfaces.js'
-import {
-	correctShadowOptions,
-	encodeXmlEntities,
-	getImageSizeFromBase64,
-	getNewRelId,
-	getSmartParseNumber,
-	imageContentType,
-	svgMarkupToDataUri,
-	validateObjectName,
-} from '../../gen-utils.js'
+import { correctShadowOptions, encodeXmlEntities, getNewRelId, validateObjectName } from '../../gen-utils.js'
+import { svgMarkupToDataUri } from '../../media/base64.js'
+import { imageContentType } from '../../media/content-type.js'
+import { getImageSizeFromBase64 } from '../../media/image-size.js'
+import { getSmartParseNumber } from '../../units-internal.js'
 import { nextObjectNameIdx } from './object-name.js'
 
 /** DPI PowerPoint assumes when sizing an inserted raster image (natural pixels / 96 == inches) */

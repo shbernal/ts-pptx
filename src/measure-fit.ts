@@ -13,7 +13,7 @@
 import { SlideObjectType, TextAnchor } from './core-enums.js'
 import { DEF_CELL_MARGIN_IN, DEF_FONT_SIZE, LINEH_MODIFIER } from './core-enums.js'
 import { EMU_PER_POINT, POINTS_PER_INCH, emuToInches } from './units.js'
-import { marginToEmu, getSmartParseNumber, inch2Emu, resolveTableColWidthsEmu } from './gen-utils.js'
+import { getSmartParseNumber, inch2Emu, marginToEmu, resolveTableColWidthsEmu } from './units-internal.js'
 import { warn } from './log.js'
 import { getHeuristicFontMetrics, type FontMetricsRegistry } from './font-metrics.js'
 import {

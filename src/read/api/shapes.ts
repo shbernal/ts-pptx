@@ -20,7 +20,7 @@ import {
 	setAttr,
 	type Element,
 } from '../oxml/dom.js'
-import { fitSrcRectPercents, getImageSizeFromBytes } from '../../gen-utils.js'
+import { fitSrcRectPercents, getImageSizeFromBytes } from '../../media/image-size.js'
 import { composeGroupFrame, type GroupTransform } from '../../group-transform.js'
 import { warn } from '../../log.js'
 import { relativePartName } from '../opc/partnames.js'

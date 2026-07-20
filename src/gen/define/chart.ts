@@ -26,7 +26,8 @@ import type {
 	PresSlideInternal,
 	SlideObject,
 } from '../../core-interfaces.js'
-import { correctShadowOptions, encodeXmlEntities, getNewRelId, valToPts, validateObjectName } from '../../gen-utils.js'
+import { correctShadowOptions, encodeXmlEntities, getNewRelId, validateObjectName } from '../../gen-utils.js'
+import { valToPts } from '../../units-internal.js'
 
 /**
  * Round and clamp an integer chart percentage/angle option into a schema-valid range.

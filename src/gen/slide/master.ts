@@ -14,7 +14,8 @@ import type {
 	PresSlideInternal,
 	SlideLayoutInternal,
 } from '../../core-interfaces.js'
-import { createColorElement, inch2Emu } from '../../gen-utils.js'
+import { createColorElement } from '../../gen-utils.js'
+import { inch2Emu } from '../../units-internal.js'
 import { HUNDREDTHS_PER_POINT, ptToHundredths } from '../../units.js'
 import { warn } from '../../log.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'

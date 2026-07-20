@@ -41,14 +41,13 @@ import {
 	createColorElement,
 	createLineCap,
 	createShadowEffectLst,
+	encodeXmlEntities,
 	genXmlColorSelection,
 	genXmlPatternFill,
-	convertRotationDegrees,
-	encodeXmlEntities,
 	getUuid,
 	resolveBorderWidth,
-	valToPts,
 } from '../../gen-utils.js'
+import { convertRotationDegrees, valToPts } from '../../units-internal.js'
 import { FIXED_PCT_PER_PERCENT, ptToHundredths } from '../../units.js'
 import { dataLabels, dataValues, dataSizes, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'

@@ -112,14 +112,9 @@ import {
 	flattenEmbeddedFaces,
 } from './embedded-fonts.js'
 import { applyMeasuredFit, computeTableLayout, measureText } from './measure-fit.js'
-import {
-	getUuid,
-	decodeBase64ToBytes,
-	imageContentType,
-	avContentType,
-	getNewRelId,
-	isHyperlinkRel,
-} from './gen-utils.js'
+import { getNewRelId, getUuid, isHyperlinkRel } from './gen-utils.js'
+import { decodeBase64ToBytes } from './media/base64.js'
+import { avContentType, imageContentType } from './media/content-type.js'
 import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
 import type { ExtractedSlide, ExtractedSlides } from './read/api/presentation.js'
 

@@ -245,6 +245,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- **`gen-utils.ts` unit conversion and media decoding split out (no API change).** The
+  repo's highest-fan-in module was three unrelated concerns in one file. Unit/number
+  conversion moved to `units-internal.ts` — the lenient, warning-emitting layer over the
+  strict public primitives in `units.ts` — and base64/image-header decoding plus OPC media
+  content types moved to `media/base64.ts`, `media/content-type.ts` and `media/image-size.ts`
+  (top-level, since both the write and read sides use them). `gen-utils.ts` drops from 1,062
+  to 566 lines and is now only DrawingML fragment builders and naming/XML-escaping helpers.
+  Pure code motion, verified two ways: the published `.d.ts` surface is unchanged across all
+  ten entrypoints (1,160 exports, no diff), and the demo decks re-emit byte-identically
+  (1,437 package parts).
+
 - **`core-interfaces.ts` split into a `src/types/` tree (no API change).** The 3,491-line
   god-module — the one file every other module imports from — was cut along its own
   `// <name> ====` banners into 13 domain modules (`core`, `style`, `object`, `theme`,

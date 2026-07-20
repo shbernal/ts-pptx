@@ -8,7 +8,7 @@
 
 import { EMU, VALID_SHAPE_PRESETS } from '../../core-enums.js'
 import type { Coord, GeometryPoint, ObjectOptions, PresLayout } from '../../core-interfaces.js'
-import { convertArcAngle, convertRotationDegrees, getSmartParseNumber } from '../../gen-utils.js'
+import { convertArcAngle, convertRotationDegrees, getSmartParseNumber } from '../../units-internal.js'
 import { PERCENT_SCALE } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { warn } from '../../log.js'

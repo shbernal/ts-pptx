@@ -5,7 +5,7 @@
  * sizing modes (`cover` / `contain` / `crop`) and for explicit percentage crops.
  */
 
-import { fitSrcRectPercents } from '../../gen-utils.js'
+import { fitSrcRectPercents } from '../../media/image-size.js'
 import { FIXED_PCT_PER_PERCENT } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 

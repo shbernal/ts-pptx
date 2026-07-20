@@ -9,7 +9,8 @@ import { connectorPresetFor, DEF_SHAPE_LINE_COLOR, EMU, SlideObjectType } from '
 import { warn } from '../../log.js'
 import type { ConnectorProps, PresSlideInternal, SlideObject } from '../../core-interfaces.js'
 import { FIXED_PCT_PER_PERCENT } from '../../units.js'
-import { encodeXmlEntities, getSmartParseNumber, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlEntities, validateObjectName } from '../../gen-utils.js'
+import { getSmartParseNumber } from '../../units-internal.js'
 import { nextObjectNameIdx } from './object-name.js'
 
 /**

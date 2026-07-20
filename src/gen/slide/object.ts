@@ -34,7 +34,6 @@ import type {
 	TableCellProps,
 } from '../../core-interfaces.js'
 import {
-	convertRotationDegrees,
 	createColorElement,
 	createLineCap,
 	createShadowEffectLst,
@@ -42,14 +41,17 @@ import {
 	genXmlColorSelection,
 	genXmlLineFill,
 	getDuplicateObjectNames,
-	getImageSizeFromBase64,
+	isHyperlinkRel,
+} from '../../gen-utils.js'
+import { getImageSizeFromBase64 } from '../../media/image-size.js'
+import {
+	convertRotationDegrees,
 	getSmartParseNumber,
 	inch2Emu,
-	isHyperlinkRel,
 	lineWidthToEmu,
 	marginToEmu,
 	resolveTableColWidthsEmu,
-} from '../../gen-utils.js'
+} from '../../units-internal.js'
 import { FIXED_PCT_PER_PERCENT, pixelsToEmu } from '../../units.js'
 import { warn } from '../../log.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'

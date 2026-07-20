@@ -5,7 +5,7 @@
  * the `<p:bg>` XML is emitted later at slide / layout serialize time.
  */
 import type { BackgroundProps, SlideLayoutInternal } from '../../core-interfaces.js'
-import { imageContentType } from '../../gen-utils.js'
+import { imageContentType } from '../../media/content-type.js'
 
 /**
  * Reduce a slide/layout name to something safe to embed in a media part name.

@@ -17,7 +17,7 @@ import type {
 	TableRowSlide,
 	TableCellProps,
 } from '../../core-interfaces.js'
-import { marginToEmu, getSmartParseNumber, inch2Emu } from '../../gen-utils.js'
+import { getSmartParseNumber, inch2Emu, marginToEmu } from '../../units-internal.js'
 import { warn } from '../../log.js'
 
 type AutoPageCell = TableCell & {

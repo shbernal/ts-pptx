@@ -1,9 +1,9 @@
 // Deterministic unit tests for the unregistered-font fallback (src/font-metrics.ts
 // getHeuristicFontMetrics) and the shared table column-width resolver
-// (src/gen-utils.ts resolveTableColWidthsEmu). Both are pure — no font files needed.
+// (src/units-internal.ts resolveTableColWidthsEmu). Both are pure — no font files needed.
 import { describe, test, expect } from 'vitest'
 import { getHeuristicFontMetrics } from '../../src/font-metrics.ts'
-import { resolveTableColWidthsEmu } from '../../src/gen-utils.ts'
+import { resolveTableColWidthsEmu } from '../../src/units-internal.ts'
 
 const EMU_PER_IN = 914400
 
@@ -43,7 +43,7 @@ describe('font-metrics: heuristic fallback', () => {
 	})
 })
 
-describe('gen-utils: resolveTableColWidthsEmu', () => {
+describe('units-internal: resolveTableColWidthsEmu', () => {
 	test('even distribution splits the EMU width across columns', () => {
 		const cols = resolveTableColWidthsEmu(undefined, 9 * EMU_PER_IN, 3)
 		expect(cols).toEqual([3 * EMU_PER_IN, 3 * EMU_PER_IN, 3 * EMU_PER_IN])

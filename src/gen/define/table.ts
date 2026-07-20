@@ -26,7 +26,8 @@ import type {
 	TableRow,
 } from '../../core-interfaces.js'
 import { getSlidesForTableRows } from '../../gen-tables.js'
-import { encodeXmlEntities, getSmartParseNumber, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlEntities, validateObjectName } from '../../gen-utils.js'
+import { getSmartParseNumber } from '../../units-internal.js'
 import { createHyperlinkRels } from './hyperlinks.js'
 
 type BorderTuple = [BorderProps, BorderProps, BorderProps, BorderProps]

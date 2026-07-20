@@ -8,7 +8,7 @@
 
 import { CRLF, XML_DECL } from '../../core-enums.js'
 import type { PresSlideInternal, ResolvedCommentAuthor, SlideComment } from '../../core-interfaces.js'
-import { inch2Emu } from '../../gen-utils.js'
+import { inch2Emu } from '../../units-internal.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 
 /** Result of resolving every slide's comments into a deck-wide author registry + per-comment numbering. */

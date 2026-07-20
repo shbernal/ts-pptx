@@ -6,7 +6,8 @@
  */
 
 import type { BorderProps } from '../../core-interfaces.js'
-import { createLineCap, genXmlColorSelection, resolveBorderWidth, valToPts } from '../../gen-utils.js'
+import { createLineCap, genXmlColorSelection, resolveBorderWidth } from '../../gen-utils.js'
+import { valToPts } from '../../units-internal.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 
 /**

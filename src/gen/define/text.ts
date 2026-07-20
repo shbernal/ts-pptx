@@ -24,14 +24,9 @@ import type {
 	TextProps,
 	TextPropsOptions,
 } from '../../core-interfaces.js'
-import {
-	correctShadowOptions,
-	encodeXmlEntities,
-	getNewRelId,
-	imageContentType,
-	valToPts,
-	validateObjectName,
-} from '../../gen-utils.js'
+import { correctShadowOptions, encodeXmlEntities, getNewRelId, validateObjectName } from '../../gen-utils.js'
+import { imageContentType } from '../../media/content-type.js'
+import { valToPts } from '../../units-internal.js'
 import { nextObjectNameIdx } from './object-name.js'
 import { createHyperlinkRels } from './hyperlinks.js'
 import { registerImageFillMedia } from './image.js'

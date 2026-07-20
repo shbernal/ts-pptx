@@ -18,7 +18,8 @@ import type {
 	TableToSlidesProps,
 	TableCellProps,
 } from '../../core-interfaces.js'
-import { inch2Emu, rgbToHex } from '../../gen-utils.js'
+import { rgbToHex } from '../../gen-utils.js'
+import { inch2Emu } from '../../units-internal.js'
 import { warn } from '../../log.js'
 import { getSlidesForTableRows } from './autopage.js'
 
