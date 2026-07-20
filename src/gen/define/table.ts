@@ -11,7 +11,6 @@ import {
 	DEF_FONT_COLOR,
 	DEF_FONT_SIZE,
 	DEF_SLIDE_MARGIN_IN,
-	EMU,
 	SlideObjectType,
 } from '../../core-enums.js'
 import { warn } from '../../log.js'
@@ -28,6 +27,7 @@ import type {
 import { getSlidesForTableRows } from '../../gen-tables.js'
 import { encodeXmlEntities, validateObjectName } from '../../gen-utils.js'
 import { getSmartParseNumber } from '../../units-internal.js'
+import { EMU_PER_INCH } from '../../units.js'
 import { createHyperlinkRels } from './hyperlinks.js'
 
 type BorderTuple = [BorderProps, BorderProps, BorderProps, BorderProps]
@@ -324,7 +324,7 @@ export function addTableDefinition(
 	} else if (opt.w) {
 		// Keep raw user `Coord` — resolved to EMU once at emission. (No pre-conversion.)
 	} else {
-		opt.w = Math.floor((presLayout._sizeW || presLayout.width) / EMU - arrTableMargin[1] - arrTableMargin[3])
+		opt.w = Math.floor((presLayout._sizeW || presLayout.width) / EMU_PER_INCH - arrTableMargin[1] - arrTableMargin[3])
 	}
 
 	// Shrink-to-fit (`fitColumns: 'shrink'`): proportionally scale columns down so a
@@ -333,8 +333,8 @@ export function addTableDefinition(
 	// single `w`. Rewriting the widths here (the table definition) means both the emitter and
 	// the measured-fit pass inherit the fitted grid; shrink only, no minimum-width floor.
 	if (opt.fitColumns === 'shrink') {
-		const slideWin = (presLayout._sizeW || presLayout.width) / EMU
-		const xIn = getSmartParseNumber(opt.x, 'X', presLayout) / EMU
+		const slideWin = (presLayout._sizeW || presLayout.width) / EMU_PER_INCH
+		const xIn = getSmartParseNumber(opt.x, 'X', presLayout) / EMU_PER_INCH
 		const availWin = slideWin - xIn - arrTableMargin[3]
 		if (availWin > 0) {
 			if (Array.isArray(opt.colW)) {

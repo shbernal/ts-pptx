@@ -7,7 +7,7 @@
  * (`resolveHtmlColWidth`, `htmlBorderToProps`) that are unit-tested directly.
  */
 
-import { EMU, SlideObjectType } from '../../core-enums.js'
+import { SlideObjectType } from '../../core-enums.js'
 import type {
 	AddSlideProps,
 	BorderProps,
@@ -21,6 +21,7 @@ import type {
 import { rgbToHex } from '../../gen-utils.js'
 import { inch2Emu } from '../../units-internal.js'
 import { warn } from '../../log.js'
+import { EMU_PER_INCH } from '../../units.js'
 import { getSlidesForTableRows } from './autopage.js'
 
 type MarginTuple = [number, number, number, number]
@@ -129,9 +130,13 @@ export function genTableToSlides(
 		console.log('|-- `tableToSlides` ----------------------------------------------------|')
 		console.log(`| tableProps.h .................................... = ${opts.h}`)
 		console.log(`| tableProps.w .................................... = ${opts.w}`)
-		console.log(`| pptx.presLayout.width ........................... = ${(pptx.presLayout.width / EMU).toFixed(1)}`)
-		console.log(`| pptx.presLayout.height .......................... = ${(pptx.presLayout.height / EMU).toFixed(1)}`)
-		console.log(`| emuSlideTabW .................................... = ${(emuSlideTabW / EMU).toFixed(1)}`)
+		console.log(
+			`| pptx.presLayout.width ........................... = ${(pptx.presLayout.width / EMU_PER_INCH).toFixed(1)}`
+		)
+		console.log(
+			`| pptx.presLayout.height .......................... = ${(pptx.presLayout.height / EMU_PER_INCH).toFixed(1)}`
+		)
+		console.log(`| emuSlideTabW .................................... = ${(emuSlideTabW / EMU_PER_INCH).toFixed(1)}`)
 	}
 
 	// STEP 2: Grab table col widths - just find the first availble row, either thead/tbody/tfoot, others may have colspans, who cares, we only need col widths from 1
@@ -155,7 +160,7 @@ export function genTableToSlides(
 
 	// STEP 3: Calc/Set column widths by using same column width percent from HTML table
 	arrTabColW.forEach((colW, idxW) => {
-		const intCalcWidth = Number(((Number(emuSlideTabW) * ((colW / intTabW) * 100)) / 100 / EMU).toFixed(2))
+		const intCalcWidth = Number(((Number(emuSlideTabW) * ((colW / intTabW) * 100)) / 100 / EMU_PER_INCH).toFixed(2))
 		const headCell = document.querySelector(`#${tabEleId} thead tr:first-child th:nth-child(${idxW + 1})`)
 		const intSetWidth = headCell ? Number(headCell.getAttribute('data-pptx-width')) : 0
 		const intMinWidth = headCell ? Number(headCell.getAttribute('data-pptx-min-width')) : 0
@@ -318,7 +323,7 @@ export function genTableToSlides(
 		newSlide.addTable(slide.rows, {
 			x: opts.x || arrInchMargins[3],
 			y: opts.y,
-			w: Number(emuSlideTabW) / EMU,
+			w: Number(emuSlideTabW) / EMU_PER_INCH,
 			colW: arrColW,
 			autoPage: false,
 		})

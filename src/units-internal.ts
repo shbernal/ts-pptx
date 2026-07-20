@@ -13,9 +13,10 @@
  * from an entrypoint.
  */
 
-import { EMU, ONEPT } from './core-enums.js'
 import { warn, warnOnce } from './log.js'
 import {
+	EMU_PER_INCH,
+	EMU_PER_POINT,
 	ANGLE_UNITS_PER_DEGREE,
 	coordToEmu,
 	FIXED_PCT_PER_PERCENT,
@@ -117,7 +118,7 @@ export function resolveTableColWidthsEmu(
 	colCount: number
 ): number[] {
 	if (!(colCount > 0)) return []
-	const even = totalWidthEmu > 0 ? Math.round(totalWidthEmu / colCount) : EMU
+	const even = totalWidthEmu > 0 ? Math.round(totalWidthEmu / colCount) : EMU_PER_INCH
 	if (Array.isArray(colW)) {
 		return Array.from({ length: colCount }, (_, i) => {
 			// Guard before inch2Emu: it throws on non-finite input. A missing/NaN slot
@@ -136,7 +137,7 @@ export function resolveTableColWidthsEmu(
  */
 export function valToPts(pt: number | string): number {
 	const points = Number(pt) || 0
-	return isNaN(points) ? 0 : Math.round(points * ONEPT)
+	return isNaN(points) ? 0 : Math.round(points * EMU_PER_POINT)
 }
 
 /**
@@ -165,7 +166,8 @@ export function opacityToAlpha(opacity: number): number {
 export function lineWidthToEmu(widthPts: number | string): number {
 	const raw = valToPts(widthPts)
 	const clamped = Math.min(20116800, Math.max(0, raw))
-	if (clamped !== raw) warn(`line width ${widthPts} is outside the valid range 0-1584pt; using ${clamped / ONEPT}.`)
+	if (clamped !== raw)
+		warn(`line width ${widthPts} is outside the valid range 0-1584pt; using ${clamped / EMU_PER_POINT}.`)
 	return clamped
 }
 

@@ -24,7 +24,6 @@ import {
 	DEF_FONT_SIZE,
 	DEF_FONT_TITLE_SIZE,
 	DEF_SHAPE_SHADOW,
-	ONEPT,
 	XML_DECL,
 } from '../../core-enums.js'
 import type {
@@ -48,7 +47,7 @@ import {
 	resolveBorderWidth,
 } from '../../gen-utils.js'
 import { convertRotationDegrees, valToPts } from '../../units-internal.js'
-import { FIXED_PCT_PER_PERCENT, ptToHundredths } from '../../units.js'
+import { EMU_PER_POINT, FIXED_PCT_PER_PERCENT, ptToHundredths } from '../../units.js'
 import { dataLabels, dataValues, dataSizes, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 
@@ -1613,7 +1612,7 @@ function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: string)
 		strXml += '  <c:tickLblPos val="' + (opts.catAxisLabelPos || (opts.barDir === 'col' ? 'low' : 'nextTo')) + '"/>'
 	}
 	strXml += '  <c:spPr>'
-	strXml += `    <a:ln w="${opts.catAxisLineSize ? valToPts(opts.catAxisLineSize) : ONEPT}" cap="flat">`
+	strXml += `    <a:ln w="${opts.catAxisLineSize ? valToPts(opts.catAxisLineSize) : EMU_PER_POINT}" cap="flat">`
 	strXml += !opts.catAxisLineShow ? '<a:noFill/>' : genXmlColorSelection(opts.catAxisLineColor || DEF_GRIDLINE_COLOR)
 	strXml += '      <a:prstDash val="' + (opts.catAxisLineStyle || 'solid') + '"/>'
 	strXml += '      <a:round/>'
@@ -1727,7 +1726,7 @@ function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string {
 		strXml += ' <c:tickLblPos val="' + (opts.valAxisLabelPos || (opts.barDir === 'col' ? 'nextTo' : 'low')) + '"/>'
 	}
 	strXml += ' <c:spPr>'
-	strXml += `   <a:ln w="${opts.valAxisLineSize ? valToPts(opts.valAxisLineSize) : ONEPT}" cap="flat">`
+	strXml += `   <a:ln w="${opts.valAxisLineSize ? valToPts(opts.valAxisLineSize) : EMU_PER_POINT}" cap="flat">`
 	strXml += !opts.valAxisLineShow ? '<a:noFill/>' : genXmlColorSelection(opts.valAxisLineColor || DEF_GRIDLINE_COLOR)
 	strXml += '     <a:prstDash val="' + (opts.valAxisLineStyle || 'solid') + '"/>'
 	strXml += '     <a:round/>'

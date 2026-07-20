@@ -3,12 +3,9 @@
  * NOTE: `enum` wont work for objects, so use `Object.freeze`
  */
 
-import { EMU_PER_INCH, EMU_PER_POINT } from './units.js'
 import type { BorderProps, OptsChartGridLine, ShadowPropsInternal } from './core-interfaces.js'
 
 // CONST
-export const EMU = EMU_PER_INCH // One (1) inch (OfficeXML measures in EMU (English Metric Units))
-export const ONEPT = EMU_PER_POINT // One (1) point (pt)
 export const CRLF = '\r\n' // AKA: Chr(13) & Chr(10)
 // Base for `<p:sldLayoutId id>` (layout N gets BASE + N). 2147483649 = 0x80000001:
 // ECMA-376 ST_SlideLayoutId requires id >= 0x80000000, and PowerPoint conventionally

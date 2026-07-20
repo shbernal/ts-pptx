@@ -67,6 +67,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **BREAKING: the duplicate unit constants `EMU` and `ONEPT` are removed from
+  `core-enums.ts`.** They were aliases for `EMU_PER_INCH` (914400) and `EMU_PER_POINT`
+  (12700) in `units.ts`, and both pairs were exported from every entrypoint — two
+  published names for the same number, which is how unit mix-ups survive. `units.ts` is
+  now the single source for unit constants. *Migration:* `EMU` → `EMU_PER_INCH`,
+  `ONEPT` → `EMU_PER_POINT`; the values are unchanged, so this is a rename only. All
+  internal call sites were migrated in the same change and the demo decks re-emit
+  byte-identically (1,437 package parts).
+
 - **BREAKING (types): the legacy `I`-prefixed type aliases are removed.** The ~26
   deprecated `@deprecated v4.0.0` aliases in `core-interfaces.ts` (e.g. `IChartOpts`,
   `IChartMulti`, `ISlideObject`, `ISlideRelMedia`, `IPresentationProps`) — thin

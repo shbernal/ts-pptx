@@ -15,7 +15,6 @@ import {
 	DEF_CELL_MARGIN_IN,
 	DEF_PRES_LAYOUT_NAME,
 	DEF_TEXT_SHADOW,
-	EMU,
 	SLDNUMFLDID,
 	SlideObjectType,
 	XML_DECL,
@@ -52,7 +51,7 @@ import {
 	marginToEmu,
 	resolveTableColWidthsEmu,
 } from '../../units-internal.js'
-import { FIXED_PCT_PER_PERCENT, pixelsToEmu } from '../../units.js'
+import { EMU_PER_INCH, FIXED_PCT_PER_PERCENT, pixelsToEmu } from '../../units.js'
 import { warn } from '../../log.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'
 import { genXmlCustGeom, genXmlPresetGeom } from '../drawingml/geometry.js'
@@ -678,8 +677,8 @@ function renderTableObject(
 		) +
 		'</p:nvGraphicFramePr>'
 	strXml += el('p:xfrm', null, [
-		raw(voidEl('a:off', { x: x || (x === 0 ? 0 : EMU), y: y || (y === 0 ? 0 : EMU) })),
-		raw(voidEl('a:ext', { cx: cx || (cx === 0 ? 0 : EMU), cy: cy || EMU })),
+		raw(voidEl('a:off', { x: x || (x === 0 ? 0 : EMU_PER_INCH), y: y || (y === 0 ? 0 : EMU_PER_INCH) })),
+		raw(voidEl('a:ext', { cx: cx || (cx === 0 ? 0 : EMU_PER_INCH), cy: cy || EMU_PER_INCH })),
 	])
 	{
 		// NOTE: attribute ORDER is byte-significant. None of these flags appears in the byte-gate
@@ -956,7 +955,7 @@ function renderTextObject(
 	// Caller guarantees options is set (see slideObjectToXml); re-narrow for this scope.
 	slideItemObj.options = slideItemObj.options || {}
 	// Lines can have zero cy, but text should not
-	if (!slideItemObj.options.line && cy === 0) cy = EMU * 0.3
+	if (!slideItemObj.options.line && cy === 0) cy = EMU_PER_INCH * 0.3
 
 	// Margin/Padding/Inset for textboxes
 	if (!slideItemObj.options._bodyProp) slideItemObj.options._bodyProp = {}

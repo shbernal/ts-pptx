@@ -12,9 +12,9 @@
  * base64/image-header decoding and media content types moved to `media/`.
  */
 
-import { REGEX_HEX_COLOR, DEF_FONT_COLOR, ONEPT, SchemeColor, type SCHEME_COLORS } from './core-enums.js'
+import { REGEX_HEX_COLOR, DEF_FONT_COLOR, SchemeColor, type SCHEME_COLORS } from './core-enums.js'
 import { warn } from './log.js'
-import { ANGLE_UNITS_PER_DEGREE, FIXED_PCT_PER_PERCENT, PERCENT_SCALE } from './units.js'
+import { ANGLE_UNITS_PER_DEGREE, EMU_PER_POINT, FIXED_PCT_PER_PERCENT, PERCENT_SCALE } from './units.js'
 import { convertRotationDegrees, opacityToAlpha, transparencyToAlpha, valToPts } from './units-internal.js'
 import type {
 	BorderProps,
@@ -204,7 +204,7 @@ export function createColorElement(colorStr: string | SCHEME_COLORS, innerElemen
 export function createGlowElement(options: TextGlowProps, defaults: TextGlowProps): string {
 	let strXml = ''
 	const opts = { ...defaults, ...options }
-	const size = Math.round(opts.size * ONEPT)
+	const size = Math.round(opts.size * EMU_PER_POINT)
 	const color = opts.color || DEF_FONT_COLOR
 	const opacity = opacityToAlpha(opts.opacity ?? 0)
 

@@ -58,7 +58,7 @@ export time. Each module opens with a TSDoc header stating its job; larger files
 | Transitions / animations | slide props (`slide.ts`) | `gen/anim/transition.ts` `slideTransitionToXml` / `gen/anim/animation.ts` `buildAnimationSeq` |
 | Slide master / layout | `gen/define/master.ts` `createSlideMaster` | `gen/slide/master.ts` `makeXmlMaster` / `gen/slide/layout.ts` `makeXmlLayout` |
 | Theme colors | — | `gen/pres/theme.ts` `buildThemeClrScheme` / `makeXmlTheme` |
-| Coordinates & units (in → EMU) | `gen-utils.ts` `getSmartParseNumber`; `units.ts` | — |
+| Coordinates & units (in → EMU) | `units.ts` (strict public primitives); `units-internal.ts` `getSmartParseNumber` (lenient generator layer) | — |
 | Colors, fills, borders, shadows | `gen-utils.ts` `createColorElement` / `genXml*Fill` / `createShadowElement` | — |
 | Package assembly & export | `pptxgen.ts` `exportPresentation` (`write` / `writeFile` / `stream`) | `gen/opc/content-types.ts` `makeXmlContTypes` / `gen/opc/root-rels.ts` `makeXmlRootRels` / per-part rels |
 | Public API surface | `pptxgen.ts` (class), `slide.ts` (slide methods) | — |

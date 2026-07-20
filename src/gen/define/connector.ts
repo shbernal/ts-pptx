@@ -5,10 +5,10 @@
  * connector preset + adjust guides, and optionally binds start / end shapes. Emitted later as
  * `<p:cxnSp>`.
  */
-import { connectorPresetFor, DEF_SHAPE_LINE_COLOR, EMU, SlideObjectType } from '../../core-enums.js'
+import { connectorPresetFor, DEF_SHAPE_LINE_COLOR, SlideObjectType } from '../../core-enums.js'
 import { warn } from '../../log.js'
 import type { ConnectorProps, PresSlideInternal, SlideObject } from '../../core-interfaces.js'
-import { FIXED_PCT_PER_PERCENT } from '../../units.js'
+import { EMU_PER_INCH, FIXED_PCT_PER_PERCENT } from '../../units.js'
 import { encodeXmlEntities, validateObjectName } from '../../gen-utils.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { nextObjectNameIdx } from './object-name.js'
@@ -95,10 +95,10 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 	// Resolve all four endpoints to inches up front (handles every `Coord` form: number,
 	// '50%', '2in', etc.). The connector box uses the min corner as its origin and flips
 	// horizontally/vertically when the end point is left of / above the start point.
-	const x1 = getSmartParseNumber(opts.x1, 'X', target._presLayout) / EMU
-	const y1 = getSmartParseNumber(opts.y1, 'Y', target._presLayout) / EMU
-	const x2 = getSmartParseNumber(opts.x2, 'X', target._presLayout) / EMU
-	const y2 = getSmartParseNumber(opts.y2, 'Y', target._presLayout) / EMU
+	const x1 = getSmartParseNumber(opts.x1, 'X', target._presLayout) / EMU_PER_INCH
+	const y1 = getSmartParseNumber(opts.y1, 'Y', target._presLayout) / EMU_PER_INCH
+	const x2 = getSmartParseNumber(opts.x2, 'X', target._presLayout) / EMU_PER_INCH
+	const y2 = getSmartParseNumber(opts.y2, 'Y', target._presLayout) / EMU_PER_INCH
 
 	const newObject: SlideObject = {
 		_type: SlideObjectType.connector,

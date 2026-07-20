@@ -6,10 +6,10 @@
  * shape and image code paths so path/preset emission stays in one place.
  */
 
-import { EMU, VALID_SHAPE_PRESETS } from '../../core-enums.js'
+import { VALID_SHAPE_PRESETS } from '../../core-enums.js'
 import type { Coord, GeometryPoint, ObjectOptions, PresLayout } from '../../core-interfaces.js'
 import { convertArcAngle, convertRotationDegrees, getSmartParseNumber } from '../../units-internal.js'
-import { PERCENT_SCALE } from '../../units.js'
+import { EMU_PER_INCH, PERCENT_SCALE } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { warn } from '../../log.js'
 
@@ -60,7 +60,7 @@ export function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: 
 		emittedAdjNames.add(name)
 	}
 	if (options.rectRadius) {
-		const adjVal = Math.round((options.rectRadius * EMU * PERCENT_SCALE) / Math.min(cx, cy))
+		const adjVal = Math.round((options.rectRadius * EMU_PER_INCH * PERCENT_SCALE) / Math.min(cx, cy))
 		if (RECT_RADIUS_ADJ1_SHAPES.has(shapeName)) {
 			emitGuide('adj1', adjVal)
 			emitGuide('adj2', 0)
