@@ -75,9 +75,12 @@ function escapeVueUnsafeHtml(markdown) {
 rmSync(outDir, { force: true, recursive: true })
 mkdirSync(outDir, { recursive: true })
 
-const typedoc = spawnSync(typedocBin, ['--options', 'typedoc.docs.json'], {
+// Invoke as a single shell string (not an args array) so Windows can run the
+// .cmd shim without shell:true's arg-escaping deprecation warning (DEP0190).
+const typedoc = spawnSync(`"${typedocBin}" --options typedoc.docs.json`, {
 	cwd: root,
 	stdio: 'inherit',
+	shell: true,
 })
 
 if (typedoc.status !== 0) {

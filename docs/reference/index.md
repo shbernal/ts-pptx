@@ -21,10 +21,18 @@ The generated TypeDoc reference is built from public entry points:
 
 - `src/index.ts`
 - `src/core.ts`
-- `src/inspect.ts`
 - `src/node.ts`
 - `src/browser.ts`
 - `src/standalone.ts`
+
+`src/inspect.ts`, `src/measure.ts`, `src/read.ts`, `src/math.ts`, and
+`src/zip.ts` are separate public subpaths (see
+[Runtime And Package Support](../runtime-and-package-support.md)) not covered
+by the generated TypeDoc reference; they're documented by hand instead:
+[PPTX Inspection](pptx-inspection.md), [PPTX Read / Round-Trip](pptx-read.md),
+[Measured Text Fit](../measured-text-fit.md), and
+[Math Equations](../math-latex.md). `src/zip.ts` has no dedicated page yet —
+it is internal OPC/zip plumbing shared by `read` and `inspect`.
 
 After running `pnpm run docs:api`, read the generated reference at
 `reference/api/index.md`.

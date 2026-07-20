@@ -1023,8 +1023,8 @@ workflow. Two methods cover it:
   (`appendSlides` throws otherwise — size the generator to the deck).
 
 ```js
-import PptxGenJS from 'pptxgenjs'
-import { Presentation } from 'pptxgenjs/read'
+import PptxGenJS from '@shbernal/pptxgenjs'
+import { Presentation } from '@shbernal/pptxgenjs/read'
 
 const deck = await Presentation.load(await readFile('deck.pptx'))
 

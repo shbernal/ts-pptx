@@ -18,7 +18,7 @@ ALLOWED_DOC_TYPES = {
     "runbook",
 }
 REQUIRED_FIELDS = {"doc-schema-version", "title", "summary", "read_when", "doc_type"}
-EXCLUDED_DIRS = {"archive", "research"}
+EXCLUDED_DIRS = {"archive", "changelog-archive", "research"}
 MARKDOWN_LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 
 

@@ -52,8 +52,11 @@ explicitly changed:
 
 The package smoke test should continue to prove that old artifacts are absent
 and that `@shbernal/pptxgenjs`, `@shbernal/pptxgenjs/core`,
-`@shbernal/pptxgenjs/node`, `@shbernal/pptxgenjs/browser`, and
-`@shbernal/pptxgenjs/standalone` resolve.
+`@shbernal/pptxgenjs/inspect`, `@shbernal/pptxgenjs/node`,
+`@shbernal/pptxgenjs/browser`, and `@shbernal/pptxgenjs/standalone` resolve.
+The `./measure`, `./read`, `./math`, and `./zip` subpaths exist in package
+exports but are not yet covered by `pnpm run test:package` — see
+[Runtime And Package Support](runtime-and-package-support.md).
 
 ## Upstream Signals
 

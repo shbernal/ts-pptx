@@ -401,8 +401,8 @@ export function createGlowElement(options: TextGlowProps, defaults: TextGlowProp
  *
  * Colors go through {@link createColorElement}, so scheme colors (e.g. `accent1`) are honored
  * — earlier per-site copies hardcoded `a:srgbClr` and silently emitted invalid OOXML for them.
- * @param {ShadowProps} options shadow properties
- * @param {ShadowProps} defaults defaults for unspecified properties in `options`
+ * @param {ShadowPropsInternal} options shadow properties
+ * @param {ShadowPropsInternal} defaults defaults for unspecified properties in `options`
  * @see http://officeopenxml.com/drwSp-effects.php
  * @returns {string} XML string, or '' when type is 'none'
  */
@@ -438,8 +438,8 @@ export function createShadowElement(options: ShadowPropsInternal | undefined, de
  * no shadow (missing/non-object options, or `type: 'none'`), matching the "no effects" element
  * PowerPoint emits. Use this instead of {@link createShadowElement} when the shadow is the only
  * effect; use `createShadowElement` directly when combining with other effects (e.g. glow).
- * @param {ShadowProps} options shadow properties
- * @param {ShadowProps} defaults defaults for unspecified properties in `options`
+ * @param {ShadowPropsInternal} options shadow properties
+ * @param {ShadowPropsInternal} defaults defaults for unspecified properties in `options`
  * @returns {string} `<a:effectLst>…</a:effectLst>` or `<a:effectLst/>`
  */
 export function createShadowEffectLst(options: ShadowPropsInternal | undefined, defaults: ShadowPropsInternal): string {

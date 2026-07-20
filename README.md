@@ -96,6 +96,10 @@ Supported package surface:
 
 - `import pptxgen from "@shbernal/pptxgenjs"`
 - `import { ShapeType } from "@shbernal/pptxgenjs/core"`
+- `import { inspectPptx } from "@shbernal/pptxgenjs/inspect"`
+- `import { measureText } from "@shbernal/pptxgenjs/measure"`
+- `import { Presentation } from "@shbernal/pptxgenjs/read"`
+- `import { latexToOmml } from "@shbernal/pptxgenjs/math"`
 - `import pptxgen from "@shbernal/pptxgenjs/node"`
 - `import pptxgen from "@shbernal/pptxgenjs/browser"`
 - `import pptxgen from "@shbernal/pptxgenjs/standalone"`

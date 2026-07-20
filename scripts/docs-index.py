@@ -24,7 +24,7 @@ import sys
 from pathlib import Path
 
 
-EXCLUDED_DIRS = {"archive", "research"}
+EXCLUDED_DIRS = {"archive", "changelog-archive", "research"}
 OUTPUT_NAME = "doc-index.md"
 
 

@@ -29,12 +29,20 @@ The package publishes:
   constants, and unit helpers.
 - `dist/inspect.js` and `dist/inspect.d.ts` for low-level PPTX package
   inspection, slide/object extraction, and geometry helpers.
+- `dist/measure.js` and `dist/measure.d.ts` for headless text-measurement and
+  autofit helpers (see [Measured Text Fit](measured-text-fit.md)).
+- `dist/read.js` and `dist/read.d.ts` for opening, editing, and round-tripping
+  an existing `.pptx` (see [PPTX Read / Round-Trip](reference/pptx-read.md)).
+- `dist/math.js` and `dist/math.d.ts` for LaTeX/MathML → OMML conversion (see
+  [Math Equations](math-latex.md)).
+- `dist/zip.js` and `dist/zip.d.ts` for the shared OPC/zip package plumbing
+  used by `read` and `inspect`.
 - `dist/node.js` and `dist/node.d.ts` for explicit Node.js consumers.
 - `dist/browser.js` and `dist/browser.d.ts` for explicit browser consumers.
 - `dist/standalone.js` and `dist/standalone.d.ts` as a browser ESM entry that
   bundles JSZip.
-- package `exports` entries for `.`, `./core`, `./inspect`, `./node`,
-  `./browser`, and `./standalone`.
+- package `exports` entries for `.`, `./core`, `./inspect`, `./measure`,
+  `./read`, `./math`, `./zip`, `./node`, `./browser`, and `./standalone`.
 
 Supported environments are modern module-aware environments:
 
@@ -49,6 +57,9 @@ Supported package imports:
 import pptxgen from "@shbernal/pptxgenjs"
 import { ShapeType } from "@shbernal/pptxgenjs/core"
 import { inspectPptx } from "@shbernal/pptxgenjs/inspect"
+import { measureText } from "@shbernal/pptxgenjs/measure"
+import { Presentation } from "@shbernal/pptxgenjs/read"
+import { latexToOmml } from "@shbernal/pptxgenjs/math"
 import pptxgenNode from "@shbernal/pptxgenjs/node"
 import pptxgenBrowser from "@shbernal/pptxgenjs/browser"
 import pptxgenStandalone from "@shbernal/pptxgenjs/standalone"

@@ -127,15 +127,28 @@ The package should ship:
 - `dist/index.js`
 - `dist/index.d.ts`
 - `dist/core.js`
+- `dist/inspect.js`
+- `dist/measure.js`
+- `dist/read.js`
+- `dist/math.js`
+- `dist/zip.js`
 - `dist/node.js`
 - `dist/browser.js`
 - `dist/standalone.js`
 - package `exports["."].default`
 - package `exports["."].types`
-- package subpaths for `./core`, `./node`, `./browser`, and `./standalone`
+- package subpaths for `./core`, `./inspect`, `./measure`, `./read`, `./math`,
+  `./zip`, `./node`, `./browser`, and `./standalone`
 - scoped imports for `@shbernal/pptxgenjs`,
-  `@shbernal/pptxgenjs/core`, `@shbernal/pptxgenjs/node`,
-  `@shbernal/pptxgenjs/browser`, and `@shbernal/pptxgenjs/standalone`
+  `@shbernal/pptxgenjs/core`, `@shbernal/pptxgenjs/inspect`,
+  `@shbernal/pptxgenjs/measure`, `@shbernal/pptxgenjs/read`,
+  `@shbernal/pptxgenjs/math`, `@shbernal/pptxgenjs/zip`,
+  `@shbernal/pptxgenjs/node`, `@shbernal/pptxgenjs/browser`, and
+  `@shbernal/pptxgenjs/standalone`
+
+(`pnpm run test:package` currently smoke-tests `.`, `./core`, `./inspect`,
+`./node`, `./browser`, and `./standalone` end-to-end; `./measure`, `./read`,
+`./math`, and `./zip` are not yet exercised by that script.)
 
 The package should not ship or document:
 

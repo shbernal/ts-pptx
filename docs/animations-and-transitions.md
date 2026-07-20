@@ -1,7 +1,7 @@
 ---
 doc-schema-version: 1
 title: "Animations & Transitions"
-summary: "Scope and design for PptxGenJS slide-transition and per-shape build-animation support: a full typed model for transitions (read + write), opaque spid-aware preservation for the p:timing animation tree on read, and preset-template authoring on write. Not yet implemented — this is the foundation decision record and the fixture gate."
+summary: "Scope and design for PptxGenJS slide-transition and per-shape build-animation support: a full typed model for transitions (read + write), opaque spid-aware preservation for the p:timing animation tree on read, and preset-template authoring on write. Implemented (2026-06-26) — this is the foundation decision record, still the reference for scope/rationale."
 read_when:
   - Implementing or changing slide transition emit/parse (p:transition)
   - Implementing or changing animation handling (p:timing / p:bldLst)
@@ -225,7 +225,7 @@ Three operations, all purely structural (no semantic parse):
   into the destination timing with an spid remap and a `p:cTn`-id renumber, never
   leaving a dangling reference on either side (`carryShapeAnimations`).
 
-## Public API surface (sketch — to be finalized in implementation)
+## Public API surface (shipped)
 
 ```ts
 // Read (src/read): typed transition; animation stays opaque.
@@ -253,8 +253,9 @@ interface AnimationProps {
 }
 ```
 
-(Per-shape vs slide-level animation list — and the exact preset enum — are
-finalized during implementation against the authored fixtures.)
+Simplified for readability — `AnimationProps` also carries `shapeIndex`/`objectName`
+(target-shape selection) and other fields; `TransitionProps`/`AnimationProps` in
+`src/core-interfaces.ts` are the authoritative definitions.
 
 ## Fixtures + oracles (the gate)
 

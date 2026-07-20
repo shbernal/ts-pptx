@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 
-EXCLUDED_DIRS = {"archive", "research"}
+EXCLUDED_DIRS = {"archive", "changelog-archive", "research"}
 
 
 def strip_quotes(value: str) -> str:

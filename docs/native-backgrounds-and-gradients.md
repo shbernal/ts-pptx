@@ -1,10 +1,10 @@
 ---
 doc-schema-version: 1
 title: "Native Backgrounds And Gradients"
-summary: "Implementation plan for native PPTX gradient fills on slide backgrounds and shapes."
+summary: "Linear and radial native PPTX gradient fills on slide backgrounds and shapes: what's shipped, what's still fixture-gated, and the design rationale."
 read_when:
-  - Planning native gradient fill support
   - Changing slide background or shape fill OOXML
+  - Extending gradient fill support (new gradient types or targets)
   - Deciding whether a consumer can replace raster gradient backgrounds
 doc_type: "decision"
 ---
