@@ -83,6 +83,10 @@ defineRegressionSuite('Chart scatter data labels', [
 			)
 			assert((xml.match(/type="YVALUE"/g) || []).length === 2, 'two YVALUE fields (blank label skipped)')
 			assertIncludes(xml, '<c:dLblPos val="t"/>', 'dataLabelPosition flows into dLblPos')
+			// XVALUE/YVALUE field cache text is the series name bracket-wrapped; pre-existing
+			// asymmetry (XVALUE has no closing bracket) is intentionally preserved, not "fixed".
+			assertIncludes(xml, '<a:t>[Y1</a:t>', 'XVALUE field cache text is [seriesName (no closing bracket)')
+			assertIncludes(xml, '<a:t>[Y1]</a:t>', 'YVALUE field cache text is [seriesName]')
 		},
 	},
 	{

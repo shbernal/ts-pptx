@@ -663,9 +663,7 @@ function makeCatAxisPlot(
 		strXml += '    <c:strRef>'
 		strXml += `      <c:f>${sheetCellRef(obj._dataIndex + dataLabels(obj).length + 1, 1)}</c:f>`
 		strXml +=
-			'      <c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>' +
-			encodeXmlEntities(obj.name ?? '') +
-			'</c:v></c:pt></c:strCache>'
+			'      <c:strCache><c:ptCount val="1"/><c:pt idx="0">' + el('c:v', null, obj.name ?? '') + '</c:pt></c:strCache>'
 		strXml += '    </c:strRef>'
 		strXml += '  </c:tx>'
 
@@ -757,7 +755,7 @@ function makeCatAxisPlot(
 					if (lbl) strXml += makeCustomDLblXml(idx, lbl, opts)
 				})
 			}
-			strXml += `<c:numFmt formatCode="${encodeXmlEntities(lblFmtCode ?? '') || 'General'}" sourceLinked="0"/>`
+			strXml += voidEl('c:numFmt', { formatCode: (lblFmtCode ?? '') || 'General', sourceLinked: 0 })
 			if (opts.dataLabelBkgrdColors) strXml += `<c:spPr>${genXmlColorSelection(seriesColor)}</c:spPr>`
 			strXml += '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr>'
 			strXml += `<a:defRPr b="${lblBold ? 1 : 0}" i="${lblItalic ? 1 : 0}" strike="noStrike" sz="${ptToHundredths(lblSize)}" u="none">`
@@ -786,9 +784,7 @@ function makeCatAxisPlot(
 				strXml += '    <c:numCache>'
 				strXml += '      <c:formatCode>' + (opts.catLabelFormatCode || 'General') + '</c:formatCode>'
 				strXml += `      <c:ptCount val="${firstLabelGroup(obj).length}"/>`
-				firstLabelGroup(obj).forEach(
-					(label, idx) => (strXml += `<c:pt idx="${idx}"><c:v>${encodeXmlEntities(label)}</c:v></c:pt>`)
-				)
+				firstLabelGroup(obj).forEach((label, idx) => (strXml += `<c:pt idx="${idx}">${el('c:v', null, label)}</c:pt>`))
 				strXml += '    </c:numCache>'
 				strXml += '  </c:numRef>'
 			} else if (dataLabels(obj).length === 1) {
@@ -796,9 +792,7 @@ function makeCatAxisPlot(
 				strXml += `    <c:f>Sheet1!$A$2:$A$${firstLabelGroup(obj).length + 1}</c:f>`
 				strXml += '    <c:strCache>'
 				strXml += `      <c:ptCount val="${firstLabelGroup(obj).length}"/>`
-				firstLabelGroup(obj).forEach(
-					(label, idx) => (strXml += `<c:pt idx="${idx}"><c:v>${encodeXmlEntities(label)}</c:v></c:pt>`)
-				)
+				firstLabelGroup(obj).forEach((label, idx) => (strXml += `<c:pt idx="${idx}">${el('c:v', null, label)}</c:pt>`))
 				strXml += '    </c:strCache>'
 				strXml += '  </c:strRef>'
 			} else {
@@ -808,9 +802,7 @@ function makeCatAxisPlot(
 				strXml += `      <c:ptCount val="${firstLabelGroup(obj).length}"/>`
 				dataLabels(obj).forEach((labelsGroup) => {
 					strXml += '<c:lvl>'
-					labelsGroup.forEach(
-						(label, idx) => (strXml += `<c:pt idx="${idx}"><c:v>${encodeXmlEntities(label)}</c:v></c:pt>`)
-					)
+					labelsGroup.forEach((label, idx) => (strXml += `<c:pt idx="${idx}">${el('c:v', null, label)}</c:pt>`))
 					strXml += '</c:lvl>'
 				})
 				strXml += '    </c:multiLvlStrCache>'
@@ -845,7 +837,8 @@ function makeCatAxisPlot(
 	// 3: "Data Labels"
 	{
 		strXml += '  <c:dLbls>'
-		strXml += `    <c:numFmt formatCode="${encodeXmlEntities(opts.dataLabelFormatCode ?? '') || 'General'}" sourceLinked="0"/>`
+		strXml +=
+			'    ' + voidEl('c:numFmt', { formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 })
 		strXml += '    <c:txPr>'
 		strXml += '      <a:bodyPr/>'
 		strXml += '      <a:lstStyle/>'
@@ -937,9 +930,9 @@ function makeScatterPlot(
 			strXml += '    <c:strRef>'
 			strXml += `      <c:f>${sheetCellRef(idx + 2, 1)}</c:f>`
 			strXml +=
-				'      <c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>' +
-				encodeXmlEntities(obj.name ?? '') +
-				'</c:v></c:pt></c:strCache>'
+				'      <c:strCache><c:ptCount val="1"/><c:pt idx="0">' +
+				el('c:v', null, obj.name ?? '') +
+				'</c:pt></c:strCache>'
 			strXml += '    </c:strRef>'
 			strXml += '  </c:tx>'
 
@@ -1038,7 +1031,7 @@ function makeScatterPlot(
 								'</a:solidFill>'
 							strXml += '                        ' + createChartTextFonts(opts.dataLabelFontFace || 'Arial')
 							strXml += '                    </a:rPr>'
-							strXml += '                    <a:t>' + encodeXmlEntities(label) + '</a:t>'
+							strXml += '                    ' + el('a:t', null, label)
 							strXml += '              </a:r>'
 							// Apply XY values at end of custom label
 							// Do not apply the values if the label was empty or just spaces
@@ -1054,7 +1047,7 @@ function makeScatterPlot(
 								strXml += '                  <a:pPr>'
 								strXml += '                      <a:defRPr/>'
 								strXml += '                  </a:pPr>'
-								strXml += '                  <a:t>[' + encodeXmlEntities(obj.name ?? '') + '</a:t>'
+								strXml += '                  ' + el('a:t', null, '[' + (obj.name ?? ''))
 								strXml += '              </a:fld>'
 								strXml += '              <a:r>'
 								strXml += '                  <a:rPr lang="' + (opts.lang || 'en-US') + '" baseline="0" dirty="0"/>'
@@ -1066,7 +1059,7 @@ function makeScatterPlot(
 								strXml += '                  <a:pPr>'
 								strXml += '                      <a:defRPr/>'
 								strXml += '                  </a:pPr>'
-								strXml += '                  <a:t>[' + encodeXmlEntities(obj.name ?? '') + ']</a:t>'
+								strXml += '                  ' + el('a:t', null, '[' + (obj.name ?? '') + ']')
 								strXml += '              </a:fld>'
 								strXml += '              <a:r>'
 								strXml += '                  <a:rPr lang="' + (opts.lang || 'en-US') + '" baseline="0" dirty="0"/>'
@@ -1194,7 +1187,8 @@ function makeScatterPlot(
 	// 3: Data Labels
 	{
 		strXml += '  <c:dLbls>'
-		strXml += `    <c:numFmt formatCode="${encodeXmlEntities(opts.dataLabelFormatCode ?? '') || 'General'}" sourceLinked="0"/>`
+		strXml +=
+			'    ' + voidEl('c:numFmt', { formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 })
 		strXml += '    <c:txPr>'
 		strXml += '      <a:bodyPr/>'
 		strXml += '      <a:lstStyle/>'
@@ -1264,9 +1258,9 @@ function makeBubblePlot(
 			strXml += '    <c:strRef>'
 			strXml += `      <c:f>${sheetCellRef(idxColLtr + 1, 1)}</c:f>`
 			strXml +=
-				'      <c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>' +
-				encodeXmlEntities(obj.name ?? '') +
-				'</c:v></c:pt></c:strCache>'
+				'      <c:strCache><c:ptCount val="1"/><c:pt idx="0">' +
+				el('c:v', null, obj.name ?? '') +
+				'</c:pt></c:strCache>'
 			strXml += '    </c:strRef>'
 			strXml += '  </c:tx>'
 
@@ -1359,7 +1353,7 @@ function makeBubblePlot(
 	// 3: Data Labels
 	{
 		strXml += '<c:dLbls>'
-		strXml += `<c:numFmt formatCode="${encodeXmlEntities(opts.dataLabelFormatCode ?? '') || 'General'}" sourceLinked="0"/>`
+		strXml += voidEl('c:numFmt', { formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 })
 		strXml += '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr>'
 		strXml += `<a:defRPr b="${opts.dataLabelFontBold ? 1 : 0}" i="${opts.dataLabelFontItalic ? 1 : 0}" strike="noStrike" sz="${ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE)}" u="none">`
 		strXml += genXmlColorSelection(opts.dataLabelColor || DEF_FONT_COLOR)
@@ -1429,7 +1423,7 @@ function makePiePlot(
 	strXml += '      <c:f>Sheet1!$B$1</c:f>'
 	strXml += '      <c:strCache>'
 	strXml += '        <c:ptCount val="1"/>'
-	strXml += '        <c:pt idx="0"><c:v>' + encodeXmlEntities(optsChartData.name ?? '') + '</c:v></c:pt>'
+	strXml += '        <c:pt idx="0">' + el('c:v', null, optsChartData.name ?? '') + '</c:pt>'
 	strXml += '      </c:strCache>'
 	strXml += '    </c:strRef>'
 	strXml += '  </c:tx>'
@@ -1481,9 +1475,10 @@ function makePiePlot(
 			strXml +=
 				'<c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r>' +
 				`<a:rPr lang="${opts.lang || 'en-US'}" dirty="0"/>` +
-				`<a:t>${encodeXmlEntities(customLbl)}</a:t></a:r></a:p></c:rich></c:tx>`
+				el('a:t', null, customLbl) +
+				'</a:r></a:p></c:rich></c:tx>'
 		}
-		strXml += `  <c:numFmt formatCode="${encodeXmlEntities(opts.dataLabelFormatCode ?? '') || 'General'}" sourceLinked="0"/>`
+		strXml += '  ' + voidEl('c:numFmt', { formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 })
 		strXml += '  <c:spPr/><c:txPr>'
 		strXml += '   <a:bodyPr/><a:lstStyle/>'
 		strXml += '   <a:p><a:pPr>'
@@ -1504,7 +1499,7 @@ function makePiePlot(
 		strXml += '    <c:showBubbleSize val="0"/>'
 		strXml += '  </c:dLbl>'
 	})
-	strXml += ` <c:numFmt formatCode="${encodeXmlEntities(opts.dataLabelFormatCode ?? '') || 'General'}" sourceLinked="0"/>`
+	strXml += ' ' + voidEl('c:numFmt', { formatCode: (opts.dataLabelFormatCode ?? '') || 'General', sourceLinked: 0 })
 	strXml += '    <c:txPr>'
 	strXml += '      <a:bodyPr/>'
 	strXml += '      <a:lstStyle/>'
@@ -1535,7 +1530,7 @@ function makePiePlot(
 	strXml += '    <c:strCache>'
 	strXml += `         <c:ptCount val="${firstLabelGroup(optsChartData).length}"/>`
 	firstLabelGroup(optsChartData).forEach((label, idx) => {
-		strXml += `<c:pt idx="${idx}"><c:v>${encodeXmlEntities(label)}</c:v></c:pt>`
+		strXml += `<c:pt idx="${idx}">${el('c:v', null, label)}</c:pt>`
 	})
 	strXml += '    </c:strCache>'
 	strXml += '  </c:strRef>'
