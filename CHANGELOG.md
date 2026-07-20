@@ -78,6 +78,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `IOptsChartData` → `OptsChartDataInternal`, `IPresentationProps` → `PresentationPropsInternal`).
   These were type-only exports, so runtime behavior and emitted OOXML are unchanged.
 
+- **BREAKING: removed two unused exported enums/constants from `core-enums.ts`.**
+  `DEF_SLIDE_BKGD` (a `'FFFFFF'` constant) and `MasterObjectType` (an enum of
+  `chart`/`image`/`line`/`rect`/`text`/`placeholder`) had no internal callers —
+  slide-background defaulting never read `DEF_SLIDE_BKGD`, and `MasterObjectType`
+  was a leftover from the `MASTER_OBJECTS` → `MasterObjectType` rename that was
+  never wired back up to anything. Both were still exported through the public
+  `core-enums.js` barrel (`index`/`core`/`browser`/`node`/`standalone`), so removing
+  them is a public-API break even though nothing in this codebase used them.
+  *Migration:* there is no replacement — inline the literal `'FFFFFF'` if you were
+  importing `DEF_SLIDE_BKGD`, and drop any reference to `MasterObjectType` (it was
+  never read to distinguish object kinds; use `SlideObjectType` for that).
+
 ### Fixed
 
 - **The slide-number placeholder no longer emits a hardcoded `cNvPr` id that can collide.**

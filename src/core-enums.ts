@@ -37,7 +37,6 @@ export const DEF_SHAPE_SHADOW: ShadowProps = {
 	opacity: 0.35,
 	rotateWithShape: true,
 }
-export const DEF_SLIDE_BKGD = 'FFFFFF'
 export const DEF_SLIDE_MARGIN_IN: [number, number, number, number] = [0.5, 0.5, 0.5, 0.5] // TRBL-style
 export const DEF_TEXT_SHADOW: ShadowProps = {
 	type: 'outer',
@@ -581,15 +580,6 @@ export const VALID_SHAPE_PRESETS: ReadonlySet<string> = new Set<string>([
  */
 export function asChartType(name: CHART_NAME): ChartType {
 	return name as ChartType
-}
-
-export enum MasterObjectType {
-	chart = 'chart',
-	image = 'image',
-	line = 'line',
-	rect = 'rect',
-	text = 'text',
-	placeholder = 'placeholder',
 }
 
 export enum SlideObjectType {

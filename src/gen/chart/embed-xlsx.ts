@@ -293,8 +293,6 @@ function buildXlsxSheet(
 		'<sheetViews><sheetView tabSelected="1" workbookViewId="0"><selection activeCell="B1" sqref="B1"/></sheetView></sheetViews>'
 	strSheetXml += '<sheetFormatPr baseColWidth="10" defaultRowHeight="16"/>'
 	if (chartObject.opts._type === ChartType.bubble || chartObject.opts._type === ChartType.bubble3d) {
-		// UNUSED: strSheetXml += `<cols><col min="1" max="${data.length}" width="11" customWidth="1" /></cols>`
-
 		/* EX: INPUT: `data`
 				[
 					{ name:'X-Axis'  , values:[10,11,12,13,14,15,16,17,18,19,20] },
@@ -336,12 +334,6 @@ function buildXlsxSheet(
 			strSheetXml += '</row>'
 		})
 	} else if (chartObject.opts._type === ChartType.scatter) {
-		/* UNUSED:
-					strSheetXml += '<cols>'
-					strSheetXml += '<col min="1" max="' + data.length + '" width="11" customWidth="1" />'
-					//data.forEach((obj,idx)=>{ strSheetXml += '<col min="'+(idx+1)+'" max="'+(idx+1)+'" width="11" customWidth="1" />' });
-					strSheetXml += '</cols>'
-				*/
 		/* EX: INPUT: `data`
 					[
 						{ name:'X-AxisA', values:[ 1, 2, 3, 4, 5] },
