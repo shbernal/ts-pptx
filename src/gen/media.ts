@@ -2,10 +2,10 @@
  * PptxGenJS: Media Methods
  */
 
-import { IMG_BROKEN } from './core-enums.js'
-import type { PresSlideInternal, SlideLayoutInternal, SlideRelMedia } from './core-interfaces.js'
-import type { RuntimeAdapter } from './runtime/types.js'
-import { warn } from './log.js'
+import { IMG_BROKEN } from '../core-enums.js'
+import type { PresSlideInternal, SlideLayoutInternal, SlideRelMedia } from '../core-interfaces.js'
+import type { RuntimeAdapter } from '../runtime/types.js'
+import { warn } from '../log.js'
 
 type SlideMediaRelWithPath = SlideRelMedia & { path: string }
 

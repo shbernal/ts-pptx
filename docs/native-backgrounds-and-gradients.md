@@ -278,7 +278,7 @@ for those presets against minimal fixtures before extending the public API.
 </a:gradFill>
 ```
 
-7. Update slide background emission in `src/gen-xml.ts` so native background
+7. Update slide background emission in `src/gen/slide/` so native background
    fills are emitted when `slide.background` contains either a solid color or a
    gradient, while `_bkgdImgRid` image backgrounds keep taking precedence.
    The current `slide.background?.color` condition is too narrow for gradient

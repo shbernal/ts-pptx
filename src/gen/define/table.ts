@@ -24,7 +24,7 @@ import type {
 	TableProps,
 	TableRow,
 } from '../../core-interfaces.js'
-import { getSlidesForTableRows } from '../../gen-tables.js'
+import { getSlidesForTableRows } from '../table/autopage.js'
 import { encodeXmlEntities, validateObjectName } from '../../gen-utils.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { EMU_PER_INCH } from '../../units.js'
@@ -223,7 +223,7 @@ export function addTableDefinition(
 
 	// STEP 3: Set options
 	// Keep x/y/w/h as raw user `Coord` (inches/percent/unit-string). They are resolved to EMU
-	// exactly once at emission (gen-xml) and by the auto-pager (getSlidesForTableRows); no
+	// exactly once at emission (`gen/slide/object.ts`) and by the auto-pager (getSlidesForTableRows); no
 	// pre-conversion here, so a value is never parsed twice. Default position is 0.5in.
 	if (opt.x === undefined || opt.x === null) opt.x = 0.5
 	if (opt.y === undefined || opt.y === null) opt.y = 0.5

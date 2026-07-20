@@ -9,7 +9,7 @@ import type { BorderProps, OptsChartGridLine, ShadowPropsInternal } from './core
 export const CRLF = '\r\n' // AKA: Chr(13) & Chr(10)
 // Base for `<p:sldLayoutId id>` (layout N gets BASE + N). 2147483649 = 0x80000001:
 // ECMA-376 ST_SlideLayoutId requires id >= 0x80000000, and PowerPoint conventionally
-// starts layout IDs one past that. See `makeXmlMaster` in gen-xml.ts.
+// starts layout IDs one past that. See `makeXmlMaster` in `gen/slide/master.ts`.
 export const LAYOUT_IDX_SERIES_BASE = 2147483649
 export const REGEX_HEX_COLOR = /^[0-9a-fA-F]{6}$/
 export const LINEH_MODIFIER = 1.67 // AKA: Golden Ratio Typography
@@ -48,7 +48,7 @@ export const DEF_TEXT_GLOW = { size: 8, color: 'FFFFFF', opacity: 0.75 }
 // Fixed `<c:axId val>` identifiers that wire each chart's axes together (e.g. a value
 // axis's `<c:crossAx>` points at its category axis by id). ECMA-376 only requires the id
 // be a unique unsigned int within the chart; these stable constants keep the emitted
-// cross-references deterministic across decks. Consumed throughout gen-charts.ts.
+// cross-references deterministic across decks. Consumed throughout `gen/chart/`.
 export const AXIS_ID_VALUE_PRIMARY = '2094734552'
 export const AXIS_ID_VALUE_SECONDARY = '2094734553'
 export const AXIS_ID_CATEGORY_PRIMARY = '2094734554'
@@ -113,7 +113,7 @@ export enum TextAnchor {
 
 // Fixed GUID PowerPoint stamps on a slide-number field: `<a:fld id="{...}" type="slidenum">`.
 // Microsoft-specific (not defined by ECMA-376); reused verbatim so PowerPoint recognizes the
-// field and auto-updates the page number. Consumed in gen-xml.ts (`slideObjectToXml`).
+// field and auto-updates the page number. Consumed in `gen/slide/object.ts` (`slideObjectToXml`).
 export const SLDNUMFLDID = '{F7021451-1387-4CA6-816F-3879F97B5CBC}'
 
 // The XML prolog every emitted OOXML part begins with. Kept as one constant so a

@@ -254,6 +254,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- **The `gen-*.ts` re-export barrels are gone (no API change).** `gen-charts.ts`,
+  `gen-objects.ts`, `gen-tables.ts` and `gen-xml.ts` had no behavior of their own — they
+  only forwarded to the `gen/**` tree so that `pptxgen.ts` and `slide.ts` could keep doing
+  `import * as genXml from './gen-xml.js'`. Both costs are now paid off: the indirection
+  layer is deleted, and the namespace imports (which defeat tree-shaking, notable for a
+  package that declares `"sideEffects": false` and ships ten export subpaths) are replaced
+  by named imports direct from `gen/**`. `gen-media.ts` also moved to `gen/media.ts`, so it
+  no longer reads as part of the unrelated `media/` directory. None of the barrels were
+  listed in `package.json` `exports` or re-exported from an entrypoint, so the published
+  surface is byte-for-byte the same (1,150 exports across all ten entrypoints) and the demo
+  decks re-emit byte-identically (1,437 package parts).
+
 - **`gen-utils.ts` unit conversion and media decoding split out (no API change).** The
   repo's highest-fan-in module was three unrelated concerns in one file. Unit/number
   conversion moved to `units-internal.ts` — the lenient, warning-emitting layer over the

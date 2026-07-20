@@ -56,12 +56,12 @@ export function addChildDefinition(target: PresSlideInternal, object: SlideMaste
  * Build a group (`<p:grpSp>`) render-object from its child descriptors, without appending the
  * group itself to the slide. Nested `group` children recurse, so a group can contain other groups.
  *
- * An identity child coordinate space is kept at every depth (emitted in `gen-xml` as
+ * An identity child coordinate space is kept at every depth (emitted in `gen/slide/object.ts` as
  * `chOff/chExt == off/ext`), so children — including descendants of nested groups — keep their
  * slide-absolute coordinates and grouping is visually a no-op while making the objects one
  * selectable PowerPoint group. Charts, media, tables, and placeholders are not supported as group
  * children yet; each is skipped with a warning. When `opts.x/y/w/h` are omitted the group's bounds
- * are auto-computed (in `gen-xml`) as the bounding box of its children.
+ * are auto-computed (in `gen/slide/object.ts`) as the bounding box of its children.
  *
  * `target` stays the slide at every depth so leaf descendants register their image/chart rels and
  * unique ids slide-level, even when nested inside child groups.
@@ -114,7 +114,7 @@ function buildGroupObject(target: PresSlideInternal, children: GroupChildProps[]
  * Wrap already-built child render-objects in a group (`<p:grpSp>`) render-object, without appending
  * the group anywhere. Shared by `buildGroupObject` (children built from descriptors) and
  * `groupObjectsDefinition` (children lifted off the slide) so both entry points name and frame a
- * group identically — including the all-or-nothing frame, which is left to `gen-xml` to resolve:
+ * group identically — including the all-or-nothing frame, which is left to `gen/slide/object.ts` to resolve:
  * passing `x/y/w/h` through unset is what makes the bounds auto-compute to the children's bounding
  * box, so neither caller needs bounds math of its own.
  *

@@ -21,7 +21,7 @@ in the file*. Two independent entry points share one OOXML model:
 - **Author-side** — `await pptx.embedFont({ path | data, typeface, style })`
   embeds a face when generating a deck from scratch.
   Source: `src/pptxgen.ts` (`embedFont`, `_embeddedFonts`), write-side wiring in
-  `src/gen-xml.ts`, field on the internal model in `src/core-interfaces.ts`.
+  `src/gen/pres/presentation.ts`, field on the internal model in `src/core-interfaces.ts`.
 - **Import-carry** — `importSlide(source, i, { embedFonts: true })` brings a
   source deck's presentation-level embedded fonts across when lifting a slide.
   Source: `src/read/api/presentation.ts` (`#carryEmbeddedFonts`).
@@ -109,7 +109,7 @@ slide.addText('hi', { x: 1, y: 1, w: 4, h: 1, fontFace: 'Silkscreen' })
 - Validates input: missing `typeface`, missing byte source, and an invalid `style`
   all throw.
 
-At write time (in `src/gen-xml.ts`) the accumulated `_embeddedFonts` drive:
+At write time (in `src/gen/pres/presentation.ts`) the accumulated `_embeddedFonts` drive:
 `makeXmlContTypes` (the `fntdata` Default), `makeXmlPresentationRels` (one `font`
 rel per face, rIds allocated after the slide/master rels), `makeXmlPresentation`
 (the `p:embeddedFontLst` between `notesSz` and `defaultTextStyle`, plus the

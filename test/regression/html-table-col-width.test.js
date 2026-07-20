@@ -1,6 +1,6 @@
 import { describe, test } from 'vitest'
 import { assert } from '../helpers.js'
-import { resolveHtmlColWidth } from '../../src/gen-tables.ts'
+import { resolveHtmlColWidth } from '../../src/gen/table/html-dom.ts'
 
 // Acceptance: HTML-table conversion must honor `data-pptx-width` (exact) and
 // `data-pptx-min-width` (floor) overrides, and must keep working when the table is

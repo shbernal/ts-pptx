@@ -62,7 +62,7 @@ supported.
   the supported, fully-tested way to build tables.
 
   *Contributor note:* the established pattern (see `resolveHtmlColWidth` in
-  `src/gen-tables.ts` and `test/regression/html-table-col-width.test.js`) is to
+  `src/gen/table/html-dom.ts` and `test/regression/html-table-col-width.test.js`) is to
   extract the DOM-independent logic into pure helpers and unit-test those with
   synthetic inputs; full-fidelity layout repros need a headless browser
   (Playwright/Puppeteer), which is not currently a project dependency.

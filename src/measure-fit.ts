@@ -2,7 +2,7 @@
  * PptxGenJS: Measured-fit serialization pass
  *
  * Bridges slide text objects to the line-break simulator / shrink solver
- * (`text-fit.ts`). Runs during async export, BEFORE `gen-xml` builds the body:
+ * (`text-fit.ts`). Runs during async export, BEFORE the `gen/` emitter builds the body:
  * for each text box with `fit: 'shrink'` and a registered font, it computes the
  * `fontScale` PowerPoint would have baked and rewrites `options.fit` to the
  * explicit object form (`{ type:'shrink', fontScale }`) so `genXmlNormAutofit`
@@ -84,7 +84,7 @@ export function buildFitParagraphs(runs: TextProps[], opts: RunOpts): FitParagra
 	if (runs.length === 0) return null
 
 	// Expand "\n" inside a run into separate pieces, flagging the paragraph break
-	// after each (mirrors gen-xml STEP 4). `breakLine` ends a paragraph too.
+	// after each (mirrors `gen/slide/object.ts` STEP 4). `breakLine` ends a paragraph too.
 	interface Piece {
 		text: string
 		options: RunOpts
@@ -182,7 +182,7 @@ function resolveInsetsEmu(opts: RunOpts): InsetsEmu {
  * Resolve the inner box (shape minus insets) in points; null if degenerate.
  *
  * Reads the object's own `opts.w/h` with no ancestor walk — correct only because a group keeps an
- * identity child coordinate space (`chOff/chExt == off/ext`, see `src/gen-xml.ts` group renderer and
+ * identity child coordinate space (`chOff/chExt == off/ext`, see the `gen/slide/object.ts` group renderer and
  * `docs/groups.md`), so a group never scales its children and a grouped text box's authored w/h is its
  * true rendered size. `applyMeasuredFit` reaches here for grouped text via its explicit group descent
  * (`measureObject`). If `addGroup` ever authored a scaled group (non-identity `chExt`), this would need
@@ -223,7 +223,7 @@ function anchorTopShareOfDelta(opts: RunOpts): number {
 // `fit:'shrink'` is honored by baking a *reduced literal font size* onto its runs,
 // which both PowerPoint and LibreOffice render identically with no edit/resize.
 
-/** Text/format options that a cell inherits from the table when it sets none itself (mirrors gen-xml). */
+/** Text/format options that a cell inherits from the table when it sets none itself (mirrors `gen/slide/object.ts`). */
 const CELL_INHERIT_KEYS = [
 	'fontFace',
 	'fontSize',
@@ -253,7 +253,7 @@ interface CellInsetsEmu {
 	marB: number
 }
 
-/** Resolve a cell's margins to EMU insets, mirroring gen-xml (array is `[T,R,B,L]`, inches; see `marginToEmu`). */
+/** Resolve a cell's margins to EMU insets, mirroring `gen/slide/object.ts` (array is `[T,R,B,L]`, inches; see `marginToEmu`). */
 function resolveCellInsetsEmu(margin: Margin | undefined): CellInsetsEmu {
 	let m: Margin = margin === 0 || margin ? margin : DEF_CELL_MARGIN_IN
 	if (typeof m === 'number') m = [m, m, m, m]
@@ -271,7 +271,7 @@ function resolveCellInsetsEmu(margin: Margin | undefined): CellInsetsEmu {
 /**
  * Bake a reduced font size onto a cell's runs by factor `f` (< 1). Clones every
  * options object before mutating: a plain-string cell shares the table's `opt`
- * object (gen-objects), so in-place mutation would corrupt every other such cell.
+ * object (`gen/define/`), so in-place mutation would corrupt every other such cell.
  */
 function scaleCellFontSizes(cell: TableCell, eff: RunOpts, f: number): void {
 	const shrink = (sizePt: number): number => Math.floor(sizePt * f * 10) / 10 // floor: stay on the conservative (smaller) side
@@ -286,7 +286,7 @@ function scaleCellFontSizes(cell: TableCell, eff: RunOpts, f: number): void {
 	}
 }
 
-/** Grid column count of a table (sums the first row's colspans), mirroring gen-xml. */
+/** Grid column count of a table (sums the first row's colspans), mirroring `gen/slide/object.ts`. */
 function tableColCount(rows: TableCell[][]): number {
 	const first = rows[0]
 	return first ? first.reduce((n, c) => n + (Number(c?.options?.colspan) || 1), 0) : 0
@@ -345,7 +345,7 @@ function* walkTableGrid(rows: TableCell[][], numCols: number): Generator<GridPla
  * each auto-height row is estimated with the same conservative (tall) text model as
  * {@link measureText} and flagged `heightExact: false`. Single-slide only —
  * `autoPage` paging across slides is not modeled. Rowspan cells do not drive a row's
- * estimated height (mirrors gen-tables, which exempts them from line-height growth).
+ * estimated height (mirrors `gen/table/autopage.ts`, which exempts them from line-height growth).
  */
 export function computeTableLayout(
 	rows: TableCell[][],

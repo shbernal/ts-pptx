@@ -102,7 +102,7 @@ export function registerImageFillMedia(target: PresSlideInternal, fill: ShapeFil
  * — SVG needs a second rId for its PNG rasterization fallback — appends the bytes to
  * `target._relsMedia` (deduping identical sources), and inherits any omitted x/y/w/h from a
  * matching layout picture placeholder. The resulting `SlideObject` is pushed onto the slide;
- * `gen-xml.ts` later emits the `<p:pic>`.
+ * `gen/slide/object.ts` later emits the `<p:pic>`.
  * @param target - slide (or master/group) the image is appended to
  * @param opt - the caller's `ImageProps` (path/data, geometry, sizing, hyperlink, placeholder, …)
  */

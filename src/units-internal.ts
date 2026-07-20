@@ -80,7 +80,7 @@ export function inch2Emu(inches: number | string): Emu {
  * certainly a legacy points value that should be divided by 72 (e.g. `10` points → `0.139` inches).
  *
  * Shared by every margin site so they stay in lockstep: the cell XML emitter and text-box/slide-
- * number insets (`gen-xml`), the autoPage row-height pass (`gen-tables`), and the measured-fit pass
+ * number insets (`gen/slide/object.ts`), the autoPage row-height pass (`gen/table/autopage.ts`), and the measured-fit pass
  * (`measure-fit`).
  * @param {number} inches - margin component in inches
  * @returns {Emu} EMU value

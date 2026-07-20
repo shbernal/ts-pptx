@@ -36,8 +36,18 @@ import type {
 	TextPropsOptions,
 	TransitionProps,
 } from './core-interfaces.js'
-import * as genObj from './gen-objects.js'
 import { emuToInches } from './units.js'
+import { addBackgroundDefinition } from './gen/define/background.js'
+import { addChartDefinition } from './gen/define/chart.js'
+import { addCommentDefinition } from './gen/define/comment.js'
+import { addConnectorDefinition } from './gen/define/connector.js'
+import { addGroupDefinition, groupObjectsDefinition } from './gen/define/group.js'
+import { addImageDefinition } from './gen/define/image.js'
+import { addMediaDefinition } from './gen/define/media.js'
+import { addNotesDefinition } from './gen/define/notes.js'
+import { addShapeDefinition } from './gen/define/shape.js'
+import { addTableDefinition } from './gen/define/table.js'
+import { addTextDefinition } from './gen/define/text.js'
 
 /** Distinguish a multi-type (combo) chart array (`ChartMulti[]`) from a single chart's data (`OptsChartData[]`). */
 function isMultiChart(arg: OptsChartData[] | ChartMulti[]): arg is ChartMulti[] {
@@ -107,7 +117,7 @@ export default class Slide {
 	public set background(props: BackgroundProps) {
 		this._background = props
 		// Add background (image data/path must be captured before `exportPresentation()` is called)
-		if (props) genObj.addBackgroundDefinition(props, this)
+		if (props) addBackgroundDefinition(props, this)
 	}
 
 	public get background(): BackgroundProps | undefined {
@@ -220,9 +230,9 @@ export default class Slide {
 		;(options as ChartOptsInternal)._type = Array.isArray(type) ? type : asChartType(type)
 		// addChartDefinition's multi-type branch reads the shared options from its `data` slot
 		if (Array.isArray(type)) {
-			genObj.addChartDefinition(this, type, options, undefined)
+			addChartDefinition(this, type, options, undefined)
 		} else {
-			genObj.addChartDefinition(this, type, data, options)
+			addChartDefinition(this, type, data, options)
 		}
 		return this
 	}
@@ -233,7 +243,7 @@ export default class Slide {
 	 * @return {Slide} this Slide
 	 */
 	addImage(options: ImageProps): Slide {
-		genObj.addImageDefinition(this, options)
+		addImageDefinition(this, options)
 		return this
 	}
 
@@ -243,7 +253,7 @@ export default class Slide {
 	 * @return {Slide} this Slide
 	 */
 	addMedia(options: MediaProps): Slide {
-		genObj.addMediaDefinition(this, options)
+		addMediaDefinition(this, options)
 		return this
 	}
 
@@ -257,7 +267,7 @@ export default class Slide {
 	 * @return {Slide} this Slide
 	 */
 	addNotes(notes: string | NotesProps | NotesProps[]): Slide {
-		genObj.addNotesDefinition(this, notes)
+		addNotesDefinition(this, notes)
 		return this
 	}
 
@@ -269,7 +279,7 @@ export default class Slide {
 	 * @example slide.addComment({ author: 'Ada Lovelace', text: 'Tighten this headline', x: 1, y: 0.5 })
 	 */
 	addComment(options: CommentProps): Slide {
-		genObj.addCommentDefinition(this, options)
+		addCommentDefinition(this, options)
 		return this
 	}
 
@@ -281,7 +291,7 @@ export default class Slide {
 	 */
 	addShape(shapeName: SHAPE_NAME, options?: ShapeProps): Slide {
 		// `shapeName` is a plain string preset name (e.g. `pptxgen.ShapeType.rect` === "rect").
-		genObj.addShapeDefinition(this, shapeName, options || {})
+		addShapeDefinition(this, shapeName, options || {})
 		return this
 	}
 
@@ -301,7 +311,7 @@ export default class Slide {
 	 * @example slide.addGroup([{ rect: { x: 1, y: 1, w: 4, h: 3 } }, { group: { children: [{ text: { text: 'Hi', options: { x: 1.5, y: 1.5, w: 2, h: 1 } } }] } }])
 	 */
 	addGroup(children: GroupChildProps[], options?: GroupProps): Slide {
-		genObj.addGroupDefinition(this, children, options || {})
+		addGroupDefinition(this, children, options || {})
 		return this
 	}
 
@@ -328,7 +338,7 @@ export default class Slide {
 	 * @example slide.groupObjects(['Caption', 'Logo'], { objectName: 'Branding' })
 	 */
 	groupObjects(objectNames: string[], options?: GroupProps): Slide {
-		genObj.groupObjectsDefinition(this, objectNames, options || {})
+		groupObjectsDefinition(this, objectNames, options || {})
 		return this
 	}
 
@@ -339,7 +349,7 @@ export default class Slide {
 	 * @example slide.addConnector({ type: 'elbow', x1: 1, y1: 1, x2: 5, y2: 3, endArrowType: 'triangle' })
 	 */
 	addConnector(options: ConnectorProps): Slide {
-		genObj.addConnectorDefinition(this, options)
+		addConnectorDefinition(this, options)
 		return this
 	}
 
@@ -350,7 +360,7 @@ export default class Slide {
 	 * @return {Slide} this Slide
 	 */
 	addTable(tableRows: TableRow[], options?: TableProps): Slide {
-		this._newAutoPagedSlides = genObj.addTableDefinition(
+		this._newAutoPagedSlides = addTableDefinition(
 			this,
 			tableRows,
 			options || {},
@@ -370,7 +380,7 @@ export default class Slide {
 	 */
 	addText(text: string | number | TextProps[], options?: TextPropsOptions): Slide {
 		const textParam = typeof text === 'string' || typeof text === 'number' ? [{ text, options }] : text
-		genObj.addTextDefinition(this, textParam, options || {}, false)
+		addTextDefinition(this, textParam, options || {}, false)
 		return this
 	}
 

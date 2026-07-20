@@ -107,16 +107,16 @@ via `RuntimeAdapter.loadFontData` (node `fs` / browser `fetch`).
 
 ### Integration (`src/measure-fit.ts`)
 
-- A measured-fit pass runs **during async export**, before `gen-xml`'s sync body
-  build. It extracts paragraphs/runs (mirroring gen-xml grouping + inheritance),
+- A measured-fit pass runs **during async export**, before the `gen/` emitter's sync body
+  build. It extracts paragraphs/runs (mirroring `gen/slide/object.ts` grouping + inheritance),
   computes the inner box from `w`/`h`/insets/margin, then:
   - `'shrink'` → rewrites `fit:'shrink'` to the object form with the computed
-    `fontScale`, so gen-xml emits `<a:normAutofit fontScale=…/>`.
+    `fontScale`, so `gen/drawingml/text.ts` emits `<a:normAutofit fontScale=…/>`.
   - `'resize'` → rewrites `options.h` (and `options.y` per the resolved vertical
-    anchor) as `"<emu>emu"` strings, so gen-xml emits the baked `ext.cy`/`off.y`
+    anchor) as `"<emu>emu"` strings, so `gen/slide/object.ts` emits the baked `ext.cy`/`off.y`
     while keeping the `<a:spAutoFit/>` marker. `off.y` shifts by 0 / half / full of
     the height delta for anchor `t` / `ctr` / `b`.
-- `gen-xml.ts` consumes pre-computed values only.
+- The `gen/` emitter consumes pre-computed values only.
 - The feature is driven off the existing `fit` value, so consumers opt in by what
   they already write: `fit:'shrink'`/`'resize'` measure automatically **when
   metrics are registered** (zero API churn). Per the fork's no-back-compat-obligation
@@ -140,7 +140,7 @@ plain-string cells share the table's single `opt` object. `'resize'`/object form
 are ignored for cells (a row already auto-grows ≈ spAutoFit).
 
 A precondition bug was fixed along the way: auto-width tables (`w` without `colW`)
-emitted ~0-EMU `gridCol` widths; gen-xml now divides the resolved EMU width via
+emitted ~0-EMU `gridCol` widths; `gen/slide/object.ts` now divides the resolved EMU width via
 `resolveTableColWidthsEmu`.
 
 ### Unregistered-font heuristic

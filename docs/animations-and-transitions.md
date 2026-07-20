@@ -21,7 +21,7 @@ byte-for-byte. See the backlog entry `gitbrent/PptxGenJS#1431` (status
 `implemented`) and `CHANGELOG.md` for the landed surface. Code:
 `src/read/api/transition.ts`, `src/read/api/animation.ts`,
 `src/read/api/slide.ts` (read accessors); `src/core-interfaces.ts`,
-`src/slide.ts`, `src/gen-xml.ts` (write). Tests:
+`src/slide.ts`, `src/gen/anim/` (write). Tests:
 `test/read/animations-transitions.test.js`,
 `test/regression/animations-transitions.test.js`, and two
 `test/schema-cases.js` validator fixtures.
@@ -90,7 +90,7 @@ the whole design.
   an unmodified slide already round-trips its `p:transition`/`p:timing`
   byte-identically for free.** The work is (a) a typed transition accessor and
   (b) keeping `spid` references coherent when ids change.
-- **Write (`src/gen-xml.ts`)** is string concatenation from the object model.
+- **Write (`src/gen/anim/`)** is string concatenation from the object model.
   `makeXmlSlide` emits `spTree → clrMapOvr → timing`; a `p:timing` builder
   already exists for media looping (`slideTimingToXml`, ~L2310) and is the exact
   structural template for animation emit. Shape ids are deterministic
@@ -180,7 +180,7 @@ by `(presetID, presetClass, presetSubtype, nodeType)`, parameterized only by
 
 1. **Transition** — slide-level `transition?: TransitionProps` on `PresSlide`
    (`src/core-interfaces.ts`); a `slideTransitionToXml(slide)` emitter
-   (`src/gen-xml.ts`) inserted in `makeXmlSlide` **between `p:clrMapOvr` and
+   (`src/gen/anim/transition.ts`) inserted in `makeXmlSlide` **between `p:clrMapOvr` and
    `slideTimingToXml(...)`**. Requires declaring `xmlns:mc` on the slide root (or
    locally) for the AlternateContent form. Reuse the probed preset table for
    element + variant.
@@ -294,7 +294,7 @@ check date). Record the fixtures as the blocking precondition in
   - **[B — implemented]** `slide-animation-presets.pptx` (+ `presetTemplates` oracle) —
     verbatim write-side templates for the new presets `appear`/`wipe`/`spin`/`flyOut`
     (and a byte-for-byte reconfirmation of `fadeIn`/`flyIn`/`grow`/`fadeOut`). The
-    `PresetEffect` type and `ANIM_PRESETS` (`src/gen-xml.ts`) now carry all eight; the
+    `PresetEffect` type and `ANIM_PRESETS` (`src/gen/anim/animation.ts`) now carry all eight; the
     regression case "emits every preset … byte-for-byte" pins the full timing tree
     against the oracle and a `test/schema-cases.js` fixture validates the new templates.
     Note: opacity-based emphasis "Pulse" is not reachable via COM `AddEffect`, so the

@@ -487,7 +487,7 @@ export function getNewRelId(target: PresSlideInternal): number {
  * Whether a slide relationship is a hyperlink (external URL or internal slide
  * link). The relationship `type` is stringly-typed (`'hyperlink'`, `'online'`,
  * mixed-case variants), so this centralizes the case-insensitive predicate that
- * was duplicated across the slide-rels writer (gen-xml) and the inspect path
+ * was duplicated across the slide-rels writer (`gen/slide/slide.ts`) and the inspect path
  * (pptxgen). For an internal slide-to-slide link, `rel.data === 'slide'` and
  * `rel.Target` is the 1-based target slide number.
  * @param {{ type: string }} rel - a slide relationship

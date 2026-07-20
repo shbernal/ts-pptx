@@ -1,7 +1,7 @@
 import { defineRegressionSuite, build, readEntry, listEntries, assert, assertEqual } from '../helpers.js'
 
 // Exercises the option surface of the auto-paging engine (getSlidesForTableRows /
-// parseTextToLines in src/gen-tables.ts) through the public `addTable({autoPage:true})`
+// parseTextToLines in src/gen/table/autopage.ts) through the public `addTable({autoPage:true})`
 // path: uniform vs. array `colW`, `colW` without `w`, `colspan`, per-cell/table
 // `margin`, `slideMargin`, `autoPageRepeatHeader`, per-cell `fontSize`, and degenerate
 // cell text (empty / numeric / whitespace-only). These paths were unreached by the

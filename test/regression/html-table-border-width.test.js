@@ -1,6 +1,6 @@
 import { describe, test } from 'vitest'
 import { assert } from '../helpers.js'
-import { htmlBorderToProps } from '../../src/gen-tables.ts'
+import { htmlBorderToProps } from '../../src/gen/table/html-dom.ts'
 
 // Acceptance: HTML-table conversion must preserve FRACTIONAL CSS border widths.
 // A hairline border such as `0.5px` previously went through `Math.round(...)` and

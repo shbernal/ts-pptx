@@ -1877,17 +1877,18 @@ items:
       are now covered; the remaining below-average branch coverage is on the WRITE
       side. Re-measured 2026-07-20 (global 90.94/78.1/96.61/94.05, gate still green):
 
-        - gen-tables.ts / gen-objects.ts are now thin barrels — commits 92643b41,
-          a710480f, f1519793 (all after this item was filed) split their logic out to
-          `src/gen/table/{autopage,html-dom}.ts` and `src/gen/define/*.ts`. Update any
-          future work here to the new locations, not the barrel files.
+        - gen-tables.ts / gen-objects.ts no longer exist. Commits 92643b41, a710480f,
+          f1519793 (all after this item was filed) split their logic out to
+          `src/gen/table/{autopage,html-dom}.ts` and `src/gen/define/*.ts`, leaving
+          re-export barrels; the barrels were then deleted outright. Target the new
+          locations.
         - src/gen/table/autopage.ts (ex getSlidesForTableRows engine): 72.6% branch —
           still the lowest table-path surface.
         - src/gen/table/html-dom.ts reports 0% in coverage/coverage-summary.json, but
           that's a measurement artifact, not a real gap: htmlBorderToProps/
           resolveHtmlColWidth ARE tested (test/regression/html-table-border-width.test.js,
           html-table-col-width.test.js), just via a src-import
-          (`from '../../src/gen-tables.ts'`) that bypasses dist instrumentation — see
+          (`from '../../src/gen/table/html-dom.ts'`) that bypasses dist instrumentation — see
           the docs/testing.md caveat this item already flagged. genTableToSlides in the
           same file is genuinely untested but is the browser-only DOM path, already
           fenced with `v8 ignore` (out of scope per docs/project-target.md).
@@ -1906,8 +1907,6 @@ items:
       kinds:
         - local-source-inspection
       local_files:
-        - src/gen-tables.ts
-        - src/gen-objects.ts
         - src/gen/table/autopage.ts
         - src/gen/table/html-dom.ts
         - src/gen/define/comment.ts

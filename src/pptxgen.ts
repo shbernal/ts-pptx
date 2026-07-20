@@ -98,11 +98,6 @@ import type {
 	WriteFileProps,
 	WriteProps,
 } from './core-interfaces.js'
-import * as genCharts from './gen-charts.js'
-import * as genObj from './gen-objects.js'
-import * as genMedia from './gen-media.js'
-import * as genTable from './gen-tables.js'
-import * as genXml from './gen-xml.js'
 import type { RuntimeAdapter } from './runtime/types.js'
 import { FontMetricsRegistry, parseFontMetrics } from './font-metrics.js'
 import {
@@ -202,6 +197,32 @@ export type {
 	ShapeType,
 	WRITE_OUTPUT_TYPE,
 } from './core-enums.js'
+import { makeXmlCharts } from './gen/chart/chart-xml.js'
+import { buildEmbeddedWorksheet, createExcelWorksheet } from './gen/chart/embed-xlsx.js'
+import { addBackgroundDefinition } from './gen/define/background.js'
+import { createSlideMaster } from './gen/define/master.js'
+import { addPlaceholdersToSlideLayouts } from './gen/define/placeholder.js'
+import { encodeSlideMediaRels } from './gen/media.js'
+import { makeXmlApp } from './gen/opc/app.js'
+import { makeXmlContTypes } from './gen/opc/content-types.js'
+import { makeXmlCore } from './gen/opc/core.js'
+import { makeXmlCustomProperties } from './gen/opc/custom-props.js'
+import { makeXmlRootRels } from './gen/opc/root-rels.js'
+import { makeXmlPresentationRels } from './gen/pres/presentation-rels.js'
+import { makeXmlPresentation, makeXmlPresProps, makeXmlViewProps } from './gen/pres/presentation.js'
+import { makeXmlTableStyles } from './gen/pres/table-styles.js'
+import { makeXmlTheme } from './gen/pres/theme.js'
+import { makeXmlCommentAuthors, makeXmlComments, resolveCommentAuthors } from './gen/slide/comments.js'
+import { makeXmlLayout } from './gen/slide/layout.js'
+import { makeXmlMaster, makeXmlMasterRel } from './gen/slide/master.js'
+import {
+	makeXmlNotesMaster,
+	makeXmlNotesMasterRel,
+	makeXmlNotesSlide,
+	makeXmlNotesSlideRel,
+} from './gen/slide/notes.js'
+import { makeXmlSlide, makeXmlSlideLayoutRel, makeXmlSlideRel } from './gen/slide/slide.js'
+import { genTableToSlides } from './gen/table/html-dom.js'
 
 const VERSION = '10.4.0'
 
@@ -618,7 +639,7 @@ export default class PptxGenJS {
 		zip: ZipWriter,
 		chartPromises: Promise<string>[]
 	): void => {
-		slide._relsChart.forEach((rel) => chartPromises.push(genCharts.createExcelWorksheet(rel, zip)))
+		slide._relsChart.forEach((rel) => chartPromises.push(createExcelWorksheet(rel, zip)))
 		slide._relsMedia.forEach((rel) => {
 			if (rel.type !== 'online' && rel.type !== 'hyperlink') {
 				// A: Loop vars
@@ -693,14 +714,12 @@ export default class PptxGenJS {
 		// STEP 1: Read/Encode all Media before zip as base64 content, etc. is required
 		const onMediaError = props.onMediaError ?? 'throw'
 		this._slides.forEach((slide) => {
-			arrMediaPromises = arrMediaPromises.concat(genMedia.encodeSlideMediaRels(slide, this._runtime, onMediaError))
+			arrMediaPromises = arrMediaPromises.concat(encodeSlideMediaRels(slide, this._runtime, onMediaError))
 		})
 		this._slideLayouts.forEach((layout) => {
-			arrMediaPromises = arrMediaPromises.concat(genMedia.encodeSlideMediaRels(layout, this._runtime, onMediaError))
+			arrMediaPromises = arrMediaPromises.concat(encodeSlideMediaRels(layout, this._runtime, onMediaError))
 		})
-		arrMediaPromises = arrMediaPromises.concat(
-			genMedia.encodeSlideMediaRels(this._masterSlide, this._runtime, onMediaError)
-		)
+		arrMediaPromises = arrMediaPromises.concat(encodeSlideMediaRels(this._masterSlide, this._runtime, onMediaError))
 
 		// STEP 2: Wait for Promises (if any) then generate the PPTX file
 		return await Promise.all(arrMediaPromises).then(async () => {
@@ -745,7 +764,7 @@ export default class PptxGenJS {
 
 			// A: Add empty placeholder objects to slides that don't already have them
 			this._slides.forEach((slide) => {
-				if (slide._slideLayout) genObj.addPlaceholdersToSlideLayouts(slide)
+				if (slide._slideLayout) addPlaceholdersToSlideLayouts(slide)
 			})
 
 			// A.1: Measured text fit — bake a real fontScale onto `fit:'shrink'` text
@@ -758,68 +777,56 @@ export default class PptxGenJS {
 			const hasCustomProps = this._customProperties.length > 0
 			zip.add(
 				'[Content_Types].xml',
-				genXml.makeXmlContTypes(
-					this._slides,
-					this._slideLayouts,
-					this._masterSlide,
-					hasCustomProps,
-					this._embeddedFonts
-				)
+				makeXmlContTypes(this._slides, this._slideLayouts, this._masterSlide, hasCustomProps, this._embeddedFonts)
 			)
-			zip.add('_rels/.rels', genXml.makeXmlRootRels(hasCustomProps))
-			zip.add('docProps/app.xml', genXml.makeXmlApp(this._slides, this.company))
-			zip.add('docProps/core.xml', genXml.makeXmlCore(this.title, this.subject, this.author, this.revision))
+			zip.add('_rels/.rels', makeXmlRootRels(hasCustomProps))
+			zip.add('docProps/app.xml', makeXmlApp(this._slides, this.company))
+			zip.add('docProps/core.xml', makeXmlCore(this.title, this.subject, this.author, this.revision))
 			if (hasCustomProps) {
-				zip.add('docProps/custom.xml', genXml.makeXmlCustomProperties(this._customProperties))
+				zip.add('docProps/custom.xml', makeXmlCustomProperties(this._customProperties))
 			}
-			zip.add('ppt/_rels/presentation.xml.rels', genXml.makeXmlPresentationRels(this._slides, this._embeddedFonts))
+			zip.add('ppt/_rels/presentation.xml.rels', makeXmlPresentationRels(this._slides, this._embeddedFonts))
 			// Embedded font parts (raw whole faces). Fonts are already compact binary, so STORE
 			// (no DEFLATE) like already-compressed media. Part index matches the rels Target above.
 			for (const face of flattenEmbeddedFaces(this._embeddedFonts, 1)) {
 				zip.add(`ppt/fonts/font${face.partIndex}.fntdata`, face.bytes, { store: true })
 			}
-			zip.add('ppt/theme/theme1.xml', genXml.makeXmlTheme(this.internalPresentation))
+			zip.add('ppt/theme/theme1.xml', makeXmlTheme(this.internalPresentation))
 			// emit a separate theme2.xml part so notesMaster1.xml.rels resolves
-			zip.add('ppt/theme/theme2.xml', genXml.makeXmlTheme(this.internalPresentation))
-			zip.add('ppt/presentation.xml', genXml.makeXmlPresentation(this.internalPresentation))
-			zip.add('ppt/presProps.xml', genXml.makeXmlPresProps())
-			zip.add('ppt/tableStyles.xml', genXml.makeXmlTableStyles(this._tableStyles))
-			zip.add('ppt/viewProps.xml', genXml.makeXmlViewProps())
+			zip.add('ppt/theme/theme2.xml', makeXmlTheme(this.internalPresentation))
+			zip.add('ppt/presentation.xml', makeXmlPresentation(this.internalPresentation))
+			zip.add('ppt/presProps.xml', makeXmlPresProps())
+			zip.add('ppt/tableStyles.xml', makeXmlTableStyles(this._tableStyles))
+			zip.add('ppt/viewProps.xml', makeXmlViewProps())
 
 			// C: Create a Layout/Master/Rel/Slide file for each SlideLayout and Slide
 			this._slideLayouts.forEach((layout, idx) => {
-				zip.add(`ppt/slideLayouts/slideLayout${idx + 1}.xml`, genXml.makeXmlLayout(layout))
+				zip.add(`ppt/slideLayouts/slideLayout${idx + 1}.xml`, makeXmlLayout(layout))
 				zip.add(
 					`ppt/slideLayouts/_rels/slideLayout${idx + 1}.xml.rels`,
-					genXml.makeXmlSlideLayoutRel(idx + 1, this._slideLayouts)
+					makeXmlSlideLayoutRel(idx + 1, this._slideLayouts)
 				)
 			})
 			this._slides.forEach((slide, idx) => {
-				zip.add(`ppt/slides/slide${idx + 1}.xml`, genXml.makeXmlSlide(slide))
-				zip.add(
-					`ppt/slides/_rels/slide${idx + 1}.xml.rels`,
-					genXml.makeXmlSlideRel(this._slides, this._slideLayouts, idx + 1)
-				)
+				zip.add(`ppt/slides/slide${idx + 1}.xml`, makeXmlSlide(slide))
+				zip.add(`ppt/slides/_rels/slide${idx + 1}.xml.rels`, makeXmlSlideRel(this._slides, this._slideLayouts, idx + 1))
 				// Create all slide notes related items. Notes of empty strings are created for slides which do not have notes specified, to keep track of _rels.
-				zip.add(`ppt/notesSlides/notesSlide${idx + 1}.xml`, genXml.makeXmlNotesSlide(slide))
-				zip.add(`ppt/notesSlides/_rels/notesSlide${idx + 1}.xml.rels`, genXml.makeXmlNotesSlideRel(slide, idx + 1))
+				zip.add(`ppt/notesSlides/notesSlide${idx + 1}.xml`, makeXmlNotesSlide(slide))
+				zip.add(`ppt/notesSlides/_rels/notesSlide${idx + 1}.xml.rels`, makeXmlNotesSlideRel(slide, idx + 1))
 			})
-			zip.add('ppt/slideMasters/slideMaster1.xml', genXml.makeXmlMaster(this._masterSlide, this._slideLayouts))
-			zip.add(
-				'ppt/slideMasters/_rels/slideMaster1.xml.rels',
-				genXml.makeXmlMasterRel(this._masterSlide, this._slideLayouts)
-			)
-			zip.add('ppt/notesMasters/notesMaster1.xml', genXml.makeXmlNotesMaster())
-			zip.add('ppt/notesMasters/_rels/notesMaster1.xml.rels', genXml.makeXmlNotesMasterRel())
+			zip.add('ppt/slideMasters/slideMaster1.xml', makeXmlMaster(this._masterSlide, this._slideLayouts))
+			zip.add('ppt/slideMasters/_rels/slideMaster1.xml.rels', makeXmlMasterRel(this._masterSlide, this._slideLayouts))
+			zip.add('ppt/notesMasters/notesMaster1.xml', makeXmlNotesMaster())
+			zip.add('ppt/notesMasters/_rels/notesMaster1.xml.rels', makeXmlNotesMasterRel())
 
 			// C.1: Comments — resolve the deck-wide author registry once, then emit the shared
 			// commentAuthors part plus a per-slide comment part for each slide that has comments.
-			const resolvedComments = genXml.resolveCommentAuthors(this._slides)
+			const resolvedComments = resolveCommentAuthors(this._slides)
 			if (resolvedComments.authors.length > 0) {
-				zip.add('ppt/commentAuthors.xml', genXml.makeXmlCommentAuthors(resolvedComments.authors))
+				zip.add('ppt/commentAuthors.xml', makeXmlCommentAuthors(resolvedComments.authors))
 				this._slides.forEach((slide, idx) => {
 					if ((slide._comments || []).length > 0) {
-						zip.add(`ppt/comments/comment${idx + 1}.xml`, genXml.makeXmlComments(slide, resolvedComments.meta))
+						zip.add(`ppt/comments/comment${idx + 1}.xml`, makeXmlComments(slide, resolvedComments.meta))
 					}
 				})
 			}
@@ -869,14 +876,14 @@ export default class PptxGenJS {
 		// STEP 1: Encode every slide's media (populates rel.data), mirroring exportPresentation.
 		let mediaPromises: Promise<string>[] = []
 		this._slides.forEach((slide) => {
-			mediaPromises = mediaPromises.concat(genMedia.encodeSlideMediaRels(slide, this._runtime, onMediaError))
+			mediaPromises = mediaPromises.concat(encodeSlideMediaRels(slide, this._runtime, onMediaError))
 		})
 		await Promise.all(mediaPromises)
 
 		// STEP 2: Backfill placeholders + bake measured fit exactly as exportPresentation
 		// does before its sync XML pass, so extracted bodies match a normal write.
 		this._slides.forEach((slide) => {
-			if (slide._slideLayout) genObj.addPlaceholdersToSlideLayouts(slide)
+			if (slide._slideLayout) addPlaceholdersToSlideLayouts(slide)
 		})
 		applyMeasuredFit(this._slides, this._fontMetrics)
 
@@ -884,7 +891,7 @@ export default class PptxGenJS {
 		const slides: ExtractedSlide[] = this._slides.map((slide) => {
 			const relByRid = new Map(slide._relsMedia.map((rel) => [rel.rId, rel] as const))
 
-			// Embedded audio/video. addMedia (gen-objects) pushes three consecutive
+			// Embedded audio/video. addMedia (`gen/define/media.ts`) pushes three consecutive
 			// _relsMedia entries per item off `mediaRid`: the ECMA audio/video rel
 			// (rId=mediaRid), the MS-2007 `media` rel (mediaRid+1, sharing one Target),
 			// and the preview image rel (mediaRid+2). The body references all three; we
@@ -969,12 +976,12 @@ export default class PptxGenJS {
 			// chart part's own .rels (workbook reference) is rebuilt on injection.
 			const charts = (slide._relsChart || []).map((rel) => ({
 				rId: rel.rId,
-				chartXml: genCharts.makeXmlCharts(rel),
-				embeddingBytes: genCharts.buildEmbeddedWorksheet(rel),
+				chartXml: makeXmlCharts(rel),
+				embeddingBytes: buildEmbeddedWorksheet(rel),
 			}))
 
 			return {
-				xml: genXml.makeXmlSlide(slide),
+				xml: makeXmlSlide(slide),
 				media,
 				hyperlinks,
 				charts,
@@ -1348,7 +1355,7 @@ export default class PptxGenJS {
 		}
 
 		// STEP 1: Create the Slide Master/Layout
-		genObj.createSlideMaster(propsClone, newLayout)
+		createSlideMaster(propsClone, newLayout)
 
 		// STEP 1b: Master text styles (<p:txStyles>) live on the single shared slide master, not per-layout.
 		// Merge each provided group (title/body/other) onto the master, last-call-wins (deck-wide).
@@ -1360,7 +1367,7 @@ export default class PptxGenJS {
 		this._slideLayouts.push(newLayout)
 
 		// STEP 3: Add background (image data/path must be captured before `exportPresentation()` is called)
-		if (propsClone.background) genObj.addBackgroundDefinition(propsClone.background, newLayout)
+		if (propsClone.background) addBackgroundDefinition(propsClone.background, newLayout)
 
 		// STEP 4: Add slideNumber to master slide (if any)
 		if (newLayout._slideNumberProps && !this._masterSlide._slideNumberProps)
@@ -1401,7 +1408,7 @@ export default class PptxGenJS {
 	 */
 	tableToSlides(eleId: string, options: TableToSlidesProps = {}): void {
 		// @note `verbose` option is undocumented; used for verbose output of layout process
-		genTable.genTableToSlides(
+		genTableToSlides(
 			this,
 			eleId,
 			options,
