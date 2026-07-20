@@ -80,14 +80,15 @@ const P14_NS = 'http://schemas.microsoft.com/office/powerpoint/2010/main'
  * `>`+children+`</p:cNvPr>` — the element is self-closing for some shape kinds and paired
  * (hyperlink / media-action children) for others.
  *
- * NOT built with the element builder, deliberately. `descr` is escaped but `name` is **not**,
- * and that asymmetry is load-bearing to preserve: `objectName` is caller-supplied free text, so
- * `addText(…, { objectName: 'Q&A' })` reaches the file raw and emits a non-parseable part today.
- * Escaping it here would be a silent behavior change that no baseline part can witness (no
- * demo-deck `objectName` carries a special character), so it belongs in its own fixture-gated
- * commit. This helper exists so that fix is one line in one place instead of eight call sites.
+ * NOT built with the element builder, deliberately. `descr` is escaped here but `name` is **not**,
+ * and that asymmetry is intentional and load-bearing: `objectName` is caller-supplied free text,
+ * but every `add*Definition` (text.ts, shape.ts, image.ts, chart.ts, media.ts, connector.ts,
+ * group.ts, table.ts) already runs it through `encodeXmlEntities(validateObjectName(...))` once
+ * before it reaches a slide object's `options`. Escaping it again here would double-encode it
+ * (`'Q&A'` -> `Q&amp;A` upstream -> `Q&amp;amp;A` if escaped here too). This helper exists so that
+ * single escape stays one line in one place instead of eight call sites re-deriving it.
  * @param id - the shape's `<p:cNvPr>` id, unique slide-wide
- * @param name - caller-supplied `objectName` (emitted UNESCAPED, see above)
+ * @param name - caller-supplied `objectName`, already escaped once upstream (emitted as-is)
  * @param descr - alt text (escaped)
  * @param openPrefix - byte-significant indentation before `<p:cNvPr`
  * @returns the open tag, without its closing delimiter

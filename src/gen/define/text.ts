@@ -95,22 +95,6 @@ export function addTextDefinition(
 				if (placeHold?.options) itemOpts = { ...itemOpts, ...placeHold.options }
 			}
 
-			// A.4: Other options. A placeholder's default Selection Pane identity is its declared
-			// name (falling back to its type, then its idx). Placeholders are `placeholder`-typed
-			// objects and so take their name index from their own bucket; naming them `Text N` off
-			// the text-box bucket would collide with the slide's real text boxes.
-			itemOpts.objectName = itemOpts.objectName
-				? encodeXmlEntities(validateObjectName(itemOpts.objectName, 'text'))
-				: isPlaceholder
-					? encodeXmlEntities(
-							String(
-								itemOpts.placeholder ||
-									itemOpts._placeholderType ||
-									`Placeholder ${itemOpts._placeholderIdx ?? target._slideObjects.length}`
-							)
-						)
-					: `Text ${textNameIdx}`
-
 			// B:
 			if (itemOpts.shape === ShapeType.line) {
 				const itemLine = typeof itemOpts.line === 'object' && itemOpts.line ? itemOpts.line : {}
@@ -190,6 +174,25 @@ export function addTextDefinition(
 
 	// STEP 1: Create/Clean object options
 	newObject.options = cleanOpts(objectOptions)
+
+	// STEP 1a: Selection Pane identity (`objectName`). Set once here, on the shape-level object
+	// only — not inside `cleanOpts`, which also runs per text run (STEP 2 below). `Slide.addText`'s
+	// single-string convenience form reuses the same options object for both the shape and its lone
+	// run, so encoding this inside `cleanOpts` encoded a caller-supplied name twice. A placeholder's
+	// default identity is its declared name (falling back to its type, then its idx). Placeholders
+	// are `placeholder`-typed objects and so take their name index from their own bucket; naming
+	// them `Text N` off the text-box bucket would collide with the slide's real text boxes.
+	newObject.options.objectName = newObject.options.objectName
+		? encodeXmlEntities(validateObjectName(newObject.options.objectName, 'text'))
+		: isPlaceholder
+			? encodeXmlEntities(
+					String(
+						newObject.options.placeholder ||
+							newObject.options._placeholderType ||
+							`Placeholder ${newObject.options._placeholderIdx ?? target._slideObjects.length}`
+					)
+				)
+			: `Text ${textNameIdx}`
 
 	// STEP 1b: Standalone placeholder type (accessibility "Missing Slide Title")
 	// `placeholder` is documented as a placeholder *type* ('title', 'body', et. al.). When it

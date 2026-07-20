@@ -31,12 +31,13 @@ const textObj = (options = {}) => ({
 	options: { objectName: 'T', ...options },
 })
 
-describe('escaping: the latent unescaped-name bug is PRESERVED, not fixed', () => {
-	// LATENT BUG, pinned deliberately. `objectName` is caller-supplied free text and reaches the
-	// file raw, so `&` emits a non-parseable part. `descr` (altText) IS escaped, in the same tag.
-	// Fixing this is a byte change no baseline part can witness, so it belongs in its own
-	// fixture-gated commit — see `cNvPrOpen` in src/gen/slide/object.ts.
-	test('objectName is NOT escaped', () => {
+describe('escaping: cNvPrOpen leaves name/cSld-name as-is; callers own escaping', () => {
+	// This test drives `slideObjectToXml` directly with an already-raw `options.objectName`,
+	// bypassing the define layer (`addTextDefinition` et al.) that normally escapes it first via
+	// `encodeXmlEntities(validateObjectName(...))`. So "NOT escaped" here describes cNvPrOpen in
+	// isolation — intentional, since the real `addText()` API escapes once upstream (see
+	// `cNvPrOpen` in src/gen/slide/object.ts) and escaping again here would double-encode it.
+	test('objectName is NOT escaped (by this layer — the define layer escapes it upstream)', () => {
 		expect(render([textObj({ objectName: 'Q&A' })])).toContain('name="Q&A"')
 	})
 
@@ -44,6 +45,11 @@ describe('escaping: the latent unescaped-name bug is PRESERVED, not fixed', () =
 		expect(render([textObj({ altText: 'a & <b>' })])).toContain('descr="a &amp; &lt;b&gt;"')
 	})
 
+	// Unlike objectName, `_name` (-> `<p:cSld name>`) has no escaping layer upstream anywhere.
+	// For a regular slide `_name` defaults to "Slide N" and isn't caller-controlled, so this is
+	// latent; `defineSlideMaster({title})` sets `_name` from caller input and hits this same render
+	// path, which is a genuine reachable bug — tracked separately as backlog
+	// `fork-slidemaster-title-unescaped`, not fixed here.
 	test('the slide name is NOT escaped either', () => {
 		expect(render([], { _name: 'R&D' })).toContain('<p:cSld name="R&D">')
 	})

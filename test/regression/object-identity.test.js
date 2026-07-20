@@ -4,6 +4,7 @@ import {
 	build,
 	readEntry,
 	assert,
+	assertNotIncludes,
 	assertNonVisualDrawingProperty,
 	xmlAttributes,
 	xmlOpeningTags,
@@ -200,6 +201,23 @@ defineRegressionSuite('Object identity', 'legacy bug-21', [
 			assertNonVisualDrawingProperty(xml, { name: 'alt:shape', descr: 'Shape alt' }, 'shape altText')
 			assertNonVisualDrawingProperty(xml, { name: 'alt:table', descr: 'Table alt' }, 'table altText')
 			assertNonVisualDrawingProperty(xml, { name: 'alt:media', descr: 'Media alt' }, 'media altText')
+		},
+	},
+	{
+		// fork-addtext-objectname-double-escape: Slide.addText(string, opts) wraps the bare string as
+		// `[{ text, options }]`, reusing `options` as both the shape-level opts and the lone run's
+		// opts. Escaping objectName inside the per-run pass (as well as the shape-level pass) encoded
+		// an already-escaped `&` a second time: 'Q&A' -> name="Q&amp;amp;A" instead of "Q&amp;A".
+		name: 'addText(string, {objectName}) escapes objectName exactly once',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const slide = p.addSlide()
+				slide.addText('Q&A', { x: 0.4, y: 0.3, w: 2, h: 0.4, objectName: 'Q&A' })
+			})
+
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assertNonVisualDrawingProperty(xml, { name: 'Q&amp;A' }, 'single-escaped objectName')
+			assertNotIncludes(xml, '&amp;amp;', 'objectName must not be double-escaped')
 		},
 	},
 	{

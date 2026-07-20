@@ -1954,7 +1954,7 @@ items:
     type: fork-internal-proposal
     first_seen: 2026-07-20
     last_reviewed: 2026-07-20
-    status: needs-repro
+    status: implemented
     priority: p3
     target_area: []
     applies_to_current_project: yes
@@ -1996,21 +1996,45 @@ items:
       See also fork-slidemaster-title-unescaped for a related but distinct and
       genuinely unescaped construct (defineSlideMaster's title), found in the
       same investigation.
+
+      FIXED 2026-07-20. The `objectName` block (encodeXmlEntities(validateObjectName(...)))
+      was moved out of `cleanOpts` in src/gen/define/text.ts, where it ran once for the
+      shape-level options AND once per text run, and now runs exactly once against
+      `newObject.options` right after the shape-level `cleanOpts` call (new STEP 1a).
+      `cleanOpts` is still called per run for genuinely per-run concerns (color,
+      _bodyProp, etc.), but no longer touches objectName at all -- per-run objectName was
+      already dead data downstream (nothing reads `item.options.objectName` for an
+      individual text run; only the shape-level `newObject.options.objectName` reaches
+      cNvPrOpen), so removing it from the per-run pass changes no observable behavior
+      besides fixing the double-escape. This fixes the bug regardless of the
+      Slide.addText aliasing that triggered it, without touching src/slide.ts.
+
+      Also corrected the misleading "reaches the file raw / LATENT BUG" comments in
+      cNvPrOpen (src/gen/slide/object.ts) and in
+      test/regression/slide-object-xml.test.mjs's escaping describe block, which had
+      mischaracterized cNvPrOpen's deliberate non-escaping of `name` as an unescaped-input
+      bug rather than a single-escape-upstream design (see current_project_notes above).
+      Added a regression test,
+      "addText(string, {objectName}) escapes objectName exactly once", to
+      test/regression/object-identity.test.js, asserting `name="Q&amp;A"` and the absence
+      of `&amp;amp;`. Full suite (1410 tests) green after the fix.
     constructs: []
     evidence:
       kinds:
         - local-source-inspection
         - minimal-repro
+        - regression-test
       local_files:
         - src/slide.ts
         - src/gen/define/text.ts
         - src/gen/slide/object.ts
         - test/regression/slide-object-xml.test.mjs
+        - test/regression/object-identity.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: fix the cleanOpts double-invocation (or the addText aliasing) for objectName, add a schema fixture driven through the real addText() API, and correct the misleading comments in cNvPrOpen and slide-object-xml.test.mjs
+    next_action: none
 
   - id: fork-slidemaster-title-unescaped
     source: "fork:src/pptxgen.ts"
