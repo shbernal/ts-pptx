@@ -26,9 +26,8 @@ exports and let this repository own the internal OOXML generation details.
 - `src/gen/` holds the internal OOXML generators as a layered tree mirroring
   `src/read/`: `gen/define/*` normalizes user options onto the slide model, and
   `gen/{drawingml,slide,pres,opc,chart,table,anim}/*` serialize that model to
-  OOXML at export time. The legacy `src/gen-{xml,objects,charts,tables}.ts`
-  files are now thin re-export barrels retained only so existing
-  `import * as genXml` namespace imports keep resolving.
+  OOXML at export time. `src/gen-utils.ts` holds only the cross-cutting helpers
+  that belong to no single part (XML escaping, object names, rel ids).
 - `src/core-interfaces.ts` and `src/core-enums.ts` define the public typed
   contract.
 - `scripts/package-smoke.mjs` verifies the packed package boundary from a
@@ -59,7 +58,7 @@ export time. Each module opens with a TSDoc header stating its job; larger files
 | Slide master / layout | `gen/define/master.ts` `createSlideMaster` | `gen/slide/master.ts` `makeXmlMaster` / `gen/slide/layout.ts` `makeXmlLayout` |
 | Theme colors | — | `gen/pres/theme.ts` `buildThemeClrScheme` / `makeXmlTheme` |
 | Coordinates & units (in → EMU) | `units.ts` (strict public primitives); `units-internal.ts` `getSmartParseNumber` (lenient generator layer) | — |
-| Colors, fills, borders, shadows | `gen-utils.ts` `createColorElement` / `genXml*Fill` / `createShadowElement` | — |
+| Colors, fills, borders, shadows | — | `gen/drawingml/color.ts` `createColorElement`; `gen/drawingml/fill.ts` `genXmlColorSelection` / `genXml*Fill`; `gen/drawingml/line.ts` `genXmlLineFill` / `createLineCap`; `gen/drawingml/effect.ts` `createShadowElement` / `createGlowElement` |
 | Package assembly & export | `pptxgen.ts` `exportPresentation` (`write` / `writeFile` / `stream`) | `gen/opc/content-types.ts` `makeXmlContTypes` / `gen/opc/root-rels.ts` `makeXmlRootRels` / per-part rels |
 | Public API surface | `pptxgen.ts` (class), `slide.ts` (slide methods) | — |
 | Option / type definitions | `core-interfaces.ts` | — |

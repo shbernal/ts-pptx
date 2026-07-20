@@ -256,7 +256,7 @@ for those presets against minimal fixtures before extending the public API.
 1. Extend `ShapeFillProps` in `src/core-interfaces.ts` with a linear gradient
    model and exported stop type. Expand `type` from `'none' | 'solid'` to
    include `'gradient'`.
-2. Add a `genXmlGradientFill()` helper in `src/gen-utils.ts`, called by
+2. Add a `genXmlGradientFill()` helper in `src/gen/drawingml/fill.ts`, called by
    `genXmlColorSelection()` when `type: 'gradient'`. Keep `genXmlColorSelection`
    returning a complete fill-choice element.
 3. Reuse `createColorElement()` for stop colors so hex, theme color, and alpha

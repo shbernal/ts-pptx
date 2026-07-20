@@ -13,7 +13,8 @@ import {
 	VALID_SHAPE_PRESETS,
 } from '../../core-enums.js'
 import type { PresSlideInternal, ShapeLineProps, ShapeProps, SlideObject } from '../../core-interfaces.js'
-import { correctShadowOptions, encodeXmlEntities, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlEntities, validateObjectName } from '../../gen-utils.js'
+import { correctShadowOptions } from '../drawingml/effect.js'
 import { nextObjectNameIdx } from './object-name.js'
 import { createHyperlinkRels } from './hyperlinks.js'
 import { registerImageFillMedia } from './image.js'

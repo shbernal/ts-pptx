@@ -1288,7 +1288,7 @@ items:
     applies_to_current_project: partial
     non_target_reasons: []
     summary: Emit an <a:blipFill> as the fill of a <p:sp> (image as shape fill)
-    current_project_notes: "Already emittable by the kit: a shape fill of type 'image' (ShapeFillProps.type='image' with image:{path|data}, added in the #1317 image-fill work) serializes as an <a:blipFill> directly inside the shape's <p:spPr>, in CT_ShapeProperties order (geometry, then fill, then line). This holds for preset shapes AND for custGeom shapes, so the shape's own geometry (the <a:custGeom> path) is the clip — exactly the blip-fill-shape capability. genXmlColorSelection's 'image' branch (src/gen-utils.ts genXmlImageFill) emits the blipFill; registerImageFillMedia (src/gen-objects.ts, called from addShapeDefinition/addTextDefinition) registers the bitmap as a slide media rel and stashes the rId. The ledger note's earlier 'not emittable, use a <p:pic>+custGeom clip instead' claim predated confirmation and is superseded. Locked in by a custGeom-specific regression asserting <a:custGeom> precedes <a:blipFill>. Note: a downstream capability audit keyed on the blip-fill-shape construct auto-greens from this status flip, but any human-readable note it carries saying 'not emittable' should be refreshed downstream (out of scope here)."
+    current_project_notes: "Already emittable by the kit: a shape fill of type 'image' (ShapeFillProps.type='image' with image:{path|data}, added in the #1317 image-fill work) serializes as an <a:blipFill> directly inside the shape's <p:spPr>, in CT_ShapeProperties order (geometry, then fill, then line). This holds for preset shapes AND for custGeom shapes, so the shape's own geometry (the <a:custGeom> path) is the clip — exactly the blip-fill-shape capability. genXmlColorSelection's 'image' branch (src/gen/drawingml/fill.ts genXmlImageFill) emits the blipFill; registerImageFillMedia (src/gen/define/image.ts, called from addShapeDefinition/addTextDefinition) registers the bitmap as a slide media rel and stashes the rId. The ledger note's earlier 'not emittable, use a <p:pic>+custGeom clip instead' claim predated confirmation and is superseded. Locked in by a custGeom-specific regression asserting <a:custGeom> precedes <a:blipFill>. Note: a downstream capability audit keyed on the blip-fill-shape construct auto-greens from this status flip, but any human-readable note it carries saying 'not emittable' should be refreshed downstream (out of scope here)."
     constructs:
       - blip-fill-shape
     evidence:
@@ -1297,8 +1297,7 @@ items:
         - schema-fixture
         - generated-pptx
       local_files:
-        - src/gen-utils.ts
-        - src/gen-objects.ts
+        - src/gen/drawingml/fill.ts
         - test/regression/image-fills.test.js
         - test/schema-cases.js
       schema_fixture: "shape with image (blip) fill"
@@ -1730,8 +1729,8 @@ items:
         - regression-test
       local_files:
         - src/core-interfaces.ts
-        - src/gen-utils.ts
-        - src/gen-xml.ts
+        - src/gen/drawingml/fill.ts
+        - src/gen/slide/object.ts
         - src/read/api/shapes.ts
         - test/regression/image-shape.test.js
         - test/schema-cases.js

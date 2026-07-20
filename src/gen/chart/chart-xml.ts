@@ -36,16 +36,11 @@ import type {
 	ChartErrorBarOptions,
 } from '../../core-interfaces.js'
 import { warn } from '../../log.js'
-import {
-	createColorElement,
-	createLineCap,
-	createShadowEffectLst,
-	encodeXmlEntities,
-	genXmlColorSelection,
-	genXmlPatternFill,
-	getUuid,
-	resolveBorderWidth,
-} from '../../gen-utils.js'
+import { encodeXmlEntities, getUuid } from '../../gen-utils.js'
+import { createColorElement } from '../drawingml/color.js'
+import { createShadowEffectLst } from '../drawingml/effect.js'
+import { genXmlColorSelection, genXmlPatternFill } from '../drawingml/fill.js'
+import { createLineCap, resolveBorderWidth } from '../drawingml/line.js'
 import { convertRotationDegrees, valToPts } from '../../units-internal.js'
 import { EMU_PER_POINT, FIXED_PCT_PER_PERCENT, ptToHundredths } from '../../units.js'
 import { dataLabels, dataValues, dataSizes, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'

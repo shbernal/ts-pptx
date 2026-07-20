@@ -18,7 +18,7 @@ import type {
 	TableToSlidesProps,
 	TableCellProps,
 } from '../../core-interfaces.js'
-import { rgbToHex } from '../../gen-utils.js'
+import { rgbToHex } from '../drawingml/color.js'
 import { inch2Emu } from '../../units-internal.js'
 import { warn } from '../../log.js'
 import { EMU_PER_INCH } from '../../units.js'

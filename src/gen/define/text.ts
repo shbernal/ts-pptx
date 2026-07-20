@@ -24,7 +24,8 @@ import type {
 	TextProps,
 	TextPropsOptions,
 } from '../../core-interfaces.js'
-import { correctShadowOptions, encodeXmlEntities, getNewRelId, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlEntities, getNewRelId, validateObjectName } from '../../gen-utils.js'
+import { correctShadowOptions } from '../drawingml/effect.js'
 import { imageContentType } from '../../media/content-type.js'
 import { valToPts } from '../../units-internal.js'
 import { nextObjectNameIdx } from './object-name.js'

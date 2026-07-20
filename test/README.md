@@ -29,17 +29,17 @@ the **primary** module each group exercises.
 |---|---|
 | `pptxgen.ts` (top-level API) | `object-identity`, `repeated-writes`, `presentation-child-order`, `presentation-layouts`, `entry-export-surface` |
 | `slide.ts` | `slide-backgrounds`, `slide-hyperlinks`, `slide-title-placeholder`, `add-section-duplicate`, `object-locks` |
-| `gen-objects.ts` (add*Definition) | `addchart-signature`, `shape-presets`, `shape-text-body`, `text-formatting`, `image-shape`, `connector-shape`, `group-shapes` |
-| `gen-xml.ts` (spTree / part emission) | `master-*`, `notes-master-placeholders`, `notes-hyperlinks`, `slide-master-*`, `placeholder-type-attr`, `content-type-defaults`, `border-shadow-ppt-props` |
-| `gen-charts.ts` | `chart-*`, `combo-charts`, `radar-style` |
-| `gen-tables.ts` (auto-paging) | `table-autopage-*`, `table-fit-columns`, `table-colwidth-distribution`, `table-header-row`, `table-merged-cell-borders`, `table-span-border-structure` |
-| `gen-media.ts` | `image-svg-source`, `image-data-dedup`, `media-load-error`, `media-loop`, `chart-embedding-parts` |
-| `gen-utils.ts` (colors/units helpers) | `hash-colors`, `alpha-colors`, `gradient-fills`, `coordinate-units`, `shadow-scheme-color` |
+| `gen/define/*.ts` (add*Definition) | `addchart-signature`, `shape-presets`, `shape-text-body`, `text-formatting`, `image-shape`, `connector-shape`, `group-shapes` |
+| `gen/slide/*.ts`, `gen/opc/*.ts` (spTree / part emission) | `master-*`, `notes-master-placeholders`, `notes-hyperlinks`, `slide-master-*`, `placeholder-type-attr`, `content-type-defaults`, `border-shadow-ppt-props` |
+| `gen/chart/*.ts` | `chart-*`, `combo-charts`, `radar-style` |
+| `gen/table/autopage.ts` (auto-paging) | `table-autopage-*`, `table-fit-columns`, `table-colwidth-distribution`, `table-header-row`, `table-merged-cell-borders`, `table-span-border-structure` |
+| `gen/media.ts`, `media/*.ts` | `image-svg-source`, `image-data-dedup`, `media-load-error`, `media-loop`, `chart-embedding-parts` |
+| `gen/drawingml/{color,fill,line,effect}.ts` | `hash-colors`, `alpha-colors`, `gradient-fills`, `shadow-scheme-color` |
 | `measure-fit.ts` / `text-fit.ts` / `font-metrics.ts` | `text-fit*`, `measure-text-api`, `measured-fit-*`, `font-heuristic`, `font-metrics-registry`, `table-cell-fit` |
 | `embedded-fonts.ts` | `embed-font`, `text-fontface-ea-cs` |
 | `math.ts` | `math-latex-omml` |
 | `core-enums.ts` / `core-interfaces.ts` | `shape-presets`, `bullet-glyphs`, `bullet-options`, `entry-export-surface` (types) |
-| `units.ts` | `coordinate-units`, `table-cell-margin-inches`, `table-margins` |
+| `units.ts` / `units-internal.ts` | `coordinate-units`, `table-cell-margin-inches`, `table-margins` |
 | `zip.ts` | `zip-compression`, `zip-output-types` |
 | `node.ts` / `runtime/*` | `node-runtime`, `node-runtime-fetch` |
 | `group-transform.ts` | `group-shapes` |

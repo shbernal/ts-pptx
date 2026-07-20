@@ -26,7 +26,8 @@ import type {
 	PresSlideInternal,
 	SlideObject,
 } from '../../core-interfaces.js'
-import { correctShadowOptions, encodeXmlEntities, getNewRelId, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlEntities, getNewRelId, validateObjectName } from '../../gen-utils.js'
+import { correctShadowOptions } from '../drawingml/effect.js'
 import { valToPts } from '../../units-internal.js'
 
 /**

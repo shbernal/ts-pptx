@@ -32,16 +32,11 @@ import type {
 	TableCell,
 	TableCellProps,
 } from '../../core-interfaces.js'
-import {
-	createColorElement,
-	createLineCap,
-	createShadowEffectLst,
-	encodeXmlEntities,
-	genXmlColorSelection,
-	genXmlLineFill,
-	getDuplicateObjectNames,
-	isHyperlinkRel,
-} from '../../gen-utils.js'
+import { encodeXmlEntities, getDuplicateObjectNames, isHyperlinkRel } from '../../gen-utils.js'
+import { createColorElement } from '../drawingml/color.js'
+import { createShadowEffectLst } from '../drawingml/effect.js'
+import { genXmlColorSelection } from '../drawingml/fill.js'
+import { createLineCap, genXmlLineFill } from '../drawingml/line.js'
 import { getImageSizeFromBase64 } from '../../media/image-size.js'
 import {
 	convertRotationDegrees,

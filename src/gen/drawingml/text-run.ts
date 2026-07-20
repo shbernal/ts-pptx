@@ -16,7 +16,9 @@ import type {
 	TextProps,
 	TextPropsOptions,
 } from '../../core-interfaces.js'
-import { createColorElement, createGlowElement, createShadowElement, genXmlColorSelection } from '../../gen-utils.js'
+import { createColorElement } from './color.js'
+import { createGlowElement, createShadowElement } from './effect.js'
+import { genXmlColorSelection } from './fill.js'
 import { inch2Emu, lineWidthToEmu, valToPts } from '../../units-internal.js'
 import { FIXED_PCT_PER_PERCENT, PERCENT_SCALE, ptToHundredths } from '../../units.js'
 import { warn } from '../../log.js'

@@ -16,7 +16,8 @@ import type {
 	ShapeFillProps,
 	SlideObject,
 } from '../../core-interfaces.js'
-import { correctShadowOptions, encodeXmlEntities, getNewRelId, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlEntities, getNewRelId, validateObjectName } from '../../gen-utils.js'
+import { correctShadowOptions } from '../drawingml/effect.js'
 import { svgMarkupToDataUri } from '../../media/base64.js'
 import { imageContentType } from '../../media/content-type.js'
 import { getImageSizeFromBase64 } from '../../media/image-size.js'

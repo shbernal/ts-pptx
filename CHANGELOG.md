@@ -254,6 +254,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- **The DrawingML fragment builders moved out of `gen-utils.ts` (no API change).** Color,
+  effect, fill and line markup now live beside their siblings in `src/gen/drawingml/` as
+  `color.ts` (`createColorElement`, `rgbToHex`), `effect.ts` (`createGlowElement`,
+  `createShadowElement`, `createShadowEffectLst`, `correctShadowOptions`), `fill.ts`
+  (`genXmlColorSelection` and the gradient/pattern/image builders) and `line.ts`
+  (`genXmlLineFill`, `createLineCap`, `resolveBorderWidth`). `gen-utils.ts` drops from 565
+  to 131 lines and now holds only the cross-cutting helpers that belong to no single part:
+  XML escaping, object-name validation, and rel-id allocation. This completes the breakup
+  begun when unit conversion moved to `units-internal.ts` and image/base64 decoding to
+  `media/` — the module was three unrelated concerns behind one name, which is what made it
+  the highest-fan-in file in the repo. None of these symbols were exported from an
+  entrypoint, so the published surface is unchanged (1,150 exports across ten entrypoints)
+  and the demo decks re-emit byte-identically (1,437 package parts).
 - **The `gen-*.ts` re-export barrels are gone (no API change).** `gen-charts.ts`,
   `gen-objects.ts`, `gen-tables.ts` and `gen-xml.ts` had no behavior of their own — they
   only forwarded to the `gen/**` tree so that `pptxgen.ts` and `slide.ts` could keep doing
