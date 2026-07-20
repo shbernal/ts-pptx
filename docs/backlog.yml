@@ -1862,7 +1862,7 @@ items:
     source: fork:src/gen-tables.ts
     type: fork-internal-proposal
     first_seen: 2026-07-18
-    last_reviewed: 2026-07-18
+    last_reviewed: 2026-07-20
     status: deferred
     priority: p3
     target_area: []
@@ -1875,11 +1875,27 @@ items:
       ratcheted to 90/76/96/93 (8479a722). The read-side gaps that plan named
       (read/api/chart.ts, theme-context, shapes, oxml/theme, animation, transition)
       are now covered; the remaining below-average branch coverage is on the WRITE
-      side:
-        - gen-tables.ts — lowest overall; the getSlidesForTableRows auto-paging
-          engine is the largest untested branch surface.
-        - gen-objects.ts — biggest low-coverage surface by volume (~859 stmts).
-        - the text-fit path — measure-fit.ts and text-fit.ts branch coverage lag.
+      side. Re-measured 2026-07-20 (global 90.94/78.1/96.61/94.05, gate still green):
+
+        - gen-tables.ts / gen-objects.ts are now thin barrels — commits 92643b41,
+          a710480f, f1519793 (all after this item was filed) split their logic out to
+          `src/gen/table/{autopage,html-dom}.ts` and `src/gen/define/*.ts`. Update any
+          future work here to the new locations, not the barrel files.
+        - src/gen/table/autopage.ts (ex getSlidesForTableRows engine): 72.6% branch —
+          still the lowest table-path surface.
+        - src/gen/table/html-dom.ts reports 0% in coverage/coverage-summary.json, but
+          that's a measurement artifact, not a real gap: htmlBorderToProps/
+          resolveHtmlColWidth ARE tested (test/regression/html-table-border-width.test.js,
+          html-table-col-width.test.js), just via a src-import
+          (`from '../../src/gen-tables.ts'`) that bypasses dist instrumentation — see
+          the docs/testing.md caveat this item already flagged. genTableToSlides in the
+          same file is genuinely untested but is the browser-only DOM path, already
+          fenced with `v8 ignore` (out of scope per docs/project-target.md).
+        - src/gen/define/*.ts (ex gen-objects.ts) is the biggest low-coverage surface by
+          volume; worst branch %: comment.ts 61.8%, hyperlinks.ts 69.1%, chart.ts 72.1%,
+          background.ts 71.4%, text.ts 73.5%.
+        - measure-fit.ts (67.1%) and text-fit.ts (70.7%) remain the lowest of all listed
+          files, branch-wise.
       No missing files — the gap is within-file branches, and per docs/testing.md some
       red dist lines are already covered via src-importing tests, so read
       coverage/coverage-summary.json before assuming a real gap. Ongoing ratchet work,
@@ -1892,6 +1908,13 @@ items:
       local_files:
         - src/gen-tables.ts
         - src/gen-objects.ts
+        - src/gen/table/autopage.ts
+        - src/gen/table/html-dom.ts
+        - src/gen/define/comment.ts
+        - src/gen/define/hyperlinks.ts
+        - src/gen/define/chart.ts
+        - src/gen/define/background.ts
+        - src/gen/define/text.ts
         - src/measure-fit.ts
         - src/text-fit.ts
       schema_fixture: null
