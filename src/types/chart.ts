@@ -4,8 +4,9 @@
  *
  * Re-exported by `../core-interfaces.js`, which is the import site for the rest of `src/`.
  */
-import type { CHART_NAME, ChartType } from '../core-enums.js'
+import type { CHART_NAME } from '../core-enums.js'
 import type { HexColor, PatternFillProps, PositionProps } from './core.js'
+import type { ChartOptsInternal } from './internal.js'
 import type { ObjectNameProps } from './object.js'
 import type { BorderProps, ShadowProps, ShapeFillProps } from './style.js'
 import type { TextBaseProps } from './text.js'
@@ -147,12 +148,6 @@ export interface ChartErrorBarOptions {
 	color?: HexColor
 	/** Error-bar line width (points). */
 	size?: number
-}
-// Used internally, probably shouldn't be used by end users
-export interface OptsChartDataInternal extends OptsChartData {
-	labels?: string[][]
-	/** Series index; always assigned by addChartDefinition() before this internal shape is built. */
-	_dataIndex: number
 }
 export interface OptsChartGridLine {
 	/**
@@ -711,17 +706,4 @@ export interface ChartOpts
 	 * @example { sourceId: 'q3-revenue', generator: 'my-deck-tool' }
 	 */
 	metadata?: Record<string, string>
-}
-export interface ChartOptsInternal extends ChartOpts {
-	_type?: ChartType | ChartMulti[] // internal, normalized from `CHART_NAME`
-}
-export interface SlideRelChart extends OptsChartData {
-	type: CHART_NAME | ChartMulti[]
-	opts: ChartOptsInternal
-	data: OptsChartDataInternal[]
-	// internal below
-	rId: number
-	Target: string
-	globalId: number
-	fileName: string
 }

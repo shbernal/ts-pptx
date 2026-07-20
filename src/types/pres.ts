@@ -5,8 +5,7 @@
  * Re-exported by `../core-interfaces.js`, which is the import site for the rest of `src/`.
  */
 import type { WRITE_OUTPUT_TYPE } from '../core-enums.js'
-import type { EmbeddedFont } from '../embedded-fonts.js'
-import type { PresSlide, PresSlideInternal, SlideLayoutInternal } from './slide.js'
+import type { PresSlide } from './slide.js'
 import type { ThemeProps } from './theme.js'
 
 export interface WriteBaseProps {
@@ -54,10 +53,6 @@ export interface SectionProps {
 	 */
 	order?: number
 }
-export interface SectionInternalProps extends SectionProps {
-	_type?: 'user' | 'default'
-	_slides: PresSlideInternal[]
-}
 export interface PresLayout {
 	_sizeW?: number
 	_sizeH?: number
@@ -96,13 +91,4 @@ export interface PresentationProps {
 	subject: string
 	theme: ThemeProps
 	title: string
-}
-// PRIVATE interface
-export interface PresentationPropsInternal extends PresentationProps {
-	masterSlide: PresSlideInternal
-	sections: SectionInternalProps[]
-	slideLayouts: SlideLayoutInternal[]
-	slides: PresSlideInternal[]
-	/** Author-side embedded fonts (see {@link PptxGenJS.embedFont}); empty when none. */
-	embeddedFonts: EmbeddedFont[]
 }

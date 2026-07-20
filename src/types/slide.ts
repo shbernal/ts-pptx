@@ -1,80 +1,21 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * The slide model: the PRIVATE generator wire shapes (`SlideRel`, `SlideRelMedia`, `SlideObject`),
  * groups, the merged `ObjectOptions` bag, and the `SlideLayout`/`PresSlide` authoring surfaces.
  *
  * Re-exported by `../core-interfaces.js`, which is the import site for the rest of `src/`.
  */
-import type { CHART_NAME, PLACEHOLDER_TYPE, SHAPE_NAME, SlideObjectType, TableStyle } from '../core-enums.js'
+import type { CHART_NAME, PLACEHOLDER_TYPE, SHAPE_NAME, TableStyle } from '../core-enums.js'
 import type { AnimationProps, TransitionProps } from './animation.js'
-import type { ChartMulti, ChartOpts, OptsChartData, SlideRelChart } from './chart.js'
+import type { ChartMulti, ChartOpts, OptsChartData } from './chart.js'
 import type { BackgroundProps, Coord, HexColor, Margin, PositionProps } from './core.js'
-import type { MasterTextStyleProps, SlideNumberProps } from './master.js'
-import type { ImageBaseProps, ImageProps, MediaProps, MediaType } from './media.js'
+import type { SlideNumberProps } from './master.js'
+import type { ImageBaseProps, ImageProps, MediaProps } from './media.js'
 import type { ObjectNameProps } from './object.js'
-import type { PresLayout } from './pres.js'
 import type { ShapeProps } from './shape.js'
-import type { ConnectorProps, HyperlinkProps } from './style.js'
-import type { TableCell, TableCellProps, TableProps, TableRow } from './table.js'
-import type { CommentProps, NotesProps, SlideComment, TextProps, TextPropsOptions } from './text.js'
+import type { ConnectorProps } from './style.js'
+import type { TableCellProps, TableProps, TableRow } from './table.js'
+import type { CommentProps, NotesProps, TextProps, TextPropsOptions } from './text.js'
 
-// PRIVATE vvv
-export interface SlideRel {
-	type: SlideObjectType
-	/**
-	 * Relationship target, stored **unescaped**. Every emitter escapes it on the way out
-	 * (`gen/slide/object.ts`, `gen/slide/notes.ts`, and `read/opc/relationships.ts` for the
-	 * append path). Escaping at definition time instead would double-escape on append,
-	 * where the serializer escapes again — so `&` in a hyperlink or online-video URL must
-	 * arrive here verbatim.
-	 */
-	Target: string
-	fileName?: string
-	data: any[] | string
-	opts?: ChartOpts
-	path?: string
-	extn?: string
-	globalId?: number
-	rId: number
-}
-export interface SlideRelMedia {
-	type: string
-	opts?: MediaProps
-	path?: string
-	extn?: string
-	data?: string | ArrayBuffer
-	/** used to indicate that a media file has already been read/enocded (PERF) */
-	isDuplicate?: boolean
-	isSvgPng?: boolean
-	svgSize?: { w: number; h: number }
-	rId: number
-	/** Unescaped — see {@link SlideRel.Target}. Doubles as the zip entry name for embedded media. */
-	Target: string
-}
-export interface SlideObject {
-	_type: SlideObjectType
-	options?: ObjectOptions
-	// text
-	text?: TextProps[]
-	// table
-	arrTabRows?: TableCell[][]
-	// chart
-	chartRid?: number
-	// image:
-	image?: string
-	imageRid?: number
-	hyperlink?: HyperlinkProps
-	// media
-	media?: string
-	mtype?: MediaType
-	mediaRid?: number
-	loop?: boolean
-	loopCount?: number
-	shape?: SHAPE_NAME
-	// group (flat group): child render-objects emitted inside this object's `<p:grpSp>`
-	_groupObjects?: SlideObject[]
-}
-// PRIVATE ^^^
 /**
  * A child object that can be placed inside a group via `slide.addGroup()`.
  *
@@ -144,40 +85,8 @@ export interface ObjectOptions extends ImageBaseProps, PositionProps, ShapeProps
 	rtl?: boolean // table
 	tableStyle?: TableStyle | string // table
 }
-export interface SlideBaseProps {
-	_bkgdImgRid?: number
-	_margin?: Margin
-	_name?: string
-	_presLayout: PresLayout
-	_rels: SlideRel[]
-	_relsChart: SlideRelChart[] // needed as we use args:"PresSlide|SlideLayout" often
-	_relsMedia: SlideRelMedia[] // needed as we use args:"PresSlide|SlideLayout" often
-	_relsNotes?: SlideRel[] // hyperlink rels emitted in the notes-slide part (notesSlideN.xml.rels)
-	_comments?: SlideComment[] // review comments emitted in the per-slide comments part (commentN.xml)
-	_txStyles?: MasterTextStyleProps // per-level master text styles emitted in slideMaster1.xml <p:txStyles> (deck-wide; set via defineSlideMaster textStyles)
-	_slideNum: number
-	_slideNumberProps?: SlideNumberProps | null
-	_slideObjects: SlideObject[]
-	/**
-	 * Per-kind counters backing default Selection Pane names (`Shape 0`, `Image 1`, `Group 1`, …),
-	 * keyed by `SlideObjectType`. Monotonic for the life of the slide: an object consumes its index
-	 * when it is added, whether it stays top-level or is moved into a group's `_groupObjects`.
-	 * Lazily created by `nextObjectNameIdx` (`gen/define/object-name.ts`).
-	 */
-	_objectNameCounts?: Partial<Record<SlideObjectType, number>>
-
-	background?: BackgroundProps
-}
 export interface SlideLayout {
 	background?: BackgroundProps
-}
-export interface SlideLayoutInternal extends SlideBaseProps, SlideLayout {
-	_slide?: {
-		_bkgdImgRid?: number
-		back: string
-		color: string
-		hidden?: boolean
-	} | null
 }
 export interface PresSlide {
 	addChart(data: OptsChartData[], options: ChartOpts & { type: CHART_NAME }): PresSlide
@@ -235,13 +144,6 @@ export interface PresSlide {
 	 * Slide number options
 	 */
 	slideNumber?: SlideNumberProps
-}
-export interface PresSlideInternal extends SlideBaseProps, PresSlide {
-	_rId: number
-	_slideLayout: SlideLayoutInternal | null
-	_slideId: number
-	/** Preset build animations on this slide, in play order (see {@link PresSlide.addAnimation}). */
-	_animations: AnimationProps[]
 }
 export interface AddSlideProps {
 	/** Title of the slide master to use for the new slide (the `title` passed to {@link SlideMasterProps} via `defineSlideMaster`). */

@@ -99,15 +99,6 @@ export interface ShadowProps {
 	 */
 	rotateWithShape?: boolean
 }
-/**
- * Internal, wire-normalized shadow shape produced by `correctShadowOptions` — not part of the
- * public `ShadowProps` input. `opacity` (0.0 fully transparent – 1.0 fully opaque) is the alpha
- * derived from the public `transparency` option (or a color's embedded alpha byte); it is what
- * every emit site reads, so downstream code stays unit-agnostic about the public percent scale.
- */
-export interface ShadowPropsInternal extends ShadowProps {
-	opacity?: number
-}
 // used by: shape, table, text
 export interface ShapeFillProps {
 	/**

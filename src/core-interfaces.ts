@@ -18,8 +18,9 @@
  *   - `types/chart.ts`     OptsChartData(+Internal), per-axis and per-type chart props, ChartOpts
  *   - `types/animation.ts` transitions and slide animations
  *   - `types/master.ts`    slide-master objects, bullets and per-level text styles
- *   - `types/slide.ts`     SlideRel(+Media)/SlideObject (PRIVATE), groups, ObjectOptions, slide model
+ *   - `types/slide.ts`     groups, ObjectOptions, the SlideLayout/PresSlide authoring surfaces
  *   - `types/pres.ts`      WriteProps, sections, PresLayout, presentation props
+ *   - `types/internal.ts`  generator-internal wire shapes — NOT public contract
  *
  * Note: this barrel is not types-only — `types/text.ts` also exports the `textRun` /
  * `textRuns` run-array helpers.
@@ -38,3 +39,4 @@ export * from './types/animation.js'
 export * from './types/master.js'
 export * from './types/slide.js'
 export * from './types/pres.js'
+export * from './types/internal.js'

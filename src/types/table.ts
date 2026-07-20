@@ -209,14 +209,6 @@ export interface TableStyleProps {
 	/** Even vertical band — activated by `TableProps.hasBandedColumns`. */
 	band2V?: TableStyleRegionProps
 }
-/**
- * Internal record pairing a registered custom table style with its generated GUID.
- */
-export interface TableStyleInternal {
-	/** Braced, upper-case GUID emitted as both `styleId` and `<a:tableStyleId>`. */
-	guid: string
-	def: TableStyleProps
-}
 export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProps {
 	_arrObjTabHeadRows?: TableRow[]
 
