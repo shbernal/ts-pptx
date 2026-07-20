@@ -1340,6 +1340,11 @@ export default class PptxGenJS {
 
 		const newLayout: SlideLayoutInternal = {
 			_margin: propsClone.margin || DEF_SLIDE_MARGIN_IN,
+			// Kept RAW (unescaped) here, unlike `objectName`'s single-escape-upstream design: `_name`
+			// doubles as the lookup key `addSlide({masterTitle})` matches against the caller's raw
+			// `title` string (see the `layout._name === masterSlideName` comparisons in this file).
+			// Escaping it here would break that match for any title containing `&`/`<`/`"`. It's
+			// escaped once at emission instead -- see `slideObjectToXml` in gen/slide/object.ts.
 			_name: propsClone.title,
 			_presLayout: this.presLayout,
 			_rels: [],

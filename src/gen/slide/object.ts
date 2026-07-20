@@ -190,11 +190,14 @@ const hasCompleteGroupFrame = (options: ObjectOptions): boolean =>
  * @return {string} XML string with <p:cSld> as the root
  */
 export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): string {
-	// NOTE: `name` is emitted UNESCAPED, the same latent bug `cNvPrOpen` carries and for the same
-	// reason — escaping it would change emitted bytes for decks with a `&`/`"` in a layout name,
-	// which no baseline part exercises. Preserved here; see `cNvPrOpen` for the full rationale.
+	// `_name` is escaped HERE, at emission, unlike `objectName`'s single-escape-upstream design
+	// (see `cNvPrOpen`): `_name` doubles as the raw lookup key `addSlide({masterTitle})` matches
+	// against the caller's `title` string (pptxgen.ts, `layout._name === masterSlideName`), so it
+	// must stay unescaped until the last possible moment or that match breaks for any title
+	// containing `&`/`<`/`"`. Plain slides' default `_name` ("Slide N", slide.ts) never contains
+	// XML metacharacters, so escaping it here is a no-op for that path.
 	// The element stays a template because it wraps the entire slide, built by append below.
-	let strSlideXml: string = slide._name ? '<p:cSld name="' + slide._name + '">' : '<p:cSld>'
+	let strSlideXml: string = slide._name ? '<p:cSld name="' + encodeXmlEntities(slide._name) + '">' : '<p:cSld>'
 
 	// Warn on duplicate Selection Pane identities within this slide. Unique `objectName`
 	// values are what consumers (e.g. semantic manifests) rely on, so flag collisions loudly.

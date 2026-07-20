@@ -52,4 +52,24 @@ defineRegressionSuite('addSlide masterTitle', [
 			)
 		},
 	},
+	{
+		// fork-slidemaster-title-unescaped: a title containing XML metacharacters used to reach
+		// `<p:cSld name="...">` verbatim, producing a non-well-formed slideLayout part. It must be
+		// escaped in the emitted XML while still matching `masterTitle` by its raw (unescaped) value.
+		name: 'a title with XML metacharacters is escaped in the slideLayout and still matches masterTitle raw',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				defineMaster(p, 'R&D <Team> "Q1"')
+				p.addSlide({ masterTitle: 'R&D <Team> "Q1"' }).addText('Title', { placeholder: 'title' })
+			})
+			const slideXml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(/<p:ph[^>]*type="title"/.test(slideXml), 'expected masterTitle lookup to still match; got: ' + slideXml)
+
+			const layoutXml = await readEntry(zip, 'ppt/slideLayouts/slideLayout2.xml')
+			assert(
+				layoutXml.includes('<p:cSld name="R&amp;D &lt;Team&gt; &quot;Q1&quot;">'),
+				'expected escaped title in slideLayout <p:cSld name="...">; got: ' + layoutXml
+			)
+		},
+	},
 ])

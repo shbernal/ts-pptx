@@ -31,7 +31,7 @@ const textObj = (options = {}) => ({
 	options: { objectName: 'T', ...options },
 })
 
-describe('escaping: cNvPrOpen leaves name/cSld-name as-is; callers own escaping', () => {
+describe('escaping: cNvPrOpen leaves objectName as-is (caller escapes upstream); cSld-name is escaped here', () => {
 	// This test drives `slideObjectToXml` directly with an already-raw `options.objectName`,
 	// bypassing the define layer (`addTextDefinition` et al.) that normally escapes it first via
 	// `encodeXmlEntities(validateObjectName(...))`. So "NOT escaped" here describes cNvPrOpen in
@@ -45,13 +45,13 @@ describe('escaping: cNvPrOpen leaves name/cSld-name as-is; callers own escaping'
 		expect(render([textObj({ altText: 'a & <b>' })])).toContain('descr="a &amp; &lt;b&gt;"')
 	})
 
-	// Unlike objectName, `_name` (-> `<p:cSld name>`) has no escaping layer upstream anywhere.
-	// For a regular slide `_name` defaults to "Slide N" and isn't caller-controlled, so this is
-	// latent; `defineSlideMaster({title})` sets `_name` from caller input and hits this same render
-	// path, which is a genuine reachable bug — tracked separately as backlog
-	// `fork-slidemaster-title-unescaped`, not fixed here.
-	test('the slide name is NOT escaped either', () => {
-		expect(render([], { _name: 'R&D' })).toContain('<p:cSld name="R&D">')
+	// Unlike objectName, `_name` (-> `<p:cSld name>`) is escaped HERE, at this render layer, not
+	// upstream: `_name` doubles as the raw lookup key `addSlide({masterTitle})` matches against the
+	// caller's `title` (pptxgen.ts, `layout._name === masterSlideName`), so it must stay unescaped
+	// until emission or that match breaks for a title containing XML metacharacters. Fixed for
+	// backlog `fork-slidemaster-title-unescaped`.
+	test('the slide name IS escaped, at this render layer', () => {
+		expect(render([], { _name: 'R&D' })).toContain('<p:cSld name="R&amp;D">')
 	})
 
 	test('a hyperlink tooltip IS escaped, and exactly once', () => {

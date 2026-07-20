@@ -2041,7 +2041,7 @@ items:
     type: fork-internal-proposal
     first_seen: 2026-07-20
     last_reviewed: 2026-07-20
-    status: needs-repro
+    status: implemented
     priority: p2
     target_area:
       - invalid-ooxml
@@ -2062,18 +2062,45 @@ items:
 
       slide.ts's own default _name ("Slide N") is never caller-controlled, so
       this is specific to the defineSlideMaster(title) path.
+
+      FIXED 2026-07-20. Escaping was deliberately NOT added at the
+      `_name: propsClone.title` assignment (src/pptxgen.ts) as the next_action
+      below originally suggested, because `_name` doubles as the raw lookup key
+      `addSlide({masterTitle: '...'})` / the deprecated `masterName` match
+      against the caller's unescaped title (`layout._name === masterSlideName`,
+      src/pptxgen.ts). Escaping it that early would break the lookup for any
+      title containing `&`/`<`/`"` while fixing the XML. Instead, `_name` is now
+      escaped at the single point it becomes XML: `slideObjectToXml`
+      (src/gen/slide/object.ts), `'<p:cSld name="' + encodeXmlEntities(slide._name) + '">'`.
+      This is the mirror image of `cNvPrOpen`'s objectName design (escape once
+      upstream, emit raw) -- here escaping has to happen downstream instead,
+      because the raw value is load-bearing for matching in between.
+
+      Updated the stale characterization test in
+      test/regression/slide-object-xml.test.mjs ("the slide name is NOT escaped
+      either") to assert the new escaped behavior, and its describe-block header
+      comment. Added a regression test, "a title with XML metacharacters is
+      escaped in the slideLayout and still matches masterTitle raw", to
+      test/regression/addslide-mastertitle.test.js, asserting both the escaped
+      `<p:cSld name="R&amp;D &lt;Team&gt; &quot;Q1&quot;">` and that
+      `addSlide({masterTitle})` lookup still resolves against the raw title.
+      Full suite (1411 tests) green after the fix; typecheck clean.
     constructs: []
     evidence:
       kinds:
         - local-source-inspection
         - minimal-repro
+        - regression-test
       local_files:
         - src/pptxgen.ts
+        - src/gen/slide/object.ts
+        - test/regression/slide-object-xml.test.mjs
+        - test/regression/addslide-mastertitle.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: escape propsClone.title (or _name at the p:cSld emission site) and add a schema fixture, following the pattern of the existing theme/fontFace/rel-Target escaping fixes
+    next_action: none -- fixed; a schema fixture exercising a title with XML metacharacters would still be worth adding under the same pattern as the theme/fontFace/rel-Target escaping fixtures
 
   - id: fork-theme-preserve-path-coverage
     source: "fork:src/read/oxml/theme.ts"
