@@ -32,7 +32,7 @@ function App() {
 			color: "008899",
 		});
 
-		slide.addChart(pptx.ChartType.radar, dataChartRadar, { x: 1, y: 1.9, w: 8, h: 3 });
+		slide.addChart(dataChartRadar, { type: pptx.ChartType.radar, x: 1, y: 1.9, w: 8, h: 3 });
 
 		slide.addText(`PpptxGenJS version: ${pptx.version}`, {
 			x: 0,

@@ -111,6 +111,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   accidentally still working. *Migration:* `opacity: 0.75` → `transparency: 25`
   (`transparency = (1 - opacity) * 100`).
 
+- **BREAKING: the positional `addChart(type, data, options)` overload is removed —
+  pass `type` on the options object.** The `@deprecated v4.0.0` three-argument form
+  predates the canonical `addChart(data, { type, ...options })` / combo-chart
+  `addChart(charts, options)` signatures. *Migration:*
+  `addChart(pptx.ChartType.bar, data, options)` →
+  `addChart(data, { type: pptx.ChartType.bar, ...options })`.
+
 ### Fixed
 
 - **The slide-number placeholder no longer emits a hardcoded `cNvPr` id that can collide.**

@@ -3387,8 +3387,6 @@ export interface AnimationProps {
 export interface PresSlide {
 	addChart(data: OptsChartData[], options: ChartOpts & { type: CHART_NAME }): PresSlide
 	addChart(charts: ChartMulti[], options?: ChartOpts): PresSlide
-	/** @deprecated Pass `type` on the options object: `addChart(data, { type, ...options })`. */
-	addChart(type: CHART_NAME, data: OptsChartData[], options?: ChartOpts): PresSlide
 	addConnector: (options: ConnectorProps) => PresSlide
 	addImage: (options: ImageProps) => PresSlide
 	addMedia: (options: MediaProps) => PresSlide

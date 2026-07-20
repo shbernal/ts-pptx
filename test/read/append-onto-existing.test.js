@@ -183,7 +183,8 @@ describe('Presentation.appendSlides', () => {
 			const slide = pptx.addSlide()
 			slide.addText('valid', { x: 1, y: 1, w: 6, h: 1, color: '0000FF', hyperlink: { slide: 2 } })
 			slide.addImage({ data: PNG_1PX, x: 1, y: 3, w: 1, h: 1 })
-			slide.addChart(pptx.ChartType.bar, [{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
+			slide.addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
+				type: pptx.ChartType.bar,
 				x: 7,
 				y: 1,
 				w: 5,
@@ -445,7 +446,13 @@ describe('Presentation.appendSlides', () => {
 		const pptx = wideGenerator()
 		pptx
 			.addSlide()
-			.addChart(pptx.ChartType.bar, [{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], { x: 1, y: 1, w: 6, h: 3 })
+			.addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
+				type: pptx.ChartType.bar,
+				x: 1,
+				y: 1,
+				w: 6,
+				h: 3,
+			})
 
 		const [added] = await pres.appendSlides(pptx, { layout: 'Blank' })
 		const out = await pres.save()

@@ -114,7 +114,7 @@ function testMethod_Chart(pptx: pptxgen) {
 			values: [26, 53, 100, 75, 41],
 		},
 	];
-	slide.addChart(pptx.ChartType.bar, dataChart, { x: 0.5, y: 2.5, w: 5.25, h: 4 }); // TEST: charts
+	slide.addChart(dataChart, { type: pptx.ChartType.bar, x: 0.5, y: 2.5, w: 5.25, h: 4 }); // TEST: charts
 }
 function testMethod_Table(pptx: pptxgen) {
 	pptx.addSection({ title: "Tables" });

@@ -37,7 +37,6 @@ import type {
 	TransitionProps,
 } from './core-interfaces.js'
 import * as genObj from './gen-objects.js'
-import { warnOnce } from './log.js'
 import { emuToInches } from './units.js'
 
 /** Distinguish a multi-type (combo) chart array (`ChartMulti[]`) from a single chart's data (`OptsChartData[]`). */
@@ -194,39 +193,20 @@ export default class Slide {
 	 * @return {Slide} this Slide
 	 */
 	addChart(charts: ChartMulti[], options?: ChartOpts): Slide
-	/**
-	 * @deprecated Pass the chart type on the options object instead: `addChart(data, { type, ...options })`.
-	 * The leading positional `type` argument is redundant and will be removed on the fork's normal
-	 * breaking-change cadence.
-	 */
-	addChart(type: CHART_NAME, data: OptsChartData[], options?: ChartOpts): Slide
-	addChart(
-		arg1: CHART_NAME | OptsChartData[] | ChartMulti[],
-		arg2?: OptsChartData[] | (ChartOpts & { type?: CHART_NAME }),
-		arg3?: ChartOpts
-	): Slide {
+	addChart(arg1: OptsChartData[] | ChartMulti[], arg2?: ChartOpts & { type?: CHART_NAME }): Slide {
 		let type: CHART_NAME | ChartMulti[]
 		let data: OptsChartData[]
 		let options: ChartOpts
 
-		if (typeof arg1 === 'string') {
-			// DEPRECATED positional form: addChart(type, data, options)
-			warnOnce(
-				'addChart(type, data, options) is deprecated; pass the chart type on the options object instead: ' +
-					'addChart(data, { type, ...options }). The positional `type` argument will be removed in a future release.'
-			)
-			type = arg1
-			data = (arg2 as OptsChartData[]) ?? []
-			options = arg3 ?? {}
-		} else if (Array.isArray(arg1) && isMultiChart(arg1)) {
+		if (Array.isArray(arg1) && isMultiChart(arg1)) {
 			// Multi-type (combo) chart: addChart(ChartMulti[], options?)
 			type = arg1
 			data = []
-			options = (arg2 as ChartOpts) ?? {}
+			options = arg2 ?? {}
 		} else {
 			// Canonical single-type form: addChart(data, { type, ...options })
 			data = arg1 ?? []
-			options = (arg2 as ChartOpts & { type?: CHART_NAME }) ?? {}
+			options = arg2 ?? {}
 			const optType = (options as ChartOpts & { type?: CHART_NAME }).type
 			if (!optType) {
 				throw new Error(
