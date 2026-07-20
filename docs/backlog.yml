@@ -1398,6 +1398,79 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: none
+  - id: fork-seraxislabelpos-precedence
+    source: fork:src/gen/chart/chart-xml.ts
+    type: fork-internal-proposal
+    first_seen: 2026-07-20
+    last_reviewed: 2026-07-20
+    status: target
+    priority: p2
+    target_area:
+      - chart-ooxml
+    applies_to_current_project: unknown
+    non_target_reasons: []
+    summary: serAxisLabelPos is silently ignored -- a missing parenthesis makes every truthy value emit tickLblPos val="low"
+    current_project_notes: >
+      Found while auditing raw attribute interpolation in chart-xml.ts. The series-axis
+      tick-label position is emitted as
+      `<c:tickLblPos val="${opts.serAxisLabelPos || opts.barDir === 'col' ? 'low' : 'nextTo'}"/>`.
+      JS precedence binds `===` tighter than `||`, and `||` tighter than `?:`, so this
+      parses as `(opts.serAxisLabelPos || (opts.barDir === 'col')) ? 'low' : 'nextTo'` --
+      the option is used only as a truthiness test, never as a value. Any truthy
+      serAxisLabelPos ('none' | 'low' | 'high' | 'nextTo', declared at
+      src/types/chart.ts:364) therefore emits val="low"; setting 'high' or 'nextTo'
+      silently does the opposite of what was asked. Only the unset case behaves
+      correctly. Intended logic is almost certainly
+      `opts.serAxisLabelPos || (opts.barDir === 'col' ? 'low' : 'nextTo')`.
+      NOT fixed in the concatenation-audit commit that found it: the correction changes
+      emitted bytes for any deck setting the option, so per AGENTS.md it needs its own
+      fixture-gated change rather than riding along as refactor cleanup. No regression
+      test currently covers serAxisLabelPos, which is why it went unnoticed -- add one
+      with the fix.
+    constructs: []
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/gen/chart/chart-xml.ts
+        - src/types/chart.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: add a regression asserting each serAxisLabelPos value round-trips into c:tickLblPos, then add the missing parentheses
+  - id: fork-chart-gridline-scheme-color
+    source: fork:src/gen/chart/chart-xml.ts
+    type: fork-internal-proposal
+    first_seen: 2026-07-20
+    last_reviewed: 2026-07-20
+    status: deferred
+    priority: p3
+    target_area:
+      - chart-ooxml
+    applies_to_current_project: unknown
+    non_target_reasons: []
+    summary: chart gridline/serLines colors emit a bare a:srgbClr, so a scheme color name is not resolved
+    current_project_notes: >
+      createGridLineElement and createSerLinesElement build their color as
+      `<a:srgbClr val="${opts.color || DEF_CHART_GRIDLINE.color}"/>` instead of routing
+      through createColorElement (src/gen/drawingml/color.ts) the way every other color
+      site does. A theme scheme-color token therefore lands verbatim in the val
+      attribute, where it is not a valid hex value. The original source carried a bare
+      `// should accept scheme colors` comment at this line, so the gap was known but
+      unrecorded. Deferred rather than fixed inline: switching to createColorElement
+      changes emitted bytes for scheme-color inputs and needs a fixture.
+    constructs: []
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/gen/chart/chart-xml.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: route both gridline emitters through createColorElement behind a schema fixture asserting a scheme-color gridline
   - id: dn-wide-matrix-fills
     source: downstream
     type: downstream-need

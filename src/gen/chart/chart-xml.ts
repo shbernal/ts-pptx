@@ -685,7 +685,10 @@ function makeCatAxisPlot(
 				strXml += '<a:ln><a:noFill/></a:ln>'
 			} else {
 				strXml += `<a:ln w="${valToPts(effectiveLineSize)}" cap="${createLineCap(opts.lineCap)}">${chartColorLineFill(seriesColor)}`
-				strXml += `<a:prstDash val="${opts.lineDashValues?.[colorIndex] ?? opts.lineDash ?? 'solid'}"/><a:round/></a:ln>`
+				strXml +=
+					voidEl('a:prstDash', { val: opts.lineDashValues?.[colorIndex] ?? opts.lineDash ?? 'solid' }) +
+					voidEl('a:round') +
+					'</a:ln>'
 			}
 		} else if (opts.dataBorder) {
 			strXml += `<a:ln w="${valToPts(resolveBorderWidth(opts.dataBorder, 0.75))}" cap="${createLineCap(opts.lineCap)}">${genXmlColorSelection({ color: opts.dataBorder.color ?? '363636', transparency: opts.dataBorder.transparency })}<a:prstDash val="solid"/><a:round/></a:ln>`
@@ -752,7 +755,7 @@ function makeCatAxisPlot(
 			strXml += genXmlColorSelection(lblColor)
 			strXml += createChartTextFonts(lblFace)
 			strXml += '</a:defRPr></a:pPr></a:p></c:txPr>'
-			if (opts.dataLabelPosition) strXml += `<c:dLblPos val="${opts.dataLabelPosition}"/>`
+			if (opts.dataLabelPosition) strXml += voidEl('c:dLblPos', { val: opts.dataLabelPosition })
 			strXml += '<c:showLegendKey val="0"/>'
 			strXml += `<c:showVal val="${opts.showValue ? '1' : '0'}"/>`
 			strXml += `<c:showCatName val="0"/><c:showSerName val="${opts.showSerName ? '1' : '0'}"/><c:showPercent val="0"/><c:showBubbleSize val="0"/>`
@@ -949,7 +952,10 @@ function makeScatterPlot(
 					strXml += '<a:ln><a:noFill/></a:ln>'
 				} else {
 					strXml += `<a:ln w="${valToPts(opts.lineSize ?? 2)}" cap="${createLineCap(opts.lineCap)}">${chartColorLineFill(tmpSerColor)}`
-					strXml += `<a:prstDash val="${opts.lineDashValues?.[colorIndex] ?? opts.lineDash ?? 'solid'}"/><a:round/></a:ln>`
+					strXml +=
+						voidEl('a:prstDash', { val: opts.lineDashValues?.[colorIndex] ?? opts.lineDash ?? 'solid' }) +
+						voidEl('a:round') +
+						'</a:ln>'
 				}
 
 				// Shadow
@@ -1014,7 +1020,7 @@ function makeScatterPlot(
 							strXml += '                    </a:defRPr>'
 							strXml += '                </a:pPr>'
 							strXml += '              <a:r>'
-							strXml += `                    <a:rPr lang="${opts.lang || 'en-US'}" sz="${ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE)}" b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike" dirty="0">`
+							strXml += `                    <a:rPr lang="${encodeXmlEntities(opts.lang || 'en-US')}" sz="${ptToHundredths(opts.dataLabelFontSize || DEF_FONT_SIZE)}" b="${opts.dataLabelFontBold ? '1' : '0'}" i="${opts.dataLabelFontItalic ? '1' : '0'}" u="none" strike="noStrike" dirty="0">`
 							strXml +=
 								'                        <a:solidFill>' +
 								createColorElement(opts.dataLabelColor || DEF_FONT_COLOR) +
@@ -1112,7 +1118,7 @@ function makeScatterPlot(
 					strXml += '                    ' + createChartTextFonts(opts.dataLabelFontFace || 'Arial')
 					strXml += '                </a:defRPr>'
 					strXml += '            </a:pPr>'
-					strXml += `            <a:endParaRPr lang="${opts.lang || 'en-US'}"/>`
+					strXml += `            <a:endParaRPr lang="${encodeXmlEntities(opts.lang || 'en-US')}"/>`
 					strXml += '        </a:p>'
 					strXml += '    </c:txPr>'
 					if (opts.dataLabelPosition) strXml += ' <c:dLblPos val="' + opts.dataLabelPosition + '"/>'
@@ -1275,7 +1281,10 @@ function makeBubblePlot(
 					strXml += `<a:ln w="${valToPts(resolveBorderWidth(opts.dataBorder, 0.75))}" cap="flat">${genXmlColorSelection({ color: opts.dataBorder.color ?? '363636', transparency: opts.dataBorder.transparency })}<a:prstDash val="solid"/><a:round/></a:ln>`
 				} else {
 					strXml += `<a:ln w="${valToPts(opts.lineSize ?? 2)}" cap="flat">${genXmlColorSelection(tmpSerColor)}`
-					strXml += `<a:prstDash val="${opts.lineDashValues?.[colorIndex] ?? opts.lineDash ?? 'solid'}"/><a:round/></a:ln>`
+					strXml +=
+						voidEl('a:prstDash', { val: opts.lineDashValues?.[colorIndex] ?? opts.lineDash ?? 'solid' }) +
+						voidEl('a:round') +
+						'</a:ln>'
 				}
 
 				// Shadow
@@ -1349,7 +1358,7 @@ function makeBubblePlot(
 		strXml += genXmlColorSelection(opts.dataLabelColor || DEF_FONT_COLOR)
 		strXml += createChartTextFonts(opts.dataLabelFontFace || 'Arial')
 		strXml += '</a:defRPr></a:pPr></a:p></c:txPr>'
-		if (opts.dataLabelPosition) strXml += `<c:dLblPos val="${opts.dataLabelPosition}"/>`
+		if (opts.dataLabelPosition) strXml += voidEl('c:dLblPos', { val: opts.dataLabelPosition })
 		strXml += '<c:showLegendKey val="0"/>'
 		strXml += `<c:showVal val="${opts.showValue ? '1' : '0'}"/>`
 		strXml += `<c:showCatName val="0"/><c:showSerName val="${opts.showSerName ? '1' : '0'}"/><c:showPercent val="0"/><c:showBubbleSize val="${opts.showBubbleSize ? '1' : '0'}"/>`
@@ -1464,7 +1473,7 @@ function makePiePlot(
 		if (customLbl) {
 			strXml +=
 				'<c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r>' +
-				`<a:rPr lang="${opts.lang || 'en-US'}" dirty="0"/>` +
+				`<a:rPr lang="${encodeXmlEntities(opts.lang || 'en-US')}" dirty="0"/>` +
 				el('a:t', null, customLbl) +
 				'</a:r></a:p></c:rich></c:tx>'
 		}
@@ -1480,7 +1489,8 @@ function makePiePlot(
 		strXml += '   </a:defRPr>'
 		strXml += '      </a:pPr></a:p>'
 		strXml += '    </c:txPr>'
-		if (chartType === ChartType.pie && opts.dataLabelPosition) strXml += `<c:dLblPos val="${opts.dataLabelPosition}"/>`
+		if (chartType === ChartType.pie && opts.dataLabelPosition)
+			strXml += voidEl('c:dLblPos', { val: opts.dataLabelPosition })
 		strXml += '    <c:showLegendKey val="0"/>'
 		strXml += '    <c:showVal val="' + (customLbl ? '0' : opts.showValue ? '1' : '0') + '"/>'
 		strXml += '    <c:showCatName val="' + (opts.showLabel ? '1' : '0') + '"/>'
@@ -1502,7 +1512,7 @@ function makePiePlot(
 	strXml += '        </a:pPr>'
 	strXml += '      </a:p>'
 	strXml += '    </c:txPr>'
-	strXml += chartType === ChartType.pie ? `<c:dLblPos val="${opts.dataLabelPosition || 'ctr'}"/>` : ''
+	strXml += chartType === ChartType.pie ? voidEl('c:dLblPos', { val: opts.dataLabelPosition || 'ctr' }) : ''
 	strXml += '    <c:showLegendKey val="0"/>'
 	strXml += '    <c:showVal val="0"/>'
 	strXml += '    <c:showCatName val="1"/>'
@@ -1657,9 +1667,9 @@ function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: string)
 			})
 			if (opts.catAxisBaseTimeUnit) strXml += '<c:baseTimeUnit val="' + opts.catAxisBaseTimeUnit.toLowerCase() + '"/>'
 			if (opts.catAxisMajorTimeUnit)
-				strXml += '<c:majorTimeUnit val="' + opts.catAxisMajorTimeUnit.toLowerCase() + '"/>'
+				strXml += voidEl('c:majorTimeUnit', { val: opts.catAxisMajorTimeUnit.toLowerCase() })
 			if (opts.catAxisMinorTimeUnit)
-				strXml += '<c:minorTimeUnit val="' + opts.catAxisMinorTimeUnit.toLowerCase() + '"/>'
+				strXml += voidEl('c:minorTimeUnit', { val: opts.catAxisMinorTimeUnit.toLowerCase() })
 		}
 		if (opts.catAxisMajorUnit) strXml += `<c:majorUnit val="${opts.catAxisMajorUnit}"/>`
 		if (opts.catAxisMinorUnit) strXml += `<c:minorUnit val="${opts.catAxisMinorUnit}"/>`
@@ -1761,7 +1771,10 @@ function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string {
 		'"/>'
 	if (opts.valAxisMajorUnit) strXml += ` <c:majorUnit val="${opts.valAxisMajorUnit}"/>`
 	if (opts.valAxisDisplayUnit) {
-		strXml += `<c:dispUnits><c:builtInUnit val="${opts.valAxisDisplayUnit}"/>${opts.valAxisDisplayUnitLabel ? '<c:dispUnitsLbl/>' : ''}</c:dispUnits>`
+		strXml += el('c:dispUnits', null, [
+			raw(voidEl('c:builtInUnit', { val: opts.valAxisDisplayUnit })),
+			raw(opts.valAxisDisplayUnitLabel ? voidEl('c:dispUnitsLbl') : ''),
+		])
 	}
 
 	strXml += '</c:valAx>'
@@ -1837,9 +1850,15 @@ function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: string)
 				opts[opt] = undefined
 			}
 		})
+		// `baseTimeUnit` keeps its template string on purpose: it emits TWO spaces before
+		// `val`, and voidEl() joins attributes with exactly one. Normalizing the spacing
+		// would be a byte change, so the quirk stays visible here rather than being
+		// silently "fixed" by the builder.
 		if (opts.serAxisBaseTimeUnit) strXml += ` <c:baseTimeUnit  val="${opts.serAxisBaseTimeUnit.toLowerCase()}"/>`
-		if (opts.serAxisMajorTimeUnit) strXml += ` <c:majorTimeUnit val="${opts.serAxisMajorTimeUnit.toLowerCase()}"/>`
-		if (opts.serAxisMinorTimeUnit) strXml += ` <c:minorTimeUnit val="${opts.serAxisMinorTimeUnit.toLowerCase()}"/>`
+		if (opts.serAxisMajorTimeUnit)
+			strXml += voidEl('c:majorTimeUnit', { val: opts.serAxisMajorTimeUnit.toLowerCase() }, { openPrefix: ' ' })
+		if (opts.serAxisMinorTimeUnit)
+			strXml += voidEl('c:minorTimeUnit', { val: opts.serAxisMinorTimeUnit.toLowerCase() }, { openPrefix: ' ' })
 		if (opts.serAxisMajorUnit) strXml += ` <c:majorUnit val="${opts.serAxisMajorUnit}"/>`
 		if (opts.serAxisMinorUnit) strXml += ` <c:minorUnit val="${opts.serAxisMinorUnit}"/>`
 	}
@@ -1931,16 +1950,23 @@ function genXmlTitle(opts: ChartPropsTitle, chartX?: number, chartY?: number): s
  * @return {string} XML
  */
 function createGridLineElement(glOpts: OptsChartGridLine): string {
-	let strXml = '<c:majorGridlines>'
-	strXml += ' <c:spPr>'
-	strXml += `  <a:ln w="${valToPts(glOpts.size || DEF_CHART_GRIDLINE.size || 1)}" cap="${createLineCap(glOpts.cap || DEF_CHART_GRIDLINE.cap)}">`
-	strXml += '  <a:solidFill><a:srgbClr val="' + (glOpts.color || DEF_CHART_GRIDLINE.color) + '"/></a:solidFill>' // should accept scheme colors
-	strXml += '   <a:prstDash val="' + (glOpts.style || DEF_CHART_GRIDLINE.style) + '"/><a:round/>'
-	strXml += '  </a:ln>'
-	strXml += ' </c:spPr>'
-	strXml += '</c:majorGridlines>'
+	// NOTE: emits a bare `<a:srgbClr>` rather than going through `createColorElement`,
+	// so a scheme color name is not resolved here -- tracked as
+	// `fork-chart-gridline-scheme-color` in docs/backlog.yml.
+	const line = el(
+		'a:ln',
+		{
+			w: valToPts(glOpts.size || DEF_CHART_GRIDLINE.size || 1),
+			cap: createLineCap(glOpts.cap || DEF_CHART_GRIDLINE.cap),
+		},
+		[
+			raw('  ' + el('a:solidFill', null, raw(voidEl('a:srgbClr', { val: glOpts.color || DEF_CHART_GRIDLINE.color })))),
+			raw('   ' + voidEl('a:prstDash', { val: glOpts.style || DEF_CHART_GRIDLINE.style }) + voidEl('a:round')),
+		],
+		{ openPrefix: '  ', closePrefix: '  ' }
+	)
 
-	return strXml
+	return el('c:majorGridlines', null, raw(el('c:spPr', null, raw(line), { openPrefix: ' ', closePrefix: ' ' })))
 }
 
 /**
@@ -2054,13 +2080,16 @@ function createSerLinesElement(opt?: boolean | OptsChartGridLine): string {
 	if (!opt) return ''
 	if (opt === true) return '<c:serLines/>'
 	if (opt.style === 'none') return ''
-	let strXml = '<c:serLines><c:spPr>'
-	strXml += `<a:ln w="${valToPts(opt.size || DEF_CHART_GRIDLINE.size || 1)}" cap="${createLineCap(opt.cap || DEF_CHART_GRIDLINE.cap)}">`
-	strXml += `<a:solidFill><a:srgbClr val="${opt.color || DEF_CHART_GRIDLINE.color}"/></a:solidFill>`
-	strXml += `<a:prstDash val="${opt.style || DEF_CHART_GRIDLINE.style}"/><a:round/>`
-	strXml += '</a:ln></c:spPr></c:serLines>'
+	const line = el(
+		'a:ln',
+		{ w: valToPts(opt.size || DEF_CHART_GRIDLINE.size || 1), cap: createLineCap(opt.cap || DEF_CHART_GRIDLINE.cap) },
+		[
+			raw(el('a:solidFill', null, raw(voidEl('a:srgbClr', { val: opt.color || DEF_CHART_GRIDLINE.color })))),
+			raw(voidEl('a:prstDash', { val: opt.style || DEF_CHART_GRIDLINE.style }) + voidEl('a:round')),
+		]
+	)
 
-	return strXml
+	return el('c:serLines', null, raw(el('c:spPr', null, raw(line))))
 }
 
 /**

@@ -254,6 +254,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- **Audited raw string concatenation in the chart writer and closed the remaining
+  unescaped-attribute sites (no API change).** `src/gen/chart/chart-xml.ts` builds most of
+  its markup by appending to a `strXml` accumulator. An audit of all 734 append sites found
+  that the escaping-sensitive ones had already been migrated — user text goes through
+  `el('c:v', …)` and the free-form `formatCode` / `typeface` attributes through `voidEl()` —
+  leaving a small set of string-valued attributes still interpolated raw. Those now go
+  through `el()`/`voidEl()` (gridline and series-line color/dash, `c:dLblPos`,
+  `a:prstDash`, `c:builtInUnit`, the category/series time units), and the two `<a:rPr lang>`
+  sites, which are unpaired open tags that `el()` cannot express, escape explicitly via
+  `encodeXmlEntities`. Emitted bytes are unchanged: the demo decks re-emit byte-identically
+  (1,437 parts) and a targeted probe covering all ten touched emitters — several of which the
+  demo decks never reach — diffs clean against the previous build. The remaining ~730 append
+  sites are pure string literals or numeric interpolation and carry no escaping risk, so they
+  were deliberately left alone rather than churned onto the builder; 433 of them are
+  pretty-printed with irregular indentation that `el()` can only reproduce via explicit
+  per-element `fmt`. One append site keeps its template string on purpose and says so in a
+  comment: `<c:baseTimeUnit  val=…>` emits two spaces before the attribute, and the builder
+  joins attributes with exactly one.
 - **The DrawingML fragment builders moved out of `gen-utils.ts` (no API change).** Color,
   effect, fill and line markup now live beside their siblings in `src/gen/drawingml/` as
   `color.ts` (`createColorElement`, `rgbToHex`), `effect.ts` (`createGlowElement`,
