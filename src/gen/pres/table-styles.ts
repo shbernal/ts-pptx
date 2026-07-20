@@ -8,13 +8,8 @@
 
 import { CRLF, TableStyle, XML_DECL } from '../../core-enums.js'
 import type { BorderProps, TableStyleInternal, TableStyleRegionProps } from '../../core-interfaces.js'
-import {
-	createColorElement,
-	encodeXmlEntities,
-	genXmlColorSelection,
-	lineWidthToEmu,
-	resolveBorderWidth,
-} from '../../gen-utils.js'
+import { createColorElement, genXmlColorSelection, lineWidthToEmu, resolveBorderWidth } from '../../gen-utils.js'
+import { el, raw, voidEl } from '../oxml/el.js'
 
 /**
  * Create `ppt/tableStyles.xml`
@@ -22,32 +17,42 @@ import {
  * @return {string} XML
  */
 export function makeXmlTableStyles(tableStyles: TableStyleInternal[] = []): string {
-	const open = `${XML_DECL}${CRLF}<a:tblStyleLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" def="${TableStyle.MEDIUM_STYLE_2_ACCENT_1}"`
-	if (!tableStyles || tableStyles.length === 0) return `${open}/>`
+	const attrs = {
+		'xmlns:a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
+		def: TableStyle.MEDIUM_STYLE_2_ACCENT_1,
+	}
+	if (!tableStyles || tableStyles.length === 0) return XML_DECL + CRLF + voidEl('a:tblStyleLst', attrs)
 
-	let strXml = `${open}>`
-	tableStyles.forEach(({ guid, def }) => {
-		strXml += `<a:tblStyle styleId="${guid}" styleName="${encodeXmlEntities(def.name)}">`
-		// NOTE: regions MUST be emitted in CT_TableStyle schema order or PowerPoint reports the file as corrupt
-		;(
-			[
-				['wholeTbl', def.wholeTbl],
-				['band1H', def.band1H],
-				['band2H', def.band2H],
-				['band1V', def.band1V],
-				['band2V', def.band2V],
-				['lastCol', def.lastCol],
-				['firstCol', def.firstCol],
-				['lastRow', def.lastRow],
-				['firstRow', def.firstRow],
-			] as const
-		).forEach(([name, region]) => {
-			if (region) strXml += genXmlTableStyleRegion(name, region)
-		})
-		strXml += '</a:tblStyle>'
-	})
-	strXml += '</a:tblStyleLst>'
-	return strXml
+	return (
+		XML_DECL +
+		CRLF +
+		el(
+			'a:tblStyleLst',
+			attrs,
+			tableStyles.map(({ guid, def }) =>
+				raw(
+					el(
+						'a:tblStyle',
+						{ styleId: guid, styleName: def.name },
+						// NOTE: regions MUST be emitted in CT_TableStyle schema order or PowerPoint reports the file as corrupt
+						(
+							[
+								['wholeTbl', def.wholeTbl],
+								['band1H', def.band1H],
+								['band2H', def.band2H],
+								['band1V', def.band1V],
+								['band2V', def.band2V],
+								['lastCol', def.lastCol],
+								['firstCol', def.firstCol],
+								['lastRow', def.lastRow],
+								['firstRow', def.firstRow],
+							] as const
+						).map(([name, region]) => (region ? raw(genXmlTableStyleRegion(name, region)) : null))
+					)
+				)
+			)
+		)
+	)
 }
 
 /**
@@ -58,27 +63,28 @@ export function makeXmlTableStyles(tableStyles: TableStyleInternal[] = []): stri
  * @return {string} XML
  */
 function genXmlTableStyleRegion(name: string, region: TableStyleRegionProps): string {
-	let xml = `<a:${name}>`
+	const children = [
+		// A: tcTxStyle — text style (only when text formatting is requested)
+		region.bold !== undefined || region.italic !== undefined || region.color
+			? raw(
+					el('a:tcTxStyle', { b: region.bold ? 'on' : null, i: region.italic ? 'on' : null }, [
+						raw(voidEl('a:fontRef', { idx: 'minor' })),
+						region.color ? raw(createColorElement(region.color)) : null,
+					])
+				)
+			: null,
+		// B: tcStyle — cell style: tcBdr (borders) then fill, in schema order
+		region.border !== undefined || region.fill !== undefined
+			? raw(
+					el('a:tcStyle', null, [
+						region.border !== undefined ? raw(genXmlTableStyleBorders(region.border)) : null,
+						region.fill !== undefined ? raw(el('a:fill', null, raw(genXmlColorSelection(region.fill)))) : null,
+					])
+				)
+			: null,
+	]
 
-	// A: tcTxStyle — text style (only when text formatting is requested)
-	if (region.bold !== undefined || region.italic !== undefined || region.color) {
-		const b = region.bold ? ' b="on"' : ''
-		const i = region.italic ? ' i="on"' : ''
-		xml += `<a:tcTxStyle${b}${i}><a:fontRef idx="minor"/>`
-		xml += region.color ? createColorElement(region.color) : ''
-		xml += '</a:tcTxStyle>'
-	}
-
-	// B: tcStyle — cell style: tcBdr (borders) then fill, in schema order
-	if (region.border !== undefined || region.fill !== undefined) {
-		xml += '<a:tcStyle>'
-		if (region.border !== undefined) xml += genXmlTableStyleBorders(region.border)
-		if (region.fill !== undefined) xml += `<a:fill>${genXmlColorSelection(region.fill)}</a:fill>`
-		xml += '</a:tcStyle>'
-	}
-
-	xml += `</a:${name}>`
-	return xml
+	return el(`a:${name}`, null, children)
 }
 
 /**
@@ -110,20 +116,24 @@ function genXmlTableStyleBorders(border: BorderProps | BorderProps[]): string {
 		]
 	}
 
-	let xml = '<a:tcBdr>'
-	sides.forEach(([side, b]) => {
-		if (!b) return
-		xml += `<a:${side}>`
-		if (b.type === 'none') {
-			xml += '<a:ln><a:noFill/></a:ln>'
-		} else {
-			xml += `<a:ln w="${lineWidthToEmu(resolveBorderWidth(b, 1))}" cap="flat" cmpd="sng" algn="ctr">`
-			xml += genXmlColorSelection({ color: b.color ?? '666666', transparency: b.transparency })
-			xml += `<a:prstDash val="${b.type === 'dash' ? 'sysDash' : 'solid'}"/>`
-			xml += '</a:ln>'
-		}
-		xml += `</a:${side}>`
-	})
-	xml += '</a:tcBdr>'
-	return xml
+	return el(
+		'a:tcBdr',
+		null,
+		sides.map(([side, b]) => {
+			if (!b) return null
+			if (b.type === 'none') return raw(el(`a:${side}`, null, raw(el('a:ln', null, raw(voidEl('a:noFill'))))))
+			return raw(
+				el(
+					`a:${side}`,
+					null,
+					raw(
+						el('a:ln', { w: lineWidthToEmu(resolveBorderWidth(b, 1)), cap: 'flat', cmpd: 'sng', algn: 'ctr' }, [
+							raw(genXmlColorSelection({ color: b.color ?? '666666', transparency: b.transparency })),
+							raw(voidEl('a:prstDash', { val: b.type === 'dash' ? 'sysDash' : 'solid' })),
+						])
+					)
+				)
+			)
+		})
+	)
 }

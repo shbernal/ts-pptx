@@ -6,10 +6,69 @@
  */
 
 import { CRLF, XML_DECL } from '../../core-enums.js'
-import type { PresentationPropsInternal } from '../../core-interfaces.js'
-import { encodeXmlEntities, getUuid } from '../../gen-utils.js'
+import type { PresentationPropsInternal, SectionInternalProps } from '../../core-interfaces.js'
+import { getUuid } from '../../gen-utils.js'
 import { flattenEmbeddedFaces, serializeEmbeddedFontLst } from '../../embedded-fonts.js'
 import { presentationFontRelStart } from './presentation-rels.js'
+import { el, raw, voidEl } from '../oxml/el.js'
+
+const DML = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+const REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+const PML = 'http://schemas.openxmlformats.org/presentationml/2006/main'
+
+function defaultTextStyleLevel(idy: number): string {
+	return el(
+		`a:lvl${idy}pPr`,
+		{ marL: (idy - 1) * 457200, algn: 'l', defTabSz: 914400, rtl: 0, eaLnBrk: 1, latinLnBrk: 0, hangingPunct: 1 },
+		raw(
+			el('a:defRPr', { sz: 1800, kern: 1200 }, [
+				raw(el('a:solidFill', null, raw(voidEl('a:schemeClr', { val: 'tx1' })))),
+				raw(voidEl('a:latin', { typeface: '+mn-lt' })),
+				raw(voidEl('a:ea', { typeface: '+mn-ea' })),
+				raw(voidEl('a:cs', { typeface: '+mn-cs' })),
+			])
+		)
+	)
+}
+
+function sectionsExtLst(sections: SectionInternalProps[]): string {
+	return el('p:extLst', null, [
+		raw(
+			el(
+				'p:ext',
+				{ uri: '{521415D9-36F7-43E2-AB2F-B90AF26B5E84}' },
+				raw(
+					el(
+						'p14:sectionLst',
+						{ 'xmlns:p14': 'http://schemas.microsoft.com/office/powerpoint/2010/main' },
+						sections.map((sect) =>
+							raw(
+								el(
+									'p14:section',
+									{ name: sect.title, id: `{${getUuid('xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')}}` },
+									raw(
+										el(
+											'p14:sldIdLst',
+											null,
+											sect._slides.map((slide) => raw(voidEl('p14:sldId', { id: slide._slideId })))
+										)
+									)
+								)
+							)
+						)
+					)
+				)
+			)
+		),
+		raw(
+			el(
+				'p:ext',
+				{ uri: '{EFAFB233-063F-42B5-8137-9DF3F51BA10A}' },
+				raw(voidEl('p15:sldGuideLst', { 'xmlns:p15': 'http://schemas.microsoft.com/office/powerpoint/2012/main' }))
+			)
+		),
+	])
+}
 
 /**
  * Create presentation file (`ppt/presentation.xml`)
@@ -19,71 +78,70 @@ import { presentationFontRelStart } from './presentation-rels.js'
  * @return {string} XML
  */
 export function makeXmlPresentation(pres: PresentationPropsInternal): string {
-	let strXml =
-		`${XML_DECL}${CRLF}` +
-		'<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ' +
+	// NOTE: the double space before saveSubsetFonts/embedTrueTypeFonts when
+	// rtlMode is unset is a pre-existing template artifact (verified against
+	// the byte-identity baseline) — the literal space around `${rtl}` survives
+	// even when the interpolation is empty. el()'s attrs always normalize to
+	// single-space separators, so this opening tag stays a raw template rather
+	// than being forced through the builder.
+	const openTag =
+		`<p:presentation xmlns:a="${DML}" xmlns:r="${REL}" ` +
 		// When fonts are embedded we carry WHOLE faces, so `embedTrueTypeFonts="1"` (so
 		// PowerPoint honors the embed) and `saveSubsetFonts="0"` (we did not subset).
 		// With no embedded fonts, keep the historical inert `saveSubsetFonts="1"`.
-		`xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" ${pres.rtlMode ? 'rtl="1"' : ''} ${(pres.embeddedFonts || []).some((font) => font.faces.some((face) => face.bytes)) ? 'embedTrueTypeFonts="1" saveSubsetFonts="0"' : 'saveSubsetFonts="1"'} autoCompressPictures="0"${pres.firstSlideNum !== 1 ? ` firstSlideNum="${pres.firstSlideNum}"` : ''}>`
+		`xmlns:p="${PML}" ${pres.rtlMode ? 'rtl="1"' : ''} ${(pres.embeddedFonts || []).some((font) => font.faces.some((face) => face.bytes)) ? 'embedTrueTypeFonts="1" saveSubsetFonts="0"' : 'saveSubsetFonts="1"'} autoCompressPictures="0"${pres.firstSlideNum !== 1 ? ` firstSlideNum="${pres.firstSlideNum}"` : ''}>`
 
-	// STEP 1: Add slide master (SPEC: tag 1 under <presentation>)
-	strXml += '<p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>'
+	// SPEC (ECMA-376 Part 1 §19.2.1.26): sldMasterIdLst, then notesMasterIdLst
+	// BEFORE sldIdLst — emitting notesMasterIdLst after sldIdLst (or after
+	// sldSz/notesSz) violates the schema and is flagged by OpenXmlValidator as
+	// Sch_UnexpectedElementContentExpectingComplex.
+	const sldMasterIdLst = el('p:sldMasterIdLst', null, raw(voidEl('p:sldMasterId', { id: 2147483648, 'r:id': 'rId1' })))
 
-	// STEP 2: Add Notes Master (SPEC: tag 2 under <presentation>)
-	// CT_Presentation child sequence (ECMA-376 Part 1 §19.2.1.26) requires
-	// notesMasterIdLst to appear BEFORE sldIdLst. Emitting it after sldIdLst
-	// (or after sldSz/notesSz) violates the schema and is flagged by
-	// OpenXmlValidator as Sch_UnexpectedElementContentExpectingComplex.
-	// (NOTE: length+2 is from `presentation.xml.rels` func (since we have to match this rId, we just use same logic))
-	strXml += `<p:notesMasterIdLst><p:notesMasterId r:id="rId${pres.slides.length + 2}"/></p:notesMasterIdLst>`
+	// NOTE: length+2 is from `presentation.xml.rels` func (since we have to match this rId, we just use same logic)
+	const notesMasterIdLst = el(
+		'p:notesMasterIdLst',
+		null,
+		raw(voidEl('p:notesMasterId', { 'r:id': `rId${pres.slides.length + 2}` }))
+	)
 
-	// STEP 3: Add all Slides (SPEC: tag 3 under <presentation>)
-	strXml += '<p:sldIdLst>'
-	pres.slides.forEach((slide) => (strXml += `<p:sldId id="${slide._slideId}" r:id="rId${slide._rId}"/>`))
-	strXml += '</p:sldIdLst>'
+	const sldIdLst = el(
+		'p:sldIdLst',
+		null,
+		pres.slides.map((slide) => raw(voidEl('p:sldId', { id: slide._slideId, 'r:id': `rId${slide._rId}` })))
+	)
 
-	// STEP 4: Add sizes
-	strXml += `<p:sldSz cx="${pres.presLayout.width}" cy="${pres.presLayout.height}"/>`
-	strXml += `<p:notesSz cx="${pres.presLayout.height}" cy="${pres.presLayout.width}"/>`
+	const sldSz = voidEl('p:sldSz', { cx: pres.presLayout.width, cy: pres.presLayout.height })
+	const notesSz = voidEl('p:notesSz', { cx: pres.presLayout.height, cy: pres.presLayout.width })
 
-	// STEP 4b: Embedded fonts (CT_Presentation index 7 — after notesSz, before defaultTextStyle).
+	// Embedded fonts (CT_Presentation index 7 — after notesSz, before defaultTextStyle).
 	// rIds continue past the fixed presentation rels and must match makeXmlPresentationRels.
-	{
-		const fonts = pres.embeddedFonts || []
-		const flat = flattenEmbeddedFaces(fonts, presentationFontRelStart(pres.slides))
-		const rIdOf = new Map(flat.map((face) => [`${face.fontIndex}:${face.slot}`, face.rId]))
-		strXml += serializeEmbeddedFontLst(fonts, (fontIndex, slot) => rIdOf.get(`${fontIndex}:${slot}`))
-	}
+	const fonts = pres.embeddedFonts || []
+	const flat = flattenEmbeddedFaces(fonts, presentationFontRelStart(pres.slides))
+	const rIdOf = new Map(flat.map((face) => [`${face.fontIndex}:${face.slot}`, face.rId]))
+	const embeddedFontLst = serializeEmbeddedFontLst(fonts, (fontIndex, slot) => rIdOf.get(`${fontIndex}:${slot}`))
 
-	// STEP 5: Add text styles
-	strXml += '<p:defaultTextStyle>'
-	for (let idy = 1; idy < 10; idy++) {
-		strXml +=
-			`<a:lvl${idy}pPr marL="${(idy - 1) * 457200}" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">` +
-			'<a:defRPr sz="1800" kern="1200"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill><a:latin typeface="+mn-lt"/><a:ea typeface="+mn-ea"/><a:cs typeface="+mn-cs"/>' +
-			`</a:defRPr></a:lvl${idy}pPr>`
-	}
-	strXml += '</p:defaultTextStyle>'
+	const defaultTextStyle = el(
+		'p:defaultTextStyle',
+		null,
+		Array.from({ length: 9 }, (_, i) => raw(defaultTextStyleLevel(i + 1)))
+	)
 
-	// STEP 6: Add Sections (if any)
-	if (pres.sections && pres.sections.length > 0) {
-		strXml += '<p:extLst><p:ext uri="{521415D9-36F7-43E2-AB2F-B90AF26B5E84}">'
-		strXml += '<p14:sectionLst xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main">'
-		pres.sections.forEach((sect) => {
-			strXml += `<p14:section name="${encodeXmlEntities(sect.title)}" id="{${getUuid('xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')}}"><p14:sldIdLst>`
-			sect._slides.forEach((slide) => (strXml += `<p14:sldId id="${slide._slideId}"/>`))
-			strXml += '</p14:sldIdLst></p14:section>'
-		})
-		strXml += '</p14:sectionLst></p:ext>'
-		strXml +=
-			'<p:ext uri="{EFAFB233-063F-42B5-8137-9DF3F51BA10A}"><p15:sldGuideLst xmlns:p15="http://schemas.microsoft.com/office/powerpoint/2012/main"/></p:ext>'
-		strXml += '</p:extLst>'
-	}
+	const extLst = pres.sections && pres.sections.length > 0 ? sectionsExtLst(pres.sections) : ''
 
-	// Done
-	strXml += '</p:presentation>'
-	return strXml
+	return (
+		XML_DECL +
+		CRLF +
+		openTag +
+		sldMasterIdLst +
+		notesMasterIdLst +
+		sldIdLst +
+		sldSz +
+		notesSz +
+		embeddedFontLst +
+		defaultTextStyle +
+		extLst +
+		'</p:presentation>'
+	)
 }
 
 /**
@@ -91,7 +149,7 @@ export function makeXmlPresentation(pres: PresentationPropsInternal): string {
  * @return {string} XML
  */
 export function makeXmlPresProps(): string {
-	return `${XML_DECL}${CRLF}<p:presentationPr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"/>`
+	return XML_DECL + CRLF + voidEl('p:presentationPr', { 'xmlns:a': DML, 'xmlns:r': REL, 'xmlns:p': PML })
 }
 
 /**
@@ -99,5 +157,51 @@ export function makeXmlPresProps(): string {
  * @return {string} XML
  */
 export function makeXmlViewProps(): string {
-	return `${XML_DECL}${CRLF}<p:viewPr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:normalViewPr horzBarState="maximized"><p:restoredLeft sz="15611"/><p:restoredTop sz="94610"/></p:normalViewPr><p:slideViewPr><p:cSldViewPr snapToGrid="0" snapToObjects="1"><p:cViewPr varScale="1"><p:scale><a:sx n="136" d="100"/><a:sy n="136" d="100"/></p:scale><p:origin x="216" y="312"/></p:cViewPr><p:guideLst/></p:cSldViewPr></p:slideViewPr><p:notesTextViewPr><p:cViewPr><p:scale><a:sx n="1" d="1"/><a:sy n="1" d="1"/></p:scale><p:origin x="0" y="0"/></p:cViewPr></p:notesTextViewPr><p:gridSpacing cx="76200" cy="76200"/></p:viewPr>`
+	return (
+		XML_DECL +
+		CRLF +
+		el('p:viewPr', { 'xmlns:a': DML, 'xmlns:r': REL, 'xmlns:p': PML }, [
+			raw(
+				el('p:normalViewPr', { horzBarState: 'maximized' }, [
+					raw(voidEl('p:restoredLeft', { sz: 15611 })),
+					raw(voidEl('p:restoredTop', { sz: 94610 })),
+				])
+			),
+			raw(
+				el(
+					'p:slideViewPr',
+					null,
+					raw(
+						el('p:cSldViewPr', { snapToGrid: 0, snapToObjects: 1 }, [
+							raw(
+								el('p:cViewPr', { varScale: 1 }, [
+									raw(
+										el('p:scale', null, [
+											raw(voidEl('a:sx', { n: 136, d: 100 })),
+											raw(voidEl('a:sy', { n: 136, d: 100 })),
+										])
+									),
+									raw(voidEl('p:origin', { x: 216, y: 312 })),
+								])
+							),
+							raw(voidEl('p:guideLst')),
+						])
+					)
+				)
+			),
+			raw(
+				el(
+					'p:notesTextViewPr',
+					null,
+					raw(
+						el('p:cViewPr', null, [
+							raw(el('p:scale', null, [raw(voidEl('a:sx', { n: 1, d: 1 })), raw(voidEl('a:sy', { n: 1, d: 1 }))])),
+							raw(voidEl('p:origin', { x: 0, y: 0 })),
+						])
+					)
+				)
+			),
+			raw(voidEl('p:gridSpacing', { cx: 76200, cy: 76200 })),
+		])
+	)
 }
