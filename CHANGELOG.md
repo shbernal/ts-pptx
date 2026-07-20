@@ -245,6 +245,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- **`core-interfaces.ts` split into a `src/types/` tree (no API change).** The 3,491-line
+  god-module — the one file every other module imports from — was cut along its own
+  `// <name> ====` banners into 13 domain modules (`core`, `style`, `object`, `theme`,
+  `text`, `media`, `shape`, `table`, `chart`, `animation`, `master`, `slide`, `pres`) and
+  reduced to a re-export barrel, so `./core-interfaces.js` remains the single import site.
+  Pure code motion: the published `.d.ts` surface was compared export-by-export across all
+  ten entrypoints with aliases resolved, and all 1,155 pre-existing exports are identical.
+  One additive change — `ImageBaseProps` was module-private but is extended by the public
+  `ObjectOptions`, and is now exported by name.
+
 - **Write-side emitter restructured into a layered `src/gen/` tree (no API change).**
   The 4,206-line `gen-xml.ts` monolith was split into focused modules mirroring the read
   side's `opc` / `pres` / `slide` / `drawingml` / `anim` layering, and reduced to a thin
