@@ -444,15 +444,13 @@ describe('Presentation.appendSlides', () => {
 		const pres = await Presentation.load(originalBytes)
 
 		const pptx = wideGenerator()
-		pptx
-			.addSlide()
-			.addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
-				type: pptx.ChartType.bar,
-				x: 1,
-				y: 1,
-				w: 6,
-				h: 3,
-			})
+		pptx.addSlide().addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
+			type: pptx.ChartType.bar,
+			x: 1,
+			y: 1,
+			w: 6,
+			h: 3,
+		})
 
 		const [added] = await pres.appendSlides(pptx, { layout: 'Blank' })
 		const out = await pres.save()
