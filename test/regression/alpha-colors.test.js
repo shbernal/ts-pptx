@@ -106,7 +106,7 @@ defineRegressionSuite('Alpha channel colors', 'legacy bug-08', [
 		},
 	},
 	{
-		name: 'shadow color "88888880" with explicit opacity=0.5 — explicit opacity wins, color stripped',
+		name: 'shadow color "88888880" with a removed `opacity` input — color-derived alpha wins, opacity ignored',
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
@@ -116,6 +116,9 @@ defineRegressionSuite('Alpha channel colors', 'legacy bug-08', [
 				w: 2,
 				h: 1,
 				fill: { color: 'CCCCCC' },
+				// `opacity` is no longer a public ShadowProps field; it must be ignored rather than
+				// taking priority the way it did while it was still an accepted (deprecated) input.
+				// @ts-expect-error verifying a legacy/untyped caller's `opacity` is ignored, not honored
 				shadow: { type: 'outer', color: '88888880', blur: 6, offset: 2, opacity: 0.5 },
 			})
 
@@ -131,10 +134,11 @@ defineRegressionSuite('Alpha channel colors', 'legacy bug-08', [
 				effectBlock.indexOf('<a:srgbClr val="888888">') !== -1,
 				'expected <a:srgbClr val="888888"> inside shadow effectLst; got:\n' + effectBlock
 			)
-			// Explicit opacity wins: 0.5 → 50000 (NOT 50196 derived from 0x80/255)
+			// Ignored opacity:0.5 (would be 50000) — the color's alpha byte (0x80) now always wins: 50196
+			const expectedAlpha = alphaPct('80')
 			assert(
-				effectBlock.indexOf('<a:alpha val="50000"/>') !== -1,
-				'expected <a:alpha val="50000"/> (explicit) inside shadow effectLst; got:\n' + effectBlock
+				effectBlock.indexOf(`<a:alpha val="${expectedAlpha}"/>`) !== -1,
+				`expected <a:alpha val="${expectedAlpha}"/> (color-derived) inside shadow effectLst; got:\n` + effectBlock
 			)
 		},
 	},

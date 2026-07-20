@@ -30,8 +30,8 @@ defineRegressionSuite('Shared shadow options', 'legacy bug-05', [
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
-			/** @type {import('../../dist/node.js').ShadowProps} */
-			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', opacity: 0.15 }
+			/** @type {import('../../dist/node.js').ShadowPropsInternal} */
+			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 }
 			slide.addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, shadow })
 			slide.addShape(pres.ShapeType.rect, { x: 1, y: 3, w: 2, h: 1, shadow })
 
@@ -63,15 +63,15 @@ defineRegressionSuite('Shared shadow options', 'legacy bug-05', [
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
-			/** @type {import('../../dist/node.js').ShadowProps} */
-			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', opacity: 0.15 }
+			/** @type {import('../../dist/node.js').ShadowPropsInternal} */
+			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 }
 			slide.addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, shadow })
 			slide.addShape(pres.ShapeType.rect, { x: 1, y: 3, w: 2, h: 1, shadow })
 			await buildSlideXml(pres)
 
 			assert(shadow.blur === 6, 'shadow.blur changed: ' + shadow.blur)
 			assert(shadow.offset === 2, 'shadow.offset changed: ' + shadow.offset)
-			assert(shadow.opacity === 0.15, 'shadow.opacity changed: ' + shadow.opacity)
+			assert(Math.abs(shadow.opacity - 0.15) < 1e-9, 'shadow.opacity changed: ' + shadow.opacity)
 			assert(shadow.color === '000000', 'shadow.color changed: ' + shadow.color)
 			assert(shadow.angle === undefined, 'shadow.angle changed: ' + shadow.angle)
 		},
@@ -83,8 +83,8 @@ defineRegressionSuite('Shared shadow options', 'legacy bug-05', [
 			const slide = pres.addSlide()
 			const png =
 				'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII='
-			/** @type {import('../../dist/node.js').ShadowProps} */
-			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', opacity: 0.15 }
+			/** @type {import('../../dist/node.js').ShadowPropsInternal} */
+			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 }
 			slide.addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, shadow })
 			slide.addImage({ data: png, x: 1, y: 3, w: 1, h: 1, shadow })
 

@@ -90,6 +90,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   importing `DEF_SLIDE_BKGD`, and drop any reference to `MasterObjectType` (it was
   never read to distinguish object kinds; use `SlideObjectType` for that).
 
+- **BREAKING: `AddSlideProps.masterName` is removed — use `masterTitle`.** The
+  `@deprecated v4.0.0` alias (kept for older call sites, and consistent with the
+  slide master's own `title`) has outlived its transition window. *Migration:*
+  `pptx.addSlide({ masterName: 'X' })` → `pptx.addSlide({ masterTitle: 'X' })`.
+
+- **BREAKING: the `radarStyle` wire spellings `'standard'`/`'marker'` are removed —
+  use `'radar'`/`'markers'`.** These `@deprecated v4.0.0` aliases were the raw
+  ECMA-376 `ST_RadarStyle` values; the PowerPoint-UI-facing names have been
+  canonical since v4.0.0. *Migration:* `radarStyle: 'standard'` → `'radar'`,
+  `radarStyle: 'marker'` → `'markers'` (`'filled'` is unaffected).
+
+- **BREAKING: `ShadowProps.opacity` is removed — use `transparency`.** The
+  `@deprecated v4.0.0` 0.0-1.0 alias for the PowerPoint-UI-aligned `transparency`
+  (0-100) option is gone. `opacity` also doubled as the internal wire-normalized
+  alpha every emit site reads; that internal shape is now the (non-public)
+  `ShadowPropsInternal` type, so a caller can no longer reach it by constructing
+  an object with an `opacity` field — a legacy/untyped caller still passing one
+  is silently ignored (falls back to the shadow's default alpha) rather than
+  accidentally still working. *Migration:* `opacity: 0.75` → `transparency: 25`
+  (`transparency = (1 - opacity) * 100`).
+
 ### Fixed
 
 - **The slide-number placeholder no longer emits a hardcoded `cNvPr` id that can collide.**

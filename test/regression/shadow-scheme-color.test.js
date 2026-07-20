@@ -25,7 +25,7 @@ defineRegressionSuite('Shadow scheme colors', 'shadow-consolidation', [
 				y: 1,
 				w: 2,
 				h: 1,
-				shadow: { type: 'outer', color: 'accent1', blur: 3, offset: 2, opacity: 0.4 },
+				shadow: { type: 'outer', color: 'accent1', blur: 3, offset: 2, transparency: 60 },
 			})
 
 			const xml = await buildSlide1(pres)
@@ -55,7 +55,7 @@ defineRegressionSuite('Shadow scheme colors', 'shadow-consolidation', [
 				y: 1,
 				w: 1,
 				h: 1,
-				shadow: { type: 'outer', color: 'accent2', blur: 3, offset: 2, opacity: 0.4 },
+				shadow: { type: 'outer', color: 'accent2', blur: 3, offset: 2, transparency: 60 },
 			})
 
 			const xml = await buildSlide1(pres)

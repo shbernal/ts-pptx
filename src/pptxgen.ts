@@ -56,7 +56,7 @@
  */
 
 import { ZipWriter } from './zip.js'
-import { warn, warnOnce } from './log.js'
+import { warn } from './log.js'
 import Slide from './slide.js'
 import {
 	AlignH,
@@ -1243,12 +1243,7 @@ export default class PptxGenJS {
 	 * @returns {PresSlide} the new Slide
 	 */
 	addSlide(options?: AddSlideProps): PresSlide {
-		if (options?.masterName !== undefined && options?.masterTitle === undefined) {
-			warnOnce(
-				"AddSlideProps.masterName is deprecated; use `masterTitle` (consistent with the slide master's own `title`). `masterName` will be removed in a future release."
-			)
-		}
-		const masterSlideName = options?.masterTitle ?? options?.masterName ?? ''
+		const masterSlideName = options?.masterTitle ?? ''
 		const defLayout = this.LAYOUTS[DEF_PRES_LAYOUT]
 		if (!defLayout) throw new Error(`Default presentation layout "${DEF_PRES_LAYOUT}" is not registered`)
 		let slideLayout: SlideLayoutInternal = {

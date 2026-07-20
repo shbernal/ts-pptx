@@ -82,7 +82,7 @@ defineRegressionSuite('Hash-prefixed colors', 'legacy bug-07', [
 				w: 2,
 				h: 1,
 				fill: { color: 'CCCCCC' },
-				shadow: { type: 'outer', color: '#888888', blur: 6, offset: 2, opacity: 0.5 },
+				shadow: { type: 'outer', color: '#888888', blur: 6, offset: 2, transparency: 50 },
 			})
 
 			const xml = await buildSlide1(pres)

@@ -414,7 +414,7 @@ function genSlide04(pptx) {
 	});
 
 	// 3c: Text Effects: Shadow
-	let shadowOpts = { type: "outer", color: "696969", blur: 3, offset: 10, angle: 45, opacity: 0.6 };
+	let shadowOpts = { type: "outer", color: "696969", blur: 3, offset: 10, angle: 45, transparency: 40 };
 	slide.addText("Text Shadow:", { x: 7.5, y: 5.8, w: 5.0, h: 0.3, margin: 0, color: pptx.SchemeColor.accent1 });
 	slide.addText("type:outer, offset:10, blur:3", { x: 7.5, y: 6.2, w: 5.5, h: 1.1, fontSize: 32, color: "0088cc", shadow: shadowOpts });
 }

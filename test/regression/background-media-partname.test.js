@@ -35,7 +35,7 @@ function resolveTarget(relsPartName, target) {
 async function buildWithMasterTitle(title) {
 	const { zip } = await build((pres) => {
 		pres.defineSlideMaster({ title, background: { data: PNG_1x1 } })
-		pres.addSlide({ masterName: title })
+		pres.addSlide({ masterTitle: title })
 	})
 	const entries = listEntries(zip)
 	// The background rel hangs off whichever part owns the background (the slide master here),

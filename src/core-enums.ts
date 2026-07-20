@@ -4,7 +4,7 @@
  */
 
 import { EMU_PER_INCH, EMU_PER_POINT } from './units.js'
-import type { BorderProps, OptsChartGridLine, ShadowProps } from './core-interfaces.js'
+import type { BorderProps, OptsChartGridLine, ShadowPropsInternal } from './core-interfaces.js'
 
 // CONST
 export const EMU = EMU_PER_INCH // One (1) inch (OfficeXML measures in EMU (English Metric Units))
@@ -28,7 +28,7 @@ export const DEF_FONT_TITLE_SIZE = 18
 export const DEF_PRES_LAYOUT = 'LAYOUT_16x9'
 export const DEF_PRES_LAYOUT_NAME = 'DEFAULT'
 export const DEF_SHAPE_LINE_COLOR = '333333'
-export const DEF_SHAPE_SHADOW: ShadowProps = {
+export const DEF_SHAPE_SHADOW: ShadowPropsInternal = {
 	type: 'outer',
 	blur: 3,
 	offset: 23000 / 12700,
@@ -38,7 +38,7 @@ export const DEF_SHAPE_SHADOW: ShadowProps = {
 	rotateWithShape: true,
 }
 export const DEF_SLIDE_MARGIN_IN: [number, number, number, number] = [0.5, 0.5, 0.5, 0.5] // TRBL-style
-export const DEF_TEXT_SHADOW: ShadowProps = {
+export const DEF_TEXT_SHADOW: ShadowPropsInternal = {
 	type: 'outer',
 	blur: 8,
 	offset: 4,

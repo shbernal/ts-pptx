@@ -344,17 +344,9 @@ export interface ShadowProps {
 	 * shadow transparency (percent)
 	 * - MS-PPT > Format Shape > Effects > Shadow > Transparency
 	 * - range: 0-100 (0 = fully opaque, 100 = fully transparent)
-	 * - PowerPoint-aligned name; preferred over the legacy `opacity`
 	 * @example 25 // 25% transparent
 	 */
 	transparency?: number
-	/**
-	 * opacity (percent)
-	 * - range: 0.0-1.0
-	 * @example 0.5 // 50% opaque
-	 * @deprecated v4.0.0 - use `transparency` (0-100, matches the PowerPoint UI which shows "Transparency")
-	 */
-	opacity?: number
 	/**
 	 * blur (points)
 	 * - range: 0-100
@@ -383,6 +375,15 @@ export interface ShadowProps {
 	 * @default false
 	 */
 	rotateWithShape?: boolean
+}
+/**
+ * Internal, wire-normalized shadow shape produced by `correctShadowOptions` — not part of the
+ * public `ShadowProps` input. `opacity` (0.0 fully transparent – 1.0 fully opaque) is the alpha
+ * derived from the public `transparency` option (or a color's embedded alpha byte); it is what
+ * every emit site reads, so downstream code stays unit-agnostic about the public percent scale.
+ */
+export interface ShadowPropsInternal extends ShadowProps {
+	opacity?: number
 }
 // used by: shape, table, text
 export interface ShapeFillProps {
@@ -2771,14 +2772,7 @@ export interface ChartPropsChartRadar {
 	 * Markers", "Filled Radar").
 	 * @default radar
 	 */
-	radarStyle?:
-		| 'radar'
-		| 'markers'
-		| 'filled'
-		/** @deprecated v4.0.0 - use `'radar'` (matches the PowerPoint UI). */
-		| 'standard'
-		/** @deprecated v4.0.0 - use `'markers'` (matches the PowerPoint UI). */
-		| 'marker'
+	radarStyle?: 'radar' | 'markers' | 'filled'
 }
 /**
  * Per-series style overrides for a chart.
@@ -3459,8 +3453,6 @@ export interface PresSlideInternal extends SlideBaseProps, PresSlide {
 export interface AddSlideProps {
 	/** Title of the slide master to use for the new slide (the `title` passed to {@link SlideMasterProps} via `defineSlideMaster`). */
 	masterTitle?: string
-	/** @deprecated v4.0.0 - use `masterTitle` (consistent with the master's own `title`). */
-	masterName?: string
 	sectionTitle?: string
 }
 export type CustomPropertyValue = string | number | boolean | Date

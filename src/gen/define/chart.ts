@@ -15,7 +15,7 @@ import {
 	SchemeColor,
 	SlideObjectType,
 } from '../../core-enums.js'
-import { warn, warnOnce } from '../../log.js'
+import { warn } from '../../log.js'
 import type {
 	ChartMulti,
 	ChartOpts,
@@ -340,15 +340,6 @@ export function addChartDefinition(
 	if (!['circle', 'dash', 'diamond', 'dot', 'none', 'square', 'triangle'].includes(options.lineDataSymbol || ''))
 		options.lineDataSymbol = 'circle'
 	if (!['gap', 'span', 'zero'].includes(options.displayBlanksAs || '')) options.displayBlanksAs = 'gap'
-	// radarStyle: canonical values are the PowerPoint-UI names ('radar'|'markers'|'filled');
-	// migrate the deprecated OOXML-wire spellings ('standard'|'marker') and warn once.
-	if (options.radarStyle === 'standard') {
-		warnOnce("radarStyle: 'standard' is deprecated; use 'radar' (matches the PowerPoint UI).")
-		options.radarStyle = 'radar'
-	} else if (options.radarStyle === 'marker') {
-		warnOnce("radarStyle: 'marker' is deprecated; use 'markers' (matches the PowerPoint UI).")
-		options.radarStyle = 'markers'
-	}
 	if (!['radar', 'markers', 'filled'].includes(options.radarStyle || '')) options.radarStyle = 'radar'
 	// Marker size emits as `<c:size val>` (ST_MarkerSize): an integer in [2,72] points.
 	// Out-of-range or non-integer values make PowerPoint report the file as needing

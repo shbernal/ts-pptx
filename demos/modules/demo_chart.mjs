@@ -1005,7 +1005,7 @@ function genSlide09(pptx) {
 	slide.addChart(pptx.ChartType.line, arrDataLineStat, optsChartLine3);
 
 	// QA: DEMO: Test shadow option
-	let shadowOpts = { type: "outer", color: "cd0011", blur: 3, offset: 12, angle: 75, opacity: 0.8 };
+	let shadowOpts = { type: "outer", color: "cd0011", blur: 3, offset: 12, angle: 75, transparency: 20 };
 	let optsChartLine4 = {
 		x: 7.0,
 		y: 4.0,
@@ -2235,7 +2235,7 @@ function genSlide21(pptx) {
 			offset: 5,
 			angle: 45,
 			color: "0059B1",
-			opacity: 1,
+			transparency: 0,
 		},
 	};
 
@@ -2259,7 +2259,7 @@ function genSlide21(pptx) {
 			offset: 5,
 			angle: 180,
 			color: "00FFFF",
-			opacity: 1,
+			transparency: 0,
 		},
 	};
 
@@ -2300,7 +2300,7 @@ function genSlide21(pptx) {
 			offset: 1,
 			angle: 90,
 			color: "A70000",
-			opacity: 1,
+			transparency: 0,
 		},
 	};
 

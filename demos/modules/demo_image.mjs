@@ -313,13 +313,13 @@ function genSlide05(pptx) {
 	slide.addImage({ ...{ path: IMAGE_PATHS.nycSubway.path, x: 7.0, y: 0.6, h: 1.4, w: 2.11 }, ...shadow1 });
 
 	// type:inner
-	const shadow2 = { shadow: { type: "inner", opacity: 0.5, blur: 20, color: "000000", offset: 20, angle: 320 } };
+	const shadow2 = { shadow: { type: "inner", transparency: 50, blur: 20, color: "000000", offset: 20, angle: 320 } };
 	slide.addText("Shadow: `type:inner`", { ...{ x: 0.5, y: 2.45, h: 0.4, w: 6.0 }, ...TITLE_STYLE });
 	slide.addText([{ text: JSON.stringify(shadow2, "", 2) }], { ...BASE_CODE_OPTS, ...{ x: 0.5, y: 2.85, h: 1.7, w: 6 }, ...CODE_STYLE });
 	slide.addImage({ ...{ path: IMAGE_PATHS.nycSubway.path, x: 7.0, y: 2.45, h: 2.1, w: 3.13 }, ...shadow2 });
 
 	// type:outer
-	const shadow3 = { shadow: { type: "outer", opacity: 0.35, blur: 20, color: "000000", offset: 20, angle: 320 } };
+	const shadow3 = { shadow: { type: "outer", transparency: 65, blur: 20, color: "000000", offset: 20, angle: 320 } };
 	slide.addText("Shadow: `type:outer`", { ...{ x: 0.5, y: 5.0, h: 0.4, w: 6.0 }, ...TITLE_STYLE });
 	slide.addText([{ text: JSON.stringify(shadow3, "", 2) }], { ...BASE_CODE_OPTS, ...{ x: 0.5, y: 5.4, h: 1.7, w: 6 }, ...CODE_STYLE });
 	slide.addImage({ ...{ path: IMAGE_PATHS.nycSubway.path, x: 7.0, y: 5.0, h: 2.1, w: 3.13 }, ...shadow3 });

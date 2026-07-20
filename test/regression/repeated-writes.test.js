@@ -16,8 +16,8 @@ defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
-			/** @type {import('../../dist/node.js').ShadowProps} */
-			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', opacity: 0.15 }
+			/** @type {import('../../dist/node.js').ShadowPropsInternal} */
+			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 }
 			slide.addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 4, h: 2, shadow })
 
 			const xml1 = await buildOnce(pres)
@@ -33,8 +33,8 @@ defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 		fn: async () => {
 			const pres = new PptxGenJS()
 			const slide = pres.addSlide()
-			/** @type {import('../../dist/node.js').ShadowProps} */
-			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', opacity: 0.15 }
+			/** @type {import('../../dist/node.js').ShadowPropsInternal} */
+			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 }
 			slide.addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 4, h: 2, shadow })
 
 			await buildOnce(pres)
@@ -42,7 +42,7 @@ defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 
 			assert(shadow.blur === 6, 'expected shadow.blur to remain 6 (pt); got ' + shadow.blur)
 			assert(shadow.offset === 2, 'expected shadow.offset to remain 2 (pt); got ' + shadow.offset)
-			assert(shadow.opacity === 0.15, 'expected shadow.opacity to remain 0.15; got ' + shadow.opacity)
+			assert(Math.abs(shadow.opacity - 0.15) < 1e-9, 'expected shadow.opacity to remain ~0.15; got ' + shadow.opacity)
 			assert(shadow.angle === undefined, 'expected shadow.angle to remain undefined; got ' + shadow.angle)
 			assert(shadow.color === '000000', 'expected shadow.color to remain "000000"; got ' + shadow.color)
 		},
@@ -55,8 +55,8 @@ defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 			// 1x1 transparent PNG, base64
 			const png =
 				'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII='
-			/** @type {import('../../dist/node.js').ShadowProps} */
-			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', opacity: 0.15 }
+			/** @type {import('../../dist/node.js').ShadowPropsInternal} */
+			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 }
 			slide.addImage({ data: png, x: 1, y: 1, w: 1, h: 1, shadow })
 
 			const xml1 = await buildOnce(pres)
@@ -67,7 +67,10 @@ defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 			)
 
 			assert(shadow.blur === 6, 'expected image-branch shadow.blur to remain 6 (pt); got ' + shadow.blur)
-			assert(shadow.opacity === 0.15, 'expected image-branch shadow.opacity to remain 0.15; got ' + shadow.opacity)
+			assert(
+				Math.abs(shadow.opacity - 0.15) < 1e-9,
+				'expected image-branch shadow.opacity to remain ~0.15; got ' + shadow.opacity
+			)
 		},
 	},
 	{
@@ -80,11 +83,12 @@ defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 				y: 1,
 				w: 4,
 				h: 2,
-				shadow: { type: 'outer', blur: 6, offset: 2, color: '000000', opacity: 0.15 },
+				shadow: { type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 },
 			})
 			const xml = await buildOnce(pres)
 			assert(xml.indexOf('<a:effectLst>') !== -1, 'expected <a:effectLst> in single-write output')
-			// blurRad=valToPts(6)=76200; dist=valToPts(2)=25400; dir=Math.round(270*60000)=16200000; alpha=Math.round(0.15*100000)=15000
+			// blurRad=valToPts(6)=76200; dist=valToPts(2)=25400; dir=Math.round(270*60000)=16200000;
+			// transparency 85 -> opacity 0.15 -> alpha=Math.round(0.15*100000)=15000
 			assert(xml.indexOf('blurRad="76200"') !== -1, 'expected blurRad="76200"; got: ' + xml)
 			assert(xml.indexOf('dist="25400"') !== -1, 'expected dist="25400"; got: ' + xml)
 			assert(xml.indexOf('dir="16200000"') !== -1, 'expected dir="16200000"; got: ' + xml)

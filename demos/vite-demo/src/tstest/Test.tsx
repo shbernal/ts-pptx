@@ -78,7 +78,7 @@ function basicDemoSlide(pptx: pptxgen) {
 	//pptx.addSlide(); // slide1
 	//pptx.addSlide({ sectionTitle: "TypeScript" }); // slide2
 
-	const slide = pptx.addSlide({ sectionTitle: "TypeScript", masterName: "MASTER_SLIDE" });
+	const slide = pptx.addSlide({ sectionTitle: "TypeScript", masterTitle: "MASTER_SLIDE" });
 	slide.slideNumber = { x: "50%", y: "95%", w: 1, h: 1, color: "0088CC" };
 
 	slide.addText(`PpptxGenJS version: ${pptx.version}`, {

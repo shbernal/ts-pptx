@@ -34,6 +34,7 @@ import type {
 	ShapeLineProps,
 	Coord,
 	ShadowProps,
+	ShadowPropsInternal,
 	GradientFillProps,
 	GradientStopProps,
 	PatternFillProps,
@@ -405,7 +406,7 @@ export function createGlowElement(options: TextGlowProps, defaults: TextGlowProp
  * @see http://officeopenxml.com/drwSp-effects.php
  * @returns {string} XML string, or '' when type is 'none'
  */
-export function createShadowElement(options: ShadowProps | undefined, defaults: ShadowProps): string {
+export function createShadowElement(options: ShadowPropsInternal | undefined, defaults: ShadowPropsInternal): string {
 	const opts = { ...defaults, ...options }
 	if (opts.type === 'none') return ''
 
@@ -441,7 +442,7 @@ export function createShadowElement(options: ShadowProps | undefined, defaults: 
  * @param {ShadowProps} defaults defaults for unspecified properties in `options`
  * @returns {string} `<a:effectLst>…</a:effectLst>` or `<a:effectLst/>`
  */
-export function createShadowEffectLst(options: ShadowProps | undefined, defaults: ShadowProps): string {
+export function createShadowEffectLst(options: ShadowPropsInternal | undefined, defaults: ShadowPropsInternal): string {
 	if (!options || typeof options !== 'object') return '<a:effectLst/>'
 	const inner = createShadowElement(options, defaults)
 	return inner ? `<a:effectLst>${inner}</a:effectLst>` : '<a:effectLst/>'
@@ -753,76 +754,67 @@ export function avContentType(extn: string, mtype: 'audio' | 'video'): string {
  * Checks shadow options passed by user and performs corrections if needed.
  * @param {ShadowProps} ShadowProps - shadow options
  */
-export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowProps | undefined {
+export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowPropsInternal | undefined {
 	if (!ShadowProps || typeof ShadowProps !== 'object') {
 		// warn("`shadow` options must be an object. Ex: `{shadow: {type:'none'}}`")
 		return undefined
 	}
+	const corrected: ShadowPropsInternal = ShadowProps
+	// `opacity` is no longer a public input (removed in favor of `transparency`); strip any
+	// leftover value from an untyped caller so it doesn't silently keep working through this
+	// function's internal reuse of the same field name for the derived alpha.
+	delete corrected.opacity
 
 	// OPT: `type`
-	if (ShadowProps.type !== 'outer' && ShadowProps.type !== 'inner' && ShadowProps.type !== 'none') {
+	if (corrected.type !== 'outer' && corrected.type !== 'inner' && corrected.type !== 'none') {
 		warn('shadow.type options are `outer`, `inner` or `none`.')
-		ShadowProps.type = 'outer'
+		corrected.type = 'outer'
 	}
 
 	// OPT: `angle`
-	if (ShadowProps.angle) {
+	if (corrected.angle) {
 		// A: REALITY-CHECK
-		if (isNaN(Number(ShadowProps.angle)) || ShadowProps.angle < 0 || ShadowProps.angle > 359) {
+		if (isNaN(Number(corrected.angle)) || corrected.angle < 0 || corrected.angle > 359) {
 			warn('shadow.angle can only be 0-359')
-			ShadowProps.angle = 270
+			corrected.angle = 270
 		}
 
 		// B: ROBUST: Cast any type of valid arg to int: '12', 12.3, etc. -> 12
-		ShadowProps.angle = Math.round(Number(ShadowProps.angle))
+		corrected.angle = Math.round(Number(corrected.angle))
 	}
 
-	// OPT: `transparency` (PowerPoint UI term, 0-100). Canonicalize onto `opacity` (0.0-1.0),
-	// which every emit site reads, so downstream code stays unchanged. `transparency` wins when
-	// both are set. Handled before the `opacity` block below so the derived value is validated there.
-	if (ShadowProps.transparency !== undefined) {
-		const pct = Number(ShadowProps.transparency)
+	// OPT: `transparency` (PowerPoint UI term, 0-100) -> internal `opacity` (0.0-1.0), which
+	// every emit site reads.
+	if (corrected.transparency !== undefined) {
+		const pct = Number(corrected.transparency)
 		if (isNaN(pct) || pct < 0 || pct > 100) {
 			warn('shadow.transparency can only be 0-100')
 		} else {
-			if (ShadowProps.opacity !== undefined) warn('shadow: both `transparency` and `opacity` set; using `transparency`')
-			ShadowProps.opacity = 1 - pct / 100
+			corrected.opacity = 1 - pct / 100
 		}
-	}
-
-	// OPT: `opacity`
-	if (ShadowProps.opacity) {
-		// A: REALITY-CHECK
-		if (isNaN(Number(ShadowProps.opacity)) || ShadowProps.opacity < 0 || ShadowProps.opacity > 1) {
-			warn('shadow.opacity can only be 0-1')
-			ShadowProps.opacity = 0.75
-		}
-
-		// B: ROBUST: Cast any type of valid arg to int: '12', 12.3, etc. -> 12
-		ShadowProps.opacity = Number(ShadowProps.opacity)
 	}
 
 	// OPT: `color`
-	if (ShadowProps.color) {
+	if (corrected.color) {
 		// INCORRECT FORMAT
-		if (ShadowProps.color.startsWith('#')) {
+		if (corrected.color.startsWith('#')) {
 			warn('shadow.color should not include hash (#) character, , e.g. "FF0000"')
-			ShadowProps.color = ShadowProps.color.replace('#', '')
+			corrected.color = corrected.color.replace('#', '')
 		}
 
-		// 8-char hex (RGBA) — derive `opacity` from the alpha byte (only when caller
-		// did not pass an explicit opacity), then strip the alpha byte from the color so
-		// emit sites produce valid 6-char `<a:srgbClr val="…"/>`.
-		if (/^[0-9a-fA-F]{8}$/.test(ShadowProps.color)) {
-			const alphaHex = ShadowProps.color.slice(6, 8)
-			if (ShadowProps.opacity === undefined) {
-				ShadowProps.opacity = parseInt(alphaHex, 16) / 255
+		// 8-char hex (RGBA) — derive `opacity` from the alpha byte (only when `transparency`
+		// didn't already set one), then strip the alpha byte from the color so emit sites
+		// produce valid 6-char `<a:srgbClr val="…"/>`.
+		if (/^[0-9a-fA-F]{8}$/.test(corrected.color)) {
+			const alphaHex = corrected.color.slice(6, 8)
+			if (corrected.opacity === undefined) {
+				corrected.opacity = parseInt(alphaHex, 16) / 255
 			}
-			ShadowProps.color = ShadowProps.color.slice(0, 6)
+			corrected.color = corrected.color.slice(0, 6)
 		}
 	}
 
-	return ShadowProps
+	return corrected
 }
 
 /**

@@ -609,12 +609,9 @@ function makeCatAxisPlot(
 	}
 
 	if (chartType === ChartType.radar) {
-		// Map the public PowerPoint-UI names to ST_RadarStyle wire values (also accepts the
-		// deprecated wire spellings directly, in case an un-normalized value reaches here).
+		// Map the public PowerPoint-UI names to ST_RadarStyle wire values.
 		const radarStyleWire =
-			{ radar: 'standard', markers: 'marker', filled: 'filled', standard: 'standard', marker: 'marker' }[
-				opts.radarStyle || 'radar'
-			] ?? 'standard'
+			{ radar: 'standard', markers: 'marker', filled: 'filled' }[opts.radarStyle || 'radar'] ?? 'standard'
 		strXml += '<c:radarStyle val="' + radarStyleWire + '"/>'
 	}
 

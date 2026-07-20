@@ -592,7 +592,7 @@ function genSlide07(pptx) {
 
 	// EX-3: "Master Page with Auto-Paging"
 	{
-		slide = pptx.addSlide({ sectionTitle: "Tables: Auto-Paging", masterName: "MASTER_AUTO_PAGE_TABLE_PLACEHOLDER" });
+		slide = pptx.addSlide({ sectionTitle: "Tables: Auto-Paging", masterTitle: "MASTER_AUTO_PAGE_TABLE_PLACEHOLDER" });
 		slide.addText(
 			[
 				{ text: "Table Examples: ", options: DEMO_TITLE_TEXT },
@@ -622,7 +622,7 @@ function genSlide07(pptx) {
 
 	// EX-5: "Start at `{ y: 4.0 }`, subsequent slides start at slide top margin"
 	{
-		slide = pptx.addSlide({ sectionTitle: "Tables: Auto-Paging", masterName: "MARGIN_SLIDE" });
+		slide = pptx.addSlide({ sectionTitle: "Tables: Auto-Paging", masterTitle: "MARGIN_SLIDE" });
 		slide.addText(
 			[
 				{ text: "Table Examples: ", options: DEMO_TITLE_TEXT },
@@ -644,7 +644,7 @@ function genSlide07(pptx) {
 
 	// EX-6: "Start at `{ y: 4.0 }`, subsequent slides start at `{ autoPageSlideStartY: 1.5 }`"
 	{
-		slide = pptx.addSlide({ sectionTitle: "Tables: Auto-Paging", masterName: "MARGIN_SLIDE_STARTY15" });
+		slide = pptx.addSlide({ sectionTitle: "Tables: Auto-Paging", masterTitle: "MARGIN_SLIDE_STARTY15" });
 		slide.addText(
 			[
 				{ text: "Table Examples: ", options: DEMO_TITLE_TEXT },

@@ -26,8 +26,8 @@ export function genSlides_Master(pptx) {
  * @param {PptxGenJS} pptx
  */
 function genSlide01(pptx) {
-	let slide = pptx.addSlide({ masterName: "TITLE_SLIDE", sectionTitle: "Masters" });
-	//let slide1 = pptx.addSlide({masterName:'TITLE_SLIDE', sectionTitle:'FAILTEST'}); // TEST: Should show console warning ("title not found")
+	let slide = pptx.addSlide({ masterTitle: "TITLE_SLIDE", sectionTitle: "Masters" });
+	//let slide1 = pptx.addSlide({masterTitle:'TITLE_SLIDE', sectionTitle:'FAILTEST'}); // TEST: Should show console warning ("title not found")
 	slide.addNotes("Master name: `TITLE_SLIDE`");
 }
 
@@ -36,7 +36,7 @@ function genSlide01(pptx) {
  * @param {PptxGenJS} pptx
  */
 function genSlide02(pptx) {
-	let slide = pptx.addSlide({ masterName: "MASTER_SLIDE", sectionTitle: "Masters" });
+	let slide = pptx.addSlide({ masterTitle: "MASTER_SLIDE", sectionTitle: "Masters" });
 	slide.addNotes("Master name: `MASTER_SLIDE`");
 }
 
@@ -45,7 +45,7 @@ function genSlide02(pptx) {
  * @param {PptxGenJS} pptx
  */
 function genSlide03(pptx) {
-	let slide = pptx.addSlide({ masterName: "MASTER_SLIDE", sectionTitle: "Masters" });
+	let slide = pptx.addSlide({ masterTitle: "MASTER_SLIDE", sectionTitle: "Masters" });
 	slide.addNotes("Master name: `MASTER_SLIDE` using pre-filled placeholders");
 	slide.addText("Text Placeholder", { placeholder: "header" });
 	slide.addText(
@@ -63,7 +63,7 @@ function genSlide03(pptx) {
  * @param {PptxGenJS} pptx
  */
 function genSlide04(pptx) {
-	let slide = pptx.addSlide({ masterName: "MASTER_SLIDE", sectionTitle: "Masters" });
+	let slide = pptx.addSlide({ masterTitle: "MASTER_SLIDE", sectionTitle: "Masters" });
 	slide.addNotes("Master name: `MASTER_SLIDE` using pre-filled placeholders");
 	slide.addText("Image Placeholder", { placeholder: "header" });
 	slide.addImage({
@@ -86,7 +86,7 @@ function genSlide05(pptx) {
 			values: [69, 35, 40, 85, 38, 99, 101],
 		},
 	];
-	let slide = pptx.addSlide({ masterName: "MASTER_SLIDE", sectionTitle: "Masters" });
+	let slide = pptx.addSlide({ masterTitle: "MASTER_SLIDE", sectionTitle: "Masters" });
 	slide.addNotes("Master name: `MASTER_SLIDE` using pre-filled placeholders");
 	slide.addText("Chart Placeholder", { placeholder: "header" });
 	slide.addChart(pptx.ChartType.pie, dataChartPieLocs, { showLegend: true, legendPos: "l", placeholder: "body" });
@@ -97,7 +97,7 @@ function genSlide05(pptx) {
  * @param {PptxGenJS} pptx
  */
 function genSlide06(pptx) {
-	let slide = pptx.addSlide({ masterName: "THANKS_SLIDE", sectionTitle: "Masters" });
+	let slide = pptx.addSlide({ masterTitle: "THANKS_SLIDE", sectionTitle: "Masters" });
 	slide.addNotes("Master name: `THANKS_SLIDE`");
 	slide.addText("Thank You!", { placeholder: "thanksText" });
 	//slide.addText('example.com', { placeholder:'body' });

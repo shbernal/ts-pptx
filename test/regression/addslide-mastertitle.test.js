@@ -9,19 +9,6 @@ function defineMaster(p, title) {
 	})
 }
 
-// Capture warnings emitted while running `fn` (console.warn is the library's warning sink, see src/log.ts).
-async function withCapturedWarnings(fn) {
-	const original = console.warn
-	const messages = []
-	console.warn = (msg) => messages.push(String(msg))
-	try {
-		await fn()
-	} finally {
-		console.warn = original
-	}
-	return messages
-}
-
 defineRegressionSuite('addSlide masterTitle', [
 	{
 		name: 'canonical `masterTitle` applies the named master',
@@ -32,24 +19,6 @@ defineRegressionSuite('addSlide masterTitle', [
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			assert(/<p:ph[^>]*type="title"/.test(xml), 'expected title placeholder from masterTitle; got: ' + xml)
-		},
-	},
-	{
-		name: 'deprecated `masterName` still applies the master and warns',
-		fn: async () => {
-			let zip
-			const warnings = await withCapturedWarnings(async () => {
-				;({ zip } = await build((p) => {
-					defineMaster(p, 'MN_MASTER')
-					p.addSlide({ masterName: 'MN_MASTER' }).addText('Title', { placeholder: 'title' })
-				}))
-			})
-			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
-			assert(/<p:ph[^>]*type="title"/.test(xml), 'expected title placeholder from deprecated masterName; got: ' + xml)
-			assert(
-				warnings.some((m) => /masterName is deprecated/.test(m)),
-				'expected a masterName deprecation warning; got: ' + JSON.stringify(warnings)
-			)
 		},
 	},
 	{

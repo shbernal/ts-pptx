@@ -16,7 +16,7 @@ function App() {
 				values: [26, 53, 100, 75, 41],
 			},
 		];
-		//slide.addChart(pptx.ChartType.radar, dataChartRadar, { x: 0.36, y: 2.25, w: 4.0, h: 4.0, radarStyle: "standard" });
+		//slide.addChart(dataChartRadar, { type: pptx.ChartType.radar, x: 0.36, y: 2.25, w: 4.0, h: 4.0, radarStyle: "radar" });
 
 		//slide.addShape(pptx.ShapeType.rect, { x: 4.36, y: 2.36, w: 5, h: 2.5, fill: pptx.SchemeColor.background2 });
 
