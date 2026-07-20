@@ -14,6 +14,7 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
@@ -128,6 +129,28 @@ function srgbClrCount(element) {
 /** Index of the first shape on `slide` matching `pred`. */
 function findShapeIndex(slide, pred) {
 	return slide.shapes.findIndex(pred)
+}
+
+/** layout-placeholder-bodypr.pptx with its body placeholder (idx 1) given its own explicit bodyPr anchor, so the inherited layout anchor ('ctr') must not overwrite it. Returns package bytes. */
+async function deckBodyPrOwnAnchor() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('layout-placeholder-bodypr')))
+	const slide = (await zip.file('ppt/slides/slide1.xml').async('string')).replace(
+		'<p:ph idx="1"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/>',
+		'<p:ph idx="1"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr anchor="t"/>'
+	)
+	zip.file('ppt/slides/slide1.xml', slide)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
+/** multi-theme.pptx with slide2's body placeholder (idx 1) txBody stripped of its (empty) a:lstStyle element entirely. Returns package bytes. */
+async function deckNoLstStyleElement() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('multi-theme')))
+	const slide = (await zip.file('ppt/slides/slide2.xml').async('string')).replace(
+		'<p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:lstStyle/><a:p>',
+		'<p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:bodyPr/><a:p>'
+	)
+	zip.file('ppt/slides/slide2.xml', slide)
+	return zip.generateAsync({ type: 'uint8array' })
 }
 
 describe('Presentation.importShape', () => {
@@ -426,6 +449,25 @@ describe('Presentation.importShape (placeholder lift)', () => {
 		const shape = target.importShape(target.slides[1], source.slides[1], 1, { theme: 'preserve' })
 		assert(lstStyleLevels(shape.element_).length > 0, 'inherited list-style levels baked onto the lifted shape')
 		assertEqual(phElements(shape.element_).length, 0, 'lifted placeholder demoted')
+	})
+
+	test('preserve leaves an already-anchored placeholder bodyPr untouched (not overwritten by the inherited anchor)', async () => {
+		const source = await Presentation.load(await deckBodyPrOwnAnchor())
+		const target = await open('layout-placeholder-bodypr')
+		const shape = target.importShape(target.slides[0], source.slides[0], 1, { theme: 'preserve' }) // body placeholder, idx 1
+		const bodyPr = shape.element_.getElementsByTagNameNS(A_NS, 'bodyPr')[0]
+		assert(bodyPr && bodyPr.getAttribute('anchor') === 't', "the shape's own anchor is kept, not the inherited 'ctr'")
+		assertEqual(phElements(shape.element_).length, 0, 'lifted placeholder demoted')
+	})
+
+	test('preserve inserts a fresh a:lstStyle when the lifted placeholder txBody carries none', async () => {
+		const source = await Presentation.load(await deckNoLstStyleElement())
+		const target = await open('multi-theme')
+		const before = source.slides[1].shapes[1].element_.getElementsByTagNameNS(A_NS, 'lstStyle').length
+		assertEqual(before, 0, 'the source txBody carries no a:lstStyle element at all')
+
+		const shape = target.importShape(target.slides[1], source.slides[1], 1, { theme: 'preserve' })
+		assert(lstStyleLevels(shape.element_).length > 0, 'a fresh a:lstStyle with inherited levels was inserted')
 	})
 
 	test('restyle keeps the placeholder identity (no demotion, so it re-brands)', async () => {

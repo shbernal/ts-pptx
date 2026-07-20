@@ -114,6 +114,76 @@ function resolveSingle(opc, partName, type) {
 	return match ? rels.resolveTarget(match.id) : null
 }
 
+/** empty.pptx with its master `p:bgRef` switched to an idx below 1000 (the regular `fillStyleLst`, not `bgFillStyleLst`). Returns package bytes. */
+async function deckEmptyBgRefFillStyleLst() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('empty')))
+	const master = (await zip.file('ppt/slideMasters/slideMaster1.xml').async('string')).replace(
+		'<p:bgRef idx="1001">',
+		'<p:bgRef idx="1">'
+	)
+	zip.file('ppt/slideMasters/slideMaster1.xml', master)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
+/** empty.pptx with its master `p:bgRef` idx zeroed out, so materializeBackground falls back to a:noFill. Returns package bytes. */
+async function deckEmptyBgRefIdxZero() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('empty')))
+	const master = (await zip.file('ppt/slideMasters/slideMaster1.xml').async('string')).replace(
+		'<p:bgRef idx="1001">',
+		'<p:bgRef idx="0">'
+	)
+	zip.file('ppt/slideMasters/slideMaster1.xml', master)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
+/** mixed.pptx with slide1 given its own literal p:bg, so it is not the one inherited from the master. Returns package bytes. */
+async function deckMixedSlideOwnBackground() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+	const slide = (await zip.file('ppt/slides/slide1.xml').async('string')).replace(
+		'<p:cSld><p:spTree>',
+		'<p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="123456"/></a:solidFill></p:bgPr></p:bg><p:spTree>'
+	)
+	zip.file('ppt/slides/slide1.xml', slide)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
+/** mixed.pptx with slideMaster1's p:bg stripped, so no slide/layout/master in the chain defines a background. Returns package bytes. */
+async function deckMixedNoBackgroundAnywhere() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+	const master = (await zip.file('ppt/slideMasters/slideMaster1.xml').async('string')).replace(
+		'<p:bg><p:bgPr><a:solidFill><a:schemeClr val="bg1"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>',
+		''
+	)
+	zip.file('ppt/slideMasters/slideMaster1.xml', master)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
+/** mixed.pptx with slide5's first p:style effectRef pointed at fmtScheme effectStyleLst entry 3 (effectLst + scene3d + sp3d), instead of the unresolved idx=0. Returns package bytes. */
+async function deckMixedEffectRefMaterialized() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+	const slide = (await zip.file('ppt/slides/slide5.xml').async('string')).replace(
+		'<a:effectRef idx="0"><a:schemeClr val="accent1"/></a:effectRef>',
+		'<a:effectRef idx="3"><a:schemeClr val="accent1"/></a:effectRef>'
+	)
+	zip.file('ppt/slides/slide5.xml', slide)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
+/** layout-placeholder-bodypr.pptx with its body placeholder's single paragraph replaced by five, at explicit lvl 0..4. Returns package bytes. */
+async function deckMultiLevelBody() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('layout-placeholder-bodypr')))
+	const levels = [0, 1, 2, 3, 4]
+		.map((lvl) => (lvl === 0 ? '' : `<a:pPr lvl="${lvl}"/>`))
+		.map((pPr, lvl) => `<a:p>${pPr}<a:r><a:rPr lang="en-US"/><a:t>L${lvl}</a:t></a:r></a:p>`)
+		.join('')
+	const slide = (await zip.file('ppt/slides/slide1.xml').async('string')).replace(
+		'<a:p><a:r><a:rPr lang="en-US"/><a:t>Middle-anchored body</a:t></a:r></a:p>',
+		levels
+	)
+	zip.file('ppt/slides/slide1.xml', slide)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
 /** The index of the first `mixed` slide that uses scheme colours + a p:style. */
 const THEMED_SLIDE_INDEX = 4 // slide5: 69 schemeClr, 18 p:style (Fusion theme: accent1=00E4A8, dk2=333399)
 
@@ -445,6 +515,97 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 			runs.slice(1).every((r) => /\bsz="3200"/.test(r)),
 			'sibling runs still inherit the resolved master size'
 		)
+	})
+
+	test('materializes a bgRef idx below 1000 through the regular fillStyleLst (not bgFillStyleLst)', async () => {
+		const source = await Presentation.load(await deckEmptyBgRefFillStyleLst())
+		const target = await open('empty')
+		const imported = target.importSlide(source, 0, { theme: 'preserve' })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		const bg = (xml.match(/<p:bg>[\s\S]*?<\/p:bg>/) ?? [''])[0]
+		assert(bg, 'the imported slide carries an explicit background')
+		assert(!/bgRef|schemeClr|phClr/.test(bg), 'the background is fully materialized to a literal')
+		assert(
+			/<p:bgPr><a:solidFill><a:srgbClr val="[0-9A-Fa-f]{6}"\/><\/a:solidFill><\/p:bgPr>/.test(bg),
+			'idx=1 resolves the plain fillStyleLst entry 1, not a bgFillStyleLst one'
+		)
+	})
+
+	test('an unresolved bgRef (idx=0) falls back to an explicit a:noFill', async () => {
+		const source = await Presentation.load(await deckEmptyBgRefIdxZero())
+		const target = await open('empty')
+		const imported = target.importSlide(source, 0, { theme: 'preserve' })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		const bg = (xml.match(/<p:bg>[\s\S]*?<\/p:bg>/) ?? [''])[0]
+		assertEqual(bg, '<p:bg><p:bgPr><a:noFill/></p:bgPr></p:bg>', 'idx=0 materializes to an explicit transparent fill')
+	})
+
+	test("a slide's own background is left in place, not overwritten by the inherited one", async () => {
+		const source = await Presentation.load(await deckMixedSlideOwnBackground())
+		const target = await open('mixed')
+		const imported = target.importSlide(source, 0, { theme: 'preserve' }) // slide1: now carries its own p:bg
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		const bg = (xml.match(/<p:bg>[\s\S]*?<\/p:bg>/) ?? [''])[0]
+		assert(/<a:srgbClr val="123456"/.test(bg), 'the slide keeps its own literal background')
+		assertEqual(
+			(xml.match(/<p:bg>/g) ?? []).length,
+			1,
+			'no second background was inserted alongside the slide-owned one'
+		)
+	})
+
+	test('a slide with no inherited background anywhere gains no synthetic p:bg', async () => {
+		const source = await Presentation.load(await deckMixedNoBackgroundAnywhere())
+		const target = await open('mixed')
+		const imported = target.importSlide(source, 0, { theme: 'preserve' }) // slide1: no own bg
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		assert(!/<p:bg>/.test(xml), 'no background is baked on when the source chain defines none')
+	})
+
+	test('materializes a p:style effectRef into spPr (effectLst + scene3d + sp3d lifted from the fmtScheme)', async () => {
+		const source = await Presentation.load(await deckMixedEffectRefMaterialized())
+		const target = await open('mixed')
+		const imported = target.importSlide(source, THEMED_SLIDE_INDEX, { theme: 'preserve' })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		// The mutated shape's effectRef neutralizes like the rest of the style matrix…
+		assert(/<a:effectRef idx="0"\/>/.test(xml), 'effectRef neutralized to idx="0" with no colour')
+		// …and the theme's effectStyleLst entry 3 (effectLst + scene3d + sp3d) was lifted into spPr.
+		assert(/<p:spPr[^>]*>[\s\S]*?<a:effectLst>[\s\S]*?<a:outerShdw/.test(xml), 'effectLst lifted into spPr')
+		assert(/<a:scene3d>[\s\S]*?<a:camera/.test(xml), 'scene3d lifted into spPr')
+		assert(/<a:sp3d>[\s\S]*?<a:bevelT/.test(xml), 'sp3d lifted into spPr')
+	})
+
+	test('leaves a run that already carries its own colour untouched (not overwritten by the inherited one)', async () => {
+		const target = await open('empty')
+		const source = await open('multi-theme')
+		const imported = target.importSlide(source, 1, { theme: 'preserve' }) // slide2: body run has its own FF00FF fill
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		const sp = (xml.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?type="body"[\s\S]*?<\/p:sp>/) ?? [''])[0]
+		assert(sp, 'the imported slide has its body placeholder')
+		assert(/<a:solidFill><a:srgbClr val="FF00FF"\/><\/a:solidFill>/.test(sp), 'the run keeps its own explicit colour')
+		assertEqual((sp.match(/<a:solidFill>/g) ?? []).length, 1, 'no duplicate solidFill was baked onto the run')
+	})
+
+	test('bakes distinct placeholder-inherited sizes per explicit paragraph level', async () => {
+		// The body placeholder carries 5 paragraphs at lvl 0..4, each with a bare run; the
+		// master bodyStyle defines a different sz per level (2800/2400/2000/1800/1800).
+		const source = await Presentation.load(await deckMultiLevelBody())
+		const target = await open('layout-placeholder-bodypr')
+		const imported = target.importSlide(source, 0, { theme: 'preserve' })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		const sp = (xml.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?idx="1"[\s\S]*?<\/p:sp>/) ?? [''])[0]
+		assert(sp, 'the imported slide still has its body placeholder')
+		const runs = [...sp.matchAll(/<a:r>[\s\S]*?<\/a:r>/g)].map((m) => m[0])
+		assertEqual(runs.length, 5, 'all five level runs are present')
+		const sizes = runs.map((r) => (r.match(/\bsz="(\d+)"/) ?? [])[1]).join(',')
+		assertEqual(sizes, '2800,2400,2000,1800,1800', 'each run bakes its own level size from bodyStyle')
 	})
 
 	test('the default (no option) still copies the source theme subgraph', async () => {

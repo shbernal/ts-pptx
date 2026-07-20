@@ -2135,7 +2135,7 @@ items:
     target_area: []
     applies_to_current_project: yes
     non_target_reasons: []
-    summary: read-side branch coverage on theme.ts's importSlide(theme:'preserve') flatten path (materializeFill/Line/Effect, resolvePlaceholderRunColors/Geometry/BodyPr, background carry, neutralizeRef, bgRef) remains low (~76.5%)
+    summary: read-side branch coverage on theme.ts's importSlide(theme:'preserve') flatten path (materializeFill/Line/Effect, resolvePlaceholderRunColors/Geometry/BodyPr, background carry, neutralizeRef, bgRef) raised 76.47%->82.1%; a smaller genuine gap remains
     current_project_notes: |
       Carried over from the P6 coverage sweep (see the fork-write-side-branch-coverage
       entry for the write-side half of the same plan). The read-side sweep landed
@@ -2145,12 +2145,44 @@ items:
       genuine gap is read-side, not write-side" -- that framing is now stale for
       everything except this one remaining path.
 
-      What's left: theme.ts's FLATTEN/theme:'preserve' branches are reached only via
-      Presentation.importSlide(src, {theme:'preserve'}), which needs source+destination
-      slide fixtures (see test/read/import-slide-preserve.test.js for the existing
-      partial coverage) rather than the synthetic-construction techniques that worked
-      for the rest of theme.ts (hand-built xmldom trees + a stub part, no OpcPackage
-      needed for most getters). Not attempted yet.
+      2026-07-20: added 9 new fixture-driven tests (JSZip-splice mutations of the
+      mixed/empty/multi-theme/layout-placeholder-bodypr fixtures, following the
+      existing pattern in import-slide-preserve.test.js/import-shape.test.js --
+      flattenSlide/flattenShape are not publicly exported, so the synthetic
+      hand-built-xmldom-tree technique used elsewhere in theme.ts's tests can't reach
+      them; only a real Presentation.importSlide/importShape call does). Covered:
+        - materializeBackground's bgRef idx<1000 (regular fillStyleLst, not
+          bgFillStyleLst) and idx=0/unresolved (a:noFill fallback) branches
+        - applyInheritedBackground's "no inherited background anywhere" branch, and
+          confirmed a slide-owned background is left alone
+        - materializeEffect's effectRef idx>0 branch end-to-end (effectLst + scene3d +
+          sp3d all lifted from the fmtScheme entry into spPr) -- previously every
+          mixed.pptx p:style effectRef was idx="0", so this whole function's non-trivial
+          path was dead in the suite
+        - resolvePlaceholderBodyPr's "shape already fixes its own anchor" branch
+        - resolvePlaceholderListStyle's "no existing a:lstStyle, insert fresh" branch
+          (previously only the "replace existing empty a:lstStyle" branch was hit)
+        - slideDefinesColor's "run already carries its own colour" branch
+        - resolvePlaceholderRunSizes across explicit paragraph lvl 0..4 (previously
+          only lvl 0 -- the implicit default -- was ever exercised)
+      Result: theme.ts branches 76.47%->82.1% (statements 88.68%->91.71%, lines
+      96.41%->98.97%), rollup branches 78.1%->78.41%. All 1400+ tests still green, no
+      threshold changes needed (comfortable headroom over the 76% gate already).
+
+      What's left (~73 branches, down from 96): a mix of (a) restyle-mode-only code
+      (remapLiteralColors/reverseClrScheme/reverseClrMap/restyleSlide) that this item
+      was never scoped to -- a separate concern from preserve; (b) malformed-XML
+      colour-model edges (srgbClr/sysClr with no resolvable val, an unmapped
+      schemeClr token) that would require hand-editing a fixture into schema-invalid
+      territory; and (c) several `!ctx.layoutRoot && !ctx.masterRoot` / `if (!root)
+      continue` guards (e.g. placeholderInheritedXfrm's layout-null-fall-to-master
+      skip) that look structurally unreachable through the public importSlide/
+      importShape entry points -- every real slide resolves to a layout+master, so
+      these are defensive-only. The anchor-getter's identical guard IS covered, but
+      only because theme-placeholder-chain.test.js constructs a synthetic ctx by hand
+      via the public TextFrame read-model class; there is no equivalent public
+      construction point for the flatten/mutate functions. Chasing (b)/(c) further is
+      low value; ongoing ratchet work, not a discrete deliverable.
     constructs: []
     evidence:
       kinds:
@@ -2158,8 +2190,9 @@ items:
       local_files:
         - src/read/oxml/theme.ts
         - test/read/import-slide-preserve.test.js
+        - test/read/import-shape.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add source+dest slide fixtures driving importSlide(theme:'preserve') through the remaining flatten branches, then ratchet theme.ts's branch threshold
+    next_action: low-value remainder only (restyle-mode branches out of this item's scope, malformed-XML colour edges, defensive layoutRoot/masterRoot-null guards) -- not worth further fixture engineering unless priority changes
