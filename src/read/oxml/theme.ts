@@ -41,6 +41,7 @@ import {
 	attr,
 	createElement,
 	firstChild,
+	firstChildElement,
 	getElements,
 	getOrAddChild,
 	insertInOrder,
@@ -179,14 +180,6 @@ function resolveSchemeToken(token: string, ctx: ColorContext): string | null {
 	if (token === 'phClr') return null
 	const slot = DIRECT_SLOT_TOKENS.has(token) ? token : ctx.clrMap.get(token)
 	return slot ? (ctx.clrScheme.get(slot) ?? null) : null
-}
-
-/** First child *element* of `parent` (skipping text/comment nodes), or `null`. */
-function firstChildElement(parent: Element): Element | null {
-	for (let node = parent.firstChild; node; node = node.nextSibling) {
-		if (node.nodeType === ELEMENT_NODE) return node as Element
-	}
-	return null
 }
 
 /** Direct child *elements* of `parent`, in order. */

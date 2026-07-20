@@ -111,7 +111,7 @@ import { getNewRelId, getUuid, isHyperlinkRel } from './gen-utils.js'
 import { decodeBase64ToBytes } from './media/base64.js'
 import { avContentType, imageContentType } from './media/content-type.js'
 import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
-import type { ExtractedSlide, ExtractedSlides } from './read/api/presentation.js'
+import type { ExtractedSlide, ExtractedSlides } from './read/api/presentation-types.js'
 
 export type { PresSlide as Slide } from './core-interfaces.js'
 export type {

@@ -98,6 +98,14 @@ export function firstChild(parent: Node, qname: string): Element | null {
 	return null
 }
 
+/** First direct child *element* of `parent` (skipping text/comment nodes), or `null`. */
+export function firstChildElement(parent: Node): Element | null {
+	for (let node = parent.firstChild; node; node = node.nextSibling) {
+		if (node.nodeType === ELEMENT_NODE) return node as Element
+	}
+	return null
+}
+
 /** First direct child element matching any of the given qnames, or `null`. */
 export function firstChildMatchingAny(parent: Node, qnames: string[]): Element | null {
 	const wanted = qnames.map(splitQName)

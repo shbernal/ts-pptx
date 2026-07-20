@@ -1398,6 +1398,48 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: none
+  - id: fork-presentation-part-copy-extraction
+    source: fork:src/read/api/presentation.ts
+    type: fork-internal-proposal
+    first_seen: 2026-07-20
+    last_reviewed: 2026-07-20
+    status: deferred
+    priority: p3
+    target_area:
+      - typescript-api
+    applies_to_current_project: unknown
+    non_target_reasons: []
+    summary: the part-copy and master-registry machinery is the last monolithic cluster in the Presentation class and needs an explicit import context to extract
+    current_project_notes: >
+      Left behind by the module split that took presentation.ts from 2475 to 1735 lines.
+      A state-coupling map of all ~50 class members showed the class has only three
+      genuinely private fields: #presentationPart (read solely by its own public getter),
+      #importRegistry, and #rescaledParts. Because `opc` is a public readonly field and
+      `presentationPart` a public getter, most "private" methods are not state-entangled at
+      all, which is what made the types/DOM/rescale/table-styles extractions mechanical.
+      The remaining cluster -- #copyPart, #registryFor, #registerMaster, #promoteMasters,
+      #nextMasterLayoutId, #clearLayoutIdList, #linkLayoutIntoMaster, ~218 lines -- is the
+      exception: it is the only code that reads #importRegistry and #rescaledParts, and
+      #copyPart is a hub called from seven sites (importSlide, #carryNotes,
+      #ensureNotesMaster, #carryEmbeddedFonts, importSlideMasters, #importSlideRebind,
+      #carryRel). Extracting it means introducing an explicit context object
+      ({ opc, presentationPart, registry, rescaledParts }) and threading it through all
+      seven -- a design change, not a file move. Deliberately deferred rather than rushed:
+      this is the part-copy and relationship-rewriting path, where package-corruption bugs
+      live, and unlike the gen/ side it has no byte-identity gate to catch a mistake. Worth
+      doing only alongside a deliberate look at whether that context wants to be its own
+      type in the read model.
+    constructs: []
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/read/api/presentation.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: decide whether the import context is its own read-model type, then extract #copyPart and the master-registry helpers onto it
   - id: fork-seraxislabelpos-precedence
     source: fork:src/gen/chart/chart-xml.ts
     type: fork-internal-proposal

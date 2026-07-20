@@ -254,6 +254,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- **Split the two remaining 2k-line modules (no API change).** `src/gen/chart/chart-xml.ts`
+  (2,231 lines) is now seven modules along the seams its own call graph already had, which
+  turned out to be acyclic: `chart-parts.ts` holds the leaf fragment builders every region
+  reuses (titles, gridlines, series data points, error bars, number caches), `chart-axes.ts`
+  the three axis builders, and one module per plot family — `plot-cat-axis.ts`
+  (area/bar/bar3D/line/radar, which share a builder because they share a plot shape),
+  `plot-scatter.ts`, `plot-bubble.ts`, `plot-pie.ts` — behind the `makeChartType` dispatch
+  that stays with the `<c:chartSpace>` envelope in `chart-xml.ts` (2,231 → 530 lines). The
+  module had exactly one export before and after, so nothing about its surface changed.
+  `src/read/api/presentation.ts` (2,475 lines) gave up its 458 lines of public option/result
+  interfaces to `presentation-types.ts`, its DOM navigation and EMU-rescale helpers to
+  `slide-dom.ts` and `rescale.ts`, and its `tableStyles.xml` merging to `table-styles.ts`
+  (2,475 → 1,735). The table-styles functions take a structural `{ opc, presentationPart }`
+  target that `Presentation` satisfies, so the module does not depend on the class calling it.
+  Verified byte-identical: the demo decks re-emit unchanged (1,437 parts), a probe covering all
+  nine chart families — five of which the demo decks never reach — diffs clean against the
+  previous build, the published `.d.ts` surface is unchanged (10 entrypoints, 1,150 exports),
+  and the TypeDoc warning set is unchanged, so the `{@link Presentation.*}` references still
+  resolve from their new file.
+- **Removed four identical copies of `firstChildElement`.** The read tree carried the same
+  six-line DOM helper privately in `read/api/presentation.ts`, `read/api/shapes.ts`,
+  `read/api/theme-context.ts`, and `read/oxml/theme.ts`. It now lives once in
+  `read/oxml/dom.ts` next to its `firstChild` sibling, where the rest of the read tree's DOM
+  primitives already are.
 - **Audited raw string concatenation in the chart writer and closed the remaining
   unescaped-attribute sites (no API change).** `src/gen/chart/chart-xml.ts` builds most of
   its markup by appending to a `strXml` accumulator. An audit of all 734 append sites found

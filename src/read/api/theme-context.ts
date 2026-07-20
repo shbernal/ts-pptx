@@ -10,7 +10,7 @@
  * identically whether it is read or baked.
  */
 import { applyColorTransforms } from '../oxml/color-transform.js'
-import { ELEMENT_NODE, attr, firstChild, intValue, type Element } from '../oxml/dom.js'
+import { attr, firstChild, firstChildElement, intValue, type Element } from '../oxml/dom.js'
 import {
 	lstStyleLevelDefRPr,
 	lstStyleLevelFill,
@@ -279,14 +279,6 @@ export function resolveColorElement(colorEl: Element | null, ctx: ColorContext):
 	return alpha === undefined
 		? { hex: resolved.hex, transforms, effectiveHex: hex }
 		: { hex: resolved.hex, transforms, effectiveHex: hex, alpha }
-}
-
-/** First child *element* of `parent` (skipping text/comment nodes), or `null`. */
-function firstChildElement(parent: Element): Element | null {
-	for (let node = parent.firstChild; node; node = node.nextSibling) {
-		if (node.nodeType === ELEMENT_NODE) return node as Element
-	}
-	return null
 }
 
 /**

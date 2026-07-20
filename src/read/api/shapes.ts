@@ -13,6 +13,7 @@ import {
 	attr,
 	boolValue,
 	firstChild,
+	firstChildElement,
 	getElements,
 	getOrAddChild,
 	intValue,
@@ -242,14 +243,6 @@ function childElements(parent: Element): Element[] {
 		if (node.nodeType === ELEMENT_NODE) out.push(node as Element)
 	}
 	return out
-}
-
-/** First child *element* of `parent` (skipping text/comment nodes), or `null`. */
-function firstChildElement(parent: Element): Element | null {
-	for (let node = parent.firstChild; node; node = node.nextSibling) {
-		if (node.nodeType === ELEMENT_NODE) return node as Element
-	}
-	return null
 }
 
 /** A point + extent pair (`a:off`/`a:ext` or `a:chOff`/`a:chExt`) from a transform, or `null` if either is incomplete. */

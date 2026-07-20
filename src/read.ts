@@ -14,20 +14,20 @@ export { Relationships, type Relationship } from './read/opc/relationships.js'
 export { resolveRelativePartName, relsPartNameFor } from './read/opc/partnames.js'
 
 // Read object model — navigable presentation → slides → shapes → text.
-export {
-	Presentation,
-	type SlideSize,
-	type ImportSlideOptions,
-	type ImportShapeOptions,
-	type ImportSlideMastersOptions,
-	type ImportedSlideMaster,
-	type LayoutHandle,
-	type AppendSlidesOptions,
-	type FromTemplateOptions,
-	type SlideSource,
-	type ExtractedSlide,
-	type ExtractedSlides,
-} from './read/api/presentation.js'
+export { Presentation } from './read/api/presentation.js'
+export type {
+	SlideSize,
+	ImportSlideOptions,
+	ImportShapeOptions,
+	ImportSlideMastersOptions,
+	ImportedSlideMaster,
+	LayoutHandle,
+	AppendSlidesOptions,
+	FromTemplateOptions,
+	SlideSource,
+	ExtractedSlide,
+	ExtractedSlides,
+} from './read/api/presentation-types.js'
 export { Slide, type AddTextBoxOptions, type AddPictureOptions } from './read/api/slide.js'
 export { type TransitionInfo, type TransitionInput, type TransitionSpeed } from './read/api/transition.js'
 export {
