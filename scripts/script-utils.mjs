@@ -50,6 +50,7 @@ export function run(command, args, options = {}) {
 			env.pnpm_config_store_dir = path.join(packageManagerCache, 'pnpm-store')
 			env.PNPM_CONFIG_STORE_DIR = path.join(packageManagerCache, 'pnpm-store')
 		}
+		/** @type {import('node:child_process').SpawnOptions} */
 		const spawnOptions = {
 			cwd: options.cwd || ROOT,
 			env,

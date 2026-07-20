@@ -231,6 +231,41 @@ are present, verifies that old generated artifacts are absent, runs an ESM
 import smoke test, checks that the package has no CJS export condition, and
 typechecks a minimal TypeScript consumer.
 
+The TypeScript consumer fixture is generated inline by `scripts/package-smoke.mjs`
+(`type-smoke.ts`). It is the only consumer of the public API that is not in
+`test/`, so it does not move when the API does — a rename or a removed overload
+in `src/` will not fail any unit test but *will* fail `test:package`. When you
+change a public export, grep that fixture.
+
+### Running scripts that spawn subprocesses
+
+Every script subprocess goes through `run()` in `scripts/script-utils.mjs`. It
+deliberately avoids a shell where it can, because Windows cannot exec the
+`.cmd`/`.ps1` shims that package managers and `node_modules/.bin` entries ship
+as: a bare name fails with `ENOENT`, and appending `.cmd` fails with `EINVAL`
+(Node >=18.20/20.12 refuses to exec batch files without a shell, per the
+CVE-2024-27980 hardening).
+
+So `run()` resolves a bin one of three ways:
+
+- **A local devDependency bin** — resolved to its JS entry via the declaring
+  package's `bin` field and run on `process.execPath`. Bin name to package name
+  is not derivable (`attw` lives in `@arethetypeswrong/cli`), so the mapping is
+  the explicit `localBinPackages` table. **Add new local bins there**, otherwise
+  they fall through to the shell path and emit Node 24's `DEP0190` warning.
+- **An external package manager** (`pnpm`, `npm`) — `.cmd` plus `shell: true`,
+  passed as a single pre-quoted command line, since `DEP0190` deprecates an args
+  array alongside `shell: true`.
+- **An absolute path** (e.g. `process.execPath`) — spawned directly.
+
+### CI runs these on Linux only
+
+`ci.yml` has no OS matrix; every job is `ubuntu-latest`. Anything that only
+breaks on Windows — subprocess spawning above all — is invisible to CI by
+construction, and a green CI run is not evidence these commands work on a
+Windows checkout. Run the package and demo commands locally before trusting
+them there.
+
 ## Demo Smoke Tests
 
 Run both maintained demo smoke tests:
