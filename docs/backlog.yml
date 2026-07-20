@@ -1948,3 +1948,144 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: none
+
+  - id: fork-addtext-objectname-double-escape
+    source: fork:src/gen/define/text.ts
+    type: fork-internal-proposal
+    first_seen: 2026-07-20
+    last_reviewed: 2026-07-20
+    status: needs-repro
+    priority: p3
+    target_area: []
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: "Slide.addText(string, {objectName}) double-escapes objectName: 'Q&A' emits name=\"Q&amp;amp;A\" instead of \"Q&amp;A\""
+    current_project_notes: |
+      Found while re-verifying a Phase 2 write-side-migration memory note that had
+      mischaracterized this construct as objectName reaching <p:cNvPr name>/
+      <p:cSld name> UNESCAPED. That characterization is wrong for the real public
+      API: every add*Definition (text.ts, shape.ts, image.ts, chart.ts, media.ts,
+      connector.ts, group.ts, table.ts) already escapes objectName once via
+      encodeXmlEntities(validateObjectName(...)) before storing it, and cNvPrOpen
+      (src/gen/slide/object.ts) correctly writes it out raw afterward. Verified
+      empirically with a probe script against the real public API: calling
+      addText('hi', {objectName:'Q&A'}) and reading back ppt/slides/slide1.xml
+      shows name="Q&amp;amp;A" -- double-escaped, not raw.
+
+      Root cause: Slide.addText(text, options) (src/slide.ts) wraps a bare string
+      as [{ text, options }], reusing the SAME object reference as both the
+      per-run options and the opts argument passed to addTextDefinition. Inside
+      addTextDefinition (src/gen/define/text.ts), cleanOpts() runs once on the
+      shape-level options (STEP 1, escaping objectName), then runs again per text
+      run (STEP 2's forEach) -- for the single-string call form this is the same
+      object, already carrying the escaped value, so objectName is escaped a
+      second time. The array form addText([{text:'a'},{text:'b'}], opts) does not
+      hit this (individual runs don't normally carry their own objectName).
+
+      Result is well-formed XML with a wrong value (not a PowerPoint-repair
+      corruption case), scoped to objectName values containing XML
+      metacharacters via the single-string addText() convenience form. Pre-dates
+      the Phase 2 el()/voidEl() migration; unrelated to it.
+
+      The existing characterization test test/regression/slide-object-xml.test.mjs
+      ("objectName is NOT escaped" / "the slide name is NOT escaped either")
+      constructs slide objects directly, bypassing the define layer, so it never
+      exercises this real path -- its comments repeat the same wrong "unescaped"
+      framing and should be corrected alongside any fix.
+
+      See also fork-slidemaster-title-unescaped for a related but distinct and
+      genuinely unescaped construct (defineSlideMaster's title), found in the
+      same investigation.
+    constructs: []
+    evidence:
+      kinds:
+        - local-source-inspection
+        - minimal-repro
+      local_files:
+        - src/slide.ts
+        - src/gen/define/text.ts
+        - src/gen/slide/object.ts
+        - test/regression/slide-object-xml.test.mjs
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: fix the cleanOpts double-invocation (or the addText aliasing) for objectName, add a schema fixture driven through the real addText() API, and correct the misleading comments in cNvPrOpen and slide-object-xml.test.mjs
+
+  - id: fork-slidemaster-title-unescaped
+    source: "fork:src/pptxgen.ts"
+    type: fork-internal-proposal
+    first_seen: 2026-07-20
+    last_reviewed: 2026-07-20
+    status: needs-repro
+    priority: p2
+    target_area:
+      - invalid-ooxml
+      - powerpoint-repair
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: "defineSlideMaster({title}) is never escaped, so a title containing XML metacharacters emits a non-parseable <p:cSld name=...> in the slideLayout part"
+    current_project_notes: |
+      Found alongside fork-addtext-objectname-double-escape, while re-verifying a
+      Phase 2 write-side-migration memory note. Unlike that entry, this half of
+      the original claim held up: src/pptxgen.ts:1343 (defineSlideMaster) sets
+      _name: propsClone.title directly, with no encodeXmlEntities call anywhere
+      on that path. Verified empirically: defineSlideMaster({title:'R&D'}) +
+      addSlide({masterName:'R&D'}) emits ppt/slideLayouts/slideLayout2.xml
+      containing <p:cSld name="R&D">, unescaped -- a title containing '&', '<',
+      or '"' would produce a non-well-formed part (PowerPoint repair territory),
+      not merely a wrong value.
+
+      slide.ts's own default _name ("Slide N") is never caller-controlled, so
+      this is specific to the defineSlideMaster(title) path.
+    constructs: []
+    evidence:
+      kinds:
+        - local-source-inspection
+        - minimal-repro
+      local_files:
+        - src/pptxgen.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: escape propsClone.title (or _name at the p:cSld emission site) and add a schema fixture, following the pattern of the existing theme/fontFace/rel-Target escaping fixes
+
+  - id: fork-theme-preserve-path-coverage
+    source: "fork:src/read/oxml/theme.ts"
+    type: fork-internal-proposal
+    first_seen: 2026-07-20
+    last_reviewed: 2026-07-20
+    status: deferred
+    priority: p3
+    target_area: []
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: read-side branch coverage on theme.ts's importSlide(theme:'preserve') flatten path (materializeFill/Line/Effect, resolvePlaceholderRunColors/Geometry/BodyPr, background carry, neutralizeRef, bgRef) remains low (~76.5%)
+    current_project_notes: |
+      Carried over from the P6 coverage sweep (see the fork-write-side-branch-coverage
+      entry for the write-side half of the same plan). The read-side sweep landed
+      2026-07-18 (chart.ts, theme-context.ts, shapes.ts, slide.ts, text.ts, and most
+      of theme.ts all raised, rollup branch coverage 74.75->76.89, threshold ratcheted
+      in commit 8479a722) and closed out most of what was originally flagged as "the
+      genuine gap is read-side, not write-side" -- that framing is now stale for
+      everything except this one remaining path.
+
+      What's left: theme.ts's FLATTEN/theme:'preserve' branches are reached only via
+      Presentation.importSlide(src, {theme:'preserve'}), which needs source+destination
+      slide fixtures (see test/read/import-slide-preserve.test.js for the existing
+      partial coverage) rather than the synthetic-construction techniques that worked
+      for the rest of theme.ts (hand-built xmldom trees + a stub part, no OpcPackage
+      needed for most getters). Not attempted yet.
+    constructs: []
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/read/oxml/theme.ts
+        - test/read/import-slide-preserve.test.js
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: add source+dest slide fixtures driving importSlide(theme:'preserve') through the remaining flatten branches, then ratchet theme.ts's branch threshold
