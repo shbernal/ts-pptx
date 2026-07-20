@@ -94,7 +94,7 @@ async function smokeInstalledPackage(fixtureDir) {
 	await fs.writeFile(
 		path.join(fixtureDir, 'type-smoke.ts'),
 		[
-			`import PptxGenJS, { Presentation, STANDARD_LAYOUTS, inchesToEmu, type IChartMulti, type StandardLayoutName, type ThemeProps, type WriteFileProps } from ${JSON.stringify(packageImport())}`,
+			`import PptxGenJS, { Presentation, STANDARD_LAYOUTS, inchesToEmu, type ChartMulti, type StandardLayoutName, type ThemeProps, type WriteFileProps } from ${JSON.stringify(packageImport())}`,
 			`import NodePptxGenJS from ${JSON.stringify(packageImport('/node'))}`,
 			`import BrowserPptxGenJS from ${JSON.stringify(packageImport('/browser'))}`,
 			`import StandalonePptxGenJS from ${JSON.stringify(packageImport('/standalone'))}`,
@@ -107,7 +107,7 @@ async function smokeInstalledPackage(fixtureDir) {
 			'const slide = pptx.addSlide()',
 			"const theme: ThemeProps = { headFontFace: 'Aptos', bodyFontFace: 'Aptos' }",
 			"const options: WriteFileProps = { fileName: 'smoke.pptx' }",
-			"const comboChart: IChartMulti[] = [{ type: 'bar', data: [{ labels: ['A'], values: [1] }], options: {} }]",
+			"const comboChart: ChartMulti[] = [{ type: 'bar', data: [{ labels: ['A'], values: [1] }], options: {} }]",
 			'const presentationCtor: typeof PptxGenJS = Presentation',
 			'const typedSlide: PresSlide = slide',
 			'const inspectResult = await inspectPptx(await pptx.stream())',
@@ -117,7 +117,7 @@ async function smokeInstalledPackage(fixtureDir) {
 			'const wideWidthEmu: number = inchesToEmu(STANDARD_LAYOUTS[layoutName].widthIn)',
 			'const pxWidthEmu: number = pixelsToEmu(1920, 144)',
 			'pptx.theme = theme',
-			"slide.addChart('bar', [{ labels: ['A'], values: [1] }], { x: 0, y: 0, w: 1, h: 1 })",
+			"slide.addChart([{ labels: ['A'], values: [1] }], { type: 'bar', x: 0, y: 0, w: 1, h: 1 })",
 			'slide.addChart(comboChart, { x: 0, y: 0, w: 1, h: 1 })',
 			"slide.addImage({ data: 'image/png;base64,AAAA', x: 0, y: 0, w: 1, h: 1 })",
 			"slide.addMedia({ type: 'online', link: 'https://www.youtube.com/embed/example', x: 0, y: 0, w: 1, h: 1 })",
