@@ -51,6 +51,7 @@ import {
 } from '../../gen-utils.js'
 import { FIXED_PCT_PER_PERCENT, ptToHundredths } from '../../units.js'
 import { dataLabels, dataValues, dataSizes, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
+import { el, raw, voidEl } from '../oxml/el.js'
 
 const VALID_CHART_TIME_UNITS = ['days', 'months', 'years']
 
@@ -68,7 +69,7 @@ const DEF_GRIDLINE_COLOR: string = DEF_CHART_GRIDLINE.color ?? '888888'
  * render as black — leaving a stray black line/border where a transparent series was requested.
  */
 function chartColorLineFill(color: string): string {
-	return color === 'transparent' ? '<a:noFill/>' : genXmlColorSelection(color)
+	return color === 'transparent' ? voidEl('a:noFill') : genXmlColorSelection(color)
 }
 /**
  * Emit the `<a:latin>/<a:ea>/<a:cs>` font trio for a chart text run.
@@ -87,10 +88,10 @@ function chartColorLineFill(color: string): string {
 
 function createChartTextFonts(typeface: string): string {
 	// Every caller passes a caller-supplied font option (dataLabelFontFace, catAxisLabelFontFace,
-	// legendFontFace, ...), so escaping happens here — one site covers all of them. An unescaped
-	// `"` or `&` would close the attribute early and emit a non-parseable chart part.
-	const face = encodeXmlEntities(typeface)
-	return `<a:latin typeface="${face}"/><a:ea typeface="${face}"/><a:cs typeface="${face}"/>`
+	// legendFontFace, ...), so escaping happens here — one site covers all of them. voidEl()'s
+	// attrs escape by construction: an unescaped `"` or `&` would otherwise close the attribute
+	// early and emit a non-parseable chart part.
+	return voidEl('a:latin', { typeface }) + voidEl('a:ea', { typeface }) + voidEl('a:cs', { typeface })
 }
 
 /**
@@ -103,8 +104,8 @@ function makeChartHeaderXml(rel: SlideRelChart): string {
 	// CHARTSPACE: BEGIN vvv
 	strXml +=
 		'<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-	strXml += '<c:date1904 val="0"/>' // ppt defaults to 1904 dates, excel to 1900
-	strXml += `<c:roundedCorners val="${chartArea.roundedCorners ? '1' : '0'}"/>`
+	strXml += voidEl('c:date1904', { val: 0 }) // ppt defaults to 1904 dates, excel to 1900
+	strXml += voidEl('c:roundedCorners', { val: chartArea.roundedCorners ? 1 : 0 })
 	strXml += '<c:chart>'
 
 	// OPTION: Title
@@ -125,34 +126,43 @@ function makeChartHeaderXml(rel: SlideRelChart): string {
 			rel.opts.x as number,
 			rel.opts.y as number
 		)
-		strXml += '<c:autoTitleDeleted val="0"/>'
+		strXml += voidEl('c:autoTitleDeleted', { val: 0 })
 	} else {
 		// NOTE: Add autoTitleDeleted tag in else to prevent default creation of chart title even when showTitle is set to false
-		strXml += '<c:autoTitleDeleted val="1"/>'
+		strXml += voidEl('c:autoTitleDeleted', { val: 1 })
 	}
 	/** Add 3D view tag
 	 * @see: https://c-rex.net/projects/samples/ooxml/e1/Part4/OOXML_P4_DOCX_perspective_topic_ID0E6BUQB.html
 	 */
 	if (rel.opts._type === ChartType.bar3d) {
-		strXml += `<c:view3D><c:rotX val="${rel.opts.v3DRotX}"/><c:rotY val="${rel.opts.v3DRotY}"/><c:rAngAx val="${!rel.opts.v3DRAngAx ? 0 : 1}"/><c:perspective val="${rel.opts.v3DPerspective}"/></c:view3D>`
+		strXml += el('c:view3D', null, [
+			raw(voidEl('c:rotX', { val: rel.opts.v3DRotX })),
+			raw(voidEl('c:rotY', { val: rel.opts.v3DRotY })),
+			raw(voidEl('c:rAngAx', { val: !rel.opts.v3DRAngAx ? 0 : 1 })),
+			raw(voidEl('c:perspective', { val: rel.opts.v3DPerspective })),
+		])
 	}
 
 	strXml += '<c:plotArea>'
 	// IMPORTANT: Dont specify layout to enable auto-fit: PPT does a great job maximizing space with all 4 TRBL locations
 	if (rel.opts.layout) {
-		strXml += '<c:layout>'
-		strXml += ' <c:manualLayout>'
-		strXml += '  <c:layoutTarget val="inner" />'
-		strXml += '  <c:xMode val="edge" />'
-		strXml += '  <c:yMode val="edge" />'
-		strXml += '  <c:x val="' + (rel.opts.layout.x || 0) + '" />'
-		strXml += '  <c:y val="' + (rel.opts.layout.y || 0) + '" />'
-		strXml += '  <c:w val="' + (rel.opts.layout.w || 1) + '" />'
-		strXml += '  <c:h val="' + (rel.opts.layout.h || 1) + '" />'
-		strXml += ' </c:manualLayout>'
-		strXml += '</c:layout>'
+		const manualLayout = el(
+			'c:manualLayout',
+			null,
+			[
+				raw(voidEl('c:layoutTarget', { val: 'inner' }, { closePrefix: ' ' })),
+				raw(voidEl('c:xMode', { val: 'edge' }, { closePrefix: ' ' })),
+				raw(voidEl('c:yMode', { val: 'edge' }, { closePrefix: ' ' })),
+				raw(voidEl('c:x', { val: rel.opts.layout.x || 0 }, { closePrefix: ' ' })),
+				raw(voidEl('c:y', { val: rel.opts.layout.y || 0 }, { closePrefix: ' ' })),
+				raw(voidEl('c:w', { val: rel.opts.layout.w || 1 }, { closePrefix: ' ' })),
+				raw(voidEl('c:h', { val: rel.opts.layout.h || 1 }, { closePrefix: ' ' })),
+			],
+			{ childPrefix: '  ', closePrefix: ' ' }
+		)
+		strXml += el('c:layout', null, raw(manualLayout), { childPrefix: ' ' })
 	} else {
-		strXml += '<c:layout/>'
+		strXml += voidEl('c:layout')
 	}
 	return strXml
 }
@@ -500,11 +510,21 @@ function genXmlChartMetadata(metadata?: Record<string, string>): string {
 			warn(`chart metadata value for key "${key}" is not a string; entry skipped.`)
 			continue
 		}
-		items += `<pgm:item key="${encodeXmlEntities(key)}" value="${encodeXmlEntities(value)}"/>`
+		items += voidEl('pgm:item', { key, value })
 	}
 	if (items === '') return ''
 
-	return `<c:extLst><c:ext uri="${CHART_METADATA_EXT_URI}"><pgm:metadata xmlns:pgm="${CHART_METADATA_NS}">${items}</pgm:metadata></c:ext></c:extLst>`
+	return el(
+		'c:extLst',
+		null,
+		raw(
+			el(
+				'c:ext',
+				{ uri: CHART_METADATA_EXT_URI },
+				raw(el('pgm:metadata', { 'xmlns:pgm': CHART_METADATA_NS }, raw(items)))
+			)
+		)
+	)
 }
 
 /**
