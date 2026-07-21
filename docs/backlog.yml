@@ -1570,8 +1570,8 @@ items:
     source: fork:src/gen/chart/chart-xml.ts
     type: fork-internal-proposal
     first_seen: 2026-07-20
-    last_reviewed: 2026-07-20
-    status: target
+    last_reviewed: 2026-07-21
+    status: implemented
     priority: p2
     target_area:
       - chart-ooxml
@@ -1590,23 +1590,25 @@ items:
       silently does the opposite of what was asked. Only the unset case behaves
       correctly. Intended logic is almost certainly
       `opts.serAxisLabelPos || (opts.barDir === 'col' ? 'low' : 'nextTo')`.
-      NOT fixed in the concatenation-audit commit that found it: the correction changes
-      emitted bytes for any deck setting the option, so per AGENTS.md it needs its own
-      fixture-gated change rather than riding along as refactor cleanup. No regression
-      test currently covers serAxisLabelPos, which is why it went unnoticed -- add one
-      with the fix.
+      Fixed by restoring the missing parentheses at src/gen/chart/chart-axes.ts:281 (the
+      emitter had moved from chart-xml.ts to chart-axes.ts since first_seen). A regression
+      in test/regression/chart-bar3d-series-axis.test.js now pins every serAxisLabelPos
+      value ('none'|'low'|'high'|'nextTo') round-tripping into c:tickLblPos, plus the unset
+      default (bar3d defaults barDir to 'col', so the fallback stays 'low' and is unchanged).
     constructs: []
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
       local_files:
-        - src/gen/chart/chart-xml.ts
+        - src/gen/chart/chart-axes.ts
         - src/types/chart.ts
+        - test/regression/chart-bar3d-series-axis.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add a regression asserting each serAxisLabelPos value round-trips into c:tickLblPos, then add the missing parentheses
+    next_action: none
   - id: fork-chart-gridline-scheme-color
     source: fork:src/gen/chart/chart-xml.ts
     type: fork-internal-proposal

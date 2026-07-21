@@ -159,6 +159,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`serAxisLabelPos` is now honored on the bar3d series axis instead of being silently
+  ignored.** The series-axis tick-label position was emitted as
+  `val="${opts.serAxisLabelPos || opts.barDir === 'col' ? 'low' : 'nextTo'}"`; `===` binds
+  tighter than `||`, so this parsed as `(serAxisLabelPos || barDir === 'col') ? 'low' : 'nextTo'`
+  — the option was read only as a truthiness test, never as a value. Any set value (`'none'`,
+  `'high'`, `'nextTo'`) therefore emitted `<c:tickLblPos val="low"/>`, doing the opposite of
+  what was asked; only the unset case was correct. The missing parentheses are restored
+  (`serAxisLabelPos || (barDir === 'col' ? 'low' : 'nextTo')`), so each value round-trips, and
+  a regression now pins every `serAxisLabelPos` value plus the unset default. This is a
+  bytes-changing fix for any deck that set the option; the unset default is unchanged.
+
 - **The slide-number placeholder no longer emits a hardcoded `cNvPr` id that can collide.**
   The placeholder was written with a literal `<p:cNvPr id="25">`, while every other shape
   allocates its id `idx + 2` from the slide's objects and group children allocate ids past

@@ -278,7 +278,7 @@ export function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 	strXml += '  ' + voidEl('c:numFmt', { formatCode: (opts.serLabelFormatCode ?? '') || 'General', sourceLinked: 0 })
 	strXml += '  <c:majorTickMark val="out"/>'
 	strXml += '  <c:minorTickMark val="none"/>'
-	strXml += `  <c:tickLblPos val="${opts.serAxisLabelPos || opts.barDir === 'col' ? 'low' : 'nextTo'}"/>`
+	strXml += `  <c:tickLblPos val="${opts.serAxisLabelPos || (opts.barDir === 'col' ? 'low' : 'nextTo')}"/>`
 	strXml += '  <c:spPr>'
 	strXml += '    <a:ln w="12700" cap="flat">'
 	strXml += !opts.serAxisLineShow ? '<a:noFill/>' : genXmlColorSelection(opts.serAxisLineColor || DEF_GRIDLINE_COLOR)

@@ -94,6 +94,39 @@ defineRegressionSuite('Chart bar3d series axis', [
 		},
 	},
 	{
+		name: 'serAxisLabelPos flows through as the tickLblPos value (each value round-trips)',
+		fn: async () => {
+			// Regression: the value was previously only read as a truthiness test — a
+			// missing pair of parentheses (`a || b === c ? x : y`) made every set value
+			// emit val="low". Each explicit position must now round-trip verbatim.
+			for (const pos of ['none', 'low', 'high', 'nextTo']) {
+				const { zip } = await build((p) => {
+					p.addSlide().addChart(DATA, {
+						type: p.ChartType.bar3d,
+						x: 1,
+						y: 1,
+						w: 6,
+						h: 4,
+						serAxisLabelPos: pos,
+					})
+				})
+				const serAx = serAxBlock(await chartXml(zip))
+				assertIncludes(serAx, `<c:tickLblPos val="${pos}"/>`, `serAxisLabelPos '${pos}' round-trips into tickLblPos`)
+			}
+		},
+	},
+	{
+		name: 'serAxisLabelPos unset defaults the tickLblPos by bar direction',
+		fn: async () => {
+			// bar3d defaults to barDir 'col', so the unset default is 'low'.
+			const { zip } = await build((p) => {
+				p.addSlide().addChart(DATA, { type: p.ChartType.bar3d, x: 1, y: 1, w: 6, h: 4 })
+			})
+			const serAx = serAxBlock(await chartXml(zip))
+			assertIncludes(serAx, '<c:tickLblPos val="low"/>', 'unset serAxisLabelPos falls back to the col default (low)')
+		},
+	},
+	{
 		name: 'a garbage time unit warns and is dropped (chart stays valid)',
 		fn: async () => {
 			const { zip } = await build((p) => {
