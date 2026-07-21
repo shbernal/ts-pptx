@@ -1715,6 +1715,41 @@ export default [
 		},
 	},
 	{
+		// Surface (classic `<c:surface3DChart>` / `<c:surfaceChart>`). A 3-D scene like bar3D — needs a
+		// series axis (serAx) + view3D + floor/side/back walls. `surface3D` picks the 3-D surface vs 2-D
+		// contour; `surfaceWireframe` toggles the mesh. The cosmetic <c:bandFmts> is omitted (PowerPoint
+		// regenerates the bands on open). No schema divergence — both variants validate cleanly.
+		name: 'surface charts (3-D + contour) are schema-valid',
+		fn: async () => {
+			const LABELS = ['A', 'B', 'C', 'D']
+			const DATA = [
+				{ name: 'Series 1', labels: LABELS, values: [4.3, 2.5, 3.5, 4.5] },
+				{ name: 'Series 2', labels: LABELS, values: [2.4, 4.4, 1.8, 2.8] },
+				{ name: 'Series 3', labels: LABELS, values: [2, 2, 3, 5] },
+			]
+			const { buf, zip } = await build((p) => {
+				p.addSlide().addChart(DATA, { type: 'surface', x: 1, y: 1, w: 8, h: 4.5 }) // 3-D surface
+				p.addSlide().addChart(DATA, {
+					type: 'surface',
+					x: 1,
+					y: 1,
+					w: 8,
+					h: 4.5,
+					surface3D: false,
+					surfaceWireframe: true,
+				}) // contour wireframe
+			})
+			await expectNoSchemaErrors(buf, 'chart-surface-classic')
+			const surf3d = await readEntry(zip, 'ppt/charts/chart1.xml')
+			assertIncludes(surf3d, '<c:surface3DChart>', '3-D surface uses surface3DChart')
+			assertIncludes(surf3d, '<c:serAx>', 'surface plots over a category × series grid (series axis)')
+			assert(!surf3d.includes('<c:bandFmts>'), 'the cosmetic band-format list is omitted')
+			const contour = await readEntry(zip, 'ppt/charts/chart2.xml')
+			assertIncludes(contour, '<c:surfaceChart>', 'contour uses surfaceChart')
+			assertIncludes(contour, '<c:wireframe val="1"/>', 'surfaceWireframe draws the mesh')
+		},
+	},
+	{
 		// bubble/bubble3D charts can show each bubble's size as a data label.
 		// The `showBubbleSize` option flips the previously hard-coded <c:showBubbleSize val="0"/>;
 		// lock in that the enabled flag stays schema-valid in CT_DLbls.

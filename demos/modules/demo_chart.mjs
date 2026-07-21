@@ -59,6 +59,7 @@ export function genSlides_Chart(pptx) {
 	genSlide28(pptx);
 	genSlide29(pptx);
 	genSlide30(pptx);
+	genSlide31(pptx);
 
 	if (TESTMODE) {
 		pptx.addSection({ title: "Charts-DevTest" });
@@ -326,6 +327,35 @@ function genSlide30(pptx) {
 		title: "Weekly Price (Volume + OHLC)",
 		showLegend: true,
 		legendPos: "b",
+	});
+}
+
+function genSlide31(pptx) {
+	let slide = pptx.addSlide({ sectionTitle: "Charts" });
+	slide.addTable([[{ text: "Chart Examples: Surface (3-D)", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
+
+	// A surface chart draws a colored sheet over the category (X) and series (Z) axes with the value
+	// as height (Y). `surface3D` picks the 3-D surface vs a 2-D contour/top view; `surfaceWireframe`
+	// toggles the mesh-only look. Reads back as XlChartType 83-86.
+	const labels = ["10°", "20°", "30°", "40°", "50°"];
+	const dataSurface = [
+		{ name: "0 mph", labels, values: [8, 12, 18, 26, 34] },
+		{ name: "10 mph", labels, values: [4, 9, 15, 22, 30] },
+		{ name: "20 mph", labels, values: [1, 6, 12, 19, 27] },
+		{ name: "30 mph", labels, values: [-2, 3, 9, 16, 24] },
+	];
+
+	slide.addChart(dataSurface, {
+		x: 0.5,
+		y: 0.6,
+		w: "95%",
+		h: 5.5,
+		type: "surface",
+		surface3D: true,
+		showTitle: true,
+		title: "Heat Index by Temperature & Wind",
+		showLegend: true,
+		legendPos: "r",
 	});
 }
 

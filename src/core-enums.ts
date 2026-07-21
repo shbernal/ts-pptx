@@ -41,6 +41,7 @@ export enum ChartType {
 	radar = 'radar',
 	scatter = 'scatter',
 	stock = 'stock',
+	surface = 'surface',
 	waterfall = 'waterfall',
 	funnel = 'funnel',
 	treemap = 'treemap',

@@ -131,6 +131,7 @@ export type {
 	ChartPropsChartRegionMap,
 	ChartExGeography,
 	ChartPropsChartStock,
+	ChartPropsChartSurface,
 	ChartPropsDataLabel,
 	ChartPropsDataTable,
 	ChartPropsFillLine,

@@ -40,6 +40,7 @@ import { makeScatterPlot } from './plot-scatter.js'
 import { makeBubblePlot } from './plot-bubble.js'
 import { makePiePlot } from './plot-pie.js'
 import { isVolumeStockStyle, makeStockPlot } from './plot-stock.js'
+import { makeSurfacePlot, makeSurfaceScene } from './plot-surface.js'
 
 /**
  * Build the chartSpace/chart header: chartSpace open, title (or autoTitleDeleted),
@@ -88,6 +89,9 @@ function makeChartHeaderXml(rel: SlideRelChart): string {
 			raw(voidEl('c:rAngAx', { val: !rel.opts.v3DRAngAx ? 0 : 1 })),
 			raw(voidEl('c:perspective', { val: rel.opts.v3DPerspective })),
 		])
+	} else if (rel.opts._type === ChartType.surface) {
+		// A surface chart is a 3-D scene: view3D + floor/side/back walls precede the plotArea.
+		strXml += makeSurfaceScene(rel.opts)
 	}
 
 	strXml += '<c:plotArea>'
@@ -193,8 +197,8 @@ function makeChartAxesXml(
 		} else {
 			strXml += makeValAxis(rel.opts, AXIS_ID_VALUE_PRIMARY)
 
-			// Add series axis for 3D bar
-			if (rel.opts._type === ChartType.bar3d) {
+			// Add series axis for 3D bar and surface (both plot over a category × series grid)
+			if (rel.opts._type === ChartType.bar3d || rel.opts._type === ChartType.surface) {
 				strXml += makeSerAxis(rel.opts, AXIS_ID_SERIES_PRIMARY, AXIS_ID_VALUE_PRIMARY)
 			}
 
@@ -538,6 +542,8 @@ function makeChartType(
 			return makeBubblePlot(chartType, data, opts, valAxisId, catAxisId, valFmtCode)
 		case ChartType.stock:
 			return makeStockPlot(chartType, data, opts, valAxisId, catAxisId, valFmtCode)
+		case ChartType.surface:
+			return makeSurfacePlot(chartType, data, opts, valAxisId, catAxisId, valFmtCode)
 		case ChartType.doughnut:
 		case ChartType.pie:
 			return makePiePlot(chartType, data, opts, valFmtCode)

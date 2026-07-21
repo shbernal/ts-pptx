@@ -661,6 +661,20 @@ export interface ChartPropsChartStock {
 	 */
 	stockStyle?: 'hlc' | 'ohlc' | 'vhlc' | 'vohlc'
 }
+export interface ChartPropsChartSurface {
+	/**
+	 * Draw a 3-D surface (`<c:surface3DChart>`) rather than a 2-D contour / top view
+	 * (`<c:surfaceChart>`). The 3-D surface tilts the scene; the contour looks straight down.
+	 * @default true
+	 */
+	surface3D?: boolean
+	/**
+	 * Draw the surface as a wireframe mesh (`<c:wireframe val="1"/>`) instead of a filled sheet.
+	 * Applies to both the 3-D surface and the 2-D contour.
+	 * @default false
+	 */
+	surfaceWireframe?: boolean
+}
 /**
  * Per-series style overrides for a chart.
  * Each entry applies to the series at the same index in the data array.
@@ -783,6 +797,7 @@ export interface ChartOpts
 		ChartPropsChartBoxWhisker,
 		ChartPropsChartRegionMap,
 		ChartPropsChartStock,
+		ChartPropsChartSurface,
 		ChartPropsDataLabel,
 		ChartPropsDataTable,
 		ChartPropsLegend,

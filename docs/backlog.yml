@@ -735,7 +735,14 @@ items:
       volume styles (vhlc/vohlc) lead with a `<c:barChart>` Volume series on the primary
       axis pair with the price series on a secondary pair (4-axis combo, second cat axis
       hidden). New `stockStyle` opt; reads back as ChartType 88/89/90/91; no schema
-      divergence. See src/gen/chart/plot-stock.ts. Remaining: only classic-namespace surface.
+      divergence. See src/gen/chart/plot-stock.ts. Classic-namespace surface also shipped
+      2026-07-21, the LAST modern chart type — so BOTH the classic (stock/surface) and
+      chartEx families are now complete. Surface emits `<c:surface3DChart>` (3-D, surface3D
+      default) or `<c:surfaceChart>` (2-D contour); like bar3D it plots over a category ×
+      series grid so it gets a `<c:serAx>` + a `<c:view3D>` and floor/side/back walls. The
+      cosmetic `<c:bandFmts>` band-color list is omitted (PowerPoint regenerates it on open;
+      verified over COM). New `surface3D` + `surfaceWireframe` opts; reads back as ChartType
+      83/84/85/86; no schema divergence. See src/gen/chart/plot-surface.ts.
     evidence:
       kinds:
         - local-source-inspection
@@ -756,12 +763,14 @@ items:
         - test/regression/chart-boxwhisker-xml.test.mjs
         - test/regression/chart-regionmap-xml.test.mjs
         - test/regression/chart-stock-xml.test.mjs
+        - test/regression/chart-surface-xml.test.mjs
         - src/gen/chart/plot-stock.ts
+        - src/gen/chart/plot-surface.ts
       schema_fixture: test/schema-cases.js "treemap + sunburst (hierarchical chartEx) charts are schema-valid"
       validator_result: pass
       powerpoint_result: opens in PowerPoint desktop (COM smoke); treemap/sunburst/histogram/pareto/boxWhisker/regionMap read back as ChartType 117/120/118/122/121/140 (xlTreemap/xlSunburst/xlHistogram/xlPareto/xlBoxwhisker/xlRegionMap)
       spec_refs: []
-    next_action: implement-remaining-classic-surface-per-plan
+    next_action: none
 
   - id: upstream-issue-904
     source: "gitbrent/PptxGenJS#904"
