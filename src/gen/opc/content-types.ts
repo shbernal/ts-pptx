@@ -16,6 +16,11 @@ import { el, raw, voidEl } from '../oxml/el.js'
 const OD = 'application/vnd.openxmlformats-officedocument.'
 const PKG = 'application/vnd.openxmlformats-package.'
 const CT_CHART = OD + 'drawingml.chart+xml'
+// chartEx (cx:) parts use Microsoft content types, NOT the `OD` (openxmlformats) prefix. Each
+// chartEx chart part also requires a chart-style + color-style sidecar part.
+const CT_CHARTEX = 'application/vnd.ms-office.chartex+xml'
+const CT_CHARTEX_STYLE = 'application/vnd.ms-office.chartstyle+xml'
+const CT_CHARTEX_COLORS = 'application/vnd.ms-office.chartcolorstyle+xml'
 const CT_THEME = OD + 'theme+xml'
 
 /**
@@ -31,6 +36,20 @@ function contentDefault(extension: string, contentType: string): string {
 
 function override(partName: string, contentType: string, fmt?: { openPrefix: string }): string {
 	return voidEl('Override', { PartName: partName, ContentType: contentType }, fmt)
+}
+
+/**
+ * Content-type Override(s) for a chart rel. A classic chart is one Override; a chartEx chart is
+ * three: the `chartEx{N}.xml` part plus its mandatory `style{N}.xml` and `colors{N}.xml` sidecars
+ * (keyed to the same `globalId`).
+ */
+function chartOverrides(rel: SlideRelChart, fmt?: { openPrefix: string }): string[] {
+	if (!rel.isChartEx) return [override(rel.Target, CT_CHART, fmt)]
+	return [
+		override(rel.Target, CT_CHARTEX, fmt),
+		override(`/ppt/charts/style${rel.globalId}.xml`, CT_CHARTEX_STYLE, fmt),
+		override(`/ppt/charts/colors${rel.globalId}.xml`, CT_CHARTEX_COLORS, fmt),
+	]
 }
 
 /**
@@ -93,7 +112,7 @@ export function makeXmlContTypes(
 		parts.push(override(`/ppt/slides/slide${idx + 1}.xml`, OD + 'presentationml.slide+xml'))
 		// Add charts if any
 		slide._relsChart.forEach((rel) => {
-			parts.push(override(rel.Target, CT_CHART))
+			parts.push(...chartOverrides(rel))
 		})
 	})
 
@@ -109,7 +128,7 @@ export function makeXmlContTypes(
 	slideLayouts.forEach((layout, idx) => {
 		parts.push(override(`/ppt/slideLayouts/slideLayout${idx + 1}.xml`, OD + 'presentationml.slideLayout+xml'))
 		;(layout._relsChart || []).forEach((rel) => {
-			parts.push(override(rel.Target, CT_CHART, LEADING_SPACE))
+			parts.push(...chartOverrides(rel, LEADING_SPACE))
 		})
 	})
 
@@ -131,7 +150,7 @@ export function makeXmlContTypes(
 
 	// STEP 6: Add rels
 	masterSlide?._relsChart.forEach((rel) => {
-		parts.push(override(rel.Target, CT_CHART, LEADING_SPACE))
+		parts.push(...chartOverrides(rel, LEADING_SPACE))
 	})
 	// master _relsMedia extensions are already covered by the unified ctTargets walk above; no per-master Default block needed here.
 

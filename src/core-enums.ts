@@ -40,6 +40,7 @@ export enum ChartType {
 	pie = 'pie',
 	radar = 'radar',
 	scatter = 'scatter',
+	waterfall = 'waterfall',
 }
 export enum ShapeType {
 	accentBorderCallout1 = 'accentBorderCallout1',
@@ -477,6 +478,25 @@ export const VALID_SHAPE_PRESETS: ReadonlySet<string> = new Set<string>([
  */
 export function asChartType(name: CHART_NAME): ChartType {
 	return name as ChartType
+}
+
+/**
+ * The chartEx (`cx:` / Office 2016 chart-extension) chart types. Unlike the classic 2007 catalog
+ * these do NOT emit a `<c:chartSpace>` chart part: they emit a separate `chartEx{N}.xml` part in
+ * the `http://schemas.microsoft.com/office/drawing/2014/chartex` namespace, are referenced from
+ * the slide through `<mc:AlternateContent>`, and render only in PowerPoint 2016+/Microsoft 365
+ * (older Office, Google Slides, Keynote and LibreOffice show the `<mc:Fallback>` shape instead).
+ * See `gen/chart/chartex-xml.ts`.
+ */
+const CHARTEX_TYPES: ReadonlySet<string> = new Set<string>([ChartType.waterfall])
+
+/**
+ * Is `type` a chartEx (cx:) chart? Accepts a `ChartType`/`CHART_NAME` string; anything else —
+ * including a combo-chart `ChartMulti[]` array or `undefined` — is not a chartEx type (combos are
+ * classic-only), so those return `false`.
+ */
+export function isChartExType(type: unknown): boolean {
+	return typeof type === 'string' && CHARTEX_TYPES.has(type)
 }
 
 export enum SlideObjectType {

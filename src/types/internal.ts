@@ -46,6 +46,13 @@ export interface SlideRelChart extends OptsChartData {
 	Target: string
 	globalId: number
 	fileName: string
+	/**
+	 * True when `type` is a chartEx (cx:) chart (e.g. waterfall): the part is emitted as
+	 * `chartEx{globalId}.xml` in the chart-extension namespace, gets the `chartex+xml` content
+	 * type and the MS `.../2014/relationships/chartEx` rel type, and is referenced from the slide
+	 * via `<mc:AlternateContent>`. Set at define time from {@link isChartExType}.
+	 */
+	isChartEx?: boolean
 }
 /**
  * Internal record pairing a registered custom table style with its generated GUID.

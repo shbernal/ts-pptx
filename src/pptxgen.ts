@@ -123,6 +123,7 @@ export type {
 	ChartPropsChartLine,
 	ChartPropsChartPie,
 	ChartPropsChartRadar,
+	ChartPropsChartWaterfall,
 	ChartPropsDataLabel,
 	ChartPropsDataTable,
 	ChartPropsFillLine,

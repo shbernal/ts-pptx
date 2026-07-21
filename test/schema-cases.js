@@ -1469,6 +1469,39 @@ export default [
 		},
 	},
 	{
+		// waterfall is the first chartEx (cx:) chart type: a SEPARATE `chartExN.xml` part in the
+		// Office-2016 chart-extension namespace, referenced from the slide via <mc:AlternateContent>.
+		// The Open XML validator knows the cx schema, so this proves the whole part validates —
+		// including the strict shape of <cx:externalData> (leaf, r:id only, before <cx:data>).
+		name: 'waterfall (chartEx) chart is schema-valid',
+		fn: async () => {
+			const { buf, zip } = await build((p) => {
+				p.addSlide().addChart(
+					[{ name: 'Cash Flow', labels: ['Start', 'Q1', 'Q2', 'Q3', 'End'], values: [100, 40, -30, 20, 130] }],
+					{
+						type: 'waterfall',
+						x: 1,
+						y: 1,
+						w: 8,
+						h: 4,
+						showTitle: true,
+						title: 'Cash Flow',
+						showValue: true,
+						showLegend: true,
+						legendPos: 't',
+						subtotals: [0, 4],
+					}
+				)
+			})
+			await expectNoSchemaErrors(buf, 'chart-waterfall-chartex')
+			const cxPath = listEntries(zip).find((f) => /^ppt\/charts\/chartEx\d+\.xml$/.test(f))
+			assert(cxPath, 'expected a ppt/charts/chartExN.xml part')
+			const cxXml = await readEntry(zip, cxPath)
+			assertIncludes(cxXml, 'layoutId="waterfall"', 'waterfall layoutId')
+			assertIncludes(cxXml, '<cx:externalData r:id="rId1"/><cx:data', 'externalData leaf before data')
+		},
+	},
+	{
 		// bubble/bubble3D charts can show each bubble's size as a data label.
 		// The `showBubbleSize` option flips the previously hard-coded <c:showBubbleSize val="0"/>;
 		// lock in that the enabled flag stays schema-valid in CT_DLbls.

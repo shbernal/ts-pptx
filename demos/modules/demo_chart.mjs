@@ -50,6 +50,7 @@ export function genSlides_Chart(pptx) {
 	genSlide19(pptx);
 	genSlide20(pptx);
 	genSlide21(pptx);
+	genSlide22(pptx);
 
 	if (TESTMODE) {
 		pptx.addSection({ title: "Charts-DevTest" });
@@ -61,6 +62,34 @@ export function genSlides_Chart(pptx) {
 		devSlide06(pptx);
 		devSlide07(pptx);
 	}
+}
+
+// SLIDE 22: Waterfall Chart (chartEx / Office 2016 — renders in PowerPoint 2016+/M365)
+function genSlide22(pptx) {
+	let slide = pptx.addSlide({ sectionTitle: "Charts" });
+	slide.addTable([[{ text: "Chart Examples: Waterfall (chartEx)", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
+
+	const dataWaterfall = [
+		{
+			name: "Cash Flow",
+			labels: ["Start", "Q1", "Q2", "Q3", "Q4", "End"],
+			values: [100, 40, -30, 20, 60, 190],
+		},
+	];
+
+	slide.addChart(dataWaterfall, {
+		x: 0.5,
+		y: 0.6,
+		w: "95%",
+		h: 5.5,
+		type: "waterfall",
+		showTitle: true,
+		title: "Annual Cash Flow",
+		showValue: true,
+		showLegend: false,
+		// First ("Start") and last ("End") columns are cumulative totals anchored to the baseline.
+		subtotals: [0, 5],
+	});
 }
 
 // SLIDE 1: Bar Chart: Chart Title, Cat/Val Axis Title

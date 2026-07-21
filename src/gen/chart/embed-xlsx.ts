@@ -20,10 +20,14 @@ import { ZipWriter } from '../../zip.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { dataLabels, dataValues, dataSizes, firstLabelGroup, getExcelColName } from './data-refs.js'
 import { makeXmlCharts } from './chart-xml.js'
+import { makeXmlChartEx } from './chartex-xml.js'
+import { makeChartExColorsXml, makeChartExStyleXml } from './chartex-style.js'
 
 const SCHEMA_BASE = 'http://schemas.openxmlformats.org/'
 const PACKAGE_REL_NS = SCHEMA_BASE + 'package/2006/relationships'
 const OFFICE_REL = SCHEMA_BASE + 'officeDocument/2006/relationships/'
+/** MS chart-extension relationship types (chartEx style + color-style sidecar parts). */
+const MS_CHART_REL = 'http://schemas.microsoft.com/office/2011/relationships/'
 
 function relationship(id: string, type: string, target: string): string {
 	return voidEl('Relationship', { Id: id, Type: type, Target: target })
@@ -489,6 +493,25 @@ export function buildChartRelsXml(embeddingTarget: string): string {
 }
 
 /**
+ * Build the `.rels` for a chartEx chart part: the embedded workbook (rId1, via `<cx:externalData>`)
+ * plus the mandatory color-style (rId2) and chart-style (rId3) sidecar parts. PowerPoint treats a
+ * chartEx part without the style/color rels as corrupt, so these are not optional.
+ * @param {string} embeddingTarget - workbook target, relative to the chart part
+ * @param {string} colorsTarget - `colors{N}.xml`, relative to the chart part
+ * @param {string} styleTarget - `style{N}.xml`, relative to the chart part
+ */
+export function buildChartExRelsXml(embeddingTarget: string, colorsTarget: string, styleTarget: string): string {
+	return (
+		XML_DECL +
+		relationships([
+			relationship('rId1', OFFICE_REL + 'package', embeddingTarget),
+			relationship('rId2', MS_CHART_REL + 'chartColorStyle', colorsTarget),
+			relationship('rId3', MS_CHART_REL + 'chartStyle', styleTarget),
+		])
+	)
+}
+
+/**
  * Create the chart's embedded Excel worksheet and add the chart + workbook parts
  * to `zip` (package write path). The read-side injection path builds the same
  * parts itself from {@link buildEmbeddedWorksheet}, {@link buildChartRelsXml}, and
@@ -504,12 +527,24 @@ export async function createExcelWorksheet(chartObject: SlideRelChart, zip: ZipW
 		store: true,
 	})
 
-	// 2: Create the chart.xml and rel files
-	zip.add(
-		'ppt/charts/_rels/' + chartObject.fileName + '.rels',
-		buildChartRelsXml(`../embeddings/Microsoft_Excel_Worksheet${chartObject.globalId}.xlsx`)
-	)
-	zip.add(`ppt/charts/${chartObject.fileName}`, makeXmlCharts(chartObject))
+	// 2: Create the chart part, its rels, and (for chartEx) the required style/color sidecar parts.
+	const embeddingTarget = `../embeddings/Microsoft_Excel_Worksheet${chartObject.globalId}.xlsx`
+	if (chartObject.isChartEx) {
+		// chartEx charts REQUIRE a chart-style + color-style part or PowerPoint reports the deck as
+		// corrupt (schema-valid but unopenable) — see gen/chart/chartex-style.ts.
+		const colorsName = `colors${chartObject.globalId}.xml`
+		const styleName = `style${chartObject.globalId}.xml`
+		zip.add(`ppt/charts/${colorsName}`, makeChartExColorsXml())
+		zip.add(`ppt/charts/${styleName}`, makeChartExStyleXml())
+		zip.add(
+			'ppt/charts/_rels/' + chartObject.fileName + '.rels',
+			buildChartExRelsXml(embeddingTarget, colorsName, styleName)
+		)
+		zip.add(`ppt/charts/${chartObject.fileName}`, makeXmlChartEx(chartObject))
+	} else {
+		zip.add('ppt/charts/_rels/' + chartObject.fileName + '.rels', buildChartRelsXml(embeddingTarget))
+		zip.add(`ppt/charts/${chartObject.fileName}`, makeXmlCharts(chartObject))
+	}
 
 	return ''
 }

@@ -5,7 +5,14 @@
  * chart part rel; the `normalize*` / `clamp*` helpers apply the schema-valid defaults and range
  * clamps. The chart *XML* is emitted later by `gen/chart/chart-xml.ts`.
  */
-import { asChartType, type CHART_NAME, ChartType, SchemeColor, SlideObjectType } from '../../core-enums.js'
+import {
+	asChartType,
+	type CHART_NAME,
+	ChartType,
+	isChartExType,
+	SchemeColor,
+	SlideObjectType,
+} from '../../core-enums.js'
 import { BARCHART_COLORS, DEF_CHART_BORDER, PIECHART_COLORS } from '../../core-enums-internal.js'
 import { warn } from '../../log.js'
 import type { ChartMulti, ChartOpts, OptsChartData, OptsChartGridLine } from '../../core-interfaces.js'
@@ -195,6 +202,18 @@ function normalizeChartOptions(options: ChartOptsInternal): void {
 	} else {
 		delete options.catAxisMultiLevelLabels
 	}
+
+	if (options._type === ChartType.waterfall && options.subtotals !== undefined) {
+		// <cx:subtotals> holds zero-based category indices; drop non-integer / negative entries
+		// (they would make PowerPoint report the chartEx part as needing repair). Warn per the
+		// library's warn-rather-than-degrade policy.
+		const clean = (Array.isArray(options.subtotals) ? options.subtotals : []).filter((idx) => {
+			const ok = typeof idx === 'number' && Number.isInteger(idx) && idx >= 0
+			if (!ok) warn(`chart waterfall subtotal index "${String(idx)}" is not a non-negative integer; entry skipped.`)
+			return ok
+		})
+		options.subtotals = clean.length > 0 ? clean : undefined
+	}
 }
 
 /**
@@ -383,14 +402,21 @@ export function addChartDefinition(
 	resultObject.chartRid = getNewRelId(target)
 
 	// STEP 5: Add this chart to this Slide Rels (rId/rels count spans all slides! Count all images to get next rId)
+	// chartEx charts (waterfall, …) live alongside classic charts in `ppt/charts/` but use the
+	// `chartEx{N}.xml` name, the `chartex+xml` content type and the MS chartEx rel type. The
+	// authoritative, package-unique filename is (re)assigned at write time in `exportPresentation`;
+	// this placeholder mirrors the same Ex-prefix rule so a single-chart deck is already correct.
+	const isChartEx = isChartExType(options._type)
+	const chartBase = isChartEx ? `chartEx${chartId}` : `chart${chartId}`
 	target._relsChart.push({
 		rId: getNewRelId(target),
 		data: tmpData as OptsChartDataInternal[],
 		opts: options,
 		type: options._type,
 		globalId: chartId,
-		fileName: `chart${chartId}.xml`,
-		Target: `/ppt/charts/chart${chartId}.xml`,
+		isChartEx,
+		fileName: `${chartBase}.xml`,
+		Target: `/ppt/charts/${chartBase}.xml`,
 	})
 
 	target._slideObjects.push(resultObject)

@@ -678,30 +678,41 @@ items:
     type: issue
     first_seen: 2026-06-07
     last_reviewed: 2026-06-20
-    status: deferred
+    status: partially-implemented
     priority: p3
     target_area:
       - chart-ooxml
       - missing-pptx-feature
-    applies_to_current_project: partial
+    applies_to_current_project: yes
     non_target_reasons: []
     summary: Requested Sunburst chart support using newer chart extension namespaces.
     current_project_notes: >
-      Current chart generation emits the classic DrawingML chart namespace and
-      does not include the cx chart extension namespace needed for Sunburst-style
-      charts. This is a large feature lane rather than a current repair signal.
+      IN PROGRESS 2026-07-21. The chartEx (cx:) subsystem now exists: waterfall
+      shipped end-to-end (separate chartEx{N}.xml part in the 2014/chartex ns,
+      chartex+xml content type, mc:AlternateContent slide reference with a
+      Fallback shape, and the mandatory style/colors sidecar parts PowerPoint
+      requires or it reports 0x80070570). See src/gen/chart/chartex-xml.ts,
+      chartex-data.ts, chartex-style.ts. Sunburst specifically is not yet built;
+      it is a follow-on cx layout (hierarchical categories, no axes) on the same
+      infrastructure. Remaining cx types: funnel, treemap, sunburst, histogram,
+      pareto, box-and-whisker, map; plus classic-namespace stock + surface.
     evidence:
       kinds:
         - local-source-inspection
+        - regression-test
+        - validator-result
+        - powerpoint-result
+        - powerpoint-authored-comparison
       local_files:
-        - src/core-enums.ts:42
-        - src/gen-charts.ts:558
-        - src/gen-charts.ts:766
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
+        - src/core-enums.ts
+        - src/gen/chart/chartex-xml.ts
+        - src/gen/chart/chartex-style.ts
+        - test/regression/chart-waterfall-xml.test.mjs
+      schema_fixture: test/schema-cases.js "waterfall (chartEx) chart is schema-valid"
+      validator_result: pass
+      powerpoint_result: opens in PowerPoint desktop (COM smoke) for waterfall
       spec_refs: []
-    next_action: reconsider-chartEx-support-if-modern-chart-types-become-target
+    next_action: implement-remaining-chartEx-and-classic-stock-surface-per-plan
 
   - id: upstream-issue-904
     source: "gitbrent/PptxGenJS#904"

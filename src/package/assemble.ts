@@ -242,8 +242,12 @@ export async function buildPackageParts(
 			for (const rel of target._relsChart || []) {
 				const chartId = ++chartPartIdx
 				rel.globalId = chartId
-				rel.fileName = `chart${chartId}.xml`
-				rel.Target = `/ppt/charts/chart${chartId}.xml`
+				// chartEx charts share the `ppt/charts/` namespace but use the `chartEx{N}.xml` name.
+				// The single shared counter keeps every chart part name globally unique regardless of
+				// prefix, so classic and chartEx parts never collide.
+				const chartBase = rel.isChartEx ? `chartEx${chartId}` : `chart${chartId}`
+				rel.fileName = `${chartBase}.xml`
+				rel.Target = `/ppt/charts/${chartBase}.xml`
 			}
 		}
 

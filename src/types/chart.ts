@@ -561,6 +561,21 @@ export interface ChartPropsChartRadar {
 	radarStyle?: 'radar' | 'markers' | 'filled'
 }
 /**
+ * Options for the modern (Office 2016) chartEx chart types.
+ *
+ * NOTE: chartEx charts (currently `waterfall`) render only in PowerPoint 2016+/Microsoft 365.
+ * In older Office, Google Slides, Keynote and LibreOffice a fallback placeholder shows instead.
+ */
+export interface ChartPropsChartWaterfall {
+	/**
+	 * Zero-based category indices to render as **subtotal/total** columns in a `waterfall` chart
+	 * (columns anchored to the axis baseline rather than floating from the running cumulative
+	 * value). Out-of-range or non-integer entries are dropped with a console warning.
+	 * @example [0, 4] // first and fifth categories are totals
+	 */
+	subtotals?: number[]
+}
+/**
  * Per-series style overrides for a chart.
  * Each entry applies to the series at the same index in the data array.
  * Unset fields fall back to the chart-level option.
@@ -677,6 +692,7 @@ export interface ChartOpts
 		ChartPropsChartLine,
 		ChartPropsChartPie,
 		ChartPropsChartRadar,
+		ChartPropsChartWaterfall,
 		ChartPropsDataLabel,
 		ChartPropsDataTable,
 		ChartPropsLegend,
