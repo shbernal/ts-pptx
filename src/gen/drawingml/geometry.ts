@@ -7,7 +7,7 @@
  */
 
 import { VALID_SHAPE_PRESETS } from '../../core-enums.js'
-import type { Coord, GeometryPoint, ObjectOptions, PresLayout } from '../../core-interfaces.js'
+import type { Coord, GeometryPoint, ObjectOptions, PresLayout, ShapeAdjustHandleXY } from '../../core-interfaces.js'
 import { convertArcAngle, convertRotationDegrees, getSmartParseNumber } from '../../units-internal.js'
 import { EMU_PER_INCH, PERCENT_SCALE } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -115,16 +115,33 @@ function isArcPoint(point: GeometryPoint): point is Extract<GeometryPoint, { cur
 }
 
 /**
- * Emit an `<a:custGeom>` for a freeform path built from `points`.
- * Shared by the shape and image code paths so that path emission stays in one place.
- * Points are authored in the object's own inch/EMU space (0..cx, 0..cy) — not slide-relative and not normalized.
- * @param {ObjectOptions['points']} points - freeform path DSL (`moveTo`/`lnTo`/`cubicBezTo`/`quadBezTo`/`arcTo`/`close`)
+ * Emit an `<a:custGeom>` for a freeform path built from `points`, plus any caller-supplied
+ * connection sites (`connectionSites` → `<a:cxnLst>`), adjust handles (`adjustHandles` →
+ * `<a:ahLst>`) and guide formulas (`guides` → `<a:gdLst>`) that make the shape connectable and
+ * editable. Shared by the shape and image code paths so that path emission stays in one place.
+ * Points and connection-site/handle positions are authored in the object's own inch/EMU space
+ * (0..cx, 0..cy) — not slide-relative and not normalized; a bare non-`Coord` string is passed
+ * through verbatim as a guide-name reference (matching `ST_AdjCoordinate`'s number-or-name union).
+ * @param {ObjectOptions} options - object options carrying `points`/`guides`/`connectionSites`/`adjustHandles`
  * @param {number} cx - object width (EMU), used as the path viewport width
  * @param {number} cy - object height (EMU), used as the path viewport height
  * @param {PresLayout} layout - presentation layout used to resolve point coordinates to EMU
  * @return {string} `<a:custGeom>` XML
  */
-export function genXmlCustGeom(points: ObjectOptions['points'], cx: number, cy: number, layout: PresLayout): string {
+export function genXmlCustGeom(options: ObjectOptions, cx: number, cy: number, layout: PresLayout): string {
+	const points = options.points
+
+	/**
+	 * Resolve an `ST_AdjCoordinate` value: a number / unit-suffixed `Coord` → EMU (like `points`),
+	 * but a token that starts with a letter/underscore is a guide-name reference emitted verbatim.
+	 * `undefined` → `undefined`, so `el`/`voidEl` drop the (optional) attribute entirely.
+	 */
+	const adjCoord = (v: Coord | string | undefined, axis: 'X' | 'Y'): string | undefined => {
+		if (v === undefined || v === null) return undefined
+		if (typeof v === 'string' && /^[A-Za-z_]/.test(v.trim())) return v
+		return String(getSmartParseNumber(v as Coord, axis, layout))
+	}
+
 	/** `<a:pt>` in the object's own EMU space. */
 	const pt = (x: Coord | undefined, y: Coord | undefined): string =>
 		voidEl(
@@ -182,17 +199,99 @@ export function genXmlCustGeom(points: ObjectOptions['points'], cx: number, cy: 
 		}
 	})
 
-	// custGeom preamble — the sub-lists OOXML requires before `<a:pathLst>`: adjust values
-	// (avLst), guide formulas (gdLst), adjust handles (ahLst), connection sites (cxnLst), and the
-	// text rectangle (rect). PptxGenJS drives geometry entirely from the path, so all stay empty.
+	// custGeom preamble — the sub-lists OOXML requires before `<a:pathLst>` in this exact order:
+	// adjust values (avLst), guide formulas (gdLst), adjust handles (ahLst), connection sites
+	// (cxnLst), and the text rectangle (rect). `avLst` and `rect` stay as PptxGenJS drives them
+	// from the path; the other three are populated from caller options when supplied, and MUST
+	// fall back to today's exact empty-case bytes when absent (byte-identity contract).
+
+	// `<a:gdLst>`: named construction formulas, emitted verbatim (advanced escape hatch).
+	let gdLst = el('a:gdLst')
+	if (options.guides?.length) {
+		const guideEls: string[] = []
+		options.guides.forEach((g) => {
+			// A degenerate `<a:gd>` (empty name or formula) is one PowerPoint silently repairs, so
+			// warn and skip rather than emit it (mirrors the `shapeAdjust` guard in genXmlPresetGeom).
+			if (
+				!g ||
+				typeof g.name !== 'string' ||
+				g.name.length === 0 ||
+				typeof g.formula !== 'string' ||
+				g.formula.length === 0
+			) {
+				warn(`guide entry ${JSON.stringify(g)} is invalid (needs { name:string, formula:string }) and was ignored.`)
+				return
+			}
+			guideEls.push(voidEl('a:gd', { name: g.name, fmla: g.formula }))
+		})
+		if (guideEls.length) gdLst = el('a:gdLst', null, guideEls.map(raw))
+	}
+
+	// `<a:cxnLst>`: connection sites a connector can attach to (indexed by startShapeIdx/endShapeIdx).
+	let cxnLst = el('a:cxnLst')
+	if (options.connectionSites?.length) {
+		const cxnEls: string[] = []
+		options.connectionSites.forEach((c) => {
+			if (!c || typeof c.ang !== 'number' || !isFinite(c.ang)) {
+				warn(
+					`connectionSite entry ${JSON.stringify(c)} is invalid (needs a finite \`ang\` in degrees) and was ignored.`
+				)
+				return
+			}
+			const pos = voidEl('a:pos', { x: adjCoord(c.x, 'X'), y: adjCoord(c.y, 'Y') })
+			cxnEls.push(el('a:cxn', { ang: convertRotationDegrees(c.ang) }, raw(pos)))
+		})
+		if (cxnEls.length) cxnLst = el('a:cxnLst', null, cxnEls.map(raw))
+	}
+
+	// `<a:ahLst>`: draggable adjust handles — XY or polar, discriminated by any polar-only key.
+	let ahLst = voidEl('a:ahLst', null, SPACE_BEFORE_SLASH)
+	if (options.adjustHandles?.length) {
+		const ahEls: string[] = options.adjustHandles.map((h) => {
+			const pos = raw(voidEl('a:pos', { x: adjCoord(h.x, 'X'), y: adjCoord(h.y, 'Y') }))
+			const isPolar = 'gdRefR' in h || 'minR' in h || 'maxR' in h || 'gdRefAng' in h || 'minAng' in h || 'maxAng' in h
+			// `isPolar` is an aliased condition, so TS narrows `h` to `ShapeAdjustHandlePolar` in the
+			// positive branch. The negation of a multi-`in` OR does not narrow the other way, so the
+			// XY branch keeps an explicit cast.
+			if (isPolar) {
+				return el(
+					'a:ahPolar',
+					{
+						gdRefR: h.gdRefR,
+						minR: adjCoord(h.minR, 'X'),
+						maxR: adjCoord(h.maxR, 'X'),
+						gdRefAng: h.gdRefAng,
+						minAng: h.minAng == null ? undefined : convertRotationDegrees(h.minAng),
+						maxAng: h.maxAng == null ? undefined : convertRotationDegrees(h.maxAng),
+					},
+					pos
+				)
+			}
+			const xy = h as ShapeAdjustHandleXY
+			return el(
+				'a:ahXY',
+				{
+					gdRefX: xy.gdRefX,
+					minX: adjCoord(xy.minX, 'X'),
+					maxX: adjCoord(xy.maxX, 'X'),
+					gdRefY: xy.gdRefY,
+					minY: adjCoord(xy.minY, 'Y'),
+					maxY: adjCoord(xy.maxY, 'Y'),
+				},
+				pos
+			)
+		})
+		ahLst = el('a:ahLst', null, ahEls.map(raw))
+	}
+
 	return el(
 		'a:custGeom',
 		null,
 		[
 			voidEl('a:avLst', null, SPACE_BEFORE_SLASH),
-			el('a:gdLst'),
-			voidEl('a:ahLst', null, SPACE_BEFORE_SLASH),
-			el('a:cxnLst'),
+			gdLst,
+			ahLst,
+			cxnLst,
 			voidEl('a:rect', { l: 'l', t: 't', r: 'r', b: 'b' }, SPACE_BEFORE_SLASH),
 			el('a:pathLst', null, raw(el('a:path', { w: cx, h: cy }, nodes.map(raw)))),
 		].map(raw)

@@ -1013,7 +1013,7 @@ function renderTextObject(
 	strSlideXml += el('a:xfrm', locationAttrs, [raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx, cy }))])
 
 	if (slideItemObj.shape === 'custGeom') {
-		strSlideXml += genXmlCustGeom(slideItemObj.options.points, cx, cy, slide._presLayout)
+		strSlideXml += genXmlCustGeom(slideItemObj.options, cx, cy, slide._presLayout)
 	} else {
 		strSlideXml += genXmlPresetGeom(slideItemObj.shape ?? '', slideItemObj.options, cx, cy)
 	}
@@ -1274,7 +1274,7 @@ function renderImageObject(
 	// Clip the picture to a geometry. `points` (freeform custGeom) takes precedence over `shape`/`rounding`;
 	// otherwise `shape` wins over `rounding` (shorthand for an ellipse), falling back to a plain rectangle.
 	if (slideItemObj.options.points) {
-		strSlideXml += ' ' + genXmlCustGeom(slideItemObj.options.points, imgWidth, imgHeight, slide._presLayout)
+		strSlideXml += ' ' + genXmlCustGeom(slideItemObj.options, imgWidth, imgHeight, slide._presLayout)
 	} else {
 		strSlideXml +=
 			' ' +

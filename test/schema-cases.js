@@ -3085,4 +3085,51 @@ export default [
 			)
 		},
 	},
+	{
+		// custGeom connection sites / adjust handles / guides make a freeform shape connectable
+		// and editable. A second slide binds an addConnector to the shape's connection site by
+		// index, exercising both the emitted <a:cxnLst>/<a:ahLst>/<a:gdLst> and the <a:stCxn>
+		// reference into it — the pairing schema validation should accept end-to-end.
+		name: 'custGeom with connection sites/adjust handles/guides + a connector bound to a site',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape(p.ShapeType.custGeom, {
+					x: 1,
+					y: 1,
+					w: 3,
+					h: 2,
+					objectName: 'freeform',
+					fill: { color: 'ACCENT1' },
+					points: [
+						{ x: 0, y: 0 },
+						{ x: 3, y: 0 },
+						{ x: 3, y: 2 },
+						{ x: 0, y: 2, close: true },
+					],
+					guides: [{ name: 'w2', formula: '*/ w 1 2' }],
+					connectionSites: [
+						{ ang: 0, x: 3, y: 1 }, // right-middle
+						{ ang: 90, x: 'w2', y: 0 }, // top, at the guide-driven x
+						{ ang: 180, x: 0, y: 1 }, // left-middle
+					],
+					adjustHandles: [
+						{ x: 'w2', y: 0, gdRefX: 'w2', minX: 0, maxX: 3 },
+						{ x: 3, y: 2, gdRefAng: 'w2', minAng: 0, maxAng: 90 },
+					],
+				})
+				// Bind a connector's start to connection site #1 of the freeform shape.
+				s.addConnector({
+					type: 'elbow',
+					x1: 4,
+					y1: 2,
+					x2: 6,
+					y2: 4,
+					startShape: 'freeform',
+					startShapeIdx: 1,
+				})
+			})
+			await expectNoSchemaErrors(buf, 'custGeom-connection-sites')
+		},
+	},
 ]
