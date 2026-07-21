@@ -7,7 +7,6 @@
 
 import { CRLF, XML_DECL } from '../../core-enums-internal.js'
 import type { PresentationPropsInternal, SectionInternalProps } from '../../types/internal.js'
-import { getUuid } from '../../gen-utils.js'
 import { flattenEmbeddedFaces, serializeEmbeddedFontLst } from '../../embedded-fonts.js'
 import { presentationFontRelStart } from './presentation-rels.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -45,7 +44,7 @@ function sectionsExtLst(sections: SectionInternalProps[]): string {
 							raw(
 								el(
 									'p14:section',
-									{ name: sect.title, id: `{${getUuid('xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')}}` },
+									{ name: sect.title, id: sect._id },
 									raw(
 										el(
 											'p14:sldIdLst',

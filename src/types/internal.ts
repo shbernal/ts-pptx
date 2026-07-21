@@ -117,6 +117,32 @@ export interface SlideObject {
 	shape?: SHAPE_NAME
 	// group (flat group): child render-objects emitted inside this object's `<p:grpSp>`
 	_groupObjects?: SlideObject[]
+	// zoom (slide/section/summary): resolved tiles + attrs for the `<p:graphicFrame>` emitter
+	zoom?: ZoomInternal
+}
+/** One tile inside a zoom object (a Slide/Section Zoom has one; a Summary Zoom has N). */
+export interface ZoomTileInternal {
+	/** Slide Zoom: target slide id (= `PresSlideInternal._slideId`, emitted as `sldZmObj@sldId`). */
+	sldId?: number
+	/** Section/Summary Zoom: target section GUID (`{...}`, emitted as `sectionZmObj@sectionId`). */
+	sectionId?: string
+	/** rId of the preview/cover image blip (`zmPr>blipFill>a:blip@r:embed`). Shared across tiles when identical. */
+	previewRid: number
+	/** rId of the `.../slide` rel used by the `mc:Fallback` picture's `hlinkClick` (target/section-start slide). */
+	fallbackSlideRid: number
+	/** Per-tile `zmPr@id` GUID (`{...}`). */
+	zmPrId: string
+	/** Summary Zoom only: this tile's grid cell within the graphic-frame coordinate space (EMU). */
+	grid?: { x: number; y: number; cx: number; cy: number }
+}
+/** Resolved zoom payload carried on a {@link SlideObject} until `gen/slide/object.ts` emits it. */
+export interface ZoomInternal {
+	variant: 'slide' | 'section' | 'summary'
+	tiles: ZoomTileInternal[]
+	/** `zmPr@returnToParent`; emitted as `"0"`/`"1"` for Slide Zoom, omitted for Section/Summary. */
+	returnToParent: boolean
+	/** `zmPr@transitionDur` (ms). */
+	transitionDur: number
 }
 export interface SlideBaseProps {
 	_bkgdImgRid?: number
@@ -160,6 +186,8 @@ export interface PresSlideInternal extends SlideBaseProps, PresSlide {
 export interface SectionInternalProps extends SectionProps {
 	_type?: 'user' | 'default'
 	_slides: PresSlideInternal[]
+	/** Stable section GUID (`{XXXXXXXX-...}`), assigned at section creation so Section/Summary Zoom can address it. */
+	_id: string
 }
 // PRIVATE interface
 export interface PresentationPropsInternal extends PresentationProps {

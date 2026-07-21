@@ -141,6 +141,7 @@ vocabulary:
     - blip-fill-shape #       <a:blipFill> as the fill of a <p:sp>
     - slide-transition #      <p:transition> slide transition (added 2026-06-26 for docs/animations-and-transitions.md)
     - build-animation #       <p:timing>/<p:bldLst> per-shape build animation (added 2026-06-26 for docs/animations-and-transitions.md)
+    - zoom-object #           <p:graphicFrame> Slide/Section/Summary Zoom in the 2016 zoom namespaces (added 2026-07-21 for dn-zoom-links)
 
 item_fields:
   id: stable local identifier; upstream-issue-N / upstream-pr-N for upstream, dn-<slug> for downstream-need, fork-<slug> for fork-internal-proposal
@@ -2506,3 +2507,58 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: low-value remainder only (restyle-mode branches out of this item's scope, malformed-XML colour edges, defensive layoutRoot/masterRoot-null guards) -- not worth further fixture engineering unless priority changes
+  - id: dn-zoom-links
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-07-21
+    last_reviewed: 2026-07-21
+    status: implemented
+    priority: p2
+    target_area:
+      - missing-pptx-feature
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: "Zoom links (Slide/Section/Summary Zoom) — clickable navigation tiles (Insert > Zoom)"
+    constructs:
+      - zoom-object
+    current_project_notes: |
+      Landed 2026-07-21. Three authoring methods on Slide: addSlideZoom({ target }),
+      addSectionZoom({ sectionTitle }), addSummaryZoom() (grid, one tile per section,
+      host slide's own section excluded). Each emits a <p:graphicFrame> in the 2016
+      zoom namespaces (pslz slidezoom / psez sectionzoom / psuz summaryzoom; blipFill+
+      spPr in the 2016/6/main p166 ns), wrapped in <mc:AlternateContent>: mc:Choice is
+      the real zoom, mc:Fallback is a hyperlinked <p:pic> (grpSp of pics for summary)
+      with action="ppaction://hlinksldjump" for pre-2016 consumers. Structure matched
+      against a PowerPoint-authored ground-truth fixture (element local-names corrected:
+      sectionZm/sectionZmObj NOT secZm; zmPr in the variant ns; section zmPr omits
+      returnToParent). Targeting: sldZmObj@sldId = slide _slideId (256+index);
+      section/summaryZmObj@sectionId = the p14:section GUID, which is now assigned at
+      section-creation time (SectionInternalProps._id) instead of afresh at serialize.
+      Preview thumbnail: a neutral gray placeholder PNG is emitted by default; because
+      the emitter omits the p14:modId/a16:creationId change-tracking markers a real zoom
+      carries, PowerPoint treats every tile as stale and REGENERATES the live thumbnail
+      on open (verified in the desktop app: slide/section tiles showed their targets).
+      Do NOT add those markers or the cached-stale-preview (blank tile) failure mode
+      returns. Optional coverImage ({ path } | { data }) ships a fixed picture (also the
+      thumbnail non-PowerPoint viewers see). Follow-up (not done): confirm the
+      zmPr@imageType="cover"/"preview" enum token via a Change-Image fixture so a caller
+      cover image can be pinned as non-refreshing; left omitted (schema-valid) for now.
+    evidence:
+      kinds:
+        - local-source-inspection
+        - schema-fixture
+        - regression-test
+        - validator-result
+        - powerpoint-result
+        - powerpoint-authored-comparison
+      local_files:
+        - src/types/zoom.ts
+        - src/gen/define/zoom.ts
+        - src/gen/slide/object.ts
+        - src/slide.ts
+        - test/regression/zoom-links.test.js
+      schema_fixture: "test/schema-cases.js (zoom links (slide/section/summary + cover image))"
+      validator_result: "OpenXmlValidator: 0 errors for all three variants + cover image"
+      powerpoint_result: "Desktop PowerPoint opened a generated deck with no repair; all three zooms recognized as named shapes; Slide/Section tiles regenerated live thumbnails on open"
+      spec_refs: []
+    next_action: none

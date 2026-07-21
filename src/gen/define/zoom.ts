@@ -1,0 +1,216 @@
+/**
+ * PptxGenJS: Zoom Definition (Slide / Section / Summary Zoom — Insert ▸ Zoom).
+ *
+ * Resolves a zoom's target(s) to the ids the emitter needs (`sldId` / section GUID), registers
+ * the preview-image media rel and the `.../slide` fallback rel(s), lays out the Summary Zoom grid,
+ * and pushes a `SlideObject{ _type: zoom, zoom }` for `gen/slide/object.ts` to emit as a
+ * `<p:graphicFrame>`. See {@link ../../types/zoom} for the preview-image behavior.
+ */
+import { SlideObjectType } from '../../core-enums.js'
+import { warn } from '../../log.js'
+import type { SectionZoomProps, SlideZoomProps, SummaryZoomProps } from '../../types/zoom.js'
+import type {
+	PresSlideInternal,
+	SectionInternalProps,
+	SlideObject,
+	ZoomInternal,
+	ZoomTileInternal,
+} from '../../types/internal.js'
+import { encodeXmlEntities, getNewRelId, getUuid, validateObjectName } from '../../gen-utils.js'
+import { imageContentType } from '../../media/content-type.js'
+import { getSmartParseNumber } from '../../units-internal.js'
+import { nextObjectNameIdx } from './object-name.js'
+
+/** 32×32 solid #E7E6E6 PNG — the neutral placeholder shown until PowerPoint regenerates the live preview. */
+export const PLACEHOLDER_PNG =
+	'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAxSURBVFhH7c4hAQAACMAw+geFGOAJAGbi5mpRmf1Z7HEdAAAAAAAAAAAAAAAAAADAAPwOyNPFH3F8AAAAAElFTkSuQmCC'
+
+const ZOOM_LABEL = { slide: 'Slide Zoom', section: 'Section Zoom', summary: 'Summary Zoom' } as const
+
+/** A fresh, braced, upper-case v4 GUID for a `zmPr@id`. */
+function zoomGuid(): string {
+	return `{${getUuid('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx').toUpperCase()}}`
+}
+
+/**
+ * Register a preview/cover image as a slide media rel (deduped like `addImage`) and return its rId.
+ * Falls back to the gray placeholder PNG when no cover image is supplied.
+ */
+function registerPreviewImage(target: PresSlideInternal, cover?: { path?: string; data?: string }): number {
+	const strImagePath = cover?.path || ''
+	let strImageData = cover?.data || ''
+	let extn = 'png'
+	if (strImagePath) {
+		const file = strImagePath.slice(strImagePath.lastIndexOf('/') + 1).split('?')[0] || ''
+		extn = ((file.split('.').pop() || 'png').split('#')[0] || 'png').toLowerCase()
+	} else if (strImageData) {
+		const mime = /image\/(\w+);/.exec(strImageData)
+		if (mime) extn = mime[1] ?? 'png'
+	} else {
+		strImageData = 'image/png;base64,' + PLACEHOLDER_PNG
+	}
+
+	const rId = getNewRelId(target)
+	const mediaSlideKey =
+		target._slideNum == null ? 'sm' : target._slideNum >= 1000 ? `sl-${target._slideNum}` : target._slideNum
+	const type = imageContentType(extn)
+	const dupe = target._relsMedia.find((item) => {
+		if (item.isDuplicate || !item.Target || item.type !== type) return false
+		return strImagePath ? item.path === strImagePath : item.data === strImageData
+	})
+	target._relsMedia.push({
+		path: strImagePath || 'preencoded.' + extn,
+		type,
+		extn,
+		data: strImageData || '',
+		rId,
+		isDuplicate: !!dupe?.Target,
+		Target: dupe?.Target ? dupe.Target : `../media/image-${mediaSlideKey}-${target._relsMedia.length + 1}.${extn}`,
+	})
+	return rId
+}
+
+/** Register a `.../slide` rel (used by the fallback picture's `hlinkClick`) to a 1-based slide number. */
+function registerSlideRel(target: PresSlideInternal, slideNum: number): number {
+	const rId = getNewRelId(target)
+	target._rels.push({ type: SlideObjectType.hyperlink, data: 'slide', rId, Target: String(slideNum) })
+	return rId
+}
+
+/** Shared object-name + object-scaffold for all three variants. */
+function pushZoomObject(
+	target: PresSlideInternal,
+	variant: ZoomInternal['variant'],
+	opts: SlideZoomProps | SectionZoomProps | SummaryZoomProps,
+	zoom: Omit<ZoomInternal, 'variant'>
+): void {
+	const nameIdx = nextObjectNameIdx(target, SlideObjectType.zoom)
+	const objectName = opts.objectName
+		? encodeXmlEntities(validateObjectName(opts.objectName, 'zoom'))
+		: `${ZOOM_LABEL[variant]} ${nameIdx + 1}`
+	const newObject: SlideObject = {
+		_type: SlideObjectType.zoom,
+		options: { x: opts.x ?? 0, y: opts.y ?? 0, w: opts.w ?? 0, h: opts.h ?? 0, objectName },
+		zoom: { variant, ...zoom },
+	}
+	target._slideObjects.push(newObject)
+}
+
+/** Slide Zoom — one tile linking to a single target slide. */
+export function addSlideZoomDefinition(target: PresSlideInternal, opts: SlideZoomProps): void {
+	if (!opts?.target) {
+		warn('addSlideZoom requires a `target` slide (a Slide object or its 1-based number); ignoring.')
+		return
+	}
+	const targetSlide = opts.target as PresSlideInternal
+	const sldId = typeof opts.target === 'number' ? 256 + (opts.target - 1) : targetSlide._slideId
+	const slideNum = typeof opts.target === 'number' ? opts.target : targetSlide._slideNum
+	if (sldId == null || slideNum == null) {
+		warn('addSlideZoom: could not resolve the target slide; ignoring.')
+		return
+	}
+
+	const previewRid = registerPreviewImage(target, opts.coverImage)
+	const fallbackSlideRid = registerSlideRel(target, slideNum)
+	const tile: ZoomTileInternal = { sldId, previewRid, fallbackSlideRid, zmPrId: zoomGuid() }
+	pushZoomObject(target, 'slide', opts, {
+		tiles: [tile],
+		returnToParent: !!opts.returnToParent,
+		transitionDur: opts.transitionDur ?? 1000,
+	})
+}
+
+/** Section Zoom — one tile linking to the start of a named section. */
+export function addSectionZoomDefinition(
+	target: PresSlideInternal,
+	opts: SectionZoomProps,
+	sections: SectionInternalProps[]
+): void {
+	if (!opts?.sectionTitle) {
+		warn('addSectionZoom requires a `sectionTitle`; ignoring.')
+		return
+	}
+	const section = sections.find((s) => s.title === opts.sectionTitle)
+	if (!section) {
+		warn(`addSectionZoom: no section titled "${opts.sectionTitle}"; ignoring.`)
+		return
+	}
+	const firstSlide = section._slides[0]
+	if (!firstSlide) {
+		warn(`addSectionZoom: section "${opts.sectionTitle}" has no slides; ignoring.`)
+		return
+	}
+
+	const previewRid = registerPreviewImage(target, opts.coverImage)
+	const fallbackSlideRid = registerSlideRel(target, firstSlide._slideNum)
+	const tile: ZoomTileInternal = { sectionId: section._id, previewRid, fallbackSlideRid, zmPrId: zoomGuid() }
+	pushZoomObject(target, 'section', opts, {
+		tiles: [tile],
+		returnToParent: !!opts.returnToParent,
+		transitionDur: opts.transitionDur ?? 1000,
+	})
+}
+
+/**
+ * Summary Zoom — a grid of tiles, one per section (excluding the host slide's own section).
+ * All tiles share the single placeholder/cover image; each links to its section's first slide.
+ */
+export function addSummaryZoomDefinition(
+	target: PresSlideInternal,
+	opts: SummaryZoomProps,
+	sections: SectionInternalProps[]
+): void {
+	// Exclude the section that contains this (host) slide — a summary does not link to itself.
+	const hostSection = sections.find((s) => s._slides.some((sl) => sl._slideNum === target._slideNum))
+	const targets = sections.filter((s) => s !== hostSection && s._slides.length > 0)
+	if (targets.length === 0) {
+		warn('addSummaryZoom: no sections to summarize (need at least one section besides this slide’s own); ignoring.')
+		return
+	}
+
+	// Grid geometry (EMU). Tiles preserve the slide aspect ratio; the grid is centered in the frame,
+	// last row left-aligned (matching PowerPoint). See the Summary oracle in plan `foamy-imagining-narwhal`.
+	const frameCx = getSmartParseNumber(opts.w ?? 0, 'X', target._presLayout)
+	const frameCy = getSmartParseNumber(opts.h ?? 0, 'Y', target._presLayout)
+	const ar = target._presLayout.width / target._presLayout.height
+	const n = targets.length
+	const cols = Math.ceil(Math.sqrt(n))
+	const rows = Math.ceil(n / cols)
+	const gap = Math.round(frameCx * 0.0124)
+	let tileW = (frameCx - (cols - 1) * gap) / cols
+	let tileH = tileW / ar
+	const tileHFit = (frameCy - (rows - 1) * gap) / rows
+	if (tileH > tileHFit) {
+		tileH = tileHFit
+		tileW = tileH * ar
+	}
+	tileW = Math.round(tileW)
+	tileH = Math.round(tileH)
+	const gridW = cols * tileW + (cols - 1) * gap
+	const gridH = rows * tileH + (rows - 1) * gap
+	const originX = Math.round((frameCx - gridW) / 2)
+	const originY = Math.round((frameCy - gridH) / 2)
+
+	// One shared preview image across all tiles (identical placeholder/cover).
+	const previewRid = registerPreviewImage(target, opts.coverImage)
+	const tiles: ZoomTileInternal[] = []
+	targets.forEach((section, i) => {
+		const firstSlide = section._slides[0]
+		if (!firstSlide) return // guarded above (length > 0), but keeps the emit total-function
+		const r = Math.floor(i / cols)
+		const c = i % cols
+		tiles.push({
+			sectionId: section._id,
+			previewRid,
+			fallbackSlideRid: registerSlideRel(target, firstSlide._slideNum),
+			zmPrId: zoomGuid(),
+			grid: { x: originX + c * (tileW + gap), y: originY + r * (tileH + gap), cx: tileW, cy: tileH },
+		})
+	})
+
+	pushZoomObject(target, 'summary', opts, {
+		tiles,
+		returnToParent: !!opts.returnToParent,
+		transitionDur: opts.transitionDur ?? 1000,
+	})
+}

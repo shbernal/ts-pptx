@@ -530,6 +530,7 @@ export enum SlideObjectType {
 	tablecell = 'tablecell',
 	text = 'text',
 	notes = 'notes',
+	zoom = 'zoom',
 }
 
 /**

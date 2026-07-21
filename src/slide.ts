@@ -28,6 +28,9 @@ import type {
 	TextProps,
 	TextPropsOptions,
 	TransitionProps,
+	SlideZoomProps,
+	SectionZoomProps,
+	SummaryZoomProps,
 } from './core-interfaces.js'
 import type {
 	ChartOptsInternal,
@@ -37,6 +40,7 @@ import type {
 	SlideRelMedia,
 	PresSlideInternal,
 	SlideLayoutInternal,
+	SectionInternalProps,
 } from './types/internal.js'
 import { emuToInches } from './units.js'
 import { addBackgroundDefinition } from './gen/define/background.js'
@@ -50,6 +54,7 @@ import { addNotesDefinition } from './gen/define/notes.js'
 import { addShapeDefinition } from './gen/define/shape.js'
 import { addTableDefinition } from './gen/define/table.js'
 import { addTextDefinition } from './gen/define/text.js'
+import { addSectionZoomDefinition, addSlideZoomDefinition, addSummaryZoomDefinition } from './gen/define/zoom.js'
 
 /** Distinguish a multi-type (combo) chart array (`ChartMulti[]`) from a single chart's data (`OptsChartData[]`). */
 function isMultiChart(arg: OptsChartData[] | ChartMulti[]): arg is ChartMulti[] {
@@ -62,6 +67,7 @@ export default class Slide {
 
 	public addSlide: (options?: AddSlideProps) => PresSlideInternal
 	public getSlide: (slideNum: number) => PresSlideInternal | undefined
+	public getSections: () => SectionInternalProps[]
 	public _name: string
 	public _presLayout: PresLayout
 	public _rels: SlideRel[]
@@ -80,6 +86,7 @@ export default class Slide {
 	constructor(params: {
 		addSlide: (options?: AddSlideProps) => PresSlideInternal
 		getSlide: (slideNum: number) => PresSlideInternal | undefined
+		getSections?: () => SectionInternalProps[]
 		presLayout: PresLayout
 		setSlideNum: (value: SlideNumberProps) => void
 		slideId: number
@@ -89,6 +96,7 @@ export default class Slide {
 	}) {
 		this.addSlide = params.addSlide
 		this.getSlide = params.getSlide
+		this.getSections = params.getSections ?? (() => [])
 		this._name = `Slide ${params.slideNumber}`
 		this._presLayout = params.presLayout
 		this._rId = params.slideRId
@@ -397,6 +405,42 @@ export default class Slide {
 	 */
 	addAnimation(options: AnimationProps): Slide {
 		this._animations.push(options)
+		return this
+	}
+
+	/**
+	 * Add a Slide Zoom — a clickable tile that zooms to a single target slide (Insert ▸ Zoom).
+	 * The tile shows a neutral placeholder until PowerPoint regenerates the live thumbnail
+	 * (once the target slide is next edited); pass `coverImage` to ship a fixed thumbnail.
+	 * @param {SlideZoomProps} options - target slide (`Slide` or 1-based number), position, and options
+	 * @return {Slide} this Slide
+	 * @example slide.addSlideZoom({ target: intro, x: 1, y: 1, w: 3, h: 1.7 })
+	 */
+	addSlideZoom(options: SlideZoomProps): Slide {
+		addSlideZoomDefinition(this, options)
+		return this
+	}
+
+	/**
+	 * Add a Section Zoom — a clickable tile that zooms to the start of a named section.
+	 * @param {SectionZoomProps} options - target `sectionTitle`, position, and options
+	 * @return {Slide} this Slide
+	 * @example slide.addSectionZoom({ sectionTitle: 'Results', x: 1, y: 1, w: 3, h: 1.7 })
+	 */
+	addSectionZoom(options: SectionZoomProps): Slide {
+		addSectionZoomDefinition(this, options, this.getSections())
+		return this
+	}
+
+	/**
+	 * Add a Summary Zoom — a grid of tiles, one per section (excluding this slide's own section),
+	 * each zooming to that section's start.
+	 * @param {SummaryZoomProps} options - grid position/size and options
+	 * @return {Slide} this Slide
+	 * @example slide.addSummaryZoom({ x: 0.5, y: 1.5, w: 11, h: 4.5 })
+	 */
+	addSummaryZoom(options: SummaryZoomProps): Slide {
+		addSummaryZoomDefinition(this, options, this.getSections())
 		return this
 	}
 }

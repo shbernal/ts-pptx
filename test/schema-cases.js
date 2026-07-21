@@ -3413,4 +3413,32 @@ export default [
 			await expectNoSchemaErrors(buf, 'custGeom-connection-sites')
 		},
 	},
+	{
+		// dn-zoom-links: Slide / Section / Summary Zoom (Insert ▸ Zoom). Each is a `<p:graphicFrame>`
+		// in the 2016 zoom namespaces wrapped in `<mc:AlternateContent>` with a hyperlinked-picture
+		// fallback; validate all three variants plus a caller-supplied cover image.
+		name: 'zoom links (slide/section/summary + cover image)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSection({ title: 'Intro' })
+				const intro = p.addSlide({ sectionTitle: 'Intro' })
+				intro.addText('Intro', { x: 1, y: 1, w: 4, h: 0.5 })
+				p.addSection({ title: 'Alpha' })
+				const a1 = p.addSlide({ sectionTitle: 'Alpha' })
+				a1.addText('Alpha 1', { x: 1, y: 1, w: 4, h: 0.5 })
+				p.addSlide({ sectionTitle: 'Alpha' }).addText('Alpha 2', { x: 1, y: 1, w: 4, h: 0.5 })
+				p.addSection({ title: 'Beta' })
+				p.addSlide({ sectionTitle: 'Beta' }).addText('Beta 1', { x: 1, y: 1, w: 4, h: 0.5 })
+				p.addSection({ title: 'Nav' })
+				const nav = p.addSlide({ sectionTitle: 'Nav' })
+				nav.addSlideZoom({ target: a1, x: 0.5, y: 1, w: 3, h: 1.7, returnToParent: true })
+				nav.addSectionZoom({ sectionTitle: 'Beta', x: 4, y: 1, w: 3, h: 1.7, transitionDur: 500 })
+				nav.addSummaryZoom({ x: 0.5, y: 3.2, w: 11, h: 3.8 })
+				// A Slide Zoom targeting by 1-based number, with a caller-supplied cover image.
+				const gray = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+				nav.addSlideZoom({ target: 3, x: 8, y: 1, w: 3, h: 1.7, coverImage: { data: 'image/png;base64,' + gray } })
+			})
+			await expectNoSchemaErrors(buf, 'zoom-links')
+		},
+	},
 ]

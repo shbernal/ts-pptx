@@ -250,6 +250,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Zoom links: `slide.addSlideZoom()`, `slide.addSectionZoom()`, `slide.addSummaryZoom()`**
+  (PowerPoint's Insert ▸ Zoom). A zoom is a clickable tile that navigates to a target slide
+  (`addSlideZoom({ target })`, where `target` is a `Slide` or its 1-based number), to the start
+  of a section (`addSectionZoom({ sectionTitle })`), or — as an auto-laid-out grid, one tile per
+  section — to every section (`addSummaryZoom()`, which excludes the host slide's own section).
+  Each is emitted as a `<p:graphicFrame>` in the 2016 zoom namespaces wrapped in
+  `<mc:AlternateContent>`, with a hyperlinked-picture fallback so pre-2016 consumers still get a
+  clickable thumbnail. Common options: `x/y/w/h`, `objectName`, `returnToParent`, `transitionDur`,
+  and `coverImage` (`{ path }` or `{ data }`). **Preview thumbnail:** by default a neutral gray
+  placeholder is emitted; PowerPoint regenerates it to the live slide thumbnail on open. Supply
+  `coverImage` to ship a fixed picture instead (also the thumbnail non-PowerPoint viewers see).
+  Section and Summary Zoom rely on stable section GUIDs, which are now assigned when a section is
+  created (previously generated afresh at serialize time).
+
 - **`pptx.toParts(props?)` returns the OOXML package parts without zipping.** The counterpart
   to `write()` for consumers that need the raw `path → bytes` contents of the `.pptx` — to
   stream parts into a custom container, inspect an individual part, or feed a pipeline that

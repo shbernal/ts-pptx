@@ -571,6 +571,13 @@ export default class PptxGenJS {
 		this._slides.find((slide) => slide._slideNum === slideNum)
 
 	/**
+	 * Provides the live section list to the `Slide` class so Section/Summary Zoom can resolve
+	 * a section title to its stable GUID and enumerate sections in order.
+	 * @return {SectionInternalProps[]} the presentation's sections
+	 */
+	private readonly getSections = (): SectionInternalProps[] => this._sections
+
+	/**
 	 * Enables the `Slide` class to set PptxGenJS [Presentation] master/layout slidenumbers
 	 * @param {SlideNumberProps} slideNum - slide number config
 	 */
@@ -994,6 +1001,7 @@ export default class PptxGenJS {
 		const newSection: SectionInternalProps = {
 			_type: 'user',
 			_slides: [],
+			_id: `{${getUuid('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx').toUpperCase()}}`,
 			title: section.title,
 		}
 
@@ -1028,6 +1036,7 @@ export default class PptxGenJS {
 		const newSlide: PresSlideInternal = new Slide({
 			addSlide: this.addNewSlide,
 			getSlide: this.getSlide,
+			getSections: this.getSections,
 			presLayout: this.presLayout,
 			setSlideNum: this.setSlideNumber,
 			slideId: this._slides.length + 256,
@@ -1056,6 +1065,7 @@ export default class PptxGenJS {
 				this._sections.push({
 					title: `Default-${this._sections.filter((sect) => sect._type === 'default').length + 1}`,
 					_type: 'default',
+					_id: `{${getUuid('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx').toUpperCase()}}`,
 					_slides: [newSlide],
 				})
 			}
