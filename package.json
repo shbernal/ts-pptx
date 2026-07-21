@@ -88,6 +88,7 @@
 		"test:demo:node": "node scripts/demo-smoke.mjs node",
 		"test:demo:vite": "node scripts/demo-smoke.mjs vite",
 		"test:demos": "node scripts/demo-smoke.mjs",
+		"test:com": "pnpm run build && node scripts/powerpoint-com-smoke.mjs",
 		"typecheck": "tsc -p tsconfig.json --noEmit",
 		"typecheck:scripts": "tsc -p tsconfig.scripts.json --noEmit",
 		"typecheck:test": "pnpm run build && tsc -p tsconfig.test.json --noEmit",
