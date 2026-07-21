@@ -18,7 +18,7 @@ import {
 	DEF_FONT_COLOR,
 	DEF_FONT_SIZE,
 } from '../../core-enums.js'
-import type { ChartOptsInternal } from '../../core-interfaces.js'
+import type { ChartOptsInternal } from '../../types/internal.js'
 import { warn } from '../../log.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { convertRotationDegrees, valToPts } from '../../units-internal.js'

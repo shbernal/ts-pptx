@@ -8,13 +8,8 @@
  */
 import { ShapeType, SlideObjectType } from '../../core-enums.js'
 import { warn } from '../../log.js'
-import type {
-	GroupChildProps,
-	GroupProps,
-	PresSlideInternal,
-	SlideMasterObject,
-	SlideObject,
-} from '../../core-interfaces.js'
+import type { GroupChildProps, GroupProps, SlideMasterObject } from '../../core-interfaces.js'
+import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlEntities, validateObjectName } from '../../gen-utils.js'
 import { nextObjectNameIdx } from './object-name.js'
 import { addChartDefinition } from './chart.js'

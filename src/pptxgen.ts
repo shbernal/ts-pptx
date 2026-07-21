@@ -73,22 +73,17 @@ import {
 import type {
 	AddSlideProps,
 	CustomPropertyValue,
-	PresentationPropsInternal,
 	MeasureTextOptions,
 	OverflowBoxOptions,
 	PresLayout,
 	PresSlide,
-	PresSlideInternal,
 	SectionProps,
-	SectionInternalProps,
 	SlideLayout,
-	SlideLayoutInternal,
 	SlideMasterProps,
 	SlideNumberProps,
 	TableLayoutResult,
 	TableProps,
 	TableRow,
-	TableStyleInternal,
 	TableStyleProps,
 	TableToSlidesProps,
 	TextMeasurement,
@@ -98,6 +93,13 @@ import type {
 	WriteFileProps,
 	WriteProps,
 } from './core-interfaces.js'
+import type {
+	PresentationPropsInternal,
+	PresSlideInternal,
+	SectionInternalProps,
+	SlideLayoutInternal,
+	TableStyleInternal,
+} from './types/internal.js'
 import type { RuntimeAdapter } from './runtime/types.js'
 import { FontMetricsRegistry, parseFontMetrics } from './font-metrics.js'
 import {

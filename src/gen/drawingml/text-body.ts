@@ -7,7 +7,8 @@
  */
 
 import { CRLF, PlaceholderType, SlideObjectType } from '../../core-enums.js'
-import type { ObjectOptions, SlideObject, TableCell, TextProps } from '../../core-interfaces.js'
+import type { ObjectOptions, TableCell, TextProps } from '../../core-interfaces.js'
+import type { SlideObject } from '../../types/internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import {
 	genXmlNormAutofit,

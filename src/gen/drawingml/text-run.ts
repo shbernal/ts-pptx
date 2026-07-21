@@ -10,12 +10,12 @@
 import { BulletType, DEF_BULLET_MARGIN, DEF_TEXT_GLOW, DEF_TEXT_SHADOW, SlideObjectType } from '../../core-enums.js'
 import type {
 	ObjectOptions,
-	SlideObject,
 	TableCell,
 	TextFitShrinkProps,
 	TextProps,
 	TextPropsOptions,
 } from '../../core-interfaces.js'
+import type { SlideObject } from '../../types/internal.js'
 import { createColorElement } from './color.js'
 import { createGlowElement, createShadowElement } from './effect.js'
 import { genXmlColorSelection } from './fill.js'

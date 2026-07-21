@@ -16,16 +16,8 @@ import {
 	SlideObjectType,
 } from '../../core-enums.js'
 import { warn } from '../../log.js'
-import type {
-	ChartMulti,
-	ChartOpts,
-	ChartOptsInternal,
-	OptsChartData,
-	OptsChartDataInternal,
-	OptsChartGridLine,
-	PresSlideInternal,
-	SlideObject,
-} from '../../core-interfaces.js'
+import type { ChartMulti, ChartOpts, OptsChartData, OptsChartGridLine } from '../../core-interfaces.js'
+import type { ChartOptsInternal, OptsChartDataInternal, PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlEntities, getNewRelId, validateObjectName } from '../../gen-utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { valToPts } from '../../units-internal.js'

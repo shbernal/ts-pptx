@@ -9,7 +9,8 @@
 
 import { DEF_FONT_COLOR } from '../../core-enums.js'
 import { warn } from '../../log.js'
-import type { ShadowProps, ShadowPropsInternal, TextGlowProps } from '../../core-interfaces.js'
+import type { ShadowProps, TextGlowProps } from '../../core-interfaces.js'
+import type { ShadowPropsInternal } from '../../types/internal.js'
 import { ANGLE_UNITS_PER_DEGREE, EMU_PER_POINT, PERCENT_SCALE } from '../../units.js'
 import { opacityToAlpha, valToPts } from '../../units-internal.js'
 import { createColorElement } from './color.js'

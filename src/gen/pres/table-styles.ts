@@ -7,7 +7,8 @@
  */
 
 import { CRLF, TableStyle, XML_DECL } from '../../core-enums.js'
-import type { BorderProps, TableStyleInternal, TableStyleRegionProps } from '../../core-interfaces.js'
+import type { BorderProps, TableStyleRegionProps } from '../../core-interfaces.js'
+import type { TableStyleInternal } from '../../types/internal.js'
 import { createColorElement } from '../drawingml/color.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { resolveBorderWidth } from '../drawingml/line.js'

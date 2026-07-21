@@ -14,20 +14,13 @@ import type {
 	HexColor,
 	ChartMulti,
 	ChartOpts,
-	ChartOptsInternal,
 	SlideComment,
-	SlideObject,
-	SlideRel,
-	SlideRelChart,
-	SlideRelMedia,
 	ImageProps,
 	MediaProps,
 	NotesProps,
 	PresLayout,
 	PresSlide,
-	PresSlideInternal,
 	ShapeProps,
-	SlideLayoutInternal,
 	SlideNumberProps,
 	OptsChartData,
 	TableProps,
@@ -36,6 +29,15 @@ import type {
 	TextPropsOptions,
 	TransitionProps,
 } from './core-interfaces.js'
+import type {
+	ChartOptsInternal,
+	SlideObject,
+	SlideRel,
+	SlideRelChart,
+	SlideRelMedia,
+	PresSlideInternal,
+	SlideLayoutInternal,
+} from './types/internal.js'
 import { emuToInches } from './units.js'
 import { addBackgroundDefinition } from './gen/define/background.js'
 import { addChartDefinition } from './gen/define/chart.js'

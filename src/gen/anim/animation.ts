@@ -6,7 +6,8 @@
  * emphasis and exit effects. Consumed by the slide `<p:timing>` builder.
  */
 
-import type { AnimationProps, SlideObject } from '../../core-interfaces.js'
+import type { AnimationProps } from '../../core-interfaces.js'
+import type { SlideObject } from '../../types/internal.js'
 import { warn } from '../../log.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { resolveObjectNameToId } from '../slide/shape-ids.js'

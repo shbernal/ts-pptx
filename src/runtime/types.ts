@@ -1,5 +1,5 @@
 import type { WRITE_OUTPUT_TYPE } from '../core-enums.js'
-import type { SlideRelMedia } from '../core-interfaces.js'
+import type { SlideRelMedia } from '../types/internal.js'
 
 export type RuntimeAdapter = {
 	readonly writeFileOutputType: WRITE_OUTPUT_TYPE | null

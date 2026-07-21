@@ -14,16 +14,8 @@ import {
 	SlideObjectType,
 } from '../../core-enums.js'
 import { warn } from '../../log.js'
-import type {
-	AddSlideProps,
-	BorderProps,
-	PresLayout,
-	PresSlideInternal,
-	SlideLayoutInternal,
-	TableCell,
-	TableProps,
-	TableRow,
-} from '../../core-interfaces.js'
+import type { AddSlideProps, BorderProps, PresLayout, TableCell, TableProps, TableRow } from '../../core-interfaces.js'
+import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { getSlidesForTableRows } from '../table/autopage.js'
 import { encodeXmlEntities, validateObjectName } from '../../gen-utils.js'
 import { getSmartParseNumber } from '../../units-internal.js'

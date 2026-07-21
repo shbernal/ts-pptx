@@ -1,5 +1,5 @@
 import { IMG_SVG_PLACEHOLDER } from '../core-enums.js'
-import type { SlideRelMedia } from '../core-interfaces.js'
+import type { SlideRelMedia } from '../types/internal.js'
 import type { RuntimeAdapter } from './types.js'
 
 export function createBrowserRuntime(): RuntimeAdapter {

@@ -11,7 +11,7 @@
  */
 
 import { LETTERS } from '../../core-enums.js'
-import type { OptsChartDataInternal } from '../../core-interfaces.js'
+import type { OptsChartDataInternal } from '../../types/internal.js'
 
 // ===== Series-data accessors =====
 // The normalized (internal) chart-series arrays are populated at addChart time but stay

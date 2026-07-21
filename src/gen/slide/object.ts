@@ -19,19 +19,15 @@ import {
 	SlideObjectType,
 	XML_DECL,
 } from '../../core-enums.js'
+import type { ObjectOptions, HyperlinkProps, ShapeLineProps, TableCell, TableCellProps } from '../../core-interfaces.js'
 import type {
-	ObjectOptions,
-	HyperlinkProps,
 	PresSlideInternal,
-	ShapeLineProps,
 	SlideLayoutInternal,
 	SlideObject,
 	SlideRel,
 	SlideRelChart,
 	SlideRelMedia,
-	TableCell,
-	TableCellProps,
-} from '../../core-interfaces.js'
+} from '../../types/internal.js'
 import { encodeXmlEntities, getDuplicateObjectNames, isHyperlinkRel } from '../../gen-utils.js'
 import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'

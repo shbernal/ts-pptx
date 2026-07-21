@@ -26,7 +26,7 @@ import {
 	DEF_FONT_TITLE_SIZE,
 	XML_DECL,
 } from '../../core-enums.js'
-import type { ChartOptsInternal, OptsChartDataInternal, SlideRelChart } from '../../core-interfaces.js'
+import type { ChartOptsInternal, OptsChartDataInternal, SlideRelChart } from '../../types/internal.js'
 import { warn } from '../../log.js'
 import { encodeXmlEntities } from '../../gen-utils.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'

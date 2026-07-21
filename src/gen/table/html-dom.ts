@@ -13,11 +13,11 @@ import type {
 	BorderProps,
 	PresLayout,
 	PresSlide,
-	SlideLayoutInternal,
 	TableCell,
 	TableToSlidesProps,
 	TableCellProps,
 } from '../../core-interfaces.js'
+import type { SlideLayoutInternal } from '../../types/internal.js'
 import { rgbToHex } from '../drawingml/color.js'
 import { inch2Emu } from '../../units-internal.js'
 import { warn } from '../../log.js'

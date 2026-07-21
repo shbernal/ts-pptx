@@ -10,13 +10,13 @@
 import { DEF_FONT_SIZE, DEF_SLIDE_MARGIN_IN, LINEH_MODIFIER, SlideObjectType } from '../../core-enums.js'
 import type {
 	PresLayout,
-	SlideLayoutInternal,
 	TableCell,
 	TableToSlidesProps,
 	TableRow,
 	TableRowSlide,
 	TableCellProps,
 } from '../../core-interfaces.js'
+import type { SlideLayoutInternal } from '../../types/internal.js'
 import { getSmartParseNumber, inch2Emu, marginToEmu } from '../../units-internal.js'
 import { warn } from '../../log.js'
 import { EMU_PER_INCH, EMU_PER_POINT } from '../../units.js'

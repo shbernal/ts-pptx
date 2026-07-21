@@ -7,7 +7,7 @@
  */
 
 import { BARCHART_COLORS, ChartType, DEF_FONT_COLOR, DEF_FONT_SIZE, DEF_SHAPE_SHADOW } from '../../core-enums.js'
-import type { ChartOptsInternal, OptsChartDataInternal } from '../../core-interfaces.js'
+import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'

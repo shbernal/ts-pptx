@@ -13,7 +13,7 @@
  */
 
 import { warn } from './log.js'
-import type { PresSlideInternal } from './core-interfaces.js'
+import type { PresSlideInternal } from './types/internal.js'
 
 /**
  * Basic UUID Generator Adapted

@@ -6,7 +6,7 @@
  */
 
 import { CRLF, XML_DECL } from '../../core-enums.js'
-import type { PresSlideInternal, SlideLayoutInternal } from '../../core-interfaces.js'
+import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { slideTimingToXml } from '../anim/timing.js'
 import { slideTransitionToXml } from '../anim/transition.js'
 import { el, raw, voidEl } from '../oxml/el.js'

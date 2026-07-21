@@ -28,12 +28,10 @@ import {
 	type MetricsResolver,
 } from './text-fit.js'
 import type {
-	SlideObject,
 	Margin,
 	MeasureTextOptions,
 	ObjectOptions,
 	PresLayout,
-	PresSlideInternal,
 	TableCell,
 	TableCellLayout,
 	TableCellProps,
@@ -43,6 +41,7 @@ import type {
 	TextProps,
 	TextPropsOptions,
 } from './core-interfaces.js'
+import type { SlideObject, PresSlideInternal } from './types/internal.js'
 
 // PowerPoint's default text-frame insets (EMU): l/r = 0.1in, t/b = 0.05in.
 const DEF_INS_LR_EMU = 91440

@@ -67,6 +67,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **BREAKING (types): the generator-internal `*Internal` wire shapes are no longer
+  exported.** Thirteen normalized structures the emitters pass around —
+  `ShadowPropsInternal`, `OptsChartDataInternal`, `ChartOptsInternal`, `SlideRelChart`,
+  `TableStyleInternal`, `SlideRel`, `SlideRelMedia`, `SlideObject`, `SlideBaseProps`,
+  `SlideLayoutInternal`, `PresSlideInternal`, `SectionInternalProps`,
+  `PresentationPropsInternal` — were published through the `core-interfaces` barrel and
+  reachable from `index`/`core`/`node`/`browser`/`standalone`. They are implementation
+  detail (their `_`-prefixed members can change without notice), and publishing them made
+  every generator internal a de-facto API contract. They now live in `types/internal.ts`,
+  which the barrel no longer re-exports; internal code imports them from there directly.
+  Two public types that referenced an internal shape were retyped to the public
+  `ChartOpts`: `ChartMulti.options` and `SlideMasterChartProps.options`/`.opts` (both
+  remain exported). *Migration:* code touching the `*Internal` types was already reaching
+  past the authoring API; build charts and slides through the public surface (`ChartOpts`,
+  `addChart`, `addSlide`, `defineSlideMaster`) instead. Type-only change — runtime behavior
+  and emitted OOXML are unchanged (the demo decks re-emit byte-identically, 1,437 package
+  parts).
+
 - **BREAKING: the duplicate unit constants `EMU` and `ONEPT` are removed from
   `core-enums.ts`.** They were aliases for `EMU_PER_INCH` (914400) and `EMU_PER_POINT`
   (12700) in `units.ts`, and both pairs were exported from every entrypoint — two

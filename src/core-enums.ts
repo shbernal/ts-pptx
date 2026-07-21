@@ -3,7 +3,8 @@
  * NOTE: `enum` wont work for objects, so use `Object.freeze`
  */
 
-import type { BorderProps, OptsChartGridLine, ShadowPropsInternal } from './core-interfaces.js'
+import type { BorderProps, OptsChartGridLine } from './core-interfaces.js'
+import type { ShadowPropsInternal } from './types/internal.js'
 
 // CONST
 export const CRLF = '\r\n' // AKA: Chr(13) & Chr(10)

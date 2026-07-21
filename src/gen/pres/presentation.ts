@@ -6,7 +6,7 @@
  */
 
 import { CRLF, XML_DECL } from '../../core-enums.js'
-import type { PresentationPropsInternal, SectionInternalProps } from '../../core-interfaces.js'
+import type { PresentationPropsInternal, SectionInternalProps } from '../../types/internal.js'
 import { getUuid } from '../../gen-utils.js'
 import { flattenEmbeddedFaces, serializeEmbeddedFontLst } from '../../embedded-fonts.js'
 import { presentationFontRelStart } from './presentation-rels.js'

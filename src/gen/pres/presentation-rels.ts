@@ -8,7 +8,7 @@
  */
 
 import { CRLF, XML_DECL } from '../../core-enums.js'
-import type { PresSlideInternal } from '../../core-interfaces.js'
+import type { PresSlideInternal } from '../../types/internal.js'
 import { type EmbeddedFont, FONT_REL_TYPE, flattenEmbeddedFaces } from '../../embedded-fonts.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 

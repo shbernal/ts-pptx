@@ -4,7 +4,8 @@
  * Registers an `addBackground()` image as a slide media rel (color backgrounds carry no rel);
  * the `<p:bg>` XML is emitted later at slide / layout serialize time.
  */
-import type { BackgroundProps, SlideLayoutInternal } from '../../core-interfaces.js'
+import type { BackgroundProps } from '../../core-interfaces.js'
+import type { SlideLayoutInternal } from '../../types/internal.js'
 import { imageContentType } from '../../media/content-type.js'
 
 /**

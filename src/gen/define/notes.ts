@@ -5,7 +5,8 @@
  * `notes`-type slide object; the notes-slide XML is emitted later by `gen/slide/notes.ts`.
  */
 import { SlideObjectType } from '../../core-enums.js'
-import type { NotesProps, PresSlideInternal, TextProps } from '../../core-interfaces.js'
+import type { NotesProps, TextProps } from '../../core-interfaces.js'
+import type { PresSlideInternal } from '../../types/internal.js'
 
 /**
  * Adds Notes to a slide.

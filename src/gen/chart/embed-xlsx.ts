@@ -13,7 +13,7 @@
  */
 
 import { ChartType, XML_DECL } from '../../core-enums.js'
-import type { SlideRelChart, OptsChartDataInternal } from '../../core-interfaces.js'
+import type { SlideRelChart, OptsChartDataInternal } from '../../types/internal.js'
 import { encodeXmlEntities } from '../../gen-utils.js'
 import { ZipWriter } from '../../zip.js'
 import { el, raw, voidEl } from '../oxml/el.js'

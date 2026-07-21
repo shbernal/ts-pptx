@@ -7,7 +7,8 @@
  */
 
 import { CRLF, SLDNUMFLDID, SlideObjectType, XML_DECL } from '../../core-enums.js'
-import type { PresSlideInternal, SlideRel, TextProps } from '../../core-interfaces.js'
+import type { TextProps } from '../../core-interfaces.js'
+import type { PresSlideInternal, SlideRel } from '../../types/internal.js'
 import { warn } from '../../log.js'
 import { genXmlTextRun } from '../drawingml/text-run.js'
 import { el, raw, voidEl } from '../oxml/el.js'

@@ -16,14 +16,8 @@ import {
 	TextAnchor,
 } from '../../core-enums.js'
 import { warn } from '../../log.js'
-import type {
-	ObjectOptions,
-	PresSlideInternal,
-	ShapeLineProps,
-	SlideObject,
-	TextProps,
-	TextPropsOptions,
-} from '../../core-interfaces.js'
+import type { ObjectOptions, ShapeLineProps, TextProps, TextPropsOptions } from '../../core-interfaces.js'
+import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlEntities, getNewRelId, validateObjectName } from '../../gen-utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { imageContentType } from '../../media/content-type.js'

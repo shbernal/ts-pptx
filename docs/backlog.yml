@@ -1440,6 +1440,47 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: decide whether the import context is its own read-model type, then extract #copyPart and the master-registry helpers onto it
+  - id: fork-core-enums-internal-const-exports
+    source: fork:src/core-enums.ts
+    type: fork-internal-proposal
+    first_seen: 2026-07-21
+    last_reviewed: 2026-07-21
+    status: deferred
+    priority: p3
+    target_area:
+      - typescript-api
+    applies_to_current_project: unknown
+    non_target_reasons: []
+    summary: core-enums.ts export *-es many generator-internal constants (DEF_*, AXIS_ID_*, LAYOUT_IDX_SERIES_BASE) onto every public entrypoint; two of them still surface the internal ShadowPropsInternal shape
+    current_project_notes: >
+      Surfaced while dropping the *Internal wire types from the published surface. That change
+      removed the 13 internal interfaces as named exports, but core-enums.ts is export *-ed by
+      five entrypoints (index/core/node/browser/standalone), so every generator-internal constant
+      declared there is published too: DEF_SHAPE_SHADOW, DEF_TEXT_SHADOW, DEF_CELL_BORDER,
+      DEF_CHART_BORDER, DEF_CHART_GRIDLINE, DEF_BULLET_MARGIN, DEF_FONT_COLOR/SIZE/TITLE_SIZE,
+      DEF_SHAPE_LINE_COLOR, DEF_CELL_MARGIN_IN, DEF_SLIDE_MARGIN_IN, DEF_TEXT_GLOW, AXIS_ID_* (five),
+      LAYOUT_IDX_SERIES_BASE, LINEH_MODIFIER, LETTERS, SLDNUMFLDID, REGEX_HEX_COLOR, CRLF, IMG_* --
+      none of which any consumer needs. Two of them, DEF_SHAPE_SHADOW and DEF_TEXT_SHADOW, are
+      annotated ShadowPropsInternal, so that internal shape (which adds `opacity`) still ships
+      structurally through their .d.ts even though the named interface is no longer exported (it is
+      a chunk-local, unexported interface in the built .d.ts -- well-formed, not dangling). Not
+      fixed alongside the type drop because it is a different category -- over-exported values, not
+      types -- and a broad one: the honest fix separates genuinely public enums/presets (ChartType,
+      SchemeColor, ShapeType, AlignH, the LAYOUT presets) from internal constants, moving the latter
+      into a non-export-* module the generators import directly, the same units-internal.ts /
+      types/internal.ts pattern used earlier in this refactor. Removing them from the surface is
+      breaking (they are currently reachable), so it belongs to a major.
+    constructs: []
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/core-enums.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: split core-enums.ts into a public enum/preset surface and a non-exported internal-constants module the generators import directly
   - id: fork-seraxislabelpos-precedence
     source: fork:src/gen/chart/chart-xml.ts
     type: fork-internal-proposal

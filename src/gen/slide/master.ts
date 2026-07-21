@@ -7,13 +7,8 @@
  */
 
 import { CRLF, LAYOUT_IDX_SERIES_BASE, XML_DECL } from '../../core-enums.js'
-import type {
-	MasterBulletProps,
-	MasterTextStyleLevel,
-	MasterTextStyleProps,
-	PresSlideInternal,
-	SlideLayoutInternal,
-} from '../../core-interfaces.js'
+import type { MasterBulletProps, MasterTextStyleLevel, MasterTextStyleProps } from '../../core-interfaces.js'
+import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { createColorElement } from '../drawingml/color.js'
 import { inch2Emu } from '../../units-internal.js'
 import { HUNDREDTHS_PER_POINT, ptToHundredths } from '../../units.js'

@@ -6,7 +6,7 @@
  * (see the note on {@link nextObjectNameIdx}).
  */
 import { SlideObjectType } from '../../core-enums.js'
-import type { PresSlideInternal } from '../../core-interfaces.js'
+import type { PresSlideInternal } from '../../types/internal.js'
 
 /**
  * Take the next slide-wide index for `type`'s default Selection Pane name (`Shape 0`, `Image 1`,

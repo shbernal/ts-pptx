@@ -6,7 +6,7 @@
  */
 
 import { CRLF, XML_DECL } from '../../core-enums.js'
-import type { PresSlideInternal } from '../../core-interfaces.js'
+import type { PresSlideInternal } from '../../types/internal.js'
 import { encodeXmlEntities } from '../../gen-utils.js'
 
 /**

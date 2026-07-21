@@ -12,7 +12,8 @@ import {
 	SlideObjectType,
 	VALID_SHAPE_PRESETS,
 } from '../../core-enums.js'
-import type { PresSlideInternal, ShapeLineProps, ShapeProps, SlideObject } from '../../core-interfaces.js'
+import type { ShapeLineProps, ShapeProps } from '../../core-interfaces.js'
+import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlEntities, validateObjectName } from '../../gen-utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { nextObjectNameIdx } from './object-name.js'

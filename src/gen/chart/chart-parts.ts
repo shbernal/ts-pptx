@@ -17,14 +17,8 @@ import {
 	DEF_FONT_SIZE,
 	DEF_SHAPE_SHADOW,
 } from '../../core-enums.js'
-import type {
-	BorderProps,
-	ChartErrorBarOptions,
-	ChartOptsInternal,
-	ChartPropsTitle,
-	OptsChartDataInternal,
-	OptsChartGridLine,
-} from '../../core-interfaces.js'
+import type { BorderProps, ChartErrorBarOptions, ChartPropsTitle, OptsChartGridLine } from '../../core-interfaces.js'
+import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { warn } from '../../log.js'
 import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'

@@ -4,9 +4,8 @@
  * Re-exported by `../core-interfaces.js`, which is the import site for the rest of `src/`.
  */
 import type { CHART_NAME, SHAPE_NAME } from '../core-enums.js'
-import type { ChartMulti, OptsChartData } from './chart.js'
+import type { ChartMulti, ChartOpts, OptsChartData } from './chart.js'
 import type { BackgroundProps, Color, HAlign, Margin, PositionProps } from './core.js'
-import type { ChartOptsInternal } from './internal.js'
 import type { ImageProps } from './media.js'
 import type { PlaceholderProps } from './object.js'
 import type { ShapeProps } from './shape.js'
@@ -21,8 +20,8 @@ export interface SlideNumberProps extends PositionProps, TextBaseProps {
 export interface SlideMasterChartProps {
 	type: CHART_NAME | ChartMulti[]
 	data: OptsChartData[]
-	options?: ChartOptsInternal
-	opts?: ChartOptsInternal
+	options?: ChartOpts
+	opts?: ChartOpts
 }
 export type SlideMasterObject =
 	| { chart: SlideMasterChartProps }

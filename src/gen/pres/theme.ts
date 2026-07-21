@@ -6,7 +6,8 @@
  */
 
 import { REGEX_HEX_COLOR, XML_DECL } from '../../core-enums.js'
-import type { PresentationPropsInternal, ThemeColorScheme } from '../../core-interfaces.js'
+import type { ThemeColorScheme } from '../../core-interfaces.js'
+import type { PresentationPropsInternal } from '../../types/internal.js'
 import { warn } from '../../log.js'
 import { el, raw, voidEl, type RawXml } from '../oxml/el.js'
 

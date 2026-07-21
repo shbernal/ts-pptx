@@ -6,14 +6,8 @@
  * each hyperlink so serialization can emit `r:id`. Shared by the shape, text and table layers.
  */
 import { SlideObjectType } from '../../core-enums.js'
-import type {
-	ObjectOptions,
-	PresSlideInternal,
-	SlideObject,
-	TableCell,
-	TextProps,
-	TextPropsOptions,
-} from '../../core-interfaces.js'
+import type { ObjectOptions, TableCell, TextProps, TextPropsOptions } from '../../core-interfaces.js'
+import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { getNewRelId } from '../../gen-utils.js'
 
 type HyperlinkTextObject = (TextProps | SlideObject | TableCell) & {

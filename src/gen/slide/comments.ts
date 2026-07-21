@@ -7,7 +7,8 @@
  */
 
 import { CRLF, XML_DECL } from '../../core-enums.js'
-import type { PresSlideInternal, ResolvedCommentAuthor, SlideComment } from '../../core-interfaces.js'
+import type { ResolvedCommentAuthor, SlideComment } from '../../core-interfaces.js'
+import type { PresSlideInternal } from '../../types/internal.js'
 import { inch2Emu } from '../../units-internal.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 

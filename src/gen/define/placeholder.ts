@@ -5,7 +5,7 @@
  * populated, so every inherited placeholder is present as an (empty) text object.
  */
 import { SlideObjectType } from '../../core-enums.js'
-import type { PresSlideInternal } from '../../core-interfaces.js'
+import type { PresSlideInternal } from '../../types/internal.js'
 import { addTextDefinition } from './text.js'
 
 /**

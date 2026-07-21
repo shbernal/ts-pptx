@@ -6,7 +6,8 @@
  * the `mc:AlternateContent` envelope that carries an exact `p14:dur`.
  */
 
-import type { PresSlideInternal, TransitionProps } from '../../core-interfaces.js'
+import type { TransitionProps } from '../../core-interfaces.js'
+import type { PresSlideInternal } from '../../types/internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 
 /** Map a `ST_TransitionSpeed`-less exact duration (ms) to PowerPoint's coarse `spd` bucket. */

@@ -9,7 +9,7 @@
  */
 
 import { SlideObjectType } from '../../core-enums.js'
-import type { SlideObject } from '../../core-interfaces.js'
+import type { SlideObject } from '../../types/internal.js'
 
 /**
  * Every object a slide renders, paired with the `<p:cNvPr>` id it is rendered with: top-level

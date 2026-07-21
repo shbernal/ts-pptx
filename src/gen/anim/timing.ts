@@ -7,7 +7,8 @@
  */
 
 import { SlideObjectType } from '../../core-enums.js'
-import type { AnimationProps, PresSlideInternal, SlideObject } from '../../core-interfaces.js'
+import type { AnimationProps } from '../../core-interfaces.js'
+import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { collectSlideShapeIds } from '../slide/shape-ids.js'
 import { buildAnimationSeq, buildBldList, resolveAnimationSpid } from './animation.js'

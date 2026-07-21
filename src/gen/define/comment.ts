@@ -5,7 +5,8 @@
  * (`_comments`); the `<p:cm>` XML is emitted later by `gen/slide/comments.ts`.
  */
 import { warn } from '../../log.js'
-import type { CommentProps, PresSlideInternal } from '../../core-interfaces.js'
+import type { CommentProps } from '../../core-interfaces.js'
+import type { PresSlideInternal } from '../../types/internal.js'
 
 /**
  * Derive 1-2 letter initials from an author display name (e.g. "Ada Lovelace" -> "AL").

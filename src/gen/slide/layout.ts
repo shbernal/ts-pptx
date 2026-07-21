@@ -5,7 +5,7 @@
  */
 
 import { XML_DECL } from '../../core-enums.js'
-import type { SlideLayoutInternal } from '../../core-interfaces.js'
+import type { SlideLayoutInternal } from '../../types/internal.js'
 import { slideObjectToXml } from './object.js'
 
 /**

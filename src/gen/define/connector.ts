@@ -7,7 +7,8 @@
  */
 import { connectorPresetFor, DEF_SHAPE_LINE_COLOR, SlideObjectType } from '../../core-enums.js'
 import { warn } from '../../log.js'
-import type { ConnectorProps, PresSlideInternal, SlideObject } from '../../core-interfaces.js'
+import type { ConnectorProps } from '../../core-interfaces.js'
+import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { EMU_PER_INCH, FIXED_PCT_PER_PERCENT } from '../../units.js'
 import { encodeXmlEntities, validateObjectName } from '../../gen-utils.js'
 import { getSmartParseNumber } from '../../units-internal.js'

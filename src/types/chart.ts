@@ -6,7 +6,6 @@
  */
 import type { CHART_NAME } from '../core-enums.js'
 import type { HexColor, PatternFillProps, PositionProps } from './core.js'
-import type { ChartOptsInternal } from './internal.js'
 import type { ObjectNameProps } from './object.js'
 import type { BorderProps, ShadowProps, ShapeFillProps } from './style.js'
 import type { TextBaseProps } from './text.js'
@@ -173,7 +172,7 @@ export interface OptsChartGridLine {
 export interface ChartMulti {
 	type: CHART_NAME
 	data: OptsChartData[]
-	options: ChartOptsInternal
+	options: ChartOpts
 }
 export interface ChartPropsFillLine {
 	/**

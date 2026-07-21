@@ -8,14 +8,8 @@
  */
 import { SlideObjectType } from '../../core-enums.js'
 import { warn } from '../../log.js'
-import type {
-	Coord,
-	ImageProps,
-	ObjectOptions,
-	PresSlideInternal,
-	ShapeFillProps,
-	SlideObject,
-} from '../../core-interfaces.js'
+import type { Coord, ImageProps, ObjectOptions, ShapeFillProps } from '../../core-interfaces.js'
+import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlEntities, getNewRelId, validateObjectName } from '../../gen-utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { svgMarkupToDataUri } from '../../media/base64.js'
