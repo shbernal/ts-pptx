@@ -2,7 +2,8 @@
  * PptxGenJS: chartEx (`cx:`) Chart Assembly
  *
  * Builds a chartEx chart part `ppt/charts/chartEx{N}.xml` — the `<cx:chartSpace>` for the
- * Office-2016 chart family (currently `waterfall`, `funnel`, `treemap`, `sunburst`, `histogram`).
+ * Office-2016 chart family (currently `waterfall`, `funnel`, `treemap`, `sunburst`, `histogram`,
+ * `pareto`).
  * This is the chartEx analogue of
  * {@link ./chart-xml} (`makeXmlCharts`): a pure string builder, no I/O, no model mutation.
  *
@@ -54,15 +55,32 @@ export function chartExLayoutId(type: ChartType): string {
 /**
  * A deterministic `uniqueId` GUID for a `<cx:series>`, derived from the chart's package-global id.
  * PowerPoint stamps a random GUID here; deriving it keeps output byte-stable (the project pins
- * chart determinism — see `docs/backlog.yml` `fork-chart-counter-nondeterminism`).
+ * chart determinism — see `docs/backlog.yml` `fork-chart-counter-nondeterminism`). `seriesIdx`
+ * distinguishes multiple series within one chart (pareto emits two), varying the 4th GUID group so
+ * every series still gets a distinct id.
  */
-function chartExUniqueId(globalId: number): string {
-	return `{00000000-0000-0000-0000-${String(globalId).padStart(12, '0')}}`
+function chartExUniqueId(globalId: number, seriesIdx = 0): string {
+	return `{00000000-0000-0000-${String(seriesIdx).padStart(4, '0')}-${String(globalId).padStart(12, '0')}}`
 }
 
 /** chartEx legend positions are `t|b|l|r`; clamp the classic `'tr'` (and anything else) to `'t'`. */
 function chartExLegendPos(pos: string | undefined): string {
 	return pos === 'b' || pos === 'l' || pos === 'r' ? pos : 't'
+}
+
+/**
+ * The `<cx:axisId>` binding on a `<cx:series>` (which value/category axis the series plots against).
+ *
+ * NOTE — a schema-vs-PowerPoint divergence (the exact mirror of the histogram `binCount` gotcha):
+ * the OpenXML SDK models `cx:axisId` as an `OpenXmlLeafTextElement`, so the OOXML validator only
+ * accepts the text-content form `<cx:axisId>1</cx:axisId>` and flags the `val` attribute as
+ * undeclared. But PowerPoint desktop REFUSES to open a deck using the text form (0x80070570) — it
+ * writes and requires the ATTRIBUTE form `<cx:axisId val="1"/>` (matching the classic `c:axId`).
+ * PowerPoint is the authoritative oracle here, so the attribute form is emitted; the resulting
+ * validator complaint on `cx:axisId/@val` is expected and whitelisted in the schema-case test.
+ */
+function makeChartExAxisId(id: number): string {
+	return voidEl('cx:axisId', { val: id })
 }
 
 /**
@@ -80,13 +98,9 @@ function makeChartExBinning(binning: ChartExBinning | undefined): string {
 	return voidEl('cx:binning', { intervalClosed: binning?.intervalClosed === 'l' ? 'l' : 'r' })
 }
 
-/** Build the `<cx:series>` (title cell, data labels, dataId, and layout-specific `<cx:layoutPr>`). */
-function makeChartExSeries(rel: SlideRelChart): string {
-	const opts = rel.opts
-	const type = opts._type as ChartType
-	const showValue = !!(opts.showValue || opts.showLabel)
-
-	const tx = el(
+/** The `<cx:tx>` series-name cell/value block (shared by every layout that names its series). */
+function makeChartExSeriesName(rel: SlideRelChart): string {
+	return el(
 		'cx:tx',
 		null,
 		raw(
@@ -96,12 +110,47 @@ function makeChartExSeries(rel: SlideRelChart): string {
 			])
 		)
 	)
+}
 
-	// Data labels: chartEx toggles each field via <cx:visibility>. Only emitted when the caller
-	// asked to show values, matching the classic default of no data labels.
-	const dataLabels = showValue
+/**
+ * Data labels: chartEx toggles each field via `<cx:visibility>`. Only emitted when the caller asked
+ * to show values, matching the classic default of no data labels.
+ */
+function makeChartExDataLabels(rel: SlideRelChart): string {
+	const showValue = !!(rel.opts.showValue || rel.opts.showLabel)
+	return showValue
 		? el('cx:dataLabels', { pos: 'outEnd' }, raw(voidEl('cx:visibility', { seriesName: 0, categoryName: 0, value: 1 })))
 		: ''
+}
+
+/**
+ * Build the pareto `<cx:series>` PAIR — pareto is the first chartEx layout that emits more than one
+ * series. Series 0 is a `clusteredColumn` bound to value axis 1 whose `<cx:aggregation/>` tells
+ * PowerPoint to sum the values per category, sort the bars descending, and drive the cumulative
+ * line. Series 1 is the `paretoLine` itself: it carries `ownerIdx="0"` (it derives its data from
+ * series 0, so it has NO `<cx:tx>` or `<cx:dataId>`) and binds to the secondary percentage axis 2.
+ */
+function makeParetoSeries(rel: SlideRelChart): string {
+	const bar = el('cx:series', { layoutId: 'clusteredColumn', uniqueId: chartExUniqueId(rel.globalId, 0) }, [
+		raw(makeChartExSeriesName(rel)),
+		raw(makeChartExDataLabels(rel)),
+		raw(voidEl('cx:dataId', { val: 0 })),
+		raw(el('cx:layoutPr', null, raw(voidEl('cx:aggregation')))),
+		raw(makeChartExAxisId(1)),
+	])
+	const line = el('cx:series', { layoutId: 'paretoLine', ownerIdx: 0, uniqueId: chartExUniqueId(rel.globalId, 1) }, [
+		raw(makeChartExAxisId(2)),
+	])
+	return bar + line
+}
+
+/** Build the `<cx:series>` (title cell, data labels, dataId, and layout-specific `<cx:layoutPr>`). */
+function makeChartExSeries(rel: SlideRelChart): string {
+	const opts = rel.opts
+	const type = opts._type as ChartType
+
+	// Pareto is multi-series (a column series + a cumulative line on a secondary axis).
+	if (type === ChartType.pareto) return makeParetoSeries(rel)
 
 	// Layout-specific series props.
 	let layoutPr = ''
@@ -119,8 +168,8 @@ function makeChartExSeries(rel: SlideRelChart): string {
 	}
 
 	return el('cx:series', { layoutId: chartExLayoutId(type), uniqueId: chartExUniqueId(rel.globalId) }, [
-		raw(tx),
-		raw(dataLabels),
+		raw(makeChartExSeriesName(rel)),
+		raw(makeChartExDataLabels(rel)),
 		raw(voidEl('cx:dataId', { val: 0 })),
 		raw(layoutPr),
 	])
@@ -131,6 +180,8 @@ function makeChartExSeries(rel: SlideRelChart): string {
  * - **waterfall** — a category (id 0) + value (id 1) axis.
  * - **funnel** — a SINGLE category axis, which PowerPoint numbers id 1, with no value axis and no
  *   gridlines (the bars run horizontally off one category scale).
+ * - **pareto** — like histogram (cat id0 gapWidth0 + val id1) PLUS a SECONDARY value axis id2
+ *   scaled 0..1 with `unit="percentage"` that the cumulative `paretoLine` series binds to.
  * Every other layout returns no axes — the hierarchical treemap/sunburst are genuinely axis-free
  * (categories are encoded by the nested tiles/rings, not an axis scale).
  */
@@ -163,6 +214,26 @@ function makeChartExAxes(type: ChartType): string {
 			raw(voidEl('cx:tickLabels')),
 		])
 		return catAxis + valAxis
+	}
+	if (type === ChartType.pareto) {
+		// Aggregated column axes (like histogram: cat id0 gapWidth0 + val id1) …
+		const catAxis = el('cx:axis', { id: 0 }, [
+			raw(voidEl('cx:catScaling', { gapWidth: '0' })),
+			raw(voidEl('cx:tickLabels')),
+		])
+		const valAxis = el('cx:axis', { id: 1 }, [
+			raw(voidEl('cx:valScaling')),
+			raw(voidEl('cx:majorGridlines')),
+			raw(voidEl('cx:tickLabels')),
+		])
+		// … plus the SECONDARY value axis (id2) the cumulative paretoLine plots against: a 0..1
+		// percentage scale, no gridlines (the primary value axis already carries them).
+		const pctAxis = el('cx:axis', { id: 2 }, [
+			raw(voidEl('cx:valScaling', { max: '1', min: '0' })),
+			raw(voidEl('cx:units', { unit: 'percentage' })),
+			raw(voidEl('cx:tickLabels')),
+		])
+		return catAxis + valAxis + pctAxis
 	}
 	return ''
 }

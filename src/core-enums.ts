@@ -45,6 +45,7 @@ export enum ChartType {
 	treemap = 'treemap',
 	sunburst = 'sunburst',
 	histogram = 'histogram',
+	pareto = 'pareto',
 }
 export enum ShapeType {
 	accentBorderCallout1 = 'accentBorderCallout1',
@@ -498,6 +499,7 @@ const CHARTEX_TYPES: ReadonlySet<string> = new Set<string>([
 	ChartType.treemap,
 	ChartType.sunburst,
 	ChartType.histogram,
+	ChartType.pareto,
 ])
 
 /**

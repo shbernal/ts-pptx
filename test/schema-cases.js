@@ -1583,6 +1583,50 @@ export default [
 		},
 	},
 	{
+		// pareto is the first MULTI-SERIES chartEx layout: a `clusteredColumn` series (whose
+		// <cx:aggregation/> sums by category, sorts descending, and drives the cumulative line) plus a
+		// `paretoLine` series bound to a SECONDARY percentage value axis. Each series carries a
+		// <cx:axisId> binding — and that exposes a schema-vs-PowerPoint divergence (the exact mirror of
+		// the histogram binCount gotcha): the OpenXML SDK models `cx:axisId` as a leaf-TEXT element, so
+		// the validator flags the `val` attribute as undeclared, but PowerPoint desktop REFUSES to open
+		// the text-content form (0x80070570) — it writes and requires `<cx:axisId val="N"/>`. PowerPoint
+		// is the authoritative oracle (see the COM smoke), so the attribute form is emitted. This case
+		// therefore tolerates ONLY those `cx:axisId/@val` complaints and fails on any other schema error.
+		name: 'pareto (multi-series chartEx) chart — only the known cx:axisId divergence',
+		fn: async () => {
+			const { buf, zip } = await build((p) => {
+				p.addSlide().addChart(
+					[{ name: 'Defects', labels: ['Scratch', 'Dent', 'Crack', 'Smudge', 'Chip'], values: [45, 30, 15, 7, 3] }],
+					{ type: 'pareto', x: 1, y: 1, w: 8, h: 4.5 }
+				)
+			})
+			const errors = await validateBuf(buf)
+			// The tolerated divergence: schema errors that localize to a <cx:axisId> element. Anything
+			// else is a real regression and fails the case.
+			const unexpected = errors.filter((e) => !/cx:axisId/.test((e.Path && e.Path.XPath) || ''))
+			if (unexpected.length > 0) {
+				const summary = unexpected
+					.slice(0, 5)
+					.map((e) => `  - [${e.ErrorType}] ${e.Description} (path: ${(e.Path && e.Path.XPath) || '?'})`)
+					.join('\n')
+				assert(
+					false,
+					`chart-pareto-chartex: ${unexpected.length} unexpected schema error(s) beyond cx:axisId:\n${summary}`
+				)
+			}
+			const cxPath = listEntries(zip).find((f) => /^ppt\/charts\/chartEx\d+\.xml$/.test(f))
+			assert(cxPath, 'expected a ppt/charts/chartExN.xml part')
+			const cxXml = await readEntry(zip, cxPath)
+			assertIncludes(cxXml, 'layoutId="clusteredColumn"', 'pareto column series')
+			assertIncludes(cxXml, 'layoutId="paretoLine" ownerIdx="0"', 'pareto line series derives from series 0')
+			assertIncludes(cxXml, '<cx:aggregation/>', 'pareto aggregates by category')
+			assertIncludes(cxXml, '<cx:axisId val="1"/>', 'column series binds the primary value axis')
+			assertIncludes(cxXml, '<cx:axisId val="2"/>', 'line series binds the secondary axis')
+			assertIncludes(cxXml, '<cx:valScaling max="1" min="0"/>', 'secondary percentage axis scaled 0..1')
+			assertIncludes(cxXml, '<cx:units unit="percentage"/>', 'secondary axis carries percentage units')
+		},
+	},
+	{
 		// bubble/bubble3D charts can show each bubble's size as a data label.
 		// The `showBubbleSize` option flips the previously hard-coded <c:showBubbleSize val="0"/>;
 		// lock in that the enabled flag stays schema-valid in CT_DLbls.

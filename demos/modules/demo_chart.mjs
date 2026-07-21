@@ -55,6 +55,7 @@ export function genSlides_Chart(pptx) {
 	genSlide24(pptx);
 	genSlide25(pptx);
 	genSlide26(pptx);
+	genSlide27(pptx);
 
 	if (TESTMODE) {
 		pptx.addSection({ title: "Charts-DevTest" });
@@ -192,6 +193,31 @@ function genSlide26(pptx) {
 		type: "histogram",
 		showTitle: true,
 		title: "Exam Score Distribution",
+	});
+}
+
+function genSlide27(pptx) {
+	let slide = pptx.addSlide({ sectionTitle: "Charts" });
+	slide.addTable([[{ text: "Chart Examples: Pareto (chartEx)", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
+
+	// Pareto = descending bars + a cumulative-percentage line on a secondary axis. Give it a
+	// category per defect type + its count; PowerPoint aggregates, sorts, and draws the 0-100% line.
+	const dataPareto = [
+		{
+			name: "Defects",
+			labels: ["Scratch", "Dent", "Crack", "Smudge", "Chip", "Warp", "Stain"],
+			values: [45, 30, 15, 12, 8, 5, 3],
+		},
+	];
+
+	slide.addChart(dataPareto, {
+		x: 0.5,
+		y: 0.6,
+		w: "95%",
+		h: 5.5,
+		type: "pareto",
+		showTitle: true,
+		title: "Defect Pareto Analysis",
 	});
 }
 
