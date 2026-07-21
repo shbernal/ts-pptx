@@ -647,6 +647,20 @@ export interface ChartPropsChartRegionMap {
 	 */
 	geography?: ChartExGeography
 }
+export interface ChartPropsChartStock {
+	/**
+	 * Stock (high-low-close) chart style — selects how many value series the chart expects and how
+	 * they are drawn. The data series must be supplied in the exact order implied by the style:
+	 * - `'hlc'` — High, Low, Close (3 series). The close is marked with a dot.
+	 * - `'ohlc'` — Open, High, Low, Close (4 series). Open→close is drawn as up/down bars.
+	 * - `'vhlc'` — Volume, High, Low, Close (4 series). Volume is a column on its own axis.
+	 * - `'vohlc'` — Volume, Open, High, Low, Close (5 series). Volume column + up/down bars.
+	 *
+	 * `<c:hiLowLines>` connect the high/low of each category in every style.
+	 * @default 'hlc'
+	 */
+	stockStyle?: 'hlc' | 'ohlc' | 'vhlc' | 'vohlc'
+}
 /**
  * Per-series style overrides for a chart.
  * Each entry applies to the series at the same index in the data array.
@@ -768,6 +782,7 @@ export interface ChartOpts
 		ChartPropsChartHistogram,
 		ChartPropsChartBoxWhisker,
 		ChartPropsChartRegionMap,
+		ChartPropsChartStock,
 		ChartPropsDataLabel,
 		ChartPropsDataTable,
 		ChartPropsLegend,

@@ -39,6 +39,7 @@ import { makeCatAxisPlot } from './plot-cat-axis.js'
 import { makeScatterPlot } from './plot-scatter.js'
 import { makeBubblePlot } from './plot-bubble.js'
 import { makePiePlot } from './plot-pie.js'
+import { isVolumeStockStyle, makeStockPlot } from './plot-stock.js'
 
 /**
  * Build the chartSpace/chart header: chartSpace open, title (or autoTitleDeleted),
@@ -127,6 +128,21 @@ function makeChartAxesXml(
 	secondaryCatAxisHasCategoryChart: boolean
 ): string {
 	let strXml = ''
+	// Stock charts drive their own (date/category)+value axis pair. The non-volume styles use just
+	// the primary pair (the generic path below would also produce it), but the volume styles add a
+	// secondary pair for the price series (the volume bar owns the primary pair) — so route all stock
+	// axes here, reusing the shared cat/val emitters. `barDir` defaults to 'col' in the define layer,
+	// which already gives the correct axis positions (category at bottom, value at left).
+	if (rel.opts._type === ChartType.stock) {
+		let stockXml = makeCatAxis(rel.opts, AXIS_ID_CATEGORY_PRIMARY, AXIS_ID_VALUE_PRIMARY)
+		stockXml += makeValAxis(rel.opts, AXIS_ID_VALUE_PRIMARY)
+		if (isVolumeStockStyle(rel.opts.stockStyle)) {
+			// Secondary value axis (right) for the price series, then a hidden secondary category axis.
+			stockXml += makeValAxis(rel.opts, AXIS_ID_VALUE_SECONDARY)
+			stockXml += makeCatAxis({ ...rel.opts, catAxisHidden: true }, AXIS_ID_CATEGORY_SECONDARY, AXIS_ID_VALUE_SECONDARY)
+		}
+		return stockXml
+	}
 	if (rel.opts._type !== ChartType.pie && rel.opts._type !== ChartType.doughnut) {
 		// Param check
 		if (rel.opts.valAxes && rel.opts.valAxes.length > 1 && !usesSecondaryValAxis) {
@@ -520,6 +536,8 @@ function makeChartType(
 		case ChartType.bubble:
 		case ChartType.bubble3d:
 			return makeBubblePlot(chartType, data, opts, valAxisId, catAxisId, valFmtCode)
+		case ChartType.stock:
+			return makeStockPlot(chartType, data, opts, valAxisId, catAxisId, valFmtCode)
 		case ChartType.doughnut:
 		case ChartType.pie:
 			return makePiePlot(chartType, data, opts, valFmtCode)

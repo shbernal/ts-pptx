@@ -130,6 +130,7 @@ export type {
 	ChartExStatistics,
 	ChartPropsChartRegionMap,
 	ChartExGeography,
+	ChartPropsChartStock,
 	ChartPropsDataLabel,
 	ChartPropsDataTable,
 	ChartPropsFillLine,

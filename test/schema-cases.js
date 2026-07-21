@@ -1678,6 +1678,43 @@ export default [
 		},
 	},
 	{
+		// Stock (classic `<c:stockChart>`) — all four styles. The three-value styles (hlc/vhlc) add a
+		// close dot marker + hiLowLines; the open-close styles (ohlc/vohlc) add upDownBars; the volume
+		// styles (vhlc/vohlc) lead with a Volume `<c:barChart>` on the primary axis pair and put the
+		// price series on a secondary pair (4 axes). All four validate cleanly (no schema divergence).
+		name: 'stock charts (all four styles) are schema-valid',
+		fn: async () => {
+			const LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+			const S = (name, values) => ({ name, labels: LABELS, values })
+			const HIGH = S('High', [55, 57, 57, 58, 58])
+			const LOW = S('Low', [11, 12, 13, 11, 35])
+			const CLOSE = S('Close', [32, 35, 34, 35, 43])
+			const OPEN = S('Open', [20, 33, 30, 33, 37])
+			const VOL = S('Volume', [1200, 1500, 900, 1700, 1400])
+			const byStyle = {
+				hlc: [HIGH, LOW, CLOSE],
+				ohlc: [OPEN, HIGH, LOW, CLOSE],
+				vhlc: [VOL, HIGH, LOW, CLOSE],
+				vohlc: [VOL, OPEN, HIGH, LOW, CLOSE],
+			}
+			const { buf, zip } = await build((p) => {
+				for (const [stockStyle, data] of Object.entries(byStyle)) {
+					p.addSlide().addChart(data, { type: 'stock', stockStyle, x: 1, y: 1, w: 8, h: 4.5 })
+				}
+			})
+			await expectNoSchemaErrors(buf, 'chart-stock-classic')
+			// vhlc (slide 3) proves the Volume-bar + secondary-axis combo.
+			const vhlc = await readEntry(zip, 'ppt/charts/chart3.xml')
+			assertIncludes(vhlc, '<c:barChart>', 'vhlc leads with a Volume barChart')
+			assertIncludes(vhlc, '<c:stockChart>', 'vhlc has a price stockChart')
+			assertIncludes(vhlc, '<c:hiLowLines>', 'stock charts draw hi-low lines')
+			assert(!vhlc.includes('<c:upDownBars>'), 'a three-value (vhlc) style has no up-down bars')
+			// ohlc (slide 2) proves the open-close up-down bars.
+			const ohlc = await readEntry(zip, 'ppt/charts/chart2.xml')
+			assertIncludes(ohlc, '<c:upDownBars>', 'ohlc draws open-close up-down bars')
+		},
+	},
+	{
 		// bubble/bubble3D charts can show each bubble's size as a data label.
 		// The `showBubbleSize` option flips the previously hard-coded <c:showBubbleSize val="0"/>;
 		// lock in that the enabled flag stays schema-valid in CT_DLbls.

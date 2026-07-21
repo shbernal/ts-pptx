@@ -58,6 +58,7 @@ export function genSlides_Chart(pptx) {
 	genSlide27(pptx);
 	genSlide28(pptx);
 	genSlide29(pptx);
+	genSlide30(pptx);
 
 	if (TESTMODE) {
 		pptx.addSection({ title: "Charts-DevTest" });
@@ -295,6 +296,36 @@ function genSlide29(pptx) {
 		title: "Revenue by Country",
 		showLegend: true,
 		legendPos: "r",
+	});
+}
+
+function genSlide30(pptx) {
+	let slide = pptx.addSlide({ sectionTitle: "Charts" });
+	slide.addTable([[{ text: "Chart Examples: Stock (High-Low-Close)", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
+
+	// A stock chart draws price series (drawn with invisible lines) connected by hi-low lines. The
+	// `vohlc` style leads with a Volume column on its own axis, then the Open/High/Low/Close series
+	// with open-close up-down bars. Data series MUST be supplied in the style's exact order.
+	const labels = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+	const dataStock = [
+		{ name: "Volume", labels, values: [1200, 1500, 900, 1700, 1400] },
+		{ name: "Open", labels, values: [20, 33, 30, 33, 37] },
+		{ name: "High", labels, values: [55, 57, 57, 58, 58] },
+		{ name: "Low", labels, values: [11, 12, 13, 11, 35] },
+		{ name: "Close", labels, values: [32, 35, 34, 35, 43] },
+	];
+
+	slide.addChart(dataStock, {
+		x: 0.5,
+		y: 0.6,
+		w: "95%",
+		h: 5.5,
+		type: "stock",
+		stockStyle: "vohlc",
+		showTitle: true,
+		title: "Weekly Price (Volume + OHLC)",
+		showLegend: true,
+		legendPos: "b",
 	});
 }
 

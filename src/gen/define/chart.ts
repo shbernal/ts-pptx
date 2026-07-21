@@ -396,6 +396,20 @@ export function addChartDefinition(
 	// ST_Overlap (integer -100..100). Out-of-range values trigger PowerPoint repair.
 	normalizeChartOptions(options)
 
+	// Stock charts require their series in a fixed order (see `stockStyle`); default to the
+	// three-value High-Low-Close style and warn (rather than corrupt) when the number of data
+	// series doesn't match the style, since PowerPoint expects an exact count per style.
+	if (options._type === ChartType.stock) {
+		const STOCK_SERIES_COUNT: Record<string, number> = { hlc: 3, ohlc: 4, vhlc: 4, vohlc: 5 }
+		if (!Object.keys(STOCK_SERIES_COUNT).includes(options.stockStyle || '')) options.stockStyle = 'hlc'
+		const expected = STOCK_SERIES_COUNT[options.stockStyle as string]
+		if (tmpData.length !== expected) {
+			warn(
+				`stock chart style "${options.stockStyle}" expects ${expected} data series (got ${tmpData.length}); the chart may not render as intended.`
+			)
+		}
+	}
+
 	// STEP 4: Set props
 	resultObject._type = SlideObjectType.chart
 	resultObject.options = options

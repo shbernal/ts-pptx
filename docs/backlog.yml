@@ -729,7 +729,13 @@ items:
       dedicated colors part was needed (the generic chartEx colorStyle matched
       PowerPoint's own). No schema divergence — validates clean; reads back as
       ChartType 140. A new `geography` opt exposes cultureLanguage/cultureRegion.
-      Remaining (not this issue): only classic-namespace stock + surface.
+      Classic-namespace stock also shipped 2026-07-21 (Track A of the plan, separate
+      from this chartEx issue): a `<c:stockChart>` with fixed-order price series drawn
+      with invisible lines + `<c:hiLowLines>`; ohlc/vohlc add `<c:upDownBars>`, and the
+      volume styles (vhlc/vohlc) lead with a `<c:barChart>` Volume series on the primary
+      axis pair with the price series on a secondary pair (4-axis combo, second cat axis
+      hidden). New `stockStyle` opt; reads back as ChartType 88/89/90/91; no schema
+      divergence. See src/gen/chart/plot-stock.ts. Remaining: only classic-namespace surface.
     evidence:
       kinds:
         - local-source-inspection
@@ -749,11 +755,13 @@ items:
         - test/regression/chart-pareto-xml.test.mjs
         - test/regression/chart-boxwhisker-xml.test.mjs
         - test/regression/chart-regionmap-xml.test.mjs
+        - test/regression/chart-stock-xml.test.mjs
+        - src/gen/chart/plot-stock.ts
       schema_fixture: test/schema-cases.js "treemap + sunburst (hierarchical chartEx) charts are schema-valid"
       validator_result: pass
       powerpoint_result: opens in PowerPoint desktop (COM smoke); treemap/sunburst/histogram/pareto/boxWhisker/regionMap read back as ChartType 117/120/118/122/121/140 (xlTreemap/xlSunburst/xlHistogram/xlPareto/xlBoxwhisker/xlRegionMap)
       spec_refs: []
-    next_action: implement-remaining-classic-stock-surface-per-plan
+    next_action: implement-remaining-classic-surface-per-plan
 
   - id: upstream-issue-904
     source: "gitbrent/PptxGenJS#904"

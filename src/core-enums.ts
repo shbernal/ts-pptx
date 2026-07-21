@@ -40,6 +40,7 @@ export enum ChartType {
 	pie = 'pie',
 	radar = 'radar',
 	scatter = 'scatter',
+	stock = 'stock',
 	waterfall = 'waterfall',
 	funnel = 'funnel',
 	treemap = 'treemap',
