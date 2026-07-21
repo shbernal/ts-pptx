@@ -100,6 +100,10 @@ export interface PresSlide {
 	addTable: (tableRows: TableRow[], options?: TableProps) => PresSlide
 	addText: (text: string | number | TextProps[], options?: TextPropsOptions) => PresSlide
 	addAnimation: (options: AnimationProps) => PresSlide
+	/** Group child object descriptors into a single PowerPoint group (`<p:grpSp>`). */
+	addGroup: (children: GroupChildProps[], options?: GroupProps) => PresSlide
+	/** Group objects already on this slide, addressed by their `objectName`, into a single group. */
+	groupObjects: (objectNames: string[], options?: GroupProps) => PresSlide
 
 	readonly newAutoPagedSlides?: PresSlide[]
 
