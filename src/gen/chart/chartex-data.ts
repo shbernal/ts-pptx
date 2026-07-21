@@ -10,36 +10,61 @@
  * references here line up 1:1 with the workbook written by {@link ./embed-xlsx}.
  */
 
+import { ChartType } from '../../core-enums.js'
 import type { SlideRelChart } from '../../types/internal.js'
 import { warn } from '../../log.js'
 import { el, raw, voidEl } from '../oxml/el.js'
-import { dataValues, firstLabelGroup } from './data-refs.js'
+import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
+
+/**
+ * The hierarchical chartEx layouts (treemap, sunburst) plot a numeric dimension PowerPoint tags
+ * `type="size"` rather than the `type="val"` the flat layouts (waterfall, funnel) use. The value
+ * still comes from the series' `values`; only the dimension tag differs.
+ */
+function valueDimType(type: ChartType): 'size' | 'val' {
+	return type === ChartType.treemap || type === ChartType.sunburst ? 'size' : 'val'
+}
 
 /**
  * Build the `<cx:chartData>` for a single-series chartEx chart.
  *
- * `<cx:data id="0">` carries a `<cx:strDim type="cat">` (category labels) and a
- * `<cx:numDim type="val">` (series values); `<cx:externalData r:id="rId1">` points at the
- * embedded workbook (same `rId1` the chart part's `.rels` maps to the `.xlsx`).
+ * `<cx:data id="0">` carries a `<cx:strDim type="cat">` (category labels) and a numeric dimension
+ * (`type="val"` for flat layouts, `type="size"` for the hierarchical treemap/sunburst);
+ * `<cx:externalData r:id="rId1">` points at the embedded workbook (same `rId1` the chart part's
+ * `.rels` maps to the `.xlsx`).
+ *
+ * Category labels are `string[][]` — one inner array per hierarchy level (leaf first). A flat chart
+ * has a single level; treemap/sunburst carry several. Each level becomes one `<cx:lvl>`, emitted
+ * leaf-first to match PowerPoint. The workbook ({@link ./embed-xlsx}) lays the levels out in
+ * columns A..N (outermost in A, leaf in the last label column) with the value series in the next
+ * column; the single `<cx:f>` range on each dimension spans exactly those columns.
  * @param {SlideRelChart} rel - the registered chart
  * @return {string} `<cx:chartData>…</cx:chartData>` XML
  */
 export function makeChartExData(rel: SlideRelChart): string {
 	const series = rel.data[0]
-	const cats = firstLabelGroup(series)
+	const type = rel.opts._type as ChartType
+	const levels = dataLabels(series)
+	const totLvl = Math.max(levels.length, 1) // flat charts still occupy one label column (A)
 	const vals = dataValues(series)
-	// Row span is driven by whichever axis has more points; the workbook writes both to the same rows.
-	const ptCount = Math.max(cats.length, vals.length)
+	// Row span is driven by whichever dimension has more points; the workbook writes both to the same rows.
+	const ptCount = Math.max(firstLabelGroup(series).length, vals.length)
 	const lastRow = ptCount + 1
+	const valueCol = totLvl + 1 // value series sits in the column right after all label columns
 
-	// Category (string) dimension — column A.
-	const catPts = cats.map((label, idx) => el('cx:pt', { idx }, label ?? '')).join('')
+	// Category (string) dimension — one <cx:lvl> per hierarchy level, leaf-first, over columns A..totLvl.
+	const catLvls = levels
+		.map((group) => {
+			const pts = group.map((label, idx) => el('cx:pt', { idx }, label ?? '')).join('')
+			return el('cx:lvl', { ptCount: group.length }, raw(pts))
+		})
+		.join('')
 	const catDim = el('cx:strDim', { type: 'cat' }, [
-		raw(el('cx:f', null, `Sheet1!$A$2:$A$${lastRow}`)),
-		raw(el('cx:lvl', { ptCount }, raw(catPts))),
+		raw(el('cx:f', null, sheetRangeRef(1, 2, totLvl, lastRow))),
+		raw(catLvls),
 	])
 
-	// Value (number) dimension — column B. Skip null/non-finite points (a valid sparse cache);
+	// Numeric dimension — the value column. Skip null/non-finite points (a valid sparse cache);
 	// warn on non-finite, matching the classic side's `numCachePt` policy.
 	let valPts = ''
 	vals.forEach((value, idx) => {
@@ -50,8 +75,8 @@ export function makeChartExData(rel: SlideRelChart): string {
 		}
 		valPts += el('cx:pt', { idx }, value)
 	})
-	const valDim = el('cx:numDim', { type: 'val' }, [
-		raw(el('cx:f', null, `Sheet1!$B$2:$B$${lastRow}`)),
+	const valDim = el('cx:numDim', { type: valueDimType(type) }, [
+		raw(el('cx:f', null, sheetRangeRef(valueCol, 2, valueCol, lastRow))),
 		raw(el('cx:lvl', { ptCount, formatCode: 'General' }, raw(valPts))),
 	])
 
@@ -60,4 +85,15 @@ export function makeChartExData(rel: SlideRelChart): string {
 	// `id` (r:id → the embedded workbook); it carries no `autoUpdate` and no child elements.
 	const externalData = voidEl('cx:externalData', { 'r:id': 'rId1' })
 	return el('cx:chartData', null, [raw(externalData), raw(data)])
+}
+
+/**
+ * The `Sheet1` cell holding the series name (the numeric dimension's header) — column immediately
+ * after all label columns, row 1. Flat charts land on `$B$1`; a 3-level treemap on `$D$1`.
+ * @param {SlideRelChart} rel - the registered chart
+ * @return {string} an absolute single-cell reference, e.g. `Sheet1!$B$1`
+ */
+export function chartExSeriesNameRef(rel: SlideRelChart): string {
+	const totLvl = Math.max(dataLabels(rel.data[0]).length, 1)
+	return sheetCellRef(totLvl + 1, 1)
 }

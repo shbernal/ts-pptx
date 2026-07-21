@@ -2,7 +2,8 @@
  * PptxGenJS: chartEx (`cx:`) Chart Assembly
  *
  * Builds a chartEx chart part `ppt/charts/chartEx{N}.xml` — the `<cx:chartSpace>` for the
- * Office-2016 chart family (currently `waterfall`, `funnel`). This is the chartEx analogue of
+ * Office-2016 chart family (currently `waterfall`, `funnel`, `treemap`, `sunburst`). This is the
+ * chartEx analogue of
  * {@link ./chart-xml} (`makeXmlCharts`): a pure string builder, no I/O, no model mutation.
  *
  * chartEx differs from the classic `<c:chartSpace>` in three ways the rest of the package must
@@ -21,7 +22,7 @@ import type { SlideRelChart } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { createChartTextFonts } from './chart-parts.js'
-import { makeChartExData } from './chartex-data.js'
+import { chartExSeriesNameRef, makeChartExData } from './chartex-data.js'
 
 const CX_NS = 'http://schemas.microsoft.com/office/drawing/2014/chartex'
 const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
@@ -37,6 +38,10 @@ export function chartExLayoutId(type: ChartType): string {
 			return 'waterfall'
 		case ChartType.funnel:
 			return 'funnel'
+		case ChartType.treemap:
+			return 'treemap'
+		case ChartType.sunburst:
+			return 'sunburst'
 		default:
 			return ''
 	}
@@ -65,7 +70,12 @@ function makeChartExSeries(rel: SlideRelChart): string {
 	const tx = el(
 		'cx:tx',
 		null,
-		raw(el('cx:txData', null, [raw(el('cx:f', null, 'Sheet1!$B$1')), raw(el('cx:v', null, rel.data[0]?.name ?? ''))]))
+		raw(
+			el('cx:txData', null, [
+				raw(el('cx:f', null, chartExSeriesNameRef(rel))),
+				raw(el('cx:v', null, rel.data[0]?.name ?? '')),
+			])
+		)
 	)
 
 	// Data labels: chartEx toggles each field via <cx:visibility>. Only emitted when the caller
@@ -74,11 +84,15 @@ function makeChartExSeries(rel: SlideRelChart): string {
 		? el('cx:dataLabels', { pos: 'outEnd' }, raw(voidEl('cx:visibility', { seriesName: 0, categoryName: 0, value: 1 })))
 		: ''
 
-	// Layout-specific series props. waterfall: subtotal/total column indices.
+	// Layout-specific series props.
 	let layoutPr = ''
 	if (type === ChartType.waterfall && Array.isArray(opts.subtotals) && opts.subtotals.length > 0) {
+		// waterfall: subtotal/total column indices.
 		const idxs = opts.subtotals.map((idx) => voidEl('cx:idx', { val: idx })).join('')
 		layoutPr = el('cx:layoutPr', null, raw(el('cx:subtotals', null, raw(idxs))))
+	} else if (type === ChartType.treemap) {
+		// treemap: how parent-category banners are placed (PowerPoint's default is `overlapping`).
+		layoutPr = el('cx:layoutPr', null, raw(voidEl('cx:parentLabelLayout', { val: 'overlapping' })))
 	}
 
 	return el('cx:series', { layoutId: chartExLayoutId(type), uniqueId: chartExUniqueId(rel.globalId) }, [
@@ -94,7 +108,8 @@ function makeChartExSeries(rel: SlideRelChart): string {
  * - **waterfall** — a category (id 0) + value (id 1) axis.
  * - **funnel** — a SINGLE category axis, which PowerPoint numbers id 1, with no value axis and no
  *   gridlines (the bars run horizontally off one category scale).
- * Every other layout returns no axes.
+ * Every other layout returns no axes — the hierarchical treemap/sunburst are genuinely axis-free
+ * (categories are encoded by the nested tiles/rings, not an axis scale).
  */
 function makeChartExAxes(type: ChartType): string {
 	// chartEx catScaling gapWidth is a fraction (1.0 = 100%), NOT the classic integer percent.

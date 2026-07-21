@@ -677,8 +677,8 @@ items:
     source: "gitbrent/PptxGenJS#961"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-20
-    status: partially-implemented
+    last_reviewed: 2026-07-21
+    status: implemented
     priority: p3
     target_area:
       - chart-ooxml
@@ -687,19 +687,21 @@ items:
     non_target_reasons: []
     summary: Requested Sunburst chart support using newer chart extension namespaces.
     current_project_notes: >
-      IN PROGRESS 2026-07-21. The chartEx (cx:) subsystem now exists: waterfall
-      AND funnel shipped end-to-end (separate chartEx{N}.xml part in the
-      2014/chartex ns, chartex+xml content type, mc:AlternateContent slide
-      reference with a Fallback shape, and the mandatory style/colors sidecar
-      parts PowerPoint requires or it reports 0x80070570). See
-      src/gen/chart/chartex-xml.ts, chartex-data.ts, chartex-style.ts. Funnel
-      confirmed against a PowerPoint-authored reference (AddChart2 type 123): it
-      uses a DIFFERENT feature namespace than waterfall (cx2=2015/10/21/chartex vs
-      cx1=2015/9/8/chartex) and a single category axis (no value axis). Sunburst
-      specifically is not yet built; it is a follow-on cx layout (hierarchical
-      categories, no axes) on the same infrastructure. Remaining cx types:
-      treemap, sunburst, histogram, pareto, box-and-whisker, map; plus
-      classic-namespace stock + surface.
+      SUNBURST SHIPPED 2026-07-21 (with treemap, the hierarchical cx pair). The
+      chartEx (cx:) subsystem carries waterfall, funnel, treemap and sunburst
+      end-to-end (separate chartEx{N}.xml part in the 2014/chartex ns, chartex+xml
+      content type, mc:AlternateContent slide reference with a Fallback shape, and
+      the mandatory style/colors sidecar parts PowerPoint requires or it reports
+      0x80070570). See src/gen/chart/chartex-xml.ts, chartex-data.ts,
+      chartex-style.ts. Treemap + sunburst were confirmed against
+      PowerPoint-authored references (AddChart2 type 117 / 120) and read back as
+      those types over COM: they use the BASE feature namespace cx1 (like
+      waterfall, not funnel's cx2), are axis-free, and carry a MULTI-LEVEL category
+      dimension — one <cx:lvl> per hierarchy level (leaf-first) under a single
+      spanning <cx:f> — plus a numeric dim tagged type="size" (not "val").
+      Treemap adds <cx:layoutPr><cx:parentLabelLayout val="overlapping"/>;
+      sunburst has no layoutPr. Remaining cx types (not this issue): histogram,
+      pareto, box-and-whisker, map; plus classic-namespace stock + surface.
     evidence:
       kinds:
         - local-source-inspection
@@ -710,14 +712,16 @@ items:
       local_files:
         - src/core-enums.ts
         - src/gen/chart/chartex-xml.ts
+        - src/gen/chart/chartex-data.ts
         - src/gen/chart/chartex-style.ts
         - test/regression/chart-waterfall-xml.test.mjs
         - test/regression/chart-funnel-xml.test.mjs
-      schema_fixture: test/schema-cases.js "funnel (chartEx) chart is schema-valid"
+        - test/regression/chart-treemap-sunburst-xml.test.mjs
+      schema_fixture: test/schema-cases.js "treemap + sunburst (hierarchical chartEx) charts are schema-valid"
       validator_result: pass
-      powerpoint_result: opens in PowerPoint desktop (COM smoke); funnel reads back as ChartType 123 (xlFunnel)
+      powerpoint_result: opens in PowerPoint desktop (COM smoke); treemap/sunburst read back as ChartType 117/120 (xlTreemap/xlSunburst)
       spec_refs: []
-    next_action: implement-remaining-chartEx-and-classic-stock-surface-per-plan
+    next_action: implement-remaining-chartEx-histogram-pareto-box-map-and-classic-stock-surface-per-plan
 
   - id: upstream-issue-904
     source: "gitbrent/PptxGenJS#904"

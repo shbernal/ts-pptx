@@ -1528,6 +1528,37 @@ export default [
 		},
 	},
 	{
+		// treemap + sunburst are the hierarchical chartEx (cx:) layouts. They carry a MULTI-LEVEL
+		// category dimension (several <cx:lvl> under one spanning <cx:f>) and a numeric dim tagged
+		// type="size". Prove the nested-category part — the trickiest chartEx shape — validates.
+		name: 'treemap + sunburst (hierarchical chartEx) charts are schema-valid',
+		fn: async () => {
+			const data = [
+				{
+					name: 'Population',
+					labels: [
+						['Seattle', 'Portland', 'SF', 'LA', 'Austin', 'Dallas'],
+						['WA', 'OR', 'CA', 'CA', 'TX', 'TX'],
+						['West', 'West', 'West', 'West', 'South', 'South'],
+					],
+					values: [750, 650, 880, 3900, 970, 1340],
+				},
+			]
+			for (const type of ['treemap', 'sunburst']) {
+				const { buf, zip } = await build((p) => {
+					p.addSlide().addChart(data, { type, x: 1, y: 1, w: 8, h: 4.5, showValue: true })
+				})
+				await expectNoSchemaErrors(buf, `chart-${type}-chartex`)
+				const cxPath = listEntries(zip).find((f) => /^ppt\/charts\/chartEx\d+\.xml$/.test(f))
+				assert(cxPath, 'expected a ppt/charts/chartExN.xml part')
+				const cxXml = await readEntry(zip, cxPath)
+				assertIncludes(cxXml, `layoutId="${type}"`, `${type} layoutId`)
+				assertIncludes(cxXml, '<cx:strDim type="cat"><cx:f>Sheet1!$A$2:$C$7</cx:f>', 'multi-level category dim')
+				assertIncludes(cxXml, '<cx:numDim type="size">', 'size-tagged numeric dim')
+			}
+		},
+	},
+	{
 		// bubble/bubble3D charts can show each bubble's size as a data label.
 		// The `showBubbleSize` option flips the previously hard-coded <c:showBubbleSize val="0"/>;
 		// lock in that the enabled flag stays schema-valid in CT_DLbls.

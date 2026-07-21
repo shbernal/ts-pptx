@@ -52,6 +52,8 @@ export function genSlides_Chart(pptx) {
 	genSlide21(pptx);
 	genSlide22(pptx);
 	genSlide23(pptx);
+	genSlide24(pptx);
+	genSlide25(pptx);
 
 	if (TESTMODE) {
 		pptx.addSection({ title: "Charts-DevTest" });
@@ -114,6 +116,56 @@ function genSlide23(pptx) {
 		type: "funnel",
 		showTitle: true,
 		title: "Sales Pipeline",
+		showValue: true,
+	});
+}
+
+// Shared 3-level hierarchy for the treemap + sunburst demos. `labels` is leaf-first:
+// [ city (leaf), state, region (root) ]; each level is a full-length parallel array.
+const HIERARCHY_DATA = [
+	{
+		name: "Population (000s)",
+		labels: [
+			["Seattle", "Portland", "San Francisco", "Los Angeles", "Austin", "Dallas", "Miami", "Atlanta"],
+			["WA", "OR", "CA", "CA", "TX", "TX", "FL", "GA"],
+			["West", "West", "West", "West", "South", "South", "South", "South"],
+		],
+		values: [750, 650, 880, 3900, 970, 1340, 440, 500],
+	},
+];
+
+// SLIDE 24: Treemap Chart (chartEx / Office 2016 — renders in PowerPoint 2016+/M365)
+function genSlide24(pptx) {
+	let slide = pptx.addSlide({ sectionTitle: "Charts" });
+	slide.addTable([[{ text: "Chart Examples: Treemap (chartEx)", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
+
+	slide.addChart(HIERARCHY_DATA, {
+		x: 0.5,
+		y: 0.6,
+		w: "95%",
+		h: 5.5,
+		type: "treemap",
+		showTitle: true,
+		title: "US City Population by Region",
+		showValue: true,
+		showLegend: true,
+		legendPos: "t",
+	});
+}
+
+// SLIDE 25: Sunburst Chart (chartEx / Office 2016 — renders in PowerPoint 2016+/M365)
+function genSlide25(pptx) {
+	let slide = pptx.addSlide({ sectionTitle: "Charts" });
+	slide.addTable([[{ text: "Chart Examples: Sunburst (chartEx)", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
+
+	slide.addChart(HIERARCHY_DATA, {
+		x: 0.5,
+		y: 0.6,
+		w: "95%",
+		h: 5.5,
+		type: "sunburst",
+		showTitle: true,
+		title: "US City Population by Region",
 		showValue: true,
 	});
 }

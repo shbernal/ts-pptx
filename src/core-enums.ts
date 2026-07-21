@@ -42,6 +42,8 @@ export enum ChartType {
 	scatter = 'scatter',
 	waterfall = 'waterfall',
 	funnel = 'funnel',
+	treemap = 'treemap',
+	sunburst = 'sunburst',
 }
 export enum ShapeType {
 	accentBorderCallout1 = 'accentBorderCallout1',
@@ -489,7 +491,12 @@ export function asChartType(name: CHART_NAME): ChartType {
  * (older Office, Google Slides, Keynote and LibreOffice show the `<mc:Fallback>` shape instead).
  * See `gen/chart/chartex-xml.ts`.
  */
-const CHARTEX_TYPES: ReadonlySet<string> = new Set<string>([ChartType.waterfall, ChartType.funnel])
+const CHARTEX_TYPES: ReadonlySet<string> = new Set<string>([
+	ChartType.waterfall,
+	ChartType.funnel,
+	ChartType.treemap,
+	ChartType.sunburst,
+])
 
 /**
  * Is `type` a chartEx (cx:) chart? Accepts a `ChartType`/`CHART_NAME` string; anything else —
