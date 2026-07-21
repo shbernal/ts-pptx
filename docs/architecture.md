@@ -21,15 +21,28 @@ exports and let this repository own the internal OOXML generation details.
 - `src/index.ts`, `src/node.ts`, `src/browser.ts`, `src/standalone.ts`, and
   `src/core.ts` define the public entry points described by `package.json`
   exports.
-- `src/pptxgen.ts` owns the main presentation class and package export flow.
+- `src/pptxgen.ts` owns the main presentation class: presentation-level state,
+  the authoring API façade (`addSlide`, `defineSlideMaster`, …), and the metadata
+  and enum accessors. `write`/`writeFile`/`stream` are thin façades over the
+  packaging layer.
+- `src/package/assemble.ts` owns package assembly: `writePackage` turns an authored
+  deck into every OOXML part (`[Content_Types].xml`, the rels graph, docProps,
+  theme, per-slide/layout/master parts, comments, chart/media rels) and hands the
+  bytes to the ZIP writer. It takes a structural `PackageSource` the presentation
+  class satisfies, so it does not depend on the class.
 - `src/slide.ts` owns slide-level object collection and public slide methods.
 - `src/gen/` holds the internal OOXML generators as a layered tree mirroring
   `src/read/`: `gen/define/*` normalizes user options onto the slide model, and
   `gen/{drawingml,slide,pres,opc,chart,table,anim}/*` serialize that model to
-  OOXML at export time. `src/gen-utils.ts` holds only the cross-cutting helpers
-  that belong to no single part (XML escaping, object names, rel ids).
-- `src/core-interfaces.ts` and `src/core-enums.ts` define the public typed
-  contract.
+  OOXML at export time. Chart emission is split per plot family under `gen/chart/`
+  (`chart-parts` → `chart-axes` / `plot-*` → `chart-xml`) behind the `makeChartType`
+  dispatch. `src/gen-utils.ts` holds only the cross-cutting helpers that belong to
+  no single part (XML escaping, object names, rel ids).
+- `src/core-interfaces.ts` and `src/core-enums.ts` define the public typed contract.
+  `core-interfaces.ts` is a re-export barrel over `src/types/*` (split by domain).
+  The generator-internal `*Internal` wire shapes live in `src/types/internal.ts`
+  and are **not** re-exported — internal code imports them from there directly, the
+  same non-published convention as `units-internal.ts`.
 - `scripts/package-smoke.mjs` verifies the packed package boundary from a
   consumer perspective.
 
@@ -59,7 +72,8 @@ export time. Each module opens with a TSDoc header stating its job; larger files
 | Theme colors | — | `gen/pres/theme.ts` `buildThemeClrScheme` / `makeXmlTheme` |
 | Coordinates & units (in → EMU) | `units.ts` (strict public primitives); `units-internal.ts` `getSmartParseNumber` (lenient generator layer) | — |
 | Colors, fills, borders, shadows | — | `gen/drawingml/color.ts` `createColorElement`; `gen/drawingml/fill.ts` `genXmlColorSelection` / `genXml*Fill`; `gen/drawingml/line.ts` `genXmlLineFill` / `createLineCap`; `gen/drawingml/effect.ts` `createShadowElement` / `createGlowElement` |
-| Package assembly & export | `pptxgen.ts` `exportPresentation` (`write` / `writeFile` / `stream`) | `gen/opc/content-types.ts` `makeXmlContTypes` / `gen/opc/root-rels.ts` `makeXmlRootRels` / per-part rels |
+| Package assembly & export | `package/assemble.ts` `writePackage` (behind `pptxgen.ts` `write` / `writeFile` / `stream`) | `gen/opc/content-types.ts` `makeXmlContTypes` / `gen/opc/root-rels.ts` `makeXmlRootRels` / per-part rels |
+| HTML `<table>` → slides (live DOM) | `browser.ts` `tableToSlides` (browser/standalone build only) | `gen/table/html-dom.ts` `genTableToSlides` |
 | Public API surface | `pptxgen.ts` (class), `slide.ts` (slide methods) | — |
 | Option / type definitions | `core-interfaces.ts` | — |
 | Enums & shared constants | `core-enums.ts` | — |
@@ -71,6 +85,12 @@ export time. Each module opens with a TSDoc header stating its job; larger files
 - `dist/` is generated release output, not hand-edited source.
 - Internal OOXML generators are implementation details unless deliberately
   exposed through `package.json` exports and public declarations.
+- Platform differences go through the `RuntimeAdapter` seam (`src/runtime/*`): the
+  `node`/`browser` entry subclasses inject the matching adapter into the shared core
+  class. Live-DOM features that only work in a browser (currently `tableToSlides`)
+  are defined on the browser entry subclass, not the core class, so they stay off
+  the Node build and out of the shared chunk — their code bundles into the
+  browser/standalone chunks alone.
 - Downstream deck-production workflows belong in the consuming project unless the
   behavior is broadly reusable for PptxGenJS consumers.
 
