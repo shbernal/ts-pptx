@@ -272,6 +272,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Internal
 
+- **Extracted the package-assembly pipeline out of the `PptxGenJS` god-class (no API change).**
+  The write path — building `[Content_Types].xml`, the `_rels` graph, docProps, theme, the
+  per-slide/layout/master parts, comments, and chart/media rels, then handing the bytes to the
+  ZIP writer — moved from three private methods on the class (`exportPresentation`,
+  `createChartMediaRels`, `registerTransitionSounds`, ~210 lines) into `src/package/assemble.ts`
+  as `writePackage`. It takes a structural `PackageSource` (`{ runtime, presentation,
+  customProperties, tableStyles, fontMetrics }`) that the class satisfies, so packaging no longer
+  depends on the class — the same pipeline can be driven from any assembled deck state, which is
+  the seam a future "emit parts without zipping" capability builds on. `PptxGenJS` (1,422 → 1,152
+  lines) keeps `stream`/`write`/`writeFile` as one-line façades over `writePackage`. All three
+  extracted methods were private, so the public `.d.ts` surface is unchanged and the demo decks
+  re-emit byte-identically (1,437 parts).
 - **Split the two remaining 2k-line modules (no API change).** `src/gen/chart/chart-xml.ts`
   (2,231 lines) is now seven modules along the seams its own call graph already had, which
   turned out to be acyclic: `chart-parts.ts` holds the leaf fragment builders every region
