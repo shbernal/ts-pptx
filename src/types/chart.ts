@@ -624,6 +624,30 @@ export interface ChartPropsChartBoxWhisker {
 	statistics?: ChartExStatistics
 }
 /**
+ * Geography configuration for a `regionMap` (filled-map) chart. A region map colors each geographic
+ * area by its value; the category labels are region names (countries, states, provinces, …) that
+ * PowerPoint resolves against its Bing-backed geography database when the deck is opened.
+ *
+ * These fields tell PowerPoint how to interpret ambiguous region names (e.g. "Georgia" the country
+ * vs. the US state). They do NOT change what PptxGenJS writes beyond the `<cx:geography>` hint —
+ * the actual map is resolved and rendered by PowerPoint 2016+/Microsoft 365 at open time, so the
+ * region names must match PowerPoint's geography database or the map renders blank.
+ */
+export interface ChartExGeography {
+	/** BCP-47 language used to interpret the region names, e.g. `'en-US'` (the default). */
+	cultureLanguage?: string
+	/** ISO region the names are scoped to, e.g. `'US'` (the default) or `'FR'`. */
+	cultureRegion?: string
+}
+export interface ChartPropsChartRegionMap {
+	/**
+	 * Geography configuration for a `regionMap` chart. Omit for PowerPoint's defaults
+	 * (`cultureLanguage: 'en-US'`, `cultureRegion: 'US'`).
+	 * @example { cultureLanguage: 'en-US', cultureRegion: 'FR' }
+	 */
+	geography?: ChartExGeography
+}
+/**
  * Per-series style overrides for a chart.
  * Each entry applies to the series at the same index in the data array.
  * Unset fields fall back to the chart-level option.
@@ -743,6 +767,7 @@ export interface ChartOpts
 		ChartPropsChartWaterfall,
 		ChartPropsChartHistogram,
 		ChartPropsChartBoxWhisker,
+		ChartPropsChartRegionMap,
 		ChartPropsDataLabel,
 		ChartPropsDataTable,
 		ChartPropsLegend,

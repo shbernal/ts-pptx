@@ -1651,6 +1651,33 @@ export default [
 		},
 	},
 	{
+		// Region map (chartEx `regionMap`). Unlike pareto/histogram it has no schema divergence — the
+		// colorVal numeric dim + the <cx:geography> hint (all three attributes schema-required) validate
+		// cleanly. The un-reproducible <cx:geoCache> Bing blob is omitted; PowerPoint re-resolves on open.
+		name: 'region-map (chartEx) chart is schema-valid',
+		fn: async () => {
+			const { buf, zip } = await build((p) => {
+				p.addSlide().addChart(
+					[{ name: 'Sales', labels: ['United States', 'Canada', 'Mexico', 'Brazil'], values: [100, 60, 40, 55] }],
+					{ type: 'regionMap', x: 1, y: 1, w: 8, h: 4.5, geography: { cultureLanguage: 'fr-FR', cultureRegion: 'FR' } }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'chart-regionmap-chartex')
+			const cxPath = listEntries(zip).find((f) => /^ppt\/charts\/chartEx\d+\.xml$/.test(f))
+			assert(cxPath, 'expected a ppt/charts/chartExN.xml part')
+			const cxXml = await readEntry(zip, cxPath)
+			assertIncludes(cxXml, 'layoutId="regionMap"', 'regionMap series layout')
+			assertIncludes(cxXml, '<cx:numDim type="colorVal">', 'value dim tagged colorVal')
+			assertIncludes(
+				cxXml,
+				'<cx:geography cultureLanguage="fr-FR" cultureRegion="FR" attribution="Powered by Bing"/>',
+				'geography opt drives culture language/region'
+			)
+			assert(!cxXml.includes('<cx:geoCache'), 'the Bing geometry cache is omitted')
+			assert(!cxXml.includes('<cx:axis'), 'regionMap is axis-free')
+		},
+	},
+	{
 		// bubble/bubble3D charts can show each bubble's size as a data label.
 		// The `showBubbleSize` option flips the previously hard-coded <c:showBubbleSize val="0"/>;
 		// lock in that the enabled flag stays schema-valid in CT_DLbls.

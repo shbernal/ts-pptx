@@ -18,12 +18,15 @@ import { el, raw, voidEl } from '../oxml/el.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 
 /**
- * The hierarchical chartEx layouts (treemap, sunburst) plot a numeric dimension PowerPoint tags
- * `type="size"` rather than the `type="val"` the flat layouts (waterfall, funnel) use. The value
- * still comes from the series' `values`; only the dimension tag differs.
+ * The numeric-dimension tag PowerPoint expects varies by layout. The flat layouts (waterfall,
+ * funnel, histogram, pareto, boxWhisker) use `type="val"`; the hierarchical treemap/sunburst use
+ * `type="size"`; a `regionMap` uses `type="colorVal"` (the value drives each region's fill color).
+ * The value always comes from the series' `values`; only the dimension tag differs.
  */
-function valueDimType(type: ChartType): 'size' | 'val' {
-	return type === ChartType.treemap || type === ChartType.sunburst ? 'size' : 'val'
+function valueDimType(type: ChartType): 'size' | 'val' | 'colorVal' {
+	if (type === ChartType.treemap || type === ChartType.sunburst) return 'size'
+	if (type === ChartType.regionMap) return 'colorVal'
+	return 'val'
 }
 
 /**

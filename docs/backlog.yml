@@ -716,8 +716,20 @@ items:
       NO axisId binding, and a cat(id0 gapWidth1)+val(id1) axis pair; a new
       `statistics` opt exposes the quartile method and visibility flags). Unlike
       pareto it has NO schema divergence — it validates with zero errors and reads
-      back as ChartType 121. Remaining cx type (not this issue): map; plus
-      classic-namespace stock + surface.
+      back as ChartType 121. Region map (regionMap) shipped 2026-07-21 as well, the
+      LAST chartEx type — so the whole cx family is now done. It is a flat labeled
+      category chart whose numeric dim is tagged type="colorVal" (the value drives
+      each region's fill color), a single regionMap series carrying a <cx:layoutPr>
+      with a <cx:geography cultureLanguage cultureRegion attribution/> hint (all
+      three attributes schema-required), axis-free, and gated on the LATER cx4
+      feature namespace (2016/5/10/chartex). PowerPoint's own geoCache binary Bing
+      blob cannot be reproduced offline so it is omitted; PowerPoint re-resolves the
+      geography from the region names on open, so this is best-effort/write-only
+      (names must match PowerPoint's geography DB or the map renders blank). No
+      dedicated colors part was needed (the generic chartEx colorStyle matched
+      PowerPoint's own). No schema divergence — validates clean; reads back as
+      ChartType 140. A new `geography` opt exposes cultureLanguage/cultureRegion.
+      Remaining (not this issue): only classic-namespace stock + surface.
     evidence:
       kinds:
         - local-source-inspection
@@ -736,11 +748,12 @@ items:
         - test/regression/chart-histogram-xml.test.mjs
         - test/regression/chart-pareto-xml.test.mjs
         - test/regression/chart-boxwhisker-xml.test.mjs
+        - test/regression/chart-regionmap-xml.test.mjs
       schema_fixture: test/schema-cases.js "treemap + sunburst (hierarchical chartEx) charts are schema-valid"
       validator_result: pass
-      powerpoint_result: opens in PowerPoint desktop (COM smoke); treemap/sunburst/histogram/pareto/boxWhisker read back as ChartType 117/120/118/122/121 (xlTreemap/xlSunburst/xlHistogram/xlPareto/xlBoxwhisker)
+      powerpoint_result: opens in PowerPoint desktop (COM smoke); treemap/sunburst/histogram/pareto/boxWhisker/regionMap read back as ChartType 117/120/118/122/121/140 (xlTreemap/xlSunburst/xlHistogram/xlPareto/xlBoxwhisker/xlRegionMap)
       spec_refs: []
-    next_action: implement-remaining-chartEx-map-and-classic-stock-surface-per-plan
+    next_action: implement-remaining-classic-stock-surface-per-plan
 
   - id: upstream-issue-904
     source: "gitbrent/PptxGenJS#904"

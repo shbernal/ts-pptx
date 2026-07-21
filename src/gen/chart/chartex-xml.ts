@@ -3,7 +3,7 @@
  *
  * Builds a chartEx chart part `ppt/charts/chartEx{N}.xml` — the `<cx:chartSpace>` for the
  * Office-2016 chart family (currently `waterfall`, `funnel`, `treemap`, `sunburst`, `histogram`,
- * `pareto`, `boxWhisker`).
+ * `pareto`, `boxWhisker`, `regionMap`).
  * This is the chartEx analogue of
  * {@link ./chart-xml} (`makeXmlCharts`): a pure string builder, no I/O, no model mutation.
  *
@@ -19,7 +19,7 @@
 
 import { ChartType } from '../../core-enums.js'
 import { DEF_FONT_COLOR, XML_DECL } from '../../core-enums-internal.js'
-import type { ChartExBinning, ChartExStatistics } from '../../types/chart.js'
+import type { ChartExBinning, ChartExGeography, ChartExStatistics } from '../../types/chart.js'
 import type { SlideRelChart } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -49,6 +49,8 @@ export function chartExLayoutId(type: ChartType): string {
 			return 'clusteredColumn'
 		case ChartType.boxWhisker:
 			return 'boxWhisker'
+		case ChartType.regionMap:
+			return 'regionMap'
 		default:
 			return ''
 	}
@@ -121,6 +123,28 @@ function makeBoxWhiskerLayoutPr(stats: ChartExStatistics | undefined): string {
 	return el('cx:layoutPr', null, [raw(visibility), raw(statistics)])
 }
 
+/**
+ * Build the region-map `<cx:layoutPr>` body — a single `<cx:geography>` hint telling PowerPoint how
+ * to interpret the category labels as geographic region names. `cultureLanguage`/`cultureRegion`
+ * (both schema-REQUIRED) resolve ambiguous names (e.g. "Georgia" the country vs. the US state);
+ * `attribution` is Bing's fixed acknowledgement string.
+ *
+ * NOTE — PowerPoint itself also nests a `<cx:geoCache>` here holding a base64 binary blob: its
+ * cached Bing geometry for the resolved regions. That blob is produced by an online Bing lookup and
+ * cannot be reproduced offline, so it is intentionally OMITTED. PowerPoint re-resolves the geography
+ * from the region names when the deck is opened (verified over COM: the deck opens and reads back as
+ * a regionMap either way) — this is why a region map is documented as best-effort/write-only and
+ * renders blank if the names don't match PowerPoint's geography database.
+ */
+function makeGeographyLayoutPr(geo: ChartExGeography | undefined): string {
+	const geography = voidEl('cx:geography', {
+		cultureLanguage: geo?.cultureLanguage || 'en-US',
+		cultureRegion: geo?.cultureRegion || 'US',
+		attribution: 'Powered by Bing',
+	})
+	return el('cx:layoutPr', null, raw(geography))
+}
+
 /** The `<cx:tx>` series-name cell/value block (shared by every layout that names its series). */
 function makeChartExSeriesName(rel: SlideRelChart): string {
 	return el(
@@ -191,6 +215,9 @@ function makeChartExSeries(rel: SlideRelChart): string {
 	} else if (type === ChartType.boxWhisker) {
 		// box-and-whisker: quartile method + which box adornments (mean line/marker, outliers) show.
 		layoutPr = makeBoxWhiskerLayoutPr(opts.statistics)
+	} else if (type === ChartType.regionMap) {
+		// region map: the <cx:geography> hint PowerPoint resolves the region names against.
+		layoutPr = makeGeographyLayoutPr(opts.geography)
 	}
 
 	return el('cx:series', { layoutId: chartExLayoutId(type), uniqueId: chartExUniqueId(rel.globalId) }, [
@@ -211,7 +238,8 @@ function makeChartExSeries(rel: SlideRelChart): string {
  * - **boxWhisker** — a category (id0, gapWidth 1) + value (id1, gridlines) axis, like waterfall
  *   but with the wider default gap PowerPoint uses to separate the boxes.
  * Every other layout returns no axes — the hierarchical treemap/sunburst are genuinely axis-free
- * (categories are encoded by the nested tiles/rings, not an axis scale).
+ * (categories are encoded by the nested tiles/rings, not an axis scale), and a `regionMap` plots on
+ * geography rather than any Cartesian axis.
  */
 function makeChartExAxes(type: ChartType): string {
 	// chartEx catScaling gapWidth is a fraction (1.0 = 100%), NOT the classic integer percent.

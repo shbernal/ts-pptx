@@ -57,6 +57,7 @@ export function genSlides_Chart(pptx) {
 	genSlide26(pptx);
 	genSlide27(pptx);
 	genSlide28(pptx);
+	genSlide29(pptx);
 
 	if (TESTMODE) {
 		pptx.addSection({ title: "Charts-DevTest" });
@@ -265,6 +266,35 @@ function genSlide28(pptx) {
 		showTitle: true,
 		title: "Cycle Time by Production Line",
 		statistics: { meanLine: true },
+	});
+}
+
+function genSlide29(pptx) {
+	let slide = pptx.addSlide({ sectionTitle: "Charts" });
+	slide.addTable([[{ text: "Chart Examples: Region Map (chartEx)", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
+
+	// A region map colors each geographic area by its value. The category labels are region names that
+	// PowerPoint 2016+/M365 resolves against its Bing-backed geography database at open time; other
+	// consumers (and older PowerPoint) show the fallback shape. Best-effort/write-only — names must
+	// match PowerPoint's geography database or the map renders blank.
+	const dataMap = [
+		{
+			name: "Revenue ($M)",
+			labels: ["United States", "Canada", "Mexico", "Brazil", "United Kingdom", "France", "Germany", "India", "China", "Australia"],
+			values: [100, 62, 41, 55, 73, 68, 71, 92, 88, 47],
+		},
+	];
+
+	slide.addChart(dataMap, {
+		x: 0.5,
+		y: 0.6,
+		w: "95%",
+		h: 5.5,
+		type: "regionMap",
+		showTitle: true,
+		title: "Revenue by Country",
+		showLegend: true,
+		legendPos: "r",
 	});
 }
 

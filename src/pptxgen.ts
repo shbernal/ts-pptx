@@ -128,6 +128,8 @@ export type {
 	ChartExBinning,
 	ChartPropsChartBoxWhisker,
 	ChartExStatistics,
+	ChartPropsChartRegionMap,
+	ChartExGeography,
 	ChartPropsDataLabel,
 	ChartPropsDataTable,
 	ChartPropsFillLine,
