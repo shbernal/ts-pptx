@@ -1502,6 +1502,32 @@ export default [
 		},
 	},
 	{
+		// funnel is the second chartEx (cx:) type. It reuses waterfall's subsystem but with a
+		// funnel-only shape: a single category axis (no value axis) and the cx2 feature namespace
+		// on <mc:Choice>. Prove the whole part — including that single-axis plot area — validates.
+		name: 'funnel (chartEx) chart is schema-valid',
+		fn: async () => {
+			const { buf, zip } = await build((p) => {
+				p.addSlide().addChart(
+					[
+						{
+							name: 'Sales Funnel',
+							labels: ['Leads', 'Qualified', 'Proposals', 'Negotiation', 'Won'],
+							values: [5000, 4000, 3000, 1000, 250],
+						},
+					],
+					{ type: 'funnel', x: 1, y: 1, w: 8, h: 4.5, showTitle: true, title: 'Sales Funnel', showValue: true }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'chart-funnel-chartex')
+			const cxPath = listEntries(zip).find((f) => /^ppt\/charts\/chartEx\d+\.xml$/.test(f))
+			assert(cxPath, 'expected a ppt/charts/chartExN.xml part')
+			const cxXml = await readEntry(zip, cxPath)
+			assertIncludes(cxXml, 'layoutId="funnel"', 'funnel layoutId')
+			assertIncludes(cxXml, '<cx:axis id="1"><cx:catScaling', 'single funnel category axis')
+		},
+	},
+	{
 		// bubble/bubble3D charts can show each bubble's size as a data label.
 		// The `showBubbleSize` option flips the previously hard-coded <c:showBubbleSize val="0"/>;
 		// lock in that the enabled flag stays schema-valid in CT_DLbls.

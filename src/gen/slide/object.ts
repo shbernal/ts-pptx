@@ -78,6 +78,7 @@ const CHARTEX_REL = 'http://schemas.microsoft.com/office/2014/relationships/char
  */
 const CHARTEX_FEATURE_NS: Partial<Record<ChartType, { prefix: string; uri: string }>> = {
 	[ChartType.waterfall]: { prefix: 'cx1', uri: 'http://schemas.microsoft.com/office/drawing/2015/9/8/chartex' },
+	[ChartType.funnel]: { prefix: 'cx2', uri: 'http://schemas.microsoft.com/office/drawing/2015/10/21/chartex' },
 }
 
 /**

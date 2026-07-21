@@ -688,14 +688,18 @@ items:
     summary: Requested Sunburst chart support using newer chart extension namespaces.
     current_project_notes: >
       IN PROGRESS 2026-07-21. The chartEx (cx:) subsystem now exists: waterfall
-      shipped end-to-end (separate chartEx{N}.xml part in the 2014/chartex ns,
-      chartex+xml content type, mc:AlternateContent slide reference with a
-      Fallback shape, and the mandatory style/colors sidecar parts PowerPoint
-      requires or it reports 0x80070570). See src/gen/chart/chartex-xml.ts,
-      chartex-data.ts, chartex-style.ts. Sunburst specifically is not yet built;
-      it is a follow-on cx layout (hierarchical categories, no axes) on the same
-      infrastructure. Remaining cx types: funnel, treemap, sunburst, histogram,
-      pareto, box-and-whisker, map; plus classic-namespace stock + surface.
+      AND funnel shipped end-to-end (separate chartEx{N}.xml part in the
+      2014/chartex ns, chartex+xml content type, mc:AlternateContent slide
+      reference with a Fallback shape, and the mandatory style/colors sidecar
+      parts PowerPoint requires or it reports 0x80070570). See
+      src/gen/chart/chartex-xml.ts, chartex-data.ts, chartex-style.ts. Funnel
+      confirmed against a PowerPoint-authored reference (AddChart2 type 123): it
+      uses a DIFFERENT feature namespace than waterfall (cx2=2015/10/21/chartex vs
+      cx1=2015/9/8/chartex) and a single category axis (no value axis). Sunburst
+      specifically is not yet built; it is a follow-on cx layout (hierarchical
+      categories, no axes) on the same infrastructure. Remaining cx types:
+      treemap, sunburst, histogram, pareto, box-and-whisker, map; plus
+      classic-namespace stock + surface.
     evidence:
       kinds:
         - local-source-inspection
@@ -708,9 +712,10 @@ items:
         - src/gen/chart/chartex-xml.ts
         - src/gen/chart/chartex-style.ts
         - test/regression/chart-waterfall-xml.test.mjs
-      schema_fixture: test/schema-cases.js "waterfall (chartEx) chart is schema-valid"
+        - test/regression/chart-funnel-xml.test.mjs
+      schema_fixture: test/schema-cases.js "funnel (chartEx) chart is schema-valid"
       validator_result: pass
-      powerpoint_result: opens in PowerPoint desktop (COM smoke) for waterfall
+      powerpoint_result: opens in PowerPoint desktop (COM smoke); funnel reads back as ChartType 123 (xlFunnel)
       spec_refs: []
     next_action: implement-remaining-chartEx-and-classic-stock-surface-per-plan
 

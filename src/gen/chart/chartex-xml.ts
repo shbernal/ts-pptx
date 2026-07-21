@@ -2,7 +2,7 @@
  * PptxGenJS: chartEx (`cx:`) Chart Assembly
  *
  * Builds a chartEx chart part `ppt/charts/chartEx{N}.xml` — the `<cx:chartSpace>` for the
- * Office-2016 chart family (currently `waterfall`). This is the chartEx analogue of
+ * Office-2016 chart family (currently `waterfall`, `funnel`). This is the chartEx analogue of
  * {@link ./chart-xml} (`makeXmlCharts`): a pure string builder, no I/O, no model mutation.
  *
  * chartEx differs from the classic `<c:chartSpace>` in three ways the rest of the package must
@@ -35,6 +35,8 @@ export function chartExLayoutId(type: ChartType): string {
 	switch (type) {
 		case ChartType.waterfall:
 			return 'waterfall'
+		case ChartType.funnel:
+			return 'funnel'
 		default:
 			return ''
 	}
@@ -87,20 +89,31 @@ function makeChartExSeries(rel: SlideRelChart): string {
 	])
 }
 
-/** Build the `<cx:axis>` list for a layout. waterfall has a category (id 0) + value (id 1) axis. */
+/**
+ * Build the `<cx:axis>` list for a layout (matched to what PowerPoint itself emits for each):
+ * - **waterfall** — a category (id 0) + value (id 1) axis.
+ * - **funnel** — a SINGLE category axis, which PowerPoint numbers id 1, with no value axis and no
+ *   gridlines (the bars run horizontally off one category scale).
+ * Every other layout returns no axes.
+ */
 function makeChartExAxes(type: ChartType): string {
-	if (type !== ChartType.waterfall) return ''
-	const catAxis = el('cx:axis', { id: 0 }, [
-		// chartEx catScaling gapWidth is a fraction (1.0 = 100%), NOT the classic integer percent.
-		raw(voidEl('cx:catScaling', { gapWidth: '0.5' })),
-		raw(voidEl('cx:tickLabels')),
-	])
-	const valAxis = el('cx:axis', { id: 1 }, [
-		raw(voidEl('cx:valScaling')),
-		raw(voidEl('cx:majorGridlines')),
-		raw(voidEl('cx:tickLabels')),
-	])
-	return catAxis + valAxis
+	// chartEx catScaling gapWidth is a fraction (1.0 = 100%), NOT the classic integer percent.
+	if (type === ChartType.waterfall) {
+		const catAxis = el('cx:axis', { id: 0 }, [
+			raw(voidEl('cx:catScaling', { gapWidth: '0.5' })),
+			raw(voidEl('cx:tickLabels')),
+		])
+		const valAxis = el('cx:axis', { id: 1 }, [
+			raw(voidEl('cx:valScaling')),
+			raw(voidEl('cx:majorGridlines')),
+			raw(voidEl('cx:tickLabels')),
+		])
+		return catAxis + valAxis
+	}
+	if (type === ChartType.funnel) {
+		return el('cx:axis', { id: 1 }, [raw(voidEl('cx:catScaling', { gapWidth: '2.19' })), raw(voidEl('cx:tickLabels'))])
+	}
+	return ''
 }
 
 /** Build a minimal `<cx:title>` from the chart title options (only when `showTitle`). */

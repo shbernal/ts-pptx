@@ -51,6 +51,7 @@ export function genSlides_Chart(pptx) {
 	genSlide20(pptx);
 	genSlide21(pptx);
 	genSlide22(pptx);
+	genSlide23(pptx);
 
 	if (TESTMODE) {
 		pptx.addSection({ title: "Charts-DevTest" });
@@ -89,6 +90,31 @@ function genSlide22(pptx) {
 		showLegend: false,
 		// First ("Start") and last ("End") columns are cumulative totals anchored to the baseline.
 		subtotals: [0, 5],
+	});
+}
+
+// SLIDE 23: Funnel Chart (chartEx / Office 2016 — renders in PowerPoint 2016+/M365)
+function genSlide23(pptx) {
+	let slide = pptx.addSlide({ sectionTitle: "Charts" });
+	slide.addTable([[{ text: "Chart Examples: Funnel (chartEx)", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
+
+	const dataFunnel = [
+		{
+			name: "Sales Funnel",
+			labels: ["Leads", "Qualified", "Proposals", "Negotiation", "Closed Won"],
+			values: [5000, 4000, 3000, 1000, 250],
+		},
+	];
+
+	slide.addChart(dataFunnel, {
+		x: 0.5,
+		y: 0.6,
+		w: "95%",
+		h: 5.5,
+		type: "funnel",
+		showTitle: true,
+		title: "Sales Pipeline",
+		showValue: true,
 	});
 }
 
