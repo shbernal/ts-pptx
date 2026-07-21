@@ -36,6 +36,8 @@ artifacts.
 
 - [Grouping objects](groups.md): `addGroup()` / `groupObjects()`, the identity
   child space, framing, nesting, and cross-references into a group.
+- [Connectors](connectors.md): `addConnector()` straight/elbow/curved lines,
+  bend control, shape binding, and the `addShape()` vs. `addConnector()` split.
 - [Image embedded in a shape](image-in-shape.md): clip a picture to a preset or
   freeform shape and crop it to fill the box.
 - [Animations and transitions](animations-and-transitions.md): slide/shape
