@@ -709,9 +709,15 @@ items:
       schema-vs-PowerPoint divergence — the OpenXML SDK models <cx:axisId> as a
       leaf-TEXT element so the validator rejects the val attribute, but PowerPoint
       REQUIRES the attribute form <cx:axisId val="N"/> and corrupts (0x80070570) on
-      the text form; its schema-case whitelists only cx:axisId/@val errors. Remaining
-      cx types (not this issue): box-and-whisker, map; plus classic-namespace
-      stock + surface.
+      the text form; its schema-case whitelists only cx:axisId/@val errors.
+      Box-and-whisker shipped 2026-07-21 as well (layoutId "boxWhisker": flat labeled
+      category data like pareto, a <cx:layoutPr> with a <cx:visibility> toggle set
+      (meanLine/meanMarker/nonoutliers/outliers) + <cx:statistics quartileMethod>,
+      NO axisId binding, and a cat(id0 gapWidth1)+val(id1) axis pair; a new
+      `statistics` opt exposes the quartile method and visibility flags). Unlike
+      pareto it has NO schema divergence — it validates with zero errors and reads
+      back as ChartType 121. Remaining cx type (not this issue): map; plus
+      classic-namespace stock + surface.
     evidence:
       kinds:
         - local-source-inspection
@@ -729,11 +735,12 @@ items:
         - test/regression/chart-treemap-sunburst-xml.test.mjs
         - test/regression/chart-histogram-xml.test.mjs
         - test/regression/chart-pareto-xml.test.mjs
+        - test/regression/chart-boxwhisker-xml.test.mjs
       schema_fixture: test/schema-cases.js "treemap + sunburst (hierarchical chartEx) charts are schema-valid"
       validator_result: pass
-      powerpoint_result: opens in PowerPoint desktop (COM smoke); treemap/sunburst/histogram/pareto read back as ChartType 117/120/118/122 (xlTreemap/xlSunburst/xlHistogram/xlPareto)
+      powerpoint_result: opens in PowerPoint desktop (COM smoke); treemap/sunburst/histogram/pareto/boxWhisker read back as ChartType 117/120/118/122/121 (xlTreemap/xlSunburst/xlHistogram/xlPareto/xlBoxwhisker)
       spec_refs: []
-    next_action: implement-remaining-chartEx-box-map-and-classic-stock-surface-per-plan
+    next_action: implement-remaining-chartEx-map-and-classic-stock-surface-per-plan
 
   - id: upstream-issue-904
     source: "gitbrent/PptxGenJS#904"

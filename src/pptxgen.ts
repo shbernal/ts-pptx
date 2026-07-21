@@ -126,6 +126,8 @@ export type {
 	ChartPropsChartWaterfall,
 	ChartPropsChartHistogram,
 	ChartExBinning,
+	ChartPropsChartBoxWhisker,
+	ChartExStatistics,
 	ChartPropsDataLabel,
 	ChartPropsDataTable,
 	ChartPropsFillLine,

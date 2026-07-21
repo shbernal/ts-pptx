@@ -3,7 +3,7 @@
  *
  * Builds a chartEx chart part `ppt/charts/chartEx{N}.xml` — the `<cx:chartSpace>` for the
  * Office-2016 chart family (currently `waterfall`, `funnel`, `treemap`, `sunburst`, `histogram`,
- * `pareto`).
+ * `pareto`, `boxWhisker`).
  * This is the chartEx analogue of
  * {@link ./chart-xml} (`makeXmlCharts`): a pure string builder, no I/O, no model mutation.
  *
@@ -19,7 +19,7 @@
 
 import { ChartType } from '../../core-enums.js'
 import { DEF_FONT_COLOR, XML_DECL } from '../../core-enums-internal.js'
-import type { ChartExBinning } from '../../types/chart.js'
+import type { ChartExBinning, ChartExStatistics } from '../../types/chart.js'
 import type { SlideRelChart } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -47,6 +47,8 @@ export function chartExLayoutId(type: ChartType): string {
 		case ChartType.histogram:
 			// A histogram is a clustered-column series whose bins PowerPoint computes from <cx:binning>.
 			return 'clusteredColumn'
+		case ChartType.boxWhisker:
+			return 'boxWhisker'
 		default:
 			return ''
 	}
@@ -96,6 +98,27 @@ function makeChartExAxisId(id: number): string {
  */
 function makeChartExBinning(binning: ChartExBinning | undefined): string {
 	return voidEl('cx:binning', { intervalClosed: binning?.intervalClosed === 'l' ? 'l' : 'r' })
+}
+
+/**
+ * Build the box-and-whisker `<cx:layoutPr>` body — a `<cx:visibility>` toggle set plus a
+ * `<cx:statistics>` quartile-method choice, in that document order (what PowerPoint itself emits).
+ * All flags default to PowerPoint's own defaults: exclusive quartiles, mean marker on, outlier
+ * points on, the mean-line and the full non-outlier scatter off. Booleans map to the `0`/`1`
+ * attribute form PowerPoint uses.
+ */
+function makeBoxWhiskerLayoutPr(stats: ChartExStatistics | undefined): string {
+	const bit = (v: boolean | undefined, dflt: boolean): 0 | 1 => ((v ?? dflt) ? 1 : 0)
+	const visibility = voidEl('cx:visibility', {
+		meanLine: bit(stats?.meanLine, false),
+		meanMarker: bit(stats?.meanMarker, true),
+		nonoutliers: bit(stats?.nonoutliers, false),
+		outliers: bit(stats?.outliers, true),
+	})
+	const statistics = voidEl('cx:statistics', {
+		quartileMethod: stats?.quartileMethod === 'inclusive' ? 'inclusive' : 'exclusive',
+	})
+	return el('cx:layoutPr', null, [raw(visibility), raw(statistics)])
 }
 
 /** The `<cx:tx>` series-name cell/value block (shared by every layout that names its series). */
@@ -165,6 +188,9 @@ function makeChartExSeries(rel: SlideRelChart): string {
 		// histogram: how PowerPoint bins the raw observations. Default is auto binning with
 		// right-closed intervals; the `binning` opt exposes explicit width/count/overflow control.
 		layoutPr = el('cx:layoutPr', null, raw(makeChartExBinning(opts.binning)))
+	} else if (type === ChartType.boxWhisker) {
+		// box-and-whisker: quartile method + which box adornments (mean line/marker, outliers) show.
+		layoutPr = makeBoxWhiskerLayoutPr(opts.statistics)
 	}
 
 	return el('cx:series', { layoutId: chartExLayoutId(type), uniqueId: chartExUniqueId(rel.globalId) }, [
@@ -182,6 +208,8 @@ function makeChartExSeries(rel: SlideRelChart): string {
  *   gridlines (the bars run horizontally off one category scale).
  * - **pareto** — like histogram (cat id0 gapWidth0 + val id1) PLUS a SECONDARY value axis id2
  *   scaled 0..1 with `unit="percentage"` that the cumulative `paretoLine` series binds to.
+ * - **boxWhisker** — a category (id0, gapWidth 1) + value (id1, gridlines) axis, like waterfall
+ *   but with the wider default gap PowerPoint uses to separate the boxes.
  * Every other layout returns no axes — the hierarchical treemap/sunburst are genuinely axis-free
  * (categories are encoded by the nested tiles/rings, not an axis scale).
  */
@@ -234,6 +262,18 @@ function makeChartExAxes(type: ChartType): string {
 			raw(voidEl('cx:tickLabels')),
 		])
 		return catAxis + valAxis + pctAxis
+	}
+	if (type === ChartType.boxWhisker) {
+		const catAxis = el('cx:axis', { id: 0 }, [
+			raw(voidEl('cx:catScaling', { gapWidth: '1' })),
+			raw(voidEl('cx:tickLabels')),
+		])
+		const valAxis = el('cx:axis', { id: 1 }, [
+			raw(voidEl('cx:valScaling')),
+			raw(voidEl('cx:majorGridlines')),
+			raw(voidEl('cx:tickLabels')),
+		])
+		return catAxis + valAxis
 	}
 	return ''
 }

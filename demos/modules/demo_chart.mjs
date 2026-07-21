@@ -56,6 +56,7 @@ export function genSlides_Chart(pptx) {
 	genSlide25(pptx);
 	genSlide26(pptx);
 	genSlide27(pptx);
+	genSlide28(pptx);
 
 	if (TESTMODE) {
 		pptx.addSection({ title: "Charts-DevTest" });
@@ -218,6 +219,52 @@ function genSlide27(pptx) {
 		type: "pareto",
 		showTitle: true,
 		title: "Defect Pareto Analysis",
+	});
+}
+
+function genSlide28(pptx) {
+	let slide = pptx.addSlide({ sectionTitle: "Charts" });
+	slide.addTable([[{ text: "Chart Examples: Box & Whisker (chartEx)", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
+
+	// Box & whisker summarizes each category's repeated observations into a box (quartiles + median)
+	// with whiskers; PowerPoint computes the statistics from the raw values. Repeat a category label
+	// once per observation so each production line gets its own box.
+	const dataBox = [
+		{
+			name: "Cycle Time (s)",
+			labels: [
+				"Line A",
+				"Line A",
+				"Line A",
+				"Line A",
+				"Line A",
+				"Line A",
+				"Line B",
+				"Line B",
+				"Line B",
+				"Line B",
+				"Line B",
+				"Line B",
+				"Line C",
+				"Line C",
+				"Line C",
+				"Line C",
+				"Line C",
+				"Line C",
+			],
+			values: [12, 15, 9, 14, 11, 22, 18, 21, 17, 20, 19, 24, 31, 28, 33, 27, 30, 45],
+		},
+	];
+
+	slide.addChart(dataBox, {
+		x: 0.5,
+		y: 0.6,
+		w: "95%",
+		h: 5.5,
+		type: "boxWhisker",
+		showTitle: true,
+		title: "Cycle Time by Production Line",
+		statistics: { meanLine: true },
 	});
 }
 

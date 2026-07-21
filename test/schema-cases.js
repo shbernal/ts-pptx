@@ -1627,6 +1627,30 @@ export default [
 		},
 	},
 	{
+		// box-and-whisker is a chartEx layout that summarizes each value series into a box (quartiles +
+		// median) with whiskers. The <cx:layoutPr> carries a <cx:visibility> toggle set plus a
+		// <cx:statistics> quartile-method choice. Unlike pareto, box-and-whisker has NO schema-vs-
+		// PowerPoint divergence — every element it emits (boxWhisker layoutId, visibility, statistics,
+		// the cat/val axes) is declared, so the deck validates with zero errors.
+		name: 'box-and-whisker (chartEx) chart is schema-valid',
+		fn: async () => {
+			const { buf, zip } = await build((p) => {
+				p.addSlide().addChart(
+					[{ name: 'Measurements', labels: ['Line A', 'Line A', 'Line B', 'Line B'], values: [12, 15, 22, 18] }],
+					{ type: 'boxWhisker', x: 1, y: 1, w: 8, h: 4.5, statistics: { quartileMethod: 'inclusive', meanLine: true } }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'chart-boxwhisker-chartex')
+			const cxPath = listEntries(zip).find((f) => /^ppt\/charts\/chartEx\d+\.xml$/.test(f))
+			assert(cxPath, 'expected a ppt/charts/chartExN.xml part')
+			const cxXml = await readEntry(zip, cxPath)
+			assertIncludes(cxXml, 'layoutId="boxWhisker"', 'boxWhisker series layout')
+			assertIncludes(cxXml, '<cx:statistics quartileMethod="inclusive"/>', 'statistics opt drives quartile method')
+			assertIncludes(cxXml, 'meanLine="1"', 'meanLine opt toggles the visibility flag')
+			assert(!cxXml.includes('<cx:axisId'), 'boxWhisker series binds no explicit axisId')
+		},
+	},
+	{
 		// bubble/bubble3D charts can show each bubble's size as a data label.
 		// The `showBubbleSize` option flips the previously hard-coded <c:showBubbleSize val="0"/>;
 		// lock in that the enabled flag stays schema-valid in CT_DLbls.

@@ -595,6 +595,35 @@ export interface ChartPropsChartHistogram {
 	binning?: ChartExBinning
 }
 /**
+ * Statistics configuration for a `boxWhisker` (box-and-whisker) chart. Each value series is
+ * summarized into a box (quartiles + median) with whiskers; these flags mirror the toggles
+ * PowerPoint exposes in the *Format Data Series* pane. All fields are optional and default to
+ * PowerPoint's own defaults (inclusive of the outlier points and the mean marker).
+ */
+export interface ChartExStatistics {
+	/**
+	 * How the first/third quartiles are computed: `'exclusive'` (PowerPoint's default — the median
+	 * is excluded when splitting the halves) or `'inclusive'`.
+	 */
+	quartileMethod?: 'inclusive' | 'exclusive'
+	/** Draw a line connecting the mean of each box across categories. Default `false`. */
+	meanLine?: boolean
+	/** Mark the mean of each box with a marker. Default `true`. */
+	meanMarker?: boolean
+	/** Plot outlier points (values beyond the whiskers) individually. Default `true`. */
+	outliers?: boolean
+	/** Plot every non-outlier point alongside the box, not just the box itself. Default `false`. */
+	nonoutliers?: boolean
+}
+export interface ChartPropsChartBoxWhisker {
+	/**
+	 * Statistics configuration for a `boxWhisker` chart. Omit for PowerPoint's defaults
+	 * (exclusive quartiles, mean marker shown, outliers shown).
+	 * @example { quartileMethod: 'inclusive', meanLine: true }
+	 */
+	statistics?: ChartExStatistics
+}
+/**
  * Per-series style overrides for a chart.
  * Each entry applies to the series at the same index in the data array.
  * Unset fields fall back to the chart-level option.
@@ -713,6 +742,7 @@ export interface ChartOpts
 		ChartPropsChartRadar,
 		ChartPropsChartWaterfall,
 		ChartPropsChartHistogram,
+		ChartPropsChartBoxWhisker,
 		ChartPropsDataLabel,
 		ChartPropsDataTable,
 		ChartPropsLegend,
