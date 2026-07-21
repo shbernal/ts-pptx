@@ -10,7 +10,7 @@
  * drifting between the two sides.
  */
 
-import { LETTERS } from '../../core-enums.js'
+import { LETTERS } from '../../core-enums-internal.js'
 import type { OptsChartDataInternal } from '../../types/internal.js'
 
 // ===== Series-data accessors =====

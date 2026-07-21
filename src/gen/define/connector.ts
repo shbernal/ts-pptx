@@ -5,7 +5,8 @@
  * connector preset + adjust guides, and optionally binds start / end shapes. Emitted later as
  * `<p:cxnSp>`.
  */
-import { connectorPresetFor, DEF_SHAPE_LINE_COLOR, SlideObjectType } from '../../core-enums.js'
+import { connectorPresetFor, SlideObjectType } from '../../core-enums.js'
+import { DEF_SHAPE_LINE_COLOR } from '../../core-enums-internal.js'
 import { warn } from '../../log.js'
 import type { ConnectorProps } from '../../core-interfaces.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'

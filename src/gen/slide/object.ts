@@ -10,15 +10,15 @@
  * render helpers, so this cluster is kept co-located in one module.
  */
 
+import { SlideObjectType } from '../../core-enums.js'
 import {
 	CRLF,
 	DEF_CELL_MARGIN_IN,
 	DEF_PRES_LAYOUT_NAME,
 	DEF_TEXT_SHADOW,
 	SLDNUMFLDID,
-	SlideObjectType,
 	XML_DECL,
-} from '../../core-enums.js'
+} from '../../core-enums-internal.js'
 import type { ObjectOptions, HyperlinkProps, ShapeLineProps, TableCell, TableCellProps } from '../../core-interfaces.js'
 import type {
 	PresSlideInternal,

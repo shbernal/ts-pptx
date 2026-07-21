@@ -7,7 +7,7 @@
  * @see http://officeopenxml.com/drwSp-effects.php
  */
 
-import { DEF_FONT_COLOR } from '../../core-enums.js'
+import { DEF_FONT_COLOR } from '../../core-enums-internal.js'
 import { warn } from '../../log.js'
 import type { ShadowProps, TextGlowProps } from '../../core-interfaces.js'
 import type { ShadowPropsInternal } from '../../types/internal.js'

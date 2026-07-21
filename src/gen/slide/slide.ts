@@ -5,7 +5,7 @@
  * and layouts (`slideN.xml.rels`, `slideLayoutN.xml.rels`).
  */
 
-import { CRLF, XML_DECL } from '../../core-enums.js'
+import { CRLF, XML_DECL } from '../../core-enums-internal.js'
 import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { slideTimingToXml } from '../anim/timing.js'
 import { slideTransitionToXml } from '../anim/transition.js'

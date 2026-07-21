@@ -11,7 +11,7 @@
  */
 
 import { SlideObjectType, TextAnchor } from './core-enums.js'
-import { DEF_CELL_MARGIN_IN, DEF_FONT_SIZE, LINEH_MODIFIER } from './core-enums.js'
+import { DEF_CELL_MARGIN_IN, DEF_FONT_SIZE, LINEH_MODIFIER } from './core-enums-internal.js'
 import { EMU_PER_POINT, POINTS_PER_INCH, emuToInches } from './units.js'
 import { getSmartParseNumber, inch2Emu, marginToEmu, resolveTableColWidthsEmu } from './units-internal.js'
 import { warn } from './log.js'

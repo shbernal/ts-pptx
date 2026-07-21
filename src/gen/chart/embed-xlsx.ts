@@ -12,7 +12,8 @@
  * mapping the two sides share lives in `./data-refs.ts`.
  */
 
-import { ChartType, XML_DECL } from '../../core-enums.js'
+import { ChartType } from '../../core-enums.js'
+import { XML_DECL } from '../../core-enums-internal.js'
 import type { SlideRelChart, OptsChartDataInternal } from '../../types/internal.js'
 import { encodeXmlEntities } from '../../gen-utils.js'
 import { ZipWriter } from '../../zip.js'

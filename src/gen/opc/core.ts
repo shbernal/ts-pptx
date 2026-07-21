@@ -5,7 +5,7 @@
  * created/modified timestamps).
  */
 
-import { XML_DECL } from '../../core-enums.js'
+import { XML_DECL } from '../../core-enums-internal.js'
 import { el, raw } from '../oxml/el.js'
 
 /** Each property sits on its own indented line; the parent supplies the closing indent. */

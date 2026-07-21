@@ -6,7 +6,8 @@
  * in the schema-required order.
  */
 
-import { CRLF, TableStyle, XML_DECL } from '../../core-enums.js'
+import { TableStyle } from '../../core-enums.js'
+import { CRLF, XML_DECL } from '../../core-enums-internal.js'
 import type { BorderProps, TableStyleRegionProps } from '../../core-interfaces.js'
 import type { TableStyleInternal } from '../../types/internal.js'
 import { createColorElement } from '../drawingml/color.js'

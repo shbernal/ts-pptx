@@ -8,7 +8,8 @@
  * dispatch.
  */
 
-import { BARCHART_COLORS, ChartType, DEF_FONT_COLOR, DEF_FONT_SIZE, DEF_SHAPE_SHADOW } from '../../core-enums.js'
+import { ChartType } from '../../core-enums.js'
+import { BARCHART_COLORS, DEF_FONT_COLOR, DEF_FONT_SIZE, DEF_SHAPE_SHADOW } from '../../core-enums-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { encodeXmlEntities, getUuid } from '../../gen-utils.js'
 import { createColorElement } from '../drawingml/color.js'

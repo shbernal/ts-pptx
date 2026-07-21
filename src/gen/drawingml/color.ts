@@ -7,7 +7,8 @@
  * importer needs to get CSS colors into that form.
  */
 
-import { REGEX_HEX_COLOR, DEF_FONT_COLOR, SchemeColor, type SCHEME_COLORS } from '../../core-enums.js'
+import { SchemeColor, type SCHEME_COLORS } from '../../core-enums.js'
+import { REGEX_HEX_COLOR, DEF_FONT_COLOR } from '../../core-enums-internal.js'
 import { warn } from '../../log.js'
 import { PERCENT_SCALE } from '../../units.js'
 

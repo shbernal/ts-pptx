@@ -5,7 +5,8 @@
  * embedded A/V consumes two rels (ECMA video + MS-2007 media) plus a cover image; online videos
  * use the external-link variant. The timing / `<p:pic>` XML is emitted later.
  */
-import { IMG_PLAYBTN, SlideObjectType } from '../../core-enums.js'
+import { SlideObjectType } from '../../core-enums.js'
+import { IMG_PLAYBTN } from '../../core-enums-internal.js'
 import type { MediaProps } from '../../core-interfaces.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlEntities, getNewRelId, validateObjectName } from '../../gen-utils.js'

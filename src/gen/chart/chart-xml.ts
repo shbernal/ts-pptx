@@ -14,18 +14,17 @@
  * {@link ./data-refs}.
  */
 
+import { asChartType, ChartType } from '../../core-enums.js'
 import {
 	AXIS_ID_CATEGORY_PRIMARY,
 	AXIS_ID_CATEGORY_SECONDARY,
 	AXIS_ID_SERIES_PRIMARY,
 	AXIS_ID_VALUE_PRIMARY,
 	AXIS_ID_VALUE_SECONDARY,
-	asChartType,
-	ChartType,
 	DEF_FONT_SIZE,
 	DEF_FONT_TITLE_SIZE,
 	XML_DECL,
-} from '../../core-enums.js'
+} from '../../core-enums-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal, SlideRelChart } from '../../types/internal.js'
 import { warn } from '../../log.js'
 import { encodeXmlEntities } from '../../gen-utils.js'

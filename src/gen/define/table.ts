@@ -5,14 +5,14 @@
  * fully-resolved `TableCell`s (incl. 4-side borders), computes width, and — when `autoPage` is
  * set — shreds the table across overflow slides via `getSlidesForTableRows`.
  */
+import { SlideObjectType } from '../../core-enums.js'
 import {
 	DEF_CELL_BORDER,
 	DEF_CELL_MARGIN_IN,
 	DEF_FONT_COLOR,
 	DEF_FONT_SIZE,
 	DEF_SLIDE_MARGIN_IN,
-	SlideObjectType,
-} from '../../core-enums.js'
+} from '../../core-enums-internal.js'
 import { warn } from '../../log.js'
 import type { AddSlideProps, BorderProps, PresLayout, TableCell, TableProps, TableRow } from '../../core-interfaces.js'
 import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'

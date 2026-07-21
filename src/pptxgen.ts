@@ -57,18 +57,8 @@
 
 import { warn } from './log.js'
 import Slide from './slide.js'
-import {
-	AlignH,
-	AlignV,
-	ChartType,
-	DEF_PRES_LAYOUT,
-	DEF_PRES_LAYOUT_NAME,
-	DEF_SLIDE_MARGIN_IN,
-	OutputType,
-	SchemeColor,
-	ShapeType,
-	SlideObjectType,
-} from './core-enums.js'
+import { AlignH, AlignV, ChartType, OutputType, SchemeColor, ShapeType, SlideObjectType } from './core-enums.js'
+import { DEF_PRES_LAYOUT, DEF_PRES_LAYOUT_NAME, DEF_SLIDE_MARGIN_IN } from './core-enums-internal.js'
 import type {
 	AddSlideProps,
 	CustomPropertyValue,

@@ -5,7 +5,7 @@
  * date, number and string value types).
  */
 
-import { CRLF, XML_DECL } from '../../core-enums.js'
+import { CRLF, XML_DECL } from '../../core-enums-internal.js'
 import type { CustomPropertyValue } from '../../core-interfaces.js'
 import { el, raw } from '../oxml/el.js'
 

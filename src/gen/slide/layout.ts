@@ -4,7 +4,7 @@
  * Emit a slide layout (`ppt/slideLayouts/slideLayoutN.xml`) from a layout object.
  */
 
-import { XML_DECL } from '../../core-enums.js'
+import { XML_DECL } from '../../core-enums-internal.js'
 import type { SlideLayoutInternal } from '../../types/internal.js'
 import { slideObjectToXml } from './object.js'
 

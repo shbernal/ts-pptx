@@ -8,14 +8,14 @@
  * children. Reached through {@link ./chart-xml}'s `makeChartType` dispatch.
  */
 
+import { ChartType } from '../../core-enums.js'
 import {
 	AXIS_ID_SERIES_PRIMARY,
 	BARCHART_COLORS,
-	ChartType,
 	DEF_FONT_COLOR,
 	DEF_FONT_SIZE,
 	DEF_SHAPE_SHADOW,
-} from '../../core-enums.js'
+} from '../../core-enums-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'

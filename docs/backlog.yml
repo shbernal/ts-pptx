@@ -1445,42 +1445,127 @@ items:
     type: fork-internal-proposal
     first_seen: 2026-07-21
     last_reviewed: 2026-07-21
-    status: deferred
+    status: implemented
     priority: p3
     target_area:
       - typescript-api
-    applies_to_current_project: unknown
+    applies_to_current_project: yes
     non_target_reasons: []
-    summary: core-enums.ts export *-es many generator-internal constants (DEF_*, AXIS_ID_*, LAYOUT_IDX_SERIES_BASE) onto every public entrypoint; two of them still surface the internal ShadowPropsInternal shape
+    summary: core-enums.ts export *-ed 32 generator-internal constants (DEF_*, AXIS_ID_*, LAYOUT_IDX_SERIES_BASE) onto every public entrypoint; split into a non-exported internal module
     current_project_notes: >
-      Surfaced while dropping the *Internal wire types from the published surface. That change
-      removed the 13 internal interfaces as named exports, but core-enums.ts is export *-ed by
-      five entrypoints (index/core/node/browser/standalone), so every generator-internal constant
-      declared there is published too: DEF_SHAPE_SHADOW, DEF_TEXT_SHADOW, DEF_CELL_BORDER,
-      DEF_CHART_BORDER, DEF_CHART_GRIDLINE, DEF_BULLET_MARGIN, DEF_FONT_COLOR/SIZE/TITLE_SIZE,
-      DEF_SHAPE_LINE_COLOR, DEF_CELL_MARGIN_IN, DEF_SLIDE_MARGIN_IN, DEF_TEXT_GLOW, AXIS_ID_* (five),
-      LAYOUT_IDX_SERIES_BASE, LINEH_MODIFIER, LETTERS, SLDNUMFLDID, REGEX_HEX_COLOR, CRLF, IMG_* --
-      none of which any consumer needs. Two of them, DEF_SHAPE_SHADOW and DEF_TEXT_SHADOW, are
-      annotated ShadowPropsInternal, so that internal shape (which adds `opacity`) still ships
-      structurally through their .d.ts even though the named interface is no longer exported (it is
-      a chunk-local, unexported interface in the built .d.ts -- well-formed, not dangling). Not
-      fixed alongside the type drop because it is a different category -- over-exported values, not
-      types -- and a broad one: the honest fix separates genuinely public enums/presets (ChartType,
-      SchemeColor, ShapeType, AlignH, the LAYOUT presets) from internal constants, moving the latter
-      into a non-export-* module the generators import directly, the same units-internal.ts /
-      types/internal.ts pattern used earlier in this refactor. Removing them from the surface is
-      breaking (they are currently reachable), so it belongs to a major.
+      IMPLEMENTED 2026-07-21. Moved the 32 generator-internal value constants out of
+      core-enums.ts into a new non-export-* module src/core-enums-internal.ts (the same
+      units-internal.ts / types/internal.ts pattern): CRLF, LAYOUT_IDX_SERIES_BASE,
+      REGEX_HEX_COLOR, LINEH_MODIFIER, the DEF_* defaults, AXIS_ID_* (five), LETTERS,
+      BARCHART_COLORS, PIECHART_COLORS, SLDNUMFLDID, XML_DECL, and the IMG_* base64
+      placeholders. core-enums.ts keeps only the genuinely public surface (the ChartType/
+      ShapeType/SchemeColor/AlignH/AlignV/TextAnchor/... enums, the shape-preset sets, the
+      *_NAME unions, asChartType/connectorPresetFor) and is still export *-ed by the five
+      entrypoints. All 40 consumer imports were repointed at the internal module; the ~30
+      mixed imports were split public/internal. Verified: none of the moved names appear in
+      dist/{index,node,browser,core}.d.ts, and the ShadowPropsInternal structural leak (the
+      `opacity` field that rode along via DEF_SHAPE_SHADOW/DEF_TEXT_SHADOW) is gone from
+      index.d.ts too. tsc/eslint clean; 1397 regression+schema+read tests pass. The two type
+      aliases ZIP_OUTPUT_TYPE/WRITE_OUTPUT_TYPE were deliberately left on core-enums.ts --
+      this pass scoped to over-exported *values*; the type surface is a separate concern.
+      Removing the constants from the surface is breaking (they were reachable), so it lands
+      as a major-appropriate cleanup.
+    constructs: []
+    evidence:
+      kinds:
+        - local-source-inspection
+        - regression-test
+      local_files:
+        - src/core-enums.ts
+        - src/core-enums-internal.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: none
+  - id: fork-package-parts-public-api
+    source: fork:src/package/assemble.ts
+    type: fork-internal-proposal
+    first_seen: 2026-07-21
+    last_reviewed: 2026-07-21
+    status: target
+    priority: p2
+    target_area:
+      - package-boundary
+      - typescript-api
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: expose a public "emit OOXML parts without zipping" API on the seam that the package-assembly extraction already created
+    current_project_notes: >
+      The package-assembly extraction (commit 67d0ff95) moved the whole write pipeline into
+      package/assemble.ts::writePackage(source, props), which builds every part via zip.add(...)
+      and then finishes with a single zip.generate(...). That is the seam a public "give me the
+      parts, I will zip/route them myself" API builds on: split writePackage into
+      buildPackageParts(source, props): Promise<PackagePart[]> plus a thin zipPackageParts(parts,
+      props), with writePackage = zip after build (behavior unchanged). The split itself is
+      mechanical; the reason it is filed separately from the extraction is that the *public shape*
+      is a real contract to design -- once exposed, the package's internal part layout and emission
+      order become observable API. Open questions to settle before building:
+        1. Return shape: an ordered Array<{ path; data; compression }> (NOT a Map) so emission
+           order is preserved -- the byte-identity refactor harness relies on that ordering.
+        2. data type: parts are currently a mix of XML strings and binary (store:true fonts,
+           base64-decoded media). Normalize to Uint8Array for a clean contract (forces eager XML
+           encoding) vs a tagged string|bytes union -- pick one and commit.
+        3. Entry point + props: a new PptxGenJS method (toParts()?) parallel to write(); decide
+           which WriteProps still apply (compression is meaningless without zipping; onMediaError
+           still does), and whether the per-entry STORE-vs-DEFLATE hint is part of the public shape.
+        4. Stability promise: document that part paths + ordering are now observable API, since
+           that is the real cost of exposing this.
+      B3 in the refactor deliberately built only the internal seam and did not add this API,
+      because the contract deserves its own design pass -- this entry is that pass.
     constructs: []
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/core-enums.ts
+        - src/package/assemble.ts
+        - src/pptxgen.ts
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: split core-enums.ts into a public enum/preset surface and a non-exported internal-constants module the generators import directly
+    next_action: settle the four open contract questions (return shape, data type, entry point/props, stability promise), then split writePackage into buildPackageParts + zipPackageParts
+  - id: fork-html-freefunction-subpath
+    source: fork:src/browser.ts
+    type: fork-internal-proposal
+    first_seen: 2026-07-21
+    last_reviewed: 2026-07-21
+    status: deferred
+    priority: p3
+    target_area:
+      - package-boundary
+      - typescript-api
+    applies_to_current_project: unknown
+    non_target_reasons: []
+    summary: optionally expose tableToSlides as a free function on a /html subpath, in addition to the browser-entry method it now lives on
+    current_project_notes: >
+      tableToSlides was moved (commit fbf8c656) onto the browser-entry subclass in browser.ts,
+      which is DOM-coupled and browser-only. That move already delivered the module boundary and
+      is non-breaking for browser callers. B4 in the refactor considered, but did not take, the
+      more-breaking alternative: a pptxgenjs/html free-function subpath exporting
+      tableToSlides(pptx, eleId, opts) as a standalone that operates on any instance. Deferred on
+      purpose -- the subpath is only worth adding if there is real demand for Node-side HTML->slides
+      (which needs a DOM shim), and it is only "breaking" if it *replaces* the method form. Frame
+      any future work as strictly ADDITIVE: keep the browser-entry method and add the free function
+      + a new package.json exports entry + .d.ts, so browser callers never break. Do not build until
+      a concrete Node-DOM request surfaces. Nothing in the current design blocks adding it later.
+    constructs: []
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/browser.ts
+        - src/gen/table/html-dom.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: revisit only on a concrete Node-side HTML-to-slides request; if built, keep it additive (method stays, free function added)
   - id: fork-seraxislabelpos-precedence
     source: fork:src/gen/chart/chart-xml.ts
     type: fork-internal-proposal

@@ -5,7 +5,7 @@
  * pairs, titles of parts, company).
  */
 
-import { CRLF, XML_DECL } from '../../core-enums.js'
+import { CRLF, XML_DECL } from '../../core-enums-internal.js'
 import type { PresSlideInternal } from '../../types/internal.js'
 import { encodeXmlEntities } from '../../gen-utils.js'
 

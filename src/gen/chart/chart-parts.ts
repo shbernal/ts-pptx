@@ -9,14 +9,14 @@
  * ({@link ./chart-xml}) all draw on them without a cycle.
  */
 
+import { ChartType } from '../../core-enums.js'
 import {
 	BARCHART_COLORS,
-	ChartType,
 	DEF_CHART_GRIDLINE,
 	DEF_FONT_COLOR,
 	DEF_FONT_SIZE,
 	DEF_SHAPE_SHADOW,
-} from '../../core-enums.js'
+} from '../../core-enums-internal.js'
 import type { BorderProps, ChartErrorBarOptions, ChartPropsTitle, OptsChartGridLine } from '../../core-interfaces.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { warn } from '../../log.js'

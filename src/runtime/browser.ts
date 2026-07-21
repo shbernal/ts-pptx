@@ -1,4 +1,4 @@
-import { IMG_SVG_PLACEHOLDER } from '../core-enums.js'
+import { IMG_SVG_PLACEHOLDER } from '../core-enums-internal.js'
 import type { SlideRelMedia } from '../types/internal.js'
 import type { RuntimeAdapter } from './types.js'
 
