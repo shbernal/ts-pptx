@@ -17,9 +17,10 @@ export default defineConfig({
 			// Browser-only entry points are out of the Node suite's scope (they call
 			// `fetch`, `document`, DOM layout APIs that cannot run headless). They map
 			// to their own bundled chunks, so exclude those chunks rather than the
-			// shared `pptxgen` chunk. Partial-file browser code that shares a chunk with
-			// tested code (e.g. `genTableToSlides`) is fenced with `v8 ignore` comments
-			// at the source instead. See docs/project-target.md "Out Of Active Scope".
+			// shared `pptxgen` chunk. Live-DOM feature code (`tableToSlides` /
+			// `html-dom.ts`) is imported only by the browser entry, so it bundles into
+			// these chunks too and needs no in-source `v8 ignore` fence. See
+			// docs/project-target.md "Out Of Active Scope".
 			exclude: [
 				...coverageConfigDefaults.exclude,
 				'dist/browser.js', // src/browser.ts — browser entry

@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING (`node` entry): `tableToSlides()` is now a browser-build-only method.** It reads
+  a rendered HTML `<table>` via `getComputedStyle`/`offsetWidth`, so it only ever worked in a
+  real browser. It was previously defined on the shared core class and therefore *appeared*
+  (and threw at runtime) on the Node build too. It now lives on the browser entry subclass, so
+  it is present on the default import, `@shbernal/pptxgenjs/browser`, and
+  `@shbernal/pptxgenjs/standalone` — its signature there is unchanged — and absent from
+  `@shbernal/pptxgenjs/node`. *Migration:* none for browser/default consumers; on the Node
+  build, `tableToSlides` was never functional (no DOM), so build tables with the in-memory
+  `slide.addTable(rows, opts)` path. This also lets the live-DOM code (`gen/table/html-dom.ts`)
+  bundle into the browser/standalone chunks only, replacing its in-source `v8 ignore` coverage
+  fence with the existing chunk-level exclusion.
+
 - **BREAKING (`inspect`): `PptxSlideElement.box` is now slide-absolute, and `zIndex` is
   document order.** Two silent-wrongness fixes to the same read model, plus the group
   container itself:

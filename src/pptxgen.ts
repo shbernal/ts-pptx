@@ -84,7 +84,6 @@ import type {
 	TableProps,
 	TableRow,
 	TableStyleProps,
-	TableToSlidesProps,
 	TextMeasurement,
 	TextProps,
 	ThemeProps,
@@ -200,7 +199,6 @@ import { createSlideMaster } from './gen/define/master.js'
 import { addPlaceholdersToSlideLayouts } from './gen/define/placeholder.js'
 import { encodeSlideMediaRels } from './gen/media.js'
 import { makeXmlSlide } from './gen/slide/slide.js'
-import { genTableToSlides } from './gen/table/html-dom.js'
 import { writePackage, type PackageSource } from './package/assemble.js'
 
 const VERSION = '10.4.0'
@@ -225,10 +223,12 @@ function standardLayoutToPresLayout(layout: StandardLayout): PresLayout {
  *   - Enum accessors          AlignH / AlignV / ChartType / OutputType / SchemeColor / ShapeType
  *   - Private slide helpers    addNewSlide, getSlide, setSlideNumber
  *   - Public export methods    stream / write / writeFile — delegate packaging to `writePackage`
- *   - Public authoring methods addSlide / defineLayout / defineSlideMaster / tableToSlides
+ *   - Public authoring methods addSlide / defineLayout / defineSlideMaster / defineTableStyle
  *
  * Package assembly (`[Content_Types].xml`, the rels graph, per-part XML, the ZIP) lives in
  * `package/assemble.ts`; this class provides the deck state via {@link PptxGenJS.packageSource}.
+ * The live-DOM `tableToSlides()` is NOT here — it is added by the browser entry subclass
+ * (`browser.ts`) so it stays out of the Node build and out of the core chunk.
  */
 export default class PptxGenJS {
 	// Property getters/setters
@@ -389,8 +389,13 @@ export default class PptxGenJS {
 	private _customProperties: Array<{ name: string; value: CustomPropertyValue }>
 	private readonly _tableStyles: TableStyleInternal[]
 
-	/** slide layout definition objects, used for generating slide layout files */
-	private readonly _slideLayouts: SlideLayoutInternal[]
+	/**
+	 * slide layout definition objects, used for generating slide layout files.
+	 * `protected` (not `private`) so the browser entry subclass can resolve
+	 * `tableToSlides({ masterSlideName })` against them — that method lives on the
+	 * browser/standalone build only (it reads a live DOM), see `browser.ts`.
+	 */
+	protected readonly _slideLayouts: SlideLayoutInternal[]
 	public get slideLayouts(): SlideLayout[] {
 		return this._slideLayouts
 	}
@@ -1129,24 +1134,5 @@ export default class PptxGenJS {
 		const guid = `{${getUuid('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx').toUpperCase()}}`
 		this._tableStyles.push({ guid, def: props })
 		return guid
-	}
-
-	// HTML-TO-SLIDES METHODS
-
-	/**
-	 * Reproduces an HTML table as a PowerPoint table - including column widths, style, etc. - creates 1 or more slides as needed
-	 * @param {string} eleId - table HTML element ID
-	 * @param {TableToSlidesProps} options - generation options
-	 */
-	tableToSlides(eleId: string, options: TableToSlidesProps = {}): void {
-		// @note `verbose` option is undocumented; used for verbose output of layout process
-		genTableToSlides(
-			this,
-			eleId,
-			options,
-			options?.masterSlideName
-				? this._slideLayouts.find((layout) => layout._name === options.masterSlideName)
-				: undefined
-		)
 	}
 }

@@ -5,6 +5,12 @@
  * PowerPoint table across as many slides as needed. Out of active scope (see
  * AGENTS.md) — the DOM-independent parts are factored into pure helpers
  * (`resolveHtmlColWidth`, `htmlBorderToProps`) that are unit-tested directly.
+ *
+ * This module is imported only by the browser entry (`browser.ts`, which adds the
+ * `tableToSlides` method), so it bundles into the browser/standalone chunks — never
+ * the Node build or the shared core chunk. That is why the live-DOM code below needs
+ * no `v8 ignore` fence: the whole file is coverage-excluded via the `dist/browser*.js`
+ * chunk globs (see vitest.config.ts), while the pure helpers stay unit-tested from src.
  */
 
 import { SlideObjectType } from '../../core-enums.js'
@@ -91,7 +97,6 @@ export function resolveHtmlColWidth(calcWidth: number, setWidth: number, minWidt
  * @param {TableToSlidesProps} options - array of options (e.g.: tabsize)
  * @param {SlideLayoutInternal} masterSlide - masterSlide
  */
-/* v8 ignore start -- browser/DOM-only (getComputedStyle, offsetWidth); out of Node test scope, see docs/project-target.md */
 export function genTableToSlides(
 	pptx: TableToSlidesHost,
 	tabEleId: string,
@@ -351,4 +356,3 @@ export function genTableToSlides(
 		if (opts.addText) newSlide.addText(opts.addText.text, opts.addText.options || {})
 	})
 }
-/* v8 ignore stop */
