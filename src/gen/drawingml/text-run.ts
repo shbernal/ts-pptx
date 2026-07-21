@@ -343,9 +343,12 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 	if (opts.hyperlink) {
 		if (typeof opts.hyperlink !== 'object')
 			throw new Error("ERROR: text `hyperlink` option should be an object. Ex: `hyperlink:{url:'https://github.com'}` ")
-		else if (!opts.hyperlink.url && !opts.hyperlink.slide)
-			throw new Error("ERROR: 'hyperlink requires either `url` or `slide`'")
-		else {
+		else if (!opts.hyperlink.url && !opts.hyperlink.slide && !opts.hyperlink.action)
+			throw new Error("ERROR: 'hyperlink requires either `url`, `slide`, or `action`'")
+		// An action-only hyperlink (an action-button navigation) lives on the shape's `<p:cNvPr>`
+		// (see `cNvPrHyperlink`), NOT on the text run — a labeled action button emits no run-level
+		// `<a:hlinkClick>`.
+		else if (opts.hyperlink.url || opts.hyperlink.slide) {
 			// runProps += '<a:uFill>'+ genXmlColorSelection('0000FF') +'</a:uFill>'; // Breaks PPT2010!
 			// NOTE: `tooltip` is escaped by the builder now (the manual `encodeXmlEntities` is gone), and
 			// it is written even when absent — an empty `tooltip=""` is part of today's bytes.

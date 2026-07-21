@@ -40,6 +40,12 @@ export interface BorderProps {
 	 */
 	cap?: LineCap
 }
+/**
+ * Slide-show navigation action for action-button shapes. Each value maps 1:1 onto
+ * `ppaction://hlinkshowjump?jump=<value>`. A specific numbered slide is reached via
+ * `HyperlinkProps.slide` instead (which emits `ppaction://hlinksldjump`).
+ */
+export type HyperlinkActionJump = 'firstslide' | 'previousslide' | 'nextslide' | 'lastslide' | 'lastslideviewed' | 'endshow'
 // used by: image, object, text,
 export interface HyperlinkProps {
 	_rId?: number
@@ -55,6 +61,12 @@ export interface HyperlinkProps {
 	 * Hyperlink Tooltip
 	 */
 	tooltip?: string
+	/**
+	 * Slide-show navigation action for action-button shapes. Emits a relationship-less
+	 * `<a:hlinkClick action="ppaction://hlinkshowjump?jump=…"/>` on the shape.
+	 * @example hyperlink: { action: 'nextslide' }
+	 */
+	action?: HyperlinkActionJump
 }
 // used by: chart, text, image
 export interface ShadowProps {

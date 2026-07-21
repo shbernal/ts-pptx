@@ -60,8 +60,11 @@ export function createHyperlinkRels(
 			const hyperlink = text.options.hyperlink
 			if (typeof hyperlink !== 'object') {
 				console.log("ERROR: text `hyperlink` option should be an object. Ex: `hyperlink: {url:'https://github.com'}` ")
-			} else if (!hyperlink.url && !hyperlink.slide) {
-				console.log("ERROR: 'hyperlink requires either: `url` or `slide`'")
+			} else if (!hyperlink.url && !hyperlink.slide && !hyperlink.action) {
+				console.log("ERROR: 'hyperlink requires either: `url`, `slide`, or `action`'")
+			} else if (hyperlink.action && !hyperlink.url && !hyperlink.slide) {
+				// Navigation action button: the `ppaction://hlinkshowjump` action is self-contained,
+				// so there is no relationship to register (emitter writes `r:id=""`).
 			} else {
 				const relId = getNewRelId(target)
 

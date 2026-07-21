@@ -29,6 +29,7 @@ export function genSlides_Shape(pptx) {
 
 	genSlide01(pptx);
 	genSlide02(pptx);
+	genSlide03(pptx);
 }
 
 /**
@@ -266,5 +267,36 @@ function genSlide02(pptx) {
 		line: { color: "696969", width: 2 },
 		flipH: true,
 		hyperlink: { url: "https://example.com", tooltip: "Visit Homepage" },
+	});
+}
+
+/**
+ * SLIDE 3: Interactive action buttons (slide-show navigation via ppaction://hlinkshowjump)
+ * @param {PptxGenJS} pptx
+ */
+function genSlide03(pptx) {
+	let slide = pptx.addSlide({ sectionTitle: "Shapes" });
+
+	slide.addTable([[{ text: "Shape Examples 3: Action buttons (navigation)", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
+
+	// Each action button wires an <a:hlinkClick action="ppaction://hlinkshowjump?jump=…"/> so it
+	// actually navigates when the deck is run as a slide show (not just static geometry).
+	const buttons = [
+		{ shape: pptx.ShapeType.actionButtonBeginning, action: "firstslide", tooltip: "First slide" },
+		{ shape: pptx.ShapeType.actionButtonBackPrevious, action: "previousslide", tooltip: "Previous slide" },
+		{ shape: pptx.ShapeType.actionButtonForwardNext, action: "nextslide", tooltip: "Next slide" },
+		{ shape: pptx.ShapeType.actionButtonEnd, action: "lastslide", tooltip: "Last slide" },
+		{ shape: pptx.ShapeType.actionButtonReturn, action: "lastslideviewed", tooltip: "Return" },
+	];
+	buttons.forEach((btn, idx) => {
+		slide.addShape(btn.shape, {
+			x: 0.5 + idx * 1.2,
+			y: 3.0,
+			w: 1.0,
+			h: 1.0,
+			fill: { color: pptx.SchemeColor.accent1 },
+			line: { color: "696969", width: 1 },
+			hyperlink: { action: btn.action, tooltip: btn.tooltip },
+		});
 	});
 }

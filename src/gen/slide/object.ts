@@ -105,6 +105,11 @@ function cNvPrHyperlink(link: HyperlinkProps | undefined): string {
 		(link.url ? voidEl('a:hlinkClick', { 'r:id': `rId${link._rId}`, tooltip }) : '') +
 		(link.slide
 			? voidEl('a:hlinkClick', { 'r:id': `rId${link._rId}`, tooltip, action: 'ppaction://hlinksldjump' })
+			: '') +
+		// Action buttons: a self-contained slide-show navigation action. No relationship, so `r:id`
+		// is emitted empty (schema-optional on CT_Hyperlink; matches PowerPoint's own output).
+		(link.action
+			? voidEl('a:hlinkClick', { 'r:id': '', tooltip, action: `ppaction://hlinkshowjump?jump=${link.action}` })
 			: '')
 	)
 }

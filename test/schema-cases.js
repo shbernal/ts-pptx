@@ -2860,6 +2860,27 @@ export default [
 		},
 	},
 	{
+		// Action buttons: navigation actions attach an <a:hlinkClick action="ppaction://
+		// hlinkshowjump?jump=…"/> (empty r:id, no relationship) to the shape cNvPr. Confirm the
+		// ppaction value and relationship-less hlinkClick are schema-accepted.
+		name: 'action-button navigation actions stay schema-valid',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape('actionButtonBeginning', { x: 1, y: 1, w: 1, h: 1, hyperlink: { action: 'firstslide' } })
+				s.addShape('actionButtonForwardNext', {
+					x: 3,
+					y: 1,
+					w: 1,
+					h: 1,
+					hyperlink: { action: 'nextslide', tooltip: 'Next' },
+				})
+				s.addShape('actionButtonEnd', { x: 5, y: 1, w: 1, h: 1, hyperlink: { action: 'endshow' } })
+			})
+			await expectNoSchemaErrors(buf, 'action-button-navigation')
+		},
+	},
+	{
 		// addGroup: a flat group (<p:grpSp>) wrapping a shape, a text box, and an image.
 		// Identity child coordinate space; children keep their slide-absolute coordinates.
 		name: 'flat group of shape + text + image (addGroup)',
