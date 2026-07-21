@@ -163,15 +163,31 @@ function createChartMediaRels(
 }
 
 /**
- * Assemble every package part for `source` and hand the bytes to the ZIP writer, returning
- * the generated output in the shape `props.outputType` selects. This runs the transition-sound
- * registration, media encode, cross-deck media de-dup, chart-part-id assignment, placeholder
- * backfill, and measured-fit passes before the synchronous XML pass reads slide state.
+ * One emitted OOXML package part, before zipping: its slash-path, already-encoded bytes, and
+ * whether it is added with `store` (DEFLATE skipped — already-compressed media/fonts). This is
+ * the build-side seam {@link buildPackageParts} returns and {@link zipPackageParts} consumes;
+ * the `store` hint is an fflate-era zip optimization kept internal so re-zipping stays
+ * byte-identical. A public parts API exposes only `{ path, data }`.
  */
-export async function writePackage(
+export interface InternalPackagePart {
+	readonly path: string
+	readonly data: Uint8Array
+	readonly store: boolean
+}
+
+/**
+ * Assemble every package part for `source` and return them in emission order, without zipping.
+ * This runs the transition-sound registration, media encode, cross-deck media de-dup,
+ * chart-part-id assignment, placeholder backfill, and measured-fit passes before the synchronous
+ * XML pass reads slide state. The bytes are the same the ZIP writer would compress; splitting the
+ * assembly from the zip lets the byte-identity harness (and a future parts API) read parts
+ * directly. Only `onMediaError` is meaningful here — compression/output shape are zip concerns
+ * handled by {@link zipPackageParts}.
+ */
+export async function buildPackageParts(
 	source: PackageSource,
-	props: WriteProps
-): Promise<string | ArrayBuffer | Blob | Uint8Array> {
+	props: { onMediaError?: WriteProps['onMediaError'] }
+): Promise<InternalPackagePart[]> {
 	const pres = source.presentation
 	const arrChartPromises: Promise<string>[] = []
 	let arrMediaPromises: Promise<string>[] = []
@@ -309,19 +325,46 @@ export async function writePackage(
 		})
 		createChartMediaRels(pres.masterSlide, zip, arrChartPromises)
 
-		// E: Wait for Promises (if any) then generate the PPTX file
-		return await Promise.all(arrChartPromises).then(async () => {
-			const compression = props.compression !== false
-			if (props.outputType === 'STREAM') {
-				// A: stream file
-				return await zip.generate('nodebuffer', { compression })
-			} else if (props.outputType) {
-				// B: Node [fs]: Output type user option or default
-				return await zip.generate(props.outputType, { compression })
-			} else {
-				// C: Browser: Output blob as app/ms-pptx
-				return await zip.generate('blob', { compression })
-			}
-		})
+		// E: Wait for the chart-embed Promises (if any), then snapshot the accumulated
+		// parts in emission order. Zipping is deferred to `zipPackageParts`.
+		return await Promise.all(arrChartPromises).then(() => zip.entries())
 	})
+}
+
+/**
+ * Zip an ordered list of package parts into the output shape `props.outputType` selects. Re-adds
+ * each part to a fresh {@link ZipWriter} in order — preserving each part's `store` hint — so the
+ * archive is byte-identical to assembling straight into one writer. Compression and output type
+ * are the only zip-level knobs; part assembly happened in {@link buildPackageParts}.
+ */
+async function zipPackageParts(
+	parts: InternalPackagePart[],
+	props: WriteProps
+): Promise<string | ArrayBuffer | Blob | Uint8Array> {
+	const zip = new ZipWriter()
+	for (const part of parts) zip.add(part.path, part.data, { store: part.store })
+
+	const compression = props.compression !== false
+	if (props.outputType === 'STREAM') {
+		// A: stream file
+		return await zip.generate('nodebuffer', { compression })
+	} else if (props.outputType) {
+		// B: Node [fs]: Output type user option or default
+		return await zip.generate(props.outputType, { compression })
+	} else {
+		// C: Browser: Output blob as app/ms-pptx
+		return await zip.generate('blob', { compression })
+	}
+}
+
+/**
+ * Assemble every package part for `source` and zip it into the output shape `props.outputType`
+ * selects. Thin composition of {@link buildPackageParts} (the assembly pipeline) and
+ * {@link zipPackageParts} (the zip pass), kept as the stable entry point the authoring class calls.
+ */
+export async function writePackage(
+	source: PackageSource,
+	props: WriteProps
+): Promise<string | ArrayBuffer | Blob | Uint8Array> {
+	return await zipPackageParts(await buildPackageParts(source, props), props)
 }

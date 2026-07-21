@@ -39,6 +39,21 @@ export class ZipWriter {
 	}
 
 	/**
+	 * Snapshot the accumulated entries in insertion order, before zipping. Each
+	 * entry carries its already-encoded bytes and whether it was added with
+	 * `store` (recovered from the per-entry level). This is the seam the
+	 * package-parts path reads: the same accumulator {@link generate} would zip,
+	 * exposed without running DEFLATE. Every value in `#entries` is the
+	 * `[bytes, opts]` tuple {@link add} writes, so the cast is total.
+	 */
+	entries(): Array<{ path: string; data: Uint8Array; store: boolean }> {
+		return Object.entries(this.#entries).map(([path, value]) => {
+			const [bytes, fileOpts] = value as [Uint8Array, ZipOptions]
+			return { path, data: bytes, store: fileOpts.level === 0 }
+		})
+	}
+
+	/**
 	 * Compress all accumulated entries to raw zip bytes.
 	 * @param compression - false stores every entry uncompressed (level 0)
 	 */
