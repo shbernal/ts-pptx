@@ -25,11 +25,18 @@ exports and let this repository own the internal OOXML generation details.
   the authoring API façade (`addSlide`, `defineSlideMaster`, …), and the metadata
   and enum accessors. `write`/`writeFile`/`stream` are thin façades over the
   packaging layer.
-- `src/package/assemble.ts` owns package assembly: `writePackage` turns an authored
-  deck into every OOXML part (`[Content_Types].xml`, the rels graph, docProps,
-  theme, per-slide/layout/master parts, comments, chart/media rels) and hands the
-  bytes to the ZIP writer. It takes a structural `PackageSource` the presentation
-  class satisfies, so it does not depend on the class.
+- `src/package/assemble.ts` owns package assembly, split into two composable halves:
+  `buildPackageParts` turns an authored deck into every OOXML part in emission order
+  (`[Content_Types].xml`, the rels graph, docProps, theme, per-slide/layout/master
+  parts, comments, chart/media rels), and `zipPackageParts` compresses that ordered
+  list to the requested output shape. `writePackage` is their composition — the entry
+  behind `write`/`writeFile`/`stream`. It takes a structural `PackageSource` the
+  presentation class satisfies, so it does not depend on the class. The assembly half
+  is also exposed publicly as `pptx.toParts()` (returning `PackagePart[]` = `{ path,
+  data }`, dropping the internal-only STORE/DEFLATE hint): **part paths and their
+  emission order are a stability-guaranteed observable contract** — adding a part later
+  is back-compatible if existing paths/order do not shift; renaming/reordering is
+  breaking. The per-part bytes are identical to what `write()` compresses.
 - `src/slide.ts` owns slide-level object collection and public slide methods.
 - `src/gen/` holds the internal OOXML generators as a layered tree mirroring
   `src/read/`: `gen/define/*` normalizes user options onto the slide model, and
@@ -72,7 +79,7 @@ export time. Each module opens with a TSDoc header stating its job; larger files
 | Theme colors | — | `gen/pres/theme.ts` `buildThemeClrScheme` / `makeXmlTheme` |
 | Coordinates & units (in → EMU) | `units.ts` (strict public primitives); `units-internal.ts` `getSmartParseNumber` (lenient generator layer) | — |
 | Colors, fills, borders, shadows | — | `gen/drawingml/color.ts` `createColorElement`; `gen/drawingml/fill.ts` `genXmlColorSelection` / `genXml*Fill`; `gen/drawingml/line.ts` `genXmlLineFill` / `createLineCap`; `gen/drawingml/effect.ts` `createShadowElement` / `createGlowElement` |
-| Package assembly & export | `package/assemble.ts` `writePackage` (behind `pptxgen.ts` `write` / `writeFile` / `stream`) | `gen/opc/content-types.ts` `makeXmlContTypes` / `gen/opc/root-rels.ts` `makeXmlRootRels` / per-part rels |
+| Package assembly & export | `package/assemble.ts` `buildPackageParts` (parts) + `zipPackageParts` (zip) → `writePackage` (behind `pptxgen.ts` `write` / `writeFile` / `stream`); `toParts` exposes the parts | `gen/opc/content-types.ts` `makeXmlContTypes` / `gen/opc/root-rels.ts` `makeXmlRootRels` / per-part rels |
 | HTML `<table>` → slides (live DOM) | `browser.ts` `tableToSlides` (browser/standalone build only) | `gen/table/html-dom.ts` `genTableToSlides` |
 | Public API surface | `pptxgen.ts` (class), `slide.ts` (slide methods) | — |
 | Option / type definitions | `core-interfaces.ts` | — |

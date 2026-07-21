@@ -42,6 +42,33 @@ export interface WriteFileProps extends WriteBaseProps {
 	 */
 	fileName?: string
 }
+/**
+ * One emitted OOXML package part: its full slash-path and already-encoded bytes. Returned by
+ * {@link https://github.com/gitbrent/PptxGenJS `PptxGenJS.toParts()`} for callers that want the
+ * raw parts of the `.pptx` OPC package without zipping (custom containers, streaming, part-level
+ * inspection). The bytes are byte-identical to what `write()` would compress for the same part;
+ * XML parts are UTF-8 (decode with `new TextDecoder().decode(part.data)`), media/font parts are
+ * their raw binary.
+ */
+export interface PackagePart {
+	/** Full OOXML package part path, e.g. `ppt/slides/slide1.xml`. */
+	readonly path: string
+	/** The part's already-encoded bytes: a fresh view per call, safe to keep or transfer. */
+	readonly data: Uint8Array
+}
+/**
+ * Options for {@link https://github.com/gitbrent/PptxGenJS `PptxGenJS.toParts()`}. A deliberately
+ * narrow subset of {@link WriteProps}: `compression` and `outputType` are zip concerns and do not
+ * apply when parts are returned unzipped, so only media-error handling is exposed.
+ */
+export interface PartsProps {
+	/**
+	 * How to handle a media asset (image/audio/video) that fails to load. Same semantics as
+	 * {@link WriteBaseProps.onMediaError}.
+	 * @default 'throw'
+	 */
+	onMediaError?: 'throw' | 'placeholder'
+}
 export interface SectionProps {
 	/**
 	 * Section title

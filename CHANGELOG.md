@@ -250,6 +250,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`pptx.toParts(props?)` returns the OOXML package parts without zipping.** The counterpart
+  to `write()` for consumers that need the raw `path → bytes` contents of the `.pptx` — to
+  stream parts into a custom container, inspect an individual part, or feed a pipeline that
+  does its own archiving — rather than a finished zip. It returns `PackagePart[]`
+  (`{ path: string; data: Uint8Array }`) in the package's emission order, running the same
+  assembly pipeline `write()` uses, so each part is byte-identical to what `write()` would
+  compress for that part; XML parts are UTF-8 (decode with `new TextDecoder().decode(part.data)`),
+  media/font parts are their raw binary. Options are the narrow `PartsProps` (`onMediaError`
+  only — `compression` and `outputType` are zip concerns that do not apply to unzipped parts).
+  Part **paths and their relative order are now a stability-guaranteed observable contract**:
+  adding a new part in a later release is backward-compatible as long as existing paths/order
+  do not shift; renaming or reordering an existing part is breaking. Each call returns fresh
+  `Uint8Array` views, safe to retain or transfer without copying. New public types
+  `PackagePart` and `PartsProps` are exported alongside.
+
 - **`slide.groupObjects(objectNames, options?)` groups objects already on the slide by
   `objectName`.** The counterpart to `addGroup()` for slides composed from independent
   renderers: those renderers each emit finished objects with stable names, so grouping

@@ -68,6 +68,8 @@ import type {
 	PresSlide,
 	SectionProps,
 	SlideLayout,
+	PackagePart,
+	PartsProps,
 	SlideMasterProps,
 	SlideNumberProps,
 	TableLayoutResult,
@@ -136,6 +138,8 @@ export type {
 	ObjectOptions,
 	OptsChartData,
 	OptsChartGridLine,
+	PackagePart,
+	PartsProps,
 	PlaceholderProps,
 	PositionProps,
 	PresLayout,
@@ -189,7 +193,7 @@ import { createSlideMaster } from './gen/define/master.js'
 import { addPlaceholdersToSlideLayouts } from './gen/define/placeholder.js'
 import { encodeSlideMediaRels } from './gen/media.js'
 import { makeXmlSlide } from './gen/slide/slide.js'
-import { writePackage, type PackageSource } from './package/assemble.js'
+import { buildPackageParts, writePackage, type PackageSource } from './package/assemble.js'
 
 const VERSION = '10.4.0'
 
@@ -906,6 +910,28 @@ export default class PptxGenJS {
 			outputType: props?.outputType,
 			onMediaError: props?.onMediaError,
 		})
+	}
+
+	/**
+	 * Assemble the current Presentation into its OOXML package parts WITHOUT zipping — the raw
+	 * `path → bytes` contents `write()` would compress into the `.pptx`. Use this to stream parts
+	 * into a custom container, inspect individual parts, or feed a pipeline that does its own
+	 * archiving. To produce a real `.pptx` file, use {@link write} / {@link writeFile} instead.
+	 *
+	 * The returned parts are byte-identical, per part, to what `write()` emits for the same deck,
+	 * and their order is the package's emission order. Both are a stability-guaranteed observable
+	 * contract: adding a new part in a later release is backward-compatible as long as existing
+	 * part paths and their relative order do not shift; renaming or reordering an existing part is
+	 * a breaking change. Each call returns fresh `Uint8Array` views over per-call buffers (a new
+	 * assembly runs each time), so callers may retain or transfer them without defensive copying.
+	 * @param {PartsProps} props - assembly options (`onMediaError` only; compression/output shape
+	 *   are zip concerns that do not apply to unzipped parts)
+	 * @returns {Promise<PackagePart[]>} the package parts in emission order
+	 */
+	async toParts(props?: PartsProps): Promise<PackagePart[]> {
+		const parts = await buildPackageParts(this.packageSource(), { onMediaError: props?.onMediaError })
+		// Drop the internal `store` (DEFLATE) hint — an fflate-era zip optimization, not an OOXML fact.
+		return parts.map(({ path, data }) => ({ path, data }))
 	}
 
 	/**
