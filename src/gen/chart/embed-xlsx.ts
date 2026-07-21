@@ -406,8 +406,13 @@ function buildXlsxSheet(
 			}
 			strSheetXml += '</row>'
 
-			// B: Add data row(s) for each category
-			firstLabelGroup(data[0]).forEach((_cat, idx) => {
+			// B: Add data row(s). Normally one row per category; a category-less chartEx layout
+			// (histogram feeds PowerPoint raw observations with no labels) has no label groups, so
+			// the row count falls back to the longest value series and the leading label columns are
+			// simply skipped — values land in column A.
+			const rowCount =
+				firstLabelGroup(data[0]).length || Math.max(0, ...data.map((series) => dataValues(series).length))
+			for (let idx = 0; idx < rowCount; idx++) {
 				strSheetXml += `<row r="${idx + 2}" spans="1:${data.length + dataLabels(data[0]).length}">`
 				// Leading cols are reserved for the label groups
 				for (let idx2 = dataLabels(data[0]).length - 1; idx2 >= 0; idx2--) {
@@ -419,7 +424,7 @@ function buildXlsxSheet(
 					strSheetXml += `<c r="${getExcelColName(dataLabels(data[0]).length + idy + 1)}${idx + 2}"><v>${dataValues(data[idy])[idx] ?? ''}</v></c>`
 				}
 				strSheetXml += '</row>'
-			})
+			}
 		} else {
 			const TOT_SER = data.length
 			const TOT_CAT = firstLabelGroup(data[0]).length

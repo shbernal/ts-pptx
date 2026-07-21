@@ -54,6 +54,7 @@ export function genSlides_Chart(pptx) {
 	genSlide23(pptx);
 	genSlide24(pptx);
 	genSlide25(pptx);
+	genSlide26(pptx);
 
 	if (TESTMODE) {
 		pptx.addSection({ title: "Charts-DevTest" });
@@ -167,6 +168,30 @@ function genSlide25(pptx) {
 		showTitle: true,
 		title: "US City Population by Region",
 		showValue: true,
+	});
+}
+
+// SLIDE 26: Histogram Chart (chartEx / Office 2016 — renders in PowerPoint 2016+/M365)
+function genSlide26(pptx) {
+	let slide = pptx.addSlide({ sectionTitle: "Charts" });
+	slide.addTable([[{ text: "Chart Examples: Histogram (chartEx)", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
+
+	// Histogram takes RAW observations (no labels); PowerPoint bins them automatically.
+	const dataHistogram = [
+		{
+			name: "Test Scores",
+			values: [55, 62, 68, 71, 72, 74, 75, 77, 78, 78, 80, 81, 82, 83, 85, 86, 88, 90, 92, 95, 61, 66, 73, 79, 84, 87, 91, 69, 76, 89],
+		},
+	];
+
+	slide.addChart(dataHistogram, {
+		x: 0.5,
+		y: 0.6,
+		w: "95%",
+		h: 5.5,
+		type: "histogram",
+		showTitle: true,
+		title: "Exam Score Distribution",
 	});
 }
 

@@ -2,8 +2,8 @@
  * PptxGenJS: chartEx (`cx:`) Chart Assembly
  *
  * Builds a chartEx chart part `ppt/charts/chartEx{N}.xml` — the `<cx:chartSpace>` for the
- * Office-2016 chart family (currently `waterfall`, `funnel`, `treemap`, `sunburst`). This is the
- * chartEx analogue of
+ * Office-2016 chart family (currently `waterfall`, `funnel`, `treemap`, `sunburst`, `histogram`).
+ * This is the chartEx analogue of
  * {@link ./chart-xml} (`makeXmlCharts`): a pure string builder, no I/O, no model mutation.
  *
  * chartEx differs from the classic `<c:chartSpace>` in three ways the rest of the package must
@@ -18,6 +18,7 @@
 
 import { ChartType } from '../../core-enums.js'
 import { DEF_FONT_COLOR, XML_DECL } from '../../core-enums-internal.js'
+import type { ChartExBinning } from '../../types/chart.js'
 import type { SlideRelChart } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { el, raw, voidEl } from '../oxml/el.js'
@@ -42,6 +43,9 @@ export function chartExLayoutId(type: ChartType): string {
 			return 'treemap'
 		case ChartType.sunburst:
 			return 'sunburst'
+		case ChartType.histogram:
+			// A histogram is a clustered-column series whose bins PowerPoint computes from <cx:binning>.
+			return 'clusteredColumn'
 		default:
 			return ''
 	}
@@ -59,6 +63,21 @@ function chartExUniqueId(globalId: number): string {
 /** chartEx legend positions are `t|b|l|r`; clamp the classic `'tr'` (and anything else) to `'t'`. */
 function chartExLegendPos(pos: string | undefined): string {
 	return pos === 'b' || pos === 'l' || pos === 'r' ? pos : 't'
+}
+
+/**
+ * Build the histogram `<cx:binning>` element from the caller's `binning` opt. PowerPoint bins the
+ * raw observations automatically; the only control wired here is `intervalClosed` — whether each
+ * bin interval is right-closed (`"r"`, PowerPoint's default) or left-closed (`"l"`).
+ *
+ * NOTE: explicit bin geometry (`binCount`/`binSize` child elements, `underflow`/`overflow`
+ * attributes) is intentionally NOT emitted. Although `<cx:binCount>`/`<cx:binSize>` pass OOXML
+ * schema validation (they are declared children of `cx:binning` in the OpenXML SDK), PowerPoint
+ * desktop refuses to open a deck that contains them (0x80004005) — so shipping them would corrupt
+ * the file. They stay deferred until their real requirements are pinned down against PowerPoint.
+ */
+function makeChartExBinning(binning: ChartExBinning | undefined): string {
+	return voidEl('cx:binning', { intervalClosed: binning?.intervalClosed === 'l' ? 'l' : 'r' })
 }
 
 /** Build the `<cx:series>` (title cell, data labels, dataId, and layout-specific `<cx:layoutPr>`). */
@@ -93,6 +112,10 @@ function makeChartExSeries(rel: SlideRelChart): string {
 	} else if (type === ChartType.treemap) {
 		// treemap: how parent-category banners are placed (PowerPoint's default is `overlapping`).
 		layoutPr = el('cx:layoutPr', null, raw(voidEl('cx:parentLabelLayout', { val: 'overlapping' })))
+	} else if (type === ChartType.histogram) {
+		// histogram: how PowerPoint bins the raw observations. Default is auto binning with
+		// right-closed intervals; the `binning` opt exposes explicit width/count/overflow control.
+		layoutPr = el('cx:layoutPr', null, raw(makeChartExBinning(opts.binning)))
 	}
 
 	return el('cx:series', { layoutId: chartExLayoutId(type), uniqueId: chartExUniqueId(rel.globalId) }, [
@@ -127,6 +150,19 @@ function makeChartExAxes(type: ChartType): string {
 	}
 	if (type === ChartType.funnel) {
 		return el('cx:axis', { id: 1 }, [raw(voidEl('cx:catScaling', { gapWidth: '2.19' })), raw(voidEl('cx:tickLabels'))])
+	}
+	if (type === ChartType.histogram) {
+		// Histogram bins abut, so the category axis uses gapWidth 0; the value axis carries gridlines.
+		const catAxis = el('cx:axis', { id: 0 }, [
+			raw(voidEl('cx:catScaling', { gapWidth: '0' })),
+			raw(voidEl('cx:tickLabels')),
+		])
+		const valAxis = el('cx:axis', { id: 1 }, [
+			raw(voidEl('cx:valScaling')),
+			raw(voidEl('cx:majorGridlines')),
+			raw(voidEl('cx:tickLabels')),
+		])
+		return catAxis + valAxis
 	}
 	return ''
 }

@@ -1559,6 +1559,30 @@ export default [
 		},
 	},
 	{
+		// histogram is the category-less chartEx layout: raw observations (no labels), which
+		// PowerPoint bins. Prove the deck — a single numDim in column A + <cx:binning>, no strDim —
+		// validates and that the embedded workbook the numDim <cx:f> points at is well-formed.
+		name: 'histogram (category-less chartEx) chart is schema-valid',
+		fn: async () => {
+			const { buf, zip } = await build((p) => {
+				p.addSlide().addChart([{ name: 'Scores', values: [55, 62, 68, 71, 74, 77, 80, 83, 86, 90, 95] }], {
+					type: 'histogram',
+					x: 1,
+					y: 1,
+					w: 8,
+					h: 4.5,
+				})
+			})
+			await expectNoSchemaErrors(buf, 'chart-histogram-chartex')
+			const cxPath = listEntries(zip).find((f) => /^ppt\/charts\/chartEx\d+\.xml$/.test(f))
+			assert(cxPath, 'expected a ppt/charts/chartExN.xml part')
+			const cxXml = await readEntry(zip, cxPath)
+			assertIncludes(cxXml, 'layoutId="clusteredColumn"', 'histogram clusteredColumn layout')
+			assertIncludes(cxXml, '<cx:binning intervalClosed="r"/>', 'histogram binning')
+			assert(!cxXml.includes('cx:strDim'), 'histogram must have no category dimension')
+		},
+	},
+	{
 		// bubble/bubble3D charts can show each bubble's size as a data label.
 		// The `showBubbleSize` option flips the previously hard-coded <c:showBubbleSize val="0"/>;
 		// lock in that the enabled flag stays schema-valid in CT_DLbls.

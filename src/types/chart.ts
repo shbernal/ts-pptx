@@ -576,6 +576,25 @@ export interface ChartPropsChartWaterfall {
 	subtotals?: number[]
 }
 /**
+ * Bin configuration for a `histogram` chart. A histogram is fed **raw observations** (one series of
+ * `values`, no `labels`); PowerPoint groups them into bins automatically. The only control wired
+ * today is which side of each bin interval is closed.
+ *
+ * NOTE: explicit bin geometry (fixed bin width / bin count / overflow / underflow) is not yet
+ * supported — PowerPoint desktop rejects the decks those settings produce, so they are deferred.
+ */
+export interface ChartExBinning {
+	/** Which side of each bin interval is closed: `'r'` (right, the default) or `'l'` (left). */
+	intervalClosed?: 'l' | 'r'
+}
+export interface ChartPropsChartHistogram {
+	/**
+	 * Bin configuration for a `histogram` chart. Omit for PowerPoint's automatic binning.
+	 * @example { intervalClosed: 'l' }
+	 */
+	binning?: ChartExBinning
+}
+/**
  * Per-series style overrides for a chart.
  * Each entry applies to the series at the same index in the data array.
  * Unset fields fall back to the chart-level option.
@@ -693,6 +712,7 @@ export interface ChartOpts
 		ChartPropsChartPie,
 		ChartPropsChartRadar,
 		ChartPropsChartWaterfall,
+		ChartPropsChartHistogram,
 		ChartPropsDataLabel,
 		ChartPropsDataTable,
 		ChartPropsLegend,

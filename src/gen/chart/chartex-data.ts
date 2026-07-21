@@ -5,9 +5,10 @@
  * Office-2016 layouts as they land). This is the chartEx analogue of the `<c:cat>`/`<c:val>`
  * caches on the classic side: it names the embedded-workbook cells via `<cx:f>` formulas and
  * mirrors their values into `<cx:lvl>` string/number caches so PowerPoint can render without
- * opening the workbook. The cell layout is identical to the classic single-series cat chart —
- * categories in column A (rows 2..n+1), the one value series in column B (name in B1) — so the
- * references here line up 1:1 with the workbook written by {@link ./embed-xlsx}.
+ * opening the workbook. The category label levels occupy the leading columns (0 of them for a
+ * category-less histogram, 1 for a flat chart, N for a hierarchical treemap/sunburst) and the one
+ * value series sits in the next column — so the references here line up 1:1 with the workbook
+ * written by {@link ./embed-xlsx}.
  */
 
 import { ChartType } from '../../core-enums.js'
@@ -45,7 +46,7 @@ export function makeChartExData(rel: SlideRelChart): string {
 	const series = rel.data[0]
 	const type = rel.opts._type as ChartType
 	const levels = dataLabels(series)
-	const totLvl = Math.max(levels.length, 1) // flat charts still occupy one label column (A)
+	const totLvl = levels.length // 0 for a category-less layout (histogram), 1 flat, N hierarchical
 	const vals = dataValues(series)
 	// Row span is driven by whichever dimension has more points; the workbook writes both to the same rows.
 	const ptCount = Math.max(firstLabelGroup(series).length, vals.length)
@@ -53,16 +54,20 @@ export function makeChartExData(rel: SlideRelChart): string {
 	const valueCol = totLvl + 1 // value series sits in the column right after all label columns
 
 	// Category (string) dimension — one <cx:lvl> per hierarchy level, leaf-first, over columns A..totLvl.
-	const catLvls = levels
-		.map((group) => {
-			const pts = group.map((label, idx) => el('cx:pt', { idx }, label ?? '')).join('')
-			return el('cx:lvl', { ptCount: group.length }, raw(pts))
-		})
-		.join('')
-	const catDim = el('cx:strDim', { type: 'cat' }, [
-		raw(el('cx:f', null, sheetRangeRef(1, 2, totLvl, lastRow))),
-		raw(catLvls),
-	])
+	// A category-less layout (histogram bins raw observations itself) emits no strDim at all.
+	let catDim = ''
+	if (totLvl > 0) {
+		const catLvls = levels
+			.map((group) => {
+				const pts = group.map((label, idx) => el('cx:pt', { idx }, label ?? '')).join('')
+				return el('cx:lvl', { ptCount: group.length }, raw(pts))
+			})
+			.join('')
+		catDim = el('cx:strDim', { type: 'cat' }, [
+			raw(el('cx:f', null, sheetRangeRef(1, 2, totLvl, lastRow))),
+			raw(catLvls),
+		])
+	}
 
 	// Numeric dimension — the value column. Skip null/non-finite points (a valid sparse cache);
 	// warn on non-finite, matching the classic side's `numCachePt` policy.
@@ -89,11 +94,11 @@ export function makeChartExData(rel: SlideRelChart): string {
 
 /**
  * The `Sheet1` cell holding the series name (the numeric dimension's header) — column immediately
- * after all label columns, row 1. Flat charts land on `$B$1`; a 3-level treemap on `$D$1`.
+ * after all label columns, row 1. A category-less histogram lands on `$A$1`; a flat chart on
+ * `$B$1`; a 3-level treemap on `$D$1`.
  * @param {SlideRelChart} rel - the registered chart
  * @return {string} an absolute single-cell reference, e.g. `Sheet1!$B$1`
  */
 export function chartExSeriesNameRef(rel: SlideRelChart): string {
-	const totLvl = Math.max(dataLabels(rel.data[0]).length, 1)
-	return sheetCellRef(totLvl + 1, 1)
+	return sheetCellRef(dataLabels(rel.data[0]).length + 1, 1)
 }

@@ -124,6 +124,8 @@ export type {
 	ChartPropsChartPie,
 	ChartPropsChartRadar,
 	ChartPropsChartWaterfall,
+	ChartPropsChartHistogram,
+	ChartExBinning,
 	ChartPropsDataLabel,
 	ChartPropsDataTable,
 	ChartPropsFillLine,

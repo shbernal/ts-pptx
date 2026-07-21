@@ -700,8 +700,11 @@ items:
       dimension — one <cx:lvl> per hierarchy level (leaf-first) under a single
       spanning <cx:f> — plus a numeric dim tagged type="size" (not "val").
       Treemap adds <cx:layoutPr><cx:parentLabelLayout val="overlapping"/>;
-      sunburst has no layoutPr. Remaining cx types (not this issue): histogram,
-      pareto, box-and-whisker, map; plus classic-namespace stock + surface.
+      sunburst has no layoutPr. Histogram also shipped 2026-07-21 (category-less
+      cx layout: raw observations in a single numDim, no strDim, layoutId
+      "clusteredColumn" + <cx:binning>; reads back as ChartType 118). Remaining
+      cx types (not this issue): pareto, box-and-whisker, map; plus
+      classic-namespace stock + surface.
     evidence:
       kinds:
         - local-source-inspection
@@ -721,7 +724,7 @@ items:
       validator_result: pass
       powerpoint_result: opens in PowerPoint desktop (COM smoke); treemap/sunburst read back as ChartType 117/120 (xlTreemap/xlSunburst)
       spec_refs: []
-    next_action: implement-remaining-chartEx-histogram-pareto-box-map-and-classic-stock-surface-per-plan
+    next_action: implement-remaining-chartEx-pareto-box-map-and-classic-stock-surface-per-plan
 
   - id: upstream-issue-904
     source: "gitbrent/PptxGenJS#904"
