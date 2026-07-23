@@ -22,6 +22,7 @@ import { backgroundElementOf, readSlideBackground, type SlideBackground } from '
 import type { Presentation } from './presentation.js'
 import { AutoShape, GraphicFrame, GroupShape, Picture, buildShapes, type AnyShape } from './shapes.js'
 import { NotesSlide } from './notes.js'
+import { SlideLayout, type SlideMaster, type Theme } from './chrome.js'
 import type { TextFrame } from './text.js'
 import {
 	buildTransition,
@@ -34,6 +35,7 @@ import { enumerateSpids, flattenAnimations, hasAnimations, pruneSpids, remapSpid
 
 const IMAGE_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 const NOTES_SLIDE_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
+const SLIDE_LAYOUT_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
 
 /** Options for {@link Slide.addTextBox}. Geometry is in EMU. */
 export interface AddTextBoxOptions {
@@ -365,6 +367,39 @@ export class Slide {
 		const notesPart = this.presentation.opc.part(this.relationships.resolveTarget(notesRel.id))
 		if (!notesPart) return null
 		return new NotesSlide(this.presentation.opc, notesPart)
+	}
+
+	/**
+	 * The slide layout this slide is bound to (`slideLayout` relationship), as a
+	 * modeled {@link SlideLayout}, or `null` when the slide has no layout. The layout
+	 * carries the placeholder geometry and background a slide inherits; walk on to
+	 * {@link master} and {@link theme} through it (`slide.layout.master.theme`).
+	 */
+	get layout(): SlideLayout | null {
+		const rel = this.relationships.byType(SLIDE_LAYOUT_REL_TYPE)[0]
+		if (!rel) return null
+		const part = this.presentation.opc.part(this.relationships.resolveTarget(rel.id))
+		return part ? new SlideLayout(this.presentation.opc, part) : null
+	}
+
+	/**
+	 * The slide master this slide resolves against, via its {@link layout}, as a
+	 * modeled {@link SlideMaster}, or `null` when the layout/master chain is broken.
+	 * The master owns the colour map (`schemeClr` token → theme slot) and the default
+	 * text styles a placeholder inherits.
+	 */
+	get master(): SlideMaster | null {
+		return this.layout?.master ?? null
+	}
+
+	/**
+	 * The theme this slide resolves colour and font tokens against, via its
+	 * {@link layout} → {@link master} → theme, as a modeled {@link Theme}, or `null`.
+	 * Read its {@link Theme.colorScheme}/{@link Theme.fontScheme} to see the literal
+	 * palette and faces a `schemeClr`/`+mj-*` token resolves to.
+	 */
+	get theme(): Theme | null {
+		return this.layout?.master?.theme ?? null
 	}
 
 	/**

@@ -144,6 +144,62 @@ export function resolveNotesColorContext(opc: OpcPackage, notesPartName: string)
 	}
 }
 
+/**
+ * The colour context a *slide master*'s own getters resolve against: the master's
+ * `p:clrMap` plus its theme's `clrScheme`/`fmtScheme`/`fontScheme` (walked master →
+ * theme). Backs the text frames of {@link import('./chrome.js').SlideMaster}'s
+ * placeholders — a master placeholder run's own `schemeClr` resolves to a literal
+ * hex the same way a slide run's does. `masterRoot` is carried so an inherited
+ * placeholder value still resolves against the master's own text styles. The maps
+ * are empty when the theme is missing, in which case tokens stay unresolved.
+ */
+export function resolveMasterColorContext(opc: OpcPackage, masterPartName: string): FlattenContext {
+	const themePartName = resolveSingleRel(opc, masterPartName, THEME_REL)
+	const masterRoot = documentElement(opc, masterPartName)
+	const themeElements = themeElementsOf(opc, themePartName)
+	return {
+		clrMap: parseClrMap(masterRoot ? firstChild(masterRoot, 'p:clrMap') : null),
+		clrScheme: parseClrScheme(themeElements ? firstChild(themeElements, 'a:clrScheme') : null),
+		fmtScheme: themeElements ? firstChild(themeElements, 'a:fmtScheme') : null,
+		fontScheme: themeElements ? firstChild(themeElements, 'a:fontScheme') : null,
+		masterRoot,
+	}
+}
+
+/**
+ * The colour context a *slide layout*'s own getters resolve against: walk layout →
+ * master → theme. The effective `clrMap` is the layout's own
+ * `p:clrMapOvr/a:overrideClrMapping` when present (rare), else the master's
+ * `p:clrMap` — the layout's usual `a:masterClrMapping` means "inherit the master
+ * map". `clrScheme`/`fmtScheme`/`fontScheme` come from the master's theme, and both
+ * `layoutRoot`/`masterRoot` are carried for inherited-placeholder resolution. Backs
+ * the text frames of {@link import('./chrome.js').SlideLayout}'s placeholders.
+ */
+export function resolveLayoutColorContext(opc: OpcPackage, layoutPartName: string): FlattenContext {
+	const masterPartName = resolveSingleRel(opc, layoutPartName, SLIDE_MASTER_REL)
+	const themePartName = masterPartName ? resolveSingleRel(opc, masterPartName, THEME_REL) : null
+	const layoutRoot = documentElement(opc, layoutPartName)
+	const masterRoot = documentElement(opc, masterPartName)
+	const themeElements = themeElementsOf(opc, themePartName)
+	const masterClrMap = masterRoot ? firstChild(masterRoot, 'p:clrMap') : null
+	const clrMapOvr = layoutRoot ? firstChild(layoutRoot, 'p:clrMapOvr') : null
+	const override = clrMapOvr ? firstChild(clrMapOvr, 'a:overrideClrMapping') : null
+	return {
+		clrMap: parseClrMap(override ?? masterClrMap),
+		clrScheme: parseClrScheme(themeElements ? firstChild(themeElements, 'a:clrScheme') : null),
+		fmtScheme: themeElements ? firstChild(themeElements, 'a:fmtScheme') : null,
+		fontScheme: themeElements ? firstChild(themeElements, 'a:fontScheme') : null,
+		layoutRoot,
+		masterRoot,
+	}
+}
+
+/** The `a:themeElements` of a theme part (by partname), or `null` when the part/element is absent. */
+function themeElementsOf(opc: OpcPackage, themePartName: string | null): Element | null {
+	const themeRoot = documentElement(opc, themePartName)
+	return themeRoot ? firstChild(themeRoot, 'a:themeElements') : null
+}
+
 /** Identifies a placeholder by its `p:ph` `type`/`idx` for inheritance lookups. */
 export interface PlaceholderRef {
 	type: string | null

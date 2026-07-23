@@ -33,6 +33,7 @@ import {
 import { flattenShape, flattenSlide, remapLiteralColors, restyleSlide, type FlattenContext } from '../oxml/theme.js'
 import { resolveSlideThemeParts } from './theme-context.js'
 import { Slide } from './slide.js'
+import { SlideMaster } from './chrome.js'
 import { wrapShapeElement, type AnyShape } from './shapes.js'
 import { carryShapeAnimations } from './animation.js'
 import type {
@@ -840,6 +841,21 @@ export class Presentation {
 		if (options.primary) this.#promoteMasters(imported.map((m) => m.partName))
 
 		return imported
+	}
+
+	/**
+	 * The deck's slide masters, in `p:sldMasterIdLst` order, as modeled
+	 * {@link SlideMaster}s — the typed read model over the shared chrome (each
+	 * master's colour map, theme, placeholders, and the layouts built on it). Walk
+	 * `pres.masters()[i].layouts` for the rich layout model, or use {@link layouts}
+	 * for the flat {@link LayoutHandle} gallery {@link appendSlides} binds to.
+	 * Read-only: it copies nothing and leaves the package byte-identical.
+	 */
+	masters(): SlideMaster[] {
+		return this.#slideMasterPartNames()
+			.map((partName) => this.opc.part(partName))
+			.filter((part): part is Part => part !== undefined)
+			.map((part) => new SlideMaster(this.opc, part))
 	}
 
 	/**
