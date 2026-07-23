@@ -193,6 +193,39 @@ export interface ImageBaseProps extends PositionProps, ObjectNameProps {
 		highlight: Color
 	}
 	/**
+	 * Recolor the image to grayscale (`<a:grayscl/>`)
+	 * - maps every pixel to its luminance grey (MS-PPT > Format Picture > Picture Color > Recolor > Grayscale)
+	 * - the cheapest recolour: no payload
+	 * - mutually exclusive with the other recolour modes (`duotone`/`biLevel`/`clrChange`); if several are set,
+	 *   the first present in document order wins on read-back
+	 * @default false
+	 * @example true // desaturate the image
+	 */
+	grayscale?: boolean
+	/**
+	 * Recolor the image to two-level black & white (`<a:biLevel thresh="…"/>`)
+	 * - every pixel at/above the luminance threshold becomes white, everything below it black
+	 *   (MS-PPT > Format Picture > Picture Color > Recolor > Black and White …%)
+	 * @example { threshold: 0.5 } // split at 50% luminance
+	 */
+	biLevel?: {
+		/** Luminance split point as a `0.0–1.0` fraction (serialized to `thresh`, the 0–1 fraction ×100000). */
+		threshold: number
+	}
+	/**
+	 * Recolor the image by mapping one source color to another (`<a:clrChange>`)
+	 * - every pixel matching `from` is repainted `to` — the classic "swap the flat background out" recolour
+	 *   (MS-PPT > Format Picture > Picture Color > Set Transparent Color is the single-colour sibling)
+	 * - colors accept `HexColor` or `ThemeColor`, same as fills / `duotone`
+	 * @example { from: '000000', to: 'FF0000' } // turn black pixels red
+	 */
+	clrChange?: {
+		/** Source color to replace (`<a:clrFrom>`). */
+		from: Color
+		/** Replacement color (`<a:clrTo>`). */
+		to: Color
+	}
+	/**
 	 * Raw SVG markup to embed as the image source
 	 * - convenience for `data: 'data:image/svg+xml;base64,...'`; PptxGenJS encodes it for you
 	 * - ignored when `data` or `path` is also provided

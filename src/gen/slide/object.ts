@@ -44,7 +44,7 @@ import {
 	marginToEmu,
 	resolveTableColWidthsEmu,
 } from '../../units-internal.js'
-import { EMU_PER_INCH, FIXED_PCT_PER_PERCENT, pixelsToEmu } from '../../units.js'
+import { EMU_PER_INCH, FIXED_PCT_PER_PERCENT, PERCENT_SCALE, pixelsToEmu } from '../../units.js'
 import { warn } from '../../log.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'
 import { genXmlCustGeom, genXmlPresetGeom } from '../drawingml/geometry.js'
@@ -1232,6 +1232,18 @@ function renderImageObject(
 						raw(createColorElement(imgOpts.duotone.highlight)),
 					])
 				)
+			: null,
+		imgOpts.clrChange
+			? raw(
+					el('a:clrChange', null, [
+						raw(el('a:clrFrom', null, raw(createColorElement(imgOpts.clrChange.from)))),
+						raw(el('a:clrTo', null, raw(createColorElement(imgOpts.clrChange.to)))),
+					])
+				)
+			: null,
+		imgOpts.grayscale ? raw(voidEl('a:grayscl')) : null,
+		imgOpts.biLevel
+			? raw(voidEl('a:biLevel', { thresh: Math.round(imgOpts.biLevel.threshold * PERCENT_SCALE) }))
 			: null,
 	]
 

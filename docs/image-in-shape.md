@@ -119,5 +119,9 @@ version, and `test/regression/image-shape.test.js` for the composition tests.
 ## Borders, shadows, recolor
 
 A clipped picture still supports `line` (a `<a:ln>` outline that follows the clip
-geometry), `shadow`, `transparency`, and `duotone` — the same picture-formatting
-vocabulary as an unclipped image.
+geometry), `shadow`, `transparency`, and the recolor modes — the same
+picture-formatting vocabulary as an unclipped image. The recolor options are
+`duotone` (`{ shadow, highlight }`), `grayscale` (`true`), `biLevel`
+(`{ threshold }`, a `0.0–1.0` luminance split into black/white), and `clrChange`
+(`{ from, to }`, repaint one source color as another); they mirror the five
+effects the read model's `Picture.recolor` decodes.
