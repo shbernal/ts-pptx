@@ -17,8 +17,10 @@
  * Text frames are threaded with the notes theme context (notesMaster → `theme2.xml`,
  * see {@link resolveNotesColorContext}) so a notes run's own `schemeClr` resolves to
  * a literal hex, and with the notes part's own relationships so a notes hyperlink
- * resolves its url. Placeholder-*inherited* run size/face (from the notesMaster
- * `p:notesStyle`) stay inert — the notes frame is built without a placeholder chain.
+ * resolves its url. The body frame is additionally given a placeholder context, so a
+ * body run that sets no own size/face/bold resolves its *inherited* value from the
+ * notesMaster's `p:notesStyle` (FIDELITY-BACKLOG F2) — the notes analogue of a slide
+ * placeholder's `Run.resolved*` chain.
  */
 import type { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
@@ -116,7 +118,14 @@ export class NotesPlaceholder {
 	 */
 	get textFrame(): TextFrame | null {
 		const txBody = firstChild(this.sp, 'p:txBody')
-		return txBody ? new TextFrame(txBody, this.part, this.themeContext, undefined, this.relationships) : null
+		if (!txBody) return null
+		// The notes *body* placeholder's runs inherit their effective size/face/bold
+		// (and colour) from the notesMaster's `p:notesStyle`, carried on the notes theme
+		// context (`resolveNotesColorContext`). Give the body frame a placeholder context
+		// so `Run.resolved*` walks that chain; the `sldNum` field frame needs none.
+		const placeholder =
+			this.type === 'body' ? { ph: { type: this.type, idx: this.idx ?? '0' }, flatten: this.themeContext } : undefined
+		return new TextFrame(txBody, this.part, this.themeContext, placeholder, this.relationships)
 	}
 
 	/** The placeholder's flattened text (paragraphs joined by `\n`), or `''` when it has no text body. */

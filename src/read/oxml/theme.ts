@@ -134,6 +134,16 @@ export interface FlattenContext extends ColorContext {
 	 * token unresolved.
 	 */
 	fontScheme?: Element | null
+	/**
+	 * The notesMaster's `p:notesStyle` (a `CT_TextListStyle`), for resolving the
+	 * character properties a *notes-body* run inherits when it sets none of its own.
+	 * Only ever set on a notes context (see `resolveNotesColorContext`); on a slide
+	 * context it is absent, so the slide placeholder chain (layout/master
+	 * `a:lstStyle` → `p:txStyles`) is unaffected. It is the notes analogue of the
+	 * master `p:txStyles` category style, keyed by level rather than placeholder
+	 * type. Read-only — never mutated.
+	 */
+	notesStyle?: Element | null
 }
 
 /** Parse an `a:clrScheme` into slot → 6-hex RGB, reading `srgbClr`/`sysClr`. */
@@ -576,6 +586,10 @@ export function placeholderInheritedFill(
 		const styleEl = txStyles && firstChild(txStyles, TX_STYLE_NAME[phCategory(type)])
 		tiers.push(styleEl && lstStyleLevelFill(styleEl, level))
 	}
+	// Notes body runs inherit from the notesMaster's `p:notesStyle` (keyed by level,
+	// not placeholder type); it is the bottom tier of the notes chain — see the field
+	// note on `FlattenContext.notesStyle`. Never set on a slide context.
+	if (ctx.notesStyle) tiers.push(lstStyleLevelFill(ctx.notesStyle, level))
 	for (const fill of tiers) {
 		const colorEl = fill && firstChildElement(fill)
 		if (colorEl && resolveColor(colorEl, ctx)) return colorEl
@@ -586,10 +600,12 @@ export function placeholderInheritedFill(
 /**
  * The level `a:defRPr` elements a placeholder inherits from the source style
  * chain, in resolution order: the layout placeholder's `a:lstStyle`, then the
- * master placeholder's, then the master `p:txStyles` category style. Tiers with
- * no `a:defRPr` for `level` are dropped. The shared root for inherited run *size*
- * and *typeface* resolution (the size/face sibling of {@link placeholderInheritedFill}),
- * read directly by the flatten path and the read-model font getters.
+ * master placeholder's, then the master `p:txStyles` category style — and, on a
+ * notes context only, the notesMaster `p:notesStyle` (see `ctx.notesStyle`). Tiers
+ * with no `a:defRPr` for `level` are dropped. The shared root for inherited run
+ * *size* and *typeface* resolution (the size/face sibling of
+ * {@link placeholderInheritedFill}), read directly by the flatten path and the
+ * read-model font getters.
  */
 export function placeholderInheritedDefRPrs(
 	type: string | null,
@@ -609,6 +625,11 @@ export function placeholderInheritedDefRPrs(
 		const styleEl = txStyles && firstChild(txStyles, TX_STYLE_NAME[phCategory(type)])
 		tiers.push(styleEl && lstStyleLevelDefRPr(styleEl, level))
 	}
+	// Notes body runs inherit their size/face/bold from the notesMaster's
+	// `p:notesStyle` (keyed by level, not placeholder type) — the bottom tier of the
+	// notes chain; see the field note on `FlattenContext.notesStyle`. Never set on a
+	// slide context, so the slide placeholder chain above is unaffected.
+	if (ctx.notesStyle) tiers.push(lstStyleLevelDefRPr(ctx.notesStyle, level))
 	return tiers.filter((t): t is Element => t !== null)
 }
 

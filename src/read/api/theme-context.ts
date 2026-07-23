@@ -125,8 +125,11 @@ export function resolveSlideColorContext(opc: OpcPackage, slidePartName: string)
  *
  * Notes runs inherit character properties from the notesMaster's `p:notesStyle`,
  * not from a slide layout/master placeholder chain, so `layoutRoot`/`masterRoot`
- * are deliberately left absent — the notes `TextFrame` is built without a
- * placeholder context and so never walks them. The maps are empty when the
+ * are deliberately left absent. Instead the notesMaster's `p:notesStyle` is carried
+ * as `notesStyle`, and the notes body `TextFrame` is built with a placeholder
+ * context (see {@link import('./notes.js').NotesPlaceholder}) so a body run's
+ * effective size/face/bold (and inherited colour) resolve against it — the notes
+ * analogue of the slide placeholder chain. The maps are empty when the
  * notesMaster/theme chain is incomplete, in which case tokens stay unresolved.
  */
 export function resolveNotesColorContext(opc: OpcPackage, notesPartName: string): FlattenContext {
@@ -140,8 +143,12 @@ export function resolveNotesColorContext(opc: OpcPackage, notesPartName: string)
 		clrScheme: parseClrScheme(themeElements ? firstChild(themeElements, 'a:clrScheme') : null),
 		fmtScheme: themeElements ? firstChild(themeElements, 'a:fmtScheme') : null,
 		// The fontScheme lets a notes run resolve a +mj-*/+mn-* theme-font token to a
-		// literal face; the writer emits literal notes faces, but imported decks may not.
+		// literal face; the writer's notesStyle uses +mn-lt, so an authored notes run
+		// that omits its own face resolves through here.
 		fontScheme: themeElements ? firstChild(themeElements, 'a:fontScheme') : null,
+		// The notesMaster's text style — the tier a notes-body run's inherited
+		// size/face/bold/colour resolves against (see `FlattenContext.notesStyle`).
+		notesStyle: masterRoot ? firstChild(masterRoot, 'p:notesStyle') : null,
 	}
 }
 

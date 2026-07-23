@@ -461,11 +461,23 @@ The frame *is* threaded with a **notes theme context** — resolved through the 
 part's `notesMaster` rel → `theme2.xml` chain — so a notes run authored with a
 *scheme* colour resolves to a literal hex via `Run.resolvedColor` (the `clrMap`
 comes from the notesMaster's own `p:clrMap`, the `clrScheme`/`fontScheme` from
-`theme2.xml`). What stays inert is *placeholder-inherited* resolution: the frame is
-built without a placeholder context because notes inherit character properties
-(size/face) from the notesMaster's `p:notesStyle`, not from a slide layout/master
-placeholder chain — modeling that `notesStyle` inheritance is a separate, larger
-surface.
+`theme2.xml`).
+
+The body frame *also* resolves **placeholder-inherited** character properties
+(FIDELITY-BACKLOG F2, shipped 2026-07-23): a notes run that sets no own `@sz`/
+`a:latin`/`@b` takes its effective size/face/bold (and inherited colour) from the
+notesMaster's `p:notesStyle`, surfaced via `Run.resolvedSizePt`/`resolvedFontFace`/
+`resolvedBold`/`resolvedColor`. Notes don't inherit from a slide layout/master
+placeholder chain, so instead of `layoutRoot`/`masterRoot` the notes context carries
+the notesMaster's `p:notesStyle` as `FlattenContext.notesStyle` — the notes analogue
+of the master `p:txStyles` category style, keyed by paragraph *level* rather than
+placeholder type — and the body `TextFrame` is given a placeholder context so the
+same `resolveInherited*` chain that backs a slide placeholder run walks it. This is
+an **authorable** round-trip: a plain `addNotes('text')` emits a run with no `@sz`
+and no `<a:latin>` (an inherit trigger), and the writer authors its own notesMaster
+`p:notesStyle` (`sz=1200`/`+mn-lt`), so a body run resolves to 12pt / the theme's
+minor face with no fixture. The `sldNum` field frame is given no placeholder context
+(its slide-number `a:fld` needs no inheritance).
 
 ##### The modeled notes slide (`notesSlide`)
 
@@ -584,8 +596,9 @@ layout → master), use `Slide.background` instead.
 Scope note: this pass ships the property model and navigation. It does not add new
 *inheritance-resolution* getters beyond what already existed (a slide placeholder's
 effective run colour/size/face already resolves via `Slide.themeContext` →
-`Run.resolved*`); modeling notesMaster `p:notesStyle` inheritance is a separate,
-narrower follow-on if a consumer needs it (FIDELITY-BACKLOG F2).
+`Run.resolved*`). Notes-body run inheritance from the notesMaster's `p:notesStyle`
+now resolves too (FIDELITY-BACKLOG F2, shipped 2026-07-23) — see the notes-frame
+section above.
 
 A slide placeholder's effective *geometry* through this chain **does** resolve, via
 `Shape.resolvedFrame` (FIDELITY-BACKLOG F1, shipped 2026-07-23):
