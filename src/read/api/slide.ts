@@ -434,6 +434,31 @@ export class Slide {
 		return this.shapes.find((shape) => shape.id === id)
 	}
 
+	/**
+	 * The first shape *anywhere* in the slide's shape tree with the given drawing id
+	 * (`p:cNvPr/@id`), descending into groups — unlike {@link shapeById}, which scans
+	 * only top-level shapes. Walked pre-order (a group is visited before its children),
+	 * matching how the writer allocates ids. `undefined` when no shape carries that id.
+	 *
+	 * Drawing ids are unique within a slide, so the first match is the only match; the
+	 * pre-order walk just fixes a deterministic order. This backs the connector-binding
+	 * resolution ({@link import('./shapes.js').Connector.startConnection}), which must
+	 * resolve a binding into a group that top-level {@link shapeById} cannot see.
+	 */
+	shapeByIdDeep(id: number): AnyShape | undefined {
+		const walk = (shapes: AnyShape[]): AnyShape | undefined => {
+			for (const shape of shapes) {
+				if (shape.id === id) return shape
+				if (shape instanceof GroupShape) {
+					const found = walk(shape.shapes)
+					if (found) return found
+				}
+			}
+			return undefined
+		}
+		return walk(this.shapes)
+	}
+
 	/** The first top-level shape with the given name (`p:cNvPr/@name`), or `undefined`. */
 	shapeByName(name: string): AnyShape | undefined {
 		return this.shapes.find((shape) => shape.name === name)

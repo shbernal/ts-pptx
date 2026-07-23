@@ -323,9 +323,11 @@ export interface ConnectionSite {
 	/** Connection-site index on the bound shape (`@idx`; 0-based, preset-dependent). */
 	siteIndex: number
 	/**
-	 * The bound shape resolved to a read-model shape via {@link Slide.shapeById},
-	 * or `null` when no top-level shape on the slide carries that id — faithful
-	 * degradation for a dangling or group-nested binding, which does not throw.
+	 * The bound shape resolved to a read-model shape via {@link Slide.shapeByIdDeep},
+	 * which descends into groups — so a connector bound to a shape nested in a group
+	 * resolves the same as one bound to a top-level shape. `null` only when no shape
+	 * anywhere on the slide carries that id (a genuinely dangling binding), which is
+	 * faithful degradation and does not throw.
 	 */
 	boundShape: AnyShape | null
 }
@@ -1480,7 +1482,7 @@ export class Connector extends Shape {
 		// CT_Connection requires both @id and @idx; an unparseable pair degrades to null
 		// rather than a half-populated site.
 		if (shapeId === null || siteIndex === null) return null
-		return { shapeId, siteIndex, boundShape: this.slide.shapeById(shapeId) ?? null }
+		return { shapeId, siteIndex, boundShape: this.slide.shapeByIdDeep(shapeId) ?? null }
 	}
 }
 

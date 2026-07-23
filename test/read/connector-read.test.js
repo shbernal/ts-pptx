@@ -11,6 +11,11 @@
 // serialize time, so the fixture gives both target shapes an `objectName`. A
 // connector authored with no binding emits a bare `<p:cNvCxnSpPr/>`; both getters
 // must report null for it (faithful "unbound" ≠ a half-populated site).
+//
+// T1.3 extends this: a connector may bind to a shape nested inside a group (the
+// writer already resolves a group child's `objectName` → id). `boundShape` now
+// resolves that through `slide.shapeByIdDeep`, which descends into groups, rather
+// than degrading to null the way the old top-level-only `slide.shapeById` did.
 
 import { describe, test } from 'vitest'
 import { authorRead, firstShape, schemaErrors, validatorInstalled } from './authored.js'
@@ -91,6 +96,24 @@ describe('Connector.startConnection / endConnection — write→read fidelity', 
 		assertEqual(cxn.endConnection, null, 'the unbound end stays null')
 	})
 
+	test('a connector bound to a group-nested shape resolves through the group (T1.3)', async () => {
+		const { presentation } = await authorRead((pres) => {
+			const slide = pres.addSlide()
+			// The rect lives inside a group, so it is not a top-level shape — the very
+			// case the old top-level-only resolver reported as boundShape: null.
+			slide.addGroup([{ rect: { x: 1, y: 1, w: 2, h: 1, objectName: 'Nested' } }], { objectName: 'Grp' })
+			slide.addConnector({ type: 'straight', x1: 3, y1: 1.5, x2: 5, y2: 3, startShape: 'Nested', startShapeIdx: 1 })
+		})
+		const cxn = connectorOf(presentation)
+		const start = cxn.startConnection
+		assert(start, 'the start end binds the group-nested shape')
+		assertEqual(start.siteIndex, 1, 'site index round-trips for a group-nested binding')
+		// The `@id` is authored either way; deep resolution is what makes boundShape non-null.
+		assert(start.boundShape, 'the group-nested boundShape resolves (was null before deep resolution)')
+		assertEqual(start.boundShape.name, 'Nested', 'boundShape is the group-nested rect')
+		assertEqual(start.boundShape.id, start.shapeId, 'the resolved shape carries the bound id')
+	})
+
 	test.skipIf(!validatorInstalled)('the authored bound-connector deck is schema-valid', async () => {
 		const { buf } = await authorRead((pres) => {
 			const slide = pres.addSlide()
@@ -109,5 +132,14 @@ describe('Connector.startConnection / endConnection — write→read fidelity', 
 			})
 		})
 		assertEqual((await schemaErrors(buf)).length, 0, 'bound-connector deck validates')
+	})
+
+	test.skipIf(!validatorInstalled)('the authored group-nested-binding deck is schema-valid', async () => {
+		const { buf } = await authorRead((pres) => {
+			const slide = pres.addSlide()
+			slide.addGroup([{ rect: { x: 1, y: 1, w: 2, h: 1, objectName: 'Nested' } }], { objectName: 'Grp' })
+			slide.addConnector({ type: 'straight', x1: 3, y1: 1.5, x2: 5, y2: 3, startShape: 'Nested', startShapeIdx: 1 })
+		})
+		assertEqual((await schemaErrors(buf)).length, 0, 'group-nested-binding deck validates')
 	})
 })
