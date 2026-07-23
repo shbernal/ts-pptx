@@ -480,6 +480,40 @@ reads `null` here.
 on edit, so `autofitFontScale` reads `null`); an explicit baked scale needs the
 object form `fit: { type: 'shrink', fontScale, lnSpcReduction }`.
 
+#### Comments (legacy)
+
+`slide.comments` reads the slide's **legacy** review comments (`p:cm` in its
+`comments/commentN.xml` part), `[]` when it has none. Each `Comment` carries its
+body `text`, marker position `x`/`y` (EMU), `date` (`@dt`), and its `authorId`
+resolved against the deck-wide `pres.commentAuthors` registry (`p:cmAuthorLst` in
+`ppt/commentAuthors.xml`) to a display `author`/`authorInitials`:
+
+```ts
+class Slide {
+	readonly comments: Comment[] // legacy p:cm on this slide
+}
+class Presentation {
+	readonly commentAuthors: CommentAuthor[] // deck-wide p:cmAuthor registry
+}
+interface Comment {
+	author: string | null // resolved via authorId → commentAuthors
+	authorInitials: string | null
+	authorId: number | null
+	idx: number | null // per-author 1-based index
+	text: string
+	x: number | null // p:pos/@x, EMU
+	y: number | null // p:pos/@y, EMU
+	date: string | null // @dt, ISO-8601 as written
+}
+```
+
+This is an **authorable** round-trip: the writer emits these via
+`slide.addComment(...)`, numbering each comment per-author (`idx`) and pooling
+authors deck-wide by name+initials. The 2018 **modern** comment parts
+(`p188:cm` / `ppt/comments/modernComment_*` + `ppt/authors.xml`) are a *different*
+schema with no writer — they round-trip byte-perfect but are not decoded here, so
+`comments`/`commentAuthors` cover legacy comments only.
+
 #### Speaker notes
 
 `slide.addNotes(...)` authors a notes slide whose body placeholder (`p:ph

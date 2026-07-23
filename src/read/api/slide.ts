@@ -22,6 +22,7 @@ import { backgroundElementOf, readSlideBackground, type SlideBackground } from '
 import type { Presentation } from './presentation.js'
 import { AutoShape, GraphicFrame, GroupShape, Picture, buildShapes, type AnyShape } from './shapes.js'
 import { NotesSlide } from './notes.js'
+import { readSlideComments, type Comment } from './comments.js'
 import { SlideLayout, type SlideMaster, type Theme } from './chrome.js'
 import type { TextFrame } from './text.js'
 import {
@@ -400,6 +401,18 @@ export class Slide {
 	 */
 	get theme(): Theme | null {
 		return this.layout?.master?.theme ?? null
+	}
+
+	/**
+	 * The slide's **legacy** review comments (`p:cm` in its `comments/commentN.xml`
+	 * part), `[]` when it has none. Each {@link Comment} carries its body text, marker
+	 * position (EMU), timestamp, and its author resolved through the deck-wide
+	 * {@link Presentation.commentAuthors} registry (`@authorId` → name/initials). These
+	 * are the comments the writer authors via `slide.addComment(...)`; the 2018 modern
+	 * comment parts (`p188:cm`) are a separate schema, preserved but not decoded.
+	 */
+	get comments(): Comment[] {
+		return readSlideComments(this.presentation.opc, this.part, this.presentation.commentAuthors)
 	}
 
 	/**

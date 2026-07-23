@@ -36,6 +36,7 @@ import { Slide } from './slide.js'
 import { SlideMaster } from './chrome.js'
 import { wrapShapeElement, type AnyShape } from './shapes.js'
 import { carryShapeAnimations } from './animation.js'
+import { readCommentAuthors, type CommentAuthor } from './comments.js'
 import type {
 	AppendSlidesOptions,
 	FromTemplateOptions,
@@ -320,6 +321,16 @@ export class Presentation {
 			fonts.push({ typeface, panose: font ? attr(font, 'panose') : null, faces })
 		}
 		return fonts
+	}
+
+	/**
+	 * The deck-wide **legacy** comment-author registry (`p:cmAuthorLst` in
+	 * `ppt/commentAuthors.xml`), `[]` when the deck has no comments. Each slide's
+	 * {@link Slide.comments} resolves its `@authorId` against this list. The 2018
+	 * modern comment authors (`ppt/authors.xml`) are a separate part, not decoded here.
+	 */
+	get commentAuthors(): CommentAuthor[] {
+		return readCommentAuthors(this.opc, this.presentationPart.partName)
 	}
 
 	/**
