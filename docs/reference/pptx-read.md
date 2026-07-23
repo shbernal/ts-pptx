@@ -358,6 +358,8 @@ class Slide {
 	hidden: boolean // p:sld/@show — read/write; absent attr ⇒ shown
 	readonly background: SlideBackground | null // effective bg, walking slide→layout→master
 	readonly slideNumberPlaceholder: AutoShape | null // this slide's own p:ph type="sldNum"
+	readonly notesText: string | null // flattened speaker-notes body text; null when there is no notes part
+	readonly notesTextFrame: TextFrame | null // the notes body as a navigable frame (see below)
 	addTextBox(options: AddTextBoxOptions): AutoShape // Phase 4 — appends a p:sp
 	addPicture(image: Uint8Array, options: AddPictureOptions): Picture // Phase 4 — new media part + rel + p:pic
 }
@@ -421,6 +423,36 @@ reads `null` here.
 `fit: 'shrink'` emits a **bare** `<a:normAutofit/>` (PowerPoint computes the scale
 on edit, so `autofitFontScale` reads `null`); an explicit baked scale needs the
 object form `fit: { type: 'shrink', fontScale, lnSpcReduction }`.
+
+#### Speaker notes
+
+`slide.addNotes(...)` authors a notes slide whose body placeholder (`p:ph
+type="body"`) holds the notes runs, serialized through the same text-run generator
+as any shape — so bold/italic/underline/colour/size/face and an external-`url`
+hyperlink all land in the notes `p:txBody`. The read side exposes that body two
+ways, sharing one body-placeholder lookup:
+
+- **`notesText`** — the flattened convenience: the body's text with paragraphs
+  joined by `\n`. Character formatting and links are dropped.
+- **`notesTextFrame`** — the same body as a navigable `TextFrame`
+  (paragraphs → runs), so per-run formatting is recoverable and a notes hyperlink
+  resolves its `url`. The frame is threaded with the **notes part's own rels**
+  (`notesSlideN.xml.rels`), so `Run.hyperlink.url` resolves for notes links —
+  unlike a table-cell run, which reports only the raw `relId`.
+
+Both are `null` under the same boundary — no notes-slide part at all — and
+`notesTextFrame` is *also* `null` when a notes part exists but carries no body text
+frame (there is no frame to hand back), where `notesText` still reports `''`. Note
+the writer attaches an **empty notes part to every authored slide** (to keep the
+`notesSlide` rel/`_rels` bookkeeping uniform), so an authored slide never hits the
+true no-part `null` path — that branch is reachable only from imported decks. A
+`\n` in a note starts a new paragraph, so a multi-line note reads back as multiple
+`paragraphs`.
+
+Scope is **body-frame-only**: the notes slide's `sldImg`/`sldNum` placeholders are
+not modeled (as `notesText` never did), and the notes runs are given no theme
+context — notes inherit from the unmodeled notesMaster, so a run's own-attribute
+getters are faithful while its `resolved*` getters stay inert.
 
 ### `Shape` and subclasses
 
@@ -517,10 +549,42 @@ class GroupShape extends Shape {
 	// Fill setters write p:grpSpPr/a:solidFill; line setters throw (a group's
 	// properties have no a:ln).
 }
+
+class Connector extends Shape {
+	readonly startConnection: ConnectionSite | null // p:cNvCxnSpPr/a:stCxn — null when the start end is unbound
+	readonly endConnection: ConnectionSite | null // p:cNvCxnSpPr/a:endCxn — null when the end end is unbound
+	// Supports both fill and line (its outline is the connector itself).
+}
+
+interface ConnectionSite {
+	shapeId: number // the bound shape's drawing id (p:cNvPr/@id)
+	siteIndex: number // connection-site index on that shape (@idx, 0-based, preset-dependent)
+	boundShape: AnyShape | null // resolved via slide.shapeById; null when no top-level shape carries that id
+}
 ```
 
 Only `AutoShape` (`p:sp`) reports `hasTextFrame: true` and a non-null
 `textFrame` in this read model.
+
+#### Connector endpoint binding
+
+A connector authored with `slide.addConnector({ startShape, endShape, … })` binds
+each end to a shape: the writer resolves each target's `objectName` → drawing id at
+serialize time and emits
+`<p:cNvCxnSpPr><a:stCxn id idx/><a:endCxn id idx/></p:cNvCxnSpPr>`. The read side
+decodes that into `ConnectionSite` per end and resolves the `@id` back to the slide
+shape via `slide.shapeById` (`boundShape`). The two-getter shape mirrors the write
+API's `startShape`/`endShape` split.
+
+- An **unbound** end (the writer emits a bare `<p:cNvCxnSpPr/>` when a connector
+  binds no shapes, or when an `objectName` doesn't resolve — it warns and falls
+  back to static endpoint geometry) reports `null`, never a half-populated site.
+- A **present** binding whose `@id`/`@idx` is unparseable degrades to `null` rather
+  than a partial site; a binding whose shape id isn't found on the slide (dangling,
+  or group-nested) keeps `shapeId`/`siteIndex` but leaves `boundShape` `null`
+  (faithful degradation, no throw).
+- Omitting `startShapeIdx`/`endShapeIdx` writes `idx="0"`, so a single-idx bind
+  reads `siteIndex: 0`. `ConnectionSite` is exported from `pptxgenjs/read`.
 
 #### Fill and line colour
 
@@ -1438,8 +1502,9 @@ the write API (which already emits it), load the bytes back through the deep rea
 model, and assert the extracted model — keeping the write and read paths
 independent so a bug in one can't mask a bug in the other. Those suites are
 `table-borders.test.js`, `chart-format.test.js`, `run-props.test.js`,
-`chartex-read.test.js`, and the fidelity legs added to `shape-effect-reads.test.js`
-and `slide-read-edges.test.js`. Schema cases require the OOXML validator
+`chartex-read.test.js`, `connector-read.test.js` (endpoint binding),
+`notes-read.test.js` (speaker-notes rich text), and the fidelity legs added to
+`shape-effect-reads.test.js` and `slide-read-edges.test.js`. Schema cases require the OOXML validator
 (`./tools/ooxml-validator/install.sh`) and are skipped with a notice when it
 is absent. See [testing](../testing.md).
 
