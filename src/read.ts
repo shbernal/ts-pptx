@@ -82,6 +82,7 @@ export {
 	type ChartFill,
 	type ChartLine,
 } from './read/api/chart.js'
+export { ChartEx, ChartExSeries, ChartExAxis, type ChartExLegend, type ChartExDataLabels } from './read/api/chartex.js'
 
 // Theme colour resolution (schemeClr → literal hex) shared by the colour getters.
 export { type ResolvedColor, resolveColorElement } from './read/api/theme-context.js'

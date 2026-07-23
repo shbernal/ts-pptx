@@ -56,6 +56,12 @@ export function firstChart(presentation) {
 	return frame ? frame.chart : null
 }
 
+/** The first chartEx (waterfall/funnel/treemap/…) chart on any slide, or null. */
+export function firstChartEx(presentation) {
+	const frame = firstShape(presentation, (s) => s.shapeType === 'graphicFrame' && s.chartEx)
+	return frame ? frame.chartEx : null
+}
+
 /** The first table on any slide, or null. */
 export function firstTable(presentation) {
 	const frame = firstShape(presentation, (s) => s.shapeType === 'graphicFrame' && s.table)

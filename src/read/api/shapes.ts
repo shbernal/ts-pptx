@@ -36,6 +36,7 @@ import {
 } from './theme-context.js'
 import { readGradientFill, readGradientStops, type GradientFill, type GradientStop } from './gradient.js'
 import { Chart } from './chart.js'
+import { ChartEx } from './chartex.js'
 import { Table } from './table.js'
 import { TextFrame } from './text.js'
 import type { Slide } from './slide.js'
@@ -46,6 +47,8 @@ export type { GradientStop, GradientFill } from './gradient.js'
 
 const A_TABLE_URI = 'http://schemas.openxmlformats.org/drawingml/2006/table'
 const A_CHART_URI = 'http://schemas.openxmlformats.org/drawingml/2006/chart'
+// chartEx (Office-2016 chart family) graphicData URI + `cx:chart` reference child namespace.
+const A_CHARTEX_URI = 'http://schemas.microsoft.com/office/drawing/2014/chartex'
 const IMAGE_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 // Microsoft's SVG blip extension namespace (a:blip/a:extLst/a:ext/asvg:svgBlip).
 const ASVG_NS = 'http://schemas.microsoft.com/office/drawing/2016/SVG/main'
@@ -1452,9 +1455,14 @@ export class GraphicFrame extends Shape {
 		return this.#graphicDataUri() === A_TABLE_URI
 	}
 
-	/** Whether this frame hosts a chart (`a:graphicData/@uri` is the chart URI). */
+	/** Whether this frame hosts a classic chart (`a:graphicData/@uri` is the chart URI). */
 	get hasChart(): boolean {
 		return this.#graphicDataUri() === A_CHART_URI
+	}
+
+	/** Whether this frame hosts a chartEx chart (`a:graphicData/@uri` is the chartEx URI). */
+	get hasChartEx(): boolean {
+		return this.#graphicDataUri() === A_CHARTEX_URI
 	}
 
 	/** The hosted table, or `null` when this frame is not a table. */
@@ -1475,6 +1483,22 @@ export class GraphicFrame extends Shape {
 		const partName = this.slide.relationships.resolveTarget(relId)
 		const part = this.slide.presentation.opc.part(partName)
 		return part ? new Chart(part) : null
+	}
+
+	/**
+	 * The hosted chartEx chart (waterfall/funnel/treemap/…), or `null` when this
+	 * frame is not a chartEx chart or its part is missing. The reference child is
+	 * `cx:chart` (not the classic `c:chart`), carrying the MS `chartEx` rel id.
+	 */
+	get chartEx(): ChartEx | null {
+		if (!this.hasChartEx) return null
+		const graphicData = this.#graphicData()
+		const chartRef = graphicData && firstChild(graphicData, 'cx:chart')
+		const relId = chartRef && attr(chartRef, 'r:id')
+		if (!relId) return null
+		const partName = this.slide.relationships.resolveTarget(relId)
+		const part = this.slide.presentation.opc.part(partName)
+		return part ? new ChartEx(part) : null
 	}
 
 	#graphicData(): Element | null {
@@ -1587,14 +1611,42 @@ export function wrapShapeElement(element: Element, slide: Slide): AnyShape | nul
 }
 
 /**
+ * The richer of an `mc:AlternateContent`'s two branches: the first `mc:Choice`
+ * that carries a shape element (what PowerPoint renders when it understands the
+ * required feature), falling back to `mc:Fallback`. PowerPoint wraps a shape this
+ * way when its full form needs a feature namespace a plain consumer lacks — a
+ * chartEx chart's `p:graphicFrame`, a zoom frame, an inline-math shape. Returns
+ * the wrapped inner shape, or `null` when neither branch holds one.
+ */
+function unwrapAlternateContent(altContent: Element, slide: Slide): AnyShape | null {
+	const branches = [...getElements(altContent, 'mc:Choice'), ...getElements(altContent, 'mc:Fallback')]
+	for (const branch of branches) {
+		for (let node = branch.firstChild; node; node = node.nextSibling) {
+			if (node.nodeType !== ELEMENT_NODE) continue
+			const shape = wrapShapeElement(node as Element, slide)
+			if (shape) return shape
+		}
+	}
+	return null
+}
+
+/**
  * Build shape proxies for the shape-tree children of `parent` (a `p:spTree` or
- * `p:grpSp`), skipping non-shape children (`p:nvGrpSpPr`, `p:grpSpPr`, …).
+ * `p:grpSp`), skipping non-shape children (`p:nvGrpSpPr`, `p:grpSpPr`, …). An
+ * `mc:AlternateContent` wrapper (chartEx charts, zoom frames, inline math) is
+ * unwrapped to the shape inside its preferred branch.
  */
 export function buildShapes(parent: Element, slide: Slide): AnyShape[] {
 	const shapes: AnyShape[] = []
 	for (let node = parent.firstChild; node; node = node.nextSibling) {
 		if (node.nodeType !== ELEMENT_NODE) continue
-		const shape = wrapShapeElement(node as Element, slide)
+		const element = node as Element
+		if (element.namespaceURI === OOXML_NS.mc && element.localName === 'AlternateContent') {
+			const unwrapped = unwrapAlternateContent(element, slide)
+			if (unwrapped) shapes.push(unwrapped)
+			continue
+		}
+		const shape = wrapShapeElement(element, slide)
 		if (shape) shapes.push(shape)
 	}
 	return shapes
