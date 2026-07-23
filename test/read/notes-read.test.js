@@ -11,6 +11,11 @@
 // The writer splits a run on `\n` into separate `<a:p>` paragraphs, so a multi-line
 // note round-trips as multiple paragraphs. `notesText` stays as the flattened
 // convenience and must keep agreeing with the frame's joined text.
+//
+// T1.2 threads a notes theme context (resolved through the notesMaster → theme2.xml
+// chain) into the frame, so a notes run authored with a *scheme* colour resolves to
+// a literal hex via `Run.resolvedColor` — previously inert (null) because the frame
+// was given no theme context.
 
 import { describe, test } from 'vitest'
 import { authorRead, schemaErrors, validatorInstalled } from './authored.js'
@@ -41,6 +46,24 @@ describe('Slide.notesTextFrame — write→read fidelity', () => {
 		assertEqual(runs[1].text, ' and plain', 'second run text round-trips')
 		assertEqual(runs[1].bold, null, 'the second run carries no bold of its own')
 		assertEqual(runs[1].color, null, 'the second run carries no colour of its own')
+	})
+
+	test('a scheme-coloured notes run resolves to a theme hex via resolvedColor (T1.2)', async () => {
+		const { presentation } = await authorRead((pres) => {
+			// A scheme colour authors <a:solidFill><a:schemeClr val="accent1"/></a:solidFill>
+			// in the notes run — the trigger for the theme-resolved getter.
+			pres.addSlide().addNotes([{ text: 'Themed', options: { color: 'accent1' } }])
+		})
+
+		const run = firstSlide(presentation).notesTextFrame.paragraphs[0].runs[0]
+		assert(run, 'the themed notes run reads back')
+		// Own-attribute getters: the scheme token is surfaced, and `color` (hex only) is null.
+		assertEqual(run.schemeColor, 'accent1', 'the scheme token is read as the own attribute')
+		assertEqual(run.color, null, 'a scheme fill has no explicit hex')
+		// The fix: the notes theme context resolves accent1 through notesMaster → theme2.xml.
+		assert(run.resolvedColor, 'the scheme colour now resolves against the notes theme (was null)')
+		assertEqual(run.resolvedColor.hex, '4472C4', 'accent1 resolves to the default Office theme hex')
+		assertEqual(run.resolvedColor.effectiveHex, '4472C4', 'no transforms, so effectiveHex equals the base hex')
 	})
 
 	test('a newline in a note splits into separate paragraphs', async () => {

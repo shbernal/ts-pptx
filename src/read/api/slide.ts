@@ -18,7 +18,7 @@ import {
 	type Element,
 } from '../oxml/dom.js'
 import type { FlattenContext } from '../oxml/theme.js'
-import { resolveSlideColorContext, resolveSlideThemeParts } from './theme-context.js'
+import { resolveNotesColorContext, resolveSlideColorContext, resolveSlideThemeParts } from './theme-context.js'
 import { backgroundElementOf, readSlideBackground, type SlideBackground } from './slide-background.js'
 import type { Presentation } from './presentation.js'
 import { AutoShape, GraphicFrame, GroupShape, Picture, buildShapes, type AnyShape } from './shapes.js'
@@ -343,16 +343,20 @@ export class Slide {
 	 * (whereas {@link notesText} reports `''` for that empty-body case).
 	 *
 	 * The frame is threaded with the *notes part's own* relationships
-	 * (`notesSlideN.xml.rels`), so a run hyperlink resolves its `url`/`targetPartName`.
-	 * It is **not** given a theme context: notes runs inherit from the notesMaster,
-	 * which this model does not flatten, so the `resolved*` inherited getters stay
-	 * inert — the own-attribute getters (the ones the writer emits) are faithful.
+	 * (`notesSlideN.xml.rels`), so a run hyperlink resolves its `url`/`targetPartName`,
+	 * and with a **notes theme context** resolved through the notesMaster → `theme2.xml`
+	 * chain ({@link resolveNotesColorContext}), so a notes run's own `schemeClr` fill
+	 * resolves to a literal hex via `Run.resolvedColor`. Placeholder-*inherited*
+	 * `resolved*` getters (size/face from the notesMaster `p:notesStyle`) stay inert:
+	 * the frame is built without a placeholder context because notes inherit from the
+	 * notesMaster's notesStyle, not from a slide layout/master placeholder chain.
 	 */
 	get notesTextFrame(): TextFrame | null {
 		const body = this.#notesBody()
 		if (!body || !body.txBody) return null
 		const rels = this.presentation.opc.relationshipsFor(body.notesPart.partName)
-		return new TextFrame(body.txBody, body.notesPart, undefined, undefined, rels)
+		const themeContext = resolveNotesColorContext(this.presentation.opc, body.notesPart.partName)
+		return new TextFrame(body.txBody, body.notesPart, themeContext, undefined, rels)
 	}
 
 	/**

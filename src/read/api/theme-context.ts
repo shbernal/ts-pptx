@@ -30,6 +30,7 @@ import type { OpcPackage } from '../opc/package.js'
 
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
 const SLIDE_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster'
+const NOTES_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster'
 const THEME_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme'
 
 /** The resolved theme subgraph a slide depends on, plus its parsed colour maps. */
@@ -109,6 +110,37 @@ export function resolveSlideColorContext(opc: OpcPackage, slidePartName: string)
 		// a placeholder-inherited value the same way the flatten path does.
 		layoutRoot,
 		masterRoot,
+	}
+}
+
+/**
+ * The colour context a slide's *speaker-notes* getters resolve against. A notes
+ * slide inherits its theme through its notesMaster (`notesSlideN.xml.rels`
+ * carries the `notesMaster` relationship), which in turn points at the notes
+ * theme (`theme2.xml`). Walk notesSlide → notesMaster → theme, taking `clrMap`
+ * from the notesMaster's own `p:clrMap` and `clrScheme`/`fontScheme` from that
+ * theme, so a notes run's own `schemeClr` fill resolves to a literal hex the same
+ * way a slide run's does (backing `Run.resolvedColor` on {@link Slide.notesTextFrame}).
+ *
+ * Notes runs inherit character properties from the notesMaster's `p:notesStyle`,
+ * not from a slide layout/master placeholder chain, so `layoutRoot`/`masterRoot`
+ * are deliberately left absent — the notes `TextFrame` is built without a
+ * placeholder context and so never walks them. The maps are empty when the
+ * notesMaster/theme chain is incomplete, in which case tokens stay unresolved.
+ */
+export function resolveNotesColorContext(opc: OpcPackage, notesPartName: string): FlattenContext {
+	const masterPartName = resolveSingleRel(opc, notesPartName, NOTES_MASTER_REL)
+	const themePartName = masterPartName ? resolveSingleRel(opc, masterPartName, THEME_REL) : null
+	const masterRoot = documentElement(opc, masterPartName)
+	const themeRoot = documentElement(opc, themePartName)
+	const themeElements = themeRoot ? firstChild(themeRoot, 'a:themeElements') : null
+	return {
+		clrMap: parseClrMap(masterRoot ? firstChild(masterRoot, 'p:clrMap') : null),
+		clrScheme: parseClrScheme(themeElements ? firstChild(themeElements, 'a:clrScheme') : null),
+		fmtScheme: themeElements ? firstChild(themeElements, 'a:fmtScheme') : null,
+		// The fontScheme lets a notes run resolve a +mj-*/+mn-* theme-font token to a
+		// literal face; the writer emits literal notes faces, but imported decks may not.
+		fontScheme: themeElements ? firstChild(themeElements, 'a:fontScheme') : null,
 	}
 }
 
