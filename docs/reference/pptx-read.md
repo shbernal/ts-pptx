@@ -114,14 +114,14 @@ write→read round-trip. They stay parked until a real consumer names one:
   matching is import-only.
 - **Media** (`p:media` / `a:audioFile` / `a:videoFile`) — the write side authors
   media, but the read model does not decode the media relationship graph.
-- **Embedded fonts** (`p:embeddedFontLst`, `fonttable`/`fntdata`) — write-side
-  fixtures exist; the read model does not decode the embedded-font table.
 - **Animations beyond the modeled presets** — the general `p:timing` tree past the
   modeled entrance/emphasis/exit set is not read-modeled.
 
-Media and embedded fonts have write-side support, so a future read item for either
-could be a genuine round-trip rather than a fixture project — but both stay parked
-until asked for.
+`Presentation.embeddedFonts` (above) enumerates the `p:embeddedFontLst` — typeface
+plus each face's `.fntdata` partname — but the **binary glyph payload** of those
+font parts is preserved verbatim, never decoded. Media has write-side support, so a
+future read item for it could be a genuine round-trip rather than a fixture project —
+but it stays parked until asked for.
 
 ## API
 
@@ -269,6 +269,12 @@ interface SlideSize {
 	heightIn: number
 }
 
+interface EmbeddedFontInfo {
+	typeface: string // p:font/@typeface
+	panose: string | null // p:font/@panose, or null
+	faces: { slot: 'regular' | 'bold' | 'italic' | 'boldItalic'; partName: string }[]
+}
+
 class Presentation {
 	static load(input: OpcInput): Promise<Presentation>
 	static fromPackage(opc: OpcPackage): Presentation
@@ -290,6 +296,8 @@ class Presentation {
 	readonly slides: Slide[]
 	/** Slide dimensions, or null if none declared. */
 	readonly slideSize: SlideSize | null
+	/** Embedded font families (p:embeddedFontLst); [] when none. Each face's r:id resolves to its .fntdata partname. */
+	readonly embeddedFonts: EmbeddedFontInfo[]
 
 	/**
 	 * Phase 4 — duplicate the slide at `index`, insert the copy at `options.at`

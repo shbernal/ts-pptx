@@ -17,6 +17,8 @@ export { resolveRelativePartName, relsPartNameFor } from './read/opc/partnames.j
 export { Presentation } from './read/api/presentation.js'
 export type {
 	SlideSize,
+	EmbeddedFontInfo,
+	EmbeddedFontFaceInfo,
 	ImportSlideOptions,
 	ImportShapeOptions,
 	ImportSlideMastersOptions,

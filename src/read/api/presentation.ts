@@ -40,6 +40,7 @@ import type {
 	AppendSlidesOptions,
 	FromTemplateOptions,
 	ImportShapeOptions,
+	EmbeddedFontInfo,
 	ImportSlideMastersOptions,
 	ImportSlideOptions,
 	ImportedSlideMaster,
@@ -289,6 +290,36 @@ export class Presentation {
 		const heightEmu = intValue(attr(sldSz, 'cy'))
 		if (widthEmu === null || heightEmu === null) return null
 		return { widthEmu, heightEmu, widthIn: emuToInches(widthEmu), heightIn: emuToInches(heightEmu) }
+	}
+
+	/**
+	 * The deck's embedded font families (`p:embeddedFontLst` in `presentation.xml`),
+	 * `[]` when it embeds none. Each entry names the typeface and resolves every
+	 * embedded face's `r:id` to the absolute partname of its `.fntdata` binary — the
+	 * read counterpart to the write-side `pptx.embedFont` / `importSlide({ embedFonts })`
+	 * carry. An entry whose `p:font` has no `@typeface`, or a face whose `r:id` is
+	 * missing or dangling, is skipped (faithful degradation, no throw). Read-only.
+	 */
+	get embeddedFonts(): EmbeddedFontInfo[] {
+		const root = this.presentationPart.dom.documentElement
+		const lst = root && firstChild(root, 'p:embeddedFontLst')
+		if (!lst) return []
+		const rels = this.opc.relationshipsFor(this.presentationPart.partName)
+		const fonts: EmbeddedFontInfo[] = []
+		for (const entry of getElements(lst, 'p:embeddedFont')) {
+			const font = firstChild(entry, 'p:font')
+			const typeface = font && attr(font, 'typeface')
+			if (!typeface) continue
+			const faces: EmbeddedFontInfo['faces'] = []
+			for (const slot of EMBEDDED_FONT_SLOTS) {
+				const face = firstChild(entry, `p:${slot}`)
+				const relId = face && attr(face, 'r:id')
+				if (!relId || !rels.get(relId)) continue
+				faces.push({ slot, partName: rels.resolveTarget(relId) })
+			}
+			fonts.push({ typeface, panose: font ? attr(font, 'panose') : null, faces })
+		}
+		return fonts
 	}
 
 	/**

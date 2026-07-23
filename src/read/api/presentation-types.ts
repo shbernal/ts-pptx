@@ -16,6 +16,30 @@ export interface SlideSize {
 	heightIn: number
 }
 
+/**
+ * One `p:embeddedFont` entry, read from `presentation.xml`'s `p:embeddedFontLst`
+ * (see {@link Presentation.embeddedFonts}). A read-only view: it names the family
+ * and resolves each embedded face's `r:id` to the absolute partname of its binary
+ * `/ppt/fonts/*.fntdata` part, so a consumer can enumerate the embedded faces and
+ * pull their bytes without hand-parsing the presentation part or its rels.
+ */
+export interface EmbeddedFontInfo {
+	/** `p:font/@typeface` — the family name PowerPoint binds the embed to. */
+	typeface: string
+	/** `p:font/@panose`, or `null` when the entry declares none. */
+	panose: string | null
+	/** The embedded faces, in `regular, bold, italic, boldItalic` schema order. */
+	faces: EmbeddedFontFaceInfo[]
+}
+
+/** One face of an {@link EmbeddedFontInfo}: which slot it fills and the part its `r:id` resolves to. */
+export interface EmbeddedFontFaceInfo {
+	/** Which weight/style slot this face fills. */
+	slot: 'regular' | 'bold' | 'italic' | 'boldItalic'
+	/** Absolute partname of the face's binary `.fntdata` part (e.g. `/ppt/fonts/font1.fntdata`). */
+	partName: string
+}
+
 /** Options for {@link Presentation.importSlide}. */
 export interface ImportSlideOptions {
 	/**
