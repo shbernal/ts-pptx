@@ -116,6 +116,13 @@ write→read round-trip. They stay parked until a real consumer names one:
   media, but the read model does not decode the media relationship graph.
 - **Animations beyond the modeled presets** — the general `p:timing` tree past the
   modeled entrance/emphasis/exit set is not read-modeled.
+- **Presentation/slide tags and custom XML** (`p:custDataLst`/`p:tags`, `p:tagLst`,
+  and `customXml/` items) — provenance/toolchain markers (e.g. a Templafy- or
+  SharePoint-authored deck) preserved verbatim; the writer emits none, so a reader
+  would be a fixture project. Low priority; parked until a consumer needs it.
+- **Modern comments** (`p188:cm` / `ppt/comments/modernComment_*` + `ppt/authors.xml`)
+  — the 2018 comment schema, distinct from the legacy `p:cm` surface `slide.comments`
+  decodes (above). No writer, so import-only.
 
 `Presentation.embeddedFonts` (above) enumerates the `p:embeddedFontLst` — typeface
 plus each face's `.fntdata` partname — but the **binary glyph payload** of those
