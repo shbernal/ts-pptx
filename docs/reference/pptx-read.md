@@ -733,6 +733,8 @@ class AutoShape extends Shape {
 class Picture extends Shape {
 	imageRelId: string | null // a:blip/@r:embed — get, or set to repoint at an existing rel
 	readonly imagePartName: string | null // resolved via the slide's rels
+	readonly svgRelId: string | null // a:blip/asvg:svgBlip/@r:embed — the SVG source, when present
+	readonly svgPartName: string | null // the SVG part, resolved via the slide's rels
 	setImage(bytes: Uint8Array, options: { contentType: string; extension?: string }): void // Phase 4 — swap the image
 	// Fill setters throw (a picture's surface is out of scope for v1); lineColor
 	// (the picture's border) is available.
@@ -770,6 +772,19 @@ interface ConnectionSite {
 
 Only `AutoShape` (`p:sp`) reports `hasTextFrame: true` and a non-null
 `textFrame` in this read model.
+
+#### SVG pictures
+
+A picture can carry an SVG source alongside (or instead of) a raster one. Modern
+PowerPoint pairs an SVG with a raster fallback: `a:blip/@r:embed` points at the
+raster (PNG/EMF) in `imageRelId`/`imagePartName`, and `a:blip/asvg:svgBlip/@r:embed`
+points at the vector original in `svgRelId`/`svgPartName`. Some exporters (Templafy,
+observed emitting 89 of 353 pictures this way on a real deck) instead emit an
+**SVG-only** blip: there is no `@r:embed` on the `a:blip` itself, so `imageRelId` is
+`null` and only `svgPartName` resolves. A faithful reader must consult **both** — an
+SVG picture is not "unsupported" just because `imagePartName` is `null`. Both
+getters resolve their rel id through the slide's relationships the same way
+`imagePartName` does; both are `null` when the corresponding blip is absent.
 
 #### Connector endpoint binding
 
