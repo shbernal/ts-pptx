@@ -360,6 +360,7 @@ class Slide {
 	readonly slideNumberPlaceholder: AutoShape | null // this slide's own p:ph type="sldNum"
 	readonly notesText: string | null // flattened speaker-notes body text; null when there is no notes part
 	readonly notesTextFrame: TextFrame | null // the notes body as a navigable frame (see below)
+	readonly notesSlide: NotesSlide | null // the whole modeled notes slide (its three placeholders)
 	addTextBox(options: AddTextBoxOptions): AutoShape // Phase 4 — appends a p:sp
 	addPicture(image: Uint8Array, options: AddPictureOptions): Picture // Phase 4 — new media part + rel + p:pic
 }
@@ -440,7 +441,8 @@ ways, sharing one body-placeholder lookup:
   (`notesSlideN.xml.rels`), so `Run.hyperlink.url` resolves for notes links —
   unlike a table-cell run, which reports only the raw `relId`.
 
-Both are `null` under the same boundary — no notes-slide part at all — and
+Both `notesText` and `notesTextFrame` are thin **delegates over `notesSlide.body`**
+(below). They are `null` under the same boundary — no notes-slide part at all — and
 `notesTextFrame` is *also* `null` when a notes part exists but carries no body text
 frame (there is no frame to hand back), where `notesText` still reports `''`. Note
 the writer attaches an **empty notes part to every authored slide** (to keep the
@@ -449,16 +451,54 @@ true no-part `null` path — that branch is reachable only from imported decks. 
 `\n` in a note starts a new paragraph, so a multi-line note reads back as multiple
 `paragraphs`.
 
-Scope is **body-frame-only**: the notes slide's `sldImg`/`sldNum` placeholders are
-not modeled (as `notesText` never did). The frame *is* threaded with a **notes
-theme context** — resolved through the notes part's `notesMaster` rel →
-`theme2.xml` chain — so a notes run authored with a *scheme* colour resolves to a
-literal hex via `Run.resolvedColor` (the `clrMap` comes from the notesMaster's own
-`p:clrMap`, the `clrScheme`/`fontScheme` from `theme2.xml`). What stays inert is
-*placeholder-inherited* resolution: the frame is built without a placeholder
-context because notes inherit character properties (size/face) from the
-notesMaster's `p:notesStyle`, not from a slide layout/master placeholder chain —
-modeling that `notesStyle` inheritance is a separate, larger surface.
+The frame *is* threaded with a **notes theme context** — resolved through the notes
+part's `notesMaster` rel → `theme2.xml` chain — so a notes run authored with a
+*scheme* colour resolves to a literal hex via `Run.resolvedColor` (the `clrMap`
+comes from the notesMaster's own `p:clrMap`, the `clrScheme`/`fontScheme` from
+`theme2.xml`). What stays inert is *placeholder-inherited* resolution: the frame is
+built without a placeholder context because notes inherit character properties
+(size/face) from the notesMaster's `p:notesStyle`, not from a slide layout/master
+placeholder chain — modeling that `notesStyle` inheritance is a separate, larger
+surface.
+
+##### The modeled notes slide (`notesSlide`)
+
+`slide.notesSlide` returns the whole notes slide (`notesSlideN.xml`) as a
+`NotesSlide`, or `null` at the same no-part boundary. A notes slide is a small,
+fixed surface — a shape tree of exactly three placeholders, never groups/pictures/
+connectors/charts — so it is modeled with a dedicated `NotesPlaceholder` rather than
+the full `Shape` hierarchy:
+
+```ts
+type NotesSlide = {
+	readonly part: Part
+	readonly placeholders: NotesPlaceholder[] // the three, in document order
+	readonly slideImage: NotesPlaceholder | null // p:ph type="sldImg" (the thumbnail)
+	readonly body: NotesPlaceholder | null // p:ph type="body" (the notes text)
+	readonly slideNumber: NotesPlaceholder | null // p:ph type="sldNum" (the slide-number field)
+	readonly textFrame: TextFrame | null // === body?.textFrame
+	readonly text: string // === body?.text ?? ''
+}
+type NotesPlaceholder = {
+	readonly type: string | null // sldImg | body | sldNum
+	readonly idx: string | null
+	readonly name: string
+	readonly id: number | null
+	readonly left / top / width / height: number | null // own a:xfrm EMU; null when inherited
+	readonly textFrame: TextFrame | null // null for the sldImg thumbnail
+	readonly text: string
+}
+```
+
+The measured fidelity is what the writer authors: the three placeholder
+`type`/`name`/`idx`, the **body** text (round-tripped through the same frame
+`notesTextFrame` hands back), and the **`sldNum`** slide-number `a:fld` — its value
+surfaces through `TextFrame.text` (which reads `a:fld` text), so `slideNumber.text`
+is the slide's number (`'1'` for the first slide). Geometry is **import-only**: the
+writer leaves the `sldImg`/`sldNum` `p:spPr` empty, so on an authored deck every
+placeholder's own `left/top/width/height` reads `null` (the geometry is inherited
+from the notesMaster); an imported deck carries PowerPoint's stamped values. Each
+placeholder's `textFrame` shares the same notes theme context as `notesTextFrame`.
 
 ### `Shape` and subclasses
 
