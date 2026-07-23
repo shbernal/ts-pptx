@@ -29,6 +29,7 @@ export type {
 	ExtractedSlides,
 } from './read/api/presentation-types.js'
 export { Slide, type AddTextBoxOptions, type AddPictureOptions } from './read/api/slide.js'
+export { type SlideBackground, type BackgroundSource } from './read/api/slide-background.js'
 export { type TransitionInfo, type TransitionInput, type TransitionSpeed } from './read/api/transition.js'
 export {
 	Shape,
@@ -61,7 +62,15 @@ export {
 	type Recolor,
 	type RecolorColor,
 } from './read/api/shapes.js'
-export { TextFrame, Paragraph, Run, type BodyProperties, type RunHyperlink, type LineSpacing } from './read/api/text.js'
+export {
+	TextFrame,
+	Paragraph,
+	Run,
+	type BodyProperties,
+	type AutofitMode,
+	type RunHyperlink,
+	type LineSpacing,
+} from './read/api/text.js'
 export { Table, TableRow, TableCell, type CellBorder, type CellBorders } from './read/api/table.js'
 export {
 	Chart,

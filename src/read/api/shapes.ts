@@ -34,10 +34,15 @@ import {
 	type PlaceholderRef,
 	type ResolvedColor,
 } from './theme-context.js'
+import { readGradientFill, readGradientStops, type GradientFill, type GradientStop } from './gradient.js'
 import { Chart } from './chart.js'
 import { Table } from './table.js'
 import { TextFrame } from './text.js'
 import type { Slide } from './slide.js'
+
+// Re-exported so `pptxgenjs/read` keeps surfacing the gradient types from here even
+// though their definitions moved to ./gradient.js (shared with the slide-background reader).
+export type { GradientStop, GradientFill } from './gradient.js'
 
 const A_TABLE_URI = 'http://schemas.openxmlformats.org/drawingml/2006/table'
 const A_CHART_URI = 'http://schemas.openxmlformats.org/drawingml/2006/chart'
@@ -282,44 +287,6 @@ function transformFlipH(xfrm: Element): boolean {
 
 function transformFlipV(xfrm: Element): boolean {
 	return boolValue(attr(xfrm, 'flipV')) === true
-}
-
-/** One stop of a gradient fill (`a:gsLst/a:gs`), as read from a shape. */
-export interface GradientStop {
-	/** Stop offset along the gradient, 0–1 (from `@pos`, thousandths of a percent), or `null` if unset. */
-	position: number | null
-	/** Explicit RGB colour as 6-hex (`a:srgbClr/@val`), or `null` when the stop uses a scheme colour. */
-	color: string | null
-	/** Theme colour token (`a:schemeClr/@val`, e.g. `accent1`), or `null` when the stop uses an explicit colour. */
-	schemeColor: string | null
-	/**
-	 * The stop's colour resolved against the slide theme **with its colour
-	 * transforms applied** — the final rendered hex (the gradient counterpart of
-	 * {@link ResolvedColor.effectiveHex}). `null` when the colour cannot be made
-	 * literal (an unmapped token, or a colour model we do not resolve).
-	 */
-	effectiveHex: string | null
-	/** The stop's opacity (0–1) when an `alpha*` transform set one, else `undefined`. */
-	alpha?: number
-}
-
-/**
- * A shape's gradient fill (`spPr/a:gradFill`), as read from a shape — the stops
- * plus the geometry that {@link Shape.gradientStops} omits. `linear` gradients
- * carry an {@link angleDeg} (the `a:lin/@ang` direction); `radial`/`path`
- * gradients carry a {@link path} shape (`a:path/@path`, e.g. `circle`). The
- * angle is in **OOXML degrees** (clockwise from 3 o'clock), the same convention
- * the write-side `GradientFillProps.angle` expects, so it round-trips directly.
- */
-export interface GradientFill {
-	/** `linear` (`a:lin`) or `path` (`a:path`, i.e. radial/rectangular). `null` when neither child is present. */
-	kind: 'linear' | 'path' | null
-	/** Linear direction in OOXML degrees (clockwise from 3 o'clock), or `null` for a path gradient / when unset. */
-	angleDeg: number | null
-	/** Path-gradient shape (`a:path/@path`: `circle`/`rect`/`shape`), or `null` for a linear gradient. */
-	path: string | null
-	/** The gradient stops in document order (same as {@link Shape.gradientStops}). */
-	stops: GradientStop[]
 }
 
 /** One end of a connector/line (`a:ln/a:headEnd` or `a:tailEnd`), as read from a shape. */
@@ -868,24 +835,7 @@ export abstract class Shape {
 	 * when the gradient carries no stop list.
 	 */
 	#gradientStopsIn(container: Element): GradientStop[] | null {
-		const grad = firstChild(container, 'a:gradFill')
-		if (!grad) return null
-		const gsLst = firstChild(grad, 'a:gsLst')
-		if (!gsLst) return []
-		const ctx = this.slide.themeContext()
-		return getElements(gsLst, 'a:gs').map((gs) => {
-			const pos = intValue(attr(gs, 'pos'))
-			const srgb = firstChild(gs, 'a:srgbClr')
-			const scheme = firstChild(gs, 'a:schemeClr')
-			const resolved = resolveColorElement(srgb ?? scheme ?? null, ctx)
-			return {
-				position: pos === null ? null : pos / 100000,
-				color: srgb ? attr(srgb, 'val') : null,
-				schemeColor: scheme ? attr(scheme, 'val') : null,
-				effectiveHex: resolved ? resolved.effectiveHex : null,
-				...(resolved?.alpha !== undefined ? { alpha: resolved.alpha } : {}),
-			}
-		})
+		return readGradientStops(container, this.slide.themeContext())
 	}
 
 	/**
@@ -894,17 +844,7 @@ export abstract class Shape {
 	 * container has no gradient.
 	 */
 	#gradientFillIn(container: Element): GradientFill | null {
-		const grad = firstChild(container, 'a:gradFill')
-		if (!grad) return null
-		const lin = firstChild(grad, 'a:lin')
-		const path = firstChild(grad, 'a:path')
-		const ang = lin ? intValue(attr(lin, 'ang')) : null
-		return {
-			kind: lin ? 'linear' : path ? 'path' : null,
-			angleDeg: ang === null ? null : ang / 60000,
-			path: path ? (attr(path, 'path') ?? null) : null,
-			stops: this.#gradientStopsIn(container) ?? [],
-		}
+		return readGradientFill(container, this.slide.themeContext())
 	}
 
 	/**

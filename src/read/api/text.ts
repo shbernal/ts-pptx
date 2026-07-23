@@ -636,6 +636,15 @@ export interface BodyProperties {
 	insetsPt: { left?: number; right?: number; top?: number; bottom?: number }
 }
 
+/**
+ * A text frame's vertical-autofit mode, read from its `a:bodyPr` autofit child:
+ * - `'none'`       — `a:noAutofit`, or no autofit child at all (the box has a fixed
+ *                    size and text can overflow); write-side `fit: 'none'`.
+ * - `'normAutofit'`— `a:normAutofit` (shrink text to fit); write-side `fit: 'shrink'`.
+ * - `'spAutoFit'`  — `a:spAutoFit` (resize the shape to fit text); write-side `fit: 'resize'`.
+ */
+export type AutofitMode = 'none' | 'normAutofit' | 'spAutoFit'
+
 export class TextFrame {
 	constructor(
 		private readonly txBody: Element,
@@ -703,6 +712,49 @@ export class TextFrame {
 		if (own) return own
 		if (!this.placeholder) return null
 		return resolveInheritedAnchor(this.placeholder.ph, this.placeholder.flatten)
+	}
+
+	/**
+	 * The frame's vertical-autofit mode (`a:bodyPr` autofit child), or `null` when
+	 * there is no `a:bodyPr`. A `bodyPr` with no autofit child — or an explicit
+	 * `a:noAutofit` — reads `'none'`. See {@link AutofitMode}. This is the deep-model
+	 * counterpart of `inspectPptx`'s per-shape `autofit`; unlike the shallow surface
+	 * it hangs off the navigable text frame.
+	 */
+	get autofit(): AutofitMode | null {
+		const bodyPr = firstChild(this.txBody, 'a:bodyPr')
+		if (!bodyPr) return null
+		if (firstChild(bodyPr, 'a:spAutoFit')) return 'spAutoFit'
+		if (firstChild(bodyPr, 'a:normAutofit')) return 'normAutofit'
+		return 'none'
+	}
+
+	/**
+	 * The baked shrink scale of a `normAutofit` frame as a percent (62.5 = 62.5%),
+	 * or `null` when the frame has no `a:normAutofit` or bakes no scale. A bare
+	 * `<a:normAutofit/>` (write-side `fit: 'shrink'`) carries no scale — PowerPoint
+	 * computes it on edit and draws at 100% until then — so it too reads `null`; an
+	 * explicit scale comes from `fit: { type: 'shrink', fontScale }`.
+	 */
+	get autofitFontScale(): number | null {
+		return this.#normAutofitPct('fontScale')
+	}
+
+	/**
+	 * The baked line-spacing reduction of a `normAutofit` frame as a percent
+	 * (`a:normAutofit/@lnSpcReduction` ÷ 1000), or `null` when unset. The companion
+	 * to {@link autofitFontScale} (write-side `fit: { type: 'shrink', lnSpcReduction }`).
+	 */
+	get autofitLineSpaceReduction(): number | null {
+		return this.#normAutofitPct('lnSpcReduction')
+	}
+
+	/** A `a:normAutofit` percentage attribute (stored in 1000ths of a percent → percent), or `null`. */
+	#normAutofitPct(name: string): number | null {
+		const bodyPr = firstChild(this.txBody, 'a:bodyPr')
+		const norm = bodyPr && firstChild(bodyPr, 'a:normAutofit')
+		const raw = norm ? intValue(attr(norm, name)) : null
+		return raw === null ? null : raw / 1000
 	}
 
 	/** All paragraph text joined by `\n` (mirrors python-pptx `TextFrame.text`). */

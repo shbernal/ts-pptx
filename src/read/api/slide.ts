@@ -18,7 +18,8 @@ import {
 	type Element,
 } from '../oxml/dom.js'
 import type { FlattenContext } from '../oxml/theme.js'
-import { resolveSlideColorContext } from './theme-context.js'
+import { resolveSlideColorContext, resolveSlideThemeParts } from './theme-context.js'
+import { backgroundElementOf, readSlideBackground, type SlideBackground } from './slide-background.js'
 import type { Presentation } from './presentation.js'
 import { AutoShape, GraphicFrame, GroupShape, Picture, buildShapes, type AnyShape } from './shapes.js'
 import { TextFrame } from './text.js'
@@ -343,6 +344,52 @@ export class Slide {
 			}
 		}
 		return ''
+	}
+
+	/**
+	 * The slide's effective background (`p:cSld/p:bg`), decoded into a typed
+	 * {@link SlideBackground}. Resolved through the inheritance chain: the slide's
+	 * own `p:bg` wins; failing that the slideLayout's, then the slideMaster's — the
+	 * result's `source` records which supplied it. `null` when nothing in the chain
+	 * defines a background.
+	 *
+	 * Colour tokens resolve against this slide's theme; an image background's
+	 * `r:embed` resolves to an absolute part name through the *owning* part's
+	 * relationships (the layout's rels for a layout-inherited image, etc.). Solid,
+	 * gradient, and image backgrounds are the three the writer authors and so
+	 * round-trip faithfully; `pattern`/`themeRef` are read-only for imported decks.
+	 */
+	get background(): SlideBackground | null {
+		const opc = this.presentation.opc
+		const parts = resolveSlideThemeParts(opc, this.partName)
+		const ctx = this.themeContext()
+		const candidates: { root: Element | null; source: 'slide' | 'layout' | 'master'; partName: string | null }[] = [
+			{ root: parts.slideRoot, source: 'slide', partName: this.partName },
+			{ root: parts.layoutRoot, source: 'layout', partName: parts.layoutPartName },
+			{ root: parts.masterRoot, source: 'master', partName: parts.masterPartName },
+		]
+		for (const { root, source, partName } of candidates) {
+			const bg = backgroundElementOf(root)
+			if (!bg) continue
+			const rels = partName ? opc.relationshipsFor(partName) : null
+			return readSlideBackground(bg, source, ctx, rels)
+		}
+		return null
+	}
+
+	/**
+	 * The slide's own slide-number placeholder (`p:sp` with `p:ph type="sldNum"`,
+	 * carrying an `<a:fld type="slidenum">`), or `null` when the slide shows no slide
+	 * number of its own. This is the concrete shape the writer emits for
+	 * `pptx.setSlideNumber(...)` on a slide's layout; its geometry and run formatting
+	 * read off the returned {@link AutoShape} the same as any placeholder.
+	 *
+	 * Scoped to the slide's *own* shape tree — a slide number inherited purely from
+	 * the master's `p:hf`/placeholder (with no shape on the slide) is a master-level
+	 * concern this getter does not resolve.
+	 */
+	get slideNumberPlaceholder(): AutoShape | null {
+		return this.placeholder('sldNum') ?? null
 	}
 
 	/** The first top-level shape with the given drawing id (`p:cNvPr/@id`), or `undefined`. */

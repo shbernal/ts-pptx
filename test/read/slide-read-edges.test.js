@@ -2,6 +2,10 @@
 // don't reach: the per-format image sniffer (picture-edit.test.js only ever
 // adds a PNG), the addTextBox significant-whitespace path, Slide.placeholder
 // skipping a non-AutoShape, and the Slide.name getter.
+//
+// Plus the slide-level read expansion (Slide.background / slideNumberPlaceholder,
+// TextFrame.autofit): asserted write→read through the shared harness, since the
+// writer already authors each feature.
 
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -9,6 +13,17 @@ import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
+import { authorRead, schemaErrors, validatorInstalled } from './authored.js'
+
+// A 1×1 transparent PNG, as the writer's `background: { data }` expects it.
+const PNG_1PX =
+	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+
+/** The first autoShape text frame on a read slide (addText/addTextBox emit a `p:sp`). */
+function textFrameOf(slide) {
+	const shape = slide.shapes.find((s) => s.shapeType === 'autoShape')
+	return shape ? shape.textFrame : null
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -89,5 +104,144 @@ describe('Slide misc read/edit edges', () => {
 		const slide = (await open('notes-slide-image')).slides[0]
 		const notes = slide.notesText
 		assert(notes === null || typeof notes === 'string', 'notesText is a string (or null when no notes part)')
+	})
+})
+
+describe('Slide.background — write→read fidelity', () => {
+	test('solid colour background reads type/source/colour off the slide itself', async () => {
+		const { presentation } = await authorRead((pres) => {
+			const slide = pres.addSlide()
+			slide.background = { color: 'C0392B' }
+		})
+		const bg = presentation.slides[0].background
+		assert(bg !== null, 'the slide has a background')
+		assertEqual(bg.type, 'solid', 'solid colour background')
+		assertEqual(bg.source, 'slide', 'authored on the slide, not inherited')
+		assertEqual(bg.color?.effectiveHex, 'C0392B', 'the colour resolves to its literal hex')
+	})
+
+	test('gradient background reads kind/angle and each resolved stop', async () => {
+		const { presentation } = await authorRead((pres) => {
+			const slide = pres.addSlide()
+			slide.background = {
+				type: 'gradient',
+				gradient: {
+					kind: 'linear',
+					angle: 45,
+					stops: [
+						{ position: 0, color: 'FF0000' },
+						{ position: 100, color: '0000FF' },
+					],
+				},
+			}
+		})
+		const bg = presentation.slides[0].background
+		assertEqual(bg.type, 'gradient', 'gradient background')
+		assertEqual(bg.source, 'slide', 'authored on the slide')
+		assertEqual(bg.gradient.kind, 'linear', 'linear gradient')
+		assertEqual(bg.gradient.angleDeg, 45, '45° preserved through the OOXML 60000ths encoding')
+		assertEqual(bg.gradient.stops.length, 2, 'both stops read')
+		assertEqual(bg.gradient.stops[0].effectiveHex, 'FF0000', 'first stop colour')
+		assertEqual(bg.gradient.stops[1].position, 1, 'last stop at position 1 (100%)')
+	})
+
+	test('image background reads its rel id and resolved absolute part name', async () => {
+		const { presentation } = await authorRead((pres) => {
+			const slide = pres.addSlide()
+			slide.background = { data: PNG_1PX }
+		})
+		const bg = presentation.slides[0].background
+		assertEqual(bg.type, 'image', 'image background')
+		assertEqual(bg.source, 'slide', 'authored on the slide')
+		assert(bg.relId != null, 'the blip rel id is read')
+		assert(
+			bg.partName != null && bg.partName.endsWith('.png'),
+			`part name resolves to the media png, got ${bg.partName}`
+		)
+	})
+
+	test('a slide with no own background inherits the layout background (source=layout)', async () => {
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide() // no background set → falls through to the default layout's p:bg
+		})
+		const bg = presentation.slides[0].background
+		assert(bg !== null, 'the effective background is inherited, not null')
+		assertEqual(bg.type, 'themeRef', 'the default layout background is a theme-indexed p:bgRef')
+		assertEqual(bg.source, 'layout', 'inherited from the layout, not the slide')
+		assertEqual(bg.idx, 1001, 'the default background matrix index')
+	})
+
+	test.skipIf(!validatorInstalled)('authored backgrounds are schema-valid', async () => {
+		const { buf } = await authorRead((pres) => {
+			pres.addSlide().background = { color: '1F4E79' }
+			pres.addSlide().background = { data: PNG_1PX }
+		})
+		assertEqual((await schemaErrors(buf)).length, 0, 'no schema violations')
+	})
+})
+
+describe('TextFrame.autofit — write→read fidelity', () => {
+	test('fit modes map to the autofit tokens', async () => {
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addText('resize', { x: 1, y: 1, w: 3, h: 1, fit: 'resize' })
+			pres.addSlide().addText('shrink', { x: 1, y: 1, w: 3, h: 1, fit: 'shrink' })
+			pres.addSlide().addText('plain', { x: 1, y: 1, w: 3, h: 1 })
+		})
+		assertEqual(textFrameOf(presentation.slides[0]).autofit, 'spAutoFit', "fit:'resize' → spAutoFit")
+		const shrink = textFrameOf(presentation.slides[1])
+		assertEqual(shrink.autofit, 'normAutofit', "fit:'shrink' → normAutofit")
+		assertEqual(shrink.autofitFontScale, null, 'a bare normAutofit bakes no font scale')
+		assertEqual(textFrameOf(presentation.slides[2]).autofit, 'none', 'a bodyPr with no autofit child → none')
+	})
+
+	test('an explicit shrink bakes fontScale and lnSpcReduction as percents', async () => {
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addText('baked', {
+				x: 1,
+				y: 1,
+				w: 3,
+				h: 1,
+				fit: { type: 'shrink', fontScale: 62.5, lnSpcReduction: 20 },
+			})
+		})
+		const tf = textFrameOf(presentation.slides[0])
+		assertEqual(tf.autofit, 'normAutofit', 'shrink object → normAutofit')
+		assertEqual(tf.autofitFontScale, 62.5, 'fontScale read as a percent (62500 ÷ 1000)')
+		assertEqual(tf.autofitLineSpaceReduction, 20, 'lnSpcReduction read as a percent (20000 ÷ 1000)')
+	})
+
+	test.skipIf(!validatorInstalled)('authored autofit is schema-valid', async () => {
+		const { buf } = await authorRead((pres) => {
+			pres.addSlide().addText('x', { x: 1, y: 1, w: 3, h: 1, fit: { type: 'shrink', fontScale: 80 } })
+		})
+		assertEqual((await schemaErrors(buf)).length, 0, 'no schema violations')
+	})
+})
+
+describe('Slide.slideNumberPlaceholder — write→read fidelity', () => {
+	test('a slide-number placeholder is read when the slide carries one', async () => {
+		const { presentation } = await authorRead((pres) => {
+			// The per-slide setter emits the sldNum `p:sp` in the slide's own shape tree
+			// (setSlideNumber() alone puts it only on the master, which this getter scopes out).
+			pres.addSlide().slideNumber = { x: 1, y: '90%', w: 1, h: 0.5 }
+		})
+		const ph = presentation.slides[0].slideNumberPlaceholder
+		assert(ph !== null, 'the sldNum placeholder shape is found')
+		assertEqual(ph.placeholder?.type, 'sldNum', 'it is the slide-number placeholder')
+		assert(ph.text.length >= 0, 'its text frame reads (the slide-number field)')
+	})
+
+	test('a slide with no slide number reads null', async () => {
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide()
+		})
+		assertEqual(presentation.slides[0].slideNumberPlaceholder, null, 'no sldNum placeholder → null')
+	})
+
+	test.skipIf(!validatorInstalled)('a slide carrying a slide number is schema-valid', async () => {
+		const { buf } = await authorRead((pres) => {
+			pres.addSlide().slideNumber = { x: 1, y: '90%' }
+		})
+		assertEqual((await schemaErrors(buf)).length, 0, 'no schema violations')
 	})
 })
