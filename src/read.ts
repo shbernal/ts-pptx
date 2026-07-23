@@ -42,7 +42,7 @@ export {
 	type ThemeFontFace,
 	type ThemeFontScheme,
 } from './read/api/chrome.js'
-export { type SlideBackground, type BackgroundSource } from './read/api/slide-background.js'
+export { type SlideBackground, type BackgroundSource, type BackgroundFill } from './read/api/slide-background.js'
 export { type TransitionInfo, type TransitionInput, type TransitionSpeed } from './read/api/transition.js'
 export {
 	Shape,

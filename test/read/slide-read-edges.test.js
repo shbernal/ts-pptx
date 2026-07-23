@@ -171,6 +171,20 @@ describe('Slide.background — write→read fidelity', () => {
 		assertEqual(bg.idx, 1001, 'the default background matrix index')
 	})
 
+	test('a themeRef background resolves its idx to the concrete theme fill', async () => {
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide() // inherits the default layout's p:bgRef idx=1001
+		})
+		const bg = presentation.slides[0].background
+		assertEqual(bg.type, 'themeRef', 'theme-indexed background')
+		assertEqual(bg.idx, 1001, 'raw idx kept for fidelity')
+		// idx 1001 → bgFillStyleLst entry 1 = <a:solidFill><a:schemeClr val="phClr"/></a:solidFill>;
+		// the bgRef's own <a:schemeClr val="bg1"/> supplies the phClr, and bg1 → lt1 → window (FFFFFF).
+		assert(bg.resolvedFill !== null, 'idx resolves to a concrete fill')
+		assertEqual(bg.resolvedFill.type, 'solid', 'the first bg fill-style entry is a solid fill')
+		assertEqual(bg.resolvedFill.color?.effectiveHex, 'FFFFFF', 'phClr substituted with the resolved bg1 (window/white)')
+	})
+
 	test.skipIf(!validatorInstalled)('authored backgrounds are schema-valid', async () => {
 		const { buf } = await authorRead((pres) => {
 			pres.addSlide().background = { color: '1F4E79' }

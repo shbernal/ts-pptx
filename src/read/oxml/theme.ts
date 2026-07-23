@@ -400,21 +400,12 @@ function materializeBackground(slideRoot: Element, ctx: FlattenContext): void {
 	for (const bg of elementsByTag(slideRoot, OOXML_NS.p, 'bg')) {
 		const bgRef = firstChild(bg, 'p:bgRef')
 		if (!bgRef) continue
-		const idx = intAttr(bgRef, 'idx')
-		const ref = resolveColor(firstChildElement(bgRef), ctx)
-		const fill =
-			idx !== null && idx > 0
-				? idx >= 1000
-					? fmtEntry(ctx, 'a:bgFillStyleLst', idx - 1000)
-					: fmtEntry(ctx, 'a:fillStyleLst', idx)
-				: null
+		// A `p:bgRef` is a `CT_StyleMatrixReference`, the same shape as a shape's
+		// `a:fillRef`, so `styleRefFill` builds its resolved `fmtScheme` fill (phClr
+		// already substituted). `null` (idx 0 / unresolved colour) → transparent.
+		const fill = styleRefFill(bgRef, ctx)
 		const bgPr = createElement(doc, 'p:bgPr')
-		if (fill && ref) {
-			substitutePhClr(fill, ref)
-			bgPr.appendChild(fill)
-		} else {
-			bgPr.appendChild(createElement(doc, 'a:noFill')) // idx 0 / unresolved → transparent
-		}
+		bgPr.appendChild(fill ?? createElement(doc, 'a:noFill'))
 		bg.replaceChild(bgPr, bgRef)
 	}
 }

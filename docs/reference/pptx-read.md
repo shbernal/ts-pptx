@@ -454,6 +454,19 @@ image background's `r:embed` resolves against the **owning** part's rels (the
 layout's rels for a layout-inherited image). solid/gradient/image are FAITHFUL;
 pattern/themeRef are read-only for imported decks.
 
+A `themeRef` keeps its raw `idx` for fidelity **and** resolves it to the concrete
+fill it renders as, in `resolvedFill: BackgroundFill | null`. `idx` is 1000-based
+into the theme's `a:fmtScheme` — `idx − 1000` is the 1-based `a:bgFillStyleLst`
+entry (an `idx` below 1000 selects `a:fillStyleLst`) — and its `phClr` is substituted
+by the bgRef's own colour child, resolved through the slide theme (same path
+`importSlide({ theme: 'preserve' })` bakes with). So the default
+`{ type: 'themeRef', idx: 1001 }` above exposes
+`resolvedFill: { type: 'solid', color: { effectiveHex: 'FFFFFF', … } }` (entry 1 is a
+solid `phClr` fill; `bg1 → lt1 → window`). `resolvedFill` is `null` when the theme
+has no `fmtScheme`, the indexed entry is absent, or the colour cannot be resolved.
+`BackgroundFill` is the source-less fill union (`solid`/`gradient`/`image`/`pattern`/
+`none`) — the same payload the top-level variants carry.
+
 `slideNumberPlaceholder` is scoped to the slide's **own** shape tree — the
 `p:ph type="sldNum"` the per-slide `slide.slideNumber = {…}` setter emits. It
 deliberately does **not** resolve a number inherited purely from the master `p:hf`
