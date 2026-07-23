@@ -326,6 +326,44 @@ export class Slide {
 	 * placeholders a notes slide also carries are ignored.
 	 */
 	get notesText(): string | null {
+		const body = this.#notesBody()
+		if (!body) return null
+		return body.txBody ? new TextFrame(body.txBody, body.notesPart).text : ''
+	}
+
+	/**
+	 * The slide's speaker-note body as a navigable {@link TextFrame} — the rich
+	 * companion to {@link notesText}, which flattens the same body to a plain string.
+	 * Walk `paragraphs → runs` to recover per-run formatting (bold/italic/underline,
+	 * colour, size, face) and any notes hyperlink that {@link notesText} discards.
+	 *
+	 * `null` when the slide has **no notes slide part** (the same boundary
+	 * {@link notesText} returns `null` at), and also when a notes part exists but
+	 * carries no body-placeholder text frame — there is then no frame to hand back
+	 * (whereas {@link notesText} reports `''` for that empty-body case).
+	 *
+	 * The frame is threaded with the *notes part's own* relationships
+	 * (`notesSlideN.xml.rels`), so a run hyperlink resolves its `url`/`targetPartName`.
+	 * It is **not** given a theme context: notes runs inherit from the notesMaster,
+	 * which this model does not flatten, so the `resolved*` inherited getters stay
+	 * inert — the own-attribute getters (the ones the writer emits) are faithful.
+	 */
+	get notesTextFrame(): TextFrame | null {
+		const body = this.#notesBody()
+		if (!body || !body.txBody) return null
+		const rels = this.presentation.opc.relationshipsFor(body.notesPart.partName)
+		return new TextFrame(body.txBody, body.notesPart, undefined, undefined, rels)
+	}
+
+	/**
+	 * Resolve the notes slide's body-placeholder text frame, shared by
+	 * {@link notesText} and {@link notesTextFrame}. Returns `null` when there is no
+	 * notes slide part at all; otherwise the `notesPart` plus its body `p:txBody`
+	 * (or `txBody: null` when the notes part carries no body placeholder / empty of a
+	 * text frame). Only the body placeholder is read; the `sldImg`/`sldNum`
+	 * placeholders a notes slide also carries are ignored.
+	 */
+	#notesBody(): { txBody: Element | null; notesPart: Part } | null {
 		const notesRel = this.relationships.byType(NOTES_SLIDE_REL_TYPE)[0]
 		if (!notesRel) return null
 		const notesPart = this.presentation.opc.part(this.relationships.resolveTarget(notesRel.id))
@@ -333,17 +371,16 @@ export class Slide {
 		const root = notesPart.dom.documentElement
 		const cSld = root && firstChild(root, 'p:cSld')
 		const spTree = cSld && firstChild(cSld, 'p:spTree')
-		if (!spTree) return ''
+		if (!spTree) return { txBody: null, notesPart }
 		for (const sp of getElements(spTree, 'p:sp')) {
 			const nvSpPr = firstChild(sp, 'p:nvSpPr')
 			const nvPr = nvSpPr && firstChild(nvSpPr, 'p:nvPr')
 			const ph = nvPr && firstChild(nvPr, 'p:ph')
 			if (ph && attr(ph, 'type') === 'body') {
-				const txBody = firstChild(sp, 'p:txBody')
-				return txBody ? new TextFrame(txBody, notesPart).text : ''
+				return { txBody: firstChild(sp, 'p:txBody'), notesPart }
 			}
 		}
-		return ''
+		return { txBody: null, notesPart }
 	}
 
 	/**
