@@ -360,6 +360,99 @@ export interface OuterShadow {
 }
 
 /**
+ * A shape's inner shadow (`spPr/a:effectLst/a:innerShdw`), resolved against the
+ * slide theme. Identical fields to {@link OuterShadow} — CT_InnerShadowEffect
+ * carries the same `blurRad`/`dist`/`dir` + colour — but a distinct type so a
+ * consumer can tell an inset shadow from a drop shadow. Distances in points,
+ * direction in degrees, matching the write-side `shadow: { type: 'inner' }`.
+ */
+export interface InnerShadow {
+	/** Effective shadow colour as 6-hex (theme-resolved, transforms applied), or `null`. */
+	color: string | null
+	/** Theme colour token when the shadow colour was a scheme colour (e.g. `accent1`), else `undefined`. */
+	colorToken?: string
+	/** Shadow opacity 0–1 (from the colour's `a:alpha`), or `undefined` when fully opaque. */
+	alpha?: number
+	/** Blur radius in points (`@blurRad` ÷ 12700), or `undefined` when unset. */
+	blurPt?: number
+	/** Offset distance in points (`@dist` ÷ 12700), or `undefined` when unset. */
+	offsetPt?: number
+	/** Offset direction in degrees, clockwise from 3 o'clock (`@dir` ÷ 60000), or `undefined` when unset. */
+	angleDeg?: number
+}
+
+/**
+ * A shape's glow effect (`spPr/a:effectLst/a:glow`) — a coloured halo — resolved
+ * against the slide theme. The write-side text glow (`glow: { size, color,
+ * opacity }`) emits the same element, so {@link radiusPt} (`@rad` ÷ 12700) and the
+ * colour round-trip.
+ */
+export interface Glow {
+	/** Effective glow colour as 6-hex (theme-resolved, transforms applied), or `null`. */
+	color: string | null
+	/** Theme colour token when the glow colour was a scheme colour (e.g. `accent1`), else `undefined`. */
+	colorToken?: string
+	/** Glow opacity 0–1 (from the colour's `a:alpha`), or `undefined` when fully opaque. */
+	alpha?: number
+	/** Glow radius in points (`@rad` ÷ 12700), or `undefined` when unset. */
+	radiusPt?: number
+}
+
+/**
+ * A shape's reflection effect (`spPr/a:effectLst/a:reflection`) — a mirrored fade
+ * beneath the shape. This library's writer authors none, so this is a **read-only**
+ * surface: a consumer that finds one should carry the part verbatim rather than
+ * regenerate it. Only the attributes a faithful replica needs are decoded —
+ * distances in points (÷ 12700), directions in degrees (÷ 60000), and the start/end
+ * alpha and position pairs as 0–1 fractions (the `1000`ths-of-a-percent source
+ * ÷ 100000). All fields are optional; an attribute absent from the source is omitted.
+ */
+export interface Reflection {
+	/** Blur radius in points (`@blurRad` ÷ 12700). */
+	blurPt?: number
+	/** Start opacity 0–1 (`@stA` ÷ 100000). */
+	startAlpha?: number
+	/** Start position along the reflection 0–1 (`@stPos` ÷ 100000). */
+	startPos?: number
+	/** End opacity 0–1 (`@endA` ÷ 100000). */
+	endAlpha?: number
+	/** End position along the reflection 0–1 (`@endPos` ÷ 100000). */
+	endPos?: number
+	/** Offset distance in points (`@dist` ÷ 12700). */
+	distPt?: number
+	/** Offset direction in degrees (`@dir` ÷ 60000). */
+	angleDeg?: number
+	/** Fade direction in degrees (`@fadeDir` ÷ 60000). */
+	fadeAngleDeg?: number
+}
+
+/**
+ * A shape's soft-edge effect (`spPr/a:effectLst/a:softEdge`) — a feathered border.
+ * Like {@link Reflection}, the writer authors none, so carry it verbatim. `@rad`
+ * (the feather radius) ÷ 12700 → points.
+ */
+export interface SoftEdge {
+	/** Feather radius in points (`@rad` ÷ 12700). */
+	radiusPt: number
+}
+
+/**
+ * A shape's pattern fill (`spPr/a:pattFill`) — a two-colour preset hatch. The
+ * write-side `fill: { type: 'pattern', pattern: { preset, fgColor, bgColor } }`
+ * emits the same element, so the {@link preset} name and both colours round-trip.
+ * Colours resolve against the slide theme (a scheme token → literal hex) the same
+ * way {@link Shape.resolvedFill} resolves a solid fill.
+ */
+export interface PatternFill {
+	/** Preset pattern name (`@prst`, e.g. `pct50`/`diagCross`/`ltUpDiag`), or `null` when unset. */
+	preset: string | null
+	/** Foreground colour (`a:fgClr`) resolved against the theme, or `null`. */
+	foreground: ResolvedColor | null
+	/** Background colour (`a:bgClr`) resolved against the theme, or `null`. */
+	background: ResolvedColor | null
+}
+
+/**
  * One segment of a custom-geometry path (`a:path`), as read from a shape. The
  * command verbs mirror the write-side `GeometryPoint` DSL (`src/core-interfaces.ts`)
  * so a consumer can map a `GeometryCommand[]` to `GeometryPoint[]` one-to-one.
@@ -864,19 +957,116 @@ export abstract class Shape {
 	 * invisible in geometry/fill alone.
 	 */
 	get shadow(): OuterShadow | null {
+		const shdw = this.#effect('a:outerShdw')
+		return shdw ? this.#readShadow(shdw) : null
+	}
+
+	/**
+	 * The shape's **inner** shadow (`spPr/a:effectLst/a:innerShdw`), resolved against
+	 * the slide theme, or `null` when the shape has no inner shadow. The inset
+	 * counterpart of {@link shadow}: the write-side `shadow: { type: 'inner' }`
+	 * emits it, and it is invisible in geometry/fill alone.
+	 */
+	get innerShadow(): InnerShadow | null {
+		const shdw = this.#effect('a:innerShdw')
+		return shdw ? this.#readShadow(shdw) : null
+	}
+
+	/**
+	 * The shape's glow halo (`spPr/a:effectLst/a:glow`), resolved against the slide
+	 * theme, or `null` when the shape has no glow. Same element the write-side text
+	 * glow emits, so its {@link Glow.radiusPt} and colour round-trip.
+	 */
+	get glow(): Glow | null {
+		const glow = this.#effect('a:glow')
+		if (!glow) return null
+		const out: Glow = { color: null }
+		this.#applyEffectColor(out, firstChildElement(glow))
+		const rad = intValue(attr(glow, 'rad'))
+		if (rad !== null) out.radiusPt = rad / 12700
+		return out
+	}
+
+	/**
+	 * The shape's reflection (`spPr/a:effectLst/a:reflection`), or `null` when it has
+	 * none. Read-only: this library authors no reflection, so a replica should carry
+	 * the part rather than regenerate it — see {@link Reflection}.
+	 */
+	get reflection(): Reflection | null {
+		const refl = this.#effect('a:reflection')
+		if (!refl) return null
+		const out: Reflection = {}
+		const put = (target: keyof Reflection, name: string, div: number): void => {
+			const v = intValue(attr(refl, name))
+			if (v !== null) out[target] = v / div
+		}
+		put('blurPt', 'blurRad', 12700)
+		put('distPt', 'dist', 12700)
+		put('angleDeg', 'dir', 60000)
+		put('fadeAngleDeg', 'fadeDir', 60000)
+		put('startAlpha', 'stA', 100000)
+		put('startPos', 'stPos', 100000)
+		put('endAlpha', 'endA', 100000)
+		put('endPos', 'endPos', 100000)
+		return out
+	}
+
+	/**
+	 * The shape's soft (feathered) edge (`spPr/a:effectLst/a:softEdge`), or `null`
+	 * when it has none. Read-only like {@link reflection}: carry, don't regenerate.
+	 */
+	get softEdge(): SoftEdge | null {
+		const soft = this.#effect('a:softEdge')
+		if (!soft) return null
+		const rad = intValue(attr(soft, 'rad'))
+		return { radiusPt: rad === null ? 0 : rad / 12700 }
+	}
+
+	/**
+	 * The shape's pattern (hatch) fill (`spPr/a:pattFill`), or `null` when the fill
+	 * is not a pattern. Surfaces the {@link PatternFill.preset} name and both
+	 * colours resolved against the slide theme — the pattern counterpart of
+	 * {@link resolvedFill}, which reports `null` for a non-solid fill and so drops a
+	 * hatched surface entirely.
+	 */
+	get patternFill(): PatternFill | null {
+		const props = this.properties()
+		const patt = props && firstChild(props, 'a:pattFill')
+		if (!patt) return null
+		const ctx = this.slide.themeContext()
+		const resolveWrap = (qname: string): ResolvedColor | null => {
+			const wrap = firstChild(patt, qname)
+			const colorEl = wrap && firstChildElement(wrap)
+			return colorEl ? resolveColorElement(colorEl, ctx) : null
+		}
+		return {
+			preset: attr(patt, 'prst') ?? null,
+			foreground: resolveWrap('a:fgClr'),
+			background: resolveWrap('a:bgClr'),
+		}
+	}
+
+	/** A named child of the shape's effect list (`spPr/a:effectLst/<qname>`), or `null`. */
+	#effect(qname: string): Element | null {
 		const props = this.properties()
 		const effectLst = props && firstChild(props, 'a:effectLst')
-		const shdw = effectLst && firstChild(effectLst, 'a:outerShdw')
-		if (!shdw) return null
-		const out: OuterShadow = { color: null }
-		const colorEl = firstChild(shdw, 'a:srgbClr') ?? firstChild(shdw, 'a:schemeClr')
-		const resolved = resolveColorElement(colorEl ?? null, this.slide.themeContext())
+		return effectLst ? firstChild(effectLst, qname) : null
+	}
+
+	/** Resolve `colorEl` against the theme and stamp `color`/`colorToken`/`alpha` onto an effect result. */
+	#applyEffectColor(out: { color: string | null; colorToken?: string; alpha?: number }, colorEl: Element | null): void {
+		const resolved = resolveColorElement(colorEl, this.slide.themeContext())
 		if (resolved) {
 			out.color = resolved.effectiveHex
 			if (resolved.alpha !== undefined) out.alpha = resolved.alpha
 		}
-		const scheme = colorEl && colorEl.localName === 'schemeClr'
-		if (scheme) out.colorToken = attr(colorEl, 'val') ?? undefined
+		if (colorEl && colorEl.localName === 'schemeClr') out.colorToken = attr(colorEl, 'val') ?? undefined
+	}
+
+	/** Decode a shadow element (`a:outerShdw`/`a:innerShdw` share the fields), resolving its colour. */
+	#readShadow(shdw: Element): OuterShadow {
+		const out: OuterShadow = { color: null }
+		this.#applyEffectColor(out, firstChild(shdw, 'a:srgbClr') ?? firstChild(shdw, 'a:schemeClr'))
 		const blur = intValue(attr(shdw, 'blurRad'))
 		const dist = intValue(attr(shdw, 'dist'))
 		const dir = intValue(attr(shdw, 'dir'))

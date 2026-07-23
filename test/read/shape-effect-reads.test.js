@@ -1,16 +1,23 @@
-// Read-model coverage for the shape EFFECT / STROKE-DETAIL getters in
-// src/read/api/shapes.ts that the fixture decks don't happen to carry:
-// Shape.shadow (a:effectLst/a:outerShdw), Shape.lineEnds (a:ln head/tail
+// Read-model coverage for the shape EFFECT / STROKE-DETAIL / PATTERN-FILL getters
+// in src/read/api/shapes.ts that the fixture decks don't happen to carry:
+// Shape.shadow (a:effectLst/a:outerShdw), Shape.innerShadow (a:innerShdw),
+// Shape.glow (a:glow), Shape.reflection (a:reflection), Shape.softEdge
+// (a:softEdge), Shape.patternFill (a:pattFill), Shape.lineEnds (a:ln head/tail
 // arrowheads), and the a:path branch of Shape.gradientFill.
 //
-// These read only the shape's own spPr (shadow/gradient resolve colour through
+// These read only the shape's own spPr (colour-bearing effects resolve through
 // the slide theme, so a minimal themeContext stub is enough), so hand-authored
 // OOXML exercises every branch without a round-trip through this library's
 // writer — the same off-fixture pattern the style-accessor suite uses.
+//
+// The effects the writer DOES author (inner shadow via `shadow: { type: 'inner' }`
+// and the pattern fill) additionally get a write→read fidelity leg through the
+// shared harness, proving those reads round-trip the very bytes the writer emits.
 
 import { DOMParser } from '@xmldom/xmldom'
 import { describe, test } from 'vitest'
 import { AutoShape } from '../../dist/read.js'
+import { authorRead, firstShape, schemaErrors, validatorInstalled } from './authored.js'
 import { assert, assertEqual } from '../helpers.js'
 
 const P_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main'
@@ -116,5 +123,209 @@ describe('Shape.gradientFill — the a:path (radial/rectangular) branch', () => 
 			null,
 			'a solid fill → null'
 		)
+	})
+})
+
+describe('Shape.innerShadow — inset shadow reads', () => {
+	test('reads blur / offset / angle and an srgb colour with alpha, like an outer shadow', () => {
+		const shadow = sp(
+			`<p:spPr><a:effectLst><a:innerShdw blurRad="63500" dist="25400" dir="16200000">` +
+				`<a:srgbClr val="404040"><a:alpha val="60000"/></a:srgbClr></a:innerShdw></a:effectLst></p:spPr>`
+		).innerShadow
+		assert(shadow, 'an innerShdw surfaces an inner shadow')
+		assertEqual(shadow.color, '404040', 'effectiveHex of the inner shadow colour')
+		assert(Math.abs(shadow.alpha - 0.6) < 1e-9, `alpha 60000 → 0.6, got ${shadow.alpha}`)
+		assertEqual(shadow.blurPt, 5, 'blurRad 63500 EMU → 5pt')
+		assertEqual(shadow.offsetPt, 2, 'dist 25400 EMU → 2pt')
+		assertEqual(shadow.angleDeg, 270, 'dir 16200000 (60000ths) → 270°')
+	})
+
+	test('an outer shadow is not read as an inner one, and vice versa', () => {
+		const outerOnly = sp(`<p:spPr><a:effectLst><a:outerShdw dist="12700"/></a:effectLst></p:spPr>`)
+		assertEqual(outerOnly.innerShadow, null, 'an outerShdw does not surface as innerShadow')
+		assert(outerOnly.shadow, 'the outerShdw still surfaces as shadow')
+		const innerOnly = sp(`<p:spPr><a:effectLst><a:innerShdw dist="12700"/></a:effectLst></p:spPr>`)
+		assertEqual(innerOnly.shadow, null, 'an innerShdw does not surface as the outer shadow')
+		assert(innerOnly.innerShadow, 'the innerShdw still surfaces as innerShadow')
+	})
+
+	test('no innerShdw → null', () => {
+		assertEqual(sp(`<p:spPr><a:effectLst/></p:spPr>`).innerShadow, null, 'an effectLst with no innerShdw → null')
+	})
+})
+
+describe('Shape.glow — coloured halo reads', () => {
+	test('reads its radius (EMU) and an srgb colour with alpha', () => {
+		const glow = sp(
+			`<p:spPr><a:effectLst><a:glow rad="101600"><a:srgbClr val="FFC000"><a:alpha val="75000"/></a:srgbClr>` +
+				`</a:glow></a:effectLst></p:spPr>`
+		).glow
+		assert(glow, 'an a:glow surfaces a glow')
+		assertEqual(glow.radiusPt, 8, 'rad 101600 EMU → 8pt')
+		assertEqual(glow.color, 'FFC000', 'effectiveHex of the glow colour')
+		assert(Math.abs(glow.alpha - 0.75) < 1e-9, `alpha 75000 → 0.75, got ${glow.alpha}`)
+	})
+
+	test('a scheme-coloured glow surfaces its colorToken even when unresolved', () => {
+		const glow = sp(
+			`<p:spPr><a:effectLst><a:glow rad="50800"><a:schemeClr val="accent2"/></a:glow></a:effectLst></p:spPr>`
+		).glow
+		assert(glow, 'the glow surfaces')
+		assertEqual(glow.colorToken, 'accent2', 'the scheme token is reported for a downstream resolver')
+		assertEqual(glow.color, null, 'with empty colour maps the scheme colour does not resolve')
+	})
+
+	test('no glow → null', () => {
+		assertEqual(sp(`<p:spPr><a:effectLst/></p:spPr>`).glow, null, 'an effectLst with no glow → null')
+	})
+})
+
+describe('Shape.reflection / Shape.softEdge — read-only effects', () => {
+	test('reflection decodes distances (EMU), directions (60000ths) and alpha/pos (1000ths of a percent)', () => {
+		const refl = sp(
+			`<p:spPr><a:effectLst><a:reflection blurRad="6350" stA="50000" stPos="0" endA="300" endPos="55000" ` +
+				`dist="25400" dir="5400000" fadeDir="5400000"/></a:effectLst></p:spPr>`
+		).reflection
+		assert(refl, 'an a:reflection surfaces a reflection')
+		assertEqual(refl.blurPt, 0.5, 'blurRad 6350 EMU → 0.5pt')
+		assertEqual(refl.distPt, 2, 'dist 25400 EMU → 2pt')
+		assertEqual(refl.angleDeg, 90, 'dir 5400000 (60000ths) → 90°')
+		assertEqual(refl.fadeAngleDeg, 90, 'fadeDir 5400000 (60000ths) → 90°')
+		assertEqual(refl.startAlpha, 0.5, 'stA 50000 → 0.5')
+		assertEqual(refl.startPos, 0, 'stPos 0 → 0')
+		assert(Math.abs(refl.endAlpha - 0.003) < 1e-9, `endA 300 → 0.003, got ${refl.endAlpha}`)
+		assertEqual(refl.endPos, 0.55, 'endPos 55000 → 0.55')
+	})
+
+	test('an absent reflection attribute is omitted, not zeroed', () => {
+		const refl = sp(`<p:spPr><a:effectLst><a:reflection blurRad="6350"/></a:effectLst></p:spPr>`).reflection
+		assert(refl, 'a bare reflection still surfaces')
+		assertEqual(refl.blurPt, 0.5, 'the one present attribute is decoded')
+		assertEqual(refl.distPt, undefined, 'an absent distance is omitted (undefined), not 0')
+		assertEqual(refl.startAlpha, undefined, 'an absent alpha is omitted')
+	})
+
+	test('softEdge decodes its feather radius; a bare softEdge reads radius 0', () => {
+		assertEqual(
+			sp(`<p:spPr><a:effectLst><a:softEdge rad="38100"/></a:effectLst></p:spPr>`).softEdge.radiusPt,
+			3,
+			'rad 38100 EMU → 3pt'
+		)
+		assertEqual(
+			sp(`<p:spPr><a:effectLst><a:softEdge/></a:effectLst></p:spPr>`).softEdge.radiusPt,
+			0,
+			'a softEdge with no @rad → 0pt'
+		)
+	})
+
+	test('no reflection / no softEdge → null', () => {
+		const none = sp(`<p:spPr><a:effectLst/></p:spPr>`)
+		assertEqual(none.reflection, null, 'an effectLst with no reflection → null')
+		assertEqual(none.softEdge, null, 'an effectLst with no softEdge → null')
+	})
+})
+
+describe('Shape.patternFill — preset hatch reads', () => {
+	test('reads the preset name and both colours resolved to literal hex', () => {
+		const pat = sp(
+			`<p:spPr><a:pattFill prst="diagCross"><a:fgClr><a:srgbClr val="C00000"/></a:fgClr>` +
+				`<a:bgClr><a:srgbClr val="FFFF00"/></a:bgClr></a:pattFill></p:spPr>`
+		).patternFill
+		assert(pat, 'an a:pattFill surfaces a pattern fill')
+		assertEqual(pat.preset, 'diagCross', 'the preset pattern name is surfaced')
+		assertEqual(pat.foreground.effectiveHex, 'C00000', 'foreground resolved to literal hex')
+		assertEqual(pat.background.effectiveHex, 'FFFF00', 'background resolved to literal hex')
+	})
+
+	test('a pattern with missing fg/bg colours reports null for the absent side', () => {
+		const pat = sp(
+			`<p:spPr><a:pattFill prst="pct50"><a:fgClr><a:srgbClr val="000000"/></a:fgClr></a:pattFill></p:spPr>`
+		).patternFill
+		assert(pat, 'the pattFill still surfaces')
+		assertEqual(pat.foreground.effectiveHex, '000000', 'the present foreground resolves')
+		assertEqual(pat.background, null, 'an absent a:bgClr → null background')
+	})
+
+	test('a solid fill is not read as a pattern fill', () => {
+		assertEqual(
+			sp(`<p:spPr><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></p:spPr>`).patternFill,
+			null,
+			'a solid fill → null patternFill'
+		)
+	})
+})
+
+// The two effects the writer emits get a write→read fidelity leg: author a shape
+// carrying each with the write API, read it back, and assert the bytes round-trip.
+describe('Shape effects/fill — write→read fidelity', () => {
+	/** The authored rect autoShape, located in the read model. */
+	function rectOf(presentation) {
+		const rect = firstShape(presentation, (s) => s.shapeType === 'autoShape' && s.presetGeometry === 'rect')
+		assert(rect, 'the authored rect is read back')
+		return rect
+	}
+
+	test('an authored inner shadow round-trips through Shape.innerShadow', async () => {
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addShape(pres.ShapeType.rect, {
+				x: 1,
+				y: 1,
+				w: 3,
+				h: 1,
+				fill: { color: 'CCCCCC' },
+				shadow: { type: 'inner', color: 'C0504D', blur: 4, offset: 2, angle: 90, transparency: 25 },
+			})
+		})
+		const shadow = rectOf(presentation).innerShadow
+		assert(shadow, 'the authored inner shadow reads back')
+		assertEqual(shadow.color, 'C0504D', 'authored inner shadow colour')
+		assertEqual(shadow.blurPt, 4, 'blur 4pt round-trips')
+		assertEqual(shadow.offsetPt, 2, 'offset 2pt round-trips')
+		assertEqual(shadow.angleDeg, 90, 'angle 90° round-trips')
+		assert(Math.abs(shadow.alpha - 0.75) < 1e-9, `transparency 25 → alpha 0.75, got ${shadow.alpha}`)
+	})
+
+	test('an authored pattern fill round-trips through Shape.patternFill', async () => {
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addShape(pres.ShapeType.rect, {
+				x: 1,
+				y: 1,
+				w: 3,
+				h: 1,
+				fill: { type: 'pattern', pattern: { preset: 'pct50', fgColor: 'C00000', bgColor: 'FFFF00' } },
+			})
+		})
+		const pat = rectOf(presentation).patternFill
+		assert(pat, 'the authored pattern fill reads back')
+		assertEqual(pat.preset, 'pct50', 'authored preset round-trips')
+		assertEqual(pat.foreground.effectiveHex, 'C00000', 'authored fgColor round-trips')
+		assertEqual(pat.background.effectiveHex, 'FFFF00', 'authored bgColor round-trips')
+	})
+
+	test.skipIf(!validatorInstalled)('the authored inner-shadow + pattern-fill decks are schema-valid', async () => {
+		const shadowBuf = (
+			await authorRead((pres) => {
+				pres.addSlide().addShape(pres.ShapeType.rect, {
+					x: 1,
+					y: 1,
+					w: 3,
+					h: 1,
+					shadow: { type: 'inner', color: 'C0504D', blur: 4, offset: 2, angle: 90, transparency: 25 },
+				})
+			})
+		).buf
+		assertEqual((await schemaErrors(shadowBuf)).length, 0, 'inner-shadow deck validates')
+		const patternBuf = (
+			await authorRead((pres) => {
+				pres.addSlide().addShape(pres.ShapeType.rect, {
+					x: 1,
+					y: 1,
+					w: 3,
+					h: 1,
+					fill: { type: 'pattern', pattern: { preset: 'pct50', fgColor: 'C00000', bgColor: 'FFFF00' } },
+				})
+			})
+		).buf
+		assertEqual((await schemaErrors(patternBuf)).length, 0, 'pattern-fill deck validates')
 	})
 })
