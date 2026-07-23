@@ -297,6 +297,9 @@ class Presentation {
 	/** The deck's layouts, in master-then-layout order — the gallery `appendSlides` binds to. Read-only; copies nothing. */
 	layouts(): LayoutHandle[]
 
+	/** The deck's slide masters, in p:sldMasterIdLst order, as the typed chrome model (see below). Read-only; copies nothing. */
+	masters(): SlideMaster[]
+
 	/**
 	 * Author the slides of a generator (`source`, e.g. a `PptxGenJS` instance) onto
 	 * this deck, bound to one of its existing layouts (by `p:cSld@name` or a
@@ -361,6 +364,9 @@ class Slide {
 	readonly notesText: string | null // flattened speaker-notes body text; null when there is no notes part
 	readonly notesTextFrame: TextFrame | null // the notes body as a navigable frame (see below)
 	readonly notesSlide: NotesSlide | null // the whole modeled notes slide (its three placeholders)
+	readonly layout: SlideLayout | null // the slide's bound slideLayout (see below)
+	readonly master: SlideMaster | null // === layout?.master
+	readonly theme: Theme | null // === layout?.master?.theme
 	addTextBox(options: AddTextBoxOptions): AutoShape // Phase 4 — appends a p:sp
 	addPicture(image: Uint8Array, options: AddPictureOptions): Picture // Phase 4 — new media part + rel + p:pic
 }
@@ -499,6 +505,88 @@ writer leaves the `sldImg`/`sldNum` `p:spPr` empty, so on an authored deck every
 placeholder's own `left/top/width/height` reads `null` (the geometry is inherited
 from the notesMaster); an imported deck carries PowerPoint's stamped values. Each
 placeholder's `textFrame` shares the same notes theme context as `notesTextFrame`.
+
+#### The shared chrome: masters, layouts, and themes
+
+`slide.layout` → `slide.master` → `slide.theme` walk the property tiers a slide
+resolves against — the deck chrome reachable through the presentation → master →
+layout → theme graph but owned by no single slide. `Presentation.masters()` enters
+the same graph from the deck side. This is a *property* model (colour scheme, font
+scheme, colour map, placeholder geometry, names, backgrounds) — decorative
+(non-placeholder) master/layout shapes are carried byte-for-byte by the import
+paths, not decoded here.
+
+```ts
+class Theme {
+	readonly part: Part
+	readonly name: string | null // a:theme/@name, e.g. "Office Theme"
+	readonly colorSchemeName: string | null // a:clrScheme/@name, e.g. "Office"
+	readonly colorScheme: Record<ThemeColorSlot, string | null> // all 12 slots, resolved to 6-hex RGB
+	color(slot: ThemeColorSlot): string | null // one slot, e.g. theme.color('accent1')
+	readonly fontScheme: ThemeFontScheme | null
+}
+type ThemeColorSlot = 'dk1' | 'lt1' | 'dk2' | 'lt2' | 'accent1' | … | 'accent6' | 'hlink' | 'folHlink'
+type ThemeFontScheme = {
+	readonly name: string | null
+	readonly major: ThemeFontFace // heading (+mj-*) fonts
+	readonly minor: ThemeFontFace // body (+mn-*) fonts
+}
+type ThemeFontFace = { readonly latin: string | null; readonly ea: string | null; readonly cs: string | null }
+
+class SlideMaster {
+	readonly part: Part
+	readonly name: string // p:cSld/@name; '' when unnamed
+	readonly theme: Theme | null
+	readonly colorMap: Record<ColorMapToken, string | null> // p:clrMap: token → ThemeColorSlot, e.g. tx1 → dk1
+	readonly placeholders: Placeholder[] // this master's own p:ph shapes
+	readonly layouts: SlideLayout[] // built on this master, via p:sldLayoutIdLst
+	readonly background: SlideBackground | null // this master's OWN p:bg (not a slide's effective one)
+}
+type ColorMapToken = 'bg1' | 'tx1' | 'bg2' | 'tx2' | 'accent1' | … | 'accent6' | 'hlink' | 'folHlink'
+
+class SlideLayout {
+	readonly part: Part
+	readonly name: string // p:cSld/@name, e.g. "Title and Content"; '' when unnamed
+	readonly type: string | null // p:sldLayout/@type — import-only, see below
+	readonly master: SlideMaster | null
+	readonly theme: Theme | null // === master?.theme
+	readonly placeholders: Placeholder[]
+	readonly background: SlideBackground | null // this layout's OWN p:bg
+}
+
+class Placeholder {
+	readonly type: string | null // p:ph/@type: title | body | sldNum | …
+	readonly idx: string | null
+	readonly name: string
+	readonly id: number | null
+	readonly left / top / width / height: number | null // own a:xfrm EMU
+	readonly textFrame: TextFrame | null
+}
+```
+
+The measured fidelity: `pres.theme = { colorScheme, headFontFace, bodyFontFace, … }`
+authors `theme1.xml`'s `a:clrScheme` (a caller override per slot, Office defaults for
+the rest — including the `dk1`/`lt1` `a:sysClr` slots, resolved here through their
+`lastClr`) and `a:fontScheme` (major/minor Latin faces; the `ea`/`cs` slots the
+writer leaves empty read as `null`, not `""`). `defineSlideMaster({ background,
+slideNumber, objects, … })` authors the master's `p:clrMap`, its slide-number
+placeholder with **explicit geometry** (`left`/`top`/`width`/`height` all round-trip
+— unlike a notes placeholder, a master/layout placeholder's `a:xfrm` is authored,
+not inherited), and its layout's own background and placeholders (a non-placeholder
+`objects` shape like a decorative rect is filtered out of `placeholders`). The one
+import-only surface is `p:sldLayout/@type` — the writer authors none, so it reads
+`null` on an authored deck; an imported deck carries PowerPoint's value.
+
+`SlideLayout.background`/`SlideMaster.background` report only that part's **own**
+`p:bg` — for the *effective* background a slide actually renders (walking slide →
+layout → master), use `Slide.background` instead.
+
+Scope note: this pass ships the property model and navigation. It does not add new
+*inheritance-resolution* getters beyond what already existed (a slide placeholder's
+effective run colour/size/face already resolves via `Slide.themeContext` →
+`Run.resolved*`); resolving a slide placeholder's effective *geometry* through this
+chain, or modeling notesMaster `p:notesStyle` inheritance, are separate, narrower
+follow-ons if a consumer needs them.
 
 ### `Shape` and subclasses
 
