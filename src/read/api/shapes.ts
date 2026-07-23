@@ -309,6 +309,28 @@ export interface LineEnds {
 }
 
 /**
+ * One bound end of a connector (`p:nvCxnSpPr/p:cNvCxnSpPr/a:stCxn` or `a:endCxn`),
+ * as read. A connector authored with `startShape`/`endShape` attaches each end to
+ * a shape by that shape's `p:cNvPr/@id` plus a connection-site index; an unbound
+ * end (the writer emits a bare `p:cNvCxnSpPr`) reports no site at all — see
+ * {@link Connector.startConnection}. This is the read counterpart of the write
+ * API's `startShape`/`startShapeIdx` split, which binds by `objectName` and
+ * resolves the name → id at serialize time.
+ */
+export interface ConnectionSite {
+	/** The bound shape's drawing id (`@id`, i.e. its `p:cNvPr/@id`). */
+	shapeId: number
+	/** Connection-site index on the bound shape (`@idx`; 0-based, preset-dependent). */
+	siteIndex: number
+	/**
+	 * The bound shape resolved to a read-model shape via {@link Slide.shapeById},
+	 * or `null` when no top-level shape on the slide carries that id — faithful
+	 * degradation for a dangling or group-nested binding, which does not throw.
+	 */
+	boundShape: AnyShape | null
+}
+
+/**
  * A shape's outer drop shadow (`spPr/a:effectLst/a:outerShdw`), as read from a
  * shape and resolved against the slide theme. Distances are in points (the EMU
  * source ÷ 12700) and the direction in degrees (the `60000`ths source ÷ 60000),
@@ -1427,6 +1449,38 @@ export class Connector extends Shape {
 
 	protected getOrAddXfrm(): Element {
 		return getOrAddSpPrXfrm(this.element)
+	}
+
+	/**
+	 * The connector's **start**-point shape binding (`p:nvCxnSpPr/p:cNvCxnSpPr/a:stCxn`),
+	 * or `null` when the start point is unbound (a bare `p:cNvCxnSpPr`, i.e. a
+	 * connector placed by static endpoint geometry). Mirrors the write API's
+	 * `startShape`/`startShapeIdx` split; see {@link endConnection} for the other end.
+	 */
+	get startConnection(): ConnectionSite | null {
+		return this.#connection('a:stCxn')
+	}
+
+	/**
+	 * The connector's **end**-point shape binding (`p:nvCxnSpPr/p:cNvCxnSpPr/a:endCxn`),
+	 * or `null` when the end point is unbound. See {@link startConnection}.
+	 */
+	get endConnection(): ConnectionSite | null {
+		return this.#connection('a:endCxn')
+	}
+
+	/** Decode one `a:stCxn` / `a:endCxn` binding, resolving its `@id` to a slide shape. */
+	#connection(qname: string): ConnectionSite | null {
+		const nvCxnSpPr = firstChild(this.element, 'p:nvCxnSpPr')
+		const cNvCxnSpPr = nvCxnSpPr && firstChild(nvCxnSpPr, 'p:cNvCxnSpPr')
+		const cxn = cNvCxnSpPr && firstChild(cNvCxnSpPr, qname)
+		if (!cxn) return null
+		const shapeId = intValue(attr(cxn, 'id'))
+		const siteIndex = intValue(attr(cxn, 'idx'))
+		// CT_Connection requires both @id and @idx; an unparseable pair degrades to null
+		// rather than a half-populated site.
+		if (shapeId === null || siteIndex === null) return null
+		return { shapeId, siteIndex, boundShape: this.slide.shapeById(shapeId) ?? null }
 	}
 }
 

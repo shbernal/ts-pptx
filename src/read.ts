@@ -49,6 +49,7 @@ export {
 	type GradientFill,
 	type LineEnd,
 	type LineEnds,
+	type ConnectionSite,
 	type OuterShadow,
 	type InnerShadow,
 	type Glow,
