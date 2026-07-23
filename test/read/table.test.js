@@ -205,6 +205,14 @@ describe('Table cell styling', () => {
 		assertEqual(cell.marginsEmu, null, 'no tcPr margins -> null')
 	})
 
+	test('borders is null for a cell with no a:tcPr border element', async () => {
+		// The fixture's cells carry no a:lnL/lnR/lnT/lnB, so both border-getter null
+		// branches are exercised: the plain first-table cell has no a:tcPr at all,
+		// and the formatted cell has an a:tcPr (a solid fill) but no border child.
+		assertEqual(firstTable(await open('table')).cell(0, 0).borders, null, 'no a:tcPr -> null borders')
+		assertEqual(formattedTable(await open('table')).cell(0, 0).borders, null, 'a:tcPr without a border -> null')
+	})
+
 	test('element_ escape hatches expose the underlying a:tbl / a:tr / a:tc nodes', async () => {
 		const table = firstTable(await open('table'))
 		const row = table.rows[0]

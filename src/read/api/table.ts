@@ -12,6 +12,41 @@ import type { FlattenContext } from '../oxml/theme.js'
 import { resolveSolidFillColor, type ResolvedColor } from './theme-context.js'
 import { setTextBodyText, TextFrame } from './text.js'
 
+/**
+ * One edge border of a table cell (`a:tcPr/a:lnL|lnR|lnT|lnB|lnTlToBr|lnBlToTr`).
+ * Mirrors the `a:ln`-style decode used for shape strokes: {@link widthPt} from
+ * `@w` (EMU → points), {@link dash} from `a:prstDash/@val`, and the stroke colour
+ * split into a resolved {@link color} (literal hex) and the raw {@link schemeColor}
+ * token — the cell-border counterpart of a shape's line accessors.
+ */
+export interface CellBorder {
+	/** Border width in points (`@w` is EMU; 12700 EMU = 1pt), or `null` when unset. */
+	widthPt: number | null
+	/** Dash style (`a:prstDash/@val`, e.g. `solid`/`sysDash`), or `null` when unset. */
+	dash: string | null
+	/** The stroke colour resolved against the table theme to a literal hex (`effectiveHex`), or `null`. */
+	color: string | null
+	/** Raw `schemeClr` token of the stroke (`a:solidFill/a:schemeClr/@val`), or `null` for an srgb/absent colour. */
+	schemeColor: string | null
+	/** `true` when the edge is an explicit no-border (`a:noFill`) — a deliberately suppressed side. */
+	noFill: boolean
+}
+
+/**
+ * A table cell's six possible borders, keyed by edge. Each side is `null` when the
+ * cell defines no line for it; the diagonals ({@link tlToBr} `╲`, {@link blToTr} `╱`)
+ * are rarely authored. The whole object is `null` when the cell carries no border
+ * element at all (see {@link TableCell.borders}).
+ */
+export interface CellBorders {
+	left: CellBorder | null
+	right: CellBorder | null
+	top: CellBorder | null
+	bottom: CellBorder | null
+	tlToBr: CellBorder | null
+	blToTr: CellBorder | null
+}
+
 /** A table: a grid of rows and cells inside a graphic frame. */
 export class Table {
 	constructor(
@@ -42,6 +77,21 @@ export class Table {
 		const grid = firstChild(this.tbl, 'a:tblGrid')
 		if (!grid) return []
 		return getElements(grid, 'a:gridCol').map((col) => intValue(attr(col, 'w')))
+	}
+
+	/**
+	 * The table's style GUID (`a:tblPr/a:tableStyleId` text), e.g.
+	 * `{5940675A-B579-460E-94D1-54222C63F5DA}`, or `null` when the table carries no
+	 * `a:tableStyleId`. This is the reference into `ppt/tableStyles.xml` (or a
+	 * built-in `[MS-OE376]` style) that supplies the banded-row / header shading the
+	 * `firstRow`/`bandRow` flags activate — without it a replica loses the whole
+	 * table style, so it is the read counterpart of the writer's `tableStyle` option.
+	 */
+	get styleId(): string | null {
+		const tblPr = firstChild(this.tbl, 'a:tblPr')
+		const idEl = tblPr && firstChild(tblPr, 'a:tableStyleId')
+		const id = idEl?.textContent?.trim()
+		return id ? id : null
 	}
 
 	/** Whether the first row is styled as a header (`a:tblPr/@firstRow`). */
@@ -156,7 +206,49 @@ export class TableCell {
 	 * The resolved literal is {@link resolvedFill}; this is the unresolved reference.
 	 */
 	get fillSchemeColor(): string | null {
-		const fill = firstChild(this.#tcPr() ?? this.tc, 'a:solidFill')
+		return this.#fillSchemeColorOf(this.#tcPr() ?? this.tc)
+	}
+
+	/**
+	 * The cell's edge borders (`a:tcPr/a:lnL|lnR|lnT|lnB|lnTlToBr|lnBlToTr`), or
+	 * `null` when the cell defines none. Each present edge decodes to a
+	 * {@link CellBorder} (width / dash / resolved + raw colour / suppressed flag);
+	 * absent edges are `null`. Cell borders are the biggest visible table gap — a
+	 * replica built only from geometry and fill draws every cell edge-to-edge with
+	 * no rule, so this surfaces the per-side stroke the writer's `border` option emits.
+	 */
+	get borders(): CellBorders | null {
+		const tcPr = this.#tcPr()
+		if (!tcPr) return null
+		const decode = (qname: string): CellBorder | null => {
+			const ln = firstChild(tcPr, qname)
+			if (!ln) return null
+			const w = intValue(attr(ln, 'w'))
+			const dash = firstChild(ln, 'a:prstDash')
+			const scheme = this.#fillSchemeColorOf(ln)
+			const resolved = this.themeColors ? resolveSolidFillColor(ln, this.themeColors) : null
+			return {
+				widthPt: w === null ? null : w / 12700,
+				dash: dash ? (attr(dash, 'val') ?? null) : null,
+				color: resolved ? resolved.effectiveHex : null,
+				schemeColor: scheme,
+				noFill: !!firstChild(ln, 'a:noFill'),
+			}
+		}
+		const borders: CellBorders = {
+			left: decode('a:lnL'),
+			right: decode('a:lnR'),
+			top: decode('a:lnT'),
+			bottom: decode('a:lnB'),
+			tlToBr: decode('a:lnTlToBr'),
+			blToTr: decode('a:lnBlToTr'),
+		}
+		return Object.values(borders).some((b) => b !== null) ? borders : null
+	}
+
+	/** The `schemeClr` token of a container's solid fill (`a:solidFill/a:schemeClr/@val`), or `null`. */
+	#fillSchemeColorOf(container: Element): string | null {
+		const fill = firstChild(container, 'a:solidFill')
 		const scheme = fill && firstChild(fill, 'a:schemeClr')
 		return scheme ? attr(scheme, 'val') : null
 	}

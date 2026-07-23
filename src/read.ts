@@ -57,7 +57,7 @@ export {
 	type RecolorColor,
 } from './read/api/shapes.js'
 export { TextFrame, Paragraph, Run, type BodyProperties } from './read/api/text.js'
-export { Table, TableRow, TableCell } from './read/api/table.js'
+export { Table, TableRow, TableCell, type CellBorder, type CellBorders } from './read/api/table.js'
 export { Chart, ChartSeries } from './read/api/chart.js'
 
 // Theme colour resolution (schemeClr → literal hex) shared by the colour getters.
