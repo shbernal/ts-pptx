@@ -91,6 +91,15 @@ export interface SlideRelMedia {
 	isDuplicate?: boolean
 	isSvgPng?: boolean
 	svgSize?: { w: number; h: number }
+	/**
+	 * Embedded OLE object part (`addOleObject`): the `.rels` `Type` URI to emit — `.../package` for
+	 * an embedded OPC package (xlsx/docx/pptx, themselves zips) or `.../oleObject` for a generic OLE
+	 * server blob (ECMA-376 Part 1 §15.2.10). Present only on OLE payload rels, where it takes
+	 * precedence over the image/audio/video branch in `slideObjectRelationsToXml` and `type` carries
+	 * the part's content type verbatim for `[Content_Types].xml`. The object's preview picture is a
+	 * separate, perfectly ordinary image rel.
+	 */
+	oleRelType?: string
 	rId: number
 	/** Unescaped — see {@link SlideRel.Target}. Doubles as the zip entry name for embedded media. */
 	Target: string
@@ -119,6 +128,24 @@ export interface SlideObject {
 	_groupObjects?: SlideObject[]
 	// zoom (slide/section/summary): resolved tiles + attrs for the `<p:graphicFrame>` emitter
 	zoom?: ZoomInternal
+	// oleObject: resolved payload/preview rIds + `p:oleObj` attrs for the `<p:graphicFrame>` emitter
+	ole?: OleInternal
+}
+/** Resolved OLE payload carried on a {@link SlideObject} until `gen/slide/object.ts` emits it. */
+export interface OleInternal {
+	/** rId of the embedded object part rel (see {@link SlideRelMedia.oleRelType}). */
+	objectRid: number
+	/** rId of the preview picture's image rel (`p:pic > a:blip@r:embed`). */
+	previewRid: number
+	/** `p:oleObj@progId` — the OLE server PowerPoint launches on double-click. */
+	progId: string
+	/** `p:oleObj@name` — the object's kind as PowerPoint labels it (`Worksheet`, `Document`, …). */
+	name: string
+	/** `p:oleObj@showAsIcon`; omitted when false, matching PowerPoint. */
+	showAsIcon: boolean
+	/** `p:oleObj@imgW`/`@imgH` (EMU). Undefined means "use the frame's own extent". */
+	imgW?: number
+	imgH?: number
 }
 /** One tile inside a zoom object (a Slide/Section Zoom has one; a Summary Zoom has N). */
 export interface ZoomTileInternal {

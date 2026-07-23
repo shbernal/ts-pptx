@@ -17,57 +17,15 @@ import type {
 	ZoomTileInternal,
 } from '../../types/internal.js'
 import { encodeXmlEntities, getNewRelId, getUuid, validateObjectName } from '../../gen-utils.js'
-import { imageContentType } from '../../media/content-type.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { nextObjectNameIdx } from './object-name.js'
-
-/** 32×32 solid #E7E6E6 PNG — the neutral placeholder shown until PowerPoint regenerates the live preview. */
-export const PLACEHOLDER_PNG =
-	'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAxSURBVFhH7c4hAQAACMAw+geFGOAJAGbi5mpRmf1Z7HEdAAAAAAAAAAAAAAAAAADAAPwOyNPFH3F8AAAAAElFTkSuQmCC'
+import { registerPreviewImage } from './preview-image.js'
 
 const ZOOM_LABEL = { slide: 'Slide Zoom', section: 'Section Zoom', summary: 'Summary Zoom' } as const
 
 /** A fresh, braced, upper-case v4 GUID for a `zmPr@id`. */
 function zoomGuid(): string {
 	return `{${getUuid('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx').toUpperCase()}}`
-}
-
-/**
- * Register a preview/cover image as a slide media rel (deduped like `addImage`) and return its rId.
- * Falls back to the gray placeholder PNG when no cover image is supplied.
- */
-function registerPreviewImage(target: PresSlideInternal, cover?: { path?: string; data?: string }): number {
-	const strImagePath = cover?.path || ''
-	let strImageData = cover?.data || ''
-	let extn = 'png'
-	if (strImagePath) {
-		const file = strImagePath.slice(strImagePath.lastIndexOf('/') + 1).split('?')[0] || ''
-		extn = ((file.split('.').pop() || 'png').split('#')[0] || 'png').toLowerCase()
-	} else if (strImageData) {
-		const mime = /image\/(\w+);/.exec(strImageData)
-		if (mime) extn = mime[1] ?? 'png'
-	} else {
-		strImageData = 'image/png;base64,' + PLACEHOLDER_PNG
-	}
-
-	const rId = getNewRelId(target)
-	const mediaSlideKey =
-		target._slideNum == null ? 'sm' : target._slideNum >= 1000 ? `sl-${target._slideNum}` : target._slideNum
-	const type = imageContentType(extn)
-	const dupe = target._relsMedia.find((item) => {
-		if (item.isDuplicate || !item.Target || item.type !== type) return false
-		return strImagePath ? item.path === strImagePath : item.data === strImageData
-	})
-	target._relsMedia.push({
-		path: strImagePath || 'preencoded.' + extn,
-		type,
-		extn,
-		data: strImageData || '',
-		rId,
-		isDuplicate: !!dupe?.Target,
-		Target: dupe?.Target ? dupe.Target : `../media/image-${mediaSlideKey}-${target._relsMedia.length + 1}.${extn}`,
-	})
-	return rId
 }
 
 /** Register a `.../slide` rel (used by the fallback picture's `hlinkClick`) to a 1-based slide number. */

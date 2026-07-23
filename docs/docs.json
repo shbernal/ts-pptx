@@ -23,6 +23,7 @@
         "groups",
         "connectors",
         "image-in-shape",
+        "ole-objects",
         "math-latex",
         "reference/api/index",
         "ooxml-agent-context",

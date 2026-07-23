@@ -95,6 +95,14 @@ const ALREADY_COMPRESSED_MEDIA_EXTN = new Set([
 ])
 
 /**
+ * Extensions whose payload is itself a ZIP archive — the embedded OPC packages an OLE object can
+ * carry (`addOleObject`). Deflating a zip inside a zip buys nothing, so these are STOREd like the
+ * already-compressed media above. No media/image rel ever uses one of these extensions, so decks
+ * without an OLE object are unaffected.
+ */
+const ZIP_CONTAINER_EXTN = new Set(['xlsx', 'xlsm', 'docx', 'docm', 'pptx', 'pptm'])
+
+/**
  * Register an audio media part + relationship for each slide-transition start sound
  * (`transition.sound` with `data`/`path`), stamping the assigned relationship id onto
  * `transition._sndRId` for the `p:sndAc/p:snd r:embed`. Runs before media encoding so
@@ -157,7 +165,9 @@ function createChartMediaRels(
 			const bytes = decodeBase64ToBytes(data)
 			if (!bytes) return
 			const extn = (rel.extn || rel.Target.split('.').pop() || '').toLowerCase()
-			zip.add(rel.Target.replace('..', 'ppt'), bytes, { store: ALREADY_COMPRESSED_MEDIA_EXTN.has(extn) })
+			zip.add(rel.Target.replace('..', 'ppt'), bytes, {
+				store: ALREADY_COMPRESSED_MEDIA_EXTN.has(extn) || ZIP_CONTAINER_EXTN.has(extn),
+			})
 		}
 	})
 }
@@ -220,6 +230,9 @@ export async function buildPackageParts(
 		for (const target of [...pres.slides, ...pres.slideLayouts, pres.masterSlide]) {
 			for (const rel of target._relsMedia || []) {
 				if (rel.type === 'online' || rel.type === 'hyperlink' || typeof rel.data !== 'string' || !rel.data) continue
+				// OLE payloads are exempt: PowerPoint gives every embedded object its own part, and
+				// collapsing two identical ones would make editing either rewrite the other's source.
+				if (rel.oleRelType) continue
 				// Key on extension + bytes so identical content with differing part
 				// extensions is never merged into one mistyped file.
 				const key = (rel.extn || '') + '\0' + rel.data

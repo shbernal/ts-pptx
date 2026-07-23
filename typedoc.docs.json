@@ -6,7 +6,7 @@
 	"excludePrivate": true,
 	"excludeProtected": true,
 	"hideGenerator": true,
-	"intentionallyNotExported": ["ImageBaseProps", "MediaBaseProps"],
+	"intentionallyNotExported": ["ImageBaseProps", "MediaBaseProps", "OleObjectBaseProps"],
 	"out": "docs/reference/api",
 	"plugin": ["typedoc-plugin-markdown"],
 	"readme": "none",

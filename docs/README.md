@@ -40,6 +40,8 @@ artifacts.
   bend control, shape binding, and the `addShape()` vs. `addConnector()` split.
 - [Image embedded in a shape](image-in-shape.md): clip a picture to a preset or
   freeform shape and crop it to fill the box.
+- [OLE embedded objects](ole-objects.md): `addOleObject()` embeds a workbook,
+  document, or any payload so it opens in place on double-click.
 - [Animations and transitions](animations-and-transitions.md): slide/shape
   animation and transition emit.
 - [Native backgrounds and gradients](native-backgrounds-and-gradients.md):

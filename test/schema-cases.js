@@ -25,11 +25,13 @@ import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
 import PptxGenJS from '../dist/node.js'
 import { latexToOmml } from '../dist/math.js'
-import { build, assert, readEntry, assertIncludes, firstXmlBlock, listEntries } from './helpers.js'
+import { build, assert, assertEqual, readEntry, assertIncludes, firstXmlBlock, listEntries } from './helpers.js'
 import { validateBuf } from './validator.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const fontsDir = path.join(__dirname, 'read', 'fixtures', 'fonts')
+/** Content type of a generic (non-OPC-package) embedded OLE object part. */
+const OLE_BLOB_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.oleObject'
 
 async function expectNoSchemaErrors(buf, label) {
 	const errors = await validateBuf(buf)
@@ -3439,6 +3441,65 @@ export default [
 				nav.addSlideZoom({ target: 3, x: 8, y: 1, w: 3, h: 1.7, coverImage: { data: 'image/png;base64,' + gray } })
 			})
 			await expectNoSchemaErrors(buf, 'zoom-links')
+		},
+	},
+	{
+		// OLE / embedded objects (Insert ▸ Object). A `<p:graphicFrame>` in the `.../ole`
+		// graphicData namespace holding an `<mc:AlternateContent>`: the Choice carries the bare
+		// `<p:oleObj><p:embed/>`, the Fallback repeats it with a cached `<p:pic>` preview.
+		// Covers both payload kinds — an embedded OPC package (`.../package` rel, xlsx Default)
+		// and a generic OLE blob (`.../oleObject` rel, `.bin` part).
+		name: 'OLE embedded objects (package + generic blob, cover + placeholder)',
+		fn: async () => {
+			// A minimal valid zip (empty archive) stands in for a real workbook: schema validation
+			// checks the package graph and slide XML, not the embedded payload's own bytes.
+			const emptyZip = 'UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA=='
+			const gray = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+			const { buf, zip } = await build((p) => {
+				const slide = p.addSlide()
+				slide.addOleObject({
+					data: 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + emptyZip,
+					cover: { data: 'image/png;base64,' + gray },
+					objectName: 'Budget',
+					x: 0.5,
+					y: 1,
+					w: 4,
+					h: 2,
+				})
+				// No cover (gray placeholder), shown as an icon, explicit preview extent.
+				slide.addOleObject({ data: emptyZip, extn: 'docx', showAsIcon: true, imgW: 914400, imgH: 806521 })
+				// Unknown payload kind → generic `.bin` OLE blob with the `Package` progId.
+				p.addSlide().addOleObject({ data: 'AAECAwQFBgc=', x: 1, y: 1, w: 2, h: 2 })
+			})
+			await expectNoSchemaErrors(buf, 'ole-objects')
+
+			const rels1 = await readEntry(zip, 'ppt/slides/_rels/slide1.xml.rels')
+			assertIncludes(rels1, 'relationships/package" Target="../embeddings/oleObject-1-1.xlsx"')
+			assertIncludes(rels1, 'relationships/package" Target="../embeddings/oleObject-1-3.docx"')
+			const rels2 = await readEntry(zip, 'ppt/slides/_rels/slide2.xml.rels')
+			assertIncludes(rels2, 'relationships/oleObject" Target="../embeddings/oleObject-2-1.bin"')
+
+			const contentTypes = await readEntry(zip, '[Content_Types].xml')
+			assertIncludes(contentTypes, '<Default Extension="xlsx"')
+			assertIncludes(contentTypes, '<Default Extension="docx"')
+			assertIncludes(contentTypes, '<Default Extension="bin" ContentType="' + OLE_BLOB_CONTENT_TYPE + '"/>')
+
+			const slide1 = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assertIncludes(slide1, 'uri="http://schemas.openxmlformats.org/presentationml/2006/ole"')
+			assertIncludes(slide1, '<mc:Choice xmlns:v="urn:schemas-microsoft-com:vml" Requires="v">')
+			assertIncludes(slide1, 'name="Worksheet" r:id="rId1" imgW="3657600" imgH="1828800" progId="Excel.Sheet.12"')
+			// showAsIcon + explicit imgW/imgH on the second object; default (false) is omitted.
+			assertIncludes(slide1, 'name="Document" showAsIcon="1" r:id="rId3" imgW="914400" imgH="806521"')
+			// Both branches carry <p:embed/>; only the Fallback carries the cached preview picture.
+			assertEqual((slide1.match(/<p:embed\/>/g) || []).length, 4, 'p:embed count (2 objects x 2 branches)')
+			assertEqual((slide1.match(/<p:pic>/g) || []).length, 2, 'preview picture count (Fallback only)')
+
+			const slide2 = await readEntry(zip, 'ppt/slides/slide2.xml')
+			assertIncludes(slide2, 'name="Object" r:id="rId1" imgW="1828800" imgH="1828800" progId="Package"')
+
+			// Every OLE object gets its own embedding part — never shared, even byte-identical ones.
+			const embeddings = listEntries(zip).filter((n) => n.startsWith('ppt/embeddings/'))
+			assertEqual(embeddings.length, 3, 'one embedding part per OLE object')
 		},
 	},
 ]

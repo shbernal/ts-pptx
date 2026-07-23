@@ -524,6 +524,7 @@ export enum SlideObjectType {
 	hyperlink = 'hyperlink',
 	image = 'image',
 	media = 'media',
+	oleObject = 'oleObject',
 	online = 'online',
 	placeholder = 'placeholder',
 	table = 'table',

@@ -250,6 +250,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **OLE embedded objects: `slide.addOleObject(options)`** (PowerPoint's Insert ▸ Object ▸ Create
+  from File). Embeds a file's bytes inside the `.pptx` and places it on the slide as a live OLE
+  object, so double-clicking it in PowerPoint opens the source in place. Requires `data` (base64,
+  with or without a `data:...;base64,` header) or `path`; also takes `x/y/w/h` (defaulting to
+  4 × 3 in, since the library never opens the payload to measure it), `cover` (`{ path }` or
+  `{ data }`), `extn`, `progId`, `showAsIcon`, `imgW`/`imgH`, `objectName`, `altText`, and
+  `objectLock`. The payload kind is resolved from `extn`, else the `data:` URI's MIME, else the
+  `path`'s extension, else `progId`: the six Office package extensions
+  (`xlsx`/`xlsm`/`docx`/`docm`/`pptx`/`pptm`) keep their extension, take the
+  `…/relationships/package` rel type and a matching content-type `Default`, and default `progId`
+  to `Excel.Sheet.12` / `Word.Document.12` / `PowerPoint.Show.12`; anything else is embedded as a
+  generic OLE blob in a `.bin` part with the `…/relationships/oleObject` rel type and the
+  `Package` progId. Emitted as a `<p:graphicFrame>` in the `…/presentationml/2006/ole` graphicData
+  namespace wrapping an `<mc:AlternateContent>` — the `mc:Choice` carrying the bare
+  `<p:oleObj><p:embed/>`, the `mc:Fallback` repeating it with a cached `<p:pic>` preview —
+  matching what PowerPoint itself authors, including that the Choice only *declares* the VML
+  namespace (no `spid` attribute and no `vmlDrawing` part are needed). **Preview picture:** the
+  library is Node-first and cannot render an Office document, so without `cover` a neutral gray
+  placeholder is embedded; PowerPoint draws the live object over it, but every other consumer
+  shows the placeholder, so supply a real screenshot for decks read outside PowerPoint. Each
+  object gets its own embedding part even when two payloads are byte-identical (cover images are
+  deduplicated as usual). Linked objects (`<p:link>` to a file outside the package) are not
+  supported. New public type `OleObjectProps`; see `docs/ole-objects.md`. The Windows-only
+  `pnpm run test:com` gate grew an OLE leg that reads each object's `OLEFormat.ProgID` back out
+  of PowerPoint — a `<p:oleObj>` PowerPoint dislikes is dropped silently rather than reported as
+  corruption, so schema validation alone cannot catch it.
+
 - **Zoom links: `slide.addSlideZoom()`, `slide.addSectionZoom()`, `slide.addSummaryZoom()`**
   (PowerPoint's Insert ▸ Zoom). A zoom is a clickable tile that navigates to a target slide
   (`addSlideZoom({ target })`, where `target` is a `Slide` or its 1-based number), to the start

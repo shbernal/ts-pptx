@@ -69,6 +69,10 @@ const DML_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
 const CHART_NS = 'http://schemas.openxmlformats.org/drawingml/2006/chart'
 const P14_NS = 'http://schemas.microsoft.com/office/powerpoint/2010/main'
 const MC_NS = 'http://schemas.openxmlformats.org/markup-compatibility/2006'
+/** VML namespace — declared by an OLE object's `mc:Choice Requires="v"` (no VML content is emitted). */
+const VML_NS = 'urn:schemas-microsoft-com:vml'
+/** graphicData URI for an embedded OLE object (`<p:oleObj>`). */
+const OLE_NS = 'http://schemas.openxmlformats.org/presentationml/2006/ole'
 /** graphicData URI + child namespace for chartEx charts (referenced via `<mc:AlternateContent>`). */
 const CHARTEX_NS = 'http://schemas.microsoft.com/office/drawing/2014/chartex'
 /** Zoom (Slide/Section/Summary) graphicData URI + `mc:Choice Requires` prefix + element local-names, per variant. */
@@ -433,6 +437,9 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 				break
 			case SlideObjectType.chart:
 				strSlideXml += renderChartObject(slideItemObj, idx, x, y, cx, cy, placeholderObj)
+				break
+			case SlideObjectType.oleObject:
+				strSlideXml += renderOleObject(slideItemObj, idx, x, y, cx, cy)
 				break
 			case SlideObjectType.zoom:
 				strSlideXml += renderZoomObject(slideItemObj, idx, x, y, cx, cy)
@@ -1476,6 +1483,89 @@ function renderMediaObject(
 }
 
 /**
+ * Render an `oleObject` slide object to its `<p:graphicFrame>` XML.
+ *
+ * Mirrors what PowerPoint authors for Insert ▸ Object: a graphicFrame in the `.../ole` graphicData
+ * namespace holding an `<mc:AlternateContent>`. The `mc:Choice` carries the bare `<p:oleObj>` (which
+ * PowerPoint renders by drawing the live embedded document); the `mc:Fallback` repeats it with a
+ * `<p:pic>` preview so every other consumer shows the cached picture.
+ *
+ * Note `mc:Choice Requires="v"` only *declares* the VML namespace — modern PowerPoint writes no
+ * `spid` and no `vmlDrawing` part, so neither is emitted here.
+ */
+function renderOleObject(slideItemObj: SlideObject, idx: number, x: number, y: number, cx: number, cy: number): string {
+	const ole = slideItemObj.ole
+	if (!ole) return ''
+	const opts = slideItemObj.options || {}
+
+	// Shared by both branches; attribute order matches PowerPoint's.
+	const oleAttrs: XmlAttrs = {
+		name: ole.name,
+		showAsIcon: ole.showAsIcon ? '1' : null,
+		'r:id': `rId${ole.objectRid}`,
+		imgW: ole.imgW ?? cx,
+		imgH: ole.imgH ?? cy,
+		progId: ole.progId,
+	}
+	const oleObj = (children: XmlChild[]): string => el('p:oleObj', oleAttrs, children)
+
+	// The Fallback's cached picture. Its `cNvPr` is the id-less `0`/`""` form PowerPoint writes:
+	// the picture is an alternate rendering of the graphicFrame above, never a sibling shape, so it
+	// takes no id from the slide's shape-id space.
+	const previewPic = el('p:pic', null, [
+		raw(
+			el('p:nvPicPr', null, [
+				raw(voidEl('p:cNvPr', { id: 0, name: '' })),
+				raw(voidEl('p:cNvPicPr')),
+				raw(voidEl('p:nvPr')),
+			])
+		),
+		raw(
+			el('p:blipFill', null, [
+				raw(voidEl('a:blip', { 'r:embed': `rId${ole.previewRid}` })),
+				raw(el('a:stretch', null, raw(voidEl('a:fillRect')))),
+			])
+		),
+		raw(
+			el('p:spPr', null, [
+				raw(el('a:xfrm', null, [raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx, cy }))])),
+				raw(el('a:prstGeom', { prst: 'rect' }, raw(voidEl('a:avLst')))),
+			])
+		),
+	])
+
+	const alternateContent = el('mc:AlternateContent', { 'xmlns:mc': MC_NS }, [
+		raw(el('mc:Choice', { 'xmlns:v': VML_NS, Requires: 'v' }, raw(oleObj([raw(voidEl('p:embed'))])))),
+		raw(el('mc:Fallback', null, raw(oleObj([raw(voidEl('p:embed')), raw(previewPic)])))),
+	])
+
+	return el('p:graphicFrame', null, [
+		raw(
+			el('p:nvGraphicFramePr', null, [
+				raw(cNvPrOpen(idx + 2, opts.objectName, opts.altText || '') + '/>'),
+				raw(
+					el(
+						'p:cNvGraphicFramePr',
+						null,
+						raw(
+							genXmlObjectLock(
+								'a:graphicFrameLocks',
+								GRAPHIC_FRAME_LOCK_ATTRS,
+								{ noChangeAspect: true, ...opts.objectLock },
+								opts.objectName
+							)
+						)
+					)
+				),
+				raw(voidEl('p:nvPr')),
+			])
+		),
+		raw(el('p:xfrm', null, [raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx, cy }))])),
+		raw(el('a:graphic', null, raw(el('a:graphicData', { uri: OLE_NS }, raw(alternateContent))))),
+	])
+}
+
+/**
  * Render a `chart` slide object to its `<p:graphicFrame>` XML referencing the chart part.
  *
  * Classic charts emit a bare `<p:graphicFrame>` pointing at a `<c:chart>`. chartEx charts
@@ -1835,7 +1925,11 @@ export function slideObjectRelationsToXml(
 		const media = (type: string, targetMode?: string): string =>
 			voidEl('Relationship', { Id: `rId${rel.rId}`, Type: type, Target: rel.Target, TargetMode: targetMode })
 		lastRid = Math.max(lastRid, rel.rId)
-		if (relType.includes('image')) {
+		if (rel.oleRelType) {
+			// An OLE payload part carries its rel type verbatim (`.../package` or `.../oleObject`);
+			// its `type` is the part's content type, which the sniffing below would misread.
+			rels.push(media(rel.oleRelType))
+		} else if (relType.includes('image')) {
 			rels.push(media(OFFICE_REL + 'image'))
 		} else if (relType.includes('audio')) {
 			rels.push(hasTarget(relTarget) ? media(MS_MEDIA_REL) : media(OFFICE_REL + 'audio'))

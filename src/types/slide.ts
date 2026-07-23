@@ -9,7 +9,7 @@ import type { AnimationProps, TransitionProps } from './animation.js'
 import type { ChartMulti, ChartOpts, OptsChartData } from './chart.js'
 import type { BackgroundProps, Coord, HexColor, Margin, PositionProps } from './core.js'
 import type { SlideNumberProps } from './master.js'
-import type { ImageBaseProps, ImageProps, MediaProps } from './media.js'
+import type { ImageBaseProps, ImageProps, MediaProps, OleObjectProps } from './media.js'
 import type { ObjectNameProps } from './object.js'
 import type { ShapeProps } from './shape.js'
 import type { ConnectorProps } from './style.js'
@@ -94,6 +94,8 @@ export interface PresSlide {
 	addConnector: (options: ConnectorProps) => PresSlide
 	addImage: (options: ImageProps) => PresSlide
 	addMedia: (options: MediaProps) => PresSlide
+	/** Embed an OLE object (Insert ▸ Object) whose bytes travel inside the `.pptx`. */
+	addOleObject: (options: OleObjectProps) => PresSlide
 	addComment: (options: CommentProps) => PresSlide
 	addNotes: (notes: string | NotesProps | NotesProps[]) => PresSlide
 	addShape: (shapeName: SHAPE_NAME, options?: ShapeProps) => PresSlide

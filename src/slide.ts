@@ -18,6 +18,7 @@ import type {
 	ImageProps,
 	MediaProps,
 	NotesProps,
+	OleObjectProps,
 	PresLayout,
 	PresSlide,
 	ShapeProps,
@@ -51,6 +52,7 @@ import { addGroupDefinition, groupObjectsDefinition } from './gen/define/group.j
 import { addImageDefinition } from './gen/define/image.js'
 import { addMediaDefinition } from './gen/define/media.js'
 import { addNotesDefinition } from './gen/define/notes.js'
+import { addOleObjectDefinition } from './gen/define/ole.js'
 import { addShapeDefinition } from './gen/define/shape.js'
 import { addTableDefinition } from './gen/define/table.js'
 import { addTextDefinition } from './gen/define/text.js'
@@ -264,6 +266,21 @@ export default class Slide {
 	 */
 	addMedia(options: MediaProps): Slide {
 		addMediaDefinition(this, options)
+		return this
+	}
+
+	/**
+	 * Add an embedded OLE object (PowerPoint's Insert ▸ Object ▸ Create from File) to the Slide.
+	 *
+	 * The payload's bytes ship inside the `.pptx`, so a double-click in PowerPoint opens the source
+	 * document in place. Supply a `cover` screenshot for what the slide shows; without one a neutral
+	 * gray placeholder is embedded (PowerPoint draws the live object over it, other consumers do not).
+	 * @param {OleObjectProps} options - OLE object options
+	 * @return {Slide} this Slide
+	 * @example slide.addOleObject({ path: 'budget.xlsx', cover: { path: 'budget.png' }, x: 1, y: 1, w: 6, h: 3 })
+	 */
+	addOleObject(options: OleObjectProps): Slide {
+		addOleObjectDefinition(this, options)
 		return this
 	}
 

@@ -95,8 +95,10 @@ export function makeXmlContTypes(
 	extnTypeMap.forEach((type, extn) => {
 		parts.push(contentDefault(extn, type))
 	})
-	// Charts embed an xlsx workbook part; emit the Default only when at least one chart is present.
-	if (ctHasChart) parts.push(contentDefault('xlsx', OD + 'spreadsheetml.sheet'))
+	// Charts embed an xlsx workbook part; emit the Default only when at least one chart is present —
+	// and only if an OLE object hasn't already contributed the same `xlsx` Default above (one
+	// Extension may appear once).
+	if (ctHasChart && !extnTypeMap.has('xlsx')) parts.push(contentDefault('xlsx', OD + 'spreadsheetml.sheet'))
 	// Embedded fonts: one Default covers every `.fntdata` part (emitted only when fonts are embedded).
 	if ((embeddedFonts || []).some((font) => font.faces.some((face) => face.bytes))) {
 		parts.push(contentDefault(FONT_DATA_EXTENSION, FONT_DATA_CONTENT_TYPE))

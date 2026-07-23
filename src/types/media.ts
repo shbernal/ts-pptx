@@ -264,6 +264,63 @@ interface MediaBaseProps extends PositionProps, ObjectNameProps {
 	 */
 	loopCount?: number
 }
+/**
+ * Add an embedded OLE object (PowerPoint's Insert ▸ Object ▸ Create from File) to a slide.
+ *
+ * The payload's bytes travel inside the `.pptx` (in `ppt/embeddings/`), so double-clicking the
+ * object in PowerPoint opens the source document in place. Requires either `data` or `path`.
+ * Linked objects (`<p:link>` to a file outside the package) are not supported.
+ */
+interface OleObjectBaseProps extends PositionProps, ObjectNameProps {
+	/**
+	 * Picture of the embedded document shown on the slide — a raster image `path` (Node/local)
+	 * or base64 `data:` URI.
+	 * - the library is Node-first and cannot render an Office document, so when this is omitted a
+	 *   neutral gray placeholder is embedded; PowerPoint draws the live object over it, but every
+	 *   other consumer (and PowerPoint's own `mc:Fallback` path) shows exactly what is supplied here
+	 * - supply a real screenshot whenever the deck is meant to read correctly outside PowerPoint
+	 * @example { path: 'assets/budget-preview.png' }
+	 */
+	cover?: { path?: string; data?: string }
+	/**
+	 * Payload file extension, used to name the embedded part and to pick the content type,
+	 * relationship type, and default `progId`.
+	 * - inferred from `data`'s MIME, else `path`'s extension, else `progId`
+	 * - anything that is not a known Office package extension (`xlsx`/`xlsm`/`docx`/`docm`/`pptx`/`pptm`)
+	 *   is embedded as a generic OLE blob part named `.bin`
+	 * @example 'xlsx'
+	 */
+	extn?: string
+	/**
+	 * OLE server ProgID — what PowerPoint launches on double-click.
+	 * - defaults from the resolved extension (`xlsx` → `Excel.Sheet.12`, `docx` → `Word.Document.12`,
+	 *   `pptx` → `PowerPoint.Show.12`, anything else → `Package`)
+	 * @example 'Excel.Sheet.12'
+	 */
+	progId?: string
+	/**
+	 * Display the object as its application icon instead of a document preview (`showAsIcon`).
+	 * - the `cover` image is still what gets drawn, so supply an icon-looking preview to match
+	 * @default false
+	 */
+	showAsIcon?: boolean
+	/**
+	 * Native size of the preview image in EMU (`imgW`/`imgH`), which PowerPoint uses to keep the
+	 * object's aspect ratio when it re-renders the embedded document.
+	 * - defaults to the object's own `w`/`h` converted to EMU
+	 */
+	imgW?: number
+	/** @see {@link imgW} */
+	imgH?: number
+}
+/**
+ * Options for `slide.addOleObject()`. Requires either `data` (base64, with or without a
+ * `data:...;base64,` header) or `path` (a local/remote file read at export time).
+ *
+ * Sizing note: `w`/`h` default to 4 × 3 inches rather than being measured, since the library
+ * does not open the embedded document.
+ */
+export type OleObjectProps = OleObjectBaseProps & DataOrPathRequiredProps
 export type MediaProps = MediaBaseProps &
 	(
 		| (DataOrPathRequiredProps & {

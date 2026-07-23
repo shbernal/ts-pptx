@@ -10,17 +10,21 @@
  *   3. custGeom `<a:cxnLst>` connection sites that are schema-valid but that PowerPoint
  *      never binds a connector to — i.e. `<a:stCxn>` points at a site PowerPoint can't
  *      resolve, so the connector opens as unconnected floating geometry.
+ *   4. embedded OLE objects (`<p:oleObj>`) that are schema-valid but that PowerPoint
+ *      silently drops on open, leaving the slide with no shape where the object was.
  *
  * This script drives the real PowerPoint application over COM (via cscript) to check
- * all three. By default it runs two generated decks from the built `dist/`:
+ * all four. By default it runs three generated decks from the built `dist/`:
  *   - a navigation deck, reading each button's `ActionSettings(ppMouseClick).Action`
  *     back out and asserting each jump resolved to the correct PpActionType enum; and
  *   - a custGeom deck with connection sites + a connector bound to site index 1, reading
  *     the connector's `ConnectorFormat` back out and asserting it begin-connected to the
- *     custom shape at a real connection site.
+ *     custom shape at a real connection site; and
+ *   - an OLE deck with an embedded OPC package and a generic OLE blob, reading each
+ *     shape's `OLEFormat.ProgID` back out to prove the embedded object survived the open.
  * Point it at any deck with `--file` to run only the corruption-open check.
  *
- *   node scripts/powerpoint-com-smoke.mjs                 # generated nav + custGeom checks
+ *   node scripts/powerpoint-com-smoke.mjs                 # generated nav + custGeom + OLE checks
  *   node scripts/powerpoint-com-smoke.mjs --keep          # ...and keep the generated .pptx files
  *   node scripts/powerpoint-com-smoke.mjs --file deck.pptx # corruption-open check on an existing deck
  *
@@ -64,6 +68,16 @@ const EXPECTED_ACTION = {
 const GEOM_TARGET_NAME = 'freeform'
 const GEOM_START_IDX = 1
 const GEOM_EXPECTED_SITE = GEOM_START_IDX + 1
+
+// The OLE deck's objects, by `objectName` → the ProgID PowerPoint must resolve each back to.
+// A schema-valid `<p:oleObj>` that PowerPoint quietly discards enumerates as *no shape at all*,
+// so the read-back is the only thing proving the embedded object survived the round trip.
+const EXPECTED_OLE_PROGID = {
+	OlePackage: 'Excel.Sheet.12', // embedded OPC package → `.../package` rel
+	OleBlob: 'Package', // generic OLE blob → `.../oleObject` rel, `.bin` part
+}
+/** An empty (but structurally valid) ZIP — enough of an "xlsx" for PowerPoint to bind the OLE server. */
+const EMPTY_ZIP_B64 = 'UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA=='
 
 async function loadPptxgen() {
 	const { default: pptxgen } = await import(pathToFileURL(path.join(ROOT, 'dist', 'node.js')).href)
@@ -169,6 +183,26 @@ async function generateGeomDeck() {
 	return outFile
 }
 
+// --- 1c. OLE / embedded-object deck -----------------------------------------
+/** Build a deck with one embedded-package and one generic-blob OLE object. */
+async function generateOleDeck() {
+	const pptxgen = await loadPptxgen()
+	const pptx = new pptxgen()
+	pptx.defineLayout({ name: 'SMOKE', width: 10, height: 5.63 })
+	pptx.layout = 'SMOKE'
+
+	const s = pptx.addSlide()
+	s.addText('Embedded OLE objects', { x: 0.5, y: 0.3, w: 9, h: 0.6, fontSize: 24, bold: true })
+	// Embedded OPC package (xlsx): `.../package` rel + an `xlsx` content-type Default.
+	s.addOleObject({ data: EMPTY_ZIP_B64, extn: 'xlsx', objectName: 'OlePackage', x: 0.5, y: 1.5, w: 3, h: 2 })
+	// Generic OLE-server blob: `.../oleObject` rel + a `.bin` part.
+	s.addOleObject({ data: 'AAECAwQFBgc=', objectName: 'OleBlob', x: 4.5, y: 1.5, w: 2, h: 2 })
+
+	const outFile = path.join(os.tmpdir(), `pptxgenjs-com-smoke-ole-${process.pid}.pptx`)
+	await pptx.writeFile({ fileName: outFile })
+	return outFile
+}
+
 // --- 2. clear the PowerPoint Resiliency key ---------------------------------
 // A prior crash can leave the file in the Disabled/Resiliency list, so PowerPoint refuses
 // to open it (or opens in reduced-functionality mode) and the smoke gives a false failure.
@@ -181,9 +215,17 @@ function clearResiliency() {
 }
 
 // --- 3. the VBScripts that drive PowerPoint ---------------------------------
-/** Shared header: create the app, open the deck headless+read-only, emit OPEN_OK/OPEN_ERR. */
-function vbsOpenHeader(pptxFile) {
+/**
+ * Shared header: create the app, open the deck, emit OPEN_OK/OPEN_ERR.
+ *
+ * Default is headless + read-only. Pass `withWindow` for checks that read OLE objects back:
+ * a windowless PowerPoint does not instantiate embedded objects, so `Shapes` comes back without
+ * them — indistinguishable from PowerPoint having discarded them. (A deck PowerPoint authored
+ * itself enumerates zero shapes under a headless open too, which is how that was pinned down.)
+ */
+function vbsOpenHeader(pptxFile, withWindow = false) {
 	// WithWindow:=msoFalse (0) keeps it headless; ReadOnly avoids touching the file.
+	const openArgs = withWindow ? '0, 0, -1' : '-1, 0, 0'
 	return `Option Explicit
 Dim ppt, pres, sld, shp
 On Error Resume Next
@@ -193,7 +235,7 @@ If Err.Number <> 0 Then
   WScript.Quit 3
 End If
 Err.Clear
-Set pres = ppt.Presentations.Open("${pptxFile.replace(/\\/g, '\\\\')}", -1, 0, 0)
+Set pres = ppt.Presentations.Open("${pptxFile.replace(/\\/g, '\\\\')}", ${openArgs})
 If Err.Number <> 0 Then
   WScript.StdOut.WriteLine "OPEN_ERR\t" & Hex(Err.Number) & "\t" & Err.Description
   ppt.Quit
@@ -244,6 +286,26 @@ For Each sld In pres.Slides
       tgt = ""
       If cf.BeginConnected Then tgt = cf.BeginConnectedShape.Name
       WScript.StdOut.WriteLine "CONN\t" & shp.Name & "\t" & cf.BeginConnected & "\t" & tgt & "\t" & cf.BeginConnectionSite
+    End If
+  Next
+Next
+` +
+		vbsFooter()
+	)
+}
+
+function buildOleVbs(pptxFile) {
+	// Emits one tab-separated `OLE` line per embedded-object shape: name, resolved ProgID.
+	// msoEmbeddedOLEObject = 7, msoLinkedOLEObject = 10.
+	return (
+		vbsOpenHeader(pptxFile, true) +
+		`Dim i, j
+For i = 1 To pres.Slides.Count
+  Set sld = pres.Slides(i)
+  For j = 1 To sld.Shapes.Count
+    Set shp = sld.Shapes(j)
+    If shp.Type = 7 Or shp.Type = 10 Then
+      WScript.StdOut.WriteLine "OLE\t" & shp.Name & "\t" & shp.OLEFormat.ProgID
     End If
   Next
 Next
@@ -339,6 +401,27 @@ function verifyGeom(lines) {
 	return failures
 }
 
+function verifyOle(lines) {
+	const failures = []
+	const seen = new Map()
+	for (const l of lines) {
+		if (!l.startsWith('OLE\t')) continue
+		const [, name, progId] = l.split('\t')
+		seen.set(name, progId)
+	}
+	for (const [name, wantProgId] of Object.entries(EXPECTED_OLE_PROGID)) {
+		const got = seen.get(name)
+		if (got === undefined) {
+			failures.push(`OLE object "${name}": no embedded object read back (PowerPoint discarded the graphicFrame?)`)
+		} else if (got !== wantProgId) {
+			failures.push(`OLE object "${name}": resolved to progId "${got}", expected "${wantProgId}"`)
+		} else {
+			console.log(`  OK  ${name} -> progId ${got}`)
+		}
+	}
+	return failures
+}
+
 // --- 5. orchestrate ---------------------------------------------------------
 async function main() {
 	/** @type {{label:string, file:string, generated:boolean, buildVbs:Function, verify:Function}[]} */
@@ -362,6 +445,10 @@ async function main() {
 		const geomFile = await generateGeomDeck()
 		console.log('Generated custGeom deck: ' + geomFile)
 		specs.push({ label: 'geom', file: geomFile, generated: true, buildVbs: buildGeomVbs, verify: verifyGeom })
+
+		const oleFile = await generateOleDeck()
+		console.log('Generated OLE deck: ' + oleFile)
+		specs.push({ label: 'ole', file: oleFile, generated: true, buildVbs: buildOleVbs, verify: verifyOle })
 	}
 
 	const failures = []
