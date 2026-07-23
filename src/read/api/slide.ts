@@ -9,7 +9,6 @@ import {
 	attr,
 	createElement,
 	firstChild,
-	getElements,
 	insertInOrder,
 	intValue,
 	removeAttr,
@@ -18,11 +17,12 @@ import {
 	type Element,
 } from '../oxml/dom.js'
 import type { FlattenContext } from '../oxml/theme.js'
-import { resolveNotesColorContext, resolveSlideColorContext, resolveSlideThemeParts } from './theme-context.js'
+import { resolveSlideColorContext, resolveSlideThemeParts } from './theme-context.js'
 import { backgroundElementOf, readSlideBackground, type SlideBackground } from './slide-background.js'
 import type { Presentation } from './presentation.js'
 import { AutoShape, GraphicFrame, GroupShape, Picture, buildShapes, type AnyShape } from './shapes.js'
-import { TextFrame } from './text.js'
+import { NotesSlide } from './notes.js'
+import type { TextFrame } from './text.js'
 import {
 	buildTransition,
 	parseTransition,
@@ -314,21 +314,19 @@ export class Slide {
 
 	/**
 	 * The slide's speaker-note text — the companion to {@link text} for the notes
-	 * that {@link text} deliberately excludes. Resolves the slide's `notesSlide`
-	 * relationship, finds the notes body placeholder (`p:ph` `type="body"`), and
-	 * flattens its text frame the same way {@link TextFrame.text} does (paragraphs
-	 * joined by `\n`).
+	 * that {@link text} deliberately excludes. Delegates to {@link notesSlide}: finds
+	 * the notes body placeholder (`p:ph` `type="body"`) and flattens its text frame
+	 * the same way {@link TextFrame.text} does (paragraphs joined by `\n`).
 	 *
 	 * Returns `null` when the slide has **no notes slide part at all** — distinct
 	 * from `''`, which means a notes slide exists but its body is empty (PowerPoint
 	 * often attaches an empty notes slide to every slide). Only the body placeholder
 	 * is read; the slide-thumbnail (`sldImg`) and slide-number (`sldNum`)
-	 * placeholders a notes slide also carries are ignored.
+	 * placeholders a notes slide also carries are read via {@link notesSlide}.
 	 */
 	get notesText(): string | null {
-		const body = this.#notesBody()
-		if (!body) return null
-		return body.txBody ? new TextFrame(body.txBody, body.notesPart).text : ''
+		const notes = this.notesSlide
+		return notes ? notes.text : null
 	}
 
 	/**
@@ -340,51 +338,33 @@ export class Slide {
 	 * `null` when the slide has **no notes slide part** (the same boundary
 	 * {@link notesText} returns `null` at), and also when a notes part exists but
 	 * carries no body-placeholder text frame — there is then no frame to hand back
-	 * (whereas {@link notesText} reports `''` for that empty-body case).
-	 *
-	 * The frame is threaded with the *notes part's own* relationships
-	 * (`notesSlideN.xml.rels`), so a run hyperlink resolves its `url`/`targetPartName`,
-	 * and with a **notes theme context** resolved through the notesMaster → `theme2.xml`
-	 * chain ({@link resolveNotesColorContext}), so a notes run's own `schemeClr` fill
-	 * resolves to a literal hex via `Run.resolvedColor`. Placeholder-*inherited*
-	 * `resolved*` getters (size/face from the notesMaster `p:notesStyle`) stay inert:
-	 * the frame is built without a placeholder context because notes inherit from the
-	 * notesMaster's notesStyle, not from a slide layout/master placeholder chain.
+	 * (whereas {@link notesText} reports `''` for that empty-body case). Convenience
+	 * for `notesSlide.textFrame`; see {@link notesSlide} for the whole modeled notes
+	 * slide (its `sldImg`/`sldNum` placeholders and their geometry).
 	 */
 	get notesTextFrame(): TextFrame | null {
-		const body = this.#notesBody()
-		if (!body || !body.txBody) return null
-		const rels = this.presentation.opc.relationshipsFor(body.notesPart.partName)
-		const themeContext = resolveNotesColorContext(this.presentation.opc, body.notesPart.partName)
-		return new TextFrame(body.txBody, body.notesPart, themeContext, undefined, rels)
+		return this.notesSlide?.textFrame ?? null
 	}
 
 	/**
-	 * Resolve the notes slide's body-placeholder text frame, shared by
-	 * {@link notesText} and {@link notesTextFrame}. Returns `null` when there is no
-	 * notes slide part at all; otherwise the `notesPart` plus its body `p:txBody`
-	 * (or `txBody: null` when the notes part carries no body placeholder / empty of a
-	 * text frame). Only the body placeholder is read; the `sldImg`/`sldNum`
-	 * placeholders a notes slide also carries are ignored.
+	 * The slide's speaker-notes slide (`notesSlideN.xml`) as a modeled
+	 * {@link NotesSlide}, or `null` when the slide has no notes slide part. Beyond the
+	 * body text {@link notesText}/{@link notesTextFrame} surface, this exposes the
+	 * notes slide's three placeholders — the slide thumbnail (`slideImage`), the notes
+	 * body, and the slide-number field (`slideNumber`) — each with its geometry and
+	 * (where present) a navigable text frame.
+	 *
+	 * The writer authors all three placeholders but leaves `sldImg`/`sldNum` with an
+	 * empty `p:spPr`, so on an authored deck their geometry reads `null` while an
+	 * imported deck carries the notesMaster-derived geometry. The body text and the
+	 * slide-number field round-trip either way.
 	 */
-	#notesBody(): { txBody: Element | null; notesPart: Part } | null {
+	get notesSlide(): NotesSlide | null {
 		const notesRel = this.relationships.byType(NOTES_SLIDE_REL_TYPE)[0]
 		if (!notesRel) return null
 		const notesPart = this.presentation.opc.part(this.relationships.resolveTarget(notesRel.id))
 		if (!notesPart) return null
-		const root = notesPart.dom.documentElement
-		const cSld = root && firstChild(root, 'p:cSld')
-		const spTree = cSld && firstChild(cSld, 'p:spTree')
-		if (!spTree) return { txBody: null, notesPart }
-		for (const sp of getElements(spTree, 'p:sp')) {
-			const nvSpPr = firstChild(sp, 'p:nvSpPr')
-			const nvPr = nvSpPr && firstChild(nvSpPr, 'p:nvPr')
-			const ph = nvPr && firstChild(nvPr, 'p:ph')
-			if (ph && attr(ph, 'type') === 'body') {
-				return { txBody: firstChild(sp, 'p:txBody'), notesPart }
-			}
-		}
-		return { txBody: null, notesPart }
+		return new NotesSlide(this.presentation.opc, notesPart)
 	}
 
 	/**

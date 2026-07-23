@@ -16,6 +16,13 @@
 // chain) into the frame, so a notes run authored with a *scheme* colour resolves to
 // a literal hex via `Run.resolvedColor` — previously inert (null) because the frame
 // was given no theme context.
+//
+// T2.1 models the notes slide as its own object: `Slide.notesSlide` → a `NotesSlide`
+// exposing the three placeholders (`slideImage`/`body`/`slideNumber`), each with its
+// geometry and (where present) a text frame. The writer authors all three but leaves
+// `sldImg`/`sldNum` with an empty `p:spPr`, so their geometry reads `null` on an
+// authored deck (import-only); the body text and the slide-number field round-trip.
+// `notesText`/`notesTextFrame` are now thin delegates over the body placeholder.
 
 import { describe, test } from 'vitest'
 import { authorRead, schemaErrors, validatorInstalled } from './authored.js'
@@ -118,6 +125,78 @@ describe('Slide.notesTextFrame — write→read fidelity', () => {
 		assert(frame, 'the empty notes body is still a frame')
 		assertEqual(frame.paragraphs.length, 1, 'the empty body carries a single empty paragraph')
 		assertEqual(frame.paragraphs[0].text, '', 'that paragraph is empty')
+	})
+
+	test('notesSlide models the three placeholders (T2.1)', async () => {
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addNotes('a note')
+		})
+
+		const notes = firstSlide(presentation).notesSlide
+		assert(notes, 'the notes slide is exposed as a modeled object')
+
+		// The writer authors exactly the slide-thumbnail, body, and slide-number placeholders.
+		const types = notes.placeholders.map((ph) => ph.type)
+		assertEqual(types.length, 3, 'the notes slide has three placeholders')
+		assert(types.includes('sldImg'), 'a slide-thumbnail placeholder is present')
+		assert(types.includes('body'), 'a notes body placeholder is present')
+		assert(types.includes('sldNum'), 'a slide-number placeholder is present')
+
+		assert(notes.slideImage, 'slideImage resolves the sldImg placeholder')
+		assertEqual(notes.slideImage.type, 'sldImg', 'slideImage is the thumbnail placeholder')
+		assert(notes.body, 'body resolves the notes body placeholder')
+		assertEqual(notes.body.text, 'a note', 'the body placeholder round-trips the note text')
+	})
+
+	test('the slide-number placeholder carries the slide number field (T2.1)', async () => {
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addNotes('n')
+		})
+
+		const notes = firstSlide(presentation).notesSlide
+		assert(notes?.slideNumber, 'the slide-number placeholder reads back')
+		// The writer emits <a:fld type="slidenum"> whose text is the 1-based slide number;
+		// TextFrame.text reads a:fld text, so the field surfaces as '1' for the first slide.
+		assertEqual(notes.slideNumber.type, 'sldNum', 'it is the sldNum placeholder')
+		assertEqual(notes.slideNumber.text, '1', 'the field shows the first slide number')
+		// The thumbnail placeholder has no text body at all.
+		assertEqual(notes.slideImage?.textFrame, null, 'the sldImg thumbnail carries no text frame')
+	})
+
+	test('authored notes placeholders inherit geometry (null own xfrm) (T2.1)', async () => {
+		// The writer leaves sldImg/sldNum p:spPr empty, so their geometry is inherited
+		// from the notesMaster — the read model reports null for the placeholder's own
+		// transform (a positive number would only come from an imported deck).
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addNotes('n')
+		})
+
+		const notes = firstSlide(presentation).notesSlide
+		assert(notes, 'the notes slide reads back')
+		for (const ph of notes.placeholders) {
+			assertEqual(ph.left, null, `${ph.type} has no own left (inherited geometry)`)
+			assertEqual(ph.top, null, `${ph.type} has no own top`)
+			assertEqual(ph.width, null, `${ph.type} has no own width`)
+			assertEqual(ph.height, null, `${ph.type} has no own height`)
+		}
+	})
+
+	test('a slide with no notes part has a null notesSlide', async () => {
+		// The writer attaches a notes part to every authored slide, so this exercises the
+		// import-only null boundary via a slide whose notes rel is absent. Here we assert
+		// the modeled getter agrees with notesText/notesTextFrame on a real authored slide:
+		// all three resolve the same body.
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addNotes('shared body')
+		})
+		const slide = firstSlide(presentation)
+		assertEqual(slide.notesSlide?.text, 'shared body', 'notesSlide.text matches the body')
+		assertEqual(slide.notesText, 'shared body', 'notesText delegates to the same body')
+		assertEqual(
+			slide.notesTextFrame?.paragraphs[0].text,
+			'shared body',
+			'notesTextFrame delegates to the same body frame'
+		)
 	})
 
 	test.skipIf(!validatorInstalled)('the authored rich-notes deck is schema-valid', async () => {

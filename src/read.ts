@@ -29,6 +29,7 @@ export type {
 	ExtractedSlides,
 } from './read/api/presentation-types.js'
 export { Slide, type AddTextBoxOptions, type AddPictureOptions } from './read/api/slide.js'
+export { NotesSlide, NotesPlaceholder } from './read/api/notes.js'
 export { type SlideBackground, type BackgroundSource } from './read/api/slide-background.js'
 export { type TransitionInfo, type TransitionInput, type TransitionSpeed } from './read/api/transition.js'
 export {
