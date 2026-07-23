@@ -7,6 +7,7 @@
  * part. Getters compute from the DOM on each access rather than caching.
  */
 import type { Part } from '../opc/part.js'
+import type { Relationships } from '../opc/relationships.js'
 import {
 	ELEMENT_NODE,
 	attr,
@@ -14,6 +15,7 @@ import {
 	childElements,
 	createElement,
 	firstChild,
+	firstChildElement,
 	getElements,
 	getOrAddChild,
 	intValue,
@@ -25,6 +27,7 @@ import {
 import { normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
 import { resolveThemeFont, type FlattenContext } from '../oxml/theme.js'
 import {
+	resolveColorElement,
 	resolveInheritedAnchor,
 	resolveInheritedRunBold,
 	resolveInheritedRunColor,
@@ -46,6 +49,32 @@ export interface PlaceholderTextContext {
 	ph: PlaceholderRef
 	flatten: FlattenContext
 }
+
+/**
+ * A run's click hyperlink (`a:rPr/a:hlinkClick`): a link on a span of text. A URL
+ * link carries an external {@link url}; a slide jump carries the internal
+ * {@link targetPartName} (the linked slide's part) alongside its `hlinksldjump`
+ * {@link action}. `tooltip` and `relId` are surfaced when present.
+ */
+export interface RunHyperlink {
+	/** External URL target (its `@r:id` resolves to a `TargetMode="External"` rel), or `null` for an internal/action-only link. */
+	url: string | null
+	/** Absolute partname of an internal target (e.g. the slide a jump points at), or `null`. */
+	targetPartName: string | null
+	/** Navigation action token (`@action`, e.g. `ppaction://hlinksldjump`), or `null` when absent/empty. */
+	action: string | null
+	/** Tooltip text (`@tooltip`), or `null` when absent/empty. */
+	tooltip: string | null
+	/** The relationship id (`@r:id`) backing the link, or `null` when the link is action-only. */
+	relId: string | null
+}
+
+/**
+ * A paragraph's line spacing (`a:pPr/a:lnSpc`), in whichever of the two OOXML
+ * forms the file uses: an exact point height (`a:spcPts`) or a percentage of the
+ * single-line height (`a:spcPct` — e.g. `percent: 150` for 1.5× spacing).
+ */
+export type LineSpacing = { type: 'points'; valuePt: number } | { type: 'percent'; percent: number }
 
 // Schema successors used to keep `a:rPr` children in document order when a
 // setter has to create one (CT_TextCharacterProperties sequence).
@@ -99,7 +128,14 @@ export class Run {
 		 * own `@b`. Built by the owning {@link Paragraph} for placeholder text; absent
 		 * for non-placeholder runs. Called lazily.
 		 */
-		private readonly inheritedBold?: () => boolean | null
+		private readonly inheritedBold?: () => boolean | null,
+		/**
+		 * The owning part's relationships, used to resolve a run hyperlink's `@r:id`
+		 * to its external URL or internal target partname. Absent when the run was
+		 * reached without them (e.g. table-cell or notes text), in which case
+		 * {@link hyperlink} still reports the raw `@r:id`/`@action`/`@tooltip`.
+		 */
+		private readonly relationships?: Relationships
 	) {}
 
 	/** The run's text (`a:t`), verbatim — whitespace is not normalized. */
@@ -162,6 +198,78 @@ export class Run {
 		}
 		setAttr(this.#getOrAddRPr(), 'u', value)
 		this.part.markDirty()
+	}
+
+	/**
+	 * Strikethrough token (`a:rPr/@strike`: `noStrike` | `sngStrike` |
+	 * `dblStrike`), or `null` when unset (inherited from the style). Surfaced as
+	 * the raw token — `sngStrike` is the writer's single-strike value.
+	 */
+	get strike(): string | null {
+		return this.#rPrAttrRaw('strike')
+	}
+
+	/**
+	 * Capitalization token (`a:rPr/@cap`: `none` | `small` | `all`), or `null`
+	 * when unset. `small` renders small-caps, `all` renders all-caps.
+	 */
+	get caps(): string | null {
+		return this.#rPrAttrRaw('cap')
+	}
+
+	/**
+	 * Baseline shift as a percentage of the font size (`a:rPr/@baseline`, stored
+	 * in 1000ths of a percent): positive for superscript (the writer's default is
+	 * `30`), negative for subscript (`-40`), or `null` when unset. Reported as the
+	 * percentage (`@baseline` ÷ 1000).
+	 */
+	get baselinePct(): number | null {
+		const raw = this.#rPrAttr('baseline')
+		return raw === null ? null : raw / 1000
+	}
+
+	/**
+	 * The run's highlight colour (`a:rPr/a:highlight`), resolved to a literal hex
+	 * through the owning slide's theme, or `null` when the run has no highlight
+	 * (or a token colour cannot be made literal without a theme context). The
+	 * writer authors highlights from a hex colour, so `effectiveHex` is that
+	 * colour; imported decks may carry a theme token, resolved here when possible.
+	 */
+	get highlight(): ResolvedColor | null {
+		const rPr = this.#rPr()
+		const hl = rPr && firstChild(rPr, 'a:highlight')
+		if (!hl) return null
+		const colorEl = firstChildElement(hl)
+		if (!colorEl) return null
+		if (this.themeContext) return resolveColorElement(colorEl, this.themeContext)
+		// Without a theme context only a literal srgbClr can be made concrete.
+		const hex = colorEl.localName === 'srgbClr' ? attr(colorEl, 'val') : null
+		return hex ? { hex, transforms: [], effectiveHex: hex } : null
+	}
+
+	/**
+	 * The run's click hyperlink (`a:rPr/a:hlinkClick`), or `null` when the run
+	 * carries none. A URL link resolves its `@r:id` to the external target
+	 * ({@link RunHyperlink.url}); a slide jump resolves it to the linked slide's
+	 * partname ({@link RunHyperlink.targetPartName}). When the run was reached
+	 * without the owning part's relationships, only the raw `@r:id`/`@action`/
+	 * `@tooltip` are reported (the target stays `null`).
+	 */
+	get hyperlink(): RunHyperlink | null {
+		const rPr = this.#rPr()
+		const hlink = rPr && firstChild(rPr, 'a:hlinkClick')
+		if (!hlink) return null
+		const relId = attr(hlink, 'r:id') || null
+		const action = attr(hlink, 'action') || null
+		const tooltip = attr(hlink, 'tooltip') || null
+		let url: string | null = null
+		let targetPartName: string | null = null
+		if (relId && this.relationships) {
+			const rel = this.relationships.get(relId)
+			if (rel?.targetMode === 'External') url = rel.target
+			else if (rel) targetPartName = this.relationships.resolveTarget(relId)
+		}
+		return { url, targetPartName, action, tooltip, relId }
 	}
 
 	/** Latin typeface name (`a:rPr/a:latin/@typeface`), or `null` when unset. */
@@ -322,7 +430,9 @@ export class Paragraph {
 		 * {@link TextFrame} supplies the placeholder identity and the text body's
 		 * `a:lstStyle`.
 		 */
-		private readonly inherit?: { placeholder: PlaceholderTextContext; slideLstStyle: Element | null }
+		private readonly inherit?: { placeholder: PlaceholderTextContext; slideLstStyle: Element | null },
+		/** The owning part's relationships, threaded to each {@link Run} for hyperlink `@r:id` resolution; absent when reached without them. */
+		private readonly relationships?: Relationships
 	) {}
 
 	/** The runs (`a:r`) in document order. Fields (`a:fld`) and breaks are not runs; see `text`. */
@@ -339,7 +449,16 @@ export class Paragraph {
 		)
 		return getElements(this.element, 'a:r').map(
 			(element) =>
-				new Run(element, this.part, this.themeContext, inheritedColor, inheritedSize, inheritedFace, inheritedBold)
+				new Run(
+					element,
+					this.part,
+					this.themeContext,
+					inheritedColor,
+					inheritedSize,
+					inheritedFace,
+					inheritedBold,
+					this.relationships
+				)
 		)
 	}
 
@@ -406,6 +525,28 @@ export class Paragraph {
 	/** Space after the paragraph in points; see {@link spaceBeforePt} for the percentage caveat. */
 	get spaceAfterPt(): number | null {
 		return this.#spacingPt('a:spcAft')
+	}
+
+	/**
+	 * The paragraph's line spacing (`a:pPr/a:lnSpc`), as an exact point height
+	 * (`a:spcPts`) or a percentage of the single-line height (`a:spcPct`), or
+	 * `null` when unset (inherited from the list style). See {@link LineSpacing}.
+	 */
+	get lineSpacing(): LineSpacing | null {
+		const pPr = firstChild(this.element, 'a:pPr')
+		const lnSpc = pPr && firstChild(pPr, 'a:lnSpc')
+		if (!lnSpc) return null
+		const pts = firstChild(lnSpc, 'a:spcPts')
+		if (pts) {
+			const val = intValue(attr(pts, 'val'))
+			return val === null ? null : { type: 'points', valuePt: val / 100 }
+		}
+		const pct = firstChild(lnSpc, 'a:spcPct')
+		if (pct) {
+			const val = intValue(attr(pct, 'val'))
+			return val === null ? null : { type: 'percent', percent: val / 1000 }
+		}
+		return null
 	}
 
 	/** Left margin of the paragraph in points (`a:pPr/@marL` is EMU; 12700 EMU = 1pt), or `null` when unset. */
@@ -506,7 +647,9 @@ export class TextFrame {
 		 * placeholder-inherited run colour/size/face resolution. Absent for ordinary
 		 * text boxes and table cells.
 		 */
-		private readonly placeholder?: PlaceholderTextContext
+		private readonly placeholder?: PlaceholderTextContext,
+		/** The owning part's relationships, threaded to each {@link Paragraph}/{@link Run} for hyperlink `@r:id` resolution; absent when reached without them. */
+		private readonly relationships?: Relationships
 	) {}
 
 	/** Paragraphs (`a:p`) in document order. */
@@ -517,7 +660,7 @@ export class TextFrame {
 			? { placeholder: this.placeholder, slideLstStyle: firstChild(this.txBody, 'a:lstStyle') }
 			: undefined
 		return getElements(this.txBody, 'a:p').map(
-			(element) => new Paragraph(element, this.part, this.themeContext, inherit)
+			(element) => new Paragraph(element, this.part, this.themeContext, inherit, this.relationships)
 		)
 	}
 

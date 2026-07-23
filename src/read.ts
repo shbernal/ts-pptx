@@ -56,7 +56,7 @@ export {
 	type Recolor,
 	type RecolorColor,
 } from './read/api/shapes.js'
-export { TextFrame, Paragraph, Run, type BodyProperties } from './read/api/text.js'
+export { TextFrame, Paragraph, Run, type BodyProperties, type RunHyperlink, type LineSpacing } from './read/api/text.js'
 export { Table, TableRow, TableCell, type CellBorder, type CellBorders } from './read/api/table.js'
 export {
 	Chart,

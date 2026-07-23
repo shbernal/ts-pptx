@@ -1033,7 +1033,7 @@ export class AutoShape extends Shape {
 		if (!txBody) return null
 		const flatten = this.slide.themeContext()
 		const ph = this.placeholder
-		return new TextFrame(txBody, this.slide.part, flatten, ph ? { ph, flatten } : undefined)
+		return new TextFrame(txBody, this.slide.part, flatten, ph ? { ph, flatten } : undefined, this.slide.relationships)
 	}
 
 	/**

@@ -46,6 +46,10 @@ export interface PptxTextRun {
 	bold: boolean
 	/** Italic (`a:rPr@i`). */
 	italic: boolean
+	/** Strikethrough token (`a:rPr@strike`: `noStrike`/`sngStrike`/`dblStrike`), or null when unset. */
+	strike: string | null
+	/** Highlight colour hex (`a:rPr > a:highlight > a:srgbClr@val`), or null when unset (theme tokens are not resolved here). */
+	highlight: string | null
 	/** Character spacing in points (`a:rPr@spc`, authored in hundredths of a point), or null when unset. */
 	charSpacingPt: number | null
 }
@@ -509,6 +513,8 @@ function readTextRun(run: XmlElement): PptxTextRun | null {
 		fontFace: stringValue(attr(child(props, 'a:latin'), 'typeface')),
 		bold: readXmlBool(attr(props, 'b')),
 		italic: readXmlBool(attr(props, 'i')),
+		strike: stringValue(attr(props, 'strike')),
+		highlight: stringValue(attr(child(child(props, 'a:highlight'), 'a:srgbClr'), 'val')),
 		charSpacingPt: spc === null ? null : spc / 100,
 	}
 }
