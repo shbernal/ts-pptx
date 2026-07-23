@@ -95,6 +95,34 @@ caller's job, so it works in browsers too.
 This is verified by `test/read/roundtrip.test.js` against PowerPoint-authored
 fixtures (see `test/read/fixtures/README.md`).
 
+### Preserve-only boundary — what the read model does *not* decode
+
+Some parts round-trip **byte-perfect** but have no typed read surface: the model
+preserves their bytes and (where relevant) reports their presence, but never
+decodes them into getters. This is a deliberate boundary, not a backlog — each is
+either a whole subsystem or an import-only surface with no authoring trigger, so a
+decoder would need a hand-authored fixture plus an independent oracle rather than a
+write→read round-trip. They stay parked until a real consumer names one:
+
+- **SmartArt** (`dgm:*` / `diagrams/`) — a four-part graph (data / layout /
+  quickStyle / colors) plus fallback drawing; a subsystem, not a getter.
+- **OLE objects** (`p:oleObj`, embedded workbooks/docs) — embedded foreign
+  packages; link metadata is conceivable, the payload is out of scope.
+- **Ink** (`p:contentPart` / `inkml`) — digitizer strokes; no renderer, no writer.
+- **True 3D** beyond the modeled bevel/extrusion (`a:sp3d` / `a:scene3d`).
+- **Morph and `p14:*` transitions** beyond the modeled set — cross-slide object
+  matching is import-only.
+- **Media** (`p:media` / `a:audioFile` / `a:videoFile`) — the write side authors
+  media, but the read model does not decode the media relationship graph.
+- **Embedded fonts** (`p:embeddedFontLst`, `fonttable`/`fntdata`) — write-side
+  fixtures exist; the read model does not decode the embedded-font table.
+- **Animations beyond the modeled presets** — the general `p:timing` tree past the
+  modeled entrance/emphasis/exit set is not read-modeled.
+
+Media and embedded fonts have write-side support, so a future read item for either
+could be a genuine round-trip rather than a fixture project — but both stay parked
+until asked for.
+
 ## API
 
 ### `OpcPackage`
