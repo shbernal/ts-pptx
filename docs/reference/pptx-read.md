@@ -26,7 +26,12 @@ Phase 2 navigable read model (`Presentation → slides → shapes → text frame
 paragraphs → runs`), and the Phase 3 edit slice (**run text and character
 formatting**, **shape position/size**, and **shape fill/line colour**), the
 model now also covers
-**tables**, **charts** (read-only), **adding and removing shapes**, **adding
+**tables** (incl. cell borders + style id), **charts** (read-only — classic
+`c:chart` with axes/labels/legend/series formatting, plus the `cx:` chartEx family:
+waterfall/funnel/treemap/…), **rich run formatting** (strike/caps/baseline/
+highlight/hyperlink + paragraph line spacing), **pattern fill and the effect list**
+(inner shadow/glow/reflection/soft edge), **slide background/number/autofit**,
+**adding and removing shapes**, **adding
 pictures**, and **slide cloning**. Setting a property or calling a mutator
 mutates the live DOM in place and marks only the affected part(s) dirty, so
 `save()` reserializes just those and keeps every other byte for byte.
@@ -351,8 +356,16 @@ class Slide {
 	readonly name: string | null // p:cSld/@name
 	readonly shapes: Shape[] // top-level shapes in the spTree
 	hidden: boolean // p:sld/@show — read/write; absent attr ⇒ shown
+	readonly background: SlideBackground | null // effective bg, walking slide→layout→master
+	readonly slideNumberPlaceholder: AutoShape | null // this slide's own p:ph type="sldNum"
 	addTextBox(options: AddTextBoxOptions): AutoShape // Phase 4 — appends a p:sp
 	addPicture(image: Uint8Array, options: AddPictureOptions): Picture // Phase 4 — new media part + rel + p:pic
+}
+
+type SlideBackground = {
+	type: 'solid' | 'gradient' | 'image' | 'pattern' | 'themeRef' | 'none'
+	source: 'slide' | 'layout' | 'master' // which level in the inheritance chain won
+	// …type-specific payload (colour, gradient stops, image part name, themeRef idx, …)
 }
 ```
 
@@ -383,6 +396,31 @@ presentation.slides[1].hidden = true // hide slide 2
 presentation.slides[3].hidden = false // un-hide slide 4
 await presentation.save()
 ```
+
+#### Background, slide number, autofit
+
+`slide.background` reports the **effective** background by walking the inheritance
+chain — the slide's own `p:bg` wins, else the layout's, else the master's — and
+`source` records which level won. That distinction matters: a plainly authored
+slide has *no* own `p:bg`, so it falls through to the default layout's
+`<p:bgRef idx="1001">` and reads as `{ type: 'themeRef', source: 'layout', idx: 1001 }`,
+not as an authored background. Colour tokens resolve through the slide theme; an
+image background's `r:embed` resolves against the **owning** part's rels (the
+layout's rels for a layout-inherited image). solid/gradient/image are FAITHFUL;
+pattern/themeRef are read-only for imported decks.
+
+`slideNumberPlaceholder` is scoped to the slide's **own** shape tree — the
+`p:ph type="sldNum"` the per-slide `slide.slideNumber = {…}` setter emits. It
+deliberately does **not** resolve a number inherited purely from the master `p:hf`
+(a master-level concern); date/footer placeholders are deferred for the same
+reason (no writer-authored slide shape to read). Note `pres.setSlideNumber({…})`
+puts the placeholder on the master/def-layout only, so a slide added afterward
+reads `null` here.
+
+`TextFrame.autofit` ports the mode onto the navigable text frame. The writer's
+`fit: 'shrink'` emits a **bare** `<a:normAutofit/>` (PowerPoint computes the scale
+on edit, so `autofitFontScale` reads `null`); an explicit baked scale needs the
+object form `fit: { type: 'shrink', fontScale, lnSpcReduction }`.
 
 ### `Shape` and subclasses
 
@@ -439,6 +477,12 @@ abstract class Shape {
 	lineSchemeColor: string | null // spPr/a:ln/a:solidFill/a:schemeClr/@val — settable
 	noFill(): void // set an explicit <a:noFill/> (transparent surface)
 	readonly customGeometry: CustomGeometry | null // spPr/a:custGeom/a:pathLst freeform paths; null for preset/none
+	readonly patternFill: PatternFill | null // a:pattFill { preset, foreground, background } (fg/bg theme-resolved)
+	readonly shadow: OuterShadow | null // a:effectLst/a:outerShdw
+	readonly innerShadow: InnerShadow | null // a:innerShdw (structurally an OuterShadow)
+	readonly glow: Glow | null // a:glow { radiusPt, color }
+	readonly reflection: Reflection | null // a:reflection (read-only; writer authors none)
+	readonly softEdge: SoftEdge | null // a:softEdge { radiusPt } (read-only)
 	readonly hasTextFrame: boolean
 	readonly textFrame: TextFrame | null
 	readonly text: string // textFrame?.text ?? ''
@@ -459,9 +503,11 @@ class Picture extends Shape {
 
 class GraphicFrame extends Shape {
 	readonly hasTable: boolean
-	readonly hasChart: boolean
+	readonly hasChart: boolean // classic c:chart
+	readonly hasChartEx: boolean // cx: chartEx (waterfall/treemap/…) — see ChartEx below
 	readonly table: Table | null // non-null when hasTable
 	readonly chart: Chart | null // non-null when hasChart (resolves the chart part)
+	readonly chartEx: ChartEx | null // non-null when hasChartEx (resolves the cx:chartSpace part)
 	// Fill and line setters throw: a graphicFrame has no p:spPr; its hosted
 	// table/chart carries its own fill model.
 }
@@ -551,18 +597,59 @@ the write-side `GeometryPoint` DSL, so a consumer maps a `GeometryCommand[]` to
 > schema-legal but comes from other producers (e.g. SVG import). The
 > `customGeometry` test fixture (`test/read/fixtures/custgeom.pptx`) pins this.
 
+#### Pattern fill and effects
+
+`patternFill` decodes `a:pattFill` — `{ preset, foreground, background }`, with
+`fgClr`/`bgClr` resolved through the shape's theme context (note they *wrap* a
+colour element, unlike `a:highlight`'s bare child). The effect getters generalize
+the shadow read over the shape's `a:effectLst`:
+
+```ts
+interface PatternFill {
+	preset: string // a:pattFill/@prst
+	foreground: ResolvedColor | null // a:fgClr
+	background: ResolvedColor | null // a:bgClr
+}
+interface OuterShadow {
+	// type: 'outer'; blurPt, distancePt, directionDeg, color, alignment, … (all optional)
+}
+interface InnerShadow {
+	// type: 'inner'; structurally an OuterShadow minus sx/sy/kx/ky/algn/rotWithShape
+}
+interface Glow {
+	radiusPt: number // a:glow/@rad ÷ 12700
+	color: ResolvedColor | null
+}
+interface Reflection {
+	/* stA/stPos/endA/endPos (÷100000 → 0–1), dir/fadeDir (÷60000 → deg), … all optional */
+}
+interface SoftEdge {
+	radiusPt: number // a:softEdge/@rad ÷ 12700
+}
+```
+
+FAITHFUL (the writer authors them): pattern fill, inner shadow, glow (write-side
+text glow emits `a:glow`). READ-ONLY (the writer authors none — carried for
+imported decks, never regenerated): reflection, soft edge. Every reflection field
+is optional — an absent attribute is **omitted**, not zeroed. Colour alpha rides
+the colour transform (`transparency:25` → `a:alpha 75000` → `alpha 0.75`).
+
 ### `TextFrame`, `Paragraph`, `Run`
 
 ```ts
 class TextFrame {
 	readonly paragraphs: Paragraph[]
 	readonly text: string // paragraph texts joined by '\n'
+	readonly autofit: AutofitMode | null // 'none'|'normAutofit'|'spAutoFit'; null when no a:bodyPr
+	readonly autofitFontScale: number | null // a:normAutofit/@fontScale ÷ 1000 (percent)
+	readonly autofitLineSpaceReduction: number | null // @lnSpcReduction ÷ 1000 (percent)
 }
 
 class Paragraph {
 	readonly runs: Run[] // a:r elements only
 	readonly level: number // a:pPr/@lvl, 0 if unset
 	readonly text: string // runs + fields, with a:br as '\n'
+	readonly lineSpacing: LineSpacing | null // a:pPr/a:lnSpc
 }
 
 class Run {
@@ -574,6 +661,23 @@ class Run {
 	fontName: string | null // a:latin/@typeface — settable
 	color: string | null // a:srgbClr/@val (6-hex) — settable
 	schemeColor: string | null // a:schemeClr/@val, e.g. 'accent2' — settable
+	readonly strike: string | null // a:rPr/@strike — raw token 'noStrike'/'sngStrike'/'dblStrike'
+	readonly caps: string | null // a:rPr/@cap — raw 'none'/'small'/'all'
+	readonly baselinePct: number | null // a:rPr/@baseline ÷ 1000 (superscript +30, subscript -40)
+	readonly highlight: ResolvedColor | null // a:rPr/a:highlight — theme-resolved (effectiveHex)
+	readonly hyperlink: RunHyperlink | null // a:rPr/a:hlinkClick
+}
+
+type LineSpacing =
+	| { type: 'points'; valuePt: number } // a:spcPts/@val ÷ 100
+	| { type: 'percent'; percent: number } // a:spcPct/@val ÷ 1000 (150000 → 150)
+
+interface RunHyperlink {
+	url: string | null // External rel target
+	targetPartName: string | null // Internal rel → absolute part name
+	action: string | null // a:hlinkClick/@action (e.g. ppaction://…)
+	tooltip: string | null // @tooltip
+	relId: string | null // raw @r:id
 }
 ```
 
@@ -581,6 +685,20 @@ Boolean run properties are `null` when the attribute is absent — the value is
 inherited from the list/placeholder style, not `false`. Explicit RGB colour and
 theme colour are reported separately (`color` vs `schemeColor`); at most one is
 non-null for a given run.
+
+`strike`/`caps` surface the **raw OOXML token** (not a boolean), because the schema
+is tri-state. `baselinePct` divides the `ST_Percentage` (1000ths of a percent) by
+1000 to a plain percent — the writer maps `superscript`→30, `subscript`→−40.
+`highlight` is theme-resolved (the writer only ever emits a hex, so `effectiveHex`
+is that hex). `lineSpacing` is a discriminated union: `a:spcPts/@val` is hundredths
+of a point; `a:spcPct/@val` is `multiple × 100000` (÷1000 → percent).
+
+`hyperlink` resolves `@r:id` through the run's **owning-part relationships**: an
+External rel fills `url`, an Internal rel fills `targetPartName` (absolute). Only
+runs reached via `AutoShape.textFrame` are threaded with those rels; a hyperlink on
+a table-cell or notes run reports the raw `relId`/`action`/`tooltip` with
+`url`/`targetPartName` left `null` (faithful degradation, not a crash). Empty
+`action=""`/`tooltip=""` (what the writer emits on a URL link) coerce to `null`.
 
 Every `Run` property is writable. A setter creates the run's `a:rPr` (and any
 needed child, e.g. `a:latin`, `a:solidFill`) in document order:
@@ -608,6 +726,7 @@ class Table {
 	readonly columnWidths: (number | null)[] // EMU, per grid column
 	readonly firstRowHeader: boolean // a:tblPr/@firstRow
 	readonly bandedRows: boolean // a:tblPr/@bandRow
+	readonly styleId: string | null // a:tblPr/a:tableStyleId — raw style GUID (see below)
 	cell(rowIndex: number, columnIndex: number): TableCell | null
 }
 
@@ -616,14 +735,47 @@ class TableRow {
 	readonly heightEmu: number | null // a:tr/@h
 }
 
+interface CellBorder {
+	widthPt: number // a:ln/@w ÷ 12700
+	dash: string | null // a:prstDash/@val
+	color: string | null // effective hex of the stroke's solid fill
+	schemeColor: string | null // unresolved theme token, when the stroke is a schemeClr
+	noFill: boolean // explicit <a:noFill/> — a deliberately suppressed edge
+}
+
+interface CellBorders {
+	left: CellBorder | null
+	right: CellBorder | null
+	top: CellBorder | null
+	bottom: CellBorder | null
+	tlToBr: CellBorder | null // a:lnTlToBr diagonal
+	blToTr: CellBorder | null // a:lnBlToTr diagonal
+}
+
 class TableCell {
 	text: string // settable convenience (see below)
 	readonly textFrame: TextFrame | null // a:txBody — full per-run editing
 	readonly gridSpan: number // a:tc/@gridSpan, default 1
 	readonly rowSpan: number // a:tc/@rowSpan, default 1
 	readonly isMergeContinuation: boolean // @hMerge / @vMerge set
+	readonly borders: CellBorders | null // per-edge strokes; null when a:tcPr is bare/absent
 }
 ```
+
+`styleId` surfaces the **raw** `a:tableStyleId` GUID, not a resolved style — the
+id is the codegen handoff to the writer's `tableStyle` option (whose built-in
+members *are* the GUID string, so it round-trips verbatim); resolving the style
+matrix is a separate concern. The stroke colour reuses the same solid-fill decode
+as shape strokes.
+
+Borders are faithful, not collapsed. The writer emits a **full four-side set on
+every cell**, defaulting an unspecified side to `<a:ln w="0"><a:noFill/></a:ln>`,
+so a *written* table's cells never read `borders === null` — that null path is
+reachable only from PowerPoint-authored fixtures with a bare/absent `a:tcPr`. A
+`noFill` edge (explicit suppression) is reported as such and is **distinct** from
+an edge inherited from the table style; don't conflate them. The writer never
+emits the diagonals (`tlToBr`/`blToTr`), but the reader decodes them for imported
+decks.
 
 `columnIndex` counts `a:tc` elements in the row, so a cell that spans columns
 (`gridSpan > 1`) occupies one index; merged-away cells report
@@ -658,6 +810,11 @@ class Chart {
 	readonly title: string | null // c:chart/c:title rich text
 	readonly series: ChartSeries[]
 	readonly categories: (string | null)[] // from the first series' cache
+	readonly axes: ChartAxis[] // plot-area order
+	readonly categoryAxis: ChartAxis | null // the c:catAx/c:dateAx
+	readonly valueAxis: ChartAxis | null // the c:valAx
+	readonly dataLabels: ChartDataLabels | null // group-wide c:dLbls (first plot group)
+	readonly legend: ChartLegend | null // c:chart/c:legend
 }
 
 class ChartSeries {
@@ -665,6 +822,54 @@ class ChartSeries {
 	readonly name: string | null // cached c:tx
 	readonly values: (number | null)[] // cached c:val (c:numCache)
 	readonly categories: (string | null)[] // cached c:cat
+	readonly fill: ChartFill | null // c:spPr solid / no-fill
+	readonly line: ChartLine | null // c:spPr/a:ln — width, dash, colour
+}
+
+class ChartAxis {
+	readonly kind: 'cat' | 'val' | 'date' | 'ser'
+	readonly id: number | null
+	readonly orientation: string | null // c:scaling/c:orientation
+	readonly min: number | null // c:scaling/c:min
+	readonly max: number | null // c:scaling/c:max
+	readonly logBase: number | null
+	readonly hidden: boolean // c:delete
+	readonly position: string | null // c:axPos
+	readonly majorGridlines: boolean
+	readonly minorGridlines: boolean
+	readonly title: string | null // rich text
+	readonly numberFormat: AxisNumberFormat | null // c:numFmt { formatCode, sourceLinked }
+	readonly majorTickMark: string | null
+	readonly minorTickMark: string | null
+	readonly tickLabelPosition: string | null
+	readonly majorUnit: number | null
+	readonly minorUnit: number | null
+}
+
+interface ChartLegend {
+	position: string | null // c:legendPos/@val
+	overlay: boolean
+}
+interface ChartDataLabels {
+	showValue: boolean
+	showSeriesName: boolean
+	showCategoryName: boolean
+	showPercent: boolean
+	showLegendKey: boolean
+	position: string | null // c:dLblPos/@val
+	numberFormat: AxisNumberFormat | null
+}
+interface ChartFill {
+	color: string | null // raw srgbClr hex (NOT theme-resolved)
+	schemeColor: string | null // unresolved token
+	noFill: boolean
+}
+interface ChartLine {
+	widthPt: number | null // a:ln/@w ÷ 12700
+	dash: string | null
+	color: string | null
+	schemeColor: string | null
+	noFill: boolean
 }
 ```
 
@@ -677,6 +882,85 @@ chart.series.map((s) => [s.name, s.values]) // [['Costs', [360000, …]], ['Reve
 Charts are **read-only**: the values exposed are the cache PowerPoint stores
 alongside the embedded workbook (`c:numCache` / `c:strCache`). Rewriting chart
 data (which means rewriting the embedded `.xlsx`) is not yet supported.
+
+The chart part has **no theme context**, so series/axis colours surface as a raw
+`color` (srgbClr hex) plus an unresolved `schemeColor` token — deliberately *not*
+flattened to an effective hex the way shape/run colours are. `dataLabels` is the
+group-wide block after the series (not the per-series ones). Note that bar/area
+series carry no `a:ln` by default, so `ChartSeries.line` is `null` for them; the
+stroke path is exercised by line/radar series.
+
+### `ChartEx` — Office-2016 charts (waterfall / funnel / treemap / …)
+
+The `cx:` chart family (waterfall, funnel, treemap, sunburst, histogram, pareto,
+box-and-whisker, region map) is a **separate subsystem** from classic `c:chart`:
+its own part (`cx:chartSpace`, `application/vnd.ms-office.chartex+xml`), referenced
+via the MS chartEx relationship, and the frame is wrapped in `<mc:AlternateContent>`.
+A `GraphicFrame` distinguishes the two:
+
+```ts
+class GraphicFrame extends Shape {
+	readonly hasChart: boolean // classic c:chart
+	readonly hasChartEx: boolean // cx: chartEx
+	readonly chart: Chart | null
+	readonly chartEx: ChartEx | null
+}
+
+class ChartEx {
+	readonly part: Part
+	readonly partName: string
+	readonly layoutIds: string[] // raw cx:series/@layoutId tokens, e.g. ['clusteredColumn','paretoLine']
+	readonly layoutId: string | null // first layoutId
+	readonly chartType: string | null // alias of layoutId (the OOXML truth, not a write-side ChartType)
+	readonly title: string | null
+	readonly legend: ChartExLegend | null
+	readonly series: ChartExSeries[]
+	readonly axes: ChartExAxis[]
+	readonly categories: string[] // first series' leaf-level categories
+}
+
+class ChartExSeries {
+	readonly layoutId: string | null
+	readonly ownerIndex: number | null // cx:series/@ownerIdx — a derived series' source (e.g. paretoLine → 0)
+	readonly name: string | null // cx:tx/cx:txData/cx:v
+	readonly dataId: number | null // cx:dataId/@val → the cx:chartData block
+	readonly values: (number | null)[] // resolved through dataId → cx:numDim
+	readonly categories: string[] // resolved through dataId → cx:strDim (leaf level)
+	readonly dataLabels: ChartExDataLabels | null
+}
+
+class ChartExAxis {
+	readonly id: number | null
+	readonly kind: 'cat' | 'val' | null // from the scaling child, NOT an element name
+	readonly gapWidth: number | null // cx:catScaling/@gapWidth — a FRACTION (0.5), not a percent
+	readonly min: number | null
+	readonly max: number | null
+	readonly majorGridlines: boolean
+	readonly tickLabels: boolean
+}
+```
+
+Faithful-mapping decisions worth not re-litigating:
+
+- **`layoutId` is not reverse-mapped to a write-side `ChartType`.** A histogram and
+  a pareto both render as `clusteredColumn` (pareto adds a second `paretoLine`
+  series), so the token doesn't uniquely identify the authoring type. The reader
+  exposes the raw `layoutIds`, never a guessed type.
+- **Categories read the *first* `cx:lvl`** — the writer emits hierarchy levels
+  leaf-first, so the first level is the leaf labels (a treemap reads
+  `['US','CA','DE']`, not the parent continents).
+- **Axis kind comes from the scaling child** (`cx:catScaling` vs `cx:valScaling`),
+  not an element name; **`gapWidth` is a fraction** (0.5 = 50%), read as a float —
+  unlike the classic axis's integer percent.
+- Data lives in a top-level `cx:chartData/cx:data` block the series point at by
+  `cx:dataId`, not the classic `c:cat`/`c:val` caches. The embedded workbook, the
+  style/colors sidecars, and a region map's online geo-cache are out of scope.
+
+> **Enumeration prerequisite:** a chartEx frame is wrapped in `mc:AlternateContent`,
+> which the shape walker originally skipped — so the frame was invisible.
+> `buildShapes` now unwraps `mc:AlternateContent` (preferring the `mc:Choice` shape,
+> else `mc:Fallback`). This also surfaces zoom frames and inline-math shapes that
+> were likewise hidden.
 
 ## Editing (typed API, Phase 3)
 
@@ -1148,7 +1432,14 @@ gallery and chrome byte-for-byte, flipping a `.potx` main part to the editable
 presentation content type — verified against the PowerPoint-authored
 `template.potx` oracle — honouring `keepTemplateContentType`, and authoring onto a
 zero-slide template shell to a schema-valid result).
-Schema cases require the OOXML validator
+The read-model expansions above are each proven by a **write→read fidelity**
+suite built on the shared harness `test/read/authored.js`: author the feature with
+the write API (which already emits it), load the bytes back through the deep read
+model, and assert the extracted model — keeping the write and read paths
+independent so a bug in one can't mask a bug in the other. Those suites are
+`table-borders.test.js`, `chart-format.test.js`, `run-props.test.js`,
+`chartex-read.test.js`, and the fidelity legs added to `shape-effect-reads.test.js`
+and `slide-read-edges.test.js`. Schema cases require the OOXML validator
 (`./tools/ooxml-validator/install.sh`) and are skipped with a notice when it
 is absent. See [testing](../testing.md).
 
