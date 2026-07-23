@@ -584,9 +584,39 @@ layout → master), use `Slide.background` instead.
 Scope note: this pass ships the property model and navigation. It does not add new
 *inheritance-resolution* getters beyond what already existed (a slide placeholder's
 effective run colour/size/face already resolves via `Slide.themeContext` →
-`Run.resolved*`); resolving a slide placeholder's effective *geometry* through this
-chain, or modeling notesMaster `p:notesStyle` inheritance, are separate, narrower
-follow-ons if a consumer needs them.
+`Run.resolved*`); modeling notesMaster `p:notesStyle` inheritance is a separate,
+narrower follow-on if a consumer needs it (FIDELITY-BACKLOG F2).
+
+A slide placeholder's effective *geometry* through this chain **does** resolve, via
+`Shape.resolvedFrame` (FIDELITY-BACKLOG F1, shipped 2026-07-23):
+
+```ts
+type GeometrySource = 'own' | 'layout' | 'master'
+type ResolvedFrame = { left: number; top: number; width: number; height: number; source: GeometrySource }
+
+class Shape {
+	// ...
+	readonly resolvedFrame: ResolvedFrame | null
+}
+```
+
+`resolvedFrame` reads the shape's own `a:xfrm` (`source: 'own'`) when it has one;
+otherwise, for a placeholder, it walks `slide → layout → master` matching `type`/`idx`
+(the same category-aware match `placeholderInheritedFill`/`-DefRPrs`/`-Anchor` already
+use for run colour/size/face/anchor) and returns the first tier that defines a
+geometry, tagged `'layout'` or `'master'`. `null` for a non-placeholder shape with no
+own transform (nothing to inherit), or a placeholder whose chain defines none either.
+
+The write API always inlines an explicit `a:xfrm` onto every placeholder it authors
+(`src/gen/slide/object.ts` resolves and copies bound layout geometry down
+unconditionally), so `source` reads `'own'` for every authored deck — there is no
+writer trigger for the inherited branch. It matters for *imported* decks: PowerPoint
+itself leaves a placeholder's `p:spPr` empty when the user never repositions it (own
+xfrm omitted at every tier down to the master that finally defines one), which is the
+gap this getter closes. Verified against `test/read/fixtures/placeholder-inherit.pptx`
+(a genuine PowerPoint-authored deck whose title/body placeholders — and their layout's
+— both omit `a:xfrm`, resolving to the master); the oracle geometry was read directly
+off that fixture's own master/layout XML, not derived from the reader.
 
 ### `Shape` and subclasses
 

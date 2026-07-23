@@ -15,10 +15,10 @@
  * carries its geometry explicitly, so position/size round-trip.
  *
  * Scope: this is the *property* model. Decorative (non-placeholder) master/layout
- * shapes are carried byte-for-byte by the import paths, not decoded here, and the
- * resolution of a *slide* placeholder's effective inherited geometry against this
- * chain is a separate concern (the run colour/size/face it inherits is already
- * resolved by `Slide.themeContext` → `Run.resolved*`).
+ * shapes are carried byte-for-byte by the import paths, not decoded here. A
+ * *slide* placeholder's effective inherited geometry against this chain resolves
+ * via `Shape.resolvedFrame` (`shapes.ts`), the geometry sibling of the run
+ * colour/size/face resolution already backed by `Slide.themeContext` → `Run.resolved*`.
  */
 import type { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'

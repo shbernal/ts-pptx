@@ -298,7 +298,13 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   genuine output: the title inherits 44pt / `+mj-lt` and the body 28pt / `+mn-lt`,
   each theme token resolving through the baked-in `fontScheme` (this deck ships
   Aptos, so `Aptos Display` / `Aptos`). Authored via PowerPoint COM on Windows
-  (2026-07-17). Read by the "placeholder text-property inheritance" suite.
+  (2026-07-17). Read by the "placeholder text-property inheritance" suite. Both
+  placeholders also carry **no own `a:xfrm`** (neither does their layout,
+  `slideLayout12.xml` — both resolve all the way to `slideMaster1.xml`), which
+  the FIDELITY-BACKLOG F1 item (2026-07-23) reuses for `Shape.resolvedFrame`
+  effective-geometry coverage (`placeholder-effective-geometry.test.js`); the
+  oracle geometry there was read directly off the fixture's own master/layout
+  XML, independent of the reader code under test.
 - `custgeom.pptx` — a minimal deck with PowerPoint-authored freeform
   (`a:custGeom`) shapes for the `customGeometry` read accessor, plus a preset-rect
   negative control. Authored via the COM `BuildFreeform`/`AddNodes`/`ConvertToShape`

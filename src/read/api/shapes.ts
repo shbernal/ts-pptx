@@ -28,11 +28,13 @@ import { relativePartName } from '../opc/partnames.js'
 import { FILL_CHOICES, normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
 import {
 	resolveColorElement,
+	resolveInheritedFrame,
 	resolveSolidFillColor,
 	resolveStyleFillColor,
 	resolveStyleLineColor,
 	type PlaceholderRef,
 	type ResolvedColor,
+	type ResolvedFrame,
 } from './theme-context.js'
 import { readGradientFill, readGradientStops, type GradientFill, type GradientStop } from './gradient.js'
 import { Chart } from './chart.js'
@@ -611,6 +613,33 @@ export abstract class Shape {
 
 	set height(value: number) {
 		this.#setExtent('cy', value)
+	}
+
+	/**
+	 * This shape's effective position and size in EMU: its own `a:xfrm` when it has
+	 * one ({@link left}/{@link top}/{@link width}/{@link height}, tagged
+	 * `source: 'own'`); otherwise, for a placeholder, the geometry it inherits from
+	 * the matching layout placeholder, else the master's (tagged accordingly). A
+	 * non-placeholder shape with no own transform has nothing to inherit from and
+	 * reads `null`, as does a placeholder whose layout/master chain defines no
+	 * matching geometry either.
+	 *
+	 * The writer always emits an explicit `a:xfrm` on every placeholder it authors,
+	 * so `source` reads `'own'` for every authored deck; `'layout'`/`'master'` is
+	 * the case an *imported* deck exercises, when PowerPoint itself leaves a
+	 * placeholder's geometry to inherit.
+	 */
+	get resolvedFrame(): ResolvedFrame | null {
+		const left = this.left
+		const top = this.top
+		const width = this.width
+		const height = this.height
+		if (left !== null && top !== null && width !== null && height !== null) {
+			return { left, top, width, height, source: 'own' }
+		}
+		const ph = this.placeholder
+		if (!ph) return null
+		return resolveInheritedFrame(ph, this.slide.themeContext())
 	}
 
 	/**

@@ -687,21 +687,34 @@ function resolvePlaceholderGeometry(slideRoot: Element, ctx: FlattenContext): vo
 		if (!ph) continue
 		const spPr = firstChild(sp, 'p:spPr')
 		if (spPr && firstChild(spPr, 'a:xfrm')) continue // explicit geometry is not inherited — leave it
-		const xfrm = placeholderInheritedXfrm(attr(ph, 'type'), attr(ph, 'idx') ?? '0', ctx)
-		if (!xfrm) continue
+		const found = placeholderInheritedXfrm(attr(ph, 'type'), attr(ph, 'idx') ?? '0', ctx)
+		if (!found) continue
 		const target = getOrAddChild(sp, 'p:spPr', SHAPE_AFTER_SPPR)
-		insertInOrder(target, xfrm.cloneNode(true), SPPR_XFRM_AFTER)
+		insertInOrder(target, found.xfrm.cloneNode(true), SPPR_XFRM_AFTER)
 	}
 }
 
-/** The `a:xfrm` a placeholder inherits from the source layout, then master, or `null`. */
-function placeholderInheritedXfrm(type: string | null, idx: string, ctx: FlattenContext): Element | null {
-	for (const root of [ctx.layoutRoot, ctx.masterRoot]) {
+/**
+ * The `a:xfrm` a placeholder inherits from the source layout, then master,
+ * tagged with which tier it came from — `null` when neither defines one. The
+ * read-model {@link resolveInheritedFrame} (`theme-context.ts`) sibling of
+ * {@link placeholderInheritedAnchor}; also the bake source for
+ * {@link resolvePlaceholderGeometry}.
+ */
+export function placeholderInheritedXfrm(
+	type: string | null,
+	idx: string,
+	ctx: FlattenContext
+): { xfrm: Element; source: 'layout' | 'master' } | null {
+	for (const [root, source] of [
+		[ctx.layoutRoot, 'layout'],
+		[ctx.masterRoot, 'master'],
+	] as const) {
 		if (!root) continue
 		const ph = findPlaceholder(root, type, idx)
 		const spPr = ph && firstChild(ph, 'p:spPr')
 		const xfrm = spPr && firstChild(spPr, 'a:xfrm')
-		if (xfrm) return xfrm
+		if (xfrm) return { xfrm, source }
 	}
 	return null
 }

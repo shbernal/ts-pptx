@@ -19,6 +19,7 @@ import {
 	placeholderInheritedAnchor,
 	placeholderInheritedDefRPrs,
 	placeholderInheritedFill,
+	placeholderInheritedXfrm,
 	resolveColor,
 	resolveThemeFont,
 	styleRefFill,
@@ -330,6 +331,43 @@ export function resolveInheritedRunBold(
  */
 export function resolveInheritedAnchor(ph: PlaceholderRef, ctx: FlattenContext): string | null {
 	return placeholderInheritedAnchor(ph.type, ph.idx, ctx)
+}
+
+/** Which tier of the slide → layout → master chain a {@link ResolvedFrame} resolved from. */
+export type GeometrySource = 'own' | 'layout' | 'master'
+
+/** A shape's effective position and size in EMU, tagged with where it resolved from. */
+export interface ResolvedFrame {
+	left: number
+	top: number
+	width: number
+	height: number
+	source: GeometrySource
+}
+
+/**
+ * The position/size a placeholder inherits when its own `a:spPr` carries no
+ * `a:xfrm`: the matching layout placeholder's geometry, else the master's (see
+ * {@link placeholderInheritedXfrm}). `null` when the chain has no matching
+ * placeholder geometry to inherit, or the matched `a:xfrm` is missing an
+ * `a:off`/`a:ext` coordinate. Callers that also need the "own `a:xfrm` wins"
+ * check (the common case) use {@link Shape.resolvedFrame}, which layers that on
+ * top of this.
+ */
+export function resolveInheritedFrame(ph: PlaceholderRef, ctx: FlattenContext): ResolvedFrame | null {
+	const found = placeholderInheritedXfrm(ph.type, ph.idx, ctx)
+	if (!found) return null
+	const off = firstChild(found.xfrm, 'a:off')
+	const ext = firstChild(found.xfrm, 'a:ext')
+	const left = off && intValue(attr(off, 'x'))
+	const top = off && intValue(attr(off, 'y'))
+	const width = ext && intValue(attr(ext, 'cx'))
+	const height = ext && intValue(attr(ext, 'cy'))
+	if (left === null || left === undefined) return null
+	if (top === null || top === undefined) return null
+	if (width === null || width === undefined) return null
+	if (height === null || height === undefined) return null
+	return { left, top, width, height, source: found.source }
 }
 
 /**
