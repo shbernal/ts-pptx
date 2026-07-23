@@ -450,9 +450,15 @@ true no-part `null` path — that branch is reachable only from imported decks. 
 `paragraphs`.
 
 Scope is **body-frame-only**: the notes slide's `sldImg`/`sldNum` placeholders are
-not modeled (as `notesText` never did), and the notes runs are given no theme
-context — notes inherit from the unmodeled notesMaster, so a run's own-attribute
-getters are faithful while its `resolved*` getters stay inert.
+not modeled (as `notesText` never did). The frame *is* threaded with a **notes
+theme context** — resolved through the notes part's `notesMaster` rel →
+`theme2.xml` chain — so a notes run authored with a *scheme* colour resolves to a
+literal hex via `Run.resolvedColor` (the `clrMap` comes from the notesMaster's own
+`p:clrMap`, the `clrScheme`/`fontScheme` from `theme2.xml`). What stays inert is
+*placeholder-inherited* resolution: the frame is built without a placeholder
+context because notes inherit character properties (size/face) from the
+notesMaster's `p:notesStyle`, not from a slide layout/master placeholder chain —
+modeling that `notesStyle` inheritance is a separate, larger surface.
 
 ### `Shape` and subclasses
 
@@ -559,7 +565,7 @@ class Connector extends Shape {
 interface ConnectionSite {
 	shapeId: number // the bound shape's drawing id (p:cNvPr/@id)
 	siteIndex: number // connection-site index on that shape (@idx, 0-based, preset-dependent)
-	boundShape: AnyShape | null // resolved via slide.shapeById; null when no top-level shape carries that id
+	boundShape: AnyShape | null // resolved via slide.shapeByIdDeep (descends into groups); null only when no shape anywhere carries that id
 }
 ```
 
@@ -573,16 +579,18 @@ each end to a shape: the writer resolves each target's `objectName` → drawing 
 serialize time and emits
 `<p:cNvCxnSpPr><a:stCxn id idx/><a:endCxn id idx/></p:cNvCxnSpPr>`. The read side
 decodes that into `ConnectionSite` per end and resolves the `@id` back to the slide
-shape via `slide.shapeById` (`boundShape`). The two-getter shape mirrors the write
-API's `startShape`/`endShape` split.
+shape via `slide.shapeByIdDeep` (`boundShape`), which **descends into groups** — so
+a connector bound to a shape nested in a group resolves the same as one bound to a
+top-level shape (the writer already ids and binds group children). The two-getter
+shape mirrors the write API's `startShape`/`endShape` split.
 
 - An **unbound** end (the writer emits a bare `<p:cNvCxnSpPr/>` when a connector
   binds no shapes, or when an `objectName` doesn't resolve — it warns and falls
   back to static endpoint geometry) reports `null`, never a half-populated site.
 - A **present** binding whose `@id`/`@idx` is unparseable degrades to `null` rather
-  than a partial site; a binding whose shape id isn't found on the slide (dangling,
-  or group-nested) keeps `shapeId`/`siteIndex` but leaves `boundShape` `null`
-  (faithful degradation, no throw).
+  than a partial site; a binding whose shape id isn't found *anywhere* on the slide
+  (a genuinely dangling id) keeps `shapeId`/`siteIndex` but leaves `boundShape`
+  `null` (faithful degradation, no throw).
 - Omitting `startShapeIdx`/`endShapeIdx` writes `idx="0"`, so a single-idx bind
   reads `siteIndex: 0`. `ConnectionSite` is exported from `pptxgenjs/read`.
 
@@ -1078,7 +1086,9 @@ slide.placeholder('subTitle', '1') // …narrowed by idx (defaults to '0' when a
 `placeholder(type, idx?)` returns an `AutoShape` (only `p:sp` shapes can be
 placeholders); read a shape's own placeholder identity via `shape.placeholder`
 (`{ type, idx } | null`). All three finders scan **top-level** shapes only — a
-shape nested in a group is not matched (walk `groupShape.shapes` for those).
+shape nested in a group is not matched. To find a shape by id *across* groups, use
+`slide.shapeByIdDeep(id)`, which walks group subtrees pre-order (this backs the
+connector `boundShape` resolution); or walk `groupShape.shapes` yourself.
 
 To replace **all** of a shape's text in one call, set `shape.text` (or
 `textFrame.text`). It collapses the body to a single paragraph and run,
