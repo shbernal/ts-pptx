@@ -50,6 +50,7 @@ import {
 	type CoreProperties,
 	type CustomProperty,
 } from './document-properties.js'
+import { readTagsForPart, type Tag } from './tags.js'
 import type {
 	AppendSlidesOptions,
 	FromTemplateOptions,
@@ -388,6 +389,17 @@ export class Presentation {
 	 */
 	get customProperties(): CustomProperty[] {
 		return readCustomProperties(this.opc)
+	}
+
+	/**
+	 * The deck-level programmatic tags (`p:custDataLst/p:tags` on `presentation.xml`,
+	 * resolved to `ppt/tags/tagN.xml`) as `{ name, val }` string pairs, `[]` when the
+	 * deck carries none. These are add-in/host metadata with no visible rendering and
+	 * no writer — read-only, preserved byte-for-byte on round-trip. Per-slide tags are
+	 * {@link Slide.tags}.
+	 */
+	get tags(): Tag[] {
+		return readTagsForPart(this.opc, this.presentationPart.partName)
 	}
 
 	/**

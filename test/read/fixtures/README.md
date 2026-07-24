@@ -47,6 +47,7 @@ PowerPoint.
 | `default-text-style.pptx` | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `modern-comments.pptx` | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `read-stress.pptx`     | Microsoft Office PowerPoint    | 16.0000    | 2      |
+| `tags.pptx`            | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `template.potx`        | Microsoft Office PowerPoint    | 16.0000    | 0      |
 
 #### Authoring oracles (inspection only — not loaded by `test:read`)
@@ -156,6 +157,7 @@ ad583c449024bce9f531ce91faf81849ef8489202966ef29dcf9ced0a24289e3  import-animati
 c9a02f7a276fd7ce3a9090c2f87770dddba4c4392ccd14b1833c939b9b697e77  default-text-style.pptx
 1ebba022ad3831e8e6cf91a40a53e08dc65246479090d165b576f3af9734f0b0  modern-comments.pptx
 77fbb00343006a8c0fb6a9120959e489dadf411f62010ea053abb9de95d6c8aa  read-stress.pptx
+d0755d060f2af1b8836f2b0846a9b0fd30d44b65d70497cece1d75cbdcfa2b3d  tags.pptx
 ```
 
 ### Embedded font faces (`fonts/`)
@@ -410,6 +412,18 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   against `image.pptx`), and `hdphoto`/`.wdp` artistic-effect layers. Authored via
   desktop PowerPoint COM on Windows (2026-07-24; `.tmp/author-read-stress.ps1`),
   opens clean with no repair.
+- `tags.pptx` — a minimal two-slide deck carrying PowerPoint's programmatic
+  **tags** (`p:custDataLst/p:tags` → `ppt/tags/tagN.xml`), read by `tags.test.js`
+  (`Presentation.tags` / `Slide.tags`). **Deck-level** `ppt/tags/tag1.xml` holds
+  `REVIEWER="Ada Lovelace"` + `STAGE="draft"` (referenced from `presentation.xml`);
+  **slide 1** references `ppt/tags/tag2.xml` holding `REGION="EMEA"` +
+  `PRIORITY="high"`; **slide 2** carries no `custDataLst` at all (the tag-free → `[]`
+  case). Authored via desktop PowerPoint COM on Windows (2026-07-24) with
+  `Presentation.Tags.Add` / `Slide.Tags.Add` — verified beforehand that `.Tags.Add`
+  genuinely materialises the `ppt/tags/*.xml` parts + `p:custDataLst/p:tags@r:id`
+  rels on `SaveAs` (rel type `…/2006/relationships/tags`, content type
+  `…presentationml.tags+xml`), not just an in-memory collection. There is no writer
+  for tags; the oracle is the exact name/val pairs passed to `.Add`.
 - `custgeom.pptx` — a minimal deck with PowerPoint-authored freeform
   (`a:custGeom`) shapes for the `customGeometry` read accessor, plus a preset-rect
   negative control. Authored via the COM `BuildFreeform`/`AddNodes`/`ConvertToShape`

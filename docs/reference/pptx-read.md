@@ -116,10 +116,11 @@ write→read round-trip. They stay parked until a real consumer names one:
   media, but the read model does not decode the media relationship graph.
 - **Animations beyond the modeled presets** — the general `p:timing` tree past the
   modeled entrance/emphasis/exit set is not read-modeled.
-- **Presentation/slide tags and custom XML** (`p:custDataLst`/`p:tags`, `p:tagLst`,
-  and `customXml/` items) — provenance/toolchain markers (e.g. a Templafy- or
-  SharePoint-authored deck) preserved verbatim; the writer emits none, so a reader
-  would be a fixture project. Low priority; parked until a consumer needs it.
+- **Custom XML data storage** (`customXml/item*.xml` + its `itemProps`) — opaque
+  application-defined XML (e.g. a Templafy- or SharePoint-authored deck's data
+  island); no schema to decode against, so the bytes are preserved verbatim and
+  reachable only via `OpcPackage.parts`. (Programmatic **tags**, once parked
+  alongside this, now decode — see `Presentation.tags` / `Slide.tags` below.)
 - **Modern comments** (`p188:cm` / `ppt/comments/modernComment_*` + `ppt/authors.xml`)
   — the 2018 comment schema, distinct from the legacy `p:cm` surface `slide.comments`
   decodes (above). No writer, so import-only.
@@ -304,6 +305,11 @@ interface CustomProperty {
 	value: CustomPropertyValue // typed from the vt: child (filetime decodes to a raw string)
 }
 
+interface Tag {
+	name: string // p:tag/@name
+	val: string // p:tag/@val
+}
+
 class Presentation {
 	static load(input: OpcInput): Promise<Presentation>
 	static fromPackage(opc: OpcPackage): Presentation
@@ -331,6 +337,8 @@ class Presentation {
 	readonly coreProperties: CoreProperties
 	/** User-defined custom document properties (docProps/custom.xml); [] when the part is absent. */
 	readonly customProperties: CustomProperty[]
+	/** Deck-level programmatic tags (p:custDataLst/p:tags → ppt/tags/tagN.xml); [] when none. See "Tags". */
+	readonly tags: Tag[]
 
 	/**
 	 * Phase 4 — duplicate the slide at `index`, insert the copy at `options.at`
@@ -446,6 +454,26 @@ pres.coreProperties.created // '2026-07-24T08:52:57Z' (raw W3CDTF string)
 pres.customProperties // [{ name: 'FiscalYear', value: 2025 }, …]
 ```
 
+#### Tags
+
+`pres.tags` and `slide.tags` decode **programmatic tags** — the `{ name, val }`
+string pairs an add-in or host stores out-of-band from the visible content
+(`p:custDataLst/p:tags@r:id` on the owner, resolved to a `ppt/tags/tagN.xml`
+`p:tagLst`). PowerPoint exposes these as `Presentation.Tags` / `Slide.Tags`. An
+owner may reference more than one tag part; the getter flattens them in
+relationship order. An owner with no tags reads as `[]`.
+
+Unlike document properties, tags have **no writer** — the read model surfaces them
+but authoring is not supported, and a deck's tag parts are preserved byte-for-byte
+on round-trip. (Not to be confused with the opaque `customXml/` item parts in the
+preserve-only boundary, which carry no `name`/`val` schema.)
+
+```ts
+const pres = await Presentation.load(bytes)
+pres.tags // [{ name: 'REVIEWER', val: 'Ada Lovelace' }, …]  — deck level
+pres.slides[0].tags // [{ name: 'REGION', val: 'EMEA' }, …]  — per slide
+```
+
 ### `Slide`
 
 ```ts
@@ -467,6 +495,7 @@ class Slide {
 	readonly layout: SlideLayout | null // the slide's bound slideLayout (see below)
 	readonly master: SlideMaster | null // === layout?.master
 	readonly theme: Theme | null // === layout?.master?.theme
+	readonly tags: Tag[] // this slide's programmatic tags (p:custDataLst/p:tags); [] when none. See "Tags"
 	addTextBox(options: AddTextBoxOptions): AutoShape // Phase 4 — appends a p:sp
 	addPicture(image: Uint8Array, options: AddPictureOptions): Picture // Phase 4 — new media part + rel + p:pic
 }

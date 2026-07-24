@@ -23,6 +23,7 @@ import type { Presentation } from './presentation.js'
 import { AutoShape, GraphicFrame, GroupShape, Picture, buildShapes, type AnyShape } from './shapes.js'
 import { NotesSlide } from './notes.js'
 import { readModernSlideComments, readSlideComments, type Comment, type ModernComment } from './comments.js'
+import { readTagsForPart, type Tag } from './tags.js'
 import { SlideLayout, type SlideMaster, type Theme } from './chrome.js'
 import type { TextFrame } from './text.js'
 import {
@@ -426,6 +427,17 @@ export class Slide {
 	 */
 	get modernComments(): ModernComment[] {
 		return readModernSlideComments(this.presentation.opc, this.part, this.presentation.modernCommentAuthors)
+	}
+
+	/**
+	 * The slide's programmatic tags (`p:custDataLst/p:tags` on the slide part,
+	 * resolved to `ppt/tags/tagN.xml`) as `{ name, val }` string pairs, `[]` when it
+	 * has none. Host/add-in metadata with no visible rendering and no writer —
+	 * read-only, preserved byte-for-byte on round-trip. Deck-level tags are
+	 * {@link Presentation.tags}.
+	 */
+	get tags(): Tag[] {
+		return readTagsForPart(this.presentation.opc, this.partName)
 	}
 
 	/**
