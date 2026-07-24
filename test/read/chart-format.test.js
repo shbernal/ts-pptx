@@ -79,6 +79,30 @@ describe('Chart axes — c:catAx / c:valAx', () => {
 		assert(valAxis.position, `value axis has a position (${valAxis.position})`)
 	})
 
+	test('the value axis exposes id, orientation, and tick/scale accessors', async () => {
+		const chart = firstChart((await authorRead(formattedBar)).presentation)
+		const valAxis = chart.valueAxis
+		assert(valAxis, 'chart exposes a value axis')
+
+		// `c:axId` is always emitted, so the id resolves to a concrete number.
+		assertEqual(typeof valAxis.id, 'number', 'value axis carries a numeric c:axId')
+		// Deterministic-null accessors for this deck: a linear, auto-unit axis with
+		// no minor gridlines authored.
+		assertEqual(valAxis.logBase, null, 'linear scale → no logBase')
+		assertEqual(valAxis.minorGridlines, false, 'no minor gridlines authored')
+		assertEqual(valAxis.minorUnit, null, 'auto minor unit → null')
+		// The writer's exact tick/orientation emission is not pinned here; assert the
+		// accessor contract (a string when present, else null).
+		for (const [name, value] of [
+			['orientation', valAxis.orientation],
+			['majorTickMark', valAxis.majorTickMark],
+			['minorTickMark', valAxis.minorTickMark],
+			['tickLabelPosition', valAxis.tickLabelPosition],
+		]) {
+			assert(value === null || typeof value === 'string', `${name} is a string or null (${value})`)
+		}
+	})
+
 	test('the category axis reads its title and its (default) number format', async () => {
 		const chart = firstChart((await authorRead(formattedBar)).presentation)
 		const catAxis = chart.categoryAxis
