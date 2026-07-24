@@ -99,7 +99,7 @@ importers:
 
   demos/node:
     dependencies:
-      '@shbernal/pptxgenjs':
+      '@shbernal/ts-pptx':
         specifier: workspace:*
         version: link:../..
       express:
@@ -111,7 +111,7 @@ importers:
       '@popperjs/core':
         specifier: ^2.11.8
         version: 2.11.8
-      '@shbernal/pptxgenjs':
+      '@shbernal/ts-pptx':
         specifier: workspace:*
         version: link:../..
       bootstrap:
