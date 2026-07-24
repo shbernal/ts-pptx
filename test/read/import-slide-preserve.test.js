@@ -592,6 +592,34 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		assertEqual((sp.match(/<a:solidFill>/g) ?? []).length, 1, 'no duplicate solidFill was baked onto the run')
 	})
 
+	test('bakes each footer-trio placeholder its OWN-TYPE inherited geometry, not another member of the trio', async () => {
+		// placeholder-footer-trio's slide dt/ftr/sldNum carry no own a:xfrm and their
+		// layout defines none either, so each inherits from the SAME-TYPE master
+		// placeholder — three deliberately distinct boxes. A resolver that matched the
+		// trio by txStyles category (all `other`) would bake the date box onto all
+		// three; preserve must bake each its own-type box (values read straight out of
+		// the fixture's slideMaster1.xml).
+		const target = await open('placeholder-footer-trio')
+		const source = await open('placeholder-footer-trio')
+		const imported = target.importSlide(source, 0, { theme: 'preserve' })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		const spOf = (type) =>
+			(xml.match(new RegExp(`<p:sp>(?:(?!</p:sp>)[\\s\\S])*?type="${type}"[\\s\\S]*?</p:sp>`)) ?? [''])[0]
+		const expect = {
+			dt: '<a:off x="508000" y="6095999"/><a:ext cx="2540000" cy="508000"/>',
+			ftr: '<a:off x="3810000" y="6349999"/><a:ext cx="4572000" cy="381000"/>',
+			sldNum: '<a:off x="9906000" y="5841999"/><a:ext cx="1778000" cy="635000"/>',
+		}
+		for (const [type, off] of Object.entries(expect)) {
+			const sp = spOf(type)
+			assert(sp, `the imported slide has its ${type} placeholder`)
+			assert(sp.includes(off), `${type} bakes its own-type master box (${off})`)
+			// None of the three may collapse onto the date box (the first `other` in doc order).
+			if (type !== 'dt') assert(!/x="508000" y="6095999"/.test(sp), `${type} did not collapse onto the date box`)
+		}
+	})
+
 	test('bakes distinct placeholder-inherited sizes per explicit paragraph level', async () => {
 		// The body placeholder carries 5 paragraphs at lvl 0..4, each with a bare run; the
 		// master bodyStyle defines a different sz per level (2800/2400/2000/1800/1800).

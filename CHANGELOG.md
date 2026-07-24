@@ -159,6 +159,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Footer/date/slide-number placeholders no longer inherit each other's geometry.** When a
+  slide placeholder of a singleton type (`dt`, `ftr`, `sldNum`, `hdr`) carried no own
+  `a:xfrm` and neither did its layout, the reader resolved its inherited position/size against
+  the master by falling back to the master text-style *category* — which collapses the whole
+  footer trio into a single `other` bucket, so `sldNum` picked up the footer's (or date's)
+  box, off by tens of `EMU` in `x` and many times too wide. PowerPoint gives the trio
+  different `idx` on the layout (dt=10/ftr=11/sldNum=12) than on the master (dt=2/ftr=3/
+  sldNum=4), so the `idx` match never fired for these and the category fallback always did.
+  This surfaced as a wrong `Shape.resolvedFrame`/`TextFrame.resolvedAnchor` on read **and** a
+  wrong baked `a:xfrm` written by `importSlide(…, { theme: 'preserve' })`. These singleton
+  types now resolve only against a same-`type` source placeholder (never via `idx`/category),
+  and no other placeholder type can land on the footer trio either.
+
 - **`serAxisLabelPos` is now honored on the bar3d series axis instead of being silently
   ignored.** The series-axis tick-label position was emitted as
   `val="${opts.serAxisLabelPos || opts.barDir === 'col' ? 'low' : 'nextTo'}"`; `===` binds

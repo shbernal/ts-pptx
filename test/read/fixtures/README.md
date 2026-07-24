@@ -42,6 +42,7 @@ PowerPoint.
 | `table-cell-style.pptx`| Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `table-styles.pptx`    | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `placeholder-inherit.pptx` | Microsoft Office PowerPoint | 16.0000  | 1      |
+| `placeholder-footer-trio.pptx` | Microsoft Office PowerPoint | 16.0000 | 1  |
 | `template.potx`        | Microsoft Office PowerPoint    | 16.0000    | 0      |
 
 #### Authoring oracles (inspection only — not loaded by `test:read`)
@@ -146,6 +147,7 @@ b78a6009d72cf871c76b9a5364822135f9786344e92bbb618f3f68a0d3e79fea  slide-animatio
 392784623d9269bf1a71f58f20e6aa9b820c4a3bb539ebd50e9ae974f0675923  slide-transition-sound.pptx
 ad583c449024bce9f531ce91faf81849ef8489202966ef29dcf9ced0a24289e3  import-animation-merge.pptx
 527404b131935bc297c37a3305998162a14d908e6b83faf8dad519fae0329782  placeholder-inherit.pptx
+226a880870611c3f5e7a4760fc83bff7cc528360ffe197f6bcba75ccfdfc1265  placeholder-footer-trio.pptx
 ```
 
 ### Embedded font faces (`fonts/`)
@@ -304,6 +306,20 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   the FIDELITY-BACKLOG F1 item (2026-07-23) reuses for `Shape.resolvedFrame`
   effective-geometry coverage (`placeholder-effective-geometry.test.js`); the
   oracle geometry there was read directly off the fixture's own master/layout
+  XML, independent of the reader code under test.
+- `placeholder-footer-trio.pptx` — a minimal deck (one slide, title only) whose
+  footer / date / slide-number placeholders are all enabled but carry **no own
+  `a:xfrm`**, and neither does their layout (`slideLayout6.xml`) — so all three
+  inherit geometry through to `slideMaster1.xml`, whose `dt`/`ftr`/`sldNum`
+  placeholders were deliberately moved to three visibly distinct boxes (date
+  508000,6095999 / 2540000,508000; footer 3810000,6349999 / 4572000,381000;
+  slide-number 9906000,5841999 / 1778000,635000). PowerPoint gives the trio
+  different `idx` on the layout (dt=10/ftr=11/sldNum=12) than the master
+  (dt=2/ftr=3/sldNum=4), so this pins that a singleton placeholder resolves to
+  its **same-type** source box and never borrows another member of the trio — the
+  read (`placeholder-footer-trio.test.js`) and the `theme: 'preserve'` geometry
+  bake (`import-slide-preserve.test.js`). Authored via PowerPoint COM on Windows
+  (2026-07-24); the oracle boxes were read directly off the fixture's own master
   XML, independent of the reader code under test.
 - `custgeom.pptx` — a minimal deck with PowerPoint-authored freeform
   (`a:custGeom`) shapes for the `customGeometry` read accessor, plus a preset-rect

@@ -497,7 +497,16 @@ function placeholderOf(sp: Element): Element | null {
 	return nvPr ? firstChild(nvPr, 'p:ph') : null
 }
 
-/** The master text-style category a placeholder type resolves against (absent ⇒ `obj` ⇒ body). */
+/**
+ * The master text-style *category* a placeholder type resolves against
+ * (absent ⇒ `obj` ⇒ body). This is a `p:txStyles` selector — it picks
+ * `p:titleStyle`/`p:bodyStyle`/`p:otherStyle` (see {@link TX_STYLE_NAME}) and
+ * deliberately collapses `dt`/`ftr`/`sldNum`/`hdr` (and anything else) into
+ * `'other'`. It is **not** a placeholder *identity* predicate: it must not be
+ * used to decide which source placeholder a slide placeholder inherits geometry
+ * from, or the footer trio become mutually interchangeable — use the exact
+ * `type` match in {@link findPlaceholder} for that.
+ */
 function phCategory(type: string | null): 'title' | 'body' | 'other' {
 	if (type === 'title' || type === 'ctrTitle') return 'title'
 	if (type === null || type === 'body' || type === 'subTitle' || type === 'obj') return 'body'
@@ -505,20 +514,45 @@ function phCategory(type: string | null): 'title' | 'body' | 'other' {
 }
 
 /**
+ * Placeholder types of which a layout/master holds at most one, and whose
+ * identity is their `type` alone: `dt`, `ftr`, `sldNum`, `hdr`. A slide
+ * placeholder of one of these types must inherit **only** from a source
+ * placeholder of the *same type* — never via `idx` or the txStyles *category*,
+ * both of which lump the whole trio together and would let `sldNum` borrow the
+ * footer's box (and vice versa).
+ */
+const SINGLETON_PH = new Set(['dt', 'ftr', 'sldNum', 'hdr'])
+
+/**
  * The placeholder shape in `root` (a layout/master) that the given slide
- * placeholder inherits from: prefer a same-`idx` placeholder of the same
- * category, then any same-`idx`, then any same-category. Returns `null` when none
- * match.
+ * placeholder inherits from.
+ *
+ * A singleton-type slide placeholder (`dt`/`ftr`/`sldNum`/`hdr`) matches only an
+ * exact same-`type` source placeholder — PowerPoint gives the trio different
+ * `idx` on the layout (dt=10/ftr=11/sldNum=12) than the master (dt=2/ftr=3/
+ * sldNum=4), so an `idx`- or category-based fallback would silently pick the
+ * wrong member of the trio. Every other type prefers a same-`idx` placeholder of
+ * the same category, then any same-`idx`, then any same-category, and never
+ * lands on a singleton placeholder. Returns `null` when nothing matches.
  */
 function findPlaceholder(root: Element, slideType: string | null, slideIdx: string): Element | null {
+	if (slideType && SINGLETON_PH.has(slideType)) {
+		for (const sp of elementsByTag(root, OOXML_NS.p, 'sp')) {
+			const ph = placeholderOf(sp)
+			if (ph && attr(ph, 'type') === slideType) return sp
+		}
+		return null
+	}
 	const cat = phCategory(slideType)
 	let idxMatch: Element | null = null
 	let catMatch: Element | null = null
 	for (const sp of elementsByTag(root, OOXML_NS.p, 'sp')) {
 		const ph = placeholderOf(sp)
 		if (!ph) continue
+		const type = attr(ph, 'type')
+		if (type && SINGLETON_PH.has(type)) continue // a non-singleton must never inherit from the footer trio
 		const i = attr(ph, 'idx') ?? '0'
-		const sameCat = phCategory(attr(ph, 'type')) === cat
+		const sameCat = phCategory(type) === cat
 		if (i === slideIdx && sameCat) return sp
 		if (i === slideIdx && !idxMatch) idxMatch = sp
 		if (sameCat && !catMatch) catMatch = sp
