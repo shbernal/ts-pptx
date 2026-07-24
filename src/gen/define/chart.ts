@@ -272,8 +272,8 @@ export function addChartDefinition(
 	const resultObject: SlideObject = {
 		_type: SlideObjectType.chart,
 	}
-	// DESIGN: `type` can an object (ex: `pptx.ChartType.doughnut`) or an array of chart objects
-	// EX: addChartDefinition([ { type:pptx.ChartType.bar, data:{name:'', labels:[], values[]} }, {<etc>} ])
+	// DESIGN: `type` can an object (ex: `ChartType.doughnut`) or an array of chart objects
+	// EX: addChartDefinition([ { type:ChartType.bar, data:{name:'', labels:[], values[]} }, {<etc>} ])
 	// Multi-Type Charts
 	let tmpOpt: ChartOpts | ChartOptsInternal | undefined
 	let tmpData: OptsChartData[] = []

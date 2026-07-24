@@ -51,17 +51,15 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 
 	// Reality check
 	if (!shapeName)
-		throw new Error(
-			'Missing/Invalid shape parameter! Example: `addShape(pptx.ShapeType.line, {x:1, y:1, w:1, h:1});`'
-		)
+		throw new Error('Missing/Invalid shape parameter! Example: `addShape(ShapeType.line, {x:1, y:1, w:1, h:1});`')
 
 	// Reject presets PowerPoint can't parse. An invalid `prst` value (a typo or an
 	// unmapped friendly name) corrupts the package and triggers the repair dialog,
-	// so fail loudly here rather than emit degenerate OOXML. Use `pptx.ShapeType.*`
+	// so fail loudly here rather than emit degenerate OOXML. Use `ShapeType.*`
 	// for the canonical names.
 	if (!VALID_SHAPE_PRESETS.has(resolvedShapeName)) {
 		throw new Error(
-			`Invalid shape "${String(shapeName)}"! Use a value from \`pptx.ShapeType.*\` (e.g. \`pptx.ShapeType.rect\`). PowerPoint can't render unknown preset geometries and will drop the shape during repair.`
+			`Invalid shape "${String(shapeName)}"! Use a value from \`ShapeType.*\` (e.g. \`ShapeType.rect\`). PowerPoint can't render unknown preset geometries and will drop the shape during repair.`
 		)
 	}
 

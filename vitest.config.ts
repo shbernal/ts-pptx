@@ -25,7 +25,6 @@ export default defineConfig({
 				...coverageConfigDefaults.exclude,
 				'dist/browser.js', // src/browser.ts — browser entry
 				'dist/browser-*.js', // src/runtime/browser.ts — browser runtime adapter
-				'dist/standalone.js', // src/standalone.ts — browser IIFE bundle (not exercised)
 			],
 			// `json-summary` writes coverage/coverage-summary.json (per-file + total
 			// rollup) and `json` writes coverage/coverage-final.json (raw per-line map)

@@ -72,14 +72,6 @@ export class ChartEx {
 		return this.layoutIds[0] ?? null
 	}
 
-	/**
-	 * Alias of {@link layoutId} for symmetry with {@link import('./chart.js').Chart.chartType} —
-	 * the raw cx: layout token, **not** a classic `ChartType`.
-	 */
-	get chartType(): string | null {
-		return this.layoutId
-	}
-
 	/** The chart title (`cx:chart/cx:title` rich text), or `null` when absent. */
 	get title(): string | null {
 		const chart = this.#chart()

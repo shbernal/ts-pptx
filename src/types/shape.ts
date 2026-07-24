@@ -82,8 +82,8 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 */
 	align?: HAlign
 	/**
-	 * Radius (only for pptx.ShapeType.pie, pptx.ShapeType.arc, pptx.ShapeType.blockArc)
-	 * - In the case of pptx.ShapeType.blockArc you have to setup the arcThicknessRatio
+	 * Radius (only for ShapeType.pie, ShapeType.arc, ShapeType.blockArc)
+	 * - In the case of ShapeType.blockArc you have to setup the arcThicknessRatio
 	 * - values: [0-359, 0-359]
 	 * @default [270, 0]
 	 */
@@ -101,7 +101,7 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 */
 	shapeAdjust?: ShapeAdjustValue | ShapeAdjustValue[]
 	/**
-	 * Radius (only for pptx.ShapeType.blockArc)
+	 * Radius (only for ShapeType.blockArc)
 	 * - You have to setup the angleRange values too
 	 * - values: 0.0-1.0
 	 * @default 0.5
@@ -111,7 +111,7 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 * Shape fill color properties
 	 * @example { color:'FF0000' } // hex color (red)
 	 * @example { color:'0088CC', transparency:50 } // hex color, 50% transparent
-	 * @example { color:pptx.SchemeColor.accent1 } // Theme color Accent1
+	 * @example { color:SchemeColor.accent1 } // Theme color Accent1
 	 */
 	fill?: ShapeFillProps
 	/**
@@ -134,7 +134,7 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 */
 	line?: ShapeLineProps
 	/**
-	 * Points (only for pptx.ShapeType.custGeom)
+	 * Points (only for ShapeType.custGeom)
 	 * - type: 'arc' (no end point — it is computed from the pen position, radii and sweep)
 	 * - `hR` Shape Arc Height Radius
 	 * - `wR` Shape Arc Width Radius
@@ -163,7 +163,7 @@ export interface ShapeProps extends PositionProps, ObjectNameProps {
 	 */
 	adjustHandles?: ShapeAdjustHandle[]
 	/**
-	 * Rounded rectangle radius (only for pptx.ShapeType.roundRect)
+	 * Rounded rectangle radius (only for ShapeType.roundRect)
 	 * - values: 0.0 to 1.0
 	 * @default 0
 	 */

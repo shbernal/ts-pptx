@@ -12,6 +12,7 @@
 //   desktop PowerPoint fixtures for the style-accessor constructs that would be
 //   circular if tested only through this library's writer.
 
+import { ShapeType } from '../../dist/node.js'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -560,7 +561,7 @@ describe('Group-child absolute geometry (absoluteFrame)', () => {
 	test('a top-level shape resolves to its own geometry', async () => {
 		const presentation = await (async () => {
 			const pres = new TsPptx()
-			pres.addSlide().addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 3, h: 1, fill: { color: 'CCCCCC' } })
+			pres.addSlide().addShape(ShapeType.rect, { x: 1, y: 1, w: 3, h: 1, fill: { color: 'CCCCCC' } })
 			return Presentation.load(await pres.stream())
 		})()
 		const shape = presentation.slides[0].shapes.find((s) => s.shapeType === 'autoShape' && s.presetGeometry === 'rect')

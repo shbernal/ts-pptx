@@ -14,6 +14,7 @@
 // and the pattern fill) additionally get a write→read fidelity leg through the
 // shared harness, proving those reads round-trip the very bytes the writer emits.
 
+import { ShapeType } from '../../dist/node.js'
 import { DOMParser } from '@xmldom/xmldom'
 import { describe, test } from 'vitest'
 import { AutoShape } from '../../dist/read.js'
@@ -267,7 +268,7 @@ describe('Shape effects/fill — write→read fidelity', () => {
 
 	test('an authored inner shadow round-trips through Shape.innerShadow', async () => {
 		const { presentation } = await authorRead((pres) => {
-			pres.addSlide().addShape(pres.ShapeType.rect, {
+			pres.addSlide().addShape(ShapeType.rect, {
 				x: 1,
 				y: 1,
 				w: 3,
@@ -287,7 +288,7 @@ describe('Shape effects/fill — write→read fidelity', () => {
 
 	test('an authored pattern fill round-trips through Shape.patternFill', async () => {
 		const { presentation } = await authorRead((pres) => {
-			pres.addSlide().addShape(pres.ShapeType.rect, {
+			pres.addSlide().addShape(ShapeType.rect, {
 				x: 1,
 				y: 1,
 				w: 3,
@@ -305,7 +306,7 @@ describe('Shape effects/fill — write→read fidelity', () => {
 	test.skipIf(!validatorInstalled)('the authored inner-shadow + pattern-fill decks are schema-valid', async () => {
 		const shadowBuf = (
 			await authorRead((pres) => {
-				pres.addSlide().addShape(pres.ShapeType.rect, {
+				pres.addSlide().addShape(ShapeType.rect, {
 					x: 1,
 					y: 1,
 					w: 3,
@@ -317,7 +318,7 @@ describe('Shape effects/fill — write→read fidelity', () => {
 		assertEqual((await schemaErrors(shadowBuf)).length, 0, 'inner-shadow deck validates')
 		const patternBuf = (
 			await authorRead((pres) => {
-				pres.addSlide().addShape(pres.ShapeType.rect, {
+				pres.addSlide().addShape(ShapeType.rect, {
 					x: 1,
 					y: 1,
 					w: 3,

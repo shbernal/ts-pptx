@@ -18,13 +18,12 @@ exports and let this repository own the internal OOXML generation details.
 
 ## Responsibilities
 
-- `src/index.ts`, `src/node.ts`, `src/browser.ts`, `src/standalone.ts`, and
-  `src/core.ts` define the public entry points described by `package.json`
-  exports.
+- `src/index.ts`, `src/node.ts`, and `src/browser.ts` define the public entry
+  points described by `package.json` exports.
 - `src/pptxgen.ts` owns the main presentation class: presentation-level state,
-  the authoring API façade (`addSlide`, `defineSlideMaster`, …), and the metadata
-  and enum accessors. `write`/`writeFile`/`stream` are thin façades over the
-  packaging layer.
+  the authoring API façade (`addSlide`, `defineSlideMaster`, …), and presentation
+  metadata. Enums are imported from the package entry, not read off the instance.
+  `write`/`writeFile`/`stream` are thin façades over the packaging layer.
 - `src/package/assemble.ts` owns package assembly, split into two composable halves:
   `buildPackageParts` turns an authored deck into every OOXML part in emission order
   (`[Content_Types].xml`, the rels graph, docProps, theme, per-slide/layout/master
@@ -80,7 +79,7 @@ export time. Each module opens with a TSDoc header stating its job; larger files
 | Coordinates & units (in → EMU) | `units.ts` (strict public primitives); `units-internal.ts` `getSmartParseNumber` (lenient generator layer) | — |
 | Colors, fills, borders, shadows | — | `gen/drawingml/color.ts` `createColorElement`; `gen/drawingml/fill.ts` `genXmlColorSelection` / `genXml*Fill`; `gen/drawingml/line.ts` `genXmlLineFill` / `createLineCap`; `gen/drawingml/effect.ts` `createShadowElement` / `createGlowElement` |
 | Package assembly & export | `package/assemble.ts` `buildPackageParts` (parts) + `zipPackageParts` (zip) → `writePackage` (behind `pptxgen.ts` `write` / `writeFile` / `stream`); `toParts` exposes the parts | `gen/opc/content-types.ts` `makeXmlContTypes` / `gen/opc/root-rels.ts` `makeXmlRootRels` / per-part rels |
-| HTML `<table>` → slides (live DOM) | `browser.ts` `tableToSlides` (browser/standalone build only) | `gen/table/html-dom.ts` `genTableToSlides` |
+| HTML `<table>` → slides (live DOM) | `browser.ts` `tableToSlides` (browser build only) | `gen/table/html-dom.ts` `genTableToSlides` |
 | Public API surface | `pptxgen.ts` (class), `slide.ts` (slide methods) | — |
 | Option / type definitions | `core-interfaces.ts` | — |
 | Enums & shared constants | `core-enums.ts` | — |
@@ -97,7 +96,7 @@ export time. Each module opens with a TSDoc header stating its job; larger files
   class. Live-DOM features that only work in a browser (currently `tableToSlides`)
   are defined on the browser entry subclass, not the core class, so they stay off
   the Node build and out of the shared chunk — their code bundles into the
-  browser/standalone chunks alone.
+  browser chunk alone.
 - Downstream deck-production workflows belong in the consuming project unless the
   behavior is broadly reusable for ts-pptx consumers.
 

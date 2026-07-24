@@ -1,3 +1,4 @@
+import { ChartType } from '../../dist/node.js'
 import { defineRegressionSuite, build, readEntry, listEntries, assert } from '../helpers.js'
 
 const DATA = [{ name: 'Region', labels: ['North', 'South', 'East'], values: [10, 20, 30] }]
@@ -10,7 +11,7 @@ function chartPart(zip) {
 
 async function radarXml(radarStyle) {
 	const { zip } = await build((p) => {
-		p.addSlide().addChart(DATA, { type: p.ChartType.radar, radarStyle, x: 1, y: 1, w: 6, h: 4 })
+		p.addSlide().addChart(DATA, { type: ChartType.radar, radarStyle, x: 1, y: 1, w: 6, h: 4 })
 	})
 	return chartPart(zip)
 }
@@ -47,7 +48,7 @@ defineRegressionSuite('radarStyle values', [
 		name: 'default (no radarStyle) falls back to standard',
 		fn: async () => {
 			const { zip } = await build((p) => {
-				p.addSlide().addChart(DATA, { type: p.ChartType.radar, x: 1, y: 1, w: 6, h: 4 })
+				p.addSlide().addChart(DATA, { type: ChartType.radar, x: 1, y: 1, w: 6, h: 4 })
 			})
 			const xml = await chartPart(zip)
 			assert(

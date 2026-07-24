@@ -1,3 +1,4 @@
+import { ChartType } from '../../dist/node.js'
 import JSZip from 'jszip'
 import TsPptx from '../../dist/node.js'
 import { defineRegressionSuite, build, listEntries, assert } from '../helpers.js'
@@ -54,7 +55,7 @@ defineRegressionSuite('Chart embedding parts', 'legacy bug-17', [
 					values: [10, 20, 30],
 				},
 			]
-			slide.addChart(data, { type: pres.ChartType.bar, x: 1, y: 1, w: 6, h: 3 })
+			slide.addChart(data, { type: ChartType.bar, x: 1, y: 1, w: 6, h: 3 })
 			const buf = await pres.stream()
 			const zip = await JSZip.loadAsync(buf)
 			const entries = listEntries(zip)

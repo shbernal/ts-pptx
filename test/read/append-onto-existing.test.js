@@ -13,7 +13,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
-import TsPptx from '../../dist/node.js'
+import TsPptx, { ChartType } from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 import { isInstalled, validateBuf } from '../validator.js'
@@ -184,7 +184,7 @@ describe('Presentation.appendSlides', () => {
 			slide.addText('valid', { x: 1, y: 1, w: 6, h: 1, color: '0000FF', hyperlink: { slide: 2 } })
 			slide.addImage({ data: PNG_1PX, x: 1, y: 3, w: 1, h: 1 })
 			slide.addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
-				type: pptx.ChartType.bar,
+				type: ChartType.bar,
 				x: 7,
 				y: 1,
 				w: 5,
@@ -445,7 +445,7 @@ describe('Presentation.appendSlides', () => {
 
 		const pptx = wideGenerator()
 		pptx.addSlide().addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
-			type: pptx.ChartType.bar,
+			type: ChartType.bar,
 			x: 1,
 			y: 1,
 			w: 6,

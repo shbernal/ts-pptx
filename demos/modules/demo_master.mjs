@@ -7,6 +7,7 @@
  * BLD.: 20210401
  */
 
+import { ChartType } from "@shbernal/ts-pptx";
 import { IMAGE_PATHS } from "./enums.mjs";
 
 export function genSlides_Master(pptx) {
@@ -89,7 +90,7 @@ function genSlide05(pptx) {
 	let slide = pptx.addSlide({ masterTitle: "MASTER_SLIDE", sectionTitle: "Masters" });
 	slide.addNotes("Master name: `MASTER_SLIDE` using pre-filled placeholders");
 	slide.addText("Chart Placeholder", { placeholder: "header" });
-	slide.addChart(dataChartPieLocs, { type: pptx.ChartType.pie, showLegend: true, legendPos: "l", placeholder: "body" });
+	slide.addChart(dataChartPieLocs, { type: ChartType.pie, showLegend: true, legendPos: "l", placeholder: "body" });
 }
 
 /**

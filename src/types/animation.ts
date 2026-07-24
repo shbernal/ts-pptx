@@ -36,7 +36,7 @@ export type TransitionType =
 
 /**
  * Slide-show transition applied between slides (`p:transition`). Assign to
- * {@link PresSlide.transition}. Setting `durationMs` emits PowerPoint's
+ * {@link Slide.transition}. Setting `durationMs` emits PowerPoint's
  * `mc:AlternateContent` form (a `p14` Choice carrying `p14:dur` plus a base
  * `mc:Fallback`); otherwise only the coarse `speed` bucket is written.
  * @example slide.transition = { type: 'push', durationMs: 1250, variant: { dir: 'd' } }
@@ -96,7 +96,7 @@ export type AnimationTrigger = 'onClick' | 'withPrevious' | 'afterPrevious'
 
 /**
  * A preset build animation on a shape (entrance/emphasis/exit), added via
- * {@link PresSlide.addAnimation}. Target the shape by its 0-based add order
+ * {@link Slide.addAnimation}. Target the shape by its 0-based add order
  * (`shapeIndex`, mapping to the generated `spid = shapeIndex + 2`) or by
  * `objectName`. Effects play in the order added, grouped into click steps by
  * `trigger`.

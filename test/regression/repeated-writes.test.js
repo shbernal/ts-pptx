@@ -1,3 +1,4 @@
+import { ShapeType } from '../../dist/node.js'
 import JSZip from 'jszip'
 import TsPptx from '../../dist/node.js'
 import { defineRegressionSuite, assert } from '../helpers.js'
@@ -18,7 +19,7 @@ defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 			const slide = pres.addSlide()
 			/** @type {import('../../dist/node.js').ShadowPropsInternal} */
 			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 }
-			slide.addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 4, h: 2, shadow })
+			slide.addShape(ShapeType.rect, { x: 1, y: 1, w: 4, h: 2, shadow })
 
 			const xml1 = await buildOnce(pres)
 			const xml2 = await buildOnce(pres)
@@ -35,7 +36,7 @@ defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 			const slide = pres.addSlide()
 			/** @type {import('../../dist/node.js').ShadowPropsInternal} */
 			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 }
-			slide.addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 4, h: 2, shadow })
+			slide.addShape(ShapeType.rect, { x: 1, y: 1, w: 4, h: 2, shadow })
 
 			await buildOnce(pres)
 			await buildOnce(pres)
@@ -78,7 +79,7 @@ defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 		fn: async () => {
 			const pres = new TsPptx()
 			const slide = pres.addSlide()
-			slide.addShape(pres.ShapeType.rect, {
+			slide.addShape(ShapeType.rect, {
 				x: 1,
 				y: 1,
 				w: 4,

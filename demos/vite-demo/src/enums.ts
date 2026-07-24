@@ -9,7 +9,7 @@ slide.addText(
 );
 
 slide.addChart(
-  dataChartRadar, { type: pptx.ChartType.radar, x:1.0, y:1.9, w:8, h:3 }
+  dataChartRadar, { type: "radar", x:1.0, y:1.9, w:8, h:3 }
 );
 
 slide.addText(

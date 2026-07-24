@@ -1,3 +1,4 @@
+import { ShapeType } from '../../dist/node.js'
 import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
 defineRegressionSuite('Shape text bodies', 'legacy bug-13', [
@@ -7,7 +8,7 @@ defineRegressionSuite('Shape text bodies', 'legacy bug-13', [
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
 				// no text passed — this is the failing case
-				s.addShape(p.ShapeType.rect, { x: 1, y: 1, w: 2, h: 1 })
+				s.addShape(ShapeType.rect, { x: 1, y: 1, w: 2, h: 1 })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			// The shape must appear and it must contain a <p:txBody>.
@@ -27,8 +28,8 @@ defineRegressionSuite('Shape text bodies', 'legacy bug-13', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' } })
-				s.addText('hello world', { shape: p.ShapeType.rect, x: 4, y: 1, w: 2, h: 1 })
+				s.addShape(ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' } })
+				s.addText('hello world', { shape: ShapeType.rect, x: 4, y: 1, w: 2, h: 1 })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			assert(

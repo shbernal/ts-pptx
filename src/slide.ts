@@ -20,7 +20,6 @@ import type {
 	NotesProps,
 	OleObjectProps,
 	PresLayout,
-	PresSlide,
 	ShapeProps,
 	SlideNumberProps,
 	OptsChartData,
@@ -33,6 +32,7 @@ import type {
 	SectionZoomProps,
 	SummaryZoomProps,
 } from './core-interfaces.js'
+import type { PresSlide } from './types/slide.js'
 import type {
 	ChartOptsInternal,
 	SlideObject,
@@ -232,7 +232,7 @@ export default class Slide {
 			const optType = (options as ChartOpts & { type?: CHART_NAME }).type
 			if (!optType) {
 				throw new Error(
-					'addChart: a chart `type` is required on the options object, e.g. addChart(data, { type: pptx.ChartType.bar }).'
+					'addChart: a chart `type` is required on the options object, e.g. addChart(data, { type: ChartType.bar }).'
 				)
 			}
 			type = optType
@@ -317,7 +317,7 @@ export default class Slide {
 	 * @return {Slide} this Slide
 	 */
 	addShape(shapeName: SHAPE_NAME, options?: ShapeProps): Slide {
-		// `shapeName` is a plain string preset name (e.g. `pptx.ShapeType.rect` === "rect").
+		// `shapeName` is a plain string preset name (e.g. `ShapeType.rect` === "rect").
 		addShapeDefinition(this, shapeName, options || {})
 		return this
 	}

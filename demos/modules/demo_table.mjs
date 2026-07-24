@@ -19,6 +19,7 @@ import {
 	TABLE_NAMES_F,
 	TESTMODE,
 } from "./enums.mjs";
+import { SchemeColor } from "@shbernal/ts-pptx";
 import { TABLE_AUTO_PAGE_TEST } from "./enums_tables.mjs";
 
 export function genSlides_Table(pptx) {
@@ -219,17 +220,17 @@ function genSlide02(pptx) {
 		align: "center",
 		valign: "middle",
 		fontSize: 16,
-		border: { width: 2, color: pptx.SchemeColor.text2 },
+		border: { width: 2, color: SchemeColor.text2 },
 		fill: { color: "F1F1F1" },
 	};
 	let arrTabRows3 = [
 		[
-			{ text: "A1\nA2\nA3", options: { rowspan: 3, fill: { color: pptx.SchemeColor.accent6 } } },
-			{ text: "B1\nB2", options: { rowspan: 2, fill: { color: pptx.SchemeColor.accent2 } } },
-			{ text: "C1", options: { fill: { color: pptx.SchemeColor.accent4 } } },
+			{ text: "A1\nA2\nA3", options: { rowspan: 3, fill: { color: SchemeColor.accent6 } } },
+			{ text: "B1\nB2", options: { rowspan: 2, fill: { color: SchemeColor.accent2 } } },
+			{ text: "C1", options: { fill: { color: SchemeColor.accent4 } } },
 		],
-		[{ text: "C2", options: { fill: { color: pptx.SchemeColor.accent4 } } }],
-		[{ text: "B3 -> C3", options: { colspan: 2, fill: { color: pptx.SchemeColor.accent5 } } }],
+		[{ text: "C2", options: { fill: { color: SchemeColor.accent4 } } }],
+		[{ text: "B3 -> C3", options: { colspan: 2, fill: { color: SchemeColor.accent5 } } }],
 	];
 	slide.addTable(arrTabRows3, tabOpts3);
 
@@ -243,17 +244,17 @@ function genSlide02(pptx) {
 		align: "center",
 		valign: "middle",
 		fontSize: 16,
-		border: { width: 1, color: pptx.SchemeColor.text2 },
+		border: { width: 1, color: SchemeColor.text2 },
 		fill: { color: "f2f9fc" },
 	};
 	let arrTabRows4 = [
 		[
-			{ text: "A1", options: { fill: { color: pptx.SchemeColor.accent4, transparency: 25 } } },
-			{ text: "B1\nB2", options: { rowspan: 2, fill: { color: pptx.SchemeColor.accent2, transparency: 25 } } },
-			{ text: "C1\nC2\nC3", options: { rowspan: 3, fill: { color: pptx.SchemeColor.accent6, transparency: 25 } } },
+			{ text: "A1", options: { fill: { color: SchemeColor.accent4, transparency: 25 } } },
+			{ text: "B1\nB2", options: { rowspan: 2, fill: { color: SchemeColor.accent2, transparency: 25 } } },
+			{ text: "C1\nC2\nC3", options: { rowspan: 3, fill: { color: SchemeColor.accent6, transparency: 25 } } },
 		],
-		[{ text: "A2", options: { fill: { color: pptx.SchemeColor.accent4, transparency: 25 } } }],
-		[{ text: "A3 -> B3", options: { colspan: 2, fill: { color: pptx.SchemeColor.accent5, transparency: 25 } } }],
+		[{ text: "A2", options: { fill: { color: SchemeColor.accent4, transparency: 25 } } }],
+		[{ text: "A3 -> B3", options: { colspan: 2, fill: { color: SchemeColor.accent5, transparency: 25 } } }],
 	];
 	slide.addTable(arrTabRows4, tabOpts4);
 }
@@ -337,7 +338,7 @@ function genSlide04(pptx) {
 
 	slide.addTable([["margin:0"]], { x: 0.5, y: 1.1, margin: 0, w: 1.2, fill: "FFFCCC", border: { width: 0 } });
 	slide.addTable([["margin:[0, 0, 0, 0.3]"]], { x: 2.5, y: 1.1, margin: [0, 0, 0, 0.3], w: 2.0, fill: "FFFCCC", align: "right" });
-	slide.addTable([["margin:0.05"]], { x: 5.5, y: 1.1, margin: 0.05, w: 1.0, fill: pptx.SchemeColor.background2 });
+	slide.addTable([["margin:0.05"]], { x: 5.5, y: 1.1, margin: 0.05, w: 1.0, fill: SchemeColor.background2 });
 	slide.addTable([["margin:[0.6, 0.05, 0.05, 0.3]"]], { x: 7.1, y: 1.1, margin: [0.6, 0.05, 0.05, 0.3], w: 2.6, fill: "F1F1F1" });
 	slide.addTable([["margin:[0.45, 0.05, 0.05, 0.45]"]], { x: 10.1, y: 1.1, margin: [0.45, 0.05, 0.05, 0.45], w: 2.6, fill: "F1F1F1" });
 
@@ -377,7 +378,7 @@ function genSlide04(pptx) {
 		y: 4.3,
 		w: 6,
 		rowH: 1.5,
-		fill: pptx.SchemeColor.background2,
+		fill: SchemeColor.background2,
 		color: "3D3D3D",
 		fontSize: 18,
 		border: arrBorder1,
@@ -390,7 +391,7 @@ function genSlide04(pptx) {
 		y: 4.3,
 		w: 6,
 		rowH: 1.5,
-		fill: pptx.SchemeColor.background2,
+		fill: SchemeColor.background2,
 		color: "3D3D3D",
 		fontSize: 18,
 		border: arrBorder2,
@@ -480,7 +481,7 @@ function genSlide06(pptx) {
 		{ text: "Green ", options: { color: "00FF00" } },
 		{ text: "Blue", options: { color: "0000FF" } },
 	];
-	let arrCell3 = [{ text: "google", options: { bullet: true, color: pptx.SchemeColor.accent1, hyperlink: { url: "https://www.google.com" } } }];
+	let arrCell3 = [{ text: "google", options: { bullet: true, color: SchemeColor.accent1, hyperlink: { url: "https://www.google.com" } } }];
 
 	let arrCell4 = [{ text: "Numbers\nNumbers\nNumbers", options: { color: "0088cc", bullet: { type: "number" } } }];
 	slide.addTable(

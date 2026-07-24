@@ -45,7 +45,7 @@ export function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: 
 	// the "needs repair" dialog and drop the shape. Fail loudly instead.
 	if (!VALID_SHAPE_PRESETS.has(shapeName)) {
 		throw new Error(
-			`Invalid shape "${String(shapeName)}"! Use a value from \`pptx.ShapeType.*\` (e.g. \`pptx.ShapeType.rect\`). PowerPoint can't render unknown preset geometries and will drop the shape during repair.`
+			`Invalid shape "${String(shapeName)}"! Use a value from \`ShapeType.*\` (e.g. \`ShapeType.rect\`). PowerPoint can't render unknown preset geometries and will drop the shape during repair.`
 		)
 	}
 	// Collect adjustment guides; track names so the generic `shapeAdjust` passthrough

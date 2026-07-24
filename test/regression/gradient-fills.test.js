@@ -1,3 +1,4 @@
+import { ShapeType } from '../../dist/node.js'
 import {
 	defineRegressionSuite,
 	build,
@@ -26,7 +27,7 @@ defineRegressionSuite('Gradient fills', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.rect, {
+				s.addShape(ShapeType.rect, {
 					x: 1,
 					y: 1,
 					w: 3,
@@ -100,7 +101,7 @@ defineRegressionSuite('Gradient fills', [
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
 				;[0, 359, 360, -90].forEach((angle, idx) => {
-					s.addShape(p.ShapeType.rect, {
+					s.addShape(ShapeType.rect, {
 						x: 1,
 						y: 1 + idx,
 						w: 2,
@@ -148,7 +149,7 @@ defineRegressionSuite('Gradient fills', [
 		fn: async () => {
 			await expectBuildError((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.rect, {
+				s.addShape(ShapeType.rect, {
 					x: 1,
 					y: 1,
 					w: 2,

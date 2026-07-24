@@ -7,6 +7,7 @@
  * BLD.: 20210421
  */
 
+import { ShapeType } from "@shbernal/ts-pptx";
 import { IMAGE_PATHS } from "../modules/enums.mjs";
 import { STARLABS_LOGO_SM } from "../modules/media.mjs";
 
@@ -169,7 +170,7 @@ export function createMasterSlides(pptx) {
 	// MARGIN_SLIDE (used for demo/test)
 	const MARGINS = [0.5, 0.5, 0.5, 0.5];
 	const TEXT_PROPS = {
-		shape: pptx.ShapeType.rect,
+		shape: ShapeType.rect,
 		fill: { color: "FFFCCC" },
 		color: "9f9f9f",
 		align: "center",

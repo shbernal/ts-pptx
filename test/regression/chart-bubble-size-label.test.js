@@ -1,3 +1,4 @@
+import { ChartType } from '../../dist/node.js'
 import { defineRegressionSuite, build, readEntry, listEntries, assert, assertIncludes } from '../helpers.js'
 
 // bubble charts could not show each bubble's size as a data label.
@@ -21,7 +22,7 @@ defineRegressionSuite('Chart bubble size data label', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addChart(BUBBLE_DATA, {
-					type: p.ChartType.bubble,
+					type: ChartType.bubble,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -38,7 +39,7 @@ defineRegressionSuite('Chart bubble size data label', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addChart(BUBBLE_DATA, {
-					type: p.ChartType.bubble3d,
+					type: ChartType.bubble3d,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -54,7 +55,7 @@ defineRegressionSuite('Chart bubble size data label', [
 		name: 'bubble chart: default (omitted) keeps <c:showBubbleSize val="0"/>',
 		fn: async () => {
 			const { zip } = await build((p) => {
-				p.addSlide().addChart(BUBBLE_DATA, { type: p.ChartType.bubble, x: 1, y: 1, w: 6, h: 3 })
+				p.addSlide().addChart(BUBBLE_DATA, { type: ChartType.bubble, x: 1, y: 1, w: 6, h: 3 })
 			})
 			const xml = await chartXml(zip)
 			assertIncludes(xml, '<c:showBubbleSize val="0"/>', 'bubble size label off by default')
@@ -69,7 +70,7 @@ defineRegressionSuite('Chart bubble size data label', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addChart(BUBBLE_DATA, {
-					type: p.ChartType.bubble,
+					type: ChartType.bubble,
 					x: 1,
 					y: 1,
 					w: 6,

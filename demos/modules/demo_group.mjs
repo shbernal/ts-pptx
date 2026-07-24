@@ -5,6 +5,7 @@
  * DEPS: Used by maintained demos (./demos/node, ./demos/vite-demo).
  */
 
+import { ShapeType } from "@shbernal/ts-pptx";
 import { BASE_TABLE_OPTS, BASE_TEXT_OPTS_L, BASE_TEXT_OPTS_R } from "./enums.mjs";
 
 export function genSlides_Group(pptx) {
@@ -38,7 +39,7 @@ function genSlide01(pptx) {
 					options: { x: 0.5, y: 1.0, w: 2.5, h: 1.2, color: "FFFFFF", align: "center", valign: "middle", bold: true, fontSize: 18 },
 				},
 			},
-			{ shape: { type: pptx.ShapeType.ellipse, options: { x: 3.1, y: 1.0, w: 1.2, h: 1.2, fill: { color: "ED7D31" } } } },
+			{ shape: { type: ShapeType.ellipse, options: { x: 3.1, y: 1.0, w: 1.2, h: 1.2, fill: { color: "ED7D31" } } } },
 		],
 		{ objectName: "FlatGroup" },
 	);
@@ -95,7 +96,7 @@ function genSlide02(pptx) {
 	// Independent add* calls, each with an objectName. groupObjects() then folds two of
 	// them into one group after the fact, leaving the third loose. Children keep their
 	// existing z-order and geometry; the wrapper takes the topmost member's former slot.
-	slide.addShape(pptx.ShapeType.rect, { x: 1.0, y: 1.2, w: 3.0, h: 1.0, fill: { color: "C00000" }, objectName: "Header" });
+	slide.addShape(ShapeType.rect, { x: 1.0, y: 1.2, w: 3.0, h: 1.0, fill: { color: "C00000" }, objectName: "Header" });
 	slide.addText("Caption", {
 		x: 1.2,
 		y: 2.4,
@@ -107,7 +108,7 @@ function genSlide02(pptx) {
 		valign: "middle",
 		objectName: "Caption",
 	});
-	slide.addShape(pptx.ShapeType.rect, { x: 6.0, y: 1.2, w: 2.0, h: 1.0, fill: { color: "00B050" }, objectName: "Loose" });
+	slide.addShape(ShapeType.rect, { x: 6.0, y: 1.2, w: 2.0, h: 1.0, fill: { color: "00B050" }, objectName: "Loose" });
 
 	slide.groupObjects(["Header", "Caption"], { objectName: "Banner" });
 

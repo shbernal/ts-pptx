@@ -25,7 +25,6 @@ export default defineConfig({
 	clean: true,
 	entry: {
 		index: 'src/index.ts',
-		core: 'src/core.ts',
 		inspect: 'src/inspect.ts',
 		measure: 'src/measure.ts',
 		read: 'src/read.ts',

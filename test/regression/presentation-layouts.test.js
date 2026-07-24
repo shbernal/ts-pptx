@@ -8,7 +8,7 @@ import {
 	inchesToEmu,
 	pixelsToEmu,
 	pointsToEmu,
-} from '../../dist/core.js'
+} from '../../dist/index.js'
 import { defineRegressionSuite, build, readEntry, assert, assertEqual } from '../helpers.js'
 
 const WIDE = STANDARD_LAYOUTS.LAYOUT_WIDE
@@ -75,14 +75,14 @@ defineRegressionSuite('Presentation layouts', 'legacy bug-22', [
 		},
 	},
 	{
-		name: 'standard layout presets expose intuitive inch accessors (.width/.height)',
+		name: 'standard layout presets expose inch accessors (.widthIn/.heightIn)',
 		fn: () => {
 			const wide = STANDARD_LAYOUTS.LAYOUT_WIDE
 			const std = STANDARD_LAYOUTS.LAYOUT_16x9
-			assertEqual(wide.width, wide.widthIn, 'LAYOUT_WIDE .width aliases .widthIn')
-			assertEqual(wide.height, wide.heightIn, 'LAYOUT_WIDE .height aliases .heightIn')
-			assertEqual(std.width, 10, 'LAYOUT_16x9 .width is 10in')
-			assertEqual(std.height, 5.625, 'LAYOUT_16x9 .height is 5.625in')
+			assertEqual(inchesToEmu(wide.widthIn), wide.widthEmu, 'LAYOUT_WIDE .widthIn converts to .widthEmu')
+			assertEqual(inchesToEmu(wide.heightIn), wide.heightEmu, 'LAYOUT_WIDE .heightIn converts to .heightEmu')
+			assertEqual(std.widthIn, 10, 'LAYOUT_16x9 .widthIn is 10in')
+			assertEqual(std.heightIn, 5.625, 'LAYOUT_16x9 .heightIn is 5.625in')
 		},
 	},
 	{

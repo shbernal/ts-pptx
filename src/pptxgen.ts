@@ -57,7 +57,7 @@
 
 import { warn } from './log.js'
 import Slide from './slide.js'
-import { AlignH, AlignV, ChartType, OutputType, SchemeColor, ShapeType, SlideObjectType } from './core-enums.js'
+import { SlideObjectType } from './core-enums.js'
 import { DEF_PRES_LAYOUT, DEF_PRES_LAYOUT_NAME, DEF_SLIDE_MARGIN_IN } from './core-enums-internal.js'
 import type {
 	AddSlideProps,
@@ -65,7 +65,6 @@ import type {
 	MeasureTextOptions,
 	OverflowBoxOptions,
 	PresLayout,
-	PresSlide,
 	SectionProps,
 	SlideLayout,
 	PackagePart,
@@ -90,6 +89,9 @@ import type {
 	SlideLayoutInternal,
 	TableStyleInternal,
 } from './types/internal.js'
+// `PresSlide` is the internal declaration name of the public `Slide` interface; it is
+// imported straight from `types/slide.js` because the barrel exposes it only as `Slide`.
+import type { PresSlide } from './types/slide.js'
 import type { RuntimeAdapter } from './runtime/types.js'
 import { FontMetricsRegistry, parseFontMetrics } from './font-metrics.js'
 import { type EmbeddedFont, type EmbeddedFontSlot, EMBEDDED_FONT_SLOTS } from './embedded-fonts.js'
@@ -100,7 +102,7 @@ import { avContentType, imageContentType } from './media/content-type.js'
 import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
 import type { ExtractedSlide, ExtractedSlides } from './read/api/presentation-types.js'
 
-export type { PresSlide as Slide } from './core-interfaces.js'
+export type { Slide } from './core-interfaces.js'
 export type {
 	AddSlideProps,
 	CustomPropertyValue,
@@ -152,7 +154,6 @@ export type {
 	PlaceholderProps,
 	PositionProps,
 	PresLayout,
-	PresSlide,
 	PresentationProps,
 	SectionProps,
 	ShadowProps,
@@ -216,14 +217,14 @@ function standardLayoutToPresLayout(layout: StandardLayout): PresLayout {
 
 /**
  * Main presentation class and package export flow — the public entry point consumers
- * instantiate (`new TsPptx()`). Owns presentation-level state and metadata, exposes
- * the enum bundles (`AlignH`, `ChartType`, `ShapeType`, …), collects slides, and drives
- * `write`/`writeFile`/`stream`. The actual OOXML string building is delegated to the
- * `gen-*` modules; runtime file/stream output goes through the injected `RuntimeAdapter`.
+ * instantiate (`new TsPptx()`). Owns presentation-level state and metadata, collects
+ * slides, and drives `write`/`writeFile`/`stream`. The actual OOXML string building is
+ * delegated to the `gen-*` modules; runtime file/stream output goes through the injected
+ * `RuntimeAdapter`. Enums (`AlignH`, `ChartType`, `ShapeType`, …) are imported from the
+ * package entry, not read off the instance.
  *
  * Rough layout of the class body:
  *   - Metadata accessors      layout / author / company / title / theme / sections getters+setters
- *   - Enum accessors          AlignH / AlignV / ChartType / OutputType / SchemeColor / ShapeType
  *   - Private slide helpers    addNewSlide, getSlide, setSlideNumber
  *   - Public export methods    stream / write / writeFile — delegate packaging to `writePackage`
  *   - Public authoring methods addSlide / defineLayout / defineSlideMaster / defineTableStyle
@@ -395,8 +396,8 @@ export default class PresentationCore {
 	/**
 	 * slide layout definition objects, used for generating slide layout files.
 	 * `protected` (not `private`) so the browser entry subclass can resolve
-	 * `tableToSlides({ masterSlideName })` against them — that method lives on the
-	 * browser/standalone build only (it reads a live DOM), see `browser.ts`.
+	 * `tableToSlides({ masterTitle })` against them — that method lives on the
+	 * browser build only (it reads a live DOM), see `browser.ts`.
 	 */
 	protected readonly _slideLayouts: SlideLayoutInternal[]
 	public get slideLayouts(): SlideLayout[] {
@@ -425,40 +426,9 @@ export default class PresentationCore {
 
 	private LAYOUTS: { [key: string]: PresLayout }
 
-	// Exposed class props
-	private readonly _alignH = AlignH
-	public get AlignH(): typeof AlignH {
-		return this._alignH
-	}
-
-	private readonly _alignV = AlignV
-	public get AlignV(): typeof AlignV {
-		return this._alignV
-	}
-
-	private readonly _chartType = ChartType
-	public get ChartType(): typeof ChartType {
-		return this._chartType
-	}
-
-	private readonly _outputType = OutputType
-	public get OutputType(): typeof OutputType {
-		return this._outputType
-	}
-
 	private _presLayout: PresLayout
 	public get presLayout(): PresLayout {
 		return this._presLayout
-	}
-
-	private readonly _schemeColor = SchemeColor
-	public get SchemeColor(): typeof SchemeColor {
-		return this._schemeColor
-	}
-
-	private readonly _shapeType = ShapeType
-	public get ShapeType(): typeof ShapeType {
-		return this._shapeType
 	}
 
 	private readonly _runtime: RuntimeAdapter
@@ -1015,7 +985,7 @@ export default class PresentationCore {
 	 * @returns {PresSlide} the new Slide
 	 */
 	addSlide(options?: AddSlideProps): PresSlide {
-		const masterSlideName = options?.masterTitle ?? ''
+		const masterTitle = options?.masterTitle ?? ''
 		const defLayout = this.LAYOUTS[DEF_PRES_LAYOUT]
 		if (!defLayout) throw new Error(`Default presentation layout "${DEF_PRES_LAYOUT}" is not registered`)
 		let slideLayout: SlideLayoutInternal = {
@@ -1028,8 +998,8 @@ export default class PresentationCore {
 			_slideObjects: [],
 		}
 
-		if (masterSlideName) {
-			const tmpLayout = this._slideLayouts.find((layout) => layout._name === masterSlideName)
+		if (masterTitle) {
+			const tmpLayout = this._slideLayouts.find((layout) => layout._name === masterTitle)
 			if (tmpLayout) slideLayout = tmpLayout
 		}
 
@@ -1111,7 +1081,7 @@ export default class PresentationCore {
 			_margin: propsClone.margin || DEF_SLIDE_MARGIN_IN,
 			// Kept RAW (unescaped) here, unlike `objectName`'s single-escape-upstream design: `_name`
 			// doubles as the lookup key `addSlide({masterTitle})` matches against the caller's raw
-			// `title` string (see the `layout._name === masterSlideName` comparisons in this file).
+			// `title` string (see the `layout._name === masterTitle` comparisons in this file).
 			// Escaping it here would break that match for any title containing `&`/`<`/`"`. It's
 			// escaped once at emission instead -- see `slideObjectToXml` in gen/slide/object.ts.
 			_name: propsClone.title,

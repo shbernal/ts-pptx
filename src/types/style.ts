@@ -117,7 +117,7 @@ export interface ShapeFillProps {
 	 * Fill color
 	 * - `HexColor` or `ThemeColor`
 	 * @example 'FF0000' // hex color (red)
-	 * @example pptx.SchemeColor.text1 // Theme color (Text1)
+	 * @example SchemeColor.text1 // Theme color (Text1)
 	 */
 	color?: Color
 	/**
@@ -238,7 +238,7 @@ export interface ConnectorProps {
 	 * fallback geometry (and are used if the name can't be resolved).
 	 *
 	 * A shape inside a group is a valid target — group children are named on the same slide — though
-	 * the connector itself cannot be a group child (see {@link PresSlide.addGroup}).
+	 * the connector itself cannot be a group child (see {@link Slide.addGroup}).
 	 */
 	startShape?: string
 	/**

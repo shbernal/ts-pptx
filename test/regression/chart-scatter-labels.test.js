@@ -1,3 +1,4 @@
+import { ChartType } from '../../dist/node.js'
 import {
 	defineRegressionSuite,
 	build,
@@ -35,7 +36,7 @@ defineRegressionSuite('Chart scatter data labels', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addChart(XY_SERIES, {
-					type: p.ChartType.scatter,
+					type: ChartType.scatter,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -64,7 +65,7 @@ defineRegressionSuite('Chart scatter data labels', [
 						{ name: 'Y1', values: [4, 5, 6], labels: [['Alpha', ' ', 'Gamma']] },
 					],
 					{
-						type: p.ChartType.scatter,
+						type: ChartType.scatter,
 						x: 1,
 						y: 1,
 						w: 6,
@@ -99,7 +100,7 @@ defineRegressionSuite('Chart scatter data labels', [
 						{ name: 'Y1', values: [4, 5, 6] },
 					],
 					{
-						type: p.ChartType.scatter,
+						type: ChartType.scatter,
 						x: 1,
 						y: 1,
 						w: 6,

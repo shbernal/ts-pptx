@@ -1,3 +1,4 @@
+import { ChartType } from '../../dist/node.js'
 import {
 	defineRegressionSuite,
 	build,
@@ -35,7 +36,7 @@ defineRegressionSuite('Chart bar3d series axis', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addChart(DATA, {
-					type: p.ChartType.bar3d,
+					type: ChartType.bar3d,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -58,7 +59,7 @@ defineRegressionSuite('Chart bar3d series axis', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addChart(DATA, {
-					type: p.ChartType.bar3d,
+					type: ChartType.bar3d,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -75,7 +76,7 @@ defineRegressionSuite('Chart bar3d series axis', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addChart(DATA, {
-					type: p.ChartType.bar3d,
+					type: ChartType.bar3d,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -102,7 +103,7 @@ defineRegressionSuite('Chart bar3d series axis', [
 			for (const pos of ['none', 'low', 'high', 'nextTo']) {
 				const { zip } = await build((p) => {
 					p.addSlide().addChart(DATA, {
-						type: p.ChartType.bar3d,
+						type: ChartType.bar3d,
 						x: 1,
 						y: 1,
 						w: 6,
@@ -120,7 +121,7 @@ defineRegressionSuite('Chart bar3d series axis', [
 		fn: async () => {
 			// bar3d defaults to barDir 'col', so the unset default is 'low'.
 			const { zip } = await build((p) => {
-				p.addSlide().addChart(DATA, { type: p.ChartType.bar3d, x: 1, y: 1, w: 6, h: 4 })
+				p.addSlide().addChart(DATA, { type: ChartType.bar3d, x: 1, y: 1, w: 6, h: 4 })
 			})
 			const serAx = serAxBlock(await chartXml(zip))
 			assertIncludes(serAx, '<c:tickLblPos val="low"/>', 'unset serAxisLabelPos falls back to the col default (low)')
@@ -131,7 +132,7 @@ defineRegressionSuite('Chart bar3d series axis', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addChart(DATA, {
-					type: p.ChartType.bar3d,
+					type: ChartType.bar3d,
 					x: 1,
 					y: 1,
 					w: 6,

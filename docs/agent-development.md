@@ -51,9 +51,8 @@ explicitly changed:
 - direct CDN script-tag support as a maintained package workflow.
 
 The package smoke test should continue to prove that old artifacts are absent
-and that `@shbernal/ts-pptx`, `@shbernal/ts-pptx/core`,
-`@shbernal/ts-pptx/inspect`, `@shbernal/ts-pptx/node`,
-`@shbernal/ts-pptx/browser`, and `@shbernal/ts-pptx/standalone` resolve.
+and that `@shbernal/ts-pptx`, `@shbernal/ts-pptx/inspect`,
+`@shbernal/ts-pptx/node`, and `@shbernal/ts-pptx/browser` resolve.
 The `./measure`, `./read`, `./math`, and `./zip` subpaths exist in package
 exports but are not yet covered by `pnpm run test:package` — see
 [Runtime And Package Support](runtime-and-package-support.md).

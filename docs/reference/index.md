@@ -20,10 +20,8 @@ deliberately exposed through the package boundary.
 The generated TypeDoc reference is built from public entry points:
 
 - `src/index.ts`
-- `src/core.ts`
 - `src/node.ts`
 - `src/browser.ts`
-- `src/standalone.ts`
 
 `src/inspect.ts`, `src/measure.ts`, `src/read.ts`, `src/math.ts`, and
 `src/zip.ts` are separate public subpaths (see

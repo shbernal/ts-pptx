@@ -35,6 +35,7 @@
  * as well as recording audio directly within the presentation using the built-in audio recording feature.
  */
 
+import { ShapeType } from "@shbernal/ts-pptx";
 import { IMAGE_PATHS, BASE_TABLE_OPTS, BASE_TEXT_OPTS_L, BASE_TEXT_OPTS_R, BASE_CODE_OPTS, CODE_STYLE, TITLE_STYLE } from "./enums.mjs";
 import { COVER_AUDIO, COVER_AUDIO_ROUND, COVER_VIDEO_16X9, COVER_VIDEO_MP4, COVER_YOUTUBE } from "./media.mjs";
 
@@ -172,7 +173,7 @@ function genSlide03(pptx) {
 
 	// FOOTER
 	slide.addText("Note: YouTube videos require newer versions of PowerPoint (v16+/M365). Older versions will show content warning messages.", {
-		shape: pptx.ShapeType.rect,
+		shape: ShapeType.rect,
 		x: 0.0,
 		y: 7.0,
 		w: "100%",

@@ -39,6 +39,11 @@ export * from './types/table.js'
 export * from './types/chart.js'
 export * from './types/animation.js'
 export * from './types/master.js'
-export * from './types/slide.js'
+// `types/slide.js` is re-exported by name (not `export *`) so the authoring-surface
+// interface is public *only* as `Slide` — its internal declaration name `PresSlide`
+// stays out of the published barrel. Internal code imports `PresSlide` straight from
+// `./types/slide.js`. Keep this list in sync when adding a public export there.
+export type { GroupChildProps, GroupProps, ObjectOptions, SlideLayout, AddSlideProps } from './types/slide.js'
+export type { PresSlide as Slide } from './types/slide.js'
 export * from './types/pres.js'
 export * from './types/zoom.js'

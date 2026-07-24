@@ -12,7 +12,7 @@ doc_type: "reference"
 # Layout Units
 
 ts-pptx exposes PowerPoint geometry constants and small conversion helpers
-from the root package and from `@shbernal/ts-pptx/core`.
+from the root package (`@shbernal/ts-pptx`).
 
 ## Standard Layouts
 

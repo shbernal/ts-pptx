@@ -13,7 +13,7 @@ import { assert, assertEqual } from '../helpers.js'
 // entries cannot silently diverge again.
 
 // Every entry listed in package.json `exports` that ships a runtime module.
-const ENTRIES = ['index', 'node', 'browser', 'standalone', 'core']
+const ENTRIES = ['index', 'node', 'browser']
 
 describe('Entry export surface', () => {
 	for (const entry of ENTRIES) {

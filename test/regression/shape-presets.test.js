@@ -1,3 +1,4 @@
+import { ShapeType } from '../../dist/node.js'
 import { defineRegressionSuite, build, readEntry, assert, assertXmlOrder } from '../helpers.js'
 
 defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
@@ -44,16 +45,16 @@ defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 		},
 	},
 	{
-		name: 'enum-constant API still works (pres.ShapeType.ellipse -> ellipse)',
+		name: 'enum-constant API still works (ShapeType.ellipse -> ellipse)',
 		fn: async () => {
 			const { zip, pres } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.ellipse, { x: 1, y: 1, w: 0.4, h: 0.4 })
+				s.addShape(ShapeType.ellipse, { x: 1, y: 1, w: 0.4, h: 0.4 })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			assert(
 				/<a:prstGeom\s+prst="ellipse"/.test(xml),
-				'expected prstGeom prst="ellipse" via pres.ShapeType.ellipse; got: ' + xml
+				'expected prstGeom prst="ellipse" via ShapeType.ellipse; got: ' + xml
 			)
 			void pres
 		},
@@ -75,11 +76,11 @@ defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 		},
 	},
 	{
-		name: 'pres.ShapeType.foldedCorner emits the valid spec spelling prst="foldedCorner"',
+		name: 'ShapeType.foldedCorner emits the valid spec spelling prst="foldedCorner"',
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.foldedCorner, { x: 1, y: 1, w: 2, h: 1 })
+				s.addShape(ShapeType.foldedCorner, { x: 1, y: 1, w: 2, h: 1 })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			assert(/<a:prstGeom\s+prst="foldedCorner"/.test(xml), 'expected prst="foldedCorner"; got: ' + xml)
@@ -129,7 +130,7 @@ defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.custGeom, {
+				s.addShape(ShapeType.custGeom, {
 					x: 1,
 					y: 1,
 					w: 2,
@@ -150,7 +151,7 @@ defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.custGeom, {
+				s.addShape(ShapeType.custGeom, {
 					x: 1,
 					y: 1,
 					w: 2,
@@ -175,7 +176,7 @@ defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.custGeom, {
+				s.addShape(ShapeType.custGeom, {
 					x: 1,
 					y: 1,
 					w: 2,
@@ -239,7 +240,7 @@ defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 			try {
 				const { zip } = await build((p) => {
 					const s = p.addSlide()
-					s.addShape(p.ShapeType.custGeom, {
+					s.addShape(ShapeType.custGeom, {
 						x: 1,
 						y: 1,
 						w: 2,
@@ -271,7 +272,7 @@ defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 			try {
 				const { zip } = await build((p) => {
 					const s = p.addSlide()
-					s.addShape(p.ShapeType.custGeom, {
+					s.addShape(ShapeType.custGeom, {
 						x: 1,
 						y: 1,
 						w: 2,

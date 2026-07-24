@@ -18,11 +18,11 @@ import type {
 	AddSlideProps,
 	BorderProps,
 	PresLayout,
-	PresSlide,
 	TableCell,
 	TableToSlidesProps,
 	TableCellProps,
 } from '../../core-interfaces.js'
+import type { PresSlide } from '../../types/slide.js'
 import type { SlideLayoutInternal } from '../../types/internal.js'
 import { rgbToHex } from '../drawingml/color.js'
 import { inch2Emu } from '../../units-internal.js'
@@ -314,7 +314,7 @@ export function genTableToSlides(
 		masterSlide
 	).forEach((slide, idxTr) => {
 		// A: Create new Slide
-		const newSlide = pptx.addSlide({ masterTitle: opts.masterSlideName || undefined })
+		const newSlide = pptx.addSlide({ masterTitle: opts.masterTitle || undefined })
 
 		// B: DESIGN: Reset `y` to startY or margin after first Slide
 		if (idxTr === 0) opts.y = opts.y || arrInchMargins[0]

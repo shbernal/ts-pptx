@@ -138,7 +138,7 @@ export interface TextBaseProps {
 	 * - `HexColor` or `ThemeColor`
 	 * - MS-PPT > Format Shape > Text Options > Text Fill & Outline > Text Fill > Color
 	 * @example 'FF0000' // hex color (red)
-	 * @example pptx.SchemeColor.text1 // Theme color (Text1)
+	 * @example SchemeColor.text1 // Theme color (Text1)
 	 */
 	color?: Color
 	/**
@@ -352,7 +352,7 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 * Shape fill
 	 * @example { color:'FF0000' } // hex color (red)
 	 * @example { color:'0088CC', transparency:50 } // hex color, 50% transparent
-	 * @example { color:pptx.SchemeColor.accent1 } // theme color Accent1
+	 * @example { color:SchemeColor.accent1 } // theme color Accent1
 	 */
 	fill?: ShapeFillProps
 	/**
@@ -410,7 +410,7 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 */
 	placeholder?: string
 	/**
-	 * Rounded rectangle radius (only for pptx.ShapeType.roundRect)
+	 * Rounded rectangle radius (only for ShapeType.roundRect)
 	 * - values: 0.0 to 1.0
 	 * @default 0
 	 */
@@ -437,6 +437,11 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	 * @default middle
 	 */
 	valign?: VAlign
+	/**
+	 * Advanced/legacy escape hatch for the full `ST_TextVerticalType` range (e.g. `eaVert`,
+	 * `mongolianVert`, `wordArtVert`). Prefer {@link TextBaseProps.textDirection} for the common
+	 * cases; both map to `a:bodyPr@vert`.
+	 */
 	vert?: TextVertType
 	/**
 	 * Text wrap

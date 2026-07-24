@@ -44,7 +44,7 @@ export function rgbToHex(r: number, g: number, b: number): string {
  * wraps this in `<a:solidFill>…</a:solidFill>` and also handles `alpha`/`transparency` and the
  * gradient/pattern/image fill types — reach for `createColorElement` directly only when you
  * need the raw color element (e.g. inside `<a:ln>`, `<a:gs>`, an effect, or a highlight).
- * @param {string|SCHEME_COLORS} colorStr - hex RGB (e.g. "FFFF00") or a scheme color constant (e.g. pptx.SchemeColor.ACCENT1)
+ * @param {string|SCHEME_COLORS} colorStr - hex RGB (e.g. "FFFF00") or a scheme color constant (e.g. SchemeColor.ACCENT1)
  * @param {string} [innerElements] - additional elements that adjust the color, nested inside the color element
  * @returns {string} XML string
  */
@@ -72,7 +72,7 @@ export function createColorElement(colorStr: string | SCHEME_COLORS, innerElemen
 
 	if (!REGEX_HEX_COLOR.test(colorVal) && !Object.values(SchemeColor).includes(colorVal as SchemeColor)) {
 		warn(
-			`"${colorVal}" is not a valid scheme color or hex RGB! "${DEF_FONT_COLOR}" used instead. Only provide 6-digit RGB or 'pptx.SchemeColor' values!`
+			`"${colorVal}" is not a valid scheme color or hex RGB! "${DEF_FONT_COLOR}" used instead. Only provide 6-digit RGB or 'SchemeColor' values!`
 		)
 		colorVal = DEF_FONT_COLOR
 	}

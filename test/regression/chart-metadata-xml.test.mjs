@@ -1,3 +1,4 @@
+import { ChartType } from '../../dist/node.js'
 import { describe, expect, test } from 'vitest'
 import { build, readEntry, listEntries, assert } from '../helpers.js'
 
@@ -18,7 +19,7 @@ describe('chart metadata extLst', () => {
 	test('metadata keys/values are escaped and wrapped in the pgm:metadata extension', async () => {
 		const { zip } = await build((p) => {
 			p.addSlide().addChart(DATA, {
-				type: p.ChartType.bar,
+				type: ChartType.bar,
 				x: 1,
 				y: 1,
 				w: 6,
@@ -34,7 +35,7 @@ describe('chart metadata extLst', () => {
 
 	test('no metadata option emits no extLst', async () => {
 		const { zip } = await build((p) => {
-			p.addSlide().addChart(DATA, { type: p.ChartType.bar, x: 1, y: 1, w: 6, h: 4 })
+			p.addSlide().addChart(DATA, { type: ChartType.bar, x: 1, y: 1, w: 6, h: 4 })
 		})
 		const xml = await chartXml(zip)
 		expect(xml).not.toContain('pgm:metadata')

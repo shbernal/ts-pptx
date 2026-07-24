@@ -1,6 +1,6 @@
 {
 	"$schema": "https://typedoc.org/schema.json",
-	"entryPoints": ["src/index.ts", "src/core.ts", "src/node.ts", "src/browser.ts", "src/standalone.ts"],
+	"entryPoints": ["src/index.ts", "src/node.ts", "src/browser.ts"],
 	"entryPointStrategy": "resolve",
 	"excludeInternal": true,
 	"excludePrivate": true,

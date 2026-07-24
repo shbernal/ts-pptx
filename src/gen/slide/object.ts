@@ -233,7 +233,7 @@ const hasCompleteGroupFrame = (options: ObjectOptions): boolean =>
 export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): string {
 	// `_name` is escaped HERE, at emission, unlike `objectName`'s single-escape-upstream design
 	// (see `cNvPrOpen`): `_name` doubles as the raw lookup key `addSlide({masterTitle})` matches
-	// against the caller's `title` string (pptxgen.ts, `layout._name === masterSlideName`), so it
+	// against the caller's `title` string (pptxgen.ts, `layout._name === masterTitle`), so it
 	// must stay unescaped until the last possible moment or that match breaks for any title
 	// containing `&`/`<`/`"`. Plain slides' default `_name` ("Slide N", slide.ts) never contains
 	// XML metacharacters, so escaping it here is a no-op for that path.

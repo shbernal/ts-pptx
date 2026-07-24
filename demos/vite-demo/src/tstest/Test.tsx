@@ -2,7 +2,7 @@
  * Test TypeScript Defs file
  */
 import { SVG_MASTODON_LOGO_BASE64, STARLABS_LOGO_SM } from "../enums";
-import TsPptx, { type HAlign, type TableProps, type TableRow, type TextPropsOptions } from "@shbernal/ts-pptx";
+import TsPptx, { AlignH, ChartType, SchemeColor, ShapeType, type HAlign, type TableProps, type TableRow, type TextPropsOptions } from "@shbernal/ts-pptx";
 
 const fediverseTreeUrl = new URL("../../../common/images/fediverse_tree.jpg", import.meta.url).href;
 const sampleAviUrl = new URL("../../../common/media/sample.avi", import.meta.url).href;
@@ -39,7 +39,7 @@ export function testMainMethods() {
 		title: "MASTER_SLIDE",
 		background: { color: "FFFFFF" },
 		margin: [0.5, 0.25, 1.0, 0.25],
-		slideNumber: { x: 0.6, y: 7.0, color: "FFFFFF", fontFace: "Arial", fontSize: 10, align: pptx.AlignH.center },
+		slideNumber: { x: 0.6, y: 7.0, color: "FFFFFF", fontFace: "Arial", fontSize: 10, align: AlignH.center },
 		objects: [
 			{ rect: { x: 0.0, y: "90%", w: "100%", h: 0.75, fill: { color: "003b75" } } },
 			{ image: { x: "90%", y: "90%", w: 0.75, h: 0.75, data: SVG_MASTODON_LOGO_BASE64 } },
@@ -63,15 +63,12 @@ export function testMainMethods() {
 	// PPTX Export Method 1:
 	pptx.writeFile({ fileName: "testFile" }).then((fileName) => console.log(`writeFile: ${fileName}`));
 	// PPTX Export Method 2:
-	//pptx.write(pptx.OutputType.base64).then((base64) => console.log("base64!")); // TEST-Type: outputType // Works v3.1.1
+	//pptx.write(OutputType.base64).then((base64) => console.log("base64!")); // TEST-Type: outputType // Works v3.1.1
 	// PPTX Export Method 3:
 	//pptx.stream().then(() => console.log("stream!")); // Works v3.1.1
 }
 
 function basicDemoSlide(pptx: TsPptx) {
-	// LEGACY-TEST: @deprecated in v3.3.0
-	//pptx.addSlide("masterName"); // slide0
-
 	pptx.addSection({ title: "TypeScript" });
 
 	// PPTX Method 3:
@@ -88,8 +85,8 @@ function basicDemoSlide(pptx: TsPptx) {
 		h: 0.33,
 		fontSize: 10,
 		align: "center",
-		fill: { color: "E1E1E1" }, //{ color: pptx.SchemeColor.background2 },
-		color: "A1A1A1", // pptx.SchemeColor.accent3,
+		fill: { color: "E1E1E1" }, //{ color: SchemeColor.background2 },
+		color: "A1A1A1", // SchemeColor.accent3,
 	});
 
 	const opts: TextPropsOptions = {
@@ -97,7 +94,7 @@ function basicDemoSlide(pptx: TsPptx) {
 		y: 1,
 		w: "100%",
 		h: 2.0,
-		fill: { color: pptx.SchemeColor.background1 },
+		fill: { color: SchemeColor.background1 },
 		align: "center",
 		fontSize: 48,
 	};
@@ -114,7 +111,7 @@ function testMethod_Chart(pptx: TsPptx) {
 			values: [26, 53, 100, 75, 41],
 		},
 	];
-	slide.addChart(dataChart, { type: pptx.ChartType.bar, x: 0.5, y: 2.5, w: 5.25, h: 4 }); // TEST: charts
+	slide.addChart(dataChart, { type: ChartType.bar, x: 0.5, y: 2.5, w: 5.25, h: 4 }); // TEST: charts
 }
 function testMethod_Table(pptx: TsPptx) {
 	pptx.addSection({ title: "Tables" });
@@ -419,10 +416,10 @@ function testMethod_Media(pptx: TsPptx) {
 function testMethod_Shape(pptx: TsPptx) {
 	const slide = pptx.addSlide();
 
-	slide.addShape(pptx.ShapeType.rect, { x: 7.6, y: 2.8, w: 3, h: 3, fill: { color: "66ff99" } });
+	slide.addShape(ShapeType.rect, { x: 7.6, y: 2.8, w: 3, h: 3, fill: { color: "66ff99" } });
 
 	slide.addText("OVAL (transparency:50)", {
-		shape: pptx.ShapeType.ellipse,
+		shape: ShapeType.ellipse,
 		x: 5.4,
 		y: 0.8,
 		w: 3.0,
@@ -432,7 +429,7 @@ function testMethod_Shape(pptx: TsPptx) {
 		fontSize: 14,
 	});
 	slide.addText("LINE size=4", {
-		shape: pptx.ShapeType.line,
+		shape: ShapeType.line,
 		x: 4.15,
 		y: 5.6,
 		w: 5,
@@ -440,7 +437,7 @@ function testMethod_Shape(pptx: TsPptx) {
 		line: { color: "FF0000", width: 4, beginArrowType: "triangle", endArrowType: "triangle" },
 	});
 	slide.addText("DIAGONAL", {
-		shape: pptx.ShapeType.line,
+		shape: ShapeType.line,
 		valign: "bottom",
 		x: 5.7,
 		y: 3.3,
@@ -450,7 +447,7 @@ function testMethod_Shape(pptx: TsPptx) {
 		rotate: 360 - 45,
 	});
 	slide.addText("RIGHT-TRIANGLE", {
-		shape: pptx.ShapeType.rtTriangle,
+		shape: ShapeType.rtTriangle,
 		align: "center",
 		x: 0.4,
 		y: 4.3,
@@ -460,7 +457,7 @@ function testMethod_Shape(pptx: TsPptx) {
 		line: { color: "000000", width: 3 },
 	});
 	slide.addText("RIGHT-TRIANGLE", {
-		shape: pptx.ShapeType.rtTriangle,
+		shape: ShapeType.rtTriangle,
 		align: "center",
 		x: 7.0,
 		y: 4.3,
@@ -500,8 +497,8 @@ function testMethod_Text(pptx: TsPptx) {
 		align: "center",
 		fontFace: "Courier New",
 		bullet: { type: "number", numberStartAt: 5 },
-		color: pptx.SchemeColor.accent6,
-		fill: { color: pptx.SchemeColor.background2 },
+		color: SchemeColor.accent6,
+		fill: { color: SchemeColor.background2 },
 	});
 }
 function testMethod_Masters(pptx: TsPptx) {
@@ -648,7 +645,7 @@ function testMethod_Masters(pptx: TsPptx) {
 	// MARGIN_SLIDE (used for demo/test)
 	const MARGINS: [number, number, number, number] = [0.5, 0.5, 0.5, 0.5];
 	const TEXT_PROPS = {
-		shape: pptx.ShapeType.rect,
+		shape: ShapeType.rect,
 		fill: { color: "FFFCCC" },
 		color: "9f9f9f",
 		align: "center" as HAlign,

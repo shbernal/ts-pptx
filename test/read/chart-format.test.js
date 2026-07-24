@@ -6,6 +6,7 @@
 // the write API, reading it back through the deep model, and asserting the
 // extracted values match what was written. The writer's bytes are the fixture.
 
+import { ChartType } from '../../dist/node.js'
 import { describe, test } from 'vitest'
 import { authorRead, firstChart, schemaErrors, validatorInstalled } from './authored.js'
 import { assert, assertEqual } from '../helpers.js'
@@ -17,7 +18,7 @@ function formattedBar(pres) {
 		{ name: 'Revenue', labels: ['A', 'B', 'C'], values: [40, 50, 60] },
 	]
 	pres.addSlide().addChart(data, {
-		type: pres.ChartType.bar,
+		type: ChartType.bar,
 		x: 1,
 		y: 1,
 		w: 8,
@@ -48,7 +49,7 @@ function formattedBar(pres) {
 function formattedLine(pres) {
 	const data = [{ name: 'Trend', labels: ['A', 'B', 'C'], values: [1, 2, 3] }]
 	pres.addSlide().addChart(data, {
-		type: pres.ChartType.line,
+		type: ChartType.line,
 		x: 1,
 		y: 1,
 		w: 8,
@@ -132,7 +133,7 @@ describe('Chart legend — c:legend', () => {
 			(
 				await authorRead((pres) => {
 					pres.addSlide().addChart([{ name: 'S', labels: ['A'], values: [1] }], {
-						type: pres.ChartType.bar,
+						type: ChartType.bar,
 						x: 1,
 						y: 1,
 						w: 6,

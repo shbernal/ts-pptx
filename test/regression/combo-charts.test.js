@@ -1,3 +1,4 @@
+import { ChartType } from '../../dist/node.js'
 import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
 defineRegressionSuite('Combo chart axes', 'legacy bug-06', [
@@ -10,8 +11,8 @@ defineRegressionSuite('Combo chart axes', 'legacy bug-06', [
 				const data2 = [{ name: 'b', labels: ['x', 'y'], values: [10, 20] }]
 				s.addChart(
 					[
-						{ type: p.ChartType.bar, data: data, options: {} },
-						{ type: p.ChartType.line, data: data2, options: { secondaryValAxis: true, secondaryCatAxis: true } },
+						{ type: ChartType.bar, data: data, options: {} },
+						{ type: ChartType.line, data: data2, options: { secondaryValAxis: true, secondaryCatAxis: true } },
 					],
 					{ x: 1, y: 1, w: 6, h: 3 }
 				)

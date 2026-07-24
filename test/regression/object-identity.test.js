@@ -1,3 +1,4 @@
+import { ChartType, ShapeType } from '../../dist/node.js'
 import { vi } from 'vitest'
 import {
 	defineRegressionSuite,
@@ -20,7 +21,7 @@ defineRegressionSuite('Object identity', 'legacy bug-21', [
 			const { zip } = await build((p) => {
 				const slide = p.addSlide()
 				slide.addText('Named text', { x: 0.4, y: 0.3, w: 2, h: 0.4, objectName: 'identity:text' })
-				slide.addShape(p.ShapeType.rect, { x: 0.4, y: 0.9, w: 1, h: 0.4, objectName: 'identity:shape' })
+				slide.addShape(ShapeType.rect, { x: 0.4, y: 0.9, w: 1, h: 0.4, objectName: 'identity:shape' })
 				slide.addImage({
 					data: `image/png;base64,${PNG_1X1}`,
 					x: 1.7,
@@ -31,7 +32,7 @@ defineRegressionSuite('Object identity', 'legacy bug-21', [
 					altText: 'Identity image',
 				})
 				slide.addChart([{ name: 'Series 1', labels: ['A', 'B'], values: [1, 2] }], {
-					type: p.ChartType.bar,
+					type: ChartType.bar,
 					x: 2.4,
 					y: 0.4,
 					w: 2,
@@ -86,7 +87,7 @@ defineRegressionSuite('Object identity', 'legacy bug-21', [
 				const slide = p.addSlide() // slide 2 — triggers the legacy table-id collision
 				slide.addTable([[{ text: 'A1' }, { text: 'B1' }]], { x: 0.5, y: 0.5, w: 4, h: 0.6 })
 				slide.addText('sibling text', { x: 0.5, y: 1.5, w: 3, h: 0.5 })
-				slide.addShape(p.ShapeType.rect, { x: 0.5, y: 2.5, w: 2, h: 0.5 })
+				slide.addShape(ShapeType.rect, { x: 0.5, y: 2.5, w: 2, h: 0.5 })
 			})
 
 			const xml = await readEntry(zip, 'ppt/slides/slide2.xml')
@@ -111,7 +112,7 @@ defineRegressionSuite('Object identity', 'legacy bug-21', [
 				slide.slideNumber = { x: 0.5, y: '90%' }
 				for (let i = 0; i < 24; i++) {
 					// idx 0..23 -> ids 2..25; object 23 lands on the old hardcoded slide-number id 25
-					slide.addShape(p.ShapeType.rect, { x: 0.2, y: 0.2 + i * 0.1, w: 1, h: 0.08 })
+					slide.addShape(ShapeType.rect, { x: 0.2, y: 0.2 + i * 0.1, w: 1, h: 0.08 })
 				}
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
@@ -137,7 +138,7 @@ defineRegressionSuite('Object identity', 'legacy bug-21', [
 			const { zip } = await build((p) => {
 				const slide = p.addSlide()
 				slide.slideNumber = { x: 0.5, y: '90%' }
-				slide.addShape(p.ShapeType.rect, { x: 0.2, y: 0.2, w: 1, h: 0.4 }) // idx 0 -> id 2
+				slide.addShape(ShapeType.rect, { x: 0.2, y: 0.2, w: 1, h: 0.4 }) // idx 0 -> id 2
 				// group is idx 1 -> id 3; its children seed past length (2) -> ids 4, 5, 6
 				slide.addGroup([
 					{ rect: { x: 1, y: 1, w: 1, h: 1 } },
@@ -168,7 +169,7 @@ defineRegressionSuite('Object identity', 'legacy bug-21', [
 			const { zip } = await build((p) => {
 				const slide = p.addSlide()
 				slide.addText('Named text', { x: 0.4, y: 0.3, w: 2, h: 0.4, objectName: 'alt:text', altText: 'Text alt' })
-				slide.addShape(p.ShapeType.rect, {
+				slide.addShape(ShapeType.rect, {
 					x: 0.4,
 					y: 0.9,
 					w: 1,
@@ -226,7 +227,7 @@ defineRegressionSuite('Object identity', 'legacy bug-21', [
 			const { zip } = await build((p) => {
 				const slide = p.addSlide()
 				slide.addText('Text', { x: 0.4, y: 0.3, w: 2, h: 0.4 })
-				slide.addShape(p.ShapeType.rect, { x: 0.4, y: 0.9, w: 1, h: 0.4 })
+				slide.addShape(ShapeType.rect, { x: 0.4, y: 0.9, w: 1, h: 0.4 })
 				slide.addImage({ data: `image/png;base64,${PNG_1X1}`, x: 1.7, y: 0.9, w: 0.4, h: 0.4 })
 				slide.addTable([[{ text: 'A1' }]], { x: 4.8, y: 0.4, w: 2, h: 0.6 })
 			})
@@ -249,7 +250,7 @@ defineRegressionSuite('Object identity', 'legacy bug-21', [
 				await build((p) => {
 					const slide = p.addSlide()
 					slide.addText('Blank name', { x: 0.4, y: 0.3, w: 2, h: 0.4, objectName: '   ' })
-					slide.addShape(p.ShapeType.rect, { x: 0.4, y: 0.9, w: 1, h: 0.4, objectName: 'ctrlname' })
+					slide.addShape(ShapeType.rect, { x: 0.4, y: 0.9, w: 1, h: 0.4, objectName: 'ctrlname' })
 				})
 				const messages = warnSpy.mock.calls.map((call) => String(call[0]))
 				assert(

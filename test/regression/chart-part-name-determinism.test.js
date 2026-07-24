@@ -1,3 +1,4 @@
+import { ChartType } from '../../dist/node.js'
 import { defineRegressionSuite, build, listEntries, assert, assertEqual } from '../helpers.js'
 
 // Chart part filenames must be a pure function of deck structure, not of process
@@ -19,8 +20,8 @@ const embeddingParts = (zip) =>
 const buildTwoChartDeck = (p) => {
 	const data1 = [{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }]
 	const data2 = [{ name: 'S2', labels: ['A', 'B'], values: [3, 4] }]
-	p.addSlide().addChart(data1, { type: p.ChartType.bar, x: 1, y: 1, w: 4, h: 3 })
-	p.addSlide().addChart(data2, { type: p.ChartType.line, x: 1, y: 1, w: 4, h: 3 })
+	p.addSlide().addChart(data1, { type: ChartType.bar, x: 1, y: 1, w: 4, h: 3 })
+	p.addSlide().addChart(data2, { type: ChartType.line, x: 1, y: 1, w: 4, h: 3 })
 }
 
 defineRegressionSuite('Chart part-name determinism', 'backlog fork-chart-counter-nondeterminism', [

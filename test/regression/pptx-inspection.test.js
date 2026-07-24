@@ -1,3 +1,4 @@
+import { ShapeType } from '../../dist/node.js'
 import {
 	inspectPptx,
 	boxAnchor,
@@ -85,7 +86,7 @@ defineRegressionSuite('PPTX inspection primitives', [
 					fontSize: 18,
 					color: '336699',
 				})
-				slide.addShape(p.ShapeType.rect, {
+				slide.addShape(ShapeType.rect, {
 					x: 4,
 					y: 1,
 					w: 1.5,

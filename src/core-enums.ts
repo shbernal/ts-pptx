@@ -3,7 +3,12 @@
  * NOTE: `enum` wont work for objects, so use `Object.freeze`
  */
 
-export type ZIP_OUTPUT_TYPE = 'arraybuffer' | 'base64' | 'binarystring' | 'blob' | 'nodebuffer' | 'uint8array'
+/**
+ * Output-type name accepted by the zip/write layer. Derived from the `OutputType`
+ * enum (see below) so the two never drift: adding a member to the enum extends this
+ * union automatically.
+ */
+export type ZIP_OUTPUT_TYPE = `${OutputType}`
 export type WRITE_OUTPUT_TYPE = ZIP_OUTPUT_TYPE | 'STREAM'
 /**
  * Public chart-type name accepted by `addChart()`. Derived from the internal
@@ -11,8 +16,11 @@ export type WRITE_OUTPUT_TYPE = ZIP_OUTPUT_TYPE | 'STREAM'
  * enum extends this union automatically.
  */
 export type CHART_NAME = `${ChartType}`
-export type SCHEME_COLORS =
-	'tx1' | 'tx2' | 'bg1' | 'bg2' | 'accent1' | 'accent2' | 'accent3' | 'accent4' | 'accent5' | 'accent6'
+/**
+ * Public scheme-color name. Derived from the `SchemeColor` enum (see below) so the
+ * two never drift.
+ */
+export type SCHEME_COLORS = `${SchemeColor}`
 
 export enum TextAnchor {
 	b = 'b',
@@ -566,7 +574,11 @@ export enum PlaceholderType {
 	table = 'tbl',
 	media = 'media',
 }
-export type PLACEHOLDER_TYPE = 'title' | 'body' | 'pic' | 'chart' | 'tbl' | 'media'
+/**
+ * Placeholder-type name. Derived from the `PlaceholderType` enum (above) so the two
+ * never drift.
+ */
+export type PLACEHOLDER_TYPE = `${PlaceholderType}`
 
 /**
  * Bullet glyph presets. Only `DEFAULT` is currently wired through to output; the remaining entries are

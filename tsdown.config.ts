@@ -20,7 +20,6 @@ export default defineConfig([
 		clean: true,
 		entry: {
 			index: 'src/index.ts',
-			core: 'src/core.ts',
 			inspect: 'src/inspect.ts',
 			measure: 'src/measure.ts',
 			read: 'src/read.ts',
@@ -29,18 +28,5 @@ export default defineConfig([
 			node: 'src/node.ts',
 			browser: 'src/browser.ts',
 		},
-	},
-	{
-		...shared,
-		clean: false,
-		deps: {
-			alwaysBundle: ['jszip'],
-			neverBundle: ['node:fs', 'node:https'],
-			onlyBundle: false,
-		},
-		entry: {
-			standalone: 'src/standalone.ts',
-		},
-		platform: 'browser',
 	},
 ])

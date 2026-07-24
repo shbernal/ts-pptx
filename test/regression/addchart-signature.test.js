@@ -1,3 +1,4 @@
+import { ChartType } from '../../dist/node.js'
 import { defineRegressionSuite, build, readEntry, listEntries, assert } from '../helpers.js'
 import TsPptx from '../../dist/node.js'
 
@@ -16,7 +17,7 @@ defineRegressionSuite('addChart signature', [
 		name: 'canonical form addChart(data, { type }) emits a bar chart',
 		fn: async () => {
 			const { zip } = await build((p) => {
-				p.addSlide().addChart(DATA, { type: p.ChartType.bar, x: 1, y: 1, w: 6, h: 3 })
+				p.addSlide().addChart(DATA, { type: ChartType.bar, x: 1, y: 1, w: 6, h: 3 })
 			})
 			const xml = await chartPart(zip)
 			assert(xml.includes('<c:barChart>'), 'expected <c:barChart> from canonical form; got: ' + xml.slice(0, 200))
@@ -28,9 +29,9 @@ defineRegressionSuite('addChart signature', [
 			const { zip } = await build((p) => {
 				p.addSlide().addChart(
 					[
-						{ type: p.ChartType.bar, data: DATA, options: {} },
+						{ type: ChartType.bar, data: DATA, options: {} },
 						{
-							type: p.ChartType.line,
+							type: ChartType.line,
 							data: [{ name: 'B', labels: ['Q1', 'Q2', 'Q3'], values: [1, 2, 3] }],
 							options: {},
 						},

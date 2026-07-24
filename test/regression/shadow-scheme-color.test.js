@@ -1,3 +1,4 @@
+import { ShapeType } from '../../dist/node.js'
 import JSZip from 'jszip'
 import TsPptx from '../../dist/node.js'
 import { defineRegressionSuite, assert } from '../helpers.js'
@@ -20,7 +21,7 @@ defineRegressionSuite('Shadow scheme colors', 'shadow-consolidation', [
 		fn: async () => {
 			const pres = new TsPptx()
 			const slide = pres.addSlide()
-			slide.addShape(pres.ShapeType.rect, {
+			slide.addShape(ShapeType.rect, {
 				x: 1,
 				y: 1,
 				w: 2,

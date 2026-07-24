@@ -80,14 +80,14 @@ const EXPECTED_OLE_PROGID = {
 const EMPTY_ZIP_B64 = 'UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA=='
 
 async function loadTsPptx() {
-	const { default: TsPptx } = await import(pathToFileURL(path.join(ROOT, 'dist', 'node.js')).href)
-	return TsPptx
+	const { default: TsPptx, ShapeType } = await import(pathToFileURL(path.join(ROOT, 'dist', 'node.js')).href)
+	return { TsPptx, ShapeType }
 }
 
 // --- 1a. navigation deck ----------------------------------------------------
 /** Build a focused nav deck from the built dist and return its path. */
 async function generateNavDeck() {
-	const TsPptx = await loadTsPptx()
+	const { TsPptx } = await loadTsPptx()
 	const pptx = new TsPptx()
 	pptx.defineLayout({ name: 'SMOKE', width: 10, height: 5.63 })
 	pptx.layout = 'SMOKE'
@@ -129,7 +129,7 @@ async function generateNavDeck() {
 // --- 1b. custGeom connection-site deck --------------------------------------
 /** Build a custGeom deck whose connector binds to the custom shape's connection site. */
 async function generateGeomDeck() {
-	const TsPptx = await loadTsPptx()
+	const { TsPptx, ShapeType } = await loadTsPptx()
 	const pptx = new TsPptx()
 	pptx.defineLayout({ name: 'SMOKE', width: 10, height: 5.63 })
 	pptx.layout = 'SMOKE'
@@ -139,7 +139,7 @@ async function generateGeomDeck() {
 
 	// A freeform rectangle carrying real guides / connection sites / adjust handles — the same
 	// shape the schema fixture `custGeom-connection-sites` builds.
-	s.addShape(pptx.ShapeType.custGeom, {
+	s.addShape(ShapeType.custGeom, {
 		x: 1,
 		y: 1.5,
 		w: 3,
@@ -186,7 +186,7 @@ async function generateGeomDeck() {
 // --- 1c. OLE / embedded-object deck -----------------------------------------
 /** Build a deck with one embedded-package and one generic-blob OLE object. */
 async function generateOleDeck() {
-	const TsPptx = await loadTsPptx()
+	const { TsPptx } = await loadTsPptx()
 	const pptx = new TsPptx()
 	pptx.defineLayout({ name: 'SMOKE', width: 10, height: 5.63 })
 	pptx.layout = 'SMOKE'

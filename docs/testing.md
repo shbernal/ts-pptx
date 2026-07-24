@@ -29,21 +29,20 @@ change package, build, or testing claims.
 ## Fast inner loop (edit → test)
 
 The suite imports from `dist/`, **not** `src/`. Every `test:*` script front-loads
-a full `pnpm run build` (9 entry bundles + `.d.ts` + a browser `standalone`
-bundle), which is far too slow for a one-assertion change. For the inner loop,
-run a `tsdown` watcher and a Vitest watcher in **two terminals**:
+a full `pnpm run build` (8 entry bundles + `.d.ts`), which is far too slow for a
+one-assertion change. For the inner loop, run a `tsdown` watcher and a Vitest
+watcher in **two terminals**:
 
 ```bash
-# terminal 1 — rebuild dist/ on every src/ edit (fast: no .d.ts, no browser bundle)
+# terminal 1 — rebuild dist/ on every src/ edit (fast: no .d.ts)
 pnpm run watch:dev
 
 # terminal 2 — rerun tests on every dist/ (or test) change, no rebuild of its own
 pnpm run test:watch:fast
 ```
 
-`watch:dev` uses `tsdown.dev.config.ts`, which drops the two most expensive build
-steps (`.d.ts` emit and the `standalone` browser bundle) while still emitting
-every Node-side entry the suites import. `test:watch:fast` is a bare
+`watch:dev` uses `tsdown.dev.config.ts`, which drops the most expensive build
+step (`.d.ts` emit) while still emitting every Node-side entry the suites import. `test:watch:fast` is a bare
 `vitest --watch` that assumes `dist/` is kept current by the watcher.
 
 > **Caveat — stale `dist/` trap.** Running a Vitest watcher (or a bare

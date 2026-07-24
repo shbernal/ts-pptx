@@ -1,3 +1,4 @@
+import { ChartType } from '../../dist/node.js'
 import {
 	defineRegressionSuite,
 	build,
@@ -30,7 +31,7 @@ defineRegressionSuite('Chart option validation', [
 			const { zip } = await build((p) => {
 				p.addSlide().addChart(SERIES, {
 					...BASE,
-					type: p.ChartType.line,
+					type: ChartType.line,
 					lineDataSymbol: 'circle',
 					lineDataSymbolSize: 999,
 				})
@@ -46,7 +47,7 @@ defineRegressionSuite('Chart option validation', [
 			const { zip } = await build((p) => {
 				p.addSlide().addChart(SERIES, {
 					...BASE,
-					type: p.ChartType.line,
+					type: ChartType.line,
 					lineDataSymbol: 'circle',
 					lineDataSymbolSize: 1,
 				})
@@ -61,7 +62,7 @@ defineRegressionSuite('Chart option validation', [
 			const { zip } = await build((p) => {
 				p.addSlide().addChart(SERIES, {
 					...BASE,
-					type: p.ChartType.bar,
+					type: ChartType.bar,
 					valGridLine: { size: 2, style: 'solid', cap: 'INVALID' },
 				})
 			})
@@ -73,7 +74,7 @@ defineRegressionSuite('Chart option validation', [
 		name: 'invalid gridLine style is dropped',
 		fn: async () => {
 			const { zip } = await build((p) => {
-				p.addSlide().addChart(SERIES, { ...BASE, type: p.ChartType.bar, valGridLine: { size: 2, style: 'wavy' } })
+				p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar, valGridLine: { size: 2, style: 'wavy' } })
 			})
 			const xml = await chartXml(zip)
 			assertNotIncludes(xml, 'wavy', 'an unrecognized gridLine style must be scrubbed before emit')
@@ -85,7 +86,7 @@ defineRegressionSuite('Chart option validation', [
 			// A negative size with a real style takes the `size <= 0` branch (the
 			// early `style === 'none'` return would otherwise skip validation).
 			const { zip } = await build((p) => {
-				p.addSlide().addChart(SERIES, { ...BASE, type: p.ChartType.bar, valGridLine: { size: -5, style: 'dash' } })
+				p.addSlide().addChart(SERIES, { ...BASE, type: ChartType.bar, valGridLine: { size: -5, style: 'dash' } })
 			})
 			const xml = await chartXml(zip)
 			assert(xml.length > 0, 'chart still builds after dropping the invalid gridLine size')

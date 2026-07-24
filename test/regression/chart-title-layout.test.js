@@ -1,3 +1,4 @@
+import { ChartType } from '../../dist/node.js'
 import {
 	defineRegressionSuite,
 	build,
@@ -33,7 +34,7 @@ defineRegressionSuite('Chart title layout', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addChart(DATA, {
-					type: p.ChartType.bar,
+					type: ChartType.bar,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -54,7 +55,7 @@ defineRegressionSuite('Chart title layout', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addChart(DATA, {
-					type: p.ChartType.bar,
+					type: ChartType.bar,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -75,7 +76,7 @@ defineRegressionSuite('Chart title layout', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addChart(DATA, {
-					type: p.ChartType.bar,
+					type: ChartType.bar,
 					x: 1,
 					y: 1,
 					w: 6,

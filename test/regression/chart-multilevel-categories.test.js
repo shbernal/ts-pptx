@@ -1,3 +1,4 @@
+import { ChartType } from '../../dist/node.js'
 import JSZip from 'jszip'
 import { build, defineRegressionSuite, assert, assertEqual } from '../helpers.js'
 
@@ -56,7 +57,7 @@ defineRegressionSuite('Multi-level category chart embedded workbook', 'upstream-
 		name: 'shared-string indices for outer and leaf label cells are correct',
 		fn: async () => {
 			const { buf } = await build((p) => {
-				p.addSlide().addChart(DATA, { type: p.ChartType.bar, x: 1, y: 1, w: 6, h: 4 })
+				p.addSlide().addChart(DATA, { type: ChartType.bar, x: 1, y: 1, w: 6, h: 4 })
 			})
 			const { sharedStringsXml, sheetXml } = await getWorkbookXml(buf)
 			const ss = parseSharedStrings(sharedStringsXml)

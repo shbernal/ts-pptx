@@ -17,6 +17,7 @@
 // resolves that through `slide.shapeByIdDeep`, which descends into groups, rather
 // than degrading to null the way the old top-level-only `slide.shapeById` did.
 
+import { ShapeType } from '../../dist/node.js'
 import { describe, test } from 'vitest'
 import { authorRead, firstShape, schemaErrors, validatorInstalled } from './authored.js'
 import { assert, assertEqual } from '../helpers.js'
@@ -39,8 +40,8 @@ describe('Connector.startConnection / endConnection — write→read fidelity', 
 	test('a bound connector resolves both ends to their shapes and site indexes', async () => {
 		const { presentation } = await authorRead((pres) => {
 			const slide = pres.addSlide()
-			slide.addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, objectName: 'BoxA' })
-			slide.addShape(pres.ShapeType.rect, { x: 5, y: 3, w: 2, h: 1, objectName: 'BoxB' })
+			slide.addShape(ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, objectName: 'BoxA' })
+			slide.addShape(ShapeType.rect, { x: 5, y: 3, w: 2, h: 1, objectName: 'BoxB' })
 			slide.addConnector({
 				type: 'straight',
 				x1: 3,
@@ -85,7 +86,7 @@ describe('Connector.startConnection / endConnection — write→read fidelity', 
 	test('binding only one end leaves the other null', async () => {
 		const { presentation } = await authorRead((pres) => {
 			const slide = pres.addSlide()
-			slide.addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, objectName: 'Only' })
+			slide.addShape(ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, objectName: 'Only' })
 			slide.addConnector({ type: 'straight', x1: 3, y1: 1.5, x2: 5, y2: 3, startShape: 'Only' })
 		})
 		const cxn = connectorOf(presentation)
@@ -117,8 +118,8 @@ describe('Connector.startConnection / endConnection — write→read fidelity', 
 	test.skipIf(!validatorInstalled)('the authored bound-connector deck is schema-valid', async () => {
 		const { buf } = await authorRead((pres) => {
 			const slide = pres.addSlide()
-			slide.addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, objectName: 'BoxA' })
-			slide.addShape(pres.ShapeType.rect, { x: 5, y: 3, w: 2, h: 1, objectName: 'BoxB' })
+			slide.addShape(ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, objectName: 'BoxA' })
+			slide.addShape(ShapeType.rect, { x: 5, y: 3, w: 2, h: 1, objectName: 'BoxB' })
 			slide.addConnector({
 				type: 'straight',
 				x1: 3,

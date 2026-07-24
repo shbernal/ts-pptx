@@ -22,6 +22,7 @@
  * form directly.
  */
 
+import { SchemeColor, ShapeType } from "@shbernal/ts-pptx";
 import { BASE_TABLE_OPTS, BASE_TEXT_OPTS_L, BASE_TEXT_OPTS_R } from "./enums.mjs";
 
 export function genSlides_Shape(pptx) {
@@ -43,14 +44,14 @@ function genSlide01(pptx) {
 
 	// TOP-ROW
 
-	slide.addShape(pptx.ShapeType.rect, { x: 0.5, y: 0.8, w: 1.5, h: 3.0, fill: { color: pptx.SchemeColor.accent1 }, line: { type: "none" } });
-	slide.addShape(pptx.ShapeType.ellipse, { x: 2.2, y: 0.8, w: 3.0, h: 1.5, fill: { type: "solid", color: pptx.SchemeColor.accent2 } });
-	slide.addShape(pptx.ShapeType.custGeom, {
+	slide.addShape(ShapeType.rect, { x: 0.5, y: 0.8, w: 1.5, h: 3.0, fill: { color: SchemeColor.accent1 }, line: { type: "none" } });
+	slide.addShape(ShapeType.ellipse, { x: 2.2, y: 0.8, w: 3.0, h: 1.5, fill: { type: "solid", color: SchemeColor.accent2 } });
+	slide.addShape(ShapeType.custGeom, {
 		x: 2.5,
 		y: 2.6,
 		w: 2.0,
 		h: 1.0,
-		fill: { color: pptx.SchemeColor.accent3 },
+		fill: { color: SchemeColor.accent3 },
 		line: { color: "151515", width: 1 },
 		points: [
 			{ x: 0.0, y: 0.0 },
@@ -62,54 +63,54 @@ function genSlide01(pptx) {
 			{ close: true },
 		],
 	});
-	slide.addShape(pptx.ShapeType.rect, { x: 5.7, y: 0.8, w: 1.5, h: 3.0, fill: { color: pptx.SchemeColor.accent4 }, rotate: 45 });
-	slide.addShape(pptx.ShapeType.ellipse, { x: 7.4, y: 1.5, w: 3.0, h: 1.5, fill: { color: pptx.SchemeColor.accent6 }, rotate: 90 }); // TEST: no type
-	slide.addShape(pptx.ShapeType.roundRect, {
+	slide.addShape(ShapeType.rect, { x: 5.7, y: 0.8, w: 1.5, h: 3.0, fill: { color: SchemeColor.accent4 }, rotate: 45 });
+	slide.addShape(ShapeType.ellipse, { x: 7.4, y: 1.5, w: 3.0, h: 1.5, fill: { color: SchemeColor.accent6 }, rotate: 90 }); // TEST: no type
+	slide.addShape(ShapeType.roundRect, {
 		x: 10,
 		y: 0.8,
 		w: 3.0,
 		h: 1.5,
 		rectRadius: 1,
-		fill: { color: pptx.SchemeColor.accent5 },
+		fill: { color: SchemeColor.accent5 },
 		line: { color: "151515", width: 1 },
 	});
-	slide.addShape(pptx.ShapeType.arc, { x: 10.75, y: 2.45, w: 1.5, h: 1.45, fill: { color: pptx.SchemeColor.accent3 }, angleRange: [45, 315] });
+	slide.addShape(ShapeType.arc, { x: 10.75, y: 2.45, w: 1.5, h: 1.45, fill: { color: SchemeColor.accent3 }, angleRange: [45, 315] });
 
 	// BOTTOM ROW
 
-	slide.addShape(pptx.ShapeType.line, { x: 4.2, y: 4.4, w: 5.0, h: 0.0, line: { color: pptx.SchemeColor.accent2, width: 1, dashType: "lgDash" } });
-	slide.addShape(pptx.ShapeType.line, {
+	slide.addShape(ShapeType.line, { x: 4.2, y: 4.4, w: 5.0, h: 0.0, line: { color: SchemeColor.accent2, width: 1, dashType: "lgDash" } });
+	slide.addShape(ShapeType.line, {
 		x: 4.2,
 		y: 4.8,
 		w: 5.0,
 		h: 0.0,
-		line: { color: pptx.SchemeColor.accent2, width: 2, dashType: "dashDot", beginArrowType: "arrow" },
+		line: { color: SchemeColor.accent2, width: 2, dashType: "dashDot", beginArrowType: "arrow" },
 	});
-	slide.addShape(pptx.ShapeType.line, { x: 4.2, y: 5.2, w: 5.0, h: 0.0, line: { color: pptx.SchemeColor.accent2, width: 3, endArrowType: "triangle" } });
-	slide.addShape(pptx.ShapeType.line, {
+	slide.addShape(ShapeType.line, { x: 4.2, y: 5.2, w: 5.0, h: 0.0, line: { color: SchemeColor.accent2, width: 3, endArrowType: "triangle" } });
+	slide.addShape(ShapeType.line, {
 		x: 4.2,
 		y: 5.6,
 		w: 5.0,
 		h: 0.0,
-		line: { color: pptx.SchemeColor.accent2, width: 4, beginArrowType: "diamond", endArrowType: "oval" },
+		line: { color: SchemeColor.accent2, width: 4, beginArrowType: "diamond", endArrowType: "oval" },
 	});
 
-	slide.addShape(pptx.ShapeType.rtTriangle, {
+	slide.addShape(ShapeType.rtTriangle, {
 		x: 0.4,
 		y: 4.3,
 		w: 6.0,
 		h: 3.0,
-		fill: { color: pptx.SchemeColor.accent5 },
-		line: { color: pptx.SchemeColor.accent1, width: 3 },
+		fill: { color: SchemeColor.accent5 },
+		line: { color: SchemeColor.accent1, width: 3 },
 		objectName: "First Right Triangle",
 	});
-	slide.addShape(pptx.ShapeType.rtTriangle, {
+	slide.addShape(ShapeType.rtTriangle, {
 		x: 7.0,
 		y: 4.3,
 		w: 6.0,
 		h: 3.0,
-		fill: { color: pptx.SchemeColor.accent5 },
-		line: { color: pptx.SchemeColor.accent1, width: 2 },
+		fill: { color: SchemeColor.accent5 },
+		line: { color: SchemeColor.accent1, width: 2 },
 		flipH: true,
 	});
 }
@@ -124,32 +125,32 @@ function genSlide02(pptx) {
 	slide.addTable([[{ text: "Shape Examples 2: Misc Shape Types (with text)", options: BASE_TEXT_OPTS_L }, BASE_TEXT_OPTS_R]], BASE_TABLE_OPTS);
 
 	slide.addText("RECTANGLE", {
-		shape: pptx.ShapeType.rect,
+		shape: ShapeType.rect,
 		x: 0.5,
 		y: 0.8,
 		w: 1.5,
 		h: 3.0,
-		fill: { color: pptx.SchemeColor.accent1 },
+		fill: { color: SchemeColor.accent1 },
 		align: "center",
 		fontSize: 14,
 	});
 	slide.addText("OVAL (transparency:50)", {
-		shape: pptx.ShapeType.ellipse,
+		shape: ShapeType.ellipse,
 		x: 2.2,
 		y: 0.8,
 		w: 3.0,
 		h: 1.5,
-		fill: { type: "solid", color: pptx.SchemeColor.accent2, transparency: 50 },
+		fill: { type: "solid", color: SchemeColor.accent2, transparency: 50 },
 		align: "center",
 		fontSize: 14,
 	});
 	slide.addText("CUSTOM", {
-		shape: pptx.ShapeType.custGeom,
+		shape: ShapeType.custGeom,
 		x: 2.5,
 		y: 2.6,
 		w: 2.0,
 		h: 1.0,
-		fill: { color: pptx.SchemeColor.accent3 },
+		fill: { color: SchemeColor.accent3 },
 		line: { color: "151515", width: 1 },
 		points: [
 			{ x: 0.0, y: 0.0 },
@@ -164,106 +165,106 @@ function genSlide02(pptx) {
 		fontSize: 14,
 	});
 	slide.addText("RECTANGLE (rotate:45)", {
-		shape: pptx.ShapeType.rect,
+		shape: ShapeType.rect,
 		x: 5.7,
 		y: 0.8,
 		w: 1.5,
 		h: 3.0,
-		fill: { color: pptx.SchemeColor.accent4 },
+		fill: { color: SchemeColor.accent4 },
 		rotate: 45,
 		align: "center",
 		fontSize: 14,
 	});
 	// TEST: DEPRECATED: `alpha`
 	slide.addText("OVAL (rotate:90, transparency:75)", {
-		shape: pptx.ShapeType.ellipse,
+		shape: ShapeType.ellipse,
 		x: 7.4,
 		y: 1.5,
 		w: 3.0,
 		h: 1.5,
-		fill: { type: "solid", color: pptx.SchemeColor.accent6, transparency: 75 },
+		fill: { type: "solid", color: SchemeColor.accent6, transparency: 75 },
 		rotate: 90,
 		align: "center",
 		fontSize: 14,
 	});
 	slide.addText("ROUNDED-RECTANGLE\ndashType:dash\nrectRadius:1", {
-		shape: pptx.ShapeType.roundRect,
+		shape: ShapeType.roundRect,
 		x: 10,
 		y: 0.8,
 		w: 3.0,
 		h: 1.5,
-		fill: { color: pptx.SchemeColor.accent5 },
+		fill: { color: SchemeColor.accent5 },
 		align: "center",
 		fontSize: 14,
 		line: { color: "151515", size: 1, dashType: "dash" },
 		rectRadius: 1,
 	});
 	slide.addText("ARC", {
-		shape: pptx.ShapeType.arc,
+		shape: ShapeType.arc,
 		x: 10.75,
 		y: 2.45,
 		w: 1.5,
 		h: 1.45,
-		fill: { color: pptx.SchemeColor.accent3 },
+		fill: { color: SchemeColor.accent3 },
 		angleRange: [45, 315],
 		line: { color: "151515", width: 1 },
 		fontSize: 14,
 	});
 	//
 	slide.addText("LINE size=1", {
-		shape: pptx.ShapeType.line,
+		shape: ShapeType.line,
 		align: "center",
 		x: 4.15,
 		y: 4.4,
 		w: 5,
 		h: 0,
-		line: { color: pptx.SchemeColor.accent2, width: 1, dashType: "lgDash" },
+		line: { color: SchemeColor.accent2, width: 1, dashType: "lgDash" },
 	});
 	slide.addText("LINE size=2", {
-		shape: pptx.ShapeType.line,
+		shape: ShapeType.line,
 		align: "left",
 		x: 4.15,
 		y: 4.8,
 		w: 5,
 		h: 0,
-		line: { color: pptx.SchemeColor.accent2, width: 2, dashType: "dashDot", endArrowType: "arrow" },
+		line: { color: SchemeColor.accent2, width: 2, dashType: "dashDot", endArrowType: "arrow" },
 	});
 	slide.addText("LINE size=3", {
-		shape: pptx.ShapeType.line,
+		shape: ShapeType.line,
 		align: "right",
 		x: 4.15,
 		y: 5.2,
 		w: 5,
 		h: 0,
-		line: { color: pptx.SchemeColor.accent2, width: 3, beginArrowType: "triangle" },
+		line: { color: SchemeColor.accent2, width: 3, beginArrowType: "triangle" },
 	});
 	slide.addText("LINE size=4", {
-		shape: pptx.ShapeType.line,
+		shape: ShapeType.line,
 		x: 4.15,
 		y: 5.6,
 		w: 5,
 		h: 0,
-		line: { color: pptx.SchemeColor.accent2, width: 4, beginArrowType: "diamond", endArrowType: "oval", transparency: 50 },
+		line: { color: SchemeColor.accent2, width: 4, beginArrowType: "diamond", endArrowType: "oval", transparency: 50 },
 	});
 	//
 	slide.addText("RIGHT-TRIANGLE", {
-		shape: pptx.ShapeType.rtTriangle,
+		shape: ShapeType.rtTriangle,
 		align: "center",
 		x: 0.4,
 		y: 4.3,
 		w: 6,
 		h: 3,
-		fill: { color: pptx.SchemeColor.accent5 },
+		fill: { color: SchemeColor.accent5 },
 		line: { color: "696969", width: 3 },
 	});
 	slide.addText("HYPERLINK-SHAPE", {
-		shape: pptx.ShapeType.rtTriangle,
+		shape: ShapeType.rtTriangle,
 		align: "center",
 		x: 7.0,
 		y: 4.3,
 		w: 6,
 		h: 3,
-		fill: { color: pptx.SchemeColor.accent5 },
+		fill: { color: SchemeColor.accent5 },
 		line: { color: "696969", width: 2 },
 		flipH: true,
 		hyperlink: { url: "https://example.com", tooltip: "Visit Homepage" },
@@ -282,11 +283,11 @@ function genSlide03(pptx) {
 	// Each action button wires an <a:hlinkClick action="ppaction://hlinkshowjump?jump=…"/> so it
 	// actually navigates when the deck is run as a slide show (not just static geometry).
 	const buttons = [
-		{ shape: pptx.ShapeType.actionButtonBeginning, action: "firstslide", tooltip: "First slide" },
-		{ shape: pptx.ShapeType.actionButtonBackPrevious, action: "previousslide", tooltip: "Previous slide" },
-		{ shape: pptx.ShapeType.actionButtonForwardNext, action: "nextslide", tooltip: "Next slide" },
-		{ shape: pptx.ShapeType.actionButtonEnd, action: "lastslide", tooltip: "Last slide" },
-		{ shape: pptx.ShapeType.actionButtonReturn, action: "lastslideviewed", tooltip: "Return" },
+		{ shape: ShapeType.actionButtonBeginning, action: "firstslide", tooltip: "First slide" },
+		{ shape: ShapeType.actionButtonBackPrevious, action: "previousslide", tooltip: "Previous slide" },
+		{ shape: ShapeType.actionButtonForwardNext, action: "nextslide", tooltip: "Next slide" },
+		{ shape: ShapeType.actionButtonEnd, action: "lastslide", tooltip: "Last slide" },
+		{ shape: ShapeType.actionButtonReturn, action: "lastslideviewed", tooltip: "Return" },
 	];
 	buttons.forEach((btn, idx) => {
 		slide.addShape(btn.shape, {
@@ -294,7 +295,7 @@ function genSlide03(pptx) {
 			y: 3.0,
 			w: 1.0,
 			h: 1.0,
-			fill: { color: pptx.SchemeColor.accent1 },
+			fill: { color: SchemeColor.accent1 },
 			line: { color: "696969", width: 1 },
 			hyperlink: { action: btn.action, tooltip: btn.tooltip },
 		});

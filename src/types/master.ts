@@ -30,7 +30,7 @@ export type SlideMasterObject =
 	| { rect: ShapeProps }
 	| { roundRect: ShapeProps }
 	/**
-	 * Any preset shape, addressed by `SHAPE_NAME` (e.g. `pptx.ShapeType.ellipse`).
+	 * Any preset shape, addressed by `SHAPE_NAME` (e.g. `ShapeType.ellipse`).
 	 * Generalizes the `line`/`rect`/`roundRect` shortcuts to every preset the
 	 * `addShape()` serializer supports (ellipse, triangle, chevron, …).
 	 * @example { shape: { type: 'ellipse', options: { x: 1, y: 1, w: 2, h: 2, fill: { color: 'FF0000' } } } }

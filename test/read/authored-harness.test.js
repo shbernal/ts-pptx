@@ -7,6 +7,7 @@
 // with a solid fill, per style-accessors.test.js) so the self-test can only fail
 // if the harness plumbing itself breaks.
 
+import { ShapeType } from '../../dist/node.js'
 import { describe, test } from 'vitest'
 import { authorRead, firstShape, schemaErrors, validatorInstalled } from './authored.js'
 import { assert, assertEqual } from '../helpers.js'
@@ -14,7 +15,7 @@ import { assert, assertEqual } from '../helpers.js'
 describe('write→read harness (authored.js)', () => {
 	test('authorRead: a written rect round-trips into the deep read model', async () => {
 		const { presentation, buf } = await authorRead((pres) => {
-			pres.addSlide().addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 3, h: 1, fill: { color: 'CCCCCC' } })
+			pres.addSlide().addShape(ShapeType.rect, { x: 1, y: 1, w: 3, h: 1, fill: { color: 'CCCCCC' } })
 		})
 		assert(buf.length > 0, 'stream() produced bytes')
 		assertEqual(presentation.slides.length, 1, 'one authored slide is read back')
@@ -37,7 +38,7 @@ describe('write→read harness (authored.js)', () => {
 
 	test.skipIf(!validatorInstalled)('schemaErrors: authored bytes are schema-valid', async () => {
 		const { buf } = await authorRead((pres) => {
-			pres.addSlide().addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 3, h: 1, fill: { color: 'CCCCCC' } })
+			pres.addSlide().addShape(ShapeType.rect, { x: 1, y: 1, w: 3, h: 1, fill: { color: 'CCCCCC' } })
 		})
 		const errors = await schemaErrors(buf)
 		assertEqual(errors.length, 0, `authored deck validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)

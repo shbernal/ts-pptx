@@ -1,3 +1,4 @@
+import { ChartType } from '../../dist/node.js'
 import { defineRegressionSuite, build, readEntry, listEntries, assert, assertIncludes } from '../helpers.js'
 
 // chart title, legend, and axis/category label font settings did not
@@ -26,7 +27,7 @@ defineRegressionSuite('Chart East Asian fonts', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
-					type: p.ChartType.bar,
+					type: ChartType.bar,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -45,7 +46,7 @@ defineRegressionSuite('Chart East Asian fonts', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
-					type: p.ChartType.bar,
+					type: ChartType.bar,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -63,7 +64,7 @@ defineRegressionSuite('Chart East Asian fonts', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
-					type: p.ChartType.bar,
+					type: ChartType.bar,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -82,7 +83,7 @@ defineRegressionSuite('Chart East Asian fonts', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
-					type: p.ChartType.bar,
+					type: ChartType.bar,
 					x: 1,
 					y: 1,
 					w: 6,

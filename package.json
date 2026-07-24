@@ -21,10 +21,6 @@
 			"node": "./dist/node.js",
 			"default": "./dist/index.js"
 		},
-		"./core": {
-			"types": "./dist/core.d.ts",
-			"default": "./dist/core.js"
-		},
 		"./inspect": {
 			"types": "./dist/inspect.d.ts",
 			"default": "./dist/inspect.js"
@@ -54,11 +50,6 @@
 			"types": "./dist/browser.d.ts",
 			"browser": "./dist/browser.js",
 			"default": "./dist/browser.js"
-		},
-		"./standalone": {
-			"types": "./dist/standalone.d.ts",
-			"browser": "./dist/standalone.js",
-			"default": "./dist/standalone.js"
 		},
 		"./package.json": {
 			"default": "./package.json"

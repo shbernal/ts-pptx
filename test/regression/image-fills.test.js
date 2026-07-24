@@ -1,3 +1,4 @@
+import { ShapeType } from '../../dist/node.js'
 import {
 	defineRegressionSuite,
 	build,
@@ -33,7 +34,7 @@ defineRegressionSuite('Image (blip) fills', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.rect, {
+				s.addShape(ShapeType.rect, {
 					x: 1,
 					y: 1,
 					w: 3,
@@ -68,7 +69,7 @@ defineRegressionSuite('Image (blip) fills', [
 			// in CT_ShapeProperties order (geometry, then fill, then line).
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.custGeom, {
+				s.addShape(ShapeType.custGeom, {
 					x: 1,
 					y: 1,
 					w: 3,
@@ -96,7 +97,7 @@ defineRegressionSuite('Image (blip) fills', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.rect, { x: 1, y: 1, w: 3, h: 1, fill: { image: { data: PNG_1x1 } } })
+				s.addShape(ShapeType.rect, { x: 1, y: 1, w: 3, h: 1, fill: { image: { data: PNG_1x1 } } })
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			assertIncludes(xml, '<a:blipFill', 'blip fill emitted from image-only fill')
@@ -107,7 +108,7 @@ defineRegressionSuite('Image (blip) fills', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.rect, {
+				s.addShape(ShapeType.rect, {
 					x: 1,
 					y: 1,
 					w: 3,
@@ -124,8 +125,8 @@ defineRegressionSuite('Image (blip) fills', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, fill: { image: { data: PNG_1x1 } } })
-				s.addShape(p.ShapeType.rect, { x: 4, y: 1, w: 2, h: 1, fill: { image: { data: PNG_1x1 } } })
+				s.addShape(ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, fill: { image: { data: PNG_1x1 } } })
+				s.addShape(ShapeType.rect, { x: 4, y: 1, w: 2, h: 1, fill: { image: { data: PNG_1x1 } } })
 			})
 			const media = (await listEntries(zip)).filter((e) => e.startsWith('ppt/media/') && !e.endsWith('/'))
 			assert(media.length === 1, `expected a single shared media file; got ${JSON.stringify(media)}`)
@@ -149,7 +150,7 @@ defineRegressionSuite('Image (blip) fills', [
 			const warnings = await captureWarnings(async () => {
 				;({ zip } = await build((p) => {
 					const s = p.addSlide()
-					s.addShape(p.ShapeType.rect, { x: 1, y: 1, w: 3, h: 1, fill: { type: 'image', image: {} } })
+					s.addShape(ShapeType.rect, { x: 1, y: 1, w: 3, h: 1, fill: { type: 'image', image: {} } })
 				}))
 			})
 			assert(
@@ -167,7 +168,7 @@ defineRegressionSuite('Image (blip) fills', [
 			const warnings = await captureWarnings(async () => {
 				;({ zip } = await build((p) => {
 					const s = p.addSlide()
-					s.addShape(p.ShapeType.rect, {
+					s.addShape(ShapeType.rect, {
 						x: 1,
 						y: 1,
 						w: 3,

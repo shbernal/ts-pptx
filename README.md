@@ -93,15 +93,14 @@ The package is ESM-only.
 
 Supported package surface:
 
-- `import TsPptx from "@shbernal/ts-pptx"`
-- `import { ShapeType } from "@shbernal/ts-pptx/core"`
+- `import TsPptx, { ShapeType } from "@shbernal/ts-pptx"` (enums, shared types, and
+  layout helpers ship from the main entry)
 - `import { inspectPptx } from "@shbernal/ts-pptx/inspect"`
 - `import { measureText } from "@shbernal/ts-pptx/measure"`
 - `import { Presentation } from "@shbernal/ts-pptx/read"`
 - `import { latexToOmml } from "@shbernal/ts-pptx/math"`
 - `import TsPptx from "@shbernal/ts-pptx/node"`
 - `import TsPptx from "@shbernal/ts-pptx/browser"`
-- `import TsPptx from "@shbernal/ts-pptx/standalone"`
 - generated runtime and declaration artifacts under `dist/`
 - Node.js `>=24`
 - modern bundlers and module-aware app frameworks

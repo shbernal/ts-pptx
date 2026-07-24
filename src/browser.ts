@@ -18,23 +18,21 @@ export class TsPptx extends PresentationCore {
 	 * @param {TableToSlidesProps} options - generation options
 	 */
 	tableToSlides(eleId: string, options: TableToSlidesProps = {}): void {
-		// @note `verbose` option is undocumented; used for verbose output of layout process
+		// @note `options.verbose` (a documented dev-only flag on TableToSlidesProps) is read
+		// inside genTableToSlides to trace the auto-paging layout process.
 		genTableToSlides(
 			this,
 			eleId,
 			options,
-			options?.masterSlideName
-				? this._slideLayouts.find((layout) => layout._name === options.masterSlideName)
-				: undefined
+			options?.masterTitle ? this._slideLayouts.find((layout) => layout._name === options.masterTitle) : undefined
 		)
 	}
 }
 
-export { TsPptx as Presentation, TsPptx as default }
+export { TsPptx as default }
 export * from './core-enums.js'
 export * from './units.js'
 // Use `export *` (not `export type *`) so the value exports `textRun`/`textRuns`
 // reach this entry; `export type *` would drop them and crash any consumer that
 // imports them, while TypeScript (reading index.d.ts) stays green.
 export * from './core-interfaces.js'
-export type { PresSlide as Slide } from './core-interfaces.js'

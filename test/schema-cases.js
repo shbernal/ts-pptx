@@ -19,6 +19,7 @@
 // titles/labels), native math (OMML/LaTeX), bullets, groups, transitions/animations,
 // theme & fonts, notes/comments, and value-clamp/metadata edge cases.
 
+import { ChartType, SchemeColor, ShapeType } from '../dist/node.js'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -175,7 +176,7 @@ export default [
 		fn: async () => {
 			const { buf } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' } })
+				s.addShape(ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000' } })
 			})
 			await expectNoSchemaErrors(buf, 'single-shape')
 		},
@@ -189,7 +190,7 @@ export default [
 			const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 			const { buf } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.rect, {
+				s.addShape(ShapeType.rect, {
 					x: 1,
 					y: 1,
 					w: 2,
@@ -220,7 +221,7 @@ export default [
 		fn: async () => {
 			const { buf } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.line, {
+				s.addShape(ShapeType.line, {
 					x: 1,
 					y: 1,
 					w: 4,
@@ -236,7 +237,7 @@ export default [
 		fn: async () => {
 			const { buf } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.rect, {
+				s.addShape(ShapeType.rect, {
 					x: 1,
 					y: 1,
 					w: 4,
@@ -253,7 +254,7 @@ export default [
 		fn: async () => {
 			const { buf } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.rect, {
+				s.addShape(ShapeType.rect, {
 					x: 1,
 					y: 1,
 					w: 4,
@@ -319,7 +320,7 @@ export default [
 		fn: async () => {
 			const { buf } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.rect, {
+				s.addShape(ShapeType.rect, {
 					x: 1,
 					y: 1,
 					w: 4,
@@ -347,7 +348,7 @@ export default [
 			const { buf } = await build((p) => {
 				const s = p.addSlide()
 				// Gradient stroke via `line.gradient` (no fill) — `<a:gradFill>` inside `<a:ln>`.
-				s.addShape(p.ShapeType.line, {
+				s.addShape(ShapeType.line, {
 					x: 1,
 					y: 1,
 					w: 4,
@@ -365,7 +366,7 @@ export default [
 					},
 				})
 				// Gradient border around a filled rectangle (stroke + fill coexisting).
-				s.addShape(p.ShapeType.rect, {
+				s.addShape(ShapeType.rect, {
 					x: 1,
 					y: 2,
 					w: 4,
@@ -393,7 +394,7 @@ export default [
 		fn: async () => {
 			const { buf } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.rect, {
+				s.addShape(ShapeType.rect, {
 					x: 1,
 					y: 1,
 					w: 4,
@@ -414,7 +415,7 @@ export default [
 				'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 			const { buf } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.rect, {
+				s.addShape(ShapeType.rect, {
 					x: 1,
 					y: 1,
 					w: 4,
@@ -976,7 +977,7 @@ export default [
 							customLabels: ['Low', 'Mid', 'High', 'Peak'],
 						},
 					],
-					{ type: p.ChartType.bar, barDir: 'col', showValue: true }
+					{ type: ChartType.bar, barDir: 'col', showValue: true }
 				)
 			})
 			await expectNoSchemaErrors(buf, 'bar-per-point-labels-colors')
@@ -1352,7 +1353,7 @@ export default [
 						{ name: 'X-Axis', values: [0, 1, 2] },
 						{ name: 'Y-Value 1', values: [1, 4, 9], labels: ['A', 'B', 'C'] },
 					],
-					{ type: p.ChartType.scatter, x: 1, y: 1, w: 6, h: 3, valAxisCrossesAt: 0 }
+					{ type: ChartType.scatter, x: 1, y: 1, w: 6, h: 3, valAxisCrossesAt: 0 }
 				)
 			})
 			await expectNoSchemaErrors(buf, 'scatter-val-axis-crosses-at-zero')
@@ -1369,7 +1370,7 @@ export default [
 						{ name: 'Y-Value 1', values: [1, 4, 9], labels: ['A', 'B', 'C'] },
 					],
 					{
-						type: p.ChartType.scatter,
+						type: ChartType.scatter,
 						x: 1,
 						y: 1,
 						w: 6,
@@ -1389,7 +1390,7 @@ export default [
 		fn: async () => {
 			const { buf } = await build((p) => {
 				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B', 'C'], values: [0.1, 0.2, 0.3] }], {
-					type: p.ChartType.bar,
+					type: ChartType.bar,
 					x: 0.5,
 					y: 0.5,
 					w: 4,
@@ -1398,7 +1399,7 @@ export default [
 					dataLabelFormatCode: '0%',
 				})
 				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B', 'C'], values: [0.5, 0.3, 0.2] }], {
-					type: p.ChartType.pie,
+					type: ChartType.pie,
 					x: 0.5,
 					y: 0.5,
 					w: 4,
@@ -1411,7 +1412,7 @@ export default [
 						{ name: 'X-Axis', values: [0, 1, 2] },
 						{ name: 'Y-Value 1', values: [0.1, 0.4, 0.9], labels: ['A', 'B', 'C'] },
 					],
-					{ type: p.ChartType.scatter, x: 0.5, y: 0.5, w: 4, h: 3, showValue: true, dataLabelFormatCode: '0.0%' }
+					{ type: ChartType.scatter, x: 0.5, y: 0.5, w: 4, h: 3, showValue: true, dataLabelFormatCode: '0.0%' }
 				)
 			})
 			await expectNoSchemaErrors(buf, 'chart-value-format-code-numcache')
@@ -1427,7 +1428,7 @@ export default [
 		fn: async () => {
 			const { buf, zip } = await build((p) => {
 				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
-					type: p.ChartType.bar,
+					type: ChartType.bar,
 					x: 0.5,
 					y: 0.5,
 					w: 4,
@@ -1458,7 +1459,7 @@ export default [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				p.addSlide().addChart([{ name: 'S1', labels: ['A'], values: [1] }], {
-					type: p.ChartType.bar,
+					type: ChartType.bar,
 					x: 0.5,
 					y: 0.5,
 					w: 4,
@@ -1763,14 +1764,14 @@ export default [
 						{ name: 'X-Axis', values: [1, 2, 3, 4] },
 						{ name: 'Y-Values 1', values: [13, 20, 21, 25], sizes: [10, 5, 20, 15] },
 					],
-					{ type: p.ChartType.bubble, x: 0.5, y: 0.5, w: 6, h: 3, showBubbleSize: true }
+					{ type: ChartType.bubble, x: 0.5, y: 0.5, w: 6, h: 3, showBubbleSize: true }
 				)
 				p.addSlide().addChart(
 					[
 						{ name: 'X-Axis', values: [1, 2, 3, 4] },
 						{ name: 'Y-Values 1', values: [13, 20, 21, 25], sizes: [10, 5, 20, 15] },
 					],
-					{ type: p.ChartType.bubble3d, x: 0.5, y: 0.5, w: 6, h: 3, showBubbleSize: true }
+					{ type: ChartType.bubble3d, x: 0.5, y: 0.5, w: 6, h: 3, showBubbleSize: true }
 				)
 			})
 			await expectNoSchemaErrors(buf, 'chart-bubble-size-data-label')
@@ -1784,7 +1785,7 @@ export default [
 		fn: async () => {
 			const { buf } = await build((p) => {
 				p.addSlide().addChart([{ name: '系列', labels: ['甲', '乙', '丙'], values: [1, 2, 3] }], {
-					type: p.ChartType.bar,
+					type: ChartType.bar,
 					x: 0.5,
 					y: 0.5,
 					w: 6,
@@ -1811,7 +1812,7 @@ export default [
 		fn: async () => {
 			const { buf, zip } = await build((p) => {
 				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
-					type: p.ChartType.bar,
+					type: ChartType.bar,
 					x: 0.5,
 					y: 0.5,
 					w: 6,
@@ -1839,7 +1840,7 @@ export default [
 			const { buf } = await build((p) => {
 				const s = p.addSlide()
 				s.addChart([{ name: 'Series 1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
-					type: p.ChartType.bar,
+					type: ChartType.bar,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -1861,7 +1862,7 @@ export default [
 						{ name: 'Series 2', labels: ['A', 'B', 'C'], values: [2, 1, 2] },
 					],
 					{
-						type: p.ChartType.bar,
+						type: ChartType.bar,
 						x: 1,
 						y: 1,
 						w: 6,
@@ -1884,7 +1885,7 @@ export default [
 						{ name: 'Series 1', labels: ['A', 'B', 'C'], values: [1, 2, 3] },
 						{ name: 'Series 2', labels: ['A', 'B', 'C'], values: [2, 1, 2] },
 					],
-					{ type: p.ChartType.bar, x: 1, y: 1, w: 6, h: 3, barGrouping: 'stacked', barSeriesLine: true }
+					{ type: ChartType.bar, x: 1, y: 1, w: 6, h: 3, barGrouping: 'stacked', barSeriesLine: true }
 				)
 			})
 			await expectNoSchemaErrors(buf, 'bar-chart-series-lines-auto')
@@ -1905,7 +1906,7 @@ export default [
 							{ name: 'S1', labels: ['A', 'B', 'C', 'D'], values: [5, NaN, 3, NaN] },
 							{ name: 'S2', labels: ['A', 'B', 'C', 'D'], values: [2, 4, NaN, 1] },
 						],
-						{ type: p.ChartType.bar, x: 1, y: 1, w: 6, h: 3, barGrouping: 'stacked' }
+						{ type: ChartType.bar, x: 1, y: 1, w: 6, h: 3, barGrouping: 'stacked' }
 					)
 				}))
 			} finally {
@@ -1932,7 +1933,7 @@ export default [
 					// ST_MarkerSize (integer 2-72) and would trigger PowerPoint repair if emitted as-is.
 					const s = p.addSlide()
 					s.addChart([{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
-						type: p.ChartType.line,
+						type: ChartType.line,
 						x: 1,
 						y: 1,
 						w: 6,
@@ -1941,7 +1942,7 @@ export default [
 					})
 					const s2 = p.addSlide()
 					s2.addChart([{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
-						type: p.ChartType.line,
+						type: ChartType.line,
 						x: 1,
 						y: 1,
 						w: 6,
@@ -1974,11 +1975,11 @@ export default [
 							{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] },
 							{ name: 'S2', labels: ['A', 'B', 'C'], values: [2, 3, 1] },
 						],
-						{ type: p.ChartType.bar, x: 1, y: 1, w: 6, h: 3, barGapWidthPct: 600, barOverlapPct: 200 }
+						{ type: ChartType.bar, x: 1, y: 1, w: 6, h: 3, barGapWidthPct: 600, barOverlapPct: 200 }
 					)
 					// holeSize 200 (>90) violates ST_HoleSize; firstSliceAng 400 (>360) violates ST_FirstSliceAng.
 					p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
-						type: p.ChartType.doughnut,
+						type: ChartType.doughnut,
 						x: 1,
 						y: 1,
 						w: 6,
@@ -2043,11 +2044,11 @@ export default [
 				;({ buf } = await build((p) => {
 					const s = p.addSlide()
 					// transparency 150 / -20 push <a:alpha> outside ST_PositiveFixedPercentage (0..100000).
-					s.addShape(p.ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000', transparency: 150 } })
-					s.addShape(p.ShapeType.rect, { x: 4, y: 1, w: 2, h: 1, fill: { color: '00FF00', transparency: -20 } })
+					s.addShape(ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, fill: { color: 'FF0000', transparency: 150 } })
+					s.addShape(ShapeType.rect, { x: 4, y: 1, w: 2, h: 1, fill: { color: '00FF00', transparency: -20 } })
 					// line width 2000pt -> w 25.4M EMU (>20116800), and a negative width, both violate ST_LineWidth.
-					s.addShape(p.ShapeType.rect, { x: 1, y: 3, w: 2, h: 1, line: { color: '0000FF', width: 2000 } })
-					s.addShape(p.ShapeType.rect, { x: 4, y: 3, w: 2, h: 1, line: { color: '0000FF', width: -5 } })
+					s.addShape(ShapeType.rect, { x: 1, y: 3, w: 2, h: 1, line: { color: '0000FF', width: 2000 } })
+					s.addShape(ShapeType.rect, { x: 4, y: 3, w: 2, h: 1, line: { color: '0000FF', width: -5 } })
 					// glow opacity 5 (valid 0-1) pushes <a:alpha> above 100000.
 					s.addText('Glow', { x: 1, y: 5, w: 4, h: 1, glow: { size: 10, color: 'FF0000', opacity: 5 } })
 				}))
@@ -2067,7 +2068,7 @@ export default [
 			const { buf } = await build((p) => {
 				const s = p.addSlide()
 				s.addChart([{ name: 'Series 1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
-					type: p.ChartType.bar,
+					type: ChartType.bar,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -2086,7 +2087,7 @@ export default [
 			const { buf } = await build((p) => {
 				const s = p.addSlide()
 				s.addChart([{ name: 'Series 1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
-					type: p.ChartType.bar,
+					type: ChartType.bar,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -2205,7 +2206,7 @@ export default [
 			try {
 				;({ buf, zip } = await build((p) => {
 					p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
-						type: p.ChartType.line,
+						type: ChartType.line,
 						x: 1,
 						y: 1,
 						w: 6,
@@ -2245,7 +2246,7 @@ export default [
 		fn: async () => {
 			const { buf } = await build((p) => {
 				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B', 'C', 'D'], values: [1, null, 3, 4] }], {
-					type: p.ChartType.line,
+					type: ChartType.line,
 					x: 1,
 					y: 1,
 					w: 6,
@@ -2265,7 +2266,7 @@ export default [
 						{ name: 'S2', labels: ['A', 'B', 'C'], values: [4, 3, 2] },
 						{ name: 'S3', labels: ['A', 'B', 'C'], values: [2, 4, 1] },
 					],
-					{ type: p.ChartType.line, x: 1, y: 1, w: 6, h: 3, lineDashValues: ['solid', 'dash', 'lgDashDot'] }
+					{ type: ChartType.line, x: 1, y: 1, w: 6, h: 3, lineDashValues: ['solid', 'dash', 'lgDashDot'] }
 				)
 			})
 			await expectNoSchemaErrors(buf, 'line-chart-per-series-dash')
@@ -2295,12 +2296,12 @@ export default [
 				p.addSlide().addChart(
 					[
 						{
-							type: p.ChartType.bar,
+							type: ChartType.bar,
 							data: [{ name: 'Revenue', labels: ['Q1', 'Q2', 'Q3'], values: [10, 20, 30] }],
 							options: {},
 						},
 						{
-							type: p.ChartType.line,
+							type: ChartType.line,
 							data: [{ name: 'Target', labels: ['Q1', 'Q2', 'Q3'], values: [15, 15, 15] }],
 							options: { showLegend: false },
 						},
@@ -2322,12 +2323,12 @@ export default [
 				p.addSlide().addChart(
 					[
 						{
-							type: p.ChartType.bar,
+							type: ChartType.bar,
 							data: [{ name: 'Bottom', labels, values: [17, 26, 53, 10, 4] }],
 							options: { barDir: 'bar', barGrouping: 'clustered' },
 						},
 						{
-							type: p.ChartType.scatter,
+							type: ChartType.scatter,
 							data: [
 								{ name: 'X-Axis', labels, values: [1, 2, 3, 4, 5] },
 								{ name: 'Y', labels, values: [25, 35, 55, 10, 5] },
@@ -2360,7 +2361,7 @@ export default [
 						{ name: 'Gamma', labels: ['Q1', 'Q2', 'Q3'], values: [5, 10, 20] },
 					],
 					{
-						type: p.ChartType.bar,
+						type: ChartType.bar,
 						x: 1,
 						y: 1,
 						w: 6,
@@ -2391,7 +2392,7 @@ export default [
 						{ name: 'Hidden', labels: ['Jan', 'Feb', 'Mar'], values: [2, 2, 2] },
 					],
 					{
-						type: p.ChartType.line,
+						type: ChartType.line,
 						x: 1,
 						y: 1,
 						w: 6,
@@ -2424,7 +2425,7 @@ export default [
 							errorBars: { valueType: 'cust', plusValues: [1, 2, 1], minusValues: [0.5, 1, 0.5], noEndCap: true },
 						},
 					],
-					{ type: p.ChartType.bar, x: 1, y: 1, w: 6, h: 3 }
+					{ type: ChartType.bar, x: 1, y: 1, w: 6, h: 3 }
 				)
 				// LINE: standard-deviation error bars, plus-only
 				p.addSlide().addChart(
@@ -2436,7 +2437,7 @@ export default [
 							errorBars: { valueType: 'stdDev', value: 1, barType: 'plus' },
 						},
 					],
-					{ type: p.ChartType.line, x: 1, y: 1, w: 6, h: 3 }
+					{ type: ChartType.line, x: 1, y: 1, w: 6, h: 3 }
 				)
 				// SCATTER: both X and Y error bars on the Y series
 				p.addSlide().addChart(
@@ -2451,7 +2452,7 @@ export default [
 							],
 						},
 					],
-					{ type: p.ChartType.scatter, x: 1, y: 1, w: 6, h: 3 }
+					{ type: ChartType.scatter, x: 1, y: 1, w: 6, h: 3 }
 				)
 			})
 			await expectNoSchemaErrors(buf, 'chart-error-bars')
@@ -2473,7 +2474,7 @@ export default [
 		fn: async () => {
 			const { buf } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.round2SameRect, {
+				s.addShape(ShapeType.round2SameRect, {
 					x: 0.5,
 					y: 0.5,
 					w: 3,
@@ -2481,7 +2482,7 @@ export default [
 					rectRadius: 0.1,
 					fill: { color: '4472C4' },
 				})
-				s.addShape(p.ShapeType.round2DiagRect, {
+				s.addShape(ShapeType.round2DiagRect, {
 					x: 4,
 					y: 0.5,
 					w: 3,
@@ -2499,7 +2500,7 @@ export default [
 			const { buf } = await build((p) => {
 				const s = p.addSlide()
 				// Single guide: chevron point depth
-				s.addShape(p.ShapeType.chevron, {
+				s.addShape(ShapeType.chevron, {
 					x: 0.5,
 					y: 0.5,
 					w: 3,
@@ -2508,7 +2509,7 @@ export default [
 					fill: { color: '4472C4' },
 				})
 				// Array form on a rounded-rectangle adjust handle
-				s.addShape(p.ShapeType.roundRect, {
+				s.addShape(ShapeType.roundRect, {
 					x: 0.5,
 					y: 2,
 					w: 3,
@@ -2534,7 +2535,7 @@ export default [
 						{ name: 'Ctrl', labels: LABELS, values: [0, 11, 6, 19, 12, 5, 0, 0, 0] },
 						{ name: 'East', labels: LABELS, values: [0, 3, 2, 0, 0, 0, 4, 3, 1] },
 					],
-					{ type: p.ChartType.bar, x: 1, y: 1, w: 6, h: 4 }
+					{ type: ChartType.bar, x: 1, y: 1, w: 6, h: 4 }
 				)
 			})
 			await expectNoSchemaErrors(buf, 'bar-chart-multilevel-categories')
@@ -2602,7 +2603,7 @@ export default [
 						{ name: 'Series 1', labels: ['A', 'B', 'C'], values: [10, 20, 30], customLabels: ['Low', '', 'High'] },
 						{ name: 'Series 2', labels: ['A', 'B', 'C'], values: [15, 5, 25], customLabels: ['', 'Min', ''] },
 					],
-					{ type: p.ChartType.bar, x: 1, y: 1, w: 6, h: 3, showValue: true }
+					{ type: ChartType.bar, x: 1, y: 1, w: 6, h: 3, showValue: true }
 				)
 			})
 			await expectNoSchemaErrors(buf, 'bar-chart-custom-labels')
@@ -2621,7 +2622,7 @@ export default [
 							customLabels: ['At Risk', 'Watch', 'On Track'],
 						},
 					],
-					{ type: p.ChartType.pie, x: 1, y: 1, w: 4, h: 3, showValue: true }
+					{ type: ChartType.pie, x: 1, y: 1, w: 4, h: 3, showValue: true }
 				)
 			})
 			await expectNoSchemaErrors(buf, 'pie-chart-custom-labels')
@@ -2645,7 +2646,7 @@ export default [
 							],
 						},
 					],
-					{ type: p.ChartType.bar, x: 1, y: 1, w: 6, h: 3 }
+					{ type: ChartType.bar, x: 1, y: 1, w: 6, h: 3 }
 				)
 			})
 			await expectNoSchemaErrors(buf, 'bar-chart-point-styles')
@@ -2672,7 +2673,7 @@ export default [
 							],
 						},
 					],
-					{ type: p.ChartType.bar, x: 1, y: 1, w: 6, h: 3 }
+					{ type: ChartType.bar, x: 1, y: 1, w: 6, h: 3 }
 				)
 			})
 			await expectNoSchemaErrors(buf, 'bar-chart-pattern-fills')
@@ -2691,7 +2692,7 @@ export default [
 							pointStyles: [{ border: { width: 3, color: 'C00000' } }, {}, { fill: '70AD47' }],
 						},
 					],
-					{ type: p.ChartType.pie, x: 1, y: 1, w: 4, h: 3 }
+					{ type: ChartType.pie, x: 1, y: 1, w: 4, h: 3 }
 				)
 			})
 			await expectNoSchemaErrors(buf, 'pie-chart-point-styles')
@@ -2702,7 +2703,7 @@ export default [
 		fn: async () => {
 			const { buf } = await build((p) => {
 				p.addSlide().addChart([{ name: 'Status', labels: ['Red', 'Amber', 'Green'], values: [10, 30, 60] }], {
-					type: p.ChartType.pie,
+					type: ChartType.pie,
 					x: 1,
 					y: 1,
 					w: 4,
@@ -2713,7 +2714,7 @@ export default [
 					leaderLineSize: 1.5,
 				})
 				p.addSlide().addChart([{ name: 'Status', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
-					type: p.ChartType.doughnut,
+					type: ChartType.doughnut,
 					x: 1,
 					y: 1,
 					w: 4,
@@ -2743,7 +2744,7 @@ export default [
 							],
 						},
 					],
-					{ type: p.ChartType.line, x: 1, y: 1, w: 6, h: 3 }
+					{ type: ChartType.line, x: 1, y: 1, w: 6, h: 3 }
 				)
 			})
 			await expectNoSchemaErrors(buf, 'line-chart-point-styles')
@@ -2762,7 +2763,7 @@ export default [
 							pointStyles: [{ fill: 'FFC000' }, {}, { border: { width: 1, color: '404040' } }],
 						},
 					],
-					{ type: p.ChartType.area, x: 1, y: 1, w: 6, h: 3 }
+					{ type: ChartType.area, x: 1, y: 1, w: 6, h: 3 }
 				)
 			})
 			await expectNoSchemaErrors(buf, 'area-chart-point-styles')
@@ -2781,7 +2782,7 @@ export default [
 							pointStyles: [{ border: { width: 2, color: 'FF0000' } }, {}, { fill: '00B050' }, {}],
 						},
 					],
-					{ type: p.ChartType.scatter, x: 1, y: 1, w: 6, h: 3 }
+					{ type: ChartType.scatter, x: 1, y: 1, w: 6, h: 3 }
 				)
 			})
 			await expectNoSchemaErrors(buf, 'scatter-chart-point-styles')
@@ -2809,7 +2810,7 @@ export default [
 						folHlink: '954F72',
 					},
 				}
-				p.addSlide().addText('themed', { x: 1, y: 1, w: 4, h: 0.5, color: p.SchemeColor.accent1 })
+				p.addSlide().addText('themed', { x: 1, y: 1, w: 4, h: 0.5, color: SchemeColor.accent1 })
 			})
 			await expectNoSchemaErrors(buf, 'theme-color-scheme')
 		},
@@ -2883,7 +2884,7 @@ export default [
 				// catAxisLabelFontFace is emitted unconditionally, so it always reaches
 				// createChartTextFonts (which all other chart font options also route through).
 				p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2] }], {
-					type: p.ChartType.bar,
+					type: ChartType.bar,
 					x: 0.5,
 					y: 0.5,
 					w: 4,
@@ -3377,7 +3378,7 @@ export default [
 		fn: async () => {
 			const { buf } = await build((p) => {
 				const s = p.addSlide()
-				s.addShape(p.ShapeType.custGeom, {
+				s.addShape(ShapeType.custGeom, {
 					x: 1,
 					y: 1,
 					w: 3,

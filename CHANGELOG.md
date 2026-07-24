@@ -5,8 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
 ## [1.0.0] - 2026-07-24
 
 Initial public release of ts-pptx — an ESM-first, TypeScript-first library for
@@ -31,8 +29,7 @@ makes no backwards-compatibility guarantee with the original project.
 - Standalone text measurement and table-fit helpers
   (`@shbernal/ts-pptx/measure`).
 - Native equation authoring from LaTeX or MathML (`@shbernal/ts-pptx/math`).
-- Explicit ESM package boundary with typed subpath exports for `core`,
-  `inspect`, `measure`, `read`, `math`, `node`, `browser`, and `standalone`.
+- Explicit ESM package boundary with typed subpath exports for `inspect`,
+  `measure`, `read`, `math`, `node`, and `browser`.
 
-[Unreleased]: https://github.com/shbernal/ts-pptx/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/shbernal/ts-pptx/releases/tag/v1.0.0

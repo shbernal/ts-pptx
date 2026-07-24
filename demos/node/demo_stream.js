@@ -10,7 +10,7 @@
 
 // ============================================================================
 import { Buffer } from "node:buffer";
-import TsPptx from "@shbernal/ts-pptx";
+import TsPptx, { SchemeColor } from "@shbernal/ts-pptx";
 import express from "express"; // @note Only required for streaming test (not a req for TsPptx)
 const app = express(); // @note Only required for streaming test (not a req for TsPptx)
 //let exportName = `TsPptx_Node_Demo_Stream_${new Date().toISOString()}.pptx`;
@@ -21,11 +21,11 @@ const pptx = new TsPptx();
 const slide = pptx.addSlide();
 slide.addText(
 	[
-		{ text: "TsPptx", options: { fontSize: 48, color: pptx.SchemeColor.accent1, breakLine: true } },
-		{ text: "Node Stream Demo", options: { fontSize: 24, color: pptx.SchemeColor.accent6, breakLine: true } },
-		{ text: "(pretty cool huh?)", options: { fontSize: 24, color: pptx.SchemeColor.accent3 } },
+		{ text: "TsPptx", options: { fontSize: 48, color: SchemeColor.accent1, breakLine: true } },
+		{ text: "Node Stream Demo", options: { fontSize: 24, color: SchemeColor.accent6, breakLine: true } },
+		{ text: "(pretty cool huh?)", options: { fontSize: 24, color: SchemeColor.accent3 } },
 	],
-	{ x: 1, y: 1, w: "80%", h: 3, align: "center", fill: pptx.SchemeColor.background2 },
+	{ x: 1, y: 1, w: "80%", h: 3, align: "center", fill: SchemeColor.background2 },
 );
 
 // Export presentation: Save to stream (instead of `write` or `writeFile`)

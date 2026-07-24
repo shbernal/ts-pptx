@@ -24,9 +24,8 @@ import TsPptx from "@shbernal/ts-pptx"
 
 The package publishes:
 
-- `dist/index.js` and `dist/index.d.ts` as the default ESM package entry.
-- `dist/core.js` and `dist/core.d.ts` for public enums, shared types, layout
-  constants, and unit helpers.
+- `dist/index.js` and `dist/index.d.ts` as the default ESM package entry — it
+  also exports the public enums, shared types, layout constants, and unit helpers.
 - `dist/inspect.js` and `dist/inspect.d.ts` for low-level PPTX package
   inspection, slide/object extraction, and geometry helpers.
 - `dist/measure.js` and `dist/measure.d.ts` for headless text-measurement and
@@ -39,10 +38,8 @@ The package publishes:
   used by `read` and `inspect`.
 - `dist/node.js` and `dist/node.d.ts` for explicit Node.js consumers.
 - `dist/browser.js` and `dist/browser.d.ts` for explicit browser consumers.
-- `dist/standalone.js` and `dist/standalone.d.ts` as a browser ESM entry that
-  bundles JSZip.
-- package `exports` entries for `.`, `./core`, `./inspect`, `./measure`,
-  `./read`, `./math`, `./zip`, `./node`, `./browser`, and `./standalone`.
+- package `exports` entries for `.`, `./inspect`, `./measure`, `./read`,
+  `./math`, `./zip`, `./node`, and `./browser`.
 
 Supported environments are modern module-aware environments:
 
@@ -54,15 +51,13 @@ Supported environments are modern module-aware environments:
 Supported package imports:
 
 ```ts
-import TsPptx from "@shbernal/ts-pptx"
-import { ShapeType } from "@shbernal/ts-pptx/core"
+import TsPptx, { ShapeType } from "@shbernal/ts-pptx"
 import { inspectPptx } from "@shbernal/ts-pptx/inspect"
 import { measureText } from "@shbernal/ts-pptx/measure"
 import { Presentation } from "@shbernal/ts-pptx/read"
 import { latexToOmml } from "@shbernal/ts-pptx/math"
 import pptxgenNode from "@shbernal/ts-pptx/node"
 import pptxgenBrowser from "@shbernal/ts-pptx/browser"
-import pptxgenStandalone from "@shbernal/ts-pptx/standalone"
 ```
 
 ## Dropped Compared To Upstream
@@ -91,7 +86,7 @@ package smoke test verifies the actual contract: no CJS artifacts and no
 ### IIFE And Global Browser Bundle
 
 The IIFE/global browser build is not supported.
-`@shbernal/ts-pptx/standalone` is an ESM browser entry, not a
+`@shbernal/ts-pptx/browser` is an ESM browser entry, not a
 `window.TsPptx` global.
 
 Unsupported:

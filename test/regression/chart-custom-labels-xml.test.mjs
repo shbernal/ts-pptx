@@ -1,3 +1,4 @@
+import { ChartType } from '../../dist/node.js'
 import { describe, expect, test } from 'vitest'
 import { build, readEntry, listEntries, assert } from '../helpers.js'
 
@@ -17,7 +18,7 @@ describe('chart customLabels (makeCustomDLblXml)', () => {
 	test('per-point customLabels text is escaped and rendered as a c:dLbl rich run', async () => {
 		const { zip } = await build((p) => {
 			p.addSlide().addChart([{ name: 'S1', labels: ['A', 'B'], values: [1, 2], customLabels: ['Q&A', null] }], {
-				type: p.ChartType.bar,
+				type: ChartType.bar,
 				x: 1,
 				y: 1,
 				w: 6,

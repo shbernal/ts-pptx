@@ -242,7 +242,7 @@ export type TextVertType = 'eaVert' | 'horz' | 'mongolianVert' | 'vert' | 'vert2
 /**
  * A single node of a freeform (`custGeom`) path.
  * - coordinates are authored in the object's own inch/EMU space (0..width, 0..height), not slide-relative and not normalized
- * - used by shapes (`pptx.ShapeType.custGeom`) and by images (clips the picture to the path)
+ * - used by shapes (`ShapeType.custGeom`) and by images (clips the picture to the path)
  *
  * The `arc` node carries no `x`/`y`: an `<a:arcTo>` has no explicit end point. The renderer
  * derives it from the current pen position, the radii and the swept angle, so an end point

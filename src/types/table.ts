@@ -70,10 +70,11 @@ export interface TableToSlidesProps extends TableProps {
 	 */
 	colW?: number | number[]
 	/**
-	 * Master slide name
-	 * - define a master slide to have your auto-paged slides have corporate design, etc.
+	 * Title of the slide master to use for the auto-paged slides (the `title` passed to
+	 * `defineSlideMaster`). Matches the `masterTitle` option of `addSlide`.
+	 * - define a master slide to have your auto-paged slides carry a corporate design, etc.
 	 */
-	masterSlideName?: string
+	masterTitle?: string
 	/**
 	 * Slide margin
 	 * - this margin will be across all slides created by auto-paging
@@ -109,7 +110,7 @@ export interface TableCellProps extends TextBaseProps {
 	 * Fill color
 	 * @example { color:'FF0000' } // hex color (red)
 	 * @example { color:'0088CC', transparency:50 } // hex color, 50% transparent
-	 * @example { color:pptx.SchemeColor.accent1 } // theme color Accent1
+	 * @example { color:SchemeColor.accent1 } // theme color Accent1
 	 */
 	fill?: ShapeFillProps
 	hyperlink?: HyperlinkProps
@@ -430,7 +431,7 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * Cell background color
 	 * @example { color:'FF0000' } // hex color (red)
 	 * @example { color:'0088CC', transparency:50 } // hex color, 50% transparent
-	 * @example { color:pptx.SchemeColor.accent1 } // theme color Accent1
+	 * @example { color:SchemeColor.accent1 } // theme color Accent1
 	 */
 	fill?: ShapeFillProps
 	/**
@@ -446,11 +447,12 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 */
 	rowH?: number | number[]
 	/**
-	 * DEV TOOL: Verbose Mode (to console)
-	 * - tell the library to provide an almost ridiculous amount of detail during auto-paging calculations
-	 * @default false // obviously
+	 * DEV-ONLY diagnostic flag: when `true`, logs a verbose trace of the auto-paging
+	 * calculations to the console. Intended for debugging table layout only; leave unset
+	 * in production. Inherited by {@link TableToSlidesProps}.
+	 * @default false
 	 */
-	verbose?: boolean // Undocumented; shows verbose output
+	verbose?: boolean
 }
 export interface TableCell {
 	_type?: SlideObjectType.tablecell

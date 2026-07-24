@@ -126,7 +126,6 @@ The package should ship:
 
 - `dist/index.js`
 - `dist/index.d.ts`
-- `dist/core.js`
 - `dist/inspect.js`
 - `dist/measure.js`
 - `dist/read.js`
@@ -134,21 +133,19 @@ The package should ship:
 - `dist/zip.js`
 - `dist/node.js`
 - `dist/browser.js`
-- `dist/standalone.js`
 - package `exports["."].default`
 - package `exports["."].types`
-- package subpaths for `./core`, `./inspect`, `./measure`, `./read`, `./math`,
-  `./zip`, `./node`, `./browser`, and `./standalone`
+- package subpaths for `./inspect`, `./measure`, `./read`, `./math`,
+  `./zip`, `./node`, and `./browser`
 - scoped imports for `@shbernal/ts-pptx`,
-  `@shbernal/ts-pptx/core`, `@shbernal/ts-pptx/inspect`,
-  `@shbernal/ts-pptx/measure`, `@shbernal/ts-pptx/read`,
-  `@shbernal/ts-pptx/math`, `@shbernal/ts-pptx/zip`,
-  `@shbernal/ts-pptx/node`, `@shbernal/ts-pptx/browser`, and
-  `@shbernal/ts-pptx/standalone`
+  `@shbernal/ts-pptx/inspect`, `@shbernal/ts-pptx/measure`,
+  `@shbernal/ts-pptx/read`, `@shbernal/ts-pptx/math`,
+  `@shbernal/ts-pptx/zip`, `@shbernal/ts-pptx/node`, and
+  `@shbernal/ts-pptx/browser`
 
-(`pnpm run test:package` currently smoke-tests `.`, `./core`, `./inspect`,
-`./node`, `./browser`, and `./standalone` end-to-end; `./measure`, `./read`,
-`./math`, and `./zip` are not yet exercised by that script.)
+(`pnpm run test:package` currently smoke-tests `.`, `./inspect`, `./node`, and
+`./browser` end-to-end; `./measure`, `./read`, `./math`, and `./zip` are not yet
+exercised by that script.)
 
 The package should not ship or document:
 

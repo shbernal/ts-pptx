@@ -84,7 +84,7 @@ export interface ThemeProps {
 	/**
 	 * Theme color scheme overrides written to `ppt/theme/theme1.xml`.
 	 * - any unset slot keeps its default Office value
-	 * - references such as `pptx.SchemeColor.accent1` resolve against these values
+	 * - references such as `SchemeColor.accent1` resolve against these values
 	 * @example { accent1: 'C00000', accent2: '00B050', hlink: '0070C0' }
 	 */
 	colorScheme?: ThemeColorScheme

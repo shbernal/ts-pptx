@@ -1,3 +1,4 @@
+import { ChartType } from '../../dist/node.js'
 import {
 	defineRegressionSuite,
 	build,
@@ -104,7 +105,7 @@ defineRegressionSuite('Content type defaults', 'legacy bug-16', [
 			const { pres, zip } = await build((p) => {
 				const s = p.addSlide()
 				s.addChart([{ name: 'series1', labels: ['a', 'b'], values: [1, 2] }], {
-					type: p.ChartType.bar,
+					type: ChartType.bar,
 					x: 1,
 					y: 1,
 					w: 4,

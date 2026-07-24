@@ -1,4 +1,4 @@
-import TsPptx from "@shbernal/ts-pptx";
+import TsPptx, { ChartType } from "@shbernal/ts-pptx";
 import { testMainMethods, testTableMethod } from "./tstest/Test";
 import { demoCode } from "./enums";
 import logo from "./assets/logo.png";
@@ -16,9 +16,9 @@ function App() {
 				values: [26, 53, 100, 75, 41],
 			},
 		];
-		//slide.addChart(dataChartRadar, { type: pptx.ChartType.radar, x: 0.36, y: 2.25, w: 4.0, h: 4.0, radarStyle: "radar" });
+		//slide.addChart(dataChartRadar, { type: ChartType.radar, x: 0.36, y: 2.25, w: 4.0, h: 4.0, radarStyle: "radar" });
 
-		//slide.addShape(pptx.ShapeType.rect, { x: 4.36, y: 2.36, w: 5, h: 2.5, fill: pptx.SchemeColor.background2 });
+		//slide.addShape(ShapeType.rect, { x: 4.36, y: 2.36, w: 5, h: 2.5, fill: SchemeColor.background2 });
 
 		//slide.addText("React Demo!", { x: 1, y: 1, w: "80%", h: 1, fontSize: 36, fill: "eeeeee", align: "center" });
 		slide.addText("React Demo!", {
@@ -32,7 +32,7 @@ function App() {
 			color: "008899",
 		});
 
-		slide.addChart(dataChartRadar, { type: pptx.ChartType.radar, x: 1, y: 1.9, w: 8, h: 3 });
+		slide.addChart(dataChartRadar, { type: ChartType.radar, x: 1, y: 1.9, w: 8, h: 3 });
 
 		slide.addText(`ts-pptx version: ${pptx.version}`, {
 			x: 0,
@@ -41,8 +41,8 @@ function App() {
 			h: 0.33,
 			fontSize: 10,
 			align: "center",
-			fill: { color: "E1E1E1" }, //{ color: pptx.SchemeColor.background2 },
-			color: "A1A1A1", // pptx.SchemeColor.accent3,
+			fill: { color: "E1E1E1" }, //{ color: SchemeColor.background2 },
+			color: "A1A1A1", // SchemeColor.accent3,
 		});
 
 		pptx.writeFile({ fileName: "ts-pptx-demo-react.pptx" });

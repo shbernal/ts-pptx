@@ -183,7 +183,7 @@ export interface ChartPropsFillLine {
 	/**
 	 * PowerPoint: Format Chart Area/Plot Area > Fill
 	 * @example fill: {color: '696969'} // hex RGB color value
-	 * @example fill: {color: pptx.SchemeColor.background2} // Theme color value
+	 * @example fill: {color: SchemeColor.background2} // Theme color value
 	 * @example fill: {transparency: 50} // 50% transparency
 	 */
 	fill?: ShapeFillProps
@@ -220,6 +220,13 @@ export interface ChartPropsBase {
 	 */
 	showBubbleSize?: boolean
 	/**
+	 * Enable data labels, with a meaning that is **overloaded per plot type** — it is not a
+	 * plain duplicate of {@link ChartPropsBase.showValue}:
+	 * - pie / doughnut: shows the **category name** (`c:showCatName`);
+	 * - scatter: shows **both** the value and the category name;
+	 * - chartEx (waterfall/funnel/…): OR-combined with `showValue` to show the **value** label.
+	 *
+	 * For the common "show the numeric value" case on standard plots, prefer `showValue`.
 	 * @default false
 	 */
 	showLabel?: boolean

@@ -207,7 +207,7 @@ export interface PresSlideInternal extends SlideBaseProps, PresSlide {
 	_rId: number
 	_slideLayout: SlideLayoutInternal | null
 	_slideId: number
-	/** Preset build animations on this slide, in play order (see {@link PresSlide.addAnimation}). */
+	/** Preset build animations on this slide, in play order (see {@link Slide.addAnimation}). */
 	_animations: AnimationProps[]
 }
 export interface SectionInternalProps extends SectionProps {
