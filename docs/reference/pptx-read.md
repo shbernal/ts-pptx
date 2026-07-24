@@ -282,6 +282,28 @@ interface EmbeddedFontInfo {
 	faces: { slot: 'regular' | 'bold' | 'italic' | 'boldItalic'; partName: string }[]
 }
 
+interface CoreProperties {
+	// All optional (present only when the element is). See "Document properties" below.
+	title?: string // dc:title
+	subject?: string // dc:subject
+	creator?: string // dc:creator (the write-side pptx.author)
+	keywords?: string // cp:keywords
+	description?: string // dc:description
+	lastModifiedBy?: string // cp:lastModifiedBy
+	revision?: string // cp:revision
+	category?: string // cp:category
+	contentStatus?: string // cp:contentStatus
+	created?: string // dcterms:created — raw W3CDTF string, not a Date
+	modified?: string // dcterms:modified — raw W3CDTF string
+	lastPrinted?: string // cp:lastPrinted — raw W3CDTF string
+}
+
+type CustomPropertyValue = string | number | boolean | Date
+interface CustomProperty {
+	name: string // property/@name
+	value: CustomPropertyValue // typed from the vt: child (filetime decodes to a raw string)
+}
+
 class Presentation {
 	static load(input: OpcInput): Promise<Presentation>
 	static fromPackage(opc: OpcPackage): Presentation
@@ -305,6 +327,10 @@ class Presentation {
 	readonly slideSize: SlideSize | null
 	/** Embedded font families (p:embeddedFontLst); [] when none. Each face's r:id resolves to its .fntdata partname. */
 	readonly embeddedFonts: EmbeddedFontInfo[]
+	/** Core document properties (docProps/core.xml); {} when the part is absent. See "Document properties". */
+	readonly coreProperties: CoreProperties
+	/** User-defined custom document properties (docProps/custom.xml); [] when the part is absent. */
+	readonly customProperties: CustomProperty[]
 
 	/**
 	 * Phase 4 — duplicate the slide at `index`, insert the copy at `options.at`
@@ -387,6 +413,37 @@ interface ImportShapeOptions {
 	height?: number
 	at?: number // z-order insert position among host shape children; default append (on top)
 }
+```
+
+#### Document properties (core + custom)
+
+`pres.coreProperties` decodes `docProps/core.xml` — the Dublin Core / OPC metadata
+(`title`, `subject`, `creator`, `keywords`, `revision`, `lastModifiedBy`, …) plus
+the `created`/`modified`/`lastPrinted` timestamps. Every field is optional and
+appears only when its element is present; a present-but-empty element decodes to
+`''`. Timestamps are kept as the **raw W3CDTF string** (e.g. `2026-07-24T08:52:57Z`),
+not parsed to a `Date`, to avoid timezone round-trip loss. A deck with no
+core-properties part reads as `{}`.
+
+`pres.customProperties` decodes `docProps/custom.xml` — the user-defined
+`{ name, value }` pairs from `pptx.setCustomProperty(...)`. Each value is typed
+from its `vt:` element: `vt:lpwstr`/`vt:lpstr`/`vt:bstr` → `string`, the integer
+types (`vt:i4`, …) and reals (`vt:r8`, …) → `number`, `vt:bool` → `boolean`, and
+`vt:filetime`/`vt:date` → the raw W3CDTF `string` (matching the timestamp decision
+above). Order and count match the authored part; a deck with no custom-properties
+part reads as `[]`.
+
+Both are genuine round-trip surfaces — the write side authors both parts — so a
+consumer can set metadata with `pptx.title`/`subject`/`author` (→ `creator`)/
+`revision` and `pptx.setCustomProperty(...)`, then read it back through these
+getters. (Distinct from the `customXml/` item parts in the preserve-only boundary
+below, which are opaque application data, not document properties.)
+
+```ts
+const pres = await Presentation.load(bytes)
+pres.coreProperties.title // 'Quarterly Review' | undefined
+pres.coreProperties.created // '2026-07-24T08:52:57Z' (raw W3CDTF string)
+pres.customProperties // [{ name: 'FiscalYear', value: 2025 }, …]
 ```
 
 ### `Slide`

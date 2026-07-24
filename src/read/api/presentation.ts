@@ -44,6 +44,12 @@ import {
 	type CommentSchema,
 	type ModernCommentAuthor,
 } from './comments.js'
+import {
+	readCoreProperties,
+	readCustomProperties,
+	type CoreProperties,
+	type CustomProperty,
+} from './document-properties.js'
 import type {
 	AppendSlidesOptions,
 	FromTemplateOptions,
@@ -361,6 +367,27 @@ export class Presentation {
 	 */
 	get commentSchema(): CommentSchema {
 		return commentSchema(this.opc)
+	}
+
+	/**
+	 * The deck's core document properties (`docProps/core.xml`): title, subject,
+	 * creator, keywords, revision, and the created/modified/lastPrinted timestamps
+	 * (kept as raw W3CDTF strings). `{}` when the deck carries no core-properties
+	 * part. The read counterpart of the write-side `pptx.title`/`subject`/`author`
+	 * (→ `creator`)/`revision` setters.
+	 */
+	get coreProperties(): CoreProperties {
+		return readCoreProperties(this.opc)
+	}
+
+	/**
+	 * The deck's user-defined custom document properties (`docProps/custom.xml`) as
+	 * `{ name, value }` pairs, each value typed from its `vt:` element (string,
+	 * number, boolean, or a raw filetime string). `[]` when the deck carries no
+	 * custom-properties part. The read counterpart of `pptx.setCustomProperty(...)`.
+	 */
+	get customProperties(): CustomProperty[] {
+		return readCustomProperties(this.opc)
 	}
 
 	/**

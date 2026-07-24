@@ -50,6 +50,13 @@ export {
 	type ModernComment,
 	type ModernCommentAuthor,
 } from './read/api/comments.js'
+export {
+	readCoreProperties,
+	readCustomProperties,
+	type CoreProperties,
+	type CustomProperty,
+} from './read/api/document-properties.js'
+export type { CustomPropertyValue } from './core-interfaces.js'
 export { type TransitionInfo, type TransitionInput, type TransitionSpeed } from './read/api/transition.js'
 export {
 	Shape,
