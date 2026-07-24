@@ -36,7 +36,14 @@ import { Slide } from './slide.js'
 import { SlideMaster } from './chrome.js'
 import { wrapShapeElement, type AnyShape } from './shapes.js'
 import { carryShapeAnimations } from './animation.js'
-import { readCommentAuthors, type CommentAuthor } from './comments.js'
+import {
+	commentSchema,
+	readCommentAuthors,
+	readModernCommentAuthors,
+	type CommentAuthor,
+	type CommentSchema,
+	type ModernCommentAuthor,
+} from './comments.js'
 import type {
 	AppendSlidesOptions,
 	FromTemplateOptions,
@@ -331,6 +338,29 @@ export class Presentation {
 	 */
 	get commentAuthors(): CommentAuthor[] {
 		return readCommentAuthors(this.opc, this.presentationPart.partName)
+	}
+
+	/**
+	 * The deck-wide **modern** (2018) comment-author registry (`p188:authorLst` in
+	 * `ppt/authors.xml`), `[]` when the deck carries no modern comments. Unlike the
+	 * legacy {@link commentAuthors}, each entry is keyed by a GUID `id` (plus
+	 * `userId`/`providerId`); each slide's {@link Slide.modernComments} resolves its
+	 * `@authorId` against this list. Read-only — the writer emits legacy comments.
+	 */
+	get modernCommentAuthors(): ModernCommentAuthor[] {
+		return readModernCommentAuthors(this.opc, this.presentationPart.partName)
+	}
+
+	/**
+	 * Which comment schema this deck uses: `'modern'` when it carries any 2018
+	 * `modernComment_*` part (read via {@link Slide.modernComments} /
+	 * {@link modernCommentAuthors}), `'legacy'` when it carries classic
+	 * `commentN.xml` parts (read via {@link Slide.comments} / {@link commentAuthors}),
+	 * or `'none'`. The two schemas do not coexist in practice, so this tells a
+	 * consumer which accessor to read without probing both.
+	 */
+	get commentSchema(): CommentSchema {
+		return commentSchema(this.opc)
 	}
 
 	/**

@@ -45,6 +45,7 @@ PowerPoint.
 | `placeholder-footer-trio.pptx` | Microsoft Office PowerPoint | 16.0000 | 1  |
 | `picture-media.pptx`   | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `default-text-style.pptx` | Microsoft Office PowerPoint | 16.0000    | 1      |
+| `modern-comments.pptx` | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `template.potx`        | Microsoft Office PowerPoint    | 16.0000    | 0      |
 
 #### Authoring oracles (inspection only — not loaded by `test:read`)
@@ -152,6 +153,7 @@ ad583c449024bce9f531ce91faf81849ef8489202966ef29dcf9ced0a24289e3  import-animati
 226a880870611c3f5e7a4760fc83bff7cc528360ffe197f6bcba75ccfdfc1265  placeholder-footer-trio.pptx
 34486d4a96897ea06f7edabce07bbc2bb71932396a5e676cc5c6f673f53e4d46  picture-media.pptx
 c9a02f7a276fd7ce3a9090c2f87770dddba4c4392ccd14b1833c939b9b697e77  default-text-style.pptx
+1ebba022ad3831e8e6cf91a40a53e08dc65246479090d165b576f3af9734f0b0  modern-comments.pptx
 ```
 
 ### Embedded font faces (`fonts/`)
@@ -361,6 +363,25 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   falls through to `p:defaultTextStyle`. Authored via PowerPoint COM on Windows
   (2026-07-24); ground truth (theme minorFont `Aptos`, `clrMap tx1→dk1` windowText
   `000000`, direct slot `lt1` window `FFFFFF`) read directly off the fixture.
+- `modern-comments.pptx` — a minimal two-slide deck carrying PowerPoint's **modern
+  (2018) `p188` comment schema**, read by `modern-comments.test.js`
+  (`Presentation.modernCommentAuthors` / `commentSchema`, `Slide.modernComments`).
+  Deck-wide `ppt/authors.xml` (`p188:authorLst`, ns
+  `http://schemas.microsoft.com/office/powerpoint/2018/8/main`) holds two GUID-keyed
+  authors — Ada Lovelace (`{E8A64ABA-…}`) and Grace Hopper (`{DDC9F1C7-…}`), each with
+  `userId`/`providerId`. Slide 2 has a `ppt/comments/modernComment_*.xml`
+  (`p188:cmLst`) with one comment by Ada ("Tighten this headline",
+  `p188:pos x="1524000" y="1016000"`) whose `p188:replyLst` nests one reply by Grace;
+  slide 1 has none. Note the `p188:cm` child order — `pc:sldMkLst`, `p188:pos`,
+  `p188:replyLst`, then the comment's own `p188:txBody` **after** the reply list — so
+  the reader must pick the comment's direct-child `txBody`, not the reply's.
+  **Authored via the desktop PowerPoint COM `Comments.Add2` / `Replies.Add2` API on
+  Windows (2026-07-24)** — the modern API requires a recognised `providerId`
+  (`'Windows Live'` works; an empty or arbitrary value throws "Illegal value" and the
+  call silently falls back to the legacy schema). There is no writer for this schema;
+  the parts round-trip byte-perfect (preserved opaquely). Ground-truth author/comment
+  GUIDs, text, position and `created` timestamps read directly off the fixture's
+  `authors.xml` / modernComment XML.
 - `custgeom.pptx` — a minimal deck with PowerPoint-authored freeform
   (`a:custGeom`) shapes for the `customGeometry` read accessor, plus a preset-rect
   negative control. Authored via the COM `BuildFreeform`/`AddNodes`/`ConvertToShape`

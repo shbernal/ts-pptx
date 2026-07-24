@@ -58,6 +58,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     still wins; an explicit style `a:noFill` (e.g. a "Light Style" body cell) reads `null`. The
     resolved hexes were verified cell-by-cell against PowerPoint's own render (read back over
     COM). Cell borders and text properties from the style graph are not yet resolved.
+- **Read model: modern (2018) comments are now decoded.** A deck authored by current desktop
+  PowerPoint stores comments in the post-2018 `p188` schema — deck-wide GUID-keyed authors in
+  `ppt/authors.xml` and per-slide reply threads in `ppt/comments/modernComment_*.xml` — which
+  the reader previously left invisible, so a deck with comments read identically to one without.
+  - `Presentation.commentSchema` (`'legacy' | 'modern' | 'none'`) tells a consumer which schema
+    a deck uses (the two do not coexist in practice), so it can pick the right accessor without
+    probing both.
+  - `Presentation.modernCommentAuthors` decodes `ppt/authors.xml` (`p188:author`) as
+    `{ id, name, initials, userId, providerId }`, keyed by a **GUID** `id`. This is a separate
+    type from the legacy `CommentAuthor` (whose `id` stays `number`), so no existing type widens.
+  - `Slide.modernComments` decodes the slide's `modernComment_*` part into `ModernComment`s —
+    body text, `created` timestamp, marker position (EMU), the author resolved through the
+    registry, and the **reply thread nested** under `replies` (not flattened). Read-only; the
+    writer still authors the legacy schema, and modern parts round-trip byte-perfect.
 
 ### Changed
 

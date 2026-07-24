@@ -22,7 +22,7 @@ import { backgroundElementOf, readSlideBackground, type SlideBackground } from '
 import type { Presentation } from './presentation.js'
 import { AutoShape, GraphicFrame, GroupShape, Picture, buildShapes, type AnyShape } from './shapes.js'
 import { NotesSlide } from './notes.js'
-import { readSlideComments, type Comment } from './comments.js'
+import { readModernSlideComments, readSlideComments, type Comment, type ModernComment } from './comments.js'
 import { SlideLayout, type SlideMaster, type Theme } from './chrome.js'
 import type { TextFrame } from './text.js'
 import {
@@ -413,6 +413,19 @@ export class Slide {
 	 */
 	get comments(): Comment[] {
 		return readSlideComments(this.presentation.opc, this.part, this.presentation.commentAuthors)
+	}
+
+	/**
+	 * The slide's **modern** (2018) review comments (`p188:cm` in its
+	 * `modernComment_*.xml` part), `[]` when it has none. Each {@link ModernComment}
+	 * carries its body text, `created` timestamp, marker position (EMU), its author
+	 * resolved through the deck-wide {@link Presentation.modernCommentAuthors}
+	 * registry (`@authorId` GUID → name/initials), and its reply thread nested under
+	 * `replies`. Read-only — the writer authors the legacy schema; see
+	 * {@link Presentation.commentSchema} to tell which schema a deck uses.
+	 */
+	get modernComments(): ModernComment[] {
+		return readModernSlideComments(this.presentation.opc, this.part, this.presentation.modernCommentAuthors)
 	}
 
 	/**

@@ -42,6 +42,7 @@ export const OOXML_NS = Object.freeze({
 	mc: 'http://schemas.openxmlformats.org/markup-compatibility/2006',
 	p: 'http://schemas.openxmlformats.org/presentationml/2006/main',
 	p14: 'http://schemas.microsoft.com/office/powerpoint/2010/main',
+	p188: 'http://schemas.microsoft.com/office/powerpoint/2018/8/main',
 	pr: 'http://schemas.openxmlformats.org/package/2006/relationships',
 	r: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
 })
