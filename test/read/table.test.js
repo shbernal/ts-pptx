@@ -189,11 +189,23 @@ describe('Table cell styling', () => {
 		assertEqual(formattedTable(await open('table')).cell(0, 0).fillSchemeColor, 'accent3', 'raw scheme token')
 	})
 
-	test('cells with no explicit fill report null for both fill accessors', async () => {
-		// The first table's cells have no a:tcPr fill.
+	test('a cell with no own fill inherits the table style graph, but exposes no own scheme token', async () => {
+		// TableDefault's cells have no a:tcPr fill; the table is Medium Style 2 - Accent 1
+		// with banded rows, so its body cells shade from the style's band1H/band2H parts.
 		const cell = firstTable(await open('table')).cell(0, 0)
-		assertEqual(cell.fillSchemeColor, null, 'no scheme token without a fill')
-		assertEqual(cell.resolvedFill, null, 'no resolved fill without a fill')
+		assertEqual(cell.fillSchemeColor, null, 'fillSchemeColor reads only the own fill -> null')
+		// Row 0 of a banded, header-less table is the first body band (band1H); the resolved
+		// hex matches what PowerPoint renders (verified via COM against this fixture).
+		assertEqual(cell.resolvedFill?.effectiveHex, 'CFD5EA', 'resolvedFill falls back to the band1H style fill')
+	})
+
+	test('a cell whose table style defines no fill still reports null', async () => {
+		// The slide-2 tables use the built-in "No Style, No Grid" style ({2D5ABB26-…}):
+		// it resolves, but its parts define no cell fill, so a bare cell inherits nothing.
+		const noStyle = allTables(await open('table')).find((t) => t.styleId === '{2D5ABB26-0587-4C30-8999-92F81FD0307C}')
+		assert(noStyle, 'fixture has a "No Style, No Grid" table')
+		assert(noStyle.resolvedStyle, 'that style still resolves in tableStyles.xml')
+		assertEqual(noStyle.cell(0, 0).resolvedFill, null, 'a fill-less style yields no resolved cell fill')
 	})
 
 	test('verticalText / anchor / marginsEmu are null when the cell sets none', async () => {

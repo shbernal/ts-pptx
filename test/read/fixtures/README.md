@@ -207,12 +207,18 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   resolution by extension.
 - `table.pptx` — slides containing tables (`a:tbl` graphic frames).
 - `table-styles.pptx` — a locally authored single-slide deck carrying a real
-  `ppt/tableStyles.xml`, the fixture for `importSlideMasters({ tableStyles })`. Three
+  `ppt/tableStyles.xml`, the fixture for `importSlideMasters({ tableStyles })` **and** for
+  `Table.resolvedStyle` / `TableCell.resolvedFill` style-graph resolution. Three
   tables (`tbl-medium2-accent3`, `tbl-medium4-accent4`, `tbl-light2-accent1`) each have
   a **Microsoft built-in** table style applied, which makes PowerPoint materialise that
   style's full definition into the part — four genuine `a:tblStyle` defs (the deck's own
   default is always written too). Only built-in style GUIDs are used, so the fixture
-  carries no third-party branding. Slide size is 12192000×6858000 EMU, matching
+  carries no third-party branding. Every cell has an empty `<a:tcPr/>` (no own fill), so
+  each cell's fill comes entirely from the style graph — the three tables exercise a
+  `firstRow` header, `band1H`/`band2H` row banding, a missing `band2H` (Medium 4) that
+  falls through to `wholeTbl`, a `fillRef` header (Light 2), and a `wholeTbl` `noFill`
+  body. The expected resolved hexes were verified cell-by-cell against what PowerPoint
+  renders, read back over COM. Slide size is 12192000×6858000 EMU, matching
   `empty.pptx`, so a graft passes `requireEqualSize` without an override.
   - **`a:tblStyleLst@def` is `{F5AB1C69-…}` "Medium Style 2 - Accent 3"** — deliberately
     *not* the standard `{5C22544A-…}` "Medium Style 2 - Accent 1" default that

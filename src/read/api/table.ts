@@ -6,11 +6,32 @@
  * `part.markDirty()`. Cell text reuses the `TextFrame`/`Paragraph`/`Run`
  * proxies, so per-run formatting edits work exactly as on a shape's text.
  */
+import type { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
 import { attr, firstChild, getElements, intValue, type Element } from '../oxml/dom.js'
 import type { FlattenContext } from '../oxml/theme.js'
+import {
+	resolveTableCellStyleFill,
+	resolveTableStyle,
+	type ResolvedTableStyle,
+	type TableConditionFlags,
+} from './table-style-resolve.js'
 import { resolveSolidFillColor, type ResolvedColor } from './theme-context.js'
 import { setTextBodyText, TextFrame } from './text.js'
+
+/**
+ * The context a cell needs to resolve its style-graph fill: the table's resolved
+ * `a:tblStyle`, its condition flags, and the grid dimensions. Threaded from
+ * {@link Table} down to each {@link TableCell} alongside the cell's own position.
+ * `null` when the table references no resolvable style.
+ */
+interface TableCellStyleContext {
+	style: ResolvedTableStyle
+	flags: TableConditionFlags
+	rowCount: number
+	colCount: number
+	ctx: FlattenContext
+}
 
 /**
  * One edge border of a table cell (`a:tcPr/a:lnL|lnR|lnT|lnB|lnTlToBr|lnBlToTr`).
@@ -53,12 +74,50 @@ export class Table {
 		private readonly tbl: Element,
 		private readonly part: Part,
 		/** The owning slide's theme colour context, threaded to each cell's text for `Run.resolvedColor`. */
-		private readonly themeColors?: FlattenContext
+		private readonly themeColors?: FlattenContext,
+		/** The deck package, for resolving `a:tableStyleId` against `tableStyles.xml` (style-graph cell fills). */
+		private readonly opc?: OpcPackage
 	) {}
 
 	/** The table's rows (`a:tr`) in document (top-to-bottom) order. */
 	get rows(): TableRow[] {
-		return getElements(this.tbl, 'a:tr').map((tr) => new TableRow(tr, this.part, this.themeColors))
+		const style = this.#styleContext()
+		return getElements(this.tbl, 'a:tr').map(
+			(tr, rowIndex) => new TableRow(tr, this.part, this.themeColors, style, rowIndex)
+		)
+	}
+
+	/**
+	 * The table's style graph entry (`styleId`, `name`, raw `a:tblStyle`) resolved
+	 * from the deck's `tableStyles.xml`, or `null` when the table names no
+	 * `a:tableStyleId`, the deck has no `tableStyles.xml`, or the id is a built-in
+	 * `[MS-OE376]` style the deck does not materialise. This is what supplies the
+	 * banded-row / header shading a cell with no own fill inherits — read the
+	 * resolved per-cell colour off {@link TableCell.resolvedFill}.
+	 */
+	get resolvedStyle(): ResolvedTableStyle | null {
+		return this.opc ? resolveTableStyle(this.opc, this.styleId) : null
+	}
+
+	/** The per-cell style-resolution context, or `null` when no style resolves or there is no theme context. */
+	#styleContext(): TableCellStyleContext | null {
+		if (!this.opc || !this.themeColors) return null
+		const style = resolveTableStyle(this.opc, this.styleId)
+		if (!style) return null
+		return {
+			style,
+			flags: {
+				firstRow: this.#tblPrFlag('firstRow'),
+				lastRow: this.#tblPrFlag('lastRow'),
+				firstCol: this.#tblPrFlag('firstCol'),
+				lastCol: this.#tblPrFlag('lastCol'),
+				bandRow: this.#tblPrFlag('bandRow'),
+				bandCol: this.#tblPrFlag('bandCol'),
+			},
+			rowCount: this.rowCount,
+			colCount: this.columnCount,
+			ctx: this.themeColors,
+		}
 	}
 
 	/** Number of rows (`a:tr`). */
@@ -130,12 +189,18 @@ export class TableRow {
 		private readonly tr: Element,
 		private readonly part: Part,
 		/** The owning slide's theme colour context, threaded to each {@link TableCell}. */
-		private readonly themeColors?: FlattenContext
+		private readonly themeColors?: FlattenContext,
+		/** The table's style-resolution context, threaded to each cell for {@link TableCell.resolvedFill}. */
+		private readonly style?: TableCellStyleContext | null,
+		/** This row's zero-based index in the table, for style-graph banding/edge conditions. */
+		private readonly rowIndex = 0
 	) {}
 
 	/** The row's cells (`a:tc`) in left-to-right order. */
 	get cells(): TableCell[] {
-		return getElements(this.tr, 'a:tc').map((tc) => new TableCell(tc, this.part, this.themeColors))
+		return getElements(this.tr, 'a:tc').map(
+			(tc, colIndex) => new TableCell(tc, this.part, this.themeColors, this.style, this.rowIndex, colIndex)
+		)
 	}
 
 	/** Row height in EMU (`a:tr/@h`), or `null` if unset. */
@@ -155,7 +220,13 @@ export class TableCell {
 		private readonly tc: Element,
 		private readonly part: Part,
 		/** The owning slide's theme colour context, threaded to the cell's text for `Run.resolvedColor`. */
-		private readonly themeColors?: FlattenContext
+		private readonly themeColors?: FlattenContext,
+		/** The table's style-resolution context, for the {@link resolvedFill} style-graph fallback. */
+		private readonly style?: TableCellStyleContext | null,
+		/** This cell's zero-based row index in the table. */
+		private readonly rowIndex = 0,
+		/** This cell's zero-based column index in its row. */
+		private readonly colIndex = 0
 	) {}
 
 	/** The cell's text frame (`a:txBody`); `null` only if the cell has none (non-conformant). */
@@ -188,16 +259,38 @@ export class TableCell {
 	}
 
 	/**
-	 * The cell's solid fill (`a:tcPr/a:solidFill`) resolved against the table's
-	 * theme colour context to a literal hex — the table-cell counterpart of
-	 * {@link import('./shapes.js').AutoShape.resolvedFill}. `null` when the cell has
-	 * no solid fill, or the colour cannot be made literal (no theme context, an
-	 * unmapped token, or a non-solid fill). The returned {@link ResolvedColor}
-	 * carries `effectiveHex` (the base colour with its `lumMod`/`lumOff`/… transforms
-	 * applied) — read that for the final rendered colour.
+	 * The cell's solid fill resolved against the table's theme colour context to a
+	 * literal hex — the table-cell counterpart of
+	 * {@link import('./shapes.js').AutoShape.resolvedFill}. The cell's own
+	 * `a:tcPr/a:solidFill` wins; when the cell defines none, this falls back to the
+	 * table **style** graph (the `firstRow`/banded/`wholeTbl` shading the
+	 * `a:tableStyleId` supplies — see {@link Table.resolvedStyle}), so a styled cell
+	 * with an empty `a:tcPr` reports the colour PowerPoint actually renders rather
+	 * than `null`. Still `null` when neither source yields a solid colour (no theme
+	 * context, an unmapped token, an explicit style `a:noFill`, or a non-solid fill).
+	 * The returned {@link ResolvedColor} carries `effectiveHex` (the base colour with
+	 * its `lumMod`/`lumOff`/… transforms applied) — read that for the final colour.
 	 */
 	get resolvedFill(): ResolvedColor | null {
-		return this.themeColors ? resolveSolidFillColor(this.#tcPr(), this.themeColors) : null
+		if (!this.themeColors) return null
+		const own = resolveSolidFillColor(this.#tcPr(), this.themeColors)
+		if (own) return own
+		return this.style ? this.#styleFill() : null
+	}
+
+	/** The fill this cell inherits from the table style graph, or `null` when the style defines none for it. */
+	#styleFill(): ResolvedColor | null {
+		const s = this.style
+		if (!s) return null
+		return resolveTableCellStyleFill(
+			s.style.element_,
+			s.flags,
+			this.rowIndex,
+			this.colIndex,
+			s.rowCount,
+			s.colCount,
+			s.ctx
+		)
 	}
 
 	/**

@@ -1676,7 +1676,7 @@ export class GraphicFrame extends Shape {
 		if (!this.hasTable) return null
 		const graphicData = this.#graphicData()
 		const tbl = graphicData && firstChild(graphicData, 'a:tbl')
-		return tbl ? new Table(tbl, this.slide.part, this.slide.themeContext()) : null
+		return tbl ? new Table(tbl, this.slide.part, this.slide.themeContext(), this.slide.presentation.opc) : null
 	}
 
 	/** The hosted chart, or `null` when this frame is not a chart or its part is missing. */

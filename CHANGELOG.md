@@ -43,6 +43,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   These are additive read-model fidelity fixes; the `importSlide({ theme: 'preserve' })` bake
   path is unchanged. *Note:* the `null` a run reported before was the placeholder-chain result;
   a run that resolves nothing anywhere still reports `null`.
+- **Read model: table-style resolution, so a styled cell with no own fill reports its shading.**
+  A table cell that defines no `a:tcPr` fill still renders shaded, because its table's
+  `a:tableStyleId` supplies conditional formatting from the deck-wide `ppt/tableStyles.xml`;
+  the reader previously ignored that graph, so such a cell read `null`.
+  - `Table.resolvedStyle` — the referenced `a:tblStyle` resolved to `{ styleId, name, element_ }`,
+    or `null` when the table names no style / the id is a built-in one the deck does not
+    materialise.
+  - `TableCell.resolvedFill` now falls back to the style graph when the cell defines no own
+    fill: it composes `wholeTbl` / `band1H`/`band2H` / `firstRow`/`lastRow` / `firstCol`/`lastCol`
+    / corner parts in ECMA-376 precedence order, resolving the winning part's fill (a direct
+    `a:fill` or a style-matrix `a:fillRef`) through the slide theme. Row banding is counted from
+    the first body cell, so the first body row is `band1H`. A cell with its own `a:solidFill`
+    still wins; an explicit style `a:noFill` (e.g. a "Light Style" body cell) reads `null`. The
+    resolved hexes were verified cell-by-cell against PowerPoint's own render (read back over
+    COM). Cell borders and text properties from the style graph are not yet resolved.
 
 ### Changed
 

@@ -87,6 +87,7 @@ export {
 	type LineSpacing,
 } from './read/api/text.js'
 export { Table, TableRow, TableCell, type CellBorder, type CellBorders } from './read/api/table.js'
+export { type ResolvedTableStyle, type TableConditionFlags } from './read/api/table-style-resolve.js'
 export {
 	Chart,
 	ChartSeries,
