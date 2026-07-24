@@ -454,13 +454,15 @@ describe('Placeholder-inherited run size + typeface — real PowerPoint XML (mul
 		assertEqual(run.resolvedFontFace, 'Century Gothic', 'inherits the body +mj-lt face through the theme')
 	})
 
-	test("a non-placeholder run's own size wins and reports no inherited face", async () => {
-		// text-accent5-run is a plain text box (no placeholder): own sz=2400 governs,
-		// and with no own a:latin and no placeholder chain there is no face to resolve.
+	test("a non-placeholder run's own size wins; its face falls back to the default text style", async () => {
+		// text-accent5-run is a plain text box (no placeholder): own sz=2400 governs the
+		// size, and with no own a:latin and no placeholder chain the face falls through to
+		// the presentation's p:defaultTextStyle (+mn-lt → the theme minor font, here Ion's
+		// Century Gothic). Before defaultTextStyle joined the chain this read as null.
 		const shape = shapeNamed((await open('theme-colors')).slides[0], 'text-accent5-run')
 		const run = shape.textFrame.paragraphs[0].runs[0]
 		assertEqual(run.resolvedSizePt, 24, "the run's own sz=2400 is reported as 24pt")
-		assertEqual(run.resolvedFontFace, null, 'a non-placeholder run inherits no placeholder typeface')
+		assertEqual(run.resolvedFontFace, 'Century Gothic', 'inherits +mn-lt from p:defaultTextStyle')
 	})
 })
 

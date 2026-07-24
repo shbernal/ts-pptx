@@ -24,6 +24,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `Shape.description` (get/set, `p:cNvPr/@descr`), `Shape.title` (`p:cNvPr/@title`), and
     `Shape.isDecorative` (the `adec:decorative` accessibility extension, i.e. PowerPoint's
     "Mark as decorative") on every shape kind. Alt text was previously inaccessible.
+- **Read model: two more run-resolution tiers, so bare runs stop reading as `null`.** A run
+  that set none of its own character properties previously resolved through the placeholder
+  chain only, so a run outside a placeholder — or one styled by its shape rather than its
+  text — reported `null` for size/colour/face even though PowerPoint renders it concretely.
+  Two tiers now complete the chain (`Run.resolvedSizePt` / `resolvedColor` / `resolvedFontFace`
+  / `resolvedBold`):
+  - The presentation's **`p:defaultTextStyle`** (`presentation.xml`) is now the lowest-priority
+    fallback for **every** run, placeholder or not — PowerPoint's ultimate text default (its
+    level `a:defRPr`, keyed by paragraph level). A plain text box's bare run now resolves its
+    18pt / theme-minor-font / `tx1` colour instead of `null`.
+  - A shape's **`p:style/a:fontRef`** (the style-matrix font reference) now supplies run
+    **colour** and **face**, sitting just below the run's own `a:rPr` and above the
+    placeholder/`p:defaultTextStyle` chain: its child colour resolves through the theme (with
+    any `lumMod`/`shade`), and `@idx` (`major`/`minor`) selects the theme major/minor font. A
+    theme-styled autoshape's text colour/face was previously invisible to the reader.
+
+  These are additive read-model fidelity fixes; the `importSlide({ theme: 'preserve' })` bake
+  path is unchanged. *Note:* the `null` a run reported before was the placeholder-chain result;
+  a run that resolves nothing anywhere still reports `null`.
 
 ### Changed
 

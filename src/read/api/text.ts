@@ -36,18 +36,23 @@ import {
 	resolveSolidFillColor,
 	type PlaceholderRef,
 	type ResolvedColor,
+	type StyleFontRef,
 } from './theme-context.js'
 
 /**
- * What a {@link Run}'s text body needs to resolve a *placeholder-inherited* run
- * colour: which placeholder the text lives in and the slide theme context (with
- * the layout/master roots) to resolve against. The owning slide's text body
- * `a:lstStyle` is added per text frame. Absent for non-placeholder text (ordinary
- * text boxes, table cells), which never inherit a placeholder colour.
+ * What a {@link Run}'s text body needs to resolve an *inherited* run
+ * colour/size/face/bold: which placeholder the text lives in (or `null` for a
+ * non-placeholder shape, which still resolves its `p:style/a:fontRef` and the
+ * presentation `p:defaultTextStyle`), the slide theme context (with the
+ * layout/master roots) to resolve against, and the shape's resolved
+ * `p:style/a:fontRef` text tier. The owning slide's text body `a:lstStyle` is added
+ * per text frame. Absent only for text reached without a theme context (table cells).
  */
 export interface PlaceholderTextContext {
-	ph: PlaceholderRef
+	ph: PlaceholderRef | null
 	flatten: FlattenContext
+	/** The shape's resolved `p:style/a:fontRef` colour + face tier, or `null` when it has none. */
+	fontRef?: StyleFontRef | null
 }
 
 /**
@@ -135,7 +140,14 @@ export class Run {
 		 * reached without them (e.g. table-cell or notes text), in which case
 		 * {@link hyperlink} still reports the raw `@r:id`/`@action`/`@tooltip`.
 		 */
-		private readonly relationships?: Relationships
+		private readonly relationships?: Relationships,
+		/**
+		 * The owning shape's resolved `p:style/a:fontRef` colour + face tier — the
+		 * fallback consulted for {@link resolvedColor}/{@link resolvedFontFace} just
+		 * below the run's own `a:rPr` and above the placeholder/`p:defaultTextStyle`
+		 * chain. Absent when the shape has no `p:style/a:fontRef`.
+		 */
+		private readonly fontRef?: StyleFontRef | null
 	) {}
 
 	/** The run's text (`a:t`), verbatim — whitespace is not normalized. */
@@ -312,17 +324,20 @@ export class Run {
 	/**
 	 * The colour this run effectively renders, resolved against the owning slide's
 	 * theme to a literal hex. It is the run's own solid fill
-	 * ({@link color}/{@link schemeColor}) when set; otherwise, for a run inside a
-	 * placeholder, the colour it inherits from the placeholder/list-style chain
-	 * (layout → master placeholder `a:lstStyle` → master `p:txStyles`). `null` when
-	 * the run sets no colour and inherits none, the colour cannot be made literal,
-	 * or the run was reached without a theme context. The returned
-	 * {@link ResolvedColor} carries `effectiveHex` — the base colour with its child
-	 * transforms (`lumMod`/`shade`/…) applied — for the final rendered colour.
+	 * ({@link color}/{@link schemeColor}) when set; otherwise the shape's
+	 * `p:style/a:fontRef` colour, then — for a run inside a placeholder — the colour
+	 * it inherits from the placeholder/list-style chain (layout → master placeholder
+	 * `a:lstStyle` → master `p:txStyles`), then the presentation's
+	 * `p:defaultTextStyle`. `null` when the run sets no colour and inherits none, the
+	 * colour cannot be made literal, or the run was reached without a theme context.
+	 * The returned {@link ResolvedColor} carries `effectiveHex` — the base colour with
+	 * its child transforms (`lumMod`/`shade`/…) applied — for the final rendered colour.
 	 */
 	get resolvedColor(): ResolvedColor | null {
 		if (!this.themeContext) return null
-		return resolveSolidFillColor(this.#rPr(), this.themeContext) ?? this.inheritedColor?.() ?? null
+		return (
+			resolveSolidFillColor(this.#rPr(), this.themeContext) ?? this.fontRef?.color ?? this.inheritedColor?.() ?? null
+		)
 	}
 
 	/**
@@ -339,18 +354,19 @@ export class Run {
 
 	/**
 	 * The typeface this run effectively renders, resolved to a literal face name. It
-	 * is the run's own `a:latin` ({@link fontName}) when set; otherwise, for a run
-	 * inside a placeholder, the face it inherits from the placeholder/list-style
-	 * chain. A `+mj-*`/`+mn-*` major/minor theme-font token — whether on the run
-	 * itself or reached through the chain — is resolved through the theme
-	 * `fontScheme` to its concrete face. `null` when the run names no face and
-	 * inherits none, or a token cannot be resolved — the resolved counterpart of
-	 * {@link fontName}, which reports the raw `@typeface` (possibly a token).
+	 * is the run's own `a:latin` ({@link fontName}) when set; otherwise the face named
+	 * by the shape's `p:style/a:fontRef` (`idx` → theme major/minor font), then — for a
+	 * run inside a placeholder — the face it inherits from the placeholder/list-style
+	 * chain, then the presentation's `p:defaultTextStyle`. A `+mj-*`/`+mn-*`
+	 * major/minor theme-font token — on the run itself or reached through the chain —
+	 * is resolved through the theme `fontScheme` to its concrete face. `null` when the
+	 * run names no face and inherits none, or a token cannot be resolved — the resolved
+	 * counterpart of {@link fontName}, which reports the raw `@typeface` (possibly a token).
 	 */
 	get resolvedFontFace(): string | null {
 		const own = this.fontName
 		if (own !== null) return resolveThemeFont(own, this.themeContext?.fontScheme ?? null)
-		return this.inheritedFace?.() ?? null
+		return this.fontRef?.face ?? this.inheritedFace?.() ?? null
 	}
 
 	/**
@@ -447,6 +463,7 @@ export class Paragraph {
 		const inheritedBold = this.#inheritedResolver((ph, level, pPr, slideLst, ctx) =>
 			resolveInheritedRunBold(ph, level, pPr, slideLst, ctx)
 		)
+		const fontRef = this.inherit?.placeholder.fontRef ?? null
 		return getElements(this.element, 'a:r').map(
 			(element) =>
 				new Run(
@@ -457,7 +474,8 @@ export class Paragraph {
 					inheritedSize,
 					inheritedFace,
 					inheritedBold,
-					this.relationships
+					this.relationships,
+					fontRef
 				)
 		)
 	}
@@ -482,7 +500,7 @@ export class Paragraph {
 	 */
 	#inheritedResolver<T>(
 		resolve: (
-			ph: PlaceholderRef,
+			ph: PlaceholderRef | null,
 			level: number,
 			pPr: Element | null,
 			slideLstStyle: Element | null,
@@ -710,8 +728,10 @@ export class TextFrame {
 	get resolvedAnchor(): string | null {
 		const own = this.bodyProperties?.anchor
 		if (own) return own
-		if (!this.placeholder) return null
-		return resolveInheritedAnchor(this.placeholder.ph, this.placeholder.flatten)
+		// Anchor inheritance is placeholder-only; a non-placeholder frame (ph null) has none.
+		const ph = this.placeholder?.ph
+		if (!ph) return null
+		return resolveInheritedAnchor(ph, this.placeholder.flatten)
 	}
 
 	/**

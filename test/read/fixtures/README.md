@@ -44,6 +44,7 @@ PowerPoint.
 | `placeholder-inherit.pptx` | Microsoft Office PowerPoint | 16.0000  | 1      |
 | `placeholder-footer-trio.pptx` | Microsoft Office PowerPoint | 16.0000 | 1  |
 | `picture-media.pptx`   | Microsoft Office PowerPoint    | 16.0000    | 1      |
+| `default-text-style.pptx` | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `template.potx`        | Microsoft Office PowerPoint    | 16.0000    | 0      |
 
 #### Authoring oracles (inspection only — not loaded by `test:read`)
@@ -150,6 +151,7 @@ ad583c449024bce9f531ce91faf81849ef8489202966ef29dcf9ced0a24289e3  import-animati
 527404b131935bc297c37a3305998162a14d908e6b83faf8dad519fae0329782  placeholder-inherit.pptx
 226a880870611c3f5e7a4760fc83bff7cc528360ffe197f6bcba75ccfdfc1265  placeholder-footer-trio.pptx
 34486d4a96897ea06f7edabce07bbc2bb71932396a5e676cc5c6f673f53e4d46  picture-media.pptx
+c9a02f7a276fd7ce3a9090c2f87770dddba4c4392ccd14b1833c939b9b697e77  default-text-style.pptx
 ```
 
 ### Embedded font faces (`fonts/`)
@@ -340,6 +342,19 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   ground-truth values read directly off the fixture's slide XML. The
   raster-plus-SVG `both` and plain `raster` `mediaKind` cases live in
   `style-accessors.test.js` against `image.pptx`.
+- `default-text-style.pptx` — a minimal one-slide deck for the two lowest
+  run-resolution tiers, read by `default-text-style.test.js`. `PlainBox` is a plain
+  text box (no placeholder, no `p:style`) whose sole run is bare
+  (`<a:rPr lang="en-US"/>`), so its size/colour/face resolve entirely from the
+  presentation's `p:defaultTextStyle` (lvl1 `sz="1800"`, `schemeClr tx1`, `+mn-lt`)
+  — every one of which read as `null` before that part joined the chain. `StyledRect`
+  is a rectangle with a theme shape style, so its `p:style` carries an
+  `a:fontRef idx="minor"` with `a:schemeClr val="lt1"`; its bare run's colour + face
+  come from that fontRef, decisively **white** (`lt1`) rather than the black `tx1` the
+  default style would give — while its size, which a fontRef never carries, still
+  falls through to `p:defaultTextStyle`. Authored via PowerPoint COM on Windows
+  (2026-07-24); ground truth (theme minorFont `Aptos`, `clrMap tx1→dk1` windowText
+  `000000`, direct slot `lt1` window `FFFFFF`) read directly off the fixture.
 - `custgeom.pptx` — a minimal deck with PowerPoint-authored freeform
   (`a:custGeom`) shapes for the `customGeometry` read accessor, plus a preset-rect
   negative control. Authored via the COM `BuildFreeform`/`AddNodes`/`ConvertToShape`

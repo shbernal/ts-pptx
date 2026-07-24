@@ -33,6 +33,7 @@ const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/
 const SLIDE_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster'
 const NOTES_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster'
 const THEME_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme'
+const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
 
 /** The resolved theme subgraph a slide depends on, plus its parsed colour maps. */
 export interface SlideThemeParts extends ColorContext {
@@ -55,6 +56,17 @@ function resolveSingleRel(opc: OpcPackage, partName: string, type: string): stri
 /** The document element of a part, or `null` when the partname/part is absent. */
 function documentElement(opc: OpcPackage, partName: string | null): Element | null {
 	return partName ? (opc.part(partName)?.dom.documentElement ?? null) : null
+}
+
+/**
+ * The presentation's `p:defaultTextStyle` (`presentation.xml`, reached via the
+ * package `officeDocument` relationship), or `null` when absent. This is
+ * PowerPoint's lowest-priority text fallback — the bottom tier of a slide run's
+ * size/colour/face/bold resolution (see `FlattenContext.defaultTextStyle`).
+ */
+function presentationDefaultTextStyle(opc: OpcPackage): Element | null {
+	const root = documentElement(opc, resolveSingleRel(opc, '/', OFFICE_DOCUMENT_REL))
+	return root ? firstChild(root, 'p:defaultTextStyle') : null
 }
 
 /**
@@ -111,6 +123,9 @@ export function resolveSlideColorContext(opc: OpcPackage, slidePartName: string)
 		// a placeholder-inherited value the same way the flatten path does.
 		layoutRoot,
 		masterRoot,
+		// The presentation's default text style — the lowest-priority tier a slide run
+		// (placeholder or not) falls back to when it resolves nothing above it.
+		defaultTextStyle: presentationDefaultTextStyle(opc),
 	}
 }
 
@@ -215,16 +230,19 @@ export interface PlaceholderRef {
 }
 
 /**
- * The colour a placeholder run effectively renders when its own `a:rPr` defines
- * none, resolved to a full {@link ResolvedColor}. Walks the inheritance the way
+ * The colour a run effectively renders when its own `a:rPr` defines none,
+ * resolved to a full {@link ResolvedColor}. Walks the inheritance the way
  * PowerPoint does: the paragraph's `a:pPr/a:defRPr` colour, then the slide text
- * body's `a:lstStyle` colour for the run's `level`, then the placeholder's
- * layout → master → master-`p:txStyles` chain (via {@link placeholderInheritedFill}).
- * The first tier that defines a colour wins. `null` when the run is not in a
- * placeholder, nothing in the chain defines a colour, or it cannot be made literal.
+ * body's `a:lstStyle` colour for the run's `level`, then — only for a placeholder
+ * run — the placeholder's layout → master → master-`p:txStyles` chain (via
+ * {@link placeholderInheritedFill}), then the presentation's `p:defaultTextStyle`
+ * for the run's level (`ctx.defaultTextStyle`). The first tier that defines a
+ * colour wins. `ph` is `null` for a non-placeholder run, which skips the
+ * placeholder chain but still reaches `p:defaultTextStyle`. `null` when nothing in
+ * the chain defines a colour, or it cannot be made literal.
  */
 export function resolveInheritedRunColor(
-	ph: PlaceholderRef,
+	ph: PlaceholderRef | null,
 	level: number,
 	pPr: Element | null,
 	slideLstStyle: Element | null,
@@ -235,20 +253,28 @@ export function resolveInheritedRunColor(
 	if (paraFill) return resolveColorElement(firstChildElement(paraFill), ctx)
 	const slideFill = lstStyleLevelFill(slideLstStyle, level)
 	if (slideFill) return resolveColorElement(firstChildElement(slideFill), ctx)
-	const colorEl = placeholderInheritedFill(ph.type, ph.idx, level, ctx)
-	return colorEl ? resolveColorElement(colorEl, ctx) : null
+	if (ph) {
+		const colorEl = placeholderInheritedFill(ph.type, ph.idx, level, ctx)
+		if (colorEl) return resolveColorElement(colorEl, ctx)
+	}
+	const defaultFill = lstStyleLevelFill(ctx.defaultTextStyle ?? null, level)
+	return defaultFill ? resolveColorElement(firstChildElement(defaultFill), ctx) : null
 }
 
 /**
- * The `a:defRPr` tiers a placeholder run resolves an inherited character property
- * against, in priority order: the paragraph's `a:pPr/a:defRPr`, then the slide
- * text body's `a:lstStyle` level `a:defRPr`, then the placeholder's layout →
- * master → master-`p:txStyles` chain (via {@link placeholderInheritedDefRPrs}).
- * The first tier that defines the property wins — each property resolves
- * independently, mirroring how the colour resolver walks the same chain.
+ * The `a:defRPr` tiers a run resolves an inherited character property against, in
+ * priority order: the paragraph's `a:pPr/a:defRPr`, then the slide text body's
+ * `a:lstStyle` level `a:defRPr`, then — only for a placeholder run — the
+ * placeholder's layout → master → master-`p:txStyles` chain (via
+ * {@link placeholderInheritedDefRPrs}), then the presentation's
+ * `p:defaultTextStyle` level `a:defRPr` (`ctx.defaultTextStyle`). The first tier
+ * that defines the property wins — each property resolves independently, mirroring
+ * how the colour resolver walks the same chain. `ph` is `null` for a
+ * non-placeholder run, which skips the placeholder chain but still reaches
+ * `p:defaultTextStyle`.
  */
 function inheritedRunDefRPrs(
-	ph: PlaceholderRef,
+	ph: PlaceholderRef | null,
 	level: number,
 	pPr: Element | null,
 	slideLstStyle: Element | null,
@@ -259,20 +285,22 @@ function inheritedRunDefRPrs(
 	if (paraDefRPr) tiers.push(paraDefRPr)
 	const slideDefRPr = lstStyleLevelDefRPr(slideLstStyle, level)
 	if (slideDefRPr) tiers.push(slideDefRPr)
-	tiers.push(...placeholderInheritedDefRPrs(ph.type, ph.idx, level, ctx))
+	if (ph) tiers.push(...placeholderInheritedDefRPrs(ph.type, ph.idx, level, ctx))
+	const defaultDefRPr = lstStyleLevelDefRPr(ctx.defaultTextStyle ?? null, level)
+	if (defaultDefRPr) tiers.push(defaultDefRPr)
 	return tiers
 }
 
 /**
- * The point size a placeholder run effectively renders when its own `a:rPr` sets
- * no `@sz`, walking the inheritance the way PowerPoint does (see
- * {@link inheritedRunDefRPrs}): the first `a:defRPr/@sz` (hundredths of a point)
- * in the paragraph → slide → layout → master → `p:txStyles` chain, converted to
- * points. `null` when the run is not in a placeholder or nothing in the chain
- * defines a size.
+ * The point size a run effectively renders when its own `a:rPr` sets no `@sz`,
+ * walking the inheritance the way PowerPoint does (see {@link inheritedRunDefRPrs}):
+ * the first `a:defRPr/@sz` (hundredths of a point) in the paragraph → slide →
+ * (placeholder) layout → master → `p:txStyles` → `p:defaultTextStyle` chain,
+ * converted to points. A non-placeholder run skips the placeholder tiers but still
+ * reaches `p:defaultTextStyle`. `null` when nothing in the chain defines a size.
  */
 export function resolveInheritedRunSize(
-	ph: PlaceholderRef,
+	ph: PlaceholderRef | null,
 	level: number,
 	pPr: Element | null,
 	slideLstStyle: Element | null,
@@ -286,15 +314,17 @@ export function resolveInheritedRunSize(
 }
 
 /**
- * The typeface a placeholder run effectively renders when its own `a:rPr` sets no
- * `a:latin`, walking the same chain as {@link resolveInheritedRunSize}: the first
+ * The typeface a run effectively renders when its own `a:rPr` sets no `a:latin`,
+ * walking the same chain as {@link resolveInheritedRunSize}: the first
  * `a:defRPr/a:latin/@typeface` it finds, then resolving a `+mj-*`/`+mn-*` theme
- * font token to a literal face name through the theme `fontScheme`. `null` when
- * the run is not in a placeholder, nothing in the chain names a face, or the token
- * cannot be resolved.
+ * font token to a literal face name through the theme `fontScheme`. A
+ * non-placeholder run skips the placeholder tiers but still reaches
+ * `p:defaultTextStyle` (whose level `a:latin` is `+mn-lt` in a PowerPoint-written
+ * deck). `null` when nothing in the chain names a face, or the token cannot be
+ * resolved.
  */
 export function resolveInheritedRunFontFace(
-	ph: PlaceholderRef,
+	ph: PlaceholderRef | null,
 	level: number,
 	pPr: Element | null,
 	slideLstStyle: Element | null,
@@ -309,14 +339,16 @@ export function resolveInheritedRunFontFace(
 }
 
 /**
- * Whether a placeholder run effectively renders bold when its own `a:rPr` sets no
- * `@b`, walking the same chain as {@link resolveInheritedRunSize}: the first
+ * Whether a run effectively renders bold when its own `a:rPr` sets no `@b`,
+ * walking the same chain as {@link resolveInheritedRunSize}: the first
  * `a:defRPr/@b` (`1`/`true` → `true`, `0`/`false` → `false`) in the paragraph →
- * slide → layout → master → `p:txStyles` chain. `null` when the run is not in a
- * placeholder or nothing in the chain defines bold.
+ * slide → (placeholder) layout → master → `p:txStyles` → `p:defaultTextStyle`
+ * chain. A non-placeholder run skips the placeholder tiers but still reaches
+ * `p:defaultTextStyle` (which sets no `@b` in a PowerPoint-written deck, so bold
+ * stays `null` there). `null` when nothing in the chain defines bold.
  */
 export function resolveInheritedRunBold(
-	ph: PlaceholderRef,
+	ph: PlaceholderRef | null,
 	level: number,
 	pPr: Element | null,
 	slideLstStyle: Element | null,
@@ -452,4 +484,30 @@ export function resolveStyleLineColor(shape: Element, ctx: FlattenContext): Reso
 	const style = firstChild(shape, 'p:style')
 	const ln = style && styleRefLine(firstChild(style, 'a:lnRef'), ctx)
 	return ln ? resolveSolidFillColor(ln, ctx) : null
+}
+
+/** A shape's resolved `p:style/a:fontRef` text tier: its colour and theme face. */
+export interface StyleFontRef {
+	/** The `a:fontRef` child colour (`a:schemeClr`/`a:srgbClr`/…) resolved through the theme, or `null` when it names none / cannot be made literal. */
+	color: ResolvedColor | null
+	/** The face named by `a:fontRef/@idx` (`major`→`+mj-lt`, `minor`→`+mn-lt`) resolved through the theme `fontScheme`, or `null` for `idx="none"` / an unresolvable token. */
+	face: string | null
+}
+
+/**
+ * Resolve the text colour and typeface a shape derives from its `p:style/a:fontRef`
+ * (the style-matrix font reference) — the tier PowerPoint applies to a shape's runs
+ * just below their own `a:rPr` and above the placeholder/`p:defaultTextStyle` chain.
+ * The `a:fontRef` child colour resolves through `ctx` like any other (it can carry
+ * `lumMod`/`shade` transforms); `@idx` (`major`|`minor`|`none`) maps to the theme's
+ * major/minor Latin font. `null` when the shape has no `p:style/a:fontRef` at all.
+ */
+export function resolveStyleFontRef(shape: Element, ctx: FlattenContext): StyleFontRef | null {
+	const style = firstChild(shape, 'p:style')
+	const fontRef = style && firstChild(style, 'a:fontRef')
+	if (!fontRef) return null
+	const color = resolveColorElement(firstChildElement(fontRef), ctx)
+	const idx = attr(fontRef, 'idx')
+	const token = idx === 'major' ? '+mj-lt' : idx === 'minor' ? '+mn-lt' : null
+	return { color, face: token ? resolveThemeFont(token, ctx.fontScheme ?? null) : null }
 }

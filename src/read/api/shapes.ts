@@ -32,6 +32,7 @@ import {
 	resolveInheritedFrame,
 	resolveSolidFillColor,
 	resolveStyleFillColor,
+	resolveStyleFontRef,
 	resolveStyleLineColor,
 	type PlaceholderRef,
 	type ResolvedColor,
@@ -1280,8 +1281,12 @@ export class AutoShape extends Shape {
 		const txBody = firstChild(this.element, 'p:txBody')
 		if (!txBody) return null
 		const flatten = this.slide.themeContext()
+		// Every slide shape resolves its `p:style/a:fontRef` and the presentation's
+		// `p:defaultTextStyle`, so a context is always supplied; `ph` is null for a
+		// non-placeholder shape, which then skips only the layout/master placeholder tiers.
 		const ph = this.placeholder
-		return new TextFrame(txBody, this.slide.part, flatten, ph ? { ph, flatten } : undefined, this.slide.relationships)
+		const fontRef = resolveStyleFontRef(this.element, flatten)
+		return new TextFrame(txBody, this.slide.part, flatten, { ph, flatten, fontRef }, this.slide.relationships)
 	}
 
 	/**

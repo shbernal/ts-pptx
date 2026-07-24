@@ -144,6 +144,15 @@ export interface FlattenContext extends ColorContext {
 	 * type. Read-only — never mutated.
 	 */
 	notesStyle?: Element | null
+	/**
+	 * The presentation's `p:defaultTextStyle` (a `CT_TextListStyle` from
+	 * `presentation.xml`), keyed by level — PowerPoint's lowest-priority text
+	 * fallback, applying to any run (placeholder or not) that resolves nothing
+	 * above it. Only ever set on a *slide* context (see `resolveSlideColorContext`);
+	 * absent on notes/master/layout contexts, so their chains are unaffected.
+	 * Read-only — never mutated.
+	 */
+	defaultTextStyle?: Element | null
 }
 
 /** Parse an `a:clrScheme` into slot → 6-hex RGB, reading `srgbClr`/`sysClr`. */
