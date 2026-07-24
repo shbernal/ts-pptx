@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [11.0.0](https://github.com/shbernal/PptxGenJS/releases/tag/v11.0.0) - 2026-07-24
+
+> **Final release under the pptxgenjs fork name.** This is the last version published as
+> `@shbernal/pptxgenjs`; the package is now unmaintained. Active development continues as
+> [@shbernal/ts-pptx](https://github.com/shbernal/ts-pptx). See the README for migration details.
+
 ### Added
 
 - **Read model: picture-media and accessibility accessors.** New getters on the read model

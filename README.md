@@ -1,7 +1,14 @@
 # PptxGenJS
 
+> ## ⛔ Legacy / unmaintained
+>
+> **v11.0.0 is the final release under this name and this package receives no further updates.**
+> Active development continues as **[ts-pptx](https://github.com/shbernal/ts-pptx)**
+> (`@shbernal/ts-pptx`). This package remains installable for existing users but will not get
+> fixes or features. New projects should use ts-pptx.
+
 PptxGenJS generates PowerPoint `.pptx` files from TypeScript and modern
-JavaScript. This maintained project targets ESM package consumers, typed
+JavaScript. This project targets ESM package consumers, typed
 application code, reproducible package verification, and agent-assisted OOXML
 development.
 
