@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Read model: picture-media and accessibility accessors.** New getters on the read model
+  close gaps a faithful reader or an accessibility/audit tool hits on real decks:
+  - `Picture.mediaKind` (`'raster' | 'svg' | 'both' | 'none'`) and `Picture.mediaPartName`.
+    An SVG-only picture — PowerPoint's *Insert → Icons* and a plain `.svg` insert write a
+    `p:blipFill/a:blip` with **no `r:embed`**, only the `asvg:svgBlip` extension — has a
+    legitimately `null` `imagePartName`; `mediaKind` distinguishes it from a genuinely empty
+    picture, and `mediaPartName` returns whichever part actually carries the drawn data
+    (raster when present, else the SVG). `imagePartName`/`svgPartName` are unchanged.
+  - `Picture.crop` — reads an existing `a:srcRect` as `{ left, top, right, bottom }` per-edge
+    fractions (previously `a:srcRect` could only be *written* via `setImage({ fit })`, never
+    read). `null` when there is no `a:srcRect`; an explicit zero crop still reports zeros,
+    since its presence is meaningful.
+  - `Shape.description` (get/set, `p:cNvPr/@descr`), `Shape.title` (`p:cNvPr/@title`), and
+    `Shape.isDecorative` (the `adec:decorative` accessibility extension, i.e. PowerPoint's
+    "Mark as decorative") on every shape kind. Alt text was previously inaccessible.
+
 ### Changed
 
 - **BREAKING (`node` entry): `tableToSlides()` is now a browser-build-only method.** It reads

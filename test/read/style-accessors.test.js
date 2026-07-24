@@ -165,6 +165,25 @@ describe('Picture SVG blip reads (image.pptx)', () => {
 		const rasterOnly = pictures.find((p) => p.imagePartName && !p.imagePartName.endsWith('.svg') && p.svgRelId === null)
 		assert(rasterOnly, 'expected at least one raster-only picture with a null svgRelId')
 	})
+
+	test('mediaKind / mediaPartName classify the raster+SVG pairing and a raster-only picture', async () => {
+		const presentation = await open('image')
+		const pictures = presentation.slides
+			.flatMap((slide) => allShapes(slide.shapes))
+			.filter((s) => s.shapeType === 'picture')
+
+		// The picture with both a raster embed and an SVG extension reads 'both',
+		// and mediaPartName prefers the raster part.
+		const both = pictures.find((p) => p.imageRelId !== null && p.svgRelId !== null)
+		assert(both, 'expected a picture with a raster fallback and an SVG extension')
+		assertEqual(both.mediaKind, 'both', "a raster+SVG picture is 'both'")
+		assertEqual(both.mediaPartName, both.imagePartName, 'mediaPartName prefers the raster part when present')
+
+		const rasterOnly = pictures.find((p) => p.imageRelId !== null && p.svgRelId === null)
+		assert(rasterOnly, 'expected a raster-only picture')
+		assertEqual(rasterOnly.mediaKind, 'raster', "a raster-only picture is 'raster'")
+		assertEqual(rasterOnly.mediaPartName, rasterOnly.imagePartName, 'mediaPartName is the raster part')
+	})
 })
 
 describe('Shape style reads — minimal real PowerPoint fixtures', () => {

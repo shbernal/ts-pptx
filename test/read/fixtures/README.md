@@ -43,6 +43,7 @@ PowerPoint.
 | `table-styles.pptx`    | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `placeholder-inherit.pptx` | Microsoft Office PowerPoint | 16.0000  | 1      |
 | `placeholder-footer-trio.pptx` | Microsoft Office PowerPoint | 16.0000 | 1  |
+| `picture-media.pptx`   | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `template.potx`        | Microsoft Office PowerPoint    | 16.0000    | 0      |
 
 #### Authoring oracles (inspection only — not loaded by `test:read`)
@@ -148,6 +149,7 @@ b78a6009d72cf871c76b9a5364822135f9786344e92bbb618f3f68a0d3e79fea  slide-animatio
 ad583c449024bce9f531ce91faf81849ef8489202966ef29dcf9ced0a24289e3  import-animation-merge.pptx
 527404b131935bc297c37a3305998162a14d908e6b83faf8dad519fae0329782  placeholder-inherit.pptx
 226a880870611c3f5e7a4760fc83bff7cc528360ffe197f6bcba75ccfdfc1265  placeholder-footer-trio.pptx
+34486d4a96897ea06f7edabce07bbc2bb71932396a5e676cc5c6f673f53e4d46  picture-media.pptx
 ```
 
 ### Embedded font faces (`fonts/`)
@@ -321,6 +323,23 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   bake (`import-slide-preserve.test.js`). Authored via PowerPoint COM on Windows
   (2026-07-24); the oracle boxes were read directly off the fixture's own master
   XML, independent of the reader code under test.
+- `picture-media.pptx` — a minimal one-slide deck for the picture-media and
+  accessibility accessors (`Picture.mediaKind` / `mediaPartName` / `crop`,
+  `Shape.description` / `title` / `isDecorative`), read by
+  `picture-media-accessors.test.js`. Four named shapes: `SvgPic` is an inserted
+  `.svg` that PowerPoint writes **svg-only** (`a:blip` with no `r:embed`, only the
+  `asvg:svgBlip` extension — the exact shape *Insert → Icons* produces);
+  `CroppedPic` is a raster PNG with a four-edge crop
+  (`a:srcRect l="41666" t="27778" r="20833" b="13889"`) and an alt-text `descr`;
+  `DecoRect` is a rectangle flagged decorative (`p:cNvPr/a:extLst/a:ext` uri
+  `{C183D7F6-B498-43B3-948B-1728B52AA6E4}` / `adec:decorative val="1"`, i.e. the
+  "Mark as decorative" checkbox); `DescRect` carries a plain `descr` and is not
+  decorative. No shape carries `@title` — modern PowerPoint no longer exposes a
+  separate alt-text title field, so the `Shape.title` getter is exercised only
+  for its `null` result here. Authored via PowerPoint COM on Windows (2026-07-24);
+  ground-truth values read directly off the fixture's slide XML. The
+  raster-plus-SVG `both` and plain `raster` `mediaKind` cases live in
+  `style-accessors.test.js` against `image.pptx`.
 - `custgeom.pptx` — a minimal deck with PowerPoint-authored freeform
   (`a:custGeom`) shapes for the `customGeometry` read accessor, plus a preset-rect
   negative control. Authored via the COM `BuildFreeform`/`AddNodes`/`ConvertToShape`

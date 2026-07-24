@@ -17,6 +17,7 @@ import {
 	getElements,
 	getOrAddChild,
 	intValue,
+	removeAttr,
 	removeChildrenByQName,
 	setAttr,
 	type Element,
@@ -54,6 +55,10 @@ const A_CHARTEX_URI = 'http://schemas.microsoft.com/office/drawing/2014/chartex'
 const IMAGE_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 // Microsoft's SVG blip extension namespace (a:blip/a:extLst/a:ext/asvg:svgBlip).
 const ASVG_NS = 'http://schemas.microsoft.com/office/drawing/2016/SVG/main'
+// Microsoft's "decorative" accessibility extension: p:cNvPr/a:extLst/a:ext
+// (uri {C183D7F6-B498-43B3-948B-1728B52AA6E4}) / adec:decorative. Confirmed
+// against real PowerPoint output ("Mark as decorative").
+const ADEC_NS = 'http://schemas.microsoft.com/office/drawing/2017/decorative'
 
 // Schema successors within p:pic (CT_Picture: nvPicPr, blipFill, spPr, style?)
 // and within a:blipFill (blip?, srcRect?, (tile|stretch)?), used to keep a
@@ -577,6 +582,63 @@ export abstract class Shape {
 	get hidden(): boolean {
 		const cNvPr = nonVisualCNvPr(this.element)
 		return boolValue(cNvPr && attr(cNvPr, 'hidden')) === true
+	}
+
+	/**
+	 * The shape's alt-text description (`p:cNvPr/@descr`), or `null` when unset.
+	 * This is the accessibility primitive a screen reader announces; an audit or
+	 * accessible-export tool reads it here. Distinct from {@link name}, which is
+	 * the authoring-time shape name and is never surfaced to assistive tech.
+	 */
+	get description(): string | null {
+		const cNvPr = nonVisualCNvPr(this.element)
+		const v = cNvPr && attr(cNvPr, 'descr')
+		return v ?? null
+	}
+
+	/**
+	 * Set (or clear, with `''`) the alt-text description. Requires the shape's
+	 * `p:cNvPr` to exist, which every well-formed shape carries.
+	 */
+	set description(value: string) {
+		const cNvPr = nonVisualCNvPr(this.element)
+		if (!cNvPr) throw new Error('cannot set description: shape has no p:cNvPr')
+		if (value === '') removeAttr(cNvPr, 'descr')
+		else setAttr(cNvPr, 'descr', value)
+		this.markDirty()
+	}
+
+	/**
+	 * The shape's alt-text title (`p:cNvPr/@title`), or `null` when unset. Modern
+	 * PowerPoint no longer exposes a separate title field (only description +
+	 * "mark as decorative"), so this is usually `null`; it survives on decks
+	 * authored by older PowerPoint or other producers that still write it.
+	 */
+	get title(): string | null {
+		const cNvPr = nonVisualCNvPr(this.element)
+		const v = cNvPr && attr(cNvPr, 'title')
+		return v ?? null
+	}
+
+	/**
+	 * Whether the shape is flagged **decorative** (`p:cNvPr/a:extLst/a:ext`
+	 * uri `{C183D7F6-…}` / `adec:decorative@val`), PowerPoint's "Mark as
+	 * decorative" — a purely visual element assistive tech should skip. `false`
+	 * when the extension is absent. A decorative shape typically has no
+	 * {@link description}; the two are alternatives, not companions.
+	 */
+	get isDecorative(): boolean {
+		const cNvPr = nonVisualCNvPr(this.element)
+		const extLst = cNvPr && firstChild(cNvPr, 'a:extLst')
+		if (!extLst) return false
+		for (const ext of getElements(extLst, 'a:ext')) {
+			for (const child of childElements(ext)) {
+				if (child.localName === 'decorative' && child.namespaceURI === ADEC_NS) {
+					return boolValue(attr(child, 'val')) === true
+				}
+			}
+		}
+		return false
 	}
 
 	/** Left edge in EMU (`a:off/@x`), or `null` when the shape has no own transform. */
@@ -1320,6 +1382,60 @@ export class Picture extends Shape {
 	get svgPartName(): string | null {
 		const relId = this.svgRelId
 		return relId ? this.slide.relationships.resolveTarget(relId) : null
+	}
+
+	/**
+	 * Which drawable media this picture carries:
+	 * - `'raster'` — only a raster blip (`a:blip/@r:embed`);
+	 * - `'svg'` — only a vector blip (`asvg:svgBlip/@r:embed`, no raster). This
+	 *   is what PowerPoint's *Insert → Icons* and a plain SVG insert produce;
+	 * - `'both'` — a raster fallback *and* an SVG (PowerPoint's usual pairing);
+	 * - `'none'` — a `p:pic` with no embedded blip at all (e.g. a linked image).
+	 *
+	 * Lets a caller distinguish an SVG-only picture — where {@link imagePartName}
+	 * is legitimately `null` — from a genuinely empty one, without two null checks.
+	 */
+	get mediaKind(): 'raster' | 'svg' | 'both' | 'none' {
+		const hasRaster = this.imageRelId != null
+		const hasSvg = this.svgRelId != null
+		if (hasRaster && hasSvg) return 'both'
+		if (hasRaster) return 'raster'
+		if (hasSvg) return 'svg'
+		return 'none'
+	}
+
+	/**
+	 * Absolute partname of whichever part actually carries this picture's drawn
+	 * data — the raster part when present, otherwise the SVG part — or `null`
+	 * when the picture embeds neither. Use this when you just want "the bytes
+	 * this picture shows"; prefer {@link imagePartName} / {@link svgPartName}
+	 * (and {@link mediaKind}) when you need to know *which* kind it is. An
+	 * SVG-only picture returns its SVG part here even though `imagePartName` is
+	 * `null`.
+	 */
+	get mediaPartName(): string | null {
+		return this.imagePartName ?? this.svgPartName
+	}
+
+	/**
+	 * The picture's crop as fractions of the *source image*, read from
+	 * `p:blipFill/a:srcRect` — `{ left, top, right, bottom }`, each the amount
+	 * trimmed off that edge (so `0.1` = 10 % cropped away, an uncropped edge is
+	 * `0`). `null` when there is no `a:srcRect` at all; an explicit
+	 * `{0,0,0,0}` crop still reports zeros, since its presence is meaningful.
+	 * The raw attributes are thousandths of a percent; this divides by 100000 to
+	 * match the fraction convention used elsewhere in the read API (see
+	 * {@link recolor}).
+	 */
+	get crop(): { left: number; top: number; right: number; bottom: number } | null {
+		const blipFill = firstChild(this.element, 'p:blipFill')
+		const srcRect = blipFill && firstChild(blipFill, 'a:srcRect')
+		if (!srcRect) return null
+		const edge = (name: string): number => {
+			const v = intValue(attr(srcRect, name))
+			return v === null ? 0 : v / 100000
+		}
+		return { left: edge('l'), top: edge('t'), right: edge('r'), bottom: edge('b') }
 	}
 
 	/**
