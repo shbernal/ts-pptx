@@ -429,14 +429,15 @@ async function main() {
 
 	if (EXISTING_FILE) {
 		// Corruption-open check only — no read-back verifier for an arbitrary deck.
-		specs.push({
+		const fileSpec = {
 			label: 'file',
 			file: path.resolve(EXISTING_FILE),
 			generated: false,
 			buildVbs: (f) => vbsOpenHeader(f) + vbsFooter(),
 			verify: () => [],
-		})
-		console.log('Using deck: ' + specs[0].file)
+		}
+		specs.push(fileSpec)
+		console.log('Using deck: ' + fileSpec.file)
 	} else {
 		const navFile = await generateNavDeck()
 		console.log('Generated nav deck: ' + navFile)
