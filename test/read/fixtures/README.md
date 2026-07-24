@@ -46,6 +46,7 @@ PowerPoint.
 | `picture-media.pptx`   | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `default-text-style.pptx` | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `modern-comments.pptx` | Microsoft Office PowerPoint    | 16.0000    | 2      |
+| `read-stress.pptx`     | Microsoft Office PowerPoint    | 16.0000    | 2      |
 | `template.potx`        | Microsoft Office PowerPoint    | 16.0000    | 0      |
 
 #### Authoring oracles (inspection only — not loaded by `test:read`)
@@ -154,6 +155,7 @@ ad583c449024bce9f531ce91faf81849ef8489202966ef29dcf9ced0a24289e3  import-animati
 34486d4a96897ea06f7edabce07bbc2bb71932396a5e676cc5c6f673f53e4d46  picture-media.pptx
 c9a02f7a276fd7ce3a9090c2f87770dddba4c4392ccd14b1833c939b9b697e77  default-text-style.pptx
 1ebba022ad3831e8e6cf91a40a53e08dc65246479090d165b576f3af9734f0b0  modern-comments.pptx
+77fbb00343006a8c0fb6a9120959e489dadf411f62010ea053abb9de95d6c8aa  read-stress.pptx
 ```
 
 ### Embedded font faces (`fonts/`)
@@ -382,6 +384,32 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   the parts round-trip byte-perfect (preserved opaquely). Ground-truth author/comment
   GUIDs, text, position and `created` timestamps read directly off the fixture's
   `authors.xml` / modernComment XML.
+- `read-stress.pptx` — an **integration** fixture that combines, in one deck, the
+  read-model resolution chains that individually live in narrower fixtures but rarely
+  co-occur; read by `read-stress.test.js`. It is a synthetic, brand-free stand-in for
+  a complex real-world deck (dual masters, styled tables, recoloured SVG icons,
+  threaded modern comments) and guards that those chains keep working **together**.
+  Two slides, each on its own master + theme (slide 1 → `slideMaster1` / *Office
+  Theme*; slide 2 → `slideMaster2` / *Facet*, added via `Slide.ApplyTheme` of a
+  built-in `.thmx`) — so `Presentation.masters()`, `Slide.master`/`Slide.theme`
+  resolve two live, distinct trees. Slide 1 carries: text in three embedded
+  typefaces (`Georgia`, `Consolas`, `Trebuchet MS`; `SaveAs(..., EmbedTrueTypeFonts)`
+  → `p:embeddedFontLst` + `.fntdata` parts); an inserted `.svg` (svg-only blip, same
+  as `picture-media.pptx`); two recoloured pictures (`PictureFormat.ColorType`
+  grayscale → `a:grayscl`, black&white → `a:biLevel`); a nested group
+  (`OuterGroup` ⊃ `InnerGroup` ⊃ two rects); a table styled with a fill-bearing
+  built-in (Medium Style 2 - Accent 3, `{F5AB1C69-…}`) whose header cells carry **no
+  own fill** and resolve their fill from the style; and a second table with an
+  `accent4` scheme fill + `Brightness -0.5` → `schemeClr`/`lumMod`. Slide 2 repeats
+  the styled table (so table-style resolution is exercised against the *second*
+  theme — its accent3 resolves differently) and anchors two `p188` modern comments,
+  one with a two-reply thread across both authors. Slide 1 also has speaker notes.
+  **Deliberately absent** (real PowerPoint COM cannot author these headless; each is
+  covered off-fixture): `a:duotone`/`a:clrChange`/`a:alphaModFix` recolor
+  (`picture-recolor.test.js`), the raster+SVG `'both'` mediaKind (`style-accessors`
+  against `image.pptx`), and `hdphoto`/`.wdp` artistic-effect layers. Authored via
+  desktop PowerPoint COM on Windows (2026-07-24; `.tmp/author-read-stress.ps1`),
+  opens clean with no repair.
 - `custgeom.pptx` — a minimal deck with PowerPoint-authored freeform
   (`a:custGeom`) shapes for the `customGeometry` read accessor, plus a preset-rect
   negative control. Authored via the COM `BuildFreeform`/`AddNodes`/`ConvertToShape`
