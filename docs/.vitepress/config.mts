@@ -43,7 +43,7 @@ const sidebar = docsConfig.navigation.map(group => ({
 }))
 
 export default defineConfig({
-	base: process.env.VITEPRESS_BASE ?? '/PptxGenJS/',
+	base: process.env.VITEPRESS_BASE ?? '/TsPptx/',
 	cleanUrls: true,
 	description: docsConfig.description,
 	lang: 'en-US',
@@ -52,7 +52,7 @@ export default defineConfig({
 		nav: [
 			{ text: 'Guide', link: '/' },
 			{ text: 'API', link: '/reference/api/' },
-			{ text: 'GitHub', link: 'https://github.com/shbernal/PptxGenJS' },
+			{ text: 'GitHub', link: 'https://github.com/shbernal/ts-pptx' },
 		],
 		search: {
 			provider: 'local',

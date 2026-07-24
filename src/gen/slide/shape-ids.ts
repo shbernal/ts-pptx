@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: slide shape-id allocation
+ * ts-pptx: slide shape-id allocation
  *
  * Compute the `<p:cNvPr>` id every slide shape (including group children) is
  * rendered with, and resolve an `objectName` back to that id. References that

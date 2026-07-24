@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: `docProps/core.xml`
+ * ts-pptx: `docProps/core.xml`
  *
  * Emit the core-properties part (title/subject/creator/revision and the
  * created/modified timestamps).

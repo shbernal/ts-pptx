@@ -16,7 +16,7 @@ async function writeFixtureManifest(fixtureDir, manager) {
 	await fs.mkdir(fixtureDir, { recursive: true })
 	await fs.writeFile(
 		path.join(fixtureDir, 'package.json'),
-		JSON.stringify({ name: 'pptxgenjs-package-smoke-' + manager, private: true, type: 'module' }, null, 2) + '\n'
+		JSON.stringify({ name: 'ts-pptx-package-smoke-' + manager, private: true, type: 'module' }, null, 2) + '\n'
 	)
 }
 
@@ -56,18 +56,18 @@ async function smokeInstalledPackage(fixtureDir) {
 	await fs.writeFile(
 		path.join(fixtureDir, 'esm-smoke.mjs'),
 		[
-			`import PptxGenJS, { Presentation, ShapeType } from ${JSON.stringify(packageImport())}`,
-			`import NodePptxGenJS from ${JSON.stringify(packageImport('/node'))}`,
-			`import BrowserPptxGenJS from ${JSON.stringify(packageImport('/browser'))}`,
-			`import StandalonePptxGenJS from ${JSON.stringify(packageImport('/standalone'))}`,
+			`import TsPptx, { Presentation, ShapeType } from ${JSON.stringify(packageImport())}`,
+			`import NodeTsPptx from ${JSON.stringify(packageImport('/node'))}`,
+			`import BrowserTsPptx from ${JSON.stringify(packageImport('/browser'))}`,
+			`import StandaloneTsPptx from ${JSON.stringify(packageImport('/standalone'))}`,
 			`import { ChartType, EMU_PER_INCH, STANDARD_LAYOUTS, inchesToEmu, pixelsToEmu } from ${JSON.stringify(packageImport('/core'))}`,
 			`import { boxAnchor, inspectPptx, overlapArea } from ${JSON.stringify(packageImport('/inspect'))}`,
-			'const pptx = new PptxGenJS()',
+			'const pptx = new TsPptx()',
 			"if (typeof pptx.version !== 'string') throw new Error('missing version')",
-			"if (Presentation !== PptxGenJS) throw new Error('missing Presentation named export')",
-			"if (NodePptxGenJS !== PptxGenJS) throw new Error('node entry mismatch')",
-			"if (typeof new BrowserPptxGenJS().version !== 'string') throw new Error('browser entry missing version')",
-			"if (typeof new StandalonePptxGenJS().version !== 'string') throw new Error('standalone entry missing version')",
+			"if (Presentation !== TsPptx) throw new Error('missing Presentation named export')",
+			"if (NodeTsPptx !== TsPptx) throw new Error('node entry mismatch')",
+			"if (typeof new BrowserTsPptx().version !== 'string') throw new Error('browser entry missing version')",
+			"if (typeof new StandaloneTsPptx().version !== 'string') throw new Error('standalone entry missing version')",
 			"if (ShapeType.rect !== 'rect') throw new Error('missing ShapeType export')",
 			"if (ChartType.bar !== 'bar') throw new Error('missing ChartType export')",
 			"if (EMU_PER_INCH !== 914400) throw new Error('missing EMU_PER_INCH export')",
@@ -94,21 +94,21 @@ async function smokeInstalledPackage(fixtureDir) {
 	await fs.writeFile(
 		path.join(fixtureDir, 'type-smoke.ts'),
 		[
-			`import PptxGenJS, { Presentation, STANDARD_LAYOUTS, inchesToEmu, type ChartMulti, type StandardLayoutName, type ThemeProps, type WriteFileProps } from ${JSON.stringify(packageImport())}`,
-			`import NodePptxGenJS from ${JSON.stringify(packageImport('/node'))}`,
-			`import BrowserPptxGenJS from ${JSON.stringify(packageImport('/browser'))}`,
-			`import StandalonePptxGenJS from ${JSON.stringify(packageImport('/standalone'))}`,
+			`import TsPptx, { Presentation, STANDARD_LAYOUTS, inchesToEmu, type ChartMulti, type StandardLayoutName, type ThemeProps, type WriteFileProps } from ${JSON.stringify(packageImport())}`,
+			`import NodeTsPptx from ${JSON.stringify(packageImport('/node'))}`,
+			`import BrowserTsPptx from ${JSON.stringify(packageImport('/browser'))}`,
+			`import StandaloneTsPptx from ${JSON.stringify(packageImport('/standalone'))}`,
 			`import { EMU_PER_INCH, ShapeType, pixelsToEmu, type PresSlide } from ${JSON.stringify(packageImport('/core'))}`,
 			`import { inspectPptx, type PptxSlideElement, type PptxSlideSize } from ${JSON.stringify(packageImport('/inspect'))}`,
-			'const pptx = new PptxGenJS()',
-			'const nodePptx = new NodePptxGenJS()',
-			'const browserPptx = new BrowserPptxGenJS()',
-			'const standalonePptx = new StandalonePptxGenJS()',
+			'const pptx = new TsPptx()',
+			'const nodePptx = new NodeTsPptx()',
+			'const browserPptx = new BrowserTsPptx()',
+			'const standalonePptx = new StandaloneTsPptx()',
 			'const slide = pptx.addSlide()',
 			"const theme: ThemeProps = { headFontFace: 'Aptos', bodyFontFace: 'Aptos' }",
 			"const options: WriteFileProps = { fileName: 'smoke.pptx' }",
 			"const comboChart: ChartMulti[] = [{ type: 'bar', data: [{ labels: ['A'], values: [1] }], options: {} }]",
-			'const presentationCtor: typeof PptxGenJS = Presentation',
+			'const presentationCtor: typeof TsPptx = Presentation',
 			'const typedSlide: PresSlide = slide',
 			'const inspectResult = await inspectPptx(await pptx.stream())',
 			'const inspectedSlideSize: PptxSlideSize = inspectResult.slideSize',
@@ -198,10 +198,10 @@ async function smokeInstalledPackage(fixtureDir) {
 	}
 }
 
-const tmpRoot = process.env.PPTXGENJS_PACKAGE_SMOKE_TMPDIR || os.tmpdir()
+const tmpRoot = process.env.TSPPTX_PACKAGE_SMOKE_TMPDIR || os.tmpdir()
 await fs.mkdir(tmpRoot, { recursive: true })
-const tmp = await fs.mkdtemp(path.join(tmpRoot, '.pptxgenjs-package-smoke-'))
-const keepTmp = process.env.PPTXGENJS_KEEP_PACKAGE_SMOKE === '1'
+const tmp = await fs.mkdtemp(path.join(tmpRoot, '.ts-pptx-package-smoke-'))
+const keepTmp = process.env.TSPPTX_KEEP_PACKAGE_SMOKE === '1'
 
 try {
 	const packDir = path.join(tmp, 'pack')

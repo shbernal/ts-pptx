@@ -153,7 +153,7 @@ Use this path for emitted OOXML changes. Add or update focused fixtures in
 `test/schema-cases.js` (a flat fixture data module — not a Vitest suite despite
 living under `test/`; the runner `test/schema-validation.test.mjs` consumes it).
 
-## Read/Round-Trip Suite (`pptxgenjs/read`)
+## Read/Round-Trip Suite (`ts-pptx/read`)
 
 The lossless read/edit subsystem (`src/read/`) has its own harness:
 

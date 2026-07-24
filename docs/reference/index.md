@@ -1,7 +1,7 @@
 ---
 doc-schema-version: 1
 title: "Reference"
-summary: "Stable commands, configuration, APIs, and generated references for PptxGenJS."
+summary: "Stable commands, configuration, APIs, and generated references for ts-pptx."
 read_when:
   - Looking up command, config, or API details
   - Adding a reference page

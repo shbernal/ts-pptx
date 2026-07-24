@@ -1,13 +1,13 @@
 import PresentationCore from './pptxgen.js'
 import { createNodeRuntime } from './runtime/node.js'
 
-export class PptxGenJS extends PresentationCore {
+export class TsPptx extends PresentationCore {
 	constructor() {
 		super(createNodeRuntime())
 	}
 }
 
-export { PptxGenJS as Presentation, PptxGenJS as default }
+export { TsPptx as Presentation, TsPptx as default }
 export * from './core-enums.js'
 export * from './units.js'
 // Use `export *` (not `export type *`) so the value exports `textRun`/`textRuns`

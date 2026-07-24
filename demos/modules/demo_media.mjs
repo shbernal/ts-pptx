@@ -51,7 +51,7 @@ export function genSlides_Media(pptx) {
 
 /**
  * SLIDE 1: Various Video Formats
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide01(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Media" });
@@ -105,7 +105,7 @@ function genSlide01(pptx) {
 
 /**
  * SLIDE 2: Various Audio Typrs
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide02(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Media" });
@@ -154,7 +154,7 @@ function genSlide02(pptx) {
 
 /**
  * SLIDE 3: YouTube
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide03(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Media" });
@@ -187,7 +187,7 @@ function genSlide03(pptx) {
 /**
  * SLIDE 3: Test large files are only added to export once
  * - filesize s/b ~24mb (the size of a single big-earth.mp4 file (17MB) plus other media files)
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide_Test_LargeMedia(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Media" });

@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: Measured-fit serialization pass
+ * ts-pptx: Measured-fit serialization pass
  *
  * Bridges slide text objects to the line-break simulator / shrink solver
  * (`text-fit.ts`). Runs during async export, BEFORE the `gen/` emitter builds the body:

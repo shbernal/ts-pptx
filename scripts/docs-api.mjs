@@ -31,7 +31,7 @@ function frontmatterFor(filePath, markdown) {
 	const title = rel === 'index.md' ? 'Public API Reference' : titleFromMarkdown(markdown, filePath)
 	const summary =
 		rel === 'index.md'
-			? 'Generated TypeDoc reference for the public PptxGenJS package exports.'
+			? 'Generated TypeDoc reference for the public TsPptx package exports.'
 			: `Generated TypeDoc reference for ${title}.`
 
 	return [
@@ -40,7 +40,7 @@ function frontmatterFor(filePath, markdown) {
 		`title: "${title.replaceAll('"', '\\"')}"`,
 		`summary: "${summary.replaceAll('"', '\\"')}"`,
 		'read_when:',
-		'  - Looking up public PptxGenJS API details',
+		'  - Looking up public TsPptx API details',
 		'  - Verifying generated TypeScript API documentation',
 		'doc_type: "reference"',
 		'---',

@@ -1,5 +1,5 @@
 /**
- * PptxGenJS Interfaces — re-export barrel
+ * ts-pptx Interfaces — re-export barrel
  *
  * The public typed contract lives in `src/types/`, split by domain. This module re-exports
  * all of it so that `./core-interfaces.js` remains the single import site for consumers and

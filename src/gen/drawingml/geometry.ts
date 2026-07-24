@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: DrawingML geometry
+ * ts-pptx: DrawingML geometry
  *
  * Emit `<a:prstGeom>` (preset shapes with their adjustment guides) and
  * `<a:custGeom>` (freeform paths built from the `points` DSL). Shared by the
@@ -45,7 +45,7 @@ export function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: 
 	// the "needs repair" dialog and drop the shape. Fail loudly instead.
 	if (!VALID_SHAPE_PRESETS.has(shapeName)) {
 		throw new Error(
-			`Invalid shape "${String(shapeName)}"! Use a value from \`pptxgen.ShapeType.*\` (e.g. \`pptxgen.ShapeType.rect\`). PowerPoint can't render unknown preset geometries and will drop the shape during repair.`
+			`Invalid shape "${String(shapeName)}"! Use a value from \`pptx.ShapeType.*\` (e.g. \`pptx.ShapeType.rect\`). PowerPoint can't render unknown preset geometries and will drop the shape during repair.`
 		)
 	}
 	// Collect adjustment guides; track names so the generic `shapeAdjust` passthrough
@@ -201,7 +201,7 @@ export function genXmlCustGeom(options: ObjectOptions, cx: number, cy: number, l
 
 	// custGeom preamble — the sub-lists OOXML requires before `<a:pathLst>` in this exact order:
 	// adjust values (avLst), guide formulas (gdLst), adjust handles (ahLst), connection sites
-	// (cxnLst), and the text rectangle (rect). `avLst` and `rect` stay as PptxGenJS drives them
+	// (cxnLst), and the text rectangle (rect). `avLst` and `rect` stay as ts-pptx drives them
 	// from the path; the other three are populated from caller options when supplied, and MUST
 	// fall back to today's exact empty-case bytes when absent (byte-identity contract).
 

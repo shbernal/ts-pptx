@@ -1,4 +1,4 @@
-// Phase 3 edit-vertical-slice tests for `pptxgenjs/read` (src/read/api/).
+// Phase 3 edit-vertical-slice tests for `ts-pptx/read` (src/read/api/).
 //
 // Contract under test: mutating a Run (text + font props) or a Shape's geometry
 // through the read model mutates the live DOM, marks only the owning slide part

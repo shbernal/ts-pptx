@@ -17,7 +17,7 @@ window for a fix before any public disclosure.
 
 ## Scope
 
-PptxGenJS is a Node-first library that generates PowerPoint `.pptx` packages from
+ts-pptx is a Node-first library that generates PowerPoint `.pptx` packages from
 untrusted input (text, colors, image data, table data). Relevant classes of
 issue include, for example:
 

@@ -137,7 +137,7 @@ describe('backlog ledger tooling', () => {
 	})
 
 	test('remove --status deletes every matching item and refuses empty or ambiguous input', async () => {
-		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-ledger-'))
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ts-pptx-ledger-'))
 		try {
 			const ledger = path.join(tmpDir, 'backlog.yml')
 			await fs.writeFile(ledger, fixture)
@@ -170,7 +170,7 @@ describe('backlog ledger tooling', () => {
 	})
 
 	test('remove --dry-run reports matches without writing', async () => {
-		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-ledger-'))
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ts-pptx-ledger-'))
 		try {
 			const ledger = path.join(tmpDir, 'backlog.yml')
 			await fs.writeFile(ledger, fixture)
@@ -210,7 +210,7 @@ describe('backlog ledger tooling', () => {
 	})
 
 	test('prints JSON list output for command-line consumers', async () => {
-		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-ledger-'))
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ts-pptx-ledger-'))
 		try {
 			const ledger = path.join(tmpDir, 'backlog.yml')
 			await fs.writeFile(ledger, fixture)
@@ -231,7 +231,7 @@ describe('backlog ledger tooling', () => {
 	})
 
 	test('list --json emits full items, not a compact projection', async () => {
-		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-ledger-'))
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ts-pptx-ledger-'))
 		try {
 			const ledger = path.join(tmpDir, 'backlog.yml')
 			await fs.writeFile(ledger, fixture)
@@ -255,7 +255,7 @@ describe('backlog ledger tooling', () => {
 	})
 
 	test('show text output includes non_target_reasons, first_seen, and evidence', async () => {
-		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-ledger-'))
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ts-pptx-ledger-'))
 		try {
 			const ledger = path.join(tmpDir, 'backlog.yml')
 			await fs.writeFile(ledger, fixture)
@@ -275,7 +275,7 @@ describe('backlog ledger tooling', () => {
 	})
 
 	test('show accepts multiple ids', async () => {
-		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-ledger-'))
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ts-pptx-ledger-'))
 		try {
 			const ledger = path.join(tmpDir, 'backlog.yml')
 			await fs.writeFile(ledger, fixture)
@@ -295,7 +295,7 @@ describe('backlog ledger tooling', () => {
 	})
 
 	test('show selects by filter when no id is given', async () => {
-		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-ledger-'))
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ts-pptx-ledger-'))
 		try {
 			const ledger = path.join(tmpDir, 'backlog.yml')
 			await fs.writeFile(ledger, fixture)
@@ -315,7 +315,7 @@ describe('backlog ledger tooling', () => {
 	})
 
 	test('show without id or filter is an error', async () => {
-		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-ledger-'))
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ts-pptx-ledger-'))
 		try {
 			const ledger = path.join(tmpDir, 'backlog.yml')
 			await fs.writeFile(ledger, fixture)
@@ -434,7 +434,7 @@ describe('backlog ledger tooling', () => {
 	})
 
 	test('prints JSON values output for command-line consumers', async () => {
-		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-ledger-'))
+		const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ts-pptx-ledger-'))
 		try {
 			const ledger = path.join(tmpDir, 'backlog.yml')
 			await fs.writeFile(ledger, fixture)

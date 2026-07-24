@@ -1,4 +1,4 @@
-import pptxgen from "@shbernal/pptxgenjs";
+import TsPptx from "@shbernal/ts-pptx";
 import { testMainMethods, testTableMethod } from "./tstest/Test";
 import { demoCode } from "./enums";
 import logo from "./assets/logo.png";
@@ -6,7 +6,7 @@ import './scss/styles.scss';
 
 function App() {
 	function runDemo() {
-		const pptx = new pptxgen();
+		const pptx = new TsPptx();
 		const slide = pptx.addSlide();
 
 		const dataChartRadar = [
@@ -34,7 +34,7 @@ function App() {
 
 		slide.addChart(dataChartRadar, { type: pptx.ChartType.radar, x: 1, y: 1.9, w: 8, h: 3 });
 
-		slide.addText(`PpptxGenJS version: ${pptx.version}`, {
+		slide.addText(`ts-pptx version: ${pptx.version}`, {
 			x: 0,
 			y: 5.3,
 			w: "100%",
@@ -45,15 +45,15 @@ function App() {
 			color: "A1A1A1", // pptx.SchemeColor.accent3,
 		});
 
-		pptx.writeFile({ fileName: "pptxgenjs-demo-react.pptx" });
+		pptx.writeFile({ fileName: "ts-pptx-demo-react.pptx" });
 	}
 
 	const htmlNav = () => {
 		return <nav className="navbar navbar-expand-lg bg-primary" data-bs-theme="dark">
 			<div className="container-fluid">
-				<a className="navbar-brand" href="https://github.com/shbernal/PptxGenJS">
+				<a className="navbar-brand" href="https://github.com/shbernal/ts-pptx">
 					<img src={logo} alt="logo" width="30" height="30" className="d-inline-block align-text-center me-2" />
-					PptxGenJS
+					TsPptx
 				</a>
 				<button className="navbar-toggler" type="button"
 					data-bs-toggle="collapse"
@@ -67,23 +67,23 @@ function App() {
 				<div className="collapse navbar-collapse" id="navbarText">
 					<ul className="navbar-nav me-auto mb-2 mb-lg-0">
 						<li className="nav-item">
-							<a className="nav-link active" aria-current="page" href="https://github.com/shbernal/PptxGenJS">
+							<a className="nav-link active" aria-current="page" href="https://github.com/shbernal/ts-pptx">
 								Vite+React Demo Home
 							</a>
 						</li>
 					</ul>
 					<div className="hstack gap-1">
-						<button type="button" className="btn btn-primary" title="Releases" onClick={() => "window.open('https://github.com/shbernal/PptxGenJS/releases')"}>
+						<button type="button" className="btn btn-primary" title="Releases" onClick={() => "window.open('https://github.com/shbernal/ts-pptx/releases')"}>
 							<i className="bi bi-box-arrow-up-right me-2"></i>Latest Release
 						</button>
-						<button type="button" className="btn btn-primary" title="Docs" onClick={() => "window.open('https://github.com/shbernal/PptxGenJS#readme')"}>
+						<button type="button" className="btn btn-primary" title="Docs" onClick={() => "window.open('https://github.com/shbernal/ts-pptx#readme')"}>
 							<i className="bi bi-box-arrow-up-right me-2"></i>Docs
 						</button>
 						<div className="vr my-2 mx-2"></div>
-						<button type="button" className="btn btn-primary" title="Homepage" onClick={() => "window.open('https://github.com/shbernal/PptxGenJS')"}>
+						<button type="button" className="btn btn-primary" title="Homepage" onClick={() => "window.open('https://github.com/shbernal/ts-pptx')"}>
 							<i className="bi bi-mastodon"></i>
 						</button>
-						<button type="button" className="btn btn-primary" title="GitHub" onClick={() => "window.open('https://github.com/shbernal/PptxGenJS')"}>
+						<button type="button" className="btn btn-primary" title="GitHub" onClick={() => "window.open('https://github.com/shbernal/ts-pptx')"}>
 							<i className="bi bi-github"></i>
 						</button>
 					</div>
@@ -98,7 +98,7 @@ function App() {
 				<div className="card-header">
 					<h1 className="display-4">Module Demo</h1>
 					<div className="lead text-primary-emphasis">
-						Sample React+TypeScript+Vite application demonstrating the PptxGenJS library as a module.
+						Sample React+TypeScript+Vite application demonstrating the TsPptx library as a module.
 					</div>
 				</div>
 				<div className="card-body">

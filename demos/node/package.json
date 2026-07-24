@@ -1,5 +1,5 @@
 {
-	"name": "pptxgenjs-demos-node",
+	"name": "ts-pptx-demos-node",
 	"private": true,
 	"version": "5.0.2",
 	"author": {
@@ -8,7 +8,7 @@
 	},
 	"type": "module",
 	"description": "Create PowerPoint Presentations with JavaScript",
-	"homepage": "https://github.com/shbernal/PptxGenJS#readme",
+	"homepage": "https://github.com/shbernal/ts-pptx#readme",
 	"scripts": {
 		"demo": "node demo.js",
 		"demo-all": "node demo.js All",
@@ -17,11 +17,11 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/shbernal/PptxGenJS.git"
+		"url": "git+https://github.com/shbernal/ts-pptx.git"
 	},
 	"license": "MIT",
 	"dependencies": {
 		"express": "^5.2.1",
-		"@shbernal/pptxgenjs": "workspace:*"
+		"@shbernal/ts-pptx": "workspace:*"
 	}
 }

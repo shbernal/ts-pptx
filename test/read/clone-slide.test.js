@@ -1,4 +1,4 @@
-// Phase 4 slide-cloning tests for `pptxgenjs/read`.
+// Phase 4 slide-cloning tests for `ts-pptx/read`.
 //
 // Contract under test: Presentation.cloneSlide(index) appends an independent
 // duplicate (its own slide part + copied .rels), wires a presentation→slide

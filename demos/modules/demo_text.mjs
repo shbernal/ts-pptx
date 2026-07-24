@@ -22,7 +22,7 @@ export function genSlides_Text(pptx) {
 
 /**
  * SLIDE 1: Text alignment, percent x/y, etc.
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide01(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Text" });
@@ -101,7 +101,7 @@ function genSlide01(pptx) {
 
 /**
  * SLIDE 2: Multi-Line Formatting, Line Breaks, Line Spacing
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide02(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Text" });
@@ -208,7 +208,7 @@ function genSlide02(pptx) {
 
 /**
  * SLIDE 3: Bullets
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide03(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Text" });
@@ -317,7 +317,7 @@ function genSlide03(pptx) {
 
 /**
  * SLIDE 4: Hyperlinks, Text Shadow, Text Outline, Text Glow
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide04(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Text" });
@@ -421,7 +421,7 @@ function genSlide04(pptx) {
 
 /**
  * SLIDE 5: Text Fit: Shrink/Resize
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide05(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Text" });
@@ -445,7 +445,7 @@ function genSlide05(pptx) {
 				options: { breakLine: true },
 			},
 			{
-				text: "- PowerPoint calculates a scaling factor and applies it dynamically when a shape is updated - something that cannot be triggered by PptxGenJS",
+				text: "- PowerPoint calculates a scaling factor and applies it dynamically when a shape is updated - something that cannot be triggered by TsPptx",
 				options: { breakLine: true },
 			},
 			{
@@ -458,7 +458,7 @@ function genSlide05(pptx) {
 
 /**
  * SLIDE 6: Scheme Colors
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide06(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Text" });

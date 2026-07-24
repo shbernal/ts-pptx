@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: Pie & Doughnut Plot Assembly
+ * ts-pptx: Pie & Doughnut Plot Assembly
  *
  * Emits the `<c:pieChart>` / `<c:doughnutChart>` plot elements. These are the only
  * families with no axes at all -- a single series, one `<c:dPt>` per slice carrying its

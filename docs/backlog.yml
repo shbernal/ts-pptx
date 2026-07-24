@@ -1,16 +1,16 @@
 schema: 1
-# Upstream issue/PR tracking has been retired. This fork no longer fetches or
+# Upstream issue/PR tracking has been retired. This project no longer fetches or
 # reconciles against gitbrent/PptxGenJS; `source_repo` is kept only as provenance
 # for the github-derived entries already recorded below.
 source_repo: gitbrent/PptxGenJS
 purpose: >
-  The fork's project backlog ledger. It records work this project intends to do
+  The project's backlog ledger. It records work this project intends to do
   and decisions it has made: `downstream-need` items for generic PPTX behavior a
   downstream consumer needs that belongs in this package; `fork-internal-proposal`
-  items for API-evolution / breaking-change candidates the fork proposes for itself
+  items for API-evolution / breaking-change candidates the project proposes for itself
   (not driven by a downstream consumer or an upstream issue); plus a set of retained
   upstream-derived signals from gitbrent/PptxGenJS that were judged relevant before
-  upstream tracking was retired. New entries are project needs or fork proposals.
+  upstream tracking was retired. New entries are project needs or proposals.
   Downstream needs are recorded generically: describe the missing PPTX behavior and
   its generic reproduction, never a private consumer's name, files, or content. The
   `source` field carries a github reference (owner/repo#N or a github.com
@@ -38,7 +38,7 @@ project_target_docs:
 # - `source` must be consistent with `type`: issue/pull-request entries need a github
 #   reference; downstream-need entries need `downstream`; fork-internal-proposal
 #   entries need `fork` or `fork:<path>`.
-#   New downstream needs / fork proposals are easiest to add with
+#   New downstream needs / proposals are easiest to add with
 #   `pnpm run backlog -- add` (see --help).
 # - Downstream needs are ANONYMOUS. Never write a private consumer's name, its file
 #   paths, deck/client names, or its content into any entry. Describe only the
@@ -340,7 +340,7 @@ items:
     summary: Add a caller-provided transform hook to modify slide XML before packaging.
     current_project_notes: >
       Dismissed. A raw caller-provided XML transform hook directly undermines the
-      fork's core value (OOXML correctness) and creates an open-ended support
+      project's core value (OOXML correctness) and creates an open-ended support
       surface for invalid output the library can no longer guarantee. Not adopting
       a generic escape hatch; if a concrete need arises it should be met with a
       typed, validated primitive instead.
@@ -372,7 +372,7 @@ items:
     summary: HTML table conversion mishandled rowspan and colspan sizing.
     current_project_notes: >
       Reviewed 2026-06-19. The *OOXML emission* side of spans is confirmed correct in
-      the current fork (colspan/rowspan cell counts and merged-cell borders verified —
+      this project (colspan/rowspan cell counts and merged-cell borders verified —
       see #1290/#1055/#1224 and regression suite table-span-border-structure). Any
       remaining defect is therefore in genTableToSlides' HTML→rows parsing / derived
       column-width calc, which reads a live HTML <table> through the browser DOM. Per
@@ -444,7 +444,7 @@ items:
       - out-of-project-scope
     summary: Requested automatic support for EXIF image orientation.
     current_project_notes: >
-      Decided (2026-06-19): userland, not core — non-target. PptxGenJS embeds image
+      Decided (2026-06-19): userland, not core — non-target. ts-pptx embeds image
       bytes verbatim and emits valid OOXML; PowerPoint itself does not honour JPEG
       EXIF orientation either, so the generated package matches PowerPoint's own
       behaviour. Auto-rotating would require decoding EXIF metadata and either
@@ -482,7 +482,7 @@ items:
     summary: Asked for stacked and unstacked bars together in a chart.
     current_project_notes: >
       The report requests a Highcharts-like chart composition but does not show
-      that PowerPoint supports the exact chart structure or that PptxGenJS emits
+      that PowerPoint supports the exact chart structure or that ts-pptx emits
       invalid OOXML. Related combo-chart repair signals remain tracked elsewhere.
     evidence:
       kinds:
@@ -558,7 +558,7 @@ items:
       firstSliceAng (core-interfaces.ts:2588) to rotate the gap to the bottom and
       holeSize (core-interfaces.ts:2519) for the doughnut variant, plus per-slice
       no-fill via chartColors. So the authoring need is met with existing
-      primitives and no PptxGenJS feature is required; there is no authored-XML
+      primitives and no ts-pptx feature is required; there is no authored-XML
       evidence of a distinct OOXML construct to target.
     evidence:
       kinds:
@@ -789,7 +789,7 @@ items:
       - insufficient-evidence
     summary: writeFile promise appeared not to resolve when a user added an image by path.
     current_project_notes: >
-      The report never narrowed a current reproducible failure. The current fork
+      The report never narrowed a current reproducible failure. This project
       has separate Node and browser runtime media loaders; browser local paths
       are not a supported package target, and Node file read failures throw.
     evidence:
@@ -1116,12 +1116,12 @@ items:
       information that will change. Keep the item (the need is real) but treat it as
       parked, not actionable, until reactivated. -- end hold note --
 
-      Because PptxGenJS does no glyph measurement or line-breaking, several text
+      Because ts-pptx does no glyph measurement or line-breaking, several text
       behaviors emit correct OOXML yet render differently across PowerPoint,
       LibreOffice, and the intended layout. These are documented limitations, not
       bugs, and their guard lives downstream (a consumer with the fonts and a
       headless renderer can measure/resize before addText). Write them down in the
-      fork docs so every consumer knows what schema fixtures intentionally do NOT
+      project docs so every consumer knows what schema fixtures intentionally do NOT
       assert:
         - fit:'shrink' emits a bare <a:normAutofit/> ONLY in the no-metrics fallback:
           when a font's metrics are registered, the measured-fit pass now bakes a real
@@ -1157,7 +1157,7 @@ items:
       - typescript-api
     applies_to_current_project: partial
     non_target_reasons: []
-    summary: "Graduate generic registry component primitives into the fork once the contract settles"
+    summary: "Graduate generic registry component primitives into the project once the contract settles"
     current_project_notes: |
       ON HOLD — owner-gated. Do NOT propose, plan, re-raise, or surface this item
       in suggestions until the maintainer explicitly green-lights it, regardless of
@@ -1172,7 +1172,7 @@ items:
       candidate list below (it will likely be stale).
 
       A downstream consumer composes decks from a typed component registry. The
-      generic, brand-free building blocks are fork candidates once the component
+      generic, brand-free building blocks are project candidates once the component
       contract stabilizes; defer the actual move until then. Brand chrome and the
       consumer's theme stay downstream; the upstream form of asset-bearing components
       takes already-resolved image paths (asset resolution stays downstream). The
@@ -1278,7 +1278,7 @@ items:
     current_project_notes: >-
       Landed. The per-face cmap primitive already existed (FontMetrics.hasCodepoint(cp)
       in src/font-metrics.ts, backed by opentype hasChar — glyph index > 0, not .notdef),
-      exported from @shbernal/pptxgenjs/measure and tested against the Silkscreen fixture
+      exported from @shbernal/ts-pptx/measure and tested against the Silkscreen fixture
       (U+2011 as the canonical missing glyph). This item added the face-keyed convenience
       a consumer wanted: FontMetricsRegistry.hasCodepoint(face, cp, opts?) resolves the
       face with the same exact→regular→any-variant fallback as get() and returns
@@ -1581,7 +1581,7 @@ items:
         2. data type: parts are currently a mix of XML strings and binary (store:true fonts,
            base64-decoded media). Normalize to Uint8Array for a clean contract (forces eager XML
            encoding) vs a tagged string|bytes union -- pick one and commit.
-        3. Entry point + props: a new PptxGenJS method (toParts()?) parallel to write(); decide
+        3. Entry point + props: a new ts-pptx method (toParts()?) parallel to write(); decide
            which WriteProps still apply (compression is meaningless without zipping; onMediaError
            still does), and whether the per-entry STORE-vs-DEFLATE hint is part of the public shape.
         4. Stability promise: document that part paths + ordering are now observable API, since
@@ -1617,7 +1617,7 @@ items:
       tableToSlides was moved (commit fbf8c656) onto the browser-entry subclass in browser.ts,
       which is DOM-coupled and browser-only. That move already delivered the module boundary and
       is non-breaking for browser callers. B4 in the refactor considered, but did not take, the
-      more-breaking alternative: a pptxgenjs/html free-function subpath exporting
+      more-breaking alternative: a ts-pptx/html free-function subpath exporting
       tableToSlides(pptx, eleId, opts) as a standalone that operates on any instance. Deferred on
       purpose -- the subpath is only worth adding if there is real demand for Node-side HTML->slides
       (which needs a DOM shim), and it is only "breaking" if it *replaces* the method form. Frame
@@ -1759,7 +1759,7 @@ items:
       The bracket / column-group annotation is intentionally NOT a new primitive.
       Composing the existing brace preset shapes (`rightBrace` / `bracePair`) with
       `addText`, positioned from the table `x` and `colW`, covers it; documented on
-      the `columns` JSDoc and in CHANGELOG. This keeps PptxGenJS low-level and avoids
+      the `columns` JSDoc and in CHANGELOG. This keeps ts-pptx low-level and avoids
       a table-coupled annotation layer.
     evidence:
       kinds:

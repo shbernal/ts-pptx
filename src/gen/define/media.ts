@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: Media Definition
+ * ts-pptx: Media Definition
  *
  * `addMediaDefinition` registers an `addMedia()` audio / video (or online video) source: each
  * embedded A/V consumes two rels (ECMA video + MS-2007 media) plus a cover image; online videos

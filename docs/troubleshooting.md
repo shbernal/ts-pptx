@@ -1,7 +1,7 @@
 ---
 doc-schema-version: 1
 title: "Troubleshooting"
-summary: "Observable symptoms, checks, causes, and fixes for PptxGenJS."
+summary: "Observable symptoms, checks, causes, and fixes for ts-pptx."
 read_when:
   - Debugging a user-visible failure
   - Adding recovery guidance

@@ -1,5 +1,5 @@
 import JSZip from 'jszip'
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 import { defineRegressionSuite, assert } from '../helpers.js'
 
 async function buildOnce(pres) {
@@ -14,7 +14,7 @@ defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 	{
 		name: 'two writes on same Presentation produce identical slide1.xml (text/shape branch)',
 		fn: async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			const slide = pres.addSlide()
 			/** @type {import('../../dist/node.js').ShadowPropsInternal} */
 			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 }
@@ -31,7 +31,7 @@ defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 	{
 		name: 'user shadow object is not mutated across two writes',
 		fn: async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			const slide = pres.addSlide()
 			/** @type {import('../../dist/node.js').ShadowPropsInternal} */
 			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 }
@@ -50,7 +50,7 @@ defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 	{
 		name: 'two writes on same Presentation produce identical slide1.xml (image branch)',
 		fn: async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			const slide = pres.addSlide()
 			// 1x1 transparent PNG, base64
 			const png =
@@ -76,7 +76,7 @@ defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 	{
 		name: 'regression - single write still emits sane shadow EMU values',
 		fn: async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			const slide = pres.addSlide()
 			slide.addShape(pres.ShapeType.rect, {
 				x: 1,

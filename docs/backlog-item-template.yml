@@ -90,7 +90,7 @@
   summary: Add native PowerPoint comments and generated comment parts.
   current_project_notes: |
     Take only the OOXML/package-part intent as reusable signal; discard the
-    upstream dist/CJS/bundle changes, which do not fit this fork's ESM/TS boundary.
+    upstream dist/CJS/bundle changes, which do not fit this project's ESM/TS boundary.
     ON STAND-BY — do not build until scheduled. When built, the primary evidence is
     a serialization schema fixture in test/schema-cases.js; a PowerPoint-authored
     .pptx is an authoring ORACLE only (no read accessor for comments).

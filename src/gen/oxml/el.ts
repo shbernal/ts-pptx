@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: XML element builder (write-side substrate)
+ * ts-pptx: XML element builder (write-side substrate)
  *
  * The write path historically concatenated template strings and called
  * `encodeXmlEntities` by hand at every interpolation — the source of escaping,

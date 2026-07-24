@@ -1,4 +1,4 @@
-// Font-metrics provider + registry through the public `pptxgenjs/measure` subpath
+// Font-metrics provider + registry through the public `ts-pptx/measure` subpath
 // (dist/measure.js). These primitives are the standalone surface a consumer uses to
 // build its own resolver/registry (docs/measured-text-fit.md); the registry's
 // coverage/fallback methods (`hasFace`, `hasCodepoint`, variant fallback in `get`)

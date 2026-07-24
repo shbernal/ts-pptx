@@ -10,14 +10,14 @@ read_when:
 doc_type: "reference"
 ---
 
-# Reading and round-tripping existing decks (`pptxgenjs/read`)
+# Reading and round-tripping existing decks (`ts-pptx/read`)
 
-The `pptxgenjs/read` subpath opens an **existing** `.pptx` file, exposes its
+The `ts-pptx/read` subpath opens an **existing** `.pptx` file, exposes its
 OPC package structure, and saves it back losslessly. It is the foundation for
 python-pptx-style editing of decks this library did not generate.
 
-It is a separate subsystem from the generator (`pptxgenjs`) and the inspector
-(`pptxgenjs/inspect`): those are one-way and lossy, while `read` keeps the
+It is a separate subsystem from the generator (`ts-pptx`) and the inspector
+(`ts-pptx/inspect`): those are one-way and lossy, while `read` keeps the
 package's own XML as the source of truth.
 
 Status: **Phase 4 — rich content & structural edits**. On top of the Phase 1
@@ -45,7 +45,7 @@ Read a deck through the typed object model:
 
 ```js
 import { readFile, writeFile } from 'node:fs/promises'
-import { Presentation } from '@shbernal/pptxgenjs/read'
+import { Presentation } from '@shbernal/ts-pptx/read'
 
 const presentation = await Presentation.load(await readFile('deck.pptx'))
 
@@ -63,7 +63,7 @@ await writeFile('deck-roundtrip.pptx', await presentation.save())
 Or work at the OPC layer directly:
 
 ```js
-import { OpcPackage } from '@shbernal/pptxgenjs/read'
+import { OpcPackage } from '@shbernal/ts-pptx/read'
 
 const pkg = await OpcPackage.load(await readFile('deck.pptx'))
 const slides = pkg.partsByContentType(
@@ -378,7 +378,7 @@ class Presentation {
 	masters(): SlideMaster[]
 
 	/**
-	 * Author the slides of a generator (`source`, e.g. a `PptxGenJS` instance) onto
+	 * Author the slides of a generator (`source`, e.g. a `TsPptx` instance) onto
 	 * this deck, bound to one of its existing layouts (by `p:cSld@name` or a
 	 * `LayoutHandle`), and return the new Slides. Masters/layouts/theme and every
 	 * other untouched part stay byte-identical. Source and deck slide sizes must
@@ -954,7 +954,7 @@ shape mirrors the write API's `startShape`/`endShape` split.
   (a genuinely dangling id) keeps `shapeId`/`siteIndex` but leaves `boundShape`
   `null` (faithful degradation, no throw).
 - Omitting `startShapeIdx`/`endShapeIdx` writes `idx="0"`, so a single-idx bind
-  reads `siteIndex: 0`. `ConnectionSite` is exported from `pptxgenjs/read`.
+  reads `siteIndex: 0`. `ConnectionSite` is exported from `ts-pptx/read`.
 
 #### Fill and line colour
 
@@ -1403,7 +1403,7 @@ reserialized; everything else stays byte-identical.
 
 ```js
 import { readFile, writeFile } from 'node:fs/promises'
-import { Presentation } from '@shbernal/pptxgenjs/read'
+import { Presentation } from '@shbernal/ts-pptx/read'
 
 const presentation = await Presentation.load(await readFile('deck.pptx'))
 const shape = presentation.slides[0].shapes.find((s) => s.name === 'Title')
@@ -1602,7 +1602,7 @@ deck.importSlide(source, CLOSER_INDEX, { theme: 'copy' })       // closer append
 ```
 
 `importSlide` and `cloneSlide` are the read/import API; interior slides are
-authored with the generate API (`new PptxGenJS()`). The two compose: emit the
+authored with the generate API (`new TsPptx()`). The two compose: emit the
 generated deck to bytes (`await pptx.stream()`), `Presentation.load` those bytes,
 `importSlide` the bookends, then `await deck.save()`.
 
@@ -1735,7 +1735,7 @@ workflow. Two methods cover it:
   layout's `p:cSld@name` ("Title and Content", "Blank", …), which is what you bind
   to.
 - **`presentation.appendSlides(source, { layout })`** authors the slides of a
-  *generator* (`source` — any object exposing `extractSlides()`, which a `PptxGenJS`
+  *generator* (`source` — any object exposing `extractSlides()`, which a `TsPptx`
   instance does) and splices them into this deck, each slide bound to the named
   existing layout. Only `presentation.xml`, its `.rels`, `[Content_Types].xml`, and
   the new slide/media/chart parts change; masters, layouts, theme, and every other
@@ -1743,12 +1743,12 @@ workflow. Two methods cover it:
   (`appendSlides` throws otherwise — size the generator to the deck).
 
 ```js
-import PptxGenJS from '@shbernal/pptxgenjs'
-import { Presentation } from '@shbernal/pptxgenjs/read'
+import TsPptx from '@shbernal/ts-pptx'
+import { Presentation } from '@shbernal/ts-pptx/read'
 
 const deck = await Presentation.load(await readFile('deck.pptx'))
 
-const pptx = new PptxGenJS()
+const pptx = new TsPptx()
 pptx.layout = 'LAYOUT_WIDE' // must match deck.slideSize
 pptx.addSlide().addText('Generated', { x: 1, y: 1, w: 6, h: 1 })
 
@@ -1776,7 +1776,7 @@ empty shell ready for `appendSlides`:
 const deck = await Presentation.fromTemplate(await readFile('brand.potx')) // .pptx or .potx
 deck.layouts().map((l) => l.name) // discover the template's layouts
 
-const pptx = new PptxGenJS()
+const pptx = new TsPptx()
 pptx.layout = 'LAYOUT_WIDE' // size to deck.slideSize
 pptx.addSlide().addText('Hello', { x: 1, y: 1, w: 6, h: 1 })
 

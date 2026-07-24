@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: comment parts
+ * ts-pptx: comment parts
  *
  * Resolve every slide's comments into a deck-wide author registry with per-author
  * numbering, then emit the presentation-level `commentAuthors.xml` and each

@@ -11,8 +11,8 @@ doc_type: "reference"
 
 # Layout Units
 
-PptxGenJS exposes PowerPoint geometry constants and small conversion helpers
-from the root package and from `@shbernal/pptxgenjs/core`.
+ts-pptx exposes PowerPoint geometry constants and small conversion helpers
+from the root package and from `@shbernal/ts-pptx/core`.
 
 ## Standard Layouts
 
@@ -29,9 +29,9 @@ PowerPoint widescreen is stored as `40 / 3 x 7.5 in`, which converts exactly to
 widths by hand.
 
 ```ts
-import pptxgen, { STANDARD_LAYOUTS } from "@shbernal/pptxgenjs"
+import TsPptx, { STANDARD_LAYOUTS } from "@shbernal/ts-pptx"
 
-const pptx = new pptxgen()
+const pptx = new TsPptx()
 const wide = STANDARD_LAYOUTS.LAYOUT_WIDE
 
 pptx.defineLayout({ name: "POWERPOINT_WIDESCREEN", width: wide.widthIn, height: wide.heightIn })

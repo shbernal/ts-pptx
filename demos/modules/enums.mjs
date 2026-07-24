@@ -28,7 +28,7 @@ export const TITLE_STYLE = { fill: { color: BKGD_LTGRAY }, margin: 4, fontSize: 
 // OPTIONS
 export const BASE_TEXT_OPTS_L = { color: "9F9F9F", margin: 3, border: [null, null, { width: 1, color: "CFCFCF" }, null] };
 export const BASE_TEXT_OPTS_R = {
-	text: "PptxGenJS",
+	text: "TsPptx",
 	options: { color: "9F9F9F", margin: 3, border: [0, 0, { width: 1, color: "CFCFCF" }, 0], align: "right" },
 };
 export const FOOTER_TEXT_OPTS = { x: 0.0, y: 7.16, w: "100%", h: 0.3, margin: 3, color: "9F9F9F", align: "center", fontSize: 10 };

@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: Hyperlink Relationship Registration
+ * ts-pptx: Hyperlink Relationship Registration
  *
  * Walks the text / table-cell object tree from `addText()` / `addTable()` and registers a
  * `hyperlink`-type slide rel for every hyperlink found, stamping the resolved `_rId` back onto

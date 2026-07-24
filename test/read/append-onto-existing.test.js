@@ -1,7 +1,7 @@
-// Append-onto-existing tests for `pptxgenjs/read` (dn-append-onto-existing-deck).
+// Append-onto-existing tests for `ts-pptx/read` (dn-append-onto-existing-deck).
 //
 // Contract under test: Presentation.appendSlides(source, { layout }) authors
-// slides on a generator (PptxGenJS), serializes them via source.extractSlides(),
+// slides on a generator (TsPptx), serializes them via source.extractSlides(),
 // and splices them into a loaded deck bound to an existing layout — keeping the
 // deck's masters/layouts/theme (and every other untouched part) byte-identical,
 // changing only presentation.xml, its .rels, [Content_Types].xml, and the new
@@ -13,7 +13,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 import { isInstalled, validateBuf } from '../validator.js'
@@ -90,7 +90,7 @@ async function mediaFixture(name) {
 
 /** A generator deck sized to LAYOUT_WIDE (12192000×6858000), matching theme-colors / image. */
 function wideGenerator() {
-	const pptx = new PptxGenJS()
+	const pptx = new TsPptx()
 	pptx.layout = 'LAYOUT_WIDE'
 	return pptx
 }
@@ -433,7 +433,7 @@ describe('Presentation.appendSlides', () => {
 
 	test('rejects a slide-size mismatch', async () => {
 		const pres = await Presentation.load(await readFile(fixturePath('theme-colors'))) // LAYOUT_WIDE
-		const pptx = new PptxGenJS() // default LAYOUT_16x9 — narrower
+		const pptx = new TsPptx() // default LAYOUT_16x9 — narrower
 		pptx.addSlide().addText('x', { x: 1, y: 1, w: 4, h: 1 })
 		assert(await rejects(() => pres.appendSlides(pptx, { layout: 'Blank' })), 'a mismatched slide size throws')
 	})

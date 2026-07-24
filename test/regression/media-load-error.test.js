@@ -1,5 +1,5 @@
 import { describe, test } from 'vitest'
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 import { assert } from '../helpers.js'
 
 // Acceptance: a media asset that fails to load must, by default, reject the export with an
@@ -10,7 +10,7 @@ import { assert } from '../helpers.js'
 const BAD_PATH = '/definitely/does/not/exist/missing-image.png'
 
 function deckWithMissingImage() {
-	const pptx = new PptxGenJS()
+	const pptx = new TsPptx()
 	pptx.addSlide().addImage({ path: BAD_PATH, x: 1, y: 1, w: 2, h: 2 })
 	return pptx
 }

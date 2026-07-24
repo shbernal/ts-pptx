@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, test, expect, afterEach } from 'vitest'
 import JSZip from 'jszip'
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 
 const FONT_PATH = fileURLToPath(new URL('../read/fixtures/fonts/Silkscreen-Regular.ttf', import.meta.url))
 const FONT_BYTES = readFileSync(FONT_PATH)
@@ -46,7 +46,7 @@ function stubFetch({ ok = true, body = Buffer.alloc(0) } = {}) {
 describe('node runtime: font loading over http', () => {
 	test('registerFontMetrics fetches and parses a font from an http(s) source', async () => {
 		const calls = stubFetch({ ok: true, body: FONT_BYTES })
-		const pptx = new PptxGenJS()
+		const pptx = new TsPptx()
 		// Resolves (no throw) — the fetched bytes are a real, parseable font.
 		await pptx.registerFontMetrics('SilkHttp', 'https://example.com/Silkscreen-Regular.ttf')
 		expect(calls).toEqual(['https://example.com/Silkscreen-Regular.ttf'])
@@ -54,7 +54,7 @@ describe('node runtime: font loading over http', () => {
 
 	test('a non-ok font response rejects and names the fetch failure', async () => {
 		stubFetch({ ok: false })
-		const pptx = new PptxGenJS()
+		const pptx = new TsPptx()
 		await expect(pptx.registerFontMetrics('MissingHttp', 'http://example.com/nope.ttf')).rejects.toThrow(
 			/Unable to load font \(fetch\)/
 		)
@@ -64,7 +64,7 @@ describe('node runtime: font loading over http', () => {
 describe('node runtime: image loading over http', () => {
 	test('an http(s) image path is fetched and embedded as base64 media', async () => {
 		const calls = stubFetch({ ok: true, body: PNG_1x1 })
-		const pptx = new PptxGenJS()
+		const pptx = new TsPptx()
 		pptx.addSlide().addImage({ path: 'https://example.com/pixel.png', x: 1, y: 1, w: 1, h: 1 })
 		const buf = /** @type {Uint8Array} */ (await pptx.stream())
 		expect(calls).toEqual(['https://example.com/pixel.png'])
@@ -77,7 +77,7 @@ describe('node runtime: image loading over http', () => {
 
 	test('a non-ok image response rejects and names the fetch failure', async () => {
 		stubFetch({ ok: false })
-		const pptx = new PptxGenJS()
+		const pptx = new TsPptx()
 		pptx.addSlide().addImage({ path: 'http://example.com/missing.png', x: 1, y: 1, w: 1, h: 1 })
 		// The export wraps loadMedia's "Unable to load image (fetch)" as the cause of a
 		// "Failed to load media …" error; reaching either proves the non-ok fetch branch ran.

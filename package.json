@@ -1,12 +1,12 @@
 {
-	"name": "@shbernal/pptxgenjs",
-	"version": "11.0.0",
+	"name": "@shbernal/ts-pptx",
+	"version": "1.0.0",
 	"author": {
 		"name": "shbernal",
 		"url": "https://github.com/shbernal/"
 	},
-	"description": "Create JavaScript PowerPoint Presentations",
-	"homepage": "https://github.com/shbernal/PptxGenJS#readme",
+	"description": "Create PowerPoint presentations (.pptx) from TypeScript and modern JavaScript",
+	"homepage": "https://github.com/shbernal/ts-pptx#readme",
 	"license": "MIT",
 	"packageManager": "pnpm@11.3.0",
 	"type": "module",
@@ -168,7 +168,7 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/shbernal/PptxGenJS.git"
+		"url": "git+https://github.com/shbernal/ts-pptx.git"
 	},
 	"keywords": [
 		"es6-powerpoint",
@@ -192,6 +192,6 @@
 		"typescript-powerpoint"
 	],
 	"bugs": {
-		"url": "https://github.com/shbernal/PptxGenJS/issues"
+		"url": "https://github.com/shbernal/ts-pptx/issues"
 	}
 }

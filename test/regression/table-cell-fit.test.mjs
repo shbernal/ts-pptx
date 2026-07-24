@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { describe, test, expect } from 'vitest'
 import JSZip from 'jszip'
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 
 async function slide1Xml(pres) {
 	const buf = await pres.stream()
@@ -36,7 +36,7 @@ function usableFontPath() {
 
 describe('measured fit: TableCellProps.fit', () => {
 	test('no registered metrics → cell font size unchanged (no-op)', async () => {
-		const pres = new PptxGenJS()
+		const pres = new TsPptx()
 		const slide = pres.addSlide()
 		slide.addTable([[{ text: LONG, options: { fontFace: 'Aptos', fontSize: 18, fit: 'shrink' } }]], {
 			x: 0.5,
@@ -53,7 +53,7 @@ describe('measured fit: TableCellProps.fit', () => {
 	test('registered metrics + overflow in a fixed-height row → baked size < authored', async () => {
 		const path = usableFontPath()
 		if (!path) return expect(true).toBe(true)
-		const pres = new PptxGenJS()
+		const pres = new TsPptx()
 		await pres.registerFontMetrics('CellFont', new Uint8Array(readFileSync(path)))
 		const slide = pres.addSlide()
 		slide.addTable([[{ text: LONG, options: { fontFace: 'CellFont', fontSize: 18, fit: 'shrink' } }]], {
@@ -73,7 +73,7 @@ describe('measured fit: TableCellProps.fit', () => {
 	test('auto-height row (no rowH / table h) → no shrink (the row grows instead)', async () => {
 		const path = usableFontPath()
 		if (!path) return expect(true).toBe(true)
-		const pres = new PptxGenJS()
+		const pres = new TsPptx()
 		await pres.registerFontMetrics('CellFont', new Uint8Array(readFileSync(path)))
 		const slide = pres.addSlide()
 		// No `h` and no `rowH` → unconstrained height → nothing to shrink against.
@@ -89,7 +89,7 @@ describe('measured fit: TableCellProps.fit', () => {
 	test('table-level fit:shrink cascades to a cell with no explicit fit', async () => {
 		const path = usableFontPath()
 		if (!path) return expect(true).toBe(true)
-		const pres = new PptxGenJS()
+		const pres = new TsPptx()
 		await pres.registerFontMetrics('CellFont', new Uint8Array(readFileSync(path)))
 		const slide = pres.addSlide()
 		slide.addTable([[{ text: LONG, options: { fontFace: 'CellFont', fontSize: 18 } }]], {

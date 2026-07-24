@@ -23,7 +23,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
-import PptxGenJS from '../dist/node.js'
+import TsPptx from '../dist/node.js'
 import { latexToOmml } from '../dist/math.js'
 import { build, assert, assertEqual, readEntry, assertIncludes, firstXmlBlock, listEntries } from './helpers.js'
 import { validateBuf } from './validator.js'
@@ -750,7 +750,7 @@ export default [
 		fn: async () => {
 			const reg = await readFile(path.join(fontsDir, 'Silkscreen-Regular.ttf'))
 			const bold = await readFile(path.join(fontsDir, 'Silkscreen-Bold.ttf'))
-			const p = new PptxGenJS()
+			const p = new TsPptx()
 			await p.embedFont({ data: new Uint8Array(reg), typeface: 'Silkscreen' })
 			await p.embedFont({ data: new Uint8Array(bold), typeface: 'Silkscreen', style: 'bold' })
 			p.addSlide().addText('Silkscreen', { x: 1, y: 1, w: 8, h: 1, fontFace: 'Silkscreen', fontSize: 24 })
@@ -1039,7 +1039,7 @@ export default [
 		},
 	},
 	{
-		// upstream-issue-1456 (LaTeX leg): the `@shbernal/pptxgenjs/math` subpath converts LaTeX to
+		// upstream-issue-1456 (LaTeX leg): the `@shbernal/ts-pptx/math` subpath converts LaTeX to
 		// OMML via latexToOmml() (LaTeX --temml--> MathML --mathml2omml--> OMML). Feeding that OMML to
 		// the `math:` option must produce the same schema-valid a14 display-math envelope as raw OMML.
 		// A representative corpus (fraction, radical, sum/int limits, matrix, cases, greek, accents,
@@ -1419,7 +1419,7 @@ export default [
 	},
 	{
 		// chart-metadata-extlst: custom chart-level metadata rides in the schema-valid extension
-		// list on the chart space (CT_ChartSpace/c:extLst, the LAST child) under a stable PptxGenJS
+		// list on the chart space (CT_ChartSpace/c:extLst, the LAST child) under a stable TsPptx
 		// vendor GUID, NOT as an invalid c:meta sibling PowerPoint would strip/repair. Each entry is
 		// a foreign-namespace <pgm:item key="" value=""/> inside the lax-processed CT_Extension
 		// wildcard. Lock in: schema-valid, extLst is last, payload escaped, and invalid entries drop.
@@ -1442,7 +1442,7 @@ export default [
 			const chartXml = await readEntry(zip, chartPath)
 			const extLst = firstXmlBlock(chartXml, 'c:extLst', 'chartSpace extLst')
 			assertIncludes(extLst, '<c:ext uri="{094A432E-1F6C-499B-95B8-B57DC9536949}">', 'vendor ext uri')
-			assertIncludes(extLst, '<pgm:metadata xmlns:pgm="http://pptxgenjs.com/schema/chart/metadata">', 'metadata ns')
+			assertIncludes(extLst, '<pgm:metadata xmlns:pgm="http://ts-pptx.com/schema/chart/metadata">', 'metadata ns')
 			assertIncludes(extLst, '<pgm:item key="sourceId" value="q3-revenue"/>', 'plain entry')
 			// Keys and values are XML-escaped (no raw &, <, >, ").
 			assertIncludes(extLst, '<pgm:item key="note&amp;tag" value="a&lt;b&gt;&quot;c&quot;"/>', 'escaped entry')

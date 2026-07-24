@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
-const packageManagerCache = process.env.PPTXGENJS_SCRIPT_CACHE_DIR || path.join(ROOT, '.tmp', 'package-manager-cache')
+const packageManagerCache = process.env.TSPPTX_SCRIPT_CACHE_DIR || path.join(ROOT, '.tmp', 'package-manager-cache')
 
 const requireFromRoot = createRequire(path.join(ROOT, 'package.json'))
 

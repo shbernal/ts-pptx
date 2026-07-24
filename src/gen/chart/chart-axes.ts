@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: Chart Axis Assembly
+ * ts-pptx: Chart Axis Assembly
  *
  * Builds the `<c:catAx>` / `<c:valAx>` / `<c:serAx>` elements. The three share a
  * structure -- scaling, delete flag, tick marks, label position, text properties,

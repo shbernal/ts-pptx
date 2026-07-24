@@ -10,7 +10,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 
@@ -18,7 +18,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 /** Build a deck with the given setup, serialize, and reload as a Presentation. */
 async function roundTrip(setup) {
-	const pptx = new PptxGenJS()
+	const pptx = new TsPptx()
 	setup(pptx)
 	pptx.addSlide().addText('hello', { x: 1, y: 1, w: 4, h: 1 })
 	const buf = /** @type {Uint8Array} */ (await pptx.stream())

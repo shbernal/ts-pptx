@@ -12,7 +12,7 @@ doc_type: "runbook"
 # Release Workflow
 
 This guide documents the maintained release path for the scoped ESM-only
-package, `@shbernal/pptxgenjs`.
+package, `@shbernal/ts-pptx`.
 
 Publishing is automated by `.github/workflows/publish.yml`. The workflow runs
 when a GitHub Release is published and can also be dispatched manually from a
@@ -20,11 +20,11 @@ matching tag as a retry path.
 
 ## Release Prerequisites
 
-- The npm package is `@shbernal/pptxgenjs`.
-- `package.json#repository.url` points at `shbernal/PptxGenJS`.
+- The npm package is `@shbernal/ts-pptx`.
+- `package.json#repository.url` points at `shbernal/ts-pptx`.
 - npm trusted publishing is configured for:
-  - package: `@shbernal/pptxgenjs`
-  - GitHub repository: `shbernal/PptxGenJS`
+  - package: `@shbernal/ts-pptx`
+  - GitHub repository: `shbernal/ts-pptx`
   - workflow filename: `publish.yml`
   - GitHub environment: `npm-publish`
   - allowed action: `npm publish`
@@ -41,7 +41,7 @@ matching tag as a retry path.
 4. Update demo package versions when they intentionally track the release
    version.
 5. Keep package import examples on the scoped package name:
-   `@shbernal/pptxgenjs`.
+   `@shbernal/ts-pptx`.
 
 ## Local Release Gate
 
@@ -70,7 +70,7 @@ npm pack --dry-run --ignore-scripts
 Check that the target version is not already published:
 
 ```bash
-npm view @shbernal/pptxgenjs@X.Y.Z version
+npm view @shbernal/ts-pptx@X.Y.Z version
 ```
 
 The command should fail with a registry 404 for a new release version.
@@ -86,10 +86,10 @@ The command should fail with a registry 404 for a new release version.
 Publishing the GitHub Release starts `.github/workflows/publish.yml`. The
 workflow:
 
-- refuses to run outside `shbernal/PptxGenJS`
+- refuses to run outside `shbernal/ts-pptx`
 - refuses branch publishes; `GITHUB_REF_TYPE` must be `tag`
 - requires the tag name to equal `v${package.json#version}`
-- checks that `@shbernal/pptxgenjs@X.Y.Z` is unpublished
+- checks that `@shbernal/ts-pptx@X.Y.Z` is unpublished
 - installs with `pnpm install --frozen-lockfile`
 - installs the OOXML validator
 - runs lint, formatting, typecheck, tests, package checks, package smoke tests,
@@ -106,7 +106,7 @@ Use this only after fixing a failed publish workflow without changing the
 release artifact:
 
 ```bash
-gh workflow run publish.yml --repo shbernal/PptxGenJS --ref vX.Y.Z
+gh workflow run publish.yml --repo shbernal/ts-pptx --ref vX.Y.Z
 ```
 
 The selected ref must be the release tag, not `mainline`.
@@ -116,8 +116,8 @@ The selected ref must be the release tag, not `mainline`.
 Verify npm and GitHub agree on the release:
 
 ```bash
-npm view @shbernal/pptxgenjs@X.Y.Z version dist-tags --json
-gh release view vX.Y.Z --repo shbernal/PptxGenJS
+npm view @shbernal/ts-pptx@X.Y.Z version dist-tags --json
+gh release view vX.Y.Z --repo shbernal/ts-pptx
 ```
 
 ## Package Surface Checks
@@ -139,12 +139,12 @@ The package should ship:
 - package `exports["."].types`
 - package subpaths for `./core`, `./inspect`, `./measure`, `./read`, `./math`,
   `./zip`, `./node`, `./browser`, and `./standalone`
-- scoped imports for `@shbernal/pptxgenjs`,
-  `@shbernal/pptxgenjs/core`, `@shbernal/pptxgenjs/inspect`,
-  `@shbernal/pptxgenjs/measure`, `@shbernal/pptxgenjs/read`,
-  `@shbernal/pptxgenjs/math`, `@shbernal/pptxgenjs/zip`,
-  `@shbernal/pptxgenjs/node`, `@shbernal/pptxgenjs/browser`, and
-  `@shbernal/pptxgenjs/standalone`
+- scoped imports for `@shbernal/ts-pptx`,
+  `@shbernal/ts-pptx/core`, `@shbernal/ts-pptx/inspect`,
+  `@shbernal/ts-pptx/measure`, `@shbernal/ts-pptx/read`,
+  `@shbernal/ts-pptx/math`, `@shbernal/ts-pptx/zip`,
+  `@shbernal/ts-pptx/node`, `@shbernal/ts-pptx/browser`, and
+  `@shbernal/ts-pptx/standalone`
 
 (`pnpm run test:package` currently smoke-tests `.`, `./core`, `./inspect`,
 `./node`, `./browser`, and `./standalone` end-to-end; `./measure`, `./read`,

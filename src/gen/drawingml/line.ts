@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: DrawingML line (stroke) properties
+ * ts-pptx: DrawingML line (stroke) properties
  *
  * Resolve the pieces of an `<a:ln>` stroke: its width, its `cap` attribute, and
  * its paint child. The paint reuses the shape fill group (`fill.ts`), because

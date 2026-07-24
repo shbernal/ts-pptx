@@ -1,5 +1,5 @@
 import JSZip from 'jszip'
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 import { defineRegressionSuite, build, listEntries, assert } from '../helpers.js'
 
 // 1x1 PNG (red pixel) for image-only deck case
@@ -45,7 +45,7 @@ defineRegressionSuite('Chart embedding parts', 'legacy bug-17', [
 	{
 		name: 'chart-present deck still creates chart and embedding parts (regression)',
 		fn: async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			const slide = pres.addSlide()
 			const data = [
 				{

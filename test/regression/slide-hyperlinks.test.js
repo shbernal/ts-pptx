@@ -4,7 +4,7 @@ const SLIDE_XML = 'ppt/slides/slide1.xml'
 
 // upstream-issue-1165: a hyperlink run with no color configured anywhere must
 // inherit the theme hyperlink color (a:schemeClr hlink, and folHlink once
-// visited). PptxGenJS used to default every run's color to DEF_FONT_COLOR
+// visited). TsPptx used to default every run's color to DEF_FONT_COLOR
 // ('000000'), which then emitted a solidFill plus an `ahyp:hlinkClr val="tx"`
 // override — pinning the link to black and suppressing the automatic theme
 // hyperlink/visited colors. The run must now carry a bare <a:hlinkClick/> with

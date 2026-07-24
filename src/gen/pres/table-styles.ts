@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: `ppt/tableStyles.xml`
+ * ts-pptx: `ppt/tableStyles.xml`
  *
  * Emit the table-styles part: the default style id plus any custom table styles,
  * each built from its `CT_TablePartStyle` regions (text style, cell borders/fill)

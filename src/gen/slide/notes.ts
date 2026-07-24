@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: speaker-notes parts
+ * ts-pptx: speaker-notes parts
  *
  * Everything for the notes side of a deck: reading a slide's notes text/runs,
  * building the notes-slide hyperlink rels, and emitting the notes-slide,

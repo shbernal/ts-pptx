@@ -1,11 +1,11 @@
 /**
- * PptxGenJS: Chart Embedded-Workbook Generation
+ * ts-pptx: Chart Embedded-Workbook Generation
  *
  * Builds the embedded `.xlsx` workbook that backs a chart's cached data — the data
  * source PowerPoint opens when a user edits the chart. `createExcelWorksheet` writes
  * the workbook plus the chart part + its `.rels` into the presentation package;
  * `buildEmbeddedWorksheet` / `buildChartRelsXml` are also reused by the read-side
- * injection path (`PptxGenJS.extractSlides`). Everything here is a pure string/bytes
+ * injection path (`TsPptx.extractSlides`). Everything here is a pure string/bytes
  * builder — no I/O beyond the passed-in ZipWriter, no mutation of the presentation model.
  *
  * The chart's `chart.xml` DrawingML lives in `./chart-xml.ts`; the series↔worksheet-cell
@@ -43,7 +43,7 @@ function relationships(rels: string[]): string {
  * return its bytes — the data source PowerPoint opens when a user edits the
  * chart's data. Pure (no zip side effects), so both the package write path
  * ({@link createExcelWorksheet}) and the read-side injection path
- * (`PptxGenJS.extractSlides`) can reuse it.
+ * (`TsPptx.extractSlides`) can reuse it.
  * @param {SlideRelChart} chartObject - chart object
  * @return {Uint8Array} the embedded `.xlsx` package bytes
  */
@@ -103,8 +103,8 @@ export function buildEmbeddedWorksheet(chartObject: SlideRelChart): Uint8Array {
 				'docProps/core.xml',
 				XML_DECL +
 					'<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">' +
-					'<dc:creator>PptxGenJS</dc:creator>' +
-					'<cp:lastModifiedBy>PptxGenJS</cp:lastModifiedBy>' +
+					'<dc:creator>TsPptx</dc:creator>' +
+					'<cp:lastModifiedBy>TsPptx</cp:lastModifiedBy>' +
 					'<dcterms:created xsi:type="dcterms:W3CDTF">' +
 					new Date().toISOString() +
 					'</dcterms:created>' +

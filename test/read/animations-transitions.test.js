@@ -365,7 +365,7 @@ describe('import-animation-merge (read fixture, Phase 2 gate A)', () => {
 // Phase 2 capability A: importShape({ carryAnimation: true }) carries the lifted
 // shape's build animation into the destination timing — the programmatic analogue
 // of PowerPoint's copy/paste-with-animation captured by the import-animation-merge
-// oracle. The destination timing is PptxGenJS's own construction (not byte-equal to
+// oracle. The destination timing is ts-pptx's own construction (not byte-equal to
 // PowerPoint's full-tree renumber), so the contract asserted is the mergeMap
 // semantics: the carried shape takes a new spid, its spTgt/bldP are remapped to it
 // and appended after any existing build, and no reference dangles.

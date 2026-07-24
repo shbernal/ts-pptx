@@ -1,5 +1,5 @@
 import { defineRegressionSuite, build, readEntry, listEntries, assert } from '../helpers.js'
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 
 const DATA = [{ name: 'Sales', labels: ['Q1', 'Q2', 'Q3'], values: [10, 20, 30] }]
 
@@ -48,7 +48,7 @@ defineRegressionSuite('addChart signature', [
 	{
 		name: 'omitting the chart type on the options object throws',
 		fn: async () => {
-			const p = new PptxGenJS()
+			const p = new TsPptx()
 			let threw = false
 			try {
 				// Negative test: `type` is intentionally omitted; cast past the required-`type` overload.

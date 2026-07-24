@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: `docProps/custom.xml`
+ * ts-pptx: `docProps/custom.xml`
  *
  * Emit the custom-properties part from caller-supplied name/value pairs (bool,
  * date, number and string value types).

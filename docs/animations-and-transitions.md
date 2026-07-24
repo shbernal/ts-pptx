@@ -1,7 +1,7 @@
 ---
 doc-schema-version: 1
 title: "Animations & Transitions"
-summary: "Scope and design for PptxGenJS slide-transition and per-shape build-animation support: a full typed model for transitions (read + write), opaque spid-aware preservation for the p:timing animation tree on read, and preset-template authoring on write. Implemented (2026-06-26) — this is the foundation decision record, still the reference for scope/rationale."
+summary: "Scope and design for ts-pptx slide-transition and per-shape build-animation support: a full typed model for transitions (read + write), opaque spid-aware preservation for the p:timing animation tree on read, and preset-template authoring on write. Implemented (2026-06-26) — this is the foundation decision record, still the reference for scope/rationale."
 read_when:
   - Implementing or changing slide transition emit/parse (p:transition)
   - Implementing or changing animation handling (p:timing / p:bldLst)
@@ -308,7 +308,7 @@ check date). Record the fixtures as the blocking precondition in
     `sndAc`; an export-time pass (`registerTransitionSounds`, `src/pptxgen.ts`) registers
     the audio rel + media part and the cross-deck media dedup collapses identical sound
     bytes to one part. Read: `slide.transition.sound` decodes the `sndAc` into a
-    `TransitionSoundInfo`. The rId is PptxGenJS's own (not PowerPoint's `rId2`), so the
+    `TransitionSoundInfo`. The rId is ts-pptx's own (not PowerPoint's `rId2`), so the
     regression compares the `sndAc` rId-normalized. `avContentType('wav')` was corrected
     to `audio/x-wav`.
   - **[A — implemented]** `import-animation-merge.pptx` (+ `mergeMap` oracle) —
@@ -319,7 +319,7 @@ check date). Record the fixtures as the blocking precondition in
     copies the lifted shape's mainSeq click-group(s) + `<p:bldP>` into the destination
     `p:timing` (built from scratch when the host has none), remapping spids to the
     shape's new id and renumbering `<p:cTn>` ids to stay collision-free. The
-    destination timing is PptxGenJS's own construction, so the test asserts the
+    destination timing is ts-pptx's own construction, so the test asserts the
     `mergeMap` semantics (new spid, appended-after-host, no dangling refs,
     schema-valid) rather than byte-for-byte.
 - **Open questions:** (a) preset animations as a per-shape option vs a

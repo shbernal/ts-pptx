@@ -34,8 +34,8 @@ cards/components) in a headless render pipeline.
 
 ## The problem
 
-The `fit` autofit markup already existed in the fork and downstream consumers
-already used `fit:'shrink'` heavily, but the fork emitted the **bare flag with no
+The `fit` autofit markup already existed in the project and downstream consumers
+already used `fit:'shrink'` heavily, but the project emitted the **bare flag with no
 baked result** (`<a:normAutofit/>` / `<a:spAutoFit/>`). A bare flag defers the fit
 computation to an interactive edit/resize event that a headless render never
 fires, so in a headless LibreOffice → PNG pipeline (and on plain file-open)
@@ -54,7 +54,7 @@ symmetric:
 The missing capability was **measurement**: the library had no font metrics, so it
 could not compute the value to bake. This feature adds serialize-time measured fit
 so overflow self-corrects in headless renders without a human round-trip through
-PowerPoint. It is generic PptxGenJS value — every consumer that renders or ships
+PowerPoint. It is generic ts-pptx value — every consumer that renders or ships
 pptx headlessly hits it — so it lives upstream, not as a downstream workaround.
 
 ## Design
@@ -74,7 +74,7 @@ pptx headlessly hits it — so it lives upstream, not as a downstream workaround
 
 ### Registration (`pptx.registerFontMetrics`)
 
-Consumers tell the library where a face's file lives, since the fork does not
+Consumers tell the library where a face's file lives, since the project does not
 embed/register fonts on the write side:
 
 ```ts
@@ -119,7 +119,7 @@ via `RuntimeAdapter.loadFontData` (node `fs` / browser `fetch`).
 - The `gen/` emitter consumes pre-computed values only.
 - The feature is driven off the existing `fit` value, so consumers opt in by what
   they already write: `fit:'shrink'`/`'resize'` measure automatically **when
-  metrics are registered** (zero API churn). Per the fork's no-back-compat-obligation
+  metrics are registered** (zero API churn). Per the project's no-back-compat-obligation
   policy, changing what `'shrink'` emits when metrics are present is acceptable;
   the no-metrics path is unchanged.
 
@@ -217,9 +217,9 @@ the resize bake), `heightIn` is ≥ what PowerPoint/LibreOffice render — right
 over-reporting) check suited to a build-time **warning**, not a hard gate. An
 unmeasurable face makes `overflowsBox` return `false` (no false positive).
 
-### Standalone primitives (`pptxgenjs/measure`)
+### Standalone primitives (`ts-pptx/measure`)
 
-For a consumer that lays out without a `PptxGenJS` instance, the subpath re-exports
+For a consumer that lays out without a `TsPptx` instance, the subpath re-exports
 the pure pieces so it can build its own resolver/registry and measure directly:
 `measureLayout`/`measureHeightPt`/`solveShrink`/`solveResize`, the
 `FitParagraph`/`FitBox`/`MetricsResolver`/`Shrink-`/`ResizeOutcome` types, the

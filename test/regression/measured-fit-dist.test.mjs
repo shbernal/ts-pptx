@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, test, expect } from 'vitest'
 import JSZip from 'jszip'
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 
 const REG_PATH = fileURLToPath(new URL('../read/fixtures/fonts/Silkscreen-Regular.ttf', import.meta.url))
 const BOLD_PATH = fileURLToPath(new URL('../read/fixtures/fonts/Silkscreen-Bold.ttf', import.meta.url))
@@ -43,7 +43,7 @@ function firstXfrm(xml) {
 const szValues = (xml) => [...xml.matchAll(/sz="(\d+)"/g)].map((m) => Number(m[1]))
 
 async function pptxWithSilkscreen() {
-	const pres = new PptxGenJS()
+	const pres = new TsPptx()
 	await pres.registerFontMetrics('Silkscreen', REG_PATH)
 	await pres.registerFontMetrics('Silkscreen', BOLD_PATH, { bold: true })
 	return pres
@@ -147,7 +147,7 @@ describe("applyMeasuredFit: fit:'shrink' through dist export", () => {
 	})
 
 	test('bytes source (Uint8Array) works the same as a path', async () => {
-		const pres = new PptxGenJS()
+		const pres = new TsPptx()
 		await pres.registerFontMetrics('Silkscreen', new Uint8Array(readFileSync(REG_PATH)))
 		const slide = pres.addSlide()
 		slide.addText(OVERFLOW, { x: 1, y: 1, w: 3, h: 1, fontFace: 'Silkscreen', fontSize: 18, fit: 'shrink' })

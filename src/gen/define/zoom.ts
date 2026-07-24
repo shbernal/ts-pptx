@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: Zoom Definition (Slide / Section / Summary Zoom — Insert ▸ Zoom).
+ * ts-pptx: Zoom Definition (Slide / Section / Summary Zoom — Insert ▸ Zoom).
  *
  * Resolves a zoom's target(s) to the ids the emitter needs (`sldId` / section GUID), registers
  * the preview-image media rel and the `.../slide` fallback rel(s), lays out the Summary Zoom grid,

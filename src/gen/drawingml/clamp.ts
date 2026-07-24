@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: DrawingML value clamps
+ * ts-pptx: DrawingML value clamps
  *
  * Clamp font/character/line spacing values (points) into their ST_* schema
  * ranges and convert to the hundredths-of-a-point units the attributes expect.

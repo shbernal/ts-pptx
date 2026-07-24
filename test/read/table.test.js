@@ -1,4 +1,4 @@
-// Phase 4 table read/edit tests for `pptxgenjs/read` (src/read/api/table.ts).
+// Phase 4 table read/edit tests for `ts-pptx/read` (src/read/api/table.ts).
 //
 // Contract under test: a table graphic frame exposes Table → rows → cells with
 // geometry/merge metadata read from the live DOM; cell text edits (via the

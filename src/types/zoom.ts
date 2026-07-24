@@ -1,12 +1,12 @@
 /**
- * PptxGenJS: Zoom link types (Slide / Section / Summary Zoom — PowerPoint's Insert ▸ Zoom).
+ * ts-pptx: Zoom link types (Slide / Section / Summary Zoom — PowerPoint's Insert ▸ Zoom).
  *
  * A zoom is a clickable tile on a slide that navigates to a target slide (Slide Zoom), the
  * start of a section (Section Zoom), or — laid out as a grid — the start of every section
  * (Summary Zoom). Emitted as a `<p:graphicFrame>` in the 2016 zoom namespaces, wrapped in
  * `<mc:AlternateContent>` with a hyperlinked-picture fallback for pre-2016 consumers.
  *
- * PREVIEW IMAGE: the tile shows a thumbnail of its target. PptxGenJS is Node-first and cannot
+ * PREVIEW IMAGE: the tile shows a thumbnail of its target. ts-pptx is Node-first and cannot
  * rasterize a slide, so by default it emits a neutral gray **placeholder** — PowerPoint does NOT
  * refresh it on open, but it regenerates to the live thumbnail once the target slide is next
  * edited. Supply `coverImage` for a picture that ships as-authored instead.

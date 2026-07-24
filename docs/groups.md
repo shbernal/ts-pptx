@@ -13,7 +13,7 @@ doc_type: "guide"
 # Grouping Objects
 
 A group is a single selectable PowerPoint object (`<p:grpSp>`) that contains other
-objects. PptxGenJS offers two entry points:
+objects. ts-pptx offers two entry points:
 
 - `slide.addGroup(children, options?)` — build a group from child *descriptors*
   (the same shorthand `addShape`/`addText`/`addImage` accept), in one call.
@@ -26,7 +26,7 @@ Both produce the same XML and share the same framing and naming rules.
 
 ## The identity child space (why a group never moves its children)
 
-Every group PptxGenJS writes keeps an **identity child coordinate space**:
+Every group ts-pptx writes keeps an **identity child coordinate space**:
 `chOff/chExt == off/ext` at every nesting depth. The practical consequence:
 
 > A group's own frame only places the selection handle and the rotate pivot. It

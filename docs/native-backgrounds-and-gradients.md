@@ -28,10 +28,10 @@ raster gradients.
 
 ## Goal
 
-Add reliable native PPTX gradient fill support for reusable PptxGenJS surfaces,
+Add reliable native PPTX gradient fill support for reusable ts-pptx surfaces,
 starting with simple linear gradients on slide backgrounds and shape fills.
 
-This belongs in PptxGenJS when the behavior is generic, schema-valid, and stable
+This belongs in ts-pptx when the behavior is generic, schema-valid, and stable
 across PowerPoint-compatible consumers. A consumer should continue using
 deterministic raster backgrounds when exact rendered appearance is more reliable
 than native PPTX gradients.

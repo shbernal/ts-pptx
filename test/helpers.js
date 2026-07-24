@@ -4,11 +4,11 @@
 // a round-trip bug in fflate can't mask itself by being used on both sides.
 // Keep jszip as a devDep for this reason — do not "consolidate" onto src/zip.ts.
 import JSZip from 'jszip'
-import PptxGenJS from '../dist/node.js'
+import TsPptx from '../dist/node.js'
 import { describe, test } from 'vitest'
 
 async function build(buildFn) {
-	const pres = new PptxGenJS()
+	const pres = new TsPptx()
 	buildFn(pres)
 	// stream() is typed for every output target (string/Blob/ArrayBuffer/Uint8Array);
 	// under Node it resolves to a Uint8Array, which the tests rely on for byte reads.
@@ -159,7 +159,7 @@ function assertNonVisualDrawingProperty(xml, attrs, label) {
 }
 
 export {
-	PptxGenJS,
+	TsPptx,
 	build,
 	readEntry,
 	listEntries,

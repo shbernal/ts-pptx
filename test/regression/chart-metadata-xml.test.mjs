@@ -28,7 +28,7 @@ describe('chart metadata extLst', () => {
 		})
 		const xml = await chartXml(zip)
 		expect(xml).toContain(
-			'<c:extLst><c:ext uri="{094A432E-1F6C-499B-95B8-B57DC9536949}"><pgm:metadata xmlns:pgm="http://pptxgenjs.com/schema/chart/metadata"><pgm:item key="q&amp;a" value="a&lt;b&gt;c"/></pgm:metadata></c:ext></c:extLst>'
+			'<c:extLst><c:ext uri="{094A432E-1F6C-499B-95B8-B57DC9536949}"><pgm:metadata xmlns:pgm="http://ts-pptx.com/schema/chart/metadata"><pgm:item key="q&amp;a" value="a&lt;b&gt;c"/></pgm:metadata></c:ext></c:extLst>'
 		)
 	})
 

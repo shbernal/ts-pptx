@@ -1,22 +1,14 @@
-# PptxGenJS
+# ts-pptx
 
-> ## ⛔ Legacy / unmaintained
->
-> **v11.0.0 is the final release under this name and this package receives no further updates.**
-> Active development continues as **[ts-pptx](https://github.com/shbernal/ts-pptx)**
-> (`@shbernal/ts-pptx`). This package remains installable for existing users but will not get
-> fixes or features. New projects should use ts-pptx.
+ts-pptx generates PowerPoint `.pptx` files from TypeScript and modern
+JavaScript. This project targets ESM package consumers, typed application code,
+reproducible package verification, and agent-assisted OOXML development.
 
-PptxGenJS generates PowerPoint `.pptx` files from TypeScript and modern
-JavaScript. This project targets ESM package consumers, typed
-application code, reproducible package verification, and agent-assisted OOXML
-development.
-
-> **Lineage.** This is a hard fork of [gitbrent/PptxGenJS](https://github.com/gitbrent/PptxGenJS),
-> detached at its v6.0.0 (June 2025) and developed independently since. Upstream
-> sync is retired: it does not track, merge from, or mirror the original project,
-> and pursues its own Node-first direction (see _Project Target_). The original
-> work remains under its MIT license — see _License_ below.
+> **Lineage.** ts-pptx descends from [gitbrent/PptxGenJS](https://github.com/gitbrent/PptxGenJS)
+> (MIT), detached at its v6.0.0 (June 2025) and developed independently since. It
+> does not track, merge from, or mirror the original project, and pursues its own
+> Node-first direction (see _Project Target_). The original work remains under its
+> MIT license — see _License_ below.
 
 ## Project Target
 
@@ -33,26 +25,26 @@ development.
 ## Install
 
 ```bash
-pnpm add @shbernal/pptxgenjs
+pnpm add @shbernal/ts-pptx
 ```
 
 ```bash
-npm install @shbernal/pptxgenjs
+npm install @shbernal/ts-pptx
 ```
 
 ```bash
-yarn add @shbernal/pptxgenjs
+yarn add @shbernal/ts-pptx
 ```
 
 ## Quick Start
 
 ```ts
-import pptxgen from "@shbernal/pptxgenjs"
+import TsPptx from "@shbernal/ts-pptx"
 
-const pptx = new pptxgen()
+const pptx = new TsPptx()
 const slide = pptx.addSlide()
 
-slide.addText("Hello from PptxGenJS", {
+slide.addText("Hello from ts-pptx", {
   x: 1,
   y: 1,
   w: 8,
@@ -101,29 +93,28 @@ The package is ESM-only.
 
 Supported package surface:
 
-- `import pptxgen from "@shbernal/pptxgenjs"`
-- `import { ShapeType } from "@shbernal/pptxgenjs/core"`
-- `import { inspectPptx } from "@shbernal/pptxgenjs/inspect"`
-- `import { measureText } from "@shbernal/pptxgenjs/measure"`
-- `import { Presentation } from "@shbernal/pptxgenjs/read"`
-- `import { latexToOmml } from "@shbernal/pptxgenjs/math"`
-- `import pptxgen from "@shbernal/pptxgenjs/node"`
-- `import pptxgen from "@shbernal/pptxgenjs/browser"`
-- `import pptxgen from "@shbernal/pptxgenjs/standalone"`
+- `import TsPptx from "@shbernal/ts-pptx"`
+- `import { ShapeType } from "@shbernal/ts-pptx/core"`
+- `import { inspectPptx } from "@shbernal/ts-pptx/inspect"`
+- `import { measureText } from "@shbernal/ts-pptx/measure"`
+- `import { Presentation } from "@shbernal/ts-pptx/read"`
+- `import { latexToOmml } from "@shbernal/ts-pptx/math"`
+- `import TsPptx from "@shbernal/ts-pptx/node"`
+- `import TsPptx from "@shbernal/ts-pptx/browser"`
+- `import TsPptx from "@shbernal/ts-pptx/standalone"`
 - generated runtime and declaration artifacts under `dist/`
 - Node.js `>=24`
 - modern bundlers and module-aware app frameworks
 
-Dropped compared to upstream:
+Deliberately not supported:
 
-- No CommonJS support: no `require("@shbernal/pptxgenjs")`, no CJS export
-  condition, and no `dist/pptxgen.cjs.js`. Modern Node.js may provide
-  `require()` interop for ESM, but it is not a maintained API.
-- No IIFE/global browser bundle: no `window.PptxGenJS` classic script API, no
-  `dist/pptxgen.bundle.js`, and no `dist/pptxgen.min.js`.
+- No CommonJS: no `require("@shbernal/ts-pptx")`, no CJS export condition, and no
+  `.cjs` artifact. Modern Node.js may provide `require()` interop for ESM, but it
+  is not a maintained API.
+- No IIFE/global browser bundle: no classic-script global, no `dist/*.bundle.js`,
+  and no `dist/*.min.js`.
 
-The old named ESM artifact `dist/pptxgen.es.js` is also no longer shipped. Use
-the package exports instead of direct artifact paths.
+Use the package exports rather than direct `dist/` artifact paths.
 
 See [runtime and package support](docs/runtime-and-package-support.md) for the
 complete support contract.
@@ -173,13 +164,13 @@ pnpm run test:package
 
 ## Relationship To Upstream
 
-This project builds on PptxGenJS by Brent Ely and contributors. The modernized
-package target is intentionally narrower than upstream in order to simplify the
-runtime contract and keep maintenance focused.
+ts-pptx builds on the original work of Brent Ely and the gitbrent/PptxGenJS
+contributors. The modernized package target is intentionally narrower than the
+original in order to simplify the runtime contract and keep maintenance focused.
 
 ## License
 
-Copyright (c) 2015-present Brent Ely and PptxGenJS contributors.
-Fork modifications copyright (c) 2026 shbernal.
+Copyright (c) 2015-2022 Brent Ely.
+Modifications copyright (c) 2026 shbernal.
 
 [MIT](LICENSE)

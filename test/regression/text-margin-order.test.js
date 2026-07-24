@@ -1,5 +1,5 @@
 import JSZip from 'jszip'
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 import { defineRegressionSuite, assert, xmlOpeningTags, xmlAttributes } from '../helpers.js'
 
 async function buildSlideXml(pres) {
@@ -18,7 +18,7 @@ defineRegressionSuite('Text box margin array order', 'upstream-pr-1248', [
 	{
 		name: 'margin [T,R,B,L] maps each value to the correct bodyPr inset',
 		fn: async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			// Four distinct values (inches, all < 1 to avoid the legacy-points warning) so any
 			// transposition (e.g. swapping Top/Left) is caught.
 			pres.addSlide().addText('hi', { x: 1, y: 1, w: 4, h: 1, margin: [0.1, 0.2, 0.3, 0.4] })

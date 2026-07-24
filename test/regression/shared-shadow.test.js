@@ -1,5 +1,5 @@
 import JSZip from 'jszip'
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 import { defineRegressionSuite, assert } from '../helpers.js'
 
 async function buildSlideXml(pres) {
@@ -28,7 +28,7 @@ defineRegressionSuite('Shared shadow options', 'legacy bug-05', [
 	{
 		name: 'two addShape calls sharing one shadow object emit identical effectLst',
 		fn: async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			const slide = pres.addSlide()
 			/** @type {import('../../dist/node.js').ShadowPropsInternal} */
 			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 }
@@ -61,7 +61,7 @@ defineRegressionSuite('Shared shadow options', 'legacy bug-05', [
 	{
 		name: 'shared shadow object literal not mutated after build',
 		fn: async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			const slide = pres.addSlide()
 			/** @type {import('../../dist/node.js').ShadowPropsInternal} */
 			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 }
@@ -79,7 +79,7 @@ defineRegressionSuite('Shared shadow options', 'legacy bug-05', [
 	{
 		name: 'shared shadow across image+shape emits same EMU values (no double-conversion)',
 		fn: async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			const slide = pres.addSlide()
 			const png =
 				'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII='

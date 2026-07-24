@@ -1,4 +1,4 @@
-// Slide-removal tests for `pptxgenjs/read`.
+// Slide-removal tests for `ts-pptx/read`.
 //
 // Contract under test: Presentation.removeSlide(index) drops the p:sldId entry,
 // the presentation→slide relationship, the slide part + its .rels, and any part

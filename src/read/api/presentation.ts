@@ -999,7 +999,7 @@ export class Presentation {
 	 * `.rels`, `[Content_Types].xml`, and the freshly-added slide/media parts
 	 * change), because the existing chrome is never regenerated.
 	 *
-	 * `source` is any slide producer (a `PptxGenJS` instance); its authored slides
+	 * `source` is any slide producer (a `TsPptx` instance); its authored slides
 	 * are serialized via {@link SlideSource.extractSlides} and spliced in under
 	 * fresh partnames, with each slide's `slideLayout` relationship pointed at the
 	 * layout named by `options.layout` and its image/hyperlink relationships rebuilt
@@ -1532,7 +1532,7 @@ export class Presentation {
 	/**
 	 * The partname of the layout this deck's slides should attach to in `preserve`
 	 * mode: the first layout of the first slide master. Throws when the deck has no
-	 * master/layout to attach to (a deck pptxgenjs always provides).
+	 * master/layout to attach to (a deck ts-pptx always provides).
 	 */
 	#destinationLayoutPartName(): string {
 		const presRels = this.opc.relationshipsFor(this.presentationPart.partName)

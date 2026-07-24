@@ -16,7 +16,7 @@
 //
 // Not a test file (no `.test.` in the name) — vitest's default glob skips it.
 
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { isInstalled, validateBuf } from '../validator.js'
 
@@ -25,14 +25,14 @@ export const validatorInstalled = await isInstalled()
 
 /**
  * Author a deck in memory with the write API and load it into the deep read
- * model. `build` receives a fresh PptxGenJS instance — add slides / shapes /
+ * model. `build` receives a fresh TsPptx instance — add slides / shapes /
  * charts / tables with the normal write API — and may be async.
  *
- * @param {(pres: InstanceType<typeof PptxGenJS>) => void | Promise<void>} build
- * @returns {Promise<{ presentation: Presentation, buf: Uint8Array, pres: InstanceType<typeof PptxGenJS> }>}
+ * @param {(pres: InstanceType<typeof TsPptx>) => void | Promise<void>} build
+ * @returns {Promise<{ presentation: Presentation, buf: Uint8Array, pres: InstanceType<typeof TsPptx> }>}
  */
 export async function authorRead(build) {
-	const pres = new PptxGenJS()
+	const pres = new TsPptx()
 	await build(pres)
 	// Under Node, stream() resolves to a Uint8Array (see test/helpers.js build()).
 	const buf = /** @type {Uint8Array} */ (await pres.stream())

@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: Notes Definition
+ * ts-pptx: Notes Definition
  *
  * Normalizes plain or rich `addNotes()` input to a `TextProps[]` run list and pushes a
  * `notes`-type slide object; the notes-slide XML is emitted later by `gen/slide/notes.ts`.

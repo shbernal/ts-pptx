@@ -1,7 +1,7 @@
 ---
 doc-schema-version: 1
 title: "Architecture"
-summary: "How PptxGenJS is structured and where major responsibilities live."
+summary: "How ts-pptx is structured and where major responsibilities live."
 read_when:
   - Changing module boundaries
   - Explaining architecture or ownership decisions
@@ -12,7 +12,7 @@ doc_type: "architecture"
 
 # Architecture
 
-PptxGenJS is a TypeScript library that turns a presentation object model into an
+ts-pptx is a TypeScript library that turns a presentation object model into an
 OOXML `.pptx` package. Consumer projects should import only the public package
 exports and let this repository own the internal OOXML generation details.
 
@@ -99,11 +99,11 @@ export time. Each module opens with a TSDoc header stating its job; larger files
   the Node build and out of the shared chunk — their code bundles into the
   browser/standalone chunks alone.
 - Downstream deck-production workflows belong in the consuming project unless the
-  behavior is broadly reusable for PptxGenJS consumers.
+  behavior is broadly reusable for ts-pptx consumers.
 
 ## Data And Control Flow
 
-1. Consumers create a presentation through a public PptxGenJS entry point.
+1. Consumers create a presentation through a public ts-pptx entry point.
 2. Public methods collect slides and slide objects into internal structures.
 3. The export flow calls internal generators to create package parts and OOXML.
 4. Runtime adapters write the result for Node or browser environments.

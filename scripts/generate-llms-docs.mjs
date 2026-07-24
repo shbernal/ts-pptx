@@ -6,7 +6,7 @@ const docsDir = path.join(root, 'docs')
 const publicDir = path.join(docsDir, 'public')
 const docsConfig = JSON.parse(readFileSync(path.join(docsDir, 'docs.json'), 'utf8'))
 const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'))
-const baseUrl = (process.env.DOCS_BASE_URL ?? 'https://shbernal.github.io/PptxGenJS/').replace(/\/?$/, '/')
+const baseUrl = (process.env.DOCS_BASE_URL ?? 'https://shbernal.github.io/TsPptx/').replace(/\/?$/, '/')
 const excludedDirs = new Set(['.vitepress', 'archive', 'public', 'research'])
 
 function walkMarkdown(dir) {

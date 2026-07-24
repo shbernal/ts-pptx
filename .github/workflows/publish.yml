@@ -16,7 +16,7 @@ concurrency:
 jobs:
   publish:
     name: Publish package
-    if: github.repository == 'shbernal/PptxGenJS'
+    if: github.repository == 'shbernal/ts-pptx'
     runs-on: ubuntu-latest
     environment: npm-publish
 

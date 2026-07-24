@@ -52,7 +52,7 @@ async function validateBuf(buf, fileFormat) {
 	if (!(await isInstalled())) {
 		throw new Error('OOXMLValidatorCLI not installed. Run ./tools/ooxml-validator/install.sh')
 	}
-	const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgen-schema-'))
+	const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'TsPptx-schema-'))
 	const tmp = path.join(tmpDir, 'fixture.pptx')
 	await fs.writeFile(tmp, buf)
 	try {

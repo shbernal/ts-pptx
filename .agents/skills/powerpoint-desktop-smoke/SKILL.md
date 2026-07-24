@@ -1,6 +1,6 @@
 ---
 name: powerpoint-desktop-smoke
-description: Use on Windows with desktop Microsoft PowerPoint installed when you need to confirm that PptxGenJS-generated .pptx output actually opens (the project's supported bar), to catch OOXML corruption (0x80070570) the Node test suite cannot see, or to bisect which feature emits a package PowerPoint rejects. Good as a pre-release smoke check after any change to emitted OOXML.
+description: Use on Windows with desktop Microsoft PowerPoint installed when you need to confirm that ts-pptx-generated .pptx output actually opens (the project's supported bar), to catch OOXML corruption (0x80070570) the Node test suite cannot see, or to bisect which feature emits a package PowerPoint rejects. Good as a pre-release smoke check after any change to emitted OOXML.
 ---
 
 # PowerPoint Desktop Smoke Test
@@ -32,10 +32,10 @@ office-suite interop quirks (WPS round-trips, etc.), which AGENTS.md puts out of
 
 1. **Build and generate decks.** From the repo root:
    - `pnpm -w run build`
-   - Full surface: `cd demos/node && node demo.js All` → `output/PptxGenJS_Demo_All.pptx`.
+   - Full surface: `cd demos/node && node demo.js All` → `output/TsPptx_Demo_All.pptx`.
    - Or one feature group: `node demo.js <Group>` where `<Group>` is one of
      `Master | Chart | Image | Media | Shape | Text | Table` →
-     `output/PptxGenJS_Demo_<Group>.pptx`.
+     `output/TsPptx_Demo_<Group>.pptx`.
 
 2. **Open the decks in PowerPoint.** Point the smoke script at the output:
    ```
@@ -47,7 +47,7 @@ office-suite interop quirks (WPS round-trips, etc.), which AGENTS.md puts out of
 
 3. **Bisect a failure.** If the `All` deck fails, generate each feature group separately
    (step 1) and re-run step 2 to find the culprit group. Then narrow further with a
-   minimal repro **written inside `demos/node/`** (so the `@shbernal/pptxgenjs` workspace
+   minimal repro **written inside `demos/node/`** (so the `@shbernal/ts-pptx` workspace
    dependency resolves) that adds just the suspect construct — and shrink it until a single
    `addX` call flips PASS→FAIL.
 
@@ -76,5 +76,5 @@ office-suite interop quirks (WPS round-trips, etc.), which AGENTS.md puts out of
   0x80070570. When touching id/`spid` emission, smoke-test a slide that **mixes media with
   text/shapes**, not a single-object slide (where the two id spaces coincide and the bug
   hides).
-- To author *reference* fixtures from real PowerPoint (rather than smoke-test PptxGenJS
+- To author *reference* fixtures from real PowerPoint (rather than smoke-test ts-pptx
   output), use the `powerpoint-fixture-authoring` skill instead.

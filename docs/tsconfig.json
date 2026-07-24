@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "display": "PptxGenJS docs",
+  "display": "ts-pptx docs",
   "compilerOptions": {
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,

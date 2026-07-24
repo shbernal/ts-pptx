@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: DrawingML object-lock serialization
+ * ts-pptx: DrawingML object-lock serialization
  *
  * Emit the `a:spLocks` / `a:picLocks` / `a:graphicFrameLocks` / group-shape lock
  * elements. Each locking element type supports a different set of flags; the

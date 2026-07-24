@@ -1,4 +1,4 @@
-// Phase 4 cross-package slide-import tests for `pptxgenjs/read`.
+// Phase 4 cross-package slide-import tests for `ts-pptx/read`.
 //
 // Contract under test: Presentation.importSlide(source, index) appends a copy of
 // a slide from a *different* open package, bringing its layout → master → theme
@@ -12,7 +12,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 import { isInstalled, validateBuf } from '../validator.js'
@@ -436,16 +436,16 @@ describe('Presentation.importSlide({ at })', () => {
 })
 
 // Generate → read bridge: interior slides are authored with the generate API
-// (`new PptxGenJS()`), then bookends are imported on the read/import model
-// (`Presentation`). This pins that the two APIs compose: a pptxgen-generated
+// (`new TsPptx()`), then bookends are imported on the read/import model
+// (`Presentation`). This pins that the two APIs compose: a TsPptx-generated
 // package loads into Presentation, accepts an importSlide from a fixture, and
 // re-saves without dangling relationships or schema errors.
 describe('generate → read import bridge', () => {
 	async function generatedDeckBytes() {
 		// LAYOUT_WIDE is 12192000×6858000 EMU, matching the `image` read fixture so
-		// importSlide's equal-size pre-flight passes (the pptxgen default is the
+		// importSlide's equal-size pre-flight passes (the TsPptx default is the
 		// narrower LAYOUT_16x9, 9144000×5143500).
-		const pres = new PptxGenJS()
+		const pres = new TsPptx()
 		pres.layout = 'LAYOUT_WIDE'
 		pres.addSlide().addText('interior slide one', { x: 1, y: 1, w: 6, h: 1 })
 		pres.addSlide().addText('interior slide two', { x: 1, y: 1, w: 6, h: 1 })
@@ -453,7 +453,7 @@ describe('generate → read import bridge', () => {
 		return out instanceof Uint8Array ? out : new Uint8Array(/** @type {ArrayBuffer} */ (out))
 	}
 
-	test('a pptxgen-generated deck loads and accepts an imported bookend', async () => {
+	test('a TsPptx-generated deck loads and accepts an imported bookend', async () => {
 		const deck = await Presentation.load(await generatedDeckBytes())
 		const interiorCount = deck.slides.length
 		assertEqual(interiorCount, 2, 'the generated interior has two slides')

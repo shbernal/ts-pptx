@@ -9,7 +9,7 @@
  * Each output is named for the edit it performs (added-textbox, added-picture,
  * deleted-shape, cloned-slide, edited-table-cells, imported-*-slide). Output goes to
  * .tmp/read-edits/ (gitignored) by default; override with the first CLI arg or
- * PPTXGENJS_READ_EDITS_DIR. Assumes a current build — the
+ * TSPPTX_READ_EDITS_DIR. Assumes a current build — the
  * test:read:emit:edits script runs `pnpm run build` first.
  */
 import fs from 'node:fs/promises'
@@ -18,7 +18,7 @@ import { pathToFileURL } from 'node:url'
 import { ROOT } from './script-utils.mjs'
 
 const fixturesDir = path.join(ROOT, 'test', 'read', 'fixtures')
-const outDir = process.argv[2] || process.env.PPTXGENJS_READ_EDITS_DIR || path.join(ROOT, '.tmp', 'read-edits')
+const outDir = process.argv[2] || process.env.TSPPTX_READ_EDITS_DIR || path.join(ROOT, '.tmp', 'read-edits')
 
 const readEntry = path.join(ROOT, 'dist', 'read.js')
 try {

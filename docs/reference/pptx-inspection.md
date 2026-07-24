@@ -11,12 +11,12 @@ doc_type: "reference"
 
 # PPTX Inspection
 
-The `@shbernal/pptxgenjs/inspect` subpath exposes low-level primitives for
+The `@shbernal/ts-pptx/inspect` subpath exposes low-level primitives for
 tools that need to examine a PPTX package after generation or manual editing.
 It is intentionally separate from the presentation-authoring API.
 
 ```ts
-import { inspectPptx, loadPptxPackage, listPptxParts } from "@shbernal/pptxgenjs/inspect"
+import { inspectPptx, loadPptxPackage, listPptxParts } from "@shbernal/ts-pptx/inspect"
 ```
 
 `inspectPptx(input)` loads a PPTX package and returns:
@@ -62,7 +62,7 @@ keep elements with `childZIndices.length === 0`.
 tell a bounded text box from an auto-growing one and compute its inner box:
 
 - `autofit`: `'none'` (fixed height — a genuine overflow candidate), `'normAutofit'`
-  (shrink text to fit, PptxGenJS `fit: 'shrink'`), or `'spAutoFit'` (resize shape to
+  (shrink text to fit, ts-pptx `fit: 'shrink'`), or `'spAutoFit'` (resize shape to
   fit text, `fit: 'resize'` — the authored height is an output, so it cannot
   overflow). `null` for elements without a text frame (e.g. images).
 - `bodyInsets`: `{ left, top, right, bottom }` in inches, with PowerPoint defaults
@@ -74,6 +74,6 @@ The subpath also exports package helpers such as `loadPptxPackage()`,
 `boxAnchor()` and `overlapArea()`.
 
 Downstream tools should keep policy decisions outside this package. For
-example, PptxGenJS can report object boxes and overlap area, while a deck
+example, ts-pptx can report object boxes and overlap area, while a deck
 production tool decides which margins, overlaps, colors, or semantic
 relationships are acceptable for its workflow.

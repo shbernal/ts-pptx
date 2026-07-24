@@ -11,7 +11,7 @@ doc_type: "reference"
 
 # Object Identity
 
-PptxGenJS exposes `objectName` on generated slide objects that have a PowerPoint
+ts-pptx exposes `objectName` on generated slide objects that have a PowerPoint
 Selection Pane identity. When set, `objectName` is serialized to the generated
 object's `p:cNvPr` `name` attribute.
 
@@ -25,7 +25,7 @@ The explicit `objectName` contract applies to:
 - media objects;
 - slide master placeholders.
 
-When `objectName` is omitted, PptxGenJS emits an internal default such as
+When `objectName` is omitted, ts-pptx emits an internal default such as
 `Text 0`, `Shape 0`, `Image 0`, `Chart 0`, `Table 0`, or `Media 0`. Slide master
 and layout placeholders instead default to their declared `name` (falling back to
 their placeholder `type`, then their index) so that multiple placeholders keep
@@ -43,7 +43,7 @@ filename for `descr` when `altText` is omitted; all other kinds emit an empty
 
 ## Name validation
 
-`objectName` values are XML-encoded before serialization. PptxGenJS also warns
+`objectName` values are XML-encoded before serialization. ts-pptx also warns
 (via `console.warn`, without throwing) at generation time when a name cannot
 provide a stable Selection Pane identity, so identity bugs surface early instead
 of producing a silently broken deck:

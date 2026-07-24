@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: chartEx (`cx:`) Chart-Data Builder
+ * ts-pptx: chartEx (`cx:`) Chart-Data Builder
  *
  * Builds the `<cx:chartData>` block of a chartEx chart part (waterfall, and the other
  * Office-2016 layouts as they land). This is the chartEx analogue of the `<c:cat>`/`<c:val>`

@@ -1,6 +1,6 @@
 import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
-// Verification suite for several historical upstream table reports that the current fork already
+// Verification suite for several historical upstream table reports that this project already
 // emits correctly. These guard against regressing back into the reported symptoms:
 //   colspan > 1 produced extra empty cells/columns
 //   top/left borders missing on non-first rows/columns

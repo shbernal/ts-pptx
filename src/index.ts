@@ -1,4 +1,4 @@
-export { default, Presentation, PptxGenJS } from './browser.js'
+export { default, Presentation, TsPptx } from './browser.js'
 export * from './core-enums.js'
 export * from './units.js'
 export * from './core-interfaces.js'

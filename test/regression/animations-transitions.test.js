@@ -34,7 +34,7 @@ function sndAcOf(xml) {
 	return m ? m[0] : null
 }
 
-// PptxGenJS numbers slide rels by its own deterministic scheme (media first), so an
+// TsPptx numbers slide rels by its own deterministic scheme (media first), so an
 // embedded sound's rId differs from PowerPoint's authored value; normalize for the
 // structural comparison (internal consistency is asserted separately).
 function normRid(s) {
@@ -201,7 +201,7 @@ defineRegressionSuite('Preset build animations (write)', [
 // Phase 2 capability C: transition sounds (p:sndAc). The writer reproduces
 // PowerPoint's sndAc forms (embedded start / looped / stop-previous) plus the audio
 // rel + media part + content-type graph, deduping identical sound bytes. rIds use
-// PptxGenJS's own numbering, so the sndAc is compared rId-normalized to the oracle.
+// TsPptx's own numbering, so the sndAc is compared rId-normalized to the oracle.
 const SOUND_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA='
 
 defineRegressionSuite('Transition sounds (write)', [

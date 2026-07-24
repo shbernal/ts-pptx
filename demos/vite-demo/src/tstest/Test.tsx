@@ -2,7 +2,7 @@
  * Test TypeScript Defs file
  */
 import { SVG_MASTODON_LOGO_BASE64, STARLABS_LOGO_SM } from "../enums";
-import pptxgen, { type HAlign, type TableProps, type TableRow, type TextPropsOptions } from "@shbernal/pptxgenjs";
+import TsPptx, { type HAlign, type TableProps, type TableRow, type TextPropsOptions } from "@shbernal/ts-pptx";
 
 const fediverseTreeUrl = new URL("../../../common/images/fediverse_tree.jpg", import.meta.url).href;
 const sampleAviUrl = new URL("../../../common/media/sample.avi", import.meta.url).href;
@@ -10,7 +10,7 @@ const starlabsBkgdUrl = new URL("../../../common/images/starlabs_bkgd.jpg", impo
 const starlabsLogoUrl = new URL("../../../common/images/starlabs_logo.png", import.meta.url).href;
 
 export function testMainMethods() {
-	const pptx = new pptxgen();
+	const pptx = new TsPptx();
 	console.log(`pptx.version: ${pptx.version}`);
 
 	// PPTX Method 1:
@@ -68,7 +68,7 @@ export function testMainMethods() {
 	//pptx.stream().then(() => console.log("stream!")); // Works v3.1.1
 }
 
-function basicDemoSlide(pptx: pptxgen) {
+function basicDemoSlide(pptx: TsPptx) {
 	// LEGACY-TEST: @deprecated in v3.3.0
 	//pptx.addSlide("masterName"); // slide0
 
@@ -81,7 +81,7 @@ function basicDemoSlide(pptx: pptxgen) {
 	const slide = pptx.addSlide({ sectionTitle: "TypeScript", masterTitle: "MASTER_SLIDE" });
 	slide.slideNumber = { x: "50%", y: "95%", w: 1, h: 1, color: "0088CC" };
 
-	slide.addText(`PpptxGenJS version: ${pptx.version}`, {
+	slide.addText(`ts-pptx version: ${pptx.version}`, {
 		x: 0,
 		y: 5.3,
 		w: "100%",
@@ -104,7 +104,7 @@ function basicDemoSlide(pptx: pptxgen) {
 	slide.addText("React+TypeScript Demo!", opts);
 }
 
-function testMethod_Chart(pptx: pptxgen) {
+function testMethod_Chart(pptx: TsPptx) {
 	const slide = pptx.addSlide();
 
 	const dataChart = [
@@ -116,7 +116,7 @@ function testMethod_Chart(pptx: pptxgen) {
 	];
 	slide.addChart(dataChart, { type: pptx.ChartType.bar, x: 0.5, y: 2.5, w: 5.25, h: 4 }); // TEST: charts
 }
-function testMethod_Table(pptx: pptxgen) {
+function testMethod_Table(pptx: TsPptx) {
 	pptx.addSection({ title: "Tables" });
 
 	// SLIDE 1: Table text alignment and cell styles
@@ -353,7 +353,7 @@ function testMethod_Table(pptx: pptxgen) {
 	}
 }
 /*
-function testMethod_Tables(pptx: pptxgen) {
+function testMethod_Tables(pptx: TsPptx) {
 	let slide = pptx.addSlide();
 
 	slide.addTable([[{ text: "cell 1" }]], { x: 0.5, y: 0.5, w: 5, h: 0.5 });
@@ -383,7 +383,7 @@ function testMethod_Tables(pptx: pptxgen) {
 	});
 }
 */
-function testMethod_Media(pptx: pptxgen) {
+function testMethod_Media(pptx: TsPptx) {
 	const slide = pptx.addSlide();
 
 	// 7: Image
@@ -416,7 +416,7 @@ function testMethod_Media(pptx: pptxgen) {
 	// TESTING: this causes content warning on open, so dont leave in for release
 	//slide.addMedia({ x: 9.4, y: 4.0, w: 4.5, h: 2.5, type: "online", link: "https://www.youtube.com/embed/g36-noRtKR4" });
 }
-function testMethod_Shape(pptx: pptxgen) {
+function testMethod_Shape(pptx: TsPptx) {
 	const slide = pptx.addSlide();
 
 	slide.addShape(pptx.ShapeType.rect, { x: 7.6, y: 2.8, w: 3, h: 3, fill: { color: "66ff99" } });
@@ -471,7 +471,7 @@ function testMethod_Shape(pptx: pptxgen) {
 		flipH: true,
 	});
 }
-function testMethod_Text(pptx: pptxgen) {
+function testMethod_Text(pptx: TsPptx) {
 	const slide = pptx.addSlide();
 
 	slide.addText(
@@ -504,7 +504,7 @@ function testMethod_Text(pptx: pptxgen) {
 		fill: { color: pptx.SchemeColor.background2 },
 	});
 }
-function testMethod_Masters(pptx: pptxgen) {
+function testMethod_Masters(pptx: TsPptx) {
 	const starlabsBkgd = { path: starlabsBkgdUrl };
 	const starlabsLogo = { path: starlabsLogoUrl };
 
@@ -695,7 +695,7 @@ function testMethod_Masters(pptx: pptxgen) {
 			{ rect: { x: 0.0, y: 7.1, w: "100%", h: 0.4, fill: { color: "F1F1F1" } } },
 			{
 				text: {
-					text: "PptxGenJS - JavaScript PowerPoint Library",
+					text: "TsPptx - JavaScript PowerPoint Library",
 					options: { x: 0.0, y: 7.1, w: "100%", h: 0.4, color: "6c6c6c", fontSize: 10, align: "center" },
 				},
 			},
@@ -704,7 +704,7 @@ function testMethod_Masters(pptx: pptxgen) {
 }
 
 export function testTableMethod() {
-	const pptx = new pptxgen();
+	const pptx = new TsPptx();
 
 	// PPTX Method 4:
 	pptx.tableToSlides("html2ppt"); // Works v3.1.1 (FIXME: formatting sucks)

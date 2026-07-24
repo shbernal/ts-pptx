@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: DrawingML text body
+ * ts-pptx: DrawingML text body
  *
  * The container layer over `text-run.ts`: body properties (`<a:bodyPr>`), the
  * full `<p:txBody>`/`<a:txBody>` builder (`genXmlTextBody`), the native-equation

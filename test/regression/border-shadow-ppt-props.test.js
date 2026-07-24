@@ -1,5 +1,5 @@
 import JSZip from 'jszip'
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 import { defineRegressionSuite, assert } from '../helpers.js'
 
 async function buildSlide1(pres) {
@@ -17,7 +17,7 @@ defineRegressionSuite('PPT-aligned border/shadow props', 'border-shadow-ppt-prop
 	{
 		name: 'table cell border `width` emits the correct line w=',
 		fn: async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			pres.addSlide().addTable([[{ text: 'x' }]], {
 				x: 1,
 				y: 1,
@@ -31,7 +31,7 @@ defineRegressionSuite('PPT-aligned border/shadow props', 'border-shadow-ppt-prop
 	{
 		name: 'table cell border `transparency` emits <a:alpha> inside the line fill',
 		fn: async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			pres.addSlide().addTable([[{ text: 'x' }]], {
 				x: 1,
 				y: 1,
@@ -47,7 +47,7 @@ defineRegressionSuite('PPT-aligned border/shadow props', 'border-shadow-ppt-prop
 	{
 		name: 'shadow `transparency` (0-100) sets the emitted alpha',
 		fn: async () => {
-			const presT = new PptxGenJS()
+			const presT = new TsPptx()
 			presT.addSlide().addShape('rect', {
 				x: 1,
 				y: 1,
@@ -63,7 +63,7 @@ defineRegressionSuite('PPT-aligned border/shadow props', 'border-shadow-ppt-prop
 	{
 		name: 'removed `opacity` input is ignored — falls back to the shape/text-shadow default alpha',
 		fn: async () => {
-			const presO = new PptxGenJS()
+			const presO = new TsPptx()
 			presO.addSlide().addShape('rect', {
 				x: 1,
 				y: 1,

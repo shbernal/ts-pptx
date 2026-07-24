@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: slide `<p:timing>` tree
+ * ts-pptx: slide `<p:timing>` tree
  *
  * Build the slide-level timing tree that drives looping embedded media and the
  * preset build-animation `mainSeq`. A slide has at most one `<p:timing>`; all

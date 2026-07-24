@@ -24,7 +24,7 @@ import { ROOT, run } from './script-utils.mjs'
 const OUT_ROOT = path.join(ROOT, '.tmp', 'byte-identity')
 const BASELINE = path.join(OUT_ROOT, 'baseline')
 const CURRENT = path.join(OUT_ROOT, 'current')
-const DECK = path.join(ROOT, 'demos', 'node', 'output', 'PptxGenJS_Demo_All.pptx')
+const DECK = path.join(ROOT, 'demos', 'node', 'output', 'TsPptx_Demo_All.pptx')
 
 const mode = process.argv[2]
 if (mode !== 'baseline' && mode !== 'check') {
@@ -68,9 +68,9 @@ async function generateDeck() {
 	const cwd = process.cwd()
 	process.chdir(path.join(ROOT, 'demos', 'node'))
 	try {
-		const pptxgen = (await import(pathToFileURL(path.join(ROOT, 'dist', 'node.js')).href)).default
+		const TsPptx = (await import(pathToFileURL(path.join(ROOT, 'dist', 'node.js')).href)).default
 		const { runEveryTest } = await import(pathToFileURL(path.join(ROOT, 'demos', 'modules', 'demos.mjs')).href)
-		await runEveryTest(pptxgen)
+		await runEveryTest(TsPptx)
 	} finally {
 		process.chdir(cwd)
 	}

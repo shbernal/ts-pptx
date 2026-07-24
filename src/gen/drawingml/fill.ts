@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: DrawingML fills
+ * ts-pptx: DrawingML fills
  *
  * Emit the fill group a shape, cell, chart element, or line paint can carry:
  * `<a:solidFill>`, `<a:gradFill>`, `<a:pattFill>`, `<a:blipFill>`.

@@ -2,7 +2,7 @@
  * NAME: demo.js
  * AUTH: Brent Ely
  * DATE: 20210502
- * DESC: PptxGenJS feature demos for Node.js
+ * DESC: ts-pptx feature demos for Node.js
  * REQS: install dependencies with pnpm, npm, or yarn
  *
  * USAGE: `node demo.js`       (runs local tests with callbacks etc)
@@ -13,24 +13,24 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { execGenSlidesFuncs, runEveryTest } from "../modules/demos.mjs";
-import pptxgen from "@shbernal/pptxgenjs";
+import TsPptx from "@shbernal/ts-pptx";
 
 // ============================================================================
 
 const outputDir = path.join(process.cwd(), "output");
 await fs.mkdir(outputDir, { recursive: true });
 
-const exportName = path.join("output", "PptxGenJS_Demo_Node.pptx");
-const pptx = new pptxgen();
+const exportName = path.join("output", "TsPptx_Demo_Node.pptx");
+const pptx = new TsPptx();
 
 console.log(`\n\n--------------------==~==~==~==[ STARTING DEMO... ]==~==~==~==--------------------\n`);
-console.log(`* pptxgenjs ver: ${pptx.version}`);
+console.log(`* ts-pptx ver: ${pptx.version}`);
 console.log(`* save location: ${process.cwd()}`);
 
 try {
 	if (process.argv.length > 2) {
 		// A: Run predefined test from `../common/demos.js` //-OR-// Local Tests (callbacks, etc.)
-		const fileName = process.argv[2].toLowerCase() === "all" ? await runEveryTest(pptxgen) : await execGenSlidesFuncs(process.argv[2], pptxgen);
+		const fileName = process.argv[2].toLowerCase() === "all" ? await runEveryTest(TsPptx) : await execGenSlidesFuncs(process.argv[2], TsPptx);
 		console.log(`EX1 exported: ${fileName}`);
 	} else {
 		// B: Omit an arg to run only these below

@@ -1,7 +1,7 @@
 ---
 doc-schema-version: 1
 title: "Documentation"
-summary: "Index of maintained PptxGenJS fork documentation and documentation rules."
+summary: "Index of maintained ts-pptx documentation and documentation rules."
 read_when:
   - Looking for the maintained docs surface
   - Updating documentation structure or rules
@@ -10,8 +10,8 @@ doc_type: "overview"
 
 # Documentation
 
-This directory contains the maintained project documentation for this PptxGenJS
-fork. Prefer docs here over legacy upstream-era notes in demos or generated
+This directory contains the maintained project documentation for ts-pptx.
+Prefer docs here over legacy upstream-era notes in demos or generated
 artifacts.
 
 ## Start Here

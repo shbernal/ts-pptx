@@ -1,5 +1,5 @@
 /**
- * `pptxgenjs/read` — open an existing `.pptx`, inspect its OPC structure, and
+ * `ts-pptx/read` — open an existing `.pptx`, inspect its OPC structure, and
  * save it back with untouched parts byte-identical (lossless round-trip).
  *
  * This subsystem is isomorphic: bytes in, bytes out, no `node:fs`. File I/O

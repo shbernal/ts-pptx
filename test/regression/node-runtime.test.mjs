@@ -5,7 +5,7 @@ import { readFileSync, rmSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, test, expect, afterEach } from 'vitest'
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 
 const written = []
 afterEach(() => {
@@ -15,14 +15,14 @@ afterEach(() => {
 function tmpName(name) {
 	// Math.random is unavailable in some harnesses; a monotonically unique-enough name
 	// from the current test count is plenty for an isolated temp file.
-	const p = join(tmpdir(), `pptxgenjs-node-runtime-${written.length}-${name}`)
+	const p = join(tmpdir(), `ts-pptx-node-runtime-${written.length}-${name}`)
 	written.push(p)
 	return p
 }
 
 describe('node runtime: writeFile', () => {
 	test('writes a non-empty .pptx to disk and returns the path', async () => {
-		const pptx = new PptxGenJS()
+		const pptx = new TsPptx()
 		pptx.addSlide().addText('hello', { x: 1, y: 1, w: 4, h: 1 })
 		const target = tmpName('out.pptx')
 		const returned = await pptx.writeFile({ fileName: target })
@@ -36,7 +36,7 @@ describe('node runtime: writeFile', () => {
 	})
 
 	test('appends .pptx when the fileName lacks the extension', async () => {
-		const pptx = new PptxGenJS()
+		const pptx = new TsPptx()
 		pptx.addSlide().addText('hi', { x: 1, y: 1, w: 2, h: 1 })
 		const base = tmpName('noext')
 		written.push(`${base}.pptx`) // ensure cleanup of the extension-appended file
@@ -48,7 +48,7 @@ describe('node runtime: writeFile', () => {
 
 describe('node runtime: font loading errors', () => {
 	test('registerFontMetrics rejects and names an unreadable font path', async () => {
-		const pptx = new PptxGenJS()
+		const pptx = new TsPptx()
 		const bad = join(tmpdir(), 'definitely-missing-font.ttf')
 		await expect(pptx.registerFontMetrics('Missing', bad)).rejects.toThrow(/Unable to read font file/)
 	})

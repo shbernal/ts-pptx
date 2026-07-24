@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: Slide-Object Name Indexing
+ * ts-pptx: Slide-Object Name Indexing
  *
  * The per-slide default-name counter shared by every `add*Definition`. Kept in one place so a
  * grouped child and a later top-level object never collide on the same Selection Pane name

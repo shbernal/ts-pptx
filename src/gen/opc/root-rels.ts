@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: `_rels/.rels`
+ * ts-pptx: `_rels/.rels`
  *
  * Emit the package root relationships (app/core/presentation, plus custom-props
  * when present).

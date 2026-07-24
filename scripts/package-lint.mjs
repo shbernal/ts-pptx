@@ -4,8 +4,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { packPackage, run } from './script-utils.mjs'
 
-const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pptxgenjs-package-lint-'))
-const keepTmp = process.env.PPTXGENJS_KEEP_PACKAGE_LINT === '1'
+const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'ts-pptx-package-lint-'))
+const keepTmp = process.env.TSPPTX_KEEP_PACKAGE_LINT === '1'
 
 try {
 	const packInfo = await packPackage(path.join(tmp, 'pack'))

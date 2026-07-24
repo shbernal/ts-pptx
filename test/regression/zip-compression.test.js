@@ -1,4 +1,4 @@
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 import { defineRegressionSuite, assert } from '../helpers.js'
 
 // Exports previously defaulted to STORE (and the typed-output `write()` branch
@@ -43,13 +43,13 @@ const PNG_1x1 =
 	'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 
 async function buildPresWithImage() {
-	const pres = new PptxGenJS()
+	const pres = new TsPptx()
 	pres.addSlide().addImage({ data: PNG_1x1, x: 1, y: 1, w: 1, h: 1 })
 	return pres
 }
 
 async function buildPres() {
-	const pres = new PptxGenJS()
+	const pres = new TsPptx()
 	pres.addSlide().addText('compression default check', { x: 1, y: 1, w: 6, h: 1 })
 	return pres
 }

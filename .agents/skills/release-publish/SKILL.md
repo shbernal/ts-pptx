@@ -1,9 +1,9 @@
 ---
 name: release-publish
-description: Use to cut and publish a new PptxGenJS version (any "do a release", "minor/major/patch release", "publish vX.Y.Z", "ship a release" request in this repo). Encodes the exact release flow — version bump in three files, CHANGELOG, tag, and the GitHub Release that triggers CI. IMPORTANT — publishing to npm is done by CI (trusted publishing), never by running `npm publish` locally. Do not run `npm publish`, `npm login`, or `npm token` for a release.
+description: Use to cut and publish a new ts-pptx version (any "do a release", "minor/major/patch release", "publish vX.Y.Z", "ship a release" request in this repo). Encodes the exact release flow — version bump in three files, CHANGELOG, tag, and the GitHub Release that triggers CI. IMPORTANT — publishing to npm is done by CI (trusted publishing), never by running `npm publish` locally. Do not run `npm publish`, `npm login`, or `npm token` for a release.
 ---
 
-# Releasing & Publishing PptxGenJS
+# Releasing & Publishing ts-pptx
 
 npm publishing is **fully automated in CI**. A release is finished by creating a
 **GitHub Release** for a `vX.Y.Z` tag; that fires `.github/workflows/publish.yml`,
@@ -31,7 +31,7 @@ release (`git log --oneline vLAST..HEAD`) — but the user's explicit ask wins:
 - **patch** (`X.Y.Z+1`) — only `fix:` / internal changes, no API surface change.
 - **minor** (`X.Y+1.0`) — any `feat:` / additive API, or a fix the user wants
   shipped as a minor.
-- **major** (`X+1.0.0`) — a breaking API change (this fork allows them; see
+- **major** (`X+1.0.0`) — a breaking API change (this project allows them; see
   `CHANGELOG.md` / AGENTS.md "API Evolution Policy").
 
 If the user says "minor release," honor that even for a lone fix — don't second-guess
@@ -59,7 +59,7 @@ Assume today's date is available; use `YYYY-MM-DD` in the CHANGELOG.
   ```
   ## [Unreleased]
 
-  ## [X.Y.Z](https://github.com/shbernal/PptxGenJS/releases/tag/vX.Y.Z) - YYYY-MM-DD
+  ## [X.Y.Z](https://github.com/shbernal/ts-pptx/releases/tag/vX.Y.Z) - YYYY-MM-DD
 
   ### Fixed
   - ...
@@ -106,7 +106,7 @@ cat > /tmp/notes.md <<'EOF'
 
 - <the changelog bullet(s) for this version>
 
-**Full changelog:** https://github.com/shbernal/PptxGenJS/blob/vX.Y.Z/CHANGELOG.md
+**Full changelog:** https://github.com/shbernal/ts-pptx/blob/vX.Y.Z/CHANGELOG.md
 EOF
 gh release create vX.Y.Z --title vX.Y.Z --notes-file /tmp/notes.md
 ```
@@ -119,7 +119,7 @@ gh run watch <run-id>      # or: gh run view <run-id> --log-failed
 ```
 
 Confirm it reaches "Publish to npm" and succeeds. Only then is the release done.
-Sanity check: `npm view @shbernal/pptxgenjs version` should report `X.Y.Z`.
+Sanity check: `npm view @shbernal/ts-pptx version` should report `X.Y.Z`.
 
 ## If the publish run fails
 

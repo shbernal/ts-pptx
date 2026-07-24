@@ -60,17 +60,17 @@ export type Emu = number & { readonly __unit: 'emu' }
 const IMPLAUSIBLE_INCHES = 1000
 
 /** Default pixel density for the `"<n>px"` coordinate unit: CSS reference pixels, also the
- *  density PptxGenJS assumes when reading an image header's pixel dimensions. */
+ *  density ts-pptx assumes when reading an image header's pixel dimensions. */
 export const DEFAULT_PX_PER_INCH = 96
 
 export type StandardLayoutName = 'LAYOUT_4x3' | 'LAYOUT_16x9' | 'LAYOUT_16x10' | 'LAYOUT_WIDE'
 
 export interface StandardLayout {
-	/** PptxGenJS layout key used with `pptx.layout`. */
+	/** ts-pptx layout key used with `pptx.layout`. */
 	readonly layout: StandardLayoutName
 	/** PresentationML slide-size preset name, or `custom` for PowerPoint widescreen. */
 	readonly name: string
-	/** Slide width in inches. Alias of {@link StandardLayout.widthIn} — inches is PptxGenJS's default coordinate unit, so this is the value to use for `addText`/`addShape` math. */
+	/** Slide width in inches. Alias of {@link StandardLayout.widthIn} — inches is ts-pptx's default coordinate unit, so this is the value to use for `addText`/`addShape` math. */
 	readonly width: number
 	/** Slide height in inches. Alias of {@link StandardLayout.heightIn}. */
 	readonly height: number
@@ -130,7 +130,7 @@ export function coordToEmu(value: number | string, axisEmu: number): Emu {
 		assertFiniteNumber(value, 'coordinate')
 		if (Math.abs(value) > IMPLAUSIBLE_INCHES) {
 			warn(
-				`PptxGenJS: coordinate ${value} interpreted as ${value} inches. A bare number is always inches; ` +
+				`ts-pptx: coordinate ${value} interpreted as ${value} inches. A bare number is always inches; ` +
 					`if you meant EMU, pass it as a string like "${Math.round(value)}emu".`
 			)
 		}
@@ -140,7 +140,7 @@ export function coordToEmu(value: number | string, axisEmu: number): Emu {
 	const match = /^\s*(-?\d*\.?\d+)\s*(%|in|pt|px|emu)\s*$/.exec(value)
 	if (!match) {
 		throw new Error(
-			`PptxGenJS: invalid coordinate "${value}". Expected a number (inches) or a string like "50%", "5in", "72pt", "96px", or "914400emu".`
+			`ts-pptx: invalid coordinate "${value}". Expected a number (inches) or a string like "50%", "5in", "72pt", "96px", or "914400emu".`
 		)
 	}
 	const n = Number(match[1])

@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: Chart DrawingML Assembly
+ * ts-pptx: Chart DrawingML Assembly
  *
  * Builds a chart's `ppt/charts/chartN.xml` -- the `<c:chartSpace>` DrawingML that
  * PowerPoint renders. `makeXmlCharts` assembles the top-level envelope (header, plot
@@ -443,14 +443,14 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 }
 
 /**
- * Stable PptxGenJS vendor GUID identifying the chart-metadata extension on `c:chartSpace/c:extLst`.
+ * Stable ts-pptx vendor GUID identifying the chart-metadata extension on `c:chartSpace/c:extLst`.
  * Custom data rides under this URI in a foreign namespace so PowerPoint preserves it (the extLst
  * mechanism) instead of stripping/repairing it as it would an unrecognised sibling element.
  */
 const CHART_METADATA_EXT_URI = '{094A432E-1F6C-499B-95B8-B57DC9536949}'
 
 /** Foreign namespace for the chart-metadata extension payload. */
-const CHART_METADATA_NS = 'http://pptxgenjs.com/schema/chart/metadata'
+const CHART_METADATA_NS = 'http://ts-pptx.com/schema/chart/metadata'
 
 /**
  * Create the chart-space extension-list XML carrying custom `metadata` key/value annotations.

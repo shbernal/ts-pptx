@@ -1,19 +1,19 @@
 ---
 doc-schema-version: 1
 title: "Backlog Workflow"
-summary: "How to record and classify this fork's own project work in docs/backlog.yml: anonymous downstream consumer needs plus the retained upstream-derived entries, without reintroducing dropped package targets."
+summary: "How to record and classify this project's own work in docs/backlog.yml: anonymous downstream consumer needs plus the retained upstream-derived entries, without reintroducing dropped package targets."
 read_when:
   - Recording a downstream need raised by a consumer
   - Updating backlog classifications
   - Closing a backlog item after a fix lands
-  - Deciding whether a behavior belongs in this fork
+  - Deciding whether a behavior belongs in this project
 doc_type: "guide"
 ---
 
 # Backlog Workflow
 
-This workflow maintains the fork's backlog ledger, `docs/backlog.yml`. It is a
-**project backlog**: a record of work this fork intends to do and decisions it
+This workflow maintains the project's backlog ledger, `docs/backlog.yml`. It is a
+**project backlog**: a record of work this project intends to do and decisions it
 has made. It holds two kinds of entry:
 
 1. **Downstream needs** — generic PPTX behavior a downstream consumer needs that
@@ -22,11 +22,11 @@ has made. It holds two kinds of entry:
    **anonymously**: describe the missing PPTX behavior and its generic
    reproduction, never a private consumer's name, file paths, or content.
 2. **Retained upstream-derived signals** — a set of gitbrent/PptxGenJS issues and
-   PRs that were judged relevant to this fork before upstream tracking was
+   PRs that were judged relevant to this project before upstream tracking was
    retired. They carry a github reference (`owner/repo#N`) in `source` and remain
    as historical context and standing feature ideas.
 
-> **Upstream tracking is retired.** This fork no longer fetches upstream issues
+> **Upstream tracking is retired.** This project no longer fetches upstream issues
 > or reconciles the ledger against GitHub, and the `backlog:check:upstream`
 > tooling has been removed. Do not re-add a sync step. New entries should be
 > project needs (`downstream-need`); the github-sourced entries already in the
@@ -125,7 +125,7 @@ duplicate ids. Use `--dry-run` to check the intended mutation without writing.
 Classify each item with one status:
 
 - `needs-repro`: plausible, but no current-project reproduction exists yet.
-- `target`: likely relevant to this fork; worth scoping.
+- `target`: likely relevant to this project; worth scoping.
 - `accepted`: worth implementing or opening a local task for.
 - `interesting-with-tweaks`: useful signal, but the original fix or framing does
   not fit this project as-is.
@@ -187,7 +187,7 @@ For each item, answer these in the ledger note:
 1. Is this about generated `.pptx` correctness, current package behavior, or real
    feature coverage?
 2. Does it still apply under the TS-first, ESM-only package shape?
-3. Is any proposed fix tied to legacy architecture this fork dropped?
+3. Is any proposed fix tied to legacy architecture this project dropped?
 4. Can this checkout reproduce the behavior?
 5. Would a local fix live in `src/` with focused tests in `test/`?
 6. Does the item require OOXML schema lookup, Microsoft implementation docs, the
@@ -198,7 +198,7 @@ For each item, answer these in the ledger note:
 Do not mark an item `accepted` without at least one current-project evidence
 path:
 
-- a minimal PptxGenJS reproduction;
+- a minimal ts-pptx reproduction;
 - generated `.pptx` output;
 - extracted package XML path and observed problem;
 - `pnpm run test:schema` result or planned fixture;
@@ -323,16 +323,16 @@ to `implemented` and remove that downstream workaround.
 
 `id` uses a `dn-<slug>` prefix.
 
-## Promotion Checklist (before moving a candidate into the fork)
+## Promotion Checklist (before moving a candidate into the project)
 
 1. Prove the need with a minimal, consumer-agnostic reproduction.
-2. Reduce the behavior to a minimal PptxGenJS fixture.
-3. Add a PptxGenJS regression or schema test.
-4. Pack or link the fork into the downstream consumer to verify.
-5. Run the consumer's build/render/lint/eval path against the linked fork.
-6. Keep only generic code in PptxGenJS; keep project policy downstream.
+2. Reduce the behavior to a minimal ts-pptx fixture.
+3. Add a ts-pptx regression or schema test.
+4. Pack or link the project into the downstream consumer to verify.
+5. Run the consumer's build/render/lint/eval path against the linked project.
+6. Keep only generic code in ts-pptx; keep project policy downstream.
 
-## Keep Downstream (not fork candidates)
+## Keep Downstream (not project candidates)
 
 These encode a specific consumer's brand, content, or deck workflow and stay
 downstream — do not raise them as backlog items:

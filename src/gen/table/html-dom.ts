@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: HTML-table → slides (browser DOM path)
+ * ts-pptx: HTML-table → slides (browser DOM path)
  *
  * The browser-only tableToSlides() flow: reproduce a rendered HTML table as a
  * PowerPoint table across as many slides as needed. Out of active scope (see
@@ -92,7 +92,7 @@ export function resolveHtmlColWidth(calcWidth: number, setWidth: number, minWidt
 
 /**
  * Reproduces an HTML table as a PowerPoint table - including column widths, style, etc. - creates 1 or more slides as needed
- * @param {TableToSlidesHost} pptx - pptxgenjs instance
+ * @param {TableToSlidesHost} pptx - ts-pptx instance
  * @param {string} tabEleId - HTMLElementID of the table
  * @param {TableToSlidesProps} options - array of options (e.g.: tabsize)
  * @param {SlideLayoutInternal} masterSlide - masterSlide

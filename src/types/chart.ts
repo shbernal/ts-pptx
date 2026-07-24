@@ -629,7 +629,7 @@ export interface ChartPropsChartBoxWhisker {
  * PowerPoint resolves against its Bing-backed geography database when the deck is opened.
  *
  * These fields tell PowerPoint how to interpret ambiguous region names (e.g. "Georgia" the country
- * vs. the US state). They do NOT change what PptxGenJS writes beyond the `<cx:geography>` hint —
+ * vs. the US state). They do NOT change what ts-pptx writes beyond the `<cx:geography>` hint —
  * the actual map is resolved and rendered by PowerPoint 2016+/Microsoft 365 at open time, so the
  * region names must match PowerPoint's geography database or the map renders blank.
  */
@@ -817,7 +817,7 @@ export interface ChartOpts
 	altText?: string
 	/**
 	 * Custom chart-level metadata, emitted as a schema-valid extension on the chart space
-	 * (`c:chartSpace/c:extLst`) under a stable PptxGenJS vendor GUID.
+	 * (`c:chartSpace/c:extLst`) under a stable ts-pptx vendor GUID.
 	 * - Use for round-trippable, machine-readable annotations a consumer wants to travel with the
 	 *   chart (e.g. a source-data id, a generator tag, a semantic role). PowerPoint preserves the
 	 *   extension untouched and ignores it for rendering.

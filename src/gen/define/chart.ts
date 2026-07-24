@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: Chart Definition
+ * ts-pptx: Chart Definition
  *
  * `addChartDefinition` normalizes `addChart()` options onto the slide model and registers the
  * chart part rel; the `normalize*` / `clamp*` helpers apply the schema-valid defaults and range

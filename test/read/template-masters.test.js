@@ -1,4 +1,4 @@
-// Author-on-template tests for `pptxgenjs/read` (dn-import-template-masters).
+// Author-on-template tests for `ts-pptx/read` (dn-import-template-masters).
 //
 // Contract under test: Presentation.fromTemplate(input) opens a PowerPoint
 // template (.pptx or .potx) as an empty deck shell — its slide masters, layouts,
@@ -11,7 +11,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 import { isInstalled, validateBuf } from '../validator.js'
@@ -55,7 +55,7 @@ function isChromePart(name) {
 }
 
 function wideGenerator() {
-	const pptx = new PptxGenJS()
+	const pptx = new TsPptx()
 	pptx.layout = 'LAYOUT_WIDE'
 	return pptx
 }

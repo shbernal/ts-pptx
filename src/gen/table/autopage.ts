@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: Table auto-paging core
+ * ts-pptx: Table auto-paging core
  *
  * The DOM-independent heart of table generation: given rows that overflow a slide,
  * split them across as many slides as needed, measuring wrapped text to compute line

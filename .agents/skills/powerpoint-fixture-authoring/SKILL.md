@@ -1,13 +1,13 @@
 ---
 name: powerpoint-fixture-authoring
-description: Use when creating, replacing, verifying, or documenting real Microsoft PowerPoint-authored .pptx fixtures in this PptxGenJS repository, especially for read-model or OOXML bugs that need desktop PowerPoint output rather than PptxGenJS-generated packages.
+description: Use when creating, replacing, verifying, or documenting real Microsoft PowerPoint-authored .pptx fixtures in this ts-pptx repository, especially for read-model or OOXML bugs that need desktop PowerPoint output rather than ts-pptx-generated packages.
 ---
 
 # PowerPoint Fixture Authoring
 
 Use this skill to create reference `.pptx` fixtures authored by desktop
 Microsoft PowerPoint on Windows. These fixtures are evidence for how PowerPoint
-writes OOXML; do not generate them with PptxGenJS.
+writes OOXML; do not generate them with ts-pptx.
 
 ## Workflow
 

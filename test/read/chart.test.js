@@ -1,4 +1,4 @@
-// Phase 4 chart-read tests for `pptxgenjs/read` (src/read/api/chart.ts).
+// Phase 4 chart-read tests for `ts-pptx/read` (src/read/api/chart.ts).
 //
 // Contract under test: a chart graphic frame resolves its chart part via the
 // slide relationships and exposes the chart type, title, series, and cached

@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: Image Definition
+ * ts-pptx: Image Definition
  *
  * `addImageDefinition` resolves an `addImage()` source, allocates its drawing rel(s) (SVG needs
  * a second for the PNG fallback), registers the media bytes (deduped) and inherits any

@@ -1,5 +1,5 @@
 import JSZip from 'jszip'
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 import { defineRegressionSuite, assert } from '../helpers.js'
 
 async function buildSlide1(pres) {
@@ -14,7 +14,7 @@ defineRegressionSuite('Hash-prefixed colors', 'legacy bug-07', [
 	{
 		name: 'shape fill with "#FF0000" emits val="FF0000" (no leading hash)',
 		fn: async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			const slide = pres.addSlide()
 			slide.addShape(pres.ShapeType.rect, {
 				x: 1,
@@ -38,7 +38,7 @@ defineRegressionSuite('Hash-prefixed colors', 'legacy bug-07', [
 	{
 		name: 'text color "#00FF00" emits val="00FF00"',
 		fn: async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			const slide = pres.addSlide()
 			slide.addText('hello', { x: 1, y: 1, w: 4, h: 0.5, color: '#00FF00' })
 
@@ -53,7 +53,7 @@ defineRegressionSuite('Hash-prefixed colors', 'legacy bug-07', [
 	{
 		name: 'shape line color "#0000FF" emits val="0000FF"',
 		fn: async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			const slide = pres.addSlide()
 			slide.addShape(pres.ShapeType.rect, {
 				x: 1,
@@ -74,7 +74,7 @@ defineRegressionSuite('Hash-prefixed colors', 'legacy bug-07', [
 	{
 		name: 'shadow color "#888888" emits val="888888"',
 		fn: async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			const slide = pres.addSlide()
 			slide.addShape(pres.ShapeType.rect, {
 				x: 1,

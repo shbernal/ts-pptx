@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: Measured text fit (line-break simulator + shrink solver)
+ * ts-pptx: Measured text fit (line-break simulator + shrink solver)
  *
  * Computes a baked `fontScale` for `fit: 'shrink'` so overflowing text renders
  * pre-shrunk in headless renderers (and on plain file-open) without a manual

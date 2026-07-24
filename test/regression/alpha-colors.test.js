@@ -1,5 +1,5 @@
 import JSZip from 'jszip'
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 import { defineRegressionSuite, assert } from '../helpers.js'
 
 async function buildSlide1(pres) {
@@ -19,7 +19,7 @@ defineRegressionSuite('Alpha channel colors', 'legacy bug-08', [
 	{
 		name: 'fill color "00000020" splits to val="000000" + <a:alpha val="12549"/>',
 		fn: async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			const slide = pres.addSlide()
 			slide.addShape(pres.ShapeType.rect, {
 				x: 1,
@@ -39,7 +39,7 @@ defineRegressionSuite('Alpha channel colors', 'legacy bug-08', [
 	{
 		name: 'text color "00FF0080" splits to val="00FF00" + <a:alpha val="50196"/>',
 		fn: async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			const slide = pres.addSlide()
 			slide.addText('hello', { x: 1, y: 1, w: 4, h: 0.5, color: '00FF0080' })
 
@@ -53,7 +53,7 @@ defineRegressionSuite('Alpha channel colors', 'legacy bug-08', [
 	{
 		name: 'shape line color "0000FF40" splits to val="0000FF" + <a:alpha val="..."/>',
 		fn: async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			const slide = pres.addSlide()
 			slide.addShape(pres.ShapeType.rect, {
 				x: 1,
@@ -73,7 +73,7 @@ defineRegressionSuite('Alpha channel colors', 'legacy bug-08', [
 	{
 		name: 'shadow color "00000020" without explicit opacity emits val="000000" + derived alpha',
 		fn: async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			const slide = pres.addSlide()
 			slide.addShape(pres.ShapeType.rect, {
 				x: 1,
@@ -108,7 +108,7 @@ defineRegressionSuite('Alpha channel colors', 'legacy bug-08', [
 	{
 		name: 'shadow color "88888880" with a removed `opacity` input — color-derived alpha wins, opacity ignored',
 		fn: async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			const slide = pres.addSlide()
 			slide.addShape(pres.ShapeType.rect, {
 				x: 1,
@@ -145,7 +145,7 @@ defineRegressionSuite('Alpha channel colors', 'legacy bug-08', [
 	{
 		name: 'hash-prefixed 8-char "#FF0000FF" splits to val="FF0000" + <a:alpha val="100000"/>',
 		fn: async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			const slide = pres.addSlide()
 			slide.addShape(pres.ShapeType.rect, {
 				x: 1,

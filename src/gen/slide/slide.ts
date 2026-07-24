@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: slide part + slide/layout rels
+ * ts-pptx: slide part + slide/layout rels
  *
  * Emit a slide (`ppt/slides/slideN.xml`) and the relationship files for slides
  * and layouts (`slideN.xml.rels`, `slideLayoutN.xml.rels`).

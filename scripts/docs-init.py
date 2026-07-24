@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 
-PROJECT_NAME = "PptxGenJS"
+PROJECT_NAME = "ts-pptx"
 PACKAGE_SCRIPTS = {
     "docs:init": "python3 scripts/docs-init.py",
     "docs:list": "python3 scripts/docs-list.py",
@@ -41,7 +41,7 @@ def project_name(root: Path, explicit: str | None = None) -> str:
 
 
 def render(template: str, name: str) -> str:
-    return template.replace("PptxGenJS", name)
+    return template.replace("ts-pptx", name)
 
 
 TEMPLATES = {
@@ -108,8 +108,8 @@ to make a page feel complete.
   `llms.txt`, scaffold docs checks, and the VitePress static site together.
 """,
     "docs/docs.json": """{
-  "name": "PptxGenJS",
-  "description": "Documentation for PptxGenJS.",
+  "name": "ts-pptx",
+  "description": "Documentation for ts-pptx.",
   "navigation": [
     {
       "group": "Start",
@@ -124,17 +124,17 @@ to make a page feel complete.
 """,
     "docs/index.md": """---
 doc-schema-version: 1
-title: "PptxGenJS"
-summary: "Start here for the purpose, setup, and main workflows in PptxGenJS."
+title: "ts-pptx"
+summary: "Start here for the purpose, setup, and main workflows in ts-pptx."
 read_when:
   - Getting oriented in this project
   - Updating the main project overview
 doc_type: "overview"
 ---
 
-# PptxGenJS
+# ts-pptx
 
-This page is the documentation entry point for PptxGenJS.
+This page is the documentation entry point for ts-pptx.
 
 ## What This Project Does
 
@@ -157,7 +157,7 @@ Record the smallest command that proves the current project still works.
     "docs/architecture.md": """---
 doc-schema-version: 1
 title: "Architecture"
-summary: "How PptxGenJS is structured and where major responsibilities live."
+summary: "How ts-pptx is structured and where major responsibilities live."
 read_when:
   - Changing module boundaries
   - Explaining architecture or ownership decisions
@@ -188,7 +188,7 @@ List supported ways to add behavior without rewriting core code.
     "docs/reference/index.md": """---
 doc-schema-version: 1
 title: "Reference"
-summary: "Stable commands, configuration, APIs, and generated references for PptxGenJS."
+summary: "Stable commands, configuration, APIs, and generated references for ts-pptx."
 read_when:
   - Looking up command, config, or API details
   - Adding a reference page
@@ -216,7 +216,7 @@ states.
     "docs/troubleshooting.md": """---
 doc-schema-version: 1
 title: "Troubleshooting"
-summary: "Observable symptoms, checks, causes, and fixes for PptxGenJS."
+summary: "Observable symptoms, checks, causes, and fixes for ts-pptx."
 read_when:
   - Debugging a user-visible failure
   - Adding recovery guidance

@@ -34,7 +34,7 @@ export function genSlides_Shape(pptx) {
 
 /**
  * SLIDE 1: Misc Shape Types (no text)
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide01(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Shapes" });
@@ -116,7 +116,7 @@ function genSlide01(pptx) {
 
 /**
  * SLIDE 2: Misc Shape Types with Text
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide02(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Shapes" });
@@ -272,7 +272,7 @@ function genSlide02(pptx) {
 
 /**
  * SLIDE 3: Interactive action buttons (slide-show navigation via ppaction://hlinkshowjump)
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide03(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Shapes" });

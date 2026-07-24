@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: Table Definition
+ * ts-pptx: Table Definition
  *
  * `addTableDefinition` applies the `headerRow` / `columns` sugar, normalizes rows into
  * fully-resolved `TableCell`s (incl. 4-side borders), computes width, and — when `autoPage` is

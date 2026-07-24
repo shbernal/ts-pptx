@@ -17,7 +17,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { DOMParser } from '@xmldom/xmldom'
 import { describe, test } from 'vitest'
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 import { Presentation, AutoShape, Picture } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 
@@ -559,7 +559,7 @@ describe('Group-child absolute geometry (absoluteFrame)', () => {
 
 	test('a top-level shape resolves to its own geometry', async () => {
 		const presentation = await (async () => {
-			const pres = new PptxGenJS()
+			const pres = new TsPptx()
 			pres.addSlide().addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 3, h: 1, fill: { color: 'CCCCCC' } })
 			return Presentation.load(await pres.stream())
 		})()

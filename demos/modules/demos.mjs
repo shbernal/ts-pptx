@@ -22,8 +22,8 @@ const DEPRECATED_TEST_MODE = false;
 
 // ==================================================================================================================
 
-export function runEveryTest(pptxgen) {
-	return execGenSlidesFuncs(["Master", "Chart", "Image", "Media", "Shape", "Text", "Table", "Group"], pptxgen);
+export function runEveryTest(TsPptx) {
+	return execGenSlidesFuncs(["Master", "Chart", "Image", "Media", "Shape", "Text", "Table", "Group"], TsPptx);
 
 	// NOTE: Html2Pptx needs table to be visible (otherwise col widths are even and look horrible)
 	// ....: Therefore, run it manually. // if ( typeof table2slides1 !== 'undefined' ) table2slides1();
@@ -31,16 +31,16 @@ export function runEveryTest(pptxgen) {
 
 function getDemoOutputName(type) {
 	const name = Array.isArray(type) ? "All" : type;
-	return `output/PptxGenJS_Demo_${name}.pptx`;
+	return `output/TsPptx_Demo_${name}.pptx`;
 }
 
-export function execGenSlidesFuncs(type, pptxgen) {
-	// STEP 1: Instantiate new PptxGenJS object
-	let pptx = typeof PptxGenJS !== "undefined" ? new PptxGenJS() : new pptxgen();
+export function execGenSlidesFuncs(type, TsPptx) {
+	// STEP 1: Instantiate new TsPptx object
+	let pptx = typeof TsPptx !== "undefined" ? new TsPptx() : new TsPptx();
 
 	// STEP 2: Set Presentation props (as QA test only - these are not required)
-	pptx.title = "PptxGenJS Test Suite Presentation";
-	pptx.subject = "PptxGenJS Test Suite Export";
+	pptx.title = "TsPptx Test Suite Presentation";
+	pptx.subject = "TsPptx Test Suite Export";
 	pptx.author = "Brent Ely";
 	pptx.company = CUST_NAME;
 	pptx.revision = "15";

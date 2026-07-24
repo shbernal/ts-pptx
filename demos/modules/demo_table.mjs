@@ -48,7 +48,7 @@ export function genSlides_Table(pptx) {
 
 /**
  * SLIDE 1: Table text alignment and cell styles
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide01(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Tables" });
@@ -146,7 +146,7 @@ function genSlide01(pptx) {
 
 /**
  * SLIDE 2: Table row/col-spans
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide02(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Tables" });
@@ -260,7 +260,7 @@ function genSlide02(pptx) {
 
 /**
  * SLIDE 3: Super rowspan/colspan demo
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide03(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Tables" });
@@ -324,7 +324,7 @@ function genSlide03(pptx) {
 
 /**
  * SLIDE 4: Cell Formatting / Cell Margins
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide04(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Tables" });
@@ -417,7 +417,7 @@ function genSlide04(pptx) {
 
 /**
  * SLIDE 5: Cell Word-Level Formatting
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide05(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Tables" });
@@ -463,7 +463,7 @@ function genSlide05(pptx) {
 
 /**
  * SLIDE 6: Cell Word-Level Formatting
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide06(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Tables" });
@@ -527,7 +527,7 @@ function genSlide06(pptx) {
 
 /**
  * SLIDE 7[...]: Table auto-paging
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide07(pptx) {
 	let slide = null;
@@ -793,7 +793,7 @@ function genSlide07(pptx) {
 
 /**
  * SLIDE 8[...]: Table auto-paging with complex text array (unsupported until 3.7.2/3.8.0)
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  * @since 3.8.0
  */
 function genSlide08(pptx) {
@@ -837,7 +837,7 @@ function genSlide08(pptx) {
 
 /**
  * SLIDE 9[...]: Tightly calculated/labels rows and cells for precision auto-paging dev & test
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  * @since 3.8.0
  */
 function genSlide09(pptx) {
@@ -880,7 +880,7 @@ function genSlide09(pptx) {
 
 /**
  * SLIDE 10[...]: Test paging with a single row
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  * @since 3.9.0
  */
 function genSlide10(pptx) {
@@ -1059,7 +1059,7 @@ function genSlide10(pptx) {
 
 /**
  * SLIDE 11[...]: Test paging with hyperlinks
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  * @since 4.0.1
  */
 function genSlide11(pptx) {

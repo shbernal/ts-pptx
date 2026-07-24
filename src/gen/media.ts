@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: Media Methods
+ * ts-pptx: Media Methods
  */
 
 import { IMG_BROKEN } from '../core-enums-internal.js'

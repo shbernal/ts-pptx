@@ -1,4 +1,4 @@
-// Cross-slide shape-import tests for `pptxgenjs/read`.
+// Cross-slide shape-import tests for `ts-pptx/read`.
 //
 // Contract under test: Presentation.importShape(target, source, index, opts)
 // copies one shape — autoshape, picture, table/chart graphic frame, or group —

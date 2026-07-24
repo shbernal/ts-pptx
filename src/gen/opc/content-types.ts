@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: `[Content_Types].xml`
+ * ts-pptx: `[Content_Types].xml`
  *
  * Emit the package content-types part: Default entries for the media extensions
  * actually used by the deck (plus xlsx/font defaults when present) and Override

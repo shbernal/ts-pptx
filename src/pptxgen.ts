@@ -216,7 +216,7 @@ function standardLayoutToPresLayout(layout: StandardLayout): PresLayout {
 
 /**
  * Main presentation class and package export flow — the public entry point consumers
- * instantiate (`new PptxGenJS()`). Owns presentation-level state and metadata, exposes
+ * instantiate (`new TsPptx()`). Owns presentation-level state and metadata, exposes
  * the enum bundles (`AlignH`, `ChartType`, `ShapeType`, …), collects slides, and drives
  * `write`/`writeFile`/`stream`. The actual OOXML string building is delegated to the
  * `gen-*` modules; runtime file/stream output goes through the injected `RuntimeAdapter`.
@@ -229,11 +229,11 @@ function standardLayoutToPresLayout(layout: StandardLayout): PresLayout {
  *   - Public authoring methods addSlide / defineLayout / defineSlideMaster / defineTableStyle
  *
  * Package assembly (`[Content_Types].xml`, the rels graph, per-part XML, the ZIP) lives in
- * `package/assemble.ts`; this class provides the deck state via {@link PptxGenJS.packageSource}.
+ * `package/assemble.ts`; this class provides the deck state via {@link PresentationCore.packageSource}.
  * The live-DOM `tableToSlides()` is NOT here — it is added by the browser entry subclass
  * (`browser.ts`) so it stays out of the Node build and out of the core chunk.
  */
-export default class PptxGenJS {
+export default class PresentationCore {
 	// Property getters/setters
 
 	/**
@@ -267,7 +267,7 @@ export default class PptxGenJS {
 	}
 
 	/**
-	 * PptxGenJS Library Version
+	 * ts-pptx Library Version
 	 */
 	private readonly _version: string = VERSION
 	public get version(): string {
@@ -480,12 +480,12 @@ export default class PptxGenJS {
 		}
 
 		// Core
-		this._author = 'PptxGenJS'
-		this._company = 'PptxGenJS'
+		this._author = 'ts-pptx'
+		this._company = 'ts-pptx'
 		this._revision = '1' // Note: Must be a whole number
-		this._subject = 'PptxGenJS Presentation'
-		this._title = 'PptxGenJS Presentation'
-		// PptxGenJS props
+		this._subject = 'ts-pptx Presentation'
+		this._title = 'ts-pptx Presentation'
+		// ts-pptx props
 		const defLayout = this.LAYOUTS[DEF_PRES_LAYOUT]
 		if (!defLayout) throw new Error(`Default presentation layout "${DEF_PRES_LAYOUT}" is not registered`)
 		this._presLayout = {
@@ -578,7 +578,7 @@ export default class PptxGenJS {
 	private readonly getSections = (): SectionInternalProps[] => this._sections
 
 	/**
-	 * Enables the `Slide` class to set PptxGenJS [Presentation] master/layout slidenumbers
+	 * Enables the `Slide` class to set ts-pptx [Presentation] master/layout slidenumbers
 	 * @param {SlideNumberProps} slideNum - slide number config
 	 */
 	private readonly setSlideNumber = (slideNum: SlideNumberProps): void => {
@@ -591,7 +591,7 @@ export default class PptxGenJS {
 	}
 
 	/**
-	 * Assemble the slice of internal state the packaging layer reads. `PptxGenJS` owns the
+	 * Assemble the slice of internal state the packaging layer reads. `PresentationCore` owns the
 	 * authored deck; `writePackage` (in `package/assemble.ts`) turns it into OOXML parts.
 	 */
 	private packageSource(): PackageSource {
@@ -609,7 +609,7 @@ export default class PptxGenJS {
 	 * WITHOUT producing a `.pptx` package. Runs the same media-encode, placeholder
 	 * backfill, and measured-fit passes `write()` uses, then serializes each slide
 	 * body and resolves its image media to decoded bytes — so a loaded deck can
-	 * splice the slides in via `Presentation.appendSlides()` (see `pptxgenjs/read`)
+	 * splice the slides in via `Presentation.appendSlides()` (see `ts-pptx/read`)
 	 * while keeping its own masters/layouts/theme byte-identical.
 	 *
 	 * Returns the deck's slide size (EMU, for the destination size check) and one
@@ -849,7 +849,7 @@ export default class PptxGenJS {
 	 * Measure how tall text wraps at a given width, using the **same** calibrated wrap
 	 * model the export-time autofit bake uses — so a layout-time prediction matches the
 	 * value `fit:'shrink'`/`'resize'` would bake. Synchronous: register the face's metrics
-	 * first with {@link PptxGenJS.registerFontMetrics} (lookup is sync).
+	 * first with {@link PresentationCore.registerFontMetrics} (lookup is sync).
 	 *
 	 * Lets a consumer size its own geometry before export — grow a card to fit its text,
 	 * reflow a grid, or detect overflow at layout time. Heights err **tall** (conservative),
@@ -885,8 +885,8 @@ export default class PptxGenJS {
 	 * cells. Column widths (cell `x`/`w`) are exact, derived from the same logic the
 	 * writer uses. Row heights (`y`/`h`) are exact when pinned by `rowH` (array or
 	 * scalar) or table `h`; an auto-height row is estimated with the same conservative
-	 * (tall) text model as {@link PptxGenJS.measureText} and flagged `heightExact:false`
-	 * (register the cell font via {@link PptxGenJS.registerFontMetrics} for an exact
+	 * (tall) text model as {@link PresentationCore.measureText} and flagged `heightExact:false`
+	 * (register the cell font via {@link PresentationCore.registerFontMetrics} for an exact
 	 * estimate). Geometry is for a single, un-paginated table — `autoPage` paging is
 	 * not modeled.
 	 * @param {TableRow[]} rows - the same `rows` passed to `slide.addTable`

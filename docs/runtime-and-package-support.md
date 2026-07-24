@@ -19,7 +19,7 @@ applications.
 Use the package export:
 
 ```ts
-import pptxgen from "@shbernal/pptxgenjs"
+import TsPptx from "@shbernal/ts-pptx"
 ```
 
 The package publishes:
@@ -54,15 +54,15 @@ Supported environments are modern module-aware environments:
 Supported package imports:
 
 ```ts
-import pptxgen from "@shbernal/pptxgenjs"
-import { ShapeType } from "@shbernal/pptxgenjs/core"
-import { inspectPptx } from "@shbernal/pptxgenjs/inspect"
-import { measureText } from "@shbernal/pptxgenjs/measure"
-import { Presentation } from "@shbernal/pptxgenjs/read"
-import { latexToOmml } from "@shbernal/pptxgenjs/math"
-import pptxgenNode from "@shbernal/pptxgenjs/node"
-import pptxgenBrowser from "@shbernal/pptxgenjs/browser"
-import pptxgenStandalone from "@shbernal/pptxgenjs/standalone"
+import TsPptx from "@shbernal/ts-pptx"
+import { ShapeType } from "@shbernal/ts-pptx/core"
+import { inspectPptx } from "@shbernal/ts-pptx/inspect"
+import { measureText } from "@shbernal/ts-pptx/measure"
+import { Presentation } from "@shbernal/ts-pptx/read"
+import { latexToOmml } from "@shbernal/ts-pptx/math"
+import pptxgenNode from "@shbernal/ts-pptx/node"
+import pptxgenBrowser from "@shbernal/ts-pptx/browser"
+import pptxgenStandalone from "@shbernal/ts-pptx/standalone"
 ```
 
 ## Dropped Compared To Upstream
@@ -74,7 +74,7 @@ CommonJS is not a supported package target.
 Unsupported:
 
 ```js
-const pptxgen = require("@shbernal/pptxgenjs")
+const TsPptx = require("@shbernal/ts-pptx")
 ```
 
 The package does not ship:
@@ -91,15 +91,15 @@ package smoke test verifies the actual contract: no CJS artifacts and no
 ### IIFE And Global Browser Bundle
 
 The IIFE/global browser build is not supported.
-`@shbernal/pptxgenjs/standalone` is an ESM browser entry, not a
-`window.PptxGenJS` global.
+`@shbernal/ts-pptx/standalone` is an ESM browser entry, not a
+`window.TsPptx` global.
 
 Unsupported:
 
 ```html
 <script src="pptxgen.bundle.js"></script>
 <script>
-  const pptx = new PptxGenJS()
+  const pptx = new TsPptx()
 </script>
 ```
 
@@ -110,7 +110,7 @@ The package does not ship:
 - `dist/pptxgen.min.js`
 - `dist/pptxgen.min.js.map`
 
-Classic CDN script tags and `window.PptxGenJS` are legacy upstream workflows,
+Classic CDN script tags and `window.TsPptx` are legacy upstream workflows,
 not the supported package target for this project.
 The legacy upstream browser demo for that workflow is not included in this
 repository.

@@ -1,6 +1,6 @@
 /**
  * NAME: demo_group.mjs
- * AUTH: PptxGenJS fork
+ * AUTH: ts-pptx
  * DESC: Grouping demos — addGroup() (build from descriptors) and groupObjects() (wrap existing objects)
  * DEPS: Used by maintained demos (./demos/node, ./demos/vite-demo).
  */
@@ -16,7 +16,7 @@ export function genSlides_Group(pptx) {
 
 /**
  * SLIDE 1: addGroup() — flat group, nested group, and a rotated/flipped group
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide01(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Groups" });
@@ -82,7 +82,7 @@ function genSlide01(pptx) {
 
 /**
  * SLIDE 2: groupObjects() — group objects already added to the slide, by objectName
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide02(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Groups" });

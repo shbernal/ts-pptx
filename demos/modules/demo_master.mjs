@@ -23,7 +23,7 @@ export function genSlides_Master(pptx) {
 
 /**
  * SLIDE 1:
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide01(pptx) {
 	let slide = pptx.addSlide({ masterTitle: "TITLE_SLIDE", sectionTitle: "Masters" });
@@ -33,7 +33,7 @@ function genSlide01(pptx) {
 
 /**
  * SLIDE 2:
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide02(pptx) {
 	let slide = pptx.addSlide({ masterTitle: "MASTER_SLIDE", sectionTitle: "Masters" });
@@ -42,7 +42,7 @@ function genSlide02(pptx) {
 
 /**
  * SLIDE 3:
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide03(pptx) {
 	let slide = pptx.addSlide({ masterTitle: "MASTER_SLIDE", sectionTitle: "Masters" });
@@ -60,7 +60,7 @@ function genSlide03(pptx) {
 
 /**
  * SLIDE 4:
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide04(pptx) {
 	let slide = pptx.addSlide({ masterTitle: "MASTER_SLIDE", sectionTitle: "Masters" });
@@ -76,7 +76,7 @@ function genSlide04(pptx) {
 
 /**
  * SLIDE 5:
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide05(pptx) {
 	let dataChartPieLocs = [
@@ -94,7 +94,7 @@ function genSlide05(pptx) {
 
 /**
  * SLIDE 6:
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide06(pptx) {
 	let slide = pptx.addSlide({ masterTitle: "THANKS_SLIDE", sectionTitle: "Masters" });
@@ -105,7 +105,7 @@ function genSlide06(pptx) {
 
 /**
  * SLIDE 7: LEGACY-TEST-ONLY: To check deprecated functionality
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide07(pptx) {
 	if (pptx.masters && Object.keys(pptx.masters).length > 0) {

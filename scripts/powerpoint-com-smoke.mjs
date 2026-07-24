@@ -79,16 +79,16 @@ const EXPECTED_OLE_PROGID = {
 /** An empty (but structurally valid) ZIP — enough of an "xlsx" for PowerPoint to bind the OLE server. */
 const EMPTY_ZIP_B64 = 'UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA=='
 
-async function loadPptxgen() {
-	const { default: pptxgen } = await import(pathToFileURL(path.join(ROOT, 'dist', 'node.js')).href)
-	return pptxgen
+async function loadTsPptx() {
+	const { default: TsPptx } = await import(pathToFileURL(path.join(ROOT, 'dist', 'node.js')).href)
+	return TsPptx
 }
 
 // --- 1a. navigation deck ----------------------------------------------------
 /** Build a focused nav deck from the built dist and return its path. */
 async function generateNavDeck() {
-	const pptxgen = await loadPptxgen()
-	const pptx = new pptxgen()
+	const TsPptx = await loadTsPptx()
+	const pptx = new TsPptx()
 	pptx.defineLayout({ name: 'SMOKE', width: 10, height: 5.63 })
 	pptx.layout = 'SMOKE'
 
@@ -121,7 +121,7 @@ async function generateNavDeck() {
 		})
 	})
 
-	const outFile = path.join(os.tmpdir(), `pptxgenjs-com-smoke-nav-${process.pid}.pptx`)
+	const outFile = path.join(os.tmpdir(), `ts-pptx-com-smoke-nav-${process.pid}.pptx`)
 	await pptx.writeFile({ fileName: outFile })
 	return outFile
 }
@@ -129,8 +129,8 @@ async function generateNavDeck() {
 // --- 1b. custGeom connection-site deck --------------------------------------
 /** Build a custGeom deck whose connector binds to the custom shape's connection site. */
 async function generateGeomDeck() {
-	const pptxgen = await loadPptxgen()
-	const pptx = new pptxgen()
+	const TsPptx = await loadTsPptx()
+	const pptx = new TsPptx()
 	pptx.defineLayout({ name: 'SMOKE', width: 10, height: 5.63 })
 	pptx.layout = 'SMOKE'
 
@@ -178,7 +178,7 @@ async function generateGeomDeck() {
 		startShapeIdx: GEOM_START_IDX,
 	})
 
-	const outFile = path.join(os.tmpdir(), `pptxgenjs-com-smoke-geom-${process.pid}.pptx`)
+	const outFile = path.join(os.tmpdir(), `ts-pptx-com-smoke-geom-${process.pid}.pptx`)
 	await pptx.writeFile({ fileName: outFile })
 	return outFile
 }
@@ -186,8 +186,8 @@ async function generateGeomDeck() {
 // --- 1c. OLE / embedded-object deck -----------------------------------------
 /** Build a deck with one embedded-package and one generic-blob OLE object. */
 async function generateOleDeck() {
-	const pptxgen = await loadPptxgen()
-	const pptx = new pptxgen()
+	const TsPptx = await loadTsPptx()
+	const pptx = new TsPptx()
 	pptx.defineLayout({ name: 'SMOKE', width: 10, height: 5.63 })
 	pptx.layout = 'SMOKE'
 
@@ -198,7 +198,7 @@ async function generateOleDeck() {
 	// Generic OLE-server blob: `.../oleObject` rel + a `.bin` part.
 	s.addOleObject({ data: 'AAECAwQFBgc=', objectName: 'OleBlob', x: 4.5, y: 1.5, w: 2, h: 2 })
 
-	const outFile = path.join(os.tmpdir(), `pptxgenjs-com-smoke-ole-${process.pid}.pptx`)
+	const outFile = path.join(os.tmpdir(), `ts-pptx-com-smoke-ole-${process.pid}.pptx`)
 	await pptx.writeFile({ fileName: outFile })
 	return outFile
 }
@@ -328,7 +328,7 @@ function runCscript(vbsFile) {
 
 /** Write a VBS for `file`, drive PowerPoint (retry once), and return the raw cscript result. */
 async function driveDeck(label, file, buildVbs) {
-	const vbsFile = path.join(os.tmpdir(), `pptxgenjs-com-smoke-${label}-${process.pid}.vbs`)
+	const vbsFile = path.join(os.tmpdir(), `ts-pptx-com-smoke-${label}-${process.pid}.vbs`)
 	await fs.writeFile(vbsFile, buildVbs(file))
 	// cscript can transiently fail if PowerPoint is mid-launch; retry once.
 	let result

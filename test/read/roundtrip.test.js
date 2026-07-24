@@ -1,4 +1,4 @@
-// Phase 1 round-trip fidelity harness for `pptxgenjs/read` (src/read/).
+// Phase 1 round-trip fidelity harness for `ts-pptx/read` (src/read/).
 //
 // Contract under test: OpcPackage.load(buf).save() preserves the part-name
 // set and writes every untouched part body byte-identically; dirty parts

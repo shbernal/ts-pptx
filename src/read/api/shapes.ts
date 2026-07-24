@@ -45,7 +45,7 @@ import { Table } from './table.js'
 import { TextFrame } from './text.js'
 import type { Slide } from './slide.js'
 
-// Re-exported so `pptxgenjs/read` keeps surfacing the gradient types from here even
+// Re-exported so `ts-pptx/read` keeps surfacing the gradient types from here even
 // though their definitions moved to ./gradient.js (shared with the slide-background reader).
 export type { GradientStop, GradientFill } from './gradient.js'
 

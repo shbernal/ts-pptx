@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: Stock (High-Low-Close) Plot Assembly
+ * ts-pptx: Stock (High-Low-Close) Plot Assembly
  *
  * Emits the classic `<c:stockChart>` element (plus, for the volume styles, a leading
  * `<c:barChart>` volume series on a secondary axis pair). A stock chart is a fixed-order

@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: shared generator helpers.
+ * ts-pptx: shared generator helpers.
  *
  * The small cross-cutting pieces the OOXML writers all need and that belong to
  * no single part:
@@ -121,7 +121,7 @@ export function getNewRelId(target: PresSlideInternal): number {
  * link). The relationship `type` is stringly-typed (`'hyperlink'`, `'online'`,
  * mixed-case variants), so this centralizes the case-insensitive predicate that
  * was duplicated across the slide-rels writer (`gen/slide/slide.ts`) and the inspect path
- * (pptxgen). For an internal slide-to-slide link, `rel.data === 'slide'` and
+ * (pptxgen.ts). For an internal slide-to-slide link, `rel.data === 'slide'` and
  * `rel.Target` is the 1-based target slide number.
  * @param {{ type: string }} rel - a slide relationship
  * @returns {boolean} true if the rel is any kind of hyperlink

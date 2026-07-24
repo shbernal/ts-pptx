@@ -2,7 +2,7 @@ import { beforeAll, describe, test } from 'vitest'
 import { isInstalled, VALIDATOR } from './validator.js'
 import cases from './schema-cases.js'
 
-describe('PptxGenJS schema validation fixtures', () => {
+describe('TsPptx schema validation fixtures', () => {
 	beforeAll(async () => {
 		if (!(await isInstalled())) {
 			throw new Error('OOXMLValidatorCLI not installed at ' + VALIDATOR + '\nRun: ./tools/ooxml-validator/install.sh')

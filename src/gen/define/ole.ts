@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: OLE / Embedded Object Definition (`addOleObject()` — PowerPoint's Insert ▸ Object).
+ * ts-pptx: OLE / Embedded Object Definition (`addOleObject()` — PowerPoint's Insert ▸ Object).
  *
  * Registers the payload as an embedded package part plus a preview-picture image rel, and pushes a
  * `SlideObject{ _type: oleObject, ole }` for `gen/slide/object.ts` to emit as a `<p:graphicFrame>`.

@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: Surface Plot Assembly
+ * ts-pptx: Surface Plot Assembly
  *
  * Emits the classic `<c:surface3DChart>` (a 3-D surface) or `<c:surfaceChart>` (a 2-D
  * contour / top view), selected by the `surface3D` option; `wireframe` toggles the

@@ -1,7 +1,7 @@
 /**
- * `pptxgenjs/measure` — the calibrated text-measurement engine as a standalone,
+ * `ts-pptx/measure` — the calibrated text-measurement engine as a standalone,
  * public surface, so a consumer can lay out its own geometry (grow a card, reflow
- * a grid, detect overflow) **before export** without a `PptxGenJS` instance.
+ * a grid, detect overflow) **before export** without a `TsPptx` instance.
  *
  * This is the same wrap model + solvers the export-time autofit bake uses (see
  * `docs/measured-text-fit.md`), so a layout-time prediction never disagrees with
@@ -36,7 +36,7 @@ export {
 } from './text-fit.js'
 
 // Font-metrics provider + registry, so a consumer can build its own resolver and
-// measure without threading a whole PptxGenJS instance through its layout context.
+// measure without threading a whole TsPptx instance through its layout context.
 export { parseFontMetrics, getHeuristicFontMetrics, FontMetricsRegistry, type FontMetrics } from './font-metrics.js'
 
 // Higher-level helpers shared with the export pass: the public-props → FitParagraph

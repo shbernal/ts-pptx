@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: Bubble Plot Assembly
+ * ts-pptx: Bubble Plot Assembly
  *
  * Emits the `<c:bubbleChart>` plot element for `bubble` and `bubble3D`. Like scatter it
  * takes X values from the first data row, and adds a third `<c:bubbleSize>` cache per

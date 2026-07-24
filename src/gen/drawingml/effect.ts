@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: DrawingML effects (glow and shadow)
+ * ts-pptx: DrawingML effects (glow and shadow)
  *
  * Emit the `<a:glow>` / `<a:outerShdw>` / `<a:innerShdw>` children of an
  * `<a:effectLst>`, and normalize the user-facing `shadow` options into the

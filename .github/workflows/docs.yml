@@ -52,7 +52,7 @@ jobs:
 
   deploy:
     name: Deploy docs
-    if: github.event_name != 'pull_request' && github.repository == 'shbernal/PptxGenJS'
+    if: github.event_name != 'pull_request' && github.repository == 'shbernal/ts-pptx'
     needs: build
     runs-on: ubuntu-latest
     environment:

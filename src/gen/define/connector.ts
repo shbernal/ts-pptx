@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: Connector Definition
+ * ts-pptx: Connector Definition
  *
  * `addConnectorDefinition` converts two endpoints to a flip-oriented bounding box, resolves the
  * connector preset + adjust guides, and optionally binds start / end shapes. Emitted later as

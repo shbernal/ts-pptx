@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: DrawingML text runs & paragraphs
+ * ts-pptx: DrawingML text runs & paragraphs
  *
  * The run/paragraph half of text-body generation: paragraph properties
  * (`<a:pPr>`, bullets, spacing), run properties (`<a:rPr>`), the `<a:r>` run

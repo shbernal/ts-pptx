@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: Group Definition
+ * ts-pptx: Group Definition
  *
  * The group (`<p:grpSp>`) definition layer: `addGroupDefinition` builds a group from child
  * descriptors (recursing for nested groups), `groupObjectsDefinition` lifts already-authored

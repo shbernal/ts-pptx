@@ -1,6 +1,6 @@
 {
-  "name": "PptxGenJS",
-  "description": "Documentation for the modern ESM-first PptxGenJS fork.",
+  "name": "ts-pptx",
+  "description": "Documentation for the modern ESM-first ts-pptx.",
   "navigation": [
     {
       "group": "Start",

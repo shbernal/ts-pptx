@@ -1,4 +1,4 @@
-// Phase 2 read-model tests for `pptxgenjs/read` (src/read/api/).
+// Phase 2 read-model tests for `ts-pptx/read` (src/read/api/).
 //
 // Contract under test: Presentation.load(buf) exposes a navigable, typed view
 // of the deck — slides in order, shapes from the spTree by kind, geometry in

@@ -1,6 +1,6 @@
 {
 	"$schema": "https://json.schemastore.org/tsconfig",
-	"display": "PptxGenJS source",
+	"display": "ts-pptx source",
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
 		"noEmit": true,

@@ -8,11 +8,11 @@
  */
 
 /** Prefix stamped on every warning so consumers can attribute console noise to this library. */
-const WARN_PREFIX = 'PptxGenJS'
+const WARN_PREFIX = 'ts-pptx'
 
 /**
  * Emit a library warning to the console.
- * @param {string} message - warning text (without a `Warning:`/`PptxGenJS:` prefix; the prefix is added here)
+ * @param {string} message - warning text (without a `Warning:`/`ts-pptx:` prefix; the prefix is added here)
  */
 export function warn(message: string): void {
 	console.warn(`${WARN_PREFIX}: ${message}`)

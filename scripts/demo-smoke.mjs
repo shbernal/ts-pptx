@@ -31,7 +31,7 @@ async function assertGeneratedPptx(file, before) {
 }
 
 async function smokeNodeDemo() {
-	const outputFile = path.join(ROOT, 'demos', 'node', 'output', 'PptxGenJS_Demo_Text.pptx')
+	const outputFile = path.join(ROOT, 'demos', 'node', 'output', 'TsPptx_Demo_Text.pptx')
 	const before = await fileStat(outputFile)
 	await run('pnpm', ['--dir', 'demos/node', 'run', 'demo-text'])
 	await assertGeneratedPptx(outputFile, before)

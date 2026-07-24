@@ -3,7 +3,7 @@ import { createBrowserRuntime } from './runtime/browser.js'
 import { genTableToSlides } from './gen/table/html-dom.js'
 import type { TableToSlidesProps } from './core-interfaces.js'
 
-export class PptxGenJS extends PresentationCore {
+export class TsPptx extends PresentationCore {
 	constructor() {
 		super(createBrowserRuntime())
 	}
@@ -30,7 +30,7 @@ export class PptxGenJS extends PresentationCore {
 	}
 }
 
-export { PptxGenJS as Presentation, PptxGenJS as default }
+export { TsPptx as Presentation, TsPptx as default }
 export * from './core-enums.js'
 export * from './units.js'
 // Use `export *` (not `export type *`) so the value exports `textRun`/`textRuns`

@@ -1,7 +1,7 @@
 ---
 doc-schema-version: 1
 title: "Embedded Fonts"
-summary: "How PptxGenJS embeds whole font faces — author-side pptx.embedFont() and import-carry importSlide({ embedFonts: true }) — the shared OOXML model behind both, and the PowerPoint-authored oracle."
+summary: "How ts-pptx embeds whole font faces — author-side pptx.embedFont() and import-carry importSlide({ embedFonts: true }) — the shared OOXML model behind both, and the PowerPoint-authored oracle."
 read_when:
   - Changing embedded-font emit or merge (src/embedded-fonts.ts and its callers)
   - Touching pptx.embedFont() or importSlide({ embedFonts })
@@ -138,7 +138,7 @@ Opt-in (default off, so existing behaviour is unchanged). When set,
 
 ## Oracle & fixtures
 
-Per the fork's fixture-gated-work rule, the emitted/merged XML is validated against
+Per the project's fixture-gated-work rule, the emitted/merged XML is validated against
 **PowerPoint-authored** output, not synthetic XML:
 
 - `test/read/fixtures/embedded-fonts.pptx` — a real PowerPoint deck that embeds

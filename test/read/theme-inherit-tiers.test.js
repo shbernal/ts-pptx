@@ -21,7 +21,7 @@
 import { DOMParser } from '@xmldom/xmldom'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 import { Presentation, TextFrame, AutoShape, resolveColorElement } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 
@@ -232,7 +232,7 @@ describe('resolveSlideThemeParts — a broken theme chain degrades, not throws',
 	// whole chain collapses to null roots and empty colour maps. We assert the
 	// degraded shape, not any writer colour, so this is not a write→read round-trip.
 	async function slideWithNoLayoutRel() {
-		const pptx = new PptxGenJS()
+		const pptx = new TsPptx()
 		pptx.addSlide().addText('hi', { x: 1, y: 1, w: 4, h: 1, color: '0000FF' })
 		const zip = await JSZip.loadAsync(await pptx.stream())
 		const relsName = 'ppt/slides/_rels/slide1.xml.rels'

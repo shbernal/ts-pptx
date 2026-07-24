@@ -1,5 +1,5 @@
 /**
- * PptxGenJS: Slide Class
+ * ts-pptx: Slide Class
  */
 
 import { asChartType, type CHART_NAME, type SHAPE_NAME } from './core-enums.js'
@@ -317,7 +317,7 @@ export default class Slide {
 	 * @return {Slide} this Slide
 	 */
 	addShape(shapeName: SHAPE_NAME, options?: ShapeProps): Slide {
-		// `shapeName` is a plain string preset name (e.g. `pptxgen.ShapeType.rect` === "rect").
+		// `shapeName` is a plain string preset name (e.g. `pptx.ShapeType.rect` === "rect").
 		addShapeDefinition(this, shapeName, options || {})
 		return this
 	}

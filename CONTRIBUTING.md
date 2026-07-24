@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in PptxGenJS. This is a short pointer file — the real
+Thanks for your interest in ts-pptx. This is a short pointer file — the real
 contributor guidance lives in the docs below, which are kept authoritative.
 
 ## Start here
@@ -14,7 +14,7 @@ contributor guidance lives in the docs below, which are kept authoritative.
 - **[docs/testing.md](docs/testing.md)** — regression, schema, package, demo,
   and coverage commands, plus the **fast edit → test inner loop** (a `tsdown`
   watcher + a Vitest watcher in two terminals) and single-test invocation.
-- **[docs/project-target.md](docs/project-target.md)** — what this fork does and
+- **[docs/project-target.md](docs/project-target.md)** — what this project does and
   does not aim to support.
 
 ## The short version

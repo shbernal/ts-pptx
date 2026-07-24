@@ -1,7 +1,7 @@
 ---
 doc-schema-version: 1
 title: "Agent Development Guide"
-summary: "Expectations for agent-assisted PptxGenJS changes and verification."
+summary: "Expectations for agent-assisted ts-pptx changes and verification."
 read_when:
   - Starting agent work in this repository
   - Updating agent workflow or evidence requirements
@@ -51,9 +51,9 @@ explicitly changed:
 - direct CDN script-tag support as a maintained package workflow.
 
 The package smoke test should continue to prove that old artifacts are absent
-and that `@shbernal/pptxgenjs`, `@shbernal/pptxgenjs/core`,
-`@shbernal/pptxgenjs/inspect`, `@shbernal/pptxgenjs/node`,
-`@shbernal/pptxgenjs/browser`, and `@shbernal/pptxgenjs/standalone` resolve.
+and that `@shbernal/ts-pptx`, `@shbernal/ts-pptx/core`,
+`@shbernal/ts-pptx/inspect`, `@shbernal/ts-pptx/node`,
+`@shbernal/ts-pptx/browser`, and `@shbernal/ts-pptx/standalone` resolve.
 The `./measure`, `./read`, `./math`, and `./zip` subpaths exist in package
 exports but are not yet covered by `pnpm run test:package` — see
 [Runtime And Package Support](runtime-and-package-support.md).

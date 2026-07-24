@@ -11,7 +11,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
 import { describe, test, beforeAll } from 'vitest'
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 import { assert, assertEqual } from '../helpers.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -29,9 +29,9 @@ async function zipOf(pres) {
 	return JSZip.loadAsync(await pres.stream())
 }
 
-describe('PptxGenJS.embedFont', () => {
+describe('TsPptx.embedFont', () => {
 	test('embeds a single regular face: part + Default + rel + list + flags', async () => {
-		const p = new PptxGenJS()
+		const p = new TsPptx()
 		await p.embedFont({ data: regular, typeface: 'Silkscreen' })
 		p.addSlide().addText('hi', { x: 1, y: 1, w: 4, h: 1, fontFace: 'Silkscreen' })
 		const zip = await zipOf(p)
@@ -58,7 +58,7 @@ describe('PptxGenJS.embedFont', () => {
 	})
 
 	test('accumulates multiple styles of one typeface into a single embeddedFont entry', async () => {
-		const p = new PptxGenJS()
+		const p = new TsPptx()
 		await p.embedFont({ data: regular, typeface: 'Silkscreen' })
 		await p.embedFont({ data: bold, typeface: 'Silkscreen', style: 'bold' })
 		p.addSlide()
@@ -73,7 +73,7 @@ describe('PptxGenJS.embedFont', () => {
 	})
 
 	test('two distinct typefaces yield two embeddedFont entries', async () => {
-		const p = new PptxGenJS()
+		const p = new TsPptx()
 		await p.embedFont({ data: regular, typeface: 'Silkscreen' })
 		await p.embedFont({ data: bold, typeface: 'Other Face' })
 		p.addSlide()
@@ -83,7 +83,7 @@ describe('PptxGenJS.embedFont', () => {
 	})
 
 	test('accepts ArrayBuffer and base64-string byte sources', async () => {
-		const p = new PptxGenJS()
+		const p = new TsPptx()
 		// ArrayBuffer slice (exact backing buffer for the face bytes)
 		await p.embedFont({
 			data: regular.buffer.slice(regular.byteOffset, regular.byteOffset + regular.byteLength),
@@ -100,7 +100,7 @@ describe('PptxGenJS.embedFont', () => {
 	})
 
 	test('a repeat of the same typeface+style replaces the prior bytes (last wins)', async () => {
-		const p = new PptxGenJS()
+		const p = new TsPptx()
 		await p.embedFont({ data: bold, typeface: 'Silkscreen' }) // wrong bytes first
 		await p.embedFont({ data: regular, typeface: 'Silkscreen' }) // corrected
 		p.addSlide()
@@ -112,7 +112,7 @@ describe('PptxGenJS.embedFont', () => {
 	})
 
 	test('validates input: missing typeface and missing source throw', async () => {
-		const p = new PptxGenJS()
+		const p = new TsPptx()
 		// Intentionally invalid inputs (negative tests): cast past the compile-time
 		// types to prove the runtime validation still rejects them.
 		await assertRejects(() => p.embedFont(/** @type {any} */ ({ data: regular })), 'missing typeface throws')
@@ -124,7 +124,7 @@ describe('PptxGenJS.embedFont', () => {
 	})
 
 	test('no embedFont calls: deck is unchanged (no font parts/list, historical flags)', async () => {
-		const p = new PptxGenJS()
+		const p = new TsPptx()
 		p.addSlide()
 		const zip = await zipOf(p)
 		assert(!Object.keys(zip.files).some((n) => /fntdata/.test(n)), 'no font parts')

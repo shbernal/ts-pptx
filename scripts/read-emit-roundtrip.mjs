@@ -5,7 +5,7 @@
  * manual check in test/read/fixtures/README.md).
  *
  * Output goes to .tmp/roundtrip/ (gitignored) by default; override with the
- * first CLI arg or PPTXGENJS_READ_EMIT_DIR. Assumes a current build — the
+ * first CLI arg or TSPPTX_READ_EMIT_DIR. Assumes a current build — the
  * test:read:emit script runs `pnpm run build` first.
  */
 import fs from 'node:fs/promises'
@@ -14,7 +14,7 @@ import { pathToFileURL } from 'node:url'
 import { ROOT } from './script-utils.mjs'
 
 const fixturesDir = path.join(ROOT, 'test', 'read', 'fixtures')
-const outDir = process.argv[2] || process.env.PPTXGENJS_READ_EMIT_DIR || path.join(ROOT, '.tmp', 'roundtrip')
+const outDir = process.argv[2] || process.env.TSPPTX_READ_EMIT_DIR || path.join(ROOT, '.tmp', 'roundtrip')
 
 const readEntry = path.join(ROOT, 'dist', 'read.js')
 try {

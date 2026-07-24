@@ -1,4 +1,4 @@
-// Contract for `PptxGenJS.toParts()` (src/pptxgen.ts → buildPackageParts): the unzipped
+// Contract for `TsPptx.toParts()` (src/pptxgen.ts → buildPackageParts): the unzipped
 // parts it returns must be the SAME parts `write()` compresses into the `.pptx` — same path
 // set, same emission order, and byte-identical per part. `toParts` is the public seam over
 // the assembly pipeline, so a drift between it and `write()` (a part only one path emits, a
@@ -6,12 +6,12 @@
 // output back as an independent oracle (the write path zips with fflate), mirroring helpers.js.
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
-import PptxGenJS from '../../dist/node.js'
+import TsPptx from '../../dist/node.js'
 import { assert } from '../helpers.js'
 
 /** Author an identical text-only deck each call so two builds differ only in core.xml timestamps. */
 function makePres() {
-	const pres = new PptxGenJS()
+	const pres = new TsPptx()
 	pres.addSlide().addText('to-parts contract', { x: 1, y: 1, w: 4, h: 1 })
 	pres.addSlide().addText('second slide', { x: 1, y: 1, w: 4, h: 1 })
 	return pres

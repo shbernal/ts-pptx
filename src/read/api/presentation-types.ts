@@ -460,7 +460,7 @@ export interface ExtractedSlides {
 }
 
 /**
- * Structural view of a slide producer (a `PptxGenJS` instance satisfies this).
+ * Structural view of a slide producer (a `TsPptx` instance satisfies this).
  * Kept structural so the read subsystem never imports the generator at runtime.
  */
 export interface SlideSource {

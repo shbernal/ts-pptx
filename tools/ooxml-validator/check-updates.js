@@ -17,7 +17,7 @@ const LATEST_URL = 'https://api.github.com/repos/mikeebowen/OOXML-Validator/rele
 async function fetchJson(url) {
 	const response = await fetch(url, {
 		headers: {
-			'User-Agent': 'pptxgenjs-tooling',
+			'User-Agent': 'ts-pptx-tooling',
 			Accept: 'application/vnd.github+json',
 		},
 		signal: AbortSignal.timeout(15_000),

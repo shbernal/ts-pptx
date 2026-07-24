@@ -41,7 +41,7 @@ export function genSlides_Image(pptx) {
 
 /**
  * SLIDE 1:
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide01(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Images" });
@@ -196,7 +196,7 @@ function genSlide01(pptx) {
 
 /**
  * SLIDE 4: Image URLs
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide02(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Images" });
@@ -240,7 +240,7 @@ function genSlide02(pptx) {
 
 /**
  * SLIDE 2: Image Sizing
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide03(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Images" });
@@ -276,7 +276,7 @@ function genSlide03(pptx) {
 
 /**
  * SLIDE 3: Image Rotation
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide04(pptx) {
 	let slide = pptx.addSlide({ sectionTitle: "Images" });
@@ -296,7 +296,7 @@ function genSlide04(pptx) {
 
 /**
  * SLIDE 5: Image Shadow
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide05(pptx) {
 	const slide = pptx.addSlide({ sectionTitle: "Images" });
@@ -330,7 +330,7 @@ function genSlide05(pptx) {
  * Demonstrates clipping a picture to a preset shape, a freeform `points` path, and the
  * "picture placeholder" composition: a freeform clip filled by a center-cropped photo
  * (`points` + `sizing:'cover'`). See docs/image-in-shape.md.
- * @param {PptxGenJS} pptx
+ * @param {TsPptx} pptx
  */
 function genSlide06(pptx) {
 	const slide = pptx.addSlide({ sectionTitle: "Images" });

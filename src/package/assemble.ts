@@ -3,7 +3,7 @@
  * OOXML package parts and hand the bytes to the ZIP writer. This is the write-side
  * "packaging" layer — `[Content_Types].xml`, the `_rels` graph, docProps, theme, the
  * per-slide/layout/master parts, comments, and chart/media rels — split out of the
- * authoring class (`PptxGenJS`) so that class stays a façade over slide authoring.
+ * authoring class (`TsPptx`) so that class stays a façade over slide authoring.
  *
  * The entry point `writePackage` takes a structural {@link PackageSource} that the
  * authoring class satisfies; it does not depend on the class itself, so the same pipeline
