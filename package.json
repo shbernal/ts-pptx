@@ -74,6 +74,7 @@
 		"test": "pnpm run ensure-dist && vitest run",
 		"test:unit": "pnpm run ensure-dist && vitest run test/regression",
 		"test:schema": "pnpm run ensure-dist && vitest run test/schema-validation.test.mjs",
+		"schema:versions": "pnpm run ensure-dist && node scripts/ooxml-version-probe.mjs",
 		"test:read": "pnpm run ensure-dist && vitest run test/read",
 		"test:read:emit": "pnpm run ensure-dist && node scripts/read-emit-roundtrip.mjs",
 		"test:read:emit:edits": "pnpm run ensure-dist && node scripts/read-emit-edits.mjs",

@@ -213,6 +213,61 @@ A `beforeAll` validates one minimal deck serially before the concurrent fixtures
 start. `OOXMLValidatorCLI` is a .NET single-file app that self-extracts on first
 run, and firing many processes at a cold extract directory can race.
 
+### The conformance target is pinned
+
+Everything validates at **`Microsoft365`**, pinned as `FILE_FORMAT` in
+`test/validator.js` and passed explicitly on every CLI invocation.
+
+This is worth stating because two upstream defaults disagree: the Open XML SDK's
+`new OpenXmlValidator()` defaults to `Office2007`, while the OOXMLValidatorCLI
+wrapper defaults to `Microsoft365`. Passing nothing left the project's conformance
+bar owned by the wrapper, where a bump to
+`tools/ooxml-validator/version.json` could have moved it without a line changing
+here.
+
+`Microsoft365` is also the strongest available setting, not merely the newest. The
+per-version schemas differ in how much markup they **model**, not in what they
+accept — an older version skips markup it has never heard of rather than rejecting
+it. Two consequences:
+
+- Error count is monotonically non-decreasing in version, so validating below
+  `Microsoft365` can only lose coverage.
+- **Version-clean does not mean version-compatible.** A chartEx (Office 2016) deck
+  reports zero errors at `Office2007` because that schema set cannot see the
+  markup. Do not read a clean low-version run as "opens in Office 2007" — the
+  validator cannot answer that question, and `mc:Choice Requires=` decisions must
+  still be made against `[MS-PPTX]` and real PowerPoint.
+
+### Version coverage probe
+
+```bash
+pnpm run schema:versions              # built-in fixtures
+pnpm run schema:versions --file d.pptx  # any deck
+```
+
+Validates across all seven accepted versions and prints the coverage profile:
+
+```
+fixture                              O2007 O2010 O2013 O2016 O2019 O2021  M365
+base (plain text slide)                  0     0     0     0     0     0     0
+classic bar chart (2007 feature)         0     0     0     0     0     0     0
+chartEx pareto (2016 feature)            0     0     0     4     4     4     4
+core-construct corruption (control)      1     1     1     1     1     1     1
+```
+
+Two uses: re-verifying monotonicity after a validator bump (the script exits
+non-zero if any row *decreases*, which would break the premise the pin rests on),
+and dating a known divergence to the schema generation that introduced it — row 3
+locates chartEx at Office2016, and those 4 errors are the tolerated
+`cx:axisId` divergence documented in `test/schema-cases.js`.
+
+The last row is a control: a deliberately corrupted `<p:sp>` attribute that every
+schema generation catches. Without it an all-zero table is indistinguishable from a
+validator that silently stopped running.
+
+Not part of `verify` — seven validator spawns per fixture, and it asserts nothing
+about emitted markup that `test:schema` does not already assert at `Microsoft365`.
+
 ## Read/Round-Trip Suite (`ts-pptx/read`)
 
 The lossless read/edit subsystem (`src/read/`) has its own harness:
