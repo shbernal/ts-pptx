@@ -17,6 +17,8 @@
  * Read {@link DeckIr.fidelity} before trusting the output of a conversion.
  */
 export { readModelToIr } from './script/from-read/deck.js'
+export { printScript } from './script/print/script.js'
+export type { AssetMode, PrintScriptOptions, PrintedScript } from './script/print/script.js'
 export { isAssetRef } from './script/ir.js'
 export type {
 	AssetIr,
@@ -27,6 +29,7 @@ export type {
 	DeckPropsIr,
 	IrValue,
 	SlideIr,
+	SlideLayoutIr,
 	SlideSource,
 } from './script/ir.js'
 export type { Cause, Disposition, FidelityNote } from './script/fidelity.js'

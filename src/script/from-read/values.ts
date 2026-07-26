@@ -8,7 +8,10 @@
  * - A `Coord`-typed option accepts `` `${n}emu` ``, so EMU passes through untouched and
  *   the source geometry is reproduced exactly. That covers every position and size.
  * - `colW`, `rowH`, and `margin` are number/`Margin`-typed **inches** and reject a raw-EMU
- *   string, so they are the three places exactness stops. Six decimal places is the minimum
+ *   string, so they are where exactness stops. `defineLayout`'s `width`/`height` are a
+ *   fourth, reached only by a printer: there the imprecision does not degrade quietly but
+ *   *throws*, since `appendSlides` compares the two decks' EMU sizes for equality after
+ *   converting the declared inches back. Six decimal places is the minimum
  *   at which `Math.round(printed × 914400)` provably returns the original EMU, bounding the
  *   drift at 0.4572 EMU — about half a millionth of an inch. Rounding shorter to suppress
  *   `0.5000000001`-style noise trades a cosmetic problem for a real geometry loss.

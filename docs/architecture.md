@@ -50,7 +50,15 @@ exports and let this repository own the internal OOXML generation details.
   and are **not** re-exported — internal code imports them from there directly, the
   same non-published convention as `units-internal.ts`.
 - `src/script/` turns a deck read through `src/read/` into a serializable
-  description of the write-API calls that would rebuild it (`readModelToIr`).
+  description of the write-API calls that would rebuild it (`readModelToIr`),
+  and prints that description as a runnable TypeScript module (`printScript`).
+  The two halves meet only at the IR: `from-read/` knows OOXML and the read
+  model, `print/` knows only strings, and neither can see the other. That is
+  what makes the mapping testable without a printer and keeps "how a number is
+  spelled" from changing what a deck means. `printScript` anchors its output on
+  a template — it reuses the *source deck itself*, because `fromTemplate` strips
+  a package's slides while leaving masters, layouts, theme, and document
+  properties byte-identical, so only slide content is ever regenerated.
   It is its own subsystem because it depends on **both** halves — the read model
   and the write option types — so it fits inside neither, and because `src/read/`
   is documented as isomorphic (bytes in, bytes out), which a converter emitting

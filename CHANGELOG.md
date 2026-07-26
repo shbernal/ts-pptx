@@ -36,7 +36,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   colour but not a width or dash), embedded audio/video (only the poster frame is
   readable), and OMML equations.
 
-  This is the IR only. Printing it as TypeScript is not implemented yet.
+- **`printScript(ir, options)` turns that IR into a runnable TypeScript module.**
+  Returns `{ code, assets, notes }`: the module source, the image bytes it
+  expects beside it, and the losses that apply to *this* output. The emitted
+  script anchors on a template, and the template is the **source deck itself,
+  unmodified** — `Presentation.fromTemplate` already strips a package's slides
+  while leaving its masters, layouts, theme, and document properties
+  byte-identical, so only slide content is regenerated and the deck's whole
+  design survives untouched. Slides are emitted in source order; contiguous
+  slides sharing a layout share one generator, since `appendSlides` binds one
+  layout per call.
+
+  `notes` is not simply `ir.fidelity`. A template-anchored output *rescues* some
+  declared losses — all twelve document properties ride in the template, so the
+  IR's `deck.docProps` note does not apply and is omitted rather than left to
+  teach readers to skim. It also *adds* losses that belong to the tier rather
+  than to the conversion: a slide's `p:cSld@name` reads fine and would survive a
+  byte copy, but has no public write-API setter. The applicable set is
+  reproduced as a header comment in `code`, so the artifact carries its own
+  caveats, and it is the set a round-trip check should exclude from its diff.
+
+  Binding is by layout name where that is unambiguous, because a name survives
+  being re-pointed at a different template; a deck whose masters repeat a layout
+  name falls back to gallery position, since `appendSlides` throws on an
+  ambiguous name rather than choosing.
+
+  Not yet implemented: a standalone (template-free) tier that rebuilds the
+  chrome via `defineSlideMaster`, and the automated round-trip harness.
+
+### Fixed
+
+- **`readModelToIr` mapped three constructs onto write-API shapes that do not
+  exist.** All three produced an IR that typechecked and a script that failed at
+  run time, because `IrValue` is deliberately loose enough that `tsc` cannot
+  check an argument against the signature it is meant to satisfy.
+  - `addChart` received the chart type as a third positional argument; the
+    signature is `addChart(data, options & { type })`, so the type now rides in
+    the options object.
+  - `addConnector` received a bounding box (`x`/`y`/`w`/`h`) and a nested `line`
+    object. It takes two endpoints and flat stroke options, so connectors now
+    emit `x1`/`y1`/`x2`/`y2` derived from the box **and its `a:flipH`/`a:flipV`
+    flags** — without the flips every up- or leftward connector is silently
+    mirrored — plus `color`/`width`/`dashType`/arrowheads. A gradient or
+    translucent connector stroke has no flat spelling and is now noted.
+  - A slide bound to a layout whose name is shared by another layout in the deck
+    made `appendSlides` throw. `SlideIr.layout` now carries the gallery index and
+    whether the name is unique.
+
+- **Three shapes could vanish from a conversion with no fidelity note**, against
+  the contract that a dropped shape is never silent: an auto shape with neither
+  text nor geometry of its own (an unfilled placeholder, whose outline comes from
+  the layout), and a group whose every child was dropped. Both are now declared
+  (`shape.empty`, `group.empty`). The third path — an unrecognised shape kind —
+  turned out to be unreachable, which the type checker proves.
 
 - **`Presentation.appendSlides` now carries speaker notes.** A generator slide
   authored with `addNotes` previously lost its notes entirely when spliced onto a
