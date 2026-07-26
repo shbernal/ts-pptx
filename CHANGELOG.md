@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`Presentation.appendSlides` now carries speaker notes.** A generator slide
+  authored with `addNotes` previously lost its notes entirely when spliced onto a
+  loaded deck — `extractSlides` emitted no notes part, so the append path had
+  nothing to wire. It now emits a `notesSlide` per notes-bearing slide, wired back
+  to the slide it annotates, with the notes body's own hyperlink relationships
+  preserved (`rId1` = notes master, `rId2` = slide, hyperlinks from `rId3`).
+
+  A notes slide must bind to a notes master, and a template usually has none — a
+  deck authored without speaker notes carries no `notesMaster` part at all — so the
+  generator's own notes master (and the theme its `.rels` requires) rides along in
+  `ExtractedSlides.notesMaster` and is installed **only** when the destination deck
+  has none. A destination that already has a notes master keeps it, so its notes
+  styling wins; this matches the existing `importNotes` policy. `ExtractedSlide`
+  gains an optional `notes` field for the same reason.
+
 - **`markDirty()` on every read-model class that exposes `element_`.** `element_`
   hands out the live DOM node, but an edit through it was silently discarded on
   `save()` unless the caller reached the owning part themselves

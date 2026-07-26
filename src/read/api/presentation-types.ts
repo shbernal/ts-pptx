@@ -410,6 +410,25 @@ export interface ExtractedSlide {
 	 * wires the two external rels without reserving a media part or content type.
 	 */
 	onlineMedia: OnlineMediaItem[]
+	/**
+	 * The slide's speaker notes, or `undefined` when it has none. Carried as a ready
+	 * `<p:notes>` part body plus its external hyperlink rels;
+	 * {@link Presentation.appendSlides} creates the notes part, wires it to the appended
+	 * slide, and binds it to a notes master (see {@link ExtractedSlides.notesMaster}).
+	 */
+	notes?: ExtractedNotes
+}
+
+/** One slide's speaker notes, extracted for {@link Presentation.appendSlides}. */
+export interface ExtractedNotes {
+	/** Standalone `<p:notes>` part body (XML declaration + namespaces included). */
+	xml: string
+	/**
+	 * External hyperlink rels the notes body references, keyed by the `rId` used in
+	 * {@link xml}. Notes rels reserve `rId1` for the notes master and `rId2` for the
+	 * slide, so these start at `rId3`. Notes support external `url` links only.
+	 */
+	hyperlinks: Array<{ rId: number; target: string }>
 }
 
 /** One embedded audio/video item extracted for {@link Presentation.appendSlides}. */
@@ -457,6 +476,17 @@ export interface ExtractedSlides {
 	 * face carries its raw `bytes`. Empty when the generator embeds no fonts.
 	 */
 	embeddedFonts: EmbeddedFont[]
+	/**
+	 * A notes master to fall back on, present only when at least one slide carries notes.
+	 *
+	 * A notes slide must bind to a notes master, and a destination template often has
+	 * none — a deck authored without speaker notes carries no `notesMaster` part. So the
+	 * generator's own notes master rides along, and {@link Presentation.appendSlides}
+	 * installs it (with its theme) **only** when the destination has none. When the
+	 * destination already has one, it wins and this is discarded — matching the
+	 * `importNotes` policy, where the destination's notes styling also wins.
+	 */
+	notesMaster?: { xml: string; themeXml: string }
 }
 
 /**

@@ -201,6 +201,8 @@ import { createSlideMaster } from './gen/define/master.js'
 import { addPlaceholdersToSlideLayouts } from './gen/define/placeholder.js'
 import { encodeSlideMediaRels } from './gen/media.js'
 import { makeXmlSlide } from './gen/slide/slide.js'
+import { buildNotesSlideRels, makeXmlNotesMaster, makeXmlNotesSlide } from './gen/slide/notes.js'
+import { makeXmlTheme } from './gen/pres/theme.js'
 import { buildPackageParts, writePackage, type PackageSource } from './package/assemble.js'
 
 const VERSION = '10.4.0'
@@ -696,6 +698,20 @@ export default class PresentationCore {
 				embeddingBytes: buildEmbeddedWorksheet(rel),
 			}))
 
+			// Speaker notes. makeXmlNotesSlide calls buildNotesSlideRels itself (and caches
+			// on the slide), so the rels are read back afterwards rather than rebuilt — the
+			// body and the rels file must agree on every hyperlink rId. Notes rels reserve
+			// rId1=notesMaster and rId2=slide, both of which appendSlides wires itself.
+			const hasNotes = slide._slideObjects.some((obj) => obj._type === SlideObjectType.notes)
+			const notes = hasNotes
+				? {
+						xml: makeXmlNotesSlide(slide),
+						hyperlinks: buildNotesSlideRels(slide)
+							.filter((rel) => typeof rel.Target === 'string' && rel.Target)
+							.map((rel) => ({ rId: rel.rId, target: rel.Target })),
+					}
+				: undefined
+
 			return {
 				xml: makeXmlSlide(slide),
 				media,
@@ -704,17 +720,27 @@ export default class PresentationCore {
 				slideLinks,
 				avMedia,
 				onlineMedia,
+				...(notes ? { notes } : {}),
 			}
 		})
 
 		// Presentation-level embedded fonts (pptx.embedFont) ride alongside the slides
 		// so appendSlides can carry them into the destination deck; same model the
 		// write path serializes (see src/embedded-fonts.ts), passed through unchanged.
+		// A notes slide must bind to a notes master, and a destination template commonly has
+		// none (a deck authored without notes carries no notesMaster part). Ship ours so the
+		// append path can install one; it is discarded when the destination already has one.
+		// theme2.xml is what notesMaster1.xml.rels resolves to on the normal write path.
+		const notesMaster = slides.some((s) => s.notes)
+			? { xml: makeXmlNotesMaster(), themeXml: makeXmlTheme(this.internalPresentation) }
+			: undefined
+
 		return {
 			widthEmu: this.presLayout.width,
 			heightEmu: this.presLayout.height,
 			slides,
 			embeddedFonts: this._embeddedFonts,
+			...(notesMaster ? { notesMaster } : {}),
 		}
 	}
 

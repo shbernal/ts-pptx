@@ -73,6 +73,7 @@ const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/
 const SLIDE_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster'
 const NOTES_SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
 const NOTES_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster'
+const THEME_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme'
 const IMAGE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 const HYPERLINK_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
 const CHART_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart'
@@ -86,6 +87,9 @@ const MS_MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/med
 const SLIDE_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
 const SLIDE_LAYOUT_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
+const NOTES_SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml'
+const NOTES_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml'
+const THEME_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.theme+xml'
 const CHART_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'
 const XLSX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
@@ -107,9 +111,9 @@ const textEncoder = new TextEncoder()
 const SHARED_CHROME_CONTENT_TYPES = new Set([
 	SLIDE_MASTER_CONTENT_TYPE,
 	SLIDE_LAYOUT_CONTENT_TYPE,
-	'application/vnd.openxmlformats-officedocument.theme+xml',
+	THEME_CONTENT_TYPE,
 	'application/vnd.openxmlformats-officedocument.themeOverride+xml',
-	'application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml',
+	NOTES_MASTER_CONTENT_TYPE,
 	'application/vnd.openxmlformats-officedocument.presentationml.handoutMaster+xml',
 	'application/vnd.openxmlformats-officedocument.presentationml.presProps+xml',
 	'application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml',
@@ -672,8 +676,23 @@ export class Presentation {
 		if (existing) return presRels.resolveTarget(existing.id)
 
 		// No notesMaster yet: copy the source's (pulls its theme) and register it.
-		const newNotesMasterPartName = this.#copyPart(sourceOpc, sourceNotesMasterPartName)
-		const relId = presRels.add(NOTES_MASTER_REL, relativePartName(presPart.partName, newNotesMasterPartName)).id
+		return this.#registerNotesMaster(this.#copyPart(sourceOpc, sourceNotesMasterPartName))
+	}
+
+	/**
+	 * Wire an already-added notesMaster part into `presentation.xml`: a `notesMaster`
+	 * relationship plus the single `p:notesMasterId` entry that `CT_NotesMasterIdList`
+	 * allows. Returns the partname, so callers can use it as a rel target.
+	 *
+	 * Split out of {@link #ensureNotesMaster} because the two ways a notesMaster arrives
+	 * — copied from another `Presentation`, or authored by a generator and injected by
+	 * {@link appendSlides} — differ only in how the *part* is created, not in how it is
+	 * registered.
+	 */
+	#registerNotesMaster(notesMasterPartName: string): string {
+		const presPart = this.presentationPart
+		const presRels = this.opc.relationshipsFor(presPart.partName)
+		const relId = presRels.add(NOTES_MASTER_REL, relativePartName(presPart.partName, notesMasterPartName)).id
 
 		const root = presPart.dom.documentElement
 		if (!root) throw new Error('presentation.xml has no document element to register a notes master in')
@@ -698,7 +717,32 @@ export class Presentation {
 		setAttr(entry, 'r:id', relId)
 		lst.appendChild(entry)
 		presPart.markDirty()
-		return newNotesMasterPartName
+		return notesMasterPartName
+	}
+
+	/**
+	 * Resolve the notesMaster an *appended* slide's notes should bind to. Same
+	 * single-notesMaster rule as {@link #ensureNotesMaster}: this deck's own wins when it
+	 * has one, so the destination's notes styling is preserved and `master.xml` is
+	 * discarded. Otherwise the generator's notes master is installed, together with the
+	 * theme its `.rels` requires (the normal write path emits that as `theme2.xml`).
+	 */
+	#ensureNotesMasterFromXml(master: { xml: string; themeXml: string }): string {
+		const presPart = this.presentationPart
+		const presRels = this.opc.relationshipsFor(presPart.partName)
+		const existing = presRels.byType(NOTES_MASTER_REL)[0]
+		if (existing) return presRels.resolveTarget(existing.id)
+
+		const masterPartName = this.opc.reservePartNameLike('/ppt/notesMasters/notesMaster1.xml')
+		this.opc.addPart(masterPartName, NOTES_MASTER_CONTENT_TYPE, textEncoder.encode(master.xml))
+
+		// A notesMaster's .rels must resolve a theme; reserve alongside any theme the
+		// destination already owns rather than assuming theme2.xml is free.
+		const themePartName = this.opc.reservePartNameLike('/ppt/theme/theme1.xml')
+		this.opc.addPart(themePartName, THEME_CONTENT_TYPE, textEncoder.encode(master.themeXml))
+		this.opc.relationshipsFor(masterPartName).add(THEME_REL, relativePartName(masterPartName, themePartName))
+
+		return this.#registerNotesMaster(masterPartName)
 	}
 
 	/**
@@ -1020,6 +1064,12 @@ export class Presentation {
 	 * with the media content type registered as a Default extension entry (what PowerPoint
 	 * authors). Online (external-link) video rides as two External rels over the link.
 	 *
+	 * Speaker notes ride across too: a slide authored with `addNotes` gets a `notesSlide`
+	 * part wired back to it, with its hyperlink rels preserved. A notes slide must bind to
+	 * a notes master, and a template commonly has none, so the generator's is installed
+	 * (with the theme its `.rels` needs) — but only when this deck has none of its own, so
+	 * an existing notes master and its styling always win.
+	 *
 	 * Limitations:
 	 * - An internal link to a source slide outside the appended batch throws (its
 	 *   target has no counterpart in the destination).
@@ -1028,7 +1078,6 @@ export class Presentation {
 	 *   resolution and the "based on" link, not placeholder geometry. Author with
 	 *   concrete colours — any `schemeClr` re-resolves against the destination theme.
 	 * - Source and destination slide sizes must match (no geometry rescale).
-	 * - Notes are not generated.
 	 */
 	async appendSlides(source: SlideSource, options: AppendSlidesOptions): Promise<Slide[]> {
 		// 1. Resolve the target layout partname (explicit; no silent fallback).
@@ -1123,6 +1172,25 @@ export class Presentation {
 			}
 			for (const h of slide.hyperlinks) {
 				rels.addWithId(`rId${h.rId}`, HYPERLINK_REL, h.target, 'External')
+			}
+			if (slide.notes) {
+				// Speaker notes. The notes part carries its own rel namespace, independent of
+				// the slide's: rId1 = notesMaster, rId2 = the slide it annotates, hyperlinks
+				// from rId3 — the order the generator's body was serialized against, so these
+				// are added by explicit id rather than left to auto-numbering.
+				const notesPartName = this.opc.reservePartNameLike('/ppt/notesSlides/notesSlide1.xml')
+				this.opc.addPart(notesPartName, NOTES_SLIDE_CONTENT_TYPE, textEncoder.encode(slide.notes.xml))
+				rels.add(NOTES_SLIDE_REL, relativePartName(partName, notesPartName))
+
+				const notesRels = this.opc.relationshipsFor(notesPartName)
+				const notesMasterPartName = extracted.notesMaster ? this.#ensureNotesMasterFromXml(extracted.notesMaster) : null
+				if (notesMasterPartName) {
+					notesRels.addWithId('rId1', NOTES_MASTER_REL, relativePartName(notesPartName, notesMasterPartName))
+				}
+				notesRels.addWithId('rId2', SLIDE_REL, relativePartName(notesPartName, partName))
+				for (const h of slide.notes.hyperlinks) {
+					notesRels.addWithId(`rId${h.rId}`, HYPERLINK_REL, h.target, 'External')
+				}
 			}
 			for (const c of slide.charts) {
 				// Chart part + its embedded workbook, each under a fresh name. The chart
