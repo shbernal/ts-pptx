@@ -1,0 +1,94 @@
+#!/usr/bin/env node
+// Freshness guard for `dist/`. Rebuilds only when the build inputs are newer
+// than the build outputs; otherwise it is a ~50ms no-op.
+//
+// Why this exists: the test suite runs against the built package (tests import
+// from `dist/`, not `src/`), so every test script used to front-load an
+// unconditional `pnpm run build`. That cost 3.3s on every invocation and drove a
+// parallel set of `:fast` twin scripts that skipped the build and silently
+// tested stale output when `dist/` was not current. One guard replaces both:
+// aggregates and individual scripts call it, and nobody prefixes
+// `pnpm run build &&` any more.
+//
+// Accuracy bias: this compares mtimes, which is imprecise in one harmless
+// direction and must never be imprecise in the other.
+//   - Acceptable: a `git checkout` / `git stash` rewrites source mtimes and
+//     triggers a needless 3.3s rebuild.
+//   - Not acceptable: judging a stale `dist/` fresh, which would run the whole
+//     suite against old code. So the input set includes the build configs and
+//     the lockfile (a dependency bump changes the bundle without touching
+//     `src/`), and the output check requires the `.d.ts` as well as the `.js` —
+//     a build interrupted after emitting JS but before types is not "fresh".
+//
+// Usage:
+//   node scripts/ensure-dist.mjs            rebuild if stale
+//   node scripts/ensure-dist.mjs --check    fail if stale, never build
+//                                           (for CI legs that want the build to
+//                                           be an explicit, separately-timed step)
+
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { ROOT, run } from './script-utils.mjs'
+
+const INPUT_FILES = ['tsdown.config.ts', 'tsconfig.base.json', 'tsconfig.json', 'package.json', 'pnpm-lock.yaml']
+const INPUT_DIR = 'src'
+const OUTPUT_FILES = ['dist/index.js', 'dist/index.d.ts']
+
+/** Newest mtime under `dir`, recursively. Returns 0 if the tree is absent. */
+async function newestMtimeIn(dir) {
+	let newest = 0
+	let entries
+	try {
+		entries = await fs.readdir(dir, { withFileTypes: true })
+	} catch {
+		return 0
+	}
+	for (const entry of entries) {
+		const full = path.join(dir, entry.name)
+		if (entry.isDirectory()) {
+			newest = Math.max(newest, await newestMtimeIn(full))
+		} else if (entry.isFile()) {
+			const { mtimeMs } = await fs.stat(full)
+			newest = Math.max(newest, mtimeMs)
+		}
+	}
+	return newest
+}
+
+async function mtimeOf(file) {
+	try {
+		return (await fs.stat(file)).mtimeMs
+	} catch {
+		return 0
+	}
+}
+
+/** @returns {Promise<string | null>} why `dist/` is stale, or null if it is current. */
+async function stale() {
+	const outputs = await Promise.all(OUTPUT_FILES.map((f) => mtimeOf(path.join(ROOT, f))))
+	const missing = OUTPUT_FILES.filter((_, i) => outputs[i] === 0)
+	if (missing.length > 0) return 'missing build output: ' + missing.join(', ')
+
+	const oldestOutput = Math.min(...outputs)
+	const inputMtimes = await Promise.all([
+		newestMtimeIn(path.join(ROOT, INPUT_DIR)),
+		...INPUT_FILES.map((f) => mtimeOf(path.join(ROOT, f))),
+	])
+	const newestInput = Math.max(...inputMtimes)
+	if (newestInput > oldestOutput) {
+		const which = [INPUT_DIR + '/', ...INPUT_FILES][inputMtimes.indexOf(newestInput)]
+		return 'build input is newer than dist/: ' + which
+	}
+	return null
+}
+
+const reason = await stale()
+if (reason === null) process.exit(0)
+
+if (process.argv.includes('--check')) {
+	console.error('dist/ is not current (' + reason + '). Run: pnpm run build')
+	process.exit(1)
+}
+
+console.log('dist/ is not current (' + reason + ') — building')
+await run('pnpm', ['run', 'build'])
