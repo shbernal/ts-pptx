@@ -171,10 +171,12 @@ So before writing a test for a red branch, ask which of these it is:
 
 `src/read/api/chrome.ts` is the worked example: it sits near 64% branches while
 its statements, functions, and lines are at or near 100%. The header comment in
-`test/read/chrome-read-edges.test.js` enumerates every remaining branch, the
-content model that makes it impossible, and the two that are legal input and so
-would be worth covering. Extend that note rather than re-deriving it if the
-number ever comes up again.
+`test/read/chrome-read-edges.test.js` enumerates every remaining branch and the
+content model that makes it impossible. The two that turned out to be legal input
+(`p:sldLayoutIdLst` and `p:txBody`, both `minOccurs="0"`) are asserted at the foot
+of that file — each patched into an authored master and run past the schema
+validator, so "the input is legal" is checked rather than asserted. Extend that
+note rather than re-deriving it if the number ever comes up again.
 
 ## OOXML Schema Validation
 

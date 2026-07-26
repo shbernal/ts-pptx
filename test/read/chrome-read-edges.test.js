@@ -40,25 +40,48 @@
 // them means hand-building a broken package, which asserts nothing about how the
 // reader handles PowerPoint's output: the metric moves and the guarantee does not.
 //
-// Two uncovered branches are *not* in that category, because the schema does allow
-// the input — `p:sldLayoutIdLst` is `minOccurs="0"` on CT_SlideMaster and `p:txBody`
-// is `minOccurs="0"` on CT_Shape. So `SlideMaster.layouts` → `[]` and
-// `Placeholder.textFrame` → `null` are real contracts on legal decks; they are
-// uncovered only because no fixture happens to be shaped that way. Those two are
-// the ones worth authoring a case for if this file is ever extended.
+// Two branches were *not* in that category, because the schema does allow the
+// input — `p:sldLayoutIdLst` is `minOccurs="0"` on CT_SlideMaster and `p:txBody` is
+// `minOccurs="0"` on CT_Shape. So `SlideMaster.layouts` → `[]` and
+// `Placeholder.textFrame` → `null` are real contracts on decks PowerPoint can write,
+// uncovered only because no fixture happens to be shaped that way. Both are asserted
+// in the last describe below, against an authored deck patched into that shape — and
+// each patched package is run past the schema validator, which is what separates
+// these from the four groups above: the input is legal, so the contract is real.
 
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
-import { authorRead } from './authored.js'
+import { authorRead, schemaErrors, validatorInstalled } from './authored.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 async function open(name, ext = 'pptx') {
 	return Presentation.load(await readFile(path.join(__dirname, 'fixtures', `${name}.${ext}`)))
+}
+
+/**
+ * Author a one-slide deck and rewrite its `slideMaster1.xml` with `mutate`, leaving
+ * the rest of the package — theme, layout, slide, rels — the writer's own. Returns
+ * the patched bytes so the caller can both read them back and schema-validate them;
+ * validating is the point here, since the claim under test is that the shape is
+ * legal input rather than a hand-broken package.
+ */
+async function patchedMaster(mutate) {
+	const { buf } = await authorRead((pres) => {
+		pres.addSlide()
+	})
+	const zip = await JSZip.loadAsync(buf)
+	const partName = 'ppt/slideMasters/slideMaster1.xml'
+	const xml = await zip.file(partName).async('string')
+	const patched = mutate(xml)
+	assert(patched !== xml, 'the patch actually changed the master XML')
+	zip.file(partName, patched)
+	return zip.generateAsync({ type: 'uint8array' })
 }
 
 describe('SlideMaster.background — the master tier of the chain', () => {
@@ -131,5 +154,66 @@ describe('Placeholder geometry — inherited rather than own', () => {
 		assertEqual(inherited.top, null, 'null top')
 		assertEqual(inherited.width, null, 'null width')
 		assertEqual(inherited.height, null, 'null height')
+	})
+})
+
+describe('optional children the fixtures never carry', () => {
+	// The two branches the header calls out: schema-legal input that no committed
+	// deck happens to be shaped like. Each is patched into an authored master and
+	// validated, so the assertion pins a contract rather than a guard's false arm.
+
+	// `p:sldLayoutIdLst` is minOccurs="0" on CT_SlideMaster: a master may list no
+	// layouts at all. The layout part and its relationship stay in the package —
+	// only the listing goes — since an unreferenced part is still legal, and that
+	// keeps the empty read attributable to the missing list rather than to a
+	// half-dismantled package.
+	const withoutLayoutIdLst = () => patchedMaster((xml) => xml.replace(/<p:sldLayoutIdLst>.*?<\/p:sldLayoutIdLst>/s, ''))
+
+	test('a master with no p:sldLayoutIdLst reads an empty layout list', async () => {
+		const presentation = await Presentation.load(await withoutLayoutIdLst())
+		const master = presentation.masters()[0]
+		assert(master, 'the master itself still loads')
+		assertEqual(master.layouts.length, 0, 'no p:sldLayoutIdLst → [], not a throw')
+		// The layout part is still there and still bound to the slide, so the empty
+		// list above is the master declining to enumerate — not the layout going missing.
+		assertEqual(presentation.slides[0].layout?.name, 'DEFAULT', "the slide's own layout rel is unaffected")
+	})
+
+	test.skipIf(!validatorInstalled)('…and that master is schema-valid', async () => {
+		assertEqual((await schemaErrors(await withoutLayoutIdLst())).length, 0, 'p:sldLayoutIdLst is genuinely optional')
+	})
+
+	// `p:txBody` is minOccurs="0" on CT_Shape. Two placeholders are spliced in, one
+	// with a text body and one without, so the null reads as a real absence rather
+	// than a lookup that fails for every shape.
+	const PH_WITHOUT_TXBODY =
+		'<p:sp><p:nvSpPr><p:cNvPr id="9" name="Bodyless Placeholder"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr>' +
+		'<p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr>' +
+		'<p:spPr><a:xfrm><a:off x="838200" y="1825625"/><a:ext cx="10515600" cy="4351338"/></a:xfrm></p:spPr></p:sp>'
+	const PH_WITH_TXBODY =
+		'<p:sp><p:nvSpPr><p:cNvPr id="10" name="Prompted Placeholder"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr>' +
+		'<p:nvPr><p:ph type="body" idx="2"/></p:nvPr></p:nvSpPr>' +
+		'<p:spPr><a:xfrm><a:off x="838200" y="1825625"/><a:ext cx="10515600" cy="4351338"/></a:xfrm></p:spPr>' +
+		'<p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US"/><a:t>Master prompt</a:t></a:r></a:p></p:txBody></p:sp>'
+
+	const withBodylessPlaceholder = () =>
+		patchedMaster((xml) => xml.replace('</p:spTree>', `${PH_WITHOUT_TXBODY}${PH_WITH_TXBODY}</p:spTree>`))
+
+	test('a placeholder with no p:txBody reads a null textFrame', async () => {
+		const master = (await Presentation.load(await withBodylessPlaceholder())).masters()[0]
+		const [bodyless, prompted] = master.placeholders
+		assertEqual(master.placeholders.length, 2, 'both spliced placeholders are matched by the p:ph filter')
+		// It is a fully-formed placeholder otherwise — only the text body is absent.
+		assertEqual(bodyless.name, 'Bodyless Placeholder', 'the shape name still reads')
+		assertEqual(bodyless.type, 'body', 'the p:ph type still reads')
+		assertEqual(bodyless.idx, '1', 'the p:ph idx still reads')
+		assertEqual(bodyless.left, 838200, 'the geometry still reads')
+		assertEqual(bodyless.textFrame, null, 'no p:txBody → null')
+		// The sibling proves the null is an absence, not a broken lookup.
+		assertEqual(prompted.textFrame?.text, 'Master prompt', 'the placeholder that does carry one still reads it')
+	})
+
+	test.skipIf(!validatorInstalled)('…and that master is schema-valid', async () => {
+		assertEqual((await schemaErrors(await withBodylessPlaceholder())).length, 0, 'p:txBody is genuinely optional')
 	})
 })
