@@ -27,16 +27,16 @@ function pageTitle(page: string): string {
 		.split('/')
 		.at(-1)!
 		.replaceAll('-', ' ')
-		.replace(/\b\w/g, char => char.toUpperCase())
+		.replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
 function routeFor(page: string): string {
 	return page.endsWith('/index') ? `/${page.slice(0, -'/index'.length)}/` : `/${page}`
 }
 
-const sidebar = docsConfig.navigation.map(group => ({
+const sidebar = docsConfig.navigation.map((group) => ({
 	text: group.group,
-	items: group.pages.map(page => ({
+	items: group.pages.map((page) => ({
 		text: pageTitle(page),
 		link: routeFor(page),
 	})),
