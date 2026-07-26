@@ -11,6 +11,14 @@ import { coverageConfigDefaults, defineConfig } from 'vitest/config'
 // them upward as coverage improves; never loosen them to make a red build pass.
 export default defineConfig({
 	test: {
+		// The schema fixtures are `describe.concurrent` and each concurrent test
+		// spawns an OOXMLValidatorCLI (.NET) process; `test/read` spawns validators
+		// too, so with a bare `vitest run` the real process ceiling is
+		// workers × maxConcurrency. Cap it deliberately rather than leaving the
+		// default (5) to interact with the worker pool by accident. If CI turns
+		// flaky or OOMs, lower this — do not re-serialize the suite, that is the
+		// 50s → ~15s the concurrency bought.
+		maxConcurrency: 8,
 		coverage: {
 			provider: 'v8',
 			include: ['dist/**/*.js'],
