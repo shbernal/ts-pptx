@@ -1275,8 +1275,9 @@ export class Presentation {
 	 * Differing slide sizes need `{ rescale }` (see {@link ImportShapeOptions.rescale});
 	 * a lifted `preserve` placeholder is baked self-contained and demoted to a plain
 	 * shape (see {@link ImportShapeOptions.theme}), so it neither re-inherits from nor
-	 * collides with the host. Remaining limitation: the source slide's build
-	 * animation/timing for the shape is dropped (the shape lands static).
+	 * collides with the host. A shape's build animation lives in the slide-scoped
+	 * `p:timing`, not in its subtree, so the shape lands static unless
+	 * `{ carryAnimation: true }` opts in (see {@link ImportShapeOptions.carryAnimation}).
 	 */
 	importShape(target: Slide, source: Slide, shapeIndex: number, options: ImportShapeOptions = {}): AnyShape {
 		const [shape] = this.importShapes(target, source, [shapeIndex], options)
