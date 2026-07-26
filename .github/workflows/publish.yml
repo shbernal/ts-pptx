@@ -14,9 +14,16 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The full CI gate, run as-is rather than transcribed. Publishing waits on it.
+  gate:
+    name: CI gate
+    if: github.repository == 'shbernal/ts-pptx'
+    uses: ./.github/workflows/ci.yml
+
   publish:
     name: Publish package
     if: github.repository == 'shbernal/ts-pptx'
+    needs: gate
     runs-on: ubuntu-latest
     environment: npm-publish
 
@@ -74,41 +81,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install OOXML validator
-        run: ./tools/ooxml-validator/install.sh
-
-      - name: Lint
-        run: pnpm run lint
-
-      - name: Check formatting
-        run: pnpm run format:check
-
-      - name: Typecheck
-        run: pnpm run typecheck
-
-      - name: Typecheck scripts
-        run: pnpm run typecheck:scripts
-
-      - name: Test (with coverage thresholds)
-        run: pnpm run test:coverage
-
+      # Explicit, because the publish below passes --ignore-scripts and so never
+      # fires `prepack`. This is the one build in the workflow, not one of many.
       - name: Build package artifacts
         run: pnpm run build
-
-      - name: Lint package manifest
-        run: pnpm run package:lint
-
-      - name: Check package manifest
-        run: pnpm run pack:check
-
-      - name: Smoke test packed package
-        run: pnpm run test:package
-
-      - name: Smoke test demos
-        run: pnpm run test:demos
-
-      - name: Verify npm pack contents
-        run: npm pack --dry-run --ignore-scripts
 
       - name: Publish to npm
         run: npm publish --access public --provenance --ignore-scripts
