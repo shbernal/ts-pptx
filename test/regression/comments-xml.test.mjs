@@ -9,6 +9,14 @@ import { makeXmlCommentAuthors, makeXmlComments, resolveCommentAuthors } from '.
 
 const author = (over = {}) => ({ id: 0, name: 'Ada Lovelace', initials: 'AL', lastIdx: 1, clrIdx: 0, ...over })
 const comment = (over = {}) => ({ author: 'Ada Lovelace', initials: 'AL', text: 'x', x: 1, y: 0.5, ...over })
+/**
+ * A slide stub carrying only the field these emitters read. Cast because the
+ * emitters declare the full internal slide shape, of which `_comments` is the
+ * only part reachable from here.
+ * @param {any[]} comments
+ * @returns {any}
+ */
+const slideWith = (comments) => ({ _comments: comments })
 
 describe('makeXmlCommentAuthors', () => {
 	test('cmAuthor attribute order: id, name, initials, lastIdx, clrIdx', () => {
@@ -33,14 +41,14 @@ describe('makeXmlComments', () => {
 	test('cm attribute order: authorId, dt, idx (dt present)', () => {
 		const c = comment({ date: '2026-06-24T10:00:00Z' })
 		const meta = new Map([[c, { authorId: 0, idx: 1 }]])
-		const xml = makeXmlComments({ _comments: [c] }, meta)
+		const xml = makeXmlComments(slideWith([c]), meta)
 		expect(xml).toContain('<p:cm authorId="0" dt="2026-06-24T10:00:00Z" idx="1">')
 	})
 
 	test('dt attribute is omitted (not emitted empty) when date is unset', () => {
 		const c = comment()
 		const meta = new Map([[c, { authorId: 0, idx: 1 }]])
-		const xml = makeXmlComments({ _comments: [c] }, meta)
+		const xml = makeXmlComments(slideWith([c]), meta)
 		expect(xml).toContain('<p:cm authorId="0" idx="1">')
 		expect(xml).not.toContain('dt=')
 	})
@@ -48,27 +56,27 @@ describe('makeXmlComments', () => {
 	test('child order is p:pos then p:text; pos coords are rounded EMU', () => {
 		const c = comment({ x: 1, y: 0.5, text: 'hello' })
 		const meta = new Map([[c, { authorId: 0, idx: 1 }]])
-		const xml = makeXmlComments({ _comments: [c] }, meta)
+		const xml = makeXmlComments(slideWith([c]), meta)
 		expect(xml).toContain('<p:pos x="914400" y="457200"/><p:text>hello</p:text>')
 	})
 
 	test('text and dt are escaped', () => {
 		const c = comment({ text: 'A & B < C', date: 'Q&A' })
 		const meta = new Map([[c, { authorId: 0, idx: 1 }]])
-		const xml = makeXmlComments({ _comments: [c] }, meta)
+		const xml = makeXmlComments(slideWith([c]), meta)
 		expect(xml).toContain('<p:text>A &amp; B &lt; C</p:text>')
 		expect(xml).toContain('dt="Q&amp;A"')
 	})
 
 	test('a comment absent from meta is silently skipped (defensive branch)', () => {
 		const c = comment()
-		const xml = makeXmlComments({ _comments: [c] }, new Map())
+		const xml = makeXmlComments(slideWith([c]), new Map())
 		expect(xml).not.toContain('<p:cm ')
 		expect(xml).toContain('<p:cmLst')
 	})
 
 	test('no comments on the slide emits an empty cmLst', () => {
-		const xml = makeXmlComments({ _comments: [] }, new Map())
+		const xml = makeXmlComments(slideWith([]), new Map())
 		expect(xml).toContain('></p:cmLst>')
 	})
 })
@@ -78,7 +86,7 @@ describe('resolveCommentAuthors', () => {
 		const c1 = comment({ author: 'Ada Lovelace', initials: 'AL' })
 		const c2 = comment({ author: 'Alan Turing', initials: 'AT' })
 		const c3 = comment({ author: 'Ada Lovelace', initials: 'AL' })
-		const slides = [{ _comments: [c1, c2] }, { _comments: [c3] }]
+		const slides = [slideWith([c1, c2]), slideWith([c3])]
 		const { authors, meta } = resolveCommentAuthors(slides)
 		expect(authors.map((a) => [a.name, a.id, a.clrIdx, a.lastIdx])).toEqual([
 			['Ada Lovelace', 0, 0, 2],

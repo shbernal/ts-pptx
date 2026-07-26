@@ -13,7 +13,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
-import { Presentation } from '../../dist/read.js'
+import { Presentation, isGraphicFrame } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -141,7 +141,8 @@ describe('element_ with markDirty()', () => {
 		const reopened = await Presentation.load(saved)
 		const cell = reopened.slides
 			.flatMap((slide) => slide.shapes)
-			.find((shape) => shape.shapeType === 'graphicFrame' && shape.table).table.rows[0].cells[0]
+			.filter(isGraphicFrame)
+			.find((shape) => shape.table).table.rows[0].cells[0]
 		assertEqual(cell.element_.getAttribute('marL'), '91440', 'the marked edit reaches the output')
 	})
 

@@ -8,6 +8,8 @@
 		"allowJs": true,
 		"checkJs": true,
 		"allowImportingTsExtensions": true,
+		"incremental": true,
+		"tsBuildInfoFile": ".tmp/tsconfig.scripts.tsbuildinfo",
 		// The build/maintenance scripts are plain untyped ESM. Relax the two
 		// annotation-demanding rules (implicit `any` params/vars, index-signature
 		// property access) that only make sense for annotated `.ts` sources, and

@@ -8,6 +8,8 @@
 		"allowJs": true,
 		"checkJs": true,
 		"allowImportingTsExtensions": true,
+		"incremental": true,
+		"tsBuildInfoFile": ".tmp/tsconfig.test.tsbuildinfo",
 		// The test suite is plain untyped ESM (`.js`/`.mjs`) run through Vitest.
 		// Relax the strictness that only makes sense for annotated `.ts` sources and
 		// would otherwise force ceremony on tests that operate on known fixtures:

@@ -4,7 +4,11 @@
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
 		"noEmit": true,
-		"types": ["node"]
+		"types": ["node"],
+		// Incremental state lives under the gitignored `.tmp/`, with a distinct file
+		// per project — a shared buildinfo would thrash between the three configs.
+		"incremental": true,
+		"tsBuildInfoFile": ".tmp/tsconfig.tsbuildinfo"
 	},
 	"include": ["src/**/*.ts"]
 }

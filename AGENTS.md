@@ -113,11 +113,53 @@ MCPs' corpora.
 
 ## Verification
 
-- For source changes, run `pnpm run build` and `pnpm run typecheck` when practical.
-- For behavior changes, run `pnpm run test:unit`.
-- For OOXML serialization changes, add or update a fixture in `test/schema-cases.js` and run `pnpm run test:schema`.
+### The default loop
+
+- **`pnpm run verify`** (~45s) is the per-iteration check: build → `typecheck` →
+  `typecheck:scripts` → the regression, read, and tooling suites. Run this instead of
+  hand-composing four or five separate commands — hand-composed sets come out slightly
+  different every time and end up re-running the same suite twice.
+- **`pnpm run verify:full`** (~2min) before pushing or for a release/package-boundary
+  change: everything in `verify`, plus `typecheck:test`, `test:schema`, `package:lint`,
+  `pack:check`, `test:package`, and `test:demos`.
+- `pnpm run build` passing is **not** evidence of type-correctness — tsdown's `.d.ts`
+  pass does not typecheck, so a genuine type error still builds clean. `typecheck` is
+  the only thing that catches it; never treat a green build as a substitute.
+
+### Do not run these — the git hooks already own them
+
+- **`format`, `format:check`, `lint`.** Pre-commit runs eslint `--fix` then prettier
+  `--write` over staged files and re-stages what they change (`stage_fixed: true`), and
+  pre-push re-verifies the whole repo (`lefthook.yml`). An agent running `format:check`
+  therefore cannot improve the committed result — it can only burn a
+  check→fix→re-check cycle on files that were going to be fixed anyway. This is not a
+  lowered standard: the gate still runs, just not from your shell.
+- What the hooks do *not* cover, and `verify` therefore does: **tests** (no hook runs
+  any) and **`typecheck:test`** (pre-push checks `typecheck` and `typecheck:scripts`
+  only).
+
+### `:fast` variants
+
+Every `test:*` script is prefixed with `pnpm run build &&`, so three test runs in a row
+means three rebuilds. Each has a `:fast` twin (`test:unit:fast`, `test:read:fast`,
+`test:schema:fast`, `test:fast`, `typecheck:test:fast`) that skips the rebuild.
+`:fast` means **"I assert `dist/` is current."** Use it when you have already built and
+have not touched `src/` since; use the plain script when in doubt.
+
+### Shell habit: do not pipe a verification command on its first run
+
+Do not pipe a verification command through `| Select-Object -Last N` (or `tail`) the
+first time you run it. Failures often explain themselves in a `beforeAll` or setup
+message near the *top* of the output, and a tail filter scrolls exactly that off. The
+concrete case: `test:schema` requires the validator installed with
+`./tools/ooxml-validator/install.sh`, and its absence is reported up front — piping the
+first run turned one legible missing-validator error into three blind 40s re-runs. Run
+bare first; filter only on a re-run, once you know what you are looking for.
+
+### Targeted checks the above does not cover
+
+- For OOXML serialization changes, add or update a fixture in `test/schema-cases.js` and run `pnpm run test:schema` (which requires the validator installed with `./tools/ooxml-validator/install.sh`).
 - For a *behavior-preserving* refactor of the `src/gen/` emitters, gate every step on the byte-identity harness: `pnpm run byte-identity:baseline` before the refactor, then `pnpm run byte-identity:check` after each step. It generates the full demo deck, recurses into every embedded `.xlsx`, and diffs all 1637 parts; only three nondeterministic patterns (core.xml timestamps, `p14:section` ids, `c16:uniqueId`) are normalized. Any other byte change is a real regression — do not accept one as cleanup.
 - **Whitespace-only byte diffs are a STOP, not a known-divergence.** Inter-element whitespace is semantically inert, but whitespace adjacent to character data is content, and the emitters keep those cases separate: pretty-printing exists only in structural regions, while every text-bearing element (`<a:t>`, `<vt:lpstr>`, `<c:v>`, `<si><t>`) is emitted flat. Waving through "harmless" whitespace is therefore the exact reasoning that would also wave through a real content change. If a part resists byte-identity, leave it un-migrated on template strings and list it as an exception — do not migrate it with an accepted diff. A gate that admits exceptions stops being a gate and becomes a judgment call, precisely where fatigue is highest.
-- `pnpm run test:schema` requires the validator installed with `./tools/ooxml-validator/install.sh`.
-- For release/package boundary changes, consult `docs/testing.md` and run the relevant package or demo smoke commands.
+- For release/package boundary changes, run `pnpm run verify:full` (it bundles `package:lint`, `pack:check`, `test:package`, and `test:demos`) and consult `docs/testing.md` for what each one covers.
 - **Desktop check (Windows + PowerPoint only, not in CI):** `pnpm run test:com` drives the real PowerPoint app over COM to catch what schema validation can't — a package PowerPoint reports as corrupt (`0x80070570`), or an element that is schema-valid but semantically dead. It generates a focused deck from `dist/`, opens it headless, and reads shape state *back out* to assert behavior (e.g. each action-button `hlinkClick` resolves to the expected `PpActionType`). Point it at any deck with `--file <deck.pptx>` for just the corruption-open check. SKIPs cleanly off-Windows or when PowerPoint isn't COM-registered.

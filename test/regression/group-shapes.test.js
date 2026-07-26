@@ -1,4 +1,4 @@
-import { Presentation } from '../../dist/read.js'
+import { Presentation, isGroupShape } from '../../dist/read.js'
 import { defineRegressionSuite, build, readEntry, assert, assertEqual } from '../helpers.js'
 
 // 1x1 transparent PNG
@@ -386,6 +386,7 @@ defineRegressionSuite('Group shapes', [
 			}
 			const [slide] = (await Presentation.load(buf)).slides
 			const [group] = slide.shapes
+			assert(isGroupShape(group), 'expected the top-level shape to read back as a group')
 			assertEqual(group.shapes.length, 1, 'expected the group to have one child')
 			const frame = group.shapes[0].absoluteFrame
 			assert(frame, 'expected a resolvable absoluteFrame, not null (degenerate chExt)')
@@ -803,6 +804,7 @@ defineRegressionSuite('Group shapes', [
 			const [slide] = (await Presentation.load(buf)).slides
 			assertEqual(slide.shapes.length, 1, 'expected a single top-level group after grouping')
 			const [group] = slide.shapes
+			assert(isGroupShape(group), 'expected the top-level shape to read back as a group')
 			assertEqual(group.name, 'Branding', 'group name')
 			assertEqual(
 				(group.shapes || []).map((sh) => sh.name).join(','),

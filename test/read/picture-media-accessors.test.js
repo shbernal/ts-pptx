@@ -45,7 +45,8 @@ function pictureFromXml(innerXml) {
 	const xml = `<p:spTree xmlns:p="${P_NS}" xmlns:a="${A_NS}">${innerXml}</p:spTree>`
 	const spTree = new DOMParser().parseFromString(xml, 'text/xml').documentElement
 	const el = spTree.getElementsByTagNameNS(P_NS, 'pic')[0]
-	return new Picture(el, /** stand-in slide */ {})
+	// Stand-in slide: none of the accessors under test reach through to it.
+	return new Picture(el, /** @type {any} */ ({}))
 }
 
 describe('Picture media accessors (picture-media.pptx)', () => {

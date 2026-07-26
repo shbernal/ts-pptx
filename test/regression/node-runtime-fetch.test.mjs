@@ -31,15 +31,18 @@ afterEach(() => {
 /** Stub globalThis.fetch with a fixed response. `body` is a Buffer/Uint8Array; `ok` toggles the error branch. */
 function stubFetch({ ok = true, body = Buffer.alloc(0) } = {}) {
 	const calls = []
-	globalThis.fetch = async (url) => {
-		calls.push(url)
-		return {
-			ok,
-			async arrayBuffer() {
-				return body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength)
-			},
+	// Cast: the stub returns only the two members the code under test reads, not a full Response.
+	globalThis.fetch = /** @type {any} */ (
+		async (url) => {
+			calls.push(url)
+			return {
+				ok,
+				async arrayBuffer() {
+					return body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength)
+				},
+			}
 		}
-	}
+	)
 	return calls
 }
 

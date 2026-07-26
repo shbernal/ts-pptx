@@ -12,10 +12,13 @@
  *   node scripts/byte-identity.mjs check      # rebuild, regenerate, diff vs baseline
  *
  * Workflow: freeze a baseline BEFORE the refactor, then `check` after each step.
- * Both subcommands run `pnpm run build` first — the deck is generated from
- * `dist/`, not `src/`, so a stale build would silently gate the wrong code.
+ * `baseline` enforces that ordering by refusing to run on a dirty `src/gen/`
+ * (override with `--allow-dirty`). Both subcommands run `pnpm run build` first —
+ * the deck is generated from `dist/`, not `src/`, so a stale build would silently
+ * gate the wrong code.
  */
 
+import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -133,7 +136,39 @@ function diffParts(baseDir, curDir) {
 	return diffs.sort()
 }
 
+/**
+ * A baseline is the *pre-refactor* reference. Frozen from an already-edited
+ * `src/gen/`, it bakes in the very change it exists to detect, and every later
+ * `check` passes trivially — a green gate that proves nothing. Refuse instead,
+ * and say so, because the obvious workaround is `git stash`: stashing a dirty
+ * tree to fake a retroactive baseline risks losing unrelated work to a pop
+ * conflict (AGENTS.md: "Preserve unrelated dirty state").
+ *
+ * Scoped to `src/gen/` deliberately — dirt anywhere else cannot affect the
+ * emitted bytes, so it is none of this gate's business.
+ */
+function assertGenTreeClean() {
+	let dirty
+	try {
+		dirty = execFileSync('git', ['status', '--porcelain', '--', 'src/gen'], { cwd: ROOT, encoding: 'utf8' }).trim()
+	} catch {
+		return // not a git checkout, or git unavailable — nothing to assert
+	}
+	if (!dirty) return
+	console.error('refusing to freeze a baseline: src/gen/ has uncommitted changes:')
+	for (const line of dirty.split('\n')) console.error('  ' + line)
+	console.error('')
+	console.error('The baseline must be taken BEFORE the refactor. Taken now, it records the')
+	console.error('post-edit bytes as the reference and `check` can no longer fail.')
+	console.error('Commit or revert src/gen/ first, or freeze from the pre-refactor commit.')
+	console.error('Do NOT `git stash` a dirty tree to work around this.')
+	console.error('If the current state genuinely IS the intended reference: --allow-dirty')
+	process.exit(2)
+}
+
 // ---------------------------------------------------------------- main
+
+if (mode === 'baseline' && !process.argv.includes('--allow-dirty')) assertGenTreeClean()
 
 // Run the bundler's JS entry directly rather than `pnpm run build`: on Windows
 // the pnpm shim is a .cmd, and Node >=20 refuses to spawn one without a shell.

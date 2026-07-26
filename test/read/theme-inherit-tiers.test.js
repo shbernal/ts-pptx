@@ -63,8 +63,11 @@ function firstRun(frame) {
 }
 
 /** Parse a single DrawingML element (`<a:srgbClr .../>`, `<a:fmtScheme>…`, etc.). */
+/** @returns {import('@xmldom/xmldom').Element} the wrapper's sole child — callers pass exactly one element. */
 function drawingEl(xml) {
-	return new DOMParser().parseFromString(`<a:w xmlns:a="${A_NS}">${xml}</a:w>`, 'text/xml').documentElement.firstChild
+	return /** @type {import('@xmldom/xmldom').Element} */ (
+		new DOMParser().parseFromString(`<a:w xmlns:a="${A_NS}">${xml}</a:w>`, 'text/xml').documentElement.firstChild
+	)
 }
 
 /** An `AutoShape` over hand-authored `p:sp` XML, resolving against `flatten`. */

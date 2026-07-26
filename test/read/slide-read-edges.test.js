@@ -115,7 +115,7 @@ describe('Slide.background — write→read fidelity', () => {
 		})
 		const bg = presentation.slides[0].background
 		assert(bg !== null, 'the slide has a background')
-		assertEqual(bg.type, 'solid', 'solid colour background')
+		assert(bg.type === 'solid', 'solid colour background')
 		assertEqual(bg.source, 'slide', 'authored on the slide, not inherited')
 		assertEqual(bg.color?.effectiveHex, 'C0392B', 'the colour resolves to its literal hex')
 	})
@@ -136,7 +136,7 @@ describe('Slide.background — write→read fidelity', () => {
 			}
 		})
 		const bg = presentation.slides[0].background
-		assertEqual(bg.type, 'gradient', 'gradient background')
+		assert(bg.type === 'gradient', 'gradient background')
 		assertEqual(bg.source, 'slide', 'authored on the slide')
 		assertEqual(bg.gradient.kind, 'linear', 'linear gradient')
 		assertEqual(bg.gradient.angleDeg, 45, '45° preserved through the OOXML 60000ths encoding')
@@ -151,7 +151,7 @@ describe('Slide.background — write→read fidelity', () => {
 			slide.background = { data: PNG_1PX }
 		})
 		const bg = presentation.slides[0].background
-		assertEqual(bg.type, 'image', 'image background')
+		assert(bg.type === 'image', 'image background')
 		assertEqual(bg.source, 'slide', 'authored on the slide')
 		assert(bg.relId != null, 'the blip rel id is read')
 		assert(
@@ -166,7 +166,7 @@ describe('Slide.background — write→read fidelity', () => {
 		})
 		const bg = presentation.slides[0].background
 		assert(bg !== null, 'the effective background is inherited, not null')
-		assertEqual(bg.type, 'themeRef', 'the default layout background is a theme-indexed p:bgRef')
+		assert(bg.type === 'themeRef', 'the default layout background is a theme-indexed p:bgRef')
 		assertEqual(bg.source, 'layout', 'inherited from the layout, not the slide')
 		assertEqual(bg.idx, 1001, 'the default background matrix index')
 	})
@@ -176,12 +176,12 @@ describe('Slide.background — write→read fidelity', () => {
 			pres.addSlide() // inherits the default layout's p:bgRef idx=1001
 		})
 		const bg = presentation.slides[0].background
-		assertEqual(bg.type, 'themeRef', 'theme-indexed background')
+		assert(bg.type === 'themeRef', 'theme-indexed background')
 		assertEqual(bg.idx, 1001, 'raw idx kept for fidelity')
 		// idx 1001 → bgFillStyleLst entry 1 = <a:solidFill><a:schemeClr val="phClr"/></a:solidFill>;
 		// the bgRef's own <a:schemeClr val="bg1"/> supplies the phClr, and bg1 → lt1 → window (FFFFFF).
 		assert(bg.resolvedFill !== null, 'idx resolves to a concrete fill')
-		assertEqual(bg.resolvedFill.type, 'solid', 'the first bg fill-style entry is a solid fill')
+		assert(bg.resolvedFill.type === 'solid', 'the first bg fill-style entry is a solid fill')
 		assertEqual(bg.resolvedFill.color?.effectiveHex, 'FFFFFF', 'phClr substituted with the resolved bg1 (window/white)')
 	})
 

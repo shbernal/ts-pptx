@@ -31,6 +31,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The project's escape-hatch policy is now written down in
   [project target](docs/project-target.md) — the convenience-vs-guarantee rule
   and why the read path gets a deep raw hatch while the write path does not.
+- **`pnpm run verify` and `pnpm run verify:full`** — two aggregate checks that
+  replace hand-composing four or five scripts per iteration. `verify` (~45s) is
+  build + `typecheck` + `typecheck:scripts` + the regression/read/tooling suites;
+  `verify:full` (~2min) adds `typecheck:test`, `test:schema`, `package:lint`,
+  `pack:check`, `test:package`, and `test:demos`. Both omit `lint`/`format:check`
+  by design — the git hooks own those.
+- **`:fast` test variants** — `test:fast`, `test:unit:fast`, `test:read:fast`,
+  `test:schema:fast`, and `typecheck:test:fast` run the same check as their
+  namesakes without the `pnpm run build &&` prefix, for when `dist/` is already
+  current. Follows the existing `test:watch:fast` precedent.
 
 ### Changed
 
@@ -49,6 +59,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   actively stripped — no behaviour change for supported inputs; use
   `transparency` (0–100). Only code reading the internal shape off a corrected
   shadow is affected.
+- `pnpm run byte-identity:baseline` now refuses to run when `src/gen/` has
+  uncommitted changes (override: `--allow-dirty`). A baseline frozen after the
+  refactor has begun records the very bytes it exists to detect, so every later
+  `check` passes trivially. The error names the workaround it is closing —
+  `git stash` on a dirty tree, which risks unrelated work to a pop conflict.
+- The three `tsc` projects are now `incremental`, keeping their build state in
+  the gitignored `.tmp/` (a distinct `tsBuildInfoFile` per project). Warm
+  `typecheck` drops from ~3.4s to ~1.3s; cold runs are no slower, so CI is
+  unaffected.
 
 ## [1.0.0] - 2026-07-24
 

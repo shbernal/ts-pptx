@@ -30,8 +30,11 @@ function ctx(overrides = {}) {
 }
 
 /** Parse a single DrawingML element (`<a:srgbClr/>`, `<a:fontScheme>…`, `<a:fmtScheme>…`). */
+/** @returns {import('@xmldom/xmldom').Element} the wrapper's sole child — callers pass exactly one element. */
 function drawingEl(xml) {
-	return new DOMParser().parseFromString(`<a:w xmlns:a="${A_NS}">${xml}</a:w>`, 'text/xml').documentElement.firstChild
+	return /** @type {import('@xmldom/xmldom').Element} */ (
+		new DOMParser().parseFromString(`<a:w xmlns:a="${A_NS}">${xml}</a:w>`, 'text/xml').documentElement.firstChild
+	)
 }
 
 const stubPart = () => ({ markDirty() {} })

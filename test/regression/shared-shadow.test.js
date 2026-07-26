@@ -31,7 +31,8 @@ defineRegressionSuite('Shared shadow options', 'legacy bug-05', [
 		fn: async () => {
 			const pres = new TsPptx()
 			const slide = pres.addSlide()
-			/** @type {import('../../dist/node.js').ShadowPropsInternal} */
+			/** The caller authors public `ShadowProps`; the writer stamps the derived internal `_alpha` onto it.
+			 * @type {import('../../dist/node.js').ShadowProps & { _alpha?: number }} */
 			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 }
 			slide.addShape(ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, shadow })
 			slide.addShape(ShapeType.rect, { x: 1, y: 3, w: 2, h: 1, shadow })
@@ -64,7 +65,8 @@ defineRegressionSuite('Shared shadow options', 'legacy bug-05', [
 		fn: async () => {
 			const pres = new TsPptx()
 			const slide = pres.addSlide()
-			/** @type {import('../../dist/node.js').ShadowPropsInternal} */
+			/** The caller authors public `ShadowProps`; the writer stamps the derived internal `_alpha` onto it.
+			 * @type {import('../../dist/node.js').ShadowProps & { _alpha?: number }} */
 			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 }
 			slide.addShape(ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, shadow })
 			slide.addShape(ShapeType.rect, { x: 1, y: 3, w: 2, h: 1, shadow })
@@ -84,7 +86,8 @@ defineRegressionSuite('Shared shadow options', 'legacy bug-05', [
 			const slide = pres.addSlide()
 			const png =
 				'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII='
-			/** @type {import('../../dist/node.js').ShadowPropsInternal} */
+			/** The caller authors public `ShadowProps`; the writer stamps the derived internal `_alpha` onto it.
+			 * @type {import('../../dist/node.js').ShadowProps & { _alpha?: number }} */
 			const shadow = { type: 'outer', blur: 6, offset: 2, color: '000000', transparency: 85 }
 			slide.addShape(ShapeType.rect, { x: 1, y: 1, w: 2, h: 1, shadow })
 			slide.addImage({ data: png, x: 1, y: 3, w: 1, h: 1, shadow })

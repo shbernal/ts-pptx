@@ -90,6 +90,23 @@ hatch is acceptable at all.
 
 ## Common Commands
 
+Two aggregate commands cover almost every iteration; reach for the individual
+scripts below only when you want one specific gate:
+
+```bash
+pnpm run verify       # ~45s  — build, typecheck, typecheck:scripts, regression + read + tooling tests
+pnpm run verify:full  # ~2min — the above plus typecheck:test, test:schema, and the package/demo suite
+```
+
+`verify` is the per-change loop; `verify:full` is what to run before pushing or
+when touching the release/package boundary. Both deliberately omit `lint` and
+`format:check`, which the git hooks already own (see [Static Checks](#static-checks)).
+
+Every `test:*` script rebuilds first (`pnpm run build && vitest …`), so running
+several in a row rebuilds several times. Each has a `:fast` twin — `test:unit:fast`,
+`test:read:fast`, `test:schema:fast`, `test:fast`, `typecheck:test:fast` — that skips
+the rebuild. `:fast` asserts *"`dist/` is current"*; use the plain script if unsure.
+
 Build the source bundle used by tests:
 
 ```bash
@@ -101,6 +118,10 @@ Typecheck source:
 ```bash
 pnpm run typecheck
 ```
+
+A green `build` is **not** evidence of type-correctness. tsdown's `.d.ts` pass does
+not typecheck, so a real type error (`const x: number = 'a-string'`) still builds
+successfully and is caught only by `typecheck`. Never substitute one for the other.
 
 Run regression tests:
 
@@ -132,6 +153,26 @@ pnpm run typecheck     # tsc -p tsconfig.json --noEmit
 pnpm run lint          # eslint . --no-warn-ignored
 pnpm run format:check  # prettier --check (includes src/**/*.ts)
 ```
+
+### Who runs which gate
+
+`lint` and `format:check` do not normally need to be run by hand. Pre-commit runs
+eslint `--fix` and prettier `--write` over staged files and re-stages the result
+(`stage_fixed: true`), and pre-push re-verifies the whole repo — so running
+`format:check` yourself can only cost you a check→fix→re-check cycle on files that
+were going to be fixed on commit anyway. What no hook covers is **tests** (none run
+any) and **`typecheck:test`** (pre-push runs `typecheck` and `typecheck:scripts`
+only); those are `verify`'s job.
+
+Note that `format`/`format:check` carry an explicit file list while pre-commit's
+prettier job uses an extension glob. Every extension in the former is covered by
+the latter today, but the two are maintained separately — if they drift, so does
+the advice above.
+
+The three `tsc` projects are `incremental`, with their build state under the
+gitignored `.tmp/` (one `tsBuildInfoFile` each — a shared one would thrash). A warm
+`typecheck` runs in roughly a third of the cold time; a cold incremental run is not
+slower than a non-incremental one, so CI loses nothing.
 
 ### Line endings (LF)
 

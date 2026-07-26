@@ -125,20 +125,22 @@ describe('run properties', () => {
 
 describe('shrink autofit', () => {
 	test('omits attributes that were not supplied', () => {
-		expect(genXmlNormAutofit({})).toBe('<a:normAutofit/>')
+		expect(genXmlNormAutofit({ type: 'shrink' })).toBe('<a:normAutofit/>')
 	})
 
 	test('converts percents to thousandths of a percent', () => {
-		expect(genXmlNormAutofit({ fontScale: 92.5, lnSpcReduction: 10 })).toBe(
+		expect(genXmlNormAutofit({ type: 'shrink', fontScale: 92.5, lnSpcReduction: 10 })).toBe(
 			'<a:normAutofit fontScale="92500" lnSpcReduction="10000"/>'
 		)
 	})
 
 	test('a zero percent is emitted, not treated as absent', () => {
-		expect(genXmlNormAutofit({ fontScale: 0 })).toBe('<a:normAutofit fontScale="0"/>')
+		expect(genXmlNormAutofit({ type: 'shrink', fontScale: 0 })).toBe('<a:normAutofit fontScale="0"/>')
 	})
 
 	test('an out-of-range value is dropped rather than clamped', () => {
-		expect(genXmlNormAutofit({ fontScale: 500, lnSpcReduction: 20 })).toBe('<a:normAutofit lnSpcReduction="20000"/>')
+		expect(genXmlNormAutofit({ type: 'shrink', fontScale: 500, lnSpcReduction: 20 })).toBe(
+			'<a:normAutofit lnSpcReduction="20000"/>'
+		)
 	})
 })

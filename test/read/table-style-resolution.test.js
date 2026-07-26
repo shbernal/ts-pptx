@@ -8,14 +8,17 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
-import { Presentation } from '../../dist/read.js'
+import { Presentation, isGraphicFrame } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 async function tables() {
 	const pres = await Presentation.load(await readFile(path.join(__dirname, 'fixtures', 'table-styles.pptx')))
-	return pres.slides[0].shapes.filter((s) => s.table).map((s) => s.table)
+	return pres.slides[0].shapes
+		.filter(isGraphicFrame)
+		.filter((s) => s.table)
+		.map((s) => s.table)
 }
 
 function fillHex(table, row, col) {

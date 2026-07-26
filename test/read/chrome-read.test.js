@@ -42,7 +42,7 @@ function authorBrandedDeck() {
 			objects: [{ rect: { x: 0, y: 0, w: 1, h: 1, fill: { color: '00FF00' } } }],
 			slideNumber: { x: 0.5, y: 7.0 },
 		})
-		pres.addSlide({ masterName: 'BRANDED' }).addText('hi', { x: 1, y: 1, w: 3, h: 1 })
+		pres.addSlide({ masterTitle: 'BRANDED' }).addText('hi', { x: 1, y: 1, w: 3, h: 1 })
 	})
 }
 
