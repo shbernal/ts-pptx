@@ -86,7 +86,11 @@ export function chartCall(frame: GraphicFrame, chart: Chart, notes: NoteScope): 
 		return null
 	}
 
+	// `type` is an *option*, not a positional argument: the signature is
+	// `addChart(data, options & { type })`. Passing it separately produces a call that
+	// typechecks nowhere and throws "a chart `type` is required" at run time.
 	const options = compact({
+		type,
 		...positionOfFrame(frame),
 		objectName: frame.name || undefined,
 		...titleOptions(chart),
@@ -98,7 +102,7 @@ export function chartCall(frame: GraphicFrame, chart: Chart, notes: NoteScope): 
 
 	return {
 		method: 'addChart',
-		args: [type, data, options ?? {}],
+		args: [data, options ?? { type }],
 		...(frame.name ? { sourceName: frame.name } : {}),
 	}
 }

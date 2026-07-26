@@ -98,7 +98,11 @@ describe('deck IR — corpus invariants', () => {
 	})
 
 	test('every call names a real write-API method and carries its arguments', async () => {
-		const arity = { addText: 2, addShape: 2, addImage: 1, addTable: 2, addChart: 3, addConnector: 1, addGroup: 2 }
+		// These counts were once copied from the same wrong belief the mapper held — `addChart`
+		// was listed as 3 because the code passed the chart type positionally, so the test
+		// confirmed the bug instead of catching it. They are transcribed from the `Slide`
+		// interface in `src/types/slide.ts`; check them there, not against the mapper.
+		const arity = { addText: 2, addShape: 2, addImage: 1, addTable: 2, addChart: 2, addConnector: 1, addGroup: 2 }
 		for (const name of fixtureNames) {
 			for (const call of allCalls(await irFor(name))) {
 				assert(call.method in arity, `${name}: unknown method ${call.method}`)
@@ -192,6 +196,51 @@ describe('deck IR — geometry', () => {
 		}
 		// Twice the viewport over the same box means every coordinate maps to half the width.
 		assertEqual(spanOf(call), Math.round(spanOf(baseline) / 2), 'doubling a:path/@w should halve the emitted span')
+	})
+})
+
+describe('deck IR — connectors', () => {
+	// `addConnector` takes two points where OOXML gives a box plus flip flags, so the flags
+	// are the whole of the translation. The corpus contains exactly one flipped connector and
+	// it is flipV, which leaves the flipH branch unexercised: an implementation that ignored
+	// flipH passed the entire suite. Both flags are therefore set through the raw hatch, and
+	// the four combinations are asserted against the box corners they must produce.
+	const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+
+	async function connectorEndpoints({ flipH, flipV }) {
+		const deck = await Presentation.load(await readFile(path.join(FIXTURES, 'mixed.pptx')))
+		const shape = deck.slides
+			.flatMap((slide) => slide.shapes)
+			.find((candidate) => candidate.constructor.name === 'Connector')
+		const xfrm = shape.element_.getElementsByTagNameNS(A_NS, 'xfrm').item(0)
+		if (flipH) xfrm.setAttribute('flipH', '1')
+		else xfrm.removeAttribute('flipH')
+		if (flipV) xfrm.setAttribute('flipV', '1')
+		else xfrm.removeAttribute('flipV')
+		shape.markDirty()
+
+		const frame = shape.absoluteFrame
+		const ir = readModelToIr(await Presentation.load(await deck.save()))
+		const call = allCalls(ir).find((candidate) => candidate.sourceName === shape.name)
+		const at = (key) => Number(String(call.args[0][key]).replace('emu', ''))
+		return { call: [at('x1'), at('y1'), at('x2'), at('y2')], frame }
+	}
+
+	test('each flip combination maps onto the right diagonal of the box', async () => {
+		for (const flipH of [false, true]) {
+			for (const flipV of [false, true]) {
+				const { call, frame } = await connectorEndpoints({ flipH, flipV })
+				const right = frame.left + frame.width
+				const bottom = frame.top + frame.height
+				const expected = [
+					flipH ? right : frame.left,
+					flipV ? bottom : frame.top,
+					flipH ? frame.left : right,
+					flipV ? frame.top : bottom,
+				]
+				assertEqual(call.join(','), expected.join(','), `flipH=${flipH} flipV=${flipV}`)
+			}
+		}
 	})
 })
 

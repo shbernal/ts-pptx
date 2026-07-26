@@ -17,7 +17,7 @@ import type { Slide } from '../../read/api/slide.js'
 import type { AnyShape } from '../../read/api/shapes.js'
 import { isGraphicFrame, isGroupShape } from '../../read/api/shapes.js'
 import { NoteCollector, scopeNotes, type NoteScope } from '../fidelity.js'
-import type { AssetIr, AssetRef, BackgroundIr, CallIr, DeckIr, DeckPropsIr, SlideIr } from '../ir.js'
+import type { AssetIr, AssetRef, BackgroundIr, CallIr, DeckIr, DeckPropsIr, SlideIr, SlideLayoutIr } from '../ir.js'
 import type { AssetResolver } from './shape.js'
 import { shapeCall } from './shape.js'
 import { compact } from './values.js'
@@ -87,7 +87,8 @@ export function readModelToIr(pres: Presentation): DeckIr {
 		)
 	}
 
-	const slides = pres.slides.map((slide, index) => slideToIr(slide, index + 1, collector, assets))
+	const layouts = layoutGallery(pres)
+	const slides = pres.slides.map((slide, index) => slideToIr(slide, index + 1, collector, assets, layouts))
 
 	return {
 		slideSize: size ? { widthEmu: size.widthEmu, heightEmu: size.heightEmu } : DEFAULT_SLIDE_SIZE,
@@ -125,11 +126,39 @@ function deckProps(pres: Presentation, notes: NoteScope): DeckPropsIr {
 	)
 }
 
-function slideToIr(slide: Slide, number: number, collector: NoteCollector, assets: Assets): SlideIr {
+/**
+ * The deck's layouts keyed by partname, each resolved to what a printer needs to bind to
+ * it: its gallery position and whether its name identifies it on its own.
+ *
+ * Built once per deck rather than per slide — `layouts()` walks every master's layout list,
+ * and the uniqueness question is about the gallery as a whole, so asking it per slide would
+ * be both quadratic and unable to see layouts no slide happens to use.
+ */
+function layoutGallery(pres: Presentation): Map<string, SlideLayoutIr> {
+	const handles = pres.layouts()
+	const nameCounts = new Map<string, number>()
+	for (const handle of handles) nameCounts.set(handle.name, (nameCounts.get(handle.name) ?? 0) + 1)
+
+	return new Map(
+		handles.map((handle, index) => [
+			handle.partName,
+			{ name: handle.name, index, nameIsUnique: (nameCounts.get(handle.name) ?? 0) === 1 },
+		])
+	)
+}
+
+function slideToIr(
+	slide: Slide,
+	number: number,
+	collector: NoteCollector,
+	assets: Assets,
+	layouts: Map<string, SlideLayoutIr>
+): SlideIr {
 	const notes = scopeNotes(collector, number)
+	const layoutPartName = slide.layout?.partName
 	const base = {
 		number,
-		layoutName: slide.layout?.name ?? null,
+		layout: (layoutPartName === undefined ? undefined : layouts.get(layoutPartName)) ?? null,
 		hidden: slide.hidden,
 		...(slide.name ? { name: slide.name } : {}),
 		...backgroundOf(slide, notes),

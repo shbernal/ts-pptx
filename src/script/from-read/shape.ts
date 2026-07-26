@@ -80,6 +80,10 @@ export function shapeCall(shape: AnyShape, notes: NoteScope, assets: AssetResolv
 	if (isConnector(shape)) return connectorCall(shape, scoped)
 	if (isGraphicFrame(shape)) return graphicFrameCall(shape, scoped, assets)
 	if (isAutoShape(shape)) return autoShapeCall(shape, scoped)
+
+	// Unreachable: the five guards above exhaust `AnyShape`, which is why `shape` narrows to
+	// `never` here. Left as a floor so a sixth shape kind fails to compile at the call sites
+	// that assume a call, rather than silently falling through to a silent drop.
 	return null
 }
 
@@ -394,7 +398,20 @@ function autoShapeCall(shape: AutoShape, notes: NoteScope): CallIr | null {
 		return { method: 'addText', args: [textRuns(frame, notes), options ?? {}], ...nameOf(shape) }
 	}
 
-	if (preset === null) return null
+	// No text and no geometry of its own: an empty placeholder, whose shape comes from the
+	// layout it inherits. `addShape` needs a preset name and `addText` would author an
+	// invisible empty box, so the shape is dropped — which matches how it renders in a
+	// slideshow, where an unfilled placeholder shows nothing. It is still a loss in the
+	// editor, so it is declared rather than assumed harmless.
+	if (preset === null) {
+		notes.note(
+			'shape.empty',
+			'dropped',
+			'unsupported',
+			'this shape carries no text and no geometry of its own (an unfilled placeholder drawing its outline from the layout), so there is no addShape preset to name and it is omitted'
+		)
+		return null
+	}
 	const options = compact({ ...common, ...adjustOptions(shape) })
 	return { method: 'addShape', args: [preset, options ?? {}], ...nameOf(shape) }
 }
@@ -543,9 +560,24 @@ function pictureCall(shape: Picture, notes: NoteScope, assets: AssetResolver): C
 }
 
 /**
- * A `Connector` becomes `addConnector`. The endpoints survive as geometry; the *bindings*
- * (`a:stCxn`/`a:endCxn`) reference source shape ids that have no counterpart in the output,
- * so a connector lands unbound and stops following its shapes when they move.
+ * `ConnectorProps` keys that {@link lineOption} can produce. A connector styles its stroke
+ * with *flat* options rather than the nested `line` object every other shape takes, and it
+ * accepts a strict subset: no `transparency`, no gradient stroke, and its own `type` names
+ * the routing (`straight`/`elbow`/`curved`), not a fill kind — so spreading a line option
+ * object into it wholesale would both drop silently and collide.
+ */
+const CONNECTOR_LINE_KEYS = ['color', 'width', 'dashType', 'beginArrowType', 'endArrowType'] as const
+
+/**
+ * A `Connector` becomes `addConnector`.
+ *
+ * The endpoints are the one real translation here. OOXML gives a connector a bounding box
+ * plus flip flags; `addConnector` takes two points. `a:flipH`/`a:flipV` are what say which
+ * diagonal of the box the line runs along, so dropping them would silently mirror every
+ * connector that runs up or leftward.
+ *
+ * The *bindings* (`a:stCxn`/`a:endCxn`) reference source shape ids that have no counterpart
+ * in the output, so a connector lands unbound and stops following its shapes when they move.
  */
 function connectorCall(shape: Connector, notes: NoteScope): CallIr | null {
 	const frame = shape.absoluteFrame
@@ -559,8 +591,32 @@ function connectorCall(shape: Connector, notes: NoteScope): CallIr | null {
 			'connector endpoint bindings reference source shape ids with no counterpart in the output, so the connector lands unbound and no longer follows its shapes'
 		)
 	}
+	if (shape.rotation) {
+		notes.note(
+			'connector.rotation',
+			'dropped',
+			'unwritable',
+			'addConnector takes two endpoints and no rotation, so a rotated connector lands along the unrotated diagonal of its box'
+		)
+	}
 
-	const line = lineOption(shape, notes)
+	const line = lineOption(shape, notes) ?? {}
+	const stroke: Record<string, IrValue> = {}
+	for (const key of CONNECTOR_LINE_KEYS) {
+		const value = line[key]
+		if (value !== undefined) stroke[key] = value
+	}
+	if (line['type'] === 'gradient' || line['transparency'] !== undefined) {
+		notes.note(
+			'connector.line',
+			'flattened',
+			'unwritable',
+			'a connector styles its stroke with flat colour/width options, which cannot express a gradient stroke or a stroke transparency, so those fall back to a plain line'
+		)
+	}
+
+	const right = frame.left + frame.width
+	const bottom = frame.top + frame.height
 	return {
 		method: 'addConnector',
 		args: [
@@ -568,10 +624,12 @@ function connectorCall(shape: Connector, notes: NoteScope): CallIr | null {
 				// Routing is not readable — `presetGeometry` names the connector preset but the
 				// bend count it implies is not exposed — so every connector emits straight.
 				type: 'straight',
-				...positionOptions(shape),
-				...transformOptions(shape),
+				x1: emu(shape.flipH ? right : frame.left),
+				y1: emu(shape.flipV ? bottom : frame.top),
+				x2: emu(shape.flipH ? frame.left : right),
+				y2: emu(shape.flipV ? frame.top : bottom),
 				objectName: shape.name || undefined,
-				line,
+				...stroke,
 			}) ?? {},
 		],
 		...nameOf(shape),
@@ -639,7 +697,15 @@ function groupCall(shape: GroupShape, notes: NoteScope, assets: AssetResolver): 
 		}
 		children.push(tagged)
 	}
-	if (children.length === 0) return null
+	if (children.length === 0) {
+		notes.note(
+			'group.empty',
+			'dropped',
+			'unsupported',
+			'no child of this group produced a call, and addGroup rejects an empty child list, so the group itself is omitted too'
+		)
+		return null
+	}
 
 	if (!hasIdentityChildSpace(shape.element_)) {
 		notes.note(

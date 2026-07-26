@@ -101,17 +101,33 @@ export interface BackgroundIr {
 	image?: AssetRef
 }
 
+/**
+ * The layout a slide should be bound to in the destination deck, identified two ways
+ * because neither alone is sufficient.
+ *
+ * The **name** is the portable identity: it is what lets a script built from one deck be
+ * re-pointed at a different template whose layouts happen to be named the same, and it is
+ * what a reader recognises. But `p:cSld@name` is not unique — a deck with several masters
+ * routinely carries several "Title and Content" layouts, and binding by an ambiguous name
+ * is an error, not a coin flip. The **index** into the deck's layout gallery always
+ * resolves, so it is the fallback, and {@link nameIsUnique} says which to trust.
+ */
+export interface SlideLayoutIr {
+	/** `p:cSld@name` of the source layout (`''` when the layout is unnamed). */
+	name: string
+	/** Zero-based position in the source deck's layout gallery, in master-then-layout order. */
+	index: number
+	/** `false` when another layout in that gallery shares {@link name}. */
+	nameIsUnique: boolean
+}
+
 /** One slide of the deck. */
 export interface SlideIr {
 	/** 1-based index in the source deck; the identity a {@link FidelityNote} points at. */
 	number: number
 	source: SlideSource
-	/**
-	 * Name of the destination layout this slide should be appended onto. The read model
-	 * gives the source layout's name, which a template-anchored output can match by name
-	 * against the destination deck. `null` when the source slide resolves no layout.
-	 */
-	layoutName: string | null
+	/** The layout to bind to, or `null` when the source slide resolves none. */
+	layout: SlideLayoutIr | null
 	/** `p:sld/@show="0"` — a slide hidden from presentation but present in the deck. */
 	hidden: boolean
 	/** `p:cSld/@name`, when the source slide had one. */
