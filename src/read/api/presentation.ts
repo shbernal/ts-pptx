@@ -1015,9 +1015,12 @@ export class Presentation {
 	 * typeface + face slot — so author-side embedded fonts survive the append onto a
 	 * template that may itself already embed fonts.
 	 *
+	 * Embedded audio/video is carried too: the media part backs the ECMA audio/video rel
+	 * and the MS-2007 `media` rel sharing one Target, plus a separate preview image part,
+	 * with the media content type registered as a Default extension entry (what PowerPoint
+	 * authors). Online (external-link) video rides as two External rels over the link.
+	 *
 	 * Limitations:
-	 * - Audio/video media in an appended slide throws (fixture-gated; backlog
-	 *   `dn-append-av-media`).
 	 * - An internal link to a source slide outside the appended batch throws (its
 	 *   target has no counterpart in the destination).
 	 * - Appended slides are concrete absolute-positioned content with no placeholder

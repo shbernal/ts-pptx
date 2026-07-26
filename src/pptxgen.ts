@@ -581,9 +581,10 @@ export default class PresentationCore {
 	 * while keeping its own masters/layouts/theme byte-identical.
 	 *
 	 * Returns the deck's slide size (EMU, for the destination size check) and one
-	 * descriptor per authored slide. Charts, audio/video media, and internal
-	 * slide-to-slide hyperlinks are flagged but not resolved here; the append path
-	 * rejects them in v1.
+	 * descriptor per authored slide. Charts, audio/video media, online media, and
+	 * internal slide-to-slide hyperlinks are surfaced as descriptors alongside the
+	 * serialized body — this method does not resolve them into a package; the append
+	 * path consumes each descriptor to reserve the parts and rebuild the rel graph.
 	 */
 	extractSlides = async (opts: { onMediaError?: 'throw' | 'placeholder' } = {}): Promise<ExtractedSlides> => {
 		const onMediaError = opts.onMediaError ?? 'throw'
