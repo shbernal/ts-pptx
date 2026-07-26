@@ -22,16 +22,16 @@ contributor guidance lives in the docs below, which are kept authoritative.
 - Use `pnpm`. The package requires Node.js `>=24`.
 - Keep source changes in `src/` and tests in `test/`; treat `dist/` as generated
   output.
-- Before pushing, the standard gate is:
+- The standard gate is one command:
 
   ```bash
-  pnpm run build
-  pnpm run typecheck
-  pnpm run test:unit
+  pnpm run verify        # while iterating
+  pnpm run verify:full   # before pushing, and for package/release changes
   ```
 
-  For emitted-OOXML changes, also run `pnpm run test:schema` and add or update a
-  fixture. See [docs/testing.md](docs/testing.md) for the full matrix.
+  For emitted-OOXML changes, add or update a fixture in `test/schema-cases.js`;
+  `verify` already runs the schema suite. See
+  [docs/testing.md](docs/testing.md) for the full matrix.
 - Any change to emitted OOXML must be grounded in fixtures / schema validation /
   PowerPoint-compatibility evidence, per AGENTS.md.
 - A `lefthook` pre-commit hook runs ESLint + Prettier on staged files, and

@@ -69,17 +69,17 @@ Assume today's date is available; use `YYYY-MM-DD` in the CHANGELOG.
 
 ### 3. Verify locally before committing
 
-The publish workflow runs the full gate set (lint, format:check, typecheck,
-typecheck:scripts, test:coverage, build, package:lint, pack:check, test:package,
-test:demos). Catch failures now, not in a half-finished Release run:
+The publish workflow does not define its own gate — it calls `ci.yml` via
+`workflow_call` and publishes only if that passes. So the thing to reproduce
+locally is CI, and CI is two commands. Catch failures now, not in a half-finished
+Release run:
 
 ```bash
-pnpm run build && pnpm run typecheck && pnpm test
+pnpm run check:static && pnpm run verify:full
 ```
 
-Run `pnpm run lint && pnpm run format:check` too if you touched anything beyond the
-version strings. (The commit's own pre-commit/pre-push hooks also run eslint,
-prettier, and typecheck.)
+(The commit's own pre-commit/pre-push hooks also run eslint, prettier, and
+typecheck, so `check:static` should be a formality.)
 
 ### 4. Commit, tag, push
 

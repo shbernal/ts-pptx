@@ -6,7 +6,7 @@
  *
  * Output goes to .tmp/roundtrip/ (gitignored) by default; override with the
  * first CLI arg or TSPPTX_READ_EMIT_DIR. Assumes a current build — the
- * test:read:emit script runs `pnpm run build` first.
+ * test:read:emit script ensures `dist/` is current first.
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'

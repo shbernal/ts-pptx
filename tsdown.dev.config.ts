@@ -10,7 +10,7 @@ import { defineConfig } from 'tsdown'
 // running `pnpm run watch:dev` keeps `dist/` current for the full `test/regression`
 // (and sibling) suites — the pieces a one-assertion change actually touches.
 //
-// Use it via `pnpm run watch:dev` in one terminal + `pnpm run test:watch:fast`
+// Use it via `pnpm run watch:dev` in one terminal + `pnpm run test:watch`
 // in another. See docs/testing.md "Fast inner loop".
 export default defineConfig({
 	dts: false,

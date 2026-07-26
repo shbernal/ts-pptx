@@ -10,7 +10,7 @@
  * deleted-shape, cloned-slide, edited-table-cells, imported-*-slide). Output goes to
  * .tmp/read-edits/ (gitignored) by default; override with the first CLI arg or
  * TSPPTX_READ_EDITS_DIR. Assumes a current build — the
- * test:read:emit:edits script runs `pnpm run build` first.
+ * test:read:emit:edits script ensures `dist/` is current first.
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'

@@ -15,44 +15,44 @@ Use `pnpm` for repository scripts. The package declares Node.js `>=24`.
 
 ## Standard Validation
 
-For source changes, run:
+For source changes, run one of the two aggregates rather than composing a set by
+hand:
 
 ```bash
-pnpm run build
-pnpm run typecheck
-pnpm run test:unit
+pnpm run verify       # per-change loop: typechecks, backlog validation, all suites
+pnpm run verify:full  # before pushing / at the package boundary: the above plus package + demos
 ```
+
+They are defined in `package.json` and described in
+[development](development.md#common-commands). Neither runs `lint` or
+`format:check` — the git hooks own those.
 
 For documentation-only changes, no automated test is required unless the docs
 change package, build, or testing claims.
 
 ## Fast inner loop (edit → test)
 
-The suite imports from `dist/`, **not** `src/`. Every `test:*` script front-loads
-a full `pnpm run build` (8 entry bundles + `.d.ts`), which is far too slow for a
-one-assertion change. For the inner loop, run a `tsdown` watcher and a Vitest
-watcher in **two terminals**:
+The suite imports from `dist/`, **not** `src/`. A full `pnpm run build` (8 entry
+bundles + `.d.ts`) is far too slow to sit in a one-assertion edit loop. For the
+inner loop, run a `tsdown` watcher and a Vitest watcher in **two terminals**:
 
 ```bash
 # terminal 1 — rebuild dist/ on every src/ edit (fast: no .d.ts)
 pnpm run watch:dev
 
 # terminal 2 — rerun tests on every dist/ (or test) change, no rebuild of its own
-pnpm run test:watch:fast
+pnpm run test:watch
 ```
 
 `watch:dev` uses `tsdown.dev.config.ts`, which drops the most expensive build
-step (`.d.ts` emit) while still emitting every Node-side entry the suites import. `test:watch:fast` is a bare
-`vitest --watch` that assumes `dist/` is kept current by the watcher.
+step (`.d.ts` emit) while still emitting every Node-side entry the suites import.
+`test:watch` is a bare `vitest --watch`: it does no build of its own, because in
+this loop `watch:dev` is what keeps `dist/` current.
 
-> **Caveat — stale `dist/` trap.** Running a Vitest watcher (or a bare
-> `vitest run`, see below) **without** a `tsdown` watcher tests the last-built
-> `dist/`, so `src/**` edits appear to have no effect. Either keep `watch:dev`
-> running, or rebuild first.
-
-The single-command `pnpm run test:watch` does one dev build up front and then
-watches — convenient, but it only picks up **test-file** edits; `src/**` edits
-still need the two-terminal loop above (or a manual rebuild).
+> **If you run only the Vitest watcher**, `src/**` edits appear to have no effect
+> — you are testing the last-built `dist/`. Start `watch:dev` alongside it. The
+> one-shot scripts do not have this problem: they all begin with
+> `scripts/ensure-dist.mjs`, which rebuilds a stale `dist/` before running.
 
 ### Running a single test
 
@@ -65,8 +65,9 @@ pnpm exec vitest run test/regression -t "content type default"  # by test name
 ```
 
 You can also add `.only` to a `test(...)`/`describe(...)` while iterating. Bare
-`vitest run test/regression/foo.test.js` does **not** rebuild — if you edited
-`src/**` without a running watcher, rebuild first or you are testing stale code.
+`pnpm exec vitest` does **not** rebuild — if you edited `src/**` without a running
+watcher, rebuild first or you are testing stale code. Going through a package
+script (`pnpm run test:unit`, etc.) avoids this entirely.
 
 ## Regression Suite Layout
 
@@ -152,6 +153,23 @@ Use this path for emitted OOXML changes. Add or update focused fixtures in
 `test/schema-cases.js` (a flat fixture data module — not a Vitest suite despite
 living under `test/`; the runner `test/schema-validation.test.mjs` consumes it).
 
+The fixtures run **concurrently** (`describe.concurrent`), which took the suite
+from ~50s to ~10s and is what lets `verify` include it. Two consequences worth
+knowing:
+
+- Each concurrent fixture spawns its own `OOXMLValidatorCLI` process, and
+  `test/read` spawns validators too, so the real process ceiling is
+  workers × `maxConcurrency`. `maxConcurrency` is pinned in `vitest.config.ts`
+  rather than left at the default, and is the first knob to lower if CI turns
+  flaky or runs out of memory — re-serializing the suite is not the fix.
+- `testTimeout` is raised well above Vitest's 5s default for the same reason:
+  under concurrency a fixture's wall-clock time mostly measures how long it
+  queued for CPU, not how long it worked.
+
+A `beforeAll` validates one minimal deck serially before the concurrent fixtures
+start. `OOXMLValidatorCLI` is a .NET single-file app that self-extracts on first
+run, and firing many processes at a cold extract directory can race.
+
 ## Read/Round-Trip Suite (`ts-pptx/read`)
 
 The lossless read/edit subsystem (`src/read/`) has its own harness:
@@ -165,8 +183,11 @@ in `test/read/fixtures/` (provenance in that directory's README): part-set
 stability, per-part byte-identity for untouched parts, lazy-parse guarantees,
 save idempotence, content-type/relationship resolution, the dirty
 (mutate-and-reserialize) path, and schema validation of saved output. The
-schema cases require the OOXML validator above and are skipped with a notice
-when it is not installed.
+schema cases require the OOXML validator above. When it is missing they are
+skipped locally — with an unmissable notice on stderr, because a green run that
+skipped a few hundred schema assertions must not read as a complete one — and
+they **fail hard under `CI`**, where installing the validator is part of the job.
+The gate is `validatorAvailable()` in `test/validator.js`.
 
 Changes under `src/read/` should run this suite; new read/edit capabilities
 should extend it (and grow the fixture set) alongside the code.
@@ -200,31 +221,22 @@ SmartArt that the vendored fixtures lacked.
 
 ## Full Test Command
 
-The default test command builds first, then runs regression and schema
-validation:
-
 ```bash
 pnpm test
 ```
 
+This is `vitest run` with no target list, so it runs **every** suite Vitest
+discovers under `test/` — regression, read, schema, and tooling. There is no
+maintained list of suite paths to keep in sync; adding a `test/**/*.test.js`
+file is enough to get it run.
+
 ## Package Boundary Checks
 
-Build package artifacts:
-
 ```bash
-pnpm run build
+pnpm run check:package   # package:lint + test:package + test:demos
 ```
 
-Check the packed package:
-
-```bash
-pnpm run package:lint
-pnpm run pack:check
-pnpm run test:package
-```
-
-`package:lint` runs package export/type validation. `pack:check` uses
-`pnpm pack --dry-run`. `test:package` creates a packed package with pnpm,
+`package:lint` runs package export/type validation. `test:package` creates a packed package with pnpm,
 installs it with npm and pnpm, verifies that the ESM entries and declarations
 are present, verifies that old generated artifacts are absent, runs an ESM
 import smoke test, checks that the package has no CJS export condition, and
@@ -235,6 +247,16 @@ The TypeScript consumer fixture is generated inline by `scripts/package-smoke.mj
 `test/`, so it does not move when the API does — a rename or a removed overload
 in `src/` will not fail any unit test but *will* fail `test:package`. When you
 change a public export, grep that fixture.
+
+There is deliberately no separate `pnpm pack --dry-run` check. `package:lint`
+already packs the tarball for real and then runs publint and
+`@arethetypeswrong/cli` over it, so a dry-run that only asserted "pack exits 0"
+added a build and a pack invocation for no signal. Do not re-add one.
+
+Packing goes through `packPackage()` in `scripts/script-utils.mjs`, which passes
+`--config.ignore-scripts=true` to skip the `prepack` rebuild — the callers have
+already ensured `dist/` is current. Note the spelling: pnpm 11 rejects a plain
+`--ignore-scripts` on `pack` and honours only the `--config.` form.
 
 ### Running scripts that spawn subprocesses
 
@@ -257,13 +279,16 @@ So `run()` resolves a bin one of three ways:
   array alongside `shell: true`.
 - **An absolute path** (e.g. `process.execPath`) — spawned directly.
 
-### CI runs these on Linux only
+### Which of these CI runs on Windows
 
-`ci.yml` has no OS matrix; every job is `ubuntu-latest`. Anything that only
-breaks on Windows — subprocess spawning above all — is invisible to CI by
-construction, and a green CI run is not evidence these commands work on a
-Windows checkout. Run the package and demo commands locally before trusting
-them there.
+`ci.yml`'s `package` job has an OS matrix and runs `check:package` on both
+`ubuntu-latest` and `windows-latest`, so the `run()` behaviour above — the part
+of the repo that is Windows-specific by design — is exercised on the platform it
+exists for. The `static` and `test` jobs remain Linux-only: they are
+platform-independent, and the validator installer is a bash script.
+
+That narrows, but does not remove, the gap: a Windows-only break outside the
+package and demo scripts is still invisible to CI.
 
 ## Demo Smoke Tests
 
@@ -280,7 +305,7 @@ pnpm run test:demo:node
 pnpm run test:demo:vite
 ```
 
-The demo smoke command builds package artifacts first, then runs the maintained
+The demo smoke command ensures `dist/` is current first, then runs the maintained
 workspace demos with pnpm. The Node demo validates ESM package usage in a Node
 application. The Vite demo validates a modern browser app path through React,
 TypeScript, and Vite.

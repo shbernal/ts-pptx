@@ -135,25 +135,20 @@ This repository uses `pnpm` and requires Node.js `>=24`.
 
 ```bash
 pnpm install
-pnpm run build
-pnpm run typecheck
-pnpm run test:unit
+pnpm run verify
 ```
 
-OOXML serialization changes should also add or update a schema fixture and run:
+OOXML serialization changes should also add or update a schema fixture in
+`test/schema-cases.js`. The schema suite needs the validator installed once:
 
 ```bash
 ./tools/ooxml-validator/install.sh
-pnpm run test:schema
 ```
 
 Package-boundary changes should run:
 
 ```bash
-pnpm run build
-pnpm run package:lint
-pnpm run pack:check
-pnpm run test:package
+pnpm run check:package
 ```
 
 ## Demos

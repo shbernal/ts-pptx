@@ -55,17 +55,13 @@ pnpm install --frozen-lockfile
 Run the full automated gate before tagging:
 
 ```bash
-pnpm run lint
-pnpm run format:check
-pnpm run typecheck
-pnpm test
-pnpm run build
-pnpm run package:lint
-pnpm run pack:check
-pnpm run test:package
-pnpm run test:demos
-npm pack --dry-run --ignore-scripts
+pnpm run check:static
+pnpm run verify:full
 ```
+
+Together these are what CI runs. `check:static` adds `lint` and `format:check`,
+which `verify:full` deliberately omits because the git hooks own them — but a
+release is exactly the moment to confirm them explicitly.
 
 Check that the target version is not already published:
 

@@ -31,16 +31,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The project's escape-hatch policy is now written down in
   [project target](docs/project-target.md) — the convenience-vs-guarantee rule
   and why the read path gets a deep raw hatch while the write path does not.
-- **`pnpm run verify` and `pnpm run verify:full`** — two aggregate checks that
-  replace hand-composing four or five scripts per iteration. `verify` (~45s) is
-  build + `typecheck` + `typecheck:scripts` + the regression/read/tooling suites;
-  `verify:full` (~2min) adds `typecheck:test`, `test:schema`, `package:lint`,
-  `pack:check`, `test:package`, and `test:demos`. Both omit `lint`/`format:check`
-  by design — the git hooks own those.
-- **`:fast` test variants** — `test:fast`, `test:unit:fast`, `test:read:fast`,
-  `test:schema:fast`, and `typecheck:test:fast` run the same check as their
-  namesakes without the `pnpm run build &&` prefix, for when `dist/` is already
-  current. Follows the existing `test:watch:fast` precedent.
+- **Four aggregate checks**, replacing the practice of hand-composing four or
+  five scripts per iteration. `verify` (~45s) is the three typechecks +
+  `backlog:validate` + the whole test suite; `verify:full` (~65s) adds
+  `package:lint`, `test:package`, and `test:demos`. `check:static` and
+  `check:package` are the two halves CI runs as separate jobs. `verify` and
+  `verify:full` omit `lint`/`format:check` by design — the git hooks own those.
+- **A `dist/` freshness guard** (`scripts/ensure-dist.mjs`) that every test,
+  typecheck, and package script now starts with. It rebuilds only when `src/` or
+  a build config is newer than `dist/`, and is a ~0.1s no-op otherwise. This
+  replaces both halves of the old pattern — the unconditional
+  `pnpm run build &&` prefix and the `:fast` twins that skipped it — so there is
+  no longer a stale-`dist/` footgun to reason about.
 
 ### Changed
 
@@ -68,6 +70,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the gitignored `.tmp/` (a distinct `tsBuildInfoFile` per project). Warm
   `typecheck` drops from ~3.4s to ~1.3s; cold runs are no slower, so CI is
   unaffected.
+- The OOXML schema fixtures now run concurrently, taking that suite from ~50s to
+  ~10s — cheap enough that `verify` runs it on every iteration instead of
+  reserving it for `verify:full`.
+- The root build configs (`eslint.config.mjs`, `vitest.config.ts`,
+  `tsdown.config.ts`, `tsdown.dev.config.ts`) are now linted and typechecked.
+  They previously matched no ESLint `files` block and no tsconfig `include`, so
+  nothing checked them at all.
+- A missing OOXML validator now **fails** the read suite under `CI` instead of
+  silently skipping a few hundred schema assertions. Locally it still skips, but
+  prints a notice — a green local run no longer reads as a complete one.
+- CI runs the static checks once rather than once per Node version, and adds a
+  Windows leg for the package and demo scripts, which are the only exercise the
+  Windows-specific subprocess handling in `scripts/script-utils.mjs` gets. The
+  publish workflow now reuses the CI workflow instead of keeping its own copy of
+  the gate, which had already drifted out of sync.
 
 ## [1.0.0] - 2026-07-24
 

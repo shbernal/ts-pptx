@@ -94,54 +94,34 @@ Two aggregate commands cover almost every iteration; reach for the individual
 scripts below only when you want one specific gate:
 
 ```bash
-pnpm run verify       # ~45s  — build, typecheck, typecheck:scripts, regression + read + tooling tests
-pnpm run verify:full  # ~2min — the above plus typecheck:test, test:schema, and the package/demo suite
+pnpm run verify       # ~45s — typechecks, backlog validation, and the whole test suite
+pnpm run verify:full  # ~65s — the above plus the package and demo suites
 ```
 
 `verify` is the per-change loop; `verify:full` is what to run before pushing or
 when touching the release/package boundary. Both deliberately omit `lint` and
 `format:check`, which the git hooks already own (see [Static Checks](#static-checks)).
 
-Every `test:*` script rebuilds first (`pnpm run build && vitest …`), so running
-several in a row rebuilds several times. Each has a `:fast` twin — `test:unit:fast`,
-`test:read:fast`, `test:schema:fast`, `test:fast`, `typecheck:test:fast` — that skips
-the rebuild. `:fast` asserts *"`dist/` is current"*; use the plain script if unsure.
-
-Build the source bundle used by tests:
+Two more aggregates exist for CI, and are occasionally useful locally:
 
 ```bash
-pnpm run build
+pnpm run check:static   # lint, format:check, all three typechecks, backlog:validate
+pnpm run check:package  # package:lint, test:package, test:demos
 ```
 
-Typecheck source:
-
-```bash
-pnpm run typecheck
-```
+No script needs to be prefixed with a build. Every gate begins with
+`scripts/ensure-dist.mjs`, which compares source and config mtimes against `dist/`
+and rebuilds only when it is actually stale — a ~0.1s no-op otherwise. Run
+`pnpm run build` directly only when you want the bundle for its own sake.
 
 A green `build` is **not** evidence of type-correctness. tsdown's `.d.ts` pass does
 not typecheck, so a real type error (`const x: number = 'a-string'`) still builds
 successfully and is caught only by `typecheck`. Never substitute one for the other.
 
-Run regression tests:
-
-```bash
-pnpm run test:unit
-```
-
-Check package contents:
-
-```bash
-pnpm run package:lint
-pnpm run pack:check
-pnpm run test:package
-```
-
-Smoke-test the maintained demos against the built workspace package:
-
-```bash
-pnpm run test:demos
-```
+The individual gates — `build`, `typecheck`, `typecheck:scripts`, `typecheck:test`,
+`test`, `test:unit`, `test:read`, `test:schema`, `test:coverage`, `package:lint`,
+`test:package`, `test:demos`, `backlog:validate` — all still exist and are worth
+running alone when iterating on one specific thing. `pnpm run` lists them.
 
 ## Static Checks
 
@@ -161,8 +141,8 @@ eslint `--fix` and prettier `--write` over staged files and re-stages the result
 (`stage_fixed: true`), and pre-push re-verifies the whole repo — so running
 `format:check` yourself can only cost you a check→fix→re-check cycle on files that
 were going to be fixed on commit anyway. What no hook covers is **tests** (none run
-any) and **`typecheck:test`** (pre-push runs `typecheck` and `typecheck:scripts`
-only); those are `verify`'s job.
+any), **`typecheck:test`** and **`backlog:validate`** (pre-push runs `lint`,
+`format:check`, `typecheck` and `typecheck:scripts` only); those are `verify`'s job.
 
 Note that `format`/`format:check` carry an explicit file list while pre-commit's
 prettier job uses an extension glob. Every extension in the former is covered by
@@ -259,10 +239,7 @@ package contents should preserve the support contract documented in
 Package-boundary verification:
 
 ```bash
-pnpm run build
-pnpm run package:lint
-pnpm run pack:check
-pnpm run test:package
+pnpm run check:package
 ```
 
 ## Demo Changes
