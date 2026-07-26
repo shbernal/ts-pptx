@@ -178,7 +178,7 @@ by `(presetID, presetClass, presetSubtype, nodeType)`, parameterized only by
 
 ## Write model design
 
-1. **Transition** — slide-level `transition?: TransitionProps` on `PresSlide`
+1. **Transition** — slide-level `transition?: TransitionProps` on `Slide`
    (`src/core-interfaces.ts`); a `slideTransitionToXml(slide)` emitter
    (`src/gen/anim/transition.ts`) inserted in `makeXmlSlide` **between `p:clrMapOvr` and
    `slideTimingToXml(...)`**. Requires declaring `xmlns:mc` on the slide root (or

@@ -9,13 +9,13 @@ Use this skill for documentation work in this repository.
 
 ## Workflow
 
-1. Run `python3 scripts/docs-list.py` when available.
+1. Run `pnpm run docs:list` when available.
 2. Read the docs whose `read_when` hints match the task.
 3. Inspect source, tests, package scripts, CLI help, config schemas, and current
    docs before making behavior-sensitive claims.
 4. Update docs when architecture, APIs, CLI commands, config, setup, or user
    workflows change.
-5. Use `python3 scripts/docs-new.py <slug> --title "..." --summary "..."`
+5. Use `pnpm run docs:new <slug> --title "..." --summary "..."`
    for new pages.
 6. Update `docs/docs.json` when a page should be discoverable in navigation.
 7. Run `pnpm run docs:check` before handoff so generated API docs are refreshed
