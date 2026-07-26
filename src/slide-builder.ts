@@ -1,5 +1,5 @@
 /**
- * ts-pptx: Slide Class
+ * ts-pptx: SlideBuilder — write-side implementation of the public `Slide` interface
  */
 
 import { asChartType, type CHART_NAME, type SHAPE_NAME } from './core-enums.js'
@@ -32,7 +32,7 @@ import type {
 	SectionZoomProps,
 	SummaryZoomProps,
 } from './core-interfaces.js'
-import type { PresSlide } from './types/slide.js'
+import type { Slide } from './types/slide.js'
 import type {
 	ChartOptsInternal,
 	SlideObject,
@@ -64,7 +64,7 @@ function isMultiChart(arg: OptsChartData[] | ChartMulti[]): arg is ChartMulti[] 
 	return !!first && typeof first === 'object' && 'type' in first && 'data' in first
 }
 
-export default class Slide {
+export default class SlideBuilder {
 	private readonly _setSlideNum: (value: SlideNumberProps) => void
 
 	public addSlide: (options?: AddSlideProps) => PresSlideInternal
@@ -187,7 +187,7 @@ export default class Slide {
 		return this._slideNumberProps ?? undefined
 	}
 
-	public get newAutoPagedSlides(): PresSlide[] {
+	public get newAutoPagedSlides(): Slide[] {
 		return this._newAutoPagedSlides
 	}
 
@@ -205,17 +205,17 @@ export default class Slide {
 	 * Add chart to Slide
 	 * @param {OptsChartData[]} data - chart data
 	 * @param {ChartOpts & { type: CHART_NAME }} options - chart options; `type` is required here
-	 * @return {Slide} this Slide
+	 * @return {SlideBuilder} this Slide
 	 */
-	addChart(data: OptsChartData[], options: ChartOpts & { type: CHART_NAME }): Slide
+	addChart(data: OptsChartData[], options: ChartOpts & { type: CHART_NAME }): SlideBuilder
 	/**
 	 * Add a multi-type (combo) chart to Slide
 	 * @param {ChartMulti[]} charts - per-type chart definitions (each carries its own `type`/`data`)
 	 * @param {ChartOpts} options - shared chart options
-	 * @return {Slide} this Slide
+	 * @return {SlideBuilder} this Slide
 	 */
-	addChart(charts: ChartMulti[], options?: ChartOpts): Slide
-	addChart(arg1: OptsChartData[] | ChartMulti[], arg2?: ChartOpts & { type?: CHART_NAME }): Slide {
+	addChart(charts: ChartMulti[], options?: ChartOpts): SlideBuilder
+	addChart(arg1: OptsChartData[] | ChartMulti[], arg2?: ChartOpts & { type?: CHART_NAME }): SlideBuilder {
 		let type: CHART_NAME | ChartMulti[]
 		let data: OptsChartData[]
 		let options: ChartOpts
@@ -252,9 +252,9 @@ export default class Slide {
 	/**
 	 * Add image to Slide
 	 * @param {ImageProps} options - image options
-	 * @return {Slide} this Slide
+	 * @return {SlideBuilder} this Slide
 	 */
-	addImage(options: ImageProps): Slide {
+	addImage(options: ImageProps): SlideBuilder {
 		addImageDefinition(this, options)
 		return this
 	}
@@ -262,9 +262,9 @@ export default class Slide {
 	/**
 	 * Add media (audio/video) to Slide
 	 * @param {MediaProps} options - media options
-	 * @return {Slide} this Slide
+	 * @return {SlideBuilder} this Slide
 	 */
-	addMedia(options: MediaProps): Slide {
+	addMedia(options: MediaProps): SlideBuilder {
 		addMediaDefinition(this, options)
 		return this
 	}
@@ -276,10 +276,10 @@ export default class Slide {
 	 * document in place. Supply a `cover` screenshot for what the slide shows; without one a neutral
 	 * gray placeholder is embedded (PowerPoint draws the live object over it, other consumers do not).
 	 * @param {OleObjectProps} options - OLE object options
-	 * @return {Slide} this Slide
+	 * @return {SlideBuilder} this Slide
 	 * @example slide.addOleObject({ path: 'budget.xlsx', cover: { path: 'budget.png' }, x: 1, y: 1, w: 6, h: 3 })
 	 */
-	addOleObject(options: OleObjectProps): Slide {
+	addOleObject(options: OleObjectProps): SlideBuilder {
 		addOleObjectDefinition(this, options)
 		return this
 	}
@@ -291,9 +291,9 @@ export default class Slide {
 	 * hyperlinks (external `url` only) or per-run bold/italic/underline/color/fontSize/fontFace.
 	 * @example slide.addNotes('Remember to smile')
 	 * @example slide.addNotes([{ text: 'See ' }, { text: 'the docs', options: { hyperlink: { url: 'https://example.com/' } } }])
-	 * @return {Slide} this Slide
+	 * @return {SlideBuilder} this Slide
 	 */
-	addNotes(notes: string | NotesProps | NotesProps[]): Slide {
+	addNotes(notes: string | NotesProps | NotesProps[]): SlideBuilder {
 		addNotesDefinition(this, notes)
 		return this
 	}
@@ -302,10 +302,10 @@ export default class Slide {
 	 * Add a review comment to the Slide (legacy PowerPoint comment).
 	 * Comments by the same author (name + initials) are grouped under one author entry in the deck.
 	 * @param {CommentProps} options - comment author, text, and optional marker position/date
-	 * @return {Slide} this Slide
+	 * @return {SlideBuilder} this Slide
 	 * @example slide.addComment({ author: 'Ada Lovelace', text: 'Tighten this headline', x: 1, y: 0.5 })
 	 */
-	addComment(options: CommentProps): Slide {
+	addComment(options: CommentProps): SlideBuilder {
 		addCommentDefinition(this, options)
 		return this
 	}
@@ -314,9 +314,9 @@ export default class Slide {
 	 * Add shape to Slide
 	 * @param {SHAPE_NAME} shapeName - shape name
 	 * @param {ShapeProps} options - shape options
-	 * @return {Slide} this Slide
+	 * @return {SlideBuilder} this Slide
 	 */
-	addShape(shapeName: SHAPE_NAME, options?: ShapeProps): Slide {
+	addShape(shapeName: SHAPE_NAME, options?: ShapeProps): SlideBuilder {
 		// `shapeName` is a plain string preset name (e.g. `ShapeType.rect` === "rect").
 		addShapeDefinition(this, shapeName, options || {})
 		return this
@@ -333,18 +333,18 @@ export default class Slide {
 	 * supported as group children yet (each is skipped with a warning).
 	 * @param {GroupChildProps[]} children - child object descriptors (`{ text }`, `{ image }`, `{ shape }`, `{ rect }`, `{ roundRect }`, `{ line }`, `{ group }`)
 	 * @param {GroupProps} options - group position/size/name options
-	 * @return {Slide} this Slide
+	 * @return {SlideBuilder} this Slide
 	 * @example slide.addGroup([{ rect: { x: 1, y: 1, w: 2, h: 1, fill: { color: 'CC0000' } } }, { text: { text: 'Hi', options: { x: 1, y: 1, w: 2, h: 1 } } }])
 	 * @example slide.addGroup([{ rect: { x: 1, y: 1, w: 4, h: 3 } }, { group: { children: [{ text: { text: 'Hi', options: { x: 1.5, y: 1.5, w: 2, h: 1 } } }] } }])
 	 */
-	addGroup(children: GroupChildProps[], options?: GroupProps): Slide {
+	addGroup(children: GroupChildProps[], options?: GroupProps): SlideBuilder {
 		addGroupDefinition(this, children, options || {})
 		return this
 	}
 
 	/**
 	 * Group objects already added to this slide into a single PowerPoint group (`<p:grpSp>`),
-	 * addressed by their `objectName`. The counterpart to {@link Slide.addGroup} for slides composed
+	 * addressed by their `objectName`. The counterpart to {@link SlideBuilder.addGroup} for slides composed
 	 * from independent renderers, where the objects exist already and replaying their descriptors just
 	 * to group them is not practical.
 	 *
@@ -359,12 +359,12 @@ export default class Slide {
 	 * ungroupable kind. Each would otherwise leave the object loose on the slide, silently.
 	 * @param {string[]} objectNames - `objectName`s of the top-level objects to group
 	 * @param {GroupProps} options - group position/size/name options (frame is all-or-nothing, as with `addGroup`)
-	 * @return {Slide} this Slide
+	 * @return {SlideBuilder} this Slide
 	 * @example slide.addText('Hi', { x: 1, y: 1, w: 2, h: 1, objectName: 'Caption' })
 	 * @example slide.addImage({ path: 'logo.png', x: 1, y: 2, w: 2, h: 2, objectName: 'Logo' })
 	 * @example slide.groupObjects(['Caption', 'Logo'], { objectName: 'Branding' })
 	 */
-	groupObjects(objectNames: string[], options?: GroupProps): Slide {
+	groupObjects(objectNames: string[], options?: GroupProps): SlideBuilder {
 		groupObjectsDefinition(this, objectNames, options || {})
 		return this
 	}
@@ -372,10 +372,10 @@ export default class Slide {
 	/**
 	 * Add a connector (a line drawn between two points, emitted as a PowerPoint `<p:cxnSp>`).
 	 * @param {ConnectorProps} options - connector endpoints (`x1,y1,x2,y2`) and line styling
-	 * @return {Slide} this Slide
+	 * @return {SlideBuilder} this Slide
 	 * @example slide.addConnector({ type: 'elbow', x1: 1, y1: 1, x2: 5, y2: 3, endArrowType: 'triangle' })
 	 */
-	addConnector(options: ConnectorProps): Slide {
+	addConnector(options: ConnectorProps): SlideBuilder {
 		addConnectorDefinition(this, options)
 		return this
 	}
@@ -384,9 +384,9 @@ export default class Slide {
 	 * Add table to Slide
 	 * @param {TableRow[]} tableRows - table rows
 	 * @param {TableProps} options - table options
-	 * @return {Slide} this Slide
+	 * @return {SlideBuilder} this Slide
 	 */
-	addTable(tableRows: TableRow[], options?: TableProps): Slide {
+	addTable(tableRows: TableRow[], options?: TableProps): SlideBuilder {
 		this._newAutoPagedSlides = addTableDefinition(
 			this,
 			tableRows,
@@ -403,9 +403,9 @@ export default class Slide {
 	 * Add text to Slide
 	 * @param {string|TextProps[]} text - text string or complex object
 	 * @param {TextPropsOptions} options - text options
-	 * @return {Slide} this Slide
+	 * @return {SlideBuilder} this Slide
 	 */
-	addText(text: string | number | TextProps[], options?: TextPropsOptions): Slide {
+	addText(text: string | number | TextProps[], options?: TextPropsOptions): SlideBuilder {
 		const textParam = typeof text === 'string' || typeof text === 'number' ? [{ text, options }] : text
 		addTextDefinition(this, textParam, options || {}, false)
 		return this
@@ -416,11 +416,11 @@ export default class Slide {
 	 * Effects play in the order added and are grouped into click steps by `trigger`.
 	 * Target the shape by its 0-based add order (`shapeIndex`) or by `objectName`.
 	 * @param {AnimationProps} options - preset, target shape, trigger, and duration
-	 * @return {Slide} this Slide
+	 * @return {SlideBuilder} this Slide
 	 * @example slide.addAnimation({ preset: 'fadeIn', shapeIndex: 0 })
 	 * @example slide.addAnimation({ preset: 'grow', objectName: 'logo', trigger: 'afterPrevious' })
 	 */
-	addAnimation(options: AnimationProps): Slide {
+	addAnimation(options: AnimationProps): SlideBuilder {
 		this._animations.push(options)
 		return this
 	}
@@ -430,10 +430,10 @@ export default class Slide {
 	 * The tile shows a neutral placeholder until PowerPoint regenerates the live thumbnail
 	 * (once the target slide is next edited); pass `coverImage` to ship a fixed thumbnail.
 	 * @param {SlideZoomProps} options - target slide (`Slide` or 1-based number), position, and options
-	 * @return {Slide} this Slide
+	 * @return {SlideBuilder} this Slide
 	 * @example slide.addSlideZoom({ target: intro, x: 1, y: 1, w: 3, h: 1.7 })
 	 */
-	addSlideZoom(options: SlideZoomProps): Slide {
+	addSlideZoom(options: SlideZoomProps): SlideBuilder {
 		addSlideZoomDefinition(this, options)
 		return this
 	}
@@ -441,10 +441,10 @@ export default class Slide {
 	/**
 	 * Add a Section Zoom — a clickable tile that zooms to the start of a named section.
 	 * @param {SectionZoomProps} options - target `sectionTitle`, position, and options
-	 * @return {Slide} this Slide
+	 * @return {SlideBuilder} this Slide
 	 * @example slide.addSectionZoom({ sectionTitle: 'Results', x: 1, y: 1, w: 3, h: 1.7 })
 	 */
-	addSectionZoom(options: SectionZoomProps): Slide {
+	addSectionZoom(options: SectionZoomProps): SlideBuilder {
 		addSectionZoomDefinition(this, options, this.getSections())
 		return this
 	}
@@ -453,10 +453,10 @@ export default class Slide {
 	 * Add a Summary Zoom — a grid of tiles, one per section (excluding this slide's own section),
 	 * each zooming to that section's start.
 	 * @param {SummaryZoomProps} options - grid position/size and options
-	 * @return {Slide} this Slide
+	 * @return {SlideBuilder} this Slide
 	 * @example slide.addSummaryZoom({ x: 0.5, y: 1.5, w: 11, h: 4.5 })
 	 */
-	addSummaryZoom(options: SummaryZoomProps): Slide {
+	addSummaryZoom(options: SummaryZoomProps): SlideBuilder {
 		addSummaryZoomDefinition(this, options, this.getSections())
 		return this
 	}

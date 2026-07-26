@@ -14,7 +14,7 @@ import type { BackgroundProps, Margin } from './core.js'
 import type { MasterTextStyleProps, SlideNumberProps } from './master.js'
 import type { MediaProps, MediaType } from './media.js'
 import type { PresLayout, PresentationProps, SectionProps } from './pres.js'
-import type { ObjectOptions, PresSlide, SlideLayout } from './slide.js'
+import type { ObjectOptions, Slide, SlideLayout } from './slide.js'
 import type { HyperlinkProps, ShadowProps } from './style.js'
 import type { TableCell, TableStyleProps } from './table.js'
 import type { SlideComment, TextProps } from './text.js'
@@ -177,8 +177,8 @@ export interface SlideBaseProps {
 	_name?: string
 	_presLayout: PresLayout
 	_rels: SlideRel[]
-	_relsChart: SlideRelChart[] // needed as we use args:"PresSlide|SlideLayout" often
-	_relsMedia: SlideRelMedia[] // needed as we use args:"PresSlide|SlideLayout" often
+	_relsChart: SlideRelChart[] // needed as we use args:"Slide|SlideLayout" often
+	_relsMedia: SlideRelMedia[] // needed as we use args:"Slide|SlideLayout" often
 	_relsNotes?: SlideRel[] // hyperlink rels emitted in the notes-slide part (notesSlideN.xml.rels)
 	_comments?: SlideComment[] // review comments emitted in the per-slide comments part (commentN.xml)
 	_txStyles?: MasterTextStyleProps // per-level master text styles emitted in slideMaster1.xml <p:txStyles> (deck-wide; set via defineSlideMaster textStyles)
@@ -203,7 +203,7 @@ export interface SlideLayoutInternal extends SlideBaseProps, SlideLayout {
 		hidden?: boolean
 	} | null
 }
-export interface PresSlideInternal extends SlideBaseProps, PresSlide {
+export interface PresSlideInternal extends SlideBaseProps, Slide {
 	_rId: number
 	_slideLayout: SlideLayoutInternal | null
 	_slideId: number

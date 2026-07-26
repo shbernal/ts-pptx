@@ -22,7 +22,7 @@ import type {
 	TableToSlidesProps,
 	TableCellProps,
 } from '../../core-interfaces.js'
-import type { PresSlide } from '../../types/slide.js'
+import type { Slide } from '../../types/slide.js'
 import type { SlideLayoutInternal } from '../../types/internal.js'
 import { rgbToHex } from '../drawingml/color.js'
 import { inch2Emu } from '../../units-internal.js'
@@ -33,7 +33,7 @@ import { getSlidesForTableRows } from './autopage.js'
 type MarginTuple = [number, number, number, number]
 type BorderTuple = [BorderProps, BorderProps, BorderProps, BorderProps]
 type TableToSlidesHost = {
-	addSlide: (options?: AddSlideProps) => PresSlide
+	addSlide: (options?: AddSlideProps) => Slide
 	presLayout: PresLayout
 }
 

@@ -1,6 +1,6 @@
 /**
  * The slide model: the PRIVATE generator wire shapes (`SlideRel`, `SlideRelMedia`, `SlideObject`),
- * groups, the merged `ObjectOptions` bag, and the `SlideLayout`/`PresSlide` authoring surfaces.
+ * groups, the merged `ObjectOptions` bag, and the `SlideLayout`/`Slide` authoring surfaces.
  *
  * Re-exported by `../core-interfaces.js`, which is the import site for the rest of `src/`.
  */
@@ -88,26 +88,26 @@ export interface ObjectOptions extends ImageBaseProps, PositionProps, ShapeProps
 export interface SlideLayout {
 	background?: BackgroundProps
 }
-export interface PresSlide {
-	addChart(data: OptsChartData[], options: ChartOpts & { type: CHART_NAME }): PresSlide
-	addChart(charts: ChartMulti[], options?: ChartOpts): PresSlide
-	addConnector: (options: ConnectorProps) => PresSlide
-	addImage: (options: ImageProps) => PresSlide
-	addMedia: (options: MediaProps) => PresSlide
+export interface Slide {
+	addChart(data: OptsChartData[], options: ChartOpts & { type: CHART_NAME }): Slide
+	addChart(charts: ChartMulti[], options?: ChartOpts): Slide
+	addConnector: (options: ConnectorProps) => Slide
+	addImage: (options: ImageProps) => Slide
+	addMedia: (options: MediaProps) => Slide
 	/** Embed an OLE object (Insert ▸ Object) whose bytes travel inside the `.pptx`. */
-	addOleObject: (options: OleObjectProps) => PresSlide
-	addComment: (options: CommentProps) => PresSlide
-	addNotes: (notes: string | NotesProps | NotesProps[]) => PresSlide
-	addShape: (shapeName: SHAPE_NAME, options?: ShapeProps) => PresSlide
-	addTable: (tableRows: TableRow[], options?: TableProps) => PresSlide
-	addText: (text: string | number | TextProps[], options?: TextPropsOptions) => PresSlide
-	addAnimation: (options: AnimationProps) => PresSlide
+	addOleObject: (options: OleObjectProps) => Slide
+	addComment: (options: CommentProps) => Slide
+	addNotes: (notes: string | NotesProps | NotesProps[]) => Slide
+	addShape: (shapeName: SHAPE_NAME, options?: ShapeProps) => Slide
+	addTable: (tableRows: TableRow[], options?: TableProps) => Slide
+	addText: (text: string | number | TextProps[], options?: TextPropsOptions) => Slide
+	addAnimation: (options: AnimationProps) => Slide
 	/** Group child object descriptors into a single PowerPoint group (`<p:grpSp>`). */
-	addGroup: (children: GroupChildProps[], options?: GroupProps) => PresSlide
+	addGroup: (children: GroupChildProps[], options?: GroupProps) => Slide
 	/** Group objects already on this slide, addressed by their `objectName`, into a single group. */
-	groupObjects: (objectNames: string[], options?: GroupProps) => PresSlide
+	groupObjects: (objectNames: string[], options?: GroupProps) => Slide
 
-	readonly newAutoPagedSlides?: PresSlide[]
+	readonly newAutoPagedSlides?: Slide[]
 
 	/**
 	 * Slide-show transition played when advancing to this slide (`p:transition`).

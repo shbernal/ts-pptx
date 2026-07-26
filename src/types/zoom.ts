@@ -12,7 +12,7 @@
  * edited. Supply `coverImage` for a picture that ships as-authored instead.
  */
 import type { PositionProps } from './core.js'
-import type { PresSlide } from './slide.js'
+import type { Slide } from './slide.js'
 
 /** Options shared by all three zoom kinds. */
 export interface ZoomBaseProps extends PositionProps {
@@ -35,7 +35,7 @@ export interface ZoomBaseProps extends PositionProps {
 /** Slide Zoom: a tile that zooms to a single target slide. */
 export interface SlideZoomProps extends ZoomBaseProps {
 	/** Target slide — a `Slide` returned by `addSlide()`, or its 1-based slide number. */
-	target: PresSlide | number
+	target: Slide | number
 }
 
 /** Section Zoom: a tile that zooms to the start of a named section. */

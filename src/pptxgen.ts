@@ -56,7 +56,7 @@
  */
 
 import { warn } from './log.js'
-import Slide from './slide.js'
+import SlideBuilder from './slide-builder.js'
 import { SlideObjectType } from './core-enums.js'
 import { DEF_PRES_LAYOUT, DEF_PRES_LAYOUT_NAME, DEF_SLIDE_MARGIN_IN } from './core-enums-internal.js'
 import type {
@@ -89,9 +89,7 @@ import type {
 	SlideLayoutInternal,
 	TableStyleInternal,
 } from './types/internal.js'
-// `PresSlide` is the internal declaration name of the public `Slide` interface; it is
-// imported straight from `types/slide.js` because the barrel exposes it only as `Slide`.
-import type { PresSlide } from './types/slide.js'
+import type { Slide } from './types/slide.js'
 import type { RuntimeAdapter } from './runtime/types.js'
 import { FontMetricsRegistry, parseFontMetrics } from './font-metrics.js'
 import { type EmbeddedFont, type EmbeddedFontSlot, EMBEDDED_FONT_SLOTS } from './embedded-fonts.js'
@@ -373,13 +371,13 @@ export default class PresentationCore {
 
 	/** master slide layout object */
 	private readonly _masterSlide: PresSlideInternal
-	public get masterSlide(): PresSlide {
+	public get masterSlide(): Slide {
 		return this._masterSlide
 	}
 
 	/** this Presentation's Slide objects */
 	private readonly _slides: PresSlideInternal[]
-	public get slides(): PresSlide[] {
+	public get slides(): Slide[] {
 		return this._slides
 	}
 
@@ -518,7 +516,7 @@ export default class PresentationCore {
 	/**
 	 * Provides an API for `addTableDefinition` to create slides as needed for auto-paging
 	 * @param {AddSlideProps} options - slide masterTitle and/or sectionTitle
-	 * @return {PresSlide} new Slide
+	 * @return {Slide} new Slide
 	 */
 	private readonly addNewSlide = (options?: AddSlideProps): PresSlideInternal => {
 		const nextOptions = options || {}
@@ -535,7 +533,7 @@ export default class PresentationCore {
 	/**
 	 * Provides an API for `addTableDefinition` to get slide reference by number
 	 * @param {number} slideNum - slide number
-	 * @return {PresSlide} Slide
+	 * @return {Slide} Slide
 	 */
 	private readonly getSlide = (slideNum: number): PresSlideInternal | undefined =>
 		this._slides.find((slide) => slide._slideNum === slideNum)
@@ -982,9 +980,9 @@ export default class PresentationCore {
 	/**
 	 * Add a new Slide to Presentation
 	 * @param {AddSlideProps} options - slide options
-	 * @returns {PresSlide} the new Slide
+	 * @returns {Slide} the new Slide
 	 */
-	addSlide(options?: AddSlideProps): PresSlide {
+	addSlide(options?: AddSlideProps): Slide {
 		const masterTitle = options?.masterTitle ?? ''
 		const defLayout = this.LAYOUTS[DEF_PRES_LAYOUT]
 		if (!defLayout) throw new Error(`Default presentation layout "${DEF_PRES_LAYOUT}" is not registered`)
@@ -1003,7 +1001,7 @@ export default class PresentationCore {
 			if (tmpLayout) slideLayout = tmpLayout
 		}
 
-		const newSlide: PresSlideInternal = new Slide({
+		const newSlide: PresSlideInternal = new SlideBuilder({
 			addSlide: this.addNewSlide,
 			getSlide: this.getSlide,
 			getSections: this.getSections,
