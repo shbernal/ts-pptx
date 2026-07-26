@@ -19,6 +19,14 @@ export default defineConfig({
 		// flaky or OOMs, lower this — do not re-serialize the suite, that is the
 		// 50s → ~15s the concurrency bought.
 		maxConcurrency: 8,
+		// Vitest's default 5s is a per-test *wall-clock* budget, which stops being a
+		// property of the test once validators run concurrently: a fixture that
+		// validates a large deck spends most of those 5s queued behind its peers for
+		// CPU, not working. Two of them (the hierarchical-chartEx and
+		// carryMasterGraphics decks) sat right on the line and failed intermittently.
+		// Raised so the timeout is what it is meant to be — a hang detector, not a
+		// performance assertion. Lower `maxConcurrency` before lowering this.
+		testTimeout: 30_000,
 		coverage: {
 			provider: 'v8',
 			include: ['dist/**/*.js'],

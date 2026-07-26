@@ -102,7 +102,19 @@ export function parsePackOutput(output) {
 
 export async function packPackage(packDir) {
 	await fs.mkdir(packDir, { recursive: true })
-	const result = await run('pnpm', ['pack', '--json', '--pack-destination', packDir], { capture: true })
+	// `pnpm pack` fires `prepack`, which runs a full `pnpm run build`. Every caller
+	// already has a current `dist/` (the freshness guard ran first), so that would
+	// be a duplicate 3.3s build per pack — and CI packs more than once.
+	//
+	// The flag spelling is not the obvious one: pnpm 11 rejects `--ignore-scripts`
+	// outright ("Unknown option"), and only honours it in the `--config.<name>`
+	// form. Verified against pnpm 11.3.0 — re-check on a major pnpm bump.
+	// `process.execPath`, not 'node': `run()` appends `.cmd` to any non-absolute
+	// command on Windows (for the pnpm/npm shims), which would look for `node.cmd`.
+	await run(process.execPath, [path.join(ROOT, 'scripts', 'ensure-dist.mjs')])
+	const result = await run('pnpm', ['pack', '--config.ignore-scripts=true', '--json', '--pack-destination', packDir], {
+		capture: true,
+	})
 	const output = result.stdout || result.stderr
 	let entry
 	if (output.trim()) {

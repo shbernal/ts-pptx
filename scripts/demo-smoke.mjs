@@ -41,7 +41,9 @@ async function smokeViteDemo() {
 	await run('pnpm', ['--dir', 'demos/vite-demo', 'run', 'build'])
 }
 
-await run('pnpm', ['run', 'build'])
+// `process.execPath`, not 'node': `run()` appends `.cmd` to any non-absolute
+// command on Windows (for the pnpm/npm shims), which would look for `node.cmd`.
+await run(process.execPath, [path.join(ROOT, 'scripts', 'ensure-dist.mjs')])
 
 for (const target of targets) {
 	if (target === 'node') await smokeNodeDemo()
