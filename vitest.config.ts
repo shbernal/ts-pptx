@@ -9,6 +9,12 @@ import { coverageConfigDefaults, defineConfig } from 'vitest/config'
 // Thresholds are pinned a notch below the current measured numbers so an
 // accidental coverage regression fails CI without the gate being flaky. Ratchet
 // them upward as coverage improves; never loosen them to make a red build pass.
+//
+// `branches` trails the other three by design. The read model guards every
+// element lookup (`x ? … : null`) whether or not the schema lets `x` be absent,
+// so a standing share of the branch count is unreachable on any valid package —
+// see docs/testing.md "Branches that are not worth covering" for which of those
+// to leave alone and which are real input worth a test.
 export default defineConfig({
 	test: {
 		// The schema fixtures are `describe.concurrent` and each concurrent test

@@ -6,6 +6,7 @@ read_when:
   - Choosing verification commands
   - Updating test scripts or package smoke checks
   - Changing emitted OOXML or package exports
+  - Deciding whether an uncovered branch is worth a test
 doc_type: "guide"
 ---
 
@@ -134,6 +135,46 @@ the bundle through the browser-only path, which is fenced with `v8 ignore`, so
 the dist bundle never executes them even though `src/`-level unit tests do.
 Before adding a case for a red line, check whether an existing `src/`-importing
 test already exercises it — otherwise the gate cannot credit the redundant test.
+
+### Branches that are not worth covering
+
+The read model parses OOXML defensively: almost every element lookup is written
+`const x = firstChild(parent, 'a:foo'); return x ? … : null`, whether or not the
+schema lets `a:foo` be absent. That style is right — a reader should not throw on
+a deck PowerPoint accepts — but it means a chunk of the branch count is guards
+against input no valid package can contain, and those branches are **deliberately
+left uncovered**.
+
+Coverage exists to show that behaviour is pinned. A test that hand-builds a
+`p:sp` with no `p:nvSpPr`, or a theme part with no root element, pins nothing:
+such a file is not a deck, no user can produce one, and the assertion would only
+restate the guard. It moves the number without adding a guarantee, and leaves
+behind a fixture that has to be maintained. Prefer honest coverage plus a written
+reason over a green metric.
+
+So before writing a test for a red branch, ask which of these it is:
+
+- **Schema-impossible** — the child, attribute, or root is `minOccurs="1"` (check
+  with `ooxml_children` / `ooxml_attributes`), or the relationship is required for
+  the package to resolve. Leave it. Do not add a `v8 ignore` fence either: the
+  fence is for code the bundle genuinely cannot reach, not for code that a valid
+  input merely never reaches.
+- **Unreachable by construction** — a re-check of something the caller already
+  established (a `p:ph` looked up again on a shape that was filtered *for* having
+  one). Leave it, and consider whether the guard is telling you the type could be
+  narrower.
+- **Schema-legal but unrepresented in the fixtures** — the input is a deck
+  PowerPoint could write, and no committed fixture happens to be shaped that way.
+  **Cover this one.** Either promote a fixture from `pptx-bank/` or synthesize the
+  XML, following the approach in `test/read/slide-background-edges.test.js`
+  (splice the variant into an authored deck, so the rest of the package is real).
+
+`src/read/api/chrome.ts` is the worked example: it sits near 64% branches while
+its statements, functions, and lines are at or near 100%. The header comment in
+`test/read/chrome-read-edges.test.js` enumerates every remaining branch, the
+content model that makes it impossible, and the two that are legal input and so
+would be worth covering. Extend that note rather than re-deriving it if the
+number ever comes up again.
 
 ## OOXML Schema Validation
 

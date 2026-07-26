@@ -10,6 +10,42 @@
 // Fixtures used: mixed.pptx (a master with an explicit `p:bgPr` solid fill),
 // theme-colors.pptx (the Ion theme — a master `p:bgRef`, plus layouts that define no
 // background of their own).
+//
+// ---------------------------------------------------------------------------
+// Why chrome.ts branch coverage stops around 64%
+// ---------------------------------------------------------------------------
+// It is the lowest branch number on the read side, and that is deliberate — see
+// docs/testing.md "Branches that are not worth covering". Every branch still
+// uncovered here is the false arm of a guard that a schema-valid package cannot
+// take. Four groups, all verified against the ECMA-376 content models:
+//
+//   1. `part.dom.documentElement` null checks (`Theme.name`, `SlideLayout.type`,
+//      `SlideMaster.colorMap`, `#themeElements`, both `#cSld`). A part whose XML
+//      has no root element never reaches a getter — the load fails first.
+//   2. Required children read as optional. `a:themeElements` (CT_OfficeStyleSheet),
+//      `a:clrScheme` and `a:fontScheme` (CT_BaseStyles), `p:cSld` (CT_SlideMaster /
+//      CT_SlideLayout), `p:spTree` (CT_CommonSlideData), `p:nvSpPr` (CT_Shape),
+//      `p:cNvPr` and `p:nvPr` (CT_ShapeNonVisual) are all `minOccurs="1"`. Same for
+//      the `?? null` slot fallbacks in `colorScheme`/`color`/`colorMap`: a
+//      `a:clrScheme` must carry all 12 children and a `p:clrMap` all 12 attributes.
+//   3. Re-null-checks of a `p:ph` that `placeholderShapes()` already matched
+//      (`Placeholder.type`, `.idx`). Unreachable by construction — the filter is
+//      the only way a Placeholder gets built.
+//   4. Relationships assumed missing or dangling: a master with no `theme` rel, a
+//      layout with no `slideMaster` rel, a `p:sldLayoutId` with no `r:id` or an
+//      `r:id` resolving to no part. Such a package fails OPC validation.
+//
+// A scan of all 42 fixture decks finds zero instances of any of them, and zero of
+// the tolerance fallbacks either (an unnamed `p:cSld` or `p:cNvPr` → `''`). Reaching
+// them means hand-building a broken package, which asserts nothing about how the
+// reader handles PowerPoint's output: the metric moves and the guarantee does not.
+//
+// Two uncovered branches are *not* in that category, because the schema does allow
+// the input — `p:sldLayoutIdLst` is `minOccurs="0"` on CT_SlideMaster and `p:txBody`
+// is `minOccurs="0"` on CT_Shape. So `SlideMaster.layouts` → `[]` and
+// `Placeholder.textFrame` → `null` are real contracts on legal decks; they are
+// uncovered only because no fixture happens to be shaped that way. Those two are
+// the ones worth authoring a case for if this file is ever extended.
 
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
