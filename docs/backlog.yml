@@ -1456,3 +1456,125 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: low-value remainder only (restyle-mode branches out of this item's scope, malformed-XML colour edges, defensive layoutRoot/masterRoot-null guards) -- not worth further fixture engineering unless priority changes
+  - id: dn-pptx-to-script
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-07-26
+    last_reviewed: 2026-07-26
+    status: target
+    priority: p2
+    target_area:
+      - typescript-api
+      - package-boundary
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: Emit TypeScript source from an existing .pptx that regenerates an equivalent deck through the public write API
+    current_project_notes: |
+      The generic need: a consumer holding a `.pptx` wants runnable TypeScript that
+      rebuilds an equivalent deck through this library's public write API — so the deck
+      becomes editable, diffable, and parameterizable source instead of an opaque binary.
+      The read model can already open and inspect such a deck; nothing turns that
+      inspection back into authoring calls.
+
+      Lossy by construction and by agreement. The library does not cover every OOXML
+      construct, so the deliverable is "a faithful script plus an honest account of what
+      it dropped", never "a perfect copy". The design decisions below are recorded so
+      they are not re-derived.
+
+      TWO TIERS, ONE INTERMEDIATE REPRESENTATION, TWO PRINTERS. Slide *bodies* map near
+      one-to-one from read model to write-API option objects. Slide *chrome* does not,
+      and that asymmetry is what forces the split:
+        - `ThemeProps` exposes 12 clrScheme slots + 6 font faces. A real theme part also
+          carries `<a:fmtScheme>` (3 fill / 3 line / 3 effect / 3 bg-fill styles) and
+          nothing on the write path sets it. Any source shape whose look comes from
+          `<p:style>` -> fmtScheme references must therefore be flattened to explicit
+          fill/line/effect props.
+        - `SlideMasterProps.textStyles` are deck-wide and last-wins, because a generated
+          deck has a single shared master. A source deck with multiple masters has no
+          structural counterpart.
+      Hence tier B (template-anchored) rides `Presentation.fromTemplate` +
+      `appendSlides`, keeping the source deck's masters/layouts/theme byte-identical and
+      re-authoring only slide bodies; the emitted script carries the source deck as a
+      binary asset. Tier A (standalone) emits `new TsPptx()` + `defineSlideMaster` and
+      depends on this package alone, approximating chrome and collapsing multi-master
+      decks. Tier B ships first: it rides primitives that already exist and are tested.
+
+      ARCHITECTURE: read model -> deck IR -> printed text. Never read model -> text
+      directly. The IR is serializable, holds no read-model object references and no DOM,
+      and is roughly `{ deck, slides: [{ layout, background, calls: [{ method, args }] }] }`
+      with `args` as literal write-API option objects. Every dropped or approximated
+      construct appends a fidelity note to the IR (`{ slideNumber, shapeName, construct,
+      disposition: dropped | flattened | approximated, detail }`) rather than warning to
+      the log. That makes the round-trip oracle a *projection diff*: a noted field is
+      contractually excluded from the diff, so a surprise diff on an un-noted field is a
+      real bug. Byte identity is explicitly not the oracle.
+
+      MEDIA: extracted to files by default (`./assets/image1.png`), with an opt-in for
+      inlining on tiny decks/fixtures. The emitter returns `{ code, assets }`.
+
+      TIER B's LOSS LIST (measured 2026-07-26, not assumed — an earlier version of this
+      list was copied from a doc comment and two of its five items were already stale):
+        1. No placeholder inheritance, but the loss is SEMANTIC, not visual. A source
+           placeholder's geometry is reproduced exactly, because the write path emits
+           `<p:ph>` and an explicit `<a:xfrm>` together — placeholder identity and
+           geometry were never alternatives. What degrades is the application's
+           recognition of the shape as a specific layout placeholder (outline view,
+           "Reset Slide", accessibility checker), plus inherited geometry now being
+           frozen. `PlaceholderType` covers 6 of the 16 `ST_PlaceholderType` values and
+           an unrecognised one degrades to an untyped `<p:ph>`; there is no public setter
+           for `idx`.
+        2. Colours split 10/7, they are not uniformly flattened. The write path accepts
+           `ThemeColor`, and in tier B destination theme == source theme by construction,
+           so the 10 clrMap-mapped tokens (tx1 tx2 bg1 bg2 accent1..6) pass straight
+           through as `schemeClr` — equivalent AND theme-responsive. The other 7
+           `ST_SchemeColorVal` tokens (dk1 lt1 dk2 lt2 hlink folHlink phClr) are not
+           accepted and are silently repainted 000000, so those must be resolved to hex
+           against the theme, each with a fidelity note. Tier A flattens all 17.
+        3. Speaker notes: no longer a loss. `addNotes` content now rides across as a real
+           notesSlide part, with a notes master installed when the destination lacks one.
+        4. Embedded and online A/V: no longer a loss (see dn-append-av-media below).
+        5. Slide sizes must match — trivially true, same deck.
+      Charts are carried across wholesale (chart XML + rels + embedded workbook injected
+      under fresh names), which makes "pass the chart part through" both cheaper and
+      higher-fidelity than transcribing `addChart` calls in tier B. Internal `slide:N`
+      hyperlinks are repointed, and throw if the target is outside the appended batch.
+
+      GEOMETRY PRECISION is settled, not a printer judgement call. `Coord`-typed options
+      accept raw `"<n>emu"` and reach `a:off`/`a:ext` unrounded, so the printer emits EMU
+      verbatim everywhere except `colW`/`rowH`/`margin`, which are typed inches. Those
+      are NOT a precision loss: EMU -> inches -> EMU is the identity at full double
+      precision. The loss appears only if the printed decimal is truncated, and 6 decimal
+      places is the provable minimum (a 6-decimal round shifts the value by <= 0.4572
+      EMU, inside the half-EMU bound; at 5 decimals the bound is 4.572 EMU and the
+      round-trip fails for most values). Rounding below 6 to suppress cosmetic
+      `0.5000000001` noise would be a real geometry loss.
+
+      RELATED LEDGER ENTRIES, both since implemented and pruned, so neither blocks this:
+      `dn-append-av-media` (embedded then online A/V across the append path) and
+      `dn-freeform-arcto`. The latter is the closest prior art — its resolution removed a
+      phantom arc end point that OOXML does not carry, specifically so a read -> write
+      converter maps `arcTo` one-to-one with no solver and no invented data.
+
+      THE UNMEASURED HALF is the read side, and it is the actual risk. A write-API gap is
+      visible loss — a converter sees the construct and can report it. A read-API gap is
+      invisible: nothing upstream knows the element was there, so a round-trip diff comes
+      back clean and certifies a deck it never inspected. A census over the fixture corpus
+      found 18 element qnames whose namespace appears nowhere in the read path (hence
+      unreachable by any accessor without a source change) and 53 more that no accessor
+      names. Concretely: bullet font/colour/size are unread (only the glyph is read),
+      custGeom guides / adjust handles / connection sites are unread, and OMML math is
+      unreachable. Note the corpus is construct-targeted, so it measures COVERAGE, not
+      frequency — it cannot rank what to fix first.
+    evidence:
+      kinds:
+        - local-source-inspection
+        - regression-test
+      local_files:
+        - scripts/append-ceiling.mjs
+        - scripts/read-blindness-census.mjs
+        - test/regression/emu-and-scheme-color-fidelity.test.js
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: Build the read-construct -> write-API coverage matrix (one row per read accessor, classified full/partial/none per tier), then define the deck IR from it.
