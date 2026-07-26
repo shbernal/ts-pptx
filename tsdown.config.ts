@@ -1,6 +1,9 @@
-import { defineConfig } from 'tsdown'
+import { defineConfig, type UserConfig } from 'tsdown'
 
-const shared = {
+// Annotated rather than `as const`: the annotation contextually types the string
+// literals (`format: 'esm'`) without also making the arrays readonly, which
+// `deps.neverBundle` rejects.
+const shared: UserConfig = {
 	dts: {
 		sourcemap: true,
 	},
@@ -12,7 +15,7 @@ const shared = {
 	sourcemap: true,
 	target: 'es2024',
 	treeshake: true,
-} as const
+}
 
 export default defineConfig([
 	{

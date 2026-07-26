@@ -1,6 +1,6 @@
 {
 	"$schema": "https://json.schemastore.org/tsconfig",
-	"display": "ts-pptx scripts",
+	"display": "ts-pptx scripts and root build configs",
 	"extends": "./tsconfig.base.json",
 	"compilerOptions": {
 		"noEmit": true,
@@ -16,7 +16,17 @@
 		// keep the checks that catch real defects: strict null-safety, argument
 		// assignability, and property existence.
 		"noImplicitAny": false,
-		"noPropertyAccessFromIndexSignature": false
+		"noPropertyAccessFromIndexSignature": false,
+		// Scoped to this project, deliberately not to tsconfig.base.json. Pulling
+		// `tsdown.config.ts` into a typechecked project also pulls in tsdown's own
+		// shipped `.d.mts`, which references optional peer packages we do not
+		// install (`@volar/typescript`, `@tsdown/exe`, `unplugin-unused`, …) and so
+		// cannot resolve. Those are unfixable from here and say nothing about this
+		// repo's code. The library project (tsconfig.json) keeps full lib checking.
+		"skipLibCheck": true
 	},
-	"include": ["scripts/**/*.mjs"]
+	// The root build configs are included here rather than in tsconfig.json: they
+	// are Node-side tooling, not shipped library code, and they were previously in
+	// no project's `include` at all — never typechecked by anything.
+	"include": ["scripts/**/*.mjs", "eslint.config.mjs", "vitest.config.ts", "tsdown.config.ts", "tsdown.dev.config.ts"]
 }

@@ -2,6 +2,7 @@ import eslint from '@eslint/js'
 import prettier from 'eslint-config-prettier/flat'
 import tseslint from 'typescript-eslint'
 
+/** @type {Record<string, 'readonly'>} */
 const nodeGlobals = {
 	Blob: 'readonly',
 	Buffer: 'readonly',
@@ -59,8 +60,32 @@ export default tseslint.config(
 		},
 	},
 	{
-		files: ['rollup.config.mjs', 'scripts/**/*.mjs', 'test/**/*.mjs', 'test/**/*.js'],
+		files: ['scripts/**/*.mjs', 'test/**/*.mjs', 'test/**/*.js'],
 		extends: [eslint.configs.recommended],
+		languageOptions: {
+			ecmaVersion: 2024,
+			globals: nodeGlobals,
+			sourceType: 'module',
+		},
+	},
+	{
+		// The root build configs matched no `files` block at all, so zero rules
+		// applied to them. Untyped `recommended` only: these are a handful of
+		// declarative config objects, and turning on type-checked rules would mean
+		// paying `projectService` for them.
+		files: ['eslint.config.mjs'],
+		extends: [eslint.configs.recommended],
+		languageOptions: {
+			ecmaVersion: 2024,
+			globals: nodeGlobals,
+			sourceType: 'module',
+		},
+	},
+	{
+		// Same intent as the block above, but these are TypeScript and so need the
+		// TS parser; espree cannot parse `as`/`type` syntax. Still untyped rules.
+		files: ['vitest.config.ts', 'tsdown.config.ts', 'tsdown.dev.config.ts'],
+		extends: [tseslint.configs.recommended],
 		languageOptions: {
 			ecmaVersion: 2024,
 			globals: nodeGlobals,
