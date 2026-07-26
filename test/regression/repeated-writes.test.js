@@ -43,7 +43,7 @@ defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 
 			assert(shadow.blur === 6, 'expected shadow.blur to remain 6 (pt); got ' + shadow.blur)
 			assert(shadow.offset === 2, 'expected shadow.offset to remain 2 (pt); got ' + shadow.offset)
-			assert(Math.abs(shadow.opacity - 0.15) < 1e-9, 'expected shadow.opacity to remain ~0.15; got ' + shadow.opacity)
+			assert(Math.abs(shadow._alpha - 0.15) < 1e-9, 'expected shadow._alpha to remain ~0.15; got ' + shadow._alpha)
 			assert(shadow.angle === undefined, 'expected shadow.angle to remain undefined; got ' + shadow.angle)
 			assert(shadow.color === '000000', 'expected shadow.color to remain "000000"; got ' + shadow.color)
 		},
@@ -69,8 +69,8 @@ defineRegressionSuite('Repeated presentation writes', 'legacy bug-04', [
 
 			assert(shadow.blur === 6, 'expected image-branch shadow.blur to remain 6 (pt); got ' + shadow.blur)
 			assert(
-				Math.abs(shadow.opacity - 0.15) < 1e-9,
-				'expected image-branch shadow.opacity to remain ~0.15; got ' + shadow.opacity
+				Math.abs(shadow._alpha - 0.15) < 1e-9,
+				'expected image-branch shadow._alpha to remain ~0.15; got ' + shadow._alpha
 			)
 		},
 	},

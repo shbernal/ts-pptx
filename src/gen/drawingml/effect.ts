@@ -59,7 +59,7 @@ export function createShadowElement(options: ShadowPropsInternal | undefined, de
 	const blur = valToPts(opts.blur ?? 0)
 	const offset = valToPts(opts.offset ?? 0)
 	const angle = Math.round((opts.angle ?? 0) * ANGLE_UNITS_PER_DEGREE)
-	const opacity = Math.round((opts.opacity ?? 0.75) * PERCENT_SCALE)
+	const opacity = Math.round((opts._alpha ?? 0.75) * PERCENT_SCALE)
 	const color = opts.color || DEF_FONT_COLOR
 
 	// sx/sy/kx/ky/algn/rotWithShape are valid only on `a:outerShdw` (CT_OuterShadowEffect);
@@ -101,10 +101,9 @@ export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowPr
 		return undefined
 	}
 	const corrected: ShadowPropsInternal = ShadowProps
-	// `opacity` is no longer a public input (removed in favor of `transparency`); strip any
-	// leftover value from an untyped caller so it doesn't silently keep working through this
-	// function's internal reuse of the same field name for the derived alpha.
-	delete corrected.opacity
+	// No `opacity` scrub is needed: the derived alpha lives under the private `_alpha` name, so a
+	// stray `opacity` from an untyped/legacy caller lands on a field nothing reads (inert) rather
+	// than colliding with the internal value.
 
 	// OPT: `type`
 	if (corrected.type !== 'outer' && corrected.type !== 'inner' && corrected.type !== 'none') {
@@ -124,14 +123,14 @@ export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowPr
 		corrected.angle = Math.round(Number(corrected.angle))
 	}
 
-	// OPT: `transparency` (PowerPoint UI term, 0-100) -> internal `opacity` (0.0-1.0), which
+	// OPT: `transparency` (PowerPoint UI term, 0-100) -> internal `_alpha` (0.0-1.0), which
 	// every emit site reads.
 	if (corrected.transparency !== undefined) {
 		const pct = Number(corrected.transparency)
 		if (isNaN(pct) || pct < 0 || pct > 100) {
 			warn('shadow.transparency can only be 0-100')
 		} else {
-			corrected.opacity = 1 - pct / 100
+			corrected._alpha = 1 - pct / 100
 		}
 	}
 
@@ -143,13 +142,13 @@ export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowPr
 			corrected.color = corrected.color.replace('#', '')
 		}
 
-		// 8-char hex (RGBA) — derive `opacity` from the alpha byte (only when `transparency`
+		// 8-char hex (RGBA) — derive `_alpha` from the alpha byte (only when `transparency`
 		// didn't already set one), then strip the alpha byte from the color so emit sites
 		// produce valid 6-char `<a:srgbClr val="…"/>`.
 		if (/^[0-9a-fA-F]{8}$/.test(corrected.color)) {
 			const alphaHex = corrected.color.slice(6, 8)
-			if (corrected.opacity === undefined) {
-				corrected.opacity = parseInt(alphaHex, 16) / 255
+			if (corrected._alpha === undefined) {
+				corrected._alpha = parseInt(alphaHex, 16) / 255
 			}
 			corrected.color = corrected.color.slice(0, 6)
 		}

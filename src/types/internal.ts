@@ -21,12 +21,14 @@ import type { SlideComment, TextProps } from './text.js'
 
 /**
  * Internal, wire-normalized shadow shape produced by `correctShadowOptions` — not part of the
- * public `ShadowProps` input. `opacity` (0.0 fully transparent – 1.0 fully opaque) is the alpha
+ * public `ShadowProps` input. `_alpha` (0.0 fully transparent – 1.0 fully opaque) is the alpha
  * derived from the public `transparency` option (or a color's embedded alpha byte); it is what
  * every emit site reads, so downstream code stays unit-agnostic about the public percent scale.
+ * The `_` prefix keeps it clear of the removed public `opacity` input: a stray `opacity` from an
+ * untyped caller lands on a field nothing reads, so it is inert rather than silently honored.
  */
 export interface ShadowPropsInternal extends ShadowProps {
-	opacity?: number
+	_alpha?: number
 }
 // Used internally, probably shouldn't be used by end users
 export interface OptsChartDataInternal extends OptsChartData {

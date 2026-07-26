@@ -39,7 +39,7 @@ export const DEF_SHAPE_SHADOW: ShadowPropsInternal = {
 	offset: 23000 / 12700,
 	angle: 90,
 	color: '000000',
-	opacity: 0.35,
+	_alpha: 0.35,
 	rotateWithShape: true,
 }
 export const DEF_SLIDE_MARGIN_IN: [number, number, number, number] = [0.5, 0.5, 0.5, 0.5] // TRBL-style
@@ -49,7 +49,7 @@ export const DEF_TEXT_SHADOW: ShadowPropsInternal = {
 	offset: 4,
 	angle: 270,
 	color: '000000',
-	opacity: 0.75,
+	_alpha: 0.75,
 }
 export const DEF_TEXT_GLOW = { size: 8, color: 'FFFFFF', opacity: 0.75 }
 

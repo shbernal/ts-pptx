@@ -101,7 +101,7 @@ export interface ImageBaseProps extends PositionProps, ObjectNameProps {
 	 * Shadow Props
 	 * - MS-PPT > Format Picture > Shadow
 	 * @example
-	 * { type: 'outer', color: '000000', opacity: 0.5, blur: 20,  offset: 20, angle: 270 }
+	 * { type: 'outer', color: '000000', transparency: 50, blur: 20,  offset: 20, angle: 270 }
 	 */
 	shadow?: ShadowProps
 	/**

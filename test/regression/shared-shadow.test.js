@@ -72,7 +72,7 @@ defineRegressionSuite('Shared shadow options', 'legacy bug-05', [
 
 			assert(shadow.blur === 6, 'shadow.blur changed: ' + shadow.blur)
 			assert(shadow.offset === 2, 'shadow.offset changed: ' + shadow.offset)
-			assert(Math.abs(shadow.opacity - 0.15) < 1e-9, 'shadow.opacity changed: ' + shadow.opacity)
+			assert(Math.abs(shadow._alpha - 0.15) < 1e-9, 'shadow._alpha changed: ' + shadow._alpha)
 			assert(shadow.color === '000000', 'shadow.color changed: ' + shadow.color)
 			assert(shadow.angle === undefined, 'shadow.angle changed: ' + shadow.angle)
 		},

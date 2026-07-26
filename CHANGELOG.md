@@ -42,6 +42,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking (structural type):** `ResolvedTableStyle` gained a required
   `markDirty(): void` member. Only code that builds the object literal itself
   (rather than reading it from `table.resolvedStyle`) is affected.
+- **Breaking (internal type):** the internal `ShadowPropsInternal.opacity`
+  field (the derived shadow alpha) is renamed to `_alpha`, clearing it of the
+  removed public `opacity` shadow input. A stray `opacity` from an untyped/legacy
+  caller is now inert (it lands on a field nothing reads) instead of being
+  actively stripped — no behaviour change for supported inputs; use
+  `transparency` (0–100). Only code reading the internal shape off a corrected
+  shadow is affected.
 
 ## [1.0.0] - 2026-07-24
 
