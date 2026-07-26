@@ -28,7 +28,13 @@ export interface ShapeAdjustValue {
  * - `name` is a `ST_GeomGuideName` token, e.g. `'w2'`.
  * - `formula` is a `ST_GeomGuideFormula` — a space-delimited op + args string emitted verbatim,
  *   e.g. the multiply-divide op `"* / w 1 2"` written without the inner space (w × 1 ÷ 2), or
- *   `'val 10800'`. This is an advanced escape hatch: the string is not interpreted, only escaped.
+ *   `'val 10800'`. This is an advanced escape hatch: the arguments are not interpreted, only
+ *   escaped. The leading operation *is* checked against the 17 ECMA-376 §20.1.9.11 operations
+ *   (multiply-divide, add-subtract, add-divide, if-else, `abs`, `at2`, `cat2`, `cos`, `max`,
+ *   `min`, `mod`, `pin`, `sat2`, `sin`, `sqrt`, `tan`, `val` — see `GEOM_GUIDE_OPS` in
+ *   `src/gen/drawingml/geometry.ts` for the literal tokens), because an unknown one emits
+ *   schema-shaped but semantically dead geometry that PowerPoint answers with a repair prompt;
+ *   such a guide is warned about and skipped.
  * @see http://www.datypic.com/sc/ooxml/e-a_gd-1.html
  */
 export interface ShapeGuide {

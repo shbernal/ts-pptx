@@ -74,6 +74,20 @@ matching line in the module-map header. Prefer ASCII `=====` banners over box-dr
 characters. (A few enums, such as `TableStyle` in `core-enums.ts`, group their members
 with `// ── Name ──` sub-headers; that is an intra-construct grouping, not a file region.)
 
+### Trailing `_` marks an escape hatch
+
+A public member whose name ends in `_` — today that is `element_` across the read
+model — is a **deliberate escape hatch onto the internal representation**, not a
+naming accident. The underscore is there to be slightly ugly: it makes hatch usage
+greppable and makes it stand out in review, both in this repo and in consumer code.
+
+Do not "tidy" such a member to the bare name; doing so silently converts a flagged
+hatch into ordinary-looking API. Every `element_` is paired with a public
+`markDirty()` on the same object, because handing out a live DOM node without the
+obligation that comes with it is how an edit vanishes on save. See the
+"Escape Hatches" section of [project target](project-target.md) for when a new
+hatch is acceptable at all.
+
 ## Common Commands
 
 Build the source bundle used by tests:

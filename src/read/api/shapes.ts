@@ -556,8 +556,12 @@ export abstract class Shape {
 	/** The transform element, creating it (and its container) in document order if absent. */
 	protected abstract getOrAddXfrm(): Element
 
-	/** Mark the owning slide part dirty so `save()` reserializes it. */
-	protected markDirty(): void {
+	/**
+	 * Mark the owning slide part dirty so `save()` reserializes it. Public
+	 * because {@link element_} hands out the live DOM node: the hatch and the
+	 * obligation that comes with it belong on the same object.
+	 */
+	markDirty(): void {
 		this.slide.part.markDirty()
 	}
 
@@ -1254,7 +1258,7 @@ export abstract class Shape {
 		this.markDirty()
 	}
 
-	/** The underlying shape element, for advanced reads and future mutation. */
+	/** Escape hatch: the underlying shape element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
 	get element_(): Element {
 		return this.element
 	}

@@ -498,6 +498,8 @@ class Slide {
 	readonly tags: Tag[] // this slide's programmatic tags (p:custDataLst/p:tags); [] when none. See "Tags"
 	addTextBox(options: AddTextBoxOptions): AutoShape // Phase 4 — appends a p:sp
 	addPicture(image: Uint8Array, options: AddPictureOptions): Picture // Phase 4 — new media part + rel + p:pic
+	readonly element_: Element // escape hatch: the p:sld root — see "Editing anything else"
+	markDirty(): void // call after mutating element_, or save() writes the original bytes
 }
 
 type SlideBackground = {
@@ -871,7 +873,8 @@ abstract class Shape {
 	readonly hasTextFrame: boolean
 	readonly textFrame: TextFrame | null
 	readonly text: string // textFrame?.text ?? ''
-	readonly element_: Element // escape hatch to the DOM node
+	readonly element_: Element // escape hatch to the DOM node — see "Editing anything else"
+	markDirty(): void // call after mutating element_, or save() writes the original bytes
 }
 
 class AutoShape extends Shape {
@@ -1806,15 +1809,42 @@ requirement is that the generator's slide size matches the template's
 ### Editing anything else (low-level escape hatch)
 
 For structure the typed setters do not yet cover, mutate the DOM directly and
-mark the part dirty yourself — `element_` gives you the live node:
+mark the part dirty yourself. Every read-model class exposes the live node as
+`element_` and, on the same object, the `markDirty()` that makes an edit through
+it stick:
 
 ```js
-const slide = presentation.opc.part('/ppt/slides/slide1.xml')
-const run = slide.dom.getElementsByTagName('a:t')[0]
-run.textContent = 'New title'
-slide.markDirty() // without this, save() writes the original bytes
+const shape = presentation.slides[0].shapes[0]
+
+shape.element_.setAttribute('rot', '5400000') // 90° — no typed setter for this yet
+shape.markDirty() // ← without this, save() writes the ORIGINAL bytes, silently
 
 const edited = await presentation.save()
+```
+
+**`markDirty()` is not optional.** Skipping it is not an error and produces no
+warning: the part is still clean, so `save()` writes its original bytes and the
+edit simply vanishes. That is the deliberate cost of the byte-identity guarantee
+below — parsing and reading must never dirty a part — so the obligation stays
+explicit. It is pinned by `test/read/escape-hatch-dirty.test.js`.
+
+`element_` is available at every level, and `markDirty()` on any of them reaches
+the same owning part: `Slide` (the `p:sld` root), `Shape`, `TextFrame`,
+`Paragraph`, `Run`, `Table`, `TableRow`, `TableCell`, `Placeholder`,
+`NotesPlaceholder`, `Theme`, and — reaching their *own* parts, not the slide —
+`Chart`, `ChartAxis`, `ChartSeries`, `ChartEx`, `ChartExAxis`, `ChartExSeries`,
+and the `ResolvedTableStyle` returned by `table.resolvedStyle`.
+
+The trailing underscore is deliberate: it keeps hatch usage greppable in your own
+codebase. It is not a private-member marker and will not be renamed.
+
+The same hatch is reachable one level lower, straight off the OPC part, when you
+want a part with no read-model class (or the whole document):
+
+```js
+const part = presentation.opc.part('/ppt/slides/slide1.xml')
+part.dom.getElementsByTagName('a:t')[0].textContent = 'New title'
+part.markDirty()
 ```
 
 Only the touched part is reserialized; everything else stays byte-identical.
@@ -1829,7 +1859,9 @@ navigation, geometry, picture image resolution, table detection, run
 formatting), and the edit tests (`test/read/edit.test.js`: text/font/geometry
 setters survive a save → reopen round-trip, untouched parts stay
 byte-identical, edited packages stay schema-valid, and invalid input is
-rejected), and the table tests (`test/read/table.test.js`: table/row/cell
+rejected), and the escape-hatch tests (`test/read/escape-hatch-dirty.test.js`: an
+`element_` mutation without `markDirty()` is a byte-identical no-op, and each
+level's `markDirty()` reserializes exactly the owning part), and the table tests (`test/read/table.test.js`: table/row/cell
 navigation, merge metadata, and cell-text edits surviving a round-trip), and
 the structural-edit tests (`test/read/shapes-edit.test.js`: `addTextBox` /
 `delete` surviving a round-trip with untouched parts byte-identical), and the

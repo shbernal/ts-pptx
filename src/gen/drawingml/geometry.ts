@@ -27,6 +27,36 @@ const SPACE_BEFORE_SLASH = { closePrefix: ' ' }
 const BEZ_INDENT = { childPrefix: '\n\t\t\t\t\t', closePrefix: '\n\t\t\t\t\t' }
 
 /**
+ * The 17 guide-formula operations ECMA-376 Part 1 §20.1.9.11 (`a:gd/@fmla`) defines.
+ * The set is closed — the spec enumerates every operation with its arity — so an
+ * unrecognized leading token is always a caller mistake, not a newer dialect.
+ *
+ * Only the operation is checked. The operands are deliberately left uninterpreted:
+ * they may be literals, adjust names, or other guide names resolved in declaration
+ * order, and validating them would mean re-implementing the geometry engine — which
+ * is exactly what this passthrough exists to avoid.
+ */
+const GEOM_GUIDE_OPS = new Set([
+	'*/',
+	'+-',
+	'+/',
+	'?:',
+	'abs',
+	'at2',
+	'cat2',
+	'cos',
+	'max',
+	'min',
+	'mod',
+	'pin',
+	'sat2',
+	'sin',
+	'sqrt',
+	'tan',
+	'val',
+])
+
+/**
  * Emit an `<a:prstGeom>` for a preset shape, including any adjust values (`<a:avLst>`).
  * Shared by the shape and image code paths so that geometry + adjust handling stays in one place.
  * @param {string} shapeName - preset geometry name (e.g. `rect`, `ellipse`, `roundRect`, `hexagon`)
@@ -220,6 +250,16 @@ export function genXmlCustGeom(options: ObjectOptions, cx: number, cy: number, l
 				g.formula.length === 0
 			) {
 				warn(`guide entry ${JSON.stringify(g)} is invalid (needs { name:string, formula:string }) and was ignored.`)
+				return
+			}
+			// The formula is passed through uninterpreted, but its leading operation is a
+			// closed set: an unknown one emits schema-shaped, semantically dead geometry
+			// whose first feedback is a PowerPoint repair prompt. Warn and skip instead.
+			const op = g.formula.trimStart().split(/\s+/)[0] ?? ''
+			if (!GEOM_GUIDE_OPS.has(op)) {
+				warn(
+					`guide "${g.name}" formula ${JSON.stringify(g.formula)} starts with an unknown operation "${op}" (expected one of ${[...GEOM_GUIDE_OPS].join(' ')}) and was ignored.`
+				)
 				return
 			}
 			guideEls.push(voidEl('a:gd', { name: g.name, fmla: g.formula }))

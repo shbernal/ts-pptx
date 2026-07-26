@@ -133,9 +133,14 @@ export class NotesPlaceholder {
 		return this.textFrame?.text ?? ''
 	}
 
-	/** The underlying `p:sp` element, for advanced reads. */
+	/** Escape hatch: the underlying `p:sp` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
 	get element_(): Element {
 		return this.sp
+	}
+
+	/** Mark the owning notes-slide part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
+	markDirty(): void {
+		this.part.markDirty()
 	}
 }
 

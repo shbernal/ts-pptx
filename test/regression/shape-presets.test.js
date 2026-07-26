@@ -1,5 +1,5 @@
 import { ShapeType } from '../../dist/node.js'
-import { defineRegressionSuite, build, readEntry, assert, assertXmlOrder } from '../helpers.js'
+import { defineRegressionSuite, build, readEntry, assert, assertEqual, assertXmlOrder } from '../helpers.js'
 
 defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 	{
@@ -260,6 +260,94 @@ defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 			// The degenerate guide is dropped, so the list falls back to the empty-case bytes.
 			assert(/<a:gdLst><\/a:gdLst>/.test(xml), 'expected empty <a:gdLst></a:gdLst> after dropping guide; got: ' + xml)
 			assert(!/<a:gd\b/.test(xml), 'no <a:gd> should be emitted for the invalid guide; got: ' + xml)
+		},
+	},
+	{
+		name: 'custGeom guide with an unknown formula operation is dropped and warns',
+		fn: async () => {
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (...args) => warnings.push(args.join(' '))
+			let xml
+			try {
+				const { zip } = await build((p) => {
+					const s = p.addSlide()
+					s.addShape(ShapeType.custGeom, {
+						x: 1,
+						y: 1,
+						w: 2,
+						h: 2,
+						points: [{ x: 0, y: 0 }],
+						guides: [
+							{ name: 'w2', formula: '*/ w 1 2' }, // valid op, kept
+							{ name: 'bad', formula: 'bogus 1 2' }, // unknown op, dropped
+						],
+					})
+				})
+				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			} finally {
+				console.warn = origWarn
+			}
+			assert(
+				warnings.some((w) => w.includes('unknown operation "bogus"') && w.includes('was ignored')),
+				'expected a warning naming the unknown operation; got: ' + warnings.join(' | ')
+			)
+			assert(
+				xml.includes('<a:gdLst><a:gd name="w2" fmla="*/ w 1 2"/></a:gdLst>'),
+				'the valid guide should survive alone; got: ' + xml
+			)
+			assert(!xml.includes('name="bad"'), 'no <a:gd> should be emitted for the unknown-op guide; got: ' + xml)
+		},
+	},
+	{
+		name: 'custGeom accepts every ECMA-376 guide formula operation',
+		fn: async () => {
+			// The closed set from ECMA-376 Part 1 §20.1.9.11; a regression here means the
+			// validator started rejecting a legitimate formula, which is worse than the
+			// footgun it guards against.
+			const ops = [
+				'*/',
+				'+-',
+				'+/',
+				'?:',
+				'abs',
+				'at2',
+				'cat2',
+				'cos',
+				'max',
+				'min',
+				'mod',
+				'pin',
+				'sat2',
+				'sin',
+				'sqrt',
+				'tan',
+				'val',
+			]
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (...args) => warnings.push(args.join(' '))
+			let xml
+			try {
+				const { zip } = await build((p) => {
+					const s = p.addSlide()
+					s.addShape(ShapeType.custGeom, {
+						x: 1,
+						y: 1,
+						w: 2,
+						h: 2,
+						points: [{ x: 0, y: 0 }],
+						guides: ops.map((op, i) => ({ name: `g${i}`, formula: `${op} w 1 2` })),
+					})
+				})
+				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			} finally {
+				console.warn = origWarn
+			}
+			assertEqual(warnings.length, 0, 'no operation should warn; got: ' + warnings.join(' | '))
+			ops.forEach((op, i) => {
+				assert(xml.includes(`name="g${i}"`), `guide for op "${op}" should be emitted; got: ` + xml)
+			})
 		},
 	},
 	{

@@ -40,8 +40,14 @@ export interface ResolvedTableStyle {
 	styleId: string
 	/** The style's display name (`@styleName`, e.g. `Medium Style 2 - Accent 1`), or `null`. */
 	name: string | null
-	/** The underlying `a:tblStyle` element, for consumers that want to walk the graph directly. */
+	/** Escape hatch: the underlying `a:tblStyle` element. After mutating it call {@link ResolvedTableStyle.markDirty}, or `save()` writes the original bytes. */
 	element_: Element
+	/**
+	 * Mark `tableStyles.xml` dirty so `save()` reserializes it. Call after mutating
+	 * {@link ResolvedTableStyle.element_}. Note the part is deck-wide: an edit here
+	 * reaches every table bound to this style.
+	 */
+	markDirty(): void
 }
 
 /**
@@ -53,10 +59,17 @@ export function resolveTableStyle(opc: OpcPackage, styleId: string | null): Reso
 	if (!styleId) return null
 	const part = opc.partsByContentType(TABLE_STYLES_CONTENT_TYPE)[0]
 	const list = part?.dom.documentElement
-	if (!list) return null
+	if (!part || !list) return null
 	for (const st of getElements(list, 'a:tblStyle')) {
 		if (attr(st, 'styleId') === styleId) {
-			return { styleId, name: attr(st, 'styleName'), element_: st }
+			return {
+				styleId,
+				name: attr(st, 'styleName'),
+				element_: st,
+				markDirty: () => {
+					part.markDirty()
+				},
+			}
 		}
 	}
 	return null

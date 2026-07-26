@@ -172,9 +172,14 @@ export class Table {
 		return this.rows[rowIndex]?.cells[columnIndex] ?? null
 	}
 
-	/** The underlying `a:tbl` element, for advanced reads and future mutation. */
+	/** Escape hatch: the underlying `a:tbl` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
 	get element_(): Element {
 		return this.tbl
+	}
+
+	/** Mark the owning part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
+	markDirty(): void {
+		this.part.markDirty()
 	}
 
 	#tblPrFlag(name: string): boolean {
@@ -208,9 +213,14 @@ export class TableRow {
 		return intValue(attr(this.tr, 'h'))
 	}
 
-	/** The underlying `a:tr` element. */
+	/** Escape hatch: the underlying `a:tr` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
 	get element_(): Element {
 		return this.tr
+	}
+
+	/** Mark the owning part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
+	markDirty(): void {
+		this.part.markDirty()
 	}
 }
 
@@ -394,8 +404,13 @@ export class TableCell {
 		return attr(this.tc, 'hMerge') === '1' || attr(this.tc, 'vMerge') === '1'
 	}
 
-	/** The underlying `a:tc` element. */
+	/** Escape hatch: the underlying `a:tc` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
 	get element_(): Element {
 		return this.tc
+	}
+
+	/** Mark the owning part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
+	markDirty(): void {
+		this.part.markDirty()
 	}
 }

@@ -3417,6 +3417,45 @@ export default [
 		},
 	},
 	{
+		// `guides` is an uninterpreted passthrough, so its leading operation is the one
+		// thing checked against the closed ECMA-376 §20.1.9.11 set: an unknown op emits
+		// schema-shaped but semantically dead geometry that PowerPoint answers with a
+		// repair prompt. The dropped guide must not leave the gdLst (or the ahLst/cxnLst
+		// entries that reference the surviving guide) malformed.
+		name: 'custGeom drops a guide with an unknown formula operation and stays schema-valid',
+		fn: async () => {
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (...args) => warnings.push(args.join(' '))
+			let buf
+			try {
+				;({ buf } = await build((p) => {
+					const s = p.addSlide()
+					s.addShape(ShapeType.custGeom, {
+						x: 1,
+						y: 1,
+						w: 3,
+						h: 2,
+						objectName: 'freeform-bad-guide',
+						points: [
+							{ x: 0, y: 0 },
+							{ x: 3, y: 0 },
+							{ x: 3, y: 2, close: true },
+						],
+						guides: [
+							{ name: 'w2', formula: '*/ w 1 2' },
+							{ name: 'bad', formula: 'bogus 1 2' },
+						],
+						adjustHandles: [{ x: 'w2', y: 0, gdRefX: 'w2', minX: 0, maxX: 3 }],
+					})
+				}))
+			} finally {
+				console.warn = origWarn
+			}
+			await expectNoSchemaErrors(buf, 'custGeom-unknown-guide-op')
+		},
+	},
+	{
 		// dn-zoom-links: Slide / Section / Summary Zoom (Insert ▸ Zoom). Each is a `<p:graphicFrame>`
 		// in the 2016 zoom namespaces wrapped in `<mc:AlternateContent>` with a hyperlinked-picture
 		// fallback; validate all three variants plus a caller-supplied cover image.

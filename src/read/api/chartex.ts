@@ -105,7 +105,7 @@ export class ChartEx {
 	/** The plot-area axes (`cx:plotArea/cx:axis`) in document order. */
 	get axes(): ChartExAxis[] {
 		const plotArea = this.#plotArea()
-		return plotArea ? getElements(plotArea, 'cx:axis').map((ax) => new ChartExAxis(ax)) : []
+		return plotArea ? getElements(plotArea, 'cx:axis').map((ax) => new ChartExAxis(ax, this)) : []
 	}
 
 	/**
@@ -116,9 +116,14 @@ export class ChartEx {
 		return this.series[0]?.categories ?? []
 	}
 
-	/** The underlying `cx:chartSpace` element, for advanced reads. */
+	/** Escape hatch: the underlying `cx:chartSpace` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
 	get element_(): Element | null {
 		return this.part.dom.documentElement
+	}
+
+	/** Mark the chartEx part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
+	markDirty(): void {
+		this.part.markDirty()
 	}
 
 	/**
@@ -227,9 +232,14 @@ export class ChartExSeries {
 		}
 	}
 
-	/** The underlying `cx:series` element. */
+	/** Escape hatch: the underlying `cx:series` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
 	get element_(): Element {
 		return this.ser
+	}
+
+	/** Mark the owning chartEx part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
+	markDirty(): void {
+		this.chart.part.markDirty()
 	}
 }
 
@@ -239,7 +249,11 @@ export class ChartExSeries {
  * (`cx:catScaling` vs `cx:valScaling`).
  */
 export class ChartExAxis {
-	constructor(private readonly ax: Element) {}
+	constructor(
+		private readonly ax: Element,
+		/** The owning chartEx chart, so {@link markDirty} can reach its part from {@link element_}. */
+		private readonly chart: ChartEx
+	) {}
 
 	/** Axis id (`@id`), the value a series' `cx:axisId` binds to. */
 	get id(): number | null {
@@ -284,9 +298,14 @@ export class ChartExAxis {
 		return !!firstChild(this.ax, 'cx:tickLabels')
 	}
 
-	/** The underlying `cx:axis` element. */
+	/** Escape hatch: the underlying `cx:axis` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
 	get element_(): Element {
 		return this.ax
+	}
+
+	/** Mark the owning chartEx part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
+	markDirty(): void {
+		this.chart.part.markDirty()
 	}
 }
 

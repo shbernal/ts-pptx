@@ -185,9 +185,14 @@ export class Theme {
 		}
 	}
 
-	/** The underlying `a:theme` element, for advanced reads. */
+	/** Escape hatch: the underlying `a:theme` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
 	get element_(): Element | null {
 		return this.part.dom.documentElement
+	}
+
+	/** Mark the theme part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
+	markDirty(): void {
+		this.part.markDirty()
 	}
 
 	#themeElements(): Element | null {
@@ -298,9 +303,14 @@ export class Placeholder {
 		return txBody ? new TextFrame(txBody, this.part, this.themeContext, undefined, this.relationships) : null
 	}
 
-	/** The underlying `p:sp` element, for advanced reads. */
+	/** Escape hatch: the underlying `p:sp` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
 	get element_(): Element {
 		return this.sp
+	}
+
+	/** Mark the owning master/layout part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
+	markDirty(): void {
+		this.part.markDirty()
 	}
 }
 

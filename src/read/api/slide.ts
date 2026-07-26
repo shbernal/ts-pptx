@@ -129,6 +129,23 @@ export class Slide {
 		return this.part.partName
 	}
 
+	/**
+	 * Escape hatch: the underlying `p:sld` element. After mutating it call
+	 * {@link markDirty}, or `save()` writes the original bytes. Slide-level DOM
+	 * access is also reachable as `slide.part.dom`; this getter is the same node,
+	 * on the same rung of the ladder as `Shape.element_` and the rest.
+	 */
+	get element_(): Element {
+		const root = this.part.dom.documentElement
+		if (!root) throw new Error(`Slide ${this.partName} has no root <p:sld> element`)
+		return root
+	}
+
+	/** Mark this slide's part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
+	markDirty(): void {
+		this.part.markDirty()
+	}
+
 	/** This slide part's relationships (image embeds, layout, hyperlinks, …). */
 	get relationships(): Relationships {
 		return this.presentation.opc.relationshipsFor(this.partName)

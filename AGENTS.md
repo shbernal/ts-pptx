@@ -43,6 +43,11 @@
 - Silent coercion of invalid input is a footgun, not a feature: prefer warning or
   failing on `NaN` / `undefined` / out-of-range values over emitting a degenerate
   result (e.g. a zero-size object).
+- Before adding, widening, or removing an escape hatch (raw XML, a passthrough
+  string, direct DOM access), read the "Escape Hatches" section of
+  `docs/project-target.md`. It states the convenience-vs-guarantee rule and why
+  the read path gets a deep raw hatch while the write path does not — do not
+  re-derive that reasoning from the backlog.
 
 ## OOXML And PowerPoint Work
 
@@ -111,7 +116,7 @@ MCPs' corpora.
 - For source changes, run `pnpm run build` and `pnpm run typecheck` when practical.
 - For behavior changes, run `pnpm run test:unit`.
 - For OOXML serialization changes, add or update a fixture in `test/schema-cases.js` and run `pnpm run test:schema`.
-- For a *behavior-preserving* refactor of the `src/gen/` emitters, gate every step on the byte-identity harness: `pnpm run byte-identity:baseline` before the refactor, then `pnpm run byte-identity:check` after each step. It generates the full demo deck, recurses into every embedded `.xlsx`, and diffs all 1437 parts; only three nondeterministic patterns (core.xml timestamps, `p14:section` ids, `c16:uniqueId`) are normalized. Any other byte change is a real regression — do not accept one as cleanup.
+- For a *behavior-preserving* refactor of the `src/gen/` emitters, gate every step on the byte-identity harness: `pnpm run byte-identity:baseline` before the refactor, then `pnpm run byte-identity:check` after each step. It generates the full demo deck, recurses into every embedded `.xlsx`, and diffs all 1637 parts; only three nondeterministic patterns (core.xml timestamps, `p14:section` ids, `c16:uniqueId`) are normalized. Any other byte change is a real regression — do not accept one as cleanup.
 - **Whitespace-only byte diffs are a STOP, not a known-divergence.** Inter-element whitespace is semantically inert, but whitespace adjacent to character data is content, and the emitters keep those cases separate: pretty-printing exists only in structural regions, while every text-bearing element (`<a:t>`, `<vt:lpstr>`, `<c:v>`, `<si><t>`) is emitted flat. Waving through "harmless" whitespace is therefore the exact reasoning that would also wave through a real content change. If a part resists byte-identity, leave it un-migrated on template strings and list it as an exception — do not migrate it with an accepted diff. A gate that admits exceptions stops being a gate and becomes a judgment call, precisely where fatigue is highest.
 - `pnpm run test:schema` requires the validator installed with `./tools/ooxml-validator/install.sh`.
 - For release/package boundary changes, consult `docs/testing.md` and run the relevant package or demo smoke commands.

@@ -124,7 +124,8 @@ export class Chart {
 		for (let node = plotArea.firstChild; node; node = node.nextSibling) {
 			if (node.nodeType !== ELEMENT_NODE) continue
 			const element = node as Element
-			if (element.namespaceURI === OOXML_NS.c && /Ax$/.test(element.localName ?? '')) out.push(new ChartAxis(element))
+			if (element.namespaceURI === OOXML_NS.c && /Ax$/.test(element.localName ?? ''))
+				out.push(new ChartAxis(element, this.part))
 		}
 		return out
 	}
@@ -183,7 +184,7 @@ export class Chart {
 	get series(): ChartSeries[] {
 		return this.#chartGroups()
 			.flatMap((group) => getElements(group, 'c:ser'))
-			.map((ser) => new ChartSeries(ser))
+			.map((ser) => new ChartSeries(ser, this.part))
 	}
 
 	/**
@@ -195,9 +196,14 @@ export class Chart {
 		return firstSer ? firstSer.categories : []
 	}
 
-	/** The underlying `c:chartSpace` element, for advanced reads. */
+	/** Escape hatch: the underlying `c:chartSpace` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
 	get element_(): Element | null {
 		return this.part.dom.documentElement
+	}
+
+	/** Mark the chart part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
+	markDirty(): void {
+		this.part.markDirty()
 	}
 
 	#chart(): Element | null {
@@ -230,7 +236,11 @@ export class Chart {
  * distinguishes them.
  */
 export class ChartAxis {
-	constructor(private readonly ax: Element) {}
+	constructor(
+		private readonly ax: Element,
+		/** The owning chart's OPC part, so {@link markDirty} can reach it from {@link element_}. */
+		private readonly part: Part
+	) {}
 
 	/** Axis kind derived from the element name: `cat`/`val`/`date`/`ser`. */
 	get kind(): 'cat' | 'val' | 'date' | 'ser' | null {
@@ -340,9 +350,14 @@ export class ChartAxis {
 		return el ? intValue(attr(el, 'val')) : null
 	}
 
-	/** The underlying axis element. */
+	/** Escape hatch: the underlying axis element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
 	get element_(): Element {
 		return this.ax
+	}
+
+	/** Mark the owning chart part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
+	markDirty(): void {
+		this.part.markDirty()
 	}
 
 	/** A named child of `c:scaling`. */
@@ -354,7 +369,11 @@ export class ChartAxis {
 
 /** One data series (`c:ser`) of a chart. */
 export class ChartSeries {
-	constructor(private readonly ser: Element) {}
+	constructor(
+		private readonly ser: Element,
+		/** The owning chart's OPC part, so {@link markDirty} can reach it from {@link element_}. */
+		private readonly part: Part
+	) {}
 
 	/**
 	 * Series fill (`c:spPr` solid fill / no-fill). `null` when the series carries
@@ -416,9 +435,14 @@ export class ChartSeries {
 		return readPoints(cat && findCache(cat))
 	}
 
-	/** The underlying `c:ser` element. */
+	/** Escape hatch: the underlying `c:ser` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
 	get element_(): Element {
 		return this.ser
+	}
+
+	/** Mark the owning chart part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
+	markDirty(): void {
+		this.part.markDirty()
 	}
 }
 

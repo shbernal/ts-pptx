@@ -381,9 +381,14 @@ export class Run {
 		return this.bold ?? this.inheritedBold?.() ?? null
 	}
 
-	/** The underlying `a:r` element, for advanced reads and future mutation. */
+	/** Escape hatch: the underlying `a:r` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
 	get element_(): Element {
 		return this.element
+	}
+
+	/** Mark the owning part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
+	markDirty(): void {
+		this.part.markDirty()
 	}
 
 	#rPr(): Element | null {
@@ -629,9 +634,14 @@ export class Paragraph {
 		return out
 	}
 
-	/** The underlying `a:p` element, for advanced reads and future mutation. */
+	/** Escape hatch: the underlying `a:p` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
 	get element_(): Element {
 		return this.element
+	}
+
+	/** Mark the owning part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
+	markDirty(): void {
+		this.part.markDirty()
 	}
 }
 
@@ -793,9 +803,14 @@ export class TextFrame {
 		this.part.markDirty()
 	}
 
-	/** The underlying `p:txBody` element, for advanced reads and future mutation. */
+	/** Escape hatch: the underlying `p:txBody` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
 	get element_(): Element {
 		return this.txBody
+	}
+
+	/** Mark the owning part dirty so `save()` reserializes it. Call after mutating {@link element_}. */
+	markDirty(): void {
+		this.part.markDirty()
 	}
 }
 

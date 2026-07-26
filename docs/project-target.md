@@ -79,6 +79,44 @@ supported.
   library *itself* emits (independent of the other application) turns one of these
   into an in-scope correctness bug.
 
+## Escape Hatches
+
+An escape hatch is any API that lets a caller step around the library's own
+abstractions. This project ships several, deliberately, and the rule for whether
+a proposed one is acceptable is:
+
+> An escape hatch is fine when it bypasses a **convenience**, and needs a much
+> higher bar when it bypasses a **guarantee**.
+
+The guarantee here is *the bytes we author are valid OOXML that PowerPoint opens
+cleanly*. Everything else — unit conversion, autocomplete on a colour string, a
+curated enum subset — is convenience, and a hatch through it costs the caller
+nothing but their own care.
+
+That single rule produces the read/write asymmetry the codebase already has:
+
+- **Write path** — the library authors the bytes, so the guarantee applies. Only
+  narrow, typed, validated hatches. Where a hatch takes uninterpreted input
+  (`ShapeGuide.formula`, `shapeAdjust`, a `"<n>emu"` coordinate), it is guarded
+  the way the rest of the write path is: warn and skip, warn and fall back, or
+  throw — never silently emit a degenerate result (see the API Evolution Policy
+  in `AGENTS.md`).
+- **Read path** — the library never authored the bytes, so no such guarantee is
+  on offer. One deep raw hatch is therefore acceptable: `part.dom` plus
+  `element_` on the read model gives direct DOM access at every level. The
+  promise the read path *does* make — untouched parts round-trip
+  byte-identically — survives it, because reserialization is scoped to parts the
+  caller explicitly marked dirty. The obligation that comes with the hatch is
+  that the caller must call `markDirty()`; every class exposing `element_` also
+  exposes it. See `docs/reference/pptx-read.md`.
+
+The worked precedent for a rejection is the caller-provided XML transform hook
+(`docs/backlog.yml`, `upstream-issue-1282`, dismissed under
+`escape-hatch-footgun`): a generic write-side hook over the emitted XML bypasses
+the guarantee itself and leaves the library unable to make any claim about its
+own output. A concrete need behind such a request is met with a typed, validated
+primitive instead — not by widening the hatch.
+
 ## Maintenance Posture
 
 The repository should be understandable to a maintainer or an agent starting
