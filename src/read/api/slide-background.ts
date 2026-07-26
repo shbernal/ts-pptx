@@ -120,27 +120,42 @@ function decodeBackgroundFill(container: Element, ctx: FlattenContext, rels: Rel
  * its `phClr` substituted by the bgRef's colour, and the resulting fill element is
  * decoded like a `p:bgPr`. `null` when the theme has no `fmtScheme`, the entry is
  * absent, or the colour cannot be resolved.
+ *
+ * `themeRels` — not the owning slide/layout/master's rels — is what an `a:blipFill`
+ * entry's `r:embed` resolves against: the fill element is lifted out of the *theme*
+ * part, so its relationship id is scoped to that part. Several stock Office themes
+ * (Ion, Facet, …) put a picture in the third `bgFillStyleLst` slot, so a deck using
+ * `p:bgRef idx="1003"` hits this.
  */
-function resolveThemeRefFill(bgRef: Element, ctx: FlattenContext, rels: Relationships | null): BackgroundFill | null {
+function resolveThemeRefFill(
+	bgRef: Element,
+	ctx: FlattenContext,
+	themeRels: Relationships | null
+): BackgroundFill | null {
 	const fill = styleRefFill(bgRef, ctx)
 	if (!fill) return null
 	// Wrap the bare fill element (e.g. `a:gradFill`) in a synthetic container so the
 	// same child-dispatch decode used for `p:bgPr` applies unchanged.
 	const wrapper = createElement(ownerDocumentOf(bgRef), 'p:bgPr')
 	wrapper.appendChild(fill)
-	return decodeBackgroundFill(wrapper, ctx, rels)
+	return decodeBackgroundFill(wrapper, ctx, themeRels)
 }
 
 /**
  * Decode a `p:bg` element into a {@link SlideBackground}. `ctx` resolves colour
  * tokens and (for a `themeRef`) the theme `fmtScheme`; `rels` (the *owning* part's
  * relationships) resolves an image background's `r:embed` to an absolute part name.
+ *
+ * `themeRels` is the theme part's own relationships, used only for a `themeRef`'s
+ * {@link SlideBackground.resolvedFill}: that fill comes out of the theme part, so an
+ * image entry's `r:embed` is scoped to the theme, not to `rels`.
  */
 export function readSlideBackground(
 	bg: Element,
 	source: BackgroundSource,
 	ctx: FlattenContext,
-	rels: Relationships | null
+	rels: Relationships | null,
+	themeRels: Relationships | null
 ): SlideBackground {
 	// A background is either a `p:bgPr` (explicit fill) or a `p:bgRef` (theme-indexed).
 	const bgRef = firstChild(bg, 'p:bgRef')
@@ -150,7 +165,7 @@ export function readSlideBackground(
 			source,
 			idx: intValue(attr(bgRef, 'idx')),
 			color: resolveColorElement(firstChildElement(bgRef), ctx),
-			resolvedFill: resolveThemeRefFill(bgRef, ctx, rels),
+			resolvedFill: resolveThemeRefFill(bgRef, ctx, themeRels),
 		}
 	}
 

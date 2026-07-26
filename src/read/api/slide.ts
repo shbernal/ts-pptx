@@ -479,11 +479,12 @@ export class Slide {
 			{ root: parts.layoutRoot, source: 'layout', partName: parts.layoutPartName },
 			{ root: parts.masterRoot, source: 'master', partName: parts.masterPartName },
 		]
+		const themeRels = parts.themePartName ? opc.relationshipsFor(parts.themePartName) : null
 		for (const { root, source, partName } of candidates) {
 			const bg = backgroundElementOf(root)
 			if (!bg) continue
 			const rels = partName ? opc.relationshipsFor(partName) : null
-			return readSlideBackground(bg, source, ctx, rels)
+			return readSlideBackground(bg, source, ctx, rels, themeRels)
 		}
 		return null
 	}

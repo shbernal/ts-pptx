@@ -391,7 +391,14 @@ export class SlideMaster {
 	get background(): SlideBackground | null {
 		const bg = backgroundElementOf(this.part.dom.documentElement)
 		if (!bg) return null
-		return readSlideBackground(bg, 'master', this.themeContext(), this.opc.relationshipsFor(this.partName))
+		const themePart = this.#relTarget(THEME_REL)
+		return readSlideBackground(
+			bg,
+			'master',
+			this.themeContext(),
+			this.opc.relationshipsFor(this.partName),
+			themePart ? this.opc.relationshipsFor(themePart.partName) : null
+		)
 	}
 
 	/**
@@ -485,7 +492,14 @@ export class SlideLayout {
 	get background(): SlideBackground | null {
 		const bg = backgroundElementOf(this.part.dom.documentElement)
 		if (!bg) return null
-		return readSlideBackground(bg, 'layout', this.themeContext(), this.opc.relationshipsFor(this.partName))
+		const themePart = this.master?.theme?.part ?? null
+		return readSlideBackground(
+			bg,
+			'layout',
+			this.themeContext(),
+			this.opc.relationshipsFor(this.partName),
+			themePart ? this.opc.relationshipsFor(themePart.partName) : null
+		)
 	}
 
 	/**

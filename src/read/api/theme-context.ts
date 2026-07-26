@@ -42,6 +42,12 @@ export interface SlideThemeParts extends ColorContext {
 	masterPartName: string | null
 	layoutRoot: Element | null
 	masterRoot: Element | null
+	/**
+	 * Partname of the theme part the chain bottoms out in, or `null`. Callers that
+	 * materialize a fill out of the theme (a `p:bgRef`'s `fmtScheme` entry) need it to
+	 * resolve that fill's relationship ids against the *theme's* rels.
+	 */
+	themePartName: string | null
 	/** The theme's `a:themeElements`, for callers that also need `a:fmtScheme`. */
 	themeElements: Element | null
 }
@@ -97,6 +103,7 @@ export function resolveSlideThemeParts(opc: OpcPackage, slidePartName: string): 
 		masterPartName,
 		layoutRoot,
 		masterRoot,
+		themePartName,
 		themeElements,
 		clrMap: parseClrMap(override ?? masterClrMap),
 		clrScheme: parseClrScheme(themeElements ? firstChild(themeElements, 'a:clrScheme') : null),

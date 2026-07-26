@@ -86,6 +86,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   publish workflow now reuses the CI workflow instead of keeping its own copy of
   the gate, which had already drifted out of sync.
 
+### Fixed
+
+- **A theme-indexed picture background reported the wrong part.** When a
+  `p:bgRef`'s `fmtScheme` entry is an `a:blipFill` — the third `bgFillStyleLst`
+  slot in several stock Office themes (Ion, Facet, …) — the fill element comes out
+  of the *theme* part, so its `r:embed` is scoped to the theme's relationships.
+  `SlideBackground.resolvedFill` resolved it against the owning
+  slide/layout/master's relationships instead, which does not fail loudly: the
+  same id usually exists there and points at something else entirely. On an
+  Ion-themed deck `resolvedFill.partName` read `/ppt/slideLayouts/slideLayout1.xml`
+  where the image is `/ppt/media/image1.jpeg`. Affects `Slide.background`,
+  `SlideMaster.background`, and `SlideLayout.background`.
+
 ## [1.0.0] - 2026-07-24
 
 Initial public release of ts-pptx — an ESM-first, TypeScript-first library for
