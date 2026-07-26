@@ -5,13 +5,50 @@ on:
   push:
     branches:
       - master
+  # Exposed as a reusable workflow so `publish.yml` can run this exact gate
+  # instead of keeping its own hand-copied transcript of it. The two had already
+  # drifted — publish had lost `typecheck:test` and diverged on the pack command.
+  workflow_call:
 
 permissions:
   contents: read
 
 jobs:
-  validate:
-    name: Node ${{ matrix.node }}
+  # Lint, formatting and the three typechecks are node-version-independent: they
+  # read the same sources and the same tsconfig on every leg, so running them per
+  # matrix entry was pure duplication. One run, newest supported Node.
+  static:
+    name: Static checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.3.0
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Static checks
+        run: pnpm run check:static
+
+  # The tests, unlike the static checks, are genuinely node-version-sensitive, so
+  # they do run per version. Coverage thresholds produce an identical verdict on
+  # both legs, so collect them once on the primary version.
+  test:
+    name: Test (Node ${{ matrix.node }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -43,35 +80,48 @@ jobs:
       - name: Install OOXML validator
         run: ./tools/ooxml-validator/install.sh
 
-      - name: Lint
-        run: pnpm run lint
-
-      - name: Check formatting
-        run: pnpm run format:check
-
-      - name: Typecheck
-        run: pnpm run typecheck
-
-      - name: Typecheck scripts
-        run: pnpm run typecheck:scripts
-
-      - name: Typecheck tests
-        run: pnpm run typecheck:test
-
       - name: Test (with coverage thresholds)
+        if: matrix.node == '24.x'
         run: pnpm run test:coverage
 
-      - name: Build package artifacts
-        run: pnpm run build
+      - name: Test
+        if: matrix.node != '24.x'
+        run: pnpm run test
 
-      - name: Lint package manifest
-        run: pnpm run package:lint
+  # Windows is not redundant here. Every branch in `run()` in
+  # scripts/script-utils.mjs — the `.cmd` shim handling, the DEP0190 avoidance,
+  # the local-bin resolution — exists solely for Windows, and these package and
+  # demo scripts are its only exercise. Until this leg existed, that code was
+  # unreachable from CI and a Windows-only break in it shipped green.
+  package:
+    name: Package (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
 
-      - name: Check package manifest
-        run: pnpm run pack:check
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
 
-      - name: Smoke test packed package
-        run: pnpm run test:package
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.3.0
+          run_install: false
 
-      - name: Smoke test demos
-        run: pnpm run test:demos
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Package and demo checks
+        run: pnpm run check:package
