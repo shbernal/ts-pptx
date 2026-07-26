@@ -33,6 +33,10 @@
 			"types": "./dist/read.d.ts",
 			"default": "./dist/read.js"
 		},
+		"./script": {
+			"types": "./dist/script.d.ts",
+			"default": "./dist/script.js"
+		},
 		"./math": {
 			"types": "./dist/math.d.ts",
 			"default": "./dist/math.js"

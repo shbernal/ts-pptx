@@ -49,6 +49,15 @@ exports and let this repository own the internal OOXML generation details.
   The generator-internal `*Internal` wire shapes live in `src/types/internal.ts`
   and are **not** re-exported — internal code imports them from there directly, the
   same non-published convention as `units-internal.ts`.
+- `src/script/` turns a deck read through `src/read/` into a serializable
+  description of the write-API calls that would rebuild it (`readModelToIr`).
+  It is its own subsystem because it depends on **both** halves — the read model
+  and the write option types — so it fits inside neither, and because `src/read/`
+  is documented as isomorphic (bytes in, bytes out), which a converter emitting
+  source text would quietly break for every `ts-pptx/read` consumer. Losses are
+  data, not log lines: anything that cannot survive is a `FidelityNote` on the
+  IR, which is what lets a round-trip check exclude exactly the declared losses
+  and treat every other difference as a defect.
 - `scripts/package-smoke.mjs` verifies the packed package boundary from a
   consumer perspective.
 

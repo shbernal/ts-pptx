@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A deck IR (`@shbernal/ts-pptx/script`), the read half of turning an existing
+  `.pptx` back into source.** `readModelToIr(presentation)` walks a deck read
+  through `ts-pptx/read` and returns a serializable description of the write-API
+  calls that would rebuild it — `{ slideSize, props, slides, assets, fidelity }`,
+  where each slide holds `{ method, args }` calls whose `args` are literal
+  write-API option objects. Geometry is carried as exact `"<n>emu"` strings
+  wherever the option is `Coord`-typed, and as six-decimal inches for the three
+  that are not (`colW`, `rowH`, `margin`) — the proven minimum for an EMU-exact
+  round-trip.
+
+  It is a new subsystem rather than part of `ts-pptx/read` because it needs both
+  the read model and the write option types, and because the read subpath is
+  documented as isomorphic (bytes in, bytes out); a converter whose output is
+  source text would break that guarantee for its consumers.
+
+  Every construct that cannot survive is a `FidelityNote` on the IR rather than a
+  log line, carrying `{ slideNumber, shapeName, construct, disposition, cause,
+  detail }`. `cause` distinguishes a missing read accessor (`unread`) from a
+  missing write option (`unwritable`) from a structural limit (`unsupported`),
+  which is what makes a note actionable. Because the notes are data, a round-trip
+  check can exclude exactly the declared losses and treat any other difference as
+  a defect — an undeclared loss fails, and a declared loss that actually survives
+  is a stale note. Read `DeckIr.fidelity` before trusting a conversion: notable
+  entries include theme-referenced outline width (`p:style/a:lnRef` resolves a
+  colour but not a width or dash), embedded audio/video (only the poster frame is
+  readable), and OMML equations.
+
+  This is the IR only. Printing it as TypeScript is not implemented yet.
+
 - **`Presentation.appendSlides` now carries speaker notes.** A generator slide
   authored with `addNotes` previously lost its notes entirely when spliced onto a
   loaded deck — `extractSlides` emitted no notes part, so the append path had
