@@ -30,6 +30,40 @@ async function isInstalled() {
 	}
 }
 
+let noticeEmitted = false
+
+// The gate every `test.skipIf(!validatorInstalled)` site should be built on,
+// rather than calling `isInstalled()` directly.
+//
+// A missing validator silently skips a few hundred schema assertions, so a local
+// `pnpm run verify` can be green while proving far less than it appears to. That
+// is a reasonable local trade — the binary is a large download and is not
+// committed — but it is never acceptable in CI, where installing it is a step of
+// the job. So: hard failure under CI, and locally a single one-line notice so a
+// green run cannot quietly be mistaken for a complete one.
+async function validatorAvailable() {
+	if (await isInstalled()) return true
+	if (process.env.CI) {
+		throw new Error(
+			'OOXMLValidatorCLI not installed at ' +
+				VALIDATOR +
+				'\nSchema assertions must not be skipped in CI. Run: ./tools/ooxml-validator/install.sh'
+		)
+	}
+	if (!noticeEmitted) {
+		noticeEmitted = true
+		// `process.stderr.write`, not `console.warn`: this fires while the module
+		// graph is still being collected, and Vitest drops console output emitted
+		// outside a running test. A notice nobody sees defeats the entire point.
+		process.stderr.write(
+			'\n[validator] OOXMLValidatorCLI not installed — schema assertions are being SKIPPED.\n' +
+				'[validator] A green run here does NOT prove schema validity.\n' +
+				'[validator] Install with: ./tools/ooxml-validator/install.sh\n\n'
+		)
+	}
+	return false
+}
+
 async function runValidatorOnFile(filePath, fileFormat) {
 	const args = [filePath]
 	const env = {
@@ -62,4 +96,4 @@ async function validateBuf(buf, fileFormat) {
 	}
 }
 
-export { isInstalled, validateBuf, runValidatorOnFile, VALIDATOR }
+export { isInstalled, validatorAvailable, validateBuf, runValidatorOnFile, VALIDATOR }

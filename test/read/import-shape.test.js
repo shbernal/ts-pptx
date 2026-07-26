@@ -18,10 +18,10 @@ import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
-import { isInstalled, validateBuf } from '../validator.js'
+import { validatorAvailable, validateBuf } from '../validator.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const validatorInstalled = await isInstalled()
+const validatorInstalled = await validatorAvailable()
 
 const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
 const P_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main'

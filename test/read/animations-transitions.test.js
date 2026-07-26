@@ -13,10 +13,10 @@ import assert from 'node:assert/strict'
 import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
-import { isInstalled, validateBuf } from '../validator.js'
+import { validatorAvailable, validateBuf } from '../validator.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const validatorInstalled = await isInstalled()
+const validatorInstalled = await validatorAvailable()
 
 function fixturePath(name) {
 	return path.join(__dirname, 'fixtures', `${name}.pptx`)

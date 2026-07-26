@@ -14,10 +14,10 @@ import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
-import { isInstalled, validateBuf } from '../validator.js'
+import { validatorAvailable, validateBuf } from '../validator.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const validatorInstalled = await isInstalled()
+const validatorInstalled = await validatorAvailable()
 
 const R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 const SLIDE_MASTER_REL = `${R_NS}/slideMaster`

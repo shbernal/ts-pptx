@@ -11,7 +11,7 @@ import JSZip from 'jszip'
 import { describe, test } from 'vitest'
 import { ContentTypes, OpcPackage, Relationships, resolveRelativePartName, relsPartNameFor } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
-import { isInstalled, validateBuf } from '../validator.js'
+import { validatorAvailable, validateBuf } from '../validator.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const FIXTURES = ['empty', 'textbox', 'image', 'table', 'mixed']
@@ -19,7 +19,7 @@ const FIXTURES = ['empty', 'textbox', 'image', 'table', 'mixed']
 const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
 
-const validatorInstalled = await isInstalled()
+const validatorInstalled = await validatorAvailable()
 
 function fixturePath(name) {
 	return path.join(__dirname, 'fixtures', `${name}.pptx`)

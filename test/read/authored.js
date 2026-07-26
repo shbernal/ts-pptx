@@ -18,10 +18,10 @@
 
 import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
-import { isInstalled, validateBuf } from '../validator.js'
+import { validatorAvailable, validateBuf } from '../validator.js'
 
 /** True when the OOXML schema validator is installed; gate schema legs with this. */
-export const validatorInstalled = await isInstalled()
+export const validatorInstalled = await validatorAvailable()
 
 /**
  * Author a deck in memory with the write API and load it into the deep read

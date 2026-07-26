@@ -14,11 +14,11 @@ import { describe, test, beforeAll } from 'vitest'
 import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
-import { isInstalled, validateBuf } from '../validator.js'
+import { validatorAvailable, validateBuf } from '../validator.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const fontsDir = path.join(__dirname, 'fixtures', 'fonts')
-const validatorInstalled = await isInstalled()
+const validatorInstalled = await validatorAvailable()
 
 let regular
 let bold
