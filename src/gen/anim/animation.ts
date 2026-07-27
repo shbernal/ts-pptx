@@ -19,7 +19,9 @@ import { resolveObjectNameToId } from '../slide/shape-ids.js'
  *
  * `objectName` resolves through `shapeIds`, which covers group children: they are `<p:cNvPr>`-named
  * on the slide and animate like any other shape, but are not in `_slideObjects`, so the old lookup
- * there dropped every animation targeting one.
+ * there dropped every animation targeting one. The name goes in raw — `resolveObjectNameToId` owns
+ * matching it against the attribute-escaped form the slide object stores — so the warning below
+ * quotes the same spelling the caller passed.
  *
  * `shapeIndex` is a 0-based index into the top-level objects only (its `spid = shapeIndex + 2`
  * mirrors the `idx + 2` top-level allocation in `collectSlideShapeIds`; group children take ids past

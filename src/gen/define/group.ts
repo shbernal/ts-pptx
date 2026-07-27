@@ -169,12 +169,16 @@ const GROUPABLE_TYPES: readonly SlideObjectType[] = [
 	SlideObjectType.group,
 ]
 
-/** Depth-first search for an object named `name` among group children, used only to explain a failed lookup. */
-function findNameInGroups(objects: SlideObject[], name: string): boolean {
+/**
+ * Depth-first search for an object whose *stored* name is `key`, among group children. Used only to
+ * explain a failed lookup, so it takes the same attribute-escaped key the caller already compared
+ * against `_slideObjects` (see `groupObjectsDefinition`) rather than escaping again per call.
+ */
+function findNameInGroups(objects: SlideObject[], key: string): boolean {
 	return objects.some((obj) => {
 		if (obj._type !== SlideObjectType.group) return false
 		return (obj._groupObjects || []).some(
-			(child) => child.options?.objectName === name || findNameInGroups([child], name)
+			(child) => child.options?.objectName === key || findNameInGroups([child], key)
 		)
 	})
 }
@@ -218,12 +222,17 @@ export function groupObjectsDefinition(target: PresSlideInternal, objectNames: s
 	// half-grouped.
 	const members: SlideObject[] = []
 	objectNames.forEach((name) => {
-		const matches = target._slideObjects.filter((obj) => obj.options?.objectName === name)
+		// Match the stored name, which every `add*Definition` attribute-escapes before it reaches
+		// `options` (same rule as `resolveObjectNameToId`, which this lookup does not go through).
+		// Comparing raw made `groupObjects(['Q&A'])` throw for a shape that is right there on the slide.
+		// Every message below stays on the caller's raw spelling.
+		const key = encodeXmlAttrValue(name)
+		const matches = target._slideObjects.filter((obj) => obj.options?.objectName === key)
 		const [obj, ambiguous] = matches
 		if (!obj) {
 			// Distinguish "no such object" from "already grouped": both leave the caller's name
 			// unresolved, but only one of them is a typo.
-			const hint = findNameInGroups(target._slideObjects, name)
+			const hint = findNameInGroups(target._slideObjects, key)
 				? 'it is already inside a group (an object can only belong to one group)'
 				: 'no top-level object on this slide has that objectName'
 			throw new Error(`groupObjects(): cannot group "${name}" — ${hint}.`)

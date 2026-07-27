@@ -58,9 +58,9 @@ export interface ObjectOptions extends ImageBaseProps, PositionProps, ShapeProps
 	_placeholderType?: PLACEHOLDER_TYPE
 	/** Connector adjust-guide values (OOXML 1000ths-of-a-percent), one per bend; emitted as `<a:gd name="adjN">` */
 	_connectorAdj?: number[]
-	/** Connector start-point binding: target shape `objectName` + connection-site index; resolved to `<a:stCxn>` at serialize time */
+	/** Connector start-point binding: target shape `objectName` (raw, as the caller spelled it) + connection-site index; resolved to `<a:stCxn>` at serialize time */
 	_startCxn?: { name: string; idx: number }
-	/** Connector end-point binding: target shape `objectName` + connection-site index; resolved to `<a:endCxn>` at serialize time */
+	/** Connector end-point binding: target shape `objectName` (raw, as the caller spelled it) + connection-site index; resolved to `<a:endCxn>` at serialize time */
 	_endCxn?: { name: string; idx: number }
 	/**
 	 * Image: which dimensions were omitted by the user and should be derived from the image's

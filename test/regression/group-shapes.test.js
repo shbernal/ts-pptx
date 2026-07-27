@@ -793,6 +793,56 @@ defineRegressionSuite('Group shapes', [
 		},
 	},
 	{
+		// `objectName` is stored attribute-escaped, so an unescaped lookup key never matches a name
+		// containing `&`, `<`, `>`, `"`, `'`, a tab or a newline. groupObjects() therefore threw
+		// "no top-level object on this slide has that objectName" for objects plainly on the slide.
+		name: 'groupObjects resolves names containing XML metacharacters',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape('rect', { x: 1, y: 1, w: 1, h: 1, objectName: 'Q&A' })
+				s.addText('Hi', { x: 2, y: 1, w: 1, h: 1, objectName: 'Risk <high> "1" \'2\'\ttabbed\nwrapped' })
+				s.addText('Loose', { x: 3, y: 1, w: 1, h: 1, objectName: 'Loose' })
+				s.groupObjects(['Q&A', 'Risk <high> "1" \'2\'\ttabbed\nwrapped'], { objectName: 'R&D' })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert((xml.match(/<p:grpSp>/g) || []).length === 1, 'expected exactly one <p:grpSp>; got: ' + xml)
+			const grp = xml.match(/<p:grpSp>[\s\S]*?<\/p:grpSp>/)[0]
+			assert(/name="R&amp;D"/.test(grp), 'expected the escaped group objectName; got: ' + grp)
+			assert(/name="Q&amp;A"/.test(grp), 'expected the `&` member inside the group; got: ' + grp)
+			assert(
+				/name="Risk &lt;high&gt; &quot;1&quot; &apos;2&apos;&#9;tabbed&#10;wrapped"/.test(grp),
+				'expected the full-metacharacter member inside the group; got: ' + grp
+			)
+			assert(!/name="Loose"/.test(grp), 'expected the unnamed object to stay outside the group; got: ' + grp)
+		},
+	},
+	{
+		// The "already inside a group" hint keys off the same name, so it went stale for the same
+		// reason: an escaped-name child was reported as "no top-level object has that objectName",
+		// pointing the caller at a typo that is not there. Errors quote the caller's raw spelling.
+		name: 'groupObjects tells apart missing and already-grouped for a name with metacharacters',
+		fn: async () => {
+			const origWarn = console.warn
+			console.warn = () => {}
+			let err
+			try {
+				await build((p) => {
+					const s = p.addSlide()
+					s.addGroup([{ rect: { x: 1, y: 1, w: 1, h: 1, objectName: 'Q&A' } }])
+					s.groupObjects(['Q&A'])
+				})
+			} catch (ex) {
+				err = ex
+			} finally {
+				console.warn = origWarn
+			}
+			assert(err, 'expected grouping an already-grouped name to throw')
+			assert(/already inside a group/.test(err.message), 'expected the already-grouped hint; got: ' + err.message)
+			assert(err.message.includes('"Q&A"'), 'expected the error to quote the raw name; got: ' + err.message)
+		},
+	},
+	{
 		name: 'write -> read round-trip: grouped-after-the-fact objects read back inside the group',
 		fn: async () => {
 			const { buf } = await build((p) => {

@@ -209,6 +209,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`addAnimation()` and `groupObjects()` could not find a shape whose
+  `objectName` contained `&`, `<`, `>`, `"`, `'`, a tab or a newline.** A shape
+  added as `objectName: 'Q&A'` is stored attribute-escaped (`Q&amp;A`) so it can
+  be written into `<p:cNvPr name>` as-is, and the two lookups compared the
+  caller's raw string against that escaped text. Neither ever matched:
+  `addAnimation({ preset: 'fadeIn', objectName: 'Q&A' })` warned *"no object
+  named "Q&A" on the slide"* and dropped the effect — leaving the deck with no
+  `<p:timing>` at all — and `groupObjects(['Q&A'])` threw *"no top-level object
+  on this slide has that objectName"*, both naming a shape that was plainly
+  there. Renaming to `QandA` was the only way through. Any `objectName` now
+  works as a lookup key, including for a shape inside a group and for the
+  "already inside a group" hint that tells a grouped name apart from a typo.
+  Escaping is now done once, where the comparison happens
+  (`resolveObjectNameToId`), rather than re-derived at each call site — which is
+  how the animation lookup came to disagree with the connector one, the only
+  caller that had it right.
+
 - **An image fill on a table cell type-checked, then silently rendered as no
   fill.** `TableCellProps.fill` has always been `ShapeFillProps`, so `fill: {
   type: 'image', image: { path } }` on a cell compiled and flowed all the way to

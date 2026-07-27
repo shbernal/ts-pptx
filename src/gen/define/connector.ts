@@ -87,9 +87,9 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 		if (!Number.isInteger(site) || site < 0) {
 			throw new Error(`addConnector \`${end}Idx\` must be a non-negative integer (got ${String(site)}).`)
 		}
-		// Match the shape's stored objectName, which is attribute-escaped at add time (the same
-		// `encodeXmlAttrValue`, or a name containing a tab/newline never matches its own shape).
-		return { name: encodeXmlAttrValue(shapeName), idx: site }
+		// Stored as the caller spelled it: `resolveObjectNameToId` escapes its own lookup key at
+		// serialize time (see its docblock), so escaping here too would look up `Q&amp;amp;A`.
+		return { name: shapeName, idx: site }
 	}
 	const startCxn = resolveCxn(opts.startShape, opts.startShapeIdx, 'startShape')
 	const endCxn = resolveCxn(opts.endShape, opts.endShapeIdx, 'endShape')

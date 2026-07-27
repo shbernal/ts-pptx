@@ -1400,7 +1400,7 @@ items:
     type: downstream-need
     first_seen: 2026-07-27
     last_reviewed: 2026-07-27
-    status: target
+    status: implemented
     priority: p2
     target_area:
       - typescript-api
@@ -1408,54 +1408,52 @@ items:
     non_target_reasons: []
     summary: addAnimation objectName lookup compares a raw caller string against the stored XML-escaped objectName, silently dropping animations targeting a shape whose name contains an XML metacharacter
     current_project_notes: |
-      `objectName` is escaped ONCE upstream, at define time, and stored in its escaped form on the
-      slide object (`encodeXmlAttrValue(validateObjectName(...))` in src/gen/define/*.ts); the
-      emitter `cNvPrOpen` writes it out raw. Anything that later looks a shape up BY NAME is
-      therefore comparing against escaped text and must escape its own lookup key to match.
+      Implemented. `resolveObjectNameToId` (src/gen/slide/shape-ids.ts) now owns the escaping: it
+      takes the RAW caller-supplied name, escapes it once (`encodeXmlAttrValue`), and compares that
+      against the stored name. Its docblock states the rule and why the stored text is escaped in
+      the first place (define-time escaping, so `cNvPrOpen` can emit `<p:cNvPr name>` verbatim).
+      `addAnimation` needed no change beyond a docblock note — it already passed the raw name, so
+      its warning already quoted the caller's spelling. `addConnector`'s `resolveCxn` stopped
+      pre-escaping and now stores the raw name in `_startCxn`/`_endCxn`, so there is exactly one
+      place that knows about the escaping.
 
-      `resolveObjectNameToId` (src/gen/slide/shape-ids.ts) does a plain `===` against the stored
-      name. Its two callers disagree: `addConnector` escapes its key first (src/gen/define/
-      connector.ts, `resolveCxn`), but `addAnimation` passes `anim.objectName` through raw
-      (src/gen/anim/animation.ts). So an animation whose target name contains `&`, `<`, `>`, `"`
-      or `'` never resolves, and the effect is dropped with a warning that reads as if the shape
-      does not exist.
+      Scoping found the same defect in `groupObjects()`, which does not go through that helper and
+      was worse: it THREW `cannot group "Q&A" — no top-level object on this slide has that
+      objectName` for an object plainly on the slide, and its `findNameInGroups` hint used the same
+      key, so a name that WAS already grouped was reported as a typo. Both now compare on the
+      escaped key (src/gen/define/group.ts), while every error message stays on the caller's raw
+      spelling; the duplicate-name guard stays keyed on the raw name for the same reason.
 
-      Confirmed repro: a rect with `objectName: 'Q&A'` plus `addAnimation({ preset: 'fadeIn',
-      objectName: 'Q&A' })` emits no `<p:anim>` and warns `no object named "Q&A" on the slide`;
-      the same deck with `objectName: 'QandA'` emits the animation. Pre-existing and independent
-      of the attribute-whitespace escaping fix (commit 914af6da, ex-`dn-xml-attr-whitespace`,
-      pruned from this ledger once implemented), which changed WHICH escaper is used, not this
-      mismatch.
+      The root-cause option — store `objectName` raw and escape at emission in `cNvPrOpen` — was
+      considered and not taken. It is the cleaner data model (no field would hold markup) and would
+      also de-escape the duplicate-name warning text, but it touches ten `add*Definition` sites plus
+      the emitter, exposes byte-level oracles across most regression suites, and buys no
+      user-visible behaviour beyond warning strings once the compare-side rule is documented in one
+      place. The single-escape design in `cNvPrOpen` is deliberate and documented there; revisit
+      only if a second field ever needs the raw name.
 
-      Re-verified 2026-07-27, still unfixed: `resolveObjectNameToId`
-      (src/gen/slide/shape-ids.ts:59-61) is still a plain `===` against the stored
-      escaped name, `addAnimation` (src/gen/anim/animation.ts:47) still passes
-      `anim.objectName` raw, and `resolveCxn` (src/gen/define/connector.ts:92) still
-      escapes its key first -- so the two callers still disagree.
-
-      Two candidate fixes, and the choice is the interesting part:
-        - Narrow: escape the key in `addAnimation`, matching what `addConnector` already does.
-          One line, no byte change for any deck that works today.
-        - Root cause: store `objectName` RAW on the slide object and escape once at emission in
-          `cNvPrOpen`, so no lookup ever needs to know about escaping. This removes the whole
-          class (any future by-name lookup is correct by default) but touches ten define sites
-          plus the emitter, and needs a byte-identity run to prove the single-escape point moved
-          without changing output.
-      Prefer the root-cause fix unless byte-identity says otherwise; the narrow one leaves the
-      next by-name feature to rediscover this.
+      Covered by regression tests over the full attribute-escaper set (`&`, `<`, `>`, `"`, `'`, tab,
+      newline): an animation targeting a top-level object and a group child, `groupObjects()`
+      grouping such names and telling "already grouped" apart from "no such object", and a connector
+      binding both endpoints to metacharacter names (the case that worked before and had to keep
+      working after the store-raw switch).
     evidence:
       kinds:
         - local-source-inspection
         - minimal-repro
       local_files:
-        - src/gen/anim/animation.ts
         - src/gen/slide/shape-ids.ts
+        - src/gen/define/group.ts
         - src/gen/define/connector.ts
+        - src/gen/anim/animation.ts
+        - test/regression/animations-transitions.test.js
+        - test/regression/group-shapes.test.js
+        - test/regression/connector-shape.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: Decide between escaping the lookup key in addAnimation and moving objectName to store-raw/escape-at-emission, then land it with a regression test for an animation targeting a name containing an XML metacharacter
+    next_action: none
   - id: dn-read-cell-picture-fill
     source: downstream
     type: downstream-need

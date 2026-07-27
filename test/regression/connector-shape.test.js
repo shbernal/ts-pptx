@@ -142,6 +142,45 @@ defineRegressionSuite('Connector shapes', [
 		},
 	},
 	{
+		// A bound shape whose objectName carries XML metacharacters. This works today (the connector
+		// escapes its own key before storing it) and must keep working once the escaping moves into
+		// the shared resolver and `_startCxn.name` holds the caller's raw string.
+		name: 'startShape/endShape bind to names containing XML metacharacters',
+		fn: async () => {
+			const warnings = []
+			const orig = console.warn
+			console.warn = (m) => warnings.push(String(m))
+			let xml
+			try {
+				xml = await slideXml((p) => {
+					const s = p.addSlide()
+					s.addShape('rect', { x: 1, y: 1, w: 2, h: 1, objectName: 'Q&A' }) // slide obj 0 → id 2
+					s.addShape('rect', { x: 6, y: 4, w: 2, h: 1, objectName: 'R&D <2> "x"' }) // slide obj 1 → id 3
+					s.addConnector({
+						type: 'straight',
+						x1: 3,
+						y1: 1.5,
+						x2: 6,
+						y2: 4.5,
+						startShape: 'Q&A',
+						endShape: 'R&D <2> "x"',
+					})
+				})
+			} finally {
+				console.warn = orig
+			}
+			const cxn = (xml.match(/<p:cxnSp>[\s\S]*?<\/p:cxnSp>/g) || [])[0]
+			assert(
+				cxn.includes('<p:cNvCxnSpPr><a:stCxn id="2" idx="0"/><a:endCxn id="3" idx="0"/></p:cNvCxnSpPr>'),
+				`expected both bindings to resolve; got: ${cxn}`
+			)
+			assert(
+				!warnings.some((m) => /could not bind to shape/.test(m)),
+				'expected no unresolved-binding warning; got: ' + JSON.stringify(warnings)
+			)
+		},
+	},
+	{
 		name: 'unresolved binding name warns and falls back to empty <p:cNvCxnSpPr/>',
 		fn: async () => {
 			const warnings = []

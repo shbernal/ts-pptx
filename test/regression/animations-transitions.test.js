@@ -155,6 +155,58 @@ defineRegressionSuite('Preset build animations (write)', [
 		},
 	},
 	{
+		// `objectName` is stored attribute-escaped, so resolving one means escaping the lookup key too.
+		// It did not: a shape named `Q&A` was stored as `Q&amp;A`, never matched, and the effect was
+		// dropped with a warning naming a shape that is plainly on the slide. Covers a top-level object,
+		// a group child (resolved through the same helper), and the full attribute-escaper character set
+		// — `&`, `<`, `>`, `"`, `'`, tab and newline — not just `&`.
+		name: 'resolves an objectName containing XML metacharacters (top-level and group child)',
+		fn: async () => {
+			const names = ['Q&A', 'R&D', 'Risk <high> "1" \'2\'\ttabbed\nwrapped']
+			const warnings = []
+			const origWarn = console.warn
+			console.warn = (msg) => warnings.push(String(msg))
+			let xml
+			try {
+				xml = await slideXml((p) => {
+					const s = p.addSlide()
+					s.addText('a', { x: 1, y: 1, w: 1, h: 1, objectName: names[0] })
+					s.addGroup([{ rect: { x: 3, y: 1, w: 1, h: 1, objectName: names[1] } }], { objectName: 'G' })
+					s.addText('c', { x: 5, y: 1, w: 1, h: 1, objectName: names[2] })
+					names.forEach((objectName) => s.addAnimation({ preset: 'fadeIn', objectName }))
+				})
+			} finally {
+				console.warn = origWarn
+			}
+			assert(
+				!warnings.some((w) => /addAnimation:/.test(w)),
+				'expected no addAnimation warning; got: ' + JSON.stringify(warnings)
+			)
+			assert(timingOf(xml) !== null, 'expected a <p:timing> tree for the resolved effects')
+			// Match each animation against the id the writer actually emitted for that name, decoding the
+			// emitted attribute rather than re-deriving the escaping (which is what the fix is about).
+			const decode = (s) =>
+				s
+					.replace(/&#9;/g, '\t')
+					.replace(/&#10;/g, '\n')
+					.replace(/&#13;/g, '\r')
+					.replace(/&lt;/g, '<')
+					.replace(/&gt;/g, '>')
+					.replace(/&quot;/g, '"')
+					.replace(/&apos;/g, "'")
+					.replace(/&amp;/g, '&')
+			const ids = new Map(
+				[...xml.matchAll(/<p:cNvPr id="(\d+)" name="([^"]*)"/g)].map((m) => [decode(m[2]), Number(m[1])])
+			)
+			names.forEach((name) => {
+				const id = ids.get(name)
+				assert(id != null, `expected a shape named ${JSON.stringify(name)} on the slide; got: ${[...ids.keys()]}`)
+				assert(xml.includes(`<p:spTgt spid="${id}"/>`), `expected an effect targeting spid ${id} for ${name}`)
+				assert(xml.includes(`<p:bldP spid="${id}" grpId="0"/>`), `expected a bldP for spid ${id} (${name})`)
+			})
+		},
+	},
+	{
 		// A shapeIndex past the last top-level object would emit `spid = shapeIndex + 2` naming no
 		// shape on the slide — a dangling <p:spTgt> PowerPoint reports as a repair (0x80070570).
 		// The out-of-range index must warn and drop the effect, exactly like an unresolvable
