@@ -41,5 +41,7 @@ export type {
 	SlideLayoutIr,
 	SlideSource,
 	ThemeIr,
+	TransitionIr,
+	TransitionSoundIr,
 } from './script/ir.js'
 export type { Cause, Disposition, FidelityNote } from './script/fidelity.js'

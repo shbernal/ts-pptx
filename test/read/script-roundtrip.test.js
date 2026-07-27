@@ -119,6 +119,53 @@ describe('script round trip — the oracle has teeth', () => {
 		assertEqual(dirty.undeclared[0].kind, 'lost', 'and in the direction it changed')
 	})
 
+	test('a perturbed transition is caught, which is what putting it in the projection buys', async () => {
+		// A slide's transition is set by property assignment rather than by a method call, so it
+		// is invisible to the call comparison that catches everything else — a printer that
+		// stopped emitting transitions entirely would produce identical `calls` and report a
+		// clean round trip. `CanonicalSlide.transition` closes that, and this is the check that
+		// it is closed rather than merely declared.
+		const ir = readModelToIr(await Presentation.load(await readFile(path.join(FIXTURES, 'slide-transition.pptx'))))
+		const before = canonicalDeckIr(ir)
+		const after = canonicalDeckIr(ir)
+		assertEqual(diffDeckIr(before, after, []).differences.length, 0, 'a deck compared against itself is identical')
+
+		// Slide 2 is `push` with `dir="d"`: flip the direction only, the smallest change that
+		// still renders differently, and one a whole-value compare would report far too coarsely.
+		const pushed = /** @type {any} */ (after.slides[1].transition)
+		pushed.variant.dir = 'u'
+		const report = diffDeckIr(before, after, [])
+		assertEqual(report.undeclared.length, 1, 'the flipped direction must be reported, and exactly once')
+		assertEqual(report.undeclared[0].field, 'dir', 'reported against the variant attribute that changed')
+		assertEqual(report.undeclared[0].slideNumber, 2, 'and against the slide it changed on')
+	})
+
+	test('a lost transition sound is reported narrowly enough that only its own note excuses it', async () => {
+		// The reason `transition` is compared structurally rather than as one opaque value. The
+		// template-anchored tier keeps the transition and drops its embedded sound, so if the
+		// difference landed on `transition` the note declaring the sound would have to name that
+		// field — and would then also excuse a transition whose type or duration came back wrong.
+		const source = await Presentation.load(await readFile(path.join(FIXTURES, 'slide-transition-sound.pptx')))
+		const ir = readModelToIr(source)
+		const before = canonicalDeckIr(ir)
+		const after = canonicalDeckIr(ir)
+		const silenced = /** @type {any} */ (after.slides[0].transition)
+		delete silenced.sound
+
+		const undeclared = diffDeckIr(before, after, []).undeclared
+		assertEqual(undeclared.length, 1, 'the missing sound is one difference')
+		assertEqual(undeclared[0].field, 'sound', 'reported one level inside the transition, not on the transition')
+
+		/** @type {(construct: string) => import('../../dist/script.js').FidelityNote[]} */
+		const note = (construct) => [{ slideNumber: 1, shapeName: null, construct, disposition: 'dropped', cause: 'unsupported', detail: '' }] // prettier-ignore
+		assertEqual(diffDeckIr(before, after, note('slide.transitionSound')).undeclared.length, 0, 'its own note declares it') // prettier-ignore
+		assertEqual(
+			diffDeckIr(before, after, note('slide.transition')).undeclared.length,
+			1,
+			'the note for a wholly dropped transition must not also excuse a dropped sound'
+		)
+	})
+
 	test('a note declaring that field silences it, and only that field', async () => {
 		const ir = readModelToIr(await Presentation.load(await readFile(path.join(FIXTURES, 'textbox.pptx'))))
 		const before = canonicalDeckIr(ir)

@@ -267,4 +267,26 @@ defineRegressionSuite('Transition sounds (write)', [
 			)
 		},
 	},
+	{
+		// `audio/x-wav` is the spelling PowerPoint itself authors for a transition sound, so it
+		// is what arrives on any deck read back in — including from `ts-pptx/script`, which
+		// hands the source package's own content type straight back as a data URI. The media
+		// filename is derived from the mime subtype, and taking it verbatim produced
+		// `audio-1-1.x-wav`: a Default-declared file type that exists nowhere else.
+		name: 'derives a real file extension from the mime, so audio/x-wav lands on a .wav part',
+		fn: async () => {
+			const xWav = SOUND_WAV.replace('data:audio/wav;', 'data:audio/x-wav;')
+			const { zip } = await build((p) => {
+				p.addSlide().transition = { type: 'fade', sound: { data: xWav, name: 'ding.wav' } }
+			})
+			const media = Object.keys(zip.files).filter((key) => key.startsWith('ppt/media/'))
+			assert(media.length === 1 && media[0].endsWith('.wav'), `sound part is a .wav, got ${media.join(', ')}`)
+			const ct = await readEntry(zip, '[Content_Types].xml')
+			assert(!/Extension="x-wav"/.test(ct), 'no Default is declared for a non-existent x-wav file type')
+			assert(
+				/<Default Extension="wav" ContentType="audio\/x-wav"\/>/.test(ct),
+				'the content type is still the x- form PowerPoint authors'
+			)
+		},
+	},
 ])

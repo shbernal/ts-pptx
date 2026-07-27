@@ -165,9 +165,11 @@ export interface RoundTripReport {
  * construct whose fields are merely tedious to enumerate.
  *
  * An empty list is meaningful and common: the construct is invisible to the IR on both
- * sides (a slide's transition, a paragraph's `a:pPr/@marL`, a connector's shape binding),
- * so the note is a caveat for a human and there is nothing here to exclude. Saying so
- * explicitly is what keeps it from looking like an oversight.
+ * sides (a slide's build animations, a paragraph's `a:pPr/@marL`, a connector's shape
+ * binding), so the note is a caveat for a human and there is nothing here to exclude. Saying
+ * so explicitly is what keeps it from looking like an oversight. A construct can leave that
+ * state — `slide.transition` was an empty entry until the converter learned to transcribe
+ * transitions, and the IR gaining a field is exactly when its note gains a mapping.
  */
 const NOTE_FIELDS: Record<string, readonly string[]> = {
 	'chart.blanks': ['values'],
@@ -234,7 +236,14 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	'slide.carried': ['*'],
 	'slide.layout': ['layoutName'],
 	'slide.name': [],
-	'slide.transition': [],
+	// A transition the write vocabulary cannot name is dropped whole, so the difference lands
+	// on the slide's `transition` key itself. Deliberately *not* widened to the keys inside it:
+	// this note is only ever recorded when the whole transition is gone.
+	'slide.transition': ['transition'],
+	// The sound alone, one level down. Scoped to `sound` so it cannot also excuse a transition
+	// whose type or timing came back wrong — the loss it declares is exactly the missing
+	// `p:sndAc`, and `data`/`$asset` cover the case where the sound survives with other bytes.
+	'slide.transitionSound': ['sound', 'data', '$asset'],
 	'table.cell.borders.diagonal': ['border'],
 	'table.cell.fill': ['fill'],
 	'table.cell.vert': ['vert'],
@@ -424,6 +433,11 @@ function diffSlide(expected: CanonicalSlide, actual: CanonicalSlide, out: IrDiff
 	at('layoutName', 'layoutName', expected.layoutName, actual.layoutName)
 	at('background', 'background', expected.background, actual.background)
 	at('notesText', 'notesText', expected.notesText, actual.notesText)
+	// Structural rather than whole-value, unlike the four above: a transition is a small object
+	// whose parts are lost independently — the append path drops an embedded sound while
+	// keeping the effect — and a whole-value compare would force the note that declares the
+	// sound to carry `field: 'transition'`, which would then excuse a wrong type or duration too.
+	diffValue(expected.transition, actual.transition, 'transition', 'transition', number, null, [], out)
 
 	for (const [before, after] of alignCalls(expected.calls, actual.calls)) {
 		const name = before?.shapeName ?? after?.shapeName ?? null

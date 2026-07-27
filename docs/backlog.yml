@@ -1481,12 +1481,36 @@ items:
       41-fixture corpus: every fixture prints deterministically, executes, and round-trips
       with 0 undeclared differences in both tiers.
 
+      TRANSITIONS LANDED 2026-07-27, closing the first of the three gaps below.
+      `SlideIr.transition` maps `p:transition` to a `TransitionProps` literal that both
+      printers emit as a property assignment (`slideN.transition = …`), covering speed,
+      exact `p14:dur`, `advClick`/`advTm` and the variant attributes, each omitted at its
+      OOXML default. `from-read/transition.ts` filters the type against a
+      `Record<TransitionType, true>` so the compiler polices the vocabulary in both
+      directions; a `p14`/`p15`/`p159` effect files a `slide.transition` note instead of
+      producing a script that does not compile. Verified against PowerPoint's own probed
+      158-row `entryEffectTable` (in `slide-transition.oracle.json`), whose 21 base
+      effects match the write union exactly. `CanonicalSlide.transition` was added so the
+      round trip actually checks the mapping — structurally, not as one opaque value, so
+      the sound note cannot excuse a wrong type. Sounds map in both forms; the embedded
+      start sound survives tier A only (see below). A write-path defect found on the way
+      was fixed rather than filed, because it is on this feature's own path: a
+      `data:audio/x-wav;…` sound produced a `.x-wav` media part
+      (`audioExtensionForSubtype`).
+
       DELIBERATELY NOT BUILT, each a real gap rather than an oversight:
-        - Slide transitions are not transcribed in either tier, although
-          `slide.transition` is a public setter and the write vocabulary names 21 of them.
-          The read model reports an open type string that also covers the `p14`/`p15`
-          modern effects, so the mapping needs a known-vocabulary filter plus a note for
-          the rest. Cheap, benefits both tiers.
+        - Carrying an embedded transition sound across `appendSlides`, which is what makes
+          `slide.transitionSound` a template-anchored-only loss. The gap is in the append
+          path, not the converter: `extractSlides` does not surface a transition's audio
+          part (`registerTransitionSounds` belongs to the package-assembly path), so
+          `appendSlides` has nothing to reserve or wire and the emitter, finding no
+          `_sndRId`, writes no `p:sndAc` at all. A silent drop rather than a dangling
+          reference, which is the safe half of the failure. Closing it means an
+          `ExtractedSlide` descriptor plus a rel-wiring branch beside the chart and A/V
+          ones.
+        - `p15`/`p159` transitions are dropped correctly by the same namespace check that
+          covers the 19 `p14` effects, but neither prefix is in the read DOM's `OOXML_NS`
+          registry, so no test can author one to prove it end to end.
         - The read-side fidelity backlog below (see THE UNMEASURED HALF) is untouched and
           is still the binding constraint on both tiers: `lnRef` width/dash, bullet
           font/size/startAt, `a:fillToRect`, `effectRef`, custGeom `gdLst`/`ahLst`/
@@ -1606,11 +1630,14 @@ items:
         - src/script.ts
         - src/script/ir.ts
         - src/script/fidelity.ts
+        - src/script/from-read/transition.ts
         - src/script/print/script.ts
         - src/script/print/standalone.ts
+        - src/script/verify/canonical.ts
         - src/script/verify/diff.ts
         - scripts/script-roundtrip.mjs
         - docs/reference/pptx-to-script.md
+        - test/read/script-ir.test.js
         - test/read/script-roundtrip.test.js
         - test/read/script-standalone.test.js
       schema_fixture: null

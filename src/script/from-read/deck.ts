@@ -21,6 +21,7 @@ import type { AssetIr, AssetRef, BackgroundIr, CallIr, DeckIr, DeckPropsIr, Slid
 import type { AssetResolver } from './shape.js'
 import { chromeToIr } from './chrome.js'
 import { shapeCall } from './shape.js'
+import { transitionToIr } from './transition.js'
 import { compact } from './values.js'
 
 /** Default slide size (10" × 7.5") for a deck whose `presentation.xml` declares none. */
@@ -37,6 +38,11 @@ const ASSET_EXTENSIONS: Record<string, string> = {
 	'image/x-emf': 'emf',
 	'image/x-wmf': 'wmf',
 	'image/svg+xml': 'svg',
+	// PowerPoint authors the `x-` form for an embedded transition sound; both spellings
+	// appear in the wild and neither has `wav` as its trailing path component.
+	'audio/x-wav': 'wav',
+	'audio/wav': 'wav',
+	'audio/mpeg': 'mp3',
 }
 
 /**
@@ -45,10 +51,16 @@ const ASSET_EXTENSIONS: Record<string, string> = {
  * Names are assigned in first-reference order rather than derived from the source part
  * name, so the output is deterministic for a given deck and does not leak whatever the
  * source package happened to call its files. A part referenced twice resolves to one asset.
+ *
+ * Numbering runs per *kind* (`image1.png`, `image2.png`, `audio1.wav`) rather than over one
+ * shared counter. Not cosmetics: the asset name becomes a `const` identifier in the emitted
+ * script and a filename in its asset directory, and a transition sound bound to `image7`
+ * reads as a bug in the generated source every time anyone opens it.
  */
 class Assets implements AssetResolver {
 	readonly #byPartName = new Map<string, AssetRef>()
 	readonly #assets: AssetIr[] = []
+	readonly #counts = new Map<string, number>()
 
 	constructor(private readonly pres: Presentation) {}
 
@@ -60,7 +72,10 @@ class Assets implements AssetResolver {
 		if (!part) return null
 
 		const extension = ASSET_EXTENSIONS[part.contentType] ?? partName.split('.').pop() ?? 'bin'
-		const name = `image${this.#assets.length + 1}.${extension}`
+		const kind = part.contentType.startsWith('audio/') ? 'audio' : 'image'
+		const index = (this.#counts.get(kind) ?? 0) + 1
+		this.#counts.set(kind, index)
+		const name = `${kind}${index}.${extension}`
 		const ref: AssetRef = { $asset: name }
 		this.#byPartName.set(partName, ref)
 		this.#assets.push({ name, contentType: part.contentType, bytes: part.bytes })
@@ -171,6 +186,7 @@ function slideToIr(
 		...notesOf(slide, notes),
 	}
 
+	const transition = transitionToIr(slide, notes, assets)
 	const carried = hasUnwritableContent(slide)
 	if (carried) {
 		notes.note(
@@ -190,11 +206,16 @@ function slideToIr(
 		if (call) calls.push(call)
 	}
 
-	// Transitions and build animations are recorded once per slide rather than per shape,
-	// since both live in slide-scoped elements.
-	recordTimingLosses(slide, notes)
+	// Build animations are recorded once per slide rather than per shape, since they live in a
+	// slide-scoped element with no shape to attribute them to.
+	recordAnimationLoss(slide, notes)
 
-	return { ...base, source: carried ? 'carried' : 'authored', calls }
+	return {
+		...base,
+		...(transition ? { transition } : {}),
+		source: carried ? 'carried' : 'authored',
+		calls,
+	}
 }
 
 /**
@@ -250,23 +271,15 @@ function notesOf(slide: Slide, notes: NoteScope): { notesText?: string } {
 }
 
 /**
- * Transitions and build animations, both of which live in slide-scoped elements rather than
- * in any shape's subtree.
+ * Build animations, which live in a slide-scoped `p:timing` element rather than in any
+ * shape's subtree.
  *
- * The transition case is the read path being *ahead* of the write path: `TransitionInfo`
- * decodes the `p14`/`p15` modern transitions by namespace, while the write vocabulary names
- * only 21. The animation case is the opposite — there is no structural reader at all, only
- * spid manipulation for the deck-to-deck import path, so a build sequence is invisible here.
+ * The transition next door used to be recorded here for the same reason and is now mapped
+ * instead (`from-read/transition.ts`), which leaves this the one genuinely slide-scoped
+ * loss: there is no structural reader for `p:timing` at all, only spid manipulation for the
+ * deck-to-deck import path, so a build sequence is invisible to this converter.
  */
-function recordTimingLosses(slide: Slide, notes: NoteScope): void {
-	if (slide.transition) {
-		notes.note(
-			'slide.transition',
-			'dropped',
-			'unwritable',
-			'a slide transition is read but none is authored on the regenerated slide, so the output advances with no effect; the write path does have a slide.transition setter, and the reason this is not simply mapped is that the read model reports the type as an open string covering the p14/p15 modern effects the write vocabulary has no name for — the 21 it does name could be transcribed and are not'
-		)
-	}
+function recordAnimationLoss(slide: Slide, notes: NoteScope): void {
 	if (slide.hasAnimations) {
 		notes.note(
 			'slide.animation',

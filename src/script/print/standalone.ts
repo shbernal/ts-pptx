@@ -89,7 +89,7 @@ export function printStandaloneScript(ir: DeckIr, options: PrintStandaloneScript
 				'Generated from a .pptx by ts-pptx/script.',
 				'',
 				`Standalone: this script needs nothing but ${packageName}${
-					needsReadFile ? ` and ${ir.assets.length} image(s) in ${assetDir}` : ''
+					needsReadFile ? ` and ${ir.assets.length} media file(s) in ${assetDir}` : ''
 				}.`,
 				"The deck's theme, layouts and slide content are all re-authored through the public write",
 				'API, so every one of them is editable here — and the parts of the original design the read',
@@ -133,7 +133,7 @@ export function printStandaloneScript(ir: DeckIr, options: PrintStandaloneScript
 		assetNames,
 		assetDir,
 		assetMode,
-		'// Image bytes, inlined so this script is a single self-contained file.'
+		'// Media bytes, inlined so this script is a single self-contained file.'
 	)
 	if (assetLines.length > 0) lines.push('', ...assetLines)
 

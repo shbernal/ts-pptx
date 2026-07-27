@@ -9,6 +9,7 @@
  * only resembles a check on the other, and the drift would be invisible in review.
  */
 import type { AssetRef, DeckIr, IrValue, SlideIr } from '../ir.js'
+import { asIrValue } from '../ir.js'
 import type { FidelityNote } from '../fidelity.js'
 import { type NoteCollector, scopeNotes } from '../fidelity.js'
 import { printArguments, printString, printValue, type AssetPrinter } from './literal.js'
@@ -84,12 +85,12 @@ export function printAssetBindings(
 	identifiers: Map<string, string>,
 	assetDir: string,
 	mode: AssetMode,
-	inlineComment = '// Image bytes, inlined so this script needs no files but its template.'
+	inlineComment = '// Media bytes, inlined so this script needs no files but its template.'
 ): string[] {
 	if (ir.assets.length === 0) return []
 
 	const lines =
-		mode === 'file' ? ['// Image bytes, loaded from the asset directory beside this script.'] : [inlineComment]
+		mode === 'file' ? ['// Media bytes, loaded from the asset directory beside this script.'] : [inlineComment]
 
 	for (const asset of ir.assets) {
 		const identifier = identifiers.get(asset.name)
@@ -147,6 +148,9 @@ export function printSlide(
 	if (slide.hidden) lines.push(`${identifier}.hidden = true`)
 	if (slide.background) {
 		lines.push(`${identifier}.background = ${printValue(slide.background as IrValue, 0, printAsset)}`)
+	}
+	if (slide.transition) {
+		lines.push(`${identifier}.transition = ${printValue(asIrValue(slide.transition), 0, printAsset)}`)
 	}
 	if (slide.notesText !== undefined) {
 		lines.push(printArguments(`${identifier}.addNotes`, [slide.notesText], 0, printAsset))

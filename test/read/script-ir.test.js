@@ -26,6 +26,9 @@ const FIXTURES = path.join(__dirname, 'fixtures')
 
 const fixtureNames = (await readdir(FIXTURES)).filter((name) => name.endsWith('.pptx')).sort()
 
+/** PowerPoint-authored ground truth for the transition tests: see `deck IR — slide transitions`. */
+const transitionOracle = JSON.parse(await readFile(path.join(FIXTURES, 'slide-transition.oracle.json'), 'utf8'))
+
 async function irFor(name) {
 	return readModelToIr(await Presentation.load(await readFile(path.join(FIXTURES, name))))
 }
@@ -304,6 +307,152 @@ describe('deck IR — losses the read model cannot see', () => {
 		const noted = ir.fidelity.find((note) => note.construct === 'text.equation')
 		assert(noted, 'math-omml.pptx holds an equation no accessor exposes')
 		assertEqual(noted.cause, 'unread', 'the write API can author equations; the read side cannot see them')
+	})
+})
+
+describe('deck IR — slide transitions', () => {
+	// The mapping's whole difficulty is that the read model reports an *open* type string
+	// (it decodes PowerPoint's modern effects by namespace) while the write API has a closed
+	// union of 21 names. So the assertions below are driven by the PowerPoint-authored oracle
+	// rather than by a list transcribed from our own source: `decoded` is what PowerPoint put
+	// in the fixture, and `entryEffectTable` is the full 158-row probe of every transition its
+	// UI can author, which makes "does the filter admit exactly the writable ones" a question
+	// with a ground-truth answer instead of a self-consistent one.
+
+	/** One representative row per distinct `ns:element` in PowerPoint's probed effect table. */
+	function distinctEffects(namespace) {
+		const seen = new Map()
+		for (const row of transitionOracle.entryEffectTable) {
+			if (row.ns !== namespace || seen.has(row.element)) continue
+			seen.set(row.element, { type: row.element, namespace: row.ns, variant: row.variant })
+		}
+		return [...seen.values()]
+	}
+
+	/**
+	 * Author `specs` onto the fixture's slides (one each, extras cleared) and reconvert.
+	 *
+	 * The read model's `transition` *setter* is what makes this possible: it takes a namespace,
+	 * so a `p14` effect can be authored here even though the write API has no name for one —
+	 * which is exactly the case that needs testing and that no fixture in the corpus contains.
+	 */
+	async function irWithTransitions(specs) {
+		const deck = await Presentation.load(await readFile(path.join(FIXTURES, 'slide-transition.pptx')))
+		deck.slides.forEach((slide, index) => {
+			slide.transition = specs[index] ?? null
+		})
+		const reloaded = await Presentation.load(await deck.save())
+		// Guard against the false pass: if the prefix did not survive the save, every effect
+		// would read back as base `p` and the drop assertions below would confirm nothing.
+		specs.forEach((spec, index) => {
+			assertEqual(reloaded.slides[index].transition?.namespace, spec.namespace, `${spec.type} keeps its namespace`)
+		})
+		return readModelToIr(reloaded)
+	}
+
+	function chunked(items, size) {
+		return Array.from({ length: Math.ceil(items.length / size) }, (_, i) => items.slice(i * size, i * size + size))
+	}
+
+	test('each fixture transition maps to exactly what PowerPoint authored', async () => {
+		const ir = await irFor('slide-transition.pptx')
+		for (const entry of transitionOracle.slides) {
+			const actual = ir.slides[entry.slide - 1].transition
+			const expected = entry.decoded
+			assert(actual, `slide ${entry.slide} should carry a transition`)
+			assertEqual(actual.type, expected.type, `slide ${entry.slide} type`)
+			assertEqual(actual.speed, expected.speed, `slide ${entry.slide} speed`)
+			assertEqual(actual.durationMs ?? null, expected.durationMs, `slide ${entry.slide} durationMs`)
+			assertEqual(actual.advanceOnClick ?? true, expected.advanceOnClick, `slide ${entry.slide} advanceOnClick`)
+			assertEqual(actual.advanceAfterMs ?? null, expected.advanceAfterMs, `slide ${entry.slide} advanceAfterMs`)
+			assertEqual(
+				JSON.stringify(actual.variant ?? {}),
+				JSON.stringify(expected.variant),
+				`slide ${entry.slide} variant attributes`
+			)
+		}
+	})
+
+	test('an OOXML default is left absent rather than written out as an explicit value', async () => {
+		// Slide 1 is a bare `<p:transition><p:fade/></p:transition>` — no spd, no duration, no
+		// advance attributes. Everything the source did not say must stay unsaid, or the
+		// emitted script would author attributes the deck never had. `speed` is the deliberate
+		// exception and is asserted as present: see the module header of from-read/transition.ts.
+		const ir = await irFor('slide-transition.pptx')
+		assertEqual(
+			Object.keys(ir.slides[0].transition).sort().join(','),
+			'speed,type',
+			'a bare transition carries only its type and the speed bucket'
+		)
+	})
+
+	test('every base transition PowerPoint can author survives the write-vocabulary filter', async () => {
+		const base = distinctEffects('p')
+		assertEqual(base.length, 21, "PowerPoint's probed table should hold 21 base effects")
+		for (const chunk of chunked(base, 6)) {
+			const ir = await irWithTransitions(chunk)
+			chunk.forEach((spec, index) => {
+				const slide = ir.slides[index]
+				assert(slide.transition, `${spec.type} is a base ECMA-376 transition and must not be dropped`)
+				assertEqual(slide.transition.type, spec.type, `${spec.type} keeps its name`)
+				assert(
+					!ir.fidelity.some((n) => n.slideNumber === slide.number && n.construct === 'slide.transition'),
+					`${spec.type} is writable, so nothing should claim it was lost`
+				)
+			})
+		}
+	})
+
+	test('a modern PowerPoint effect is dropped with a note rather than silently emitted', async () => {
+		// Restricted to p14 because p15/p159 are not in the read DOM's prefix registry and so
+		// cannot be authored through the setter; they take the same code path, keyed on the same
+		// namespace check.
+		const modern = distinctEffects('p14')
+		assert(modern.length > 0, 'the oracle should list p14 effects')
+		for (const chunk of chunked(modern, 6)) {
+			const ir = await irWithTransitions(chunk)
+			chunk.forEach((spec, index) => {
+				const slide = ir.slides[index]
+				assertEqual(slide.transition, undefined, `${spec.type} has no write-API name and must not be mapped`)
+				const note = ir.fidelity.find((n) => n.slideNumber === slide.number && n.construct === 'slide.transition')
+				assert(note, `p14 ${spec.type} must be declared lost, not dropped silently`)
+				assertEqual(note.cause, 'unwritable', `p14 ${spec.type} is read fine; it is the write side that has no name`)
+			})
+		}
+	})
+
+	test('a modern effect that borrows a base name is judged by namespace, not by name', async () => {
+		// The one branch no fixture can reach and no deck in the corpus contains. PowerPoint's
+		// 21 modern effect names happen to be disjoint from the 21 base ones, so the test above
+		// passes whether or not the namespace is checked — verified by mutation, which is why
+		// this exists. A `p14:fade` is the case that tells the two implementations apart: a
+		// name-only filter accepts it and the write path then emits `<p:fade/>`, turning a
+		// modern effect into a base one with no note. Authored here rather than hoped for.
+		const ir = await irWithTransitions([{ type: 'fade', namespace: 'p14', variant: {} }])
+		assertEqual(ir.slides[0].transition, undefined, 'a p14:fade is not the base fade and must not be mapped to it')
+		assert(
+			ir.fidelity.some((n) => n.slideNumber === 1 && n.construct === 'slide.transition'),
+			'and the drop is declared'
+		)
+	})
+
+	test('a transition sound maps in both of its OOXML forms, bytes included', async () => {
+		const ir = await irFor('slide-transition-sound.pptx')
+		const [first, second, third] = ir.slides.map((slide) => slide.transition.sound)
+
+		// Slides 1 and 2: an embedded start sound, resolved through the slide's own r:embed to
+		// the audio part's bytes. PowerPoint dedups identical sound bytes across slides, so both
+		// must land on one asset — a converter that copied per slide would emit it twice.
+		assert(first.data?.$asset, 'an embedded start sound carries its bytes as an asset')
+		assertEqual(first.name, 'ding.wav', 'the display name survives')
+		assertEqual(first.loop, undefined, 'loop is absent at its false default')
+		assertEqual(second.loop, true, 'a looped start sound records the loop flag')
+		assertEqual(second.data.$asset, first.data.$asset, 'one shared media part resolves to one asset')
+		assertEqual(ir.assets.length, 1, 'and the deck carries exactly that one asset')
+		assertEqual(ir.assets[0].name, 'audio1.wav', 'named by media kind, so a script does not bind a sound to `image1`')
+
+		// Slide 3: the stop-previous form, which references no part at all.
+		assertEqual(JSON.stringify(third), '{"stopPrevious":true}', 'p:endSnd maps to stopPrevious alone')
 	})
 })
 

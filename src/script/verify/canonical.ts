@@ -19,7 +19,7 @@
  * as a normalisation.
  */
 import type { AssetIr, DeckIr, IrValue, SlideIr } from '../ir.js'
-import { isAssetRef } from '../ir.js'
+import { asIrValue, isAssetRef } from '../ir.js'
 
 /** One write-API call, with the source shape name lifted out as an address rather than data. */
 export interface CanonicalCall {
@@ -54,6 +54,17 @@ export interface CanonicalSlide {
 	layoutName: string | null
 	background: IrValue | null
 	notesText: string | null
+	/**
+	 * The show transition, or `null`.
+	 *
+	 * Here for the same reason {@link layoutName} is: a printer that stopped emitting
+	 * transitions altogether would produce identical *calls* and compare clean, so the
+	 * projection has to carry the slide-level properties the write API sets by assignment
+	 * rather than by method. It is compared structurally (key by key), not as one opaque
+	 * value, so a note can declare the loss of a transition's *sound* without also excusing a
+	 * wrong transition *type*.
+	 */
+	transition: IrValue | null
 	calls: CanonicalCall[]
 }
 
@@ -148,6 +159,7 @@ function canonicalSlide(slide: SlideIr, digests: Map<string, string>): Canonical
 		layoutName: slide.layout?.name ?? null,
 		background: slide.background === undefined ? null : canonicalValue(slide.background as IrValue, digests),
 		notesText: slide.notesText ?? null,
+		transition: slide.transition === undefined ? null : canonicalValue(asIrValue(slide.transition), digests),
 		calls: slide.calls.map((call) => {
 			const args = call.args.map((arg) => canonicalValue(arg, digests))
 			return {

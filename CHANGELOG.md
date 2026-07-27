@@ -136,7 +136,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `pnpm run read:census` and the IR unit tests, whose expectations come from
   `src/types/*.ts` rather than from the converter.
 
+- **`ts-pptx/script` now transcribes a slide's show transition, in both tiers.**
+  A `SlideIr` gained a `transition` field and the printers emit it as
+  `slideN.transition = { … }` — a property assignment rather than a call, which
+  is how the write API models it. Speed bucket, exact `p14:dur` duration,
+  `advClick`/`advTm` advance behaviour and the type-specific variant attributes
+  (`{ dir: 'd' }`, `{ spokes: '2' }`) all carry across, each omitted from the
+  emitted literal when the source left it at its OOXML default.
+
+  The type is filtered against the write API's closed vocabulary. The read model
+  reports `TransitionInfo.type` as an *open string*, because it also decodes
+  PowerPoint's modern effects (Morph, Vortex, Ripple, …) and tells them apart by
+  namespace, while `TransitionType` names the 21 base ECMA-376 transitions and
+  nothing else. A name that does not survive the filter files a
+  `slide.transition` note instead of producing a script that does not compile.
+  PowerPoint's own probed effect table lists exactly those 21 base effects, so the
+  filter is checked against ground truth rather than against a transcribed list.
+
+  Transition **sounds** map in both OOXML forms: the stop-previous `p:endSnd`, and
+  an embedded start sound whose WAV is resolved through the slide's own `r:embed`
+  and carried as an asset. The embedded form survives the standalone tier only —
+  `extractSlides` does not surface a transition's audio part, so the append path
+  the template-anchored tier rides has nothing to wire and drops the sound
+  (silently, with no dangling reference). That tier declares it as
+  `slide.transitionSound`.
+
+  The round-trip oracle was widened to match: `CanonicalSlide` now carries
+  `transition`, compared structurally rather than as one opaque value, so a note
+  can declare a lost *sound* without also excusing a wrong transition *type*.
+  Without that, a printer that stopped emitting transitions entirely would have
+  produced identical calls and reported a clean round trip.
+
+  Assets are now numbered per media kind (`image1.png`, `audio1.wav`) instead of
+  over one shared counter, so a generated script does not bind a transition sound
+  to a `const image7`.
+
 ### Fixed
+
+- **A transition sound supplied as `data:audio/x-wav;…` was written to a media
+  part named `.x-wav`.** The media filename was taken from the data URI's mime
+  *subtype* verbatim, so the package ended up with `ppt/media/audio-1-1.x-wav`
+  and a `<Default Extension="x-wav"/>` declaring a file type that exists nowhere
+  else. The content type was right and PowerPoint opened it, but nothing else
+  would recognise the file. The subtype now maps to a real extension
+  (`audioExtensionForSubtype`), so the same bytes land on `audio-1-1.wav` under
+  `<Default Extension="wav" ContentType="audio/x-wav"/>` — what PowerPoint itself
+  authors. `audio/x-wav` is not an exotic input: it is exactly the content type
+  PowerPoint writes for an embedded transition sound, so it arrives on every deck
+  read back in and handed to `ts-pptx/script`.
 
 - **A tab, carriage return or line feed inside an XML attribute value was emitted
   literally, so it read back as a space** (`dn-xml-attr-whitespace`). XML 1.0

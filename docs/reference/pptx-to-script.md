@@ -166,7 +166,7 @@ formatted" from changing what a deck means.
 
 `DeckIr` is `{ slideSize, props, chrome, slides, assets, fidelity }` and is
 serializable — no DOM, no read-model object references. A slide is
-`{ number, source, layout, hidden, name?, background?, notesText?, calls }`,
+`{ number, source, layout, hidden, name?, background?, notesText?, transition?, calls }`,
 where each call is `{ method, args }` and `args` are literal write-API option
 objects. Media cannot be a literal, so it is an `AssetRef` (`{ $asset }`)
 resolved against `assets`; the *printer*, not the IR, decides between a file
@@ -191,6 +191,31 @@ suppress cosmetic `0.5000000001` noise would be a real geometry loss.
 
 `defineLayout` is the strictest of the four: `appendSlides` compares the two
 decks' EMU sizes for *equality*, so imprecision there throws rather than drifts.
+
+### Transitions are filtered against a closed vocabulary
+
+A slide's show transition is transcribed in both tiers, as a property assignment
+rather than a call — `slide.transition = { type: 'push', speed: 'slow',
+durationMs: 1250, variant: { dir: 'd' } }`. Speed bucket, exact `p14:dur`
+duration, `advClick`/`advTm` advance behaviour and the type-specific variant
+attributes all carry across; each is omitted from the emitted literal when the
+source left it at its OOXML default.
+
+The one judgement is the **type**. `TransitionInfo.type` is an open string,
+because the read model also decodes PowerPoint's modern effects (Morph, Vortex,
+Ripple, …) and distinguishes them by *namespace*; the write API's
+`TransitionType` is a closed union of the 21 base ECMA-376 names. So the
+converter admits only `p`-namespaced names it can spell and files a
+`slide.transition` note for the rest — the alternative is a printed script that
+does not compile, on exactly the decks a converter is most likely to meet.
+PowerPoint's own probed effect table (captured in
+`test/read/fixtures/slide-transition.oracle.json`) lists 21 base effects and 21
+modern ones, and the base 21 match the write union exactly.
+
+Transition **sounds** map in both OOXML forms: the stop-previous `p:endSnd`, and
+an embedded start sound whose WAV is resolved through the slide's own `r:embed`
+and carried as an asset like any image. The second survives the standalone tier
+only — see [Read the printer's notes](#read-the-printers-notes-not-the-irs).
 
 ### Theme colours are not uniformly flattened
 
@@ -240,6 +265,12 @@ adds:
 - *Added:* a slide's own name (`p:cSld@name`) reads fine and would survive a byte
   copy, but has no public write-API setter, so it dies in both tiers and nowhere
   else in the library.
+- *Added, template-anchored only:* a transition's **embedded start sound**
+  (`slide.transitionSound`). The standalone tier writes a real package and keeps
+  it; the append path this tier rides never runs the pass that registers a
+  transition's audio part, so the sound is dropped — silently, and without a
+  dangling reference, which is the safe half of the failure and still a loss. The
+  stop-previous form (`p:endSnd`) needs no part and survives in both tiers.
 
 The applicable set is reproduced as a comment block at the top of the emitted
 script, so the artifact carries its own caveats, and it is the set a round-trip
@@ -268,7 +299,6 @@ Both tiers, in corpus order:
 | `text.bullet.style` | 3/41 | unread | `a:buFont` / `a:buSzPct` / `a:buClr` — a bullet's font, size and colour |
 | `media.audioVideo` | 2/41 | unread | only the poster frame is readable, so embedded A/V becomes a still image |
 | `text.equation` | 2/41 | unread | the whole `m:` namespace is absent from the read path, so OMML math is invisible |
-| `slide.transition` | 2/41 | — | not transcribed in either tier (see [below](#deliberately-not-built)) |
 
 Plus, at 1–2 fixtures each: `chart.workbook`, `group.childSpace`,
 `group.transform`, `image.recolor`, `image.svg`, `shape.empty`,
@@ -299,7 +329,7 @@ Chrome losses are deliberately **rolled up**: `master.decoration` and
 twelve-layout deck emitting one note per layout would put twelve near-identical
 paragraphs at the top of the script and bury the per-shape notes underneath that
 a reader can act on. Per deck the tier adds five to eleven notes, not fifty
-(across the corpus: 997 notes against the template-anchored tier's 731).
+(across the corpus: 988 notes against the template-anchored tier's 724).
 
 ### The read path is the binding constraint
 
@@ -372,11 +402,16 @@ rather than the working directory.
 
 ## Deliberately not built
 
-- **Slide transitions are not transcribed in either tier**, although
-  `slide.transition` is a public setter and the write vocabulary names 21 of
-  them. The read model reports an open type string that also covers the
-  `p14`/`p15` modern effects, so the mapping needs a known-vocabulary filter plus
-  a note for the rest. Cheap, and it would benefit both tiers.
+- **Carrying an embedded transition sound onto a template.** The gap is in the
+  append path rather than in this converter: `extractSlides` does not surface a
+  transition's audio part, so `appendSlides` has nothing to reserve or wire, and
+  the emitter finds no relationship id and writes no `p:sndAc`. Closing it means
+  an `ExtractedSlide` descriptor and a rel-wiring branch alongside the ones for
+  charts and A/V — at which point `slide.transitionSound` stops being a
+  template-anchored note.
+- **`p15`/`p159` transitions cannot be exercised end to end.** They are dropped
+  correctly, by the same namespace check as the 19 `p14` effects, but neither
+  prefix is in the read DOM's registry, so no test can author one to prove it.
 - **The read-side fidelity backlog is untouched** and remains the binding
   constraint: `lnRef` width/dash, bullet font/size/`startAt`, `a:fillToRect`,
   `effectRef`, custGeom `gdLst`/`ahLst`/`cxnLst`, `a:tabLst`, `a:prstTxWarp`,

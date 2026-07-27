@@ -52,6 +52,22 @@ export function isAssetRef(value: unknown): value is AssetRef {
  */
 export type IrValue = null | boolean | number | string | AssetRef | IrValue[] | { [key: string]: IrValue }
 
+/**
+ * Widen one of the typed IR records below to {@link IrValue}, for the printer and the
+ * canonicaliser, which walk the IR generically.
+ *
+ * A cast, and unavoidably so. An optional key on an interface types as `T | undefined`,
+ * while `IrValue` deliberately excludes `undefined` so that "absent" has exactly one
+ * spelling — which makes the two mutually unassignable even though every value a mapper
+ * actually produces satisfies both. The invariant that closes the gap is enforced at the
+ * source (`compact` and the conditional spreads in `from-read/`, pinned by the "no value is
+ * `undefined`" corpus test) rather than by the type system, so it is stated once here
+ * instead of re-argued at each call site.
+ */
+export function asIrValue(value: object): IrValue {
+	return value as unknown as IrValue
+}
+
 /** Bytes referenced by an {@link AssetRef}, plus what a printer needs to name and type them. */
 export interface AssetIr {
 	/** Stable key an {@link AssetRef} resolves against; also the emitted filename. */
@@ -113,6 +129,52 @@ export interface BackgroundIr {
 }
 
 /**
+ * A transition's sound (`p:sndAc`), reduced to what `TransitionSoundProps` accepts.
+ *
+ * `data` rather than `path`, for the same reason a background image uses `data`: the bytes
+ * are the thing the IR carries, and a path would bind the script to a file layout the IR
+ * knows nothing about. The stop-previous form has no bytes at all — it silences a sound
+ * still playing from the previous slide — so it is the one shape here with no {@link AssetRef}.
+ */
+export interface TransitionSoundIr {
+	/** Bytes of the embedded WAV, for a start sound. Absent for {@link stopPrevious}. */
+	data?: AssetRef
+	/** `p:snd@name`, the display name PowerPoint shows for the sound. */
+	name?: string
+	/** `p:stSnd@loop` — repeat until the next sound starts. Omitted when false, its default. */
+	loop?: boolean
+	/** The `p:endSnd` form: stop the previous slide's sound rather than start one. */
+	stopPrevious?: boolean
+}
+
+/**
+ * A slide's show transition (`p:transition`), as a literal `TransitionProps`.
+ *
+ * Only the base ECMA-376 transitions reach this type. The read model reports
+ * {@link TransitionInfo.type} as an *open string*, because PowerPoint's modern effects
+ * (Morph, Vortex, …) live in the `p14`/`p15`/`p159` namespaces and it decodes those too —
+ * but the write path names 21 base ones and nothing else, so `from-read/transition.ts`
+ * filters against that vocabulary and notes what it drops. Anything that survives is a name
+ * the write API's own `TransitionType` union accepts, which is what keeps a printed script
+ * compiling.
+ */
+export interface TransitionIr {
+	/** The transition-type element's local name, guaranteed to be a writable one. */
+	type: string
+	/** `p:transition@spd`. Always present — see `from-read/transition.ts` for why it is not omitted. */
+	speed: 'slow' | 'med' | 'fast'
+	/** `p14:dur` in milliseconds, when the source carried an exact duration. */
+	durationMs?: number
+	/** `advClick`. Omitted when true, its default. */
+	advanceOnClick?: boolean
+	/** `advTm` in milliseconds, when the slide auto-advances. */
+	advanceAfterMs?: number
+	/** Type-specific attributes on the type element (`{ dir: 'd' }`, `{ spokes: '2' }`, …). */
+	variant?: { [key: string]: string }
+	sound?: TransitionSoundIr
+}
+
+/**
  * The layout a slide should be bound to in the destination deck, identified two ways
  * because neither alone is sufficient.
  *
@@ -146,6 +208,12 @@ export interface SlideIr {
 	background?: BackgroundIr
 	/** Speaker notes as plain text. Notes-slide geometry and placeholders do not survive. */
 	notesText?: string
+	/**
+	 * The show transition, when the source has one the write API can name. Slide-scoped
+	 * rather than a {@link CallIr} because the write API models it as a property assignment
+	 * on the slide, not a method — the IR's `method` union names real methods only.
+	 */
+	transition?: TransitionIr
 	/**
 	 * Write-API calls in z-order.
 	 *
