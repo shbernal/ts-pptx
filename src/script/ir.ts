@@ -88,17 +88,28 @@ export interface CallIr {
  *
  * `carried` — the slide holds at least one construct the write API cannot express at all
  * (`chartEx` is the clear case: a full reader, no emitter), so transcribing it would
- * silently produce a different deck. The slide is copied from the source package instead.
- * Fidelity is *higher* than transcription here, but the emitted source says nothing about
- * what is on the slide, so this is a real cost and always carries a {@link FidelityNote}.
+ * silently produce a different deck. A printer that *can* copy the slide from the source
+ * package should do so: fidelity is higher than transcription, though the emitted source then
+ * says nothing about what is on the slide, which is a real cost and always carries a
+ * {@link FidelityNote}.
+ *
+ * This is a recommendation, not an erasure. {@link SlideIr.calls} is populated either way, so
+ * a printer with no source package to copy from prints them and loses only the unwritable
+ * construct rather than the whole slide.
  */
 export type SlideSource = 'authored' | 'carried'
 
-/** A slide's background, already reduced to what the write API's `background` accepts. */
+/**
+ * A slide's background, already reduced to what the write API's `background` accepts.
+ *
+ * `data` rather than `image`, because `BackgroundProps` is `DataOrPathProps & ShapeFillProps`
+ * and `data` is the key it actually reads — an `image` key would print, typecheck against
+ * `IrValue`, and be ignored at run time.
+ */
 export interface BackgroundIr {
 	color?: string
 	transparency?: number
-	image?: AssetRef
+	data?: AssetRef
 }
 
 /**
@@ -135,8 +146,65 @@ export interface SlideIr {
 	background?: BackgroundIr
 	/** Speaker notes as plain text. Notes-slide geometry and placeholders do not survive. */
 	notesText?: string
-	/** Write-API calls in z-order. Empty when {@link source} is `carried`. */
+	/**
+	 * Write-API calls in z-order.
+	 *
+	 * Populated for every slide, **including a `carried` one**. A printer that can copy the
+	 * source slide ignores these; one that cannot — a standalone output has no source package
+	 * to copy from — prints them and is left with only the unwritable construct missing rather
+	 * than the whole slide. Marking a slide `carried` is a recommendation, not an erasure.
+	 */
 	calls: CallIr[]
+}
+
+/**
+ * A deck's theme, reduced to what `ThemeProps` accepts — the 12 `a:clrScheme` slots and the
+ * major/minor Latin, East-Asian and complex-script faces.
+ *
+ * What is *not* here is the point of the tier split. `a:fmtScheme` — the three fill, three
+ * line and three effect style lists a shape's `p:style` references — has no write-API
+ * counterpart and no read accessor, so a theme cannot be reproduced, only approximated.
+ */
+export interface ThemeIr {
+	headFontFace?: string
+	bodyFontFace?: string
+	headFontFaceEA?: string
+	bodyFontFaceEA?: string
+	headFontFaceCS?: string
+	bodyFontFaceCS?: string
+	/** The 12 `a:clrScheme` slots as bare 6-digit hex, omitting any the theme leaves unset. */
+	colorScheme?: { [slot: string]: string }
+}
+
+/**
+ * One source slide layout approximated as a `defineSlideMaster` call.
+ *
+ * The naming is the write API's, not OOXML's: `defineSlideMaster` creates a *layout* under
+ * the single shared master, which is exactly the granularity a source layout needs. A source
+ * deck's masters have no counterpart at all — hence {@link ChromeIr}'s multi-master note.
+ */
+export interface MasterIr {
+	/**
+	 * Gallery position of the source layout, matching {@link SlideLayoutIr.index}, so a slide
+	 * finds the master it should bind to without re-deriving a name.
+	 */
+	layoutIndex: number
+	/**
+	 * A `SlideMasterProps` literal. `props.title` is made unique across the deck, because it
+	 * doubles as the key `addSlide({ masterTitle })` matches against and source layout names
+	 * are not unique.
+	 */
+	props: { [key: string]: IrValue }
+}
+
+/**
+ * The deck's shared chrome, approximated for an output that has no template to inherit it
+ * from. A template-anchored printer ignores this entirely — the source deck *is* the chrome.
+ */
+export interface ChromeIr {
+	theme: ThemeIr
+	/** One entry per source layout, in gallery order. */
+	masters: MasterIr[]
 }
 
 /** Deck-level properties, reduced to the five `docProps` fields the write API sets. */
@@ -158,6 +226,11 @@ export interface DeckPropsIr {
 export interface DeckIr {
 	slideSize: { widthEmu: number; heightEmu: number }
 	props: DeckPropsIr
+	/**
+	 * Theme and layouts, approximated. Only a standalone printer reads this; a
+	 * template-anchored one gets all of it byte-identical from the source deck instead.
+	 */
+	chrome: ChromeIr
 	slides: SlideIr[]
 	assets: AssetIr[]
 	/**

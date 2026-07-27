@@ -1,0 +1,121 @@
+/*
+ * Generated from a .pptx by ts-pptx/script.
+ *
+ * Standalone: this script needs nothing but @shbernal/ts-pptx.
+ * The deck's theme, layouts and slide content are all re-authored through the public write
+ * API, so every one of them is editable here — and the parts of the original design the read
+ * model cannot see are gone. They are listed below. For a byte-identical design at the cost
+ * of shipping the source deck alongside the script, print the template-anchored variant
+ * instead.
+ *
+ * Writes ./output.pptx. Needs an ESM context — it uses top-level await.
+ *
+ * FIDELITY: 9 declared loss(es). Everything not listed here is expected to
+ * survive unchanged; a difference that is not in this list is a defect, not a caveat.
+ *
+ * Deck:
+ * - theme.fmtScheme [approximated, unread] — the theme's format scheme (a:fmtScheme — the three fill, line and
+ *   effect style lists a shape's p:style indexes into) has no read accessor and no write-API option, so the
+ *   output carries Office's default; a shape whose fill or outline came from the theme rather than from its own
+ *   a:ln keeps its colour but not its width, dash or effect
+ * - master.txStyles [dropped, unread] — the master's per-level text styles (p:txStyles — the default size, face,
+ *   colour, indent and bullet of each of the nine list levels) have no read accessor, so placeholder text falls
+ *   back to PowerPoint's built-in defaults; SlideMasterProps.textStyles could author them if they could be seen
+ * - master.background [flattened, unwritable] — this layout's background is a theme reference (p:bgRef into the
+ *   theme's background fill list), which has no write-API option; the colour it currently resolves to is baked
+ *   in and stops following the theme
+ * - master.name [flattened, unwritable] — 1 layout name(s) contain a line break or tab, which cannot survive as
+ *   a layout title: the write path emits the name as a literal XML attribute value rather than a character
+ *   reference, and XML normalises whitespace in an attribute to spaces. Collapsed here so the emitted script
+ *   says what the output will contain — "Abschnitts-\nüberschrift" → "Abschnitts- überschrift"
+ * - master.placeholders [dropped, unsupported] — the 58 placeholder definition(s) across 11 slide layout(s) are
+ *   not reproduced: the write path seeds every slide with each layout placeholder the slide did not populate,
+ *   and since every source shape is authored here as concrete content rather than into a placeholder,
+ *   re-declaring them would add an empty shape to every slide rather than a prompt
+ * - deck.docProps [dropped, unwritable] — only title, author, company, subject and revision have write-API
+ *   setters; keywords, description, category, content status and last-modified-by have none
+ * - master.default (DEFAULT) [approximated, unsupported] — the write path seeds every presentation with a blank
+ *   layout of its own named DEFAULT, and there is no way to remove it, so the output deck's layout gallery
+ *   carries one extra entry ahead of the source's layouts; nothing binds to it, but it is visible in
+ *   PowerPoint's layout picker
+ * Slide 1:
+ * - text.bullet.inherited (Textfeld 3) [dropped, unread] — at least one paragraph sets no bullet of its own and
+ *   inherits one from the layout or master list style; the write path cannot express "inherit" and emits an
+ *   explicit a:buNone, so any inherited bullet is suppressed — a no-op where the inherited style had none, and a
+ *   visible change where it did not
+ * - text.color.inherited (Textfeld 3) [flattened, unsupported] — this run inherits its colour from the
+ *   placeholder, master or theme; the write path paints an uncoloured run black instead of leaving it to
+ *   inherit, so the inherited colour is resolved and baked in and no longer tracks a theme change
+ */
+
+import { fileURLToPath } from 'node:url'
+import TsPptx from '@shbernal/ts-pptx'
+
+/** Resolve a path against this script rather than against the working directory. */
+const here = (name: string): string => fileURLToPath(new URL(name, import.meta.url))
+
+const pptx = new TsPptx()
+pptx.defineLayout({ name: 'source', width: 13.333333, height: 7.5 })
+pptx.layout = 'source'
+
+// The theme's colour scheme and font faces. Its format scheme — the fill, line and effect
+// style lists a shape references through p:style — has no counterpart on either side of the
+// library, so the output carries Office's.
+pptx.theme = {
+	bodyFontFace: 'Calibri',
+	colorScheme: {
+		dk1: '000000',
+		lt1: 'FFFFFF',
+		dk2: '44546A',
+		lt2: 'E7E6E6',
+		accent1: '4472C4',
+		accent2: 'ED7D31',
+		accent3: 'A5A5A5',
+		accent4: 'FFC000',
+		accent5: '5B9BD5',
+		accent6: '70AD47',
+		hlink: '0563C1',
+		folHlink: '954F72',
+	},
+	headFontFace: 'Calibri Light',
+}
+
+// Document properties. Only these have write-API setters; see the fidelity notes.
+pptx.author = 'Thomas Singer'
+pptx.revision = '3'
+pptx.title = 'Test'
+
+// One master per source layout. A layout that carried decoration or placeholder
+// definitions has lost them — the read model decodes neither; see the fidelity notes.
+pptx.defineSlideMaster({ background: { color: 'FFFFFF' }, title: 'Titelfolie' })
+pptx.defineSlideMaster({ background: { color: 'FFFFFF' }, title: 'Titel und Inhalt' })
+pptx.defineSlideMaster({ background: { color: 'FFFFFF' }, title: 'Abschnitts- überschrift' })
+pptx.defineSlideMaster({ background: { color: 'FFFFFF' }, title: 'Zwei Inhalte' })
+pptx.defineSlideMaster({ background: { color: 'FFFFFF' }, title: 'Vergleich' })
+pptx.defineSlideMaster({ background: { color: 'FFFFFF' }, title: 'Nur Titel' })
+pptx.defineSlideMaster({ background: { color: 'FFFFFF' }, title: 'Leer' })
+pptx.defineSlideMaster({ background: { color: 'FFFFFF' }, title: 'Inhalt mit Überschrift' })
+pptx.defineSlideMaster({ background: { color: 'FFFFFF' }, title: 'Bild mit Überschrift' })
+pptx.defineSlideMaster({ background: { color: 'FFFFFF' }, title: 'Titel und vertikaler Text' })
+pptx.defineSlideMaster({ background: { color: 'FFFFFF' }, title: 'Vertikaler Titel und Text' })
+
+// Slide 1 — master "Titelfolie"
+const slide1 = pptx.addSlide({ masterTitle: 'Titelfolie' })
+// Textfeld 3
+slide1.addText(
+	[{ options: { color: '000000', fontSize: 12 }, text: 'This is an almost empty slide.' }],
+	{
+		fit: 'resize',
+		h: '276999emu',
+		isTextBox: true,
+		objectName: 'Textfeld 3',
+		shape: 'rect',
+		valign: 'top',
+		w: '2014462emu',
+		wrap: false,
+		x: '10177538emu',
+		y: '6519333emu',
+	}
+)
+
+await pptx.writeFile({ fileName: here('./output.pptx') })

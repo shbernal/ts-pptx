@@ -51,14 +51,24 @@ exports and let this repository own the internal OOXML generation details.
   same non-published convention as `units-internal.ts`.
 - `src/script/` turns a deck read through `src/read/` into a serializable
   description of the write-API calls that would rebuild it (`readModelToIr`),
-  and prints that description as a runnable TypeScript module (`printScript`).
-  The two halves meet only at the IR: `from-read/` knows OOXML and the read
-  model, `print/` knows only strings, and neither can see the other. That is
-  what makes the mapping testable without a printer and keeps "how a number is
-  spelled" from changing what a deck means. `printScript` anchors its output on
-  a template — it reuses the *source deck itself*, because `fromTemplate` strips
-  a package's slides while leaving masters, layouts, theme, and document
-  properties byte-identical, so only slide content is ever regenerated.
+  and prints that description as a runnable TypeScript module. The two halves
+  meet only at the IR: `from-read/` knows OOXML and the read model, `print/`
+  knows only strings, and neither can see the other. That is what makes the
+  mapping testable without a printer and keeps "how a number is spelled" from
+  changing what a deck means. Two printers sit over the one IR and differ only
+  in where the deck's *chrome* comes from. `printScript` anchors its output on a
+  template — it reuses the *source deck itself*, because `fromTemplate` strips a
+  package's slides while leaving masters, layouts, theme, and document properties
+  byte-identical, so only slide content is ever regenerated.
+  `printStandaloneScript` emits a module that depends on nothing but this
+  package, re-authoring the theme and one `defineSlideMaster` per source layout
+  from what the read model exposes. The split is not a preference: a theme's
+  `a:fmtScheme`, a master's `p:txStyles`, and master/layout decoration are
+  unreachable from *both* directions, so a rebuilt design can only ever be an
+  approximation, while a reused one is exact. Each printer therefore returns the
+  note set that applies to **its** output — suppressing what its tier rescues and
+  adding what its tier costs — and that set, not `DeckIr.fidelity`, is what a
+  round-trip check excludes.
   It is its own subsystem because it depends on **both** halves — the read model
   and the write option types — so it fits inside neither, and because `src/read/`
   is documented as isomorphic (bytes in, bytes out), which a converter emitting

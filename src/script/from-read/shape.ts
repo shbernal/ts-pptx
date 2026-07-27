@@ -102,7 +102,7 @@ function positionOptions(shape: AnyShape, notes?: NoteScope): Record<string, IrV
 
 	// No transform of its own — a placeholder taking its geometry from the layout or master.
 	// `resolvedFrame` walks that chain, and using it is not optional: omitting the geometry
-	// does *not* leave it to be inherited, because an appended slide's placeholder inherits
+	// does *not* leave it to be inherited, because a regenerated slide's placeholder inherits
 	// nothing. It produces `x=0 y=0 w=<slide width> h=0` — a zero-height box in the corner,
 	// which is broken output rather than lossy output.
 	const resolved = shape.resolvedFrame
@@ -111,7 +111,7 @@ function positionOptions(shape: AnyShape, notes?: NoteScope): Record<string, IrV
 		'shape.frameInherited',
 		'flattened',
 		'unsupported',
-		`this shape has no transform of its own and takes its geometry from the ${resolved.source}; the appended slide inherits nothing, so the resolved position is baked in and stops tracking later edits to that ${resolved.source}`
+		`this shape has no transform of its own and takes its geometry from the ${resolved.source}; a regenerated slide inherits nothing, so the resolved position is baked in and stops tracking later edits to that ${resolved.source}`
 	)
 	return { x: emu(resolved.left), y: emu(resolved.top), w: emu(resolved.width), h: emu(resolved.height) }
 }
@@ -397,7 +397,7 @@ function autoShapeCall(shape: AutoShape, notes: NoteScope): CallIr | null {
 			'shape.placeholder',
 			'flattened',
 			'unsupported',
-			'a placeholder is emitted as a plain shape with its inherited geometry and styling baked in, so it no longer follows the destination layout'
+			'a placeholder is emitted as a plain shape with its inherited geometry and styling baked in, so it no longer follows its layout'
 		)
 	}
 

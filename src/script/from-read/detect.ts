@@ -24,8 +24,11 @@ const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
 /** Office MathML namespace — the equation body itself, wrapped by `a14:m` in a text run. */
 const MATH_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
 
-/** PresentationML main namespace — `p:grpSpPr`. */
+/** PresentationML main namespace — `p:grpSpPr`, `p:txStyles`, `p:spTree`. */
 const P_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main'
+
+/** Shape-tree children that carry drawing content, as opposed to the tree's own properties. */
+const SHAPE_ELEMENTS = new Set(['sp', 'pic', 'graphicFrame', 'grpSp', 'cxnSp'])
 
 /** A minimal structural view of a DOM element, so this module needs no DOM lib types. */
 interface ElementLike {
@@ -66,6 +69,16 @@ function child(element: ElementLike | null, namespaceURI: string, localName: str
 		if (el.namespaceURI === namespaceURI && el.localName === localName) return el
 	}
 	return null
+}
+
+/** Every direct element child, as {@link ElementLike}s. */
+function children(element: ElementLike | null): ElementLike[] {
+	if (!element) return []
+	const out: ElementLike[] = []
+	for (let node = element.firstChild; node; node = node.nextSibling) {
+		if (node.nodeType === ELEMENT_NODE) out.push(node as unknown as ElementLike)
+	}
+	return out
 }
 
 /**
@@ -137,5 +150,45 @@ export function hasIdentityChildSpace(element: unknown): boolean {
 		off.getAttribute('y') === chOff.getAttribute('y') &&
 		ext.getAttribute('cx') === chExt.getAttribute('cx') &&
 		ext.getAttribute('cy') === chExt.getAttribute('cy')
+	)
+}
+
+/**
+ * `true` when this theme declares an `a:fmtScheme`.
+ *
+ * The format scheme holds the three fill, three line and three effect style lists a shape's
+ * `p:style` indexes into. Neither half of the library touches it: nothing reads it, and the
+ * write path emits a hardcoded Office one. So a deck whose theme carries a custom format
+ * scheme is repainted with Office's, and this is the only way to notice.
+ */
+export function hasFormatScheme(element: unknown): boolean {
+	return has(element, A_NS, 'fmtScheme')
+}
+
+/**
+ * `true` when this slide master declares per-level text styles (`p:txStyles`) with content.
+ *
+ * `SlideMasterProps.textStyles` can author them, so this is purely a read-side gap — the
+ * default size, face, colour and bullet of every placeholder level is invisible to the
+ * converter and comes back as PowerPoint's built-in default.
+ */
+export function hasTextStyles(element: unknown): boolean {
+	const txStyles = child(element as ElementLike | null, P_NS, 'txStyles')
+	return children(txStyles).some((group) => children(group).length > 0)
+}
+
+/**
+ * `true` when this master or layout carries a shape that is not a placeholder — a logo, a
+ * rule, a background image, a footer graphic.
+ *
+ * The read model is explicit that it decodes master/layout *placeholders* only, leaving
+ * decoration to the byte-for-byte import paths. An output that rebuilds the chrome from the
+ * read model therefore loses every one of these, and a deck that has none loses nothing —
+ * which is why this is a count rather than a blanket note.
+ */
+export function hasDecorativeShapes(element: unknown): boolean {
+	const spTree = child(child(element as ElementLike | null, P_NS, 'cSld'), P_NS, 'spTree')
+	return children(spTree).some(
+		(shape) => shape.namespaceURI === P_NS && SHAPE_ELEMENTS.has(shape.localName ?? '') && !has(shape, P_NS, 'ph')
 	)
 }

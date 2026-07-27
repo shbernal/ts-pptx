@@ -62,7 +62,7 @@ export function tableCall(frame: GraphicFrame, table: Table, notes: NoteScope): 
 			'table.style',
 			'dropped',
 			'unsupported',
-			"this table names no a:tableStyleId, so it takes the destination deck's default table style"
+			"this table names no a:tableStyleId, so it takes the generated deck's default table style"
 		)
 	}
 

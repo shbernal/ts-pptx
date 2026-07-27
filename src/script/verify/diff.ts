@@ -34,7 +34,7 @@
  * lost".
  */
 import type { FidelityNote } from '../fidelity.js'
-import type { CanonicalCall, CanonicalDeck, CanonicalSlide } from './canonical.js'
+import type { CanonicalCall, CanonicalChrome, CanonicalDeck, CanonicalSlide } from './canonical.js'
 import type { IrValue } from '../ir.js'
 
 /**
@@ -87,6 +87,18 @@ const WRITER_DEFAULTS: Record<string, string> = {
 	chartColors: 'the write path assigns a series palette; the source’s came from the theme',
 	dataLabelFormatCode: 'a data label with no explicit number format takes the write path’s default',
 	showLeaderLines: 'leader lines are on by default in the write path',
+	// The five docProps the write path seeds in its constructor ('ts-pptx',
+	// 'ts-pptx Presentation', '1'). A source deck that declared none of a given property gets
+	// the library's, and there is no way to unset one — assigning `''` writes an empty element
+	// rather than removing it. Unlike the entries above, this is a *write*-side candidate, not
+	// a read-side one: the fix is a way to author a deck with a property genuinely absent.
+	// Restricted to `added` by construction, so a printer that stopped writing docProps still
+	// fails: the source's own values become `changed`, which nothing here excuses.
+	title: 'a deck that declares no title gets the write path’s own',
+	author: 'a deck that declares no author gets the write path’s own',
+	subject: 'a deck that declares no subject gets the write path’s own',
+	company: 'a deck that declares no company gets the write path’s own',
+	revision: 'a deck that declares no revision gets the write path’s own',
 }
 
 export interface IrDifference {
@@ -166,7 +178,14 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	'connector.binding': [],
 	'connector.line': ['color', 'width', 'dashType', 'beginArrowType', 'endArrowType'],
 	'connector.rotation': ['rotate'],
+	// Empty, and the temptation to list title/author/subject/revision here has to be
+	// resisted: this note is about the *other* seven docProps, which have no setter and are
+	// absent from the IR. Listing the four that do have setters would excuse a printer that
+	// stopped writing them — measured, by exactly that mutation.
 	'deck.docProps': [],
+	// Nothing to exclude: the differences it predicts are `added`, which WRITER_DEFAULTS covers
+	// by kind. The note exists so a reader of the emitted script learns the deck gained them.
+	'deck.docPropsDefault': [],
 	'deck.slideSize': ['widthEmu', 'heightEmu'],
 	'fill.gradient.path': ['gradient', 'fill'],
 	'fill.schemeToken': ['fill', 'color'],
@@ -182,6 +201,24 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	// image from the source's — which is precisely the loss this note is about.
 	'image.svg': ['svg', 'data', '$asset'],
 	'line.arrowSize': ['beginArrowType', 'endArrowType'],
+	// The chrome notes. Most are empty for the reason stated above and it is the common case
+	// here rather than the exception: `a:fmtScheme`, `p:txStyles`, master/layout decoration and
+	// layout placeholder definitions are all absent from the IR on *both* sides — nothing reads
+	// them — so there is nothing for a note to exclude and the note exists for a human.
+	// `p:clrMap` is the subtle one: a remapped token changes what every scheme colour in the
+	// deck resolves to, and the round trip still cannot see it, because the IR reports the token
+	// verbatim rather than its resolved hex. That is exactly the blind spot this file's header
+	// describes, and writing `[]` is the honest spelling of it.
+	'master.background': ['background', 'color', 'data', 'master'],
+	'master.colorMap': [],
+	'master.decoration': [],
+	'master.default': ['master'],
+	'master.multiple': [],
+	'master.name': ['title', 'layoutName'],
+	'master.nameCollision': ['title', 'layoutName'],
+	'master.placeholders': [],
+	'master.txStyles': [],
+	'theme.fmtScheme': [],
 	'line.dash': ['dashType'],
 	'line.width': ['width'],
 	'media.audioVideo': ['*'],
@@ -195,7 +232,7 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	'slide.animation': [],
 	'slide.background': ['background', 'color', 'transparency', 'image'],
 	'slide.carried': ['*'],
-	'slide.layout': [],
+	'slide.layout': ['layoutName'],
 	'slide.name': [],
 	'slide.transition': [],
 	'table.cell.borders.diagonal': ['border'],
@@ -242,6 +279,9 @@ export function diffDeckIr(expected: CanonicalDeck, actual: CanonicalDeck, notes
 		differences.push(scalarDifference(0, null, [], 'slideSize.heightEmu', 'heightEmu', expected.slideSize.heightEmu, actual.slideSize.heightEmu)) // prettier-ignore
 	}
 
+	diffValue(expected.props, actual.props, 'props', 'props', 0, null, [], differences)
+	diffChrome(expected.chrome, actual.chrome, differences)
+
 	const slideCount = Math.max(expected.slides.length, actual.slides.length)
 	for (let index = 0; index < slideCount; index++) {
 		const before = expected.slides[index]
@@ -279,12 +319,109 @@ export function diffDeckIr(expected: CanonicalDeck, actual: CanonicalDeck, notes
 	}
 }
 
+/**
+ * The theme and the layout gallery.
+ *
+ * Reported at `slideNumber: 0`, the same deck-level bucket the slide size uses, so a
+ * deck-scoped note (which carries `slideNumber: null` and matches any slide) can declare one.
+ * Masters align by **title**, not by position, for the same reason calls align by shape name:
+ * the write path always emits a blank layout of its own at gallery position 0, so positional
+ * alignment reports every layout in the deck as renamed and buries the one real difference —
+ * that extra layout — under a shift.
+ *
+ * And, exactly as with shape names, a title is only usable as a key where it is *unique on
+ * both sides*. Uniqueness is supposed to be an invariant here — the converter deduplicates
+ * titles because a title is also what `addSlide({ masterTitle })` binds on — but keying on it
+ * unconditionally makes the check assume the thing it should be testing: a mutation that
+ * removed the deduplication left two layouts sharing a title, both expected entries matched
+ * the same actual one, and the round trip came back clean. Falling back to position when the
+ * key repeats costs nothing when the invariant holds and catches it when it does not.
+ */
+function diffChrome(expected: CanonicalChrome, actual: CanonicalChrome, out: IrDifference[]): void {
+	diffValue(expected.theme, actual.theme, 'chrome.theme', 'theme', 0, null, [], out)
+
+	// A whole master appearing or disappearing is reported *scoped to its title*, using the
+	// same `shapeName` channel a shape-scoped note uses. Without that, one note declaring the
+	// blank layout the write path always adds would carry `field: 'master'` and excuse every
+	// added layout — which is what a mutation that stopped deduplicating layout titles proved.
+	const report = (
+		path: string,
+		kind: DifferenceKind,
+		before: IrValue | undefined,
+		after: IrValue | undefined
+	): void => {
+		out.push({
+			slideNumber: 0,
+			shapeName: titleOf(before ?? after ?? null),
+			nestedNames: [],
+			path,
+			field: 'master',
+			kind,
+			expected: brief(before),
+			actual: brief(after),
+			declaredBy: null,
+		})
+	}
+
+	const byTitle = uniqueByTitle(actual.masters)
+	const expectedTitles = uniqueByTitle(expected.masters)
+	const claimed = new Set<IrValue>()
+	let cursor = 0
+	const nextUnclaimed = (): IrValue | undefined => {
+		while (cursor < actual.masters.length) {
+			const candidate = actual.masters[cursor++]
+			if (candidate !== undefined && !claimed.has(candidate)) return candidate
+		}
+		return undefined
+	}
+
+	expected.masters.forEach((before, index) => {
+		const title = titleOf(before)
+		// Usable only where the title identifies exactly one master on each side.
+		const named = title !== null && expectedTitles.has(title) ? byTitle.get(title) : undefined
+		const after = named !== undefined && !claimed.has(named) ? named : nextUnclaimed()
+		if (after === undefined) {
+			report(`chrome.masters[${index}]`, 'lost', before, undefined)
+			return
+		}
+		claimed.add(after)
+		diffValue(before, after, `chrome.masters[${index}]`, 'master', 0, null, [], out)
+	})
+
+	actual.masters.forEach((after, index) => {
+		if (!claimed.has(after)) report(`chrome.masters[${index}]`, 'added', undefined, after)
+	})
+}
+
+/** Masters keyed by title, keeping only titles that identify exactly one of them. */
+function uniqueByTitle(masters: IrValue[]): Map<string, IrValue> {
+	const counts = new Map<string, number>()
+	for (const master of masters) {
+		const title = titleOf(master)
+		if (title !== null) counts.set(title, (counts.get(title) ?? 0) + 1)
+	}
+	const out = new Map<string, IrValue>()
+	for (const master of masters) {
+		const title = titleOf(master)
+		if (title !== null && counts.get(title) === 1) out.set(title, master)
+	}
+	return out
+}
+
+/** A canonical master's `title`, which is its identity across the round trip. */
+function titleOf(master: IrValue): string | null {
+	if (master === null || typeof master !== 'object' || Array.isArray(master)) return null
+	const title = (master as Record<string, IrValue>)['title']
+	return typeof title === 'string' ? title : null
+}
+
 function diffSlide(expected: CanonicalSlide, actual: CanonicalSlide, out: IrDifference[]): void {
 	const number = expected.number
 	const at = (path: string, field: string, a: IrValue, b: IrValue): void => {
 		if (JSON.stringify(a) !== JSON.stringify(b)) out.push(scalarDifference(number, null, [], path, field, a, b))
 	}
 	at('hidden', 'hidden', expected.hidden, actual.hidden)
+	at('layoutName', 'layoutName', expected.layoutName, actual.layoutName)
 	at('background', 'background', expected.background, actual.background)
 	at('notesText', 'notesText', expected.notesText, actual.notesText)
 

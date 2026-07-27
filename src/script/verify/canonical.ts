@@ -42,13 +42,42 @@ export interface CanonicalCall {
 export interface CanonicalSlide {
 	number: number
 	hidden: boolean
+	/**
+	 * The name of the layout this slide binds to, which is the only part of the binding that
+	 * is portable — a gallery *index* shifts whenever the output's gallery differs from the
+	 * source's, which it always does for a standalone output.
+	 *
+	 * Here because the binding is otherwise invisible: a printer that bound every slide to the
+	 * wrong layout, or to none, would produce identical calls and compare clean. The layout
+	 * governs theme and colour-map resolution, so that is not a cosmetic difference.
+	 */
+	layoutName: string | null
 	background: IrValue | null
 	notesText: string | null
 	calls: CanonicalCall[]
 }
 
+/**
+ * The deck's chrome, reduced the same way its slides are.
+ *
+ * Included for one reason: without it the diff cannot see the standalone tier's whole job.
+ * That tier re-authors the theme and one master per source layout, and a projection that
+ * covers only slides would report a printer emitting *neither* as a clean round trip — the
+ * same shape of hole mutation testing found in `added` differences, one level up. A
+ * template-anchored output compares equal here by construction, which is the claim that tier
+ * makes and is worth checking rather than assuming.
+ */
+export interface CanonicalChrome {
+	theme: IrValue
+	/** Each master's `defineSlideMaster` props, in gallery order. */
+	masters: IrValue[]
+}
+
 export interface CanonicalDeck {
 	slideSize: { widthEmu: number; heightEmu: number }
+	/** The `docProps` the write API can set. Absent from the projection, a printer that set none would compare clean. */
+	props: IrValue
+	chrome: CanonicalChrome
 	slides: CanonicalSlide[]
 }
 
@@ -103,6 +132,11 @@ export function canonicalDeckIr(ir: DeckIr): CanonicalDeck {
 	const digests = assetDigests(ir.assets)
 	return {
 		slideSize: ir.slideSize,
+		props: canonicalValue(ir.props as IrValue, digests),
+		chrome: {
+			theme: canonicalValue(ir.chrome.theme as IrValue, digests),
+			masters: ir.chrome.masters.map((master) => canonicalValue(master.props, digests)),
+		},
 		slides: ir.slides.map((slide) => canonicalSlide(slide, digests)),
 	}
 }
@@ -111,6 +145,7 @@ function canonicalSlide(slide: SlideIr, digests: Map<string, string>): Canonical
 	return {
 		number: slide.number,
 		hidden: slide.hidden,
+		layoutName: slide.layout?.name ?? null,
 		background: slide.background === undefined ? null : canonicalValue(slide.background as IrValue, digests),
 		notesText: slide.notesText ?? null,
 		calls: slide.calls.map((call) => {

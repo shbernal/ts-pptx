@@ -17,8 +17,15 @@
  * and compares equal. `pnpm run read:census` measures that surface. This script certifies
  * "nothing the converter can see was lost", never "nothing was lost".
  *
+ * Two tiers, one harness. `--tier b` (the default) prints the template-anchored script and
+ * runs it beside the source deck; `--tier a` prints the standalone one and deliberately does
+ * *not* lay a template down, so a script that still needed one fails here rather than passing
+ * on the file it is meant to replace. The comparison is the same either way — only what the
+ * fidelity notes excuse differs, which is the point of running both.
+ *
  * Usage:
  *   pnpm run script:roundtrip
+ *   pnpm run script:roundtrip -- --tier a
  *   pnpm run script:roundtrip -- --json
  *   pnpm run script:roundtrip -- --fixture mixed.pptx --verbose
  *   pnpm run script:roundtrip -- --dir pptx-bank
@@ -29,7 +36,7 @@ import path from 'node:path'
 import { promisify } from 'node:util'
 import { ROOT } from './script-utils.mjs'
 import { Presentation } from '../dist/read.js'
-import { canonicalDeckIr, diffDeckIr, printScript, readModelToIr } from '../dist/script.js'
+import { canonicalDeckIr, diffDeckIr, printScript, printStandaloneScript, readModelToIr } from '../dist/script.js'
 
 const run = promisify(execFile)
 const argv = process.argv.slice(2)
@@ -40,6 +47,11 @@ const flag = (name) => {
 const asJson = argv.includes('--json')
 const verbose = argv.includes('--verbose')
 const only = flag('--fixture')
+const tier = (flag('--tier') ?? 'b').toLowerCase()
+if (tier !== 'a' && tier !== 'b') {
+	console.error(`--tier must be a (standalone) or b (template-anchored), got ${JSON.stringify(tier)}`)
+	process.exit(1)
+}
 const DIR = path.join(ROOT, flag('--dir') ?? path.join('test', 'read', 'fixtures'))
 
 // Inside the repo rather than the OS temp directory, and required to be: the emitted script
@@ -61,11 +73,12 @@ async function roundTrip(file) {
 	try {
 		const bytes = await fs.readFile(file)
 		const ir = readModelToIr(await Presentation.load(bytes))
-		const printed = printScript(ir)
+		const printed = tier === 'a' ? printStandaloneScript(ir) : printScript(ir)
 
 		await fs.writeFile(path.join(dir, 'script.ts'), printed.code)
-		// The template is the source deck unchanged: `fromTemplate` strips its slides itself.
-		await fs.writeFile(path.join(dir, 'template.pptx'), bytes)
+		// Tier B's template is the source deck unchanged: `fromTemplate` strips its slides
+		// itself. Tier A gets nothing, on purpose — see the header.
+		if (tier === 'b') await fs.writeFile(path.join(dir, 'template.pptx'), bytes)
 		if (printed.assets.size > 0) {
 			await fs.mkdir(path.join(dir, 'assets'), { recursive: true })
 			for (const [name, data] of printed.assets) await fs.writeFile(path.join(dir, 'assets', name), data)
@@ -94,7 +107,7 @@ for (const name of names) {
 const ok = (result) => result.report !== null && result.report.undeclared.length === 0
 
 if (asJson) {
-	console.log(JSON.stringify({ dir: path.relative(ROOT, DIR), results }, null, 2))
+	console.log(JSON.stringify({ dir: path.relative(ROOT, DIR), tier, results }, null, 2))
 	process.exit(results.every(ok) ? 0 : 1)
 }
 
@@ -139,7 +152,7 @@ const added = total((report) => report.added)
 const broken = results.filter((result) => result.report === null).length
 
 console.log(
-	`\n${results.length} deck(s): ${undeclared} undeclared difference(s), ${declared} declared, ` +
+	`\ntier ${tier} — ${results.length} deck(s): ${undeclared} undeclared difference(s), ${declared} declared, ` +
 		`${added} write-path default(s)${broken ? `, ${broken} failed to run` : ''}.`
 )
 

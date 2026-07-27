@@ -18,9 +18,12 @@
  */
 export { readModelToIr } from './script/from-read/deck.js'
 export { printScript } from './script/print/script.js'
-export type { AssetMode, PrintScriptOptions, PrintedScript } from './script/print/script.js'
+export type { PrintScriptOptions } from './script/print/script.js'
+export { printStandaloneScript } from './script/print/standalone.js'
+export type { PrintStandaloneScriptOptions } from './script/print/standalone.js'
+export type { AssetMode, PrintedScript } from './script/print/common.js'
 export { canonicalDeckIr } from './script/verify/canonical.js'
-export type { CanonicalCall, CanonicalDeck, CanonicalSlide } from './script/verify/canonical.js'
+export type { CanonicalCall, CanonicalChrome, CanonicalDeck, CanonicalSlide } from './script/verify/canonical.js'
 export { diffDeckIr, knownNoteConstructs } from './script/verify/diff.js'
 export type { DifferenceKind, IrDifference, RoundTripReport } from './script/verify/diff.js'
 export { isAssetRef } from './script/ir.js'
@@ -29,11 +32,14 @@ export type {
 	AssetRef,
 	BackgroundIr,
 	CallIr,
+	ChromeIr,
 	DeckIr,
 	DeckPropsIr,
 	IrValue,
+	MasterIr,
 	SlideIr,
 	SlideLayoutIr,
 	SlideSource,
+	ThemeIr,
 } from './script/ir.js'
 export type { Cause, Disposition, FidelityNote } from './script/fidelity.js'

@@ -19,6 +19,7 @@ import { isGraphicFrame, isGroupShape } from '../../read/api/shapes.js'
 import { NoteCollector, scopeNotes, type NoteScope } from '../fidelity.js'
 import type { AssetIr, AssetRef, BackgroundIr, CallIr, DeckIr, DeckPropsIr, SlideIr, SlideLayoutIr } from '../ir.js'
 import type { AssetResolver } from './shape.js'
+import { chromeToIr } from './chrome.js'
 import { shapeCall } from './shape.js'
 import { compact } from './values.js'
 
@@ -88,11 +89,16 @@ export function readModelToIr(pres: Presentation): DeckIr {
 	}
 
 	const layouts = layoutGallery(pres)
+	// Before the slides, so the chrome's deck-level notes lead the list the way the chrome
+	// leads the deck. Assets are shared: a layout background image and a slide image that are
+	// the same part resolve to one asset.
+	const chrome = chromeToIr(pres, deckScope, assets)
 	const slides = pres.slides.map((slide, index) => slideToIr(slide, index + 1, collector, assets, layouts))
 
 	return {
 		slideSize: size ? { widthEmu: size.widthEmu, heightEmu: size.heightEmu } : DEFAULT_SLIDE_SIZE,
 		props: deckProps(pres, deckScope),
+		chrome,
 		slides,
 		assets: assets.assets,
 		fidelity: collector.notes,
@@ -165,16 +171,19 @@ function slideToIr(
 		...notesOf(slide, notes),
 	}
 
-	if (hasUnwritableContent(slide)) {
+	const carried = hasUnwritableContent(slide)
+	if (carried) {
 		notes.note(
 			'slide.carried',
 			'flattened',
 			'unwritable',
-			'this slide holds an extended chart (waterfall, funnel, box-and-whisker, …), which has a full reader but no write-API emitter; the slide is copied from the source deck instead of transcribed, so it renders correctly but the emitted script does not describe its contents'
+			'this slide holds an extended chart (waterfall, funnel, box-and-whisker, …), which has a full reader but no write-API emitter; a printer that can copy the source slide does so instead of transcribing it, so it renders correctly but the emitted script does not describe its contents'
 		)
-		return { ...base, source: 'carried', calls: [] }
 	}
 
+	// Mapped even for a carried slide: a printer with no source package to copy from prints
+	// these and loses only the unwritable construct, rather than the whole slide. Each shape
+	// records its own note, so the extended chart's loss is declared either way.
 	const calls: CallIr[] = []
 	for (const shape of slide.shapes) {
 		const call = shapeCall(shape, notes, assets)
@@ -185,7 +194,7 @@ function slideToIr(
 	// since both live in slide-scoped elements.
 	recordTimingLosses(slide, notes)
 
-	return { ...base, source: 'authored', calls }
+	return { ...base, source: carried ? 'carried' : 'authored', calls }
 }
 
 /**
@@ -255,7 +264,7 @@ function recordTimingLosses(slide: Slide, notes: NoteScope): void {
 			'slide.transition',
 			'dropped',
 			'unwritable',
-			'a slide transition is read but appendSlides authors none on the destination slide, so the output advances with no effect'
+			'a slide transition is read but none is authored on the regenerated slide, so the output advances with no effect; the write path does have a slide.transition setter, and the reason this is not simply mapped is that the read model reports the type as an open string covering the p14/p15 modern effects the write vocabulary has no name for — the 21 it does name could be transcribed and are not'
 		)
 	}
 	if (slide.hasAnimations) {

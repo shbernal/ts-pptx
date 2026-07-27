@@ -32,7 +32,14 @@ import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import { Presentation } from '../../dist/read.js'
-import { canonicalDeckIr, diffDeckIr, knownNoteConstructs, printScript, readModelToIr } from '../../dist/script.js'
+import {
+	canonicalDeckIr,
+	diffDeckIr,
+	knownNoteConstructs,
+	printScript,
+	printStandaloneScript,
+	readModelToIr,
+} from '../../dist/script.js'
 import { assert, assertEqual } from '../helpers.js'
 
 const run = promisify(execFile)
@@ -129,19 +136,40 @@ describe('script round trip — the oracle has teeth', () => {
 })
 
 describe('script round trip — the note coverage table', () => {
-	test('every construct the corpus emits has a field mapping', async () => {
+	test('every construct the corpus emits has a field mapping, in both tiers', async () => {
 		// A note whose construct is absent from the table excludes nothing, so a typo or a new
 		// note silently turns the round trip back into a snapshot. Checked against the notes the
-		// corpus actually produces rather than a hand-kept list.
+		// corpus actually produces rather than a hand-kept list — and against *both* printers,
+		// since each suppresses notes the other keeps and adds ones of its own.
 		const known = new Set(knownNoteConstructs())
 		const missing = new Set()
 		for (const name of fixtureNames) {
 			const ir = readModelToIr(await Presentation.load(await readFile(path.join(FIXTURES, name))))
-			for (const note of printScript(ir).notes) {
+			for (const note of [...printScript(ir).notes, ...printStandaloneScript(ir).notes]) {
 				if (!known.has(note.construct)) missing.add(note.construct)
 			}
 		}
 		assertEqual([...missing].sort().join(', '), '', 'note constructs with no entry in the coverage table')
+	})
+
+	test('the two tiers suppress different notes, and neither suppresses one it causes', async () => {
+		// The suppression lists are the place a caveat quietly disappears. Pinned on the fixture
+		// that exercises the most chrome: the template-anchored tier must not report the chrome
+		// losses (it never rebuilds the chrome), and the standalone tier must report every one.
+		const ir = readModelToIr(await Presentation.load(await readFile(path.join(FIXTURES, 'mixed.pptx'))))
+		const anchored = new Set(printScript(ir).notes.map((note) => note.construct))
+		const standalone = new Set(printStandaloneScript(ir).notes.map((note) => note.construct))
+
+		for (const construct of ['theme.fmtScheme', 'master.txStyles', 'master.placeholders', 'deck.docProps']) {
+			assert(
+				ir.fidelity.some((note) => note.construct === construct),
+				`the IR should declare ${construct} — it is a real loss for a standalone output`
+			)
+			assert(!anchored.has(construct), `a template-anchored script must not report ${construct} as lost`)
+			assert(standalone.has(construct), `a standalone script must report ${construct} as lost`)
+		}
+		// And the mirror: the standalone tier copies no slide, so it must not claim it will.
+		assert(!standalone.has('slide.carried'), 'a standalone script cannot carry a slide, so it must not say it does')
 	})
 })
 
@@ -151,6 +179,7 @@ describe('script round trip — canonicalisation is an equivalence', () => {
 	const deck = (options) => ({
 		slideSize: { widthEmu: 1, heightEmu: 1 },
 		props: {},
+		chrome: { theme: {}, masters: [] },
 		assets: [],
 		fidelity: [],
 		slides: [{ number: 1, source: 'authored', layout: null, hidden: false, calls: [{ method: 'addText', args: [[], options] }] }], // prettier-ignore
