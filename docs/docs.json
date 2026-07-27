@@ -19,6 +19,7 @@
         "reference/layout-units",
         "reference/pptx-inspection",
         "reference/pptx-read",
+        "reference/pptx-to-script",
         "reference/object-identity",
         "groups",
         "connectors",

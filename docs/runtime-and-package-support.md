@@ -32,6 +32,9 @@ The package publishes:
   autofit helpers (see [Measured Text Fit](measured-text-fit.md)).
 - `dist/read.js` and `dist/read.d.ts` for opening, editing, and round-tripping
   an existing `.pptx` (see [PPTX Read / Round-Trip](reference/pptx-read.md)).
+- `dist/script.js` and `dist/script.d.ts` for turning an existing `.pptx` into
+  TypeScript source that rebuilds it through the write API (see
+  [PPTX To Script](reference/pptx-to-script.md)).
 - `dist/math.js` and `dist/math.d.ts` for LaTeX/MathML → OMML conversion (see
   [Math Equations](math-latex.md)).
 - `dist/zip.js` and `dist/zip.d.ts` for the shared OPC/zip package plumbing
@@ -39,7 +42,7 @@ The package publishes:
 - `dist/node.js` and `dist/node.d.ts` for explicit Node.js consumers.
 - `dist/browser.js` and `dist/browser.d.ts` for explicit browser consumers.
 - package `exports` entries for `.`, `./inspect`, `./measure`, `./read`,
-  `./math`, `./zip`, `./node`, and `./browser`.
+  `./script`, `./math`, `./zip`, `./node`, and `./browser`.
 
 Supported environments are modern module-aware environments:
 
@@ -55,6 +58,7 @@ import TsPptx, { ShapeType } from "@shbernal/ts-pptx"
 import { inspectPptx } from "@shbernal/ts-pptx/inspect"
 import { measureText } from "@shbernal/ts-pptx/measure"
 import { Presentation } from "@shbernal/ts-pptx/read"
+import { readModelToIr, printScript } from "@shbernal/ts-pptx/script"
 import { latexToOmml } from "@shbernal/ts-pptx/math"
 import pptxgenNode from "@shbernal/ts-pptx/node"
 import pptxgenBrowser from "@shbernal/ts-pptx/browser"

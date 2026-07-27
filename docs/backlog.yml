@@ -1460,8 +1460,8 @@ items:
     source: downstream
     type: downstream-need
     first_seen: 2026-07-26
-    last_reviewed: 2026-07-26
-    status: target
+    last_reviewed: 2026-07-27
+    status: implemented
     priority: p2
     target_area:
       - typescript-api
@@ -1470,6 +1470,39 @@ items:
     non_target_reasons: []
     summary: Emit TypeScript source from an existing .pptx that regenerates an equivalent deck through the public write API
     current_project_notes: |
+      IMPLEMENTED 2026-07-27 as the `@shbernal/ts-pptx/script` subpath (`src/script.ts`,
+      `src/script/`). Both tiers ship. `readModelToIr(presentation)` returns the deck IR;
+      `printScript(ir)` prints the template-anchored tier and `printStandaloneScript(ir)`
+      the standalone one, each returning `{ code, assets, notes }` where `notes` is the
+      loss set that applies to THAT output rather than `DeckIr.fidelity`. `canonicalDeckIr`
+      + `diffDeckIr` and `pnpm run script:roundtrip [-- --tier a]` are the round-trip
+      check. User-facing documentation is `docs/reference/pptx-to-script.md`; the
+      subsystem's place in the codebase is in `docs/architecture.md`. Verified across the
+      41-fixture corpus: every fixture prints deterministically, executes, and round-trips
+      with 0 undeclared differences in both tiers.
+
+      DELIBERATELY NOT BUILT, each a real gap rather than an oversight:
+        - Slide transitions are not transcribed in either tier, although
+          `slide.transition` is a public setter and the write vocabulary names 21 of them.
+          The read model reports an open type string that also covers the `p14`/`p15`
+          modern effects, so the mapping needs a known-vocabulary filter plus a note for
+          the rest. Cheap, benefits both tiers.
+        - The read-side fidelity backlog below (see THE UNMEASURED HALF) is untouched and
+          is still the binding constraint on both tiers: `lnRef` width/dash, bullet
+          font/size/startAt, `a:fillToRect`, `effectRef`, custGeom `gdLst`/`ahLst`/
+          `cxnLst`, `a:tabLst`, `a:prstTxWarp`, plus `p:txStyles` and master/layout
+          decoration. Not filed as separate entries: the corpus is construct-weighted, so
+          their ordering would be a coverage argument and not a frequency one.
+        - A frequency-weighted corpus (`pptx-bank/`) is still empty and still needs the
+          maintainer, so every count in the shipped documentation is coverage, not
+          frequency. `--dir` is wired on both measurement scripts for the day real decks
+          land.
+      One defect found on the way was filed rather than fixed, because it changes emitted
+      bytes for existing callers: `dn-xml-attr-whitespace`.
+
+      The design rationale below is the record of the decisions, kept because the plan
+      file that held it is gone.
+
       The generic need: a consumer holding a `.pptx` wants runnable TypeScript that
       rebuilds an equivalent deck through this library's public write API — so the deck
       becomes editable, diffable, and parameterizable source instead of an opaque binary.
@@ -1570,14 +1603,21 @@ items:
         - local-source-inspection
         - regression-test
       local_files:
-        - scripts/append-ceiling.mjs
-        - scripts/read-blindness-census.mjs
-        - test/regression/emu-and-scheme-color-fidelity.test.js
+        - src/script.ts
+        - src/script/ir.ts
+        - src/script/fidelity.ts
+        - src/script/print/script.ts
+        - src/script/print/standalone.ts
+        - src/script/verify/diff.ts
+        - scripts/script-roundtrip.mjs
+        - docs/reference/pptx-to-script.md
+        - test/read/script-roundtrip.test.js
+        - test/read/script-standalone.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: Build the read-construct -> write-API coverage matrix (one row per read accessor, classified full/partial/none per tier), then define the deck IR from it.
+    next_action: none
   - id: dn-xml-attr-whitespace
     source: downstream
     type: downstream-need

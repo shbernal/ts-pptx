@@ -61,8 +61,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   name falls back to gallery position, since `appendSlides` throws on an
   ambiguous name rather than choosing.
 
-  Not yet implemented: a standalone (template-free) tier that rebuilds the
-  chrome via `defineSlideMaster`.
+- **`printStandaloneScript(ir, options)` prints the same IR with no template at
+  all.** The emitted module depends on nothing but this package: the theme, one
+  `defineSlideMaster` per source layout, and every slide, all re-authored through
+  the public write API and therefore all editable. It is the second printer over
+  one IR, and the only thing the two differ in is where the deck's chrome comes
+  from.
+
+  The trade is worth stating before choosing a tier. Template-anchored output
+  gets the deck's entire design back byte for byte, at the cost of shipping the
+  source deck alongside the script and of leaving that design uneditable.
+  Standalone output is one file, and the parts of the original design the read
+  model cannot see are gone. Three of them are unreachable from *both*
+  directions, so no amount of converter work recovers them: `a:fmtScheme` (the
+  fill, line and effect style lists a shape's `p:style` indexes into — no reader,
+  and the write path emits a hardcoded Office one), `p:txStyles` (the master's
+  per-level text styles — no reader, though `SlideMasterProps.textStyles` could
+  author them), and master/layout decoration. A fourth, `p:clrMap`, is readable
+  with no setter. Each is a fidelity note in this tier and rides across untouched
+  in the other, which is why the other shipped first.
+
+  A `defineSlideMaster` here carries a title and a background and nothing else,
+  and that is a write-path constraint rather than a shortcut:
+  `addPlaceholdersToSlideLayouts` seeds every slide with each layout placeholder
+  the slide did not populate, as an empty text shape. Since this converter
+  authors every source shape as concrete absolute-positioned content and binds
+  none of them to a placeholder, re-declaring a layout's placeholders would add a
+  ghost shape to every slide for each one.
+
+  The second consumer moved the IR twice, both still within this unreleased
+  window. `DeckIr` gained `chrome` (`{ theme, masters[] }`), which the
+  template-anchored printer ignores entirely since the source deck *is* its
+  chrome. And `SlideIr.calls` is now populated for a `carried` slide too: marking
+  a slide carried was an erasure and is now a recommendation, because a printer
+  with no source package to copy from had the whole slide erased rather than only
+  the unwritable construct that made it uncarryable — and that construct already
+  declares its own loss.
+
+  Two notes describe the write path rather than the source deck, because both are
+  permanent properties of any standalone output: a presentation always carries a
+  blank layout named `DEFAULT`, seeded in the constructor with no way to remove
+  it (`master.default`), and all five settable document properties are stamped in
+  the constructor and cannot be unset — assigning `''` writes an empty element
+  rather than removing it (`deck.docPropsDefault`).
+
+- **A guide for the whole subsystem: [PPTX To Script](docs/reference/pptx-to-script.md).**
+  The two tiers and how to choose, the chrome cliff that forces the split, the
+  fidelity-note contract, the measured loss list across the fixture corpus, and
+  what a clean round-trip run does and does not prove.
 
 - **A round-trip check for generated scripts: `canonicalDeckIr` + `diffDeckIr`,
   and `pnpm run script:roundtrip`.** Reads a deck, prints a script, runs it,

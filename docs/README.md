@@ -46,6 +46,9 @@ artifacts.
   animation and transition emit.
 - [Native backgrounds and gradients](native-backgrounds-and-gradients.md):
   native PPTX gradient fills and required review gates.
+- [PPTX to script](reference/pptx-to-script.md): turn an existing deck into
+  runnable TypeScript, the two output tiers, and the fidelity notes that state
+  what a conversion drops.
 - [Math and LaTeX](math-latex.md): OMML math emit.
 - [Embedded fonts](embedded-fonts.md): font embedding, merge, and fixtures.
 - [Measured text fit](measured-text-fit.md): the export-time shrink/resize pass.

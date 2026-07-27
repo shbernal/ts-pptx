@@ -87,7 +87,9 @@ exports and let this repository own the internal OOXML generation details.
   reader, so a construct the read path cannot see is absent from both, and the
   converter need not be injective, so two source constructs that map to the
   same call compare equal. It detects *asymmetry*; `pnpm run read:census` and
-  the IR unit tests cover the rest.
+  the IR unit tests cover the rest. The consumer-facing guide — both tiers, the
+  measured loss list, and how to read a fidelity note — is
+  [PPTX To Script](reference/pptx-to-script.md).
 - `scripts/package-smoke.mjs` verifies the packed package boundary from a
   consumer perspective.
 
