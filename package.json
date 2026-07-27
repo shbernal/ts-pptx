@@ -87,6 +87,7 @@
 		"script:roundtrip": "pnpm run ensure-dist && node scripts/script-roundtrip.mjs",
 		"test:watch": "vitest --watch test/regression",
 		"test:coverage": "pnpm run ensure-dist && vitest run --coverage",
+		"coverage:probe": "pnpm run ensure-dist && vitest run --coverage --coverage.reportsDirectory=coverage/probe --coverage.reporter=json --coverage.reporter=json-summary --coverage.reporter=text-summary --coverage.thresholds.statements=0 --coverage.thresholds.branches=0 --coverage.thresholds.functions=0 --coverage.thresholds.lines=0",
 		"test:package": "node scripts/package-smoke.mjs",
 		"test:demo:node": "node scripts/demo-smoke.mjs node",
 		"test:demo:vite": "node scripts/demo-smoke.mjs vite",

@@ -132,6 +132,29 @@ MCPs' corpora.
   pass does not typecheck, so a genuine type error still builds clean. `typecheck` is
   the only thing that catches it; never treat a green build as a substitute.
 
+### Coverage: probe in the loop, gate before the commit
+
+- **`pnpm run test:coverage` (~2min, observed 60–185s) is a commit gate, not a loop
+  step.** It runs all 191 test files, including the schema suite that spawns a .NET
+  OOXMLValidatorCLI process per concurrent case — none of which you need in order to
+  learn whether the test you just wrote reaches the line you wrote it for. Run it
+  **once, immediately before each commit**, and never before an edit. A coverage
+  session that runs the full gate after every edit spends more wall-clock waiting on
+  validators than on everything else combined.
+- **`pnpm run coverage:probe <paths…>` is the loop step.** Same v8 instrumentation over
+  the same `dist/` bundle, but scoped to the files you name and with the thresholds
+  zeroed so a partial run cannot fail on a number it was never going to reach. One test
+  file is ~15s; all of `test/read` is ~50s. It writes to `coverage/probe/` rather than
+  `coverage/`, so a probe never overwrites the numbers the real gate produced.
+- **Read the probe in one direction only.** A line the probe reports as *covered* is
+  covered — that is conclusive, and it is the question the loop actually asks ("does my
+  new case reach this branch?"). A line it reports as *uncovered* means only that the
+  files you named do not reach it; another suite may. Never delete or rewrite a test on
+  the strength of a probe miss — confirm against the full gate first.
+- Read specific lines out of `coverage/probe/coverage-final.json`; the per-file rollup
+  is in `coverage-summary.json`. Both are the same shape the full gate writes, so a
+  helper script works against either.
+
 ### Do not run these — the git hooks already own them
 
 - **`format`, `format:check`, `lint`.** Pre-commit runs eslint `--fix` then prettier
