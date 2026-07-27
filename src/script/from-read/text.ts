@@ -16,10 +16,13 @@
  *    table here rather than a pass-through, so an unmappable token produces a note instead
  *    of an invalid option.
  *
- * Run-level reads prefer the *explicit* value over the resolved one throughout. A resolved
- * value folds in the placeholder/master/theme inheritance chain, so writing it back would
- * bake inherited styling into the shape as if it had been authored there — the deck would
- * look right today and stop tracking its own theme.
+ * Run-level reads prefer the *explicit* value over the resolved one, but only where leaving
+ * the option out really does leave the value inherited. That is the part worth checking
+ * rather than assuming: the round-trip harness found that an omitted run colour and an
+ * omitted vertical anchor are both filled in by the write path — black, and centred — so
+ * "stay quiet and let it inherit" was silently repainting text and re-anchoring bodies. Both
+ * now emit the *resolved* value with a note, which freezes it against a later theme edit and
+ * renders correctly, in preference to staying faithful in the IR and wrong on the slide.
  */
 import type { BodyProperties, Paragraph, Run, TextFrame } from '../../read/api/text.js'
 import type { NoteScope } from '../fidelity.js'
@@ -66,23 +69,64 @@ const AUTO_NUMBER_TYPES = new Set([
 	'romanUcPeriod',
 ])
 
+/**
+ * `Paragraph.bullet` → the write API's `bullet` option.
+ *
+ * The read model reports a **tagged** string — `'none'`, `'char:<glyph>'` or
+ * `'autoNum:<type>'` — not a bare glyph, and the first version of this function read it as
+ * one. The result was silent and universal: a paragraph that explicitly suppressed its
+ * bullet (`a:buNone`, which is most of them) came back with a literal `n` bullet, because
+ * `'none'.codePointAt(0)` is `n`; a real character bullet came back as `c`, from the `char:`
+ * tag; and a numbered list came back as `a`. Every converted deck was affected and nothing
+ * failed, which is why the round-trip check exists.
+ */
 function bulletOption(bullet: string, notes: NoteScope): IrValue {
+	// Explicit suppression, and it must stay explicit: an omitted `bullet` lets the
+	// destination list style put one back.
+	if (bullet === 'none') return false
+
 	notes.note(
 		'text.bullet.style',
 		'flattened',
 		'unread',
 		"a bullet's own font, size and colour have no accessor (a:buFont / a:buSzPct / a:buClr), so it renders in the body font and colour"
 	)
-	if (AUTO_NUMBER_TYPES.has(bullet)) {
+
+	if (bullet.startsWith('autoNum:')) {
+		const scheme = bullet.slice('autoNum:'.length)
 		notes.note(
 			'text.bullet.numberStartAt',
 			'dropped',
 			'unread',
 			'a numbered bullet restarts at 1: nothing reads a:buAutoNum/@startAt, though addText accepts numberStartAt'
 		)
-		return { type: 'number', style: bullet }
+		if (!AUTO_NUMBER_TYPES.has(scheme)) {
+			notes.note(
+				'text.bullet.numberType',
+				'approximated',
+				'unwritable',
+				`numbering scheme "${scheme}" is outside the set the write API names, so the list falls back to the default scheme`
+			)
+			return { type: 'number' }
+		}
+		return { type: 'number', numberType: scheme }
 	}
-	return { characterCode: (bullet.codePointAt(0) ?? 0x2022).toString(16).toUpperCase() }
+
+	// Zero-padded to four digits, and that is load-bearing rather than cosmetic: the write
+	// path tests `characterCode` against /^[0-9A-Fa-f]{4}$/ and, on a miss, warns to the
+	// console and substitutes its own default glyph. So "6E" — a perfectly good code point —
+	// silently became a different bullet character, visible only in the rendered slide.
+	const glyph = bullet.startsWith('char:') ? bullet.slice('char:'.length) : bullet
+	const code = glyph.codePointAt(0) ?? 0x2022
+	if (code > 0xffff) {
+		notes.note(
+			'text.bullet.glyph',
+			'approximated',
+			'unwritable',
+			`bullet glyph U+${code.toString(16).toUpperCase()} is outside the Basic Multilingual Plane and characterCode takes a four-digit code, so the bullet falls back to the write path's default glyph`
+		)
+	}
+	return { characterCode: code.toString(16).toUpperCase().padStart(4, '0') }
 }
 
 /** Per-run character formatting, shared by shape text and table-cell text. */
@@ -127,7 +171,31 @@ function runColor(run: Run, notes: NoteScope): string | undefined {
 		const resolved = run.resolvedColor
 		return resolved ? literalColor(resolved.effectiveHex) : undefined
 	}
-	return run.color === null ? undefined : literalColor(run.color)
+	if (run.color !== null) return literalColor(run.color)
+
+	// A run with no colour of its own inherits one, and leaving the option out does *not* pass
+	// that inheritance along: `addText` fills an uncoloured non-placeholder run with
+	// DEF_FONT_COLOR, so omitting it repaints the text black. That makes this a loss either
+	// way, and which loss depends on whether the inherited colour can be resolved — so the two
+	// outcomes are declared separately rather than under one note that would overstate one and
+	// understate the other.
+	const inherited = run.resolvedColor
+	if (!inherited) {
+		notes.note(
+			'text.color.default',
+			'approximated',
+			'unread',
+			'this run inherits its colour and nothing resolves what it inherits (a table style tier, or a list style the read model does not walk), so the write path paints it black — the one case where the output colour is not merely frozen but possibly wrong'
+		)
+		return undefined
+	}
+	notes.note(
+		'text.color.inherited',
+		'flattened',
+		'unsupported',
+		'this run inherits its colour from the placeholder, master or theme; the write path paints an uncoloured run black instead of leaving it to inherit, so the inherited colour is resolved and baked in and no longer tracks a theme change'
+	)
+	return literalColor(inherited.effectiveHex)
 }
 
 /**
@@ -155,6 +223,14 @@ function paragraphOptions(paragraph: Paragraph, notes: NoteScope): Record<string
 			`distributed alignment "${align}" has no write-API spelling, so the paragraph falls back to its inherited alignment`
 		)
 	}
+	if (paragraph.spaceBeforePt === 0 || paragraph.spaceAfterPt === 0) {
+		notes.note(
+			'text.paraSpaceZero',
+			'dropped',
+			'unwritable',
+			'this paragraph explicitly sets zero space before or after (a:spcBef / a:spcAft of 0), which suppresses the spacing its list style would otherwise apply; the write path treats 0 as "unset" and emits nothing, so the inherited spacing comes back'
+		)
+	}
 	if (paragraph.marginLeftPt !== null || paragraph.indentPt !== null) {
 		notes.note(
 			'text.indent',
@@ -178,6 +254,26 @@ function paragraphOptions(paragraph: Paragraph, notes: NoteScope): Record<string
 }
 
 /**
+ * Record the one bullet loss that has no expression at all, once per shape.
+ *
+ * A paragraph with no bullet child of its own inherits whatever the layout's or master's
+ * list style says. There is no way to say "inherit" through the write API — an omitted
+ * `bullet` makes it emit an explicit `a:buNone` — so an inherited bullet is suppressed. The
+ * read side cannot see the inherited value either (`a:lvl1pPr` list styles are unread), so
+ * the converter can neither reproduce it nor tell whether there was one, which is why this
+ * is stated as a possibility rather than a fact.
+ */
+function noteInheritedBullets(paragraphs: readonly Paragraph[], notes: NoteScope): void {
+	if (!paragraphs.some((paragraph) => paragraph.bullet === null)) return
+	notes.note(
+		'text.bullet.inherited',
+		'dropped',
+		'unread',
+		'at least one paragraph sets no bullet of its own and inherits one from the layout or master list style; the write path cannot express "inherit" and emits an explicit a:buNone, so any inherited bullet is suppressed — a no-op where the inherited style had none, and a visible change where it did not'
+	)
+}
+
+/**
  * Flatten a text frame into the `TextProps[]` first argument of `addText`.
  *
  * An empty paragraph becomes an item with empty text and a `breakLine`, which is how a
@@ -187,6 +283,7 @@ function paragraphOptions(paragraph: Paragraph, notes: NoteScope): Record<string
 export function textRuns(frame: TextFrame, notes: NoteScope): IrValue[] {
 	const paragraphs = frame.paragraphs
 	const items: IrValue[] = []
+	noteInheritedBullets(paragraphs, notes)
 
 	paragraphs.forEach((paragraph, paragraphIndex) => {
 		const paraOpts = paragraphOptions(paragraph, notes)
@@ -202,8 +299,15 @@ export function textRuns(frame: TextFrame, notes: NoteScope): IrValue[] {
 
 		runs.forEach((run, runIndex) => {
 			const isLastRun = runIndex === runs.length - 1
+			// `bullet` goes on the first run only, unlike the other paragraph properties. The
+			// write path treats a bullet on a run that is *not* starting a line as a request for
+			// a new paragraph — and clears that run's `breakLine` while it is at it — so
+			// replicating the bullet split every bulleted paragraph that had more than one run.
+			// It reads paragraph properties off whichever run opens the line, so once is enough.
+			const continuation = { ...paraOpts }
+			delete continuation['bullet']
 			const options = compact({
-				...paraOpts,
+				...(runIndex === 0 ? paraOpts : continuation),
 				...runOptions(run, notes),
 				...(isLastRun && breaks ? { breakLine: true } : {}),
 			})
@@ -239,7 +343,10 @@ export function textFrameOptions(frame: TextFrame, notes: NoteScope): Record<str
 
 	return (
 		compact({
-			valign: anchor === null ? undefined : ANCHOR[anchor],
+			// Spelled out even when nothing in the source set it. `resolvedAnchor` returning
+			// null means PowerPoint would default the body to top — but `addText` defaults a
+			// non-placeholder body to *centre*, so leaving the option out re-anchors the text.
+			valign: anchor === null ? 'top' : ANCHOR[anchor],
 			// `@wrap` is `square`/`none` in OOXML and a boolean in the write API.
 			wrap: body?.wrap === null || body?.wrap === undefined ? undefined : body.wrap !== 'none',
 			vert: vert !== null && WRITABLE_VERT.has(vert) ? vert : undefined,

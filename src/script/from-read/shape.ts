@@ -30,7 +30,7 @@ import type { GradientFill } from '../../read/api/gradient.js'
 import type { NoteScope } from '../fidelity.js'
 import type { AssetRef, CallIr, IrValue } from '../ir.js'
 import { compact, emu, isWritableSchemeToken, literalColor, orUndefined } from './values.js'
-import { hasEquation, hasIdentityChildSpace, isAudioVideo } from './detect.js'
+import { hasEquation, hasIdentityChildSpace, isAudioVideo, isTextBox } from './detect.js'
 import { textFrameOptions, textRuns } from './text.js'
 import { tableCall } from './table.js'
 import { chartCall } from './chart.js'
@@ -96,10 +96,24 @@ export function shapeCall(shape: AnyShape, notes: NoteScope, assets: AssetResolv
  * its group's child coordinate space, which a flattened call list cannot express, so the
  * group transform has to be composed in here. For a top-level shape the two are identical.
  */
-function positionOptions(shape: AnyShape): Record<string, IrValue> {
+function positionOptions(shape: AnyShape, notes?: NoteScope): Record<string, IrValue> {
 	const frame = shape.absoluteFrame
-	if (!frame) return {}
-	return { x: emu(frame.left), y: emu(frame.top), w: emu(frame.width), h: emu(frame.height) }
+	if (frame) return { x: emu(frame.left), y: emu(frame.top), w: emu(frame.width), h: emu(frame.height) }
+
+	// No transform of its own — a placeholder taking its geometry from the layout or master.
+	// `resolvedFrame` walks that chain, and using it is not optional: omitting the geometry
+	// does *not* leave it to be inherited, because an appended slide's placeholder inherits
+	// nothing. It produces `x=0 y=0 w=<slide width> h=0` — a zero-height box in the corner,
+	// which is broken output rather than lossy output.
+	const resolved = shape.resolvedFrame
+	if (!resolved) return {}
+	notes?.note(
+		'shape.frameInherited',
+		'flattened',
+		'unsupported',
+		`this shape has no transform of its own and takes its geometry from the ${resolved.source}; the appended slide inherits nothing, so the resolved position is baked in and stops tracking later edits to that ${resolved.source}`
+	)
+	return { x: emu(resolved.left), y: emu(resolved.top), w: emu(resolved.width), h: emu(resolved.height) }
 }
 
 /**
@@ -349,7 +363,23 @@ function autoShapeCall(shape: AutoShape, notes: NoteScope): CallIr | null {
 	const preset = shape.presetGeometry
 	const custom = shape.customGeometry
 	const frame = shape.hasTextFrame ? shape.textFrame : null
-	const hasText = frame !== null && frame.text.length > 0
+
+	// "Has text" means text this converter can author, which is *runs*. `TextFrame.text` also
+	// counts `a:fld` field text — a slide number, date or footer placeholder — and there is no
+	// run behind it, so measuring by `text` made every field placeholder emit an `addText`
+	// carrying a single empty string: an invisible empty box where a number used to be.
+	const runText = frame === null ? '' : frame.paragraphs.flatMap((p) => p.runs.map((run) => run.text)).join('')
+	const hasText = runText.length > 0
+
+	// Run text is a subsequence of the frame's text, so anything longer came from a field.
+	if (frame !== null && frame.text.replaceAll('\n', '').length > runText.length) {
+		notes.note(
+			'text.field',
+			'dropped',
+			'unread',
+			'this shape holds an automatic field (a:fld — a slide number, date or footer), which has no accessor and no addText expression, so its text is not reproduced'
+		)
+	}
 
 	// An OMML equation contributes nothing to `TextFrame.text`, so an equation-only shape
 	// looks like an empty box and would otherwise emit as bare geometry.
@@ -372,7 +402,7 @@ function autoShapeCall(shape: AutoShape, notes: NoteScope): CallIr | null {
 	}
 
 	const common = {
-		...positionOptions(shape),
+		...positionOptions(shape, notes),
 		...transformOptions(shape),
 		...styleOptions(shape, notes),
 		objectName: shape.name || undefined,
@@ -390,10 +420,14 @@ function autoShapeCall(shape: AutoShape, notes: NoteScope): CallIr | null {
 	}
 
 	if (hasText && frame !== null) {
+		// `isTextBox` and `shape` are independent, not alternatives: a PowerPoint text box
+		// carries `txBox="1"` *and* an explicit `prstGeom rect`, so reading text-box-ness off
+		// the absence of geometry misclassified every one of them as an auto shape.
 		const options = compact({
 			...common,
 			...textFrameOptions(frame, notes),
-			...(preset === null ? { isTextBox: true } : { shape: preset, ...adjustOptions(shape) }),
+			...(isTextBox(shape.element_) ? { isTextBox: true } : {}),
+			...(preset === null ? {} : { shape: preset, ...adjustOptions(shape) }),
 		})
 		return { method: 'addText', args: [textRuns(frame, notes), options ?? {}], ...nameOf(shape) }
 	}
@@ -510,8 +544,11 @@ function pictureCall(shape: Picture, notes: NoteScope, assets: AssetResolver): C
 		)
 	}
 
-	// An SVG-only picture has no raster blip; its vector part is the whole image.
-	const partName = shape.imagePartName ?? shape.svgPartName
+	// The vector part wins when there is one. A PowerPoint SVG picture is an `asvg:svgBlip`
+	// extension over a raster fallback, and the fallback is the lossy copy — taking it would
+	// throw away the vector for no reason, since `addImage` accepts SVG bytes directly and
+	// regenerates a fallback of its own.
+	const partName = shape.svgPartName ?? shape.imagePartName
 	if (!partName) {
 		notes.note(
 			'image.data',
@@ -530,9 +567,9 @@ function pictureCall(shape: Picture, notes: NoteScope, assets: AssetResolver): C
 	if (shape.svgPartName && shape.imagePartName) {
 		notes.note(
 			'image.svg',
-			'flattened',
+			'approximated',
 			'unsupported',
-			'an SVG picture carries its raster fallback only; the vector part is not re-attached, so it no longer scales cleanly'
+			"the vector part of this SVG picture is carried and the source's own raster fallback is not; the write path generates a fresh fallback, so a renderer that cannot draw SVG shows a different image from the one the source deck shipped"
 		)
 	}
 	if (shape.recolor) {
@@ -546,15 +583,16 @@ function pictureCall(shape: Picture, notes: NoteScope, assets: AssetResolver): C
 
 	const crop = shape.crop
 	const options = compact({
-		...positionOptions(shape),
+		...positionOptions(shape, notes),
 		...transformOptions(shape),
 		objectName: shape.name || undefined,
-		// `a:srcRect` gives the fraction cropped off each edge; the write API's crop sizing
-		// takes the surviving window, so the two are complements.
-		sizing:
-			crop === null
-				? undefined
-				: { type: 'crop', x: crop.left, y: crop.top, w: 1 - crop.left - crop.right, h: 1 - crop.top - crop.bottom },
+		// `crop`, not `sizing`. Both exist and they are not interchangeable: `crop` is
+		// `a:srcRect` emitted verbatim as percentage edge insets — the exact model the read
+		// model reports — while `sizing: 'crop'` cuts a window in *displayed inches* against
+		// the image's measured natural size. Feeding fractions to `sizing` read them as
+		// inches, which shrank every cropped picture to a fraction of its box.
+		crop:
+			crop === null ? undefined : { l: crop.left * 100, t: crop.top * 100, r: crop.right * 100, b: crop.bottom * 100 },
 	})
 	return { method: 'addImage', args: [{ ...(options ?? {}), data: asset }], ...nameOf(shape) }
 }
@@ -716,12 +754,24 @@ function groupCall(shape: GroupShape, notes: NoteScope, assets: AssetResolver): 
 		)
 	}
 
+	// The group's own rotation and flips are deliberately NOT emitted here. `absoluteFrame`
+	// composes them into every child, and the children above were built from it, so the
+	// transform is already baked in at slide-absolute coordinates. Emitting it on the group
+	// as well would apply it a second time — measured: a group rotated 30° came back at 60°
+	// with its children walked off their positions, and a flipped group came back unflipped
+	// because the double flip cancelled. The group's frame is a bounding box and nothing else.
+	if (shape.rotation !== 0 || shape.flipH || shape.flipV) {
+		notes.note(
+			'group.transform',
+			'flattened',
+			'unsupported',
+			"the group's own rotation and flips are baked into its children's coordinates rather than kept on the group, because addGroup would otherwise apply them twice; the shapes render identically but rotating or resetting the group no longer moves them together"
+		)
+	}
+
 	return {
 		method: 'addGroup',
-		args: [
-			children,
-			compact({ ...positionOptions(shape), ...transformOptions(shape), objectName: shape.name || undefined }) ?? {},
-		],
+		args: [children, compact({ ...positionOptions(shape, notes), objectName: shape.name || undefined }) ?? {}],
 		...nameOf(shape),
 	}
 }

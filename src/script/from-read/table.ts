@@ -44,6 +44,19 @@ export function tableCall(frame: GraphicFrame, table: Table, notes: NoteScope): 
 		rowHeights.push(row.heightEmu ?? 0)
 	}
 
+	// A row of height 0 is PowerPoint's "auto — as tall as its content needs", not a
+	// zero-height row. The write path takes it literally and then lets the row grow anyway,
+	// so the output reports whatever height the content forced. Nothing is visibly wrong;
+	// the row simply stops being auto and is pinned to that measurement.
+	if (rowHeights.some((height) => height === 0) && !rowHeights.every((height) => height === 0)) {
+		notes.note(
+			'table.rowAuto',
+			'approximated',
+			'unsupported',
+			'at least one row is auto-height (a:tr/@h of 0) while others are not; rowH must be given for every row or none, so the auto rows are emitted as 0 and come back pinned to the height their content produced'
+		)
+	}
+
 	if (styleId === null) {
 		notes.note(
 			'table.style',

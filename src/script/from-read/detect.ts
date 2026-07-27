@@ -93,6 +93,24 @@ export function hasEquation(element: unknown): boolean {
 }
 
 /**
+ * `true` when this `p:sp` is a text box rather than an auto shape.
+ *
+ * The discriminator is one attribute, `p:cNvSpPr/@txBox`, and nothing reads it. The
+ * tempting substitute — "it has no preset geometry" — is wrong for the common case:
+ * PowerPoint gives every text box an explicit `<a:prstGeom prst="rect"/>`, so that test
+ * calls every real text box an auto shape. The difference is not cosmetic. PowerPoint
+ * autofits, wraps and resizes a text box by different rules, and offers a different
+ * right-click menu for it.
+ *
+ * Direct child rather than a subtree search: `p:cNvSpPr` sits under `p:nvSpPr`, and a group
+ * would otherwise answer for its first child.
+ */
+export function isTextBox(element: unknown): boolean {
+	const nvSpPr = child(element as ElementLike | null, P_NS, 'nvSpPr')
+	return child(nvSpPr, P_NS, 'cNvSpPr')?.getAttribute('txBox') === '1'
+}
+
+/**
  * `true` when a group's child coordinate space equals its own frame, so its children are
  * already in slide-absolute units.
  *
