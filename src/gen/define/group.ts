@@ -10,7 +10,7 @@ import { ShapeType, SlideObjectType } from '../../core-enums.js'
 import { warn } from '../../log.js'
 import type { GroupChildProps, GroupProps, SlideMasterObject } from '../../core-interfaces.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlEntities, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlAttrValue, validateObjectName } from '../../gen-utils.js'
 import { nextObjectNameIdx } from './object-name.js'
 import { addChartDefinition } from './chart.js'
 import { addImageDefinition } from './image.js'
@@ -124,7 +124,7 @@ function makeGroupObject(target: PresSlideInternal, groupObjects: SlideObject[],
 	// built in one process disagree on their group names. `Group N` is 1-based, matching PowerPoint.
 	const groupNameIdx = nextObjectNameIdx(target, SlideObjectType.group)
 	const objectName = opts.objectName
-		? encodeXmlEntities(validateObjectName(opts.objectName, 'group'))
+		? encodeXmlAttrValue(validateObjectName(opts.objectName, 'group'))
 		: `Group ${groupNameIdx + 1}`
 
 	return {

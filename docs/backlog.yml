@@ -1623,7 +1623,7 @@ items:
     type: downstream-need
     first_seen: 2026-07-27
     last_reviewed: 2026-07-27
-    status: target
+    status: implemented
     priority: p2
     target_area:
       - typescript-api
@@ -1631,36 +1631,120 @@ items:
     non_target_reasons: []
     summary: A tab, CR or LF inside a value written to an XML attribute (layout title, objectName, altText, section title) is emitted literally and normalised to a space on read
     current_project_notes: |
-      XML 1.0 section 3.3.3 normalises a literal tab, carriage return or line feed inside an
-      attribute value to a single space before any consumer sees it; carrying one across
-      requires a character reference (&#9;, &#13;, &#10;). `encodeXmlEntities`
+      IMPLEMENTED. XML 1.0 section 3.3.3 normalises a literal tab, carriage return or line feed
+      inside an attribute value to a single space before any consumer sees it; carrying one
+      across requires a character reference (&#9;, &#13;, &#10;). `encodeXmlEntities`
       (src/gen-utils.ts) escapes &, <, >, " and ' and strips illegal control characters, but
-      passes tab/CR/LF through literally, so any caller-supplied string that lands in an
-      attribute comes back with its line breaks turned into spaces. Reproduce by defining a
-      slide master whose title contains a newline and reading `p:cSld/@name` back, or by
-      setting an `objectName` with a newline and reading `p:cNvPr/@name`.
+      passed tab/CR/LF through literally, so any caller-supplied string that landed in an
+      attribute came back with its line breaks turned into spaces.
 
-      Not fixable inside `encodeXmlEntities` itself: the same helper escapes element *text*,
-      where a literal newline is meaningful content and is currently emitted raw. Escaping
-      there would be a broad byte change across every text-bearing part, which the repo's
-      byte-identity gate treats as a stop rather than a cleanup. The fix is a separate
-      attribute-value escaper used by the attribute-emitting paths only, landed with a schema
-      fixture and a byte-identity baseline, since it changes emitted bytes for any deck whose
-      attribute values contain those characters.
+      The fix is `encodeXmlAttrValue` (src/gen-utils.ts), layered over `encodeXmlEntities` and
+      used by the attribute-emitting paths ONLY. It was deliberately not a widening of
+      `encodeXmlEntities`, which also escapes element *text*, where a literal newline is
+      meaningful content: escaping there would be a broad byte change across every text-bearing
+      part, which the byte-identity gate treats as a stop rather than a cleanup.
+
+      Where it is wired:
+        - `openTag()` in src/gen/oxml/el.ts — one change covering every attribute emitted
+          through the element builder (p14:section/@name, a:hlinkClick/@tooltip,
+          p:cmAuthor/@name and @initials, tableColumn/@name in the embedded xlsx, ...).
+        - `cNvPrOpen` (@descr) and `p:cSld/@name` in src/gen/slide/object.ts, which build
+          attributes with template strings rather than the builder.
+        - The ten `objectName` pre-escape sites in src/gen/define/*.ts. `objectName` is escaped
+          once upstream at define time and emitted raw by `cNvPrOpen`, so the escaper had to
+          change there rather than at emission — and with it the two lookup keys that compare
+          against the STORED escaped name (connector.ts `resolveCxn`) or against emitted bytes
+          (the media rel-target probe in object.ts), which silently drift otherwise.
+        - `escapeXmlAttribute` in src/read/oxml/dom.ts, the read side's counterpart helper
+          (content types and relationships), which had the same defect.
+
+      Gates: byte-identical across all 1637 parts of the demo deck (the change is inert for any
+      deck without those characters); schema fixture `dn-xml-attr-whitespace` in
+      test/schema-cases.js, which also sweeps every attribute of every XML part in the package
+      for a surviving literal tab/CR/LF; write→read fidelity in
+      test/read/attr-whitespace-roundtrip.test.js, asserted through a real parser rather than a
+      byte match, because the defect is exactly that the bytes look fine and the parse loses.
 
       Real-world reach is narrow but not theoretical: PowerPoint's own built-in German layout
       set contains a layout named across two lines ("Abschnitts-<LF>uberschrift"), so a deck
       created from it already exercises the case.
+
+      ADJACENT DEFECT FOUND, NOT FIXED HERE (filed as dn-animation-objectname-escaping): the
+      same store-escaped/compare-escaped design means `addAnimation({ objectName })` compares a
+      RAW caller string against the stored escaped name, so an animation targeting a shape whose
+      name contains `&`, `<` or `"` is silently dropped today. Pre-existing and independent of
+      this change.
     evidence:
       kinds:
         - local-source-inspection
         - ooxml-reference
+        - regression-test
+        - schema-fixture
+        - validator-result
       local_files:
         - src/gen-utils.ts
-        - src/script/from-read/chrome.ts
-      schema_fixture: null
-      validator_result: null
+        - src/gen/oxml/el.ts
+        - src/gen/slide/object.ts
+        - src/gen/define/connector.ts
+        - src/read/oxml/dom.ts
+        - test/read/attr-whitespace-roundtrip.test.js
+        - test/schema-cases.js
+      schema_fixture: "test/schema-cases.js: dn-xml-attr-whitespace: tab/CR/LF in attribute values emit as character references"
+      validator_result: pass (135/135 schema cases, OOXMLValidatorCLI reports zero errors)
       powerpoint_result: null
       spec_refs:
         - ECMA-376 Part 1 (XML 1.0 section 3.3.3, attribute-value normalisation)
-    next_action: Add an attribute-only XML escaper that emits tab/CR/LF as character references, wire the attribute-emitting paths to it, and gate the change on a schema fixture plus a byte-identity baseline
+    next_action: none
+  - id: dn-animation-objectname-escaping
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-07-27
+    last_reviewed: 2026-07-27
+    status: target
+    priority: p2
+    target_area:
+      - typescript-api
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: addAnimation objectName lookup compares a raw caller string against the stored XML-escaped objectName, silently dropping animations targeting a shape whose name contains an XML metacharacter
+    current_project_notes: |
+      `objectName` is escaped ONCE upstream, at define time, and stored in its escaped form on the
+      slide object (`encodeXmlAttrValue(validateObjectName(...))` in src/gen/define/*.ts); the
+      emitter `cNvPrOpen` writes it out raw. Anything that later looks a shape up BY NAME is
+      therefore comparing against escaped text and must escape its own lookup key to match.
+
+      `resolveObjectNameToId` (src/gen/slide/shape-ids.ts) does a plain `===` against the stored
+      name. Its two callers disagree: `addConnector` escapes its key first (src/gen/define/
+      connector.ts, `resolveCxn`), but `addAnimation` passes `anim.objectName` through raw
+      (src/gen/anim/animation.ts). So an animation whose target name contains `&`, `<`, `>`, `"`
+      or `'` never resolves, and the effect is dropped with a warning that reads as if the shape
+      does not exist.
+
+      Confirmed repro: a rect with `objectName: 'Q&A'` plus `addAnimation({ preset: 'fadeIn',
+      objectName: 'Q&A' })` emits no `<p:anim>` and warns `no object named "Q&A" on the slide`;
+      the same deck with `objectName: 'QandA'` emits the animation. Pre-existing and independent
+      of dn-xml-attr-whitespace (which changed WHICH escaper is used, not this mismatch).
+
+      Two candidate fixes, and the choice is the interesting part:
+        - Narrow: escape the key in `addAnimation`, matching what `addConnector` already does.
+          One line, no byte change for any deck that works today.
+        - Root cause: store `objectName` RAW on the slide object and escape once at emission in
+          `cNvPrOpen`, so no lookup ever needs to know about escaping. This removes the whole
+          class (any future by-name lookup is correct by default) but touches ten define sites
+          plus the emitter, and needs a byte-identity run to prove the single-escape point moved
+          without changing output.
+      Prefer the root-cause fix unless byte-identity says otherwise; the narrow one leaves the
+      next by-name feature to rediscover this.
+    evidence:
+      kinds:
+        - local-source-inspection
+        - minimal-repro
+      local_files:
+        - src/gen/anim/animation.ts
+        - src/gen/slide/shape-ids.ts
+        - src/gen/define/connector.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: Decide between escaping the lookup key in addAnimation and moving objectName to store-raw/escape-at-emission, then land it with a regression test for an animation targeting a name containing an XML metacharacter

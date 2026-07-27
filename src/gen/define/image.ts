@@ -10,7 +10,7 @@ import { SlideObjectType } from '../../core-enums.js'
 import { warn } from '../../log.js'
 import type { Coord, ImageProps, ObjectOptions, ShapeFillProps } from '../../core-interfaces.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlEntities, getNewRelId, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../../gen-utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { svgMarkupToDataUri } from '../../media/base64.js'
 import { imageContentType } from '../../media/content-type.js'
@@ -141,7 +141,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	let imageRelId = getNewRelId(target)
 	const imageNameIdx = nextObjectNameIdx(target, SlideObjectType.image)
 	const objectName = opt.objectName
-		? encodeXmlEntities(validateObjectName(opt.objectName, 'image'))
+		? encodeXmlAttrValue(validateObjectName(opt.objectName, 'image'))
 		: `Image ${imageNameIdx}`
 
 	// REALITY-CHECK:

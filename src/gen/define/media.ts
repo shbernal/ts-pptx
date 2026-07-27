@@ -9,7 +9,7 @@ import { SlideObjectType } from '../../core-enums.js'
 import { IMG_PLAYBTN } from '../../core-enums-internal.js'
 import type { MediaProps } from '../../core-interfaces.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlEntities, getNewRelId, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../../gen-utils.js'
 import { nextObjectNameIdx } from './object-name.js'
 
 /**
@@ -30,7 +30,7 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 	const strCover = opt.cover || IMG_PLAYBTN
 	const mediaNameIdx = nextObjectNameIdx(target, SlideObjectType.media)
 	const objectName = opt.objectName
-		? encodeXmlEntities(validateObjectName(opt.objectName, 'media'))
+		? encodeXmlAttrValue(validateObjectName(opt.objectName, 'media'))
 		: `Media ${mediaNameIdx}`
 	const slideData: SlideObject = { _type: SlideObjectType.media }
 

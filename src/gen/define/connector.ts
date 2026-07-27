@@ -11,7 +11,7 @@ import { warn } from '../../log.js'
 import type { ConnectorProps } from '../../core-interfaces.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { EMU_PER_INCH, FIXED_PCT_PER_PERCENT } from '../../units.js'
-import { encodeXmlEntities, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlAttrValue, validateObjectName } from '../../gen-utils.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { nextObjectNameIdx } from './object-name.js'
 
@@ -87,8 +87,9 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 		if (!Number.isInteger(site) || site < 0) {
 			throw new Error(`addConnector \`${end}Idx\` must be a non-negative integer (got ${String(site)}).`)
 		}
-		// Match the shape's stored objectName, which is XML-entity-encoded at add time.
-		return { name: encodeXmlEntities(shapeName), idx: site }
+		// Match the shape's stored objectName, which is attribute-escaped at add time (the same
+		// `encodeXmlAttrValue`, or a name containing a tab/newline never matches its own shape).
+		return { name: encodeXmlAttrValue(shapeName), idx: site }
 	}
 	const startCxn = resolveCxn(opts.startShape, opts.startShapeIdx, 'startShape')
 	const endCxn = resolveCxn(opts.endShape, opts.endShapeIdx, 'endShape')
@@ -126,7 +127,7 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 			},
 			altText: opts.altText,
 			objectName: opts.objectName
-				? encodeXmlEntities(validateObjectName(opts.objectName, 'connector'))
+				? encodeXmlAttrValue(validateObjectName(opts.objectName, 'connector'))
 				: `Connector ${connectorNameIdx}`,
 		},
 	}

@@ -254,7 +254,20 @@ export function boolValue(value: string | null): boolean | null {
 	return null
 }
 
-/** Escape a string for use inside a double-quoted XML attribute value. */
+/**
+ * Escape a string for use inside a double-quoted XML attribute value.
+ *
+ * Tab/CR/LF become character references because XML 1.0 section 3.3.3 has a parser normalise the
+ * literal characters to a single space before any consumer sees them. `'` needs no escaping between
+ * double quotes. The write-side counterpart is `encodeXmlAttrValue` in `gen-utils.ts`.
+ */
 export function escapeXmlAttribute(value: string): string {
-	return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;')
+	return value
+		.replaceAll('&', '&amp;')
+		.replaceAll('<', '&lt;')
+		.replaceAll('>', '&gt;')
+		.replaceAll('"', '&quot;')
+		.replaceAll('\t', '&#9;')
+		.replaceAll('\n', '&#10;')
+		.replaceAll('\r', '&#13;')
 }

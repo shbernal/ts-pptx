@@ -9,7 +9,7 @@ import { type SHAPE_NAME, ShapeType, SlideObjectType, VALID_SHAPE_PRESETS } from
 import { DEF_SHAPE_LINE_COLOR } from '../../core-enums-internal.js'
 import type { ShapeLineProps, ShapeProps } from '../../core-interfaces.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlEntities, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlAttrValue, validateObjectName } from '../../gen-utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { nextObjectNameIdx } from './object-name.js'
 import { createHyperlinkRels } from './hyperlinks.js'
@@ -90,7 +90,7 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 	// `Text 1`, …) — which is what stops a shape and a text box colliding on `0`.
 	const shapeNameIdx = nextObjectNameIdx(target, SlideObjectType.text)
 	options.objectName = options.objectName
-		? encodeXmlEntities(validateObjectName(options.objectName, 'shape'))
+		? encodeXmlAttrValue(validateObjectName(options.objectName, 'shape'))
 		: `Shape ${shapeNameIdx}`
 
 	// 3: Create hyperlink rels

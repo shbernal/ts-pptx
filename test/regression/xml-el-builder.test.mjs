@@ -41,6 +41,18 @@ describe('el() / voidEl() XML builder', () => {
 		expect(voidEl('p:tag', { name: 'A&B', val: '"<x>"' })).toBe('<p:tag name="A&amp;B" val="&quot;&lt;x&gt;&quot;"/>')
 	})
 
+	test('attribute values escape tab/CR/LF as character references', () => {
+		// REGRESSION (dn-xml-attr-whitespace): XML 1.0 section 3.3.3 has a parser normalise a
+		// LITERAL tab/CR/LF inside an attribute value to a single space before any consumer sees
+		// it, so emitting one raw silently destroys a caller's line break. Text children keep the
+		// literal character, where it is content — the two paths use different escapers.
+		expect(voidEl('p14:section', { name: 'Abschnitts-\nuberschrift' })).toBe(
+			'<p14:section name="Abschnitts-&#10;uberschrift"/>'
+		)
+		expect(voidEl('p:tag', { val: 'a\tb\r\nc' })).toBe('<p:tag val="a&#9;b&#13;&#10;c"/>')
+		expect(el('a:t', null, 'line1\nline2')).toBe('<a:t>line1\nline2</a:t>')
+	})
+
 	test('omits nullish attributes but keeps empty string and zero', () => {
 		expect(voidEl('a:t', { a: undefined, b: null, c: '', d: 0 })).toBe('<a:t c="" d="0"/>')
 	})

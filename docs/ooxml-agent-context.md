@@ -125,6 +125,13 @@ attribute values centrally, so a forgotten `encodeXmlEntities` cannot produce in
 - `fmt` (`openPrefix`/`childPrefix`/`closePrefix`) places whitespace explicitly. Most parts
   are flat and need no `fmt`; the pretty-printed ones are not always depth-regular, so
   indentation is described per element rather than derived.
+- Attribute values and text children take **different escapers**, and the difference matters.
+  Attributes go through `encodeXmlAttrValue`, which additionally emits `&#9;`/`&#10;`/`&#13;`
+  for tab/CR/LF, because XML 1.0 §3.3.3 has a parser normalise those literal characters to a
+  single space inside an attribute value before any consumer sees them. Text children go
+  through `encodeXmlEntities`, where the same characters are content and stay literal. Any
+  emitter that writes an attribute with a template string rather than the builder (there are
+  a few, e.g. `cNvPrOpen`) must call `encodeXmlAttrValue` itself.
 
 Migrating an existing emitter onto it is a byte-preserving refactor — gate it with
 `pnpm run byte-identity:baseline` / `:check` (see AGENTS.md "Verification").

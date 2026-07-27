@@ -3542,4 +3542,55 @@ export default [
 			assertEqual(embeddings.length, 3, 'one embedding part per OLE object')
 		},
 	},
+	{
+		// dn-xml-attr-whitespace. A tab/CR/LF written into an attribute value must be emitted as a
+		// character reference: XML 1.0 section 3.3.3 normalises the literal character to a space
+		// before any consumer sees it, so a layout title or objectName carrying a line break came
+		// back flattened. The write→read half of this lives in
+		// `test/read/attr-whitespace-roundtrip.test.js`; this case pins that the references are
+		// schema-valid everywhere they now appear (they are ordinary character data to the parser,
+		// but the emitters that produce them span layout, slide, and presentation parts).
+		name: 'dn-xml-attr-whitespace: tab/CR/LF in attribute values emit as character references',
+		fn: async () => {
+			const layoutTitle = 'Abschnitts-\nüberschrift'
+			const { zip, buf } = await build((p) => {
+				p.defineSlideMaster({ title: layoutTitle, background: { color: 'FFFFFF' } })
+				p.addSection({ title: 'Teil\nEins' })
+				const slide = p.addSlide({ masterTitle: layoutTitle, sectionTitle: 'Teil\nEins' })
+				slide.addText('Kapitel', {
+					x: 1,
+					y: 1,
+					w: 4,
+					h: 1,
+					objectName: 'Kapitel\nEins',
+					altText: 'Zeile eins\nZeile zwei\tmit Tabulator',
+					hyperlink: { url: 'https://example.com/', tooltip: 'Zeile\nZwei' },
+				})
+				slide.addShape(ShapeType.rect, { x: 1, y: 3, w: 2, h: 1, objectName: 'Kasten\tZwei' })
+			})
+			await expectNoSchemaErrors(buf, 'attr-whitespace')
+
+			const slide1 = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assertIncludes(slide1, 'name="Kapitel&#10;Eins"')
+			assertIncludes(slide1, 'descr="Zeile eins&#10;Zeile zwei&#9;mit Tabulator"')
+			assertIncludes(slide1, 'tooltip="Zeile&#10;Zwei"')
+			assertIncludes(slide1, 'name="Kasten&#9;Zwei"')
+
+			// The section title (presentation.xml) and the layout title (`p:cSld/@name`) travel
+			// through different emitters than the shape attributes above.
+			const presentationXml = await readEntry(zip, 'ppt/presentation.xml')
+			assertIncludes(presentationXml, 'name="Teil&#10;Eins"')
+			const layout2 = await readEntry(zip, 'ppt/slideLayouts/slideLayout2.xml')
+			assertIncludes(layout2, 'name="Abschnitts-&#10;überschrift"')
+
+			// No attribute value anywhere in the package carries a LITERAL tab/CR/LF — that is the
+			// defect itself, and it is invisible to schema validation.
+			for (const partName of listEntries(zip).filter((n) => n.endsWith('.xml'))) {
+				const xml = await readEntry(zip, partName)
+				for (const [attr] of xml.matchAll(/\s[\w:]+="[^"]*"/g)) {
+					assert(!/[\t\r\n]/.test(attr), `literal whitespace inside an attribute value in ${partName}: ${attr}`)
+				}
+			}
+		},
+	},
 ]

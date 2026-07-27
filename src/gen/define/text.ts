@@ -11,7 +11,7 @@ import { DEF_FONT_COLOR, DEF_SHAPE_LINE_COLOR } from '../../core-enums-internal.
 import { warn } from '../../log.js'
 import type { ObjectOptions, ShapeLineProps, TextProps, TextPropsOptions } from '../../core-interfaces.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlEntities, getNewRelId, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../../gen-utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { imageContentType } from '../../media/content-type.js'
 import { valToPts } from '../../units-internal.js'
@@ -166,9 +166,9 @@ export function addTextDefinition(
 	// are `placeholder`-typed objects and so take their name index from their own bucket; naming
 	// them `Text N` off the text-box bucket would collide with the slide's real text boxes.
 	newObject.options.objectName = newObject.options.objectName
-		? encodeXmlEntities(validateObjectName(newObject.options.objectName, 'text'))
+		? encodeXmlAttrValue(validateObjectName(newObject.options.objectName, 'text'))
 		: isPlaceholder
-			? encodeXmlEntities(
+			? encodeXmlAttrValue(
 					String(
 						newObject.options.placeholder ||
 							newObject.options._placeholderType ||

@@ -15,7 +15,7 @@
 import { SlideObjectType } from '../../core-enums.js'
 import type { OleObjectProps } from '../../types/media.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlEntities, getNewRelId, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../../gen-utils.js'
 import { nextObjectNameIdx } from './object-name.js'
 import { registerPreviewImage } from './preview-image.js'
 
@@ -130,7 +130,7 @@ export function addOleObjectDefinition(target: PresSlideInternal, opt: OleObject
 	const format = OLE_FORMATS[extn] ?? BIN_FORMAT
 	const nameIdx = nextObjectNameIdx(target, SlideObjectType.oleObject)
 	const objectName = opt.objectName
-		? encodeXmlEntities(validateObjectName(opt.objectName, 'oleObject'))
+		? encodeXmlAttrValue(validateObjectName(opt.objectName, 'oleObject'))
 		: `Object ${nameIdx + 1}`
 
 	// STEP 3: Register the payload part rel. Deliberately NOT deduped against an identical payload

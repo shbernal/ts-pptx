@@ -17,7 +17,7 @@ import { warn } from '../../log.js'
 import type { AddSlideProps, BorderProps, PresLayout, TableCell, TableProps, TableRow } from '../../core-interfaces.js'
 import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { getSlidesForTableRows } from '../table/autopage.js'
-import { encodeXmlEntities, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlAttrValue, validateObjectName } from '../../gen-utils.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { EMU_PER_INCH } from '../../units.js'
 import { createHyperlinkRels } from './hyperlinks.js'
@@ -165,7 +165,7 @@ export function addTableDefinition(
 	const slides: PresSlideInternal[] = [target] // Create array of Slides as more may be added by auto-paging
 	const opt: TableProps = options && typeof options === 'object' ? options : {}
 	opt.objectName = opt.objectName
-		? encodeXmlEntities(validateObjectName(opt.objectName, 'table'))
+		? encodeXmlAttrValue(validateObjectName(opt.objectName, 'table'))
 		: `Table ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.table).length}`
 
 	// STEP 0: PLACEHOLDER — a table targeting a layout placeholder inherits that placeholder's

@@ -18,6 +18,11 @@
  *    turn today's `<dc:title></dc:title>` into `<dc:title/>` — a silent byte
  *    regression on every optional-text element in the tree.
  *
+ *    Escaping is split to match: attribute values go through `encodeXmlAttrValue`
+ *    (which adds the `&#9;`/`&#10;`/`&#13;` character references an XML parser
+ *    would otherwise normalise to a space), text children through
+ *    `encodeXmlEntities`, where those same characters are content.
+ *
  * 2. Whitespace is explicit, per element, via `fmt`. Most emitted parts are flat
  *    (no `fmt` needed at all); the pretty-printed ones carry indentation that is
  *    not always depth-regular, so it is described rather than derived. Quirks
@@ -25,7 +30,7 @@
  *    being hidden inside a template literal.
  */
 
-import { encodeXmlEntities } from '../../gen-utils.js'
+import { encodeXmlAttrValue, encodeXmlEntities } from '../../gen-utils.js'
 
 /** Pre-serialized XML, interpolated verbatim (not escaped). */
 export interface RawXml {
@@ -63,7 +68,7 @@ function openTag(name: string, attrs: XmlAttrs | null | undefined, fmt: XmlFmt |
 	let out = (fmt?.openPrefix ?? '') + '<' + name
 	for (const [key, value] of Object.entries(attrs ?? {})) {
 		if (value === undefined || value === null) continue
-		out += ' ' + key + '="' + encodeXmlEntities(value) + '"'
+		out += ' ' + key + '="' + encodeXmlAttrValue(value) + '"'
 	}
 	return out
 }

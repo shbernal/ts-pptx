@@ -30,7 +30,12 @@ export function getUuid(uuidFormat: string): string {
 }
 
 /**
- * Replace special XML characters with HTML-encoded strings
+ * Replace special XML characters with HTML-encoded strings.
+ *
+ * ELEMENT TEXT ONLY. A literal tab, carriage return or line feed is left alone here because in
+ * character data it *is* the content (`<a:t>` line breaks depend on it). Inside an attribute value
+ * the same three characters are destroyed by the parser rather than preserved — see
+ * {@link encodeXmlAttrValue}, which every attribute-emitting path must use instead.
  * @param {string | number} xml - value to encode (numbers are stringified, as callers pass counts/sizes)
  * @returns {string} escaped XML
  */
@@ -49,6 +54,25 @@ export function encodeXmlEntities(xml: string | number): string {
 		.replace(/>/g, '&gt;')
 		.replace(/"/g, '&quot;')
 		.replace(/'/g, '&apos;')
+}
+
+/**
+ * Escape a value destined for an XML **attribute**.
+ *
+ * Everything {@link encodeXmlEntities} does, plus the three whitespace characters that survive in
+ * element text but not in an attribute: XML 1.0 section 3.3.3 requires a parser to normalise a
+ * literal tab, carriage return or line feed inside an attribute value to a single space *before any
+ * consumer sees it*. Carrying one across therefore requires a character reference, so a caller's
+ * `objectName: 'Abschnitts-\nuberschrift'` reads back with its line break rather than a space.
+ *
+ * Deliberately a separate function rather than a widening of `encodeXmlEntities`: that helper also
+ * escapes element text, where a raw newline is meaningful content emitted as-is, and escaping it
+ * there would change bytes across every text-bearing part in the package.
+ * @param {string | number} xml - value to encode (numbers are stringified, as callers pass ids/sizes)
+ * @returns {string} escaped XML, safe to place between attribute quotes
+ */
+export function encodeXmlAttrValue(xml: string | number): string {
+	return encodeXmlEntities(xml).replace(/\t/g, '&#9;').replace(/\n/g, '&#10;').replace(/\r/g, '&#13;')
 }
 
 /**

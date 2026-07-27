@@ -17,7 +17,7 @@ import { BARCHART_COLORS, DEF_CHART_BORDER, PIECHART_COLORS } from '../../core-e
 import { warn } from '../../log.js'
 import type { ChartMulti, ChartOpts, OptsChartData, OptsChartGridLine } from '../../core-interfaces.js'
 import type { ChartOptsInternal, OptsChartDataInternal, PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlEntities, getNewRelId, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../../gen-utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { valToPts } from '../../units-internal.js'
 
@@ -308,7 +308,7 @@ export function addChartDefinition(
 	options.w = options.w || '50%'
 	options.h = options.h || '50%'
 	options.objectName = options.objectName
-		? encodeXmlEntities(validateObjectName(options.objectName, 'chart'))
+		? encodeXmlAttrValue(validateObjectName(options.objectName, 'chart'))
 		: `Chart ${target._slideObjects.filter((obj) => obj._type === SlideObjectType.chart).length}`
 
 	// B: Options: misc

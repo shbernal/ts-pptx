@@ -30,7 +30,7 @@ import type {
 	ZoomInternal,
 	ZoomTileInternal,
 } from '../../types/internal.js'
-import { encodeXmlEntities, getDuplicateObjectNames, isHyperlinkRel } from '../../gen-utils.js'
+import { encodeXmlAttrValue, getDuplicateObjectNames, isHyperlinkRel } from '../../gen-utils.js'
 import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
@@ -119,7 +119,7 @@ const CHARTEX_FEATURE_NS: Partial<Record<ChartType, { prefix: string; uri: strin
  * NOT built with the element builder, deliberately. `descr` is escaped here but `name` is **not**,
  * and that asymmetry is intentional and load-bearing: `objectName` is caller-supplied free text,
  * but every `add*Definition` (text.ts, shape.ts, image.ts, chart.ts, media.ts, connector.ts,
- * group.ts, table.ts) already runs it through `encodeXmlEntities(validateObjectName(...))` once
+ * group.ts, table.ts) already runs it through `encodeXmlAttrValue(validateObjectName(...))` once
  * before it reaches a slide object's `options`. Escaping it again here would double-encode it
  * (`'Q&A'` -> `Q&amp;A` upstream -> `Q&amp;amp;A` if escaped here too). This helper exists so that
  * single escape stays one line in one place instead of eight call sites re-deriving it.
@@ -130,7 +130,7 @@ const CHARTEX_FEATURE_NS: Partial<Record<ChartType, { prefix: string; uri: strin
  * @returns the open tag, without its closing delimiter
  */
 function cNvPrOpen(id: number, name: string | undefined, descr: string, openPrefix = ''): string {
-	return `${openPrefix}<p:cNvPr id="${id}" name="${name}" descr="${encodeXmlEntities(descr)}"`
+	return `${openPrefix}<p:cNvPr id="${id}" name="${name}" descr="${encodeXmlAttrValue(descr)}"`
 }
 
 /**
@@ -238,7 +238,7 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 	// containing `&`/`<`/`"`. Plain slides' default `_name` ("Slide N", slide.ts) never contains
 	// XML metacharacters, so escaping it here is a no-op for that path.
 	// The element stays a template because it wraps the entire slide, built by append below.
-	let strSlideXml: string = slide._name ? '<p:cSld name="' + encodeXmlEntities(slide._name) + '">' : '<p:cSld>'
+	let strSlideXml: string = slide._name ? '<p:cSld name="' + encodeXmlAttrValue(slide._name) + '">' : '<p:cSld>'
 
 	// Warn on duplicate Selection Pane identities within this slide. Unique `objectName`
 	// values are what consumers (e.g. semantic manifests) rely on, so flag collisions loudly.
@@ -1920,8 +1920,9 @@ export function slideObjectRelationsToXml(
 	;(slide._relsMedia || []).forEach((rel: SlideRelMedia) => {
 		const relType = rel.type.toLowerCase()
 		// `voidEl` escapes the Target on the way out; the probe has to compare against
-		// those emitted bytes, so it needs the escaped form computed separately here.
-		const relTarget = encodeXmlEntities(rel.Target)
+		// those emitted bytes, so it needs the escaped form computed separately here —
+		// with the SAME escaper the builder uses, or the two drift apart.
+		const relTarget = encodeXmlAttrValue(rel.Target)
 		const media = (type: string, targetMode?: string): string =>
 			voidEl('Relationship', { Id: `rId${rel.rId}`, Type: type, Target: rel.Target, TargetMode: targetMode })
 		lastRid = Math.max(lastRid, rel.rId)

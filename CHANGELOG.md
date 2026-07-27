@@ -138,6 +138,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A tab, carriage return or line feed inside an XML attribute value was emitted
+  literally, so it read back as a space** (`dn-xml-attr-whitespace`). XML 1.0
+  §3.3.3 requires a parser to normalise those three characters to a single space
+  inside an attribute value *before any consumer sees them*; carrying one across
+  needs a character reference. Every caller-supplied string that lands in an
+  attribute was affected — `objectName` (`p:cNvPr/@name`), alt text
+  (`p:cNvPr/@descr`), layout and slide titles (`p:cSld/@name`), section titles
+  (`p14:section/@name`) and hyperlink tooltips — so a two-line layout title came
+  back as one line. This is not theoretical: PowerPoint's built-in German layout
+  set ships a layout named across two lines ("Abschnitts-\<LF\>überschrift").
+
+  The fix is a new `encodeXmlAttrValue` used by the attribute-emitting paths only
+  (the element builder in `src/gen/oxml/el.ts`, plus the few emitters that write
+  attributes with template strings). It is deliberately *not* a widening of
+  `encodeXmlEntities`, which also escapes element text — there a literal newline
+  is meaningful content, and escaping it would change bytes across every
+  text-bearing part in the package.
+
+  **This changes emitted bytes** for any deck whose attribute values contain a
+  tab, CR or LF; every other deck is byte-identical (verified against the full
+  1637-part demo deck). Consumers that string-matched the emitted XML for such an
+  attribute must now match `&#9;`/`&#10;`/`&#13;`. Reading is unaffected: any
+  conforming parser resolves the references back to the original characters.
+
 - **Nine converter defects that no static check and no execution check could
   catch**, all found by the round-trip comparison above and all producing a
   script that typechecked, ran, and wrote a plausible deck.
