@@ -109,6 +109,28 @@ pnpm run check:static   # lint, format:check, all three typechecks, backlog:vali
 pnpm run check:package  # package:lint, test:package, test:demos
 ```
 
+Pass flags to a script as `pnpm run lint --fix`, never `pnpm run lint -- --fix`.
+pnpm forwards the `--` **literally** to the underlying binary, where it turns the
+following flag into a positional argument (`No files matching the pattern
+"--fix" were found`). This bites eslint and prettier identically.
+
+`ci.yml` has **never actually run.** The repo has no remote yet, so the workflow
+is verified only by parsing plus every command it invokes being green locally.
+On the first push, watch the three things with no local equivalent: the
+`workflow_call` from `publish.yml`, the job split (that `check:static` and
+`check:package` are each self-sufficient on a fresh runner), and above all the
+`windows-latest` package leg. That leg exists to cover the Windows-only branches
+of `run()` in `scripts/script-utils.mjs`, which is exactly where this repo's one
+live cross-platform bug lived (`run('node', …)` resolving to `node.cmd`) — expect
+it to find more. If it proves flaky, mark it `continue-on-error: true` rather than
+dropping it; a noisy signal beats none.
+
+Relatedly, `.tmp/*.tsbuildinfo` is deliberately **not** cached in CI, which leaves
+`incremental: true` inert there. Whether an `actions/cache` step earns its keep
+depends on a *cold* CI typecheck nobody has measured yet; warm local runs
+(2.1 / 1.7 / 2.3s) put it near the not-worth-it line, so the default is to leave
+it alone until that first push produces a number.
+
 No script needs to be prefixed with a build. Every gate begins with
 `scripts/ensure-dist.mjs`, which compares source and config mtimes against `dist/`
 and rebuilds only when it is actually stale — a ~0.1s no-op otherwise. Run

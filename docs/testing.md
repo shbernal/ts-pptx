@@ -416,6 +416,10 @@ platform-independent, and the validator installer is a bash script.
 That narrows, but does not remove, the gap: a Windows-only break outside the
 package and demo scripts is still invisible to CI.
 
+Note that the Windows leg has never actually executed — `ci.yml` has not run at
+all yet. Treat it as the highest-risk part of the first push; see "Common
+Commands" in [the development guide](./development.md) for what to watch.
+
 ## Demo Smoke Tests
 
 Run both maintained demo smoke tests:

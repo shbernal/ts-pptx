@@ -96,7 +96,7 @@
 		"typecheck:scripts": "tsc -p tsconfig.scripts.json --noEmit",
 		"typecheck:test": "tsc -p tsconfig.test.json --noEmit",
 		"lint": "eslint . --no-warn-ignored",
-		"lint:fix": "pnpm run lint -- --fix",
+		"lint:fix": "pnpm run lint --fix",
 		"format:run": "prettier \"src/**/*.ts\" package.json pnpm-workspace.yaml typedoc.docs.json tsconfig*.json docs/tsconfig.json docs/.vitepress/config.mts eslint.config.mjs tsdown.config.ts tsdown.dev.config.ts vitest.config.ts \"scripts/**/*.mjs\" \"test/**/*.mjs\" \"test/**/*.js\" \".github/**/*.yml\"",
 		"format": "pnpm run format:run --write",
 		"format:check": "pnpm run format:run --check",
