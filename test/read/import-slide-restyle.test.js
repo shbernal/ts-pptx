@@ -319,4 +319,129 @@ describe("Presentation.importSlide({ theme: 'restyle', remapLiterals: true })", 
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 	})
+
+	// The remap builds two reverse indexes — RGB → slot and slot → token — and both
+	// are many-to-one in the general case, because nothing makes a theme's twelve
+	// `clrScheme` slots hold distinct RGBs or its twelve `clrMap` attributes name
+	// distinct slots. `mixed`'s own Fusion theme already collides on the first
+	// (lt1 and accent3 are both FFFFFF; dk1 and accent4 both 000000); the clrMap
+	// collision is spliced in.
+	const LITERAL_SHAPE =
+		'<p:sp><p:nvSpPr><p:cNvPr id="88" name="Literals"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>' +
+		'<p:spPr><a:xfrm><a:off x="100" y="100"/><a:ext cx="500" cy="500"/></a:xfrm>' +
+		'<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>' +
+		'<a:gradFill><a:gsLst><a:gs pos="0"><a:srgbClr val="FFFFFF"/></a:gs>' +
+		'<a:gs pos="100000"><a:srgbClr val="333399"/></a:gs></a:gsLst>' +
+		'<a:lin ang="0" scaled="0"/></a:gradFill></p:spPr></p:sp>'
+
+	/**
+	 * mixed.pptx with slide1 given a shape holding two literals that match source
+	 * `clrScheme` slots (FFFFFF = lt1 *and* accent3; 333399 = dk2), and its master
+	 * `clrMap` re-pointed so `tx2` names `lt1` alongside `bg1` — which leaves the
+	 * `dk2` slot named by no token at all. Returns package bytes.
+	 */
+	async function deckMixedCollidingSlotsAndTokens() {
+		const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+		const master = (await zip.file('ppt/slideMasters/slideMaster1.xml').async('string')).replace(
+			'<p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2"',
+			'<p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="lt1"'
+		)
+		zip.file('ppt/slideMasters/slideMaster1.xml', master)
+		const slide = (await zip.file('ppt/slides/slide1.xml').async('string')).replace(
+			'</p:spTree>',
+			`${LITERAL_SHAPE}</p:spTree>`
+		)
+		zip.file('ppt/slides/slide1.xml', slide)
+		return zip.generateAsync({ type: 'uint8array' })
+	}
+
+	/**
+	 * mixed.pptx with every `clrScheme` slot rewritten to `a:prstClr` — a legal
+	 * `a:CT_Color` child that carries no literal RGB to read back, so the theme
+	 * defines no slot → RGB mapping the remap could match a literal against.
+	 * Returns package bytes.
+	 */
+	async function deckMixedUnreadableColorModels() {
+		const slots = ['dk1', 'lt1', 'dk2', 'lt2']
+			.concat([1, 2, 3, 4, 5, 6].map((n) => `accent${n}`))
+			.concat(['hlink', 'folHlink'])
+		const scheme = `<a:clrScheme name="Preset">${slots.map((s) => `<a:${s}><a:prstClr val="black"/></a:${s}>`).join('')}</a:clrScheme>`
+		const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+		const theme = (await zip.file('ppt/theme/theme1.xml').async('string')).replace(
+			/<a:clrScheme[\s\S]*?<\/a:clrScheme>/,
+			scheme
+		)
+		zip.file('ppt/theme/theme1.xml', theme)
+		const slide = (await zip.file('ppt/slides/slide1.xml').async('string')).replace(
+			'</p:spTree>',
+			`${LITERAL_SHAPE}</p:spTree>`
+		)
+		zip.file('ppt/slides/slide1.xml', slide)
+		return zip.generateAsync({ type: 'uint8array' })
+	}
+
+	test('picks the first slot on a shared RGB and the first token on a shared slot', async () => {
+		const source = await Presentation.load(await deckMixedCollidingSlotsAndTokens())
+		const target = await open('mixed')
+		const imported = target.importSlide(source, 0, { theme: 'restyle', remapLiterals: true })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		// FFFFFF is both lt1 and accent3; lt1 comes first in clrScheme order. lt1 is then
+		// named by both bg1 and tx2; bg1 comes first in clrMap order.
+		assert(
+			/<a:gs pos="0"><a:schemeClr val="bg1"\/><\/a:gs>/.test(xml),
+			'FFFFFF took the first slot (lt1) and that slot the first token (bg1)'
+		)
+		assert(!/val="accent3"/.test(xml) && !/val="tx2"/.test(xml), 'neither runner-up won')
+	})
+
+	test('falls back to the raw slot name for a slot no clrMap token names', async () => {
+		// With `tx2` re-pointed at lt1 nothing names `dk2`, so the remap has no token to
+		// emit for a literal matching that slot. `dk1`/`lt1`/`dk2`/`lt2` are themselves
+		// members of `ST_SchemeColorVal` and address the slot directly, bypassing the
+		// clrMap — so emitting the slot name is a correct answer, not a fallback to junk.
+		const source = await Presentation.load(await deckMixedCollidingSlotsAndTokens())
+		const target = await open('mixed')
+		const imported = target.importSlide(source, 0, { theme: 'restyle', remapLiterals: true })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		assert(
+			/<a:gs pos="100000"><a:schemeClr val="dk2"\/><\/a:gs>/.test(xml),
+			'333399 was emitted as the direct-slot token dk2'
+		)
+	})
+
+	test('remaps nothing when the source theme states its colours in a model with no literal RGB', async () => {
+		// `a:prstClr` (like `a:scrgbClr`/`a:hslClr`) is a legal `a:CT_Color` child that
+		// names no 6-hex RGB. A theme built from those defines no slot → RGB index for a
+		// literal to match, so every literal must stay exactly as authored — the same
+		// outcome as plain restyle, not a crash or a wrong match.
+		const source = await Presentation.load(await deckMixedUnreadableColorModels())
+		const target = await open('mixed')
+		const imported = target.importSlide(source, 0, { theme: 'restyle', remapLiterals: true })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		assert(/<a:gs pos="0"><a:srgbClr val="FFFFFF"\/><\/a:gs>/.test(xml), 'the FFFFFF literal is untouched')
+		assert(/<a:gs pos="100000"><a:srgbClr val="333399"\/><\/a:gs>/.test(xml), 'the 333399 literal is untouched')
+	})
+
+	test.skipIf(!validatorInstalled)(
+		'the colliding-slot and preset-colour sources, and their imports, stay schema-valid',
+		async () => {
+			for (const [name, build] of [
+				['colliding slots/tokens', deckMixedCollidingSlotsAndTokens],
+				['preset-colour scheme', deckMixedUnreadableColorModels],
+			]) {
+				const errors = await validateBuf(Buffer.from(await build()))
+				assertEqual(errors.length, 0, `${name} source: ${JSON.stringify(errors).slice(0, 2000)}`)
+			}
+
+			const target = await open('mixed')
+			for (const build of [deckMixedCollidingSlotsAndTokens, deckMixedUnreadableColorModels]) {
+				target.importSlide(await Presentation.load(await build()), 0, { theme: 'restyle', remapLiterals: true })
+			}
+			const errors = await validateBuf(Buffer.from(await target.save()))
+			assertEqual(errors.length, 0, `import: ${JSON.stringify(errors).slice(0, 2000)}`)
+		}
+	)
 })
