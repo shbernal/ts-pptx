@@ -33,6 +33,37 @@ export function imageContentType(extn: string): string {
 }
 
 /**
+ * Map an audio content type's subtype back to the file extension a media part should use.
+ *
+ * Needed because a caller supplying sound bytes as a `data:` URI states a *content type*
+ * (`data:audio/x-wav;base64,…`), while the media part needs a *filename*. Taking the subtype
+ * verbatim produces `audio1.x-wav` — legal, since the package would then declare a matching
+ * `<Default Extension="x-wav"/>`, but a file type that does not exist and that no other tool
+ * recognises. `audio/x-wav` in particular is not an edge case: it is exactly what PowerPoint
+ * authors for an embedded transition sound, so it arrives on any deck read back in.
+ *
+ * Only the spellings that are *not* already an extension are listed; anything else (`ogg`,
+ * `flac`, `aac`, …) is its own extension and falls through. Read against {@link avContentType},
+ * which maps the same pairs in the other direction.
+ */
+export function audioExtensionForSubtype(subtype: string): string {
+	switch ((subtype || '').toLowerCase()) {
+		case 'x-wav':
+		case 'wave':
+		case 'vnd.wave':
+			return 'wav'
+		case 'mpeg':
+			return 'mp3'
+		case 'x-ms-wma':
+			return 'wma'
+		case 'mp4':
+			return 'm4a'
+		default:
+			return (subtype || '').toLowerCase()
+	}
+}
+
+/**
  * Resolve the OPC content type for an embedded audio/video part by file extension,
  * matching what PowerPoint authors (e.g. `mp3` → `audio/mpeg`, not `audio/mp3`).
  * The `mtype` disambiguates extensions Office maps differently per kind and seeds

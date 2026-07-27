@@ -23,6 +23,7 @@ import { flattenEmbeddedFaces } from '../embedded-fonts.js'
 import { applyMeasuredFit } from '../measure-fit.js'
 import { getNewRelId } from '../gen-utils.js'
 import { decodeBase64ToBytes } from '../media/base64.js'
+import { audioExtensionForSubtype } from '../media/content-type.js'
 import { createExcelWorksheet } from '../gen/chart/embed-xlsx.js'
 import { addPlaceholdersToSlideLayouts } from '../gen/define/placeholder.js'
 import { encodeSlideMediaRels } from '../gen/media.js'
@@ -117,9 +118,14 @@ function registerTransitionSounds(slides: PresSlideInternal[]): void {
 		if (!sound.data && !sound.path) return
 
 		// Derive the file extension from the data-URI mime, else the path, defaulting to wav.
-		const dataMime = /audio\/([\w-]+)[;,]/.exec(sound.data ?? '')
+		// The mime's subtype is not itself an extension for the spellings PowerPoint actually
+		// uses (`audio/x-wav` for a transition sound), so it goes through the mapping rather
+		// than into the filename raw — see `audioExtensionForSubtype`.
+		const dataMime = /audio\/([\w.-]+)[;,]/.exec(sound.data ?? '')
 		const pathFile = sound.path ? ((sound.path.split('/').pop() ?? '').split('?')[0] ?? '') : ''
-		const extn = (dataMime?.[1] ?? pathFile.split('.').pop() ?? 'wav').toLowerCase()
+		const extn = dataMime
+			? audioExtensionForSubtype(dataMime[1] ?? '')
+			: (pathFile.split('.').pop() ?? 'wav').toLowerCase()
 
 		const rId = getNewRelId(slide)
 		const mediaSlideKey =
