@@ -153,6 +153,47 @@ async function deckNoLstStyleElement() {
 	return zip.generateAsync({ type: 'uint8array' })
 }
 
+/** mixed.pptx with slide1's subTitle placeholder stripped of its `p:txBody` (`minOccurs="0"` on `p:CT_Shape`). Returns package bytes. */
+async function deckMixedPlaceholderNoTxBody() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+	const slide = (await zip.file('ppt/slides/slide1.xml').async('string')).replace(
+		'<p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang="en-US" dirty="0"/></a:p></p:txBody>',
+		''
+	)
+	zip.file('ppt/slides/slide1.xml', slide)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
+/**
+ * mixed.pptx whose placeholder style chain supplies nothing: the master's
+ * `p:txStyles` removed (`minOccurs="0"` on `p:CT_SlideMaster`), slideLayout1's
+ * ctrTitle `a:lstStyle` emptied, and slide1 given an extra picture placeholder
+ * whose `type`/`idx` match no layout or master placeholder. Returns package bytes.
+ */
+async function deckMixedInheritsNothing() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+	const master = (await zip.file('ppt/slideMasters/slideMaster1.xml').async('string')).replace(
+		/<p:txStyles>[\s\S]*<\/p:txStyles>/,
+		''
+	)
+	zip.file('ppt/slideMasters/slideMaster1.xml', master)
+
+	const layout = (await zip.file('ppt/slideLayouts/slideLayout1.xml').async('string')).replace(
+		'<p:txBody><a:bodyPr/><a:lstStyle><a:lvl1pPr><a:defRPr/></a:lvl1pPr></a:lstStyle>',
+		'<p:txBody><a:bodyPr/><a:lstStyle/>'
+	)
+	zip.file('ppt/slideLayouts/slideLayout1.xml', layout)
+
+	const orphan =
+		'<p:sp><p:nvSpPr><p:cNvPr id="77" name="Picture Placeholder 7"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr>' +
+		'<p:nvPr><p:ph type="pic" idx="7"/></p:nvPr></p:nvSpPr><p:spPr/>' +
+		'<p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US"/><a:t>Picture</a:t></a:r></a:p></p:txBody></p:sp>'
+	const slide = (await zip.file('ppt/slides/slide1.xml').async('string')).replace('</p:spTree>', `${orphan}</p:spTree>`)
+	zip.file('ppt/slides/slide1.xml', slide)
+
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
 describe('Presentation.importShape', () => {
 	test('lifts a picture onto a foreign host; media copied once, survives a round-trip', async () => {
 		const target = await open('empty') // 16:9, slide[0] holds one autoShape
@@ -571,6 +612,70 @@ describe('Presentation.importShape({ rescale })', () => {
 		const source = await open('image')
 		const idx = findShapeIndex(source.slides[0], (s) => s.shapeType === 'picture')
 		target.importShape(target.slides[0], source.slides[0], idx, { rescale: 'fit' })
+		const errors = await validateBuf(Buffer.from(await target.save()))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+
+	// The two flatten passes `importShape` runs that `importSlide` does not — anchor and
+	// list-style bake, both there to make a demoted placeholder self-contained — have to
+	// cope with the same degenerate placeholders the shared passes do. Their sources are
+	// spliced the same way (see import-slide-preserve.test.js) and validated below.
+	test('lifting a placeholder with no text body bakes nothing and still demotes it', async () => {
+		// `p:txBody` is minOccurs="0" on p:CT_Shape. With no text body there is no
+		// `a:bodyPr` to write an anchor onto and no `a:lstStyle` to merge into, so both
+		// passes must skip the shape — while the demotion that makes it a plain shape
+		// still runs.
+		const source = await Presentation.load(await deckMixedPlaceholderNoTxBody())
+		const target = await open('mixed')
+		const shape = target.importShape(target.slides[0], source.slides[0], 1, { theme: 'preserve' })
+		const el = shape.element_
+
+		assertEqual(el.getElementsByTagNameNS(P_NS, 'txBody').length, 0, 'the lifted shape still carries no text body')
+		assertEqual(
+			el.getElementsByTagNameNS(A_NS, 'bodyPr').length,
+			0,
+			'no text body was synthesized to hang an anchor on'
+		)
+		assertEqual(phElements(el).length, 0, 'it was still demoted to a plain shape')
+		assertEqual(
+			geometryTuples(el).join(' '),
+			'off:1371600,3886200 ext:6400800,1752600',
+			'the geometry it inherited from the source layout was still baked before demotion'
+		)
+	})
+
+	test('lifting a placeholder whose source chain defines no list style leaves its text body alone', async () => {
+		// Two shapes from one source whose master defines no `p:txStyles`: the orphan
+		// picture placeholder resolves no tier at all, and the ctrTitle resolves two tiers
+		// that are both empty `a:lstStyle` elements. Neither may leave a synthesized
+		// `a:lstStyle` behind — an empty one would override the destination defaults with
+		// nothing, which is not the same as inheriting them.
+		const source = await Presentation.load(await deckMixedInheritsNothing())
+		const target = await open('mixed')
+		const orphan = target.importShape(target.slides[0], source.slides[0], 2, { theme: 'preserve' })
+		const title = target.importShape(target.slides[0], source.slides[0], 0, { theme: 'preserve' })
+
+		for (const [name, shape] of [
+			['orphan picture placeholder', orphan],
+			['ctrTitle', title],
+		]) {
+			const el = shape.element_
+			assertEqual(
+				el.getElementsByTagNameNS(A_NS, 'lstStyle').length,
+				1,
+				`the ${name} keeps only its own lstStyle — no source tier was merged in`
+			)
+			assertEqual(lstStyleLevels(el).join(','), '', `the ${name}'s lstStyle is still empty`)
+			assertEqual(phElements(el).length, 0, `the ${name} was demoted`)
+		}
+	})
+
+	test.skipIf(!validatorInstalled)('lifted degenerate placeholders stay schema-valid', async () => {
+		const target = await open('mixed')
+		const noTxBody = await Presentation.load(await deckMixedPlaceholderNoTxBody())
+		target.importShape(target.slides[0], noTxBody.slides[0], 1, { theme: 'preserve' })
+		const bare = await Presentation.load(await deckMixedInheritsNothing())
+		target.importShapes(target.slides[0], bare.slides[0], [0, 2], { theme: 'preserve' })
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 	})

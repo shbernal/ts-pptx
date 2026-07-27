@@ -169,6 +169,79 @@ async function deckMixedEffectRefMaterialized() {
 	return zip.generateAsync({ type: 'uint8array' })
 }
 
+/**
+ * mixed.pptx with slide1's subTitle placeholder stripped of its `p:txBody`
+ * (`minOccurs="0"` on `p:CT_Shape`, so a picture/chart/table placeholder that
+ * holds no text is ordinary PowerPoint output). Returns package bytes.
+ */
+async function deckMixedPlaceholderNoTxBody() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+	const slide = (await zip.file('ppt/slides/slide1.xml').async('string')).replace(
+		'<p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:endParaRPr lang="en-US" dirty="0"/></a:p></p:txBody>',
+		''
+	)
+	zip.file('ppt/slides/slide1.xml', slide)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
+/**
+ * mixed.pptx with slideLayout1's ctrTitle placeholder stripped of its `p:txBody`,
+ * so the layout tier of the style chain contributes no `a:lstStyle` at all and
+ * resolution falls through to the master. Returns package bytes.
+ */
+async function deckMixedLayoutPlaceholderNoTxBody() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+	const layout = (await zip.file('ppt/slideLayouts/slideLayout1.xml').async('string')).replace(
+		'<p:txBody><a:bodyPr/><a:lstStyle><a:lvl1pPr><a:defRPr/></a:lvl1pPr></a:lstStyle>' +
+			'<a:p><a:r><a:rPr lang="fr-FR"/><a:t>Cliquez pour modifier le style du titre du masque</a:t></a:r></a:p></p:txBody>',
+		''
+	)
+	zip.file('ppt/slideLayouts/slideLayout1.xml', layout)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
+/** mixed.pptx with a second paragraph appended to slide1's ctrTitle, at the same (default) level as the first. Returns package bytes. */
+async function deckMixedTwoParagraphsSameLevel() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+	const slide = (await zip.file('ppt/slides/slide1.xml').async('string')).replace(
+		'<a:endParaRPr lang="en-US" dirty="0"/></a:p>',
+		'<a:endParaRPr lang="en-US" dirty="0"/></a:p><a:p><a:r><a:rPr lang="fr-FR"/><a:t>Second line</a:t></a:r></a:p>'
+	)
+	zip.file('ppt/slides/slide1.xml', slide)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
+/**
+ * mixed.pptx cut down to a source whose placeholder style chain supplies nothing:
+ * the master's `p:txStyles` removed (`minOccurs="0"` on `p:CT_SlideMaster`),
+ * slideLayout1's ctrTitle `a:lstStyle` emptied, and slide1 given an extra picture
+ * placeholder whose `type`/`idx` match no layout or master placeholder. Returns
+ * package bytes.
+ */
+async function deckMixedInheritsNothing() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+	const master = (await zip.file('ppt/slideMasters/slideMaster1.xml').async('string')).replace(
+		/<p:txStyles>[\s\S]*<\/p:txStyles>/,
+		''
+	)
+	zip.file('ppt/slideMasters/slideMaster1.xml', master)
+
+	const layout = (await zip.file('ppt/slideLayouts/slideLayout1.xml').async('string')).replace(
+		'<p:txBody><a:bodyPr/><a:lstStyle><a:lvl1pPr><a:defRPr/></a:lvl1pPr></a:lstStyle>',
+		'<p:txBody><a:bodyPr/><a:lstStyle/>'
+	)
+	zip.file('ppt/slideLayouts/slideLayout1.xml', layout)
+
+	const orphan =
+		'<p:sp><p:nvSpPr><p:cNvPr id="77" name="Picture Placeholder 7"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr>' +
+		'<p:nvPr><p:ph type="pic" idx="7"/></p:nvPr></p:nvSpPr><p:spPr/>' +
+		'<p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="en-US"/><a:t>Picture</a:t></a:r></a:p></p:txBody></p:sp>'
+	const slide = (await zip.file('ppt/slides/slide1.xml').async('string')).replace('</p:spTree>', `${orphan}</p:spTree>`)
+	zip.file('ppt/slides/slide1.xml', slide)
+
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
 /** layout-placeholder-bodypr.pptx with its body placeholder's single paragraph replaced by five, at explicit lvl 0..4. Returns package bytes. */
 async function deckMultiLevelBody() {
 	const zip = await JSZip.loadAsync(await readFile(fixturePath('layout-placeholder-bodypr')))
@@ -636,6 +709,95 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		assertEqual(sizes, '2800,2400,2000,1800,1800', 'each run bakes its own level size from bodyStyle')
 	})
 
+	test('skips a placeholder that carries no text body, and still flattens the rest of the slide', async () => {
+		// `p:txBody` is minOccurs="0" on p:CT_Shape, so a placeholder holding no text
+		// (an empty picture/chart/table placeholder) is ordinary PowerPoint output. The
+		// four text passes must skip it without aborting — the geometry pass, which does
+		// not read the text body, still bakes its inherited box.
+		const source = await Presentation.load(await deckMixedPlaceholderNoTxBody())
+		const target = await open('mixed')
+		const imported = target.importSlide(source, 0, { theme: 'preserve' })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		const sp = (xml.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?type="subTitle"[\s\S]*?<\/p:sp>/) ?? [''])[0]
+		assert(sp, 'the text-less subTitle placeholder survived the import')
+		assert(!/<p:txBody/.test(sp), 'it still carries no text body')
+		assert(
+			/<a:off x="1371600" y="3886200"\/><a:ext cx="6400800" cy="1752600"\/>/.test(sp),
+			'the geometry pass still baked its inherited layout box'
+		)
+		// The sibling placeholder is untouched by the skip.
+		const title = (xml.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?ctrTitle[\s\S]*?<\/p:sp>/) ?? [''])[0]
+		assert(/<a:srgbClr val="333399"\/>/.test(title), 'the ctrTitle run still got its inherited colour baked')
+		assert(/\bsz="3200"/.test(title), 'the ctrTitle run still got its inherited size baked')
+	})
+
+	test('falls through a source layout placeholder that carries no text body', async () => {
+		// The layout tier of the style chain reads its `a:lstStyle` out of the layout
+		// placeholder's `p:txBody`; with no text body that tier contributes nothing and
+		// resolution must continue to the master titleStyle rather than stop.
+		const source = await Presentation.load(await deckMixedLayoutPlaceholderNoTxBody())
+		const target = await open('mixed')
+		const imported = target.importSlide(source, 0, { theme: 'preserve' })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		const sp = (xml.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?ctrTitle[\s\S]*?<\/p:sp>/) ?? [''])[0]
+		assert(
+			/<a:solidFill><a:srgbClr val="333399"\/><\/a:solidFill>/.test(sp),
+			'the run colour still resolves from the master titleStyle (333399)'
+		)
+		assert(/\bsz="3200"/.test(sp), 'the run size still resolves from the master titleStyle (3200)')
+	})
+
+	test('resolves one inherited value per paragraph level, reusing it across paragraphs at that level', async () => {
+		// Two paragraphs at the same (default) level in one placeholder: the second must
+		// bake the same colour/size as the first — the per-level lookup is memoized, and
+		// a memo that returned a different answer on the second hit would show up here.
+		const source = await Presentation.load(await deckMixedTwoParagraphsSameLevel())
+		const target = await open('mixed')
+		const imported = target.importSlide(source, 0, { theme: 'preserve' })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		const sp = (xml.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?ctrTitle[\s\S]*?<\/p:sp>/) ?? [''])[0]
+		const paras = [...sp.matchAll(/<a:p>[\s\S]*?<\/a:p>/g)].map((m) => m[0])
+		assertEqual(paras.length, 2, 'both paragraphs survived')
+		assert(/Second line/.test(paras[1]), 'the spliced paragraph is the second one')
+		for (const [i, para] of paras.entries()) {
+			const runs = [...para.matchAll(/<a:r>[\s\S]*?<\/a:r>/g)].map((m) => m[0])
+			assert(runs.length > 0, `paragraph ${i} has runs`)
+			for (const run of runs) {
+				assert(
+					/<a:solidFill><a:srgbClr val="333399"\/><\/a:solidFill>/.test(run),
+					`paragraph ${i} bakes the level-0 colour`
+				)
+				assert(/\bsz="3200"/.test(run), `paragraph ${i} bakes the level-0 size`)
+			}
+		}
+	})
+
+	test('bakes nothing onto a placeholder whose source style chain defines nothing', async () => {
+		// A picture placeholder whose type/idx match no layout or master placeholder, in a
+		// deck whose master defines no `p:txStyles` at all: there is no tier to resolve a
+		// box, a colour, or a size from. preserve must leave the shape exactly as authored
+		// rather than invent a value — the run re-binds to the destination, which is the
+		// only thing left that can style it.
+		const source = await Presentation.load(await deckMixedInheritsNothing())
+		const target = await open('mixed')
+		const imported = target.importSlide(source, 0, { theme: 'preserve' })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		const sp = (xml.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?type="pic"[\s\S]*?<\/p:sp>/) ?? [''])[0]
+		assert(sp, 'the orphan picture placeholder survived the import')
+		assert(!/<a:xfrm/.test(sp), 'no geometry was baked — nothing in the source chain defines one')
+		assert(!/<a:solidFill/.test(sp), 'no run colour was baked')
+		assert(!/\bsz="/.test(sp), 'no run size was baked')
+
+		// The same emptied chain applies to the slide's own ctrTitle.
+		const title = (xml.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?ctrTitle[\s\S]*?<\/p:sp>/) ?? [''])[0]
+		assert(!/<a:solidFill/.test(title), 'the ctrTitle run resolves no colour either')
+		assert(!/\bsz="/.test(title), 'nor a size')
+	})
+
 	test('the default (no option) still copies the source theme subgraph', async () => {
 		const target = await open('mixed')
 		const source = await open('mixed')
@@ -672,4 +834,32 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 	})
+
+	// Every spliced source above claims "PowerPoint could have written this". The
+	// validator is what turns that claim into a check: a variant it rejects belongs
+	// in the header note as impossible input, not in a test.
+	test.skipIf(!validatorInstalled)('the spliced placeholder-chain sources are themselves schema-valid', async () => {
+		for (const [name, build] of [
+			['no placeholder text body', deckMixedPlaceholderNoTxBody],
+			['no layout placeholder text body', deckMixedLayoutPlaceholderNoTxBody],
+			['two paragraphs at one level', deckMixedTwoParagraphsSameLevel],
+			['empty inheritance chain', deckMixedInheritsNothing],
+		]) {
+			const errors = await validateBuf(Buffer.from(await build()))
+			assertEqual(errors.length, 0, `${name}: ${JSON.stringify(errors).slice(0, 2000)}`)
+		}
+	})
+
+	test.skipIf(!validatorInstalled)(
+		'a deck imported from a degenerate placeholder chain stays schema-valid',
+		async () => {
+			const target = await open('mixed')
+			target.importSlide(await Presentation.load(await deckMixedPlaceholderNoTxBody()), 0, { theme: 'preserve' })
+			target.importSlide(await Presentation.load(await deckMixedLayoutPlaceholderNoTxBody()), 0, { theme: 'preserve' })
+			target.importSlide(await Presentation.load(await deckMixedTwoParagraphsSameLevel()), 0, { theme: 'preserve' })
+			target.importSlide(await Presentation.load(await deckMixedInheritsNothing()), 0, { theme: 'preserve' })
+			const errors = await validateBuf(Buffer.from(await target.save()))
+			assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+		}
+	)
 })
