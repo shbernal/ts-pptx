@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A table cell can now be filled with a picture.** `addTable` accepts an image
+  fill on a cell exactly as a shape or text box already did — `fill: { type:
+  'image', image: { path } }` (or `{ data }`, or a bare `image:` with no `type`)
+  — and emits `<a:blipFill>` inside `<a:tcPr>`, after the cell's borders. It
+  works through every route a fill reaches a cell: per-cell `options.fill`, the
+  `headerRow` and `columns[i]` sugar, and the table-level `fill`. Merged regions
+  fill uniformly across the whole span, and an auto-paged table registers each
+  overflow slide's media on that slide rather than piling every relationship onto
+  the first one.
+
+  This is a cell *fill*, not a picture nested in a cell — `CT_TableCell` accepts
+  only `a:txBody`, `a:tcPr` and `a:extLst`, so no `<p:pic>` can live inside an
+  `<a:tc>` at any effort. To float a real picture over a cell instead, use
+  `pptx.tableLayout()` to get that cell's computed rect and `addImage()` at those
+  coordinates — which is also how PowerPoint itself fakes it.
+
+  No new API surface: `TableCellProps.fill` was already `ShapeFillProps`, so an
+  image fill always type-checked. What was missing was the registration step —
+  nothing walked a table's cells to allocate the media relationship, which is why
+  it degraded at write time (see Fixed, below). Registration is keyed on fill
+  *object identity*, so the `headerRow`/`columns` sugar — which shares one fill
+  object across every cell it styles — mints a single relationship rather than one
+  per cell.
+
+  Gated on `test/read/fixtures/table-cell-image-fill.pptx`, authored by desktop
+  PowerPoint: stretched, tiled, bordered and merged picture-fill cells in one
+  table. Two findings from it are worth keeping. PowerPoint writes a bare
+  `<a:tcPr/>` on a merged region's *covered* cells and repeats no fill there,
+  while this library copies the origin's fill onto them — kept deliberately, since
+  a covered cell is never rendered and the copy keeps image fills uniform with the
+  solid case. And PowerPoint's *stretched* cell fill omits `dpi="0"
+  rotWithShape="1"` and `<a:srcRect/>`, which our shared `genXmlImageFill` always
+  writes; that shared emitter was left alone, because both attributes are optional
+  with no schema default and PowerPoint authors exactly that attribute set for its
+  own *tiled* cell in the same table.
+
 - **A deck IR (`@shbernal/ts-pptx/script`), the read half of turning an existing
   `.pptx` back into source.** `readModelToIr(presentation)` walks a deck read
   through `ts-pptx/read` and returns a serializable description of the write-API
@@ -172,6 +208,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to a `const image7`.
 
 ### Fixed
+
+- **An image fill on a table cell type-checked, then silently rendered as no
+  fill.** `TableCellProps.fill` has always been `ShapeFillProps`, so `fill: {
+  type: 'image', image: { path } }` on a cell compiled and flowed all the way to
+  the emitter — but nothing on the table path ever called
+  `registerImageFillMedia`, so no media relationship was allocated. The fill
+  reached `genXmlColorSelection`'s `case 'image'` with no resolved `_imgRid`,
+  warned *"image fill is missing its resolved media reference"*, and emitted
+  `<a:noFill/>`. The package contained no `ppt/media/` entry and the cell rendered
+  blank. Shapes (`gen/define/shape.ts`) and text boxes (`gen/define/text.ts`) had
+  been wired since image fills were introduced; tables were the one major object
+  kind left out. Cell image fills now resolve properly — see Added, above.
 
 - **A transition sound supplied as `data:audio/x-wav;…` was written to a media
   part named `.x-wav`.** The media filename was taken from the data URI's mime

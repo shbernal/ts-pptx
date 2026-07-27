@@ -107,10 +107,15 @@ export interface TableCellProps extends TextBaseProps {
 	 */
 	colspan?: number
 	/**
-	 * Fill color
+	 * Cell fill — a solid color, or a picture that fills the cell (`a:blipFill` in
+	 * the cell's `a:tcPr`, stretched to the cell box). A picture fill embeds the
+	 * image as slide media; identical sources are embedded once. Raster only —
+	 * an SVG source warns and is ignored, matching shape fills.
 	 * @example { color:'FF0000' } // hex color (red)
 	 * @example { color:'0088CC', transparency:50 } // hex color, 50% transparent
 	 * @example { color:SchemeColor.accent1 } // theme color Accent1
+	 * @example { type:'image', image:{ path:'logo.png' } } // picture fill
+	 * @example { image:{ data:'image/png;base64,…' } } // picture fill, `type` inferred
 	 */
 	fill?: ShapeFillProps
 	hyperlink?: HyperlinkProps
@@ -428,10 +433,14 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 */
 	columns?: TableCellProps[]
 	/**
-	 * Cell background color
+	 * Default cell background for every cell in the table — a solid color or a
+	 * picture fill. Superseded per cell by `options.fill`, `headerRow`, and
+	 * `columns[i]`. A picture fill is embedded once and shared by every cell that
+	 * inherits it.
 	 * @example { color:'FF0000' } // hex color (red)
 	 * @example { color:'0088CC', transparency:50 } // hex color, 50% transparent
 	 * @example { color:SchemeColor.accent1 } // theme color Accent1
+	 * @example { type:'image', image:{ path:'watermark.png' } } // picture fill
 	 */
 	fill?: ShapeFillProps
 	/**

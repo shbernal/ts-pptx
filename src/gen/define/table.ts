@@ -14,13 +14,22 @@ import {
 	DEF_SLIDE_MARGIN_IN,
 } from '../../core-enums-internal.js'
 import { warn } from '../../log.js'
-import type { AddSlideProps, BorderProps, PresLayout, TableCell, TableProps, TableRow } from '../../core-interfaces.js'
+import type {
+	AddSlideProps,
+	BorderProps,
+	PresLayout,
+	ShapeFillProps,
+	TableCell,
+	TableProps,
+	TableRow,
+} from '../../core-interfaces.js'
 import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { getSlidesForTableRows } from '../table/autopage.js'
 import { encodeXmlAttrValue, validateObjectName } from '../../gen-utils.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { EMU_PER_INCH } from '../../units.js'
 import { createHyperlinkRels } from './hyperlinks.js'
+import { registerImageFillMedia } from './image.js'
 
 type BorderTuple = [BorderProps, BorderProps, BorderProps, BorderProps]
 
@@ -151,6 +160,47 @@ function normalizeTableRows(srcRows: TableRow[], opt: TableProps): TableCell[][]
 		arrRows.push(newRow)
 	})
 	return arrRows
+}
+
+/**
+ * Register the slide media relationship behind every image fill this table uses, so the
+ * cell emitter can resolve `<a:blipFill r:embed="rIdN">` instead of warning and dropping
+ * the fill. Tables were the last major object kind not wired into `registerImageFillMedia`
+ * (shapes do it at `define/shape.ts`, text boxes at `define/text.ts`).
+ *
+ * Two fill sources are walked, which between them cover all four ways a fill reaches a cell:
+ * the resolved cells (per-cell `options.fill`, plus `headerRow` and `columns[i]`, both baked
+ * onto cells by the sugar step above), and the table-level `fill`, which is *not* baked —
+ * `gen/slide/object.ts` copies it onto each cell at emit time.
+ *
+ * Keyed on fill **object identity**, not on the image source. The sugar spreads its options
+ * shallowly, so one `headerRow` fill object is shared by every cell it styles; registering
+ * per cell would mint a redundant relationship each time and let the later call overwrite
+ * the `_imgRid` the first one stashed. Two cells given separately-authored fills for the
+ * same file still get one relationship each — matching how two shapes sharing an image
+ * behave — while the bytes are deduped into a single media part downstream.
+ *
+ * Must run only after auto-paging has shredded the rows across slides, for the same reason
+ * `createHyperlinkRels` does: `target` has to be the slide the cell actually lands on, or
+ * every relationship piles onto the first slide.
+ */
+function registerTableImageFills(target: PresSlideInternal, rows: TableCell[][], opt: TableProps): void {
+	const seen = new Set<ShapeFillProps>()
+	const register = (fill: ShapeFillProps | undefined): void => {
+		// `type:'image'` and a bare `image:{…}` are both accepted, mirroring the shape path.
+		if (!fill || typeof fill !== 'object') return
+		if (fill.type !== 'image' && !fill.image) return
+		if (seen.has(fill)) return
+		seen.add(fill)
+		registerImageFillMedia(target, fill)
+	}
+
+	register(opt.fill)
+	rows.forEach((row) => {
+		row.forEach((cell) => {
+			register(cell.options?.fill)
+		})
+	})
 }
 
 export function addTableDefinition(
@@ -383,6 +433,10 @@ export function addTableDefinition(
 	if (opt && !opt.autoPage) {
 		// Create hyperlink rels (IMPORTANT: Wait until table has been shredded across Slides or all rels will end-up on Slide 1!)
 		createHyperlinkRels(target, arrRows)
+
+		// Same timing rule as the hyperlink rels above: resolve cell image fills to media rels
+		// on the slide this table actually landed on.
+		registerTableImageFills(target, arrRows, opt)
 
 		// Add slideObjects (NOTE: Use `extend` to avoid mutation)
 		// `columns` (per-column TableCellProps[]) is consumed in STEP 1.5 and baked into cells;

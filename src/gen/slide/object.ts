@@ -863,7 +863,14 @@ function renderTableObject(
 					const originBorder = Array.isArray(originOpts.border) ? originOpts.border : null
 					if (originBorder) spanPrXml += genTableCellBorderXml(originBorder)
 					// Resolve the origin's fill with the same precedence the origin cell itself uses below,
-					// so the whole merged region fills uniformly.
+					// so the whole merged region fills uniformly. This is the origin's fill *object*, so
+					// an image fill arrives with its `_imgRid` already stashed and the covered cell emits
+					// a `blipFill` against the same relationship.
+					// NOTE: PowerPoint itself writes a bare `<a:tcPr/>` on a covered cell and repeats no
+					// fill there (verified against `test/read/fixtures/table-cell-image-fill.pptx`). We
+					// diverge deliberately: a covered cell is never rendered — the origin spans over it —
+					// so copying the fill is invisible either way, and keeping it uniform with the solid
+					// case avoids a branch that would change nothing on screen.
 					const spanFill = originOpts.fill || ''
 					if (spanFill) spanPrXml += genXmlColorSelection(spanFill)
 				}

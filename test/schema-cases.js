@@ -427,6 +427,47 @@ export default [
 		},
 	},
 	{
+		// `a:blipFill` inside `a:tcPr` — `CT_TableCellProperties` accepts `EG_FillProperties`
+		// at child order 7, after lnL/lnR/lnT/lnB. Covers all four routes a fill takes to a
+		// cell (per-cell, headerRow, columns, table-level) plus a merged region, since the
+		// validator is the cheapest check that none of them misplaces the element.
+		name: 'table cell image (blip) fills across every fill route + a merged region',
+		fn: async () => {
+			const pngData =
+				'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+			const imgFill = () => ({ type: 'image', image: { data: pngData } })
+			const { buf, zip } = await build((p) => {
+				p.addSlide().addTable(
+					[
+						[{ text: 'h1' }, { text: 'h2' }, { text: 'h3' }],
+						[
+							{ text: 'per-cell', options: { fill: imgFill(), border: { type: 'solid', color: '000000', width: 2 } } },
+							{ text: 'col' },
+							{ text: 'plain' },
+						],
+						[{ text: 'merged', options: { colspan: 2, rowspan: 2, fill: imgFill() } }, { text: 'x' }],
+						[{ text: 'y' }],
+					],
+					{
+						x: 1,
+						y: 1,
+						w: 8,
+						headerRow: { fill: imgFill() },
+						columns: [{}, { fill: imgFill() }, {}],
+					}
+				)
+			})
+			const slideXml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assertIncludes(slideXml, '<a:blipFill', 'cell picture fill emitted')
+			// Every r:embed the slide references must resolve on its own rels part.
+			const rels = await readEntry(zip, 'ppt/slides/_rels/slide1.xml.rels')
+			for (const [, rid] of slideXml.matchAll(/<a:blip r:embed="(rId\d+)"/g)) {
+				assertIncludes(rels, `Id="${rid}"`, `${rid} resolves`)
+			}
+			await expectNoSchemaErrors(buf, 'table-cell-image-fill')
+		},
+	},
+	{
 		name: 'solid-color slide background',
 		fn: async () => {
 			const { buf } = await build((p) => {

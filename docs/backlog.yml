@@ -138,7 +138,7 @@ vocabulary:
     - autofit-resize #        <a:spAutoFit> resize-to-fit text (added 2026-06-21 for the measured-text-fit oracle)
     - vertical-text #         <a:bodyPr vert="…"> text direction
     - style-ref-color #       <p:style> <a:fillRef>/<a:lnRef> theme colour
-    - blip-fill-shape #       <a:blipFill> as the fill of a <p:sp>
+    - blip-fill-shape #       <a:blipFill> as an object's fill: a <p:sp>, a text box, or an <a:tcPr> table cell (cell coverage added 2026-07-27)
     - slide-transition #      <p:transition> slide transition (added 2026-06-26 for docs/animations-and-transitions.md)
     - build-animation #       <p:timing>/<p:bldLst> per-shape build animation (added 2026-06-26 for docs/animations-and-transitions.md)
     - zoom-object #           <p:graphicFrame> Slide/Section/Summary Zoom in the 2016 zoom namespaces (added 2026-07-21 for dn-zoom-links)
@@ -962,42 +962,6 @@ items:
       spec_refs: []
     next_action: none
 
-  - id: upstream-issue-98
-    source: "gitbrent/PptxGenJS#98"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-11
-    status: non-target
-    priority: none
-    target_area:
-      - table-ooxml
-      - missing-pptx-feature
-    applies_to_current_project: no
-    non_target_reasons:
-      - out-of-project-scope
-    summary: Requested images or shapes inside table cells.
-    current_project_notes: >
-      Dismissed. An OOXML table cell (a:tc) holds only a:txBody and a:tcPr, so an
-      image or shape cannot live inside a cell; PowerPoint authors fake it by
-      floating a picture over the table. Modeling that is out of scope for the
-      table primitive (callers can already overlay an addImage at the cell's
-      computed position). Image fills via a:blipFill are tracked separately under
-      cell fill work.
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files:
-        - src/core-interfaces.ts:952
-        - src/core-interfaces.ts:965
-        - src/gen-xml.ts:292
-        - src/gen-xml.ts:348
-        - src/gen-xml.ts:353
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
   - id: dn-doc-render-caveats
     source: downstream
     type: downstream-need
@@ -1775,3 +1739,51 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: Decide between escaping the lookup key in addAnimation and moving objectName to store-raw/escape-at-emission, then land it with a regression test for an animation targeting a name containing an XML metacharacter
+  - id: dn-read-cell-picture-fill
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-07-27
+    last_reviewed: 2026-07-27
+    status: deferred
+    priority: p3
+    target_area:
+      - table-ooxml
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: "Read model cannot see a table cell's picture fill: TableCell.resolvedFill decodes only solid fills, so a blipFill cell reads as unfilled."
+    current_project_notes: >
+      Opened when the WRITE side landed cell picture fill (2026-07-27), which turned a
+      pre-existing read blindness into an asymmetry: this package can now emit an
+      `a:blipFill` inside `a:tcPr`, read the same deck back, and report nothing there.
+
+      `TableCell.resolvedFill` (src/read/api/table.ts) runs `resolveSolidFillColor` over
+      the cell's `a:tcPr` and then falls back to the table style graph. Both paths only
+      understand `a:solidFill`, so a picture-filled cell returns `null` — indistinguishable
+      from a cell with no fill at all. Any consumer diffing or replicating a deck therefore
+      drops the fill silently rather than reporting it as unsupported. `Table.resolvedStyle`
+      and `TableCell.borders` are unaffected.
+
+      Deferred rather than built with the write side, deliberately: the write gap is what
+      the original request touched, the read model has its own prioritization workflow
+      (`scripts/read-blindness-census.mjs`), and a picture accessor should be designed
+      against the shape/background picture-fill accessors as a set rather than bolted onto
+      the table in isolation. Shape image fills have the same blindness, so this is a slice
+      of a broader read-side picture-fill story, not a table-only defect.
+
+      The fixture gate is already satisfied: test/read/fixtures/table-cell-image-fill.pptx
+      is PowerPoint-authored and carries stretched, tiled, bordered and merged picture-fill
+      cells, so a read accessor can be written against genuine Office XML immediately.
+    constructs:
+      - blip-fill-shape
+    evidence:
+      kinds:
+        - local-source-inspection
+        - powerpoint-authored-comparison
+      local_files:
+        - src/read/api/table.ts
+        - test/read/fixtures/table-cell-image-fill.pptx
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: Add a picture-fill accessor to TableCell alongside resolvedFill, gated on test/read/fixtures/table-cell-image-fill.pptx.
