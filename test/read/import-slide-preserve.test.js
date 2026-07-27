@@ -212,6 +212,33 @@ async function deckMixedTwoParagraphsSameLevel() {
 }
 
 /**
+ * mixed.pptx with slide1's ctrTitle fixing its own run properties at the two
+ * levels below the run itself: paragraph 1 gets an `a:pPr/a:defRPr` carrying both
+ * a `sz` and a `solidFill`, and the text body's `a:lstStyle` gets a level-1
+ * `a:defRPr sz`. A second paragraph is appended that sets no `a:pPr`, so it
+ * resolves against the `a:lstStyle` tier alone. Returns package bytes.
+ */
+async function deckMixedSlideFixesRunProps() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+	const slide = (await zip.file('ppt/slides/slide1.xml').async('string'))
+		.replace(
+			'<p:txBody><a:bodyPr><a:normAutofit/></a:bodyPr><a:lstStyle/>',
+			'<p:txBody><a:bodyPr><a:normAutofit/></a:bodyPr><a:lstStyle><a:lvl1pPr><a:defRPr sz="1111"/></a:lvl1pPr></a:lstStyle>'
+		)
+		.replace(
+			'<a:p><a:r><a:rPr lang="fr-FR" dirty="0"/><a:t>Data </a:t>',
+			'<a:p><a:pPr><a:defRPr sz="2222"><a:solidFill><a:srgbClr val="ABCDEF"/></a:solidFill></a:defRPr></a:pPr>' +
+				'<a:r><a:rPr lang="fr-FR" dirty="0"/><a:t>Data </a:t>'
+		)
+		.replace(
+			'<a:endParaRPr lang="en-US" dirty="0"/></a:p>',
+			'<a:endParaRPr lang="en-US" dirty="0"/></a:p><a:p><a:r><a:rPr lang="fr-FR"/><a:t>Second line</a:t></a:r></a:p>'
+		)
+	zip.file('ppt/slides/slide1.xml', slide)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
+/**
  * mixed.pptx cut down to a source whose placeholder style chain supplies nothing:
  * the master's `p:txStyles` removed (`minOccurs="0"` on `p:CT_SlideMaster`),
  * slideLayout1's ctrTitle `a:lstStyle` emptied, and slide1 given an extra picture
@@ -798,6 +825,43 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		assert(!/\bsz="/.test(title), 'nor a size')
 	})
 
+	test('leaves runs alone when the slide fixes their colour/size at paragraph or text-body level', async () => {
+		// "Already fixed" is a three-tier ladder — the run's own `a:rPr`, then the
+		// paragraph's `a:pPr/a:defRPr`, then the text body's `a:lstStyle` level. Only the
+		// top tier is exercised by the authored fixtures. A value set at either lower tier
+		// survives a rebind just as well, so preserve must not bake over it: paragraph 1
+		// fixes colour and size via `a:pPr/a:defRPr`, and paragraph 2 (which sets no
+		// `a:pPr` at all) has its size fixed by the text body's `a:lstStyle`.
+		const source = await Presentation.load(await deckMixedSlideFixesRunProps())
+		const target = await open('mixed')
+		const imported = target.importSlide(source, 0, { theme: 'preserve' })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		const sp = (xml.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?ctrTitle[\s\S]*?<\/p:sp>/) ?? [''])[0]
+		const paras = [...sp.matchAll(/<a:p>[\s\S]*?<\/a:p>/g)].map((m) => m[0])
+		assertEqual(paras.length, 2, 'both paragraphs survived')
+
+		const runsOf = (para) => [...para.matchAll(/<a:r>[\s\S]*?<\/a:r>/g)].map((m) => m[0])
+		const first = runsOf(paras[0])
+		assert(first.length > 0, 'paragraph 1 has runs')
+		for (const run of first) {
+			assert(!/<a:solidFill/.test(run), 'the paragraph defRPr fixes the colour, so none was baked onto the run')
+			assert(!/\bsz="/.test(run), 'the paragraph defRPr fixes the size, so none was baked onto the run')
+		}
+		assert(
+			/<a:defRPr sz="2222"><a:solidFill><a:srgbClr val="ABCDEF"\/><\/a:solidFill><\/a:defRPr>/.test(paras[0]),
+			'the paragraph defRPr itself is carried through untouched'
+		)
+
+		const second = runsOf(paras[1])
+		assertEqual(second.length, 1, 'paragraph 2 has its one run')
+		assert(!/\bsz="/.test(second[0]), "the text body's lstStyle fixes the size, so none was baked")
+		assert(
+			/<a:solidFill><a:srgbClr val="333399"\/><\/a:solidFill>/.test(second[0]),
+			'its colour is not fixed anywhere on the slide, so the inherited one is still baked'
+		)
+	})
+
 	test('the default (no option) still copies the source theme subgraph', async () => {
 		const target = await open('mixed')
 		const source = await open('mixed')
@@ -844,6 +908,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 			['no layout placeholder text body', deckMixedLayoutPlaceholderNoTxBody],
 			['two paragraphs at one level', deckMixedTwoParagraphsSameLevel],
 			['empty inheritance chain', deckMixedInheritsNothing],
+			['slide fixes its own run props', deckMixedSlideFixesRunProps],
 		]) {
 			const errors = await validateBuf(Buffer.from(await build()))
 			assertEqual(errors.length, 0, `${name}: ${JSON.stringify(errors).slice(0, 2000)}`)
@@ -858,6 +923,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 			target.importSlide(await Presentation.load(await deckMixedLayoutPlaceholderNoTxBody()), 0, { theme: 'preserve' })
 			target.importSlide(await Presentation.load(await deckMixedTwoParagraphsSameLevel()), 0, { theme: 'preserve' })
 			target.importSlide(await Presentation.load(await deckMixedInheritsNothing()), 0, { theme: 'preserve' })
+			target.importSlide(await Presentation.load(await deckMixedSlideFixesRunProps()), 0, { theme: 'preserve' })
 			const errors = await validateBuf(Buffer.from(await target.save()))
 			assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 		}
