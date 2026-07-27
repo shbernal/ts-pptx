@@ -1554,3 +1554,60 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: Normalize `labels` (and audit `values`) into a copy inside addChartDefinition so the caller's series objects are never written back to; add a regression test asserting the input array is unchanged after addChart.
+  - id: dn-negative-extent-normalization
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-07-27
+    last_reviewed: 2026-07-27
+    status: target
+    priority: p2
+    target_area:
+      - invalid-ooxml
+      - powerpoint-repair
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: addShape emits a negative <a:ext cy>/<a:ext cx> when handed a negative h/w, producing a file PowerPoint rejects as corrupt
+    current_project_notes: |
+      `addShape` passes `w`/`h` straight through to `<a:ext cx=… cy=…>` without
+      normalizing the sign. Both attributes are `ST_PositiveCoordinate`, so a
+      negative value is schema-invalid: PowerPoint refuses the whole presentation
+      with "The file or directory is corrupted and unreadable" (0x80070570) and
+      names no shape, part, or slide. LibreOffice renders the same file happily,
+      so the defect is invisible to any consumer whose render step is LibreOffice
+      and only appears once the deck reaches PowerPoint.
+
+      This is easy to hit whenever a line is drawn from computed endpoints, since
+      the natural expression of "draw from A to B" is a signed delta:
+
+        // a leader/connector line that happens to run upward
+        slide.addShape('line', { x: x0, y: y0, w: x1 - x0, h: y1 - y0 })
+        // y1 < y0  ->  <a:ext cx="128016" cy="-2644902"/>  ->  file rejected
+
+      The correct encoding is the normalized bounding box plus a flip, which
+      `connector()` already derives for its own endpoints
+      (`src/gen/define/connector.ts`, `flipH: x2 < x1` / `flipV: y2 < y1`). The
+      generic shape path has no equivalent, so every caller has to remember to
+      write `Math.min`/`Math.abs` plus `flipH`/`flipV` by hand, and forgetting it
+      fails far from the call site with an error that points nowhere.
+
+      Suggested fix: normalize in the shape path the way `connector()` already
+      does — move the offset to `min(a, b)`, take `abs()` for the extent, and set
+      `flipH`/`flipV` accordingly. Failing that, throw on a negative `w`/`h` at
+      the API boundary so the error names the offending shape instead of
+      surfacing as a corrupt file. Silently writing an out-of-range extent is the
+      worst of the three outcomes.
+    evidence:
+      kinds:
+        - local-source-inspection
+        - ooxml-reference
+        - minimal-repro
+        - extracted-xml
+      local_files:
+        - src/gen/slide/object.ts
+        - src/gen/define/shape.ts
+        - src/gen/define/connector.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: none
