@@ -12,6 +12,92 @@ function packageImport(subpath = '') {
 	return packageName + subpath
 }
 
+/**
+ * Every export subpath the package publishes, with a sample of named exports per entry and
+ * the `typeof` each must have once resolved through the *installed tarball's* `exports`
+ * map — not through `dist/`, which is why this file packs and installs first.
+ *
+ * ADDING AN EXPORT SUBPATH MEANS ADDING A ROW HERE. `files`, the `exports` map, and the
+ * chunk tsdown actually emits are three independent places a new subpath can go wrong, and
+ * a subpath that is missing from all three still typechecks, still builds, and still passes
+ * every suite under `test/` — those import from `dist/` by path and never consult `exports`.
+ * This matrix is the only check that resolves a subpath the way a consumer does.
+ *
+ * `hasDefault` records whether the entry carries a default export. Named exports are a
+ * sample, not the full surface: the point is to prove the entry resolves and is populated,
+ * so pick a few stable, load-bearing names rather than mirroring every export (which would
+ * turn every ordinary API addition into a failing package test).
+ */
+const EXPORT_MATRIX = [
+	{
+		subpath: '',
+		hasDefault: true,
+		exports: {
+			TsPptx: 'function',
+			ShapeType: 'object',
+			inchesToEmu: 'function',
+			EMU_PER_INCH: 'number',
+			textRun: 'function',
+		},
+	},
+	{
+		subpath: '/inspect',
+		hasDefault: false,
+		exports: {
+			inspectPptx: 'function',
+			boxAnchor: 'function',
+			overlapArea: 'function',
+			DEFAULT_INSPECT_SLIDE_SIZE: 'object',
+		},
+	},
+	{
+		subpath: '/measure',
+		hasDefault: false,
+		exports: {
+			measureText: 'function',
+			measureLayout: 'function',
+			FontMetricsRegistry: 'function',
+			SINGLE_LINE_PITCH: 'number',
+		},
+	},
+	{
+		subpath: '/read',
+		hasDefault: false,
+		exports: {
+			Presentation: 'function',
+			OpcPackage: 'function',
+			isGroupShape: 'function',
+			readCoreProperties: 'function',
+		},
+	},
+	{
+		subpath: '/script',
+		hasDefault: false,
+		exports: {
+			printScript: 'function',
+			diffDeckIr: 'function',
+			canonicalDeckIr: 'function',
+			readModelToIr: 'function',
+		},
+	},
+	{ subpath: '/math', hasDefault: false, exports: { latexToOmml: 'function', mathmlToOmml: 'function' } },
+	{ subpath: '/zip', hasDefault: false, exports: { ZipWriter: 'function', readZip: 'function' } },
+	{ subpath: '/node', hasDefault: true, exports: { TsPptx: 'function', ShapeType: 'object' } },
+	{ subpath: '/browser', hasDefault: true, exports: { TsPptx: 'function', ShapeType: 'object' } },
+]
+
+/**
+ * `.` carries `browser`/`node`/`default` conditions, so which artifact a consumer gets
+ * depends on the conditions Node resolves under — something no test that imports `dist/`
+ * by path can observe. Each run asserts `.` collapses onto the entry for its condition and
+ * stays distinct from the other one; a regression that pointed both conditions at the same
+ * chunk (or dropped a condition so `default` won everywhere) shows up here and nowhere else.
+ */
+const CONDITION_RUNS = [
+	{ label: 'default', nodeArgs: [], sameAs: '/node', distinctFrom: '/browser' },
+	{ label: 'browser', nodeArgs: ['--conditions=browser'], sameAs: '/browser', distinctFrom: '/node' },
+]
+
 async function writeFixtureManifest(fixtureDir, manager) {
 	await fs.mkdir(fixtureDir, { recursive: true })
 	await fs.writeFile(
@@ -48,6 +134,47 @@ async function smokeInstalledPackage(fixtureDir) {
 		assertNoFile(path.join(installedPkgDir, 'types', 'pptxgen.d.ts')),
 		assertNoFile(path.join(installedPkgDir, 'dist', 'pptxgen.js')),
 	])
+
+	const matrixRows = EXPORT_MATRIX.map((row) => ({
+		specifier: packageImport(row.subpath),
+		label: row.subpath || '.',
+		hasDefault: row.hasDefault,
+		exports: row.exports,
+	}))
+	await fs.writeFile(
+		path.join(fixtureDir, 'matrix-smoke.mjs'),
+		`const MATRIX = ${JSON.stringify(matrixRows, null, 1)}
+
+for (const row of MATRIX) {
+	const ns = await import(row.specifier)
+	if (row.hasDefault && ns.default === undefined) throw new Error(row.label + ': missing default export')
+	if (!row.hasDefault && ns.default !== undefined) throw new Error(row.label + ': unexpected default export')
+	for (const [name, kind] of Object.entries(row.exports)) {
+		if (!(name in ns)) throw new Error(row.label + ': missing named export ' + name)
+		if (typeof ns[name] !== kind)
+			throw new Error(row.label + ': ' + name + ' is ' + typeof ns[name] + ', expected ' + kind)
+	}
+}
+console.log('  export matrix: ' + MATRIX.length + ' subpaths resolved')
+`
+	)
+
+	await fs.writeFile(
+		path.join(fixtureDir, 'conditions-smoke.mjs'),
+		`const NAME = ${JSON.stringify(packageName)}
+const [label, sameAs, distinctFrom] = process.argv.slice(2)
+
+const root = await import(NAME)
+const same = await import(NAME + sameAs)
+const other = await import(NAME + distinctFrom)
+
+// Identity, not a feature probe: all three artifacts expose the same API surface, so only
+// module identity can tell which chunk "." actually resolved to.
+if (root.TsPptx !== same.TsPptx) throw new Error(label + ': "." did not resolve to ' + sameAs)
+if (root.TsPptx === other.TsPptx) throw new Error(label + ': "." is indistinguishable from ' + distinctFrom)
+console.log('  conditions [' + label + ']: "." -> ' + sameAs)
+`
+	)
 
 	await fs.writeFile(
 		path.join(fixtureDir, 'esm-smoke.mjs'),
@@ -173,6 +300,20 @@ async function smokeInstalledPackage(fixtureDir) {
 		)
 	)
 
+	await run(process.execPath, [path.join(fixtureDir, 'matrix-smoke.mjs')], { cwd: fixtureDir })
+	for (const conditionRun of CONDITION_RUNS) {
+		await run(
+			process.execPath,
+			[
+				...conditionRun.nodeArgs,
+				path.join(fixtureDir, 'conditions-smoke.mjs'),
+				conditionRun.label,
+				conditionRun.sameAs,
+				conditionRun.distinctFrom,
+			],
+			{ cwd: fixtureDir }
+		)
+	}
 	await run(process.execPath, [path.join(fixtureDir, 'esm-smoke.mjs')], { cwd: fixtureDir })
 	await run(process.execPath, [path.join(fixtureDir, 'cjs-contract.cjs')], { cwd: fixtureDir })
 	for (const config of typeSmokeConfigs) {
