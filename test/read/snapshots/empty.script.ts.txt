@@ -1,0 +1,70 @@
+/*
+ * Generated from a .pptx by ts-pptx/script.
+ *
+ * Template-anchored: the source deck is reused as the template, so its slide masters,
+ * layouts, theme and document properties are the originals, byte for byte. Only the
+ * slide content below was rebuilt through the public write API.
+ *
+ * Expects ./template.pptx (the source deck, unmodified) beside this file.
+ * Writes ./output.pptx. Needs an ESM context — it uses top-level await.
+ *
+ * FIDELITY: 2 declared loss(es). Everything not listed here is expected to
+ * survive unchanged; a difference that is not in this list is a defect, not a caveat.
+ *
+ * Slide 1:
+ * - text.bullet.inherited (Textfeld 3) [dropped, unread] — at least one paragraph sets no bullet of its own and
+ *   inherits one from the layout or master list style; the write path cannot express "inherit" and emits an
+ *   explicit a:buNone, so any inherited bullet is suppressed — a no-op where the inherited style had none, and a
+ *   visible change where it did not
+ * - text.color.inherited (Textfeld 3) [flattened, unsupported] — this run inherits its colour from the
+ *   placeholder, master or theme; the write path paints an uncoloured run black instead of leaving it to
+ *   inherit, so the inherited colour is resolved and baked in and no longer tracks a theme change
+ */
+
+import { readFile, writeFile } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
+import TsPptx from '@shbernal/ts-pptx'
+import { Presentation } from '@shbernal/ts-pptx/read'
+
+/** Resolve a path against this script rather than against the working directory. */
+const here = (name: string): string => fileURLToPath(new URL(name, import.meta.url))
+
+// The source deck is the template: fromTemplate strips its slides and leaves its masters,
+// layouts, theme and document properties exactly as they were.
+const deck = await Presentation.fromTemplate(here('./template.pptx'))
+
+/**
+ * A generator sized to the template. appendSlides compares slide sizes exactly and
+ * throws when they differ, so the inches here must round-trip to the source EMU.
+ */
+function generator(): TsPptx {
+	const pptx = new TsPptx()
+	pptx.defineLayout({ name: 'source', width: 13.333333, height: 7.5 })
+	pptx.layout = 'source'
+	return pptx
+}
+
+const gen1 = generator()
+
+// Slide 1 — layout "Titelfolie"
+const slide1 = gen1.addSlide()
+// Textfeld 3
+slide1.addText(
+	[{ options: { color: '000000', fontSize: 12 }, text: 'This is an almost empty slide.' }],
+	{
+		fit: 'resize',
+		h: '276999emu',
+		isTextBox: true,
+		objectName: 'Textfeld 3',
+		shape: 'rect',
+		valign: 'top',
+		w: '2014462emu',
+		wrap: false,
+		x: '10177538emu',
+		y: '6519333emu',
+	}
+)
+
+await deck.appendSlides(gen1, { layout: 'Titelfolie' })
+
+await writeFile(here('./output.pptx'), await deck.save())

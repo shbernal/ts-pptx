@@ -62,9 +62,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ambiguous name rather than choosing.
 
   Not yet implemented: a standalone (template-free) tier that rebuilds the
-  chrome via `defineSlideMaster`, and the automated round-trip harness.
+  chrome via `defineSlideMaster`.
+
+- **A round-trip check for generated scripts: `canonicalDeckIr` + `diffDeckIr`,
+  and `pnpm run script:roundtrip`.** Reads a deck, prints a script, runs it,
+  reads the deck that came out, and diffs the two IRs using the printer's
+  fidelity notes as the exclusion list — so a difference no note predicted is a
+  defect. `diffDeckIr` returns `{ differences, undeclared, declared, added,
+  unmatchedNotes }`; `undeclared` is the number to gate on.
+
+  The comparison is on IRs rather than packages because the output can never be
+  byte-identical (fresh rel ids, regenerated shape ids), so comparing bytes would
+  fail for every deck and measure nothing. `canonicalDeckIr` removes the noise
+  that is not loss — a value spelled out that means what its absence means
+  (`bold: false`, `wrap: true`, the default `a:bodyPr` insets), and asset
+  identity by content digest rather than by generated filename — and each such
+  rule cites the OOXML default that makes it an equivalence rather than a
+  convenience.
+
+  Its reach is bounded, and knowing how bounded is the point. Both IRs come from
+  the same reader, so a construct the read path cannot see is absent from both
+  and compares equal; and the converter need not be injective, so two source
+  constructs mapping to one call also compare equal. It detects **asymmetry**.
+  Mutation testing says so concretely: of twelve deliberate converter defects it
+  catches six, and the six that survive are exactly the symmetric ones. Read a
+  clean run as "nothing the converter can distinguish was lost", and pair it with
+  `pnpm run read:census` and the IR unit tests, whose expectations come from
+  `src/types/*.ts` rather than from the converter.
 
 ### Fixed
+
+- **Nine converter defects that no static check and no execution check could
+  catch**, all found by the round-trip comparison above and all producing a
+  script that typechecked, ran, and wrote a plausible deck.
+  - **Every paragraph bullet was wrong.** `Paragraph.bullet` reports a *tagged*
+    string (`'none'`, `'char:<glyph>'`, `'autoNum:<type>'`) and the mapper read
+    it as a bare glyph — so an explicit `a:buNone` became a literal `n` bullet
+    (`'none'.codePointAt(0)`), a real character bullet became `c`, and a numbered
+    list became `a`. The numbering scheme was also passed as `style` rather than
+    `numberType`, so every numbered list fell back to the default scheme, and the
+    glyph was emitted with fewer than the four hex digits the write path requires,
+    which made it substitute its own default.
+  - **Placeholders were emitted with no geometry at all.** A shape with no
+    transform of its own reported no frame, and omitting `x`/`y`/`w`/`h` does not
+    leave the geometry to be inherited — an appended slide inherits nothing — it
+    produces a zero-height box in the corner. Now resolved through the
+    layout/master chain via `resolvedFrame`.
+  - **A group's rotation and flips were applied twice**, because the children were
+    already emitted in composed slide-absolute coordinates *and* the transform was
+    repeated on the group. A 30° group came back at 60°; a flipped group came back
+    unflipped, the double flip having cancelled.
+  - **Image crops were sent to `sizing`**, which crops in displayed inches against
+    the image's measured natural size, instead of to `crop`, which is `a:srcRect`
+    emitted verbatim. Fractions read as inches shrank every cropped picture.
+  - **Every text body was re-anchored to centre.** An unset `a:bodyPr/@anchor`
+    means top in OOXML and centre in `addText`, so the converter now spells the
+    anchor out rather than leaving it off.
+  - **Every uncoloured run was repainted black**, since `addText` fills a run with
+    no colour using `DEF_FONT_COLOR`. The inherited colour is now resolved and
+    emitted (with a note that it is frozen against later theme edits), or, where
+    nothing resolves it, declared as a colour that may be wrong.
+  - **PowerPoint text boxes were demoted to auto shapes.** Text-box-ness is
+    `p:cNvSpPr/@txBox`, not "has no preset geometry" — PowerPoint gives every text
+    box an explicit `prstGeom rect`, so the old test misclassified all of them.
+  - **An SVG picture was reduced to its raster fallback.** The vector part is now
+    preferred, since `addImage` accepts SVG bytes and regenerates a fallback.
+  - **A bulleted paragraph with more than one run was split in two**, because the
+    write path treats a bullet on a run that does not open a line as a request for
+    a new paragraph. Paragraph-level `bullet` now rides on the first run only.
+  - Also declared rather than fixed, each being a real limit rather than a
+    mistake: an automatic field (`a:fld` — slide number, date, footer) has no
+    accessor and no `addText` expression; an explicit zero `a:spcBef`/`a:spcAft`
+    is indistinguishable from unset on the write side; an auto-height table row
+    comes back pinned to its content's height; and a paragraph that inherits its
+    bullet cannot say "inherit" through the write API.
+
+- **`line: { type: 'none' }` did nothing.** The value is documented on
+  `ShapeFillProps.type` and accepted by the type checker, but `genXmlLineFill` had
+  no branch for it and emitted no paint child — which is how a stroke says
+  "inherit", not "none". A shape authored with an explicitly suppressed outline
+  therefore *grew* the theme's border instead of losing it. It now emits
+  `<a:noFill/>`.
 
 - **`readModelToIr` mapped three constructs onto write-API shapes that do not
   exist.** All three produced an IR that typechecked and a script that failed at

@@ -65,7 +65,19 @@ exports and let this repository own the internal OOXML generation details.
   source text would quietly break for every `ts-pptx/read` consumer. Losses are
   data, not log lines: anything that cannot survive is a `FidelityNote` on the
   IR, which is what lets a round-trip check exclude exactly the declared losses
-  and treat every other difference as a defect.
+  and treat every other difference as a defect. `verify/` is that check:
+  `canonicalDeckIr` reduces an IR to the form a comparison can use (dropping
+  only values whose explicit and absent spellings are the same OOXML default),
+  and `diffDeckIr` compares the source deck's IR against the IR of the deck a
+  generated script produced, with the printer's notes as the exclusion list.
+  It compares IRs rather than packages because the output can never be
+  byte-identical — fresh rel ids, regenerated shape ids — so a byte comparison
+  would fail for every deck and measure nothing. Its reach is bounded in two
+  ways worth knowing before trusting a clean run: both IRs come from the same
+  reader, so a construct the read path cannot see is absent from both, and the
+  converter need not be injective, so two source constructs that map to the
+  same call compare equal. It detects *asymmetry*; `pnpm run read:census` and
+  the IR unit tests cover the rest.
 - `scripts/package-smoke.mjs` verifies the packed package boundary from a
   consumer perspective.
 

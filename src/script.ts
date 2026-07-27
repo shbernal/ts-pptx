@@ -19,6 +19,10 @@
 export { readModelToIr } from './script/from-read/deck.js'
 export { printScript } from './script/print/script.js'
 export type { AssetMode, PrintScriptOptions, PrintedScript } from './script/print/script.js'
+export { canonicalDeckIr } from './script/verify/canonical.js'
+export type { CanonicalCall, CanonicalDeck, CanonicalSlide } from './script/verify/canonical.js'
+export { diffDeckIr, knownNoteConstructs } from './script/verify/diff.js'
+export type { DifferenceKind, IrDifference, RoundTripReport } from './script/verify/diff.js'
 export { isAssetRef } from './script/ir.js'
 export type {
 	AssetIr,

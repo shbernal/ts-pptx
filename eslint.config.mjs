@@ -12,6 +12,7 @@ const nodeGlobals = {
 	process: 'readonly',
 	setInterval: 'readonly',
 	setTimeout: 'readonly',
+	structuredClone: 'readonly',
 	TextDecoder: 'readonly',
 	TextEncoder: 'readonly',
 	URL: 'readonly',

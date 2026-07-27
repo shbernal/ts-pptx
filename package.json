@@ -84,6 +84,7 @@
 		"test:read:emit:edits": "pnpm run ensure-dist && node scripts/read-emit-edits.mjs",
 		"read:census": "pnpm run ensure-dist && node scripts/read-blindness-census.mjs",
 		"read:append-ceiling": "pnpm run ensure-dist && node scripts/append-ceiling.mjs",
+		"script:roundtrip": "pnpm run ensure-dist && node scripts/script-roundtrip.mjs",
 		"test:watch": "vitest --watch test/regression",
 		"test:coverage": "pnpm run ensure-dist && vitest run --coverage",
 		"test:package": "node scripts/package-smoke.mjs",
