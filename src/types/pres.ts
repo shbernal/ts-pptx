@@ -44,9 +44,9 @@ export interface WriteFileProps extends WriteBaseProps {
 }
 /**
  * One emitted OOXML package part: its full slash-path and already-encoded bytes. Returned by
- * {@link https://github.com/gitbrent/PptxGenJS `TsPptx.toParts()`} for callers that want the
- * raw parts of the `.pptx` OPC package without zipping (custom containers, streaming, part-level
- * inspection). The bytes are byte-identical to what `write()` would compress for the same part;
+ * {@link TsPptx.toParts} for callers that want the raw parts of the `.pptx` OPC package without
+ * zipping (custom containers, streaming, part-level inspection). The bytes are byte-identical to
+ * what `write()` would compress for the same part;
  * XML parts are UTF-8 (decode with `new TextDecoder().decode(part.data)`), media/font parts are
  * their raw binary.
  */
@@ -57,9 +57,9 @@ export interface PackagePart {
 	readonly data: Uint8Array
 }
 /**
- * Options for {@link https://github.com/gitbrent/PptxGenJS `TsPptx.toParts()`}. A deliberately
- * narrow subset of {@link WriteProps}: `compression` and `outputType` are zip concerns and do not
- * apply when parts are returned unzipped, so only media-error handling is exposed.
+ * Options for {@link TsPptx.toParts}. A deliberately narrow subset of {@link WriteProps}:
+ * `compression` and `outputType` are zip concerns and do not apply when parts are returned
+ * unzipped, so only media-error handling is exposed.
  */
 export interface PartsProps {
 	/**
