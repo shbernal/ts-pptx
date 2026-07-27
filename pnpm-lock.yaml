@@ -106,6 +106,12 @@ importers:
         specifier: ^5.2.1
         version: 5.2.1
 
+  demos/showcases:
+    dependencies:
+      '@shbernal/ts-pptx':
+        specifier: workspace:*
+        version: link:../..
+
   demos/vite-demo:
     dependencies:
       '@popperjs/core':
@@ -123,6 +129,9 @@ importers:
       react-dom:
         specifier: ^19.2.7
         version: 19.2.7(react@19.2.7)
+      ts-pptx-demos-showcases:
+        specifier: workspace:*
+        version: link:../showcases
     devDependencies:
       '@eslint/js':
         specifier: ^10.0.1

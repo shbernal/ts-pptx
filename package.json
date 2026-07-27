@@ -89,6 +89,7 @@
 		"test:coverage": "pnpm run ensure-dist && vitest run --coverage",
 		"coverage:probe": "pnpm run ensure-dist && vitest run --coverage --coverage.reportsDirectory=coverage/probe --coverage.reporter=json --coverage.reporter=json-summary --coverage.reporter=text-summary --coverage.thresholds.statements=0 --coverage.thresholds.branches=0 --coverage.thresholds.functions=0 --coverage.thresholds.lines=0",
 		"test:package": "node scripts/package-smoke.mjs",
+		"demos:build": "pnpm run ensure-dist && pnpm --dir demos/showcases run build",
 		"test:com": "pnpm run ensure-dist && node scripts/powerpoint-com-smoke.mjs",
 		"typecheck": "tsc -p tsconfig.json --noEmit",
 		"typecheck:scripts": "tsc -p tsconfig.scripts.json --noEmit",

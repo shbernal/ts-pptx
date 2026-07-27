@@ -29,6 +29,7 @@ docs/reference/api/
 docs/doc-index.md
 src/bld/
 demos/node/output/
+demos/showcases/output/
 
 ### Editors
 .idea/

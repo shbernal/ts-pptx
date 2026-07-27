@@ -1502,3 +1502,55 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: Add a picture-fill accessor to TableCell alongside resolvedFill, gated on test/read/fixtures/table-cell-image-fill.pptx.
+  - id: fork-addchart-mutates-caller-labels
+    source: fork:src/gen/define/chart.ts
+    type: fork-internal-proposal
+    first_seen: 2026-07-27
+    last_reviewed: 2026-07-27
+    status: target
+    priority: p2
+    target_area:
+      - chart-ooxml
+      - typescript-api
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: addChart normalizes a series' `labels` from string[] to string[][] in place, mutating the caller's array
+    current_project_notes: |
+      `addChart` normalizes each series' `labels` to the nested `string[][]` form the
+      multi-level-category serializer wants, and it does so by assigning back onto the
+      caller's own object. After `pptx.addChart(data, opts)`, `data[0].labels` is
+      `[['A','B','C']]` — one nested array where the caller passed three strings.
+
+      Reproduction is three lines:
+
+        const data = [{ name: 'mix', labels: ['A','B','C'], values: [1,2,3] }]
+        pptx.addSlide().addChart(data, { x:1, y:1, w:4, h:3, type: 'doughnut' })
+        // data[0].labels is now [['A','B','C']]
+
+      This is a silent action-at-a-distance bug for any caller that reuses its own data
+      after charting it — building a legend, a table, or a second chart from the same
+      arrays. It surfaced while writing demos/showcases/quarterly-review, where iterating
+      `labels` after the chart call to build the mix legend produced one nested array
+      instead of three labels, and the failure landed as a `TypeError` deep inside
+      `addTextDefinition` ("Cannot create property 'options' on string 'Platform'") with
+      nothing in the message pointing at the chart. The deck now keeps a separate plain
+      source of truth and derives the chart arrays from it, which works but is a
+      workaround for library behavior, not a design.
+
+      The fix is to normalize into a copy rather than in place. `values` should be checked
+      at the same time — anything else the chart path writes back onto the caller's series
+      objects has the same problem. Public option objects should be treated as read-only
+      inputs throughout; that is the general rule this violates, so the audit is worth
+      more than the single-line fix.
+    evidence:
+      kinds:
+        - local-source-inspection
+        - minimal-repro
+      local_files:
+        - src/gen/define/chart.ts
+        - demos/showcases/quarterly-review/data.mjs
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: Normalize `labels` (and audit `values`) into a copy inside addChartDefinition so the caller's series objects are never written back to; add a regression test asserting the input array is unchanged after addChart.

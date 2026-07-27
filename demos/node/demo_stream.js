@@ -1,54 +1,50 @@
 /*
- * NAME: demo_stream.js
- * AUTH: Brent Ely
- * DATE: 20210410
- * DESC: ts-pptx feature demos for Node.js
- * REQS: install dependencies with pnpm, npm, or yarn
+ * Streaming a generated deck straight to an HTTP response.
  *
- * USAGE: `node demo_stream.js`
+ * The showcase decks in `demos/showcases` end in `writeFile()`. This one never touches the
+ * disk: `pptx.stream()` hands back the package bytes, which go out as the response body.
+ * That is the shape a server generating a deck per request actually needs — no temp file,
+ * nothing to clean up afterwards.
+ *
+ * Express is here only to have a server; it is not a ts-pptx dependency.
+ *
+ * USAGE: pnpm --dir demos/node run demo-stream   → http://localhost:3000/
  */
-
-// ============================================================================
 import { Buffer } from "node:buffer";
 import TsPptx, { SchemeColor } from "@shbernal/ts-pptx";
-import express from "express"; // @note Only required for streaming test (not a req for TsPptx)
-const app = express(); // @note Only required for streaming test (not a req for TsPptx)
-//let exportName = `TsPptx_Node_Demo_Stream_${new Date().toISOString()}.pptx`;
-const exportName = `TsPptx_Node_Demo_Stream.pptx`;
+import express from "express";
 
-// EXAMPLE: Export presentation to stream
+const app = express();
+const exportName = "TsPptx_Node_Demo_Stream.pptx";
+
 const pptx = new TsPptx();
 const slide = pptx.addSlide();
 slide.addText(
 	[
 		{ text: "TsPptx", options: { fontSize: 48, color: SchemeColor.accent1, breakLine: true } },
 		{ text: "Node Stream Demo", options: { fontSize: 24, color: SchemeColor.accent6, breakLine: true } },
-		{ text: "(pretty cool huh?)", options: { fontSize: 24, color: SchemeColor.accent3 } },
+		{ text: "Generated per request, never written to disk.", options: { fontSize: 16, color: SchemeColor.accent3 } },
 	],
 	{ x: 1, y: 1, w: "80%", h: 3, align: "center", fill: SchemeColor.background2 },
 );
 
-// Export presentation: Save to stream (instead of `write` or `writeFile`)
 try {
 	const data = await pptx.stream();
 	const body = typeof data === "string" ? Buffer.from(data, "binary") : Buffer.from(data);
 
 	app.get("/", (_req, res) => {
-		res.writeHead(200, { "Content-disposition": `attachment;filename=${exportName}`, "Content-Length": body.length });
+		res.writeHead(200, {
+			"Content-disposition": `attachment;filename=${exportName}`,
+			"Content-Length": body.length,
+		});
 		res.end(body);
 	});
 
 	app.listen(3000, () => {
-		console.log(`\n\n--------------------==~==~==~==[ STARTING STREAM DEMO... ]==~==~==~==--------------------\n`);
-		console.log(`* ts-pptx ver: ${pptx.version}`);
-		console.log(`* save location: ${process.cwd()}`);
-		console.log(`\n`);
-		console.log("TsPptx Node Stream Demo app listening on port 3000!");
-		console.log("Visit: http://localhost:3000/");
-		console.log(`\n`);
-		console.log("(press Ctrl-C to quit demo)");
+		console.log(`ts-pptx ${pptx.version} — stream demo listening on http://localhost:3000/`);
+		console.log("Visit it to download the generated deck. Ctrl-C to quit.");
 	});
 } catch (err) {
-	console.log("ERROR: " + err);
-	console.log(`\n--------------------==~==~==~==[ ... STREAM DEMO COMPLETE ]==~==~==~==--------------------\n\n`);
+	console.error(`stream demo failed: ${err}`);
+	process.exitCode = 1;
 }

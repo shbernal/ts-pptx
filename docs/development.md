@@ -270,9 +270,18 @@ The demos are showcases, not tests. Nothing under `demos/` gates a commit, and n
 verification aggregate runs them — the published-package contract is covered by
 `check:package` alone (see [Package Boundary Changes](#package-boundary-changes)).
 
-Run them directly from their workspace:
+Build the two showcase decks:
 
 ```bash
-pnpm --dir demos/node run demo
-pnpm --dir demos/vite-demo run build
+pnpm demos:build                    # both
+pnpm demos:build quarterly-review   # one, by slug
 ```
+
+The other two workspaces run from their own directory:
+
+```bash
+pnpm --dir demos/node run demo-stream   # streams a deck over HTTP
+pnpm --dir demos/vite-demo run dev      # the same review deck, built in a browser
+```
+
+See [demos/README.md](../demos/README.md) for what each one is for.

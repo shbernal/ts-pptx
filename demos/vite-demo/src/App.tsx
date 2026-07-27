@@ -1,160 +1,113 @@
-import TsPptx, { ChartType } from "@shbernal/ts-pptx";
-import { testMainMethods, testTableMethod } from "./tstest/Test";
-import { demoCode } from "./enums";
-import logo from "./assets/logo.png";
-import './scss/styles.scss';
+import { useState } from 'react'
+import { build, showcase } from 'ts-pptx-demos-showcases/quarterly-review'
+import { DECK_SOURCE } from './enums'
+import logo from './assets/logo.png'
+import './scss/styles.scss'
 
+/**
+ * The browser showcase.
+ *
+ * It builds the *same* deck as `pnpm demos:build quarterly-review` — same module, same
+ * eleven slides — in the browser, with no server involved. That is the point of the demo:
+ * the deck code is not written twice, and nothing in it knows which runtime it is on.
+ *
+ * The Field Notes showcase is deliberately not offered here. It loads photographs and a
+ * video from disk by path, which a browser cannot do without those assets being served.
+ */
 function App() {
-	function runDemo() {
-		const pptx = new TsPptx();
-		const slide = pptx.addSlide();
+	const [state, setState] = useState<'idle' | 'building' | 'done' | 'error'>('idle')
+	const [message, setMessage] = useState('')
 
-		const dataChartRadar = [
-			{
-				name: "Region 1",
-				labels: ["May", "June", "July", "August", "September"],
-				values: [26, 53, 100, 75, 41],
-			},
-		];
-		//slide.addChart(dataChartRadar, { type: ChartType.radar, x: 0.36, y: 2.25, w: 4.0, h: 4.0, radarStyle: "radar" });
-
-		//slide.addShape(ShapeType.rect, { x: 4.36, y: 2.36, w: 5, h: 2.5, fill: SchemeColor.background2 });
-
-		//slide.addText("React Demo!", { x: 1, y: 1, w: "80%", h: 1, fontSize: 36, fill: "eeeeee", align: "center" });
-		slide.addText("React Demo!", {
-			x: 1,
-			y: 0.5,
-			w: "80%",
-			h: 1,
-			fontSize: 36,
-			align: "center",
-			fill: { color: "D3E3F3" },
-			color: "008899",
-		});
-
-		slide.addChart(dataChartRadar, { type: ChartType.radar, x: 1, y: 1.9, w: 8, h: 3 });
-
-		slide.addText(`ts-pptx version: ${pptx.version}`, {
-			x: 0,
-			y: 5.3,
-			w: "100%",
-			h: 0.33,
-			fontSize: 10,
-			align: "center",
-			fill: { color: "E1E1E1" }, //{ color: SchemeColor.background2 },
-			color: "A1A1A1", // SchemeColor.accent3,
-		});
-
-		pptx.writeFile({ fileName: "ts-pptx-demo-react.pptx" });
+	async function generate() {
+		setState('building')
+		setMessage('')
+		try {
+			// In the browser `writeFile` triggers a download rather than writing to disk,
+			// so the file name is all the "path" this needs.
+			await build(showcase.fileName)
+			setState('done')
+		} catch (err) {
+			setState('error')
+			setMessage(err instanceof Error ? err.message : String(err))
+		}
 	}
 
-	const htmlNav = () => {
-		return <nav className="navbar navbar-expand-lg bg-primary" data-bs-theme="dark">
+	const htmlNav = () => (
+		<nav className="navbar navbar-expand-lg bg-primary" data-bs-theme="dark">
 			<div className="container-fluid">
 				<a className="navbar-brand" href="https://github.com/shbernal/ts-pptx">
 					<img src={logo} alt="logo" width="30" height="30" className="d-inline-block align-text-center me-2" />
-					TsPptx
+					ts-pptx
 				</a>
-				<button className="navbar-toggler" type="button"
-					data-bs-toggle="collapse"
-					data-bs-target="#navbarText"
-					aria-controls="navbarText"
-					aria-expanded="false"
-					aria-label="Toggle navigation"
-				>
-					<span className="navbar-toggler-icon"></span>
-				</button>
-				<div className="collapse navbar-collapse" id="navbarText">
-					<ul className="navbar-nav me-auto mb-2 mb-lg-0">
-						<li className="nav-item">
-							<a className="nav-link active" aria-current="page" href="https://github.com/shbernal/ts-pptx">
-								Vite+React Demo Home
-							</a>
-						</li>
-					</ul>
-					<div className="hstack gap-1">
-						<button type="button" className="btn btn-primary" title="Releases" onClick={() => "window.open('https://github.com/shbernal/ts-pptx/releases')"}>
-							<i className="bi bi-box-arrow-up-right me-2"></i>Latest Release
-						</button>
-						<button type="button" className="btn btn-primary" title="Docs" onClick={() => "window.open('https://github.com/shbernal/ts-pptx#readme')"}>
-							<i className="bi bi-box-arrow-up-right me-2"></i>Docs
-						</button>
-						<div className="vr my-2 mx-2"></div>
-						<button type="button" className="btn btn-primary" title="Homepage" onClick={() => "window.open('https://github.com/shbernal/ts-pptx')"}>
-							<i className="bi bi-mastodon"></i>
-						</button>
-						<button type="button" className="btn btn-primary" title="GitHub" onClick={() => "window.open('https://github.com/shbernal/ts-pptx')"}>
-							<i className="bi bi-github"></i>
-						</button>
-					</div>
+				<div className="hstack gap-2 ms-auto">
+					<a className="btn btn-outline-light btn-sm" href="https://github.com/shbernal/ts-pptx#readme">
+						Docs
+					</a>
+					<a className="btn btn-outline-light btn-sm" href="https://github.com/shbernal/ts-pptx/releases">
+						Releases
+					</a>
+					<a className="btn btn-outline-light btn-sm" href="https://github.com/shbernal/ts-pptx">
+						GitHub
+					</a>
 				</div>
 			</div>
 		</nav>
+	)
+
+	const htmlStatus = () => {
+		if (state === 'done') {
+			return (
+				<div className="alert alert-success mb-0" role="status">
+					Built <code>{showcase.fileName}</code> — check your downloads.
+				</div>
+			)
+		}
+		if (state === 'error') {
+			return (
+				<div className="alert alert-danger mb-0" role="alert">
+					{message}
+				</div>
+			)
+		}
+		return null
 	}
 
-	const htmlMain = () => {
-		return <main className="container my-5">
+	const htmlMain = () => (
+		<main className="container my-5">
 			<div className="card">
 				<div className="card-header">
-					<h1 className="display-4">Module Demo</h1>
-					<div className="lead text-primary-emphasis">
-						Sample React+TypeScript+Vite application demonstrating the TsPptx library as a module.
-					</div>
+					<h1 className="display-5">{showcase.title}</h1>
+					<div className="lead text-primary-emphasis">{showcase.description}</div>
 				</div>
 				<div className="card-body">
-					<h5 className="text-info">Demo Code (.tsx)</h5>
-					<pre className="bg-black mt-3">
-						<code className="language-javascript" style={{ fontSize: "0.75rem" }}>{demoCode}</code>
+					<p>
+						This React + TypeScript + Vite app imports the showcase deck module directly and builds it in the
+						browser. No server, no round trip — the <code>.pptx</code> is assembled in the tab and handed to
+						the download manager.
+					</p>
+					<h5 className="text-info mt-4">How the page calls it</h5>
+					<pre className="bg-black mt-3 p-3 rounded">
+						<code className="language-typescript" style={{ fontSize: '0.8rem' }}>
+							{DECK_SOURCE}
+						</code>
 					</pre>
-					<table id="html2ppt" className="table table-dark d-none">
-						<thead className="table-dark">
-							<tr>
-								<th>col 1</th>
-								<th>col 2</th>
-								<th>col 3</th>
-							</tr>
-						</thead>
-						<tbody>
-							<tr>
-								<td>cell 1</td>
-								<td>cell 2</td>
-								<td>cell 3</td>
-							</tr>
-						</tbody>
-					</table>
 				</div>
-				<div className="card-footer p-3">
-					<div className="row row-cols-1 row-cols-md-3 g-4">
-						<div className="col">
-							<button type="button" className="btn btn-success w-100" onClick={() => runDemo()}>
-								<h2>Run Test 1</h2>
-								Demo Code
-							</button>
-						</div>
-						<div className="col">
-							<button type="button" className="btn btn-primary w-100" onClick={() => testMainMethods()}>
-								<h2>Run Test 2</h2>
-								Misc Objects
-							</button>
-						</div>
-						<div className="col">
-							<button type="button" className="btn btn-primary w-100" onClick={() => testTableMethod()}>
-								<h2>Run Test 3</h2>
-								Table-to-Slides
-							</button>
-						</div>
-					</div>
+				<div className="card-footer p-3 d-grid gap-3">
+					<button type="button" className="btn btn-success btn-lg" onClick={generate} disabled={state === 'building'}>
+						{state === 'building' ? 'Building…' : `Build ${showcase.fileName}`}
+					</button>
+					{htmlStatus()}
 				</div>
 			</div>
 		</main>
-	}
+	)
 
 	return (
 		<section>
 			{htmlNav()}
 			{htmlMain()}
 		</section>
-	);
+	)
 }
 
 export default App

@@ -7,12 +7,9 @@
 		"url": "https://github.com/shbernal/"
 	},
 	"type": "module",
-	"description": "Create PowerPoint Presentations with JavaScript",
+	"description": "Streaming a generated deck from a Node HTTP server",
 	"homepage": "https://github.com/shbernal/ts-pptx#readme",
 	"scripts": {
-		"demo": "node demo.js",
-		"demo-all": "node demo.js All",
-		"demo-text": "node demo.js Text",
 		"demo-stream": "node demo_stream.js"
 	},
 	"repository": {

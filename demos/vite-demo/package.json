@@ -13,6 +13,7 @@
 		"@popperjs/core": "^2.11.8",
 		"bootstrap": "^5.3.8",
 		"@shbernal/ts-pptx": "workspace:*",
+		"ts-pptx-demos-showcases": "workspace:*",
 		"react": "^19.2.7",
 		"react-dom": "^19.2.7"
 	},

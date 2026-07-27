@@ -1,47 +1,24 @@
-# Node.js Demo
+# Node stream demo
 
-This demo exercises the maintained Node.js package target: ESM usage on
-Node.js `>=24`.
+Generating a deck per request and streaming it straight to an HTTP response — no temp file,
+nothing to clean up.
 
-## Run From The Repository
+The showcase decks in [`../showcases`](../showcases/README.md) all end in `writeFile()`.
+This one uses `pptx.stream()` instead, which is the shape a server actually needs.
 
-Install dependencies at the repository root:
-
-```bash
-pnpm install
-```
-
-Run a focused text demo:
+## Run it
 
 ```bash
-pnpm --dir demos/node run demo-text
-```
-
-Run the default demo:
-
-```bash
-pnpm --dir demos/node run demo
-```
-
-Run all demo objects:
-
-```bash
-pnpm --dir demos/node run demo-all
-```
-
-Generated decks are written to `demos/node/output/`. The output directory is
-ignored by git, and each demo command overwrites its previous `.pptx`.
-
-Run the stream demo:
-
-```bash
+pnpm install                            # once, at the repository root
 pnpm --dir demos/node run demo-stream
 ```
 
-Then visit `http://localhost:3000/` in a browser to download the streamed
-presentation.
+Then visit `http://localhost:3000/` to download the generated deck. Ctrl-C to stop.
+
+Express is here only to have a server to attach the response to; it is not a ts-pptx
+dependency.
 
 ## Notes
 
-- This demo is ESM-only.
-- CommonJS `require("@shbernal/ts-pptx")` is not supported.
+- ESM only. `require("@shbernal/ts-pptx")` is not supported.
+- This is a showcase, not a test. Nothing here gates a commit.

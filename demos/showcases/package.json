@@ -1,0 +1,19 @@
+{
+	"name": "ts-pptx-demos-showcases",
+	"private": true,
+	"version": "1.0.0",
+	"type": "module",
+	"description": "Flagship showcase decks built with ts-pptx",
+	"exports": {
+		"./quarterly-review": {
+			"types": "./quarterly-review/index.d.ts",
+			"default": "./quarterly-review/index.mjs"
+		}
+	},
+	"scripts": {
+		"build": "node build.mjs"
+	},
+	"dependencies": {
+		"@shbernal/ts-pptx": "workspace:*"
+	}
+}
