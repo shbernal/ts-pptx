@@ -136,6 +136,96 @@ async function deckEmptyBgRefIdxZero() {
 	return zip.generateAsync({ type: 'uint8array' })
 }
 
+/**
+ * empty.pptx with its master `p:bgRef` set to exactly 1000 — the first index of
+ * the `bgFillStyleLst` range, which offsets by 1000 and so selects entry 0 of a
+ * 1-based list. Legal `unsignedInt`; resolves to nothing. Returns package bytes.
+ */
+async function deckEmptyBgRefIdx1000() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('empty')))
+	const master = (await zip.file('ppt/slideMasters/slideMaster1.xml').async('string')).replace(
+		'<p:bgRef idx="1001">',
+		'<p:bgRef idx="1000">'
+	)
+	zip.file('ppt/slideMasters/slideMaster1.xml', master)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
+/** mixed.pptx with every slide5 `a:lnRef` zeroed — the "no line from the style matrix" ref PowerPoint writes constantly. Returns package bytes. */
+async function deckMixedLnRefIdxZero() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+	const slide = (await zip.file('ppt/slides/slide5.xml').async('string')).replace(
+		/<a:lnRef idx="\d+"/g,
+		'<a:lnRef idx="0"'
+	)
+	zip.file('ppt/slides/slide5.xml', slide)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
+/**
+ * mixed.pptx with every slide5 `a:lnRef`/`a:effectRef` pointed past the end of the
+ * theme's three-entry `lnStyleLst`/`effectStyleLst`. `@idx` is an unbounded
+ * `unsignedInt`, so this is legal input that simply resolves to nothing.
+ * Returns package bytes.
+ */
+async function deckMixedStyleRefOutOfRange() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+	const slide = (await zip.file('ppt/slides/slide5.xml').async('string'))
+		.replace(/<a:lnRef idx="\d+"/g, '<a:lnRef idx="9"')
+		.replace(/<a:effectRef idx="\d+"/g, '<a:effectRef idx="9"')
+	zip.file('ppt/slides/slide5.xml', slide)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
+/**
+ * mixed.pptx with slide1's ctrTitle given a `phClr` fill of its own. `phClr` is a
+ * member of `ST_SchemeColorVal` like any other token, but it names "the colour
+ * this style-matrix entry is being filled with" — outside a `fmtScheme` entry
+ * there is nothing to substitute. Returns package bytes.
+ */
+async function deckMixedStraySchemePhClr() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+	const slide = (await zip.file('ppt/slides/slide1.xml').async('string')).replace(
+		'<p:spPr/>',
+		'<p:spPr><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></p:spPr>'
+	)
+	zip.file('ppt/slides/slide1.xml', slide)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
+/**
+ * mixed.pptx with theme1's first `fillStyleLst` entry turned into a two-stop
+ * gradient whose second stop is a *non*-`phClr` scheme colour. The stock Office
+ * themes happen never to do this, but nothing in `a:CT_StyleMatrix` forbids it —
+ * a style-matrix entry may pin part of its fill to a fixed scheme slot.
+ *
+ * Every slide5 shape carrying `a:fillRef idx="1"` also carries its own `spPr`
+ * fill, which wins outright, so one of them has that fill stripped — otherwise the
+ * entry is never materialized onto a shape at all. Returns package bytes.
+ */
+async function deckMixedFillStyleFixedSchemeStop() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+	const theme = (await zip.file('ppt/theme/theme1.xml').async('string')).replace(
+		'<a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill>',
+		'<a:fillStyleLst><a:gradFill rotWithShape="1"><a:gsLst>' +
+			'<a:gs pos="0"><a:schemeClr val="phClr"/></a:gs>' +
+			'<a:gs pos="100000"><a:schemeClr val="tx1"/></a:gs>' +
+			'</a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill>'
+	)
+	zip.file('ppt/theme/theme1.xml', theme)
+
+	const slide = (await zip.file('ppt/slides/slide5.xml').async('string')).replace(
+		'<a:off x="566555" y="2009998"/><a:ext cx="2160240" cy="1152128"/></a:xfrm>' +
+			'<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>' +
+			'<a:solidFill><a:schemeClr val="tx2"><a:lumMod val="20000"/><a:lumOff val="80000"/></a:schemeClr></a:solidFill>',
+		'<a:off x="566555" y="2009998"/><a:ext cx="2160240" cy="1152128"/></a:xfrm>' +
+			'<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'
+	)
+	zip.file('ppt/slides/slide5.xml', slide)
+
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
 /** mixed.pptx with slide1 given its own literal p:bg, so it is not the one inherited from the master. Returns package bytes. */
 async function deckMixedSlideOwnBackground() {
 	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
@@ -862,6 +952,92 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		)
 	})
 
+	test('a bgRef at exactly 1000 selects no bgFillStyleLst entry and falls back to a:noFill', async () => {
+		// The `bgFillStyleLst` range starts at 1000 and the list is 1-based, so idx=1000
+		// addresses entry 0 — one below the first. It resolves to nothing, the same as
+		// idx=0, rather than off-by-one'ing onto the first entry.
+		const source = await Presentation.load(await deckEmptyBgRefIdx1000())
+		const target = await open('empty')
+		const imported = target.importSlide(source, 0, { theme: 'preserve' })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		const bg = (xml.match(/<p:bg>[\s\S]*?<\/p:bg>/) ?? [''])[0]
+		assertEqual(bg, '<p:bg><p:bgPr><a:noFill/></p:bgPr></p:bg>', 'idx=1000 resolves to nothing, not to entry 1')
+	})
+
+	test('an unresolvable lnRef/effectRef materializes nothing and still neutralizes the ref', async () => {
+		// Two ways a style-matrix ref resolves to nothing on input PowerPoint accepts:
+		// `idx="0"` (constantly written — "no line from the matrix") and an `idx` past the
+		// end of the theme's three-entry lists (`@idx` is an unbounded unsignedInt). Both
+		// must leave `spPr` alone while the ref is still neutralized, so nothing re-resolves
+		// against the destination theme.
+		const baseline = await open('mixed')
+		baseline.importSlide(await open('mixed'), THEMED_SLIDE_INDEX, { theme: 'preserve' })
+		const baseXml = await slideXml(await baseline.save(), baseline.slides[baseline.slides.length - 1].partName)
+		const countLines = (xml) => (xml.match(/<a:ln[ >]/g) ?? []).length
+		assert(countLines(baseXml) > 0, 'precondition: the unmutated import materializes lines from the style matrix')
+
+		for (const [label, build] of [
+			['idx="0"', deckMixedLnRefIdxZero],
+			['idx past the end of the list', deckMixedStyleRefOutOfRange],
+		]) {
+			const target = await open('mixed')
+			const imported = target.importSlide(await Presentation.load(await build()), THEMED_SLIDE_INDEX, {
+				theme: 'preserve',
+			})
+			const xml = await slideXml(await target.save(), imported.partName)
+			assert(countLines(xml) < countLines(baseXml), `${label}: no line was materialized from the style matrix`)
+			assert(/<a:lnRef idx="0"\/>/.test(xml), `${label}: the lnRef is still neutralized`)
+			assert(!/<a:lnRef idx="[1-9]/.test(xml), `${label}: no lnRef survives with a resolvable idx`)
+		}
+
+		// The out-of-range effectRef lifts no effect children either.
+		const target = await open('mixed')
+		const imported = target.importSlide(
+			await Presentation.load(await deckMixedStyleRefOutOfRange()),
+			THEMED_SLIDE_INDEX,
+			{
+				theme: 'preserve',
+			}
+		)
+		const xml = await slideXml(await target.save(), imported.partName)
+		assert(!/<a:scene3d>/.test(xml) && !/<a:sp3d>/.test(xml), 'no effectStyle children were lifted into spPr')
+		assert(/<a:effectRef idx="0"\/>/.test(xml), 'the effectRef is still neutralized')
+	})
+
+	test('leaves a stray phClr symbolic instead of resolving it to a colour', async () => {
+		// `phClr` names "whatever colour this style-matrix entry is being filled with".
+		// Away from a fmtScheme entry there is no such colour, so it must survive the
+		// scheme-colour sweep untouched rather than resolve to some slot.
+		const source = await Presentation.load(await deckMixedStraySchemePhClr())
+		const target = await open('mixed')
+		const imported = target.importSlide(source, 0, { theme: 'preserve' })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		const sp = (xml.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?ctrTitle[\s\S]*?<\/p:sp>/) ?? [''])[0]
+		assert(/<a:solidFill><a:schemeClr val="phClr"\/><\/a:solidFill>/.test(sp), 'the stray phClr is left symbolic')
+	})
+
+	test('substitutes only phClr in a style-matrix entry, resolving its other scheme colours normally', async () => {
+		// A fmtScheme fill entry may pin part of itself to a fixed scheme slot alongside
+		// the `phClr` the ref supplies. The substitution must replace only the `phClr`;
+		// the fixed slot then flattens through the ordinary scheme-colour sweep.
+		const source = await Presentation.load(await deckMixedFillStyleFixedSchemeStop())
+		const target = await open('mixed')
+		const imported = target.importSlide(source, THEMED_SLIDE_INDEX, { theme: 'preserve' })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		assert(
+			/<a:gs pos="0"><a:srgbClr val="00E4A8"\/><\/a:gs>/.test(xml),
+			'the phClr stop took the fillRef colour (accent1 = 00E4A8)'
+		)
+		assert(
+			/<a:gs pos="100000"><a:srgbClr val="000000"\/><\/a:gs>/.test(xml),
+			'the fixed tx1 stop resolved through the clrMap to dk1 (000000), not to the ref colour'
+		)
+		assert(!/schemeClr/.test(xml), 'neither stop was left symbolic')
+	})
+
 	test('the default (no option) still copies the source theme subgraph', async () => {
 		const target = await open('mixed')
 		const source = await open('mixed')
@@ -909,6 +1085,11 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 			['two paragraphs at one level', deckMixedTwoParagraphsSameLevel],
 			['empty inheritance chain', deckMixedInheritsNothing],
 			['slide fixes its own run props', deckMixedSlideFixesRunProps],
+			['bgRef idx 1000', deckEmptyBgRefIdx1000],
+			['lnRef idx 0', deckMixedLnRefIdxZero],
+			['style refs past the end of the list', deckMixedStyleRefOutOfRange],
+			['stray phClr on a slide shape', deckMixedStraySchemePhClr],
+			['fmtScheme entry with a fixed scheme stop', deckMixedFillStyleFixedSchemeStop],
 		]) {
 			const errors = await validateBuf(Buffer.from(await build()))
 			assertEqual(errors.length, 0, `${name}: ${JSON.stringify(errors).slice(0, 2000)}`)
@@ -924,6 +1105,10 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 			target.importSlide(await Presentation.load(await deckMixedTwoParagraphsSameLevel()), 0, { theme: 'preserve' })
 			target.importSlide(await Presentation.load(await deckMixedInheritsNothing()), 0, { theme: 'preserve' })
 			target.importSlide(await Presentation.load(await deckMixedSlideFixesRunProps()), 0, { theme: 'preserve' })
+			target.importSlide(await Presentation.load(await deckMixedStraySchemePhClr()), 0, { theme: 'preserve' })
+			for (const build of [deckMixedLnRefIdxZero, deckMixedStyleRefOutOfRange, deckMixedFillStyleFixedSchemeStop]) {
+				target.importSlide(await Presentation.load(await build()), THEMED_SLIDE_INDEX, { theme: 'preserve' })
+			}
 			const errors = await validateBuf(Buffer.from(await target.save()))
 			assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 		}
