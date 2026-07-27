@@ -1069,10 +1069,10 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		const countLines = (xml) => (xml.match(/<a:ln[ >]/g) ?? []).length
 		assert(countLines(baseXml) > 0, 'precondition: the unmutated import materializes lines from the style matrix')
 
-		for (const [label, build] of [
-			['idx="0"', deckMixedLnRefIdxZero],
-			['idx past the end of the list', deckMixedStyleRefOutOfRange],
-		]) {
+		for (const [label, build] of Object.entries({
+			'idx="0"': deckMixedLnRefIdxZero,
+			'idx past the end of the list': deckMixedStyleRefOutOfRange,
+		})) {
 			const target = await open('mixed')
 			const imported = target.importSlide(await Presentation.load(await build()), THEMED_SLIDE_INDEX, {
 				theme: 'preserve',
@@ -1216,28 +1216,31 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 	// validator is what turns that claim into a check: a variant it rejects belongs
 	// in the header note as impossible input, not in a test.
 	test.skipIf(!validatorInstalled)('the spliced placeholder-chain sources are themselves schema-valid', async () => {
-		const cases = [
-			['no placeholder text body', deckMixedPlaceholderNoTxBody],
-			['no layout placeholder text body', deckMixedLayoutPlaceholderNoTxBody],
-			['two paragraphs at one level', deckMixedTwoParagraphsSameLevel],
-			['empty inheritance chain', deckMixedInheritsNothing],
-			['slide fixes its own run props', deckMixedSlideFixesRunProps],
-			['bgRef idx 1000', deckEmptyBgRefIdx1000],
-			['lnRef idx 0', deckMixedLnRefIdxZero],
-			['style refs past the end of the list', deckMixedStyleRefOutOfRange],
-			['stray phClr on a slide shape', deckMixedStraySchemePhClr],
-			['fmtScheme entry with a fixed scheme stop', deckMixedFillStyleFixedSchemeStop],
-			['slide with no slideLayout relationship', deckMixedSlideNoLayoutRel],
-			['clrScheme stated in preset colours', deckMixedUnreadableColorScheme],
-		]
+		const cases = Object.entries({
+			'no placeholder text body': deckMixedPlaceholderNoTxBody,
+			'no layout placeholder text body': deckMixedLayoutPlaceholderNoTxBody,
+			'two paragraphs at one level': deckMixedTwoParagraphsSameLevel,
+			'empty inheritance chain': deckMixedInheritsNothing,
+			'slide fixes its own run props': deckMixedSlideFixesRunProps,
+			'bgRef idx 1000': deckEmptyBgRefIdx1000,
+			'lnRef idx 0': deckMixedLnRefIdxZero,
+			'style refs past the end of the list': deckMixedStyleRefOutOfRange,
+			'stray phClr on a slide shape': deckMixedStraySchemePhClr,
+			'fmtScheme entry with a fixed scheme stop': deckMixedFillStyleFixedSchemeStop,
+			'slide with no slideLayout relationship': deckMixedSlideNoLayoutRel,
+			'clrScheme stated in preset colours': deckMixedUnreadableColorScheme,
+		})
 		// Each validateBuf spawns its own OOXMLValidatorCLI process, so running a dozen of
 		// them end to end spends the whole per-test budget queueing. Four at a time is the
 		// same ceiling vitest.config.ts sets for the schema suite.
 		for (let i = 0; i < cases.length; i += 4) {
 			const done = await Promise.all(
-				cases.slice(i, i + 4).map(async ([name, build]) => [name, await validateBuf(Buffer.from(await build()))])
+				cases.slice(i, i + 4).map(async ([name, build]) => ({
+					name,
+					errors: await validateBuf(Buffer.from(await build())),
+				}))
 			)
-			for (const [name, errors] of done) {
+			for (const { name, errors } of done) {
 				assertEqual(errors.length, 0, `${name}: ${JSON.stringify(errors).slice(0, 2000)}`)
 			}
 		}

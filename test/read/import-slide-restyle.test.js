@@ -428,10 +428,10 @@ describe("Presentation.importSlide({ theme: 'restyle', remapLiterals: true })", 
 	test.skipIf(!validatorInstalled)(
 		'the colliding-slot and preset-colour sources, and their imports, stay schema-valid',
 		async () => {
-			for (const [name, build] of [
-				['colliding slots/tokens', deckMixedCollidingSlotsAndTokens],
-				['preset-colour scheme', deckMixedUnreadableColorModels],
-			]) {
+			for (const [name, build] of Object.entries({
+				'colliding slots/tokens': deckMixedCollidingSlotsAndTokens,
+				'preset-colour scheme': deckMixedUnreadableColorModels,
+			})) {
 				const errors = await validateBuf(Buffer.from(await build()))
 				assertEqual(errors.length, 0, `${name} source: ${JSON.stringify(errors).slice(0, 2000)}`)
 			}

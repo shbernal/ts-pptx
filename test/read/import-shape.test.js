@@ -686,10 +686,7 @@ describe('Presentation.importShape({ rescale })', () => {
 		const orphan = target.importShape(target.slides[0], source.slides[0], 2, { theme: 'preserve' })
 		const title = target.importShape(target.slides[0], source.slides[0], 0, { theme: 'preserve' })
 
-		for (const [name, shape] of [
-			['orphan picture placeholder', orphan],
-			['ctrTitle', title],
-		]) {
+		for (const [name, shape] of Object.entries({ 'orphan picture placeholder': orphan, ctrTitle: title })) {
 			const el = shape.element_
 			assertEqual(
 				el.getElementsByTagNameNS(A_NS, 'lstStyle').length,
