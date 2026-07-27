@@ -390,7 +390,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Four aggregate checks**, replacing the practice of hand-composing four or
   five scripts per iteration. `verify` (~45s) is the three typechecks +
   `backlog:validate` + the whole test suite; `verify:full` (~65s) adds
-  `package:lint`, `test:package`, and `test:demos`. `check:static` and
+  `package:lint` and `test:package`. `check:static` and
   `check:package` are the two halves CI runs as separate jobs. `verify` and
   `verify:full` omit `lint`/`format:check` by design — the git hooks own those.
 - **A `dist/` freshness guard** (`scripts/ensure-dist.mjs`) that every test,
@@ -401,6 +401,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no longer a stale-`dist/` footgun to reason about.
 
 ### Changed
+
+- **`demos/` are showcases now, and nothing there is a test.** Two flagship decks
+  live in `demos/showcases/` and build with `pnpm demos:build [slug]` — a
+  corporate quarterly review (themed colour scheme, five masters, native
+  gradients, grouped KPI cards, three chart types, a styled table, speaker notes)
+  and an image-led photo essay (full-bleed photography, gradient scrims, a
+  duotone picture effect, an embedded video, a live hyperlink). They replace
+  `demos/modules/`, 7,100 lines of feature-enumerating builders that made a deck
+  nobody would show anyone.
+
+  The demo smoke test (`test:demos`, `test:demo:node`, `test:demo:vite`,
+  `scripts/demo-smoke.mjs`) is gone with it, and `check:package` and
+  `verify:full` no longer chain it. Its actual job — proving the built package
+  works for a consumer — belongs to `test:package`, which now imports all nine
+  export subpaths out of an installed tarball under both npm and pnpm and forces
+  the `browser` condition. One signal did not survive and is recorded as an
+  accepted gap in [testing](docs/testing.md#demos-are-not-tests): the Vite build
+  was the only check that put a real bundler in front of the package.
+
+  The review deck imports nothing from `node:`, so `demos/vite-demo` imports that
+  same module and builds the identical deck in a browser rather than keeping a
+  second copy of demo code.
 
 - **Breaking (internal constructors):** `ChartAxis`, `ChartSeries`, and
   `ChartExAxis` now take the owning chart part (respectively the owning `ChartEx`)
