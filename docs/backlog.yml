@@ -646,7 +646,7 @@ items:
     source: "gitbrent/PptxGenJS#964"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-11
+    last_reviewed: 2026-07-27
     status: deferred
     priority: p3
     target_area:
@@ -655,19 +655,34 @@ items:
     applies_to_current_project: yes
     non_target_reasons: []
     summary: Wanted autoPage to keep an overflowing HTML table row together on the next slide.
-    current_project_notes: >
-      Deferred (in scope, reduce scope before building). A keep-row-together
-      option complicates the line-splitting pagination for an edge case, and a row
-      taller than a full page is still unsolvable. Wait for a concrete report
-      before adding the option.
+    current_project_notes: |
+      Deferred (in scope, reduce scope before building). A keep-row-together option
+      complicates the line-splitting pagination for an edge case, and a row taller
+      than a full page is still unsolvable. Wait for a concrete report before adding
+      the option.
+
+      Re-reviewed 2026-07-27, still unimplemented and still correctly framed; only
+      the file references were stale. `src/gen-tables.ts` no longer exists — the
+      pagination engine now lives in `src/gen/table/autopage.ts`
+      (`getSlidesForTableRows`, line 218), with `parseTextToLines` (line 40) doing
+      the wrap measurement and the overflow decision at line 552.
+
+      One neighbouring mechanism HAS landed since this was filed and narrows what is
+      left: `colSpanDepths` / `hasActiveRowSpan` (autopage.ts:367, 422, 552, 642)
+      already suppresses a page break that would split a *rowspan group* across
+      slides. So the "do not break here" plumbing exists at exactly the overflow
+      site this option would hook — the remaining work is the opt-in flag plus a
+      policy for the unsolvable case (a single row taller than one page), not new
+      machinery. Reuse `hasActiveRowSpan`'s suppression point rather than adding a
+      second one.
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/gen-tables.ts:39
-        - src/gen-tables.ts:394
-        - src/gen-tables.ts:470
-        - src/gen-tables.ts:502
+        - src/gen/table/autopage.ts:218
+        - src/gen/table/autopage.ts:40
+        - src/gen/table/autopage.ts:552
+        - src/gen/table/autopage.ts:642
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
@@ -837,7 +852,7 @@ items:
     source: "gitbrent/PptxGenJS#585"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-20
+    last_reviewed: 2026-07-27
     status: deferred
     priority: p3
     target_area:
@@ -845,20 +860,30 @@ items:
     applies_to_current_project: partial
     non_target_reasons: []
     summary: Requested embedding PowerPoint 3D model assets.
-    current_project_notes: >
-      Current media support is audio, video, online video, and images; there is
-      no 3D model object, content type, relationship, or serializer path. This
-      is a large feature lane rather than a current repair or invalid-OOXML
-      signal.
+    current_project_notes: |
+      Current media support is audio, video, online video, and images; there is no
+      3D model object, content type, relationship, or serializer path. This is a
+      large feature lane rather than a current repair or invalid-OOXML signal.
+
+      Re-reviewed 2026-07-27: the assessment is unchanged and nothing was built, but
+      every file reference was stale. `src/core-interfaces.ts` is now a 44-line
+      re-export barrel and `src/gen-objects.ts` / `src/gen-xml.ts` no longer exist.
+      The gap is still visible in exactly three places, now split out:
+      `MediaType = 'audio' | 'online' | 'video'` (src/types/media.ts:12) is the
+      closed union a `model` member would have to join, `addMediaDefinition`
+      (src/gen/define/media.ts:20) is the define-side entry, and the `<p:pic>`
+      renderer plus its rel wiring (src/gen/slide/object.ts:435, :1371) is the
+      emitter. A 3D model is NOT a `p:pic` variant — it is a `p:graphicFrame` with
+      its own `model3d` part, content type and rel — so this stays a new lane rather
+      than an extension of the media path.
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/core-interfaces.ts:482
-        - src/core-interfaces.ts:595
-        - src/gen-objects.ts:533
-        - src/gen-objects.ts:551
-        - src/gen-xml.ts:801
+        - src/types/media.ts:12
+        - src/gen/define/media.ts:20
+        - src/gen/slide/object.ts:435
+        - src/gen/slide/object.ts:1371
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
@@ -1132,7 +1157,7 @@ items:
     source: fork:src/read/api/presentation.ts
     type: fork-internal-proposal
     first_seen: 2026-07-20
-    last_reviewed: 2026-07-20
+    last_reviewed: 2026-07-27
     status: deferred
     priority: p3
     target_area:
@@ -1140,7 +1165,7 @@ items:
     applies_to_current_project: unknown
     non_target_reasons: []
     summary: the part-copy and master-registry machinery is the last monolithic cluster in the Presentation class and needs an explicit import context to extract
-    current_project_notes: >
+    current_project_notes: |
       Left behind by the module split that took presentation.ts from 2475 to 1735 lines.
       A state-coupling map of all ~50 class members showed the class has only three
       genuinely private fields: #presentationPart (read solely by its own public getter),
@@ -1159,6 +1184,24 @@ items:
       live, and unlike the gen/ side it has no byte-identity gate to catch a mistake. Worth
       doing only alongside a deliberate look at whether that context wants to be its own
       type in the read model.
+
+      Re-measured 2026-07-27, and every structural claim above still holds — nothing
+      was extracted. Two numbers moved and one did not:
+        - The class is now 1934 lines, not 1735. The growth is feature work landing
+          ON this path (f8afc702 carry speaker notes through appendSlides, f2010539
+          presentation/slide tag decoding), which is the argument FOR the extraction
+          getting stronger, not a sign the split partly happened.
+        - The private-field count is unchanged and still exactly three
+          (presentation.ts:196 #presentationPart, :203 #importRegistry,
+          :208 #rescaledParts), so the coupling map the plan rests on is still valid.
+        - The cluster now spans lines 1676-1886: 162 lines of code, ~211 including its
+          doc comments (the "~218 lines" figure was comment-inclusive and is still
+          right within a few lines).
+      #copyPart's caller set is likewise unchanged -- the same seven methods
+      (importSlide:578, #carryNotes:659, #ensureNotesMaster:679,
+      #carryEmbeddedFonts:783, importSlideMasters:980+:985, #importSlideRebind:1498,
+      #carryRel:1598), plus its own recursion at :1720. The context object still has
+      to thread through all seven.
     constructs: []
     evidence:
       kinds:
@@ -1170,58 +1213,11 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: decide whether the import context is its own read-model type, then extract #copyPart and the master-registry helpers onto it
-  - id: fork-package-parts-public-api
-    source: fork:src/package/assemble.ts
-    type: fork-internal-proposal
-    first_seen: 2026-07-21
-    last_reviewed: 2026-07-21
-    status: target
-    priority: p2
-    target_area:
-      - package-boundary
-      - typescript-api
-    applies_to_current_project: yes
-    non_target_reasons: []
-    summary: expose a public "emit OOXML parts without zipping" API on the seam that the package-assembly extraction already created
-    current_project_notes: >
-      The package-assembly extraction (commit 67d0ff95) moved the whole write pipeline into
-      package/assemble.ts::writePackage(source, props), which builds every part via zip.add(...)
-      and then finishes with a single zip.generate(...). That is the seam a public "give me the
-      parts, I will zip/route them myself" API builds on: split writePackage into
-      buildPackageParts(source, props): Promise<PackagePart[]> plus a thin zipPackageParts(parts,
-      props), with writePackage = zip after build (behavior unchanged). The split itself is
-      mechanical; the reason it is filed separately from the extraction is that the *public shape*
-      is a real contract to design -- once exposed, the package's internal part layout and emission
-      order become observable API. Open questions to settle before building:
-        1. Return shape: an ordered Array<{ path; data; compression }> (NOT a Map) so emission
-           order is preserved -- the byte-identity refactor harness relies on that ordering.
-        2. data type: parts are currently a mix of XML strings and binary (store:true fonts,
-           base64-decoded media). Normalize to Uint8Array for a clean contract (forces eager XML
-           encoding) vs a tagged string|bytes union -- pick one and commit.
-        3. Entry point + props: a new ts-pptx method (toParts()?) parallel to write(); decide
-           which WriteProps still apply (compression is meaningless without zipping; onMediaError
-           still does), and whether the per-entry STORE-vs-DEFLATE hint is part of the public shape.
-        4. Stability promise: document that part paths + ordering are now observable API, since
-           that is the real cost of exposing this.
-      B3 in the refactor deliberately built only the internal seam and did not add this API,
-      because the contract deserves its own design pass -- this entry is that pass.
-    constructs: []
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files:
-        - src/package/assemble.ts
-        - src/pptxgen.ts
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: settle the four open contract questions (return shape, data type, entry point/props, stability promise), then split writePackage into buildPackageParts + zipPackageParts
   - id: fork-html-freefunction-subpath
     source: fork:src/browser.ts
     type: fork-internal-proposal
     first_seen: 2026-07-21
-    last_reviewed: 2026-07-21
+    last_reviewed: 2026-07-27
     status: deferred
     priority: p3
     target_area:
@@ -1254,10 +1250,10 @@ items:
       spec_refs: []
     next_action: revisit only on a concrete Node-side HTML-to-slides request; if built, keep it additive (method stays, free function added)
   - id: fork-chart-gridline-scheme-color
-    source: fork:src/gen/chart/chart-xml.ts
+    source: fork:src/gen/chart/chart-parts.ts
     type: fork-internal-proposal
     first_seen: 2026-07-20
-    last_reviewed: 2026-07-20
+    last_reviewed: 2026-07-27
     status: deferred
     priority: p3
     target_area:
@@ -1265,7 +1261,7 @@ items:
     applies_to_current_project: unknown
     non_target_reasons: []
     summary: chart gridline/serLines colors emit a bare a:srgbClr, so a scheme color name is not resolved
-    current_project_notes: >
+    current_project_notes: |
       createGridLineElement and createSerLinesElement build their color as
       `<a:srgbClr val="${opts.color || DEF_CHART_GRIDLINE.color}"/>` instead of routing
       through createColorElement (src/gen/drawingml/color.ts) the way every other color
@@ -1274,28 +1270,43 @@ items:
       `// should accept scheme colors` comment at this line, so the gap was known but
       unrecorded. Deferred rather than fixed inline: switching to createColorElement
       changes emitted bytes for scheme-color inputs and needs a fixture.
+
+      Re-verified 2026-07-27: still unfixed, and the defect is unchanged -- both
+      emitters still hand-build `voidEl('a:srgbClr', { val: ... })`
+      (chart-parts.ts:157 and :281). Only the location moved: commit 8d8827bd split
+      the chart writer, so both functions now live in `src/gen/chart/chart-parts.ts`
+      (createGridLineElement:145, createSerLinesElement:272), not chart-xml.ts, which
+      now holds only the callers. `source` and `evidence.local_files` updated to
+      match. Commit 0277225c routed the surrounding attributes through the element
+      builder but deliberately left the color as-is, and replaced the old bare
+      `// should accept scheme colors` comment with one naming this backlog id -- so
+      the in-code marker and this entry are now linked in both directions.
+      createSerLinesElement also gained `true` (PowerPoint-automatic `<c:serLines/>`)
+      and `style: 'none'` early returns since filing; neither reaches the color path,
+      so the fix and its fixture are unaffected.
     constructs: []
     evidence:
       kinds:
         - local-source-inspection
       local_files:
-        - src/gen/chart/chart-xml.ts
+        - src/gen/chart/chart-parts.ts:157
+        - src/gen/chart/chart-parts.ts:281
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
     next_action: route both gridline emitters through createColorElement behind a schema fixture asserting a scheme-color gridline
   - id: fork-write-side-branch-coverage
-    source: fork:src/gen-tables.ts
+    source: fork:src/media/content-type.ts
     type: fork-internal-proposal
     first_seen: 2026-07-18
-    last_reviewed: 2026-07-20
+    last_reviewed: 2026-07-27
     status: deferred
     priority: p3
     target_area: []
     applies_to_current_project: yes
     non_target_reasons: []
-    summary: Raise write-side branch coverage on the big emitters (gen-tables, gen-objects, measure-fit, text-fit) still below the branch gate
+    summary: Raise write-side branch coverage on the emitters still below the gate (media/content-type, gen/table/autopage, gen/define/*, measure-fit, text-fit)
     current_project_notes: |
       Carried over from the retired REPO-IMPROVEMENT-PLAN (its P6) after the read-side
       branch-coverage sweep landed (commits bbf8d3b4..106cc3fc) and the gate was
@@ -1330,17 +1341,52 @@ items:
       not a discrete deliverable: add branch tests, then bump the vitest.config.ts
       thresholds in lockstep (ratchet upward, never loosen). Nothing here changes
       emitted OOXML.
+
+      RE-MEASURED 2026-07-27 (full `pnpm run test:coverage`, 1834/1834 green).
+      Global moved 90.94/78.1/96.61/94.05 -> 91.9/79.11/98/94.65 against the
+      91/78/97/94 gate, so every axis is green but statements and lines have only
+      ~1pt and ~0.6pt of headroom. Per-file, the named targets barely moved -- the
+      global gain came from the new script/ subsystem landing well-tested, not from
+      this item being worked:
+        - src/gen/table/autopage.ts    72.6 -> 74.03 branch (79.2 stmt / 81.43 line)
+        - src/gen/define/comment.ts    61.8 -> 73.52
+        - src/gen/define/hyperlinks.ts 69.1 -> 72.13 (also 75% FUNCTIONS, the only
+          write-side file on its own below the 97% function gate)
+        - src/gen/define/chart.ts      72.1 -> 74.93
+        - src/gen/define/background.ts 71.4 -> 71.42 (unmoved)
+        - src/gen/define/text.ts       73.5 -> 74.6
+        - src/measure-fit.ts           67.1 -> 67.11 (unmoved, still the floor)
+        - src/text-fit.ts              70.7 -> 70.73 (unmoved)
+      The html-dom.ts bullet above is now RESOLVED and no longer needs its caveat:
+      vitest.config.ts excludes `dist/browser.js` / `dist/browser-*.js`, so the
+      browser-only chunk that file bundles into is out of the report entirely rather
+      than showing a misleading 0%. Dropped from evidence.local_files.
+
+      Worse surfaces this item never named, found in the same re-measure, and the
+      right place to spend the next effort:
+        - src/media/content-type.ts    38.29 branch / 41.37 stmt -- by a wide margin
+          the least-covered file in the package, and it decides part content types.
+        - src/gen/define/zoom.ts 63.63, preview-image.ts 62.85, plot-bubble.ts 60.86,
+          src/gen/drawingml/math.ts 60, src/gen/slide/comments.ts 64.28,
+          src/gen/pres/presentation-rels.ts 64.28, src/package/assemble.ts 68.18.
+        - src/gen/drawingml/color.ts 33.33 FUNCTIONS / 72.22 stmt, and
+          src/gen/drawingml/line.ts 65 stmt -- small files, cheap to lift.
+      Priority order for the next pass: content-type.ts first (worst, and on the
+      package-correctness path), then measure-fit/text-fit (unmoved floors), then the
+      drawingml stragglers (cheapest per point).
     evidence:
       kinds:
         - local-source-inspection
       local_files:
+        - src/media/content-type.ts
         - src/gen/table/autopage.ts
-        - src/gen/table/html-dom.ts
         - src/gen/define/comment.ts
         - src/gen/define/hyperlinks.ts
         - src/gen/define/chart.ts
         - src/gen/define/background.ts
         - src/gen/define/text.ts
+        - src/gen/drawingml/color.ts
+        - src/gen/drawingml/line.ts
         - src/measure-fit.ts
         - src/text-fit.ts
       schema_fixture: null
@@ -1349,343 +1395,6 @@ items:
       spec_refs: []
     next_action: add-write-side-branch-tests-and-ratchet-thresholds
 
-  - id: fork-theme-preserve-path-coverage
-    source: "fork:src/read/oxml/theme.ts"
-    type: fork-internal-proposal
-    first_seen: 2026-07-20
-    last_reviewed: 2026-07-20
-    status: deferred
-    priority: p3
-    target_area: []
-    applies_to_current_project: yes
-    non_target_reasons: []
-    summary: read-side branch coverage on theme.ts's importSlide(theme:'preserve') flatten path (materializeFill/Line/Effect, resolvePlaceholderRunColors/Geometry/BodyPr, background carry, neutralizeRef, bgRef) raised 76.47%->82.1%; a smaller genuine gap remains
-    current_project_notes: |
-      Carried over from the P6 coverage sweep (see the fork-write-side-branch-coverage
-      entry for the write-side half of the same plan). The read-side sweep landed
-      2026-07-18 (chart.ts, theme-context.ts, shapes.ts, slide.ts, text.ts, and most
-      of theme.ts all raised, rollup branch coverage 74.75->76.89, threshold ratcheted
-      in commit 8479a722) and closed out most of what was originally flagged as "the
-      genuine gap is read-side, not write-side" -- that framing is now stale for
-      everything except this one remaining path.
-
-      2026-07-20: added 9 new fixture-driven tests (JSZip-splice mutations of the
-      mixed/empty/multi-theme/layout-placeholder-bodypr fixtures, following the
-      existing pattern in import-slide-preserve.test.js/import-shape.test.js --
-      flattenSlide/flattenShape are not publicly exported, so the synthetic
-      hand-built-xmldom-tree technique used elsewhere in theme.ts's tests can't reach
-      them; only a real Presentation.importSlide/importShape call does). Covered:
-        - materializeBackground's bgRef idx<1000 (regular fillStyleLst, not
-          bgFillStyleLst) and idx=0/unresolved (a:noFill fallback) branches
-        - applyInheritedBackground's "no inherited background anywhere" branch, and
-          confirmed a slide-owned background is left alone
-        - materializeEffect's effectRef idx>0 branch end-to-end (effectLst + scene3d +
-          sp3d all lifted from the fmtScheme entry into spPr) -- previously every
-          mixed.pptx p:style effectRef was idx="0", so this whole function's non-trivial
-          path was dead in the suite
-        - resolvePlaceholderBodyPr's "shape already fixes its own anchor" branch
-        - resolvePlaceholderListStyle's "no existing a:lstStyle, insert fresh" branch
-          (previously only the "replace existing empty a:lstStyle" branch was hit)
-        - slideDefinesColor's "run already carries its own colour" branch
-        - resolvePlaceholderRunSizes across explicit paragraph lvl 0..4 (previously
-          only lvl 0 -- the implicit default -- was ever exercised)
-      Result: theme.ts branches 76.47%->82.1% (statements 88.68%->91.71%, lines
-      96.41%->98.97%), rollup branches 78.1%->78.41%. All 1400+ tests still green, no
-      threshold changes needed (comfortable headroom over the 76% gate already).
-
-      What's left (~73 branches, down from 96): a mix of (a) restyle-mode-only code
-      (remapLiteralColors/reverseClrScheme/reverseClrMap/restyleSlide) that this item
-      was never scoped to -- a separate concern from preserve; (b) malformed-XML
-      colour-model edges (srgbClr/sysClr with no resolvable val, an unmapped
-      schemeClr token) that would require hand-editing a fixture into schema-invalid
-      territory; and (c) several `!ctx.layoutRoot && !ctx.masterRoot` / `if (!root)
-      continue` guards (e.g. placeholderInheritedXfrm's layout-null-fall-to-master
-      skip) that look structurally unreachable through the public importSlide/
-      importShape entry points -- every real slide resolves to a layout+master, so
-      these are defensive-only. The anchor-getter's identical guard IS covered, but
-      only because theme-placeholder-chain.test.js constructs a synthetic ctx by hand
-      via the public TextFrame read-model class; there is no equivalent public
-      construction point for the flatten/mutate functions. Chasing (b)/(c) further is
-      low value; ongoing ratchet work, not a discrete deliverable.
-    constructs: []
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files:
-        - src/read/oxml/theme.ts
-        - test/read/import-slide-preserve.test.js
-        - test/read/import-shape.test.js
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: low-value remainder only (restyle-mode branches out of this item's scope, malformed-XML colour edges, defensive layoutRoot/masterRoot-null guards) -- not worth further fixture engineering unless priority changes
-  - id: dn-pptx-to-script
-    source: downstream
-    type: downstream-need
-    first_seen: 2026-07-26
-    last_reviewed: 2026-07-27
-    status: implemented
-    priority: p2
-    target_area:
-      - typescript-api
-      - package-boundary
-    applies_to_current_project: yes
-    non_target_reasons: []
-    summary: Emit TypeScript source from an existing .pptx that regenerates an equivalent deck through the public write API
-    current_project_notes: |
-      IMPLEMENTED 2026-07-27 as the `@shbernal/ts-pptx/script` subpath (`src/script.ts`,
-      `src/script/`). Both tiers ship. `readModelToIr(presentation)` returns the deck IR;
-      `printScript(ir)` prints the template-anchored tier and `printStandaloneScript(ir)`
-      the standalone one, each returning `{ code, assets, notes }` where `notes` is the
-      loss set that applies to THAT output rather than `DeckIr.fidelity`. `canonicalDeckIr`
-      + `diffDeckIr` and `pnpm run script:roundtrip [-- --tier a]` are the round-trip
-      check. User-facing documentation is `docs/reference/pptx-to-script.md`; the
-      subsystem's place in the codebase is in `docs/architecture.md`. Verified across the
-      41-fixture corpus: every fixture prints deterministically, executes, and round-trips
-      with 0 undeclared differences in both tiers.
-
-      TRANSITIONS LANDED 2026-07-27, closing the first of the three gaps below.
-      `SlideIr.transition` maps `p:transition` to a `TransitionProps` literal that both
-      printers emit as a property assignment (`slideN.transition = …`), covering speed,
-      exact `p14:dur`, `advClick`/`advTm` and the variant attributes, each omitted at its
-      OOXML default. `from-read/transition.ts` filters the type against a
-      `Record<TransitionType, true>` so the compiler polices the vocabulary in both
-      directions; a `p14`/`p15`/`p159` effect files a `slide.transition` note instead of
-      producing a script that does not compile. Verified against PowerPoint's own probed
-      158-row `entryEffectTable` (in `slide-transition.oracle.json`), whose 21 base
-      effects match the write union exactly. `CanonicalSlide.transition` was added so the
-      round trip actually checks the mapping — structurally, not as one opaque value, so
-      the sound note cannot excuse a wrong type. Sounds map in both forms; the embedded
-      start sound survives tier A only (see below). A write-path defect found on the way
-      was fixed rather than filed, because it is on this feature's own path: a
-      `data:audio/x-wav;…` sound produced a `.x-wav` media part
-      (`audioExtensionForSubtype`).
-
-      DELIBERATELY NOT BUILT, each a real gap rather than an oversight:
-        - Carrying an embedded transition sound across `appendSlides`, which is what makes
-          `slide.transitionSound` a template-anchored-only loss. The gap is in the append
-          path, not the converter: `extractSlides` does not surface a transition's audio
-          part (`registerTransitionSounds` belongs to the package-assembly path), so
-          `appendSlides` has nothing to reserve or wire and the emitter, finding no
-          `_sndRId`, writes no `p:sndAc` at all. A silent drop rather than a dangling
-          reference, which is the safe half of the failure. Closing it means an
-          `ExtractedSlide` descriptor plus a rel-wiring branch beside the chart and A/V
-          ones.
-        - `p15`/`p159` transitions are dropped correctly by the same namespace check that
-          covers the 19 `p14` effects, but neither prefix is in the read DOM's `OOXML_NS`
-          registry, so no test can author one to prove it end to end.
-        - The read-side fidelity backlog below (see THE UNMEASURED HALF) is untouched and
-          is still the binding constraint on both tiers: `lnRef` width/dash, bullet
-          font/size/startAt, `a:fillToRect`, `effectRef`, custGeom `gdLst`/`ahLst`/
-          `cxnLst`, `a:tabLst`, `a:prstTxWarp`, plus `p:txStyles` and master/layout
-          decoration. Not filed as separate entries: the corpus is construct-weighted, so
-          their ordering would be a coverage argument and not a frequency one.
-        - A frequency-weighted corpus (`pptx-bank/`) is still empty and still needs the
-          maintainer, so every count in the shipped documentation is coverage, not
-          frequency. `--dir` is wired on both measurement scripts for the day real decks
-          land.
-      One defect found on the way was filed rather than fixed, because it changes emitted
-      bytes for existing callers: `dn-xml-attr-whitespace`.
-
-      The design rationale below is the record of the decisions, kept because the plan
-      file that held it is gone.
-
-      The generic need: a consumer holding a `.pptx` wants runnable TypeScript that
-      rebuilds an equivalent deck through this library's public write API — so the deck
-      becomes editable, diffable, and parameterizable source instead of an opaque binary.
-      The read model can already open and inspect such a deck; nothing turns that
-      inspection back into authoring calls.
-
-      Lossy by construction and by agreement. The library does not cover every OOXML
-      construct, so the deliverable is "a faithful script plus an honest account of what
-      it dropped", never "a perfect copy". The design decisions below are recorded so
-      they are not re-derived.
-
-      TWO TIERS, ONE INTERMEDIATE REPRESENTATION, TWO PRINTERS. Slide *bodies* map near
-      one-to-one from read model to write-API option objects. Slide *chrome* does not,
-      and that asymmetry is what forces the split:
-        - `ThemeProps` exposes 12 clrScheme slots + 6 font faces. A real theme part also
-          carries `<a:fmtScheme>` (3 fill / 3 line / 3 effect / 3 bg-fill styles) and
-          nothing on the write path sets it. Any source shape whose look comes from
-          `<p:style>` -> fmtScheme references must therefore be flattened to explicit
-          fill/line/effect props.
-        - `SlideMasterProps.textStyles` are deck-wide and last-wins, because a generated
-          deck has a single shared master. A source deck with multiple masters has no
-          structural counterpart.
-      Hence tier B (template-anchored) rides `Presentation.fromTemplate` +
-      `appendSlides`, keeping the source deck's masters/layouts/theme byte-identical and
-      re-authoring only slide bodies; the emitted script carries the source deck as a
-      binary asset. Tier A (standalone) emits `new TsPptx()` + `defineSlideMaster` and
-      depends on this package alone, approximating chrome and collapsing multi-master
-      decks. Tier B ships first: it rides primitives that already exist and are tested.
-
-      ARCHITECTURE: read model -> deck IR -> printed text. Never read model -> text
-      directly. The IR is serializable, holds no read-model object references and no DOM,
-      and is roughly `{ deck, slides: [{ layout, background, calls: [{ method, args }] }] }`
-      with `args` as literal write-API option objects. Every dropped or approximated
-      construct appends a fidelity note to the IR (`{ slideNumber, shapeName, construct,
-      disposition: dropped | flattened | approximated, detail }`) rather than warning to
-      the log. That makes the round-trip oracle a *projection diff*: a noted field is
-      contractually excluded from the diff, so a surprise diff on an un-noted field is a
-      real bug. Byte identity is explicitly not the oracle.
-
-      MEDIA: extracted to files by default (`./assets/image1.png`), with an opt-in for
-      inlining on tiny decks/fixtures. The emitter returns `{ code, assets }`.
-
-      TIER B's LOSS LIST (measured 2026-07-26, not assumed — an earlier version of this
-      list was copied from a doc comment and two of its five items were already stale):
-        1. No placeholder inheritance, but the loss is SEMANTIC, not visual. A source
-           placeholder's geometry is reproduced exactly, because the write path emits
-           `<p:ph>` and an explicit `<a:xfrm>` together — placeholder identity and
-           geometry were never alternatives. What degrades is the application's
-           recognition of the shape as a specific layout placeholder (outline view,
-           "Reset Slide", accessibility checker), plus inherited geometry now being
-           frozen. `PlaceholderType` covers 6 of the 16 `ST_PlaceholderType` values and
-           an unrecognised one degrades to an untyped `<p:ph>`; there is no public setter
-           for `idx`.
-        2. Colours split 10/7, they are not uniformly flattened. The write path accepts
-           `ThemeColor`, and in tier B destination theme == source theme by construction,
-           so the 10 clrMap-mapped tokens (tx1 tx2 bg1 bg2 accent1..6) pass straight
-           through as `schemeClr` — equivalent AND theme-responsive. The other 7
-           `ST_SchemeColorVal` tokens (dk1 lt1 dk2 lt2 hlink folHlink phClr) are not
-           accepted and are silently repainted 000000, so those must be resolved to hex
-           against the theme, each with a fidelity note. Tier A flattens all 17.
-        3. Speaker notes: no longer a loss. `addNotes` content now rides across as a real
-           notesSlide part, with a notes master installed when the destination lacks one.
-        4. Embedded and online A/V: no longer a loss (see dn-append-av-media below).
-        5. Slide sizes must match — trivially true, same deck.
-      Charts are carried across wholesale (chart XML + rels + embedded workbook injected
-      under fresh names), which makes "pass the chart part through" both cheaper and
-      higher-fidelity than transcribing `addChart` calls in tier B. Internal `slide:N`
-      hyperlinks are repointed, and throw if the target is outside the appended batch.
-
-      GEOMETRY PRECISION is settled, not a printer judgement call. `Coord`-typed options
-      accept raw `"<n>emu"` and reach `a:off`/`a:ext` unrounded, so the printer emits EMU
-      verbatim everywhere except `colW`/`rowH`/`margin`, which are typed inches. Those
-      are NOT a precision loss: EMU -> inches -> EMU is the identity at full double
-      precision. The loss appears only if the printed decimal is truncated, and 6 decimal
-      places is the provable minimum (a 6-decimal round shifts the value by <= 0.4572
-      EMU, inside the half-EMU bound; at 5 decimals the bound is 4.572 EMU and the
-      round-trip fails for most values). Rounding below 6 to suppress cosmetic
-      `0.5000000001` noise would be a real geometry loss.
-
-      RELATED LEDGER ENTRIES, both since implemented and pruned, so neither blocks this:
-      `dn-append-av-media` (embedded then online A/V across the append path) and
-      `dn-freeform-arcto`. The latter is the closest prior art — its resolution removed a
-      phantom arc end point that OOXML does not carry, specifically so a read -> write
-      converter maps `arcTo` one-to-one with no solver and no invented data.
-
-      THE UNMEASURED HALF is the read side, and it is the actual risk. A write-API gap is
-      visible loss — a converter sees the construct and can report it. A read-API gap is
-      invisible: nothing upstream knows the element was there, so a round-trip diff comes
-      back clean and certifies a deck it never inspected. A census over the fixture corpus
-      found 18 element qnames whose namespace appears nowhere in the read path (hence
-      unreachable by any accessor without a source change) and 53 more that no accessor
-      names. Concretely: bullet font/colour/size are unread (only the glyph is read),
-      custGeom guides / adjust handles / connection sites are unread, and OMML math is
-      unreachable. Note the corpus is construct-targeted, so it measures COVERAGE, not
-      frequency — it cannot rank what to fix first.
-    evidence:
-      kinds:
-        - local-source-inspection
-        - regression-test
-      local_files:
-        - src/script.ts
-        - src/script/ir.ts
-        - src/script/fidelity.ts
-        - src/script/from-read/transition.ts
-        - src/script/print/script.ts
-        - src/script/print/standalone.ts
-        - src/script/verify/canonical.ts
-        - src/script/verify/diff.ts
-        - scripts/script-roundtrip.mjs
-        - docs/reference/pptx-to-script.md
-        - test/read/script-ir.test.js
-        - test/read/script-roundtrip.test.js
-        - test/read/script-standalone.test.js
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-  - id: dn-xml-attr-whitespace
-    source: downstream
-    type: downstream-need
-    first_seen: 2026-07-27
-    last_reviewed: 2026-07-27
-    status: implemented
-    priority: p2
-    target_area:
-      - typescript-api
-    applies_to_current_project: yes
-    non_target_reasons: []
-    summary: A tab, CR or LF inside a value written to an XML attribute (layout title, objectName, altText, section title) is emitted literally and normalised to a space on read
-    current_project_notes: |
-      IMPLEMENTED. XML 1.0 section 3.3.3 normalises a literal tab, carriage return or line feed
-      inside an attribute value to a single space before any consumer sees it; carrying one
-      across requires a character reference (&#9;, &#13;, &#10;). `encodeXmlEntities`
-      (src/gen-utils.ts) escapes &, <, >, " and ' and strips illegal control characters, but
-      passed tab/CR/LF through literally, so any caller-supplied string that landed in an
-      attribute came back with its line breaks turned into spaces.
-
-      The fix is `encodeXmlAttrValue` (src/gen-utils.ts), layered over `encodeXmlEntities` and
-      used by the attribute-emitting paths ONLY. It was deliberately not a widening of
-      `encodeXmlEntities`, which also escapes element *text*, where a literal newline is
-      meaningful content: escaping there would be a broad byte change across every text-bearing
-      part, which the byte-identity gate treats as a stop rather than a cleanup.
-
-      Where it is wired:
-        - `openTag()` in src/gen/oxml/el.ts — one change covering every attribute emitted
-          through the element builder (p14:section/@name, a:hlinkClick/@tooltip,
-          p:cmAuthor/@name and @initials, tableColumn/@name in the embedded xlsx, ...).
-        - `cNvPrOpen` (@descr) and `p:cSld/@name` in src/gen/slide/object.ts, which build
-          attributes with template strings rather than the builder.
-        - The ten `objectName` pre-escape sites in src/gen/define/*.ts. `objectName` is escaped
-          once upstream at define time and emitted raw by `cNvPrOpen`, so the escaper had to
-          change there rather than at emission — and with it the two lookup keys that compare
-          against the STORED escaped name (connector.ts `resolveCxn`) or against emitted bytes
-          (the media rel-target probe in object.ts), which silently drift otherwise.
-        - `escapeXmlAttribute` in src/read/oxml/dom.ts, the read side's counterpart helper
-          (content types and relationships), which had the same defect.
-
-      Gates: byte-identical across all 1637 parts of the demo deck (the change is inert for any
-      deck without those characters); schema fixture `dn-xml-attr-whitespace` in
-      test/schema-cases.js, which also sweeps every attribute of every XML part in the package
-      for a surviving literal tab/CR/LF; write→read fidelity in
-      test/read/attr-whitespace-roundtrip.test.js, asserted through a real parser rather than a
-      byte match, because the defect is exactly that the bytes look fine and the parse loses.
-
-      Real-world reach is narrow but not theoretical: PowerPoint's own built-in German layout
-      set contains a layout named across two lines ("Abschnitts-<LF>uberschrift"), so a deck
-      created from it already exercises the case.
-
-      ADJACENT DEFECT FOUND, NOT FIXED HERE (filed as dn-animation-objectname-escaping): the
-      same store-escaped/compare-escaped design means `addAnimation({ objectName })` compares a
-      RAW caller string against the stored escaped name, so an animation targeting a shape whose
-      name contains `&`, `<` or `"` is silently dropped today. Pre-existing and independent of
-      this change.
-    evidence:
-      kinds:
-        - local-source-inspection
-        - ooxml-reference
-        - regression-test
-        - schema-fixture
-        - validator-result
-      local_files:
-        - src/gen-utils.ts
-        - src/gen/oxml/el.ts
-        - src/gen/slide/object.ts
-        - src/gen/define/connector.ts
-        - src/read/oxml/dom.ts
-        - test/read/attr-whitespace-roundtrip.test.js
-        - test/schema-cases.js
-      schema_fixture: "test/schema-cases.js: dn-xml-attr-whitespace: tab/CR/LF in attribute values emit as character references"
-      validator_result: pass (135/135 schema cases, OOXMLValidatorCLI reports zero errors)
-      powerpoint_result: null
-      spec_refs:
-        - ECMA-376 Part 1 (XML 1.0 section 3.3.3, attribute-value normalisation)
-    next_action: none
   - id: dn-animation-objectname-escaping
     source: downstream
     type: downstream-need
@@ -1714,7 +1423,15 @@ items:
       Confirmed repro: a rect with `objectName: 'Q&A'` plus `addAnimation({ preset: 'fadeIn',
       objectName: 'Q&A' })` emits no `<p:anim>` and warns `no object named "Q&A" on the slide`;
       the same deck with `objectName: 'QandA'` emits the animation. Pre-existing and independent
-      of dn-xml-attr-whitespace (which changed WHICH escaper is used, not this mismatch).
+      of the attribute-whitespace escaping fix (commit 914af6da, ex-`dn-xml-attr-whitespace`,
+      pruned from this ledger once implemented), which changed WHICH escaper is used, not this
+      mismatch.
+
+      Re-verified 2026-07-27, still unfixed: `resolveObjectNameToId`
+      (src/gen/slide/shape-ids.ts:59-61) is still a plain `===` against the stored
+      escaped name, `addAnimation` (src/gen/anim/animation.ts:47) still passes
+      `anim.objectName` raw, and `resolveCxn` (src/gen/define/connector.ts:92) still
+      escapes its key first -- so the two callers still disagree.
 
       Two candidate fixes, and the choice is the interesting part:
         - Narrow: escape the key in `addAnimation`, matching what `addConnector` already does.
