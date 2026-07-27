@@ -29,14 +29,6 @@ Preview a production build:
 pnpm --dir demos/vite-demo run preview
 ```
 
-## Demo Smoke Path
-
-To test this demo through the repository smoke command:
-
-```bash
-pnpm run test:demo:vite
-```
-
 ## Notes
 
 - This is the maintained browser integration path.

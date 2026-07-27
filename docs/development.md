@@ -95,7 +95,7 @@ scripts below only when you want one specific gate:
 
 ```bash
 pnpm run verify       # ~45s — typechecks, backlog validation, and the whole test suite
-pnpm run verify:full  # ~65s — the above plus the package and demo suites
+pnpm run verify:full  # ~65s — the above plus the package boundary suites
 ```
 
 `verify` is the per-change loop; `verify:full` is what to run before pushing or
@@ -106,7 +106,7 @@ Two more aggregates exist for CI, and are occasionally useful locally:
 
 ```bash
 pnpm run check:static   # lint, format:check, all three typechecks, backlog:validate
-pnpm run check:package  # package:lint, test:package, test:demos
+pnpm run check:package  # package:lint, test:package
 ```
 
 Pass flags to a script as `pnpm run lint --fix`, never `pnpm run lint -- --fix`.
@@ -142,7 +142,7 @@ successfully and is caught only by `typecheck`. Never substitute one for the oth
 
 The individual gates — `build`, `typecheck`, `typecheck:scripts`, `typecheck:test`,
 `test`, `test:unit`, `test:read`, `test:schema`, `test:coverage`, `package:lint`,
-`test:package`, `test:demos`, `backlog:validate` — all still exist and are worth
+`test:package`, `backlog:validate` — all still exist and are worth
 running alone when iterating on one specific thing. `pnpm run` lists them.
 
 ## Static Checks
@@ -266,20 +266,13 @@ pnpm run check:package
 
 ## Demo Changes
 
-For Node demo changes:
+The demos are showcases, not tests. Nothing under `demos/` gates a commit, and no
+verification aggregate runs them — the published-package contract is covered by
+`check:package` alone (see [Package Boundary Changes](#package-boundary-changes)).
+
+Run them directly from their workspace:
 
 ```bash
-pnpm run test:demo:node
-```
-
-For Vite demo changes:
-
-```bash
-pnpm run test:demo:vite
-```
-
-For both:
-
-```bash
-pnpm run test:demos
+pnpm --dir demos/node run demo
+pnpm --dir demos/vite-demo run build
 ```

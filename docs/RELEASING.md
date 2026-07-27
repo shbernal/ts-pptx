@@ -88,8 +88,8 @@ workflow:
 - checks that `@shbernal/ts-pptx@X.Y.Z` is unpublished
 - installs with `pnpm install --frozen-lockfile`
 - installs the OOXML validator
-- runs lint, formatting, typecheck, tests, package checks, package smoke tests,
-  demo smoke tests, and `npm pack --dry-run --ignore-scripts`
+- runs lint, formatting, typecheck, tests, and the package boundary checks
+  (`package:lint` + `test:package`)
 - publishes with `npm publish --access public --provenance --ignore-scripts`
 
 npm trusted publishing automatically exchanges the GitHub Actions OIDC token for

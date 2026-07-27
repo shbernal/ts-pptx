@@ -359,7 +359,7 @@ file is enough to get it run.
 ## Package Boundary Checks
 
 ```bash
-pnpm run check:package   # package:lint + test:package + test:demos
+pnpm run check:package   # package:lint + test:package
 ```
 
 `package:lint` runs package export/type validation. `test:package` creates a packed package with pnpm,
@@ -414,31 +414,33 @@ exists for. The `static` and `test` jobs remain Linux-only: they are
 platform-independent, and the validator installer is a bash script.
 
 That narrows, but does not remove, the gap: a Windows-only break outside the
-package and demo scripts is still invisible to CI.
+package scripts is still invisible to CI.
 
 Note that the Windows leg has never actually executed — `ci.yml` has not run at
 all yet. Treat it as the highest-risk part of the first push; see "Common
 Commands" in [the development guide](./development.md) for what to watch.
 
-## Demo Smoke Tests
+## Demos Are Not Tests
 
-Run both maintained demo smoke tests:
+`demos/` has no test role. There is no demo smoke command, no verification
+aggregate runs a demo, and CI never builds one. A broken demo fails nothing; a
+green demo proves nothing about the published package.
 
-```bash
-pnpm run test:demos
-```
+That role used to belong to `scripts/demo-smoke.mjs`, which generated one deck
+from `demos/node` and ran `vite build`. Both signals it produced are now covered
+directly, and more precisely, by the checks above: `test:package` imports all
+nine export subpaths out of an installed tarball and forces the `browser`
+condition, and `package:lint` validates types resolution with attw.
 
-Run one target:
-
-```bash
-pnpm run test:demo:node
-pnpm run test:demo:vite
-```
-
-The demo smoke command ensures `dist/` is current first, then runs the maintained
-workspace demos with pnpm. The Node demo validates ESM package usage in a Node
-application. The Vite demo validates a modern browser app path through React,
-TypeScript, and Vite.
+One thing did not survive the swap, and it is worth stating rather than
+discovering later: the Vite build was the only check that put a **real bundler**
+in front of the package. `test:package` proves Node's resolver walks `exports`
+correctly and attw proves a bundler's *type* resolution is sound, but nothing now
+proves Rollup/esbuild can actually resolve and tree-shake the runtime entry. That
+is a narrow gap — the package is plain ESM with no bundler-specific fields — and
+it was deliberately accepted rather than overlooked. If it ever bites, the fix
+belongs in `scripts/package-smoke.mjs` as a bundler step against the installed
+tarball, not in a resurrected demo smoke.
 
 ## Manual Visual Checks
 

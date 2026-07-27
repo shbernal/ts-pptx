@@ -90,8 +90,8 @@ jobs:
 
   # Windows is not redundant here. Every branch in `run()` in
   # scripts/script-utils.mjs — the `.cmd` shim handling, the DEP0190 avoidance,
-  # the local-bin resolution — exists solely for Windows, and these package and
-  # demo scripts are its only exercise. Until this leg existed, that code was
+  # the local-bin resolution — exists solely for Windows, and these package
+  # scripts are its only exercise. Until this leg existed, that code was
   # unreachable from CI and a Windows-only break in it shipped green.
   package:
     name: Package (${{ matrix.os }})
@@ -123,5 +123,5 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Package and demo checks
+      - name: Package boundary checks
         run: pnpm run check:package

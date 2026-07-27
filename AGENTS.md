@@ -121,9 +121,9 @@ MCPs' corpora.
   instead of hand-composing four or five separate commands — hand-composed sets come
   out slightly different every time and end up re-running the same suite twice.
 - **`pnpm run verify:full`** (~65s) before pushing or for a release/package-boundary
-  change: everything in `verify`, plus `package:lint`, `test:package`, and
-  `test:demos`. The split is only about cost — those three install packages and build
-  demos; everything cheaper already lives in `verify`.
+  change: everything in `verify`, plus `package:lint` and `test:package`. The split is
+  only about cost — those two pack and install the tarball; everything cheaper already
+  lives in `verify`.
 - Builds are never something you sequence by hand. Every gate starts with
   `scripts/ensure-dist.mjs`, which rebuilds only when `src/` or a build config is newer
   than `dist/` and is otherwise a ~0.1s no-op. Do not prefix anything with
@@ -182,5 +182,5 @@ bare first; filter only on a re-run, once you know what you are looking for.
 - For OOXML serialization changes, add or update a fixture in `test/schema-cases.js` and run `pnpm run test:schema` (which requires the validator installed with `./tools/ooxml-validator/install.sh`). `verify` already covers the schema suite; run `test:schema` alone only to iterate on a fixture.
 - For a *behavior-preserving* refactor of the `src/gen/` emitters, gate every step on the byte-identity harness: `pnpm run byte-identity:baseline` before the refactor, then `pnpm run byte-identity:check` after each step. It generates the full demo deck, recurses into every embedded `.xlsx`, and diffs all 1637 parts; only three nondeterministic patterns (core.xml timestamps, `p14:section` ids, `c16:uniqueId`) are normalized. Any other byte change is a real regression — do not accept one as cleanup.
 - **Whitespace-only byte diffs are a STOP, not a known-divergence.** Inter-element whitespace is semantically inert, but whitespace adjacent to character data is content, and the emitters keep those cases separate: pretty-printing exists only in structural regions, while every text-bearing element (`<a:t>`, `<vt:lpstr>`, `<c:v>`, `<si><t>`) is emitted flat. Waving through "harmless" whitespace is therefore the exact reasoning that would also wave through a real content change. If a part resists byte-identity, leave it un-migrated on template strings and list it as an exception — do not migrate it with an accepted diff. A gate that admits exceptions stops being a gate and becomes a judgment call, precisely where fatigue is highest.
-- For release/package boundary changes, run `pnpm run verify:full` (it bundles `package:lint`, `test:package`, and `test:demos`) and consult `docs/testing.md` for what each one covers.
+- For release/package boundary changes, run `pnpm run verify:full` (it bundles `package:lint` and `test:package`) and consult `docs/testing.md` for what each one covers. Nothing under `demos/` is a gate — the demos are showcases with no test role, so a demo that breaks fails no check and a demo that passes proves nothing about the published package.
 - **Desktop check (Windows + PowerPoint only, not in CI):** `pnpm run test:com` drives the real PowerPoint app over COM to catch what schema validation can't — a package PowerPoint reports as corrupt (`0x80070570`), or an element that is schema-valid but semantically dead. It generates a focused deck from `dist/`, opens it headless, and reads shape state *back out* to assert behavior (e.g. each action-button `hlinkClick` resolves to the expected `PpActionType`). Point it at any deck with `--file <deck.pptx>` for just the corruption-open check. SKIPs cleanly off-Windows or when PowerPoint isn't COM-registered.

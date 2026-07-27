@@ -41,14 +41,6 @@ pnpm --dir demos/node run demo-stream
 Then visit `http://localhost:3000/` in a browser to download the streamed
 presentation.
 
-## Demo Smoke Path
-
-To test this demo through the repository smoke command:
-
-```bash
-pnpm run test:demo:node
-```
-
 ## Notes
 
 - This demo is ESM-only.
