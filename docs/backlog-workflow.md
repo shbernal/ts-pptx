@@ -232,7 +232,9 @@ Instead, record the fixture as the blocking precondition in the backlog and stop
   the detected construct to this gating entry.
 
 Author the fixture itself with the `powerpoint-fixture-authoring` skill, verify it
-with `scripts/verify-powerpoint-fixture.ps1`, record provenance + SHA-256 in
+with that skill's own
+`.agents/skills/powerpoint-fixture-authoring/scripts/verify-powerpoint-fixture.ps1`
+(there are no `.ps1` files under `scripts/`), record provenance + SHA-256 in
 `test/read/fixtures/README.md`, then wire the test to the fixture (read harness
 for read accessors; a `test/schema-cases.js` comparison/inspection check for
 write-side oracles). Only then implement and close the entry.

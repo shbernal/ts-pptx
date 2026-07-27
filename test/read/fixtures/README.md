@@ -40,6 +40,7 @@ PowerPoint.
 | `rotation-flip.pptx`   | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `custgeom.pptx`        | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `table-cell-style.pptx`| Microsoft Office PowerPoint    | 16.0000    | 1      |
+| `table-cell-image-fill.pptx` | Microsoft Office PowerPoint | 16.0000 | 1     |
 | `table-styles.pptx`    | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `placeholder-inherit.pptx` | Microsoft Office PowerPoint | 16.0000  | 1      |
 | `placeholder-footer-trio.pptx` | Microsoft Office PowerPoint | 16.0000 | 1  |
@@ -132,6 +133,7 @@ ea2b973147e9ac6f8f716f88cc5a6b692177786816462dd971c2606b533dd9af  multi-theme.pp
 e8c0ca04154f6365813aee28d0fa8556cea5e1429af060d6061dd02db5ff1a85  rotation-flip.pptx
 d52da9c162f5a700f8e3a225f054e823682f201d83dabe38fc27c2e500d7451d  custgeom.pptx
 cf3c352dfd81ccdd0938637a047ab54f67b879410a5b1e88fdc6e4411315c1e7  table-cell-style.pptx
+618758569d7f63c3075513078e2bf70caf36ab05efd4ece41f14225b8489b3fb  table-cell-image-fill.pptx
 9fb63bf437c6be154c7e791538fa7a71f1ef3bbd1ce959a33f610d3e65e259c1  table-styles.pptx
 c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
 1a59832d7e5c926e4aff11e9f62bc90c9e8430fb68e1d77a1b4a2fb0800e05d2  textbox.pptx
@@ -256,6 +258,35 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   - **(1,1) `Plain`** — a bare `<a:tcPr/>` negative control (all three accessors
     null). The table itself carries no cell fills; its `a:tblStyle` is the default
     Medium Style 2 - Accent 1 (`{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}`).
+- `table-cell-image-fill.pptx` — a locally authored single-slide deck with one 4×2
+  table (`CellImageFillTable`) pinning **`a:blipFill` inside `a:tcPr`**, the write-side
+  oracle for picture fill of a table cell. Authored via desktop PowerPoint COM on
+  Windows (2026-07-27, `.tmp/author-table-cell-image-fill.ps1`) with
+  `Cell.Shape.Fill.UserPicture()`; the source image is the repo-local
+  `demos/common/images/cc_logo.jpg`, so no new binary asset entered `test/`. The table
+  style is deliberately **"No Style, No Grid"**
+  (`{2D5ABB26-0587-4C30-8999-92F81FD0307C}`), so every fill in the slide XML is one the
+  fixture set explicitly rather than one a style contributed. Row by row:
+  - **A1 picture / A2 solid** — the baseline pair. A1 is `<a:blipFill>` with
+    `<a:stretch><a:fillRect/></a:stretch>`; A2 is `<a:solidFill><a:srgbClr
+    val="FF0000"/></a:solidFill>`, so both fill kinds sit in the same `a:tbl`.
+  - **B1 picture + four explicit borders** — the child-order case. PowerPoint writes
+    `lnL`, `lnR`, `lnT`, `lnB`, *then* `a:blipFill`, matching
+    `CT_TableCellProperties` (`EG_FillProperties` at child order 7).
+  - **C merged (`gridSpan="2"`) picture** — the origin cell carries the `a:blipFill`;
+    **the covered `<a:tc hMerge="1">` gets a bare `<a:tcPr/>`**, i.e. PowerPoint does
+    *not* repeat the fill on covered cells. This library deliberately diverges and does
+    copy it (a covered cell is never rendered, and the copy keeps image fills uniform
+    with the solid case) — see the note in `src/gen/slide/object.ts`.
+  - **D1 tiled picture** — the one cell whose `blipFill` carries
+    `dpi="0" rotWithShape="1"` and `<a:srcRect/>`, with
+    `<a:tile tx="0" ty="0" sx="100000" sy="100000" flip="xy" algn="tl"/>`. Worth
+    keeping: it is the evidence that PowerPoint itself authors that attribute set
+    inside `a:tcPr`, which is why this library's shared `genXmlImageFill` spelling
+    (always `dpi="0" rotWithShape="1"` + `<a:srcRect/>`) was left unchanged rather than
+    forked into a cell-specific variant.
+  - **All four picture cells share one `r:embed`** — PowerPoint dedupes the source into
+    a single media part and a single relationship.
 - `hidden.pptx` — `textbox.pptx` with `show="0"` on slide 2; exercises the
   `Slide.hidden` getter (hidden slide vs. shown-by-default absent attribute).
 - `mixed.pptx` — an 11-slide real-world deck that exercises the shape kinds the
@@ -842,6 +873,7 @@ fixtures opened clean with no repair prompt:
 - [x] `math-omml.pptx` — Windows desktop PowerPoint, 2026-06-19 (authored via Word→PowerPoint paste + opened clean via COM)
 - [x] `math-omml-inline.pptx` — Windows desktop PowerPoint, 2026-07-07 (authored via Word→PowerPoint paste + opened clean via COM, no repair prompt)
 - [x] `table-styles.pptx` — Windows desktop PowerPoint, 2026-07-15 (COM-authored, then the default table style set interactively — no COM surface exists for it — and re-saved; reopened clean via COM, no repair prompt)
+- [x] `table-cell-image-fill.pptx` — Windows desktop PowerPoint, 2026-07-27 (authored + reopened clean via COM, no repair prompt)
 - [x] `template.potx` — Windows desktop PowerPoint, 2026-06-24 (authored + reopened clean via COM, no repair prompt)
 - [x] `online-video.pptx` — Windows desktop PowerPoint, 2026-06-24 (authored + opened clean via COM)
 - [x] `embedded-fonts.pptx` — Windows desktop PowerPoint, 2026-06-25 (authored + reopened clean via COM, no repair prompt; `Presentation.Fonts` reports `Silkscreen` in use)
