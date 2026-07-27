@@ -7,6 +7,63 @@
 // imported slides render with their original colours and no longer depend on
 // which theme they resolve against. The default (no option) is unchanged: the
 // whole source theme subgraph is copied across.
+//
+// ---------------------------------------------------------------------------
+// Why src/read/oxml/theme.ts branch coverage stops around 94%
+// ---------------------------------------------------------------------------
+// This file (with import-shape.test.js for the two `flattenShape`-only passes and
+// import-slide-restyle.test.js for `remapLiteralColors`) is where theme.ts's
+// branches are pinned. Every arm still uncovered is the arm a schema-valid package
+// cannot take — see docs/testing.md "Branches that are not worth covering", and
+// chrome-read-edges.test.js for the same treatment of chrome.ts. Four groups, each
+// verified against the ECMA-376 content models rather than assumed:
+//
+//   1. Required attributes and children read as optional. `@val` on `a:srgbClr`,
+//      `a:sysClr` and `a:schemeClr`; `@idx` on `a:CT_StyleMatrixReference`
+//      (`use="required"`, `xsd:unsignedInt`, so it is never absent, empty, or
+//      non-numeric); all 12 attributes of `a:CT_ColorMapping`; the single colour
+//      child of `a:CT_Color`; `a:bodyPr` on `a:CT_TextBody`; `p:nvPr` on
+//      `p:CT_ShapeNonVisual`; and all four of `a:lnRef`/`a:fillRef`/`a:effectRef`/
+//      `a:fontRef` on `a:CT_ShapeStyle` — `materializeStyleRefs` is the only caller
+//      that reaches those three guards, and it only ever passes a `p:style`'s own
+//      children.
+//   2. Re-checks of something the caller already established. `p:nvPr` looked up
+//      again on a shape whose `p:nvSpPr` just matched; the parent of a `p:style`
+//      found by descendant search; `resolveThemeFont(null, …)`, whose three callers
+//      each guard the typeface first (a type-narrowing candidate, not a test).
+//   3. Guards mutually exclusive with their caller. `applyInheritedBackground`
+//      returns early when the slide owns a `p:bg` — but `#importSlidePreserve`
+//      supplies `ctx.inheritedBackground` only when it does *not* (presentation.ts
+//      `#effectiveBackground`), and `p:cSld` is `minOccurs="1"`, so the two
+//      conditions cannot both hold. Likewise `placeholderInheritedListStyles`'
+//      layout tier: `resolveSlideThemeParts` reaches the master *through* the
+//      layout, so a null `layoutRoot` always implies a null `masterRoot`.
+//      (The reverse — a layout that resolves to no master — is legal and is
+//      covered; see below.)
+//   4. Content models with no room for another case. The `a:effectStyle` child
+//      dispatch has an implicit else that needs a fourth child type, but
+//      `a:CT_EffectStyleItem` is exactly `effectLst`/`scene3d`/`sp3d`. And
+//      `childElements` skipping a non-element node needs a text or comment node
+//      among a colour element's children, i.e. pretty-printed XML; the fixtures are
+//      minified, and covering it would assert nothing about deck semantics.
+//
+// What is *not* in those groups is asserted here, because the schema permits the
+// input and only the fixtures happened not to carry it. Chief among them: both
+// links a slide needs to reach its style chain are listed as relationships a part
+// is *permitted* to have, not required to (ECMA-376 Part 1 §13.3.8 slide →
+// slideLayout, §13.3.9 slideLayout → slideMaster). A slide missing the first
+// resolves to neither root and every placeholder pass no-ops; a layout missing the
+// second leaves the chain with a first tier and no second. Both packages validate,
+// so the `!layoutRoot && !masterRoot` family the backlog once called "structurally
+// unreachable" is ordinary legal input. The same goes for a placeholder with no
+// `p:txBody` and a master with no `p:txStyles` (both `minOccurs="0"`), a style-matrix
+// `@idx` of 0 or past the end of its list, a theme stating its `clrScheme` in
+// `a:prstClr`, and a `clrScheme`/`clrMap` that collides two slots or two tokens.
+//
+// Every one of those sources is spliced into a PowerPoint-authored deck and run
+// past the schema validator, both before and after import — which is what makes
+// "PowerPoint could write this" a check rather than an assertion. A splice the
+// validator rejects belongs in the four groups above, not in a test.
 
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -133,6 +190,41 @@ async function deckEmptyBgRefIdxZero() {
 		'<p:bgRef idx="0">'
 	)
 	zip.file('ppt/slideMasters/slideMaster1.xml', master)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
+/**
+ * mixed.pptx with slide1's `slideLayout` relationship removed. ECMA-376 Part 1
+ * §13.3.8 lists that relationship among the ones a Slide part is *permitted* to
+ * have, not required to — so the slide resolves to no layout, and (because the
+ * master is reached through the layout) to no master either. Returns package bytes.
+ */
+async function deckMixedSlideNoLayoutRel() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+	const rels = (await zip.file('ppt/slides/_rels/slide1.xml.rels').async('string')).replace(
+		/<Relationship[^>]*slideLayout[^>]*\/>/,
+		''
+	)
+	zip.file('ppt/slides/_rels/slide1.xml.rels', rels)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
+/**
+ * mixed.pptx with every `a:clrScheme` slot restated as `a:prstClr` — a legal
+ * `a:CT_Color` child that names no 6-hex RGB. The master `p:clrMap` still resolves
+ * a token to a slot; that slot simply has no literal behind it. Returns package bytes.
+ */
+async function deckMixedUnreadableColorScheme() {
+	const slots = ['dk1', 'lt1', 'dk2', 'lt2']
+		.concat([1, 2, 3, 4, 5, 6].map((n) => `accent${n}`))
+		.concat(['hlink', 'folHlink'])
+	const scheme = `<a:clrScheme name="Preset">${slots.map((s) => `<a:${s}><a:prstClr val="black"/></a:${s}>`).join('')}</a:clrScheme>`
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+	const theme = (await zip.file('ppt/theme/theme1.xml').async('string')).replace(
+		/<a:clrScheme[\s\S]*?<\/a:clrScheme>/,
+		scheme
+	)
+	zip.file('ppt/theme/theme1.xml', theme)
 	return zip.generateAsync({ type: 'uint8array' })
 }
 
@@ -1038,6 +1130,51 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 		assert(!/schemeClr/.test(xml), 'neither stop was left symbolic')
 	})
 
+	test('imports a slide that resolves to no layout or master at all, baking nothing', async () => {
+		// A Slide part is *permitted* to relate to a slideLayout (ECMA-376 Part 1 §13.3.8),
+		// not required to, and the master is only reachable through the layout — so a slide
+		// missing that one relationship resolves to neither root. Every placeholder pass
+		// then has no source chain to read, and must no-op rather than throw or invent a
+		// value; the slide still imports, and still flattens what it owns outright.
+		const source = await Presentation.load(await deckMixedSlideNoLayoutRel())
+		const target = await open('mixed')
+		const imported = target.importSlide(source, 0, { theme: 'preserve' })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		const sp = (xml.match(/<p:sp>(?:(?!<\/p:sp>)[\s\S])*?ctrTitle[\s\S]*?<\/p:sp>/) ?? [''])[0]
+		assert(sp, 'the placeholder still imported')
+		assert(!/<a:xfrm/.test(sp), 'no geometry was baked — there is no layout or master to read one from')
+		assert(!/<a:solidFill/.test(sp), 'no run colour was baked')
+		assert(!/\bsz="/.test(sp), 'no run size was baked')
+		assert(/<p:ph type="ctrTitle"\/>/.test(sp), 'it is still a placeholder, now resolving against the destination')
+	})
+
+	test('reports no inherited frame for a placeholder whose slide resolves to no layout or master', async () => {
+		// The read-model sibling of the bake above: `resolvedFrame` walks the same
+		// layout-then-master tiers and must skip both when the slide has neither.
+		const source = await Presentation.load(await deckMixedSlideNoLayoutRel())
+		const shape = source.slides[0].shapes[0]
+		assert(shape.placeholder, 'the shape under test is a placeholder')
+		assertEqual(shape.left, null, 'precondition: it carries no own geometry')
+		assertEqual(shape.resolvedFrame, null, 'with no tier to inherit from, there is no effective frame')
+	})
+
+	test('leaves a scheme colour symbolic when the source theme slot holds no literal RGB', async () => {
+		// `a:prstClr` (like `a:scrgbClr`/`a:hslClr`) is a legal `a:CT_Color` child that
+		// names no 6-hex RGB. The clrMap still routes the token to a slot — the slot just
+		// has nothing literal behind it. Flattening must degrade to leaving the token
+		// symbolic, so the colour re-binds to the destination, rather than emitting a
+		// bogus `a:srgbClr`.
+		const source = await Presentation.load(await deckMixedUnreadableColorScheme())
+		const target = await open('mixed')
+		const imported = target.importSlide(source, THEMED_SLIDE_INDEX, { theme: 'preserve' })
+		const xml = await slideXml(await target.save(), imported.partName)
+
+		assert(/<a:schemeClr val="tx2"/.test(xml), 'the unresolvable tx2 token survives as a scheme colour')
+		assert(!/<a:srgbClr val="black"/.test(xml), 'the preset-colour name was not emitted as if it were a hex')
+		assert(!/<a:srgbClr val="333399"/.test(xml), 'nor was tx2 flattened to the RGB the replaced Fusion scheme held')
+	})
+
 	test('the default (no option) still copies the source theme subgraph', async () => {
 		const target = await open('mixed')
 		const source = await open('mixed')
@@ -1079,7 +1216,7 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 	// validator is what turns that claim into a check: a variant it rejects belongs
 	// in the header note as impossible input, not in a test.
 	test.skipIf(!validatorInstalled)('the spliced placeholder-chain sources are themselves schema-valid', async () => {
-		for (const [name, build] of [
+		const cases = [
 			['no placeholder text body', deckMixedPlaceholderNoTxBody],
 			['no layout placeholder text body', deckMixedLayoutPlaceholderNoTxBody],
 			['two paragraphs at one level', deckMixedTwoParagraphsSameLevel],
@@ -1090,9 +1227,19 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 			['style refs past the end of the list', deckMixedStyleRefOutOfRange],
 			['stray phClr on a slide shape', deckMixedStraySchemePhClr],
 			['fmtScheme entry with a fixed scheme stop', deckMixedFillStyleFixedSchemeStop],
-		]) {
-			const errors = await validateBuf(Buffer.from(await build()))
-			assertEqual(errors.length, 0, `${name}: ${JSON.stringify(errors).slice(0, 2000)}`)
+			['slide with no slideLayout relationship', deckMixedSlideNoLayoutRel],
+			['clrScheme stated in preset colours', deckMixedUnreadableColorScheme],
+		]
+		// Each validateBuf spawns its own OOXMLValidatorCLI process, so running a dozen of
+		// them end to end spends the whole per-test budget queueing. Four at a time is the
+		// same ceiling vitest.config.ts sets for the schema suite.
+		for (let i = 0; i < cases.length; i += 4) {
+			const done = await Promise.all(
+				cases.slice(i, i + 4).map(async ([name, build]) => [name, await validateBuf(Buffer.from(await build()))])
+			)
+			for (const [name, errors] of done) {
+				assertEqual(errors.length, 0, `${name}: ${JSON.stringify(errors).slice(0, 2000)}`)
+			}
 		}
 	})
 
@@ -1106,7 +1253,13 @@ describe("Presentation.importSlide({ theme: 'preserve' })", () => {
 			target.importSlide(await Presentation.load(await deckMixedInheritsNothing()), 0, { theme: 'preserve' })
 			target.importSlide(await Presentation.load(await deckMixedSlideFixesRunProps()), 0, { theme: 'preserve' })
 			target.importSlide(await Presentation.load(await deckMixedStraySchemePhClr()), 0, { theme: 'preserve' })
-			for (const build of [deckMixedLnRefIdxZero, deckMixedStyleRefOutOfRange, deckMixedFillStyleFixedSchemeStop]) {
+			target.importSlide(await Presentation.load(await deckMixedSlideNoLayoutRel()), 0, { theme: 'preserve' })
+			for (const build of [
+				deckMixedLnRefIdxZero,
+				deckMixedStyleRefOutOfRange,
+				deckMixedFillStyleFixedSchemeStop,
+				deckMixedUnreadableColorScheme,
+			]) {
 				target.importSlide(await Presentation.load(await build()), THEMED_SLIDE_INDEX, { theme: 'preserve' })
 			}
 			const errors = await validateBuf(Buffer.from(await target.save()))

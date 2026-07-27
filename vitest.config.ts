@@ -14,7 +14,10 @@ import { coverageConfigDefaults, defineConfig } from 'vitest/config'
 // element lookup (`x ? … : null`) whether or not the schema lets `x` be absent,
 // so a standing share of the branch count is unreachable on any valid package —
 // see docs/testing.md "Branches that are not worth covering" for which of those
-// to leave alone and which are real input worth a test.
+// to leave alone and which are real input worth a test. Two files carry that
+// reasoning in full, per remaining arm: test/read/chrome-read-edges.test.js for
+// src/read/api/chrome.ts, and test/read/import-slide-preserve.test.js for
+// src/read/oxml/theme.ts.
 export default defineConfig({
 	test: {
 		// The schema fixtures are `describe.concurrent` and each concurrent test
@@ -54,7 +57,7 @@ export default defineConfig({
 			reporter: ['text-summary', 'text', 'html', 'json-summary', 'json'],
 			thresholds: {
 				statements: 91,
-				branches: 78,
+				branches: 79,
 				functions: 97,
 				lines: 94,
 			},

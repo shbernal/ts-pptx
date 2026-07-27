@@ -194,6 +194,37 @@ async function deckMixedInheritsNothing() {
 	return zip.generateAsync({ type: 'uint8array' })
 }
 
+/**
+ * mixed.pptx with slide1's `slideLayout` relationship removed. ECMA-376 Part 1
+ * §13.3.8 lists it among the relationships a Slide part is *permitted* to have,
+ * and the master is only reachable through the layout — so the slide resolves to
+ * neither root. Returns package bytes.
+ */
+async function deckMixedSlideNoLayoutRel() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+	const rels = (await zip.file('ppt/slides/_rels/slide1.xml.rels').async('string')).replace(
+		/<Relationship[^>]*slideLayout[^>]*\/>/,
+		''
+	)
+	zip.file('ppt/slides/_rels/slide1.xml.rels', rels)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
+/**
+ * mixed.pptx with slideLayout1's `slideMaster` relationship removed — likewise
+ * *permitted* rather than required (§13.3.9). The slide still resolves to its
+ * layout, so the chain has a first tier and no second. Returns package bytes.
+ */
+async function deckMixedLayoutNoMasterRel() {
+	const zip = await JSZip.loadAsync(await readFile(fixturePath('mixed')))
+	const rels = (await zip.file('ppt/slideLayouts/_rels/slideLayout1.xml.rels').async('string')).replace(
+		/<Relationship[^>]*slideMaster[^>]*\/>/,
+		''
+	)
+	zip.file('ppt/slideLayouts/_rels/slideLayout1.xml.rels', rels)
+	return zip.generateAsync({ type: 'uint8array' })
+}
+
 describe('Presentation.importShape', () => {
 	test('lifts a picture onto a foreign host; media copied once, survives a round-trip', async () => {
 		const target = await open('empty') // 16:9, slide[0] holds one autoShape
@@ -670,12 +701,63 @@ describe('Presentation.importShape({ rescale })', () => {
 		}
 	})
 
+	test('lifts a placeholder whose slide resolves to no layout or master, baking nothing', async () => {
+		// Both links a slide needs to reach its style chain — slide → slideLayout and
+		// slideLayout → slideMaster — are *permitted* rather than required (ECMA-376
+		// Part 1 §13.3.8 / §13.3.9). Drop the first and every pass has no tier to read,
+		// so a lifted placeholder must come across exactly as authored — and still be
+		// demoted, since it has nothing left to inherit from anywhere.
+		const source = await Presentation.load(await deckMixedSlideNoLayoutRel())
+		const target = await open('mixed')
+		const shape = target.importShape(target.slides[0], source.slides[0], 0, { theme: 'preserve' })
+		const el = shape.element_
+
+		assert(!hasXfrm(el), 'no geometry was baked')
+		assertEqual(lstStyleLevels(el).join(','), '', 'no list-style level was merged in')
+		assertEqual(el.getElementsByTagNameNS(A_NS, 'bodyPr')[0].getAttribute('anchor'), null, 'no anchor was baked')
+		assertEqual(srgbClrCount(el), 0, 'no run colour was baked')
+		assertEqual(phElements(el).length, 0, 'it was still demoted')
+	})
+
+	test('lifts through the layout tier alone when the source layout resolves to no master', async () => {
+		// Drop the second link instead: the layout tier still answers, the master tier and
+		// the master `p:txStyles` below it do not. The list-style bake must take what the
+		// layout defines rather than bailing out because a lower tier is missing.
+		const source = await Presentation.load(await deckMixedLayoutNoMasterRel())
+		const target = await open('mixed')
+		const shape = target.importShape(target.slides[0], source.slides[0], 0, { theme: 'preserve' })
+		const el = shape.element_
+
+		assertEqual(lstStyleLevels(el).join(','), 'lvl1pPr', "the layout placeholder's level was merged in")
+		assertEqual(
+			geometryTuples(el).join(' '),
+			'off:990600,1828800 ext:7772400,1143000',
+			'geometry came from the layout placeholder'
+		)
+		assertEqual(phElements(el).length, 0, 'it was still demoted')
+	})
+
 	test.skipIf(!validatorInstalled)('lifted degenerate placeholders stay schema-valid', async () => {
 		const target = await open('mixed')
 		const noTxBody = await Presentation.load(await deckMixedPlaceholderNoTxBody())
 		target.importShape(target.slides[0], noTxBody.slides[0], 1, { theme: 'preserve' })
 		const bare = await Presentation.load(await deckMixedInheritsNothing())
 		target.importShapes(target.slides[0], bare.slides[0], [0, 2], { theme: 'preserve' })
+		// Both sources drop a relationship the spec calls permitted rather than required;
+		// validating them proves that reading rather than asserting it. Run the pair
+		// concurrently — each validateBuf spawns its own validator process.
+		const rootless = await Promise.all(
+			[deckMixedSlideNoLayoutRel, deckMixedLayoutNoMasterRel].map(async (build) => Presentation.load(await build()))
+		)
+		const sourceErrors = await Promise.all(rootless.map(async (p) => validateBuf(Buffer.from(await p.save()))))
+		for (const errors of sourceErrors) {
+			assertEqual(
+				errors.length,
+				0,
+				`a source with a missing chain relationship: ${JSON.stringify(errors).slice(0, 800)}`
+			)
+		}
+		for (const p of rootless) target.importShape(target.slides[0], p.slides[0], 0, { theme: 'preserve' })
 		const errors = await validateBuf(Buffer.from(await target.save()))
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 	})
