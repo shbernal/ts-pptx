@@ -1240,7 +1240,7 @@ items:
     target_area: []
     applies_to_current_project: yes
     non_target_reasons: []
-    summary: Raise write-side branch coverage on the emitters still below the gate (media/content-type, measure-fit/text-fit and gen/table/autopage DONE; gen/define/* remains)
+    summary: Raise write-side branch coverage on the emitters still below the gate (media/content-type, measure-fit/text-fit, gen/table/autopage and gen/define/hyperlinks DONE; the rest of gen/define/* remains)
     current_project_notes: |
       Carried over from the retired REPO-IMPROVEMENT-PLAN (its P6) after the read-side
       branch-coverage sweep landed (commits bbf8d3b4..106cc3fc) and the gate was
@@ -1421,6 +1421,34 @@ items:
       browser-only tableToSlides, excluded from coverage. Note this is the mirror of
       the measure-fit lesson above: there, a second public door made "dead" branches
       live; here, the only other door is out of scope, so they really are dead.
+
+      HYPERLINKS LANDED 2026-07-28 (09170d33). gen/define/hyperlinks.ts: branches
+      73.77 -> 93.44, statements 48.57 -> 97.14, functions 75 -> 100, lines 100.
+      Global 93.21/81.42/98.27/95.81 -> 93.29/81.58/98.32/95.89 on a full run (199
+      files, 1987 green). No threshold bump: the nearest notch (lines 94 -> 95) would
+      leave 0.89 behind it, under the full point this effort uses as its bar.
+
+      The gap was not "a few odd branches" -- no test anywhere put a hyperlink on a
+      TABLE CELL, so the entire table half of the walk was red, including the only
+      uncovered function. Five cases through the public API closed it: a cell
+      hyperlink, the same cell object reused across rows (one rel, not one per
+      occurrence), a repeated header row re-registering both rel kinds on every
+      auto-paged slide, and the two malformed-hyperlink shapes, which log a
+      diagnostic while defining and then throw while emitting.
+
+      DEFECT FOUND AND NOT FIXED -- see fork-autopage-hyperlink-relid-collision. The
+      re-registration path preserves the header's relationship id on each overflow
+      slide while getNewRelId keeps counting that slide's rels from 1, so the two can
+      collide and emit a part with a duplicate Relationship Id. Filed separately
+      because it changes emitted OOXML and is not a coverage question; the tests here
+      assert id-uniqueness on the fixtures they build, which do not trigger it.
+
+      Read this before trusting a per-file number from coverage/: a run started with
+      --coverage.reportsDirectory writes there AND vitest cleans the directory, so a
+      narrow probe left in coverage/ (or a later full run wiping coverage/probe) can
+      leave a stale coverage-final.json that reports FEWER covered branches than a
+      three-file probe does. The tell is exactly that -- a subset beating the full
+      run. Re-measure rather than reason from what is on disk.
     evidence:
       kinds:
         - local-source-inspection
@@ -1440,5 +1468,74 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: cover gen/define/hyperlinks.ts next -- its auto-page rel re-registration callback (a hyperlink inside a table that pages onto a second slide; the file's only uncovered function) plus the two validation-error arms for a non-object hyperlink and one with none of url/slide/action; then the cheap gen/define files (background 6 branches, preview-image 13, zoom 16 -- check zoom's arms are reachable from the public surface at all) before the volume work in chart.ts (73) and text.ts (47); separately, move color.ts's two browser-only helpers into html-dom.ts (a src change, so gate it on byte-identity baseline/check); leave the four gates alone until a phase lands that puts a full point behind a notch
+    next_action: take the cheap gen/define files next -- background (6 branches), preview-image (13), zoom (16, check its arms are reachable from the public surface at all), comment (73.52 branch) -- then the volume work in chart.ts (73) and text.ts (47); separately, move color.ts's two browser-only helpers into html-dom.ts (a src change, so gate it on byte-identity baseline/check); leave the four gates alone until a phase lands that puts a full point behind a notch, and re-measure per-file coverage rather than reading whatever coverage-final.json is on disk
 
+  - id: fork-autopage-hyperlink-relid-collision
+    source: fork:src/gen/define/hyperlinks.ts
+    type: fork-internal-proposal
+    first_seen: 2026-07-28
+    last_reviewed: 2026-07-28
+    status: deferred
+    priority: p2
+    target_area:
+      - relationship-or-content-type
+      - invalid-ooxml
+      - table-ooxml
+    applies_to_current_project: unknown
+    non_target_reasons: []
+    summary: an auto-paged table with a repeated-header hyperlink can emit a slide rels part containing two Relationship elements with the same Id
+    current_project_notes: |
+      Found while covering gen/define/hyperlinks.ts (09170d33), not fixed there because
+      it changes emitted OOXML and the ask was coverage.
+
+      A hyperlink's resolved relationship id is stamped onto the shared hyperlink OBJECT
+      (`hyperlink._rId`). With `autoPageRepeatHeader`, the same header cell objects are
+      re-walked for every overflow slide, and hyperlinks.ts re-registers the rel on each
+      new slide UNDER ITS ORIGINAL ID -- correct in itself, since the id is what the
+      already-stamped run will emit as `r:id`. The problem is that getNewRelId
+      (gen-utils.ts) mints the next id as
+      `_rels.length + _relsChart.length + _relsMedia.length + 1`, which counts only the
+      rels the current slide happens to hold. A carried-over id is not reserved, so a
+      later hyperlink minted on that same overflow slide can be handed the identical
+      number.
+
+      Reproduced (dist build, jszip read-back): slide 1 holds an image (rId1), so the
+      header hyperlink mints rId2. The table auto-pages; on each overflow slide the
+      header rel is re-added as rId2 and is that slide's only rel, so the next
+      getNewRelId call returns 2 as well. A body-cell hyperlink landing on such a slide
+      is therefore minted as rId2, and the emitted
+      ppt/slides/_rels/slideN.xml.rels holds two Relationship elements with Id="rId2"
+      and different Targets, with both runs writing r:id="rId2". Per OPC (ECMA-376
+      Part 2), relationship ids must be unique within a part; PowerPoint resolves the
+      first match, so the body link silently points at the header's URL.
+
+      Preconditions, all needed together: autoPage + autoPageRepeatHeader, a hyperlink
+      in the header row, at least one non-hyperlink rel minted on slide 1 BEFORE the
+      table (an image, chart or media) so the carried id is >= 2, and a second
+      hyperlink in a body cell that lands on an overflow slide. Without the earlier
+      rel the carried id is 1 and the counter never catches up, which is why the
+      coverage fixtures in test/regression/hyperlink-rels.test.js assert id-uniqueness
+      and still pass.
+
+      Smallest fix that keeps the carried ids intact: make getNewRelId skip ids already
+      present on the target slide (scan _rels/_relsChart/_relsMedia and advance past
+      collisions) rather than trusting the count. That is a shared util on the write
+      path, so gate it on byte-identity baseline/check -- the numbering must be
+      unchanged for every deck that does not currently collide, and the check is what
+      proves it. A test belongs next to the coverage cases already in
+      test/regression/hyperlink-rels.test.js.
+    constructs: []
+    evidence:
+      kinds:
+        - local-source-inspection
+        - minimal-repro
+        - extracted-xml
+      local_files:
+        - src/gen/define/hyperlinks.ts
+        - src/gen-utils.ts
+        - src/gen/define/table.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: fix getNewRelId to skip ids already held by the target slide, gated on byte-identity baseline/check, and add the duplicate-Id assertion to test/regression/hyperlink-rels.test.js
