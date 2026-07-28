@@ -1240,7 +1240,7 @@ items:
     target_area: []
     applies_to_current_project: yes
     non_target_reasons: []
-    summary: Raise write-side branch coverage on the emitters still below the gate (media/content-type, measure-fit/text-fit, gen/table/autopage, gen/define/hyperlinks and gen/define/{zoom,preview-image,background,comment,text,chart} DONE; only the drawingml stragglers remain)
+    summary: Raise write-side branch coverage on the emitters still below the gate (media/content-type, measure-fit/text-fit, gen/table/autopage, gen/define/hyperlinks and gen/define/{zoom,preview-image,background,comment,text,chart} DONE, plus the chart.ts/color.ts dead-code deletions and the docs/testing.md write-side section; only the drawingml/pres stragglers remain, and none of them can move a gate alone)
     current_project_notes: |
       Carried over from the retired REPO-IMPROVEMENT-PLAN (its P6) after the read-side
       branch-coverage sweep landed (commits bbf8d3b4..106cc3fc) and the gate was
@@ -1571,6 +1571,44 @@ items:
       leave a stale coverage-final.json that reports FEWER covered branches than a
       three-file probe does. The tell is exactly that -- a subset beating the full
       run. Re-measure rather than reason from what is on disk.
+
+      THE TWO SRC CLEANUPS LANDED 2026-07-28 (6cc2f6d2 chart.ts, 302c3961 color.ts),
+      both gated on a byte-identity baseline taken before the edits: PASS, 177 parts,
+      with three chart parts confirmed in the corpus. Global 93.69/82.79/98.33/96.19
+      -> 93.70/82.84/98.43/96.22, on a branch total 13 smaller and a function total 2
+      smaller -- the gain here is deleting red code, not covering it. Full run 203
+      files, 2035 green. NO ratchet: the next notch on each axis would keep
+      0.70/0.84/0.43/0.22, all under the full point this effort uses as its bar.
+
+      chart.ts's thirteen `x = x || !x ? x : <default>` ternaries are gone; the file
+      is now 100 statements / 97.34 branches / 100 functions / 100 lines. Deleting
+      them is behavior-preserving because every consumer reads these options as plain
+      truthiness (`opts.showPercent ? 1 : 0`, `!opts.showDataTableKeys ? 0 : 1`), so
+      an absent option already behaved as false -- which is what the public types
+      document (@default false on showDataTable, showPercent, v3DRAngAx). Worth
+      knowing before anyone "fixes" this: the defaults those ternaries appear to
+      promise were never applied, and four of them (the showDataTable* borders/keys)
+      are undocumented in types/chart.ts. Applying them would change emitted OOXML and
+      is a separate decision; a comment in the file now says so in place of the code.
+
+      color.ts's componentToHex/rgbToHex now live in gen/table/html-dom.ts, their only
+      caller, unexported. gen/drawingml/color.ts goes 33.33 -> 100 functions (it was
+      the worst function figure in the package) and 72.22 -> 86.66 statements, and
+      html-dom.ts stays out of the report entirely under the dist/browser*.js
+      exclusion -- so the false signal is gone with no v8 ignore fence and no test for
+      code the bundle cannot reach. Caveat on the PASS: the byte-identity corpus is
+      Node-emitted decks, so it proves color.ts unchanged rather than proving the
+      browser path, which no showcase reaches; the move is call-site-identical and
+      typechecks.
+
+      THE DURABLE FINDINGS ARE NOW IN docs/testing.md (6c401158), in a new "Reading a
+      red number on the write side" section beside the read-side "Branches that are
+      not worth covering". It carries the door question and its mirror, the
+      statement-vs-branch signal, the small-pure-emitter case (line.ts), the
+      verbose-dump class, delete-beats-fence-beats-test, the evaluated-not-true branch
+      counter trap, and the stale-coverage-directory trap; gen/slide/comments.ts is
+      recorded there as the third worked example of the src-import caveat. Prefer
+      editing that section over re-deriving any of it here.
     evidence:
       kinds:
         - local-source-inspection
@@ -1592,7 +1630,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: all of gen/define is done -- hyperlinks, zoom, preview-image, background, comment, text and chart landed 2026-07-28, and what is left red in them is unreachable by construction, not untested; what remains of this item is the drawingml stragglers (line.ts 65 stmt, math.ts 60 branch, plot-bubble.ts 60.86, pres/presentation-rels.ts 64.28), which are small and will not move a gate on their own, plus two src changes that each want a byte-identity baseline/check -- move color.ts's two browser-only helpers into html-dom.ts, and collapse chart.ts's thirteen self-cancelling `x || !x` ternaries, which are identity assignments with a dead alternative (13 permanently-red branches, zero emitted-byte change); margins are now 0.69/1.79/0.33/0.20 against 92/81/97/95, so the next notch on any axis needs roughly another full point and no cheap file left can supply it; always re-measure per-file coverage rather than reading whatever coverage-final.json is on disk (the recorded chart.ts/text.ts numbers had drifted by 10-25 branches before this pass), before calling a low per-file number a gap check whether its tests import from src/ (gen/slide/comments.ts is the standing example), and do not classify an `isNaN`/`length` second operand as dead without probing it -- a branch counter records evaluation, not truth
+    next_action: all of gen/define is done, both src cleanups landed (chart.ts's thirteen dead ternaries 6cc2f6d2, color.ts's two browser-only helpers 302c3961, byte-identity PASS on both) and the durable how-to-read-this guidance is distilled into docs/testing.md's new write-side section (6c401158) -- so the only work left under this item is the drawingml/pres stragglers, and they are deliberately unclaimed -- math.ts's six red branches are already pinned by math-omml.test.mjs and can never move a dist number (src-import), while plot-bubble.ts 60.86 and pres/presentation-rels.ts 64.28 are small enough that neither will move a gate alone; margins are 0.70/0.84/0.43/0.22 against 92/81/97/95, so the next notch on any axis needs close to a full point more and no cheap file left can supply it -- treat this item as parked at a green gate rather than as work queued, and re-open it only if a new emitter lands under-tested; before doing anything here, re-measure per-file coverage rather than reading whatever coverage-final.json is on disk (the recorded chart.ts/text.ts numbers had drifted by 10-25 branches before the last pass) and read docs/testing.md's write-side section first -- it now holds the door question, the statement-vs-branch signal and both measurement traps that this entry used to be the only record of
 
   - id: fork-autopage-hyperlink-relid-collision
     source: fork:src/gen/define/hyperlinks.ts
