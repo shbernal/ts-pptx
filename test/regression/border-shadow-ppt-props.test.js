@@ -85,4 +85,66 @@ defineRegressionSuite('PPT-aligned border/shadow props', 'border-shadow-ppt-prop
 			)
 		},
 	},
+	// BorderProps.cap reached the emitter (`genTableCellBorderXml` calls `createLineCap`)
+	// but never a value: both places that normalize a border into a complete 4-side tuple
+	// rebuilt each side field-by-field and had no `cap` key, so every table border emitted
+	// cap="flat" no matter what the caller asked for. One case per normalization path.
+	{
+		name: 'table-level border `cap` survives normalization (single BorderProps, applied to all four sides)',
+		fn: async () => {
+			const pres = new TsPptx()
+			pres.addSlide().addTable([[{ text: 'x' }]], {
+				x: 1,
+				y: 1,
+				border: { type: 'solid', width: 2, color: 'FF0000', cap: 'round' },
+			})
+			const xml = await buildSlide1(pres)
+			for (const side of ['lnL', 'lnR', 'lnT', 'lnB']) {
+				assert(
+					xml.includes(`<a:${side} w="25400" cap="rnd"`),
+					`expected cap:'round' -> cap="rnd" on <a:${side}>; got:\n` + xml
+				)
+			}
+		},
+	},
+	{
+		name: 'per-side border `cap` survives the tuple normalization, per side',
+		fn: async () => {
+			const pres = new TsPptx()
+			pres.addSlide().addTable([[{ text: 'x' }]], {
+				x: 1,
+				y: 1,
+				// [top, right, bottom, left] — one cap per side, including an omitted one
+				// so the emitter's own 'flat' default is pinned alongside the carried values.
+				border: [
+					{ type: 'solid', width: 2, color: '000000', cap: 'round' },
+					{ type: 'solid', width: 2, color: '000000', cap: 'square' },
+					{ type: 'solid', width: 2, color: '000000', cap: 'flat' },
+					{ type: 'solid', width: 2, color: '000000' },
+				],
+			})
+			const xml = await buildSlide1(pres)
+			const expected = { lnT: 'rnd', lnR: 'sq', lnB: 'flat', lnL: 'flat' }
+			for (const [side, cap] of Object.entries(expected)) {
+				assert(
+					xml.includes(`<a:${side} w="25400" cap="${cap}"`),
+					`expected <a:${side}> to emit cap="${cap}"; got:\n` + xml
+				)
+			}
+		},
+	},
+	{
+		name: 'a `type: none` border carries its `cap` too',
+		fn: async () => {
+			const pres = new TsPptx()
+			pres.addSlide().addTable([[{ text: 'x' }]], {
+				x: 1,
+				y: 1,
+				border: { type: 'none', cap: 'square' },
+			})
+			const xml = await buildSlide1(pres)
+			// The `none` arm emits w="0" + <a:noFill/>, but still writes the cap attribute.
+			assert(xml.includes('<a:lnL w="0" cap="sq"'), 'expected a none-type border to keep cap="sq"; got:\n' + xml)
+		},
+	},
 ])

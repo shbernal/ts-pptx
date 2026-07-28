@@ -48,11 +48,10 @@ export function createLineCap(lineCap?: LineCap): string {
  * - otherwise a `color` produces a `<a:solidFill>`.
  * Returns '' when the line specifies no paint, so the caller emits no fill child and
  * the stroke inherits its color from the theme/placeholder.
- * @param {ShapeLineProps} [line] line options
+ * @param {ShapeLineProps} line line options
  * @returns XML string
  */
-export function genXmlLineFill(line: ShapeLineProps | undefined): string {
-	if (!line) return ''
+export function genXmlLineFill(line: ShapeLineProps): string {
 	// `type: 'none'` is an explicit *no stroke*, and it is not the same as saying nothing.
 	// Omitting the paint child leaves the outline to the theme or placeholder, so a shape
 	// authored with `line: { type: 'none' }` grew the theme's border instead of losing it.

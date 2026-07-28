@@ -52,8 +52,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **A background image supplied as bytes alone no longer declares the wrong
-  content type.** `addBackground()` / `defineSlideMaster({ background })` derived
+- **A line's `cap`, and a stroke's `pattern`/`image` paint, were dropped before
+  reaching the emitter.** `ShapeLineProps extends ShapeFillProps`, so a stroke
+  accepts `gradient`/`pattern`/`image` as well as a solid `color`, plus its own
+  `cap` — and `drawingml/line.ts` reads all of them. But the define pass rebuilt
+  the caller's `line` object from a fixed list of keys, so any key added to the
+  type without also being added to that list never survived normalization.
+
+  `cap` was silently ignored everywhere: `line: { cap: 'round' }` on a shape and
+  `border: { cap: 'round' }` on a table both emitted `cap="flat"`. `pattern` was
+  worse than ignored — `line: { type: 'pattern', pattern: {…} }` reached
+  `genXmlPatternFill` with no pattern object and threw *"Pattern fill requires a
+  pattern object."* A gradient stroke was dropped on the `addText({ shape:
+  'line' })` path specifically, which carried its own near-duplicate rebuild.
+
+  All four rebuilds (two for shape/text lines, two for table borders) now spread
+  the caller's object and override only the keys they actually default, so they
+  cannot fall out of sync with the type again. Output for any deck that did not
+  set the dropped options is byte-identical. `addBackground()` / `defineSlideMaster({ background })` derived
   the media extension from `path` only. With no path it substituted the
   `preencoded.png` placeholder, so `background: { data:
   'data:image/svg+xml;base64,…' }` embedded SVG bytes in a `.png` part that

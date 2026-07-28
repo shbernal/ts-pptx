@@ -140,11 +140,16 @@ function normalizeTableRows(srcRows: TableRow[], opt: TableProps): TableCell[][]
 				const arrSides = [0, 1, 2, 3] as const
 				arrSides.forEach((idx) => {
 					const side = cellBorderTuple[idx]
+					// Spread first, override only the defaulted keys. Rebuilding the side from a
+					// fixed key list dropped `cap` — public on `BorderProps` and already read by
+					// `genTableCellBorderXml`, so every table border emitted cap="flat" whatever
+					// the caller asked for. The spread also gives each side its own object, which
+					// the single-BorderProps form (one object shared across all four) relies on.
 					cellBorderTuple[idx] = {
+						...side,
 						type: side.type || DEF_CELL_BORDER.type,
 						color: side.color || DEF_CELL_BORDER.color,
 						width: typeof side.width === 'number' ? side.width : DEF_CELL_BORDER.width,
-						transparency: side.transparency,
 					}
 				})
 				newCellOptions.border = cellBorderTuple
@@ -294,10 +299,10 @@ export function addTableDefinition(
 		;([0, 1, 2, 3] as const).forEach((idx) => {
 			border[idx] = border[idx]
 				? {
+						...border[idx],
 						type: border[idx].type || DEF_CELL_BORDER.type,
 						color: border[idx].color || DEF_CELL_BORDER.color,
 						width: border[idx].width || DEF_CELL_BORDER.width,
-						transparency: border[idx].transparency,
 					}
 				: { type: 'none' }
 		})

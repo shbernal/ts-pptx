@@ -409,6 +409,30 @@ export default [
 		},
 	},
 	{
+		// `drawingml/line.ts` claims DrawingML allows the same fill group inside `<a:ln>` as
+		// inside a shape fill, and dispatches `type: 'pattern' | 'image'` to the shared fill
+		// code on that basis. Nothing exercised the claim: this is the validator checking that
+		// a `<a:pattFill>` really is legal as the paint child of a stroke.
+		name: 'shape with pattern line (fill group inside <a:ln>)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape(ShapeType.rect, {
+					x: 1,
+					y: 1,
+					w: 4,
+					h: 1,
+					line: {
+						type: 'pattern',
+						width: 3,
+						pattern: { preset: 'diagCross', fgColor: '003366', bgColor: 'FFFFFF' },
+					},
+				})
+			})
+			await expectNoSchemaErrors(buf, 'shape-pattern-line')
+		},
+	},
+	{
 		name: 'shape with image (blip) fill',
 		fn: async () => {
 			const pngData =

@@ -81,15 +81,16 @@ export function addTextDefinition(
 			// B:
 			if (itemOpts.shape === ShapeType.line) {
 				const itemLine = typeof itemOpts.line === 'object' && itemOpts.line ? itemOpts.line : {}
-				// ShapeLineProps defaults
+				// ShapeLineProps defaults. Spread first, override only what is defaulted here —
+				// see the same block in define/shape.ts for why listing the carried keys instead
+				// silently dropped `gradient`, `pattern`, `image` and `cap` off this path.
 				const newLineOpts: ShapeLineProps = {
+					...itemLine,
 					type: itemLine.type || 'solid',
 					color: itemLine.color || DEF_SHAPE_LINE_COLOR,
 					transparency: itemLine.transparency || 0,
 					width: itemLine.width || 1,
 					dashType: itemLine.dashType || 'solid',
-					beginArrowType: itemLine.beginArrowType,
-					endArrowType: itemLine.endArrowType,
 				}
 				if (typeof itemOpts.line === 'object') itemOpts.line = newLineOpts
 			}
