@@ -177,6 +177,21 @@ concrete case: `test:schema` requires the validator installed with
 first run turned one legible missing-validator error into three blind 40s re-runs. Run
 bare first; filter only on a re-run, once you know what you are looking for.
 
+### Commit messages go through a file, never through a shell
+
+Write the message to `.git/COMMIT_MSG_DRAFT` with your file-writing tool, then `git commit -F
+.git/COMMIT_MSG_DRAFT`. Only a one-line `git commit -m "subject"` may be typed inline.
+
+This is not style. On Windows, where this repo is primarily developed, an agent has both a
+POSIX shell and PowerShell available, and the two disagree on here-doc syntax (`<<'EOF'` vs
+`@'…'@`). Picking the wrong dialect for the tool being called does not error — the delimiter
+is passed through as text and lands in the subject line. Routing the message through a file removes the shell from the path entirely,
+so there is no dialect left to get wrong.
+
+`scripts/check-commit-msg.mjs`, a lefthook `commit-msg` hook, rejects a subject that shows
+the damage. It is a backstop, not the place to learn the rule: by the time it fires you have
+already burned the commit attempt.
+
 ### Targeted checks the above does not cover
 
 - For OOXML serialization changes, add or update a fixture in `test/schema-cases.js` and run `pnpm run test:schema` (which requires the validator installed with `./tools/ooxml-validator/install.sh`). `verify` already covers the schema suite; run `test:schema` alone only to iterate on a fixture.
