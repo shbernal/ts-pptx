@@ -10,22 +10,18 @@ export class TsPptx extends PresentationCore {
 
 	/**
 	 * Reproduces a rendered HTML `<table>` as a PowerPoint table — including column widths,
-	 * style, etc. — creating one or more slides as needed. Reads the live DOM
-	 * (`getComputedStyle`, `offsetWidth`), so it exists only on the browser/standalone build,
-	 * not the Node build. The in-memory `slide.addTable(rows, opts)` path is the supported,
-	 * platform-agnostic way to build tables.
+	 * style, etc. — creating one or more slides as needed. Resolves `eleId` against the global
+	 * `document`, so it exists only on the browser/standalone build; the same conversion is
+	 * available anywhere there is a DOM as the free `tableToSlides` on `ts-pptx/html`, which
+	 * also takes the element directly. The in-memory `slide.addTable(rows, opts)` path remains
+	 * the platform-agnostic way to build a table from data you already hold.
 	 * @param {string} eleId - table HTML element ID
 	 * @param {TableToSlidesProps} options - generation options
 	 */
 	tableToSlides(eleId: string, options: TableToSlidesProps = {}): void {
 		// @note `options.verbose` (a documented dev-only flag on TableToSlidesProps) is read
 		// inside genTableToSlides to trace the auto-paging layout process.
-		genTableToSlides(
-			this,
-			eleId,
-			options,
-			options?.masterTitle ? this._slideLayouts.find((layout) => layout._name === options.masterTitle) : undefined
-		)
+		genTableToSlides(this, eleId, options)
 	}
 }
 

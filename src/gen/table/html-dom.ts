@@ -19,6 +19,8 @@ import type {
 	BorderProps,
 	PresLayout,
 	TableCell,
+	TableToSlidesDocument,
+	TableToSlidesElement,
 	TableToSlidesProps,
 	TableCellProps,
 } from '../../core-interfaces.js'
@@ -31,7 +33,13 @@ import { getSlidesForTableRows } from './autopage.js'
 
 type MarginTuple = [number, number, number, number]
 type BorderTuple = [BorderProps, BorderProps, BorderProps, BorderProps]
-type TableToSlidesHost = {
+/**
+ * What `tableToSlides` needs a presentation to be: somewhere to put slides, and a layout to
+ * size them against. Structural on purpose — stating the two members rather than naming the
+ * class is what lets the free function on `ts-pptx/html` take any presentation instance
+ * (Node, browser, or standalone) without the entry importing one.
+ */
+export type TableToSlidesHost = {
 	addSlide: (options?: AddSlideProps) => Slide
 	presLayout: PresLayout
 }
@@ -76,14 +84,25 @@ function resolveStyleReader(doc: Document | null): (el: Element) => CSSStyleDecl
  * `ownerDocument`/`defaultView`. A **string id** does need one, taken from `options.document`
  * when supplied and otherwise from `globalThis.document`; with neither, the error names both
  * remedies rather than surfacing a bare `document is not defined`.
- * @param {Element | string} target - the table element, or the id of one
+ *
+ * This is the one place the public structural element type ({@link TableToSlidesElement},
+ * which any DOM satisfies) is narrowed to `lib.dom`'s `Element`, so the rest of the flow can
+ * be written against ordinary DOM types. The cast is safe in the only sense that matters here:
+ * everything downstream reads standard members and tolerates them being absent — that is what
+ * makes the conversion portable in the first place.
+ * @param {TableToSlidesElement | string} target - the table element, or the id of one
  * @param {TableToSlidesProps} options - generation options (may carry an explicit `document`)
  * @returns {DomContext} resolved DOM context
  */
-function resolveDomContext(target: Element | string, options: TableToSlidesProps): DomContext {
-	if (typeof target !== 'string') return { table: target, getComputedStyle: resolveStyleReader(target.ownerDocument) }
+function resolveDomContext(target: TableToSlidesElement | string, options: TableToSlidesProps): DomContext {
+	const asElement = (element: TableToSlidesElement): Element => element as unknown as Element
 
-	const doc = options.document ?? (globalThis as { document?: Document }).document
+	if (typeof target !== 'string') {
+		const table = asElement(target)
+		return { table, getComputedStyle: resolveStyleReader(table.ownerDocument) }
+	}
+
+	const doc = options.document ?? (globalThis as { document?: TableToSlidesDocument }).document
 	if (!doc) {
 		throw new Error(
 			'tableToSlides: no DOM available to resolve the table id "' +
@@ -91,8 +110,9 @@ function resolveDomContext(target: Element | string, options: TableToSlidesProps
 				'" — pass the <table> element itself, or supply a document via `options.document`.'
 		)
 	}
-	const table = doc.getElementById(target)
-	if (!table) throw new Error('tableToSlides: Table ID "' + target + '" does not exist!')
+	const found = doc.getElementById(target)
+	if (!found) throw new Error('tableToSlides: Table ID "' + target + '" does not exist!')
+	const table = asElement(found)
 	return { table, getComputedStyle: resolveStyleReader(table.ownerDocument) }
 }
 
@@ -103,12 +123,9 @@ function resolveDomContext(target: Element | string, options: TableToSlidesProps
 /**
  * Convert one 0-255 RGB component to its two-digit hex form.
  *
- * Lives here rather than beside the other color code in `gen/drawingml/color.ts`
- * because `getComputedStyle` colors are the only thing in the package that arrives
- * as RGB components — nothing on the Node path calls this. Keeping it in the shared
- * color module put two functions the Node chunk can never execute into that chunk's
- * coverage report; here they fall under the `dist/browser*.js` exclusion that already
- * covers this whole file, so no `v8 ignore` fence is needed.
+ * Lives here rather than beside the other color code in `gen/drawingml/color.ts` because
+ * `getComputedStyle` colors are the only thing in the package that arrives as RGB
+ * components — nothing else in the library calls this.
  * @param {number} c - component color
  * @returns {string} hex string
  */
@@ -144,13 +161,58 @@ function rgbToHex(r: number, g: number, b: number): string {
 export function htmlBorderToProps(widthStr: string, colorStr: string): BorderProps {
 	const pt = Number(String(widthStr).replace('px', ''))
 	if (!isFinite(pt) || pt <= 0) return { type: 'none' }
-	const arrRGB = String(colorStr)
-		.replace(/\s+/gi, '')
-		.replace('rgba(', '')
-		.replace('rgb(', '')
-		.replace(')', '')
-		.split(',')
-	return { width: pt, color: rgbToHex(Number(arrRGB[0]), Number(arrRGB[1]), Number(arrRGB[2])) }
+	return { width: pt, color: cssColorToHex(colorStr) ?? '000000' }
+}
+
+/**
+ * Convert a computed CSS color to a pptx hex color, or report that it has none.
+ *
+ * A browser normalizes every computed color to `rgb()`/`rgba()`, which is why the flow below
+ * originally only parsed that form. Outside a browser there is no normalization step, so a
+ * computed color comes back however the stylesheet wrote it — `#ff0000` is what happy-dom
+ * returns. Feeding that to the `rgb()` parser produced `Number('#ff0000')` → `NaN` → the
+ * literal color string `"NANNANNAN"`, an invalid value emitted without complaint.
+ *
+ * Handles `rgb()`/`rgba()` and `#rgb`/`#rrggbb`. Everything else — a named color, a `color()`
+ * function, an empty string — returns `undefined` rather than a guess, so the caller can
+ * apply its own default instead of emitting nonsense.
+ *
+ * A fully transparent color (`alpha === 0`) also returns `undefined`: it states the absence of
+ * a color, and pptx has no way to say "transparent" in a solid fill.
+ * @param {string} value - computed CSS color, e.g. `"rgb(255, 0, 0)"` or `"#ff0000"`
+ * @returns {string | undefined} six-digit uppercase hex, or `undefined` when unparseable
+ */
+export function cssColorToHex(value: string): string | undefined {
+	const raw = String(value ?? '').trim()
+
+	const rgbMatch = /^rgba?\(([^)]*)\)$/i.exec(raw)
+	if (rgbMatch) {
+		const parts = (rgbMatch[1] ?? '').split(/[,/\s]+/).filter((part) => part.length > 0)
+		if (parts.length < 3) return undefined
+		const channels = parts.slice(0, 3).map((part) => Number(part.replace('%', '')))
+		if (channels.some((channel) => !isFinite(channel))) return undefined
+		if (parts.length > 3 && Number(parts[3]) === 0) return undefined
+		// Clamp and round before hex conversion: a browser always computes whole 0-255
+		// channels, but nothing guarantees another DOM does, and `(255.5).toString(16)`
+		// is `"ff.8"` — a malformed color rather than a wrong one.
+		const [r = 0, g = 0, b = 0] = channels.map((channel) => Math.max(0, Math.min(255, Math.round(channel))))
+		return rgbToHex(r, g, b)
+	}
+
+	const hexMatch = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(raw)
+	if (hexMatch) {
+		const digits = hexMatch[1] ?? ''
+		const full =
+			digits.length === 3
+				? digits
+						.split('')
+						.map((digit) => digit + digit)
+						.join('')
+				: digits
+		return full.toUpperCase()
+	}
+
+	return undefined
 }
 
 /**
@@ -267,21 +329,20 @@ type TextCell = {
 /**
  * Read a cell's text, with `<br>` surviving as a newline.
  *
- * `innerText` is the right answer and is what the browser path uses — it is the *rendered*
- * text, so it already collapses whitespace and turns `<br>` into `"\n"`. But it is an
- * HTML-spec extra that not every DOM implements (jsdom notably does not), and on those the
- * property is simply absent, which would silently empty every cell.
+ * `innerText` is the right answer in a browser — it is the *rendered* text, so it already
+ * collapses whitespace, honors `display: none`, and turns `<br>` into `"\n"`. But it is an
+ * HTML-spec extra tied to rendering, and outside a browser it is either absent (jsdom does not
+ * implement it, so every cell would come out empty) or present but not actually rendered
+ * (happy-dom returns `"ab"` for `a<br>b`, so every cell would come out on one line).
  *
- * The fallback walks `childNodes`, concatenating text and mapping `<br>` to `"\n"`, then
- * collapses whitespace runs per line and trims — an approximation of `innerText` for a DOM
- * with no rendering to ask. It cannot know about `display: none` or `text-transform`; a
- * caller that needs those needs a real browser.
+ * So both are computed and the better one wins: a `childNodes` walk that maps `<br>` to a line
+ * break and collapses whitespace per line, and `innerText`. `innerText` is preferred unless it
+ * dropped a line break the walk found — the one thing that provably makes it not the rendered
+ * text. Neither can know about `text-transform` without a browser.
  * @param {TextCell} cell - the table cell element
  * @returns {string} cell text, `<br>`-separated lines joined by `"\n"`
  */
 export function readCellText(cell: TextCell): string {
-	if (typeof cell.innerText === 'string') return cell.innerText
-
 	// Accumulate one bucket per line rather than one string with "\n" separators: the source's
 	// own indentation contains newlines, and only a `<br>` may actually start a new line. A
 	// separator character could not tell those two apart; separate buckets never have to.
@@ -312,7 +373,16 @@ export function readCellText(cell: TextCell): string {
 		const child = children?.[idx]
 		if (child) walk(child)
 	}
-	return lines.map((line) => line.replace(/\s+/g, ' ').trim()).join('\n')
+	const walked = lines.map((line) => line.replace(/\s+/g, ' ').trim()).join('\n')
+
+	// Prefer `innerText` — except when the walk found line breaks it dropped. A DOM that does
+	// not render can still expose an `innerText` property that is really just `textContent`
+	// (happy-dom returns `"ab"` for `a<br>b`), and that one is not the rendered text this
+	// wants: it has silently lost the cell's line structure. Where it kept the breaks, it is
+	// the better answer, because it also knows about `display:none` and `text-transform`.
+	const rendered = cell.innerText
+	if (typeof rendered !== 'string') return walked
+	return walked.includes('\n') && !rendered.includes('\n') ? walked : rendered
 }
 
 // ===== Live-DOM tableToSlides() flow =====
@@ -320,19 +390,39 @@ export function readCellText(cell: TextCell): string {
 // out of active scope — see AGENTS.md. Internally signposted by `// STEP 1..5`.
 
 /**
+ * Resolve `options.masterTitle` to the slide layout it names, so the auto-pager can take that
+ * master's margins.
+ *
+ * The layout registry is a presentation *internal* — it is not on {@link TableToSlidesHost},
+ * and the public `slideLayouts` getter deliberately hides the `_name` this matches on. Rather
+ * than widen either, read it defensively: a host that has no registry simply resolves no
+ * master, which is what a caller passing a bare `{ addSlide, presLayout }` object should get.
+ * The alternative — dropping the lookup on the free-function path — would make `masterTitle`
+ * silently do nothing there, which is a trap.
+ * @param {TableToSlidesHost} pptx - the presentation the slides are being added to
+ * @param {string} masterTitle - the `title` passed to `defineSlideMaster`
+ * @returns {SlideLayoutInternal | undefined} the named layout, if this host has one
+ */
+function resolveMasterSlide(pptx: TableToSlidesHost, masterTitle?: string): SlideLayoutInternal | undefined {
+	if (!masterTitle) return undefined
+	const layouts = (pptx as { _slideLayouts?: SlideLayoutInternal[] })._slideLayouts
+	if (!Array.isArray(layouts)) return undefined
+	return layouts.find((layout) => layout._name === masterTitle)
+}
+
+/**
  * Reproduces an HTML table as a PowerPoint table - including column widths, style, etc. - creates 1 or more slides as needed
  * @param {TableToSlidesHost} pptx - ts-pptx instance
- * @param {Element | string} target - the table element, or the HTMLElementID of the table
+ * @param {TableToSlidesElement | string} target - the table element, or the HTMLElementID of the table
  * @param {TableToSlidesProps} options - array of options (e.g.: tabsize)
- * @param {SlideLayoutInternal} masterSlide - masterSlide
  */
 export function genTableToSlides(
 	pptx: TableToSlidesHost,
-	target: Element | string,
-	options: TableToSlidesProps = {},
-	masterSlide?: SlideLayoutInternal
+	target: TableToSlidesElement | string,
+	options: TableToSlidesProps = {}
 ): void {
 	const opts = options || {}
+	const masterSlide = resolveMasterSlide(pptx, opts.masterTitle)
 	opts.slideMargin = opts.slideMargin || opts.slideMargin === 0 ? opts.slideMargin : 0.5
 	let emuSlideTabW = opts.w || pptx.presLayout.width
 	const arrObjTabHeadRows: TableCell[][] = []
@@ -440,35 +530,19 @@ export function genTableToSlides(
 				// The computed style is read a dozen times below; resolve it once per cell.
 				const style = ctx.getComputedStyle(cell)
 
-				// A: Get RGB text/bkgd colors
-				const arrRGB1 = style
-					.getPropertyValue('color')
-					.replace(/\s+/gi, '')
-					.replace('rgba(', '')
-					.replace('rgb(', '')
-					.replace(')', '')
-					.split(',')
-				let arrRGB2 = style
-					.getPropertyValue('background-color')
-					.replace(/\s+/gi, '')
-					.replace('rgba(', '')
-					.replace('rgb(', '')
-					.replace(')', '')
-					.split(',')
-				if (
-					// NOTE: Default for unstyled tables is black bkgd, so use white instead
-					style.getPropertyValue('background-color') === 'rgba(0, 0, 0, 0)'
-				) {
-					arrRGB2 = ['255', '255', '255']
-				}
+				// A: Get text/bkgd colors
+				// NOTE: an unparseable or fully transparent background is the default for an
+				// unstyled table; pptx has no "transparent" solid fill, so use white instead.
+				const textColor = cssColorToHex(style.getPropertyValue('color')) ?? '000000'
+				const fillColor = cssColorToHex(style.getPropertyValue('background-color')) ?? 'FFFFFF'
 
 				// B: Create option object
 				const cellOpts: TableCellProps = {
 					bold: !!(
 						style.getPropertyValue('font-weight') === 'bold' || Number(style.getPropertyValue('font-weight')) >= 500
 					),
-					color: rgbToHex(Number(arrRGB1[0]), Number(arrRGB1[1]), Number(arrRGB1[2])),
-					fill: { color: rgbToHex(Number(arrRGB2[0]), Number(arrRGB2[1]), Number(arrRGB2[2])) },
+					color: textColor,
+					fill: { color: fillColor },
 					fontSize: Number(style.getPropertyValue('font-size').replace(/[a-z]/gi, '')),
 				}
 				const fontFace = ((style.getPropertyValue('font-family') || '').split(',')[0] ?? '')

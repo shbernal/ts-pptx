@@ -42,10 +42,15 @@ export default defineConfig({
 			// Browser-only entry points are out of the Node suite's scope (they call
 			// `fetch`, `document`, DOM layout APIs that cannot run headless). They map
 			// to their own bundled chunks, so exclude those chunks rather than the
-			// shared `pptxgen` chunk. Live-DOM feature code (`tableToSlides` /
-			// `html-dom.ts`) is imported only by the browser entry, so it bundles into
-			// these chunks too and needs no in-source `v8 ignore` fence. See
-			// docs/project-target.md "Out Of Active Scope".
+			// shared `pptxgen` chunk.
+			//
+			// `html-dom.ts` (the `tableToSlides` conversion) used to be excluded by
+			// these same globs, on the grounds that only the browser entry imported it.
+			// That is no longer true: the `ts-pptx/html` entry imports it too, so tsdown
+			// emits it as its own shared `dist/html-dom-*.js` chunk — deliberately NOT
+			// excluded here. The Node suite executes it against a real DOM
+			// (test/regression/html-to-slides-node.test.js), so it is covered code now,
+			// not unreachable code.
 			exclude: [
 				...coverageConfigDefaults.exclude,
 				'dist/browser.js', // src/browser.ts — browser entry

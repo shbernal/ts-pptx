@@ -10,6 +10,29 @@ import type { ShapeProps } from './shape.js'
 import type { BorderProps, HyperlinkProps, ShapeFillProps } from './style.js'
 import type { TextBaseProps, TextFitShrinkProps, TextProps, TextPropsOptions } from './text.js'
 
+/**
+ * A `<table>` element, from whatever DOM implementation the caller has.
+ *
+ * Deliberately *not* `lib.dom`'s `Element`. `lib.dom`'s types are built for a browser, and a
+ * non-browser DOM's element type — happy-dom's, jsdom's — declares its own members and does
+ * not satisfy them, so demanding `Element` would reject from TypeScript exactly the
+ * implementations `ts-pptx/html` exists to accept. Requiring the three members the conversion
+ * actually calls keeps a mistyped argument an error while letting every real DOM through.
+ */
+export interface TableToSlidesElement {
+	getAttribute: (name: string) => string | null
+	querySelector: (selectors: string) => unknown
+	querySelectorAll: (selectors: string) => unknown
+}
+
+/**
+ * The one thing `tableToSlides` asks a document for. Structural for the same reason
+ * {@link TableToSlidesElement} is.
+ */
+export interface TableToSlidesDocument {
+	getElementById: (elementId: string) => TableToSlidesElement | null
+}
+
 export interface TableToSlidesProps extends TableProps {
 	_arrObjTabHeadRows?: TableRow[]
 	// _masterSlide?: SlideLayout
@@ -76,7 +99,7 @@ export interface TableToSlidesProps extends TableProps {
 	 * - defaults to the global `document`, which is what a browser caller gets
 	 * - supply this to convert a table outside a browser (any DOM implementation will do)
 	 */
-	document?: Document
+	document?: TableToSlidesDocument
 	/**
 	 * Title of the slide master to use for the auto-paged slides (the `title` passed to
 	 * `defineSlideMaster`). Matches the `masterTitle` option of `addSlide`.

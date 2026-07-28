@@ -1,6 +1,12 @@
 import { describe, test } from 'vitest'
 import { assert } from '../helpers.js'
-import { parseCssPx, parseCssWidthBasis, pickColWidthBasis, readCellText } from '../../src/gen/table/html-dom.ts'
+import {
+	cssColorToHex,
+	parseCssPx,
+	parseCssWidthBasis,
+	pickColWidthBasis,
+	readCellText,
+} from '../../src/gen/table/html-dom.ts'
 
 // Acceptance: HTML-table conversion must produce usable column widths and cell text on a DOM
 // with no layout engine. `offsetWidth` is 0 for every cell there, which made the proportional
@@ -159,6 +165,23 @@ describe('readCellText', () => {
 		assert(readCellText(cell) === '', 'an empty string is a value, not an absence')
 	})
 
+	test('innerText wins over the walk when both agree there are no breaks', () => {
+		// `display:none` on the span: only a rendering DOM can know the text is not there.
+		const cell = { innerText: 'visible', childNodes: [textNode('visible'), element('SPAN', [textNode('hidden')])] }
+		assert(readCellText(cell) === 'visible', 'a rendering DOM knows more than the walk does')
+	})
+
+	test('a <br> that innerText dropped falls back to the walk', () => {
+		// happy-dom implements `innerText`, but not as *rendered* text: it returns "ab" here.
+		const cell = { innerText: 'ab', nodeType: 1, nodeName: 'TD', childNodes: [textNode('a'), BR, textNode('b')] }
+		assert(readCellText(cell) === 'a\nb', `a dropped line break disqualifies innerText, got ${readCellText(cell)}`)
+	})
+
+	test('a <br> that innerText kept leaves innerText in charge', () => {
+		const cell = { innerText: 'A\nB', nodeType: 1, nodeName: 'TD', childNodes: [textNode('A'), BR, textNode('B')] }
+		assert(readCellText(cell) === 'A\nB', 'a real innerText keeps its own whitespace handling')
+	})
+
 	test('the fallback concatenates text nodes', () => {
 		const cell = element('TD', [textNode('Hello '), element('SPAN', [textNode('world')])])
 		assert(readCellText(cell) === 'Hello world', `expected "Hello world", got ${JSON.stringify(readCellText(cell))}`)
@@ -198,5 +221,63 @@ describe('readCellText', () => {
 
 	test('a cell with no childNodes at all does not throw', () => {
 		assert(readCellText({ nodeType: 1, nodeName: 'TD' }) === '', 'a childless shape must degrade, not throw')
+	})
+})
+
+describe('cssColorToHex', () => {
+	test('rgb() parses to hex', () => {
+		assert(cssColorToHex('rgb(255, 51, 153)') === 'FF3399', `got ${cssColorToHex('rgb(255, 51, 153)')}`)
+	})
+
+	test('rgba() with a visible alpha keeps its color', () => {
+		assert(cssColorToHex('rgba(255, 0, 0, 0.5)') === 'FF0000', 'a translucent color is still that color')
+	})
+
+	test('a fully transparent color has no hex', () => {
+		assert(cssColorToHex('rgba(0, 0, 0, 0)') === undefined, 'transparent states the absence of a color')
+	})
+
+	test('the modern space/slash rgb() syntax parses', () => {
+		assert(cssColorToHex('rgb(255 51 153 / 50%)') === 'FF3399', `got ${cssColorToHex('rgb(255 51 153 / 50%)')}`)
+	})
+
+	test('six-digit hex passes through, uppercased', () => {
+		assert(cssColorToHex('#ff0000') === 'FF0000', 'a non-browser DOM returns the authored hex')
+	})
+
+	test('three-digit hex expands', () => {
+		assert(cssColorToHex('#0a3') === '00AA33', `got ${cssColorToHex('#0a3')}`)
+	})
+
+	test('single-digit channels pad to two hex digits', () => {
+		assert(cssColorToHex('rgb(1, 2, 3)') === '010203', `got ${cssColorToHex('rgb(1, 2, 3)')}`)
+	})
+
+	test('fractional channels round rather than emitting "ff.8"', () => {
+		assert(cssColorToHex('rgb(255.5, 0, 0)') === 'FF0000', `got ${cssColorToHex('rgb(255.5, 0, 0)')}`)
+	})
+
+	test('out-of-range channels clamp', () => {
+		assert(cssColorToHex('rgb(300, -20, 0)') === 'FF0000', `got ${cssColorToHex('rgb(300, -20, 0)')}`)
+	})
+
+	test('a named color has no hex rather than a wrong one', () => {
+		assert(cssColorToHex('red') === undefined, 'guessing is worse than saying nothing')
+	})
+
+	test('an empty value has no hex', () => {
+		assert(cssColorToHex('') === undefined, 'no color stated')
+	})
+
+	test('a malformed rgb() has no hex', () => {
+		assert(cssColorToHex('rgb(1, 2)') === undefined, 'two channels is not a color')
+	})
+
+	test('non-numeric channels have no hex, not "NANNANNAN"', () => {
+		assert(cssColorToHex('rgb(a, b, c)') === undefined, 'the historical bug emitted NANNANNAN here')
+	})
+
+	test('a nullish value has no hex rather than a throw', () => {
+		assert(cssColorToHex(undefined) === undefined, 'a missing property must not throw')
 	})
 })

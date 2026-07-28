@@ -29,6 +29,7 @@ export default defineConfig([
 			script: 'src/script.ts',
 			math: 'src/math.ts',
 			zip: 'src/zip.ts',
+			html: 'src/html.ts',
 			node: 'src/node.ts',
 			browser: 'src/browser.ts',
 		},

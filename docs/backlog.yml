@@ -1137,6 +1137,55 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: none-until-owner-greenlights
+  - id: dn-html-table-padding-units
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-07-29
+    last_reviewed: 2026-07-29
+    status: needs-repro
+    priority: p3
+    target_area:
+      - table-ooxml
+    applies_to_current_project: partial
+    non_target_reasons: []
+    summary: "tableToSlides passes computed CSS padding straight into TableCellProps.margin, which is inches downstream, so a 20px padded cell asks for a 20in text inset"
+    current_project_notes: |
+      Found while adding Node-side coverage for the HTML-table conversion
+      (test/regression/html-to-slides-node.test.js "fractional computed padding rounds
+      to 2, not to 15"). The conversion reads `padding-*` in px and assigns the number
+      to `TableCellProps.margin` under a comment stating "Margins translate: px->pt 1:1".
+      That was true when cell margin was points; it is not true now — cell margin has
+      been INCHES since the units change (see dn-table-cell-margin-units /
+      fork-units-pt-vs-inches, and test/regression/table-cell-margin-inches.test.js).
+      So the value is now interpreted 72x too large: a 4px padded cell emits marL=3657600
+      (4 inches), and any cell padded >= 1px trips the "likely legacy points value" warn.
+
+      Reproducible by any consumer: convert a table whose cells have ordinary CSS padding
+      and read `<a:tcPr marL=...>` on the emitted slide.
+
+      Deliberately NOT fixed alongside the /html subpath work, which was scoped to be
+      additive and to leave browser output unchanged apart from two named parsing fixes.
+      Correcting the unit changes the emitted inset for every padded cell on the existing
+      browser path too, so it wants its own change with its own changelog entry.
+
+      The fix is a unit conversion at the assignment (px -> inches, i.e. divide by 96 for
+      CSS px, or px -> pt -> in), not a change to the parse — the parse was fixed in
+      00638952 (it was stripping the decimal point). What is unclear, and what the
+      needs-repro status is about, is which conversion a user would call correct:
+      CSS px are 1/96in, while the original comment assumed a 1:1 px->pt mapping that
+      would make it 1/72in. Pick one against a rendered comparison before changing it.
+    evidence:
+      kinds:
+        - local-source-inspection
+        - regression-test
+      local_files:
+        - src/gen/table/html-dom.ts
+        - test/regression/html-to-slides-node.test.js
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: decide px->inch conversion against a rendered PowerPoint comparison, then fix and changelog it as a browser-visible change
   - id: dn-logo-cloud-helper
     source: downstream
     type: downstream-need

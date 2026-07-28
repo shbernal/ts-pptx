@@ -82,6 +82,7 @@ const EXPORT_MATRIX = [
 	},
 	{ subpath: '/math', hasDefault: false, exports: { latexToOmml: 'function', mathmlToOmml: 'function' } },
 	{ subpath: '/zip', hasDefault: false, exports: { ZipWriter: 'function', readZip: 'function' } },
+	{ subpath: '/html', hasDefault: false, exports: { tableToSlides: 'function' } },
 	{ subpath: '/node', hasDefault: true, exports: { TsPptx: 'function', ShapeType: 'object' } },
 	{ subpath: '/browser', hasDefault: true, exports: { TsPptx: 'function', ShapeType: 'object' } },
 ]
