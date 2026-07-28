@@ -1442,6 +1442,8 @@ items:
       collide and emit a part with a duplicate Relationship Id. Filed separately
       because it changes emitted OOXML and is not a coverage question; the tests here
       assert id-uniqueness on the fixtures they build, which do not trigger it.
+      (Fixed in a follow-up the same day -- a sixth case in the same file now builds a
+      fixture that does trigger it. See that entry.)
 
       Read this before trusting a per-file number from coverage/: a run started with
       --coverage.reportsDirectory writes there AND vitest cleans the directory, so a
@@ -1475,7 +1477,7 @@ items:
     type: fork-internal-proposal
     first_seen: 2026-07-28
     last_reviewed: 2026-07-28
-    status: deferred
+    status: implemented
     priority: p2
     target_area:
       - relationship-or-content-type
@@ -1524,6 +1526,17 @@ items:
       unchanged for every deck that does not currently collide, and the check is what
       proves it. A test belongs next to the coverage cases already in
       test/regression/hyperlink-rels.test.js.
+
+      FIXED 2026-07-28, as proposed. getNewRelId now collects the ids held across
+      _rels/_relsChart/_relsMedia and advances past any collision, keeping the count
+      as its starting point rather than switching to "lowest free id" -- for the
+      contiguous numbering every non-colliding deck already has, count + 1 is free and
+      the answer is unchanged. byte-identity check: PASS, 177 parts, so no showcase
+      deck moved a byte. The repro slide now emits rId2 for the repeated header and
+      rId3 for the body cell, with the layout and notes rels shifting up accordingly
+      (those are numbered from max(rId) by the rels writer, which is why they never
+      collided and why the defect stayed invisible in the parts a reader looks at
+      first).
     constructs: []
     evidence:
       kinds:
@@ -1538,4 +1551,4 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: fix getNewRelId to skip ids already held by the target slide, gated on byte-identity baseline/check, and add the duplicate-Id assertion to test/regression/hyperlink-rels.test.js
+    next_action: none -- fixed in gen-utils.ts and pinned by "a rel id carried onto a paged slide is not minted a second time on that slide" in test/regression/hyperlink-rels.test.js, which was confirmed to fail on the pre-fix build before being kept
