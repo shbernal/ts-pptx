@@ -157,6 +157,20 @@ function fillOption(shape: AnyShape, notes: NoteScope): IrValue | undefined {
 		}
 	}
 
+	// An image-filled *surface* is not a picture object: the write API's fill options are
+	// colour/gradient/pattern only, and this mapper carries no asset resolver, so the bytes
+	// cannot be re-embedded here even though the read model now sees them.
+	const picture = shape.pictureFill
+	if (picture) {
+		notes.note(
+			'fill.picture',
+			'dropped',
+			'unsupported',
+			`this shape's surface is filled with an image (a:blipFill${picture.partName ? ` → ${picture.partName}` : ''}); ShapeFillProps has no picture option, so the shape comes out unfilled`
+		)
+		return undefined
+	}
+
 	const scheme = shape.fillSchemeColor
 	if (isWritableSchemeToken(scheme)) return { color: scheme as string }
 	if (shape.fillColor !== null) return { color: literalColor(shape.fillColor) }

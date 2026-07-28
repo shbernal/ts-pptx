@@ -278,7 +278,7 @@ check must exclude from its diff.
 
 ## What actually gets lost
 
-Measured across the 41-fixture corpus. The count is how many fixtures raise the
+Measured across the 42-fixture corpus. The count is how many fixtures raise the
 note at least once — the corpus is construct-targeted, so this measures
 **coverage, not frequency**: it says what a converter meets, not what a real deck
 is mostly made of.
@@ -287,49 +287,57 @@ Both tiers, in corpus order:
 
 | construct | fixtures | cause | what it costs |
 |---|---|---|---|
-| `text.bullet.inherited` | 32/41 | unread | a paragraph inheriting its bullet gets an explicit `a:buNone` — the write path cannot say "inherit" |
-| `text.color.inherited` | 27/41 | unsupported | an uncoloured run would be painted black, so the inherited colour is resolved and baked in |
-| `shape.placeholder` | 9/41 | unsupported | placeholder *identity* degrades; 6 of 16 `ST_PlaceholderType` values are expressible and `idx` has no setter |
-| `shape.frameInherited` | 8/41 | unsupported | geometry inherited from a layout is reproduced exactly, then frozen — it stops tracking layout edits |
-| `line.width` | 7/41 | unread | an outline from the theme line matrix (`p:style/a:lnRef`) keeps its colour and loses its width and dash |
-| `slide.animation` | 7/41 | unread | build animation has no structural reader |
-| `table.cell.fill` | 6/41 | unread | `resolvedFill` folds a cell's own fill together with the style graph's banding, so emitting it would freeze the banding |
-| `text.color.default` | 6/41 | unread | nothing resolves what this run inherits, so the write path paints it black — the one case where the output colour is not merely frozen but possibly *wrong* |
-| `text.indent` | 5/41 | unwritable | `a:pPr/@marL`/`@indent` have no option; only the discrete `indentLevel` does, so hanging indents flatten |
-| `text.bullet.style` | 3/41 | unread | `a:buFont` / `a:buSzPct` / `a:buClr` — a bullet's font, size and colour |
-| `media.audioVideo` | 2/41 | unread | only the poster frame is readable, so embedded A/V becomes a still image |
-| `text.equation` | 2/41 | unread | the whole `m:` namespace is absent from the read path, so OMML math is invisible |
+| `text.bullet.inherited` | 33/42 | unread | a paragraph inheriting its bullet gets an explicit `a:buNone` — the write path cannot say "inherit" |
+| `text.color.inherited` | 27/42 | unsupported | an uncoloured run would be painted black, so the inherited colour is resolved and baked in |
+| `shape.placeholder` | 9/42 | unsupported | placeholder *identity* degrades; 6 of 16 `ST_PlaceholderType` values are expressible and `idx` has no setter |
+| `shape.frameInherited` | 8/42 | unsupported | geometry inherited from a layout is reproduced exactly, then frozen — it stops tracking layout edits |
+| `line.width` | 7/42 | unread | an outline from the theme line matrix (`p:style/a:lnRef`) keeps its colour and loses its width and dash |
+| `slide.animation` | 7/42 | unread | build animation has no structural reader |
+| `table.cell.fill` | 7/42 | unread | `resolvedFill` folds a cell's own fill together with the style graph's banding, so emitting it would freeze the banding |
+| `text.color.default` | 7/42 | unread | nothing resolves what this run inherits, so the write path paints it black — the one case where the output colour is not merely frozen but possibly *wrong* |
+| `text.indent` | 5/42 | unwritable | `a:pPr/@marL`/`@indent` have no option; only the discrete `indentLevel` does, so hanging indents flatten |
+| `text.bullet.style` | 3/42 | unread | `a:buFont` / `a:buSzPct` / `a:buClr` — a bullet's font, size and colour |
+| `media.audioVideo` | 2/42 | unread | only the poster frame is readable, so embedded A/V becomes a still image |
+| `text.equation` | 2/42 | unread | the whole `m:` namespace is absent from the read path, so OMML math is invisible |
 
 Plus, at 1–2 fixtures each: `chart.workbook`, `group.childSpace`,
 `group.transform`, `image.recolor`, `image.svg`, `shape.empty`,
 `connector.binding`, `fill.gradient.path`, `fill.schemeToken`,
 `graphicFrame.unknown`, `group.child`, `line.arrowSize`,
-`shape.custGeom.guides`, `slide.layout`, `table.cell.vert`, `table.rowAuto`,
-`text.field`, `text.paraSpaceZero`.
+`shape.custGeom.guides`, `slide.layout`, `table.cell.fill.picture`,
+`table.cell.vert`, `table.rowAuto`, `text.field`, `text.paraSpaceZero`.
+
+`fill.picture` — a shape whose *surface* is an image fill — is declared but fires
+on no fixture: the corpus's only `p:spPr/a:blipFill` sits inside an
+`mc:Fallback`, which the read model does not walk. It is the shape-side twin of
+`table.cell.fill.picture`, and both are `unsupported` rather than `unread`: the
+read model sees the blip (`AutoShape.pictureFill` / `TableCell.pictureFill`), and
+it is the write API's fill options — colour, gradient, pattern — that cannot
+express a picture.
 
 **Standalone only** — the chrome cliff, quantified. Five notes fire on *every*
 fixture, which is the honest headline of that tier:
 
 | construct | fixtures | what it costs |
 |---|---|---|
-| `theme.fmtScheme` | 41/41 | the output carries Office's format scheme |
-| `master.txStyles` | 41/41 | placeholder text falls back to built-in defaults |
-| `master.placeholders` | 41/41 | layout placeholder definitions are not reproduced |
-| `deck.docProps` | 41/41 | 5 of 12 document properties have setters |
-| `master.default` | 41/41 | every presentation carries an unremovable blank `DEFAULT` layout |
-| `master.background` | 40/41 | a `p:bgRef` theme reference is baked to the colour it resolves to |
-| `master.decoration` | 6/41 | the shapes a layout sits on top of |
-| `master.name` | 5/41 | a layout name containing a tab or line break collapses |
-| `master.colorMap` | 4/41 | `p:clrMap` has no setter |
-| `master.multiple` | 1/41 | multi-master decks collapse to one |
-| `master.nameCollision` | 1/41 | layout titles are deduplicated, since a title doubles as a lookup key |
+| `theme.fmtScheme` | 42/42 | the output carries Office's format scheme |
+| `master.txStyles` | 42/42 | placeholder text falls back to built-in defaults |
+| `master.placeholders` | 42/42 | layout placeholder definitions are not reproduced |
+| `deck.docProps` | 42/42 | 5 of 12 document properties have setters |
+| `master.default` | 42/42 | every presentation carries an unremovable blank `DEFAULT` layout |
+| `master.background` | 41/42 | a `p:bgRef` theme reference is baked to the colour it resolves to |
+| `master.decoration` | 6/42 | the shapes a layout sits on top of |
+| `master.name` | 5/42 | a layout name containing a tab or line break collapses |
+| `master.colorMap` | 4/42 | `p:clrMap` has no setter |
+| `master.multiple` | 1/42 | multi-master decks collapse to one |
+| `master.nameCollision` | 1/42 | layout titles are deduplicated, since a title doubles as a lookup key |
 
 Chrome losses are deliberately **rolled up**: `master.decoration` and
 `master.placeholders` are one note each, naming the layouts and the counts. A
 twelve-layout deck emitting one note per layout would put twelve near-identical
 paragraphs at the top of the script and bury the per-shape notes underneath that
 a reader can act on. Per deck the tier adds five to eleven notes, not fifty
-(across the corpus: 988 notes against the template-anchored tier's 724).
+(across the corpus: 998 notes against the template-anchored tier's 728).
 
 ### The read path is the binding constraint
 

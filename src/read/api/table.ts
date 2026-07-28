@@ -8,8 +8,11 @@
  */
 import type { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
+import type { Relationships } from '../opc/relationships.js'
 import { attr, firstChild, getElements, intValue, type Element } from '../oxml/dom.js'
+import { FILL_CHOICES } from '../oxml/fill.js'
 import type { FlattenContext } from '../oxml/theme.js'
+import { readPictureFill, type PictureFill } from './picture-fill.js'
 import {
 	resolveTableCellStyleFill,
 	resolveTableStyle,
@@ -76,14 +79,16 @@ export class Table {
 		/** The owning slide's theme colour context, threaded to each cell's text for `Run.resolvedColor`. */
 		private readonly themeColors?: FlattenContext,
 		/** The deck package, for resolving `a:tableStyleId` against `tableStyles.xml` (style-graph cell fills). */
-		private readonly opc?: OpcPackage
+		private readonly opc?: OpcPackage,
+		/** The owning slide's relationships, for resolving a cell picture fill's `r:embed` to a partname. */
+		private readonly rels?: Relationships
 	) {}
 
 	/** The table's rows (`a:tr`) in document (top-to-bottom) order. */
 	get rows(): TableRow[] {
 		const style = this.#styleContext()
 		return getElements(this.tbl, 'a:tr').map(
-			(tr, rowIndex) => new TableRow(tr, this.part, this.themeColors, style, rowIndex)
+			(tr, rowIndex) => new TableRow(tr, this.part, this.themeColors, style, rowIndex, this.rels)
 		)
 	}
 
@@ -198,13 +203,15 @@ export class TableRow {
 		/** The table's style-resolution context, threaded to each cell for {@link TableCell.resolvedFill}. */
 		private readonly style?: TableCellStyleContext | null,
 		/** This row's zero-based index in the table, for style-graph banding/edge conditions. */
-		private readonly rowIndex = 0
+		private readonly rowIndex = 0,
+		/** The owning slide's relationships, threaded to each cell for {@link TableCell.pictureFill}. */
+		private readonly rels?: Relationships
 	) {}
 
 	/** The row's cells (`a:tc`) in left-to-right order. */
 	get cells(): TableCell[] {
 		return getElements(this.tr, 'a:tc').map(
-			(tc, colIndex) => new TableCell(tc, this.part, this.themeColors, this.style, this.rowIndex, colIndex)
+			(tc, colIndex) => new TableCell(tc, this.part, this.themeColors, this.style, this.rowIndex, colIndex, this.rels)
 		)
 	}
 
@@ -236,7 +243,9 @@ export class TableCell {
 		/** This cell's zero-based row index in the table. */
 		private readonly rowIndex = 0,
 		/** This cell's zero-based column index in its row. */
-		private readonly colIndex = 0
+		private readonly colIndex = 0,
+		/** The owning slide's relationships, for resolving {@link pictureFill}'s `r:embed` to a partname. */
+		private readonly rels?: Relationships
 	) {}
 
 	/** The cell's text frame (`a:txBody`); `null` only if the cell has none (non-conformant). */
@@ -276,16 +285,38 @@ export class TableCell {
 	 * table **style** graph (the `firstRow`/banded/`wholeTbl` shading the
 	 * `a:tableStyleId` supplies — see {@link Table.resolvedStyle}), so a styled cell
 	 * with an empty `a:tcPr` reports the colour PowerPoint actually renders rather
-	 * than `null`. Still `null` when neither source yields a solid colour (no theme
-	 * context, an unmapped token, an explicit style `a:noFill`, or a non-solid fill).
-	 * The returned {@link ResolvedColor} carries `effectiveHex` (the base colour with
-	 * its `lumMod`/`lumOff`/… transforms applied) — read that for the final colour.
+	 * than `null`.
+	 *
+	 * A cell that carries *some other* fill choice (`a:blipFill`/`a:gradFill`/
+	 * `a:pattFill`/`a:noFill`) overrides the style graph in PowerPoint, so this
+	 * reports `null` for one rather than falling through to the inherited shading —
+	 * the same guard {@link import('./shapes.js').AutoShape.resolvedFill} applies to
+	 * the style matrix. Read {@link pictureFill} for an image-filled cell. Also
+	 * `null` with no theme context, or when neither source yields a solid colour (an
+	 * unmapped token, an explicit style `a:noFill`). The returned
+	 * {@link ResolvedColor} carries `effectiveHex` (the base colour with its
+	 * `lumMod`/`lumOff`/… transforms applied) — read that for the final colour.
 	 */
 	get resolvedFill(): ResolvedColor | null {
 		if (!this.themeColors) return null
-		const own = resolveSolidFillColor(this.#tcPr(), this.themeColors)
-		if (own) return own
+		const tcPr = this.#tcPr()
+		if (tcPr && FILL_CHOICES.some((q) => firstChild(tcPr, q))) return resolveSolidFillColor(tcPr, this.themeColors)
 		return this.style ? this.#styleFill() : null
+	}
+
+	/**
+	 * The cell's picture (image) fill (`a:tcPr/a:blipFill`), or `null` when the cell
+	 * is not image-filled. The cell counterpart of
+	 * {@link import('./shapes.js').AutoShape.pictureFill}: {@link resolvedFill}
+	 * decodes only solid colours, so without this an image-filled cell is
+	 * indistinguishable from an empty one. Carries the embedded image
+	 * ({@link PictureFill.relId}/{@link PictureFill.partName}) plus the stretch/tile
+	 * geometry; {@link PictureFill.partName} needs the owning slide's relationships,
+	 * which a {@link Table} built without them cannot supply.
+	 */
+	get pictureFill(): PictureFill | null {
+		const tcPr = this.#tcPr()
+		return tcPr ? readPictureFill(tcPr, this.rels ?? null) : null
 	}
 
 	/** The fill this cell inherits from the table style graph, or `null` when the style defines none for it. */

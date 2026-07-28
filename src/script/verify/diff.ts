@@ -190,6 +190,9 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	'deck.docPropsDefault': [],
 	'deck.slideSize': ['widthEmu', 'heightEmu'],
 	'fill.gradient.path': ['gradient', 'fill'],
+	// An image-filled surface has no write-side spelling at all, so the whole fill option is
+	// absent from the output — the same two keys `fill.schemeToken` covers, for the harder case.
+	'fill.picture': ['fill', 'color'],
 	'fill.schemeToken': ['fill', 'color'],
 	'graphicFrame.unknown': ['*'],
 	'group.child': ['*'],
@@ -246,6 +249,7 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	'slide.transitionSound': ['sound', 'data', '$asset'],
 	'table.cell.borders.diagonal': ['border'],
 	'table.cell.fill': ['fill'],
+	'table.cell.fill.picture': ['fill'],
 	'table.cell.vert': ['vert'],
 	'table.rowAuto': ['rowH'],
 	'table.style': ['tableStyle'],

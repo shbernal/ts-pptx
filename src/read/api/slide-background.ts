@@ -23,6 +23,7 @@ import { styleRefFill, type FlattenContext } from '../oxml/theme.js'
 import type { Relationships } from '../opc/relationships.js'
 import { resolveColorElement, type ResolvedColor } from './theme-context.js'
 import { readGradientFill, type GradientFill } from './gradient.js'
+import { readPictureFill, type PictureFill } from './picture-fill.js'
 
 /** Where a slide's effective background comes from in the slide → layout → master chain. */
 export type BackgroundSource = 'slide' | 'layout' | 'master'
@@ -32,11 +33,15 @@ export type BackgroundSource = 'slide' | 'layout' | 'master'
  * resolved `fmtScheme` entry). The source-less core of {@link SlideBackground}: the
  * top-level variants add {@link BackgroundSource}, and it is what a `themeRef`'s
  * {@link SlideBackground.resolvedFill} carries.
+ *
+ * The `image` variant keeps `relId`/`partName` at the top level — the fields
+ * callers already read — and adds the full {@link PictureFill} (stretch/tile
+ * geometry, crop, alpha) under `picture`.
  */
 export type BackgroundFill =
 	| { type: 'solid'; color: ResolvedColor | null }
 	| { type: 'gradient'; gradient: GradientFill }
-	| { type: 'image'; relId: string | null; partName: string | null }
+	| { type: 'image'; picture: PictureFill; relId: string | null; partName: string | null }
 	| { type: 'pattern'; preset: string | null; foreground: ResolvedColor | null; background: ResolvedColor | null }
 	| { type: 'none' }
 
@@ -52,7 +57,7 @@ export type BackgroundFill =
 export type SlideBackground =
 	| { type: 'solid'; source: BackgroundSource; color: ResolvedColor | null }
 	| { type: 'gradient'; source: BackgroundSource; gradient: GradientFill }
-	| { type: 'image'; source: BackgroundSource; relId: string | null; partName: string | null }
+	| { type: 'image'; source: BackgroundSource; picture: PictureFill; relId: string | null; partName: string | null }
 	| {
 			type: 'pattern'
 			source: BackgroundSource
@@ -87,12 +92,8 @@ function decodeBackgroundFill(container: Element, ctx: FlattenContext, rels: Rel
 	const grad = firstChild(container, 'a:gradFill')
 	if (grad) return { type: 'gradient', gradient: readGradientFill(container, ctx) as GradientFill }
 
-	const blip = firstChild(container, 'a:blipFill')
-	if (blip) {
-		const blipEl = firstChild(blip, 'a:blip')
-		const relId = blipEl ? attr(blipEl, 'r:embed') : null
-		return { type: 'image', relId, partName: relId && rels ? rels.resolveTarget(relId) : null }
-	}
+	const picture = readPictureFill(container, rels)
+	if (picture) return { type: 'image', picture, relId: picture.relId, partName: picture.partName }
 
 	const patt = firstChild(container, 'a:pattFill')
 	if (patt) {

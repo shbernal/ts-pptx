@@ -1488,8 +1488,8 @@ items:
     source: downstream
     type: downstream-need
     first_seen: 2026-07-27
-    last_reviewed: 2026-07-27
-    status: deferred
+    last_reviewed: 2026-07-28
+    status: implemented
     priority: p3
     target_area:
       - table-ooxml
@@ -1518,20 +1518,103 @@ items:
       The fixture gate is already satisfied: test/read/fixtures/table-cell-image-fill.pptx
       is PowerPoint-authored and carries stretched, tiled, bordered and merged picture-fill
       cells, so a read accessor can be written against genuine Office XML immediately.
+
+      IMPLEMENTED 2026-07-28, as the set the deferral asked for rather than a table-only
+      accessor. src/read/api/picture-fill.ts holds one `readPictureFill(container, rels)`
+      decoding `a:blipFill` into { relId, partName, mode, srcRect, fillRect, tile, alpha,
+      dpi, rotWithShape }; `TableCell.pictureFill` and `AutoShape.pictureFill` are that
+      reader pointed at `a:tcPr` and `p:spPr`, and slide-background.ts's inline blip decode
+      was replaced by it (the `image` variant keeps relId/partName and gains `picture`).
+      Resolving a cell's rel id needed the owning slide's relationships, which `Part` does
+      not carry, so an optional `rels` threads Table -> TableRow -> TableCell from the one
+      `new Table(` site in shapes.ts.
+
+      A second defect surfaced while reading the code and is fixed here too: the fallback in
+      `TableCell.resolvedFill` fired whenever `resolveSolidFillColor` returned null, not only
+      when the cell had no fill, so a cell with a picture/gradient/pattern/noFill of its own
+      reported the STYLE's shading — a colour PowerPoint never paints. It now guards on
+      FILL_CHOICES the way AutoShape.resolvedFill already guarded the style matrix. Pinned by
+      a library-written deck (a custom `defineTableStyle` firstRow fill + an image-filled
+      cell), since the PowerPoint fixture's table names "No Style, No Grid" and so cannot
+      distinguish the two behaviours.
+
+      Shape-side fixture note: the corpus's only reachable-in-principle `p:spPr/a:blipFill`
+      is in math-omml.pptx's `mc:Fallback` branch, which the read model does not walk (it
+      enumerates `mc:Choice`). The test unwraps the AlternateContent so the genuine
+      PowerPoint `p:sp` — including its negative `<a:fillRect b="-6667"/>` — is read through
+      the public API. That the read model ignores `mc:Fallback` entirely is a separate,
+      untouched gap.
+
+      Codegen carries a fidelity note only: `fill.picture` and `table.cell.fill.picture`
+      declare the loss, because from-read's fill mappers have no AssetResolver to re-embed
+      the bytes with. Full asset wiring is dn-script-picture-fill-assets.
     constructs:
       - blip-fill-shape
     evidence:
       kinds:
         - local-source-inspection
         - powerpoint-authored-comparison
+        - regression-test
       local_files:
+        - src/read/api/picture-fill.ts
         - src/read/api/table.ts
+        - src/read/api/shapes.ts
+        - src/read/api/slide-background.ts
+        - test/read/picture-fill.test.js
         - test/read/fixtures/table-cell-image-fill.pptx
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: Add a picture-fill accessor to TableCell alongside resolvedFill, gated on test/read/fixtures/table-cell-image-fill.pptx.
+    next_action: none
+  - id: dn-script-picture-fill-assets
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-07-28
+    last_reviewed: 2026-07-28
+    status: deferred
+    priority: p3
+    target_area:
+      - table-ooxml
+      - image-svg-media
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: "pptx-to-script drops a surface's picture fill: the read model now sees it, but from-read's fill mappers carry no AssetResolver to re-embed the image with."
+    current_project_notes: >
+      Opened when the read side gained picture-fill accessors (dn-read-cell-picture-fill,
+      2026-07-28). A shape or table cell whose surface is an `a:blipFill` is now fully
+      readable, and the write API can author one (`fill: { type: 'image', image: { data } }`
+      works for shapes, text boxes and cells), so both halves exist — but the converter
+      cannot join them.
+
+      `pictureCall` in src/script/from-read/shape.ts receives an `AssetResolver` and turns a
+      picture's partName into script-level bytes. `fillOption` (same file) and `cellFill` in
+      src/script/from-read/table.ts do not receive one, so they can see the fill and have
+      nowhere to put it. Both currently record a fidelity note — `fill.picture` and
+      `table.cell.fill.picture`, both dropped/unsupported — and emit no fill, which is honest
+      but means an image-filled surface comes back unfilled.
+
+      The work is threading the resolver into the two fill mappers and emitting
+      `fill: { type: 'image', image: { data: <asset> } }`, then retiring both notes (or
+      narrowing them to what genuinely cannot carry: tiling, srcRect crop, alpha). Deferred
+      rather than done with the read accessors so the read change stayed one reviewable
+      slice, and because the note-to-field mapping in src/script/verify/diff.ts has to move
+      with it — a note that stops being recorded while the round-trip check still excludes
+      its fields silently widens the exclusion.
+    constructs:
+      - blip-fill-shape
+    evidence:
+      kinds:
+        - local-source-inspection
+      local_files:
+        - src/script/from-read/shape.ts
+        - src/script/from-read/table.ts
+        - src/script/verify/diff.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: Thread the AssetResolver into fillOption/cellFill so a surface picture fill emits an image fill, and retire or narrow the fill.picture / table.cell.fill.picture notes.
   - id: fork-addchart-mutates-caller-labels
     source: fork:src/gen/define/chart.ts
     type: fork-internal-proposal

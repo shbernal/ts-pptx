@@ -9,6 +9,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The read model can now see a picture fill.** `TableCell.pictureFill` and
+  `AutoShape.pictureFill` decode an `a:blipFill` on a *surface* — the cell's
+  `a:tcPr`, the shape's `p:spPr` — into `{ relId, partName, mode, srcRect,
+  fillRect, tile, alpha, dpi, rotWithShape }`. Rect edges are per-edge fractions
+  (`÷ 100000`, so `0.1` is 10 %, and a negative `fillRect` edge stays negative);
+  tile offsets stay in EMU and tile scales become fractions. All three call sites
+  share one reader (`readPictureFill`), so a slide background's `image` variant
+  now carries the same decoded `picture` alongside the `relId`/`partName` it
+  always had.
+
+  This closes the asymmetry the cell picture-fill writer opened: the library could
+  author an image-filled cell and then read it back as unfilled, because
+  `resolvedFill` decodes solid colours only. It also settles what a `Picture` is
+  and is not — a `p:pic` whose image is its sibling `p:blipFill` — as against a
+  shape or cell whose *surface* happens to be an image.
+
+  Gated on `test/read/fixtures/table-cell-image-fill.pptx` for the cell half
+  (stretched, tiled, bordered and merged picture cells, plus a solid control) and
+  on `math-omml.pptx` for the shape half, whose `p:spPr/a:blipFill` carries a
+  negative `<a:fillRect b="-6667"/>` bleed. That shape sits in an `mc:Fallback`
+  branch, which the read model does not walk, so the test unwraps the
+  `mc:AlternateContent` — the shape XML and its relationships are PowerPoint's own
+  bytes either way.
+
+### Fixed
+
+- **A table cell with a non-solid fill no longer reports the table style's
+  colour.** `TableCell.resolvedFill` fell through to the style graph whenever the
+  cell's own fill was not a solid one, so an image-, gradient- or pattern-filled
+  cell under a shading style reported a colour PowerPoint never paints, and an
+  explicit `a:noFill` cell reported the shading it was suppressing. A cell that
+  declares any `EG_FillProperties` choice of its own now overrides the style, the
+  same guard `AutoShape.resolvedFill` already applied to the theme style matrix.
+  A cell with no fill choice at all still inherits its banding/header shading as
+  before.
+
+### Added
+
 - **A table cell can now be filled with a picture.** `addTable` accepts an image
   fill on a cell exactly as a shape or text box already did — `fill: { type:
   'image', image: { path } }` (or `{ data }`, or a bare `image:` with no `type`)

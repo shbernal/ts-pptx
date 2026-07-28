@@ -39,6 +39,7 @@ import {
 	type ResolvedFrame,
 } from './theme-context.js'
 import { readGradientFill, readGradientStops, type GradientFill, type GradientStop } from './gradient.js'
+import { readPictureFill, type PictureFill } from './picture-fill.js'
 import { Chart } from './chart.js'
 import { ChartEx } from './chartex.js'
 import { Table } from './table.js'
@@ -48,6 +49,7 @@ import type { Slide } from './slide.js'
 // Re-exported so `ts-pptx/read` keeps surfacing the gradient types from here even
 // though their definitions moved to ./gradient.js (shared with the slide-background reader).
 export type { GradientStop, GradientFill } from './gradient.js'
+export type { PictureFill, PictureFillTile, FillRect } from './picture-fill.js'
 
 const A_TABLE_URI = 'http://schemas.openxmlformats.org/drawingml/2006/table'
 const A_CHART_URI = 'http://schemas.openxmlformats.org/drawingml/2006/chart'
@@ -1109,6 +1111,20 @@ export abstract class Shape {
 		}
 	}
 
+	/**
+	 * The shape's picture (image) fill (`spPr/a:blipFill`), or `null` when the fill
+	 * is not a picture. The image-fill counterpart of {@link patternFill}: a shape
+	 * whose *surface* is an image is not a {@link Picture} — it is an autoShape with
+	 * a blip fill — and {@link resolvedFill} reports `null` for one, so without this
+	 * an image-filled shape reads as unfilled. Carries the embedded image
+	 * ({@link PictureFill.relId}/{@link PictureFill.partName}) plus the stretch/tile
+	 * geometry.
+	 */
+	get pictureFill(): PictureFill | null {
+		const props = this.properties()
+		return props ? readPictureFill(props, this.slide.relationships) : null
+	}
+
 	/** A named child of the shape's effect list (`spPr/a:effectLst/<qname>`), or `null`. */
 	#effect(qname: string): Element | null {
 		const props = this.properties()
@@ -1680,7 +1696,14 @@ export class GraphicFrame extends Shape {
 		if (!this.hasTable) return null
 		const graphicData = this.#graphicData()
 		const tbl = graphicData && firstChild(graphicData, 'a:tbl')
-		return tbl ? new Table(tbl, this.slide.part, this.slide.themeContext(), this.slide.presentation.opc) : null
+		if (!tbl) return null
+		return new Table(
+			tbl,
+			this.slide.part,
+			this.slide.themeContext(),
+			this.slide.presentation.opc,
+			this.slide.relationships
+		)
 	}
 
 	/** The hosted chart, or `null` when this frame is not a chart or its part is missing. */

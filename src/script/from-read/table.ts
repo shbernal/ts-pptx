@@ -142,6 +142,19 @@ function cellIr(cell: TableCell, hasStyle: boolean, notes: NoteScope): IrValue {
  * With no style in play, `resolvedFill` can only be the cell's own, so it is safe to use.
  */
 function cellFill(cell: TableCell, hasStyle: boolean, notes: NoteScope): IrValue | undefined {
+	// A picture-filled cell reads fine now but has nowhere to go: `TableCellProps.fill` is a
+	// colour, and this mapper carries no asset resolver to re-embed the image bytes with.
+	const picture = cell.pictureFill
+	if (picture) {
+		notes.note(
+			'table.cell.fill.picture',
+			'dropped',
+			'unsupported',
+			`this cell is filled with an image (a:tcPr/a:blipFill${picture.partName ? ` → ${picture.partName}` : ''}); the write API's cell fill takes a colour only, so the cell comes out unfilled`
+		)
+		return undefined
+	}
+
 	const scheme = cell.fillSchemeColor
 	if (scheme !== null) return { color: scheme }
 

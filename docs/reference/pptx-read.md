@@ -26,10 +26,10 @@ Phase 2 navigable read model (`Presentation → slides → shapes → text frame
 paragraphs → runs`), and the Phase 3 edit slice (**run text and character
 formatting**, **shape position/size**, and **shape fill/line colour**), the
 model now also covers
-**tables** (incl. cell borders + style id), **charts** (read-only — classic
+**tables** (incl. cell borders, style id + cell picture fill), **charts** (read-only — classic
 `c:chart` with axes/labels/legend/series formatting, plus the `cx:` chartEx family:
 waterfall/funnel/treemap/…), **rich run formatting** (strike/caps/baseline/
-highlight/hyperlink + paragraph line spacing), **pattern fill and the effect list**
+highlight/hyperlink + paragraph line spacing), **pattern/picture fill and the effect list**
 (inner shadow/glow/reflection/soft edge), **slide background/number/autofit**,
 **adding and removing shapes**, **adding
 pictures**, and **slide cloning**. Setting a property or calling a mutator
@@ -560,7 +560,9 @@ by the bgRef's own colour child, resolved through the slide theme (same path
 solid `phClr` fill; `bg1 → lt1 → window`). `resolvedFill` is `null` when the theme
 has no `fmtScheme`, the indexed entry is absent, or the colour cannot be resolved.
 `BackgroundFill` is the source-less fill union (`solid`/`gradient`/`image`/`pattern`/
-`none`) — the same payload the top-level variants carry.
+`none`) — the same payload the top-level variants carry. The `image` variant keeps
+its flat `relId`/`partName` and additionally carries the whole decoded
+`picture: PictureFill` (stretch/tile geometry, crop, alpha).
 
 `slideNumberPlaceholder` is scoped to the slide's **own** shape tree — the
 `p:ph type="sldNum"` the per-slide `slide.slideNumber = {…}` setter emits. It
@@ -865,6 +867,7 @@ abstract class Shape {
 	noFill(): void // set an explicit <a:noFill/> (transparent surface)
 	readonly customGeometry: CustomGeometry | null // spPr/a:custGeom/a:pathLst freeform paths; null for preset/none
 	readonly patternFill: PatternFill | null // a:pattFill { preset, foreground, background } (fg/bg theme-resolved)
+	readonly pictureFill: PictureFill | null // spPr/a:blipFill — an image-filled *surface* (not a Picture)
 	readonly shadow: OuterShadow | null // a:effectLst/a:outerShdw
 	readonly innerShadow: InnerShadow | null // a:innerShdw (structurally an OuterShadow)
 	readonly glow: Glow | null // a:glow { radiusPt, color }
@@ -1034,6 +1037,47 @@ the write-side `GeometryPoint` DSL, so a consumer maps a `GeometryCommand[]` to
 > schema-legal but comes from other producers (e.g. SVG import). The
 > `customGeometry` test fixture (`test/read/fixtures/custgeom.pptx`) pins this.
 
+#### Picture fill
+
+`pictureFill` decodes `a:blipFill` from a *fill-bearing container* — a shape's
+`p:spPr`, a table cell's `a:tcPr`, a slide's `p:bgPr` — and is what the
+`resolvedFill` accessors cannot report: they decode solid colours only, so
+without it an image-filled surface is indistinguishable from an unfilled one. A
+`Picture` is a different thing (a `p:pic` whose image is its sibling
+`p:blipFill`); this is a shape or cell whose *surface* happens to be an image.
+
+```ts
+interface PictureFill {
+	relId: string | null // a:blip/@r:embed
+	partName: string | null // resolved via the owning part's rels; null when external/dangling
+	mode: 'stretch' | 'tile' | null // a:stretch / a:tile
+	srcRect: FillRect | null // a:srcRect — source crop, per-edge fractions
+	fillRect: FillRect | null // a:stretch/a:fillRect — may be negative (the image bleeds past that edge)
+	tile: {
+		offsetXEmu: number // a:tile/@tx — EMU, the attribute's own unit
+		offsetYEmu: number // a:tile/@ty
+		scaleX: number // @sx ÷ 100000 (1 = 100 %)
+		scaleY: number // @sy ÷ 100000
+		flip: string | null // @flip: none/x/y/xy
+		align: string | null // @algn, e.g. 'tl'
+	} | null
+	alpha: number | null // a:blip/a:alphaModFix/@amt ÷ 100000; null when the blip sets none
+	dpi: number | null // @dpi (0 = use the image's own)
+	rotWithShape: boolean | null // @rotWithShape
+}
+interface FillRect {
+	left: number // per-edge fraction (÷ 100000), 0.1 = 10 %
+	top: number
+	right: number
+	bottom: number
+}
+```
+
+Rect edges follow the same fraction convention as `Picture.crop`, and an
+explicitly empty `<a:srcRect/>` reports zeros rather than `null` — its presence
+is meaningful. A slide background's `image` variant carries the whole thing under
+`picture`, alongside the flat `relId`/`partName` it always had.
+
 #### Pattern fill and effects
 
 `patternFill` decodes `a:pattFill` — `{ preset, foreground, background }`, with
@@ -1196,6 +1240,9 @@ class TableCell {
 	readonly rowSpan: number // a:tc/@rowSpan, default 1
 	readonly isMergeContinuation: boolean // @hMerge / @vMerge set
 	readonly borders: CellBorders | null // per-edge strokes; null when a:tcPr is bare/absent
+	readonly resolvedFill: ResolvedColor | null // a:tcPr/a:solidFill, else the table style graph
+	readonly fillSchemeColor: string | null // the raw a:schemeClr token of the cell's own solid fill
+	readonly pictureFill: PictureFill | null // a:tcPr/a:blipFill — see "Picture fill"
 }
 ```
 
@@ -1213,6 +1260,14 @@ reachable only from PowerPoint-authored fixtures with a bare/absent `a:tcPr`. A
 an edge inherited from the table style; don't conflate them. The writer never
 emits the diagonals (`tlToBr`/`blToTr`), but the reader decodes them for imported
 decks.
+
+Cell fill has the same two-source shape as a shape's: the cell's own
+`a:tcPr/a:solidFill` wins, and a cell that declares **no fill choice at all**
+falls through to the table style graph, so `resolvedFill` reports the banding /
+header shading PowerPoint actually paints. A cell carrying some *other* fill
+choice (`a:blipFill`, `a:gradFill`, `a:pattFill`, `a:noFill`) overrides the style
+in PowerPoint, so `resolvedFill` reports `null` for one rather than the colour
+underneath it — read `pictureFill` for an image-filled cell.
 
 `columnIndex` counts `a:tc` elements in the row, so a cell that spans columns
 (`gridSpan > 1`) occupies one index; merged-away cells report
