@@ -5,7 +5,7 @@
  * Re-exported by `../core-interfaces.js`, which is the import site for the rest of `src/`.
  */
 import type { CHART_NAME } from '../core-enums.js'
-import type { HexColor, PatternFillProps, PositionProps } from './core.js'
+import type { Color, HexColor, PatternFillProps, PositionProps } from './core.js'
 import type { ObjectNameProps } from './object.js'
 import type { BorderProps, ShadowProps, ShapeFillProps } from './style.js'
 import type { TextBaseProps } from './text.js'
@@ -156,10 +156,12 @@ export interface OptsChartGridLine {
 	 */
 	cap?: LineCap
 	/**
-	 * Gridline color (hex)
+	 * Gridline color
+	 * - `HexColor` or `ThemeColor`
 	 * @example 'FF3399'
+	 * @example SchemeColor.accent1 // theme color Accent1
 	 */
-	color?: HexColor
+	color?: Color
 	/**
 	 * Gridline size (points)
 	 */

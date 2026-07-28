@@ -209,6 +209,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A theme color on a chart gridline or series line emitted invalid XML.**
+  `valGridLine`, `catGridLine`, `serGridLine` and `barSeriesLine` built their
+  color by hand as `<a:srgbClr val="…"/>`, bypassing the shared color emitter
+  every other color in the library goes through. A scheme token therefore landed
+  verbatim in the `val` attribute — `<a:srgbClr val="accent1"/>`, where the
+  attribute is `ST_HexColorRGB` — so gridlines could not follow the deck's theme.
+  Both emitters now route through `createColorElement`, which picks
+  `<a:schemeClr val="accent1"/>` for a scheme token and `<a:srgbClr>` for hex.
+  `OptsChartGridLine.color` widens from `HexColor` to `Color` accordingly, so
+  `valGridLine: { color: SchemeColor.accent1 }` now type-checks and renders.
+
+  Sharing that emitter also brings the gridline path in line with every other
+  color site: a leading `#` is stripped, an 8-digit RGBA value splits its alpha
+  byte into a sibling `<a:alpha>`, and an unparseable color warns and falls back
+  to the default instead of being written out as-is. One cosmetic consequence:
+  hex is now normalized to uppercase, so a gridline authored as `'d9d9d9'` emits
+  `val="D9D9D9"`. Rendering is identical and the built-in defaults are unchanged,
+  but a test that pins chart XML bytes for a lowercase gridline color will see a
+  one-time diff.
+
 - **A negative `w`/`h` produced a deck PowerPoint refused to open at all.** The
   signed value went straight into `<a:ext cx=… cy=…>`, and both attributes are
   `ST_PositiveCoordinate` — so one negative extent anywhere cost the *whole*

@@ -1253,15 +1253,43 @@ items:
     source: fork:src/gen/chart/chart-parts.ts
     type: fork-internal-proposal
     first_seen: 2026-07-20
-    last_reviewed: 2026-07-27
-    status: deferred
+    last_reviewed: 2026-07-28
+    status: implemented
     priority: p3
     target_area:
       - chart-ooxml
-    applies_to_current_project: unknown
+    applies_to_current_project: yes
     non_target_reasons: []
     summary: chart gridline/serLines colors emit a bare a:srgbClr, so a scheme color name is not resolved
     current_project_notes: |
+      Implemented 2026-07-28. Both emitters now build their color with
+      `createColorElement(opts.color || DEF_GRIDLINE_COLOR)`, which picks `<a:schemeClr>`
+      for a scheme token and `<a:srgbClr>` for hex. `createColorElement` was already
+      imported in chart-parts.ts for the other builders, so no new dependency and no
+      cycle. The default fell back to the module's `DEF_GRIDLINE_COLOR` (typed `string`)
+      rather than `DEF_CHART_GRIDLINE.color` (typed `string | undefined`), matching how
+      chart-axes.ts already defaults its axis line colors. `OptsChartGridLine.color`
+      widened from `HexColor` to `Color` (`HexColor | ThemeColor`) in src/types/chart.ts,
+      the same shape every other color prop uses. The in-code marker comment naming this
+      id is gone.
+
+      Byte changes accepted with the fix, both from `createColorElement`'s normalization
+      and agreed as CHANGELOG-worthy rather than blocking: hex is uppercased (`d9d9d9` ->
+      `D9D9D9`; the built-in defaults `888888` / `D9D9D9` are unaffected), a leading `#`
+      is stripped, 8-char RGBA splits its alpha byte into a sibling `<a:alpha>`, and an
+      invalid color now warns and falls back to DEF_FONT_COLOR instead of landing
+      verbatim in `val`. Read side needed nothing -- src/read/api/chart.ts exposes
+      gridlines as presence booleans only, never a color. `correctGridLineOptions`
+      (src/gen/define/chart.ts) validates size/style/cap and never touched color, so it
+      needed no relaxing.
+
+      Covered by two schema fixtures: a stacked bar chart carrying scheme colors on
+      valGridLine / catGridLine / barSeriesLine, asserting `<a:schemeClr val="accent1">`,
+      `tx2`, `accent3` in the right elements plus a sweep that no `a:srgbClr val` in the
+      chart part is anything but 6-digit uppercase hex; and a hex case pinning the
+      `#d9d9d9` -> `D9D9D9` normalization.
+
+      HISTORY (pre-fix):
       createGridLineElement and createSerLinesElement build their color as
       `<a:srgbClr val="${opts.color || DEF_CHART_GRIDLINE.color}"/>` instead of routing
       through createColorElement (src/gen/drawingml/color.ts) the way every other color
@@ -1288,14 +1316,16 @@ items:
     evidence:
       kinds:
         - local-source-inspection
+        - schema-fixture
       local_files:
-        - src/gen/chart/chart-parts.ts:157
-        - src/gen/chart/chart-parts.ts:281
-      schema_fixture: null
-      validator_result: null
+        - src/gen/chart/chart-parts.ts
+        - src/types/chart.ts
+        - test/schema-cases.js
+      schema_fixture: test/schema-cases.js "gridline + serLines colors resolve scheme colors (fork-chart-gridline-scheme-color)"
+      validator_result: pass
       powerpoint_result: null
       spec_refs: []
-    next_action: route both gridline emitters through createColorElement behind a schema fixture asserting a scheme-color gridline
+    next_action: none
   - id: fork-write-side-branch-coverage
     source: fork:src/media/content-type.ts
     type: fork-internal-proposal

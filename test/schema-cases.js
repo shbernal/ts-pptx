@@ -3657,4 +3657,67 @@ export default [
 			}
 		},
 	},
+	{
+		name: 'gridline + serLines colors resolve scheme colors (fork-chart-gridline-scheme-color)',
+		fn: async () => {
+			// Both emitters used to hand-build `<a:srgbClr val="…">`, so a scheme-color token
+			// landed verbatim in `val` — not a valid ST_HexColorRGB. Routing them through
+			// `createColorElement` picks the `<a:schemeClr>` tag instead.
+			const { buf, zip } = await build((p) => {
+				p.addSlide().addChart(
+					[
+						{ name: 'Series 1', labels: ['A', 'B', 'C'], values: [1, 2, 3] },
+						{ name: 'Series 2', labels: ['A', 'B', 'C'], values: [2, 1, 2] },
+					],
+					{
+						type: ChartType.bar,
+						x: 1,
+						y: 1,
+						w: 6,
+						h: 3,
+						barGrouping: 'stacked',
+						valGridLine: { color: SchemeColor.accent1, size: 1, style: 'dash' },
+						catGridLine: { color: SchemeColor.text2, size: 1, style: 'solid' },
+						barSeriesLine: { color: SchemeColor.accent3, size: 1, style: 'dash' },
+					}
+				)
+			})
+			await expectNoSchemaErrors(buf, 'chart-gridline-scheme-color')
+
+			const chartXml = await readEntry(zip, 'ppt/charts/chart1.xml')
+			const gridlines = chartXml.match(/<c:majorGridlines>[\s\S]*?<\/c:majorGridlines>/g) || []
+			assertEqual(gridlines.length, 2, 'both axes emit major gridlines')
+			const gridlineFills = gridlines.join('')
+			assertIncludes(gridlineFills, '<a:schemeClr val="accent1"/>', 'val-axis gridline scheme color')
+			assertIncludes(gridlineFills, '<a:schemeClr val="tx2"/>', 'cat-axis gridline scheme color')
+
+			const serLines = firstXmlBlock(chartXml, 'c:serLines', 'series lines')
+			assertIncludes(serLines, '<a:schemeClr val="accent3"/>', 'serLines scheme color')
+
+			// No scheme token leaked into an srgbClr val anywhere in the part.
+			for (const [, val] of chartXml.matchAll(/<a:srgbClr val="([^"]*)"/g)) {
+				assert(/^[0-9A-F]{6}$/.test(val), `srgbClr val is not 6-digit uppercase hex: ${val}`)
+			}
+		},
+	},
+	{
+		name: 'gridline hex colors normalize to uppercase (fork-chart-gridline-scheme-color)',
+		fn: async () => {
+			// Routing through `createColorElement` also normalizes case and strips a leading
+			// `#`, matching every other color site in the library.
+			const { zip } = await build((p) => {
+				p.addSlide().addChart([{ name: 'Series 1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }], {
+					type: ChartType.bar,
+					x: 1,
+					y: 1,
+					w: 6,
+					h: 3,
+					valGridLine: { color: '#d9d9d9', size: 1, style: 'solid' },
+				})
+			})
+			const chartXml = await readEntry(zip, 'ppt/charts/chart1.xml')
+			const gridline = firstXmlBlock(chartXml, 'c:majorGridlines', 'val-axis gridlines')
+			assertIncludes(gridline, '<a:srgbClr val="D9D9D9"/>', 'gridline hex uppercased, # stripped')
+		},
+	},
 ]

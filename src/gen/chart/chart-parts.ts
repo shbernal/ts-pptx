@@ -143,9 +143,6 @@ export function genXmlTitle(opts: ChartPropsTitle, chartX?: number, chartY?: num
  * @return {string} XML
  */
 export function createGridLineElement(glOpts: OptsChartGridLine): string {
-	// NOTE: emits a bare `<a:srgbClr>` rather than going through `createColorElement`,
-	// so a scheme color name is not resolved here -- tracked as
-	// `fork-chart-gridline-scheme-color` in docs/backlog.yml.
 	const line = el(
 		'a:ln',
 		{
@@ -153,7 +150,7 @@ export function createGridLineElement(glOpts: OptsChartGridLine): string {
 			cap: createLineCap(glOpts.cap || DEF_CHART_GRIDLINE.cap),
 		},
 		[
-			raw('  ' + el('a:solidFill', null, raw(voidEl('a:srgbClr', { val: glOpts.color || DEF_CHART_GRIDLINE.color })))),
+			raw('  ' + el('a:solidFill', null, raw(createColorElement(glOpts.color || DEF_GRIDLINE_COLOR)))),
 			raw('   ' + voidEl('a:prstDash', { val: glOpts.style || DEF_CHART_GRIDLINE.style }) + voidEl('a:round')),
 		],
 		{ openPrefix: '  ', closePrefix: '  ' }
@@ -277,7 +274,7 @@ export function createSerLinesElement(opt?: boolean | OptsChartGridLine): string
 		'a:ln',
 		{ w: valToPts(opt.size || DEF_CHART_GRIDLINE.size || 1), cap: createLineCap(opt.cap || DEF_CHART_GRIDLINE.cap) },
 		[
-			raw(el('a:solidFill', null, raw(voidEl('a:srgbClr', { val: opt.color || DEF_CHART_GRIDLINE.color })))),
+			raw(el('a:solidFill', null, raw(createColorElement(opt.color || DEF_GRIDLINE_COLOR)))),
 			raw(voidEl('a:prstDash', { val: opt.style || DEF_CHART_GRIDLINE.style }) + voidEl('a:round')),
 		]
 	)
