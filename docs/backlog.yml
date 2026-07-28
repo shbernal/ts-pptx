@@ -889,31 +889,6 @@ items:
       spec_refs: []
     next_action: none
 
-  - id: upstream-issue-627
-    source: "gitbrent/PptxGenJS#627"
-    type: issue
-    first_seen: 2026-06-07
-    last_reviewed: 2026-06-07
-    status: non-target
-    priority: none
-    target_area:
-      - package-boundary
-    applies_to_current_project: no
-    non_target_reasons:
-      - docs-only-for-legacy-workflow
-    summary: Asked for Chinese translation/offline docs for the upstream live demo.
-    current_project_notes: >
-      This is upstream website localization work, not a current PPTX generation,
-      OOXML validity, or modern package-boundary signal.
-    evidence:
-      kinds: []
-      local_files: []
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-
   - id: upstream-issue-585
     source: "gitbrent/PptxGenJS#585"
     type: issue
@@ -1219,110 +1194,6 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: none
-  - id: fork-presentation-part-copy-extraction
-    source: fork:src/read/api/presentation.ts
-    type: fork-internal-proposal
-    first_seen: 2026-07-20
-    last_reviewed: 2026-07-28
-    status: implemented
-    priority: p3
-    target_area:
-      - typescript-api
-    applies_to_current_project: unknown
-    non_target_reasons: []
-    summary: the part-copy and master-registry machinery is the last monolithic cluster in the Presentation class and needs an explicit import context to extract
-    current_project_notes: |
-      Left behind by the module split that took presentation.ts from 2475 to 1735 lines.
-      A state-coupling map of all ~50 class members showed the class has only three
-      genuinely private fields: #presentationPart (read solely by its own public getter),
-      #importRegistry, and #rescaledParts. Because `opc` is a public readonly field and
-      `presentationPart` a public getter, most "private" methods are not state-entangled at
-      all, which is what made the types/DOM/rescale/table-styles extractions mechanical.
-      The remaining cluster -- #copyPart, #registryFor, #registerMaster, #promoteMasters,
-      #nextMasterLayoutId, #clearLayoutIdList, #linkLayoutIntoMaster, ~218 lines -- is the
-      exception: it is the only code that reads #importRegistry, and
-      #copyPart is a hub called from seven sites (importSlide, #carryNotes,
-      #ensureNotesMaster, #carryEmbeddedFonts, importSlideMasters, #importSlideRebind,
-      #carryRel). Extracting it means introducing an explicit context object
-      ({ opc, presentationPart, registry }) and threading it through all
-      seven -- a design change, not a file move. Deliberately deferred rather than rushed:
-      this is the part-copy and relationship-rewriting path, where package-corruption bugs
-      live, and unlike the gen/ side it has no corpus-wide byte-identity gate to catch a
-      mistake -- only the per-test "untouched parts stay identical" assertions in the
-      import tests. Worth doing only alongside a deliberate look at whether that context
-      wants to be its own type in the read model.
-
-      Re-measured 2026-07-27, and every structural claim above still holds — nothing
-      was extracted. Two numbers moved and one did not:
-        - The class is now 1934 lines, not 1735. The growth is feature work landing
-          ON this path (f8afc702 carry speaker notes through appendSlides, f2010539
-          presentation/slide tag decoding), which is the argument FOR the extraction
-          getting stronger, not a sign the split partly happened.
-        - The private-field count is unchanged and still exactly three
-          (presentation.ts:196 #presentationPart, :203 #importRegistry,
-          :208 #rescaledParts), so the coupling map the plan rests on is still valid.
-        - The cluster now spans lines 1676-1886: 162 lines of code, ~211 including its
-          doc comments (the "~218 lines" figure was comment-inclusive and is still
-          right within a few lines).
-      #copyPart's caller set is likewise unchanged -- the same seven methods
-      (importSlide:578, #carryNotes:659, #ensureNotesMaster:679,
-      #carryEmbeddedFonts:783, importSlideMasters:980+:985, #importSlideRebind:1498,
-      #carryRel:1598), plus its own recursion at :1720. The context object still has
-      to thread through all seven.
-
-      Corrected 2026-07-28. The claim that the cluster is the only reader of
-      #rescaledParts was wrong, and wrong from first_seen -- not drift the 07-27
-      re-measure missed, but an error in the original coupling map, which is why
-      "every structural claim above still holds" overstated that pass. #rescaledParts
-      is read only by #rescalePartGeometry (presentation.ts:917-919), which sits
-      outside the cluster; the cluster never touches it, and did not at 8d8827bd
-      either. Checked by grepping every reference to the field. The consequence is a
-      smaller extraction than the entry first sold: the context object is
-      { opc, presentationPart, registry }, three members not four, and the rescale
-      path needs no part in it. The byte-identity line was also overstated and is
-      now scoped -- scripts/byte-identity.mjs is gen-only, but the import path does
-      assert byte-identity per test (test/read/import-slide.test.js:195,
-      import-slide-masters.test.js:220 and :549). It has no corpus-wide gate; it is
-      not unguarded.
-
-      Implemented 2026-07-28 in two commits, split along the state each member
-      actually touches -- which is what showed the cluster was never one thing.
-
-      fa610f2 took the destination-side half. registerMaster, promoteMasters,
-      nextMasterLayoutId and clearLayoutIdList read and write only this deck, never a
-      source package and never the registry; they sat in the cluster solely because
-      #copyPart called them. They needed no new design, because the shape they want
-      already shipped here: table-styles.ts's TableStyleTarget { opc, presentationPart },
-      promoted to DeckTarget in src/read/api/deck-target.ts and now shared by both
-      modules. #linkLayoutIntoMaster split along the same seam rather than moving
-      whole -- its destination-only tail became addLayoutToMaster, folding away the
-      "allocate an id, append an entry" duplication it shared with registerMaster.
-
-      This commit took the source-side half. src/read/api/part-copy.ts exports
-      copyPart over an ImportContext { dest, source, registry }; linkLayoutIntoMaster
-      is module-private there, since copyPart is its only caller, and
-      nextMasterLayoutId became private to master-registry.ts for the same reason.
-      #registryFor is replaced by #importContext, a factory on the class -- the
-      registry stays a class field because it must outlive one call for repeat-import
-      idempotence, but pairing it with its source in one value makes the pairing a
-      type invariant instead of a call-site convention. Threading cost less than the
-      entry feared: one ctx hoisted per traversal, and #ensureNotesMaster / #carryRel /
-      #rewriteCarriedRels / #carryMasterGraphics take it in place of the sourceOpc they
-      already carried, so no call site grew an argument.
-
-      presentation.ts: 1934 -> 1743 lines. Both commits are pure moves and neither
-      touched a test file; the 1880-test suite passes on each.
-    constructs: []
-    evidence:
-      kinds:
-        - local-source-inspection
-      local_files:
-        - src/read/api/presentation.ts
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
   - id: fork-html-freefunction-subpath
     source: fork:src/browser.ts
     type: fork-internal-proposal
@@ -1363,13 +1234,13 @@ items:
     source: fork:src/media/content-type.ts
     type: fork-internal-proposal
     first_seen: 2026-07-18
-    last_reviewed: 2026-07-27
-    status: deferred
+    last_reviewed: 2026-07-28
+    status: partially-implemented
     priority: p3
     target_area: []
     applies_to_current_project: yes
     non_target_reasons: []
-    summary: Raise write-side branch coverage on the emitters still below the gate (media/content-type, gen/table/autopage, gen/define/*, measure-fit, text-fit)
+    summary: Raise write-side branch coverage on the emitters still below the gate (media/content-type DONE; gen/table/autopage, gen/define/*, measure-fit, text-fit remain)
     current_project_notes: |
       Carried over from the retired REPO-IMPROVEMENT-PLAN (its P6) after the read-side
       branch-coverage sweep landed (commits bbf8d3b4..106cc3fc) and the gate was
@@ -1437,6 +1308,60 @@ items:
       Priority order for the next pass: content-type.ts first (worst, and on the
       package-correctness path), then measure-fit/text-fit (unmoved floors), then the
       drawingml stragglers (cheapest per point).
+
+      PARTIALLY IMPLEMENTED 2026-07-28. Re-measured on a full run (196 files,
+      1890/1890 green): global 91.9/79.11/98/94.65 -> 92.22/79.93/98.12/95 against
+      the 91/79/97/94 gate. The first of the three priorities above landed and the
+      other two did not.
+
+      Landed -- src/media/content-type.ts, 38.29 branch / 41.37 stmt -> 88.88 / 100 /
+      100 / 100 (dfdc61b6, plus bf08c51f which fixed a data:-mime sniff bug the
+      coverage work surfaced). Neither function in that file is exported from a public
+      entry, so a src-importing unit test would have moved nothing; both were driven
+      through the public API instead -- avContentType through `addMedia({ type, extn })`
+      (extn is a public MediaProps option and wins over the mime sniff) and
+      audioExtensionForSubtype through a `data:` URI on `transition.sound`. Same tests
+      lifted package/assemble.ts and gen/opc/content-types.ts as collateral. The six
+      arms still red are the `(x || '')` fallbacks, unreachable by construction: every
+      caller guarantees a non-empty extension or subtype. Left alone per
+      docs/testing.md rather than fenced.
+
+      NOT landed, unmoved across three re-measures now: measure-fit.ts 67.11 branch
+      (97 uncovered branch lines, 2 uncovered functions), text-fit.ts 70.73 (19),
+      gen/table/autopage.ts 74.03 branch / 80 functions, gen/define/hyperlinks.ts
+      72.13 branch / 75 functions, gen/drawingml/color.ts 33.33 functions.
+
+      SCOPE CORRECTION -- the "the remaining below-average branch coverage is on the
+      WRITE side" claim above is no longer true and should not be trusted by the next
+      reader. Ranked by absolute missed branches rather than percentage (which is what
+      actually moves the gate), the top ten includes read/api/presentation.ts at #3 (92
+      missed), read/api/shapes.ts at #6 (69), and two files from the script/ subsystem
+      the 2026-07-27 note credited as "landed well-tested" -- script/from-read/shape.ts
+      (68) and script/verify/diff.ts (53). 282 missed branches between the four. This
+      item stays deliberately write-side scoped; those are recorded here so they are
+      not re-derived, and want their own entry if they are ever worked.
+
+      Two findings that change how these numbers should be read:
+        - autopage.ts is low on FUNCTIONS and STATEMENTS, not mainly on engine
+          branches, and the reason is the `if (tableProps.verbose) console.log(...)`
+          debug dumps -- seven uncovered functions and ~50 uncovered statements. No
+          test anywhere sets `verbose`, which is a public TableProps option whose dump
+          does arithmetic and .toFixed() on props that may legitimately be strings. A
+          test there pins "the debug dump survives its inputs", not emitted OOXML, and
+          should say so; it is not a substitute for the paging-engine branches.
+        - color.ts's two uncovered functions (componentToHex, rgbToHex) cannot be
+          covered by any Node test. Their only callers are in gen/table/html-dom.ts,
+          the browser-only path that vitest.config.ts excludes via dist/browser*.js,
+          and they are not publicly exported. The fix is to move them into html-dom.ts
+          where the existing exclusion already covers them -- deleting a false signal
+          rather than testing dead code, and no `v8 ignore` fence needed.
+
+      No threshold bump this pass, deliberately. Post-content-type margins are
+      1.22 / 0.93 / 1.12 / 1.00; the config's own policy is "pinned a notch below ...
+      without the gate being flaky", and bumping statements to 92 would leave 0.22.
+      Ratchet once the measure-fit/text-fit work lands, which is the only remaining
+      piece with enough headroom (146 missed branches ~= 1.4pt) to justify one.
+      Nothing was loosened.
     evidence:
       kinds:
         - local-source-inspection
@@ -1456,171 +1381,5 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add-write-side-branch-tests-and-ratchet-thresholds
+    next_action: cover measure-fit/text-fit (the 146-branch prize), the autopage verbose dump and engine branches, and the hyperlinks auto-page rel callback; move color.ts's two browser-only helpers into html-dom.ts; ratchet the thresholds only once measure-fit lands
 
-  - id: dn-script-picture-fill-assets
-    source: downstream
-    type: downstream-need
-    first_seen: 2026-07-28
-    last_reviewed: 2026-07-28
-    status: implemented
-    priority: p3
-    target_area:
-      - table-ooxml
-      - image-svg-media
-    applies_to_current_project: yes
-    non_target_reasons: []
-    summary: "pptx-to-script drops a surface's picture fill: the read model now sees it, but from-read's fill mappers carry no AssetResolver to re-embed the image with."
-    current_project_notes: >
-      Opened when the read side gained picture-fill accessors (dn-read-cell-picture-fill,
-      2026-07-28). A shape or table cell whose surface is an `a:blipFill` was fully readable
-      and the write API could author one (`fill: { type: 'image', image: { data } }`), but
-      the converter's fill mappers carried no `AssetResolver`, so an image-filled surface
-      converted to a script and came back unfilled.
-
-      Implemented: the mapping now lives in src/script/from-read/picture-fill.ts, shared by
-      `fillOption` (src/script/from-read/shape.ts) and `cellFill`
-      (src/script/from-read/table.ts) — the two are the same construct read from two
-      containers, and `TableCellProps.fill` is a `ShapeFillProps` like a shape's. The
-      resolver is threaded shapeCall → autoShapeCall → styleOptions → fillOption and
-      graphicFrameCall → tableCall → cellIr → cellFill. Bytes carry as an asset (deduped
-      against every other reference to the part) and the blip's `a:alphaModFix` carries as
-      `transparency`; a fully opaque fill emits no `transparency` key, since the write path
-      emits no `a:alphaModFix` for a zero and the round trip would see a difference the
-      picture does not have.
-
-      `AssetResolver` gained `contentTypeOf(partName)` so a fill can reject a part *before*
-      registering it: the write path refuses an SVG picture fill outright
-      (src/gen/define/image.ts warns and falls back to `type: 'none'`), so emitting one
-      would produce a script that runs and paints nothing, and registering its bytes would
-      write an asset file no call references.
-
-      The notes split rather than retire. `fill.picture` / `table.cell.fill.picture` narrow
-      to the surfaces whose bytes cannot be carried at all (no embedded part, part missing,
-      SVG) and now fire on no corpus fixture; new `fill.picture.geometry` /
-      `table.cell.fill.picture.geometry` (approximated/unwritable) cover what the write
-      path's fixed `<a:srcRect/><a:stretch><a:fillRect/></a:stretch>` cannot express —
-      tiling, source crop, destination inset, `@dpi`, `@rotWithShape="0"` — and are recorded
-      only when the source uses one. Both new ids are mapped to `[]` in
-      src/script/verify/diff.ts: none of that geometry exists in the IR on either side, and
-      mapping them to `fill` would excuse an image fill that failed to come back at all.
-    constructs:
-      - blip-fill-shape
-    evidence:
-      kinds:
-        - local-source-inspection
-        - powerpoint-authored-comparison
-        - regression-test
-      local_files:
-        - src/script/from-read/picture-fill.ts
-        - src/script/from-read/shape.ts
-        - src/script/from-read/table.ts
-        - src/script/from-read/deck.ts
-        - src/script/verify/diff.ts
-        - test/read/script-ir.test.js
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: "test/read/fixtures/table-cell-image-fill.pptx — all four PowerPoint-authored picture cells emit fill: { type: 'image', image: { data: image1.jpg } } against one shared asset, only the tiled cell notes its lost geometry, and the deck regenerates with no undeclared round-trip difference; math-omml.pptx's mc:Fallback shape covers the shape-surface half."
-      spec_refs: []
-    next_action: none
-  - id: dn-combo-subchart-option-validation
-    source: downstream
-    type: downstream-need
-    first_seen: 2026-07-28
-    last_reviewed: 2026-07-28
-    status: implemented
-    priority: p2
-    target_area:
-      - chart-ooxml
-      - invalid-ooxml
-      - powerpoint-repair
-    applies_to_current_project: yes
-    non_target_reasons: []
-    summary: Per-subchart ChartMulti[].options bypass chart option normalization, so an out-of-range barOverlapPct/barGapWidthPct or an invalid barGrouping is emitted raw and PowerPoint flags the file for repair
-    current_project_notes: |
-      FIXED 2026-07-28 by `normalizeComboSubchartOptions` (define/chart.ts:347),
-      called from addChartDefinition once the chart-level pass has run. It validates
-      the value the emitter actually reads — `{ ...chartOptions, ...subOptions }` —
-      against that subchart's own resolved type, then writes back only the keys a
-      correction changed, so the subchart bag stays a sparse override and the
-      emit-time merge is untouched. Keys covered (SUBCHART_VALIDATED_KEYS,
-      define/chart.ts:310): barDir, barGrouping, barGapWidthPct, barGapDepthPct,
-      barOverlapPct, bar3DShape, holeSize, firstSliceAng, lineDataSymbol,
-      lineDataSymbolSize, lineDataSymbolLineSize, dataLabelPosition.
-
-      Two helpers were split out of addChartDefinition so both paths share one rule
-      set: `normalizeChartBarGrouping` (:155) and `normalizeChartDataLabelPosition`,
-      which now take the plot type as an argument instead of reading `options._type`.
-      That closed a second, wider face of the same defect found while fixing it: for
-      a combo chart `options._type` is a `ChartMulti[]`, so the type-dependent
-      chart-level corrections matched no branch and never ran at all — a bogus
-      chart-level barGrouping or dataLabelPosition on a combo was equally unguarded.
-      Both now resolve per subchart (one bad chart-level barGrouping correctly lands
-      as 'clustered' for the bar group and 'standard' for the line group).
-
-      Behaviour change to note: a stacked bar SUBCHART now emits gapWidth 50, the
-      same default a chart-level stacked bar gets, where it previously inherited 150.
-      Guarded so an explicit chart-level or subchart barGapWidthPct still wins.
-
-      ORIGINAL REPORT ————————————————————————————————————————————————
-      Found 2026-07-28 while probing upstream-issue-1223 (stacked + clustered bars),
-      which is the API shape that reaches this hole.
-
-      addChartDefinition runs normalizeChartOptions ONCE, on the merged chart-level
-      options (define/chart.ts:457). Per-subchart options live in ChartMulti[].options
-      and are merged in only at emit time — `{ ...rel.opts, ...type.options }`
-      (chart-xml.ts:380) — after every clamp and enum correction has already run. So a
-      per-subchart value is written to the part verbatim.
-
-      Reproduced against the OpenXmlValidator; each row is one combo chart whose FIRST
-      bar subchart carries the value, second subchart left default:
-
-        subchart barOverlapPct: 250   -> <c:overlap val="250"/>    1 schema error
-                                         ("'250' is not a valid 'SByte' value")
-        subchart barGapWidthPct: 9999 -> <c:gapWidth val="9999"/>  1 schema error
-                                         (MaxInclusive 500 failed)
-        subchart barGrouping:'sideways' -> <c:grouping val="sideways"/> 1 schema error
-                                         (Enumeration constraint failed)
-
-      The same three values passed at CHART level are clamped and warned, and validate
-      clean: gapWidth 9999 -> 500, overlap 250 -> 100, grouping 'sideways' ->
-      'clustered', each with a `ts-pptx: … outside the valid range …` warning. So the
-      defect is purely the missing normalize pass on the per-subchart object, not the
-      clamps themselves — which is also why it is silent: the caller gets no warning,
-      just a file PowerPoint offers to repair.
-
-      Second, smaller symptom of the same gap: grouping-dependent DEFAULTS do not apply
-      per subchart. define/chart.ts:391 sets barGapWidthPct 50 for a stacked chart, so a
-      chart-level stacked bar emits gapWidth 50 while a stacked SUBCHART emits 150
-      (inherited from the chart-level default computed for a chart that is not itself
-      stacked). Not invalid, but the two paths disagree on the same input.
-
-      Note the emit-time merge must stay — it is what makes per-subchart options work at
-      all. The fix is to normalize each ChartMulti[].options against its own resolved
-      subchart type during the define pass, then merge the already-clamped result.
-      Grouping validation (define/chart.ts:377-392) is bar-direction dependent, so it
-      has to run per subchart type, not once for the chart.
-    evidence:
-      kinds:
-        - local-source-inspection
-        - generated-pptx
-        - minimal-repro
-        - validator-result
-        - schema-fixture
-      local_files:
-        - src/gen/define/chart.ts:155
-        - src/gen/define/chart.ts:310
-        - src/gen/define/chart.ts:347
-        - src/gen/define/chart.ts:489
-        - src/gen/define/chart.ts:580
-        - src/gen/chart/chart-xml.ts:380
-        - src/gen/chart/plot-cat-axis.ts:319
-        - test/schema-cases.js
-      schema_fixture: test/schema-cases.js "combo subchart options are clamped and enum-corrected (dn-combo-subchart-option-validation)" and "combo chart-level type-dependent options are corrected per subchart (dn-combo-subchart-option-validation)"
-      validator_result: "pass (was: fail, 3 cases with 1 schema error each — overlap val='250' not a valid SByte; gapWidth MaxInclusive 500 failed; grouping enumeration failed)"
-      powerpoint_result: null
-      spec_refs:
-        - ECMA-376 Part 1 §21.2.2.147 c:overlap / ST_Overlap (-100..100)
-        - ECMA-376 Part 1 §21.2.2.75 c:gapWidth / ST_GapAmount (0..500)
-        - ECMA-376 Part 1 §21.2.3.17 ST_Grouping
-    next_action: none
