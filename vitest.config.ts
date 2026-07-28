@@ -56,12 +56,15 @@ export default defineConfig({
 			// so agents and ratchet scripts can read coverage without scraping the HTML.
 			reporter: ['text-summary', 'text', 'html', 'json-summary', 'json'],
 			thresholds: {
-				statements: 91,
-				// Raised 79 -> 80 once measure-fit/text-fit landed: measured 81.07, so the
+				// Raised 91 -> 92 once the table auto-pager landed: measured 93.21, so the gate
+				// keeps well over a point of slack.
+				statements: 92,
+				// Raised 79 -> 80 once measure-fit/text-fit landed: measured 81.42, so the
 				// gate keeps a full point of slack. Ratchet upward only — if a change drops a
 				// number below its gate, that is a finding to explain, never a gate to lower.
-				// The other three are left alone deliberately; their margins (1.9 / 1.2 / 1.5)
-				// are not wide enough to pin a notch without making the gate flaky.
+				// The other two are left alone deliberately; their margins (1.3 branches /
+				// 1.8 lines) do not leave a full point behind a notch, and a gate with less
+				// slack than that is a gate that goes red on noise.
 				branches: 80,
 				functions: 97,
 				lines: 94,

@@ -129,4 +129,95 @@ defineRegressionSuite('Table autoPage rich-text line wrapping', 'upstream-pr-123
 			assert(slide2Xml.includes('>second<'), 'expected "second" on slide 2')
 		},
 	},
+	// --- cell-text shapes the wrapper has to survive -------------------------------
+	// `parseTextToLines` documents four input shapes for `cell.text` in its own header
+	// (string, number, single object, object[]). `addTable` normalizes some of them and
+	// passes others straight through, so the wrapper still meets shapes no assertion had
+	// pinned. These cases pin what each one *renders*, not merely that it survives.
+	{
+		name: 'a run whose text is a number is dropped by the wrapper, not rendered',
+		fn: async () => {
+			// The wrapper groups runs into lines by scanning for "\n"/`breakLine`, and skips
+			// any run whose text is not a string. `addTable` stringifies a whole-cell numeric
+			// `text` but leaves a numeric run inside an array alone, so the run reaches the
+			// wrapper as a number and never makes it into a line — the paged cell keeps only
+			// its string runs. Pinned because "silently drops a run" is worth being loud about
+			// if it ever changes.
+			const rows = [[{ text: [{ text: 'keep' }, { text: 2024 }, { text: 'also' }] }]]
+
+			const { zip } = await build((p) => {
+				p.addSlide().addTable(rows, {
+					x: 0.25,
+					y: 0.25,
+					w: 3,
+					h: 2,
+					margin: 0,
+					slideMargin: 0,
+					autoPage: true,
+					fontSize: 12,
+				})
+			})
+
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(xml.includes('>keep<'), 'expected the string runs to render')
+			assert(xml.includes('>also<'), 'expected the string run after the numeric one to render')
+			assert(!xml.includes('2024'), 'a numeric run does not survive the auto-page wrapper')
+		},
+	},
+	{
+		name: 'a single-object `text` (not an array) pages as an empty cell',
+		fn: async () => {
+			// `{ text: { text: 'x' } }` is the "object" shape in the wrapper's own header
+			// comment, and `addTable` passes it through untouched. The wrapper only unwraps
+			// the string/number and array shapes, so a lone object matches none of them and
+			// the cell pages out empty rather than throwing.
+			const rows = [[{ text: { text: 'lonely' } }, { text: 'sibling' }]]
+
+			const { zip } = await build((p) => {
+				p.addSlide().addTable(rows, {
+					x: 0.25,
+					y: 0.25,
+					w: 6,
+					h: 2,
+					colW: [3, 3],
+					margin: 0,
+					slideMargin: 0,
+					autoPage: true,
+					fontSize: 12,
+				})
+			})
+
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(xml.includes('>sibling<'), 'the neighbouring cell must still render')
+			assert(!xml.includes('lonely'), 'a lone object `text` carries no string the wrapper can read')
+		},
+	},
+	{
+		name: 'a trailing breakLine run leaves no dangling line buffer',
+		fn: async () => {
+			// `breakLine` on the *last* run flushes the line buffer inside the loop, so the
+			// post-loop flush has nothing left to add. Getting that wrong appends an empty
+			// trailing line, which costs a line of measured height and can push a one-line
+			// cell onto a second page. `h` here fits exactly one line.
+			const rows = [[{ text: [{ text: 'only', options: { breakLine: true } }] }]]
+
+			const { zip } = await build((p) => {
+				p.addSlide().addTable(rows, {
+					x: 0.25,
+					y: 0.25,
+					w: 3,
+					h: 0.3,
+					margin: 0,
+					slideMargin: 0,
+					autoPage: true,
+					fontSize: 12,
+				})
+			})
+
+			const slides = listEntries(zip).filter((f) => /ppt\/slides\/slide\d+\.xml$/.test(f))
+			assert(slides.length === 1, `a trailing breakLine must not add a second line/page; got ${slides.length}`)
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(xml.includes('>only<'), 'expected the run to render')
+		},
+	},
 ])

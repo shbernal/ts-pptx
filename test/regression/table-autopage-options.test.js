@@ -256,6 +256,117 @@ defineRegressionSuite('Table autoPage option surface', [
 			assert(slideFiles(zip).length >= 2, 'an 80-row full-height table should overflow')
 		},
 	},
+	{
+		name: '`autoPageLineWeight` inflates the estimated line height and pages sooner',
+		fn: async () => {
+			// The estimator's line height is `fontSize * (LINEH_MODIFIER + autoPageLineWeight)`,
+			// the caller's escape hatch when a font runs taller than the built-in ratio. The
+			// assertion is a comparison against the same deck without the option, so it pins the
+			// option's *effect* and leaves the ratio itself free to move.
+			async function pageCount(extra) {
+				const { zip } = await build((p) => {
+					p.addSlide().addTable(bodyRows(40), {
+						x: 0.5,
+						y: 0.5,
+						w: 9,
+						h: 2,
+						colW: [4.5, 4.5],
+						margin: 0,
+						slideMargin: 0,
+						autoPage: true,
+						fontSize: 12,
+						...extra,
+					})
+				})
+				return slideFiles(zip).length
+			}
+
+			const plain = await pageCount({})
+			const weighted = await pageCount({ autoPageLineWeight: 0.5 })
+			assert(plain > 1, `expected the baseline deck to page at all; got ${plain}`)
+			assert(weighted > plain, `a positive line weight should need more pages; got ${weighted} vs ${plain}`)
+		},
+	},
+	{
+		name: "a master's scalar `margin` applies to all four sides of the paging area",
+		fn: async () => {
+			// A master margin outranks `slideMargin`, and may be a single number rather than the
+			// [T,R,B,L] array. Only the bottom margin narrows the paging area, so comparing two
+			// masters is what proves the scalar was fanned out rather than merely accepted.
+			// No `h`: with an explicit height the paging area is clamped to it and the margin
+			// would not show.
+			async function pageCount(margin) {
+				const { zip } = await build((p) => {
+					p.defineSlideMaster({ title: `AP_MARGIN_${margin}`, margin })
+					p.addSlide({ masterTitle: `AP_MARGIN_${margin}` }).addTable(bodyRows(60), {
+						x: 0.5,
+						y: 0.5,
+						w: 9,
+						colW: [4.5, 4.5],
+						margin: 0,
+						autoPage: true,
+						fontSize: 12,
+					})
+				})
+				return slideFiles(zip).length
+			}
+
+			const narrow = await pageCount(0.25)
+			const wide = await pageCount(2)
+			assert(wide > narrow, `a 2" master margin should leave room for fewer rows; got ${wide} vs ${narrow}`)
+		},
+	},
+	{
+		name: 'a non-numeric `slideMargin` falls back to the default margins rather than NaN geometry',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().addTable(bodyRows(30), {
+					x: 0.5,
+					y: 0.5,
+					w: 9,
+					colW: [4.5, 4.5],
+					margin: 0,
+					// A string is the untyped-caller shape the engine's own `isNaN` check absorbs.
+					slideMargin: 'nope',
+					autoPage: true,
+					fontSize: 12,
+				})
+			})
+			const files = slideFiles(zip)
+			assert(files.length >= 1, 'expected the table to still be emitted')
+			for (const name of files) {
+				const xml = await readEntry(zip, name)
+				assert(!xml.includes('NaN'), `${name} contains NaN geometry`)
+			}
+		},
+	},
+	{
+		name: 'a row with no cells is dropped instead of emitting a cell-less <a:tr>',
+		fn: async () => {
+			// An empty row reaches the pager with no cells to walk, so it produces no line and
+			// no row buffer to flush. A row element with fewer cells than the grid has columns
+			// is exactly the malformation PowerPoint offers to "repair", so the row must be
+			// dropped, not emitted empty.
+			const rows = [[{ text: 'A0' }, { text: 'B0' }], [], [{ text: 'A2' }, { text: 'B2' }]]
+			const { zip } = await build((p) => {
+				p.addSlide().addTable(rows, {
+					x: 0.5,
+					y: 0.5,
+					w: 9,
+					h: 3,
+					colW: [4.5, 4.5],
+					margin: 0,
+					slideMargin: 0,
+					autoPage: true,
+					fontSize: 12,
+				})
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assertEqual((xml.match(/<a:tr\b/g) || []).length, 2, 'expected only the two populated rows')
+			assertEqual(gridColCount(xml), 2, 'the grid should still describe both columns')
+			assert(xml.includes('>A0<') && xml.includes('>A2<'), 'both populated rows must survive')
+		},
+	},
 	// --- `verbose` -----------------------------------------------------------------
 	// `verbose` is a documented (dev-only) `TableProps` flag, and its trace does real
 	// arithmetic — `.toFixed()` on props that may legitimately be percentage *strings*.
