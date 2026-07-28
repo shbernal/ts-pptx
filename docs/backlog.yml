@@ -1223,7 +1223,7 @@ items:
     source: fork:src/read/api/presentation.ts
     type: fork-internal-proposal
     first_seen: 2026-07-20
-    last_reviewed: 2026-07-27
+    last_reviewed: 2026-07-28
     status: deferred
     priority: p3
     target_area:
@@ -1240,16 +1240,17 @@ items:
       all, which is what made the types/DOM/rescale/table-styles extractions mechanical.
       The remaining cluster -- #copyPart, #registryFor, #registerMaster, #promoteMasters,
       #nextMasterLayoutId, #clearLayoutIdList, #linkLayoutIntoMaster, ~218 lines -- is the
-      exception: it is the only code that reads #importRegistry and #rescaledParts, and
+      exception: it is the only code that reads #importRegistry, and
       #copyPart is a hub called from seven sites (importSlide, #carryNotes,
       #ensureNotesMaster, #carryEmbeddedFonts, importSlideMasters, #importSlideRebind,
       #carryRel). Extracting it means introducing an explicit context object
-      ({ opc, presentationPart, registry, rescaledParts }) and threading it through all
+      ({ opc, presentationPart, registry }) and threading it through all
       seven -- a design change, not a file move. Deliberately deferred rather than rushed:
       this is the part-copy and relationship-rewriting path, where package-corruption bugs
-      live, and unlike the gen/ side it has no byte-identity gate to catch a mistake. Worth
-      doing only alongside a deliberate look at whether that context wants to be its own
-      type in the read model.
+      live, and unlike the gen/ side it has no corpus-wide byte-identity gate to catch a
+      mistake -- only the per-test "untouched parts stay identical" assertions in the
+      import tests. Worth doing only alongside a deliberate look at whether that context
+      wants to be its own type in the read model.
 
       Re-measured 2026-07-27, and every structural claim above still holds — nothing
       was extracted. Two numbers moved and one did not:
@@ -1268,6 +1269,21 @@ items:
       #carryEmbeddedFonts:783, importSlideMasters:980+:985, #importSlideRebind:1498,
       #carryRel:1598), plus its own recursion at :1720. The context object still has
       to thread through all seven.
+
+      Corrected 2026-07-28. The claim that the cluster is the only reader of
+      #rescaledParts was wrong, and wrong from first_seen -- not drift the 07-27
+      re-measure missed, but an error in the original coupling map, which is why
+      "every structural claim above still holds" overstated that pass. #rescaledParts
+      is read only by #rescalePartGeometry (presentation.ts:917-919), which sits
+      outside the cluster; the cluster never touches it, and did not at 8d8827bd
+      either. Checked by grepping every reference to the field. The consequence is a
+      smaller extraction than the entry first sold: the context object is
+      { opc, presentationPart, registry }, three members not four, and the rescale
+      path needs no part in it. The byte-identity line was also overstated and is
+      now scoped -- scripts/byte-identity.mjs is gen-only, but the import path does
+      assert byte-identity per test (test/read/import-slide.test.js:195,
+      import-slide-masters.test.js:220 and :549). It has no corpus-wide gate; it is
+      not unguarded.
     constructs: []
     evidence:
       kinds:
