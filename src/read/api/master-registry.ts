@@ -7,7 +7,7 @@
  * These are the destination-side half of the import machinery -- they read and
  * write only this deck, never a source package and never the copy registry -- so
  * they take a structural {@link DeckTarget} rather than a `Presentation`. The
- * part-copy traversal that calls most of them still lives on the class.
+ * source-side half that drives most of them is `part-copy.ts`.
  */
 
 import { relativePartName } from '../opc/partnames.js'
@@ -112,7 +112,7 @@ export function promoteMasters(dest: DeckTarget, masterPartNames: string[]): voi
  * the max of both the master-id list and every layout-id list. Recomputed per
  * allocation so ids appended earlier in the same import are counted.
  */
-export function nextMasterLayoutId(dest: DeckTarget): number {
+function nextMasterLayoutId(dest: DeckTarget): number {
 	let max = MIN_SLIDE_MASTER_ID - 1
 	const presPart = dest.presentationPart
 	const root = presPart.dom.documentElement

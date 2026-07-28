@@ -1224,7 +1224,7 @@ items:
     type: fork-internal-proposal
     first_seen: 2026-07-20
     last_reviewed: 2026-07-28
-    status: deferred
+    status: implemented
     priority: p3
     target_area:
       - typescript-api
@@ -1284,6 +1284,34 @@ items:
       assert byte-identity per test (test/read/import-slide.test.js:195,
       import-slide-masters.test.js:220 and :549). It has no corpus-wide gate; it is
       not unguarded.
+
+      Implemented 2026-07-28 in two commits, split along the state each member
+      actually touches -- which is what showed the cluster was never one thing.
+
+      fa610f2 took the destination-side half. registerMaster, promoteMasters,
+      nextMasterLayoutId and clearLayoutIdList read and write only this deck, never a
+      source package and never the registry; they sat in the cluster solely because
+      #copyPart called them. They needed no new design, because the shape they want
+      already shipped here: table-styles.ts's TableStyleTarget { opc, presentationPart },
+      promoted to DeckTarget in src/read/api/deck-target.ts and now shared by both
+      modules. #linkLayoutIntoMaster split along the same seam rather than moving
+      whole -- its destination-only tail became addLayoutToMaster, folding away the
+      "allocate an id, append an entry" duplication it shared with registerMaster.
+
+      This commit took the source-side half. src/read/api/part-copy.ts exports
+      copyPart over an ImportContext { dest, source, registry }; linkLayoutIntoMaster
+      is module-private there, since copyPart is its only caller, and
+      nextMasterLayoutId became private to master-registry.ts for the same reason.
+      #registryFor is replaced by #importContext, a factory on the class -- the
+      registry stays a class field because it must outlive one call for repeat-import
+      idempotence, but pairing it with its source in one value makes the pairing a
+      type invariant instead of a call-site convention. Threading cost less than the
+      entry feared: one ctx hoisted per traversal, and #ensureNotesMaster / #carryRel /
+      #rewriteCarriedRels / #carryMasterGraphics take it in place of the sourceOpc they
+      already carried, so no call site grew an argument.
+
+      presentation.ts: 1934 -> 1743 lines. Both commits are pure moves and neither
+      touched a test file; the 1880-test suite passes on each.
     constructs: []
     evidence:
       kinds:
@@ -1294,7 +1322,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: decide whether the import context is its own read-model type, then extract #copyPart and the master-registry helpers onto it
+    next_action: none
   - id: fork-html-freefunction-subpath
     source: fork:src/browser.ts
     type: fork-internal-proposal

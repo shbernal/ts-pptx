@@ -66,7 +66,8 @@ import type {
 import { carriedDecorations, collectElements, cSldName, firstShapeChild, nthShapeChild } from './slide-dom.js'
 import { computeRescale, rescaleSpTree, type RescaleTransform } from './rescale.js'
 import { carryTableStyles, copySourceTableStyles } from './table-styles.js'
-import { addLayoutToMaster, clearLayoutIdList, promoteMasters, registerMaster } from './master-registry.js'
+import { promoteMasters } from './master-registry.js'
+import { copyPart, type ImportContext } from './part-copy.js'
 
 const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
 const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
@@ -570,7 +571,7 @@ export class Presentation {
 							options.carryMasterGraphics === true,
 							options.remapLiterals === true
 						)
-					: this.#copyPart(source.opc, sourceSlide.partName)
+					: copyPart(this.#importContext(source.opc), sourceSlide.partName)
 		const newPart = this.opc.part(newPartName)
 		if (!newPart) throw new Error(`Imported slide part went missing: ${newPartName}`)
 
@@ -589,7 +590,7 @@ export class Presentation {
 		const slide = this.#insertSlidePart(newPart, options.at)
 
 		// 4. Optionally carry the source slide's speaker notes. The slide copy above
-		//    drops the notesSlide rel (both #copyPart and #importSlideRebind do); this
+		//    drops the notesSlide rel (both copyPart and #importSlideRebind do); this
 		//    re-adds it wired to the new slide and merged onto a single notesMaster.
 		if (options.importNotes) this.#carryNotes(source, sourceSlide.partName, newPartName)
 
@@ -612,10 +613,10 @@ export class Presentation {
 	 * - its `notesMaster` rel is resolved through {@link #ensureNotesMaster}, which
 	 *   reuses this deck's notesMaster when it has one and copies the source's only
 	 *   when it has none (a deck may have at most one notesMaster);
-	 * - any other internal target (media, etc.) is copied via {@link #copyPart}.
+	 * - any other internal target (media, etc.) is copied via {@link copyPart}.
 	 *
 	 * No-op when the source slide has no notes. Content-type registration for the
-	 * copied parts is handled by `addPart`/`#copyPart`.
+	 * copied parts is handled by `addPart`/{@link copyPart}.
 	 */
 	#carryNotes(source: Presentation, sourceSlidePartName: string, newSlidePartName: string): void {
 		const sourceSlideRels = source.opc.relationshipsFor(sourceSlidePartName)
@@ -634,6 +635,7 @@ export class Presentation {
 
 		// Rebuild the copied notesSlide's relationships. Preserve each source rel id so
 		// the notesSlide body's r:id references stay valid; only the targets are rewritten.
+		const ctx = this.#importContext(source.opc)
 		const notesSourceRels = source.opc.relationshipsFor(sourceNotesPartName)
 		const notesTargetRels = this.opc.relationshipsFor(newNotesPartName)
 		for (const rel of notesSourceRels) {
@@ -643,7 +645,7 @@ export class Presentation {
 				continue
 			}
 			if (rel.type === NOTES_MASTER_REL) {
-				const notesMaster = this.#ensureNotesMaster(source.opc, notesSourceRels.resolveTarget(rel.id))
+				const notesMaster = this.#ensureNotesMaster(ctx, notesSourceRels.resolveTarget(rel.id))
 				notesTargetRels.addWithId(rel.id, NOTES_MASTER_REL, relativePartName(newNotesPartName, notesMaster))
 				continue
 			}
@@ -651,7 +653,7 @@ export class Presentation {
 				notesTargetRels.addWithId(rel.id, rel.type, rel.target, 'External')
 				continue
 			}
-			const newTarget = this.#copyPart(source.opc, notesSourceRels.resolveTarget(rel.id))
+			const newTarget = copyPart(ctx, notesSourceRels.resolveTarget(rel.id))
 			notesTargetRels.addWithId(rel.id, rel.type, relativePartName(newNotesPartName, newTarget))
 		}
 	}
@@ -661,17 +663,17 @@ export class Presentation {
 	 * single-notesMaster-per-presentation rule (`p:notesMasterIdLst` holds 0..1
 	 * `p:notesMasterId`). If this deck already has a notesMaster it is reused and the
 	 * source's is *not* copied (the destination's notes styling wins); otherwise the
-	 * source notesMaster (and, via {@link #copyPart}, its theme) is copied and
+	 * source notesMaster (and, via {@link copyPart}, its theme) is copied and
 	 * registered in `presentation.xml`. Returns the destination notesMaster partname.
 	 */
-	#ensureNotesMaster(sourceOpc: OpcPackage, sourceNotesMasterPartName: string): string {
+	#ensureNotesMaster(ctx: ImportContext, sourceNotesMasterPartName: string): string {
 		const presPart = this.presentationPart
 		const presRels = this.opc.relationshipsFor(presPart.partName)
 		const existing = presRels.byType(NOTES_MASTER_REL)[0]
 		if (existing) return presRels.resolveTarget(existing.id)
 
 		// No notesMaster yet: copy the source's (pulls its theme) and register it.
-		return this.#registerNotesMaster(this.#copyPart(sourceOpc, sourceNotesMasterPartName))
+		return this.#registerNotesMaster(copyPart(ctx, sourceNotesMasterPartName))
 	}
 
 	/**
@@ -742,7 +744,7 @@ export class Presentation {
 
 	/**
 	 * Copy `source`'s embedded fonts into this deck and merge them into our
-	 * `p:embeddedFontLst`. Font binaries come across via {@link #copyPart} (so the
+	 * `p:embeddedFontLst`. Font binaries come across via {@link copyPart} (so the
 	 * per-source registry dedupes faces shared across repeated imports); entries are
 	 * merged by `typeface` + face slot, so a face this deck already embeds is reused
 	 * rather than duplicated. No-op when the source embeds no fonts. See
@@ -754,6 +756,7 @@ export class Presentation {
 		const sourceEntries = sourceLst ? getElements(sourceLst, 'p:embeddedFont') : []
 		if (sourceEntries.length === 0) return
 
+		const ctx = this.#importContext(source.opc)
 		const sourcePresRels = source.opc.relationshipsFor(source.presentationPart.partName)
 		const incoming: IncomingEmbeddedFont[] = []
 		for (const srcEntry of sourceEntries) {
@@ -773,9 +776,9 @@ export class Presentation {
 				const srcFace = firstChild(srcEntry, `p:${slot}`)
 				const srcRid = srcFace && attr(srcFace, 'r:id')
 				if (!srcFace || !srcRid) continue
-				// Binary comes across via #copyPart, so the per-source registry dedupes faces
+				// Binary comes across via copyPart, so the per-source registry dedupes faces
 				// shared across repeated imports; the thunk runs only when the face is added.
-				faces.push({ slot, createPart: () => this.#copyPart(source.opc, sourcePresRels.resolveTarget(srcRid)) })
+				faces.push({ slot, createPart: () => copyPart(ctx, sourcePresRels.resolveTarget(srcRid)) })
 			}
 			incoming.push({ typeface, identity, faces })
 		}
@@ -966,18 +969,19 @@ export class Presentation {
 		const pickMaster = options.masters ?? (() => true)
 		const pickLayout = options.layouts ?? (() => true)
 
+		const ctx = this.#importContext(source.opc)
 		const imported: ImportedSlideMaster[] = []
 		source.#slideMasterPartNames().forEach((masterPartName, masterIndex) => {
 			if (!pickMaster(cSldName(source.opc.part(masterPartName)), masterIndex)) return
 
-			// Copy the (lean) master first: #copyPart registers it in p:sldMasterIdLst
+			// Copy the (lean) master first: copyPart registers it in p:sldMasterIdLst
 			// and clears its layout list, then each copied layout re-links itself in.
-			const newMasterPartName = this.#copyPart(source.opc, masterPartName)
+			const newMasterPartName = copyPart(ctx, masterPartName)
 
 			const layoutPartNames: string[] = []
 			source.#layoutPartNamesOf(masterPartName).forEach((layoutPartName, layoutIndex) => {
 				if (!pickLayout(cSldName(source.opc.part(layoutPartName)), layoutIndex)) return
-				layoutPartNames.push(this.#copyPart(source.opc, layoutPartName))
+				layoutPartNames.push(copyPart(ctx, layoutPartName))
 			})
 
 			imported.push({ partName: newMasterPartName, layoutPartNames })
@@ -1335,6 +1339,7 @@ export class Presentation {
 		const relIdMap = new Map<string, string>()
 		// preserve: build the source theme context once; copy/restyle need none.
 		const ctx = theme === 'preserve' ? this.#sourceFlattenContext(sourceOpc, source.partName) : null
+		const importCtx = this.#importContext(sourceOpc)
 
 		// Anchor for z-order: the existing shape currently at `at` (insert before it,
 		// preserving batch order), else append before any trailing p:extLst.
@@ -1346,7 +1351,7 @@ export class Presentation {
 			const imported = targetDoc.importNode(shapeEl, true)
 
 			// Drag media/charts/embeddings across and rewrite refs to fresh host rels.
-			this.#rewriteCarriedRels(imported, sourceOpc, sourceRels, target.partName, targetRels, relIdMap)
+			this.#rewriteCarriedRels(imported, importCtx, sourceRels, target.partName, targetRels, relIdMap)
 
 			// preserve: bake the source theme onto the subtree. The flatten passes match
 			// descendants (not the root), so wrap the shape in a throwaway container.
@@ -1482,6 +1487,7 @@ export class Presentation {
 
 		// Rebuild the slide's relationships: drop notes, repoint slideLayout at the
 		// destination layout, and copy every other internal target (media/charts).
+		const ctx = this.#importContext(source.opc)
 		const sourceRels = source.opc.relationshipsFor(sourceSlide.partName)
 		const targetRels = this.opc.relationshipsFor(newPartName)
 		for (const rel of sourceRels) {
@@ -1494,7 +1500,7 @@ export class Presentation {
 				targetRels.addWithId(rel.id, rel.type, rel.target, 'External')
 				continue
 			}
-			const newTarget = this.#copyPart(source.opc, sourceRels.resolveTarget(rel.id))
+			const newTarget = copyPart(ctx, sourceRels.resolveTarget(rel.id))
 			targetRels.addWithId(rel.id, rel.type, relativePartName(newPartName, newTarget))
 		}
 
@@ -1502,7 +1508,7 @@ export class Presentation {
 		// onto the slide behind its own content. Done after the slide's own rels are
 		// in place (so carried media get fresh, non-colliding ids) but before the
 		// caller's flatten/restyle pass acts on the carried shapes.
-		if (carryGraphics) this.#carryMasterGraphics(source.opc, slideRoot, newPartName, sourceSlide.partName)
+		if (carryGraphics) this.#carryMasterGraphics(ctx, slideRoot, newPartName, sourceSlide.partName)
 
 		return { newPartName, slideRoot, newPart }
 	}
@@ -1518,7 +1524,8 @@ export class Presentation {
 	 * shapes are left for the caller's {@link flattenSlide} pass to resolve any
 	 * theme references they carry.
 	 */
-	#carryMasterGraphics(sourceOpc: OpcPackage, slideRoot: Element, newPartName: string, slidePartName: string): void {
+	#carryMasterGraphics(ctx: ImportContext, slideRoot: Element, newPartName: string, slidePartName: string): void {
+		const sourceOpc = ctx.source
 		const layoutPartName = this.#resolveSingleRel(sourceOpc, slidePartName, SLIDE_LAYOUT_REL)
 		const masterPartName = layoutPartName ? this.#resolveSingleRel(sourceOpc, layoutPartName, SLIDE_MASTER_REL) : null
 		const cSld = firstChild(slideRoot, 'p:cSld')
@@ -1538,7 +1545,7 @@ export class Presentation {
 			const sourceRels = sourceOpc.relationshipsFor(partName)
 			for (const deco of decorations) {
 				const imported = doc.importNode(deco, true)
-				this.#rewriteCarriedRels(imported, sourceOpc, sourceRels, newPartName, slideRels, relIdMap)
+				this.#rewriteCarriedRels(imported, ctx, sourceRels, newPartName, slideRels, relIdMap)
 				spTree.insertBefore(imported, anchor)
 			}
 		}
@@ -1552,7 +1559,7 @@ export class Presentation {
 	 */
 	#rewriteCarriedRels(
 		node: Element,
-		sourceOpc: OpcPackage,
+		ctx: ImportContext,
 		sourceRels: Relationships,
 		newPartName: string,
 		slideRels: Relationships,
@@ -1570,14 +1577,14 @@ export class Presentation {
 				refs.push({ local: a.localName ?? a.name, id: a.value })
 			}
 			for (const { local, id } of refs) {
-				setAttr(el, `r:${local}`, this.#carryRel(sourceOpc, sourceRels, id, newPartName, slideRels, relIdMap))
+				setAttr(el, `r:${local}`, this.#carryRel(ctx, sourceRels, id, newPartName, slideRels, relIdMap))
 			}
 		}
 	}
 
 	/** Resolve a carried decoration's source relationship to a fresh slide-local id, copying its internal target. */
 	#carryRel(
-		sourceOpc: OpcPackage,
+		ctx: ImportContext,
 		sourceRels: Relationships,
 		id: string,
 		newPartName: string,
@@ -1592,10 +1599,7 @@ export class Presentation {
 		const newId =
 			rel.targetMode === 'External'
 				? slideRels.add(rel.type, rel.target, 'External').id
-				: slideRels.add(
-						rel.type,
-						relativePartName(newPartName, this.#copyPart(sourceOpc, sourceRels.resolveTarget(id)))
-					).id
+				: slideRels.add(rel.type, relativePartName(newPartName, copyPart(ctx, sourceRels.resolveTarget(id)))).id
 		relIdMap.set(key, newId)
 		return newId
 	}
@@ -1671,89 +1675,20 @@ export class Presentation {
 		return rel ? rels.resolveTarget(rel.id) : null
 	}
 
-	/** The copy registry for one source package (created on first use). */
-	#registryFor(sourceOpc: OpcPackage): Map<string, string> {
-		let registry = this.#importRegistry.get(sourceOpc)
+	/**
+	 * Open an import out of `source`: this deck as the destination, paired with the
+	 * copy registry for that package (created on first use). The registry is held on
+	 * the class rather than in the context because it must outlive any one call —
+	 * that is what makes a second import from the same source reuse the layout,
+	 * master, theme, and media it already copied instead of duplicating them.
+	 */
+	#importContext(source: OpcPackage): ImportContext {
+		let registry = this.#importRegistry.get(source)
 		if (!registry) {
 			registry = new Map()
-			this.#importRegistry.set(sourceOpc, registry)
+			this.#importRegistry.set(source, registry)
 		}
-		return registry
-	}
-
-	/**
-	 * Copy `sourcePartName` (and, recursively, every internal part it references)
-	 * from `sourceOpc` into this package, returning the new partname. Idempotent
-	 * per source package via the copy registry. Relationship ids are preserved so
-	 * the copied part body's `r:id`/`r:embed` references stay valid; targets are
-	 * rewritten to the freshly-allocated partnames. Notes relationships are
-	 * dropped. A copied `slideMaster` does not drag in all its sibling layouts —
-	 * each imported `slideLayout` wires itself into the master instead (see
-	 * {@link #linkLayoutIntoMaster}).
-	 */
-	#copyPart(sourceOpc: OpcPackage, sourcePartName: string): string {
-		const registry = this.#registryFor(sourceOpc)
-		const existing = registry.get(sourcePartName)
-		if (existing) return existing
-
-		const sourcePart = sourceOpc.part(sourcePartName)
-		if (!sourcePart) throw new Error(`importSlide: source package has no part ${sourcePartName}`)
-
-		const newPartName = this.opc.reservePartNameLike(sourcePartName)
-		this.opc.addPart(newPartName, sourcePart.contentType, sourcePart.bytes)
-		// Record before recursing so the master↔layout cycle terminates.
-		registry.set(sourcePartName, newPartName)
-
-		const isMaster = sourcePart.contentType === SLIDE_MASTER_CONTENT_TYPE
-		const sourceRels = sourceOpc.relationshipsFor(sourcePartName)
-		const targetRels = this.opc.relationshipsFor(newPartName)
-		for (const rel of sourceRels) {
-			// Notes pull in a notesMaster + its own theme; an imported slide does not need them.
-			if (rel.type === NOTES_SLIDE_REL) continue
-			// Lean master: skip its layout rels; copied layouts re-link themselves.
-			if (isMaster && rel.type === SLIDE_LAYOUT_REL) continue
-			if (rel.targetMode === 'External') {
-				targetRels.addWithId(rel.id, rel.type, rel.target, 'External')
-				continue
-			}
-			const newTargetPartName = this.#copyPart(sourceOpc, sourceRels.resolveTarget(rel.id))
-			targetRels.addWithId(rel.id, rel.type, relativePartName(newPartName, newTargetPartName))
-		}
-
-		if (isMaster) {
-			clearLayoutIdList(this, newPartName)
-			// Register the copied master in presentation.xml. Without a
-			// `p:sldMasterId` entry (and a presentation→master relationship) the
-			// master is inert: PowerPoint/LibreOffice ignore its background and shape
-			// tree, so a `copy`-imported slide whose look lives on its master (a
-			// cover/closer) renders blank. Idempotent, so masters shared across
-			// repeated imports are registered exactly once.
-			registerMaster(this, newPartName)
-		}
-		if (sourcePart.contentType === SLIDE_LAYOUT_CONTENT_TYPE) {
-			this.#linkLayoutIntoMaster(sourceOpc, sourceRels, newPartName)
-		}
-
-		return newPartName
-	}
-
-	/**
-	 * Wire a just-copied layout into its (already-copied) master. Resolves which
-	 * destination master that is by running the layout's *source* master rel through
-	 * the copy registry, then hands the destination-side wiring to
-	 * {@link addLayoutToMaster}. Called once per copied layout, so the master
-	 * accumulates exactly the imported layouts.
-	 */
-	#linkLayoutIntoMaster(
-		sourceOpc: OpcPackage,
-		layoutSourceRels: ReturnType<OpcPackage['relationshipsFor']>,
-		layoutPartName: string
-	): void {
-		const masterRel = layoutSourceRels.byType(SLIDE_MASTER_REL)[0]
-		if (!masterRel) return
-		const masterPartName = this.#registryFor(sourceOpc).get(layoutSourceRels.resolveTarget(masterRel.id))
-		if (!masterPartName) return
-		addLayoutToMaster(this, masterPartName, layoutPartName)
+		return { dest: this, source, registry }
 	}
 
 	/**
