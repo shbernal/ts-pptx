@@ -226,6 +226,30 @@ const hasCompleteGroupFrame = (options: ObjectOptions): boolean =>
 	givenGroupFrameAxes(options).length === GROUP_FRAME_AXES.length
 
 /**
+ * Normalize one axis of a placement box so its extent is never negative.
+ *
+ * `<a:ext cx>`/`<a:ext cy>` are `ST_PositiveCoordinate` (ECMA-376 Part 1, `CT_PositiveSize2D`), so a
+ * negative extent is schema-invalid. PowerPoint rejects the *whole* presentation with "The file or
+ * directory is corrupted and unreadable" (0x80070570) and names no shape, part, or slide, while
+ * LibreOffice renders the same package happily — so the defect is invisible until the deck reaches
+ * PowerPoint.
+ *
+ * A signed delta is the natural way to write "draw from A to B" (`{ x: x0, y: y0, w: x1 - x0, h: y1 - y0 }`),
+ * and it goes negative the moment the line runs leftward or upward. The correct encoding is the
+ * normalized bounding box plus a flip, which is what `addConnector` already derives from its own
+ * endpoints (`src/gen/define/connector.ts`); this gives every other shape kind the same treatment at
+ * the one point where every `Coord` form ('50%', '2in', a number) has been resolved to EMU.
+ *
+ * The caller composes `flip` onto any `flipH`/`flipV` the author set, so an explicit flip plus a
+ * negative extent cancel out rather than double-applying.
+ * @param off - the axis origin in EMU (`a:off` `x` or `y`)
+ * @param ext - the axis extent in EMU (`a:ext` `cx` or `cy`), possibly negative
+ * @returns the min-corner origin, the absolute extent, and whether the axis was mirrored
+ */
+const normalizeAxisExtent = (off: number, ext: number): { off: number; ext: number; flip: boolean } =>
+	ext < 0 ? { off: off + ext, ext: -ext, flip: true } : { off, ext, flip: false }
+
+/**
  * Transforms a slide or slideLayout to resulting XML string - Creates `ppt/slide*.xml`
  * @param {PresSlideInternal|SlideLayoutInternal} slideObject - slide object created within createSlideObject
  * @return {string} XML string with <p:cSld> as the root
@@ -338,12 +362,18 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 			const maxY = Math.max(...kids.map((b) => b.y + b.cy))
 			return { x: minX, y: minY, cx: maxX - minX, cy: maxY - minY }
 		}
-		return {
-			x: typeof o.x !== 'undefined' ? getSmartParseNumber(o.x, 'X', slide._presLayout) : 0,
-			y: typeof o.y !== 'undefined' ? getSmartParseNumber(o.y, 'Y', slide._presLayout) : 0,
-			cx: typeof o.w !== 'undefined' ? getSmartParseNumber(o.w, 'X', slide._presLayout) : 0,
-			cy: typeof o.h !== 'undefined' ? getSmartParseNumber(o.h, 'Y', slide._presLayout) : 0,
-		}
+		// Normalized the same way the render path below normalizes its own box, so a child with a
+		// negative extent contributes the box it will actually be emitted with — an un-normalized
+		// `x + cx` would put the group's `maxX` *left* of its `minX` and size the group wrong.
+		const bx = normalizeAxisExtent(
+			typeof o.x !== 'undefined' ? getSmartParseNumber(o.x, 'X', slide._presLayout) : 0,
+			typeof o.w !== 'undefined' ? getSmartParseNumber(o.w, 'X', slide._presLayout) : 0
+		)
+		const by = normalizeAxisExtent(
+			typeof o.y !== 'undefined' ? getSmartParseNumber(o.y, 'Y', slide._presLayout) : 0,
+			typeof o.h !== 'undefined' ? getSmartParseNumber(o.h, 'Y', slide._presLayout) : 0
+		)
+		return { x: bx.off, y: by.off, cx: bx.ext, cy: by.ext }
 	}
 
 	// Render one slide object — and, for a group, its children recursively — to an XML fragment.
@@ -354,7 +384,10 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 		let strSlideXml = ''
 		let x = 0
 		let y = 0
-		let cx = getSmartParseNumber('75%', 'X', slide._presLayout)
+		// Annotated `number` rather than inferring the branded `Emu` this initializer returns: `x`, `y`,
+		// and `cy` are all plain numbers, every `render*Object` takes `number`, and normalization below
+		// reassigns all four from one helper.
+		let cx: number = getSmartParseNumber('75%', 'X', slide._presLayout)
 		let cy = 0
 		let placeholderObj: SlideObject | null = null
 		const sizing: ObjectOptions['sizing'] = slideItemObj.options?.sizing
@@ -382,6 +415,17 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 		if (typeof slideItemObj.options.h !== 'undefined')
 			cy = getSmartParseNumber(slideItemObj.options.h, 'Y', slide._presLayout)
 
+		// A negative `w`/`h` becomes a min-corner origin, an absolute extent, and a flip — never a
+		// negative `<a:ext>`, which is out of range for `ST_PositiveCoordinate` and costs the whole
+		// package (see `normalizeAxisExtent`). Done here, after every `Coord` form has resolved to EMU,
+		// so `'-2in'` and `'-25%'` normalize alongside a plain negative number.
+		const normX = normalizeAxisExtent(x, cx)
+		const normY = normalizeAxisExtent(y, cy)
+		x = normX.off
+		cx = normX.ext
+		y = normY.off
+		cy = normY.ext
+
 		// Set w/h now that smart parse is done
 		const imgWidth = cx
 		const imgHeight = cy
@@ -397,9 +441,11 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 		// The `<a:xfrm>` placement attributes, shared by every shape kind that has a transform.
 		// NOTE: order is byte-significant (flipH, flipV, rot), and `null` means omitted — `rotate: 0`
 		// stays absent, matching the truthiness test this replaced.
+		// A flip derived from a negative extent XORs with the author's own: `{ w: -2, flipH: true }`
+		// is a box mirrored twice, i.e. not mirrored at all.
 		const locationAttrs: XmlAttrs = {
-			flipH: slideItemObj.options.flipH ? '1' : null,
-			flipV: slideItemObj.options.flipV ? '1' : null,
+			flipH: Boolean(slideItemObj.options.flipH) !== normX.flip ? '1' : null,
+			flipV: Boolean(slideItemObj.options.flipV) !== normY.flip ? '1' : null,
 			rot: slideItemObj.options.rotate ? convertRotationDegrees(slideItemObj.options.rotate) : null,
 		}
 

@@ -80,6 +80,21 @@ s.addConnector({ type: 'elbow', x1: 5, y1: 3, x2: 2, y2: 1 })
 Each of `x1/y1/x2/y2` accepts any `Coord`: a number of inches, a percent string
 like `'50%'`, or a unit string like `'2in'`.
 
+Every other object gets the same treatment from the other direction: a negative
+`w` or `h` is normalized to the min-corner origin, the absolute extent, and the
+matching flip, so a shape placed from a signed delta is safe too.
+
+```js
+// h is negative — the line runs upward. Emitted as y=1in, cy=2in, flipV="1".
+s.addShape('line', { x: 1, y: 3, w: 1.5, h: -2 })
+```
+
+A flip derived this way XOR-composes with one you set yourself, so
+`{ w: -2, flipH: true }` is mirrored twice and therefore not mirrored at all.
+This matters because `<a:ext>` is `ST_PositiveCoordinate`: a negative extent is
+out of range, and PowerPoint rejects the whole package (0x80070570) rather than
+the offending shape.
+
 ## Binding to shapes
 
 Bind an endpoint to a shape on the **same slide** by that shape's `objectName`.

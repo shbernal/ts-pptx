@@ -3634,4 +3634,27 @@ export default [
 			}
 		},
 	},
+	{
+		name: 'negative w/h normalize to a positive extent + flip (dn-negative-extent-normalization)',
+		fn: async () => {
+			// `<a:ext cx/cy>` is ST_PositiveCoordinate: a negative value is out of range, and
+			// PowerPoint rejects the whole package (0x80070570) rather than the offending shape.
+			// Callers hit it whenever a line is drawn from computed endpoints (`w: x2 - x1`).
+			const { buf, zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape(ShapeType.line, { x: 1, y: 3, w: 1.5, h: -2 })
+				s.addShape(ShapeType.rightArrow, { x: 4, y: 3, w: -3, h: -1 })
+				s.addText('up', { x: 6, y: 4, w: 2, h: -3 })
+				s.addGroup([{ rect: { x: 1, y: 1, w: 1, h: 1 } }, { line: { x: 4, y: 4, w: -3, h: -3 } }])
+			})
+			await expectNoSchemaErrors(buf, 'negative-extent-normalization')
+
+			// The validator flags a negative extent, but assert it directly too: a future
+			// schema-valid-but-wrong emission (e.g. clamping to 0) would still pass the check above.
+			const slide1 = await readEntry(zip, 'ppt/slides/slide1.xml')
+			for (const tag of slide1.match(/<a:(?:ch)?ext\b[^>]*\/>/g) || []) {
+				assert(!/="-/.test(tag), `negative extent emitted: ${tag}`)
+			}
+		},
+	},
 ]

@@ -209,6 +209,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A negative `w`/`h` produced a deck PowerPoint refused to open at all.** The
+  signed value went straight into `<a:ext cx=… cy=…>`, and both attributes are
+  `ST_PositiveCoordinate` — so one negative extent anywhere cost the *whole*
+  presentation: *"The file or directory is corrupted and unreadable"* (0x80070570),
+  naming no shape, no part, and no slide. LibreOffice rendered the same package
+  happily, so a pipeline that previews with LibreOffice saw nothing wrong until
+  the deck reached PowerPoint.
+
+  It was easy to hit, because a signed delta is the natural way to write "draw
+  from A to B": `addShape('line', { x: x0, y: y0, w: x1 - x0, h: y1 - y0 })`
+  works fine until the line happens to run leftward or upward. A negative
+  extent is now normalized to the box PowerPoint itself would write for that
+  geometry — origin at the min corner, absolute extent, and a flip on the
+  mirrored axis — which is the encoding `addConnector` has always derived from
+  its endpoints. `{ x: 1, y: 3, w: 1.5, h: -2 }` emits
+  `<a:xfrm flipV="1"><a:off x="914400" y="914400"/><a:ext cx="1371600" cy="1828800"/></a:xfrm>`.
+
+  It applies to every object kind, not just `addShape`, because it happens at the
+  one point where all of them share a placement path — after each `Coord` form
+  has resolved to EMU, so `'-25%'` and `'-2in'` normalize alongside a plain
+  negative number. A derived flip XOR-composes onto an explicit one, so
+  `{ w: -2, flipH: true }` is mirrored twice and therefore not at all. Group
+  auto-bounds normalize each child before taking the bounding box; previously a
+  child with a negative extent reported a `maxX` left of the group's `minX` and
+  collapsed the group frame.
+
+  No warning is emitted, and `Math.min`/`Math.abs` at the call site is no longer
+  needed — the signed form is now a supported spelling rather than a trap.
+
 - **`addAnimation()` and `groupObjects()` could not find a shape whose
   `objectName` contained `&`, `<`, `>`, `"`, `'`, a tab or a newline.** A shape
   added as `objectName: 'Q&A'` is stored attribute-escaped (`Q&amp;A`) so it can

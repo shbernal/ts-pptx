@@ -1558,8 +1558,8 @@ items:
     source: downstream
     type: downstream-need
     first_seen: 2026-07-27
-    last_reviewed: 2026-07-27
-    status: target
+    last_reviewed: 2026-07-28
+    status: implemented
     priority: p2
     target_area:
       - invalid-ooxml
@@ -1596,18 +1596,49 @@ items:
       the API boundary so the error names the offending shape instead of
       surfacing as a corrupt file. Silently writing an out-of-range extent is the
       worst of the three outcomes.
+
+      RESOLVED (2026-07-28) by normalizing, not throwing. The normalization is a
+      single helper, `normalizeAxisExtent` in `src/gen/slide/object.ts`, applied
+      per axis in the shared `renderSlideObjectXml` prologue — *after* every
+      `Coord` form ('50%', '-2in', a plain number) has resolved to EMU, so a
+      negative percent or unit string normalizes alongside a negative number, and
+      *before* the per-kind `render*Object` branch, so shapes, text boxes, images,
+      media, charts, tables, OLE, and zoom all get the same treatment rather than
+      only `addShape`. A derived flip XOR-composes onto the author's own
+      `flipH`/`flipV`, so `{ w: -2, flipH: true }` is mirrored twice, i.e. not at
+      all. `addConnector` is unaffected: it already normalizes at define time, so
+      the helper is a no-op on its box and passes its flips through.
+
+      Group auto-bounds (`resolveObjBounds`) normalize each child the same way
+      before taking the bounding box; otherwise a child with a negative extent
+      reports a `maxX` left of the group's `minX` and collapses the group frame.
+
+      No warning is emitted. A signed delta is a legitimate way to express "draw
+      from A to B", and the normalized box + flip is the exact encoding PowerPoint
+      itself writes for that geometry — so this is a well-defined interpretation
+      rather than the silent coercion the API-evolution policy warns about.
     evidence:
       kinds:
         - local-source-inspection
         - ooxml-reference
         - minimal-repro
         - extracted-xml
+        - regression-test
+        - schema-fixture
+        - validator-result
+        - powerpoint-result
       local_files:
         - src/gen/slide/object.ts
         - src/gen/define/shape.ts
         - src/gen/define/connector.ts
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
+        - test/regression/negative-extent-normalization.test.js
+        - test/schema-cases.js
+      schema_fixture: test/schema-cases.js (negative-extent-normalization)
+      validator_result: pass
+      powerpoint_result: >-
+        opens clean — a deck built from negative w/h on a shape, a text box, and a group child
+        opened in desktop PowerPoint over COM (scripts/powerpoint-com-smoke.mjs --file) with no
+        repair prompt, replacing the 0x80070570 rejection this entry recorded
+      spec_refs:
+        - ECMA-376 Part 1, DrawingML CT_PositiveSize2D (a:ext @cx/@cy are ST_PositiveCoordinate)
     next_action: none
