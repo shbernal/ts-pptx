@@ -24,7 +24,6 @@ import type {
 } from '../../core-interfaces.js'
 import type { Slide } from '../../types/slide.js'
 import type { SlideLayoutInternal } from '../../types/internal.js'
-import { rgbToHex } from '../drawingml/color.js'
 import { inch2Emu } from '../../units-internal.js'
 import { warn } from '../../log.js'
 import { EMU_PER_INCH } from '../../units.js'
@@ -40,6 +39,34 @@ type TableToSlidesHost = {
 // ===== DOM-table helpers (browser path) =====
 // DOM-independent helpers factored out of the browser-only tableToSlides() flow
 // so they can be unit-tested without a rendered page (see AGENTS.md scope note).
+
+/**
+ * Convert one 0-255 RGB component to its two-digit hex form.
+ *
+ * Lives here rather than beside the other color code in `gen/drawingml/color.ts`
+ * because `getComputedStyle` colors are the only thing in the package that arrives
+ * as RGB components — nothing on the Node path calls this. Keeping it in the shared
+ * color module put two functions the Node chunk can never execute into that chunk's
+ * coverage report; here they fall under the `dist/browser*.js` exclusion that already
+ * covers this whole file, so no `v8 ignore` fence is needed.
+ * @param {number} c - component color
+ * @returns {string} hex string
+ */
+function componentToHex(c: number): string {
+	const hex = c.toString(16)
+	return hex.length === 1 ? '0' + hex : hex
+}
+
+/**
+ * Converts RGB colors from css selectors to Hex for Presentation colors
+ * @param {number} r - red value
+ * @param {number} g - green value
+ * @param {number} b - blue value
+ * @returns {string} XML string
+ */
+function rgbToHex(r: number, g: number, b: number): string {
+	return (componentToHex(r) + componentToHex(g) + componentToHex(b)).toUpperCase()
+}
 
 /**
  * Convert a computed CSS border (width string + color string) from `getComputedStyle` into a

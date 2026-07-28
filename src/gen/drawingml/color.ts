@@ -3,35 +3,19 @@
  *
  * Emit the bare `<a:srgbClr>` / `<a:schemeClr>` color element that every other
  * color context builds on (solid fills, gradient stops, effect alphas, line
- * fills, highlights, patterns), plus the RGB->hex helpers the HTML table
- * importer needs to get CSS colors into that form.
+ * fills, highlights, patterns).
+ *
+ * The RGB->hex helpers this module used to carry now live in
+ * `gen/table/html-dom.ts`, their only caller: they are reachable exclusively from
+ * the browser-only `tableToSlides` path, so keeping them here made them permanent
+ * dead weight in the Node chunk's coverage report (33% functions on a file that is
+ * otherwise fully exercised) while html-dom.ts is coverage-excluded wholesale.
  */
 
 import { SchemeColor, type SCHEME_COLORS } from '../../core-enums.js'
 import { REGEX_HEX_COLOR, DEF_FONT_COLOR } from '../../core-enums-internal.js'
 import { warn } from '../../log.js'
 import { PERCENT_SCALE } from '../../units.js'
-
-/**
- * Converts component value to hex value
- * @param {number} c - component color
- * @returns {string} hex string
- */
-export function componentToHex(c: number): string {
-	const hex = c.toString(16)
-	return hex.length === 1 ? '0' + hex : hex
-}
-
-/**
- * Converts RGB colors from css selectors to Hex for Presentation colors
- * @param {number} r - red value
- * @param {number} g - green value
- * @param {number} b - blue value
- * @returns {string} XML string
- */
-export function rgbToHex(r: number, g: number, b: number): string {
-	return (componentToHex(r) + componentToHex(g) + componentToHex(b)).toUpperCase()
-}
 
 /**
  * Emit a bare DrawingML color element — either `<a:schemeClr>` (scheme color) or `<a:srgbClr>`
