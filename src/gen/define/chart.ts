@@ -103,30 +103,36 @@ function clampChartPct(value: number | undefined, min: number, max: number, name
 /**
  * Drop `dataLabelPosition` values that are invalid for the chart type / bar grouping,
  * per the OOXML data-label placement rules, so PowerPoint does not flag the file.
+ *
+ * `chartType` is passed in rather than read off `options._type` so the combo path can run the
+ * same rules per subchart: a combo chart's `_type` is a `ChartMulti[]`, which matches none of
+ * the comparisons below (see {@link normalizeComboSubchartOptions}).
+ * @param options - options bag to correct in place
+ * @param chartType - the plot type these options are emitted for, if known
  */
-function normalizeChartDataLabelPosition(options: ChartOptsInternal): void {
+function normalizeChartDataLabelPosition(options: ChartOptsInternal, chartType: ChartType | undefined): void {
 	if (options.dataLabelPosition) {
 		const dataLabelPosition = options.dataLabelPosition
 		if (
-			options._type === ChartType.area ||
-			options._type === ChartType.bar3d ||
-			options._type === ChartType.doughnut ||
-			options._type === ChartType.radar
+			chartType === ChartType.area ||
+			chartType === ChartType.bar3d ||
+			chartType === ChartType.doughnut ||
+			chartType === ChartType.radar
 		) {
 			delete options.dataLabelPosition
 		}
-		if (options._type === ChartType.pie) {
+		if (chartType === ChartType.pie) {
 			if (!['bestFit', 'ctr', 'inEnd', 'outEnd'].includes(dataLabelPosition)) delete options.dataLabelPosition
 		}
 		if (
-			options._type === ChartType.bubble ||
-			options._type === ChartType.bubble3d ||
-			options._type === ChartType.line ||
-			options._type === ChartType.scatter
+			chartType === ChartType.bubble ||
+			chartType === ChartType.bubble3d ||
+			chartType === ChartType.line ||
+			chartType === ChartType.scatter
 		) {
 			if (!['b', 'ctr', 'l', 'r', 't'].includes(dataLabelPosition)) delete options.dataLabelPosition
 		}
-		if (options._type === ChartType.bar) {
+		if (chartType === ChartType.bar) {
 			if (!['stacked', 'percentStacked'].includes(options.barGrouping || '')) {
 				if (!['ctr', 'inBase', 'inEnd'].includes(dataLabelPosition)) delete options.dataLabelPosition
 			}
@@ -134,6 +140,30 @@ function normalizeChartDataLabelPosition(options: ChartOptsInternal): void {
 				if (!['ctr', 'inBase', 'inEnd', 'outEnd'].includes(dataLabelPosition)) delete options.dataLabelPosition
 			}
 		}
+	}
+}
+
+/**
+ * Correct `barGrouping` to a value `<c:grouping>` (ST_Grouping) accepts for the given chart type.
+ *
+ * Split out of `addChartDefinition` for the same reason as
+ * {@link normalizeChartDataLabelPosition}: the combo path needs it per subchart, keyed to that
+ * subchart's own type.
+ * @param options - options bag to correct in place
+ * @param chartType - the plot type these options are emitted for, if known
+ */
+function normalizeChartBarGrouping(options: ChartOptsInternal, chartType: ChartType | undefined): void {
+	// barGrouping: "21.2.3.17 ST_Grouping (Grouping)"
+	if (chartType === ChartType.area) {
+		if (!['stacked', 'standard', 'percentStacked'].includes(options.barGrouping || '')) options.barGrouping = 'standard'
+	}
+	if (chartType === ChartType.bar) {
+		if (!['clustered', 'stacked', 'percentStacked'].includes(options.barGrouping || ''))
+			options.barGrouping = 'clustered'
+	}
+	if (chartType === ChartType.bar3d) {
+		if (!['clustered', 'stacked', 'standard', 'percentStacked'].includes(options.barGrouping || ''))
+			options.barGrouping = 'standard'
 	}
 }
 
@@ -275,6 +305,102 @@ function normalizeChartOptions(options: ChartOptsInternal): void {
 }
 
 /**
+ * Options a combo subchart may override that land in a bounded or enumerated OOXML attribute,
+ * i.e. the ones {@link normalizeComboSubchartOptions} is allowed to write back.
+ */
+const SUBCHART_VALIDATED_KEYS = [
+	'barDir',
+	'barGrouping',
+	'barGapWidthPct',
+	'barGapDepthPct',
+	'barOverlapPct',
+	'bar3DShape',
+	'holeSize',
+	'firstSliceAng',
+	'lineDataSymbol',
+	'lineDataSymbolSize',
+	'lineDataSymbolLineSize',
+	'dataLabelPosition',
+] as const
+
+/**
+ * Clamp and correct one combo subchart's option overrides.
+ *
+ * `addChartDefinition` normalizes the chart-level options once, but a combo chart's per-subchart
+ * `ChartMulti.options` are merged over them only at emit time (`gen/chart/chart-xml.ts`) — after
+ * every clamp and enum correction has already run. Anything set there therefore reached the part
+ * verbatim: `barOverlapPct: 250` emitted `<c:overlap val="250"/>` where ST_Overlap is -100..100,
+ * `barGapWidthPct: 9999` blew past ST_GapAmount's 500, and `barGrouping: 'sideways'` failed the
+ * ST_Grouping enumeration — three PowerPoint-repair prompts reachable only through the combo API.
+ *
+ * The gap runs the other way too: for a combo chart `options._type` is a `ChartMulti[]`, so the
+ * *type-dependent* chart-level corrections (`barGrouping`, `dataLabelPosition`) match no branch
+ * and never fire at all.
+ *
+ * Both are fixed by validating the value the emitter actually reads — `{...chartOptions,
+ * ...subOptions}` — against this subchart's own type, then writing back only the keys a
+ * correction changed so the subchart bag stays a sparse override of the chart-level options.
+ * @param subOptions - caller-supplied `ChartMulti.options` (never written to)
+ * @param chartOptions - the already-normalized chart-level options
+ * @param subType - this subchart's own plot type
+ * @param callerSetBarGapWidthPct - whether the caller supplied a chart-level `barGapWidthPct`
+ */
+function normalizeComboSubchartOptions(
+	subOptions: ChartOpts | undefined,
+	chartOptions: ChartOptsInternal,
+	subType: ChartType,
+	callerSetBarGapWidthPct: boolean
+): ChartOpts {
+	const sub: ChartOpts = subOptions && typeof subOptions === 'object' ? subOptions : {}
+	// What the emitter reads for this subchart today, and the corrected copy to diff against it.
+	const merged: ChartOptsInternal = { ...chartOptions, ...sub }
+	const fixed: ChartOptsInternal = { ...merged }
+
+	// Enumerations emitted verbatim: `<c:barDir>` (ST_BarDir), `<c:grouping>` (ST_Grouping),
+	// `<c:shape>` (ST_Shape), `<c:symbol>` (ST_MarkerStyle).
+	if (!['bar', 'col'].includes(fixed.barDir || '')) fixed.barDir = 'col'
+	normalizeChartBarGrouping(fixed, subType)
+	if (!['cone', 'coneToMax', 'box', 'cylinder', 'pyramid', 'pyramidToMax'].includes(fixed.bar3DShape || ''))
+		fixed.bar3DShape = 'box'
+	if (!['circle', 'dash', 'diamond', 'dot', 'none', 'square', 'triangle'].includes(fixed.lineDataSymbol || ''))
+		fixed.lineDataSymbol = 'circle'
+	// A stacked bar group takes the narrower default gap a chart-level stacked bar gets. The
+	// merged bag already carries the clustered default, so only step in when neither the
+	// chart-level nor the subchart caller asked for a specific width.
+	if (fixed.barGrouping?.includes('tacked') && !callerSetBarGapWidthPct && sub.barGapWidthPct == null)
+		fixed.barGapWidthPct = 50
+	// Depends on the corrected grouping above, so it has to run after it.
+	normalizeChartDataLabelPosition(fixed, subType)
+
+	// Bounded integers. A non-numeric override falls back to the chart-level value, which
+	// `normalizeChartOptions` has already put in range.
+	fixed.barGapWidthPct = clampChartPct(fixed.barGapWidthPct, 0, 500, 'barGapWidthPct') ?? chartOptions.barGapWidthPct
+	fixed.barGapDepthPct = clampChartPct(fixed.barGapDepthPct, 0, 500, 'barGapDepthPct') ?? chartOptions.barGapDepthPct
+	fixed.barOverlapPct = clampChartPct(fixed.barOverlapPct, -100, 100, 'barOverlapPct')
+	fixed.holeSize = clampChartPct(fixed.holeSize, 10, 90, 'holeSize')
+	fixed.firstSliceAng = clampChartPct(fixed.firstSliceAng, 0, 360, 'firstSliceAng')
+	// `<c:size val>` is ST_MarkerSize: an integer 2..72 points.
+	if (fixed.lineDataSymbolSize != null && !isNaN(fixed.lineDataSymbolSize)) {
+		const symbolSize = Math.min(72, Math.max(2, Math.round(fixed.lineDataSymbolSize)))
+		if (symbolSize !== fixed.lineDataSymbolSize)
+			warn(
+				`lineDataSymbolSize ${fixed.lineDataSymbolSize} is outside the valid marker size range (integer 2-72); using ${symbolSize}.`
+			)
+		fixed.lineDataSymbolSize = symbolSize
+	}
+	// Points -> EMU, but only for a width this subchart supplied: the chart-level value has
+	// already been through `valToPts` and converting it twice would emit a hairline.
+	if (sub.lineDataSymbolLineSize != null && !isNaN(sub.lineDataSymbolLineSize))
+		fixed.lineDataSymbolLineSize = valToPts(sub.lineDataSymbolLineSize)
+
+	const result: ChartOptsInternal = { ...sub }
+	for (const key of SUBCHART_VALIDATED_KEYS) {
+		if (fixed[key] !== merged[key]) (result as Record<string, unknown>)[key] = fixed[key]
+	}
+	return result
+}
+
+/**
  * Generate the chart based on input data.
  * OOXML Chart Spec: ISO/IEC 29500-1:2016(E)
  *
@@ -359,6 +485,9 @@ export function addChartDefinition(
 	}
 	// Everything below normalizes onto this copy; the caller's options object is a read-only input.
 	const options: ChartOptsInternal = copyChartOptions(tmpOpt && typeof tmpOpt === 'object' ? tmpOpt : {})
+	// Captured before normalization fills in the default, so the combo pass below can tell an
+	// explicit gap width from an inherited one.
+	const callerSetBarGapWidthPct = typeof options.barGapWidthPct === 'number' && !isNaN(options.barGapWidthPct)
 
 	// STEP 1: Set default options/decode user options
 	// A: Core
@@ -374,25 +503,15 @@ export function addChartDefinition(
 	// B: Options: misc
 	if (!['bar', 'col'].includes(options.barDir || '')) options.barDir = 'col'
 
-	// barGrouping: "21.2.3.17 ST_Grouping (Grouping)"
 	// barGrouping must be handled before data label validation as it can affect valid label positioning
-	if (options._type === ChartType.area) {
-		if (!['stacked', 'standard', 'percentStacked'].includes(options.barGrouping || '')) options.barGrouping = 'standard'
-	}
-	if (options._type === ChartType.bar) {
-		if (!['clustered', 'stacked', 'percentStacked'].includes(options.barGrouping || ''))
-			options.barGrouping = 'clustered'
-	}
-	if (options._type === ChartType.bar3d) {
-		if (!['clustered', 'stacked', 'standard', 'percentStacked'].includes(options.barGrouping || ''))
-			options.barGrouping = 'standard'
-	}
+	const chartLevelType = Array.isArray(options._type) ? undefined : options._type
+	normalizeChartBarGrouping(options, chartLevelType)
 	if (options.barGrouping?.includes('tacked')) {
 		if (!options.barGapWidthPct) options.barGapWidthPct = 50
 	}
 	// Clean up and validate data label positions
 	// REFERENCE: https://docs.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/e2b1697c-7adc-463d-9081-3daef72f656f?redirectedfrom=MSDN
-	normalizeChartDataLabelPosition(options)
+	normalizeChartDataLabelPosition(options, chartLevelType)
 	options.dataLabelBkgrdColors =
 		options.dataLabelBkgrdColors || !options.dataLabelBkgrdColors ? options.dataLabelBkgrdColors : false
 	if (!['b', 'l', 'r', 't', 'tr'].includes(options.legendPos || '')) options.legendPos = 'r'
@@ -455,6 +574,16 @@ export function addChartDefinition(
 	// `<c:gapWidth>`/`<c:gapDepth>` are ST_GapAmount (integer 0..500); `<c:overlap>` is
 	// ST_Overlap (integer -100..100). Out-of-range values trigger PowerPoint repair.
 	normalizeChartOptions(options)
+
+	// E: Options: combo subcharts
+	// A `ChartMulti` entry's options override the chart-level ones at emit time, so they have to
+	// go through the same clamps and enum corrections — keyed to that subchart's own plot type.
+	if (Array.isArray(options._type)) {
+		options._type.forEach((sub) => {
+			// Safe to assign: these entries are the copies built above, not the caller's objects.
+			sub.options = normalizeComboSubchartOptions(sub.options, options, asChartType(sub.type), callerSetBarGapWidthPct)
+		})
+	}
 
 	// Stock charts require their series in a fixed order (see `stockStyle`); default to the
 	// three-value High-Low-Close style and warn (rather than corrupt) when the number of data

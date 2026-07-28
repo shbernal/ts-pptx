@@ -35,6 +35,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A combo chart's per-subchart options are validated like the chart-level
+  ones.** `addChart` normalizes its options once, but a `ChartMulti` entry's own
+  `options` were merged over them only at emit time — after every clamp and enum
+  correction had run — so they reached the part verbatim. A subchart
+  `barOverlapPct: 250` emitted `<c:overlap val="250"/>` where `ST_Overlap` is
+  -100..100, `barGapWidthPct: 9999` blew past `ST_GapAmount`'s 500 and
+  `barGrouping: 'sideways'` failed the `ST_Grouping` enumeration: three
+  PowerPoint-repair prompts reachable only through the combo API, and silent —
+  the same values passed at chart level have always been clamped with a warning.
+
+  Each subchart's options now go through the same pass, keyed to that subchart's
+  own plot type, covering `barDir`, `barGrouping`, `barGapWidthPct`,
+  `barGapDepthPct`, `barOverlapPct`, `bar3DShape`, `holeSize`, `firstSliceAng`,
+  `lineDataSymbol`, `lineDataSymbolSize`, `lineDataSymbolLineSize` and
+  `dataLabelPosition`. What it validates is the merged value the emitter actually
+  reads, writing back only what a correction changed, so per-subchart options stay
+  a sparse override of the chart-level ones.
+
+  That also closes the wider half of the same hole: a combo chart's internal
+  `_type` is a `ChartMulti[]`, so the chart-level corrections that key off the
+  chart *type* — `barGrouping`, `dataLabelPosition` — previously matched no branch
+  and never ran either. They now resolve per subchart, which is why one bad
+  chart-level `barGrouping` correctly lands as `clustered` for a bar group and
+  `standard` for a line group.
+
+  One behaviour change comes with it: a **stacked bar subchart now emits
+  `gapWidth 50`**, the narrower default a chart-level stacked bar already got,
+  where it previously inherited the clustered default of 150. An explicit
+  `barGapWidthPct` on either the chart or the subchart still wins.
+
 - **A table cell with a non-solid fill no longer reports the table style's
   colour.** `TableCell.resolvedFill` fell through to the style graph whenever the
   cell's own fill was not a solid one, so an image-, gradient- or pattern-filled

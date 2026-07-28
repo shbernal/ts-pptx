@@ -3720,4 +3720,149 @@ export default [
 			assertIncludes(gridline, '<a:srgbClr val="D9D9D9"/>', 'gridline hex uppercased, # stripped')
 		},
 	},
+	{
+		// Stacked AND clustered bars in one chart (upstream-issue-1223) is not a
+		// distinct OOXML construct: it is two <c:barChart> groups on one axis pair,
+		// each carrying its own <c:grouping>. The combo path already emits this, so
+		// this fixture pins it — including the two things a naive combo emitter gets
+		// wrong: <c:idx>/<c:order> must stay unique ACROSS groups (PowerPoint treats
+		// a collision as a corrupt legend/series map, and the schema does NOT catch
+		// it), and both groups must share one axId pair.
+		name: 'combo chart with stacked and clustered bar groups (upstream-issue-1223)',
+		fn: async () => {
+			const labels = ['Q1', 'Q2', 'Q3', 'Q4']
+			const { zip, buf } = await build((p) => {
+				p.addSlide().addChart(
+					[
+						{
+							type: ChartType.bar,
+							data: [
+								{ name: 'Stack A', labels, values: [10, 20, 30, 40] },
+								{ name: 'Stack B', labels, values: [5, 10, 15, 20] },
+							],
+							options: { barGrouping: 'stacked' },
+						},
+						{
+							type: ChartType.bar,
+							data: [{ name: 'Target', labels, values: [20, 35, 50, 65] }],
+							options: { barGrouping: 'clustered' },
+						},
+					],
+					{ x: 1, y: 1, w: 8, h: 4 }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'stacked + clustered bar combo')
+
+			const chartXml = await readEntry(zip, 'ppt/charts/chart1.xml')
+			const groupings = [...chartXml.matchAll(/<c:grouping val="([^"]*)"\/>/g)].map((m) => m[1])
+			assertEqual(groupings.join(','), 'stacked,clustered', 'one c:grouping per bar chart group')
+
+			// Series indices are numbered across the whole chart space, not per group.
+			const idxs = [...chartXml.matchAll(/<c:idx val="(\d+)"\/>\s*<c:order val="(\d+)"\/>/g)].map(
+				(m) => `${m[1]}/${m[2]}`
+			)
+			assertEqual(idxs.join(' '), '0/0 1/1 2/2', 'c:idx/c:order unique across bar chart groups')
+
+			// Both groups plot against the same primary axis pair.
+			const barGroups = [...chartXml.matchAll(/<c:barChart>([\s\S]*?)<\/c:barChart>/g)].map((m) =>
+				[...m[1].matchAll(/<c:axId val="(\d+)"\/>/g)].map((a) => a[1]).join(',')
+			)
+			assertEqual(barGroups.length, 2, 'two c:barChart groups emitted')
+			assertEqual(barGroups[0], barGroups[1], 'both bar groups share one axId pair')
+
+			// A stacked group takes the same narrower default gap a single-type stacked
+			// bar chart gets; the clustered group keeps the 150 default.
+			const gapWidths = [...chartXml.matchAll(/<c:gapWidth val="([^"]*)"\/>/g)].map((m) => m[1])
+			assertEqual(gapWidths.join(','), '50,150', 'stacked group defaults to a 50% gap, clustered to 150%')
+		},
+	},
+	{
+		// dn-combo-subchart-option-validation: a ChartMulti entry's `options` are merged
+		// over the chart-level options only at emit time, so before the define-time
+		// normalize pass they reached the part verbatim — an out-of-range <c:overlap>,
+		// <c:gapWidth> or a bogus <c:grouping>/<c:barDir> that PowerPoint offers to
+		// repair. The same values at chart level have always been clamped, so this
+		// fixture pins the combo path to that behaviour.
+		name: 'combo subchart options are clamped and enum-corrected (dn-combo-subchart-option-validation)',
+		fn: async () => {
+			const labels = ['Q1', 'Q2', 'Q3', 'Q4']
+			const { zip, buf } = await build((p) => {
+				p.addSlide().addChart(
+					[
+						{
+							type: ChartType.bar,
+							data: [{ name: 'A', labels, values: [10, 20, 30, 40] }],
+							// ST_Overlap is -100..100 and ST_GapAmount 0..500.
+							options: { barOverlapPct: 250, barGapWidthPct: 9999 },
+						},
+						{
+							type: ChartType.bar,
+							data: [{ name: 'B', labels, values: [40, 30, 20, 10] }],
+							// Neither value is in ST_Grouping / ST_BarDir.
+							options: { barGrouping: 'sideways', barDir: 'diagonal' },
+						},
+						{
+							type: ChartType.doughnut,
+							data: [{ name: 'C', labels, values: [1, 2, 3, 4] }],
+							// ST_HoleSize is 10..90 and ST_FirstSliceAng 0..360.
+							options: { holeSize: 500, firstSliceAng: 900 },
+						},
+						{
+							type: ChartType.line,
+							data: [{ name: 'D', labels, values: [5, 6, 7, 8] }],
+							// ST_MarkerSize is an integer 2..72.
+							options: { lineDataSymbolSize: 500 },
+						},
+					],
+					{ x: 1, y: 1, w: 8, h: 4 }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'combo subchart option clamping')
+
+			const chartXml = await readEntry(zip, 'ppt/charts/chart1.xml')
+			const vals = (tag) => [...chartXml.matchAll(new RegExp(`<c:${tag} val="([^"]*)"\\/>`, 'g'))].map((m) => m[1])
+			assertEqual(vals('overlap').join(','), '100,0', 'subchart barOverlapPct clamped into ST_Overlap')
+			assertEqual(vals('gapWidth').join(','), '500,150', 'subchart barGapWidthPct clamped into ST_GapAmount')
+			// The third value is the line group, whose <c:grouping> is always 'standard'.
+			assertEqual(vals('grouping').join(','), 'clustered,clustered,standard', 'invalid subchart barGrouping corrected')
+			assertEqual(vals('barDir').join(','), 'col,col', 'invalid subchart barDir corrected')
+			assertEqual(vals('holeSize').join(','), '90', 'subchart holeSize clamped into ST_HoleSize')
+			assertEqual(vals('firstSliceAng').join(','), '360', 'subchart firstSliceAng clamped into ST_FirstSliceAng')
+			assertEqual(vals('size').join(','), '72', 'subchart lineDataSymbolSize clamped into ST_MarkerSize')
+		},
+	},
+	{
+		// The other half of dn-combo-subchart-option-validation: a combo chart's
+		// `_type` is a ChartMulti[], so the chart-level corrections that key off the
+		// chart type (barGrouping, dataLabelPosition) matched no branch and never ran.
+		// They now run per subchart against that subchart's own type — which is also
+		// why one bad chart-level barGrouping resolves differently for each group.
+		name: 'combo chart-level type-dependent options are corrected per subchart (dn-combo-subchart-option-validation)',
+		fn: async () => {
+			const labels = ['Q1', 'Q2', 'Q3', 'Q4']
+			const { zip, buf } = await build((p) => {
+				p.addSlide().addChart(
+					[
+						{ type: ChartType.bar, data: [{ name: 'A', labels, values: [10, 20, 30, 40] }], options: {} },
+						{ type: ChartType.line, data: [{ name: 'B', labels, values: [40, 30, 20, 10] }], options: {} },
+					],
+					{
+						x: 1,
+						y: 1,
+						w: 8,
+						h: 4,
+						showValue: true,
+						barGrouping: 'sideways', // not in ST_Grouping
+						dataLabelPosition: 'nonsense', // not in ST_DLblPos
+					}
+				)
+			})
+			await expectNoSchemaErrors(buf, 'combo chart-level option correction')
+
+			const chartXml = await readEntry(zip, 'ppt/charts/chart1.xml')
+			const groupings = [...chartXml.matchAll(/<c:grouping val="([^"]*)"\/>/g)].map((m) => m[1])
+			assertEqual(groupings.join(','), 'clustered,standard', 'grouping resolved per subchart type')
+			assert(!chartXml.includes('<c:dLblPos'), 'a dataLabelPosition invalid for the plot type is dropped')
+		},
+	},
 ]
