@@ -9,6 +9,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`@shbernal/ts-pptx/html`: HTML `<table>` → slides, anywhere there is a DOM.**
+  `tableToSlides` was reachable only as a method on the browser build, which made
+  converting an existing HTML table a browser-only capability. It is now also a
+  free function on a new `/html` subpath that runs under Node with any DOM
+  implementation and in the browser, from one artifact — deliberately no
+  `browser`/`node` condition split.
+
+  ```ts
+  import { tableToSlides } from '@shbernal/ts-pptx/html'
+
+  tableToSlides(pptx, win.document.getElementById('report'))
+  tableToSlides(pptx, 'report', { document: win.document }) // by id
+  ```
+
+  Pass the element and no global DOM is consulted at all — the document and its
+  view come from the element's own `ownerDocument`/`defaultView`. Pass a string
+  id and it resolves against the new `TableToSlidesProps.document`, defaulting to
+  the global `document` as before. `pptx` is structural (`addSlide` +
+  `presLayout`), so any presentation instance works, including the Node build;
+  `masterTitle` resolves on both forms.
+
+  Strictly additive: `TsPptx.prototype.tableToSlides(eleId, options)` keeps its
+  exact signature and behavior, and its body is now a delegation to the shared
+  implementation, so the two forms cannot drift.
+
+  **Column widths degrade without a layout engine.** In a browser the columns are
+  sized from each cell's rendered `offsetWidth`. Nothing outside a browser lays a
+  table out, so `offsetWidth` is `0` there — which previously made the
+  proportional calc a `0/0` divide and emitted a table with zero-width columns.
+  The basis now falls back in two steps: the computed CSS `width`s when the
+  stylesheet states them for every column in one unit (all `px` or all `%`), then
+  an equal split. `data-pptx-width` / `data-pptx-min-width` on the `<thead>`
+  cells still win outright on every path, and are the way to pin widths
+  regardless of runtime.
+
+  Cell text is read the same way: `innerText` where the DOM genuinely renders,
+  and otherwise a `childNodes` walk that keeps `<br>` as a line break. jsdom does
+  not implement `innerText` at all (every cell would have come out empty), and
+  happy-dom implements it as `textContent` rather than rendered text (every cell
+  would have come out on one line).
+
+  New public types: `TableToSlidesElement`, `TableToSlidesDocument`,
+  `TableToSlidesHost`. These are structural rather than `lib.dom`'s
+  `Element`/`Document`, because a non-browser DOM's types do not satisfy those and
+  demanding them would reject from TypeScript exactly the implementations the
+  entry exists to accept.
+
 - **`pptx-to-script` re-embeds a surface's picture fill.** An image-filled shape
   or table cell (`p:spPr/a:blipFill`, `a:tcPr/a:blipFill`) converted to a script
   and came back unfilled: the read model saw the blip, the write API could author
@@ -51,6 +98,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bytes either way.
 
 ### Fixed
+
+- **`tableToSlides` cell padding was parsed with a regex that deleted the decimal
+  point.** Computed `padding-*` went through `.replace(/\D/gi, '')`, which strips
+  every non-digit — including the `.` — so a `1.5px` padding became the number
+  `15`, a ten-fold inset, and `0.5px` became `5`. Fractional computed paddings are
+  ordinary: any `em`/`%` padding, or a `rem` on a non-integer root size, resolves
+  to one. It is parsed as a CSS length now, keeping the fraction and rounding
+  once. A value that is not an absolute px length (a `%` padding, a keyword) insets
+  by nothing rather than by whatever digits it contained.
+
+  This is visible to existing browser callers: a table whose cells have
+  fractionally-computed padding gets a correct inset where it previously got a
+  roughly 10× one.
+
+- **`tableToSlides` produced an empty table for an id that is not a valid CSS
+  identifier.** The table id was interpolated raw into a CSS selector
+  (`#${id} tr:first-child th`), so an id starting with a digit, or containing `.`
+  or `:`, matched nothing — *after* passing the `getElementById` reality-check,
+  which made it look like the table had simply been read as empty. Every query is
+  now scoped to the element, so the id is never parsed as a selector. Selector
+  semantics are otherwise unchanged.
+
+- **`tableToSlides` emitted the literal color `NANNANNAN` for a computed color
+  that was not `rgb()`.** Computed colors were parsed by stripping `rgb(`/`rgba(`
+  and splitting on commas. A browser always normalizes to `rgb()`, so this held
+  there — but nothing outside a browser normalizes, and a DOM that returns the
+  authored `#ff0000` produced `Number('#ff0000')` → `NaN` → that string, emitted
+  without complaint. Colors now go through a CSS parser that handles
+  `rgb()`/`rgba()` and `#rgb`/`#rrggbb`, clamps and rounds channels, and falls
+  back to the caller's default rather than guessing for anything else. Browser
+  output is unchanged: `rgb()` parses exactly as before, and a fully transparent
+  background still becomes white.
+
+  A dead condition next to it was removed:
+  `getComputedStyle(cell).getPropertyValue('transparent')` tested a CSS *keyword*
+  as if it were a property, so it returned `''` for every cell and never fired.
 
 - **A line's `cap`, and a stroke's `pattern`/`image` paint, were dropped before
   reaching the emitter.** `ShapeLineProps extends ShapeFillProps`, so a stroke

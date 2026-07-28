@@ -39,10 +39,14 @@ The package publishes:
   [Math Equations](math-latex.md)).
 - `dist/zip.js` and `dist/zip.d.ts` for the shared OPC/zip package plumbing
   used by `read` and `inspect`.
+- `dist/html.js` and `dist/html.d.ts` for converting an existing HTML `<table>`
+  into slides. One artifact serves both runtimes — there is deliberately no
+  `browser`/`node` condition split, because the entry works with whatever DOM
+  the caller has (see [HTML tables → slides](../README.md#html-tables--slides)).
 - `dist/node.js` and `dist/node.d.ts` for explicit Node.js consumers.
 - `dist/browser.js` and `dist/browser.d.ts` for explicit browser consumers.
 - package `exports` entries for `.`, `./inspect`, `./measure`, `./read`,
-  `./script`, `./math`, `./zip`, `./node`, and `./browser`.
+  `./script`, `./math`, `./zip`, `./html`, `./node`, and `./browser`.
 
 Supported environments are modern module-aware environments:
 
@@ -60,6 +64,7 @@ import { measureText } from "@shbernal/ts-pptx/measure"
 import { Presentation } from "@shbernal/ts-pptx/read"
 import { readModelToIr, printScript } from "@shbernal/ts-pptx/script"
 import { latexToOmml } from "@shbernal/ts-pptx/math"
+import { tableToSlides } from "@shbernal/ts-pptx/html"
 import pptxgenNode from "@shbernal/ts-pptx/node"
 import pptxgenBrowser from "@shbernal/ts-pptx/browser"
 ```

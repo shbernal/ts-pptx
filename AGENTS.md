@@ -16,12 +16,16 @@
   unless the user explicitly opts in. They are not rejected on merit — outside
   contributors are welcome to submit PRs — but the maintainer is not driving them.
   See `docs/project-target.md` ("Out Of Active Scope") for the full statement.
-  - **Live-DOM / browser-layout features** — anything reading a *rendered* page
-    rather than in-memory data, notably `tableToSlides()` (`offsetWidth`,
-    `window.getComputedStyle`). These are browser-only and cannot be reproduced in
-    the Node test suite. The in-memory `addTable(rows, opts)` path is the supported
-    one. If logic here genuinely needs covering, extract the DOM-independent part
-    into a pure helper and unit-test it (pattern: `resolveHtmlColWidth`).
+  - **Live-DOM / browser-layout features** — anything whose answer comes from a
+    *rendered* page: real `offsetWidth` after layout, the resolved cascade, fonts
+    as the browser chose them. `tableToSlides()` is NOT in this category any more:
+    it ships as a free function on `ts-pptx/html`, runs under Node with any DOM,
+    and is covered against happy-dom (`test/regression/html-to-slides-node.test.js`).
+    Only real *measurement* is out of scope there — without a layout engine
+    `offsetWidth` is `0`, so column widths degrade to computed CSS widths then to
+    an equal split. Keep extracting the DOM-independent part of anything here into
+    a pure helper and unit-testing it (pattern: `resolveHtmlColWidth`,
+    `pickColWidthBasis`, `cssColorToHex`).
   - **Third-party office-suite interop quirks** — breakage that only appears after
     a round-trip through another app (e.g. WPS copy/paste, then PowerPoint) when
     the generated package is itself valid OOXML. The supported bar is that output

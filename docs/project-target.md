@@ -53,19 +53,36 @@ maintainer will generally not pick up bugs or feature requests in these areas.
 approach noted below), and the OOXML-emission core they build on is fully
 supported.
 
-- **Live-DOM / browser-layout features.** Anything that reads a *rendered* web
-  page rather than in-memory data — most notably `tableToSlides()`, which scrapes
-  a live `<table>` and copies its rendered column widths (`offsetWidth`) and
-  computed CSS styles (`window.getComputedStyle`). These only work in a real
-  browser and cannot be reproduced in the Node test suite. New browser-rendering
-  features are out of active scope. The in-memory `addTable(rows, opts)` path is
-  the supported, fully-tested way to build tables.
+- **Live-DOM / browser-layout features.** Anything whose *answer* comes from a
+  rendered page: real `offsetWidth` after layout, the resolved cascade, fonts as
+  the browser actually chose them. Reproducing those faithfully needs a real
+  browser, so features that depend on them are out of active scope.
 
-  *Contributor note:* the established pattern (see `resolveHtmlColWidth` in
-  `src/gen/table/html-dom.ts` and `test/regression/html-table-col-width.test.js`) is to
-  extract the DOM-independent logic into pure helpers and unit-test those with
-  synthetic inputs; full-fidelity layout repros need a headless browser
-  (Playwright/Puppeteer), which is not currently a project dependency.
+  HTML `<table>` → slides is **not** in that category any more. `tableToSlides`
+  is a supported, tested, portable path: it ships as a free function on
+  `ts-pptx/html`, runs under Node with any DOM implementation, and is covered
+  end-to-end against happy-dom (`test/regression/html-to-slides-node.test.js`).
+  What it cannot do without a browser is *measure* — `offsetWidth` is `0` where
+  nothing laid the table out — so column widths degrade to the computed CSS
+  widths, then to an equal split, and `data-pptx-width` /
+  `data-pptx-min-width` are there to pin them. That degradation is the scope
+  boundary: everything except real measurement works anywhere.
+
+  The in-memory `addTable(rows, opts)` path remains the way to build a table
+  from data you already hold; converting an existing HTML table is what the
+  `/html` entry is for.
+
+  *Contributor note:* the established pattern is to extract the DOM-independent
+  decision into a pure helper and unit-test it with synthetic inputs. The
+  originals are `resolveHtmlColWidth` / `htmlBorderToProps`
+  (`test/regression/html-table-col-width.test.js`,
+  `html-table-border-width.test.js`); the portability work added
+  `pickColWidthBasis`, `parseCssWidthBasis`, `parseCssPx`, `cssColorToHex` and
+  `readCellText` (`test/regression/html-table-portable-basis.test.js`). Follow
+  it — those helpers are why the flow could be made portable at all. A
+  full-fidelity *layout* repro still needs a headless browser
+  (Playwright/Puppeteer), which is not a project dependency; a DOM-only repro no
+  longer does.
 
 - **Third-party office-suite interop quirks.** Bugs that only appear after a file
   is round-tripped through another application (for example, copy/paste inside WPS

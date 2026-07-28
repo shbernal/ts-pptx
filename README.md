@@ -73,10 +73,11 @@ office application. Two areas are out of *active* maintenance scope — not beca
 they lack merit, but because there is no in-house use case driving them, so the
 maintainer generally will not pick up bugs or feature requests there:
 
-- **Live-DOM / browser-layout features**, such as `tableToSlides()`, which scrapes
-  a rendered HTML `<table>` (its on-screen column widths and computed CSS) and only
-  works in a real browser. The in-memory `addTable(rows, options)` API is the
-  supported, fully-tested way to build tables.
+- **Live-DOM / browser-layout features** — anything whose answer comes from a
+  *rendered* page: real `offsetWidth` after layout, the resolved cascade, fonts as
+  the browser actually chose them. (Converting an HTML `<table>` is *not* in this
+  category — see [HTML tables → slides](#html-tables--slides) below. Only real
+  measurement needs a browser.)
 - **Third-party office-suite interop quirks** that appear only after a file is
   round-tripped through another application (for example, copy/paste inside WPS
   Office, then opening in PowerPoint) when the generated package is itself valid
@@ -99,6 +100,7 @@ Supported package surface:
 - `import { measureText } from "@shbernal/ts-pptx/measure"`
 - `import { Presentation } from "@shbernal/ts-pptx/read"`
 - `import { latexToOmml } from "@shbernal/ts-pptx/math"`
+- `import { tableToSlides } from "@shbernal/ts-pptx/html"`
 - `import TsPptx from "@shbernal/ts-pptx/node"`
 - `import TsPptx from "@shbernal/ts-pptx/browser"`
 - generated runtime and declaration artifacts under `dist/`
@@ -117,6 +119,60 @@ Use the package exports rather than direct `dist/` artifact paths.
 
 See [runtime and package support](docs/runtime-and-package-support.md) for the
 complete support contract.
+
+## HTML Tables → Slides
+
+`@shbernal/ts-pptx/html` reproduces an existing HTML `<table>` as a PowerPoint
+table, auto-paging across as many slides as its rows need. It works in the
+browser and under Node with any DOM implementation, from one artifact.
+
+```ts
+import { TsPptx } from '@shbernal/ts-pptx'
+import { tableToSlides } from '@shbernal/ts-pptx/html'
+import { Window } from 'happy-dom'
+
+const win = new Window()
+win.document.body.innerHTML = '<table id="report">…</table>'
+
+const pptx = new TsPptx()
+tableToSlides(pptx, win.document.getElementById('report'))
+await pptx.writeFile({ fileName: 'report.pptx' })
+```
+
+Pass the element itself and no global DOM is consulted at all. To pass a string
+id instead, say which document it belongs to:
+
+```ts
+tableToSlides(pptx, 'report', { document: win.document })
+```
+
+In a browser, `options.document` defaults to the global `document`, so
+`tableToSlides(pptx, 'report')` is enough. The equivalent method form,
+`pptx.tableToSlides('report', options)`, remains on the browser build and
+delegates to the same implementation.
+
+**Column widths need a layout engine.** In a browser the columns are sized from
+each cell's rendered `offsetWidth`, reproducing the table's real proportions.
+Nothing outside a browser lays a table out, so `offsetWidth` is `0` there and
+the conversion degrades in two steps: it uses the computed CSS `width`s when the
+stylesheet states them for every column in one unit (all `px` or all `%`), and
+an equal split when it does not.
+
+To pin widths regardless of runtime, annotate the `<thead>` header cells — these
+win outright on every path:
+
+```html
+<thead>
+  <tr>
+    <th data-pptx-width="2.5">Name</th>
+    <th data-pptx-min-width="1">Qty</th>
+  </tr>
+</thead>
+```
+
+Everything else behaves the same wherever it runs: cell text (with `<br>` kept
+as a line break), `colspan`/`rowspan`, computed colors, weight, alignment,
+padding and borders, and auto-paging.
 
 ## Documentation
 

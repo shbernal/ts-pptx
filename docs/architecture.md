@@ -120,7 +120,7 @@ export time. Each module opens with a TSDoc header stating its job; larger files
 | Coordinates & units (in → EMU) | `units.ts` (strict public primitives); `units-internal.ts` `getSmartParseNumber` (lenient generator layer) | — |
 | Colors, fills, borders, shadows | — | `gen/drawingml/color.ts` `createColorElement`; `gen/drawingml/fill.ts` `genXmlColorSelection` / `genXml*Fill`; `gen/drawingml/line.ts` `genXmlLineFill` / `createLineCap`; `gen/drawingml/effect.ts` `createShadowElement` / `createGlowElement` |
 | Package assembly & export | `package/assemble.ts` `buildPackageParts` (parts) + `zipPackageParts` (zip) → `writePackage` (behind `pptxgen.ts` `write` / `writeFile` / `stream`); `toParts` exposes the parts | `gen/opc/content-types.ts` `makeXmlContTypes` / `gen/opc/root-rels.ts` `makeXmlRootRels` / per-part rels |
-| HTML `<table>` → slides (live DOM) | `browser.ts` `tableToSlides` (browser build only) | `gen/table/html-dom.ts` `genTableToSlides` |
+| HTML `<table>` → slides | `html.ts` `tableToSlides` (the `ts-pptx/html` subpath, any DOM); `browser.ts` `tableToSlides` (method form, delegates) | `gen/table/html-dom.ts` `genTableToSlides` |
 | Public API surface | `pptxgen.ts` (class), `slide.ts` (slide methods) | — |
 | Option / type definitions | `core-interfaces.ts` | — |
 | Enums & shared constants | `core-enums.ts` | — |

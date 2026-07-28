@@ -263,7 +263,7 @@ defineRegressionSuite('HTML table to slides on Node (happy-dom)', [
 				tableToSlides(pptx, tableOf(win), {
 					addText: { text: [{ text: 'Appendix' }], options: { x: 1, y: 6, w: 3, h: 0.4 } },
 					addShape: { shapeName: 'rect', options: { x: 0, y: 0, w: 1, h: 1 } },
-					addTable: { rows: [['extra']], options: { x: 1, y: 5, w: 3 } },
+					addTable: { rows: [[{ text: 'extra' }]], options: { x: 1, y: 5, w: 3 } },
 				})
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
