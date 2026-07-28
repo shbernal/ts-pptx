@@ -62,12 +62,13 @@ export default defineConfig({
 				// Raised 79 -> 80 once measure-fit/text-fit landed: measured 81.42, so the
 				// gate keeps a full point of slack. Ratchet upward only — if a change drops a
 				// number below its gate, that is a finding to explain, never a gate to lower.
-				// The other two are left alone deliberately; their margins (1.3 branches /
-				// 1.8 lines) do not leave a full point behind a notch, and a gate with less
-				// slack than that is a gate that goes red on noise.
 				branches: 80,
+				// Left alone deliberately: measured 98.33, so the next notch would keep 0.33,
+				// and a gate with less slack than a point is a gate that goes red on noise.
 				functions: 97,
-				lines: 94,
+				// Raised 94 -> 95 once the zoom/background definers landed: measured 96.00, the
+				// first time this axis has cleared a full point behind the notch.
+				lines: 95,
 			},
 		},
 	},
