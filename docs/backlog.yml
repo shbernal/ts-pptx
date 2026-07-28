@@ -1240,7 +1240,7 @@ items:
     target_area: []
     applies_to_current_project: yes
     non_target_reasons: []
-    summary: Raise write-side branch coverage on the emitters still below the gate (media/content-type and measure-fit/text-fit DONE; gen/table/autopage and gen/define/* remain)
+    summary: Raise write-side branch coverage on the emitters still below the gate (media/content-type, measure-fit/text-fit and gen/table/autopage DONE; gen/define/* remains)
     current_project_notes: |
       Carried over from the retired REPO-IMPROVEMENT-PLAN (its P6) after the read-side
       branch-coverage sweep landed (commits bbf8d3b4..106cc3fc) and the gate was
@@ -1394,6 +1394,33 @@ items:
       `!paragraphs` guards normalization makes unreachable. Unreachable by
       construction per docs/testing.md; reaching them needs hand-built input no caller
       produces.
+
+      AUTOPAGE LANDED 2026-07-28 (f1050af3 verbose trace, c5bab6b2 engine edges +
+      statements ratchet). gen/table/autopage.ts: branches 74.03 -> 85.61, statements
+      79.2 -> 92.07, lines 81.43 -> 94.31, functions 80 -> 82.85. Global 92.86/81.07/
+      98.22/95.46 -> 93.21/81.42/98.27/95.81. Second threshold bump of this effort:
+      statements 91 -> 92, leaving 1.2. Branches (1.4) and lines (1.8) stay put --
+      neither leaves a full point behind a notch.
+
+      The `verbose` flag was the single cheapest win in the file: a documented
+      TableProps option, unset by every test, whose trace does .toFixed() arithmetic
+      on props that may legitimately be percentage strings. Two runs (numeric props,
+      percentage-string props) with console.log captured took ~40 statements and most
+      of the file's function gap. Two defects the coverage surfaced, both recorded in
+      the test rather than fixed: the trace's numeric arm divides x/y/w/h by
+      EMU_PER_INCH although this fork keeps raw inches through to emission (off by
+      914400 -- dev-only output, no OOXML impact); and parseTextToLines's own [n/4]
+      trace is unreachable because its only call site passes `verbose: false` outright.
+      The test asserts those lines are absent, so the dead arms are demonstrably dead.
+
+      What stays red in autopage.ts is, again, one class, and reachability is the
+      reason: addTable resolves a scalar `colW` into `w` (define/table.ts:358) before
+      the pager runs, defaults y/fontSize/margin/slideMargin, and throws on an empty
+      row set. So the pager's scalar-colW arms, its `?? 0` fallbacks and its no-rows
+      guards cannot be reached from the only in-scope door -- the other caller is the
+      browser-only tableToSlides, excluded from coverage. Note this is the mirror of
+      the measure-fit lesson above: there, a second public door made "dead" branches
+      live; here, the only other door is out of scope, so they really are dead.
     evidence:
       kinds:
         - local-source-inspection
@@ -1413,5 +1440,5 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: cover the autopage verbose dump and then its engine branches (colW scalar vs array, master margin scalar/array, fallback slide height, the trailing-buffer flush), and the hyperlinks auto-page rel-registration callback plus its two validation-error arms; move color.ts's two browser-only helpers into html-dom.ts; consider a statements bump only once one of those lands
+    next_action: cover gen/define/hyperlinks.ts next -- its auto-page rel re-registration callback (a hyperlink inside a table that pages onto a second slide; the file's only uncovered function) plus the two validation-error arms for a non-object hyperlink and one with none of url/slide/action; then the cheap gen/define files (background 6 branches, preview-image 13, zoom 16 -- check zoom's arms are reachable from the public surface at all) before the volume work in chart.ts (73) and text.ts (47); separately, move color.ts's two browser-only helpers into html-dom.ts (a src change, so gate it on byte-identity baseline/check); leave the four gates alone until a phase lands that puts a full point behind a notch
 
