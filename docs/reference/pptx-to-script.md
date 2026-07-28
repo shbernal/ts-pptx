@@ -304,16 +304,28 @@ Plus, at 1–2 fixtures each: `chart.workbook`, `group.childSpace`,
 `group.transform`, `image.recolor`, `image.svg`, `shape.empty`,
 `connector.binding`, `fill.gradient.path`, `fill.schemeToken`,
 `graphicFrame.unknown`, `group.child`, `line.arrowSize`,
-`shape.custGeom.guides`, `slide.layout`, `table.cell.fill.picture`,
-`table.cell.vert`, `table.rowAuto`, `text.field`, `text.paraSpaceZero`.
+`shape.custGeom.guides`, `slide.layout`,
+`table.cell.fill.picture.geometry`, `table.cell.vert`, `table.rowAuto`,
+`text.field`, `text.paraSpaceZero`.
 
-`fill.picture` — a shape whose *surface* is an image fill — is declared but fires
-on no fixture: the corpus's only `p:spPr/a:blipFill` sits inside an
-`mc:Fallback`, which the read model does not walk. It is the shape-side twin of
-`table.cell.fill.picture`, and both are `unsupported` rather than `unread`: the
-read model sees the blip (`AutoShape.pictureFill` / `TableCell.pictureFill`), and
-it is the write API's fill options — colour, gradient, pattern — that cannot
-express a picture.
+**Picture fills carry; their geometry does not.** An image-filled *surface* — a
+shape's `p:spPr/a:blipFill` or a cell's `a:tcPr/a:blipFill` — is re-embedded
+through the same asset resolver an `addImage` uses, so the bytes and the blip's
+`a:alphaModFix` opacity survive. What does not is everything around them: the
+write path emits every picture fill as a plain stretched blip (`dpi="0"
+rotWithShape="1"`, `<a:srcRect/><a:stretch><a:fillRect/></a:stretch>`), so a
+tiled fill comes back stretched and a cropped or inset one comes back whole.
+That is `fill.picture.geometry` / `table.cell.fill.picture.geometry`,
+`approximated` and `unwritable`, and it is recorded only when the source
+actually uses one of them — one fixture does, the PowerPoint-authored tiled
+cell in `table-cell-image-fill.pptx`.
+
+`fill.picture` / `table.cell.fill.picture` are what remain for a fill that
+cannot carry its bytes at all, and neither fires on the corpus: a blip embedding
+no part (an external or linked image), a part missing from the package, or an
+SVG — which `addImage` accepts but a *fill* does not, so emitting one would
+produce a script that runs, warns, and paints nothing. Those surfaces come out
+unfilled, as they did before, with the note saying which case it was.
 
 **Standalone only** — the chrome cliff, quantified. Five notes fire on *every*
 fixture, which is the honest headline of that tier:

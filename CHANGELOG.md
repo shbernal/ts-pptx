@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`pptx-to-script` re-embeds a surface's picture fill.** An image-filled shape
+  or table cell (`p:spPr/a:blipFill`, `a:tcPr/a:blipFill`) converted to a script
+  and came back unfilled: the read model saw the blip, the write API could author
+  one (`fill: { type: 'image', image: { data } }`), and only the converter's fill
+  mappers were missing an `AssetResolver` to join them with. They have one now,
+  so the bytes are carried as an asset exactly as an `addImage`'s are — deduped
+  against every other reference to the same part — and the blip's
+  `a:alphaModFix` opacity carries as `transparency`.
+
+  The write path emits every picture fill as a plain stretched blip, so a tiled,
+  cropped or inset fill is re-embedded and then *flattened*: that is the new
+  `fill.picture.geometry` / `table.cell.fill.picture.geometry` note, recorded
+  only when the source uses one of them. The older `fill.picture` /
+  `table.cell.fill.picture` notes narrow to the surfaces whose bytes cannot be
+  carried at all — a blip embedding no part, a part missing from the package, and
+  an SVG, which `addImage` accepts but a fill does not.
+
 - **The read model can now see a picture fill.** `TableCell.pictureFill` and
   `AutoShape.pictureFill` decode an `a:blipFill` on a *surface* — the cell's
   `a:tcPr`, the shape's `p:spPr` — into `{ relId, partName, mode, srcRect,

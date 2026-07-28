@@ -1419,7 +1419,7 @@ items:
     type: downstream-need
     first_seen: 2026-07-28
     last_reviewed: 2026-07-28
-    status: deferred
+    status: implemented
     priority: p3
     target_area:
       - table-ooxml
@@ -1429,39 +1429,56 @@ items:
     summary: "pptx-to-script drops a surface's picture fill: the read model now sees it, but from-read's fill mappers carry no AssetResolver to re-embed the image with."
     current_project_notes: >
       Opened when the read side gained picture-fill accessors (dn-read-cell-picture-fill,
-      2026-07-28). A shape or table cell whose surface is an `a:blipFill` is now fully
-      readable, and the write API can author one (`fill: { type: 'image', image: { data } }`
-      works for shapes, text boxes and cells), so both halves exist — but the converter
-      cannot join them.
+      2026-07-28). A shape or table cell whose surface is an `a:blipFill` was fully readable
+      and the write API could author one (`fill: { type: 'image', image: { data } }`), but
+      the converter's fill mappers carried no `AssetResolver`, so an image-filled surface
+      converted to a script and came back unfilled.
 
-      `pictureCall` in src/script/from-read/shape.ts receives an `AssetResolver` and turns a
-      picture's partName into script-level bytes. `fillOption` (same file) and `cellFill` in
-      src/script/from-read/table.ts do not receive one, so they can see the fill and have
-      nowhere to put it. Both currently record a fidelity note — `fill.picture` and
-      `table.cell.fill.picture`, both dropped/unsupported — and emit no fill, which is honest
-      but means an image-filled surface comes back unfilled.
+      Implemented: the mapping now lives in src/script/from-read/picture-fill.ts, shared by
+      `fillOption` (src/script/from-read/shape.ts) and `cellFill`
+      (src/script/from-read/table.ts) — the two are the same construct read from two
+      containers, and `TableCellProps.fill` is a `ShapeFillProps` like a shape's. The
+      resolver is threaded shapeCall → autoShapeCall → styleOptions → fillOption and
+      graphicFrameCall → tableCall → cellIr → cellFill. Bytes carry as an asset (deduped
+      against every other reference to the part) and the blip's `a:alphaModFix` carries as
+      `transparency`; a fully opaque fill emits no `transparency` key, since the write path
+      emits no `a:alphaModFix` for a zero and the round trip would see a difference the
+      picture does not have.
 
-      The work is threading the resolver into the two fill mappers and emitting
-      `fill: { type: 'image', image: { data: <asset> } }`, then retiring both notes (or
-      narrowing them to what genuinely cannot carry: tiling, srcRect crop, alpha). Deferred
-      rather than done with the read accessors so the read change stayed one reviewable
-      slice, and because the note-to-field mapping in src/script/verify/diff.ts has to move
-      with it — a note that stops being recorded while the round-trip check still excludes
-      its fields silently widens the exclusion.
+      `AssetResolver` gained `contentTypeOf(partName)` so a fill can reject a part *before*
+      registering it: the write path refuses an SVG picture fill outright
+      (src/gen/define/image.ts warns and falls back to `type: 'none'`), so emitting one
+      would produce a script that runs and paints nothing, and registering its bytes would
+      write an asset file no call references.
+
+      The notes split rather than retire. `fill.picture` / `table.cell.fill.picture` narrow
+      to the surfaces whose bytes cannot be carried at all (no embedded part, part missing,
+      SVG) and now fire on no corpus fixture; new `fill.picture.geometry` /
+      `table.cell.fill.picture.geometry` (approximated/unwritable) cover what the write
+      path's fixed `<a:srcRect/><a:stretch><a:fillRect/></a:stretch>` cannot express —
+      tiling, source crop, destination inset, `@dpi`, `@rotWithShape="0"` — and are recorded
+      only when the source uses one. Both new ids are mapped to `[]` in
+      src/script/verify/diff.ts: none of that geometry exists in the IR on either side, and
+      mapping them to `fill` would excuse an image fill that failed to come back at all.
     constructs:
       - blip-fill-shape
     evidence:
       kinds:
         - local-source-inspection
+        - powerpoint-authored-comparison
+        - regression-test
       local_files:
+        - src/script/from-read/picture-fill.ts
         - src/script/from-read/shape.ts
         - src/script/from-read/table.ts
+        - src/script/from-read/deck.ts
         - src/script/verify/diff.ts
+        - test/read/script-ir.test.js
       schema_fixture: null
       validator_result: null
-      powerpoint_result: null
+      powerpoint_result: "test/read/fixtures/table-cell-image-fill.pptx — all four PowerPoint-authored picture cells emit fill: { type: 'image', image: { data: image1.jpg } } against one shared asset, only the tiled cell notes its lost geometry, and the deck regenerates with no undeclared round-trip difference; math-omml.pptx's mc:Fallback shape covers the shape-surface half."
       spec_refs: []
-    next_action: Thread the AssetResolver into fillOption/cellFill so a surface picture fill emits an image fill, and retire or narrow the fill.picture / table.cell.fill.picture notes.
+    next_action: none
   - id: dn-combo-subchart-option-validation
     source: downstream
     type: downstream-need

@@ -122,3 +122,17 @@ export function compactRequired(source: Record<string, IrValue | undefined>): Re
 export function orUndefined<T>(value: T | null): T | undefined {
 	return value === null ? undefined : value
 }
+
+/**
+ * A 0–1 opacity as the write API's 0–100 transparency; `undefined` when unset.
+ *
+ * Fully opaque is *not* `0` here — a caller that means "no transparency at all" passes
+ * `undefined`, because emitting `transparency: 0` for an `a:alphaModFix amt="100000"`
+ * would produce a key the output cannot have: the write path emits no `a:alphaModFix` for
+ * a zero transparency, so the re-read deck reports no alpha and the round trip sees a
+ * difference where there is no visible one.
+ */
+export function alphaToTransparency(alpha: number | null | undefined): number | undefined {
+	if (alpha === undefined || alpha === null) return undefined
+	return Math.round((1 - alpha) * 100)
+}

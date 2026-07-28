@@ -29,7 +29,8 @@ import { isAutoShape, isConnector, isGraphicFrame, isGroupShape, isPicture } fro
 import type { GradientFill } from '../../read/api/gradient.js'
 import type { NoteScope } from '../fidelity.js'
 import type { AssetRef, CallIr, IrValue } from '../ir.js'
-import { compact, emu, isWritableSchemeToken, literalColor, orUndefined } from './values.js'
+import { alphaToTransparency, compact, emu, isWritableSchemeToken, literalColor, orUndefined } from './values.js'
+import { pictureFillOption, type PictureFillSubject } from './picture-fill.js'
 import { hasEquation, hasIdentityChildSpace, isAudioVideo, isTextBox } from './detect.js'
 import { textFrameOptions, textRuns } from './text.js'
 import { tableCall } from './table.js'
@@ -39,6 +40,22 @@ import { chartCall } from './chart.js'
 export interface AssetResolver {
 	/** Register a part's bytes and hand back the reference that stands in for them. */
 	assetFor(partName: string): AssetRef | null
+	/**
+	 * The part's content type, or `null` when it is not in the package.
+	 *
+	 * Separate from {@link assetFor} because it has to be answerable *without* registering
+	 * anything: a caller that rejects a part on its type (a picture fill's SVG blip, which
+	 * the write path refuses) would otherwise leave bytes in the asset list that no call
+	 * references, and those bytes are emitted as a file next to the script.
+	 */
+	contentTypeOf(partName: string): string | null
+}
+
+/** How {@link pictureFillOption}'s notes name a shape's surface. */
+const SHAPE_PICTURE_FILL: PictureFillSubject = {
+	construct: 'fill.picture',
+	subject: "this shape's surface",
+	element: 'a:blipFill',
 }
 
 /** Arrowhead types `ShapeLineProps` accepts; `a:headEnd/@type` uses the same tokens. */
@@ -79,7 +96,7 @@ export function shapeCall(shape: AnyShape, notes: NoteScope, assets: AssetResolv
 	if (isPicture(shape)) return pictureCall(shape, scoped, assets)
 	if (isConnector(shape)) return connectorCall(shape, scoped)
 	if (isGraphicFrame(shape)) return graphicFrameCall(shape, scoped, assets)
-	if (isAutoShape(shape)) return autoShapeCall(shape, scoped)
+	if (isAutoShape(shape)) return autoShapeCall(shape, scoped, assets)
 
 	// Unreachable: the five guards above exhaust `AnyShape`, which is why `shape` narrows to
 	// `never` here. Left as a floor so a sixth shape kind fails to compile at the call sites
@@ -138,7 +155,7 @@ function transformOptions(shape: AnyShape): Record<string, IrValue | undefined> 
  * the only accessor that sees a `p:style/a:fillRef` — a shape styled entirely from the
  * theme has no `a:solidFill` of its own, so without it the shape would come out unfilled.
  */
-function fillOption(shape: AnyShape, notes: NoteScope): IrValue | undefined {
+function fillOption(shape: AnyShape, notes: NoteScope, assets: AssetResolver): IrValue | undefined {
 	const gradient = shape.gradientFill
 	if (gradient) {
 		const stops = gradientStops(gradient, notes, 'fill')
@@ -157,19 +174,12 @@ function fillOption(shape: AnyShape, notes: NoteScope): IrValue | undefined {
 		}
 	}
 
-	// An image-filled *surface* is not a picture object: the write API's fill options are
-	// colour/gradient/pattern only, and this mapper carries no asset resolver, so the bytes
-	// cannot be re-embedded here even though the read model now sees them.
+	// An image-filled *surface* is not a picture object — it is `ShapeFillProps.image`, so
+	// the bytes are re-embedded through the same asset resolver an `addImage` uses. Before
+	// the fill option itself, since a shape carrying a `a:blipFill` has no `a:solidFill` for
+	// the colour legs below to find.
 	const picture = shape.pictureFill
-	if (picture) {
-		notes.note(
-			'fill.picture',
-			'dropped',
-			'unsupported',
-			`this shape's surface is filled with an image (a:blipFill${picture.partName ? ` → ${picture.partName}` : ''}); ShapeFillProps has no picture option, so the shape comes out unfilled`
-		)
-		return undefined
-	}
+	if (picture) return pictureFillOption(picture, assets, notes, SHAPE_PICTURE_FILL)
 
 	const scheme = shape.fillSchemeColor
 	if (isWritableSchemeToken(scheme)) return { color: scheme as string }
@@ -352,18 +362,13 @@ function glowOption(shape: AnyShape): IrValue | undefined {
 }
 
 /** The style block every shape kind shares. */
-function styleOptions(shape: AnyShape, notes: NoteScope): Record<string, IrValue | undefined> {
+function styleOptions(shape: AnyShape, notes: NoteScope, assets: AssetResolver): Record<string, IrValue | undefined> {
 	return {
-		fill: fillOption(shape, notes),
+		fill: fillOption(shape, notes, assets),
 		line: lineOption(shape, notes),
 		shadow: shadowOption(shape, notes),
 		glow: glowOption(shape),
 	}
-}
-
-/** A 0–1 opacity as the write API's 0–100 transparency; `undefined` when fully opaque. */
-function alphaToTransparency(alpha: number | undefined): number | undefined {
-	return alpha === undefined ? undefined : Math.round((1 - alpha) * 100)
 }
 
 /* ===== per-kind mappers ===== */
@@ -373,7 +378,7 @@ function alphaToTransparency(alpha: number | undefined): number | undefined {
  * carries text. A shape with both takes the `addText` form, because `addShape` has no text
  * argument while `addText` accepts a `shape` option — so only that form expresses both.
  */
-function autoShapeCall(shape: AutoShape, notes: NoteScope): CallIr | null {
+function autoShapeCall(shape: AutoShape, notes: NoteScope, assets: AssetResolver): CallIr | null {
 	const preset = shape.presetGeometry
 	const custom = shape.customGeometry
 	const frame = shape.hasTextFrame ? shape.textFrame : null
@@ -418,7 +423,7 @@ function autoShapeCall(shape: AutoShape, notes: NoteScope): CallIr | null {
 	const common = {
 		...positionOptions(shape, notes),
 		...transformOptions(shape),
-		...styleOptions(shape, notes),
+		...styleOptions(shape, notes, assets),
 		objectName: shape.name || undefined,
 	}
 
@@ -690,10 +695,8 @@ function connectorCall(shape: Connector, notes: NoteScope): CallIr | null {
 
 /** A `GraphicFrame` hosts a table or a chart; both have their own mapper. */
 function graphicFrameCall(shape: GraphicFrame, notes: NoteScope, assets: AssetResolver): CallIr | null {
-	void assets
-
 	const table = shape.table
-	if (table) return tableCall(shape, table, notes)
+	if (table) return tableCall(shape, table, notes, assets)
 
 	const chart = shape.chart
 	if (chart) return chartCall(shape, chart, notes)

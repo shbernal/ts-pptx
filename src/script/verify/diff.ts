@@ -190,9 +190,17 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	'deck.docPropsDefault': [],
 	'deck.slideSize': ['widthEmu', 'heightEmu'],
 	'fill.gradient.path': ['gradient', 'fill'],
-	// An image-filled surface has no write-side spelling at all, so the whole fill option is
-	// absent from the output — the same two keys `fill.schemeToken` covers, for the harder case.
+	// Recorded only when an image-filled surface cannot carry its *bytes* — a linked blip, an
+	// SVG the write path refuses, a part missing from the package. The fill option is then
+	// absent from the output entirely, which is the same two keys `fill.schemeToken` covers.
 	'fill.picture': ['fill', 'color'],
+	// Empty, and deliberately so: this note declares that a picture fill's tiling, crop, DPI
+	// and rotWithShape do not survive, and *none of them is in the IR on either side* — the
+	// write API expresses a picture fill as bytes plus transparency, so the converter never
+	// emits them. Widening this to `fill` would be the mistake it looks like a fix for: it
+	// would excuse an image fill that failed to come back at all, which is the thing the
+	// round trip is here to catch.
+	'fill.picture.geometry': [],
 	'fill.schemeToken': ['fill', 'color'],
 	'graphicFrame.unknown': ['*'],
 	'group.child': ['*'],
@@ -249,7 +257,10 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	'slide.transitionSound': ['sound', 'data', '$asset'],
 	'table.cell.borders.diagonal': ['border'],
 	'table.cell.fill': ['fill'],
+	// The cell-side twins of `fill.picture` / `fill.picture.geometry`, and mapped for the
+	// same reasons.
 	'table.cell.fill.picture': ['fill'],
+	'table.cell.fill.picture.geometry': [],
 	'table.cell.vert': ['vert'],
 	'table.rowAuto': ['rowH'],
 	'table.style': ['tableStyle'],

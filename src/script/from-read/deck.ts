@@ -82,6 +82,10 @@ class Assets implements AssetResolver {
 		return ref
 	}
 
+	contentTypeOf(partName: string): string | null {
+		return this.pres.opc.part(partName)?.contentType ?? null
+	}
+
 	get assets(): AssetIr[] {
 		return this.#assets
 	}

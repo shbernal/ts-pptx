@@ -19,13 +19,22 @@ import type { Table, TableCell } from '../../read/api/table.js'
 import type { GraphicFrame } from '../../read/api/shapes.js'
 import type { NoteScope } from '../fidelity.js'
 import type { CallIr, IrValue } from '../ir.js'
+import type { AssetResolver } from './shape.js'
 import { compact, emu, inches, literalColor, orUndefined } from './values.js'
+import { pictureFillOption, type PictureFillSubject } from './picture-fill.js'
 import { runOptions, textRuns } from './text.js'
+
+/** How {@link pictureFillOption}'s notes name a cell. */
+const CELL_PICTURE_FILL: PictureFillSubject = {
+	construct: 'table.cell.fill.picture',
+	subject: 'this table cell',
+	element: 'a:tcPr/a:blipFill',
+}
 
 /** `a:tcPr/@anchor` → the write API's `valign`. */
 const ANCHOR: Record<string, string> = { t: 'top', ctr: 'middle', b: 'bottom' }
 
-export function tableCall(frame: GraphicFrame, table: Table, notes: NoteScope): CallIr {
+export function tableCall(frame: GraphicFrame, table: Table, notes: NoteScope, assets: AssetResolver): CallIr {
 	const styleId = table.styleId
 	const hasStyle = table.resolvedStyle !== null
 	const rows: IrValue[] = []
@@ -38,7 +47,7 @@ export function tableCall(frame: GraphicFrame, table: Table, notes: NoteScope): 
 			// exists only so the grid stays rectangular. The write path derives those from
 			// colspan/rowspan, so emitting them would double-count the span.
 			if (cell.isMergeContinuation) continue
-			cells.push(cellIr(cell, hasStyle, notes))
+			cells.push(cellIr(cell, hasStyle, notes, assets))
 		}
 		rows.push(cells)
 		rowHeights.push(row.heightEmu ?? 0)
@@ -96,7 +105,7 @@ function positionOfFrame(frame: GraphicFrame): Record<string, IrValue> {
  * identically to one on a shape — the read model already shares `TextFrame` between the
  * two, and diverging here would be a difference with no cause.
  */
-function cellIr(cell: TableCell, hasStyle: boolean, notes: NoteScope): IrValue {
+function cellIr(cell: TableCell, hasStyle: boolean, notes: NoteScope, assets: AssetResolver): IrValue {
 	const frame = cell.textFrame
 	const anchor = cell.anchor
 	const margins = cell.marginsEmu
@@ -111,7 +120,7 @@ function cellIr(cell: TableCell, hasStyle: boolean, notes: NoteScope): IrValue {
 	}
 
 	const options = compact({
-		fill: cellFill(cell, hasStyle, notes),
+		fill: cellFill(cell, hasStyle, notes, assets),
 		border: cellBorders(cell, notes),
 		valign: anchor === null ? undefined : ANCHOR[anchor],
 		colspan: cell.gridSpan > 1 ? cell.gridSpan : undefined,
@@ -141,19 +150,14 @@ function cellIr(cell: TableCell, hasStyle: boolean, notes: NoteScope): IrValue {
  *
  * With no style in play, `resolvedFill` can only be the cell's own, so it is safe to use.
  */
-function cellFill(cell: TableCell, hasStyle: boolean, notes: NoteScope): IrValue | undefined {
-	// A picture-filled cell reads fine now but has nowhere to go: `TableCellProps.fill` is a
-	// colour, and this mapper carries no asset resolver to re-embed the image bytes with.
+function cellFill(cell: TableCell, hasStyle: boolean, notes: NoteScope, assets: AssetResolver): IrValue | undefined {
+	// A cell's fill is `ShapeFillProps`, the same type a shape's is, so an image-filled cell
+	// re-embeds its bytes exactly as an image-filled shape does. First, because a cell whose
+	// `a:tcPr` holds a `a:blipFill` holds no `a:solidFill` for the colour legs to find — and
+	// `resolvedFill` would answer with the table style's banding colour, painting over the
+	// image with something the source never showed.
 	const picture = cell.pictureFill
-	if (picture) {
-		notes.note(
-			'table.cell.fill.picture',
-			'dropped',
-			'unsupported',
-			`this cell is filled with an image (a:tcPr/a:blipFill${picture.partName ? ` → ${picture.partName}` : ''}); the write API's cell fill takes a colour only, so the cell comes out unfilled`
-		)
-		return undefined
-	}
+	if (picture) return pictureFillOption(picture, assets, notes, CELL_PICTURE_FILL)
 
 	const scheme = cell.fillSchemeColor
 	if (scheme !== null) return { color: scheme }

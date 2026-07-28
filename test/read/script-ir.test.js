@@ -17,9 +17,20 @@ import { readFile, readdir } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
+import JSZip from 'jszip'
 import { Presentation, isAutoShape } from '../../dist/read.js'
 import { readModelToIr } from '../../dist/script.js'
 import { assert, assertEqual } from '../helpers.js'
+import { authorRead } from './authored.js'
+
+/** A 1x1 transparent PNG and a 1x1 SVG; only the blip they produce matters here. */
+const PNG_1x1 =
+	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+const SVG_SQUARE =
+	'image/svg+xml;base64,' +
+	Buffer.from(
+		'<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><rect width="1" height="1"/></svg>'
+	).toString('base64')
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const FIXTURES = path.join(__dirname, 'fixtures')
@@ -453,6 +464,163 @@ describe('deck IR — slide transitions', () => {
 
 		// Slide 3: the stop-previous form, which references no part at all.
 		assertEqual(JSON.stringify(third), '{"stopPrevious":true}', 'p:endSnd maps to stopPrevious alone')
+	})
+})
+
+describe('deck IR — picture fills', () => {
+	// An image-filled *surface* (`a:blipFill` in `p:spPr` or `a:tcPr`) is not a picture
+	// object: it is `ShapeFillProps.image`, so the converter has to re-embed the bytes
+	// through the same asset resolver an `addImage` uses. The oracle is PowerPoint's own
+	// `table-cell-image-fill.pptx`, whose four picture cells cover stretch, tile, a
+	// borders-first child order, and a merge origin.
+
+	/** The cell option objects of the first `addTable`, merge continuations already dropped. */
+	function cellOptions(ir) {
+		const call = allCalls(ir).find((item) => item.method === 'addTable')
+		return call.args[0].flat().map((cell) => cell.options ?? {})
+	}
+
+	test('every image-filled cell carries its bytes as an image fill', async () => {
+		const ir = await irFor('table-cell-image-fill.pptx')
+		const fills = cellOptions(ir)
+			.map((options) => options.fill)
+			.filter((fill) => fill?.type === 'image')
+
+		assertEqual(fills.length, 4, 'the fixture has four picture cells — stretched, bordered, merged, tiled')
+		for (const fill of fills) {
+			assertEqual(fill.image.data.$asset, 'image1.jpg', 'each resolves to the one shared media part')
+		}
+		assertEqual(ir.assets.length, 1, 'and the part is registered once, not once per cell')
+		assertEqual(ir.assets[0].contentType, 'image/jpeg', "with the package's own content type")
+		assert(ir.assets[0].bytes.length > 0, 'and its bytes')
+	})
+
+	test('the cells that are not image-filled gain no image fill', async () => {
+		const ir = await irFor('table-cell-image-fill.pptx')
+		const fills = cellOptions(ir).map((options) => options.fill)
+		assertEqual(fills.filter((fill) => fill?.type === 'image').length, 4, 'four picture cells')
+		assertEqual(
+			fills.filter((fill) => fill !== undefined).length,
+			4,
+			'and the solid, bare and borders-only cells are still left to the table style'
+		)
+	})
+
+	test('only the tiled cell reports the geometry its fill cannot carry', async () => {
+		const ir = await irFor('table-cell-image-fill.pptx')
+		const noted = ir.fidelity.filter((note) => note.construct === 'table.cell.fill.picture.geometry')
+
+		assertEqual(noted.length, 1, 'one note, for the one tiled cell — not one per picture cell')
+		assertEqual(noted[0].disposition, 'approximated', 'the fill survives; its tiling does not')
+		assertEqual(noted[0].cause, 'unwritable', 'the read model sees the a:tile — the write API has no option for it')
+		assert(noted[0].detail.includes('a:tile'), `the note names what was lost, got: ${noted[0].detail}`)
+		assertEqual(
+			ir.fidelity.filter((note) => note.construct === 'table.cell.fill.picture').length,
+			0,
+			'and nothing is reported as dropped, because every cell carried its bytes'
+		)
+	})
+
+	test("a shape's image-filled surface carries too (PowerPoint oracle)", async () => {
+		// The corpus's only genuine `p:spPr/a:blipFill` sits inside an `mc:Fallback`, which
+		// the read model does not walk. Unwrapping it to the Fallback branch reaches
+		// PowerPoint's own shape XML and its own media relationship; the wrapper is not what
+		// is under test.
+		const buf = await readFile(path.join(FIXTURES, 'math-omml.pptx'))
+		const zip = await JSZip.loadAsync(buf)
+		const slideXml = await zip.file('ppt/slides/slide1.xml').async('string')
+		const unwrapped = slideXml.replace(
+			/<mc:AlternateContent[^>]*>[\s\S]*?<mc:Fallback>([\s\S]*?)<\/mc:Fallback><\/mc:AlternateContent>/,
+			'$1'
+		)
+		assert(unwrapped !== slideXml, 'the AlternateContent wrapper was found and removed')
+		zip.file('ppt/slides/slide1.xml', unwrapped)
+		const ir = readModelToIr(await Presentation.load(await zip.generateAsync({ type: 'uint8array' })))
+
+		const call = allCalls(ir).find((item) => item.sourceName === 'equation-box')
+		assert(call, 'the image-filled shape emits a call')
+		assertEqual(call.args[0].fill?.type ?? call.args[1]?.fill?.type, 'image', 'and it is filled with an image')
+		assertEqual(ir.assets.length > 0, true, 'whose bytes are registered as an asset')
+		// That fill's `a:fillRect` bleeds past the bottom edge (b="-6667"), which the write
+		// path's fixed `<a:fillRect/>` cannot express.
+		const noted = ir.fidelity.filter((note) => note.construct === 'fill.picture.geometry')
+		assertEqual(noted.length, 1, "the shape's destination inset is reported")
+		assert(noted[0].detail.includes('a:fillRect'), `and named, got: ${noted[0].detail}`)
+	})
+
+	test('an image fill authored with transparency carries its alpha', async () => {
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addText('img', {
+				x: 1,
+				y: 1,
+				w: 3,
+				h: 1,
+				fill: { type: 'image', image: { data: PNG_1x1 }, transparency: 25 },
+			})
+		})
+		const fill = allCalls(readModelToIr(presentation)).find((call) => call.method === 'addText').args[1].fill
+		assertEqual(fill.type, 'image', 'the fill is an image fill')
+		assertEqual(fill.transparency, 25, 'a:alphaModFix amt=75000 → 0.75 opacity → 25 % transparent')
+	})
+
+	test('an opaque image fill emits no transparency key at all', async () => {
+		// `0` and absent are the same picture but different IR, and the write path emits no
+		// `a:alphaModFix` for either — so emitting `transparency: 0` would fail the round trip
+		// against an output that cannot report it back.
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addText('img', { x: 1, y: 1, w: 3, h: 1, fill: { type: 'image', image: { data: PNG_1x1 } } })
+		})
+		const fill = allCalls(readModelToIr(presentation)).find((call) => call.method === 'addText').args[1].fill
+		assertEqual('transparency' in fill, false, `an opaque fill states no transparency, got ${JSON.stringify(fill)}`)
+	})
+
+	test('a fill whose blip embeds nothing is dropped with a note, not emitted unfilled in silence', async () => {
+		const { buf } = await authorRead((pres) => {
+			pres.addSlide().addText('img', { x: 1, y: 1, w: 3, h: 1, fill: { type: 'image', image: { data: PNG_1x1 } } })
+		})
+		const zip = await JSZip.loadAsync(buf)
+		const slideXml = await zip.file('ppt/slides/slide1.xml').async('string')
+		zip.file('ppt/slides/slide1.xml', slideXml.replace(/<a:blip r:embed="rId\d+"/, '<a:blip r:embed="rIdNope"'))
+		const ir = readModelToIr(await Presentation.load(await zip.generateAsync({ type: 'uint8array' })))
+
+		const call = allCalls(ir).find((item) => item.method === 'addText')
+		assertEqual(call.args[1].fill, undefined, 'no fill is invented for bytes that are not there')
+		const noted = ir.fidelity.find((note) => note.construct === 'fill.picture')
+		assert(noted, 'the loss is declared')
+		assertEqual(noted.disposition, 'dropped', 'the fill is gone, not approximated')
+		assertEqual(ir.assets.length, 0, 'and nothing was registered for it')
+	})
+
+	test('an SVG image fill is dropped, because the write path refuses one', async () => {
+		// `addImage` takes SVG bytes happily; a *fill* does not — `src/gen/define/image.ts`
+		// warns and falls back to `type: 'none'`. Emitting one would produce a script that
+		// runs, warns, and paints nothing. Authored by pointing a raster fill's blip at the
+		// SVG part of an SVG picture, then deleting the picture: the relationship and the
+		// part survive, so the fill is the only thing left referencing those bytes and the
+		// asset list becomes an observable answer to "did the converter register them?".
+		const { buf } = await authorRead((pres) => {
+			const slide = pres.addSlide()
+			slide.addText('img', { x: 1, y: 1, w: 3, h: 1, fill: { type: 'image', image: { data: PNG_1x1 } } })
+			slide.addImage({ data: SVG_SQUARE, x: 5, y: 1, w: 1, h: 1 })
+		})
+		const zip = await JSZip.loadAsync(buf)
+		const slideXml = await zip.file('ppt/slides/slide1.xml').async('string')
+		const svgRid = /<asvg:svgBlip[^>]*r:embed="(rId\d+)"/.exec(slideXml)?.[1]
+		assert(svgRid, 'the SVG picture wrote an asvg:svgBlip')
+		// The shape is added first, so the first `<a:blip>` on the slide is its fill's.
+		const repointed = slideXml
+			.replace(/<a:blip r:embed="rId\d+"/, `<a:blip r:embed="${svgRid}"`)
+			.replace(/<p:pic>[\s\S]*?<\/p:pic>/, '')
+		assert(!repointed.includes('<p:pic>'), 'the SVG picture is removed, leaving only the fill to reference it')
+		zip.file('ppt/slides/slide1.xml', repointed)
+		const ir = readModelToIr(await Presentation.load(await zip.generateAsync({ type: 'uint8array' })))
+
+		const call = allCalls(ir).find((item) => item.method === 'addText')
+		assertEqual(call.args[1].fill, undefined, 'the shape comes out unfilled rather than silently blank')
+		const noted = ir.fidelity.find((note) => note.construct === 'fill.picture')
+		assert(noted, 'and says so')
+		assertEqual(noted.cause, 'unwritable', 'the bytes are readable; the write API will not take them')
+		assertEqual(ir.assets.length, 0, 'and the refused bytes are not registered as an asset no call references')
 	})
 })
 
