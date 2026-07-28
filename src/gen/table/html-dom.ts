@@ -457,8 +457,7 @@ export function genTableToSlides(
 					.split(',')
 				if (
 					// NOTE: Default for unstyled tables is black bkgd, so use white instead
-					style.getPropertyValue('background-color') === 'rgba(0, 0, 0, 0)' ||
-					style.getPropertyValue('transparent')
+					style.getPropertyValue('background-color') === 'rgba(0, 0, 0, 0)'
 				) {
 					arrRGB2 = ['255', '255', '255']
 				}
@@ -499,7 +498,10 @@ export function genTableToSlides(
 					const cellMargin: MarginTuple = [0, 0, 0, 0]
 					const sidesPad = ['padding-top', 'padding-right', 'padding-bottom', 'padding-left']
 					sidesPad.forEach((val, idxs) => {
-						cellMargin[idxs] = Math.round(Number(style.getPropertyValue(val).replace(/\D/gi, '')))
+						// Anything that is not an absolute px length (a `%` padding, a keyword) has no
+						// meaning as a point inset, so it insets by nothing rather than by its digits.
+						const pad = parseCssPx(style.getPropertyValue(val))
+						cellMargin[idxs] = isFinite(pad) ? Math.round(pad) : 0
 					})
 					cellOpts.margin = cellMargin
 				}
