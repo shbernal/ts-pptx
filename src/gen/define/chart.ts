@@ -171,20 +171,15 @@ function normalizeChartBarGrouping(options: ChartOptsInternal, chartType: ChartT
  * Apply plotArea option defaults: show* toggles, axis-line visibility, and the 3D view angles.
  */
 function normalizeChartPlotAreaOptions(options: ChartOptsInternal): void {
-	options.showDataTable = options.showDataTable || !options.showDataTable ? options.showDataTable : false
-	options.showDataTableHorzBorder =
-		options.showDataTableHorzBorder || !options.showDataTableHorzBorder ? options.showDataTableHorzBorder : true
-	options.showDataTableVertBorder =
-		options.showDataTableVertBorder || !options.showDataTableVertBorder ? options.showDataTableVertBorder : true
-	options.showDataTableOutline =
-		options.showDataTableOutline || !options.showDataTableOutline ? options.showDataTableOutline : true
-	options.showDataTableKeys = options.showDataTableKeys || !options.showDataTableKeys ? options.showDataTableKeys : true
-	options.showLabel = options.showLabel || !options.showLabel ? options.showLabel : false
-	options.showLegend = options.showLegend || !options.showLegend ? options.showLegend : false
-	options.showPercent = options.showPercent || !options.showPercent ? options.showPercent : true
-	options.showTitle = options.showTitle || !options.showTitle ? options.showTitle : false
-	options.showValue = options.showValue || !options.showValue ? options.showValue : false
-	options.showLeaderLines = options.showLeaderLines || !options.showLeaderLines ? options.showLeaderLines : false
+	// The eleven `show*` toggles are deliberately NOT defaulted here. Each one used to carry
+	// a statement of the form `x = x || !x ? x : <default>`, but `a || !a` is true for every
+	// value of `a`, so the alternative never ran and the whole statement was an identity
+	// assignment. Every consumer reads these as plain truthiness (`opts.showPercent ? 1 : 0`,
+	// `!opts.showDataTableKeys ? 0 : 1`), which makes an absent option behave as `false` — and
+	// that is what the public types document (`@default false` on `showDataTable`,
+	// `showPercent`, `v3DRAngAx`). Removing the dead statements changes no emitted byte;
+	// *applying* the defaults those ternaries appear to promise would, so do not "restore"
+	// them without treating it as the behavior change it is.
 	options.catAxisLineShow = typeof options.catAxisLineShow !== 'undefined' ? options.catAxisLineShow : true
 	options.valAxisLineShow = typeof options.valAxisLineShow !== 'undefined' ? options.valAxisLineShow : true
 	options.serAxisLineShow = typeof options.serAxisLineShow !== 'undefined' ? options.serAxisLineShow : true
@@ -197,7 +192,7 @@ function normalizeChartPlotAreaOptions(options: ChartOptsInternal): void {
 		typeof options.v3DRotY === 'number' && !isNaN(options.v3DRotY) && options.v3DRotY >= 0 && options.v3DRotY <= 360
 			? options.v3DRotY
 			: 30
-	options.v3DRAngAx = options.v3DRAngAx || !options.v3DRAngAx ? options.v3DRAngAx : true
+	// v3DRAngAx: same dead-ternary shape as the show* block above, same reason for its absence.
 	options.v3DPerspective =
 		typeof options.v3DPerspective === 'number' &&
 		!isNaN(options.v3DPerspective) &&
@@ -512,8 +507,8 @@ export function addChartDefinition(
 	// Clean up and validate data label positions
 	// REFERENCE: https://docs.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/e2b1697c-7adc-463d-9081-3daef72f656f?redirectedfrom=MSDN
 	normalizeChartDataLabelPosition(options, chartLevelType)
-	options.dataLabelBkgrdColors =
-		options.dataLabelBkgrdColors || !options.dataLabelBkgrdColors ? options.dataLabelBkgrdColors : false
+	// dataLabelBkgrdColors: same dead-ternary shape as the show* block in
+	// normalizeChartPlotAreaOptions, same reason for its absence.
 	if (!['b', 'l', 'r', 't', 'tr'].includes(options.legendPos || '')) options.legendPos = 'r'
 
 	// 3D bar: ST_Shape
