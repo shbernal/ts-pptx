@@ -194,6 +194,74 @@ defineRegressionSuite('Hyperlink relationship registration', [
 		},
 	},
 	{
+		name: 'a rel id carried onto a paged slide is not minted a second time on that slide',
+		fn: async () => {
+			// The carried id is the one the header hyperlink was minted with on slide 1, so an
+			// overflow slide can hold `rId2` while holding exactly one relationship. Deriving the
+			// next id from that slide's rel COUNT would hand `rId2` straight back to the next
+			// hyperlink to land there, and the part would declare two `Relationship` elements
+			// sharing an `Id` — invalid OPC, and PowerPoint resolves both runs to whichever comes
+			// first, so the body link would quietly open the header's URL instead. `getNewRelId`
+			// steps over ids the slide already holds for exactly this case.
+			//
+			// The image is load-bearing: it takes rId1 on slide 1, which is what pushes the header
+			// hyperlink to rId2. Without it the carried id and the running count agree and nothing
+			// can collide. See the annotation note on the repeated-header case above.
+			/** @type {Array<Array<{ text: string, options?: import('../../dist/node.js').TableCellProps }>>} */
+			const rows = [[{ text: 'H1', options: { hyperlink: { url: 'https://header.example.com' } } }, { text: 'H2' }]]
+			for (let i = 0; i < 30; i++) {
+				rows.push([
+					i === 20 ? { text: 'body', options: { hyperlink: { url: 'https://body.example.com' } } } : { text: `A${i}` },
+					{ text: `B${i}` },
+				])
+			}
+
+			const { zip } = await build((p) => {
+				const slide = p.addSlide()
+				slide.addImage({
+					data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkAAIAAAoAAv/lxKUAAAAASUVORK5CYII=',
+					x: 0,
+					y: 0,
+					w: 1,
+					h: 1,
+				})
+				slide.addTable(rows, {
+					x: 0.5,
+					y: 2,
+					w: 9,
+					h: 1.5,
+					colW: [4.5, 4.5],
+					autoPage: true,
+					autoPageRepeatHeader: true,
+					fontSize: 14,
+				})
+			})
+
+			let shared
+			for (const n of slideNumbers(zip)) {
+				const rels = relationships(await readEntry(zip, relsPath(n)))
+				const ids = rels.map((r) => r.id)
+				assertEqual(ids.length, new Set(ids).size, `slide ${n} declares a duplicate relationship id`)
+
+				const header = rels.find((r) => r.target === 'https://header.example.com')
+				const body = rels.find((r) => r.target === 'https://body.example.com')
+				if (!body) continue
+				assert(header, `slide ${n} carries the body hyperlink but lost the repeated header's`)
+				shared = { n, header, body }
+			}
+
+			assert(shared, 'no paged slide ended up holding both hyperlinks; the fixture no longer covers the collision')
+			assert(shared.n > 1, 'the body hyperlink must land on a paged slide, not the one that minted the header rel')
+
+			// Both runs are on the page, each pointing at its own rel.
+			const xml = await readEntry(zip, `ppt/slides/slide${shared.n}.xml`)
+			const linked = new Set([...xml.matchAll(/<a:hlinkClick r:id="([^"]+)"/g)].map((m) => m[1]))
+			assertEqual(linked.size, 2, `slide ${shared.n} should link two distinct rels; got ${[...linked].join(' ')}`)
+			assert(linked.has(shared.header.id), `slide ${shared.n}'s header run should reference ${shared.header.id}`)
+			assert(linked.has(shared.body.id), `slide ${shared.n}'s body run should reference ${shared.body.id}`)
+		},
+	},
+	{
 		name: 'a `hyperlink` that is not an object is reported while defining, then refused while emitting',
 		fn: async () => {
 			// `hyperlink: 'https://…'` is the shape people reach for first. Registration logs and

@@ -133,11 +133,28 @@ export function getDuplicateObjectNames(names: string[]): string[] {
 
 /**
  * Get a new rel ID (rId) for charts, media, etc.
+ *
+ * Counting is the normal case: a slide's rels are minted in order, so one past the
+ * total is free. It is not enough on its own, because a rel can arrive on a slide
+ * carrying an id minted somewhere else — auto-paging re-registers a repeated header
+ * row's hyperlink on each overflow slide under the id stamped on the shared
+ * hyperlink object (`gen/define/hyperlinks.ts`). That id is then held but not
+ * counted-to, so the next mint could hand out the same number and the part would
+ * declare two `Relationship` elements sharing an `Id` — invalid OPC, and PowerPoint
+ * resolves such a reference to whichever comes first. Hence the scan: start where
+ * the count says, then step over anything the slide already holds.
  * @param {PresSlideInternal} target - the slide to use
- * @returns {number} count of all current rels plus 1 for the caller to use as its "rId"
+ * @returns {number} the lowest free rId at or above the current rel count plus 1
  */
 export function getNewRelId(target: PresSlideInternal): number {
-	return target._rels.length + target._relsChart.length + target._relsMedia.length + 1
+	const held = new Set<number>()
+	target._rels.forEach((rel) => held.add(rel.rId))
+	target._relsChart.forEach((rel) => held.add(rel.rId))
+	target._relsMedia.forEach((rel) => held.add(rel.rId))
+
+	let rId = target._rels.length + target._relsChart.length + target._relsMedia.length + 1
+	while (held.has(rId)) rId++
+	return rId
 }
 
 /**
