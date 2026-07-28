@@ -347,6 +347,12 @@ describe('measured fit: degenerate boxes', () => {
 		expect(await shrinkScale({ h: 0 })).toBeNull()
 	})
 
+	test('a box with room vertically but none horizontally is not measured either', async () => {
+		// Left+right insets exceed `w` while top+bottom leave `h` healthy, so the width check
+		// is the only thing standing between the solver and a negative layout width.
+		expect(await shrinkScale({ w: 1, h: 5, margin: 0.6 })).toBeNull()
+	})
+
 	test('empty text is not measured (bare flag)', async () => {
 		expect(await shrinkScale({}, '')).toBeNull()
 	})
@@ -468,6 +474,16 @@ describe('measured fit: solver floor and edges', () => {
 		expect(m.shrinkScaleFor(50)).toBe(100)
 	})
 
+	test('an unregistered named face is measured heuristically and reported', async () => {
+		const pres = await pptxWithSilkscreen()
+		const m = pres.measureText(OVERFLOW, { wIn: 2, fontSize: 18, fontFace: 'Helvetica' })
+		expect(m.measurable).toBe(true)
+		expect(m.approximatedFaces).toEqual(['Helvetica'])
+		// The snapshot is caller-owned: re-entering the resolver must not grow the array.
+		m.shrinkScaleFor(0.5)
+		expect(m.approximatedFaces).toEqual(['Helvetica'])
+	})
+
 	test('an empty run list is unmeasurable', async () => {
 		const pres = await pptxWithSilkscreen()
 		const m = pres.measureText([], { wIn: 8, fontSize: 12, fontFace: 'Silkscreen' })
@@ -553,5 +569,266 @@ describe('tableLayout() through dist (Silkscreen metrics)', () => {
 		const res = pres.tableLayout(rows, { x: 1, y: 1, w: 8, rowH: [0.5, 0.75] })
 		expect(res.heightExact).toBe(true)
 		expect(res.heightIn).toBeCloseTo(1.25, 5)
+	})
+
+	test('rowH as a scalar pins every row to the same height', async () => {
+		const pres = await pptxWithSilkscreen()
+		const rows = [[{ text: 'a' }], [{ text: 'b' }], [{ text: 'c' }]]
+		const res = pres.tableLayout(rows, { x: 1, y: 1, w: 4, rowH: 0.5 })
+		expect(res.heightExact).toBe(true)
+		expect(res.heightIn).toBeCloseTo(1.5, 5)
+	})
+
+	test('table `h` with no rowH splits evenly across the rows', async () => {
+		const pres = await pptxWithSilkscreen()
+		const rows = [[{ text: 'a' }], [{ text: 'b' }]]
+		const res = pres.tableLayout(rows, { x: 1, y: 1, w: 4, h: 3 })
+		expect(res.heightExact).toBe(true)
+		expect(res.heightIn).toBeCloseTo(3, 4)
+		expect(res.cells[0].hIn).toBeCloseTo(1.5, 4)
+	})
+
+	test('a rowH array slot that is missing falls back to the even split of table `h`', async () => {
+		const pres = await pptxWithSilkscreen()
+		const rows = [[{ text: 'a' }], [{ text: 'b' }]]
+		// Row 0 is pinned at 0.5in; row 1 has no slot, so it takes h/numRows rather than
+		// collapsing to auto-height (which would silently drop the caller's `h`).
+		const res = pres.tableLayout(rows, { x: 1, y: 1, w: 4, h: 3, rowH: [0.5] })
+		expect(res.heightExact).toBe(true)
+		expect(res.cells[0].hIn).toBeCloseTo(0.5, 4)
+		expect(res.cells[1].hIn).toBeCloseTo(1.5, 4)
+	})
+
+	test('omitted x/y/w default to the origin and 75% of the slide', async () => {
+		const pres = await pptxWithSilkscreen()
+		const res = pres.tableLayout([[{ text: 'a' }, { text: 'b' }]], {})
+		expect(res.cells[0].xIn).toBe(0)
+		expect(res.cells[0].yIn).toBe(0)
+		expect(res.widthIn).toBeCloseTo(10 * 0.75, 4) // 10in slide default
+	})
+
+	test('empty input returns an empty result rather than throwing', async () => {
+		const pres = await pptxWithSilkscreen()
+		for (const rows of [[], [[]]]) {
+			const res = pres.tableLayout(rows, { x: 1, y: 1, w: 4 })
+			expect(res).toEqual({ cells: [], widthIn: 0, heightIn: 0, heightExact: true })
+		}
+	})
+
+	test('a row hole (sparse array from a JS caller) is skipped, not treated as a row of cells', async () => {
+		const pres = await pptxWithSilkscreen()
+		const rows = [[{ text: 'a' }]]
+		rows[2] = [{ text: 'c' }] // leaves rows[1] as a hole
+		const res = pres.tableLayout(rows, { x: 1, y: 1, w: 4, rowH: 0.5 })
+		expect(res.cells).toHaveLength(2)
+		expect(res.cells.map((c) => c.row)).toEqual([0, 2])
+	})
+
+	test('cells beyond the grid width established by row 0 are dropped', async () => {
+		const pres = await pptxWithSilkscreen()
+		const rows = [
+			[{ text: 'a' }, { text: 'b' }],
+			[{ text: 'c' }, { text: 'd' }, { text: 'e' }], // 'e' has no column to land in
+		]
+		const res = pres.tableLayout(rows, { x: 1, y: 1, w: 4, rowH: 0.5 })
+		expect(res.cells).toHaveLength(4)
+	})
+
+	test('a row covered entirely by a rowspan still gets a default line of height', async () => {
+		const pres = await pptxWithSilkscreen()
+		// Row 1 has no cell of its own — every column is occupied by the rowspan above it.
+		// Without a floor it would be zero-height and the spanned cell would lose half its box.
+		const rows = [[{ text: 'a', options: { rowspan: 2 } }], []]
+		const res = pres.tableLayout(rows, { x: 1, y: 1, w: 4 })
+		expect(res.cells).toHaveLength(1)
+		expect(res.heightIn).toBeGreaterThan(0)
+		expect(res.cells[0].hIn).toBe(res.heightIn) // the span covers both rows
+	})
+
+	test('a cell narrower than its own margins falls back to one line, not a negative height', async () => {
+		const pres = await pptxWithSilkscreen()
+		const rows = [[{ text: OVERFLOW, options: { margin: 0.9 } }]]
+		const res = pres.tableLayout(rows, { x: 1, y: 1, w: 1 })
+		expect(res.heightIn).toBeGreaterThan(0)
+	})
+
+	test('a cell with no text at all measures as one line', async () => {
+		const pres = await pptxWithSilkscreen()
+		const res = pres.tableLayout([[{}, { text: 'b' }]], { x: 1, y: 1, w: 4 })
+		expect(res.cells).toHaveLength(2)
+		expect(res.cells[0].hIn).toBeGreaterThan(0)
+	})
+
+	test('a rowH array hole with no table `h` leaves that row auto-height', async () => {
+		const pres = await pptxWithSilkscreen()
+		const rows = [[{ text: 'a' }], [{ text: 'b' }]]
+		const res = pres.tableLayout(rows, { x: 1, y: 1, w: 4, rowH: [0.5] })
+		expect(res.cells[0].heightExact).toBe(true)
+		expect(res.cells[1].heightExact).toBe(false) // estimated, not pinned
+		expect(res.heightExact).toBe(false)
+	})
+
+	test('a cell whose text is a single run object is normalized like a one-run array', async () => {
+		// `normalizeRuns` documents three shapes — string, TextProps, TextProps[]. `addTable`
+		// only ever produces the first and third, so the middle one is reachable only here,
+		// where the caller's rows go in unnormalized.
+		const pres = await pptxWithSilkscreen()
+		const opts = { fontFace: 'Silkscreen', fontSize: 14 }
+		// @ts-expect-error `TableCell.text` is typed string | TableCell[]; a single run object
+		// is the untyped-caller shape normalizeRuns still documents and handles
+		const single = pres.tableLayout([[{ text: { text: OVERFLOW, options: opts } }]], { x: 1, y: 1, w: 3 })
+		const asArray = pres.tableLayout([[{ text: [{ text: OVERFLOW, options: opts }] }]], { x: 1, y: 1, w: 3 })
+		expect(single.heightIn).toBe(asArray.heightIn)
+		expect(single.heightIn).toBeGreaterThan(0)
+	})
+
+	test('a cell whose text is neither a string nor runs measures as one line', async () => {
+		const pres = await pptxWithSilkscreen()
+		// @ts-expect-error verifying an untyped caller's junk `text` degrades to one line
+		const res = pres.tableLayout([[{ text: true }, { text: 'b' }]], { x: 1, y: 1, w: 4 })
+		expect(res.cells[0].hIn).toBeGreaterThan(0)
+	})
+
+	test('a scalar cell `margin` is applied to all four sides', async () => {
+		const pres = await pptxWithSilkscreen()
+		const tight = pres.tableLayout([[{ text: OVERFLOW, options: { margin: 0 } }]], { x: 1, y: 1, w: 4 })
+		const padded = pres.tableLayout([[{ text: OVERFLOW, options: { margin: 0.3 } }]], { x: 1, y: 1, w: 4 })
+		// Less inner width (more wrapping) and more vertical padding both add height.
+		expect(padded.heightIn).toBeGreaterThan(tight.heightIn)
+	})
+
+	test('a malformed cell `margin` falls back to the default rather than producing NaN geometry', async () => {
+		const pres = await pptxWithSilkscreen()
+		const good = pres.tableLayout([[{ text: OVERFLOW }]], { x: 1, y: 1, w: 4 })
+		// Wrong length, wrong element type, and a NaN slot — the three ways an untyped caller
+		// reaches `resolveCellInsetsEmu` with something it cannot turn into four insets.
+		for (const margin of [
+			[0.1, 0.1],
+			['a', 'b', 'c', 'd'],
+			[0.1, 0.1, 0.1, NaN],
+		]) {
+			// @ts-expect-error deliberately malformed `Margin` from an untyped caller
+			const res = pres.tableLayout([[{ text: OVERFLOW, options: { margin } }]], { x: 1, y: 1, w: 4 })
+			expect(res.heightIn).toBe(good.heightIn)
+		}
+	})
+})
+
+describe('applyMeasuredFit: the table cell shrink pass', () => {
+	const LONG = 'This is a deliberately long cell sentence that overflows a short fixed-height table row.'
+
+	/** Smallest `sz` (hundredths of a point) emitted on slide 1. */
+	const minSz = (xml) => Math.min(...szValues(xml))
+
+	async function tableDeck(rows, opts) {
+		const pres = await pptxWithSilkscreen()
+		pres.addSlide().addTable(rows, { x: 0.5, y: 0.5, w: 3, ...opts })
+		return slide1Xml(pres)
+	}
+
+	test('a cell without fit is left alone while its shrinking neighbor is baked', async () => {
+		const xml = await tableDeck(
+			[
+				[
+					{ text: LONG, options: { fit: 'shrink', fontFace: 'Silkscreen', fontSize: 18 } },
+					{ text: LONG, options: { fontFace: 'Silkscreen', fontSize: 18 } },
+				],
+			],
+			{ w: 6, rowH: [0.4] }
+		)
+		const sizes = szValues(xml)
+		expect(sizes).toContain(1800) // the opted-out cell keeps its authored size
+		expect(Math.min(...sizes)).toBeLessThan(1800) // the opted-in one shrank
+	})
+
+	test('a fixed row height from table `h` (not rowH) still drives the shrink', async () => {
+		const xml = await tableDeck([[{ text: LONG, options: { fit: 'shrink', fontFace: 'Silkscreen', fontSize: 18 } }]], {
+			h: 0.4,
+		})
+		expect(minSz(xml)).toBeLessThan(1800)
+	})
+
+	test('a scalar rowH pins the row the same way an array does', async () => {
+		const cell = { text: LONG, options: { fit: 'shrink', fontFace: 'Silkscreen', fontSize: 18 } }
+		const scalar = await tableDeck([[{ ...cell }]], { rowH: 0.4 })
+		const array = await tableDeck([[{ ...cell }]], { rowH: [0.4] })
+		expect(minSz(scalar)).toBe(minSz(array))
+	})
+
+	test('a table with no `w` is measured against the 75% default width', async () => {
+		const xml = await tableDeck([[{ text: LONG, options: { fit: 'shrink', fontFace: 'Silkscreen', fontSize: 18 } }]], {
+			w: undefined,
+			rowH: [0.4],
+		})
+		expect(minSz(xml)).toBeLessThan(1800)
+	})
+
+	test('per-run font sizes in a rich cell are each scaled, not just the cell default', async () => {
+		// A cell whose `text` is a run array: `scaleCellFontSizes` has to walk the runs and
+		// clone each one. Mutating them in place would corrupt every other cell sharing the
+		// table's options object, and skipping them would leave the runs at their authored
+		// size while the cell default shrank — a visibly mixed-size cell.
+		const xml = await tableDeck(
+			[
+				[
+					{
+						text: [
+							{ text: LONG, options: { fontSize: 18 } },
+							{ text: LONG, options: { fontSize: 24 } },
+							{ text: LONG }, // no size of its own — inherits the cell default
+						],
+					},
+				],
+			],
+			{ rowH: [0.4], fit: 'shrink', fontFace: 'Silkscreen', fontSize: 18 }
+		)
+		const sizes = szValues(xml)
+		expect(sizes.every((s) => s < 1800)).toBe(true)
+		expect(sizes).not.toContain(2400)
+	})
+
+	test('a cell narrower than its margins is skipped rather than shrunk against a negative box', async () => {
+		const xml = await tableDeck(
+			[[{ text: LONG, options: { fit: 'shrink', fontFace: 'Silkscreen', fontSize: 18, margin: 0.9 } }]],
+			{ w: 1, rowH: [0.4] }
+		)
+		expect(szValues(xml)).toContain(1800)
+	})
+
+	test('an empty cell is still measured — its blank line has to fit the row too', async () => {
+		// `addTable` normalizes a cell with no `text` to '' (define/table.ts), so an empty cell
+		// is a one-line cell, not an unmeasurable one: at 18pt its line is taller than this
+		// 0.4in row and the pass shrinks it like any other. The unmeasurable-cell guard is
+		// reachable only through `tableLayout()`, which takes caller rows unnormalized —
+		// covered above by "a cell with no text at all measures as one line".
+		const xml = await tableDeck([[{ options: { fit: 'shrink', fontFace: 'Silkscreen', fontSize: 18 } }]], {
+			rowH: [0.4],
+		})
+		expect(Math.max(...szValues(xml))).toBeLessThan(1800)
+	})
+
+	test('a cell with an unmeasurable face keeps its authored size', async () => {
+		// The deck registered metrics, so the table pass runs — but this cell names no face,
+		// and an unnamed theme-default face cannot be guessed. Baking a guess here would
+		// shrink text that may well have fit.
+		const xml = await tableDeck([[{ text: LONG, options: { fit: 'shrink', fontSize: 18 } }]], { rowH: [0.4] })
+		expect(szValues(xml)).toContain(1800)
+	})
+
+	test('a cell that already fits keeps its authored size', async () => {
+		const xml = await tableDeck([[{ text: 'Hi', options: { fit: 'shrink', fontFace: 'Silkscreen', fontSize: 18 } }]], {
+			rowH: [2],
+		})
+		expect(szValues(xml)).toContain(1800)
+	})
+
+	test('a non-text, non-table object on the slide is passed over', async () => {
+		// The fit pass dispatches on `_type`; anything that is not text/table/group has no
+		// measurable box and must not be walked into.
+		const pres = await pptxWithSilkscreen()
+		const slide = pres.addSlide()
+		slide.addImage({ data: 'image/png;base64,iVBORw0KGgo=', x: 1, y: 1, w: 1, h: 1 })
+		slide.addText(OVERFLOW, { x: 1, y: 3, w: 3, h: 1, fontFace: 'Silkscreen', fontSize: 18, fit: 'shrink' })
+		expect(await slide1Xml(pres)).toMatch(/<a:normAutofit fontScale="\d+"/)
 	})
 })

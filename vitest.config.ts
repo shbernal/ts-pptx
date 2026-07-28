@@ -57,7 +57,12 @@ export default defineConfig({
 			reporter: ['text-summary', 'text', 'html', 'json-summary', 'json'],
 			thresholds: {
 				statements: 91,
-				branches: 79,
+				// Raised 79 -> 80 once measure-fit/text-fit landed: measured 81.07, so the
+				// gate keeps a full point of slack. Ratchet upward only — if a change drops a
+				// number below its gate, that is a finding to explain, never a gate to lower.
+				// The other three are left alone deliberately; their margins (1.9 / 1.2 / 1.5)
+				// are not wide enough to pin a notch without making the gate flaky.
+				branches: 80,
 				functions: 97,
 				lines: 94,
 			},
