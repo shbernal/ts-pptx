@@ -4,9 +4,9 @@
  *
  * AGENTS.md: "OOXML is fixture-gated; no changing emitted bytes as cleanup."
  * This proves a behavior-preserving refactor of the `src/gen/` emitters does not
- * change a single emitted byte, by generating the full demo deck, exploding it
- * (recursing into every embedded .xlsx, which is its own OPC package), and
- * diffing every part against a frozen baseline.
+ * change a single emitted byte, by generating every showcase deck, exploding each
+ * one (recursing into its embedded .xlsx parts, which are their own OPC packages),
+ * and diffing every part against a frozen baseline.
  *
  *   node scripts/byte-identity.mjs baseline   # freeze current output as the reference
  *   node scripts/byte-identity.mjs check      # rebuild, regenerate, diff vs baseline
@@ -27,7 +27,10 @@ import { ROOT, run } from './script-utils.mjs'
 const OUT_ROOT = path.join(ROOT, '.tmp', 'byte-identity')
 const BASELINE = path.join(OUT_ROOT, 'baseline')
 const CURRENT = path.join(OUT_ROOT, 'current')
-const DECK = path.join(ROOT, 'demos', 'node', 'output', 'TsPptx_Demo_All.pptx')
+// Written here rather than into `demos/showcases/output/`: the gate builds decks on every
+// run, and it has no business clobbering the artifacts `pnpm demos:build` leaves for a human.
+const DECKS = path.join(OUT_ROOT, 'decks')
+const SHOWCASES_ENTRY = path.join(ROOT, 'demos', 'showcases', 'lib', 'showcases.mjs')
 
 const mode = process.argv[2]
 if (mode !== 'baseline' && mode !== 'check') {
@@ -56,32 +59,52 @@ function normalize(text) {
 	return NORMALIZERS.reduce((out, [re, sub]) => out.replace(re, sub), text)
 }
 
-/** Generate the demo deck with every nondeterministic source pinned. */
-async function generateDeck() {
-	// The chart demo builds its series from Math.random; pin it so the emitted
-	// chart XML (and the embedded workbooks) are stable run-to-run.
-	let seed = 0x2545f491
-	Math.random = () => {
-		seed = (seed * 1103515245 + 12345) & 0x7fffffff
-		return seed / 0x80000000
-	}
+/**
+ * Build every showcase deck with each nondeterministic source pinned.
+ *
+ * The decks are the gate's corpus because they are the only Node-runnable code that
+ * drives the emitters end to end. The showcase modules resolve their assets from their
+ * own URL, so — unlike the demo runner this replaced — no `process.chdir` is needed, and
+ * they import `@shbernal/ts-pptx` through the workspace link, which resolves to the
+ * `dist/` the build above just wrote.
+ *
+ * Returns one `{ slug, file }` per deck.
+ */
+async function generateDecks() {
+	const { SHOWCASES } = await import(pathToFileURL(SHOWCASES_ENTRY).href)
 
-	fs.rmSync(DECK, { force: true })
-	// Demo image paths are relative (`../common/images/*`), so cwd must be demos/node.
-	const cwd = process.cwd()
-	process.chdir(path.join(ROOT, 'demos', 'node'))
-	try {
-		const TsPptx = (await import(pathToFileURL(path.join(ROOT, 'dist', 'node.js')).href)).default
-		const { runEveryTest } = await import(pathToFileURL(path.join(ROOT, 'demos', 'modules', 'demos.mjs')).href)
-		await runEveryTest(TsPptx)
-	} finally {
-		process.chdir(cwd)
+	fs.rmSync(DECKS, { recursive: true, force: true })
+	fs.mkdirSync(DECKS, { recursive: true })
+
+	const decks = []
+	for (const showcase of SHOWCASES) {
+		// `getUuid` (gen-utils) and the chart-colour fallback both draw on Math.random, so
+		// section ids and `c16:uniqueId` vary per run. Reseed per deck rather than once for
+		// the process: with a single stream, editing deck 1 shifts every GUID in deck 2 and
+		// the gate reports a diff in a deck nobody touched.
+		let seed = 0x2545f491
+		Math.random = () => {
+			seed = (seed * 1103515245 + 12345) & 0x7fffffff
+			return seed / 0x80000000
+		}
+
+		const file = path.join(DECKS, showcase.fileName)
+		await showcase.build(file)
+		if (!fs.existsSync(file)) throw new Error('showcase deck was not written: ' + file)
+		decks.push({ slug: showcase.slug, file })
 	}
-	if (!fs.existsSync(DECK)) throw new Error('demo deck was not written: ' + DECK)
+	if (decks.length === 0) throw new Error('no showcases registered in ' + path.relative(ROOT, SHOWCASES_ENTRY))
+	return decks
 }
 
-/** Explode an OPC package into `destDir`, recursing into embedded .xlsx parts. */
-async function explode(destDir) {
+/**
+ * Explode every deck into `destDir/<slug>/`, recursing into embedded .xlsx parts.
+ *
+ * The per-slug prefix is what keeps a diff readable — two decks share part names
+ * (`ppt/slides/slide1.xml` and friends), and flattening them into one tree would both
+ * collide and hide which deck moved.
+ */
+async function explodeDecks(decks, destDir) {
 	const { unzipSync } = await import(pathToFileURL(path.join(ROOT, 'node_modules', 'fflate', 'esm', 'browser.js')).href)
 	const decoder = new TextDecoder('utf-8')
 
@@ -103,8 +126,11 @@ async function explode(destDir) {
 	}
 
 	fs.rmSync(destDir, { recursive: true, force: true })
-	fs.mkdirSync(destDir, { recursive: true })
-	dump(new Uint8Array(fs.readFileSync(DECK)), destDir)
+	for (const deck of decks) {
+		const dir = path.join(destDir, deck.slug)
+		fs.mkdirSync(dir, { recursive: true })
+		dump(new Uint8Array(fs.readFileSync(deck.file)), dir)
+	}
 }
 
 function listParts(dir) {
@@ -175,8 +201,7 @@ if (mode === 'baseline' && !process.argv.includes('--allow-dirty')) assertGenTre
 await run(process.execPath, [path.join(ROOT, 'node_modules', 'tsdown', 'dist', 'run.mjs')])
 
 if (mode === 'baseline') {
-	await generateDeck()
-	await explode(BASELINE)
+	await explodeDecks(await generateDecks(), BASELINE)
 	console.log('baseline frozen: ' + listParts(BASELINE).length + ' parts -> ' + path.relative(ROOT, BASELINE))
 	process.exit(0)
 }
@@ -187,8 +212,7 @@ if (!fs.existsSync(BASELINE)) {
 	process.exit(2)
 }
 
-await generateDeck()
-await explode(CURRENT)
+await explodeDecks(await generateDecks(), CURRENT)
 
 const diffs = diffParts(BASELINE, CURRENT)
 if (diffs.length === 0) {

@@ -520,6 +520,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refactor has begun records the very bytes it exists to detect, so every later
   `check` passes trivially. The error names the workaround it is closing —
   `git stash` on a dirty tree, which risks unrelated work to a pop conflict.
+- **The byte-identity gate builds the showcase decks.** It had built its corpus
+  by importing `demos/modules/demos.mjs`, removed in the demos-to-showcases move
+  above, so both subcommands died on `MODULE_NOT_FOUND` — worse than no gate,
+  because a harness nobody can run still gets cited as one. It now builds every
+  deck registered in `demos/showcases/lib/showcases.mjs` (a registry `build.mjs`
+  reads too, so a new showcase is gated the day it lands), writes them under
+  `.tmp/byte-identity/decks/` rather than over the artifacts `pnpm demos:build`
+  leaves for a human, and explodes each under its own slug so a diff names the
+  deck that moved. `Math.random` is reseeded per deck: on a single stream,
+  editing the first deck shifts every GUID in the second, and the gate reports a
+  diff in a deck nobody touched.
+
+  The corpus is 177 parts against the old deck's 1637. Every part *kind* survives
+  — charts with their embedded workbooks, media, notes slides, masters, layouts,
+  themes — but it is a narrower slice of the emitters, so AGENTS.md now says to
+  confirm the part you touched is in the baseline before reading a PASS as proof
+  of anything.
+
 - The three `tsc` projects are now `incremental`, keeping their build state in
   the gitignored `.tmp/` (a distinct `tsBuildInfoFile` per project). Warm
   `typecheck` drops from ~3.4s to ~1.3s; cold runs are no slower, so CI is

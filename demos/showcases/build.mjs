@@ -12,10 +12,7 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { OUTPUT_DIR, SHOWCASES_DIR } from "./lib/assets.mjs";
-import { showcase as fieldNotes } from "./field-notes/index.mjs";
-import { showcase as quarterlyReview } from "./quarterly-review/index.mjs";
-
-const SHOWCASES = [quarterlyReview, fieldNotes];
+import { SHOWCASES } from "./lib/showcases.mjs";
 
 const requested = process.argv.slice(2);
 const unknown = requested.filter((slug) => !SHOWCASES.some((s) => s.slug === slug));
