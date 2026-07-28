@@ -1240,7 +1240,7 @@ items:
     target_area: []
     applies_to_current_project: yes
     non_target_reasons: []
-    summary: Raise write-side branch coverage on the emitters still below the gate (media/content-type, measure-fit/text-fit, gen/table/autopage and gen/define/hyperlinks DONE; the rest of gen/define/* remains)
+    summary: Raise write-side branch coverage on the emitters still below the gate (media/content-type, measure-fit/text-fit, gen/table/autopage, gen/define/hyperlinks and gen/define/{zoom,preview-image,background} DONE; comment.ts, chart.ts, text.ts and the drawingml stragglers remain)
     current_project_notes: |
       Carried over from the retired REPO-IMPROVEMENT-PLAN (its P6) after the read-side
       branch-coverage sweep landed (commits bbf8d3b4..106cc3fc) and the gate was
@@ -1445,6 +1445,40 @@ items:
       (Fixed in a follow-up the same day -- a sixth case in the same file now builds a
       fixture that does trigger it. See that entry.)
 
+      ZOOM / PREVIEW-IMAGE / BACKGROUND LANDED 2026-07-28. gen/define/zoom.ts:
+      branches 63.63 -> 97.72, statements 81.69 -> 98.59. gen/define/preview-image.ts:
+      84 -> 92 branch. gen/define/background.ts: 76.19 -> 90.47 branch, 90 -> 100
+      statements. Global 93.29/81.58/98.32/95.89 -> 93.41/81.79/98.33/96.00 on a full
+      run (200 files, 2001 green). Third of the three priorities is now under way; what
+      remains of it is comment.ts (73.52) and the drawingml stragglers.
+
+      THIRD THRESHOLD BUMP: lines 94 -> 95, measured 96.0045, so 1.00 of slack remains
+      -- the first time this axis has cleared the full point this effort uses as its
+      bar (it was declined at 0.89 one commit ago). The other three stay: statements
+      would keep 0.41, branches 0.79, functions 0.33. Nothing was loosened.
+
+      Zoom's gap was not edge branches but the whole refusal half of the definer. Every
+      existing zoom test fed it valid input -- the schema fixture builds three working
+      zooms, and zoom-links.test.js hand-builds SlideObjects and skips the definer
+      entirely -- so none of the six guards that drop an unresolvable zoom with a
+      warning had ever run. Twelve cases through the public builder cover them plus the
+      two option defaults (`?? 0` geometry, auto objectName) and the width-bound arm of
+      the Summary grid fit. Background needed exactly one shape nothing else had: a
+      background supplied by `path` with no `data` alongside it, which is what reaches
+      the jpg -> jpeg rename; every other fixture in the repo passes `data`, which wins
+      over `path` for extension sniffing.
+
+      What stays red is the usual class, unreachable by construction and left alone per
+      docs/testing.md: the Summary tile loop's `!firstSlide` re-check (its list was
+      already filtered on `_slides.length > 0`), and the `_relsMedia || []` / `_name ||
+      ''` fallbacks in background.ts (both callers construct the target themselves).
+      One is worth knowing about rather than just leaving: preview-image.ts's media-key
+      ternary has `'sm'` and `sl-<n>` arms for a master and a layout, copied from
+      gen/define/image.ts where those really are reachable. A preview image cannot
+      reach them -- its only two callers are the zoom and OLE definers, both reachable
+      only from SlideBuilder, which always carries a 1-based _slideNum. Live where it
+      was copied from, dead where it was copied to.
+
       Read this before trusting a per-file number from coverage/: a run started with
       --coverage.reportsDirectory writes there AND vitest cleans the directory, so a
       narrow probe left in coverage/ (or a later full run wiping coverage/probe) can
@@ -1461,7 +1495,9 @@ items:
         - src/gen/define/hyperlinks.ts
         - src/gen/define/chart.ts
         - src/gen/define/background.ts
+        - src/gen/define/preview-image.ts
         - src/gen/define/text.ts
+        - src/gen/define/zoom.ts
         - src/gen/drawingml/color.ts
         - src/gen/drawingml/line.ts
         - src/measure-fit.ts
@@ -1470,7 +1506,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: take the cheap gen/define files next -- background (6 branches), preview-image (13), zoom (16, check its arms are reachable from the public surface at all), comment (73.52 branch) -- then the volume work in chart.ts (73) and text.ts (47); separately, move color.ts's two browser-only helpers into html-dom.ts (a src change, so gate it on byte-identity baseline/check); leave the four gates alone until a phase lands that puts a full point behind a notch, and re-measure per-file coverage rather than reading whatever coverage-final.json is on disk
+    next_action: comment.ts (73.52 branch) is the last of the cheap gen/define files -- background, preview-image and zoom landed 2026-07-28, and what is left in those three is unreachable by construction, not untested; then the volume work in chart.ts (73 branches) and text.ts (47); separately, move color.ts's two browser-only helpers into html-dom.ts (a src change, so gate it on byte-identity baseline/check); statements/branches/functions stay put until a phase puts a full point behind a notch (lines took its first bump, 94 -> 95, in this pass), and re-measure per-file coverage rather than reading whatever coverage-final.json is on disk
 
   - id: fork-autopage-hyperlink-relid-collision
     source: fork:src/gen/define/hyperlinks.ts
