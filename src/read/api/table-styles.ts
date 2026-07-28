@@ -6,7 +6,7 @@
  * traversal rather than part of the master/layout copy chain. Both entry points union
  * `<a:tblStyle>` by `styleId` and are idempotent.
  *
- * The functions take a structural {@link TableStyleTarget} rather than a `Presentation`,
+ * The functions take a structural {@link DeckTarget} rather than a `Presentation`,
  * so this module stays independent of the class that calls it.
  */
 
@@ -14,6 +14,7 @@ import type { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
 import { relativePartName } from '../opc/partnames.js'
 import { OOXML_NS, attr, getElements, ownerDocumentOf, type Element } from '../oxml/dom.js'
+import type { DeckTarget } from './deck-target.js'
 
 const TABLE_STYLES_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles'
 const TABLE_STYLES_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml'
@@ -21,12 +22,6 @@ const TABLE_STYLES_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument
 const TABLE_STYLES_DEFAULT_GUID = '{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}'
 
 const textEncoder = new TextEncoder()
-
-/** The destination deck: just the package and its main part. `Presentation` satisfies it. */
-export interface TableStyleTarget {
-	readonly opc: OpcPackage
-	readonly presentationPart: Part
-}
 
 /**
  * Copy any table style the restyled slide references from the source
@@ -39,7 +34,7 @@ export interface TableStyleTarget {
  * referenced id with no source definition is skipped. Creates and wires a
  * `tableStyles.xml` part if this deck has none.
  */
-export function copySourceTableStyles(dest: TableStyleTarget, sourceOpc: OpcPackage, slideRoot: Element): void {
+export function copySourceTableStyles(dest: DeckTarget, sourceOpc: OpcPackage, slideRoot: Element): void {
 	const ids = new Set<string>()
 	for (const idEl of slideRoot.getElementsByTagNameNS(OOXML_NS.a, 'tableStyleId')) {
 		const id = idEl.textContent?.trim()
@@ -100,7 +95,7 @@ function addTableStyles(destList: Element, styles: Iterable<Element>): boolean {
  * visibly to none. Idempotent: a re-call re-adds nothing and re-sets `def` to the
  * same value.
  */
-export function carryTableStyles(dest: TableStyleTarget, sourceOpc: OpcPackage): void {
+export function carryTableStyles(dest: DeckTarget, sourceOpc: OpcPackage): void {
 	const sourceList = tableStyleList(sourceOpc)
 	if (!sourceList) return
 
@@ -128,7 +123,7 @@ function tableStyleList(opc: OpcPackage): Element | null {
  * The deck's `tableStyles.xml` part, creating an empty one (and wiring its
  * `presentation.xml` relationship + content type) when the deck has none.
  */
-function ensureTableStylesPart(dest: TableStyleTarget): Part {
+function ensureTableStylesPart(dest: DeckTarget): Part {
 	const existing = dest.opc.partsByContentType(TABLE_STYLES_CONTENT_TYPE)[0]
 	if (existing) return existing
 	const partName = dest.opc.reservePartNameLike('/ppt/tableStyles.xml')

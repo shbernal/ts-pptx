@@ -66,6 +66,7 @@ import type {
 import { carriedDecorations, collectElements, cSldName, firstShapeChild, nthShapeChild } from './slide-dom.js'
 import { computeRescale, rescaleSpTree, type RescaleTransform } from './rescale.js'
 import { carryTableStyles, copySourceTableStyles } from './table-styles.js'
+import { addLayoutToMaster, clearLayoutIdList, promoteMasters, registerMaster } from './master-registry.js'
 
 const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
 const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
@@ -185,12 +186,6 @@ interface IncomingEmbeddedFont {
 
 /** ST_SlideId minimum (ECMA-376): slide ids live in [256, 2147483647]. */
 const MIN_SLIDE_ID = 256
-
-/**
- * ST_SlideMasterId / ST_SlideLayoutId minimum (ECMA-376): both slide-master and
- * slide-layout ids start at 2147483648 and share one presentation-wide id space.
- */
-const MIN_SLIDE_MASTER_ID = 2147483648
 
 export class Presentation {
 	#presentationPart: Part | undefined
@@ -993,7 +988,11 @@ export class Presentation {
 		// whole-deck: neither part records which font/style belongs to which master.
 		if (options.embedFonts) this.#carryEmbeddedFonts(source)
 		if (options.tableStyles) carryTableStyles(this, source.opc)
-		if (options.primary) this.#promoteMasters(imported.map((m) => m.partName))
+		if (options.primary)
+			promoteMasters(
+				this,
+				imported.map((m) => m.partName)
+			)
 
 		return imported
 	}
@@ -1722,14 +1721,14 @@ export class Presentation {
 		}
 
 		if (isMaster) {
-			this.#clearLayoutIdList(newPartName)
+			clearLayoutIdList(this, newPartName)
 			// Register the copied master in presentation.xml. Without a
 			// `p:sldMasterId` entry (and a presentation→master relationship) the
 			// master is inert: PowerPoint/LibreOffice ignore its background and shape
 			// tree, so a `copy`-imported slide whose look lives on its master (a
 			// cover/closer) renders blank. Idempotent, so masters shared across
 			// repeated imports are registered exactly once.
-			this.#registerMaster(newPartName)
+			registerMaster(this, newPartName)
 		}
 		if (sourcePart.contentType === SLIDE_LAYOUT_CONTENT_TYPE) {
 			this.#linkLayoutIntoMaster(sourceOpc, sourceRels, newPartName)
@@ -1739,128 +1738,11 @@ export class Presentation {
 	}
 
 	/**
-	 * Wire a freshly-copied slide master into `presentation.xml`: add a
-	 * presentation→master relationship and a `p:sldMasterId` entry in
-	 * `p:sldMasterIdLst`. A master that is reachable only through the
-	 * slide→layout→master rel chain but absent from `p:sldMasterIdLst` is treated
-	 * as inactive by renderers, so its background/graphics never paint. No-op when
-	 * the master is already registered (shared across imports from one source).
-	 */
-	#registerMaster(masterPartName: string): void {
-		const presPart = this.presentationPart
-		const presRels = this.opc.relationshipsFor(presPart.partName)
-		for (const rel of presRels.byType(SLIDE_MASTER_REL)) {
-			if (presRels.resolveTarget(rel.id) === masterPartName) return
-		}
-		const relId = presRels.add(SLIDE_MASTER_REL, relativePartName(presPart.partName, masterPartName)).id
-
-		const root = presPart.dom.documentElement
-		if (!root) throw new Error('presentation.xml has no document element to register a master in')
-		// `p:sldMasterIdLst` is the first child of CT_Presentation; create it before
-		// any later sibling if a (degenerate) deck lacks one.
-		const lst = getOrAddChild(root, 'p:sldMasterIdLst', [
-			'p:notesMasterIdLst',
-			'p:handoutMasterIdLst',
-			'p:sldIdLst',
-			'p:sldSz',
-			'p:notesSz',
-			'p:embeddedFontLst',
-			'p:custShowLst',
-			'p:photoAlbum',
-			'p:custDataLst',
-			'p:kinsoku',
-			'p:defaultTextStyle',
-			'p:modifyVerifier',
-			'p:extLst',
-		])
-		const entry = createElement(presPart.dom, 'p:sldMasterId')
-		setAttr(entry, 'id', String(this.#nextMasterLayoutId()))
-		setAttr(entry, 'r:id', relId)
-		lst.appendChild(entry)
-		presPart.markDirty()
-	}
-
-	/**
-	 * Move the `p:sldMasterId` entries for `masterPartNames` to the front of
-	 * `p:sldMasterIdLst`, preserving their existing relative order, so the first of
-	 * them becomes the deck's `Designs(1)` — the theme PowerPoint's Design tab shows.
-	 * Reorders the id list only; relationships, ids, and all other parts are left as
-	 * they are. A no-op when the named masters already lead (idempotent re-call).
-	 */
-	#promoteMasters(masterPartNames: string[]): void {
-		if (masterPartNames.length === 0) return
-		const presPart = this.presentationPart
-		const root = presPart.dom.documentElement
-		const lst = root && firstChild(root, 'p:sldMasterIdLst')
-		if (!lst) return
-		const rels = this.opc.relationshipsFor(presPart.partName)
-		const promote = new Set(masterPartNames)
-		const entries = getElements(lst, 'p:sldMasterId')
-		// Entries whose relationship resolves to a promoted master, kept in their
-		// current order, then everyone else in theirs — a stable partition.
-		const isPromoted = (entry: Element): boolean => {
-			const relId = attr(entry, 'r:id')
-			return relId ? promote.has(rels.resolveTarget(relId)) : false
-		}
-		const desired = [...entries.filter(isPromoted), ...entries.filter((e) => !isPromoted(e))]
-		if (desired.every((entry, i) => entry === entries[i])) return
-		for (const entry of desired) lst.appendChild(entry)
-		presPart.markDirty()
-	}
-
-	/**
-	 * The next free id in the presentation-wide slide-master / slide-layout id space.
-	 *
-	 * `p:sldMasterId/@id` and every master's `p:sldLayoutId/@id` draw from ONE shared
-	 * id space (both ST_SlideMasterId/ST_SlideLayoutId, floor 2147483648) and must be
-	 * unique across the WHOLE presentation, not just within their own list. A duplicate
-	 * anywhere in this space makes PowerPoint report the file as corrupt on open
-	 * ("found a problem with content" / 0x80070570), even though LibreOffice silently
-	 * tolerates it — so an imported master AND each of its layouts must take an id past
-	 * the max of both the master-id list and every layout-id list. Recomputed per
-	 * allocation so ids appended earlier in the same import are counted.
-	 */
-	#nextMasterLayoutId(): number {
-		// ST_SlideMasterId and ST_SlideLayoutId share this floor.
-		let max = MIN_SLIDE_MASTER_ID - 1
-		const presPart = this.presentationPart
-		const root = presPart.dom.documentElement
-		const masterLst = root && firstChild(root, 'p:sldMasterIdLst')
-		if (masterLst) {
-			for (const entry of getElements(masterLst, 'p:sldMasterId')) {
-				const id = intValue(attr(entry, 'id'))
-				if (id !== null && id > max) max = id
-			}
-		}
-		// Every master's layout-id list shares the same id space; scan them all.
-		const presRels = this.opc.relationshipsFor(presPart.partName)
-		for (const rel of presRels.byType(SLIDE_MASTER_REL)) {
-			const masterPart = this.opc.part(presRels.resolveTarget(rel.id))
-			const masterRoot = masterPart?.dom.documentElement
-			const layoutLst = masterRoot && firstChild(masterRoot, 'p:sldLayoutIdLst')
-			if (!layoutLst) continue
-			for (const entry of getElements(layoutLst, 'p:sldLayoutId')) {
-				const id = intValue(attr(entry, 'id'))
-				if (id !== null && id > max) max = id
-			}
-		}
-		return max + 1
-	}
-
-	/** Empty a freshly-copied master's `p:sldLayoutIdLst`; copied layouts repopulate it. */
-	#clearLayoutIdList(masterPartName: string): void {
-		const masterPart = this.opc.part(masterPartName)
-		const root = masterPart?.dom.documentElement
-		const lst = root && firstChild(root, 'p:sldLayoutIdLst')
-		if (!masterPart || !lst) return
-		removeChildrenByQName(lst, ['p:sldLayoutId'])
-		masterPart.markDirty()
-	}
-
-	/**
-	 * Wire a just-copied layout into its (already-copied) master: add a
-	 * master→layout relationship and append a `p:sldLayoutId` entry. Called once
-	 * per copied layout, so the master accumulates exactly the imported layouts.
+	 * Wire a just-copied layout into its (already-copied) master. Resolves which
+	 * destination master that is by running the layout's *source* master rel through
+	 * the copy registry, then hands the destination-side wiring to
+	 * {@link addLayoutToMaster}. Called once per copied layout, so the master
+	 * accumulates exactly the imported layouts.
 	 */
 	#linkLayoutIntoMaster(
 		sourceOpc: OpcPackage,
@@ -1871,18 +1753,7 @@ export class Presentation {
 		if (!masterRel) return
 		const masterPartName = this.#registryFor(sourceOpc).get(layoutSourceRels.resolveTarget(masterRel.id))
 		if (!masterPartName) return
-		const masterPart = this.opc.part(masterPartName)
-		const root = masterPart?.dom.documentElement
-		if (!masterPart || !root) return
-
-		const masterRels = this.opc.relationshipsFor(masterPartName)
-		const relId = masterRels.add(SLIDE_LAYOUT_REL, relativePartName(masterPartName, layoutPartName)).id
-		const lst = getOrAddChild(root, 'p:sldLayoutIdLst', ['p:transition', 'p:timing', 'p:hf', 'p:txStyles', 'p:extLst'])
-		const entry = createElement(masterPart.dom, 'p:sldLayoutId')
-		setAttr(entry, 'id', String(this.#nextMasterLayoutId()))
-		setAttr(entry, 'r:id', relId)
-		lst.appendChild(entry)
-		masterPart.markDirty()
+		addLayoutToMaster(this, masterPartName, layoutPartName)
 	}
 
 	/**
