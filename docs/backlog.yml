@@ -1240,7 +1240,7 @@ items:
     target_area: []
     applies_to_current_project: yes
     non_target_reasons: []
-    summary: Raise write-side branch coverage on the emitters still below the gate (media/content-type, measure-fit/text-fit, gen/table/autopage, gen/define/hyperlinks and gen/define/{zoom,preview-image,background,comment} DONE; chart.ts, text.ts and the drawingml stragglers remain)
+    summary: Raise write-side branch coverage on the emitters still below the gate (media/content-type, measure-fit/text-fit, gen/table/autopage, gen/define/hyperlinks and gen/define/{zoom,preview-image,background,comment,text,chart} DONE; only the drawingml stragglers remain)
     current_project_notes: |
       Carried over from the retired REPO-IMPROVEMENT-PLAN (its P6) after the read-side
       branch-coverage sweep landed (commits bbf8d3b4..106cc3fc) and the gate was
@@ -1516,6 +1516,55 @@ items:
       (html-dom.ts's border/width helpers, zoom-links.test.js, and this file); the note
       is recorded in that test's header so the next measurer does not re-derive it.
 
+      TEXT AND CHART LANDED 2026-07-28, which finishes the third priority's volume
+      work. gen/define/text.ts: branches 86.86 -> 96.57, statements 92.39 -> 100,
+      lines 100. gen/define/chart.ts: branches 80.61 -> 94.63, statements 93.90 ->
+      100, lines 100. Global 93.46/81.85/98.33/96.04 -> 93.69/82.79/98.33/96.19 on a
+      full run (203 files, 2035 green). Note text.ts and chart.ts were 47 and 73
+      missed branches when this item last named them and were 23 and 83 when the pass
+      started -- the earlier per-file percentages had drifted, which is the reason
+      this entry keeps saying to re-measure rather than plan off a recorded number.
+
+      FOURTH THRESHOLD BUMP: branches 80 -> 81, measured 82.79, so 1.79 of slack
+      remains. 82 was available on the raw number and declined -- it would keep 0.79,
+      under the full point this effort uses as its bar. The other three stay at
+      92/97/95: their next notches would keep 0.69, 0.33 and 0.20. Nothing loosened.
+
+      Neither file's gap was edge branches. text.ts had never been driven past the
+      happy path -- no fixture passed an empty text array, a line-shaped text box, an
+      out-of-range columns/columnSpacing, the `underline: true` shorthand, a centered
+      or justified paragraph, or a picture bullet given as anything other than a path
+      AND data together. chart.ts had 83 red branches essentially all in the option
+      normalization that runs before any chart XML exists.
+
+      Two behaviors the tests had to be written around, both pinned rather than
+      changed, and both worth knowing before touching these files:
+        - `cleanOpts` runs once for the text object and again per run, and
+          `addText(string, opts)` hands the SAME options object to both, so the
+          shorthand normalizes twice where the array form normalizes once. Decisive
+          for line defaults (`shape: 'line'` alone emits a full 1pt solid line
+          through the shorthand and an empty `<a:ln>` through the array form) and it
+          doubles every warning the definer emits.
+        - the bar `dataLabelPosition` rules run in sequence rather than as a switch,
+          so the outcome inverts the obvious reading: `outEnd` is dropped on
+          CLUSTERED bars by the first rule and kept on STACKED ones by the second.
+
+      What stays red is the usual class plus one group worth acting on. chart.ts
+      carries THIRTEEN self-cancelling ternaries of the form
+      `x = x || !x ? x : false` -- `a || !a` is true for every value of `a`, so each
+      is an identity assignment with a dead alternative. Eleven are the show* block
+      in normalizeChartPlotAreaOptions, plus v3DRAngAx and dataLabelBkgrdColors.
+      Collapsing them would delete 13 permanently-red branches and change no emitted
+      byte, but it is a src edit and so wants a byte-identity baseline/check.
+
+      A reasoning trap recorded so it is not repeated: the second arm of
+      `!border.width || isNaN(border.width)` LOOKS unreachable, since NaN is falsy
+      and the first arm should catch it. A branch counter records that the second
+      operand was EVALUATED, not that it was true, so any truthy width reaches it.
+      Two arms were wrongly classified as dead on that reasoning before a probe
+      showed otherwise; both are covered now by passing a width rather than omitting
+      one. Applies to every `!x || isNaN(x)` and `!x || x.length` shape in the repo.
+
       Read this before trusting a per-file number from coverage/: a run started with
       --coverage.reportsDirectory writes there AND vitest cleans the directory, so a
       narrow probe left in coverage/ (or a later full run wiping coverage/probe) can
@@ -1543,7 +1592,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: the cheap gen/define files are done -- hyperlinks, zoom, preview-image, background and comment all landed 2026-07-28, and what is left red in them is unreachable by construction, not untested; what remains is the volume work in chart.ts (73 missed branches) and text.ts (47), which are also the only two files left with enough missed branches to justify another notch; separately, move color.ts's two browser-only helpers into html-dom.ts (a src change, so gate it on byte-identity baseline/check); no gate moves until a phase puts a full point behind a notch (current margins 0.46/0.85/0.33/0.04 against 92/80/97/95), and re-measure per-file coverage rather than reading whatever coverage-final.json is on disk -- and before calling a low per-file number a gap, check whether its tests import from src/ (gen/slide/comments.ts is the current example)
+    next_action: all of gen/define is done -- hyperlinks, zoom, preview-image, background, comment, text and chart landed 2026-07-28, and what is left red in them is unreachable by construction, not untested; what remains of this item is the drawingml stragglers (line.ts 65 stmt, math.ts 60 branch, plot-bubble.ts 60.86, pres/presentation-rels.ts 64.28), which are small and will not move a gate on their own, plus two src changes that each want a byte-identity baseline/check -- move color.ts's two browser-only helpers into html-dom.ts, and collapse chart.ts's thirteen self-cancelling `x || !x` ternaries, which are identity assignments with a dead alternative (13 permanently-red branches, zero emitted-byte change); margins are now 0.69/1.79/0.33/0.20 against 92/81/97/95, so the next notch on any axis needs roughly another full point and no cheap file left can supply it; always re-measure per-file coverage rather than reading whatever coverage-final.json is on disk (the recorded chart.ts/text.ts numbers had drifted by 10-25 branches before this pass), before calling a low per-file number a gap check whether its tests import from src/ (gen/slide/comments.ts is the standing example), and do not classify an `isNaN`/`length` second operand as dead without probing it -- a branch counter records evaluation, not truth
 
   - id: fork-autopage-hyperlink-relid-collision
     source: fork:src/gen/define/hyperlinks.ts
