@@ -13,6 +13,9 @@ import { fileURLToPath } from 'node:url'
 import { describe, test, expect } from 'vitest'
 import JSZip from 'jszip'
 import TsPptx from '../../dist/node.js'
+// The `ts-pptx/measure` entry publishes the calibrated constants the bake uses, so a test
+// can state "inflated by the height safety factor" instead of re-pinning its value here.
+import { HEIGHT_SAFETY_FACTOR } from '../../dist/measure.js'
 
 const REG_PATH = fileURLToPath(new URL('../read/fixtures/fonts/Silkscreen-Regular.ttf', import.meta.url))
 const BOLD_PATH = fileURLToPath(new URL('../read/fixtures/fonts/Silkscreen-Bold.ttf', import.meta.url))
@@ -233,6 +236,249 @@ describe("applyMeasuredFit: fit:'resize' through dist export", () => {
 		expect(cy).toBeGreaterThan(20 * EMU_PER_PT)
 		const delta = 3 * EMU_PER_IN - cy
 		expect(offY).toBeCloseTo(2 * EMU_PER_IN + delta / 2, -2)
+	})
+})
+
+// The input-shape matrix. Everything above drives one canonical text box; these drive the
+// *option* surface that reshapes the measured box or the paragraph list before the solver
+// sees it — `\n` / `breakLine` splitting, `margin` insets, `wrap:false`, the vertical anchor,
+// line spacing, and the degenerate boxes that make a box unmeasurable. Each assertion is a
+// comparison against the same deck without the option, so it pins the option's *effect*
+// rather than a magic number: the model's constants are calibrated elsewhere
+// (autofit-calibration-oracle) and must stay free to move.
+
+/** Baked `<a:normAutofit fontScale>` (thousandths of a percent), or null for the bare flag. */
+function bakedScale(xml) {
+	const m = xml.match(/<a:normAutofit fontScale="(\d+)"/)
+	return m ? Number(m[1]) : null
+}
+
+/** Build one Silkscreen text box with `fit:'shrink'` and return its baked scale. */
+async function shrinkScale(extraOpts, text = OVERFLOW) {
+	const pres = await pptxWithSilkscreen()
+	pres.addSlide().addText(text, {
+		x: 1,
+		y: 1,
+		w: 3,
+		h: 1,
+		fontFace: 'Silkscreen',
+		fontSize: 18,
+		fit: 'shrink',
+		...extraOpts,
+	})
+	return bakedScale(await slide1Xml(pres))
+}
+
+describe('measured fit: paragraph splitting', () => {
+	test('a "\\n" inside a run starts a new paragraph (more lines, more height)', async () => {
+		const pres = await pptxWithSilkscreen()
+		const opts = { wIn: 8, fontSize: 18, fontFace: 'Silkscreen' }
+		const oneLine = pres.measureText('alpha beta', opts)
+		const twoLines = pres.measureText('alpha\nbeta', opts)
+		// Wide enough that neither wraps — so the extra line is the newline's doing, not the wrap.
+		expect(oneLine.lineCount).toBe(1)
+		expect(twoLines.lineCount).toBe(2)
+		expect(twoLines.heightIn).toBeGreaterThan(oneLine.heightIn)
+	})
+
+	test('"\\r\\n" is normalized to the same split as "\\n"', async () => {
+		const pres = await pptxWithSilkscreen()
+		const opts = { wIn: 8, fontSize: 18, fontFace: 'Silkscreen' }
+		expect(pres.measureText('alpha\r\nbeta', opts).heightIn).toBe(pres.measureText('alpha\nbeta', opts).heightIn)
+	})
+
+	test('`breakLine` on a run ends its paragraph just as a "\\n" does', async () => {
+		const pres = await pptxWithSilkscreen()
+		const opts = { wIn: 8, fontSize: 18, fontFace: 'Silkscreen' }
+		const broken = pres.measureText([{ text: 'alpha', options: { breakLine: true } }, { text: 'beta' }], opts)
+		const joined = pres.measureText([{ text: 'alpha' }, { text: 'beta' }], opts)
+		expect(broken.lineCount).toBe(2)
+		expect(joined.lineCount).toBe(1)
+	})
+
+	test('a trailing "\\n" leaves the final empty paragraph in the count', async () => {
+		const pres = await pptxWithSilkscreen()
+		const opts = { wIn: 8, fontSize: 18, fontFace: 'Silkscreen' }
+		expect(pres.measureText('alpha\n', opts).lineCount).toBe(2)
+	})
+
+	test('the split reaches the export bake: the same text needs a smaller scale when broken', async () => {
+		const flowed = await shrinkScale({}, 'alpha beta gamma delta epsilon zeta')
+		const broken = await shrinkScale({}, 'alpha\nbeta\ngamma\ndelta\nepsilon\nzeta')
+		expect(broken).not.toBeNull()
+		expect(broken).toBeLessThan(flowed)
+	})
+})
+
+describe('measured fit: text-frame insets from `margin`', () => {
+	test('a larger `margin` shrinks the inner box, so the text shrinks further', async () => {
+		const none = await shrinkScale({ margin: 0 })
+		const roomy = await shrinkScale({ margin: 0.4 })
+		expect(none).not.toBeNull()
+		expect(roomy).toBeLessThan(none)
+	})
+
+	test('`margin` as a [T,R,B,L] array matches the equivalent scalar', async () => {
+		expect(await shrinkScale({ margin: [0.4, 0.4, 0.4, 0.4] })).toBe(await shrinkScale({ margin: 0.4 }))
+	})
+
+	test('the array is read as [T,R,B,L] — a top/bottom pair is not a left/right pair', async () => {
+		// Vertical margin eats the height the shrink solver is fitting against; horizontal
+		// margin eats width and forces earlier wrapping. Both shrink, but not by the same
+		// amount — which is what proves the four slots are not interchangeable.
+		const vertical = await shrinkScale({ margin: [0.4, 0, 0.4, 0] })
+		const horizontal = await shrinkScale({ margin: [0, 0.4, 0, 0.4] })
+		expect(vertical).not.toBe(horizontal)
+	})
+
+	test('`margin` larger than the box makes it unmeasurable → bare flag, no bogus scale', async () => {
+		// Insets exceeding w/h drive innerWidthPt/innerHeightPt negative. Baking a scale off a
+		// negative box would emit a nonsense fontScale; the box must fall back to the bare flag.
+		expect(await shrinkScale({ w: 1, h: 0.5, margin: 0.6 })).toBeNull()
+	})
+})
+
+describe('measured fit: degenerate boxes', () => {
+	test('a zero-width box is not measured (bare flag)', async () => {
+		expect(await shrinkScale({ w: 0 })).toBeNull()
+	})
+
+	test('a zero-height box is not measured (bare flag)', async () => {
+		expect(await shrinkScale({ h: 0 })).toBeNull()
+	})
+
+	test('empty text is not measured (bare flag)', async () => {
+		expect(await shrinkScale({}, '')).toBeNull()
+	})
+})
+
+describe('measured fit: `wrap: false`', () => {
+	test('a non-wrapping line that overflows horizontally still shrinks', async () => {
+		// The point of the wrap:false handling. With wrap:false the text is one line, so it
+		// always fits the box HEIGHT and `normAutofit`'s vertical test never fires — the line
+		// just spills out the side. The solver has to check the widest line against the box
+		// WIDTH instead. The box here is deliberately tall enough that height alone would say
+		// "fits", so a baked scale can only have come from the width check.
+		const scale = await shrinkScale({ wrap: false, w: 2, h: 6 }, 'nowrapping single line of text')
+		expect(scale).not.toBeNull()
+		expect(scale).toBeLessThan(100000)
+	})
+
+	test('the same box wrapping normally needs no shrink', async () => {
+		expect(await shrinkScale({ w: 2, h: 6 }, 'nowrapping single line of text')).toBeNull()
+	})
+})
+
+describe("measured fit: fit:'resize' vertical anchor", () => {
+	test('bottom anchor → the box grows upward, its bottom edge fixed', async () => {
+		const pres = await pptxWithSilkscreen()
+		pres.addSlide().addText(OVERFLOW, {
+			x: 1,
+			y: 2,
+			w: 3,
+			h: 1,
+			fontFace: 'Silkscreen',
+			fontSize: 18,
+			fit: 'resize',
+			valign: 'bottom',
+		})
+		const { offY, cy } = firstXfrm(await slide1Xml(pres))
+		expect(cy).toBeGreaterThan(1 * EMU_PER_IN)
+		// Top moves up by the whole delta, so the bottom edge lands where it was authored.
+		expect(offY).toBeLessThan(2 * EMU_PER_IN)
+		expect(offY + cy).toBeCloseTo(3 * EMU_PER_IN, -2)
+	})
+
+	test("fit:'resize' with an unmeasurable face leaves the authored height alone", async () => {
+		const pres = await pptxWithSilkscreen()
+		// Registry is non-empty (the deck opted in), but an unnamed face cannot be guessed —
+		// so resize has nothing to bake and must not touch the box.
+		pres.addSlide().addText(OVERFLOW, { x: 1, y: 1, w: 3, h: 1, fontSize: 18, fit: 'resize' })
+		const { offY, cy } = firstXfrm(await slide1Xml(pres))
+		expect(cy).toBe(1 * EMU_PER_IN)
+		expect(offY).toBe(1 * EMU_PER_IN)
+	})
+})
+
+describe('measured fit: line spacing', () => {
+	test('exact `lineSpacing` (points) overrides the calibrated single-line pitch', async () => {
+		const pres = await pptxWithSilkscreen()
+		const opts = { wIn: 2, fontSize: 18, fontFace: 'Silkscreen' }
+		const natural = pres.measureText(OVERFLOW, opts)
+		const wide = pres.measureText(OVERFLOW, { ...opts, lineSpacing: 60 })
+		expect(wide.lineCount).toBe(natural.lineCount) // spacing does not change wrapping
+		expect(wide.heightIn).toBeGreaterThan(natural.heightIn)
+	})
+
+	test('`lineSpacingMultiple` scales the pitch proportionally', async () => {
+		const pres = await pptxWithSilkscreen()
+		const opts = { wIn: 2, fontSize: 18, fontFace: 'Silkscreen' }
+		const single = pres.measureText(OVERFLOW, opts)
+		const double = pres.measureText(OVERFLOW, { ...opts, lineSpacingMultiple: 2 })
+		expect(double.heightIn).toBeCloseTo(single.heightIn * 2, 5)
+	})
+
+	test('paragraph space before/after adds to the measured height', async () => {
+		const pres = await pptxWithSilkscreen()
+		const opts = { wIn: 8, fontSize: 18, fontFace: 'Silkscreen' }
+		const bare = pres.measureText('alpha\nbeta', opts)
+		const spaced = pres.measureText('alpha\nbeta', { ...opts, paraSpaceBefore: 12, paraSpaceAfter: 6 })
+		// Two paragraphs x (12 + 6)pt = 36pt = 0.5in, and the reported height carries the
+		// conservative height inflation — which applies to the paragraph spacing as well as
+		// to the line pitch. Naming the factor rather than hardcoding 0.52 keeps this test
+		// from re-pinning a calibration constant that autofit-calibration-oracle owns.
+		expect(spaced.heightIn - bare.heightIn).toBeCloseTo(0.5 * HEIGHT_SAFETY_FACTOR, 5)
+	})
+
+	test('wider line spacing reaches the export bake', async () => {
+		const natural = await shrinkScale({})
+		const wide = await shrinkScale({ lineSpacingMultiple: 2 })
+		expect(wide).toBeLessThan(natural)
+	})
+})
+
+describe('measured fit: solver floor and edges', () => {
+	test('text that cannot fit even at the floor bakes the floor rather than giving up', async () => {
+		const scale = await shrinkScale({ w: 1, h: 0.4 }, OVERFLOW.repeat(4))
+		expect(scale).toBe(25000) // MIN_FONT_SCALE_PCT
+	})
+
+	test('an over-long unbreakable word character-wraps instead of overflowing', async () => {
+		const pres = await pptxWithSilkscreen()
+		// No whitespace to break at, so the greedy layout has to split mid-word. Without the
+		// character-wrap fallback this measures as a single (enormous) line and reports a
+		// height the box would satisfy while the text visibly spills.
+		const m = pres.measureText('W'.repeat(120), { wIn: 1.5, fontSize: 18, fontFace: 'Silkscreen' })
+		expect(m.lineCount).toBeGreaterThan(1)
+		expect(m.widestLineIn).toBeLessThanOrEqual(1.5)
+	})
+
+	test('a tab is measured as a space-width gap, not as zero width', async () => {
+		const pres = await pptxWithSilkscreen()
+		const opts = { wIn: 20, fontSize: 18, fontFace: 'Silkscreen' }
+		const tabbed = pres.measureText('alpha\tbeta', opts)
+		const joined = pres.measureText('alphabeta', opts)
+		expect(tabbed.lineCount).toBe(1)
+		expect(tabbed.widestLineIn).toBeGreaterThan(joined.widestLineIn)
+	})
+
+	test('shrinkScaleFor returns 100 when the text already fits', async () => {
+		const pres = await pptxWithSilkscreen()
+		const m = pres.measureText('Hi', { wIn: 8, fontSize: 12, fontFace: 'Silkscreen' })
+		expect(m.shrinkScaleFor(50)).toBe(100)
+	})
+
+	test('an empty run list is unmeasurable', async () => {
+		const pres = await pptxWithSilkscreen()
+		const m = pres.measureText([], { wIn: 8, fontSize: 12, fontFace: 'Silkscreen' })
+		expect(m.measurable).toBe(false)
+		expect(m.lineCount).toBe(0)
+	})
+
+	test('a zero-width measure box is unmeasurable rather than a divide-by-zero', async () => {
+		const pres = await pptxWithSilkscreen()
+		const m = pres.measureText('alpha', { wIn: 0, fontSize: 12, fontFace: 'Silkscreen' })
+		expect(m.measurable).toBe(false)
 	})
 })
 
