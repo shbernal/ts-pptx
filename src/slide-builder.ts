@@ -2,7 +2,7 @@
  * ts-pptx: SlideBuilder — write-side implementation of the public `Slide` interface
  */
 
-import { asChartType, type CHART_NAME, type SHAPE_NAME } from './core-enums.js'
+import type { CHART_NAME, SHAPE_NAME } from './core-enums.js'
 import type {
 	AddSlideProps,
 	AnimationProps,
@@ -34,7 +34,6 @@ import type {
 } from './core-interfaces.js'
 import type { Slide } from './types/slide.js'
 import type {
-	ChartOptsInternal,
 	SlideObject,
 	SlideRel,
 	SlideRelChart,
@@ -238,8 +237,8 @@ export default class SlideBuilder {
 			type = optType
 		}
 
-		// Set `_type` on ChartOptsInternal as it is what is used as the object is passed around
-		;(options as ChartOptsInternal)._type = Array.isArray(type) ? type : asChartType(type)
+		// `_type` is set by `addChartDefinition` on its own copy of the options — stamping it here
+		// too would write an internal field onto the caller's object for no gain.
 		// addChartDefinition's multi-type branch reads the shared options from its `data` slot
 		if (Array.isArray(type)) {
 			addChartDefinition(this, type, options, undefined)

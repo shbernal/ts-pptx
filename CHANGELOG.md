@@ -209,6 +209,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`addChart` mutated the arrays and options object it was handed.** Series
+  normalization was applied in place, so `pptx.addChart(data, opts)` rewrote
+  `data[0].labels` from `['A','B','C']` to `[['A','B','C']]` — the nested form
+  the multi-level category serializer wants — and stamped an internal
+  `_dataIndex` onto every series. Any caller that reused its own data afterwards
+  (to build a legend, a table, or a second chart) silently got one nested array
+  where it had passed three strings, and the failure surfaced far from the chart
+  call. `addChart` now normalizes into copies; the caller's series objects are
+  never written back to.
+
+  The options object had the same problem and is fixed with it: defaults
+  (`chartColors`, `barGapWidthPct`, `plotArea`, …) were written onto the caller's
+  object, and invalid entries were *deleted* from it — an out-of-range
+  `layout.x`, a bad `catGridLine.size`, a `dataLabelPosition` illegal for the
+  chart type. Sharing one options object across two charts therefore meant the
+  second chart saw the first chart's normalization. Options are now copied before
+  anything is applied, so `addChart` treats both of its arguments as read-only
+  inputs.
+
+  Two consequences worth noting. `_dataIndex` is gone from the public
+  `OptsChartData` type — it was only ever there because the normalization wrote
+  it onto the caller's object, and it remains on the internal series shape the
+  emitters read. And code that *relied* on reading the normalized values back off
+  its own options object after the call (the filled-in defaults, the clamped
+  percentages) no longer sees them; pass the values explicitly instead. Emitted
+  OOXML is byte-identical.
+
 - **A theme color on a chart gridline or series line emitted invalid XML.**
   `valGridLine`, `catGridLine`, `serGridLine` and `barSeriesLine` built their
   color by hand as `<a:srgbClr val="…"/>`, bypassing the shared color emitter

@@ -22,6 +22,64 @@ import { correctShadowOptions } from '../drawingml/effect.js'
 import { valToPts } from '../../units-internal.js'
 
 /**
+ * Copy one series into the internal shape the emitters read, without touching the caller's object.
+ *
+ * `labels` is widened to the nested `string[][]` form the multi-level category serializer wants and
+ * `_dataIndex` records the series' position. Both used to be assigned back onto the caller's own
+ * series object, so `data[0].labels` became `[['A','B','C']]` after `addChart` and any code that
+ * reused the same array afterwards (a legend, a table, a second chart) silently saw one nested array
+ * instead of three strings.
+ *
+ * The copy is one level deep on purpose: everything under `src/gen/chart/` is a pure string builder
+ * that only reads `values`/`sizes`/`customLabels`/`pointStyles`/`errorBars`, so sharing those arrays
+ * with the caller is safe.
+ * @param item - caller-supplied series
+ * @param index - series position, across all subcharts for a combo chart
+ */
+function normalizeChartSeries(item: OptsChartData, index: number): OptsChartDataInternal {
+	const labels = item.labels
+	return {
+		...item,
+		_dataIndex: index,
+		labels: labels === undefined ? undefined : Array.isArray(labels[0]) ? (labels as string[][]) : [labels as string[]],
+	}
+}
+
+/**
+ * Copy a caller-supplied `ChartOpts` so the normalization below never writes back onto it.
+ *
+ * `addChartDefinition` fills in defaults, clamps out-of-range values and deletes invalid keys
+ * (`layout.x`, `catGridLine.size`, `dataLabelPosition`, …). Doing that in place mutated the
+ * caller's object, which is both surprising on its own and order-dependent when one options
+ * object is shared across two charts.
+ *
+ * Nested objects are copied wherever a normalizer writes into them. `structuredClone` is
+ * deliberately not used: it would deep-copy the `ChartMulti[]` on `_type` — breaking the series
+ * identity the combo emit path depends on — and throws on a stray function in an untyped
+ * caller's option bag.
+ * @param opts - caller-supplied chart options
+ */
+function copyChartOptions(opts: ChartOpts | ChartOptsInternal): ChartOptsInternal {
+	const copy: ChartOptsInternal = { ...opts }
+	// `_type` is derived from the `type` argument below; never inherit a caller-stamped one.
+	delete copy._type
+	if (copy.plotArea) {
+		copy.plotArea = { ...copy.plotArea }
+		if (copy.plotArea.border) copy.plotArea.border = { ...copy.plotArea.border }
+		if (copy.plotArea.fill) copy.plotArea.fill = { ...copy.plotArea.fill }
+	}
+	if (copy.chartArea) copy.chartArea = { ...copy.chartArea }
+	if (copy.dataBorder) copy.dataBorder = { ...copy.dataBorder }
+	if (copy.layout) copy.layout = { ...copy.layout }
+	if (copy.catGridLine) copy.catGridLine = { ...copy.catGridLine }
+	if (copy.valGridLine) copy.valGridLine = { ...copy.valGridLine }
+	if (copy.serGridLine) copy.serGridLine = { ...copy.serGridLine }
+	// `correctShadowOptions` normalizes its argument in place (angle rounding, `_alpha`).
+	if (copy.shadow) copy.shadow = { ...copy.shadow }
+	return copy
+}
+
+/**
  * Round and clamp an integer chart percentage/angle option into a schema-valid range.
  *
  * Several chart attributes are bounded integer types whose out-of-range values make
@@ -276,33 +334,35 @@ export function addChartDefinition(
 	// EX: addChartDefinition([ { type:ChartType.bar, data:{name:'', labels:[], values[]} }, {<etc>} ])
 	// Multi-Type Charts
 	let tmpOpt: ChartOpts | ChartOptsInternal | undefined
-	let tmpData: OptsChartData[] = []
+	let tmpData: OptsChartDataInternal[] = []
+	let tmpTypes: ChartMulti[] | undefined
 	if (Array.isArray(type)) {
-		// For multi-type charts there needs to be data for each type,
-		// as well as a single data source for non-series operations.
-		// The data is indexed below to keep the data in order when segmented
-		// into types.
-		type.forEach((obj) => {
-			tmpData = tmpData.concat(obj.data)
+		// For multi-type charts there needs to be data for each type, as well as a single data
+		// source for non-series operations. The series are indexed across subcharts to keep the
+		// data in order when segmented into types.
+		//
+		// The whole `ChartMulti[]` is rebuilt around the normalized copies, not just flattened
+		// into `tmpData`: the combo emit path plots each subchart from `opts._type[i].data`
+		// (see gen/chart/chart-xml.ts), so both views have to reference the same series objects.
+		let seriesIndex = 0
+		tmpTypes = type.map((obj) => {
+			const seriesData = (Array.isArray(obj.data) ? obj.data : []).map((item) =>
+				normalizeChartSeries(item, seriesIndex++)
+			)
+			tmpData = tmpData.concat(seriesData)
+			return { ...obj, data: seriesData }
 		})
 		tmpOpt = !Array.isArray(data) && data && typeof data === 'object' ? data : opt
 	} else {
-		tmpData = Array.isArray(data) ? data : []
+		tmpData = (Array.isArray(data) ? data : []).map(normalizeChartSeries)
 		tmpOpt = opt
 	}
-	tmpData.forEach((item, i) => {
-		item._dataIndex = i
-
-		// Converts the 'labels' array from string[] to string[][] (or the respective primitive type), if needed
-		if (item.labels !== undefined && !Array.isArray(item.labels[0])) {
-			item.labels = [item.labels as string[]]
-		}
-	})
-	const options: ChartOptsInternal = tmpOpt && typeof tmpOpt === 'object' ? tmpOpt : {}
+	// Everything below normalizes onto this copy; the caller's options object is a read-only input.
+	const options: ChartOptsInternal = copyChartOptions(tmpOpt && typeof tmpOpt === 'object' ? tmpOpt : {})
 
 	// STEP 1: Set default options/decode user options
 	// A: Core
-	options._type = Array.isArray(type) ? type : asChartType(type)
+	options._type = tmpTypes ?? asChartType(type as CHART_NAME)
 	options.x = typeof options.x !== 'undefined' && options.x != null && !isNaN(Number(options.x)) ? options.x : 1
 	options.y = typeof options.y !== 'undefined' && options.y != null && !isNaN(Number(options.y)) ? options.y : 1
 	options.w = options.w || '50%'
@@ -424,7 +484,7 @@ export function addChartDefinition(
 	const chartBase = isChartEx ? `chartEx${chartId}` : `chart${chartId}`
 	target._relsChart.push({
 		rId: getNewRelId(target),
-		data: tmpData as OptsChartDataInternal[],
+		data: tmpData,
 		opts: options,
 		type: options._type,
 		globalId: chartId,

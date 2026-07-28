@@ -1536,8 +1536,8 @@ items:
     source: fork:src/gen/define/chart.ts
     type: fork-internal-proposal
     first_seen: 2026-07-27
-    last_reviewed: 2026-07-27
-    status: target
+    last_reviewed: 2026-07-28
+    status: implemented
     priority: p2
     target_area:
       - chart-ooxml
@@ -1572,18 +1572,48 @@ items:
       objects has the same problem. Public option objects should be treated as read-only
       inputs throughout; that is the general rule this violates, so the audit is worth
       more than the single-line fix.
+
+      IMPLEMENTED (2026-07-28). `addChartDefinition` now builds its own copies:
+      `normalizeChartSeries` returns a new series object carrying `_dataIndex` and the
+      nested `labels`, and `copyChartOptions` copies the caller's `ChartOpts` (plus the
+      nested `plotArea`/`chartArea`/`dataBorder`/`layout`/gridline/`shadow` objects the
+      normalizers write into) before any default, clamp or `delete` is applied. The audit
+      the note asked for found two more caller-visible writes, both fixed here: the option
+      normalization above (defaults written onto the caller's object, invalid keys deleted
+      from it — so one options object shared by two charts made the second chart inherit the
+      first's normalization), and `slide-builder.ts` stamping `_type` onto the caller's
+      options before delegating. `values`/`sizes`/`customLabels`/`pointStyles`/`errorBars`
+      needed no copy: everything under `src/gen/chart/` is a pure string builder that only
+      reads them.
+
+      One structural trap is worth recording: the combo path plots each subchart from
+      `opts._type[i].data` (`gen/chart/chart-xml.ts`), not from the flattened `rel.data`, so
+      it only worked because the in-place mutation was visible through both views. The fix
+      rebuilds the whole `ChartMulti[]` around the normalized copies so both still reference
+      the same series objects; a regression case pins it (without it the second subchart
+      emits `<c:idx val="undefined"/>`).
+
+      `_dataIndex` was dropped from the public `OptsChartData` type — it existed only
+      because the normalization wrote it onto the caller's object — and remains required on
+      the internal `OptsChartDataInternal`. Emitted OOXML is unchanged: every chart part and
+      embedded worksheet of the showcase deck is byte-identical across the change. The
+      demo's workaround comment in demos/showcases/quarterly-review/data.mjs is removed.
     evidence:
       kinds:
         - local-source-inspection
         - minimal-repro
+        - regression-test
       local_files:
         - src/gen/define/chart.ts
+        - src/slide-builder.ts
+        - src/types/chart.ts
+        - test/regression/chart-input-immutability.test.js
         - demos/showcases/quarterly-review/data.mjs
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: Normalize `labels` (and audit `values`) into a copy inside addChartDefinition so the caller's series objects are never written back to; add a regression test asserting the input array is unchanged after addChart.
+    next_action: none
   - id: dn-negative-extent-normalization
     source: downstream
     type: downstream-need

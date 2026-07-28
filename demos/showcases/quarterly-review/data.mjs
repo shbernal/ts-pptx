@@ -20,11 +20,8 @@ export const REVENUE_BY_SEGMENT = [
  * Q3 revenue mix — the Q3 column of `REVENUE_BY_SEGMENT`, plus the line each segment gets
  * on the mix slide.
  *
- * This is the source of truth; `REVENUE_MIX` below is derived from it for the chart.
- * Keeping them separate is not tidiness — `addChart` normalizes a series' `labels` from
- * `string[]` to `string[][]` **in place**, so any array handed to a chart is no longer
- * the array you passed in. Iterating the same one afterwards to build the legend yields
- * a single nested array rather than three strings.
+ * This is the source of truth: the slide's legend reads the labels and notes from here, and
+ * `REVENUE_MIX` below is the chart-shaped view derived from it.
  */
 export const SEGMENTS = [
 	{ label: "Platform", value: 25.8, note: "Highest-margin line, and now over half the business." },
@@ -32,7 +29,7 @@ export const SEGMENTS = [
 	{ label: "Licensing", value: 7.2, note: "Flat quarter — see the segment chart." },
 ];
 
-/** Chart-shaped view of `SEGMENTS`. Fresh arrays, safe to hand to `addChart`. */
+/** Chart-shaped view of `SEGMENTS`. */
 export const REVENUE_MIX = [
 	{
 		name: "Q3 FY26 revenue mix",

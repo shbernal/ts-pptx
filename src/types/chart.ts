@@ -19,8 +19,6 @@ export type ChartLineDash =
 	'dash' | 'dashDot' | 'lgDash' | 'lgDashDot' | 'lgDashDotDot' | 'solid' | 'sysDash' | 'sysDot'
 
 export interface OptsChartData {
-	_dataIndex?: number
-
 	/**
 	 * category labels
 	 * @example ['Year 2000', 'Year 2010', 'Year 2020'] // single-level category axes labels
