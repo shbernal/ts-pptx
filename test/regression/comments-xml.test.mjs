@@ -6,6 +6,16 @@ import { makeXmlCommentAuthors, makeXmlComments, resolveCommentAuthors } from '.
 // covers the happy path (author/idx numbering) through the public API; these pin the byte-level
 // details the migration to el()/voidEl() must preserve: attribute order, the optional `dt`
 // attribute, and metacharacter escaping (already correct pre-migration — characterized, not fixed).
+//
+// Note for anyone reading a coverage report: this file imports from `src/`, not `dist/`, so none of
+// it counts toward the reported numbers — the suite is instrumented on the bundle. That is why
+// `gen/slide/comments.ts` still shows five red branches (`slides || []`, `slide._comments || []`
+// twice, the `?? 0` idx seed, and the `!m` skip below) despite being exercised here. All five are
+// defensive fallbacks that the public API cannot reach: `assemble.ts` always passes an array,
+// `SlideBuilder` always initializes `_comments`, and every comment in `_comments` has been seen by
+// `resolveCommentAuthors` by the time `makeXmlComments` runs. Reaching them takes the stub slides
+// below, which is exactly what this file is for. See test/regression/comment-definition.test.js for
+// the definer's side, which does go through the public builder.
 
 const author = (over = {}) => ({ id: 0, name: 'Ada Lovelace', initials: 'AL', lastIdx: 1, clrIdx: 0, ...over })
 const comment = (over = {}) => ({ author: 'Ada Lovelace', initials: 'AL', text: 'x', x: 1, y: 0.5, ...over })
