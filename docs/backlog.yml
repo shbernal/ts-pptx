@@ -1240,7 +1240,7 @@ items:
     target_area: []
     applies_to_current_project: yes
     non_target_reasons: []
-    summary: Raise write-side branch coverage on the emitters still below the gate (media/content-type, measure-fit/text-fit, gen/table/autopage, gen/define/hyperlinks and gen/define/{zoom,preview-image,background} DONE; comment.ts, chart.ts, text.ts and the drawingml stragglers remain)
+    summary: Raise write-side branch coverage on the emitters still below the gate (media/content-type, measure-fit/text-fit, gen/table/autopage, gen/define/hyperlinks and gen/define/{zoom,preview-image,background,comment} DONE; chart.ts, text.ts and the drawingml stragglers remain)
     current_project_notes: |
       Carried over from the retired REPO-IMPROVEMENT-PLAN (its P6) after the read-side
       branch-coverage sweep landed (commits bbf8d3b4..106cc3fc) and the gate was
@@ -1479,6 +1479,43 @@ items:
       only from SlideBuilder, which always carries a 1-based _slideNum. Live where it
       was copied from, dead where it was copied to.
 
+      COMMENT LANDED 2026-07-28. gen/define/comment.ts: branches 73.52 -> 91.17,
+      statements 69.23 -> 92.3, lines 80.95 -> 100. Global 93.41/81.79/98.33/96.00 ->
+      93.46/81.85/98.33/96.04. That closes the cheap gen/define files; what is left of
+      the third priority is the volume work (chart.ts, text.ts) and the drawingml
+      stragglers.
+
+      NO threshold bump, and the margins say why: statements would keep 0.46, branches
+      0.85, functions 0.33, lines 0.04. A five-case file does not move a global gate,
+      which is the expected shape for the rest of this effort -- only chart.ts and
+      text.ts have enough missed branches left to justify another notch. Nothing was
+      loosened.
+
+      Same gap as zoom's, one size down: every existing caller (schema-cases.js, the
+      read round-trips) passes a valid author and text, so neither of the two guards
+      that drop a comment with a warning had ever executed against dist. Five cases
+      through the public builder cover them plus the derivation edges -- the three
+      shapes of "no author" (options omitted entirely, `author` absent, an author that
+      is only whitespace), the two shapes of "no body", a mononym author deriving a
+      single uppercased initial, a blank `initials` string falling through to the
+      derivation rather than emitting an empty marker, and `date` as a Date normalizing
+      to ISO-8601 while `date: ''` is treated as absent.
+
+      What stays red in comment.ts is unreachable by construction: `if (!first)` and the
+      `?? first` fallback in deriveAuthorInitials (only ever called after the author has
+      been trimmed and checked non-empty, so there is always at least one word and the
+      last index is always in range), and `if (!target._comments)` (SlideBuilder
+      declares `_comments: SlideComment[] = []` and is the definer's only caller).
+
+      A measurement finding worth keeping: gen/slide/comments.ts stays at 64.28 branch
+      and should NOT be read as untested. Its five red arms are the same defensive
+      class (`slides || []`, `slide._comments || []` twice, the `?? 0` idx seed, the
+      `!m` skip), all unreachable through the public door, and comments-xml.test.mjs
+      does exercise every one of them -- but it imports from src/, so it can never move
+      a dist number. That is now the third instance of this pattern in the repo
+      (html-dom.ts's border/width helpers, zoom-links.test.js, and this file); the note
+      is recorded in that test's header so the next measurer does not re-derive it.
+
       Read this before trusting a per-file number from coverage/: a run started with
       --coverage.reportsDirectory writes there AND vitest cleans the directory, so a
       narrow probe left in coverage/ (or a later full run wiping coverage/probe) can
@@ -1506,7 +1543,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: comment.ts (73.52 branch) is the last of the cheap gen/define files -- background, preview-image and zoom landed 2026-07-28, and what is left in those three is unreachable by construction, not untested; then the volume work in chart.ts (73 branches) and text.ts (47); separately, move color.ts's two browser-only helpers into html-dom.ts (a src change, so gate it on byte-identity baseline/check); statements/branches/functions stay put until a phase puts a full point behind a notch (lines took its first bump, 94 -> 95, in this pass), and re-measure per-file coverage rather than reading whatever coverage-final.json is on disk
+    next_action: the cheap gen/define files are done -- hyperlinks, zoom, preview-image, background and comment all landed 2026-07-28, and what is left red in them is unreachable by construction, not untested; what remains is the volume work in chart.ts (73 missed branches) and text.ts (47), which are also the only two files left with enough missed branches to justify another notch; separately, move color.ts's two browser-only helpers into html-dom.ts (a src change, so gate it on byte-identity baseline/check); no gate moves until a phase puts a full point behind a notch (current margins 0.46/0.85/0.33/0.04 against 92/80/97/95), and re-measure per-file coverage rather than reading whatever coverage-final.json is on disk -- and before calling a low per-file number a gap, check whether its tests import from src/ (gen/slide/comments.ts is the current example)
 
   - id: fork-autopage-hyperlink-relid-collision
     source: fork:src/gen/define/hyperlinks.ts
