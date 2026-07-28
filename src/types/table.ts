@@ -70,6 +70,14 @@ export interface TableToSlidesProps extends TableProps {
 	 */
 	colW?: number | number[]
 	/**
+	 * Document to resolve a table *id* against.
+	 * - only consulted when the table is identified by string id; passing the element itself
+	 *   needs no document, since one is reached through the element's `ownerDocument`
+	 * - defaults to the global `document`, which is what a browser caller gets
+	 * - supply this to convert a table outside a browser (any DOM implementation will do)
+	 */
+	document?: Document
+	/**
 	 * Title of the slide master to use for the auto-paged slides (the `title` passed to
 	 * `defineSlideMaster`). Matches the `masterTitle` option of `addSlide`.
 	 * - define a master slide to have your auto-paged slides carry a corporate design, etc.

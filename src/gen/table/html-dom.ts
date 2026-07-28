@@ -36,6 +36,66 @@ type TableToSlidesHost = {
 	presLayout: PresLayout
 }
 
+/**
+ * The whole DOM surface `genTableToSlides` needs: the table element, and a way to read a
+ * cell's computed style.
+ *
+ * Resolving this once up front is what decouples the flow from `window`/`document`. Given the
+ * element itself, both halves come from the element's own `ownerDocument`/`defaultView`, so no
+ * global is read at all — which is what lets the same implementation run outside a browser.
+ */
+type DomContext = {
+	table: Element
+	getComputedStyle: (el: Element) => CSSStyleDeclaration
+}
+
+/**
+ * Stand-in for `getComputedStyle` on a document that has no view — a document produced by
+ * parsing rather than by a browsing context has a `null` `defaultView` and therefore no
+ * cascade to compute against. Every property reads as `''`, which every consumer below
+ * already treats as "not set", so styling degrades to defaults instead of throwing.
+ */
+const NO_COMPUTED_STYLE = {
+	getPropertyValue: () => '',
+} as unknown as CSSStyleDeclaration
+
+/**
+ * Bind a style reader to the document's own view, falling back to {@link NO_COMPUTED_STYLE}.
+ * @param {Document | null} doc - the table's owner document
+ * @returns {(el: Element) => CSSStyleDeclaration} computed-style reader
+ */
+function resolveStyleReader(doc: Document | null): (el: Element) => CSSStyleDeclaration {
+	const view = doc?.defaultView
+	return view ? view.getComputedStyle.bind(view) : () => NO_COMPUTED_STYLE
+}
+
+/**
+ * Resolve the table element and its style reader from whatever the caller passed.
+ *
+ * An **element** needs no ambient DOM: the document and its view are reached through
+ * `ownerDocument`/`defaultView`. A **string id** does need one, taken from `options.document`
+ * when supplied and otherwise from `globalThis.document`; with neither, the error names both
+ * remedies rather than surfacing a bare `document is not defined`.
+ * @param {Element | string} target - the table element, or the id of one
+ * @param {TableToSlidesProps} options - generation options (may carry an explicit `document`)
+ * @returns {DomContext} resolved DOM context
+ */
+function resolveDomContext(target: Element | string, options: TableToSlidesProps): DomContext {
+	if (typeof target !== 'string') return { table: target, getComputedStyle: resolveStyleReader(target.ownerDocument) }
+
+	const doc = options.document ?? (globalThis as { document?: Document }).document
+	if (!doc) {
+		throw new Error(
+			'tableToSlides: no DOM available to resolve the table id "' +
+				target +
+				'" — pass the <table> element itself, or supply a document via `options.document`.'
+		)
+	}
+	const table = doc.getElementById(target)
+	if (!table) throw new Error('tableToSlides: Table ID "' + target + '" does not exist!')
+	return { table, getComputedStyle: resolveStyleReader(table.ownerDocument) }
+}
+
 // ===== DOM-table helpers (browser path) =====
 // DOM-independent helpers factored out of the browser-only tableToSlides() flow
 // so they can be unit-tested without a rendered page (see AGENTS.md scope note).
@@ -120,13 +180,13 @@ export function resolveHtmlColWidth(calcWidth: number, setWidth: number, minWidt
 /**
  * Reproduces an HTML table as a PowerPoint table - including column widths, style, etc. - creates 1 or more slides as needed
  * @param {TableToSlidesHost} pptx - ts-pptx instance
- * @param {string} tabEleId - HTMLElementID of the table
+ * @param {Element | string} target - the table element, or the HTMLElementID of the table
  * @param {TableToSlidesProps} options - array of options (e.g.: tabsize)
  * @param {SlideLayoutInternal} masterSlide - masterSlide
  */
 export function genTableToSlides(
 	pptx: TableToSlidesHost,
-	tabEleId: string,
+	target: Element | string,
 	options: TableToSlidesProps = {},
 	masterSlide?: SlideLayoutInternal
 ): void {
@@ -141,8 +201,9 @@ export function genTableToSlides(
 	let arrInchMargins: [number, number, number, number] = [0.5, 0.5, 0.5, 0.5] // TRBL-style
 	let intTabW = 0
 
-	// REALITY-CHECK:
-	if (!document.getElementById(tabEleId)) throw new Error('tableToSlides: Table ID "' + tabEleId + '" does not exist!')
+	// REALITY-CHECK: resolve the table (and its style reader) before anything else — this is
+	// also where a missing/unresolvable table id fails.
+	const ctx = resolveDomContext(target, opts)
 
 	// STEP 1: Set margins
 	if (masterSlide?._margin) {
@@ -172,8 +233,8 @@ export function genTableToSlides(
 	}
 
 	// STEP 2: Grab table col widths - just find the first availble row, either thead/tbody/tfoot, others may have colspans, who cares, we only need col widths from 1
-	let firstRowCells = document.querySelectorAll(`#${tabEleId} tr:first-child th`)
-	if (firstRowCells.length === 0) firstRowCells = document.querySelectorAll(`#${tabEleId} tr:first-child td`)
+	let firstRowCells = ctx.table.querySelectorAll('tr:first-child th')
+	if (firstRowCells.length === 0) firstRowCells = ctx.table.querySelectorAll('tr:first-child td')
 	firstRowCells.forEach((cellEle: Element) => {
 		const cell = cellEle as HTMLTableCellElement
 		if (cell.getAttribute('colspan')) {
@@ -193,7 +254,7 @@ export function genTableToSlides(
 	// STEP 3: Calc/Set column widths by using same column width percent from HTML table
 	arrTabColW.forEach((colW, idxW) => {
 		const intCalcWidth = Number(((Number(emuSlideTabW) * ((colW / intTabW) * 100)) / 100 / EMU_PER_INCH).toFixed(2))
-		const headCell = document.querySelector(`#${tabEleId} thead tr:first-child th:nth-child(${idxW + 1})`)
+		const headCell = ctx.table.querySelector(`thead tr:first-child th:nth-child(${idxW + 1})`)
 		const intSetWidth = headCell ? Number(headCell.getAttribute('data-pptx-width')) : 0
 		const intMinWidth = headCell ? Number(headCell.getAttribute('data-pptx-min-width')) : 0
 		arrColW.push(resolveHtmlColWidth(intCalcWidth, intSetWidth, intMinWidth))
@@ -206,21 +267,22 @@ export function genTableToSlides(
 	// NOTE: We create 3 arrays instead of one so we can loop over body then show header/footer rows on first and last page
 	const tableParts = ['thead', 'tbody', 'tfoot']
 	tableParts.forEach((part) => {
-		document.querySelectorAll(`#${tabEleId} ${part} tr`).forEach((row: Element) => {
+		ctx.table.querySelectorAll(`${part} tr`).forEach((row: Element) => {
 			const htmlRow = row as HTMLTableRowElement
 			const arrObjTabCells: TableCell[] = []
 			Array.from(htmlRow.cells).forEach((cell) => {
+				// The computed style is read a dozen times below; resolve it once per cell.
+				const style = ctx.getComputedStyle(cell)
+
 				// A: Get RGB text/bkgd colors
-				const arrRGB1 = window
-					.getComputedStyle(cell)
+				const arrRGB1 = style
 					.getPropertyValue('color')
 					.replace(/\s+/gi, '')
 					.replace('rgba(', '')
 					.replace('rgb(', '')
 					.replace(')', '')
 					.split(',')
-				let arrRGB2 = window
-					.getComputedStyle(cell)
+				let arrRGB2 = style
 					.getPropertyValue('background-color')
 					.replace(/\s+/gi, '')
 					.replace('rgba(', '')
@@ -229,8 +291,8 @@ export function genTableToSlides(
 					.split(',')
 				if (
 					// NOTE: Default for unstyled tables is black bkgd, so use white instead
-					window.getComputedStyle(cell).getPropertyValue('background-color') === 'rgba(0, 0, 0, 0)' ||
-					window.getComputedStyle(cell).getPropertyValue('transparent')
+					style.getPropertyValue('background-color') === 'rgba(0, 0, 0, 0)' ||
+					style.getPropertyValue('transparent')
 				) {
 					arrRGB2 = ['255', '255', '255']
 				}
@@ -238,14 +300,13 @@ export function genTableToSlides(
 				// B: Create option object
 				const cellOpts: TableCellProps = {
 					bold: !!(
-						window.getComputedStyle(cell).getPropertyValue('font-weight') === 'bold' ||
-						Number(window.getComputedStyle(cell).getPropertyValue('font-weight')) >= 500
+						style.getPropertyValue('font-weight') === 'bold' || Number(style.getPropertyValue('font-weight')) >= 500
 					),
 					color: rgbToHex(Number(arrRGB1[0]), Number(arrRGB1[1]), Number(arrRGB1[2])),
 					fill: { color: rgbToHex(Number(arrRGB2[0]), Number(arrRGB2[1]), Number(arrRGB2[2])) },
-					fontSize: Number(window.getComputedStyle(cell).getPropertyValue('font-size').replace(/[a-z]/gi, '')),
+					fontSize: Number(style.getPropertyValue('font-size').replace(/[a-z]/gi, '')),
 				}
-				const fontFace = ((window.getComputedStyle(cell).getPropertyValue('font-family') || '').split(',')[0] ?? '')
+				const fontFace = ((style.getPropertyValue('font-family') || '').split(',')[0] ?? '')
 					.replace(/"/g, '')
 					.replace('inherit', '')
 					.replace('initial', '')
@@ -255,49 +316,38 @@ export function genTableToSlides(
 				if (colspan) cellOpts.colspan = colspan
 				if (rowspan) cellOpts.rowspan = rowspan
 
-				if (
-					['left', 'center', 'right', 'start', 'end'].includes(
-						window.getComputedStyle(cell).getPropertyValue('text-align')
-					)
-				) {
-					const align = window
-						.getComputedStyle(cell)
-						.getPropertyValue('text-align')
-						.replace('start', 'left')
-						.replace('end', 'right')
+				if (['left', 'center', 'right', 'start', 'end'].includes(style.getPropertyValue('text-align'))) {
+					const align = style.getPropertyValue('text-align').replace('start', 'left').replace('end', 'right')
 					cellOpts.align =
 						align === 'center' ? 'center' : align === 'left' ? 'left' : align === 'right' ? 'right' : undefined
 				}
-				if (['top', 'middle', 'bottom'].includes(window.getComputedStyle(cell).getPropertyValue('vertical-align'))) {
-					const valign = window.getComputedStyle(cell).getPropertyValue('vertical-align')
+				if (['top', 'middle', 'bottom'].includes(style.getPropertyValue('vertical-align'))) {
+					const valign = style.getPropertyValue('vertical-align')
 					cellOpts.valign =
 						valign === 'top' ? 'top' : valign === 'middle' ? 'middle' : valign === 'bottom' ? 'bottom' : undefined
 				}
 
 				// C: Add padding [margin] (if any)
 				// NOTE: Margins translate: px->pt 1:1 (e.g.: a 20px padded cell looks the same in PPTX as 20pt Text Inset/Padding)
-				if (window.getComputedStyle(cell).getPropertyValue('padding-left')) {
+				if (style.getPropertyValue('padding-left')) {
 					const cellMargin: MarginTuple = [0, 0, 0, 0]
 					const sidesPad = ['padding-top', 'padding-right', 'padding-bottom', 'padding-left']
 					sidesPad.forEach((val, idxs) => {
-						cellMargin[idxs] = Math.round(
-							Number(window.getComputedStyle(cell).getPropertyValue(val).replace(/\D/gi, ''))
-						)
+						cellMargin[idxs] = Math.round(Number(style.getPropertyValue(val).replace(/\D/gi, '')))
 					})
 					cellOpts.margin = cellMargin
 				}
 
 				// D: Add border (if any)
 				if (
-					window.getComputedStyle(cell).getPropertyValue('border-top-width') ||
-					window.getComputedStyle(cell).getPropertyValue('border-right-width') ||
-					window.getComputedStyle(cell).getPropertyValue('border-bottom-width') ||
-					window.getComputedStyle(cell).getPropertyValue('border-left-width')
+					style.getPropertyValue('border-top-width') ||
+					style.getPropertyValue('border-right-width') ||
+					style.getPropertyValue('border-bottom-width') ||
+					style.getPropertyValue('border-left-width')
 				) {
 					const cellBorder: BorderTuple = [{ type: 'none' }, { type: 'none' }, { type: 'none' }, { type: 'none' }]
 					const sidesBor = ['top', 'right', 'bottom', 'left']
 					sidesBor.forEach((val, idxb) => {
-						const style = window.getComputedStyle(cell)
 						cellBorder[idxb] = htmlBorderToProps(
 							style.getPropertyValue('border-' + val + '-width'),
 							style.getPropertyValue('border-' + val + '-color')
