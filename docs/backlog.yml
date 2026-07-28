@@ -1240,7 +1240,7 @@ items:
     target_area: []
     applies_to_current_project: yes
     non_target_reasons: []
-    summary: Raise write-side branch coverage on the emitters still below the gate (media/content-type DONE; gen/table/autopage, gen/define/*, measure-fit, text-fit remain)
+    summary: Raise write-side branch coverage on the emitters still below the gate (media/content-type and measure-fit/text-fit DONE; gen/table/autopage and gen/define/* remain)
     current_project_notes: |
       Carried over from the retired REPO-IMPROVEMENT-PLAN (its P6) after the read-side
       branch-coverage sweep landed (commits bbf8d3b4..106cc3fc) and the gate was
@@ -1362,6 +1362,38 @@ items:
       Ratchet once the measure-fit/text-fit work lands, which is the only remaining
       piece with enough headroom (146 missed branches ~= 1.4pt) to justify one.
       Nothing was loosened.
+
+      MEASURE-FIT/TEXT-FIT LANDED 2026-07-28 (25b06a77 text-box input matrix +
+      the standalone measure entry, 7feae4e9 the table path). Second of the three
+      priorities done; only the third (the drawingml/define stragglers) remains.
+      Global 92.22/79.93/98.12/95 -> 92.86/81.07/98.22/95.46 on a full run (198
+      files, 1971 green). Per file: text-fit.ts 70.73 -> 100 branch / 100 stmt;
+      measure-fit.ts 67.11 -> 85.7 branch / 98.4 stmt.
+
+      FIRST THRESHOLD BUMP of this effort: branches 79 -> 80 (measured 81.07, so a
+      full point of slack remains). Statements/functions/lines deliberately left at
+      91/97/94 -- their margins are 1.9/1.2/1.5, which is not enough to pin a notch
+      without risking a flaky gate. Ratchet upward only; nothing loosened.
+
+      The lesson to carry into the remaining work -- ask which PUBLIC DOOR reaches a
+      branch before calling it dead. text-fit's newline handling and its
+      lineSpacingPct/spaceBefore/spaceAfter defaults are genuinely unreachable from a
+      deck: buildFitParagraphs pre-splits every "\n" and always fills those fields.
+      They are fully reachable from `ts-pptx/measure`, a published subpath that exists
+      precisely so a consumer can hand-build FitParagraph[] -- and that subpath had no
+      dist test for the wrap model at all. Covering it there is what took text-fit to
+      100%, and it is the reason a "dead" branch should not be fenced on the strength
+      of one entry point. Same shape in the table half: normalizeRuns's
+      single-run-object form is unreachable from addTable (which normalizes a missing
+      cell text to '' at define/table.ts:418) but reachable from tableLayout(), which
+      takes caller rows unnormalized.
+
+      What stays red in measure-fit.ts is one class and should stay that way: ~50
+      `?? 0` / `|| {}` fallback arms on values the caller already guarantees
+      (prefilled arrays, fields the define pass always sets), plus the `!options` /
+      `!paragraphs` guards normalization makes unreachable. Unreachable by
+      construction per docs/testing.md; reaching them needs hand-built input no caller
+      produces.
     evidence:
       kinds:
         - local-source-inspection
@@ -1381,5 +1413,5 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: cover measure-fit/text-fit (the 146-branch prize), the autopage verbose dump and engine branches, and the hyperlinks auto-page rel callback; move color.ts's two browser-only helpers into html-dom.ts; ratchet the thresholds only once measure-fit lands
+    next_action: cover the autopage verbose dump and then its engine branches (colW scalar vs array, master margin scalar/array, fallback slide height, the trailing-buffer flush), and the hyperlinks auto-page rel-registration callback plus its two validation-error arms; move color.ts's two browser-only helpers into html-dom.ts; consider a statements bump only once one of those lands
 
