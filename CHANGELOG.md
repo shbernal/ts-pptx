@@ -52,6 +52,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A background image supplied as bytes alone no longer declares the wrong
+  content type.** `addBackground()` / `defineSlideMaster({ background })` derived
+  the media extension from `path` only. With no path it substituted the
+  `preencoded.png` placeholder, so `background: { data:
+  'data:image/svg+xml;base64,…' }` embedded SVG bytes in a `.png` part that
+  `[Content_Types].xml` announced as `image/png` — the Default/payload mismatch
+  PowerPoint offers to "repair" — and the same held for any non-PNG format. The
+  `data:` mime is now read first and wins over `path`, as it always has for
+  `addImage()`.
+
+  The sniff itself moves to one shared `imageExtensionForSource(path, data)` in
+  `src/media/content-type.ts`, replacing the four near-copies that had drifted
+  apart (image objects, image fills, picture bullets, OLE preview covers) —
+  which is how the background copy came to be the one missing the mime branch.
+  Two small consequences of the single implementation: a mime is now lower-cased
+  the way a path extension already was (`data:image/PNG;` names its part `.png`,
+  not `.PNG`), and an OLE object's `cover` follows the same bytes-win precedence
+  as everything else.
+
 - **A combo chart's per-subchart options are validated like the chart-level
   ones.** `addChart` normalizes its options once, but a `ChartMulti` entry's own
   `options` were merged over them only at emit time — after every clamp and enum

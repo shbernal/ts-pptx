@@ -33,6 +33,37 @@ export function imageContentType(extn: string): string {
 }
 
 /**
+ * Resolve the file extension an embedded image part should carry, from the caller's source.
+ *
+ * A `data:` URI states its mime type outright, so it wins over `path`: the bytes are the thing
+ * being embedded, and a caller may supply them with no path at all (or with a path whose
+ * extension disagrees with the payload). The extension chosen here names the media part *and*,
+ * via {@link imageContentType}, decides the `<Default>` the package declares for it — so
+ * getting it from a placeholder path is how a deck ends up declaring `image/png` over SVG
+ * bytes, which is exactly the mismatch PowerPoint offers to "repair".
+ *
+ * `image/svg+xml` needs its own test because the `\w+` mime capture stops at the `+`. The
+ * result is always lower-cased, so a `data:image/PNG;` source names its part the same way a
+ * `photo.PNG` path does.
+ * @param {string} path - caller-supplied path/URL (may be empty); query and fragment are stripped
+ * @param {string} data - caller-supplied `data:`/base64 payload (may be empty)
+ * @returns {string} file extension, no dot (e.g. `png`, `jpeg`, `svg`)
+ */
+export function imageExtensionForSource(path: string, data: string): string {
+	// NOTE: Split to address URLs with params (eg: `path/brent.jpg?someParam=true`)
+	const strPath = path || ''
+	const strData = data || ''
+	const pathFile = strPath.slice(strPath.lastIndexOf('/') + 1).split('?')[0] || ''
+	const pathExtn = ((pathFile.split('.').pop() || 'png').split('#')[0] || 'png').toLowerCase()
+
+	// Pre-encoded images can be whatever mime-type they want (and good for them!)
+	const mimeMatch = /image\/(\w+);/.exec(strData)
+	if (strData && mimeMatch?.[1]) return mimeMatch[1].toLowerCase()
+	if (strData.toLowerCase().includes('image/svg+xml')) return 'svg'
+	return pathExtn
+}
+
+/**
  * Map an audio content type's subtype back to the file extension a media part should use.
  *
  * Needed because a caller supplying sound bytes as a `data:` URI states a *content type*

@@ -13,7 +13,7 @@ import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../../gen-utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { svgMarkupToDataUri } from '../../media/base64.js'
-import { imageContentType } from '../../media/content-type.js'
+import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
 import { getImageSizeFromBase64 } from '../../media/image-size.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { nextObjectNameIdx } from './object-name.js'
@@ -45,12 +45,7 @@ export function registerImageFillMedia(target: PresSlideInternal, fill: ShapeFil
 		return
 	}
 
-	// Determine extension: path wins, else sniff the data: mime-type (mirror addImageDefinition())
-	const imagePathFile = strImagePath.slice(strImagePath.lastIndexOf('/') + 1).split('?')[0] || ''
-	let strImgExtn = ((imagePathFile.split('.').pop() || 'png').split('#')[0] || 'png').toLowerCase()
-	const imageMimeMatch = /image\/(\w+);/.exec(strImageData)
-	if (strImageData && imageMimeMatch) strImgExtn = imageMimeMatch[1] ?? strImgExtn
-	else if (strImageData?.toLowerCase().includes('image/svg+xml')) strImgExtn = 'svg'
+	const strImgExtn = imageExtensionForSource(strImagePath, strImageData)
 
 	if (strImgExtn === 'svg') {
 		warn('SVG image fills are not supported; ignoring image fill. Use a raster format (PNG/JPEG/GIF/BMP/WebP).')
@@ -163,18 +158,8 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 		return
 	}
 
-	// STEP 1: Set extension
-	// NOTE: Split to address URLs with params (eg: `path/brent.jpg?someParam=true`)
-	const imagePathFile = strImagePath.slice(strImagePath.lastIndexOf('/') + 1).split('?')[0] || ''
-	let strImgExtn = ((imagePathFile.split('.').pop() || 'png').split('#')[0] || 'png').toLowerCase()
-
-	// However, pre-encoded images can be whatever mime-type they want (and good for them!)
-	const imageMimeMatch = /image\/(\w+);/.exec(strImageData)
-	if (strImageData && imageMimeMatch) {
-		strImgExtn = imageMimeMatch[1] ?? strImgExtn
-	} else if (strImageData?.toLowerCase().includes('image/svg+xml')) {
-		strImgExtn = 'svg'
-	}
+	// STEP 1: Set extension (the `data:` mime wins over the path when both are supplied)
+	const strImgExtn = imageExtensionForSource(strImagePath, strImageData)
 
 	// STEP 2: Set type/path
 	newObject._type = SlideObjectType.image

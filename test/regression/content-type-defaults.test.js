@@ -3,6 +3,7 @@ import {
 	defineRegressionSuite,
 	build,
 	readEntry,
+	listEntries,
 	assert,
 	assertEqual,
 	assertContentTypeDefault,
@@ -180,6 +181,57 @@ defineRegressionSuite('Content type defaults', 'legacy bug-16', [
 			const xml = await readEntry(zip, '[Content_Types].xml')
 			assertContentTypeDefault(xml, 'svg')
 			assertEqual(contentTypeForExtension(xml, 'svg'), 'image/svg+xml', 'svg Default ContentType')
+		},
+	},
+	{
+		// A background used to take its extension from `path` alone. With no path, `addBackground()`
+		// substituted the `preencoded.png` placeholder, so bytes of any other format were embedded in
+		// a `.png` part the package declared as `image/png` — the exact Default/payload mismatch
+		// PowerPoint offers to "repair". Reachable from a plain `background: { data }` call.
+		name: 'a data-only SVG background declares image/svg+xml, not image/png',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.defineSlideMaster({ title: 'data-only-svg', background: { data: SVG_DATA } })
+				p.addSlide({ masterTitle: 'data-only-svg' })
+			})
+			const xml = await readEntry(zip, '[Content_Types].xml')
+			assertContentTypeDefault(xml, 'svg')
+			assertEqual(contentTypeForExtension(xml, 'svg'), 'image/svg+xml', 'svg Default ContentType')
+			assertNoContentTypeDefault(xml, 'png')
+			const media = listEntries(zip).filter((name) => name.includes('media/'))
+			assertEqual(media.length, 1, 'expected exactly one media part')
+			assert(media[0].endsWith('.svg'), `expected an .svg media part; got ${media[0]}`)
+		},
+	},
+	{
+		// The mime carries the same weight for every other format: a data-only GIF background must
+		// not be announced as PNG either.
+		name: 'a data-only GIF background declares image/gif',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.defineSlideMaster({
+					title: 'data-only-gif',
+					background: { data: 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==' },
+				})
+				p.addSlide({ masterTitle: 'data-only-gif' })
+			})
+			const xml = await readEntry(zip, '[Content_Types].xml')
+			assertEqual(contentTypeForExtension(xml, 'gif'), 'image/gif', 'gif Default ContentType')
+			assertNoContentTypeDefault(xml, 'png')
+		},
+	},
+	{
+		// Precedence when the two sources disagree: the bytes decide, matching `addImage()`. A
+		// caller who names the file `.png` but hands over SVG has still handed over SVG.
+		name: 'a background data: mime wins over a disagreeing path extension',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.defineSlideMaster({ title: 'mime-wins', background: { path: 'assets/logo.png', data: SVG_DATA } })
+				p.addSlide({ masterTitle: 'mime-wins' })
+			})
+			const xml = await readEntry(zip, '[Content_Types].xml')
+			assertEqual(contentTypeForExtension(xml, 'svg'), 'image/svg+xml', 'svg Default ContentType')
+			assertNoContentTypeDefault(xml, 'png')
 		},
 	},
 	{

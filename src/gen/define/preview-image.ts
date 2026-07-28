@@ -8,7 +8,7 @@
  */
 import type { PresSlideInternal } from '../../types/internal.js'
 import { getNewRelId } from '../../gen-utils.js'
-import { imageContentType } from '../../media/content-type.js'
+import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
 
 /** 32×32 solid #E7E6E6 PNG — the neutral placeholder shown when the caller supplies no cover image. */
 export const PLACEHOLDER_PNG =
@@ -24,16 +24,8 @@ export const PLACEHOLDER_PNG =
 export function registerPreviewImage(target: PresSlideInternal, cover?: { path?: string; data?: string }): number {
 	const strImagePath = cover?.path || ''
 	let strImageData = cover?.data || ''
-	let extn = 'png'
-	if (strImagePath) {
-		const file = strImagePath.slice(strImagePath.lastIndexOf('/') + 1).split('?')[0] || ''
-		extn = ((file.split('.').pop() || 'png').split('#')[0] || 'png').toLowerCase()
-	} else if (strImageData) {
-		const mime = /image\/(\w+);/.exec(strImageData)
-		if (mime) extn = mime[1] ?? 'png'
-	} else {
-		strImageData = 'image/png;base64,' + PLACEHOLDER_PNG
-	}
+	if (!strImagePath && !strImageData) strImageData = 'image/png;base64,' + PLACEHOLDER_PNG
+	const extn = imageExtensionForSource(strImagePath, strImageData)
 
 	const rId = getNewRelId(target)
 	const mediaSlideKey =

@@ -13,7 +13,7 @@ import type { ObjectOptions, ShapeLineProps, TextProps, TextPropsOptions } from 
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../../gen-utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
-import { imageContentType } from '../../media/content-type.js'
+import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
 import { valToPts } from '../../units-internal.js'
 import { nextObjectNameIdx } from './object-name.js'
 import { createHyperlinkRels } from './hyperlinks.js'
@@ -247,17 +247,8 @@ function createBulletImageRels(
 		// carries the rel; otherwise (re-)register so the new slide's .rels and media part exist.
 		if (bullet._rId && target._relsMedia.some((rel) => rel.rId === bullet._rId)) return
 
-		// Determine extension: path wins, else sniff the data: mime-type (mirror addImageDefinition())
-		let strImgExtn = 'png'
-		if (img.path) {
-			const imagePathFile = img.path.slice(img.path.lastIndexOf('/') + 1).split('?')[0] || ''
-			strImgExtn = ((imagePathFile.split('.').pop() || 'png').split('#')[0] || 'png').toLowerCase()
-		}
-		const imageMimeMatch = /image\/(\w+);/.exec(img.data || '')
-		if (img.data && imageMimeMatch) strImgExtn = imageMimeMatch[1] ?? strImgExtn
-		// `image/svg+xml` does not match the `\w+` sniff above (the `+`), so detect it explicitly (mirror addImageDefinition())
-		else if (img.data?.toLowerCase().includes('image/svg+xml')) strImgExtn = 'svg'
-		// Path-based SVG sniffing is already handled by the extension parse above.
+		// Determine extension: the `data:` mime wins, else parse the path (mirror addImageDefinition())
+		const strImgExtn = imageExtensionForSource(img.path || '', img.data || '')
 
 		const relId = bullet._rId || getNewRelId(target)
 		const mediaSlideKey =

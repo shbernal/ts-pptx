@@ -6,7 +6,7 @@
  */
 import type { BackgroundProps } from '../../core-interfaces.js'
 import type { SlideLayoutInternal } from '../../types/internal.js'
-import { imageContentType } from '../../media/content-type.js'
+import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
 
 /**
  * Reduce a slide/layout name to something safe to embed in a media part name.
@@ -43,17 +43,22 @@ export function sanitizeMediaNamePart(name: string): string {
 export function addBackgroundDefinition(props: BackgroundProps | undefined, target: SlideLayoutInternal): void {
 	// Handle media
 	if (props && (props.path || props.data)) {
-		// Allow the use of only the data key (`path` isnt reqd)
-		props.path = props.path || 'preencoded.png'
-		let strImgExtn = (props.path.split('.').pop() || 'png').split('?')[0] ?? 'png' // Handle "blah.jpg?width=540" etc.
+		// The `data:` mime wins over `path`, as it does for `addImage()`: a background supplied as
+		// bytes alone used to fall back on the `preencoded.png` placeholder path and declare
+		// `image/png` no matter what it actually carried, so `{ data: 'data:image/svg+xml;…' }`
+		// shipped SVG bytes in a part the package announced as PNG.
+		let strImgExtn = imageExtensionForSource(props.path || '', props.data || '')
 		if (strImgExtn === 'jpg') strImgExtn = 'jpeg' // base64-encoded jpg's come out as "data:image/jpeg;base64,/9j/[...]", so correct exttnesion to avoid content warnings at PPT startup
+		// Allow the use of only the data key (`path` isnt reqd). Kept local: `props` is the
+		// caller's own object on the `slide.background =` path, not a clone.
+		const strImgPath = props.path || `preencoded.${strImgExtn}`
 
 		target._relsMedia = target._relsMedia || []
 		const intRels = target._relsMedia.length + 1
 		// NOTE: `Target` cannot have spaces (eg:"Slide 1-image-1.jpg") or a "presentation is corrupt"
 		// warning comes up — `sanitizeMediaNamePart` covers that case along with the rest.
 		target._relsMedia.push({
-			path: props.path,
+			path: strImgPath,
 			type: imageContentType(strImgExtn),
 			extn: strImgExtn,
 			data: props.data || undefined,
