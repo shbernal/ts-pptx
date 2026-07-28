@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
+import { defineRegressionSuite, build, readEntry, assert, assertEqual, contentTypeForExtension } from '../helpers.js'
 
 // Write-side slide transitions and preset build animations
 // (docs/animations-and-transitions.md, Phase 1). The emitters reproduce
@@ -339,6 +339,74 @@ defineRegressionSuite('Transition sounds (write)', [
 				/<Default Extension="wav" ContentType="audio\/x-wav"\/>/.test(ct),
 				'the content type is still the x- form PowerPoint authors'
 			)
+		},
+	},
+	{
+		// The same reasoning as the x-wav case above, applied to the rest of the mime spellings
+		// that are not themselves file extensions. Each row is [data-URI mime, media part
+		// extension, the Default content type that extension must then declare] — the round trip
+		// has to close, or the package declares a type for a part it does not contain.
+		name: 'maps every non-extension audio mime to a real file extension, and back to a content type',
+		fn: async () => {
+			const rows = [
+				['audio/x-wav', 'wav', 'audio/x-wav'],
+				['audio/wave', 'wav', 'audio/x-wav'],
+				['audio/vnd.wave', 'wav', 'audio/x-wav'],
+				['audio/mpeg', 'mp3', 'audio/mpeg'],
+				['audio/x-ms-wma', 'wma', 'audio/x-ms-wma'],
+				['audio/mp4', 'm4a', 'audio/mp4'],
+				// Already an extension: passes through untouched.
+				['audio/flac', 'flac', 'audio/flac'],
+			]
+			const { zip } = await build((p) => {
+				rows.forEach(([mime], idx) => {
+					// Distinct bytes per row so identical-payload dedup does not collapse the parts.
+					p.addSlide().transition = { type: 'fade', sound: { data: `data:${mime};base64,AAA${'ABCDEFG'[idx]}` } }
+				})
+			})
+			const media = Object.keys(zip.files).filter((key) => key.startsWith('ppt/media/'))
+			assert(media.length === rows.length, `one media part per sound, got ${media.join(', ')}`)
+			const ct = await readEntry(zip, '[Content_Types].xml')
+			rows.forEach(([mime, extn, contentType], idx) => {
+				assert(
+					media.includes(`ppt/media/audio-${idx + 1}-1.${extn}`),
+					`${mime} lands on a .${extn} part, got ${media.join(', ')}`
+				)
+				assertEqual(contentTypeForExtension(ct, extn), contentType, `${extn} Default ContentType`)
+			})
+		},
+	},
+	{
+		// `path` is the documented alternative to `data`; the extension then comes from the
+		// filename rather than from a mime, and still has to reach the same content type.
+		name: 'a path-only start sound takes its extension from the filename',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().transition = {
+					type: 'fade',
+					sound: { path: 'test/read/fixtures/media/tiny.mp3', name: 'tiny.mp3' },
+				}
+			})
+			const media = Object.keys(zip.files).filter((key) => key.startsWith('ppt/media/'))
+			assert(media.length === 1 && media[0].endsWith('.mp3'), `sound part is an .mp3, got ${media.join(', ')}`)
+			const ct = await readEntry(zip, '[Content_Types].xml')
+			assertEqual(contentTypeForExtension(ct, 'mp3'), 'audio/mpeg', 'mp3 Default ContentType')
+		},
+	},
+	{
+		// A start sound carrying neither `data` nor `path` has nothing to embed. Emitting a
+		// <p:snd r:embed> anyway would dangle at a relationship that was never created.
+		name: 'a start sound with neither data nor path registers no part and emits no sndAc',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.addSlide().transition = { type: 'fade', sound: { name: 'ding.wav' } }
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(transitionOf(xml) != null, 'the transition itself is still emitted')
+			assert(sndAcOf(xml) == null, 'no sndAc without sound bytes')
+			const rels = await readEntry(zip, 'ppt/slides/_rels/slide1.xml.rels')
+			assert(!/relationships\/audio/.test(rels), 'no audio rel without sound bytes')
+			assert(!Object.keys(zip.files).some((key) => key.startsWith('ppt/media/')), 'no media part without sound bytes')
 		},
 	},
 ])

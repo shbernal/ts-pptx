@@ -24,6 +24,60 @@ const JPG_DATA =
 const EMF_DATA = 'data:image/emf;base64,AQAAAA=='
 const WMF_DATA = 'data:image/wmf;base64,1tZ0AA=='
 
+// Minimal SVG, supplied as bytes so nothing has to be read from disk.
+const SVG_DATA =
+	'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxIiBoZWlnaHQ9IjEiLz4='
+
+// The A/V content type is resolved from the media *extension*, so the payload is never
+// decoded to decide it — four bytes are enough (same shortcut as media-loop.test.js).
+const AV_DATA = 'base64,AAAA'
+
+// What PowerPoint itself authors for each embedded media extension. `mp4`, `mpg` and `mpeg`
+// are the only entries that depend on whether the item is audio or video, so they appear in
+// both tables with different expected content types — that difference is the point.
+// The last row of each table is an extension the mapping does not list, which falls through
+// to `<mtype>/<extn>`.
+const VIDEO_CONTENT_TYPES = [
+	['mp4', 'video/mp4'],
+	['m4v', 'video/mp4'],
+	['mov', 'video/quicktime'],
+	['avi', 'video/avi'],
+	['wmv', 'video/x-ms-wmv'],
+	['mpg', 'video/mpeg'],
+	['mpeg', 'video/mpeg'],
+	['ogv', 'video/ogg'],
+	['webm', 'video/webm'],
+	['3gp', 'video/3gp'],
+]
+
+const AUDIO_CONTENT_TYPES = [
+	['mp4', 'audio/mp4'],
+	['mpg', 'audio/mpeg'],
+	['mpeg', 'audio/mpeg'],
+	['mp3', 'audio/mpeg'],
+	['m4a', 'audio/mp4'],
+	['wav', 'audio/x-wav'],
+	['wma', 'audio/x-ms-wma'],
+	['aac', 'audio/aac'],
+	['oga', 'audio/ogg'],
+	['ogg', 'audio/ogg'],
+	['flac', 'audio/flac'],
+	['opus', 'audio/opus'],
+]
+
+/** One deck carrying one media item per row of `table`; returns its `[Content_Types].xml`. */
+async function buildMediaDeck(type, table) {
+	const { zip } = await build((p) => {
+		const s = p.addSlide()
+		table.forEach(([extn], idx) => {
+			// `extn` is a documented MediaProps option and wins over the data-URI mime sniff,
+			// so each row is one media rel with exactly the extension under test.
+			s.addMedia({ type, extn, data: `${type}/${extn};${AV_DATA}`, x: 0.5, y: 0.25 * idx + 0.25, w: 1, h: 0.2 })
+		})
+	})
+	return readEntry(zip, '[Content_Types].xml')
+}
+
 const CHART_FREE_MEDIA_DEFAULTS = ['jpeg', 'jpg', 'svg', 'gif', 'm4v', 'mp4', 'vml', 'xlsx']
 const EMPTY_DECK_MEDIA_DEFAULTS = ['png', ...CHART_FREE_MEDIA_DEFAULTS]
 
@@ -97,6 +151,56 @@ defineRegressionSuite('Content type defaults', 'legacy bug-16', [
 			const xml = await readEntry(zip, '[Content_Types].xml')
 			assertContentTypeDefault(xml, 'wmf')
 			assertEqual(contentTypeForExtension(xml, 'wmf'), 'image/x-wmf', 'wmf Default ContentType')
+		},
+	},
+	{
+		// The `image/jpg` mime is not the IANA spelling but is widespread in the wild; the deck
+		// must still declare `image/jpeg`, which is what PowerPoint authors for a `.jpg` part.
+		name: 'an image/jpg data mime keeps the jpg extension but declares image/jpeg',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addImage({ data: JPG_DATA.replace('data:image/jpeg;', 'data:image/jpg;'), x: 1, y: 1, w: 1, h: 1 })
+			})
+			const xml = await readEntry(zip, '[Content_Types].xml')
+			assertContentTypeDefault(xml, 'jpg')
+			assertEqual(contentTypeForExtension(xml, 'jpg'), 'image/jpeg', 'jpg Default ContentType')
+		},
+	},
+	{
+		// A background image's extension comes from its `path`, so a `.svg` background is the one
+		// route that reaches the svg mapping (`addImage` registers its SVG rel with the content
+		// type spelled out, and SVG image *fills* are rejected outright).
+		name: 'SVG background emits an svg Default with image/svg+xml',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.defineSlideMaster({ title: 'svg-bkgd', background: { path: 'assets/logo.svg', data: SVG_DATA } })
+				p.addSlide({ masterTitle: 'svg-bkgd' })
+			})
+			const xml = await readEntry(zip, '[Content_Types].xml')
+			assertContentTypeDefault(xml, 'svg')
+			assertEqual(contentTypeForExtension(xml, 'svg'), 'image/svg+xml', 'svg Default ContentType')
+		},
+	},
+	{
+		// A Default whose ContentType disagrees with what PowerPoint expects for that extension is
+		// exactly the mismatch that produces the "repair" prompt, so the whole table is asserted
+		// rather than a representative sample.
+		name: 'video extensions declare the content types PowerPoint authors',
+		fn: async () => {
+			const xml = await buildMediaDeck('video', VIDEO_CONTENT_TYPES)
+			for (const [extn, contentType] of VIDEO_CONTENT_TYPES) {
+				assertEqual(contentTypeForExtension(xml, extn), contentType, `${extn} Default ContentType (video)`)
+			}
+		},
+	},
+	{
+		name: 'audio extensions declare the content types PowerPoint authors',
+		fn: async () => {
+			const xml = await buildMediaDeck('audio', AUDIO_CONTENT_TYPES)
+			for (const [extn, contentType] of AUDIO_CONTENT_TYPES) {
+				assertEqual(contentTypeForExtension(xml, extn), contentType, `${extn} Default ContentType (audio)`)
+			}
 		},
 	},
 	{
