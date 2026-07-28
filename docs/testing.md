@@ -178,6 +178,89 @@ of that file — each patched into an authored master and run past the schema
 validator, so "the input is legal" is checked rather than asserted. Extend that
 note rather than re-deriving it if the number ever comes up again.
 
+### Reading a red number on the write side
+
+The section above is about the read model, where the dominant question is whether
+an input is even possible. The emitters fail differently: their input is whatever
+a caller passes to the public builder, and every `src/gen/**` file sits behind one
+or more *doors* — `addTable`, `addChart`, the `ts-pptx/measure` subpath — that
+normalize before the emitter runs. So the write-side question is not "can this
+input exist?" but **"which door reaches this, and is that door in scope?"**
+
+Ask these in order before writing a case for a red emitter branch:
+
+- **Is the file low on _statements_, not just branches?** That is a different
+  signal, and a stronger one. A branch gap means arms are unexercised; a statement
+  gap means a whole input shape or a whole outcome has never run. Both of the big
+  finds in this area were statement gaps: `gen/define/hyperlinks.ts` sat at 48%
+  statements because nothing anywhere put a hyperlink on a *table cell*, and
+  `gen/define/zoom.ts` and `comment.ts` were low because every existing fixture fed
+  them *valid* input, so the entire refusal half of each definer — the guards that
+  drop an unresolvable target with a warning — had never executed. Estimate the
+  phase from the statement number; the branch percentage will understate it.
+- **On a small pure emitter, low statements means a caller never arrives.** The
+  first question there is "which caller is supposed to reach this and doesn't?",
+  not "which test am I missing?". `gen/drawingml/line.ts` at 65% statements looked
+  untested and was in fact *unreachable*: four `define/` rebuilds dropped `cap`,
+  `pattern` and `image` off the caller's object, so a documented public option was
+  ignored library-wide and `line: { type: 'pattern' }` threw. The tell was a
+  literal zero execution count on an arm a fixture demonstrably exercised.
+- **A branch dead from one door can be live from another.** `text-fit.ts`'s newline
+  handling and its `lineSpacingPct` / `spaceBefore` / `spaceAfter` defaults are
+  genuinely unreachable from a deck, because `buildFitParagraphs` pre-splits every
+  `\n` and always fills those fields — and fully reachable from `ts-pptx/measure`,
+  a published subpath that exists precisely so a consumer can hand-build
+  `FitParagraph[]`. Covering it *there* took the file to 100%. Same shape in
+  `normalizeRuns`, unreachable from `addTable` (which normalizes) and reachable
+  from `tableLayout()` (which does not). Enumerate the doors before calling an arm
+  dead.
+- **…and then check whether the other door is in scope.** The mirror case:
+  `gen/table/autopage.ts`'s scalar-`colW` arms, `?? 0` fallbacks and no-rows guards
+  are reachable only from `tableToSlides`, the browser-only path excluded from the
+  report, while `addTable` resolves and defaults all of it first. Those really are
+  dead. Both questions, not just the first one.
+- **Is it a dev-only debug dump?** `verbose` is a documented `TableProps` option
+  whose trace does `.toFixed()` arithmetic on props that may legitimately be
+  percentage strings, and no test set it — seven uncovered functions and ~50
+  uncovered statements in one file. Worth a case, because a dump that throws on a
+  documented option is a real bug, but the test pins *"the trace survives its
+  inputs"* and must say so in its header. It is not a substitute for the engine
+  branches underneath.
+- **Is the red arm dead code you could delete instead?** Two functions in
+  `gen/drawingml/color.ts` were callable only from the browser path and measured on
+  the Node chunk anyway; moving them into their sole caller (`gen/table/html-dom.ts`,
+  already coverage-excluded) removed the false signal with no fence and no test.
+  Thirteen `x = x || !x ? x : <default>` ternaries in `gen/define/chart.ts` were
+  identity assignments whose alternative no value of `x` can reach; deleting them
+  removed thirteen permanently-red branches and changed no emitted byte. Deleting a
+  false signal beats fencing it, and beats testing it. Gate any such `src` edit on
+  `byte-identity:baseline` / `byte-identity:check` (see AGENTS.md).
+
+Two traps specific to this side, both of which have cost real time:
+
+**A branch counter records that an operand was _evaluated_, not that it was true.**
+The second arm of `!border.width || isNaN(border.width)` *looks* unreachable — `NaN`
+is falsy, so the first arm should always catch it — and it is not: any truthy width
+reaches the second operand and marks it. Two arms were written up as "unreachable by
+construction" on that reasoning before a probe showed both green. Applies to every
+`!x || isNaN(x)` and `!x || x.length` shape in the repo; probe before classifying.
+
+**The src-import trap above applies to emitters too, and is easy to misread as a
+gap.** `gen/slide/comments.ts` sits near 64% branches and is not untested —
+`comments-xml.test.mjs` exercises every one of its red arms with stub slides, but it
+imports from `src/`, so it can never move a `dist` number. That is the third
+instance in the repo, after `html-dom.ts`'s helpers and `zoom-links.test.js`. Check
+the import path of the tests that already name a file before calling its number a
+gap.
+
+Finally, **re-measure; do not reason from whatever is in `coverage/`.** A run started
+with `--coverage.reportsDirectory` both writes to that directory *and* cleans it, so a
+narrow probe left behind (or a later full run wiping `coverage/probe`) can leave a
+stale `coverage-final.json` that reports *fewer* covered branches than a three-file
+probe does. A subset beating the full run is the tell. Recorded per-file numbers drift
+the same way: two files in this package were logged at 73 and 47 missed branches and
+were actually at 83 and 23 when the work started.
+
 ## OOXML Schema Validation
 
 Install the validator once:
