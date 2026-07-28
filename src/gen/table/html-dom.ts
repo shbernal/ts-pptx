@@ -173,6 +173,148 @@ export function resolveHtmlColWidth(calcWidth: number, setWidth: number, minWidt
 	return isFinite(minWidth) && minWidth > safeCalc ? minWidth : safeCalc
 }
 
+/** A CSS value that is a bare number, or a number with a `px`/`%` unit. Nothing else parses. */
+const CSS_LENGTH = /^\s*(-?(?:\d+\.?\d*|\.\d+))\s*(px|%)?\s*$/i
+
+/**
+ * Parse a single computed CSS length in **px** to its numeric magnitude.
+ *
+ * A bare number is read as px (computed styles do not emit one, but an inline `style` read
+ * back by a non-browser DOM can). Everything else — `''`, `auto`, `3em`, and deliberately
+ * `30%` — is `NaN`: a percentage is meaningful only relative to something, so it cannot be
+ * turned into an absolute length here. (Percentages *are* usable as a proportional column
+ * basis; that is {@link parseCssWidthBasis}'s job, not this one's.) Callers decide what a
+ * `NaN` means for them.
+ * @param {string} value - computed CSS value, e.g. `"1.5px"`
+ * @returns {number} magnitude in px, or `NaN` when the value is not an absolute px length
+ */
+export function parseCssPx(value: string): number {
+	const match = CSS_LENGTH.exec(String(value ?? ''))
+	if (!match || match[2] === '%') return NaN
+	return Number(match[1])
+}
+
+/**
+ * Parse a whole row of computed CSS widths into a column basis, or reject the set.
+ *
+ * The result is only ever used *proportionally* (each column's share of the total), so the
+ * unit does not have to be absolute — it only has to be the same for every column. Hence:
+ *
+ * - all `px` (or bare numbers) → their magnitudes
+ * - all `%` → their magnitudes; `[25%, 25%, 50%]` is a perfectly good 1:1:2 basis
+ * - anything else, or a **mix** of units, or a single unparseable entry (`auto`, `''`,
+ *   `3em`) → `[]`, meaning "no usable basis"
+ *
+ * Rejecting the whole set on one bad entry is deliberate: a partial basis would silently
+ * give the unparseable columns zero width, which is worse than falling back to an equal
+ * split. Negative magnitudes reject for the same reason.
+ * @param {readonly string[]} values - computed `width` per column, in column order
+ * @returns {number[]} per-column basis, or `[]` when the set is not usable
+ */
+export function parseCssWidthBasis(values: readonly string[]): number[] {
+	const basis: number[] = []
+	let unit = ''
+	for (const value of values) {
+		const match = CSS_LENGTH.exec(String(value ?? ''))
+		if (!match) return []
+		const magnitude = Number(match[1])
+		if (!isFinite(magnitude) || magnitude < 0) return []
+		const valueUnit = (match[2] ?? 'px').toLowerCase()
+		if (!unit) unit = valueUnit
+		else if (unit !== valueUnit) return []
+		basis.push(magnitude)
+	}
+	return basis
+}
+
+/**
+ * Choose which vector the proportional column math runs on, degrading gracefully.
+ *
+ * `offsetWidth` is the ideal basis — it is the width the table actually rendered at — but it
+ * requires a layout engine, and reports `0` for every cell both in a hidden table and on any
+ * DOM outside a browser. So:
+ *
+ * 1. **measured** (`offsetWidth`) when it carries any width at all — the browser path, unchanged
+ * 2. **CSS widths** when the stylesheet states them (see {@link parseCssWidthBasis})
+ * 3. **equal split** otherwise — a basis of all-ones, which the existing proportional math
+ *    turns into equal columns for free
+ *
+ * Only the basis changes; `data-pptx-width` / `data-pptx-min-width` overrides still apply
+ * downstream via {@link resolveHtmlColWidth} and still win outright.
+ * @param {readonly number[]} measured - per-column `offsetWidth`
+ * @param {readonly number[]} cssWidths - per-column CSS width basis (`[]` when unusable)
+ * @returns {number[]} the basis vector to run the proportional calc on
+ */
+export function pickColWidthBasis(measured: readonly number[], cssWidths: readonly number[]): number[] {
+	const sum = (arr: readonly number[]): number => arr.reduce((acc, n) => acc + (isFinite(n) ? n : 0), 0)
+	if (sum(measured) > 0) return [...measured]
+	if (cssWidths.length === measured.length && sum(cssWidths) > 0) return [...cssWidths]
+	return measured.map(() => 1)
+}
+
+/**
+ * The minimum a cell has to look like for {@link readCellText}. Any DOM's element satisfies it;
+ * stating it structurally is what lets the fallback walk be unit-tested without a DOM at all.
+ */
+type TextCell = {
+	innerText?: string
+	nodeType?: number
+	nodeValue?: string | null
+	nodeName?: string
+	childNodes?: ArrayLike<TextCell>
+}
+
+/**
+ * Read a cell's text, with `<br>` surviving as a newline.
+ *
+ * `innerText` is the right answer and is what the browser path uses — it is the *rendered*
+ * text, so it already collapses whitespace and turns `<br>` into `"\n"`. But it is an
+ * HTML-spec extra that not every DOM implements (jsdom notably does not), and on those the
+ * property is simply absent, which would silently empty every cell.
+ *
+ * The fallback walks `childNodes`, concatenating text and mapping `<br>` to `"\n"`, then
+ * collapses whitespace runs per line and trims — an approximation of `innerText` for a DOM
+ * with no rendering to ask. It cannot know about `display: none` or `text-transform`; a
+ * caller that needs those needs a real browser.
+ * @param {TextCell} cell - the table cell element
+ * @returns {string} cell text, `<br>`-separated lines joined by `"\n"`
+ */
+export function readCellText(cell: TextCell): string {
+	if (typeof cell.innerText === 'string') return cell.innerText
+
+	// Accumulate one bucket per line rather than one string with "\n" separators: the source's
+	// own indentation contains newlines, and only a `<br>` may actually start a new line. A
+	// separator character could not tell those two apart; separate buckets never have to.
+	const lines: string[] = ['']
+	const append = (text: string): void => {
+		lines[lines.length - 1] = (lines[lines.length - 1] ?? '') + text
+	}
+	const walk = (node: TextCell): void => {
+		if (node.nodeType === 3) {
+			append(node.nodeValue ?? '')
+			return
+		}
+		if (node.nodeType !== 1) return
+		if ((node.nodeName ?? '').toUpperCase() === 'BR') {
+			lines.push('')
+			return
+		}
+		const children = node.childNodes
+		for (let idx = 0; idx < (children?.length ?? 0); idx++) {
+			const child = children?.[idx]
+			if (child) walk(child)
+		}
+	}
+
+	// Walk from the cell's children: the cell itself is an element, and can never be a BR.
+	const children = cell.childNodes
+	for (let idx = 0; idx < (children?.length ?? 0); idx++) {
+		const child = children?.[idx]
+		if (child) walk(child)
+	}
+	return lines.map((line) => line.replace(/\s+/g, ' ').trim()).join('\n')
+}
+
 // ===== Live-DOM tableToSlides() flow =====
 // Browser-only entry (reads a rendered table via getComputedStyle/offsetWidth);
 // out of active scope — see AGENTS.md. Internally signposted by `// STEP 1..5`.
@@ -198,6 +340,7 @@ export function genTableToSlides(
 	const arrObjTabFootRows: TableCell[][] = []
 	const arrColW: number[] = []
 	const arrTabColW: number[] = []
+	const arrTabColCssW: string[] = []
 	let arrInchMargins: [number, number, number, number] = [0.5, 0.5, 0.5, 0.5] // TRBL-style
 	let intTabW = 0
 
@@ -233,26 +376,49 @@ export function genTableToSlides(
 	}
 
 	// STEP 2: Grab table col widths - just find the first availble row, either thead/tbody/tfoot, others may have colspans, who cares, we only need col widths from 1
+	// Two bases are collected in the same pass: the rendered `offsetWidth` (what a browser
+	// reports) and the computed CSS `width` (the only width statement available where nothing
+	// laid the table out). `pickColWidthBasis` decides which one STEP 3 runs on.
 	let firstRowCells = ctx.table.querySelectorAll('tr:first-child th')
 	if (firstRowCells.length === 0) firstRowCells = ctx.table.querySelectorAll('tr:first-child td')
+	const arrCellSpans: number[] = []
 	firstRowCells.forEach((cellEle: Element) => {
 		const cell = cellEle as HTMLTableCellElement
+		const offsetW = Number(cell.offsetWidth)
+		const measured = isFinite(offsetW) ? offsetW : 0
+		arrTabColCssW.push(ctx.getComputedStyle(cell).getPropertyValue('width'))
 		if (cell.getAttribute('colspan')) {
 			// Guesstimate (divide evenly) col widths
 			// NOTE: both j$query and vanilla selectors return {0} when table is not visible)
-			for (let idxc = 0; idxc < Number(cell.getAttribute('colspan')); idxc++) {
-				arrTabColW.push(Math.round(cell.offsetWidth / Number(cell.getAttribute('colspan'))))
+			const span = Number(cell.getAttribute('colspan'))
+			arrCellSpans.push(span)
+			for (let idxc = 0; idxc < span; idxc++) {
+				arrTabColW.push(Math.round(measured / span))
 			}
 		} else {
-			arrTabColW.push(cell.offsetWidth)
+			arrCellSpans.push(1)
+			arrTabColW.push(measured)
 		}
 	})
-	arrTabColW.forEach((colW) => {
+
+	// The CSS basis is parsed per *cell* (unit uniformity is a property of the row as authored),
+	// then expanded across each cell's colspan the same way `offsetWidth` is.
+	const parsedCellCssW = parseCssWidthBasis(arrTabColCssW)
+	const arrCssColW: number[] = []
+	if (parsedCellCssW.length === arrCellSpans.length) {
+		parsedCellCssW.forEach((cssW, idxC) => {
+			const span = arrCellSpans[idxC] ?? 1
+			for (let idxc = 0; idxc < span; idxc++) arrCssColW.push(cssW / span)
+		})
+	}
+
+	const arrBasisColW = pickColWidthBasis(arrTabColW, arrCssColW)
+	arrBasisColW.forEach((colW) => {
 		intTabW += colW
 	})
 
 	// STEP 3: Calc/Set column widths by using same column width percent from HTML table
-	arrTabColW.forEach((colW, idxW) => {
+	arrBasisColW.forEach((colW, idxW) => {
 		const intCalcWidth = Number(((Number(emuSlideTabW) * ((colW / intTabW) * 100)) / 100 / EMU_PER_INCH).toFixed(2))
 		const headCell = ctx.table.querySelector(`thead tr:first-child th:nth-child(${idxW + 1})`)
 		const intSetWidth = headCell ? Number(headCell.getAttribute('data-pptx-width')) : 0
@@ -359,7 +525,7 @@ export function genTableToSlides(
 				// LAST: Add cell
 				arrObjTabCells.push({
 					_type: SlideObjectType.tablecell,
-					text: cell.innerText, // `innerText` returns <br> as "\n", so linebreak etc. work later!
+					text: readCellText(cell), // <br> must survive as "\n", so linebreak etc. work later!
 					options: cellOpts,
 				})
 			})
