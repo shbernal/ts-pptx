@@ -25,6 +25,30 @@ function bodyRows(n) {
 	return Array.from({ length: n }, (_, i) => [{ text: `Row ${i} A` }, { text: `Row ${i} B` }])
 }
 
+/**
+ * Run `fn` with `console.log` captured, returning the lines it emitted. Restoring in a
+ * `finally` matters: a throwing build must not leave the rest of the suite stubbed.
+ * (Same shape as the `console.warn` capture in connector-shape.test.js.)
+ */
+async function captureLog(fn) {
+	const orig = console.log
+	const lines = []
+	// `String(a)` rather than JSON: the final dump logs whole TableRowSlide objects, and
+	// only the string lines are asserted on below.
+	console.log = (...args) => lines.push(args.map((a) => (typeof a === 'string' ? a : String(a))).join(' '))
+	try {
+		await fn()
+	} finally {
+		console.log = orig
+	}
+	return lines
+}
+
+/** First captured line matching `re`, or '' — keeps the assertions readable. */
+function lineMatching(lines, re) {
+	return lines.find((l) => re.test(l)) || ''
+}
+
 defineRegressionSuite('Table autoPage option surface', [
 	{
 		name: 'uniform numeric colW is applied to every column and paginates',
@@ -230,6 +254,111 @@ defineRegressionSuite('Table autoPage option surface', [
 				})
 			})
 			assert(slideFiles(zip).length >= 2, 'an 80-row full-height table should overflow')
+		},
+	},
+	// --- `verbose` -----------------------------------------------------------------
+	// `verbose` is a documented (dev-only) `TableProps` flag, and its trace does real
+	// arithmetic — `.toFixed()` on props that may legitimately be percentage *strings*.
+	// The two cases below pin that the dump survives both input shapes and that what it
+	// reports agrees with what was emitted. They pin the trace's *shape*, not the emitted
+	// OOXML: nothing here asserts a formatted number's value, so the layout constants stay
+	// free to move.
+	{
+		name: '`verbose` traces the auto-paging run for numeric props and its slide count matches',
+		fn: async () => {
+			let files = []
+			const lines = await captureLog(async () => {
+				const { zip } = await build((p) => {
+					// `colW` as an array with no `w` is the one shape that reaches the width
+					// calc's own trace line — with `w` set, that step is skipped entirely.
+					p.addSlide().addTable(bodyRows(40), {
+						x: 0.5,
+						y: 0.5,
+						h: 5,
+						colW: [4.5, 4.5],
+						margin: 0.05,
+						slideMargin: 0.5,
+						autoPageSlideStartY: 0.6,
+						autoPageCharWeight: 0.2,
+						autoPage: true,
+						fontSize: 12,
+						verbose: true,
+					})
+				})
+				files = slideFiles(zip)
+			})
+
+			assert(lines.includes('[[VERBOSE MODE]]'), 'expected the trace header; got: ' + lines.slice(0, 3).join(' | '))
+			// A numeric prop goes through the `.toFixed(1)` arm. Only "it printed a number"
+			// is asserted — the value is scaled as though `x` were already EMU, which it is
+			// not on this fork (`define/table.ts` keeps raw inches through to emission), so
+			// pinning the digits would cement a stale unit into the suite.
+			assert(
+				/\| tableProps\.x .*= [\d.]+$/.test(lineMatching(lines, /\| tableProps\.x /)),
+				'expected numeric `x` to print through the number arm; got: ' + lineMatching(lines, /\| tableProps\.x /)
+			)
+			assertEqual(
+				lineMatching(lines, /\| numCols /).replace(/.*= /, ''),
+				'2',
+				'the trace should report the column count it derived'
+			)
+			assert(files.length >= 2, `expected overflow to multiple slides; got ${files.length}`)
+			assert(
+				lines.some((l) => l.includes('NEW SLIDE CREATED')),
+				'a paginating table should trace its page breaks'
+			)
+			assert(
+				lines.some((l) => /ROW \[0\]: START/.test(l)),
+				'expected the per-row trace'
+			)
+			// The dump is the engine's own account of what it produced, so it is worth
+			// checking against the package rather than merely asserting it printed.
+			assertEqual(
+				lineMatching(lines, /FINAL: tableRowSlides\.length/).replace(/.*= /, ''),
+				String(files.length),
+				'the traced page count should match the slides actually emitted'
+			)
+			// The cell-wrapping trace ([1/4]..[4/4] inside `parseTextToLines`) never appears:
+			// its only call site passes `verbose: false` outright. Asserted so those arms are
+			// demonstrably unreachable rather than merely untested — if the flag is ever
+			// wired through, this is the line that says so.
+			assert(
+				!lines.some((l) => l.startsWith('[1/4]') || l.startsWith('[4/4]')),
+				'the cell-wrapping trace is not wired to `verbose`; expected no [n/4] lines'
+			)
+		},
+	},
+	{
+		name: '`verbose` prints percentage-string props verbatim instead of NaN',
+		fn: async () => {
+			const lines = await captureLog(async () => {
+				// Percentage strings are a supported `Coord`. The trace guards each one with a
+				// `typeof === 'number'` check; without it, `('5%' / 914400).toFixed(1)` would
+				// put NaN into a diagnostic meant to explain a layout.
+				await build((p) => {
+					p.addSlide().addTable(bodyRows(40), {
+						x: '5%',
+						y: '5%',
+						w: 9, // numeric `w` beside string x/y/h — the other side of the same guard
+						h: '60%',
+						margin: 0,
+						autoPage: true,
+						fontSize: 12,
+						verbose: true,
+					})
+				})
+			})
+
+			assertEqual(lineMatching(lines, /\| tableProps\.x /).replace(/.*= /, ''), '5%', 'string `x` should pass through')
+			assertEqual(lineMatching(lines, /\| tableProps\.h /).replace(/.*= /, ''), '60%', 'string `h` should pass through')
+			assert(
+				/\| tableProps\.w .*= [\d.]+$/.test(lineMatching(lines, /\| tableProps\.w /)),
+				'numeric `w` should still print through the number arm'
+			)
+			assert(
+				!lines.some((l) => l.includes('NaN')),
+				'no traced value should be NaN; got: ' + lines.filter((l) => l.includes('NaN')).join(' | ')
+			)
 		},
 	},
 ])
