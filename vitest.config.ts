@@ -59,10 +59,12 @@ export default defineConfig({
 				// Raised 91 -> 92 once the table auto-pager landed: measured 93.21, so the gate
 				// keeps well over a point of slack.
 				statements: 92,
-				// Raised 79 -> 80 once measure-fit/text-fit landed: measured 81.42, so the
-				// gate keeps a full point of slack. Ratchet upward only — if a change drops a
-				// number below its gate, that is a finding to explain, never a gate to lower.
-				branches: 80,
+				// Raised 80 -> 81 once the text and chart definers landed: measured 82.79, so the
+				// gate keeps 1.79. 82 was available on the raw number and declined — it would
+				// keep 0.79, under the point of slack every notch here is required to leave.
+				// Ratchet upward only — if a change drops a number below its gate, that is a
+				// finding to explain, never a gate to lower.
+				branches: 81,
 				// Left alone deliberately: measured 98.33, so the next notch would keep 0.33,
 				// and a gate with less slack than a point is a gate that goes red on noise.
 				functions: 97,
