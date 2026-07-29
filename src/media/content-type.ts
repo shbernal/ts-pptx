@@ -8,7 +8,7 @@
 
 /**
  * Map an image file extension to its OOXML content type.
- * Inverse of the read-side `IMAGE_EXTENSION_BY_CONTENT_TYPE` (src/read/api/shapes.ts):
+ * Inverse of the read-side `IMAGE_EXTENSION_BY_CONTENT_TYPE` (src/read/api/shapes/picture.ts):
  * EMF/WMF use the `x-`-prefixed forms PowerPoint authors (and that the read side
  * expects), `jpg`/`jpeg` normalize to `image/jpeg`, and `svg` to `image/svg+xml`.
  * Only the content type is derived here; the file extension (used for the media

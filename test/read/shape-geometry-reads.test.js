@@ -1,5 +1,5 @@
 // Read-model coverage for the custom-geometry segment types + path-attr defaults
-// in src/read/api/shapes.ts (readGeometryPath) that the custgeom.pptx fixture
+// in src/read/api/shapes/geometry.ts (readGeometryPath) that the custgeom.pptx fixture
 // doesn't carry: quadBezTo, arcTo (with and without its optional attributes),
 // path viewport / fill / stroke defaults, and the documented non-numeric-point
 // degrade-to-0. custgeom.test.js covers moveTo / lnTo / cubicBezTo / close on a

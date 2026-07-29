@@ -1,4 +1,4 @@
-// Phase 3 edit tests for shape fill / line colour setters (src/read/api/shapes.ts).
+// Phase 3 edit tests for shape fill / line colour setters (src/read/api/shapes/base.ts).
 //
 // Contract under test: setting fillColor / fillSchemeColor / noFill() / lineColor
 // on a Shape mutates the shape's p:spPr (or p:grpSpPr) in document order, marks

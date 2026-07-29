@@ -1,4 +1,4 @@
-// Write→read fidelity for Connector endpoint binding (src/read/api/shapes.ts).
+// Write→read fidelity for Connector endpoint binding (src/read/api/shapes/connector.ts).
 //
 // A connector authored with `startShape`/`endShape` emits
 // `<p:cNvCxnSpPr><a:stCxn id idx/><a:endCxn id idx/></p:cNvCxnSpPr>`, binding each

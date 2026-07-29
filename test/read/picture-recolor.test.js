@@ -1,6 +1,6 @@
 // Write→read fidelity for the three picture recolour modes the writer gained in
 // T1.1 (grayscale / biLevel / clrChange), closing the read/write parity gap: the
-// read model (src/read/api/shapes.ts `Picture.recolor`) already decoded five
+// read model (src/read/api/shapes/picture.ts `Picture.recolor`) already decoded five
 // recolour effects, but the writer authored only `a:alphaModFix` (transparency)
 // and `a:duotone`. Each test authors an image carrying one new mode with the
 // write API, reads it back through the deep model, and asserts the `Recolor`

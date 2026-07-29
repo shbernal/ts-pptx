@@ -1,5 +1,5 @@
 // Read-model coverage for the shape EFFECT / STROKE-DETAIL / PATTERN-FILL getters
-// in src/read/api/shapes.ts that the fixture decks don't happen to carry:
+// in src/read/api/shapes/base.ts that the fixture decks don't happen to carry:
 // Shape.shadow (a:effectLst/a:outerShdw), Shape.innerShadow (a:innerShdw),
 // Shape.glow (a:glow), Shape.reflection (a:reflection), Shape.softEdge
 // (a:softEdge), Shape.patternFill (a:pattFill), Shape.lineEnds (a:ln head/tail

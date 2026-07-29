@@ -1,6 +1,6 @@
 // Read-model coverage for placeholder EFFECTIVE GEOMETRY resolution
 // (src/read/api/theme-context.ts `resolveInheritedFrame`, surfaced by
-// `Shape.resolvedFrame` in src/read/api/shapes.ts). This is the F1 read-model
+// `Shape.resolvedFrame` in src/read/api/shapes/base.ts). This is the F1 read-model
 // follow-on from FIDELITY-BACKLOG.md: a slide placeholder's `left`/`top`/`width`/
 // `height` getters read `null` when the shape carries no own `a:xfrm` (T2.2's
 // scope stopped at that raw signal); `resolvedFrame` resolves the *effective*
