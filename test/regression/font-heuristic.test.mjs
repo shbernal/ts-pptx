@@ -1,8 +1,8 @@
-// Deterministic unit tests for the unregistered-font fallback (src/font-metrics.ts
+// Deterministic unit tests for the unregistered-font fallback (src/measure/font-metrics.ts
 // getHeuristicFontMetrics) and the shared table column-width resolver
 // (src/units-internal.ts resolveTableColWidthsEmu). Both are pure — no font files needed.
 import { describe, test, expect } from 'vitest'
-import { getHeuristicFontMetrics } from '../../src/font-metrics.ts'
+import { getHeuristicFontMetrics } from '../../src/measure/font-metrics.ts'
 import { resolveTableColWidthsEmu } from '../../src/units-internal.ts'
 
 const EMU_PER_IN = 914400

@@ -47,6 +47,13 @@ exports and let this repository own the internal OOXML generation details.
   walk, the group and slide-number branches that consume its shape-id counter, and
   the slide `.rels`. `src/gen-utils.ts` holds only the cross-cutting helpers that
   belong to no single part (XML escaping, object names, rel ids).
+- `src/measure/` holds the calibrated text-measurement engine behind the
+  `ts-pptx/measure` subpath and the export-time autofit bake: `font-metrics.ts`
+  (advance widths + the registry), `text-fit.ts` (the wrap simulator and the
+  shrink/resize solvers), `paragraphs.ts` (authored object → simulator inputs),
+  `table-fit.ts` (`computeTableLayout` and the cell-grid walk), and `fit.ts` (the
+  pass that measures and rewrites slide objects before the sync XML build).
+  `src/measure.ts` is the public barrel over it. See `docs/measured-text-fit.md`.
 - `src/core-interfaces.ts` and `src/core-enums.ts` define the public typed contract.
   `core-interfaces.ts` is a re-export barrel over `src/types/*` (split by domain).
   The generator-internal `*Internal` wire shapes live in `src/types/internal.ts`

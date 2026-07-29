@@ -1,6 +1,6 @@
 // Conservative-against-PowerPoint regression for the measured-fit shrink solver.
 //
-// The shrink solver (src/text-fit.ts) must never under-shrink: its computed
+// The shrink solver (src/measure/text-fit.ts) must never under-shrink: its computed
 // `fontScale` has to be ≤ the value PowerPoint itself baked for the same box, so
 // the text never overflows in PowerPoint or LibreOffice. This holds the solver to
 // the PowerPoint-authored oracle (test/read/fixtures/autofit-*.cases.json +
@@ -15,8 +15,8 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { describe, test, expect } from 'vitest'
-import { solveShrink, solveResize } from '../../src/text-fit.ts'
-import { parseFontMetrics, FontMetricsRegistry } from '../../src/font-metrics.ts'
+import { solveShrink, solveResize } from '../../src/measure/text-fit.ts'
+import { parseFontMetrics, FontMetricsRegistry } from '../../src/measure/font-metrics.ts'
 
 const EMU_PER_PT = 12700
 

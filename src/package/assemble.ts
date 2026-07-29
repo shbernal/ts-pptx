@@ -18,9 +18,9 @@ import type {
 	TableStyleInternal,
 } from '../types/internal.js'
 import type { RuntimeAdapter } from '../runtime/types.js'
-import type { FontMetricsRegistry } from '../font-metrics.js'
+import type { FontMetricsRegistry } from '../measure/font-metrics.js'
 import { flattenEmbeddedFaces } from '../embedded-fonts.js'
-import { applyMeasuredFit } from '../measure-fit.js'
+import { applyMeasuredFit } from '../measure/fit.js'
 import { getNewRelId } from '../gen-utils.js'
 import { decodeBase64ToBytes } from '../media/base64.js'
 import { audioExtensionForSubtype } from '../media/content-type.js'

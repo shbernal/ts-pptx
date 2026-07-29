@@ -1,5 +1,5 @@
 // Deterministic unit tests for the measured-fit line-break simulator + shrink
-// solver (src/text-fit.ts). Uses SYNTHETIC font metrics so the suite is fully
+// solver (src/measure/text-fit.ts). Uses SYNTHETIC font metrics so the suite is fully
 // reproducible and needs no real font files — CI runs Node-only on Linux. The
 // conservative-against-PowerPoint assertions against real fonts live in
 // test/read/autofit-calibration-oracle.test.mjs (skipped when fonts are absent).
@@ -13,7 +13,7 @@ import {
 	MIN_FONT_SCALE_PCT,
 	WIDTH_SAFETY_FACTOR,
 	HEIGHT_SAFETY_FACTOR,
-} from '../../src/text-fit.ts'
+} from '../../src/measure/text-fit.ts'
 
 // Monospace-ish synthetic metrics: every code point advances `emPerChar` ems.
 // advanceWidthPt(text, size) === count(text) * emPerChar * size (+ charSpacing).

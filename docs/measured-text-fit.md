@@ -18,10 +18,13 @@ doc_type: "decision"
 (text boxes) and `TableCellProps.fit:'shrink'` (table cells) is implemented and
 calibrated against PowerPoint-authored fixtures. Source:
 
-- `src/font-metrics.ts` — opentype.js metrics provider (+ heuristic fallback) and
-  the `FontMetricsRegistry`.
-- `src/text-fit.ts` — `wrap=square` simulator and the shrink/resize solvers.
-- `src/measure-fit.ts` — the export-time pass that measures text boxes and table
+- `src/measure/font-metrics.ts` — opentype.js metrics provider (+ heuristic
+  fallback), the `FontMetricsRegistry`, and `makeRegistryResolver`.
+- `src/measure/text-fit.ts` — `wrap=square` simulator and the shrink/resize solvers.
+- `src/measure/paragraphs.ts` — turns an authored slide object into the
+  simulator's inputs (runs → `FitParagraph`s, insets, box, anchor share).
+- `src/measure/table-fit.ts` — `computeTableLayout` and the cell-grid walk.
+- `src/measure/fit.ts` — the export-time pass that measures text boxes and table
   cells and rewrites the slide object before the sync XML build.
 - `pptx.registerFontMetrics()` — the public registration API.
 
@@ -59,7 +62,7 @@ pptx headlessly hits it — so it lives upstream, not as a downstream workaround
 
 ## Design
 
-### Font metrics provider (`src/font-metrics.ts`)
+### Font metrics provider (`src/measure/font-metrics.ts`)
 
 - Loads a font file (TTF/OTF) and exposes per-glyph advance widths +
   ascent/descent/line-gap. **`opentype.js`** (new dependency, lazily imported,
@@ -89,7 +92,7 @@ slide.addText(runs, { x, y, w, h, fontFace: 'Aptos', fit: 'shrink' })
 `source` is a path/URL or raw `Uint8Array`/`ArrayBuffer`; font bytes are loaded
 via `RuntimeAdapter.loadFontData` (node `fs` / browser `fetch`).
 
-### Wrap simulator + solvers (`src/text-fit.ts`)
+### Wrap simulator + solvers (`src/measure/text-fit.ts`)
 
 - Greedy `wrap=square` line breaking that mirrors PowerPoint: break on whitespace,
   hard-break over-long tokens, honor `\n`, `charSpacing`, bold/italic metrics, and
@@ -105,7 +108,7 @@ via `RuntimeAdapter.loadFontData` (node `fs` / browser `fetch`).
 - Conservative WIDTH/HEIGHT safety factors (`1.03`/`1.04`) approximate
   PowerPoint's device-DPI advance rounding, so the simulator wraps slightly early.
 
-### Integration (`src/measure-fit.ts`)
+### Integration (`src/measure/fit.ts`)
 
 - A measured-fit pass runs **during async export**, before the `gen/` emitter's sync body
   build. It extracts paragraphs/runs (mirroring `gen/slide/objects/` grouping + inheritance),
@@ -181,8 +184,8 @@ prediction must never disagree with what the export then bakes, so both paths sh
 one converter (`buildFitParagraphs`), one resolver (`makeRegistryResolver`), and one
 layout function (`measureLayout`) — there is no second wrap model. The one deliberate
 exception is an **empty** registry (see below). Source: `src/measure.ts` (subpath entry), `measureText` +
-`buildFitParagraphs` + `makeRegistryResolver` in `src/measure-fit.ts`, and
-`measureLayout` in `src/text-fit.ts`.
+`buildFitParagraphs` in `src/measure/paragraphs.ts`, `makeRegistryResolver` in
+`src/measure/font-metrics.ts`, and `measureLayout` in `src/measure/text-fit.ts`.
 
 ### Instance methods (inches/points, reuse registered metrics)
 

@@ -1235,7 +1235,8 @@ items:
         - src/gen/define/background.ts 71.4 -> 71.42 (unmoved)
         - src/gen/define/text.ts       73.5 -> 74.6
         - src/measure-fit.ts           67.1 -> 67.11 (unmoved, still the floor)
-        - src/text-fit.ts              70.7 -> 70.73 (unmoved)
+                                       [now src/measure/fit.ts + paragraphs.ts + table-fit.ts]
+        - src/text-fit.ts              70.7 -> 70.73 (unmoved) [now src/measure/text-fit.ts]
       The html-dom.ts bullet above is now RESOLVED and no longer needs its caveat:
       vitest.config.ts excludes `dist/browser.js` / `dist/browser-*.js`, so the
       browser-only chunk that file bundles into is out of the report entirely rather
@@ -1574,8 +1575,8 @@ items:
         - src/gen/define/zoom.ts
         - src/gen/drawingml/color.ts
         - src/gen/drawingml/line.ts
-        - src/measure-fit.ts
-        - src/text-fit.ts
+        - src/measure/fit.ts
+        - src/measure/text-fit.ts
       schema_fixture: null
       validator_result: null
       powerpoint_result: null

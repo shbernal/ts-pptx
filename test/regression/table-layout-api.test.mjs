@@ -5,8 +5,8 @@
 // Width geometry is exact (shared resolveTableColWidthsEmu); auto-height rows are
 // conservative estimates flagged heightExact:false, exact when rowH/table h pins them.
 import { describe, test, expect } from 'vitest'
-import { computeTableLayout } from '../../src/measure-fit.ts'
-import { FontMetricsRegistry } from '../../src/font-metrics.ts'
+import { computeTableLayout } from '../../src/measure/table-fit.ts'
+import { FontMetricsRegistry } from '../../src/measure/font-metrics.ts'
 import TsPptx from '../../dist/node.js'
 
 // Monospace synthetic metrics: every code point advances `emPerChar` ems.

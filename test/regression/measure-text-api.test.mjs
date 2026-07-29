@@ -9,9 +9,11 @@
 import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { describe, test, expect } from 'vitest'
-import { measureText, buildFitParagraphs, makeRegistryResolver } from '../../src/measure-fit.ts'
-import { solveResize, solveShrink, HEIGHT_SAFETY_FACTOR, WIDTH_SAFETY_FACTOR } from '../../src/text-fit.ts'
-import { FontMetricsRegistry, parseFontMetrics, getHeuristicFontMetrics } from '../../src/font-metrics.ts'
+import { measureText } from '../../src/measure/fit.ts'
+import { buildFitParagraphs } from '../../src/measure/paragraphs.ts'
+import { makeRegistryResolver } from '../../src/measure/font-metrics.ts'
+import { solveResize, solveShrink, HEIGHT_SAFETY_FACTOR, WIDTH_SAFETY_FACTOR } from '../../src/measure/text-fit.ts'
+import { FontMetricsRegistry, parseFontMetrics, getHeuristicFontMetrics } from '../../src/measure/font-metrics.ts'
 import TsPptx from '../../dist/node.js'
 
 // Resolve a genuine Aptos font file via fontconfig; null when unavailable so the
