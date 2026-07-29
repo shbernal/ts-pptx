@@ -43,7 +43,7 @@ const sidebar = docsConfig.navigation.map((group) => ({
 }))
 
 export default defineConfig({
-	base: process.env.VITEPRESS_BASE ?? '/TsPptx/',
+	base: process.env.VITEPRESS_BASE ?? '/ts-pptx/',
 	cleanUrls: true,
 	description: docsConfig.description,
 	lang: 'en-US',
