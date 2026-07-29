@@ -1,5 +1,9 @@
 # ts-pptx
 
+[![npm](https://img.shields.io/npm/v/@shbernal/ts-pptx)](https://www.npmjs.com/package/@shbernal/ts-pptx)
+[![CI](https://github.com/shbernal/ts-pptx/actions/workflows/ci.yml/badge.svg)](https://github.com/shbernal/ts-pptx/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 ts-pptx generates PowerPoint `.pptx` files from TypeScript and modern
 JavaScript. This project targets ESM package consumers, typed application code,
 reproducible package verification, and agent-assisted OOXML development.
@@ -180,6 +184,9 @@ as a line break), `colspan`/`rowspan`, computed colors, weight, alignment,
 padding and borders, and auto-paging.
 
 ## Documentation
+
+The full documentation site is published at
+**<https://shbernal.github.io/ts-pptx/>**, including the generated API reference.
 
 - [Documentation index](docs/README.md)
 - [Project target](docs/project-target.md)
