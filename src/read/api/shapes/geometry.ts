@@ -16,6 +16,7 @@ import {
 	type Element,
 } from '../../oxml/dom.js'
 import type { CustomGeometryPath, GeometryCommand } from './types.js'
+import { InvalidOptionError } from '../../../errors.js'
 
 /**
  * One `a:pt` coordinate as a raw path-unit integer. A guide-name reference
@@ -86,8 +87,10 @@ export function readGeometryPath(path: Element): CustomGeometryPath {
 
 /** Validate and round an EMU geometry value; extents (`cx`/`cy`) must be non-negative. */
 export function toEmu(value: number, attribute: string, allowNegative: boolean): number {
-	if (!Number.isFinite(value)) throw new Error(`${attribute} must be a finite number of EMU, got ${value}`)
-	if (!allowNegative && value < 0) throw new Error(`${attribute} must be non-negative, got ${value}`)
+	if (!Number.isFinite(value))
+		throw new InvalidOptionError('coord/non-finite', `${attribute} must be a finite number of EMU, got ${value}`)
+	if (!allowNegative && value < 0)
+		throw new InvalidOptionError('coord/negative', `${attribute} must be non-negative, got ${value}`)
 	return Math.round(value)
 }
 

@@ -23,6 +23,7 @@ import {
 	type Document,
 	type Element,
 } from '../oxml/dom.js'
+import { InternalError } from '../../errors.js'
 
 const P_NS = OOXML_NS.p
 
@@ -259,7 +260,10 @@ function getOrCreateMainSeqChildTnLst(root: Element, doc: Document): Element {
 		tmRootChildLst = timing.getElementsByTagNameNS(P_NS, 'childTnLst')[0]
 	}
 	if (!tmRootChildLst)
-		throw new Error('getOrCreateMainSeqChildTnLst: failed to resolve or create the tmRoot child list')
+		throw new InternalError(
+			'animation/timing-scaffold-failed',
+			'getOrCreateMainSeqChildTnLst: failed to resolve or create the tmRoot child list'
+		)
 	const seq = importScaffold(doc, MAIN_SEQ_SCAFFOLD)
 	setAttr(firstChild(seq, 'p:cTn') as Element, 'id', String(maxCTnId(timing) + 1))
 	tmRootChildLst.insertBefore(seq, tmRootChildLst.firstChild)

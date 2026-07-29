@@ -34,6 +34,7 @@ import {
 	type TransitionInput,
 } from './transition.js'
 import { enumerateSpids, flattenAnimations, hasAnimations, pruneSpids, remapSpids } from './animation.js'
+import { InternalError, InvalidOptionError, PackageReadError } from '../../errors.js'
 
 const IMAGE_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 const NOTES_SLIDE_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
@@ -137,7 +138,8 @@ export class Slide {
 	 */
 	get element_(): Element {
 		const root = this.part.dom.documentElement
-		if (!root) throw new Error(`Slide ${this.partName} has no root <p:sld> element`)
+		if (!root)
+			throw new PackageReadError('package/part-has-no-root', `Slide ${this.partName} has no root <p:sld> element`)
 		return root
 	}
 
@@ -194,7 +196,8 @@ export class Slide {
 	 */
 	set hidden(value: boolean) {
 		const root = this.part.dom.documentElement
-		if (!root) throw new Error(`Slide ${this.partName} has no root <p:sld> element`)
+		if (!root)
+			throw new PackageReadError('package/part-has-no-root', `Slide ${this.partName} has no root <p:sld> element`)
 		if (value) setAttr(root, 'show', '0')
 		else removeAttr(root, 'show')
 		this.part.markDirty()
@@ -220,7 +223,8 @@ export class Slide {
 	 */
 	set transition(value: TransitionInput | null) {
 		const root = this.part.dom.documentElement
-		if (!root) throw new Error(`Slide ${this.partName} has no root <p:sld> element`)
+		if (!root)
+			throw new PackageReadError('package/part-has-no-root', `Slide ${this.partName} has no root <p:sld> element`)
 		removeTransition(root)
 		if (value) {
 			const doc = this.part.dom
@@ -565,9 +569,10 @@ export class Slide {
 		requirePositive(height, 'height')
 
 		const spTree = this.#spTree()
-		if (!spTree) throw new Error(`Slide ${this.partName} has no spTree to add a shape to`)
+		if (!spTree)
+			throw new PackageReadError('slide/no-shape-tree', `Slide ${this.partName} has no spTree to add a shape to`)
 		const doc = spTree.ownerDocument
-		if (!doc) throw new Error('Slide DOM has no owner document')
+		if (!doc) throw new InternalError('oxml/node-has-no-document', 'Slide DOM has no owner document')
 
 		const id = this.#nextShapeId()
 		const sp = buildTextBox(doc, {
@@ -601,13 +606,17 @@ export class Slide {
 		const extension = (options.extension ?? sniffed?.extension)?.toLowerCase().replace(/^\./, '')
 		const contentType = options.contentType ?? sniffed?.contentType
 		if (!extension || !contentType) {
-			throw new Error('Could not determine image type; pass { extension, contentType } to addPicture')
+			throw new InvalidOptionError(
+				'image/undeterminable-type',
+				'Could not determine image type; pass { extension, contentType } to addPicture'
+			)
 		}
 
 		const spTree = this.#spTree()
-		if (!spTree) throw new Error(`Slide ${this.partName} has no spTree to add a picture to`)
+		if (!spTree)
+			throw new PackageReadError('slide/no-shape-tree', `Slide ${this.partName} has no spTree to add a picture to`)
 		const doc = spTree.ownerDocument
-		if (!doc) throw new Error('Slide DOM has no owner document')
+		if (!doc) throw new InternalError('oxml/node-has-no-document', 'Slide DOM has no owner document')
 
 		const opc = this.presentation.opc
 		const mediaPartName = opc.reserveMediaPartName(extension)
@@ -676,12 +685,13 @@ export class Slide {
 }
 
 function requireFinite(value: number, name: string): void {
-	if (!Number.isFinite(value)) throw new Error(`${name} must be a finite number of EMU, got ${value}`)
+	if (!Number.isFinite(value))
+		throw new InvalidOptionError('coord/non-finite', `${name} must be a finite number of EMU, got ${value}`)
 }
 
 function requirePositive(value: number, name: string): void {
 	requireFinite(value, name)
-	if (value <= 0) throw new Error(`${name} must be positive, got ${value}`)
+	if (value <= 0) throw new InvalidOptionError('coord/not-positive', `${name} must be positive, got ${value}`)
 }
 
 interface TextBoxSpec {

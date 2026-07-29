@@ -20,6 +20,7 @@
  */
 import type { AssetRef, IrValue } from '../ir.js'
 import { isAssetRef } from '../ir.js'
+import { InvalidOptionError } from '../../errors.js'
 
 /** Matches `.prettierrc`: `printWidth: 120`. */
 const MAX_WIDTH = 120
@@ -91,7 +92,8 @@ export function printString(value: string): string {
  * source that would not run.
  */
 export function printNumber(value: number): string {
-	if (!Number.isFinite(value)) throw new Error(`Cannot print a non-finite number: ${value}`)
+	if (!Number.isFinite(value))
+		throw new InvalidOptionError('script/non-finite-literal', `Cannot print a non-finite number: ${value}`)
 	return String(value)
 }
 

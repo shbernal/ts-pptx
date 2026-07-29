@@ -68,6 +68,7 @@ import { carryNotes, ensureNotesMasterFromXml } from './ops/notes-master.js'
 import { layoutPartNamesOf, resolveSingleRel, slideMasterPartNames } from './ops/part-index.js'
 import { pruneIfOrphan } from './ops/prune.js'
 import { rescaleImportedGeometry } from './ops/rescale-import.js'
+import { InternalError, InvalidOptionError, PackageReadError, UnsupportedFeatureError } from '../../errors.js'
 
 const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
 const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
@@ -200,11 +201,18 @@ export class Presentation {
 		const officeDocument = packageRels.byType(OFFICE_DOCUMENT_REL)
 		const officeDocumentRel = officeDocument[0]
 		if (officeDocument.length !== 1 || !officeDocumentRel) {
-			throw new Error(`Expected exactly one officeDocument relationship, found ${officeDocument.length}`)
+			throw new PackageReadError(
+				'package/office-document-relationship-invalid',
+				`Expected exactly one officeDocument relationship, found ${officeDocument.length}`
+			)
 		}
 		const partName = packageRels.resolveTarget(officeDocumentRel.id)
 		const part = this.opc.part(partName)
-		if (!part) throw new Error(`officeDocument relationship targets a missing part: ${partName}`)
+		if (!part)
+			throw new PackageReadError(
+				'package/relationship-target-missing',
+				`officeDocument relationship targets a missing part: ${partName}`
+			)
 		this.#presentationPart = part
 		return part
 	}
@@ -222,7 +230,11 @@ export class Presentation {
 			if (!relId) continue
 			const partName = rels.resolveTarget(relId)
 			const part = this.opc.part(partName)
-			if (!part) throw new Error(`Slide relationship ${relId} targets a missing part: ${partName}`)
+			if (!part)
+				throw new PackageReadError(
+					'package/relationship-target-missing',
+					`Slide relationship ${relId} targets a missing part: ${partName}`
+				)
 			slides.push(new Slide(this, part, intValue(attr(sldId, 'id')) ?? 0, index++))
 		}
 		return slides
@@ -347,7 +359,7 @@ export class Presentation {
 	 */
 	cloneSlide(index: number, options: { at?: number } = {}): Slide {
 		const source = this.slides[index]
-		if (!source) throw new Error(`No slide at index ${index} to clone`)
+		if (!source) throw new InvalidOptionError('slide/index-out-of-range', `No slide at index ${index} to clone`)
 		const opc = this.opc
 		const sourcePart = source.part
 
@@ -377,7 +389,7 @@ export class Presentation {
 	 */
 	removeSlide(index: number): string {
 		const slide = this.slides[index]
-		if (!slide) throw new Error(`No slide at index ${index} to remove`)
+		if (!slide) throw new InvalidOptionError('slide/index-out-of-range', `No slide at index ${index} to remove`)
 		const partName = slide.partName
 
 		// The slide's internal targets, captured before its rels are dropped, so the
@@ -441,7 +453,7 @@ export class Presentation {
 	 */
 	importSlide(source: Presentation, index: number, options: ImportSlideOptions = {}): Slide {
 		const sourceSlide = source.slides[index]
-		if (!sourceSlide) throw new Error(`No slide at index ${index} to import`)
+		if (!sourceSlide) throw new InvalidOptionError('slide/index-out-of-range', `No slide at index ${index} to import`)
 
 		// 1. Pre-flight: slide sizes must match unless the caller opts into a rescale.
 		const target = this.slideSize
@@ -450,12 +462,16 @@ export class Presentation {
 			!target || !incoming || target.widthEmu !== incoming.widthEmu || target.heightEmu !== incoming.heightEmu
 		if (sizesDiffer && !options.rescale) {
 			const fmt = (s: SlideSize | null): string => (s ? `${s.widthEmu}×${s.heightEmu} EMU` : 'unknown')
-			throw new Error(
+			throw new InvalidOptionError(
+				'import/slide-size-mismatch',
 				`importSlide requires equal slide sizes (pass { rescale: 'fit' | 'stretch' } to rescale); target is ${fmt(target)}, source is ${fmt(incoming)}`
 			)
 		}
 		if (sizesDiffer && options.rescale && (!target || !incoming)) {
-			throw new Error('importSlide rescale requires both decks to declare a slide size (p:sldSz)')
+			throw new InvalidOptionError(
+				'import/slide-size-unknown',
+				'importSlide rescale requires both decks to declare a slide size (p:sldSz)'
+			)
 		}
 
 		// 2. Copy the slide and its dependencies. 'preserve' flattens the theme into
@@ -474,7 +490,8 @@ export class Presentation {
 						)
 					: copyPart(this.#importContext(source.opc), sourceSlide.partName)
 		const newPart = this.opc.part(newPartName)
-		if (!newPart) throw new Error(`Imported slide part went missing: ${newPartName}`)
+		if (!newPart)
+			throw new InternalError('import/part-went-missing', `Imported slide part went missing: ${newPartName}`)
 
 		// 2b. Rescale the imported geometry to this deck's canvas when sizes differ.
 		if (sizesDiffer && options.rescale && target && incoming) {
@@ -541,7 +558,8 @@ export class Presentation {
 			const incoming = source.slideSize
 			if (!target || !incoming || target.widthEmu !== incoming.widthEmu || target.heightEmu !== incoming.heightEmu) {
 				const fmt = (s: SlideSize | null): string => (s ? `${s.widthEmu}×${s.heightEmu} EMU` : 'unknown')
-				throw new Error(
+				throw new InvalidOptionError(
+					'import/slide-size-mismatch',
 					`importSlideMasters requires equal slide sizes (pass { requireEqualSize: false } to override); target is ${fmt(target)}, source is ${fmt(incoming)}`
 				)
 			}
@@ -670,14 +688,16 @@ export class Presentation {
 		if (typeof options.layout === 'string') {
 			const matches = gallery.filter((l) => l.name === options.layout)
 			if (matches.length > 1) {
-				throw new Error(
+				throw new InvalidOptionError(
+					'layout/ambiguous-name',
 					`appendSlides: layout name ${JSON.stringify(options.layout)} is ambiguous (${matches.length} layouts share it); pass a LayoutHandle from layouts() instead`
 				)
 			}
 			const [only] = matches
 			if (!only) {
 				const names = gallery.map((l) => JSON.stringify(l.name)).join(', ')
-				throw new Error(
+				throw new InvalidOptionError(
+					'layout/not-found',
 					`appendSlides: no layout named ${JSON.stringify(options.layout)}; available: ${names || '(none)'}`
 				)
 			}
@@ -685,7 +705,10 @@ export class Presentation {
 		} else {
 			const handle = options.layout
 			if (!gallery.some((l) => l.partName === handle.partName)) {
-				throw new Error(`appendSlides: layout ${handle.partName} does not belong to this presentation`)
+				throw new InvalidOptionError(
+					'layout/foreign-handle',
+					`appendSlides: layout ${handle.partName} does not belong to this presentation`
+				)
 			}
 			target = handle
 		}
@@ -695,7 +718,8 @@ export class Presentation {
 		const size = this.slideSize
 		if (!size || size.widthEmu !== extracted.widthEmu || size.heightEmu !== extracted.heightEmu) {
 			const fmt = (w: number, h: number): string => `${w}×${h} EMU`
-			throw new Error(
+			throw new InvalidOptionError(
+				'import/slide-size-mismatch',
 				`appendSlides requires equal slide sizes; target is ${size ? fmt(size.widthEmu, size.heightEmu) : 'unknown'}, source is ${fmt(extracted.widthEmu, extracted.heightEmu)}`
 			)
 		}
@@ -793,7 +817,8 @@ export class Presentation {
 			for (const link of slide.slideLinks) {
 				const targetPartName = partBySourceNumber.get(link.sourceSlideNumber)
 				if (!targetPartName) {
-					throw new Error(
+					throw new InvalidOptionError(
+						'import/unresolved-slide-link',
 						`appendSlides: slide ${i} links to source slide ${link.sourceSlideNumber}, which is not among the appended slides`
 					)
 				}
@@ -837,7 +862,11 @@ export class Presentation {
 	 */
 	importShape(target: Slide, source: Slide, shapeIndex: number, options: ImportShapeOptions = {}): AnyShape {
 		const [shape] = this.importShapes(target, source, [shapeIndex], options)
-		if (!shape) throw new Error(`importShape: source slide has no shape at index ${shapeIndex}`)
+		if (!shape)
+			throw new InvalidOptionError(
+				'shape/index-out-of-range',
+				`importShape: source slide has no shape at index ${shapeIndex}`
+			)
 		return shape
 	}
 
@@ -849,7 +878,8 @@ export class Presentation {
 	 * relationship. Returns the new {@link Shape}s in `shapeIndices` order.
 	 */
 	importShapes(target: Slide, source: Slide, shapeIndices: number[], options: ImportShapeOptions = {}): AnyShape[] {
-		if (target.presentation !== this) throw new Error('importShape: target slide must belong to this presentation')
+		if (target.presentation !== this)
+			throw new InvalidOptionError('slide/foreign-target', 'importShape: target slide must belong to this presentation')
 
 		// Pre-flight: slide sizes must match unless { rescale } opts into scaling the
 		// lifted geometry onto this canvas (computed once, applied per shape below).
@@ -864,7 +894,8 @@ export class Presentation {
 		if (!sizesMatch) {
 			if (!options.rescale || !targetSize || !sourceSize) {
 				const fmt = (s: SlideSize | null): string => (s ? `${s.widthEmu}×${s.heightEmu} EMU` : 'unknown')
-				throw new Error(
+				throw new InvalidOptionError(
+					'import/slide-size-mismatch',
 					`importShape requires equal slide sizes (or { rescale }); target is ${fmt(targetSize)}, source is ${fmt(sourceSize)}`
 				)
 			}
@@ -875,14 +906,23 @@ export class Presentation {
 		const sourceShapes = source.shapes
 		const sourceElements = shapeIndices.map((i) => {
 			const shape = sourceShapes[i]
-			if (!shape) throw new Error(`No shape at index ${i} on the source slide (it has ${sourceShapes.length})`)
+			if (!shape)
+				throw new InvalidOptionError(
+					'shape/index-out-of-range',
+					`No shape at index ${i} on the source slide (it has ${sourceShapes.length})`
+				)
 			return shape.element_
 		})
 
 		const spTree = target.shapeTree()
-		if (!spTree) throw new Error(`importShape: target slide ${target.partName} has no shape tree`)
+		if (!spTree)
+			throw new PackageReadError(
+				'slide/no-shape-tree',
+				`importShape: target slide ${target.partName} has no shape tree`
+			)
 		const targetDoc = spTree.ownerDocument
-		if (!targetDoc) throw new Error('importShape: target slide DOM has no owner document')
+		if (!targetDoc)
+			throw new InternalError('oxml/node-has-no-document', 'importShape: target slide DOM has no owner document')
 
 		const theme = options.theme ?? 'preserve'
 		const sourceOpc = source.presentation.opc
@@ -944,7 +984,11 @@ export class Presentation {
 			}
 
 			const shape = wrapShapeElement(imported, target)
-			if (!shape) throw new Error(`importShape: unsupported shape element <${imported.localName}>`)
+			if (!shape)
+				throw new UnsupportedFeatureError(
+					'shape/element-unsupported',
+					`importShape: unsupported shape element <${imported.localName}>`
+				)
 			if (options.left != null) shape.left = options.left
 			if (options.top != null) shape.top = options.top
 			if (options.width != null) shape.width = options.width
@@ -1032,11 +1076,16 @@ export class Presentation {
 		// Copy the slide bytes into a fresh partname; we then mutate that copy's DOM
 		// (a distinct document, so the source package is never touched).
 		const sourcePart = source.opc.part(sourceSlide.partName)
-		if (!sourcePart) throw new Error(`importSlide: source package has no part ${sourceSlide.partName}`)
+		if (!sourcePart)
+			throw new PackageReadError(
+				'package/part-missing',
+				`importSlide: source package has no part ${sourceSlide.partName}`
+			)
 		const newPartName = this.opc.reservePartNameLike(sourceSlide.partName)
 		const newPart = this.opc.addPart(newPartName, sourcePart.contentType, sourcePart.bytes)
 		const slideRoot = newPart.dom.documentElement
-		if (!slideRoot) throw new Error(`Imported slide ${newPartName} has no root element`)
+		if (!slideRoot)
+			throw new PackageReadError('package/part-has-no-root', `Imported slide ${newPartName} has no root element`)
 
 		// Rebuild the slide's relationships: drop notes, repoint slideLayout at the
 		// destination layout, and copy every other internal target (media/charts).
@@ -1148,7 +1197,11 @@ export class Presentation {
 		const cached = relIdMap.get(key)
 		if (cached) return cached
 		const rel = sourceRels.get(id)
-		if (!rel) throw new Error(`Relationships of ${sourceRels.sourcePartName}: no relationship with id ${id}`)
+		if (!rel)
+			throw new InvalidOptionError(
+				'relationship/not-found',
+				`Relationships of ${sourceRels.sourcePartName}: no relationship with id ${id}`
+			)
 		const newId =
 			rel.targetMode === 'External'
 				? slideRels.add(rel.type, rel.target, 'External').id
@@ -1165,11 +1218,19 @@ export class Presentation {
 	#destinationLayoutPartName(): string {
 		const presRels = this.opc.relationshipsFor(this.presentationPart.partName)
 		const masterRel = presRels.byType(SLIDE_MASTER_REL)[0]
-		if (!masterRel) throw new Error('importSlide preserve mode requires a slide master in the destination deck')
+		if (!masterRel)
+			throw new InvalidOptionError(
+				'import/destination-missing-master',
+				'importSlide preserve mode requires a slide master in the destination deck'
+			)
 		const masterPartName = presRels.resolveTarget(masterRel.id)
 		const masterRels = this.opc.relationshipsFor(masterPartName)
 		const layoutRel = masterRels.byType(SLIDE_LAYOUT_REL)[0]
-		if (!layoutRel) throw new Error('importSlide preserve mode requires a slide layout in the destination deck')
+		if (!layoutRel)
+			throw new InvalidOptionError(
+				'import/destination-missing-layout',
+				'importSlide preserve mode requires a slide layout in the destination deck'
+			)
 		return masterRels.resolveTarget(layoutRel.id)
 	}
 
@@ -1248,7 +1309,11 @@ export class Presentation {
 		const relId = presRels.add(SLIDE_REL, relativePartName(presPart.partName, newPart.partName)).id
 
 		const root = presPart.dom.documentElement
-		if (!root) throw new Error('presentation.xml has no document element to append a slide to')
+		if (!root)
+			throw new PackageReadError(
+				'package/part-has-no-root',
+				'presentation.xml has no document element to append a slide to'
+			)
 		// A template with zero slides omits p:sldIdLst entirely; create it in
 		// CT_Presentation document order (after the *IdLst children, before p:sldSz).
 		const sldIdLst = getOrAddChild(root, 'p:sldIdLst', PRESENTATION_SLD_ID_LST_SUCCESSORS)

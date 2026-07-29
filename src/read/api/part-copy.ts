@@ -13,6 +13,7 @@ import type { OpcPackage } from '../opc/package.js'
 import { relativePartName } from '../opc/partnames.js'
 import type { DeckTarget } from './deck-target.js'
 import { addLayoutToMaster, clearLayoutIdList, registerMaster } from './master-registry.js'
+import { PackageReadError } from '../../errors.js'
 
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
 const SLIDE_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster'
@@ -56,7 +57,8 @@ export function copyPart(ctx: ImportContext, sourcePartName: string): string {
 	if (existing) return existing
 
 	const sourcePart = ctx.source.part(sourcePartName)
-	if (!sourcePart) throw new Error(`importSlide: source package has no part ${sourcePartName}`)
+	if (!sourcePart)
+		throw new PackageReadError('package/part-missing', `importSlide: source package has no part ${sourcePartName}`)
 
 	const newPartName = ctx.dest.opc.reservePartNameLike(sourcePartName)
 	ctx.dest.opc.addPart(newPartName, sourcePart.contentType, sourcePart.bytes)

@@ -64,6 +64,7 @@ import type {
 	ShapeType,
 	SoftEdge,
 } from './types.js'
+import { InternalError, PackageReadError, UnsupportedFeatureError } from '../../../errors.js'
 
 // Microsoft's "decorative" accessibility extension: p:cNvPr/a:extLst/a:ext
 // (uri {C183D7F6-B498-43B3-948B-1728B52AA6E4}) / adec:decorative. Confirmed
@@ -137,7 +138,8 @@ export abstract class Shape {
 	 */
 	set description(value: string) {
 		const cNvPr = nonVisualCNvPr(this.element)
-		if (!cNvPr) throw new Error('cannot set description: shape has no p:cNvPr')
+		if (!cNvPr)
+			throw new PackageReadError('shape/no-non-visual-properties', 'cannot set description: shape has no p:cNvPr')
 		if (value === '') removeAttr(cNvPr, 'descr')
 		else setAttr(cNvPr, 'descr', value)
 		this.markDirty()
@@ -395,7 +397,11 @@ export abstract class Shape {
 	 * `a:solidFill` and lets the fill inherit from the shape's style/placeholder.
 	 */
 	noFill(): void {
-		if (!this.supportsFill) throw new Error(`${this.shapeType} shapes do not support a solid fill`)
+		if (!this.supportsFill)
+			throw new UnsupportedFeatureError(
+				'shape/fill-unsupported',
+				`${this.shapeType} shapes do not support a solid fill`
+			)
 		const { props, fillAfter } = this.getOrAddProperties()
 		removeChildrenByQName(props, FILL_CHOICES)
 		getOrAddChild(props, 'a:noFill', fillAfter)
@@ -734,7 +740,11 @@ export abstract class Shape {
 			this.markDirty()
 			return
 		}
-		if (!this.supportsFill) throw new Error(`${this.shapeType} shapes do not support a solid fill`)
+		if (!this.supportsFill)
+			throw new UnsupportedFeatureError(
+				'shape/fill-unsupported',
+				`${this.shapeType} shapes do not support a solid fill`
+			)
 		const { props, fillAfter } = this.getOrAddProperties()
 		setSolidFill(props, fillAfter, color)
 		this.markDirty()
@@ -749,7 +759,11 @@ export abstract class Shape {
 			return
 		}
 		const { props, lnAfter } = this.getOrAddProperties()
-		if (lnAfter === null) throw new Error(`${this.shapeType} shapes do not support a line colour`)
+		if (lnAfter === null)
+			throw new UnsupportedFeatureError(
+				'shape/line-unsupported',
+				`${this.shapeType} shapes do not support a line colour`
+			)
 		const ln = getOrAddChild(props, 'a:ln', lnAfter)
 		setSolidFill(ln, LN_FILL_AFTER, color)
 		this.markDirty()
@@ -778,7 +792,7 @@ export abstract class Shape {
 	 */
 	set text(value: string) {
 		const frame = this.textFrame
-		if (!frame) throw new Error('Shape has no text frame to set text on')
+		if (!frame) throw new UnsupportedFeatureError('shape/no-text-frame', 'Shape has no text frame to set text on')
 		frame.text = value
 	}
 
@@ -797,7 +811,8 @@ export abstract class Shape {
 	 */
 	delete(): void {
 		const parent = this.element.parentNode
-		if (!parent) throw new Error('Shape is not attached to a parent and cannot be deleted')
+		if (!parent)
+			throw new InternalError('oxml/node-has-no-parent', 'Shape is not attached to a parent and cannot be deleted')
 		parent.removeChild(this.element)
 		this.markDirty()
 	}

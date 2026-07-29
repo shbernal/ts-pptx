@@ -21,6 +21,7 @@ import {
 } from './table-style-resolve.js'
 import { resolveSolidFillColor, type ResolvedColor } from './theme-context.js'
 import { setTextBodyText, TextFrame } from './text.js'
+import { PackageReadError } from '../../errors.js'
 
 /**
  * The context a cell needs to resolve its style-graph fill: the table's resolved
@@ -267,7 +268,7 @@ export class TableCell {
 	 */
 	set text(value: string) {
 		const txBody = firstChild(this.tc, 'a:txBody')
-		if (!txBody) throw new Error('Table cell has no a:txBody to set text on')
+		if (!txBody) throw new PackageReadError('table/cell-has-no-text-body', 'Table cell has no a:txBody to set text on')
 		setTextBodyText(txBody, value)
 		this.part.markDirty()
 	}

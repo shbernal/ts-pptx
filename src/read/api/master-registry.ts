@@ -23,6 +23,7 @@ import {
 	type Element,
 } from '../oxml/dom.js'
 import type { DeckTarget } from './deck-target.js'
+import { PackageReadError } from '../../errors.js'
 
 const SLIDE_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster'
 const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
@@ -47,7 +48,11 @@ export function registerMaster(dest: DeckTarget, masterPartName: string): void {
 	const relId = presRels.add(SLIDE_MASTER_REL, relativePartName(presPart.partName, masterPartName)).id
 
 	const root = presPart.dom.documentElement
-	if (!root) throw new Error('presentation.xml has no document element to register a master in')
+	if (!root)
+		throw new PackageReadError(
+			'package/part-has-no-root',
+			'presentation.xml has no document element to register a master in'
+		)
 	// `p:sldMasterIdLst` is the first child of CT_Presentation; create it before
 	// any later sibling if a (degenerate) deck lacks one.
 	const lst = getOrAddChild(root, 'p:sldMasterIdLst', [

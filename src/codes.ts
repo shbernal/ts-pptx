@@ -147,6 +147,7 @@ export type InvalidOptionErrorCode =
 	// Units and coordinates
 	| 'coord/non-finite'
 	| 'coord/not-positive'
+	| 'coord/negative'
 	| 'coord/invalid-format'
 	// Geometry
 	| 'geometry/arc-angle-non-finite'
@@ -201,6 +202,31 @@ export type InvalidOptionErrorCode =
 	| 'html/table-has-no-cells'
 	// Colours
 	| 'color/invalid-hex'
+	// Addressing an existing deck (`ts-pptx/read`)
+	| 'slide/index-out-of-range'
+	| 'slide/foreign-target'
+	| 'shape/index-out-of-range'
+	| 'layout/ambiguous-name'
+	| 'layout/not-found'
+	| 'layout/foreign-handle'
+	// Moving slides, shapes, or masters between decks
+	| 'import/slide-size-mismatch'
+	| 'import/slide-size-unknown'
+	| 'import/unresolved-slide-link'
+	| 'import/destination-missing-master'
+	| 'import/destination-missing-layout'
+	// Replacing or adding picture content
+	| 'image/undeterminable-extension'
+	| 'image/undeterminable-type'
+	| 'image/missing-content-type'
+	| 'image/fit-needs-extent'
+	// Text
+	| 'font/size-not-positive'
+	// Printing a deck back out as a script (`ts-pptx/script`). Both name an inconsistency in the
+	// `DeckIr` handed to the printer — unreachable from an IR the library built itself, but the
+	// IR is a public type a caller may construct or edit.
+	| 'script/unresolved-asset-reference'
+	| 'script/non-finite-literal'
 	// OPC package operations asked of the library (distinct from a malformed package,
 	// which is a `PackageReadError` — see `package/duplicate-relationship-id`)
 	| 'package/duplicate-part-name'
@@ -236,6 +262,12 @@ export type UnsupportedFeatureErrorCode =
 	// Requests with no OOXML expression the library emits
 	| 'gradient/type-unsupported'
 	| 'group/kind-not-groupable'
+	| 'shape/element-unsupported'
+	// Asked of a shape kind that has nowhere to put it
+	| 'shape/fill-unsupported'
+	| 'shape/line-unsupported'
+	| 'shape/shape-properties-unsupported'
+	| 'shape/no-text-frame'
 	// Optional dependencies that were not installed or did not load
 	| 'math/missing-optional-peer'
 	| 'font/opentype-unavailable'
@@ -262,6 +294,14 @@ export type PackageReadErrorCode =
 	| 'package/relationship-invalid-target-mode'
 	| 'package/duplicate-relationship-id'
 	| 'package/relationship-target-escapes-root'
+	| 'package/relationship-target-missing'
+	| 'package/office-document-relationship-invalid'
+	// A part the package should contain is absent or structurally broken
+	| 'package/part-missing'
+	| 'package/part-has-no-root'
+	| 'slide/no-shape-tree'
+	| 'shape/no-non-visual-properties'
+	| 'table/cell-has-no-text-body'
 
 /**
  * Conditions carried by `MediaError`: an image, font, or audio/video payload could not be fetched,
@@ -289,6 +329,8 @@ export type MediaErrorCode =
 export type InternalErrorCode =
 	| 'layout/default-not-registered'
 	| 'slide/rel-index-out-of-range'
+	| 'import/part-went-missing'
+	| 'animation/timing-scaffold-failed'
 	// A DOM node the read model was handed is detached. Reachable in principle through the
 	// documented `part.dom` / `element_` escape hatch, but never from the library's own paths.
 	| 'oxml/node-has-no-document'

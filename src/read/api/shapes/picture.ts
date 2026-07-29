@@ -25,6 +25,7 @@ import { relativePartName } from '../../opc/partnames.js'
 import { Shape } from './base.js'
 import { childElements, getOrAddSpPrXfrm } from './oxml.js'
 import type { Recolor, RecolorColor } from './types.js'
+import { InvalidOptionError } from '../../../errors.js'
 
 const IMAGE_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 // Microsoft's SVG blip extension namespace (a:blip/a:extLst/a:ext/asvg:svgBlip).
@@ -59,7 +60,11 @@ function extFromContentType(contentType: string): string {
 	if (known) return known
 	const subtype = contentType.toLowerCase().split('/')[1] ?? ''
 	const ext = (subtype.split('+')[0] ?? '').replace(/^x-/, '')
-	if (!ext) throw new Error(`Cannot derive a file extension from content type "${contentType}"; pass { extension }`)
+	if (!ext)
+		throw new InvalidOptionError(
+			'image/undeterminable-extension',
+			`Cannot derive a file extension from content type "${contentType}"; pass { extension }`
+		)
 	return ext
 }
 
@@ -286,7 +291,8 @@ export class Picture extends Shape {
 		options: { contentType: string; extension?: string; fit?: 'cover' | 'contain' | 'stretch' }
 	): void {
 		const { contentType } = options
-		if (!contentType) throw new Error('setImage requires a contentType (e.g. "image/png")')
+		if (!contentType)
+			throw new InvalidOptionError('image/missing-content-type', 'setImage requires a contentType (e.g. "image/png")')
 		const extension = (options.extension ?? extFromContentType(contentType)).toLowerCase().replace(/^\./, '')
 
 		const opc = this.slide.presentation.opc
@@ -321,7 +327,10 @@ export class Picture extends Shape {
 		const cx = this.width
 		const cy = this.height
 		if (cx == null || cy == null) {
-			throw new Error(`setImage fit '${fit}' needs a frame extent (a:xfrm/a:ext); this picture has no transform`)
+			throw new InvalidOptionError(
+				'image/fit-needs-extent',
+				`setImage fit '${fit}' needs a frame extent (a:xfrm/a:ext); this picture has no transform`
+			)
 		}
 		const { l, r, t, b } = fitSrcRectPercents(fit, { w: natural.w, h: natural.h }, { w: cx, h: cy })
 		const srcRect = getOrAddChild(blipFill, 'a:srcRect', ['a:tile', 'a:stretch'])

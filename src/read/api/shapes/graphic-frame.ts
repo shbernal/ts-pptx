@@ -12,6 +12,7 @@ import { ChartEx } from '../chartex.js'
 import { Table } from '../table.js'
 import { Shape } from './base.js'
 import type { ShapeProperties } from './oxml.js'
+import { UnsupportedFeatureError } from '../../../errors.js'
 
 const A_TABLE_URI = 'http://schemas.openxmlformats.org/drawingml/2006/table'
 const A_CHART_URI = 'http://schemas.openxmlformats.org/drawingml/2006/chart'
@@ -35,7 +36,10 @@ export class GraphicFrame extends Shape {
 	// A graphicFrame has no p:spPr; its hosted table/chart carries its own fill
 	// model. There is nothing to get-or-add, so fill and line setters reject it.
 	protected override getOrAddProperties(): ShapeProperties {
-		throw new Error('graphicFrame shapes have no shape properties; fill and line colours are not supported')
+		throw new UnsupportedFeatureError(
+			'shape/shape-properties-unsupported',
+			'graphicFrame shapes have no shape properties; fill and line colours are not supported'
+		)
 	}
 
 	/** Whether this frame hosts a table (`a:graphicData/@uri` is the table URI). */

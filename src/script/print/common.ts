@@ -13,6 +13,7 @@ import { asIrValue } from '../ir.js'
 import type { FidelityNote } from '../fidelity.js'
 import { type NoteCollector, scopeNotes } from '../fidelity.js'
 import { printArguments, printString, printValue, type AssetPrinter } from './literal.js'
+import { InvalidOptionError } from '../../errors.js'
 
 /** How image bytes reach the emitted script. */
 export type AssetMode =
@@ -67,7 +68,11 @@ export function assetIdentifiers(ir: DeckIr): Map<string, string> {
 export function assetPrinter(identifiers: Map<string, string>): AssetPrinter {
 	return (ref: AssetRef): string => {
 		const identifier = identifiers.get(ref.$asset)
-		if (!identifier) throw new Error(`Asset reference ${ref.$asset} has no entry in DeckIr.assets`)
+		if (!identifier)
+			throw new InvalidOptionError(
+				'script/unresolved-asset-reference',
+				`Asset reference ${ref.$asset} has no entry in DeckIr.assets`
+			)
 		return identifier
 	}
 }

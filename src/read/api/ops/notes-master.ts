@@ -13,6 +13,7 @@ import { createElement, getOrAddChild, removeChildrenByQName, setAttr } from '..
 import { relativePartName } from '../../opc/partnames.js'
 import { copyPart, type ImportContext } from '../part-copy.js'
 import type { Presentation } from '../presentation.js'
+import { PackageReadError } from '../../../errors.js'
 
 const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
 const NOTES_SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
@@ -117,7 +118,11 @@ export function registerNotesMaster(dest: Presentation, notesMasterPartName: str
 	const relId = presRels.add(NOTES_MASTER_REL, relativePartName(presPart.partName, notesMasterPartName)).id
 
 	const root = presPart.dom.documentElement
-	if (!root) throw new Error('presentation.xml has no document element to register a notes master in')
+	if (!root)
+		throw new PackageReadError(
+			'package/part-has-no-root',
+			'presentation.xml has no document element to register a notes master in'
+		)
 	// `p:notesMasterIdLst` follows `p:sldMasterIdLst` in CT_Presentation order.
 	const lst = getOrAddChild(root, 'p:notesMasterIdLst', [
 		'p:handoutMasterIdLst',

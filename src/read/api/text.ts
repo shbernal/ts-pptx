@@ -38,6 +38,7 @@ import {
 	type ResolvedColor,
 	type StyleFontRef,
 } from './theme-context.js'
+import { InternalError, InvalidOptionError } from '../../errors.js'
 
 /**
  * What a {@link Run}'s text body needs to resolve an *inherited* run
@@ -175,7 +176,8 @@ export class Run {
 			this.#removeRPrAttr('sz')
 			return
 		}
-		if (!Number.isFinite(value) || value <= 0) throw new Error(`fontSizePt must be a positive number, got ${value}`)
+		if (!Number.isFinite(value) || value <= 0)
+			throw new InvalidOptionError('font/size-not-positive', `fontSizePt must be a positive number, got ${value}`)
 		setAttr(this.#getOrAddRPr(), 'sz', String(Math.round(value * 100)))
 		this.part.markDirty()
 	}
@@ -823,7 +825,7 @@ export class TextFrame {
  */
 export function setTextBodyText(txBody: Element, value: string): void {
 	const doc = txBody.ownerDocument
-	if (!doc) throw new Error('Cannot set text: text body has no owner document')
+	if (!doc) throw new InternalError('oxml/node-has-no-document', 'Cannot set text: text body has no owner document')
 
 	const paragraphs = getElements(txBody, 'a:p')
 	// Capture the first run's character formatting before we discard runs.

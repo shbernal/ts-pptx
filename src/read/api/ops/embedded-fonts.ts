@@ -29,6 +29,7 @@ import {
 import { relativePartName } from '../../opc/partnames.js'
 import { copyPart, type ImportContext } from '../part-copy.js'
 import type { Presentation } from '../presentation.js'
+import { PackageReadError } from '../../../errors.js'
 
 /**
  * `p:embeddedFontLst`'s document-order successors in `CT_Presentation` (index 7,
@@ -165,7 +166,11 @@ export function mergeEmbeddedFontEntries(dest: Presentation, entries: IncomingEm
 
 	const presPart = dest.presentationPart
 	const presRoot = presPart.dom.documentElement
-	if (!presRoot) throw new Error('presentation.xml has no document element to carry embedded fonts into')
+	if (!presRoot)
+		throw new PackageReadError(
+			'package/part-has-no-root',
+			'presentation.xml has no document element to carry embedded fonts into'
+		)
 	const presRels = dest.opc.relationshipsFor(presPart.partName)
 
 	const targetLst = getOrAddChild(presRoot, 'p:embeddedFontLst', PRESENTATION_EMBEDDED_FONT_LST_SUCCESSORS)
