@@ -23,9 +23,22 @@ So the whole job is: get the version consistent across three files, tag it, and
 cut a Release. CI does the rest (and re-runs every lint/typecheck/test/pack gate
 before it publishes).
 
+### The one historical exception (already spent — do not repeat it)
+
+npm cannot configure a trusted publisher for a package that does not yet exist:
+the setting lives on the package's settings page, so the package has to be on the
+registry first ([npm/cli#8544](https://github.com/npm/cli/issues/8544)). Bootstrapping
+`@shbernal/ts-pptx` therefore took one local `npm publish` of a throwaway `0.0.1`
+(since deprecated) purely to create the package; trusted publishing was enabled
+immediately after, and `1.0.0` onward went through CI with provenance.
+
+That exception is spent. It applies again only if this project is ever published
+under a **new name or scope**. For every release of the existing package, the rule
+above holds without qualification: no local `npm publish`.
+
 ## Choosing the version (SemVer)
 
-`package.json` is on major `10.x`. Pick the bump from what landed since the last
+`package.json` is on major `1.x`. Pick the bump from what landed since the last
 release (`git log --oneline vLAST..HEAD`) — but the user's explicit ask wins:
 
 - **patch** (`X.Y.Z+1`) — only `fix:` / internal changes, no API surface change.
@@ -98,17 +111,26 @@ conventions). Tag is annotated, matching prior release tags.
 ### 5. Create the GitHub Release (this is what publishes)
 
 Body = the version's CHANGELOG section followed by a full-changelog link. Match
-prior releases (`gh release view vLAST`):
+prior releases (`gh release view vLAST`).
+
+Write the notes to a file with your file-writing tool, then point `gh` at it —
+never build the body with a shell here-doc. This is the same rule, and the same
+reason, as the commit-message convention above: the POSIX and PowerShell dialects
+disagree (`<<'EOF'` vs `@'…'@`), picking the wrong one does not error, and the
+delimiter ends up as literal text in the published release notes.
 
 ```bash
-cat > /tmp/notes.md <<'EOF'
+gh release create vX.Y.Z --title vX.Y.Z --notes-file <path/to/notes.md>
+```
+
+Notes body:
+
+```markdown
 ### Fixed
 
 - <the changelog bullet(s) for this version>
 
 **Full changelog:** https://github.com/shbernal/ts-pptx/blob/vX.Y.Z/CHANGELOG.md
-EOF
-gh release create vX.Y.Z --title vX.Y.Z --notes-file /tmp/notes.md
 ```
 
 ### 6. Watch the publish run
