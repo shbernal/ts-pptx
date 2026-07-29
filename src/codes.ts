@@ -278,6 +278,7 @@ export type UnsupportedFeatureErrorCode =
 	| 'font/opentype-unavailable'
 	// Runtime capabilities
 	| 'zip/filesystem-unavailable'
+	| 'runtime/file-output-unavailable'
 
 /**
  * Conditions carried by `PackageReadError`: the bytes handed to the library are not a package it

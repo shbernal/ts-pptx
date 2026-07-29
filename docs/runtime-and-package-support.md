@@ -26,6 +26,9 @@ The package publishes:
 
 - `dist/index.js` and `dist/index.d.ts` as the default ESM package entry — it
   also exports the public enums, shared types, layout constants, and unit helpers.
+  See [Which Build The Bare Import Gives You](#which-build-the-bare-import-gives-you)
+  — under Node and in a browser bundle the same import gives you `dist/node.js` /
+  `dist/browser.js` instead.
 - `dist/inspect.js` and `dist/inspect.d.ts` for low-level PPTX package
   inspection, slide/object extraction, and geometry helpers.
 - `dist/measure.js` and `dist/measure.d.ts` for headless text-measurement and
@@ -68,6 +71,32 @@ import { tableToSlides } from "@shbernal/ts-pptx/html"
 import pptxgenNode from "@shbernal/ts-pptx/node"
 import pptxgenBrowser from "@shbernal/ts-pptx/browser"
 ```
+
+## Which Build The Bare Import Gives You
+
+`import TsPptx from "@shbernal/ts-pptx"` resolves through export conditions, so
+the artifact you get depends on the runtime doing the resolving:
+
+| the resolver sets | you get | `writeFile` |
+| --- | --- | --- |
+| `node` | `dist/node.js` | writes to disk via `node:fs` |
+| `browser` (bundlers, `--conditions=browser`) | `dist/browser.js` | triggers a download |
+| neither — Deno, Bun, edge workers | `dist/index.js` | throws `runtime/file-output-unavailable` |
+
+Types resolve through the same condition as the code, so what TypeScript shows
+you is what that runtime actually has.
+
+The third row is the runtime-agnostic build. Authoring is identical to the other
+two, and everything that hands bytes back to you — `write()`, `stream()`,
+`toParts()` — works normally; a worker that returns a `.pptx` in a response body
+needs nothing else. What it cannot do is *place a file for you*: there is no
+filesystem and no DOM, so `writeFile()` throws an `UnsupportedFeatureError` naming
+the two entries that can, instead of failing on a missing `document` deep inside
+the call. Live-DOM `tableToSlides` is likewise browser-only; the DOM-agnostic form
+is the free `tableToSlides` on `@shbernal/ts-pptx/html`.
+
+Import `@shbernal/ts-pptx/node` or `@shbernal/ts-pptx/browser` directly whenever
+you want a specific build regardless of how conditions resolve.
 
 ## Dropped Compared To Upstream
 

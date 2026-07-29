@@ -103,6 +103,11 @@ Supported package surface:
 - `import { tableToSlides } from "@shbernal/ts-pptx/html"`
 - `import TsPptx from "@shbernal/ts-pptx/node"`
 - `import TsPptx from "@shbernal/ts-pptx/browser"`
+  — the bare specifier resolves to one of these two by export condition, so Node
+  and bundled browser apps get the right build without naming it. A runtime that
+  sets neither (Deno, Bun, edge workers) gets a runtime-agnostic build that
+  authors and exports bytes normally but has no `writeFile` destination; see
+  [Runtime And Package Support](docs/runtime-and-package-support.md#which-build-the-bare-import-gives-you).
 - generated runtime and declaration artifacts under `dist/`
 - Node.js `>=24`
 - modern bundlers and module-aware app frameworks

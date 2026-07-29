@@ -19,7 +19,11 @@ exports and let this repository own the internal OOXML generation details.
 ## Responsibilities
 
 - `src/index.ts`, `src/node.ts`, and `src/browser.ts` define the public entry
-  points described by `package.json` exports.
+  points described by `package.json` exports. Each is a `PresentationCore`
+  subclass differing only in the `RuntimeAdapter` it injects, and `.` resolves to
+  one of the three by condition — `node`, `browser`, or neither. `index.ts` is
+  that third case (Deno, Bun, edge workers): it authors and exports bytes like the
+  others, and refuses only what needs a host it does not have.
 - `src/presentation.ts` owns the main presentation class: presentation-level state,
   the authoring API façade (`addSlide`, `defineSlideMaster`, …), and presentation
   metadata. Enums are imported from the package entry, not read off the instance.
@@ -145,11 +149,18 @@ export time. Each module opens with a TSDoc header stating its job; larger files
 - Internal OOXML generators are implementation details unless deliberately
   exposed through `package.json` exports and public declarations.
 - Platform differences go through the `RuntimeAdapter` seam (`src/runtime/*`): the
-  `node`/`browser` entry subclasses inject the matching adapter into the shared core
-  class. Live-DOM features that only work in a browser (currently `tableToSlides`)
-  are defined on the browser entry subclass, not the core class, so they stay off
-  the Node build and out of the shared chunk — their code bundles into the
-  browser chunk alone.
+  `node`/`browser`/neutral entry subclasses inject the matching adapter into the
+  shared core class. Live-DOM features that only work in a browser (currently
+  `tableToSlides`) are defined on the browser entry subclass, not the core class,
+  so they stay off the Node build and out of the shared chunk — their code bundles
+  into the browser chunk alone.
+- A runtime that resolves neither the `node` nor the `browser` condition gets
+  `runtime/neutral.ts`, which implements what is genuinely host-neutral (`fetch`,
+  `btoa`, `TextEncoder` — so remote media and fonts load) and throws
+  `runtime/file-output-unavailable` from `writeFile` rather than substituting a
+  host it does not have. The neutral adapter is the fallback, never a default the
+  other two fall back *to*: a capability missing from a real host is a bug in that
+  host's adapter, not something the neutral one should paper over.
 - Downstream deck-production workflows belong in the consuming project unless the
   behavior is broadly reusable for ts-pptx consumers.
 

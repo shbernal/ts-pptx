@@ -92,6 +92,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking (non-Node, non-browser runtimes): the bare `@shbernal/ts-pptx`
+  import no longer resolves to the browser build.** `exports["."]` carries
+  `node`, `browser`, and `default` conditions. The first two were right; the
+  third pointed at `dist/index.js`, which did nothing but re-export
+  `./browser.js`. So a runtime that sets neither condition — Deno, Bun, an edge
+  worker — got the DOM adapter, and `writeFile()` tried to create an anchor
+  element and click it in an environment with no `document`. For a documented
+  Node-first project, the neutral fallback should not have been the browser.
+
+  `dist/index.js` is now its own runtime-agnostic entry. Authoring is unchanged
+  and everything that hands bytes back to you still works — `write()`,
+  `stream()`, `toParts()` — which is the shape a worker wants anyway. Remote
+  media and fonts still load, over `fetch`/`btoa`/`TextEncoder`, which every one
+  of these runtimes has. Two things differ:
+
+  - **`writeFile()` throws** an `UnsupportedFeatureError`
+    (`runtime/file-output-unavailable`) naming `@shbernal/ts-pptx/node` and
+    `@shbernal/ts-pptx/browser`, rather than failing on a missing `document`
+    deep inside the call. There is no filesystem and no DOM here, so there is no
+    destination to write to; take the bytes from `write()` and place them
+    yourself.
+  - **`tableToSlides()` is absent.** It resolves an element id against the
+    global `document`, so it is defined on the browser entry alone. The
+    DOM-agnostic form is the free `tableToSlides` on `@shbernal/ts-pptx/html`,
+    which takes the element directly.
+
+  Nothing changes for Node or browser consumers at runtime: those conditions
+  already resolved to `dist/node.js` and `dist/browser.js` and still do.
+
+  **Types now resolve through the same condition as the code.** `.` previously
+  served one `dist/index.d.ts` to every condition, so a Node consumer was typed
+  against the browser class and TypeScript accepted `pptx.tableToSlides(…)` on a
+  build where it was `undefined` at runtime. Each condition now carries its own
+  `types`, so what the compiler shows matches what the runtime has.
+
 - **`ts-pptx/inspect` is now a projection over `ts-pptx/read`, and
   `fast-xml-parser` is no longer a dependency.** The library shipped *two*
   independent readers of a `.pptx` over two different XML parsers: the deep,

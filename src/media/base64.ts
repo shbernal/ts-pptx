@@ -11,10 +11,23 @@
  * @returns {string} a `data:image/svg+xml;base64,...` URI
  */
 export function svgMarkupToDataUri(svg: string): string {
-	const bytes = new TextEncoder().encode(svg)
+	return `data:image/svg+xml;base64,${bytesToBase64(new TextEncoder().encode(svg))}`
+}
+
+/**
+ * Encode raw bytes as base64 (no `data:` prefix) using only `btoa`, so the result is the same
+ * on Node, in a browser, and in a runtime that has neither `Buffer` nor `FileReader`.
+ *
+ * Chunked because `String.fromCharCode(...spread)` blows the argument-count limit on a payload
+ * of any real size — a multi-megabyte video rel would throw rather than encode.
+ * @param {Uint8Array} bytes - the payload
+ * @returns {string} base64 text
+ */
+export function bytesToBase64(bytes: Uint8Array): string {
+	const CHUNK = 0x8000
 	let binary = ''
-	for (const byte of bytes) binary += String.fromCharCode(byte)
-	return `data:image/svg+xml;base64,${btoa(binary)}`
+	for (let i = 0; i < bytes.length; i += CHUNK) binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
+	return btoa(binary)
 }
 
 /**

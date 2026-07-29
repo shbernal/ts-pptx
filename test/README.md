@@ -35,12 +35,13 @@ the **primary** module each group exercises.
 | `gen/table/autopage.ts` (auto-paging) | `table-autopage-*`, `table-fit-columns`, `table-colwidth-distribution`, `table-header-row`, `table-merged-cell-borders`, `table-span-border-structure` |
 | `gen/media.ts`, `media/*.ts` | `image-svg-source`, `image-data-dedup`, `media-load-error`, `media-loop`, `chart-embedding-parts` |
 | `gen/drawingml/{color,fill,line,effect}.ts` | `hash-colors`, `alpha-colors`, `gradient-fills`, `shadow-scheme-color` |
-| `measure-fit.ts` / `text-fit.ts` / `font-metrics.ts` | `text-fit*`, `measure-text-api`, `measured-fit-*`, `font-heuristic`, `font-metrics-registry`, `table-cell-fit` |
+| `measure/*.ts` (fit pass, simulator, metrics) | `text-fit*`, `measure-text-api`, `measured-fit-*`, `font-heuristic`, `font-metrics-registry`, `table-cell-fit` |
 | `embedded-fonts.ts` | `embed-font`, `text-fontface-ea-cs` |
 | `math.ts` | `math-latex-omml` |
 | `enums.ts` / `types/index.ts` | `shape-presets`, `bullet-glyphs`, `bullet-options`, `entry-export-surface` (types) |
 | `units.ts` / `units-internal.ts` | `coordinate-units`, `table-cell-margin-inches`, `table-margins` |
 | `zip.ts` | `zip-compression`, `zip-output-types` |
+| `index.ts` / `node.ts` / `browser.ts` (entries) | `neutral-entry`, `entry-export-surface` |
 | `node.ts` / `runtime/*` | `node-runtime`, `node-runtime-fetch` |
 | `read/group-transform.ts` | `group-shapes` |
 | `inspect.ts` | `pptx-inspection` |
