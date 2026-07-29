@@ -20,7 +20,7 @@ For source changes, run one of the two aggregates rather than composing a set by
 hand:
 
 ```bash
-pnpm run verify       # per-change loop: typechecks, backlog validation, all suites
+pnpm run verify       # per-change loop: typechecks, backlog validation, raw-XML ratchet, all suites
 pnpm run verify:full  # before pushing / at the package boundary: the above plus package + demos
 ```
 
@@ -260,6 +260,37 @@ stale `coverage-final.json` that reports *fewer* covered branches than a three-f
 probe does. A subset beating the full run is the tell. Recorded per-file numbers drift
 the same way: two files in this package were logged at 73 and 47 missed branches and
 were actually at 83 and 23 when the work started.
+
+## Raw-XML Ratchet
+
+```bash
+pnpm run raw-xml:check   # part of verify and check:static
+pnpm run raw-xml:list    # every occurrence, with line numbers
+pnpm run raw-xml:freeze  # rewrite the budget from source
+```
+
+`src/gen/oxml/el.ts` exists to end hand-concatenated OOXML — its header names
+escaping, attribute-order and child-sequence bugs as the motivation. Most of
+`src/gen/` now builds through it; the chart emitters do not, so "no raw XML
+anywhere" cannot be turned on. `scripts/raw-xml-budget.json` therefore freezes a
+per-file count of XML tag delimiters (`<ns:name`, `</ns:name`) appearing in string
+and template literals under `src/`. A file may go down or vanish; it may never go
+up, and a file absent from the budget must be at zero.
+
+The check also fails when a count goes **down** — re-freeze in the same commit, so
+the budget never accumulates slack it could later hide a regression behind.
+
+Two exemptions. `src/gen/oxml/` itself, because emitting those delimiters is its
+job; and a literal handed straight to `warn`, `notes.note`, or `new *Error`,
+because a diagnostic that names the element it is about is prose, and prose forced
+to dodge a gate gets written worse. The scan walks the TypeScript AST rather than
+the file text, so an `<a:bodyPr>` in a doc comment was never a finding to begin
+with.
+
+This is a ratchet, not a correctness check: it says nothing about whether the XML
+is right, only that the amount built by hand is not growing. Correctness is
+[schema validation](#ooxml-schema-validation)'s job, and byte-stability during a
+migration is the byte-identity harness's.
 
 ## OOXML Schema Validation
 

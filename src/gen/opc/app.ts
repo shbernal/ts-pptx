@@ -7,7 +7,28 @@
 
 import { CRLF, XML_DECL } from '../../core-enums-internal.js'
 import type { PresSlideInternal } from '../../types/internal.js'
-import { encodeXmlEntities } from '../../gen-utils.js'
+import { el, raw } from '../oxml/el.js'
+
+/** This part is pretty-printed, one element per line, at three nesting depths. */
+const INDENT_1 = '\n\t'
+const INDENT_2 = '\n\t\t'
+const INDENT_3 = '\n\t\t\t'
+const PROP = { openPrefix: INDENT_1 }
+const VECTOR = { openPrefix: INDENT_2, closePrefix: INDENT_2 }
+const ITEM = { openPrefix: INDENT_3 }
+
+const NS = {
+	xmlns: 'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties',
+	'xmlns:vt': 'http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes',
+}
+
+/** One `<vt:variant>` of a heading pair: the section's name, then its count. */
+function headingPair(name: string, count: number): string[] {
+	return [
+		el('vt:variant', null, raw(el('vt:lpstr', null, name)), ITEM),
+		el('vt:variant', null, raw(el('vt:i4', null, count)), ITEM),
+	]
+}
 
 /**
  * Creates `docProps/app.xml`
@@ -16,39 +37,56 @@ import { encodeXmlEntities } from '../../gen-utils.js'
  * @returns XML
  */
 export function makeXmlApp(slides: PresSlideInternal[], company: string): string {
-	return `${XML_DECL}${CRLF}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
-	<TotalTime>0</TotalTime>
-	<Words>0</Words>
-	<Application>Microsoft Office PowerPoint</Application>
-	<PresentationFormat>On-screen Show (16:9)</PresentationFormat>
-	<Paragraphs>0</Paragraphs>
-	<Slides>${slides.length}</Slides>
-	<Notes>${slides.length}</Notes>
-	<HiddenSlides>0</HiddenSlides>
-	<MMClips>0</MMClips>
-	<ScaleCrop>false</ScaleCrop>
-	<HeadingPairs>
-		<vt:vector size="6" baseType="variant">
-			<vt:variant><vt:lpstr>Fonts Used</vt:lpstr></vt:variant>
-			<vt:variant><vt:i4>2</vt:i4></vt:variant>
-			<vt:variant><vt:lpstr>Theme</vt:lpstr></vt:variant>
-			<vt:variant><vt:i4>1</vt:i4></vt:variant>
-			<vt:variant><vt:lpstr>Slide Titles</vt:lpstr></vt:variant>
-			<vt:variant><vt:i4>${slides.length}</vt:i4></vt:variant>
-		</vt:vector>
-	</HeadingPairs>
-	<TitlesOfParts>
-		<vt:vector size="${slides.length + 1 + 2}" baseType="lpstr">
-			<vt:lpstr>Arial</vt:lpstr>
-			<vt:lpstr>Calibri</vt:lpstr>
-			<vt:lpstr>Office Theme</vt:lpstr>
-			${slides.map((_slideObj, idx) => `<vt:lpstr>Slide ${idx + 1}</vt:lpstr>`).join('')}
-		</vt:vector>
-	</TitlesOfParts>
-	<Company>${encodeXmlEntities(company)}</Company>
-	<LinksUpToDate>false</LinksUpToDate>
-	<SharedDoc>false</SharedDoc>
-	<HyperlinksChanged>false</HyperlinksChanged>
-	<AppVersion>16.0000</AppVersion>
-	</Properties>`
+	const headingPairs = el(
+		'vt:vector',
+		{ size: 6, baseType: 'variant' },
+		[...headingPair('Fonts Used', 2), ...headingPair('Theme', 1), ...headingPair('Slide Titles', slides.length)].map(
+			raw
+		),
+		VECTOR
+	)
+
+	const titlesOfParts = el(
+		'vt:vector',
+		{ size: slides.length + 1 + 2, baseType: 'lpstr' },
+		[
+			raw(el('vt:lpstr', null, 'Arial', ITEM)),
+			raw(el('vt:lpstr', null, 'Calibri', ITEM)),
+			raw(el('vt:lpstr', null, 'Office Theme', ITEM)),
+			// The slide titles share one line, so the indent is emitted once — and it is
+			// emitted whether or not there are any titles to follow it.
+			raw(INDENT_3),
+			...slides.map((_slideObj, idx) => raw(el('vt:lpstr', null, `Slide ${idx + 1}`))),
+		],
+		VECTOR
+	)
+
+	return (
+		XML_DECL +
+		CRLF +
+		el(
+			'Properties',
+			NS,
+			[
+				raw(el('TotalTime', null, 0, PROP)),
+				raw(el('Words', null, 0, PROP)),
+				raw(el('Application', null, 'Microsoft Office PowerPoint', PROP)),
+				raw(el('PresentationFormat', null, 'On-screen Show (16:9)', PROP)),
+				raw(el('Paragraphs', null, 0, PROP)),
+				raw(el('Slides', null, slides.length, PROP)),
+				raw(el('Notes', null, slides.length, PROP)),
+				raw(el('HiddenSlides', null, 0, PROP)),
+				raw(el('MMClips', null, 0, PROP)),
+				raw(el('ScaleCrop', null, 'false', PROP)),
+				raw(el('HeadingPairs', null, raw(headingPairs), { ...PROP, closePrefix: INDENT_1 })),
+				raw(el('TitlesOfParts', null, raw(titlesOfParts), { ...PROP, closePrefix: INDENT_1 })),
+				raw(el('Company', null, company, PROP)),
+				raw(el('LinksUpToDate', null, 'false', PROP)),
+				raw(el('SharedDoc', null, 'false', PROP)),
+				raw(el('HyperlinksChanged', null, 'false', PROP)),
+				raw(el('AppVersion', null, '16.0000', PROP)),
+			],
+			{ closePrefix: INDENT_1 }
+		)
+	)
 }

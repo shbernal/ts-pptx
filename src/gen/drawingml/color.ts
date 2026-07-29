@@ -16,6 +16,14 @@ import { SchemeColor, type SCHEME_COLORS } from '../../core-enums.js'
 import { REGEX_HEX_COLOR, DEF_FONT_COLOR } from '../../core-enums-internal.js'
 import { warn } from '../../diagnostics.js'
 import { PERCENT_SCALE } from '../../units.js'
+import { el, raw, voidEl } from '../oxml/el.js'
+
+/**
+ * Opening delimiter of an `<a:alpha>` child, for detecting one a caller already
+ * supplied. A prefix rather than a whole element: the value is the caller's, and
+ * this asks only whether the element is present.
+ */
+const ALPHA_TAG = '<a:alpha'
 
 /**
  * Emit a bare DrawingML color element — either `<a:schemeClr>` (scheme color) or `<a:srgbClr>`
@@ -49,10 +57,10 @@ export function createColorElement(colorStr: string | SCHEME_COLORS, innerElemen
 		// If the caller already supplied an explicit <a:alpha> (e.g. shadow/glow `opacity`),
 		// it wins — do NOT add a second alpha from the RGBA byte, which would emit two
 		// <a:alpha> children and produce schema-invalid OOXML (CT_SRgbColor allows one).
-		if (!innerElements?.includes('<a:alpha')) {
+		if (!innerElements?.includes(ALPHA_TAG)) {
 			const alphaHex = colorVal.slice(6, 8)
 			const alphaVal = Math.round((parseInt(alphaHex, 16) / 255) * PERCENT_SCALE)
-			innerElements = `<a:alpha val="${alphaVal}"/>${innerElements || ''}`
+			innerElements = voidEl('a:alpha', { val: alphaVal }) + (innerElements || '')
 		}
 		colorVal = colorVal.slice(0, 6)
 	}
@@ -65,8 +73,11 @@ export function createColorElement(colorStr: string | SCHEME_COLORS, innerElemen
 		colorVal = DEF_FONT_COLOR
 	}
 
-	const tagName = REGEX_HEX_COLOR.test(colorVal) ? 'srgbClr' : 'schemeClr'
-	const colorAttr = 'val="' + (REGEX_HEX_COLOR.test(colorVal) ? colorVal.toUpperCase() : colorVal) + '"'
+	const isHex = REGEX_HEX_COLOR.test(colorVal)
+	const name = isHex ? 'a:srgbClr' : 'a:schemeClr'
+	const attrs = { val: isHex ? colorVal.toUpperCase() : colorVal }
 
-	return innerElements ? `<a:${tagName} ${colorAttr}>${innerElements}</a:${tagName}>` : `<a:${tagName} ${colorAttr}/>`
+	// Paired vs self-closing is decided by whether there is anything to nest, so this
+	// is one of the few places `el`/`voidEl` are chosen at runtime rather than by tag.
+	return innerElements ? el(name, attrs, raw(innerElements)) : voidEl(name, attrs)
 }

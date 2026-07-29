@@ -9,6 +9,7 @@
 import type { BorderProps, LineCap, ShapeLineProps } from '../../core-interfaces.js'
 import { genXmlColorSelection, genXmlGradientFill } from './fill.js'
 import { InvalidOptionError } from '../../errors.js'
+import { voidEl } from '../oxml/el.js'
 
 /**
  * Resolve a border's line width in points, falling back to `defaultPt` when `width`
@@ -56,7 +57,7 @@ export function genXmlLineFill(line: ShapeLineProps): string {
 	// `type: 'none'` is an explicit *no stroke*, and it is not the same as saying nothing.
 	// Omitting the paint child leaves the outline to the theme or placeholder, so a shape
 	// authored with `line: { type: 'none' }` grew the theme's border instead of losing it.
-	if (line.type === 'none') return '<a:noFill/>'
+	if (line.type === 'none') return voidEl('a:noFill')
 	// `gradient` presence selects a gradient stroke even when `type` was omitted.
 	if (line.gradient || line.type === 'gradient') return genXmlGradientFill(line.gradient)
 	if (line.type === 'pattern' || line.type === 'image') return genXmlColorSelection(line)

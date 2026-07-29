@@ -20,6 +20,7 @@ import { FIXED_PCT_PER_PERCENT } from '../../units.js'
 import { convertRotationDegrees, transparencyToAlpha } from '../../units-internal.js'
 import { createColorElement } from './color.js'
 import { InvalidOptionError, UnsupportedFeatureError } from '../../errors.js'
+import { el, raw, voidEl } from '../oxml/el.js'
 
 function boolToXml(value: boolean): string {
 	return value ? '1' : '0'
@@ -32,10 +33,8 @@ function normalizeGradientAngle(angle: number | undefined): number {
 	return convertRotationDegrees(((degrees % 360) + 360) % 360)
 }
 
-function gradientStopColorAdjustments(stop: GradientStopProps): string {
-	let internalElements = ''
-	if (stop.transparency) internalElements += `<a:alpha val="${transparencyToAlpha(stop.transparency)}"/>`
-	return internalElements
+function alphaFromTransparency(transparency: number | undefined): string {
+	return transparency ? voidEl('a:alpha', { val: transparencyToAlpha(transparency) }) : ''
 }
 
 function normalizeGradientStops(stops: GradientStopProps[] | undefined): GradientStopProps[] {
@@ -82,33 +81,46 @@ export function genXmlGradientFill(gradient: GradientFillProps | undefined): str
 	const stops = normalizeGradientStops(gradient.stops)
 	const rotWithShape = gradient.rotateWithShape ?? true
 
-	let strXml = `<a:gradFill rotWithShape="${boolToXml(rotWithShape)}">`
-	strXml += '<a:gsLst>'
-	stops.forEach((stop) => {
-		const position = Math.round(stop.position * FIXED_PCT_PER_PERCENT)
-		strXml += `<a:gs pos="${position}">${createColorElement(stop.color, gradientStopColorAdjustments(stop))}</a:gs>`
-	})
-	strXml += '</a:gsLst>'
+	const gsLst = el(
+		'a:gsLst',
+		null,
+		stops.map((stop) =>
+			raw(
+				el(
+					'a:gs',
+					{ pos: Math.round(stop.position * FIXED_PCT_PER_PERCENT) },
+					raw(createColorElement(stop.color, alphaFromTransparency(stop.transparency)))
+				)
+			)
+		)
+	)
+
+	let shape: string
 	if (gradient.kind === 'radial') {
 		// `<a:path path="circle">` radiates the first stop from a focus rectangle out
 		// to the edges. `fillToRect` insets place that focus: equal insets center it,
 		// and the `center` percentage shifts it (l/t = center, r/b = 100 - center).
 		const cx = Math.max(0, Math.min(100, gradient.center?.x ?? 50))
 		const cy = Math.max(0, Math.min(100, gradient.center?.y ?? 50))
-		const l = Math.round(cx * FIXED_PCT_PER_PERCENT)
-		const t = Math.round(cy * FIXED_PCT_PER_PERCENT)
-		const r = Math.round((100 - cx) * FIXED_PCT_PER_PERCENT)
-		const b = Math.round((100 - cy) * FIXED_PCT_PER_PERCENT)
-		strXml += `<a:path path="circle"><a:fillToRect l="${l}" t="${t}" r="${r}" b="${b}"/></a:path>`
+		const fillToRect = voidEl('a:fillToRect', {
+			l: Math.round(cx * FIXED_PCT_PER_PERCENT),
+			t: Math.round(cy * FIXED_PCT_PER_PERCENT),
+			r: Math.round((100 - cx) * FIXED_PCT_PER_PERCENT),
+			b: Math.round((100 - cy) * FIXED_PCT_PER_PERCENT),
+		})
+		shape = el('a:path', { path: 'circle' }, raw(fillToRect))
 	} else {
 		if (typeof gradient.scaled !== 'undefined' && typeof gradient.scaled !== 'boolean')
 			throw new InvalidOptionError('gradient/scaled-not-boolean', 'Gradient scaled must be a boolean.')
-		const scaledAttr = typeof gradient.scaled === 'boolean' ? ` scaled="${boolToXml(gradient.scaled)}"` : ''
-		strXml += `<a:lin ang="${normalizeGradientAngle(gradient.angle)}"${scaledAttr}/>`
+		// `scaled` is absent rather than defaulted when unset, so it stays `undefined`
+		// and `voidEl` drops the attribute entirely.
+		shape = voidEl('a:lin', {
+			ang: normalizeGradientAngle(gradient.angle),
+			scaled: typeof gradient.scaled === 'boolean' ? boolToXml(gradient.scaled) : undefined,
+		})
 	}
-	strXml += '</a:gradFill>'
 
-	return strXml
+	return el('a:gradFill', { rotWithShape: boolToXml(rotWithShape) }, [raw(gsLst), raw(shape)])
 }
 
 /**
@@ -120,12 +132,10 @@ export function genXmlPatternFill(pattern: PatternFillProps | undefined): string
 	if (!pattern) throw new InvalidOptionError('pattern-fill/missing-pattern', 'Pattern fill requires a pattern object.')
 	const fgColor = pattern.fgColor ?? '000000'
 	const bgColor = pattern.bgColor ?? 'FFFFFF'
-	return (
-		`<a:pattFill prst="${pattern.preset}">` +
-		`<a:fgClr>${createColorElement(fgColor)}</a:fgClr>` +
-		`<a:bgClr>${createColorElement(bgColor)}</a:bgClr>` +
-		'</a:pattFill>'
-	)
+	return el('a:pattFill', { prst: pattern.preset }, [
+		raw(el('a:fgClr', null, raw(createColorElement(fgColor)))),
+		raw(el('a:bgClr', null, raw(createColorElement(bgColor)))),
+	])
 }
 
 /**
@@ -141,11 +151,16 @@ export function genXmlImageFill(props: ShapeFillProps | undefined): string {
 			'image-fill/unresolved-media',
 			'image fill is missing its resolved media reference; falling back to no fill. Provide `image: { path }` or `image: { data }`.'
 		)
-		return '<a:noFill/>'
+		return voidEl('a:noFill')
 	}
 	const alpha = props.transparency
-	const blipInner = alpha ? `<a:alphaModFix amt="${Math.round((100 - alpha) * FIXED_PCT_PER_PERCENT)}"/>` : ''
-	return `<a:blipFill dpi="0" rotWithShape="1"><a:blip r:embed="rId${props._imgRid}">${blipInner}</a:blip><a:srcRect/><a:stretch><a:fillRect/></a:stretch></a:blipFill>`
+	const blipInner = alpha ? voidEl('a:alphaModFix', { amt: Math.round((100 - alpha) * FIXED_PCT_PER_PERCENT) }) : ''
+	return el('a:blipFill', { dpi: 0, rotWithShape: 1 }, [
+		// `<a:blip>` stays paired even with no `alphaModFix` child — the arity rule.
+		raw(el('a:blip', { 'r:embed': `rId${props._imgRid}` }, raw(blipInner))),
+		raw(voidEl('a:srcRect')),
+		raw(el('a:stretch', null, raw(voidEl('a:fillRect')))),
+	])
 }
 
 /**
@@ -164,12 +179,12 @@ export function genXmlColorSelection(props: Color | ShapeFillProps | ShapeLinePr
 		else {
 			if (props.type) fillType = props.type
 			if (props.color) colorVal = props.color
-			if (props.transparency) internalElements += `<a:alpha val="${transparencyToAlpha(props.transparency)}"/>`
+			internalElements += alphaFromTransparency(props.transparency)
 		}
 
 		switch (fillType) {
 			case 'solid':
-				outText += `<a:solidFill>${createColorElement(colorVal, internalElements)}</a:solidFill>`
+				outText += el('a:solidFill', null, raw(createColorElement(colorVal, internalElements)))
 				break
 			case 'gradient':
 				outText += genXmlGradientFill(typeof props === 'string' ? undefined : props.gradient)

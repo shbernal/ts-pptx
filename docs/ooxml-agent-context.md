@@ -153,3 +153,4 @@ Useful local files:
 - `src/gen/` (OOXML generators: `define/*` normalize, `slide|drawingml|chart|pres|opc|anim|table/*` serialize)
 - `src/gen/oxml/el.ts` (XML element builder used by the emitters)
 - `scripts/byte-identity.mjs` (byte-identity gate for emitter refactors)
+- `scripts/raw-xml-ratchet.mjs` (ratchet: hand-built XML may shrink, never grow)

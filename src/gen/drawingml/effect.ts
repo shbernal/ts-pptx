@@ -14,6 +14,7 @@ import type { ShadowPropsInternal } from '../../types/internal.js'
 import { ANGLE_UNITS_PER_DEGREE, EMU_PER_POINT, PERCENT_SCALE } from '../../units.js'
 import { opacityToAlpha, valToPts } from '../../units-internal.js'
 import { createColorElement } from './color.js'
+import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 
 /**
  * Creates `a:glow` element
@@ -23,17 +24,17 @@ import { createColorElement } from './color.js'
  * { size: 8, color: 'FFFFFF', opacity: 0.75 };
  */
 export function createGlowElement(options: TextGlowProps, defaults: TextGlowProps): string {
-	let strXml = ''
 	const opts = { ...defaults, ...options }
 	const size = Math.round(opts.size * EMU_PER_POINT)
 	const color = opts.color || DEF_FONT_COLOR
 	const opacity = opacityToAlpha(opts.opacity ?? 0)
 
-	strXml += `<a:glow rad="${size}">`
-	strXml += createColorElement(color, `<a:alpha val="${opacity}"/>`)
-	strXml += '</a:glow>'
+	return el('a:glow', { rad: size }, raw(createColorElement(color, alpha(opacity))))
+}
 
-	return strXml
+/** The `<a:alpha>` child both effects hang off their color element. */
+function alpha(value: number): string {
+	return voidEl('a:alpha', { val: value })
 }
 
 /**
@@ -64,15 +65,13 @@ export function createShadowElement(options: ShadowPropsInternal | undefined, de
 
 	// sx/sy/kx/ky/algn/rotWithShape are valid only on `a:outerShdw` (CT_OuterShadowEffect);
 	// `a:innerShdw` (CT_InnerShadowEffect) accepts only blurRad/dist/dir.
-	const extraAttrs =
+	const outerAttrs: XmlAttrs =
 		type === 'outer'
-			? `sx="100000" sy="100000" kx="0" ky="0" algn="bl" rotWithShape="${opts.rotateWithShape ? 1 : 0}" `
-			: ''
-	let strXml = `<a:${type}Shdw ${extraAttrs}blurRad="${blur}" dist="${offset}" dir="${angle}">`
-	strXml += createColorElement(color, `<a:alpha val="${opacity}"/>`)
-	strXml += `</a:${type}Shdw>`
+			? { sx: 100000, sy: 100000, kx: 0, ky: 0, algn: 'bl', rotWithShape: opts.rotateWithShape ? 1 : 0 }
+			: {}
+	const attrs = { ...outerAttrs, blurRad: blur, dist: offset, dir: angle }
 
-	return strXml
+	return el(`a:${type}Shdw`, attrs, raw(createColorElement(color, alpha(opacity))))
 }
 
 /**
@@ -86,9 +85,9 @@ export function createShadowElement(options: ShadowPropsInternal | undefined, de
  * @returns {string} `<a:effectLst>…</a:effectLst>` or `<a:effectLst/>`
  */
 export function createShadowEffectLst(options: ShadowPropsInternal | undefined, defaults: ShadowPropsInternal): string {
-	if (!options || typeof options !== 'object') return '<a:effectLst/>'
+	if (!options || typeof options !== 'object') return voidEl('a:effectLst')
 	const inner = createShadowElement(options, defaults)
-	return inner ? `<a:effectLst>${inner}</a:effectLst>` : '<a:effectLst/>'
+	return inner ? el('a:effectLst', null, raw(inner)) : voidEl('a:effectLst')
 }
 
 /**
