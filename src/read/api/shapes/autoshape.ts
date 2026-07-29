@@ -51,13 +51,6 @@ export class AutoShape extends Shape {
 		return ph ? { type: attr(ph, 'type'), idx: attr(ph, 'idx') ?? '0' } : null
 	}
 
-	/** Preset geometry name (`a:prstGeom/@prst`, e.g. `rect`), or `null` for custom/none. */
-	get presetGeometry(): string | null {
-		const spPr = firstChild(this.element, 'p:spPr')
-		const prstGeom = spPr && firstChild(spPr, 'a:prstGeom')
-		return prstGeom ? attr(prstGeom, 'prst') : null
-	}
-
 	/**
 	 * Custom freeform geometry (`spPr/a:custGeom/a:pathLst`), or `null` when the
 	 * shape uses preset geometry / none. The faithful, multi-path counterpart of

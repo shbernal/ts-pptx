@@ -458,6 +458,19 @@ export abstract class Shape {
 	}
 
 	/**
+	 * Preset geometry name (`spPr/a:prstGeom/@prst`, e.g. `rect`), or `null` for
+	 * custom geometry or none. Not an auto-shape-only property: PowerPoint gives a
+	 * picture and a connector a preset geometry too (a `p:pic` is `rect` unless it
+	 * has been cropped to a shape), so it reads off whichever properties element
+	 * this kind carries. A group has no geometry of its own and reads `null`.
+	 */
+	get presetGeometry(): string | null {
+		const props = this.properties()
+		const prstGeom = props && firstChild(props, 'a:prstGeom')
+		return prstGeom ? attr(prstGeom, 'prst') : null
+	}
+
+	/**
 	 * Preset-geometry adjustment values (`spPr/a:prstGeom/a:avLst/a:gd`) as a
 	 * name → formula map, e.g. `{ adj: 'val 16667' }`. Empty when the shape has no
 	 * adjust handles (or uses custom geometry). Pair with {@link presetGeometry}.

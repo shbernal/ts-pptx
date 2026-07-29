@@ -7,6 +7,7 @@ import {
 	overlapArea,
 	readPptxBinaryPart,
 	readPptxTextPart,
+	PackageReadError,
 } from '../../dist/inspect.js'
 import JSZip from 'jszip'
 import { defineRegressionSuite, build, assert, assertEqual, setDiagnosticHandler } from '../helpers.js'
@@ -30,25 +31,70 @@ function assertWithin(actual, expected, tolerance, msg) {
 }
 
 /**
- * A minimal package holding `spTreeXml` — enough for inspect, which reads only
- * `presentation.xml` and the slide parts. Built with jszip so the fflate reader
- * under test is not also the writer (see helpers.js).
+ * A minimal OPC package: one slide part per entry of `spTrees` (`slide1.xml` up),
+ * listed in `p:sldIdLst` in `order` — 1-based slide numbers, defaulting to part
+ * order. Built with jszip so the fflate reader under test is not also the writer
+ * (see helpers.js).
+ *
+ * Every part here is load-bearing: inspect reaches the slides through the package
+ * relationships and `p:sldIdLst`, the same route `ts-pptx/read` takes, so a bare zip
+ * of slide XML with no `[Content_Types].xml` is not a package it will read.
  */
-async function packageWithSpTree(spTreeXml) {
+async function packageWithSlides(spTrees, order = spTrees.map((_, i) => i + 1)) {
 	const zip = new JSZip()
+	const slideParts = spTrees.map((_, i) => `/ppt/slides/slide${i + 1}.xml`)
+	zip.file(
+		'[Content_Types].xml',
+		`<?xml version="1.0"?><Types xmlns="${CT_NS}">
+			<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+			<Override PartName="/ppt/presentation.xml" ContentType="${PRESENTATION_CT}"/>
+			${slideParts.map((part) => `<Override PartName="${part}" ContentType="${SLIDE_CT}"/>`).join('')}
+		</Types>`
+	)
+	zip.file(
+		'_rels/.rels',
+		`<?xml version="1.0"?><Relationships xmlns="${PR_NS}">
+			<Relationship Id="rId1" Type="${OFFICE_DOCUMENT_REL}" Target="ppt/presentation.xml"/>
+		</Relationships>`
+	)
+	// One rel per slide part (`rIdN` ↔ `slideN.xml`); the deck order lives only in
+	// `p:sldIdLst`, which is the point of the `order` parameter.
 	zip.file(
 		'ppt/presentation.xml',
-		`<?xml version="1.0"?><p:presentation xmlns:p="${P_NS}"><p:sldSz cx="12192000" cy="6858000"/></p:presentation>`
+		`<?xml version="1.0"?><p:presentation xmlns:p="${P_NS}" xmlns:r="${R_NS}">
+			<p:sldIdLst>${order.map((n, i) => `<p:sldId id="${256 + i}" r:id="rId${n}"/>`).join('')}</p:sldIdLst>
+			<p:sldSz cx="12192000" cy="6858000"/>
+		</p:presentation>`
 	)
 	zip.file(
-		'ppt/slides/slide1.xml',
-		`<?xml version="1.0"?><p:sld xmlns:p="${P_NS}" xmlns:a="${A_NS}"><p:cSld><p:spTree>${spTreeXml}</p:spTree></p:cSld></p:sld>`
+		'ppt/_rels/presentation.xml.rels',
+		`<?xml version="1.0"?><Relationships xmlns="${PR_NS}">
+			${spTrees.map((_, i) => `<Relationship Id="rId${i + 1}" Type="${SLIDE_REL}" Target="slides/slide${i + 1}.xml"/>`).join('')}
+		</Relationships>`
 	)
+	spTrees.forEach((spTreeXml, i) => {
+		zip.file(
+			`ppt/slides/slide${i + 1}.xml`,
+			`<?xml version="1.0"?><p:sld xmlns:p="${P_NS}" xmlns:a="${A_NS}"><p:cSld><p:spTree>${spTreeXml}</p:spTree></p:cSld></p:sld>`
+		)
+	})
 	return zip.generateAsync({ type: 'uint8array' })
+}
+
+/** The single-slide case, which most of these fixtures want. */
+async function packageWithSpTree(spTreeXml) {
+	return packageWithSlides([spTreeXml])
 }
 
 const P_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main'
 const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+const R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+const PR_NS = 'http://schemas.openxmlformats.org/package/2006/relationships'
+const CT_NS = 'http://schemas.openxmlformats.org/package/2006/content-types'
+const OFFICE_DOCUMENT_REL = `${R_NS}/officeDocument`
+const SLIDE_REL = `${R_NS}/slide`
+const PRESENTATION_CT = 'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml'
+const SLIDE_CT = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
 
 /** `<p:sp>` with a name and an explicit transform, for hand-authored shape trees. */
 function spXml(id, name, { x = 0, y = 0, cx = 100, cy = 100 } = {}) {
@@ -345,6 +391,72 @@ defineRegressionSuite('PPTX inspection primitives', [
 			// what it maps is unresolvable. And one bad group must not poison the slide.
 			assert(names.includes('degenerate group'), 'the degenerate group itself is still reported')
 			assert(names.includes('healthy sibling'), 'an unrelated sibling is unaffected')
+		},
+	},
+	{
+		// Slides come back in the order PowerPoint shows them (`p:sldIdLst`), which
+		// stops matching part order the moment a deck is reordered: dragging a slide
+		// rewrites the list and leaves `slideN.xml` named as it was. Reading the
+		// directory instead — as this surface once did — reports the authoring history
+		// rather than the deck.
+		name: 'inspect reports slides in presentation order, not part-name order',
+		fn: async () => {
+			const named = (name) => spXml(2, name, { x: 0, y: 0, cx: 100, cy: 100 })
+			// Parts 1/2/3 exist in that order; the deck shows them 3, 1, 2.
+			const buf = await packageWithSlides([named('first part'), named('second part'), named('third part')], [3, 1, 2])
+
+			const { slides } = await inspectPptx(buf)
+			assertEqual(
+				slides.map((slide) => slide.elements[0].name).join(' < '),
+				'third part < first part < second part',
+				'slide order follows p:sldIdLst'
+			)
+			assertEqual(slides.map((slide) => slide.index).join(','), '0,1,2', 'index is the deck position')
+			assertEqual(slides[0].path, 'ppt/slides/slide3.xml', 'and each slide still reports its own part')
+		},
+	},
+	{
+		// A run's `a:t` is reported verbatim, including the whitespace an
+		// `xml:space="preserve"` run carries. Trimming it — as this surface once did,
+		// inheriting its XML parser's default — both loses the leading/trailing space
+		// that widens a line and welds adjacent runs together, so `text` came out as
+		// "Bigbold" and the word count was wrong.
+		name: 'inspect preserves run whitespace rather than trimming each run',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addText([{ text: 'Two ', options: { bold: true } }, { text: 'words' }], {
+					x: 1,
+					y: 1,
+					w: 3,
+					h: 0.5,
+					objectName: 'spaced',
+				})
+			})
+
+			const [slide] = (await inspectPptx(buf)).slides
+			const element = slide.elements.find((el) => el.name === 'spaced')
+			assertEqual(element.textRuns[0].text, 'Two ', 'the trailing space belongs to the run')
+			assertEqual(element.text, 'Two words', 'so the joined text keeps the word boundary')
+			assertEqual(slide.wordCount, 2, 'and the word count is the visible one')
+		},
+	},
+	{
+		// inspect and `ts-pptx/read` share one package model, so they agree on what a
+		// package is. A zip holding slide XML but no `[Content_Types].xml` is not one.
+		name: 'a zip that is not an OPC package is rejected',
+		fn: async () => {
+			const zip = new JSZip()
+			zip.file('ppt/slides/slide1.xml', `<?xml version="1.0"?><p:sld xmlns:p="${P_NS}"><p:cSld/></p:sld>`)
+			const buf = await zip.generateAsync({ type: 'uint8array' })
+
+			let error = null
+			try {
+				await inspectPptx(buf)
+			} catch (err) {
+				error = err
+			}
+			assert(error instanceof PackageReadError, `expected a PackageReadError; got ${String(error)}`)
+			assertEqual(error.code, 'package/not-an-opc-package', 'the code names what is missing')
 		},
 	},
 	{

@@ -11,9 +11,6 @@ importers:
       '@xmldom/xmldom':
         specifier: ^0.9.10
         version: 0.9.10
-      fast-xml-parser:
-        specifier: ^5.10.1
-        version: 5.10.1
       fflate:
         specifier: ^0.8.3
         version: 0.8.3
@@ -51,6 +48,9 @@ importers:
       eslint-config-prettier:
         specifier: ^10.1.8
         version: 10.1.8(eslint@10.7.0)
+      fast-xml-parser:
+        specifier: ^5.10.1
+        version: 5.10.1
       happy-dom:
         specifier: ^20.11.1
         version: 20.11.1

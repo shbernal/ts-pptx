@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`Run.charSpacingPt`** on the read model — character spacing (tracking) in
+  points from `a:rPr/@spc`, the read counterpart of the write-side `charSpacing`
+  option. It sat beside `caps`, `strike`, and `baselinePct` as the one run
+  property the flat inspect surface could read and the deep model could not.
+
 - **An error taxonomy: `TsPptxError` and five subclasses.** The library threw
   ~160 bare `Error`s and shipped no error classes at all, so a consumer wanting to
   tell *"you passed a bad coordinate"* from *"this font file is corrupt"* from
@@ -86,6 +91,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   apart) written down in [docs/diagnostics.md](docs/diagnostics.md).
 
 ### Changed
+
+- **`ts-pptx/inspect` is now a projection over `ts-pptx/read`, and
+  `fast-xml-parser` is no longer a dependency.** The library shipped *two*
+  independent readers of a `.pptx` over two different XML parsers: the deep,
+  navigable `read` model on `@xmldom/xmldom`, and the flat `inspect` snapshot on
+  `fast-xml-parser` with its own hand-rolled, JSZip-shaped package facade. The
+  overlap was near-total — boxes, rotation, group composition, runs, paragraphs,
+  font size, colour, fill, line, shape type, wrap, autofit, body insets, part
+  listing — so every read-side fix had to be made twice, and a divergence between
+  the two was invisible to every test in the repo.
+
+  The *shape* of `inspect` is unchanged: a cheap, flat, allocation-light snapshot
+  is a genuinely different use case from a navigable model, and every exported
+  type and function keeps its name and meaning. The *implementation* is gone.
+  `inspect` now reaches the package through `OpcPackage` and every field through
+  the read model's own getters, so the two surfaces cannot disagree about what a
+  deck says.
+
+  **`fast-xml-parser` is dropped from `dependencies`** (it stays a devDependency
+  for one maintenance script), which is 1.4 MB less installed for every consumer
+  of the package, whichever entry they import.
+
+  Four behaviour changes come with it:
+
+  - **Slides are reported in presentation order (`p:sldIdLst`), not part-name
+    order.** Dragging a slide in PowerPoint rewrites that list and leaves
+    `slideN.xml` named as it was, so the old directory-order enumeration reported
+    the authoring history rather than the deck. `slides[].index` is now the deck
+    position; `slides[].path` still names the part.
+  - **`textRuns[].text` is verbatim.** `fast-xml-parser` trims text nodes by
+    default, so every run came back stripped of the whitespace an
+    `xml:space="preserve"` run carries. That both lost the leading/trailing space
+    that widens a line and welded adjacent runs together — a slide reading
+    `"This is test content."` inspected as `"Thisis testcontent."`, with a word
+    count to match. Element-level `text` (runs joined, whitespace collapsed,
+    trimmed) is unaffected in shape but now has the right word boundaries.
+  - **`loadPptxPackage()` returns an `OpcPackage`**, not the JSZip-shaped
+    `{ files, file(path) }` facade; the `PptxPackage` / `PptxPackageFile` types are
+    removed. `listPptxParts()` / `readPptxTextPart()` / `readPptxBinaryPart()` keep
+    their signatures and still speak zip paths. Migration: a caller that reached
+    into `pptxPackage.file(path).async('string')` calls `readPptxTextPart(pkg,
+    path)`, and one that wants more can now use the `OpcPackage` directly or hand
+    it to `Presentation.fromPackage()` without re-reading the bytes.
+  - **The input must be a real OPC package.** A zip holding slide XML but no
+    `[Content_Types].xml` used to inspect fine; it now throws a `PackageReadError`
+    (`package/not-an-opc-package`), the same bar `ts-pptx/read` applies.
+
+  A run highlight authored as a theme token now resolves to a literal hex against
+  the slide's theme instead of reading `null`.
+
+  The cost is bundle size: a consumer importing only `/inspect` now pulls the read
+  model's chunks (~440 KB of library code before their own tree-shaking) where it
+  used to pull ~20 KB plus `fast-xml-parser`. This project is Node-first, and one
+  reader that is right beats two that drift.
+
+  Every other field of every element across all 43 fixture decks is byte-identical
+  to the old implementation, pinned by a new characterization snapshot
+  (`test/read/fixtures/inspect-surface.snapshot.json`).
+
+- **`Shape.presetGeometry` moved from `AutoShape` to the `Shape` base**, so a
+  picture or connector reports its preset geometry too. PowerPoint gives both one
+  — a `p:pic` is `rect` unless cropped to a shape — and `Shape.adjustValues` was
+  already on the base documenting itself as the companion to a member only
+  auto-shapes had.
 
 - **Nine reality-checks that wrote to the console now throw or warn.** A handful of
   validation sites in `gen/define/` reported a problem with a direct

@@ -9,11 +9,12 @@
  * `off + (p - chOff) * (ext / chExt)` for every enclosing group, with the group's
  * `@rot`/`@flipH`/`@flipV` composed on top.
  *
- * This module is deliberately **pure**: it takes decoded numbers, not XML. The
- * two callers reach the same math from different parsers — the read API walks a
- * DOM (`Shape.absoluteFrame`), while the inspect surface walks a fast-xml-parser
- * tree — and a second implementation of this mapping is exactly the drift risk
- * worth avoiding.
+ * This module is deliberately **pure**: it takes decoded numbers, not XML, so the
+ * mapping stays one implementation no matter how many surfaces need it. It was
+ * shared between two independent readers before the inspect surface became a
+ * projection over the read model; today `Shape.absoluteFrame` is the only caller,
+ * and the separation still earns its keep by keeping the arithmetic testable
+ * without a package to parse.
  */
 
 /** A position + extent pair in EMU (`a:off`/`a:ext`, or `a:chOff`/`a:chExt`). */

@@ -1,7 +1,32 @@
-import { XMLParser } from 'fast-xml-parser'
-import { composeGroupFrame, type GroupTransform, type TransformBox } from './group-transform.js'
+/**
+ * A cheap, flat snapshot of what a `.pptx` contains: every element on every
+ * slide, with its slide-absolute box and the handful of text/fill properties a
+ * layout audit asks about.
+ *
+ * It is a **projection over `ts-pptx/read`**, not a second reader. `read` gives a
+ * navigable, mutable model of a package and answers questions in the shape of the
+ * OOXML tree; this answers one flat question — "what is on the slides, and where"
+ * — in the shape a linter, an overlap check, or a diffing tool wants. The two used
+ * to be independent implementations over two different XML parsers, which meant
+ * every read-side fix had to be made twice and a divergence between them was
+ * invisible to every test. Now the model below is the only reader, and this file
+ * is the flattening.
+ *
+ * What it deliberately does NOT do, and why the projection is not just
+ * `Presentation` re-exported:
+ * - **Only geometry a shape carries itself.** A placeholder that inherits its box
+ *   from the layout is omitted rather than resolved (`absoluteFrame`, not
+ *   `resolvedFrame`) — the snapshot reports what the slide states.
+ * - **No `p:graphicFrame`.** Tables, charts, and SmartArt are structures, not
+ *   boxes with text, and flattening them here would report a shape whose content
+ *   this surface cannot describe.
+ */
 import { warn } from './diagnostics.js'
-import { readZip } from './zip.js'
+import { OpcPackage } from './read/opc/package.js'
+import { Presentation } from './read/api/presentation.js'
+import type { AnyShape } from './read/api/shapes.js'
+import type { Run, TextFrame } from './read/api/text.js'
+import { ELEMENT_NODE, OOXML_NS, attr, firstChild, intValue, type Element } from './read/oxml/dom.js'
 import { STANDARD_LAYOUTS, emuToInches } from './units.js'
 
 /**
@@ -13,16 +38,6 @@ import { STANDARD_LAYOUTS, emuToInches } from './units.js'
 type PptxInspectInputValue = string | number[] | Uint8Array | ArrayBuffer | Blob
 
 export type PptxInspectInput = PptxInspectInputValue | Promise<PptxInspectInputValue>
-
-export interface PptxPackageFile {
-	async(type: 'string'): Promise<string>
-	async(type: 'uint8array'): Promise<Uint8Array>
-}
-
-export interface PptxPackage {
-	files: Record<string, unknown>
-	file(path: string): PptxPackageFile | null
-}
 
 export interface PptxSlideSize {
 	widthIn: number
@@ -48,7 +63,7 @@ export interface PptxTextRun {
 	italic: boolean
 	/** Strikethrough token (`a:rPr@strike`: `noStrike`/`sngStrike`/`dblStrike`), or null when unset. */
 	strike: string | null
-	/** Highlight colour hex (`a:rPr > a:highlight > a:srgbClr@val`), or null when unset (theme tokens are not resolved here). */
+	/** Highlight colour hex (`a:rPr > a:highlight`), or null when unset. A theme token is resolved against the slide's theme. */
 	highlight: string | null
 	/** Character spacing in points (`a:rPr@spc`, authored in hundredths of a point), or null when unset. */
 	charSpacingPt: number | null
@@ -168,44 +183,36 @@ export const DEFAULT_INSPECT_SLIDE_SIZE: PptxSlideSize = Object.freeze({
 	heightIn: STANDARD_LAYOUTS.LAYOUT_WIDE.heightIn,
 })
 
-// `preserveOrder` keeps sibling order across *different* tag names, which the default
-// tag-keyed output discards ({a:[…], b:{…}} cannot say whether `b` came first). zIndex
-// is document order, so that ordering is load-bearing. It costs a more awkward parse
-// shape, which `toElements` normalises away immediately.
-const parser = new XMLParser({
-	ignoreAttributes: false,
-	attributeNamePrefix: '',
-	allowBooleanAttributes: true,
-	parseAttributeValue: true,
-	parseTagValue: false,
-	preserveOrder: true,
-})
+/* ────────────────────────────────────────────────────────────────────────────
+ * Package layer
+ *
+ * Thin conveniences over `OpcPackage`, kept because this surface speaks zip
+ * paths (`ppt/slides/slide1.xml`) while OPC speaks partnames (`/ppt/...`), and
+ * because reaching a part's bytes is the one thing a caller of a *flat* surface
+ * still routinely needs.
+ * ──────────────────────────────────────────────────────────────────────────── */
 
-const textDecoder = new TextDecoder('utf-8')
-
-export async function loadPptxPackage(input: PptxInspectInput): Promise<PptxPackage> {
-	const entries = await readZip(input)
-	const files: Record<string, unknown> = {}
-	for (const path of entries.keys()) files[path] = true
-	return {
-		files,
-		file(path: string): PptxPackageFile | null {
-			const bytes = entries.get(path)
-			if (!bytes) return null
-			const read = (async (type: 'string' | 'uint8array') =>
-				type === 'uint8array' ? bytes : textDecoder.decode(bytes)) as PptxPackageFile['async']
-			return { async: read }
-		},
-	}
+/**
+ * Load a `.pptx` as an {@link OpcPackage} — the same package model `ts-pptx/read`
+ * uses, so a caller that starts here can hand the result straight to
+ * `Presentation.fromPackage()` without re-reading the bytes.
+ *
+ * The input must be a real OPC package: a zip that merely contains some slide XML
+ * but no `[Content_Types].xml` is rejected with a `PackageReadError`.
+ */
+export async function loadPptxPackage(input: PptxInspectInput): Promise<OpcPackage> {
+	return OpcPackage.load(await input)
 }
 
-export function listPptxParts(pptxPackage: PptxPackage): string[] {
-	return Object.keys(pptxPackage.files).sort()
+/** Every part in the package, as zip paths (`ppt/slides/slide1.xml`), sorted. */
+export function listPptxParts(pptxPackage: OpcPackage): string[] {
+	return [...pptxPackage.parts.keys()].map(zipPathOf).sort()
 }
 
-export async function readPptxTextPart(pptxPackage: PptxPackage, path: string): Promise<string | null> {
-	const entry = pptxPackage.file(path)
-	return entry ? entry.async('string') : null
+/** Read a package part as UTF-8 text, or `null` when the part is absent. */
+export async function readPptxTextPart(pptxPackage: OpcPackage, path: string): Promise<string | null> {
+	const bytes = await readPptxBinaryPart(pptxPackage, path)
+	return bytes ? textDecoder.decode(bytes) : null
 }
 
 /**
@@ -214,10 +221,24 @@ export async function readPptxTextPart(pptxPackage: PptxPackage, path: string): 
  * Returns `null` when the part is absent. The `Uint8Array` is browser-isomorphic;
  * Node consumers can wrap it with `Buffer.from(...)` if they need Buffer methods.
  */
-export async function readPptxBinaryPart(pptxPackage: PptxPackage, path: string): Promise<Uint8Array | null> {
-	const entry = pptxPackage.file(path)
-	return entry ? entry.async('uint8array') : null
+export async function readPptxBinaryPart(pptxPackage: OpcPackage, path: string): Promise<Uint8Array | null> {
+	return pptxPackage.part(partNameOf(path))?.bytes ?? null
 }
+
+const textDecoder = new TextDecoder('utf-8')
+
+/** OPC partnames are absolute (`/ppt/…`); this surface speaks zip paths (`ppt/…`). */
+function zipPathOf(partName: string): string {
+	return partName.startsWith('/') ? partName.slice(1) : partName
+}
+
+function partNameOf(zipPath: string): string {
+	return zipPath.startsWith('/') ? zipPath : `/${zipPath}`
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * The surface
+ * ──────────────────────────────────────────────────────────────────────────── */
 
 export async function inspectPptx(input: PptxInspectInput): Promise<PptxInspection> {
 	const pptxPackage = await loadPptxPackage(input)
@@ -227,55 +248,60 @@ export async function inspectPptx(input: PptxInspectInput): Promise<PptxInspecti
 }
 
 export async function readPresentationSize(
-	pptxPackage: PptxPackage,
+	pptxPackage: OpcPackage,
 	fallback: PptxSlideSize = DEFAULT_INSPECT_SLIDE_SIZE
 ): Promise<PptxSlideSize> {
-	const presentationXml = await readPptxTextPart(pptxPackage, 'ppt/presentation.xml')
-	if (!presentationXml) return fallback
-
-	const presentation = firstChild(toElements(parser.parse(presentationXml)), 'p:presentation')
-	const size = child(presentation, 'p:sldSz')
-	const cx = numericValue(attr(size, 'cx'))
-	const cy = numericValue(attr(size, 'cy'))
-	if (cx === null || cy === null) return fallback
-
-	return {
-		widthIn: round(emuToInches(cx), 3),
-		heightIn: round(emuToInches(cy), 3),
-	}
+	const size = presentationOf(pptxPackage)?.slideSize
+	if (!size) return fallback
+	return { widthIn: round(size.widthIn, 3), heightIn: round(size.heightIn, 3) }
 }
 
-export async function extractSlides(pptxPackage: PptxPackage, size?: PptxSlideSize): Promise<PptxSlideInspection[]> {
+/**
+ * Every slide in the deck, in **presentation order** (`p:sldIdLst`) — the order
+ * PowerPoint shows them in, which is not the order their parts are named once a
+ * deck has been reordered.
+ */
+export async function extractSlides(pptxPackage: OpcPackage, size?: PptxSlideSize): Promise<PptxSlideInspection[]> {
 	const slideSize = size || (await readPresentationSize(pptxPackage))
-	const slidePaths = listPptxParts(pptxPackage)
-		.filter((path) => /^ppt\/slides\/slide\d+\.xml$/.test(path))
-		.sort((a, b) => slideNumberFromPath(a) - slideNumberFromPath(b))
+	const presentation = presentationOf(pptxPackage)
+	if (!presentation) return []
 
-	const slides: PptxSlideInspection[] = []
-	for (const [index, path] of slidePaths.entries()) {
-		const xml = await readPptxTextPart(pptxPackage, path)
-		if (!xml) continue
-
-		const root = firstChild(toElements(parser.parse(xml)), 'p:sld')
-		const cSld = child(root, 'p:cSld')
-		const elements = normalizeElements(collectElements(child(cSld, 'p:spTree')), path)
+	return presentation.slides.map((slide, index) => {
+		const path = zipPathOf(slide.partName)
+		const harvested: HarvestedShape[] = []
+		harvest(slide.shapes, null, harvested) // slide level: no enclosing group
+		const elements = flatten(harvested, path)
 		const text = elements
 			.map((el) => el.text)
 			.filter(Boolean)
 			.join(' ')
 
-		slides.push({
+		return {
 			index,
-			name: stringValue(attr(cSld, 'name')) || `Slide ${index + 1}`,
+			name: slide.name || `Slide ${index + 1}`,
 			path,
 			size: slideSize,
 			elements,
 			text,
 			wordCount: countWords(text),
-		})
-	}
+		}
+	})
+}
 
-	return slides
+/**
+ * The deck's `Presentation`, or `null` when the package holds no readable
+ * `presentation.xml`. Callers here are auditing files they did not author, so a
+ * package that is a valid OPC container but not a presentation reports an empty
+ * deck rather than throwing. `presentationPart` is the throw site: it rejects a
+ * package with no — or more than one — office-document relationship.
+ */
+function presentationOf(pptxPackage: OpcPackage): Presentation | null {
+	const presentation = Presentation.fromPackage(pptxPackage)
+	try {
+		return presentation.presentationPart.isXmlPart ? presentation : null
+	} catch {
+		return null
+	}
 }
 
 export function overlapArea(a: PptxBox, b: PptxBox): number {
@@ -295,154 +321,82 @@ export function boxAnchor(box: PptxBox, anchor: PptxBoxAnchor, axis: PptxBoxAxis
 	return box.y + box.h / 2
 }
 
-function slideNumberFromPath(path: string): number {
-	return Number(path.match(/slide(\d+)\.xml$/)?.[1] || 0)
-}
-
 /* ────────────────────────────────────────────────────────────────────────────
  * Shape-tree harvest
  * ──────────────────────────────────────────────────────────────────────────── */
 
-const SHAPE_TAGS = new Set(['p:sp', 'p:pic', 'p:cxnSp'])
-
-/**
- * One harvested shape-tree entry, before it is turned into a {@link PptxSlideElement}.
- * `groups` is the enclosing `p:grpSp` chain **innermost first**, as
- * {@link composeGroupFrame} wants it, or `null` when some enclosing group has no
- * usable transform and the element's slide position is therefore unresolvable.
- */
-interface HarvestedElement {
-	element: XmlElement
-	isGroup: boolean
-	groups: GroupTransform[] | null
+/** One harvested shape, before it is flattened into a {@link PptxSlideElement}. */
+interface HarvestedShape {
+	shape: AnyShape
 	parentZIndex: number | null
 	childZIndices: number[]
 }
 
 /**
- * Flatten `p:spTree` into a depth-first, document-order list: each element is
- * followed by its descendants, which is both paint order and the order the
- * {@link PptxSlideElement.zIndex} contract promises. Every entry's index in the
- * returned array is its zIndex.
+ * Flatten a shape list depth-first in document order: each shape is followed by
+ * its descendants, which is both paint order and the order the
+ * {@link PptxSlideElement.zIndex} contract promises. Every entry's index in `out`
+ * is its zIndex. Returns the zIndices assigned at this level, which is what the
+ * enclosing group records as its {@link PptxSlideElement.childZIndices}.
  */
-function collectElements(spTree: XmlElement | null): HarvestedElement[] {
-	const harvested: HarvestedElement[] = []
-	harvest(spTree, [], null, harvested) // slide level: no enclosing groups, not an unresolvable chain
-	return harvested
-}
-
-/** Harvest `parent`'s shape children, returning their zIndices in document order. */
-function harvest(
-	parent: XmlElement | null,
-	groups: GroupTransform[] | null,
-	parentZIndex: number | null,
-	out: HarvestedElement[]
-): number[] {
+function harvest(shapes: AnyShape[], parentZIndex: number | null, out: HarvestedShape[]): number[] {
 	const zIndices: number[] = []
-	if (!parent) return zIndices
-
-	for (const element of shapeTreeChildren(parent)) {
-		if (element.tag === 'p:grpSp') {
-			const entry: HarvestedElement = { element, isGroup: true, groups, parentZIndex, childZIndices: [] }
-			const zIndex = out.push(entry) - 1
-			zIndices.push(zIndex)
-			// The group's own transform maps its children; if it is missing or incomplete,
-			// nothing below it can be placed, so the whole subtree inherits `null`.
-			const own = groups && readGroupTransform(element)
-			entry.childZIndices = harvest(element, own ? [own, ...groups] : null, zIndex, out)
-			continue
-		}
-		if (!SHAPE_TAGS.has(element.tag)) continue // p:nvGrpSpPr, p:grpSpPr, p:graphicFrame, p:extLst, …
-		zIndices.push(out.push({ element, isGroup: false, groups, parentZIndex, childZIndices: [] }) - 1)
+	for (const shape of shapes) {
+		// A `p:graphicFrame` hosts a table, chart, or SmartArt — a structure, not a box
+		// with text. It is outside this surface entirely, so it does not consume a zIndex
+		// either; use `ts-pptx/read` for what is inside one.
+		if (shape.shapeType === 'graphicFrame') continue
+		const entry: HarvestedShape = { shape, parentZIndex, childZIndices: [] }
+		const zIndex = out.push(entry) - 1
+		zIndices.push(zIndex)
+		if (shape.shapeType === 'group') entry.childZIndices = harvest(shape.shapes, zIndex, out)
 	}
 	return zIndices
 }
 
 /**
- * `parent`'s children in document order, descending transparently through
- * `mc:AlternateContent`. PowerPoint wraps a version-gated shape in one, where
- * `mc:Choice` and `mc:Fallback` are two renderings of the *same* shape — take a
- * single branch, or every such shape is reported twice.
+ * Turn harvested shapes into elements, dropping the ones with no resolvable slide
+ * position. A dropped shape keeps its zIndex — the numbers are positions in the
+ * shape tree, and renumbering them would silently repoint every `parentZIndex`.
  */
-function shapeTreeChildren(parent: XmlElement): XmlElement[] {
-	const children: XmlElement[] = []
-	for (const element of parent.children) {
-		if (element.tag === 'mc:AlternateContent') {
-			const branch = child(element, 'mc:Choice') || child(element, 'mc:Fallback')
-			if (branch) children.push(...shapeTreeChildren(branch))
-			continue
-		}
-		children.push(element)
-	}
-	return children
-}
-
-/** A `p:grpSp`'s child-space mapping (`p:grpSpPr > a:xfrm`), or null when it has no usable transform. */
-function readGroupTransform(group: XmlElement): GroupTransform | null {
-	const xfrm = child(child(group, 'p:grpSpPr'), 'a:xfrm')
-	if (!xfrm) return null
-	const outer = readTransformBox(xfrm, 'a:off', 'a:ext')
-	const childSpace = readTransformBox(xfrm, 'a:chOff', 'a:chExt')
-	if (!outer || !childSpace) return null
-	return { outer, child: childSpace, ...orientationOf(xfrm) }
-}
-
-function normalizeElements(harvested: HarvestedElement[], slidePath: string): PptxSlideElement[] {
+function flatten(harvested: HarvestedShape[], slidePath: string): PptxSlideElement[] {
 	return harvested
-		.map((entry, zIndex) => normalizeElement(entry, zIndex, slidePath))
+		.map((entry, zIndex) => toElement(entry, zIndex, slidePath))
 		.filter((element): element is PptxSlideElement => Boolean(element))
 }
 
-function normalizeElement(entry: HarvestedElement, zIndex: number, slidePath: string): PptxSlideElement | null {
-	const { element, isGroup } = entry
-	// A group's own frame lives on p:grpSpPr; every other kind carries p:spPr.
-	const props = child(element, isGroup ? 'p:grpSpPr' : 'p:spPr')
-	const xfrm = child(props, 'a:xfrm')
-	const own = xfrm && readTransformBox(xfrm, 'a:off', 'a:ext')
-	if (!xfrm || !own) return null // no own transform (e.g. geometry inherited from a layout placeholder)
-
-	const name = stringValue(attr(cNvPr(element), 'name'))
-	if (!entry.groups) {
-		warn(
-			'inspect/group-transform-missing',
-			`inspect: skipped ${describe(name, zIndex)} on ${slidePath} — an enclosing group has no usable a:xfrm, so its slide position cannot be resolved.`
-		)
-		return null
-	}
-	const frame = composeGroupFrame({ box: own, ...orientationOf(xfrm) }, entry.groups)
+function toElement(entry: HarvestedShape, zIndex: number, slidePath: string): PptxSlideElement | null {
+	const { shape } = entry
+	const frame = shape.absoluteFrame
 	if (!frame) {
-		warn(
-			'inspect/group-transform-degenerate',
-			`inspect: skipped ${describe(name, zIndex)} on ${slidePath} — an enclosing group has a degenerate transform (zero a:chExt), so its slide position cannot be resolved.`
-		)
+		reportUnresolvable(shape, zIndex, slidePath)
 		return null
 	}
 
-	const textBody = child(element, 'p:txBody')
-	const textRuns = extractTextRuns(textBody)
+	// Only `p:sp` holds a text body, so every other kind projects as an empty frame.
+	const textFrame = shape.textFrame
+	const paragraphs = textFrame ? textFrame.paragraphs.map((p) => ({ runs: p.runs.map(toRun) })) : []
+	const textRuns = paragraphs.flatMap((paragraph) => paragraph.runs)
+	// Deliberately not `TextFrame.text`: this is one whitespace-collapsed line for
+	// matching and word-counting, not the frame's text with its line structure.
 	const text = textRuns
 		.map((run) => run.text)
 		.join('')
 		.replace(/\s+/g, ' ')
 		.trim()
-	const kind: PptxSlideElementKind = isGroup
-		? 'group'
-		: text
-			? 'text'
-			: child(element, 'p:blipFill')
-				? 'image'
-				: 'shape'
+	const kind: PptxSlideElementKind =
+		shape.shapeType === 'group' ? 'group' : text ? 'text' : shape.shapeType === 'picture' ? 'image' : 'shape'
 
 	return {
-		id: stringOrNumberValue(attr(cNvPr(element), 'id')) ?? zIndex + 1,
-		name: name || `${kind} ${zIndex + 1}`,
+		id: shape.id ?? zIndex + 1,
+		name: shape.name || `${kind} ${zIndex + 1}`,
 		kind,
 		zIndex,
 		box: {
-			x: emuToInches(frame.box.x),
-			y: emuToInches(frame.box.y),
-			w: emuToInches(frame.box.cx),
-			h: emuToInches(frame.box.cy),
+			x: emuToInches(frame.left),
+			y: emuToInches(frame.top),
+			w: emuToInches(frame.width),
+			h: emuToInches(frame.height),
 		},
 		rotation: frame.rotation,
 		flipH: frame.flipH,
@@ -450,245 +404,117 @@ function normalizeElement(entry: HarvestedElement, zIndex: number, slidePath: st
 		parentZIndex: entry.parentZIndex,
 		childZIndices: entry.childZIndices,
 		text,
-		textWrap: readTextWrap(textBody),
-		autofit: readAutofit(textBody),
-		autofitFontScale: readAutofitFontScale(textBody),
-		bodyInsets: readBodyInsets(textBody),
+		textWrap: textFrame?.bodyProperties?.wrap ?? null,
+		autofit: textFrame?.autofit ?? null,
+		autofitFontScale: textFrame?.autofitFontScale ?? null,
+		bodyInsets: readBodyInsets(textFrame),
 		textRuns,
-		paragraphs: extractParagraphs(textBody),
+		paragraphs,
 		fontSizes: [...new Set(textRuns.map((run) => run.fontSizePt).filter((size): size is number => size !== null))],
 		colors: [...new Set(textRuns.map((run) => run.color).filter((color): color is string => Boolean(color)))],
-		fill: readFill(props),
-		line: readLine(props),
-		shapeType: stringValue(attr(child(props, 'a:prstGeom'), 'prst')),
+		fill: shape.fillColor,
+		line: shape.lineColor,
+		shapeType: shape.presetGeometry,
 	}
 }
 
-/** Identify an element in a warning: its authored name when it has one, else its z position. */
-function describe(name: string | null, zIndex: number): string {
-	return name ? `"${name}"` : `the element at zIndex ${zIndex}`
-}
-
-const NON_VISUAL_PROPS = ['p:nvSpPr', 'p:nvPicPr', 'p:nvCxnSpPr', 'p:nvGrpSpPr']
-
-/** The `p:cNvPr` identity element, whichever non-visual-properties wrapper this kind uses. */
-function cNvPr(element: XmlElement): XmlElement | null {
-	for (const tag of NON_VISUAL_PROPS) {
-		const found = child(child(element, tag), 'p:cNvPr')
-		if (found) return found
-	}
-	return null
-}
-
-/** A position + extent pair off a transform, in EMU; null when either is incomplete. */
-function readTransformBox(xfrm: XmlElement, offName: string, extName: string): TransformBox | null {
-	const off = child(xfrm, offName)
-	const ext = child(xfrm, extName)
-	const x = numericValue(attr(off, 'x'))
-	const y = numericValue(attr(off, 'y'))
-	const cx = numericValue(attr(ext, 'cx'))
-	const cy = numericValue(attr(ext, 'cy'))
-	if (x === null || y === null || cx === null || cy === null) return null
-	return { x, y, cx, cy }
-}
-
-/** A transform's orientation: `@rot` in degrees (authored in 60000ths) plus the flip flags. */
-function orientationOf(xfrm: XmlElement): { rotation: number; flipH: boolean; flipV: boolean } {
+/** Project one read-model {@link Run} onto the flat run shape. */
+function toRun(run: Run): PptxTextRun {
 	return {
-		rotation: (numericValue(attr(xfrm, 'rot')) ?? 0) / 60000,
-		flipH: readXmlBool(attr(xfrm, 'flipH')),
-		flipV: readXmlBool(attr(xfrm, 'flipV')),
+		text: run.text,
+		fontSizePt: run.fontSizePt,
+		color: run.color,
+		fontFace: run.fontName,
+		// The read model distinguishes "explicitly not bold" from "unset, inherits";
+		// this surface reports what renders, so an unset flag is `false`.
+		bold: run.bold ?? false,
+		italic: run.italic ?? false,
+		strike: run.strike,
+		highlight: run.highlight?.hex ?? null,
+		charSpacingPt: run.charSpacingPt,
 	}
-}
-
-/** Read one `<a:r>` run's text + character properties, or null if it has no text node. */
-function readTextRun(run: XmlElement): PptxTextRun | null {
-	const textNode = child(run, 'a:t')
-	if (!textNode) return null
-	const props = child(run, 'a:rPr')
-	const spc = numericValue(attr(props, 'spc'))
-	const size = numericValue(attr(props, 'sz'))
-	return {
-		text: textNode.text,
-		fontSizePt: size === null ? null : size / 100,
-		color: readTextColor(props),
-		fontFace: stringValue(attr(child(props, 'a:latin'), 'typeface')),
-		bold: readXmlBool(attr(props, 'b')),
-		italic: readXmlBool(attr(props, 'i')),
-		strike: stringValue(attr(props, 'strike')),
-		highlight: stringValue(attr(child(child(props, 'a:highlight'), 'a:srgbClr'), 'val')),
-		charSpacingPt: spc === null ? null : spc / 100,
-	}
-}
-
-function extractTextRuns(textBody: XmlElement | null): PptxTextRun[] {
-	if (!textBody) return []
-	const runs: PptxTextRun[] = []
-	walk(textBody, (node) => {
-		if (node.tag !== 'a:r') return
-		const built = readTextRun(node)
-		if (built) runs.push(built)
-	})
-	return runs
-}
-
-/** Runs grouped by their source paragraph (`a:p`), preserving line boundaries. */
-function extractParagraphs(textBody: XmlElement | null): PptxParagraph[] {
-	if (!textBody) return []
-	return children(textBody, 'a:p').map((paragraph) => ({
-		runs: children(paragraph, 'a:r')
-			.map((run) => readTextRun(run))
-			.filter((run): run is PptxTextRun => Boolean(run)),
-	}))
-}
-
-/** OOXML boolean attributes arrive as 1/0 or "true"/"false" depending on the writer. */
-function readXmlBool(value: unknown): boolean {
-	return value === 1 || value === '1' || value === true || value === 'true'
-}
-
-function readTextColor(props: XmlElement | null): string | null {
-	return stringValue(attr(child(child(props, 'a:solidFill'), 'a:srgbClr'), 'val'))
-}
-
-function readFill(props: XmlElement | null): string | null {
-	return stringValue(attr(child(child(props, 'a:solidFill'), 'a:srgbClr'), 'val'))
-}
-
-function readLine(props: XmlElement | null): string | null {
-	return stringValue(attr(child(child(child(props, 'a:ln'), 'a:solidFill'), 'a:srgbClr'), 'val'))
-}
-
-function readTextWrap(textBody: XmlElement | null): string | null {
-	return stringValue(attr(child(textBody, 'a:bodyPr'), 'wrap'))
 }
 
 // PowerPoint body-inset defaults (ECMA-376 §21.1.2.1.1 prose; the XSD leaves
-// lIns/tIns/rIns/bIns optional with no schema default): 0.1in left/right, 0.05in top/bottom.
-const DEFAULT_INSET_LR_EMU = 91440
-const DEFAULT_INSET_TB_EMU = 45720
+// lIns/tIns/rIns/bIns optional with no schema default): 0.1in left/right,
+// 0.05in top/bottom. The read model reports only the explicitly-set sides.
+const DEFAULT_INSET_LR_IN = 0.1
+const DEFAULT_INSET_TB_IN = 0.05
+const POINTS_PER_INCH = 72
 
-function readAutofit(textBody: XmlElement | null): PptxAutofitMode | null {
-	const bodyPr = child(textBody, 'a:bodyPr')
-	if (!bodyPr) return null
-	if (child(bodyPr, 'a:spAutoFit')) return 'spAutoFit'
-	if (child(bodyPr, 'a:normAutofit')) return 'normAutofit'
-	return 'none'
-}
-
-/** Baked `<a:normAutofit@fontScale>` as a percent (62.5 = 62.5%), or null when unset. */
-function readAutofitFontScale(textBody: XmlElement | null): number | null {
-	const norm = child(child(textBody, 'a:bodyPr'), 'a:normAutofit')
-	if (!norm) return null
-	// OOXML stores fontScale in 1000ths of a percent (62500 = 62.5%). Return a percent.
-	const raw = numericValue(attr(norm, 'fontScale'))
-	return raw === null ? null : raw / 1000
-}
-
-function readBodyInsets(textBody: XmlElement | null): PptxBodyInsets | null {
-	const bodyPr = child(textBody, 'a:bodyPr')
-	if (!bodyPr) return null
+function readBodyInsets(textFrame: TextFrame | null): PptxBodyInsets | null {
+	const insets = textFrame?.bodyProperties?.insetsPt
+	if (!insets) return null
+	const inches = (pt: number | undefined, fallback: number): number =>
+		pt === undefined ? fallback : pt / POINTS_PER_INCH
 	return {
-		left: emuToInches(numericValue(attr(bodyPr, 'lIns')) ?? DEFAULT_INSET_LR_EMU),
-		top: emuToInches(numericValue(attr(bodyPr, 'tIns')) ?? DEFAULT_INSET_TB_EMU),
-		right: emuToInches(numericValue(attr(bodyPr, 'rIns')) ?? DEFAULT_INSET_LR_EMU),
-		bottom: emuToInches(numericValue(attr(bodyPr, 'bIns')) ?? DEFAULT_INSET_TB_EMU),
+		left: inches(insets.left, DEFAULT_INSET_LR_IN),
+		top: inches(insets.top, DEFAULT_INSET_TB_IN),
+		right: inches(insets.right, DEFAULT_INSET_LR_IN),
+		bottom: inches(insets.bottom, DEFAULT_INSET_TB_IN),
 	}
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
- * XML tree model
+ * Unresolvable positions
  *
- * `preserveOrder` hands back entries shaped like `{ 'p:sp': [...children], ':@': {attrs} }`
- * with text as `{ '#text': '…' }` siblings. `toElements` converts that once into a
- * plain element tree so the readers above stay about OOXML rather than about the parser.
+ * `absoluteFrame` reports `null` for three different situations, and only two of
+ * them are worth telling the caller about. The distinction is not recoverable
+ * from the `null`, so it is re-derived here from the same ancestry the read model
+ * walks.
  * ──────────────────────────────────────────────────────────────────────────── */
 
-interface XmlElement {
-	/** Qualified tag name as authored, e.g. `p:sp`. */
-	tag: string
-	attrs: Record<string, unknown>
-	/** Child *elements* in document order; text nodes are folded into {@link text}. */
-	children: XmlElement[]
-	/** Concatenated direct text content (`<a:t>` bodies); `''` for elements with none. */
-	text: string
-}
+/** Warn about a shape whose slide position cannot be resolved, unless it never claimed one. */
+function reportUnresolvable(shape: AnyShape, zIndex: number, slidePath: string): void {
+	const element = shape.element_
+	// No own `a:xfrm` at all: the shape inherits its geometry from a layout
+	// placeholder, which this surface deliberately does not resolve. Nothing is
+	// wrong with the deck, so nothing is reported.
+	if (!hasBox(ownTransform(element), 'a:off', 'a:ext')) return
 
-function toElements(entries: unknown): XmlElement[] {
-	const elements: XmlElement[] = []
-	for (const item of asArray(entries)) {
-		const entry = asNode(item)
-		if (!entry) continue
-		for (const [tag, value] of Object.entries(entry)) {
-			if (tag === ':@' || tag === '#text') continue // attribute bag / text sibling, not an element
-			elements.push({
-				tag,
-				attrs: asNode(entry[':@']) || {},
-				children: toElements(value),
-				text: directText(value),
-			})
-		}
+	const who = shape.name ? `"${shape.name}"` : `the element at zIndex ${zIndex}`
+	if (enclosingGroupLacksTransform(element)) {
+		warn(
+			'inspect/group-transform-missing',
+			`inspect: skipped ${who} on ${slidePath} — an enclosing group has no usable a:xfrm, so its slide position cannot be resolved.`
+		)
+		return
 	}
-	return elements
+	warn(
+		'inspect/group-transform-degenerate',
+		`inspect: skipped ${who} on ${slidePath} — an enclosing group has a degenerate transform (zero a:chExt), so its slide position cannot be resolved.`
+	)
 }
 
-function directText(value: unknown): string {
-	let text = ''
-	for (const item of asArray(value)) {
-		const entry = asNode(item)
-		if (entry && '#text' in entry) text += String(entry['#text'])
+/** The element's own `a:xfrm` — on `p:grpSpPr` for a group, `p:spPr` for every other kind. */
+function ownTransform(element: Element): Element | null {
+	const props = firstChild(element, element.localName === 'grpSp' ? 'p:grpSpPr' : 'p:spPr')
+	return props && firstChild(props, 'a:xfrm')
+}
+
+/** Whether any enclosing `p:grpSp` fails to state a complete child-space mapping. */
+function enclosingGroupLacksTransform(element: Element): boolean {
+	for (let node = element.parentNode; node && node.nodeType === ELEMENT_NODE; node = node.parentNode) {
+		const parent = node as Element
+		if (parent.namespaceURI !== OOXML_NS.p || parent.localName !== 'grpSp') return false // reached the shape tree
+		const xfrm = ownTransform(parent)
+		if (!hasBox(xfrm, 'a:off', 'a:ext') || !hasBox(xfrm, 'a:chOff', 'a:chExt')) return true
 	}
-	return text
+	return false
 }
 
-function firstChild(elements: XmlElement[], tag: string): XmlElement | null {
-	return elements.find((element) => element.tag === tag) || null
-}
-
-/** First child element of `parent` named `tag`, or null. */
-function child(parent: XmlElement | null | undefined, tag: string): XmlElement | null {
-	return parent ? firstChild(parent.children, tag) : null
-}
-
-/** All direct children of `parent` named `tag`, in document order. */
-function children(parent: XmlElement, tag: string): XmlElement[] {
-	return parent.children.filter((element) => element.tag === tag)
-}
-
-function attr(element: XmlElement | null | undefined, name: string): unknown {
-	return element?.attrs[name]
-}
-
-/** Visit `element` and every descendant, in document order. */
-function walk(element: XmlElement, visitor: (node: XmlElement) => void): void {
-	visitor(element)
-	for (const node of element.children) walk(node, visitor)
-}
-
-function asArray(value: unknown): unknown[] {
-	if (value === undefined || value === null) return []
-	return Array.isArray(value) ? value : [value]
-}
-
-function asNode(value: unknown): Record<string, unknown> | null {
-	return typeof value === 'object' && value !== null && !Array.isArray(value)
-		? (value as Record<string, unknown>)
-		: null
-}
-
-function numericValue(value: unknown): number | null {
-	if (value === undefined || value === null || value === '') return null
-	const number = Number(value)
-	return Number.isFinite(number) ? number : null
-}
-
-function stringValue(value: unknown): string | null {
-	return value === undefined || value === null ? null : String(value)
-}
-
-function stringOrNumberValue(value: unknown): string | number | null {
-	if (typeof value === 'number' || typeof value === 'string') return value
-	return stringValue(value)
+/** Whether a transform states a complete position + extent pair. */
+function hasBox(xfrm: Element | null, offName: string, extName: string): boolean {
+	if (!xfrm) return false
+	const off = firstChild(xfrm, offName)
+	const ext = firstChild(xfrm, extName)
+	if (!off || !ext) return false
+	return (
+		intValue(attr(off, 'x')) !== null &&
+		intValue(attr(off, 'y')) !== null &&
+		intValue(attr(ext, 'cx')) !== null &&
+		intValue(attr(ext, 'cy')) !== null
+	)
 }
 
 function countWords(text: string): number {

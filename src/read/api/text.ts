@@ -243,6 +243,16 @@ export class Run {
 	}
 
 	/**
+	 * Character spacing (tracking) in points (`a:rPr/@spc`, authored in hundredths
+	 * of a point), or `null` when unset. Negative tightens. The read counterpart of
+	 * the write-side `charSpacing` option.
+	 */
+	get charSpacingPt(): number | null {
+		const raw = this.#rPrAttr('spc')
+		return raw === null ? null : raw / 100
+	}
+
+	/**
 	 * The run's highlight colour (`a:rPr/a:highlight`), resolved to a literal hex
 	 * through the owning slide's theme, or `null` when the run has no highlight
 	 * (or a token colour cannot be made literal without a theme context). The

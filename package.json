@@ -125,7 +125,6 @@
 	},
 	"dependencies": {
 		"@xmldom/xmldom": "^0.9.10",
-		"fast-xml-parser": "^5.10.1",
 		"fflate": "^0.8.3",
 		"opentype.js": "^2.0.0"
 	},
@@ -155,6 +154,7 @@
 		"@vitest/coverage-v8": "^4.1.10",
 		"eslint": "^10.7.0",
 		"eslint-config-prettier": "^10.1.8",
+		"fast-xml-parser": "^5.10.1",
 		"happy-dom": "^20.11.1",
 		"jszip": "^3.10.1",
 		"lefthook": "^2.1.10",

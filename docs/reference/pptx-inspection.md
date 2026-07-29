@@ -11,9 +11,9 @@ doc_type: "reference"
 
 # PPTX Inspection
 
-The `@shbernal/ts-pptx/inspect` subpath exposes low-level primitives for
-tools that need to examine a PPTX package after generation or manual editing.
-It is intentionally separate from the presentation-authoring API.
+The `@shbernal/ts-pptx/inspect` subpath answers one flat question about a PPTX
+package — *what is on the slides, and where* — for tools that examine a deck after
+generation or manual editing.
 
 ```ts
 import { inspectPptx, loadPptxPackage, listPptxParts } from "@shbernal/ts-pptx/inspect"
@@ -22,11 +22,38 @@ import { inspectPptx, loadPptxPackage, listPptxParts } from "@shbernal/ts-pptx/i
 `inspectPptx(input)` loads a PPTX package and returns:
 
 - `slideSize`: presentation width and height in inches.
-- `slides[]`: generated slide entries in package order.
+- `slides[]`: slides in **presentation order** (`p:sldIdLst`) — the order
+  PowerPoint shows them, which stops matching part order once a deck is reordered.
 - `slides[].elements[]`: normalized objects with `id`, `name`, `kind`,
   `zIndex`, `box`, `rotation`, `flipH`, `flipV`, `parentZIndex`, `childZIndices`,
   `text`, `textRuns`, `paragraphs`, `fontSizes`, `colors`, `fill`, `line`,
   `shapeType`, `textWrap`, `autofit`, `autofitFontScale`, and `bodyInsets`.
+
+## Its relationship to `ts-pptx/read`
+
+This is a **shallow projection over the read model**, not a second reader.
+[`ts-pptx/read`](./pptx-read.md) gives a navigable, mutable model shaped like the
+OOXML tree; this flattens it to one array per slide, which is the shape an overlap
+check, a layout linter, or a deck diff wants. Both reach the same package through
+`OpcPackage` and the same parser, so they cannot disagree about what a deck says.
+
+Reach for `read` instead when you need to **change** anything, or to reach what
+this surface flattens away — table cells, chart series, speaker notes, comments,
+animations, or the layout/master a placeholder inherits from.
+
+Two things this surface deliberately does not report, both because it describes
+what a slide *states* rather than what PowerPoint would *render*:
+
+- **A shape with no transform of its own** is omitted, not resolved. A placeholder
+  that inherits its box from the layout has no box here; `Shape.resolvedFrame` on
+  the read model is where inheritance is resolved.
+- **`p:graphicFrame`** — tables, charts, SmartArt — is skipped entirely. It is a
+  structure rather than a box with text, and it does not consume a `zIndex`.
+
+`loadPptxPackage()` returns an `OpcPackage`, so a tool that starts here can hand
+the result straight to `Presentation.fromPackage()` without re-reading the bytes.
+Its input must be a real OPC package: a zip that merely contains slide XML but no
+`[Content_Types].xml` is rejected with a `PackageReadError`.
 
 ## Geometry, groups, and z-order
 
@@ -39,8 +66,8 @@ never what you get here.
 
 For a rotated element, `box` is the *unrotated* placement box (what PowerPoint writes
 after Ungroup) and `rotation` (degrees, `[0, 360)`) / `flipH` / `flipV` report its
-effective orientation after group composition. This mirrors `Shape.absoluteFrame` on
-the read API, which shares the same implementation.
+effective orientation after group composition. This **is** `Shape.absoluteFrame` from
+the read API, converted to inches.
 
 An element whose position cannot be resolved — an enclosing group with a degenerate
 (zero) `a:chExt` — is omitted with a warning rather than reported at a wrong position.
@@ -69,8 +96,13 @@ tell a bounded text box from an auto-growing one and compute its inner box:
   applied when absent (0.1in left/right, 0.05in top/bottom). Subtract from `box` to
   get the inner text box. `null` for elements without a text frame.
 
-The subpath also exports package helpers such as `loadPptxPackage()`,
-`listPptxParts()`, and `readPptxTextPart()`, plus geometry helpers such as
+`textRuns[].text` is the run's `a:t` **verbatim**, including the leading or trailing
+whitespace an `xml:space="preserve"` run carries — that space widens a line, and
+dropping it also welds adjacent runs together. The element's own `text` is the
+opposite: runs joined, whitespace collapsed, trimmed, for matching and word counts.
+
+The subpath also exports package helpers — `loadPptxPackage()`, `listPptxParts()`,
+`readPptxTextPart()`, and `readPptxBinaryPart()` — plus geometry helpers
 `boxAnchor()` and `overlapArea()`.
 
 Downstream tools should keep policy decisions outside this package. For
