@@ -10,7 +10,7 @@
  * via the OPC `metadata/core-properties` rel, custom-properties via the
  * officeDocument `custom-properties` rel.
  */
-import type { CustomPropertyValue } from '../../core-interfaces.js'
+import type { CustomPropertyValue } from '../../types/index.js'
 import { OpcPackage } from '../opc/package.js'
 import { attr, childElements, firstChild, firstChildElement, intValue, type Element } from '../oxml/dom.js'
 

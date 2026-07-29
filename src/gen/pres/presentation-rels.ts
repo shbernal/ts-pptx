@@ -7,7 +7,7 @@
  * so the embeddedFontLst face `r:id`s match the rels that back them.
  */
 
-import { CRLF, XML_DECL } from '../../core-enums-internal.js'
+import { CRLF, XML_DECL } from '../../constants-internal.js'
 import type { PresSlideInternal } from '../../types/internal.js'
 import { type EmbeddedFont, FONT_REL_TYPE, flattenEmbeddedFaces } from '../../embedded-fonts.js'
 import { el, raw, voidEl } from '../oxml/el.js'

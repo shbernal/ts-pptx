@@ -6,8 +6,8 @@
  * shape and image code paths so path/preset emission stays in one place.
  */
 
-import { VALID_SHAPE_PRESETS } from '../../core-enums.js'
-import type { Coord, GeometryPoint, ObjectOptions, PresLayout, ShapeAdjustHandleXY } from '../../core-interfaces.js'
+import { VALID_SHAPE_PRESETS } from '../../enums.js'
+import type { Coord, GeometryPoint, ObjectOptions, PresLayout, ShapeAdjustHandleXY } from '../../types/index.js'
 import { convertArcAngle, convertRotationDegrees, getSmartParseNumber } from '../../units-internal.js'
 import { EMU_PER_INCH, PERCENT_SCALE } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'

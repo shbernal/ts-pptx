@@ -5,13 +5,13 @@
  * connector preset + adjust guides, and optionally binds start / end shapes. Emitted later as
  * `<p:cxnSp>`.
  */
-import { connectorPresetFor, SlideObjectType } from '../../core-enums.js'
-import { DEF_SHAPE_LINE_COLOR } from '../../core-enums-internal.js'
+import { connectorPresetFor, SlideObjectType } from '../../enums.js'
+import { DEF_SHAPE_LINE_COLOR } from '../../constants-internal.js'
 import { warn } from '../../diagnostics.js'
-import type { ConnectorProps } from '../../core-interfaces.js'
+import type { ConnectorProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { EMU_PER_INCH, FIXED_PCT_PER_PERCENT } from '../../units.js'
-import { encodeXmlAttrValue, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlAttrValue, validateObjectName } from '../utils.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { nextObjectNameIdx } from './object-name.js'
 import { InvalidOptionError } from '../../errors.js'

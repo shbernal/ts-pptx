@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { slideObjectToXml, slideObjectRelationsToXml } from '../../src/gen/slide/object.ts'
-import { SlideObjectType } from '../../src/core-enums.ts'
+import { SlideObjectType } from '../../src/enums.ts'
 
 // Byte-pin for Slide / Section / Summary Zoom (dn-zoom-links). These emit `<mc:AlternateContent>`
 // wrappers the demo deck never produces, so the byte-identity harness is blind to them — pin the

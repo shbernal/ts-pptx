@@ -1,7 +1,7 @@
 /**
  * Slide transition and animation types.
  *
- * Re-exported by `../core-interfaces.js`, which is the import site for the rest of `src/`.
+ * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
 
 /**

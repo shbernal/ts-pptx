@@ -8,7 +8,7 @@
  * than one parameterized one. Called by {@link ./chart-xml}'s axis region.
  */
 
-import { asChartType, ChartType } from '../../core-enums.js'
+import { asChartType, ChartType } from '../../enums.js'
 import {
 	AXIS_ID_CATEGORY_PRIMARY,
 	AXIS_ID_CATEGORY_SECONDARY,
@@ -16,7 +16,7 @@ import {
 	AXIS_ID_VALUE_SECONDARY,
 	DEF_FONT_COLOR,
 	DEF_FONT_SIZE,
-} from '../../core-enums-internal.js'
+} from '../../constants-internal.js'
 import type { ChartOptsInternal } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'

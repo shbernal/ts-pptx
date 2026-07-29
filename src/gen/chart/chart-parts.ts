@@ -9,15 +9,15 @@
  * ({@link ./chart-xml}) all draw on them without a cycle.
  */
 
-import { ChartType } from '../../core-enums.js'
+import { ChartType } from '../../enums.js'
 import {
 	BARCHART_COLORS,
 	DEF_CHART_GRIDLINE,
 	DEF_FONT_COLOR,
 	DEF_FONT_SIZE,
 	DEF_SHAPE_SHADOW,
-} from '../../core-enums-internal.js'
-import type { BorderProps, ChartErrorBarOptions, ChartPropsTitle, OptsChartGridLine } from '../../core-interfaces.js'
+} from '../../constants-internal.js'
+import type { BorderProps, ChartErrorBarOptions, ChartPropsTitle, OptsChartGridLine } from '../../types/index.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
 import { createColorElement } from '../drawingml/color.js'

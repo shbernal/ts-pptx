@@ -20,8 +20,8 @@ in the file*. Two independent entry points share one OOXML model:
 
 - **Author-side** — `await pptx.embedFont({ path | data, typeface, style })`
   embeds a face when generating a deck from scratch.
-  Source: `src/pptxgen.ts` (`embedFont`, `_embeddedFonts`), write-side wiring in
-  `src/gen/pres/presentation.ts`, field on the internal model in `src/core-interfaces.ts`.
+  Source: `src/presentation.ts` (`embedFont`, `_embeddedFonts`), write-side wiring in
+  `src/gen/pres/presentation.ts`, field on the internal model in `src/types/index.ts`.
 - **Import-carry** — `importSlide(source, i, { embedFonts: true })` brings a
   source deck's presentation-level embedded fonts across when lifting a slide.
   Source: `src/read/api/ops/embedded-fonts.ts` (`carryEmbeddedFonts`).

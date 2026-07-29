@@ -50,7 +50,7 @@ export {
 export { measureText } from './measure/fit.js'
 export { buildFitParagraphs } from './measure/paragraphs.js'
 export { makeRegistryResolver } from './measure/font-metrics.js'
-export type { MeasureTextOptions, TextMeasurement, OverflowBoxOptions } from './core-interfaces.js'
+export type { MeasureTextOptions, TextMeasurement, OverflowBoxOptions } from './types/index.js'
 
 // Error taxonomy — every failure the library throws. The classes and their `code` are API;
 // the message is not. Re-exported from every entry so `instanceof` works whichever subpath a

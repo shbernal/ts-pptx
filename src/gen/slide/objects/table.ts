@@ -6,9 +6,9 @@
  * fill, margins and text body.
  */
 
-import { SlideObjectType } from '../../../core-enums.js'
-import { DEF_CELL_MARGIN_IN } from '../../../core-enums-internal.js'
-import type { ObjectOptions, TableCell, TableCellProps } from '../../../core-interfaces.js'
+import { SlideObjectType } from '../../../enums.js'
+import { DEF_CELL_MARGIN_IN } from '../../../constants-internal.js'
+import type { ObjectOptions, TableCell, TableCellProps } from '../../../types/index.js'
 import type { SlideObject } from '../../../types/internal.js'
 import { genXmlColorSelection } from '../../drawingml/fill.js'
 import { genXmlObjectLock, GRAPHIC_FRAME_LOCK_ATTRS } from '../../drawingml/locks.js'

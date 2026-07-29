@@ -4,8 +4,8 @@
  * Normalizes plain or rich `addNotes()` input to a `TextProps[]` run list and pushes a
  * `notes`-type slide object; the notes-slide XML is emitted later by `gen/slide/notes.ts`.
  */
-import { SlideObjectType } from '../../core-enums.js'
-import type { NotesProps, TextProps } from '../../core-interfaces.js'
+import { SlideObjectType } from '../../enums.js'
+import type { NotesProps, TextProps } from '../../types/index.js'
 import type { PresSlideInternal } from '../../types/internal.js'
 
 /**

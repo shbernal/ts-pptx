@@ -6,8 +6,8 @@
  * slide's `comments/commentN.xml` part.
  */
 
-import { CRLF, XML_DECL } from '../../core-enums-internal.js'
-import type { ResolvedCommentAuthor, SlideComment } from '../../core-interfaces.js'
+import { CRLF, XML_DECL } from '../../constants-internal.js'
+import type { ResolvedCommentAuthor, SlideComment } from '../../types/index.js'
 import type { PresSlideInternal } from '../../types/internal.js'
 import { inch2Emu } from '../../units-internal.js'
 import { el, raw, voidEl } from '../oxml/el.js'

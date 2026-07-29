@@ -5,7 +5,7 @@
  * (`_comments`); the `<p:cm>` XML is emitted later by `gen/slide/comments.ts`.
  */
 import { warn } from '../../diagnostics.js'
-import type { CommentProps } from '../../core-interfaces.js'
+import type { CommentProps } from '../../types/index.js'
 import type { PresSlideInternal } from '../../types/internal.js'
 
 /**

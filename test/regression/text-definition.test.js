@@ -38,7 +38,7 @@ import {
 //     object. It could not survive being reached anyway: four lines later `opts.shape` is read
 //     unguarded, so a caller that passed `undefined` would throw before the fallback mattered.
 //   - `target._slideNum == null ? 'sm' : ...` (L256), the first arm of the media-key triple. The
-//     only slide with a null `_slideNum` is `pptxgen.ts`'s `_masterSlide`, a deliberately-partial
+//     only slide with a null `_slideNum` is `presentation.ts`'s `_masterSlide`, a deliberately-partial
 //     stub whose authoring methods are all `null` and which no definer is ever pointed at. The same
 //     dead arm appears verbatim in define/image.ts (twice), define/ole.ts and define/preview-image.ts;
 //     the layout arm below is the one a caller can actually reach.

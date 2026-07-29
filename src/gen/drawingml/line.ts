@@ -6,7 +6,7 @@
  * DrawingML allows the same fills inside `<a:ln>` as inside a shape.
  */
 
-import type { BorderProps, LineCap, ShapeLineProps } from '../../core-interfaces.js'
+import type { BorderProps, LineCap, ShapeLineProps } from '../../types/index.js'
 import { genXmlColorSelection, genXmlGradientFill } from './fill.js'
 import { InvalidOptionError } from '../../errors.js'
 import { voidEl } from '../oxml/el.js'

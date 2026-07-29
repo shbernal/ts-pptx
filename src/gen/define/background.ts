@@ -4,7 +4,7 @@
  * Registers an `addBackground()` image as a slide media rel (color backgrounds carry no rel);
  * the `<p:bg>` XML is emitted later at slide / layout serialize time.
  */
-import type { BackgroundProps } from '../../core-interfaces.js'
+import type { BackgroundProps } from '../../types/index.js'
 import type { SlideLayoutInternal } from '../../types/internal.js'
 import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
 
@@ -12,7 +12,7 @@ import { imageContentType, imageExtensionForSource } from '../../media/content-t
  * Reduce a slide/layout name to something safe to embed in a media part name.
  *
  * A background rel's `Target` is used twice over: it is written into the `.rels` part *and*,
- * with `..` swapped for `ppt`, used verbatim as the ZIP entry name (`pptxgen.ts`). A layout's
+ * with `..` swapped for `ppt`, used verbatim as the ZIP entry name (`presentation.ts`). A layout's
  * name is caller-supplied (`defineSlideMaster({ title })`), so without this the caller can put
  * arbitrary characters into an OPC part name. XML-escaping does not help — the escaping is
  * undone before the target is resolved, and the ZIP entry is never escaped at all. Demonstrated

@@ -20,7 +20,7 @@ authoring on write. The write emitters reproduce the PowerPoint-authored oracles
 byte-for-byte. See the backlog entry `gitbrent/PptxGenJS#1431` (status
 `implemented`) and `CHANGELOG.md` for the landed surface. Code:
 `src/read/api/transition.ts`, `src/read/api/animation.ts`,
-`src/read/api/slide.ts` (read accessors); `src/core-interfaces.ts`,
+`src/read/api/slide.ts` (read accessors); `src/types/index.ts`,
 `src/slide.ts`, `src/gen/anim/` (write). Tests:
 `test/read/animations-transitions.test.js`,
 `test/regression/animations-transitions.test.js`, and two
@@ -179,7 +179,7 @@ by `(presetID, presetClass, presetSubtype, nodeType)`, parameterized only by
 ## Write model design
 
 1. **Transition** — slide-level `transition?: TransitionProps` on `Slide`
-   (`src/core-interfaces.ts`); a `slideTransitionToXml(slide)` emitter
+   (`src/types/index.ts`); a `slideTransitionToXml(slide)` emitter
    (`src/gen/anim/transition.ts`) inserted in `makeXmlSlide` **between `p:clrMapOvr` and
    `slideTimingToXml(...)`**. Requires declaring `xmlns:mc` on the slide root (or
    locally) for the AlternateContent form. Reuse the probed preset table for
@@ -255,7 +255,7 @@ interface AnimationProps {
 
 Simplified for readability — `AnimationProps` also carries `shapeIndex`/`objectName`
 (target-shape selection) and other fields; `TransitionProps`/`AnimationProps` in
-`src/core-interfaces.ts` are the authoritative definitions.
+`src/types/index.ts` are the authoritative definitions.
 
 ## Fixtures + oracles (the gate)
 
@@ -305,7 +305,7 @@ check date). Record the fixtures as the blocking precondition in
     `wav=audio/x-wav` Default. Built-in sounds embed identically to a custom import
     (recorded, not committed — license-clean). Write: `slide.transition.sound`
     (`TransitionSoundProps` — `data`/`path`/`name`/`loop`, or `stopPrevious`) emits the
-    `sndAc`; an export-time pass (`registerTransitionSounds`, `src/pptxgen.ts`) registers
+    `sndAc`; an export-time pass (`registerTransitionSounds`, `src/presentation.ts`) registers
     the audio rel + media part and the cross-deck media dedup collapses identical sound
     bytes to one part. Read: `slide.transition.sound` decodes the `sndAc` into a
     `TransitionSoundInfo`. The rId is ts-pptx's own (not PowerPoint's `rId2`), so the

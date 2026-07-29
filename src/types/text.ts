@@ -2,9 +2,9 @@
  * Text types: the `TextBaseProps` paragraph/run contract shared by text, table cells and charts;
  * `TextPropsOptions`/`TextProps`; measurement and layout results; notes and comments.
  *
- * Re-exported by `../core-interfaces.js`, which is the import site for the rest of `src/`.
+ * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
-import type { AlignH, SHAPE_NAME, TextAnchor } from '../core-enums.js'
+import type { AlignH, SHAPE_NAME, TextAnchor } from '../enums.js'
 import type { Color, DataOrPathProps, HAlign, HexColor, Margin, PositionProps, TextVertType, VAlign } from './core.js'
 import type { ObjectNameProps } from './object.js'
 import type { HyperlinkProps, ShadowProps, ShapeFillProps, ShapeLineProps } from './style.js'

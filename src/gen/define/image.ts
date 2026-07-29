@@ -6,11 +6,11 @@
  * placeholder geometry. `registerImageFillMedia` does the same media-rel registration for an
  * image *fill* used by a shape or text box.
  */
-import { SlideObjectType } from '../../core-enums.js'
+import { SlideObjectType } from '../../enums.js'
 import { warn } from '../../diagnostics.js'
-import type { Coord, ImageProps, ObjectOptions, ShapeFillProps } from '../../core-interfaces.js'
+import type { Coord, ImageProps, ObjectOptions, ShapeFillProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { svgMarkupToDataUri } from '../../media/base64.js'
 import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'

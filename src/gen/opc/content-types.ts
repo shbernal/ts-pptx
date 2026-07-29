@@ -6,7 +6,7 @@
  * entries for every written part.
  */
 
-import { CRLF, XML_DECL } from '../../core-enums-internal.js'
+import { CRLF, XML_DECL } from '../../constants-internal.js'
 import type { PresSlideInternal, SlideLayoutInternal, SlideRelChart, SlideRelMedia } from '../../types/internal.js'
 import { avContentType } from '../../media/content-type.js'
 import { type EmbeddedFont, FONT_DATA_CONTENT_TYPE, FONT_DATA_EXTENSION } from '../../embedded-fonts.js'

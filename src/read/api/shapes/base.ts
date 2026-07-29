@@ -25,7 +25,7 @@ import {
 	setAttr,
 	type Element,
 } from '../../oxml/dom.js'
-import { composeGroupFrame, type GroupTransform } from '../../../group-transform.js'
+import { composeGroupFrame, type GroupTransform } from '../../group-transform.js'
 import { FILL_CHOICES, normalizeHex, setSolidFill, solidFillColor } from '../../oxml/fill.js'
 import {
 	resolveColorElement,

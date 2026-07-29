@@ -5,8 +5,8 @@
  * over the default Office scheme) plus the fixed font/format schemes.
  */
 
-import { REGEX_HEX_COLOR, XML_DECL } from '../../core-enums-internal.js'
-import type { ThemeColorScheme } from '../../core-interfaces.js'
+import { REGEX_HEX_COLOR, XML_DECL } from '../../constants-internal.js'
+import type { ThemeColorScheme } from '../../types/index.js'
 import type { PresentationPropsInternal } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl, type RawXml } from '../oxml/el.js'

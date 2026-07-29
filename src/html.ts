@@ -44,7 +44,7 @@
  */
 
 import { genTableToSlides, type TableToSlidesHost } from './gen/table/html-dom.js'
-import type { TableToSlidesElement, TableToSlidesProps } from './core-interfaces.js'
+import type { TableToSlidesElement, TableToSlidesProps } from './types/index.js'
 
 /**
  * Reproduce an HTML `<table>` as a PowerPoint table, adding as many slides as its rows need.
@@ -61,7 +61,7 @@ export function tableToSlides(
 }
 
 export type { TableToSlidesHost }
-export type { TableToSlidesDocument, TableToSlidesElement, TableToSlidesProps } from './core-interfaces.js'
+export type { TableToSlidesDocument, TableToSlidesElement, TableToSlidesProps } from './types/index.js'
 
 // Error taxonomy — every failure the library throws. The classes and their `code` are API;
 // the message is not. Re-exported from every entry so `instanceof` works whichever subpath a

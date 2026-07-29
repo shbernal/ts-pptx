@@ -13,7 +13,7 @@
  * chunk globs (see vitest.config.ts), while the pure helpers stay unit-tested from src.
  */
 
-import { SlideObjectType } from '../../core-enums.js'
+import { SlideObjectType } from '../../enums.js'
 import type {
 	AddSlideProps,
 	BorderProps,
@@ -23,7 +23,7 @@ import type {
 	TableToSlidesElement,
 	TableToSlidesProps,
 	TableCellProps,
-} from '../../core-interfaces.js'
+} from '../../types/index.js'
 import type { Slide } from '../../types/slide.js'
 import type { SlideLayoutInternal } from '../../types/internal.js'
 import { inch2Emu } from '../../units-internal.js'

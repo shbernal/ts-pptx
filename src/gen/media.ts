@@ -2,7 +2,7 @@
  * ts-pptx: Media Methods
  */
 
-import { IMG_BROKEN } from '../core-enums-internal.js'
+import { IMG_BROKEN } from '../constants-internal.js'
 import type { PresSlideInternal, SlideLayoutInternal, SlideRelMedia } from '../types/internal.js'
 import type { RuntimeAdapter } from '../runtime/types.js'
 import { warn } from '../diagnostics.js'

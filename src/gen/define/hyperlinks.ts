@@ -5,10 +5,10 @@
  * `hyperlink`-type slide rel for every hyperlink found, stamping the resolved `_rId` back onto
  * each hyperlink so serialization can emit `r:id`. Shared by the shape, text and table layers.
  */
-import { SlideObjectType } from '../../core-enums.js'
-import type { ObjectOptions, TableCell, TextProps, TextPropsOptions } from '../../core-interfaces.js'
+import { SlideObjectType } from '../../enums.js'
+import type { ObjectOptions, TableCell, TextProps, TextPropsOptions } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { getNewRelId } from '../../gen-utils.js'
+import { getNewRelId } from '../utils.js'
 
 type HyperlinkTextObject = (TextProps | SlideObject | TableCell) & {
 	options?: TextPropsOptions | ObjectOptions

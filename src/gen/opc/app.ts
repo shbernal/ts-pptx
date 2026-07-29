@@ -5,7 +5,7 @@
  * pairs, titles of parts, company).
  */
 
-import { CRLF, XML_DECL } from '../../core-enums-internal.js'
+import { CRLF, XML_DECL } from '../../constants-internal.js'
 import type { PresSlideInternal } from '../../types/internal.js'
 import { el, raw } from '../oxml/el.js'
 

@@ -5,11 +5,11 @@
  * presets PowerPoint can't parse), applies line defaults, registers hyperlink + image-fill rels,
  * and pushes a `text`-type shape object.
  */
-import { type SHAPE_NAME, ShapeType, SlideObjectType, VALID_SHAPE_PRESETS } from '../../core-enums.js'
-import { DEF_SHAPE_LINE_COLOR } from '../../core-enums-internal.js'
-import type { ShapeLineProps, ShapeProps } from '../../core-interfaces.js'
+import { type SHAPE_NAME, ShapeType, SlideObjectType, VALID_SHAPE_PRESETS } from '../../enums.js'
+import { DEF_SHAPE_LINE_COLOR } from '../../constants-internal.js'
+import type { ShapeLineProps, ShapeProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlAttrValue, validateObjectName } from '../utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { nextObjectNameIdx } from './object-name.js'
 import { createHyperlinkRels } from './hyperlinks.js'

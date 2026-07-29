@@ -1,7 +1,7 @@
-import PresentationCore from './pptxgen.js'
+import PresentationCore from './presentation.js'
 import { createBrowserRuntime } from './runtime/browser.js'
 import { genTableToSlides } from './gen/table/html-dom.js'
-import type { TableToSlidesProps } from './core-interfaces.js'
+import type { TableToSlidesProps } from './types/index.js'
 
 export class TsPptx extends PresentationCore {
 	constructor() {
@@ -26,12 +26,12 @@ export class TsPptx extends PresentationCore {
 }
 
 export { TsPptx as default }
-export * from './core-enums.js'
+export * from './enums.js'
 export * from './units.js'
 // Use `export *` (not `export type *`) so the value exports `textRun`/`textRuns`
 // reach this entry; `export type *` would drop them and crash any consumer that
 // imports them, while TypeScript (reading index.d.ts) stays green.
-export * from './core-interfaces.js'
+export * from './types/index.js'
 export { setDiagnosticHandler, type Diagnostic, type DiagnosticCode, type DiagnosticHandler } from './diagnostics.js'
 
 // Error taxonomy — every failure the library throws. The classes and their `code` are API;

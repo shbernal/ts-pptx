@@ -1,7 +1,7 @@
 /**
  * Generator-internal constants — the non-published half of the enums module.
  *
- * `core-enums.ts` holds the genuinely public surface (the `ChartType`/`ShapeType`/
+ * `enums.ts` holds the genuinely public surface (the `ChartType`/`ShapeType`/
  * `SchemeColor`/`AlignH`… enums, the shape-preset sets, and the `*_NAME` unions) and is
  * `export *`-ed by every entrypoint. This module holds the constants only the generators
  * need — default styling, fixed axis/field ids, colour palettes, layout bases, and the
@@ -10,7 +10,7 @@
  * `units-internal.ts` / `types/internal.ts` split. Nothing here is exported from an entrypoint.
  */
 
-import type { BorderProps, OptsChartGridLine } from './core-interfaces.js'
+import type { BorderProps, OptsChartGridLine } from './types/index.js'
 import type { ShadowPropsInternal } from './types/internal.js'
 
 // CONST

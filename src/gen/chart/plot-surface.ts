@@ -9,8 +9,8 @@
  * `makeChartHeaderXml`). Reached through {@link ./chart-xml}'s `makeChartType` dispatch.
  */
 
-import { ChartType } from '../../core-enums.js'
-import { AXIS_ID_SERIES_PRIMARY, BARCHART_COLORS } from '../../core-enums-internal.js'
+import { ChartType } from '../../enums.js'
+import { AXIS_ID_SERIES_PRIMARY, BARCHART_COLORS } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'

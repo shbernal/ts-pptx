@@ -4,7 +4,7 @@
  * `addPlaceholdersToSlideLayouts` seeds a slide with any layout placeholders it has not already
  * populated, so every inherited placeholder is present as an (empty) text object.
  */
-import { SlideObjectType } from '../../core-enums.js'
+import { SlideObjectType } from '../../enums.js'
 import type { PresSlideInternal } from '../../types/internal.js'
 import { addTextDefinition } from './text.js'
 

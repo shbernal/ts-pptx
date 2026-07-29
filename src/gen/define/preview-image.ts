@@ -7,7 +7,7 @@
  * rId. Shared here so the two definers agree on extension sniffing, content type, and de-dup.
  */
 import type { PresSlideInternal } from '../../types/internal.js'
-import { getNewRelId } from '../../gen-utils.js'
+import { getNewRelId } from '../utils.js'
 import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
 
 /** 32×32 solid #E7E6E6 PNG — the neutral placeholder shown when the caller supplies no cover image. */

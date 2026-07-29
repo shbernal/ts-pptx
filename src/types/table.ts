@@ -1,9 +1,9 @@
 /**
  * Table types: `TableProps`/`TableCell(+Props)`, table styles, `tableToSlides` options and layout results.
  *
- * Re-exported by `../core-interfaces.js`, which is the import site for the rest of `src/`.
+ * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
-import type { SHAPE_NAME, SlideObjectType, TableStyle } from '../core-enums.js'
+import type { SHAPE_NAME, SlideObjectType, TableStyle } from '../enums.js'
 import type { DataOrPathProps, HexColor, Margin, PositionProps } from './core.js'
 import type { ObjectNameProps } from './object.js'
 import type { ShapeProps } from './shape.js'

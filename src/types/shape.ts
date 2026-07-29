@@ -1,7 +1,7 @@
 /**
  * Preset/freeform shape types and their adjust values.
  *
- * Re-exported by `../core-interfaces.js`, which is the import site for the rest of `src/`.
+ * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
 import type { Coord, GeometryPoint, HAlign, PositionProps } from './core.js'
 import type { ObjectNameProps } from './object.js'

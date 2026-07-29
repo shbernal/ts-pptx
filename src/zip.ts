@@ -1,5 +1,5 @@
 import { strToU8, unzipSync, zipSync, type Unzipped, type Zippable, type ZipOptions } from 'fflate'
-import type { ZIP_OUTPUT_TYPE } from './core-enums.js'
+import type { ZIP_OUTPUT_TYPE } from './enums.js'
 import { InvalidOptionError, PackageReadError, UnsupportedFeatureError } from './errors.js'
 
 /**

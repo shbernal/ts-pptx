@@ -266,7 +266,7 @@ export function boolValue(value: string | null): boolean | null {
  *
  * Tab/CR/LF become character references because XML 1.0 section 3.3.3 has a parser normalise the
  * literal characters to a single space before any consumer sees them. `'` needs no escaping between
- * double quotes. The write-side counterpart is `encodeXmlAttrValue` in `gen-utils.ts`.
+ * double quotes. The write-side counterpart is `encodeXmlAttrValue` in `gen/utils.ts`.
  */
 export function escapeXmlAttribute(value: string): string {
 	return value

@@ -5,7 +5,7 @@
  * list, default text styles, sections) and the small presProps/viewProps parts.
  */
 
-import { CRLF, XML_DECL } from '../../core-enums-internal.js'
+import { CRLF, XML_DECL } from '../../constants-internal.js'
 import type { PresentationPropsInternal, SectionInternalProps } from '../../types/internal.js'
 import { flattenEmbeddedFaces, serializeEmbeddedFontLst } from '../../embedded-fonts.js'
 import { presentationFontRelStart } from './presentation-rels.js'

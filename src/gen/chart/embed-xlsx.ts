@@ -12,10 +12,10 @@
  * mapping the two sides share lives in `./data-refs.ts`.
  */
 
-import { ChartType } from '../../core-enums.js'
-import { XML_DECL } from '../../core-enums-internal.js'
+import { ChartType } from '../../enums.js'
+import { XML_DECL } from '../../constants-internal.js'
 import type { SlideRelChart, OptsChartDataInternal } from '../../types/internal.js'
-import { encodeXmlEntities } from '../../gen-utils.js'
+import { encodeXmlEntities } from '../utils.js'
 import { ZipWriter } from '../../zip.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { dataLabels, dataValues, dataSizes, firstLabelGroup, getExcelColName } from './data-refs.js'

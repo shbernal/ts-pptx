@@ -7,12 +7,12 @@
  * and the rewriting live in the siblings (`table-fit.ts`, `fit.ts`).
  */
 
-import { DEF_FONT_SIZE } from '../core-enums-internal.js'
+import { DEF_FONT_SIZE } from '../constants-internal.js'
 import { EMU_PER_POINT } from '../units.js'
 import { getSmartParseNumber, marginToEmu } from '../units-internal.js'
 import type { FitBox, FitParagraph, FitRun } from './text-fit.js'
-import { TextAnchor } from '../core-enums.js'
-import type { ObjectOptions, TextProps, TextPropsOptions } from '../core-interfaces.js'
+import { TextAnchor } from '../enums.js'
+import type { ObjectOptions, TextProps, TextPropsOptions } from '../types/index.js'
 import type { SlideObject, PresSlideInternal } from '../types/internal.js'
 
 // PowerPoint's default text-frame insets (EMU): l/r = 0.1in, t/b = 0.05in.

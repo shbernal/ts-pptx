@@ -6,8 +6,8 @@
  * looping media and animation effects share its `tmRoot` node.
  */
 
-import { SlideObjectType } from '../../core-enums.js'
-import type { AnimationProps } from '../../core-interfaces.js'
+import { SlideObjectType } from '../../enums.js'
+import type { AnimationProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { collectSlideShapeIds } from '../slide/shape-ids.js'

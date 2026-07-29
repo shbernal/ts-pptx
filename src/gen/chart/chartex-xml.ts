@@ -17,8 +17,8 @@
  * ({@link ./embed-xlsx}); the cell mapping lives in {@link ./chartex-data} / {@link ./data-refs}.
  */
 
-import { ChartType } from '../../core-enums.js'
-import { DEF_FONT_COLOR, XML_DECL } from '../../core-enums-internal.js'
+import { ChartType } from '../../enums.js'
+import { DEF_FONT_COLOR, XML_DECL } from '../../constants-internal.js'
 import type { ChartExBinning, ChartExGeography, ChartExStatistics } from '../../types/chart.js'
 import type { SlideRelChart } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'

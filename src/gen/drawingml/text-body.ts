@@ -6,9 +6,9 @@
  * predicate, and the placeholder `<p:ph>` element.
  */
 
-import { PlaceholderType, SlideObjectType } from '../../core-enums.js'
-import { CRLF } from '../../core-enums-internal.js'
-import type { ObjectOptions, TableCell, TextProps } from '../../core-interfaces.js'
+import { PlaceholderType, SlideObjectType } from '../../enums.js'
+import { CRLF } from '../../constants-internal.js'
+import type { ObjectOptions, TableCell, TextProps } from '../../types/index.js'
 import type { SlideObject } from '../../types/internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import {

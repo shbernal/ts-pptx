@@ -1,9 +1,9 @@
 /**
  * Slide-master types: master object descriptors, bullet configuration and per-level text styles.
  *
- * Re-exported by `../core-interfaces.js`, which is the import site for the rest of `src/`.
+ * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
-import type { CHART_NAME, SHAPE_NAME } from '../core-enums.js'
+import type { CHART_NAME, SHAPE_NAME } from '../enums.js'
 import type { ChartMulti, ChartOpts, OptsChartData } from './chart.js'
 import type { BackgroundProps, Color, HAlign, Margin, PositionProps } from './core.js'
 import type { ImageProps } from './media.js'

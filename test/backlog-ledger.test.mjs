@@ -352,7 +352,7 @@ describe('backlog ledger tooling', () => {
 			fixture,
 			{
 				id: 'fork-units-pt-vs-inches',
-				source: 'fork:src/core-interfaces.ts',
+				source: 'fork:src/types/index.ts',
 				type: 'fork-internal-proposal',
 				summary: 'library uses points where the rest of the API uses inches',
 			},

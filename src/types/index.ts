@@ -2,12 +2,12 @@
  * ts-pptx Interfaces — re-export barrel
  *
  * The public typed contract lives in `src/types/`, split by domain. This module re-exports
- * all of it so that `./core-interfaces.js` remains the single import site for consumers and
- * for the rest of `src/`.
+ * all of it so that `types/index.js` is the single import site for consumers and for the
+ * rest of `src/`.
  *
  * The generator-internal `*Internal` wire shapes live alongside it in `types/internal.ts`
  * but are deliberately NOT re-exported here — they are not part of the published surface.
- * Internal code imports them straight from `./types/internal.js`.
+ * Internal code imports them straight from `./internal.js`.
  *
  * Where things live:
  *   - `types/core.ts`      Coord/PositionProps, colors, gradient/pattern/image fills, geometry points
@@ -28,17 +28,17 @@
  * `textRuns` run-array helpers.
  */
 
-export * from './types/core.js'
-export * from './types/style.js'
-export * from './types/object.js'
-export * from './types/theme.js'
-export * from './types/text.js'
-export * from './types/media.js'
-export * from './types/shape.js'
-export * from './types/table.js'
-export * from './types/chart.js'
-export * from './types/animation.js'
-export * from './types/master.js'
-export * from './types/slide.js'
-export * from './types/pres.js'
-export * from './types/zoom.js'
+export * from './core.js'
+export * from './style.js'
+export * from './object.js'
+export * from './theme.js'
+export * from './text.js'
+export * from './media.js'
+export * from './shape.js'
+export * from './table.js'
+export * from './chart.js'
+export * from './animation.js'
+export * from './master.js'
+export * from './slide.js'
+export * from './pres.js'
+export * from './zoom.js'

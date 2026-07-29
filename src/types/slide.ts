@@ -2,9 +2,9 @@
  * The slide model: the PRIVATE generator wire shapes (`SlideRel`, `SlideRelMedia`, `SlideObject`),
  * groups, the merged `ObjectOptions` bag, and the `SlideLayout`/`Slide` authoring surfaces.
  *
- * Re-exported by `../core-interfaces.js`, which is the import site for the rest of `src/`.
+ * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
-import type { CHART_NAME, PLACEHOLDER_TYPE, SHAPE_NAME, TableStyle } from '../core-enums.js'
+import type { CHART_NAME, PLACEHOLDER_TYPE, SHAPE_NAME, TableStyle } from '../enums.js'
 import type { AnimationProps, TransitionProps } from './animation.js'
 import type { ChartMulti, ChartOpts, OptsChartData } from './chart.js'
 import type { BackgroundProps, Coord, HexColor, Margin, PositionProps } from './core.js'

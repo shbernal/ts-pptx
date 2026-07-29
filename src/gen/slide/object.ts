@@ -8,9 +8,9 @@
  * `slideObjectRelationsToXml` emits the matching `.rels` targets.
  */
 
-import { SlideObjectType } from '../../core-enums.js'
-import { CRLF, DEF_PRES_LAYOUT_NAME, SLDNUMFLDID, XML_DECL } from '../../core-enums-internal.js'
-import type { ObjectOptions } from '../../core-interfaces.js'
+import { SlideObjectType } from '../../enums.js'
+import { CRLF, DEF_PRES_LAYOUT_NAME, SLDNUMFLDID, XML_DECL } from '../../constants-internal.js'
+import type { ObjectOptions } from '../../types/index.js'
 import type {
 	PresSlideInternal,
 	SlideLayoutInternal,
@@ -19,7 +19,7 @@ import type {
 	SlideRelChart,
 	SlideRelMedia,
 } from '../../types/internal.js'
-import { encodeXmlAttrValue, getDuplicateObjectNames, isHyperlinkRel } from '../../gen-utils.js'
+import { encodeXmlAttrValue, getDuplicateObjectNames, isHyperlinkRel } from '../utils.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { convertRotationDegrees, getSmartParseNumber, marginToEmu } from '../../units-internal.js'
 import { warn } from '../../diagnostics.js'
@@ -109,7 +109,7 @@ const normalizeAxisExtent = (off: number, ext: number): { off: number; ext: numb
 export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal): string {
 	// `_name` is escaped HERE, at emission, unlike `objectName`'s single-escape-upstream design
 	// (see `cNvPrOpen`): `_name` doubles as the raw lookup key `addSlide({masterTitle})` matches
-	// against the caller's `title` string (pptxgen.ts, `layout._name === masterTitle`), so it
+	// against the caller's `title` string (presentation.ts, `layout._name === masterTitle`), so it
 	// must stay unescaped until the last possible moment or that match breaks for any title
 	// containing `&`/`<`/`"`. Plain slides' default `_name` ("Slide N", slide.ts) never contains
 	// XML metacharacters, so escaping it here is a no-op for that path.

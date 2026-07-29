@@ -52,7 +52,7 @@ Assume today's date is available; use `YYYY-MM-DD` in the CHANGELOG.
 ### 2. Bump the version in THREE places (all must match)
 
 - `package.json` → `"version": "X.Y.Z"`
-- `src/pptxgen.ts` → `const VERSION = 'X.Y.Z'`
+- `src/presentation.ts` → `const VERSION = 'X.Y.Z'`
 - `CHANGELOG.md` → convert the `## [Unreleased]` heading region into a released
   section, keeping an empty `## [Unreleased]` above it:
 
@@ -84,7 +84,7 @@ typecheck, so `check:static` should be a formality.)
 ### 4. Commit, tag, push
 
 ```bash
-git add CHANGELOG.md package.json src/pptxgen.ts
+git add CHANGELOG.md package.json src/presentation.ts
 git commit -m "chore(release): vX.Y.Z"
 git tag vX.Y.Z -m "vX.Y.Z"
 git push origin master

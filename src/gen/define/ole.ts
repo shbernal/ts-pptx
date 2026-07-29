@@ -12,10 +12,10 @@
  *     part (ECMA-376 Part 1 §15.2.10);
  *   - the payload lives in `ppt/embeddings/`, the preview picture in `ppt/media/` as an ordinary image.
  */
-import { SlideObjectType } from '../../core-enums.js'
+import { SlideObjectType } from '../../enums.js'
 import type { OleObjectProps } from '../../types/media.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'
 import { nextObjectNameIdx } from './object-name.js'
 import { registerPreviewImage } from './preview-image.js'
 import { InvalidOptionError } from '../../errors.js'

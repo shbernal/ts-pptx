@@ -5,19 +5,12 @@
  * chart part rel; the `normalize*` / `clamp*` helpers apply the schema-valid defaults and range
  * clamps. The chart *XML* is emitted later by `gen/chart/chart-xml.ts`.
  */
-import {
-	asChartType,
-	type CHART_NAME,
-	ChartType,
-	isChartExType,
-	SchemeColor,
-	SlideObjectType,
-} from '../../core-enums.js'
-import { BARCHART_COLORS, DEF_CHART_BORDER, PIECHART_COLORS } from '../../core-enums-internal.js'
+import { asChartType, type CHART_NAME, ChartType, isChartExType, SchemeColor, SlideObjectType } from '../../enums.js'
+import { BARCHART_COLORS, DEF_CHART_BORDER, PIECHART_COLORS } from '../../constants-internal.js'
 import { warn } from '../../diagnostics.js'
-import type { ChartMulti, ChartOpts, OptsChartData, OptsChartGridLine } from '../../core-interfaces.js'
+import type { ChartMulti, ChartOpts, OptsChartData, OptsChartGridLine } from '../../types/index.js'
 import type { ChartOptsInternal, OptsChartDataInternal, PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { valToPts } from '../../units-internal.js'
 

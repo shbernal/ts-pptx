@@ -2,7 +2,7 @@
  * Core geometry and color types: `Coord`/`PositionProps`, the color model, gradient/pattern/image
  * fills, margins, alignment and freeform geometry points.
  *
- * Re-exported by `../core-interfaces.js`, which is the import site for the rest of `src/`.
+ * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
 import type { ShapeFillProps } from './style.js'
 

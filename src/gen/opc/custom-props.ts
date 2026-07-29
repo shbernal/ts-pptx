@@ -5,8 +5,8 @@
  * date, number and string value types).
  */
 
-import { CRLF, XML_DECL } from '../../core-enums-internal.js'
-import type { CustomPropertyValue } from '../../core-interfaces.js'
+import { CRLF, XML_DECL } from '../../constants-internal.js'
+import type { CustomPropertyValue } from '../../types/index.js'
 import { el, raw } from '../oxml/el.js'
 
 const CUSTOM_PROPS_FMTID = '{D5CDD505-2E9C-101B-9397-08002B2CF9AE}'

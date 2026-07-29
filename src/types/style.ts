@@ -2,7 +2,7 @@
  * Visual styling types shared across object kinds: borders, shadows, shape fill and line
  * (stroke) options, connectors and hyperlinks.
  *
- * Re-exported by `../core-interfaces.js`, which is the import site for the rest of `src/`.
+ * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
 import type { LineCap } from './chart.js'
 import type { Color, Coord, GradientFillProps, HexColor, ImageFillProps, PatternFillProps } from './core.js'

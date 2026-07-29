@@ -6,7 +6,7 @@
  * the `mc:AlternateContent` envelope that carries an exact `p14:dur`.
  */
 
-import type { TransitionProps } from '../../core-interfaces.js'
+import type { TransitionProps } from '../../types/index.js'
 import type { PresSlideInternal } from '../../types/internal.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 

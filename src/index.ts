@@ -1,7 +1,7 @@
 export { default, TsPptx } from './browser.js'
-export * from './core-enums.js'
+export * from './enums.js'
 export * from './units.js'
-export * from './core-interfaces.js'
+export * from './types/index.js'
 export { setDiagnosticHandler, type Diagnostic, type DiagnosticCode, type DiagnosticHandler } from './diagnostics.js'
 
 // Error taxonomy — every failure the library throws. The classes and their `code` are API;

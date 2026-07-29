@@ -10,7 +10,7 @@
  * can be driven from any assembled deck state.
  */
 import { ZipWriter } from '../zip.js'
-import type { CustomPropertyValue, WriteProps } from '../core-interfaces.js'
+import type { CustomPropertyValue, WriteProps } from '../types/index.js'
 import type {
 	PresentationPropsInternal,
 	PresSlideInternal,
@@ -21,7 +21,7 @@ import type { RuntimeAdapter } from '../runtime/types.js'
 import type { FontMetricsRegistry } from '../measure/font-metrics.js'
 import { flattenEmbeddedFaces } from '../embedded-fonts.js'
 import { applyMeasuredFit } from '../measure/fit.js'
-import { getNewRelId } from '../gen-utils.js'
+import { getNewRelId } from '../gen/utils.js'
 import { decodeBase64ToBytes } from '../media/base64.js'
 import { audioExtensionForSubtype } from '../media/content-type.js'
 import { createExcelWorksheet } from '../gen/chart/embed-xlsx.js'

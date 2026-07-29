@@ -7,15 +7,9 @@
  * list into `<a:p>` paragraphs. The `text-body.ts` container layer builds on top.
  */
 
-import { BulletType, SlideObjectType } from '../../core-enums.js'
-import { DEF_BULLET_MARGIN, DEF_TEXT_GLOW, DEF_TEXT_SHADOW } from '../../core-enums-internal.js'
-import type {
-	ObjectOptions,
-	TableCell,
-	TextFitShrinkProps,
-	TextProps,
-	TextPropsOptions,
-} from '../../core-interfaces.js'
+import { BulletType, SlideObjectType } from '../../enums.js'
+import { DEF_BULLET_MARGIN, DEF_TEXT_GLOW, DEF_TEXT_SHADOW } from '../../constants-internal.js'
+import type { ObjectOptions, TableCell, TextFitShrinkProps, TextProps, TextPropsOptions } from '../../types/index.js'
 import type { SlideObject } from '../../types/internal.js'
 import { createColorElement } from './color.js'
 import { createGlowElement, createShadowElement } from './effect.js'

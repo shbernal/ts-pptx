@@ -6,8 +6,8 @@
  * series. Reached through {@link ./chart-xml}'s `makeChartType` dispatch.
  */
 
-import { ChartType } from '../../core-enums.js'
-import { BARCHART_COLORS, DEF_FONT_COLOR, DEF_FONT_SIZE, DEF_SHAPE_SHADOW } from '../../core-enums-internal.js'
+import { ChartType } from '../../enums.js'
+import { BARCHART_COLORS, DEF_FONT_COLOR, DEF_FONT_SIZE, DEF_SHAPE_SHADOW } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'

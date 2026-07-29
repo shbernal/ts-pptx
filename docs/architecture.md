@@ -20,7 +20,7 @@ exports and let this repository own the internal OOXML generation details.
 
 - `src/index.ts`, `src/node.ts`, and `src/browser.ts` define the public entry
   points described by `package.json` exports.
-- `src/pptxgen.ts` owns the main presentation class: presentation-level state,
+- `src/presentation.ts` owns the main presentation class: presentation-level state,
   the authoring API façade (`addSlide`, `defineSlideMaster`, …), and presentation
   metadata. Enums are imported from the package entry, not read off the instance.
   `write`/`writeFile`/`stream` are thin façades over the packaging layer.
@@ -45,7 +45,7 @@ exports and let this repository own the internal OOXML generation details.
   dispatch, and shape emission is split per shape kind under `gen/slide/objects/`
   behind the `slideObjectToXml` dispatch — `gen/slide/object.ts` keeps only that
   walk, the group and slide-number branches that consume its shape-id counter, and
-  the slide `.rels`. `src/gen-utils.ts` holds only the cross-cutting helpers that
+  the slide `.rels`. `src/gen/utils.ts` holds only the cross-cutting helpers that
   belong to no single part (XML escaping, object names, rel ids).
 - `src/measure/` holds the calibrated text-measurement engine behind the
   `ts-pptx/measure` subpath and the export-time autofit bake: `font-metrics.ts`
@@ -54,11 +54,13 @@ exports and let this repository own the internal OOXML generation details.
   `table-fit.ts` (`computeTableLayout` and the cell-grid walk), and `fit.ts` (the
   pass that measures and rewrites slide objects before the sync XML build).
   `src/measure.ts` is the public barrel over it. See `docs/measured-text-fit.md`.
-- `src/core-interfaces.ts` and `src/core-enums.ts` define the public typed contract.
-  `core-interfaces.ts` is a re-export barrel over `src/types/*` (split by domain).
-  The generator-internal `*Internal` wire shapes live in `src/types/internal.ts`
-  and are **not** re-exported — internal code imports them from there directly, the
-  same non-published convention as `units-internal.ts`.
+- `src/types/index.ts` and `src/enums.ts` define the public typed contract.
+  `types/index.ts` is a re-export barrel over its siblings in `src/types/*` (split
+  by domain). The generator-internal `*Internal` wire shapes live in
+  `src/types/internal.ts` and are **not** re-exported — internal code imports them
+  from there directly, the same non-published convention as `units-internal.ts`
+  (lenient unit conversion) and `constants-internal.ts` (generator defaults, fixed
+  ids, colour palettes), each of which sits beside the published module it extends.
 - `src/script/` turns a deck read through `src/read/` into a serializable
   description of the write-API calls that would rebuild it (`readModelToIr`),
   and prints that description as a runnable TypeScript module. The two halves
@@ -123,17 +125,17 @@ export time. Each module opens with a TSDoc header stating its job; larger files
 | Group objects | `gen/define/group.ts` `addGroupDefinition` / `groupObjectsDefinition` | `gen/slide/object.ts` `slideObjectToXml` (group branch) |
 | Notes | `gen/define/notes.ts` `addNotesDefinition` | `gen/slide/notes.ts` `makeXmlNotesSlide` |
 | Comments | `gen/define/comment.ts` `addCommentDefinition` | `gen/slide/comments.ts` `makeXmlComments` |
-| Slide number | `pptxgen.ts` `setSlideNumber` | `gen/slide/object.ts` `slideObjectToXml` (`SLDNUMFLDID`) |
+| Slide number | `presentation.ts` `setSlideNumber` | `gen/slide/object.ts` `slideObjectToXml` (`SLDNUMFLDID`) |
 | Transitions / animations | slide props (`slide.ts`) | `gen/anim/transition.ts` `slideTransitionToXml` / `gen/anim/animation.ts` `buildAnimationSeq` |
 | Slide master / layout | `gen/define/master.ts` `createSlideMaster` | `gen/slide/master.ts` `makeXmlMaster` / `gen/slide/layout.ts` `makeXmlLayout` |
 | Theme colors | — | `gen/pres/theme.ts` `buildThemeClrScheme` / `makeXmlTheme` |
 | Coordinates & units (in → EMU) | `units.ts` (strict public primitives); `units-internal.ts` `getSmartParseNumber` (lenient generator layer) | — |
 | Colors, fills, borders, shadows | — | `gen/drawingml/color.ts` `createColorElement`; `gen/drawingml/fill.ts` `genXmlColorSelection` / `genXml*Fill`; `gen/drawingml/line.ts` `genXmlLineFill` / `createLineCap`; `gen/drawingml/effect.ts` `createShadowElement` / `createGlowElement` |
-| Package assembly & export | `package/assemble.ts` `buildPackageParts` (parts) + `zipPackageParts` (zip) → `writePackage` (behind `pptxgen.ts` `write` / `writeFile` / `stream`); `toParts` exposes the parts | `gen/opc/content-types.ts` `makeXmlContTypes` / `gen/opc/root-rels.ts` `makeXmlRootRels` / per-part rels |
+| Package assembly & export | `package/assemble.ts` `buildPackageParts` (parts) + `zipPackageParts` (zip) → `writePackage` (behind `presentation.ts` `write` / `writeFile` / `stream`); `toParts` exposes the parts | `gen/opc/content-types.ts` `makeXmlContTypes` / `gen/opc/root-rels.ts` `makeXmlRootRels` / per-part rels |
 | HTML `<table>` → slides | `html.ts` `tableToSlides` (the `ts-pptx/html` subpath, any DOM); `browser.ts` `tableToSlides` (method form, delegates) | `gen/table/html-dom.ts` `genTableToSlides` |
-| Public API surface | `pptxgen.ts` (class), `slide.ts` (slide methods) | — |
-| Option / type definitions | `core-interfaces.ts` | — |
-| Enums & shared constants | `core-enums.ts` | — |
+| Public API surface | `presentation.ts` (class), `slide.ts` (slide methods) | — |
+| Option / type definitions | `types/index.ts` (barrel over `types/*`) | — |
+| Enums & shared constants | `enums.ts` (public); `constants-internal.ts` (generator-only) | — |
 
 ## Boundaries
 

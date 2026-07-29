@@ -14,7 +14,7 @@
  * {@link ./data-refs}.
  */
 
-import { asChartType, ChartType } from '../../core-enums.js'
+import { asChartType, ChartType } from '../../enums.js'
 import {
 	AXIS_ID_CATEGORY_PRIMARY,
 	AXIS_ID_CATEGORY_SECONDARY,
@@ -24,10 +24,10 @@ import {
 	DEF_FONT_SIZE,
 	DEF_FONT_TITLE_SIZE,
 	XML_DECL,
-} from '../../core-enums-internal.js'
+} from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal, SlideRelChart } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
-import { encodeXmlEntities } from '../../gen-utils.js'
+import { encodeXmlEntities } from '../utils.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { resolveBorderWidth } from '../drawingml/line.js'
 import { valToPts } from '../../units-internal.js'

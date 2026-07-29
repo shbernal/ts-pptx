@@ -8,9 +8,9 @@
  * they are shared by both the slide-object renderer and the animation builder.
  */
 
-import { SlideObjectType } from '../../core-enums.js'
+import { SlideObjectType } from '../../enums.js'
 import type { SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue } from '../../gen-utils.js'
+import { encodeXmlAttrValue } from '../utils.js'
 
 /**
  * Every object a slide renders, paired with the `<p:cNvPr>` id it is rendered with: top-level

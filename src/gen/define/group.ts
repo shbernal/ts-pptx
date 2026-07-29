@@ -6,11 +6,11 @@
  * top-level objects into a group, and `addChildDefinition` is the shared child-descriptor
  * dispatch (also used by the slide-master definition).
  */
-import { ShapeType, SlideObjectType } from '../../core-enums.js'
+import { ShapeType, SlideObjectType } from '../../enums.js'
 import { warn } from '../../diagnostics.js'
-import type { GroupChildProps, GroupProps, SlideMasterObject } from '../../core-interfaces.js'
+import type { GroupChildProps, GroupProps, SlideMasterObject } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlAttrValue, validateObjectName } from '../utils.js'
 import { nextObjectNameIdx } from './object-name.js'
 import { addChartDefinition } from './chart.js'
 import { addImageDefinition } from './image.js'

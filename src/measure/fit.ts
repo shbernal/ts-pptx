@@ -10,7 +10,7 @@
  * untouched (current behavior) and warns once. See `docs/measured-text-fit.md`.
  */
 
-import { SlideObjectType } from '../core-enums.js'
+import { SlideObjectType } from '../enums.js'
 import { EMU_PER_POINT, POINTS_PER_INCH } from '../units.js'
 import { getSmartParseNumber, inch2Emu, resolveTableColWidthsEmu } from '../units-internal.js'
 import { warn } from '../diagnostics.js'
@@ -39,7 +39,7 @@ import {
 	tableColCount,
 	walkTableGrid,
 } from './table-fit.js'
-import type { MeasureTextOptions, TextMeasurement, TextProps } from '../core-interfaces.js'
+import type { MeasureTextOptions, TextMeasurement, TextProps } from '../types/index.js'
 import type { SlideObject, PresSlideInternal } from '../types/internal.js'
 
 /** Map the public {@link MeasureTextOptions} onto the internal run-option shape. */

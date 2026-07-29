@@ -1,4 +1,4 @@
-import type { WRITE_OUTPUT_TYPE } from '../core-enums.js'
+import type { WRITE_OUTPUT_TYPE } from '../enums.js'
 import type { SlideRelMedia } from '../types/internal.js'
 
 export type RuntimeAdapter = {

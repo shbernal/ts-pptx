@@ -6,7 +6,7 @@
  * and pushes a `SlideObject{ _type: zoom, zoom }` for `gen/slide/objects/zoom.ts` to emit as a
  * `<p:graphicFrame>`. See {@link ../../types/zoom} for the preview-image behavior.
  */
-import { SlideObjectType } from '../../core-enums.js'
+import { SlideObjectType } from '../../enums.js'
 import { warn } from '../../diagnostics.js'
 import type { SectionZoomProps, SlideZoomProps, SummaryZoomProps } from '../../types/zoom.js'
 import type {
@@ -16,7 +16,7 @@ import type {
 	ZoomInternal,
 	ZoomTileInternal,
 } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, getUuid, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlAttrValue, getNewRelId, getUuid, validateObjectName } from '../utils.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { nextObjectNameIdx } from './object-name.js'
 import { registerPreviewImage } from './preview-image.js'

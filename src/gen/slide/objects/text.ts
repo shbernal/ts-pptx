@@ -6,8 +6,8 @@
  * An equation-bearing shape is wrapped in the `a14` markup-compatibility envelope.
  */
 
-import { SlideObjectType } from '../../../core-enums.js'
-import { DEF_TEXT_SHADOW } from '../../../core-enums-internal.js'
+import { SlideObjectType } from '../../../enums.js'
+import { DEF_TEXT_SHADOW } from '../../../constants-internal.js'
 import type { PresSlideInternal, SlideLayoutInternal, SlideObject } from '../../../types/internal.js'
 import { createShadowEffectLst } from '../../drawingml/effect.js'
 import { genXmlColorSelection } from '../../drawingml/fill.js'

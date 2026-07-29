@@ -14,7 +14,7 @@
  * reference theme scheme colors, so they adapt to the deck theme without per-chart customization.
  */
 
-import { XML_DECL } from '../../core-enums-internal.js'
+import { XML_DECL } from '../../constants-internal.js'
 
 /** The `cs:colorStyle` payload for a chartEx chart's `colors{N}.xml` part (theme-accent cycle). */
 const CHARTEX_COLORS_BODY =

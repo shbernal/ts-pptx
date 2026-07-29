@@ -6,8 +6,8 @@
  * renderer never has to import from its own caller.
  */
 
-import type { HyperlinkProps, ShapeLineProps } from '../../../core-interfaces.js'
-import { encodeXmlAttrValue } from '../../../gen-utils.js'
+import type { HyperlinkProps, ShapeLineProps } from '../../../types/index.js'
+import { encodeXmlAttrValue } from '../../utils.js'
 import { createLineCap, genXmlLineFill } from '../../drawingml/line.js'
 import { lineWidthToEmu } from '../../../units-internal.js'
 import { el, raw, voidEl } from '../../oxml/el.js'

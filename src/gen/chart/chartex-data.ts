@@ -11,7 +11,7 @@
  * written by {@link ./embed-xlsx}.
  */
 
-import { ChartType } from '../../core-enums.js'
+import { ChartType } from '../../enums.js'
 import type { SlideRelChart } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl } from '../oxml/el.js'

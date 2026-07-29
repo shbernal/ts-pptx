@@ -1,9 +1,9 @@
 /**
  * Image and audio/video types, including the shared `ImageBaseProps` base that `ObjectOptions` extends.
  *
- * Re-exported by `../core-interfaces.js`, which is the import site for the rest of `src/`.
+ * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
-import type { SHAPE_NAME } from '../core-enums.js'
+import type { SHAPE_NAME } from '../enums.js'
 import type { Color, Coord, DataOrPathProps, DataOrPathRequiredProps, GeometryPoint, PositionProps } from './core.js'
 import type { ObjectNameProps } from './object.js'
 import type { ShapeAdjustValue } from './shape.js'

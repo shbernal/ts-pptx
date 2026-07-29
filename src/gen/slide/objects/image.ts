@@ -7,8 +7,8 @@
  * bytes' natural pixel ratio, which only becomes available once `_relsMedia` is populated.
  */
 
-import type { ObjectOptions } from '../../../core-interfaces.js'
-import { DEF_TEXT_SHADOW } from '../../../core-enums-internal.js'
+import type { ObjectOptions } from '../../../types/index.js'
+import { DEF_TEXT_SHADOW } from '../../../constants-internal.js'
 import type { PresSlideInternal, SlideLayoutInternal, SlideObject } from '../../../types/internal.js'
 import { createColorElement } from '../../drawingml/color.js'
 import { createShadowEffectLst } from '../../drawingml/effect.js'

@@ -12,8 +12,8 @@
  * base64/image-header decoding and media content types to `media/`.
  */
 
-import { warn } from './diagnostics.js'
-import type { PresSlideInternal } from './types/internal.js'
+import { warn } from '../diagnostics.js'
+import type { PresSlideInternal } from '../types/internal.js'
 
 /**
  * Basic UUID Generator Adapted
@@ -171,7 +171,7 @@ export function getNewRelId(target: PresSlideInternal): number {
  * link). The relationship `type` is stringly-typed (`'hyperlink'`, `'online'`,
  * mixed-case variants), so this centralizes the case-insensitive predicate that
  * was duplicated across the slide-rels writer (`gen/slide/slide.ts`) and the inspect path
- * (pptxgen.ts). For an internal slide-to-slide link, `rel.data === 'slide'` and
+ * (presentation.ts). For an internal slide-to-slide link, `rel.data === 'slide'` and
  * `rel.Target` is the 1-based target slide number.
  * @param {{ type: string }} rel - a slide relationship
  * @returns {boolean} true if the rel is any kind of hyperlink

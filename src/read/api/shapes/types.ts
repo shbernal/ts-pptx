@@ -170,7 +170,7 @@ export interface PatternFill {
 
 /**
  * One segment of a custom-geometry path (`a:path`), as read from a shape. The
- * command verbs mirror the write-side `GeometryPoint` DSL (`src/core-interfaces.ts`)
+ * command verbs mirror the write-side `GeometryPoint` DSL (`src/types/`)
  * so a consumer can map a `GeometryCommand[]` to `GeometryPoint[]` one-to-one.
  *
  * Coordinates (`x`/`y`/`x1`…) are raw path-unit integers in the path's own

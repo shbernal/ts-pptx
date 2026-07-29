@@ -5,14 +5,14 @@
  * fully-resolved `TableCell`s (incl. 4-side borders), computes width, and — when `autoPage` is
  * set — shreds the table across overflow slides via `getSlidesForTableRows`.
  */
-import { SlideObjectType } from '../../core-enums.js'
+import { SlideObjectType } from '../../enums.js'
 import {
 	DEF_CELL_BORDER,
 	DEF_CELL_MARGIN_IN,
 	DEF_FONT_COLOR,
 	DEF_FONT_SIZE,
 	DEF_SLIDE_MARGIN_IN,
-} from '../../core-enums-internal.js'
+} from '../../constants-internal.js'
 import { warn } from '../../diagnostics.js'
 import type {
 	AddSlideProps,
@@ -22,10 +22,10 @@ import type {
 	TableCell,
 	TableProps,
 	TableRow,
-} from '../../core-interfaces.js'
+} from '../../types/index.js'
 import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { getSlidesForTableRows } from '../table/autopage.js'
-import { encodeXmlAttrValue, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlAttrValue, validateObjectName } from '../utils.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { EMU_PER_INCH } from '../../units.js'
 import { createHyperlinkRels } from './hyperlinks.js'

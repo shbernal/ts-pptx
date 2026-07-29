@@ -6,8 +6,8 @@
  * plain-shape `<mc:Fallback>` for consumers older than PowerPoint 2016.
  */
 
-import { ChartType, isChartExType } from '../../../core-enums.js'
-import type { ObjectOptions } from '../../../core-interfaces.js'
+import { ChartType, isChartExType } from '../../../enums.js'
+import type { ObjectOptions } from '../../../types/index.js'
 import type { SlideObject } from '../../../types/internal.js'
 import { genXmlPlaceholder } from '../../drawingml/text-body.js'
 import { el, raw, voidEl } from '../../oxml/el.js'

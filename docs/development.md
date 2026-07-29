@@ -71,7 +71,7 @@ modules use two comment conventions so a reader can navigate without scrolling:
 
 When adding a new top-level region to one of these files, add both the banner and a
 matching line in the module-map header. Prefer ASCII `=====` banners over box-drawing
-characters. (A few enums, such as `TableStyle` in `core-enums.ts`, group their members
+characters. (A few enums, such as `TableStyle` in `enums.ts`, group their members
 with `// ── Name ──` sub-headers; that is an intra-construct grouping, not a file region.)
 
 ### Trailing `_` marks an escape hatch

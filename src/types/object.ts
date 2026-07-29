@@ -1,9 +1,9 @@
 /**
  * Object-identity types: placeholders, object names/alt text and DrawingML lock flags.
  *
- * Re-exported by `../core-interfaces.js`, which is the import site for the rest of `src/`.
+ * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
-import type { PLACEHOLDER_TYPE, SHAPE_NAME } from '../core-enums.js'
+import type { PLACEHOLDER_TYPE, SHAPE_NAME } from '../enums.js'
 import type { Margin, PositionProps } from './core.js'
 import type { TextBaseProps } from './text.js'
 

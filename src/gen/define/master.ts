@@ -5,7 +5,7 @@
  * chart / image / shape / text children via `addChildDefinition`, plus master-specific text
  * placeholders (which need the object index for `_placeholderIdx`).
  */
-import type { ObjectOptions, SlideMasterProps, TextPropsOptions } from '../../core-interfaces.js'
+import type { ObjectOptions, SlideMasterProps, TextPropsOptions } from '../../types/index.js'
 import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { addChildDefinition } from './group.js'
 import { addTextDefinition } from './text.js'

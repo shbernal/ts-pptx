@@ -1,5 +1,5 @@
 /**
- *  :: pptxgen.ts ::
+ *  :: presentation.ts ::
  *
  *  TypeScript/ESM library that creates PowerPoint (pptx) presentations
  *  https://github.com/gitbrent/PptxGenJS
@@ -57,9 +57,9 @@
 
 import { warn } from './diagnostics.js'
 import { InternalError, InvalidOptionError } from './errors.js'
-import SlideBuilder from './slide-builder.js'
-import { SlideObjectType } from './core-enums.js'
-import { DEF_PRES_LAYOUT, DEF_PRES_LAYOUT_NAME, DEF_SLIDE_MARGIN_IN } from './core-enums-internal.js'
+import SlideBuilder from './slide.js'
+import { SlideObjectType } from './enums.js'
+import { DEF_PRES_LAYOUT, DEF_PRES_LAYOUT_NAME, DEF_SLIDE_MARGIN_IN } from './constants-internal.js'
 import type {
 	AddSlideProps,
 	CustomPropertyValue,
@@ -82,7 +82,7 @@ import type {
 	WriteBaseProps,
 	WriteFileProps,
 	WriteProps,
-} from './core-interfaces.js'
+} from './types/index.js'
 import type {
 	PresentationPropsInternal,
 	PresSlideInternal,
@@ -96,13 +96,13 @@ import { FontMetricsRegistry, parseFontMetrics } from './measure/font-metrics.js
 import { type EmbeddedFont, type EmbeddedFontSlot, EMBEDDED_FONT_SLOTS } from './embedded-fonts.js'
 import { applyMeasuredFit, measureText } from './measure/fit.js'
 import { computeTableLayout } from './measure/table-fit.js'
-import { getUuid, isHyperlinkRel } from './gen-utils.js'
+import { getUuid, isHyperlinkRel } from './gen/utils.js'
 import { decodeBase64ToBytes } from './media/base64.js'
 import { avContentType, imageContentType } from './media/content-type.js'
 import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
 import type { ExtractedSlide, ExtractedSlides } from './read/api/presentation-types.js'
 
-export type { Slide } from './core-interfaces.js'
+export type { Slide } from './types/index.js'
 export type {
 	AddSlideProps,
 	CustomPropertyValue,
@@ -183,7 +183,7 @@ export type {
 	WriteBaseProps,
 	WriteFileProps,
 	WriteProps,
-} from './core-interfaces.js'
+} from './types/index.js'
 export type {
 	CHART_NAME,
 	ChartType,
@@ -195,7 +195,7 @@ export type {
 	SHAPE_NAME,
 	ShapeType,
 	WRITE_OUTPUT_TYPE,
-} from './core-enums.js'
+} from './enums.js'
 import { makeXmlCharts } from './gen/chart/chart-xml.js'
 import { buildEmbeddedWorksheet } from './gen/chart/embed-xlsx.js'
 import { addBackgroundDefinition } from './gen/define/background.js'

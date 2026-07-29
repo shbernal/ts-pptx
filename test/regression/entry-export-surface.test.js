@@ -5,7 +5,7 @@ import { assert, assertEqual } from '../helpers.js'
 //
 // `package.json` resolves `.` per-condition (node → dist/node.js, browser →
 // dist/browser.js, default → dist/index.js) while types always come from
-// index.d.ts. When an entry used `export type *` from core-interfaces instead of
+// index.d.ts. When an entry used `export type *` from the types barrel instead of
 // `export *`, the value factory helpers `textRun`/`textRuns` were dropped from
 // that entry's runtime surface — TypeScript stayed green (it reads index.d.ts)
 // but Node threw "does not provide an export named 'textRun'" at import time.

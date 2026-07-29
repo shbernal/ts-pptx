@@ -6,7 +6,7 @@
  * `*_LOCK_ATTRS` tables list the valid attribute names in ECMA-376 emit order.
  */
 
-import type { ObjectLockProps } from '../../core-interfaces.js'
+import type { ObjectLockProps } from '../../types/index.js'
 import { voidEl } from '../oxml/el.js'
 import { warn } from '../../diagnostics.js'
 

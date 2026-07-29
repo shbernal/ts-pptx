@@ -2,9 +2,9 @@
  * Chart types: series data (`OptsChartData`), per-axis and per-chart-family options, and the
  * combined `ChartOpts` surface.
  *
- * Re-exported by `../core-interfaces.js`, which is the import site for the rest of `src/`.
+ * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
-import type { CHART_NAME } from '../core-enums.js'
+import type { CHART_NAME } from '../enums.js'
 import type { Color, HexColor, PatternFillProps, PositionProps } from './core.js'
 import type { ObjectNameProps } from './object.js'
 import type { BorderProps, ShadowProps, ShapeFillProps } from './style.js'

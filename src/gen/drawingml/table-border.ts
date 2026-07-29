@@ -5,7 +5,7 @@
  * `<a:tcPr>`, in the LRTB document order PowerPoint requires.
  */
 
-import type { BorderProps } from '../../core-interfaces.js'
+import type { BorderProps } from '../../types/index.js'
 import { genXmlColorSelection } from './fill.js'
 import { createLineCap, resolveBorderWidth } from './line.js'
 import { valToPts } from '../../units-internal.js'

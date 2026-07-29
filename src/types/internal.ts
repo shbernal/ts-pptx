@@ -6,7 +6,7 @@
  *
  * Kept in one module so the public surface can be drawn around them.
  */
-import type { CHART_NAME, ChartType, SHAPE_NAME, SlideObjectType } from '../core-enums.js'
+import type { CHART_NAME, ChartType, SHAPE_NAME, SlideObjectType } from '../enums.js'
 import type { EmbeddedFont } from '../embedded-fonts.js'
 import type { AnimationProps } from './animation.js'
 import type { ChartMulti, ChartOpts, OptsChartData } from './chart.js'

@@ -5,7 +5,7 @@
  * when present).
  */
 
-import { CRLF, XML_DECL } from '../../core-enums-internal.js'
+import { CRLF, XML_DECL } from '../../constants-internal.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 
 const SCHEMA_BASE = 'http://schemas.openxmlformats.org/'

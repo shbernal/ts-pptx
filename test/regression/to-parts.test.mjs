@@ -1,4 +1,4 @@
-// Contract for `TsPptx.toParts()` (src/pptxgen.ts → buildPackageParts): the unzipped
+// Contract for `TsPptx.toParts()` (src/presentation.ts → buildPackageParts): the unzipped
 // parts it returns must be the SAME parts `write()` compresses into the `.pptx` — same path
 // set, same emission order, and byte-identical per part. `toParts` is the public seam over
 // the assembly pipeline, so a drift between it and `write()` (a part only one path emits, a

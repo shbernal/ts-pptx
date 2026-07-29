@@ -253,7 +253,7 @@ for those presets against minimal fixtures before extending the public API.
 
 ## Implementation Steps
 
-1. Extend `ShapeFillProps` in `src/core-interfaces.ts` with a linear gradient
+1. Extend `ShapeFillProps` in `src/types/index.ts` with a linear gradient
    model and exported stop type. Expand `type` from `'none' | 'solid'` to
    include `'gradient'`.
 2. Add a `genXmlGradientFill()` helper in `src/gen/drawingml/fill.ts`, called by

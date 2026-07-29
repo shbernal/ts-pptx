@@ -6,9 +6,9 @@
  * notes-master and their `.rels` parts.
  */
 
-import { SlideObjectType } from '../../core-enums.js'
-import { CRLF, SLDNUMFLDID, XML_DECL } from '../../core-enums-internal.js'
-import type { TextProps } from '../../core-interfaces.js'
+import { SlideObjectType } from '../../enums.js'
+import { CRLF, SLDNUMFLDID, XML_DECL } from '../../constants-internal.js'
+import type { TextProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideRel } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
 import { genXmlTextRun } from '../drawingml/text-run.js'

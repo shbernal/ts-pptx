@@ -6,8 +6,8 @@
  * Office master, with any `MasterTextStyleProps` overrides layered on top.
  */
 
-import { CRLF, LAYOUT_IDX_SERIES_BASE, XML_DECL } from '../../core-enums-internal.js'
-import type { MasterBulletProps, MasterTextStyleLevel, MasterTextStyleProps } from '../../core-interfaces.js'
+import { CRLF, LAYOUT_IDX_SERIES_BASE, XML_DECL } from '../../constants-internal.js'
+import type { MasterBulletProps, MasterTextStyleLevel, MasterTextStyleProps } from '../../types/index.js'
 import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { createColorElement } from '../drawingml/color.js'
 import { inch2Emu } from '../../units-internal.js'

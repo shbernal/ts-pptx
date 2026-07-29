@@ -15,7 +15,7 @@ import type {
 	PatternFillProps,
 	ShapeFillProps,
 	ShapeLineProps,
-} from '../../core-interfaces.js'
+} from '../../types/index.js'
 import { FIXED_PCT_PER_PERCENT } from '../../units.js'
 import { convertRotationDegrees, transparencyToAlpha } from '../../units-internal.js'
 import { createColorElement } from './color.js'

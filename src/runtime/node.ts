@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer'
 import fs from 'node:fs/promises'
-import { IMG_SVG_PLACEHOLDER } from '../core-enums-internal.js'
+import { IMG_SVG_PLACEHOLDER } from '../constants-internal.js'
 import { MediaError } from '../errors.js'
 import type { SlideRelMedia } from '../types/internal.js'
 import type { RuntimeAdapter } from './types.js'

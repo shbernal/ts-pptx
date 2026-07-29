@@ -7,8 +7,8 @@
  * Node-testable); `parseTextToLines` is its private cell-wrapping helper.
  */
 
-import { SlideObjectType } from '../../core-enums.js'
-import { DEF_FONT_SIZE, DEF_SLIDE_MARGIN_IN, LINEH_MODIFIER } from '../../core-enums-internal.js'
+import { SlideObjectType } from '../../enums.js'
+import { DEF_FONT_SIZE, DEF_SLIDE_MARGIN_IN, LINEH_MODIFIER } from '../../constants-internal.js'
 import type {
 	PresLayout,
 	TableCell,
@@ -16,7 +16,7 @@ import type {
 	TableRow,
 	TableRowSlide,
 	TableCellProps,
-} from '../../core-interfaces.js'
+} from '../../types/index.js'
 import type { SlideLayoutInternal } from '../../types/internal.js'
 import { getSmartParseNumber, inch2Emu, marginToEmu } from '../../units-internal.js'
 import { warn } from '../../diagnostics.js'

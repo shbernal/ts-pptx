@@ -6,12 +6,12 @@
  * and pushes a `text` / `placeholder` object. `createBulletImageRels` handles the picture-bullet
  * media rels.
  */
-import { AlignH, type PLACEHOLDER_TYPE, ShapeType, SlideObjectType, TextAnchor } from '../../core-enums.js'
-import { DEF_FONT_COLOR, DEF_SHAPE_LINE_COLOR } from '../../core-enums-internal.js'
+import { AlignH, type PLACEHOLDER_TYPE, ShapeType, SlideObjectType, TextAnchor } from '../../enums.js'
+import { DEF_FONT_COLOR, DEF_SHAPE_LINE_COLOR } from '../../constants-internal.js'
 import { warn } from '../../diagnostics.js'
-import type { ObjectOptions, ShapeLineProps, TextProps, TextPropsOptions } from '../../core-interfaces.js'
+import type { ObjectOptions, ShapeLineProps, TextProps, TextPropsOptions } from '../../types/index.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
-import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../../gen-utils.js'
+import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js'
 import { correctShadowOptions } from '../drawingml/effect.js'
 import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
 import { valToPts } from '../../units-internal.js'

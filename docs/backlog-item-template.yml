@@ -43,7 +43,7 @@
   # implemented, replace it with where the fix landed (commit, files, test).
   current_project_notes: |
     Implemented in commit 561b0341. ShapeLineProps gained `type: 'gradient'` and a
-    `gradient?: GradientFillProps` field; genXmlLineFill (src/gen-utils.ts) emits a
+    `gradient?: GradientFillProps` field; genXmlLineFill (src/gen/utils.ts) emits a
     <a:gradFill> inside <a:ln>, reusing the genXmlGradientFill builder used for shape
     fills. Validated by schema fixture 'shape with gradient line stroke' in
     test/schema-cases.js.
@@ -58,7 +58,7 @@
       - schema-fixture
       - validator-result
     local_files:                               # repo paths touched / asserting the behavior
-      - src/gen-utils.ts:503
+      - src/gen/utils.ts:503
       - test/schema-cases.js
     schema_fixture: test/schema-cases.js (shape-gradient-line-stroke)  # or null
     validator_result: pass                     # pass | fail | null

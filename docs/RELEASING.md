@@ -36,7 +36,7 @@ matching tag as a retry path.
 ## Version Updates
 
 1. Update `package.json` version.
-2. Update `src/pptxgen.ts` version.
+2. Update `src/presentation.ts` version.
 3. Update `CHANGELOG.md` with the release date and summary.
 4. Update demo package versions when they intentionally track the release
    version.

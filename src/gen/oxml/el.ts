@@ -30,7 +30,7 @@
  *    being hidden inside a template literal.
  */
 
-import { encodeXmlAttrValue, encodeXmlEntities } from '../../gen-utils.js'
+import { encodeXmlAttrValue, encodeXmlEntities } from '../utils.js'
 
 /** Pre-serialized XML, interpolated verbatim (not escaped). */
 export interface RawXml {

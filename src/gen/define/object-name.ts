@@ -5,7 +5,7 @@
  * grouped child and a later top-level object never collide on the same Selection Pane name
  * (see the note on {@link nextObjectNameIdx}).
  */
-import { SlideObjectType } from '../../core-enums.js'
+import { SlideObjectType } from '../../enums.js'
 import type { PresSlideInternal } from '../../types/internal.js'
 
 /**

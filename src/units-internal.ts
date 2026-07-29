@@ -25,7 +25,7 @@ import {
 	PERCENT_SCALE,
 	type Emu,
 } from './units.js'
-import type { Coord, PresLayout } from './core-interfaces.js'
+import type { Coord, PresLayout } from './types/index.js'
 
 /**
  * Resolve a user `Coord` (x/y/w/h) to EMU — the single user-coordinate → EMU boundary.

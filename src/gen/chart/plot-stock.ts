@@ -9,14 +9,14 @@
  * the stock branch of `makeChartAxesXml` (which reuses {@link ./chart-axes}).
  */
 
-import { ChartType } from '../../core-enums.js'
+import { ChartType } from '../../enums.js'
 import {
 	AXIS_ID_CATEGORY_PRIMARY,
 	AXIS_ID_CATEGORY_SECONDARY,
 	AXIS_ID_VALUE_PRIMARY,
 	AXIS_ID_VALUE_SECONDARY,
 	BARCHART_COLORS,
-} from '../../core-enums-internal.js'
+} from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'

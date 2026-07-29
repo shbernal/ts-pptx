@@ -4,7 +4,7 @@
 // inside an attribute value to a single space *before any consumer sees it*. So a caller-supplied
 // string carrying a line break — a layout title, an objectName, alt text, a section title — used to
 // come back with that break silently flattened to a space. Preserving one requires a character
-// reference (`&#9;` / `&#10;` / `&#13;`), which `encodeXmlAttrValue` (src/gen-utils.ts) now emits
+// reference (`&#9;` / `&#10;` / `&#13;`), which `encodeXmlAttrValue` (src/gen/utils.ts) now emits
 // for every attribute-emitting path, wired through `src/gen/oxml/el.ts` and `cNvPrOpen`.
 //
 // The oracle is deliberately a real parser, not a substring match on the emitted bytes: the defect

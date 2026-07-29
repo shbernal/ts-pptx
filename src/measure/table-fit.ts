@@ -7,7 +7,7 @@
  * the columns it covers — which is what `walkTableGrid` exists to hand out.
  */
 
-import { DEF_CELL_MARGIN_IN, DEF_FONT_SIZE, LINEH_MODIFIER } from '../core-enums-internal.js'
+import { DEF_CELL_MARGIN_IN, DEF_FONT_SIZE, LINEH_MODIFIER } from '../constants-internal.js'
 import { EMU_PER_POINT, emuToInches } from '../units.js'
 import { getSmartParseNumber, inch2Emu, marginToEmu, resolveTableColWidthsEmu } from '../units-internal.js'
 import { measureLayout, WIDTH_SAFETY_FACTOR, HEIGHT_SAFETY_FACTOR } from './text-fit.js'
@@ -21,7 +21,7 @@ import type {
 	TableCellProps,
 	TableLayoutResult,
 	TableProps,
-} from '../core-interfaces.js'
+} from '../types/index.js'
 import type { SlideObject } from '../types/internal.js'
 
 export const CELL_INHERIT_KEYS = [

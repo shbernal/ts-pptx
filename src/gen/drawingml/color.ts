@@ -12,8 +12,8 @@
  * otherwise fully exercised) while html-dom.ts is coverage-excluded wholesale.
  */
 
-import { SchemeColor, type SCHEME_COLORS } from '../../core-enums.js'
-import { REGEX_HEX_COLOR, DEF_FONT_COLOR } from '../../core-enums-internal.js'
+import { SchemeColor, type SCHEME_COLORS } from '../../enums.js'
+import { REGEX_HEX_COLOR, DEF_FONT_COLOR } from '../../constants-internal.js'
 import { warn } from '../../diagnostics.js'
 import { PERCENT_SCALE } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'

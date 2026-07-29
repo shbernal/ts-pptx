@@ -2,7 +2,7 @@
  * ts-pptx: SlideBuilder — write-side implementation of the public `Slide` interface
  */
 
-import type { CHART_NAME, SHAPE_NAME } from './core-enums.js'
+import type { CHART_NAME, SHAPE_NAME } from './enums.js'
 import type {
 	AddSlideProps,
 	AnimationProps,
@@ -31,7 +31,7 @@ import type {
 	SlideZoomProps,
 	SectionZoomProps,
 	SummaryZoomProps,
-} from './core-interfaces.js'
+} from './types/index.js'
 import type { Slide } from './types/slide.js'
 import type {
 	SlideObject,

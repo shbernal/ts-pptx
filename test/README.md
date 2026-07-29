@@ -27,7 +27,7 @@ the **primary** module each group exercises.
 
 | Source module | Representative tests |
 |---|---|
-| `pptxgen.ts` (top-level API) | `object-identity`, `repeated-writes`, `presentation-child-order`, `presentation-layouts`, `entry-export-surface` |
+| `presentation.ts` (top-level API) | `object-identity`, `repeated-writes`, `presentation-child-order`, `presentation-layouts`, `entry-export-surface` |
 | `slide.ts` | `slide-backgrounds`, `slide-hyperlinks`, `slide-title-placeholder`, `add-section-duplicate`, `object-locks` |
 | `gen/define/*.ts` (add*Definition) | `addchart-signature`, `shape-presets`, `shape-text-body`, `text-formatting`, `image-shape`, `connector-shape`, `group-shapes` |
 | `gen/slide/*.ts`, `gen/opc/*.ts` (spTree / part emission) | `master-*`, `notes-master-placeholders`, `notes-hyperlinks`, `slide-master-*`, `placeholder-type-attr`, `content-type-defaults`, `border-shadow-ppt-props` |
@@ -38,11 +38,11 @@ the **primary** module each group exercises.
 | `measure-fit.ts` / `text-fit.ts` / `font-metrics.ts` | `text-fit*`, `measure-text-api`, `measured-fit-*`, `font-heuristic`, `font-metrics-registry`, `table-cell-fit` |
 | `embedded-fonts.ts` | `embed-font`, `text-fontface-ea-cs` |
 | `math.ts` | `math-latex-omml` |
-| `core-enums.ts` / `core-interfaces.ts` | `shape-presets`, `bullet-glyphs`, `bullet-options`, `entry-export-surface` (types) |
+| `enums.ts` / `types/index.ts` | `shape-presets`, `bullet-glyphs`, `bullet-options`, `entry-export-surface` (types) |
 | `units.ts` / `units-internal.ts` | `coordinate-units`, `table-cell-margin-inches`, `table-margins` |
 | `zip.ts` | `zip-compression`, `zip-output-types` |
 | `node.ts` / `runtime/*` | `node-runtime`, `node-runtime-fetch` |
-| `group-transform.ts` | `group-shapes` |
+| `read/group-transform.ts` | `group-shapes` |
 | `inspect.ts` | `pptx-inspection` |
 | `slide.ts` theme wiring | `theme-color-scheme`, `theme-relationships`, `theme-ea-cs-fonts` |
 
