@@ -1280,12 +1280,16 @@ items:
       WRITE side" claim above is no longer true and should not be trusted by the next
       reader. Ranked by absolute missed branches rather than percentage (which is what
       actually moves the gate), the top ten includes read/api/presentation.ts at #3 (92
-      missed), read/api/shapes.ts at #6 (69 -- since split across read/api/shapes/*,
-      so re-measure before using that number), and two files from the script/ subsystem
+      missed), read/api/shapes.ts at #6 (69), and two files from the script/ subsystem
       the 2026-07-27 note credited as "landed well-tested" -- script/from-read/shape.ts
       (68) and script/verify/diff.ts (53). 282 missed branches between the four. This
       item stays deliberately write-side scoped; those are recorded here so they are
       not re-derived, and want their own entry if they are ever worked.
+
+      Note the two read-side files above have since been split -- shapes.ts across
+      read/api/shapes/* and presentation.ts partly into read/api/ops/* -- so their
+      missed-branch counts are now spread over several files. Re-measure before
+      using those two numbers; the totals are unaffected.
 
       Two findings that change how these numbers should be read:
         - autopage.ts is low on FUNCTIONS and STATEMENTS, not mainly on engine

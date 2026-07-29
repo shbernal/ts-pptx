@@ -24,7 +24,7 @@ in the file*. Two independent entry points share one OOXML model:
   `src/gen/pres/presentation.ts`, field on the internal model in `src/core-interfaces.ts`.
 - **Import-carry** — `importSlide(source, i, { embedFonts: true })` brings a
   source deck's presentation-level embedded fonts across when lifting a slide.
-  Source: `src/read/api/presentation.ts` (`#carryEmbeddedFonts`).
+  Source: `src/read/api/ops/embedded-fonts.ts` (`carryEmbeddedFonts`).
 
 Both converge on the shared model and serializer in `src/embedded-fonts.ts`.
 See `CHANGELOG.md` for the import-carry limits. Tests:
@@ -119,7 +119,7 @@ rel per face, rIds allocated after the slide/master rels), `makeXmlPresentation`
 ## Import-carry: `importSlide({ embedFonts: true })`
 
 Opt-in (default off, so existing behaviour is unchanged). When set,
-`#carryEmbeddedFonts` runs a **separate** traversal of the source
+`carryEmbeddedFonts` runs a **separate** traversal of the source
 `presentation.xml` (not part of the slide-part copy chain, which still skips
 `p:embeddedFontLst`):
 

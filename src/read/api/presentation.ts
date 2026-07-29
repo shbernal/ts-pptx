@@ -15,21 +15,12 @@ import {
 	firstChild,
 	getElements,
 	getOrAddChild,
-	insertInOrder,
 	intValue,
 	ownerDocumentOf,
-	removeChildrenByQName,
 	setAttr,
 	type Element,
 } from '../oxml/dom.js'
-import {
-	EMBEDDED_FONT_SLOTS,
-	FONT_DATA_CONTENT_TYPE,
-	FONT_DATA_EXTENSION,
-	FONT_REL_TYPE,
-	type EmbeddedFont,
-	type EmbeddedFontSlot,
-} from '../../embedded-fonts.js'
+import { EMBEDDED_FONT_SLOTS } from '../../embedded-fonts.js'
 import { flattenShape, flattenSlide, remapLiteralColors, restyleSlide, type FlattenContext } from '../oxml/theme.js'
 import { resolveSlideThemeParts } from './theme-context.js'
 import { Slide } from './slide.js'
@@ -68,6 +59,15 @@ import { computeRescale, rescaleSpTree, type RescaleTransform } from './rescale.
 import { carryTableStyles, copySourceTableStyles } from './table-styles.js'
 import { promoteMasters } from './master-registry.js'
 import { copyPart, type ImportContext } from './part-copy.js'
+// Deck-mutation operations. They live beside the model rather than on it: each is a whole job
+// (prune a part fringe, carry notes, merge embedded fonts, rescale onto a new canvas) that reads
+// and writes the package through the deck's public surface, and none of them is something a
+// caller navigates *to*.
+import { carryEmbeddedFonts, carryGeneratedEmbeddedFonts } from './ops/embedded-fonts.js'
+import { carryNotes, ensureNotesMasterFromXml } from './ops/notes-master.js'
+import { layoutPartNamesOf, resolveSingleRel, slideMasterPartNames } from './ops/part-index.js'
+import { pruneIfOrphan } from './ops/prune.js'
+import { rescaleImportedGeometry } from './ops/rescale-import.js'
 
 const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
 const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
@@ -75,7 +75,6 @@ const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/
 const SLIDE_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster'
 const NOTES_SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
 const NOTES_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster'
-const THEME_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme'
 const IMAGE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 const HYPERLINK_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
 const CHART_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart'
@@ -86,12 +85,8 @@ const VIDEO_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relatio
 // referenced by the slide body's <p14:media r:embed>.
 const MS_MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media'
 
-const SLIDE_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
-const SLIDE_LAYOUT_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'
 const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml'
 const NOTES_SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml'
-const NOTES_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml'
-const THEME_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.theme+xml'
 const CHART_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'
 const XLSX_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 
@@ -103,25 +98,6 @@ const PRESENTATION_TEMPLATE_MAIN_CONTENT_TYPE =
 	'application/vnd.openxmlformats-officedocument.presentationml.template.main+xml'
 
 const textEncoder = new TextEncoder()
-
-/**
- * Content types that are shared deck chrome: reachable through the
- * presentation → master → layout → theme graph, not owned by any one slide.
- * {@link Presentation.removeSlide} never prunes these as a removed slide's
- * orphan, even while momentarily unreferenced.
- */
-const SHARED_CHROME_CONTENT_TYPES = new Set([
-	SLIDE_MASTER_CONTENT_TYPE,
-	SLIDE_LAYOUT_CONTENT_TYPE,
-	THEME_CONTENT_TYPE,
-	'application/vnd.openxmlformats-officedocument.themeOverride+xml',
-	NOTES_MASTER_CONTENT_TYPE,
-	'application/vnd.openxmlformats-officedocument.presentationml.handoutMaster+xml',
-	'application/vnd.openxmlformats-officedocument.presentationml.presProps+xml',
-	'application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml',
-	'application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml',
-	PRESENTATION_MAIN_CONTENT_TYPE,
-])
 
 /**
  * `p:sldIdLst`'s document-order successors in `CT_Presentation` (ECMA-376):
@@ -141,50 +117,6 @@ const PRESENTATION_SLD_ID_LST_SUCCESSORS = [
 	'p:modifyVerifier',
 	'p:extLst',
 ]
-
-/**
- * `p:embeddedFontLst`'s document-order successors in `CT_Presentation` (index 7,
- * after `smartTags`): everything that may legally follow it, so a created list
- * lands in the right slot when the deck has none yet.
- */
-const PRESENTATION_EMBEDDED_FONT_LST_SUCCESSORS = [
-	'p:custShowLst',
-	'p:photoAlbum',
-	'p:custDataLst',
-	'p:kinsoku',
-	'p:defaultTextStyle',
-	'p:modifyVerifier',
-	'p:extLst',
-]
-
-/**
- * A face slot's document-order successors in `CT_EmbeddedFontListEntry`
- * (`font`, `regular`, `bold`, `italic`, `boldItalic`), so a newly-inserted face
- * keeps the schema's child order regardless of which slots already exist.
- */
-const EMBEDDED_FONT_FACE_SUCCESSORS: Record<EmbeddedFontSlot, string[]> = {
-	regular: ['p:bold', 'p:italic', 'p:boldItalic'],
-	bold: ['p:italic', 'p:boldItalic'],
-	italic: ['p:boldItalic'],
-	boldItalic: [],
-}
-
-/**
- * One typeface's faces normalized for the embedded-font merge core (`#mergeEmbeddedFontEntries`):
- * the `p:font` identity attributes plus, per face slot, a thunk that creates the
- * binary font part on demand and returns its partname. The thunk runs only for a
- * face actually being added (after the typeface+slot de-dupe), so no orphan part is
- * created for a face the deck already embeds. Lets the import-side (copy a part out
- * of a source package) and append-side (write raw generator bytes) callers share one
- * merge core while differing only in how the binary part is produced.
- */
-interface IncomingEmbeddedFont {
-	typeface: string
-	/** `p:font` identity attrs other than `typeface` (panose/pitchFamily/charset), in document order. */
-	identity: Array<{ name: string; value: string }>
-	faces: Array<{ slot: EmbeddedFontSlot; createPart: () => string }>
-}
-
 /** ST_SlideId minimum (ECMA-376): slide ids live in [256, 2147483647]. */
 const MIN_SLIDE_ID = 256
 
@@ -475,40 +407,9 @@ export class Presentation {
 		// Drop the slide part and its .rels, then prune the parts it privately owned.
 		this.opc.removePart(relsPartNameFor(partName))
 		this.opc.removePart(partName)
-		for (const target of formerTargets) this.#pruneIfOrphan(target)
+		for (const target of formerTargets) pruneIfOrphan(this, target)
 
 		return partName
-	}
-
-	/**
-	 * Remove `partName` if it is neither shared chrome nor still referenced by any
-	 * remaining part, then recurse into the parts it referenced. The pruning a
-	 * removed slide triggers (notes/media/charts the slide alone used).
-	 */
-	#pruneIfOrphan(partName: string): void {
-		const part = this.opc.part(partName)
-		if (!part || SHARED_CHROME_CONTENT_TYPES.has(part.contentType)) return
-		if (this.#isReferenced(partName)) return
-		const rels = this.opc.relationshipsFor(partName)
-		const childTargets = [...rels]
-			.filter((rel) => rel.targetMode !== 'External')
-			.map((rel) => rels.resolveTarget(rel.id))
-		this.opc.removePart(relsPartNameFor(partName))
-		this.opc.removePart(partName)
-		for (const child of childTargets) this.#pruneIfOrphan(child)
-	}
-
-	/** Whether any remaining part (or the package root) resolves an internal relationship to `partName`. */
-	#isReferenced(partName: string): boolean {
-		for (const owner of [...this.opc.parts.keys(), '/']) {
-			if (owner.endsWith('.rels')) continue
-			const rels = this.opc.relationshipsFor(owner)
-			for (const rel of rels) {
-				if (rel.targetMode === 'External') continue
-				if (rels.resolveTarget(rel.id) === partName) return true
-			}
-		}
-		return false
 	}
 
 	/**
@@ -577,7 +478,9 @@ export class Presentation {
 
 		// 2b. Rescale the imported geometry to this deck's canvas when sizes differ.
 		if (sizesDiffer && options.rescale && target && incoming) {
-			this.#rescaleImportedGeometry(
+			rescaleImportedGeometry(
+				this,
+				this.#rescaledParts,
 				newPartName,
 				options.theme,
 				incoming,
@@ -592,336 +495,14 @@ export class Presentation {
 		// 4. Optionally carry the source slide's speaker notes. The slide copy above
 		//    drops the notesSlide rel (both copyPart and #importSlideRebind do); this
 		//    re-adds it wired to the new slide and merged onto a single notesMaster.
-		if (options.importNotes) this.#carryNotes(source, sourceSlide.partName, newPartName)
+		if (options.importNotes)
+			carryNotes(this, source, this.#importContext(source.opc), sourceSlide.partName, newPartName)
 
 		// 5. Optionally carry the source deck's embedded fonts (presentation-level, so
 		//    a separate traversal from the slide-part copy chain above).
-		if (options.embedFonts) this.#carryEmbeddedFonts(source)
+		if (options.embedFonts) carryEmbeddedFonts(this, source, this.#importContext(source.opc))
 
 		return slide
-	}
-
-	/**
-	 * Carry the source slide's speaker notes onto the just-imported slide (the
-	 * `importNotes` option). The slide copy itself dropped the `notesSlide` rel, so
-	 * this copies the source `notesSlide` part into a fresh partname, wires a
-	 * `slide → notesSlide` rel on the new slide, and rebuilds the copied notesSlide's
-	 * own relationships:
-	 *
-	 * - its `slide` back-rel is repointed at the new slide (`newSlidePartName`) — the
-	 *   source slide is *not* copied (that would be circular);
-	 * - its `notesMaster` rel is resolved through {@link #ensureNotesMaster}, which
-	 *   reuses this deck's notesMaster when it has one and copies the source's only
-	 *   when it has none (a deck may have at most one notesMaster);
-	 * - any other internal target (media, etc.) is copied via {@link copyPart}.
-	 *
-	 * No-op when the source slide has no notes. Content-type registration for the
-	 * copied parts is handled by `addPart`/{@link copyPart}.
-	 */
-	#carryNotes(source: Presentation, sourceSlidePartName: string, newSlidePartName: string): void {
-		const sourceSlideRels = source.opc.relationshipsFor(sourceSlidePartName)
-		const notesRel = sourceSlideRels.byType(NOTES_SLIDE_REL)[0]
-		if (!notesRel) return // slide has no speaker notes
-		const sourceNotesPartName = sourceSlideRels.resolveTarget(notesRel.id)
-		const sourceNotesPart = source.opc.part(sourceNotesPartName)
-		if (!sourceNotesPart) return
-
-		// Copy the notesSlide bytes into a fresh partname, then wire slide → notesSlide.
-		const newNotesPartName = this.opc.reservePartNameLike(sourceNotesPartName)
-		this.opc.addPart(newNotesPartName, sourceNotesPart.contentType, sourceNotesPart.bytes)
-		this.opc
-			.relationshipsFor(newSlidePartName)
-			.add(NOTES_SLIDE_REL, relativePartName(newSlidePartName, newNotesPartName))
-
-		// Rebuild the copied notesSlide's relationships. Preserve each source rel id so
-		// the notesSlide body's r:id references stay valid; only the targets are rewritten.
-		const ctx = this.#importContext(source.opc)
-		const notesSourceRels = source.opc.relationshipsFor(sourceNotesPartName)
-		const notesTargetRels = this.opc.relationshipsFor(newNotesPartName)
-		for (const rel of notesSourceRels) {
-			if (rel.type === SLIDE_REL) {
-				// Back-reference to the annotated slide → repoint at the new slide (don't copy it).
-				notesTargetRels.addWithId(rel.id, SLIDE_REL, relativePartName(newNotesPartName, newSlidePartName))
-				continue
-			}
-			if (rel.type === NOTES_MASTER_REL) {
-				const notesMaster = this.#ensureNotesMaster(ctx, notesSourceRels.resolveTarget(rel.id))
-				notesTargetRels.addWithId(rel.id, NOTES_MASTER_REL, relativePartName(newNotesPartName, notesMaster))
-				continue
-			}
-			if (rel.targetMode === 'External') {
-				notesTargetRels.addWithId(rel.id, rel.type, rel.target, 'External')
-				continue
-			}
-			const newTarget = copyPart(ctx, notesSourceRels.resolveTarget(rel.id))
-			notesTargetRels.addWithId(rel.id, rel.type, relativePartName(newNotesPartName, newTarget))
-		}
-	}
-
-	/**
-	 * Resolve the notesMaster an imported `notesSlide` should bind to, honouring the
-	 * single-notesMaster-per-presentation rule (`p:notesMasterIdLst` holds 0..1
-	 * `p:notesMasterId`). If this deck already has a notesMaster it is reused and the
-	 * source's is *not* copied (the destination's notes styling wins); otherwise the
-	 * source notesMaster (and, via {@link copyPart}, its theme) is copied and
-	 * registered in `presentation.xml`. Returns the destination notesMaster partname.
-	 */
-	#ensureNotesMaster(ctx: ImportContext, sourceNotesMasterPartName: string): string {
-		const presPart = this.presentationPart
-		const presRels = this.opc.relationshipsFor(presPart.partName)
-		const existing = presRels.byType(NOTES_MASTER_REL)[0]
-		if (existing) return presRels.resolveTarget(existing.id)
-
-		// No notesMaster yet: copy the source's (pulls its theme) and register it.
-		return this.#registerNotesMaster(copyPart(ctx, sourceNotesMasterPartName))
-	}
-
-	/**
-	 * Wire an already-added notesMaster part into `presentation.xml`: a `notesMaster`
-	 * relationship plus the single `p:notesMasterId` entry that `CT_NotesMasterIdList`
-	 * allows. Returns the partname, so callers can use it as a rel target.
-	 *
-	 * Split out of {@link #ensureNotesMaster} because the two ways a notesMaster arrives
-	 * — copied from another `Presentation`, or authored by a generator and injected by
-	 * {@link appendSlides} — differ only in how the *part* is created, not in how it is
-	 * registered.
-	 */
-	#registerNotesMaster(notesMasterPartName: string): string {
-		const presPart = this.presentationPart
-		const presRels = this.opc.relationshipsFor(presPart.partName)
-		const relId = presRels.add(NOTES_MASTER_REL, relativePartName(presPart.partName, notesMasterPartName)).id
-
-		const root = presPart.dom.documentElement
-		if (!root) throw new Error('presentation.xml has no document element to register a notes master in')
-		// `p:notesMasterIdLst` follows `p:sldMasterIdLst` in CT_Presentation order.
-		const lst = getOrAddChild(root, 'p:notesMasterIdLst', [
-			'p:handoutMasterIdLst',
-			'p:sldIdLst',
-			'p:sldSz',
-			'p:notesSz',
-			'p:embeddedFontLst',
-			'p:custShowLst',
-			'p:photoAlbum',
-			'p:custDataLst',
-			'p:kinsoku',
-			'p:defaultTextStyle',
-			'p:modifyVerifier',
-			'p:extLst',
-		])
-		// CT_NotesMasterIdList holds a single p:notesMasterId; replace any stray entry.
-		removeChildrenByQName(lst, ['p:notesMasterId'])
-		const entry = createElement(presPart.dom, 'p:notesMasterId')
-		setAttr(entry, 'r:id', relId)
-		lst.appendChild(entry)
-		presPart.markDirty()
-		return notesMasterPartName
-	}
-
-	/**
-	 * Resolve the notesMaster an *appended* slide's notes should bind to. Same
-	 * single-notesMaster rule as {@link #ensureNotesMaster}: this deck's own wins when it
-	 * has one, so the destination's notes styling is preserved and `master.xml` is
-	 * discarded. Otherwise the generator's notes master is installed, together with the
-	 * theme its `.rels` requires (the normal write path emits that as `theme2.xml`).
-	 */
-	#ensureNotesMasterFromXml(master: { xml: string; themeXml: string }): string {
-		const presPart = this.presentationPart
-		const presRels = this.opc.relationshipsFor(presPart.partName)
-		const existing = presRels.byType(NOTES_MASTER_REL)[0]
-		if (existing) return presRels.resolveTarget(existing.id)
-
-		const masterPartName = this.opc.reservePartNameLike('/ppt/notesMasters/notesMaster1.xml')
-		this.opc.addPart(masterPartName, NOTES_MASTER_CONTENT_TYPE, textEncoder.encode(master.xml))
-
-		// A notesMaster's .rels must resolve a theme; reserve alongside any theme the
-		// destination already owns rather than assuming theme2.xml is free.
-		const themePartName = this.opc.reservePartNameLike('/ppt/theme/theme1.xml')
-		this.opc.addPart(themePartName, THEME_CONTENT_TYPE, textEncoder.encode(master.themeXml))
-		this.opc.relationshipsFor(masterPartName).add(THEME_REL, relativePartName(masterPartName, themePartName))
-
-		return this.#registerNotesMaster(masterPartName)
-	}
-
-	/**
-	 * Copy `source`'s embedded fonts into this deck and merge them into our
-	 * `p:embeddedFontLst`. Font binaries come across via {@link copyPart} (so the
-	 * per-source registry dedupes faces shared across repeated imports); entries are
-	 * merged by `typeface` + face slot, so a face this deck already embeds is reused
-	 * rather than duplicated. No-op when the source embeds no fonts. See
-	 * {@link ImportSlideOptions.embedFonts}.
-	 */
-	#carryEmbeddedFonts(source: Presentation): void {
-		const sourceRoot = source.presentationPart.dom.documentElement
-		const sourceLst = sourceRoot && firstChild(sourceRoot, 'p:embeddedFontLst')
-		const sourceEntries = sourceLst ? getElements(sourceLst, 'p:embeddedFont') : []
-		if (sourceEntries.length === 0) return
-
-		const ctx = this.#importContext(source.opc)
-		const sourcePresRels = source.opc.relationshipsFor(source.presentationPart.partName)
-		const incoming: IncomingEmbeddedFont[] = []
-		for (const srcEntry of sourceEntries) {
-			const srcFont = firstChild(srcEntry, 'p:font')
-			const typeface = srcFont ? attr(srcFont, 'typeface') : null
-			if (!srcFont || !typeface) continue
-
-			// Copy the source p:font identity attributes (panose/pitchFamily/charset).
-			const identity: IncomingEmbeddedFont['identity'] = []
-			for (const name of ['panose', 'pitchFamily', 'charset']) {
-				const value = attr(srcFont, name)
-				if (value !== null) identity.push({ name, value })
-			}
-
-			const faces: IncomingEmbeddedFont['faces'] = []
-			for (const slot of EMBEDDED_FONT_SLOTS) {
-				const srcFace = firstChild(srcEntry, `p:${slot}`)
-				const srcRid = srcFace && attr(srcFace, 'r:id')
-				if (!srcFace || !srcRid) continue
-				// Binary comes across via copyPart, so the per-source registry dedupes faces
-				// shared across repeated imports; the thunk runs only when the face is added.
-				faces.push({ slot, createPart: () => copyPart(ctx, sourcePresRels.resolveTarget(srcRid)) })
-			}
-			incoming.push({ typeface, identity, faces })
-		}
-		this.#mergeEmbeddedFontEntries(incoming)
-	}
-
-	/**
-	 * Carry a generator's presentation-level embedded fonts ({@link ExtractedSlides.embeddedFonts},
-	 * from `pptx.embedFont`) into this deck during {@link appendSlides}. Each face's raw bytes are
-	 * written as a fresh `/ppt/fonts/fontN.fntdata` part; merge/de-dupe by typeface + slot is shared
-	 * with {@link #carryEmbeddedFonts} via {@link #mergeEmbeddedFontEntries}, so appending the same
-	 * generator twice (or onto a deck that already embeds the face) carries each face once.
-	 */
-	#carryGeneratedEmbeddedFonts(fonts: EmbeddedFont[]): void {
-		const incoming: IncomingEmbeddedFont[] = []
-		for (const font of fonts) {
-			if (!font.typeface) continue
-			const identity: IncomingEmbeddedFont['identity'] = []
-			if (font.panose !== undefined) identity.push({ name: 'panose', value: font.panose })
-			if (font.pitchFamily !== undefined) identity.push({ name: 'pitchFamily', value: String(font.pitchFamily) })
-			if (font.charset !== undefined) identity.push({ name: 'charset', value: String(font.charset) })
-
-			const faces: IncomingEmbeddedFont['faces'] = []
-			for (const slot of EMBEDDED_FONT_SLOTS) {
-				const face = font.faces.find((f) => f.slot === slot)
-				if (!face?.bytes) continue
-				const bytes = face.bytes
-				faces.push({
-					slot,
-					createPart: () => {
-						const partName = this.opc.reservePartNameLike('/ppt/fonts/font1.fntdata')
-						this.opc.addPart(partName, FONT_DATA_CONTENT_TYPE, bytes)
-						return partName
-					},
-				})
-			}
-			if (faces.length > 0) incoming.push({ typeface: font.typeface, identity, faces })
-		}
-		this.#mergeEmbeddedFontEntries(incoming)
-	}
-
-	/**
-	 * Merge normalized {@link IncomingEmbeddedFont} entries into this deck's
-	 * `p:embeddedFontLst` — the shared core of {@link #carryEmbeddedFonts} (import-side)
-	 * and {@link #carryGeneratedEmbeddedFonts} (append-side). Entries merge by `typeface`,
-	 * faces de-dupe by slot (a face this deck already embeds is left as is). For each newly
-	 * added face the `fntdata` Default is ensured, the binary part is created via the face's
-	 * `createPart` thunk, a `font` rel is added to presentation.xml, and the `p:<slot>` element
-	 * is inserted in schema child order. The list is created at CT_Presentation index 7 when
-	 * the deck has none yet. No-op for empty input.
-	 */
-	#mergeEmbeddedFontEntries(entries: IncomingEmbeddedFont[]): void {
-		if (entries.length === 0) return
-
-		const presPart = this.presentationPart
-		const presRoot = presPart.dom.documentElement
-		if (!presRoot) throw new Error('presentation.xml has no document element to carry embedded fonts into')
-		const presRels = this.opc.relationshipsFor(presPart.partName)
-
-		const targetLst = getOrAddChild(presRoot, 'p:embeddedFontLst', PRESENTATION_EMBEDDED_FONT_LST_SUCCESSORS)
-		const targetByTypeface = new Map<string, Element>()
-		for (const entry of getElements(targetLst, 'p:embeddedFont')) {
-			const font = firstChild(entry, 'p:font')
-			const typeface = font && attr(font, 'typeface')
-			if (typeface) targetByTypeface.set(typeface, entry)
-		}
-
-		let copiedAny = false
-		for (const incoming of entries) {
-			// Find or create the target entry for this typeface, carrying its
-			// p:font identity attributes (typeface + optional panose/pitchFamily/charset).
-			let targetEntry = targetByTypeface.get(incoming.typeface)
-			if (!targetEntry) {
-				targetEntry = createElement(presPart.dom, 'p:embeddedFont')
-				const targetFont = createElement(presPart.dom, 'p:font')
-				setAttr(targetFont, 'typeface', incoming.typeface)
-				for (const { name, value } of incoming.identity) setAttr(targetFont, name, value)
-				targetEntry.appendChild(targetFont)
-				targetLst.appendChild(targetEntry)
-				targetByTypeface.set(incoming.typeface, targetEntry)
-			}
-
-			for (const face of incoming.faces) {
-				if (firstChild(targetEntry, `p:${face.slot}`)) continue // de-dupe: face already present
-
-				// Ensure the fntdata Default exists *before* creating the part, so addPart
-				// resolves the content type via the Default (no per-part Override).
-				this.opc.contentTypes.ensureDefault(FONT_DATA_EXTENSION, FONT_DATA_CONTENT_TYPE)
-				const newFontPart = face.createPart()
-				const relId = presRels.add(FONT_REL_TYPE, relativePartName(presPart.partName, newFontPart)).id
-
-				const targetFace = createElement(presPart.dom, `p:${face.slot}`)
-				setAttr(targetFace, 'r:id', relId)
-				insertInOrder(targetEntry, targetFace, EMBEDDED_FONT_FACE_SUCCESSORS[face.slot])
-				copiedAny = true
-			}
-		}
-
-		if (copiedAny) presPart.markDirty()
-	}
-
-	/**
-	 * Rescale an imported slide's geometry onto this deck's canvas (the `rescale`
-	 * option of {@link importSlide}). Rewrites every top-level shape/group/
-	 * graphicFrame transform and table grid on the slide; in `copy` mode also
-	 * rescales the imported layout and master shape trees (resolved via the
-	 * slide → layout → master rel chain) so inherited placeholder/background geometry
-	 * stays aligned. `preserve`/`restyle` rebind to this deck's own master/layout —
-	 * already the destination size — so only the slide is touched. Geometry only:
-	 * font sizes and line widths are left as authored.
-	 */
-	#rescaleImportedGeometry(
-		slidePartName: string,
-		theme: ImportSlideOptions['theme'],
-		source: SlideSize,
-		target: SlideSize,
-		mode: 'fit' | 'stretch'
-	): void {
-		const transform = computeRescale(source, target, mode)
-		this.#rescalePartGeometry(slidePartName, transform)
-		if (theme === undefined || theme === 'copy') {
-			const layout = this.#resolveSingleRel(this.opc, slidePartName, SLIDE_LAYOUT_REL)
-			const master = layout ? this.#resolveSingleRel(this.opc, layout, SLIDE_MASTER_REL) : null
-			if (layout) this.#rescalePartGeometry(layout, transform)
-			if (master) this.#rescalePartGeometry(master, transform)
-		}
-	}
-
-	/**
-	 * Rescale one part's `p:spTree` geometry in place. Idempotent per part
-	 * (#rescaledParts), so a layout/master shared across repeated imports from one
-	 * source is rescaled exactly once.
-	 */
-	#rescalePartGeometry(partName: string, transform: RescaleTransform): void {
-		if (this.#rescaledParts.has(partName)) return
-		this.#rescaledParts.add(partName)
-		const part = this.opc.part(partName)
-		const root = part?.dom.documentElement
-		const cSld = root && firstChild(root, 'p:cSld')
-		const spTree = cSld && firstChild(cSld, 'p:spTree')
-		if (!part || !spTree) return
-		rescaleSpTree(spTree, transform)
-		part.markDirty()
 	}
 
 	/**
@@ -971,7 +552,7 @@ export class Presentation {
 
 		const ctx = this.#importContext(source.opc)
 		const imported: ImportedSlideMaster[] = []
-		source.#slideMasterPartNames().forEach((masterPartName, masterIndex) => {
+		slideMasterPartNames(source).forEach((masterPartName, masterIndex) => {
 			if (!pickMaster(cSldName(source.opc.part(masterPartName)), masterIndex)) return
 
 			// Copy the (lean) master first: copyPart registers it in p:sldMasterIdLst
@@ -979,7 +560,7 @@ export class Presentation {
 			const newMasterPartName = copyPart(ctx, masterPartName)
 
 			const layoutPartNames: string[] = []
-			source.#layoutPartNamesOf(masterPartName).forEach((layoutPartName, layoutIndex) => {
+			layoutPartNamesOf(source, masterPartName).forEach((layoutPartName, layoutIndex) => {
 				if (!pickLayout(cSldName(source.opc.part(layoutPartName)), layoutIndex)) return
 				layoutPartNames.push(copyPart(ctx, layoutPartName))
 			})
@@ -990,7 +571,7 @@ export class Presentation {
 		// Optionally carry the source deck's presentation-level styling parts. Both are
 		// separate traversals from the master/layout copy chain above, and both are
 		// whole-deck: neither part records which font/style belongs to which master.
-		if (options.embedFonts) this.#carryEmbeddedFonts(source)
+		if (options.embedFonts) carryEmbeddedFonts(this, source, this.#importContext(source.opc))
 		if (options.tableStyles) carryTableStyles(this, source.opc)
 		if (options.primary)
 			promoteMasters(
@@ -1010,7 +591,7 @@ export class Presentation {
 	 * Read-only: it copies nothing and leaves the package byte-identical.
 	 */
 	masters(): SlideMaster[] {
-		return this.#slideMasterPartNames()
+		return slideMasterPartNames(this)
 			.map((partName) => this.opc.part(partName))
 			.filter((part): part is Part => part !== undefined)
 			.map((part) => new SlideMaster(this.opc, part))
@@ -1024,8 +605,8 @@ export class Presentation {
 	 */
 	layouts(): LayoutHandle[] {
 		const out: LayoutHandle[] = []
-		this.#slideMasterPartNames().forEach((masterPartName, masterIndex) => {
-			this.#layoutPartNamesOf(masterPartName).forEach((layoutPartName, layoutIndex) => {
+		slideMasterPartNames(this).forEach((masterPartName, masterIndex) => {
+			layoutPartNamesOf(this, masterPartName).forEach((layoutPartName, layoutIndex) => {
 				out.push({
 					partName: layoutPartName,
 					name: cSldName(this.opc.part(layoutPartName)),
@@ -1186,7 +767,7 @@ export class Presentation {
 				rels.add(NOTES_SLIDE_REL, relativePartName(partName, notesPartName))
 
 				const notesRels = this.opc.relationshipsFor(notesPartName)
-				const notesMasterPartName = extracted.notesMaster ? this.#ensureNotesMasterFromXml(extracted.notesMaster) : null
+				const notesMasterPartName = extracted.notesMaster ? ensureNotesMasterFromXml(this, extracted.notesMaster) : null
 				if (notesMasterPartName) {
 					notesRels.addWithId('rId1', NOTES_MASTER_REL, relativePartName(notesPartName, notesMasterPartName))
 				}
@@ -1227,37 +808,9 @@ export class Presentation {
 
 		// Carry the generator's presentation-level embedded fonts (pptx.embedFont) into
 		// this deck, so author-side embedded fonts survive the append onto a template.
-		this.#carryGeneratedEmbeddedFonts(extracted.embeddedFonts || [])
+		carryGeneratedEmbeddedFonts(this, extracted.embeddedFonts || [])
 
 		return added
-	}
-
-	/** Source-side helper: master partnames in `p:sldMasterIdLst` order. */
-	#slideMasterPartNames(): string[] {
-		const root = this.presentationPart.dom.documentElement
-		const lst = root && firstChild(root, 'p:sldMasterIdLst')
-		if (!lst) return []
-		const rels = this.opc.relationshipsFor(this.presentationPart.partName)
-		const out: string[] = []
-		for (const entry of getElements(lst, 'p:sldMasterId')) {
-			const relId = attr(entry, 'r:id')
-			if (relId) out.push(rels.resolveTarget(relId))
-		}
-		return out
-	}
-
-	/** Source-side helper: a master's layout partnames in `p:sldLayoutIdLst` order. */
-	#layoutPartNamesOf(masterPartName: string): string[] {
-		const root = this.opc.part(masterPartName)?.dom.documentElement
-		const lst = root && firstChild(root, 'p:sldLayoutIdLst')
-		if (!lst) return []
-		const rels = this.opc.relationshipsFor(masterPartName)
-		const out: string[] = []
-		for (const entry of getElements(lst, 'p:sldLayoutId')) {
-			const relId = attr(entry, 'r:id')
-			if (relId) out.push(rels.resolveTarget(relId))
-		}
-		return out
 	}
 
 	/**
@@ -1526,8 +1079,8 @@ export class Presentation {
 	 */
 	#carryMasterGraphics(ctx: ImportContext, slideRoot: Element, newPartName: string, slidePartName: string): void {
 		const sourceOpc = ctx.source
-		const layoutPartName = this.#resolveSingleRel(sourceOpc, slidePartName, SLIDE_LAYOUT_REL)
-		const masterPartName = layoutPartName ? this.#resolveSingleRel(sourceOpc, layoutPartName, SLIDE_MASTER_REL) : null
+		const layoutPartName = resolveSingleRel(sourceOpc, slidePartName, SLIDE_LAYOUT_REL)
+		const masterPartName = layoutPartName ? resolveSingleRel(sourceOpc, layoutPartName, SLIDE_MASTER_REL) : null
 		const cSld = firstChild(slideRoot, 'p:cSld')
 		const spTree = cSld && firstChild(cSld, 'p:spTree')
 		if (!spTree) return
@@ -1667,14 +1220,6 @@ export class Presentation {
 		const cSld = firstChild(root, 'p:cSld')
 		return cSld ? firstChild(cSld, 'p:bg') : null
 	}
-
-	/** Resolve the single relationship of `type` owned by `partName`, or `null`. */
-	#resolveSingleRel(sourceOpc: OpcPackage, partName: string, type: string): string | null {
-		const rels = sourceOpc.relationshipsFor(partName)
-		const rel = rels.byType(type)[0]
-		return rel ? rels.resolveTarget(rel.id) : null
-	}
-
 	/**
 	 * Open an import out of `source`: this deck as the destination, paired with the
 	 * copy registry for that package (created on first use). The registry is held on
