@@ -123,7 +123,7 @@ export function addOleObjectDefinition(target: PresSlideInternal, opt: OleObject
 
 	// STEP 1: REALITY-CHECK. The payload is the whole point; there is no meaningful default.
 	if (!strPath && !strData) {
-		throw new InvalidOptionError('ole/missing-source', 'addOleObject() error: either `data` or `path` are required!')
+		throw new InvalidOptionError('ole/missing-source', 'addOleObject(): either `data` or `path` are required!')
 	}
 
 	// STEP 2: Resolve the payload format — part extension, content type, rel type, progId.

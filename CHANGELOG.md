@@ -87,6 +87,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Error messages no longer label themselves.** Fourteen messages carried an
+  `ERROR: ` / `ERROR! ` prefix, four an `addMedia() error: ` one, and
+  `coordToEmu`'s carried a literal `ts-pptx: `. The class name already labels the
+  failure in every stack trace and console rendering, so all of them are gone.
+  `presentation.layout = 'nope'` threw the literal string `UNKNOWN-LAYOUT`; it now
+  names the value and says what to pass instead. The conditions and their codes
+  are unchanged — only code matching on message text is affected, which the
+  contract has never supported.
+
 - **Warning output is now the default handler's job, not the message's.** Two
   messages carried their own prefix (`[WARNING] `, `Warning: `) and one carried a
   literal `ts-pptx: ` inside the text, which the console handler then doubled.

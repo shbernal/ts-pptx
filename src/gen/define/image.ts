@@ -294,10 +294,7 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	// STEP 6: Hyperlink support
 	if (typeof objHyperlink === 'object') {
 		if (!objHyperlink.url && !objHyperlink.slide)
-			throw new InvalidOptionError(
-				'hyperlink/missing-target',
-				'ERROR: `hyperlink` option requires either: `url` or `slide`'
-			)
+			throw new InvalidOptionError('hyperlink/missing-target', 'addImage: `hyperlink` requires either `url` or `slide`')
 		else {
 			imageRelId++
 

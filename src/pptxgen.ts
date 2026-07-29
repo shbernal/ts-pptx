@@ -261,7 +261,10 @@ export default class PresentationCore {
 			this._layout = layoutKey
 			this._presLayout = newLayout
 		} else {
-			throw new InvalidOptionError('layout/unknown', 'UNKNOWN-LAYOUT')
+			throw new InvalidOptionError(
+				'layout/unknown',
+				`Unknown layout ${JSON.stringify(layoutKey)}; pass a registered layout name (see LAYOUTS) or a STANDARD_LAYOUTS preset`
+			)
 		}
 	}
 

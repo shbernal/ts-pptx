@@ -37,21 +37,21 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 
 	// STEP 1: REALITY-CHECK
 	if (!strPath && !strData && strType !== 'online') {
-		throw new InvalidOptionError('media/missing-source', 'addMedia() error: either `data` or `path` are required!')
+		throw new InvalidOptionError('media/missing-source', 'addMedia(): either `data` or `path` are required!')
 	} else if (strData && !strData.toLowerCase().includes('base64,')) {
 		throw new InvalidOptionError(
 			'media/missing-base64-header',
-			"addMedia() error: `data` value lacks a base64 header! Ex: 'video/mpeg;base64,NMP[...]')"
+			"addMedia(): `data` value lacks a base64 header! Ex: 'video/mpeg;base64,NMP[...]')"
 		)
 	} else if (strCover && !strCover.toLowerCase().includes('base64,')) {
 		throw new InvalidOptionError(
 			'media/cover-missing-base64-header',
-			"addMedia() error: `cover` value lacks a base64 header! Ex: 'data:image/png;base64,iV[...]')"
+			"addMedia(): `cover` value lacks a base64 header! Ex: 'data:image/png;base64,iV[...]')"
 		)
 	}
 	// Online Video: requires `link`
 	if (strType === 'online' && !strLink) {
-		throw new InvalidOptionError('media/online-missing-link', 'addMedia() error: online videos require `link` value')
+		throw new InvalidOptionError('media/online-missing-link', 'addMedia(): online videos require `link` value')
 	}
 
 	strExtn = opt.extn || (strData ? (strData.split(';')[0] ?? '').split('/')[1] : strPath.split('.').pop()) || 'mp3'

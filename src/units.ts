@@ -139,7 +139,7 @@ export function coordToEmu(value: number | string, axisEmu: number): Emu {
 	if (!match) {
 		throw new InvalidOptionError(
 			'coord/invalid-format',
-			`ts-pptx: invalid coordinate "${value}". Expected a number (inches) or a string like "50%", "5in", "72pt", "96px", or "914400emu".`
+			`Invalid coordinate "${value}". Expected a number (inches) or a string like "50%", "5in", "72pt", "96px", or "914400emu".`
 		)
 	}
 	const n = Number(match[1])

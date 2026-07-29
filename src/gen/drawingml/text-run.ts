@@ -351,12 +351,12 @@ export function genXmlTextRunProperties(opts: ObjectOptions | TextPropsOptions, 
 		if (typeof opts.hyperlink !== 'object')
 			throw new InvalidOptionError(
 				'hyperlink/not-an-object',
-				"ERROR: text `hyperlink` option should be an object. Ex: `hyperlink:{url:'https://github.com'}` "
+				"text `hyperlink` option should be an object. Ex: `hyperlink:{url:'https://github.com'}` "
 			)
 		else if (!opts.hyperlink.url && !opts.hyperlink.slide && !opts.hyperlink.action)
 			throw new InvalidOptionError(
 				'hyperlink/missing-target',
-				"ERROR: 'hyperlink requires either `url`, `slide`, or `action`'"
+				'text `hyperlink` requires either `url`, `slide`, or `action`'
 			)
 		// An action-only hyperlink (an action-button navigation) lives on the shape's `<p:cNvPr>`
 		// (see `cNvPrHyperlink`), NOT on the text run — a labeled action button emits no run-level
