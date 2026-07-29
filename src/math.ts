@@ -22,6 +22,7 @@
  * @module
  */
 import { createRequire } from 'node:module'
+import { InvalidOptionError, UnsupportedFeatureError } from './errors.js'
 
 const nodeRequire = createRequire(import.meta.url)
 
@@ -44,7 +45,7 @@ function requirePeer<T>(id: string): T {
 		return nodeRequire(id) as T
 	} catch (err) {
 		if ((err as NodeJS.ErrnoException | undefined)?.code === 'MODULE_NOT_FOUND') {
-			throw new Error(MISSING_DEPS_MESSAGE, { cause: err })
+			throw new UnsupportedFeatureError('math/missing-optional-peer', MISSING_DEPS_MESSAGE, { cause: err })
 		}
 		throw err
 	}
@@ -127,8 +128,30 @@ export function latexToOmml(latex: string, opts: LatexToOmmlOptions = {}): strin
 	} catch (err) {
 		const pe = err as TemmlParseError
 		const pos = typeof pe.position === 'number' ? ` (position ${pe.position})` : ''
-		throw new Error(`Invalid LaTeX${pos}: ${pe.message}`, { cause: err })
+		throw new InvalidOptionError('math/invalid-latex', `Invalid LaTeX${pos}: ${pe.message}`, { cause: err })
 	}
 	const oMath = mathmlToOmml(mathml)
 	return display ? `<m:oMathPara>${DISPLAY_PARA_PR}${oMath}</m:oMathPara>` : oMath
 }
+
+// Error taxonomy — every failure the library throws. The classes and their `code` are API;
+// the message is not. Re-exported from every entry so `instanceof` works whichever subpath a
+// consumer imports — they all resolve to one shared module, so the classes are identical.
+export {
+	TsPptxError,
+	InvalidOptionError,
+	UnsupportedFeatureError,
+	PackageReadError,
+	MediaError,
+	InternalError,
+	type TsPptxErrorOptions,
+} from './errors.js'
+export type {
+	ErrorCode,
+	TsPptxCode,
+	InvalidOptionErrorCode,
+	UnsupportedFeatureErrorCode,
+	PackageReadErrorCode,
+	MediaErrorCode,
+	InternalErrorCode,
+} from './codes.js'

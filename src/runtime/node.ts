@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer'
 import fs from 'node:fs/promises'
 import { IMG_SVG_PLACEHOLDER } from '../core-enums-internal.js'
+import { MediaError } from '../errors.js'
 import type { SlideRelMedia } from '../types/internal.js'
 import type { RuntimeAdapter } from './types.js'
 
@@ -17,27 +18,31 @@ export function createNodeRuntime(): RuntimeAdapter {
 async function loadFontData(source: string): Promise<Uint8Array> {
 	if (source.startsWith('http')) {
 		const response = await fetch(source)
-		if (!response.ok) throw new Error(`ERROR! Unable to load font (fetch): ${source}`)
+		if (!response.ok) throw new MediaError('font/fetch-failed', `ERROR! Unable to load font (fetch): ${source}`)
 		return new Uint8Array(await response.arrayBuffer())
 	}
 	try {
 		return new Uint8Array(await fs.readFile(source))
 	} catch (ex) {
-		throw new Error(`ERROR: Unable to read font file: "${source}"\n${String(ex)}`, { cause: ex })
+		throw new MediaError('font/read-failed', `ERROR: Unable to read font file: "${source}"\n${String(ex)}`, {
+			cause: ex,
+		})
 	}
 }
 
 async function loadMedia(rel: SlideRelMedia & { path: string }): Promise<string> {
 	if (rel.path.startsWith('http')) {
 		const response = await fetch(rel.path)
-		if (!response.ok) throw new Error(`ERROR! Unable to load image (fetch): ${rel.path}`)
+		if (!response.ok) throw new MediaError('media/fetch-failed', `ERROR! Unable to load image (fetch): ${rel.path}`)
 		return Buffer.from(await response.arrayBuffer()).toString('base64')
 	}
 
 	try {
 		return Buffer.from(await fs.readFile(rel.path)).toString('base64')
 	} catch (ex) {
-		throw new Error(`ERROR: Unable to read media: "${rel.path}"\n${String(ex)}`, { cause: ex })
+		throw new MediaError('media/read-failed', `ERROR: Unable to read media: "${rel.path}"\n${String(ex)}`, {
+			cause: ex,
+		})
 	}
 }
 

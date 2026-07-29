@@ -56,6 +56,7 @@
  */
 
 import { warn } from './diagnostics.js'
+import { InternalError, InvalidOptionError } from './errors.js'
 import SlideBuilder from './slide-builder.js'
 import { SlideObjectType } from './core-enums.js'
 import { DEF_PRES_LAYOUT, DEF_PRES_LAYOUT_NAME, DEF_SLIDE_MARGIN_IN } from './core-enums-internal.js'
@@ -260,7 +261,7 @@ export default class PresentationCore {
 			this._layout = layoutKey
 			this._presLayout = newLayout
 		} else {
-			throw new Error('UNKNOWN-LAYOUT')
+			throw new InvalidOptionError('layout/unknown', 'UNKNOWN-LAYOUT')
 		}
 	}
 
@@ -458,7 +459,11 @@ export default class PresentationCore {
 		this._title = 'ts-pptx Presentation'
 		// ts-pptx props
 		const defLayout = this.LAYOUTS[DEF_PRES_LAYOUT]
-		if (!defLayout) throw new Error(`Default presentation layout "${DEF_PRES_LAYOUT}" is not registered`)
+		if (!defLayout)
+			throw new InternalError(
+				'layout/default-not-registered',
+				`Default presentation layout "${DEF_PRES_LAYOUT}" is not registered`
+			)
 		this._presLayout = {
 			name: defLayout.name,
 			_sizeW: defLayout.width,
@@ -803,11 +808,17 @@ export default class PresentationCore {
 		style?: EmbeddedFontSlot
 	}): Promise<void> {
 		if (!opts || typeof opts.typeface !== 'string' || opts.typeface.trim() === '') {
-			throw new Error('embedFont: `typeface` is required (the family name your runs reference)')
+			throw new InvalidOptionError(
+				'font/missing-typeface',
+				'embedFont: `typeface` is required (the family name your runs reference)'
+			)
 		}
 		const slot: EmbeddedFontSlot = opts.style ?? 'regular'
 		if (!EMBEDDED_FONT_SLOTS.includes(slot)) {
-			throw new Error(`embedFont: invalid style "${slot}"; expected one of ${EMBEDDED_FONT_SLOTS.join(', ')}`)
+			throw new InvalidOptionError(
+				'font/invalid-style-slot',
+				`embedFont: invalid style "${slot}"; expected one of ${EMBEDDED_FONT_SLOTS.join(', ')}`
+			)
 		}
 
 		// Resolve bytes: a path/URL via the runtime loader, else in-memory data
@@ -823,10 +834,10 @@ export default class PresentationCore {
 			const decoded = decodeBase64ToBytes(
 				opts.data.includes(',') ? opts.data : `application/x-fontdata;base64,${opts.data}`
 			)
-			if (!decoded) throw new Error('embedFont: `data` string is not valid base64')
+			if (!decoded) throw new InvalidOptionError('font/invalid-base64', 'embedFont: `data` string is not valid base64')
 			bytes = decoded
 		} else {
-			throw new Error('embedFont: provide either `path` or `data`')
+			throw new InvalidOptionError('font/missing-source', 'embedFont: provide either `path` or `data`')
 		}
 
 		// Accumulate faces of one family under a single embeddedFont entry; a repeat
@@ -1016,7 +1027,11 @@ export default class PresentationCore {
 	addSlide(options?: AddSlideProps): Slide {
 		const masterTitle = options?.masterTitle ?? ''
 		const defLayout = this.LAYOUTS[DEF_PRES_LAYOUT]
-		if (!defLayout) throw new Error(`Default presentation layout "${DEF_PRES_LAYOUT}" is not registered`)
+		if (!defLayout)
+			throw new InternalError(
+				'layout/default-not-registered',
+				`Default presentation layout "${DEF_PRES_LAYOUT}" is not registered`
+			)
 		let slideLayout: SlideLayoutInternal = {
 			_name: defLayout.name,
 			_presLayout: this.presLayout,
@@ -1107,7 +1122,11 @@ export default class PresentationCore {
 		// deep clone the props object to avoid mutating the original object.
 		// structuredClone preserves the `SlideMasterProps` type (unlike JSON round-tripping, which widens to `any`).
 		const propsClone = structuredClone(props)
-		if (!propsClone.title) throw new Error('defineSlideMaster() object argument requires a `title` value.')
+		if (!propsClone.title)
+			throw new InvalidOptionError(
+				'master/missing-title',
+				'defineSlideMaster() object argument requires a `title` value.'
+			)
 
 		const newLayout: SlideLayoutInternal = {
 			_margin: propsClone.margin || DEF_SLIDE_MARGIN_IN,
@@ -1165,8 +1184,12 @@ export default class PresentationCore {
 	 */
 	defineTableStyle(props: TableStyleProps): string {
 		if (!props || typeof props !== 'object')
-			throw new Error('defineTableStyle() requires a `{ name, ... }` object argument')
-		if (!props.name || typeof props.name !== 'string') throw new Error('defineTableStyle() requires a non-empty `name`')
+			throw new InvalidOptionError(
+				'table-style/missing-argument',
+				'defineTableStyle() requires a `{ name, ... }` object argument'
+			)
+		if (!props.name || typeof props.name !== 'string')
+			throw new InvalidOptionError('table-style/missing-name', 'defineTableStyle() requires a non-empty `name`')
 
 		const guid = `{${getUuid('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx').toUpperCase()}}`
 		this._tableStyles.push({ guid, def: props })

@@ -1,4 +1,5 @@
 import { warn } from './diagnostics.js'
+import { InvalidOptionError } from './errors.js'
 /**
  * Public unit conversion helpers and standard PowerPoint slide-layout constants.
  */
@@ -136,7 +137,8 @@ export function coordToEmu(value: number | string, axisEmu: number): Emu {
 
 	const match = /^\s*(-?\d*\.?\d+)\s*(%|in|pt|px|emu)\s*$/.exec(value)
 	if (!match) {
-		throw new Error(
+		throw new InvalidOptionError(
+			'coord/invalid-format',
 			`ts-pptx: invalid coordinate "${value}". Expected a number (inches) or a string like "50%", "5in", "72pt", "96px", or "914400emu".`
 		)
 	}
@@ -191,10 +193,10 @@ export const STANDARD_LAYOUTS: Readonly<Record<StandardLayoutName, StandardLayou
 })
 
 function assertFiniteNumber(value: number, name: string): void {
-	if (!Number.isFinite(value)) throw new Error(`${name} must be a finite number`)
+	if (!Number.isFinite(value)) throw new InvalidOptionError('coord/non-finite', `${name} must be a finite number`)
 }
 
 function assertPositiveFiniteNumber(value: number, name: string): void {
 	assertFiniteNumber(value, name)
-	if (value <= 0) throw new Error(`${name} must be greater than 0`)
+	if (value <= 0) throw new InvalidOptionError('coord/not-positive', `${name} must be greater than 0`)
 }

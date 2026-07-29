@@ -9,6 +9,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **An error taxonomy: `TsPptxError` and five subclasses.** The library threw
+  ~160 bare `Error`s and shipped no error classes at all, so a consumer wanting to
+  tell *"you passed a bad coordinate"* from *"this font file is corrupt"* from
+  *"these bytes are not a package"* had to match on message substrings — text the
+  project is explicitly free to reword in any release.
+
+  Every failure is now a `TsPptxError` carrying a stable `code`:
+
+  ```ts
+  import { MediaError, PackageReadError, InvalidOptionError } from '@shbernal/ts-pptx'
+
+  try {
+  	await buildDeck(spec)
+  } catch (err) {
+  	if (err instanceof MediaError) return retryWithPlaceholderAsset(spec)
+  	if (err instanceof PackageReadError) return rejectUpload(err.code)
+  	if (err instanceof InvalidOptionError) throw err // our bug — fail loudly
+  	throw err
+  }
+  ```
+
+  The classes are a deliberately flat set of five — `InvalidOptionError`,
+  `UnsupportedFeatureError`, `PackageReadError`, `MediaError`, `InternalError` —
+  answering *whose problem is this?*; the `code` carries the specificity.
+
+  **The class and the `code` are API; the `message` is not.** Codes draw on the
+  same vocabulary as diagnostics, so a condition reads the same whichever way it
+  surfaces: `coord/non-finite` means the same thing thrown as an
+  `InvalidOptionError` or warned as a `Diagnostic`. Each code belongs to exactly
+  one class and the pairing is type-enforced —
+  `new MediaError('coord/non-finite', …)` does not compile.
+
+  Everything remains `instanceof Error`, so existing `catch` blocks are unaffected.
+  The classes are re-exported from every entry point and resolve to one shared
+  module, so `instanceof` works regardless of which subpath you imported from and
+  which subpath threw. Where the library wraps a lower-level failure, the original
+  is preserved on `cause` rather than flattened into the message. See
+  [docs/errors.md](docs/errors.md).
+
 - **A diagnostics seam: `setDiagnosticHandler`.** Library warnings were hardwired
   to `console.warn` across ~100 call sites, so a consumer generating decks in a
   batch job could neither silence nor route them, and nothing downstream could

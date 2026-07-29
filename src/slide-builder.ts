@@ -43,6 +43,7 @@ import type {
 	SectionInternalProps,
 } from './types/internal.js'
 import { emuToInches } from './units.js'
+import { InvalidOptionError } from './errors.js'
 import { addBackgroundDefinition } from './gen/define/background.js'
 import { addChartDefinition } from './gen/define/chart.js'
 import { addCommentDefinition } from './gen/define/comment.js'
@@ -230,7 +231,8 @@ export default class SlideBuilder {
 			options = arg2 ?? {}
 			const optType = (options as ChartOpts & { type?: CHART_NAME }).type
 			if (!optType) {
-				throw new Error(
+				throw new InvalidOptionError(
+					'chart/missing-type',
 					'addChart: a chart `type` is required on the options object, e.g. addChart(data, { type: ChartType.bar }).'
 				)
 			}

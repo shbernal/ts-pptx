@@ -1,5 +1,6 @@
 import { strToU8, unzipSync, zipSync, type Unzipped, type Zippable, type ZipOptions } from 'fflate'
 import type { ZIP_OUTPUT_TYPE } from './core-enums.js'
+import { InvalidOptionError, PackageReadError, UnsupportedFeatureError } from './errors.js'
 
 /**
  * ZIP backend seam for the write path.
@@ -106,7 +107,7 @@ export async function readZip(input: ZipInput): Promise<Map<string, Uint8Array>>
 	try {
 		entries = unzipSync(bytes)
 	} catch (cause) {
-		throw new Error('Not a valid ZIP archive', { cause })
+		throw new PackageReadError('zip/not-a-zip-archive', 'Not a valid ZIP archive', { cause })
 	}
 	const out = new Map<string, Uint8Array>()
 	for (const [path, body] of Object.entries(entries)) {
@@ -129,7 +130,8 @@ async function toUint8Array(input: ZipInput): Promise<Uint8Array> {
 	if (typeof data === 'string') return readFileAsBytes(data)
 	if (Array.isArray(data)) return Uint8Array.from(data)
 	if (typeof Blob !== 'undefined' && data instanceof Blob) return new Uint8Array(await data.arrayBuffer())
-	throw new Error(
+	throw new InvalidOptionError(
+		'zip/unsupported-input',
 		'Unsupported zip input type; expected a filesystem path (string), number[], Uint8Array, ArrayBuffer, or Blob'
 	)
 }
@@ -145,7 +147,8 @@ async function readFileAsBytes(filePath: string): Promise<Uint8Array> {
 	try {
 		;({ readFile } = await import('node:fs/promises'))
 	} catch {
-		throw new Error(
+		throw new UnsupportedFeatureError(
+			'zip/filesystem-unavailable',
 			`Cannot read zip from path "${filePath}": filesystem access requires Node. ` +
 				'Pass a Uint8Array/ArrayBuffer/Blob for an in-memory archive.'
 		)
@@ -153,7 +156,13 @@ async function readFileAsBytes(filePath: string): Promise<Uint8Array> {
 	try {
 		return new Uint8Array(await readFile(filePath))
 	} catch (cause) {
-		throw new Error(`Cannot read .pptx at "${filePath}": ${(cause as Error).message}`, { cause })
+		throw new PackageReadError(
+			'zip/file-read-failed',
+			`Cannot read .pptx at "${filePath}": ${(cause as Error).message}`,
+			{
+				cause,
+			}
+		)
 	}
 }
 
@@ -183,7 +192,7 @@ function convertZipOutput(bytes: Uint8Array, type: ZIP_OUTPUT_TYPE): string | Ar
 			return bytesToBinaryString(bytes, false)
 		default: {
 			const exhaustive: never = type
-			throw new Error(`Unsupported zip output type: ${String(exhaustive)}`)
+			throw new InvalidOptionError('zip/unsupported-output', `Unsupported zip output type: ${String(exhaustive)}`)
 		}
 	}
 }
@@ -201,3 +210,25 @@ function bytesToBinaryString(bytes: Uint8Array, base64: boolean): string {
 	}
 	return base64 ? btoa(binary) : binary
 }
+
+// Error taxonomy — every failure the library throws. The classes and their `code` are API;
+// the message is not. Re-exported from every entry so `instanceof` works whichever subpath a
+// consumer imports — they all resolve to one shared module, so the classes are identical.
+export {
+	TsPptxError,
+	InvalidOptionError,
+	UnsupportedFeatureError,
+	PackageReadError,
+	MediaError,
+	InternalError,
+	type TsPptxErrorOptions,
+} from './errors.js'
+export type {
+	ErrorCode,
+	TsPptxCode,
+	InvalidOptionErrorCode,
+	UnsupportedFeatureErrorCode,
+	PackageReadErrorCode,
+	MediaErrorCode,
+	InternalErrorCode,
+} from './codes.js'

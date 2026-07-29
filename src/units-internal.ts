@@ -14,6 +14,7 @@
  */
 
 import { warn, warnOnce } from './diagnostics.js'
+import { InvalidOptionError } from './errors.js'
 import {
 	EMU_PER_INCH,
 	EMU_PER_POINT,
@@ -44,7 +45,8 @@ export function getSmartParseNumber(size: Coord | null | undefined, xyDir: 'X' |
 	// `undefined` layout dimension). Fail loud with a targeted hint instead of the generic
 	// converter message, since this is the most common way a deck collapses to zero-size.
 	if (typeof size === 'number' && !isFinite(size)) {
-		throw new Error(
+		throw new InvalidOptionError(
+			'coord/non-finite',
 			`Invalid ${xyDir || 'coordinate'} value: expected a finite number but received ${String(size)}. ` +
 				'This usually means a layout dimension was read from a missing property (e.g. `layout.width` returning `undefined`). ' +
 				'Use `slide.width`/`slide.height` or `STANDARD_LAYOUTS.<NAME>.width`/`.height` (inches).'
@@ -196,6 +198,9 @@ export function convertRotationDegrees(d: number): number {
  */
 export function convertArcAngle(d: number, attr: 'stAng' | 'swAng'): number {
 	if (typeof d !== 'number' || !Number.isFinite(d))
-		throw new Error(`Arc ${attr} must be a finite number of degrees; received ${String(d)}.`)
+		throw new InvalidOptionError(
+			'geometry/arc-angle-non-finite',
+			`Arc ${attr} must be a finite number of degrees; received ${String(d)}.`
+		)
 	return Math.round(d * ANGLE_UNITS_PER_DEGREE)
 }

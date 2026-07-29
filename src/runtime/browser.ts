@@ -1,4 +1,5 @@
 import { IMG_SVG_PLACEHOLDER } from '../core-enums-internal.js'
+import { MediaError } from '../errors.js'
 import type { SlideRelMedia } from '../types/internal.js'
 import type { RuntimeAdapter } from './types.js'
 
@@ -14,19 +15,20 @@ export function createBrowserRuntime(): RuntimeAdapter {
 
 async function loadFontData(source: string): Promise<Uint8Array> {
 	const response = await fetch(source)
-	if (!response.ok) throw new Error(`ERROR! Unable to load font (fetch): ${source}`)
+	if (!response.ok) throw new MediaError('font/fetch-failed', `ERROR! Unable to load font (fetch): ${source}`)
 	return new Uint8Array(await response.arrayBuffer())
 }
 
 async function loadMedia(rel: SlideRelMedia & { path: string }): Promise<string> {
 	const response = await fetch(rel.path)
-	if (!response.ok) throw new Error(`ERROR! Unable to load image (fetch): ${rel.path}`)
+	if (!response.ok) throw new MediaError('media/fetch-failed', `ERROR! Unable to load image (fetch): ${rel.path}`)
 	const blob = await response.blob()
 
 	return await new Promise<string>((resolve, reject) => {
 		const reader = new FileReader()
 		reader.onloadend = () => resolve(reader.result as string)
-		reader.onerror = () => reject(new Error(`ERROR! Unable to load image (FileReader): ${rel.path}`))
+		reader.onerror = () =>
+			reject(new MediaError('media/decode-failed', `ERROR! Unable to load image (FileReader): ${rel.path}`))
 		reader.readAsDataURL(blob)
 	})
 }
@@ -37,7 +39,10 @@ async function createSvgPngPreview(rel: SlideRelMedia): Promise<string> {
 		const fail = (reason?: unknown) => {
 			rel.data = IMG_SVG_PLACEHOLDER
 			reject(
-				new Error(`ERROR! Unable to load image (image.onerror): ${rel.path}${reason ? ` - ${String(reason)}` : ''}`)
+				new MediaError(
+					'media/svg-preview-failed',
+					`ERROR! Unable to load image (image.onerror): ${rel.path}${reason ? ` - ${String(reason)}` : ''}`
+				)
 			)
 		}
 

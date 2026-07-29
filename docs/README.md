@@ -54,6 +54,8 @@ artifacts.
 - [Measured text fit](measured-text-fit.md): the export-time shrink/resize pass.
 - [Diagnostics](diagnostics.md): routing, silencing, or escalating the library's
   non-fatal warnings, and the stable `code` vocabulary behind them.
+- [Errors](errors.md): the five error classes, the stable `code` each carries,
+  and what a consumer may branch on.
 
 ## Documentation Rules
 
