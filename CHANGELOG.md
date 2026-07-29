@@ -7,7 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-29
+
+Initial public release of ts-pptx — an ESM-first, TypeScript-first library for
+generating PowerPoint `.pptx` files from Node.js and modern JavaScript
+toolchains.
+
+ts-pptx descends from [gitbrent/PptxGenJS](https://github.com/gitbrent/PptxGenJS)
+(MIT) and has been developed independently since; see the README for lineage and
+the [project target](docs/project-target.md) for scope. It ships its own API and
+makes no backwards-compatibility guarantee with the original project.
+
 ### Added
+
+- Slide authoring: slides, layouts, masters, sections, speaker notes, and
+  presentation metadata.
+- Content: text, tables, shapes, connectors, groups, images, SVGs, charts,
+  media, and OLE objects.
+- Outputs: file, stream, buffer, Blob, base64, and browser download, depending
+  on the runtime.
+- A `.pptx` read model for opening, inspecting, and round-tripping existing
+  decks (`@shbernal/ts-pptx/read`).
+- Standalone text measurement and table-fit helpers
+  (`@shbernal/ts-pptx/measure`).
+- Native equation authoring from LaTeX or MathML (`@shbernal/ts-pptx/math`).
+- Explicit ESM package boundary with typed subpath exports for `inspect`,
+  `measure`, `read`, `math`, `node`, and `browser`.
 
 - **`Run.charSpacingPt`** on the read model — character spacing (tracking) in
   points from `a:rPr/@spc`, the read counterpart of the write-side `charSpacing`
@@ -1043,32 +1068,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Ion-themed deck `resolvedFill.partName` read `/ppt/slideLayouts/slideLayout1.xml`
   where the image is `/ppt/media/image1.jpeg`. Affects `Slide.background`,
   `SlideMaster.background`, and `SlideLayout.background`.
-
-## [1.0.0] - 2026-07-24
-
-Initial public release of ts-pptx — an ESM-first, TypeScript-first library for
-generating PowerPoint `.pptx` files from Node.js and modern JavaScript
-toolchains.
-
-ts-pptx descends from [gitbrent/PptxGenJS](https://github.com/gitbrent/PptxGenJS)
-(MIT) and has been developed independently since; see the README for lineage and
-the [project target](docs/project-target.md) for scope. It ships its own API and
-makes no backwards-compatibility guarantee with the original project.
-
-### Added
-
-- Slide authoring: slides, layouts, masters, sections, speaker notes, and
-  presentation metadata.
-- Content: text, tables, shapes, connectors, groups, images, SVGs, charts,
-  media, and OLE objects.
-- Outputs: file, stream, buffer, Blob, base64, and browser download, depending
-  on the runtime.
-- A `.pptx` read model for opening, inspecting, and round-tripping existing
-  decks (`@shbernal/ts-pptx/read`).
-- Standalone text measurement and table-fit helpers
-  (`@shbernal/ts-pptx/measure`).
-- Native equation authoring from LaTeX or MathML (`@shbernal/ts-pptx/math`).
-- Explicit ESM package boundary with typed subpath exports for `inspect`,
-  `measure`, `read`, `math`, `node`, and `browser`.
 
 [1.0.0]: https://github.com/shbernal/ts-pptx/releases/tag/v1.0.0
