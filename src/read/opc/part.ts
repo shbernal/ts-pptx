@@ -1,4 +1,5 @@
 import { parseXml, serializeXml, type Document } from '../oxml/dom.js'
+import { InvalidOptionError } from '../../errors.js'
 
 const textDecoder = new TextDecoder('utf-8')
 const textEncoder = new TextEncoder()
@@ -48,7 +49,10 @@ export class Part {
 	 */
 	get dom(): Document {
 		if (!this.isXmlPart)
-			throw new Error(`Part ${this.partName} (${this.contentType}) is not an XML part and has no DOM`)
+			throw new InvalidOptionError(
+				'part/not-xml',
+				`Part ${this.partName} (${this.contentType}) is not an XML part and has no DOM`
+			)
 		if (!this.#dom) this.#dom = parseXml(textDecoder.decode(this.#bytes))
 		return this.#dom
 	}
@@ -56,7 +60,10 @@ export class Part {
 	/** Call after mutating the DOM so `serialize()` reserializes this part. */
 	markDirty(): void {
 		if (!this.isXmlPart)
-			throw new Error(`Part ${this.partName} (${this.contentType}) is not an XML part and cannot be marked dirty`)
+			throw new InvalidOptionError(
+				'part/not-xml',
+				`Part ${this.partName} (${this.contentType}) is not an XML part and cannot be marked dirty`
+			)
 		this.#dirty = true
 	}
 

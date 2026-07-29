@@ -3,6 +3,7 @@ import { ContentTypes } from './content-types.js'
 import { Part } from './part.js'
 import { Relationships } from './relationships.js'
 import { partNameToZipPath, relsPartNameFor, zipPathToPartName } from './partnames.js'
+import { InvalidOptionError, PackageReadError } from '../../errors.js'
 
 /**
  * Input to {@link OpcPackage.load}. A `string` is a **filesystem path** (Node)
@@ -47,7 +48,8 @@ export class OpcPackage {
 	static async load(input: OpcInput): Promise<OpcPackage> {
 		const entries = await readZip(input)
 		const contentTypesBytes = entries.get(CONTENT_TYPES_ZIP_PATH)
-		if (!contentTypesBytes) throw new Error('Not an OPC package: missing [Content_Types].xml')
+		if (!contentTypesBytes)
+			throw new PackageReadError('package/not-an-opc-package', 'Not an OPC package: missing [Content_Types].xml')
 		const contentTypes = ContentTypes.parse(textDecoder.decode(contentTypesBytes))
 
 		const parts = new Map<string, Part>()
@@ -61,7 +63,10 @@ export class OpcPackage {
 			if (partName.startsWith('/[trash]/')) continue
 			const contentType = contentTypes.contentTypeFor(partName)
 			if (!contentType) {
-				throw new Error(`No content type for part ${partName}: [Content_Types].xml has no matching Override or Default`)
+				throw new PackageReadError(
+					'package/part-content-type-missing',
+					`No content type for part ${partName}: [Content_Types].xml has no matching Override or Default`
+				)
 			}
 			parts.set(partName, new Part(partName, contentType, bytes))
 		}
@@ -96,7 +101,11 @@ export class OpcPackage {
 	 * package stays consistent. Throws if the partname is already taken.
 	 */
 	addPart(partName: string, contentType: string, bytes: Uint8Array): Part {
-		if (this.#parts.has(partName)) throw new Error(`Cannot add part ${partName}: a part with that name already exists`)
+		if (this.#parts.has(partName))
+			throw new InvalidOptionError(
+				'package/duplicate-part-name',
+				`Cannot add part ${partName}: a part with that name already exists`
+			)
 		this.contentTypes.ensureRegistered(partName, contentType)
 		const part = new Part(partName, contentType, bytes)
 		this.#parts.set(partName, part)

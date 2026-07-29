@@ -4,6 +4,7 @@
  * A partname is an absolute, `/`-separated path inside the package, e.g.
  * `/ppt/slides/slide1.xml`. Zip entry paths omit the leading slash.
  */
+import { PackageReadError } from '../../errors.js'
 
 export function zipPathToPartName(zipPath: string): string {
 	return zipPath.startsWith('/') ? zipPath : `/${zipPath}`
@@ -62,7 +63,10 @@ export function resolveRelativePartName(sourcePartName: string, target: string):
 		if (segment === '' || segment === '.') continue
 		if (segment === '..') {
 			if (segments.length === 0)
-				throw new Error(`Relationship target ${target} escapes the package root (source ${sourcePartName})`)
+				throw new PackageReadError(
+					'package/relationship-target-escapes-root',
+					`Relationship target ${target} escapes the package root (source ${sourcePartName})`
+				)
 			segments.pop()
 		} else {
 			segments.push(segment)

@@ -10,6 +10,7 @@ import { DOMParser, MIME_TYPE, XMLSerializer, onErrorStopParsing } from '@xmldom
 
 export type { Document, Element, Node } from '@xmldom/xmldom'
 import type { Document, Element, Node } from '@xmldom/xmldom'
+import { InternalError, InvalidOptionError } from '../../errors.js'
 
 /** DOM `Node.ELEMENT_NODE` constant (xmldom does not expose it statically). */
 export const ELEMENT_NODE = 1
@@ -49,16 +50,18 @@ export const OOXML_NS = Object.freeze({
 
 /** Build a prefixed qname string, e.g. `qn('p', 'sld')` → `"p:sld"`. */
 export function qn(prefix: string, local: string): string {
-	if (!(prefix in OOXML_NS)) throw new Error(`Unknown OOXML namespace prefix: ${prefix}`)
+	if (!(prefix in OOXML_NS))
+		throw new InvalidOptionError('oxml/unknown-namespace-prefix', `Unknown OOXML namespace prefix: ${prefix}`)
 	return `${prefix}:${local}`
 }
 
 function splitQName(qname: string): { uri: string; local: string } {
 	const colon = qname.indexOf(':')
-	if (colon < 0) throw new Error(`Expected a prefixed qname like "p:sld", got: ${qname}`)
+	if (colon < 0)
+		throw new InvalidOptionError('oxml/invalid-qname', `Expected a prefixed qname like "p:sld", got: ${qname}`)
 	const prefix = qname.slice(0, colon)
 	const uri = (OOXML_NS as Record<string, string>)[prefix]
-	if (!uri) throw new Error(`Unknown OOXML namespace prefix: ${prefix}`)
+	if (!uri) throw new InvalidOptionError('oxml/unknown-namespace-prefix', `Unknown OOXML namespace prefix: ${prefix}`)
 	return { uri, local: qname.slice(colon + 1) }
 }
 
@@ -139,7 +142,7 @@ export function createElement(doc: Document, qname: string): Element {
  */
 export function ownerDocumentOf(node: Node): Document {
 	const doc = node.ownerDocument
-	if (!doc) throw new Error('Node has no ownerDocument')
+	if (!doc) throw new InternalError('oxml/node-has-no-document', 'Node has no ownerDocument')
 	return doc
 }
 
@@ -151,7 +154,7 @@ export function ownerDocumentOf(node: Node): Document {
  */
 export function replaceInParent(oldNode: Node, newNode: Node): void {
 	const parent = oldNode.parentNode
-	if (!parent) throw new Error('Node has no parent to replace within')
+	if (!parent) throw new InternalError('oxml/node-has-no-parent', 'Node has no parent to replace within')
 	parent.replaceChild(newNode, oldNode)
 }
 
@@ -193,7 +196,11 @@ export function getOrAddChild(parent: Element, qname: string, before: string[] =
 	const existing = firstChild(parent, qname)
 	if (existing) return existing
 	const doc = parent.ownerDocument
-	if (!doc) throw new Error(`Cannot create <${qname}>: parent element has no owner document`)
+	if (!doc)
+		throw new InternalError(
+			'oxml/node-has-no-document',
+			`Cannot create <${qname}>: parent element has no owner document`
+		)
 	const child = createElement(doc, qname)
 	const successor = before.length ? firstChildMatchingAny(parent, before) : null
 	parent.insertBefore(child, successor) // insertBefore(node, null) appends

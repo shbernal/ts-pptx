@@ -1,5 +1,6 @@
 import { escapeXmlAttribute, getElements, parseXml } from '../oxml/dom.js'
 import { resolveRelativePartName } from './partnames.js'
+import { InvalidOptionError, PackageReadError } from '../../errors.js'
 
 export interface Relationship {
 	id: string
@@ -32,23 +33,35 @@ export class Relationships {
 		const relationships = new Relationships(sourcePartName)
 		const root = parseXml(xml).documentElement
 		if (!root || root.localName !== 'Relationships')
-			throw new Error(`Relationships of ${sourcePartName}: expected <Relationships> root element`)
+			throw new PackageReadError(
+				'package/relationships-invalid-root',
+				`Relationships of ${sourcePartName}: expected <Relationships> root element`
+			)
 		for (const element of getElements(root, 'pr:Relationship')) {
 			const id = element.getAttribute('Id')
 			const type = element.getAttribute('Type')
 			const target = element.getAttribute('Target')
 			if (!id || !type || !target)
-				throw new Error(`Relationships of ${sourcePartName}: <Relationship> missing Id, Type, or Target`)
+				throw new PackageReadError(
+					'package/relationship-incomplete',
+					`Relationships of ${sourcePartName}: <Relationship> missing Id, Type, or Target`
+				)
 			const targetModeAttribute = element.getAttribute('TargetMode')
 			const targetMode =
 				targetModeAttribute === 'Internal' || targetModeAttribute === 'External' ? targetModeAttribute : undefined
 			if (targetModeAttribute !== null && targetMode === undefined) {
-				throw new Error(`Relationships of ${sourcePartName}: invalid TargetMode "${targetModeAttribute}" on ${id}`)
+				throw new PackageReadError(
+					'package/relationship-invalid-target-mode',
+					`Relationships of ${sourcePartName}: invalid TargetMode "${targetModeAttribute}" on ${id}`
+				)
 			}
 			const relationship: Relationship = { id, type, target }
 			if (targetMode) relationship.targetMode = targetMode
 			if (relationships.#byId.has(id))
-				throw new Error(`Relationships of ${sourcePartName}: duplicate relationship id ${id}`)
+				throw new PackageReadError(
+					'package/duplicate-relationship-id',
+					`Relationships of ${sourcePartName}: duplicate relationship id ${id}`
+				)
 			relationships.#byId.set(id, relationship)
 		}
 		return relationships
@@ -96,7 +109,11 @@ export class Relationships {
 	 * Marks this set dirty.
 	 */
 	addWithId(id: string, type: string, target: string, targetMode?: 'Internal' | 'External'): Relationship {
-		if (this.#byId.has(id)) throw new Error(`Relationships of ${this.sourcePartName}: duplicate relationship id ${id}`)
+		if (this.#byId.has(id))
+			throw new InvalidOptionError(
+				'relationship/duplicate-id',
+				`Relationships of ${this.sourcePartName}: duplicate relationship id ${id}`
+			)
 		const relationship: Relationship = { id, type, target }
 		if (targetMode) relationship.targetMode = targetMode
 		this.#byId.set(id, relationship)
@@ -130,9 +147,14 @@ export class Relationships {
 	/** Resolve an internal relationship's target to an absolute partname. */
 	resolveTarget(id: string): string {
 		const relationship = this.#byId.get(id)
-		if (!relationship) throw new Error(`Relationships of ${this.sourcePartName}: no relationship with id ${id}`)
+		if (!relationship)
+			throw new InvalidOptionError(
+				'relationship/not-found',
+				`Relationships of ${this.sourcePartName}: no relationship with id ${id}`
+			)
 		if (relationship.targetMode === 'External') {
-			throw new Error(
+			throw new InvalidOptionError(
+				'relationship/external-has-no-partname',
 				`Relationships of ${this.sourcePartName}: ${id} is External (${relationship.target}) and has no partname`
 			)
 		}

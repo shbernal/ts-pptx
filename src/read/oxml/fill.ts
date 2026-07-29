@@ -6,6 +6,7 @@
  * fill first clears any competing choice, then inserts `a:solidFill` in document
  * order. These helpers never mark a part dirty — callers own that.
  */
+import { InvalidOptionError } from '../../errors.js'
 import {
 	attr,
 	createElement,
@@ -23,7 +24,11 @@ export const FILL_CHOICES = ['a:noFill', 'a:solidFill', 'a:gradFill', 'a:blipFil
 /** Normalize a 6-hex RGB string (optional leading `#`) to upper-case, or throw. */
 export function normalizeHex(value: string): string {
 	const hex = value.startsWith('#') ? value.slice(1) : value
-	if (!/^[0-9a-fA-F]{6}$/.test(hex)) throw new Error(`Expected a 6-digit hex RGB colour, got: ${JSON.stringify(value)}`)
+	if (!/^[0-9a-fA-F]{6}$/.test(hex))
+		throw new InvalidOptionError(
+			'color/invalid-hex',
+			`Expected a 6-digit hex RGB colour, got: ${JSON.stringify(value)}`
+		)
 	return hex.toUpperCase()
 }
 

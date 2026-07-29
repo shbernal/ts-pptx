@@ -199,6 +199,18 @@ export type InvalidOptionErrorCode =
 	| 'html/no-document'
 	| 'html/table-not-found'
 	| 'html/table-has-no-cells'
+	// Colours
+	| 'color/invalid-hex'
+	// OPC package operations asked of the library (distinct from a malformed package,
+	// which is a `PackageReadError` — see `package/duplicate-relationship-id`)
+	| 'package/duplicate-part-name'
+	| 'part/not-xml'
+	| 'relationship/duplicate-id'
+	| 'relationship/not-found'
+	| 'relationship/external-has-no-partname'
+	// OOXML naming
+	| 'oxml/unknown-namespace-prefix'
+	| 'oxml/invalid-qname'
 	// Embedded fonts
 	| 'font/missing-typeface'
 	| 'font/invalid-style-slot'
@@ -235,7 +247,21 @@ export type UnsupportedFeatureErrorCode =
  * can read, or a part inside one is structurally malformed. Always about *input*, never about
  * something the library is asked to produce.
  */
-export type PackageReadErrorCode = 'zip/not-a-zip-archive' | 'zip/file-read-failed'
+export type PackageReadErrorCode =
+	// The bytes are not an archive, or the archive is not an OPC package
+	| 'zip/not-a-zip-archive'
+	| 'zip/file-read-failed'
+	| 'package/not-an-opc-package'
+	// `[Content_Types].xml`
+	| 'package/content-types-invalid-root'
+	| 'package/content-types-entry-incomplete'
+	| 'package/part-content-type-missing'
+	// `.rels` parts
+	| 'package/relationships-invalid-root'
+	| 'package/relationship-incomplete'
+	| 'package/relationship-invalid-target-mode'
+	| 'package/duplicate-relationship-id'
+	| 'package/relationship-target-escapes-root'
 
 /**
  * Conditions carried by `MediaError`: an image, font, or audio/video payload could not be fetched,
@@ -260,7 +286,13 @@ export type MediaErrorCode =
  * Reaching one is a bug in ts-pptx, not something a consumer can fix by changing their input —
  * which is exactly why it is worth being able to tell apart from the four classes above.
  */
-export type InternalErrorCode = 'layout/default-not-registered' | 'slide/rel-index-out-of-range'
+export type InternalErrorCode =
+	| 'layout/default-not-registered'
+	| 'slide/rel-index-out-of-range'
+	// A DOM node the read model was handed is detached. Reachable in principle through the
+	// documented `part.dom` / `element_` escape hatch, but never from the library's own paths.
+	| 'oxml/node-has-no-document'
+	| 'oxml/node-has-no-parent'
 
 /** Every condition the library can throw. See {@link TsPptxCode} for the whole vocabulary. */
 export type ErrorCode =
