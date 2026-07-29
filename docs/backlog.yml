@@ -368,11 +368,11 @@ items:
     type: issue
     first_seen: 2026-06-07
     last_reviewed: 2026-07-29
-    status: needs-repro
-    priority: p3
+    status: implemented
+    priority: none
     target_area:
       - table-ooxml
-    applies_to_current_project: unknown
+    applies_to_current_project: yes
     non_target_reasons: []
     summary: HTML table conversion mishandled rowspan and colspan sizing.
     current_project_notes: >
@@ -386,26 +386,40 @@ items:
       dismissed as a live-DOM feature "not reproducible in the Node test suite"; the
       /html subpath work (fork-html-freefunction-subpath) made genTableToSlides run
       under any DOM, and test/regression/html-to-slides-node.test.js now drives it
-      against happy-dom. Flipped to needs-repro rather than reopened as a target,
-      because the *specific* defect is still unidentified: the new suite covers
-      colspan/rowspan and asserts a 2-span header plus one cell yields three columns
-      with the right gridSpan/rowSpan, and that passes. What is untested is span
-      *sizing* interacting with the width basis — a colspan cell's width is divided
-      evenly across the columns it spans, which is a guess, and no case pins what
-      happens when spans and data-pptx-width overrides disagree. Write that case
-      first; if it passes too, close as not-reproducible on its own terms.
+      against happy-dom. Flipped to needs-repro to write the specific case first.
+
+      REPRODUCED AND FIXED 2026-07-29. The case named above (spans vs the width basis
+      vs data-pptx-width) found a real defect on the first try. The overrides were
+      looked up by *column* index — `thead tr:first-child th:nth-child(n)` — against a
+      row indexed by *cell*, and a colspan is exactly what parts the two. A 2-span
+      header with data-pptx-width=4 followed by a header with data-pptx-width=2 emitted
+      [4in, 2in, calc]: the span's second column took the *next* header's width and the
+      last column got no override at all. The fix maps column → source cell once, at the
+      same time the width basis is expanded across each cell's colspan, so a spanning
+      cell's data-pptx-width / data-pptx-min-width divides across the columns it covers
+      — matching what its offsetWidth and computed CSS width already did.
+
+      Two adjacent mismatches surfaced from the same root cause and are fixed with it:
+      the overrides were read from `<thead>` `<th>` while the widths came from the first
+      row *anywhere* (a table with no thead measured one row and took overrides from a
+      row that did not exist), and the width-source query was a descendant selector, so
+      `<th>` in both thead and tfoot derived double the columns — after which addTable
+      rejected the count and discarded colW entirely, taking every override with it.
+      Companion entry upstream-issue-1005 shares the row-collection half of the fix.
     evidence:
       kinds:
         - local-source-inspection
+        - minimal-repro
         - regression-test
       local_files:
         - src/gen/table/html-dom.ts
         - test/regression/html-to-slides-node.test.js
+        - test/regression/html-table-grid.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: add a happy-dom case for colspan sizing vs the width basis and data-pptx-width overrides; close if it passes
+    next_action: none
 
   - id: upstream-issue-1236
     source: "gitbrent/PptxGenJS#1236"
@@ -685,11 +699,11 @@ items:
     type: issue
     first_seen: 2026-06-07
     last_reviewed: 2026-07-29
-    status: needs-repro
-    priority: p3
+    status: implemented
+    priority: none
     target_area:
       - table-ooxml
-    applies_to_current_project: unknown
+    applies_to_current_project: yes
     non_target_reasons: []
     summary: addTable with autoPage raised an Array expected error in an HTML-table workflow.
     current_project_notes: >
@@ -702,28 +716,42 @@ items:
 
       RE-REVIEWED 2026-07-29. This entry's own stated unblocker was "a headless-browser
       (Playwright/Puppeteer) repro of genTableToSlides would make this actionable".
-      That is now available far more cheaply: the /html subpath work
-      (fork-html-freefunction-subpath) made genTableToSlides run under any DOM, and
-      test/regression/html-to-slides-node.test.js drives it against happy-dom with no
-      browser at all. Flipped to needs-repro. The repro to write is a *malformed*
-      table — the shapes that produce an empty or ragged row array: a `<table>` with
-      no rows at all, rows outside any thead/tbody/tfoot (the conversion only queries
-      those three sections, so a bare `<tr>` child is silently dropped), and rows of
-      unequal cell counts. Any of those reaching addTable is the suspected cause; the
-      fix, if confirmed, is to reject or normalize in genTableToSlides rather than to
-      loosen addTable's guard.
+      That is now available far more cheaply via the /html subpath work
+      (fork-html-freefunction-subpath) and happy-dom. Flipped to needs-repro with the
+      three malformed shapes to try: no rows, rows outside thead/tbody/tfoot, ragged rows.
+
+      REPRODUCED AND FIXED 2026-07-29. All three shapes were defects, and the middle one
+      reproduces the reported error exactly. (1) Rows outside a section: the conversion
+      collected rows with three descendant queries (thead tr / tbody tr / tfoot tr), which
+      see only sectioned rows. `<table><tr>` is valid markup, and a table assembled with
+      createElement/appendChild has no tbody at all — the HTML *parser* inserts one, the
+      DOM API does not — so such a table lost every row and reached addTable empty,
+      throwing "addTable: Array expected!". Rows now come from the table's own row list,
+      section read back from each row's parent, and a section-less row counts as a body
+      row. Ownership is checked rather than assumed, which also stops a table nested in a
+      cell from being folded into the outer one (the descendant queries matched those, and
+      so does happy-dom's non-conformant `rows`). (2) No rows at all: crashed further down
+      than the guard, in the auto-pager's colW sum, as "Reduce of empty array with no
+      initial value" — now a `tableToSlides:` error naming what is missing. (3) Ragged
+      rows: did not throw but emitted rows whose `<a:tc>` count disagreed with `<a:tblGrid>`
+      — a table PowerPoint has to repair. Rows are now measured against the grid the table
+      occupies (a colspan widening a row, a rowspan from above filling one it never
+      mentions — measureGridColumns) and padded with blank cells to the widest row.
+      Companion entry upstream-issue-1244 shares the width-basis half of the fix.
     evidence:
       kinds:
         - local-source-inspection
+        - minimal-repro
         - regression-test
       local_files:
         - src/gen/table/html-dom.ts
         - test/regression/html-to-slides-node.test.js
+        - test/regression/html-table-grid.test.js
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: write a happy-dom repro for malformed HTML tables (no rows, rows outside thead/tbody/tfoot, ragged rows) and fix in genTableToSlides if confirmed
+    next_action: none
 
   - id: upstream-issue-964
     source: "gitbrent/PptxGenJS#964"

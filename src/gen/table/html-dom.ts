@@ -314,6 +314,89 @@ export function pickColWidthBasis(measured: readonly number[], cssWidths: readon
 	return measured.map(() => 1)
 }
 
+/** One cell's span attributes, as far as the grid walk cares. */
+export type GridCellSpans = { colspan?: number; rowspan?: number }
+
+/**
+ * Read a `colspan`/`rowspan` as the number of grid tracks it covers.
+ *
+ * Lenient on purpose: `0`, a negative, a fraction, an unparseable attribute and an absent one all
+ * mean `1`. A bad span attribute should cost its own cell nothing and the rest of the grid nothing
+ * — the alternative, propagating a `NaN` or a negative into the column walk, shifts every
+ * subsequent column.
+ * @param {unknown} value - the raw attribute value
+ * @returns {number} tracks covered, at least 1
+ */
+function gridSpan(value: unknown): number {
+	const num = Math.floor(Number(value))
+	return isFinite(num) && num > 1 ? num : 1
+}
+
+/**
+ * Measure the column grid a set of table rows actually occupies.
+ *
+ * An HTML table is not a rectangle of cells — a row states only the cells it *starts*, so its
+ * length says nothing about how many grid columns it fills: a `colspan` fills several, and a
+ * `rowspan` started higher up fills one without the row mentioning it. The pptx side has no such
+ * model: `<a:tblGrid>` declares N columns and every `<a:tr>` must carry N `<a:tc>`. Something has
+ * to translate, and that is a walk of the standard HTML table model — cells pack left to right,
+ * skipping columns still held by a rowspan above.
+ *
+ * Returns the grid width and, per row, how many columns that row reaches. The difference between
+ * the two is exactly the padding a ragged row needs; the merge cells for `colspan`/`rowspan` are
+ * *not* padding — the table emitter synthesizes those itself, so they are counted as filled here.
+ *
+ * Spans are read through {@link gridSpan}, so a bad attribute cannot shift the whole grid.
+ * @param {readonly (readonly GridCellSpans[])[]} rows - per-row cell spans, in emission order
+ * @returns {{ columns: number, filled: number[] }} grid width, and columns reached per row
+ */
+export function measureGridColumns(rows: readonly (readonly GridCellSpans[])[]): { columns: number; filled: number[] } {
+	// carry[c] = how many further rows column c is still held by a rowspan started above.
+	const carry: number[] = []
+	const filled: number[] = []
+
+	for (const row of rows) {
+		let col = 0
+		for (const cell of row) {
+			while ((carry[col] ?? 0) > 0) col++
+			const colspan = gridSpan(cell?.colspan)
+			// Written now, decremented at the end of this row, so it leaves `rowspan - 1` behind.
+			for (let idx = 0; idx < colspan; idx++) carry[col + idx] = gridSpan(cell?.rowspan)
+			col += colspan
+		}
+		// Trailing columns held from above count too: a row whose last cells are all rowspan
+		// continuations reaches past its own final cell.
+		while ((carry[col] ?? 0) > 0) col++
+		filled.push(col)
+		for (let idx = 0; idx < carry.length; idx++) {
+			const held = carry[idx] ?? 0
+			if (held > 0) carry[idx] = held - 1
+		}
+	}
+
+	return { columns: filled.reduce((max, reached) => (reached > max ? reached : max), 0), filled }
+}
+
+/**
+ * Widen a column-width basis to cover a grid wider than the row it was derived from.
+ *
+ * The basis comes from one row — the first with cells — but the grid is as wide as the *widest*
+ * row, and those need not agree (a single spanning header over a wider body is the common shape).
+ * The columns the source row never described get the average of the ones it did, so they read as
+ * ordinary columns rather than as a zero-width sliver; with no usable basis at all they get `1`,
+ * which the proportional calc downstream turns into an equal split.
+ * @param {readonly number[]} basis - per-column basis derived from the width-source row
+ * @param {number} columns - the full grid width
+ * @returns {number[]} basis covering every grid column
+ */
+export function extendColBasis(basis: readonly number[], columns: number): number[] {
+	const extended = [...basis]
+	const total = extended.reduce((acc, width) => acc + (isFinite(width) ? width : 0), 0)
+	const share = extended.length > 0 && total > 0 ? total / extended.length : 1
+	while (extended.length < columns) extended.push(share)
+	return extended
+}
+
 /**
  * The minimum a cell has to look like for {@link readCellText}. Any DOM's element satisfies it;
  * stating it structurally is what lets the fallback walk be unit-tested without a DOM at all.
@@ -410,6 +493,76 @@ function resolveMasterSlide(pptx: TableToSlidesHost, masterTitle?: string): Slid
 	return layouts.find((layout) => layout._name === masterTitle)
 }
 
+/** Which of the three logical sections a row belongs to. A section-less row counts as body. */
+type TablePart = 'thead' | 'tbody' | 'tfoot'
+
+/**
+ * A row's cells, via `HTMLTableRowElement.cells`.
+ *
+ * Read off the structural shape rather than the `lib.dom` type so a DOM that does not implement
+ * the collection degrades to "this row has no cells" instead of throwing — the same tolerance
+ * every other DOM read in this file has.
+ * @param {Element} row - a `<tr>`
+ * @returns {HTMLTableCellElement[]} the row's cells, in document order
+ */
+function rowCells(row: Element): HTMLTableCellElement[] {
+	const cells = (row as { cells?: ArrayLike<Element> }).cells
+	return cells ? (Array.from(cells) as HTMLTableCellElement[]) : []
+}
+
+/**
+ * Collect every row of the table, bucketed head → body → foot.
+ *
+ * `HTMLTableElement.rows` is the right source and a `thead tr`/`tbody tr`/`tfoot tr` query is not,
+ * for two reasons the query cannot fix:
+ *
+ * - **A row need not be in a section.** `<table><tr>…` is valid authored markup, and a table built
+ *   with `createElement`/`appendChild` has no `<tbody>` at all — the HTML *parser* inserts one, the
+ *   DOM API does not. Those rows matched none of the three selectors and were silently dropped,
+ *   which is how a perfectly good table reached `addTable` with zero rows and threw
+ *   `addTable: Array expected!` (upstream gitbrent/PptxGenJS#1005).
+ * - **A descendant query reaches into nested tables.** `tbody tr` matches the rows of a table
+ *   inside a cell of this one, folding them into the outer table as extra rows.
+ *
+ * Each row's own parentage settles both questions: it names the section the row belongs to (the
+ * head/body/foot split still matters downstream, for repeating header rows on auto-paged slides),
+ * and it says whether the row is this table's at all. The ownership check is not redundant with
+ * using `rows` — happy-dom's `rows` is itself a descendant walk, so a nested table's rows arrive
+ * there too. Checking is what makes the answer the same on every DOM.
+ * @param {Element} table - the `<table>` being converted
+ * @returns {Array<{ row: Element, part: TablePart }>} rows in emission order
+ */
+function collectTableRows(table: Element): Array<{ row: Element; part: TablePart }> {
+	const head: Array<{ row: Element; part: TablePart }> = []
+	const body: Array<{ row: Element; part: TablePart }> = []
+	const foot: Array<{ row: Element; part: TablePart }> = []
+	const place = (row: Element): void => {
+		const parent = row.parentElement
+		const section = (parent?.nodeName ?? '').toUpperCase()
+		const sectioned = section === 'THEAD' || section === 'TBODY' || section === 'TFOOT'
+		if ((sectioned ? parent?.parentElement : parent) !== table) return
+		if (section === 'THEAD') head.push({ row, part: 'thead' })
+		else if (section === 'TFOOT') foot.push({ row, part: 'tfoot' })
+		else body.push({ row, part: 'tbody' })
+	}
+
+	const rows = (table as { rows?: ArrayLike<Element> }).rows
+	if (rows) {
+		for (let idx = 0; idx < rows.length; idx++) {
+			const row = rows[idx]
+			if (row) place(row)
+		}
+	} else {
+		// A DOM without `rows` is not one this library has ever run on, but the section query is
+		// still a truthful fallback for the sectioned tables it can see.
+		for (const part of ['thead', 'tbody', 'tfoot']) {
+			table.querySelectorAll(`${part} tr`).forEach(place)
+		}
+	}
+
+	return [...head, ...body, ...foot]
+}
+
 /**
  * Reproduces an HTML table as a PowerPoint table - including column widths, style, etc. - creates 1 or more slides as needed
  * @param {TableToSlidesHost} pptx - ts-pptx instance
@@ -465,29 +618,45 @@ export function genTableToSlides(
 		console.log(`| emuSlideTabW .................................... = ${(emuSlideTabW / EMU_PER_INCH).toFixed(1)}`)
 	}
 
-	// STEP 2: Grab table col widths - just find the first availble row, either thead/tbody/tfoot, others may have colspans, who cares, we only need col widths from 1
+	// STEP 2: Resolve the rows and the grid they occupy, then take the column widths from the
+	// first row that has any cells (others may have colspans, who cares, we only need col widths from 1).
 	// Two bases are collected in the same pass: the rendered `offsetWidth` (what a browser
 	// reports) and the computed CSS `width` (the only width statement available where nothing
 	// laid the table out). `pickColWidthBasis` decides which one STEP 3 runs on.
-	let firstRowCells = ctx.table.querySelectorAll('tr:first-child th')
-	if (firstRowCells.length === 0) firstRowCells = ctx.table.querySelectorAll('tr:first-child td')
+	const domRows = collectTableRows(ctx.table)
+	const { columns: intColCnt, filled: arrRowFilled } = measureGridColumns(
+		domRows.map(({ row }) =>
+			rowCells(row).map((cell) => ({
+				colspan: Number(cell.getAttribute('colspan')),
+				rowspan: Number(cell.getAttribute('rowspan')),
+			}))
+		)
+	)
+	// A table with no rows — or only empty ones — has nothing to convert. Say so here: the failure
+	// used to surface far downstream as `Reduce of empty array with no initial value` out of the
+	// auto-pager, or as `addTable: Array expected!`, neither of which names the table.
+	const srcRow = domRows.find(({ row }) => rowCells(row).length > 0)
+	if (!srcRow) {
+		throw new Error('tableToSlides: the table has no cells to convert - expected at least one <tr> with a <td>/<th>.')
+	}
+
+	// Per grid column, the width-source cell it came from and that cell's colspan. Built here so
+	// STEP 3 can read a column's overrides off the *right* cell: with a colspan in play, column
+	// index and cell index part ways, and indexing the row by column silently applied one cell's
+	// `data-pptx-width` to the next column along (upstream gitbrent/PptxGenJS#1244).
+	const arrColSrc: Array<{ cell: HTMLTableCellElement; span: number }> = []
 	const arrCellSpans: number[] = []
-	firstRowCells.forEach((cellEle: Element) => {
-		const cell = cellEle as HTMLTableCellElement
+	rowCells(srcRow.row).forEach((cell) => {
 		const offsetW = Number(cell.offsetWidth)
 		const measured = isFinite(offsetW) ? offsetW : 0
 		arrTabColCssW.push(ctx.getComputedStyle(cell).getPropertyValue('width'))
-		if (cell.getAttribute('colspan')) {
-			// Guesstimate (divide evenly) col widths
-			// NOTE: both j$query and vanilla selectors return {0} when table is not visible)
-			const span = Number(cell.getAttribute('colspan'))
-			arrCellSpans.push(span)
-			for (let idxc = 0; idxc < span; idxc++) {
-				arrTabColW.push(Math.round(measured / span))
-			}
-		} else {
-			arrCellSpans.push(1)
-			arrTabColW.push(measured)
+		// Guesstimate (divide evenly) col widths across a spanned cell.
+		// NOTE: both j$query and vanilla selectors return {0} when table is not visible)
+		const span = gridSpan(cell.getAttribute('colspan'))
+		arrCellSpans.push(span)
+		for (let idxc = 0; idxc < span; idxc++) {
+			arrTabColW.push(Math.round(measured / span))
+			arrColSrc.push({ cell, span })
 		}
 	})
 
@@ -502,7 +671,10 @@ export function genTableToSlides(
 		})
 	}
 
-	const arrBasisColW = pickColWidthBasis(arrTabColW, arrCssColW)
+	// The width-source row can be narrower than the grid (one spanning header over a wider body),
+	// so widen the basis to the full grid before the proportional calc — that way the calc still
+	// divides the slide across *every* column instead of overflowing it by the missing ones.
+	const arrBasisColW = extendColBasis(pickColWidthBasis(arrTabColW, arrCssColW), intColCnt)
 	arrBasisColW.forEach((colW) => {
 		intTabW += colW
 	})
@@ -510,9 +682,12 @@ export function genTableToSlides(
 	// STEP 3: Calc/Set column widths by using same column width percent from HTML table
 	arrBasisColW.forEach((colW, idxW) => {
 		const intCalcWidth = Number(((Number(emuSlideTabW) * ((colW / intTabW) * 100)) / 100 / EMU_PER_INCH).toFixed(2))
-		const headCell = ctx.table.querySelector(`thead tr:first-child th:nth-child(${idxW + 1})`)
-		const intSetWidth = headCell ? Number(headCell.getAttribute('data-pptx-width')) : 0
-		const intMinWidth = headCell ? Number(headCell.getAttribute('data-pptx-min-width')) : 0
+		// A `data-pptx-width` on a spanning cell states that *cell's* width, so it divides across
+		// the columns the cell covers — exactly as its `offsetWidth` and its CSS width do above.
+		// A column past the source row's reach has no cell to be overridden by.
+		const src = arrColSrc[idxW]
+		const intSetWidth = src ? Number(src.cell.getAttribute('data-pptx-width')) / src.span : 0
+		const intMinWidth = src ? Number(src.cell.getAttribute('data-pptx-min-width')) / src.span : 0
 		arrColW.push(resolveHtmlColWidth(intCalcWidth, intSetWidth, intMinWidth))
 	})
 	if (opts.verbose) {
@@ -521,105 +696,104 @@ export function genTableToSlides(
 
 	// STEP 4: Iterate over each table element and create data arrays (text and opts)
 	// NOTE: We create 3 arrays instead of one so we can loop over body then show header/footer rows on first and last page
-	const tableParts = ['thead', 'tbody', 'tfoot']
-	tableParts.forEach((part) => {
-		ctx.table.querySelectorAll(`${part} tr`).forEach((row: Element) => {
-			const htmlRow = row as HTMLTableRowElement
-			const arrObjTabCells: TableCell[] = []
-			Array.from(htmlRow.cells).forEach((cell) => {
-				// The computed style is read a dozen times below; resolve it once per cell.
-				const style = ctx.getComputedStyle(cell)
+	domRows.forEach(({ row, part }, idxRow) => {
+		const arrObjTabCells: TableCell[] = []
+		rowCells(row).forEach((cell) => {
+			// The computed style is read a dozen times below; resolve it once per cell.
+			const style = ctx.getComputedStyle(cell)
 
-				// A: Get text/bkgd colors
-				// NOTE: an unparseable or fully transparent background is the default for an
-				// unstyled table; pptx has no "transparent" solid fill, so use white instead.
-				const textColor = cssColorToHex(style.getPropertyValue('color')) ?? '000000'
-				const fillColor = cssColorToHex(style.getPropertyValue('background-color')) ?? 'FFFFFF'
+			// A: Get text/bkgd colors
+			// NOTE: an unparseable or fully transparent background is the default for an
+			// unstyled table; pptx has no "transparent" solid fill, so use white instead.
+			const textColor = cssColorToHex(style.getPropertyValue('color')) ?? '000000'
+			const fillColor = cssColorToHex(style.getPropertyValue('background-color')) ?? 'FFFFFF'
 
-				// B: Create option object
-				const cellOpts: TableCellProps = {
-					bold: !!(
-						style.getPropertyValue('font-weight') === 'bold' || Number(style.getPropertyValue('font-weight')) >= 500
-					),
-					color: textColor,
-					fill: { color: fillColor },
-					fontSize: Number(style.getPropertyValue('font-size').replace(/[a-z]/gi, '')),
-				}
-				const fontFace = ((style.getPropertyValue('font-family') || '').split(',')[0] ?? '')
-					.replace(/"/g, '')
-					.replace('inherit', '')
-					.replace('initial', '')
-				const colspan = Number(cell.getAttribute('colspan')) || undefined
-				const rowspan = Number(cell.getAttribute('rowspan')) || undefined
-				if (fontFace) cellOpts.fontFace = fontFace
-				if (colspan) cellOpts.colspan = colspan
-				if (rowspan) cellOpts.rowspan = rowspan
-
-				if (['left', 'center', 'right', 'start', 'end'].includes(style.getPropertyValue('text-align'))) {
-					const align = style.getPropertyValue('text-align').replace('start', 'left').replace('end', 'right')
-					cellOpts.align =
-						align === 'center' ? 'center' : align === 'left' ? 'left' : align === 'right' ? 'right' : undefined
-				}
-				if (['top', 'middle', 'bottom'].includes(style.getPropertyValue('vertical-align'))) {
-					const valign = style.getPropertyValue('vertical-align')
-					cellOpts.valign =
-						valign === 'top' ? 'top' : valign === 'middle' ? 'middle' : valign === 'bottom' ? 'bottom' : undefined
-				}
-
-				// C: Add padding [margin] (if any)
-				// NOTE: Margins translate: px->pt 1:1 (e.g.: a 20px padded cell looks the same in PPTX as 20pt Text Inset/Padding)
-				if (style.getPropertyValue('padding-left')) {
-					const cellMargin: MarginTuple = [0, 0, 0, 0]
-					const sidesPad = ['padding-top', 'padding-right', 'padding-bottom', 'padding-left']
-					sidesPad.forEach((val, idxs) => {
-						// Anything that is not an absolute px length (a `%` padding, a keyword) has no
-						// meaning as a point inset, so it insets by nothing rather than by its digits.
-						const pad = parseCssPx(style.getPropertyValue(val))
-						cellMargin[idxs] = isFinite(pad) ? Math.round(pad) : 0
-					})
-					cellOpts.margin = cellMargin
-				}
-
-				// D: Add border (if any)
-				if (
-					style.getPropertyValue('border-top-width') ||
-					style.getPropertyValue('border-right-width') ||
-					style.getPropertyValue('border-bottom-width') ||
-					style.getPropertyValue('border-left-width')
-				) {
-					const cellBorder: BorderTuple = [{ type: 'none' }, { type: 'none' }, { type: 'none' }, { type: 'none' }]
-					const sidesBor = ['top', 'right', 'bottom', 'left']
-					sidesBor.forEach((val, idxb) => {
-						cellBorder[idxb] = htmlBorderToProps(
-							style.getPropertyValue('border-' + val + '-width'),
-							style.getPropertyValue('border-' + val + '-color')
-						)
-					})
-					cellOpts.border = cellBorder
-				}
-
-				// LAST: Add cell
-				arrObjTabCells.push({
-					_type: SlideObjectType.tablecell,
-					text: readCellText(cell), // <br> must survive as "\n", so linebreak etc. work later!
-					options: cellOpts,
-				})
-			})
-			switch (part) {
-				case 'thead':
-					arrObjTabHeadRows.push(arrObjTabCells)
-					break
-				case 'tbody':
-					arrObjTabBodyRows.push(arrObjTabCells)
-					break
-				case 'tfoot':
-					arrObjTabFootRows.push(arrObjTabCells)
-					break
-				default:
-					console.log(`table parsing: unexpected table part: ${part}`)
-					break
+			// B: Create option object
+			const cellOpts: TableCellProps = {
+				bold: !!(
+					style.getPropertyValue('font-weight') === 'bold' || Number(style.getPropertyValue('font-weight')) >= 500
+				),
+				color: textColor,
+				fill: { color: fillColor },
+				fontSize: Number(style.getPropertyValue('font-size').replace(/[a-z]/gi, '')),
 			}
+			const fontFace = ((style.getPropertyValue('font-family') || '').split(',')[0] ?? '')
+				.replace(/"/g, '')
+				.replace('inherit', '')
+				.replace('initial', '')
+			// Read through the same `gridSpan` the grid walk used, so what is emitted and what
+			// was measured cannot disagree: a `colspan="-2"` counted as one column above must
+			// not reach the table definition as `-2` and corrupt its own column count.
+			const colspan = gridSpan(cell.getAttribute('colspan'))
+			const rowspan = gridSpan(cell.getAttribute('rowspan'))
+			if (fontFace) cellOpts.fontFace = fontFace
+			if (colspan > 1) cellOpts.colspan = colspan
+			if (rowspan > 1) cellOpts.rowspan = rowspan
+
+			if (['left', 'center', 'right', 'start', 'end'].includes(style.getPropertyValue('text-align'))) {
+				const align = style.getPropertyValue('text-align').replace('start', 'left').replace('end', 'right')
+				cellOpts.align =
+					align === 'center' ? 'center' : align === 'left' ? 'left' : align === 'right' ? 'right' : undefined
+			}
+			if (['top', 'middle', 'bottom'].includes(style.getPropertyValue('vertical-align'))) {
+				const valign = style.getPropertyValue('vertical-align')
+				cellOpts.valign =
+					valign === 'top' ? 'top' : valign === 'middle' ? 'middle' : valign === 'bottom' ? 'bottom' : undefined
+			}
+
+			// C: Add padding [margin] (if any)
+			// NOTE: Margins translate: px->pt 1:1 (e.g.: a 20px padded cell looks the same in PPTX as 20pt Text Inset/Padding)
+			if (style.getPropertyValue('padding-left')) {
+				const cellMargin: MarginTuple = [0, 0, 0, 0]
+				const sidesPad = ['padding-top', 'padding-right', 'padding-bottom', 'padding-left']
+				sidesPad.forEach((val, idxs) => {
+					// Anything that is not an absolute px length (a `%` padding, a keyword) has no
+					// meaning as a point inset, so it insets by nothing rather than by its digits.
+					const pad = parseCssPx(style.getPropertyValue(val))
+					cellMargin[idxs] = isFinite(pad) ? Math.round(pad) : 0
+				})
+				cellOpts.margin = cellMargin
+			}
+
+			// D: Add border (if any)
+			if (
+				style.getPropertyValue('border-top-width') ||
+				style.getPropertyValue('border-right-width') ||
+				style.getPropertyValue('border-bottom-width') ||
+				style.getPropertyValue('border-left-width')
+			) {
+				const cellBorder: BorderTuple = [{ type: 'none' }, { type: 'none' }, { type: 'none' }, { type: 'none' }]
+				const sidesBor = ['top', 'right', 'bottom', 'left']
+				sidesBor.forEach((val, idxb) => {
+					cellBorder[idxb] = htmlBorderToProps(
+						style.getPropertyValue('border-' + val + '-width'),
+						style.getPropertyValue('border-' + val + '-color')
+					)
+				})
+				cellOpts.border = cellBorder
+			}
+
+			// LAST: Add cell
+			arrObjTabCells.push({
+				_type: SlideObjectType.tablecell,
+				text: readCellText(cell), // <br> must survive as "\n", so linebreak etc. work later!
+				options: cellOpts,
+			})
 		})
+
+		// Normalize a ragged row up to the grid width. HTML tolerates a short row and just leaves
+		// the tail of the grid empty; pptx does not — `<a:tblGrid>` declares the column count and a
+		// row with fewer `<a:tc>` is a malformed table PowerPoint has to repair. The missing cells
+		// are blank rather than a copy of a neighbour: the source table never stated them, so there
+		// is nothing to carry over. Columns held by a `rowspan` from above are already counted as
+		// filled — the table emitter synthesizes those merge cells itself.
+		for (let idxPad = arrRowFilled[idxRow] ?? 0; idxPad < intColCnt; idxPad++) {
+			arrObjTabCells.push({ _type: SlideObjectType.tablecell, text: '', options: {} })
+		}
+
+		if (part === 'thead') arrObjTabHeadRows.push(arrObjTabCells)
+		else if (part === 'tfoot') arrObjTabFootRows.push(arrObjTabCells)
+		else arrObjTabBodyRows.push(arrObjTabCells)
 	})
 
 	// STEP 5: Break table into Slides as needed

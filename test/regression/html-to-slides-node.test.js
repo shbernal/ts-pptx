@@ -42,6 +42,22 @@ function gridColWidths(xml) {
 	return [...xml.matchAll(/<a:gridCol w="(\d+)"\/>/g)].map((m) => Number(m[1]))
 }
 
+/** Cell count per emitted row — must equal the `<a:gridCol>` count for a well-formed table. */
+function cellsPerRow(xml) {
+	return [...xml.matchAll(/<a:tr\b[\s\S]*?<\/a:tr>/g)].map((row) => [...row[0].matchAll(/<a:tc\b/g)].length)
+}
+
+/** Assert the emitted table is a rectangle: every row carries exactly one cell per grid column. */
+function assertRectangular(xml) {
+	const cols = gridColWidths(xml).length
+	const rows = cellsPerRow(xml)
+	assert(cols > 0, `expected a non-empty grid; got: ${xml}`)
+	assert(
+		rows.every((count) => count === cols),
+		`every row must carry ${cols} cells; got ${rows.join(', ')}`
+	)
+}
+
 function slideCount(zip) {
 	return listEntries(zip).filter((name) => /^ppt\/slides\/slide\d+\.xml$/.test(name)).length
 }
@@ -152,6 +168,207 @@ defineRegressionSuite('HTML table to slides on Node (happy-dom)', [
 			assert(/<a:tc\b[^>]*\browSpan="2"/.test(xml), 'rowspan must emit rowSpan="2"')
 			// A colspan of 2 in the width-source row must still yield one column per spanned cell.
 			assertEqual(gridColWidths(xml).length, 3, 'a 2-span header + 1 cell is 3 columns')
+		},
+	},
+	{
+		// upstream gitbrent/PptxGenJS#1244 — the reported defect, reproduced.
+		name: 'data-pptx-width on a spanning header sizes the columns it spans, not the next one along',
+		fn: async () => {
+			const win = windowWith(`
+				<table id="t">
+					<thead><tr><th colspan="2" data-pptx-width="4">Wide</th><th data-pptx-width="2">C</th></tr></thead>
+					<tbody><tr><td>a</td><td>b</td><td>c</td></tr></tbody>
+				</table>`)
+			const { zip } = await build((pptx) => {
+				tableToSlides(pptx, tableOf(win))
+			})
+			const cols = gridColWidths(await readEntry(zip, 'ppt/slides/slide1.xml'))
+			assertEqual(cols.length, 3, 'column count')
+			// The override was indexed by *column* against a row indexed by *cell*, so with a span
+			// in play the two parted ways: column 1 (the second half of the span) took the "C"
+			// header's 2in, and column 2 — past the end of the row — got no override at all,
+			// emitting [4, 2, calc]. A spanning cell's width divides across the columns it covers,
+			// the same way its offsetWidth and its CSS width already do.
+			assertEqual(cols[0], 2 * ONE_IN_EMU, 'first spanned column takes half of the 4in span')
+			assertEqual(cols[1], 2 * ONE_IN_EMU, 'second spanned column takes the other half')
+			assertEqual(cols[2], 2 * ONE_IN_EMU, 'the unspanned column keeps its own 2in override')
+		},
+	},
+	{
+		name: 'data-pptx-min-width on a spanning header floors each column it spans',
+		fn: async () => {
+			const win = windowWith(
+				'<table id="t"><thead><tr><th colspan="2" data-pptx-min-width="8">Wide</th><th>C</th></tr></thead></table>'
+			)
+			const { zip } = await build((pptx) => {
+				tableToSlides(pptx, tableOf(win))
+			})
+			const cols = gridColWidths(await readEntry(zip, 'ppt/slides/slide1.xml'))
+			assertEqual(cols[0], 4 * ONE_IN_EMU, 'the 8in floor divides across the 2 spanned columns')
+			assertEqual(cols[1], 4 * ONE_IN_EMU, 'both halves get the same floor')
+			assert(cols[2] < 4 * ONE_IN_EMU, `the unspanned column must not inherit the floor; got ${cols[2]}`)
+		},
+	},
+	{
+		name: 'data-pptx-width is honored on a first row of <td> with no thead',
+		fn: async () => {
+			// The override used to be read via a `thead tr:first-child th` query while the widths
+			// themselves came from the first row *anywhere*. A table with no thead therefore
+			// measured one row and took its overrides from another that did not exist.
+			const win = windowWith(
+				'<table id="t"><tbody><tr><td data-pptx-width="2">a</td><td data-pptx-width="4">b</td></tr></tbody></table>'
+			)
+			const { zip } = await build((pptx) => {
+				tableToSlides(pptx, tableOf(win))
+			})
+			const cols = gridColWidths(await readEntry(zip, 'ppt/slides/slide1.xml'))
+			assertEqual(cols[0], 2 * ONE_IN_EMU, 'first column honors data-pptx-width')
+			assertEqual(cols[1], 4 * ONE_IN_EMU, 'second column honors data-pptx-width')
+		},
+	},
+	{
+		name: 'a <th> row in tfoot does not widen the grid',
+		fn: async () => {
+			// The width source was `tr:first-child th`, a *descendant* selector: it matched the
+			// first row of every section at once, so a table with header cells in both thead and
+			// tfoot derived four columns for a two-column table. colW then failed addTable's
+			// count check and was dropped wholesale, taking any override with it.
+			const win = windowWith(`
+				<table id="t">
+					<thead><tr><th data-pptx-width="6">A</th><th>B</th></tr></thead>
+					<tbody><tr><td>1</td><td>2</td></tr></tbody>
+					<tfoot><tr><th>F1</th><th>F2</th></tr></tfoot>
+				</table>`)
+			const { zip } = await build((pptx) => {
+				tableToSlides(pptx, tableOf(win))
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const cols = gridColWidths(xml)
+			assertEqual(cols.length, 2, 'the tfoot header row must not add columns')
+			assertEqual(cols[0], 6 * ONE_IN_EMU, 'the surviving colW must still carry the override')
+			assertRectangular(xml)
+		},
+	},
+	{
+		// upstream gitbrent/PptxGenJS#1005 — the reported "Array expected" throw, reproduced.
+		name: 'rows attached straight to the table convert instead of throwing',
+		fn: async () => {
+			// The HTML *parser* inserts a <tbody>; the DOM API does not. A table assembled with
+			// createElement/appendChild therefore has rows in no section at all, and the
+			// `thead tr` / `tbody tr` / `tfoot tr` queries silently dropped every one of them —
+			// so an entirely reasonable table reached addTable with zero rows and threw
+			// "addTable: Array expected!".
+			const win = new Window()
+			const table = win.document.createElement('table')
+			const row = win.document.createElement('tr')
+			for (const text of ['a', 'b']) {
+				const cell = win.document.createElement('td')
+				cell.textContent = text
+				row.appendChild(cell)
+			}
+			table.appendChild(row)
+			win.document.body.appendChild(table)
+			const { zip } = await build((pptx) => {
+				tableToSlides(pptx, table)
+			})
+			const rows = cellTexts(await readEntry(zip, 'ppt/slides/slide1.xml'))
+			assertEqual(JSON.stringify(rows), JSON.stringify([['a', 'b']]), 'a section-less row is still a row')
+		},
+	},
+	{
+		name: 'a table with no cells names itself instead of failing deep in the auto-pager',
+		fn: async () => {
+			for (const html of ['<table id="t"></table>', '<table id="t"><tbody><tr></tr></tbody></table>']) {
+				const win = windowWith(html)
+				let thrown
+				try {
+					await build((pptx) => {
+						tableToSlides(pptx, tableOf(win))
+					})
+				} catch (err) {
+					thrown = err
+				}
+				assert(thrown, `an empty table must not silently emit a slide; html: ${html}`)
+				// It used to surface as "Reduce of empty array with no initial value" out of the
+				// auto-pager's colW sum — a message naming nothing the caller wrote.
+				assert(
+					/tableToSlides:/.test(thrown.message) && /no cells/.test(thrown.message),
+					`the error must name the table and the reason; got: ${thrown.message}`
+				)
+			}
+		},
+	},
+	{
+		name: 'ragged rows are padded to a rectangular grid',
+		fn: async () => {
+			// HTML tolerates a short row and leaves the tail of the grid empty; pptx does not —
+			// <a:tblGrid> declares the column count and a row with fewer <a:tc> is a table
+			// PowerPoint has to repair. This used to emit rows of 3, 1 and 4 cells over a
+			// 3-column grid.
+			const win = windowWith(`
+				<table id="t">
+					<thead><tr><th>A</th><th>B</th><th>C</th></tr></thead>
+					<tbody><tr><td>1</td></tr><tr><td>1</td><td>2</td><td>3</td><td>4</td></tr></tbody>
+				</table>`)
+			const { zip } = await build((pptx) => {
+				tableToSlides(pptx, tableOf(win))
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assertEqual(gridColWidths(xml).length, 4, 'the widest row sets the grid width')
+			assertRectangular(xml)
+			// Padding is blank and appended — no authored cell may be moved or dropped.
+			assertEqual(
+				JSON.stringify(cellTexts(xml)),
+				JSON.stringify([
+					['A', 'B', 'C', ''],
+					['1', '', '', ''],
+					['1', '2', '3', '4'],
+				]),
+				'authored text must survive padding unchanged'
+			)
+		},
+	},
+	{
+		name: 'a rowspan continuation is not mistaken for a missing cell',
+		fn: async () => {
+			// The row below a rowspan states one fewer cell, but it is not ragged: the emitter
+			// synthesizes the vMerge continuation itself. Padding it would produce a 3-cell row
+			// in a 2-column grid.
+			const win = windowWith(
+				'<table id="t"><tbody><tr><td rowspan="2">Tall</td><td>b</td></tr><tr><td>d</td></tr></tbody></table>'
+			)
+			const { zip } = await build((pptx) => {
+				tableToSlides(pptx, tableOf(win))
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assertEqual(gridColWidths(xml).length, 2, 'column count')
+			assertRectangular(xml)
+			assert(/<a:tc\b[^>]*\bvMerge="1"/.test(xml), 'the continuation must be a vMerge, not a padded blank')
+			assertEqual(
+				JSON.stringify(cellTexts(xml)),
+				JSON.stringify([
+					['Tall', 'b'],
+					['', 'd'],
+				]),
+				'no blank may be appended after "d"'
+			)
+		},
+	},
+	{
+		name: 'a nested table stays inside its cell',
+		fn: async () => {
+			// The old `tbody tr` descendant query reached through a cell into the rows of a table
+			// nested inside it, folding them into the outer table as extra rows.
+			const win = windowWith(`
+				<table id="t"><tbody>
+					<tr><td>outer</td><td><table><tbody><tr><td>inner</td></tr></tbody></table></td></tr>
+				</tbody></table>`)
+			const { zip } = await build((pptx) => {
+				tableToSlides(pptx, tableOf(win))
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assertEqual(cellsPerRow(xml).length, 1, 'the nested row must not become an outer row')
+			assertRectangular(xml)
 		},
 	},
 	{

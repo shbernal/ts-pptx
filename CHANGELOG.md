@@ -135,6 +135,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `getComputedStyle(cell).getPropertyValue('transparent')` tested a CSS *keyword*
   as if it were a property, so it returned `''` for every cell and never fired.
 
+- **`tableToSlides` dropped every row that was not inside a `<thead>`/`<tbody>`/
+  `<tfoot>`, then threw `addTable: Array expected!`.** Rows were collected with
+  three descendant queries (`thead tr`, `tbody tr`, `tfoot tr`), which see only
+  sectioned rows. `<table><tr>…` is valid authored markup, and a table assembled
+  with `createElement`/`appendChild` has no `<tbody>` at all — the HTML *parser*
+  inserts one, the DOM API does not. Such a table lost all of its rows and
+  reached `addTable` empty, which is the reported failure in upstream
+  gitbrent/PptxGenJS#1005. Rows now come from the table's own row list, and a row
+  in no section is treated as a body row. The same change stops a table nested
+  inside a cell from having its rows folded into the outer table — the descendant
+  queries matched those too (as does happy-dom's non-conformant `rows`, so each
+  row's ownership is checked rather than assumed).
+
+- **`tableToSlides` applied `data-pptx-width` to the wrong column when a header
+  cell spanned.** The width overrides were looked up by *column* index
+  (`thead tr:first-child th:nth-child(n)`) against a row indexed by *cell* — the
+  two part ways the moment a `colspan` is involved. A 2-span header with
+  `data-pptx-width="4"` followed by a header with `data-pptx-width="2"` sized the
+  span's second column with the *next* header's 2in and left the last column with
+  no override at all. This is upstream gitbrent/PptxGenJS#1244. A spanning cell's
+  `data-pptx-width` / `data-pptx-min-width` now divides across the columns it
+  covers, matching what its `offsetWidth` and its computed CSS width already did.
+
+  Two related mismatches went with it. The overrides were read from `<thead>`
+  `<th>` cells while the widths themselves came from the first row *anywhere*, so
+  a table with no `<thead>` measured one row and took overrides from a row that
+  did not exist — both now come from the same cells. And the width-source query
+  was a descendant selector, so a table with `<th>` in both `<thead>` and
+  `<tfoot>` derived twice as many columns as it had; `addTable` then rejected the
+  column count and discarded `colW` wholesale, taking every override with it.
+
+- **`tableToSlides` emitted ragged tables, and crashed on an empty one.** An HTML
+  row states only the cells it starts, so a short row is ordinary markup; pptx has
+  no such model — `<a:tblGrid>` declares a column count and a row carrying fewer
+  `<a:tc>` is a table PowerPoint has to repair. Rows are now measured against the
+  grid the table actually occupies (`colspan` widening a row, a `rowspan` from
+  above filling one it never mentions) and padded with blank cells to the width of
+  the widest row. A table with no cells at all no longer fails deep in the
+  auto-pager with `Reduce of empty array with no initial value`; it throws a
+  `tableToSlides:` error naming what is missing.
+
 - **A line's `cap`, and a stroke's `pattern`/`image` paint, were dropped before
   reaching the emitter.** `ShapeLineProps extends ShapeFillProps`, so a stroke
   accepts `gradient`/`pattern`/`image` as well as a solid `color`, plus its own

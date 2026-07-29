@@ -21,8 +21,9 @@
  * browser lays a table out, so `offsetWidth` is `0` there and the conversion degrades: it uses
  * the computed CSS `width`s when the stylesheet states them for every column in one unit, and
  * an equal split when it does not. To pin widths regardless, put `data-pptx-width` (exact
- * inches) or `data-pptx-min-width` (a floor) on the `<thead>` header cells — those win outright
- * on every path.
+ * inches) or `data-pptx-min-width` (a floor) on the cells of the table's first row — those win
+ * outright on every path. On a cell that spans, the value is the *cell's* width and divides
+ * across the columns it covers, the same way a measured or CSS width does.
  *
  * Everything else — cell text (with `<br>` preserved as a line break), colspan/rowspan,
  * computed colors, weight, alignment, padding, borders, and auto-paging across as many slides

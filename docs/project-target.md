@@ -78,7 +78,9 @@ supported.
   (`test/regression/html-table-col-width.test.js`,
   `html-table-border-width.test.js`); the portability work added
   `pickColWidthBasis`, `parseCssWidthBasis`, `parseCssPx`, `cssColorToHex` and
-  `readCellText` (`test/regression/html-table-portable-basis.test.js`). Follow
+  `readCellText` (`test/regression/html-table-portable-basis.test.js`), and the
+  HTML-vs-pptx grid reconciliation added `measureGridColumns` / `extendColBasis`
+  (`test/regression/html-table-grid.test.js`). Follow
   it — those helpers are why the flow could be made portable at all. A
   full-fidelity *layout* repro still needs a headless browser
   (Playwright/Puppeteer), which is not a project dependency; a DOM-only repro no
