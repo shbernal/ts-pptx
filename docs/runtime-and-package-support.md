@@ -45,7 +45,8 @@ The package publishes:
 - `dist/html.js` and `dist/html.d.ts` for converting an existing HTML `<table>`
   into slides. One artifact serves both runtimes — there is deliberately no
   `browser`/`node` condition split, because the entry works with whatever DOM
-  the caller has (see [HTML tables → slides](../README.md#html-tables--slides)).
+  the caller has (see
+  [HTML tables → slides](https://github.com/shbernal/ts-pptx/blob/master/README.md#html-tables--slides)).
 - `dist/node.js` and `dist/node.d.ts` for explicit Node.js consumers.
 - `dist/browser.js` and `dist/browser.d.ts` for explicit browser consumers.
 - package `exports` entries for `.`, `./inspect`, `./measure`, `./read`,

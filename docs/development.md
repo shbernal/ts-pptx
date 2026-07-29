@@ -284,4 +284,5 @@ pnpm --dir demos/node run demo-stream   # streams a deck over HTTP
 pnpm --dir demos/vite-demo run dev      # the same review deck, built in a browser
 ```
 
-See [demos/README.md](../demos/README.md) for what each one is for.
+See [demos/README.md](https://github.com/shbernal/ts-pptx/blob/master/demos/README.md)
+for what each one is for.
