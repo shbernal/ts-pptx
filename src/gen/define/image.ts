@@ -17,6 +17,7 @@ import { imageContentType, imageExtensionForSource } from '../../media/content-t
 import { getImageSizeFromBase64 } from '../../media/image-size.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { nextObjectNameIdx } from './object-name.js'
+import { InvalidOptionError } from '../../errors.js'
 
 /** DPI PowerPoint assumes when sizing an inserted raster image (natural pixels / 96 == inches) */
 const IMAGE_NATURAL_DPI = 96
@@ -293,7 +294,10 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	// STEP 6: Hyperlink support
 	if (typeof objHyperlink === 'object') {
 		if (!objHyperlink.url && !objHyperlink.slide)
-			throw new Error('ERROR: `hyperlink` option requires either: `url` or `slide`')
+			throw new InvalidOptionError(
+				'hyperlink/missing-target',
+				'ERROR: `hyperlink` option requires either: `url` or `slide`'
+			)
 		else {
 			imageRelId++
 

@@ -41,6 +41,7 @@ import { makeBubblePlot } from './plot-bubble.js'
 import { makePiePlot } from './plot-pie.js'
 import { isVolumeStockStyle, makeStockPlot } from './plot-stock.js'
 import { makeSurfacePlot, makeSurfaceScene } from './plot-surface.js'
+import { InvalidOptionError } from '../../errors.js'
 
 /**
  * Build the chartSpace/chart header: chartSpace open, title (or autoTitleDeleted),
@@ -150,7 +151,10 @@ function makeChartAxesXml(
 	if (rel.opts._type !== ChartType.pie && rel.opts._type !== ChartType.doughnut) {
 		// Param check
 		if (rel.opts.valAxes && rel.opts.valAxes.length > 1 && !usesSecondaryValAxis) {
-			throw new Error('Secondary axis must be used by one of the multiple charts')
+			throw new InvalidOptionError(
+				'chart/secondary-axis-unused',
+				'Secondary axis must be used by one of the multiple charts'
+			)
 		}
 
 		// Resolve the effective `_type` for a combo category axis so scatter/bubble
@@ -175,7 +179,10 @@ function makeChartAxesXml(
 
 		if (rel.opts.catAxes) {
 			if (!rel.opts.valAxes || rel.opts.valAxes.length !== rel.opts.catAxes.length) {
-				throw new Error('There must be the same number of value and category axes.')
+				throw new InvalidOptionError(
+					'chart/axis-count-mismatch',
+					'There must be the same number of value and category axes.'
+				)
 			}
 			strXml += makeCatAxis(
 				{ ...rel.opts, ...rel.opts.catAxes[0], ...comboCatAxisType(false) },

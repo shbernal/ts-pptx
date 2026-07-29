@@ -14,6 +14,7 @@ import { EMU_PER_INCH, FIXED_PCT_PER_PERCENT } from '../../units.js'
 import { encodeXmlAttrValue, validateObjectName } from '../../gen-utils.js'
 import { getSmartParseNumber } from '../../units-internal.js'
 import { nextObjectNameIdx } from './object-name.js'
+import { InvalidOptionError } from '../../errors.js'
 
 /**
  * Adds a connector object to a slide definition.
@@ -25,14 +26,18 @@ import { nextObjectNameIdx } from './object-name.js'
  */
 export function addConnectorDefinition(target: PresSlideInternal, opts: ConnectorProps): void {
 	if (!opts || [opts.x1, opts.y1, opts.x2, opts.y2].some((v) => typeof v === 'undefined')) {
-		throw new Error(
+		throw new InvalidOptionError(
+			'connector/missing-endpoints',
 			'addConnector requires { x1, y1, x2, y2 }. Example: `slide.addConnector({ x1:1, y1:1, x2:4, y2:3 })`'
 		)
 	}
 
 	const type = opts.type || 'straight'
 	if (type !== 'straight' && type !== 'elbow' && type !== 'curved') {
-		throw new Error(`Invalid connector type "${String(type)}". Use 'straight', 'elbow', or 'curved'.`)
+		throw new InvalidOptionError(
+			'connector/invalid-type',
+			`Invalid connector type "${String(type)}". Use 'straight', 'elbow', or 'curved'.`
+		)
 	}
 
 	// Resolve the preset variant + adjust guides. `bentConnector{3,4,5}` / `curvedConnector{3,4,5}`
@@ -50,10 +55,14 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 		}
 	} else {
 		if (bends !== 1 && bends !== 2 && bends !== 3) {
-			throw new Error(`addConnector \`bends\` must be 1, 2, or 3 (got ${String(bends)}).`)
+			throw new InvalidOptionError(
+				'connector/invalid-bends',
+				`addConnector \`bends\` must be 1, 2, or 3 (got ${String(bends)}).`
+			)
 		}
 		if (opts.adj !== undefined && adjInput.length !== bends) {
-			throw new Error(
+			throw new InvalidOptionError(
+				'connector/adj-count-mismatch',
 				`addConnector \`adj\` must supply ${bends} value(s) to match \`bends\`=${bends} (got ${adjInput.length}).`
 			)
 		}
@@ -62,7 +71,8 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 		// out-of-range, which legitimately places a jog beyond the endpoint box.
 		connectorAdj = adjInput.map((pct, i) => {
 			if (typeof pct !== 'number' || !Number.isFinite(pct)) {
-				throw new Error(
+				throw new InvalidOptionError(
+					'connector/adj-non-finite',
 					`addConnector \`adj\` value #${i + 1} must be a finite number (percent 0–100); got ${String(pct)}.`
 				)
 			}
@@ -87,11 +97,17 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 	): { name: string; idx: number } | undefined => {
 		if (shapeName === undefined) return undefined
 		if (typeof shapeName !== 'string' || shapeName.trim().length === 0) {
-			throw new Error(`addConnector \`${end}\` must be a non-empty shape objectName.`)
+			throw new InvalidOptionError(
+				'connector/invalid-binding-name',
+				`addConnector \`${end}\` must be a non-empty shape objectName.`
+			)
 		}
 		const site = idx ?? 0
 		if (!Number.isInteger(site) || site < 0) {
-			throw new Error(`addConnector \`${end}Idx\` must be a non-negative integer (got ${String(site)}).`)
+			throw new InvalidOptionError(
+				'connector/invalid-connection-site',
+				`addConnector \`${end}Idx\` must be a non-negative integer (got ${String(site)}).`
+			)
 		}
 		// Stored as the caller spelled it: `resolveObjectNameToId` escapes its own lookup key at
 		// serialize time (see its docblock), so escaping here too would look up `Q&amp;amp;A`.

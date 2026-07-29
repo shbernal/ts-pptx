@@ -18,6 +18,7 @@ import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../../gen-utils.js'
 import { nextObjectNameIdx } from './object-name.js'
 import { registerPreviewImage } from './preview-image.js'
+import { InvalidOptionError } from '../../errors.js'
 
 const OD = 'application/vnd.openxmlformats-officedocument.'
 const OFFICE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
@@ -122,7 +123,7 @@ export function addOleObjectDefinition(target: PresSlideInternal, opt: OleObject
 
 	// STEP 1: REALITY-CHECK. The payload is the whole point; there is no meaningful default.
 	if (!strPath && !strData) {
-		throw new Error('addOleObject() error: either `data` or `path` are required!')
+		throw new InvalidOptionError('ole/missing-source', 'addOleObject() error: either `data` or `path` are required!')
 	}
 
 	// STEP 2: Resolve the payload format — part extension, content type, rel type, progId.

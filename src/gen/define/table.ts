@@ -30,6 +30,7 @@ import { getSmartParseNumber } from '../../units-internal.js'
 import { EMU_PER_INCH } from '../../units.js'
 import { createHyperlinkRels } from './hyperlinks.js'
 import { registerImageFillMedia } from './image.js'
+import { InvalidOptionError } from '../../errors.js'
 
 type BorderTuple = [BorderProps, BorderProps, BorderProps, BorderProps]
 
@@ -243,12 +244,16 @@ export function addTableDefinition(
 	{
 		// A: check for empty
 		if (tableRows === null || tableRows.length === 0 || !Array.isArray(tableRows)) {
-			throw new Error("addTable: Array expected! EX: 'slide.addTable( [rows], {options} );'")
+			throw new InvalidOptionError(
+				'table/rows-not-an-array',
+				"addTable: Array expected! EX: 'slide.addTable( [rows], {options} );'"
+			)
 		}
 
 		// B: check for non-well-formatted array (ex: rows=['a','b'] instead of [['a','b']])
 		if (!tableRows[0] || !Array.isArray(tableRows[0])) {
-			throw new Error(
+			throw new InvalidOptionError(
+				'table/rows-not-nested',
 				"addTable: 'rows' should be an array of cells! EX: 'slide.addTable( [ ['A'], ['B'], {text:'C',options:{align:'center'}} ] );'"
 			)
 		}

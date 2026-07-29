@@ -30,6 +30,7 @@ import { inch2Emu } from '../../units-internal.js'
 import { warn } from '../../diagnostics.js'
 import { EMU_PER_INCH } from '../../units.js'
 import { getSlidesForTableRows } from './autopage.js'
+import { InvalidOptionError } from '../../errors.js'
 
 type MarginTuple = [number, number, number, number]
 type BorderTuple = [BorderProps, BorderProps, BorderProps, BorderProps]
@@ -104,14 +105,16 @@ function resolveDomContext(target: TableToSlidesElement | string, options: Table
 
 	const doc = options.document ?? (globalThis as { document?: TableToSlidesDocument }).document
 	if (!doc) {
-		throw new Error(
+		throw new InvalidOptionError(
+			'html/no-document',
 			'tableToSlides: no DOM available to resolve the table id "' +
 				target +
 				'" — pass the <table> element itself, or supply a document via `options.document`.'
 		)
 	}
 	const found = doc.getElementById(target)
-	if (!found) throw new Error('tableToSlides: Table ID "' + target + '" does not exist!')
+	if (!found)
+		throw new InvalidOptionError('html/table-not-found', 'tableToSlides: Table ID "' + target + '" does not exist!')
 	const table = asElement(found)
 	return { table, getComputedStyle: resolveStyleReader(table.ownerDocument) }
 }
@@ -637,7 +640,10 @@ export function genTableToSlides(
 	// auto-pager, or as `addTable: Array expected!`, neither of which names the table.
 	const srcRow = domRows.find(({ row }) => rowCells(row).length > 0)
 	if (!srcRow) {
-		throw new Error('tableToSlides: the table has no cells to convert - expected at least one <tr> with a <td>/<th>.')
+		throw new InvalidOptionError(
+			'html/table-has-no-cells',
+			'tableToSlides: the table has no cells to convert - expected at least one <tr> with a <td>/<th>.'
+		)
 	}
 
 	// Per grid column, the width-source cell it came from and that cell's colspan. Built here so

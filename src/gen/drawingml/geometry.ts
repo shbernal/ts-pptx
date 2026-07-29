@@ -12,6 +12,7 @@ import { convertArcAngle, convertRotationDegrees, getSmartParseNumber } from '..
 import { EMU_PER_INCH, PERCENT_SCALE } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { warn } from '../../diagnostics.js'
+import { InvalidOptionError } from '../../errors.js'
 
 /**
  * Several `<a:custGeom>` children are emitted as `<a:avLst />` — with a space before the
@@ -74,7 +75,8 @@ export function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: 
 	// an unknown preset becomes an invalid `prst` value that makes PowerPoint show
 	// the "needs repair" dialog and drop the shape. Fail loudly instead.
 	if (!VALID_SHAPE_PRESETS.has(shapeName)) {
-		throw new Error(
+		throw new InvalidOptionError(
+			'shape/unknown-preset',
 			`Invalid shape "${String(shapeName)}"! Use a value from \`ShapeType.*\` (e.g. \`ShapeType.rect\`). PowerPoint can't render unknown preset geometries and will drop the shape during repair.`
 		)
 	}

@@ -6,6 +6,7 @@ import { IMG_BROKEN } from '../core-enums-internal.js'
 import type { PresSlideInternal, SlideLayoutInternal, SlideRelMedia } from '../types/internal.js'
 import type { RuntimeAdapter } from '../runtime/types.js'
 import { warn } from '../diagnostics.js'
+import { MediaError } from '../errors.js'
 
 type SlideMediaRelWithPath = SlideRelMedia & { path: string }
 
@@ -76,7 +77,9 @@ export function encodeSlideMediaRels(
 						// Default: fail-fast with an actionable error that names the failing asset and
 						// chains the original cause (the raw fs/network error alone does not say which
 						// media path broke). Pass `onMediaError: 'placeholder'` to degrade gracefully.
-						throw new Error(`Failed to load media "${rel.path}" during export.`, { cause: ex })
+						throw new MediaError('media/load-failed', `Failed to load media "${rel.path}" during export.`, {
+							cause: ex,
+						})
 					}
 				})()
 			)

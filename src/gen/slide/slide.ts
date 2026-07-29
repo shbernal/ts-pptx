@@ -11,6 +11,7 @@ import { slideTimingToXml } from '../anim/timing.js'
 import { slideTransitionToXml } from '../anim/transition.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { slideObjectRelationsToXml, slideObjectToXml } from './object.js'
+import { InternalError } from '../../errors.js'
 
 /**
  * Generates XML for the slide file (`ppt/slides/slide1.xml`)
@@ -47,7 +48,11 @@ export function makeXmlSlide(slide: PresSlideInternal): string {
  */
 export function makeXmlSlideLayoutRel(layoutNumber: number, slideLayouts: SlideLayoutInternal[]): string {
 	const slideLayout = slideLayouts[layoutNumber - 1]
-	if (!slideLayout) throw new Error(`makeXmlSlideLayoutRel: no slide layout at index ${layoutNumber - 1}`)
+	if (!slideLayout)
+		throw new InternalError(
+			'slide/rel-index-out-of-range',
+			`makeXmlSlideLayoutRel: no slide layout at index ${layoutNumber - 1}`
+		)
 	return slideObjectRelationsToXml(slideLayout, [
 		{
 			target: '../slideMasters/slideMaster1.xml',
@@ -69,7 +74,8 @@ export function makeXmlSlideRel(
 	slideNumber: number
 ): string {
 	const slide = slides[slideNumber - 1]
-	if (!slide) throw new Error(`makeXmlSlideRel: no slide at index ${slideNumber - 1}`)
+	if (!slide)
+		throw new InternalError('slide/rel-index-out-of-range', `makeXmlSlideRel: no slide at index ${slideNumber - 1}`)
 	const defaultRels = [
 		{
 			target: `../slideLayouts/slideLayout${getLayoutIdxForSlide(slides, slideLayouts, slideNumber)}.xml`,

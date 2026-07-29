@@ -152,6 +152,53 @@ export type InvalidOptionErrorCode =
 	| 'geometry/arc-angle-non-finite'
 	// Charts
 	| 'chart/missing-type'
+	| 'chart/secondary-axis-unused'
+	| 'chart/axis-count-mismatch'
+	// Shapes and connectors
+	| 'shape/missing-type'
+	| 'shape/unknown-preset'
+	| 'connector/missing-endpoints'
+	| 'connector/invalid-type'
+	| 'connector/invalid-bends'
+	| 'connector/adj-count-mismatch'
+	| 'connector/adj-non-finite'
+	| 'connector/invalid-binding-name'
+	| 'connector/invalid-connection-site'
+	| 'line/invalid-cap'
+	// Groups
+	| 'group/missing-object-names'
+	| 'group/invalid-object-name'
+	| 'group/duplicate-object-name'
+	| 'group/unresolved-object-name'
+	| 'group/ambiguous-object-name'
+	// Fills
+	| 'gradient/angle-non-finite'
+	| 'gradient/too-few-stops'
+	| 'gradient/stop-position-non-finite'
+	| 'gradient/stop-position-out-of-range'
+	| 'gradient/rotate-with-shape-not-boolean'
+	| 'gradient/scaled-not-boolean'
+	| 'pattern-fill/missing-pattern'
+	// Images
+	| 'image/crop-window-overflows'
+	| 'image/crop-inset-out-of-range'
+	| 'image/crop-insets-exceed-extent'
+	// Media and OLE
+	| 'media/missing-source'
+	| 'media/missing-base64-header'
+	| 'media/cover-missing-base64-header'
+	| 'media/online-missing-link'
+	| 'ole/missing-source'
+	// Tables
+	| 'table/rows-not-an-array'
+	| 'table/rows-not-nested'
+	// Hyperlinks
+	| 'hyperlink/not-an-object'
+	| 'hyperlink/missing-target'
+	// HTML table conversion
+	| 'html/no-document'
+	| 'html/table-not-found'
+	| 'html/table-has-no-cells'
 	// Embedded fonts
 	| 'font/missing-typeface'
 	| 'font/invalid-style-slot'
@@ -174,6 +221,9 @@ export type InvalidOptionErrorCode =
  * nothing wrong — the answer is "not here", not "not like that".
  */
 export type UnsupportedFeatureErrorCode =
+	// Requests with no OOXML expression the library emits
+	| 'gradient/type-unsupported'
+	| 'group/kind-not-groupable'
 	// Optional dependencies that were not installed or did not load
 	| 'math/missing-optional-peer'
 	| 'font/opentype-unavailable'
@@ -194,6 +244,10 @@ export type PackageReadErrorCode = 'zip/not-a-zip-archive' | 'zip/file-read-fail
  * the file, not the deck).
  */
 export type MediaErrorCode =
+	// Shared with the diagnostic surface, and the reason the vocabulary is one registry: the same
+	// load failure warns under `onMediaError: 'placeholder'` and throws under the default
+	// fail-fast policy, so it must not be two different strings.
+	| 'media/load-failed'
 	| 'font/fetch-failed'
 	| 'font/read-failed'
 	| 'media/fetch-failed'
@@ -206,7 +260,7 @@ export type MediaErrorCode =
  * Reaching one is a bug in ts-pptx, not something a consumer can fix by changing their input —
  * which is exactly why it is worth being able to tell apart from the four classes above.
  */
-export type InternalErrorCode = 'layout/default-not-registered'
+export type InternalErrorCode = 'layout/default-not-registered' | 'slide/rel-index-out-of-range'
 
 /** Every condition the library can throw. See {@link TsPptxCode} for the whole vocabulary. */
 export type ErrorCode =

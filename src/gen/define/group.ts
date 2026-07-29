@@ -16,6 +16,7 @@ import { addChartDefinition } from './chart.js'
 import { addImageDefinition } from './image.js'
 import { addShapeDefinition } from './shape.js'
 import { addTextDefinition } from './text.js'
+import { InvalidOptionError, UnsupportedFeatureError } from '../../errors.js'
 
 /**
  * Dispatch a key-tagged child-object descriptor (`{ text }`, `{ image }`, `{ shape }`, …) to the
@@ -208,7 +209,8 @@ function findNameInGroups(objects: SlideObject[], key: string): boolean {
  */
 export function groupObjectsDefinition(target: PresSlideInternal, objectNames: string[], opts: GroupProps): void {
 	if (!Array.isArray(objectNames) || objectNames.length === 0) {
-		throw new Error(
+		throw new InvalidOptionError(
+			'group/missing-object-names',
 			"groupObjects() requires a non-empty array of objectNames. Ex: `slide.groupObjects(['Title', 'Logo'])`"
 		)
 	}
@@ -216,9 +218,16 @@ export function groupObjectsDefinition(target: PresSlideInternal, objectNames: s
 	const requested = new Set<string>()
 	objectNames.forEach((name) => {
 		if (typeof name !== 'string' || name.trim().length === 0) {
-			throw new Error(`groupObjects(): every objectName must be a non-empty string (got ${JSON.stringify(name)}).`)
+			throw new InvalidOptionError(
+				'group/invalid-object-name',
+				`groupObjects(): every objectName must be a non-empty string (got ${JSON.stringify(name)}).`
+			)
 		}
-		if (requested.has(name)) throw new Error(`groupObjects(): objectName "${name}" was named more than once.`)
+		if (requested.has(name))
+			throw new InvalidOptionError(
+				'group/duplicate-object-name',
+				`groupObjects(): objectName "${name}" was named more than once.`
+			)
 		requested.add(name)
 	})
 
@@ -239,16 +248,20 @@ export function groupObjectsDefinition(target: PresSlideInternal, objectNames: s
 			const hint = findNameInGroups(target._slideObjects, key)
 				? 'it is already inside a group (an object can only belong to one group)'
 				: 'no top-level object on this slide has that objectName'
-			throw new Error(`groupObjects(): cannot group "${name}" — ${hint}.`)
+			throw new InvalidOptionError('group/unresolved-object-name', `groupObjects(): cannot group "${name}" — ${hint}.`)
 		}
 		if (ambiguous) {
-			throw new Error(
+			throw new InvalidOptionError(
+				'group/ambiguous-object-name',
 				`groupObjects(): objectName "${name}" is ambiguous — ${matches.length} objects on this slide share it. Give them unique objectNames.`
 			)
 		}
 		if (!GROUPABLE_TYPES.includes(obj._type) || obj.options?.placeholder) {
 			const kind = obj.options?.placeholder ? 'placeholder' : obj._type
-			throw new Error(`groupObjects(): cannot group "${name}" — grouping a ${String(kind)} is not supported yet.`)
+			throw new UnsupportedFeatureError(
+				'group/kind-not-groupable',
+				`groupObjects(): cannot group "${name}" — grouping a ${String(kind)} is not supported yet.`
+			)
 		}
 		members.push(obj)
 	})

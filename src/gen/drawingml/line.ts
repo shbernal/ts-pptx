@@ -8,6 +8,7 @@
 
 import type { BorderProps, LineCap, ShapeLineProps } from '../../core-interfaces.js'
 import { genXmlColorSelection, genXmlGradientFill } from './fill.js'
+import { InvalidOptionError } from '../../errors.js'
 
 /**
  * Resolve a border's line width in points, falling back to `defaultPt` when `width`
@@ -35,7 +36,7 @@ export function createLineCap(lineCap?: LineCap): string {
 		return 'rnd'
 	} else {
 		const neverLineCap: never = lineCap
-		throw new Error(`Invalid line cap: ${String(neverLineCap)}`)
+		throw new InvalidOptionError('line/invalid-cap', `Invalid line cap: ${String(neverLineCap)}`)
 	}
 }
 

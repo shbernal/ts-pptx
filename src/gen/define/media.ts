@@ -11,6 +11,7 @@ import type { MediaProps } from '../../core-interfaces.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../../gen-utils.js'
 import { nextObjectNameIdx } from './object-name.js'
+import { InvalidOptionError } from '../../errors.js'
 
 /**
  * Adds a media object to a slide definition.
@@ -36,15 +37,21 @@ export function addMediaDefinition(target: PresSlideInternal, opt: MediaProps): 
 
 	// STEP 1: REALITY-CHECK
 	if (!strPath && !strData && strType !== 'online') {
-		throw new Error('addMedia() error: either `data` or `path` are required!')
+		throw new InvalidOptionError('media/missing-source', 'addMedia() error: either `data` or `path` are required!')
 	} else if (strData && !strData.toLowerCase().includes('base64,')) {
-		throw new Error("addMedia() error: `data` value lacks a base64 header! Ex: 'video/mpeg;base64,NMP[...]')")
+		throw new InvalidOptionError(
+			'media/missing-base64-header',
+			"addMedia() error: `data` value lacks a base64 header! Ex: 'video/mpeg;base64,NMP[...]')"
+		)
 	} else if (strCover && !strCover.toLowerCase().includes('base64,')) {
-		throw new Error("addMedia() error: `cover` value lacks a base64 header! Ex: 'data:image/png;base64,iV[...]')")
+		throw new InvalidOptionError(
+			'media/cover-missing-base64-header',
+			"addMedia() error: `cover` value lacks a base64 header! Ex: 'data:image/png;base64,iV[...]')"
+		)
 	}
 	// Online Video: requires `link`
 	if (strType === 'online' && !strLink) {
-		throw new Error('addMedia() error: online videos require `link` value')
+		throw new InvalidOptionError('media/online-missing-link', 'addMedia() error: online videos require `link` value')
 	}
 
 	strExtn = opt.extn || (strData ? (strData.split(';')[0] ?? '').split('/')[1] : strPath.split('.').pop()) || 'mp3'

@@ -19,6 +19,7 @@ import type {
 import { FIXED_PCT_PER_PERCENT } from '../../units.js'
 import { convertRotationDegrees, transparencyToAlpha } from '../../units-internal.js'
 import { createColorElement } from './color.js'
+import { InvalidOptionError, UnsupportedFeatureError } from '../../errors.js'
 
 function boolToXml(value: boolean): string {
 	return value ? '1' : '0'
@@ -27,7 +28,7 @@ function boolToXml(value: boolean): string {
 function normalizeGradientAngle(angle: number | undefined): number {
 	const degrees = angle ?? 0
 	if (typeof degrees !== 'number' || !Number.isFinite(degrees))
-		throw new Error('Gradient angle must be a finite number.')
+		throw new InvalidOptionError('gradient/angle-non-finite', 'Gradient angle must be a finite number.')
 	return convertRotationDegrees(((degrees % 360) + 360) % 360)
 }
 
@@ -38,14 +39,22 @@ function gradientStopColorAdjustments(stop: GradientStopProps): string {
 }
 
 function normalizeGradientStops(stops: GradientStopProps[] | undefined): GradientStopProps[] {
-	if (!Array.isArray(stops) || stops.length < 2) throw new Error('Gradient fill requires at least two stops.')
+	if (!Array.isArray(stops) || stops.length < 2)
+		throw new InvalidOptionError('gradient/too-few-stops', 'Gradient fill requires at least two stops.')
 
 	return stops
 		.map((stop) => {
 			if (!stop || typeof stop.position !== 'number' || !Number.isFinite(stop.position)) {
-				throw new Error('Gradient stop position must be a finite number from 0 to 100.')
+				throw new InvalidOptionError(
+					'gradient/stop-position-non-finite',
+					'Gradient stop position must be a finite number from 0 to 100.'
+				)
 			}
-			if (stop.position < 0 || stop.position > 100) throw new Error('Gradient stop position must be from 0 to 100.')
+			if (stop.position < 0 || stop.position > 100)
+				throw new InvalidOptionError(
+					'gradient/stop-position-out-of-range',
+					'Gradient stop position must be from 0 to 100.'
+				)
 			return stop
 		})
 		.sort((a, b) => a.position - b.position)
@@ -58,10 +67,16 @@ function normalizeGradientStops(stops: GradientStopProps[] | undefined): Gradien
  */
 export function genXmlGradientFill(gradient: GradientFillProps | undefined): string {
 	if (!gradient || (gradient.kind !== 'linear' && gradient.kind !== 'radial')) {
-		throw new Error('Gradient fill currently supports only linear and radial gradients.')
+		throw new UnsupportedFeatureError(
+			'gradient/type-unsupported',
+			'Gradient fill currently supports only linear and radial gradients.'
+		)
 	}
 	if (typeof gradient.rotateWithShape !== 'undefined' && typeof gradient.rotateWithShape !== 'boolean') {
-		throw new Error('Gradient rotateWithShape must be a boolean.')
+		throw new InvalidOptionError(
+			'gradient/rotate-with-shape-not-boolean',
+			'Gradient rotateWithShape must be a boolean.'
+		)
 	}
 
 	const stops = normalizeGradientStops(gradient.stops)
@@ -87,7 +102,7 @@ export function genXmlGradientFill(gradient: GradientFillProps | undefined): str
 		strXml += `<a:path path="circle"><a:fillToRect l="${l}" t="${t}" r="${r}" b="${b}"/></a:path>`
 	} else {
 		if (typeof gradient.scaled !== 'undefined' && typeof gradient.scaled !== 'boolean')
-			throw new Error('Gradient scaled must be a boolean.')
+			throw new InvalidOptionError('gradient/scaled-not-boolean', 'Gradient scaled must be a boolean.')
 		const scaledAttr = typeof gradient.scaled === 'boolean' ? ` scaled="${boolToXml(gradient.scaled)}"` : ''
 		strXml += `<a:lin ang="${normalizeGradientAngle(gradient.angle)}"${scaledAttr}/>`
 	}
@@ -102,7 +117,7 @@ export function genXmlGradientFill(gradient: GradientFillProps | undefined): str
  * @returns XML string
  */
 export function genXmlPatternFill(pattern: PatternFillProps | undefined): string {
-	if (!pattern) throw new Error('Pattern fill requires a pattern object.')
+	if (!pattern) throw new InvalidOptionError('pattern-fill/missing-pattern', 'Pattern fill requires a pattern object.')
 	const fgColor = pattern.fgColor ?? '000000'
 	const bgColor = pattern.bgColor ?? 'FFFFFF'
 	return (

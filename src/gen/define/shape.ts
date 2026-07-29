@@ -14,6 +14,7 @@ import { correctShadowOptions } from '../drawingml/effect.js'
 import { nextObjectNameIdx } from './object-name.js'
 import { createHyperlinkRels } from './hyperlinks.js'
 import { registerImageFillMedia } from './image.js'
+import { InvalidOptionError } from '../../errors.js'
 
 /**
  * Map of common friendly shape names users pass as bare strings to their
@@ -51,14 +52,18 @@ export function addShapeDefinition(target: PresSlideInternal, shapeName: SHAPE_N
 
 	// Reality check
 	if (!shapeName)
-		throw new Error('Missing/Invalid shape parameter! Example: `addShape(ShapeType.line, {x:1, y:1, w:1, h:1});`')
+		throw new InvalidOptionError(
+			'shape/missing-type',
+			'Missing/Invalid shape parameter! Example: `addShape(ShapeType.line, {x:1, y:1, w:1, h:1});`'
+		)
 
 	// Reject presets PowerPoint can't parse. An invalid `prst` value (a typo or an
 	// unmapped friendly name) corrupts the package and triggers the repair dialog,
 	// so fail loudly here rather than emit degenerate OOXML. Use `ShapeType.*`
 	// for the canonical names.
 	if (!VALID_SHAPE_PRESETS.has(resolvedShapeName)) {
-		throw new Error(
+		throw new InvalidOptionError(
+			'shape/unknown-preset',
 			`Invalid shape "${String(shapeName)}"! Use a value from \`ShapeType.*\` (e.g. \`ShapeType.rect\`). PowerPoint can't render unknown preset geometries and will drop the shape during repair.`
 		)
 	}
