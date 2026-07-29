@@ -277,7 +277,7 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
     **the covered `<a:tc hMerge="1">` gets a bare `<a:tcPr/>`**, i.e. PowerPoint does
     *not* repeat the fill on covered cells. This library deliberately diverges and does
     copy it (a covered cell is never rendered, and the copy keeps image fills uniform
-    with the solid case) — see the note in `src/gen/slide/object.ts`.
+    with the solid case) — see the note in `src/gen/slide/objects/table.ts`.
   - **D1 tiled picture** — the one cell whose `blipFill` carries
     `dpi="0" rotWithShape="1"` and `<a:srcRect/>`, with
     `<a:tile tx="0" ty="0" sx="100000" sy="100000" flip="xy" algn="tl"/>`. Worth

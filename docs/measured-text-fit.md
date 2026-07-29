@@ -108,12 +108,12 @@ via `RuntimeAdapter.loadFontData` (node `fs` / browser `fetch`).
 ### Integration (`src/measure-fit.ts`)
 
 - A measured-fit pass runs **during async export**, before the `gen/` emitter's sync body
-  build. It extracts paragraphs/runs (mirroring `gen/slide/object.ts` grouping + inheritance),
+  build. It extracts paragraphs/runs (mirroring `gen/slide/objects/` grouping + inheritance),
   computes the inner box from `w`/`h`/insets/margin, then:
   - `'shrink'` → rewrites `fit:'shrink'` to the object form with the computed
     `fontScale`, so `gen/drawingml/text.ts` emits `<a:normAutofit fontScale=…/>`.
   - `'resize'` → rewrites `options.h` (and `options.y` per the resolved vertical
-    anchor) as `"<emu>emu"` strings, so `gen/slide/object.ts` emits the baked `ext.cy`/`off.y`
+    anchor) as `"<emu>emu"` strings, so `gen/slide/objects/text.ts` emits the baked `ext.cy`/`off.y`
     while keeping the `<a:spAutoFit/>` marker. `off.y` shifts by 0 / half / full of
     the height delta for anchor `t` / `ctr` / `b`.
 - The `gen/` emitter consumes pre-computed values only.
@@ -140,7 +140,7 @@ plain-string cells share the table's single `opt` object. `'resize'`/object form
 are ignored for cells (a row already auto-grows ≈ spAutoFit).
 
 A precondition bug was fixed along the way: auto-width tables (`w` without `colW`)
-emitted ~0-EMU `gridCol` widths; `gen/slide/object.ts` now divides the resolved EMU width via
+emitted ~0-EMU `gridCol` widths; `gen/slide/objects/table.ts` now divides the resolved EMU width via
 `resolveTableColWidthsEmu`.
 
 ### Unregistered-font heuristic

@@ -42,8 +42,11 @@ exports and let this repository own the internal OOXML generation details.
   `gen/{drawingml,slide,pres,opc,chart,table,anim}/*` serialize that model to
   OOXML at export time. Chart emission is split per plot family under `gen/chart/`
   (`chart-parts` → `chart-axes` / `plot-*` → `chart-xml`) behind the `makeChartType`
-  dispatch. `src/gen-utils.ts` holds only the cross-cutting helpers that belong to
-  no single part (XML escaping, object names, rel ids).
+  dispatch, and shape emission is split per shape kind under `gen/slide/objects/`
+  behind the `slideObjectToXml` dispatch — `gen/slide/object.ts` keeps only that
+  walk, the group and slide-number branches that consume its shape-id counter, and
+  the slide `.rels`. `src/gen-utils.ts` holds only the cross-cutting helpers that
+  belong to no single part (XML escaping, object names, rel ids).
 - `src/core-interfaces.ts` and `src/core-enums.ts` define the public typed contract.
   `core-interfaces.ts` is a re-export barrel over `src/types/*` (split by domain).
   The generator-internal `*Internal` wire shapes live in `src/types/internal.ts`
@@ -105,12 +108,12 @@ export time. Each module opens with a TSDoc header stating its job; larger files
 | --- | --- | --- |
 | Add text | `gen/define/text.ts` `addTextDefinition` | `gen/drawingml/text-body.ts` `genXmlTextBody` |
 | Add a shape | `gen/define/shape.ts` `addShapeDefinition` | `gen/drawingml/geometry.ts` `genXmlPresetGeom` / `genXmlCustGeom` |
-| Add a connector | `gen/define/connector.ts` `addConnectorDefinition` | `gen/slide/object.ts` `slideObjectToXml` |
-| Add an image | `gen/define/image.ts` `addImageDefinition` | `gen/slide/object.ts` `slideObjectToXml` |
-| Add audio/video | `gen/define/media.ts` `addMediaDefinition` | `gen/slide/object.ts` `slideObjectToXml` + `gen/anim/timing.ts` `slideTimingToXml` |
+| Add a connector | `gen/define/connector.ts` `addConnectorDefinition` | `gen/slide/objects/connector.ts` `renderConnectorObject` |
+| Add an image | `gen/define/image.ts` `addImageDefinition` | `gen/slide/objects/image.ts` `renderImageObject` |
+| Add audio/video | `gen/define/media.ts` `addMediaDefinition` | `gen/slide/objects/media.ts` `renderMediaObject` + `gen/anim/timing.ts` `slideTimingToXml` |
 | Add a chart | `gen/define/chart.ts` `addChartDefinition` | `gen/chart/chart-xml.ts` `makeXmlCharts` / `makeChartType` (+ `gen/chart/embed-xlsx.ts` `buildEmbeddedWorksheet`) |
-| Add a table | `gen/define/table.ts` `addTableDefinition`; auto-paging `gen/table/autopage.ts` `getSlidesForTableRows` | `gen/slide/object.ts` `slideObjectToXml` (table branch) |
-| Group objects | `gen/define/group.ts` `addGroupDefinition` / `groupObjectsDefinition` | `gen/slide/object.ts` `slideObjectToXml` |
+| Add a table | `gen/define/table.ts` `addTableDefinition`; auto-paging `gen/table/autopage.ts` `getSlidesForTableRows` | `gen/slide/objects/table.ts` `renderTableObject` |
+| Group objects | `gen/define/group.ts` `addGroupDefinition` / `groupObjectsDefinition` | `gen/slide/object.ts` `slideObjectToXml` (group branch) |
 | Notes | `gen/define/notes.ts` `addNotesDefinition` | `gen/slide/notes.ts` `makeXmlNotesSlide` |
 | Comments | `gen/define/comment.ts` `addCommentDefinition` | `gen/slide/comments.ts` `makeXmlComments` |
 | Slide number | `pptxgen.ts` `setSlideNumber` | `gen/slide/object.ts` `slideObjectToXml` (`SLDNUMFLDID`) |

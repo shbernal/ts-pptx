@@ -36,7 +36,7 @@ describe('escaping: cNvPrOpen leaves objectName as-is (caller escapes upstream);
 	// bypassing the define layer (`addTextDefinition` et al.) that normally escapes it first via
 	// `encodeXmlEntities(validateObjectName(...))`. So "NOT escaped" here describes cNvPrOpen in
 	// isolation — intentional, since the real `addText()` API escapes once upstream (see
-	// `cNvPrOpen` in src/gen/slide/object.ts) and escaping again here would double-encode it.
+	// `cNvPrOpen` in src/gen/slide/objects/shared.ts) and escaping again here would double-encode it.
 	test('objectName is NOT escaped (by this layer — the define layer escapes it upstream)', () => {
 		expect(render([textObj({ objectName: 'Q&A' })])).toContain('name="Q&A"')
 	})

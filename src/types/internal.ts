@@ -133,7 +133,7 @@ export interface SlideObject {
 	// oleObject: resolved payload/preview rIds + `p:oleObj` attrs for the `<p:graphicFrame>` emitter
 	ole?: OleInternal
 }
-/** Resolved OLE payload carried on a {@link SlideObject} until `gen/slide/object.ts` emits it. */
+/** Resolved OLE payload carried on a {@link SlideObject} until `gen/slide/objects/ole.ts` emits it. */
 export interface OleInternal {
 	/** rId of the embedded object part rel (see {@link SlideRelMedia.oleRelType}). */
 	objectRid: number
@@ -164,7 +164,7 @@ export interface ZoomTileInternal {
 	/** Summary Zoom only: this tile's grid cell within the graphic-frame coordinate space (EMU). */
 	grid?: { x: number; y: number; cx: number; cy: number }
 }
-/** Resolved zoom payload carried on a {@link SlideObject} until `gen/slide/object.ts` emits it. */
+/** Resolved zoom payload carried on a {@link SlideObject} until `gen/slide/objects/zoom.ts` emits it. */
 export interface ZoomInternal {
 	variant: 'slide' | 'section' | 'summary'
 	tiles: ZoomTileInternal[]

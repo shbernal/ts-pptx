@@ -841,8 +841,8 @@ items:
       `MediaType = 'audio' | 'online' | 'video'` (src/types/media.ts:12) is the
       closed union a `model` member would have to join, `addMediaDefinition`
       (src/gen/define/media.ts:20) is the define-side entry, and the `<p:pic>`
-      renderer plus its rel wiring (src/gen/slide/object.ts:435, :1371) is the
-      emitter. A 3D model is NOT a `p:pic` variant — it is a `p:graphicFrame` with
+      renderer (src/gen/slide/objects/media.ts:17) plus its rel wiring
+      (src/gen/slide/object.ts:598) is the emitter. A 3D model is NOT a `p:pic` variant — it is a `p:graphicFrame` with
       its own `model3d` part, content type and rel — so this stays a new lane rather
       than an extension of the media path.
     evidence:
@@ -851,8 +851,8 @@ items:
       local_files:
         - src/types/media.ts:12
         - src/gen/define/media.ts:20
-        - src/gen/slide/object.ts:435
-        - src/gen/slide/object.ts:1371
+        - src/gen/slide/objects/media.ts:17
+        - src/gen/slide/object.ts:598
       schema_fixture: null
       validator_result: null
       powerpoint_result: null

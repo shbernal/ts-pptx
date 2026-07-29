@@ -176,7 +176,7 @@ function normalizeTableRows(srcRows: TableRow[], opt: TableProps): TableCell[][]
  * Two fill sources are walked, which between them cover all four ways a fill reaches a cell:
  * the resolved cells (per-cell `options.fill`, plus `headerRow` and `columns[i]`, both baked
  * onto cells by the sugar step above), and the table-level `fill`, which is *not* baked —
- * `gen/slide/object.ts` copies it onto each cell at emit time.
+ * `gen/slide/objects/table.ts` copies it onto each cell at emit time.
  *
  * Keyed on fill **object identity**, not on the image source. The sugar spreads its options
  * shallowly, so one `headerRow` fill object is shared by every cell it styles; registering
@@ -270,7 +270,7 @@ export function addTableDefinition(
 
 	// STEP 3: Set options
 	// Keep x/y/w/h as raw user `Coord` (inches/percent/unit-string). They are resolved to EMU
-	// exactly once at emission (`gen/slide/object.ts`) and by the auto-pager (getSlidesForTableRows); no
+	// exactly once at emission (`gen/slide/objects/table.ts`) and by the auto-pager (getSlidesForTableRows); no
 	// pre-conversion here, so a value is never parsed twice. Default position is 0.5in.
 	if (opt.x === undefined || opt.x === null) opt.x = 0.5
 	if (opt.y === undefined || opt.y === null) opt.y = 0.5

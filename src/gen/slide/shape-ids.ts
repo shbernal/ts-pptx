@@ -48,7 +48,7 @@ export function collectSlideShapeIds(slideObjects: SlideObject[]): Map<SlideObje
  *
  * `objectName` is the **raw**, caller-supplied name — escaping is this helper's job. Every
  * `add*Definition` stores the name attribute-escaped (`encodeXmlAttrValue`) so `cNvPrOpen` can emit
- * it verbatim (see its comment in `gen/slide/object.ts`), which means the stored text is not the
+ * it verbatim (see its comment in `gen/slide/objects/shared.ts`), which means the stored text is not the
  * caller's string: a shape added as `'Q&A'` is held as `Q&amp;A`. Comparing here rather than at each
  * call site keeps that one rule in one place — re-deriving it per caller is exactly how the
  * animation lookup came to disagree with the connector one and drop every effect naming a shape

@@ -83,7 +83,7 @@ export function buildFitParagraphs(runs: TextProps[], opts: RunOpts): FitParagra
 	if (runs.length === 0) return null
 
 	// Expand "\n" inside a run into separate pieces, flagging the paragraph break
-	// after each (mirrors `gen/slide/object.ts` STEP 4). `breakLine` ends a paragraph too.
+	// after each (mirrors `gen/slide/objects/table.ts` STEP 4). `breakLine` ends a paragraph too.
 	interface Piece {
 		text: string
 		options: RunOpts
@@ -222,7 +222,7 @@ function anchorTopShareOfDelta(opts: RunOpts): number {
 // `fit:'shrink'` is honored by baking a *reduced literal font size* onto its runs,
 // which both PowerPoint and LibreOffice render identically with no edit/resize.
 
-/** Text/format options that a cell inherits from the table when it sets none itself (mirrors `gen/slide/object.ts`). */
+/** Text/format options that a cell inherits from the table when it sets none itself (mirrors `gen/slide/objects/table.ts`). */
 const CELL_INHERIT_KEYS = [
 	'fontFace',
 	'fontSize',
@@ -252,7 +252,7 @@ interface CellInsetsEmu {
 	marB: number
 }
 
-/** Resolve a cell's margins to EMU insets, mirroring `gen/slide/object.ts` (array is `[T,R,B,L]`, inches; see `marginToEmu`). */
+/** Resolve a cell's margins to EMU insets, mirroring `gen/slide/objects/table.ts` (array is `[T,R,B,L]`, inches; see `marginToEmu`). */
 function resolveCellInsetsEmu(margin: Margin | undefined): CellInsetsEmu {
 	let m: Margin = margin === 0 || margin ? margin : DEF_CELL_MARGIN_IN
 	if (typeof m === 'number') m = [m, m, m, m]
@@ -285,7 +285,7 @@ function scaleCellFontSizes(cell: TableCell, eff: RunOpts, f: number): void {
 	}
 }
 
-/** Grid column count of a table (sums the first row's colspans), mirroring `gen/slide/object.ts`. */
+/** Grid column count of a table (sums the first row's colspans), mirroring `gen/slide/objects/table.ts`. */
 function tableColCount(rows: TableCell[][]): number {
 	const first = rows[0]
 	return first ? first.reduce((n, c) => n + (Number(c?.options?.colspan) || 1), 0) : 0

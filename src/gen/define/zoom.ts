@@ -3,7 +3,7 @@
  *
  * Resolves a zoom's target(s) to the ids the emitter needs (`sldId` / section GUID), registers
  * the preview-image media rel and the `.../slide` fallback rel(s), lays out the Summary Zoom grid,
- * and pushes a `SlideObject{ _type: zoom, zoom }` for `gen/slide/object.ts` to emit as a
+ * and pushes a `SlideObject{ _type: zoom, zoom }` for `gen/slide/objects/zoom.ts` to emit as a
  * `<p:graphicFrame>`. See {@link ../../types/zoom} for the preview-image behavior.
  */
 import { SlideObjectType } from '../../core-enums.js'

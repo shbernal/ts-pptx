@@ -10,7 +10,7 @@
  * chartEx differs from the classic `<c:chartSpace>` in three ways the rest of the package must
  * account for (all handled at the call sites, not here):
  * - it is a **separate part** with content type `application/vnd.ms-office.chartex+xml`,
- * - it is referenced from the slide through `<mc:AlternateContent>` (see `gen/slide/object.ts`),
+ * - it is referenced from the slide through `<mc:AlternateContent>` (see `gen/slide/objects/chart.ts`),
  * - it renders **only in PowerPoint 2016+/Microsoft 365**; other consumers show the fallback shape.
  *
  * The `<cx:f>` formulas point back at the same embedded workbook the classic charts use

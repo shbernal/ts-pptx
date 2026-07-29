@@ -1,0 +1,235 @@
+/**
+ * ts-pptx: image slide-object serialization
+ *
+ * Emits an `image` slide object as a `<p:pic>`: the blip and its image effects (transparency,
+ * duotone, colour change, grayscale, bi-level), the crop or `sizing` source rectangle, the
+ * clipping geometry, outline and shadow. An omitted dimension is backfilled from the embedded
+ * bytes' natural pixel ratio, which only becomes available once `_relsMedia` is populated.
+ */
+
+import type { ObjectOptions } from '../../../core-interfaces.js'
+import { DEF_TEXT_SHADOW } from '../../../core-enums-internal.js'
+import type { PresSlideInternal, SlideLayoutInternal, SlideObject } from '../../../types/internal.js'
+import { createColorElement } from '../../drawingml/color.js'
+import { createShadowEffectLst } from '../../drawingml/effect.js'
+import { genXmlCustGeom, genXmlPresetGeom } from '../../drawingml/geometry.js'
+import { genXmlImageCrop, ImageSizingXml } from '../../drawingml/image.js'
+import { genXmlObjectLock, PICTURE_LOCK_ATTRS } from '../../drawingml/locks.js'
+import { genXmlPlaceholder } from '../../drawingml/text-body.js'
+import { getImageSizeFromBase64 } from '../../../media/image-size.js'
+import { el, raw, voidEl, type XmlAttrs, type XmlChild } from '../../oxml/el.js'
+import { getSmartParseNumber } from '../../../units-internal.js'
+import { FIXED_PCT_PER_PERCENT, PERCENT_SCALE, pixelsToEmu } from '../../../units.js'
+import { warn } from '../../../log.js'
+import { cNvPrHyperlink, cNvPrOpen, genXmlShapeLine } from './shared.js'
+
+/**
+ * Render an `image` slide object to its `<p:pic>` XML (sizing/crop, rounding, hyperlink, shadow).
+ */
+export function renderImageObject(
+	slideItemObj: SlideObject,
+	idx: number,
+	slide: PresSlideInternal | SlideLayoutInternal,
+	x: number,
+	y: number,
+	cx: number,
+	cy: number,
+	imgWidth: number,
+	imgHeight: number,
+	placeholderObj: SlideObject | null,
+	locationAttrs: XmlAttrs,
+	sizing: ObjectOptions['sizing'],
+	rounding: ObjectOptions['rounding']
+): string {
+	let strSlideXml = ''
+	// Caller guarantees options is set (see slideObjectToXml); re-narrow for this scope.
+	slideItemObj.options = slideItemObj.options || {}
+	// Backfill any omitted dimension of a path-based image from its natural pixel ratio.
+	// The bytes weren't available synchronously in `addImage()`, but `_relsMedia[].data` is
+	// populated by now, so measure it here and keep aspect ratio.
+	// PowerPoint inserts images at 96 DPI, so natural pixels / 96 * EMU == display EMU.
+	if (slideItemObj.options._szAuto) {
+		const szAuto = slideItemObj.options._szAuto
+		const relData = (slide._relsMedia || []).find((rel) => rel.rId === slideItemObj.imageRid)?.data
+		const natural = typeof relData === 'string' ? getImageSizeFromBase64(relData) : null
+		if (natural) {
+			if (szAuto.w && szAuto.h) {
+				cx = pixelsToEmu(natural.w, 96)
+				cy = pixelsToEmu(natural.h, 96)
+			} else if (szAuto.h) {
+				// Width supplied, derive height
+				cy = Math.round(cx * (natural.h / natural.w))
+			} else if (szAuto.w) {
+				// Height supplied, derive width
+				cx = Math.round(cy * (natural.w / natural.h))
+			}
+			imgWidth = cx
+			imgHeight = cy
+		}
+	}
+	const imgOpts = slideItemObj.options
+	const imgLink = slideItemObj.hyperlink
+	strSlideXml += '<p:pic>'
+	strSlideXml += '  <p:nvPicPr>'
+	strSlideXml +=
+		cNvPrOpen(idx + 2, imgOpts.objectName, imgOpts.altText || slideItemObj.image || '') + '>' + cNvPrHyperlink(imgLink)
+	strSlideXml += '    </p:cNvPr>'
+	// Default to locking aspect ratio (PowerPoint's own behavior); user `objectLock` overrides any flag, incl. noChangeAspect.
+	strSlideXml += el(
+		'p:cNvPicPr',
+		null,
+		raw(
+			genXmlObjectLock(
+				'a:picLocks',
+				PICTURE_LOCK_ATTRS,
+				{ noChangeAspect: true, ...imgOpts.objectLock },
+				imgOpts.objectName
+			)
+		),
+		{ openPrefix: '    ' }
+	)
+	strSlideXml += el('p:nvPr', null, raw(genXmlPlaceholder(placeholderObj)), { openPrefix: '    ' })
+	strSlideXml += '  </p:nvPicPr>'
+
+	// The `<a:blip>` image-effect children (CT_Blip), shared by the SVG and raster branches:
+	// transparency as `alphaModFix`, then duotone recolor (shadows→shadow, highlights→highlight),
+	// both before any `extLst`.
+	// NOTE: the SVG branch writes ` <a:alphaModFix` with a LEADING space and the raster branch
+	// writes none. That space is byte-significant, so it is passed in rather than normalized away.
+	const blipEffects = (alphaPrefix: string): XmlChild[] => [
+		imgOpts.transparency
+			? raw(
+					voidEl(
+						'a:alphaModFix',
+						{ amt: Math.round((100 - imgOpts.transparency) * FIXED_PCT_PER_PERCENT) },
+						{ openPrefix: alphaPrefix }
+					)
+				)
+			: null,
+		imgOpts.duotone
+			? raw(
+					el('a:duotone', null, [
+						raw(createColorElement(imgOpts.duotone.shadow)),
+						raw(createColorElement(imgOpts.duotone.highlight)),
+					])
+				)
+			: null,
+		imgOpts.clrChange
+			? raw(
+					el('a:clrChange', null, [
+						raw(el('a:clrFrom', null, raw(createColorElement(imgOpts.clrChange.from)))),
+						raw(el('a:clrTo', null, raw(createColorElement(imgOpts.clrChange.to)))),
+					])
+				)
+			: null,
+		imgOpts.grayscale ? raw(voidEl('a:grayscl')) : null,
+		imgOpts.biLevel
+			? raw(voidEl('a:biLevel', { thresh: Math.round(imgOpts.biLevel.threshold * PERCENT_SCALE) }))
+			: null,
+	]
+
+	strSlideXml += '<p:blipFill>'
+	// NOTE: This works for both cases: either `path` or `data` contains the SVG
+	if ((slide._relsMedia || []).find((rel) => rel.rId === slideItemObj.imageRid)?.extn === 'svg') {
+		strSlideXml += el('a:blip', { 'r:embed': `rId${(slideItemObj.imageRid ?? 0) - 1}` }, [
+			...blipEffects(' '),
+			raw(
+				el(
+					'a:extLst',
+					null,
+					raw(
+						el(
+							'a:ext',
+							{ uri: '{96DAC541-7B7A-43D3-8B79-37D633B846F1}' },
+							raw(
+								voidEl(
+									'asvg:svgBlip',
+									{
+										'xmlns:asvg': 'http://schemas.microsoft.com/office/drawing/2016/SVG/main',
+										'r:embed': `rId${slideItemObj.imageRid}`,
+									},
+									{ openPrefix: '   ' }
+								)
+							),
+							{ openPrefix: '  ', closePrefix: '  ' }
+						)
+					),
+					{ openPrefix: ' ', closePrefix: ' ' }
+				)
+			),
+		])
+	} else {
+		strSlideXml += el('a:blip', { 'r:embed': `rId${slideItemObj.imageRid}` }, blipEffects(''))
+	}
+	if (slideItemObj.options.crop) {
+		// Explicit OOXML srcRect (percentage edge insets), emitted verbatim. Crops the source
+		// directly, so it wins over the inch-based `sizing` crop and works for SVG/unmeasurable
+		// formats; the picture's normal w/h box stays the display extent.
+		if (sizing?.type)
+			warn(
+				`addImage 'crop' and 'sizing' are mutually exclusive for image "${slideItemObj.options.objectName}"; 'sizing' was ignored.`
+			)
+		strSlideXml += genXmlImageCrop(slideItemObj.options.crop, slideItemObj.options.objectName)
+	} else if (sizing?.type) {
+		const boxW = sizing.w ? getSmartParseNumber(sizing.w, 'X', slide._presLayout) : cx
+		const boxH = sizing.h ? getSmartParseNumber(sizing.h, 'Y', slide._presLayout) : cy
+		const boxX = getSmartParseNumber(sizing.x || 0, 'X', slide._presLayout)
+		const boxY = getSmartParseNumber(sizing.y || 0, 'Y', slide._presLayout)
+
+		// `cover`/`contain` crop the *source* bitmap, so the srcRect must be derived from the
+		// image's natural pixel ratio — not the displayed box (options.w/h). Measure it from the
+		// embedded media bytes; if unmeasurable (SVG/unknown format) fall back to display dims + warn.
+		// `crop` keeps display EMU: its contract treats the displayed extent as the crop frame.
+		let cropSize: { w: number; h: number } = { w: imgWidth, h: imgHeight }
+		if (sizing.type === 'cover' || sizing.type === 'contain') {
+			const relData = (slide._relsMedia || []).find((rel) => rel.rId === slideItemObj.imageRid)?.data
+			const natural = typeof relData === 'string' ? getImageSizeFromBase64(relData) : null
+			if (natural) {
+				cropSize = natural
+			} else {
+				warn(
+					`sizing '${sizing.type}' could not measure natural dimensions for image "${slideItemObj.options.objectName}"; falling back to displayed aspect ratio (crop may be inexact). Provide a raster image (PNG/JPEG/GIF/BMP/WebP) or an SVG with width/height or a viewBox to enable an aspect-correct crop.`
+				)
+			}
+		}
+
+		strSlideXml += ImageSizingXml[sizing.type](cropSize, { w: boxW, h: boxH, x: boxX, y: boxY })
+		imgWidth = boxW
+		imgHeight = boxH
+	} else {
+		strSlideXml += el('a:stretch', null, raw(voidEl('a:fillRect')), { openPrefix: '  ' })
+	}
+	strSlideXml += '</p:blipFill>'
+	strSlideXml += '<p:spPr>'
+	strSlideXml += el(
+		'a:xfrm',
+		locationAttrs,
+		[raw(voidEl('a:off', { x, y })), raw(voidEl('a:ext', { cx: imgWidth, cy: imgHeight }))],
+		{ openPrefix: ' ', childPrefix: '  ', closePrefix: ' ' }
+	)
+	// Clip the picture to a geometry. `points` (freeform custGeom) takes precedence over `shape`/`rounding`;
+	// otherwise `shape` wins over `rounding` (shorthand for an ellipse), falling back to a plain rectangle.
+	if (slideItemObj.options.points) {
+		strSlideXml += ' ' + genXmlCustGeom(slideItemObj.options, imgWidth, imgHeight, slide._presLayout)
+	} else {
+		strSlideXml +=
+			' ' +
+			genXmlPresetGeom(
+				slideItemObj.options.shape ?? (rounding ? 'ellipse' : 'rect'),
+				slideItemObj.options,
+				imgWidth,
+				imgHeight
+			)
+	}
+
+	// BORDER: `<a:ln>` outline (must precede `<a:effectLst>` per CT_ShapeProperties order)
+	if (slideItemObj.options.line) strSlideXml += genXmlShapeLine(slideItemObj.options.line)
+
+	// EFFECTS > SHADOW: REF: @see http://officeopenxml.com/drwSp-effects.php
+	if (slideItemObj.options.shadow && slideItemObj.options.shadow.type !== 'none') {
+		strSlideXml += createShadowEffectLst(slideItemObj.options.shadow, DEF_TEXT_SHADOW)
+	}
+	strSlideXml += '</p:spPr>'
+	strSlideXml += '</p:pic>'
+	return strSlideXml
+}
