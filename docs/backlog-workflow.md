@@ -132,7 +132,8 @@ Classify each item with one status:
 - `non-target`: dismissed because it conflicts with current goals.
 - `watch`: incomplete signal; revisit only when new evidence appears.
 - `deferred`: relevant, but intentionally not scheduled now.
-- `implemented`: fixed locally with test or fixture evidence.
+- `implemented`: fixed locally with test or fixture evidence. Transient — the
+  entry is pruned in a follow-up commit; see "Closing Implemented Items".
 - `partially-implemented`: part of the work has landed; the remainder is tracked
   in the entry's `next_action`.
 - `superseded`: covered by another local fix or decision.
@@ -287,6 +288,48 @@ Validate the ledger before finishing:
 pnpm run backlog -- validate
 pnpm run backlog -- show <id>
 ```
+
+### Then Prune The Entry
+
+`implemented` is a transient state, not a resting place. The ledger records what
+is still open — what has been dismissed, what is under consideration, what should
+be built — and a closed entry has stopped answering that question. It starts
+duplicating one the repository already answers better: the commit, its tests, and
+`CHANGELOG.md`. That is the same rule AGENTS.md states for work implemented on
+the spot ("its record is the project's own commit history, tests, and
+CHANGELOG.md — do not also add a backlog entry"), applied at the other end of an
+entry's life. Left in place, closed entries accumulate until the file reads half
+as a changelog and buries the entries still doing its actual job.
+
+Prune in a **separate, later commit** than the one that closes the entry — never
+by deleting it in the fix commit itself:
+
+```bash
+pnpm run backlog -- remove <id>
+```
+
+The order is what makes the detail recoverable. The fix commit carries the entry
+at `implemented` with its full closing notes, so `git log -- docs/backlog.yml`
+still leads a future reader to the reasoning; deleting it in the same commit
+means those notes never exist anywhere. A prune commit should name each removed
+id and the commit that closed it, so the message itself is the index back into
+history.
+
+Two checks before removing:
+
+- **Grep the repo for the id.** Other docs, source comments, or test names may
+  reference it, and a removed entry must not leave a dangling reference behind.
+  (The downstream workaround comment is a separate matter — it lives in the
+  consumer's repository and is removed there when the fix lands.)
+- **Only `implemented` prunes.** `partially-implemented` is open work whose
+  `next_action` still names something unclaimed, and `superseded` points at the
+  decision that replaced it; both stay. So does anything at `non-target`,
+  `deferred` or `watch` — a recorded dismissal is a decision the ledger exists to
+  keep, not a closed item.
+
+`remove` validates the ledger before writing and touches nothing but the named
+entry, so the resulting diff should be a pure deletion. If it is not, something
+else moved and is worth looking at before committing.
 
 ## Downstream Needs
 
