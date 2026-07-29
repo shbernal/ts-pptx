@@ -7,7 +7,7 @@
  */
 import { connectorPresetFor, SlideObjectType } from '../../core-enums.js'
 import { DEF_SHAPE_LINE_COLOR } from '../../core-enums-internal.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import type { ConnectorProps } from '../../core-interfaces.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { EMU_PER_INCH, FIXED_PCT_PER_PERCENT } from '../../units.js'
@@ -43,7 +43,10 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 	let connectorAdj: number[] = []
 	if (type === 'straight') {
 		if (opts.bends !== undefined || opts.adj !== undefined) {
-			warn('addConnector `bends`/`adj` are ignored for type "straight" (a straight connector has no bends).')
+			warn(
+				'connector/bends-ignored-for-straight',
+				'addConnector `bends`/`adj` are ignored for type "straight" (a straight connector has no bends).'
+			)
 		}
 	} else {
 		if (bends !== 1 && bends !== 2 && bends !== 3) {
@@ -64,7 +67,10 @@ export function addConnectorDefinition(target: PresSlideInternal, opts: Connecto
 				)
 			}
 			if (pct < 0 || pct > 100) {
-				warn(`addConnector \`adj\` value ${pct} is outside 0–100; the bend will sit beyond the endpoint box.`)
+				warn(
+					'connector/adj-out-of-range',
+					`addConnector \`adj\` value ${pct} is outside 0–100; the bend will sit beyond the endpoint box.`
+				)
 			}
 			return Math.round(pct * FIXED_PCT_PER_PERCENT)
 		})

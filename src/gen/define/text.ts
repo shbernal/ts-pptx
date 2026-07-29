@@ -8,7 +8,7 @@
  */
 import { AlignH, type PLACEHOLDER_TYPE, ShapeType, SlideObjectType, TextAnchor } from '../../core-enums.js'
 import { DEF_FONT_COLOR, DEF_SHAPE_LINE_COLOR } from '../../core-enums-internal.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import type { ObjectOptions, ShapeLineProps, TextProps, TextPropsOptions } from '../../core-interfaces.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../../gen-utils.js'
@@ -119,14 +119,14 @@ export function addTextDefinition(
 					itemOpts.columns < 1 ||
 					itemOpts.columns > 16
 				) {
-					warn('text `columns` must be a number 1-16 (ignoring value)')
+					warn('text/invalid-columns', 'text `columns` must be a number 1-16 (ignoring value)')
 				} else {
 					itemOpts._bodyProp.numCol = Math.round(itemOpts.columns)
 				}
 			}
 			if (itemOpts.columnSpacing !== undefined) {
 				if (typeof itemOpts.columnSpacing !== 'number' || isNaN(itemOpts.columnSpacing) || itemOpts.columnSpacing < 0) {
-					warn('text `columnSpacing` must be a number >= 0 (ignoring value)')
+					warn('text/invalid-column-spacing', 'text `columnSpacing` must be a number >= 0 (ignoring value)')
 				} else {
 					itemOpts._bodyProp.spcCol = valToPts(itemOpts.columnSpacing)
 				}

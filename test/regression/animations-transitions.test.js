@@ -1,7 +1,15 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { defineRegressionSuite, build, readEntry, assert, assertEqual, contentTypeForExtension } from '../helpers.js'
+import {
+	setDiagnosticHandler,
+	defineRegressionSuite,
+	build,
+	readEntry,
+	assert,
+	assertEqual,
+	contentTypeForExtension,
+} from '../helpers.js'
 
 // Write-side slide transitions and preset build animations
 // (docs/animations-and-transitions.md, Phase 1). The emitters reproduce
@@ -164,8 +172,7 @@ defineRegressionSuite('Preset build animations (write)', [
 		fn: async () => {
 			const names = ['Q&A', 'R&D', 'Risk <high> "1" \'2\'\ttabbed\nwrapped']
 			const warnings = []
-			const origWarn = console.warn
-			console.warn = (msg) => warnings.push(String(msg))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let xml
 			try {
 				xml = await slideXml((p) => {
@@ -176,7 +183,7 @@ defineRegressionSuite('Preset build animations (write)', [
 					names.forEach((objectName) => s.addAnimation({ preset: 'fadeIn', objectName }))
 				})
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			assert(
 				!warnings.some((w) => /addAnimation:/.test(w)),
@@ -214,8 +221,7 @@ defineRegressionSuite('Preset build animations (write)', [
 		name: 'drops an out-of-range shapeIndex with a warning (no dangling spid)',
 		fn: async () => {
 			const warnings = []
-			const origWarn = console.warn
-			console.warn = (msg) => warnings.push(String(msg))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let xml
 			try {
 				xml = await slideXml((p) => {
@@ -224,7 +230,7 @@ defineRegressionSuite('Preset build animations (write)', [
 					s.addAnimation({ preset: 'fadeIn', shapeIndex: 5 }) // out of range: spid 7 names no shape
 				})
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			assert(
 				warnings.some((w) => /shapeIndex 5 is out of range/.test(w) && /1 top-level object/.test(w)),

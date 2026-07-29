@@ -10,7 +10,7 @@ import { SlideObjectType } from '../../core-enums.js'
 import { CRLF, SLDNUMFLDID, XML_DECL } from '../../core-enums-internal.js'
 import type { TextProps } from '../../core-interfaces.js'
 import type { PresSlideInternal, SlideRel } from '../../types/internal.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import { genXmlTextRun } from '../drawingml/text-run.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 
@@ -71,7 +71,8 @@ export function buildNotesSlideRels(slide: PresSlideInternal): SlideRel[] {
 		if (!hyperlink.url) {
 			// Notes support external `url` links only. Drop unsupported (e.g. `slide`) targets so the
 			// run serializer doesn't emit a dangling <a:hlinkClick> with no matching relationship.
-			if (hyperlink.slide) warn('notes hyperlinks support `url` only (ignoring `slide` target)')
+			if (hyperlink.slide)
+				warn('notes/hyperlink-slide-unsupported', 'notes hyperlinks support `url` only (ignoring `slide` target)')
 			if (run.options) delete run.options.hyperlink
 			return
 		}

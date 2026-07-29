@@ -7,7 +7,7 @@
  * dispatch (also used by the slide-master definition).
  */
 import { ShapeType, SlideObjectType } from '../../core-enums.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import type { GroupChildProps, GroupProps, SlideMasterObject } from '../../core-interfaces.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, validateObjectName } from '../../gen-utils.js'
@@ -76,7 +76,7 @@ function buildGroupObject(target: PresSlideInternal, children: GroupChildProps[]
 		}
 		// Reject object types grouping does not support yet (rels/ID/transform work pending).
 		if ('chart' in child || 'placeholder' in child || 'table' in child || 'media' in child) {
-			warn(`addGroup() does not support '${Object.keys(child)[0]}' children yet; skipping.`)
+			warn('group/unsupported-child', `addGroup() does not support '${Object.keys(child)[0]}' children yet; skipping.`)
 			return
 		}
 		// Reuse the existing add*Definition logic (which registers any image/chart rels on the slide,
@@ -84,7 +84,10 @@ function buildGroupObject(target: PresSlideInternal, children: GroupChildProps[]
 		// just-appended object(s) off the slide's top-level list into this group's child list.
 		const before = target._slideObjects.length
 		if (!addChildDefinition(target, child)) {
-			warn(`addGroup() received an unrecognized child descriptor (${Object.keys(child).join(', ')}); skipping.`)
+			warn(
+				'group/unrecognized-child',
+				`addGroup() received an unrecognized child descriptor (${Object.keys(child).join(', ')}); skipping.`
+			)
 			return
 		}
 		groupObjects.push(...target._slideObjects.splice(before))
@@ -96,6 +99,7 @@ function buildGroupObject(target: PresSlideInternal, children: GroupChildProps[]
 	// a nested empty group has already warned in its own recursion, and its non-empty parent has not.
 	if (groupObjects.length === 0) {
 		warn(
+			'group/no-children',
 			`addGroup(): group "${opts.objectName ?? ''}" has no renderable children; emitting an empty, zero-size group. ` +
 				'Pass at least one supported child (text/shape, image, or a nested group).'
 		)

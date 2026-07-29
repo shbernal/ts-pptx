@@ -14,3 +14,4 @@ export * from './units.js'
 // reach this entry; `export type *` would drop them and crash any Node consumer
 // that imports them, while TypeScript (reading index.d.ts) stays green.
 export * from './core-interfaces.js'
+export { setDiagnosticHandler, type Diagnostic, type DiagnosticCode, type DiagnosticHandler } from './diagnostics.js'

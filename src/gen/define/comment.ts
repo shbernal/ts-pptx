@@ -4,7 +4,7 @@
  * Validates `addComment()` author / text / position and stashes a review comment on the slide
  * (`_comments`); the `<p:cm>` XML is emitted later by `gen/slide/comments.ts`.
  */
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import type { CommentProps } from '../../core-interfaces.js'
 import type { PresSlideInternal } from '../../types/internal.js'
 
@@ -32,11 +32,11 @@ export function addCommentDefinition(target: PresSlideInternal, opts: CommentPro
 	// Don't silently coerce: a comment with no author or no body is meaningless, so warn + skip
 	// rather than emit a degenerate <p:cm> (API policy: warn over silent coercion).
 	if (!author) {
-		warn('addComment() requires a non-empty `author`; comment ignored.')
+		warn('comment/missing-author', 'addComment() requires a non-empty `author`; comment ignored.')
 		return
 	}
 	if (!text) {
-		warn('addComment() requires non-empty `text`; comment ignored.')
+		warn('comment/missing-text', 'addComment() requires non-empty `text`; comment ignored.')
 		return
 	}
 

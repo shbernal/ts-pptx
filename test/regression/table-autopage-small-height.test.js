@@ -1,4 +1,4 @@
-import { defineRegressionSuite, build, listEntries, readEntry, assert } from '../helpers.js'
+import { setDiagnosticHandler, defineRegressionSuite, build, listEntries, readEntry, assert } from '../helpers.js'
 
 // Regression: an autoPage table whose height (`h`) is too small to fit even a single line of text
 // must NOT emit a degenerate output (an empty `rows:[]` overflow page that made the recursive
@@ -23,8 +23,7 @@ defineRegressionSuite('Table autoPage tiny-height guard', [
 		name: 'h smaller than one line of text does not crash and emits no empty page (warns instead)',
 		fn: async () => {
 			const warnings = []
-			const orig = console.warn
-			console.warn = (...args) => warnings.push(args.join(' '))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let zip
 			try {
 				;({ zip } = await build((p) => {
@@ -42,7 +41,7 @@ defineRegressionSuite('Table autoPage tiny-height guard', [
 					})
 				}))
 			} finally {
-				console.warn = orig
+				setDiagnosticHandler(null)
 			}
 			assert(slideCount(zip) >= 1, 'expected at least one slide, never zero or a crash')
 			assert(
@@ -55,8 +54,7 @@ defineRegressionSuite('Table autoPage tiny-height guard', [
 		name: 'a usable explicit h still paginates normally (no warning)',
 		fn: async () => {
 			const warnings = []
-			const orig = console.warn
-			console.warn = (...args) => warnings.push(args.join(' '))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let zip
 			try {
 				;({ zip } = await build((p) => {
@@ -74,7 +72,7 @@ defineRegressionSuite('Table autoPage tiny-height guard', [
 					})
 				}))
 			} finally {
-				console.warn = orig
+				setDiagnosticHandler(null)
 			}
 			assert(slideCount(zip) >= 2, 'a 60-row table should overflow to multiple slides')
 			assert(
@@ -94,8 +92,7 @@ defineRegressionSuite('Table autoPage tiny-height guard', [
 			// Enough rows to overflow, so the guard is also exercised on a *subsequent* page,
 			// where the start-Y comes from the top margin rather than `y`.
 			const warnings = []
-			const orig = console.warn
-			console.warn = (...args) => warnings.push(args.join(' '))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let zip
 			try {
 				;({ zip } = await build((p) => {
@@ -112,7 +109,7 @@ defineRegressionSuite('Table autoPage tiny-height guard', [
 					})
 				}))
 			} finally {
-				console.warn = orig
+				setDiagnosticHandler(null)
 			}
 			// A full slide of usable height fits ~28 rows of 12pt, so 40 rows page but do not
 			// degenerate to one-row-per-slide.

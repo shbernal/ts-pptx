@@ -9,6 +9,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A diagnostics seam: `setDiagnosticHandler`.** Library warnings were hardwired
+  to `console.warn` across ~100 call sites, so a consumer generating decks in a
+  batch job could neither silence nor route them, and nothing downstream could
+  react to a *specific* condition without matching on message substrings.
+
+  Every warning is now a structured `Diagnostic { code, message, detail? }`
+  delivered to a handler you can install:
+
+  ```ts
+  import { setDiagnosticHandler } from '@shbernal/ts-pptx'
+
+  setDiagnosticHandler((d) => logger.warn({ code: d.code }, d.message))
+  setDiagnosticHandler(() => {}) // silence
+  setDiagnosticHandler(null) // restore the console default
+  ```
+
+  **The `code` is API; the `message` is not.** A code identifies a *condition* in
+  `area/condition` form (`'chart/non-finite-value'`, `'coord/bare-number-is-inches'`)
+  and is stable: adding one is back-compatible, removing or renaming one is
+  breaking. The wording behind it is free to improve in any release — do not parse
+  it. `DiagnosticCode` is a closed union, so codes complete in an editor and a
+  typo is a compile error.
+
+  There is no separate strict mode: a handler that throws is one, and it composes
+  with whatever policy you want.
+
+  ```ts
+  setDiagnosticHandler((d) => {
+  	if (d.code === 'coord/bare-number-is-inches') throw new Error(d.message)
+  })
+  ```
+
+  The handler is process-global rather than per-presentation. That is deliberate
+  and documented — the emitting code is a tree of free functions with no
+  presentation in scope — with the trade-off (concurrent builds cannot be told
+  apart) written down in [docs/diagnostics.md](docs/diagnostics.md).
+
+### Changed
+
+- **Warning output is now the default handler's job, not the message's.** Two
+  messages carried their own prefix (`[WARNING] `, `Warning: `) and one carried a
+  literal `ts-pptx: ` inside the text, which the console handler then doubled.
+  All three are gone; the prefix is applied in exactly one place. Only code that
+  scrapes stderr for those exact strings is affected — the conditions, and now
+  their codes, are unchanged.
+
 - **`@shbernal/ts-pptx/html`: HTML `<table>` → slides, anywhere there is a DOM.**
   `tableToSlides` was reachable only as a method on the browser build, which made
   converting an existing HTML table a browser-only capability. It is now also a

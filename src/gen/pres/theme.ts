@@ -8,7 +8,7 @@
 import { REGEX_HEX_COLOR, XML_DECL } from '../../core-enums-internal.js'
 import type { ThemeColorScheme } from '../../core-interfaces.js'
 import type { PresentationPropsInternal } from '../../types/internal.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl, type RawXml } from '../oxml/el.js'
 
 /**
@@ -50,6 +50,7 @@ function buildThemeClrScheme(scheme?: ThemeColorScheme): string {
 				if (REGEX_HEX_COLOR.test(hex)) child = raw(voidEl('a:srgbClr', { val: hex.toUpperCase() }))
 				else
 					warn(
+						'theme/invalid-color-override',
 						`makeXmlTheme: colorScheme.${slot} "${override}" is not a 6-digit hex color; keeping the Office default.`
 					)
 			}

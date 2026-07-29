@@ -1,5 +1,5 @@
 import { Presentation, isGroupShape } from '../../dist/read.js'
-import { defineRegressionSuite, build, readEntry, assert, assertEqual } from '../helpers.js'
+import { setDiagnosticHandler, defineRegressionSuite, build, readEntry, assert, assertEqual } from '../helpers.js'
 
 // 1x1 transparent PNG
 const PNG_DATA =
@@ -147,8 +147,7 @@ defineRegressionSuite('Group shapes', [
 			// from that list never advanced past them and the later top-level shape reused the
 			// grouped child's `Shape 0` in the Selection Pane.
 			const warnings = []
-			const origWarn = console.warn
-			console.warn = (msg) => warnings.push(String(msg))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let xml
 			try {
 				const { zip } = await build((p) => {
@@ -160,7 +159,7 @@ defineRegressionSuite('Group shapes', [
 				})
 				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			const names = (xml.match(/<p:cNvPr id="\d+" name="([^"]*)"/g) || []).map((s) => s.match(/name="([^"]*)"/)[1])
 			assert(names.length === new Set(names).size, 'expected unique objectNames slide-wide; got: ' + names.join(','))
@@ -176,8 +175,7 @@ defineRegressionSuite('Group shapes', [
 		name: 'the duplicate-objectName warning sees names inside groups',
 		fn: async () => {
 			const warnings = []
-			const origWarn = console.warn
-			console.warn = (msg) => warnings.push(String(msg))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			try {
 				await build((p) => {
 					const s = p.addSlide()
@@ -185,7 +183,7 @@ defineRegressionSuite('Group shapes', [
 					s.addShape('rect', { x: 3, y: 1, w: 1, h: 1, objectName: 'Dupe' })
 				})
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			assert(
 				warnings.some((w) => /duplicate objectName/.test(w) && /Dupe/.test(w)),
@@ -258,8 +256,7 @@ defineRegressionSuite('Group shapes', [
 		name: 'unsupported child types are skipped with a warning',
 		fn: async () => {
 			const warnings = []
-			const origWarn = console.warn
-			console.warn = (msg) => warnings.push(String(msg))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let xml
 			try {
 				const { zip } = await build((p) => {
@@ -270,7 +267,7 @@ defineRegressionSuite('Group shapes', [
 				})
 				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			assert(/<p:grpSp>/.test(xml), 'expected group still emitted; got: ' + xml)
 			assert(!/<a:tbl>/.test(xml), 'table child must be skipped; got: ' + xml)
@@ -286,8 +283,7 @@ defineRegressionSuite('Group shapes', [
 			// A partial frame used to take the shared per-object defaults on the unset axes, emitting
 			// `cy="0"` and a `cx` that was silently 75% of the layout width.
 			const warnings = []
-			const origWarn = console.warn
-			console.warn = (msg) => warnings.push(String(msg))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let xml
 			try {
 				const { zip } = await build((p) => {
@@ -296,7 +292,7 @@ defineRegressionSuite('Group shapes', [
 				})
 				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			assert(
 				/<a:off x="914400" y="914400"\/><a:ext cx="1828800" cy="1828800"\/>/.test(xml),
@@ -312,8 +308,7 @@ defineRegressionSuite('Group shapes', [
 		name: 'a complete group frame is honored verbatim and warns nothing',
 		fn: async () => {
 			const warnings = []
-			const origWarn = console.warn
-			console.warn = (msg) => warnings.push(String(msg))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let xml
 			try {
 				const { zip } = await build((p) => {
@@ -321,7 +316,7 @@ defineRegressionSuite('Group shapes', [
 				})
 				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			// all four given -> used as-is (5,2) 3x1in, and chOff/chExt still track off/ext
 			assert(
@@ -340,8 +335,7 @@ defineRegressionSuite('Group shapes', [
 		name: 'a partial frame on a nested group falls back once, and its parent sizes around the fallback',
 		fn: async () => {
 			const warnings = []
-			const origWarn = console.warn
-			console.warn = (msg) => warnings.push(String(msg))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let xml
 			try {
 				const { zip } = await build((p) => {
@@ -354,7 +348,7 @@ defineRegressionSuite('Group shapes', [
 				})
 				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			const partialWarnings = warnings.filter((w) => /partial frame/.test(w))
 			assertEqual(
@@ -374,15 +368,14 @@ defineRegressionSuite('Group shapes', [
 		fn: async () => {
 			// The degenerate `cy="0"` group this used to emit made every child re-read as `null`
 			// through the read path's degenerate-chExt guard.
-			const origWarn = console.warn
-			console.warn = () => {}
+			setDiagnosticHandler(() => {})
 			let buf
 			try {
 				;({ buf } = await build((p) => {
 					p.addSlide().addGroup([{ rect: { x: 1, y: 1, w: 2, h: 2 } }], { x: 5, y: 2 })
 				}))
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			const [slide] = (await Presentation.load(buf)).slides
 			const [group] = slide.shapes
@@ -400,8 +393,7 @@ defineRegressionSuite('Group shapes', [
 			// Binding used to resolve only against `_slideObjects`, which group children are spliced out
 			// of, so this fell back to static endpoints and warned that the shape did not exist.
 			const warnings = []
-			const origWarn = console.warn
-			console.warn = (msg) => warnings.push(String(msg))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let xml
 			try {
 				const { zip } = await build((p) => {
@@ -411,7 +403,7 @@ defineRegressionSuite('Group shapes', [
 				})
 				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			assertEqual(warnings.length, 0, 'a resolvable binding must not warn; got: ' + JSON.stringify(warnings))
 			const childId = cNvPrIdOf(xml, 'boxInGroup')
@@ -451,8 +443,7 @@ defineRegressionSuite('Group shapes', [
 		name: 'an animation naming no object on the slide warns instead of vanishing',
 		fn: async () => {
 			const warnings = []
-			const origWarn = console.warn
-			console.warn = (msg) => warnings.push(String(msg))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let xml
 			try {
 				const { zip } = await build((p) => {
@@ -462,7 +453,7 @@ defineRegressionSuite('Group shapes', [
 				})
 				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			assert(
 				warnings.some((w) => /no object named "ghost"/.test(w)),
@@ -476,8 +467,7 @@ defineRegressionSuite('Group shapes', [
 		fn: async () => {
 			// Duplicate names are warned about separately; resolution must stay as it was before group
 			// children were searched at all, so no existing deck changes its bindings.
-			const origWarn = console.warn
-			console.warn = () => {}
+			setDiagnosticHandler(() => {})
 			let xml
 			try {
 				const { zip } = await build((p) => {
@@ -488,7 +478,7 @@ defineRegressionSuite('Group shapes', [
 				})
 				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			const cxn = (xml.match(/<p:cxnSp>[\s\S]*?<\/p:cxnSp>/g) || [])[0]
 			assert(cxn.includes('<a:endCxn id="2" idx="0"/>'), `expected the top-level "dupe" (id 2) to win; got: ${cxn}`)
@@ -524,8 +514,7 @@ defineRegressionSuite('Group shapes', [
 			// A supported flag (noMove) is emitted; an unsupported one (noCrop, valid only on shapes/pics)
 			// is dropped with a warning rather than silently coerced.
 			const warnings = []
-			const origWarn = console.warn
-			console.warn = (msg) => warnings.push(String(msg))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let xml
 			try {
 				const { zip } = await build((p) => {
@@ -538,7 +527,7 @@ defineRegressionSuite('Group shapes', [
 				})
 				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			assert(
 				/<p:cNvGrpSpPr><a:grpSpLocks noMove="1" noResize="1"\/><\/p:cNvGrpSpPr>/.test(xml),
@@ -573,8 +562,7 @@ defineRegressionSuite('Group shapes', [
 		fn: async () => {
 			// Auto-bounds over no children is a 0x0 box — the degenerate result AGENTS.md says to warn on.
 			const warnings = []
-			const origWarn = console.warn
-			console.warn = (msg) => warnings.push(String(msg))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let xml
 			try {
 				const { zip } = await build((p) => {
@@ -582,7 +570,7 @@ defineRegressionSuite('Group shapes', [
 				})
 				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			assert(
 				warnings.some((w) => /addGroup/.test(w) && /Empty/.test(w) && /no renderable children/.test(w)),
@@ -599,14 +587,13 @@ defineRegressionSuite('Group shapes', [
 		name: 'a group whose only children are unsupported kinds warns about both the child and the empty result',
 		fn: async () => {
 			const warnings = []
-			const origWarn = console.warn
-			console.warn = (msg) => warnings.push(String(msg))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			try {
 				await build((p) => {
 					p.addSlide().addGroup([{ table: { rows: [[{ text: 'x' }]] } }], { objectName: 'AllSkipped' })
 				})
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			assert(
 				warnings.some((w) => /addGroup/.test(w) && /table/.test(w)),
@@ -719,12 +706,11 @@ defineRegressionSuite('Group shapes', [
 			// Each of these leaves the caller believing an object was grouped when it was not — the
 			// exact footgun the throw exists to prevent. The messages must tell the cases apart.
 			const grouped = (fn) => {
-				const origWarn = console.warn
-				console.warn = () => {}
+				setDiagnosticHandler(() => {})
 				try {
 					return build((p) => fn(p.addSlide()))
 				} finally {
-					console.warn = origWarn
+					setDiagnosticHandler(null)
 				}
 			}
 			const rejects = async (fn, re, label) => {
@@ -823,8 +809,7 @@ defineRegressionSuite('Group shapes', [
 		// pointing the caller at a typo that is not there. Errors quote the caller's raw spelling.
 		name: 'groupObjects tells apart missing and already-grouped for a name with metacharacters',
 		fn: async () => {
-			const origWarn = console.warn
-			console.warn = () => {}
+			setDiagnosticHandler(() => {})
 			let err
 			try {
 				await build((p) => {
@@ -835,7 +820,7 @@ defineRegressionSuite('Group shapes', [
 			} catch (ex) {
 				err = ex
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			assert(err, 'expected grouping an already-grouped name to throw')
 			assert(/already inside a group/.test(err.message), 'expected the already-grouped hint; got: ' + err.message)

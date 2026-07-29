@@ -1,6 +1,6 @@
 import { XMLParser } from 'fast-xml-parser'
 import { composeGroupFrame, type GroupTransform, type TransformBox } from './group-transform.js'
-import { warn } from './log.js'
+import { warn } from './diagnostics.js'
 import { readZip } from './zip.js'
 import { STANDARD_LAYOUTS, emuToInches } from './units.js'
 
@@ -404,6 +404,7 @@ function normalizeElement(entry: HarvestedElement, zIndex: number, slidePath: st
 	const name = stringValue(attr(cNvPr(element), 'name'))
 	if (!entry.groups) {
 		warn(
+			'inspect/group-transform-missing',
 			`inspect: skipped ${describe(name, zIndex)} on ${slidePath} — an enclosing group has no usable a:xfrm, so its slide position cannot be resolved.`
 		)
 		return null
@@ -411,6 +412,7 @@ function normalizeElement(entry: HarvestedElement, zIndex: number, slidePath: st
 	const frame = composeGroupFrame({ box: own, ...orientationOf(xfrm) }, entry.groups)
 	if (!frame) {
 		warn(
+			'inspect/group-transform-degenerate',
 			`inspect: skipped ${describe(name, zIndex)} on ${slidePath} — an enclosing group has a degenerate transform (zero a:chExt), so its slide position cannot be resolved.`
 		)
 		return null

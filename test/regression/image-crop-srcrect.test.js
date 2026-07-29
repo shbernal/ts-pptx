@@ -1,4 +1,12 @@
-import { defineRegressionSuite, build, readEntry, selfClosingTags, xmlAttributes, assert } from '../helpers.js'
+import {
+	setDiagnosticHandler,
+	defineRegressionSuite,
+	build,
+	readEntry,
+	selfClosingTags,
+	xmlAttributes,
+	assert,
+} from '../helpers.js'
 
 // `crop: { l, t, r, b }` emits an explicit OOXML <a:srcRect> (percentage edge insets) verbatim.
 // Regression guard for two things that the schema fixture alone cannot catch:
@@ -49,8 +57,7 @@ defineRegressionSuite('Image explicit crop (srcRect percentage insets)', [
 		name: 'crop overrides sizing and warns',
 		fn: async () => {
 			const warnings = []
-			const orig = console.warn
-			console.warn = (m) => warnings.push(String(m))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			try {
 				const r = await srcRectFor({
 					data: PNG_1x1,
@@ -63,7 +70,7 @@ defineRegressionSuite('Image explicit crop (srcRect percentage insets)', [
 				})
 				assert(r.l === 25000 && r.r === 25000, `expected crop srcRect (l=r=25000); got ${JSON.stringify(r)}`)
 			} finally {
-				console.warn = orig
+				setDiagnosticHandler(null)
 			}
 			assert(
 				warnings.some((w) => w.includes('mutually exclusive')),

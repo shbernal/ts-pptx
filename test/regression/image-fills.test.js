@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
 import { ShapeType } from '../../dist/node.js'
 import {
+	setDiagnosticHandler,
 	defineRegressionSuite,
 	build,
 	readEntry,
@@ -40,13 +41,12 @@ const PNG_1x1 =
 	'image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 
 async function captureWarnings(fn) {
-	const orig = console.warn
 	const warnings = []
-	console.warn = (...args) => warnings.push(args.join(' '))
+	setDiagnosticHandler((d) => warnings.push(d.message))
 	try {
 		await fn()
 	} finally {
-		console.warn = orig
+		setDiagnosticHandler(null)
 	}
 	return warnings
 }

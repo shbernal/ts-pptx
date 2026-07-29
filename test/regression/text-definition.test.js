@@ -1,4 +1,5 @@
 import {
+	setDiagnosticHandler,
 	build,
 	readEntry,
 	listEntries,
@@ -67,15 +68,14 @@ const SVG_PATH = 'demos/common/images/lock-green.svg'
 async function buildCapturingLogs(buildFn) {
 	const warnings = []
 	const errors = []
-	const originalWarn = console.warn
 	const originalError = console.error
-	console.warn = (message) => warnings.push(String(message))
+	setDiagnosticHandler((d) => warnings.push(d.message))
 	console.error = (message) => errors.push(String(message))
 	try {
 		const result = await build(buildFn)
 		return { ...result, warnings, errors }
 	} finally {
-		console.warn = originalWarn
+		setDiagnosticHandler(null)
 		console.error = originalError
 	}
 }

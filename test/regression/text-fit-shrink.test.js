@@ -1,4 +1,4 @@
-import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
+import { setDiagnosticHandler, defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
 // upstream-issue-1199: `fit: 'shrink'` historically emitted a bare <a:normAutofit/>,
 // so PowerPoint only shrank text after an edit/resize. The object form bakes explicit
@@ -57,8 +57,7 @@ defineRegressionSuite('Text fit shrink (normAutofit fontScale/lnSpcReduction)', 
 		name: 'out-of-range values are dropped (no degenerate attribute)',
 		fn: async () => {
 			const warnings = []
-			const orig = console.warn
-			console.warn = (msg) => warnings.push(msg)
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let xml
 			try {
 				const { zip } = await build((p) => {
@@ -72,7 +71,7 @@ defineRegressionSuite('Text fit shrink (normAutofit fontScale/lnSpcReduction)', 
 				})
 				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			} finally {
-				console.warn = orig
+				setDiagnosticHandler(null)
 			}
 			assert(
 				xml.indexOf('<a:normAutofit/>') !== -1,

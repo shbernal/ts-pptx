@@ -1,4 +1,4 @@
-import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
+import { setDiagnosticHandler, defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
 // 1x1 transparent PNG
 const PNG_DATA =
@@ -126,8 +126,7 @@ defineRegressionSuite('Object locks', [
 		name: 'flag invalid for the element type is dropped with a warning',
 		fn: async () => {
 			const warnings = []
-			const origWarn = console.warn
-			console.warn = (msg) => warnings.push(String(msg))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let xml
 			try {
 				const { zip } = await build((p) => {
@@ -136,7 +135,7 @@ defineRegressionSuite('Object locks', [
 				})
 				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			assert(/<a:spLocks noMove="1"\/>/.test(xml), 'expected only the valid flag emitted; got: ' + xml)
 			assert(!/noCrop/.test(xml), 'noCrop must not appear on spLocks; got: ' + xml)

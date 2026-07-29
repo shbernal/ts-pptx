@@ -12,7 +12,7 @@ import type { PresSlideInternal, SlideLayoutInternal } from '../../types/interna
 import { createColorElement } from '../drawingml/color.js'
 import { inch2Emu } from '../../units-internal.js'
 import { HUNDREDTHS_PER_POINT, ptToHundredths } from '../../units.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { slideObjectRelationsToXml, slideObjectToXml } from './object.js'
 
@@ -185,6 +185,7 @@ function masterLevelXml(levelNum: number, base: MasterLevelDefault, levelOverrid
 	if (typeof levelOverride.fontSize === 'number') {
 		if (isNaN(levelOverride.fontSize) || levelOverride.fontSize <= 0)
 			warn(
+				'master/invalid-text-style-font-size',
 				`master textStyles fontSize "${levelOverride.fontSize}" is invalid; keeping default ${base.sz / HUNDREDTHS_PER_POINT}pt.`
 			)
 		else sz = ptToHundredths(levelOverride.fontSize)
@@ -217,7 +218,11 @@ function masterLevelXml(levelNum: number, base: MasterLevelDefault, levelOverrid
 /** Clamp a caller-provided per-level override array to the 9 valid list levels, warning on overflow. */
 function masterLevelOverrides(levels: MasterTextStyleLevel[] | undefined, group: string): MasterTextStyleLevel[] {
 	if (!Array.isArray(levels)) return []
-	if (levels.length > 9) warn(`master textStyles.${group} has ${levels.length} levels; only the first 9 are used.`)
+	if (levels.length > 9)
+		warn(
+			'master/too-many-text-style-levels',
+			`master textStyles.${group} has ${levels.length} levels; only the first 9 are used.`
+		)
 	return levels.slice(0, 9)
 }
 

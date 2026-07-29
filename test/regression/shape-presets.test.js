@@ -1,5 +1,13 @@
 import { ShapeType } from '../../dist/node.js'
-import { defineRegressionSuite, build, readEntry, assert, assertEqual, assertXmlOrder } from '../helpers.js'
+import {
+	setDiagnosticHandler,
+	defineRegressionSuite,
+	build,
+	readEntry,
+	assert,
+	assertEqual,
+	assertXmlOrder,
+} from '../helpers.js'
 
 defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 	{
@@ -234,8 +242,7 @@ defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 		name: 'custGeom invalid guide (empty name/formula) is dropped and warns',
 		fn: async () => {
 			const warnings = []
-			const origWarn = console.warn
-			console.warn = (...args) => warnings.push(args.join(' '))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let xml
 			try {
 				const { zip } = await build((p) => {
@@ -251,7 +258,7 @@ defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 				})
 				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			assert(
 				warnings.some((w) => w.includes('guide entry') && w.includes('was ignored')),
@@ -266,8 +273,7 @@ defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 		name: 'custGeom guide with an unknown formula operation is dropped and warns',
 		fn: async () => {
 			const warnings = []
-			const origWarn = console.warn
-			console.warn = (...args) => warnings.push(args.join(' '))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let xml
 			try {
 				const { zip } = await build((p) => {
@@ -286,7 +292,7 @@ defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 				})
 				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			assert(
 				warnings.some((w) => w.includes('unknown operation "bogus"') && w.includes('was ignored')),
@@ -325,8 +331,7 @@ defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 				'val',
 			]
 			const warnings = []
-			const origWarn = console.warn
-			console.warn = (...args) => warnings.push(args.join(' '))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let xml
 			try {
 				const { zip } = await build((p) => {
@@ -342,7 +347,7 @@ defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 				})
 				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			assertEqual(warnings.length, 0, 'no operation should warn; got: ' + warnings.join(' | '))
 			ops.forEach((op, i) => {
@@ -354,8 +359,7 @@ defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 		name: 'custGeom invalid connectionSite (non-finite ang) is dropped and warns',
 		fn: async () => {
 			const warnings = []
-			const origWarn = console.warn
-			console.warn = (...args) => warnings.push(args.join(' '))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let xml
 			try {
 				const { zip } = await build((p) => {
@@ -374,7 +378,7 @@ defineRegressionSuite('Shape preset mapping', 'legacy bug-10', [
 				})
 				xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			assert(
 				warnings.some((w) => w.includes('connectionSite entry') && w.includes('was ignored')),

@@ -8,7 +8,7 @@
 
 import type { AnimationProps } from '../../core-interfaces.js'
 import type { SlideObject } from '../../types/internal.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { resolveObjectNameToId } from '../slide/shape-ids.js'
 
@@ -41,6 +41,7 @@ export function resolveAnimationSpid(
 	if (typeof anim.shapeIndex === 'number') {
 		if (anim.shapeIndex >= 0 && anim.shapeIndex < topLevelCount) return anim.shapeIndex + 2
 		warn(
+			'animation/target-index-out-of-range',
 			`addAnimation: shapeIndex ${anim.shapeIndex} is out of range (slide has ${topLevelCount} top-level object(s)), so its "${anim.preset}" effect was dropped.`
 		)
 		return null
@@ -48,10 +49,16 @@ export function resolveAnimationSpid(
 	if (anim.objectName) {
 		const id = resolveObjectNameToId(shapeIds, anim.objectName)
 		if (id !== null) return id
-		warn(`addAnimation: no object named "${anim.objectName}" on the slide, so its "${anim.preset}" effect was dropped.`)
+		warn(
+			'animation/target-not-found',
+			`addAnimation: no object named "${anim.objectName}" on the slide, so its "${anim.preset}" effect was dropped.`
+		)
 		return null
 	}
-	warn(`addAnimation: the "${anim.preset}" effect names no target (pass shapeIndex or objectName), so it was dropped.`)
+	warn(
+		'animation/target-missing',
+		`addAnimation: the "${anim.preset}" effect names no target (pass shapeIndex or objectName), so it was dropped.`
+	)
 	return null
 }
 

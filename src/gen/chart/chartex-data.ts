@@ -13,7 +13,7 @@
 
 import { ChartType } from '../../core-enums.js'
 import type { SlideRelChart } from '../../types/internal.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } from './data-refs.js'
 
@@ -78,7 +78,10 @@ export function makeChartExData(rel: SlideRelChart): string {
 	vals.forEach((value, idx) => {
 		if (value == null) return
 		if (!Number.isFinite(value)) {
-			warn(`chartEx value "${value}" at index ${idx} is not a finite number; data point omitted.`)
+			warn(
+				'chart/non-finite-value',
+				`chartEx value "${value}" at index ${idx} is not a finite number; data point omitted.`
+			)
 			return
 		}
 		valPts += el('cx:pt', { idx }, value)

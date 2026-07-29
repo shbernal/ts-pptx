@@ -1,4 +1,5 @@
 import {
+	setDiagnosticHandler,
 	build,
 	readEntry,
 	listEntries,
@@ -40,13 +41,12 @@ import {
 /** Build, capturing library warnings (`log.ts` routes every one through `console.warn`). */
 async function buildCapturingWarnings(buildFn) {
 	const warnings = []
-	const original = console.warn
-	console.warn = (message) => warnings.push(String(message))
+	setDiagnosticHandler((d) => warnings.push(d.message))
 	try {
 		const result = await build(buildFn)
 		return { ...result, warnings }
 	} finally {
-		console.warn = original
+		setDiagnosticHandler(null)
 	}
 }
 

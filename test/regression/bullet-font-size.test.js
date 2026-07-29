@@ -1,4 +1,4 @@
-import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
+import { setDiagnosticHandler, defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
 // Custom bullet glyph font and size. Authored decks emit
 // `<a:buFont typeface="Wingdings"/>` for symbol bullets and `<a:buSzPct/>` values
@@ -41,8 +41,7 @@ defineRegressionSuite('Bullet glyph font and size', [
 		name: 'out-of-range bullet.size warns and falls back to 100%',
 		fn: async () => {
 			const warnings = []
-			const origWarn = console.warn
-			console.warn = (msg) => warnings.push(String(msg))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let ppr
 			try {
 				const { zip } = await build((p) => {
@@ -51,7 +50,7 @@ defineRegressionSuite('Bullet glyph font and size', [
 				})
 				ppr = (await getPPr(zip)).ppr
 			} finally {
-				console.warn = origWarn
+				setDiagnosticHandler(null)
 			}
 			assert(/<a:buSzPct val="100000"\/>/.test(ppr), 'expected fallback <a:buSzPct val="100000"/>; got: ' + ppr)
 			assert(

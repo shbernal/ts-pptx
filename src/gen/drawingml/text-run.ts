@@ -22,7 +22,7 @@ import { createGlowElement, createShadowElement } from './effect.js'
 import { genXmlColorSelection } from './fill.js'
 import { inch2Emu, lineWidthToEmu, valToPts } from '../../units-internal.js'
 import { FIXED_PCT_PER_PERCENT, PERCENT_SCALE, ptToHundredths } from '../../units.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
 import { clampCharSpacingSpc, clampFontSizeSz, clampLineSpacingPts } from './clamp.js'
 import { genXmlInlineMath, genXmlMathParagraph } from './math.js'
@@ -148,7 +148,7 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 				// range `<a:buSzPct>` renders sensibly); values outside it are rejected
 				// rather than clamped so the caller notices the bad input.
 				if (isNaN(bulletSize) || bulletSize < 25 || bulletSize > 400) {
-					warn('`bullet.size` must be a percentage between 25 and 400!')
+					warn('bullet/size-out-of-range', '`bullet.size` must be a percentage between 25 and 400!')
 				} else {
 					bulletSizePct = Math.round(bulletSize * FIXED_PCT_PER_PERCENT)
 				}
@@ -196,7 +196,10 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 					strXmlBullet = strXmlBulletSize + el('a:buBlip', null, raw(blip))
 				} else {
 					// rel was not registered (eg: bullet on a context without a slide target) - fall back to a glyph
-					warn('picture `bullet.image` could not be embedded; using a default bullet glyph')
+					warn(
+						'bullet/image-embed-failed',
+						'picture `bullet.image` could not be embedded; using a default bullet glyph'
+					)
 					strXmlBullet = strXmlBulletSize + strXmlBulletFont + buChar(BulletType.DEFAULT)
 				}
 			} else if (opts.bullet.type && opts.bullet.type.toString().toLowerCase() === 'number') {
@@ -213,7 +216,10 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 
 				// Check value for hex-ness (s/b 4 char hex)
 				if (!/^[0-9A-Fa-f]{4}$/.test(opts.bullet.characterCode)) {
-					warn('`bullet.characterCode` should be a 4-digit unicode character (ex: 22AB)!')
+					warn(
+						'bullet/invalid-character-code',
+						'`bullet.characterCode` should be a 4-digit unicode character (ex: 22AB)!'
+					)
 					bulletCode = BulletType.DEFAULT
 				}
 
@@ -434,7 +440,10 @@ export function genXmlNormAutofit(fit: TextFitShrinkProps): string {
 	const pct = (val: number | undefined, name: string): number | null => {
 		if (val === undefined || val === null) return null
 		if (typeof val !== 'number' || isNaN(val) || val < 0 || val > 100) {
-			warn(`fit.${name} must be a number between 0 and 100 (percent); received ${String(val)} - attribute ignored.`)
+			warn(
+				'text/invalid-fit-percentage',
+				`fit.${name} must be a number between 0 and 100 (percent); received ${String(val)} - attribute ignored.`
+			)
 			return null
 		}
 		return Math.round(val * FIXED_PCT_PER_PERCENT)

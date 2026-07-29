@@ -9,7 +9,7 @@ import {
 	readPptxTextPart,
 } from '../../dist/inspect.js'
 import JSZip from 'jszip'
-import { defineRegressionSuite, build, assert, assertEqual } from '../helpers.js'
+import { defineRegressionSuite, build, assert, assertEqual, setDiagnosticHandler } from '../helpers.js'
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
@@ -61,12 +61,11 @@ function spXml(id, name, { x = 0, y = 0, cx = 100, cy = 100 } = {}) {
 /** Collect `console.warn` output while `fn` runs. */
 async function captureWarnings(fn) {
 	const warnings = []
-	const original = console.warn
-	console.warn = (...args) => warnings.push(args.join(' '))
+	setDiagnosticHandler((d) => warnings.push(d.message))
 	try {
 		return { result: await fn(), warnings }
 	} finally {
-		console.warn = original
+		setDiagnosticHandler(null)
 	}
 }
 

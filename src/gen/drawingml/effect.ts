@@ -8,7 +8,7 @@
  */
 
 import { DEF_FONT_COLOR } from '../../core-enums-internal.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import type { ShadowProps, TextGlowProps } from '../../core-interfaces.js'
 import type { ShadowPropsInternal } from '../../types/internal.js'
 import { ANGLE_UNITS_PER_DEGREE, EMU_PER_POINT, PERCENT_SCALE } from '../../units.js'
@@ -107,7 +107,7 @@ export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowPr
 
 	// OPT: `type`
 	if (corrected.type !== 'outer' && corrected.type !== 'inner' && corrected.type !== 'none') {
-		warn('shadow.type options are `outer`, `inner` or `none`.')
+		warn('shadow/invalid-type', 'shadow.type options are `outer`, `inner` or `none`.')
 		corrected.type = 'outer'
 	}
 
@@ -115,7 +115,7 @@ export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowPr
 	if (corrected.angle) {
 		// A: REALITY-CHECK
 		if (isNaN(Number(corrected.angle)) || corrected.angle < 0 || corrected.angle > 359) {
-			warn('shadow.angle can only be 0-359')
+			warn('shadow/angle-out-of-range', 'shadow.angle can only be 0-359')
 			corrected.angle = 270
 		}
 
@@ -128,7 +128,7 @@ export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowPr
 	if (corrected.transparency !== undefined) {
 		const pct = Number(corrected.transparency)
 		if (isNaN(pct) || pct < 0 || pct > 100) {
-			warn('shadow.transparency can only be 0-100')
+			warn('shadow/transparency-out-of-range', 'shadow.transparency can only be 0-100')
 		} else {
 			corrected._alpha = 1 - pct / 100
 		}
@@ -138,7 +138,7 @@ export function correctShadowOptions(ShadowProps?: ShadowProps | null): ShadowPr
 	if (corrected.color) {
 		// INCORRECT FORMAT
 		if (corrected.color.startsWith('#')) {
-			warn('shadow.color should not include hash (#) character, , e.g. "FF0000"')
+			warn('shadow/color-has-hash', 'shadow.color should not include hash (#) character, , e.g. "FF0000"')
 			corrected.color = corrected.color.replace('#', '')
 		}
 

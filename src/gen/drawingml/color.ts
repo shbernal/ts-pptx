@@ -14,7 +14,7 @@
 
 import { SchemeColor, type SCHEME_COLORS } from '../../core-enums.js'
 import { REGEX_HEX_COLOR, DEF_FONT_COLOR } from '../../core-enums-internal.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import { PERCENT_SCALE } from '../../units.js'
 
 /**
@@ -34,7 +34,10 @@ import { PERCENT_SCALE } from '../../units.js'
  */
 export function createColorElement(colorStr: string | SCHEME_COLORS, innerElements?: string): string {
 	if (typeof colorStr !== 'string') {
-		warn(`createColorElement: expected a string color value, got ${typeof colorStr}. "${DEF_FONT_COLOR}" used instead.`)
+		warn(
+			'color/not-a-string',
+			`createColorElement: expected a string color value, got ${typeof colorStr}. "${DEF_FONT_COLOR}" used instead.`
+		)
 		colorStr = DEF_FONT_COLOR
 	}
 	let colorVal = (colorStr || '').replace('#', '')
@@ -56,6 +59,7 @@ export function createColorElement(colorStr: string | SCHEME_COLORS, innerElemen
 
 	if (!REGEX_HEX_COLOR.test(colorVal) && !Object.values(SchemeColor).includes(colorVal as SchemeColor)) {
 		warn(
+			'color/invalid-value',
 			`"${colorVal}" is not a valid scheme color or hex RGB! "${DEF_FONT_COLOR}" used instead. Only provide 6-digit RGB or 'SchemeColor' values!`
 		)
 		colorVal = DEF_FONT_COLOR

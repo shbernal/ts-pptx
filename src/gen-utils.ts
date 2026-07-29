@@ -12,7 +12,7 @@
  * base64/image-header decoding and media content types to `media/`.
  */
 
-import { warn } from './log.js'
+import { warn } from './diagnostics.js'
 import type { PresSlideInternal } from './types/internal.js'
 
 /**
@@ -98,17 +98,26 @@ const MAX_OBJECT_NAME_LENGTH = 255
 export function validateObjectName(name: string, kind: string): string {
 	if (typeof name !== 'string') return name
 	if (name.trim().length === 0) {
-		warn(`${kind} objectName is empty or whitespace-only; it will not provide a stable Selection Pane identity.`)
+		warn(
+			'object-name/empty',
+			`${kind} objectName is empty or whitespace-only; it will not provide a stable Selection Pane identity.`
+		)
 		return name
 	}
 	// Same illegal-XML-char set that `encodeXmlEntities` strips; detect so the caller knows the name will change.
 	const cc = String.fromCharCode
 	const illegalXmlCharsRe = new RegExp(`[${cc(0)}-${cc(8)}${cc(11)}${cc(12)}${cc(14)}-${cc(31)}${cc(127)}]`)
 	if (illegalXmlCharsRe.test(name)) {
-		warn(`${kind} objectName "${name}" contains control characters that will be stripped, changing the stored name.`)
+		warn(
+			'object-name/control-characters',
+			`${kind} objectName "${name}" contains control characters that will be stripped, changing the stored name.`
+		)
 	}
 	if (name.length > MAX_OBJECT_NAME_LENGTH) {
-		warn(`${kind} objectName exceeds ${MAX_OBJECT_NAME_LENGTH} characters and may not be preserved by PowerPoint.`)
+		warn(
+			'object-name/too-long',
+			`${kind} objectName exceeds ${MAX_OBJECT_NAME_LENGTH} characters and may not be preserved by PowerPoint.`
+		)
 	}
 	return name
 }

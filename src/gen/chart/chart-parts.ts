@@ -19,7 +19,7 @@ import {
 } from '../../core-enums-internal.js'
 import type { BorderProps, ChartErrorBarOptions, ChartPropsTitle, OptsChartGridLine } from '../../core-interfaces.js'
 import type { ChartOptsInternal, OptsChartDataInternal } from '../../types/internal.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import { createColorElement } from '../drawingml/color.js'
 import { createShadowEffectLst } from '../drawingml/effect.js'
 import { genXmlColorSelection, genXmlPatternFill } from '../drawingml/fill.js'
@@ -174,7 +174,7 @@ export function createGridLineElement(glOpts: OptsChartGridLine): string {
 export function numCachePt(idx: number, value: number | null | undefined): string {
 	if (value == null) return ''
 	if (!Number.isFinite(value)) {
-		warn(`chart value "${value}" at index ${idx} is not a finite number; data point omitted.`)
+		warn('chart/non-finite-value', `chart value "${value}" at index ${idx} is not a finite number; data point omitted.`)
 		return ''
 	}
 	return `<c:pt idx="${idx}"><c:v>${value}</c:v></c:pt>`
@@ -219,12 +219,18 @@ export function makeChartErrorBarsXml(
 			// `barType` decides which sides are present; warn (don't silently drop) on a missing side.
 			if (barType !== 'minus') {
 				if (!eb.plusValues?.length)
-					warn(`chart series "${obj.name}" errorBars valueType 'cust' needs \`plusValues\` for barType '${barType}'.`)
+					warn(
+						'chart/error-bars-missing-values',
+						`chart series "${obj.name}" errorBars valueType 'cust' needs \`plusValues\` for barType '${barType}'.`
+					)
 				strXml += makeErrBarNumLit('plus', eb.plusValues || [])
 			}
 			if (barType !== 'plus') {
 				if (!eb.minusValues?.length)
-					warn(`chart series "${obj.name}" errorBars valueType 'cust' needs \`minusValues\` for barType '${barType}'.`)
+					warn(
+						'chart/error-bars-missing-values',
+						`chart series "${obj.name}" errorBars valueType 'cust' needs \`minusValues\` for barType '${barType}'.`
+					)
 				strXml += makeErrBarNumLit('minus', eb.minusValues || [])
 			}
 		} else if (valueType !== 'stdErr') {

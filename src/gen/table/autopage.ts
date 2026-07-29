@@ -19,7 +19,7 @@ import type {
 } from '../../core-interfaces.js'
 import type { SlideLayoutInternal } from '../../types/internal.js'
 import { getSmartParseNumber, inch2Emu, marginToEmu } from '../../units-internal.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import { EMU_PER_INCH, EMU_PER_POINT } from '../../units.js'
 
 type AutoPageCell = TableCell & {
@@ -279,6 +279,7 @@ export function getSlidesForTableRows(
 			const fallbackH = presLayout.height - emuStartY - inch2Emu(arrInchMargins[2])
 			if (!warnedNoTabH) {
 				warn(
+					'table/autopage-height-too-small',
 					'addTable/autoPage: the table height (`h`) leaves no room to paginate; ignoring it and using the slide height. Increase `h` or decrease `y`.'
 				)
 				warnedNoTabH = true

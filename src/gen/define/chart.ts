@@ -14,7 +14,7 @@ import {
 	SlideObjectType,
 } from '../../core-enums.js'
 import { BARCHART_COLORS, DEF_CHART_BORDER, PIECHART_COLORS } from '../../core-enums-internal.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import type { ChartMulti, ChartOpts, OptsChartData, OptsChartGridLine } from '../../core-interfaces.js'
 import type { ChartOptsInternal, OptsChartDataInternal, PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../../gen-utils.js'
@@ -96,7 +96,8 @@ function copyChartOptions(opts: ChartOpts | ChartOptsInternal): ChartOptsInterna
 function clampChartPct(value: number | undefined, min: number, max: number, name: string): number | undefined {
 	if (typeof value !== 'number' || isNaN(value)) return undefined
 	const clamped = Math.min(max, Math.max(min, Math.round(value)))
-	if (clamped !== value) warn(`${name} ${value} is outside the valid range ${min}-${max}; using ${clamped}.`)
+	if (clamped !== value)
+		warn('chart/option-out-of-range', `${name} ${value} is outside the valid range ${min}-${max}; using ${clamped}.`)
 	return clamped
 }
 
@@ -292,7 +293,11 @@ function normalizeChartOptions(options: ChartOptsInternal): void {
 		// library's warn-rather-than-degrade policy.
 		const clean = (Array.isArray(options.subtotals) ? options.subtotals : []).filter((idx) => {
 			const ok = typeof idx === 'number' && Number.isInteger(idx) && idx >= 0
-			if (!ok) warn(`chart waterfall subtotal index "${String(idx)}" is not a non-negative integer; entry skipped.`)
+			if (!ok)
+				warn(
+					'chart/invalid-subtotal-index',
+					`chart waterfall subtotal index "${String(idx)}" is not a non-negative integer; entry skipped.`
+				)
 			return ok
 		})
 		options.subtotals = clean.length > 0 ? clean : undefined
@@ -379,6 +384,7 @@ function normalizeComboSubchartOptions(
 		const symbolSize = Math.min(72, Math.max(2, Math.round(fixed.lineDataSymbolSize)))
 		if (symbolSize !== fixed.lineDataSymbolSize)
 			warn(
+				'chart/symbol-size-out-of-range',
 				`lineDataSymbolSize ${fixed.lineDataSymbolSize} is outside the valid marker size range (integer 2-72); using ${symbolSize}.`
 			)
 		fixed.lineDataSymbolSize = symbolSize
@@ -429,15 +435,15 @@ export function addChartDefinition(
 	function correctGridLineOptions(glOpts: OptsChartGridLine): void {
 		if (!glOpts || glOpts.style === 'none') return
 		if (glOpts.size !== undefined && (isNaN(Number(glOpts.size)) || glOpts.size <= 0)) {
-			warn('chart.gridLine.size must be greater than 0.')
+			warn('chart/invalid-grid-line-size', 'chart.gridLine.size must be greater than 0.')
 			delete glOpts.size // delete prop to used defaults
 		}
 		if (glOpts.style && !['solid', 'dash', 'dot'].includes(glOpts.style)) {
-			warn('chart.gridLine.style options: `solid`, `dash`, `dot`.')
+			warn('chart/invalid-grid-line-style', 'chart.gridLine.style options: `solid`, `dash`, `dot`.')
 			delete glOpts.style
 		}
 		if (glOpts.cap && !['flat', 'square', 'round'].includes(glOpts.cap)) {
-			warn('chart.gridLine.cap options: `flat`, `square`, `round`.')
+			warn('chart/invalid-grid-line-cap', 'chart.gridLine.cap options: `flat`, `square`, `round`.')
 			delete glOpts.cap
 		}
 	}
@@ -529,6 +535,7 @@ export function addChartDefinition(
 		const symbolSize = Math.min(72, Math.max(2, Math.round(hasSymbolSize ? rawSymbolSize : 6)))
 		if (hasSymbolSize && symbolSize !== rawSymbolSize) {
 			warn(
+				'chart/symbol-size-out-of-range',
 				`lineDataSymbolSize ${rawSymbolSize} is outside the valid marker size range (integer 2-72); using ${symbolSize}.`
 			)
 		}
@@ -545,7 +552,7 @@ export function addChartDefinition(
 			const val = chartLayout[key]
 			const numVal = Number(val)
 			if (isNaN(numVal) || numVal < 0 || numVal > 1) {
-				warn('chart.layout.' + key + ' can only be 0-1')
+				warn('chart/layout-out-of-range', 'chart.layout.' + key + ' can only be 0-1')
 				delete chartLayout[key] // remove invalid value so that default will be used
 			}
 		})
@@ -589,6 +596,7 @@ export function addChartDefinition(
 		const expected = STOCK_SERIES_COUNT[options.stockStyle as string]
 		if (tmpData.length !== expected) {
 			warn(
+				'chart/stock-series-count',
 				`stock chart style "${options.stockStyle}" expects ${expected} data series (got ${tmpData.length}); the chart may not render as intended.`
 			)
 		}

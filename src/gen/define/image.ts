@@ -7,7 +7,7 @@
  * image *fill* used by a shape or text box.
  */
 import { SlideObjectType } from '../../core-enums.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import type { Coord, ImageProps, ObjectOptions, ShapeFillProps } from '../../core-interfaces.js'
 import type { PresSlideInternal, SlideObject } from '../../types/internal.js'
 import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../../gen-utils.js'
@@ -35,12 +35,15 @@ export function registerImageFillMedia(target: PresSlideInternal, fill: ShapeFil
 	const strImageData = fill.image?.data || ''
 
 	if (!strImagePath && !strImageData) {
-		warn('image fill requires `image.path` or `image.data`; ignoring image fill.')
+		warn('image-fill/missing-source', 'image fill requires `image.path` or `image.data`; ignoring image fill.')
 		fill.type = 'none'
 		return
 	}
 	if (strImageData && !strImageData.toLowerCase().includes('base64,')) {
-		warn("Warning: image fill `data` value lacks a base64 header (ex: 'image/png;base64,...'); ignoring image fill.")
+		warn(
+			'image-fill/missing-base64-header',
+			"image fill `data` value lacks a base64 header (ex: 'image/png;base64,...'); ignoring image fill."
+		)
 		fill.type = 'none'
 		return
 	}
@@ -48,7 +51,10 @@ export function registerImageFillMedia(target: PresSlideInternal, fill: ShapeFil
 	const strImgExtn = imageExtensionForSource(strImagePath, strImageData)
 
 	if (strImgExtn === 'svg') {
-		warn('SVG image fills are not supported; ignoring image fill. Use a raster format (PNG/JPEG/GIF/BMP/WebP).')
+		warn(
+			'image-fill/svg-unsupported',
+			'SVG image fills are not supported; ignoring image fill. Use a raster format (PNG/JPEG/GIF/BMP/WebP).'
+		)
 		fill.type = 'none'
 		return
 	}

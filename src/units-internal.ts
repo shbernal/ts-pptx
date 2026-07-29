@@ -13,7 +13,7 @@
  * from an entrypoint.
  */
 
-import { warn, warnOnce } from './log.js'
+import { warn, warnOnce } from './diagnostics.js'
 import {
 	EMU_PER_INCH,
 	EMU_PER_POINT,
@@ -88,6 +88,7 @@ export function inch2Emu(inches: number | string): Emu {
 export function marginToEmu(inches: number): Emu {
 	if (inches >= 1)
 		warnOnce(
+			'margin/legacy-points',
 			'margins (table cell and text-box) are interpreted as inches (matching the rest of the API and the ' +
 				'PowerPoint dialog); a value >= 1 is likely a legacy points value — divide by 72 to convert (e.g. 10pt => 0.139in).'
 		)
@@ -147,14 +148,15 @@ export function valToPts(pt: number | string): number {
  */
 export function transparencyToAlpha(transparency: number): number {
 	const pct = Math.min(100, Math.max(0, transparency))
-	if (pct !== transparency) warn(`transparency ${transparency} is outside the valid range 0-100; using ${pct}.`)
+	if (pct !== transparency)
+		warn('transparency/out-of-range', `transparency ${transparency} is outside the valid range 0-100; using ${pct}.`)
 	return Math.round((100 - pct) * FIXED_PCT_PER_PERCENT)
 }
 
 /** Convert an opacity (0-1) into a schema-valid `<a:alpha>` value (0-100000); clamps + warns on out-of-range input. */
 export function opacityToAlpha(opacity: number): number {
 	const o = Math.min(1, Math.max(0, opacity))
-	if (o !== opacity) warn(`opacity ${opacity} is outside the valid range 0-1; using ${o}.`)
+	if (o !== opacity) warn('opacity/out-of-range', `opacity ${opacity} is outside the valid range 0-1; using ${o}.`)
 	return Math.round(o * PERCENT_SCALE)
 }
 
@@ -167,7 +169,10 @@ export function lineWidthToEmu(widthPts: number | string): number {
 	const raw = valToPts(widthPts)
 	const clamped = Math.min(20116800, Math.max(0, raw))
 	if (clamped !== raw)
-		warn(`line width ${widthPts} is outside the valid range 0-1584pt; using ${clamped / EMU_PER_POINT}.`)
+		warn(
+			'line/width-out-of-range',
+			`line width ${widthPts} is outside the valid range 0-1584pt; using ${clamped / EMU_PER_POINT}.`
+		)
 	return clamped
 }
 

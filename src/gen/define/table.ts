@@ -13,7 +13,7 @@ import {
 	DEF_FONT_SIZE,
 	DEF_SLIDE_MARGIN_IN,
 } from '../../core-enums-internal.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import type {
 	AddSlideProps,
 	BorderProps,
@@ -292,7 +292,7 @@ export function addTableDefinition(
 		if (!opt.color) opt.color = opt.color || DEF_FONT_COLOR // Set default color if needed (table option > inherit from Slide > default to black)
 	}
 	if (typeof opt.border === 'string') {
-		warn("addTable `border` option must be an object. Ex: `{border: {type:'none'}}`")
+		warn('table/invalid-border', "addTable `border` option must be an object. Ex: `{border: {type:'none'}}`")
 		opt.border = undefined
 	} else if (Array.isArray(opt.border)) {
 		const border = opt.border
@@ -365,7 +365,10 @@ export function addTableDefinition(
 			opt.colW = undefined // IMPORTANT: Unset `colW` so table is created using `opt.w`, which will evenly divide cols
 		} else if (opt.colW && Array.isArray(opt.colW) && opt.colW.length !== firstRowColCnt) {
 			// Err: Mismatched colW and cols count
-			warn('addTable: mismatch: (colW.length != data.length) Therefore, defaulting to evenly distributed col widths.')
+			warn(
+				'table/col-width-count-mismatch',
+				'addTable: mismatch: (colW.length != data.length) Therefore, defaulting to evenly distributed col widths.'
+			)
 			opt.colW = undefined
 		}
 	} else if (opt.w) {

@@ -4,7 +4,7 @@
 // a round-trip bug in fflate can't mask itself by being used on both sides.
 // Keep jszip as a devDep for this reason — do not "consolidate" onto src/zip.ts.
 import JSZip from 'jszip'
-import TsPptx from '../dist/node.js'
+import TsPptx, { setDiagnosticHandler } from '../dist/node.js'
 import { describe, test } from 'vitest'
 
 async function build(buildFn) {
@@ -158,8 +158,34 @@ function assertNonVisualDrawingProperty(xml, attrs, label) {
 	return match
 }
 
+/**
+ * Run `fn` with a diagnostic handler installed, returning what the library emitted alongside the
+ * function's own result. Prefer asserting on `codes` -- a diagnostic's `code` is API and its
+ * `message` explicitly is not, so a message assertion breaks on any wording improvement.
+ *
+ * The handler is process-global (see `setDiagnosticHandler`), so this must not be used from two
+ * concurrently-running cases; vitest runs cases within a file serially, which is what makes it safe.
+ */
+async function captureDiagnostics(fn) {
+	const diagnostics = []
+	setDiagnosticHandler((d) => diagnostics.push(d))
+	try {
+		const result = await fn()
+		return {
+			result,
+			diagnostics,
+			codes: diagnostics.map((d) => d.code),
+			messages: diagnostics.map((d) => d.message),
+		}
+	} finally {
+		setDiagnosticHandler(null)
+	}
+}
+
 export {
 	TsPptx,
+	setDiagnosticHandler,
+	captureDiagnostics,
 	build,
 	readEntry,
 	listEntries,

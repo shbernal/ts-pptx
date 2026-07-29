@@ -11,7 +11,7 @@ import type { Coord, GeometryPoint, ObjectOptions, PresLayout, ShapeAdjustHandle
 import { convertArcAngle, convertRotationDegrees, getSmartParseNumber } from '../../units-internal.js'
 import { EMU_PER_INCH, PERCENT_SCALE } from '../../units.js'
 import { el, raw, voidEl } from '../oxml/el.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 
 /**
  * Several `<a:custGeom>` children are emitted as `<a:avLst />` — with a space before the
@@ -121,12 +121,16 @@ export function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: 
 				!isFinite(adj.value)
 			) {
 				warn(
+					'geometry/invalid-shape-adjust',
 					`shapeAdjust entry ${JSON.stringify(adj)} is invalid (needs { name:string, value:number }) and was ignored.`
 				)
 				return
 			}
 			if (emittedAdjNames.has(adj.name)) {
-				warn(`shapeAdjust "${adj.name}" was ignored because rectRadius/angleRange already set that handle.`)
+				warn(
+					'geometry/shape-adjust-overridden',
+					`shapeAdjust "${adj.name}" was ignored because rectRadius/angleRange already set that handle.`
+				)
 				return
 			}
 			// `value` is a 0.0-1.0 fraction of the handle range, emitted as a percentage guide (1/100000 units).
@@ -187,7 +191,10 @@ export function genXmlCustGeom(options: ObjectOptions, cx: number, cy: number, l
 			// An authored x/y is silently unused, so say so rather than let it read as meaningful.
 			// (A union excess-property check does not reject one, so this is the only signal.)
 			if ('x' in point || 'y' in point)
-				warn('freeform arc node: x/y are ignored — an arcTo end point is computed from stAng/swAng and the radii.')
+				warn(
+					'geometry/arc-node-point-ignored',
+					'freeform arc node: x/y are ignored — an arcTo end point is computed from stAng/swAng and the radii.'
+				)
 			nodes.push(
 				voidEl(
 					'a:arcTo',
@@ -249,7 +256,10 @@ export function genXmlCustGeom(options: ObjectOptions, cx: number, cy: number, l
 				typeof g.formula !== 'string' ||
 				g.formula.length === 0
 			) {
-				warn(`guide entry ${JSON.stringify(g)} is invalid (needs { name:string, formula:string }) and was ignored.`)
+				warn(
+					'geometry/invalid-guide',
+					`guide entry ${JSON.stringify(g)} is invalid (needs { name:string, formula:string }) and was ignored.`
+				)
 				return
 			}
 			// The formula is passed through uninterpreted, but its leading operation is a
@@ -258,6 +268,7 @@ export function genXmlCustGeom(options: ObjectOptions, cx: number, cy: number, l
 			const op = g.formula.trimStart().split(/\s+/)[0] ?? ''
 			if (!GEOM_GUIDE_OPS.has(op)) {
 				warn(
+					'geometry/unknown-guide-operation',
 					`guide "${g.name}" formula ${JSON.stringify(g.formula)} starts with an unknown operation "${op}" (expected one of ${[...GEOM_GUIDE_OPS].join(' ')}) and was ignored.`
 				)
 				return
@@ -274,6 +285,7 @@ export function genXmlCustGeom(options: ObjectOptions, cx: number, cy: number, l
 		options.connectionSites.forEach((c) => {
 			if (!c || typeof c.ang !== 'number' || !isFinite(c.ang)) {
 				warn(
+					'geometry/invalid-connection-site',
 					`connectionSite entry ${JSON.stringify(c)} is invalid (needs a finite \`ang\` in degrees) and was ignored.`
 				)
 				return

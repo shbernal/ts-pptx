@@ -27,7 +27,7 @@ import type {
 import type { Slide } from '../../types/slide.js'
 import type { SlideLayoutInternal } from '../../types/internal.js'
 import { inch2Emu } from '../../units-internal.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import { EMU_PER_INCH } from '../../units.js'
 import { getSlidesForTableRows } from './autopage.js'
 
@@ -830,7 +830,7 @@ export function genTableToSlides(
 		if (opts.addImage) {
 			opts.addImage.options = opts.addImage.options || {}
 			if (!opts.addImage.image || (!opts.addImage.image.path && !opts.addImage.image.data)) {
-				warn('tableToSlides.addImage requires either `path` or `data`')
+				warn('html/image-missing-source', 'tableToSlides.addImage requires either `path` or `data`')
 			} else {
 				const imageProps = opts.addImage.image.path
 					? { path: opts.addImage.image.path }

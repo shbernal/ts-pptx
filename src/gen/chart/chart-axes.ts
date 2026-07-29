@@ -18,7 +18,7 @@ import {
 	DEF_FONT_SIZE,
 } from '../../core-enums-internal.js'
 import type { ChartOptsInternal } from '../../types/internal.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { convertRotationDegrees, valToPts } from '../../units-internal.js'
 import { EMU_PER_POINT, ptToHundredths } from '../../units.js'
@@ -124,7 +124,7 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 				// Validate input as poorly chosen/garbage options will cause chart corruption and it wont render at all!
 				const optVal = opts[opt]
 				if (optVal && (typeof optVal !== 'string' || !VALID_CHART_TIME_UNITS.includes(optVal.toLowerCase()))) {
-					warn(`"${opt}" must be one of: 'days','months','years' !`)
+					warn('chart/invalid-axis-time-unit', `"${opt}" must be one of: 'days','months','years' !`)
 					opts[opt] = undefined
 				}
 			})
@@ -309,7 +309,7 @@ export function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 			// Validate input as poorly chosen/garbage options will cause chart corruption and it wont render at all!
 			const optVal = opts[opt]
 			if (optVal && (typeof optVal !== 'string' || !VALID_CHART_TIME_UNITS.includes(optVal.toLowerCase()))) {
-				warn(`"${opt}" must be one of: 'days','months','years' !`)
+				warn('chart/invalid-axis-time-unit', `"${opt}" must be one of: 'days','months','years' !`)
 				opts[opt] = undefined
 			}
 		})

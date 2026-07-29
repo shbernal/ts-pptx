@@ -1,4 +1,4 @@
-import { defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
+import { setDiagnosticHandler, defineRegressionSuite, build, readEntry, assert } from '../helpers.js'
 
 // Regression: slide.addConnector emits a PowerPoint connector (<p:cxnSp>) — not a plain line
 // shape — with the correct connector preset, a min-corner origin + flip flags derived from the
@@ -148,8 +148,7 @@ defineRegressionSuite('Connector shapes', [
 		name: 'startShape/endShape bind to names containing XML metacharacters',
 		fn: async () => {
 			const warnings = []
-			const orig = console.warn
-			console.warn = (m) => warnings.push(String(m))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let xml
 			try {
 				xml = await slideXml((p) => {
@@ -167,7 +166,7 @@ defineRegressionSuite('Connector shapes', [
 					})
 				})
 			} finally {
-				console.warn = orig
+				setDiagnosticHandler(null)
 			}
 			const cxn = (xml.match(/<p:cxnSp>[\s\S]*?<\/p:cxnSp>/g) || [])[0]
 			assert(
@@ -184,15 +183,14 @@ defineRegressionSuite('Connector shapes', [
 		name: 'unresolved binding name warns and falls back to empty <p:cNvCxnSpPr/>',
 		fn: async () => {
 			const warnings = []
-			const orig = console.warn
-			console.warn = (m) => warnings.push(m)
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			let xml
 			try {
 				xml = await slideXml((p) => {
 					p.addSlide().addConnector({ type: 'straight', x1: 1, y1: 6, x2: 4, y2: 6, endShape: 'ghost' })
 				})
 			} finally {
-				console.warn = orig
+				setDiagnosticHandler(null)
 			}
 			const cxn = (xml.match(/<p:cxnSp>[\s\S]*?<\/p:cxnSp>/g) || [])[0]
 			assert(cxn.includes('<p:cNvCxnSpPr/>'), 'unresolved binding must emit an empty cNvCxnSpPr (no dangling id)')

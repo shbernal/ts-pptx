@@ -55,7 +55,7 @@
  * @see https://docs.microsoft.com/en-us/previous-versions/office/developer/office-2010/hh273476(v=office.14)
  */
 
-import { warn } from './log.js'
+import { warn } from './diagnostics.js'
 import SlideBuilder from './slide-builder.js'
 import { SlideObjectType } from './core-enums.js'
 import { DEF_PRES_LAYOUT, DEF_PRES_LAYOUT_NAME, DEF_SLIDE_MARGIN_IN } from './core-enums-internal.js'
@@ -984,13 +984,16 @@ export default class PresentationCore {
 	 */
 	addSection(section: SectionProps): void {
 		if (!section) {
-			warn('addSection requires an argument')
+			warn('section/missing-argument', 'addSection requires an argument')
 			return
 		} else if (!section.title) {
-			warn('addSection requires a title')
+			warn('section/missing-title', 'addSection requires a title')
 			return
 		} else if (this._sections.some((sect) => sect.title === section.title)) {
-			warn(`addSection: a section titled "${section.title}" already exists; ignoring duplicate`)
+			warn(
+				'section/duplicate-title',
+				`addSection: a section titled "${section.title}" already exists; ignoring duplicate`
+			)
 			return
 		}
 
@@ -1049,7 +1052,8 @@ export default class PresentationCore {
 		// B-2: Handle slides without a section when sections are already is use ("loose" slides arent allowed, they all need a section)
 		if (options?.sectionTitle) {
 			const sect = this._sections.find((section) => section.title === options.sectionTitle)
-			if (!sect) warn(`addSlide: unable to find section with title: "${options.sectionTitle}"`)
+			if (!sect)
+				warn('slide/section-not-found', `addSlide: unable to find section with title: "${options.sectionTitle}"`)
 			else sect._slides.push(newSlide)
 		} else if (this._sections && this._sections.length > 0 && !options?.sectionTitle) {
 			const lastSect = this._sections[this._sections.length - 1]
@@ -1077,12 +1081,14 @@ export default class PresentationCore {
 	 */
 	defineLayout(layout: PresLayout): void {
 		// @see https://support.office.com/en-us/article/Change-the-size-of-your-slides-040a811c-be43-40b9-8d04-0de5ed79987e
-		if (!layout) warn('defineLayout requires `{name, width, height}`')
-		else if (!layout.name) warn('defineLayout requires `name`')
-		else if (!layout.width) warn('defineLayout requires `width`')
-		else if (!layout.height) warn('defineLayout requires `height`')
-		else if (typeof layout.height !== 'number') warn('defineLayout `height` should be a number (inches)')
-		else if (typeof layout.width !== 'number') warn('defineLayout `width` should be a number (inches)')
+		if (!layout) warn('layout/invalid-definition', 'defineLayout requires `{name, width, height}`')
+		else if (!layout.name) warn('layout/invalid-definition', 'defineLayout requires `name`')
+		else if (!layout.width) warn('layout/invalid-definition', 'defineLayout requires `width`')
+		else if (!layout.height) warn('layout/invalid-definition', 'defineLayout requires `height`')
+		else if (typeof layout.height !== 'number')
+			warn('layout/invalid-definition', 'defineLayout `height` should be a number (inches)')
+		else if (typeof layout.width !== 'number')
+			warn('layout/invalid-definition', 'defineLayout `width` should be a number (inches)')
 
 		this.LAYOUTS[layout.name] = {
 			name: layout.name,

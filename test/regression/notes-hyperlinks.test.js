@@ -1,4 +1,12 @@
-import { defineRegressionSuite, build, readEntry, assert, assertIncludes, assertNotIncludes } from '../helpers.js'
+import {
+	setDiagnosticHandler,
+	defineRegressionSuite,
+	build,
+	readEntry,
+	assert,
+	assertIncludes,
+	assertNotIncludes,
+} from '../helpers.js'
 
 const NOTES_XML = (n) => `ppt/notesSlides/notesSlide${n}.xml`
 const NOTES_RELS = (n) => `ppt/notesSlides/_rels/notesSlide${n}.xml.rels`
@@ -88,8 +96,7 @@ defineRegressionSuite('Speaker notes hyperlinks & rich runs', [
 		name: 'notes hyperlink `slide` target is ignored (url-only support)',
 		fn: async () => {
 			const warnings = []
-			const originalWarn = console.warn
-			console.warn = (...args) => warnings.push(args.join(' '))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			try {
 				const { zip } = await build((p) => {
 					p.addSlide()
@@ -104,7 +111,7 @@ defineRegressionSuite('Speaker notes hyperlinks & rich runs', [
 					`expected a warning about url-only notes hyperlinks; got: ${JSON.stringify(warnings)}`
 				)
 			} finally {
-				console.warn = originalWarn
+				setDiagnosticHandler(null)
 			}
 		},
 	},

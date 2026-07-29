@@ -7,7 +7,7 @@
  * `<p:graphicFrame>`. See {@link ../../types/zoom} for the preview-image behavior.
  */
 import { SlideObjectType } from '../../core-enums.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import type { SectionZoomProps, SlideZoomProps, SummaryZoomProps } from '../../types/zoom.js'
 import type {
 	PresSlideInternal,
@@ -57,14 +57,17 @@ function pushZoomObject(
 /** Slide Zoom — one tile linking to a single target slide. */
 export function addSlideZoomDefinition(target: PresSlideInternal, opts: SlideZoomProps): void {
 	if (!opts?.target) {
-		warn('addSlideZoom requires a `target` slide (a Slide object or its 1-based number); ignoring.')
+		warn(
+			'zoom/missing-target',
+			'addSlideZoom requires a `target` slide (a Slide object or its 1-based number); ignoring.'
+		)
 		return
 	}
 	const targetSlide = opts.target as PresSlideInternal
 	const sldId = typeof opts.target === 'number' ? 256 + (opts.target - 1) : targetSlide._slideId
 	const slideNum = typeof opts.target === 'number' ? opts.target : targetSlide._slideNum
 	if (sldId == null || slideNum == null) {
-		warn('addSlideZoom: could not resolve the target slide; ignoring.')
+		warn('zoom/unresolved-target', 'addSlideZoom: could not resolve the target slide; ignoring.')
 		return
 	}
 
@@ -85,17 +88,17 @@ export function addSectionZoomDefinition(
 	sections: SectionInternalProps[]
 ): void {
 	if (!opts?.sectionTitle) {
-		warn('addSectionZoom requires a `sectionTitle`; ignoring.')
+		warn('zoom/missing-section-title', 'addSectionZoom requires a `sectionTitle`; ignoring.')
 		return
 	}
 	const section = sections.find((s) => s.title === opts.sectionTitle)
 	if (!section) {
-		warn(`addSectionZoom: no section titled "${opts.sectionTitle}"; ignoring.`)
+		warn('zoom/section-not-found', `addSectionZoom: no section titled "${opts.sectionTitle}"; ignoring.`)
 		return
 	}
 	const firstSlide = section._slides[0]
 	if (!firstSlide) {
-		warn(`addSectionZoom: section "${opts.sectionTitle}" has no slides; ignoring.`)
+		warn('zoom/section-empty', `addSectionZoom: section "${opts.sectionTitle}" has no slides; ignoring.`)
 		return
 	}
 
@@ -122,7 +125,10 @@ export function addSummaryZoomDefinition(
 	const hostSection = sections.find((s) => s._slides.some((sl) => sl._slideNum === target._slideNum))
 	const targets = sections.filter((s) => s !== hostSection && s._slides.length > 0)
 	if (targets.length === 0) {
-		warn('addSummaryZoom: no sections to summarize (need at least one section besides this slide’s own); ignoring.')
+		warn(
+			'zoom/no-sections-to-summarize',
+			'addSummaryZoom: no sections to summarize (need at least one section besides this slide’s own); ignoring.'
+		)
 		return
 	}
 

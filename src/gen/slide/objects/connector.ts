@@ -7,7 +7,7 @@
  */
 
 import type { SlideObject } from '../../../types/internal.js'
-import { warn } from '../../../log.js'
+import { warn } from '../../../diagnostics.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
 import { resolveObjectNameToId } from '../shape-ids.js'
 import { cNvPrOpen, genXmlShapeLine } from './shared.js'
@@ -45,6 +45,7 @@ export function renderConnectorObject(
 			const id = resolveObjectNameToId(shapeIds, binding.name)
 			if (id === null) {
 				warn(
+					'connector/unresolved-binding',
 					`addConnector could not bind to shape "${binding.name}" (no object with that objectName on the slide); using endpoint coordinates instead.`
 				)
 				return ''

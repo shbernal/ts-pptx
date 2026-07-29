@@ -8,7 +8,7 @@
 
 import type { ObjectLockProps } from '../../core-interfaces.js'
 import { voidEl } from '../oxml/el.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 
 // Object lock attributes valid for each DrawingML locking element, in emit order (ECMA-376 §20.1.2.2.x / §20.1.2.2.34).
 // Object keys in `ObjectLockProps` mirror these attribute names 1:1, so serialization is a filtered lookup.
@@ -68,7 +68,10 @@ export function genXmlObjectLock(
 	const lockMap = locks as Record<string, boolean | undefined>
 	for (const key of Object.keys(lockMap)) {
 		if (lockMap[key] && !allowed.includes(key)) {
-			warn(`objectLock.${key} is not supported on <${tag}> (object "${objectName ?? ''}") and was ignored.`)
+			warn(
+				'object-lock/unsupported-on-shape',
+				`objectLock.${key} is not supported on <${tag}> (object "${objectName ?? ''}") and was ignored.`
+			)
 		}
 	}
 	const set = allowed.filter((name) => lockMap[name] === true)

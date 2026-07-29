@@ -1,4 +1,12 @@
-import { defineRegressionSuite, build, readEntry, assert, assertIncludes, assertNotIncludes } from '../helpers.js'
+import {
+	setDiagnosticHandler,
+	defineRegressionSuite,
+	build,
+	readEntry,
+	assert,
+	assertIncludes,
+	assertNotIncludes,
+} from '../helpers.js'
 
 // upstream-issue-1360: defineSlideMaster({ textStyles }) configures the shared slide master's
 // per-level <p:txStyles> (titleStyle / bodyStyle / otherStyle). Previously the block was a fixed
@@ -97,9 +105,8 @@ defineRegressionSuite('Master text styles', [
 	{
 		name: 'levels beyond 9 are ignored with a warning',
 		fn: async () => {
-			const originalWarn = console.warn
 			const warnings = []
-			console.warn = (msg) => warnings.push(String(msg))
+			setDiagnosticHandler((d) => warnings.push(d.message))
 			try {
 				const { zip } = await build((p) => {
 					p.defineSlideMaster({
@@ -116,7 +123,7 @@ defineRegressionSuite('Master text styles', [
 					'warned about level overflow: ' + warnings.join('|')
 				)
 			} finally {
-				console.warn = originalWarn
+				setDiagnosticHandler(null)
 			}
 		},
 	},

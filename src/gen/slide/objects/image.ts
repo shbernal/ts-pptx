@@ -20,7 +20,7 @@ import { getImageSizeFromBase64 } from '../../../media/image-size.js'
 import { el, raw, voidEl, type XmlAttrs, type XmlChild } from '../../oxml/el.js'
 import { getSmartParseNumber } from '../../../units-internal.js'
 import { FIXED_PCT_PER_PERCENT, PERCENT_SCALE, pixelsToEmu } from '../../../units.js'
-import { warn } from '../../../log.js'
+import { warn } from '../../../diagnostics.js'
 import { cNvPrHyperlink, cNvPrOpen, genXmlShapeLine } from './shared.js'
 
 /**
@@ -167,6 +167,7 @@ export function renderImageObject(
 		// formats; the picture's normal w/h box stays the display extent.
 		if (sizing?.type)
 			warn(
+				'image/crop-and-sizing-conflict',
 				`addImage 'crop' and 'sizing' are mutually exclusive for image "${slideItemObj.options.objectName}"; 'sizing' was ignored.`
 			)
 		strSlideXml += genXmlImageCrop(slideItemObj.options.crop, slideItemObj.options.objectName)
@@ -188,6 +189,7 @@ export function renderImageObject(
 				cropSize = natural
 			} else {
 				warn(
+					'image/unmeasurable-natural-size',
 					`sizing '${sizing.type}' could not measure natural dimensions for image "${slideItemObj.options.objectName}"; falling back to displayed aspect ratio (crop may be inexact). Provide a raster image (PNG/JPEG/GIF/BMP/WebP) or an SVG with width/height or a viewBox to enable an aspect-correct crop.`
 				)
 			}

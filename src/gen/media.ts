@@ -5,7 +5,7 @@
 import { IMG_BROKEN } from '../core-enums-internal.js'
 import type { PresSlideInternal, SlideLayoutInternal, SlideRelMedia } from '../types/internal.js'
 import type { RuntimeAdapter } from '../runtime/types.js'
-import { warn } from '../log.js'
+import { warn } from '../diagnostics.js'
 
 type SlideMediaRelWithPath = SlideRelMedia & { path: string }
 
@@ -64,7 +64,8 @@ export function encodeSlideMediaRels(
 					} catch (ex) {
 						if (onMediaError === 'placeholder') {
 							warn(
-								`[WARNING] Failed to load media "${rel.path}"; embedding a broken-image placeholder. (${String(ex)})`
+								'media/load-failed',
+								`Failed to load media "${rel.path}"; embedding a broken-image placeholder. (${String(ex)})`
 							)
 							rel.data = IMG_BROKEN
 							candidateRels

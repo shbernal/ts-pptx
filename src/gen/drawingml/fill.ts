@@ -7,7 +7,7 @@
  * the per-kind builders are exported for the few sites that know their fill kind.
  */
 
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import type {
 	Color,
 	GradientFillProps,
@@ -123,6 +123,7 @@ export function genXmlPatternFill(pattern: PatternFillProps | undefined): string
 export function genXmlImageFill(props: ShapeFillProps | undefined): string {
 	if (!props || typeof props._imgRid !== 'number') {
 		warn(
+			'image-fill/unresolved-media',
 			'image fill is missing its resolved media reference; falling back to no fill. Provide `image: { path }` or `image: { data }`.'
 		)
 		return '<a:noFill/>'

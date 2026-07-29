@@ -7,7 +7,7 @@
  */
 
 import { HUNDREDTHS_PER_POINT, ptToHundredths } from '../../units.js'
-import { warnOnce } from '../../log.js'
+import { warnOnce } from '../../diagnostics.js'
 
 /**
  * Clamp a font size (points) into ST_TextFontSize (1-4000pt) and return it in
@@ -18,7 +18,10 @@ export function clampFontSizeSz(fontSizePts: number): number {
 	const raw = ptToHundredths(fontSizePts)
 	const clamped = Math.min(400000, Math.max(100, raw))
 	if (clamped !== raw)
-		warnOnce(`fontSize ${fontSizePts} is outside the valid range 1-4000pt; using ${clamped / HUNDREDTHS_PER_POINT}.`)
+		warnOnce(
+			'font/size-out-of-range',
+			`fontSize ${fontSizePts} is outside the valid range 1-4000pt; using ${clamped / HUNDREDTHS_PER_POINT}.`
+		)
 	return clamped
 }
 
@@ -28,6 +31,7 @@ export function clampCharSpacingSpc(charSpacingPts: number): number {
 	const clamped = Math.min(400000, Math.max(-400000, raw))
 	if (clamped !== raw)
 		warnOnce(
+			'text/char-spacing-out-of-range',
 			`charSpacing ${charSpacingPts} is outside the valid range -4000..4000pt; using ${clamped / HUNDREDTHS_PER_POINT}.`
 		)
 	return clamped
@@ -39,6 +43,7 @@ export function clampLineSpacingPts(lineSpacingPts: number): number {
 	const clamped = Math.min(158400, Math.max(0, raw))
 	if (clamped !== raw)
 		warnOnce(
+			'text/line-spacing-out-of-range',
 			`lineSpacing ${lineSpacingPts} is outside the valid range 0-1584pt; using ${clamped / HUNDREDTHS_PER_POINT}.`
 		)
 	return clamped

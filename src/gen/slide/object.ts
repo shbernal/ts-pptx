@@ -22,7 +22,7 @@ import type {
 import { encodeXmlAttrValue, getDuplicateObjectNames, isHyperlinkRel } from '../../gen-utils.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { convertRotationDegrees, getSmartParseNumber, marginToEmu } from '../../units-internal.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import { clampFontSizeSz } from '../drawingml/clamp.js'
 import { genXmlObjectLock, GROUP_SHAPE_LOCK_ATTRS } from '../drawingml/locks.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
@@ -129,6 +129,7 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 	const duplicateObjectNames = getDuplicateObjectNames(collectObjectNames(slide._slideObjects))
 	if (duplicateObjectNames.length > 0) {
 		warn(
+			'object-name/duplicate',
 			`duplicate objectName value(s) emitted on a single slide: ${duplicateObjectNames.join(', ')}. Selection Pane identities should be unique.`
 		)
 	}
@@ -364,6 +365,7 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 				if (givenAxes.length > 0 && givenAxes.length < GROUP_FRAME_AXES.length) {
 					const missingAxes = GROUP_FRAME_AXES.filter((axis) => !givenAxes.includes(axis))
 					warn(
+						'group/partial-frame',
 						`addGroup: group "${slideItemObj.options.objectName ?? ''}" has a partial frame (${givenAxes.join('/')} given, ${missingAxes.join('/')} missing); using auto-bounds (the bounding box of its children) instead. Pass all of x/y/w/h, or none.`
 					)
 				}

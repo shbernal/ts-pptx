@@ -26,7 +26,7 @@ import {
 	XML_DECL,
 } from '../../core-enums-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal, SlideRelChart } from '../../types/internal.js'
-import { warn } from '../../log.js'
+import { warn } from '../../diagnostics.js'
 import { encodeXmlEntities } from '../../gen-utils.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
 import { resolveBorderWidth } from '../drawingml/line.js'
@@ -165,6 +165,7 @@ function makeChartAxesXml(
 				// axis (one needs <c:catAx>, the other <c:valAx>). Keep the category
 				// axis and warn rather than silently emit a repair-triggering file.
 				warn(
+					'chart/axis-type-conflict',
 					`A category-based chart and a scatter/bubble chart cannot share the same ${isSecondary ? 'secondary' : 'primary'} category axis; emitting a category axis. Put the scatter/bubble series on a separate axis.`
 				)
 				return {}
@@ -463,18 +464,21 @@ const CHART_METADATA_NS = 'http://ts-pptx.com/schema/chart/metadata'
 function genXmlChartMetadata(metadata?: Record<string, string>): string {
 	if (metadata == null) return ''
 	if (typeof metadata !== 'object' || Array.isArray(metadata)) {
-		warn('chart `metadata` must be a plain object of string key/value pairs; ignored.')
+		warn('chart/invalid-metadata', 'chart `metadata` must be a plain object of string key/value pairs; ignored.')
 		return ''
 	}
 
 	let items = ''
 	for (const [key, value] of Object.entries(metadata)) {
 		if (typeof key !== 'string' || key.length === 0) {
-			warn(`chart metadata key "${String(key)}" is not a non-empty string; entry skipped.`)
+			warn(
+				'chart/invalid-metadata-key',
+				`chart metadata key "${String(key)}" is not a non-empty string; entry skipped.`
+			)
 			continue
 		}
 		if (typeof value !== 'string') {
-			warn(`chart metadata value for key "${key}" is not a string; entry skipped.`)
+			warn('chart/invalid-metadata-value', `chart metadata value for key "${key}" is not a string; entry skipped.`)
 			continue
 		}
 		items += voidEl('pgm:item', { key, value })
