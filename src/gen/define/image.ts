@@ -146,23 +146,26 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 		? encodeXmlAttrValue(validateObjectName(opt.objectName, 'image'))
 		: `Image ${imageNameIdx}`
 
-	// REALITY-CHECK:
+	// REALITY-CHECK: an unusable source has nothing to degrade to — there is no image to place —
+	// so these reject rather than warn. `addMedia()` already rejects the missing-source and
+	// missing-header cases, as does the `hyperlink` check further down this same function.
 	if (!strImagePath && !strImageData) {
-		console.error("ERROR: addImage() requires either 'data' or 'path' parameter!")
-		return
+		throw new InvalidOptionError('image/missing-source', "addImage(): either 'data' or 'path' is required")
 	} else if (strImagePath && typeof strImagePath !== 'string') {
-		console.error(
-			`ERROR: addImage() 'path' should be a string, ex: {path:'/img/sample.png'} - you sent ${String(strImagePath)}`
+		throw new InvalidOptionError(
+			'image/path-not-a-string',
+			`addImage(): 'path' should be a string, ex: {path:'/img/sample.png'} - you sent ${String(strImagePath)}`
 		)
-		return
 	} else if (strImageData && typeof strImageData !== 'string') {
-		console.error(
-			`ERROR: addImage() 'data' should be a string, ex: {data:'image/png;base64,NMP[...]'} - you sent ${String(strImageData)}`
+		throw new InvalidOptionError(
+			'image/data-not-a-string',
+			`addImage(): 'data' should be a string, ex: {data:'image/png;base64,NMP[...]'} - you sent ${String(strImageData)}`
 		)
-		return
 	} else if (strImageData && typeof strImageData === 'string' && !strImageData.toLowerCase().includes('base64,')) {
-		console.error("ERROR: Image `data` value lacks a base64 header! Ex: 'image/png;base64,NMP[...]')")
-		return
+		throw new InvalidOptionError(
+			'image/missing-base64-header',
+			"addImage(): `data` value lacks a base64 header, ex: 'image/png;base64,NMP[...]'"
+		)
 	}
 
 	// STEP 1: Set extension (the `data:` mime wins over the path when both are supplied)

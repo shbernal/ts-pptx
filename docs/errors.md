@@ -109,3 +109,7 @@ code.
 
 Write the message without an `ERROR:` / `ERROR!` prefix of its own — the class name already labels
 the failure in every stack trace and console rendering.
+
+Throwing is for a request the library ends up discarding. When it can carry on and still produce
+what the caller would recognise as their deck, warn instead — see
+[Warn or throw?](diagnostics.md#warn-or-throw) for where the line sits.

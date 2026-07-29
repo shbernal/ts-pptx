@@ -58,7 +58,26 @@ export default tseslint.config(
 			// autocomplete while `string` keeps an escape hatch for arbitrary hex values.
 			'@typescript-eslint/no-redundant-type-constituents': 'off',
 			'no-lone-blocks': 0,
+			// Library output goes through `warn()` / `warnOnce()` so a consumer can route or silence
+			// it (see diagnostics.ts), and failures go through the error classes. A direct `console.*`
+			// is neither: it cannot be captured, muted, or branched on. Two files are exempt below;
+			// everything else that reaches for one wants a diagnostic code or a thrown error instead.
+			'no-console': 'error',
 		},
+	},
+	{
+		// The two exemptions to `no-console`, both deliberate.
+		//
+		// `diagnostics.ts` owns the default handler -- the one `console.warn` every diagnostic
+		// funnels into when the consumer has installed nothing else.
+		//
+		// The `verbose: true` table tracers are a different kind of output from a diagnostic: a
+		// DEV-ONLY flag (see `TableProps.verbose`) that prints a multi-line trace of the auto-paging
+		// arithmetic. Routing it through the diagnostic handler would mean inventing a code per
+		// formatted line and flooding a consumer's handler with output that reports no condition.
+		// A consumer silences it by not passing the flag, so it is opt-in, not unroutable.
+		files: ['src/diagnostics.ts', 'src/gen/table/autopage.ts', 'src/gen/table/html-dom.ts'],
+		rules: { 'no-console': 'off' },
 	},
 	{
 		files: ['scripts/**/*.mjs', 'test/**/*.mjs', 'test/**/*.js'],

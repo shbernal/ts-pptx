@@ -54,24 +54,17 @@ function relationships(xml) {
 }
 
 /**
- * Build with `console.log` captured, returning `{ lines, error }`. These two cases log a
- * diagnostic while defining and then throw while emitting, so the build never completes;
- * restoring in a `finally` keeps a throwing build from leaving the rest of the suite stubbed.
- * (Same shape as the capture in table-autopage-options.test.js.)
+ * Build, returning the error it threw (or `undefined` if it completed). Registration declines to
+ * mint a rel for a malformed hyperlink and says nothing; the throw from the emitter is the whole
+ * report, so that is all there is to capture.
  */
-async function captureFailedBuild(buildFn) {
-	const orig = console.log
-	const lines = []
-	console.log = (...args) => lines.push(args.map(String).join(' '))
-	let error
+async function failedBuild(buildFn) {
 	try {
 		await build(buildFn)
 	} catch (err) {
-		error = err
-	} finally {
-		console.log = orig
+		return err
 	}
-	return { lines, error }
+	return undefined
 }
 
 defineRegressionSuite('Hyperlink relationship registration', [
@@ -262,37 +255,29 @@ defineRegressionSuite('Hyperlink relationship registration', [
 		},
 	},
 	{
-		name: 'a `hyperlink` that is not an object is reported while defining, then refused while emitting',
+		name: 'a `hyperlink` that is not an object is refused while emitting',
 		fn: async () => {
-			// `hyperlink: 'https://…'` is the shape people reach for first. Registration logs and
-			// declines to mint a rel; the run emitter then throws on the same input. Pinned
-			// together because the log is the only part that names the correct shape, and it is
-			// worth knowing it still arrives ahead of the throw.
-			const { lines, error } = await captureFailedBuild((p) => {
+			// `hyperlink: 'https://…'` is the shape people reach for first. Registration mints no rel
+			// and stays silent; the run emitter is where the condition is reported.
+			const error = await failedBuild((p) => {
 				p.addSlide().addText('link', { x: 1, y: 1, w: 4, h: 0.5, hyperlink: 'https://not-an-object.example.com' })
 			})
 
-			assert(
-				lines.some((l) => l.startsWith('ERROR: text `hyperlink` option should be an object')),
-				`expected the shape diagnostic; got ${JSON.stringify(lines)}`
-			)
 			assert(error, 'a non-object hyperlink must not silently produce a deck')
+			assertEqual(error.code, 'hyperlink/not-an-object', 'the emitter error code')
 			assertIncludes(error.message, 'should be an object', 'the emitter error')
 		},
 	},
 	{
-		name: 'a `hyperlink` with none of url/slide/action is reported while defining, then refused while emitting',
+		name: 'a `hyperlink` with none of url/slide/action is refused while emitting',
 		fn: async () => {
 			// An empty (or misspelled-key) hyperlink object has nothing to point a rel at.
-			const { lines, error } = await captureFailedBuild((p) => {
+			const error = await failedBuild((p) => {
 				p.addSlide().addText('link', { x: 1, y: 1, w: 4, h: 0.5, hyperlink: {} })
 			})
 
-			assert(
-				lines.some((l) => l.includes('hyperlink requires either')),
-				`expected the missing-target diagnostic; got ${JSON.stringify(lines)}`
-			)
 			assert(error, 'a targetless hyperlink must not silently produce a deck')
+			assertEqual(error.code, 'hyperlink/missing-target', 'the emitter error code')
 			assertIncludes(error.message, 'requires either', 'the emitter error')
 		},
 	},

@@ -58,14 +58,15 @@ export function createHyperlinkRels(
 			!text.options.hyperlink._rId
 		) {
 			const hyperlink = text.options.hyperlink
-			if (typeof hyperlink !== 'object') {
-				console.log("ERROR: text `hyperlink` option should be an object. Ex: `hyperlink: {url:'https://github.com'}` ")
-			} else if (!hyperlink.url && !hyperlink.slide && !hyperlink.action) {
-				console.log("ERROR: 'hyperlink requires either: `url`, `slide`, or `action`'")
-			} else if (hyperlink.action && !hyperlink.url && !hyperlink.slide) {
-				// Navigation action button: the `ppaction://hlinkshowjump` action is self-contained,
-				// so there is no relationship to register (emitter writes `r:id=""`).
-			} else {
+			// Only a `url` or a `slide` needs a relationship. Two other shapes reach here and mint
+			// nothing, for opposite reasons:
+			//   - A navigation action button (`action` alone) is legitimately rel-free — the
+			//     `ppaction://hlinkshowjump` action is self-contained, so the emitter writes `r:id=""`.
+			//   - A malformed hyperlink (not an object, or no target at all) is not reportable here.
+			//     The run emitter rejects the same input with `hyperlink/not-an-object` /
+			//     `hyperlink/missing-target` when the deck is written; a console line ahead of that
+			//     throw was one fault reported twice, the first time unroutably.
+			if (typeof hyperlink === 'object' && (hyperlink.url || hyperlink.slide)) {
 				const relId = getNewRelId(target)
 
 				target._rels.push({

@@ -97,7 +97,7 @@ function applyTableHeaderColumnSugar(tableRows: TableRow[], opt: TableProps): Ta
  */
 function normalizeTableRows(srcRows: TableRow[], opt: TableProps): TableCell[][] {
 	const arrRows: TableCell[][] = []
-	srcRows.forEach((row) => {
+	srcRows.forEach((row, idx) => {
 		const newRow: TableCell[] = []
 
 		if (Array.isArray(row)) {
@@ -159,8 +159,12 @@ function normalizeTableRows(srcRows: TableRow[], opt: TableProps): TableCell[][]
 				newRow.push(newCell)
 			})
 		} else {
-			console.log('addTable: tableRows has a bad row. A row should be an array of cells. You provided:')
-			console.log(row)
+			// The same condition STEP 1 rejects for row 0, reaching us on a later row. It used to log
+			// and push an empty row, so a deck built fine and quietly lost a row of content.
+			throw new InvalidOptionError(
+				'table/rows-not-nested',
+				`addTable: 'rows' should be an array of cells! Row ${idx} is ${JSON.stringify(row)}`
+			)
 		}
 
 		arrRows.push(newRow)

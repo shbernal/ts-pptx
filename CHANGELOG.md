@@ -87,6 +87,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Nine reality-checks that wrote to the console now throw or warn.** A handful of
+  validation sites in `gen/define/` reported a problem with a direct
+  `console.error` / `console.log` and then carried on. That output could not be
+  captured, silenced, or branched on — it predated the diagnostics seam and was
+  never a `warn()` call, so the migration to `setDiagnosticHandler` did not see
+  it. Each site now takes whichever surface fits what the library actually does
+  next:
+
+  - **`addImage()` throws** `InvalidOptionError` when the source is unusable —
+    `image/missing-source`, `image/path-not-a-string`, `image/data-not-a-string`,
+    `image/missing-base64-header`. **This is a behaviour change:**
+    `addImage({})` used to print a line and silently omit the image, leaving a
+    deck that opened fine and was missing content. There is nothing to draw, so
+    it now rejects, matching `addMedia()` and the `hyperlink` check in the same
+    function.
+  - **`addTable()` throws** `InvalidOptionError` (`table/rows-not-nested`) for a
+    row that is not an array of cells. It already rejected exactly this for row
+    0; later rows only logged and pushed an empty row, quietly dropping content.
+    **This is a behaviour change** for the later-row case.
+  - **A picture bullet whose `data` lacks a base64 header warns**
+    (`bullet/image-missing-base64-header`) rather than throwing: the run emitter
+    falls back to a default glyph, so the deck is still valid. Behaviour is
+    unchanged apart from the output now being routable.
+  - **A malformed `hyperlink` reports once instead of twice.** Registration
+    logged a line and declined to mint a relationship; the emitter then threw
+    `hyperlink/not-an-object` / `hyperlink/missing-target` for the same input.
+    The log is gone — the throw was always the real report.
+
+  The `verbose: true` table tracer still prints to the console. It is a DEV-ONLY
+  flag whose output reports no condition, and not passing it silences it.
+
 - **Error messages no longer label themselves.** Fourteen messages carried an
   `ERROR: ` / `ERROR! ` prefix, four an `addMedia() error: ` one, and
   `coordToEmu`'s carried a literal `ts-pptx: `. The class name already labels the

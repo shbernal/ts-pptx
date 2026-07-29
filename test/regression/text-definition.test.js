@@ -63,20 +63,15 @@ const SVG_DATA =
 const JPG_PATH = 'demos/common/images/cc_logo.jpg'
 const SVG_PATH = 'demos/common/images/lock-green.svg'
 
-/** Build, capturing library diagnostics. `warn()` routes through console.warn; the bullet base64
- * reality-check writes straight to console.error, so both are captured. */
+/** Build, capturing library diagnostics as `{ code, message }` pairs. */
 async function buildCapturingLogs(buildFn) {
 	const warnings = []
-	const errors = []
-	const originalError = console.error
-	setDiagnosticHandler((d) => warnings.push(d.message))
-	console.error = (message) => errors.push(String(message))
+	setDiagnosticHandler((d) => warnings.push(d))
 	try {
 		const result = await build(buildFn)
-		return { ...result, warnings, errors }
+		return { ...result, warnings }
 	} finally {
 		setDiagnosticHandler(null)
-		console.error = originalError
 	}
 }
 
@@ -149,7 +144,7 @@ defineRegressionSuite('Text definition', [
 				s.addText([{ text: 'not a number' }], { x: 1, y: 3, w: 4, h: 1, columns: /** @type {any} */ ('three') })
 			})
 			assertEqual(
-				warnings.filter((message) => /`columns` must be a number 1-16/.test(message)).length,
+				warnings.filter((d) => d.code === 'text/invalid-columns').length,
 				3,
 				`expected one warning per rejected value; got ${JSON.stringify(warnings)}`
 			)
@@ -170,7 +165,7 @@ defineRegressionSuite('Text definition', [
 				s.addText([{ text: 'positive' }], { x: 1, y: 3, w: 4, h: 1, columns: 2, columnSpacing: 20 })
 			})
 			assertEqual(
-				warnings.filter((message) => /`columnSpacing` must be a number >= 0/.test(message)).length,
+				warnings.filter((d) => d.code === 'text/invalid-column-spacing').length,
 				1,
 				`expected only the negative spacing to warn; got ${JSON.stringify(warnings)}`
 			)
@@ -226,13 +221,15 @@ defineRegressionSuite('Text definition', [
 	{
 		// A picture bullet given as bytes must carry a base64 header, exactly as `addImage()` requires.
 		// Without one the definer refuses to register the rel -- and because no rel exists, the run
-		// emitter falls back to a default glyph and says so. Two diagnostics, no media part, and a
-		// deck that still opens. The bullet sits on the run rather than the shape so that the
+		// emitter falls back to a default glyph and says so. Two diagnostics saying different things
+		// (why the rel was refused, and what was drawn instead), no media part, and a deck that still
+		// opens -- which is why this warns where `addImage()` on the same input throws: there is a
+		// sane thing to draw. The bullet sits on the run rather than the shape so that the
 		// collection pass sees it once; the shorthand would present the same object twice and the
 		// base64 refusal, unlike the rel registration, is not deduped.
 		name: 'a bullet image whose data lacks a base64 header is refused and falls back to a glyph',
 		fn: async () => {
-			const { zip, warnings, errors } = await buildCapturingLogs((p) => {
+			const { zip, warnings } = await buildCapturingLogs((p) => {
 				p.addSlide().addText([{ text: 'bulleted', options: { bullet: { image: { data: 'iVBORw0KGgoAAAA==' } } } }], {
 					x: 1,
 					y: 1,
@@ -241,12 +238,12 @@ defineRegressionSuite('Text definition', [
 				})
 			})
 			assertEqual(
-				errors.filter((message) => /lacks a base64 header/.test(message)).length,
+				warnings.filter((d) => d.code === 'bullet/image-missing-base64-header').length,
 				1,
-				`expected the definer's reality-check to fire; got ${JSON.stringify(errors)}`
+				`expected the definer's reality-check to fire; got ${JSON.stringify(warnings)}`
 			)
 			assertEqual(
-				warnings.filter((message) => /could not be embedded; using a default bullet glyph/.test(message)).length,
+				warnings.filter((d) => d.code === 'bullet/image-embed-failed').length,
 				1,
 				`expected the emitter's fallback warning; got ${JSON.stringify(warnings)}`
 			)

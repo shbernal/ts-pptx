@@ -20,7 +20,8 @@ export interface WriteBaseProps {
 	 * - `'throw'` (default): reject the export with an error naming the failing asset. A deck
 	 *   that silently embeds a broken-image placeholder is a degenerate result, so failing
 	 *   loudly is the safe default.
-	 * - `'placeholder'`: substitute a broken-image placeholder, emit a `console.warn`, and
+	 * - `'placeholder'`: substitute a broken-image placeholder, emit a `media/load-failed`
+	 *   diagnostic (see `setDiagnosticHandler`), and
 	 *   continue. Useful for best-effort/batch jobs where one missing asset should not abort
 	 *   the whole deck.
 	 * @default 'throw'

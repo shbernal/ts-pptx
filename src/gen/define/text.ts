@@ -237,9 +237,14 @@ function createBulletImageRels(
 		const img = bullet.image
 		if (!img || (!img.path && !img.data)) return
 
-		// REALITY-CHECK: base64 `data` must carry a base64 header (mirror addImage())
+		// REALITY-CHECK: base64 `data` must carry a base64 header (mirror addImage()). Unlike
+		// `addImage()` this warns rather than throws: refusing the rel is not fatal, because the run
+		// emitter falls back to a default glyph and the deck still opens.
 		if (img.data && (typeof img.data !== 'string' || !img.data.toLowerCase().includes('base64,'))) {
-			console.error("ERROR: bullet.image `data` value lacks a base64 header! Ex: 'image/png;base64,iVBOR[...]'")
+			warn(
+				'bullet/image-missing-base64-header',
+				"bullet.image `data` value lacks a base64 header, ex: 'image/png;base64,iVBOR[...]'"
+			)
 			return
 		}
 

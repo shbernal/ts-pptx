@@ -87,6 +87,7 @@ export type DiagnosticCode =
 	| 'text/line-spacing-out-of-range'
 	| 'font/size-out-of-range'
 	| 'bullet/size-out-of-range'
+	| 'bullet/image-missing-base64-header'
 	| 'bullet/image-embed-failed'
 	| 'bullet/invalid-character-code'
 	// Zooms
@@ -181,6 +182,10 @@ export type InvalidOptionErrorCode =
 	| 'gradient/scaled-not-boolean'
 	| 'pattern-fill/missing-pattern'
 	// Images
+	| 'image/missing-source'
+	| 'image/path-not-a-string'
+	| 'image/data-not-a-string'
+	| 'image/missing-base64-header'
 	| 'image/crop-window-overflows'
 	| 'image/crop-inset-out-of-range'
 	| 'image/crop-insets-exceed-extent'

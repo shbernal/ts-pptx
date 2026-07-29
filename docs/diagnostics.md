@@ -101,9 +101,27 @@ reports on its own.
 
 ## Adding one
 
-A new warning site must name its condition in `DiagnosticCode` (`src/diagnostics.ts`) before it
-will compile. That is the enforcement mechanism for keeping the vocabulary curated rather than
+A new warning site must name its condition in `DiagnosticCode` (`src/codes.ts`) before it will
+compile. That is the enforcement mechanism for keeping the vocabulary curated rather than
 accumulated — reuse an existing code when the condition is genuinely the same, even if the wording
 differs and even if it is reported from a different entry point.
 
 Write the message without a `ts-pptx:` prefix; the default handler stamps that.
+
+### Warn or throw?
+
+Ask what the library does *next*, not how bad the input looks:
+
+- If it can carry on and still produce something the caller would recognise as their deck — clamp
+  the value, ignore the option, fall back to a default glyph — **warn**.
+- If the request is discarded and the deck comes out missing what was asked for, **throw**. A deck
+  that opens cleanly and is quietly missing an image is worse than a failed build.
+
+`addImage()` and a picture bullet split on exactly this line: an image with no usable source has
+nothing to place, so it throws; a bullet image with no usable source falls back to a `•`, so it
+warns. See [Errors](./errors.md) for the thrown half.
+
+Reporting a condition by calling `console.log` / `console.error` directly is neither, and `eslint`
+rejects it under `no-console` — such a line cannot be captured, silenced, or branched on. The only
+exemptions are the default handler itself and the `verbose: true` table tracer, whose output
+reports no condition and is opt-in.
