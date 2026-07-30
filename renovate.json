@@ -4,6 +4,11 @@
 	"timezone": "UTC",
 	"schedule": ["before 6am on monday"],
 	"labels": ["dependencies"],
+	"osvVulnerabilityAlerts": true,
+	"vulnerabilityAlerts": {
+		"description": "Renovate already exempts security fixes from the schedule above — the built-in defaults for this object set `schedule: []` and `prCreation: \"immediate\"`, so they land as soon as they are found rather than waiting for Monday. Do not restate those here; the only additions are a label so they are sortable and `osvVulnerabilityAlerts` above, which sources advisories from osv.dev as well as GitHub's own feed.",
+		"labels": ["dependencies", "security"]
+	},
 	"lockFileMaintenance": {
 		"enabled": true,
 		"schedule": ["before 6am on monday"]
