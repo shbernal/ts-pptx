@@ -188,25 +188,14 @@
 		"url": "git+https://github.com/shbernal/ts-pptx.git"
 	},
 	"keywords": [
-		"es6-powerpoint",
-		"html-to-powerpoint",
-		"javascript-create-powerpoint",
-		"javascript-create-pptx",
-		"javascript-generate-pptx",
-		"javascript-powerpoint",
-		"javascript-powerpoint-charts",
-		"javascript-pptx",
-		"js-create-powerpoint",
-		"js-create-pptx",
-		"js-generate-powerpoint",
-		"js-powerpoint",
-		"js-powerpoint-library",
-		"js-powerpoint-pptx",
-		"node-powerpoint",
-		"officejs-alternative",
-		"react-powerpoint",
-		"slide-generator",
-		"typescript-powerpoint"
+		"pptx",
+		"ooxml",
+		"powerpoint",
+		"presentation",
+		"slides",
+		"typescript",
+		"charts",
+		"html"
 	],
 	"bugs": {
 		"url": "https://github.com/shbernal/ts-pptx/issues"
