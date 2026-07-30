@@ -25,10 +25,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      # No `version:` here, or in any other job — the action reads it from the
+      # `packageManager` field in package.json. That field is the single source
+      # of truth on purpose: Renovate updates it and cannot update a version
+      # transcribed into a workflow, so a pin here would silently drift out of
+      # step with the pnpm that generated pnpm-lock.yaml and break
+      # `--frozen-lockfile` across a lockfile-format change.
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.3.0
           run_install: false
 
       - name: Setup Node
@@ -64,7 +69,6 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.3.0
           run_install: false
 
       - name: Setup Node
@@ -110,7 +114,6 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.3.0
           run_install: false
 
       - name: Setup Node

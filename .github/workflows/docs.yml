@@ -25,10 +25,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      # Version comes from `packageManager` in package.json, not a pin here. See
+      # the note in ci.yml.
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.3.0
           run_install: false
 
       - name: Setup Node
