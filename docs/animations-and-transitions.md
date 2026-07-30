@@ -34,7 +34,7 @@ XML.
 
 Authorability was proven 2026-06-26: desktop PowerPoint COM bakes both
 `p:transition` and `p:timing` into slide XML non-interactively (probe
-`.tmp/author-anim-probe.ps1`). See the memory
+`test/read/fixtures/authoring/author-anim-probe.ps1`). See the memory
 `animations-transitions-fixture-authorability`.
 
 **The §7 fixture gate was satisfied (2026-06-26)** ahead of implementation. All

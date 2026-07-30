@@ -26,6 +26,13 @@ writes OOXML; do not generate them with ts-pptx.
    Bypass` flag trips the sandbox's "Security Weaken" classifier and the call is
    denied. Plain `& '<script>.ps1'` runs under the session's existing policy and
    needs no bypass.
+
+   Once the fixture is committed, **move the recipe to
+   `test/read/fixtures/authoring/`** and cite it from the fixture's provenance entry.
+   `.tmp/` is gitignored, so a recipe left there is lost on the next clean checkout —
+   and the fixture becomes unreproducible. See that directory's `README.md` for the
+   path-resolution convention (`$PSScriptRoot`-relative, never absolute) and the
+   Prettier step for regenerated sidecars.
 5. Keep the fixture minimal and explicit:
    - set slide size deliberately;
    - name important shapes/groups with stable names;
@@ -156,7 +163,7 @@ manual editing in the UI) — but only with the right COM sequence. **Verified
   throws an "index out of bounds" COM error. So: pass 1 inserts every
   paragraph's text and formats non-empty runs inline; pass 2 (once
   `Paragraphs().Count` is final) does paragraph-level formatting and the run
-  font for empty paragraphs. See `.tmp/author-deck.ps1` from that session for a
+  font for empty paragraphs. See `test/read/fixtures/authoring/author-deck.ps1` for a
   complete parameterized engine.
 
 ## Font-presence guard (substitution is invisible in the XML)
@@ -177,8 +184,8 @@ foreach ($face in 'Aptos','Aptos SemiBold','Calibri','Tahoma','Arial') {
 
 Run this as a hard precondition before authoring any font-sensitive fixture
 (and re-run in a **fresh** process after installing a font — a prior process's
-"ready" can't be trusted). `.tmp/readiness-guard.ps1` and the guard block in
-`.tmp/author-deck.ps1` are the worked examples.
+"ready" can't be trusted). `test/read/fixtures/authoring/readiness-guard.ps1` and the guard
+block in `test/read/fixtures/authoring/author-deck.ps1` are the worked examples.
 
 ### Provisioning fonts / LibreOffice without elevation
 
@@ -203,7 +210,8 @@ Both are installable with **no admin** when a fixture needs them — verified
 LibreOffice is useful here as an independent cross-measure: its `program\
 python.exe` + `pyuno` can open a deck (LibreOffice recomputes `spAutoFit` on
 load) and read each shape's fitted size via UNO — a second opinion on
-PowerPoint's baked metrics. See `.tmp/measure-lo.py` for the UNO bootstrap.
+PowerPoint's baked metrics. See `test/read/fixtures/authoring/measure-lo.py` for the UNO
+bootstrap.
 
 ## Helpers
 

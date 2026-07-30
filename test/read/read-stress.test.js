@@ -6,7 +6,7 @@
 // threaded modern comments, and speaker notes.
 //
 // read-stress.pptx is authored by desktop Microsoft PowerPoint (see
-// .tmp/author-read-stress.ps1 and fixtures/README.md). Its job is to prove the
+// test/read/fixtures/authoring/author-read-stress.ps1 and fixtures/README.md). Its job is to prove the
 // resolution chains keep working *together* on a non-trivial deck — a guard that
 // the single-dimension fixtures cannot give.
 //

@@ -68,5 +68,5 @@
 			"sharedBySlides": [1, 2]
 		}
 	],
-	"soundProvenance": "Embedded WAV (ppt/media/audio1.wav) is a tiny self-generated 16-bit PCM mono 8kHz sine (.tmp/ding.wav), not a Microsoft asset — license-clean."
+	"soundProvenance": "Embedded WAV (ppt/media/audio1.wav) is a tiny self-generated 16-bit PCM mono 8kHz sine (authoring/assets/ding.wav), not a Microsoft asset — license-clean."
 }

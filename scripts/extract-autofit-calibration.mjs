@@ -6,7 +6,7 @@
 // sibling `.pptx` (the oracle), reads PowerPoint's baked outputs per case-id
 // shape (ext.cy/off.y, normAutofit fontScale/lnSpcReduction, resolved typeface),
 // and merges the LibreOffice cross-measure from `<deck>.lo.json` when present
-// (produced on Windows by .tmp/measure-lo.py — LibreOffice is not a CI dep).
+// (produced on Windows by test/read/fixtures/authoring/measure-lo.py — LibreOffice is not a CI dep).
 //
 // The .pptx files remain the source of truth; this JSON is regenerable from them
 // (PowerPoint columns are pure-Node/cross-platform; the LibreOffice column needs

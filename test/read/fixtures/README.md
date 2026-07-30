@@ -232,7 +232,7 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
     *not* the standard `{5C22544A-…}` "Medium Style 2 - Accent 1" default that
     `empty.pptx` (and this library's own stub) carries. Without that difference the
     `def` carry would be untestable, since source and destination defaults would match.
-  - **The `def` was set by hand; everything else is COM-authored** (`.tmp/author-table-styles.ps1`).
+  - **The `def` was set by hand; everything else is COM-authored** (`authoring/author-table-styles.ps1`).
     PowerPoint exposes **no COM surface for the default table style** — `Table` has only
     `ApplyStyle` and a read-only `Style`, with no equivalent of Word's
     `Document.SetDefaultTableStyle` or Excel's `Workbook.DefaultTableStyle`. Setting it
@@ -261,7 +261,7 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
 - `table-cell-image-fill.pptx` — a locally authored single-slide deck with one 4×2
   table (`CellImageFillTable`) pinning **`a:blipFill` inside `a:tcPr`**, the write-side
   oracle for picture fill of a table cell. Authored via desktop PowerPoint COM on
-  Windows (2026-07-27, `.tmp/author-table-cell-image-fill.ps1`) with
+  Windows (2026-07-27, `authoring/author-table-cell-image-fill.ps1`) with
   `Cell.Shape.Fill.UserPicture()`; the source image is the repo-local
   `demos/common/images/cc_logo.jpg`, so no new binary asset entered `test/`. The table
   style is deliberately **"No Style, No Grid"**
@@ -441,7 +441,7 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   covered off-fixture): `a:duotone`/`a:clrChange`/`a:alphaModFix` recolor
   (`picture-recolor.test.js`), the raster+SVG `'both'` mediaKind (`style-accessors`
   against `image.pptx`), and `hdphoto`/`.wdp` artistic-effect layers. Authored via
-  desktop PowerPoint COM on Windows (2026-07-24; `.tmp/author-read-stress.ps1`),
+  desktop PowerPoint COM on Windows (2026-07-24; `authoring/author-read-stress.ps1`),
   opens clean with no repair.
 - `tags.pptx` — a minimal two-slide deck carrying PowerPoint's programmatic
   **tags** (`p:custDataLst/p:tags` → `ppt/tags/tagN.xml`), read by `tags.test.js`

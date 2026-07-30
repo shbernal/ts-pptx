@@ -1,0 +1,1864 @@
+[
+	{
+		"entryEffect": 0,
+		"element": null,
+		"ns": null,
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"/>",
+		"part": "ppt/slides/slide1.xml"
+	},
+	{
+		"entryEffect": 257,
+		"element": "cut",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:cut/></p:transition>",
+		"part": "ppt/slides/slide2.xml"
+	},
+	{
+		"entryEffect": 258,
+		"element": "cut",
+		"ns": "p",
+		"variant": {
+			"thruBlk": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:cut thruBlk=\"1\"/></p:transition>",
+		"part": "ppt/slides/slide3.xml"
+	},
+	{
+		"entryEffect": 513,
+		"element": "random",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:random/></p:transition>",
+		"part": "ppt/slides/slide4.xml"
+	},
+	{
+		"entryEffect": 769,
+		"element": "blinds",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:blinds/></p:transition>",
+		"part": "ppt/slides/slide5.xml"
+	},
+	{
+		"entryEffect": 770,
+		"element": "blinds",
+		"ns": "p",
+		"variant": {
+			"dir": "vert"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:blinds dir=\"vert\"/></p:transition>",
+		"part": "ppt/slides/slide6.xml"
+	},
+	{
+		"entryEffect": 1025,
+		"element": "checker",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:checker/></p:transition>",
+		"part": "ppt/slides/slide7.xml"
+	},
+	{
+		"entryEffect": 1026,
+		"element": "checker",
+		"ns": "p",
+		"variant": {
+			"dir": "vert"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:checker dir=\"vert\"/></p:transition>",
+		"part": "ppt/slides/slide8.xml"
+	},
+	{
+		"entryEffect": 1281,
+		"element": "cover",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:cover/></p:transition>",
+		"part": "ppt/slides/slide9.xml"
+	},
+	{
+		"entryEffect": 1282,
+		"element": "cover",
+		"ns": "p",
+		"variant": {
+			"dir": "u"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:cover dir=\"u\"/></p:transition>",
+		"part": "ppt/slides/slide10.xml"
+	},
+	{
+		"entryEffect": 1283,
+		"element": "cover",
+		"ns": "p",
+		"variant": {
+			"dir": "r"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:cover dir=\"r\"/></p:transition>",
+		"part": "ppt/slides/slide11.xml"
+	},
+	{
+		"entryEffect": 1284,
+		"element": "cover",
+		"ns": "p",
+		"variant": {
+			"dir": "d"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:cover dir=\"d\"/></p:transition>",
+		"part": "ppt/slides/slide12.xml"
+	},
+	{
+		"entryEffect": 1285,
+		"element": "cover",
+		"ns": "p",
+		"variant": {
+			"dir": "lu"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:cover dir=\"lu\"/></p:transition>",
+		"part": "ppt/slides/slide13.xml"
+	},
+	{
+		"entryEffect": 1286,
+		"element": "cover",
+		"ns": "p",
+		"variant": {
+			"dir": "ru"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:cover dir=\"ru\"/></p:transition>",
+		"part": "ppt/slides/slide14.xml"
+	},
+	{
+		"entryEffect": 1287,
+		"element": "cover",
+		"ns": "p",
+		"variant": {
+			"dir": "ld"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:cover dir=\"ld\"/></p:transition>",
+		"part": "ppt/slides/slide15.xml"
+	},
+	{
+		"entryEffect": 1288,
+		"element": "cover",
+		"ns": "p",
+		"variant": {
+			"dir": "rd"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:cover dir=\"rd\"/></p:transition>",
+		"part": "ppt/slides/slide16.xml"
+	},
+	{
+		"entryEffect": 1537,
+		"element": "dissolve",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:dissolve/></p:transition>",
+		"part": "ppt/slides/slide17.xml"
+	},
+	{
+		"entryEffect": 1793,
+		"element": "fade",
+		"ns": "p",
+		"variant": {
+			"thruBlk": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:fade thruBlk=\"1\"/></p:transition>",
+		"part": "ppt/slides/slide18.xml"
+	},
+	{
+		"entryEffect": 2049,
+		"element": "pull",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:pull/></p:transition>",
+		"part": "ppt/slides/slide19.xml"
+	},
+	{
+		"entryEffect": 2050,
+		"element": "pull",
+		"ns": "p",
+		"variant": {
+			"dir": "u"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:pull dir=\"u\"/></p:transition>",
+		"part": "ppt/slides/slide20.xml"
+	},
+	{
+		"entryEffect": 2051,
+		"element": "pull",
+		"ns": "p",
+		"variant": {
+			"dir": "r"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:pull dir=\"r\"/></p:transition>",
+		"part": "ppt/slides/slide21.xml"
+	},
+	{
+		"entryEffect": 2052,
+		"element": "pull",
+		"ns": "p",
+		"variant": {
+			"dir": "d"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:pull dir=\"d\"/></p:transition>",
+		"part": "ppt/slides/slide22.xml"
+	},
+	{
+		"entryEffect": 2053,
+		"element": "pull",
+		"ns": "p",
+		"variant": {
+			"dir": "lu"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:pull dir=\"lu\"/></p:transition>",
+		"part": "ppt/slides/slide23.xml"
+	},
+	{
+		"entryEffect": 2054,
+		"element": "pull",
+		"ns": "p",
+		"variant": {
+			"dir": "ru"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:pull dir=\"ru\"/></p:transition>",
+		"part": "ppt/slides/slide24.xml"
+	},
+	{
+		"entryEffect": 2055,
+		"element": "pull",
+		"ns": "p",
+		"variant": {
+			"dir": "ld"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:pull dir=\"ld\"/></p:transition>",
+		"part": "ppt/slides/slide25.xml"
+	},
+	{
+		"entryEffect": 2056,
+		"element": "pull",
+		"ns": "p",
+		"variant": {
+			"dir": "rd"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:pull dir=\"rd\"/></p:transition>",
+		"part": "ppt/slides/slide26.xml"
+	},
+	{
+		"entryEffect": 2305,
+		"element": "randomBar",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:randomBar/></p:transition>",
+		"part": "ppt/slides/slide27.xml"
+	},
+	{
+		"entryEffect": 2306,
+		"element": "randomBar",
+		"ns": "p",
+		"variant": {
+			"dir": "vert"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:randomBar dir=\"vert\"/></p:transition>",
+		"part": "ppt/slides/slide28.xml"
+	},
+	{
+		"entryEffect": 2561,
+		"element": "strips",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:strips/></p:transition>",
+		"part": "ppt/slides/slide29.xml"
+	},
+	{
+		"entryEffect": 2562,
+		"element": "strips",
+		"ns": "p",
+		"variant": {
+			"dir": "ru"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:strips dir=\"ru\"/></p:transition>",
+		"part": "ppt/slides/slide30.xml"
+	},
+	{
+		"entryEffect": 2563,
+		"element": "strips",
+		"ns": "p",
+		"variant": {
+			"dir": "ld"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:strips dir=\"ld\"/></p:transition>",
+		"part": "ppt/slides/slide31.xml"
+	},
+	{
+		"entryEffect": 2564,
+		"element": "strips",
+		"ns": "p",
+		"variant": {
+			"dir": "rd"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:strips dir=\"rd\"/></p:transition>",
+		"part": "ppt/slides/slide32.xml"
+	},
+	{
+		"entryEffect": 2565,
+		"element": "strips",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:strips/></p:transition>",
+		"part": "ppt/slides/slide33.xml"
+	},
+	{
+		"entryEffect": 2566,
+		"element": "strips",
+		"ns": "p",
+		"variant": {
+			"dir": "ru"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:strips dir=\"ru\"/></p:transition>",
+		"part": "ppt/slides/slide34.xml"
+	},
+	{
+		"entryEffect": 2567,
+		"element": "strips",
+		"ns": "p",
+		"variant": {
+			"dir": "ld"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:strips dir=\"ld\"/></p:transition>",
+		"part": "ppt/slides/slide35.xml"
+	},
+	{
+		"entryEffect": 2568,
+		"element": "strips",
+		"ns": "p",
+		"variant": {
+			"dir": "rd"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:strips dir=\"rd\"/></p:transition>",
+		"part": "ppt/slides/slide36.xml"
+	},
+	{
+		"entryEffect": 2817,
+		"element": "wipe",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:wipe/></p:transition>",
+		"part": "ppt/slides/slide37.xml"
+	},
+	{
+		"entryEffect": 2818,
+		"element": "wipe",
+		"ns": "p",
+		"variant": {
+			"dir": "u"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:wipe dir=\"u\"/></p:transition>",
+		"part": "ppt/slides/slide38.xml"
+	},
+	{
+		"entryEffect": 2819,
+		"element": "wipe",
+		"ns": "p",
+		"variant": {
+			"dir": "r"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:wipe dir=\"r\"/></p:transition>",
+		"part": "ppt/slides/slide39.xml"
+	},
+	{
+		"entryEffect": 2820,
+		"element": "wipe",
+		"ns": "p",
+		"variant": {
+			"dir": "d"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:wipe dir=\"d\"/></p:transition>",
+		"part": "ppt/slides/slide40.xml"
+	},
+	{
+		"entryEffect": 3073,
+		"element": "zoom",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:zoom/></p:transition>",
+		"part": "ppt/slides/slide41.xml"
+	},
+	{
+		"entryEffect": 3074,
+		"element": "zoom",
+		"ns": "p",
+		"variant": {
+			"dir": "in"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:zoom dir=\"in\"/></p:transition>",
+		"part": "ppt/slides/slide42.xml"
+	},
+	{
+		"entryEffect": 3585,
+		"element": "split",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:split/></p:transition>",
+		"part": "ppt/slides/slide43.xml"
+	},
+	{
+		"entryEffect": 3586,
+		"element": "split",
+		"ns": "p",
+		"variant": {
+			"dir": "in"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:split dir=\"in\"/></p:transition>",
+		"part": "ppt/slides/slide44.xml"
+	},
+	{
+		"entryEffect": 3587,
+		"element": "split",
+		"ns": "p",
+		"variant": {
+			"orient": "vert"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:split orient=\"vert\"/></p:transition>",
+		"part": "ppt/slides/slide45.xml"
+	},
+	{
+		"entryEffect": 3588,
+		"element": "split",
+		"ns": "p",
+		"variant": {
+			"orient": "vert",
+			"dir": "in"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:split orient=\"vert\" dir=\"in\"/></p:transition>",
+		"part": "ppt/slides/slide46.xml"
+	},
+	{
+		"entryEffect": 3844,
+		"element": "cut",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:cut/></p:transition>",
+		"part": "ppt/slides/slide47.xml"
+	},
+	{
+		"entryEffect": 3845,
+		"element": "circle",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:circle/></p:transition>",
+		"part": "ppt/slides/slide48.xml"
+	},
+	{
+		"entryEffect": 3846,
+		"element": "diamond",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:diamond/></p:transition>",
+		"part": "ppt/slides/slide49.xml"
+	},
+	{
+		"entryEffect": 3847,
+		"element": "comb",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:comb/></p:transition>",
+		"part": "ppt/slides/slide50.xml"
+	},
+	{
+		"entryEffect": 3848,
+		"element": "comb",
+		"ns": "p",
+		"variant": {
+			"dir": "vert"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:comb dir=\"vert\"/></p:transition>",
+		"part": "ppt/slides/slide51.xml"
+	},
+	{
+		"entryEffect": 3849,
+		"element": "fade",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:fade/></p:transition>",
+		"part": "ppt/slides/slide52.xml"
+	},
+	{
+		"entryEffect": 3850,
+		"element": "newsflash",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:newsflash/></p:transition>",
+		"part": "ppt/slides/slide53.xml"
+	},
+	{
+		"entryEffect": 3851,
+		"element": "plus",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:plus/></p:transition>",
+		"part": "ppt/slides/slide54.xml"
+	},
+	{
+		"entryEffect": 3852,
+		"element": "push",
+		"ns": "p",
+		"variant": {
+			"dir": "d"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:push dir=\"d\"/></p:transition>",
+		"part": "ppt/slides/slide55.xml"
+	},
+	{
+		"entryEffect": 3853,
+		"element": "push",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:push/></p:transition>",
+		"part": "ppt/slides/slide56.xml"
+	},
+	{
+		"entryEffect": 3854,
+		"element": "push",
+		"ns": "p",
+		"variant": {
+			"dir": "r"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:push dir=\"r\"/></p:transition>",
+		"part": "ppt/slides/slide57.xml"
+	},
+	{
+		"entryEffect": 3855,
+		"element": "push",
+		"ns": "p",
+		"variant": {
+			"dir": "u"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:push dir=\"u\"/></p:transition>",
+		"part": "ppt/slides/slide58.xml"
+	},
+	{
+		"entryEffect": 3856,
+		"element": "wedge",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:wedge/></p:transition>",
+		"part": "ppt/slides/slide59.xml"
+	},
+	{
+		"entryEffect": 3857,
+		"element": "wheel",
+		"ns": "p",
+		"variant": {
+			"spokes": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:wheel spokes=\"1\"/></p:transition>",
+		"part": "ppt/slides/slide60.xml"
+	},
+	{
+		"entryEffect": 3858,
+		"element": "wheel",
+		"ns": "p",
+		"variant": {
+			"spokes": "2"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:wheel spokes=\"2\"/></p:transition>",
+		"part": "ppt/slides/slide61.xml"
+	},
+	{
+		"entryEffect": 3859,
+		"element": "wheel",
+		"ns": "p",
+		"variant": {
+			"spokes": "3"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:wheel spokes=\"3\"/></p:transition>",
+		"part": "ppt/slides/slide62.xml"
+	},
+	{
+		"entryEffect": 3860,
+		"element": "wheel",
+		"ns": "p",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:wheel/></p:transition>",
+		"part": "ppt/slides/slide63.xml"
+	},
+	{
+		"entryEffect": 3861,
+		"element": "wheel",
+		"ns": "p",
+		"variant": {
+			"spokes": "8"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<p:transition spd=\"slow\"><p:wheel spokes=\"8\"/></p:transition>",
+		"part": "ppt/slides/slide64.xml"
+	},
+	{
+		"entryEffect": 3862,
+		"element": "wheelReverse",
+		"ns": "p14",
+		"variant": {
+			"spokes": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:wheelReverse spokes=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide65.xml"
+	},
+	{
+		"entryEffect": 3863,
+		"element": "vortex",
+		"ns": "p14",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:vortex/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide66.xml"
+	},
+	{
+		"entryEffect": 3864,
+		"element": "vortex",
+		"ns": "p14",
+		"variant": {
+			"dir": "u"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:vortex dir=\"u\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide67.xml"
+	},
+	{
+		"entryEffect": 3865,
+		"element": "vortex",
+		"ns": "p14",
+		"variant": {
+			"dir": "r"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:vortex dir=\"r\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide68.xml"
+	},
+	{
+		"entryEffect": 3866,
+		"element": "vortex",
+		"ns": "p14",
+		"variant": {
+			"dir": "d"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:vortex dir=\"d\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide69.xml"
+	},
+	{
+		"entryEffect": 3867,
+		"element": "ripple",
+		"ns": "p14",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:ripple/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide70.xml"
+	},
+	{
+		"entryEffect": 3868,
+		"element": "ripple",
+		"ns": "p14",
+		"variant": {
+			"dir": "ru"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:ripple dir=\"ru\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide71.xml"
+	},
+	{
+		"entryEffect": 3869,
+		"element": "ripple",
+		"ns": "p14",
+		"variant": {
+			"dir": "lu"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:ripple dir=\"lu\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide72.xml"
+	},
+	{
+		"entryEffect": 3870,
+		"element": "ripple",
+		"ns": "p14",
+		"variant": {
+			"dir": "ld"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:ripple dir=\"ld\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide73.xml"
+	},
+	{
+		"entryEffect": 3871,
+		"element": "ripple",
+		"ns": "p14",
+		"variant": {
+			"dir": "rd"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:ripple dir=\"rd\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide74.xml"
+	},
+	{
+		"entryEffect": 3872,
+		"element": "glitter",
+		"ns": "p14",
+		"variant": {
+			"dir": "r"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:glitter dir=\"r\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide75.xml"
+	},
+	{
+		"entryEffect": 3873,
+		"element": "glitter",
+		"ns": "p14",
+		"variant": {
+			"dir": "d"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:glitter dir=\"d\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide76.xml"
+	},
+	{
+		"entryEffect": 3874,
+		"element": "glitter",
+		"ns": "p14",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:glitter/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide77.xml"
+	},
+	{
+		"entryEffect": 3875,
+		"element": "glitter",
+		"ns": "p14",
+		"variant": {
+			"dir": "u"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:glitter dir=\"u\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide78.xml"
+	},
+	{
+		"entryEffect": 3876,
+		"element": "glitter",
+		"ns": "p14",
+		"variant": {
+			"dir": "r",
+			"pattern": "hexagon"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:glitter dir=\"r\" pattern=\"hexagon\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide79.xml"
+	},
+	{
+		"entryEffect": 3877,
+		"element": "glitter",
+		"ns": "p14",
+		"variant": {
+			"dir": "d",
+			"pattern": "hexagon"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:glitter dir=\"d\" pattern=\"hexagon\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide80.xml"
+	},
+	{
+		"entryEffect": 3878,
+		"element": "glitter",
+		"ns": "p14",
+		"variant": {
+			"pattern": "hexagon"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:glitter pattern=\"hexagon\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide81.xml"
+	},
+	{
+		"entryEffect": 3879,
+		"element": "glitter",
+		"ns": "p14",
+		"variant": {
+			"dir": "u",
+			"pattern": "hexagon"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:glitter dir=\"u\" pattern=\"hexagon\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide82.xml"
+	},
+	{
+		"entryEffect": 3880,
+		"element": "gallery",
+		"ns": "p14",
+		"variant": {
+			"dir": "l"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:gallery dir=\"l\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide83.xml"
+	},
+	{
+		"entryEffect": 3881,
+		"element": "gallery",
+		"ns": "p14",
+		"variant": {
+			"dir": "r"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:gallery dir=\"r\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide84.xml"
+	},
+	{
+		"entryEffect": 3882,
+		"element": "conveyor",
+		"ns": "p14",
+		"variant": {
+			"dir": "l"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:conveyor dir=\"l\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide85.xml"
+	},
+	{
+		"entryEffect": 3883,
+		"element": "conveyor",
+		"ns": "p14",
+		"variant": {
+			"dir": "r"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:conveyor dir=\"r\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide86.xml"
+	},
+	{
+		"entryEffect": 3884,
+		"element": "doors",
+		"ns": "p14",
+		"variant": {
+			"dir": "vert"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:doors dir=\"vert\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide87.xml"
+	},
+	{
+		"entryEffect": 3885,
+		"element": "doors",
+		"ns": "p14",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:doors/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide88.xml"
+	},
+	{
+		"entryEffect": 3886,
+		"element": "window",
+		"ns": "p14",
+		"variant": {
+			"dir": "vert"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:window dir=\"vert\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide89.xml"
+	},
+	{
+		"entryEffect": 3887,
+		"element": "window",
+		"ns": "p14",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:window/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide90.xml"
+	},
+	{
+		"entryEffect": 3888,
+		"element": "warp",
+		"ns": "p14",
+		"variant": {
+			"dir": "in"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:warp dir=\"in\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide91.xml"
+	},
+	{
+		"entryEffect": 3889,
+		"element": "warp",
+		"ns": "p14",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:warp/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide92.xml"
+	},
+	{
+		"entryEffect": 3890,
+		"element": "flythrough",
+		"ns": "p14",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:flythrough/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide93.xml"
+	},
+	{
+		"entryEffect": 3891,
+		"element": "flythrough",
+		"ns": "p14",
+		"variant": {
+			"dir": "out"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:flythrough dir=\"out\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide94.xml"
+	},
+	{
+		"entryEffect": 3892,
+		"element": "flythrough",
+		"ns": "p14",
+		"variant": {
+			"hasBounce": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:flythrough hasBounce=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide95.xml"
+	},
+	{
+		"entryEffect": 3893,
+		"element": "flythrough",
+		"ns": "p14",
+		"variant": {
+			"dir": "out",
+			"hasBounce": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:flythrough dir=\"out\" hasBounce=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide96.xml"
+	},
+	{
+		"entryEffect": 3894,
+		"element": "reveal",
+		"ns": "p14",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:reveal/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide97.xml"
+	},
+	{
+		"entryEffect": 3895,
+		"element": "reveal",
+		"ns": "p14",
+		"variant": {
+			"dir": "r"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:reveal dir=\"r\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide98.xml"
+	},
+	{
+		"entryEffect": 3896,
+		"element": "reveal",
+		"ns": "p14",
+		"variant": {
+			"thruBlk": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:reveal thruBlk=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide99.xml"
+	},
+	{
+		"entryEffect": 3897,
+		"element": "reveal",
+		"ns": "p14",
+		"variant": {
+			"thruBlk": "1",
+			"dir": "r"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:reveal thruBlk=\"1\" dir=\"r\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide100.xml"
+	},
+	{
+		"entryEffect": 3898,
+		"element": "honeycomb",
+		"ns": "p14",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:honeycomb/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide101.xml"
+	},
+	{
+		"entryEffect": 3899,
+		"element": "ferris",
+		"ns": "p14",
+		"variant": {
+			"dir": "l"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:ferris dir=\"l\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide102.xml"
+	},
+	{
+		"entryEffect": 3900,
+		"element": "ferris",
+		"ns": "p14",
+		"variant": {
+			"dir": "r"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:ferris dir=\"r\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide103.xml"
+	},
+	{
+		"entryEffect": 3901,
+		"element": "switch",
+		"ns": "p14",
+		"variant": {
+			"dir": "l"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:switch dir=\"l\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide104.xml"
+	},
+	{
+		"entryEffect": 3902,
+		"element": "switch",
+		"ns": "p14",
+		"variant": {
+			"dir": "r"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:switch dir=\"r\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide105.xml"
+	},
+	{
+		"entryEffect": 3903,
+		"element": "switch",
+		"ns": "p14",
+		"variant": {
+			"dir": "r"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:switch dir=\"r\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide106.xml"
+	},
+	{
+		"entryEffect": 3904,
+		"element": "switch",
+		"ns": "p14",
+		"variant": {
+			"dir": "r"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:switch dir=\"r\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide107.xml"
+	},
+	{
+		"entryEffect": 3905,
+		"element": "flip",
+		"ns": "p14",
+		"variant": {
+			"dir": "l"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:flip dir=\"l\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide108.xml"
+	},
+	{
+		"entryEffect": 3906,
+		"element": "flip",
+		"ns": "p14",
+		"variant": {
+			"dir": "r"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:flip dir=\"r\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide109.xml"
+	},
+	{
+		"entryEffect": 3907,
+		"element": "flip",
+		"ns": "p14",
+		"variant": {
+			"dir": "r"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:flip dir=\"r\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide110.xml"
+	},
+	{
+		"entryEffect": 3908,
+		"element": "flip",
+		"ns": "p14",
+		"variant": {
+			"dir": "r"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:flip dir=\"r\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide111.xml"
+	},
+	{
+		"entryEffect": 3909,
+		"element": "flash",
+		"ns": "p14",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:flash/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide112.xml"
+	},
+	{
+		"entryEffect": 3910,
+		"element": "shred",
+		"ns": "p14",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:shred/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide113.xml"
+	},
+	{
+		"entryEffect": 3911,
+		"element": "shred",
+		"ns": "p14",
+		"variant": {
+			"dir": "out"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:shred dir=\"out\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide114.xml"
+	},
+	{
+		"entryEffect": 3912,
+		"element": "shred",
+		"ns": "p14",
+		"variant": {
+			"pattern": "rectangle"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:shred pattern=\"rectangle\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide115.xml"
+	},
+	{
+		"entryEffect": 3913,
+		"element": "shred",
+		"ns": "p14",
+		"variant": {
+			"pattern": "rectangle",
+			"dir": "out"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:shred pattern=\"rectangle\" dir=\"out\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide116.xml"
+	},
+	{
+		"entryEffect": 3914,
+		"element": "prism",
+		"ns": "p14",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:prism/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide117.xml"
+	},
+	{
+		"entryEffect": 3915,
+		"element": "prism",
+		"ns": "p14",
+		"variant": {
+			"dir": "u"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:prism dir=\"u\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide118.xml"
+	},
+	{
+		"entryEffect": 3916,
+		"element": "prism",
+		"ns": "p14",
+		"variant": {
+			"dir": "r"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:prism dir=\"r\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide119.xml"
+	},
+	{
+		"entryEffect": 3917,
+		"element": "prism",
+		"ns": "p14",
+		"variant": {
+			"dir": "d"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:prism dir=\"d\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide120.xml"
+	},
+	{
+		"entryEffect": 3918,
+		"element": "prism",
+		"ns": "p14",
+		"variant": {
+			"isContent": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:prism isContent=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide121.xml"
+	},
+	{
+		"entryEffect": 3919,
+		"element": "prism",
+		"ns": "p14",
+		"variant": {
+			"dir": "u",
+			"isContent": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:prism dir=\"u\" isContent=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide122.xml"
+	},
+	{
+		"entryEffect": 3920,
+		"element": "prism",
+		"ns": "p14",
+		"variant": {
+			"dir": "r",
+			"isContent": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:prism dir=\"r\" isContent=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide123.xml"
+	},
+	{
+		"entryEffect": 3921,
+		"element": "prism",
+		"ns": "p14",
+		"variant": {
+			"dir": "d",
+			"isContent": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:prism dir=\"d\" isContent=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide124.xml"
+	},
+	{
+		"entryEffect": 3922,
+		"element": "prism",
+		"ns": "p14",
+		"variant": {
+			"isInverted": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:prism isInverted=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide125.xml"
+	},
+	{
+		"entryEffect": 3923,
+		"element": "prism",
+		"ns": "p14",
+		"variant": {
+			"dir": "u",
+			"isInverted": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:prism dir=\"u\" isInverted=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide126.xml"
+	},
+	{
+		"entryEffect": 3924,
+		"element": "prism",
+		"ns": "p14",
+		"variant": {
+			"dir": "r",
+			"isInverted": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:prism dir=\"r\" isInverted=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide127.xml"
+	},
+	{
+		"entryEffect": 3925,
+		"element": "prism",
+		"ns": "p14",
+		"variant": {
+			"dir": "d",
+			"isInverted": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:prism dir=\"d\" isInverted=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide128.xml"
+	},
+	{
+		"entryEffect": 3926,
+		"element": "prism",
+		"ns": "p14",
+		"variant": {
+			"isContent": "1",
+			"isInverted": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:prism isContent=\"1\" isInverted=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide129.xml"
+	},
+	{
+		"entryEffect": 3927,
+		"element": "prism",
+		"ns": "p14",
+		"variant": {
+			"dir": "u",
+			"isContent": "1",
+			"isInverted": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:prism dir=\"u\" isContent=\"1\" isInverted=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide130.xml"
+	},
+	{
+		"entryEffect": 3928,
+		"element": "prism",
+		"ns": "p14",
+		"variant": {
+			"dir": "r",
+			"isContent": "1",
+			"isInverted": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:prism dir=\"r\" isContent=\"1\" isInverted=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide131.xml"
+	},
+	{
+		"entryEffect": 3929,
+		"element": "prism",
+		"ns": "p14",
+		"variant": {
+			"dir": "d",
+			"isContent": "1",
+			"isInverted": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:prism dir=\"d\" isContent=\"1\" isInverted=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide132.xml"
+	},
+	{
+		"entryEffect": 3930,
+		"element": "pan",
+		"ns": "p14",
+		"variant": {},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:pan/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide133.xml"
+	},
+	{
+		"entryEffect": 3931,
+		"element": "pan",
+		"ns": "p14",
+		"variant": {
+			"dir": "u"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:pan dir=\"u\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide134.xml"
+	},
+	{
+		"entryEffect": 3932,
+		"element": "pan",
+		"ns": "p14",
+		"variant": {
+			"dir": "r"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:pan dir=\"r\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide135.xml"
+	},
+	{
+		"entryEffect": 3933,
+		"element": "pan",
+		"ns": "p14",
+		"variant": {
+			"dir": "d"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p14=\"http://schemas.microsoft.com/office/powerpoint/2010/main\" Requires=\"p14\"><p:transition spd=\"slow\"><p14:pan dir=\"d\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide136.xml"
+	},
+	{
+		"entryEffect": 3934,
+		"element": "prstTrans",
+		"ns": "p15",
+		"variant": {
+			"prst": "fallOver"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p15=\"http://schemas.microsoft.com/office/powerpoint/2012/main\" Requires=\"p15\"><p:transition spd=\"slow\"><p15:prstTrans prst=\"fallOver\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide137.xml"
+	},
+	{
+		"entryEffect": 3935,
+		"element": "prstTrans",
+		"ns": "p15",
+		"variant": {
+			"prst": "fallOver",
+			"invX": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p15=\"http://schemas.microsoft.com/office/powerpoint/2012/main\" Requires=\"p15\"><p:transition spd=\"slow\"><p15:prstTrans prst=\"fallOver\" invX=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide138.xml"
+	},
+	{
+		"entryEffect": 3936,
+		"element": "prstTrans",
+		"ns": "p15",
+		"variant": {
+			"prst": "drape"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p15=\"http://schemas.microsoft.com/office/powerpoint/2012/main\" Requires=\"p15\"><p:transition spd=\"slow\"><p15:prstTrans prst=\"drape\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide139.xml"
+	},
+	{
+		"entryEffect": 3937,
+		"element": "prstTrans",
+		"ns": "p15",
+		"variant": {
+			"prst": "drape",
+			"invX": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p15=\"http://schemas.microsoft.com/office/powerpoint/2012/main\" Requires=\"p15\"><p:transition spd=\"slow\"><p15:prstTrans prst=\"drape\" invX=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide140.xml"
+	},
+	{
+		"entryEffect": 3938,
+		"element": "prstTrans",
+		"ns": "p15",
+		"variant": {
+			"prst": "curtains"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p15=\"http://schemas.microsoft.com/office/powerpoint/2012/main\" Requires=\"p15\"><p:transition spd=\"slow\"><p15:prstTrans prst=\"curtains\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide141.xml"
+	},
+	{
+		"entryEffect": 3939,
+		"element": "prstTrans",
+		"ns": "p15",
+		"variant": {
+			"prst": "wind",
+			"invX": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p15=\"http://schemas.microsoft.com/office/powerpoint/2012/main\" Requires=\"p15\"><p:transition spd=\"slow\"><p15:prstTrans prst=\"wind\" invX=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide142.xml"
+	},
+	{
+		"entryEffect": 3940,
+		"element": "prstTrans",
+		"ns": "p15",
+		"variant": {
+			"prst": "wind"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p15=\"http://schemas.microsoft.com/office/powerpoint/2012/main\" Requires=\"p15\"><p:transition spd=\"slow\"><p15:prstTrans prst=\"wind\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide143.xml"
+	},
+	{
+		"entryEffect": 3941,
+		"element": "prstTrans",
+		"ns": "p15",
+		"variant": {
+			"prst": "prestige"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p15=\"http://schemas.microsoft.com/office/powerpoint/2012/main\" Requires=\"p15\"><p:transition spd=\"slow\"><p15:prstTrans prst=\"prestige\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide144.xml"
+	},
+	{
+		"entryEffect": 3942,
+		"element": "prstTrans",
+		"ns": "p15",
+		"variant": {
+			"prst": "fracture"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p15=\"http://schemas.microsoft.com/office/powerpoint/2012/main\" Requires=\"p15\"><p:transition spd=\"slow\"><p15:prstTrans prst=\"fracture\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide145.xml"
+	},
+	{
+		"entryEffect": 3943,
+		"element": "prstTrans",
+		"ns": "p15",
+		"variant": {
+			"prst": "crush"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p15=\"http://schemas.microsoft.com/office/powerpoint/2012/main\" Requires=\"p15\"><p:transition spd=\"slow\"><p15:prstTrans prst=\"crush\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide146.xml"
+	},
+	{
+		"entryEffect": 3944,
+		"element": "prstTrans",
+		"ns": "p15",
+		"variant": {
+			"prst": "peelOff"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p15=\"http://schemas.microsoft.com/office/powerpoint/2012/main\" Requires=\"p15\"><p:transition spd=\"slow\"><p15:prstTrans prst=\"peelOff\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide147.xml"
+	},
+	{
+		"entryEffect": 3945,
+		"element": "prstTrans",
+		"ns": "p15",
+		"variant": {
+			"prst": "peelOff",
+			"invX": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p15=\"http://schemas.microsoft.com/office/powerpoint/2012/main\" Requires=\"p15\"><p:transition spd=\"slow\"><p15:prstTrans prst=\"peelOff\" invX=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide148.xml"
+	},
+	{
+		"entryEffect": 3946,
+		"element": "prstTrans",
+		"ns": "p15",
+		"variant": {
+			"prst": "pageCurlSingle"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p15=\"http://schemas.microsoft.com/office/powerpoint/2012/main\" Requires=\"p15\"><p:transition spd=\"slow\"><p15:prstTrans prst=\"pageCurlSingle\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide149.xml"
+	},
+	{
+		"entryEffect": 3947,
+		"element": "prstTrans",
+		"ns": "p15",
+		"variant": {
+			"prst": "pageCurlSingle",
+			"invX": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p15=\"http://schemas.microsoft.com/office/powerpoint/2012/main\" Requires=\"p15\"><p:transition spd=\"slow\"><p15:prstTrans prst=\"pageCurlSingle\" invX=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide150.xml"
+	},
+	{
+		"entryEffect": 3948,
+		"element": "prstTrans",
+		"ns": "p15",
+		"variant": {
+			"prst": "pageCurlDouble"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p15=\"http://schemas.microsoft.com/office/powerpoint/2012/main\" Requires=\"p15\"><p:transition spd=\"slow\"><p15:prstTrans prst=\"pageCurlDouble\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide151.xml"
+	},
+	{
+		"entryEffect": 3949,
+		"element": "prstTrans",
+		"ns": "p15",
+		"variant": {
+			"prst": "pageCurlDouble",
+			"invX": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p15=\"http://schemas.microsoft.com/office/powerpoint/2012/main\" Requires=\"p15\"><p:transition spd=\"slow\"><p15:prstTrans prst=\"pageCurlDouble\" invX=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide152.xml"
+	},
+	{
+		"entryEffect": 3950,
+		"element": "prstTrans",
+		"ns": "p15",
+		"variant": {
+			"prst": "airplane",
+			"invX": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p15=\"http://schemas.microsoft.com/office/powerpoint/2012/main\" Requires=\"p15\"><p:transition spd=\"slow\"><p15:prstTrans prst=\"airplane\" invX=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide153.xml"
+	},
+	{
+		"entryEffect": 3951,
+		"element": "prstTrans",
+		"ns": "p15",
+		"variant": {
+			"prst": "airplane"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p15=\"http://schemas.microsoft.com/office/powerpoint/2012/main\" Requires=\"p15\"><p:transition spd=\"slow\"><p15:prstTrans prst=\"airplane\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide154.xml"
+	},
+	{
+		"entryEffect": 3952,
+		"element": "prstTrans",
+		"ns": "p15",
+		"variant": {
+			"prst": "origami",
+			"invX": "1"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p15=\"http://schemas.microsoft.com/office/powerpoint/2012/main\" Requires=\"p15\"><p:transition spd=\"slow\"><p15:prstTrans prst=\"origami\" invX=\"1\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide155.xml"
+	},
+	{
+		"entryEffect": 3953,
+		"element": "prstTrans",
+		"ns": "p15",
+		"variant": {
+			"prst": "origami"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p15=\"http://schemas.microsoft.com/office/powerpoint/2012/main\" Requires=\"p15\"><p:transition spd=\"slow\"><p15:prstTrans prst=\"origami\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide156.xml"
+	},
+	{
+		"entryEffect": 3954,
+		"element": "morph",
+		"ns": "p159",
+		"variant": {
+			"option": "byObject"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p159=\"http://schemas.microsoft.com/office/powerpoint/2015/09/main\" Requires=\"p159\"><p:transition spd=\"slow\"><p159:morph option=\"byObject\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide157.xml"
+	},
+	{
+		"entryEffect": 3955,
+		"element": "morph",
+		"ns": "p159",
+		"variant": {
+			"option": "byWord"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p159=\"http://schemas.microsoft.com/office/powerpoint/2015/09/main\" Requires=\"p159\"><p:transition spd=\"slow\"><p159:morph option=\"byWord\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide158.xml"
+	},
+	{
+		"entryEffect": 3956,
+		"element": "morph",
+		"ns": "p159",
+		"variant": {
+			"option": "byChar"
+		},
+		"spd": "slow",
+		"p14Only": false,
+		"xml": "<mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"><mc:Choice xmlns:p159=\"http://schemas.microsoft.com/office/powerpoint/2015/09/main\" Requires=\"p159\"><p:transition spd=\"slow\"><p159:morph option=\"byChar\"/></p:transition></mc:Choice><mc:Fallback><p:transition spd=\"slow\"><p:fade/></p:transition></mc:Fallback></mc:AlternateContent>",
+		"part": "ppt/slides/slide159.xml"
+	}
+]
