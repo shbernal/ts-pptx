@@ -431,6 +431,14 @@ SHA-256 list and purpose notes, and wire it into the harness
 promoted from the bank this way to cover connectors, nested groups, charts, and
 SmartArt that the vendored fixtures lacked.
 
+Fixtures authored here with desktop PowerPoint COM keep their recipe in
+`test/read/fixtures/authoring/` (see that directory's README). Land the recipe there
+rather than leaving it in `.tmp/`, which is gitignored — otherwise the fixture becomes
+unreproducible on the next clean checkout. The same directory holds the scripts that
+derive the committed `*.oracle.json` / `*.cases.json` sidecars; each regenerates its
+sidecar byte-for-byte after a Prettier pass, which is how you check that a recipe still
+matches what it claims to produce.
+
 ## Converter And Read-Coverage Harnesses
 
 Three runnable measurement tools back the `ts-pptx/script` subsystem. Their
