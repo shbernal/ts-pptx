@@ -1,6 +1,8 @@
 # ts-pptx
 
-[![npm](https://img.shields.io/npm/v/@shbernal/ts-pptx)](https://www.npmjs.com/package/@shbernal/ts-pptx)
+[![npm](https://img.shields.io/npm/v/%40shbernal%2Fts-pptx)](https://www.npmjs.com/package/@shbernal/ts-pptx)
+[![weekly downloads](https://img.shields.io/npm/dw/%40shbernal%2Fts-pptx.svg?label=npm%20downloads&logo=npm)](https://www.npmjs.com/package/@shbernal/ts-pptx)
+[![total downloads](https://img.shields.io/npm/dt/%40shbernal%2Fts-pptx.svg?label=npm%20total%20downloads&logo=npm)](https://www.npmjs.com/package/@shbernal/ts-pptx)
 [![CI](https://github.com/shbernal/ts-pptx/actions/workflows/ci.yml/badge.svg)](https://github.com/shbernal/ts-pptx/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
