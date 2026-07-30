@@ -4,12 +4,25 @@
 	"timezone": "UTC",
 	"schedule": ["before 6am on monday"],
 	"labels": ["dependencies"],
-	"rangeStrategy": "bump",
 	"lockFileMaintenance": {
 		"enabled": true,
 		"schedule": ["before 6am on monday"]
 	},
 	"packageRules": [
+		{
+			"description": "Bump devDependency ranges eagerly: nothing downstream consumes them, so a raised floor costs nobody anything and keeps the lockfile honest about what CI actually ran.",
+			"matchDepTypes": ["devDependencies"],
+			"rangeStrategy": "bump"
+		},
+		{
+			"description": "Never narrow what consumers can satisfy. `dependencies` keep their published range until a release falls outside it, and peer ranges only ever widen — this is a library, so a bumped floor here is a breaking change for downstreams.",
+			"matchDepTypes": ["dependencies", "optionalDependencies"],
+			"rangeStrategy": "replace"
+		},
+		{
+			"matchDepTypes": ["peerDependencies"],
+			"rangeStrategy": "widen"
+		},
 		{
 			"description": "Separate major updates into their own PRs; keep them off the weekly batch.",
 			"matchUpdateTypes": ["major"],
