@@ -28,7 +28,7 @@ import type { Slide } from '../../types/slide.js'
 import type { SlideLayoutInternal } from '../../types/internal.js'
 import { inch2Emu } from '../../units-internal.js'
 import { warn } from '../../diagnostics.js'
-import { EMU_PER_INCH } from '../../units.js'
+import { DEFAULT_PX_PER_INCH, EMU_PER_INCH } from '../../units.js'
 import { getSlidesForTableRows } from './autopage.js'
 import { InvalidOptionError } from '../../errors.js'
 
@@ -748,15 +748,22 @@ export function genTableToSlides(
 			}
 
 			// C: Add padding [margin] (if any)
-			// NOTE: Margins translate: px->pt 1:1 (e.g.: a 20px padded cell looks the same in PPTX as 20pt Text Inset/Padding)
+			// NOTE: `TableCellProps.margin` is INCHES, so computed px must be converted, not copied.
+			// CSS defines the reference pixel as 1/96in, and mirroring what the browser rendered is
+			// this conversion's whole job — so resolve at `DEFAULT_PX_PER_INCH`, the same density the
+			// `"<n>px"` coordinate unit uses. (Until 2026-07-31 the px magnitude was assigned straight
+			// through under a stale "px->pt 1:1" note left from when cell margin was points; that made
+			// a 4px pad a *4 inch* inset and tripped the legacy-points warning on any pad >= 1px.)
+			// No rounding to whole px: the browser's computed value can be fractional, and `inch2Emu`
+			// already does the one rounding that matters, at EMU precision.
 			if (style.getPropertyValue('padding-left')) {
 				const cellMargin: MarginTuple = [0, 0, 0, 0]
 				const sidesPad = ['padding-top', 'padding-right', 'padding-bottom', 'padding-left']
 				sidesPad.forEach((val, idxs) => {
 					// Anything that is not an absolute px length (a `%` padding, a keyword) has no
-					// meaning as a point inset, so it insets by nothing rather than by its digits.
+					// meaning as a fixed inset, so it insets by nothing rather than by its digits.
 					const pad = parseCssPx(style.getPropertyValue(val))
-					cellMargin[idxs] = isFinite(pad) ? Math.round(pad) : 0
+					cellMargin[idxs] = isFinite(pad) ? pad / DEFAULT_PX_PER_INCH : 0
 				})
 				cellOpts.margin = cellMargin
 			}

@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`tableToSlides` cell padding is now converted from px to inches.** A cell's
+  computed CSS `padding-*` was read in px and assigned straight to
+  `TableCellProps.margin`, which is **inches**. The magnitude therefore passed
+  through unscaled: a perfectly ordinary 4px padded cell emitted
+  `marL="3657600"` — a **4 inch** text inset, wider than most columns — and any
+  cell padded 1px or more also tripped the `margin/legacy-points` warning. The
+  stale `px->pt 1:1` note it was written under had been true when cell margins
+  were points; it was not true after margins became inches.
+
+  Padding now resolves at 96px/in, so `padding: 4px` is `4/96in` (`marL="38100"`).
+  96 rather than 72 because CSS defines the reference pixel as 1/96in and this
+  conversion exists to mirror what the browser laid out; it is also the density
+  the `"<n>px"` coordinate unit already uses, so the two px sites agree. The
+  whole-px rounding is gone with it — a fractional computed padding keeps its
+  precision, and the rounding happens once, in EMU.
+
+  **This changes emitted bytes for any padded HTML table**, on the browser path
+  as well as `@shbernal/ts-pptx/html`. Cells will look substantially tighter,
+  because they are now inset by what was asked for. Nothing else about the
+  conversion changed, and a table whose cells set no padding is unaffected.
+
 ### Added
 
 - **`border/unknown-key`** — a new diagnostic reporting a key that is not part of

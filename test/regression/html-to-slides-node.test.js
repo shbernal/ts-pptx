@@ -439,7 +439,7 @@ defineRegressionSuite('HTML table to slides on Node (happy-dom)', [
 		},
 	},
 	{
-		name: 'fractional computed padding rounds to 2, not to 15',
+		name: 'computed px padding becomes an inch inset at 96px/in, decimal point intact',
 		fn: async () => {
 			const win = windowWith(`
 				<style>#t td { padding: 1.5px 2px 3px 4px; }</style>
@@ -448,14 +448,20 @@ defineRegressionSuite('HTML table to slides on Node (happy-dom)', [
 				tableToSlides(pptx, tableOf(win))
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
-			// Cell margin is inches downstream (914400 EMU each), so these are the *numbers* the
-			// padding parse produced, unit conversion aside. `1.5px` must become 2: the historical
-			// `.replace(/\D/g,'')` deleted the decimal point and made it 15 (=> marT 13716000).
-			// NOTE the px -> inches unit mismatch here is a separate pre-existing defect, tracked
-			// as dn-html-table-padding-units; this case pins the parse, not the unit.
-			assert(/marT="1828800"/.test(xml), `1.5px padding must round to 2, not 15; got: ${xml}`)
-			assert(!/marT="13716000"/.test(xml), 'the stripped-decimal-point value must not come back')
-			assert(/marL="3657600"/.test(xml), `4px padding must be 4; got: ${xml}`)
+			// Cell margin is inches downstream, so a computed px padding converts at 96px/in (the CSS
+			// reference pixel) and lands in EMU as px/96*914400 = px*9525. Pins both halves of
+			// dn-html-table-padding-units: the unit (a 4px pad is 0.042in, NOT the 4in it used to be)
+			// and the parse (`1.5px` stays 1.5 — the historical `.replace(/\D/g,'')` deleted the
+			// decimal point and made it 15).
+			assert(/marT="14288"/.test(xml), `1.5px padding must be 1.5/96in; got: ${xml}`)
+			assert(/marR="19050"/.test(xml), `2px padding must be 2/96in; got: ${xml}`)
+			assert(/marB="28575"/.test(xml), `3px padding must be 3/96in; got: ${xml}`)
+			assert(/marL="38100"/.test(xml), `4px padding must be 4/96in; got: ${xml}`)
+			// The pre-fix values: px copied straight into an inches field.
+			assert(!/marT="1828800"/.test(xml), 'a 1.5px pad must not come back as a 2 INCH inset')
+			assert(!/marL="3657600"/.test(xml), 'a 4px pad must not come back as a 4 INCH inset')
+			// The stripped-decimal-point value, at either unit.
+			assert(!/marT="13716000"/.test(xml) && !/marT="142875"/.test(xml), '1.5px must not become 15px')
 		},
 	},
 	{

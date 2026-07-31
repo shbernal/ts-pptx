@@ -1069,8 +1069,8 @@ items:
     source: downstream
     type: downstream-need
     first_seen: 2026-07-29
-    last_reviewed: 2026-07-29
-    status: needs-repro
+    last_reviewed: 2026-07-31
+    status: implemented
     priority: p3
     target_area:
       - table-ooxml
@@ -1102,6 +1102,26 @@ items:
       needs-repro status is about, is which conversion a user would call correct:
       CSS px are 1/96in, while the original comment assumed a 1:1 px->pt mapping that
       would make it 1/72in. Pick one against a rendered comparison before changing it.
+
+      IMPLEMENTED 2026-07-31. The 96 vs 72 question was settled on definition rather
+      than on a rendered comparison: CSS defines the reference pixel as 1/96in, and
+      mirroring what the browser laid out is this conversion's entire purpose, so the
+      browser's own unit is the correct one. The 1/72 reading had no independent
+      support — it existed only as an artifact of the stale "px->pt 1:1" comment left
+      behind by the points-era margin API. Resolved at `DEFAULT_PX_PER_INCH`
+      (src/units.ts), the same density the `"<n>px"` coordinate unit already uses, so
+      the two px sites cannot drift apart.
+
+      Also dropped the `Math.round(pad)` that quantized to whole px: it was granularity
+      inherited from integer points, and under inches it discards a real fractional
+      computed value for nothing — `inch2Emu` already does the one rounding that
+      matters, at EMU precision.
+
+      The pinning test is the same case, renamed and widened to assert all four sides
+      plus both pre-fix values as negatives (px-as-inches, and the stripped decimal
+      point at either unit). The byte-identity gate stayed green at 177 parts, which is
+      the expected blind spot rather than evidence of no change: no showcase deck goes
+      through tableToSlides, so the regression test is the only cover here.
     evidence:
       kinds:
         - local-source-inspection
@@ -1113,7 +1133,7 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: decide px->inch conversion against a rendered PowerPoint comparison, then fix and changelog it as a browser-visible change
+    next_action: none
   - id: dn-logo-cloud-helper
     source: downstream
     type: downstream-need
