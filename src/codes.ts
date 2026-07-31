@@ -110,6 +110,7 @@ export type DiagnosticCode =
 	| 'geometry/invalid-guide'
 	| 'geometry/unknown-guide-operation'
 	| 'geometry/invalid-connection-site'
+	| 'border/unknown-key'
 	| 'object-lock/unsupported-on-shape'
 	// Media, theme, masters, notes
 	| 'media/load-failed'

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`border/unknown-key`** — a new diagnostic reporting a key that is not part of
+  `BorderProps`, which was previously discarded without a sound. The thickness
+  field is `width`, in points; a border authored with any other name for it lost
+  the value and rendered at the 1pt default, and a `.pptx` gives no second signal
+  — nothing throws and the deck opens, only heavier than asked for.
+
+  TypeScript's excess-property check already rejects a stray key on a border
+  written inline at the call site. It deliberately does not fire when the border
+  is built as a variable first (`const b = {...}` then `{ border: b }`), because
+  a variable may legitimately be a supertype — and that is precisely the reuse
+  pattern a shared grid style encourages. The check closes that gap at runtime.
+
+  It sits in `resolveBorderWidth`, the one function every emitted border resolves
+  its width through, so it covers table cell borders, table-style regions, and
+  chart borders alike. One exception: `chartArea.border` is rebuilt from a fixed
+  key list during normalization, so an unknown key on it (and `cap` with it) is
+  stripped before generation and cannot be reported. Emitted bytes are unchanged
+  in every case — this only adds a report where a value was already being lost.
+
 ## [1.0.0] - 2026-07-29
 
 Initial public release of ts-pptx — an ESM-first, TypeScript-first library for
