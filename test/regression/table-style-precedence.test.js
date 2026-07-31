@@ -11,6 +11,11 @@ import { TableStyle } from '../../dist/node.js'
 // direct cell formatting outranks a style region -- so those two are overridden before they
 // can render, while `fill`, `bold` and `italic` are not defaulted and do apply.
 //
+// `styleDrivenCells: true` on the table stands both defaults down, which is the other half of
+// what these cases pin: with the flag the region renders, without it the default still wins,
+// and the rungs above the default (cell options, `headerRow`, `columns[i]`, the table-level
+// `border`/`color`) win either way.
+//
 // The stamped `fontSize` and `margin` defaults are NOT part of this: a table style region
 // has nowhere to put either one (`tcTxStyle` carries only b/i/font-ref/color, `tcStyle` only
 // tcBdr/fill/cell3D), so there is no region value for them to override. Don't add cases for
@@ -282,6 +287,58 @@ defineRegressionSuite('Table style precedence against per-cell defaults', [
 			const [first, second] = allTcPr(slide)
 			assertEqual((first.match(/112233/g) || []).length, 4, "the cell's own border is on all four sides")
 			assert(!/<a:ln[LRTB][ />]/.test(second), 'the cell next to it still defers; got: ' + second)
+		},
+	},
+	{
+		name: "styleDrivenCells lets a custom style's text colour render — no colour is written on the run",
+		fn: async () => {
+			const { slide, styles } = await withStyleParts(
+				{ firstRow: { fill: '1A2B3C', color: 'FFFFFF', bold: true } },
+				{ styleDrivenCells: true }
+			)
+			const rPr = firstRPr(slide)
+			// Black on the run is direct formatting and would beat the region. Saying nothing lets
+			// PowerPoint resolve the colour -- from the region here, from the theme's `tx1` when no
+			// active region names one, which is what keeps a dark-themed master legible.
+			assert(!rPr.includes('<a:solidFill>'), 'no per-cell colour is stamped; got: ' + rPr)
+			assert(styles.includes('FFFFFF'), 'and the style still carries the colour; got: ' + styles)
+		},
+	},
+	{
+		name: 'under the flag, a colour the caller set still beats the style',
+		fn: async () => {
+			// Same rung as the border: `headerRow` is direct per-cell formatting, so it wins over
+			// the region exactly as it did before the flag existed.
+			const { slide } = await withStyleParts(
+				{ firstRow: { color: 'FFFFFF' } },
+				{ styleDrivenCells: true, headerRow: { color: 'AABBCC' } }
+			)
+			assert(firstRPr(slide).includes('<a:srgbClr val="AABBCC"/>'), 'headerRow wins; got: ' + firstRPr(slide))
+		},
+	},
+	{
+		name: 'under the flag, a table-level colour still reaches every cell',
+		fn: async () => {
+			// The flag stands the *default* down, not the caller's own table-level `color`.
+			const { slide } = await withStyleParts(
+				{ firstRow: { color: 'FFFFFF' } },
+				{ styleDrivenCells: true, color: '112233' }
+			)
+			assert(firstRPr(slide).includes('<a:srgbClr val="112233"/>'), 'table colour wins; got: ' + firstRPr(slide))
+		},
+	},
+	{
+		name: 'the flag composes with the hyperlink carve-out rather than bypassing it',
+		fn: async () => {
+			// The black default was already skipped for any table holding a hyperlink, because it
+			// paints the whole run and repaints the words after a link black. Both conditions now
+			// skip the same default, so a table with a hyperlink AND the flag must still emit a
+			// link that keeps its own colour, and no black anywhere.
+			const { slide } = await withStyleParts({ firstRow: { color: 'FFFFFF' } }, { styleDrivenCells: true }, [
+				[{ text: 'H1' }, { text: 'docs', options: { hyperlink: { url: 'https://example.com' } } }],
+			])
+			assert(slide.includes('<a:hlinkClick'), 'the hyperlink is emitted; got: ' + slide)
+			assert(!slide.includes('<a:srgbClr val="000000"/>'), 'and nothing is painted black; got: ' + slide)
 		},
 	},
 	{

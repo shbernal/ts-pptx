@@ -1616,7 +1616,7 @@ items:
     type: fork-internal-proposal
     first_seen: 2026-07-31
     last_reviewed: 2026-07-31
-    status: accepted
+    status: partially-implemented
     priority: p2
     target_area:
       - table-ooxml
@@ -1695,6 +1695,21 @@ items:
       see the registry), and applyOuterBorder no longer fills a border-less cell's other
       three sides with {type:'none'} when it is set -- that fill is right for every other
       table and would have traded the style's borders for the perimeter.
+
+      The colour half is done too, and it was smaller than the border half: the same flag
+      also skips the '000000' default, so a cell given no colour is emitted with no
+      solidFill at all and PowerPoint resolves the run from the style region -- or, under
+      no region that names a colour, from the theme's tx1. Composing with the existing
+      hyperlink carve-out needed nothing clever: both conditions skip the same default, so
+      the flag check simply joins it (and goes first, since the carve-out stringifies the
+      whole grid). Nothing else stamps a colour on a table cell -- the run emitter writes
+      one only when it has one, and the define step's default was the single source -- so
+      unlike the border half there was no second seam at emit time.
+
+      Scope note for a reader arriving later: on a default theme this changes nothing
+      visible, because tx1 resolves to the same black the library was stamping. The
+      change bites on a dark theme, where the stamped black was invisible against the
+      background and the fall-through picks up the master's text colour instead.
     evidence:
       kinds:
         - local-source-inspection
@@ -1718,6 +1733,18 @@ items:
         flag plus a 3pt 0000FF outerBorder, the top-left cell reads back blue 3pt on top
         and left and red 1pt on bottom and right, so the perimeter and the style compose
         rather than one erasing the other. All three decks opened without a repair prompt.
+
+        Colour, read back as Cell(r,c).Shape.TextFrame.TextRange.Runs(1).Font.Color.RGB on
+        two more decks. Default theme, style firstRow.color FFFFFF: with the flag the
+        header runs read 16777215 (white, from the region) and the body runs 0 (black,
+        from tx1); the same deck without the flag reads 0 everywhere -- the stamped black
+        beating the region. Dark theme (dk1 FFFFFF / lt1 1F1F1F, dark background) under a
+        style that names no colour at all: with the flag every run reads 16777215, i.e.
+        the master's text colour; without it every run reads 0, black on a 1F1F1F
+        background. A flagged table holding a hyperlink still emits the link (Address
+        read back) with no colour of its own. Probe gotcha worth repeating: read Runs(1),
+        not the TextRange -- a range whose run carries a direct colour but whose
+        paragraph-end mark does not reads back -2147483648 (mixed), not the colour.
       spec_refs: []
-    next_action: the border deferral has shipped behind TableProps.styleDrivenCells and is confirmed in the desktop app, not just the XML; what remains is the same move for color at src/gen/define/table.ts:329-332, which is harder for two reasons -- it has to compose with the existing carve-out that already skips the color default when any cell holds a hyperlink, rather than bypass it, and falling through resolves text to the region or else the theme's tx1, so it needs checking against a dark-themed master where the change is largest -- after which docs/tables.md's defaults-tier section should be restructured once for both properties instead of amended twice
+    next_action: both deferrable properties have shipped behind TableProps.styleDrivenCells and both are confirmed in the desktop app rather than only in the XML, and docs/tables.md's defaults-tier section has been restructured to state the one rule instead of two exceptions; nothing further is planned for this item at the current major, since the two remaining region properties (fontSize, margin) do not exist in CT_TablePartStyle and are struck for good -- what is left is the eventual default flip, i.e. making deferral the behaviour and retiring the flag in a major, which is a separate decision that needs its own migration note because it moves the bytes of every deck using a custom style
 

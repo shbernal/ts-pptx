@@ -73,19 +73,18 @@ Row 5 is the one that surprises people, so it is worth stating plainly: for four
 the library stamps a default onto **every cell as direct formatting**, and direct formatting
 outranks a style region.
 
-| Property | Default stamped on every cell | Consequence |
-| --- | --- | --- |
-| `border` | `{ type: 'none' }` on all four sides | a style region's `border` is overridden — unless the table opts out with `styleDrivenCells` (below) |
-| `color` | `'000000'` | a style region's text `color` never shows |
-| `fontSize` | `12` | — a region cannot set a font size (see below) |
-| `margin` | `[0.05, 0.1, 0.05, 0.1]` in | — a region cannot set cell insets (see below) |
+| Property | Default stamped on every cell | A region can set it | Consequence |
+| --- | --- | --- | --- |
+| `border` | `{ type: 'none' }` on all four sides | yes | overridden, unless the table sets `styleDrivenCells` (below) |
+| `color` | `'000000'` | yes | overridden, unless the table sets `styleDrivenCells` (below) |
+| `fontSize` | `12` | **no** | nothing to defer to (see below) |
+| `margin` | `[0.05, 0.1, 0.05, 0.1]` in | **no** | nothing to defer to (see below) |
 
 A style region's **`fill`**, **`bold`** and **`italic`** are *not* defaulted, so those do work
 — which is what makes this confusing rather than obviously broken: a custom style's shading
 and weight apply while its borders and text colour appear to be ignored. `defineTableStyle()`
 warns (`table-style/region-overridden`) when a region sets `border` or `color`, so you find
-this out at authoring time rather than by looking at the deck. The border half of it is opt-out
-per table — see [Letting the style draw the borders](#letting-the-style-draw-the-borders).
+this out at authoring time rather than by looking at the deck.
 
 The last two rows are a different situation, and worth separating: a table style region has
 **nowhere to put** a font size or a cell margin. A region is a `CT_TablePartStyle`, which is
@@ -95,36 +94,38 @@ these are not overrides the library could give up: font size and margins are per
 properties, and the stamped defaults are simply where cells get their values. Set them on the
 table or on the cells; that is the whole of the API, not a workaround for one.
 
-#### Letting the style draw the borders
+#### Letting the style decide: `styleDrivenCells`
 
-`styleDrivenCells: true` stands the border default down for one table: a side that neither the
-cell nor the table asked for is left unwritten, and PowerPoint resolves it from the style.
+`styleDrivenCells: true` stands both of those defaults down for one table. A border side that
+neither the cell nor the table asked for is left unwritten, and a cell that was given no colour
+is emitted without one, so PowerPoint resolves both from the style:
 
 ```js
 const brand = pptx.defineTableStyle({
   name: 'Brand Grid',
   wholeTbl: { border: { type: 'solid', color: 'D9D9D9', width: 0.5 } },
-  firstRow: { fill: '1A2B3C', bold: true },
+  firstRow: { fill: '1A2B3C', color: 'FFFFFF', bold: true },
 })
 s.addTable(rows, { tableStyle: brand, hasHeader: true, styleDrivenCells: true })
 ```
 
-Nothing above the defaults tier moves: a cell's own `border`, `headerRow`, `columns[i]` and the
-table-level `border` all still win, in that order — only row 5 stands aside. `outerBorder`
-composes too: the perimeter draws on the edges it reaches and the style keeps the sides it
-doesn't.
+Nothing above the defaults tier moves: a cell's own options, `headerRow`, `columns[i]` and the
+table-level `border` / `color` all still win, in that order — only row 5 stands aside.
+`outerBorder` composes too: the perimeter draws on the edges it reaches and the style keeps the
+sides it doesn't.
+
+Text under no region that names a colour falls through to the theme's `tx1` — black on a
+default theme, so nothing changes there, and the *master's* text colour on a dark theme, where
+the stamped black had been invisible against the background.
 
 It applies **only** to a style registered with `defineTableStyle()`. A built-in `TableStyle`
 defines borders of its own, so decks using one keep the defaults and look exactly as they did;
 setting the flag without a registered style warns (`table/style-driven-cells-inert`) rather
 than quietly doing nothing.
 
-There is no equivalent for `color` yet — that default still wins, so a region's text colour
-goes on `headerRow`, `columns[i]` or the cells.
-
 #### The alternative: put it on the table
 
-Without the flag — and always, for `color` — set them on the table (or the cells) instead:
+Without the flag, set them on the table (or the cells) instead:
 
 ```js
 const brand = pptx.defineTableStyle({
@@ -170,7 +171,7 @@ row regardless of styling.
 
 A custom style bands correctly across any row count, including one shredded by auto-paging.
 Read the [defaults tier](#the-defaults-tier-and-why-a-table-style-can-look-ignored) above
-before reaching for a style's `border` or `color`: `color` is overridden, and `border` is
+before reaching for a style's `border` or `color`: both are overridden by a per-cell default
 unless the table sets `styleDrivenCells: true`.
 
 ## Fills

@@ -9,27 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`TableProps.styleDrivenCells` lets a custom table style draw the cell borders.** The
-  library stamps `{type:'none'}` on all four sides of every cell as *direct* formatting,
-  which outranks a style region in PowerPoint — so a style's `border` never reached the
-  render. With `styleDrivenCells: true`, a side that neither the cell nor the table asked
-  for is left unwritten instead, and PowerPoint resolves it from the style. Verified in
-  the desktop app, not just the XML: the cell's four borders read back as the style's
-  colour and weight, where the same deck without the flag reads back invisible.
+- **`TableProps.styleDrivenCells` lets a custom table style draw the cell borders and
+  text colour.** The library stamps `{type:'none'}` on all four sides of every cell and
+  black on every run, as *direct* formatting, which outranks a style region in PowerPoint
+  — so a style's `border` and `color` never reached the render. With
+  `styleDrivenCells: true`, a border side that neither the cell nor the table asked for is
+  left unwritten and a cell given no colour is emitted without one, and PowerPoint
+  resolves both from the style. Verified in the desktop app, not just the XML: the cell's
+  four borders read back as the style's colour and weight and the header text reads back
+  as the region's colour, where the same deck without the flag reads back invisible
+  borders and black text.
 
-  Nothing above the defaults tier moves — a cell's own `border`, `headerRow`,
-  `columns[i]` and the table-level `border` still win, in that order, and `outerBorder`
-  still overrides the perimeter it reaches while the style keeps the sides it does not.
+  Text under no region that names a colour falls through to the theme's `tx1` — black on
+  a default theme, and the master's own text colour on a dark one, where the stamped
+  black had been invisible against the background.
+
+  Nothing above the defaults tier moves — a cell's own options, `headerRow`, `columns[i]`
+  and the table-level `border` / `color` still win, in that order; `outerBorder` still
+  overrides the perimeter it reaches while the style keeps the sides it does not; and a
+  table holding a hyperlink still skips the colour default as it always has, so link runs
+  keep their own colour.
 
   It applies **only** to a style registered with `defineTableStyle()`. Office's built-in
   styles define borders of their own, so every deck using one keeps the defaults exactly
   as they were; the flag is byte-for-byte inert everywhere else. Setting it without a
   registered style warns (`table/style-driven-cells-inert`) rather than doing nothing
-  quietly, and the `table-style/region-overridden` message for a region `border` now
-  names the flag instead of declaring the region dead. `color` has no equivalent yet.
+  quietly, and the `table-style/region-overridden` messages now name the flag instead of
+  declaring the region dead.
 
 - **`defineTableStyle()` now warns when a style region sets `border` or `color`.** Those
-  two are written faithfully into `ppt/tableStyles.xml` and then never render: the
+  two are written faithfully into `ppt/tableStyles.xml` and then never render on a table
+  that leaves the defaults in place (see `styleDrivenCells` above): the
   library stamps a default border (`{type:'none'}` on all four sides) and text colour
   (`'000000'`) onto every cell as *direct* formatting, and direct formatting outranks a
   style region in PowerPoint. A region's `fill`, `bold` and `italic` are not defaulted

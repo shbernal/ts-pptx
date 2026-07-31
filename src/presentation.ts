@@ -1195,11 +1195,11 @@ export default class PresentationCore {
 	 * the `has*` flags (`hasHeader`, `hasBandedRows`, …) to activate the matching regions.
 	 *
 	 * A region's `fill`, `bold` and `italic` apply; its `border` and `color` are overridden by
-	 * the per-cell defaults the library stamps as direct formatting. `border` can be let through
-	 * with `styleDrivenCells: true` on the table; `color` cannot yet, so set it on `headerRow` or
-	 * on the cells. Setting either on a region emits a `table-style/region-overridden`
-	 * diagnostic. A region has no font size or cell margin at all (see {@link TableStyleProps}).
-	 * See also `docs/tables.md`.
+	 * the per-cell defaults the library stamps as direct formatting unless the table sets
+	 * `styleDrivenCells: true`, which lets both through. Without it, put the border on the table
+	 * and the colour on `headerRow` / the cells. Setting either on a region emits a
+	 * `table-style/region-overridden` diagnostic. A region has no font size or cell margin at all
+	 * (see {@link TableStyleProps}). See also `docs/tables.md`.
 	 * @param {TableStyleProps} props - custom table style definition (requires `name`)
 	 * @returns {string} braced GUID to use as `tableStyle`
 	 * @example
@@ -1210,7 +1210,7 @@ export default class PresentationCore {
 	 * })
 	 * slide.addTable(rows, {
 	 *   tableStyle: brand, hasHeader:true, hasBandedRows:true,
-	 *   headerRow: { color:'FFFFFF' },   // a style region's `color` would not render
+	 *   headerRow: { color:'FFFFFF' },   // or put it on `firstRow` and set `styleDrivenCells`
 	 * })
 	 */
 	defineTableStyle(props: TableStyleProps): string {
@@ -1229,10 +1229,11 @@ export default class PresentationCore {
 		// in place. A region's `fill`, `bold` and `italic` are not defaulted and do work, which is
 		// what makes the failure look like a half-working style rather than an obvious bug.
 		//
-		// Define time is still the right place to say so now that `styleDrivenCells` can stand the
-		// border default down: a style is registered once and used by tables that do not exist yet,
-		// so this is the only point that sees the region at all. The `border` wording therefore
-		// names the opt-in rather than declaring the region dead.
+		// Define time is still the right place to say so now that `styleDrivenCells` can stand both
+		// defaults down: a style is registered once and used by tables that do not exist yet, so
+		// this is the only point that sees the region at all — and no table has been added for it
+		// to inspect. The wording therefore names the opt-in rather than declaring the region dead,
+		// and keeps naming the without-the-flag alternative, which differs per property.
 		const REGION_KEYS = [
 			'wholeTbl',
 			'firstRow',
@@ -1253,8 +1254,9 @@ export default class PresentationCore {
 			],
 			[
 				'color',
-				'will not render — the per-cell default that addTable stamps as direct formatting ' +
-					'overrides it; set `color` on `headerRow`, on `columns[i]`, or on the cells instead',
+				'will not render unless the table sets `styleDrivenCells: true` — the per-cell black ' +
+					'that addTable stamps as direct formatting overrides it otherwise, and the alternative ' +
+					'is `color` on `headerRow`, on `columns[i]`, or on the cells',
 			],
 		] as const
 		for (const key of REGION_KEYS) {

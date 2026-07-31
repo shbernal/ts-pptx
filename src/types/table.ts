@@ -363,6 +363,8 @@ export interface TableStyleRegionProps {
 	fill?: HexColor
 	/**
 	 * Text color (hex).
+	 * - renders only on a table that sets `styleDrivenCells: true`; without it the black the
+	 *   library stamps on every cell overrides the region (see {@link TableStyleProps})
 	 * @example 'FFFFFF'
 	 */
 	color?: HexColor
@@ -386,15 +388,14 @@ export interface TableStyleRegionProps {
  * style can use arbitrary brand colors, is editable in PowerPoint's Table Styles
  * gallery, and bands correctly across any row/column count (including auto-paged tables).
  *
- * **A region's `fill`, `bold` and `italic` apply; its `border` and `color` are overridden by
- * default.** The library stamps a default `border` (`{type:'none'}` on all four sides) and
- * `color` (`'000000'`) onto every cell as *direct* formatting, and direct formatting outranks
- * a style region in PowerPoint — so a style's borders and text colour never reach the render
- * unless the table stands the default down. `border` can: set
- * {@link TableProps.styleDrivenCells} on the table and the region's borders draw. `color`
- * cannot yet, so set it on the table's `headerRow` / `columns[i]` / cells, as below.
- * `defineTableStyle()` warns when a region sets either. See `docs/tables.md` →
- * "The defaults tier".
+ * **A region's `fill`, `bold` and `italic` apply; its `border` and `color` need
+ * {@link TableProps.styleDrivenCells}.** The library stamps a default `border`
+ * (`{type:'none'}` on all four sides) and `color` (`'000000'`) onto every cell as *direct*
+ * formatting, and direct formatting outranks a style region in PowerPoint — so a style's
+ * borders and text colour never reach the render unless the table stands those defaults down.
+ * Set `styleDrivenCells: true` and both draw; without it, put the border on the table and the
+ * colour on `headerRow` / `columns[i]` / the cells, as below. `defineTableStyle()` warns when
+ * a region sets either. See `docs/tables.md` → "The defaults tier".
  *
  * Note there is no region font size or cell margin to be overridden: a region is a
  * `CT_TablePartStyle`, which carries only `tcTxStyle` (bold/italic/font reference/colour) and
@@ -635,16 +636,19 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	tableStyle?: TableStyle | string
 	/**
 	 * Let the custom table style draw the cell formatting the library would otherwise stamp
-	 * over — currently the cell borders.
+	 * over: the cell **borders** and the text **colour** — the two of a region's five properties
+	 * that have a per-cell default (`fill`, `bold` and `italic` never needed one).
 	 *
-	 * Every cell normally gets a `{type:'none'}` border on all four sides as *direct*
-	 * formatting, and direct formatting outranks a style region in PowerPoint, so a style's
-	 * `border` is overridden before it can render (see {@link TableStyleProps}). With this set,
-	 * a side that neither the cell nor the table asked for is left unwritten instead, and
-	 * PowerPoint resolves it from the style.
+	 * Every cell normally gets a `{type:'none'}` border on all four sides and black text as
+	 * *direct* formatting, and direct formatting outranks a style region in PowerPoint, so a
+	 * region's `border` and `color` are overridden before they can render (see
+	 * {@link TableStyleProps}). With this set, a border side that neither the cell nor the table
+	 * asked for is left unwritten and the run is emitted with no colour, so PowerPoint resolves
+	 * both from the style. Text under no region that names a colour falls to the theme's `tx1`
+	 * — black on a light master, and legible rather than black-on-black on a dark one.
 	 *
-	 * Nothing else about precedence changes: a cell's `options.border`, `headerRow`,
-	 * `columns[i]` and the table-level {@link border} all still win, in that order. Only the
+	 * Nothing else about precedence changes: a cell's own `options`, `headerRow`, `columns[i]`
+	 * and the table-level {@link border} / {@link color} all still win, in that order. Only the
 	 * default at the bottom of the stack stands aside.
 	 *
 	 * Applies **only** when {@link tableStyle} names a style registered with
@@ -654,8 +658,12 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * quietly.
 	 * @default false
 	 * @example
-	 * const brand = pptx.defineTableStyle({ name:'Brand', wholeTbl:{ border:{ type:'solid', color:'D9D9D9', width:0.5 } } })
-	 * slide.addTable(rows, { tableStyle: brand, styleDrivenCells: true })
+	 * const brand = pptx.defineTableStyle({
+	 *   name: 'Brand',
+	 *   wholeTbl: { border: { type:'solid', color:'D9D9D9', width:0.5 } },
+	 *   firstRow: { fill:'1A2B3C', color:'FFFFFF', bold:true },
+	 * })
+	 * slide.addTable(rows, { tableStyle: brand, hasHeader: true, styleDrivenCells: true })
 	 */
 	styleDrivenCells?: boolean
 	/**

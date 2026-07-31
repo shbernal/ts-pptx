@@ -369,9 +369,18 @@ export function addTableDefinition(
 	) {
 		opt.margin = DEF_CELL_MARGIN_IN
 	}
-	// NOTE: dont add default color on tables with hyperlinks! (it causes any textObj's with hyperlinks to have subsequent words to be black)
-	if (!JSON.stringify({ arrRows }).includes('hyperlink')) {
-		if (!opt.color) opt.color = opt.color || DEF_FONT_COLOR // Set default color if needed (table option > inherit from Slide > default to black)
+	// Black lands on the table and is inherited by every cell that has no colour of its own
+	// (`gen/slide/objects/table.ts`), as direct formatting — which is why a style region's
+	// `color` never rendered. Two unrelated things stand it down, and they want the same thing:
+	//  - a hyperlink anywhere in the grid: the default paints the whole run, so the words *after*
+	//    a link come out black instead of following the link colour. Long-standing, unchanged;
+	//  - `styleDrivenCells`: the table asked for the style to have the say.
+	// Either way the run is emitted with no `<a:solidFill>`, and PowerPoint resolves the text
+	// from the style region — or, when no active region names a colour, from the theme's `tx1`,
+	// which is what makes a dark-themed master come out readable rather than black on black.
+	// The grid walk stays behind the flag check: it stringifies every cell in the table.
+	if (!styleDrivenCells && !JSON.stringify({ arrRows }).includes('hyperlink')) {
+		if (!opt.color) opt.color = DEF_FONT_COLOR // table option > inherit from Slide > default to black
 	}
 	if (typeof opt.border === 'string') {
 		warn('table/invalid-border', "addTable `border` option must be an object. Ex: `{border: {type:'none'}}`")
