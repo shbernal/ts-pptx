@@ -1748,3 +1748,86 @@ items:
       spec_refs: []
     next_action: both deferrable properties have shipped behind TableProps.styleDrivenCells and both are confirmed in the desktop app rather than only in the XML, and docs/tables.md's defaults-tier section has been restructured to state the one rule instead of two exceptions; nothing further is planned for this item at the current major, since the two remaining region properties (fontSize, margin) do not exist in CT_TablePartStyle and are struck for good -- what is left is the eventual default flip, i.e. making deferral the behaviour and retiring the flag in a major, which is a separate decision that needs its own migration note because it moves the bytes of every deck using a custom style
 
+  - id: dn-table-style-regions-never-render
+    source: downstream
+    type: downstream-need
+    first_seen: 2026-07-31
+    last_reviewed: 2026-07-31
+    status: target
+    priority: p1
+    target_area: [table-ooxml, missing-pptx-feature]
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: A custom table style registered with defineTableStyle() is resolved by PowerPoint but none of its regions ever paint
+    current_project_notes: |
+      Verified against PowerPoint desktop 16.0 on Windows, rendering via COM.
+
+      A consumer registered a style with defineTableStyle() and pointed a table at
+      it. PowerPoint resolves the style — the object model reports
+      Table.Style.Name as the registered name, Table.Style.Id as the minted GUID,
+      and Cell(r,c).Shape.Fill.ForeColor.RGB as the colour the wholeTbl region
+      names — but the rendered slide shows none of it. Every region is affected:
+      wholeTbl border, wholeTbl fill, firstRow fill, band1H/band2H fill. The table
+      paints with PowerPoint's no-style look, a black hairline grid on white.
+
+      This makes styleDrivenCells actively harmful on PowerPoint: standing the
+      per-cell defaults down removes the direct formatting that was carrying the
+      render, and the style that was supposed to take over never paints. A
+      consumer who adopts it trades a correct grid for the black default one.
+
+      Minimal reproduction (~20 lines, no imported master, no theme):
+        const style = pptx.defineTableStyle({
+          name: 'Probe Style',
+          wholeTbl: { border: { type: 'solid', color: 'FF0000', width: 3 }, fill: '00FF00' },
+          firstRow: { fill: '0000FF', bold: true },
+        })
+        slide.addTable(rows, { tableStyle: style, hasHeader: true, styleDrivenCells: true })
+      Expected: green cells, red 3pt grid, blue header. Actual: white cells, black
+      hairline grid, white header.
+
+      The packaging is NOT the cause, and the following were each ruled out by
+      rendering a hand-patched copy of that same file:
+        - part plumbing: the presentation rel and the Content_Types override for
+          ppt/tableStyles.xml are both present and correct;
+        - GUID collision / PowerPoint style cache: reproduces with a fresh styleId;
+        - the dangling def= attribute (it names MEDIUM_STYLE_2_ACCENT_1, which the
+          part does not define): pointing def= at the registered style changes
+          nothing;
+        - regions omitting <a:tcBdr>: repeating the wholeTbl border block into
+          every other region changes nothing;
+        - the empty <a:fontRef idx="minor"/> in tcTxStyle, which violates
+          CT_StyleMatrixReference's required colour child: adding <a:prstClr
+          val="black"/> changes nothing (worth fixing on its own account);
+        - srgbClr vs schemeClr in the region: swapping the region's colours for
+          <a:schemeClr> changes nothing.
+
+      The decisive control: lifting a genuine PowerPoint-authored <a:tblStyle>
+      block (Medium Style 2 - Accent 1) verbatim into that same generated file and
+      pointing the table's <a:tableStyleId> at its GUID renders correctly — blue
+      header, banded rows, white grid lines. So PowerPoint loads the part and
+      honours a style in it; it is specifically the markup makeXmlTableStyles()
+      emits that never paints.
+
+      Also of note: opening the file and calling Table.ApplyStyle(id, true) from
+      the object model, then saving from PowerPoint itself, does not fix it. The
+      saved file keeps the style verbatim (PowerPoint only normalises firstRow by
+      inserting an empty <a:tcBdr/>), and re-rendering that round-trip is still
+      unstyled. So the gallery-reapply path a consumer might rely on is affected
+      too, not just first render.
+
+      Suggested starting point: diff makeXmlTableStyles() output against a
+      PowerPoint-authored part element by element rather than attribute by
+      attribute — the difference that matters is likely structural (a required
+      region or child element PowerPoint expects present, even empty) rather than
+      any single value, since every value-level difference above was ruled out.
+    evidence:
+      kinds: [minimal-repro, powerpoint-result, powerpoint-authored-comparison, extracted-xml]
+      local_files:
+        - src/gen/pres/table-styles.ts
+        - src/presentation.ts
+        - src/gen/define/table.ts
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: fail
+      spec_refs: []
+    next_action: none
