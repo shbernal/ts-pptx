@@ -261,6 +261,46 @@ describe('table replication — non-solid cell fills', () => {
 	})
 })
 
+describe("table replication — a cell's own fill versus the style's banding", () => {
+	test("a styled cell's OWN fill is carried, and an inherited one is left to the style", async () => {
+		// The distinction `TableCell.hasOwnFill` exists for. Both cells render as a colour, but
+		// only one of them said so: baking the banding colour into the copy would make it look
+		// right until someone changed its table style, and then nothing would move.
+		const ir = await irFor((pres) => {
+			const style = pres.defineTableStyle({
+				name: 'Banded',
+				band1H: { fill: 'EAF1F8' },
+				band2H: { fill: 'FFFFFF' },
+			})
+			pres.addSlide().addTable(
+				[
+					[{ text: 'own', options: { fill: { color: 'FF0000' } } }, { text: 'inherits' }],
+					[{ text: 'own2', options: { fill: { color: 'C00000' } } }, { text: 'inherits2' }],
+				],
+				{ x: 1, y: 1, w: 8, tableStyle: style, hasBandedRows: true }
+			)
+		})
+
+		const cells = tableCall(ir).args[0]
+		assertEqual(cells[0][0].options.fill.color, 'FF0000', "the cell's own fill is carried")
+		assertEqual(cells[1][0].options.fill.color, 'C00000', 'and so is the other one')
+		assert(cells[0][1].options?.fill === undefined, 'a cell with no fill of its own carries none')
+		assert(cells[1][1].options?.fill === undefined, 'even where the style bands it')
+		assert(!constructs(ir).has('table.cell.fill'), 'and nothing is recorded as lost')
+	})
+
+	test('a scheme-coloured cell keeps its token rather than the colour it resolves to', async () => {
+		const ir = await irFor((pres) => {
+			pres.addSlide().addTable([[{ text: 'A', options: { fill: { color: 'accent2' } } }]], { x: 1, y: 1, w: 4 })
+		})
+		assertEqual(
+			tableCall(ir).args[0][0][0].options.fill.color,
+			'accent2',
+			'the token survives, so the copy tracks its theme'
+		)
+	})
+})
+
 describe('table replication — anchorCtr and cell3D', () => {
 	test('both survive the round trip and land back in a:tcPr', async () => {
 		const ir = await irFor((pres) => {
@@ -304,5 +344,96 @@ describe('table replication — anchorCtr and cell3D', () => {
 		assert(!tags[1].includes('anchorCtr'), 'the sibling is not; got: ' + tags[1])
 		assert(xml.includes('<a:bevel w="88900" h="88900" prst="artDeco"/>'), 'the bevel replays in EMU')
 		assert(xml.includes('<a:lightRig rig="threePt" dir="t"/>'), 'and the light rig')
+	})
+})
+
+describe('table replication — every new construct at once', () => {
+	test('a table using all of them round-trips with no fidelity note about any', async () => {
+		// The join-point check. Each construct has its own leg above; this one exists because
+		// the failure mode they cannot catch is a construct that maps fine alone and is
+		// clobbered by a sibling — a shared `compact()` key, a mis-scoped note, an option the
+		// emitter reads from the wrong place.
+		const ir = await irFor((pres) => {
+			pres.addSlide().addTable(
+				[
+					[
+						{
+							text: 'everything',
+							options: {
+								fill: { color: 'FFEECC' },
+								border: [
+									{ type: 'solid', color: 'FF0000', width: 2, dashType: 'lgDashDot' },
+									{ type: 'solid', color: '00FF00', width: 1, dashType: 'sysDot' },
+									{ type: 'solid', color: '0000FF', width: 1, dashType: 'dot' },
+									{ type: 'none' },
+								],
+								diagonal: {
+									tlToBr: { type: 'solid', color: 'C00000', width: 2 },
+									blToTr: { type: 'dash', color: '0000C0', width: 1, dashType: 'sysDashDotDot' },
+								},
+								cell3D: {
+									preset: 'artDeco',
+									width: 7,
+									height: 7,
+									material: 'metal',
+									lightRig: { rig: 'threePt', dir: 't' },
+								},
+								anchorCtr: true,
+								valign: 'middle',
+								textDirection: 'vert270',
+								horzOverflow: 'overflow',
+								margin: [0.1, 0.2, 0.1, 0.2],
+							},
+						},
+						{ text: 'plain' },
+					],
+				],
+				{ x: 1, y: 1, w: 8, h: 2, tableFill: { color: 'F2F2F2' } }
+			)
+		})
+
+		// No note may claim any of this was lost. A construct that regressed to "dropped" would
+		// show up here even if its own leg still passed for the wrong reason.
+		//
+		// `table.style` is excluded by name, not by loosening the filter: the fixture sets no
+		// `tableStyle`, so the generated deck's default one applies, and that note is correct
+		// and unrelated to anything here. Excluding it by name keeps the assertion able to fail
+		// on a construct nobody expected.
+		const raised = [...constructs(ir)].filter((c) => c.startsWith('table.') && c !== 'table.style')
+		assertEqual(raised.join(','), '', 'no table construct is reported as lost')
+
+		const call = tableCall(ir)
+		const options = call.args[0][0][0].options
+		assertEqual(options.anchorCtr, true, 'anchorCtr')
+		assertEqual(options.textDirection, 'vert270', 'textDirection')
+		assertEqual(options.horzOverflow, 'overflow', 'horzOverflow')
+		assertEqual(options.valign, 'middle', 'valign')
+		assertEqual(options.cell3D.preset, 'artDeco', 'cell3D')
+		assertEqual(options.diagonal.blToTr.dashType, 'sysDashDotDot', 'the diagonal keeps its exact dash')
+		assertEqual(options.border[0].dashType, 'lgDashDot', 'and so does the top edge')
+		assertEqual(options.border[3].type, 'none', 'a suppressed edge stays suppressed')
+		assertEqual(options.fill.color, 'FFEECC', "the cell's own fill")
+		assertEqual(call.args[1].tableFill.color, 'F2F2F2', 'and the table background, separately')
+
+		// Replaying must produce the same constructs again — the point of a round trip is that
+		// it closes, not merely that the first hop reads.
+		const xml = await replay(call)
+		for (const marker of [
+			'anchorCtr="1"',
+			'vert="vert270"',
+			'horzOverflow="overflow"',
+			'anchor="ctr"',
+			'<a:lnTlToBr',
+			'<a:lnBlToTr',
+			'<a:cell3D prstMaterial="metal">',
+			'<a:bevel w="88900" h="88900" prst="artDeco"/>',
+			'<a:lightRig rig="threePt" dir="t"/>',
+			'val="lgDashDot"',
+			'val="sysDashDotDot"',
+			'val="FFEECC"',
+			'val="F2F2F2"',
+		]) {
+			assert(xml.includes(marker), `expected ${marker} in the replayed part`)
+		}
 	})
 })

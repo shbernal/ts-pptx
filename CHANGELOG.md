@@ -30,6 +30,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   because they are now inset by what was asked for. Nothing else about the
   conversion changed, and a table whose cells set no padding is unaffected.
 
+### Fixed
+
+- **A styled table cell's own fill is no longer dropped by `pptx-to-script`.** A cell
+  with an explicit `a:solidFill` inside a table that also has a `tableStyle` replicated
+  as *unfilled*, because the mapper could not tell that colour apart from one the cell
+  merely inherited from the style's header/banding rules — and baking an inherited
+  colour in would freeze the banding, so it dropped both.
+
+  `TableCell.hasOwnFill` (new, read side) tells them apart: an `a:tcPr` either carries
+  an `EG_FillProperties` child or it does not. `TableCell.resolvedFill` already
+  branched on exactly that internally; the flag simply was not exposed. A cell's own
+  fill is now carried and an inherited one is still left to the style GUID, which
+  reproduces the banding exactly. Neither case loses anything, so the `table.cell.fill`
+  fidelity note is gone rather than merely narrowed.
+
+  Measured on PowerPoint's own `table-cell-image-fill.pptx`: the red cell keeps its red.
+
 ### Added
 
 - **Table editing on `ts-pptx/read`.** The read proxies were read-plus-text-edit only:

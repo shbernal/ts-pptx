@@ -716,9 +716,24 @@ export class TableCell {
 	 */
 	get resolvedFill(): ResolvedColor | null {
 		if (!this.themeColors) return null
-		const tcPr = this.#tcPr()
-		if (tcPr && FILL_CHOICES.some((q) => firstChild(tcPr, q))) return resolveSolidFillColor(tcPr, this.themeColors)
+		if (this.hasOwnFill) return resolveSolidFillColor(this.#tcPr(), this.themeColors)
 		return this.style ? this.#styleFill() : null
+	}
+
+	/**
+	 * Whether the cell carries a fill of its **own** (`a:tcPr` holds an `EG_FillProperties`
+	 * child), as opposed to inheriting one from the table style's header/banding rules.
+	 *
+	 * This is the flag that disambiguates {@link resolvedFill}, which deliberately reports
+	 * either — it answers "what colour does this cell render as", and both sources are valid
+	 * answers to that. Anything that has to reproduce the cell rather than describe it needs
+	 * to know which: baking an inherited banding colour into a copy makes the copy look right
+	 * until someone changes its table style, and then nothing moves. `false` for a cell whose
+	 * `a:tcPr` is empty or absent, whatever the style graph would render it as.
+	 */
+	get hasOwnFill(): boolean {
+		const tcPr = this.#tcPr()
+		return !!tcPr && FILL_CHOICES.some((q) => firstChild(tcPr, q))
 	}
 
 	/**

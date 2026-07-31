@@ -259,17 +259,20 @@ function cellTextDirection(cell: TableCell, notes: NoteScope): IrValue | undefin
 }
 
 /**
- * A cell's fill, and the one place this mapper deliberately emits *less* than it can read.
+ * A cell's fill.
  *
- * `resolvedFill` folds two different things together: the cell's own `a:solidFill`, and the
- * colour it merely inherits from the table style's header/banding rules. There is no
- * accessor that returns the first without the second. So when the table has a resolvable
- * style, writing `resolvedFill` back would turn every banded cell into an explicitly-filled
- * one — the table would look right until someone changed its style, and then nothing would
- * move. The style GUID reproduces those colours anyway, so only a scheme token (which can
- * only come from the cell itself) is emitted, and the ambiguity is noted.
+ * The question here is not "what colour is this cell" but "what did the *source* say", and
+ * the two differ for a styled table: `resolvedFill` answers the first, folding the cell's
+ * own `a:solidFill` together with the colour it merely inherits from the style's
+ * header/banding rules. Writing an inherited colour back would turn every banded cell into
+ * an explicitly-filled one — the copy looks right until someone changes its table style, and
+ * then nothing moves.
  *
- * With no style in play, `resolvedFill` can only be the cell's own, so it is safe to use.
+ * {@link TableCell.hasOwnFill} separates them: an `a:tcPr` either carries an
+ * `EG_FillProperties` child or it does not. So a cell's own fill is emitted (in whatever
+ * form it took), and a cell with none is left to the style GUID, which reproduces the
+ * banding exactly rather than approximately. Neither case loses anything, which is why
+ * neither records a note.
  */
 function cellFill(cell: TableCell, hasStyle: boolean, notes: NoteScope, assets: AssetResolver): IrValue | undefined {
 	// Every non-solid choice comes first, and for one shared reason: a cell whose `a:tcPr`
@@ -291,17 +294,17 @@ function cellFill(cell: TableCell, hasStyle: boolean, notes: NoteScope, assets: 
 	const scheme = cell.fillSchemeColor
 	if (scheme !== null) return { color: scheme }
 
+	// A styled cell with no fill of its own takes the style's banding, and the style GUID
+	// travels with the table — so emitting nothing here is not a loss, it is what keeps the
+	// copy responsive to its own style.
+	if (hasStyle && !cell.hasOwnFill) return undefined
+
 	const resolved = cell.resolvedFill
 	if (!resolved) return undefined
-	if (hasStyle) {
-		notes.note(
-			'table.cell.fill',
-			'dropped',
-			'unread',
-			"a cell's own literal fill is not separable from the one it inherits from the table style (only resolvedFill exists, and it folds in banding), so it is left to the style rather than baked in"
-		)
-		return undefined
-	}
+	// Reached only when the cell's fill IS its own: either there is no style to inherit from,
+	// or `hasOwnFill` said so. The literal is exact for a `srgbClr`, and for the rarer colour
+	// models (`a:sysClr`, `a:prstClr`, `a:hslClr`, …) it is the colour they resolve to, which
+	// is the closest the write API's hex option can come.
 	return { color: literalColor(resolved.effectiveHex) }
 }
 

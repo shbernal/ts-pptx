@@ -258,7 +258,10 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	// A dash outside `ST_PresetLineDashVal` cannot be written back, so the edge comes out as
 	// a plain dashed rule. Scoped to `border`, which is where that difference lands.
 	'table.cell.borders.dash': ['border', 'diagonal'],
-	'table.cell.fill': ['fill'],
+	// `table.cell.fill` used to live here, for a cell whose own fill could not be told apart
+	// from the one it inherited from the table style. `TableCell.hasOwnFill` tells them apart,
+	// so the mapper emits the right one and records nothing — the note is gone rather than
+	// unmapped. Its `.gradient` / `.picture` children below are separate constructs and stay.
 	// Empty, and correctly so: `a:tc/@id` and `a:tcPr/a:headers` have no write option — the
 	// IR has nowhere to put them on either side, so there is nothing to exclude. The note
 	// exists so a reader of the emitted script learns the association was there and is gone.

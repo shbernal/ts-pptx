@@ -499,11 +499,14 @@ describe('deck IR — picture fills', () => {
 		const ir = await irFor('table-cell-image-fill.pptx')
 		const fills = cellOptions(ir).map((options) => options.fill)
 		assertEqual(fills.filter((fill) => fill?.type === 'image').length, 4, 'four picture cells')
-		assertEqual(
-			fills.filter((fill) => fill !== undefined).length,
-			4,
-			'and the solid, bare and borders-only cells are still left to the table style'
-		)
+
+		// The fifth is the solid cell's OWN `a:solidFill` — PowerPoint authored the red, so
+		// dropping it made the replica wrong. `TableCell.hasOwnFill` is what tells that apart
+		// from a colour a cell merely inherits from the table style's banding, which is still
+		// left to the style (the two bare cells below carry nothing).
+		assertEqual(fills.filter((fill) => fill !== undefined).length, 5, 'plus the one cell with its own solid fill')
+		assertEqual(fills.filter((fill) => fill?.color === 'FF0000').length, 1, "and it keeps the source's red")
+		assertEqual(fills.filter((fill) => fill === undefined).length, 2, 'the two bare cells are left to the style')
 	})
 
 	test('only the tiled cell reports the geometry its fill cannot carry', async () => {
