@@ -77,6 +77,7 @@ export type DiagnosticCode =
 	| 'image/unmeasurable-natural-size'
 	// Tables
 	| 'table/invalid-border'
+	| 'table/invalid-horz-overflow'
 	| 'table/col-width-count-mismatch'
 	| 'table/autopage-height-too-small'
 	// Text and bullets

@@ -41,6 +41,7 @@ PowerPoint.
 | `custgeom.pptx`        | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `table-cell-style.pptx`| Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `table-cell-image-fill.pptx` | Microsoft Office PowerPoint | 16.0000 | 1     |
+| `table-cell-horzoverflow.pptx` | Microsoft Office PowerPoint | 16.0000 | 1 |
 | `table-styles.pptx`    | Microsoft Office PowerPoint    | 16.0000    | 1      |
 | `placeholder-inherit.pptx` | Microsoft Office PowerPoint | 16.0000  | 1      |
 | `placeholder-footer-trio.pptx` | Microsoft Office PowerPoint | 16.0000 | 1  |
@@ -134,6 +135,7 @@ e8c0ca04154f6365813aee28d0fa8556cea5e1429af060d6061dd02db5ff1a85  rotation-flip.
 d52da9c162f5a700f8e3a225f054e823682f201d83dabe38fc27c2e500d7451d  custgeom.pptx
 cf3c352dfd81ccdd0938637a047ab54f67b879410a5b1e88fdc6e4411315c1e7  table-cell-style.pptx
 618758569d7f63c3075513078e2bf70caf36ab05efd4ece41f14225b8489b3fb  table-cell-image-fill.pptx
+85692cee1389f1c9ee79e253ef4d8636e136bf6c501cddb99d1171c33edc5a08  table-cell-horzoverflow.pptx
 9fb63bf437c6be154c7e791538fa7a71f1ef3bbd1ce959a33f610d3e65e259c1  table-styles.pptx
 c23ed32ac8e7aed1e3b3f985f5d50ff396547bd7e3fe43d04805a13438a0272e  table.pptx
 1a59832d7e5c926e4aff11e9f62bc90c9e8430fb68e1d77a1b4a2fb0800e05d2  textbox.pptx
@@ -287,6 +289,29 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
     forked into a cell-specific variant.
   - **All four picture cells share one `r:embed`** — PowerPoint dedupes the source into
     a single media part and a single relationship.
+- `table-cell-horzoverflow.pptx` — a single-slide deck with one 1×2 table
+  (`HorzOverflowTable`), the oracle for `TableCell.horzOverflow` (`a:tcPr/@horzOverflow`).
+  Cell (0,0) carries `<a:tcPr horzOverflow="overflow"/>`; cell (0,1) is a bare
+  `<a:tcPr/>` negative control. Both cells hold one 60pt glyph in a 40pt column, which is
+  the condition the attribute governs: per ECMA-376 §20.1.10.68 it decides whether a
+  *glyph* too wide for the line is clipped or allowed to draw past the cell edge. It is
+  **not** a text-wrap switch.
+
+  Authored 2026-07-31 (`authoring/author-table-cell-horzoverflow.ps1`) by a route no other
+  fixture here uses, because the attribute has neither a COM surface nor a UI control:
+  PowerPoint authored the table, the attribute was injected into `slide1.xml`, and
+  PowerPoint then **reopened and re-saved** the deck — so the committed bytes are its own
+  serialization, and the successful round-trip is itself the evidence that PowerPoint
+  accepts and preserves the construct. Two things that route established and that this
+  fixture therefore cannot contain:
+  - **An explicit `horzOverflow="clip"` does not survive.** It is the schema default and
+    PowerPoint strips it back to `<a:tcPr/>` on save, so no PowerPoint-authored explicit
+    `clip` exists to pin.
+  - **A cell cannot be made non-wrapping at all.** The same injection of
+    `<a:bodyPr wrap="none"/>` into a cell renders inert and is dropped on the next save,
+    and `TextFrame.WordWrap` is read-only on a cell over COM. See
+    `authoring/probe-table-cell-wrap.ps1`, which reproduces both results and renders the
+    clip-vs-overflow difference.
 - `hidden.pptx` — `textbox.pptx` with `show="0"` on slide 2; exercises the
   `Slide.hidden` getter (hidden slide vs. shown-by-default absent attribute).
 - `mixed.pptx` — an 11-slide real-world deck that exercises the shape kinds the

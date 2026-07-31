@@ -32,6 +32,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`TableCellProps.horzOverflow`** (`'clip' | 'overflow'`) — controls what a table
+  cell does with a **single glyph** wider than its text width, emitted as
+  `a:tcPr/@horzOverflow`. `'clip'` (PowerPoint's default) cuts the glyph at the cell
+  edge; `'overflow'` lets it draw past. It matters for oversized display type, wide
+  CJK/emoji glyphs, and icon fonts in a narrow column. Read back via the new
+  `TableCell.horzOverflow` accessor on `ts-pptx/read`, and carried through
+  `pptx-to-script`.
+
+  **It is not a text-wrap switch, despite where it sits.** That distinction is the
+  reason this landed: the attribute had long been filed as the route to per-cell
+  no-wrap, and it is not. PowerPoint has no per-cell no-wrap at all — `wrap="none"`
+  on a cell's `a:bodyPr` renders inert and is stripped on the next save, and
+  `TextFrame.WordWrap` is read-only on a cell over COM. Cell text always wraps to
+  the column width. `test/read/fixtures/authoring/probe-table-cell-wrap.ps1`
+  reproduces every part of that, and `table-cell-horzoverflow.pptx` is the
+  PowerPoint-authored oracle for what does work.
+
+  Writing `'clip'` explicitly is honored but redundant: it is the schema default, so
+  PowerPoint drops the attribute the first time it saves the deck. Leaving the option
+  unset emits nothing, so no existing deck's bytes change. An unrecognized value is
+  reported as **`table/invalid-horz-overflow`** and dropped rather than written —
+  `ST_TextHorzOverflowType` admits only those two, and PowerPoint reports a
+  schema-invalid slide part as a corrupt file rather than as a mis-set option.
+
 - **`border/unknown-key`** — a new diagnostic reporting a key that is not part of
   `BorderProps`, which was previously discarded without a sound. The thickness
   field is `width`, in points; a border authored with any other name for it lost

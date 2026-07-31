@@ -282,3 +282,30 @@ describe('Table cell styling (populated a:tcPr paths)', () => {
 		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
 	})
 })
+
+describe('Table cell horzOverflow', () => {
+	// `table-cell-horzoverflow.pptx` is a 1×2 table (`HorzOverflowTable`) whose first cell
+	// carries <a:tcPr horzOverflow="overflow"/> and whose second is a bare <a:tcPr/>.
+	// PowerPoint re-serialized both (authoring/author-table-cell-horzoverflow.ps1), which is
+	// what makes this an oracle rather than a hand-built string: the attribute has no COM or
+	// UI surface, so it is injected and then handed back to PowerPoint to save.
+	//
+	// There is deliberately no explicit-`clip` cell. `clip` is the schema default and
+	// PowerPoint strips it on save, so a PowerPoint-authored one cannot exist.
+	test('horzOverflow reports the a:tcPr @horzOverflow token', async () => {
+		const cell = firstTable(await open('table-cell-horzoverflow')).cell(0, 0)
+		assertEqual(cell.horzOverflow, 'overflow', 'populated @horzOverflow')
+		assertEqual(cell.verticalText, null, 'no @vert on the overflow cell')
+		assertEqual(cell.anchor, null, 'no @anchor on the overflow cell')
+	})
+
+	test('a cell without @horzOverflow reports null', async () => {
+		const cell = firstTable(await open('table-cell-horzoverflow')).cell(0, 1)
+		assertEqual(cell.horzOverflow, null, 'no @horzOverflow -> null')
+	})
+
+	test.skipIf(!validatorInstalled)('the fixture is schema-valid', async () => {
+		const errors = await validateBuf(await readFile(fixturePath('table-cell-horzoverflow')))
+		assertEqual(errors.length, 0, `validator errors: ${JSON.stringify(errors).slice(0, 2000)}`)
+	})
+})

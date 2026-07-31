@@ -123,6 +123,9 @@ function cellIr(cell: TableCell, hasStyle: boolean, notes: NoteScope, assets: As
 		fill: cellFill(cell, hasStyle, notes, assets),
 		border: cellBorders(cell, notes),
 		valign: anchor === null ? undefined : ANCHOR[anchor],
+		// Only the two values the write option accepts survive; anything else in the source
+		// deck would be written straight back out as an invalid attribute.
+		horzOverflow: cell.horzOverflow === 'clip' || cell.horzOverflow === 'overflow' ? cell.horzOverflow : undefined,
 		colspan: cell.gridSpan > 1 ? cell.gridSpan : undefined,
 		rowspan: cell.rowSpan > 1 ? cell.rowSpan : undefined,
 		// `margin` takes inches, and the read model reports the insets in EMU.

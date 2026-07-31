@@ -152,6 +152,24 @@ describe('table cells', () => {
 	test('textDirection horz is omitted rather than emitted', () => {
 		expect(render([table([[cell('a', { textDirection: 'horz' })]])])).not.toContain('vert="horz"')
 	})
+
+	// `horzOverflow` governs an oversized GLYPH, not wrapping — a cell always wraps to the
+	// column (see the note at the `a:tcPr` build in gen/slide/objects/table.ts). It is the
+	// last attribute, matching CT_TableCellProperties and what PowerPoint writes.
+	test('horzOverflow emits last, after vert', () => {
+		const xml = render([table([[cell('a', { valign: 'middle', textDirection: 'vert', horzOverflow: 'overflow' })]])])
+		expect(xml).toMatch(
+			/<a:tcPr marL="\d+" marR="\d+" marT="\d+" marB="\d+" anchor="ctr" vert="vert" horzOverflow="overflow">/
+		)
+	})
+
+	test('an unset horzOverflow emits no attribute at all', () => {
+		expect(render([table([[cell('a')]])])).not.toContain('horzOverflow')
+	})
+
+	test('an explicit clip is emitted as asked (PowerPoint drops it on its next save)', () => {
+		expect(render([table([[cell('a', { horzOverflow: 'clip' })]])])).toContain('horzOverflow="clip"')
+	})
 })
 
 describe('connector shape bindings (stCxn has ZERO baseline parts)', () => {

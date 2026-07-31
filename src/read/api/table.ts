@@ -407,6 +407,16 @@ export class TableCell {
 	}
 
 	/**
+	 * How the cell treats a glyph too wide for its text width (`a:tcPr/@horzOverflow`):
+	 * `'clip'` cuts it at the cell edge, `'overflow'` lets it draw past. `null` when unset
+	 * (PowerPoint clips). Not a wrap flag — cell text always wraps to the column width.
+	 */
+	get horzOverflow(): string | null {
+		const tcPr = this.#tcPr()
+		return (tcPr && attr(tcPr, 'horzOverflow')) ?? null
+	}
+
+	/**
 	 * The cell's text insets in EMU (`a:tcPr/@marL`/`@marR`/`@marT`/`@marB`), or
 	 * `null` when the cell sets none. Each side is `null` when only some are set.
 	 */

@@ -149,6 +149,24 @@ export interface TableCellProps extends TextBaseProps {
 	 * @example { image:{ data:'image/png;base64,…' } } // picture fill, `type` inferred
 	 */
 	fill?: ShapeFillProps
+	/**
+	 * What happens to a **single glyph** wider than the cell's text width (`a:tcPr/@horzOverflow`).
+	 * - `'clip'` (PowerPoint's default) cuts the glyph off at the cell edge
+	 * - `'overflow'` lets it draw past the edge, over whatever is beside it
+	 *
+	 * This is **not** a text-wrap switch, despite the name. Lines always wrap to the column
+	 * width; only an individual character too wide to fit on a line by itself is affected, so
+	 * it matters for oversized display type, wide CJK/emoji glyphs, and icon fonts in a narrow
+	 * column. PowerPoint has no per-cell no-wrap at all — `wrap="none"` on a cell's `a:bodyPr`
+	 * is discarded on the next save (probe:
+	 * `test/read/fixtures/authoring/probe-table-cell-wrap.ps1`).
+	 * `'clip'` is written as asked but is the schema default, so PowerPoint drops the
+	 * attribute again the first time it saves the deck — the visible result is the same
+	 * either way, and leaving this unset emits nothing at all.
+	 * @default (unset — PowerPoint clips)
+	 * @example 'overflow' // a 60pt glyph in a 0.5in column draws whole instead of being cut
+	 */
+	horzOverflow?: 'clip' | 'overflow'
 	hyperlink?: HyperlinkProps
 	/**
 	 * Cell margin (inches)

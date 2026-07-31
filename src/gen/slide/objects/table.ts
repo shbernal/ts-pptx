@@ -10,6 +10,7 @@ import { SlideObjectType } from '../../../enums.js'
 import { DEF_CELL_MARGIN_IN } from '../../../constants-internal.js'
 import type { ObjectOptions, TableCell, TableCellProps } from '../../../types/index.js'
 import type { SlideObject } from '../../../types/internal.js'
+import { warnOnce } from '../../../diagnostics.js'
 import { genXmlColorSelection } from '../../drawingml/fill.js'
 import { genXmlObjectLock, GRAPHIC_FRAME_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { genTableCellBorderXml } from '../../drawingml/table-border.js'
@@ -32,6 +33,27 @@ type TableInheritableOption =
 	| 'underline'
 	| 'valign'
 type TableInheritableValue = ObjectOptions[TableInheritableOption]
+
+/** The two values `ST_TextHorzOverflowType` allows on `a:tcPr/@horzOverflow`. */
+const HORZ_OVERFLOW_VALUES: readonly string[] = ['clip', 'overflow']
+
+/**
+ * Validate a cell's `horzOverflow` before it reaches the XML. Anything outside
+ * `ST_TextHorzOverflowType` would make the slide part schema-invalid — and PowerPoint
+ * reports that as a corrupt file, not as a mis-set option — so an unrecognized value is
+ * reported and dropped instead of written. `undefined` (the common case) emits nothing.
+ */
+function resolveHorzOverflow(value: TableCellProps['horzOverflow']): string | null {
+	if (value === undefined || value === null) return null
+	if (HORZ_OVERFLOW_VALUES.includes(value)) return value
+	warnOnce(
+		'table/invalid-horz-overflow',
+		`table cell: horzOverflow \`${String(value)}\` is not a valid value and is ignored — ` +
+			`use ${HORZ_OVERFLOW_VALUES.join(' or ')}.`,
+		{ received: value, valid: HORZ_OVERFLOW_VALUES }
+	)
+	return null
+}
 
 /**
  * Render a `table` slide object to its `<p:graphicFrame>` XML (merge-grid, row/col spans, per-cell styling).
@@ -328,8 +350,18 @@ export function renderTableObject(
 			) {
 				cellMargin = DEF_CELL_MARGIN_IN
 			}
+			// Cell text ALWAYS wraps — PowerPoint has no per-cell no-wrap, so there is nothing to emit
+			// for one. `wrap="none"` on a cell's `<a:bodyPr>` renders inert and is stripped on the next
+			// save, and `TextFrame.WordWrap` is read-only on a cell over COM (it reports msoTrue whatever
+			// the XML says). `horzOverflow` below is NOT that switch: per ECMA-376 §20.1.10.68 it decides
+			// whether a single glyph too wide for the line is clipped or draws past the cell edge.
+			// Probe for both: `test/read/fixtures/authoring/probe-table-cell-wrap.ps1`
+			const cellHorzOverflow = resolveHorzOverflow(cellOpts.horzOverflow)
+
 			// Cell margins are inches (see `marginToEmu`); a `>= 1` value warns once as a likely legacy points value.
-			// NOTE: attribute ORDER is byte-significant (margins, then anchor, then vert).
+			// NOTE: attribute ORDER is byte-significant (margins, then anchor, then vert). `horzOverflow`
+			// goes last, which is both where CT_TableCellProperties declares it and where PowerPoint
+			// writes it, so an existing cell's bytes are unchanged while it stays unset.
 			const tcPrAttrs: XmlAttrs = {
 				marL: marginToEmu(cellMargin[3]),
 				marR: marginToEmu(cellMargin[1]),
@@ -337,9 +369,8 @@ export function renderTableObject(
 				marB: marginToEmu(cellMargin[2]),
 				anchor: cellValign,
 				vert: cellTextDir,
+				horzOverflow: cellHorzOverflow,
 			}
-
-			// FUTURE: cell no-wrap support (add `horzOverflow="overflow"` to the cell's `<a:tcPr>`)
 
 			// 4: Set CELL content and properties; 5: borders; 6: fill ==============
 			// The trailing indentation before `</a:tcPr>` and `</a:tc>` is byte-significant.

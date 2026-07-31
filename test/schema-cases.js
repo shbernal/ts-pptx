@@ -316,6 +316,27 @@ export default [
 		},
 	},
 	{
+		// horzOverflow is the last attribute of CT_TableCellProperties, so it also pins that
+		// the emitter's attribute ORDER is still schema-legal alongside the margins/anchor/vert
+		// it follows. Both enum values are exercised in one table.
+		name: 'table cells with horzOverflow (both ST_TextHorzOverflowType values)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addTable(
+					[
+						[
+							{ text: 'wide glyph', options: { horzOverflow: 'overflow', valign: 'middle' } },
+							{ text: 'clipped', options: { horzOverflow: 'clip', textDirection: 'vert' } },
+							{ text: 'default' },
+						],
+					],
+					{ x: 1, y: 1, w: 6, h: 1 }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'table-cell-horz-overflow')
+		},
+	},
+	{
 		name: 'shape with native linear gradient fill',
 		fn: async () => {
 			const { buf } = await build((p) => {
