@@ -32,6 +32,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`TableProps.tableFill`** — the table's own background, written as a real `a:tblPr`
+  fill that the cells sit on top of. The existing `TableProps.fill` is *stamped onto
+  every cell* instead, so nothing ever reached `a:tblPr`. The two usually render alike,
+  which is why the difference is worth stating: with `fill` there is no such thing as
+  an unfilled cell, so a cell can never fall back to a table background — and a deck
+  read back from PowerPoint carries the `a:tblPr` shape, not the flattened one.
+  `fill` is unchanged (changing it would repaint every existing deck); both JSDocs now
+  say which is which.
+
+  Takes the same `ShapeFillProps` a cell does — solid, gradient, pattern or picture.
+  Read back via `Table.resolvedFill`, `.pictureFill`, `.gradientFill`, `.patternFill`
+  and `.fillSchemeColor`, the same five a cell has.
+
+  No table-level **effect** surface: PowerPoint's UI exposes none, so a source deck
+  will not contain one and there would be nothing to reproduce.
+
+- **`TableCell.gradientFill` / `TableCell.patternFill`** (read) — a cell's `a:gradFill`
+  and `a:pattFill`. `TableCell.resolvedFill` reports `null` for every non-solid choice
+  by design, and it was the only fill accessor a cell had besides `pictureFill`, so a
+  gradient- or pattern-filled cell was indistinguishable from an unfilled one.
+
+  That was not only a reading gap. `pptx-to-script` had nothing to fall back on, so a
+  gradient cell **replicated as an unfilled cell** — or, when the table had a style, as
+  whatever banding colour the style graph resolved to. Both now round-trip. Writing
+  them always worked; it is now documented and pinned by tests, and the output is
+  confirmed to open in desktop PowerPoint.
+
 - **`TableCellProps.diagonal`** — a cell's corner-to-corner rules
   (`a:tcPr/a:lnTlToBr` / `a:lnBlToTr`), PowerPoint's "Diagonal Down/Up Border". The
   read model has always decoded them; there was no way to write one, and

@@ -3959,4 +3959,46 @@ export default [
 			await expectNoSchemaErrors(buf, 'table-cell-tcpr-sequence')
 		},
 	},
+	{
+		// `CT_TableProperties` sequences EG_FillProperties before the tableStyle choice, so a
+		// table background emitted after `a:tableStyleId` would be invalid. Both are present
+		// here for that reason. The non-solid cell fills ride along: they have always emitted,
+		// but nothing had ever asserted the result validates.
+		name: 'table background (a:tblPr fill) alongside a style id, plus gradient and pattern cell fills',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const style = p.defineTableStyle({ name: 'Brand', firstRow: { fill: '1A2B3C', color: 'FFFFFF', bold: true } })
+				p.addSlide().addTable(
+					[
+						[
+							{
+								text: 'gradient',
+								options: {
+									fill: {
+										type: 'gradient',
+										gradient: {
+											kind: 'linear',
+											angle: 90,
+											stops: [
+												{ position: 0, color: 'FFFFFF' },
+												{ position: 100, color: '1A2B3C' },
+											],
+										},
+									},
+								},
+							},
+							{
+								text: 'pattern',
+								options: {
+									fill: { type: 'pattern', pattern: { preset: 'diagCross', fgColor: '1A2B3C', bgColor: 'FFFFFF' } },
+								},
+							},
+						],
+					],
+					{ x: 1, y: 1, w: 6, h: 1, tableFill: { color: 'F2F2F2' }, tableStyle: style, hasHeader: true }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'table-fill')
+		},
+	},
 ]

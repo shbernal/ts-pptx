@@ -22,6 +22,7 @@ import type { CallIr, IrValue } from '../ir.js'
 import type { AssetResolver } from './shape.js'
 import { compact, emu, inches, literalColor, orUndefined } from './values.js'
 import { pictureFillOption, type PictureFillSubject } from './picture-fill.js'
+import { gradientStops, patternOption } from './surface-fill.js'
 import { runOptions, textRuns } from './text.js'
 
 /** How {@link pictureFillOption}'s notes name a cell. */
@@ -29,6 +30,13 @@ const CELL_PICTURE_FILL: PictureFillSubject = {
 	construct: 'table.cell.fill.picture',
 	subject: 'this table cell',
 	element: 'a:tcPr/a:blipFill',
+}
+
+/** How {@link pictureFillOption}'s notes name the table's own background. */
+const TABLE_PICTURE_FILL: PictureFillSubject = {
+	construct: 'table.fill.picture',
+	subject: 'this table',
+	element: 'a:tblPr/a:blipFill',
 }
 
 /** `a:tcPr/@anchor` → the write API's `valign`. */
@@ -82,6 +90,10 @@ export function tableCall(frame: GraphicFrame, table: Table, notes: NoteScope, a
 		// The source GUID resolves against the destination's own tableStyles.xml, which a
 		// template-anchored output carries over intact.
 		tableStyle: orUndefined(styleId),
+		// `tableFill`, not `fill`: the source has one fill on `a:tblPr`, and `fill` would
+		// flatten it into a copy on every cell, which is a different package for the same
+		// picture. See `TableProps.tableFill`.
+		tableFill: tableFill(table, notes, assets),
 		hasHeader: table.firstRowHeader ? true : undefined,
 		hasBandedRows: table.bandedRows ? true : undefined,
 		colW: columnWidths.every((w) => w === null) ? undefined : columnWidths.map((w) => inches(w ?? 0)),
@@ -89,6 +101,35 @@ export function tableCall(frame: GraphicFrame, table: Table, notes: NoteScope, a
 	})
 
 	return { method: 'addTable', args: [rows, options ?? {}], ...(frame.name ? { sourceName: frame.name } : {}) }
+}
+
+/**
+ * The table's own background (`a:tblPr` fill).
+ *
+ * Simpler than {@link cellFill}, and for one reason: a `a:tblPr` fill can only be the
+ * table's own. There is no style graph feeding into it, so there is no
+ * own-versus-inherited ambiguity to be careful about and the resolved colour can be used
+ * directly. A scheme token still wins over the literal when there is one, so the replica
+ * keeps tracking its theme.
+ */
+function tableFill(table: Table, notes: NoteScope, assets: AssetResolver): IrValue | undefined {
+	const gradient = table.gradientFill
+	if (gradient) {
+		const stops = gradientStops(gradient, notes, 'table.fill')
+		if (stops) return { type: 'gradient', gradient: stops }
+	}
+
+	const pattern = patternOption(table.patternFill)
+	if (pattern) return pattern
+
+	const picture = table.pictureFill
+	if (picture) return pictureFillOption(picture, assets, notes, TABLE_PICTURE_FILL)
+
+	const scheme = table.fillSchemeColor
+	if (scheme !== null) return { color: scheme }
+
+	const resolved = table.resolvedFill
+	return resolved ? { color: literalColor(resolved.effectiveHex) } : undefined
 }
 
 /** A graphic frame's position; identical to a shape's, but frames never rotate or flip. */
@@ -231,11 +272,19 @@ function cellTextDirection(cell: TableCell, notes: NoteScope): IrValue | undefin
  * With no style in play, `resolvedFill` can only be the cell's own, so it is safe to use.
  */
 function cellFill(cell: TableCell, hasStyle: boolean, notes: NoteScope, assets: AssetResolver): IrValue | undefined {
-	// A cell's fill is `ShapeFillProps`, the same type a shape's is, so an image-filled cell
-	// re-embeds its bytes exactly as an image-filled shape does. First, because a cell whose
-	// `a:tcPr` holds a `a:blipFill` holds no `a:solidFill` for the colour legs to find — and
-	// `resolvedFill` would answer with the table style's banding colour, painting over the
-	// image with something the source never showed.
+	// Every non-solid choice comes first, and for one shared reason: a cell whose `a:tcPr`
+	// holds a `a:gradFill`/`a:pattFill`/`a:blipFill` holds no `a:solidFill` for the colour
+	// legs below to find, so `resolvedFill` would answer with the table style's banding
+	// colour and paint over the cell with something the source never showed.
+	const gradient = cell.gradientFill
+	if (gradient) {
+		const stops = gradientStops(gradient, notes, 'table.cell.fill')
+		if (stops) return { type: 'gradient', gradient: stops }
+	}
+
+	const pattern = patternOption(cell.patternFill)
+	if (pattern) return pattern
+
 	const picture = cell.pictureFill
 	if (picture) return pictureFillOption(picture, assets, notes, CELL_PICTURE_FILL)
 

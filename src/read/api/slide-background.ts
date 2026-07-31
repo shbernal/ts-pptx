@@ -24,6 +24,7 @@ import type { Relationships } from '../opc/relationships.js'
 import { resolveColorElement, type ResolvedColor } from './theme-context.js'
 import { readGradientFill, type GradientFill } from './gradient.js'
 import { readPictureFill, type PictureFill } from './picture-fill.js'
+import { readPatternFill } from './pattern-fill.js'
 
 /** Where a slide's effective background comes from in the slide → layout → master chain. */
 export type BackgroundSource = 'slide' | 'layout' | 'master'
@@ -95,20 +96,8 @@ function decodeBackgroundFill(container: Element, ctx: FlattenContext, rels: Rel
 	const picture = readPictureFill(container, rels)
 	if (picture) return { type: 'image', picture, relId: picture.relId, partName: picture.partName }
 
-	const patt = firstChild(container, 'a:pattFill')
-	if (patt) {
-		const wrapColor = (qname: string): ResolvedColor | null => {
-			const wrap = firstChild(patt, qname)
-			const colorEl = wrap && firstChildElement(wrap)
-			return colorEl ? resolveColorElement(colorEl, ctx) : null
-		}
-		return {
-			type: 'pattern',
-			preset: attr(patt, 'prst') ?? null,
-			foreground: wrapColor('a:fgClr'),
-			background: wrapColor('a:bgClr'),
-		}
-	}
+	const patt = readPatternFill(container, ctx)
+	if (patt) return { type: 'pattern', preset: patt.preset, foreground: patt.foreground, background: patt.background }
 
 	return { type: 'none' }
 }

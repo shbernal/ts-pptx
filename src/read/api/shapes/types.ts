@@ -6,7 +6,6 @@
  * recolour result without pulling in the whole shape hierarchy.
  */
 
-import type { ResolvedColor } from '../theme-context.js'
 // Type-only, so it is erased and no runtime import cycle exists: `ConnectionSite` names the
 // shape union whose members are defined in terms of these very types.
 import type { AnyShape } from '../shapes.js'
@@ -153,20 +152,13 @@ export interface SoftEdge {
 }
 
 /**
- * A shape's pattern fill (`spPr/a:pattFill`) — a two-colour preset hatch. The
- * write-side `fill: { type: 'pattern', pattern: { preset, fgColor, bgColor } }`
- * emits the same element, so the {@link preset} name and both colours round-trip.
- * Colours resolve against the slide theme (a scheme token → literal hex) the same
- * way {@link Shape.resolvedFill} resolves a solid fill.
+ * A shape's pattern fill (`spPr/a:pattFill`) — a two-colour preset hatch.
+ *
+ * Re-exported from `../pattern-fill.js`, which is where the decode lives now that slides,
+ * shapes and tables all read the same element. The name stays here so `ts-pptx/read`'s
+ * export surface is unchanged.
  */
-export interface PatternFill {
-	/** Preset pattern name (`@prst`, e.g. `pct50`/`diagCross`/`ltUpDiag`), or `null` when unset. */
-	preset: string | null
-	/** Foreground colour (`a:fgClr`) resolved against the theme, or `null`. */
-	foreground: ResolvedColor | null
-	/** Background colour (`a:bgClr`) resolved against the theme, or `null`. */
-	background: ResolvedColor | null
-}
+export type { PatternFill } from '../pattern-fill.js'
 
 /**
  * One segment of a custom-geometry path (`a:path`), as read from a shape. The

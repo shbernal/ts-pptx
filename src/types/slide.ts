@@ -90,6 +90,8 @@ export interface ObjectOptions extends ImageBaseProps, PositionProps, ShapeProps
 	 * to re-handle the single-`BorderProps` form.
 	 */
 	outerBorder?: TableProps['outerBorder'] // table
+	/** Table background (`a:tblPr` fill), as distinct from `fill`, which is stamped onto each cell. */
+	tableFill?: TableProps['tableFill'] // table
 }
 export interface SlideLayout {
 	background?: BackgroundProps

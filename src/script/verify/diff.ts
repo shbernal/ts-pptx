@@ -267,6 +267,16 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	// same reasons.
 	'table.cell.fill.picture': ['fill'],
 	'table.cell.fill.picture.geometry': [],
+	// The table-background twins. Scoped to `tableFill` rather than `fill`, because those are
+	// two different options: one lands on `a:tblPr`, the other is stamped onto every cell.
+	'table.fill.picture': ['tableFill'],
+	'table.fill.picture.geometry': [],
+	// A gradient that cannot be expressed falls back to no gradient, so the difference lands
+	// on the fill option itself — `tableFill` for the background, `fill` for a cell.
+	'table.fill.gradient': ['tableFill'],
+	'table.fill.gradient.path': ['tableFill'],
+	'table.cell.fill.gradient': ['fill'],
+	'table.cell.fill.gradient.path': ['fill'],
 	// Narrowed to the East-Asian `ST_TextVerticalType` modes `textDirection` cannot spell —
 	// the four it can now round-trip, so this no longer excuses every vertical cell.
 	'table.cell.vert': ['textDirection', 'vert'],

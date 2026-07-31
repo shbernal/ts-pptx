@@ -39,6 +39,7 @@ import {
 } from '../theme-context.js'
 import { readGradientFill, readGradientStops, type GradientFill, type GradientStop } from '../gradient.js'
 import { readPictureFill, type PictureFill } from '../picture-fill.js'
+import { readPatternFill } from '../pattern-fill.js'
 import { TextFrame } from '../text.js'
 import type { Slide } from '../slide.js'
 import {
@@ -643,19 +644,7 @@ export abstract class Shape {
 	 */
 	get patternFill(): PatternFill | null {
 		const props = this.properties()
-		const patt = props && firstChild(props, 'a:pattFill')
-		if (!patt) return null
-		const ctx = this.slide.themeContext()
-		const resolveWrap = (qname: string): ResolvedColor | null => {
-			const wrap = firstChild(patt, qname)
-			const colorEl = wrap && firstChildElement(wrap)
-			return colorEl ? resolveColorElement(colorEl, ctx) : null
-		}
-		return {
-			preset: attr(patt, 'prst') ?? null,
-			foreground: resolveWrap('a:fgClr'),
-			background: resolveWrap('a:bgClr'),
-		}
+		return props ? readPatternFill(props, this.slide.themeContext()) : null
 	}
 
 	/**

@@ -26,10 +26,10 @@ import type {
 	Picture,
 } from '../../read/api/shapes.js'
 import { isAutoShape, isConnector, isGraphicFrame, isGroupShape, isPicture } from '../../read/api/shapes.js'
-import type { GradientFill } from '../../read/api/gradient.js'
 import type { NoteScope } from '../fidelity.js'
 import type { AssetRef, CallIr, IrValue } from '../ir.js'
 import { alphaToTransparency, compact, emu, isWritableSchemeToken, literalColor, orUndefined } from './values.js'
+import { gradientStops, patternOption } from './surface-fill.js'
 import { pictureFillOption, type PictureFillSubject } from './picture-fill.js'
 import { hasEquation, hasIdentityChildSpace, isAudioVideo, isTextBox } from './detect.js'
 import { textFrameOptions, textRuns } from './text.js'
@@ -165,17 +165,8 @@ function fillOption(shape: AnyShape, notes: NoteScope, assets: AssetResolver): I
 		if (stops) return { type: 'gradient', gradient: stops }
 	}
 
-	const pattern = shape.patternFill
-	if (pattern?.preset) {
-		return {
-			type: 'pattern',
-			pattern: compact({
-				preset: pattern.preset,
-				fgColor: pattern.foreground ? literalColor(pattern.foreground.effectiveHex) : undefined,
-				bgColor: pattern.background ? literalColor(pattern.background.effectiveHex) : undefined,
-			}) ?? { preset: pattern.preset },
-		}
-	}
+	const pattern = patternOption(shape.patternFill)
+	if (pattern) return pattern
 
 	// An image-filled *surface* is not a picture object — it is `ShapeFillProps.image`, so
 	// the bytes are re-embedded through the same asset resolver an `addImage` uses. Before
@@ -278,54 +269,6 @@ function arrowOptions(shape: AnyShape, notes: NoteScope): Record<string, IrValue
 		beginArrowType: ends.head && WRITABLE_ARROWS.has(ends.head.type) ? ends.head.type : undefined,
 		endArrowType: ends.tail && WRITABLE_ARROWS.has(ends.tail.type) ? ends.tail.type : undefined,
 	}
-}
-
-/**
- * A read gradient as `GradientFillProps`. Stop positions convert from the read model's
- * 0–1 fraction to the write API's 0–100 percentage; the angle needs no conversion, since
- * both sides use OOXML degrees (clockwise from 3 o'clock).
- */
-function gradientStops(gradient: GradientFill, notes: NoteScope, where: 'fill' | 'line'): IrValue | undefined {
-	const stops = gradient.stops
-		.map((stop) => {
-			const color = isWritableSchemeToken(stop.schemeColor)
-				? (stop.schemeColor as string)
-				: stop.effectiveHex === null
-					? null
-					: literalColor(stop.effectiveHex)
-			if (color === null) return null
-			return compact({
-				color,
-				position: Math.round((stop.position ?? 0) * 100),
-				transparency: alphaToTransparency(stop.alpha),
-			}) as IrValue
-		})
-		.filter((stop): stop is IrValue => stop !== null)
-
-	if (stops.length < 2) {
-		notes.note(
-			`${where}.gradient`,
-			'dropped',
-			'unsupported',
-			'a gradient with fewer than two resolvable stops cannot be expressed, so this falls back to no gradient'
-		)
-		return undefined
-	}
-
-	if (gradient.kind === 'path') {
-		// `a:path` covers circle/rect/shape; the write API models only the radial case, so
-		// a rectangular or shape-following gradient becomes a circular one.
-		if (gradient.path !== null && gradient.path !== 'circle') {
-			notes.note(
-				`${where}.gradient.path`,
-				'approximated',
-				'unwritable',
-				`a "${gradient.path}" path gradient is emitted as a radial one; the write API models no other path shape`
-			)
-		}
-		return { kind: 'radial', stops }
-	}
-	return compact({ kind: 'linear', angle: gradient.angleDeg ?? 0, stops })
 }
 
 /** Outer shadow as `ShadowProps`; an inner shadow uses the same option with `type: 'inner'`. */

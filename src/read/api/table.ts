@@ -13,6 +13,8 @@ import { attr, firstChild, getElements, intValue, type Element } from '../oxml/d
 import { FILL_CHOICES } from '../oxml/fill.js'
 import type { FlattenContext } from '../oxml/theme.js'
 import { readPictureFill, type PictureFill } from './picture-fill.js'
+import { readGradientFill, type GradientFill } from './gradient.js'
+import { readPatternFill, type PatternFill } from './pattern-fill.js'
 import {
 	resolveTableCellStyleFill,
 	resolveTableStyle,
@@ -178,6 +180,68 @@ export class Table {
 		const idEl = tblPr && firstChild(tblPr, 'a:tableStyleId')
 		const id = idEl?.textContent?.trim()
 		return id ? id : null
+	}
+
+	/**
+	 * The table's own background (`a:tblPr` fill) resolved against the slide's theme colour
+	 * context to a literal hex, or `null` when the table carries no solid background.
+	 *
+	 * This is the table-level counterpart of {@link TableCell.resolvedFill}, and it is a
+	 * genuinely different thing from a cell fill: a `a:tblPr` fill sits *behind* the grid, so
+	 * a cell with no fill of its own shows it through. Reports `null` for a non-solid choice
+	 * (`a:blipFill`/`a:gradFill`/`a:pattFill`/`a:noFill`) — read {@link pictureFill} for an
+	 * image background — and `null` with no theme context.
+	 */
+	get resolvedFill(): ResolvedColor | null {
+		if (!this.themeColors) return null
+		const tblPr = firstChild(this.tbl, 'a:tblPr')
+		if (!tblPr || !FILL_CHOICES.some((q) => firstChild(tblPr, q))) return null
+		return resolveSolidFillColor(tblPr, this.themeColors)
+	}
+
+	/**
+	 * The table's picture background (`a:tblPr/a:blipFill`), or `null` when the table is not
+	 * image-backed. The table-level twin of {@link TableCell.pictureFill}, and needed for the
+	 * same reason: {@link resolvedFill} decodes only solid colours, so without this an
+	 * image-backed table is indistinguishable from an unfilled one.
+	 */
+	get pictureFill(): PictureFill | null {
+		const tblPr = firstChild(this.tbl, 'a:tblPr')
+		return tblPr ? readPictureFill(tblPr, this.rels ?? null) : null
+	}
+
+	/**
+	 * The table's gradient background (`a:tblPr/a:gradFill`), or `null` when it is not
+	 * gradient-filled. Needed for the same reason {@link pictureFill} is:
+	 * {@link resolvedFill} decodes only solid colours.
+	 */
+	get gradientFill(): GradientFill | null {
+		if (!this.themeColors) return null
+		const tblPr = firstChild(this.tbl, 'a:tblPr')
+		return tblPr ? readGradientFill(tblPr, this.themeColors) : null
+	}
+
+	/**
+	 * The table's pattern (hatch) background (`a:tblPr/a:pattFill`), or `null` when it is not
+	 * pattern-filled.
+	 */
+	get patternFill(): PatternFill | null {
+		if (!this.themeColors) return null
+		const tblPr = firstChild(this.tbl, 'a:tblPr')
+		return tblPr ? readPatternFill(tblPr, this.themeColors) : null
+	}
+
+	/**
+	 * The raw `schemeClr` token of the table's own background
+	 * (`a:tblPr/a:solidFill/a:schemeClr/@val`), or `null` for an absent or `srgbClr` fill.
+	 * {@link resolvedFill} is the literal it resolves to; this is the unresolved reference,
+	 * which is what a replica should carry so the copy still tracks its theme.
+	 */
+	get fillSchemeColor(): string | null {
+		const tblPr = firstChild(this.tbl, 'a:tblPr')
+		const fill = tblPr && firstChild(tblPr, 'a:solidFill')
+		const scheme = fill && firstChild(fill, 'a:schemeClr')
+		return scheme ? attr(scheme, 'val') : null
 	}
 
 	/** Whether the first row is styled as a header (`a:tblPr/@firstRow`). */
@@ -354,6 +418,26 @@ export class TableCell {
 			s.colCount,
 			s.ctx
 		)
+	}
+
+	/**
+	 * The cell's gradient fill (`a:tcPr/a:gradFill`), or `null` when the cell is not
+	 * gradient-filled. The cell twin of {@link Table.gradientFill}, and needed for the same
+	 * reason {@link pictureFill} is: {@link resolvedFill} reports `null` for every non-solid
+	 * choice, so without this a gradient cell is indistinguishable from an unfilled one.
+	 */
+	get gradientFill(): GradientFill | null {
+		const tcPr = this.#tcPr()
+		return tcPr && this.themeColors ? readGradientFill(tcPr, this.themeColors) : null
+	}
+
+	/**
+	 * The cell's pattern (hatch) fill (`a:tcPr/a:pattFill`), or `null` when the cell is not
+	 * pattern-filled.
+	 */
+	get patternFill(): PatternFill | null {
+		const tcPr = this.#tcPr()
+		return tcPr && this.themeColors ? readPatternFill(tcPr, this.themeColors) : null
 	}
 
 	/**

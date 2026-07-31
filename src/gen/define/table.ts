@@ -206,10 +206,11 @@ function normalizeTableRows(srcRows: TableRow[], opt: TableProps): TableCell[][]
  * the fill. Tables were the last major object kind not wired into `registerImageFillMedia`
  * (shapes do it at `define/shape.ts`, text boxes at `define/text.ts`).
  *
- * Two fill sources are walked, which between them cover all four ways a fill reaches a cell:
+ * Three fill sources are walked, which between them cover every way a picture reaches a table:
  * the resolved cells (per-cell `options.fill`, plus `headerRow` and `columns[i]`, both baked
- * onto cells by the sugar step above), and the table-level `fill`, which is *not* baked —
- * `gen/slide/objects/table.ts` copies it onto each cell at emit time.
+ * onto cells by the sugar step above), the table-level `fill`, which is *not* baked —
+ * `gen/slide/objects/table.ts` copies it onto each cell at emit time — and `tableFill`, which
+ * lands on `a:tblPr` itself and so needs its own relationship for the same reason.
  *
  * Keyed on fill **object identity**, not on the image source. The sugar spreads its options
  * shallowly, so one `headerRow` fill object is shared by every cell it styles; registering
@@ -234,6 +235,7 @@ function registerTableImageFills(target: PresSlideInternal, rows: TableCell[][],
 	}
 
 	register(opt.fill)
+	register(opt.tableFill)
 	rows.forEach((row) => {
 		row.forEach((cell) => {
 			register(cell.options?.fill)

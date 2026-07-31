@@ -154,6 +154,113 @@ describe('table replication — cell border dash presets', () => {
 	})
 })
 
+describe('table replication — the table background', () => {
+	test('a tableFill comes back as a tableFill, not flattened onto every cell', async () => {
+		const ir = await irFor((pres) => {
+			pres.addSlide().addTable(
+				[
+					['A', 'B'],
+					['C', 'D'],
+				],
+				{ x: 1, y: 1, w: 8, tableFill: { color: 'F2F2F2' } }
+			)
+		})
+
+		const call = tableCall(ir)
+		assertEqual(call.args[1].tableFill.color, 'F2F2F2', 'the background maps to tableFill')
+		assert(call.args[1].fill === undefined, 'and not to `fill`, which would stamp it onto every cell')
+		for (const cell of call.args[0].flat()) {
+			assert(cell.options?.fill === undefined, 'no cell picks up the background as its own fill')
+		}
+
+		const xml = await replay(call)
+		const tblPr = xml.match(/<a:tblPr(?:\/>|[^>]*>[\s\S]*?<\/a:tblPr>)/)[0]
+		assert(tblPr.includes('val="F2F2F2"'), 'the replayed background is on a:tblPr again; got: ' + tblPr)
+	})
+
+	test('a gradient background round-trips with its stops and angle', async () => {
+		const ir = await irFor((pres) => {
+			pres.addSlide().addTable([['A']], {
+				x: 1,
+				y: 1,
+				w: 4,
+				tableFill: {
+					type: 'gradient',
+					gradient: {
+						kind: 'linear',
+						angle: 90,
+						stops: [
+							{ position: 0, color: 'FFFFFF' },
+							{ position: 100, color: '1A2B3C' },
+						],
+					},
+				},
+			})
+		})
+
+		const call = tableCall(ir)
+		const gradient = call.args[1].tableFill.gradient
+		assertEqual(gradient.kind, 'linear', 'kind')
+		assertEqual(gradient.angle, 90, 'the angle needs no conversion — both sides use OOXML degrees')
+		assertEqual(gradient.stops.length, 2, 'both stops')
+		assertEqual(gradient.stops[1].color, '1A2B3C', 'the end stop keeps its colour')
+
+		const xml = await replay(call)
+		assert(xml.includes('<a:lin ang="5400000"'), 'the replayed background keeps its angle')
+	})
+})
+
+describe('table replication — non-solid cell fills', () => {
+	test('a gradient and a pattern cell both come back as themselves', async () => {
+		// Before this, `resolvedFill` reported null for any non-solid choice and the mapper had
+		// no other accessor to fall back on, so a gradient cell replicated as an UNFILLED one —
+		// or, with a table style in play, as whatever banding colour the style resolved to.
+		const ir = await irFor((pres) => {
+			pres.addSlide().addTable(
+				[
+					[
+						{
+							text: 'grad',
+							options: {
+								fill: {
+									type: 'gradient',
+									gradient: {
+										kind: 'linear',
+										angle: 0,
+										stops: [
+											{ position: 0, color: 'FFFFFF' },
+											{ position: 100, color: '1A2B3C' },
+										],
+									},
+								},
+							},
+						},
+						{
+							text: 'hatch',
+							options: {
+								fill: { type: 'pattern', pattern: { preset: 'diagCross', fgColor: '1A2B3C', bgColor: 'FFFFFF' } },
+							},
+						},
+					],
+				],
+				{ x: 1, y: 1, w: 8 }
+			)
+		})
+
+		const call = tableCall(ir)
+		const [grad, hatch] = call.args[0][0]
+		assertEqual(grad.options.fill.type, 'gradient', 'the gradient cell keeps its type')
+		assertEqual(grad.options.fill.gradient.stops.length, 2, 'and its stops')
+		assertEqual(hatch.options.fill.type, 'pattern', 'the pattern cell keeps its type')
+		assertEqual(hatch.options.fill.pattern.preset, 'diagCross', 'and its preset')
+		assertEqual(hatch.options.fill.pattern.fgColor, '1A2B3C', 'and its foreground')
+
+		const xml = await replay(call)
+		assert(xml.includes('<a:gradFill'), 'the gradient cell replays as a gradient')
+		assert(xml.includes('<a:pattFill prst="diagCross">'), 'and the pattern cell as a pattern')
+	})
+})
+
 describe('table replication — anchorCtr and cell3D', () => {
 	test('both survive the round trip and land back in a:tcPr', async () => {
 		const ir = await irFor((pres) => {

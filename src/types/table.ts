@@ -663,16 +663,39 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 */
 	columns?: TableCellProps[]
 	/**
-	 * Default cell background for every cell in the table — a solid color or a
-	 * picture fill. Superseded per cell by `options.fill`, `headerRow`, and
-	 * `columns[i]`. A picture fill is embedded once and shared by every cell that
-	 * inherits it.
+	 * Default cell background — **stamped onto every cell**, not painted behind the table.
+	 *
+	 * Each cell that does not set its own `options.fill` (or take one from `headerRow` /
+	 * `columns[i]`) gets this as its own `a:tcPr` fill. A picture fill is embedded once and
+	 * shared by every cell that inherits it.
+	 *
+	 * Visually this is usually what you want, but it is not what a source deck contains, and
+	 * it has one real consequence: because every cell ends up explicitly filled, a cell that
+	 * later gets its own fill has nothing to fall back to. For a genuine table background —
+	 * one `a:tblPr` fill that cells sit on top of — use {@link tableFill}.
 	 * @example { color:'FF0000' } // hex color (red)
 	 * @example { color:'0088CC', transparency:50 } // hex color, 50% transparent
 	 * @example { color:SchemeColor.accent1 } // theme color Accent1
 	 * @example { type:'image', image:{ path:'watermark.png' } } // picture fill
 	 */
 	fill?: ShapeFillProps
+	/**
+	 * The table's own background (`a:tblPr` fill) — one fill behind the whole table that
+	 * every cell sits on top of.
+	 *
+	 * The counterpart to {@link fill}, and the difference is where the paint lands rather
+	 * than how it looks: `fill` copies a colour onto every cell, while this writes a single
+	 * fill on the table itself. That matters when a cell is meant to be transparent — with
+	 * `tableFill`, an unfilled cell shows the table background through; with `fill` there is
+	 * no such thing as an unfilled cell. It is also what a deck read back from PowerPoint
+	 * actually carries, so a replica reproduces the source's structure rather than an
+	 * equivalent-looking flattening of it.
+	 *
+	 * Takes the same `ShapeFillProps` a cell does — solid, gradient, pattern or picture.
+	 * @example { color:'F2F2F2' } // a light background behind the whole table
+	 * @example { type:'image', image:{ path:'watermark.png' } } // one watermark, not one per cell
+	 */
+	tableFill?: ShapeFillProps
 	/**
 	 * Cell margin (inches)
 	 * - affects all table cells, is superceded by cell options

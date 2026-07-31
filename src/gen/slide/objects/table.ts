@@ -205,10 +205,15 @@ export function renderTableObject(
 			firstCol: objTabOpts.hasFirstColumn ? '1' : null,
 			lastCol: objTabOpts.hasLastColumn ? '1' : null,
 		}
-		// Paired when a style id is carried, else self-closing — an arity difference.
-		const tblPr = objTabOpts.tableStyle
-			? el('a:tblPr', tblPrAttrs, raw(el('a:tableStyleId', null, objTabOpts.tableStyle)))
-			: voidEl('a:tblPr', tblPrAttrs)
+		// `CT_TableProperties` sequences its children as EG_FillProperties, EG_EffectProperties,
+		// then the tableStyle/tableStyleId choice — so a table background precedes the style id.
+		// (No effects surface: PowerPoint's UI exposes no table-level effect, so a source deck
+		// will not contain one and there would be nothing to reproduce.)
+		const tableFillXml = objTabOpts.tableFill ? genXmlColorSelection(objTabOpts.tableFill) : ''
+		const tblPrChildren =
+			tableFillXml + (objTabOpts.tableStyle ? el('a:tableStyleId', null, objTabOpts.tableStyle) : '')
+		// Paired when it carries a fill or a style id, else self-closing — an arity difference.
+		const tblPr = tblPrChildren ? el('a:tblPr', tblPrAttrs, raw(tblPrChildren)) : voidEl('a:tblPr', tblPrAttrs)
 		// The `<a:tbl>` children accumulate here and are wrapped once at STEP 5, so the byte-significant
 		// (and non-depth-regular) indentation on the closing tags is described in one place.
 		tblInner = tblPr
