@@ -45,11 +45,19 @@ function genBorderLine(name: string, border: BorderProps): string {
  * repeating it on each covered cell would draw a sawtooth instead. Only the span origin
  * carries them, which is also where PowerPoint puts them.
  *
- * @param {BorderProps[]} cellBorder - 4-tuple of border props in [top, right, bottom, left] order
+ * A side may be missing, and missing is not the same as `{type:'none'}`: `none` writes an
+ * explicit `w="0"` rule, which is direct formatting and overrides whatever the table style
+ * would have drawn there, while an omitted side leaves that edge to the style. Tables built
+ * with `styleDrivenCells` rely on the difference; every other table arrives dense.
+ *
+ * @param {BorderProps[]} cellBorder - up to a 4-tuple of border props in [top, right, bottom, left] order
  * @param {TableCellDiagonals} [diagonal] - the cell's optional corner-to-corner rules
  * @return {string} concatenated border element XML, in the document order PowerPoint expects
  */
-export function genTableCellBorderXml(cellBorder: BorderProps[], diagonal?: TableCellDiagonals): string {
+export function genTableCellBorderXml(
+	cellBorder: ReadonlyArray<BorderProps | undefined>,
+	diagonal?: TableCellDiagonals
+): string {
 	let strXml = ''
 	// NOTE: *** IMPORTANT! *** LRTB order matters! (Reorder a line below to watch the borders go wonky in MS-PPT-2013!!)
 	;(

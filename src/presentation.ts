@@ -1195,8 +1195,9 @@ export default class PresentationCore {
 	 * the `has*` flags (`hasHeader`, `hasBandedRows`, …) to activate the matching regions.
 	 *
 	 * A region's `fill`, `bold` and `italic` apply; its `border` and `color` are overridden by
-	 * the per-cell defaults the library stamps as direct formatting — set those on the table or
-	 * on `headerRow` instead. Setting either on a region emits a `table-style/region-overridden`
+	 * the per-cell defaults the library stamps as direct formatting. `border` can be let through
+	 * with `styleDrivenCells: true` on the table; `color` cannot yet, so set it on `headerRow` or
+	 * on the cells. Setting either on a region emits a `table-style/region-overridden`
 	 * diagnostic. A region has no font size or cell margin at all (see {@link TableStyleProps}).
 	 * See also `docs/tables.md`.
 	 * @param {TableStyleProps} props - custom table style definition (requires `name`)
@@ -1224,12 +1225,14 @@ export default class PresentationCore {
 		// A region's `border` and `color` are written faithfully into `ppt/tableStyles.xml`, but
 		// `addTable` stamps a default border (`{type:'none'}` on all four sides) and text colour
 		// ('000000') onto every cell as *direct* formatting, and direct formatting outranks a style
-		// region in PowerPoint — so neither ever reaches the render. A region's `fill`, `bold` and
-		// `italic` are not defaulted and do work, which is what makes the failure look like a
-		// half-working style rather than an obvious bug.
+		// region in PowerPoint — so neither reaches the render on a table that leaves the defaults
+		// in place. A region's `fill`, `bold` and `italic` are not defaulted and do work, which is
+		// what makes the failure look like a half-working style rather than an obvious bug.
 		//
-		// Define time is the right place to say so: the region cannot render whatever table later
-		// uses the style, so no table context is needed to know it is wrong.
+		// Define time is still the right place to say so now that `styleDrivenCells` can stand the
+		// border default down: a style is registered once and used by tables that do not exist yet,
+		// so this is the only point that sees the region at all. The `border` wording therefore
+		// names the opt-in rather than declaring the region dead.
 		const REGION_KEYS = [
 			'wholeTbl',
 			'firstRow',
@@ -1242,19 +1245,24 @@ export default class PresentationCore {
 			'band2V',
 		] as const
 		const OVERRIDDEN = [
-			['border', 'set `border` on the table instead'],
-			['color', 'set `color` on `headerRow`, on `columns[i]`, or on the cells instead'],
+			[
+				'border',
+				'will not render unless the table sets `styleDrivenCells: true` — the per-cell default ' +
+					'that addTable stamps as direct formatting overrides it otherwise, and the alternative ' +
+					'is `border` on the table',
+			],
+			[
+				'color',
+				'will not render — the per-cell default that addTable stamps as direct formatting ' +
+					'overrides it; set `color` on `headerRow`, on `columns[i]`, or on the cells instead',
+			],
 		] as const
 		for (const key of REGION_KEYS) {
 			const region = props[key]
 			if (!region) continue
-			for (const [prop, remedy] of OVERRIDDEN) {
+			for (const [prop, verdict] of OVERRIDDEN) {
 				if (region[prop] === undefined) continue
-				warn(
-					'table-style/region-overridden',
-					`defineTableStyle("${props.name}"): \`${key}.${prop}\` will not render — the per-cell ` +
-						`default that addTable stamps as direct formatting overrides it; ${remedy}.`
-				)
+				warn('table-style/region-overridden', `defineTableStyle("${props.name}"): \`${key}.${prop}\` ${verdict}.`)
 			}
 		}
 

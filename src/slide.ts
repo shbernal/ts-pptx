@@ -407,7 +407,8 @@ export default class SlideBuilder {
 			this._slideLayout,
 			this._presLayout,
 			this.addSlide,
-			this.getSlide
+			this.getSlide,
+			this.getCustomTableStyle
 		)
 		return this
 	}

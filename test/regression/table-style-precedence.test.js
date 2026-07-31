@@ -37,13 +37,28 @@ function firstRPr(xml) {
 	return match[0]
 }
 
-/** Build a one-cell table under a custom style and return its slide part. */
-async function withStyle(styleDef, tableOpts = {}) {
+/** Every cell's `<a:tcPr>` block, in document order. */
+function allTcPr(xml) {
+	const blocks = xml.match(/<a:tcPr(?:\/>|[^>]*>[\s\S]*?<\/a:tcPr>)/g) || []
+	assert(blocks.length, 'expected at least one a:tcPr; got: ' + xml)
+	return blocks
+}
+
+/** Build a table under a custom style and return the slide part alongside `tableStyles.xml`. */
+async function withStyleParts(styleDef, tableOpts = {}, rows = [[{ text: 'H1' }]]) {
 	const { zip } = await build((p) => {
 		const guid = p.defineTableStyle({ name: 'Brand', ...styleDef })
-		p.addSlide().addTable([[{ text: 'H1' }]], { ...AT, tableStyle: guid, hasHeader: true, ...tableOpts })
+		p.addSlide().addTable(rows, { ...AT, tableStyle: guid, hasHeader: true, ...tableOpts })
 	})
-	return readEntry(zip, 'ppt/slides/slide1.xml')
+	return {
+		slide: await readEntry(zip, 'ppt/slides/slide1.xml'),
+		styles: await readEntry(zip, 'ppt/tableStyles.xml'),
+	}
+}
+
+/** Build a one-cell table under a custom style and return its slide part. */
+async function withStyle(styleDef, tableOpts = {}) {
+	return (await withStyleParts(styleDef, tableOpts)).slide
 }
 
 defineRegressionSuite('Table style precedence against per-cell defaults', [
@@ -187,6 +202,106 @@ defineRegressionSuite('Table style precedence against per-cell defaults', [
 			// a style this one never emits. Resolving it would let a deck defer its cell defaults
 			// to a style PowerPoint will not find.
 			assertEqual(new TsPptx().addSlide().getCustomTableStyle(guid), undefined, 'no cross-deck leak')
+		},
+	},
+	{
+		name: "styleDrivenCells lets a custom style's border render — no per-cell border is written",
+		fn: async () => {
+			const { slide, styles } = await withStyleParts(
+				{ wholeTbl: { border: { type: 'solid', color: 'D9D9D9', width: 0.5 } } },
+				{ styleDrivenCells: true }
+			)
+			// The point of the flag: the cell says nothing about its borders, so PowerPoint resolves
+			// them from the style. An `{type:'none'}` here would be direct formatting and win.
+			assert(!/<a:ln[LRTB][ />]/.test(allTcPr(slide)[0]), 'no border is written at all; got: ' + allTcPr(slide)[0])
+			// And the style itself still carries the border it always did -- the fix is in what the
+			// cell stops saying, not in what `tableStyles.xml` says.
+			assert(styles.includes('D9D9D9'), 'the style keeps its border; got: ' + styles)
+		},
+	},
+	{
+		name: 'a built-in style keeps the per-cell defaults, and the flag says it did nothing',
+		fn: async () => {
+			// The constraint the whole feature is scoped by: Office's built-ins define borders of
+			// their own, so a deck on MEDIUM_STYLE_2_ACCENT_1 must look exactly as it did. A flag
+			// that quietly does nothing is the same defect this option exists to fix, hence the code.
+			const { result, codes } = await captureDiagnostics(() =>
+				build((p) => {
+					p.addSlide().addTable([[{ text: 'H1' }]], {
+						...AT,
+						tableStyle: TableStyle.MEDIUM_STYLE_2_ACCENT_1,
+						styleDrivenCells: true,
+					})
+				})
+			)
+			assertEqual(codes.join(','), 'table/style-driven-cells-inert', 'one diagnostic, naming the inert flag')
+			const tcPr = allTcPr(await readEntry(result.zip, 'ppt/slides/slide1.xml'))[0]
+			assertEqual((tcPr.match(/<a:ln[LRTB] w="0"/g) || []).length, 4, 'all four sides are still suppressed')
+		},
+	},
+	{
+		name: 'the flag with no table style at all warns and changes nothing',
+		fn: async () => {
+			const { result, codes } = await captureDiagnostics(() =>
+				build((p) => {
+					p.addSlide().addTable([[{ text: 'H1' }]], { ...AT, styleDrivenCells: true })
+				})
+			)
+			assertEqual(codes.join(','), 'table/style-driven-cells-inert', 'there is nothing to defer to')
+			const tcPr = allTcPr(await readEntry(result.zip, 'ppt/slides/slide1.xml'))[0]
+			assertEqual((tcPr.match(/<a:ln[LRTB] w="0"/g) || []).length, 4, 'the defaults are untouched')
+		},
+	},
+	{
+		name: 'the flag warns once for a table, not once per auto-paged slide',
+		fn: async () => {
+			// Auto-paging re-enters `addTable` for every overflow slide, so the resolved answer is
+			// stashed on the options. The mistake being reported is in the authoring, and it was
+			// made once.
+			const rows = Array.from({ length: 60 }, (_row, idx) => [{ text: `row ${idx}` }])
+			const { result, codes } = await captureDiagnostics(() =>
+				build((p) => {
+					p.addSlide().addTable(rows, { ...AT, autoPage: true, styleDrivenCells: true })
+				})
+			)
+			// Fails loudly rather than passing vacuously if the table never actually paged.
+			await readEntry(result.zip, 'ppt/slides/slide2.xml')
+			assertEqual(codes.join(','), 'table/style-driven-cells-inert', 'one warning across the whole table')
+		},
+	},
+	{
+		name: 'under the flag, a border the caller set still beats the style',
+		fn: async () => {
+			// Precedence above the defaults tier is unchanged: cell `options` > table-level >
+			// style > nothing. Only the bottom rung stands aside.
+			const { slide } = await withStyleParts(
+				{ wholeTbl: { border: { type: 'solid', color: 'D9D9D9', width: 0.5 } } },
+				{ styleDrivenCells: true },
+				[[{ text: 'A', options: { border: { type: 'solid', color: '112233', width: 1 } } }, { text: 'B' }]]
+			)
+			const [first, second] = allTcPr(slide)
+			assertEqual((first.match(/112233/g) || []).length, 4, "the cell's own border is on all four sides")
+			assert(!/<a:ln[LRTB][ />]/.test(second), 'the cell next to it still defers; got: ' + second)
+		},
+	},
+	{
+		name: 'under the flag, outerBorder draws the perimeter without erasing the style elsewhere',
+		fn: async () => {
+			// The perimeter is applied at emit time, on a cell that now legitimately arrives with no
+			// borders at all. Spelling the other three sides out as `{type:'none'}` to fill the tuple
+			// -- which is right for every other table -- would trade the style's borders for it.
+			const { slide } = await withStyleParts(
+				{ wholeTbl: { border: { type: 'solid', color: 'D9D9D9', width: 0.5 } } },
+				{ styleDrivenCells: true, outerBorder: { type: 'solid', color: '1A2B3C', width: 1 } },
+				[
+					[{ text: 'A' }, { text: 'B' }],
+					[{ text: 'C' }, { text: 'D' }],
+				]
+			)
+			const topLeft = allTcPr(slide)[0]
+			assert(/<a:lnL /.test(topLeft) && /<a:lnT /.test(topLeft), 'the two perimeter sides draw; got: ' + topLeft)
+			assert(!/<a:lnR[ />]/.test(topLeft) && !/<a:lnB[ />]/.test(topLeft), 'the interior sides defer; got: ' + topLeft)
+			assertEqual((topLeft.match(/1A2B3C/g) || []).length, 2, 'and both perimeter sides are the outer colour')
 		},
 	},
 ])

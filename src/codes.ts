@@ -82,6 +82,7 @@ export type DiagnosticCode =
 	| 'table/invalid-cell3d'
 	| 'table/col-width-count-mismatch'
 	| 'table/autopage-height-too-small'
+	| 'table/style-driven-cells-inert'
 	| 'table-style/region-overridden'
 	// Text and bullets
 	| 'text/invalid-columns'

@@ -374,6 +374,8 @@ export interface TableStyleRegionProps {
 	 * Cell border(s).
 	 * - single value is applied to all four sides plus the interior grid lines
 	 * - array of values in TRBL order styles only the four outer sides
+	 * - renders only on a table that sets `styleDrivenCells: true`; without it the per-cell
+	 *   default the library stamps overrides the region (see {@link TableStyleProps})
 	 */
 	border?: BorderProps | [BorderProps, BorderProps, BorderProps, BorderProps]
 }
@@ -384,12 +386,14 @@ export interface TableStyleRegionProps {
  * style can use arbitrary brand colors, is editable in PowerPoint's Table Styles
  * gallery, and bands correctly across any row/column count (including auto-paged tables).
  *
- * **A region's `fill`, `bold` and `italic` apply; its `border` and `color` do not.** The
- * library stamps a default `border` (`{type:'none'}` on all four sides) and `color`
- * (`'000000'`) onto every cell as *direct* formatting, and direct formatting outranks a style
- * region in PowerPoint — so a style's borders and text colour are overridden before they can
- * render. Set those on the table instead (`border`) or on `headerRow` / the cells (`color`),
- * as below. `defineTableStyle()` warns when a region sets either. See `docs/tables.md` →
+ * **A region's `fill`, `bold` and `italic` apply; its `border` and `color` are overridden by
+ * default.** The library stamps a default `border` (`{type:'none'}` on all four sides) and
+ * `color` (`'000000'`) onto every cell as *direct* formatting, and direct formatting outranks
+ * a style region in PowerPoint — so a style's borders and text colour never reach the render
+ * unless the table stands the default down. `border` can: set
+ * {@link TableProps.styleDrivenCells} on the table and the region's borders draw. `color`
+ * cannot yet, so set it on the table's `headerRow` / `columns[i]` / cells, as below.
+ * `defineTableStyle()` warns when a region sets either. See `docs/tables.md` →
  * "The defaults tier".
  *
  * Note there is no region font size or cell margin to be overridden: a region is a
@@ -433,6 +437,12 @@ export interface TableStyleProps {
 }
 export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProps {
 	_arrObjTabHeadRows?: TableRow[]
+	/**
+	 * Resolved {@link styleDrivenCells}: the caller's flag *and* a `tableStyle` that
+	 * `defineTableStyle()` registered. Written by `addTableDefinition` and read by the
+	 * emitter, which cannot tell a registered style from a built-in one on its own.
+	 */
+	_styleDrivenCells?: boolean
 
 	/**
 	 * Name of a table/content placeholder defined on the slide layout/master to bind this table to.
@@ -623,6 +633,31 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * @example const brand = pptx.defineTableStyle({ name:'Brand', firstRow:{ fill:'1A2B3C', bold:true } }); tableStyle: brand, headerRow:{ color:'FFFFFF' }
 	 */
 	tableStyle?: TableStyle | string
+	/**
+	 * Let the custom table style draw the cell formatting the library would otherwise stamp
+	 * over — currently the cell borders.
+	 *
+	 * Every cell normally gets a `{type:'none'}` border on all four sides as *direct*
+	 * formatting, and direct formatting outranks a style region in PowerPoint, so a style's
+	 * `border` is overridden before it can render (see {@link TableStyleProps}). With this set,
+	 * a side that neither the cell nor the table asked for is left unwritten instead, and
+	 * PowerPoint resolves it from the style.
+	 *
+	 * Nothing else about precedence changes: a cell's `options.border`, `headerRow`,
+	 * `columns[i]` and the table-level {@link border} all still win, in that order. Only the
+	 * default at the bottom of the stack stands aside.
+	 *
+	 * Applies **only** when {@link tableStyle} names a style registered with
+	 * `pptx.defineTableStyle()`. A built-in `TableStyle` defines borders of its own, so decks
+	 * using one keep the defaults and look exactly as they did; setting this without a
+	 * registered style warns (`table/style-driven-cells-inert`) rather than doing nothing
+	 * quietly.
+	 * @default false
+	 * @example
+	 * const brand = pptx.defineTableStyle({ name:'Brand', wholeTbl:{ border:{ type:'solid', color:'D9D9D9', width:0.5 } } })
+	 * slide.addTable(rows, { tableStyle: brand, styleDrivenCells: true })
+	 */
+	styleDrivenCells?: boolean
 	/**
 	 * Inline styling for the header (first) row, applied as direct per-cell formatting.
 	 *
