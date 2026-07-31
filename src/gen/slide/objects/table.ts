@@ -14,6 +14,7 @@ import { warnOnce } from '../../../diagnostics.js'
 import { genXmlColorSelection } from '../../drawingml/fill.js'
 import { genXmlObjectLock, GRAPHIC_FRAME_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { genTableCellBorderXml } from '../../drawingml/table-border.js'
+import { genTableCell3DXml } from '../../drawingml/table-cell3d.js'
 import { genXmlPlaceholder, genXmlTextBody } from '../../drawingml/text-body.js'
 import { el, raw, voidEl, type XmlAttrs } from '../../oxml/el.js'
 import { inch2Emu, marginToEmu, resolveTableColWidthsEmu } from '../../../units-internal.js'
@@ -428,20 +429,30 @@ export function renderTableObject(
 			// Cell margins are inches (see `marginToEmu`); a `>= 1` value warns once as a likely legacy points value.
 			// NOTE: attribute ORDER is byte-significant (margins, then anchor, then vert). `horzOverflow`
 			// goes last, which is both where CT_TableCellProperties declares it and where PowerPoint
-			// writes it, so an existing cell's bytes are unchanged while it stays unset.
+			// writes it, so an existing cell's bytes are unchanged while it stays unset. `anchorCtr`
+			// follows `anchor`, matching the schema's own adjacency; that the emitter's `anchor`/`vert`
+			// pair is inverted relative to CT_TableCellProperties is pre-existing and harmless — XML
+			// attributes are unordered, so the order is only about keeping emitted bytes stable.
 			const tcPrAttrs: XmlAttrs = {
 				marL: marginToEmu(cellMargin[3]),
 				marR: marginToEmu(cellMargin[1]),
 				marT: marginToEmu(cellMargin[0]),
 				marB: marginToEmu(cellMargin[2]),
 				anchor: cellValign,
+				// `false` is the schema default, so only `true` is worth writing.
+				anchorCtr: cellOpts.anchorCtr ? '1' : null,
 				vert: cellTextDir,
 				horzOverflow: cellHorzOverflow,
 			}
 
 			// 4: Set CELL content and properties; 5: borders; 6: fill ==============
 			// The trailing indentation before `</a:tcPr>` and `</a:tc>` is byte-significant.
+			// Child order is the CT_TableCellProperties sequence: the four edges, the two diagonals,
+			// `cell3D`, then the fill. Unlike the edges, the diagonals are NOT copied onto a merged
+			// region's covered cells (see `genTableCellBorderXml`).
 			const cellBorder = applyOuterBorder(Array.isArray(cellOpts.border) ? cellOpts.border : null, outerBorder, at)
+			const cellDiagonal = cellOpts.diagonal
+			const cellBorderXml = cellBorder || cellDiagonal ? genTableCellBorderXml(cellBorder ?? [], cellDiagonal) : ''
 			rowCells.push(
 				el(
 					'a:tc',
@@ -449,7 +460,7 @@ export function renderTableObject(
 					[
 						raw(genXmlTextBody(cell)),
 						raw(
-							el('a:tcPr', tcPrAttrs, [cellBorder ? raw(genTableCellBorderXml(cellBorder)) : null, raw(cellFill)], {
+							el('a:tcPr', tcPrAttrs, [raw(cellBorderXml), raw(genTableCell3DXml(cellOpts.cell3D)), raw(cellFill)], {
 								closePrefix: '  ',
 							})
 						),

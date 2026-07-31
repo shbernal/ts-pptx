@@ -72,6 +72,27 @@ export interface CellBorders {
 	blToTr: CellBorder | null
 }
 
+/**
+ * A table cell's 3-D bevel (`a:tcPr/a:cell3D`), as read back. Every field is `null` when the
+ * source leaves it to the schema default, so a reader can tell "PowerPoint wrote `circle`"
+ * from "PowerPoint wrote nothing and `circle` is what it means".
+ */
+export interface CellThreeD {
+	/** `a:cell3D/@prstMaterial` (`ST_PresetMaterialType`), or `null` when unset. */
+	material: string | null
+	/** The required `a:bevel`. Present whenever the cell has a `a:cell3D` at all. */
+	bevel: {
+		/** `a:bevel/@prst` (`ST_BevelPresetType`), or `null` when unset. */
+		preset: string | null
+		/** `a:bevel/@w` converted from EMU to points, or `null` when unset. */
+		widthPt: number | null
+		/** `a:bevel/@h` converted from EMU to points, or `null` when unset. */
+		heightPt: number | null
+	}
+	/** `a:cell3D/a:lightRig`, or `null` when the cell leaves lighting to the renderer. */
+	lightRig: { rig: string | null; dir: string | null } | null
+}
+
 /** A table: a grid of rows and cells inside a graphic frame. */
 export class Table {
 	constructor(
@@ -404,6 +425,82 @@ export class TableCell {
 	get anchor(): string | null {
 		const tcPr = this.#tcPr()
 		return (tcPr && attr(tcPr, 'anchor')) ?? null
+	}
+
+	/**
+	 * Whether the cell's whole text **block** is centred horizontally within it
+	 * (`a:tcPr/@anchorCtr`). `false` when unset — that is the schema default, and it is
+	 * what PowerPoint writes nothing for.
+	 *
+	 * Distinct from a paragraph's `align`, which decides where each *line* sits inside the
+	 * text block; this decides where the block sits inside the cell.
+	 */
+	get anchorCtr(): boolean {
+		const tcPr = this.#tcPr()
+		return tcPr ? attr(tcPr, 'anchorCtr') === '1' || attr(tcPr, 'anchorCtr') === 'true' : false
+	}
+
+	/**
+	 * The cell's 3-D bevel (`a:tcPr/a:cell3D`), or `null` when it has none.
+	 *
+	 * `CT_Cell3D` requires an `a:bevel`, so a present `cell3D` always reports a bevel;
+	 * `lightRig` is `null` when the cell leaves the scene lighting to the renderer. Sizes are
+	 * reported in **points** (the attributes are EMU), matching how the write option takes them.
+	 */
+	get cell3D(): CellThreeD | null {
+		const tcPr = this.#tcPr()
+		const cell3D = tcPr && firstChild(tcPr, 'a:cell3D')
+		if (!cell3D) return null
+		const bevel = firstChild(cell3D, 'a:bevel')
+		const rig = firstChild(cell3D, 'a:lightRig')
+		const pts = (value: string | null): number | null => {
+			const emu = intValue(value)
+			return emu === null ? null : emu / 12700
+		}
+		return {
+			material: attr(cell3D, 'prstMaterial') ?? null,
+			bevel: {
+				preset: bevel ? (attr(bevel, 'prst') ?? null) : null,
+				widthPt: bevel ? pts(attr(bevel, 'w')) : null,
+				heightPt: bevel ? pts(attr(bevel, 'h')) : null,
+			},
+			lightRig: rig ? { rig: attr(rig, 'rig') ?? null, dir: attr(rig, 'dir') ?? null } : null,
+		}
+	}
+
+	/**
+	 * The cell's unique identifier (`a:tc/@id`), or `null` when it has none.
+	 *
+	 * This is what {@link headerIds} references: a data cell names the header cells that
+	 * govern it by their `@id`, which is how a complex table tells a screen reader what a
+	 * value means. Unrelated to the shape-level `p:cNvPr/@id` — it is an `xs:string` scoped
+	 * to the table, not a slide-wide numeric id.
+	 *
+	 * **PowerPoint does not write this and strips it on save**, so it will read `null` on
+	 * any deck PowerPoint has saved, however it was produced. It is surfaced for decks from
+	 * other producers. There is deliberately no write-API counterpart — see
+	 * `test/read/fixtures/authoring/probe-table-cell-a11y-and-3d.ps1` for the measurement.
+	 */
+	get id(): string | null {
+		return attr(this.tc, 'id') ?? null
+	}
+
+	/**
+	 * The `@id`s of the header cells that govern this cell
+	 * (`a:tcPr/a:headers/a:header/@val`), in document order. Empty when the cell declares no
+	 * header association — which is the common case, since only a complex table needs one.
+	 *
+	 * Carries the same caveat as {@link id}: PowerPoint strips `a:headers` on save, so this
+	 * is empty on any PowerPoint-saved deck. `Table.firstRowHeader` (`a:tblPr/@firstRow`) is
+	 * the header marker PowerPoint does keep.
+	 */
+	get headerIds(): string[] {
+		const tcPr = this.#tcPr()
+		const headers = tcPr && firstChild(tcPr, 'a:headers')
+		if (!headers) return []
+		return getElements(headers, 'a:header')
+			.map((header) => attr(header, 'val'))
+			.filter((val): val is string => val !== null && val !== '')
 	}
 
 	/**

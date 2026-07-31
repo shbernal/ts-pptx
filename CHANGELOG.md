@@ -32,6 +32,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`TableCellProps.diagonal`** — a cell's corner-to-corner rules
+  (`a:tcPr/a:lnTlToBr` / `a:lnBlToTr`), PowerPoint's "Diagonal Down/Up Border". The
+  read model has always decoded them; there was no way to write one, and
+  `pptx-to-script` dropped them with a note. Kept off `border`'s tuple deliberately:
+  widening that to six entries would break every existing caller for a rare feature,
+  and the diagonals are not edges. A merged region draws its diagonal **once**, on the
+  span origin — covered cells inherit the origin's edges but never its diagonals,
+  because a diagonal is one corner-to-corner stroke and repeating it per covered cell
+  would draw a sawtooth.
+
+- **`TableCellProps.anchorCtr`** — centres a cell's whole text *block* horizontally
+  (`a:tcPr/@anchorCtr`), independent of each paragraph's `align`. The two compose:
+  `align` places each line inside the text block, `anchorCtr` places that block inside
+  the cell. Read back via `TableCell.anchorCtr`. `false` is the schema default and
+  emits nothing.
+
+- **`TableCellProps.cell3D`** — a 3-D bevel on a cell (`a:tcPr/a:cell3D`): preset,
+  width/height in points, `prstMaterial`, and an optional light rig. Niche —
+  PowerPoint's table UI has no control for it, so it reaches a deck from a theme or
+  another producer — but it round-trips through PowerPoint verbatim, so authoring and
+  replicating one now works. Read back via `TableCell.cell3D`.
+
+  Two schema constraints show through the API. `a:bevel` is required, so `cell3D: {}`
+  still emits a bevel rather than an empty (invalid) `a:cell3D`. `a:lightRig` requires
+  **both** `rig` and `dir`, so a half-specified rig is reported and dropped whole. Any
+  value outside its `ST_` union is reported as the new **`table/invalid-cell3d`** and
+  dropped. The four enums are exported as `BevelPresetType`, `PresetMaterialType`,
+  `LightRigType` and `LightRigDirection`.
+
+- **`TableCell.id` / `TableCell.headerIds`** (read only) — a cell's `a:tc/@id` and the
+  header cells associated with it (`a:tcPr/a:headers/a:header/@val`), which is how a
+  complex table tells a screen reader what a value means.
+
+  **There is deliberately no write-API counterpart.** PowerPoint opens a deck carrying
+  both without complaint and then strips them on the first save, so an emitter would
+  ship a feature that dies as soon as anyone edits the deck. The measurement is
+  `test/read/fixtures/authoring/probe-table-cell-a11y-and-3d.ps1`, and it is a
+  controlled one: `a:cell3D` and `a:headers` were injected into the *same* `a:tcPr`,
+  and PowerPoint kept the first and discarded the second. `TableProps.hasHeader`
+  (`a:tblPr/@firstRow`) remains the header marker PowerPoint keeps — and the one its
+  own accessibility checker reads. The accessors exist because a deck from another
+  producer may still carry the association; `pptx-to-script` records its loss as
+  `table.cell.headers`.
+
 - **`BorderProps.dashType`** — the exact `a:prstDash` preset for a border, using the
   same vocabulary as `ShapeLineProps.dashType`. `BorderProps.type` is only a coarse
   three-way switch, so every dashed border it can express — dotted, long-dash,

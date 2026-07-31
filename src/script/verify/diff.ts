@@ -257,8 +257,12 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	'slide.transitionSound': ['sound', 'data', '$asset'],
 	// A dash outside `ST_PresetLineDashVal` cannot be written back, so the edge comes out as
 	// a plain dashed rule. Scoped to `border`, which is where that difference lands.
-	'table.cell.borders.dash': ['border'],
+	'table.cell.borders.dash': ['border', 'diagonal'],
 	'table.cell.fill': ['fill'],
+	// Empty, and correctly so: `a:tc/@id` and `a:tcPr/a:headers` have no write option — the
+	// IR has nowhere to put them on either side, so there is nothing to exclude. The note
+	// exists so a reader of the emitted script learns the association was there and is gone.
+	'table.cell.headers': [],
 	// The cell-side twins of `fill.picture` / `fill.picture.geometry`, and mapped for the
 	// same reasons.
 	'table.cell.fill.picture': ['fill'],

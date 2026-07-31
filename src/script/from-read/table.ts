@@ -110,9 +110,26 @@ function cellIr(cell: TableCell, hasStyle: boolean, notes: NoteScope, assets: As
 	const anchor = cell.anchor
 	const margins = cell.marginsEmu
 
+	// `a:tc/@id` and `a:tcPr/a:headers` are the one pair here that is *deliberately* not
+	// mapped. PowerPoint strips both on save (probe:
+	// `test/read/fixtures/authoring/probe-table-cell-a11y-and-3d.ps1`), so there is no write
+	// option to map them to and adding one would ship a feature that dies on the first save.
+	// A source deck from another producer can still carry them, so the loss is recorded.
+	if (cell.id !== null || cell.headerIds.length > 0) {
+		notes.note(
+			'table.cell.headers',
+			'dropped',
+			'unwritable',
+			'this cell carries a screen-reader header association (a:tc/@id / a:tcPr/a:headers); PowerPoint strips both on save, so there is no write option and the association is lost — hasHeader (a:tblPr/@firstRow) is the marker that survives'
+		)
+	}
+
 	const options = compact({
 		fill: cellFill(cell, hasStyle, notes, assets),
 		border: cellBorders(cell, notes),
+		diagonal: cellDiagonals(cell, notes),
+		anchorCtr: cell.anchorCtr ? true : undefined,
+		cell3D: cellThreeD(cell),
 		valign: anchor === null ? undefined : ANCHOR[anchor],
 		// `textDirection` reaches `a:tcPr/@vert` through the same table-cell inheritance list every
 		// other cell option uses, so a vertical label survives the round trip. Anything outside the
@@ -133,6 +150,47 @@ function cellIr(cell: TableCell, hasStyle: boolean, notes: NoteScope, assets: As
 	})
 
 	return compact({ text: frame ? textRuns(frame, notes) : cell.text, options }) ?? { text: '' }
+}
+
+/**
+ * The two corner-to-corner rules as `TableCellProps.diagonal`.
+ *
+ * Kept out of {@link cellBorders}' tuple for the same reason the write option is: they are
+ * not edges. Every dash and colour a diagonal can carry is one an edge can, so they share
+ * {@link borderIr} — including its out-of-enum dash note.
+ */
+function cellDiagonals(cell: TableCell, notes: NoteScope): IrValue | undefined {
+	const borders = cell.borders
+	if (!borders || (!borders.tlToBr && !borders.blToTr)) return undefined
+	return compact({
+		tlToBr: borders.tlToBr ? borderIr(borders.tlToBr, notes) : undefined,
+		blToTr: borders.blToTr ? borderIr(borders.blToTr, notes) : undefined,
+	})
+}
+
+/**
+ * A cell's `a:cell3D` as `TableCellProps.cell3D`.
+ *
+ * Every field is passed through as read: the write path vets each against its `ST_` union
+ * before emission, so a value from a source deck that somehow falls outside one is caught
+ * there rather than being screened twice with two chances to disagree. Sizes are already in
+ * points on both sides.
+ */
+function cellThreeD(cell: TableCell): IrValue | undefined {
+	const cell3D = cell.cell3D
+	if (!cell3D) return undefined
+	const rig = cell3D.lightRig
+	return (
+		compact({
+			preset: orUndefined(cell3D.bevel.preset),
+			width: orUndefined(cell3D.bevel.widthPt),
+			height: orUndefined(cell3D.bevel.heightPt),
+			material: orUndefined(cell3D.material),
+			// CT_LightRig requires both, so a half-specified one from a source deck is dropped
+			// rather than passed on for the emitter to reject.
+			lightRig: rig?.rig && rig.dir ? { rig: rig.rig, dir: rig.dir } : undefined,
+		}) ?? {}
+	)
 }
 
 /** The `ST_TextVerticalType` values `TextBaseProps.textDirection` accepts. */

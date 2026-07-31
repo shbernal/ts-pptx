@@ -3910,4 +3910,53 @@ export default [
 			assert(!chartXml.includes('<c:dLblPos'), 'a dataLabelPosition invalid for the plot type is dropped')
 		},
 	},
+	{
+		// `CT_TableCellProperties` declares its children as a SEQUENCE, so this is the case
+		// that catches an out-of-order emit: it puts the four edges, both diagonals, a
+		// `cell3D` and a fill on one cell, which is every branch of that sequence the write
+		// path can produce at once. `anchorCtr` rides along to pin the attribute order.
+		// `a:headers` is deliberately absent — PowerPoint strips it (probe:
+		// test/read/fixtures/authoring/probe-table-cell-a11y-and-3d.ps1).
+		name: 'table cell with diagonals, cell3D, anchorCtr and a fill (CT_TableCellProperties sequence)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				p.addSlide().addTable(
+					[
+						[
+							{
+								text: 'everything',
+								options: {
+									anchorCtr: true,
+									valign: 'middle',
+									border: [
+										{ type: 'solid', color: 'FF0000', width: 2, dashType: 'lgDashDot' },
+										{ type: 'solid', color: '00FF00', width: 1, dashType: 'sysDot' },
+										{ type: 'solid', color: '0000FF', width: 1, dashType: 'dot' },
+										{ type: 'none' },
+									],
+									diagonal: {
+										tlToBr: { type: 'solid', color: 'C00000', width: 2 },
+										blToTr: { type: 'dash', color: '0000C0', width: 1, dashType: 'sysDashDotDot' },
+									},
+									cell3D: {
+										preset: 'artDeco',
+										width: 7,
+										height: 7,
+										material: 'metal',
+										lightRig: { rig: 'threePt', dir: 't' },
+									},
+									fill: { color: 'DDDDDD' },
+								},
+							},
+							{ text: 'bevel only', options: { cell3D: {} } },
+						],
+					],
+					// `outerBorder` composes over the per-cell borders above, so the merged
+					// tuple is what actually reaches `a:lnL`/etc here.
+					{ x: 1, y: 1, w: 6, h: 1, outerBorder: { type: 'solid', color: '1A2B3C', width: 1 } }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'table-cell-tcpr-sequence')
+		},
+	},
 ]

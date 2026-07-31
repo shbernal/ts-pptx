@@ -112,6 +112,122 @@ export interface TableToSlidesProps extends TableProps {
 	 */
 	slideMargin?: Margin
 }
+/**
+ * A table cell's corner-to-corner rules (`a:tcPr/a:lnTlToBr` / `a:lnBlToTr`) — the
+ * "Diagonal Down Border" / "Diagonal Up Border" of PowerPoint's border gallery.
+ *
+ * Deliberately its own object rather than two more entries on {@link TableCellProps.border}'s
+ * tuple: widening that tuple to six would break every existing caller for a construct almost
+ * no deck uses, and the two diagonals are not edges — they do not participate in the
+ * perimeter, and they are not inherited by a merged region's covered cells.
+ *
+ * @example diagonal: { tlToBr: { type:'solid', color:'C00000', width:1 } } // strike a cell out
+ * @example diagonal: { tlToBr: { type:'solid' }, blToTr: { type:'solid' } } // an X across the cell
+ */
+export interface TableCellDiagonals {
+	/** Top-left to bottom-right (`╲`, `a:lnTlToBr`). */
+	tlToBr?: BorderProps
+	/** Bottom-left to top-right (`╱`, `a:lnBlToTr`). */
+	blToTr?: BorderProps
+}
+/** `ST_BevelPresetType` — the bevel profile applied to a cell's edges. */
+export type BevelPresetType =
+	| 'relaxedInset'
+	| 'circle'
+	| 'slope'
+	| 'cross'
+	| 'angle'
+	| 'softRound'
+	| 'convex'
+	| 'coolSlant'
+	| 'divot'
+	| 'riblet'
+	| 'hardEdge'
+	| 'artDeco'
+/** `ST_PresetMaterialType` — how a 3-D surface responds to light. */
+export type PresetMaterialType =
+	| 'legacyMatte'
+	| 'legacyPlastic'
+	| 'legacyMetal'
+	| 'legacyWireframe'
+	| 'matte'
+	| 'plastic'
+	| 'metal'
+	| 'warmMatte'
+	| 'translucentPowder'
+	| 'powder'
+	| 'dkEdge'
+	| 'softEdge'
+	| 'clear'
+	| 'flat'
+	| 'softmetal'
+/** `ST_LightRigType` — the preset lighting scene. */
+export type LightRigType =
+	| 'legacyFlat1'
+	| 'legacyFlat2'
+	| 'legacyFlat3'
+	| 'legacyFlat4'
+	| 'legacyNormal1'
+	| 'legacyNormal2'
+	| 'legacyNormal3'
+	| 'legacyNormal4'
+	| 'legacyHarsh1'
+	| 'legacyHarsh2'
+	| 'legacyHarsh3'
+	| 'legacyHarsh4'
+	| 'threePt'
+	| 'balanced'
+	| 'soft'
+	| 'harsh'
+	| 'flood'
+	| 'contrasting'
+	| 'morning'
+	| 'sunrise'
+	| 'sunset'
+	| 'chilly'
+	| 'freezing'
+	| 'flat'
+	| 'twoPt'
+	| 'glow'
+	| 'brightRoom'
+/** `ST_LightRigDirection` — where the light rig sits relative to the scene. */
+export type LightRigDirection = 'tl' | 't' | 'tr' | 'l' | 'r' | 'bl' | 'b' | 'br'
+/**
+ * A cell's 3-D bevel (`a:tcPr/a:cell3D`).
+ *
+ * A minimal surface over `CT_Cell3D`, which is a required `a:bevel` plus an optional
+ * `a:lightRig`. PowerPoint's table UI exposes no control for it — it reaches a deck through a
+ * theme's table style or through another producer — so this exists to author and reproduce
+ * one, not as a general 3-D model.
+ */
+export interface TableCell3DProps {
+	/**
+	 * The bevel's preset shape (`a:bevel/@prst`).
+	 * @default 'circle'
+	 */
+	preset?: BevelPresetType
+	/**
+	 * Bevel width in points (`a:bevel/@w`; the attribute is EMU).
+	 * @default 6 // 76200 EMU
+	 */
+	width?: number
+	/**
+	 * Bevel height in points (`a:bevel/@h`; the attribute is EMU).
+	 * @default 6 // 76200 EMU
+	 */
+	height?: number
+	/**
+	 * Surface material (`a:cell3D/@prstMaterial`), which decides how the bevel takes light.
+	 * @default 'plastic'
+	 */
+	material?: PresetMaterialType
+	/**
+	 * Scene lighting (`a:cell3D/a:lightRig`). Both fields are required by the schema, so
+	 * either give both or omit the whole object and let the renderer light the bevel.
+	 * @example lightRig: { rig: 'threePt', dir: 't' }
+	 */
+	lightRig?: { rig: LightRigType; dir: LightRigDirection }
+}
 export interface TableCellProps extends TextBaseProps {
 	/**
 	 * Auto-paging character weight
@@ -130,9 +246,44 @@ export interface TableCellProps extends TextBaseProps {
 	 */
 	autoPageLineWeight?: number
 	/**
-	 * Cell border
+	 * The cell's four edge borders (`a:tcPr/a:lnT|lnR|lnB|lnL`).
+	 * - a single `BorderProps` is broadcast to all four sides
+	 * - an array is read in **TRBL** order (`[top, right, bottom, left]`)
+	 *
+	 * Overrides the table-level {@link TableProps.border} default entirely — the two do not
+	 * merge per side. For the two corner-to-corner rules see {@link diagonal}; for the
+	 * table's outside edge see {@link TableProps.outerBorder}.
 	 */
 	border?: BorderProps | [BorderProps, BorderProps, BorderProps, BorderProps]
+	/**
+	 * The cell's corner-to-corner rules — PowerPoint's "Diagonal Down/Up Border".
+	 *
+	 * Kept off {@link border}'s tuple on purpose: see {@link TableCellDiagonals}. A diagonal
+	 * on a merged cell is one stroke across the whole region, so only the span origin carries
+	 * it — the covered cells inherit the origin's *edges* but never its diagonals.
+	 * @example diagonal: { tlToBr: { type:'solid', color:'C00000' } } // strike the cell out
+	 */
+	diagonal?: TableCellDiagonals
+	/**
+	 * Centre the cell's whole text **block** horizontally within the cell
+	 * (`a:tcPr/@anchorCtr`), independent of each paragraph's own `align`.
+	 *
+	 * The two do different things and compose: `align` decides where each line sits inside
+	 * the text block, `anchorCtr` decides where that block sits inside the cell. With
+	 * left-aligned text in a wide cell, `anchorCtr: true` centres the ragged-right column of
+	 * lines as a unit while keeping their left edges flush with each other.
+	 *
+	 * `false` is the schema default, so it emits nothing — the same reasoning as
+	 * `horzOverflow: 'clip'`.
+	 * @default false
+	 */
+	anchorCtr?: boolean
+	/**
+	 * A 3-D bevel on the cell (`a:tcPr/a:cell3D`). Niche: PowerPoint's table UI has no
+	 * control for it, so it reaches a deck from a theme or another producer, and this exists
+	 * to author and reproduce one. See {@link TableCell3DProps}.
+	 */
+	cell3D?: TableCell3DProps
 	/**
 	 * Cell colspan
 	 */

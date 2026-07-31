@@ -45,13 +45,11 @@ async function irFor(build) {
 describe('table replication — vertical cell text (a:tcPr/@vert)', () => {
 	test('a vert270 cell comes back vertical instead of being flattened', async () => {
 		const ir = await irFor((pres) => {
-			pres
-				.addSlide()
-				.addTable([[{ text: 'sideways', options: { textDirection: 'vert270' } }, { text: 'upright' }]], {
-					x: 1,
-					y: 1,
-					w: 8,
-				})
+			pres.addSlide().addTable([[{ text: 'sideways', options: { textDirection: 'vert270' } }, { text: 'upright' }]], {
+				x: 1,
+				y: 1,
+				w: 8,
+			})
 		})
 
 		const call = tableCall(ir)
@@ -105,6 +103,40 @@ describe('table replication — cell border dash presets', () => {
 		}
 	})
 
+	test('a diagonal replays as a diagonal, not as an edge', async () => {
+		const ir = await irFor((pres) => {
+			pres.addSlide().addTable(
+				[
+					[
+						{
+							text: 'X',
+							options: {
+								border: { type: 'solid', color: '333333', width: 1 },
+								diagonal: {
+									tlToBr: { type: 'solid', color: 'C00000', width: 2 },
+									blToTr: { type: 'solid', color: '0000C0', width: 1, dashType: 'lgDashDot' },
+								},
+							},
+						},
+					],
+				],
+				{ x: 1, y: 1, w: 4 }
+			)
+		})
+
+		const call = tableCall(ir)
+		const diagonal = call.args[0][0][0].options.diagonal
+		assert(diagonal, 'the mapper carries a diagonal object separate from the edge tuple')
+		assertEqual(diagonal.tlToBr.color, 'C00000', '╲ colour')
+		assertEqual(diagonal.tlToBr.width, 2, '╲ width')
+		assertEqual(diagonal.blToTr.dashType, 'lgDashDot', '╱ keeps its exact dash')
+		assert(!constructs(ir).has('table.cell.borders.diagonal'), 'the old drop note is gone')
+
+		const xml = await replay(call)
+		assertEqual((xml.match(/<a:lnTlToBr/g) || []).length, 1, 'the ╲ diagonal replays')
+		assertEqual((xml.match(/<a:lnBlToTr/g) || []).length, 1, 'and so does the ╱')
+	})
+
 	test('a solid border still emits no dashType — solid is what its absence means', async () => {
 		const ir = await irFor((pres) => {
 			pres.addSlide().addTable([[{ text: 'A', options: { border: { type: 'solid', color: '000000', width: 1 } } }]], {
@@ -119,5 +151,51 @@ describe('table replication — cell border dash presets', () => {
 			assert(side.dashType === undefined, 'a solid rule carries no dashType; got: ' + JSON.stringify(side))
 			assertEqual(side.type, 'solid', 'it is still reported as solid')
 		}
+	})
+})
+
+describe('table replication — anchorCtr and cell3D', () => {
+	test('both survive the round trip and land back in a:tcPr', async () => {
+		const ir = await irFor((pres) => {
+			pres.addSlide().addTable(
+				[
+					[
+						{
+							text: 'A',
+							options: {
+								anchorCtr: true,
+								cell3D: {
+									preset: 'artDeco',
+									width: 7,
+									height: 7,
+									material: 'metal',
+									lightRig: { rig: 'threePt', dir: 't' },
+								},
+							},
+						},
+						{ text: 'B' },
+					],
+				],
+				{ x: 1, y: 1, w: 8 }
+			)
+		})
+
+		const call = tableCall(ir)
+		const [first, second] = call.args[0][0]
+		assertEqual(first.options.anchorCtr, true, 'anchorCtr carries')
+		assertEqual(first.options.cell3D.preset, 'artDeco', 'the bevel preset carries')
+		assertEqual(first.options.cell3D.width, 7, 'and its size, in points on both sides')
+		assertEqual(first.options.cell3D.lightRig.rig, 'threePt', 'and the light rig')
+		// `false` is the schema default, so an unset cell must carry nothing rather than an
+		// explicit false — otherwise every plain cell in a replica grows an attribute.
+		assert(second.options?.anchorCtr === undefined, 'an unset cell carries no anchorCtr')
+		assert(second.options?.cell3D === undefined, 'and no cell3D')
+
+		const xml = await replay(call)
+		const tags = [...xml.matchAll(/<a:tcPr[^>]*>/g)].map((m) => m[0])
+		assert(tags[0].includes('anchorCtr="1"'), 'the replayed cell is anchor-centred; got: ' + tags[0])
+		assert(!tags[1].includes('anchorCtr'), 'the sibling is not; got: ' + tags[1])
+		assert(xml.includes('<a:bevel w="88900" h="88900" prst="artDeco"/>'), 'the bevel replays in EMU')
+		assert(xml.includes('<a:lightRig rig="threePt" dir="t"/>'), 'and the light rig')
 	})
 })

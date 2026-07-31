@@ -79,6 +79,7 @@ export type DiagnosticCode =
 	| 'table/invalid-border'
 	| 'table/invalid-outer-border'
 	| 'table/invalid-horz-overflow'
+	| 'table/invalid-cell3d'
 	| 'table/col-width-count-mismatch'
 	| 'table/autopage-height-too-small'
 	// Text and bullets
