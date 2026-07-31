@@ -91,6 +91,32 @@ defineRegressionSuite('Table fitColumns shrink-to-fit', 'upstream-issue-1451', [
 		},
 	},
 	{
+		// The space to the RIGHT of the table is bounded by the RIGHT margin. Every other case
+		// here uses the default symmetric [0.5 x 4], where the left and right margins are
+		// indistinguishable — so an implementation reading the wrong end of the TRBL tuple
+		// passes all of them. This master's margins are deliberately asymmetric (0.25 right,
+		// 2 left) so the two answers differ by 1.75in.
+		name: 'fitColumns measures against the RIGHT slide margin, not the left',
+		fn: async () => {
+			const { zip } = await build((p) => {
+				p.defineSlideMaster({ title: 'Gutter', margin: [0.5, 0.25, 0.5, 2] }) // TRBL
+				p.addSlide({ masterTitle: 'Gutter' }).addTable([[{ text: 'a' }, { text: 'b' }]], {
+					x: 0.5,
+					y: 1,
+					colW: [8, 8], // 16in, far wider than usable either way
+					fitColumns: 'shrink',
+				})
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const cols = gridColsEmu(xml)
+			// 10in slide - 0.5in x - 0.25in right margin = 9.25in.
+			assert(
+				Math.abs(sumEmu(cols) - 9.25 * EMU) <= cols.length,
+				'expected columns to sum to ~9.25in (bounded by the 0.25in RIGHT margin); got ' + sumEmu(cols) / EMU
+			)
+		},
+	},
+	{
 		name: 'fitColumns clamps an over-wide `w` (no colW) to the usable width',
 		fn: async () => {
 			const { zip } = await build((p) => {

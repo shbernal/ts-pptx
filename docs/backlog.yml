@@ -640,7 +640,7 @@ items:
     source: "gitbrent/PptxGenJS#964"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-07-27
+    last_reviewed: 2026-07-31
     status: deferred
     priority: p3
     target_area:
@@ -669,6 +669,15 @@ items:
       policy for the unsolvable case (a single row taller than one page), not new
       machinery. Reuse `hasActiveRowSpan`'s suppression point rather than adding a
       second one.
+
+      Re-reviewed 2026-07-31 during a table write/read gap-closing pass (border dash
+      styles, perimeter borders, diagonals, anchorCtr, cell3D, table background,
+      read-path cell and structural editors). Deliberately untouched and still
+      correctly framed: every one of those is a per-cell or per-table *property*,
+      while this is a pagination *policy*, so none of them moved the decision either
+      way. The two open questions remain what they were — the opt-in flag's name and
+      the behaviour for a row taller than one page — and both still want a concrete
+      report rather than a guess. Line references above re-checked and still accurate.
     evidence:
       kinds:
         - local-source-inspection

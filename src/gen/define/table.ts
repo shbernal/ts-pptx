@@ -429,7 +429,11 @@ export function addTableDefinition(
 	if (opt.fitColumns === 'shrink') {
 		const slideWin = (presLayout._sizeW || presLayout.width) / EMU_PER_INCH
 		const xIn = getSmartParseNumber(opt.x, 'X', presLayout) / EMU_PER_INCH
-		const availWin = slideWin - xIn - arrTableMargin[3]
+		// `arrTableMargin` is TRBL, so the margin to the RIGHT of the table is index 1. This
+		// read index 3 (the left margin) — invisible with the default symmetric [0.5 × 4], and
+		// wrong by the difference for any master whose `_margin` is asymmetric, which is
+		// exactly the layout a caller sets a left gutter on.
+		const availWin = slideWin - xIn - arrTableMargin[1]
 		if (availWin > 0) {
 			if (Array.isArray(opt.colW)) {
 				const sumIn = opt.colW.reduce((p, n) => p + (Number.isFinite(n) ? n : 0), 0)

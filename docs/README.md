@@ -34,6 +34,9 @@ artifacts.
 
 ## Feature Guides
 
+- [Tables](tables.md): the cell model, the styling precedence chain, borders
+  (per-cell default vs. perimeter, dash styles, diagonals), merges, auto-paging,
+  reading/editing an existing table, and what PowerPoint will not keep.
 - [Grouping objects](groups.md): `addGroup()` / `groupObjects()`, the identity
   child space, framing, nesting, and cross-references into a group.
 - [Connectors](connectors.md): `addConnector()` straight/elbow/curved lines,

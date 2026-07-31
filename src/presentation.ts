@@ -1175,15 +1175,22 @@ export default class PresentationCore {
 	 * The style is written to `ppt/tableStyles.xml` and is editable in PowerPoint's
 	 * Table Styles gallery. Pass the returned GUID as `TableProps.tableStyle`, and use
 	 * the `has*` flags (`hasHeader`, `hasBandedRows`, …) to activate the matching regions.
+	 *
+	 * A region's `fill` and `bold` apply; its `border` and `color` are overridden by the
+	 * per-cell defaults the library stamps as direct formatting — set those on the table or
+	 * on `headerRow` instead. See {@link TableStyleProps} and `docs/tables.md`.
 	 * @param {TableStyleProps} props - custom table style definition (requires `name`)
 	 * @returns {string} braced GUID to use as `tableStyle`
 	 * @example
 	 * const brand = pptx.defineTableStyle({
 	 *   name: 'Brand Banded',
-	 *   firstRow: { fill:'1A2B3C', color:'FFFFFF', bold:true },
+	 *   firstRow: { fill:'1A2B3C', bold:true },
 	 *   band1H:   { fill:'EAF1F8' },
 	 * })
-	 * slide.addTable(rows, { tableStyle: brand, hasHeader:true, hasBandedRows:true })
+	 * slide.addTable(rows, {
+	 *   tableStyle: brand, hasHeader:true, hasBandedRows:true,
+	 *   headerRow: { color:'FFFFFF' },   // a style region's `color` would not render
+	 * })
 	 */
 	defineTableStyle(props: TableStyleProps): string {
 		if (!props || typeof props !== 'object')

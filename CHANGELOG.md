@@ -32,6 +32,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`fitColumns: 'shrink'` measured against the wrong slide margin.** The space to the
+  right of a table is bounded by the **right** margin; the calculation subtracted
+  index 3 of the TRBL margin tuple, which is the **left** one. Invisible with the
+  default symmetric `[0.5, 0.5, 0.5, 0.5]` — and wrong by the difference for any master
+  whose `margin` is asymmetric, which is exactly the layout someone sets a left gutter
+  on. The existing tests all used symmetric margins, so none of them could fail; the
+  new one uses `[0.5, 0.25, 0.5, 2]`, where the two answers differ by 1.75in.
+
 - **A styled table cell's own fill is no longer dropped by `pptx-to-script`.** A cell
   with an explicit `a:solidFill` inside a table that also has a `tableStyle` replicated
   as *unfilled*, because the mapper could not tell that colour apart from one the cell
@@ -237,6 +245,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in every case — this only adds a report where a value was already being lost.
 
 ### Changed
+
+- **`docs/tables.md`** — the table guide, which did not exist. Tables were the
+  most-used object after text and the only major one with no prose doc. Covers the
+  cell model, the styling precedence chain, borders (per-cell default vs. perimeter,
+  dash styles, diagonals), fills, merges, sizing and auto-paging, the read/edit
+  surface, and a "not authorable" section for the constructs PowerPoint discards.
+
+- **A custom table style's `border` and `color` regions are documented as
+  non-rendering.** They never did render, and the JSDoc example shipped since 1.0.0
+  showed both. The library stamps a default `border` (`{type:'none'}` on all four
+  sides), `color` (`'000000'`), `fontSize` and `margin` onto **every cell as direct
+  formatting**, and direct formatting outranks a style region in PowerPoint — so a
+  region's borders and text colour are overridden before they can be drawn, while its
+  `fill` and `bold` (which are not defaulted) apply. The result was a half-working
+  style rather than an obviously broken one, which is why it went unnoticed.
+
+  No behaviour changed: `border` on the table and `color` on `headerRow` reach the
+  cells and always did. The examples on `TableStyleProps` and `defineTableStyle()` now
+  show that, and a regression suite pins each half so the docs and the behaviour
+  cannot drift apart again.
 
 - **`TableProps.border` is documented as what it is: a per-cell default, not the
   table's perimeter.** The old wording ("single value applied to all 4 sides / array

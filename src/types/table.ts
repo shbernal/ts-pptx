@@ -383,15 +383,25 @@ export interface TableStyleRegionProps {
  * as `TableProps.tableStyle`. Unlike the fixed built-in `TableStyle` set, a custom
  * style can use arbitrary brand colors, is editable in PowerPoint's Table Styles
  * gallery, and bands correctly across any row/column count (including auto-paged tables).
+ *
+ * **A region's `fill` and `bold` apply; its `border` and `color` do not.** The library
+ * stamps a default `border` (`{type:'none'}` on all four sides) and `color` (`'000000'`)
+ * onto every cell as *direct* formatting, and direct formatting outranks a style region in
+ * PowerPoint — so a style's borders and text colour are overridden before they can render.
+ * Set those on the table instead (`border`) or on `headerRow` / the cells (`color`), as
+ * below. See `docs/tables.md` → "The defaults tier".
  * @example
  * const brand = pptx.defineTableStyle({
  *   name: 'Brand Banded',
- *   wholeTbl: { border: { type:'solid', color:'D9D9D9', width:0.5 } },
- *   firstRow: { fill:'1A2B3C', color:'FFFFFF', bold:true },
+ *   firstRow: { fill:'1A2B3C', bold:true },   // fill + bold come from the style
  *   band1H:   { fill:'EAF1F8' },
  *   band2H:   { fill:'FFFFFF' },
  * })
- * slide.addTable(rows, { tableStyle: brand, hasHeader:true, hasBandedRows:true })
+ * slide.addTable(rows, {
+ *   tableStyle: brand, hasHeader:true, hasBandedRows:true,
+ *   border: { type:'solid', color:'D9D9D9', width:0.5 },  // not wholeTbl.border
+ *   headerRow: { color:'FFFFFF' },                        // not firstRow.color
+ * })
  */
 export interface TableStyleProps {
 	/** Display name shown in PowerPoint's Table Styles gallery. */
