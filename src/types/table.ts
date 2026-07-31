@@ -614,7 +614,7 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * a `tableStyle` set.
 	 *
 	 * @example tableStyle: pptx.TableStyle.MEDIUM_STYLE_2_ACCENT_1 // built-in
-	 * @example const brand = pptx.defineTableStyle({ name:'Brand', firstRow:{ fill:'1A2B3C', color:'FFFFFF', bold:true } }); tableStyle: brand
+	 * @example const brand = pptx.defineTableStyle({ name:'Brand', firstRow:{ fill:'1A2B3C', bold:true } }); tableStyle: brand, headerRow:{ color:'FFFFFF' }
 	 */
 	tableStyle?: TableStyle | string
 	/**

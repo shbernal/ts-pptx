@@ -1611,4 +1611,72 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: all of gen/define is done, both src cleanups landed (chart.ts's thirteen dead ternaries 6cc2f6d2, color.ts's two browser-only helpers 302c3961, byte-identity PASS on both) and the durable how-to-read-this guidance is distilled into docs/testing.md's new write-side section (6c401158) -- so the only work left under this item is the drawingml/pres stragglers, and they are deliberately unclaimed -- math.ts's six red branches are already pinned by math-omml.test.mjs and can never move a dist number (src-import), while plot-bubble.ts 60.86 and pres/presentation-rels.ts 64.28 are small enough that neither will move a gate alone; margins are 0.70/0.84/0.43/0.22 against 92/81/97/95, so the next notch on any axis needs close to a full point more and no cheap file left can supply it -- treat this item as parked at a green gate rather than as work queued, and re-open it only if a new emitter lands under-tested; before doing anything here, re-measure per-file coverage rather than reading whatever coverage-final.json is on disk (the recorded chart.ts/text.ts numbers had drifted by 10-25 branches before the last pass) and read docs/testing.md's write-side section first -- it now holds the door question, the statement-vs-branch signal and both measurement traps that this entry used to be the only record of
+  - id: fork-table-style-region-defaults
+    source: fork:src/gen/define/table.ts
+    type: fork-internal-proposal
+    first_seen: 2026-07-31
+    last_reviewed: 2026-07-31
+    status: accepted
+    priority: p2
+    target_area:
+      - table-ooxml
+      - typescript-api
+    applies_to_current_project: yes
+    non_target_reasons: []
+    summary: per-cell defaults stamped as direct formatting override a custom table style's border, color, fontSize and margin regions
+    current_project_notes: >
+      addTableDefinition stamps four properties onto EVERY table cell as direct
+      formatting -- border {type:'none'} on all four sides
+      (src/gen/define/table.ts:155-169), color '000000' (:329-332), fontSize 12 (:317)
+      and margin [0.05,0.1,0.05,0.1] (:318-328). In PowerPoint direct cell formatting
+      outranks a table-style region, so four of the six things a defineTableStyle()
+      region can set can never render. fill and bold are NOT defaulted and do work,
+      which is why the gap went unnoticed: a custom style's shading and weight apply
+      while its borders and text colour appear ignored.
+
+      This is currently DOCUMENTED as intended (docs/tables.md "The defaults tier",
+      the TableStyleProps and defineTableStyle doc comments) and PINNED by
+      test/regression/table-style-precedence.test.js, which asserts the override
+      happens. That test is a snapshot of a known limit, not a spec -- this entry is
+      the record that was missing.
+
+      Two constraints bound any fix. (1) Built-in styles must keep stamping:
+      TableProps.tableStyle also carries the built-in TableStyle GUIDs, and Office's
+      built-ins do define borders, so keying deferral off "a tableStyle is set" would
+      put grid lines into every deck using MEDIUM_STYLE_2_ACCENT_1. Scope has to be
+      "registered via defineTableStyle()" specifically, by registry lookup, never by
+      GUID shape. (2) border and color only have to reach PowerPoint, but fontSize and
+      margin are also read by this library's own layout maths before the file exists.
+      The measurement path has independent fallbacks to DEF_FONT_SIZE
+      (src/gen/table/autopage.ts:48,57,60) and DEF_CELL_MARGIN_IN
+      (src/gen/slide/objects/table.ts:415-424), so simply not stamping does not crash
+      it -- it silently measures 12pt while PowerPoint renders the style's size,
+      giving wrong row heights and wrong auto-page breaks with no error. Deferring
+      those two therefore requires a shared style-region resolver (wholeTbl < bands <
+      firstCol/lastCol < firstRow/lastRow, plus band parity) consumed by BOTH the
+      define layer and the auto-pager; two copies would drift.
+
+      Planned shape: an opt-in flag on TableProps rather than a silent default flip,
+      so each step ships independently and existing decks stay byte-identical by
+      construction, with the flip to default deferred to a major. The sparse-vs-none
+      border distinction already documented at src/gen/define/table.ts:63 ("an absent
+      side means leave this edge alone") is the deferral mechanism -- no new vocabulary
+      needed. Note the color default is already conditionally skipped when any cell has
+      a hyperlink; deferral has to compose with that carve-out, not bypass it.
+    evidence:
+      kinds:
+        - local-source-inspection
+        - regression-test
+      local_files:
+        - src/gen/define/table.ts
+        - src/gen/slide/objects/table.ts
+        - src/gen/table/autopage.ts
+        - src/presentation.ts
+        - src/types/table.ts
+        - test/regression/table-style-precedence.test.js
+      schema_fixture: null
+      validator_result: null
+      powerpoint_result: null
+      spec_refs: []
+    next_action: shipped examples are now clean (no doc comment demonstrates a region property that cannot render); next is a define-time warn() on defineTableStyle() for regions setting border/color/fontSize/margin, then threading a custom-style registry lookup into addTableDefinition as the enabling refactor for deferral
 
