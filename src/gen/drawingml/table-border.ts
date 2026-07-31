@@ -7,7 +7,7 @@
 
 import type { BorderProps } from '../../types/index.js'
 import { genXmlColorSelection } from './fill.js'
-import { createLineCap, resolveBorderWidth } from './line.js'
+import { createLineCap, resolveBorderDash, resolveBorderWidth } from './line.js'
 import { valToPts } from '../../units-internal.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 
@@ -38,7 +38,7 @@ export function genTableCellBorderXml(cellBorder: BorderProps[]): string {
 				{ w: valToPts(resolveBorderWidth(border, 1)), cap, cmpd: 'sng', algn: 'ctr' },
 				[
 					genXmlColorSelection({ color: border.color ?? '363636', transparency: border.transparency }),
-					voidEl('a:prstDash', { val: border.type === 'dash' ? 'sysDash' : 'solid' }),
+					voidEl('a:prstDash', { val: resolveBorderDash(border) }),
 					voidEl('a:round'),
 					voidEl('a:headEnd', { type: 'none', w: 'med', len: 'med' }),
 					voidEl('a:tailEnd', { type: 'none', w: 'med', len: 'med' }),

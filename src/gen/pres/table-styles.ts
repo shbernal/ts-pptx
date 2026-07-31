@@ -12,7 +12,7 @@ import type { BorderProps, TableStyleRegionProps } from '../../types/index.js'
 import type { TableStyleInternal } from '../../types/internal.js'
 import { createColorElement } from '../drawingml/color.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
-import { resolveBorderWidth } from '../drawingml/line.js'
+import { resolveBorderDash, resolveBorderWidth } from '../drawingml/line.js'
 import { lineWidthToEmu } from '../../units-internal.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 
@@ -134,7 +134,7 @@ function genXmlTableStyleBorders(border: BorderProps | BorderProps[]): string {
 					raw(
 						el('a:ln', { w: lineWidthToEmu(resolveBorderWidth(b, 1)), cap: 'flat', cmpd: 'sng', algn: 'ctr' }, [
 							raw(genXmlColorSelection({ color: b.color ?? '666666', transparency: b.transparency })),
-							raw(voidEl('a:prstDash', { val: b.type === 'dash' ? 'sysDash' : 'solid' })),
+							raw(voidEl('a:prstDash', { val: resolveBorderDash(b) })),
 						])
 					)
 				)

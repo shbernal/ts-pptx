@@ -77,6 +77,7 @@ export type DiagnosticCode =
 	| 'image/unmeasurable-natural-size'
 	// Tables
 	| 'table/invalid-border'
+	| 'table/invalid-outer-border'
 	| 'table/invalid-horz-overflow'
 	| 'table/col-width-count-mismatch'
 	| 'table/autopage-height-too-small'
@@ -112,6 +113,7 @@ export type DiagnosticCode =
 	| 'geometry/unknown-guide-operation'
 	| 'geometry/invalid-connection-site'
 	| 'border/unknown-key'
+	| 'border/invalid-dash-type'
 	| 'object-lock/unsupported-on-shape'
 	// Media, theme, masters, notes
 	| 'media/load-failed'

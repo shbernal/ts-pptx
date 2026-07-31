@@ -15,6 +15,21 @@ export interface BorderProps {
 	 */
 	type?: 'none' | 'dash' | 'solid'
 	/**
+	 * Dash pattern, using the same vocabulary as {@link ShapeLineProps.dashType}.
+	 *
+	 * `type` is only a coarse three-way switch, so every dashed border it can express
+	 * collapses onto `sysDash`. Set this to pick the exact `a:prstDash` preset instead:
+	 * `dashType: 'lgDashDot'` emits `<a:prstDash val="lgDashDot"/>`.
+	 *
+	 * **Precedence.** When both are set, `dashType` wins over `type` for the dash pattern —
+	 * `{ type: 'solid', dashType: 'sysDot' }` draws a dotted rule. The one exception is
+	 * `type: 'none'`, which suppresses the border entirely and is decided before any dash
+	 * pattern is chosen. An unrecognized value warns and falls back to what `type` implies.
+	 * @default (derived from `type`: `sysDash` for `'dash'`, else `solid`)
+	 * @example { type: 'solid', color: '999999', dashType: 'lgDash' }
+	 */
+	dashType?: ShapeLineProps['dashType']
+	/**
 	 * Border color (hex)
 	 * @example 'FF3399'
 	 * @default '666666'
@@ -171,10 +186,22 @@ export interface ShapeLineProps extends ShapeFillProps {
 	 */
 	width?: number
 	/**
-	 * Dash type
+	 * Dash type — the full `ST_PresetLineDashVal` set, so any dash a source deck can
+	 * carry can also be authored and replicated.
 	 * @default 'solid'
 	 */
-	dashType?: 'solid' | 'dash' | 'dashDot' | 'lgDash' | 'lgDashDot' | 'lgDashDotDot' | 'sysDash' | 'sysDot'
+	dashType?:
+		| 'solid'
+		| 'dot'
+		| 'dash'
+		| 'lgDash'
+		| 'dashDot'
+		| 'lgDashDot'
+		| 'lgDashDotDot'
+		| 'sysDash'
+		| 'sysDot'
+		| 'sysDashDot'
+		| 'sysDashDotDot'
 	/**
 	 * Line end cap style
 	 * @default 'flat'

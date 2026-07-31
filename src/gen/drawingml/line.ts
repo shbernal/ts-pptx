@@ -13,7 +13,53 @@ import { warnOnce } from '../../diagnostics.js'
 import { voidEl } from '../oxml/el.js'
 
 /** Every key `BorderProps` defines. Keep in step with the interface in `types/style.ts`. */
-const BORDER_KEYS: readonly string[] = ['type', 'color', 'width', 'transparency', 'cap']
+const BORDER_KEYS: readonly string[] = ['type', 'dashType', 'color', 'width', 'transparency', 'cap']
+
+/**
+ * The `ST_PresetLineDashVal` tokens `BorderProps.dashType` accepts — the same set
+ * `ShapeLineProps.dashType` does, so a caller who knows one knows the other.
+ */
+const BORDER_DASH_VALUES: readonly string[] = [
+	'solid',
+	'dot',
+	'dash',
+	'lgDash',
+	'dashDot',
+	'lgDashDot',
+	'lgDashDotDot',
+	'sysDash',
+	'sysDot',
+	'sysDashDot',
+	'sysDashDotDot',
+]
+
+/**
+ * Resolve the `a:prstDash/@val` a border should emit.
+ *
+ * `BorderProps.type` is a three-way switch, so on its own it can only say "dashed" and
+ * every dashed border collapses onto `sysDash`. `dashType` names the preset directly and
+ * therefore wins when both are given; `type: 'none'` never reaches here, being decided by
+ * the caller before any dash is chosen.
+ *
+ * A value outside `ST_PresetLineDashVal` would make the part schema-invalid, which
+ * PowerPoint reports as a corrupt file rather than a mis-set option — so an unrecognized
+ * one is reported and dropped back to what `type` implies.
+ * @param {BorderProps} border - the caller's border properties
+ * @returns {string} a value legal for `a:prstDash/@val`
+ */
+export function resolveBorderDash(border: BorderProps): string {
+	const fromType = border.type === 'dash' ? 'sysDash' : 'solid'
+	const dash = border.dashType
+	if (dash === undefined || dash === null) return fromType
+	if (BORDER_DASH_VALUES.includes(dash)) return dash
+	warnOnce(
+		'border/invalid-dash-type',
+		`border: dashType \`${String(dash)}\` is not a valid value and is ignored — ` +
+			`use one of ${BORDER_DASH_VALUES.join(', ')}.`,
+		{ received: dash, valid: BORDER_DASH_VALUES }
+	)
+	return fromType
+}
 
 /**
  * Report an authored key that is not part of `BorderProps`, which the library would

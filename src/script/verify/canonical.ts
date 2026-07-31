@@ -113,6 +113,7 @@ export interface CanonicalDeck {
  *   when no `a:alpha` transform is present.
  * - `indentLevel` — `a:p/@lvl` defaults to `0`.
  * - `dashType` — `a:ln`'s dash defaults to `solid` when no `a:prstDash` is present.
+ * - `textDirection` — `a:bodyPr/@vert` and `a:tcPr/@vert` both default to `horz`.
  *
  * Line width is deliberately **absent**: `a:ln/@w` defaults to 0 (hairline) while the write
  * path defaults it to 1pt, so those two are not the same line and the difference is real.
@@ -129,6 +130,7 @@ const IMPLIED_DEFAULTS: Record<string, IrValue> = {
 	transparency: 0,
 	indentLevel: 0,
 	dashType: 'solid',
+	textDirection: 'horz',
 }
 
 /**

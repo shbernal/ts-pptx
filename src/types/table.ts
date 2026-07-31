@@ -326,11 +326,41 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 */
 	autoPagePlaceholder?: boolean
 	/**
-	 * Table border
-	 * - single value is applied to all 4 sides
-	 * - array of values in TRBL order for individual sides
+	 * Default border for **every cell** in the table — not the table's outer perimeter.
+	 *
+	 * A single `BorderProps` is broadcast to all four sides of each cell; an array is read
+	 * in TRBL order and applied to each cell's own four sides. So
+	 * `border: [{type:'solid'}, {type:'none'}, {type:'solid'}, {type:'none'}]` gives *every*
+	 * cell a top and bottom rule — a full set of horizontal grid lines, not a rule at the
+	 * top and bottom of the table. A cell's own `options.border` overrides this entirely.
+	 *
+	 * For the perimeter, use {@link outerBorder}, which applies only to the cells on the
+	 * table's outside edge. The two compose: `border` draws the interior grid and
+	 * `outerBorder` overrides the edges it reaches.
+	 * @example border: { type:'solid', color:'D9D9D9', width:0.5 } // full grid
+	 * @example border: [{type:'solid'}, {type:'none'}, {type:'solid'}, {type:'none'}] // horizontal rules only
 	 */
 	border?: BorderProps | [BorderProps, BorderProps, BorderProps, BorderProps]
+	/**
+	 * Border for the table's outer perimeter only — the top edge of the first row, the
+	 * bottom edge of the last row, the left edge of the first column and the right edge of
+	 * the last column.
+	 *
+	 * A single `BorderProps` is used for all four perimeter sides; an array is read in TRBL
+	 * order, so `outerBorder: [box, box, box, box]` boxes the table and
+	 * `outerBorder: [rule, undefined, rule, undefined]` rules only above and below it.
+	 * An `undefined`/omitted entry leaves that side to whatever {@link border} (or the cell's
+	 * own `options.border`) already put there.
+	 *
+	 * Applied **after** every other border source, so it wins on the sides it touches and
+	 * leaves the interior alone — the "outline the table, no interior grid" case is
+	 * `outerBorder` with no `border` at all. Merged cells are handled: a span's covered cells
+	 * inherit the origin's borders, so a colspan straddling the last column still gets the
+	 * right-hand rule.
+	 * @example outerBorder: { type:'solid', color:'1A2B3C', width:1 } // box the table
+	 * @example outerBorder: [{type:'solid'}, undefined, {type:'solid'}, undefined] // rules above and below
+	 */
+	outerBorder?: BorderProps | [BorderProps?, BorderProps?, BorderProps?, BorderProps?]
 	/**
 	 * Width of table columns (inches)
 	 * - single value is applied to every column equally based upon `w`

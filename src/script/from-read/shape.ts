@@ -61,16 +61,19 @@ const SHAPE_PICTURE_FILL: PictureFillSubject = {
 /** Arrowhead types `ShapeLineProps` accepts; `a:headEnd/@type` uses the same tokens. */
 const WRITABLE_ARROWS = new Set(['none', 'arrow', 'diamond', 'oval', 'stealth', 'triangle'])
 
-/** Dash tokens `ShapeLineProps.dashType` accepts. */
+/** Dash tokens `ShapeLineProps.dashType` accepts — the whole `ST_PresetLineDashVal` set. */
 const WRITABLE_DASHES = new Set([
 	'solid',
+	'dot',
 	'dash',
-	'dashDot',
 	'lgDash',
+	'dashDot',
 	'lgDashDot',
 	'lgDashDotDot',
 	'sysDash',
 	'sysDot',
+	'sysDashDot',
+	'sysDashDotDot',
 ])
 
 /**

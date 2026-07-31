@@ -8,7 +8,7 @@
 
 import { SlideObjectType } from '../../../enums.js'
 import { DEF_CELL_MARGIN_IN } from '../../../constants-internal.js'
-import type { ObjectOptions, TableCell, TableCellProps } from '../../../types/index.js'
+import type { BorderProps, ObjectOptions, TableCell, TableCellProps } from '../../../types/index.js'
 import type { SlideObject } from '../../../types/internal.js'
 import { warnOnce } from '../../../diagnostics.js'
 import { genXmlColorSelection } from '../../drawingml/fill.js'
@@ -53,6 +53,55 @@ function resolveHorzOverflow(value: TableCellProps['horzOverflow']): string | nu
 		{ received: value, valid: HORZ_OVERFLOW_VALUES }
 	)
 	return null
+}
+
+/** A cell's grid position, for deciding which of the table's outer edges it sits on. */
+interface GridEdge {
+	rIdx: number
+	cIdx: number
+	lastRow: number
+	lastCol: number
+}
+
+/**
+ * Overlay `TableProps.outerBorder` onto one cell's own 4-side border tuple.
+ *
+ * The perimeter is decided per **grid position**, not per authored cell, which is what makes
+ * merges work: a colspan's origin sits at the left of its span and its covered `_hmerge`
+ * cells sit to the right, so a span straddling the last column gets that column's rule on the
+ * covered cell — exactly where PowerPoint defines a merged region's outer edge. A cell in the
+ * table's interior touches no edge and comes back untouched.
+ *
+ * Returns the input array (not a copy) when nothing applies, so the common no-perimeter path
+ * allocates nothing and stays byte-identical. Never mutates: `arrTabRows` holds the caller's
+ * own cell objects and repeated `write()` calls must not accumulate borders.
+ *
+ * @param base - the cell's resolved `[top, right, bottom, left]` borders, or `null` when it has none
+ * @param outer - the normalized perimeter tuple, `undefined` for a side the caller left out
+ * @param at - where this cell sits in the merge grid
+ * @returns the borders to emit, or `null` when there are none and the perimeter adds none
+ */
+function applyOuterBorder(
+	base: BorderProps[] | null,
+	outer: ReadonlyArray<BorderProps | undefined> | undefined,
+	at: GridEdge
+): BorderProps[] | null {
+	if (!outer) return base
+	// TRBL, matching the public tuple order.
+	const onEdge = [at.rIdx === 0, at.cIdx === at.lastCol, at.rIdx === at.lastRow, at.cIdx === 0]
+	const applies = ([0, 1, 2, 3] as const).filter((idx) => onEdge[idx] && outer[idx])
+	if (applies.length === 0) return base
+	// A cell with no borders of its own still needs the other three sides spelled out, since
+	// `genTableCellBorderXml` reads a dense tuple; `{type:'none'}` is what the definition step
+	// already puts on an unstyled cell, so this matches rather than invents.
+	const merged: BorderProps[] = base
+		? [...base]
+		: [{ type: 'none' }, { type: 'none' }, { type: 'none' }, { type: 'none' }]
+	for (const idx of applies) {
+		const side = outer[idx]
+		if (side) merged[idx] = side
+	}
+	return merged
 }
 
 /**
@@ -164,6 +213,15 @@ export function renderTableObject(
 		tblInner = tblPr
 	}
 
+	// `addTableDefinition` normalizes `outerBorder` to a TRBL tuple, but a table object built by
+	// hand (or replayed from an older serialized form) can still carry the single-`BorderProps`
+	// form, so broadcast that here rather than silently dropping the perimeter.
+	const outerBorder: ReadonlyArray<BorderProps | undefined> | undefined = !objTabOpts.outerBorder
+		? undefined
+		: Array.isArray(objTabOpts.outerBorder)
+			? objTabOpts.outerBorder
+			: [objTabOpts.outerBorder, objTabOpts.outerBorder, objTabOpts.outerBorder, objTabOpts.outerBorder]
+
 	// STEP 2: Set column widths
 	// Per-column inches from an explicit `colW` array, else split the table's
 	// resolved EMU width (`cx`) evenly. `resolveTableColWidthsEmu` is the single
@@ -256,8 +314,11 @@ export function renderTableObject(
 		const rowCells: string[] = []
 
 		// C: Loop over each CELL
-		cells.forEach((cellObj) => {
+		cells.forEach((cellObj, cIdx) => {
 			const cell: TableCell = cellObj
+			// The grid is rectangular by now (STEP 3 filled every span with a dummy cell), so a
+			// cell's index in its row *is* its grid column and the perimeter can be decided here.
+			const at: GridEdge = { rIdx, cIdx, lastRow: arrTabRows.length - 1, lastCol: cells.length - 1 }
 
 			// NOTE: attribute ORDER is byte-significant; `undefined` omits the attribute entirely,
 			// which is what the old `.filter(([, v]) => !!v)` did.
@@ -274,11 +335,17 @@ export function renderTableObject(
 			// emitting an empty `<a:tcPr/>` that drops those edges.
 			if (cell._hmerge || cell._vmerge) {
 				const origin = cell._spanOrigin
+				const originOpts = origin?.options || {}
 				let spanPrXml = ''
+				// Outside the `origin` guard below: a covered cell on the table's edge carries that
+				// edge's rule whether or not its origin was resolvable.
+				const originBorder = applyOuterBorder(
+					Array.isArray(originOpts.border) ? originOpts.border : null,
+					outerBorder,
+					at
+				)
+				if (originBorder) spanPrXml += genTableCellBorderXml(originBorder)
 				if (origin) {
-					const originOpts = origin.options || {}
-					const originBorder = Array.isArray(originOpts.border) ? originOpts.border : null
-					if (originBorder) spanPrXml += genTableCellBorderXml(originBorder)
 					// Resolve the origin's fill with the same precedence the origin cell itself uses below,
 					// so the whole merged region fills uniformly. This is the origin's fill *object*, so
 					// an image fill arrives with its `_imgRid` already stashed and the covered cell emits
@@ -374,7 +441,7 @@ export function renderTableObject(
 
 			// 4: Set CELL content and properties; 5: borders; 6: fill ==============
 			// The trailing indentation before `</a:tcPr>` and `</a:tc>` is byte-significant.
-			const cellBorder = Array.isArray(cellOpts.border) ? cellOpts.border : null
+			const cellBorder = applyOuterBorder(Array.isArray(cellOpts.border) ? cellOpts.border : null, outerBorder, at)
 			rowCells.push(
 				el(
 					'a:tc',

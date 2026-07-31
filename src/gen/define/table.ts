@@ -33,6 +33,7 @@ import { registerImageFillMedia } from './image.js'
 import { InvalidOptionError } from '../../errors.js'
 
 type BorderTuple = [BorderProps, BorderProps, BorderProps, BorderProps]
+type OuterBorderTuple = [BorderProps?, BorderProps?, BorderProps?, BorderProps?]
 
 /**
  * Expand a cell/table border into the 4-side tuple the rest of the pipeline expects.
@@ -43,6 +44,36 @@ type BorderTuple = [BorderProps, BorderProps, BorderProps, BorderProps]
  */
 function normalizeBorderTuple(border: BorderProps | BorderTuple): BorderTuple {
 	return Array.isArray(border) ? border : [border, border, border, border]
+}
+
+/** Fill a border's defaulted keys, preserving anything else the caller set (`cap`, `dashType`, …). */
+function withBorderDefaults(side: BorderProps): BorderProps {
+	return {
+		...side,
+		type: side.type || DEF_CELL_BORDER.type,
+		color: side.color || DEF_CELL_BORDER.color,
+		width: typeof side.width === 'number' ? side.width : DEF_CELL_BORDER.width,
+	}
+}
+
+/**
+ * Resolve `TableProps.outerBorder` into the `[top, right, bottom, left]` tuple the emitter
+ * applies to the table's edge cells, with `undefined` for a side the caller left out.
+ *
+ * A sparse side is *not* the same as `{ type: 'none' }`: it means "leave this edge to
+ * whatever `border` (or the cell's own `options.border`) already drew", whereas `'none'` is
+ * an explicit instruction to erase the rule there. Keeping the hole is what lets
+ * `outerBorder: [rule, undefined, rule, undefined]` add rules above and below a table
+ * without also clearing its left and right edges.
+ */
+function normalizeOuterBorder(outer: TableProps['outerBorder']): OuterBorderTuple | undefined {
+	if (!outer || typeof outer !== 'object') return undefined
+	const sides: OuterBorderTuple = Array.isArray(outer) ? outer : [outer, outer, outer, outer]
+	const resolved = ([0, 1, 2, 3] as const).map((idx) => {
+		const side = sides[idx]
+		return side && typeof side === 'object' ? withBorderDefaults(side) : undefined
+	}) as OuterBorderTuple
+	return resolved.some((side) => side !== undefined) ? resolved : undefined
 }
 
 /**
@@ -141,17 +172,14 @@ function normalizeTableRows(srcRows: TableRow[], opt: TableProps): TableCell[][]
 				const arrSides = [0, 1, 2, 3] as const
 				arrSides.forEach((idx) => {
 					const side = cellBorderTuple[idx]
-					// Spread first, override only the defaulted keys. Rebuilding the side from a
-					// fixed key list dropped `cap` — public on `BorderProps` and already read by
-					// `genTableCellBorderXml`, so every table border emitted cap="flat" whatever
-					// the caller asked for. The spread also gives each side its own object, which
-					// the single-BorderProps form (one object shared across all four) relies on.
-					cellBorderTuple[idx] = {
-						...side,
-						type: side.type || DEF_CELL_BORDER.type,
-						color: side.color || DEF_CELL_BORDER.color,
-						width: typeof side.width === 'number' ? side.width : DEF_CELL_BORDER.width,
-					}
+					// `withBorderDefaults` spreads first and overrides only the defaulted keys.
+					// Rebuilding the side from a fixed key list dropped `cap` — public on
+					// `BorderProps` and already read by `genTableCellBorderXml`, so every table
+					// border emitted cap="flat" whatever the caller asked for (and `dashType`
+					// would go the same way). The spread also gives each side its own object,
+					// which the single-BorderProps form (one object shared across all four)
+					// relies on.
+					cellBorderTuple[idx] = withBorderDefaults(side)
 				})
 				newCellOptions.border = cellBorderTuple
 
@@ -306,16 +334,21 @@ export function addTableDefinition(
 	} else if (Array.isArray(opt.border)) {
 		const border = opt.border
 		;([0, 1, 2, 3] as const).forEach((idx) => {
-			border[idx] = border[idx]
-				? {
-						...border[idx],
-						type: border[idx].type || DEF_CELL_BORDER.type,
-						color: border[idx].color || DEF_CELL_BORDER.color,
-						width: border[idx].width || DEF_CELL_BORDER.width,
-					}
-				: { type: 'none' }
+			const side = border[idx]
+			border[idx] = side ? withBorderDefaults(side) : { type: 'none' }
 		})
 	}
+	if (typeof opt.outerBorder === 'string') {
+		warn(
+			'table/invalid-outer-border',
+			"addTable `outerBorder` option must be an object. Ex: `{outerBorder: {type:'solid'}}`"
+		)
+		opt.outerBorder = undefined
+	}
+	// The perimeter is resolved here but applied at emit time: which cells sit on the table's
+	// outer edge is only knowable once the merge grid exists, and the serializer is what builds
+	// it — a colspan reaching the last column puts that column's rule on a *covered* cell.
+	opt.outerBorder = normalizeOuterBorder(opt.outerBorder)
 
 	opt.autoPage = typeof opt.autoPage === 'boolean' ? opt.autoPage : false
 	opt.autoPagePlaceholder = typeof opt.autoPagePlaceholder === 'boolean' ? opt.autoPagePlaceholder : false

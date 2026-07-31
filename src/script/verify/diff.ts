@@ -255,13 +255,17 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	// whose type or timing came back wrong — the loss it declares is exactly the missing
 	// `p:sndAc`, and `data`/`$asset` cover the case where the sound survives with other bytes.
 	'slide.transitionSound': ['sound', 'data', '$asset'],
-	'table.cell.borders.diagonal': ['border'],
+	// A dash outside `ST_PresetLineDashVal` cannot be written back, so the edge comes out as
+	// a plain dashed rule. Scoped to `border`, which is where that difference lands.
+	'table.cell.borders.dash': ['border'],
 	'table.cell.fill': ['fill'],
 	// The cell-side twins of `fill.picture` / `fill.picture.geometry`, and mapped for the
 	// same reasons.
 	'table.cell.fill.picture': ['fill'],
 	'table.cell.fill.picture.geometry': [],
-	'table.cell.vert': ['vert'],
+	// Narrowed to the East-Asian `ST_TextVerticalType` modes `textDirection` cannot spell —
+	// the four it can now round-trip, so this no longer excuses every vertical cell.
+	'table.cell.vert': ['textDirection', 'vert'],
 	'table.rowAuto': ['rowH'],
 	'table.style': ['tableStyle'],
 	'text.align': ['align'],

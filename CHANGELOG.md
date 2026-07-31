@@ -32,6 +32,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`BorderProps.dashType`** — the exact `a:prstDash` preset for a border, using the
+  same vocabulary as `ShapeLineProps.dashType`. `BorderProps.type` is only a coarse
+  three-way switch, so every dashed border it can express — dotted, long-dash,
+  dash-dot — collapsed onto the single `sysDash` preset on write *and* on read-back.
+  A deck whose table borders are `dot` or `lgDashDot` could not be authored or
+  replicated. `dashType` names the preset directly and wins over `type` when both are
+  set; `type: 'none'` still suppresses the border before any dash is chosen. Honored
+  by table cell borders and by custom table-style regions (`defineTableStyle`).
+
+  `ShapeLineProps.dashType` (and therefore `BorderProps.dashType` and
+  `ConnectorProps.dashType`) now spans the **whole** `ST_PresetLineDashVal` set: the
+  three values it was missing — `dot`, `sysDashDot`, `sysDashDotDot` — are accepted.
+  This is a widening, so no existing value changes meaning. `pptx-to-script` maps a
+  read dash straight through instead of flattening it, and a dash outside the enum is
+  recorded as `table.cell.borders.dash` rather than silently approximated.
+
+  An unrecognized `dashType` is reported as the new **`border/invalid-dash-type`**
+  diagnostic and falls back to what `type` implies, rather than being written — a
+  value outside `ST_PresetLineDashVal` would make the part schema-invalid, which
+  PowerPoint reports as a corrupt file.
+
+- **`TableProps.outerBorder`** — a border for the table's **perimeter** only: the top
+  edge of the first row, the bottom edge of the last row, the left edge of the first
+  column and the right edge of the last column. A single `BorderProps` boxes the
+  table; a TRBL array with holes rules only the sides it names, leaving the others to
+  whatever `border` already drew. Applied after every other border source, so
+  "outline the table, no interior grid" is `outerBorder` with no `border` at all.
+
+  The perimeter is decided by **grid position**, not by authored cell, so merges
+  work: PowerPoint defines a merged region's outer edges on the *covered* cells, and
+  a colspan reaching the last column gets that column's rule on its `hMerge` dummy.
+  Leaving the option unset emits nothing — existing decks are byte-identical.
+
+- **Vertical table cell text now survives `pptx-to-script`.** `TableCellProps`
+  inherits `textDirection` from `TextBaseProps` and the emitter has always written it
+  to `a:tcPr/@vert`, but the replication mapper recorded the attribute as unwritable
+  and dropped it, so a replicated deck lost every vertical cell label for no reason.
+  The four directions the option spells (`horz`/`vert`/`vert270`/`wordArtVert`) now
+  round-trip; the `table.cell.vert` note is narrowed to the East-Asian
+  `ST_TextVerticalType` modes that genuinely have no spelling.
+
 - **`TableCellProps.horzOverflow`** (`'clip' | 'overflow'`) — controls what a table
   cell does with a **single glyph** wider than its text width, emitted as
   `a:tcPr/@horzOverflow`. `'clip'` (PowerPoint's default) cuts the glyph at the cell
@@ -74,6 +115,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   key list during normalization, so an unknown key on it (and `cap` with it) is
   stripped before generation and cannot be reported. Emitted bytes are unchanged
   in every case — this only adds a report where a value was already being lost.
+
+### Changed
+
+- **`TableProps.border` is documented as what it is: a per-cell default, not the
+  table's perimeter.** The old wording ("single value applied to all 4 sides / array
+  in TRBL for individual sides") read like the outside of the table. It never was:
+  `normalizeTableRows` broadcasts it to *every* cell, so
+  `border: [solid, none, solid, none]` gives each cell a top and bottom rule — a full
+  set of horizontal grid lines — rather than a rule above and below the table.
+  Nothing about the behaviour changed; the doc now says so plainly and points at the
+  new `TableProps.outerBorder` for the perimeter case.
+
+- **A table-level `border` side with `width: 0` is now emitted as the hairline it
+  asks for**, instead of being replaced by the 1pt default. Per-*cell* borders
+  already treated `0` as a real width; only the table-level path used a truthiness
+  test, so the two disagreed for exactly one value. Both now share one helper. A
+  border that sets no `width` at all is unaffected.
 
 ## [1.0.0] - 2026-07-29
 

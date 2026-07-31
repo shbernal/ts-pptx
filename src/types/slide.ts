@@ -84,6 +84,12 @@ export interface ObjectOptions extends ImageBaseProps, PositionProps, ShapeProps
 	hasLastColumn?: boolean // table
 	rtl?: boolean // table
 	tableStyle?: TableStyle | string // table
+	/**
+	 * Table perimeter border. `addTableDefinition` normalizes it to a 4-tuple (TRBL, sides
+	 * left unset as `undefined`) before it reaches the emitter, so the serializer never has
+	 * to re-handle the single-`BorderProps` form.
+	 */
+	outerBorder?: TableProps['outerBorder'] // table
 }
 export interface SlideLayout {
 	background?: BackgroundProps

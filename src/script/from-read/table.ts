@@ -15,7 +15,7 @@
  * are deliberately *not* baked into each cell here: doing so would freeze the appearance
  * and stop the table responding to its own style.
  */
-import type { Table, TableCell } from '../../read/api/table.js'
+import type { CellBorder, Table, TableCell } from '../../read/api/table.js'
 import type { GraphicFrame } from '../../read/api/shapes.js'
 import type { NoteScope } from '../fidelity.js'
 import type { CallIr, IrValue } from '../ir.js'
@@ -110,19 +110,14 @@ function cellIr(cell: TableCell, hasStyle: boolean, notes: NoteScope, assets: As
 	const anchor = cell.anchor
 	const margins = cell.marginsEmu
 
-	if (cell.verticalText !== null) {
-		notes.note(
-			'table.cell.vert',
-			'dropped',
-			'unwritable',
-			'a vertically-written table cell (a:tcPr/@vert) has no write-API option, so its text lands horizontal'
-		)
-	}
-
 	const options = compact({
 		fill: cellFill(cell, hasStyle, notes, assets),
 		border: cellBorders(cell, notes),
 		valign: anchor === null ? undefined : ANCHOR[anchor],
+		// `textDirection` reaches `a:tcPr/@vert` through the same table-cell inheritance list every
+		// other cell option uses, so a vertical label survives the round trip. Anything outside the
+		// option's own union would be written back out verbatim as an invalid attribute.
+		textDirection: cellTextDirection(cell, notes),
 		// Only the two values the write option accepts survive; anything else in the source
 		// deck would be written straight back out as an invalid attribute.
 		horzOverflow: cell.horzOverflow === 'clip' || cell.horzOverflow === 'overflow' ? cell.horzOverflow : undefined,
@@ -138,6 +133,30 @@ function cellIr(cell: TableCell, hasStyle: boolean, notes: NoteScope, assets: As
 	})
 
 	return compact({ text: frame ? textRuns(frame, notes) : cell.text, options }) ?? { text: '' }
+}
+
+/** The `ST_TextVerticalType` values `TextBaseProps.textDirection` accepts. */
+const WRITABLE_TEXT_DIRECTIONS = new Set(['horz', 'vert', 'vert270', 'wordArtVert'])
+
+/**
+ * A cell's `a:tcPr/@vert` as the write API's `textDirection`.
+ *
+ * `ST_TextVerticalType` has nine values and the write option covers four. The rest
+ * (`eaVert`, `mongolianVert`, the WordArt right-to-left variants) are East-Asian layout
+ * modes with no `TextBaseProps` spelling, so they are noted rather than written — passing
+ * one straight through would put a value the option does not admit into the attribute.
+ */
+function cellTextDirection(cell: TableCell, notes: NoteScope): IrValue | undefined {
+	const vert = cell.verticalText
+	if (vert === null || vert === 'horz') return undefined
+	if (WRITABLE_TEXT_DIRECTIONS.has(vert)) return vert
+	notes.note(
+		'table.cell.vert',
+		'dropped',
+		'unwritable',
+		`this cell's a:tcPr/@vert is \`${vert}\`, which textDirection does not spell (it covers horz/vert/vert270/wordArtVert), so its text lands horizontal`
+	)
+	return undefined
 }
 
 /**
@@ -182,37 +201,63 @@ function cellFill(cell: TableCell, hasStyle: boolean, notes: NoteScope, assets: 
 /**
  * The four edge borders as the write API's `[top, right, bottom, left]` tuple.
  *
- * The read model decodes six edges; the two diagonals have no write-API counterpart. A
- * suppressed edge (`a:noFill`) becomes `type: 'none'`, which is distinct from an absent
- * one — the first means "deliberately no rule here", the second means "inherit".
+ * A suppressed edge (`a:noFill`) becomes `type: 'none'`, which is distinct from an absent
+ * one — the first means "deliberately no rule here", the second means "inherit". The two
+ * diagonals the read model also decodes are carried separately, by {@link cellDiagonals}.
  */
 function cellBorders(cell: TableCell, notes: NoteScope): IrValue | undefined {
 	const borders = cell.borders
 	if (!borders) return undefined
 
-	if (borders.tlToBr || borders.blToTr) {
-		notes.note(
-			'table.cell.borders.diagonal',
-			'dropped',
-			'unwritable',
-			'diagonal cell borders (a:lnTlToBr / a:lnBlToTr) have no write-API option; the four edges carry'
-		)
-	}
-
 	const edges = [borders.top, borders.right, borders.bottom, borders.left]
 	if (edges.every((edge) => edge === null)) return undefined
 
-	return edges.map((edge) => {
-		if (!edge) return {}
-		if (edge.noFill) return { type: 'none' }
-		return (
-			compact({
-				// `BorderProps.type` admits only solid/dash/none, so every dash variant the read
-				// model reports collapses onto `dash`.
-				type: edge.dash === null || edge.dash === 'solid' ? 'solid' : 'dash',
-				color: edge.schemeColor ?? (edge.color === null ? undefined : literalColor(edge.color)),
-				width: orUndefined(edge.widthPt),
-			}) ?? {}
+	return edges.map((edge) => borderIr(edge, notes))
+}
+
+/** The `ST_PresetLineDashVal` tokens `BorderProps.dashType` accepts. */
+const WRITABLE_DASHES = new Set([
+	'solid',
+	'dot',
+	'dash',
+	'lgDash',
+	'dashDot',
+	'lgDashDot',
+	'lgDashDotDot',
+	'sysDash',
+	'sysDot',
+	'sysDashDot',
+	'sysDashDotDot',
+])
+
+/**
+ * One decoded edge (or diagonal) as `BorderProps`.
+ *
+ * `type` stays the coarse on/off switch and `dashType` carries the exact preset, so a
+ * `lgDashDot` rule comes back as itself rather than as the generic `sysDash` every dash
+ * used to collapse onto. A dash outside `ST_PresetLineDashVal` cannot have come from a
+ * conformant deck, so it is dropped to a plain dashed rule and noted.
+ */
+function borderIr(edge: CellBorder | null, notes: NoteScope): IrValue {
+	if (!edge) return {}
+	if (edge.noFill) return { type: 'none' }
+	const dash = edge.dash
+	const known = dash === null || WRITABLE_DASHES.has(dash)
+	if (!known) {
+		notes.note(
+			'table.cell.borders.dash',
+			'approximated',
+			'unsupported',
+			`a cell border's a:prstDash/@val is \`${dash}\`, which is outside ST_PresetLineDashVal; it is written as a plain dashed rule`
 		)
-	})
+	}
+	return (
+		compact({
+			type: dash === null || dash === 'solid' ? 'solid' : 'dash',
+			// `solid` is what an absent/solid dash already implies, so emitting it would be noise.
+			dashType: known && dash !== null && dash !== 'solid' ? dash : undefined,
+			color: edge.schemeColor ?? (edge.color === null ? undefined : literalColor(edge.color)),
+			width: orUndefined(edge.widthPt),
+		}) ?? {}
+	)
 }
