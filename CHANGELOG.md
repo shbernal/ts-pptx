@@ -32,6 +32,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Table editing on `ts-pptx/read`.** The read proxies were read-plus-text-edit only:
+  `TableCell.text` was the sole setter, and every other change needed the `element_`
+  escape hatch plus a manual `markDirty()`.
+
+  Cell properties: `setAnchor`, `setVerticalText`, `setHorzOverflow`, `setAnchorCtr`,
+  `setMarginsEmu`, `setBorder(edge, …)` (the four edges and both diagonals),
+  `setFillColor`, `setFillSchemeColor`, and `noFill()`. Structure on `Table`:
+  `addRow`, `removeRow`, `addColumn`, `removeColumn`, `mergeCells`, `unmergeCell`.
+  Each mutates in place and marks the part dirty, matching the `text` setter.
+
+  Every insertion respects the `CT_TableCellProperties` **sequence**. That is the
+  whole hazard: an append-only setter produces an out-of-order `a:tcPr`, which
+  PowerPoint reports as a corrupt file rather than as a bad edit, and which no getter
+  would notice. A schema-validation case now authors a deck, edits it through these
+  setters, saves it, and validates the result — the only shape of test that catches it.
+
+  Structural edits keep the grid rectangular and every merge's continuations in step.
+  Inserting a row or column *through* a merge extends it rather than splitting it;
+  removing a merge origin promotes its first continuation, so the region survives one
+  row shorter; removing a column inside a merge drops a covered cell rather than the
+  origin, so the region keeps its content. `mergeCells` **rejects** a rectangle that
+  cuts through an existing merge instead of silently widening it to fit.
+
+  Unlike the write path, an invalid value here **throws** rather than warning and
+  dropping — new codes `table/invalid-cell-anchor`, `table/invalid-cell-vert`,
+  `table/invalid-cell-overflow`, `table/invalid-cell-margin`,
+  `table/invalid-cell-border`, `table/row-index-out-of-range`,
+  `table/column-index-out-of-range`, `table/merge-range-invalid`. On the write path a
+  bad option comes from a deck being built, and dropping one value beats failing the
+  build; here it comes from a caller editing one attribute, and doing nothing silently
+  would leave them looking at an unchanged deck with nothing to explain it.
+
 - **`TableProps.tableFill`** — the table's own background, written as a real `a:tblPr`
   fill that the cells sit on top of. The existing `TableProps.fill` is *stamped onto
   every cell* instead, so nothing ever reached `a:tblPr`. The two usually render alike,

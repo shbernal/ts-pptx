@@ -203,6 +203,18 @@ export type InvalidOptionErrorCode =
 	// Tables
 	| 'table/rows-not-an-array'
 	| 'table/rows-not-nested'
+	// Editing a table in an existing deck (`ts-pptx/read`). Each names an attribute value
+	// outside its schema enum, or a measurement that cannot be written — conditions the read
+	// path throws on rather than drops, because a caller editing one attribute would
+	// otherwise be left looking at an unchanged deck with nothing to explain it.
+	| 'table/invalid-cell-anchor'
+	| 'table/invalid-cell-vert'
+	| 'table/invalid-cell-overflow'
+	| 'table/invalid-cell-margin'
+	| 'table/invalid-cell-border'
+	| 'table/row-index-out-of-range'
+	| 'table/column-index-out-of-range'
+	| 'table/merge-range-invalid'
 	// Hyperlinks
 	| 'hyperlink/not-an-object'
 	| 'hyperlink/missing-target'

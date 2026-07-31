@@ -9,8 +9,34 @@
 import type { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
 import type { Relationships } from '../opc/relationships.js'
-import { attr, firstChild, getElements, intValue, type Element } from '../oxml/dom.js'
-import { FILL_CHOICES } from '../oxml/fill.js'
+import {
+	attr,
+	createElement,
+	firstChild,
+	getElements,
+	getOrAddChild,
+	intValue,
+	ownerDocumentOf,
+	removeAttr,
+	removeChildrenByQName,
+	setAttr,
+	type Element,
+} from '../oxml/dom.js'
+import { FILL_CHOICES, normalizeHex, setSolidFill } from '../oxml/fill.js'
+import {
+	ANCHOR_VALUES,
+	checkEnum,
+	checkFiniteEmu,
+	EDGE_QNAMES,
+	HORZ_OVERFLOW_VALUES,
+	insertTcPrChild,
+	TCPR_AFTER,
+	tcPrChild,
+	VERT_VALUES,
+	type TableCellEdge,
+} from './table-edit.js'
+import { insertColumn, insertRow, mergeCells, removeColumn, removeRow, rowsOf, unmergeCell } from './table-structure.js'
+import type { InvalidOptionErrorCode } from '../../codes.js'
 import type { FlattenContext } from '../oxml/theme.js'
 import { readPictureFill, type PictureFill } from './picture-fill.js'
 import { readGradientFill, type GradientFill } from './gradient.js'
@@ -23,7 +49,28 @@ import {
 } from './table-style-resolve.js'
 import { resolveSolidFillColor, type ResolvedColor } from './theme-context.js'
 import { setTextBodyText, TextFrame } from './text.js'
-import { PackageReadError } from '../../errors.js'
+import { InvalidOptionError, PackageReadError } from '../../errors.js'
+
+/**
+ * One border as {@link TableCell.setBorder} takes it — the write-side mirror of
+ * {@link CellBorder}, which is what reading one gives back.
+ *
+ * Deliberately not `CellBorder` itself: that type reports every field, `null` included, so
+ * passing one back would make "leave this alone" unsayable. Here an omitted field is simply
+ * not written, which is what an edit usually means.
+ */
+export interface TableCellBorderEdit {
+	/** Border width in points; omitted leaves `@w` unset, which renders as a hairline. */
+	widthPt?: number | null
+	/** Dash preset (`a:prstDash/@val`, e.g. `sysDash`); omitted leaves the border solid. */
+	dash?: string
+	/** Explicit colour as 6-hex (`#` optional). Ignored when {@link schemeColor} is given. */
+	color?: string
+	/** Theme colour token (e.g. `accent1`); preferred over {@link color} when both are set. */
+	schemeColor?: string
+	/** Write an explicit `a:noFill` — a deliberately suppressed edge, not an absent one. */
+	noFill?: boolean
+}
 
 /**
  * The context a cell needs to resolve its style-graph fill: the table's resolved
@@ -263,6 +310,89 @@ export class Table {
 		return this.rows[rowIndex]?.cells[columnIndex] ?? null
 	}
 
+	/**
+	 * Insert a row, defaulting to the bottom of the table. Returns the new {@link TableRow}.
+	 *
+	 * The new row is auto-height (`a:tr/@h="0"`) and its cells are empty. Inserting *through*
+	 * a vertical merge extends that merge rather than interrupting it: the span's origin
+	 * grows by a row and the new cell joins as a continuation, because an origin claiming
+	 * more rows than it has continuations is a table PowerPoint reports as corrupt.
+	 * @param {number} [index] - where to insert, `0`..`rowCount`; appended when omitted
+	 * @throws {InvalidOptionError} when `index` is outside that range
+	 */
+	addRow(index?: number): TableRow {
+		const tr = insertRow(this.tbl, index)
+		this.part.markDirty()
+		return new TableRow(tr, this.part, this.themeColors, this.#styleContext(), rowsOf(this.tbl).indexOf(tr), this.rels)
+	}
+
+	/**
+	 * Remove the row at `index`, with its content.
+	 *
+	 * A cell in the row that *continues* a vertical merge shortens that merge. A cell that
+	 * *starts* one hands the region to its first continuation, which becomes the new origin —
+	 * the merged region survives one row shorter, and only the removed row's own text is lost.
+	 * @throws {InvalidOptionError} when `index` is out of range
+	 */
+	removeRow(index: number): void {
+		removeRow(this.tbl, index)
+		this.part.markDirty()
+	}
+
+	/**
+	 * Insert a column, defaulting to the right-hand end. Updates `a:tblGrid` **and** every
+	 * row, which is the pair that has to stay in step.
+	 *
+	 * The mirror of {@link addRow}'s merge case: inserting inside a horizontal merge widens
+	 * it instead of splitting it.
+	 * @param {number} [index] - where to insert, `0`..`columnCount`; appended when omitted
+	 * @param {number} [widthEmu] - the new column's width; defaults to 1 inch
+	 * @throws {InvalidOptionError} when `index` is outside that range
+	 */
+	addColumn(index?: number, widthEmu?: number): void {
+		insertColumn(this.tbl, index, widthEmu)
+		this.part.markDirty()
+	}
+
+	/**
+	 * Remove the column at `index`, from `a:tblGrid` and from every row.
+	 *
+	 * Inside a horizontal merge the region narrows by one and keeps its content: a covered
+	 * cell is dropped rather than the origin. Elsewhere the column's cells go with it.
+	 * @throws {InvalidOptionError} when `index` is out of range
+	 */
+	removeColumn(index: number): void {
+		removeColumn(this.tbl, index)
+		this.part.markDirty()
+	}
+
+	/**
+	 * Merge the rectangle between two cell positions into one cell. The top-left cell keeps
+	 * its content; the rest become covered cells and are emptied, since a covered cell is
+	 * never rendered.
+	 *
+	 * A rectangle that cuts through an existing merge is **rejected**, not silently widened
+	 * to fit — the caller asked for a specific region, and quietly producing a different one
+	 * is how a layout ends up wrong with nothing to point at. Unmerge first.
+	 * @throws {InvalidOptionError} when an index is out of range, the range covers one cell,
+	 *   or it partially overlaps an existing merge
+	 */
+	mergeCells(row1: number, col1: number, row2: number, col2: number): void {
+		mergeCells(this.tbl, row1, col1, row2, col2)
+		this.part.markDirty()
+	}
+
+	/**
+	 * Split the merged cell whose **origin** is `(row, col)` back into individual cells.
+	 * A no-op on a cell that is not merged; addressing a covered cell instead of the origin
+	 * throws, and the message names the origin to use.
+	 * @throws {InvalidOptionError} when an index is out of range or the cell is a covered cell
+	 */
+	unmergeCell(row: number, col: number): void {
+		unmergeCell(this.tbl, row, col)
+		this.part.markDirty()
+	}
+
 	/** Escape hatch: the underlying `a:tbl` element. After mutating it call {@link markDirty}, or `save()` writes the original bytes. */
 	get element_(): Element {
 		return this.tbl
@@ -361,6 +491,207 @@ export class TableCell {
 	/** The cell's properties element (`a:tcPr`), or `null` when the cell defines none. */
 	#tcPr(): Element | null {
 		return firstChild(this.tc, 'a:tcPr')
+	}
+
+	/**
+	 * The cell's `a:tcPr`, creating it when absent.
+	 *
+	 * `CT_TableCell` sequences `a:txBody` then `a:tcPr` then `a:extLst`, so a newly created
+	 * one is inserted before `a:extLst` — appending it blindly would put it after and make
+	 * the part invalid. Every setter below goes through here for that reason.
+	 */
+	#getOrAddTcPr(): Element {
+		return getOrAddChild(this.tc, 'a:tcPr', ['a:extLst'])
+	}
+
+	/**
+	 * Set (or clear) the cell's vertical text anchor (`a:tcPr/@anchor`).
+	 * `null` removes the attribute, leaving PowerPoint's default of top.
+	 * @throws {InvalidOptionError} when the value is outside `ST_TextAnchoringType`
+	 */
+	setAnchor(value: string | null): void {
+		this.#setTcPrAttr('anchor', value, ANCHOR_VALUES, 'table/invalid-cell-anchor')
+	}
+
+	/**
+	 * Set (or clear) the cell's text direction (`a:tcPr/@vert`), e.g. `'vert270'`.
+	 * `null` removes the attribute, leaving the default horizontal text.
+	 * @throws {InvalidOptionError} when the value is outside `ST_TextVerticalType`
+	 */
+	setVerticalText(value: string | null): void {
+		this.#setTcPrAttr('vert', value, VERT_VALUES, 'table/invalid-cell-vert')
+	}
+
+	/**
+	 * Set (or clear) `a:tcPr/@horzOverflow` — what a single glyph too wide for the cell does.
+	 * `null` removes the attribute; so does `'clip'` in effect, since it is the schema
+	 * default, but the attribute is still written as asked.
+	 * @throws {InvalidOptionError} when the value is outside `ST_TextHorzOverflowType`
+	 */
+	setHorzOverflow(value: string | null): void {
+		this.#setTcPrAttr('horzOverflow', value, HORZ_OVERFLOW_VALUES, 'table/invalid-cell-overflow')
+	}
+
+	/**
+	 * Centre the cell's text block horizontally, or stop doing so (`a:tcPr/@anchorCtr`).
+	 * `false` removes the attribute rather than writing `"0"`, since `false` is the schema
+	 * default and the two are indistinguishable to a renderer.
+	 */
+	setAnchorCtr(value: boolean): void {
+		const tcPr = this.#getOrAddTcPr()
+		if (value) setAttr(tcPr, 'anchorCtr', '1')
+		else removeAttr(tcPr, 'anchorCtr')
+		this.part.markDirty()
+	}
+
+	/**
+	 * Set the cell's text insets in EMU (`a:tcPr/@marL`/`@marR`/`@marT`/`@marB`).
+	 *
+	 * Partial: only the sides named are touched, so `{ left: 0 }` flushes the text left and
+	 * leaves the other three alone. A side given as `null` has its attribute removed, which
+	 * returns it to the schema default (91440 EMU left/right, 45720 top/bottom) — not to
+	 * zero. Pass `{}` to change nothing.
+	 * @throws {InvalidOptionError} when a value is not a finite number
+	 */
+	setMarginsEmu(margins: {
+		left?: number | null
+		right?: number | null
+		top?: number | null
+		bottom?: number | null
+	}): void {
+		const tcPr = this.#getOrAddTcPr()
+		const sides = [
+			['marL', margins.left],
+			['marR', margins.right],
+			['marT', margins.top],
+			['marB', margins.bottom],
+		] as const
+		for (const [name, value] of sides) {
+			if (value === undefined) continue
+			if (value === null) removeAttr(tcPr, name)
+			else setAttr(tcPr, name, String(checkFiniteEmu(value, name, 'table/invalid-cell-margin')))
+		}
+		this.part.markDirty()
+	}
+
+	/**
+	 * Set (or clear) one of the cell's six borders — the four edges and the two diagonals.
+	 *
+	 * `null` removes the element entirely, which is "inherit", and is a different thing from
+	 * `{ noFill: true }`, which writes an explicit no-border and suppresses whatever would
+	 * otherwise be inherited. The element is inserted at its schema position rather than
+	 * appended: `CT_TableCellProperties` is a sequence, and an out-of-order `a:tcPr` is
+	 * reported by PowerPoint as a corrupt file rather than as a bad edit.
+	 *
+	 * Colour is either `color` (6-hex, `#` optional) or `schemeColor` (a theme token); giving
+	 * both prefers the token, matching how the read side reports them.
+	 * @throws {InvalidOptionError} when the width or colour cannot be written
+	 */
+	setBorder(edge: TableCellEdge, border: TableCellBorderEdit | null): void {
+		const qname = EDGE_QNAMES[edge]
+		if (!qname) {
+			throw new InvalidOptionError(
+				'table/invalid-cell-border',
+				`Unknown table cell edge: ${JSON.stringify(edge)}. Expected one of: ${Object.keys(EDGE_QNAMES).join(', ')}.`
+			)
+		}
+		if (border === null) {
+			const tcPr = this.#tcPr()
+			if (!tcPr || !firstChild(tcPr, qname)) return
+			removeChildrenByQName(tcPr, [qname])
+			this.part.markDirty()
+			return
+		}
+
+		const tcPr = this.#getOrAddTcPr()
+		// Rebuilt rather than patched in place: a half-edited `a:ln` (say, a new colour left
+		// beside a stale `a:noFill`) is a state neither the reader nor PowerPoint expects, and
+		// the element is small enough that replacing it is simpler than reconciling it.
+		removeChildrenByQName(tcPr, [qname])
+		const doc = ownerDocumentOf(tcPr)
+		const ln = createElement(doc, qname)
+		if (border.widthPt !== undefined && border.widthPt !== null) {
+			setAttr(ln, 'w', String(checkFiniteEmu(border.widthPt * 12700, 'widthPt', 'table/invalid-cell-border')))
+		}
+		if (border.noFill) {
+			ln.appendChild(createElement(doc, 'a:noFill'))
+		} else if (border.schemeColor || border.color) {
+			const fill = createElement(doc, 'a:solidFill')
+			const scheme = border.schemeColor
+			const clr = createElement(doc, scheme ? 'a:schemeClr' : 'a:srgbClr')
+			setAttr(clr, 'val', scheme ? scheme : normalizeHex(border.color as string))
+			fill.appendChild(clr)
+			ln.appendChild(fill)
+		}
+		// `a:prstDash` follows the fill group in CT_LineProperties, so it is appended after.
+		if (border.dash) {
+			const dash = createElement(doc, 'a:prstDash')
+			setAttr(dash, 'val', border.dash)
+			ln.appendChild(dash)
+		}
+		insertTcPrChild(tcPr, qname, ln)
+		this.part.markDirty()
+	}
+
+	/**
+	 * Replace the cell's fill with a solid colour (`a:tcPr/a:solidFill`), or clear it.
+	 *
+	 * `null` removes the `a:solidFill` and lets the cell inherit from the table style again.
+	 * That is not the same as {@link noFill}, which writes an explicit `a:noFill` and so
+	 * suppresses the inherited shading. Any competing fill choice (`a:gradFill`,
+	 * `a:blipFill`, …) is dropped first — `EG_FillProperties` admits one.
+	 * @throws {InvalidOptionError} when `color` is not a 6-digit hex string
+	 */
+	setFillColor(color: string | null): void {
+		this.#setFill(color === null ? null : { qname: 'a:srgbClr', val: normalizeHex(color) })
+	}
+
+	/**
+	 * Replace the cell's fill with a theme colour token (`a:solidFill/a:schemeClr/@val`), or
+	 * clear it. Preferred over {@link setFillColor} when the deck's theme should keep
+	 * driving the colour.
+	 */
+	setFillSchemeColor(token: string | null): void {
+		this.#setFill(token === null ? null : { qname: 'a:schemeClr', val: token })
+	}
+
+	/**
+	 * Write an explicit `<a:noFill/>` on the cell — a transparent cell that shows the table
+	 * background (or the slide) through. Distinct from `setFillColor(null)`, which removes
+	 * the fill and lets the table style's shading apply again.
+	 */
+	noFill(): void {
+		const tcPr = this.#getOrAddTcPr()
+		removeChildrenByQName(tcPr, FILL_CHOICES)
+		tcPrChild(tcPr, 'a:noFill')
+		this.part.markDirty()
+	}
+
+	/** Set or clear one `a:tcPr` attribute, vetting it against its schema enum first. */
+	#setTcPrAttr(name: string, value: string | null, valid: readonly string[], code: InvalidOptionErrorCode): void {
+		if (value === null) {
+			const tcPr = this.#tcPr()
+			if (!tcPr) return
+			removeAttr(tcPr, name)
+			this.part.markDirty()
+			return
+		}
+		const checked = checkEnum(value, valid, name, code)
+		setAttr(this.#getOrAddTcPr(), name, checked)
+		this.part.markDirty()
+	}
+
+	/** Replace (or remove) the cell's solid fill, keeping `EG_FillProperties` single-valued. */
+	#setFill(color: { qname: string; val: string } | null): void {
+		if (color === null) {
+			const tcPr = this.#tcPr()
+			if (!tcPr || !firstChild(tcPr, 'a:solidFill')) return
+			removeChildrenByQName(tcPr, ['a:solidFill'])
+			this.part.markDirty()
+			return
+		}
+		setSolidFill(this.#getOrAddTcPr(), TCPR_AFTER['a:solidFill'] ?? [], color)
+		this.part.markDirty()
 	}
 
 	/**

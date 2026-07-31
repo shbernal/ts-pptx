@@ -103,7 +103,16 @@ export {
 	type RunHyperlink,
 	type LineSpacing,
 } from './read/api/text.js'
-export { Table, TableRow, TableCell, type CellBorder, type CellBorders } from './read/api/table.js'
+export {
+	Table,
+	TableRow,
+	TableCell,
+	type CellBorder,
+	type CellBorders,
+	type CellThreeD,
+	type TableCellBorderEdit,
+} from './read/api/table.js'
+export type { TableCellEdge } from './read/api/table-edit.js'
 export { type ResolvedTableStyle, type TableConditionFlags } from './read/api/table-style-resolve.js'
 export {
 	Chart,

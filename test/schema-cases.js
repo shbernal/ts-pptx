@@ -4001,4 +4001,51 @@ export default [
 			await expectNoSchemaErrors(buf, 'table-fill')
 		},
 	},
+	{
+		// The read path's table editors, validated end-to-end. Unlike every other case here the
+		// bytes are not authored in one pass: a deck is written, loaded for editing, mutated
+		// through the public setters, and saved. That is the only way to catch the failure this
+		// exists for — an out-of-order `a:tcPr`, which a setter that appends instead of
+		// inserting produces and which no getter would notice.
+		name: 'a table edited through the read-path setters and structural edits stays valid',
+		fn: async () => {
+			const { Presentation } = await import('../dist/read.js')
+			const authored = new TsPptx()
+			authored.addSlide().addTable(
+				[
+					[{ text: 'A1' }, { text: 'B1' }, { text: 'C1' }],
+					[{ text: 'A2' }, { text: 'B2' }, { text: 'C2' }],
+					[{ text: 'A3' }, { text: 'B3' }, { text: 'C3' }],
+				],
+				{ x: 1, y: 1, w: 9, colW: [3, 3, 3] }
+			)
+			const pres = await Presentation.load(await authored.stream())
+			const frame = pres.slides[0].shapes.find((shape) => shape.shapeType === 'graphicFrame')
+			const table = /** @type {any} */ (frame).table
+
+			// Fill first, then borders, then a diagonal — the order most likely to produce an
+			// out-of-order `a:tcPr` if any setter appended rather than inserting.
+			const cell = table.cell(0, 0)
+			cell.setFillColor('#FFEECC')
+			cell.setBorder('top', { widthPt: 2, color: 'C00000', dash: 'sysDot' })
+			cell.setBorder('left', { schemeColor: 'accent1', widthPt: 1 })
+			cell.setBorder('tlToBr', { widthPt: 1, color: '0000C0' })
+			cell.setAnchor('ctr')
+			cell.setAnchorCtr(true)
+			cell.setVerticalText('vert270')
+			cell.setHorzOverflow('overflow')
+			cell.setMarginsEmu({ left: 0, top: 12700 })
+			table.cell(0, 1).noFill()
+			table.cell(0, 2).setFillSchemeColor('accent2')
+
+			// Structural edits, including ones that cross the merge just made.
+			table.mergeCells(1, 0, 2, 1)
+			table.addRow(1)
+			table.addColumn(1, 457200)
+			table.removeColumn(3)
+			table.removeRow(0)
+
+			await expectNoSchemaErrors(Buffer.from(await pres.save()), 'table-read-path-edits')
+		},
+	},
 ]
