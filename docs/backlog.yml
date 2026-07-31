@@ -1623,46 +1623,59 @@ items:
       - typescript-api
     applies_to_current_project: yes
     non_target_reasons: []
-    summary: per-cell defaults stamped as direct formatting override a custom table style's border, color, fontSize and margin regions
+    summary: per-cell defaults stamped as direct formatting override a custom table style's region border and color
     current_project_notes: >
-      addTableDefinition stamps four properties onto EVERY table cell as direct
-      formatting -- border {type:'none'} on all four sides
-      (src/gen/define/table.ts:155-169), color '000000' (:329-332), fontSize 12 (:317)
-      and margin [0.05,0.1,0.05,0.1] (:318-328). In PowerPoint direct cell formatting
-      outranks a table-style region, so four of the six things a defineTableStyle()
-      region can set can never render. fill and bold are NOT defaulted and do work,
-      which is why the gap went unnoticed: a custom style's shading and weight apply
-      while its borders and text colour appear ignored.
+      A table style region is a CT_TablePartStyle and can carry exactly five things:
+      fill, color, bold, italic, border (tcTxStyle gives b/i/font-ref/colour, tcStyle
+      gives tcBdr/fill/cell3D). addTableDefinition stamps a default border
+      ({type:'none'} on all four sides, src/gen/define/table.ts:155-169) and color
+      ('000000', :329-332) onto EVERY cell as direct formatting, and in PowerPoint
+      direct cell formatting outranks a style region -- so two of those five can never
+      render. fill, bold and italic are NOT defaulted and do work, which is why the gap
+      went unnoticed: a custom style's shading and weight apply while its borders and
+      text colour appear ignored.
 
-      This is currently DOCUMENTED as intended (docs/tables.md "The defaults tier",
-      the TableStyleProps and defineTableStyle doc comments) and PINNED by
-      test/regression/table-style-precedence.test.js, which asserts the override
-      happens. That test is a snapshot of a known limit, not a spec -- this entry is
-      the record that was missing.
+      DO NOT re-raise this as a four-property problem. The library also stamps a
+      default fontSize (12, :317) and margin ([0.05,0.1,0.05,0.1], :318-328), and an
+      earlier reading of this treated those as two more overridden regions. They are
+      not: CT_TablePartStyle has nowhere to put a font size or a cell inset, so there
+      is no region value for them to override and nothing to defer to. PowerPoint has
+      no per-region setting for either. Verified against the ECMA-376 transitional
+      XSD (CT_TableStyleTextStyle = attrs b/i + EG_ThemeableFontStyles +
+      EG_ColorChoice + extLst; CT_TableStyleCellStyle = tcBdr +
+      EG_ThemeableFillStyle + cell3D). Font size and margins are per-cell properties,
+      full stop; the stamped defaults are just where cells get their values.
 
-      Two constraints bound any fix. (1) Built-in styles must keep stamping:
-      TableProps.tableStyle also carries the built-in TableStyle GUIDs, and Office's
-      built-ins do define borders, so keying deferral off "a tableStyle is set" would
-      put grid lines into every deck using MEDIUM_STYLE_2_ACCENT_1. Scope has to be
-      "registered via defineTableStyle()" specifically, by registry lookup, never by
-      GUID shape. (2) border and color only have to reach PowerPoint, but fontSize and
-      margin are also read by this library's own layout maths before the file exists.
-      The measurement path has independent fallbacks to DEF_FONT_SIZE
-      (src/gen/table/autopage.ts:48,57,60) and DEF_CELL_MARGIN_IN
-      (src/gen/slide/objects/table.ts:415-424), so simply not stamping does not crash
-      it -- it silently measures 12pt while PowerPoint renders the style's size,
-      giving wrong row heights and wrong auto-page breaks with no error. Deferring
-      those two therefore requires a shared style-region resolver (wholeTbl < bands <
-      firstCol/lastCol < firstRow/lastRow, plus band parity) consumed by BOTH the
-      define layer and the auto-pager; two copies would drift.
+      That leaves a two-property scope, and it is much smaller than it first looked:
+      no style-region resolver is needed, because the two remaining properties
+      (border, color) are only ever read by PowerPoint at render time -- neither feeds
+      this library's own layout maths. (The measurement path's DEF_FONT_SIZE and
+      DEF_CELL_MARGIN_IN fallbacks in gen/table/autopage.ts and
+      gen/slide/objects/table.ts are what would have made fontSize/margin deferral
+      dangerous -- they fail silently, measuring 12pt while PowerPoint renders
+      something else -- but that risk is now moot.)
+
+      Remaining constraints for the deferral work. (1) Built-in styles must keep
+      stamping: TableProps.tableStyle also carries the built-in TableStyle GUIDs, and
+      Office's built-ins do define borders, so keying deferral off "a tableStyle is
+      set" would put grid lines into every deck using MEDIUM_STYLE_2_ACCENT_1. Scope
+      has to be "registered via defineTableStyle()" specifically, by registry lookup,
+      never by GUID shape -- and addTableDefinition has no access to
+      Presentation._tableStyles today, so threading a lookup in is the enabling
+      refactor. (2) The sparse-vs-none border distinction already documented at
+      src/gen/define/table.ts:63 ("an absent side means leave this edge alone") is the
+      deferral mechanism; no new vocabulary needed, but gen/slide/objects/table.ts:96
+      currently states it reads a dense tuple, so that assumption has to be relaxed.
+      (3) The color default is already conditionally skipped when any cell has a
+      hyperlink; deferral has to compose with that carve-out, not bypass it.
 
       Planned shape: an opt-in flag on TableProps rather than a silent default flip,
       so each step ships independently and existing decks stay byte-identical by
-      construction, with the flip to default deferred to a major. The sparse-vs-none
-      border distinction already documented at src/gen/define/table.ts:63 ("an absent
-      side means leave this edge alone") is the deferral mechanism -- no new vocabulary
-      needed. Note the color default is already conditionally skipped when any cell has
-      a hyperlink; deferral has to compose with that carve-out, not bypass it.
+      construction, with the flip to default deferred to a major.
+
+      Shipped so far: defineTableStyle() now emits table-style/region-overridden when
+      a region sets border or color, naming the working alternative, so the failure is
+      self-reporting at authoring time. Output bytes unchanged.
     evidence:
       kinds:
         - local-source-inspection
@@ -1678,5 +1691,5 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: shipped examples are now clean (no doc comment demonstrates a region property that cannot render); next is a define-time warn() on defineTableStyle() for regions setting border/color/fontSize/margin, then threading a custom-style registry lookup into addTableDefinition as the enabling refactor for deferral
+    next_action: the define-time warning has shipped and the scope is now settled at two properties (border, color) rather than four; next is threading a getCustomTableStyle(guid) lookup from Presentation._tableStyles into addTableDefinition -- a byte-identical refactor -- and only then deferring the border stamp to a sparse tuple behind an opt-in TableProps flag, verified in the PowerPoint desktop smoke rather than only in the XML
 

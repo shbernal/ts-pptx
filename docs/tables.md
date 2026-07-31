@@ -71,18 +71,28 @@ styles nothing.
 
 Row 5 is the one that surprises people, so it is worth stating plainly: for four properties
 the library stamps a default onto **every cell as direct formatting**, and direct formatting
-outranks a style region. So a `tableStyle` region setting any of these is silently overridden:
+outranks a style region.
 
 | Property | Default stamped on every cell | Consequence |
 | --- | --- | --- |
-| `border` | `{ type: 'none' }` on all four sides | a style's `border` never shows |
-| `color` | `'000000'` | a style's text `color` never shows |
-| `fontSize` | `12` | a style's font size never shows |
-| `margin` | `[0.05, 0.1, 0.05, 0.1]` in | a style's cell insets never show |
+| `border` | `{ type: 'none' }` on all four sides | a style region's `border` never shows |
+| `color` | `'000000'` | a style region's text `color` never shows |
+| `fontSize` | `12` | — a region cannot set a font size (see below) |
+| `margin` | `[0.05, 0.1, 0.05, 0.1]` in | — a region cannot set cell insets (see below) |
 
-A style's **`fill`** and **`bold`** are *not* defaulted, so those do work — which is what
-makes this confusing rather than obviously broken: a custom style's shading and weight apply
-while its borders and text colour appear to be ignored.
+A style region's **`fill`**, **`bold`** and **`italic`** are *not* defaulted, so those do work
+— which is what makes this confusing rather than obviously broken: a custom style's shading
+and weight apply while its borders and text colour appear to be ignored. `defineTableStyle()`
+warns (`table-style/region-overridden`) when a region sets `border` or `color`, so you find
+this out at authoring time rather than by looking at the deck.
+
+The last two rows are a different situation, and worth separating: a table style region has
+**nowhere to put** a font size or a cell margin. A region is a `CT_TablePartStyle`, which is
+only `tcTxStyle` (bold, italic, a font *reference*, and a text colour) plus `tcStyle`
+(borders, fill, `cell3D`) — no size, no insets. PowerPoint has no such setting either, so
+these are not overrides the library could give up: font size and margins are per-cell
+properties, and the stamped defaults are simply where cells get their values. Set them on the
+table or on the cells; that is the whole of the API, not a workaround for one.
 
 To get a style's borders or text colour, set them on the table (or the cells) instead:
 

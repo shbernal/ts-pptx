@@ -384,12 +384,18 @@ export interface TableStyleRegionProps {
  * style can use arbitrary brand colors, is editable in PowerPoint's Table Styles
  * gallery, and bands correctly across any row/column count (including auto-paged tables).
  *
- * **A region's `fill` and `bold` apply; its `border` and `color` do not.** The library
- * stamps a default `border` (`{type:'none'}` on all four sides) and `color` (`'000000'`)
- * onto every cell as *direct* formatting, and direct formatting outranks a style region in
- * PowerPoint — so a style's borders and text colour are overridden before they can render.
- * Set those on the table instead (`border`) or on `headerRow` / the cells (`color`), as
- * below. See `docs/tables.md` → "The defaults tier".
+ * **A region's `fill`, `bold` and `italic` apply; its `border` and `color` do not.** The
+ * library stamps a default `border` (`{type:'none'}` on all four sides) and `color`
+ * (`'000000'`) onto every cell as *direct* formatting, and direct formatting outranks a style
+ * region in PowerPoint — so a style's borders and text colour are overridden before they can
+ * render. Set those on the table instead (`border`) or on `headerRow` / the cells (`color`),
+ * as below. `defineTableStyle()` warns when a region sets either. See `docs/tables.md` →
+ * "The defaults tier".
+ *
+ * Note there is no region font size or cell margin to be overridden: a region is a
+ * `CT_TablePartStyle`, which carries only `tcTxStyle` (bold/italic/font reference/colour) and
+ * `tcStyle` (borders/fill/`cell3D`). Font size and insets are per-cell properties in
+ * PowerPoint too — set them on the table or the cells.
  * @example
  * const brand = pptx.defineTableStyle({
  *   name: 'Brand Banded',

@@ -1176,9 +1176,11 @@ export default class PresentationCore {
 	 * Table Styles gallery. Pass the returned GUID as `TableProps.tableStyle`, and use
 	 * the `has*` flags (`hasHeader`, `hasBandedRows`, …) to activate the matching regions.
 	 *
-	 * A region's `fill` and `bold` apply; its `border` and `color` are overridden by the
-	 * per-cell defaults the library stamps as direct formatting — set those on the table or
-	 * on `headerRow` instead. See {@link TableStyleProps} and `docs/tables.md`.
+	 * A region's `fill`, `bold` and `italic` apply; its `border` and `color` are overridden by
+	 * the per-cell defaults the library stamps as direct formatting — set those on the table or
+	 * on `headerRow` instead. Setting either on a region emits a `table-style/region-overridden`
+	 * diagnostic. A region has no font size or cell margin at all (see {@link TableStyleProps}).
+	 * See also `docs/tables.md`.
 	 * @param {TableStyleProps} props - custom table style definition (requires `name`)
 	 * @returns {string} braced GUID to use as `tableStyle`
 	 * @example
@@ -1200,6 +1202,43 @@ export default class PresentationCore {
 			)
 		if (!props.name || typeof props.name !== 'string')
 			throw new InvalidOptionError('table-style/missing-name', 'defineTableStyle() requires a non-empty `name`')
+
+		// A region's `border` and `color` are written faithfully into `ppt/tableStyles.xml`, but
+		// `addTable` stamps a default border (`{type:'none'}` on all four sides) and text colour
+		// ('000000') onto every cell as *direct* formatting, and direct formatting outranks a style
+		// region in PowerPoint — so neither ever reaches the render. A region's `fill`, `bold` and
+		// `italic` are not defaulted and do work, which is what makes the failure look like a
+		// half-working style rather than an obvious bug.
+		//
+		// Define time is the right place to say so: the region cannot render whatever table later
+		// uses the style, so no table context is needed to know it is wrong.
+		const REGION_KEYS = [
+			'wholeTbl',
+			'firstRow',
+			'lastRow',
+			'firstCol',
+			'lastCol',
+			'band1H',
+			'band2H',
+			'band1V',
+			'band2V',
+		] as const
+		const OVERRIDDEN = [
+			['border', 'set `border` on the table instead'],
+			['color', 'set `color` on `headerRow`, on `columns[i]`, or on the cells instead'],
+		] as const
+		for (const key of REGION_KEYS) {
+			const region = props[key]
+			if (!region) continue
+			for (const [prop, remedy] of OVERRIDDEN) {
+				if (region[prop] === undefined) continue
+				warn(
+					'table-style/region-overridden',
+					`defineTableStyle("${props.name}"): \`${key}.${prop}\` will not render — the per-cell ` +
+						`default that addTable stamps as direct formatting overrides it; ${remedy}.`
+				)
+			}
+		}
 
 		const guid = `{${getUuid('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx').toUpperCase()}}`
 		this._tableStyles.push({ guid, def: props })

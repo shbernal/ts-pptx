@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`defineTableStyle()` now warns when a style region sets `border` or `color`.** Those
+  two are written faithfully into `ppt/tableStyles.xml` and then never render: the
+  library stamps a default border (`{type:'none'}` on all four sides) and text colour
+  (`'000000'`) onto every cell as *direct* formatting, and direct formatting outranks a
+  style region in PowerPoint. A region's `fill`, `bold` and `italic` are not defaulted
+  and do apply, so the style half-works — shading and weight land, borders and text
+  colour quietly do not, and the deck is the only place that tells you.
+
+  The new `table-style/region-overridden` diagnostic reports it at authoring time
+  instead, one per offending region property, each naming the alternative that works
+  (`border` on the table; `color` on `headerRow`, on `columns[i]`, or on the cells).
+  Emitted output is unchanged — this is a diagnostic, not a behaviour change.
+
+  While documenting it: a table style region has **no** font size and **no** cell
+  margin. `CT_TablePartStyle` is `tcTxStyle` (bold, italic, a font *reference*, a
+  colour) plus `tcStyle` (borders, fill, `cell3D`), and neither carries a size or an
+  inset — PowerPoint has no such setting either. `docs/tables.md` previously listed the
+  stamped `fontSize` and `margin` defaults alongside `border` and `color` as things that
+  override a style, which read as though a region could set them and be ignored. It
+  cannot set them at all; they are per-cell properties, and the stamped defaults are
+  simply where cells get their values.
+
 ### Fixed
 
 - **`tableToSlides` cell padding is now converted from px to inches.** A cell's
