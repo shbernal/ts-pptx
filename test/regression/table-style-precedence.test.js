@@ -1,4 +1,5 @@
 import { TsPptx, defineRegressionSuite, build, readEntry, captureDiagnostics, assert, assertEqual } from '../helpers.js'
+import { TableStyle } from '../../dist/node.js'
 
 // Which of a custom table style's region properties can actually render, and which the
 // library's own per-cell defaults override.
@@ -148,6 +149,44 @@ defineRegressionSuite('Table style precedence against per-cell defaults', [
 				})
 			)
 			assertEqual(codes.length, 3, 'one per offending region property; got: ' + JSON.stringify(codes))
+		},
+	},
+	{
+		name: 'a slide resolves a registered style GUID to the definition behind it',
+		fn: async () => {
+			const pres = new TsPptx()
+			const guid = pres.defineTableStyle({ name: 'Brand', firstRow: { fill: '1A2B3C' } })
+			const slide = pres.addSlide()
+			// The definition, not a boolean: deciding whether a per-cell default may stand aside
+			// needs to know what the style actually says, not merely that one exists.
+			assertEqual(slide.getCustomTableStyle(guid)?.name, 'Brand', 'the registry answers by GUID')
+			assertEqual(slide.getCustomTableStyle(guid)?.firstRow?.fill, '1A2B3C', 'and hands back the region')
+		},
+	},
+	{
+		name: 'a built-in style GUID resolves to nothing, and so does an unregistered one',
+		fn: async () => {
+			// The whole reason the lookup is a registry hit rather than a test on the GUID's
+			// shape: `defineTableStyle()` mints the same `{XXXXXXXX-...}` form the built-ins use.
+			// Office's built-ins define borders of their own, so they must keep every per-cell
+			// default exactly as it is -- keying off "a tableStyle is set" would put grid lines
+			// into every deck using MEDIUM_STYLE_2_ACCENT_1.
+			const pres = new TsPptx()
+			pres.defineTableStyle({ name: 'Brand', firstRow: { fill: '1A2B3C' } })
+			const slide = pres.addSlide()
+			assertEqual(slide.getCustomTableStyle(TableStyle.MEDIUM_STYLE_2_ACCENT_1), undefined, 'built-in')
+			assertEqual(slide.getCustomTableStyle('{00000000-0000-0000-0000-000000000000}'), undefined, 'unknown')
+		},
+	},
+	{
+		name: 'the registry is per-presentation, so one deck cannot resolve another deck-s style',
+		fn: async () => {
+			const other = new TsPptx()
+			const guid = other.defineTableStyle({ name: 'Elsewhere', firstRow: { fill: '1A2B3C' } })
+			// `tableStyles.xml` is written per package, so a GUID from another presentation names
+			// a style this one never emits. Resolving it would let a deck defer its cell defaults
+			// to a style PowerPoint will not find.
+			assertEqual(new TsPptx().addSlide().getCustomTableStyle(guid), undefined, 'no cross-deck leak')
 		},
 	},
 ])

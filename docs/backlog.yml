@@ -1660,9 +1660,7 @@ items:
       Office's built-ins do define borders, so keying deferral off "a tableStyle is
       set" would put grid lines into every deck using MEDIUM_STYLE_2_ACCENT_1. Scope
       has to be "registered via defineTableStyle()" specifically, by registry lookup,
-      never by GUID shape -- and addTableDefinition has no access to
-      Presentation._tableStyles today, so threading a lookup in is the enabling
-      refactor. (2) The sparse-vs-none border distinction already documented at
+      never by GUID shape. (2) The sparse-vs-none border distinction already documented at
       src/gen/define/table.ts:63 ("an absent side means leave this edge alone") is the
       deferral mechanism; no new vocabulary needed, but gen/slide/objects/table.ts:96
       currently states it reads a dense tuple, so that assumption has to be relaxed.
@@ -1675,7 +1673,14 @@ items:
 
       Shipped so far: defineTableStyle() now emits table-style/region-overridden when
       a region sets border or color, naming the working alternative, so the failure is
-      self-reporting at authoring time. Output bytes unchanged.
+      self-reporting at authoring time. Output bytes unchanged. A slide can also now
+      resolve a tableStyle GUID to its registered definition (Presentation holds the
+      lookup over _tableStyles and hands it to SlideBuilder), which is what lets the
+      deferral distinguish a custom style from a built-in one without inspecting the
+      GUID's shape; built-in and cross-presentation GUIDs resolve to undefined, pinned
+      by tests. The lookup deliberately stops at the slide rather than reaching
+      addTableDefinition: noUnusedParameters rejects a parameter with no reader, so it
+      lands in the same commit as the border deferral that reads it.
     evidence:
       kinds:
         - local-source-inspection
@@ -1691,5 +1696,5 @@ items:
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: the define-time warning has shipped and the scope is now settled at two properties (border, color) rather than four; next is threading a getCustomTableStyle(guid) lookup from Presentation._tableStyles into addTableDefinition -- a byte-identical refactor -- and only then deferring the border stamp to a sparse tuple behind an opt-in TableProps flag, verified in the PowerPoint desktop smoke rather than only in the XML
+    next_action: the define-time warning and the slide-level getCustomTableStyle(guid) lookup have both shipped byte-identically, and the scope is settled at two properties (border, color) rather than four; next is deferring the border stamp to a sparse tuple behind an opt-in TableProps flag -- passing the lookup the last hop into addTableDefinition, relaxing the dense-tuple assumption at gen/slide/objects/table.ts:96, and verifying in the PowerPoint desktop smoke rather than only in the XML -- then the same for color, composing with the existing hyperlink carve-out
 

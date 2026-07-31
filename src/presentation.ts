@@ -557,6 +557,23 @@ export default class PresentationCore {
 	private readonly getSections = (): SectionInternalProps[] => this._sections
 
 	/**
+	 * Resolves a `TableProps.tableStyle` value to the style `defineTableStyle()` registered
+	 * under it, so the table define layer can tell a custom style from a built-in one.
+	 *
+	 * By registry lookup, deliberately, never by the GUID's shape: `defineTableStyle()` mints
+	 * the same `{XXXXXXXX-…}` form the built-in `TableStyle` members use, so as strings
+	 * the two are indistinguishable. The distinction matters because Office's built-in styles
+	 * define borders of their own — anything that gives a style more say over how a cell is
+	 * formatted has to leave the built-ins exactly as they are, or every deck using
+	 * `MEDIUM_STYLE_2_ACCENT_1` grows grid lines.
+	 * @param {string} guid - the `tableStyle` value to resolve
+	 * @return {TableStyleProps | undefined} the registered definition, or `undefined` for a
+	 *   built-in GUID, an id this presentation never registered, or a style from another deck
+	 */
+	private readonly getCustomTableStyle = (guid: string): TableStyleProps | undefined =>
+		this._tableStyles.find((style) => style.guid === guid)?.def
+
+	/**
 	 * Enables the `Slide` class to set ts-pptx [Presentation] master/layout slidenumbers
 	 * @param {SlideNumberProps} slideNum - slide number config
 	 */
@@ -1054,6 +1071,7 @@ export default class PresentationCore {
 			addSlide: this.addNewSlide,
 			getSlide: this.getSlide,
 			getSections: this.getSections,
+			getCustomTableStyle: this.getCustomTableStyle,
 			presLayout: this.presLayout,
 			setSlideNum: this.setSlideNumber,
 			slideId: this._slides.length + 256,

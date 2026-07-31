@@ -25,6 +25,7 @@ import type {
 	OptsChartData,
 	TableProps,
 	TableRow,
+	TableStyleProps,
 	TextProps,
 	TextPropsOptions,
 	TransitionProps,
@@ -70,6 +71,15 @@ export default class SlideBuilder {
 	public addSlide: (options?: AddSlideProps) => PresSlideInternal
 	public getSlide: (slideNum: number) => PresSlideInternal | undefined
 	public getSections: () => SectionInternalProps[]
+	/**
+	 * Resolve a `TableProps.tableStyle` value to the style `Presentation.defineTableStyle()`
+	 * registered under it, or `undefined` when it names a built-in `TableStyle` (or nothing
+	 * this presentation registered). This is the table define layer's only legitimate way to
+	 * tell the two apart — see the accessor on `Presentation` for why the GUID's shape cannot.
+	 *
+	 * Defaults to "no registry", so a `SlideBuilder` built without one still works.
+	 */
+	public getCustomTableStyle: (guid: string) => TableStyleProps | undefined
 	public _name: string
 	public _presLayout: PresLayout
 	public _rels: SlideRel[]
@@ -89,6 +99,7 @@ export default class SlideBuilder {
 		addSlide: (options?: AddSlideProps) => PresSlideInternal
 		getSlide: (slideNum: number) => PresSlideInternal | undefined
 		getSections?: () => SectionInternalProps[]
+		getCustomTableStyle?: (guid: string) => TableStyleProps | undefined
 		presLayout: PresLayout
 		setSlideNum: (value: SlideNumberProps) => void
 		slideId: number
@@ -99,6 +110,7 @@ export default class SlideBuilder {
 		this.addSlide = params.addSlide
 		this.getSlide = params.getSlide
 		this.getSections = params.getSections ?? (() => [])
+		this.getCustomTableStyle = params.getCustomTableStyle ?? ((): undefined => undefined)
 		this._name = `Slide ${params.slideNumber}`
 		this._presLayout = params.presLayout
 		this._rId = params.slideRId
