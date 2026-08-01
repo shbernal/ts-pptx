@@ -22,7 +22,6 @@ import type {
 	TableCell,
 	TableProps,
 	TableRow,
-	TableStyleProps,
 } from '../../types/index.js'
 import type { PresSlideInternal, SlideLayoutInternal } from '../../types/internal.js'
 import { getSlidesForTableRows } from '../table/autopage.js'
@@ -86,8 +85,6 @@ function normalizeOuterBorder(outer: TableProps['outerBorder']): OuterBorderTupl
  * @param {PresLayout} presLayout - Presentation layout
  * @param {Function} addSlide - method
  * @param {Function} getSlide - method
- * @param {Function} getCustomTableStyle - resolves a `tableStyle` GUID to the style
- *   `defineTableStyle()` registered under it, or `undefined` for a built-in one
  */
 /**
  * Apply the `headerRow` / `columns` inline-styling sugar: bake blanket header/column
@@ -131,10 +128,8 @@ function applyTableHeaderColumnSugar(tableRows: TableRow[], opt: TableProps): Ta
  *
  * @param srcRows - the rows as authored, after the `headerRow`/`columns` sugar
  * @param opt - the table's options
- * @param styleDrivenCells - whether an unset border side may be left to the table style
- *   rather than stamped as `{type:'none'}` (see `TableProps.styleDrivenCells`)
  */
-function normalizeTableRows(srcRows: TableRow[], opt: TableProps, styleDrivenCells: boolean): TableCell[][] {
+function normalizeTableRows(srcRows: TableRow[], opt: TableProps): TableCell[][] {
 	const arrRows: TableCell[][] = []
 	srcRows.forEach((row, idx) => {
 		const newRow: TableCell[] = []
@@ -160,50 +155,45 @@ function normalizeTableRows(srcRows: TableRow[], opt: TableProps, styleDrivenCel
 				}
 
 				// C: Set cell borders
-				// A side nobody asked for is written as an explicit `{type:'none'}`, which is direct
-				// formatting and therefore beats any border the table style defines. A table that has
-				// stood that default down (`styleDrivenCells`, already resolved against the
-				// custom-style registry) leaves the cell's borders unwritten instead, so PowerPoint
-				// resolves them from the style. Whatever the caller *did* author — on the cell or on
-				// the table — is untouched either way, so precedence above the default tier is the
-				// same in both modes.
+				// A side nobody asked for is written as an explicit `{type:'none'}`. That is direct
+				// formatting, so it beats any border a built-in table style would draw — which is
+				// what keeps an unstyled table free of grid lines. Whatever the caller *did* author,
+				// on the cell or on the table, is untouched.
 				const authoredBorder = newCellOptions.border || opt.border
-				if (authoredBorder || !styleDrivenCells) {
-					newCellOptions.border = authoredBorder || [
-						{ type: 'none' },
-						{ type: 'none' },
-						{ type: 'none' },
-						{ type: 'none' },
-					]
-					let cellBorder = newCellOptions.border
+				newCellOptions.border = authoredBorder || [
+					{ type: 'none' },
+					{ type: 'none' },
+					{ type: 'none' },
+					{ type: 'none' },
+				]
+				let cellBorder = newCellOptions.border
 
-					// CASE 1: border interface is: BorderOptions | [BorderOptions, BorderOptions, BorderOptions, BorderOptions]
-					if (cellBorder && typeof cellBorder === 'object') {
-						cellBorder = normalizeBorderTuple(cellBorder)
-						newCellOptions.border = cellBorder
-					}
-					// Handle: [null, null, {type:'solid'}, null]
-					const cellBorderTuple = newCellOptions.border as BorderTuple
-					if (!cellBorderTuple[0]) cellBorderTuple[0] = { type: 'none' }
-					if (!cellBorderTuple[1]) cellBorderTuple[1] = { type: 'none' }
-					if (!cellBorderTuple[2]) cellBorderTuple[2] = { type: 'none' }
-					if (!cellBorderTuple[3]) cellBorderTuple[3] = { type: 'none' }
-
-					// set complete BorderOptions for all sides
-					const arrSides = [0, 1, 2, 3] as const
-					arrSides.forEach((idx) => {
-						const side = cellBorderTuple[idx]
-						// `withBorderDefaults` spreads first and overrides only the defaulted keys.
-						// Rebuilding the side from a fixed key list dropped `cap` — public on
-						// `BorderProps` and already read by `genTableCellBorderXml`, so every table
-						// border emitted cap="flat" whatever the caller asked for (and `dashType`
-						// would go the same way). The spread also gives each side its own object,
-						// which the single-BorderProps form (one object shared across all four)
-						// relies on.
-						cellBorderTuple[idx] = withBorderDefaults(side)
-					})
-					newCellOptions.border = cellBorderTuple
+				// CASE 1: border interface is: BorderOptions | [BorderOptions, BorderOptions, BorderOptions, BorderOptions]
+				if (cellBorder && typeof cellBorder === 'object') {
+					cellBorder = normalizeBorderTuple(cellBorder)
+					newCellOptions.border = cellBorder
 				}
+				// Handle: [null, null, {type:'solid'}, null]
+				const cellBorderTuple = newCellOptions.border as BorderTuple
+				if (!cellBorderTuple[0]) cellBorderTuple[0] = { type: 'none' }
+				if (!cellBorderTuple[1]) cellBorderTuple[1] = { type: 'none' }
+				if (!cellBorderTuple[2]) cellBorderTuple[2] = { type: 'none' }
+				if (!cellBorderTuple[3]) cellBorderTuple[3] = { type: 'none' }
+
+				// set complete BorderOptions for all sides
+				const arrSides = [0, 1, 2, 3] as const
+				arrSides.forEach((idx) => {
+					const side = cellBorderTuple[idx]
+					// `withBorderDefaults` spreads first and overrides only the defaulted keys.
+					// Rebuilding the side from a fixed key list dropped `cap` — public on
+					// `BorderProps` and already read by `genTableCellBorderXml`, so every table
+					// border emitted cap="flat" whatever the caller asked for (and `dashType`
+					// would go the same way). The spread also gives each side its own object,
+					// which the single-BorderProps form (one object shared across all four)
+					// relies on.
+					cellBorderTuple[idx] = withBorderDefaults(side)
+				})
+				newCellOptions.border = cellBorderTuple
 
 				// LAST:
 				newRow.push(newCell)
@@ -272,8 +262,7 @@ export function addTableDefinition(
 	slideLayout: SlideLayoutInternal | null,
 	presLayout: PresLayout,
 	addSlide: (options?: AddSlideProps) => PresSlideInternal,
-	getSlide: (slideNumber: number) => PresSlideInternal | undefined,
-	getCustomTableStyle: (guid: string) => TableStyleProps | undefined
+	getSlide: (slideNumber: number) => PresSlideInternal | undefined
 ): PresSlideInternal[] {
 	const slides: PresSlideInternal[] = [target] // Create array of Slides as more may be added by auto-paging
 	const opt: TableProps = options && typeof options === 'object' ? options : {}
@@ -316,26 +305,6 @@ export function addTableDefinition(
 		}
 	}
 
-	// STEP 1.4: Does the table style get a say in how a cell is formatted?
-	// `styleDrivenCells` alone is not enough: it has to name a style `defineTableStyle()`
-	// registered. Office's built-in styles define borders of their own, so a deck using
-	// `MEDIUM_STYLE_2_ACCENT_1` must keep the per-cell defaults exactly as they are or it grows
-	// grid lines it never asked for — which is also why this is a registry lookup and not a test
-	// on the GUID's shape (`defineTableStyle()` mints the same `{XXXXXXXX-…}` form).
-	// A flag that quietly does nothing is the same defect this whole option exists to fix, so
-	// say so. Stashed on `opt` because auto-paging re-enters `addTable` once per overflow slide
-	// and the warning is about the authoring, not about each slice.
-	const customTableStyle = opt.tableStyle ? getCustomTableStyle(opt.tableStyle) : undefined
-	const styleDrivenCells = opt.styleDrivenCells === true && customTableStyle !== undefined
-	if (opt.styleDrivenCells === true && !customTableStyle && opt._styleDrivenCells === undefined) {
-		warn(
-			'table/style-driven-cells-inert',
-			'addTable: `styleDrivenCells` applies only to a `tableStyle` registered with ' +
-				'`defineTableStyle()`, so the per-cell defaults still apply here.'
-		)
-	}
-	opt._styleDrivenCells = styleDrivenCells
-
 	// STEP 1.5: `headerRow` / `columns` inline sugar — bake blanket styling into cells as
 	// direct per-cell formatting so it flows through the normal cell pipeline (incl. border
 	// defaulting below). Precedence (highest wins), matching how PowerPoint resolves styling
@@ -348,7 +317,7 @@ export function addTableDefinition(
 
 	// STEP 2: Transform `tableRows` into well-formatted TableCell's
 	// tableRows can be object or plain text array: `[{text:'cell 1'}, {text:'cell 2', options:{color:'ff0000'}}]` | `["cell 1", "cell 2"]`
-	const arrRows = normalizeTableRows(srcRows, opt, styleDrivenCells)
+	const arrRows = normalizeTableRows(srcRows, opt)
 
 	// STEP 3: Set options
 	// Keep x/y/w/h as raw user `Coord` (inches/percent/unit-string). They are resolved to EMU
@@ -370,16 +339,11 @@ export function addTableDefinition(
 		opt.margin = DEF_CELL_MARGIN_IN
 	}
 	// Black lands on the table and is inherited by every cell that has no colour of its own
-	// (`gen/slide/objects/table.ts`), as direct formatting — which is why a style region's
-	// `color` never rendered. Two unrelated things stand it down, and they want the same thing:
-	//  - a hyperlink anywhere in the grid: the default paints the whole run, so the words *after*
-	//    a link come out black instead of following the link colour. Long-standing, unchanged;
-	//  - `styleDrivenCells`: the table asked for the style to have the say.
-	// Either way the run is emitted with no `<a:solidFill>`, and PowerPoint resolves the text
-	// from the style region — or, when no active region names a colour, from the theme's `tx1`,
-	// which is what makes a dark-themed master come out readable rather than black on black.
-	// The grid walk stays behind the flag check: it stringifies every cell in the table.
-	if (!styleDrivenCells && !JSON.stringify({ arrRows }).includes('hyperlink')) {
+	// (`gen/slide/objects/table.ts`), as direct formatting. One thing stands it down: a
+	// hyperlink anywhere in the grid, because the default paints the whole run, so the words
+	// *after* a link come out black instead of following the link colour. That run is then
+	// emitted with no `<a:solidFill>` and PowerPoint resolves the text from the theme's `tx1`.
+	if (!JSON.stringify({ arrRows }).includes('hyperlink')) {
 		if (!opt.color) opt.color = DEF_FONT_COLOR // table option > inherit from Slide > default to black
 	}
 	if (typeof opt.border === 'string') {

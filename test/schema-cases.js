@@ -705,74 +705,6 @@ export default [
 		},
 	},
 	{
-		name: 'custom table style exercising every region',
-		fn: async () => {
-			const { buf } = await build((p) => {
-				const style = p.defineTableStyle({
-					name: 'Brand & <Banded>',
-					wholeTbl: { border: { type: 'solid', color: 'D9D9D9', width: 0.5 } },
-					firstRow: { fill: '1A2B3C', color: 'FFFFFF', bold: true },
-					lastRow: { fill: 'CCCCCC', bold: true, italic: true },
-					firstCol: { color: '1A2B3C', bold: true },
-					lastCol: { color: '1A2B3C' },
-					band1H: { fill: 'EAF1F8' },
-					band2H: { fill: 'FFFFFF' },
-					band1V: { fill: 'F4F7FB' },
-					band2V: { fill: 'FFFFFF' },
-				})
-				p.addSlide().addTable(
-					[
-						[{ text: 'Col A' }, { text: 'Col B' }, { text: 'Col C' }],
-						[{ text: 'A1' }, { text: 'B1' }, { text: 'C1' }],
-						[{ text: 'A2' }, { text: 'B2' }, { text: 'C2' }],
-						[{ text: 'Total' }, { text: '42' }, { text: '99' }],
-					],
-					{
-						x: 1,
-						y: 1,
-						w: 6,
-						tableStyle: style,
-						hasHeader: true,
-						hasFooter: true,
-						hasBandedRows: true,
-						hasBandedColumns: true,
-						hasFirstColumn: true,
-						hasLastColumn: true,
-					}
-				)
-			})
-			await expectNoSchemaErrors(buf, 'custom-table-style-all-regions')
-		},
-	},
-	{
-		name: 'custom table style with TRBL border array',
-		fn: async () => {
-			const { buf } = await build((p) => {
-				const style = p.defineTableStyle({
-					name: 'Outline Only',
-					firstRow: {
-						fill: '004400',
-						color: 'FFFFFF',
-						border: [
-							{ type: 'solid', color: '000000', width: 2 },
-							{ type: 'none' },
-							{ type: 'dash', color: '888888', width: 1 },
-							{ type: 'none' },
-						],
-					},
-				})
-				p.addSlide().addTable(
-					[
-						[{ text: 'H1' }, { text: 'H2' }],
-						[{ text: 'a' }, { text: 'b' }],
-					],
-					{ x: 1, y: 1, w: 4, tableStyle: style, hasHeader: true }
-				)
-			})
-			await expectNoSchemaErrors(buf, 'custom-table-style-trbl-border')
-		},
-	},
-	{
 		name: 'table cell border with line caps',
 		fn: async () => {
 			const { buf } = await build((p) => {
@@ -3966,8 +3898,8 @@ export default [
 		// but nothing had ever asserted the result validates.
 		name: 'table background (a:tblPr fill) alongside a style id, plus gradient and pattern cell fills',
 		fn: async () => {
+			const { TableStyle } = await import('../dist/index.js')
 			const { buf } = await build((p) => {
-				const style = p.defineTableStyle({ name: 'Brand', firstRow: { fill: '1A2B3C', color: 'FFFFFF', bold: true } })
 				p.addSlide().addTable(
 					[
 						[
@@ -3995,7 +3927,15 @@ export default [
 							},
 						],
 					],
-					{ x: 1, y: 1, w: 6, h: 1, tableFill: { color: 'F2F2F2' }, tableStyle: style, hasHeader: true }
+					{
+						x: 1,
+						y: 1,
+						w: 6,
+						h: 1,
+						tableFill: { color: 'F2F2F2' },
+						tableStyle: TableStyle.MEDIUM_STYLE_2_ACCENT_1,
+						hasHeader: true,
+					}
 				)
 			})
 			await expectNoSchemaErrors(buf, 'table-fill')

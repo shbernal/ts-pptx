@@ -75,7 +75,6 @@ import type {
 	TableLayoutResult,
 	TableProps,
 	TableRow,
-	TableStyleProps,
 	TextMeasurement,
 	TextProps,
 	ThemeProps,
@@ -88,7 +87,6 @@ import type {
 	PresSlideInternal,
 	SectionInternalProps,
 	SlideLayoutInternal,
-	TableStyleInternal,
 } from './types/internal.js'
 import type { Slide } from './types/slide.js'
 import type { RuntimeAdapter } from './runtime/types.js'
@@ -396,7 +394,6 @@ export default class PresentationCore {
 
 	/** custom document properties stored in docProps/custom.xml */
 	private _customProperties: Array<{ name: string; value: CustomPropertyValue }>
-	private readonly _tableStyles: TableStyleInternal[]
 
 	/**
 	 * slide layout definition objects, used for generating slide layout files.
@@ -494,7 +491,6 @@ export default class PresentationCore {
 		this._slides = []
 		this._sections = []
 		this._customProperties = []
-		this._tableStyles = []
 		this._masterSlide = {
 			addChart: null,
 			addComment: null,
@@ -557,23 +553,6 @@ export default class PresentationCore {
 	private readonly getSections = (): SectionInternalProps[] => this._sections
 
 	/**
-	 * Resolves a `TableProps.tableStyle` value to the style `defineTableStyle()` registered
-	 * under it, so the table define layer can tell a custom style from a built-in one.
-	 *
-	 * By registry lookup, deliberately, never by the GUID's shape: `defineTableStyle()` mints
-	 * the same `{XXXXXXXX-…}` form the built-in `TableStyle` members use, so as strings
-	 * the two are indistinguishable. The distinction matters because Office's built-in styles
-	 * define borders of their own — anything that gives a style more say over how a cell is
-	 * formatted has to leave the built-ins exactly as they are, or every deck using
-	 * `MEDIUM_STYLE_2_ACCENT_1` grows grid lines.
-	 * @param {string} guid - the `tableStyle` value to resolve
-	 * @return {TableStyleProps | undefined} the registered definition, or `undefined` for a
-	 *   built-in GUID, an id this presentation never registered, or a style from another deck
-	 */
-	private readonly getCustomTableStyle = (guid: string): TableStyleProps | undefined =>
-		this._tableStyles.find((style) => style.guid === guid)?.def
-
-	/**
 	 * Enables the `Slide` class to set ts-pptx [Presentation] master/layout slidenumbers
 	 * @param {SlideNumberProps} slideNum - slide number config
 	 */
@@ -595,7 +574,6 @@ export default class PresentationCore {
 			runtime: this._runtime,
 			presentation: this.internalPresentation,
 			customProperties: this._customProperties,
-			tableStyles: this._tableStyles,
 			fontMetrics: this._fontMetrics,
 		}
 	}
@@ -1071,7 +1049,6 @@ export default class PresentationCore {
 			addSlide: this.addNewSlide,
 			getSlide: this.getSlide,
 			getSections: this.getSections,
-			getCustomTableStyle: this.getCustomTableStyle,
 			presLayout: this.presLayout,
 			setSlideNum: this.setSlideNumber,
 			slideId: this._slides.length + 256,
@@ -1186,90 +1163,5 @@ export default class PresentationCore {
 		// STEP 4: Add slideNumber to master slide (if any)
 		if (newLayout._slideNumberProps && !this._masterSlide._slideNumberProps)
 			this._masterSlide._slideNumberProps = newLayout._slideNumberProps
-	}
-
-	/**
-	 * Register a reusable custom table style and return its GUID.
-	 * The style is written to `ppt/tableStyles.xml` and is editable in PowerPoint's
-	 * Table Styles gallery. Pass the returned GUID as `TableProps.tableStyle`, and use
-	 * the `has*` flags (`hasHeader`, `hasBandedRows`, …) to activate the matching regions.
-	 *
-	 * A region's `fill`, `bold` and `italic` apply; its `border` and `color` are overridden by
-	 * the per-cell defaults the library stamps as direct formatting unless the table sets
-	 * `styleDrivenCells: true`, which lets both through. Without it, put the border on the table
-	 * and the colour on `headerRow` / the cells. Setting either on a region emits a
-	 * `table-style/region-overridden` diagnostic. A region has no font size or cell margin at all
-	 * (see {@link TableStyleProps}). See also `docs/tables.md`.
-	 * @param {TableStyleProps} props - custom table style definition (requires `name`)
-	 * @returns {string} braced GUID to use as `tableStyle`
-	 * @example
-	 * const brand = pptx.defineTableStyle({
-	 *   name: 'Brand Banded',
-	 *   firstRow: { fill:'1A2B3C', bold:true },
-	 *   band1H:   { fill:'EAF1F8' },
-	 * })
-	 * slide.addTable(rows, {
-	 *   tableStyle: brand, hasHeader:true, hasBandedRows:true,
-	 *   headerRow: { color:'FFFFFF' },   // or put it on `firstRow` and set `styleDrivenCells`
-	 * })
-	 */
-	defineTableStyle(props: TableStyleProps): string {
-		if (!props || typeof props !== 'object')
-			throw new InvalidOptionError(
-				'table-style/missing-argument',
-				'defineTableStyle() requires a `{ name, ... }` object argument'
-			)
-		if (!props.name || typeof props.name !== 'string')
-			throw new InvalidOptionError('table-style/missing-name', 'defineTableStyle() requires a non-empty `name`')
-
-		// A region's `border` and `color` are written faithfully into `ppt/tableStyles.xml`, but
-		// `addTable` stamps a default border (`{type:'none'}` on all four sides) and text colour
-		// ('000000') onto every cell as *direct* formatting, and direct formatting outranks a style
-		// region in PowerPoint — so neither reaches the render on a table that leaves the defaults
-		// in place. A region's `fill`, `bold` and `italic` are not defaulted and do work, which is
-		// what makes the failure look like a half-working style rather than an obvious bug.
-		//
-		// Define time is still the right place to say so now that `styleDrivenCells` can stand both
-		// defaults down: a style is registered once and used by tables that do not exist yet, so
-		// this is the only point that sees the region at all — and no table has been added for it
-		// to inspect. The wording therefore names the opt-in rather than declaring the region dead,
-		// and keeps naming the without-the-flag alternative, which differs per property.
-		const REGION_KEYS = [
-			'wholeTbl',
-			'firstRow',
-			'lastRow',
-			'firstCol',
-			'lastCol',
-			'band1H',
-			'band2H',
-			'band1V',
-			'band2V',
-		] as const
-		const OVERRIDDEN = [
-			[
-				'border',
-				'will not render unless the table sets `styleDrivenCells: true` — the per-cell default ' +
-					'that addTable stamps as direct formatting overrides it otherwise, and the alternative ' +
-					'is `border` on the table',
-			],
-			[
-				'color',
-				'will not render unless the table sets `styleDrivenCells: true` — the per-cell black ' +
-					'that addTable stamps as direct formatting overrides it otherwise, and the alternative ' +
-					'is `color` on `headerRow`, on `columns[i]`, or on the cells',
-			],
-		] as const
-		for (const key of REGION_KEYS) {
-			const region = props[key]
-			if (!region) continue
-			for (const [prop, verdict] of OVERRIDDEN) {
-				if (region[prop] === undefined) continue
-				warn('table-style/region-overridden', `defineTableStyle("${props.name}"): \`${key}.${prop}\` ${verdict}.`)
-			}
-		}
-
-		const guid = `{${getUuid('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx').toUpperCase()}}`
-		this._tableStyles.push({ guid, def: props })
-		return guid
 	}
 }

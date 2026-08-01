@@ -16,7 +16,7 @@ import type { MediaProps, MediaType } from './media.js'
 import type { PresLayout, PresentationProps, SectionProps } from './pres.js'
 import type { ObjectOptions, Slide, SlideLayout } from './slide.js'
 import type { HyperlinkProps, ShadowProps } from './style.js'
-import type { TableCell, TableStyleProps } from './table.js'
+import type { TableCell } from './table.js'
 import type { SlideComment, TextProps } from './text.js'
 
 /**
@@ -55,14 +55,6 @@ export interface SlideRelChart extends OptsChartData {
 	 * via `<mc:AlternateContent>`. Set at define time from {@link isChartExType}.
 	 */
 	isChartEx?: boolean
-}
-/**
- * Internal record pairing a registered custom table style with its generated GUID.
- */
-export interface TableStyleInternal {
-	/** Braced, upper-case GUID emitted as both `styleId` and `<a:tableStyleId>`. */
-	guid: string
-	def: TableStyleProps
 }
 // PRIVATE vvv
 export interface SlideRel {

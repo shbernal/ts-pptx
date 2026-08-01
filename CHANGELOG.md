@@ -7,58 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+### Removed
 
-- **`TableProps.styleDrivenCells` lets a custom table style draw the cell borders and
-  text colour.** The library stamps `{type:'none'}` on all four sides of every cell and
-  black on every run, as *direct* formatting, which outranks a style region in PowerPoint
-  — so a style's `border` and `color` never reached the render. With
-  `styleDrivenCells: true`, a border side that neither the cell nor the table asked for is
-  left unwritten and a cell given no colour is emitted without one, and PowerPoint
-  resolves both from the style. Verified in the desktop app, not just the XML: the cell's
-  four borders read back as the style's colour and weight and the header text reads back
-  as the region's colour, where the same deck without the flag reads back invisible
-  borders and black text.
+- **BREAKING: `Presentation.defineTableStyle()` and `TableProps.styleDrivenCells` are
+  gone, along with the `TableStyleProps` / `TableStyleRegionProps` types.** A custom table
+  style is unreachable markup in PowerPoint: it emitted well-formed, schema-valid XML that
+  can never paint.
 
-  Text under no region that names a colour falls through to the theme's `tx1` — black on
-  a default theme, and the master's own text colour on a dark one, where the stamped
-  black had been invisible against the background.
+  PowerPoint resolves `<a:tableStyleId>` against its **own** table-style gallery and never
+  reads a style definition out of the package. Measured by rendering in PowerPoint desktop
+  16.0, not inferred from the schema:
 
-  Nothing above the defaults tier moves — a cell's own options, `headerRow`, `columns[i]`
-  and the table-level `border` / `color` still win, in that order; `outerBorder` still
-  overrides the perimeter it reaches while the style keeps the sides it does not; and a
-  table holding a hyperlink still skips the colour default as it always has, so link runs
-  keep their own colour.
+  - a deck pointed at a **built-in** GUID that the package does not define renders
+    correctly — so the gallery, not the part, is what is consulted;
+  - a PowerPoint-authored deck with one style's GUID rewritten to a novel value in *both*
+    `ppt/tableStyles.xml` and the slide, bytes otherwise identical, loses that table's
+    styling entirely (black hairline grid on white) while its untouched neighbours keep
+    theirs;
+  - the same holds for a definition placed inline in `<a:tblPr>` as `<a:tableStyle>`, and
+    for one nominated by the part's `def=`. Lifting a genuine PowerPoint-authored
+    `<a:tblStyle>` block under a custom GUID does not help either, so the markup we emitted
+    was never the problem.
 
-  It applies **only** to a style registered with `defineTableStyle()`. Office's built-in
-  styles define borders of their own, so every deck using one keeps the defaults exactly
-  as they were; the flag is byte-for-byte inert everywhere else. Setting it without a
-  registered style warns (`table/style-driven-cells-inert`) rather than doing nothing
-  quietly, and the `table-style/region-overridden` messages now name the flag instead of
-  declaring the region dead.
+  `styleDrivenCells` was actively harmful under that finding: it stood down the per-cell
+  `border` and `color` defaults so a style region could take over, but no custom region ever
+  paints, so it traded a correct grid for PowerPoint's default one.
 
-- **`defineTableStyle()` now warns when a style region sets `border` or `color`.** Those
-  two are written faithfully into `ppt/tableStyles.xml` and then never render on a table
-  that leaves the defaults in place (see `styleDrivenCells` above): the
-  library stamps a default border (`{type:'none'}` on all four sides) and text colour
-  (`'000000'`) onto every cell as *direct* formatting, and direct formatting outranks a
-  style region in PowerPoint. A region's `fill`, `bold` and `italic` are not defaulted
-  and do apply, so the style half-works — shading and weight land, borders and text
-  colour quietly do not, and the deck is the only place that tells you.
+  **Migration.** Style tables with direct formatting, which is what carried them all along:
 
-  The new `table-style/region-overridden` diagnostic reports it at authoring time
-  instead, one per offending region property, each naming the alternative that works
-  (`border` on the table; `color` on `headerRow`, on `columns[i]`, or on the cells).
-  Emitted output is unchanged — this is a diagnostic, not a behaviour change.
+  ```js
+  // before
+  const brand = pptx.defineTableStyle({
+    name: 'Brand',
+    wholeTbl: { border: { type: 'solid', color: 'D9D9D9', width: 0.5 } },
+    firstRow: { fill: '1A2B3C', color: 'FFFFFF', bold: true },
+  })
+  slide.addTable(rows, { tableStyle: brand, hasHeader: true, styleDrivenCells: true })
 
-  While documenting it: a table style region has **no** font size and **no** cell
-  margin. `CT_TablePartStyle` is `tcTxStyle` (bold, italic, a font *reference*, a
-  colour) plus `tcStyle` (borders, fill, `cell3D`), and neither carries a size or an
-  inset — PowerPoint has no such setting either. `docs/tables.md` previously listed the
-  stamped `fontSize` and `margin` defaults alongside `border` and `color` as things that
-  override a style, which read as though a region could set them and be ignored. It
-  cannot set them at all; they are per-cell properties, and the stamped defaults are
-  simply where cells get their values.
+  // after
+  slide.addTable(rows, {
+    hasHeader: true,
+    border: { type: 'solid', color: 'D9D9D9', width: 0.5 },
+    headerRow: { fill: { color: '1A2B3C' }, color: 'FFFFFF', bold: true },
+  })
+  ```
+
+  Banded rows move into the row data (set each row's `fill` as you build it) or into
+  `columns[i]` for vertical banding. `TableProps.tableStyle` still exists and still works —
+  it is now typed as `TableStyle` alone, since only a built-in GUID renders.
+
+  `ppt/tableStyles.xml` is still emitted, as a bare stub naming a default style id, because
+  PowerPoint expects the relationship and content-type override. The diagnostics
+  `table-style/region-overridden`, `table-style/missing-argument`, `table-style/missing-name`
+  and `table/style-driven-cells-inert` are removed with the API.
+
+  **The read side is unaffected.** `Table.resolvedStyle`, `TableCell.resolvedFill` and
+  `importSlideMasters({ tableStyles })` still resolve style graphs out of imported decks —
+  those definitions were written by PowerPoint, and PowerPoint honours its own.
 
 ### Fixed
 

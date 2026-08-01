@@ -121,26 +121,4 @@ defineRegressionSuite('Table border dashType', [
 			assertEqual(values.join(','), 'sysDash,sysDash,sysDash,sysDash', "falls back to what type:'dash' implies")
 		},
 	},
-	{
-		name: 'a custom table-style region honours dashType too',
-		fn: async () => {
-			const { result } = await captureDiagnostics(() =>
-				build((p) => {
-					const style = p.defineTableStyle({
-						name: 'Dotted Grid',
-						wholeTbl: { border: { type: 'solid', color: 'D9D9D9', width: 0.5, dashType: 'sysDot' } },
-					})
-					p.addSlide().addTable([[{ text: 'A' }]], { ...AT, tableStyle: style })
-				})
-			)
-
-			const values = dashValues(await readEntry(result.zip, 'ppt/tableStyles.xml'))
-			// A bare BorderProps in a style region styles all four sides plus insideH/insideV.
-			assertEqual(values.length, 6, 'six sides in a whole-table region')
-			assert(
-				values.every((v) => v === 'sysDot'),
-				'every side keeps sysDot; got: ' + values.join(',')
-			)
-		},
-	},
 ])

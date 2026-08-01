@@ -15,10 +15,14 @@
 //     `p:spPr/a:blipFill` in the fixture set, and the read model walks `mc:Choice`
 //     only, so the test unwraps the AlternateContent (see below) to reach it.
 //
-// The `resolvedFill` precedence leg has no PowerPoint oracle (the fixture's table
-// names a style that shades nothing), so it is authored with the write API: a
-// header-shaded `tableStyle` plus an image-filled cell, proving the cell's own
-// blipFill suppresses the style graph the way PowerPoint renders it.
+// The `resolvedFill` precedence leg has no single PowerPoint oracle (the image-fill
+// fixture's table names a style that shades nothing), so its cells are authored with
+// the write API while its *style* comes from `table-styles.pptx` — an image-filled
+// cell under a header-shading style, proving the cell's own blipFill suppresses the
+// style graph the way PowerPoint renders it. The style has to come from the fixture:
+// PowerPoint resolves `<a:tableStyleId>` against its own gallery rather than out of
+// the package, so the write side emits `tableStyles.xml` as a bare stub and cannot
+// define a style for the read side to resolve. See `authorReadWithFixtureStyles`.
 
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
@@ -26,8 +30,16 @@ import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
 import JSZip from 'jszip'
 import { Presentation } from '../../dist/read.js'
+import { TableStyle } from '../../dist/node.js'
 import { assert, assertEqual } from '../helpers.js'
-import { authorRead, firstShape, firstTable, schemaErrors, validatorInstalled } from './authored.js'
+import {
+	authorRead,
+	authorReadWithFixtureStyles,
+	firstShape,
+	firstTable,
+	schemaErrors,
+	validatorInstalled,
+} from './authored.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -227,13 +239,13 @@ describe('TableCell.resolvedFill — a non-solid own fill suppresses the style g
 	/**
 	 * A 1x2 table on a header-shading style: cell A1 image-filled, B1 left to the style.
 	 *
-	 * The style has to be a *custom* one: `makeXmlTableStyles` materialises only
-	 * registered styles into `ppt/tableStyles.xml`, so a built-in `TableStyle.*` GUID
-	 * writes no `a:tblStyle` for `Table.resolvedStyle` to resolve and the style-graph
-	 * fallback this test is about would never fire in either direction.
+	 * Read through `authorReadWithFixtureStyles`, which splices in the PowerPoint-authored
+	 * `tableStyles.xml`. The style graph needs a deck that actually *defines* the style the
+	 * table names, and the write API cannot produce one — it emits the part as a bare stub,
+	 * because PowerPoint reads `<a:tableStyleId>` off its own gallery and never out of the
+	 * package. `MEDIUM_STYLE_2_ACCENT_1` is defined in the fixture, with `firstRow` shading.
 	 */
 	function styledTable(pres) {
-		const brand = pres.defineTableStyle({ name: 'Picture Fill Probe', firstRow: { fill: '1A2B3C', color: 'FFFFFF' } })
 		pres
 			.addSlide()
 			.addTable([[{ text: 'A', options: { fill: { type: 'image', image: { data: PNG_1x1 } } } }, { text: 'B' }]], {
@@ -241,13 +253,13 @@ describe('TableCell.resolvedFill — a non-solid own fill suppresses the style g
 				y: 1,
 				w: 6,
 				h: 1,
-				tableStyle: brand,
+				tableStyle: TableStyle.MEDIUM_STYLE_2_ACCENT_1,
 				hasHeader: true,
 			})
 	}
 
 	test('an image-filled cell reports no colour while its plain neighbour inherits one', async () => {
-		const { presentation } = await authorRead(styledTable)
+		const { presentation } = await authorReadWithFixtureStyles(styledTable)
 		const table = firstTable(presentation)
 		assert(table.resolvedStyle, 'the authored tableStyle resolves, so the style graph is live')
 
@@ -266,11 +278,14 @@ describe('TableCell.resolvedFill — a non-solid own fill suppresses the style g
 	})
 
 	test('a cell with no fill choice at all still falls through to the style', async () => {
-		const { presentation } = await authorRead((pres) => {
-			const brand = pres.defineTableStyle({ name: 'Header Only', firstRow: { fill: '1A2B3C' } })
-			pres
-				.addSlide()
-				.addTable([[{ text: 'x' }, { text: 'y' }]], { x: 1, y: 1, w: 6, tableStyle: brand, hasHeader: true })
+		const { presentation } = await authorReadWithFixtureStyles((pres) => {
+			pres.addSlide().addTable([[{ text: 'x' }, { text: 'y' }]], {
+				x: 1,
+				y: 1,
+				w: 6,
+				tableStyle: TableStyle.MEDIUM_STYLE_2_ACCENT_1,
+				hasHeader: true,
+			})
 		})
 		const cell = firstTable(presentation).cell(0, 0)
 		assertEqual(cell.pictureFill, null, 'no picture fill')
@@ -278,7 +293,7 @@ describe('TableCell.resolvedFill — a non-solid own fill suppresses the style g
 	})
 
 	test.skipIf(!validatorInstalled)('the authored image-filled styled table is schema-valid', async () => {
-		const { buf } = await authorRead(styledTable)
+		const { buf } = await authorReadWithFixtureStyles(styledTable)
 		assertEqual((await schemaErrors(buf)).length, 0, 'no schema violations')
 	})
 })

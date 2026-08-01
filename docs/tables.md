@@ -60,88 +60,49 @@ a style region:
 | 3 | `columns[i]` | to every cell starting in column `i` |
 | 4 | table-level options | to every cell that set none |
 | 5 | **library defaults** | stamped onto every cell as direct formatting |
-| 6 | `tableStyle` | by the style's own region rules |
+| 6 | `tableStyle` | by the built-in style's own region rules |
 
 Exactly eleven table-level options inherit down to cells (row 4): `align`, `bold`, `border`,
 `color`, `fill`, `fontFace`, `fontSize`, `margin`, `textDirection`, `underline`, `valign`.
 The list is closed — `italic`, for instance, is **not** on it, so a table-level `italic: true`
 styles nothing.
 
-### The defaults tier, and why a table style can look ignored
+### The defaults tier
 
 Row 5 is the one that surprises people, so it is worth stating plainly: for four properties
-the library stamps a default onto **every cell as direct formatting**, and direct formatting
-outranks a style region.
+the library stamps a default onto **every cell as direct formatting**.
 
-| Property | Default stamped on every cell | A region can set it | Consequence |
-| --- | --- | --- | --- |
-| `border` | `{ type: 'none' }` on all four sides | yes | overridden, unless the table sets `styleDrivenCells` (below) |
-| `color` | `'000000'` | yes | overridden, unless the table sets `styleDrivenCells` (below) |
-| `fontSize` | `12` | **no** | nothing to defer to (see below) |
-| `margin` | `[0.05, 0.1, 0.05, 0.1]` in | **no** | nothing to defer to (see below) |
+| Property | Default stamped on every cell |
+| --- | --- |
+| `border` | `{ type: 'none' }` on all four sides |
+| `color` | `'000000'` |
+| `fontSize` | `12` |
+| `margin` | `[0.05, 0.1, 0.05, 0.1]` in |
 
-A style region's **`fill`**, **`bold`** and **`italic`** are *not* defaulted, so those do work
-— which is what makes this confusing rather than obviously broken: a custom style's shading
-and weight apply while its borders and text colour appear to be ignored. `defineTableStyle()`
-warns (`table-style/region-overridden`) when a region sets `border` or `color`, so you find
-this out at authoring time rather than by looking at the deck.
+This is deliberate rather than accidental. Direct formatting outranks a style region, so the
+explicit four-side `none` is what keeps an unstyled table free of grid lines, and it is the
+tier every option above it overrides. Set any of the four on the table, on `headerRow`, on
+`columns[i]`, or on a cell, and yours wins.
 
-The last two rows are a different situation, and worth separating: a table style region has
-**nowhere to put** a font size or a cell margin. A region is a `CT_TablePartStyle`, which is
-only `tcTxStyle` (bold, italic, a font *reference*, and a text colour) plus `tcStyle`
-(borders, fill, `cell3D`) — no size, no insets. PowerPoint has no such setting either, so
-these are not overrides the library could give up: font size and margins are per-cell
-properties, and the stamped defaults are simply where cells get their values. Set them on the
-table or on the cells; that is the whole of the API, not a workaround for one.
+One carve-out: a **hyperlink anywhere in the grid** stands the `color` default down for the
+whole table. Black paints the whole run, so without this the words *after* a link would come
+out black instead of following the link colour. Text then falls through to the theme's `tx1`.
 
-#### Letting the style decide: `styleDrivenCells`
+### How to brand a table
 
-`styleDrivenCells: true` stands both of those defaults down for one table. A border side that
-neither the cell nor the table asked for is left unwritten, and a cell that was given no colour
-is emitted without one, so PowerPoint resolves both from the style:
+Direct formatting is the mechanism — `headerRow`, `columns[i]`, the table-level `border` /
+`fill` / `color`, and per-cell `options`:
 
 ```js
-const brand = pptx.defineTableStyle({
-  name: 'Brand Grid',
-  wholeTbl: { border: { type: 'solid', color: 'D9D9D9', width: 0.5 } },
-  firstRow: { fill: '1A2B3C', color: 'FFFFFF', bold: true },
-})
-s.addTable(rows, { tableStyle: brand, hasHeader: true, styleDrivenCells: true })
-```
-
-Nothing above the defaults tier moves: a cell's own options, `headerRow`, `columns[i]` and the
-table-level `border` / `color` all still win, in that order — only row 5 stands aside.
-`outerBorder` composes too: the perimeter draws on the edges it reaches and the style keeps the
-sides it doesn't.
-
-Text under no region that names a colour falls through to the theme's `tx1` — black on a
-default theme, so nothing changes there, and the *master's* text colour on a dark theme, where
-the stamped black had been invisible against the background.
-
-It applies **only** to a style registered with `defineTableStyle()`. A built-in `TableStyle`
-defines borders of its own, so decks using one keep the defaults and look exactly as they did;
-setting the flag without a registered style warns (`table/style-driven-cells-inert`) rather
-than quietly doing nothing.
-
-#### The alternative: put it on the table
-
-Without the flag, set them on the table (or the cells) instead:
-
-```js
-const brand = pptx.defineTableStyle({
-  name: 'Brand Banded',
-  firstRow: { fill: '1A2B3C', bold: true },   // fill and bold DO come from the style
-  band1H: { fill: 'EAF1F8' },
-  band2H: { fill: 'FFFFFF' },
-})
 s.addTable(rows, {
-  tableStyle: brand,
   hasHeader: true,
-  hasBandedRows: true,
-  border: { type: 'solid', color: 'D9D9D9', width: 0.5 },  // NOT wholeTbl.border
-  headerRow: { color: 'FFFFFF' },                          // NOT firstRow.color
+  border: { type: 'solid', color: 'D9D9D9', width: 0.5 },
+  headerRow: { fill: { color: '1A2B3C' }, color: 'FFFFFF', bold: true },
 })
 ```
+
+For banded rows, set each row's `fill` as you build the data — a table style cannot supply
+brand colours (see [Table styles](#table-styles) below for why).
 
 The merge is **property-level**, not object-level. A header cell keeps `headerRow`'s
 typography *and* takes its column's `fill` when the two set different properties — which is
@@ -161,18 +122,49 @@ Setting `headerRow` implies `hasHeader: true` unless you set `hasHeader` explici
 
 ### Table styles
 
-`tableStyle` takes either a built-in `TableStyle` member or the GUID returned by
-`pptx.defineTableStyle()`. Which regions activate is controlled by the flags — `hasHeader` →
-`firstRow`, `hasFooter` → `lastRow`, `hasBandedRows` → `band1H`/`band2H`, and so on.
+`tableStyle` takes a built-in `TableStyle` member. Which regions activate is controlled by the
+flags — `hasHeader` → `firstRow`, `hasFooter` → `lastRow`, `hasBandedRows` → `band1H`/`band2H`,
+and so on.
+
+```js
+s.addTable(rows, { tableStyle: TableStyle.MEDIUM_STYLE_2_ACCENT_1, hasHeader: true })
+```
 
 `hasHeader` does one thing beyond activating a region: it emits the `firstRow="1"` marker
 PowerPoint's accessibility checker reads, so it is worth setting on any table with a header
 row regardless of styling.
 
-A custom style bands correctly across any row count, including one shredded by auto-paging.
-Read the [defaults tier](#the-defaults-tier-and-why-a-table-style-can-look-ignored) above
-before reaching for a style's `border` or `color`: both are overridden by a per-cell default
-unless the table sets `styleDrivenCells: true`.
+#### Only a built-in style renders, and there is no custom-style escape hatch
+
+**PowerPoint resolves `<a:tableStyleId>` against its own table-style gallery. It never reads a
+style definition out of the package.** A GUID it recognises paints even when the deck defines
+nothing; a GUID it does not recognise paints nothing however complete the definition — the
+table falls back to PowerPoint's no-style look, a black hairline grid on white.
+
+This was measured by rendering, not inferred from the schema (PowerPoint desktop 16.0):
+
+| how the style is offered | built-in GUID | custom GUID |
+| --- | --- | --- |
+| `<a:tableStyleId>` reference | **renders** | never |
+| inline `<a:tableStyle>` in `<a:tblPr>` | — | never |
+| `def=` default on `tableStyles.xml` | never | never |
+
+The decisive control: take a PowerPoint-authored deck and rewrite one style's GUID to a novel
+value in *both* the styles part and the slide, bytes otherwise identical. That table drops to
+the black grid while its untouched neighbours keep their styling. Lifting a genuine
+PowerPoint-authored `<a:tblStyle>` block under a custom GUID does not help either — the markup
+was never the problem. (This is consistent with PowerPoint having no "New Table Style" command,
+unlike Word and Excel.)
+
+So `ppt/tableStyles.xml` ships as a bare stub naming a default style id and defining nothing.
+`Presentation.defineTableStyle()` and `TableProps.styleDrivenCells` were **removed**: they
+emitted well-formed, schema-valid, permanently invisible markup, and `styleDrivenCells` made it
+worse by standing down the direct formatting that was carrying the render. Use
+[direct formatting](#how-to-brand-a-table) for brand colours.
+
+The read side is unaffected and still resolves style graphs out of *imported* decks —
+`Table.resolvedStyle`, `TableCell.resolvedFill`, and `importSlideMasters({ tableStyles })` all
+work against the definitions PowerPoint itself wrote.
 
 ## Fills
 

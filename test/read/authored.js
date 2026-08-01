@@ -16,6 +16,10 @@
 //
 // Not a test file (no `.test.` in the name) — vitest's default glob skips it.
 
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import JSZip from 'jszip'
 import TsPptx from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { validatorAvailable, validateBuf } from '../validator.js'
@@ -36,6 +40,40 @@ export async function authorRead(build) {
 	await build(pres)
 	// Under Node, stream() resolves to a Uint8Array (see test/helpers.js build()).
 	const buf = /** @type {Uint8Array} */ (await pres.stream())
+	const presentation = await Presentation.load(buf)
+	return { presentation, buf, pres }
+}
+
+/**
+ * `authorRead`, but with the PowerPoint-authored `ppt/tableStyles.xml` from
+ * `fixtures/table-styles.pptx` spliced in before the read.
+ *
+ * The read side's table style graph — `Table.resolvedStyle`, and the header/banding shading
+ * `TableCell.resolvedFill` inherits — needs a deck whose styles part actually defines the
+ * style the table names. The write API cannot produce one: it emits the part as a bare
+ * default-id stub, because PowerPoint resolves `<a:tableStyleId>` against its own gallery and
+ * never reads a definition out of the package (`defineTableStyle()` was removed for exactly
+ * that reason). Real decks get theirs from PowerPoint, so the fixture's part is both the only
+ * available oracle and the more honest one.
+ *
+ * Author the table with `tableStyle: TableStyle.MEDIUM_STYLE_2_ACCENT_1` — the fixture defines
+ * that GUID, with `firstRow` shading and `band1H`/`band1V` banding.
+ *
+ * @param {(pres: InstanceType<typeof TsPptx>) => void | Promise<void>} build
+ * @returns {Promise<{ presentation: Presentation, buf: Uint8Array, pres: InstanceType<typeof TsPptx> }>}
+ */
+export async function authorReadWithFixtureStyles(build) {
+	const pres = new TsPptx()
+	await build(pres)
+	const authored = /** @type {Uint8Array} */ (await pres.stream())
+
+	const fixture = await JSZip.loadAsync(
+		await readFile(path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'table-styles.pptx'))
+	)
+	const zip = await JSZip.loadAsync(authored)
+	zip.file('ppt/tableStyles.xml', await fixture.file('ppt/tableStyles.xml').async('string'))
+	const buf = await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' })
+
 	const presentation = await Presentation.load(buf)
 	return { presentation, buf, pres }
 }

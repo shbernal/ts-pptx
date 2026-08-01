@@ -1,10 +1,10 @@
 /**
- * Table types: `TableProps`/`TableCell(+Props)`, table styles, `tableToSlides` options and layout results.
+ * Table types: `TableProps`/`TableCell(+Props)`, `tableToSlides` options and layout results.
  *
  * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
 import type { SHAPE_NAME, SlideObjectType, TableStyle } from '../enums.js'
-import type { DataOrPathProps, HexColor, Margin, PositionProps } from './core.js'
+import type { DataOrPathProps, Margin, PositionProps } from './core.js'
 import type { ObjectNameProps } from './object.js'
 import type { ShapeProps } from './shape.js'
 import type { BorderProps, HyperlinkProps, ShapeFillProps } from './style.js'
@@ -347,103 +347,8 @@ export interface TableCellProps extends TextBaseProps {
 	 */
 	fit?: 'none' | 'shrink' | 'resize' | TextFitShrinkProps
 }
-/**
- * Styling for one region of a custom table style (maps to a `CT_TablePartStyle`).
- * A region (e.g. the header row or banded rows) is shown only when the matching
- * `TableProps` flag is set — `firstRow` needs `hasHeader`, `band1H`/`band2H` need
- * `hasBandedRows`, and so on.
- * @see TableStyleProps
- */
-export interface TableStyleRegionProps {
-	/**
-	 * Solid cell fill color (hex).
-	 * - `HexColor` only; theme references are not supported in custom styles
-	 * @example '1A2B3C'
-	 */
-	fill?: HexColor
-	/**
-	 * Text color (hex).
-	 * - renders only on a table that sets `styleDrivenCells: true`; without it the black the
-	 *   library stamps on every cell overrides the region (see {@link TableStyleProps})
-	 * @example 'FFFFFF'
-	 */
-	color?: HexColor
-	/** Bold text. */
-	bold?: boolean
-	/** Italic text. */
-	italic?: boolean
-	/**
-	 * Cell border(s).
-	 * - single value is applied to all four sides plus the interior grid lines
-	 * - array of values in TRBL order styles only the four outer sides
-	 * - renders only on a table that sets `styleDrivenCells: true`; without it the per-cell
-	 *   default the library stamps overrides the region (see {@link TableStyleProps})
-	 */
-	border?: BorderProps | [BorderProps, BorderProps, BorderProps, BorderProps]
-}
-/**
- * A reusable custom table style written to `ppt/tableStyles.xml`.
- * Pass to `pptx.defineTableStyle()`, which registers it and returns a GUID to use
- * as `TableProps.tableStyle`. Unlike the fixed built-in `TableStyle` set, a custom
- * style can use arbitrary brand colors, is editable in PowerPoint's Table Styles
- * gallery, and bands correctly across any row/column count (including auto-paged tables).
- *
- * **A region's `fill`, `bold` and `italic` apply; its `border` and `color` need
- * {@link TableProps.styleDrivenCells}.** The library stamps a default `border`
- * (`{type:'none'}` on all four sides) and `color` (`'000000'`) onto every cell as *direct*
- * formatting, and direct formatting outranks a style region in PowerPoint — so a style's
- * borders and text colour never reach the render unless the table stands those defaults down.
- * Set `styleDrivenCells: true` and both draw; without it, put the border on the table and the
- * colour on `headerRow` / `columns[i]` / the cells, as below. `defineTableStyle()` warns when
- * a region sets either. See `docs/tables.md` → "The defaults tier".
- *
- * Note there is no region font size or cell margin to be overridden: a region is a
- * `CT_TablePartStyle`, which carries only `tcTxStyle` (bold/italic/font reference/colour) and
- * `tcStyle` (borders/fill/`cell3D`). Font size and insets are per-cell properties in
- * PowerPoint too — set them on the table or the cells.
- * @example
- * const brand = pptx.defineTableStyle({
- *   name: 'Brand Banded',
- *   firstRow: { fill:'1A2B3C', bold:true },   // fill + bold come from the style
- *   band1H:   { fill:'EAF1F8' },
- *   band2H:   { fill:'FFFFFF' },
- * })
- * slide.addTable(rows, {
- *   tableStyle: brand, hasHeader:true, hasBandedRows:true,
- *   border: { type:'solid', color:'D9D9D9', width:0.5 },  // not wholeTbl.border
- *   headerRow: { color:'FFFFFF' },                        // not firstRow.color
- * })
- */
-export interface TableStyleProps {
-	/** Display name shown in PowerPoint's Table Styles gallery. */
-	name: string
-	/** Base styling applied to every cell. */
-	wholeTbl?: TableStyleRegionProps
-	/** Header (first) row — activated by `TableProps.hasHeader`. */
-	firstRow?: TableStyleRegionProps
-	/** Footer (last) row — activated by `TableProps.hasFooter`. */
-	lastRow?: TableStyleRegionProps
-	/** First column — activated by `TableProps.hasFirstColumn`. */
-	firstCol?: TableStyleRegionProps
-	/** Last column — activated by `TableProps.hasLastColumn`. */
-	lastCol?: TableStyleRegionProps
-	/** Odd horizontal band — activated by `TableProps.hasBandedRows`. */
-	band1H?: TableStyleRegionProps
-	/** Even horizontal band — activated by `TableProps.hasBandedRows`. */
-	band2H?: TableStyleRegionProps
-	/** Odd vertical band — activated by `TableProps.hasBandedColumns`. */
-	band1V?: TableStyleRegionProps
-	/** Even vertical band — activated by `TableProps.hasBandedColumns`. */
-	band2V?: TableStyleRegionProps
-}
 export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProps {
 	_arrObjTabHeadRows?: TableRow[]
-	/**
-	 * Resolved {@link styleDrivenCells}: the caller's flag *and* a `tableStyle` that
-	 * `defineTableStyle()` registered. Written by `addTableDefinition` and read by the
-	 * emitter, which cannot tell a registered style from a built-in one on its own.
-	 */
-	_styleDrivenCells?: boolean
 
 	/**
 	 * Name of a table/content placeholder defined on the slide layout/master to bind this table to.
@@ -623,62 +528,34 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 */
 	rtl?: boolean
 	/**
-	 * Table style to apply, either a built-in `TableStyle` member or the GUID
-	 * returned by `pptx.defineTableStyle()` for a custom style.
+	 * Built-in table style to apply, as a `TableStyle` member.
 	 * Emits `<a:tableStyleId>` inside `<a:tblPr>` with the corresponding GUID.
 	 * Style flags (`hasHeader`, `hasFooter`, `hasBandedRows`, etc.) select which
 	 * regions of the chosen style are activated; they have no visible effect without
 	 * a `tableStyle` set.
 	 *
-	 * @example tableStyle: pptx.TableStyle.MEDIUM_STYLE_2_ACCENT_1 // built-in
-	 * @example const brand = pptx.defineTableStyle({ name:'Brand', firstRow:{ fill:'1A2B3C', bold:true } }); tableStyle: brand, headerRow:{ color:'FFFFFF' }
+	 * **Only a built-in GUID renders.** PowerPoint resolves `<a:tableStyleId>` against
+	 * its own table-style gallery and never reads a style definition out of the package,
+	 * so a GUID it does not recognise leaves the table with PowerPoint's no-style look —
+	 * a black hairline grid. For brand colours use direct formatting instead:
+	 * `headerRow`, `columns[i]`, the table-level {@link border} / {@link fill}, or per-cell
+	 * options. See `docs/tables.md` → "Table styles".
+	 *
+	 * @example tableStyle: pptx.TableStyle.MEDIUM_STYLE_2_ACCENT_1
 	 */
-	tableStyle?: TableStyle | string
-	/**
-	 * Let the custom table style draw the cell formatting the library would otherwise stamp
-	 * over: the cell **borders** and the text **colour** — the two of a region's five properties
-	 * that have a per-cell default (`fill`, `bold` and `italic` never needed one).
-	 *
-	 * Every cell normally gets a `{type:'none'}` border on all four sides and black text as
-	 * *direct* formatting, and direct formatting outranks a style region in PowerPoint, so a
-	 * region's `border` and `color` are overridden before they can render (see
-	 * {@link TableStyleProps}). With this set, a border side that neither the cell nor the table
-	 * asked for is left unwritten and the run is emitted with no colour, so PowerPoint resolves
-	 * both from the style. Text under no region that names a colour falls to the theme's `tx1`
-	 * — black on a light master, and legible rather than black-on-black on a dark one.
-	 *
-	 * Nothing else about precedence changes: a cell's own `options`, `headerRow`, `columns[i]`
-	 * and the table-level {@link border} / {@link color} all still win, in that order. Only the
-	 * default at the bottom of the stack stands aside.
-	 *
-	 * Applies **only** when {@link tableStyle} names a style registered with
-	 * `pptx.defineTableStyle()`. A built-in `TableStyle` defines borders of its own, so decks
-	 * using one keep the defaults and look exactly as they did; setting this without a
-	 * registered style warns (`table/style-driven-cells-inert`) rather than doing nothing
-	 * quietly.
-	 * @default false
-	 * @example
-	 * const brand = pptx.defineTableStyle({
-	 *   name: 'Brand',
-	 *   wholeTbl: { border: { type:'solid', color:'D9D9D9', width:0.5 } },
-	 *   firstRow: { fill:'1A2B3C', color:'FFFFFF', bold:true },
-	 * })
-	 * slide.addTable(rows, { tableStyle: brand, hasHeader: true, styleDrivenCells: true })
-	 */
-	styleDrivenCells?: boolean
+	tableStyle?: TableStyle
 	/**
 	 * Inline styling for the header (first) row, applied as direct per-cell formatting.
 	 *
-	 * Convenience shortcut for styling a header distinctly from the body **without** first
-	 * registering a custom style via `pptx.defineTableStyle({ firstRow })`. Each property is
-	 * merged onto every cell of row 0 (`fill`, `color`, `bold`, `align`, `border`, etc.).
+	 * This is how a header is styled distinctly from the body: each property is merged
+	 * onto every cell of row 0 (`fill`, `color`, `bold`, `align`, `border`, etc.).
 	 *
 	 * Precedence (highest wins), matching how PowerPoint resolves styling — direct cell
 	 * formatting overrides a table-style region:
 	 * 1. explicit per-cell `options` on a row-0 cell
 	 * 2. this `headerRow`
-	 * 3. the `firstRow` region of any `tableStyle`
-	 * 4. `wholeTbl` / defaults
+	 * 3. the `firstRow` region of a built-in `tableStyle`
+	 * 4. the library's per-cell defaults
 	 *
 	 * Setting `headerRow` also implies `hasHeader: true` (emits `firstRow="1"` for the
 	 * accessibility "table header" marker) unless `hasHeader` is explicitly set to `false`.
@@ -700,7 +577,7 @@ export interface TableProps extends PositionProps, TextBaseProps, ObjectNameProp
 	 * 1. explicit per-cell `options`
 	 * 2. `headerRow` (row 0 only)
 	 * 3. this `columns[colIdx]`
-	 * 4. `wholeTbl` / `tableStyle` / defaults
+	 * 4. a built-in `tableStyle` / the library's per-cell defaults
 	 *
 	 * The merge is property-level, so a header cell keeps `headerRow`'s typography **and**
 	 * takes its column's `fill` when they set different properties. For a graduated header

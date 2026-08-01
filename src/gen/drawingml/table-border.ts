@@ -46,9 +46,9 @@ function genBorderLine(name: string, border: BorderProps): string {
  * carries them, which is also where PowerPoint puts them.
  *
  * A side may be missing, and missing is not the same as `{type:'none'}`: `none` writes an
- * explicit `w="0"` rule, which is direct formatting and overrides whatever the table style
- * would have drawn there, while an omitted side leaves that edge to the style. Tables built
- * with `styleDrivenCells` rely on the difference; every other table arrives dense.
+ * explicit `w="0"` rule, which is direct formatting and overrides whatever a built-in table
+ * style would have drawn there, while an omitted side leaves that edge to the style. The
+ * definition step sends every cell here dense; a caller reaching this directly may not.
  *
  * @param {BorderProps[]} cellBorder - up to a 4-tuple of border props in [top, right, bottom, left] order
  * @param {TableCellDiagonals} [diagonal] - the cell's optional corner-to-corner rules

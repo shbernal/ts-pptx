@@ -11,12 +11,7 @@
  */
 import { ZipWriter } from '../zip.js'
 import type { CustomPropertyValue, WriteProps } from '../types/index.js'
-import type {
-	PresentationPropsInternal,
-	PresSlideInternal,
-	SlideLayoutInternal,
-	TableStyleInternal,
-} from '../types/internal.js'
+import type { PresentationPropsInternal, PresSlideInternal, SlideLayoutInternal } from '../types/internal.js'
 import type { RuntimeAdapter } from '../runtime/types.js'
 import type { FontMetricsRegistry } from '../measure/font-metrics.js'
 import { flattenEmbeddedFaces } from '../embedded-fonts.js'
@@ -57,7 +52,6 @@ export interface PackageSource {
 	readonly runtime: RuntimeAdapter
 	readonly presentation: PresentationPropsInternal
 	readonly customProperties: Array<{ name: string; value: CustomPropertyValue }>
-	readonly tableStyles: TableStyleInternal[]
 	readonly fontMetrics: FontMetricsRegistry
 }
 
@@ -304,7 +298,7 @@ export async function buildPackageParts(
 		zip.add('ppt/theme/theme2.xml', makeXmlTheme(pres))
 		zip.add('ppt/presentation.xml', makeXmlPresentation(pres))
 		zip.add('ppt/presProps.xml', makeXmlPresProps())
-		zip.add('ppt/tableStyles.xml', makeXmlTableStyles(source.tableStyles))
+		zip.add('ppt/tableStyles.xml', makeXmlTableStyles())
 		zip.add('ppt/viewProps.xml', makeXmlViewProps())
 
 		// C: Create a Layout/Master/Rel/Slide file for each SlideLayout and Slide

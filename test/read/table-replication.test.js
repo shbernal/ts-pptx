@@ -8,11 +8,11 @@
 // looking option the writer ignores would still fail here.
 
 import { describe, test } from 'vitest'
-import TsPptx from '../../dist/node.js'
+import TsPptx, { TableStyle } from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { readModelToIr } from '../../dist/script.js'
 import JSZip from 'jszip'
-import { authorRead } from './authored.js'
+import { authorRead, authorReadWithFixtureStyles } from './authored.js'
 import { assert, assertEqual } from '../helpers.js'
 
 /** The IR's single `addTable` call, or a failing assertion. */
@@ -39,6 +39,16 @@ async function replay(call) {
 /** Author `build`, read it back, and convert to the deck IR. */
 async function irFor(build) {
 	const { buf } = await authorRead(build)
+	return readModelToIr(await Presentation.load(buf))
+}
+
+/**
+ * `irFor`, but with the PowerPoint-authored `tableStyles.xml` spliced in, so a table on
+ * `MEDIUM_STYLE_2_ACCENT_1` resolves a style that really does band its rows. The write API
+ * cannot define one — see `authorReadWithFixtureStyles`.
+ */
+async function irForStyled(build) {
+	const { buf } = await authorReadWithFixtureStyles(build)
 	return readModelToIr(await Presentation.load(buf))
 }
 
@@ -266,18 +276,13 @@ describe("table replication — a cell's own fill versus the style's banding", (
 		// The distinction `TableCell.hasOwnFill` exists for. Both cells render as a colour, but
 		// only one of them said so: baking the banding colour into the copy would make it look
 		// right until someone changed its table style, and then nothing would move.
-		const ir = await irFor((pres) => {
-			const style = pres.defineTableStyle({
-				name: 'Banded',
-				band1H: { fill: 'EAF1F8' },
-				band2H: { fill: 'FFFFFF' },
-			})
+		const ir = await irForStyled((pres) => {
 			pres.addSlide().addTable(
 				[
 					[{ text: 'own', options: { fill: { color: 'FF0000' } } }, { text: 'inherits' }],
 					[{ text: 'own2', options: { fill: { color: 'C00000' } } }, { text: 'inherits2' }],
 				],
-				{ x: 1, y: 1, w: 8, tableStyle: style, hasBandedRows: true }
+				{ x: 1, y: 1, w: 8, tableStyle: TableStyle.MEDIUM_STYLE_2_ACCENT_1, hasBandedRows: true }
 			)
 		})
 

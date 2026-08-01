@@ -1,4 +1,5 @@
 import { defineRegressionSuite, build, readEntry, captureDiagnostics, assert, assertEqual } from '../helpers.js'
+import { TableStyle } from '../../dist/node.js'
 
 // The two table-level fill options, and the non-solid cell fills that were emitting all
 // along with nothing documenting or pinning them.
@@ -87,8 +88,12 @@ defineRegressionSuite('Table fill', [
 		fn: async () => {
 			const { result } = await captureDiagnostics(() =>
 				build((p) => {
-					const style = p.defineTableStyle({ name: 'Brand', firstRow: { fill: '1A2B3C', bold: true } })
-					p.addSlide().addTable([['A']], { ...AT, tableFill: { color: 'F2F2F2' }, tableStyle: style, hasHeader: true })
+					p.addSlide().addTable([['A']], {
+						...AT,
+						tableFill: { color: 'F2F2F2' },
+						tableStyle: TableStyle.MEDIUM_STYLE_2_ACCENT_1,
+						hasHeader: true,
+					})
 				})
 			)
 

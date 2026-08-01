@@ -83,22 +83,13 @@ export interface ObjectOptions extends ImageBaseProps, PositionProps, ShapeProps
 	hasFirstColumn?: boolean // table
 	hasLastColumn?: boolean // table
 	rtl?: boolean // table
-	tableStyle?: TableStyle | string // table
+	tableStyle?: TableStyle // table
 	/**
 	 * Table perimeter border. `addTableDefinition` normalizes it to a 4-tuple (TRBL, sides
 	 * left unset as `undefined`) before it reaches the emitter, so the serializer never has
 	 * to re-handle the single-`BorderProps` form.
 	 */
 	outerBorder?: TableProps['outerBorder'] // table
-	/**
-	 * Table: the resolved answer to "may a cell border be left to the table style?" — the
-	 * caller's `styleDrivenCells` *and* a `tableStyle` that `defineTableStyle()` registered.
-	 * Resolved in `addTableDefinition` because only the presentation can tell a registered
-	 * style from a built-in one; the emitter needs it to know that a cell with no borders of
-	 * its own means "the style draws them" rather than "this cell was never through the
-	 * definition step".
-	 */
-	_styleDrivenCells?: boolean // table
 	/** Table background (`a:tblPr` fill), as distinct from `fill`, which is stamped onto each cell. */
 	tableFill?: TableProps['tableFill'] // table
 }

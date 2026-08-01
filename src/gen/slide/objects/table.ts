@@ -80,31 +80,23 @@ interface GridEdge {
  * @param base - the cell's resolved `[top, right, bottom, left]` borders, or `null` when it has none
  * @param outer - the normalized perimeter tuple, `undefined` for a side the caller left out
  * @param at - where this cell sits in the merge grid
- * @param styleDriven - whether the cell's unset sides belong to the table style
  * @returns the borders to emit, or `null` when there are none and the perimeter adds none
  */
 function applyOuterBorder(
 	base: ReadonlyArray<BorderProps | undefined> | null,
 	outer: ReadonlyArray<BorderProps | undefined> | undefined,
-	at: GridEdge,
-	styleDriven: boolean
+	at: GridEdge
 ): ReadonlyArray<BorderProps | undefined> | null {
 	if (!outer) return base
 	// TRBL, matching the public tuple order.
 	const onEdge = [at.rIdx === 0, at.cIdx === at.lastCol, at.rIdx === at.lastRow, at.cIdx === 0]
 	const applies = ([0, 1, 2, 3] as const).filter((idx) => onEdge[idx] && outer[idx])
 	if (applies.length === 0) return base
-	// A cell with no borders of its own normally has the other three sides spelled out as
-	// `{type:'none'}` — what the definition step puts on an unstyled cell, so this matches
-	// rather than invents. Under `styleDrivenCells` the definition step deliberately writes no
-	// borders at all, and spelling them out here would put the perimeter on an edge cell at the
-	// cost of the style's borders on its other three sides. Leave those holes: the sides are
-	// optional in `<a:tcPr>`, and an omitted one is exactly how a cell says "the style decides".
+	// A cell with no borders of its own has the other three sides spelled out as `{type:'none'}`
+	// — what the definition step puts on an unstyled cell, so this matches rather than invents.
 	const merged: (BorderProps | undefined)[] = base
 		? [...base]
-		: styleDriven
-			? []
-			: [{ type: 'none' }, { type: 'none' }, { type: 'none' }, { type: 'none' }]
+		: [{ type: 'none' }, { type: 'none' }, { type: 'none' }, { type: 'none' }]
 	for (const idx of applies) {
 		const side = outer[idx]
 		if (side) merged[idx] = side
@@ -235,11 +227,6 @@ export function renderTableObject(
 			? objTabOpts.outerBorder
 			: [objTabOpts.outerBorder, objTabOpts.outerBorder, objTabOpts.outerBorder, objTabOpts.outerBorder]
 
-	// Resolved in `addTableDefinition`, which is the only layer that can tell a style registered
-	// with `defineTableStyle()` from a built-in `TableStyle`. Here it means one thing: a cell
-	// carrying no borders of its own is deliberate, so nothing may be spelled out on its behalf.
-	const styleDrivenCells = objTabOpts._styleDrivenCells === true
-
 	// STEP 2: Set column widths
 	// Per-column inches from an explicit `colW` array, else split the table's
 	// resolved EMU width (`cx`) evenly. `resolveTableColWidthsEmu` is the single
@@ -360,8 +347,7 @@ export function renderTableObject(
 				const originBorder = applyOuterBorder(
 					Array.isArray(originOpts.border) ? originOpts.border : null,
 					outerBorder,
-					at,
-					styleDrivenCells
+					at
 				)
 				if (originBorder) spanPrXml += genTableCellBorderXml(originBorder)
 				if (origin) {
@@ -468,12 +454,7 @@ export function renderTableObject(
 			// Child order is the CT_TableCellProperties sequence: the four edges, the two diagonals,
 			// `cell3D`, then the fill. Unlike the edges, the diagonals are NOT copied onto a merged
 			// region's covered cells (see `genTableCellBorderXml`).
-			const cellBorder = applyOuterBorder(
-				Array.isArray(cellOpts.border) ? cellOpts.border : null,
-				outerBorder,
-				at,
-				styleDrivenCells
-			)
+			const cellBorder = applyOuterBorder(Array.isArray(cellOpts.border) ? cellOpts.border : null, outerBorder, at)
 			const cellDiagonal = cellOpts.diagonal
 			const cellBorderXml = cellBorder || cellDiagonal ? genTableCellBorderXml(cellBorder ?? [], cellDiagonal) : ''
 			rowCells.push(

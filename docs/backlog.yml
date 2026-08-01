@@ -104,6 +104,12 @@ vocabulary:
     # primitives it composes exist and are sound. Distinct from
     # out-of-project-scope, which dismisses the capability itself.
     - composition-belongs-downstream
+    # The construct is valid OOXML and the library can emit it, but PowerPoint does not
+    # implement it, so the emitted markup can never affect the render. Distinct from
+    # out-of-project-scope (which dismisses the capability) and from invalid-ooxml (the
+    # markup is correct). Closing on this reason requires render evidence, not schema
+    # reasoning -- the object model reports the resolved model, not what is painted.
+    - not-supported-by-powerpoint
   evidence_kinds:
     # Source / spec reading
     - local-source-inspection
@@ -1615,8 +1621,8 @@ items:
     source: fork:src/gen/define/table.ts
     type: fork-internal-proposal
     first_seen: 2026-07-31
-    last_reviewed: 2026-07-31
-    status: partially-implemented
+    last_reviewed: 2026-08-01
+    status: implemented
     priority: p2
     target_area:
       - table-ooxml
@@ -1625,207 +1631,130 @@ items:
     non_target_reasons: []
     summary: per-cell defaults stamped as direct formatting override a custom table style's region border and color
     current_project_notes: >
-      A table style region is a CT_TablePartStyle and can carry exactly five things:
-      fill, color, bold, italic, border (tcTxStyle gives b/i/font-ref/colour, tcStyle
-      gives tcBdr/fill/cell3D). addTableDefinition stamps a default border
-      ({type:'none'} on all four sides, src/gen/define/table.ts:155-169) and color
-      ('000000', :329-332) onto EVERY cell as direct formatting, and in PowerPoint
-      direct cell formatting outranks a style region -- so two of those five can never
-      render. fill, bold and italic are NOT defaulted and do work, which is why the gap
-      went unnoticed: a custom style's shading and weight apply while its borders and
-      text colour appear ignored.
+      Closed by removal, not by deferral. The premise held -- addTable did stamp a default
+      border and colour as direct formatting, and direct formatting does outrank a style
+      region -- but it was not the binding constraint. The binding constraint, found while
+      chasing dn-table-style-regions-never-render, is that PowerPoint resolves
+      a:tableStyleId against its OWN gallery and never reads a definition out of the
+      package, so no custom region paints whatever the cells say. Standing the defaults down
+      therefore bought nothing and cost the direct formatting that had been carrying the
+      render.
 
-      DO NOT re-raise this as a four-property problem. The library also stamps a
-      default fontSize (12, :317) and margin ([0.05,0.1,0.05,0.1], :318-328), and an
-      earlier reading of this treated those as two more overridden regions. They are
-      not: CT_TablePartStyle has nowhere to put a font size or a cell inset, so there
-      is no region value for them to override and nothing to defer to. PowerPoint has
-      no per-region setting for either. Verified against the ECMA-376 transitional
-      XSD (CT_TableStyleTextStyle = attrs b/i + EG_ThemeableFontStyles +
-      EG_ColorChoice + extLst; CT_TableStyleCellStyle = tcBdr +
-      EG_ThemeableFillStyle + cell3D). Font size and margins are per-cell properties,
-      full stop; the stamped defaults are just where cells get their values.
+      What shipped under this item and has now been reverted: TableProps.styleDrivenCells
+      (both halves, border and colour), the defineTableStyle() registry and its
+      Presentation/Slide resolver, and the table-style/region-overridden and
+      table/style-driven-cells-inert diagnostics. Removed alongside it as the same decision:
+      defineTableStyle() itself, TableStyleProps / TableStyleRegionProps /
+      TableStyleInternal, and the custom-style branch of makeXmlTableStyles(), which is now a
+      fixed stub. TableProps.tableStyle stays and is retyped to TableStyle (built-ins only).
+      The read side is untouched -- Table.resolvedStyle, TableCell.resolvedFill and
+      importSlideMasters({tableStyles}) resolve definitions PowerPoint itself wrote, which is
+      a different thing from authoring one.
 
-      That leaves a two-property scope, and it is much smaller than it first looked:
-      no style-region resolver is needed, because the two remaining properties
-      (border, color) are only ever read by PowerPoint at render time -- neither feeds
-      this library's own layout maths. (The measurement path's DEF_FONT_SIZE and
-      DEF_CELL_MARGIN_IN fallbacks in gen/table/autopage.ts and
-      gen/slide/objects/table.ts are what would have made fontSize/margin deferral
-      dangerous -- they fail silently, measuring 12pt while PowerPoint renders
-      something else -- but that risk is now moot.)
-
-      Remaining constraints for the deferral work. (1) Built-in styles must keep
-      stamping: TableProps.tableStyle also carries the built-in TableStyle GUIDs, and
-      Office's built-ins do define borders, so keying deferral off "a tableStyle is
-      set" would put grid lines into every deck using MEDIUM_STYLE_2_ACCENT_1. Scope
-      has to be "registered via defineTableStyle()" specifically, by registry lookup,
-      never by GUID shape. (2) The sparse-vs-none border distinction already documented at
-      src/gen/define/table.ts:63 ("an absent side means leave this edge alone") is the
-      deferral mechanism; no new vocabulary was needed. genTableCellBorderXml already
-      skipped a missing side -- only its type and the applyOuterBorder comment claimed a
-      dense tuple, and the one place that really did densify was the perimeter fallback
-      for a cell with no borders of its own. (3) The color default is already
-      conditionally skipped when any cell has a hyperlink; deferral has to compose with
-      that carve-out, not bypass it.
-
-      Planned shape: an opt-in flag on TableProps rather than a silent default flip,
-      so each step ships independently and existing decks stay byte-identical by
-      construction, with the flip to default deferred to a major.
-
-      Shipped so far: defineTableStyle() now emits table-style/region-overridden when
-      a region sets border or color, naming the working alternative, so the failure is
-      self-reporting at authoring time. Output bytes unchanged. A slide can also now
-      resolve a tableStyle GUID to its registered definition (Presentation holds the
-      lookup over _tableStyles and hands it to SlideBuilder), which is what lets the
-      deferral distinguish a custom style from a built-in one without inspecting the
-      GUID's shape; built-in and cross-presentation GUIDs resolve to undefined, pinned
-      by tests.
-
-      The border half is now done: TableProps.styleDrivenCells (opt-in, per table) makes
-      the define step leave a side unwritten when neither the cell nor the table asked
-      for one, and PowerPoint resolves it from the style. Only that bottom rung moves --
-      cell options, headerRow, columns[i] and the table-level border still win in that
-      order, and outerBorder still overrides the perimeter it reaches. The flag applies
-      only to a registered style, so built-in styles keep the defaults and the byte gate
-      stays green; setting it without one warns table/style-driven-cells-inert rather
-      than doing nothing quietly, and the warning fires once per table rather than once
-      per auto-paged slide. Two seams were needed beyond the define step: the resolved
-      answer rides to the emitter as options._styleDrivenCells (only the define layer can
-      see the registry), and applyOuterBorder no longer fills a border-less cell's other
-      three sides with {type:'none'} when it is set -- that fill is right for every other
-      table and would have traded the style's borders for the perimeter.
-
-      The colour half is done too, and it was smaller than the border half: the same flag
-      also skips the '000000' default, so a cell given no colour is emitted with no
-      solidFill at all and PowerPoint resolves the run from the style region -- or, under
-      no region that names a colour, from the theme's tx1. Composing with the existing
-      hyperlink carve-out needed nothing clever: both conditions skip the same default, so
-      the flag check simply joins it (and goes first, since the carve-out stringifies the
-      whole grid). Nothing else stamps a colour on a table cell -- the run emitter writes
-      one only when it has one, and the define step's default was the single source -- so
-      unlike the border half there was no second seam at emit time.
-
-      Scope note for a reader arriving later: on a default theme this changes nothing
-      visible, because tx1 resolves to the same black the library was stamping. The
-      change bites on a dark theme, where the stamped black was invisible against the
-      background and the fall-through picks up the master's text colour instead.
+      Two findings worth keeping out of the wreckage, because they were correct and cost real
+      work to establish. (1) CT_TablePartStyle has nowhere to put a font size or a cell inset
+      -- CT_TableStyleTextStyle is attrs b/i + EG_ThemeableFontStyles + EG_ColorChoice +
+      extLst, CT_TableStyleCellStyle is tcBdr + EG_ThemeableFillStyle + cell3D -- so the
+      stamped fontSize and margin defaults were never overriding anything. Do not re-raise
+      those as a gap. (2) The sparse-vs-none border distinction is real and still documented
+      at src/gen/drawingml/table-border.ts: an absent side leaves the edge alone,
+      {type:'none'} erases it. The definition step now always sends a dense tuple, but the
+      emitter's tolerance of a sparse one is deliberate.
     evidence:
       kinds:
         - local-source-inspection
         - regression-test
+        - render-check
         - powerpoint-result
+        - powerpoint-authored-comparison
       local_files:
         - src/gen/define/table.ts
         - src/gen/slide/objects/table.ts
-        - src/gen/drawingml/table-border.ts
-        - src/gen/table/autopage.ts
+        - src/gen/pres/table-styles.ts
         - src/presentation.ts
+        - src/slide.ts
         - src/types/table.ts
         - test/regression/table-style-precedence.test.js
+        - test/regression/table-styles-xml.test.mjs
+        - docs/tables.md
       schema_fixture: null
       validator_result: null
       powerpoint_result: >
-        Desktop COM read-back (three tables on one custom style whose wholeTbl.border is
-        1pt solid FF0000). With styleDrivenCells the cell's four Borders() read back
-        Visible=-1, ForeColor.RGB=255, Weight=1 -- PowerPoint draws the style's border.
-        The same table without the flag reads back Visible=0 on all four sides. With the
-        flag plus a 3pt 0000FF outerBorder, the top-left cell reads back blue 3pt on top
-        and left and red 1pt on bottom and right, so the perimeter and the style compose
-        rather than one erasing the other. All three decks opened without a repair prompt.
-
-        Colour, read back as Cell(r,c).Shape.TextFrame.TextRange.Runs(1).Font.Color.RGB on
-        two more decks. Default theme, style firstRow.color FFFFFF: with the flag the
-        header runs read 16777215 (white, from the region) and the body runs 0 (black,
-        from tx1); the same deck without the flag reads 0 everywhere -- the stamped black
-        beating the region. Dark theme (dk1 FFFFFF / lt1 1F1F1F, dark background) under a
-        style that names no colour at all: with the flag every run reads 16777215, i.e.
-        the master's text colour; without it every run reads 0, black on a 1F1F1F
-        background. A flagged table holding a hyperlink still emits the link (Address
-        read back) with no colour of its own. Probe gotcha worth repeating: read Runs(1),
-        not the TextRange -- a range whose run carries a direct colour but whose
-        paragraph-end mark does not reads back -2147483648 (mixed), not the colour.
+        See dn-table-style-regions-never-render for the render matrix that closed this. The
+        COM read-back recorded here earlier (Borders() reading Visible=-1 under the flag,
+        Runs(1).Font.Color.RGB following the region) was real but measured the wrong thing:
+        the object model reports what the style SAYS, not what the renderer paints, which is
+        why it agreed with decks that render completely unstyled. Read pixels, not
+        properties, for any question of the form "does PowerPoint honour this".
       spec_refs: []
-    next_action: both deferrable properties have shipped behind TableProps.styleDrivenCells and both are confirmed in the desktop app rather than only in the XML, and docs/tables.md's defaults-tier section has been restructured to state the one rule instead of two exceptions; nothing further is planned for this item at the current major, since the two remaining region properties (fontSize, margin) do not exist in CT_TablePartStyle and are struck for good -- what is left is the eventual default flip, i.e. making deferral the behaviour and retiring the flag in a major, which is a separate decision that needs its own migration note because it moves the bytes of every deck using a custom style
-
+    next_action: none
   - id: dn-table-style-regions-never-render
     source: downstream
     type: downstream-need
     first_seen: 2026-07-31
-    last_reviewed: 2026-07-31
-    status: target
+    last_reviewed: 2026-08-01
+    status: non-target
     priority: p1
     target_area: [table-ooxml, missing-pptx-feature]
     applies_to_current_project: yes
-    non_target_reasons: []
+    non_target_reasons: [not-supported-by-powerpoint]
     summary: A custom table style registered with defineTableStyle() is resolved by PowerPoint but none of its regions ever paint
     current_project_notes: |
-      Verified against PowerPoint desktop 16.0 on Windows, rendering via COM.
+      ROOT CAUSE FOUND, and it is not fixable in this library. PowerPoint resolves
+      a:tableStyleId against its own built-in table-style gallery and never reads a style
+      definition out of the package. A custom style is unreachable markup: valid, resolvable
+      by the object model, permanently invisible.
 
-      A consumer registered a style with defineTableStyle() and pointed a table at
-      it. PowerPoint resolves the style — the object model reports
-      Table.Style.Name as the registered name, Table.Style.Id as the minted GUID,
-      and Cell(r,c).Shape.Fill.ForeColor.RGB as the colour the wholeTbl region
-      names — but the rendered slide shows none of it. Every region is affected:
-      wholeTbl border, wholeTbl fill, firstRow fill, band1H/band2H fill. The table
-      paints with PowerPoint's no-style look, a black hairline grid on white.
+      Settled by rendering slide 1 to PNG over COM (PowerPoint desktop 16.0) and reading
+      pixels, which is the only oracle that answers this question -- see the method note at
+      the bottom. Every mechanism CT_TableProperties and the styles part offer:
 
-      This makes styleDrivenCells actively harmful on PowerPoint: standing the
-      per-cell defaults down removes the direct formatting that was carrying the
-      render, and the style that was supposed to take over never paints. A
-      consumer who adopts it trades a correct grid for the black default one.
+        | how the style is offered           | built-in GUID | custom GUID |
+        | a:tableStyleId reference           | RENDERS       | never       |
+        | inline a:tableStyle in a:tblPr     | --            | never       |
+        | def= on a:tblStyleLst, no reference| never         | never       |
 
-      Minimal reproduction (~20 lines, no imported master, no theme):
-        const style = pptx.defineTableStyle({
-          name: 'Probe Style',
-          wholeTbl: { border: { type: 'solid', color: 'FF0000', width: 3 }, fill: '00FF00' },
-          firstRow: { fill: '0000FF', bold: true },
-        })
-        slide.addTable(rows, { tableStyle: style, hasHeader: true, styleDrivenCells: true })
-      Expected: green cells, red 3pt grid, blue header. Actual: white cells, black
-      hairline grid, white header.
+      The decisive pair, a clean 2x2 on the one variable that matters:
+        - our generated deck pointed at a built-in GUID our part does NOT define renders
+          perfectly (blue header, banded body). So the gallery is consulted, not the part.
+        - the PowerPoint-authored fixture test/read/fixtures/table-styles.pptx with ONE
+          style's GUID rewritten to a novel value in both ppt/tableStyles.xml and the slide,
+          bytes otherwise identical, drops that table to the black hairline grid while the
+          two tables whose GUIDs were untouched keep their styling. So a definition in the
+          part is not consulted.
 
-      The packaging is NOT the cause, and the following were each ruled out by
-      rendering a hand-patched copy of that same file:
-        - part plumbing: the presentation rel and the Content_Types override for
-          ppt/tableStyles.xml are both present and correct;
-        - GUID collision / PowerPoint style cache: reproduces with a fresh styleId;
-        - the dangling def= attribute (it names MEDIUM_STYLE_2_ACCENT_1, which the
-          part does not define): pointing def= at the registered style changes
-          nothing;
-        - regions omitting <a:tcBdr>: repeating the wholeTbl border block into
-          every other region changes nothing;
-        - the empty <a:fontRef idx="minor"/> in tcTxStyle, which violates
-          CT_StyleMatrixReference's required colour child: adding <a:prstClr
-          val="black"/> changes nothing (worth fixing on its own account);
-        - srgbClr vs schemeClr in the region: swapping the region's colours for
-          <a:schemeClr> changes nothing.
+      CORRECTION to this entry's 2026-07-31 notes: the "decisive control" recorded there --
+      that lifting a genuine PowerPoint a:tblStyle block into the generated file and pointing
+      at its GUID renders correctly -- is WRONG. It was re-run here and it does not render.
+      Everything that control was used to rule IN (the markup makeXmlTableStyles() emits
+      being at fault) is therefore unfounded, and the value-level differences that entry
+      ruled out (def=, srgbClr vs schemeClr, the empty fontRef, omitted tcBdr, repeated
+      regions) were all ruled out for the right reason: none was ever the cause, because the
+      part is not read at all. Consistent with PowerPoint shipping no "New Table Style"
+      command, unlike Word and Excel. The part plumbing was recorded as verified present and
+      it is -- the presentation rel and the Content_Types override for /ppt/tableStyles.xml
+      are both correct; that was never the problem either.
 
-      The decisive control: lifting a genuine PowerPoint-authored <a:tblStyle>
-      block (Medium Style 2 - Accent 1) verbatim into that same generated file and
-      pointing the table's <a:tableStyleId> at its GUID renders correctly — blue
-      header, banded rows, white grid lines. So PowerPoint loads the part and
-      honours a style in it; it is specifically the markup makeXmlTableStyles()
-      emits that never paints.
+      RESOLUTION: defineTableStyle(), TableProps.styleDrivenCells and the custom-style branch
+      of makeXmlTableStyles() were removed rather than left emitting invisible markup, and
+      ppt/tableStyles.xml is now a fixed stub. Brand styling is direct cell formatting
+      (headerRow, columns[i], table-level border/fill/color, per-cell options), which is what
+      carried every working deck already. See CHANGELOG.md for the migration and
+      docs/tables.md -> "Table styles" for the render matrix.
 
-      Also of note: opening the file and calling Table.ApplyStyle(id, true) from
-      the object model, then saving from PowerPoint itself, does not fix it. The
-      saved file keeps the style verbatim (PowerPoint only normalises firstRow by
-      inserting an empty <a:tcBdr/>), and re-rendering that round-trip is still
-      unstyled. So the gallery-reapply path a consumer might rely on is affected
-      too, not just first render.
-
-      Suggested starting point: diff makeXmlTableStyles() output against a
-      PowerPoint-authored part element by element rather than attribute by
-      attribute — the difference that matters is likely structural (a required
-      region or child element PowerPoint expects present, even empty) rather than
-      any single value, since every value-level difference above was ruled out.
+      Method note worth reusing: the COM object model is NOT an oracle for "does PowerPoint
+      honour this". Table.Style.Name, Table.Style.Id, Cell().Shape.Fill.ForeColor.RGB and
+      Cell().Borders() all reported the custom style's values on decks that render completely
+      unstyled -- the object model reports the resolved model, the renderer disagrees. Export
+      the slide (Slide.Export to "PNG") and read pixels.
     evidence:
-      kinds: [minimal-repro, powerpoint-result, powerpoint-authored-comparison, extracted-xml]
+      kinds: [minimal-repro, render-check, powerpoint-result, powerpoint-authored-comparison, extracted-xml]
       local_files:
         - src/gen/pres/table-styles.ts
         - src/presentation.ts
         - src/gen/define/table.ts
+        - test/regression/table-styles-xml.test.mjs
+        - docs/tables.md
       schema_fixture: null
       validator_result: null
       powerpoint_result: fail
