@@ -449,8 +449,8 @@ defineRegressionSuite('HTML table to slides on Node (happy-dom)', [
 			})
 			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
 			// Cell margin is inches downstream, so a computed px padding converts at 96px/in (the CSS
-			// reference pixel) and lands in EMU as px/96*914400 = px*9525. Pins both halves of
-			// dn-html-table-padding-units: the unit (a 4px pad is 0.042in, NOT the 4in it used to be)
+			// reference pixel) and lands in EMU as px/96*914400 = px*9525. Pins both halves of the
+			// fix: the unit (a 4px pad is 0.042in, NOT the 4in it used to be)
 			// and the parse (`1.5px` stays 1.5 — the historical `.replace(/\D/g,'')` deleted the
 			// decimal point and made it 15).
 			assert(/marT="14288"/.test(xml), `1.5px padding must be 1.5/96in; got: ${xml}`)

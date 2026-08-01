@@ -577,3 +577,34 @@ checks are still useful for user-visible PowerPoint behavior:
 
 Node demo decks are written to `demos/node/output/`, which is ignored by git.
 Re-running a demo command replaces the previous deck with the same name.
+
+### The object model is not a render oracle
+
+For a question of the form *"does PowerPoint honour this construct?"*, reading the
+answer back out of the COM object model does not answer it. The object model reports
+the **resolved model** — what the file says, as PowerPoint parsed it. The renderer is
+free to disagree, and when a construct is unimplemented it does exactly that: the
+property round-trips perfectly and nothing paints.
+
+This is not hypothetical. Custom table styles were designed, implemented, shipped and
+then removed, and a COM read-back agreed with them the whole way: `Table.Style.Name`,
+`Table.Style.Id`, `Cell().Shape.Fill.ForeColor.RGB` and `Cell().Borders()` all reported
+the custom style's own values on decks that render completely unstyled — a black
+hairline grid on white. The read-back was accurate and useless.
+
+Export the slide and read pixels instead:
+
+```powershell
+$slide.Export("$PWD\slide1.png", "PNG")   # then compare pixels, not properties
+```
+
+A rendered pair beats a rendered single: hold everything constant but the one variable
+(the same deck under a built-in GUID vs. a custom one; a PowerPoint-authored fixture
+with one identifier rewritten, bytes otherwise identical). That is what turns "it looks
+wrong" into "the gallery is consulted and the package part is not."
+
+Applies to `pnpm run test:com` too, which asserts on shape state read back over COM. It
+is the right tool for *package* health — a deck PowerPoint reports as corrupt, an
+`hlinkClick` that resolves to the wrong `PpActionType` — and the wrong tool for whether
+a construct is painted. See [tables.md → Table styles](tables.md#table-styles) for the
+worked case.

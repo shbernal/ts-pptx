@@ -180,6 +180,14 @@ Use one or more non-target reasons when dismissing an item:
 - `insufficient-evidence`
 - `out-of-project-scope`
 - `escape-hatch-footgun`
+- `composition-belongs-downstream`
+- `not-supported-by-powerpoint`
+
+The `vocabulary:` block in [backlog.yml](backlog.yml) is authoritative and carries a
+comment on each of the last two explaining what distinguishes it from its neighbours.
+`not-supported-by-powerpoint` in particular may only be applied on **render evidence** —
+schema reasoning and a COM read-back both fail to establish it (see
+[testing.md → The object model is not a render oracle](testing.md#the-object-model-is-not-a-render-oracle)).
 
 ## Decision Questions
 
@@ -326,6 +334,18 @@ Two checks before removing:
   decision that replaced it; both stay. So does anything at `non-target`,
   `deferred` or `watch` — a recorded dismissal is a decision the ledger exists to
   keep, not a closed item.
+
+  **One narrow exception: a `non-target` entry closed on
+  `not-supported-by-powerpoint`.** That reason does not record a decision about this
+  project's scope, which is the kind of thing the ledger is for and which can be
+  revisited when the target changes. It records a property of *PowerPoint* — the
+  construct is valid OOXML we can emit, and it will never paint. The finding needs to
+  survive, but it needs to survive **in front of whoever is about to re-attempt the
+  construct**, and nobody reads the backlog before writing an emitter. Distil it into
+  the doc that feature's own workflow already sends them to (`docs/tables.md` for the
+  custom-table-style case) and put any reusable method note in `docs/testing.md`, then
+  prune, naming the destination doc in the prune commit. If the finding has no such
+  home, it is not distilled — leave the entry in place.
 
 `remove` validates the ledger before writing and touches nothing but the named
 entry, so the resulting diff should be a pure deletion. If it is not, something
