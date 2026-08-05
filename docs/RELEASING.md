@@ -73,9 +73,9 @@ The command should fail with a registry 404 for a new release version.
 
 ## Automated npm Publish
 
-1. Merge the release commit into `mainline`.
+1. Merge the release commit into `master`.
 2. Create a tag named exactly `vX.Y.Z`, matching `package.json#version`.
-3. Push `mainline` and the tag.
+3. Push `master` and the tag.
 4. Create a GitHub Release from `vX.Y.Z`.
 5. Publish the GitHub Release.
 
@@ -105,7 +105,7 @@ release artifact:
 gh workflow run publish.yml --repo shbernal/ts-pptx --ref vX.Y.Z
 ```
 
-The selected ref must be the release tag, not `mainline`.
+The selected ref must be the release tag, not `master`.
 
 ## Post-Publish Checks
 
