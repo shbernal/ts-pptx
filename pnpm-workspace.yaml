@@ -5,7 +5,15 @@ packages:
 allowBuilds:
   '@parcel/watcher': true
   esbuild: true
-  lefthook: true
+  # Lefthook's postinstall is denied, not merely unlisted. All it does is
+  # `lefthook install -f`, and that `-f` is the one thing scripts/install-hooks.mjs
+  # is written to refuse: with core.hooksPath pointing at a machine-wide hooks
+  # directory, forcing writes lefthook's wrappers in there and renames whatever
+  # stood in their place to `.old`, disarming every other repo on the machine. The
+  # prepare script decides that question properly, per checkout. The binary itself
+  # needs no build step, it arrives prebuilt in lefthook-<os>-<arch>, so denying
+  # this costs only the hook install we did not want.
+  lefthook: false
 minimumReleaseAgeStrict: true
 minimumReleaseAgeExclude:
   - '@types/node@25.9.2'
