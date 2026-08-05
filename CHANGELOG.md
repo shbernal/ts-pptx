@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-08-05
+
 ### Removed
 
 - **BREAKING: `Presentation.defineTableStyle()` and `TableProps.styleDrivenCells` are
@@ -87,8 +89,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as well as `@shbernal/ts-pptx/html`. Cells will look substantially tighter,
   because they are now inset by what was asked for. Nothing else about the
   conversion changed, and a table whose cells set no padding is unaffected.
-
-### Fixed
 
 - **`fitColumns: 'shrink'` measured against the wrong slide margin.** The space to the
   right of a table is bounded by the **right** margin; the calculation subtracted
@@ -225,7 +225,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A deck whose table borders are `dot` or `lgDashDot` could not be authored or
   replicated. `dashType` names the preset directly and wins over `type` when both are
   set; `type: 'none'` still suppresses the border before any dash is chosen. Honored
-  by table cell borders and by custom table-style regions (`defineTableStyle`).
+  by table cell borders.
 
   `ShapeLineProps.dashType` (and therefore `BorderProps.dashType` and
   `ConnectorProps.dashType`) now spans the **whole** `ST_PresetLineDashVal` set: the
@@ -309,20 +309,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cell model, the styling precedence chain, borders (per-cell default vs. perimeter,
   dash styles, diagonals), fills, merges, sizing and auto-paging, the read/edit
   surface, and a "not authorable" section for the constructs PowerPoint discards.
-
-- **A custom table style's `border` and `color` regions are documented as
-  non-rendering.** They never did render, and the JSDoc example shipped since 1.0.0
-  showed both. The library stamps a default `border` (`{type:'none'}` on all four
-  sides), `color` (`'000000'`), `fontSize` and `margin` onto **every cell as direct
-  formatting**, and direct formatting outranks a style region in PowerPoint — so a
-  region's borders and text colour are overridden before they can be drawn, while its
-  `fill` and `bold` (which are not defaulted) apply. The result was a half-working
-  style rather than an obviously broken one, which is why it went unnoticed.
-
-  No behaviour changed: `border` on the table and `color` on `headerRow` reach the
-  cells and always did. The examples on `TableStyleProps` and `defineTableStyle()` now
-  show that, and a regression suite pins each half so the docs and the behaviour
-  cannot drift apart again.
 
 - **`TableProps.border` is documented as what it is: a per-cell default, not the
   table's perimeter.** The old wording ("single value applied to all 4 sides / array
@@ -1401,4 +1387,5 @@ makes no backwards-compatibility guarantee with the original project.
   where the image is `/ppt/media/image1.jpeg`. Affects `Slide.background`,
   `SlideMaster.background`, and `SlideLayout.background`.
 
+[2.0.0]: https://github.com/shbernal/ts-pptx/releases/tag/v2.0.0
 [1.0.0]: https://github.com/shbernal/ts-pptx/releases/tag/v1.0.0
