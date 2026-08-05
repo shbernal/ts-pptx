@@ -1,3 +1,24 @@
+# Installed by the `prepare` script — via scripts/install-hooks.mjs, which skips
+# rather than fails where `core.hooksPath` points outside this repo, because a
+# `prepare` that exits non-zero takes every `pnpm run` down with it.
+#
+# Bypass a hook when you genuinely must: `git commit --no-verify` /
+# `git push --no-verify`, or `LEFTHOOK=0 git …` to disable all hooks.
+#
+# pre-commit runs its tools as `node <file>`, never through `pnpm exec`. A hook
+# pays that wrapper on every invocation, and it is not small: `pnpm exec`
+# re-verifies the whole dependency tree before the tool sees an argument.
+# Measured on this machine with `--version`, which does no work at all — eslint
+# ~0.96 s via `pnpm exec` against ~0.28 s direct, prettier ~0.85 s against
+# ~0.17 s. That is overhead, not lint; end to end over two staged files the pair
+# goes from ~2.4 s to ~1.1 s. Each path is the `bin` entry the tool's
+# own package.json declares — the file `node_modules/.bin` shims are generated
+# from — so this is the published contract, not a reach into the package.
+# scripts/install-hooks.mjs resolves lefthook the same way, for the same reason.
+#
+# pre-push keeps `pnpm run`: those jobs name scripts, not binaries, and inlining
+# the script bodies here would be a second definition of each gate to keep in
+# sync. Once per push is a fair price for one definition.
 pre-commit:
   # Sequential (not parallel): eslint --fix and prettier --write now both touch
   # the same staged *.ts files, so running them concurrently could race on writes.
@@ -6,14 +27,14 @@ pre-commit:
   jobs:
     - name: eslint
       glob: '*.{ts,mjs,js}'
-      run: pnpm exec eslint --fix --no-warn-ignored {staged_files}
+      run: node node_modules/eslint/bin/eslint.js --fix --no-warn-ignored {staged_files}
       stage_fixed: true
 
     - name: prettier
       glob: '*.{json,yaml,yml,mjs,mts,ts,js}'
       exclude:
         - 'pnpm-lock.yaml'
-      run: pnpm exec prettier --write --ignore-unknown {staged_files}
+      run: node node_modules/prettier/bin/prettier.cjs --write --ignore-unknown {staged_files}
       stage_fixed: true
 
 commit-msg:

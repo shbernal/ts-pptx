@@ -78,7 +78,7 @@
 	"scripts": {
 		"build": "tsdown",
 		"build:dev": "tsdown --config tsdown.dev.config.ts",
-		"prepare": "lefthook install",
+		"prepare": "node scripts/install-hooks.mjs",
 		"start": "pnpm run watch",
 		"watch": "tsdown --watch",
 		"watch:dev": "tsdown --config tsdown.dev.config.ts --watch",
