@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`slide.addModel3d()` embeds a 3D model** — PowerPoint's *Insert ▸ 3D Models*. A glTF
+  binary (`.glb`) travels inside the package, and PowerPoint 2019+ renders it live and lets
+  the viewer orbit it. See [`docs/3d-models.md`](docs/3d-models.md).
+
+  ```js
+  slide.addModel3d({
+    path: 'assets/engine.glb',
+    preview: { path: 'assets/engine-render.png' },
+    meterPerModelUnit: 1 / 240, // the model's largest bounding-box dimension
+    x: 1, y: 1, w: 6, h: 4,
+  })
+  ```
+
+  Two things are worth knowing before using it:
+
+  - **Supply `preview`.** Everything that is not PowerPoint 2019+ draws that picture instead
+    of the model — including PowerPoint's own slide thumbnails, PDF export, and print. The
+    library has no 3D renderer, so omitting it embeds a gray placeholder and emits a
+    `model3d/preview-missing` warning. Same bargain as `addOleObject()`'s `cover`.
+  - **Set `meterPerModelUnit`.** The `am3d` scene is measured in metres. PowerPoint reads the
+    model's bounding box and normalizes its largest dimension to 1 metre; ts-pptx does not
+    parse glTF, so it emits `0.5` (correct for a model 2 units across) and leaves the rest to
+    you. Left at the default, a model 240 units across becomes a 120-metre object with the
+    camera inside it. Set it to `1 / <largest bounding-box dimension>`.
+
+  `camera` overrides the viewpoint (`pos`/`lookAt`/`up` in metres, `fov` in degrees); the
+  defaults are the ones PowerPoint wrote for a 2×2×2 cube. Out-of-range and non-finite values
+  throw rather than being coerced. Linked (non-embedded) models, animation scenes, and a typed
+  read accessor are out of scope for now — a model read through `ts-pptx/read` surfaces as an
+  inert `graphicFrame` and survives load → save and `importSlide` byte-intact.
+
 ## [2.0.0] - 2026-08-05
 
 ### Removed

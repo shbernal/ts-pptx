@@ -73,4 +73,54 @@ defineRegressionSuite('Definition reality-checks', [
 			assertEqual(noise.join('\n'), '', 'and it is not worth a console line either')
 		},
 	},
+	{
+		// `addModel3d()`'s camera and scale end up as raw numbers in `am3d` attributes, so a `NaN`
+		// or an out-of-range value would be emitted verbatim -- schema-valid-looking markup that
+		// renders as nothing, in a subtree the schema validator does not check (it never descends
+		// into an `mc:Choice`). Reject rather than coerce.
+		name: 'addModel3d() rejects an unusable payload, camera, or scale instead of emitting NaN',
+		fn: () => {
+			const glb = 'Z2xURgIAAAA='
+			assertRejects(() => slide().addModel3d(/** @type {never} */ ({})), 'model3d/missing-source')
+			// Camera positions: every component of every vector is checked.
+			for (const bad of [Number.NaN, Number.POSITIVE_INFINITY]) {
+				assertRejects(
+					() => slide().addModel3d({ data: glb, camera: { pos: { x: bad, y: 0, z: 1 } } }),
+					'model3d/invalid-camera'
+				)
+				assertRejects(
+					() => slide().addModel3d({ data: glb, camera: { lookAt: { x: 0, y: bad, z: 0 } } }),
+					'model3d/invalid-camera'
+				)
+				assertRejects(
+					() => slide().addModel3d({ data: glb, camera: { up: { x: 0, y: 0, z: bad } } }),
+					'model3d/invalid-camera'
+				)
+			}
+			// fov is an angle, not a scale factor: 0 and 180 are degenerate, not merely extreme.
+			for (const fov of [Number.NaN, 0, -45, 180, 200]) {
+				assertRejects(() => slide().addModel3d({ data: glb, camera: { fov } }), 'model3d/invalid-fov')
+			}
+			// A non-positive metres-per-unit inverts or collapses the whole scene.
+			for (const scale of [Number.NaN, 0, -1, Number.POSITIVE_INFINITY]) {
+				assertRejects(() => slide().addModel3d({ data: glb, meterPerModelUnit: scale }), 'model3d/invalid-scale')
+			}
+		},
+	},
+	{
+		// The counterpart: values that are unusual but meaningful must pass. A camera below the
+		// model (negative y) and a very small scale are both ordinary for a large model.
+		name: 'addModel3d() accepts an unusual but valid camera and scale',
+		fn: () => {
+			const { error } = caughtQuietly(() =>
+				slide().addModel3d({
+					data: 'Z2xURgIAAAA=',
+					preview: { data: 'image/png;base64,iVBORw0KGgo=' },
+					camera: { pos: { x: -2, y: -3.5, z: 0.25 }, lookAt: { x: 0, y: 0, z: 0 }, fov: 179.9 },
+					meterPerModelUnit: 1 / 10000,
+				})
+			)
+			assert(!error, `an unusual camera is still a camera; got: ${String(error)}`)
+		},
+	},
 ])

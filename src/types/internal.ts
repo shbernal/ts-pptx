@@ -94,6 +94,15 @@ export interface SlideRelMedia {
 	 * separate, perfectly ordinary image rel.
 	 */
 	oleRelType?: string
+	/**
+	 * Embedded 3D model part (`addModel3d`): the `.rels` `Type` URI to emit — the Microsoft
+	 * `…/office/2017/06/relationships/model3d` type, which no `includes('image'|'audio'|'video')`
+	 * sniff would ever reach. Present only on the `.glb` payload rel, where it takes precedence
+	 * over the image/audio/video branch in `slideObjectRelationsToXml` and `type` carries the
+	 * part's content type verbatim for `[Content_Types].xml`. The model's preview picture is a
+	 * separate, perfectly ordinary image rel. Same escape hatch as {@link oleRelType}.
+	 */
+	model3dRelType?: string
 	rId: number
 	/** Unescaped — see {@link SlideRel.Target}. Doubles as the zip entry name for embedded media. */
 	Target: string
@@ -124,6 +133,30 @@ export interface SlideObject {
 	zoom?: ZoomInternal
 	// oleObject: resolved payload/preview rIds + `p:oleObj` attrs for the `<p:graphicFrame>` emitter
 	ole?: OleInternal
+	// model3d: resolved payload/preview rIds + camera/scale for the `<p:graphicFrame>` emitter
+	model3d?: Model3dInternal
+}
+/**
+ * Resolved 3D-model payload carried on a {@link SlideObject} until `gen/slide/objects/model3d.ts`
+ * emits it. Camera values are already in `am3d`'s wire units so the emitter does no arithmetic:
+ * positions in 1/36,000,000ths of a metre, `fov` in 60000ths of a degree, and
+ * `meterPerModelUnitN` over a fixed denominator of 1,000,000.
+ */
+export interface Model3dInternal {
+	/** rId of the embedded `.glb` part rel (see {@link SlideRelMedia.model3dRelType}). */
+	modelRid: number
+	/** rId of the preview picture's image rel — shared by `am3d:blip` and the `mc:Fallback` `p:pic`. */
+	previewRid: number
+	/** `am3d:camera/am3d:pos` (`@x`/`@y`/`@z`). */
+	pos: { x: number; y: number; z: number }
+	/** `am3d:camera/am3d:lookAt` (`@x`/`@y`/`@z`). */
+	lookAt: { x: number; y: number; z: number }
+	/** `am3d:camera/am3d:up` (`@dx`/`@dy`/`@dz`). */
+	up: { dx: number; dy: number; dz: number }
+	/** `am3d:perspective@fov`, in 60000ths of a degree. */
+	fov: number
+	/** `am3d:meterPerModelUnit@n`; `@d` is always 1,000,000. */
+	meterPerModelUnitN: number
 }
 /** Resolved OLE payload carried on a {@link SlideObject} until `gen/slide/objects/ole.ts` emits it. */
 export interface OleInternal {

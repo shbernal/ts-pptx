@@ -31,6 +31,7 @@ import { renderChartObject } from './objects/chart.js'
 import { renderConnectorObject } from './objects/connector.js'
 import { renderImageObject } from './objects/image.js'
 import { renderMediaObject } from './objects/media.js'
+import { renderModel3dObject } from './objects/model3d.js'
 import { renderOleObject } from './objects/ole.js'
 import { renderTableObject } from './objects/table.js'
 import { renderTextObject } from './objects/text.js'
@@ -343,6 +344,9 @@ export function slideObjectToXml(slide: PresSlideInternal | SlideLayoutInternal)
 			case SlideObjectType.zoom:
 				strSlideXml += renderZoomObject(slideItemObj, idx, x, y, cx, cy)
 				break
+			case SlideObjectType.model3d:
+				strSlideXml += renderModel3dObject(slideItemObj, idx, x, y, cx, cy)
+				break
 
 			case SlideObjectType.group: {
 				const groupChildren = slideItemObj._groupObjects || []
@@ -610,6 +614,11 @@ export function slideObjectRelationsToXml(
 			// An OLE payload part carries its rel type verbatim (`.../package` or `.../oleObject`);
 			// its `type` is the part's content type, which the sniffing below would misread.
 			rels.push(media(rel.oleRelType))
+		} else if (rel.model3dRelType) {
+			// Likewise a 3D model payload: its content type is `model/gltf.binary`, which matches none
+			// of the sniffs below — and they have no `else`, so without this branch the rel would be
+			// silently dropped and the slide would carry a dangling `r:embed`.
+			rels.push(media(rel.model3dRelType))
 		} else if (relType.includes('image')) {
 			rels.push(media(OFFICE_REL + 'image'))
 		} else if (relType.includes('audio')) {

@@ -10,6 +10,7 @@ import type { ChartMulti, ChartOpts, OptsChartData } from './chart.js'
 import type { BackgroundProps, Coord, HexColor, Margin, PositionProps } from './core.js'
 import type { SlideNumberProps } from './master.js'
 import type { ImageBaseProps, ImageProps, MediaProps, OleObjectProps } from './media.js'
+import type { Model3dProps } from './model3d.js'
 import type { ObjectNameProps } from './object.js'
 import type { ShapeProps } from './shape.js'
 import type { ConnectorProps } from './style.js'
@@ -102,6 +103,8 @@ export interface Slide {
 	addConnector: (options: ConnectorProps) => Slide
 	addImage: (options: ImageProps) => Slide
 	addMedia: (options: MediaProps) => Slide
+	/** Embed a 3D model (Insert ▸ 3D Models) — a `.glb` PowerPoint 2019+ renders live. */
+	addModel3d: (options: Model3dProps) => Slide
 	/** Embed an OLE object (Insert ▸ Object) whose bytes travel inside the `.pptx`. */
 	addOleObject: (options: OleObjectProps) => Slide
 	addComment: (options: CommentProps) => Slide

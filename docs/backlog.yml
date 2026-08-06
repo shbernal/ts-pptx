@@ -154,6 +154,7 @@ vocabulary:
     - slide-transition #      <p:transition> slide transition (added 2026-06-26 for docs/animations-and-transitions.md)
     - build-animation #       <p:timing>/<p:bldLst> per-shape build animation (added 2026-06-26 for docs/animations-and-transitions.md)
     - zoom-object #           <p:graphicFrame> Slide/Section/Summary Zoom in the 2016 zoom namespaces (added 2026-07-21 for dn-zoom-links)
+    - model3d-object #        <am3d:model3d> embedded 3D model graphicFrame in the 2017 model3d namespace (added 2026-08-06 for upstream-issue-585)
 
 item_fields:
   id: stable local identifier; upstream-issue-N / upstream-pr-N for upstream, dn-<slug> for downstream-need, fork-<slug> for fork-internal-proposal
@@ -836,43 +837,70 @@ items:
     source: "gitbrent/PptxGenJS#585"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-07-27
-    status: deferred
+    last_reviewed: 2026-08-06
+    status: implemented
     priority: p3
     target_area:
       - missing-pptx-feature
     applies_to_current_project: partial
     non_target_reasons: []
     summary: Requested embedding PowerPoint 3D model assets.
+    constructs:
+      - model3d-object
     current_project_notes: |
-      Current media support is audio, video, online video, and images; there is no
-      3D model object, content type, relationship, or serializer path. This is a
-      large feature lane rather than a current repair or invalid-OOXML signal.
+      Implemented 2026-08-06 as `slide.addModel3d({ path | data, preview, camera,
+      meterPerModelUnit, ... })`. As predicted when this was deferred, a 3D model is not a
+      `p:pic` variant and did not extend the media path: it is an `<mc:AlternateContent>`
+      whose `mc:Choice` holds a `<p:graphicFrame>` in the 2017 `am3d` namespace and whose
+      `mc:Fallback` holds a preview picture. It was built on the zoom lane's structure, not
+      the media lane's — `MediaType` is untouched.
 
-      Re-reviewed 2026-07-27: the assessment is unchanged and nothing was built, but
-      every file reference was stale. `src/core-interfaces.ts` is now a 44-line
-      re-export barrel and `src/gen-objects.ts` / `src/gen-xml.ts` no longer exist.
-      The gap is still visible in exactly three places, now split out:
-      `MediaType = 'audio' | 'online' | 'video'` (src/types/media.ts:12) is the
-      closed union a `model` member would have to join, `addMediaDefinition`
-      (src/gen/define/media.ts:20) is the define-side entry, and the `<p:pic>`
-      renderer (src/gen/slide/objects/media.ts:17) plus its rel wiring
-      (src/gen/slide/object.ts:598) is the emitter. A 3D model is NOT a `p:pic` variant — it is a `p:graphicFrame` with
-      its own `model3d` part, content type and rel — so this stays a new lane rather
-      than an extension of the media path.
+      Gated on a COM-authored fixture first (`test/read/fixtures/model3d.pptx`, from
+      `Shapes.Add3DModel`), which corrected two guesses that would have shipped broken:
+      the content type is `model/gltf.binary` (a dot, not the IANA-style
+      `model/gltf-binary`), and the rel type sits under `.../office/2017/06/...`, not the
+      `2017` of the namespace. The `am3d` body ts-pptx emits is byte-identical to
+      PowerPoint's own, modulo rIds and the frame extent.
+
+      Two deliberate limits, both documented in `docs/3d-models.md`:
+      - No glTF parsing. PowerPoint derives `meterPerModelUnit` and the camera from the
+        model's bounding box (it normalizes the largest extent to 1 metre, then places the
+        camera at `|halfExtents / maxExtent| / sin(fov/2)` — measured across three probe
+        models). ts-pptx emits the cube fixture's values and exposes `meterPerModelUnit`
+        and `camera` as overrides; the scale is the one most models must set.
+      - No typed read accessor. A model reads back as an inert `graphicFrame`, preserved
+        byte-intact through load/save and `importSlide`.
+
+      Verification note worth keeping: the Open XML SDK validator does NOT descend into an
+      `mc:Choice`, only into `mc:Fallback`. Measured at Microsoft365 — a bogus attribute, an
+      unknown child, wrong document order, a non-numeric `fov`, and even a deleted required
+      `r:embed` inside `am3d:model3d` all report zero errors. That is a property of
+      `mc:AlternateContent`, so the zoom and OLE emitters share the blind spot. Coverage
+      here therefore rests on the byte-comparison against the fixture plus `test:com`, which
+      exports the slide to PNG — necessary because with a corrupted `.glb` PowerPoint still
+      reports `msoShape3DModel` with the right camera and renders nothing.
     evidence:
       kinds:
         - local-source-inspection
+        - powerpoint-authored-comparison
+        - schema-fixture
+        - regression-test
+        - render-check
       local_files:
-        - src/types/media.ts:12
-        - src/gen/define/media.ts:20
-        - src/gen/slide/objects/media.ts:17
-        - src/gen/slide/object.ts:598
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
+        - src/types/model3d.ts
+        - src/gen/define/model3d.ts
+        - src/gen/slide/objects/model3d.ts
+        - src/gen/slide/object.ts
+        - test/read/model3d-roundtrip.test.js
+        - test/read/fixtures/model3d.pptx
+        - test/read/fixtures/authoring/author-model3d.ps1
+        - scripts/powerpoint-com-smoke.mjs
+        - docs/3d-models.md
+      schema_fixture: test/schema-cases.js "model3d embedded 3D models (am3d graphicFrame + preview fallback)"
+      validator_result: 0 errors at Microsoft365 — but see the blind-spot note above; this covers the mc:Fallback branch and the package graph, not the am3d body
+      powerpoint_result: opens clean; Shape.Type 30 (msoShape3DModel), CameraPositionZ reads back 2.263033, and the exported slide PNG shows the rasterized model with zero fallback pixels
       spec_refs: []
-    next_action: reconsider-if-3d-models-become-target
+    next_action: none
 
   - id: upstream-issue-568
     source: "gitbrent/PptxGenJS#568"

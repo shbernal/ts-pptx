@@ -73,6 +73,10 @@ by the `ts-pptx/read` harness. Two groups:
   oracle for `appendSlides`, backlog `dn-append-av-media`); `online-video.pptx`
   (external-link/online video rel graph for `appendSlides`, backlog
   `dn-append-online-video`).
+- **3D model**: `model3d.pptx` (the `am3d:model3d` graphic frame PowerPoint 2019+ writes for
+  an embedded `.glb` — namespace/`graphicData@uri`, the `mc:Choice`/`mc:Fallback` pair, the
+  `2017/06` model3d rel type, the `model/gltf.binary` content-type `Default`, and the camera /
+  lighting / transform subtree; the write-side oracle for `addModel3d()`).
 - **Embedded fonts**: `embedded-fonts.pptx` (PowerPoint-embedded font part graph —
   `p:embeddedFontLst` + `font` relationships + `application/x-fontdata` Default +
   `ppt/fonts/*.fntdata` parts; the read/merge + author-side emit oracle for
@@ -102,6 +106,7 @@ by the `ts-pptx/read` harness. Two groups:
 | `math-omml-inline.pptx`       | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `av-media.pptx`               | Microsoft Office PowerPoint | 16.0000    | 2      |
 | `online-video.pptx`           | Microsoft Office PowerPoint | 16.0000    | 1      |
+| `model3d.pptx`                | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `embedded-fonts.pptx`         | Microsoft Office PowerPoint | 16.0000    | 1      |
 | `slide-transition.pptx`       | Microsoft Office PowerPoint | 16.0000    | 6      |
 | `slide-animation-basic.pptx`  | Microsoft Office PowerPoint | 16.0000    | 1      |
@@ -147,6 +152,7 @@ d88cb77b480d3c84a16307cbe503e9ee64f5fa8bdfee6d7b5a7167847d1cb8e6  math-omml.pptx
 74ef4bd84b39fb8668277c0300372b13bdc984f311a0e2783d630ac5b8c9f7f8  math-omml-inline.pptx
 39aafb02e448a860136c20c46daf89d446d1d34140de1c533b1fe537dee6f0af  av-media.pptx
 82d8907ae23c0e8c0b54e0575cba728ff56c82fd6b055827923a8dde9c4dc20c  online-video.pptx
+884b12975c2dfa93c1d2dcd6f10b1ade5a47214ed706d71a271d50816a59fd24  model3d.pptx
 dd96acd1f395cb961f2222047e03263df4cbe1bdacce3735bcd934783fad0556  template.potx
 bfa889fb328989d93f7e5fb07303d38f6981e11261bc2754ff5b087ab32d35f4  embedded-fonts.pptx
 243a579025c1b61c9b86060ba252759d74e545a7a5589feab95729b2b8b64013  slide-transition.pptx
@@ -644,6 +650,43 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
     against a real media part.) The `p:cNvPr` also carries
     `<a:hlinkClick action="ppaction://media"/>` and the slide a `<p:timing>`
     interactive-media trigger tree.
+- `model3d.pptx` — **authoring oracle** for an embedded 3D model (backlog
+  `upstream-issue-585`; the write-side gate for `addModel3d()`). One blank slide with a
+  single `Cube3D` shape inserted via `Shapes.Add3DModel(cube.glb, LinkToFile:=msoFalse,
+  SaveWithDocument:=msoTrue, 120, 90, 240, 180)` — `Shape.Type` 30 (`mso3DModel`). The
+  payload is the generated `authoring/assets/cube.glb` (a 2×2×2 cube, one mesh, no
+  textures), so the fixture carries no third-party model. Pins:
+  - **A `p:graphicFrame` inside `mc:AlternateContent`, not a `p:pic` variant.** The
+    `mc:Choice` declares `xmlns:am3d="http://schemas.microsoft.com/office/drawing/2017/model3d"`
+    on itself and carries `Requires="am3d"`; `a:graphicData@uri` is that same URI. The
+    `mc:Fallback` is a plain `p:pic` on the preview image at the frame's slide-absolute
+    position, with the usual `a:picLocks` set **plus `noCrop="1"`**.
+  - **Two rels, two content-type entries.** The payload rel type is
+    `http://schemas.microsoft.com/office/2017/06/relationships/model3d` (`2017/06`, not the
+    `2017` of the namespace) → `../media/model3d1.glb`, registered by
+    `<Default Extension="glb" ContentType="model/gltf.binary"/>` — `gltf.binary` with a
+    **dot**. The preview is an ordinary `…/relationships/image` → `../media/image1.png`,
+    rasterized by PowerPoint at 2 px/pt (480×360 for the 240×180 pt frame). Both live under
+    `ppt/media/`; `am3d:raster/am3d:blip` and the `mc:Fallback` `p:pic` share the one image rel.
+  - **The `am3d:model3d` body**, in document order: `am3d:spPr` (frame-**local** `a:xfrm` —
+    `off` 0,0, `ext` = the frame's — plus `prstGeom rect`), `am3d:camera`
+    (`pos`/`up`/`lookAt`/`perspective`), `am3d:trans`
+    (`meterPerModelUnit`/`preTrans`/`scale`/`rot`/`postTrans`), `am3d:raster`
+    (`rName="Office3DRenderer"`), `am3d:objViewport`, `am3d:ambientLight`, and three
+    `am3d:ptLight`s. Linear values are fixed-point over 36,000,000 (`up@dy="36000000"` is the
+    unit vector); `perspective@fov` is in 60000ths of a degree (`2700000` = 45°).
+  - **The lighting rig is constant; the camera is not.** The `ambientLight` + three
+    `ptLight`s came out byte-identical for every probe model. `meterPerModelUnit` and
+    `camera/pos@z` are bounding-box derived: PowerPoint normalizes the largest bbox extent to
+    1 metre, then sets `pos.z = |halfExtents / maxExtent| / sin(fov/2)`. Probed with two extra
+    boxes — half-extents `10,10,10` gave the cube's camera with `meterPerModelUnit` 1/20,
+    while `0.5,0.5,4` gave a different camera (1.3268209 m) — so it is scale-invariant but
+    shape-dependent. `ts-pptx` does not parse glTF and therefore emits the cube's camera by
+    default; see `docs/3d-models.md` for the formula and the `meterPerModelUnit` override.
+  - **PowerPoint re-exports the GLB on insert.** The stored part is not the input bytes: its
+    JSON chunk is re-emitted by `Microsoft GLTF Exporter 2.8.3.91` (accessors reordered,
+    index `componentType` widened 5123→5125). That is normalization, not a validity
+    requirement — `addModel3d()` embeds the caller's bytes unchanged.
 - `embedded-fonts.pptx` — **authoring oracle** for embedded fonts
   (`docs/plans/embedded-fonts.md`: Feature A import-carry merge + Feature B
   author-side emit). One blank 16:9 slide whose text box `silkscreen-text` has a
@@ -918,6 +961,7 @@ fixtures opened clean with no repair prompt:
 - [x] `table-cell-image-fill.pptx` — Windows desktop PowerPoint, 2026-07-27 (authored + reopened clean via COM, no repair prompt)
 - [x] `template.potx` — Windows desktop PowerPoint, 2026-06-24 (authored + reopened clean via COM, no repair prompt)
 - [x] `online-video.pptx` — Windows desktop PowerPoint, 2026-06-24 (authored + opened clean via COM)
+- [x] `model3d.pptx` — Windows desktop PowerPoint, 2026-08-06 (authored + reopened clean via COM, no repair prompt)
 - [x] `embedded-fonts.pptx` — Windows desktop PowerPoint, 2026-06-25 (authored + reopened clean via COM, no repair prompt; `Presentation.Fonts` reports `Silkscreen` in use)
 - [x] `slide-transition.pptx` — Windows desktop PowerPoint, 2026-06-26 (authored + reopened clean via COM, no repair prompt)
 - [x] `slide-animation-basic.pptx` — Windows desktop PowerPoint, 2026-06-26 (authored + reopened clean via COM, no repair prompt)

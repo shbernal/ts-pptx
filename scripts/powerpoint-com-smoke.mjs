@@ -12,19 +12,27 @@
  *      resolve, so the connector opens as unconnected floating geometry.
  *   4. embedded OLE objects (`<p:oleObj>`) that are schema-valid but that PowerPoint
  *      silently drops on open, leaving the slide with no shape where the object was.
+ *   5. embedded 3D models (`<am3d:model3d>`) that PowerPoint accepts but does not draw —
+ *      the model collapses to its fallback picture, or renders as an empty frame. Nothing
+ *      upstream can catch this: the SDK validator does not descend into an `mc:Choice` at
+ *      all, so every mutation inside the `am3d` subtree validates clean.
  *
  * This script drives the real PowerPoint application over COM (via cscript) to check
- * all four. By default it runs three generated decks from the built `dist/`:
+ * all five. By default it runs four generated decks from the built `dist/`:
  *   - a navigation deck, reading each button's `ActionSettings(ppMouseClick).Action`
  *     back out and asserting each jump resolved to the correct PpActionType enum; and
  *   - a custGeom deck with connection sites + a connector bound to site index 1, reading
  *     the connector's `ConnectorFormat` back out and asserting it begin-connected to the
  *     custom shape at a real connection site; and
  *   - an OLE deck with an embedded OPC package and a generic OLE blob, reading each
- *     shape's `OLEFormat.ProgID` back out to prove the embedded object survived the open.
+ *     shape's `OLEFormat.ProgID` back out to prove the embedded object survived the open; and
+ *   - a 3D-model deck with one embedded `.glb` over a deliberately magenta preview, reading
+ *     `Shape.Type`/`Model3DFormat.CameraPositionZ` back out AND exporting the slide to PNG,
+ *     because the read-back only proves PowerPoint resolved a model — the pixels are what
+ *     prove it drew one (no magenta ⇒ not the fallback; not blank ⇒ not an empty frame).
  * Point it at any deck with `--file` to run only the corruption-open check.
  *
- *   node scripts/powerpoint-com-smoke.mjs                 # generated nav + custGeom + OLE checks
+ *   node scripts/powerpoint-com-smoke.mjs                 # nav + custGeom + OLE + 3D-model checks
  *   node scripts/powerpoint-com-smoke.mjs --keep          # ...and keep the generated .pptx files
  *   node scripts/powerpoint-com-smoke.mjs --file deck.pptx # corruption-open check on an existing deck
  *
@@ -33,6 +41,7 @@
 import os from 'node:os'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import zlib from 'node:zlib'
 import { spawn, spawnSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -78,6 +87,25 @@ const EXPECTED_OLE_PROGID = {
 }
 /** An empty (but structurally valid) ZIP — enough of an "xlsx" for PowerPoint to bind the OLE server. */
 const EMPTY_ZIP_B64 = 'UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA=='
+
+// The 3D-model deck. `msoShape3DModel` = 30 — a shape PowerPoint bound as a live model rather
+// than leaving as an inert graphicFrame or collapsing to the fallback picture. The camera is the
+// library's default, in metres, and PowerPoint exposes it as `Model3DFormat.CameraPositionZ`; a
+// reading that far off means the `am3d:camera` subtree did not parse.
+const MODEL3D_SHAPE_NAME = 'Cube3D'
+const MODEL3D_SHAPE_TYPE = 30
+const MODEL3D_EXPECTED_CAMERA_Z = 2.2630334
+/**
+ * The model deck's preview picture is solid magenta, which no lit gray model can produce. Type 30
+ * plus a good camera still only proves PowerPoint resolved the *model*, not that it drew one — an
+ * unreadable payload renders as the fallback or as nothing. So the deck is exported to PNG and the
+ * pixels are read: any magenta means we are looking at the fallback, and an all-white frame means
+ * nothing was drawn at all. Both absent ⇒ the `.glb` really rasterized.
+ */
+const MODEL3D_PREVIEW_RGB = [255, 0, 255]
+/** Export size, and the frame's slide-relative rect (inches) — see `generateModel3dDeck`. */
+const MODEL3D_EXPORT = { w: 960, h: 540 }
+const MODEL3D_FRAME_IN = { x: 2, y: 1, w: 4, h: 3 }
 
 async function loadTsPptx() {
 	const { default: TsPptx, ShapeType } = await import(pathToFileURL(path.join(ROOT, 'dist', 'node.js')).href)
@@ -203,6 +231,147 @@ async function generateOleDeck() {
 	return outFile
 }
 
+// --- 1d. 3D-model deck ------------------------------------------------------
+/**
+ * A 1x1 solid-colour PNG, built here so nothing about the preview can be mistaken for model pixels.
+ * @param {readonly number[]} rgb - the fill colour
+ */
+function solidPngBase64(rgb) {
+	const raw = Buffer.from([0, rgb[0] ?? 0, rgb[1] ?? 0, rgb[2] ?? 0])
+	const crcTable = Int32Array.from({ length: 256 }, (_, n) => {
+		let c = n
+		for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+		return c
+	})
+	const crc = (buf) => {
+		let c = -1
+		for (const byte of buf) c = (crcTable[(c ^ byte) & 0xff] ?? 0) ^ (c >>> 8)
+		return (c ^ -1) >>> 0
+	}
+	const chunk = (type, data) => {
+		const len = Buffer.alloc(4)
+		len.writeUInt32BE(data.length)
+		const body = Buffer.concat([Buffer.from(type, 'ascii'), data])
+		const crcBuf = Buffer.alloc(4)
+		crcBuf.writeUInt32BE(crc(body))
+		return Buffer.concat([len, body, crcBuf])
+	}
+	const ihdr = Buffer.alloc(13)
+	ihdr.writeUInt32BE(1, 0)
+	ihdr.writeUInt32BE(1, 4)
+	ihdr[8] = 8 // bit depth
+	ihdr[9] = 2 // colour type: truecolour
+	return Buffer.concat([
+		Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+		chunk('IHDR', ihdr),
+		chunk('IDAT', zlib.deflateSync(raw)),
+		chunk('IEND', Buffer.alloc(0)),
+	]).toString('base64')
+}
+
+/** Build a deck with one embedded 3D model over a magenta preview. */
+async function generateModel3dDeck() {
+	const { TsPptx } = await loadTsPptx()
+	const pptx = new TsPptx()
+	pptx.defineLayout({ name: 'SMOKE3D', width: 10, height: 5.625 })
+	pptx.layout = 'SMOKE3D'
+
+	const cube = await fs.readFile(path.join(ROOT, 'test', 'read', 'fixtures', 'authoring', 'assets', 'cube.glb'))
+	pptx.addSlide().addModel3d({
+		data: cube.toString('base64'),
+		preview: { data: 'image/png;base64,' + solidPngBase64(MODEL3D_PREVIEW_RGB) },
+		objectName: MODEL3D_SHAPE_NAME,
+		...MODEL3D_FRAME_IN,
+	})
+
+	const outFile = path.join(os.tmpdir(), `ts-pptx-com-smoke-model3d-${process.pid}.pptx`)
+	await pptx.writeFile({ fileName: outFile })
+	return outFile
+}
+
+/**
+ * Decode an 8-bit PNG (truecolour, palette, or grey, +/- alpha) into `{w, h, rgb(x,y)}`.
+ *
+ * Hand-rolled rather than pulled in as a dependency: this script is the only consumer, PowerPoint
+ * writes whichever of those colour types suits the slide (truecolour for the rendered model, an
+ * indexed palette for a blank one), and `node:zlib` already does the hard part.
+ * @param {Buffer} bytes - the PNG file
+ */
+function decodePng(bytes) {
+	/** Indexed read that satisfies `noUncheckedIndexedAccess`; out-of-range is 0, as for a `Buffer`. */
+	const at = (/** @type {Uint8Array} */ buf, /** @type {number} */ i) => buf[i] ?? 0
+	let off = 8
+	let w = 0
+	let h = 0
+	let colour = 0
+	/** @type {Buffer | null} */
+	let palette = null
+	/** @type {Buffer[]} */
+	const idat = []
+	while (off + 8 <= bytes.length) {
+		const len = bytes.readUInt32BE(off)
+		const type = bytes.toString('ascii', off + 4, off + 8)
+		const data = bytes.subarray(off + 8, off + 8 + len)
+		if (type === 'IHDR') {
+			w = data.readUInt32BE(0)
+			h = data.readUInt32BE(4)
+			if (at(data, 8) !== 8) throw new Error(`unsupported PNG bit depth ${at(data, 8)}`)
+			colour = at(data, 9)
+			if (at(data, 12) !== 0) throw new Error('interlaced PNG not supported')
+		} else if (type === 'PLTE') palette = Buffer.from(data)
+		else if (type === 'IDAT') idat.push(data)
+		else if (type === 'IEND') break
+		off += 12 + len
+	}
+	const channels = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 }[colour]
+	if (!channels) throw new Error(`unsupported PNG colour type ${colour}`)
+	if (colour === 3 && !palette) throw new Error('indexed PNG with no PLTE chunk')
+	const pal = palette ?? Buffer.alloc(0)
+	const raw = zlib.inflateSync(Buffer.concat(idat))
+	const stride = w * channels
+	const out = Buffer.alloc(h * stride)
+	let pos = 0
+	for (let y = 0; y < h; y++) {
+		const filter = at(raw, pos++)
+		const line = raw.subarray(pos, pos + stride)
+		pos += stride
+		const cur = out.subarray(y * stride, (y + 1) * stride)
+		const prior = y > 0 ? out.subarray((y - 1) * stride, y * stride) : Buffer.alloc(stride)
+		for (let i = 0; i < stride; i++) {
+			const a = i >= channels ? at(cur, i - channels) : 0
+			const b = at(prior, i)
+			const c = i >= channels ? at(prior, i - channels) : 0
+			let v = at(line, i)
+			if (filter === 1) v += a
+			else if (filter === 2) v += b
+			else if (filter === 3) v += (a + b) >> 1
+			else if (filter === 4) {
+				const p = a + b - c
+				const pa = Math.abs(p - a)
+				const pb = Math.abs(p - b)
+				const pc = Math.abs(p - c)
+				v += pa <= pb && pa <= pc ? a : pb <= pc ? b : c
+			}
+			cur[i] = v & 0xff
+		}
+	}
+	/**
+	 * @param {number} x
+	 * @param {number} y
+	 * @returns {[number, number, number]}
+	 */
+	const rgb = (x, y) => {
+		const i = y * stride + x * channels
+		if (colour === 3) {
+			const p = at(out, i) * 3
+			return [at(pal, p), at(pal, p + 1), at(pal, p + 2)]
+		}
+		if (colour === 0 || colour === 4) return [at(out, i), at(out, i), at(out, i)]
+		return [at(out, i), at(out, i + 1), at(out, i + 2)]
+	}
+	return { w, h, rgb }
+}
+
 // --- 2. clear the PowerPoint Resiliency key ---------------------------------
 // A prior crash can leave the file in the Disabled/Resiliency list, so PowerPoint refuses
 // to open it (or opens in reduced-functionality mode) and the smoke gives a false failure.
@@ -309,6 +478,35 @@ For i = 1 To pres.Slides.Count
     End If
   Next
 Next
+` +
+		vbsFooter()
+	)
+}
+
+function buildModel3dVbs(pptxFile) {
+	// Emits `M3D <name> <Shape.Type> <Model3D.CameraPositionZ>` per shape, then exports slide 1 to
+	// PNG so the caller can prove the model actually rasterized. A window is needed here for the
+	// same reason as OLE: a headless PowerPoint does not instantiate the 3D renderer.
+	const png = pptxFile.replace(/\.pptx$/i, '.png').replace(/\\/g, '\\\\')
+	return (
+		vbsOpenHeader(pptxFile, true) +
+		`Dim j, camZ
+Set sld = pres.Slides(1)
+For j = 1 To sld.Shapes.Count
+  Set shp = sld.Shapes(j)
+  camZ = ""
+  On Error Resume Next
+  camZ = shp.Model3D.CameraPositionZ
+  On Error Goto 0
+  WScript.StdOut.WriteLine "M3D" & vbTab & shp.Name & vbTab & shp.Type & vbTab & camZ
+Next
+Err.Clear
+sld.Export "${png}", "PNG", ${MODEL3D_EXPORT.w}, ${MODEL3D_EXPORT.h}
+If Err.Number <> 0 Then
+  WScript.StdOut.WriteLine "EXPORT_ERR" & vbTab & Hex(Err.Number) & vbTab & Err.Description
+Else
+  WScript.StdOut.WriteLine "EXPORT" & vbTab & "${png}"
+End If
 ` +
 		vbsFooter()
 	)
@@ -422,6 +620,81 @@ function verifyOle(lines) {
 	return failures
 }
 
+/**
+ * Verifier for the 3D-model deck. Async because it reads back the exported PNG — which is the
+ * only check here that distinguishes "PowerPoint resolved a model" from "PowerPoint drew one".
+ */
+async function verifyModel3d(lines) {
+	const failures = []
+	const row = lines.map((l) => l.split('\t')).find((p) => p[0] === 'M3D' && p[1] === MODEL3D_SHAPE_NAME)
+	if (!row) {
+		failures.push(
+			`3D model "${MODEL3D_SHAPE_NAME}": no such shape (PowerPoint discarded the graphicFrame, or resolved only the fallback picture)`
+		)
+		return failures
+	}
+	const [, name, type, camZ] = row
+	if (Number(type) !== MODEL3D_SHAPE_TYPE) {
+		failures.push(
+			`3D model "${name}": Shape.Type ${type}, expected ${MODEL3D_SHAPE_TYPE} (msoShape3DModel) — PowerPoint did not bind it as a live model`
+		)
+	} else if (!camZ || Math.abs(Number(camZ) - MODEL3D_EXPECTED_CAMERA_Z) > 0.001) {
+		failures.push(
+			`3D model "${name}": CameraPositionZ read back as "${camZ}", expected ~${MODEL3D_EXPECTED_CAMERA_Z} — the am3d:camera subtree did not parse`
+		)
+	} else {
+		console.log(`  OK  ${name} -> Shape.Type ${type} (msoShape3DModel), CameraPositionZ ${camZ}`)
+	}
+
+	// The render check.
+	const exportErr = lines.find((l) => l.startsWith('EXPORT_ERR'))
+	const exportLine = lines.find((l) => l.startsWith('EXPORT\t'))
+	if (exportErr || !exportLine) {
+		failures.push(`3D model: slide export failed (${exportErr || 'no EXPORT line'})`)
+		return failures
+	}
+	const pngPath = exportLine.split('\t')[1]
+	let img
+	try {
+		img = decodePng(await fs.readFile(pngPath))
+	} catch (e) {
+		failures.push(`3D model: could not read the exported PNG (${String(e)})`)
+		return failures
+	} finally {
+		if (!KEEP) await fs.rm(pngPath, { force: true })
+	}
+
+	// The frame, in exported pixels. The deck's layout is 10 x 5.625 in, exported at 960 x 540.
+	const sx = img.w / 10
+	const sy = img.h / 5.625
+	const x0 = Math.round(MODEL3D_FRAME_IN.x * sx)
+	const y0 = Math.round(MODEL3D_FRAME_IN.y * sy)
+	const x1 = Math.min(img.w - 1, Math.round((MODEL3D_FRAME_IN.x + MODEL3D_FRAME_IN.w) * sx))
+	const y1 = Math.min(img.h - 1, Math.round((MODEL3D_FRAME_IN.y + MODEL3D_FRAME_IN.h) * sy))
+	let fallbackPx = 0
+	let drawnPx = 0
+	for (let y = y0; y <= y1; y++) {
+		for (let x = x0; x <= x1; x++) {
+			const [r, g, b] = img.rgb(x, y)
+			if (r > 200 && g < 60 && b > 200) fallbackPx++
+			if (r < 250 || g < 250 || b < 250) drawnPx++
+		}
+	}
+	const area = (x1 - x0 + 1) * (y1 - y0 + 1)
+	if (fallbackPx > 0) {
+		failures.push(
+			`3D model: ${fallbackPx}/${area} exported pixels are the magenta preview — PowerPoint drew the mc:Fallback picture, not the model`
+		)
+	} else if (drawnPx < area / 20) {
+		failures.push(
+			`3D model: only ${drawnPx}/${area} pixels in the frame were drawn — the model rendered as an empty frame (unreadable .glb payload?)`
+		)
+	} else {
+		console.log(`  OK  model rasterized: ${drawnPx}/${area} pixels drawn in-frame, 0 fallback pixels`)
+	}
+	return failures
+}
+
 // --- 5. orchestrate ---------------------------------------------------------
 async function main() {
 	/** @type {{label:string, file:string, generated:boolean, buildVbs:Function, verify:Function}[]} */
@@ -450,6 +723,16 @@ async function main() {
 		const oleFile = await generateOleDeck()
 		console.log('Generated OLE deck: ' + oleFile)
 		specs.push({ label: 'ole', file: oleFile, generated: true, buildVbs: buildOleVbs, verify: verifyOle })
+
+		const model3dFile = await generateModel3dDeck()
+		console.log('Generated 3D-model deck: ' + model3dFile)
+		specs.push({
+			label: 'model3d',
+			file: model3dFile,
+			generated: true,
+			buildVbs: buildModel3dVbs,
+			verify: verifyModel3d,
+		})
 	}
 
 	const failures = []
@@ -465,7 +748,7 @@ async function main() {
 			process.exit(0)
 		}
 		failures.push(...open.failures)
-		if (!open.failures.length) failures.push(...spec.verify(lines))
+		if (!open.failures.length) failures.push(...(await spec.verify(lines)))
 		if (result.err.trim()) console.error(`[${spec.label}] stderr: ` + result.err.trim())
 	}
 

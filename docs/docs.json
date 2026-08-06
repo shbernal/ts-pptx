@@ -26,6 +26,7 @@
         "connectors",
         "image-in-shape",
         "ole-objects",
+        "3d-models",
         "math-latex",
         "reference/api/index",
         "ooxml-agent-context",

@@ -3,12 +3,13 @@
  *
  * The visual counterpart to the quarterly review. Where that deck is charts and tables on a
  * light grid, this one is full-bleed photography, gradient scrims over images, duotone and
- * rounded picture treatments, grouped annotation callouts, an embedded video, and hyperlinks.
+ * rounded picture treatments, grouped annotation callouts, an embedded video, an embedded 3D
+ * model, and hyperlinks.
  *
  * Build it with `pnpm demos:build field-notes`.
  *
- * Unlike the quarterly review, this deck is Node-only by nature: it loads photographs and a
- * video from `demos/common` by path, so it cannot run in a browser without those assets
+ * Unlike the quarterly review, this deck is Node-only by nature: it loads photographs, a video
+ * and a `.glb` from `demos/common` by path, so it cannot run in a browser without those assets
  * being served. That is the honest split between the two showcases, not an oversight.
  */
 import TsPptx, { ShapeType } from "@shbernal/ts-pptx";
@@ -487,6 +488,79 @@ async function addMotion(pptx) {
 	slide.addNotes("If the video will not play in the room, the poster frame is doing its job — carry on and mention it.");
 }
 
+function addDimension(pptx) {
+	const slide = pptx.addSlide({ masterTitle: MASTER.editorial, sectionTitle: "Motion" });
+
+	slide.addText("Dimension", {
+		x: 0.85,
+		y: 0.7,
+		w: 8,
+		h: 0.6,
+		margin: 0,
+		valign: "middle",
+		fontFace: FONT.head,
+		fontSize: TYPE.title,
+		color: BRAND.bone,
+	});
+	slide.addText("A glTF binary embedded in the package: PowerPoint 2019 and later renders it live and lets you orbit it.", {
+		x: 0.85,
+		y: 1.35,
+		w: 9,
+		h: 0.4,
+		margin: 0,
+		fontFace: FONT.body,
+		fontSize: TYPE.body,
+		color: BRAND.ash,
+	});
+
+	slide.addModel3d({
+		path: media("cube.glb"),
+		// A real render, not the gray placeholder — everything that is not PowerPoint 2019+ draws
+		// this picture, including the thumbnail this deck is most often seen as.
+		preview: { path: image("cube_3d_preview.png") },
+		// The cube spans 2 model units, which is exactly what the default scale assumes; a model of
+		// any other size needs `meterPerModelUnit: 1 / <largest bounding-box dimension>`.
+		camera: { pos: { x: 1.3516, y: 1.0988, z: 1.9305 }, lookAt: { x: 0, y: 0, z: 0 }, fov: 45 },
+		objectName: "Cube3D",
+		altText: "A shaded cube, viewed from above one corner.",
+		x: 1.6,
+		y: 2.0,
+		w: 6.1,
+		h: 4.28,
+	});
+
+	const noteX = 8.85;
+	const noteW = WIDE.w - noteX - 0.85;
+	slide.addText(
+		[
+			{ text: "The camera is yours\n", options: { fontFace: FONT.head, fontSize: 16, color: BRAND.bone, breakLine: true } },
+			{
+				text: "PowerPoint frames a model from its bounding box. ts-pptx never opens the .glb, so it ships a fixed default and lets you place the camera — this one orbits to a corner.",
+				options: { fontSize: 11, color: BRAND.sand, breakLine: true },
+			},
+			{ text: "\n", options: { fontSize: 8, breakLine: true } },
+			{
+				text: "The preview is a real PowerPoint render of the same model, so the slide reads correctly in print and in PDF.",
+				options: { fontSize: 11, color: BRAND.ash },
+			},
+		],
+		{
+			x: noteX,
+			y: 2.0,
+			w: noteW,
+			h: 3.0,
+			margin: 0.18,
+			shape: ShapeType.roundRect,
+			rectRadius: 0.08,
+			fill: { color: BRAND.stone, transparency: 60 },
+			fontFace: FONT.body,
+			lineSpacingMultiple: 1.45,
+		},
+	);
+
+	slide.addNotes("Click the model in slide show and drag — it orbits. In anything older than PowerPoint 2019 it is a still picture.");
+}
+
 function addColophon(pptx) {
 	const slide = pptx.addSlide({ masterTitle: MASTER.colophon, sectionTitle: "Back matter" });
 
@@ -584,6 +658,7 @@ export async function build(outFile) {
 		attribution: "FIELD NOTE  ·  23:15, MILSONS POINT",
 	});
 	await addMotion(pptx);
+	addDimension(pptx);
 	addColophon(pptx);
 
 	return await pptx.writeFile({ fileName: outFile });
@@ -592,7 +667,7 @@ export async function build(outFile) {
 export const showcase = {
 	slug: "field-notes",
 	title: "Field Notes — Four Cities After Dark",
-	description: "Visual flagship: full-bleed photography, gradient scrims, duotone, an embedded video, hyperlinks.",
+	description: "Visual flagship: full-bleed photography, gradient scrims, duotone, an embedded video, an embedded 3D model, hyperlinks.",
 	fileName: "Field_Notes_Four_Cities.pptx",
 	build,
 };

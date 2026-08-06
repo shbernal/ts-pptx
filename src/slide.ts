@@ -17,6 +17,7 @@ import type {
 	SlideComment,
 	ImageProps,
 	MediaProps,
+	Model3dProps,
 	NotesProps,
 	OleObjectProps,
 	PresLayout,
@@ -51,6 +52,7 @@ import { addConnectorDefinition } from './gen/define/connector.js'
 import { addGroupDefinition, groupObjectsDefinition } from './gen/define/group.js'
 import { addImageDefinition } from './gen/define/image.js'
 import { addMediaDefinition } from './gen/define/media.js'
+import { addModel3dDefinition } from './gen/define/model3d.js'
 import { addNotesDefinition } from './gen/define/notes.js'
 import { addOleObjectDefinition } from './gen/define/ole.js'
 import { addShapeDefinition } from './gen/define/shape.js'
@@ -282,6 +284,25 @@ export default class SlideBuilder {
 	 */
 	addOleObject(options: OleObjectProps): SlideBuilder {
 		addOleObjectDefinition(this, options)
+		return this
+	}
+
+	/**
+	 * Add an embedded 3D model (PowerPoint's Insert ▸ 3D Models) to the Slide.
+	 *
+	 * The `.glb` bytes ship inside the `.pptx`, so PowerPoint 2019+ renders the model live and lets
+	 * the viewer orbit it. Everything else — older PowerPoint, thumbnails, PDF export — draws the
+	 * `preview` picture instead; without one a neutral gray placeholder is embedded.
+	 *
+	 * Most models also need `meterPerModelUnit`: ts-pptx does not parse the `.glb`, so it cannot
+	 * measure the bounding box PowerPoint would have scaled the scene by. Set it to
+	 * `1 / <largest bounding-box dimension in model units>`.
+	 * @param {Model3dProps} options - 3D model options
+	 * @return {SlideBuilder} this Slide
+	 * @example slide.addModel3d({ path: 'engine.glb', preview: { path: 'engine.png' }, x: 1, y: 1, w: 6, h: 4 })
+	 */
+	addModel3d(options: Model3dProps): SlideBuilder {
+		addModel3dDefinition(this, options)
 		return this
 	}
 

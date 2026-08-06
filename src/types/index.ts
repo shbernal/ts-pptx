@@ -23,6 +23,8 @@
  *   - `types/master.ts`    slide-master objects, bullets and per-level text styles
  *   - `types/slide.ts`     groups, ObjectOptions, the SlideLayout/Slide authoring surfaces
  *   - `types/pres.ts`      WriteProps, sections, PresLayout, presentation props
+ *   - `types/zoom.ts`      Slide/Section/Summary Zoom links
+ *   - `types/model3d.ts`   embedded 3D models (`.glb`)
  *
  * Note: this barrel is not types-only — `types/text.ts` also exports the `textRun` /
  * `textRuns` run-array helpers.
@@ -42,3 +44,4 @@ export * from './master.js'
 export * from './slide.js'
 export * from './pres.js'
 export * from './zoom.js'
+export * from './model3d.js'

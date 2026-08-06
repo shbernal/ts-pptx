@@ -3561,6 +3561,98 @@ export default [
 		},
 	},
 	{
+		// upstream-issue-585: embedded 3D models (Insert ▸ 3D Models). An `<mc:AlternateContent>`
+		// whose `mc:Choice` holds a `<p:graphicFrame>` in the 2017 `am3d` namespace and whose
+		// `mc:Fallback` holds a preview `<p:pic>`.
+		//
+		// COVERAGE WARNING — read before trusting a green run here. The SDK validator does NOT
+		// descend into an `mc:Choice`; it validates only the `mc:Fallback` branch. Measured at
+		// `Microsoft365`: a bogus attribute on `am3d:model3d`, an unknown `am3d` child, `am3d:camera`
+		// out of document order, a non-numeric `perspective@fov`, and even `am3d:model3d` with its
+		// required `r:embed` removed all report **zero** errors, while the same mutation inside
+		// `mc:Fallback` reports one. (Not an `am3d` quirk — the zoom and OLE cases above share it.)
+		// So `expectNoSchemaErrors` here covers the fallback, the rel graph and the content types;
+		// the explicit assertions below are what actually pin the `am3d` body, and they are
+		// transcribed from `test/read/fixtures/model3d.pptx` — a deck PowerPoint itself authored via
+		// `Shapes.Add3DModel`. `test/read/model3d-roundtrip.test.js` diffs the whole subtree against
+		// that fixture; `pnpm run test:com` is what proves it renders.
+		name: 'model3d embedded 3D models (am3d graphicFrame + preview fallback)',
+		fn: async () => {
+			const cubeGlb = await readFile(path.join(__dirname, 'read', 'fixtures', 'authoring', 'assets', 'cube.glb'))
+			const gray = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+			const { buf, zip } = await build((p) => {
+				const slide = p.addSlide()
+				slide.addModel3d({
+					data: 'model/gltf.binary;base64,' + cubeGlb.toString('base64'),
+					preview: { data: 'image/png;base64,' + gray },
+					objectName: 'Engine',
+					altText: 'A cube',
+					x: 0.5,
+					y: 1,
+					w: 4,
+					h: 3,
+				})
+				// Same payload string again: no preview (gray placeholder) plus a caller-supplied
+				// camera and scale. Its `.glb` part collapses into slide 1's.
+				p.addSlide().addModel3d({
+					data: 'model/gltf.binary;base64,' + cubeGlb.toString('base64'),
+					meterPerModelUnit: 0.01,
+					camera: { pos: { x: 0, y: 1, z: 5 }, lookAt: { x: 0, y: 0, z: 0 }, fov: 30 },
+					x: 1,
+					y: 1,
+					w: 2,
+					h: 2,
+				})
+				// Bare base64, no `data:` header — the other accepted input form.
+				p.addSlide().addModel3d({ data: cubeGlb.toString('base64'), x: 1, y: 1, w: 2, h: 2 })
+			})
+			await expectNoSchemaErrors(buf, 'model3d')
+
+			// Rel graph: the payload under the MS 2017/06 type, the preview as a plain image rel.
+			const rels1 = await readEntry(zip, 'ppt/slides/_rels/slide1.xml.rels')
+			assertIncludes(rels1, 'schemas.microsoft.com/office/2017/06/relationships/model3d"')
+			assertIncludes(rels1, 'Target="../media/model3d-1-1.glb"')
+			assertIncludes(rels1, 'officeDocument/2006/relationships/image" Target="../media/image-1-2.png"')
+
+			// Content type: a `Default` for the extension, spelled `gltf.binary` with a dot.
+			const contentTypes = await readEntry(zip, '[Content_Types].xml')
+			assertIncludes(contentTypes, '<Default Extension="glb" ContentType="model/gltf.binary"/>')
+
+			const slide1 = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assertIncludes(slide1, '<mc:Choice xmlns:am3d="http://schemas.microsoft.com/office/drawing/2017/model3d"')
+			assertIncludes(slide1, 'uri="http://schemas.microsoft.com/office/drawing/2017/model3d"')
+			// Frame-local xfrm inside am3d:spPr; slide-absolute on p:xfrm and the fallback picture.
+			assertIncludes(slide1, '<am3d:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="3657600" cy="2743200"/>')
+			assertIncludes(slide1, '<p:xfrm><a:off x="457200" y="914400"/><a:ext cx="3657600" cy="2743200"/></p:xfrm>')
+			// Default camera + scale, transcribed from the PowerPoint fixture.
+			assertIncludes(slide1, '<am3d:pos x="0" y="0" z="81469202"/><am3d:up dx="0" dy="36000000" dz="0"/>')
+			assertIncludes(slide1, '<am3d:perspective fov="2700000"/>')
+			assertIncludes(slide1, '<am3d:meterPerModelUnit n="500000" d="1000000"/>')
+			assertIncludes(slide1, '<am3d:raster rName="Office3DRenderer" rVer="16.0.8326">')
+			// The fixed studio rig: one ambient light and three point lights.
+			assertEqual((slide1.match(/<am3d:ptLight /g) || []).length, 3, 'three point lights')
+			assertEqual((slide1.match(/<am3d:ambientLight>/g) || []).length, 1, 'one ambient light')
+			// The raster blip and the fallback picture share one image rel.
+			assertEqual((slide1.match(/r:embed="rId2"/g) || []).length, 2, 'am3d:blip and the fallback pic share rId2')
+			assertEqual((slide1.match(/<p:pic>/g) || []).length, 1, 'preview picture count (Fallback only)')
+
+			// Caller overrides reach the XML in am3d wire units: metres x 36,000,000, fov x 60,000.
+			const slide2 = await readEntry(zip, 'ppt/slides/slide2.xml')
+			assertIncludes(slide2, '<am3d:pos x="0" y="36000000" z="180000000"/>')
+			assertIncludes(slide2, '<am3d:perspective fov="1800000"/>')
+			assertIncludes(slide2, '<am3d:meterPerModelUnit n="10000" d="1000000"/>')
+
+			// Slides 1 and 2 pass the identical payload string, so the package-part de-dup collapses
+			// them to one `.glb` (a model is read-only geometry, unlike an OLE payload, which is
+			// exempt from that collapse). Slide 3's bare-base64 form is a different string and keys
+			// separately — the de-dup is on the data string, not on decoded bytes. Hence 2, not 1.
+			const glbs = listEntries(zip).filter((n) => n.endsWith('.glb'))
+			assertEqual(glbs.length, 2, 'identical payload strings collapse; the differently-spelled one does not')
+			const rels2 = await readEntry(zip, 'ppt/slides/_rels/slide2.xml.rels')
+			assertIncludes(rels2, 'Target="../media/model3d-1-1.glb"')
+		},
+	},
+	{
 		// dn-xml-attr-whitespace. A tab/CR/LF written into an attribute value must be emitted as a
 		// character reference: XML 1.0 section 3.3.3 normalises the literal character to a space
 		// before any consumer sees it, so a layout title or objectName carrying a line break came

@@ -118,6 +118,7 @@ export type DiagnosticCode =
 	| 'object-lock/unsupported-on-shape'
 	// Media, theme, masters, notes
 	| 'media/load-failed'
+	| 'model3d/preview-missing'
 	| 'theme/invalid-color-override'
 	| 'master/invalid-text-style-font-size'
 	| 'master/too-many-text-style-levels'
@@ -200,6 +201,11 @@ export type InvalidOptionErrorCode =
 	| 'media/cover-missing-base64-header'
 	| 'media/online-missing-link'
 	| 'ole/missing-source'
+	// 3D models
+	| 'model3d/missing-source'
+	| 'model3d/invalid-camera'
+	| 'model3d/invalid-fov'
+	| 'model3d/invalid-scale'
 	// Tables
 	| 'table/rows-not-an-array'
 	| 'table/rows-not-nested'

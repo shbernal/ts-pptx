@@ -532,6 +532,7 @@ export enum SlideObjectType {
 	hyperlink = 'hyperlink',
 	image = 'image',
 	media = 'media',
+	model3d = 'model3d',
 	oleObject = 'oleObject',
 	online = 'online',
 	placeholder = 'placeholder',

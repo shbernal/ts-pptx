@@ -45,6 +45,9 @@ artifacts.
   freeform shape and crop it to fill the box.
 - [OLE embedded objects](ole-objects.md): `addOleObject()` embeds a workbook,
   document, or any payload so it opens in place on double-click.
+- [3D models](3d-models.md): `addModel3d()` embeds a `.glb` that PowerPoint 2019+
+  renders live, the scale and camera you almost always need to set, and the
+  preview picture everything else shows.
 - [Animations and transitions](animations-and-transitions.md): slide/shape
   animation and transition emit.
 - [Native backgrounds and gradients](native-backgrounds-and-gradients.md):

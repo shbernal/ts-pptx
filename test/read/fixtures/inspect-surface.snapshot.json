@@ -1590,6 +1590,22 @@
 		],
 		"diagnostics": []
 	},
+	"model3d.pptx": {
+		"slideSize": {"widthIn":13.333,"heightIn":7.5},
+		"slides": [
+			{
+				"index": 0,
+				"name": "Slide 1",
+				"path": "ppt/slides/slide1.xml",
+				"size": {"widthIn":13.333,"heightIn":7.5},
+				"text": "",
+				"wordCount": 0,
+				"elements": [
+				]
+			}
+		],
+		"diagnostics": []
+	},
 	"modern-comments.pptx": {
 		"slideSize": {"widthIn":13.333,"heightIn":7.5},
 		"slides": [

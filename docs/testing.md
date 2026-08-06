@@ -352,6 +352,39 @@ it. Two consequences:
   validator cannot answer that question, and `mc:Choice Requires=` decisions must
   still be made against `[MS-PPTX]` and real PowerPoint.
 
+### The validator does not descend into `mc:Choice`
+
+**Nothing inside an `<mc:Choice>` is validated at all — only the `<mc:Fallback>`
+branch is.** This is not a version-coverage effect, and raising `FILE_FORMAT` does
+not help. Measured at `Microsoft365` against a deck containing an `am3d:model3d`
+graphic frame, one mutation at a time:
+
+| Mutation | Errors |
+| --- | --- |
+| bogus attribute on a `<p:sp>` outside the `mc:AlternateContent` | 1 |
+| bogus attribute on `<p:blipFill>` **inside `mc:Fallback`** | 1 |
+| bogus attribute on `<p:xfrm>` inside `mc:Choice` (plain DrawingML!) | **0** |
+| bogus attribute on `<am3d:model3d>` | **0** |
+| unknown child element inside `<am3d:model3d>` | **0** |
+| `<am3d:camera>` moved out of document order | **0** |
+| non-numeric `<am3d:perspective fov="wide"/>` | **0** |
+| `<am3d:model3d>` with its **required** `r:embed` deleted | **0** |
+
+The SDK does model `am3d` (Office2019+); it simply never reaches it. Since the
+`mc:Choice` branch is skipped wholesale, this applies equally to the **zoom**
+(`p:graphicFrame` in the 2016 zoom namespaces) and **OLE** (`p:oleObj`) emitters —
+their real payloads are unvalidated too, and only their fallback pictures are checked.
+
+So for any construct that lives in an `mc:Choice`, a green `test:schema` run says
+nothing about it. Cover it the way `model3d` is covered:
+
+1. diff the emitted subtree byte-for-byte against a PowerPoint-authored fixture
+   (`test/read/model3d-roundtrip.test.js`), and
+2. run `pnpm run test:com`, which opens the deck in the real application.
+
+And for anything that *renders*, the COM read-back is not sufficient either — see
+the desktop-check section below.
+
 ### Version coverage probe
 
 ```bash
@@ -608,3 +641,16 @@ is the right tool for *package* health — a deck PowerPoint reports as corrupt,
 `hlinkClick` that resolves to the wrong `PpActionType` — and the wrong tool for whether
 a construct is painted. See [tables.md → Table styles](tables.md#table-styles) for the
 worked case.
+
+A second, sharper demonstration came from the 3D-model work, and it is why the
+`model3d` leg of `test:com` exports a PNG rather than stopping at the read-back. Take a
+working model deck and replace the `.glb` payload with garbage, changing nothing else.
+PowerPoint opens it without complaint, enumerates the shape as `Shape.Type = 30`
+(`msoShape3DModel`), and reports `Model3DFormat.CameraPositionZ = 2.2630334` — the exact
+value the good deck reports. The exported slide contains **zero** drawn pixels. Every
+property the object model exposes was correct about a slide that renders nothing.
+
+That leg therefore asserts on pixels, with the preview picture deliberately set to solid
+magenta so the two distinct failures separate cleanly: magenta in the frame means
+PowerPoint fell back to the picture, and a blank frame means the payload never
+rasterized. Both absent is the only passing state.
