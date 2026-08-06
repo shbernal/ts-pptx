@@ -102,8 +102,10 @@ you want a specific build regardless of how conditions resolve.
 ## What "Browser" Is Tested To Mean
 
 The browser build is exercised in CI, by the `browser` job in `.github/workflows/ci.yml`
-(`pnpm run test:browser` — Playwright, headless Chromium, driving `demos/vite-demo`).
-It is not "supported by construction".
+(`pnpm run test:browser` — Playwright, headless Chromium). It is not "supported by
+construction". Two fixtures: `demos/vite-demo` for the bundled path a real consumer
+takes, and a static server handing the browser the shipped `dist/browser.js`
+unbundled for the runtime adapter itself.
 
 Two claims, kept separate on purpose:
 
@@ -125,10 +127,115 @@ Two claims, kept separate on purpose:
 A layout difference between two browsers is therefore not a defect in this
 package's browser support. A `.pptx` a browser builds differently from Node is.
 
-Three adapter functions are not yet covered by that job, and the docs should not
-imply otherwise: `loadMedia`, `createSvgPngPreview`, and `loadFontData`. The
-showcase the demo builds draws every asset rather than loading one, so it never
-reaches them.
+### The Runtime Adapter, Function By Function
+
+Everything that differs between Node and the browser lives in one four-function
+`RuntimeAdapter`. All four now run in a real Chromium, and what each is checked
+against is worth stating precisely, because "covered" is a weaker word than what
+these actually assert:
+
+| adapter function | what the browser lane checks |
+| --- | --- |
+| `writeFile` | the object-URL `<a download>` fires and the downloaded bytes unzip to a real OPC package |
+| `loadMedia` | a fetched image lands in the package as **the same bytes** Node reads off disk — and as the same bytes as the source file. A 404 fails the export with `media/fetch-failed` as the cause of `media/load-failed` |
+| `createSvgPngPreview` | the `<canvas>` rasterizer emits a real PNG where Node can only stub a placeholder; an undecodable SVG and a zero-dimension SVG each fail rather than shipping a blank fallback |
+| `loadFontData` | a font fetched over HTTP measures to the same baked `fontScale` and embeds the same `/ppt/fonts/` bytes as one read off disk. A 404 rejects with `font/fetch-failed` |
+
+Two of those are cross-runtime comparisons run through the byte-identity gate's
+own machinery, so "the same bytes" means the same thing here as it does there.
+
+The one place the two runtimes are *expected* to disagree is
+`createSvgPngPreview`: Node has no rasterizer, so it writes a fixed placeholder
+into the PNG fallback rel where a browser draws the artwork. That is a documented
+divergence rather than a bug, and the lane asserts its exact shape — one changed
+part, and the browser's is a real PNG — so it cannot quietly become a different
+divergence.
+
+### Which Browsers The Lane Runs
+
+Chromium, and only Chromium. This is a decision, not an oversight, and it is
+recorded here so it does not get re-opened every time CI time is discussed.
+
+The adapter surface above is `fetch`, `FileReader`, `<canvas>`, object URLs and
+`<a download>`. None of those is a corner of the platform where engines are known
+to disagree, and no divergence has been reported against this package or observed
+while building the lane. A Firefox and WebKit matrix would therefore triple the
+job to keep re-answering a question nothing has asked.
+
+Add an engine when there is something concrete to add it for: a reported
+difference, or a new adapter function that touches an API with a real
+cross-engine history. Not pre-emptively.
+
+### What The Lane Does Not Cover
+
+Two gaps, stated rather than implied:
+
+- **Live-DOM layout**, as above — deliberate, and the subject of
+  [Project Target](project-target.md).
+- **Two arms of `createSvgPngPreview`**: a missing 2d context and a
+  `toDataURL` that throws. Neither is reachable in a browser that has a working
+  canvas and is drawing a same-origin data URI; reaching them means stubbing DOM
+  constructors, which asserts about the stub. The lane's own coverage floor
+  accounts for them (see [Testing](testing.md#browser-lane)).
+
+## What `/math` Costs In A Browser, And Why It Stays Node-Only
+
+`@shbernal/ts-pptx/math` is Node-only, permanently, unless a real consumer asks
+otherwise. The decision is recorded here so it is not re-litigated per release.
+
+`src/math.ts` loads its two optional peers (`temml`, `mathml2omml`) through
+`node:module`'s `createRequire`. That is what keeps `latexToOmml()` and
+`mathmlToOmml()` **synchronous**. A browser has no `createRequire`, and the only
+browser-compatible replacement is a dynamic `import()`, which makes both
+functions async — a breaking change to a published API, paid by every existing
+caller, to serve a use case nobody has raised.
+
+The subpath is already documented as Node-only at the top of the module. If a
+browser consumer does turn up, the answer is an additional `/math/async`
+subpath, not a change to this one.
+
+Nothing else in the package has this problem: `src/runtime/node.ts` is the only
+other file importing `node:*`, and it is contained behind the `RuntimeAdapter`.
+(`dist/zip.js` also carries a lazy `import('node:fs/promises')`, which a bundler
+will warn about; it is on the read-a-package-from-a-path branch only and never
+executes on the write path.)
+
+## Bundle Size
+
+`scripts/bundle-size-ratchet.mjs` freezes a budget for the browser entry and its
+chunks, gzipped, and `pnpm run check:package` enforces it. Read the number as a
+**growth detector, not a download size**: `dist/` is unminified, and every real
+browser consumer runs it through a bundler that minifies before serving, so what
+anyone actually downloads is well under the figure the gate prints. What the gate
+is for is the step change — a dependency reaching the browser entry, or a chunk
+split going wrong.
+
+`pnpm run bundle-size:list` prints the per-chunk breakdown; the budget lives in
+`scripts/bundle-size-budget.json` and is raised or lowered deliberately with
+`pnpm run bundle-size:freeze`.
+
+## Using The Browser Entry Without A Bundler
+
+Supported environments assume a bundler, and that remains the maintained target.
+But `dist/browser.js` does load in a browser as-is, over a plain
+`<script type="module">`, provided you resolve the two bare specifiers it reaches
+— which is exactly what the adapter harness does
+(`test/browser/harness/index.html`):
+
+```html
+<script type="importmap">
+  {
+    "imports": {
+      "fflate": "/node_modules/fflate/esm/browser.js",
+      "opentype.js": "/node_modules/opentype.js/dist/opentype.mjs"
+    }
+  }
+</script>
+```
+
+`opentype.js` is a *dynamic* import inside the measure/fit chunk — nothing
+requests it until a font is registered, so an app that never calls
+`registerFontMetrics` or `embedFont` will not notice its absence until it does.
 
 ## Dropped Compared To Upstream
 

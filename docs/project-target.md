@@ -27,6 +27,11 @@ drop-in-compatible continuation of the upstream release line.
 - Keep the public package boundary explicit and easy to verify.
 - Provide TypeScript declarations that work in modern app code.
 - Support Node.js `>=24` and modern bundler-driven front-end applications.
+- Support the **browser as a runtime**, and prove it rather than assert it: the
+  browser build and its runtime adapter are exercised in CI against a real
+  Chromium, and the deck a browser assembles is compared part-for-part against
+  the Node-built one. This is a claim about *emission*, and it stops there —
+  see the Live-DOM bullet under Out Of Active Scope for where the line is.
 - Preserve broad OOXML feature coverage: slides, text, tables, charts, images,
   SVGs, media, and masters.
 - Make OOXML changes testable through regression tests, schema fixtures, and
@@ -44,9 +49,13 @@ drop-in-compatible continuation of the upstream release line.
 
 ## Out Of Active Scope (Contributions Welcome)
 
-The project is **Node-first**: the generator runs and is tested without a browser
-or any office application. Two domains fall outside what the maintainer actively
-develops, because there is no in-house use case driving them. They are **not
+The project is **Node-first**: the generator runs and is tested without any
+office application, and the Node suite is where nearly all of it is proven. That
+is a statement about where the evidence lives, not a hedge about the browser —
+the browser is a supported runtime with its own CI lane (see
+[Runtime And Package Support](runtime-and-package-support.md#what-browser-is-tested-to-mean)).
+Two domains fall outside what the maintainer actively develops, because there is
+no in-house use case driving them. They are **not
 rejected on merit** — they are simply not on the maintenance roadmap, and the
 maintainer will generally not pick up bugs or feature requests in these areas.
 **Pull requests that fix or extend them are welcome** (ideally with the testing
@@ -57,6 +66,16 @@ supported.
   rendered page: real `offsetWidth` after layout, the resolved cascade, fonts as
   the browser actually chose them. Reproducing those faithfully needs a real
   browser, so features that depend on them are out of active scope.
+
+  This is a different claim from "the browser is a supported runtime", and the
+  two are worth keeping apart, because a report lands in one bucket or the
+  other. Running the library in a browser is supported and tested. Committing
+  that the library's output *matches how a browser laid something out* is not,
+  and there is no oracle for it — every other gate in this repo has one (schema
+  validation, byte identity, a PowerPoint render); "renders differently in
+  Firefox" has none, so correctness would become a judgement call per report.
+  A `.pptx` a browser builds differently from Node is a defect; a layout
+  difference between two browsers is not.
 
   HTML `<table>` → slides is **not** in that category any more. `tableToSlides`
   is a supported, tested, portable path: it ships as a free function on

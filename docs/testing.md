@@ -584,7 +584,8 @@ pnpm run test:browser   # ensure-dist, build demos/vite-demo, then Playwright
 Everything above this section runs under Node. `dist/browser.js` and its runtime
 adapter (`src/runtime/browser.ts`) cannot: they call `fetch`, `FileReader`,
 `<canvas>`, `URL.createObjectURL` and click a synthetic `<a download>`. This lane
-is the only thing that executes them.
+is the only thing that executes them — all four adapter functions, not just the
+download path.
 
 It is **not** part of `verify` or `verify:full`, deliberately — it needs a
 ~120 MB Chromium download, and putting that in the per-change loop would tax
@@ -598,15 +599,41 @@ Config is `playwright.config.ts` (root); specs are `test/browser/*.spec.mjs`.
 Vitest excludes `test/browser/**` by directory, so the two harnesses never
 collect each other's files. In CI it is the `browser` job in `ci.yml`.
 
-The fixture is `demos/vite-demo`, driven through a `vite preview` server. Two
-assertions run against one deck build:
+### Two fixtures, two Playwright projects
 
-| Spec | Claim |
-|---|---|
-| `deck-download.spec.mjs` | the object-URL download is a real OPC package — read back with **jszip**, an implementation independent of the `fflate` the library writes with |
-| `cross-runtime-bytes.spec.mjs` | the browser-built deck is **byte-identical** to the Node-built one, all 113 parts |
+They answer different questions, and neither can answer the other's:
 
-The second is the one worth the lane. `demos/vite-demo` imports the same showcase
+| Project | Fixture | What only it can prove |
+|---|---|---|
+| `demo` | `demos/vite-demo` behind `vite preview` | the **bundled** path a real consumer takes — Vite resolving the `browser` export condition, Rollup tree-shaking it |
+| `runtime-adapter` | `test/browser/harness/` behind `scripts/browser-harness-server.mjs` | the shipped `dist/browser.js` loading **unbundled**, and the adapter loaders the demo cannot reach |
+
+The demo deck (`quarterly-review`) draws every asset it shows, so it never asks
+the runtime to load one — which is why it cannot cover three of the four adapter
+functions, and why the harness exists. The harness serves the repo with its real
+layout and loads `dist/browser.js` over a plain `<script type="module">`, so what
+runs is the file that ships rather than a re-bundling of it. A `node:*` import
+reaching the browser entry would fail the page outright.
+
+That is not hypothetical: building the harness is what surfaced `opentype.js`
+being a *dynamic* bare import inside the measure/fit chunk. Bundling had always
+hidden it; an unbundled consumer needs it in an import map, and now
+[the docs say so](runtime-and-package-support.md#using-the-browser-entry-without-a-bundler).
+
+| Spec | Project | Claim |
+|---|---|---|
+| `deck-download.spec.mjs` | demo | the object-URL download is a real OPC package — read back with **jszip**, an implementation independent of the `fflate` the library writes with |
+| `cross-runtime-bytes.spec.mjs` | demo | the browser-built deck is **byte-identical** to the Node-built one, all 113 parts |
+| `adapter-media.spec.mjs` | runtime-adapter | `loadMedia` and `createSvgPngPreview`: a fetched raster image lands as the same bytes Node reads off disk *and* as the source file's; the `<canvas>` rasterizer emits a real PNG where Node stubs a placeholder; 404, undecodable-SVG and zero-dimension-SVG each fail with the right code |
+| `adapter-fonts.spec.mjs` | runtime-adapter | `loadFontData`: a font fetched over HTTP bakes the same `fontScale` and embeds the same `/ppt/fonts/` bytes as one read off disk; a 404 rejects with `font/fetch-failed` |
+| `adapter-coverage.spec.mjs` | runtime-adapter | all four adapter functions ran, and `dist/browser.js`'s executed share stayed above its floor |
+
+The deck definitions the adapter specs use live in `test/browser/harness/decks.mjs`
+and are built **twice** — once in Chromium, once in Node — from that one
+definition. Writing them out on both sides would mean a divergence in the fixture
+reading as a divergence in the runtime.
+
+`cross-runtime-bytes` is the one worth the lane. `demos/vite-demo` imports the same showcase
 module `pnpm demos:build quarterly-review` runs, and `src/zip.ts` pins
 `FIXED_MTIME`, so the two packages are directly comparable — one diff asserts that
 every serializer, the zip writer, part ordering and relationship numbering are
@@ -621,22 +648,46 @@ say which was right. The three normalized values are the same three as ever:
 `core.xml` timestamps and the two `Math.random` GUIDs (`p14:section` ids,
 `c16:uniqueId`).
 
+### Where the coverage number for this lane lives
+
+`vitest.config.ts` no longer excludes `dist/browser.js` — nothing of this repo's
+own is excluded from the coverage report any more. Read that number honestly: it
+is the **Node suite's** view, and it counts `src/runtime/browser.ts` at close to
+zero, because the four adapter functions are precisely what Node cannot execute.
+It went down when the exclusion was dropped (functions 98.33 → 97.35) while the
+actual tested-ness went up, which is exactly the shape of an honest denominator.
+
+So the browser lane gates itself, on the measurement available where the code
+runs: Chromium's own V8 block coverage of the `dist/browser.js` script, collected
+across every harness scenario (`adapter-coverage.spec.mjs`). Two assertions, red
+for different reasons — every adapter function was entered, and the file's
+executed share stayed above a floor (measured 92.74%, floor 90). The first
+catches a function losing its only test; the second catches a function that is
+still entered but whose interesting arms are not.
+
+What keeps it off 100 is named in that spec: `tableToSlides` (live-DOM layout,
+out of scope), the missing-2d-context arm, and `FileReader.onerror`. The last two
+are unreachable in a working browser — getting to them means stubbing a DOM
+constructor, which asserts about the stub.
+
+Merging the browser lane's V8 coverage into the Node report would let one number
+tell the whole story and buy back the functions-axis slack. It is not done, and
+the config says so rather than quietly lowering the gate.
+
 What this lane does **not** cover, and must not be read as covering:
 
 - **Live-DOM layout fidelity.** No assertion here depends on a rendered page —
   no `offsetWidth` after layout, no resolved cascade, no browser-chosen font. That
   remains out of active scope ([project target](project-target.md)), and *runtime
   support* and *layout fidelity* are separate claims that should stay separate.
-- **`loadMedia`, `createSvgPngPreview`, `loadFontData`.** The demo builds
-  `quarterly-review`, which draws every asset rather than loading one, so the deck
-  never crosses those three adapter functions. That is also why the byte
-  comparison converges — it never has to reconcile Node's raw base64 with the
-  browser's `FileReader` data URI. They stay uncovered, and `vitest.config.ts`
-  still excludes `dist/browser*.js` from coverage.
-- **Engines other than Chromium.** A deliberate decision, recorded in
-  `playwright.config.ts`: the APIs in play are uncontroversial across engines, and
-  a matrix would cost CI time for a divergence nobody has observed. Add Firefox or
-  WebKit when something concrete surfaces.
+- **Engines other than Chromium.** A deliberate decision, written down in
+  [Runtime And Package Support](runtime-and-package-support.md#which-browsers-the-lane-runs)
+  so it is not re-opened every time CI time is discussed: the APIs in play are
+  uncontroversial across engines, and a matrix would cost CI time to re-answer a
+  question nothing has asked. Add Firefox or WebKit when something concrete
+  surfaces. (`adapter-coverage.spec.mjs` is Chromium-only by construction —
+  `page.coverage` is a CDP feature — which is a consequence of that decision, not
+  a reason for it.)
 
 ## Demos Are Not Tests
 

@@ -1,0 +1,3 @@
+this is not SVG, and is served as image/svg+xml on purpose:
+`createSvgPngPreview` fetches fine and then fails to decode, which is the
+`image.onerror` arm of src/runtime/browser.ts.

@@ -18,7 +18,8 @@ machine-readable coverage report and read `coverage/coverage-summary.json`
 | `test/read/*.test.js` | Vitest `describe`/`test` | `src/read/**` lossless read + edit round-trip |
 | `test/schema-cases.js` (+ `schema-validation.test.mjs`) | fixture data module | OOXML schema validation of emitted parts |
 | `test/backlog-ledger.test.mjs` | Vitest | `scripts/backlog-ledger.mjs` tooling |
-| `test/browser/*.spec.mjs` | **Playwright** (`playwright.config.ts`, `pnpm run test:browser`) — see [docs/testing.md](../docs/testing.md#browser-lane) | `dist/browser.js` + `src/runtime/browser.ts` in a real Chromium, and Node↔browser byte identity |
+| `test/browser/*.spec.mjs` | **Playwright** (`playwright.config.ts`, `pnpm run test:browser`) — see [docs/testing.md](../docs/testing.md#browser-lane) | `dist/browser.js` + all four `src/runtime/browser.ts` adapter functions in a real Chromium, and Node↔browser byte identity |
+| `test/browser/harness/*` | served to the page, not run by a harness | the fixture the `runtime-adapter` specs drive: an unbundled load of the shipped `dist/browser.js`, plus the deck definitions both runtimes build from |
 
 `test/browser/` is the one directory `pnpm test` does not run: Vitest excludes it
 by directory (`vitest.config.ts`) because Playwright owns it. It also needs a

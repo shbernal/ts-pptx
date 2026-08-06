@@ -62,15 +62,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     page. Real `offsetWidth`, the resolved cascade, and browser-chosen fonts remain out of
     active scope; a layout difference between two browsers is not a defect in this
     package's browser support, whereas a `.pptx` a browser builds differently from Node is.
-  - **Three adapter functions remain uncovered** — `loadMedia`, `createSvgPngPreview`,
-    `loadFontData`. The showcase draws every asset rather than loading one, so the deck
-    never reaches them, and `vitest.config.ts` still excludes `dist/browser*.js` from
-    coverage.
+  - **`tableToSlides` measurement still degrades without a layout engine**, exactly as
+    documented — `offsetWidth` is `0`, widths fall back to computed CSS and then an equal
+    split, and `data-pptx-width` / `data-pptx-min-width` pin them.
 
   The explode/normalize/diff machinery the byte-identity gate has always used moved to
   `scripts/pptx-parts.mjs` so both gates share one definition of "the same bytes"; the
   refactor was verified byte-identical against a baseline frozen with the pre-refactor
   script.
+
+- **The whole `RuntimeAdapter` now runs in a real browser**, not just the download path.
+  A second Playwright fixture serves the shipped `dist/browser.js` **unbundled** over a
+  static server and drives decks written to reach the three loaders `demos/vite-demo`
+  cannot, because its showcase draws every asset rather than loading one:
+
+  - `loadMedia` — a fetched raster image lands in the package as the same bytes Node reads
+    off disk, *and* as the same bytes as the source file. The two implementations return
+    different strings for the same image (Node raw base64, the browser a `FileReader` data
+    URI) and everything downstream reconciles them, including the image sizer.
+  - `createSvgPngPreview` — the `<canvas>` rasterizer, whose branches nothing exercised
+    before: a real PNG where Node can only stub a placeholder, plus the undecodable-SVG and
+    zero-dimension arms, each of which must fail rather than ship a blank fallback.
+  - `loadFontData` — a font fetched over HTTP bakes the same `fontScale` and embeds the
+    same `/ppt/fonts/` bytes as one read off disk.
+
+  The deck definitions are written once and built twice, once per runtime, so a divergence
+  in the fixture cannot read as a divergence in the runtime.
+
+  Two things fell out of loading the shipped file unbundled. `opentype.js` turns out to be
+  a *dynamic* bare import inside the measure/fit chunk — invisible to every bundled
+  consumer, and now documented for anyone loading the entry over a plain
+  `<script type="module">`. And Node and the browser are *expected* to disagree on exactly
+  one part: the SVG PNG fallback, where Node has no rasterizer. The lane asserts the shape
+  of that disagreement so it cannot quietly become a different one.
+
+- **`vitest.config.ts` no longer excludes anything of this repo's own from coverage.**
+  The `dist/browser.js` / `dist/browser-*.js` entries are gone; the second never matched
+  anything, because tsdown bundles the adapter *into* the entry. Read the resulting number
+  as the Node suite's view — it counts the adapter at close to zero, and the measured
+  functions figure fell 98.33 → 97.35 while actual tested-ness went up. The adapter is
+  gated where it runs instead, by a browser-lane coverage spec that asserts every adapter
+  function was entered and that the file's executed share stays above a floor.
+
+- **A bundle-size budget for the browser entry** (`pnpm run bundle-size:check`, part of
+  `check:package`). Nothing measured shipped size before; a size promise nobody measures is
+  a promise that quietly stops being true. It fails only on a step change and asks for a
+  re-freeze only when a win is worth banking, because bytes move on every commit. The
+  figure is a growth detector, not a download size — `dist/` is unminified and every real
+  browser consumer minifies it.
+
+### Changed
+
+- **`@shbernal/ts-pptx/math` is Node-only by decision, not by accident.** It loads its
+  optional peers through `createRequire`, which is what keeps `latexToOmml()` and
+  `mathmlToOmml()` synchronous; the browser-compatible alternative is a dynamic `import()`
+  that would make both async — a breaking change to every existing caller, for a use case
+  nobody has raised. If a browser consumer turns up, the answer is an additional
+  `/math/async` subpath, not a change to this one. Recorded in
+  [`docs/runtime-and-package-support.md`](docs/runtime-and-package-support.md) so it is not
+  re-litigated per release.
+
+- **The browser lane stays Chromium-only, deliberately.** The APIs in play (`fetch`,
+  `FileReader`, canvas, object URLs, `<a download>`) are not where engines are known to
+  disagree, and no divergence has been reported or observed. An engine gets added when
+  there is something concrete to add it for — also written down rather than left as a
+  default.
 
 ## [2.0.0] - 2026-08-05
 

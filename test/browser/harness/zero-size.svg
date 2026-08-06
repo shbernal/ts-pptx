@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	Valid SVG that decodes and then has no intrinsic size, so `new Image()` reports
+	width 0 and height 0. That is the `image.width + image.height === 0` guard in
+	src/runtime/browser.ts `createSvgPngPreview`: without it the canvas rasterizes
+	nothing and the deck ships a blank PNG fallback that looks like a success.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" viewBox="0 0 0 0"></svg>

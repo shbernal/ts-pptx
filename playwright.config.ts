@@ -4,10 +4,19 @@ import { defineConfig, devices } from '@playwright/test'
  * The browser lane.
  *
  * The Node suite (`vitest.config.ts`) proves the emission core against `dist/node.js`.
- * This proves the same core in a real browser, driving `demos/vite-demo` — which imports
- * the *same* showcase module `pnpm demos:build quarterly-review` runs. Nothing here is a
- * second copy of the deck: the demo is the only fixture, and the assertions live in
- * `test/browser/`.
+ * This proves the same core in a real browser, across two fixtures that answer different
+ * questions:
+ *
+ *   - **demo** — drives `demos/vite-demo`, which imports the *same* showcase module
+ *     `pnpm demos:build quarterly-review` runs. This is the bundled story: a real
+ *     consumer, Vite resolving the `browser` export condition, Rollup tree-shaking it.
+ *     It exercises `writeFile` (the object-URL `<a download>` path) and proves the
+ *     emission core is runtime-invariant, but it never loads an asset — the deck draws
+ *     every one of them — so it cannot reach the rest of the adapter.
+ *   - **runtime-adapter** — loads the shipped `dist/browser.js` unbundled off a static
+ *     server (scripts/browser-harness-server.mjs) and drives it with decks built to hit
+ *     `loadMedia`, `createSvgPngPreview` and `loadFontData`, including their failure
+ *     arms. Real URLs, real 404s, no stubbed `fetch`.
  *
  * What this lane deliberately does NOT cover is live-DOM layout fidelity — real
  * `offsetWidth` after layout, the resolved cascade, browser-chosen fonts. Runtime support
@@ -22,6 +31,11 @@ import { defineConfig, devices } from '@playwright/test'
 // the wrong app on the next free port.
 const PORT = 4173
 
+// The harness server, on the next port up. Its own origin rather than a route on the
+// preview server: `vite preview` serves the demo's build output, and mounting repo paths
+// into it would mean the demo's config decides what the adapter tests can reach.
+const HARNESS_PORT = 4174
+
 // Bound explicitly below with `--host 127.0.0.1`. Left to itself, `vite preview` binds
 // `localhost`, which on Windows resolves to `::1` **only** — a v4 probe of the same port
 // gets nothing and the webServer wait times out at 60s with no clue why. Naming the v4
@@ -32,6 +46,11 @@ const HOST = '127.0.0.1'
 // `demos/vite-demo/vite.config.ts` sets `base: '/TsPptx/demos/vite/'` for the published
 // GitHub Pages demo, and `vite preview` honours it — the app is NOT at `/`.
 const BASE_URL = `http://${HOST}:${PORT}/TsPptx/demos/vite/`
+
+// The harness page sits at its real repo path, so the relative `../../../dist/browser.js`
+// inside `harness.mjs` is the same specifier on disk and over HTTP — one path that both
+// the browser and `pnpm run typecheck:test` resolve.
+const HARNESS_URL = `http://${HOST}:${HARNESS_PORT}/test/browser/harness/`
 
 export default defineConfig({
 	testDir: './test/browser',
@@ -49,21 +68,46 @@ export default defineConfig({
 	retries: 0,
 	reporter: [['list']],
 	use: {
-		baseURL: BASE_URL,
 		trace: 'retain-on-failure',
 	},
-	// Chromium only, deliberately. The adapter surface this exercises (`fetch`,
-	// `FileReader`, canvas, object URLs, `<a download>`) is uncontroversial across
-	// engines, and a matrix costs CI time for a divergence nobody has observed. Add
-	// Firefox/WebKit when something concrete surfaces, not pre-emptively.
-	projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-	webServer: {
-		// `pnpm run test:browser` builds the demo; this only serves it. Keeping the build
-		// out of the webServer command means a failed build fails as a build, with the
-		// bundler's own output, instead of as a webServer timeout.
-		command: `pnpm --dir demos/vite-demo exec vite preview --host ${HOST} --port ${PORT} --strictPort`,
-		url: BASE_URL,
-		reuseExistingServer: !process.env['CI'],
-		timeout: 60_000,
-	},
+	// Chromium only, and the decision is written down rather than left as a default —
+	// see docs/runtime-and-package-support.md "Which Browsers The Lane Runs". Short
+	// version: the APIs in play (`fetch`, `FileReader`, canvas, object URLs,
+	// `<a download>`) are uncontroversial across engines, so a matrix would cost CI time
+	// per push to re-answer a question nothing has raised. Add Firefox/WebKit when a
+	// concrete divergence surfaces, not pre-emptively.
+	//
+	// Two projects rather than two configs: they differ only in which server they point
+	// at, and both must run on one `pnpm run test:browser`.
+	projects: [
+		{
+			name: 'demo',
+			testIgnore: ['adapter-*.spec.mjs'],
+			use: { ...devices['Desktop Chrome'], baseURL: BASE_URL },
+		},
+		{
+			name: 'runtime-adapter',
+			testMatch: ['adapter-*.spec.mjs'],
+			use: { ...devices['Desktop Chrome'], baseURL: HARNESS_URL },
+		},
+	],
+	webServer: [
+		{
+			// `pnpm run test:browser` builds the demo; this only serves it. Keeping the build
+			// out of the webServer command means a failed build fails as a build, with the
+			// bundler's own output, instead of as a webServer timeout.
+			command: `pnpm --dir demos/vite-demo exec vite preview --host ${HOST} --port ${PORT} --strictPort`,
+			url: BASE_URL,
+			reuseExistingServer: !process.env['CI'],
+			timeout: 60_000,
+		},
+		{
+			// `process.execPath`, not `node`: the repo's scripts avoid resolving a bare
+			// command name on Windows, where the PATH entry is a `.cmd` shim.
+			command: `"${process.execPath}" scripts/browser-harness-server.mjs --host ${HOST} --port ${HARNESS_PORT}`,
+			url: HARNESS_URL,
+			reuseExistingServer: !process.env['CI'],
+			timeout: 30_000,
+		},
+	],
 })

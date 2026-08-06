@@ -106,8 +106,17 @@ Two more aggregates exist for CI, and are occasionally useful locally:
 
 ```bash
 pnpm run check:static   # lint, format:check, all three typechecks, backlog:validate, raw-xml:check
-pnpm run check:package  # package:lint, test:package
+pnpm run check:package  # package:lint, test:package, bundle-size:check
 ```
+
+`bundle-size:check` freezes what the browser entry and its chunks weigh, gzipped,
+against `scripts/bundle-size-budget.json`. It fails only when an entry grows past
+its budget, and asks for a re-freeze only when it comes in far enough under to be
+worth banking — bytes move on every commit, and a gate that failed on every
+commit would get switched off. `pnpm run bundle-size:list` shows the per-chunk
+breakdown; `pnpm run bundle-size:freeze` re-baselines deliberately. The number is
+a growth detector, not a download size — see
+[Bundle Size](runtime-and-package-support.md#bundle-size).
 
 Pass flags to a script as `pnpm run lint --fix`, never `pnpm run lint -- --fix`.
 pnpm forwards the `--` **literally** to the underlying binary, where it turns the
@@ -142,8 +151,8 @@ successfully and is caught only by `typecheck`. Never substitute one for the oth
 
 The individual gates — `build`, `typecheck`, `typecheck:scripts`, `typecheck:test`,
 `test`, `test:unit`, `test:read`, `test:schema`, `test:coverage`, `package:lint`,
-`test:package`, `backlog:validate` — all still exist and are worth
-running alone when iterating on one specific thing. `pnpm run` lists them.
+`test:package`, `backlog:validate`, `bundle-size:check` — all still exist and are
+worth running alone when iterating on one specific thing. `pnpm run` lists them.
 
 One gate is in neither aggregate: `pnpm run test:browser`, the Playwright lane
 that runs the package in a real Chromium (CI job `browser`). It needs a ~120 MB
@@ -152,6 +161,13 @@ that in the per-change loop would tax every iteration for a surface that changes
 rarely. Run it when you touch `src/runtime/browser.ts`, `src/browser.ts`, the zip
 writer, or anything that could plausibly emit different bytes on a different
 runtime. See [Browser Lane](testing.md#browser-lane).
+
+It starts two servers of its own (a `vite preview` for the demo and
+`scripts/browser-harness-server.mjs` for the adapter harness), both on fixed
+ports bound to `127.0.0.1`. Playwright manages their lifetime, so there is
+nothing to start by hand — but a stale process holding 4173 or 4174 will fail the
+run with `--strictPort`, which is the intended behaviour rather than silently
+testing the wrong thing.
 
 ## Static Checks
 

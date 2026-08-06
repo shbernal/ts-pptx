@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>ts-pptx runtime-adapter harness</title>
+		<!--
+			`dist/browser.js` reaches two bare specifiers, and this page has no bundler to
+			resolve them. That is the point — see harness.mjs. An import map is the browser's
+			own answer, and it leaves the shipped files unmodified.
+
+			These two and no others: `@xmldom/xmldom` lives in the `shapes` chunk, which only
+			the read and inspect entries pull in. `opentype.js` is worth noting separately
+			because it is a *dynamic* import inside the measure/fit chunk — nothing requests
+			it until a font is registered, which is exactly why bundling the demo never
+			surfaced it and the unbundled harness did. A future addition shows up here as a
+			failure to load, naming the specifier.
+		-->
+		<script type="importmap">
+			{
+				"imports": {
+					"fflate": "/node_modules/fflate/esm/browser.js",
+					"opentype.js": "/node_modules/opentype.js/dist/opentype.mjs"
+				}
+			}
+		</script>
+		<!--
+			Inline, and it has to be: a module script that fails to fetch or throws at the top
+			level leaves `window.harness` simply absent, which a spec can only report as a
+			timeout. Recording the reason here turns that into the actual error.
+		-->
+		<script>
+			window.addEventListener('error', (event) => {
+				window.harnessError = String(event.message || event.type)
+			})
+		</script>
+		<script
+			type="module"
+			src="./harness.mjs"
+			onerror="window.harnessError = 'failed to load ' + this.src"
+		></script>
+	</head>
+	<body>
+		<h1>ts-pptx runtime-adapter harness</h1>
+		<p>
+			Drives <code>dist/browser.js</code> unbundled, to reach the three
+			<code>RuntimeAdapter</code> loaders no Node test can. Not a demo — see
+			<code>test/browser/</code>.
+		</p>
+	</body>
+</html>

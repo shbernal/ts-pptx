@@ -97,10 +97,16 @@ jobs:
   # runtime-divergent surface in the package and which no headless Node suite can
   # reach (`fetch`, `FileReader`, canvas, object URLs, `<a download>`).
   #
-  # It drives `demos/vite-demo`, which imports the SAME showcase module
-  # `pnpm demos:build quarterly-review` runs — so the strong assertion is available:
-  # the browser-built deck must be byte-identical to the Node-built one, part for
-  # part. See test/browser/cross-runtime-bytes.spec.mjs.
+  # Two fixtures, started by Playwright itself, so this job stays one command:
+  #
+  #   - `demos/vite-demo`, which imports the SAME showcase module
+  #     `pnpm demos:build quarterly-review` runs — so the strong assertion is
+  #     available: the browser-built deck must be byte-identical to the Node-built
+  #     one, part for part. See test/browser/cross-runtime-bytes.spec.mjs.
+  #   - a static server (scripts/browser-harness-server.mjs) serving the shipped
+  #     `dist/browser.js` unbundled, for the adapter loaders the demo cannot reach
+  #     because its deck draws every asset instead of loading one. See
+  #     test/browser/adapter-*.spec.mjs.
   #
   # Not a matrix leg of `test`: it needs a browser download and a preview server,
   # neither of which is Node-version-sensitive. One run, newest supported Node.
@@ -160,6 +166,9 @@ jobs:
   # the local-bin resolution — exists solely for Windows, and these package
   # scripts are its only exercise. Until this leg existed, that code was
   # unreachable from CI and a Windows-only break in it shipped green.
+  #
+  # `check:package` also carries the bundle-size budget, which belongs with the
+  # other "what actually ships" gates rather than with the tests.
   package:
     name: Package (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

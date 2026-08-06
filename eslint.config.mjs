@@ -89,6 +89,16 @@ export default tseslint.config(
 		},
 	},
 	{
+		// The browser lane is the one place under `test/` whose code runs in a page:
+		// `test/browser/harness/*.mjs` is loaded by the harness document, and the specs'
+		// `page.evaluate` callbacks are serialized and evaluated there. Both need `window`
+		// to be a global rather than a `no-undef`. Nothing wider is granted — the rest of
+		// each spec is ordinary Node, and a reference to `document` or `fetch` outside an
+		// evaluate callback would be a mistake worth catching.
+		files: ['test/browser/**/*.mjs'],
+		languageOptions: { globals: { ...nodeGlobals, window: 'readonly' } },
+	},
+	{
 		// The root build configs matched no `files` block at all, so zero rules
 		// applied to them. Untyped `recommended` only: these are a handful of
 		// declarative config objects, and turning on type-checked rules would mean

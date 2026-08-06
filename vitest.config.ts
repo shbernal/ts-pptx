@@ -45,23 +45,31 @@ export default defineConfig({
 		coverage: {
 			provider: 'v8',
 			include: ['dist/**/*.js'],
-			// Browser-only entry points are out of the Node suite's scope (they call
-			// `fetch`, `document`, DOM layout APIs that cannot run headless). They map
-			// to their own bundled chunks, so exclude those chunks rather than the
-			// shared `pptxgen` chunk.
+			// `dist/browser.js` used to be excluded here, with `dist/browser-*.js`
+			// alongside it, on the grounds that the browser entry and its runtime adapter
+			// "cannot run headless". Both are gone as of the browser lane: the adapter is
+			// exercised in a real Chromium (test/browser/adapter-*.spec.mjs), and the
+			// premise was false in a second way — tsdown bundles `src/runtime/browser.ts`
+			// *into* `dist/browser.js`, so `dist/browser-*.js` never matched anything.
 			//
-			// `html-dom.ts` (the `tableToSlides` conversion) used to be excluded by
-			// these same globs, on the grounds that only the browser entry imported it.
-			// That is no longer true: the `ts-pptx/html` entry imports it too, so tsdown
-			// emits it as its own shared `dist/html-dom-*.js` chunk — deliberately NOT
-			// excluded here. The Node suite executes it against a real DOM
+			// The number below is therefore the Node suite's alone, and that is the
+			// honest reading of it: the browser lane's coverage is not merged in (see
+			// docs/testing.md "Browser Lane"). What the Node suite does cover of that file
+			// is real — three regression tests import the entry — and what it does not is
+			// the four adapter functions, which is exactly what the browser lane asserts.
+			//
+			// `html-dom.ts` (the `tableToSlides` conversion) used to be excluded by these
+			// same globs too, on the grounds that only the browser entry imported it. That
+			// is no longer true: the `ts-pptx/html` entry imports it too, so tsdown emits
+			// it as its own shared `dist/html-dom-*.js` chunk — also not excluded. The
+			// Node suite executes it against a real DOM
 			// (test/regression/html-to-slides-node.test.js), so it is covered code now,
 			// not unreachable code.
-			exclude: [
-				...coverageConfigDefaults.exclude,
-				'dist/browser.js', // src/browser.ts — browser entry
-				'dist/browser-*.js', // src/runtime/browser.ts — browser runtime adapter
-			],
+			//
+			// Nothing of this repo's own is excluded any more. The defaults are restated
+			// rather than left implicit so that a future exclusion has an obvious home —
+			// and so that adding one is a visible edit, not the absence of an edit.
+			exclude: [...coverageConfigDefaults.exclude],
 			// `json-summary` writes coverage/coverage-summary.json (per-file + total
 			// rollup) and `json` writes coverage/coverage-final.json (raw per-line map)
 			// so agents and ratchet scripts can read coverage without scraping the HTML.
@@ -76,8 +84,15 @@ export default defineConfig({
 				// Ratchet upward only — if a change drops a number below its gate, that is a
 				// finding to explain, never a gate to lower.
 				branches: 81,
-				// Left alone deliberately: measured 98.33, so the next notch would keep 0.33,
-				// and a gate with less slack than a point is a gate that goes red on noise.
+				// Left at 97, and now the tightest gate here: dropping the `dist/browser.js`
+				// exclusion put `src/runtime/browser.ts`'s 13 functions into the denominator
+				// with 1 of them reachable from Node, so the measured number fell 98.33 ->
+				// 97.35 and the slack fell with it, to 0.35.
+				//
+				// That is the price of an honest denominator, not a regression, and the way
+				// to buy the slack back is to merge the browser lane's coverage into this
+				// report — not to lower the gate. Until then those 12 functions are gated
+				// where they actually run, by test/browser/adapter-coverage.spec.mjs.
 				functions: 97,
 				// Raised 94 -> 95 once the zoom/background definers landed: measured 96.00, the
 				// first time this axis has cleared a full point behind the notch.
