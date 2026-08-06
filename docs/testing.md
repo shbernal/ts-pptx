@@ -565,7 +565,7 @@ So `run()` resolves a bin one of three ways:
 `ci.yml`'s `package` job has an OS matrix and runs `check:package` on both
 `ubuntu-latest` and `windows-latest`, so the `run()` behaviour above — the part
 of the repo that is Windows-specific by design — is exercised on the platform it
-exists for. The `static` and `test` jobs remain Linux-only: they are
+exists for. The `static`, `test` and `browser` jobs remain Linux-only: they are
 platform-independent, and the validator installer is a bash script.
 
 That narrows, but does not remove, the gap: a Windows-only break outside the
@@ -575,27 +575,92 @@ Note that the Windows leg has never actually executed — `ci.yml` has not run a
 all yet. Treat it as the highest-risk part of the first push; see "Common
 Commands" in [the development guide](./development.md) for what to watch.
 
+## Browser Lane
+
+```bash
+pnpm run test:browser   # ensure-dist, build demos/vite-demo, then Playwright
+```
+
+Everything above this section runs under Node. `dist/browser.js` and its runtime
+adapter (`src/runtime/browser.ts`) cannot: they call `fetch`, `FileReader`,
+`<canvas>`, `URL.createObjectURL` and click a synthetic `<a download>`. This lane
+is the only thing that executes them.
+
+It is **not** part of `verify` or `verify:full`, deliberately — it needs a
+~120 MB Chromium download, and putting that in the per-change loop would tax
+every iteration for a surface that changes rarely. Install the browser once:
+
+```bash
+pnpm exec playwright install chromium
+```
+
+Config is `playwright.config.ts` (root); specs are `test/browser/*.spec.mjs`.
+Vitest excludes `test/browser/**` by directory, so the two harnesses never
+collect each other's files. In CI it is the `browser` job in `ci.yml`.
+
+The fixture is `demos/vite-demo`, driven through a `vite preview` server. Two
+assertions run against one deck build:
+
+| Spec | Claim |
+|---|---|
+| `deck-download.spec.mjs` | the object-URL download is a real OPC package — read back with **jszip**, an implementation independent of the `fflate` the library writes with |
+| `cross-runtime-bytes.spec.mjs` | the browser-built deck is **byte-identical** to the Node-built one, all 113 parts |
+
+The second is the one worth the lane. `demos/vite-demo` imports the same showcase
+module `pnpm demos:build quarterly-review` runs, and `src/zip.ts` pins
+`FIXED_MTIME`, so the two packages are directly comparable — one diff asserts that
+every serializer, the zip writer, part ordering and relationship numbering are
+runtime-invariant. A runtime-dependent code path anywhere in `src/gen/` surfaces
+here as a named part.
+
+That comparison is the byte-identity gate's, not a second one: both go through
+`scripts/pptx-parts.mjs` (same explode, same normalizers, same diff). Keep it that
+way. Two hand-rolled comparisons would drift, and they would drift silently — one
+gate tolerating a difference the other still calls a regression, with nothing to
+say which was right. The three normalized values are the same three as ever:
+`core.xml` timestamps and the two `Math.random` GUIDs (`p14:section` ids,
+`c16:uniqueId`).
+
+What this lane does **not** cover, and must not be read as covering:
+
+- **Live-DOM layout fidelity.** No assertion here depends on a rendered page —
+  no `offsetWidth` after layout, no resolved cascade, no browser-chosen font. That
+  remains out of active scope ([project target](project-target.md)), and *runtime
+  support* and *layout fidelity* are separate claims that should stay separate.
+- **`loadMedia`, `createSvgPngPreview`, `loadFontData`.** The demo builds
+  `quarterly-review`, which draws every asset rather than loading one, so the deck
+  never crosses those three adapter functions. That is also why the byte
+  comparison converges — it never has to reconcile Node's raw base64 with the
+  browser's `FileReader` data URI. They stay uncovered, and `vitest.config.ts`
+  still excludes `dist/browser*.js` from coverage.
+- **Engines other than Chromium.** A deliberate decision, recorded in
+  `playwright.config.ts`: the APIs in play are uncontroversial across engines, and
+  a matrix would cost CI time for a divergence nobody has observed. Add Firefox or
+  WebKit when something concrete surfaces.
+
 ## Demos Are Not Tests
 
-`demos/` has no test role. There is no demo smoke command, no verification
-aggregate runs a demo, and CI never builds one. A broken demo fails nothing; a
-green demo proves nothing about the published package.
+The showcase decks have no test role. There is no demo smoke command, no
+verification aggregate builds one, and a broken showcase fails nothing.
 
-That role used to belong to `scripts/demo-smoke.mjs`, which generated one deck
+The one exception is `demos/vite-demo`, which the browser lane above uses as its
+fixture and CI therefore builds. It is a fixture, not a showcase-with-assertions:
+nothing checks how the page *looks*, only that the deck it builds is the right
+bytes. (The byte-identity harness likewise *builds* the showcase decks without
+asserting anything about them — a showcase that throws simply takes the harness
+down with it.)
+
+The test role used to belong to `scripts/demo-smoke.mjs`, which generated one deck
 from `demos/node` and ran `vite build`. Both signals it produced are now covered
-directly, and more precisely, by the checks above: `test:package` imports all
-nine export subpaths out of an installed tarball and forces the `browser`
-condition, and `package:lint` validates types resolution with attw.
-
-One thing did not survive the swap, and it is worth stating rather than
-discovering later: the Vite build was the only check that put a **real bundler**
-in front of the package. `test:package` proves Node's resolver walks `exports`
-correctly and attw proves a bundler's *type* resolution is sound, but nothing now
-proves Rollup/esbuild can actually resolve and tree-shake the runtime entry. That
-is a narrow gap — the package is plain ESM with no bundler-specific fields — and
-it was deliberately accepted rather than overlooked. If it ever bites, the fix
-belongs in `scripts/package-smoke.mjs` as a bundler step against the installed
-tarball, not in a resurrected demo smoke.
+directly, and more precisely: `test:package` imports all nine export subpaths out
+of an installed tarball and forces the `browser` condition, `package:lint`
+validates types resolution with attw, and the browser lane puts a real bundler
+(Vite/Rolldown) in front of the package and then *runs what it emitted*. That last
+one closes a gap this section previously recorded as accepted — nothing proved
+Rollup/esbuild could resolve and tree-shake the runtime entry. Something does now,
+though only for the `browser` condition; the `node` entry still has no bundler
+check, and if that ever bites, the fix belongs in `scripts/package-smoke.mjs` as a
+bundler step against the installed tarball, not in a resurrected demo smoke.
 
 ## Manual Visual Checks
 

@@ -1,4 +1,4 @@
-import { coverageConfigDefaults, defineConfig } from 'vitest/config'
+import { configDefaults, coverageConfigDefaults, defineConfig } from 'vitest/config'
 
 // The suite runs against the built package (`pnpm run build` then `vitest run`),
 // so tests import from `dist/`, not `src/`. v8 collects coverage for the code it
@@ -20,6 +20,12 @@ import { coverageConfigDefaults, defineConfig } from 'vitest/config'
 // src/read/oxml/theme.ts.
 export default defineConfig({
 	test: {
+		// `test/browser/**` belongs to Playwright (`playwright.config.ts`, `pnpm run
+		// test:browser`), not to Vitest. Its specs are named `*.spec.mjs`, which Vitest's
+		// default `include` matches, so without this it would collect them and fail on
+		// `@playwright/test`'s fixtures. Excluded by directory rather than by filename so
+		// the two harnesses never race for a file on the strength of what it is called.
+		exclude: [...configDefaults.exclude, 'test/browser/**'],
 		// The schema fixtures are `describe.concurrent` and each concurrent test
 		// spawns an OOXMLValidatorCLI (.NET) process; `test/read` spawns validators
 		// too, so with a bare `vitest run` the real process ceiling is

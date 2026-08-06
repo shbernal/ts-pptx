@@ -40,6 +40,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   read accessor are out of scope for now — a model read through `ts-pptx/read` surfaces as an
   inert `graphicFrame` and survives load → save and `importSlide` byte-intact.
 
+- **Browser support is now proven in CI, not assumed.** A Playwright lane
+  (`pnpm run test:browser`, CI job `browser`) runs the package in headless Chromium
+  against `demos/vite-demo`. No library code changed — this converts an existing
+  claim into evidence.
+
+  The assertion worth naming is cross-runtime byte identity. The demo imports the same
+  showcase module `pnpm demos:build quarterly-review` builds, and `src/zip.ts` pins
+  `FIXED_MTIME`, so the two packages are directly comparable: all **113 parts** of the
+  browser-built deck are byte-identical to the Node-built one. Every serializer, the zip
+  writer, part ordering and relationship numbering are therefore runtime-invariant — by
+  comparison, not by inspection. A second spec reads the object-URL download back with
+  jszip (an implementation independent of the `fflate` the library writes with) to confirm
+  it is a real OPC package.
+
+  Two boundaries stay exactly where they were, and are now stated in
+  [`docs/runtime-and-package-support.md`](docs/runtime-and-package-support.md) rather than
+  left to inference:
+
+  - **Runtime support is not layout fidelity.** Nothing in the lane depends on a rendered
+    page. Real `offsetWidth`, the resolved cascade, and browser-chosen fonts remain out of
+    active scope; a layout difference between two browsers is not a defect in this
+    package's browser support, whereas a `.pptx` a browser builds differently from Node is.
+  - **Three adapter functions remain uncovered** — `loadMedia`, `createSvgPngPreview`,
+    `loadFontData`. The showcase draws every asset rather than loading one, so the deck
+    never reaches them, and `vitest.config.ts` still excludes `dist/browser*.js` from
+    coverage.
+
+  The explode/normalize/diff machinery the byte-identity gate has always used moved to
+  `scripts/pptx-parts.mjs` so both gates share one definition of "the same bytes"; the
+  refactor was verified byte-identical against a baseline frozen with the pre-refactor
+  script.
+
 ## [2.0.0] - 2026-08-05
 
 ### Removed

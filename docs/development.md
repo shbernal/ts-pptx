@@ -145,6 +145,14 @@ The individual gates — `build`, `typecheck`, `typecheck:scripts`, `typecheck:t
 `test:package`, `backlog:validate` — all still exist and are worth
 running alone when iterating on one specific thing. `pnpm run` lists them.
 
+One gate is in neither aggregate: `pnpm run test:browser`, the Playwright lane
+that runs the package in a real Chromium (CI job `browser`). It needs a ~120 MB
+browser download — `pnpm exec playwright install chromium`, once — and putting
+that in the per-change loop would tax every iteration for a surface that changes
+rarely. Run it when you touch `src/runtime/browser.ts`, `src/browser.ts`, the zip
+writer, or anything that could plausibly emit different bytes on a different
+runtime. See [Browser Lane](testing.md#browser-lane).
+
 ## Static Checks
 
 Three gates keep the source statically sound. All are green and expected to stay

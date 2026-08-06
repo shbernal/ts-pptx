@@ -92,6 +92,69 @@ jobs:
         if: matrix.node != '24.x'
         run: pnpm run test
 
+  # The browser lane. The `test` job above proves the emission core against
+  # `dist/node.js`; nothing proved `dist/browser.js`, whose adapter is the only
+  # runtime-divergent surface in the package and which no headless Node suite can
+  # reach (`fetch`, `FileReader`, canvas, object URLs, `<a download>`).
+  #
+  # It drives `demos/vite-demo`, which imports the SAME showcase module
+  # `pnpm demos:build quarterly-review` runs — so the strong assertion is available:
+  # the browser-built deck must be byte-identical to the Node-built one, part for
+  # part. See test/browser/cross-runtime-bytes.spec.mjs.
+  #
+  # Not a matrix leg of `test`: it needs a browser download and a preview server,
+  # neither of which is Node-version-sensitive. One run, newest supported Node.
+  # Chromium only — the engine decision is recorded in playwright.config.ts.
+  browser:
+    name: Browser (Chromium)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The Chromium download is ~120 MB and 1-2 min cold. Keyed on the lockfile
+      # because that is what pins the @playwright/test version, and a browser build
+      # is only valid for the Playwright that asked for it.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      # Still run on a cache hit: the browser binary is cached, the system libraries
+      # it links against are not, and `--with-deps` is a fast no-op once the download
+      # is already there.
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      # Starts with `ensure-dist`, then builds the demo, then runs the specs.
+      - name: Browser tests
+        run: pnpm run test:browser
+
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: .tmp/playwright/
+          retention-days: 7
+
   # Windows is not redundant here. Every branch in `run()` in
   # scripts/script-utils.mjs — the `.cmd` shim handling, the DEP0190 avoidance,
   # the local-bin resolution — exists solely for Windows, and these package

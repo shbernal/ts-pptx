@@ -21,7 +21,7 @@
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { diffParts, explodePackage, listParts, loadShowcases } from './pptx-parts.mjs'
 import { ROOT, run } from './script-utils.mjs'
 
 const OUT_ROOT = path.join(ROOT, '.tmp', 'byte-identity')
@@ -30,33 +30,11 @@ const CURRENT = path.join(OUT_ROOT, 'current')
 // Written here rather than into `demos/showcases/output/`: the gate builds decks on every
 // run, and it has no business clobbering the artifacts `pnpm demos:build` leaves for a human.
 const DECKS = path.join(OUT_ROOT, 'decks')
-const SHOWCASES_ENTRY = path.join(ROOT, 'demos', 'showcases', 'lib', 'showcases.mjs')
 
 const mode = process.argv[2]
 if (mode !== 'baseline' && mode !== 'check') {
 	console.error('usage: node scripts/byte-identity.mjs <baseline|check>')
 	process.exit(2)
-}
-
-/**
- * Emitted values that legitimately differ between two identical runs.
- * Deliberately narrow: normalizing ONLY these keeps a changed *fixed* GUID
- * (e.g. a built-in table-style id) visible as a real diff.
- */
-const NORMALIZERS = [
-	// core.xml timestamps — the deck's and every embedded workbook's
-	[
-		/<dcterms:(created|modified) xsi:type="dcterms:W3CDTF">[^<]*<\/dcterms:\1>/g,
-		'<dcterms:$1 xsi:type="dcterms:W3CDTF">NORMALIZED-TIMESTAMP</dcterms:$1>',
-	],
-	// presentation.xml section ids — random GUID per run
-	[/(<p14:section[^>]*\bid=")\{[^}]*\}"/g, '$1{NORMALIZED-SECTION}"'],
-	// chartN.xml uniqueId — random GUID per run
-	[/(<c16:uniqueId[^>]*\bval=")\{[^}]*\}"/g, '$1{NORMALIZED-UNIQUEID}"'],
-]
-
-function normalize(text) {
-	return NORMALIZERS.reduce((out, [re, sub]) => out.replace(re, sub), text)
 }
 
 /**
@@ -71,7 +49,7 @@ function normalize(text) {
  * Returns one `{ slug, file }` per deck.
  */
 async function generateDecks() {
-	const { SHOWCASES } = await import(pathToFileURL(SHOWCASES_ENTRY).href)
+	const SHOWCASES = await loadShowcases()
 
 	fs.rmSync(DECKS, { recursive: true, force: true })
 	fs.mkdirSync(DECKS, { recursive: true })
@@ -93,7 +71,6 @@ async function generateDecks() {
 		if (!fs.existsSync(file)) throw new Error('showcase deck was not written: ' + file)
 		decks.push({ slug: showcase.slug, file })
 	}
-	if (decks.length === 0) throw new Error('no showcases registered in ' + path.relative(ROOT, SHOWCASES_ENTRY))
 	return decks
 }
 
@@ -105,61 +82,10 @@ async function generateDecks() {
  * collide and hide which deck moved.
  */
 async function explodeDecks(decks, destDir) {
-	const { unzipSync } = await import(pathToFileURL(path.join(ROOT, 'node_modules', 'fflate', 'esm', 'browser.js')).href)
-	const decoder = new TextDecoder('utf-8')
-
-	const dump = (zipBytes, dir) => {
-		const entries = unzipSync(zipBytes)
-		for (const name of Object.keys(entries).sort()) {
-			const bytes = entries[name]
-			// Each embedded workbook is its own OPC zip — recurse rather than
-			// diffing opaque compressed bytes.
-			if (/\.xlsx$/i.test(name)) {
-				dump(bytes, path.join(dir, name + '!'))
-				continue
-			}
-			const dest = path.join(dir, name)
-			fs.mkdirSync(path.dirname(dest), { recursive: true })
-			if (/\.(xml|rels)$/i.test(name)) fs.writeFileSync(dest, normalize(decoder.decode(bytes)), 'utf8')
-			else fs.writeFileSync(dest, bytes)
-		}
-	}
-
 	fs.rmSync(destDir, { recursive: true, force: true })
 	for (const deck of decks) {
-		const dir = path.join(destDir, deck.slug)
-		fs.mkdirSync(dir, { recursive: true })
-		dump(new Uint8Array(fs.readFileSync(deck.file)), dir)
+		await explodePackage(new Uint8Array(fs.readFileSync(deck.file)), path.join(destDir, deck.slug))
 	}
-}
-
-function listParts(dir) {
-	const out = []
-	const walk = (d, prefix) => {
-		for (const entry of fs.readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
-			const rel = prefix ? prefix + '/' + entry.name : entry.name
-			if (entry.isDirectory()) walk(path.join(d, entry.name), rel)
-			else out.push(rel)
-		}
-	}
-	walk(dir, '')
-	return out
-}
-
-/** Compare two exploded packages. Returns a list of human-readable differences. */
-function diffParts(baseDir, curDir) {
-	const base = new Set(listParts(baseDir))
-	const cur = new Set(listParts(curDir))
-	const diffs = []
-	for (const part of base) if (!cur.has(part)) diffs.push('REMOVED  ' + part)
-	for (const part of cur) if (!base.has(part)) diffs.push('ADDED    ' + part)
-	for (const part of base) {
-		if (!cur.has(part)) continue
-		const a = fs.readFileSync(path.join(baseDir, part))
-		const b = fs.readFileSync(path.join(curDir, part))
-		if (!a.equals(b)) diffs.push('CHANGED  ' + part)
-	}
-	return diffs.sort()
 }
 
 /**

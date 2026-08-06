@@ -99,6 +99,37 @@ is the free `tableToSlides` on `@shbernal/ts-pptx/html`.
 Import `@shbernal/ts-pptx/node` or `@shbernal/ts-pptx/browser` directly whenever
 you want a specific build regardless of how conditions resolve.
 
+## What "Browser" Is Tested To Mean
+
+The browser build is exercised in CI, by the `browser` job in `.github/workflows/ci.yml`
+(`pnpm run test:browser` — Playwright, headless Chromium, driving `demos/vite-demo`).
+It is not "supported by construction".
+
+Two claims, kept separate on purpose:
+
+- **The browser is a supported *runtime*.** A real browser runs the emission core
+  and produces a `.pptx` you can download. The stronger form of that assertion is
+  what CI actually checks: the demo imports the same showcase module the Node
+  target builds, and the deck the browser assembles is compared **part for part**
+  against the Node-built one. They are byte-identical. So every serializer, the zip
+  writer, part ordering and relationship numbering are runtime-invariant — not by
+  inspection, by comparison.
+- **Browser *layout* is not an oracle this library answers to.** Nothing in that
+  job depends on a rendered page. Real `offsetWidth` after layout, the resolved CSS
+  cascade, and fonts as the browser chose them remain out of active scope — see
+  [Project Target](project-target.md). In particular, `tableToSlides()` runs
+  anywhere there is a DOM, and only *measurement* degrades without a layout engine:
+  `offsetWidth` is `0`, column widths fall back to computed CSS widths and then to
+  an equal split, and `data-pptx-width` / `data-pptx-min-width` let you pin them.
+
+A layout difference between two browsers is therefore not a defect in this
+package's browser support. A `.pptx` a browser builds differently from Node is.
+
+Three adapter functions are not yet covered by that job, and the docs should not
+imply otherwise: `loadMedia`, `createSvgPngPreview`, and `loadFontData`. The
+showcase the demo builds draws every asset rather than loading one, so it never
+reaches them.
+
 ## Dropped Compared To Upstream
 
 ### CommonJS

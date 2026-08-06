@@ -104,7 +104,7 @@ export default tseslint.config(
 	{
 		// Same intent as the block above, but these are TypeScript and so need the
 		// TS parser; espree cannot parse `as`/`type` syntax. Still untyped rules.
-		files: ['vitest.config.ts', 'tsdown.config.ts', 'tsdown.dev.config.ts'],
+		files: ['vitest.config.ts', 'tsdown.config.ts', 'tsdown.dev.config.ts', 'playwright.config.ts'],
 		extends: [tseslint.configs.recommended],
 		languageOptions: {
 			ecmaVersion: 2024,
