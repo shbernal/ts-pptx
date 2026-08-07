@@ -15,13 +15,11 @@ import type { PresentationPropsInternal, PresSlideInternal, SlideLayoutInternal 
 import type { RuntimeAdapter } from '../runtime/types.js'
 import type { FontMetricsRegistry } from '../measure/font-metrics.js'
 import { flattenEmbeddedFaces } from '../embedded-fonts.js'
-import { applyMeasuredFit } from '../measure/fit.js'
 import { getNewRelId } from '../gen/utils.js'
 import { decodeBase64ToBytes } from '../media/base64.js'
 import { audioExtensionForSubtype } from '../media/content-type.js'
 import { createExcelWorksheet } from '../gen/chart/embed-xlsx.js'
-import { addPlaceholdersToSlideLayouts } from '../gen/define/placeholder.js'
-import { encodeSlideMediaRels } from '../gen/media.js'
+import { bakeSlideContent, encodeMediaForTargets } from '../gen/prepare.js'
 import { makeXmlApp } from '../gen/opc/app.js'
 import { makeXmlContTypes } from '../gen/opc/content-types.js'
 import { makeXmlCore } from '../gen/opc/core.js'
@@ -200,7 +198,6 @@ export async function buildPackageParts(
 ): Promise<InternalPackagePart[]> {
 	const pres = source.presentation
 	const arrChartPromises: Promise<string>[] = []
-	let arrMediaPromises: Promise<string>[] = []
 	const zip = new ZipWriter()
 
 	// STEP 0: Register transition-sound media parts/rels before encoding picks them up.
@@ -208,16 +205,10 @@ export async function buildPackageParts(
 
 	// STEP 1: Read/Encode all Media before zip as base64 content, etc. is required
 	const onMediaError = props.onMediaError ?? 'throw'
-	pres.slides.forEach((slide) => {
-		arrMediaPromises = arrMediaPromises.concat(encodeSlideMediaRels(slide, source.runtime, onMediaError))
-	})
-	pres.slideLayouts.forEach((layout) => {
-		arrMediaPromises = arrMediaPromises.concat(encodeSlideMediaRels(layout, source.runtime, onMediaError))
-	})
-	arrMediaPromises = arrMediaPromises.concat(encodeSlideMediaRels(pres.masterSlide, source.runtime, onMediaError))
+	const mediaTargets = [...pres.slides, ...pres.slideLayouts, pres.masterSlide]
 
-	// STEP 2: Wait for Promises (if any) then generate the PPTX file
-	return await Promise.all(arrMediaPromises).then(async () => {
+	// STEP 2: Wait for media (if any) then generate the PPTX file
+	return await encodeMediaForTargets(mediaTargets, source.runtime, onMediaError).then(async () => {
 		// PERF: Collapse identical media to a single package part across the entire deck.
 		// Each target (slide/layout/master) namespaces its media `Target` by slide, so the
 		// same image used on multiple slides — or loaded from the same path — otherwise
@@ -264,14 +255,10 @@ export async function buildPackageParts(
 			}
 		}
 
-		// A: Add empty placeholder objects to slides that don't already have them
-		pres.slides.forEach((slide) => {
-			if (slide._slideLayout) addPlaceholdersToSlideLayouts(slide)
-		})
-
-		// A.1: Measured text fit — bake a real fontScale onto `fit:'shrink'` text
-		// boxes when font metrics are registered, before the sync XML pass reads it.
-		applyMeasuredFit(pres.slides, source.fontMetrics)
+		// A: Backfill inherited layout placeholders, then bake a real fontScale onto
+		// `fit:'shrink'` text boxes when font metrics are registered — both before the
+		// sync XML pass reads them. Shared with `extractSlides` (see `gen/prepare.ts`).
+		bakeSlideContent(pres.slides, source.fontMetrics)
 
 		// B: Add all required files. fflate keys on full slash-paths and emits no
 		// directory entries, so there is no folder scaffolding to set up (and no
