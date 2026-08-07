@@ -52,11 +52,13 @@ export default defineConfig({
 			// premise was false in a second way — tsdown bundles `src/runtime/browser.ts`
 			// *into* `dist/browser.js`, so `dist/browser-*.js` never matched anything.
 			//
-			// The number below is therefore the Node suite's alone, and that is the
-			// honest reading of it: the browser lane's coverage is not merged in (see
-			// docs/testing.md "Browser Lane"). What the Node suite does cover of that file
-			// is real — three regression tests import the entry — and what it does not is
-			// the four adapter functions, which is exactly what the browser lane asserts.
+			// The number this config reports is still the Node suite's alone — one run of
+			// one lane can only report what it executed — but it is no longer the number
+			// the repo is judged on. `scripts/coverage-merge.mjs` folds the browser lane's
+			// V8 coverage into it, and `pnpm run coverage:gate` checks the merged result;
+			// see docs/testing.md "Merged coverage". What the Node suite covers of that
+			// file is real — three regression tests import the entry — and the twelve
+			// adapter functions it cannot reach are covered where they run.
 			//
 			// `html-dom.ts` (the `tableToSlides` conversion) used to be excluded by these
 			// same globs too, on the grounds that only the browser entry imported it. That
@@ -74,28 +76,36 @@ export default defineConfig({
 			// rollup) and `json` writes coverage/coverage-final.json (raw per-line map)
 			// so agents and ratchet scripts can read coverage without scraping the HTML.
 			reporter: ['text-summary', 'text', 'html', 'json-summary', 'json'],
+			// These four are the *Node suite's* floor, and only that. They may not be
+			// lowered and they fail if this suite goes backwards — but the point-of-slack
+			// rule is no longer held against them, because it cannot honestly be: this
+			// report's denominator includes `src/runtime/browser.ts`, whose adapter needs
+			// `fetch`, `FileReader` and a canvas. That is not missing tests, it is a
+			// missing runtime, and no amount of Node testing can buy slack back here.
+			//
+			// The doctrine moved to the report that has a collector for every line it
+			// counts: `scripts/coverage-gates.json`, checked by scripts/coverage-gate.mjs
+			// against the Node suite and browser lane merged (`pnpm run coverage:gate`).
+			// That is where a notch must clear its number by a full point, where ratchets
+			// happen, and where the rule now *fails a build* rather than living in a
+			// comment. See the header of scripts/coverage-gate.mjs for why prose was not
+			// enough.
 			thresholds: {
-				// Raised 91 -> 92 once the table auto-pager landed: measured 93.21, so the gate
-				// keeps well over a point of slack.
+				// Raised 91 -> 92 once the table auto-pager landed: measured 93.21.
 				statements: 92,
-				// Raised 80 -> 81 once the text and chart definers landed: measured 82.79, so the
-				// gate keeps 1.79. 82 was available on the raw number and declined — it would
-				// keep 0.79, under the point of slack every notch here is required to leave.
+				// Raised 80 -> 81 once the text and chart definers landed: measured 82.79.
 				// Ratchet upward only — if a change drops a number below its gate, that is a
 				// finding to explain, never a gate to lower.
 				branches: 81,
-				// Left at 97, and now the tightest gate here: dropping the `dist/browser.js`
-				// exclusion put `src/runtime/browser.ts`'s 13 functions into the denominator
-				// with 1 of them reachable from Node, so the measured number fell 98.33 ->
-				// 97.35 and the slack fell with it, to 0.35.
-				//
-				// That is the price of an honest denominator, not a regression, and the way
-				// to buy the slack back is to merge the browser lane's coverage into this
-				// report — not to lower the gate. Until then those 12 functions are gated
-				// where they actually run, by test/browser/adapter-coverage.spec.mjs.
+				// Left at 97. Dropping the `dist/browser.js` exclusion put
+				// `src/runtime/browser.ts`'s 13 functions into this denominator with 1 of them
+				// reachable from Node, so the Node-only number fell 98.33 -> 97.35. It reads
+				// 97.77 now that the public accessors have tests
+				// (test/regression/public-accessors.test.js), and 98.29 merged.
 				functions: 97,
-				// Raised 94 -> 95 once the zoom/background definers landed: measured 96.00, the
-				// first time this axis has cleared a full point behind the notch.
+				// Raised 94 -> 95 once the zoom/background definers landed, measured 96.00 at
+				// the time; the same exclusion drop took it to 95.67, and it reads 95.74 now.
+				// 96.11 merged.
 				lines: 95,
 			},
 		},

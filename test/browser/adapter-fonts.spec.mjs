@@ -1,8 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { expect, test } from '@playwright/test'
 import { diffParts, explodePackage, listParts } from '../../scripts/pptx-parts.mjs'
 import { ROOT } from '../../scripts/script-utils.mjs'
+import { expect, test } from './fixtures.mjs'
 import { buildDeckInHarness, buildDeckInNode, NODE_ASSETS, openHarness, packageBytes } from './helpers.mjs'
 
 /**

@@ -159,6 +159,14 @@ MCPs' corpora.
 - Read specific lines out of `coverage/probe/coverage-final.json`; the per-file rollup
   is in `coverage-summary.json`. Both are the same shape the full gate writes, so a
   helper script works against either.
+- **`test:coverage` is a floor, not the gate the repo is judged on.** Its denominator
+  includes `src/runtime/browser.ts`, which no Node run can execute, so the number it
+  prints understates the truth. The real gate is `pnpm run coverage:gate`, which merges
+  the browser lane's V8 coverage into that report and additionally fails when a number
+  clears its notch by less than a full point. It needs both lanes' output on disk, so
+  running it locally means `test:coverage` **and** `test:browser` (~120 MB Chromium) have
+  run first; otherwise leave it to CI's `coverage` job. See docs/testing.md
+  "Merged coverage".
 
 ### Do not run these — the git hooks already own them
 

@@ -1,20 +1,20 @@
-import { expect, test } from '@playwright/test'
 import { DECKS } from './harness/decks.mjs'
+import { expect, test } from './fixtures.mjs'
 import { buildDeckInHarness, openHarness } from './helpers.mjs'
 
 /**
  * The browser lane's own coverage gate.
  *
- * `vitest.config.ts` no longer excludes `dist/browser.js`, so the Node suite's report now
- * counts it — at close to nothing, because the four `RuntimeAdapter` functions are the
- * part of it Node cannot execute. That number is honest but it is not a gate: it says
- * how much of the browser entry the *Node* suite runs, and the answer will always be
- * "the exports". Nothing there would notice an adapter function losing its only test.
+ * This is the per-function half of the lane's coverage story, and it stays that way now
+ * that the other half exists. `scripts/coverage-merge.mjs` folds what every spec here
+ * executed into the Node report, so the repo's headline numbers finally count
+ * `src/runtime/browser.ts` where it runs — but a percentage cannot say "every adapter
+ * function was entered", and a merged report that drifts by a tenth says nothing about
+ * *which* function stopped running. That is this file's job.
  *
- * So the browser lane gates itself, on the measurement that is available where the code
- * actually runs: Chromium's own V8 block coverage for the `dist/browser.js` script,
- * collected across every scenario the harness has. Two assertions, and they fail for
- * different reasons —
+ * The measurement is the one available where the code actually runs: Chromium's own V8
+ * block coverage for the `dist/browser.js` script, collected across every scenario the
+ * harness has. Two assertions, and they fail for different reasons —
  *
  *   - **every adapter function ran.** Add a fifth function to `RuntimeAdapter` and this
  *     stays green until it is added to the list below, which is the moment to ask what
@@ -68,10 +68,12 @@ function executedPct(entry) {
 	return ((total - unreached) / total) * 100
 }
 
-test('every RuntimeAdapter function runs, and dist/browser.js stays above its coverage floor', async ({ page }) => {
-	// Before `goto`, and without resetting on navigation, or the harness page's own load
-	// is the thing that goes unmeasured.
-	await page.coverage.startJSCoverage({ resetOnNavigation: false })
+test('every RuntimeAdapter function runs, and dist/browser.js stays above its coverage floor', async ({
+	page,
+	jsCoverage,
+}) => {
+	// `jsCoverage` (test/browser/fixtures.mjs) started collection before this body ran, so
+	// the harness page's own load is measured rather than being the one thing that is not.
 	await openHarness(page)
 
 	// Every scenario the harness knows, so the gate cannot silently stop covering one
@@ -83,7 +85,9 @@ test('every RuntimeAdapter function runs, and dist/browser.js stays above its co
 	await page.evaluate(() => window['harness'].download('fonts'))
 	await downloadPromise
 
-	const entries = await page.coverage.stopJSCoverage()
+	// The fixture caches this, so its own teardown writes these same entries out for the
+	// merge instead of collecting a second, empty round.
+	const entries = await jsCoverage.stop()
 	const entry = entries.find((script) => script.url.endsWith('/dist/browser.js'))
 	expect(entry, `no coverage entry for dist/browser.js; got:\n  ${entries.map((e) => e.url).join('\n  ')}`).toBeTruthy()
 

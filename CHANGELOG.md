@@ -98,11 +98,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`vitest.config.ts` no longer excludes anything of this repo's own from coverage.**
   The `dist/browser.js` / `dist/browser-*.js` entries are gone; the second never matched
-  anything, because tsdown bundles the adapter *into* the entry. Read the resulting number
-  as the Node suite's view — it counts the adapter at close to zero, and the measured
-  functions figure fell 98.33 → 97.35 while actual tested-ness went up. The adapter is
-  gated where it runs instead, by a browser-lane coverage spec that asserts every adapter
-  function was entered and that the file's executed share stays above a floor.
+  anything, because tsdown bundles the adapter *into* the entry. Dropping them took the
+  measured functions figure 98.33 → 97.35 while actual tested-ness went up, which is the
+  shape of an honest denominator: the Node suite cannot execute an adapter that needs
+  `fetch`, `FileReader` and a canvas.
+
+- **Coverage from both lanes is merged into one number** (`pnpm run coverage:gate`, CI job
+  `coverage`). `scripts/coverage-merge.mjs` folds the browser lane's V8 coverage into the
+  Node report on one rule — *the Node report defines the shape, the browser lane
+  contributes hits* — so the merged denominator is identical to the Node report's and the
+  two percentages are directly comparable. Merged: statements 93.91, branches 83.71,
+  functions 98.29, lines 96.11.
+
+  It also makes this repo's **point-of-slack rule fail a build** rather than live in prose:
+  `scripts/coverage-gate.mjs` is red both when a number falls below its notch *and* when it
+  clears it by less than a full point. Prose does not fail a build, which is how the
+  exclusion drop left `functions` at 0.35 of slack while an acceptance criterion of
+  "thresholds still pass" was satisfied.
+
+  The four numbers in `vitest.config.ts` remain the Node suite's own floor, and the browser
+  lane keeps its per-function gate — a percentage cannot say *which* adapter function
+  stopped running.
 
 - **A bundle-size budget for the browser entry** (`pnpm run bundle-size:check`, part of
   `check:package`). Nothing measured shipped size before; a size promise nobody measures is

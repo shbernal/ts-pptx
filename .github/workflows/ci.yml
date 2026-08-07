@@ -92,6 +92,16 @@ jobs:
         if: matrix.node != '24.x'
         run: pnpm run test
 
+      # For the `coverage` job below, which merges this with what the browser lane
+      # executed. Only the primary leg collects coverage, so only it has one to upload.
+      - name: Upload Node coverage
+        if: matrix.node == '24.x'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-node
+          path: coverage/coverage-final.json
+          retention-days: 1
+
   # The browser lane. The `test` job above proves the emission core against
   # `dist/node.js`; nothing proved `dist/browser.js`, whose adapter is the only
   # runtime-divergent surface in the package and which no headless Node suite can
@@ -158,7 +168,84 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-traces
+          # Same dot-directory problem as the coverage upload below: without this the
+          # traces artifact has been uploading empty.
+          include-hidden-files: true
           path: .tmp/playwright/
+          retention-days: 7
+
+      # The raw V8 coverage every adapter spec collected, plus the `dist/` it was
+      # collected against. Both, not just the first: the merge projects browser coverage
+      # onto the Node report's shape by reading these exact bundles and their sourcemaps,
+      # and a `dist/` rebuilt in the merge job — even from the same commit — is a build
+      # the browser never ran. Shipping the bytes removes the question.
+      - name: Upload browser coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-browser
+          # `.tmp/` is a dot-directory, and upload-artifact excludes hidden files unless
+          # told otherwise — without this the artifact uploads `dist/` and silently drops
+          # every coverage record, and the merge job fails on an empty directory.
+          include-hidden-files: true
+          path: |
+            .tmp/browser-coverage/
+            dist/
+          retention-days: 1
+
+  # The merged coverage gate, and the only place the repo's point-of-slack doctrine is
+  # enforced. It needs both lanes' output, so it cannot live in either of them.
+  #
+  # `vitest.config.ts` still gates the Node suite on its own numbers inside the `test`
+  # job — that is a floor, and it fails fast. This is the number that counts
+  # `src/runtime/browser.ts` where it actually runs. See scripts/coverage-gate.mjs.
+  coverage:
+    name: Coverage (merged)
+    runs-on: ubuntu-latest
+    needs:
+      - test
+      - browser
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download Node coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-node
+          path: coverage/
+
+      # Restores `.tmp/browser-coverage/` and `dist/` together, exactly as the browser
+      # job had them. No build step here on purpose — see the upload above.
+      - name: Download browser coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-browser
+
+      - name: Merge and gate
+        run: pnpm run coverage:gate
+
+      - name: Upload merged report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-merged
+          path: coverage/merged/
           retention-days: 7
 
   # Windows is not redundant here. Every branch in `run()` in

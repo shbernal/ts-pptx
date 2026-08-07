@@ -54,6 +54,10 @@ const HARNESS_URL = `http://${HOST}:${HARNESS_PORT}/test/browser/harness/`
 
 export default defineConfig({
 	testDir: './test/browser',
+	// Empties `.tmp/browser-coverage/` so what the collector leaves there is exactly what
+	// this run executed — see test/browser/coverage-setup.mjs for why a narrowed run makes
+	// that worth doing at the start rather than at merge time.
+	globalSetup: './test/browser/coverage-setup.mjs',
 	// Under `.tmp/` (gitignored) with the rest of this repo's generated artifacts, rather
 	// than Playwright's default `test-results/` at the root, which nothing ignores.
 	outputDir: './.tmp/playwright',

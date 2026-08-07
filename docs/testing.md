@@ -128,6 +128,68 @@ the current measured numbers so an accidental regression fails CI without the
 gate being flaky. **Ratchet them upward as coverage improves; never loosen them
 to make a red build pass.**
 
+The four numbers in `vitest.config.ts` are the **Node suite's floor**. The gate
+the repo is judged on is the merged one below.
+
+### Merged coverage
+
+```bash
+pnpm run test:coverage    # the Node suite  -> coverage/coverage-final.json
+pnpm run test:browser     # the browser lane -> .tmp/browser-coverage/
+pnpm run coverage:gate    # merge both, then check scripts/coverage-gates.json
+```
+
+The Node suite cannot execute `src/runtime/browser.ts` — it needs `fetch`,
+`FileReader` and a canvas — but that file is in its denominator, correctly, since
+nothing of this repo's own is excluded from the report any more. A denominator
+with no collector for part of it understates the truth: dropping the exclusion
+took functions 98.33 → 97.35 while tested-ness went *up*. The fix is to give that
+part a collector, not to hide it again and not to move the gate.
+
+`scripts/coverage-merge.mjs` does that, on one rule:
+
+> **The Node report defines the shape. The browser lane contributes hits.**
+
+Both sides remap V8 coverage with the same `ast-v8-to-istanbul` version Vitest
+itself uses (pinned as a devDependency for exactly that reason), and the browser
+side's file coverage is then projected onto the Node report's own statement,
+function and branch maps by source location. So the merged denominator is
+*identical* to the Node report's and the merged percentage is directly comparable
+to it; only the numerator can move, and only upward.
+
+About 1% of browser locations do not line up, because `dist/node.js` and the
+`dist/*.js` chunks the browser loads are different bundles of the same source and
+a few mappings resolve a column differently. Those hits are dropped, not
+relocated — the count prints on every run, and past 5% the run fails instead,
+because at that point the two lanes are looking at different builds.
+
+### The point of slack, as a gate
+
+`scripts/coverage-gate.mjs` checks the merged report against
+`scripts/coverage-gates.json` and fails two ways:
+
+| Failure | Meaning | Fix |
+|---|---|---|
+| below the notch | coverage regressed past the gate | cover it, or explain what changed |
+| inside the point of slack | still above the notch, but by less than 1.00 | coverage has to come back up |
+
+The second one is the rule every threshold in this repo was already set by — a
+notch always sits at least a full point below its measured number — and it used
+to live only in prose. Prose does not fail a build, so when the exclusion drop
+took `functions` to 0.35 of slack and `lines` to 0.67, an acceptance criterion of
+"thresholds still pass" was satisfied by a state the doctrine forbids. One was
+noticed; the other sat in a stale comment. Encoding it means that cannot recur.
+
+The rule is held against the merged report and **not** against
+`vitest.config.ts`'s numbers, deliberately: demanding a point of slack on a
+report whose denominator includes code its collector cannot reach would leave
+only two ways to comply, and both — lowering the notch, re-hiding the file — are
+what the doctrine exists to prevent.
+
+In CI this is the `coverage` job, which runs after `test` and `browser` and
+consumes their artifacts (including the browser job's `dist/`, so the merge reads
+the exact bundles the browser ran).
+
 Reading the report has one trap: a line shown **red in the dist report may
 already be covered** by a `src/`-importing unit test. Some helpers (for example
 the HTML-table `htmlBorderToProps` / `resolveHtmlColWidth`) are only reached in
@@ -650,29 +712,26 @@ say which was right. The three normalized values are the same three as ever:
 
 ### Where the coverage number for this lane lives
 
-`vitest.config.ts` no longer excludes `dist/browser.js` — nothing of this repo's
-own is excluded from the coverage report any more. Read that number honestly: it
-is the **Node suite's** view, and it counts `src/runtime/browser.ts` at close to
-zero, because the four adapter functions are precisely what Node cannot execute.
-It went down when the exclusion was dropped (functions 98.33 → 97.35) while the
-actual tested-ness went up, which is exactly the shape of an honest denominator.
+Two places, answering two questions.
 
-So the browser lane gates itself, on the measurement available where the code
-runs: Chromium's own V8 block coverage of the `dist/browser.js` script, collected
-across every harness scenario (`adapter-coverage.spec.mjs`). Two assertions, red
-for different reasons — every adapter function was entered, and the file's
-executed share stayed above a floor (measured 92.74%, floor 90). The first
-catches a function losing its only test; the second catches a function that is
-still entered but whose interesting arms are not.
+**Per function, in the lane itself.** `adapter-coverage.spec.mjs` asserts on
+Chromium's own V8 block coverage of the `dist/browser.js` script, collected across
+every harness scenario. Two assertions, red for different reasons — every adapter
+function was entered, and the file's executed share stayed above a floor (measured
+92.74%, floor 90). The first catches a function losing its only test; the second
+catches a function that is still entered but whose interesting arms are not. A
+merged percentage can express neither, which is why this stays.
 
 What keeps it off 100 is named in that spec: `tableToSlides` (live-DOM layout,
 out of scope), the missing-2d-context arm, and `FileReader.onerror`. The last two
 are unreachable in a working browser — getting to them means stubbing a DOM
 constructor, which asserts about the stub.
 
-Merging the browser lane's V8 coverage into the Node report would let one number
-tell the whole story and buy back the functions-axis slack. It is not done, and
-the config says so rather than quietly lowering the gate.
+**As a percentage, in the merged report** — see [Merged coverage](#merged-coverage).
+Every spec in the `runtime-adapter` project contributes its raw V8 coverage to
+`.tmp/browser-coverage/` (the fixture in `test/browser/fixtures.mjs`, auto-use, so
+a new spec contributes by existing), and `scripts/coverage-merge.mjs` folds it into
+the Node report.
 
 What this lane does **not** cover, and must not be read as covering:
 
