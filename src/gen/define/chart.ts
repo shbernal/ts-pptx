@@ -443,9 +443,10 @@ export function addChartDefinition(
 
 	// Placeholder part identity, unique only within this target. The authoritative,
 	// package-unique chart part filename is assigned at write time by a per-presentation
-	// pass in `exportPresentation` (see backlog fork-chart-counter-nondeterminism): a
-	// module-global counter here was never reset, so two identical decks built in one
-	// process emitted different chart part filenames (same input, different bytes).
+	// pass in `buildPackageParts` (`package/assemble.ts`, STEP 2) — see backlog
+	// fork-chart-counter-nondeterminism: a module-global counter here was never reset, so
+	// two identical decks built in one process emitted different chart part filenames
+	// (same input, different bytes).
 	const chartId = target._relsChart.length + 1
 	const resultObject: SlideObject = {
 		_type: SlideObjectType.chart,
@@ -603,8 +604,9 @@ export function addChartDefinition(
 	// STEP 5: Add this chart to this Slide Rels (rId/rels count spans all slides! Count all images to get next rId)
 	// chartEx charts (waterfall, …) live alongside classic charts in `ppt/charts/` but use the
 	// `chartEx{N}.xml` name, the `chartex+xml` content type and the MS chartEx rel type. The
-	// authoritative, package-unique filename is (re)assigned at write time in `exportPresentation`;
-	// this placeholder mirrors the same Ex-prefix rule so a single-chart deck is already correct.
+	// authoritative, package-unique filename is (re)assigned at write time in
+	// `buildPackageParts` (`package/assemble.ts`); this placeholder mirrors the same
+	// Ex-prefix rule so a single-chart deck is already correct.
 	const isChartEx = isChartExType(options._type)
 	const chartBase = isChartEx ? `chartEx${chartId}` : `chart${chartId}`
 	target._relsChart.push({

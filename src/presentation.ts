@@ -1,58 +1,16 @@
 /**
- *  :: presentation.ts ::
+ * ts-pptx: the presentation core
  *
- *  TypeScript/ESM library that creates PowerPoint (pptx) presentations
- *  https://github.com/gitbrent/PptxGenJS
+ * Home of {@link PresentationCore}, the class every entry point subclasses with a runtime
+ * adapter (`index.ts`, `node.ts`, `browser.ts`). See the class doc below for the layout of
+ * its body and where package assembly actually happens.
  *
- *  This framework is released under the MIT Public License (MIT)
+ * Units: this library takes user coordinates in inches and converts to EMU on output — see
+ * `units.ts` for the conversions and `STANDARD_LAYOUTS` for the built-in slide sizes.
  *
- *  PptxGenJS (C) 2015-present Brent Ely -- https://github.com/gitbrent
- *
- *  Some code derived from the OfficeGen project:
- *  github.com/Ziv-Barber/officegen/ (Copyright 2013 Ziv Barber)
- *
- *  Permission is hereby granted, free of charge, to any person obtaining a copy
- *  of this software and associated documentation files (the "Software"), to deal
- *  in the Software without restriction, including without limitation the rights
- *  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- *  copies of the Software, and to permit persons to whom the Software is
- *  furnished to do so, subject to the following conditions:
- *
- *  The above copyright notice and this permission notice shall be included in all
- *  copies or substantial portions of the Software.
- *
- *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- *  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- *  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- *  SOFTWARE.
- */
-
-/**
- * Units of Measure used in PowerPoint documents
- *
- * PowerPoint (DrawingML) positions and sizes shapes in `EMU`; font sizing is in points.
- * This library takes user coordinates in inches and converts to EMU on output.
- * - 914400 EMUs is 1 inch
- * -  12700 EMUs is 1 point
- * -      72 points is 1 inch
- *
- * @see https://startbigthinksmall.wordpress.com/2010/01/04/points-inches-and-emus-measuring-units-in-office-open-xml/
- */
-
-/**
- * Object Layouts
- *
- * - 16x9 (10" x 5.625")
- * - 16x10 (10" x 6.25")
- * - 4x3 (10" x 7.5")
- * - Wide (13.33" x 7.5")
- * - [custom] (any size)
- *
- * @see https://docs.microsoft.com/en-us/office/open-xml/structure-of-a-presentationml-document
- * @see https://docs.microsoft.com/en-us/previous-versions/office/developer/office-2010/hh273476(v=office.14)
+ * Derived from PptxGenJS (C) 2015-present Brent Ely (MIT), which in turn took some code from
+ * the OfficeGen project (Copyright 2013 Ziv Barber). This project is likewise MIT; the full
+ * license text is in `LICENSE` at the repository root.
  */
 
 import { warn } from './diagnostics.js'
@@ -92,7 +50,7 @@ import type { Slide } from './types/slide.js'
 import type { RuntimeAdapter } from './runtime/types.js'
 import { FontMetricsRegistry, parseFontMetrics } from './measure/font-metrics.js'
 import { type EmbeddedFont, type EmbeddedFontSlot, EMBEDDED_FONT_SLOTS } from './embedded-fonts.js'
-import { applyMeasuredFit, measureText } from './measure/fit.js'
+import { measureText } from './measure/fit.js'
 import { computeTableLayout } from './measure/table-fit.js'
 import { getUuid, isHyperlinkRel } from './gen/utils.js'
 import { decodeBase64ToBytes } from './media/base64.js'
@@ -100,106 +58,11 @@ import { avContentType, imageContentType } from './media/content-type.js'
 import { inchesToEmu, STANDARD_LAYOUTS, type StandardLayout } from './units.js'
 import type { ExtractedSlide, ExtractedSlides } from './read/api/presentation-types.js'
 
-export type { Slide } from './types/index.js'
-export type {
-	AddSlideProps,
-	CustomPropertyValue,
-	BackgroundProps,
-	BorderProps,
-	Color,
-	DataOrPathProps,
-	DataOrPathRequiredProps,
-	HAlign,
-	HexColor,
-	ChartAreaProps,
-	ChartMulti,
-	ChartOpts,
-	ChartPropsAxisCat,
-	ChartPropsAxisSer,
-	ChartPropsAxisVal,
-	ChartPropsBase,
-	ChartPropsChartBar,
-	ChartPropsChartDoughnut,
-	ChartPropsChartLine,
-	ChartPropsChartPie,
-	ChartPropsChartRadar,
-	ChartPropsChartWaterfall,
-	ChartPropsChartHistogram,
-	ChartExBinning,
-	ChartPropsChartBoxWhisker,
-	ChartExStatistics,
-	ChartPropsChartRegionMap,
-	ChartExGeography,
-	ChartPropsChartStock,
-	ChartPropsChartSurface,
-	ChartPropsDataLabel,
-	ChartPropsDataTable,
-	ChartPropsFillLine,
-	ChartPropsLegend,
-	ChartPropsTitle,
-	ImageProps,
-	Margin,
-	MeasureTextOptions,
-	MediaProps,
-	MediaType,
-	ObjectNameProps,
-	OverflowBoxOptions,
-	ObjectOptions,
-	OptsChartData,
-	OptsChartGridLine,
-	PackagePart,
-	PartsProps,
-	PlaceholderProps,
-	PositionProps,
-	PresLayout,
-	PresentationProps,
-	SectionProps,
-	ShadowProps,
-	ShapeFillProps,
-	ShapeLineProps,
-	ShapeProps,
-	SlideMasterChartProps,
-	SlideMasterObject,
-	SlideMasterProps,
-	SlideNumberProps,
-	TableCell,
-	TableCellLayout,
-	TableCellProps,
-	TableLayoutResult,
-	TableProps,
-	TableRow,
-	TableRowSlide,
-	TableToSlidesProps,
-	TextBaseProps,
-	TextGlowProps,
-	TextMeasurement,
-	TextProps,
-	TextPropsOptions,
-	ThemeColor,
-	ThemeProps,
-	VAlign,
-	WriteBaseProps,
-	WriteFileProps,
-	WriteProps,
-} from './types/index.js'
-export type {
-	CHART_NAME,
-	ChartType,
-	ZIP_OUTPUT_TYPE,
-	PLACEHOLDER_TYPE,
-	PlaceholderType,
-	SchemeColor,
-	SCHEME_COLORS,
-	SHAPE_NAME,
-	ShapeType,
-	WRITE_OUTPUT_TYPE,
-} from './enums.js'
 import { makeXmlCharts } from './gen/chart/chart-xml.js'
 import { buildEmbeddedWorksheet } from './gen/chart/embed-xlsx.js'
 import { addBackgroundDefinition } from './gen/define/background.js'
 import { createSlideMaster } from './gen/define/master.js'
-import { addPlaceholdersToSlideLayouts } from './gen/define/placeholder.js'
-import { encodeSlideMediaRels } from './gen/media.js'
+import { bakeSlideContent, encodeMediaForTargets } from './gen/prepare.js'
 import { makeXmlSlide } from './gen/slide/slide.js'
 import { buildNotesSlideRels, makeXmlNotesMaster, makeXmlNotesSlide } from './gen/slide/notes.js'
 import { makeXmlTheme } from './gen/pres/theme.js'
@@ -595,19 +458,12 @@ export default class PresentationCore {
 	extractSlides = async (opts: { onMediaError?: 'throw' | 'placeholder' } = {}): Promise<ExtractedSlides> => {
 		const onMediaError = opts.onMediaError ?? 'throw'
 
-		// STEP 1: Encode every slide's media (populates rel.data), mirroring exportPresentation.
-		let mediaPromises: Promise<string>[] = []
-		this._slides.forEach((slide) => {
-			mediaPromises = mediaPromises.concat(encodeSlideMediaRels(slide, this._runtime, onMediaError))
-		})
-		await Promise.all(mediaPromises)
-
-		// STEP 2: Backfill placeholders + bake measured fit exactly as exportPresentation
-		// does before its sync XML pass, so extracted bodies match a normal write.
-		this._slides.forEach((slide) => {
-			if (slide._slideLayout) addPlaceholdersToSlideLayouts(slide)
-		})
-		applyMeasuredFit(this._slides, this._fontMetrics)
+		// STEP 1+2: The same pre-serialization pass `buildPackageParts` runs — encode media,
+		// backfill placeholders, bake measured fit — so extracted bodies match a normal write
+		// by construction rather than by keeping two copies in step. See `gen/prepare.ts`.
+		// Only slides here: this method emits no layout or master parts.
+		await encodeMediaForTargets(this._slides, this._runtime, onMediaError)
+		bakeSlideContent(this._slides, this._fontMetrics)
 
 		// STEP 3: Serialize each slide body and resolve its image media to bytes.
 		const slides: ExtractedSlide[] = this._slides.map((slide) => {
@@ -1157,7 +1013,7 @@ export default class PresentationCore {
 		// STEP 2: Add it to layout defs
 		this._slideLayouts.push(newLayout)
 
-		// STEP 3: Add background (image data/path must be captured before `exportPresentation()` is called)
+		// STEP 3: Add background (image data/path must be captured before the package is built)
 		if (propsClone.background) addBackgroundDefinition(propsClone.background, newLayout)
 
 		// STEP 4: Add slideNumber to master slide (if any)

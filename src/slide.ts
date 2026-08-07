@@ -130,7 +130,7 @@ export default class SlideBuilder {
 	private _background?: BackgroundProps
 	public set background(props: BackgroundProps) {
 		this._background = props
-		// Add background (image data/path must be captured before `exportPresentation()` is called)
+		// Add background (image data/path must be captured before the package is built)
 		if (props) addBackgroundDefinition(props, this)
 	}
 
