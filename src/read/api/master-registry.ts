@@ -23,10 +23,8 @@ import {
 	type Element,
 } from '../oxml/dom.js'
 import type { DeckTarget } from './deck-target.js'
+import { SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from './rel-types.js'
 import { PackageReadError } from '../../errors.js'
-
-const SLIDE_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster'
-const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
 
 // ST_SlideMasterId and ST_SlideLayoutId share this floor.
 const MIN_SLIDE_MASTER_ID = 2147483648

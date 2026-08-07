@@ -74,11 +74,16 @@ import { carryNotes, ensureNotesMasterFromXml } from './ops/notes-master.js'
 import { layoutPartNamesOf, slideMasterPartNames } from './ops/part-index.js'
 import { pruneIfOrphan } from './ops/prune.js'
 import { rescaleImportedGeometry } from './ops/rescale-import.js'
-import { NOTES_MASTER_REL, NOTES_SLIDE_REL, SLIDE_LAYOUT_REL, SLIDE_REL } from './rel-types.js'
+import {
+	IMAGE_REL,
+	NOTES_MASTER_REL,
+	NOTES_SLIDE_REL,
+	OFFICE_DOCUMENT_REL,
+	SLIDE_LAYOUT_REL,
+	SLIDE_REL,
+} from './rel-types.js'
 import { InternalError, InvalidOptionError, PackageReadError, UnsupportedFeatureError } from '../../errors.js'
 
-const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
-const IMAGE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 const HYPERLINK_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
 const CHART_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart'
 const PACKAGE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/package'

@@ -28,12 +28,7 @@ import {
 	type FlattenContext,
 } from '../oxml/theme.js'
 import type { OpcPackage } from '../opc/package.js'
-
-const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
-const SLIDE_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster'
-const NOTES_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster'
-const THEME_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme'
-const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
+import { NOTES_MASTER_REL, OFFICE_DOCUMENT_REL, SLIDE_LAYOUT_REL, SLIDE_MASTER_REL, THEME_REL } from './rel-types.js'
 
 /** The resolved theme subgraph a slide depends on, plus its parsed colour maps. */
 export interface SlideThemeParts extends ColorContext {

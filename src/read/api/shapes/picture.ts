@@ -25,9 +25,9 @@ import { relativePartName } from '../../opc/partnames.js'
 import { Shape } from './base.js'
 import { childElements, getOrAddSpPrXfrm } from './oxml.js'
 import type { Recolor, RecolorColor } from './types.js'
+import { IMAGE_REL } from '../rel-types.js'
 import { InvalidOptionError } from '../../../errors.js'
 
-const IMAGE_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 // Microsoft's SVG blip extension namespace (a:blip/a:extLst/a:ext/asvg:svgBlip).
 const ASVG_NS = 'http://schemas.microsoft.com/office/drawing/2016/SVG/main'
 
@@ -298,7 +298,7 @@ export class Picture extends Shape {
 		const opc = this.slide.presentation.opc
 		const mediaPartName = opc.reserveMediaPartName(extension)
 		opc.addPart(mediaPartName, contentType, bytes)
-		const relId = this.slide.relationships.add(IMAGE_REL_TYPE, relativePartName(this.slide.partName, mediaPartName)).id
+		const relId = this.slide.relationships.add(IMAGE_REL, relativePartName(this.slide.partName, mediaPartName)).id
 
 		setAttr(this.#getOrAddBlip(), 'r:embed', relId)
 		if (options.fit) this.#applyFit(options.fit, bytes)

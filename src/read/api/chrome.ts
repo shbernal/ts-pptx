@@ -28,9 +28,7 @@ import { parseClrMap, parseClrScheme, type FlattenContext } from '../oxml/theme.
 import { resolveLayoutColorContext, resolveMasterColorContext } from './theme-context.js'
 import { backgroundElementOf, readSlideBackground, type SlideBackground } from './slide-background.js'
 import { TextFrame } from './text.js'
-
-const SLIDE_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster'
-const THEME_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme'
+import { SLIDE_MASTER_REL, THEME_REL } from './rel-types.js'
 
 /** The 12 theme colour-scheme slots (`a:clrScheme` children), in schema order. */
 export type ThemeColorSlot =

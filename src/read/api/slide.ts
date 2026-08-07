@@ -34,11 +34,8 @@ import {
 	type TransitionInput,
 } from './transition.js'
 import { enumerateSpids, flattenAnimations, hasAnimations, pruneSpids, remapSpids } from './animation.js'
+import { IMAGE_REL, NOTES_SLIDE_REL, SLIDE_LAYOUT_REL } from './rel-types.js'
 import { InternalError, InvalidOptionError, PackageReadError } from '../../errors.js'
-
-const IMAGE_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
-const NOTES_SLIDE_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
-const SLIDE_LAYOUT_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
 
 /** Options for {@link Slide.addTextBox}. Geometry is in EMU. */
 export interface AddTextBoxOptions {
@@ -385,7 +382,7 @@ export class Slide {
 	 * slide-number field round-trip either way.
 	 */
 	get notesSlide(): NotesSlide | null {
-		const notesRel = this.relationships.byType(NOTES_SLIDE_REL_TYPE)[0]
+		const notesRel = this.relationships.byType(NOTES_SLIDE_REL)[0]
 		if (!notesRel) return null
 		const notesPart = this.presentation.opc.part(this.relationships.resolveTarget(notesRel.id))
 		if (!notesPart) return null
@@ -399,7 +396,7 @@ export class Slide {
 	 * {@link master} and {@link theme} through it (`slide.layout.master.theme`).
 	 */
 	get layout(): SlideLayout | null {
-		const rel = this.relationships.byType(SLIDE_LAYOUT_REL_TYPE)[0]
+		const rel = this.relationships.byType(SLIDE_LAYOUT_REL)[0]
 		if (!rel) return null
 		const part = this.presentation.opc.part(this.relationships.resolveTarget(rel.id))
 		return part ? new SlideLayout(this.presentation.opc, part) : null
@@ -621,7 +618,7 @@ export class Slide {
 		const opc = this.presentation.opc
 		const mediaPartName = opc.reserveMediaPartName(extension)
 		opc.addPart(mediaPartName, contentType, image)
-		const relId = this.relationships.add(IMAGE_REL_TYPE, relativePartName(this.partName, mediaPartName)).id
+		const relId = this.relationships.add(IMAGE_REL, relativePartName(this.partName, mediaPartName)).id
 
 		const id = this.#nextShapeId()
 		const pic = buildPicture(doc, {

@@ -12,9 +12,7 @@ import { computeRescale, rescaleSpTree, type RescaleTransform } from '../rescale
 import { resolveSingleRel } from './part-index.js'
 import type { ImportSlideOptions, SlideSize } from '../presentation-types.js'
 import type { Presentation } from '../presentation.js'
-
-const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
-const SLIDE_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster'
+import { SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from '../rel-types.js'
 
 /**
  * Rescale an imported slide's geometry onto this deck's canvas (the `rescale`

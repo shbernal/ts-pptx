@@ -13,12 +13,9 @@ import { createElement, getOrAddChild, removeChildrenByQName, setAttr } from '..
 import { relativePartName } from '../../opc/partnames.js'
 import { copyPart, type ImportContext } from '../part-copy.js'
 import type { Presentation } from '../presentation.js'
+import { NOTES_MASTER_REL, NOTES_SLIDE_REL, SLIDE_REL, THEME_REL } from '../rel-types.js'
 import { PackageReadError } from '../../../errors.js'
 
-const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
-const NOTES_SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
-const NOTES_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster'
-const THEME_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme'
 const NOTES_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml'
 const THEME_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.theme+xml'
 
