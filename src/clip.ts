@@ -153,7 +153,7 @@ function halfDisc(w: number, h: number, flat: FlatSide, preset: HalfDiscPreset):
  * slide.addImage({
  *   path: 'cover.jpg', x: 0, y: 0, w, h,
  *   points: clipPath({ kind: 'half-disc', flat: 'right' }, w, h),
- *   sizing: { type: 'cover', w, h },   // center-crop the photo into the "D"
+ *   sizing: { type: 'cover' },   // center-crop the photo into the "D"
  * })
  */
 export function clipPath(shape: ClipShape, w: number, h: number): GeometryPoint[] {

@@ -13,7 +13,7 @@ import type { PresSlideInternal, SlideLayoutInternal, SlideObject } from '../../
 import { createColorElement } from '../../drawingml/color.js'
 import { createShadowEffectLst } from '../../drawingml/effect.js'
 import { genXmlCustGeom, genXmlPresetGeom } from '../../drawingml/geometry.js'
-import { genXmlImageCrop, ImageSizingXml } from '../../drawingml/image.js'
+import { genXmlImageCrop, genXmlVectorAspectFit, ImageSizingXml } from '../../drawingml/image.js'
 import { genXmlObjectLock, PICTURE_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { genXmlPlaceholder } from '../../drawingml/text-body.js'
 import { getImageSizeFromBase64 } from '../../../media/image-size.js'
@@ -44,14 +44,18 @@ export function renderImageObject(
 	let strSlideXml = ''
 	// Caller guarantees options is set (see slideObjectToXml); re-narrow for this scope.
 	slideItemObj.options = slideItemObj.options || {}
+	// The media bytes this picture points at. Not available synchronously in `addImage()`, but
+	// populated by now — which is why every question that needs the image itself (its natural
+	// size, whether it is a vector) is answered here rather than at definition time.
+	const mediaRel = (slide._relsMedia || []).find((rel) => rel.rId === slideItemObj.imageRid)
+	const relData = mediaRel?.data
+	const naturalSize = (): { w: number; h: number } | null =>
+		typeof relData === 'string' ? getImageSizeFromBase64(relData) : null
 	// Backfill any omitted dimension of a path-based image from its natural pixel ratio.
-	// The bytes weren't available synchronously in `addImage()`, but `_relsMedia[].data` is
-	// populated by now, so measure it here and keep aspect ratio.
 	// PowerPoint inserts images at 96 DPI, so natural pixels / 96 * EMU == display EMU.
 	if (slideItemObj.options._szAuto) {
 		const szAuto = slideItemObj.options._szAuto
-		const relData = (slide._relsMedia || []).find((rel) => rel.rId === slideItemObj.imageRid)?.data
-		const natural = typeof relData === 'string' ? getImageSizeFromBase64(relData) : null
+		const natural = naturalSize()
 		if (natural) {
 			if (szAuto.w && szAuto.h) {
 				cx = pixelsToEmu(natural.w, 96)
@@ -130,7 +134,8 @@ export function renderImageObject(
 
 	strSlideXml += '<p:blipFill>'
 	// NOTE: This works for both cases: either `path` or `data` contains the SVG
-	if ((slide._relsMedia || []).find((rel) => rel.rId === slideItemObj.imageRid)?.extn === 'svg') {
+	const isVector = mediaRel?.extn === 'svg'
+	if (isVector) {
 		strSlideXml += el('a:blip', { 'r:embed': `rId${(slideItemObj.imageRid ?? 0) - 1}` }, [
 			...blipEffects(' '),
 			raw(
@@ -183,8 +188,7 @@ export function renderImageObject(
 		// `crop` keeps display EMU: its contract treats the displayed extent as the crop frame.
 		let cropSize: { w: number; h: number } = { w: imgWidth, h: imgHeight }
 		if (sizing.type === 'cover' || sizing.type === 'contain') {
-			const relData = (slide._relsMedia || []).find((rel) => rel.rId === slideItemObj.imageRid)?.data
-			const natural = typeof relData === 'string' ? getImageSizeFromBase64(relData) : null
+			const natural = naturalSize()
 			if (natural) {
 				cropSize = natural
 			} else {
@@ -199,7 +203,15 @@ export function renderImageObject(
 		imgWidth = boxW
 		imgHeight = boxH
 	} else {
-		strSlideXml += el('a:stretch', null, raw(voidEl('a:fillRect')), { openPrefix: '  ' })
+		// No `sizing` at all. A raster fills its box — that box was chosen for it, and PowerPoint
+		// does the same. A vector does not: an SVG states its own aspect ratio in a viewBox, and a
+		// glyph squashed to a box that disagrees is a defect, not a layout choice. So a measurable
+		// vector letterboxes here by default, and `sizing: { type: 'stretch' }` opts back out.
+		// Unmeasurable vectors (no viewBox, no width/height) fall through silently: nothing was
+		// asked for, so there is nothing to warn about.
+		const natural = isVector ? naturalSize() : null
+		const aspectFit = natural ? genXmlVectorAspectFit(natural, { w: imgWidth, h: imgHeight }) : null
+		strSlideXml += aspectFit ?? el('a:stretch', null, raw(voidEl('a:fillRect')), { openPrefix: '  ' })
 	}
 	strSlideXml += '</p:blipFill>'
 	strSlideXml += '<p:spPr>'

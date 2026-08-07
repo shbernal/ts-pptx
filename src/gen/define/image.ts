@@ -183,10 +183,16 @@ export function addImageDefinition(target: PresSlideInternal, opt: ImageProps): 
 	// so the missing extent is flagged via `_szAuto` and backfilled at serialize time
 	// once the media bytes are available.
 	// PowerPoint inserts images at 96 DPI, so natural pixels / 96 == inches.
+	//
+	// A vector source is measured for its RATIO only. An SVG's user units are dependable
+	// relative to each other and merely conventional in absolute terms — a 24-unit icon is
+	// authored to be drawn at whatever size it is placed, not as a quarter-inch object — so an
+	// SVG with one side given derives the other, and an SVG with neither keeps the 1in fallback.
 	let defWidth = intWidth
 	let defHeight = intHeight
 	let szAuto: { w: boolean; h: boolean } | undefined
-	if ((!intWidth || !intHeight) && strImgExtn !== 'svg') {
+	const vectorWithNoExtent = strImgExtn === 'svg' && !intWidth && !intHeight
+	if ((!intWidth || !intHeight) && !vectorWithNoExtent) {
 		const natural = strImageData ? getImageSizeFromBase64(strImageData) : null
 		if (natural) {
 			if (!intWidth && !intHeight) {

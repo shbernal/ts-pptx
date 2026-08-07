@@ -7,6 +7,7 @@ read_when:
   - Filling a clip shape with a center-cropped photo (cover/contain)
   - Reproducing a picture-placeholder look (e.g. a half-disc "D" cover image)
   - Reaching for a named clip silhouette instead of hand-authoring a points path
+  - Working out why an SVG icon is letterboxed, stretched, or sized at 1 inch
 doc_type: "guide"
 ---
 
@@ -51,7 +52,7 @@ slide-relative and not normalized. The DSL matches freeform shapes:
 ## Filling the shape: pair with `sizing`
 
 A clip changes the *outline*; it does not change how the source pixels map into
-the box. By default the image is stretched to the box extent, which distorts a
+the box. A **raster** is stretched to the box extent by default, which distorts a
 photo whose aspect ratio differs from the clip box. Pair the clip with
 `sizing: { type: 'cover' }` to center-crop the source so it fills the box at its
 natural aspect ratio:
@@ -60,7 +61,7 @@ natural aspect ratio:
 slide.addImage({
   path: 'photo.png', x: 1, y: 1, w: 2, h: 3,
   points: [/* clip path */],
-  sizing: { type: 'cover', w: 2, h: 3 },
+  sizing: { type: 'cover' },   // w/h default to the picture's own box
 })
 ```
 
@@ -69,11 +70,42 @@ slide.addImage({
 - `contain` — scales the source to **fit** inside the box (letterbox; negative
   `srcRect` inset).
 - `crop` — cuts an explicit window using `x`/`y`/`w`/`h` offsets.
+- `stretch` — fills the box regardless of aspect. A raster's default; name it to
+  opt a vector out of the one below.
 
-`cover`/`contain` read the image's natural pixel dimensions from the embedded
-bytes (PNG/JPEG/GIF/BMP/WebP header), so the crop is aspect-correct. For SVG or an
-unrecognized format the displayed `w`/`h` ratio is used as a fallback and a
+`sizing.w` / `sizing.h` default to the picture's own `w` / `h`, so supply them only
+when the fit box is genuinely something other than the picture.
+
+`cover`/`contain` read the image's natural dimensions from the embedded bytes — a
+PNG/JPEG/GIF/BMP/WebP header, or an SVG's `width`/`height` or `viewBox` — so the
+crop is aspect-correct. For an unrecognized format, or an SVG carrying no
+intrinsic size at all, the displayed `w`/`h` ratio is used as a fallback and a
 warning is logged.
+
+### Vectors place aspect-correct without being asked
+
+An SVG states its own aspect ratio, and a glyph squashed into a box that disagrees
+with it is a defect rather than a layout choice. So a **vector** source with no
+`sizing` is letterboxed to its intrinsic ratio inside its box — exactly as
+`sizing: { type: 'contain' }` would — instead of being stretched:
+
+```js
+// A square icon in a non-square box: centered at its true aspect, not squashed.
+slide.addImage({ svg: iconMarkup, x: 1, y: 1, w: 3, h: 1 })
+
+// Opt out where the distortion is the point (a stretched vector backdrop, say).
+slide.addImage({ svg: bandMarkup, x: 0, y: 0, w: 13.33, h: 0.4, sizing: { type: 'stretch' } })
+```
+
+Nothing is emitted when the ratios already agree — a square glyph in a square box
+produces the same plain `<a:stretch>` it always did. An SVG with neither a
+`viewBox` nor `width`/`height` cannot be measured, so it stretches, silently: no
+sizing was requested, so there is nothing to warn about.
+
+The same intrinsic ratio fills in a missing dimension: `{ svg, w: 4 }` on a 2:1
+`viewBox` is 4in × 2in. What it will *not* do is treat user units as pixels — an
+SVG given neither `w` nor `h` falls back to 1 inch rather than becoming a
+quarter-inch object because its icon set was authored on a 24-unit grid.
 
 `points` (clip) lives in `<p:spPr>` and `sizing` (crop) lives in `<p:blipFill>`,
 so the two compose freely. The emitted blip fill uses the canonical
@@ -131,7 +163,7 @@ const w = 5.22, h = 7.5
 slide.addImage({
   path: 'cover-photo.jpg', x: 0, y: 0, w, h,
   points: clipPath({ kind: 'half-disc', flat: 'right' }, w, h),
-  sizing: { type: 'cover', w, h },
+  sizing: { type: 'cover' },
 })
 ```
 

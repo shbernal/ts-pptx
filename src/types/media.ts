@@ -17,9 +17,15 @@ export interface ImageBaseProps extends PositionProps, ObjectNameProps {
 	 * - When a `data` (base64) image is supplied and `w`/`h` are omitted, the natural pixel
 	 *   size is read from the image header (PNG/JPEG/GIF/BMP/WebP) and used at 96 DPI
 	 *   (natural pixels / 96 = inches).
-	 * - When only one of `w`/`h` is given, the other is derived from the natural aspect ratio.
-	 * - `path` images and vector (SVG) data cannot be measured synchronously, so an omitted
-	 *   dimension falls back to 1 inch.
+	 * - When only one of `w`/`h` is given, the other is derived from the natural aspect ratio —
+	 *   for an SVG too, from its `width`/`height` or `viewBox`.
+	 * - A `path` image is measured at export time (its bytes are not available synchronously);
+	 *   an omitted dimension falls back to 1 inch if it stays unmeasurable.
+	 * - An SVG with *neither* dimension given also falls back to 1 inch: its user units carry a
+	 *   dependable aspect ratio but only a conventional magnitude, so a 24-unit icon is not
+	 *   treated as a quarter-inch object.
+	 * - A vector source placed in a box whose ratio differs from its own is letterboxed, not
+	 *   stretched; see {@link sizing} to override.
 	 */
 	/**
 	 * Alt Text value ("How would you describe this object and its contents to someone who is blind?")
@@ -128,31 +134,38 @@ export interface ImageBaseProps extends PositionProps, ObjectNameProps {
 	}
 	/**
 	 * Image sizing options
+	 * - omit entirely for the default: a raster fills the `w`×`h` box, a vector (SVG) source is
+	 *   letterboxed to its own aspect ratio inside that box
 	 */
 	sizing?: {
 		/**
 		 * Sizing type
 		 * - `cover` / `contain` fit the image into the `w`×`h` box using the image's *natural*
-		 *   pixel aspect ratio (read from the embedded PNG/JPEG/GIF/BMP/WebP header). If the
-		 *   natural size cannot be determined (e.g. SVG or an unrecognized format) the displayed
-		 *   `w`/`h` ratio is used as a fallback and a warning is logged.
+		 *   aspect ratio — read from the embedded PNG/JPEG/GIF/BMP/WebP header, or from an SVG's
+		 *   `width`/`height` or `viewBox`. If the natural size cannot be determined (an
+		 *   unrecognized format, or an SVG carrying neither) the displayed `w`/`h` ratio is used
+		 *   as a fallback and a warning is logged.
 		 * - `crop` cuts a window out of the displayed image using the `x`/`y`/`w`/`h` offsets.
+		 * - `stretch` fills the box regardless of aspect ratio. This is what a raster does
+		 *   anyway; name it explicitly to opt a vector source out of its aspect-correct default.
 		 */
-		type: 'contain' | 'cover' | 'crop'
+		type: 'contain' | 'cover' | 'crop' | 'stretch'
 		/**
 		 * Image width
 		 * - inches or percentage
+		 * - defaults to the picture's own `w`, which is what `cover`/`contain` almost always want
 		 * @example 10.25 // position in inches
 		 * @example '75%' // position as percentage of slide size
 		 */
-		w: Coord
+		w?: Coord
 		/**
 		 * Image height
 		 * - inches or percentage
+		 * - defaults to the picture's own `h`
 		 * @example 10.25 // position in inches
 		 * @example '75%' // position as percentage of slide size
 		 */
-		h: Coord
+		h?: Coord
 		/**
 		 * Offset from left to crop image
 		 * - `crop` only

@@ -38,6 +38,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picture of a different size puts the clip somewhere else entirely. That trap is the whole
   reason this is worth shipping rather than leaving to each caller.
 
+- **`sizing.w` / `sizing.h` are optional, and `sizing: { type: 'stretch' }` names what used to
+  be nameless.** The emitter has always defaulted the fit box to the picture's own extent; the
+  type demanded both anyway, so every `cover`/`contain` call restated `w`/`h` it had already
+  supplied a line above. `sizing: { type: 'cover' }` is now the ordinary form, and passing them
+  still means what it always did — a fit box deliberately different from the picture.
+
+  `stretch` emits the plain `<a:stretch><a:fillRect/></a:stretch>` a raster already gets. It
+  exists so the fill-the-box behaviour can be *asked for*, which is what makes the vector
+  default below opt-out-able rather than a trap.
+
 - **`slide.addModel3d()` embeds a 3D model** — PowerPoint's *Insert ▸ 3D Models*. A glTF
   binary (`.glb`) travels inside the package, and PowerPoint 2019+ renders it live and lets
   the viewer orbit it. See [`docs/3d-models.md`](docs/3d-models.md).
@@ -203,6 +213,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   browser consumer minifies it.
 
 ### Changed
+
+- **BREAKING: an SVG is placed at its own aspect ratio by default instead of being stretched
+  to its box.** `addImage({ svg, w, h })` used to fill the box whatever the glyph's proportions
+  were, so any icon with a non-square `viewBox` — a minority in every real icon set, and never
+  the one you check — came out squashed. Every consumer's answer was the same wrapper that
+  routes each call through `sizing: 'contain'`; that wrapper is now the library's default.
+
+  ```js
+  slide.addImage({ svg: icon, x: 1, y: 1, w: 3, h: 1 })                            // letterboxed, centered
+  slide.addImage({ svg: band, x: 0, y: 0, w: 13.33, h: 0.4, sizing: { type: 'stretch' } }) // opt out
+  ```
+
+  **Scope, deliberately narrow.** Rasters are untouched: a photo's box is chosen for it, filling
+  it is what PowerPoint does, and letterboxing every existing deck's pictures would be a change
+  of a different order. A vector is different in kind — it *states* its ratio in a `viewBox`,
+  and disagreeing with that statement is a defect rather than a layout choice. Nothing is
+  emitted when the ratios already agree, so a square glyph in a square box produces the same
+  bytes it always did, and an SVG carrying neither `viewBox` nor `width`/`height` stretches
+  silently — no sizing was requested, so there is nothing to warn about.
+
+  **Two related SVG fixes fall out of the same root cause** — the write path treated vector
+  sources as unmeasurable long after `src/media/image-size.ts` learned to read a `viewBox`:
+
+  - `{ svg, w: 4 }` derives its height from the intrinsic ratio (a 2:1 viewBox → 4in × 2in),
+    where before an omitted dimension silently became 1 inch. Rasters have always done this.
+  - `{ svg }` with **neither** dimension still falls back to 1 inch, and that is not an
+    oversight. An SVG's user units are dependable relative to each other and merely
+    conventional in absolute terms; treating them as 96-DPI pixels would insert a 24-unit icon
+    as a quarter-inch object. The ratio is trusted, the magnitude is not.
+
+  If you have a wrapper that adds `sizing: 'contain'` to every icon, delete it — the emitted
+  XML is identical either way. If you were relying on a stretched vector, name it: `sizing: {
+  type: 'stretch' }`.
 
 - **`@shbernal/ts-pptx/math` is Node-only by decision, not by accident.** It loads its
   optional peers through `createRequire`, which is what keeps `latexToOmml()` and
