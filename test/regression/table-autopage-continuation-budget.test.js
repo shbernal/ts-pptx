@@ -78,7 +78,7 @@ const paged = (margin, rowCount = 60) =>
 		})
 	})
 
-defineRegressionSuite('Table autoPage continuation-slide row budget (upstream-issue-1200)', [
+defineRegressionSuite('Table autoPage continuation-slide row budget (gitbrent/PptxGenJS#1200)', [
 	{
 		name: 'a continuation slide takes no more rows than the first slide did, at the same geometry',
 		fn: async () => {
@@ -92,7 +92,7 @@ defineRegressionSuite('Table autoPage continuation-slide row budget (upstream-is
 			assert(
 				full.every((count) => count === first),
 				'every full page must hold the same number of identical rows; the pages disagreeing means a ' +
-					`continuation page took a row it had no room for (upstream-issue-1200). Got ${JSON.stringify(counts)}`
+					`continuation page took a row it had no room for (gitbrent/PptxGenJS#1200). Got ${JSON.stringify(counts)}`
 			)
 			// Guard on the shape of the fixture itself: one row per page would make the assertion
 			// above trivially true, and would mean the budget arithmetic collapsed rather than held.

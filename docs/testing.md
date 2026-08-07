@@ -701,7 +701,7 @@ hidden it; an unbundled consumer needs it in an import map, and now
 
 `table-autopage.spec.mjs` is worth reading for what a browser lane is *for*. It was
 written as the headless repro an out-of-scope backlog entry invited
-(`upstream-issue-1200`, `tableToSlides` auto-paging overflow), it reproduced, and the
+(`gitbrent/PptxGenJS#1200`, `tableToSlides` auto-paging overflow), it reproduced, and the
 bug it found was **DOM-free**: the pager dropped one row's cell margins at every page
 break, so a continuation slide accepted a row it had no room for. The browser's
 contribution was the cross-runtime assertion — proving the report was never about a
