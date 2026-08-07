@@ -19,9 +19,9 @@ import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js
 import { nextObjectNameIdx } from './object-name.js'
 import { registerPreviewImage } from './preview-image.js'
 import { InvalidOptionError } from '../../errors.js'
+import { OFFICE_REL } from '../oxml/schema-uris.js'
 
 const OD = 'application/vnd.openxmlformats-officedocument.'
-const OFFICE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
 /** Rel type for an embedded OPC package (an Office file, itself a zip). */
 const PACKAGE_REL = OFFICE_REL + 'package'
 /** Rel type for a generic OLE-server blob — a compound-file `.bin` (ECMA-376 Part 1 §15.2.10). */

@@ -13,9 +13,7 @@ import type { PresSlideInternal, SlideRel } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
 import { genXmlTextRun } from '../drawingml/text-run.js'
 import { el, raw, voidEl } from '../oxml/el.js'
-
-const PACKAGE_REL_NS = 'http://schemas.openxmlformats.org/package/2006/relationships'
-const OFFICE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
+import { OFFICE_REL, PACKAGE_REL_NS } from '../oxml/schema-uris.js'
 
 /**
  * Get text content of Notes from Slide

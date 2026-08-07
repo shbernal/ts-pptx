@@ -18,14 +18,12 @@ import type { SlideRelChart, OptsChartDataInternal } from '../../types/internal.
 import { encodeXmlEntities } from '../utils.js'
 import { ZipWriter } from '../../zip.js'
 import { el, raw, voidEl } from '../oxml/el.js'
+import { OFFICE_REL, PACKAGE_REL_NS } from '../oxml/schema-uris.js'
 import { dataLabels, dataValues, dataSizes, firstLabelGroup, getExcelColName } from './data-refs.js'
 import { makeXmlCharts } from './chart-xml.js'
 import { makeXmlChartEx } from './chartex-xml.js'
 import { makeChartExColorsXml, makeChartExStyleXml } from './chartex-style.js'
 
-const SCHEMA_BASE = 'http://schemas.openxmlformats.org/'
-const PACKAGE_REL_NS = SCHEMA_BASE + 'package/2006/relationships'
-const OFFICE_REL = SCHEMA_BASE + 'officeDocument/2006/relationships/'
 /** MS chart-extension relationship types (chartEx style + color-style sidecar parts). */
 const MS_CHART_REL = 'http://schemas.microsoft.com/office/2011/relationships/'
 

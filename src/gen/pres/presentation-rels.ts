@@ -11,9 +11,7 @@ import { CRLF, XML_DECL } from '../../constants-internal.js'
 import type { PresSlideInternal } from '../../types/internal.js'
 import { type EmbeddedFont, FONT_REL_TYPE, flattenEmbeddedFaces } from '../../embedded-fonts.js'
 import { el, raw, voidEl } from '../oxml/el.js'
-
-const SCHEMA_BASE = 'http://schemas.openxmlformats.org/'
-const OFFICE_REL = SCHEMA_BASE + 'officeDocument/2006/relationships/'
+import { OFFICE_REL, PACKAGE_REL_NS } from '../oxml/schema-uris.js'
 
 function relationship(rId: number, type: string, target: string): string {
 	return voidEl('Relationship', { Id: `rId${rId}`, Type: type, Target: target })
@@ -62,5 +60,5 @@ export function makeXmlPresentationRels(slides: PresSlideInternal[], embeddedFon
 		rels.push(relationship(face.rId, FONT_REL_TYPE, `fonts/font${face.partIndex}.fntdata`))
 	}
 
-	return XML_DECL + CRLF + el('Relationships', { xmlns: SCHEMA_BASE + 'package/2006/relationships' }, rels.map(raw))
+	return XML_DECL + CRLF + el('Relationships', { xmlns: PACKAGE_REL_NS }, rels.map(raw))
 }

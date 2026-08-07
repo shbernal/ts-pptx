@@ -10,8 +10,9 @@
  * the code that reads it — moving it here would trade a definition you can see for one you have
  * to go and find, and buy nothing.
  *
- * `src/gen/` writes four of these same URIs as inline literals. Sharing across the gen/read
- * boundary needs a home neither side owns, so that is a separate decision, not an oversight.
+ * `src/gen/` writes four of these same URIs, built from its own prefix constants in
+ * `gen/oxml/schema-uris.ts`. Sharing across the gen/read boundary needs a home neither side
+ * owns, so that is a separate decision, not an oversight.
  */
 
 const ECMA = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'

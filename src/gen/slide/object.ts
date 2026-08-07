@@ -37,9 +37,8 @@ import { renderTableObject } from './objects/table.js'
 import { renderTextObject } from './objects/text.js'
 import { renderZoomObject } from './objects/zoom.js'
 import { collectSlideShapeIds } from './shape-ids.js'
+import { OFFICE_REL, PACKAGE_REL_NS } from '../oxml/schema-uris.js'
 
-const PACKAGE_REL_NS = 'http://schemas.openxmlformats.org/package/2006/relationships'
-const OFFICE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
 /** The MS-2007 `media` rel that pairs with an ECMA audio/video/online rel on the same Target. */
 const MS_MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media'
 /** Slide→chartEx-part relationship type (MS, not the ECMA `.../relationships/chart`). */
