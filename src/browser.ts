@@ -3,6 +3,14 @@ import { createBrowserRuntime } from './runtime/browser.js'
 import { genTableToSlides } from './gen/table/html-dom.js'
 import type { TableToSlidesProps } from './types/index.js'
 
+/**
+ * The browser entry, reached through the `browser` export condition — a bundler resolving the
+ * bare `@shbernal/ts-pptx` specifier for the web lands here without naming this subpath.
+ *
+ * Same authoring API as every other entry (see `entry-surface.ts`), plus one method that only
+ * makes sense with a live DOM: {@link TsPptx.tableToSlides}. `writeFile` triggers a download
+ * rather than touching a filesystem.
+ */
 export class TsPptx extends PresentationCore {
 	constructor() {
 		super(createBrowserRuntime())
@@ -26,32 +34,4 @@ export class TsPptx extends PresentationCore {
 }
 
 export { TsPptx as default }
-export * from './enums.js'
-export * from './units.js'
-// Use `export *` (not `export type *`) so the value exports `textRun`/`textRuns`
-// reach this entry; `export type *` would drop them and crash any consumer that
-// imports them, while TypeScript (reading index.d.ts) stays green.
-export * from './types/index.js'
-export { setDiagnosticHandler, type Diagnostic, type DiagnosticCode, type DiagnosticHandler } from './diagnostics.js'
-
-// Error taxonomy — every failure the library throws. The classes and their `code` are API;
-// the message is not. Re-exported from every entry so `instanceof` works whichever subpath a
-// consumer imports — they all resolve to one shared module, so the classes are identical.
-export {
-	TsPptxError,
-	InvalidOptionError,
-	UnsupportedFeatureError,
-	PackageReadError,
-	MediaError,
-	InternalError,
-	type TsPptxErrorOptions,
-} from './errors.js'
-export type {
-	ErrorCode,
-	TsPptxCode,
-	InvalidOptionErrorCode,
-	UnsupportedFeatureErrorCode,
-	PackageReadErrorCode,
-	MediaErrorCode,
-	InternalErrorCode,
-} from './codes.js'
+export * from './entry-surface.js'
