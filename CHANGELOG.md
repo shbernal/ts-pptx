@@ -96,6 +96,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one part: the SVG PNG fallback, where Node has no rasterizer. The lane asserts the shape
   of that disagreement so it cannot quietly become a different one.
 
+- **`tableToSlides` is tested against a table a browser actually laid out** — a third
+  Playwright project, `html-table`, on the same unbundled harness server.
+
+  `pickColWidthBasis` chooses between three column-width bases, and its *first* arm — the
+  rendered `offsetWidth` — had never executed anywhere. The Node suite drives happy-dom,
+  where `offsetWidth` is `0` for every cell, so it always took a fallback arm; the unit
+  suite reached the function by handing it numbers directly, which proves the `if` and not
+  the pipeline behind it. So the primary path of the feature, including the `arrColSrc`
+  arithmetic that fixed the spanning-`data-pptx-width` defect, was covered only at its own
+  function boundary.
+
+  The fixture is built so the measured basis and the computed-CSS basis **disagree**
+  (`offsetWidth` is the border box, computed `width` the content box), because a test that
+  only showed "the widths came out proportional" would be equally green if the measured arm
+  never ran. The spec re-derives both bases from the live page and fails if they ever
+  converge. Sensitivity-checked by disabling the arm: exactly the two arm-dependent
+  assertions go red, reporting the CSS ratio.
+
+  **This does not move the scope line, and the wording matters.** What is asserted is that a
+  measurement is *taken and honoured* — proportionally, with `data-pptx-width` still winning
+  outright. Nothing asserts that Chromium's numbers are the right numbers or that another
+  engine would agree; that is live-DOM layout fidelity, it has no oracle, and it stays out
+  of active scope. A layout difference between two browsers is still not a defect in this
+  package; a `.pptx` a browser builds differently from Node still is — which the lane pins
+  directly, by converting the same markup in both runtimes and asserting Node degrades to
+  the CSS basis where the browser measures.
+
+  The new project contributes its V8 coverage to the merge like every other browser spec, so
+  the merged report moved up on all four axes — statements 93.91 → 94.03, branches
+  83.71 → 84.16, functions 98.29 → 98.58, lines 96.11 → 96.20. Two notches in
+  `scripts/coverage-gates.json` are ratcheted with it (statements 92 → 93, branches
+  82 → 83), which is what keeps a gate from carrying two points of slack.
+
 - **`vitest.config.ts` no longer excludes anything of this repo's own from coverage.**
   The `dist/browser.js` / `dist/browser-*.js` entries are gone; the second never matched
   anything, because tsdown bundles the adapter *into* the entry. Dropping them took the

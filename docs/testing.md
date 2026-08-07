@@ -661,14 +661,21 @@ Config is `playwright.config.ts` (root); specs are `test/browser/*.spec.mjs`.
 Vitest excludes `test/browser/**` by directory, so the two harnesses never
 collect each other's files. In CI it is the `browser` job in `ci.yml`.
 
-### Two fixtures, two Playwright projects
+### Three fixtures, three Playwright projects
 
-They answer different questions, and neither can answer the other's:
+They answer different questions, and none can answer another's:
 
 | Project | Fixture | What only it can prove |
 |---|---|---|
 | `demo` | `demos/vite-demo` behind `vite preview` | the **bundled** path a real consumer takes — Vite resolving the `browser` export condition, Rollup tree-shaking it |
-| `runtime-adapter` | `test/browser/harness/` behind `scripts/browser-harness-server.mjs` | the shipped `dist/browser.js` loading **unbundled**, and the adapter loaders the demo cannot reach |
+| `runtime-adapter` | `test/browser/harness/index.html` behind `scripts/browser-harness-server.mjs` | the shipped `dist/browser.js` loading **unbundled**, and the adapter loaders the demo cannot reach |
+| `html-table` | `test/browser/harness/table.html`, same server | `tableToSlides` reading a **non-zero `offsetWidth`** — the one width basis no Node DOM can produce |
+
+Each project matches its specs by filename prefix (`deck-*`/`cross-runtime-*`,
+`adapter-*`, `table-*`), and none of them matches by exclusion. That is deliberate:
+`demo` was once spelled as "everything except `adapter-*`", which silently meant
+"everything not yet invented" — the next prefix added would have run a second time
+against the demo's `baseURL` and failed for reasons unrelated to what it tests.
 
 The demo deck (`quarterly-review`) draws every asset it shows, so it never asks
 the runtime to load one — which is why it cannot cover three of the four adapter
@@ -689,6 +696,7 @@ hidden it; an unbundled consumer needs it in an import map, and now
 | `adapter-media.spec.mjs` | runtime-adapter | `loadMedia` and `createSvgPngPreview`: a fetched raster image lands as the same bytes Node reads off disk *and* as the source file's; the `<canvas>` rasterizer emits a real PNG where Node stubs a placeholder; 404, undecodable-SVG and zero-dimension-SVG each fail with the right code |
 | `adapter-fonts.spec.mjs` | runtime-adapter | `loadFontData`: a font fetched over HTTP bakes the same `fontScale` and embeds the same `/ppt/fonts/` bytes as one read off disk; a 404 rejects with `font/fetch-failed` |
 | `adapter-coverage.spec.mjs` | runtime-adapter | all four adapter functions ran, and `dist/browser.js`'s executed share stayed above its floor |
+| `table-widths.spec.mjs` | html-table | `tableToSlides` against a table a browser laid out: the **measured** arm of `pickColWidthBasis` drives the emitted grid, `data-pptx-width` still wins outright (including divided across a `colspan`), and Node degrades to the CSS basis on the same markup |
 
 The deck definitions the adapter specs use live in `test/browser/harness/decks.mjs`
 and are built **twice** — once in Chromium, once in Node — from that one
@@ -722,23 +730,32 @@ function was entered, and the file's executed share stayed above a floor (measur
 catches a function that is still entered but whose interesting arms are not. A
 merged percentage can express neither, which is why this stays.
 
-What keeps it off 100 is named in that spec: `tableToSlides` (live-DOM layout,
-out of scope), the missing-2d-context arm, and `FileReader.onerror`. The last two
-are unreachable in a working browser — getting to them means stubbing a DOM
-constructor, which asserts about the stub.
+What keeps it off 100 is named in that spec: the missing-2d-context arm and
+`FileReader.onerror`. Both are unreachable in a working browser — getting to them
+means stubbing a DOM constructor, which asserts about the stub. `tableToSlides`
+used to be on that list as well; it is covered now, by the `html-table` project,
+which does not and should not move this number — the measurement here is of the
+*adapter* harness page, whose DOM has no table in it.
 
 **As a percentage, in the merged report** — see [Merged coverage](#merged-coverage).
-Every spec in the `runtime-adapter` project contributes its raw V8 coverage to
-`.tmp/browser-coverage/` (the fixture in `test/browser/fixtures.mjs`, auto-use, so
-a new spec contributes by existing), and `scripts/coverage-merge.mjs` folds it into
-the Node report.
+Every spec in the `runtime-adapter` and `html-table` projects contributes its raw
+V8 coverage to `.tmp/browser-coverage/` (the fixture in `test/browser/fixtures.mjs`,
+auto-use, so a new spec contributes by existing), and `scripts/coverage-merge.mjs`
+folds it into the Node report.
 
 What this lane does **not** cover, and must not be read as covering:
 
-- **Live-DOM layout fidelity.** No assertion here depends on a rendered page —
-  no `offsetWidth` after layout, no resolved cascade, no browser-chosen font. That
-  remains out of active scope ([project target](project-target.md)), and *runtime
-  support* and *layout fidelity* are separate claims that should stay separate.
+- **Live-DOM layout fidelity.** The `html-table` project does depend on a rendered
+  page, and the distinction between what it proves and what it does not is the
+  whole point. It asserts that a real `offsetWidth` is *taken and honoured* — that
+  the measured arm of `pickColWidthBasis` runs and the emitted grid is proportional
+  to it. It asserts nothing about whether Chromium's numbers are the right numbers,
+  or whether another engine would produce them. That second claim is layout
+  fidelity, it has no oracle, and it remains out of active scope
+  ([project target](project-target.md)). *Runtime support* and *layout fidelity*
+  are separate claims and must stay separate: a layout difference between two
+  browsers is not a defect in this package; a `.pptx` a browser builds differently
+  from Node is.
 - **Engines other than Chromium.** A deliberate decision, written down in
   [Runtime And Package Support](runtime-and-package-support.md#which-browsers-the-lane-runs)
   so it is not re-opened every time CI time is discussed: the APIs in play are

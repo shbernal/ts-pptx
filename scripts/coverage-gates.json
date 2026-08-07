@@ -1,8 +1,8 @@
 {
 	"minimumSlack": 1,
 	"thresholds": {
-		"statements": 92,
-		"branches": 82,
+		"statements": 93,
+		"branches": 83,
 		"functions": 97,
 		"lines": 95
 	}

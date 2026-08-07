@@ -103,9 +103,10 @@ you want a specific build regardless of how conditions resolve.
 
 The browser build is exercised in CI, by the `browser` job in `.github/workflows/ci.yml`
 (`pnpm run test:browser` — Playwright, headless Chromium). It is not "supported by
-construction". Two fixtures: `demos/vite-demo` for the bundled path a real consumer
-takes, and a static server handing the browser the shipped `dist/browser.js`
-unbundled for the runtime adapter itself.
+construction". Three fixtures: `demos/vite-demo` for the bundled path a real consumer
+takes, a static server handing the browser the shipped `dist/browser.js` unbundled
+for the runtime adapter itself, and a page that renders a real `<table>` so
+`tableToSlides` reads a measured `offsetWidth`.
 
 Two claims, kept separate on purpose:
 
@@ -116,13 +117,21 @@ Two claims, kept separate on purpose:
   against the Node-built one. They are byte-identical. So every serializer, the zip
   writer, part ordering and relationship numbering are runtime-invariant — not by
   inspection, by comparison.
-- **Browser *layout* is not an oracle this library answers to.** Nothing in that
-  job depends on a rendered page. Real `offsetWidth` after layout, the resolved CSS
-  cascade, and fonts as the browser chose them remain out of active scope — see
-  [Project Target](project-target.md). In particular, `tableToSlides()` runs
-  anywhere there is a DOM, and only *measurement* degrades without a layout engine:
-  `offsetWidth` is `0`, column widths fall back to computed CSS widths and then to
-  an equal split, and `data-pptx-width` / `data-pptx-min-width` let you pin them.
+- **Browser *layout* is not an oracle this library answers to.** The resolved CSS
+  cascade and fonts as the browser chose them remain out of active scope — see
+  [Project Target](project-target.md). `tableToSlides()` runs anywhere there is a
+  DOM, and only *measurement* degrades without a layout engine: `offsetWidth` is
+  `0`, column widths fall back to computed CSS widths and then to an equal split,
+  and `data-pptx-width` / `data-pptx-min-width` let you pin them.
+
+  One part of the job does now drive a rendered page, and the line it holds is
+  worth stating exactly. A `<table>` is laid out in Chromium and converted, and the
+  lane asserts that the measured `offsetWidth` is what sizes the emitted columns —
+  that the measurement is *taken and honoured*, proportionally, with
+  `data-pptx-width` still overriding it. It asserts nothing about whether that
+  measurement is *correct*, or whether Firefox would agree. The library's contract
+  is "we use what your DOM reports"; it is not "your DOM reports what PowerPoint
+  will draw".
 
 A layout difference between two browsers is therefore not a defect in this
 package's browser support. A `.pptx` a browser builds differently from Node is.

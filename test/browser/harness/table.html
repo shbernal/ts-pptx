@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>ts-pptx rendered-table harness</title>
+		<!--
+			Only `fflate` here, where index.html needs two. `opentype.js` is a *dynamic*
+			import inside the measure/fit chunk and nothing on this page registers a font, so
+			it is never requested. Listing it anyway would be a mapping no failure could ever
+			catch if it went stale.
+		-->
+		<script type="importmap">
+			{
+				"imports": {
+					"fflate": "/node_modules/fflate/esm/browser.js"
+				}
+			}
+		</script>
+		<!--
+			Inline, and it has to be: a module script that fails to fetch or throws at the top
+			level leaves `window.tableHarness` simply absent, which a spec can only report as
+			a timeout. Recording the reason here turns that into the actual error.
+		-->
+		<script>
+			window.addEventListener('error', (event) => {
+				window.harnessError = String(event.message || event.type)
+			})
+		</script>
+		<script
+			type="module"
+			src="./table.mjs"
+			onerror="window.harnessError = 'failed to load ' + this.src"
+		></script>
+	</head>
+	<body>
+		<h1>ts-pptx rendered-table harness</h1>
+		<p>
+			Renders a real <code>&lt;table&gt;</code> so <code>tableToSlides</code> reads a
+			non-zero <code>offsetWidth</code> — the one width basis no Node lane can produce.
+			Not a demo, and not a layout-fidelity fixture — see
+			<code>test/browser/harness/table-fixture.mjs</code>.
+		</p>
+		<!--
+			The fixture is rendered into here rather than written into this file, because the
+			same markup is parsed by happy-dom on the Node side of the comparison. One
+			definition, in table-fixture.mjs; a divergence in the fixture would otherwise read
+			as a divergence in the runtime.
+
+			No CSS of its own: every width, padding and border the conversion reads is stated
+			inline by the fixture, so this page cannot quietly influence the measurement.
+		-->
+		<div id="fixture"></div>
+	</body>
+</html>

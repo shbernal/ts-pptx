@@ -1,16 +1,21 @@
 /**
  * ts-pptx: HTML-table → slides (browser DOM path)
  *
- * The browser-only tableToSlides() flow: reproduce a rendered HTML table as a
- * PowerPoint table across as many slides as needed. Out of active scope (see
- * AGENTS.md) — the DOM-independent parts are factored into pure helpers
- * (`resolveHtmlColWidth`, `htmlBorderToProps`) that are unit-tested directly.
+ * The tableToSlides() flow: reproduce an HTML table as a PowerPoint table across as many
+ * slides as needed. The DOM-independent parts are factored into pure helpers
+ * (`resolveHtmlColWidth`, `pickColWidthBasis`, `htmlBorderToProps`, `cssColorToHex`) that
+ * are unit-tested directly, and the whole flow runs anywhere there is a DOM.
  *
- * This module is imported only by the browser entry (`browser.ts`, which adds the
- * `tableToSlides` method), so it bundles into the browser/standalone chunks — never
- * the Node build or the shared core chunk. That is why the live-DOM code below needs
- * no `v8 ignore` fence: the whole file is coverage-excluded via the `dist/browser*.js`
- * chunk globs (see vitest.config.ts), while the pure helpers stay unit-tested from src.
+ * Only real *measurement* is out of active scope (see AGENTS.md): without a layout engine
+ * `offsetWidth` is `0`, so widths degrade to computed CSS then to an equal split.
+ *
+ * **Coverage.** This file used to be excluded from the report, on the grounds that only the
+ * browser entry imported it and the `dist/browser*.js` globs therefore swallowed it. Both
+ * halves of that are stale: `ts-pptx/html` imports it too, so tsdown emits it as its own
+ * `dist/html-dom-*.js` chunk, and those globs are gone from `vitest.config.ts` entirely. It
+ * is covered code now — against happy-dom by the Node suite
+ * (test/regression/html-to-slides-node.test.js) and, for the measured width basis that no
+ * Node DOM can produce, in a real Chromium (test/browser/table-widths.spec.mjs).
  */
 
 import { SlideObjectType } from '../../enums.js'

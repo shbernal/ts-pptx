@@ -41,11 +41,20 @@ const ADAPTER_FUNCTIONS = ['createBrowserRuntime', 'loadFontData', 'loadMedia', 
  * pinned a notch below with a couple of points of slack, like every other gate in the
  * repo. Ratchet it upward as coverage improves — never down to make a red run green.
  *
- * What keeps it off 100: `tableToSlides` (needs a rendered `<table>`, which is live-DOM
- * layout and deliberately out of scope), `createSvgPngPreview`'s missing-2d-context arm
- * (unreachable in a browser that has a canvas), and `loadMedia`'s `FileReader.onerror`
- * (a `Blob` read that does not fail). Reaching them means stubbing DOM constructors,
- * which asserts about the stub rather than about the browser.
+ * What keeps it off 100: `createSvgPngPreview`'s missing-2d-context arm (unreachable in a
+ * browser that has a canvas) and `loadMedia`'s `FileReader.onerror` (a `Blob` read that
+ * does not fail). Reaching either means stubbing DOM constructors, which asserts about the
+ * stub rather than about the browser.
+ *
+ * `tableToSlides` used to be on that list too, described as out of scope because it needs a
+ * rendered `<table>`. It is now covered — by the `html-table` project, against its own page
+ * (test/browser/harness/table.html). It does not move this number and should not: the
+ * measurement here is per-page V8 coverage of the *adapter* harness, whose DOM has no table
+ * in it, so `tableToSlides` is simply not reachable from these scenarios. Its coverage
+ * reaches the repo's headline figures the same way everything else in the lane does, through
+ * `scripts/coverage-merge.mjs`. The scope line has not moved: what `html-table` proves is
+ * that a measurement is taken and honoured, not that the browser's layout is correct — see
+ * test/browser/table-widths.spec.mjs.
  */
 const MIN_EXECUTED_PCT = 90
 

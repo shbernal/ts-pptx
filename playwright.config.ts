@@ -17,11 +17,17 @@ import { defineConfig, devices } from '@playwright/test'
  *     server (scripts/browser-harness-server.mjs) and drives it with decks built to hit
  *     `loadMedia`, `createSvgPngPreview` and `loadFontData`, including their failure
  *     arms. Real URLs, real 404s, no stubbed `fetch`.
+ *   - **html-table** — renders a real `<table>` on that same server and converts it, so
+ *     `tableToSlides` reads a non-zero `offsetWidth`. That is the one width basis no Node
+ *     lane can produce: happy-dom reports `0` for every cell, so the measured arm of
+ *     `pickColWidthBasis` had never executed anywhere.
  *
- * What this lane deliberately does NOT cover is live-DOM layout fidelity — real
- * `offsetWidth` after layout, the resolved cascade, browser-chosen fonts. Runtime support
- * and layout fidelity are separate claims (see docs/project-target.md "Out Of Active
- * Scope"); this lane moves only the first one.
+ * What this lane deliberately does NOT cover is live-DOM layout **fidelity** — whether the
+ * browser's numbers are the right numbers, or whether two engines agree on them. The
+ * distinction is fine but load-bearing: `html-table` asserts that a measurement is taken
+ * and honoured proportionally, never that it matches what the page painted. Runtime
+ * support and layout fidelity are separate claims (see docs/project-target.md "Out Of
+ * Active Scope"); this lane moves only the first one.
  *
  * Run it with `pnpm run test:browser`, which builds `dist/` and the demo first.
  */
@@ -81,17 +87,32 @@ export default defineConfig({
 	// per push to re-answer a question nothing has raised. Add Firefox/WebKit when a
 	// concrete divergence surfaces, not pre-emptively.
 	//
-	// Two projects rather than two configs: they differ only in which server they point
-	// at, and both must run on one `pnpm run test:browser`.
+	// Projects rather than separate configs: they differ only in which page they drive, and
+	// all of them must run on one `pnpm run test:browser`.
+	//
+	// **Every project matches by filename prefix, and none of them matches by exclusion.**
+	// `demo` used to be spelled `testIgnore: ['adapter-*.spec.mjs']`, which quietly meant
+	// "everything not yet invented" — the first spec added under a third prefix would have
+	// run a second time against the demo's baseURL and failed for a reason having nothing to
+	// do with what it tests. A positive match makes the pairing between a spec's name and
+	// its fixture explicit, and makes adding a prefix a visible edit here.
 	projects: [
 		{
 			name: 'demo',
-			testIgnore: ['adapter-*.spec.mjs'],
+			testMatch: ['deck-*.spec.mjs', 'cross-runtime-*.spec.mjs'],
 			use: { ...devices['Desktop Chrome'], baseURL: BASE_URL },
 		},
 		{
 			name: 'runtime-adapter',
 			testMatch: ['adapter-*.spec.mjs'],
+			use: { ...devices['Desktop Chrome'], baseURL: HARNESS_URL },
+		},
+		{
+			// Same server as `runtime-adapter`, different page and a different question — the
+			// two are kept apart so neither fixture's DOM has anything in it the other put
+			// there. See test/browser/harness/table.mjs.
+			name: 'html-table',
+			testMatch: ['table-*.spec.mjs'],
 			use: { ...devices['Desktop Chrome'], baseURL: HARNESS_URL },
 		},
 	],

@@ -83,3 +83,55 @@ export async function buildDeckInNode(deck) {
 export function packageBytes(base64) {
 	return new Uint8Array(Buffer.from(base64, 'base64'))
 }
+
+// --- the rendered-table harness (the `html-table` Playwright project) ---
+
+/**
+ * Load the rendered-table page, failing with the page's own reason if it did not come up.
+ *
+ * A separate page from `openHarness`'s, on the same server: it renders a real `<table>` so
+ * `tableToSlides` reads a non-zero `offsetWidth`. See `harness/table.mjs` for why the two
+ * fixtures are not one.
+ */
+export async function openTableHarness(page) {
+	await page.goto('./table.html')
+	await page.waitForFunction(() => !!window['tableHarness'] || !!window['harnessError'])
+	const failure = await page.evaluate(() => window['harnessError'])
+	if (failure) throw new Error('the rendered-table harness failed to load: ' + failure)
+}
+
+/**
+ * The two width bases the live page reports for one fixture.
+ * @returns {Promise<{measured: number[], css: string[]}>}
+ */
+export async function tableBases(page, scenario) {
+	return await page.evaluate((name) => window['tableHarness'].bases(name), scenario)
+}
+
+/**
+ * Convert one fixture table in the page.
+ * @returns the harness's flattened outcome — `{ok:true, base64}` or `{ok:false, code, message}`.
+ */
+export async function buildTableInHarness(page, scenario) {
+	return await page.evaluate((name) => window['tableHarness'].build(name), scenario)
+}
+
+/**
+ * Convert the same fixture in Node, against a DOM that renders nothing.
+ *
+ * happy-dom is the same DOM `test/regression/html-to-slides-node.test.js` drives, and the
+ * point of building here too is that `offsetWidth` is `0` for every cell — so the widths
+ * come from the *other* basis. That contrast is the assertion, not an incidental detail.
+ */
+export async function buildTableInNode(scenario) {
+	const { Window } = await import('happy-dom')
+	const { tableToSlides } = await import('../../dist/html.js')
+	const { default: TsPptx } = await import('../../dist/node.js')
+	const { TABLE_HTML, TABLE_ID } = await import('./harness/table-fixture.mjs')
+
+	const win = new Window()
+	win.document.body.innerHTML = TABLE_HTML[scenario]
+	const pres = new TsPptx()
+	tableToSlides(pres, win.document.getElementById(TABLE_ID))
+	return /** @type {string} */ (await pres.write({ outputType: 'base64' }))
+}

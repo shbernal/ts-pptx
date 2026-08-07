@@ -89,14 +89,33 @@ export default tseslint.config(
 		},
 	},
 	{
-		// The browser lane is the one place under `test/` whose code runs in a page:
-		// `test/browser/harness/*.mjs` is loaded by the harness document, and the specs'
-		// `page.evaluate` callbacks are serialized and evaluated there. Both need `window`
-		// to be a global rather than a `no-undef`. Nothing wider is granted — the rest of
-		// each spec is ordinary Node, and a reference to `document` or `fetch` outside an
-		// evaluate callback would be a mistake worth catching.
+		// The browser lane is the one place under `test/` whose code runs in a page, and the
+		// two halves of it need different amounts of DOM.
+		//
+		// A **spec** is ordinary Node except for its `page.evaluate` callbacks, which are
+		// serialized and evaluated in the page. Those reach `window` and nothing else here
+		// grants more, deliberately: a reference to `document` or `fetch` outside an evaluate
+		// callback would be a mistake worth catching.
 		files: ['test/browser/**/*.mjs'],
 		languageOptions: { globals: { ...nodeGlobals, window: 'readonly' } },
+	},
+	{
+		// A **harness module** is page code outright — loaded by its own document over a
+		// `<script type="module">`, never imported by Node. Reading the DOM is its whole job
+		// (`table.mjs` renders a fixture and measures it), so withholding `document` there
+		// would only mean writing the same access in a form the linter cannot see.
+		//
+		// Kept to this directory rather than folded into the block above so the distinction
+		// survives: the specs still cannot touch the DOM outside an evaluate callback.
+		files: ['test/browser/harness/**/*.mjs'],
+		languageOptions: {
+			globals: {
+				...nodeGlobals,
+				document: 'readonly',
+				getComputedStyle: 'readonly',
+				window: 'readonly',
+			},
+		},
 	},
 	{
 		// The root build configs matched no `files` block at all, so zero rules
