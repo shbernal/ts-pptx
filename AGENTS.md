@@ -124,14 +124,21 @@ MCPs' corpora.
 ### The default loop
 
 - **`pnpm run verify`** (~45s) is the per-iteration check: a `dist/` freshness guard →
-  `typecheck` → `typecheck:scripts` → `typecheck:test` → `backlog:validate` → the whole
-  test suite (`vitest run`, which discovers every suite including schema). Run this
-  instead of hand-composing four or five separate commands — hand-composed sets come
-  out slightly different every time and end up re-running the same suite twice.
+  `typecheck` → `typecheck:scripts` → `typecheck:test` → `backlog:validate` →
+  `raw-xml:check` → the whole test suite (`vitest run`, which discovers every suite
+  including schema). Run this instead of hand-composing four or five separate commands —
+  hand-composed sets come out slightly different every time and end up re-running the
+  same suite twice.
 - **`pnpm run verify:full`** (~65s) before pushing or for a release/package-boundary
-  change: everything in `verify`, plus `package:lint` and `test:package`. The split is
-  only about cost — those two pack and install the tarball; everything cheaper already
-  lives in `verify`.
+  change: everything in `verify`, plus `package:lint`, `test:package` and
+  `bundle-size:check`. The split is only about cost — those pack and install the tarball;
+  everything cheaper already lives in `verify`.
+- Two of those are **ratchets**, and both fail on a change you did not intend as much as
+  on one you did: `raw-xml:check` (in `verify`) and `bundle-size:check` (in
+  `verify:full`). A ratchet failure is not automatically a defect — it is a prompt to
+  decide whether the number moved for a reason, then re-freeze in the same commit
+  (`raw-xml:freeze`, `bundle-size:freeze`) if it did. Do not re-freeze to make a gate
+  quiet without knowing which change moved it.
 - Builds are never something you sequence by hand. Every gate starts with
   `scripts/ensure-dist.mjs`, which rebuilds only when `src/` or a build config is newer
   than `dist/` and is otherwise a ~0.1s no-op. Do not prefix anything with
