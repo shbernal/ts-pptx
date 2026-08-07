@@ -514,24 +514,64 @@ items:
     source: "gitbrent/PptxGenJS#1200"
     type: issue
     first_seen: 2026-06-07
-    last_reviewed: 2026-06-19
-    status: non-target
-    priority: none
+    last_reviewed: 2026-08-07
+    status: implemented
+    priority: p2
     target_area:
       - table-ooxml
       - missing-pptx-feature
-    applies_to_current_project: no
-    non_target_reasons:
-      - out-of-project-scope
+    applies_to_current_project: yes
+    non_target_reasons: []
     summary: tableToSlides and autoPage overflowed large HTML/table content instead of splitting it across slides.
-    current_project_notes: >
-      Reviewed 2026-06-19. The report is about tableToSlides, which depends on DOM
-      offset widths to derive column sizes and feed the getSlidesForTableRows
+    current_project_notes: |
+      REOPENED AND FIXED 2026-08-07. The 2026-06-19 dismissal (kept below) was wrong
+      about where the defect lived, and the repro it invited is what showed that.
+
+      The auto-pager charges every row its cells' top/bottom margins before deciding
+      whether the row fits, and on a page break it did that and then zeroed the
+      accumulator (`emuTabCurrH += maxCellMar...` immediately followed by
+      `emuTabCurrH = 0`, src/gen/table/autopage.ts STEP 6). So the first row of every
+      continuation slide - and only that row - was placed for free, and a continuation
+      page could accept one row more than it had room for. That row hangs off the bottom
+      edge, which is what the reporter's screenshot showed; the deeper the cell padding,
+      the further it hangs. The two statements are now one assignment in the right order,
+      with a comment recording that the order is load-bearing.
+
+      NONE OF IT WAS DOM-DEPENDENT, which is the finding that overturns the dismissal.
+      The browser supplies only the column widths; the vertical arithmetic has the same
+      inputs on any DOM. It reproduces identically through addTable(rows, { autoPage })
+      with array rows - the "DOM-free repro (which would be in-scope)" the dismissal
+      asked for - so the browser lane's job here was to prove the equivalence rather than
+      to host the bug: test/browser/table-autopage.spec.mjs pages the same fixture in
+      Chromium and in happy-dom and asserts the two agree.
+
+      The oracle is arithmetic, not a render. Every row of the fixture is identical and
+      every page has the same usable height, so every full page must hold the same number
+      of rows; the first page's budget was never in doubt, because it charges every row
+      it takes. Before the fix the pages read [10, 11, 11, 11, 11, 7]; after, one budget
+      throughout. Sensitivity-checked in both lanes - restoring the old order turns
+      exactly the arm-dependent assertions red.
+
+      WHY THE EXISTING COVERAGE MISSED IT: table-autopage-continuation-overflow.test.js
+      asserts the *middle* continuation slides share a row count, and they always did.
+      The bug leaks the same amount on every page, so the pages it produced were wrong
+      but consistent with each other; only comparing them to the first page exposes it.
+      Related and NOT fixed here: the repeat-header path accumulates line height without
+      cell margins (noted in place) - a smaller instance of the same imprecision.
+
+      STILL OUT OF SCOPE: whether an estimated row height matches what PowerPoint draws.
+      That is render fidelity, it has no oracle in this repo (docs/project-target.md
+      "Out Of Active Scope", BROWSER-SUPPORT-SCOPE.md Tier 3), and a report that paged
+      output sits a few points off is a different claim from this one.
+
+      ---
+      Reviewed 2026-06-19 (superseded). The report is about tableToSlides, which depends
+      on DOM offset widths to derive column sizes and feed the getSlidesForTableRows
       pagination heuristic. Per docs/project-target.md, reading a rendered <table>
       (offsetWidth/getComputedStyle) is a live-DOM/browser-layout feature out of
       active scope and not reproducible in the Node test suite, so the sizing input
       that drives the overflow cannot be exercised here. The supported, fully-tested
-      path — addTable(rows, { autoPage }) with array rows — has passing pagination
+      path - addTable(rows, { autoPage }) with array rows - has passing pagination
       regression coverage (table-autopage-* suites). Marked
       non-target/out-of-project-scope. Contributions welcome: reopen with a DOM-free
       addTable-autoPage pagination repro (which would be in-scope) or a headless-browser
@@ -539,11 +579,14 @@ items:
     evidence:
       kinds:
         - local-source-inspection
+        - minimal-repro
+        - regression-test
+        - generated-pptx
       local_files:
-        - src/gen-tables.ts:205
-        - src/gen-tables.ts:360
-        - src/gen-tables.ts:746
-        - src/gen-objects.ts:996
+        - src/gen/table/autopage.ts:582
+        - test/regression/table-autopage-continuation-budget.test.js
+        - test/browser/table-autopage.spec.mjs
+        - test/browser/harness/table-fixture.mjs
       schema_fixture: null
       validator_result: null
       powerpoint_result: null

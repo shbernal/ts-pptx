@@ -190,6 +190,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   there is something concrete to add it for — also written down rather than left as a
   default.
 
+### Fixed
+
+- **`autoPage` let every continuation slide take one row more than fitted, so the last row
+  hung off the bottom edge.** Affects `addTable(rows, { autoPage: true })` and
+  `tableToSlides()` alike, and only tables whose cells carry top/bottom margins — which is
+  every table converted from HTML, since cell padding becomes a cell margin.
+
+  The pager charges each row its cells' top and bottom margins before deciding whether the
+  row fits. On a page break it did that and then zeroed the accumulator, so the first row of
+  each new page — and only that row — was placed for free. The page then filled to its budget
+  as if it had that space, and it did not. The deeper the padding, the further the overflow:
+  at 8px of cell padding a 60-row table paged `[10, 11, 11, 11, 11, 7]` where every full page
+  had room for 10.
+
+  The symptom is easy to miss because the error is *constant*: every generated page overflows
+  by the same amount, so the pages agree with each other and disagree only with the first
+  one. That is also why the existing continuation-slide regression stayed green — it compared
+  continuation pages to each other.
+
+  This closes upstream `gitbrent/PptxGenJS#1200`, filed against `tableToSlides` and long
+  assumed to be a browser-layout question. It is not: the browser supplies column widths, and
+  nothing the vertical arithmetic reads. `test/browser/table-autopage.spec.mjs` pages the
+  same table in headless Chromium and on a DOM that renders nothing and asserts the two
+  produce the same slides.
+
 ## [2.0.0] - 2026-08-05
 
 ### Removed

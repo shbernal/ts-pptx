@@ -20,7 +20,10 @@ import { defineConfig, devices } from '@playwright/test'
  *   - **html-table** — renders a real `<table>` on that same server and converts it, so
  *     `tableToSlides` reads a non-zero `offsetWidth`. That is the one width basis no Node
  *     lane can produce: happy-dom reports `0` for every cell, so the measured arm of
- *     `pickColWidthBasis` had never executed anywhere.
+ *     `pickColWidthBasis` had never executed anywhere. It also runs the conversions that
+ *     basis feeds — auto-paging a table too tall for one slide — and compares them against
+ *     the same conversion on a DOM that renders nothing, which is how the long-dismissed
+ *     `tableToSlides` overflow report was shown to have nothing to do with the DOM.
  *
  * What this lane deliberately does NOT cover is live-DOM layout **fidelity** — whether the
  * browser's numbers are the right numbers, or whether two engines agree on them. The

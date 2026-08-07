@@ -34,6 +34,33 @@
 /** The id every fixture gives its table, so one selector serves them all. */
 export const TABLE_ID = 'tbl'
 
+/** How many body rows the `autoPage` fixture below carries. Named so the specs can assert on it. */
+export const AUTOPAGE_ROWS = 60
+
+/**
+ * The `autoPage` fixture's markup, built rather than written out.
+ *
+ * Sixty near-identical rows is not something to paste into a template literal, and the row count
+ * has to be a number the spec can also reason about — it is the total the pages must add back up
+ * to. See the `autoPage` entry in {@link TABLE_HTML} for what the fixture is for.
+ * @returns {string} the table markup
+ */
+function autoPageMarkup() {
+	const cell = 'padding:8px;font-size:16px;border:0'
+	const rows = []
+	for (let idx = 1; idx <= AUTOPAGE_ROWS; idx++) {
+		rows.push(`<tr><td style="${cell}">R${idx}</td><td style="${cell}">V${idx}</td></tr>`)
+	}
+	return `
+		<table id="${TABLE_ID}" style="table-layout:fixed;width:900px;border-collapse:separate;border-spacing:0;font-size:16px">
+			<thead><tr>
+				<th style="${cell};width:300px">Key</th>
+				<th style="${cell};width:600px">Value</th>
+			</tr></thead>
+			<tbody>${rows.join('')}</tbody>
+		</table>`
+}
+
 /**
  * Fixture markup, keyed by the name the harness and the specs dispatch on.
  *
@@ -102,4 +129,21 @@ export const TABLE_HTML = {
 				<td style="padding:0;border:0">c</td>
 			</tr></tbody>
 		</table>`,
+
+	/**
+	 * upstream gitbrent/PptxGenJS#1200 — "tableToSlides autoPaging not working", the repro the
+	 * backlog entry invited and this repo could not build until the browser lane existed.
+	 *
+	 * The reporter's shape, as plainly as it can be stated: an ordinary table of dynamic data,
+	 * too tall for one slide, converted with **no options at all**. What came back paged onto
+	 * several slides with rows hanging off the bottom edge of the generated ones.
+	 *
+	 * Deliberately ordinary. Nothing here pushes on a corner: no `data-pptx-*` hints, no colspans,
+	 * padding and font-size a stylesheet would plausibly set, cells short enough that no column
+	 * width can make them wrap. That last one is what gives the spec its oracle — every row is the
+	 * same height, so every page with the same usable height must hold the same number of them,
+	 * and no rendered-page measurement is needed to say a page took one too many. See
+	 * test/browser/table-autopage.spec.mjs.
+	 */
+	autoPage: autoPageMarkup(),
 }

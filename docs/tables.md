@@ -309,6 +309,16 @@ needs. `autoPageRepeatHeader` (with `autoPageHeaderRows`) repeats the header on 
 `autoPagePlaceholder` copies the source slide's populated placeholders onto the overflow
 slides, and `autoPageSlideStartY` sets where the continuation starts.
 
+How much fits is an **estimate**, not a measurement: the pager counts wrapped lines from a
+characters-per-line approximation and prices each at the font size times a fixed line-height
+factor, plus the cell's top and bottom margins. It never asks a renderer. So the page break
+lands where the arithmetic says, and a font whose real metrics are far from the approximation
+can put it a row out — `autoPageCharWeight` (characters) and `autoPageLineWeight` (line
+height) nudge the two constants when it does. What the pager does guarantee is
+self-consistency: pages of equal usable height get equal row budgets. Continuation slides
+start at `autoPageSlideStartY`, or at the top margin when it is unset — so a first page
+placed lower with `y` is the one page that legitimately holds fewer rows.
+
 ## Reading and editing an existing table
 
 `ts-pptx/read` exposes `Table → TableRow[] → TableCell[]`, each wrapping a live DOM element.

@@ -581,14 +581,24 @@ export function getSlidesForTableRows(
 
 				// E: Calc usable vertical space/table height now as we may still be in the same row and code above ("C: Calc usable vertical space/table height.") calc may now be invalid
 				calcSlideTabH()
-				emuTabCurrH += maxCellMarTopEmu + maxCellMarBtmEmu // Start row height with margins
+
+				// F: reset current table height for this new Slide, then re-charge the row's cell
+				// margins onto it — the row is starting over here, so it owes them again.
+				//
+				// ORDER IS LOAD-BEARING. These two statements used to run the other way round: the
+				// margins were added and then wiped by the reset, so the first row of every
+				// continuation slide was the only row in the table that paid no margin. That let a
+				// continuation slide accept one row more than it had room for, and the extra row
+				// hung off the bottom of the slide (upstream gitbrent/PptxGenJS#1200). The symptom
+				// is easy to miss because the pager is *self*-consistent per slide: it only shows
+				// up as the first slide and the continuation slides disagreeing about how many
+				// identical rows fit the identical space — which is what
+				// test/regression/table-autopage-continuation-budget.test.js pins.
+				emuTabCurrH = maxCellMarTopEmu + maxCellMarBtmEmu
 				if (tableProps.verbose)
 					console.log(
 						`| SLIDE [${tableRowSlides.length}]: emuSlideTabH ...... = ${(emuSlideTabH / EMU_PER_INCH).toFixed(1)} `
 					)
-
-				// F: reset current table height for this new Slide
-				emuTabCurrH = 0
 
 				// G: handle repeat headers option /or/ Add new empty row to continue current lines into
 				if (tableProps.autoPageRepeatHeader && tableProps._arrObjTabHeadRows) {

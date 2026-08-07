@@ -669,7 +669,7 @@ They answer different questions, and none can answer another's:
 |---|---|---|
 | `demo` | `demos/vite-demo` behind `vite preview` | the **bundled** path a real consumer takes — Vite resolving the `browser` export condition, Rollup tree-shaking it |
 | `runtime-adapter` | `test/browser/harness/index.html` behind `scripts/browser-harness-server.mjs` | the shipped `dist/browser.js` loading **unbundled**, and the adapter loaders the demo cannot reach |
-| `html-table` | `test/browser/harness/table.html`, same server | `tableToSlides` reading a **non-zero `offsetWidth`** — the one width basis no Node DOM can produce |
+| `html-table` | `test/browser/harness/table.html`, same server | `tableToSlides` reading a **non-zero `offsetWidth`** — the one width basis no Node DOM can produce — and the end-to-end conversions that basis feeds |
 
 Each project matches its specs by filename prefix (`deck-*`/`cross-runtime-*`,
 `adapter-*`, `table-*`), and none of them matches by exclusion. That is deliberate:
@@ -697,6 +697,17 @@ hidden it; an unbundled consumer needs it in an import map, and now
 | `adapter-fonts.spec.mjs` | runtime-adapter | `loadFontData`: a font fetched over HTTP bakes the same `fontScale` and embeds the same `/ppt/fonts/` bytes as one read off disk; a 404 rejects with `font/fetch-failed` |
 | `adapter-coverage.spec.mjs` | runtime-adapter | all four adapter functions ran, and `dist/browser.js`'s executed share stayed above its floor |
 | `table-widths.spec.mjs` | html-table | `tableToSlides` against a table a browser laid out: the **measured** arm of `pickColWidthBasis` drives the emitted grid, `data-pptx-width` still wins outright (including divided across a `colspan`), and Node degrades to the CSS basis on the same markup |
+| `table-autopage.spec.mjs` | html-table | a table too tall for one slide pages with **one row budget on every page**, carries every row across exactly once, and — the assertion no other lane can make — reaches the *same* pagination in Chromium as on a DOM that renders nothing |
+
+`table-autopage.spec.mjs` is worth reading for what a browser lane is *for*. It was
+written as the headless repro an out-of-scope backlog entry invited
+(`upstream-issue-1200`, `tableToSlides` auto-paging overflow), it reproduced, and the
+bug it found was **DOM-free**: the pager dropped one row's cell margins at every page
+break, so a continuation slide accepted a row it had no room for. The browser's
+contribution was the cross-runtime assertion — proving the report was never about a
+rendered page, and moving the entry out of the browser bucket rather than deeper into
+it. Fixed in `src/gen/table/autopage.ts`; the regression that guards it is DOM-free too
+(`test/regression/table-autopage-continuation-budget.test.js`).
 
 The deck definitions the adapter specs use live in `test/browser/harness/decks.mjs`
 and are built **twice** — once in Chromium, once in Node — from that one
@@ -750,7 +761,10 @@ What this lane does **not** cover, and must not be read as covering:
   whole point. It asserts that a real `offsetWidth` is *taken and honoured* — that
   the measured arm of `pickColWidthBasis` runs and the emitted grid is proportional
   to it. It asserts nothing about whether Chromium's numbers are the right numbers,
-  or whether another engine would produce them. That second claim is layout
+  or whether another engine would produce them. The auto-paging spec draws the same
+  line vertically: it asserts that pages of identical rows get identical row budgets
+  — arithmetic the pager owes itself — never that an estimated row height is the
+  height PowerPoint will draw. That second claim is layout
   fidelity, it has no oracle, and it remains out of active scope
   ([project target](project-target.md)). *Runtime support* and *layout fidelity*
   are separate claims and must stay separate: a layout difference between two
