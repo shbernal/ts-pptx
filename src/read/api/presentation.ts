@@ -2,11 +2,17 @@
  * Read-model entry point: `Presentation` wraps an `OpcPackage` and exposes a
  * navigable, typed view of the deck (slides → shapes → text), backed by the
  * live DOM so the same nodes can later be mutated.
+ *
+ * The class holds the model and the deck-level plumbing every operation needs — the part
+ * index, the slide list, the copy registry that lets repeated imports from one source share
+ * what they already copied, and the `p:sldIdLst` wiring. The operations themselves live in
+ * `ops/`, one job per module, taking this deck as an argument. The slide-import machinery
+ * used to sit here as ~280 lines of private methods and made that split hard to see: the
+ * read model's own surface was outnumbered by one feature's internals.
  */
 import { emuToInches } from '../../units.js'
 import { OpcPackage, type OpcInput } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
-import type { Relationships } from '../opc/relationships.js'
 import { relativePartName, relsPartNameFor } from '../opc/partnames.js'
 import {
 	OOXML_NS,
@@ -16,13 +22,10 @@ import {
 	getElements,
 	getOrAddChild,
 	intValue,
-	ownerDocumentOf,
 	setAttr,
-	type Element,
 } from '../oxml/dom.js'
 import { EMBEDDED_FONT_SLOTS } from '../../embedded-fonts.js'
-import { flattenShape, flattenSlide, remapLiteralColors, restyleSlide, type FlattenContext } from '../oxml/theme.js'
-import { resolveSlideThemeParts } from './theme-context.js'
+import { flattenShape } from '../oxml/theme.js'
 import { Slide } from './slide.js'
 import { SlideMaster } from './chrome.js'
 import { wrapShapeElement, type AnyShape } from './shapes.js'
@@ -54,28 +57,27 @@ import type {
 	SlideSize,
 	SlideSource,
 } from './presentation-types.js'
-import { carriedDecorations, collectElements, cSldName, firstShapeChild, nthShapeChild } from './slide-dom.js'
+import { cSldName, nthShapeChild } from './slide-dom.js'
 import { computeRescale, rescaleSpTree, type RescaleTransform } from './rescale.js'
-import { carryTableStyles, copySourceTableStyles } from './table-styles.js'
+import { carryTableStyles } from './table-styles.js'
 import { promoteMasters } from './master-registry.js'
 import { copyPart, type ImportContext } from './part-copy.js'
 // Deck-mutation operations. They live beside the model rather than on it: each is a whole job
 // (prune a part fringe, carry notes, merge embedded fonts, rescale onto a new canvas) that reads
 // and writes the package through the deck's public surface, and none of them is something a
 // caller navigates *to*.
+import { rewriteCarriedRels } from './ops/carried-rels.js'
 import { carryEmbeddedFonts, carryGeneratedEmbeddedFonts } from './ops/embedded-fonts.js'
+import { sourceFlattenContext } from './ops/flatten-context.js'
+import { importSlidePreserve, importSlideRestyle } from './ops/import-slide.js'
 import { carryNotes, ensureNotesMasterFromXml } from './ops/notes-master.js'
-import { layoutPartNamesOf, resolveSingleRel, slideMasterPartNames } from './ops/part-index.js'
+import { layoutPartNamesOf, slideMasterPartNames } from './ops/part-index.js'
 import { pruneIfOrphan } from './ops/prune.js'
 import { rescaleImportedGeometry } from './ops/rescale-import.js'
+import { NOTES_MASTER_REL, NOTES_SLIDE_REL, SLIDE_LAYOUT_REL, SLIDE_REL } from './rel-types.js'
 import { InternalError, InvalidOptionError, PackageReadError, UnsupportedFeatureError } from '../../errors.js'
 
 const OFFICE_DOCUMENT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument'
-const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide'
-const SLIDE_LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout'
-const SLIDE_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster'
-const NOTES_SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide'
-const NOTES_MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster'
 const IMAGE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
 const HYPERLINK_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'
 const CHART_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart'
@@ -478,17 +480,20 @@ export class Presentation {
 		//    the slide and attaches it to this deck's master; 'restyle' attaches it
 		//    to this deck's master with theme refs left symbolic (re-brand); 'copy'
 		//    brings the source theme subgraph across wholesale.
+		const importCtx = this.#importContext(source.opc)
 		const newPartName =
 			options.theme === 'preserve'
-				? this.#importSlidePreserve(source, sourceSlide, options.carryMasterGraphics === true)
+				? importSlidePreserve(this, importCtx, source, sourceSlide, options.carryMasterGraphics === true)
 				: options.theme === 'restyle'
-					? this.#importSlideRestyle(
+					? importSlideRestyle(
+							this,
+							importCtx,
 							source,
 							sourceSlide,
 							options.carryMasterGraphics === true,
 							options.remapLiterals === true
 						)
-					: copyPart(this.#importContext(source.opc), sourceSlide.partName)
+					: copyPart(importCtx, sourceSlide.partName)
 		const newPart = this.opc.part(newPartName)
 		if (!newPart)
 			throw new InternalError('import/part-went-missing', `Imported slide part went missing: ${newPartName}`)
@@ -510,14 +515,13 @@ export class Presentation {
 		const slide = this.#insertSlidePart(newPart, options.at)
 
 		// 4. Optionally carry the source slide's speaker notes. The slide copy above
-		//    drops the notesSlide rel (both copyPart and #importSlideRebind do); this
+		//    drops the notesSlide rel (both copyPart and importSlideRebind do); this
 		//    re-adds it wired to the new slide and merged onto a single notesMaster.
-		if (options.importNotes)
-			carryNotes(this, source, this.#importContext(source.opc), sourceSlide.partName, newPartName)
+		if (options.importNotes) carryNotes(this, source, importCtx, sourceSlide.partName, newPartName)
 
 		// 5. Optionally carry the source deck's embedded fonts (presentation-level, so
 		//    a separate traversal from the slide-part copy chain above).
-		if (options.embedFonts) carryEmbeddedFonts(this, source, this.#importContext(source.opc))
+		if (options.embedFonts) carryEmbeddedFonts(this, source, importCtx)
 
 		return slide
 	}
@@ -931,7 +935,7 @@ export class Presentation {
 		// One rel-id map across the batch so shapes sharing a source image share a rel.
 		const relIdMap = new Map<string, string>()
 		// preserve: build the source theme context once; copy/restyle need none.
-		const ctx = theme === 'preserve' ? this.#sourceFlattenContext(sourceOpc, source.partName) : null
+		const ctx = theme === 'preserve' ? sourceFlattenContext(sourceOpc, source.partName) : null
 		const importCtx = this.#importContext(sourceOpc)
 
 		// Anchor for z-order: the existing shape currently at `at` (insert before it,
@@ -944,7 +948,7 @@ export class Presentation {
 			const imported = targetDoc.importNode(shapeEl, true)
 
 			// Drag media/charts/embeddings across and rewrite refs to fresh host rels.
-			this.#rewriteCarriedRels(imported, importCtx, sourceRels, target.partName, targetRels, relIdMap)
+			rewriteCarriedRels(imported, importCtx, sourceRels, target.partName, targetRels, relIdMap)
 
 			// preserve: bake the source theme onto the subtree. The flatten passes match
 			// descendants (not the root), so wrap the shape in a throwaway container.
@@ -1000,287 +1004,6 @@ export class Presentation {
 		return result
 	}
 
-	/**
-	 * Import a slide in `preserve` mode: rebind it to this deck's master/layout
-	 * (see {@link #importSlideRebind}), then flatten its source theme into the slide
-	 * XML (scheme colours + style-matrix fills baked to literals). Returns the new
-	 * partname.
-	 *
-	 * The flatten context is gathered from the *source* subgraph, so it can be read
-	 * before or after the rebind; the rebind injects any carried decorations before
-	 * we flatten, so a single sweep resolves the theme references on the slide's own
-	 * content and on the carried decorations together.
-	 */
-	#importSlidePreserve(source: Presentation, sourceSlide: Slide, carryGraphics: boolean): string {
-		const ctx = this.#sourceFlattenContext(source.opc, sourceSlide.partName)
-		const { newPartName, slideRoot, newPart } = this.#importSlideRebind(source, sourceSlide, carryGraphics)
-		flattenSlide(slideRoot, ctx)
-		newPart.markDirty()
-		return newPartName
-	}
-
-	/**
-	 * Import a slide in `restyle` mode: rebind it to this deck's master/layout (see
-	 * {@link #importSlideRebind}) and then {@link restyleSlide} it — drop its colour
-	 * map override but bake *nothing*, so its symbolic theme references re-resolve
-	 * against the destination theme and the slide re-brands. Returns the new
-	 * partname.
-	 *
-	 * The deliberate inverse of `preserve`: no flatten, no inherited-background
-	 * bake, no placeholder colour/size/geometry bake — every one of those would pin
-	 * the slide to its source look, the opposite of re-branding. Carried
-	 * decorations are left symbolic too, so they re-brand along with the slide.
-	 *
-	 * With `remapLiterals` it additionally force-remaps the slide's source-theme
-	 * literal colours back to symbolic scheme colours and copies any referenced
-	 * source table style into this deck — the two things plain `restyle` cannot
-	 * re-brand (see {@link ImportSlideOptions.remapLiterals}).
-	 */
-	#importSlideRestyle(
-		source: Presentation,
-		sourceSlide: Slide,
-		carryGraphics: boolean,
-		remapLiterals: boolean
-	): string {
-		const { newPartName, slideRoot, newPart } = this.#importSlideRebind(source, sourceSlide, carryGraphics)
-		restyleSlide(slideRoot)
-		if (remapLiterals) {
-			// The source colour context (slot ↔ RGB ↔ token) the literals are matched against.
-			const parts = resolveSlideThemeParts(source.opc, sourceSlide.partName)
-			remapLiteralColors(slideRoot, { clrMap: parts.clrMap, clrScheme: parts.clrScheme })
-			copySourceTableStyles(this, source.opc, slideRoot)
-		}
-		newPart.markDirty()
-		return newPartName
-	}
-
-	/**
-	 * The rebind shared by `preserve` and `restyle`: copy the slide bytes into a
-	 * fresh part, rebuild its relationships (drop notes, repoint the `slideLayout`
-	 * rel at this deck's existing layout, copy every other internal target —
-	 * media/charts — and pass externals through), and optionally bake the source
-	 * master/layout decorations onto the slide. Returns the new part, its name, and
-	 * its live root element for the caller's mode-specific pass (flatten vs restyle).
-	 *
-	 * This carries *no* theme baking of its own — not even the inherited background.
-	 * `preserve` adds that via {@link flattenSlide}'s context; `restyle` must not,
-	 * so the background stays symbolic and re-brands.
-	 */
-	#importSlideRebind(
-		source: Presentation,
-		sourceSlide: Slide,
-		carryGraphics: boolean
-	): { newPartName: string; slideRoot: Element; newPart: Part } {
-		const destLayout = this.#destinationLayoutPartName()
-
-		// Copy the slide bytes into a fresh partname; we then mutate that copy's DOM
-		// (a distinct document, so the source package is never touched).
-		const sourcePart = source.opc.part(sourceSlide.partName)
-		if (!sourcePart)
-			throw new PackageReadError(
-				'package/part-missing',
-				`importSlide: source package has no part ${sourceSlide.partName}`
-			)
-		const newPartName = this.opc.reservePartNameLike(sourceSlide.partName)
-		const newPart = this.opc.addPart(newPartName, sourcePart.contentType, sourcePart.bytes)
-		const slideRoot = newPart.dom.documentElement
-		if (!slideRoot)
-			throw new PackageReadError('package/part-has-no-root', `Imported slide ${newPartName} has no root element`)
-
-		// Rebuild the slide's relationships: drop notes, repoint slideLayout at the
-		// destination layout, and copy every other internal target (media/charts).
-		const ctx = this.#importContext(source.opc)
-		const sourceRels = source.opc.relationshipsFor(sourceSlide.partName)
-		const targetRels = this.opc.relationshipsFor(newPartName)
-		for (const rel of sourceRels) {
-			if (rel.type === NOTES_SLIDE_REL) continue
-			if (rel.type === SLIDE_LAYOUT_REL) {
-				targetRels.addWithId(rel.id, SLIDE_LAYOUT_REL, relativePartName(newPartName, destLayout))
-				continue
-			}
-			if (rel.targetMode === 'External') {
-				targetRels.addWithId(rel.id, rel.type, rel.target, 'External')
-				continue
-			}
-			const newTarget = copyPart(ctx, sourceRels.resolveTarget(rel.id))
-			targetRels.addWithId(rel.id, rel.type, relativePartName(newPartName, newTarget))
-		}
-
-		// Optionally bake the source master/layout decorations (logos, accent shapes)
-		// onto the slide behind its own content. Done after the slide's own rels are
-		// in place (so carried media get fresh, non-colliding ids) but before the
-		// caller's flatten/restyle pass acts on the carried shapes.
-		if (carryGraphics) this.#carryMasterGraphics(ctx, slideRoot, newPartName, sourceSlide.partName)
-
-		return { newPartName, slideRoot, newPart }
-	}
-
-	/**
-	 * Bake the source `slideLayout`/`slideMaster` shape-tree decorations onto the
-	 * imported slide (the `carryMasterGraphics` path). Every shape on those trees
-	 * *except* placeholders is deep-copied into the slide's `p:spTree` ahead of its
-	 * own content — master decorations first, then layout, then the slide's shapes —
-	 * so document (z-)order keeps the master furthest back. Each decoration's media
-	 * and other relationship targets are copied into this package and its
-	 * `r:embed`/`r:id`/… references rewritten to fresh slide-local ids. The injected
-	 * shapes are left for the caller's {@link flattenSlide} pass to resolve any
-	 * theme references they carry.
-	 */
-	#carryMasterGraphics(ctx: ImportContext, slideRoot: Element, newPartName: string, slidePartName: string): void {
-		const sourceOpc = ctx.source
-		const layoutPartName = resolveSingleRel(sourceOpc, slidePartName, SLIDE_LAYOUT_REL)
-		const masterPartName = layoutPartName ? resolveSingleRel(sourceOpc, layoutPartName, SLIDE_MASTER_REL) : null
-		const cSld = firstChild(slideRoot, 'p:cSld')
-		const spTree = cSld && firstChild(cSld, 'p:spTree')
-		if (!spTree) return
-
-		const doc = ownerDocumentOf(slideRoot)
-		const slideRels = this.opc.relationshipsFor(newPartName)
-		const relIdMap = new Map<string, string>()
-		// Insert ahead of the slide's own first shape so decorations render behind it.
-		const anchor = firstShapeChild(spTree)
-		// Master behind layout behind the slide (document order == z-order).
-		for (const partName of [masterPartName, layoutPartName]) {
-			if (!partName) continue
-			const decorations = carriedDecorations(sourceOpc.part(partName)?.dom.documentElement ?? null)
-			if (decorations.length === 0) continue
-			const sourceRels = sourceOpc.relationshipsFor(partName)
-			for (const deco of decorations) {
-				const imported = doc.importNode(deco, true)
-				this.#rewriteCarriedRels(imported, ctx, sourceRels, newPartName, slideRels, relIdMap)
-				spTree.insertBefore(imported, anchor)
-			}
-		}
-	}
-
-	/**
-	 * Rewrite every relationship reference (`r:embed`, `r:id`, `r:link`, …) inside a
-	 * carried decoration so it points at a fresh slide-local relationship, copying
-	 * the referenced part into this package on first sight. `relIdMap` (keyed by
-	 * source part + source rel id) dedupes references shared within one import call.
-	 */
-	#rewriteCarriedRels(
-		node: Element,
-		ctx: ImportContext,
-		sourceRels: Relationships,
-		newPartName: string,
-		slideRels: Relationships,
-		relIdMap: Map<string, string>
-	): void {
-		const elements: Element[] = []
-		collectElements(node, elements)
-		for (const el of elements) {
-			const refs: { local: string; id: string }[] = []
-			const attrs = el.attributes
-			for (let i = 0; i < attrs.length; i++) {
-				const a = attrs.item(i)
-				if (!a || a.namespaceURI !== OOXML_NS.r || !a.value) continue
-				if (!sourceRels.get(a.value)) continue // an r-namespaced attribute that isn't a relationship id
-				refs.push({ local: a.localName ?? a.name, id: a.value })
-			}
-			for (const { local, id } of refs) {
-				setAttr(el, `r:${local}`, this.#carryRel(ctx, sourceRels, id, newPartName, slideRels, relIdMap))
-			}
-		}
-	}
-
-	/** Resolve a carried decoration's source relationship to a fresh slide-local id, copying its internal target. */
-	#carryRel(
-		ctx: ImportContext,
-		sourceRels: Relationships,
-		id: string,
-		newPartName: string,
-		slideRels: Relationships,
-		relIdMap: Map<string, string>
-	): string {
-		const key = `${sourceRels.sourcePartName}|${id}`
-		const cached = relIdMap.get(key)
-		if (cached) return cached
-		const rel = sourceRels.get(id)
-		if (!rel)
-			throw new InvalidOptionError(
-				'relationship/not-found',
-				`Relationships of ${sourceRels.sourcePartName}: no relationship with id ${id}`
-			)
-		const newId =
-			rel.targetMode === 'External'
-				? slideRels.add(rel.type, rel.target, 'External').id
-				: slideRels.add(rel.type, relativePartName(newPartName, copyPart(ctx, sourceRels.resolveTarget(id)))).id
-		relIdMap.set(key, newId)
-		return newId
-	}
-
-	/**
-	 * The partname of the layout this deck's slides should attach to in `preserve`
-	 * mode: the first layout of the first slide master. Throws when the deck has no
-	 * master/layout to attach to (a deck ts-pptx always provides).
-	 */
-	#destinationLayoutPartName(): string {
-		const presRels = this.opc.relationshipsFor(this.presentationPart.partName)
-		const masterRel = presRels.byType(SLIDE_MASTER_REL)[0]
-		if (!masterRel)
-			throw new InvalidOptionError(
-				'import/destination-missing-master',
-				'importSlide preserve mode requires a slide master in the destination deck'
-			)
-		const masterPartName = presRels.resolveTarget(masterRel.id)
-		const masterRels = this.opc.relationshipsFor(masterPartName)
-		const layoutRel = masterRels.byType(SLIDE_LAYOUT_REL)[0]
-		if (!layoutRel)
-			throw new InvalidOptionError(
-				'import/destination-missing-layout',
-				'importSlide preserve mode requires a slide layout in the destination deck'
-			)
-		return masterRels.resolveTarget(layoutRel.id)
-	}
-
-	/**
-	 * Gather the flatten context for a source slide: walk slide → layout → master →
-	 * theme, reading the effective colour map (the slide's `clrMapOvr` override, or
-	 * the master `clrMap`), the theme `clrScheme`, and the theme `fmtScheme`.
-	 */
-	#sourceFlattenContext(sourceOpc: OpcPackage, slidePartName: string): FlattenContext {
-		// Reuse the shared slide → layout → master → theme walk (also backing the
-		// read-model colour getters), then layer the flatten-only needs on top.
-		const parts = resolveSlideThemeParts(sourceOpc, slidePartName)
-		const themeElements = parts.themeElements
-		return {
-			clrMap: parts.clrMap,
-			clrScheme: parts.clrScheme,
-			fmtScheme: themeElements ? firstChild(themeElements, 'a:fmtScheme') : null,
-			inheritedBackground: this.#effectiveBackground(
-				sourceOpc,
-				parts.slideRoot,
-				parts.layoutPartName,
-				parts.masterPartName
-			),
-			layoutRoot: parts.layoutRoot,
-			masterRoot: parts.masterRoot,
-		}
-	}
-
-	/**
-	 * The background the slide effectively inherits from its source subgraph: the
-	 * layout's `p:bg`, else the master's. Returns `null` when the slide carries its
-	 * own `p:bg` (it stays on the slide and is flattened directly) or none exists.
-	 */
-	#effectiveBackground(
-		sourceOpc: OpcPackage,
-		slideRoot: Element | null,
-		layoutPartName: string | null,
-		masterPartName: string | null
-	): Element | null {
-		if (slideRoot && this.#backgroundOf(slideRoot)) return null
-		const layoutRoot = layoutPartName ? (sourceOpc.part(layoutPartName)?.dom.documentElement ?? null) : null
-		const masterRoot = masterPartName ? (sourceOpc.part(masterPartName)?.dom.documentElement ?? null) : null
-		return (layoutRoot && this.#backgroundOf(layoutRoot)) ?? (masterRoot && this.#backgroundOf(masterRoot)) ?? null
-	}
-
-	/** The `p:cSld/p:bg` element of a slide/layout/master root, or `null`. */
-	#backgroundOf(root: Element): Element | null {
-		const cSld = firstChild(root, 'p:cSld')
-		return cSld ? firstChild(cSld, 'p:bg') : null
-	}
 	/**
 	 * Open an import out of `source`: this deck as the destination, paired with the
 	 * copy registry for that package (created on first use). The registry is held on
