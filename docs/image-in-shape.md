@@ -6,6 +6,7 @@ read_when:
   - Clipping an image to a circle, rounded rectangle, hexagon, or freeform path
   - Filling a clip shape with a center-cropped photo (cover/contain)
   - Reproducing a picture-placeholder look (e.g. a half-disc "D" cover image)
+  - Reaching for a named clip silhouette instead of hand-authoring a points path
 doc_type: "guide"
 ---
 
@@ -115,6 +116,38 @@ sweep, not a 40° one.
 The wide source photo is cropped to the box aspect — not squashed — and the curved
 edge is a smooth ellipse arc. See `demos/common/image-in-shape.js` for a runnable
 version, and `test/regression/image-shape.test.js` for the composition tests.
+
+## Named silhouettes: `clipPath()`
+
+The half-disc above recurs often enough — it is what a cover-slide picture
+placeholder cuts — that it is available as data rather than as arithmetic.
+`clipPath(shape, w, h)` resolves a named `ClipShape` to the same `points` array:
+
+```js
+import { clipPath } from '@shbernal/ts-pptx'
+
+const w = 5.22, h = 7.5
+
+slide.addImage({
+  path: 'cover-photo.jpg', x: 0, y: 0, w, h,
+  points: clipPath({ kind: 'half-disc', flat: 'right' }, w, h),
+  sizing: { type: 'cover', w, h },
+})
+```
+
+`flat` names the edge the straight side sits on (`'right'` = flat right edge, arc
+bulging left); `preset` picks the proportion — `'deep'` (the default; the arc spans
+about 32% of the box width, symmetric about mid-height) or `'shallow'` (about 13%,
+with its apex just below mid-height). Both are traced as two cubic Béziers rather
+than an `arcTo`, so unlike the hand-authored example above they are not perfect
+half-ellipses — they are the placeholder proportions PowerPoint decks actually use.
+
+**`w` and `h` must be the size the picture is drawn at.** The returned path is in
+the image box's *own* inch space (`0..w`, `0..h`), because a `custGeom` point given
+as `%` resolves against the **slide**, not the box. That is why the box size is an
+argument at all: the silhouette's fractions are multiplied out at build time, so
+one shape scales to any region. Hand a `clipPath` result to a picture of a
+different size and the clip lands in the wrong place.
 
 ## Borders, shadows, recolor
 

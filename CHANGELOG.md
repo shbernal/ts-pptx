@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`clipPath()` names the clip silhouettes you would otherwise re-derive.** A `ClipShape`
+  is data — a named silhouette plus its options — and `clipPath(shape, w, h)` resolves it to
+  the freeform `points` path `addImage` emits as its `<a:custGeom>` clip mask. The first
+  silhouette is the half-disc a cover-slide picture placeholder cuts. See
+  [`docs/image-in-shape.md`](docs/image-in-shape.md).
+
+  ```js
+  import { clipPath } from '@shbernal/ts-pptx'
+
+  const w = 5.22, h = 7.5
+  slide.addImage({
+    path: 'cover.jpg', x: 0, y: 0, w, h,
+    points: clipPath({ kind: 'half-disc', flat: 'right' }, w, h),
+    sizing: { type: 'cover', w, h },
+  })
+  ```
+
+  `flat` names the edge the straight side sits on; `preset` picks the proportion, `'deep'`
+  (the default) or `'shallow'`. Paired with `sizing: 'cover'` this is a standalone
+  reproduction of what a picture placeholder does — a layout `custGeom` clipping an
+  inherited blipFill — with no placeholder, and no layout, involved.
+
+  **The box size is an argument for a reason.** A `custGeom` point written as `%` resolves
+  against the *slide*, not the picture, so a box-relative silhouette has to be emitted in
+  inches already scaled to its box. `clipPath` multiplies its fractions out at build time,
+  which is what lets one silhouette scale to any region — and is why handing a path to a
+  picture of a different size puts the clip somewhere else entirely. That trap is the whole
+  reason this is worth shipping rather than leaving to each caller.
+
 - **`slide.addModel3d()` embeds a 3D model** — PowerPoint's *Insert ▸ 3D Models*. A glTF
   binary (`.glb`) travels inside the package, and PowerPoint 2019+ renders it live and lets
   the viewer orbit it. See [`docs/3d-models.md`](docs/3d-models.md).

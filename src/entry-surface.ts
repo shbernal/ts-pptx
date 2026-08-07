@@ -15,6 +15,7 @@
 
 export * from './enums.js'
 export * from './units.js'
+export * from './clip.js'
 export * from './types/index.js'
 export { setDiagnosticHandler, type Diagnostic, type DiagnosticCode, type DiagnosticHandler } from './diagnostics.js'
 export * from './entry-errors.js'
