@@ -120,6 +120,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   lane keeps its per-function gate — a percentage cannot say *which* adapter function
   stopped running.
 
+- **The package is now bundled for Node and run, inside `pnpm run test:package`.** The
+  browser lane put a real bundler in front of the `browser` condition; nothing asked the
+  same of the `node` entry, and the two are different questions — Node's resolver finds a
+  specifier on disk at call time, while a bundler must resolve every one of them, including
+  dynamic ones, at build time. A package can be perfectly importable and still be
+  unbundlable.
+
+  `bundleForNode()` esbuild-bundles the installed tarball with `platform: 'node'` across
+  every export subpath but `/browser`, then runs what it emitted. It fails if the build
+  warns, if anything other than a Node builtin stayed external, or if the emitted bundle
+  cannot write a `.pptx`. Both the npm and pnpm fixtures, since pnpm's symlinked store is a
+  different shape for a bundler to walk.
+
 - **A bundle-size budget for the browser entry** (`pnpm run bundle-size:check`, part of
   `check:package`). Nothing measured shipped size before; a size promise nobody measures is
   a promise that quietly stops being true. It fails only on a step change and asks for a

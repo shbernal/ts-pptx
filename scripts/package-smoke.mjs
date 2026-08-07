@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises'
+import { isBuiltin } from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
+import esbuild from 'esbuild'
 import { ROOT, assertFile, assertNoFile, packPackage, run } from './script-utils.mjs'
 
 const packageJson = JSON.parse(await fs.readFile(path.join(ROOT, 'package.json'), 'utf8'))
@@ -98,6 +100,144 @@ const CONDITION_RUNS = [
 	{ label: 'default', nodeArgs: [], sameAs: '/node', distinctFrom: '/browser' },
 	{ label: 'browser', nodeArgs: ['--conditions=browser'], sameAs: '/browser', distinctFrom: '/node' },
 ]
+
+/**
+ * Subpaths the Node-target bundler step puts through esbuild. Everything in
+ * `EXPORT_MATRIX` except `/browser`, which is the *browser* condition's entry: the browser
+ * lane already puts a real bundler (Vite/Rolldown) in front of it and then runs what it
+ * emitted, and asking a Node-platform bundler about it answers a question no consumer has.
+ *
+ * Deriving this from the matrix rather than listing it again is deliberate — a new subpath
+ * gets bundled because it was added there, not because someone remembered a second list.
+ */
+const BUNDLE_MATRIX = EXPORT_MATRIX.filter((row) => row.subpath !== '/browser')
+
+/**
+ * Runtime dependencies the bundle must be shown to have *resolved and pulled in*, not
+ * quietly left external. `opentype.js` is the one that earns this check: it is reached
+ * through a **dynamic** `import()` in the measure/fit chunk, which is precisely the shape
+ * that is invisible to `node`'s own resolver (it finds it on disk at call time) and to a
+ * grep for `from "…"`. The browser lane found the browser entry's copy of this the hard
+ * way — the harness failed with `Failed to resolve module specifier 'opentype.js'` — and
+ * nothing had been asking the same question of the Node entry.
+ */
+const BUNDLED_DEPS = ['@xmldom/xmldom', 'fflate', 'opentype.js']
+
+/**
+ * Bundle the *installed* package for Node with esbuild, then run what it emitted.
+ *
+ * This is the Node-side counterpart to what the browser lane does for the `browser`
+ * condition, and it exists because those are different questions with different resolvers:
+ * `node` finds a specifier on disk when the call happens, while a bundler must resolve
+ * every one of them — including dynamic ones — at build time, walking the `exports` map
+ * under the conditions its platform implies. A package can be perfectly importable and
+ * still be unbundlable.
+ *
+ * Three assertions, red for different reasons:
+ *
+ *   - **it builds, with no warnings.** esbuild warns rather than fails on the interesting
+ *     cases (an unresolvable dynamic import, a mis-set condition falling through to a
+ *     stub), so a warning is treated as a failure here. There are none to allow today; if
+ *     one ever has to be, allow it by name, never by muting the channel.
+ *   - **nothing but a Node builtin stayed external.** The failure this catches is a bare
+ *     specifier the bundler could not resolve and silently deferred to runtime, which is
+ *     the same defect as a build error but arrives as a crash in the consumer's process.
+ *     Tested with `isBuiltin`, not a `node:` prefix check: the prefix is a convention, not
+ *     the rule. `fflate` imports `createRequire` from bare `module`, so a prefix test reads
+ *     a dependency's stylistic choice as an unresolvable specifier — which is exactly what
+ *     it did on the first run of this check.
+ *   - **the emitted bundle runs and writes a real package.** Resolution proves the graph;
+ *     only running it proves the graph was assembled into something that works.
+ *
+ * Runs against both the npm and pnpm fixtures, which is not redundant: pnpm's symlinked
+ * store is a genuinely different shape for a bundler to walk than npm's flat tree.
+ */
+async function bundleForNode(fixtureDir) {
+	const imports = []
+	const checks = []
+	for (const [index, row] of BUNDLE_MATRIX.entries()) {
+		const label = row.subpath || '.'
+		// Named imports, not `import * as ns`: a namespace object is a tree-shaking barrier,
+		// and the point is to bundle the package the way a consumer's bundler would see it.
+		const clauses = Object.keys(row.exports).map((name) => `${name} as e${index}_${name}`)
+		if (row.hasDefault) clauses.unshift(`default as d${index}`)
+		imports.push(`import { ${clauses.join(', ')} } from ${JSON.stringify(packageImport(row.subpath))}`)
+		if (row.hasDefault) checks.push(`if (d${index} === undefined) throw new Error('${label}: missing default export')`)
+		for (const [name, kind] of Object.entries(row.exports)) {
+			checks.push(
+				`if (typeof e${index}_${name} !== '${kind}') throw new Error('${label}: ${name} is not a ${kind} once bundled')`
+			)
+		}
+	}
+
+	const entryFile = path.join(fixtureDir, 'bundle-entry.mjs')
+	await fs.writeFile(
+		entryFile,
+		[
+			...imports,
+			...checks,
+			// Every check above is satisfiable by a binding that resolved to nothing useful.
+			// Building a deck is what proves the bundled graph is wired: the zip writer, the
+			// XML serializers and the Node runtime adapter all have to be present and reachable.
+			`const pptx = new e0_TsPptx()`,
+			`pptx.addSlide().addText('bundled', { x: 1, y: 1, w: 2, h: 0.5 })`,
+			`const bytes = new Uint8Array(await pptx.stream())`,
+			`if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) throw new Error('bundled build did not emit a zip')`,
+			`if (bytes.length < 1000) throw new Error('bundled build emitted ' + bytes.length + ' bytes, expected a deck')`,
+			'',
+		].join('\n')
+	)
+
+	const outFile = path.join(fixtureDir, 'bundle-out.mjs')
+	const result = await esbuild.build({
+		absWorkingDir: fixtureDir,
+		entryPoints: [entryFile],
+		outfile: outFile,
+		bundle: true,
+		// `node` platform is what makes esbuild resolve the `exports` map under the `node`
+		// condition and treat `node:` builtins as external — the resolution a serverless or
+		// `ncc`-style consumer gets. It is also what keeps `dist/zip.js`'s lazy
+		// `import('node:fs/promises')` from being a finding: it is a builtin, not a gap.
+		platform: 'node',
+		format: 'esm',
+		metafile: true,
+		// Warnings are inspected below rather than printed, so a red run says which one.
+		logLevel: 'silent',
+	})
+
+	if (result.warnings.length) {
+		const formatted = await esbuild.formatMessages(result.warnings, { kind: 'warning', color: false })
+		throw new Error('bundling the installed package for Node produced warnings:\n' + formatted.join('\n'))
+	}
+
+	const external = []
+	for (const output of Object.values(result.metafile.outputs)) {
+		for (const imported of output.imports ?? []) {
+			if (imported.external && !isBuiltin(imported.path)) external.push(imported.path)
+		}
+	}
+	if (external.length) {
+		throw new Error(
+			'the Node bundle left non-builtin specifiers external, so a bundler could not resolve them: ' +
+				[...new Set(external)].sort().join(', ')
+		)
+	}
+
+	// esbuild normalizes metafile paths to forward slashes on every platform, so one shape
+	// of check works for npm's flat tree and pnpm's `.pnpm/<name>@<version>/node_modules/…`.
+	const inputs = Object.keys(result.metafile.inputs)
+	const missing = BUNDLED_DEPS.filter((dep) => !inputs.some((input) => input.includes(`node_modules/${dep}/`)))
+	if (missing.length) {
+		throw new Error(
+			'the Node bundle never pulled in ' +
+				missing.join(', ') +
+				' — a dependency that is neither bundled nor external has been dropped from the graph'
+		)
+	}
+
+	await run(process.execPath, [outFile], { cwd: fixtureDir })
+	console.log(`  node bundle: ${BUNDLE_MATRIX.length} subpaths bundled and run (esbuild ${esbuild.version})`)
+}
 
 async function writeFixtureManifest(fixtureDir, manager) {
 	await fs.mkdir(fixtureDir, { recursive: true })
@@ -317,6 +457,7 @@ console.log('  conditions [' + label + ']: "." -> ' + sameAs)
 	}
 	await run(process.execPath, [path.join(fixtureDir, 'esm-smoke.mjs')], { cwd: fixtureDir })
 	await run(process.execPath, [path.join(fixtureDir, 'cjs-contract.cjs')], { cwd: fixtureDir })
+	await bundleForNode(fixtureDir)
 	for (const config of typeSmokeConfigs) {
 		await run(process.execPath, [
 			path.join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc'),

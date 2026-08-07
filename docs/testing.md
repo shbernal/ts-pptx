@@ -762,15 +762,46 @@ down with it.)
 
 The test role used to belong to `scripts/demo-smoke.mjs`, which generated one deck
 from `demos/node` and ran `vite build`. Both signals it produced are now covered
-directly, and more precisely: `test:package` imports all nine export subpaths out
+directly, and more precisely: `test:package` imports all ten export subpaths out
 of an installed tarball and forces the `browser` condition, `package:lint`
 validates types resolution with attw, and the browser lane puts a real bundler
-(Vite/Rolldown) in front of the package and then *runs what it emitted*. That last
-one closes a gap this section previously recorded as accepted — nothing proved
-Rollup/esbuild could resolve and tree-shake the runtime entry. Something does now,
-though only for the `browser` condition; the `node` entry still has no bundler
-check, and if that ever bites, the fix belongs in `scripts/package-smoke.mjs` as a
-bundler step against the installed tarball, not in a resurrected demo smoke.
+(Vite/Rolldown) in front of the package and then *runs what it emitted*. That
+closes a gap this section previously recorded as accepted — nothing proved
+Rollup/esbuild could resolve and tree-shake the runtime entry.
+
+### Bundling the package for Node
+
+Both conditions are answered now. The `node` entry's half is `bundleForNode()` in
+`scripts/package-smoke.mjs`, which esbuild-bundles the *installed tarball* with
+`platform: 'node'` and then runs what it emitted. It is not redundant with the
+export matrix next to it, because the two use different resolvers asking different
+questions:
+
+| | resolves | when |
+|---|---|---|
+| export matrix | `node`'s own resolver | at call time, off disk |
+| bundler step | esbuild's, walking `exports` under `platform: 'node'` | at build time, statically |
+
+A package can be perfectly importable and still be unbundlable — a dynamic bare
+import is the canonical case, because Node just finds it and a bundler must
+resolve it. That is not hypothetical: it is exactly what the browser harness hit
+with `opentype.js`, and nothing had asked the same question of the `node` entry.
+
+Three assertions, red for different reasons: it builds with **no warnings** (a
+warning is a failure here — allow one by name if it ever must be, never mute the
+channel); **nothing but a Node builtin stayed external**; and the emitted bundle
+**runs and writes a real `.pptx`**. It runs against the npm *and* pnpm fixtures,
+since pnpm's symlinked store is a different shape for a bundler to walk.
+
+Two things worth knowing before editing it:
+
+- **Builtins are tested with `isBuiltin`, not a `node:` prefix.** The prefix is a
+  convention, not the rule — `fflate` imports `createRequire` from bare `module`,
+  which a prefix test reads as an unresolvable specifier. That was this check's
+  first finding, against itself.
+- **The bundled subpath list is derived from `EXPORT_MATRIX`**, minus `/browser`
+  (the browser lane owns that condition). Adding a subpath there gets it bundled;
+  there is no second list to keep in sync.
 
 ## Manual Visual Checks
 
