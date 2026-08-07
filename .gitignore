@@ -36,15 +36,6 @@ demos/showcases/output/
 *.swp
 *~
 
-### PPTX bank — uncommitted corpus of real decks for ad-hoc agent use
-# (probing OOXML, debugging round-trip, fixture candidates). Distinct from the
-# curated, hash-pinned harness inputs in test/read/fixtures/. Track only the
-# README so the convention stays self-documenting; ignore all .pptx bytes.
-# Use `dir/*` (not `dir/`) + a negation so git can re-include the README —
-# it cannot re-include a file inside a fully-excluded directory.
-/pptx-bank/*
-!/pptx-bank/README.md
-
 ### OOXML-Validator binary (downloaded by tools/ooxml-validator/install.sh)
 tools/ooxml-validator/bin/
 

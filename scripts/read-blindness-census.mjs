@@ -37,15 +37,15 @@
  * Scope caveat. The default corpus is `test/read/fixtures/`, which is *construct-targeted*:
  * each deck exercises one feature. So it measures **coverage**, not **frequency** — it
  * cannot tell you whether `custGeom` or placeholder inheritance is worth the next week of
- * work. Point `--dir pptx-bank` at a corpus of real decks (that directory is gitignored
- * exactly so real files can live there) to get a frequency-weighted read instead.
+ * work. Point `--dir` at a corpus of real decks — any path, including one outside the
+ * repo — to get a frequency-weighted read instead.
  *
  * Usage:
  *   node scripts/read-blindness-census.mjs            # slides only (the default surface)
  *   node scripts/read-blindness-census.mjs --all      # + layouts, masters, theme, notes
  *   node scripts/read-blindness-census.mjs --json     # machine-readable, for a test to assert on
  *   node scripts/read-blindness-census.mjs --fixture mixed.pptx
- *   node scripts/read-blindness-census.mjs --dir pptx-bank   # frequency over real decks
+ *   node scripts/read-blindness-census.mjs --dir ~/decks     # frequency over real decks
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'

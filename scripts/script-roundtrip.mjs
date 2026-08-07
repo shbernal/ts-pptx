@@ -28,7 +28,7 @@
  *   pnpm run script:roundtrip -- --tier a
  *   pnpm run script:roundtrip -- --json
  *   pnpm run script:roundtrip -- --fixture mixed.pptx --verbose
- *   pnpm run script:roundtrip -- --dir pptx-bank
+ *   pnpm run script:roundtrip -- --dir ~/decks        # any corpus; absolute paths welcome
  */
 import { execFile } from 'node:child_process'
 import fs from 'node:fs/promises'
@@ -52,7 +52,9 @@ if (tier !== 'a' && tier !== 'b') {
 	console.error(`--tier must be a (standalone) or b (template-anchored), got ${JSON.stringify(tier)}`)
 	process.exit(1)
 }
-const DIR = path.join(ROOT, flag('--dir') ?? path.join('test', 'read', 'fixtures'))
+// `resolve`, not `join`: an absolute `--dir` must win outright, so a corpus of real decks
+// can live outside the repo rather than under a gitignore rule inside the working tree.
+const DIR = path.resolve(ROOT, flag('--dir') ?? path.join('test', 'read', 'fixtures'))
 
 // Inside the repo rather than the OS temp directory, and required to be: the emitted script
 // imports this package by its published name, which Node resolves by the self-reference rule

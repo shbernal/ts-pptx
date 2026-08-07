@@ -366,7 +366,7 @@ surface directly.
 pnpm run script:roundtrip                          # template-anchored, whole corpus
 pnpm run script:roundtrip -- --tier a              # standalone
 pnpm run script:roundtrip -- --fixture mixed.pptx --verbose
-pnpm run script:roundtrip -- --dir pptx-bank       # your own decks
+pnpm run script:roundtrip -- --dir ~/decks         # your own decks, any path
 pnpm run script:roundtrip -- --json
 ```
 

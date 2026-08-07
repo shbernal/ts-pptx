@@ -16,8 +16,8 @@ writes OOXML; do not generate them with ts-pptx.
    before replacing it. If the user asks to replace it, delete only that exact
    path.
 3. Put curated fixtures in `test/read/fixtures/` unless the user specifies
-   another target. Use `pptx-bank/` only for uncommitted exploration corpus
-   files.
+   another target. Exploration decks that are not becoming fixtures do not
+   belong in the working tree at all — keep them outside the repo.
 4. Author the deck with desktop PowerPoint COM. Write the script to a temp file
    (e.g. `.tmp/author-<name>.ps1`) and run it through the **PowerShell (pwsh 7)
    tool** with the call operator: `& '.tmp/author-<name>.ps1'`. PowerShell 7

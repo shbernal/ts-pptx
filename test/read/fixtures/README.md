@@ -24,10 +24,10 @@ Authoring application verified from each file's `docProps/app.xml`.
 
 PowerPoint output contributed by the maintainer or authored locally with desktop
 PowerPoint COM and confirmed license-clean for inclusion. `mixed.pptx` was
-promoted from the uncommitted `pptx-bank/` corpus (see
-`../../../pptx-bank/README.md`) because it exercises shape kinds the vendored set
-does not. Minimal locally authored decks are stored byte-for-byte as saved by
-PowerPoint.
+promoted here from a real-world deck because it exercises shape kinds the
+vendored set does not — the promotion procedure is in
+[`docs/testing.md`](../../../docs/testing.md). Minimal locally authored decks
+are stored byte-for-byte as saved by PowerPoint.
 
 | Local name             | Application                    | AppVersion | Slides |
 | ---------------------- | ------------------------------ | ---------- | ------ |

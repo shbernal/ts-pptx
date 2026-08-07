@@ -227,7 +227,7 @@ So before writing a test for a red branch, ask which of these it is:
   narrower.
 - **Schema-legal but unrepresented in the fixtures** — the input is a deck
   PowerPoint could write, and no committed fixture happens to be shaped that way.
-  **Cover this one.** Either promote a fixture from `pptx-bank/` or synthesize the
+  **Cover this one.** Either promote a fixture from a real-world deck or synthesize the
   XML, following the approach in `test/read/slide-background-edges.test.js`
   (splice the variant into an authored deck, so the rest of the package is real).
 
@@ -499,32 +499,28 @@ The gate is `validatorAvailable()` in `test/validator.js`.
 Changes under `src/read/` should run this suite; new read/edit capabilities
 should extend it (and grow the fixture set) alongside the code.
 
-### `pptx-bank/` — real-world deck corpus (uncommitted)
+### Working against real-world decks
 
-`pptx-bank/` at the repo root is an **uncommitted** bank of real-world
-PowerPoint files for ad-hoc testing and verification: probing OOXML structures,
-reproducing read/round-trip behaviour against decks far messier and larger than
-the curated fixtures, and finding candidates worth promoting to a committed
-fixture. It is gitignored (`/pptx-bank/*` with a `!README.md` negation), so you
-can drop in arbitrary decks — including large, copyrighted, or client files —
-with no risk of them entering Git history. See `pptx-bank/README.md`.
+The committed fixtures are construct-targeted and minimal by design. To probe
+OOXML structures or reproduce read/round-trip behaviour against decks that are
+messier and larger, point the measurement harnesses at a directory of your own
+with `--dir` (`script:roundtrip` and `read:census` both take it, absolute paths
+included).
 
-How it relates to the other deck locations:
+Keep that directory **outside the repo**. Real decks are routinely large,
+copyrighted, or client-confidential, and the working tree is the one place they
+should not sit: a gitignore rule is a single edit away from not protecting them.
+If you do want one in-repo, `.tmp/` is already ignored — but it is output
+scratch, so treat anything you leave there as disposable.
 
-| Location | Committed? | Role |
-|---|---|---|
-| `test/read/fixtures/` | yes — hash-pinned, provenance-tracked, license-clean | curated, minimal **inputs** the harness depends on (CI runs these) |
-| `.tmp/` | no | generated **output** scratch (e.g. `pnpm run test:read:emit`) |
-| `pptx-bank/` | no | free-form **input** corpus for exploration and manual verification |
-
-The automated harness must only point at `test/read/fixtures/` — bank files are
-not tracked, so other checkouts and CI will not have them. When a bank deck
-proves a good minimal, license-clean regression case, **promote** it: copy it
-into `test/read/fixtures/`, add it to that directory's provenance table +
-SHA-256 list and purpose notes, and wire it into the harness
-(`FIXTURES` in `test/read/roundtrip.test.js`). The `mixed.pptx` fixture was
-promoted from the bank this way to cover connectors, nested groups, charts, and
-SmartArt that the vendored fixtures lacked.
+The automated suites must only point at `test/read/fixtures/`, since no other
+checkout or CI run will have your decks. When one of them proves a good minimal,
+license-clean regression case, **promote** it: copy it into
+`test/read/fixtures/`, add it to that directory's provenance table + SHA-256
+list and purpose notes, and wire it into the harness (`FIXTURES` in
+`test/read/roundtrip.test.js`). The `mixed.pptx` fixture arrived this way, to
+cover connectors, nested groups, charts, and SmartArt that the vendored
+fixtures lacked.
 
 Fixtures authored here with desktop PowerPoint COM keep their recipe in
 `test/read/fixtures/authoring/` (see that directory's README). Land the recipe there
@@ -549,7 +545,7 @@ pnpm run read:append-ceiling                  # what survives fromTemplate + app
 
 All three take `--json`, so a test can assert on them rather than re-derive the
 numbers. `script:roundtrip` and `read:census` also take `--fixture` and `--dir`,
-the latter so `pptx-bank/` decks can be measured the moment they land;
+the latter so a corpus of your own decks can be measured in place;
 `read:census` adds `--all` (include layouts, masters, theme and notes) and
 `append-ceiling` takes `--template <path>` instead.
 
