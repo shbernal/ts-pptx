@@ -22,12 +22,25 @@
  * What counts: an XML tag delimiter — `<ns:name` or `</ns:name` — inside a string
  * or template literal in `src/`. The scan is over the TypeScript AST rather than
  * the file text, so the `<a:bodyPr>` in a doc comment is not a finding while the
- * one in a template literal is. Two further exemptions:
+ * one in a template literal is. Three further exemptions:
  *
  * - `src/gen/oxml/` — emitting those delimiters is its job.
  * - Arguments to a message sink (`warn`, `notes.note`, `new *Error`). A warning
  *   that names the element it is talking about is prose, and prose that has to
  *   dodge the gate would get written worse to pass it.
+ * - A declaration marked `@raw-xml-asset`. This is the difference between XML this
+ *   library *builds* and XML it *ships*: a payload captured verbatim from PowerPoint
+ *   and stored as a constant carries none of the escaping, attribute-order or
+ *   child-sequence risk the ratchet exists to contain — there is nothing to
+ *   interpolate and nothing to migrate, because `el()` would only re-encode a byte
+ *   sequence that must stay exactly as Office wrote it. Counting them anyway put the
+ *   single largest number in the budget (`chartex-style.ts`, 542) on the one file
+ *   that will never move, which buried the real holdouts and made the total read as
+ *   a migration backlog nearly five times its actual size.
+ *
+ *   The marker is deliberately narrow: it exempts one declaration, must be written
+ *   on it, and does not apply to anything that interpolates. If you find yourself
+ *   reaching for it on something built at runtime, it is the wrong tool.
  */
 
 import fs from 'node:fs'
@@ -43,6 +56,8 @@ const EXEMPT_DIR = 'src/gen/oxml/'
 const TAG_DELIMITER = /<\/?[a-zA-Z][\w.-]*:[a-zA-Z]/g
 /** Callees whose string arguments are messages for a human, never emitted bytes. */
 const MESSAGE_SINKS = new Set(['warn', 'note'])
+/** Marks a declaration holding XML captured verbatim from Office rather than built here. */
+const ASSET_MARKER = '@raw-xml-asset'
 
 const argv = process.argv.slice(2)
 const freeze = argv.includes('--freeze')
@@ -80,6 +95,26 @@ function isMessageArgument(node) {
 }
 
 /**
+ * Is this literal the initializer of a declaration marked {@link ASSET_MARKER}?
+ *
+ * Walks out to the enclosing statement and reads its leading trivia, so the marker can sit in
+ * the JSDoc that already documents the constant. Only a plain literal qualifies: a template
+ * with substitutions is something being *built*, whatever it is labelled.
+ * @param {ts.Node} node
+ * @param {string} text full file text, for reading comment ranges
+ * @returns {boolean}
+ */
+function isCapturedAsset(node, text) {
+	if (ts.isTemplateExpression(node.parent)) return false
+	for (let current = node; current; current = current.parent) {
+		if (!ts.isVariableStatement(current) && !ts.isPropertyDeclaration(current)) continue
+		const ranges = ts.getLeadingCommentRanges(text, current.getFullStart()) ?? []
+		return ranges.some((range) => text.slice(range.pos, range.end).includes(ASSET_MARKER))
+	}
+	return false
+}
+
+/**
  * Every tag delimiter inside a string or template literal in one file.
  * @param {string} file absolute path
  * @returns {Array<{ line: number, text: string }>}
@@ -94,7 +129,11 @@ function findingsIn(file) {
 	function visit(node) {
 		// Template *spans* are visited as their own literal nodes, so a multi-part
 		// template literal is covered piece by piece rather than as one blob.
-		if ((ts.isStringLiteralLike(node) || ts.isTemplateLiteralToken(node)) && !isMessageArgument(node)) {
+		if (
+			(ts.isStringLiteralLike(node) || ts.isTemplateLiteralToken(node)) &&
+			!isMessageArgument(node) &&
+			!isCapturedAsset(node, text)
+		) {
 			for (const match of node.text.matchAll(TAG_DELIMITER)) {
 				const { line } = source.getLineAndCharacterOfPosition(node.getStart(source))
 				found.push({ line: line + 1, text: match[0] })

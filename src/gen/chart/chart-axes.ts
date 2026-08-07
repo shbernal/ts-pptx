@@ -6,6 +6,13 @@
  * gridlines, optional axis title -- but PowerPoint requires the child elements in a
  * fixed order that differs per axis, so they stay as three separate builders rather
  * than one parameterized one. Called by {@link ./chart-xml}'s axis region.
+ *
+ * Sub-blocks are shared where they can be shared *exactly*: {@link axisLineSpPr} covers
+ * `<c:spPr>`, which differs between the three only by indent width. `<c:txPr>` is
+ * deliberately left duplicated — its inherited indentation is irregular *within* each copy
+ * as well as between them (the category axis closes `</a:defRPr>` at three spaces, the value
+ * axis at six), so parameterising it would take about as many indent arguments as it has
+ * lines and would hide the quirks rather than share the structure.
  */
 
 import { asChartType, ChartType } from '../../enums.js'
@@ -31,6 +38,41 @@ import {
 	VALID_CHART_TIME_UNITS,
 } from './chart-parts.js'
 
+/**
+ * The `<c:spPr>` axis-line block, identical in shape on all three axes.
+ *
+ * The only thing that differed between the three copies was how far each was indented — two
+ * spaces on the category and series axes, one on the value axis — and that irregularity is
+ * inherited, not meaningful. It is reproduced here rather than normalised because inter-element
+ * whitespace being inert does not make changing it free: byte-identity is the gate that proves
+ * an emitter refactor changed nothing, and it cannot tell a "harmless" whitespace edit from a
+ * real one. `indent` keeps the quirk visible at the call site.
+ * @param {number} indent - leading spaces on the `<c:spPr>` line; children step out by 2 and 4
+ * @param {number} widthEmu - line width for `a:ln@w`
+ * @param {boolean | undefined} show - false emits `<a:noFill/>` instead of a colour
+ * @param {string | undefined} color - line colour, defaulting to {@link DEF_GRIDLINE_COLOR}
+ * @param {string} dash - `a:prstDash@val`
+ * @return {string} XML `<c:spPr>`
+ */
+function axisLineSpPr(
+	indent: number,
+	widthEmu: number,
+	show: boolean | undefined,
+	color: string | undefined,
+	dash: string
+): string {
+	const at = (extra: number): string => ' '.repeat(indent + extra)
+	return (
+		`${at(0)}<c:spPr>` +
+		`${at(2)}<a:ln w="${widthEmu}" cap="flat">` +
+		(!show ? '<a:noFill/>' : genXmlColorSelection(color || DEF_GRIDLINE_COLOR)) +
+		`${at(4)}<a:prstDash val="${dash}"/>` +
+		`${at(4)}<a:round/>` +
+		`${at(2)}</a:ln>` +
+		`${at(0)}</c:spPr>`
+	)
+}
+
 export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: string): string {
 	let strXml = ''
 	const usesValueAxisForCategories =
@@ -46,7 +88,7 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 	}
 	strXml += '  <c:axId val="' + axisId + '"/>'
 	strXml += '  <c:scaling>'
-	strXml += '<c:orientation val="' + (opts.catAxisOrientation || (opts.barDir === 'col' ? 'minMax' : 'minMax')) + '"/>'
+	strXml += '<c:orientation val="' + (opts.catAxisOrientation || 'minMax') + '"/>'
 	if (opts.catAxisMaxVal || opts.catAxisMaxVal === 0) strXml += `<c:max val="${opts.catAxisMaxVal}"/>`
 	if (opts.catAxisMinVal || opts.catAxisMinVal === 0) strXml += `<c:min val="${opts.catAxisMinVal}"/>`
 	strXml += '</c:scaling>'
@@ -79,13 +121,13 @@ export function makeCatAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 		strXml += '  <c:minorTickMark val="' + (opts.catAxisMinorTickMark || 'none') + '"/>'
 		strXml += '  <c:tickLblPos val="' + (opts.catAxisLabelPos || (opts.barDir === 'col' ? 'low' : 'nextTo')) + '"/>'
 	}
-	strXml += '  <c:spPr>'
-	strXml += `    <a:ln w="${opts.catAxisLineSize ? valToPts(opts.catAxisLineSize) : EMU_PER_POINT}" cap="flat">`
-	strXml += !opts.catAxisLineShow ? '<a:noFill/>' : genXmlColorSelection(opts.catAxisLineColor || DEF_GRIDLINE_COLOR)
-	strXml += '      <a:prstDash val="' + (opts.catAxisLineStyle || 'solid') + '"/>'
-	strXml += '      <a:round/>'
-	strXml += '    </a:ln>'
-	strXml += '  </c:spPr>'
+	strXml += axisLineSpPr(
+		2,
+		opts.catAxisLineSize ? valToPts(opts.catAxisLineSize) : EMU_PER_POINT,
+		opts.catAxisLineShow,
+		opts.catAxisLineColor,
+		opts.catAxisLineStyle || 'solid'
+	)
 	strXml += '  <c:txPr>'
 	if (opts.catAxisLabelRotate) {
 		strXml += `<a:bodyPr rot="${convertRotationDegrees(opts.catAxisLabelRotate)}"/>`
@@ -166,7 +208,7 @@ export function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string 
 	strXml += '  <c:axId val="' + valAxisId + '"/>'
 	strXml += '  <c:scaling>'
 	if (opts.valAxisLogScaleBase) strXml += `<c:logBase val="${opts.valAxisLogScaleBase}"/>`
-	strXml += '<c:orientation val="' + (opts.valAxisOrientation || (opts.barDir === 'col' ? 'minMax' : 'minMax')) + '"/>'
+	strXml += '<c:orientation val="' + (opts.valAxisOrientation || 'minMax') + '"/>'
 	if (opts.valAxisMaxVal || opts.valAxisMaxVal === 0) strXml += `<c:max val="${opts.valAxisMaxVal}"/>`
 	if (opts.valAxisMinVal || opts.valAxisMinVal === 0) strXml += `<c:min val="${opts.valAxisMinVal}"/>`
 	strXml += '  </c:scaling>'
@@ -193,13 +235,13 @@ export function makeValAxis(opts: ChartOptsInternal, valAxisId: string): string 
 		strXml += ' <c:minorTickMark val="' + (opts.valAxisMinorTickMark || 'none') + '"/>'
 		strXml += ' <c:tickLblPos val="' + (opts.valAxisLabelPos || (opts.barDir === 'col' ? 'nextTo' : 'low')) + '"/>'
 	}
-	strXml += ' <c:spPr>'
-	strXml += `   <a:ln w="${opts.valAxisLineSize ? valToPts(opts.valAxisLineSize) : EMU_PER_POINT}" cap="flat">`
-	strXml += !opts.valAxisLineShow ? '<a:noFill/>' : genXmlColorSelection(opts.valAxisLineColor || DEF_GRIDLINE_COLOR)
-	strXml += '     <a:prstDash val="' + (opts.valAxisLineStyle || 'solid') + '"/>'
-	strXml += '     <a:round/>'
-	strXml += '   </a:ln>'
-	strXml += ' </c:spPr>'
+	strXml += axisLineSpPr(
+		1,
+		opts.valAxisLineSize ? valToPts(opts.valAxisLineSize) : EMU_PER_POINT,
+		opts.valAxisLineShow,
+		opts.valAxisLineColor,
+		opts.valAxisLineStyle || 'solid'
+	)
 	strXml += ' <c:txPr>'
 	strXml += `  <a:bodyPr${opts.valAxisLabelRotate ? ' rot="' + convertRotationDegrees(opts.valAxisLabelRotate).toString() + '"' : ''}/>` // don't specify rot 0 so we get the auto behavior
 	strXml += '  <a:lstStyle/>'
@@ -258,10 +300,7 @@ export function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 	// Build ser axis tag
 	strXml += '<c:serAx>'
 	strXml += '  <c:axId val="' + axisId + '"/>'
-	strXml +=
-		'  <c:scaling><c:orientation val="' +
-		(opts.serAxisOrientation || (opts.barDir === 'col' ? 'minMax' : 'minMax')) +
-		'"/></c:scaling>'
+	strXml += '  <c:scaling><c:orientation val="' + (opts.serAxisOrientation || 'minMax') + '"/></c:scaling>'
 	strXml += '  <c:delete val="' + (opts.serAxisHidden ? '1' : '0') + '"/>'
 	strXml += '  <c:axPos val="' + (opts.barDir === 'col' ? 'b' : 'l') + '"/>'
 	strXml += opts.serGridLine && opts.serGridLine.style !== 'none' ? createGridLineElement(opts.serGridLine) : ''
@@ -279,13 +318,7 @@ export function makeSerAxis(opts: ChartOptsInternal, axisId: string, valAxisId: 
 	strXml += '  <c:majorTickMark val="out"/>'
 	strXml += '  <c:minorTickMark val="none"/>'
 	strXml += `  <c:tickLblPos val="${opts.serAxisLabelPos || (opts.barDir === 'col' ? 'low' : 'nextTo')}"/>`
-	strXml += '  <c:spPr>'
-	strXml += '    <a:ln w="12700" cap="flat">'
-	strXml += !opts.serAxisLineShow ? '<a:noFill/>' : genXmlColorSelection(opts.serAxisLineColor || DEF_GRIDLINE_COLOR)
-	strXml += '      <a:prstDash val="solid"/>'
-	strXml += '      <a:round/>'
-	strXml += '    </a:ln>'
-	strXml += '  </c:spPr>'
+	strXml += axisLineSpPr(2, EMU_PER_POINT, opts.serAxisLineShow, opts.serAxisLineColor, 'solid')
 	strXml += '  <c:txPr>'
 	strXml += '    <a:bodyPr/>' // don't specify rot 0 so we get the auto behavior
 	strXml += '    <a:lstStyle/>'
