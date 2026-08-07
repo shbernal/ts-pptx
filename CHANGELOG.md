@@ -62,7 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     page. Real `offsetWidth`, the resolved cascade, and browser-chosen fonts remain out of
     active scope; a layout difference between two browsers is not a defect in this
     package's browser support, whereas a `.pptx` a browser builds differently from Node is.
-  - **`tableToSlides` measurement still degrades without a layout engine**, exactly as
+  - **`tableToSlides` measurement is still unavailable without a layout engine**, exactly as
     documented — `offsetWidth` is `0`, widths fall back to computed CSS and then an equal
     split, and `data-pptx-width` / `data-pptx-min-width` pin them.
 
@@ -120,7 +120,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   engine would agree; that is live-DOM layout fidelity, it has no oracle, and it stays out
   of active scope. A layout difference between two browsers is still not a defect in this
   package; a `.pptx` a browser builds differently from Node still is — which the lane pins
-  directly, by converting the same markup in both runtimes and asserting Node degrades to
+  directly, by converting the same markup in both runtimes and asserting Node falls back to
   the CSS basis where the browser measures.
 
   The new project contributes its V8 coverage to the merge like every other browser spec, so
@@ -183,6 +183,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `/math/async` subpath, not a change to this one. Recorded in
   [`docs/runtime-and-package-support.md`](docs/runtime-and-package-support.md) so it is not
   re-litigated per release.
+
+- **The docs called `tableToSlides`'s no-browser width path a *degradation*. It is a
+  *fallback*, and the difference is not cosmetic.** Every user-facing statement of it — the
+  README, `docs/project-target.md`, `docs/runtime-and-package-support.md`, `AGENTS.md`, the
+  `/html` entry's own doc comment — said column widths "degrade to computed CSS", which
+  reads as *the same answer, less precisely*. They do not measure the same box:
+  `offsetWidth` is the border box and a computed `width` is the content box, so padding
+  alone can put the two bases in different **proportions**. The `html-table` fixture is
+  built to demonstrate exactly that — 1:1 measured against 2:1 from CSS on one table — so
+  the repo had the fact and the docs contradicted it. Now stated wherever the fallback is
+  described, with the remedy: pin the column with `data-pptx-width` where both runtimes
+  have to agree.
+
+  No behaviour changed, and deliberately so. Normalizing the CSS basis to the border box
+  would need computed padding and border widths, which the DOMs that reach that arm need
+  not resolve (a `%` padding computes to nothing usable without layout) — so it would
+  converge the two only sometimes, and it would collapse the one discriminator the browser
+  lane has, turning `table-widths.spec.mjs` back into a test that passes whether or not the
+  measured arm ran. The reasoning is recorded on `pickColWidthBasis` itself.
 
 - **The browser lane stays Chromium-only, deliberately.** The APIs in play (`fetch`,
   `FileReader`, canvas, object URLs, `<a download>`) are not where engines are known to

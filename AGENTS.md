@@ -22,8 +22,11 @@
     it ships as a free function on `ts-pptx/html`, runs under Node with any DOM,
     and is covered against happy-dom (`test/regression/html-to-slides-node.test.js`).
     Only real *measurement* is out of scope there — without a layout engine
-    `offsetWidth` is `0`, so column widths degrade to computed CSS widths then to
-    an equal split. Keep extracting the DOM-independent part of anything here into
+    `offsetWidth` is `0`, so column widths fall back to computed CSS widths then to
+    an equal split. Say "fall back", not "degrade": `offsetWidth` is the border box
+    and computed `width` the content box, so the two bases can put a table's columns
+    in different *proportions*, not merely at a coarser precision. Keep extracting
+    the DOM-independent part of anything here into
     a pure helper and unit-testing it (pattern: `resolveHtmlColWidth`,
     `pickColWidthBasis`, `cssColorToHex`).
   - **Third-party office-suite interop quirks** — breakage that only appears after

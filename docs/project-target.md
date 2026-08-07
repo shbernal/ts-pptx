@@ -82,10 +82,19 @@ supported.
   `ts-pptx/html`, runs under Node with any DOM implementation, and is covered
   end-to-end against happy-dom (`test/regression/html-to-slides-node.test.js`).
   What it cannot do without a browser is *measure* — `offsetWidth` is `0` where
-  nothing laid the table out — so column widths degrade to the computed CSS
+  nothing laid the table out — so column widths fall back to the computed CSS
   widths, then to an equal split, and `data-pptx-width` /
-  `data-pptx-min-width` are there to pin them. That degradation is the scope
+  `data-pptx-min-width` are there to pin them. That fallback is the scope
   boundary: everything except real measurement works anywhere.
+
+  A *fallback*, deliberately, and not a *degradation* — the two bases do not
+  measure the same box. `offsetWidth` is the **border box**; computed `width` is
+  the **content box**. Padding alone is enough to separate them, so one table can
+  emit different column *proportions* on either side of a layout engine — a
+  different answer, not the same answer less precisely. The fixture behind
+  `test/browser/table-widths.spec.mjs` is built to show it: 1:1 measured against
+  2:1 from CSS. Where both runtimes have to agree on a column, state it with
+  `data-pptx-width`.
 
   The in-memory `addTable(rows, opts)` path remains the way to build a table
   from data you already hold; converting an existing HTML table is what the

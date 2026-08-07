@@ -165,9 +165,14 @@ delegates to the same implementation.
 **Column widths need a layout engine.** In a browser the columns are sized from
 each cell's rendered `offsetWidth`, reproducing the table's real proportions.
 Nothing outside a browser lays a table out, so `offsetWidth` is `0` there and
-the conversion degrades in two steps: it uses the computed CSS `width`s when the
+the conversion falls back in two steps: it uses the computed CSS `width`s when the
 stylesheet states them for every column in one unit (all `px` or all `%`), and
 an equal split when it does not.
+
+The first step is a *fallback*, not a graceful loss of precision: `offsetWidth` is
+the border box and computed `width` the content box, so padding alone can put the
+two bases in different proportions. The same table can therefore come out with
+different column widths in a browser and outside one.
 
 To pin widths regardless of runtime, annotate the `<thead>` header cells — these
 win outright on every path:

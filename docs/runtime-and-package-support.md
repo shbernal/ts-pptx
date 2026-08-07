@@ -120,9 +120,17 @@ Two claims, kept separate on purpose:
 - **Browser *layout* is not an oracle this library answers to.** The resolved CSS
   cascade and fonts as the browser chose them remain out of active scope — see
   [Project Target](project-target.md). `tableToSlides()` runs anywhere there is a
-  DOM, and only *measurement* degrades without a layout engine: `offsetWidth` is
+  DOM, and only *measurement* is lost without a layout engine: `offsetWidth` is
   `0`, column widths fall back to computed CSS widths and then to an equal split,
   and `data-pptx-width` / `data-pptx-min-width` let you pin them.
+
+  Losing the measurement is not the same as losing precision, and this page used
+  to say "degrades" as though it were. `offsetWidth` is the border box; computed
+  `width` is the content box. Padding alone is enough to make the two disagree —
+  the `html-table` fixture is built to, at 1:1 measured against 2:1 from CSS — so
+  one table converted in Chromium and under happy-dom can emit different column
+  *proportions*, not the same proportions coarsened. Where both runtimes must
+  agree on a column, state it with `data-pptx-width`.
 
   One part of the job does now drive a rendered page, and the line it holds is
   worth stating exactly. A `<table>` is laid out in Chromium and converted, and the

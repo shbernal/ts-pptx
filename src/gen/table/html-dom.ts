@@ -7,7 +7,9 @@
  * are unit-tested directly, and the whole flow runs anywhere there is a DOM.
  *
  * Only real *measurement* is out of active scope (see AGENTS.md): without a layout engine
- * `offsetWidth` is `0`, so widths degrade to computed CSS then to an equal split.
+ * `offsetWidth` is `0`, so widths fall back to computed CSS then to an equal split. A fallback
+ * rather than a degradation, and the distinction is load-bearing — see {@link pickColWidthBasis},
+ * whose two bases measure different boxes.
  *
  * **Coverage.** This file used to be excluded from the report, on the grounds that only the
  * browser entry imported it and the `dist/browser*.js` globs therefore swallowed it. Both
@@ -298,7 +300,7 @@ export function parseCssWidthBasis(values: readonly string[]): number[] {
 }
 
 /**
- * Choose which vector the proportional column math runs on, degrading gracefully.
+ * Choose which vector the proportional column math runs on, falling back as bases run out.
  *
  * `offsetWidth` is the ideal basis — it is the width the table actually rendered at — but it
  * requires a layout engine, and reports `0` for every cell both in a hidden table and on any
@@ -311,6 +313,20 @@ export function parseCssWidthBasis(values: readonly string[]): number[] {
  *
  * Only the basis changes; `data-pptx-width` / `data-pptx-min-width` overrides still apply
  * downstream via {@link resolveHtmlColWidth} and still win outright.
+ *
+ * **The first two bases do not measure the same box, and the docs used to imply they did.**
+ * `offsetWidth` is the border box; a computed `width` is the content box. Padding alone
+ * separates them — `test/browser/harness/table.html` is built so it does, giving 1:1 measured
+ * against 2:1 from CSS on one table — so choosing arm 2 over arm 1 can change a table's column
+ * *proportions*, not just their precision. That is why the fixture discriminates at all, and why
+ * "degrades to computed CSS" was the wrong word for it everywhere it appeared.
+ *
+ * Left as-is rather than reconciled. Normalizing arm 2 to the border box would need the computed
+ * padding and border widths, which the DOMs that reach arm 2 need not resolve either (a `%`
+ * padding computes to nothing usable without layout), so it would converge the two only
+ * sometimes — and it would collapse the one discriminator the browser lane has, turning
+ * `table-widths.spec.mjs` back into a test that passes whether or not the measured arm ran.
+ * A caller who needs both runtimes to agree on a column states it with `data-pptx-width`.
  * @param {readonly number[]} measured - per-column `offsetWidth`
  * @param {readonly number[]} cssWidths - per-column CSS width basis (`[]` when unusable)
  * @returns {number[]} the basis vector to run the proportional calc on

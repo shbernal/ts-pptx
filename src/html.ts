@@ -18,9 +18,12 @@
  *
  * **Column widths need a layout engine.** In a browser the columns are sized from each cell's
  * rendered `offsetWidth`, which reproduces the table's real proportions. Nothing outside a
- * browser lays a table out, so `offsetWidth` is `0` there and the conversion degrades: it uses
+ * browser lays a table out, so `offsetWidth` is `0` there and the conversion falls back: it uses
  * the computed CSS `width`s when the stylesheet states them for every column in one unit, and
- * an equal split when it does not. To pin widths regardless, put `data-pptx-width` (exact
+ * an equal split when it does not. A fallback and not a graceful loss of precision — `offsetWidth`
+ * is the border box and computed `width` the content box, so padding alone can put the two bases
+ * in different proportions and the same table can come out with different column widths on either
+ * side of a layout engine. To pin widths regardless, put `data-pptx-width` (exact
  * inches) or `data-pptx-min-width` (a floor) on the cells of the table's first row — those win
  * outright on every path. On a cell that spans, the value is the *cell's* width and divides
  * across the columns it covers, the same way a measured or CSS width does.

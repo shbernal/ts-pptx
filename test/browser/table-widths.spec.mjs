@@ -141,7 +141,7 @@ test('a data-pptx-width on a spanning cell divides across the columns it covers,
 	expect(cols[2], 'the unspanned column keeps its own 2in override').toBe(2 * ONE_IN_EMU)
 })
 
-test('cross-runtime: the same table degrades to the CSS basis on Node and is measured in the browser', async ({
+test('cross-runtime: the same table falls back to the CSS basis on Node and is measured in the browser', async ({
 	page,
 }) => {
 	const browserCols = await browserGrid(page, 'measured')
@@ -152,9 +152,11 @@ test('cross-runtime: the same table degrades to the CSS basis on Node and is mea
 	const nodeCols = gridColWidths(fs.readFileSync(path.join(nodeDir, 'ppt', 'slides', 'slide1.xml'), 'utf8'))
 
 	// This is the one place in the browser lane where the two runtimes are *supposed* to
-	// disagree about a slide part, and the disagreement is the documented degradation
+	// disagree about a slide part, and the disagreement is the documented fallback
 	// itself: without a layout engine `offsetWidth` is 0, so the widths fall back to the
-	// computed CSS widths. Asserting its shape is what stops it quietly becoming a
+	// computed CSS widths — a different box, hence different proportions rather than
+	// coarser ones, which is exactly what the two `ratios` below pin. Asserting its shape
+	// is what stops it quietly becoming a
 	// different disagreement — the same discipline adapter-media.spec.mjs applies to the
 	// SVG placeholder.
 	expect(nodeCols).toHaveLength(2)
