@@ -77,6 +77,29 @@ supported.
   A `.pptx` a browser builds differently from Node is a defect; a layout
   difference between two browsers is not.
 
+  Two triage rules, both learned rather than assumed. **A report is only a
+  live-DOM report when the disagreement sits upstream of PowerPoint.** A
+  construct PowerPoint renders as intended and another viewer does not belongs
+  to the third-party bullet below — a browser-layout oracle would not answer it,
+  because nothing about the rendered page is in dispute (`upstream-issue-1402`,
+  bullet indentation in LibreOffice and OnlyOffice, is the worked case). And
+  **a report arriving in browser clothes is not yet a layout report:** ask what
+  the browser actually supplies to the code path before filing one here.
+  `gitbrent/PptxGenJS#1200`, `tableToSlides` auto-paging overflow, sat out of
+  scope on the reasoning that the sizing input driving it could not be exercised
+  without a browser. The headless repro was eventually built, it reproduced, and
+  the bug was arithmetic — the pager dropped one row's cell margins at every
+  page break, reproducible through `addTable(rows, { autoPage })` with no DOM at
+  all. The browser supplies column widths to that path and nothing the vertical
+  arithmetic reads.
+
+  Revisiting the exclusion has a stated entry cost — a headless-browser layout
+  oracle plus an engine matrix, maintained indefinitely — and a prerequisite: a
+  real consumer whose use case cannot be served by `data-pptx-width` /
+  `data-pptx-min-width`. Absent that the answer is no. The failure space is
+  otherwise unbounded, being the intersection of CSS layout, font fallback, and
+  PowerPoint's own table layout.
+
   HTML `<table>` → slides is **not** in that category any more. `tableToSlides`
   is a supported, tested, portable path: it ships as a free function on
   `ts-pptx/html`, runs under Node with any DOM implementation, and is covered

@@ -661,6 +661,15 @@ Config is `playwright.config.ts` (root); specs are `test/browser/*.spec.mjs`.
 Vitest excludes `test/browser/**` by directory, so the two harnesses never
 collect each other's files. In CI it is the `browser` job in `ci.yml`.
 
+> **Drive the lane through `pnpm run test:browser`, not `pnpm exec playwright
+> test`.** Only the package script runs `scripts/ensure-dist.mjs`, so the bare
+> invocation serves Chromium whatever `dist/` was last built. That is the same
+> stale-`dist/` trap as the Vitest inner loop above, with a sharper edge: the
+> bare form is what you reach for when **sensitivity-checking** a new assertion,
+> and a sabotaged `src/` that never got bundled leaves every spec green. A
+> sensitivity check that cannot fail is indistinguishable from one that passed,
+> and this has cost real time twice. Rebuild first, or go through the script.
+
 ### Three fixtures, three Playwright projects
 
 They answer different questions, and none can answer another's:
@@ -707,7 +716,10 @@ break, so a continuation slide accepted a row it had no room for. The browser's
 contribution was the cross-runtime assertion — proving the report was never about a
 rendered page, and moving the entry out of the browser bucket rather than deeper into
 it. Fixed in `src/gen/table/autopage.ts`; the regression that guards it is DOM-free too
-(`test/regression/table-autopage-continuation-budget.test.js`).
+(`test/regression/table-autopage-continuation-budget.test.js`). The triage rule that came
+out of it — ask what the browser actually supplies to a code path before accepting a
+report as a layout report — is stated with the scope line in
+[project target](project-target.md).
 
 The deck definitions the adapter specs use live in `test/browser/harness/decks.mjs`
 and are built **twice** — once in Chromium, once in Node — from that one
