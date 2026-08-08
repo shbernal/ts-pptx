@@ -845,7 +845,7 @@ with no repair prompt (verified with the `powerpoint-fixture-authoring` skill's
   `autofit-calibration@1`): per case-id, the inputs plus PowerPoint's baked outputs
   (`extCy`/`offY`, `normAutofit` `fontScale`/`lnSpcReduction`, resolved typeface)
   and the LibreOffice cross-measure. Produced by
-  `scripts/extract-autofit-calibration.mjs` (Node, reads the `.pptx` via `fflate` +
+  `authoring/extract-autofit-calibration.mjs` (Node, reads the `.pptx` via `fflate` +
   `fast-xml-parser`; the PowerPoint columns are cross-platform, the LibreOffice
   column needs the Windows step below). Solver unit tests read this JSON and assert
   the solver is conservative against it (computed `fontScale` ≤ PowerPoint's;

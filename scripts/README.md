@@ -38,7 +38,6 @@ proving nothing, which is how `script-roundtrip.mjs` sat runnable-but-unrun. Kee
 | `docs-list.mjs` | Diagnostic | Lists docs with their `read_when` hints | manual (`docs:list`) |
 | `docs-new.mjs` | Generator | Creates a new doc page from the template | manual (`docs:new`) |
 | `ensure-dist.mjs` | Gate | `dist/` freshness guard; builds, or `--check` fails | almost every `pnpm run` |
-| `extract-autofit-calibration.mjs` | Generator | Fixture decks → `autofit-calibration.json` | manual, on fixture change |
 | `gen-inspect-snapshot.mjs` | Generator | The inspect-surface snapshot | manual; asserted by a regression test |
 | `generate-llms-docs.mjs` | Generator | `docs/public/llms*.txt` | `docs:prepare` |
 | `install-hooks.mjs` | Library | Installs lefthook, skipping where it cannot | `prepare` |
@@ -71,21 +70,28 @@ are the second kind, and the reasons are worth not re-litigating:
 
 ### Where fixture tooling lives, and why not here
 
-`gen-autofit-cases.mjs` and `measure-autofit-lo.py` used to sit in this directory *and*
-in `test/read/fixtures/authoring/`, the second as a byte-identical copy and a near-identical
-one. Nothing kept either pair in step. They now live only in the authoring directory, and
-the line that put them there is worth stating so the next generator lands on the right side
-of it:
+**No script that writes a committed fixture or fixture sidecar belongs in this directory.**
+That whole chain lives in `test/read/fixtures/authoring/`, beside the fixtures it produces,
+whatever it is written in and whatever platform it needs — the `author-*.ps1` COM recipes,
+`gen-cases.mjs` and `measure-lo.py` which feed them, and the Node builders that derive the
+committed `*.oracle.json` / `autofit-calibration.json` sidecars from the finished decks.
+This directory is for build, gate and maintenance tooling for the repo itself.
 
-- **Feeds the authoring of a fixture → `test/read/fixtures/authoring/`.** `gen-cases.mjs`
-  writes the `*.cases.json` manifests that `author-deck.ps1` reads to drive PowerPoint;
-  `measure-lo.py` is invoked by `author-all.ps1` in the same directory. Their output is an
-  *input* to a Windows-only, PowerPoint-and-LibreOffice step, so they belong beside the
-  recipe that consumes them — which is also what `docs/testing.md` already told readers.
-- **Derives from an already-committed fixture → here.** `extract-autofit-calibration.mjs`
-  reads the finished `.pptx` decks with `fflate` and produces `autofit-calibration.json`.
-  It needs no desktop app and runs on any platform, so a Linux contributor can regenerate
-  the table from a clean checkout. That is a different kind of thing from a recipe.
+Getting that line right took two passes, and the wrong one is instructive. `gen-cases.mjs`
+and `measure-lo.py` used to sit here *and* in the authoring directory, one pair byte-identical
+and one near-identical, with nothing keeping them in step. Deduplicating them onto the
+authoring side produced a rule stated as *feeds the authoring of a fixture → there, derives
+from an already-committed fixture → here* — which sounded principled and was false on the
+day it was written. `build-oracles.mjs` and the three `build-*-oracle.mjs` scripts derive
+from already-committed fixtures, are pure cross-platform Node, and had always lived in the
+authoring directory. The rule described five files that were on the other side of it.
+
+`extract-autofit-calibration.mjs` was the one file that rule fit, and only because it was the
+one that happened to be here. It is indistinguishable in kind from `build-oracles.mjs` — read
+a committed `.pptx` with `fflate`, write a committed JSON sidecar next to it — so it moved
+too, and the line above is the one that every file now actually falls on. "Runs without a
+desktop app" turned out to describe a property of individual recipes, not a directory
+boundary; the authoring README marks which of its scripts need Windows.
 
 The stale-copy mechanism was worth understanding rather than just deleting: `author-all.ps1`
 loaded its engine and measure script from `.tmp/` rather than from `$PSScriptRoot`, so the

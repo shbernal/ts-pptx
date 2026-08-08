@@ -1,12 +1,14 @@
 # Fixture authoring recipes
 
 The desktop-PowerPoint COM recipes that produced the `.pptx` fixtures in the parent
-directory, plus the Node scripts that derive the committed `*.oracle.json` and
-`*.cases.json` sidecars from them.
+directory, plus the Node scripts that derive the committed `*.oracle.json`,
+`*.cases.json` and `autofit-calibration.json` sidecars from them.
 
-These are **recipes, not tests.** Nothing here runs in CI: every `author-*.ps1` needs a
-licensed desktop PowerPoint and an interactive Windows session, and `measure-lo.py` needs
-a local LibreOffice. Read
+These are **recipes, not tests.** Nothing here runs in CI, but they do not all need the
+same machine: every `author-*.ps1` needs a licensed desktop PowerPoint and an interactive
+Windows session, and `measure-lo.py` needs a local LibreOffice, while the `.mjs` builders
+are plain cross-platform Node that a Linux contributor can run against the committed
+decks. Read
 [`.agents/skills/powerpoint-fixture-authoring/SKILL.md`](../../../../.agents/skills/powerpoint-fixture-authoring/SKILL.md)
 before running any of them — it carries the COM ordering rules, the teardown/reap
 discipline, and the autofit bake-on-save contract that these scripts depend on.
@@ -25,12 +27,14 @@ node test/read/fixtures/authoring/build-oracles.mjs          # re-derives the or
 node test/read/fixtures/authoring/gen-cases.mjs --help       # the one here that takes flags
 ```
 
-`gen-cases.mjs` and `measure-lo.py` were duplicated under `scripts/` until August 2026,
-with nothing keeping the copies in step. This directory is the single home for both:
-their output feeds the Windows authoring step next door, so they are recipes like
-everything else here. `scripts/` keeps only `extract-autofit-calibration.mjs`, which
-derives its table from the finished decks and needs no desktop app —
-[`scripts/README.md`](../../../../scripts/README.md) states the boundary.
+`gen-cases.mjs`, `measure-lo.py` and `extract-autofit-calibration.mjs` all lived under
+`scripts/` until August 2026 — the first two duplicated there, with nothing keeping the
+copies in step. This directory is now the single home for the whole autofit chain, and
+for fixture tooling generally: **anything that writes a committed fixture or fixture
+sidecar lives here**, whatever it needs to run. `scripts/` keeps build, gate and
+maintenance tooling for the repo itself;
+[`scripts/README.md`](../../../../scripts/README.md) records why an earlier attempt to
+split this directory by platform did not survive contact with its own contents.
 
 Two things to know before you commit the result:
 
@@ -49,7 +53,8 @@ Two things to know before you commit the result:
 | Recipe                                                                                                                                                             | Produces                                                                                                                                                                                                                                                                                                                                                                                                       |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `author-deck.ps1`                                                                                                                                                  | **Engine.** Parameterized (`-CasesPath`, `-OutPath`) authoring driver used by `author-all.ps1`; the worked example the authoring skill cites for the pin-then-text-then-AutoSize ordering and the font-readiness guard block.                                                                                                                                                                                  |
-| `author-all.ps1` + `gen-cases.mjs` + `measure-lo.py` + `readiness-guard.ps1`                                                                                       | The autofit calibration matrix: `autofit-{shrink,resize,edge,line-metrics}.pptx` and their 4 committed `*.cases.json`. `readiness-guard.ps1` certifies the five required faces actually resolve through GDI (PowerPoint silently substitutes otherwise) and that `soffice` is reachable; `measure-lo.py` reads LibreOffice's recomputed geometry over UNO and feeds `scripts/extract-autofit-calibration.mjs`. |
+| `author-all.ps1` + `gen-cases.mjs` + `measure-lo.py` + `readiness-guard.ps1`                                                                                       | The autofit calibration matrix: `autofit-{shrink,resize,edge,line-metrics}.pptx` and their 4 committed `*.cases.json`. `readiness-guard.ps1` certifies the five required faces actually resolve through GDI (PowerPoint silently substitutes otherwise) and that `soffice` is reachable; `measure-lo.py` reads LibreOffice's recomputed geometry over UNO and feeds `extract-autofit-calibration.mjs`. |
+| `extract-autofit-calibration.mjs`                                                                                                                                  | `../autofit-calibration.json` — the derived table the Linux test suite reads: PowerPoint's baked outputs per case-id, merged with the LibreOffice column when `measure-lo.py`'s `<deck>.lo.json` files are present (`--lo-dir`, default `<repo>/.tmp`). The only script here that needs neither PowerPoint nor LibreOffice. It carries over a previously-committed LibreOffice column when those uncommitted scratch files are absent, so re-running it on Linux narrows nothing.                                            |
 | `author-read-stress.ps1`                                                                                                                                           | `read-stress.pptx` — the multi-dimension integration fixture (two masters/themes, nested groups, styled tables, dual raster+SVG picture, recolor, embedded fonts, threaded comments, notes).                                                                                                                                                                                                                   |
 | `author-table-styles.ps1`                                                                                                                                          | `table-styles.pptx`. Applying a _built-in_ style is what makes PowerPoint materialize real definitions into `ppt/tableStyles.xml`; only Microsoft built-in style GUIDs are used, so the fixture stays brand-free.                                                                                                                                                                                              |
 | `author-slide-transition.ps1`, `author-slide-transition-sound.ps1`                                                                                                 | `slide-transition{,-sound}.pptx`. The sound fixture embeds `assets/ding.wav`.                                                                                                                                                                                                                                                                                                                                  |

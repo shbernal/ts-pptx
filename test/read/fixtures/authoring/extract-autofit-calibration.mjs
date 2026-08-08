@@ -1,40 +1,41 @@
-#!/usr/bin/env node
 // Extract the autofit calibration table from the PowerPoint-authored fixture
-// decks into test/read/fixtures/autofit-calibration.json.
+// decks into the parent directory's autofit-calibration.json.
 //
-// For each `test/read/fixtures/autofit-*.cases.json` manifest it pairs the
-// sibling `.pptx` (the oracle), reads PowerPoint's baked outputs per case-id
-// shape (ext.cy/off.y, normAutofit fontScale/lnSpcReduction, resolved typeface),
-// and merges the LibreOffice cross-measure from `<deck>.lo.json` when present
-// (produced on Windows by test/read/fixtures/authoring/measure-lo.py — LibreOffice is not a CI dep).
+// For each `../autofit-*.cases.json` manifest it pairs the sibling `.pptx` (the
+// oracle), reads PowerPoint's baked outputs per case-id shape (ext.cy/off.y,
+// normAutofit fontScale/lnSpcReduction, resolved typeface), and merges the
+// LibreOffice cross-measure from `<deck>.lo.json` when present (produced on
+// Windows by the sibling measure-lo.py — LibreOffice is not a CI dep).
 //
-// The .pptx files remain the source of truth; this JSON is regenerable from them
-// (PowerPoint columns are pure-Node/cross-platform; the LibreOffice column needs
-// the Windows measurement step).
+// The .pptx files remain the source of truth; this JSON is regenerable from them.
+// Unlike the author-*.ps1 recipes here, this one needs no desktop app: the
+// PowerPoint columns are pure-Node/cross-platform, and only the LibreOffice
+// column depends on the Windows measurement step.
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { unzipSync, strFromU8 } from 'fflate'
 import { XMLParser } from 'fast-xml-parser'
-import { parseCliOrExit } from './script-utils.mjs'
+import { parseCliOrExit, ROOT } from '../../../../scripts/script-utils.mjs'
 
-const FIX = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'test', 'read', 'fixtures')
+// This script lives in test/read/fixtures/authoring/, so the fixtures dir is its parent.
+const FIX = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 const USAGE = `Extract the autofit calibration table from the PowerPoint-authored fixtures.
 
-  node scripts/extract-autofit-calibration.mjs
-  node scripts/extract-autofit-calibration.mjs --lo-dir .tmp
+  node test/read/fixtures/authoring/extract-autofit-calibration.mjs
+  node test/read/fixtures/authoring/extract-autofit-calibration.mjs --lo-dir .tmp
 
 Options:
   --lo-dir <path>  where the LibreOffice cross-measure <deck>.lo.json files live
-                   (default .tmp)
+                   (default <repo>/.tmp)
   -h, --help       show this message`
 
 const { values } = parseCliOrExit(process.argv.slice(2), {
 	usage: USAGE,
 	options: { 'lo-dir': { type: 'string' } },
 })
-const LO_DIR = values['lo-dir'] ?? resolve(dirname(fileURLToPath(import.meta.url)), '..', '.tmp')
+const LO_DIR = values['lo-dir'] ?? resolve(ROOT, '.tmp')
 
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_', isArray: () => false })
 
@@ -144,7 +145,7 @@ function main() {
 	}
 	// Preserve any previously-committed LibreOffice column so re-running on a box
 	// without the (uncommitted) <deck>.lo.json files does not clobber it. The LO
-	// measurement is a Windows+LibreOffice step (test/read/fixtures/authoring/measure-lo.py).
+	// measurement is a Windows+LibreOffice step (the sibling measure-lo.py).
 	const outPath = resolve(FIX, 'autofit-calibration.json')
 	const priorLo = {}
 	if (existsSync(outPath)) {
@@ -200,9 +201,8 @@ function main() {
 		},
 		decks,
 	}
-	const out = resolve(FIX, 'autofit-calibration.json')
-	writeFileSync(out, JSON.stringify(result, null, 2) + '\n')
-	console.log(`wrote ${out}`)
+	writeFileSync(outPath, JSON.stringify(result, null, 2) + '\n')
+	console.log(`wrote ${outPath}`)
 }
 
 main()
