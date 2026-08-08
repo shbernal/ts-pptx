@@ -16,10 +16,25 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { unzipSync, strFromU8 } from 'fflate'
 import { XMLParser } from 'fast-xml-parser'
+import { parseCliOrExit } from './script-utils.mjs'
 
 const FIX = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'test', 'read', 'fixtures')
-const loDirArg = process.argv.includes('--lo-dir') ? process.argv[process.argv.indexOf('--lo-dir') + 1] : undefined
-const LO_DIR = loDirArg ?? resolve(dirname(fileURLToPath(import.meta.url)), '..', '.tmp')
+
+const USAGE = `Extract the autofit calibration table from the PowerPoint-authored fixtures.
+
+  node scripts/extract-autofit-calibration.mjs
+  node scripts/extract-autofit-calibration.mjs --lo-dir .tmp
+
+Options:
+  --lo-dir <path>  where the LibreOffice cross-measure <deck>.lo.json files live
+                   (default .tmp)
+  -h, --help       show this message`
+
+const { values } = parseCliOrExit(process.argv.slice(2), {
+	usage: USAGE,
+	options: { 'lo-dir': { type: 'string' } },
+})
+const LO_DIR = values['lo-dir'] ?? resolve(dirname(fileURLToPath(import.meta.url)), '..', '.tmp')
 
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_', isArray: () => false })
 

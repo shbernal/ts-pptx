@@ -11,10 +11,28 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { ROOT } from './script-utils.mjs'
+import { ROOT, parseCliOrExit } from './script-utils.mjs'
+
+const { positionals } = parseCliOrExit(process.argv.slice(2), {
+	usage: `Emit load() -> save() output for each read fixture, for the manual PowerPoint check.
+
+  pnpm run test:read:emit
+  pnpm run test:read:emit -- <out-dir>
+
+This is a GENERATOR, not a gate: it writes decks for a human to open in desktop
+PowerPoint and confirm no repair prompt. Nothing here asserts on the output.
+
+Arguments:
+  <out-dir>   where to write (default .tmp/roundtrip, or $TSPPTX_READ_EMIT_DIR)
+
+Options:
+  -h, --help  show this message`,
+	allowPositionals: true,
+	options: {},
+})
 
 const fixturesDir = path.join(ROOT, 'test', 'read', 'fixtures')
-const outDir = process.argv[2] || process.env.TSPPTX_READ_EMIT_DIR || path.join(ROOT, '.tmp', 'roundtrip')
+const outDir = positionals[0] || process.env.TSPPTX_READ_EMIT_DIR || path.join(ROOT, '.tmp', 'roundtrip')
 
 const readEntry = path.join(ROOT, 'dist', 'read.js')
 try {

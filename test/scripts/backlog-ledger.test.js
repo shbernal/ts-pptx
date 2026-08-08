@@ -11,7 +11,7 @@ import {
 	setLedgerItemStatusText,
 	uniqueItemFieldValues,
 	validateLedgerText,
-} from '../scripts/backlog-ledger.mjs'
+} from '../../scripts/backlog-ledger.mjs'
 
 const fixture = `schema: 1
 source_repo: gitbrent/PptxGenJS

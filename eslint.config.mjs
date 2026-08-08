@@ -80,6 +80,19 @@ export default tseslint.config(
 		rules: { 'no-console': 'off' },
 	},
 	{
+		// Untyped `recommended`, deliberately — and measured, so it does not get retried.
+		//
+		// `scripts/**` does have a typechecked project (`tsconfig.scripts.json`, `checkJs`),
+		// so `recommendedTypeChecked` is *available* here in a way it is not for the root
+		// configs below. Running it reports 1849 errors, of which 1843 are the `no-unsafe-*`
+		// family: that project sets `noImplicitAny: false` on purpose, so every unannotated
+		// parameter is `any` and every member access on one is "unsafe". The rules actually
+		// worth having — `no-floating-promises`, `no-misused-promises` — report zero.
+		//
+		// So the trade is: disable five rules to silence 99.7% of the output, and gain
+		// nothing `tsc -p tsconfig.scripts.json` does not already catch. Annotating 6.8k
+		// lines of maintenance tooling to buy the same result is not a good use of anyone's
+		// time either. Left untyped; `typecheck:scripts` is the type gate for this tree.
 		files: ['scripts/**/*.mjs', 'test/**/*.mjs', 'test/**/*.js'],
 		extends: [eslint.configs.recommended],
 		languageOptions: {

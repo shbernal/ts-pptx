@@ -46,7 +46,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
-import { ROOT } from './script-utils.mjs'
+import { ROOT, isMain, parseCli, runCli } from './script-utils.mjs'
 
 const SRC = path.join(ROOT, 'src')
 const BUDGET = path.join(ROOT, 'scripts', 'raw-xml-budget.json')
@@ -58,10 +58,6 @@ const TAG_DELIMITER = /<\/?[a-zA-Z][\w.-]*:[a-zA-Z]/g
 const MESSAGE_SINKS = new Set(['warn', 'note'])
 /** Marks a declaration holding XML captured verbatim from Office rather than built here. */
 const ASSET_MARKER = '@raw-xml-asset'
-
-const argv = process.argv.slice(2)
-const freeze = argv.includes('--freeze')
-const list = argv.includes('--list')
 
 /** @param {string} dir @returns {string[]} */
 function tsFilesUnder(dir) {
@@ -83,7 +79,7 @@ function tsFilesUnder(dir) {
  * @param {ts.Node} node
  * @returns {boolean}
  */
-function isMessageArgument(node) {
+export function isMessageArgument(node) {
 	for (let child = node, parent = node.parent; parent; child = parent, parent = parent.parent) {
 		if (!ts.isCallExpression(parent) && !ts.isNewExpression(parent)) continue
 		if (!parent.arguments?.some((arg) => arg === child)) return false
@@ -104,7 +100,7 @@ function isMessageArgument(node) {
  * @param {string} text full file text, for reading comment ranges
  * @returns {boolean}
  */
-function isCapturedAsset(node, text) {
+export function isCapturedAsset(node, text) {
 	if (ts.isTemplateExpression(node.parent)) return false
 	for (let current = node; current; current = current.parent) {
 		if (!ts.isVariableStatement(current) && !ts.isPropertyDeclaration(current)) continue
@@ -119,9 +115,23 @@ function isCapturedAsset(node, text) {
  * @param {string} file absolute path
  * @returns {Array<{ line: number, text: string }>}
  */
-function findingsIn(file) {
-	const text = fs.readFileSync(file, 'utf8')
-	const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true)
+export function findingsIn(file) {
+	return scanSource(fs.readFileSync(file, 'utf8'), file)
+}
+
+/**
+ * The scan, over source text rather than a path.
+ *
+ * Separated from {@link findingsIn} so the exemption rules — the message-sink and
+ * captured-asset carve-outs, which are where this gate can silently stop counting —
+ * can be exercised against a literal snippet in `test/scripts/raw-xml-ratchet.test.js`
+ * instead of a fixture file on disk.
+ * @param {string} text TypeScript source
+ * @param {string} [fileName] name used for the synthetic source file
+ * @returns {Array<{ line: number, text: string }>}
+ */
+export function scanSource(text, fileName = 'input.ts') {
+	const source = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true)
 	/** @type {Array<{ line: number, text: string }>} */
 	const found = []
 
@@ -145,66 +155,100 @@ function findingsIn(file) {
 	return found
 }
 
-/** @type {Map<string, Array<{ line: number, text: string }>>} */
-const findings = new Map()
-for (const file of tsFilesUnder(SRC)) {
-	const rel = path.relative(ROOT, file).split(path.sep).join('/')
-	if (rel.startsWith(EXEMPT_DIR)) continue
-	const found = findingsIn(file)
-	if (found.length) findings.set(rel, found)
-}
-
-/** @param {string} file @returns {number} */
-const found = (file) => findings.get(file)?.length ?? 0
-
-const ordered = [...findings.keys()].sort((a, b) => found(b) - found(a) || a.localeCompare(b))
-const total = ordered.reduce((sum, file) => sum + found(file), 0)
-
-if (list) {
-	for (const file of ordered) {
-		console.log(`${file} (${found(file)})`)
-		for (const { line, text } of findings.get(file) ?? []) console.log(`  ${file}:${line}  ${text}`)
+/**
+ * Scan all of `src/`, minus the exempt directory.
+ * @returns {Map<string, Array<{ line: number, text: string }>>} keyed by repo-relative path
+ */
+export function collectFindings() {
+	const findings = new Map()
+	for (const file of tsFilesUnder(SRC)) {
+		const rel = path.relative(ROOT, file).split(path.sep).join('/')
+		if (rel.startsWith(EXEMPT_DIR)) continue
+		const found = findingsIn(file)
+		if (found.length) findings.set(rel, found)
 	}
-	process.exit(0)
+	return findings
 }
 
-if (freeze) {
+// ---------------------------------------------------------------- CLI
+
+const USAGE = `Raw-XML ratchet — hand-concatenated OOXML can only ever decrease.
+
+  node scripts/raw-xml-ratchet.mjs            check (exit 1 on any regression)
+  node scripts/raw-xml-ratchet.mjs --freeze   rewrite the budget from source
+  node scripts/raw-xml-ratchet.mjs --list     every occurrence, with line numbers
+
+Options:
+  --freeze    record today's per-file counts as the new budget
+  --list      print every occurrence rather than just the budget comparison
+  -h, --help  show this message`
+
+/** @param {string[]} argv @returns {number} process exit code */
+export function main(argv) {
+	const { values } = parseCli(argv, {
+		usage: USAGE,
+		options: {
+			freeze: { type: 'boolean', default: false },
+			list: { type: 'boolean', default: false },
+		},
+	})
+
+	const findings = collectFindings()
+	/** @param {string} file @returns {number} */
+	const found = (file) => findings.get(file)?.length ?? 0
+
+	const ordered = [...findings.keys()].sort((a, b) => found(b) - found(a) || a.localeCompare(b))
+	const total = ordered.reduce((sum, file) => sum + found(file), 0)
+
+	if (values.list) {
+		for (const file of ordered) {
+			console.log(`${file} (${found(file)})`)
+			for (const { line, text } of findings.get(file) ?? []) console.log(`  ${file}:${line}  ${text}`)
+		}
+		return 0
+	}
+
+	if (values.freeze) {
+		/** @type {Record<string, number>} */
+		const frozen = {}
+		for (const file of [...ordered].sort()) frozen[file] = found(file)
+		fs.writeFileSync(BUDGET, JSON.stringify(frozen, null, '\t') + '\n')
+		console.log(`raw-xml ratchet: froze ${ordered.length} file(s), ${total} occurrence(s) -> ${path.basename(BUDGET)}`)
+		return 0
+	}
+
 	/** @type {Record<string, number>} */
-	const frozen = {}
-	for (const file of [...ordered].sort()) frozen[file] = found(file)
-	fs.writeFileSync(BUDGET, JSON.stringify(frozen, null, '\t') + '\n')
-	console.log(`raw-xml ratchet: froze ${ordered.length} file(s), ${total} occurrence(s) -> ${path.basename(BUDGET)}`)
-	process.exit(0)
-}
+	const budgetFile = JSON.parse(fs.readFileSync(BUDGET, 'utf8'))
+	/** @param {string} file @returns {number} */
+	const budget = (file) => budgetFile[file] ?? 0
 
-/** @type {Record<string, number>} */
-const budgetFile = JSON.parse(fs.readFileSync(BUDGET, 'utf8'))
-/** @param {string} file @returns {number} */
-const budget = (file) => budgetFile[file] ?? 0
+	const relBudget = path.relative(ROOT, BUDGET).split(path.sep).join('/')
+	const overBudget = ordered.filter((file) => found(file) > budget(file))
+	const underBudget = ordered.filter((file) => found(file) < budget(file))
+	const cleared = Object.keys(budgetFile).filter((file) => !findings.has(file))
 
-const relBudget = path.relative(ROOT, BUDGET).split(path.sep).join('/')
-const overBudget = ordered.filter((file) => found(file) > budget(file))
-const underBudget = ordered.filter((file) => found(file) < budget(file))
-const cleared = Object.keys(budgetFile).filter((file) => !findings.has(file))
-
-if (overBudget.length) {
-	console.error('raw-xml ratchet FAILED — hand-built XML grew:\n')
-	for (const file of overBudget) {
-		console.error(`  ${file}: ${found(file)} (budget ${budget(file)})`)
-		for (const { line, text } of findings.get(file) ?? []) console.error(`    ${file}:${line}  ${text}`)
+	if (overBudget.length) {
+		console.error('raw-xml ratchet FAILED — hand-built XML grew:\n')
+		for (const file of overBudget) {
+			console.error(`  ${file}: ${found(file)} (budget ${budget(file)})`)
+			for (const { line, text } of findings.get(file) ?? []) console.error(`    ${file}:${line}  ${text}`)
+		}
+		console.error(`\nBuild these through \`el()\`/\`voidEl()\` from ${EXEMPT_DIR}el.ts.`)
+		console.error('If the growth is genuinely unavoidable, raise the number in')
+		console.error(`${relBudget} in the same commit, with the reason in the message.`)
+		return 1
 	}
-	console.error(`\nBuild these through \`el()\`/\`voidEl()\` from ${EXEMPT_DIR}el.ts.`)
-	console.error('If the growth is genuinely unavoidable, raise the number in')
-	console.error(`${relBudget} in the same commit, with the reason in the message.`)
-	process.exit(1)
+
+	if (underBudget.length || cleared.length) {
+		console.log(`raw-xml ratchet: below budget — lower ${relBudget} in the same commit:\n`)
+		for (const file of underBudget) console.log(`  ${file}: ${budget(file)} -> ${found(file)}`)
+		for (const file of cleared) console.log(`  ${file}: ${budget(file)} -> 0 (drop the entry)`)
+		console.log('\n  pnpm run raw-xml:freeze')
+		return 1
+	}
+
+	console.log(`raw-xml ratchet: ok (${total} occurrence(s) in ${ordered.length} file(s), none above budget)`)
+	return 0
 }
 
-if (underBudget.length || cleared.length) {
-	console.log(`raw-xml ratchet: below budget — lower ${relBudget} in the same commit:\n`)
-	for (const file of underBudget) console.log(`  ${file}: ${budget(file)} -> ${found(file)}`)
-	for (const file of cleared) console.log(`  ${file}: ${budget(file)} -> 0 (drop the entry)`)
-	console.log('\n  pnpm run raw-xml:freeze')
-	process.exit(1)
-}
-
-console.log(`raw-xml ratchet: ok (${total} occurrence(s) in ${ordered.length} file(s), none above budget)`)
+if (isMain(import.meta.url)) await runCli(() => main(process.argv.slice(2)))

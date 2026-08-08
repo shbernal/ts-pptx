@@ -15,10 +15,28 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { ROOT } from './script-utils.mjs'
+import { ROOT, parseCliOrExit } from './script-utils.mjs'
+
+const { positionals } = parseCliOrExit(process.argv.slice(2), {
+	usage: `Emit *edited* decks from the read fixtures, for the manual PowerPoint check.
+
+  pnpm run test:read:emit:edits
+  pnpm run test:read:emit:edits -- <out-dir>
+
+This is a GENERATOR, not a gate: every deck exercises one editing capability and is
+written for a human to open in desktop PowerPoint. Nothing here asserts on the output.
+
+Arguments:
+  <out-dir>   where to write (default .tmp/read-edits, or $TSPPTX_READ_EDITS_DIR)
+
+Options:
+  -h, --help  show this message`,
+	allowPositionals: true,
+	options: {},
+})
 
 const fixturesDir = path.join(ROOT, 'test', 'read', 'fixtures')
-const outDir = process.argv[2] || process.env.TSPPTX_READ_EDITS_DIR || path.join(ROOT, '.tmp', 'read-edits')
+const outDir = positionals[0] || process.env.TSPPTX_READ_EDITS_DIR || path.join(ROOT, '.tmp', 'read-edits')
 
 const readEntry = path.join(ROOT, 'dist', 'read.js')
 try {

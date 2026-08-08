@@ -1,11 +1,112 @@
 import { spawn } from 'node:child_process'
-import fsSync from 'node:fs'
-import fs from 'node:fs/promises'
+import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
+import { parseArgs } from 'node:util'
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+
+/**
+ * Was this module run directly, rather than imported?
+ *
+ * The gate scripts keep their logic in exported functions and their CLI behind this,
+ * so a test can import the parsing and scanning without the script measuring `dist/`,
+ * writing a budget file, or calling `process.exit` out from under the test runner.
+ * `backlog-ledger.mjs` and `gen-inspect-snapshot.mjs` open-coded this first; it is
+ * shared now that it has more than two callers.
+ * @param {string} metaUrl the caller's `import.meta.url`
+ * @returns {boolean}
+ */
+export function isMain(metaUrl) {
+	const entry = process.argv[1]
+	return entry !== undefined && path.resolve(entry) === fileURLToPath(metaUrl)
+}
+
+/**
+ * Thrown by {@link parseCli} when the caller should stop and exit with `code`, having
+ * already printed everything the user needs. Lets a `main()` keep one exit path
+ * instead of threading a "did we print usage?" flag through its early returns.
+ */
+export class CliExit extends Error {
+	/** @param {number} code */
+	constructor(code) {
+		super('cli exit ' + code)
+		this.name = 'CliExit'
+		this.code = code
+	}
+}
+
+/**
+ * `node:util`'s `parseArgs`, plus the two things every script here wants around it:
+ * a `--help`/`-h` that prints usage and stops, and an unknown flag that reports itself
+ * as one line rather than an eight-frame `ERR_PARSE_ARGS_UNKNOWN_OPTION` stack.
+ *
+ * The hand-rolled alternative this replaces was `argv.indexOf('--flag') + 1`, which
+ * silently takes the *next flag* as the value when the argument is omitted —
+ * `--dir --verbose` set the directory to `"--verbose"` and reported nothing.
+ * `options` is `parseArgs`'s own option map (`{type: 'string'|'boolean', short?, default?}`
+ * per flag). It is typed loosely here rather than with `ParseArgsOptionConfig`, which
+ * `@types/node` does not export; the shape is `parseArgs`'s to validate at runtime anyway.
+ * @param {string[]} argv arguments, already sliced past the script name
+ * @param {{options: Record<string, any>, usage: string, allowPositionals?: boolean}} config
+ * @returns {{values: Record<string, any>, positionals: string[]}}
+ * @throws {CliExit} on `--help` (code 0) or a malformed argument list (code 2)
+ */
+export function parseCli(argv, { options, usage, allowPositionals = false }) {
+	// Cast because spreading widens each `type` to `string`, which no longer matches
+	// `ParseArgsOptionsType`. The shape is parseArgs's to validate at runtime.
+	const withHelp = /** @type {any} */ ({ ...options, help: { type: 'boolean', short: 'h', default: false } })
+	/** @type {{values: Record<string, any>, positionals: string[]}} */
+	let parsed
+	try {
+		parsed = parseArgs({ args: argv, options: withHelp, allowPositionals })
+	} catch (error) {
+		console.error(error instanceof Error ? error.message : String(error))
+		console.error('\n' + usage)
+		throw new CliExit(2)
+	}
+	if (parsed.values.help) {
+		console.log(usage)
+		throw new CliExit(0)
+	}
+	return parsed
+}
+
+/**
+ * {@link parseCli} for a script that runs at module top level and has no `main()` to
+ * catch a {@link CliExit}. Exits the process on `--help` or a bad argument list instead
+ * of throwing, so those paths end quietly rather than as an unhandled rejection.
+ * @param {string[]} argv
+ * @param {{options: any, usage: string, allowPositionals?: boolean}} config
+ * @returns {{values: Record<string, any>, positionals: string[]}}
+ */
+export function parseCliOrExit(argv, config) {
+	try {
+		return parseCli(argv, config)
+	} catch (error) {
+		if (error instanceof CliExit) process.exit(error.code)
+		throw error
+	}
+}
+
+/**
+ * Run a `main()` that may throw {@link CliExit}, setting `process.exitCode` from either
+ * the return value or the exit request. Keeps the `isMain` tail of each script to one line.
+ * @param {() => number | Promise<number>} main
+ */
+export async function runCli(main) {
+	try {
+		process.exitCode = await main()
+	} catch (error) {
+		if (error instanceof CliExit) {
+			process.exitCode = error.code
+			return
+		}
+		console.error(error instanceof Error ? (error.stack ?? error.message) : String(error))
+		process.exitCode = 1
+	}
+}
 
 const packageManagerCache = process.env.TSPPTX_SCRIPT_CACHE_DIR || path.join(ROOT, '.tmp', 'package-manager-cache')
 
@@ -28,7 +129,7 @@ function resolveLocalBin(name) {
 	} catch {
 		return null
 	}
-	const { bin } = JSON.parse(fsSync.readFileSync(manifestPath, 'utf8'))
+	const { bin } = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
 	const entry = typeof bin === 'string' ? bin : bin?.[name]
 	if (!entry) return null
 	return path.resolve(path.dirname(manifestPath), entry)
@@ -86,61 +187,6 @@ export function run(command, args, options = {}) {
 	})
 }
 
-export function parsePackOutput(output) {
-	const text = output.trim()
-	const objectStart = text.lastIndexOf('\n{')
-	const arrayStart = text.lastIndexOf('\n[')
-	const start = Math.max(objectStart, arrayStart)
-	if (start >= 0) return JSON.parse(text.slice(start + 1))
-
-	const firstObject = text.indexOf('{')
-	const firstArray = text.indexOf('[')
-	const firstJson = [firstObject, firstArray].filter((idx) => idx >= 0).sort((a, b) => a - b)[0]
-	if (firstJson === undefined) throw new Error('pack command did not print JSON output')
-	return JSON.parse(text.slice(firstJson))
-}
-
-export async function packPackage(packDir) {
-	await fs.mkdir(packDir, { recursive: true })
-	// `pnpm pack` fires `prepack`, which runs a full `pnpm run build`. Every caller
-	// already has a current `dist/` (the freshness guard ran first), so that would
-	// be a duplicate 3.3s build per pack — and CI packs more than once.
-	//
-	// The flag spelling is not the obvious one: pnpm 11 rejects `--ignore-scripts`
-	// outright ("Unknown option"), and only honours it in the `--config.<name>`
-	// form. Verified against pnpm 11.3.0 — re-check on a major pnpm bump.
-	// `process.execPath`, not 'node': `run()` appends `.cmd` to any non-absolute
-	// command on Windows (for the pnpm/npm shims), which would look for `node.cmd`.
-	await run(process.execPath, [path.join(ROOT, 'scripts', 'ensure-dist.mjs')])
-	const result = await run('pnpm', ['pack', '--config.ignore-scripts=true', '--json', '--pack-destination', packDir], {
-		capture: true,
-	})
-	const output = result.stdout || result.stderr
-	let entry
-	if (output.trim()) {
-		const pack = parsePackOutput(output)
-		entry = Array.isArray(pack) ? pack[0] : pack
-	}
-	if (!entry?.filename) {
-		const packedFiles = (await fs.readdir(packDir)).filter((file) => file.endsWith('.tgz')).sort()
-		if (packedFiles.length !== 1) throw new Error('pnpm pack did not return exactly one tarball in ' + packDir)
-		entry = { filename: packedFiles[0] }
-	}
-
-	const tarball = path.isAbsolute(entry.filename) ? entry.filename : path.join(packDir, path.basename(entry.filename))
-	await assertFile(tarball)
-	return { ...entry, filename: path.basename(entry.filename), tarball }
-}
-
-export async function assertFile(file) {
-	await fs.access(file)
-}
-
-export async function assertNoFile(file) {
-	try {
-		await fs.access(file)
-	} catch {
-		return
-	}
-	throw new Error('unexpected file exists: ' + file)
-}
+// `pnpm pack` helpers used to live here. They moved to `pack-utils.mjs`: only the two
+// package-boundary gates call them, while nearly every other importer of this module
+// wants `ROOT` and nothing else.

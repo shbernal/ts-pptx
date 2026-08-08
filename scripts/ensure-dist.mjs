@@ -28,7 +28,7 @@
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { ROOT, run } from './script-utils.mjs'
+import { ROOT, parseCliOrExit, run } from './script-utils.mjs'
 
 const INPUT_FILES = ['tsdown.config.ts', 'tsconfig.base.json', 'tsconfig.json', 'package.json', 'pnpm-lock.yaml']
 const INPUT_DIR = 'src'
@@ -82,10 +82,22 @@ async function stale() {
 	return null
 }
 
+const { values } = parseCliOrExit(process.argv.slice(2), {
+	usage: `Build \`dist/\` if it is out of date with respect to its inputs.
+
+  node scripts/ensure-dist.mjs            build when stale
+  node scripts/ensure-dist.mjs --check    report staleness, never build (exit 1 if stale)
+
+Options:
+  --check     fail instead of building — for CI, where a stale dist/ is a mistake
+  -h, --help  show this message`,
+	options: { check: { type: 'boolean', default: false } },
+})
+
 const reason = await stale()
 if (reason === null) process.exit(0)
 
-if (process.argv.includes('--check')) {
+if (values.check) {
 	console.error('dist/ is not current (' + reason + '). Run: pnpm run build')
 	process.exit(1)
 }

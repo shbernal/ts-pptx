@@ -44,15 +44,29 @@ import path from 'node:path'
 import zlib from 'node:zlib'
 import { spawn, spawnSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { parseCliOrExit } from './script-utils.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
 
 // --- args -------------------------------------------------------------------
-const argv = process.argv.slice(2)
-const KEEP = argv.includes('--keep')
-const fileArgIdx = argv.indexOf('--file')
-const EXISTING_FILE = fileArgIdx !== -1 ? argv[fileArgIdx + 1] : null
+const USAGE = `PowerPoint COM smoke — open generated decks in desktop PowerPoint (Windows only).
+
+  pnpm run test:com
+  pnpm run test:com -- --keep
+  pnpm run test:com -- --file path/to/deck.pptx
+
+Options:
+  --keep          leave the generated decks on disk for inspection
+  --file <path>   open an existing deck instead of generating the corpus
+  -h, --help      show this message`
+
+const { values } = parseCliOrExit(process.argv.slice(2), {
+	usage: USAGE,
+	options: { keep: { type: 'boolean', default: false }, file: { type: 'string' } },
+})
+const KEEP = values.keep
+const EXISTING_FILE = values.file ?? null
 
 if (os.platform() !== 'win32') {
 	console.log('SKIP: PowerPoint COM smoke is Windows-only (platform: ' + os.platform() + ').')

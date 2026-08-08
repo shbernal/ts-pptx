@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * Read-blindness census — which OOXML elements appear in real PowerPoint fixtures but are
  * never addressed by any read accessor.
@@ -40,16 +41,12 @@
  * work. Point `--dir` at a corpus of real decks — any path, including one outside the
  * repo — to get a frequency-weighted read instead.
  *
- * Usage:
- *   node scripts/read-blindness-census.mjs            # slides only (the default surface)
- *   node scripts/read-blindness-census.mjs --all      # + layouts, masters, theme, notes
- *   node scripts/read-blindness-census.mjs --json     # machine-readable, for a test to assert on
- *   node scripts/read-blindness-census.mjs --fixture mixed.pptx
- *   node scripts/read-blindness-census.mjs --dir ~/decks     # frequency over real decks
+ * Usage: `pnpm run read:census -- --help` (the flag list lives in USAGE below, so there is
+ * one copy of it to keep true).
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { ROOT } from './script-utils.mjs'
+import { ROOT, parseCliOrExit } from './script-utils.mjs'
 import { Presentation } from '../dist/read.js'
 
 const DEFAULT_DIR = path.join('test', 'read', 'fixtures')
@@ -136,13 +133,35 @@ function surfaceOf(pres, includeChrome) {
 	return parts
 }
 
+const USAGE = `Read-blindness census — which OOXML the read model never looks at.
+
+  pnpm run read:census
+  pnpm run read:census -- --all
+  pnpm run read:census -- --fixture table.pptx --json
+
+Options:
+  --all              include chrome elements, not just the content surface
+  --fixture <name>   restrict the census to one .pptx by file name
+  --dir <path>       corpus directory (default ${DEFAULT_DIR})
+  --json             machine-readable report on stdout
+  -h, --help         show this message`
+
 async function main() {
-	const argv = process.argv.slice(2)
-	const includeChrome = argv.includes('--all')
-	const asJson = argv.includes('--json')
-	const only = argv[argv.indexOf('--fixture') + 1]
-	const dirArg = argv.indexOf('--dir')
-	const corpusDir = path.resolve(ROOT, (dirArg === -1 ? null : argv[dirArg + 1]) ?? DEFAULT_DIR)
+	// Previously `argv[argv.indexOf('--fixture') + 1]`, which resolves to argv[0] when the
+	// flag is absent — the filter below had to carry a second `indexOf` check to undo it.
+	const { values } = parseCliOrExit(process.argv.slice(2), {
+		usage: USAGE,
+		options: {
+			all: { type: 'boolean', default: false },
+			json: { type: 'boolean', default: false },
+			fixture: { type: 'string' },
+			dir: { type: 'string' },
+		},
+	})
+	const includeChrome = values.all
+	const asJson = values.json
+	const only = values.fixture
+	const corpusDir = path.resolve(ROOT, values.dir ?? DEFAULT_DIR)
 
 	const uriToPrefix = await readNamespaceMap()
 	const knownPrefixes = new Set(uriToPrefix.values())
@@ -150,7 +169,7 @@ async function main() {
 
 	const fixtures = (await fs.readdir(corpusDir))
 		.filter((f) => f.endsWith('.pptx'))
-		.filter((f) => !only || argv.indexOf('--fixture') === -1 || f === only)
+		.filter((f) => !only || f === only)
 		.sort()
 
 	const totals = new Map() // qname -> { count, fixtures:Set }

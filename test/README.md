@@ -23,7 +23,7 @@ tooling keys on the directory names.
 | `test/regression/<subject>/*.test.js` | `defineRegressionSuite()` (`helpers.js`) — see [docs/testing.md](../docs/testing.md) | write side: public API → emitted OOXML/package parts |
 | `test/read/*.test.js` | Vitest `describe`/`test` | `src/read/**` lossless read + edit round-trip |
 | `test/schema-cases.js` (+ `schema-validation.test.js`) | fixture data module | OOXML schema validation of emitted parts |
-| `test/backlog-ledger.test.js` | Vitest | `scripts/backlog-ledger.mjs` tooling |
+| `test/scripts/*.test.js` | Vitest | the `scripts/` gates and shared helpers — the parsing and exemption logic whose failure mode is a gate that silently stops counting (see [scripts/README.md](../scripts/README.md)) |
 | `test/browser/*.spec.mjs` | **Playwright** (`playwright.config.ts`, `pnpm run test:browser`) — see [docs/testing.md](../docs/testing.md#browser-lane) | `dist/browser.js` + all four `src/runtime/browser.ts` adapter functions in a real Chromium, Node↔browser byte identity, and `tableToSlides` against a table a browser laid out |
 | `test/browser/harness/*` | served to the page, not run by a harness | the two fixtures the specs drive: `index.html` for an unbundled load of the shipped `dist/browser.js` (plus the deck definitions both runtimes build from), and `table.html` for a rendered `<table>` with a real `offsetWidth` |
 

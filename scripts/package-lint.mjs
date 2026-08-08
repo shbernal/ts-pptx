@@ -2,7 +2,8 @@
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { packPackage, run } from './script-utils.mjs'
+import { packPackage } from './pack-utils.mjs'
+import { run } from './script-utils.mjs'
 
 const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'ts-pptx-package-lint-'))
 const keepTmp = process.env.TSPPTX_KEEP_PACKAGE_LINT === '1'

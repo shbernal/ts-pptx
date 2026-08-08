@@ -44,6 +44,7 @@ import os from 'node:os'
 import path from 'node:path'
 import JSZip from 'jszip'
 import TsPptx from '../dist/node.js'
+import { parseCliOrExit } from './script-utils.mjs'
 import { isInstalled, runValidatorOnFile, FILE_FORMATS, VALIDATOR } from '../test/validator.js'
 
 // Fixtures chosen to span the coverage axis, not to cover features — `test:schema`
@@ -113,16 +114,27 @@ function shortLabel(version) {
 }
 
 async function main() {
+	// Arguments first, install check second: `--help` has to work on a machine that has
+	// never run tools/ooxml-validator/install.sh, which is exactly where someone reads it.
+	//
+	// `parseArgs` rejects a `--file` with no value itself, so the hand-rolled
+	// "requires a path" check that used to live here is gone with the indexOf form.
+	const { values } = parseCliOrExit(process.argv.slice(2), {
+		usage: `Validate decks against every Office version the OOXML validator accepts.
+
+  pnpm run schema:versions
+  pnpm run schema:versions -- --file path/to/deck.pptx
+
+Options:
+  --file <path>  probe one existing deck instead of the built-in fixtures
+  -h, --help     show this message`,
+		options: { file: { type: 'string' } },
+	})
+	const explicitFile = values.file ?? null
+
 	if (!(await isInstalled())) {
 		console.error('OOXMLValidatorCLI not installed at ' + VALIDATOR)
 		console.error('Run: ./tools/ooxml-validator/install.sh')
-		process.exit(1)
-	}
-
-	const fileArgIndex = process.argv.indexOf('--file')
-	const explicitFile = fileArgIndex !== -1 ? process.argv[fileArgIndex + 1] : null
-	if (fileArgIndex !== -1 && !explicitFile) {
-		console.error('--file requires a path to a .pptx')
 		process.exit(1)
 	}
 

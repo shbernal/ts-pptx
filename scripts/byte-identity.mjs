@@ -22,7 +22,7 @@ import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { diffParts, explodePackage, listParts, loadShowcases } from './pptx-parts.mjs'
-import { ROOT, run } from './script-utils.mjs'
+import { ROOT, parseCliOrExit, run } from './script-utils.mjs'
 
 const OUT_ROOT = path.join(ROOT, '.tmp', 'byte-identity')
 const BASELINE = path.join(OUT_ROOT, 'baseline')
@@ -31,9 +31,26 @@ const CURRENT = path.join(OUT_ROOT, 'current')
 // run, and it has no business clobbering the artifacts `pnpm demos:build` leaves for a human.
 const DECKS = path.join(OUT_ROOT, 'decks')
 
-const mode = process.argv[2]
+const USAGE = `Byte-identity gate for write-side refactors.
+
+  node scripts/byte-identity.mjs baseline   freeze current output as the reference
+  node scripts/byte-identity.mjs check      rebuild, regenerate, diff vs baseline
+
+Freeze a baseline BEFORE the refactor, then \`check\` after each step.
+
+Options:
+  --allow-dirty   permit \`baseline\` on an uncommitted src/gen/ (read the refusal first)
+  -h, --help      show this message`
+
+const { values, positionals } = parseCliOrExit(process.argv.slice(2), {
+	usage: USAGE,
+	allowPositionals: true,
+	options: { 'allow-dirty': { type: 'boolean', default: false } },
+})
+const mode = positionals[0]
 if (mode !== 'baseline' && mode !== 'check') {
-	console.error('usage: node scripts/byte-identity.mjs <baseline|check>')
+	console.error(mode ? `unknown subcommand: ${mode}` : 'a subcommand is required')
+	console.error('\n' + USAGE)
 	process.exit(2)
 }
 
@@ -120,7 +137,7 @@ function assertGenTreeClean() {
 
 // ---------------------------------------------------------------- main
 
-if (mode === 'baseline' && !process.argv.includes('--allow-dirty')) assertGenTreeClean()
+if (mode === 'baseline' && !values['allow-dirty']) assertGenTreeClean()
 
 // Run the bundler's JS entry directly rather than `pnpm run build`: on Windows
 // the pnpm shim is a .cmd, and Node >=20 refuses to spawn one without a shell.

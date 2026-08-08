@@ -29,7 +29,7 @@
 import fs from 'node:fs'
 import http from 'node:http'
 import path from 'node:path'
-import { ROOT } from './script-utils.mjs'
+import { ROOT, parseCliOrExit } from './script-utils.mjs'
 
 /**
  * Repo-relative prefixes this server will serve, and nothing else.
@@ -69,14 +69,25 @@ const CONTENT_TYPES = {
 	'.ttf': 'font/ttf',
 }
 
-const argv = process.argv.slice(2)
-/** @param {string} flag @param {string} fallback @returns {string} */
-const arg = (flag, fallback) => {
-	const at = argv.indexOf(flag)
-	return (at >= 0 ? argv[at + 1] : undefined) || fallback
+const USAGE = `Static server for the browser test harness.
+
+  node scripts/browser-harness-server.mjs --port 4174
+
+Options:
+  --port <n>   port to listen on (default 4174)
+  --host <ip>  interface to bind (default 127.0.0.1)
+  -h, --help   show this message`
+
+const { values } = parseCliOrExit(process.argv.slice(2), {
+	usage: USAGE,
+	options: { port: { type: 'string', default: '4174' }, host: { type: 'string', default: '127.0.0.1' } },
+})
+const PORT = Number(values.port)
+if (!Number.isInteger(PORT) || PORT < 0 || PORT > 65535) {
+	console.error(`--port must be an integer between 0 and 65535, got ${JSON.stringify(values.port)}`)
+	process.exit(2)
 }
-const PORT = Number(arg('--port', '4174'))
-const HOST = arg('--host', '127.0.0.1')
+const HOST = values.host
 
 /**
  * Map a request path to an absolute file, or null if it is not under a mount.

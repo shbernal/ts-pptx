@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * Append-path ceiling — what `appendSlides` itself costs, measured rather than quoted.
  *
@@ -17,22 +18,33 @@
  * are involved. `expected: 'loss'` marks a documented limitation — those failing is the
  * plan holding, and one of them *passing* is news.
  *
- * Usage:
- *   node scripts/append-ceiling.mjs
- *   node scripts/append-ceiling.mjs --json
- *   node scripts/append-ceiling.mjs --template test/read/fixtures/mixed.pptx
+ * Usage: `node scripts/append-ceiling.mjs --help`.
  */
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { ROOT } from './script-utils.mjs'
+import { ROOT, parseCliOrExit } from './script-utils.mjs'
 import TsPptx from '../dist/node.js'
 import { Presentation } from '../dist/read.js'
 
-const argv = process.argv.slice(2)
-const asJson = argv.includes('--json')
-const templateArg = argv.indexOf('--template')
 const DEFAULT_TEMPLATE = path.join('test', 'read', 'fixtures', 'placeholder-inherit.pptx')
-const TEMPLATE = path.join(ROOT, (templateArg === -1 ? null : argv[templateArg + 1]) ?? DEFAULT_TEMPLATE)
+
+const USAGE = `Append-ceiling probe — what survives appending a slide to a template.
+
+  node scripts/append-ceiling.mjs
+  node scripts/append-ceiling.mjs --json
+  node scripts/append-ceiling.mjs --template test/read/fixtures/mixed.pptx
+
+Options:
+  --template <path>  template deck, relative to the repo root (default ${DEFAULT_TEMPLATE})
+  --json             machine-readable report on stdout
+  -h, --help         show this message`
+
+const { values } = parseCliOrExit(process.argv.slice(2), {
+	usage: USAGE,
+	options: { json: { type: 'boolean', default: false }, template: { type: 'string' } },
+})
+const asJson = values.json
+const TEMPLATE = path.join(ROOT, values.template ?? DEFAULT_TEMPLATE)
 
 const templateBytes = await fs.readFile(TEMPLATE)
 

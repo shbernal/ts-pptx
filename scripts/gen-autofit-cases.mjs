@@ -1,8 +1,10 @@
+#!/usr/bin/env node
 // Generates the *.cases.json manifests for the autofit calibration decks.
 // Output is committed next to each .pptx in test/read/fixtures/.
 import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
+import { parseCliOrExit } from './script-utils.mjs'
 
 const FIX = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'test', 'read', 'fixtures')
 const SLIDE_W = 960,
@@ -381,8 +383,27 @@ function deck4() {
 }
 
 const decks = { 'autofit-line-metrics': deck1, 'autofit-shrink': deck2, 'autofit-resize': deck3, 'autofit-edge': deck4 }
-const which = process.argv[2]
-const names = which ? [which] : Object.keys(decks)
+
+const USAGE = `Generate the *.cases.json manifests the autofit fixtures are authored from.
+
+  node scripts/gen-autofit-cases.mjs             every deck
+  node scripts/gen-autofit-cases.mjs <deck>      one deck
+
+Decks: ${Object.keys(decks).join(', ')}
+
+Options:
+  -h, --help  show this message`
+
+const { positionals } = parseCliOrExit(process.argv.slice(2), { usage: USAGE, allowPositionals: true, options: {} })
+// Validated rather than indexed blind: an unknown name used to reach `decks[name]()`
+// and fail as "decks[name] is not a function", which names nothing the caller typed.
+const unknown = positionals.filter((name) => !(name in decks))
+if (unknown.length) {
+	console.error(`unknown deck: ${unknown.join(', ')}`)
+	console.error('\n' + USAGE)
+	process.exit(2)
+}
+const names = positionals.length ? positionals : Object.keys(decks)
 for (const name of names) {
 	const spec = decks[name]()
 	const out = resolve(FIX, `${name}.cases.json`)

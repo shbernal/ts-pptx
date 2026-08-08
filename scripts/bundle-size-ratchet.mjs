@@ -38,7 +38,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import zlib from 'node:zlib'
-import { ROOT } from './script-utils.mjs'
+import { ROOT, isMain, parseCli, runCli } from './script-utils.mjs'
 
 const DIST = path.join(ROOT, 'dist')
 const BUDGET = path.join(ROOT, 'scripts', 'bundle-size-budget.json')
@@ -58,30 +58,47 @@ const HEADROOM_PCT = 5
 /** Re-freeze is only worth asking for when an entry comes in this far under budget. */
 const SLACK_PCT = 15
 
-/** Relative specifiers, static and dynamic. Bare ones are the consumer's to resolve. */
-const RELATIVE_IMPORT = /(?:from\s*|import\s*\()\s*["'](\.[^"']*)["']/g
+/**
+ * Relative specifiers, static and dynamic. Bare ones are the consumer's to resolve.
+ *
+ * Three forms, and the third is the one that matters: `from './x'` (import and
+ * `export … from` alike), `import('./x')`, and the side-effect `import './x'`.
+ * Missing that last form is the failure mode a ratchet cannot afford — a
+ * side-effect import drops its file *and everything below it* from the closure,
+ * so the measurement falls and the check passes. `\(?` is what admits both the
+ * call form and the bare one.
+ */
+export const RELATIVE_IMPORT = /(?:\bfrom\s*|\bimport\s*\(?\s*)["'](\.[^"']*)["']/g
 
-const argv = process.argv.slice(2)
-const freeze = argv.includes('--freeze')
-const list = argv.includes('--list')
+/**
+ * Relative specifiers named by one emitted file, in source order.
+ *
+ * Split out from {@link closureOf} because it is the whole of the parsing risk and
+ * needs no filesystem to exercise — see `test/scripts/bundle-size-ratchet.test.js`.
+ * @param {string} text file contents
+ * @returns {string[]} relative specifiers, duplicates included
+ */
+export function relativeImportsOf(text) {
+	return [...text.matchAll(RELATIVE_IMPORT)].map(([, specifier]) => specifier).filter((s) => s !== undefined)
+}
 
 /**
  * Every emitted file an entry pulls in, including itself.
- * @param {string} entry file name under `dist/`
+ * @param {string} entry file name under `dir`
+ * @param {string} [dir] directory holding the emitted files; defaults to `dist/`
  * @returns {string[]} file names, sorted
  */
-function closureOf(entry) {
+export function closureOf(entry, dir = DIST) {
 	const seen = new Set()
 	const queue = [entry]
 	while (queue.length) {
 		const name = queue.shift()
 		if (!name || seen.has(name)) continue
-		const file = path.join(DIST, name)
+		const file = path.join(dir, name)
 		if (!fs.existsSync(file)) throw new Error(`dist/${name} is missing — run \`pnpm run build\` first`)
 		seen.add(name)
-		const text = fs.readFileSync(file, 'utf8')
-		for (const [, specifier] of text.matchAll(RELATIVE_IMPORT)) {
-			if (specifier) queue.push(path.posix.normalize(path.posix.join(path.posix.dirname(name), specifier)))
+		for (const specifier of relativeImportsOf(fs.readFileSync(file, 'utf8'))) {
+			queue.push(path.posix.normalize(path.posix.join(path.posix.dirname(name), specifier)))
 		}
 	}
 	return [...seen].sort()
@@ -90,77 +107,112 @@ function closureOf(entry) {
 /** @param {string} name @returns {number} gzipped bytes */
 const gzipBytes = (name) => zlib.gzipSync(fs.readFileSync(path.join(DIST, name)), { level: 9 }).byteLength
 
-/** @type {Map<string, {files: Array<{name: string, gzip: number}>, gzip: number}>} */
-const measured = new Map()
-for (const entry of ENTRIES) {
-	const files = closureOf(entry).map((name) => ({ name, gzip: gzipBytes(name) }))
-	measured.set(entry, { files, gzip: files.reduce((sum, file) => sum + file.gzip, 0) })
-}
-
 /** @param {number} bytes */
 const kb = (bytes) => (bytes / 1024).toFixed(1) + ' kB'
 
-if (list) {
-	for (const [entry, { files, gzip }] of measured) {
-		console.log(`${entry}: ${kb(gzip)} gzipped, ${files.length} file(s)`)
-		for (const file of [...files].sort((a, b) => b.gzip - a.gzip))
-			console.log(`  ${kb(file.gzip).padStart(9)}  ${file.name}`)
+/**
+ * Measure every budgeted entry against `dist/`.
+ * @returns {Map<string, {files: Array<{name: string, gzip: number}>, gzip: number}>}
+ */
+export function measureEntries() {
+	const measured = new Map()
+	for (const entry of ENTRIES) {
+		const files = closureOf(entry).map((name) => ({ name, gzip: gzipBytes(name) }))
+		measured.set(entry, { files, gzip: files.reduce((sum, file) => sum + file.gzip, 0) })
 	}
-	process.exit(0)
+	return measured
 }
 
-if (freeze) {
+// ---------------------------------------------------------------- CLI
+
+const USAGE = `Bundle-size budget — how big the browser entry has got.
+
+  node scripts/bundle-size-ratchet.mjs            check (exit 1 over budget)
+  node scripts/bundle-size-ratchet.mjs --freeze   rewrite the budget from dist/
+  node scripts/bundle-size-ratchet.mjs --list     per-chunk breakdown
+
+Options:
+  --freeze    write ${HEADROOM_PCT}% above today's measurement into the budget file
+  --list      print every file in each entry's closure, largest first
+  -h, --help  show this message`
+
+/** @param {string[]} argv @returns {number} process exit code */
+export function main(argv) {
+	const { values } = parseCli(argv, {
+		usage: USAGE,
+		options: {
+			freeze: { type: 'boolean', default: false },
+			list: { type: 'boolean', default: false },
+		},
+	})
+
+	const measured = measureEntries()
+
+	if (values.list) {
+		for (const [entry, { files, gzip }] of measured) {
+			console.log(`${entry}: ${kb(gzip)} gzipped, ${files.length} file(s)`)
+			for (const file of [...files].sort((a, b) => b.gzip - a.gzip))
+				console.log(`  ${kb(file.gzip).padStart(9)}  ${file.name}`)
+		}
+		return 0
+	}
+
+	if (values.freeze) {
+		/** @type {Record<string, number>} */
+		const frozen = {}
+		// Rounded up to a whole kB so the budget reads as a decision someone made rather than
+		// as a build artifact copied into a file.
+		for (const [entry, { gzip, files }] of measured) {
+			frozen[entry] = Math.ceil((gzip * (1 + HEADROOM_PCT / 100)) / 1024) * 1024
+			console.log(`bundle size: froze ${entry} at ${kb(frozen[entry])} (measured ${kb(gzip)}, ${files.length} file(s))`)
+		}
+		fs.writeFileSync(BUDGET, JSON.stringify(frozen, null, '\t') + '\n')
+		return 0
+	}
+
 	/** @type {Record<string, number>} */
-	const frozen = {}
-	// Rounded up to a whole kB so the budget reads as a decision someone made rather than
-	// as a build artifact copied into a file.
-	for (const [entry, { gzip, files }] of measured) {
-		frozen[entry] = Math.ceil((gzip * (1 + HEADROOM_PCT / 100)) / 1024) * 1024
-		console.log(`bundle size: froze ${entry} at ${kb(frozen[entry])} (measured ${kb(gzip)}, ${files.length} file(s))`)
+	const budgetFile = JSON.parse(fs.readFileSync(BUDGET, 'utf8'))
+	const relBudget = path.relative(ROOT, BUDGET).split(path.sep).join('/')
+
+	const missing = [...measured.keys()].filter((entry) => typeof budgetFile[entry] !== 'number')
+	if (missing.length) {
+		console.error(`bundle size FAILED — no budget for ${missing.join(', ')} in ${relBudget}.`)
+		console.error('\n  pnpm run bundle-size:freeze')
+		return 1
 	}
-	fs.writeFileSync(BUDGET, JSON.stringify(frozen, null, '\t') + '\n')
-	process.exit(0)
-}
 
-/** @type {Record<string, number>} */
-const budgetFile = JSON.parse(fs.readFileSync(BUDGET, 'utf8'))
-const relBudget = path.relative(ROOT, BUDGET).split(path.sep).join('/')
+	const checked = [...measured].map(([entry, { gzip, files }]) => ({
+		entry,
+		gzip,
+		files,
+		budget: budgetFile[entry] ?? 0,
+	}))
+	const over = checked.filter((row) => row.gzip > row.budget)
+	const under = checked.filter((row) => row.gzip < row.budget * (1 - SLACK_PCT / 100))
 
-const missing = [...measured.keys()].filter((entry) => typeof budgetFile[entry] !== 'number')
-if (missing.length) {
-	console.error(`bundle size FAILED — no budget for ${missing.join(', ')} in ${relBudget}.`)
-	console.error('\n  pnpm run bundle-size:freeze')
-	process.exit(1)
-}
-
-const checked = [...measured].map(([entry, { gzip, files }]) => ({
-	entry,
-	gzip,
-	files,
-	budget: budgetFile[entry] ?? 0,
-}))
-const over = checked.filter((row) => row.gzip > row.budget)
-const under = checked.filter((row) => row.gzip < row.budget * (1 - SLACK_PCT / 100))
-
-if (over.length) {
-	console.error('bundle size FAILED — an entry grew past its budget:\n')
-	for (const { entry, gzip, files, budget } of over) {
-		console.error(`  ${entry}: ${kb(gzip)} gzipped (budget ${kb(budget)}), ${files.length} file(s)`)
-		for (const file of [...files].sort((a, b) => b.gzip - a.gzip).slice(0, 5))
-			console.error(`    ${kb(file.gzip).padStart(9)}  ${file.name}`)
+	if (over.length) {
+		console.error('bundle size FAILED — an entry grew past its budget:\n')
+		for (const { entry, gzip, files, budget } of over) {
+			console.error(`  ${entry}: ${kb(gzip)} gzipped (budget ${kb(budget)}), ${files.length} file(s)`)
+			for (const file of [...files].sort((a, b) => b.gzip - a.gzip).slice(0, 5))
+				console.error(`    ${kb(file.gzip).padStart(9)}  ${file.name}`)
+		}
+		console.error('\nRun `pnpm run bundle-size:list` for the full breakdown. If the growth is')
+		console.error(`intended, raise the number in ${relBudget} in the same commit and say what`)
+		console.error('bought the bytes; if it is not, something reached the browser entry that should not.')
+		return 1
 	}
-	console.error('\nRun `pnpm run bundle-size:list` for the full breakdown. If the growth is')
-	console.error(`intended, raise the number in ${relBudget} in the same commit and say what`)
-	console.error('bought the bytes; if it is not, something reached the browser entry that should not.')
-	process.exit(1)
+
+	if (under.length) {
+		console.log(`bundle size: ${SLACK_PCT}%+ under budget — bank it by lowering ${relBudget}:\n`)
+		for (const { entry, gzip, budget } of under) console.log(`  ${entry}: ${kb(budget)} -> ${kb(gzip)}`)
+		console.log('\n  pnpm run bundle-size:freeze')
+		return 1
+	}
+
+	for (const { entry, gzip, files, budget } of checked)
+		console.log(`bundle size: ok — ${entry} ${kb(gzip)} gzipped (budget ${kb(budget)}), ${files.length} file(s)`)
+	return 0
 }
 
-if (under.length) {
-	console.log(`bundle size: ${SLACK_PCT}%+ under budget — bank it by lowering ${relBudget}:\n`)
-	for (const { entry, gzip, budget } of under) console.log(`  ${entry}: ${kb(budget)} -> ${kb(gzip)}`)
-	console.log('\n  pnpm run bundle-size:freeze')
-	process.exit(1)
-}
-
-for (const { entry, gzip, files, budget } of checked)
-	console.log(`bundle size: ok — ${entry} ${kb(gzip)} gzipped (budget ${kb(budget)}), ${files.length} file(s)`)
+if (isMain(import.meta.url)) await runCli(() => main(process.argv.slice(2)))

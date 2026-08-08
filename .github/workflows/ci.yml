@@ -92,6 +92,20 @@ jobs:
         if: matrix.node != '24.x'
         run: pnpm run test
 
+      # The script round-trip is a gate, not a report: it prints a script for each read
+      # fixture, runs it, and fails on any difference no fidelity note predicted. It had
+      # been runnable but unrun — nothing in `verify` or CI invoked it, so a converter
+      # regression would have sat undetected until someone thought to call it by hand.
+      #
+      # Both tiers, because they gate different claims: tier B (template-anchored) against
+      # the source deck, tier A (standalone) with no template laid down, so a script that
+      # still secretly needed one fails here. ~25s for the pair on the primary leg only —
+      # the corpus and the converter are runtime-independent, so a second Node version
+      # would re-prove the same thing.
+      - name: Script round-trip (both tiers)
+        if: matrix.node == '24.x'
+        run: pnpm run script:roundtrip:all
+
       # For the `coverage` job below, which merges this with what the browser lane
       # executed. Only the primary leg collects coverage, so only it has one to upload.
       - name: Upload Node coverage

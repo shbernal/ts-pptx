@@ -129,10 +129,18 @@ MCPs' corpora.
   including schema). Run this instead of hand-composing four or five separate commands —
   hand-composed sets come out slightly different every time and end up re-running the
   same suite twice.
-- **`pnpm run verify:full`** (~65s) before pushing or for a release/package-boundary
-  change: everything in `verify`, plus `package:lint`, `test:package` and
-  `bundle-size:check`. The split is only about cost — those pack and install the tarball;
-  everything cheaper already lives in `verify`.
+- **`pnpm run verify:full`** (~90s) before pushing or for a release/package-boundary
+  change: everything in `verify`, plus `script:roundtrip:all`, `package:lint`,
+  `test:package` and `bundle-size:check`. The split is only about cost — those pack and
+  install the tarball, or run the whole read corpus twice; everything cheaper already
+  lives in `verify`.
+- **`pnpm run script:roundtrip:all`** (~25s, in `verify:full` and CI) is the script
+  converter's gate: for every read fixture it prints a script, runs it, and diffs the
+  result against the source with the printer's own fidelity notes as the exclusion list.
+  A difference no note predicted is a defect. Both tiers run — tier B against the source
+  deck as template, tier A with no template at all — because they gate different claims.
+  It certifies "nothing the converter can see was lost", never "nothing was lost";
+  `read:census` is what measures the second thing.
 - Two of those are **ratchets**, and both fail on a change you did not intend as much as
   on one you did: `raw-xml:check` (in `verify`) and `bundle-size:check` (in
   `verify:full`). A ratchet failure is not automatically a defect — it is a prompt to

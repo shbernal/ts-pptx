@@ -4,7 +4,8 @@ import { isBuiltin } from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
 import esbuild from 'esbuild'
-import { ROOT, assertFile, assertNoFile, packPackage, run } from './script-utils.mjs'
+import { assertFile, assertNoFile, packPackage } from './pack-utils.mjs'
+import { ROOT, run } from './script-utils.mjs'
 
 const packageJson = JSON.parse(await fs.readFile(path.join(ROOT, 'package.json'), 'utf8'))
 const packageName = packageJson.name

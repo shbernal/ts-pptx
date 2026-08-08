@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * Round-trip harness — does a generated script rebuild the deck it was generated from?
  *
@@ -23,38 +24,56 @@
  * on the file it is meant to replace. The comparison is the same either way — only what the
  * fidelity notes excuse differs, which is the point of running both.
  *
- * Usage:
- *   pnpm run script:roundtrip
- *   pnpm run script:roundtrip -- --tier a
- *   pnpm run script:roundtrip -- --json
- *   pnpm run script:roundtrip -- --fixture mixed.pptx --verbose
- *   pnpm run script:roundtrip -- --dir ~/decks        # any corpus; absolute paths welcome
+ * Usage: `pnpm run script:roundtrip -- --help` (the flag list lives in USAGE below, so
+ * there is one copy of it to keep true).
  */
 import { execFile } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
-import { ROOT } from './script-utils.mjs'
+import { ROOT, parseCliOrExit } from './script-utils.mjs'
 import { Presentation } from '../dist/read.js'
 import { canonicalDeckIr, diffDeckIr, printScript, printStandaloneScript, readModelToIr } from '../dist/script.js'
 
 const run = promisify(execFile)
-const argv = process.argv.slice(2)
-const flag = (name) => {
-	const index = argv.indexOf(name)
-	return index === -1 ? null : (argv[index + 1] ?? null)
-}
-const asJson = argv.includes('--json')
-const verbose = argv.includes('--verbose')
-const only = flag('--fixture')
-const tier = (flag('--tier') ?? 'b').toLowerCase()
+
+const USAGE = `Round-trip harness — does a generated script rebuild the deck it came from?
+
+  pnpm run script:roundtrip
+  pnpm run script:roundtrip -- --tier a
+  pnpm run script:roundtrip -- --fixture mixed.pptx --verbose
+  pnpm run script:roundtrip -- --dir ~/decks        # absolute paths welcome
+
+Options:
+  --tier <a|b>       a = standalone script, b = template-anchored (default b)
+  --fixture <name>   restrict the run to one .pptx by file name
+  --dir <path>       corpus directory (default test/read/fixtures)
+  --json             machine-readable report on stdout
+  --verbose          list each undeclared difference and the write-path defaults
+  -h, --help         show this message`
+
+const { values } = parseCliOrExit(process.argv.slice(2), {
+	usage: USAGE,
+	options: {
+		tier: { type: 'string', default: 'b' },
+		fixture: { type: 'string' },
+		dir: { type: 'string' },
+		json: { type: 'boolean', default: false },
+		verbose: { type: 'boolean', default: false },
+	},
+})
+const asJson = values.json
+const verbose = values.verbose
+const only = values.fixture ?? null
+const tier = values.tier.toLowerCase()
 if (tier !== 'a' && tier !== 'b') {
-	console.error(`--tier must be a (standalone) or b (template-anchored), got ${JSON.stringify(tier)}`)
-	process.exit(1)
+	console.error(`--tier must be a (standalone) or b (template-anchored), got ${JSON.stringify(values.tier)}`)
+	console.error('\n' + USAGE)
+	process.exit(2)
 }
 // `resolve`, not `join`: an absolute `--dir` must win outright, so a corpus of real decks
 // can live outside the repo rather than under a gitignore rule inside the working tree.
-const DIR = path.resolve(ROOT, flag('--dir') ?? path.join('test', 'read', 'fixtures'))
+const DIR = path.resolve(ROOT, values.dir ?? path.join('test', 'read', 'fixtures'))
 
 // Inside the repo rather than the OS temp directory, and required to be: the emitted script
 // imports this package by its published name, which Node resolves by the self-reference rule
