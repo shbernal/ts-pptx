@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseDocument, stringify } from 'yaml'
@@ -441,6 +442,51 @@ export function validateLedgerText(text) {
 	return { data: parsed.data, errors: validateLedgerData(parsed.data) }
 }
 
+/**
+ * Strip a `local_files` entry down to the repo path it names.
+ *
+ * Entries are written as `src/foo.ts`, `src/foo.ts:123` (a line anchor) or occasionally with a
+ * trailing parenthetical note. Only the leading path is checked.
+ */
+function evidencePathOf(entry) {
+	return (String(entry).trim().split(/[\s(]/, 1)[0] ?? '').replace(/:\d+(-\d+)?$/, '')
+}
+
+/**
+ * Report `evidence.local_files` entries that no longer name a file in the repo.
+ *
+ * Kept out of {@link validateLedgerData} because that function is pure and synchronous — this
+ * one has to touch the filesystem, so it takes an `exists` predicate and the CLI supplies the
+ * real one. Separating them also keeps the ledger's own unit tests free of a repo layout.
+ *
+ * This check exists because the ledger accumulated eight evidence paths pointing at a `src/*.ts`
+ * layout that a refactor had long since replaced (`gen-xml.ts`, `gen-objects.ts`, …). Nothing
+ * caught it: the schema only ever asserted that `local_files` *is a list*. A citation that
+ * resolves nowhere is worse than none, because it still reads as verified.
+ *
+ * Entries containing a `*` are treated as globs and skipped — a few deliberately name a
+ * directory pattern (`src/gen/define/*.ts`) rather than one file.
+ * @param {object} data - the parsed ledger
+ * @param {(relPath: string) => boolean} exists - whether a repo-relative path exists
+ * @returns {string[]} one error per missing path
+ */
+export function validateEvidencePaths(data, exists) {
+	const errors = []
+	for (const [index, item] of (data?.items || []).entries()) {
+		const files = item?.evidence?.local_files
+		if (!Array.isArray(files)) continue
+		const label = 'items[' + index + '] (' + (item.id ?? 'unknown') + ')'
+		for (const entry of files) {
+			if (typeof entry !== 'string' || entry.includes('*')) continue
+			const relPath = evidencePathOf(entry)
+			if (relPath && !exists(relPath)) {
+				errors.push(label + ': evidence.local_files path does not exist: ' + relPath)
+			}
+		}
+	}
+	return errors
+}
+
 export async function loadLedgerFile(ledgerPath) {
 	const text = await fs.readFile(ledgerPath, 'utf8')
 	const parsed = parseLedgerText(text)
@@ -806,6 +852,12 @@ export async function runLedgerCommand(argv, io = defaultIo()) {
 	if (options.command === 'validate') {
 		const text = await fs.readFile(options.ledger, 'utf8')
 		const validation = validateLedgerText(text)
+		// Evidence paths are checked only when the schema itself is clean: on a malformed ledger
+		// the shape of `local_files` is not yet trustworthy, and the path errors would bury the
+		// structural ones that have to be fixed first.
+		if (validation.errors.length === 0) {
+			validation.errors = validateEvidencePaths(validation.data, (relPath) => existsSync(path.join(ROOT, relPath)))
+		}
 		io.stdout(validationReport(validation, options, options.ledger))
 		return validation.errors.length === 0 ? 0 : 1
 	}

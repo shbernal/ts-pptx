@@ -1,7 +1,7 @@
 ---
 doc-schema-version: 1
 title: "Backlog Workflow"
-summary: "How to record and classify this project's own work in docs/backlog.yml: anonymous downstream consumer needs plus the retained upstream-derived entries, without reintroducing dropped package targets."
+summary: "How to record and classify this project's own work in docs/backlog.yml: anonymous downstream consumer needs and fork-internal proposals, without reintroducing dropped package targets."
 read_when:
   - Recording a downstream need raised by a consumer
   - Updating backlog classifications
@@ -21,20 +21,22 @@ has made. It holds two kinds of entry:
    are the primary, ongoing source of new work, and they are recorded
    **anonymously**: describe the missing PPTX behavior and its generic
    reproduction, never a private consumer's name, file paths, or content.
-2. **Retained upstream-derived signals** — a set of gitbrent/PptxGenJS issues and
-   PRs that were judged relevant to this project before upstream tracking was
-   retired. They carry a github reference (`owner/repo#N`) in `source` and remain
-   as historical context and standing feature ideas.
+2. **Fork-internal proposals** — API-evolution and breaking-change candidates the
+   project proposes for itself (`type: fork-internal-proposal`, `source: fork[:path]`).
 
 > **Upstream tracking is retired.** This project no longer fetches upstream issues
 > or reconciles the ledger against GitHub, and the `backlog:check:upstream`
-> tooling has been removed. Do not re-add a sync step. New entries should be
-> project needs (`downstream-need`); the github-sourced entries already in the
-> file are kept as-is unless a local change closes one.
+> tooling has been removed. Do not re-add a sync step. The reviewed
+> upstream-derived entries that tracking left behind were moved to
+> **`docs/backlog-archive.yml`** — a closed record, not a queue: all but one were
+> dispositioned `non-target` with `next_action: none`, and keeping them inline made
+> the live work hard to find. Read the archive if the same report resurfaces; never
+> add to it, and do not link a live entry to one.
 
-The `source` field still discriminates the two kinds, and the validator enforces
-it: github references for the retained legacy entries, the bare token `downstream`
-for downstream needs (never a consumer path — that would leak private structure).
+The `source` field discriminates the two kinds, and the validator enforces it: the bare
+token `downstream` for downstream needs (never a consumer path — that would leak private
+structure), and `fork` or `fork:<path>` for fork-internal proposals. A github reference is
+still accepted by the schema, but only the archived entries use one.
 
 ## Out-Of-Target Work
 
@@ -51,14 +53,13 @@ Do not use the backlog to reintroduce dropped package targets:
 The decision ledger is [backlog.yml](backlog.yml). It records what has been
 dismissed, what is under consideration, and what should be implemented locally.
 
-The ledger is intentionally metadata-first for the retained github entries: do
-not copy full upstream issue or PR bodies into this repository. For
-`downstream-need` items the full design rationale is welcome (see **Downstream
-Needs** below).
+Do not copy full upstream issue or PR bodies into this repository — the archived entries
+are deliberately metadata-first for that reason. For `downstream-need` items the full design
+rationale is welcome (see **Downstream Needs** below).
 
 For the shape of an individual entry — every field, in write order, with
 realistic annotated values for both an implemented `downstream-need` and a
-retained github entry — see the reference
+github-sourced entry — see the reference
 [backlog-item-template.yml](backlog-item-template.yml). It is not validated and
 not part of the ledger; it exists so the structure survives the `items:` list
 being emptied. The authoritative field shape is still
@@ -283,7 +284,10 @@ For each fixed item:
 
 - set `status` to `implemented`;
 - update `current_project_notes` with the local commit or fix summary;
-- add the source and test files to `evidence.local_files`;
+- add the source and test files to `evidence.local_files` — `pnpm run backlog:validate`
+  checks that each one still exists, so a later refactor that moves a file fails the gate
+  instead of leaving a citation pointing nowhere. A `src/foo.ts:123` line anchor and a
+  trailing `(note)` are both fine; write a `*` in the path to opt out (it is read as a glob);
 - set `schema_fixture` and `validator_result` when a schema fixture was added;
 - add relevant OOXML or Microsoft references used for the fix;
 - set `next_action` to `none`;
