@@ -9,8 +9,8 @@
  * eagerly at the call site instead of on first use.
  */
 
-import type { OpcPackage } from '../opc/package.js'
-import type { Part } from '../opc/part.js'
+import type { OpcPackage } from '../../opc/package.js'
+import type { Part } from '../../opc/part.js'
 
 /** The destination deck: just the package and its main part. `Presentation` satisfies it. */
 export interface DeckTarget {

@@ -6,6 +6,7 @@
  */
 import type { LineCap } from './chart.js'
 import type { Color, Coord, GradientFillProps, HexColor, ImageFillProps, PatternFillProps } from './core.js'
+import type { PresetLineDashVal } from '../ooxml/st-enums.js'
 
 // used by charts, shape, text
 export interface BorderProps {
@@ -190,18 +191,7 @@ export interface ShapeLineProps extends ShapeFillProps {
 	 * carry can also be authored and replicated.
 	 * @default 'solid'
 	 */
-	dashType?:
-		| 'solid'
-		| 'dot'
-		| 'dash'
-		| 'lgDash'
-		| 'dashDot'
-		| 'lgDashDot'
-		| 'lgDashDotDot'
-		| 'sysDash'
-		| 'sysDot'
-		| 'sysDashDot'
-		| 'sysDashDotDot'
+	dashType?: PresetLineDashVal
 	/**
 	 * Line end cap style
 	 * @default 'flat'

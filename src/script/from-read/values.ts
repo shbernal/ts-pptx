@@ -17,6 +17,7 @@
  *   `0.5000000001`-style noise trades a cosmetic problem for a real geometry loss.
  */
 import type { IrValue } from '../ir.js'
+import type { GraphicFrame } from '../../read.js'
 
 /** EMU per inch (ECMA-376 §20.1.2.1). */
 const EMU_PER_INCH = 914400
@@ -135,4 +136,14 @@ export function orUndefined<T>(value: T | null): T | undefined {
 export function alphaToTransparency(alpha: number | null | undefined): number | undefined {
 	if (alpha === undefined || alpha === null) return undefined
 	return Math.round((1 - alpha) * 100)
+}
+
+/**
+ * A graphic frame's position as write-API options. Identical to a shape's, minus rotation and
+ * flip: a `p:graphicFrame` has neither, so `a:xfrm` carries only the offset and extent.
+ */
+export function positionOfFrame(frame: GraphicFrame): Record<string, IrValue> {
+	const box = frame.absoluteFrame
+	if (!box) return {}
+	return { x: emu(box.left), y: emu(box.top), w: emu(box.width), h: emu(box.height) }
 }

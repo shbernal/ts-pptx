@@ -11,7 +11,7 @@ import { CRLF, XML_DECL } from '../../constants-internal.js'
 import type { PresSlideInternal } from '../../types/internal.js'
 import { type EmbeddedFont, FONT_REL_TYPE, flattenEmbeddedFaces } from '../../embedded-fonts.js'
 import { el, raw, voidEl } from '../oxml/el.js'
-import { OFFICE_REL, PACKAGE_REL_NS } from '../oxml/schema-uris.js'
+import { OFFICE_REL, PACKAGE_REL_NS } from '../../ooxml/rel-types.js'
 
 function relationship(rId: number, type: string, target: string): string {
 	return voidEl('Relationship', { Id: `rId${rId}`, Type: type, Target: target })

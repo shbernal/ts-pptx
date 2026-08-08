@@ -10,10 +10,10 @@
  * so this module stays independent of the class that calls it.
  */
 
-import type { OpcPackage } from '../opc/package.js'
-import type { Part } from '../opc/part.js'
-import { relativePartName } from '../opc/partnames.js'
-import { OOXML_NS, attr, getElements, ownerDocumentOf, type Element } from '../oxml/dom.js'
+import type { OpcPackage } from '../../opc/package.js'
+import type { Part } from '../../opc/part.js'
+import { relativePartName } from '../../opc/partnames.js'
+import { OOXML_NS, attr, getElements, ownerDocumentOf, type Element } from '../../oxml/dom.js'
 import type { DeckTarget } from './deck-target.js'
 
 const TABLE_STYLES_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles'

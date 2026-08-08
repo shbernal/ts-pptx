@@ -5,6 +5,7 @@
  * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
 import type { ShapeFillProps } from './style.js'
+import type { TextVerticalType } from '../ooxml/st-enums.js'
 
 /**
  * Coordinate value. A bare `number` is **always inches** — there is no magnitude-based unit
@@ -237,7 +238,7 @@ export type VAlign = 'top' | 'middle' | 'bottom'
  * Text body `vert` attribute — flow/rotation direction of the text within its box.
  * Maps to `<a:bodyPr vert="…">` (ECMA-376 `ST_TextVerticalType`).
  */
-export type TextVertType = 'eaVert' | 'horz' | 'mongolianVert' | 'vert' | 'vert270' | 'wordArtVert' | 'wordArtVertRtl'
+export type TextVertType = TextVerticalType
 
 /**
  * A single node of a freeform (`custGeom`) path.

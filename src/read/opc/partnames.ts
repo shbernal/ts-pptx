@@ -5,6 +5,22 @@
  * `/ppt/slides/slide1.xml`. Zip entry paths omit the leading slash.
  */
 import { PackageReadError } from '../../errors.js'
+import type { OpcPackage } from './package.js'
+
+/**
+ * Resolve the single relationship of `type` owned by `partName` to its target partname, or
+ * `null` when the part declares none. For the one-of-a-kind links in a deck's spine — a slide to
+ * its layout, a layout to its master, a master to its theme — where a second relationship of the
+ * same type would itself be malformed.
+ *
+ * The `OpcPackage` import is type-only, so this does not create a cycle with `package.ts` (which
+ * imports this module at run time).
+ */
+export function resolveSingleRel(opc: OpcPackage, partName: string, type: string): string | null {
+	const rels = opc.relationshipsFor(partName)
+	const rel = rels.byType(type)[0]
+	return rel ? rels.resolveTarget(rel.id) : null
+}
 
 export function zipPathToPartName(zipPath: string): string {
 	return zipPath.startsWith('/') ? zipPath : `/${zipPath}`

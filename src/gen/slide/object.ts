@@ -37,7 +37,7 @@ import { renderTableObject } from './objects/table.js'
 import { renderTextObject } from './objects/text.js'
 import { renderZoomObject } from './objects/zoom.js'
 import { collectSlideShapeIds } from './shape-ids.js'
-import { OFFICE_REL, PACKAGE_REL_NS } from '../oxml/schema-uris.js'
+import { OFFICE_REL, PACKAGE_REL_NS } from '../../ooxml/rel-types.js'
 
 /** The MS-2007 `media` rel that pairs with an ECMA audio/video/online rel on the same Target. */
 const MS_MEDIA_REL = 'http://schemas.microsoft.com/office/2007/relationships/media'

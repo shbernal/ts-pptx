@@ -24,11 +24,13 @@ import type { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
 import type { Relationships } from '../opc/relationships.js'
 import { attr, firstChild, getElements, intValue, type Element } from '../oxml/dom.js'
-import { parseClrMap, parseClrScheme, type FlattenContext } from '../oxml/theme.js'
+import { parseClrMap, parseClrScheme, type ThemeContext } from '../oxml/theme.js'
 import { resolveLayoutColorContext, resolveMasterColorContext } from './theme-context.js'
+import { placeholderOf } from '../oxml/placeholder-inherit.js'
+import { spPrXfrmEmu } from './shapes/oxml.js'
 import { backgroundElementOf, readSlideBackground, type SlideBackground } from './slide-background.js'
 import { TextFrame } from './text.js'
-import { SLIDE_MASTER_REL, THEME_REL } from './rel-types.js'
+import { SLIDE_MASTER_REL, THEME_REL } from '../../ooxml/rel-types.js'
 
 /** The 12 theme colour-scheme slots (`a:clrScheme` children), in schema order. */
 export type ThemeColorSlot =
@@ -204,25 +206,10 @@ export class Theme {
 	}
 }
 
-/** One EMU coordinate from a placeholder's `p:spPr/a:xfrm` child, or `null` when absent. */
-function xfrmEmu(sp: Element, container: 'a:off' | 'a:ext', axis: string): number | null {
-	const spPr = firstChild(sp, 'p:spPr')
-	const xfrm = spPr && firstChild(spPr, 'a:xfrm')
-	const el = xfrm && firstChild(xfrm, container)
-	return el ? intValue(attr(el, axis)) : null
-}
-
-/** The `p:ph` element of a shape (`p:sp/p:nvSpPr/p:nvPr/p:ph`), or `null` when it is not a placeholder. */
-function placeholderElement(sp: Element): Element | null {
-	const nvSpPr = firstChild(sp, 'p:nvSpPr')
-	const nvPr = nvSpPr && firstChild(nvSpPr, 'p:nvPr')
-	return nvPr ? firstChild(nvPr, 'p:ph') : null
-}
-
 /** The placeholder shapes (`p:sp` carrying a `p:ph`) of a master/layout `p:spTree`, in document order. */
 function placeholderShapes(spTree: Element | null): Element[] {
 	if (!spTree) return []
-	return getElements(spTree, 'p:sp').filter((sp) => placeholderElement(sp) !== null)
+	return getElements(spTree, 'p:sp').filter((sp) => placeholderOf(sp) !== null)
 }
 
 /**
@@ -237,7 +224,7 @@ export class Placeholder {
 		private readonly sp: Element,
 		private readonly part: Part,
 		/** The owning master/layout theme context, threaded to {@link textFrame}. */
-		private readonly themeContext: FlattenContext,
+		private readonly themeContext: ThemeContext,
 		/** The owning part's relationships, threaded to {@link textFrame} for hyperlink resolution. */
 		private readonly relationships: Relationships
 	) {}
@@ -249,13 +236,13 @@ export class Placeholder {
 
 	/** Placeholder type (`p:ph/@type`: `title` | `body` | `sldNum` | …), or `null` when absent (a body placeholder). */
 	get type(): string | null {
-		const ph = placeholderElement(this.sp)
+		const ph = placeholderOf(this.sp)
 		return ph ? attr(ph, 'type') : null
 	}
 
 	/** Placeholder index (`p:ph/@idx`), or `null` when unset. */
 	get idx(): string | null {
-		const ph = placeholderElement(this.sp)
+		const ph = placeholderOf(this.sp)
 		return ph ? attr(ph, 'idx') : null
 	}
 
@@ -273,22 +260,22 @@ export class Placeholder {
 
 	/** Left edge in EMU (`a:off/@x`), or `null` when the placeholder carries no own `a:xfrm`. */
 	get left(): number | null {
-		return xfrmEmu(this.sp, 'a:off', 'x')
+		return spPrXfrmEmu(this.sp, 'a:off', 'x')
 	}
 
 	/** Top edge in EMU (`a:off/@y`), or `null` when the placeholder carries no own `a:xfrm`. */
 	get top(): number | null {
-		return xfrmEmu(this.sp, 'a:off', 'y')
+		return spPrXfrmEmu(this.sp, 'a:off', 'y')
 	}
 
 	/** Width in EMU (`a:ext/@cx`), or `null` when the placeholder carries no own `a:xfrm`. */
 	get width(): number | null {
-		return xfrmEmu(this.sp, 'a:ext', 'cx')
+		return spPrXfrmEmu(this.sp, 'a:ext', 'cx')
 	}
 
 	/** Height in EMU (`a:ext/@cy`), or `null` when the placeholder carries no own `a:xfrm`. */
 	get height(): number | null {
-		return xfrmEmu(this.sp, 'a:ext', 'cy')
+		return spPrXfrmEmu(this.sp, 'a:ext', 'cy')
 	}
 
 	/**
@@ -320,7 +307,7 @@ export class Placeholder {
  * {@link SlideLayout.master} and `Slide.master`.
  */
 export class SlideMaster {
-	#themeContext?: FlattenContext
+	#themeContext?: ThemeContext
 
 	constructor(
 		private readonly opc: OpcPackage,
@@ -403,7 +390,7 @@ export class SlideMaster {
 	 * The master's colour/font context (its `p:clrMap` + theme), resolved once and
 	 * cached. Backs each {@link Placeholder}'s text frame.
 	 */
-	themeContext(): FlattenContext {
+	themeContext(): ThemeContext {
 		return (this.#themeContext ??= resolveMasterColorContext(this.opc, this.partName))
 	}
 
@@ -432,7 +419,7 @@ export class SlideMaster {
  * from `Slide.layout` and {@link SlideMaster.layouts}.
  */
 export class SlideLayout {
-	#themeContext?: FlattenContext
+	#themeContext?: ThemeContext
 
 	constructor(
 		private readonly opc: OpcPackage,
@@ -504,7 +491,7 @@ export class SlideLayout {
 	 * The layout's colour/font context (walked layout → master → theme), resolved once
 	 * and cached. Backs each {@link Placeholder}'s text frame.
 	 */
-	themeContext(): FlattenContext {
+	themeContext(): ThemeContext {
 		return (this.#themeContext ??= resolveLayoutColorContext(this.opc, this.partName))
 	}
 

@@ -7,8 +7,17 @@
  * and tracks which have already been rewritten.
  */
 
-import type { SlideSize } from './presentation-types.js'
-import { ELEMENT_NODE, OOXML_NS, attr, firstChild, getElements, intValue, setAttr, type Element } from '../oxml/dom.js'
+import type { SlideSize } from '../presentation-types.js'
+import {
+	ELEMENT_NODE,
+	OOXML_NS,
+	attr,
+	firstChild,
+	getElements,
+	intValue,
+	setAttr,
+	type Element,
+} from '../../oxml/dom.js'
 
 /** An EMU coordinate remap: `newX = x*sx + dx`, `newY = y*sy + dy`; sizes scale by `sx`/`sy` only. */
 export interface RescaleTransform {

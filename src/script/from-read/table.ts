@@ -20,7 +20,7 @@ import type { GraphicFrame } from '../../read/api/shapes.js'
 import type { NoteScope } from '../fidelity.js'
 import type { CallIr, IrValue } from '../ir.js'
 import type { AssetResolver } from './shape.js'
-import { compact, emu, inches, literalColor, orUndefined } from './values.js'
+import { compact, inches, literalColor, orUndefined, positionOfFrame } from './values.js'
 import { pictureFillOption, type PictureFillSubject } from './picture-fill.js'
 import { gradientStops, patternOption } from './surface-fill.js'
 import { runOptions, textRuns } from './text.js'
@@ -130,13 +130,6 @@ function tableFill(table: Table, notes: NoteScope, assets: AssetResolver): IrVal
 
 	const resolved = table.resolvedFill
 	return resolved ? { color: literalColor(resolved.effectiveHex) } : undefined
-}
-
-/** A graphic frame's position; identical to a shape's, but frames never rotate or flip. */
-function positionOfFrame(frame: GraphicFrame): Record<string, IrValue> {
-	const box = frame.absoluteFrame
-	if (!box) return {}
-	return { x: emu(box.left), y: emu(box.top), w: emu(box.width), h: emu(box.height) }
 }
 
 /**

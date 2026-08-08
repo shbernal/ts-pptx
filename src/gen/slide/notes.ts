@@ -13,7 +13,7 @@ import type { PresSlideInternal, SlideRel } from '../../types/internal.js'
 import { warn } from '../../diagnostics.js'
 import { genXmlTextRun } from '../drawingml/text-run.js'
 import { el, raw, voidEl } from '../oxml/el.js'
-import { OFFICE_REL, PACKAGE_REL_NS } from '../oxml/schema-uris.js'
+import { OFFICE_REL, PACKAGE_REL_NS } from '../../ooxml/rel-types.js'
 
 /**
  * Get text content of Notes from Slide

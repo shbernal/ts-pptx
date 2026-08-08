@@ -25,7 +25,7 @@ import {
 	setAttr,
 } from '../oxml/dom.js'
 import { EMBEDDED_FONT_SLOTS } from '../../embedded-fonts.js'
-import { flattenShape } from '../oxml/theme.js'
+import { flattenShape } from './ops/flatten.js'
 import { Slide } from './slide.js'
 import { SlideMaster } from './chrome.js'
 import { wrapShapeElement, type AnyShape } from './shapes.js'
@@ -57,11 +57,11 @@ import type {
 	SlideSize,
 	SlideSource,
 } from './presentation-types.js'
-import { cSldName, nthShapeChild } from './slide-dom.js'
-import { computeRescale, rescaleSpTree, type RescaleTransform } from './rescale.js'
-import { carryTableStyles } from './table-styles.js'
-import { promoteMasters } from './master-registry.js'
-import { copyPart, type ImportContext } from './part-copy.js'
+import { cSldName, nthShapeChild } from '../oxml/slide-dom.js'
+import { computeRescale, rescaleSpTree, type RescaleTransform } from './ops/rescale.js'
+import { carryTableStyles } from './ops/table-styles.js'
+import { promoteMasters } from './ops/master-registry.js'
+import { copyPart, type ImportContext } from './ops/part-copy.js'
 // Deck-mutation operations. They live beside the model rather than on it: each is a whole job
 // (prune a part fringe, carry notes, merge embedded fonts, rescale onto a new canvas) that reads
 // and writes the package through the deck's public surface, and none of them is something a
@@ -81,7 +81,7 @@ import {
 	OFFICE_DOCUMENT_REL,
 	SLIDE_LAYOUT_REL,
 	SLIDE_REL,
-} from './rel-types.js'
+} from '../../ooxml/rel-types.js'
 import { InternalError, InvalidOptionError, PackageReadError, UnsupportedFeatureError } from '../../errors.js'
 
 const HYPERLINK_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink'

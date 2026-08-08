@@ -10,7 +10,8 @@ import { SlideObjectType } from '../../../enums.js'
 import { DEF_CELL_MARGIN_IN } from '../../../constants-internal.js'
 import type { BorderProps, ObjectOptions, TableCell, TableCellProps } from '../../../types/index.js'
 import type { SlideObject } from '../../../types/internal.js'
-import { warnOnce } from '../../../diagnostics.js'
+import { checkEnumOrWarn } from '../../../ooxml/check-enum.js'
+import { TEXT_HORZ_OVERFLOW } from '../../../ooxml/st-enums.js'
 import { genXmlColorSelection } from '../../drawingml/fill.js'
 import { genXmlObjectLock, GRAPHIC_FRAME_LOCK_ATTRS } from '../../drawingml/locks.js'
 import { genTableCellBorderXml } from '../../drawingml/table-border.js'
@@ -35,25 +36,12 @@ type TableInheritableOption =
 	| 'valign'
 type TableInheritableValue = ObjectOptions[TableInheritableOption]
 
-/** The two values `ST_TextHorzOverflowType` allows on `a:tcPr/@horzOverflow`. */
-const HORZ_OVERFLOW_VALUES: readonly string[] = ['clip', 'overflow']
-
 /**
- * Validate a cell's `horzOverflow` before it reaches the XML. Anything outside
- * `ST_TextHorzOverflowType` would make the slide part schema-invalid — and PowerPoint
- * reports that as a corrupt file, not as a mis-set option — so an unrecognized value is
- * reported and dropped instead of written. `undefined` (the common case) emits nothing.
+ * Validate a cell's `horzOverflow` before it reaches the XML, reporting and dropping anything
+ * outside `ST_TextHorzOverflowType`. `undefined` (the common case) emits nothing.
  */
 function resolveHorzOverflow(value: TableCellProps['horzOverflow']): string | null {
-	if (value === undefined || value === null) return null
-	if (HORZ_OVERFLOW_VALUES.includes(value)) return value
-	warnOnce(
-		'table/invalid-horz-overflow',
-		`table cell: horzOverflow \`${String(value)}\` is not a valid value and is ignored — ` +
-			`use ${HORZ_OVERFLOW_VALUES.join(' or ')}.`,
-		{ received: value, valid: HORZ_OVERFLOW_VALUES }
-	)
-	return null
+	return checkEnumOrWarn(value, TEXT_HORZ_OVERFLOW, 'table/invalid-horz-overflow', 'table cell: horzOverflow')
 }
 
 /** A cell's grid position, for deciding which of the table's outer edges it sits on. */

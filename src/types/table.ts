@@ -4,6 +4,12 @@
  * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
 import type { SHAPE_NAME, SlideObjectType, TableStyle } from '../enums.js'
+import type {
+	BevelPresetType,
+	LightRigDirection,
+	LightRigType,
+	PresetMaterialType,
+} from '../ooxml/st-enums.js'
 import type { DataOrPathProps, Margin, PositionProps } from './core.js'
 import type { ObjectNameProps } from './object.js'
 import type { ShapeProps } from './shape.js'
@@ -130,68 +136,12 @@ export interface TableCellDiagonals {
 	/** Bottom-left to top-right (`╱`, `a:lnBlToTr`). */
 	blToTr?: BorderProps
 }
-/** `ST_BevelPresetType` — the bevel profile applied to a cell's edges. */
-export type BevelPresetType =
-	| 'relaxedInset'
-	| 'circle'
-	| 'slope'
-	| 'cross'
-	| 'angle'
-	| 'softRound'
-	| 'convex'
-	| 'coolSlant'
-	| 'divot'
-	| 'riblet'
-	| 'hardEdge'
-	| 'artDeco'
-/** `ST_PresetMaterialType` — how a 3-D surface responds to light. */
-export type PresetMaterialType =
-	| 'legacyMatte'
-	| 'legacyPlastic'
-	| 'legacyMetal'
-	| 'legacyWireframe'
-	| 'matte'
-	| 'plastic'
-	| 'metal'
-	| 'warmMatte'
-	| 'translucentPowder'
-	| 'powder'
-	| 'dkEdge'
-	| 'softEdge'
-	| 'clear'
-	| 'flat'
-	| 'softmetal'
-/** `ST_LightRigType` — the preset lighting scene. */
-export type LightRigType =
-	| 'legacyFlat1'
-	| 'legacyFlat2'
-	| 'legacyFlat3'
-	| 'legacyFlat4'
-	| 'legacyNormal1'
-	| 'legacyNormal2'
-	| 'legacyNormal3'
-	| 'legacyNormal4'
-	| 'legacyHarsh1'
-	| 'legacyHarsh2'
-	| 'legacyHarsh3'
-	| 'legacyHarsh4'
-	| 'threePt'
-	| 'balanced'
-	| 'soft'
-	| 'harsh'
-	| 'flood'
-	| 'contrasting'
-	| 'morning'
-	| 'sunrise'
-	| 'sunset'
-	| 'chilly'
-	| 'freezing'
-	| 'flat'
-	| 'twoPt'
-	| 'glow'
-	| 'brightRoom'
-/** `ST_LightRigDirection` — where the light rig sits relative to the scene. */
-export type LightRigDirection = 'tl' | 't' | 'tr' | 'l' | 'r' | 'bl' | 'b' | 'br'
+/**
+ * The four `a:cell3D` enumerations, derived from the `ST_` member tuples in
+ * `src/ooxml/st-enums.ts` — the same tuples the emitter validates a value against, so the type
+ * a caller is checked against and the list that gates the XML cannot disagree.
+ */
+export type { BevelPresetType, LightRigDirection, LightRigType, PresetMaterialType } from '../ooxml/st-enums.js'
 /**
  * A cell's 3-D bevel (`a:tcPr/a:cell3D`).
  *

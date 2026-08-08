@@ -426,7 +426,7 @@ export class ChartSeries {
 	/** Cached numeric values (`c:val`); non-numeric or missing points are `null`. */
 	get values(): (number | null)[] {
 		const val = firstChild(this.ser, 'c:val')
-		return readPoints(val && findCache(val)).map(toNumberOrNull)
+		return readPoints(val && findCache(val)).map(intValue)
 	}
 
 	/** Cached category labels for this series (`c:cat`), as written. */
@@ -513,10 +513,4 @@ function readPoints(cache: Element | null): (string | null)[] {
 		points[idx] = firstChild(pt, 'c:v')?.textContent ?? null
 	}
 	return points
-}
-
-function toNumberOrNull(value: string | null): number | null {
-	if (value === null || value === '') return null
-	const number = Number(value)
-	return Number.isFinite(number) ? number : null
 }

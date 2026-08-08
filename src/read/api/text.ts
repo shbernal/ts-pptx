@@ -25,7 +25,7 @@ import {
 	type Element,
 } from '../oxml/dom.js'
 import { normalizeHex, setSolidFill, solidFillColor } from '../oxml/fill.js'
-import { resolveThemeFont, type FlattenContext } from '../oxml/theme.js'
+import { resolveThemeFont, type ThemeContext } from '../oxml/theme.js'
 import {
 	resolveColorElement,
 	resolveInheritedAnchor,
@@ -51,7 +51,7 @@ import { InternalError, InvalidOptionError } from '../../errors.js'
  */
 export interface PlaceholderTextContext {
 	ph: PlaceholderRef | null
-	flatten: FlattenContext
+	flatten: ThemeContext
 	/** The shape's resolved `p:style/a:fontRef` colour + face tier, or `null` when it has none. */
 	fontRef?: StyleFontRef | null
 }
@@ -109,7 +109,7 @@ export class Run {
 		private readonly element: Element,
 		private readonly part: Part,
 		/** The owning slide's theme context (colour maps + `fontScheme`), for the `resolved*` getters; absent when the run was reached without one. */
-		private readonly themeContext?: FlattenContext,
+		private readonly themeContext?: ThemeContext,
 		/**
 		 * Resolves the colour this run inherits from its placeholder/list-style chain
 		 * when it sets none of its own (item A). Built by the owning {@link Paragraph}
@@ -456,7 +456,7 @@ export class Paragraph {
 		private readonly element: Element,
 		private readonly part: Part,
 		/** The owning slide's theme context (colour maps + `fontScheme`), threaded to each {@link Run} for the `resolved*` getters. */
-		private readonly themeContext?: FlattenContext,
+		private readonly themeContext?: ThemeContext,
 		/**
 		 * Placeholder + slide-list-style context for resolving a placeholder-inherited
 		 * run colour/size/face; absent for non-placeholder text. The owning
@@ -521,7 +521,7 @@ export class Paragraph {
 			level: number,
 			pPr: Element | null,
 			slideLstStyle: Element | null,
-			ctx: FlattenContext
+			ctx: ThemeContext
 		) => T | null
 	): (() => T | null) | undefined {
 		if (!this.inherit) return undefined
@@ -690,7 +690,7 @@ export class TextFrame {
 		private readonly txBody: Element,
 		private readonly part: Part,
 		/** The owning slide's theme context (colour maps + `fontScheme`), threaded to each {@link Paragraph}/{@link Run} for the `resolved*` getters. */
-		private readonly themeContext?: FlattenContext,
+		private readonly themeContext?: ThemeContext,
 		/**
 		 * The placeholder this text body lives in, when any — enables
 		 * placeholder-inherited run colour/size/face resolution. Absent for ordinary

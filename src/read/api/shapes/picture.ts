@@ -25,7 +25,7 @@ import { relativePartName } from '../../opc/partnames.js'
 import { Shape } from './base.js'
 import { childElements, getOrAddSpPrXfrm } from './oxml.js'
 import type { Recolor, RecolorColor } from './types.js'
-import { IMAGE_REL } from '../rel-types.js'
+import { IMAGE_REL } from '../../../ooxml/rel-types.js'
 import { InvalidOptionError } from '../../../errors.js'
 
 // Microsoft's SVG blip extension namespace (a:blip/a:extLst/a:ext/asvg:svgBlip).

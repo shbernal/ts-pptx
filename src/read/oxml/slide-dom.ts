@@ -6,7 +6,7 @@
  */
 
 import type { Part } from '../opc/part.js'
-import { ELEMENT_NODE, OOXML_NS, attr, firstChild, firstChildElement, type Element } from '../oxml/dom.js'
+import { ELEMENT_NODE, OOXML_NS, attr, firstChild, firstChildElement, type Element } from './dom.js'
 
 /** The `p:cSld@name` of a slide/layout/master part (`''` when absent). */
 export function cSldName(part: Part | undefined): string {

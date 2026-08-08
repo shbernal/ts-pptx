@@ -51,6 +51,29 @@ exports and let this repository own the internal OOXML generation details.
   walk, the group and slide-number branches that consume its shape-id counter, and
   the slide `.rels`. `src/gen/utils.ts` holds only the cross-cutting helpers that
   belong to no single part (XML escaping, object names, rel ids).
+- `src/ooxml/` holds the schema facts that belong to **neither** half of the library:
+  relationship-type URIs (`rel-types.ts`), the child-sequence order of each complexType
+  a writer or an editor inserts into (`sequence.ts`), the `ST_` enumerations
+  (`st-enums.ts`), and the two enum-validation policies (`check-enum.ts`). It exists
+  because `src/gen/` and `src/read/` each used to keep a private copy of the same
+  constants, and a divergence between them had no compile-time signal — a wrong rel URI
+  matches nothing, an out-of-order child makes the part invalid, and PowerPoint reports
+  the latter as a *corrupt file* rather than as a bad edit. Two properties keep it from
+  regressing: each successor list is **derived** by slicing one declared sequence rather
+  than written out, and each `ST_` union is **derived** from the same tuple the validator
+  checks against (`(typeof X)[number]`), so a type and its runtime list cannot drift.
+  Nothing here knows whether it is being read or written.
+- `src/read/` is layered: `read/opc/` is the package/part/relationship layer;
+  `read/oxml/` is the DOM substrate plus the **pure** resolvers (`theme.ts` for colour
+  and style-matrix resolution, `placeholder-inherit.ts` for what a placeholder inherits
+  from its layout/master chain); `read/api/` is the navigable object model; and
+  `read/api/ops/` is the deck-level machinery that moves parts between packages
+  (part copy, master registry, import/prune/rescale, and the `preserve`-mode
+  `flatten.ts`). The line between `read/oxml/` and `read/api/ops/` is **mutation**: the
+  resolvers answer "what would this be?" and build detached elements, the ops write the
+  answers into a live part. That line is what lets the read model's getters and the
+  import-time bake share one implementation, which is what keeps a colour reported
+  before export equal to the colour written into the file.
 - `src/measure/` holds the calibrated text-measurement engine behind the
   `ts-pptx/measure` subpath and the export-time autofit bake: `font-metrics.ts`
   (advance widths + the registry), `text-fit.ts` (the wrap simulator and the

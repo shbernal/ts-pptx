@@ -21,7 +21,7 @@ import type { Chart } from '../../read/api/chart.js'
 import type { GraphicFrame } from '../../read/api/shapes.js'
 import type { NoteScope } from '../fidelity.js'
 import type { CallIr, IrValue } from '../ir.js'
-import { compact, emu, literalColor, orUndefined } from './values.js'
+import { compact, literalColor, orUndefined, positionOfFrame } from './values.js'
 
 /**
  * Read chart-group token → `CHART_NAME`. The read model strips the `Chart` suffix from the
@@ -105,13 +105,6 @@ export function chartCall(frame: GraphicFrame, chart: Chart, notes: NoteScope): 
 		args: [data, options ?? { type }],
 		...(frame.name ? { sourceName: frame.name } : {}),
 	}
-}
-
-/** A graphic frame's position; frames never rotate or flip. */
-function positionOfFrame(frame: GraphicFrame): Record<string, IrValue> {
-	const box = frame.absoluteFrame
-	if (!box) return {}
-	return { x: emu(box.left), y: emu(box.top), w: emu(box.width), h: emu(box.height) }
 }
 
 /**

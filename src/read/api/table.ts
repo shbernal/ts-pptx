@@ -37,7 +37,7 @@ import {
 } from './table-edit.js'
 import { insertColumn, insertRow, mergeCells, removeColumn, removeRow, rowsOf, unmergeCell } from './table-structure.js'
 import type { InvalidOptionErrorCode } from '../../codes.js'
-import type { FlattenContext } from '../oxml/theme.js'
+import type { ThemeContext } from '../oxml/theme.js'
 import { readPictureFill, type PictureFill } from './picture-fill.js'
 import { readGradientFill, type GradientFill } from './gradient.js'
 import { readPatternFill, type PatternFill } from './pattern-fill.js'
@@ -83,7 +83,7 @@ interface TableCellStyleContext {
 	flags: TableConditionFlags
 	rowCount: number
 	colCount: number
-	ctx: FlattenContext
+	ctx: ThemeContext
 }
 
 /**
@@ -148,7 +148,7 @@ export class Table {
 		private readonly tbl: Element,
 		private readonly part: Part,
 		/** The owning slide's theme colour context, threaded to each cell's text for `Run.resolvedColor`. */
-		private readonly themeColors?: FlattenContext,
+		private readonly themeColors?: ThemeContext,
 		/** The deck package, for resolving `a:tableStyleId` against `tableStyles.xml` (style-graph cell fills). */
 		private readonly opc?: OpcPackage,
 		/** The owning slide's relationships, for resolving a cell picture fill's `r:embed` to a partname. */
@@ -415,7 +415,7 @@ export class TableRow {
 		private readonly tr: Element,
 		private readonly part: Part,
 		/** The owning slide's theme colour context, threaded to each {@link TableCell}. */
-		private readonly themeColors?: FlattenContext,
+		private readonly themeColors?: ThemeContext,
 		/** The table's style-resolution context, threaded to each cell for {@link TableCell.resolvedFill}. */
 		private readonly style?: TableCellStyleContext | null,
 		/** This row's zero-based index in the table, for style-graph banding/edge conditions. */
@@ -453,7 +453,7 @@ export class TableCell {
 		private readonly tc: Element,
 		private readonly part: Part,
 		/** The owning slide's theme colour context, threaded to the cell's text for `Run.resolvedColor`. */
-		private readonly themeColors?: FlattenContext,
+		private readonly themeColors?: ThemeContext,
 		/** The table's style-resolution context, for the {@link resolvedFill} style-graph fallback. */
 		private readonly style?: TableCellStyleContext | null,
 		/** This cell's zero-based row index in the table. */

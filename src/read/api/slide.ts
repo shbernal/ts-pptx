@@ -16,7 +16,7 @@ import {
 	type Document,
 	type Element,
 } from '../oxml/dom.js'
-import type { FlattenContext } from '../oxml/theme.js'
+import type { ThemeContext } from '../oxml/theme.js'
 import { resolveSlideColorContext, resolveSlideThemeParts } from './theme-context.js'
 import { backgroundElementOf, readSlideBackground, type SlideBackground } from './slide-background.js'
 import type { Presentation } from './presentation.js'
@@ -34,7 +34,7 @@ import {
 	type TransitionInput,
 } from './transition.js'
 import { enumerateSpids, flattenAnimations, hasAnimations, pruneSpids, remapSpids } from './animation.js'
-import { IMAGE_REL, NOTES_SLIDE_REL, SLIDE_LAYOUT_REL } from './rel-types.js'
+import { IMAGE_REL, NOTES_SLIDE_REL, SLIDE_LAYOUT_REL } from '../../ooxml/rel-types.js'
 import { InternalError, InvalidOptionError, PackageReadError } from '../../errors.js'
 
 /** Options for {@link Slide.addTextBox}. Geometry is in EMU. */
@@ -150,7 +150,7 @@ export class Slide {
 		return this.presentation.opc.relationshipsFor(this.partName)
 	}
 
-	#themeColors?: FlattenContext
+	#themeColors?: ThemeContext
 
 	/**
 	 * The slide's resolved theme context (`clrMap` + `clrScheme` + the theme
@@ -163,7 +163,7 @@ export class Slide {
 	 * font token included) resolves to a literal value. The maps/roots are empty when
 	 * the theme chain is incomplete, in which case tokens simply stay unresolved.
 	 */
-	themeContext(): FlattenContext {
+	themeContext(): ThemeContext {
 		return (this.#themeColors ??= resolveSlideColorContext(this.presentation.opc, this.partName))
 	}
 

@@ -19,7 +19,7 @@ import { encodeXmlAttrValue, getNewRelId, validateObjectName } from '../utils.js
 import { nextObjectNameIdx } from './object-name.js'
 import { registerPreviewImage } from './preview-image.js'
 import { InvalidOptionError } from '../../errors.js'
-import { OFFICE_REL } from '../oxml/schema-uris.js'
+import { OFFICE_REL } from '../../ooxml/rel-types.js'
 
 const OD = 'application/vnd.openxmlformats-officedocument.'
 /** Rel type for an embedded OPC package (an Office file, itself a zip). */

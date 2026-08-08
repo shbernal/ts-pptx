@@ -7,7 +7,7 @@
 
 import { CRLF, XML_DECL } from '../../constants-internal.js'
 import { el, raw, voidEl } from '../oxml/el.js'
-import { OFFICE_REL, PACKAGE_REL_NS } from '../oxml/schema-uris.js'
+import { OFFICE_REL, PACKAGE_REL_NS } from '../../ooxml/rel-types.js'
 
 function relationship(id: string, type: string, target: string): string {
 	return voidEl('Relationship', { Id: id, Type: type, Target: target }, { openPrefix: '\n\t\t' })

@@ -9,12 +9,12 @@
  * the class that calls it.
  */
 
-import type { OpcPackage } from '../opc/package.js'
-import { relativePartName } from '../opc/partnames.js'
+import type { OpcPackage } from '../../opc/package.js'
+import { relativePartName } from '../../opc/partnames.js'
 import type { DeckTarget } from './deck-target.js'
 import { addLayoutToMaster, clearLayoutIdList, registerMaster } from './master-registry.js'
-import { NOTES_SLIDE_REL, SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from './rel-types.js'
-import { PackageReadError } from '../../errors.js'
+import { NOTES_SLIDE_REL, SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from '../../../ooxml/rel-types.js'
+import { PackageReadError } from '../../../errors.js'
 
 const SLIDE_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml'
 const SLIDE_LAYOUT_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'

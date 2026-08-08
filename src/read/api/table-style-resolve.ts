@@ -14,7 +14,7 @@
 
 import type { OpcPackage } from '../opc/package.js'
 import { attr, firstChild, firstChildElement, getElements, type Element } from '../oxml/dom.js'
-import { styleRefFill, type FlattenContext } from '../oxml/theme.js'
+import { styleRefFill, type ThemeContext } from '../oxml/theme.js'
 import { resolveColorElement, type ResolvedColor } from './theme-context.js'
 
 const TABLE_STYLES_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml'
@@ -126,7 +126,7 @@ function cellStyleParts(
  */
 function tcStyleFill(
 	tcStyle: Element,
-	ctx: FlattenContext
+	ctx: ThemeContext
 ): { stop: true; color: ResolvedColor | null } | { stop: false } {
 	const fillRef = firstChild(tcStyle, 'a:fillRef')
 	if (fillRef) {
@@ -154,7 +154,7 @@ export function resolveTableCellStyleFill(
 	col: number,
 	rowCount: number,
 	colCount: number,
-	ctx: FlattenContext
+	ctx: ThemeContext
 ): ResolvedColor | null {
 	for (const partName of cellStyleParts(flags, row, col, rowCount, colCount)) {
 		const part = firstChild(style, partName)

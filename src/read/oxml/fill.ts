@@ -7,6 +7,7 @@
  * order. These helpers never mark a part dirty — callers own that.
  */
 import { InvalidOptionError } from '../../errors.js'
+import { FILL_CHOICES } from '../../ooxml/sequence.js'
 import {
 	attr,
 	createElement,
@@ -18,8 +19,11 @@ import {
 	type Element,
 } from './dom.js'
 
-/** The mutually-exclusive fill choices (`EG_FillProperties`); a parent has at most one. */
-export const FILL_CHOICES = ['a:noFill', 'a:solidFill', 'a:gradFill', 'a:blipFill', 'a:pattFill', 'a:grpFill']
+/**
+ * The mutually-exclusive fill choices (`EG_FillProperties`); a parent has at most one.
+ * Declared in `src/ooxml/sequence.ts`, where the schema sequences that embed it live too.
+ */
+export { FILL_CHOICES }
 
 /** Normalize a 6-hex RGB string (optional leading `#`) to upper-case, or throw. */
 export function normalizeHex(value: string): string {

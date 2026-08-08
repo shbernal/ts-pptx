@@ -11,9 +11,9 @@
 
 import { createElement, getOrAddChild, removeChildrenByQName, setAttr } from '../../oxml/dom.js'
 import { relativePartName } from '../../opc/partnames.js'
-import { copyPart, type ImportContext } from '../part-copy.js'
+import { copyPart, type ImportContext } from './part-copy.js'
 import type { Presentation } from '../presentation.js'
-import { NOTES_MASTER_REL, NOTES_SLIDE_REL, SLIDE_REL, THEME_REL } from '../rel-types.js'
+import { NOTES_MASTER_REL, NOTES_SLIDE_REL, SLIDE_REL, THEME_REL } from '../../../ooxml/rel-types.js'
 import { PackageReadError } from '../../../errors.js'
 
 const NOTES_MASTER_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml'

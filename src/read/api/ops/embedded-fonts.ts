@@ -27,7 +27,7 @@ import {
 	type EmbeddedFontSlot,
 } from '../../../embedded-fonts.js'
 import { relativePartName } from '../../opc/partnames.js'
-import { copyPart, type ImportContext } from '../part-copy.js'
+import { copyPart, type ImportContext } from './part-copy.js'
 import type { Presentation } from '../presentation.js'
 import { PackageReadError } from '../../../errors.js'
 

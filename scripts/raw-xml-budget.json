@@ -28,5 +28,5 @@
 	"src/gen/slide/objects/zoom.ts": 1,
 	"src/math.ts": 5,
 	"src/read/api/animation.ts": 28,
-	"src/read/api/table-styles.ts": 1
+	"src/read/api/ops/table-styles.ts": 1
 }

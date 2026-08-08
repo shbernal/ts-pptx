@@ -8,8 +8,11 @@
  */
 
 import { attr, firstChild, getElements } from '../../oxml/dom.js'
-import type { OpcPackage } from '../../opc/package.js'
 import type { Presentation } from '../presentation.js'
+
+// Resolving a single-of-a-kind relationship is an OPC concern, not a spine-walking one; it is
+// re-exported here because the spine walkers were its first callers.
+export { resolveSingleRel } from '../../opc/partnames.js'
 
 /** Master partnames in `p:sldMasterIdLst` order. */
 export function slideMasterPartNames(pres: Presentation): string[] {
@@ -37,11 +40,4 @@ export function layoutPartNamesOf(pres: Presentation, masterPartName: string): s
 		if (relId) out.push(rels.resolveTarget(relId))
 	}
 	return out
-}
-
-/** Resolve the single relationship of `type` owned by `partName`, or `null`. */
-export function resolveSingleRel(opc: OpcPackage, partName: string, type: string): string | null {
-	const rels = opc.relationshipsFor(partName)
-	const rel = rels.byType(type)[0]
-	return rel ? rels.resolveTarget(rel.id) : null
 }

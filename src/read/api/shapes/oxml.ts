@@ -1,66 +1,35 @@
 /**
- * Shape-element plumbing: the schema-successor lists that keep a get-or-added child in document
- * order, and the small element lookups every shape kind performs.
+ * Shape-element plumbing: the small element lookups every shape kind performs, plus the
+ * shape-scoped re-exports of the shared schema-successor lists.
  *
  * The successor arrays are the reason a setter can create a missing `a:xfrm` / `a:solidFill` /
  * `a:ln` without corrupting the part: `getOrAddChild` inserts before the first listed sibling it
  * finds, so each list must name exactly the children that legally *follow* the one being added.
+ * They are declared once in `src/ooxml/sequence.ts` (derived from each complexType's sequence)
+ * and re-exported here so the shape modules keep importing them from one place.
  */
 
-import { ELEMENT_NODE, OOXML_NS, attr, firstChild, getOrAddChild, intValue, type Element } from '../../oxml/dom.js'
+import {
+	ELEMENT_NODE,
+	OOXML_NS,
+	attr,
+	childElements,
+	firstChild,
+	getOrAddChild,
+	intValue,
+	type Element,
+} from '../../oxml/dom.js'
+import { SHAPE_AFTER_SPPR, SPPR_AFTER_XFRM } from '../../../ooxml/sequence.js'
 
-// Schema successors used to keep elements in document order when a geometry
-// setter has to create one.
-export const SPPR_AFTER_XFRM = [
-	'a:custGeom',
-	'a:prstGeom',
-	'a:noFill',
-	'a:solidFill',
-	'a:gradFill',
-	'a:blipFill',
-	'a:pattFill',
-	'a:grpFill',
-	'a:ln',
-	'a:effectLst',
-	'a:effectDag',
-	'a:scene3d',
-	'a:sp3d',
-	'a:extLst',
-]
-export const GRPSPPR_AFTER_XFRM = [
-	'a:noFill',
-	'a:solidFill',
-	'a:gradFill',
-	'a:blipFill',
-	'a:pattFill',
-	'a:grpFill',
-	'a:effectLst',
-	'a:effectDag',
-	'a:scene3d',
-	'a:extLst',
-]
-// spPr itself sits before p:style / p:txBody within p:sp (and before p:style
-// within p:pic / p:cxnSp); blipFill / nv*Pr precede it and are excluded.
-export const SHAPE_AFTER_SPPR = ['p:style', 'p:txBody']
-
-// Successor arrays for inserting a fill / line *into* a properties element.
-// Distinct from the *_AFTER_XFRM arrays above, which sequence a:xfrm (the first
-// child): a:solidFill and a:ln sit mid-sequence, so their `before` lists must
-// contain only the children that legally follow them (CT_ShapeProperties /
-// CT_GroupShapeProperties / CT_LineProperties).
-export const SPPR_FILL_AFTER = ['a:ln', 'a:effectLst', 'a:effectDag', 'a:scene3d', 'a:sp3d', 'a:extLst']
-export const SPPR_LN_AFTER = ['a:effectLst', 'a:effectDag', 'a:scene3d', 'a:sp3d', 'a:extLst']
-export const GRPSPPR_FILL_AFTER = ['a:effectLst', 'a:effectDag', 'a:scene3d', 'a:extLst']
-export const LN_FILL_AFTER = [
-	'a:prstDash',
-	'a:custDash',
-	'a:round',
-	'a:bevel',
-	'a:miter',
-	'a:headEnd',
-	'a:tailEnd',
-	'a:extLst',
-]
+export {
+	GRPSPPR_AFTER_XFRM,
+	GRPSPPR_FILL_AFTER,
+	LN_FILL_AFTER,
+	SHAPE_AFTER_SPPR,
+	SPPR_AFTER_XFRM,
+	SPPR_FILL_AFTER,
+	SPPR_LN_AFTER,
+} from '../../../ooxml/sequence.js'
 
 /**
  * A shape's properties element (`p:spPr` / `p:grpSpPr`) paired with the schema
@@ -90,14 +59,20 @@ export function emuFrom(parent: Element | null, qname: string, attribute: string
 	return element ? intValue(attr(element, attribute)) : null
 }
 
-/** Direct child *elements* of `parent`, in document order. */
-export function childElements(parent: Element): Element[] {
-	const out: Element[] = []
-	for (let node = parent.firstChild; node; node = node.nextSibling) {
-		if (node.nodeType === ELEMENT_NODE) out.push(node as Element)
-	}
-	return out
+/**
+ * One EMU coordinate from a shape's own `p:spPr/a:xfrm`, or `null` when any link in that chain
+ * is absent — which is how an inheriting placeholder (one with no `a:xfrm` of its own) reports
+ * that its geometry comes from the layout/master instead. See `placeholderInheritedXfrm` for
+ * resolving what it would inherit.
+ */
+export function spPrXfrmEmu(sp: Element, container: 'a:off' | 'a:ext', axis: string): number | null {
+	const spPr = firstChild(sp, 'p:spPr')
+	const xfrm = spPr && firstChild(spPr, 'a:xfrm')
+	const el = xfrm && firstChild(xfrm, container)
+	return el ? intValue(attr(el, axis)) : null
 }
+
+export { childElements }
 
 /** Get-or-add `p:spPr/a:xfrm` for shapes whose transform lives in `p:spPr` (`p:sp`, `p:pic`, `p:cxnSp`). */
 export function getOrAddSpPrXfrm(shapeElement: Element): Element {

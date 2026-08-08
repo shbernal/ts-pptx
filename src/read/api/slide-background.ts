@@ -19,7 +19,7 @@ import {
 	ownerDocumentOf,
 	type Element,
 } from '../oxml/dom.js'
-import { styleRefFill, type FlattenContext } from '../oxml/theme.js'
+import { styleRefFill, type ThemeContext } from '../oxml/theme.js'
 import type { Relationships } from '../opc/relationships.js'
 import { resolveColorElement, type ResolvedColor } from './theme-context.js'
 import { readGradientFill, type GradientFill } from './gradient.js'
@@ -86,7 +86,7 @@ export function backgroundElementOf(root: Element | null): Element | null {
  * `fmtScheme` fill entry) into a {@link BackgroundFill}. `a:noFill`, an empty
  * container, or an unrecognized fill all read as `{ type: 'none' }`.
  */
-function decodeBackgroundFill(container: Element, ctx: FlattenContext, rels: Relationships | null): BackgroundFill {
+function decodeBackgroundFill(container: Element, ctx: ThemeContext, rels: Relationships | null): BackgroundFill {
 	const solid = firstChild(container, 'a:solidFill')
 	if (solid) return { type: 'solid', color: resolveColorElement(firstChildElement(solid), ctx) }
 
@@ -119,7 +119,7 @@ function decodeBackgroundFill(container: Element, ctx: FlattenContext, rels: Rel
  */
 function resolveThemeRefFill(
 	bgRef: Element,
-	ctx: FlattenContext,
+	ctx: ThemeContext,
 	themeRels: Relationships | null
 ): BackgroundFill | null {
 	const fill = styleRefFill(bgRef, ctx)
@@ -143,7 +143,7 @@ function resolveThemeRefFill(
 export function readSlideBackground(
 	bg: Element,
 	source: BackgroundSource,
-	ctx: FlattenContext,
+	ctx: ThemeContext,
 	rels: Relationships | null,
 	themeRels: Relationships | null
 ): SlideBackground {

@@ -91,6 +91,21 @@ export function childElements(parent: Node): Element[] {
 	return out
 }
 
+/**
+ * All *descendant* elements of `root` matching a namespace + local name, snapshotted into an
+ * array. Unlike {@link getElements} (direct children only) this searches the whole subtree, and
+ * unlike the live `HTMLCollection` that `getElementsByTagNameNS` returns, the result does not
+ * change as the caller mutates the tree — which is what makes it safe to iterate while replacing
+ * the very elements being iterated.
+ *
+ * Note the DOM's own exclusion: `root` itself is never a candidate, only its descendants.
+ */
+export function descendantsByTag(root: Element, ns: string, local: string): Element[] {
+	const out: Element[] = []
+	for (const element of root.getElementsByTagNameNS(ns, local)) out.push(element)
+	return out
+}
+
 /** First direct child element matching a qname, or `null`. */
 export function firstChild(parent: Node, qname: string): Element | null {
 	const { uri, local } = splitQName(qname)
@@ -112,7 +127,7 @@ export function firstChildElement(parent: Node): Element | null {
 }
 
 /** First direct child element matching any of the given qnames, or `null`. */
-export function firstChildMatchingAny(parent: Node, qnames: string[]): Element | null {
+export function firstChildMatchingAny(parent: Node, qnames: readonly string[]): Element | null {
 	const wanted = qnames.map(splitQName)
 	for (let node = parent.firstChild; node; node = node.nextSibling) {
 		if (node.nodeType !== ELEMENT_NODE) continue
@@ -192,7 +207,7 @@ export function removeAttr(element: Element, qname: string): void {
  * or appended when none are present — keeping the parent's children in the
  * sequence order OOXML mandates.
  */
-export function getOrAddChild(parent: Element, qname: string, before: string[] = []): Element {
+export function getOrAddChild(parent: Element, qname: string, before: readonly string[] = []): Element {
 	const existing = firstChild(parent, qname)
 	if (existing) return existing
 	const doc = parent.ownerDocument
@@ -214,13 +229,13 @@ export function getOrAddChild(parent: Element, qname: string, before: string[] =
  * this always inserts the given node (no get-or-create), so callers can place a
  * freshly-constructed subtree at the right position.
  */
-export function insertInOrder(parent: Element, node: Node, before: string[] = []): void {
+export function insertInOrder(parent: Element, node: Node, before: readonly string[] = []): void {
 	const successor = before.length ? firstChildMatchingAny(parent, before) : null
 	parent.insertBefore(node, successor)
 }
 
 /** Remove every direct child element matching any of the given qnames. */
-export function removeChildrenByQName(parent: Element, qnames: string[]): void {
+export function removeChildrenByQName(parent: Element, qnames: readonly string[]): void {
 	const toRemove: Element[] = []
 	for (let node = parent.firstChild; node; node = node.nextSibling) {
 		if (node.nodeType !== ELEMENT_NODE) continue

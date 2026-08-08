@@ -1,61 +1,42 @@
 /**
- * Theme resolution for the {@link Presentation.importSlide} `theme: 'preserve'`
- * mode: bake the values a slide's *source* theme would have produced into the
- * slide XML, so the slide no longer depends on which theme it resolves against.
+ * Theme colour resolution: turning a DrawingML colour reference or a style-matrix reference into
+ * something literal.
  *
- * Two kinds of theme dependency are flattened (see IMPORT_SLIDE_THEME_PRESERVE):
+ * Two maps do the colour work. A scheme token (`accent1`, `bg1`, …) routes through the master's
+ * `clrMap` to a `clrScheme` slot, whose literal RGB is the answer; child colour transforms
+ * (`lumMod`/`shade`/`alpha`/…) are carried through untouched rather than computed, so a caller
+ * that re-emits them renders identically. A style-matrix reference (`a:fillRef`/`a:lnRef`) instead
+ * indexes the theme's `fmtScheme`, and resolves to a deep-cloned entry with its `phClr`
+ * placeholder substituted.
  *
- * 1. **`a:schemeClr` tokens** — a scheme token (`accent1`, `bg1`, …) routes
- *    through the master's `clrMap` to a `clrScheme` slot, whose literal RGB we
- *    emit as `a:srgbClr`. Child colour transforms (`lumMod`/`shade`/`alpha`/…)
- *    are carried through untouched, so tints/shades render identically — we swap
- *    only the *base* colour reference, never compute the transform math.
- * 2. **Style-matrix refs** — a shape's `p:style` (`lnRef`/`fillRef`/`effectRef`)
- *    indexes the theme's `fmtScheme`; we resolve the indexed entry into an
- *    explicit `spPr` fill/line/effect (substituting its `phClr` placeholder with
- *    the ref's own colour) and neutralize the ref so it cannot re-resolve. The
- *    `fontRef` is left intact so its font (and resolved colour) can re-bind to
- *    the destination theme — the deliberate "normalize fonts on attach" bonus.
- * 3. **Placeholder-inherited run colour** — a run whose `a:rPr` carries no own
- *    fill takes its colour from the source placeholder → layout → master text
- *    style chain (`p:txStyles` / placeholder `a:lstStyle`). Rebinding to the
- *    destination master would replace that chain and flip the colour, so we
- *    resolve each such run's effective colour from the *source* styles and write
- *    it explicitly onto the run.
- * 4. **Placeholder-inherited geometry & run size** — a placeholder shape with no
- *    own `a:xfrm` takes its position/size from the matching source layout/master
- *    placeholder, and a run with no own `sz`/`b`/`i` takes them from the same text
- *    style chain. Rebinding to the destination master replaces both inheritances,
- *    so a title clips off-canvas and type comes out at the wrong size. We bake the
- *    effective `a:xfrm` onto the shape and the effective `sz`/`b`/`i` onto each run.
- *    Typeface (`a:latin`) is deliberately *not* baked — it re-binds to the
- *    destination theme along with `fontRef`.
+ * Everything here is **pure**: it reads a DOM and builds detached elements, and mutates nothing
+ * the caller passes in. Two very different consumers depend on that:
  *
- * All functions operate purely on DOM elements; the caller gathers the source
- * `clrMap` / `clrScheme` / `fmtScheme` parts (and the source layout/master roots
- * for the placeholder inheritance passes) and owns marking the slide dirty.
+ * - the read model's colour getters, which resolve a colour to report it;
+ * - the import-time flatten passes (`read/api/ops/flatten.ts`), which resolve the same colour in
+ *   order to *bake* it into a slide.
+ *
+ * They must agree, so they share this. The passes that write results back into a part live with
+ * the other import operations, not here — this module deliberately has no mutating exports.
+ * Placeholder-inheritance resolution (what a placeholder gets from its layout/master chain) is
+ * its own concern and lives in `placeholder-inherit.ts`.
  */
 import {
-	ELEMENT_NODE,
 	OOXML_NS,
 	attr,
+	childElements,
 	createElement,
+	descendantsByTag,
 	firstChild,
 	firstChildElement,
-	getElements,
-	getOrAddChild,
-	insertInOrder,
-	intValue,
 	ownerDocumentOf,
-	removeChildrenByQName,
 	replaceInParent,
 	setAttr,
 	type Element,
 } from './dom.js'
-import { FILL_CHOICES } from './fill.js'
 
 /** The 12 `a:clrScheme` slot names, in schema order. */
-const SCHEME_SLOTS = [
+export const SCHEME_SLOTS = [
 	'dk1',
 	'lt1',
 	'dk2',
@@ -69,31 +50,15 @@ const SCHEME_SLOTS = [
 	'hlink',
 	'folHlink',
 ]
+
 /** Scheme tokens that name a `clrScheme` slot directly, bypassing the `clrMap`. */
 const DIRECT_SLOT_TOKENS = new Set(['dk1', 'lt1', 'dk2', 'lt2'])
-
-/** Schema successors for ordered insertion into `p:spPr` (CT_ShapeProperties). */
-const SPPR_XFRM_AFTER = [
-	'a:custGeom',
-	'a:prstGeom',
-	...FILL_CHOICES,
-	'a:ln',
-	'a:effectLst',
-	'a:effectDag',
-	'a:scene3d',
-	'a:sp3d',
-	'a:extLst',
-]
-const SPPR_FILL_AFTER = ['a:ln', 'a:effectLst', 'a:effectDag', 'a:scene3d', 'a:sp3d', 'a:extLst']
-const SPPR_LN_AFTER = ['a:effectLst', 'a:effectDag', 'a:scene3d', 'a:sp3d', 'a:extLst']
-const SPPR_EFFECT_AFTER = ['a:scene3d', 'a:sp3d', 'a:extLst']
-const SHAPE_AFTER_SPPR = ['p:style', 'p:txBody']
 
 /**
  * The colour-resolution context: the two maps that turn a DrawingML colour
  * reference into a literal hex — the effective colour map (token → `clrScheme`
  * slot, honouring any slide `clrMapOvr`) and the resolved colour scheme (slot →
- * 6-hex RGB). Shared by the read-model colour getters and {@link FlattenContext}.
+ * 6-hex RGB). Shared by the read-model colour getters and {@link ThemeContext}.
  */
 export interface ColorContext {
 	clrMap: Map<string, string>
@@ -101,30 +66,24 @@ export interface ColorContext {
 }
 
 /**
- * Everything {@link flattenSlide} needs from the slide's source theme subgraph:
- * the {@link ColorContext} maps plus the live `a:fmtScheme` element (for
- * style-matrix resolution).
+ * The source theme subgraph a slide, notes slide, layout or master resolves against: the
+ * {@link ColorContext} maps, the live `a:fmtScheme` for style-matrix resolution, and the roots
+ * of the inheritance chain a placeholder reads through.
+ *
+ * Every root here is **read-only** — nothing in this module or in `placeholder-inherit.ts`
+ * mutates one. The import-time flatten pass extends this with the one field it needs to write
+ * from (see `FlattenContext` in `read/api/ops/flatten.ts`).
  */
-export interface FlattenContext extends ColorContext {
+export interface ThemeContext extends ColorContext {
 	fmtScheme: Element | null
 	/**
-	 * The slide's effective background inherited from the *source*
-	 * `slideLayout`/`slideMaster` (the raw `p:bg` element), or `null` when the
-	 * slide carries its own. Applied onto the slide before flattening so the
-	 * background survives rebinding to the destination master. See
-	 * {@link flattenSlide}.
-	 */
-	inheritedBackground?: Element | null
-	/**
-	 * The source `slideLayout` root element, for resolving placeholder-inherited
-	 * run colours (gap 1). Read-only — never mutated. `null`/absent disables the
-	 * placeholder run-colour pass for the layout tier.
+	 * The source `slideLayout` root element, for resolving what a placeholder inherits.
+	 * `null`/absent disables the layout tier.
 	 */
 	layoutRoot?: Element | null
 	/**
-	 * The source `slideMaster` root element, for resolving placeholder-inherited
-	 * run colours via its placeholder `a:lstStyle` and `p:txStyles`. Read-only —
-	 * never mutated.
+	 * The source `slideMaster` root element, for resolving placeholder inheritance via its
+	 * placeholder `a:lstStyle` and `p:txStyles`.
 	 */
 	masterRoot?: Element | null
 	/**
@@ -195,23 +154,14 @@ export function parseClrMap(clrMap: Element | null): Map<string, string> {
 }
 
 /** Resolve a scheme token (`accent1`, `bg1`, `dk1`, …) to a 6-hex RGB, or `null`. */
-function resolveSchemeToken(token: string, ctx: ColorContext): string | null {
+export function resolveSchemeToken(token: string, ctx: ColorContext): string | null {
 	if (token === 'phClr') return null
 	const slot = DIRECT_SLOT_TOKENS.has(token) ? token : ctx.clrMap.get(token)
 	return slot ? (ctx.clrScheme.get(slot) ?? null) : null
 }
 
-/** Direct child *elements* of `parent`, in order. */
-function childElements(parent: Element): Element[] {
-	const out: Element[] = []
-	for (let node = parent.firstChild; node; node = node.nextSibling) {
-		if (node.nodeType === ELEMENT_NODE) out.push(node as Element)
-	}
-	return out
-}
-
 /** Whether `el` is a DrawingML element with the given local name. */
-function isA(el: Element | null, local: string): boolean {
+export function isA(el: Element | null, local: string): boolean {
 	return !!el && el.namespaceURI === OOXML_NS.a && el.localName === local
 }
 
@@ -254,420 +204,6 @@ export function resolveColor(color: Element | null, ctx: ColorContext): Resolved
 }
 
 /**
- * Flatten one slide's theme dependencies in place:
- *
- * 1. carry the background the slide inherited from its source layout/master onto
- *    the slide (so it survives rebinding to a different master);
- * 2. materialize `p:bgRef` and style-matrix refs into explicit fills/lines/effects;
- * 3. bake each placeholder's effective geometry (inherited `a:xfrm`) onto the
- *    shape so a rebind cannot move or resize it;
- * 4. bake each placeholder run's effective colour and size/weight (inherited from
- *    the source layout/master text styles) explicitly onto the run;
- * 5. rewrite every remaining `a:schemeClr` to its literal `a:srgbClr`.
- *
- * Steps run in this order so the inherited/materialized backgrounds are present
- * before the final scheme-colour sweep resolves the colours they carry. The
- * placeholder geometry/colour/size passes have no data dependency on the others.
- * The caller marks the part dirty.
- */
-export function flattenSlide(slideRoot: Element, ctx: FlattenContext): void {
-	applyInheritedBackground(slideRoot, ctx)
-	materializeBackground(slideRoot, ctx)
-	materializeStyleRefs(slideRoot, ctx)
-	resolvePlaceholderGeometry(slideRoot, ctx)
-	resolvePlaceholderRunColors(slideRoot, ctx)
-	resolvePlaceholderRunSizes(slideRoot, ctx)
-	resolveSchemeColors(slideRoot, ctx)
-}
-
-/**
- * Flatten a single lifted shape's theme dependencies in place — the shape-scoped
- * subset of {@link flattenSlide} used by `Presentation.importShape` `preserve`
- * mode. It runs every pass that resolves a *shape's* theme references against the
- * source theme (style-matrix refs, placeholder-inherited geometry/colour/size/
- * anchor/list-style, scheme colours) but deliberately **omits** the two
- * slide-scoped background passes (`applyInheritedBackground`/`materializeBackground`):
- * a background belongs to a slide, not to a shape being composed onto a foreign host.
- *
- * Unlike {@link flattenSlide}, this also **demotes** a lifted placeholder to a
- * plain shape ({@link demotePlaceholders}) once everything it inherited is baked.
- * A placeholder makes sense on its own slide, where it resolves against that deck's
- * master/layout; lifted onto a foreign host its surviving `p:ph` would re-resolve
- * against the *host* placeholder of the same type/idx (wrong inheritance, or a
- * fallback when absent) and could collide with the host's own placeholder. The
- * extra bakes here (anchor + list style, on top of the geometry/colour/size the
- * shared passes cover) make the shape self-contained so demotion loses nothing
- * visible. This is why the demotion is scoped to `flattenShape`: `flattenSlide`
- * keeps placeholders as placeholders by design.
- *
- * `shapeRoot` must be an element whose *descendants* include the lifted shape
- * (the passes match via `getElementsByTagNameNS`, which excludes the root element
- * itself) — the caller wraps the imported `p:sp`/`p:pic`/`p:graphicFrame`/`p:grpSp`
- * in a throwaway container before calling. The caller marks the part dirty.
- */
-export function flattenShape(shapeRoot: Element, ctx: FlattenContext): void {
-	materializeStyleRefs(shapeRoot, ctx)
-	resolvePlaceholderGeometry(shapeRoot, ctx)
-	resolvePlaceholderRunColors(shapeRoot, ctx)
-	resolvePlaceholderRunSizes(shapeRoot, ctx)
-	resolvePlaceholderBodyPr(shapeRoot, ctx)
-	resolvePlaceholderListStyle(shapeRoot, ctx) // before resolveSchemeColors: cloned levels carry schemeClr
-	resolveSchemeColors(shapeRoot, ctx)
-	demotePlaceholders(shapeRoot) // last: the passes above key on p:ph
-}
-
-/**
- * Restyle a rebound slide in place (the `theme: 'restyle'` mode): the exact
- * inverse of {@link flattenSlide}. It bakes *nothing* — leaving every
- * `a:schemeClr`/style-matrix ref and `p:bg` `bgRef` symbolic is the whole point,
- * so they re-resolve against the *destination* master's `clrMap` + theme once the
- * slide is rebound. The single mutation is dropping the slide's own colour-map
- * override (`p:clrMapOvr/a:overrideClrMapping`): a source override would keep
- * mapping the slide's scheme-token names the source way and defeat the re-brand,
- * so it must yield to the destination master's `p:clrMap`.
- *
- * Caveat carried from the plan: only *symbolic* colours re-brand. Anything the
- * source authored as a literal `a:srgbClr` has no theme reference to re-resolve
- * and stays exactly that colour. The caller marks the part dirty.
- */
-export function restyleSlide(slideRoot: Element): void {
-	removeChildrenByQName(slideRoot, ['p:clrMapOvr'])
-}
-
-/**
- * The optional inverse of {@link resolveSchemeColors}, for `restyle`'s
- * force-remap-literals mode (the {@link Presentation.importSlide} `remapLiterals`
- * option). Every literal `a:srgbClr` whose value equals a *source* `clrScheme`
- * slot is rewritten back to a symbolic `a:schemeClr` so it re-resolves against the
- * destination theme; a literal matching no slot (the common case) is left exactly
- * as authored. Transform children (`lumMod`/`shade`/`alpha`/…) are carried across.
- *
- * Plain `restyle` cannot re-brand a literal — it carries no theme reference. This
- * re-introduces one by matching the literal's RGB against the slots the *source*
- * theme defined, emitting the scheme token that routes through the source `clrMap`
- * (so a literal equal to the source `accent1` slot becomes `schemeClr accent1`,
- * which the destination `clrMap`/theme then re-resolve). Slots are matched in
- * `clrScheme` order, so the first slot defining a given RGB wins when several share
- * it. Opt-in because it deliberately reinterprets authored literals as theme
- * colours — visual QA territory, the same caveat as the rest of `restyle`.
- */
-export function remapLiteralColors(slideRoot: Element, ctx: ColorContext): void {
-	const slotByHex = reverseClrScheme(ctx.clrScheme)
-	if (slotByHex.size === 0) return
-	const tokenBySlot = reverseClrMap(ctx.clrMap)
-	const doc = ownerDocumentOf(slideRoot)
-	for (const srgb of elementsByTag(slideRoot, OOXML_NS.a, 'srgbClr')) {
-		const hex = attr(srgb, 'val')
-		const slot = hex ? slotByHex.get(hex.toUpperCase()) : undefined
-		if (!slot) continue
-		const scheme = createElement(doc, 'a:schemeClr')
-		setAttr(scheme, 'val', tokenBySlot.get(slot) ?? slot) // route through the source clrMap; dk1/lt1/… are themselves valid tokens
-		while (srgb.firstChild) scheme.appendChild(srgb.firstChild) // carry transforms
-		replaceInParent(srgb, scheme)
-	}
-}
-
-/** Reverse a slot → RGB `clrScheme` into RGB → slot, in `SCHEME_SLOTS` order (first slot wins on a shared RGB). */
-function reverseClrScheme(clrScheme: Map<string, string>): Map<string, string> {
-	const out = new Map<string, string>()
-	for (const slot of SCHEME_SLOTS) {
-		const hex = clrScheme.get(slot)
-		if (hex && !out.has(hex.toUpperCase())) out.set(hex.toUpperCase(), slot)
-	}
-	return out
-}
-
-/** Reverse a token → slot `clrMap` into slot → token (first token wins on a shared slot). */
-function reverseClrMap(clrMap: Map<string, string>): Map<string, string> {
-	const out = new Map<string, string>()
-	for (const [token, slot] of clrMap) if (!out.has(slot)) out.set(slot, token)
-	return out
-}
-
-/**
- * If the slide has no own `p:bg`, insert (a copy of) the background it inherited
- * from its source layout/master as an explicit `p:cSld/p:bg`. The clone is left
- * unresolved here; the later passes flatten its `bgRef`/`schemeClr` in place.
- */
-function applyInheritedBackground(slideRoot: Element, ctx: FlattenContext): void {
-	const inherited = ctx.inheritedBackground
-	if (!inherited) return
-	const cSld = firstChild(slideRoot, 'p:cSld')
-	if (!cSld || firstChild(cSld, 'p:bg')) return // no cSld, or the slide already owns a background
-	const doc = ownerDocumentOf(slideRoot)
-	const bg = doc.importNode(inherited, true)
-	insertInOrder(cSld, bg, ['p:spTree', 'p:custDataLst', 'p:controls', 'p:extLst'])
-}
-
-/**
- * Resolve every `p:bgRef` (theme-indexed background) under the slide into an
- * explicit `p:bgPr` fill, so the background no longer depends on the destination
- * theme's `fmtScheme`. A `bgPr` background is left for the scheme-colour sweep.
- */
-function materializeBackground(slideRoot: Element, ctx: FlattenContext): void {
-	const doc = ownerDocumentOf(slideRoot)
-	for (const bg of elementsByTag(slideRoot, OOXML_NS.p, 'bg')) {
-		const bgRef = firstChild(bg, 'p:bgRef')
-		if (!bgRef) continue
-		// A `p:bgRef` is a `CT_StyleMatrixReference`, the same shape as a shape's
-		// `a:fillRef`, so `styleRefFill` builds its resolved `fmtScheme` fill (phClr
-		// already substituted). `null` (idx 0 / unresolved colour) → transparent.
-		const fill = styleRefFill(bgRef, ctx)
-		const bgPr = createElement(doc, 'p:bgPr')
-		bgPr.appendChild(fill ?? createElement(doc, 'a:noFill'))
-		bg.replaceChild(bgPr, bgRef)
-	}
-}
-
-/** Rewrite every `a:schemeClr` under `root` to a literal `a:srgbClr` when resolvable. */
-function resolveSchemeColors(root: Element, ctx: FlattenContext): void {
-	const doc = ownerDocumentOf(root)
-	for (const schemeClr of elementsByTag(root, OOXML_NS.a, 'schemeClr')) {
-		const token = attr(schemeClr, 'val')
-		const hex = token ? resolveSchemeToken(token, ctx) : null
-		if (!hex) continue // phClr or an unmapped token — leave it for the destination theme.
-		const srgb = createElement(doc, 'a:srgbClr')
-		setAttr(srgb, 'val', hex)
-		while (schemeClr.firstChild) srgb.appendChild(schemeClr.firstChild) // carry transforms
-		replaceInParent(schemeClr, srgb)
-	}
-}
-
-/** Schema successors of `a:solidFill` inside `a:rPr` (CT_TextCharacterProperties sequence). */
-const RPR_FILL_AFTER = [
-	'a:effectLst',
-	'a:effectDag',
-	'a:highlight',
-	'a:uLnTx',
-	'a:uLn',
-	'a:uFillTx',
-	'a:uFill',
-	'a:latin',
-	'a:ea',
-	'a:cs',
-	'a:sym',
-	'a:hlinkClick',
-	'a:hlinkMouseOver',
-	'a:rtl',
-	'a:extLst',
-]
-
-/** The master `p:txStyles` style element name for a placeholder category. */
-const TX_STYLE_NAME: Record<'title' | 'body' | 'other', string> = {
-	title: 'p:titleStyle',
-	body: 'p:bodyStyle',
-	other: 'p:otherStyle',
-}
-
-/**
- * Bake placeholder-inherited run colours onto the slide (gap 1). For each
- * placeholder run that defines no colour of its own (nor at paragraph/text-body
- * level on the *slide*), resolve the colour it would inherit from the source
- * `slideLayout`/`slideMaster` text styles and write it explicitly onto the run's
- * `a:rPr`. After this the run's colour cannot change when the slide is rebound to
- * the destination master. `a:fld` runs (dates, slide numbers) are treated like
- * `a:r`. Only colour is resolved; other inheritable run properties are left to
- * re-bind to the destination styles.
- */
-function resolvePlaceholderRunColors(slideRoot: Element, ctx: FlattenContext): void {
-	if (!ctx.layoutRoot && !ctx.masterRoot) return
-	for (const sp of elementsByTag(slideRoot, OOXML_NS.p, 'sp')) {
-		const ph = placeholderOf(sp)
-		if (!ph) continue
-		const txBody = firstChild(sp, 'p:txBody')
-		if (!txBody) continue
-		const type = attr(ph, 'type')
-		const idx = attr(ph, 'idx') ?? '0'
-		const slideLst = firstChild(txBody, 'a:lstStyle')
-		const byLevel = new Map<number, ResolvedColor | null>()
-		for (const p of getElements(txBody, 'a:p')) {
-			const pPr = firstChild(p, 'a:pPr')
-			const level = (pPr && intValue(attr(pPr, 'lvl'))) ?? 0
-			const runs = [...getElements(p, 'a:r'), ...getElements(p, 'a:fld')]
-			if (runs.length === 0) continue
-			let color = byLevel.get(level)
-			if (color === undefined) {
-				color = placeholderInheritedColor(type, idx, level, ctx)
-				byLevel.set(level, color)
-			}
-			if (!color) continue
-			for (const run of runs) {
-				if (slideDefinesColor(run, pPr, slideLst, level)) continue
-				writeRunColor(run, color)
-			}
-		}
-	}
-}
-
-/** The `p:ph` element of a shape (`p:sp/p:nvSpPr/p:nvPr/p:ph`), or `null`. */
-function placeholderOf(sp: Element): Element | null {
-	const nvSpPr = firstChild(sp, 'p:nvSpPr')
-	const nvPr = nvSpPr && firstChild(nvSpPr, 'p:nvPr')
-	return nvPr ? firstChild(nvPr, 'p:ph') : null
-}
-
-/**
- * The master text-style *category* a placeholder type resolves against
- * (absent ⇒ `obj` ⇒ body). This is a `p:txStyles` selector — it picks
- * `p:titleStyle`/`p:bodyStyle`/`p:otherStyle` (see {@link TX_STYLE_NAME}) and
- * deliberately collapses `dt`/`ftr`/`sldNum`/`hdr` (and anything else) into
- * `'other'`. It is **not** a placeholder *identity* predicate: it must not be
- * used to decide which source placeholder a slide placeholder inherits geometry
- * from, or the footer trio become mutually interchangeable — use the exact
- * `type` match in {@link findPlaceholder} for that.
- */
-function phCategory(type: string | null): 'title' | 'body' | 'other' {
-	if (type === 'title' || type === 'ctrTitle') return 'title'
-	if (type === null || type === 'body' || type === 'subTitle' || type === 'obj') return 'body'
-	return 'other'
-}
-
-/**
- * Placeholder types of which a layout/master holds at most one, and whose
- * identity is their `type` alone: `dt`, `ftr`, `sldNum`, `hdr`. A slide
- * placeholder of one of these types must inherit **only** from a source
- * placeholder of the *same type* — never via `idx` or the txStyles *category*,
- * both of which lump the whole trio together and would let `sldNum` borrow the
- * footer's box (and vice versa).
- */
-const SINGLETON_PH = new Set(['dt', 'ftr', 'sldNum', 'hdr'])
-
-/**
- * The placeholder shape in `root` (a layout/master) that the given slide
- * placeholder inherits from.
- *
- * A singleton-type slide placeholder (`dt`/`ftr`/`sldNum`/`hdr`) matches only an
- * exact same-`type` source placeholder — PowerPoint gives the trio different
- * `idx` on the layout (dt=10/ftr=11/sldNum=12) than the master (dt=2/ftr=3/
- * sldNum=4), so an `idx`- or category-based fallback would silently pick the
- * wrong member of the trio. Every other type prefers a same-`idx` placeholder of
- * the same category, then any same-`idx`, then any same-category, and never
- * lands on a singleton placeholder. Returns `null` when nothing matches.
- */
-function findPlaceholder(root: Element, slideType: string | null, slideIdx: string): Element | null {
-	if (slideType && SINGLETON_PH.has(slideType)) {
-		for (const sp of elementsByTag(root, OOXML_NS.p, 'sp')) {
-			const ph = placeholderOf(sp)
-			if (ph && attr(ph, 'type') === slideType) return sp
-		}
-		return null
-	}
-	const cat = phCategory(slideType)
-	let idxMatch: Element | null = null
-	let catMatch: Element | null = null
-	for (const sp of elementsByTag(root, OOXML_NS.p, 'sp')) {
-		const ph = placeholderOf(sp)
-		if (!ph) continue
-		const type = attr(ph, 'type')
-		if (type && SINGLETON_PH.has(type)) continue // a non-singleton must never inherit from the footer trio
-		const i = attr(ph, 'idx') ?? '0'
-		const sameCat = phCategory(type) === cat
-		if (i === slideIdx && sameCat) return sp
-		if (i === slideIdx && !idxMatch) idxMatch = sp
-		if (sameCat && !catMatch) catMatch = sp
-	}
-	return idxMatch ?? catMatch
-}
-
-/** The `a:lstStyle` of a placeholder shape's `p:txBody`, or `null`. */
-function placeholderLstStyle(sp: Element): Element | null {
-	const txBody = firstChild(sp, 'p:txBody')
-	return txBody ? firstChild(txBody, 'a:lstStyle') : null
-}
-
-/**
- * The `a:defRPr` for `level` (0-based) in a `CT_TextListStyle` (`a:lstStyle` or a
- * `p:txStyles` style): the level-specific `a:lvlNpPr/a:defRPr`, else the
- * `a:defPPr/a:defRPr` fallback. The shared root for colour and size resolution.
- */
-export function lstStyleLevelDefRPr(listStyle: Element | null, level: number): Element | null {
-	if (!listStyle) return null
-	const lvl = firstChild(listStyle, `a:lvl${level + 1}pPr`) ?? firstChild(listStyle, 'a:defPPr')
-	return lvl ? firstChild(lvl, 'a:defRPr') : null
-}
-
-/** The `a:solidFill` of a level's `a:defRPr`, or `null` when none is defined there. */
-export function lstStyleLevelFill(listStyle: Element | null, level: number): Element | null {
-	const defRPr = lstStyleLevelDefRPr(listStyle, level)
-	return defRPr ? firstChild(defRPr, 'a:solidFill') : null
-}
-
-/**
- * The colour *element* a placeholder run inherits from the source style chain: the
- * layout placeholder's `a:lstStyle`, then the master placeholder's, then the
- * master `p:txStyles` category style. Returns the first tier's colour element that
- * resolves against `ctx` (the `a:srgbClr`/`a:schemeClr`/… inside its
- * `a:solidFill`), or `null` when nothing in the chain defines a resolvable colour.
- * The read-model `Run.resolvedColor` getter feeds this element to
- * `resolveColorElement` for the `effectiveHex`; the flatten path resolves it
- * directly via {@link placeholderInheritedColor}.
- */
-export function placeholderInheritedFill(
-	type: string | null,
-	idx: string,
-	level: number,
-	ctx: FlattenContext
-): Element | null {
-	const tiers: (Element | null)[] = []
-	if (ctx.layoutRoot) {
-		const layoutPh = findPlaceholder(ctx.layoutRoot, type, idx)
-		tiers.push(layoutPh && lstStyleLevelFill(placeholderLstStyle(layoutPh), level))
-	}
-	if (ctx.masterRoot) {
-		const masterPh = findPlaceholder(ctx.masterRoot, type, idx)
-		tiers.push(masterPh && lstStyleLevelFill(placeholderLstStyle(masterPh), level))
-		const txStyles = firstChild(ctx.masterRoot, 'p:txStyles')
-		const styleEl = txStyles && firstChild(txStyles, TX_STYLE_NAME[phCategory(type)])
-		tiers.push(styleEl && lstStyleLevelFill(styleEl, level))
-	}
-	// Notes body runs inherit from the notesMaster's `p:notesStyle` (keyed by level,
-	// not placeholder type); it is the bottom tier of the notes chain — see the field
-	// note on `FlattenContext.notesStyle`. Never set on a slide context.
-	if (ctx.notesStyle) tiers.push(lstStyleLevelFill(ctx.notesStyle, level))
-	for (const fill of tiers) {
-		const colorEl = fill && firstChildElement(fill)
-		if (colorEl && resolveColor(colorEl, ctx)) return colorEl
-	}
-	return null
-}
-
-/**
- * The level `a:defRPr` elements a placeholder inherits from the source style
- * chain, in resolution order: the layout placeholder's `a:lstStyle`, then the
- * master placeholder's, then the master `p:txStyles` category style — and, on a
- * notes context only, the notesMaster `p:notesStyle` (see `ctx.notesStyle`). Tiers
- * with no `a:defRPr` for `level` are dropped. The shared root for inherited run
- * *size* and *typeface* resolution (the size/face sibling of
- * {@link placeholderInheritedFill}), read directly by the flatten path and the
- * read-model font getters.
- */
-export function placeholderInheritedDefRPrs(
-	type: string | null,
-	idx: string,
-	level: number,
-	ctx: FlattenContext
-): Element[] {
-	const tiers: (Element | null)[] = []
-	if (ctx.layoutRoot) {
-		const layoutPh = findPlaceholder(ctx.layoutRoot, type, idx)
-		tiers.push(layoutPh && lstStyleLevelDefRPr(placeholderLstStyle(layoutPh), level))
-	}
-	if (ctx.masterRoot) {
-		const masterPh = findPlaceholder(ctx.masterRoot, type, idx)
-		tiers.push(masterPh && lstStyleLevelDefRPr(placeholderLstStyle(masterPh), level))
-		const txStyles = firstChild(ctx.masterRoot, 'p:txStyles')
-		const styleEl = txStyles && firstChild(txStyles, TX_STYLE_NAME[phCategory(type)])
-		tiers.push(styleEl && lstStyleLevelDefRPr(styleEl, level))
-	}
-	// Notes body runs inherit their size/face/bold from the notesMaster's
-	// `p:notesStyle` (keyed by level, not placeholder type) — the bottom tier of the
-	// notes chain; see the field note on `FlattenContext.notesStyle`. Never set on a
-	// slide context, so the slide placeholder chain above is unaffected.
-	if (ctx.notesStyle) tiers.push(lstStyleLevelDefRPr(ctx.notesStyle, level))
-	return tiers.filter((t): t is Element => t !== null)
-}
-
-/**
  * Resolve a `+mj-*`/`+mn-*` major/minor font token against a theme `a:fontScheme`
  * to a literal typeface name. A non-token `typeface` (an already-literal face) is
  * returned verbatim. `null` when `typeface` is absent, or when a token cannot be
@@ -687,370 +223,10 @@ export function resolveThemeFont(typeface: string | null, fontScheme: Element | 
 	return resolved || null
 }
 
-/**
- * The colour a placeholder run inherits from the source style chain, resolved to a
- * literal `{ hex, transforms }`. Thin wrapper over {@link placeholderInheritedFill}
- * for the flatten path, which re-emits the transforms verbatim. Returns `null`
- * when nothing in the chain defines a resolvable colour (the run then re-binds to
- * the destination).
- */
-function placeholderInheritedColor(
-	type: string | null,
-	idx: string,
-	level: number,
-	ctx: FlattenContext
-): ResolvedColor | null {
-	const colorEl = placeholderInheritedFill(type, idx, level, ctx)
-	return colorEl ? resolveColor(colorEl, ctx) : null
-}
-
-/** Whether the *slide itself* already fixes this run's colour (so a rebind cannot change it). */
-function slideDefinesColor(run: Element, pPr: Element | null, slideLst: Element | null, level: number): boolean {
-	const rPr = firstChild(run, 'a:rPr')
-	if (rPr && FILL_CHOICES.some((q) => firstChild(rPr, q))) return true
-	const defRPr = pPr && firstChild(pPr, 'a:defRPr')
-	if (defRPr && firstChild(defRPr, 'a:solidFill')) return true
-	return !!lstStyleLevelFill(slideLst, level)
-}
-
-/** Write a resolved colour as an explicit `a:solidFill` (with carried transforms) onto a run's `a:rPr`. */
-function writeRunColor(run: Element, color: ResolvedColor): void {
-	const doc = ownerDocumentOf(run)
-	const rPr = getOrAddChild(run, 'a:rPr', ['a:t'])
-	const fill = createElement(doc, 'a:solidFill')
-	const srgb = createElement(doc, 'a:srgbClr')
-	setAttr(srgb, 'val', color.hex)
-	for (const t of color.transforms) srgb.appendChild(t.cloneNode(true))
-	fill.appendChild(srgb)
-	insertInOrder(rPr, fill, RPR_FILL_AFTER)
-}
-
-/**
- * Bake placeholder-inherited geometry onto the slide (gap 3). A placeholder shape
- * that carries no own `p:spPr/a:xfrm` takes its position/size from the matching
- * source `slideLayout` placeholder, else the `slideMaster` placeholder. Rebinding
- * to the destination master replaces that inheritance, so the placeholder would
- * snap to the destination default (often clipping off-canvas). We deep-clone the
- * effective source `a:xfrm` and write it explicitly onto the shape. Shapes with
- * their own `a:xfrm` are left untouched (explicit geometry is not inherited), and
- * an orphan placeholder with no source match keeps the current fall-back behaviour.
- */
-function resolvePlaceholderGeometry(slideRoot: Element, ctx: FlattenContext): void {
-	if (!ctx.layoutRoot && !ctx.masterRoot) return
-	for (const sp of elementsByTag(slideRoot, OOXML_NS.p, 'sp')) {
-		const ph = placeholderOf(sp)
-		if (!ph) continue
-		const spPr = firstChild(sp, 'p:spPr')
-		if (spPr && firstChild(spPr, 'a:xfrm')) continue // explicit geometry is not inherited — leave it
-		const found = placeholderInheritedXfrm(attr(ph, 'type'), attr(ph, 'idx') ?? '0', ctx)
-		if (!found) continue
-		const target = getOrAddChild(sp, 'p:spPr', SHAPE_AFTER_SPPR)
-		insertInOrder(target, found.xfrm.cloneNode(true), SPPR_XFRM_AFTER)
-	}
-}
-
-/**
- * The `a:xfrm` a placeholder inherits from the source layout, then master,
- * tagged with which tier it came from — `null` when neither defines one. The
- * read-model {@link resolveInheritedFrame} (`theme-context.ts`) sibling of
- * {@link placeholderInheritedAnchor}; also the bake source for
- * {@link resolvePlaceholderGeometry}.
- */
-export function placeholderInheritedXfrm(
-	type: string | null,
-	idx: string,
-	ctx: FlattenContext
-): { xfrm: Element; source: 'layout' | 'master' } | null {
-	for (const [root, source] of [
-		[ctx.layoutRoot, 'layout'],
-		[ctx.masterRoot, 'master'],
-	] as const) {
-		if (!root) continue
-		const ph = findPlaceholder(root, type, idx)
-		const spPr = ph && firstChild(ph, 'p:spPr')
-		const xfrm = spPr && firstChild(spPr, 'a:xfrm')
-		if (xfrm) return { xfrm, source }
-	}
-	return null
-}
-
-/**
- * The vertical anchor (`a:bodyPr/@anchor`) a placeholder inherits from the source
- * layout, then master, or `null`. Resolves per-attribute: the first tier whose
- * placeholder `a:bodyPr` actually sets `@anchor` wins, so a layout `a:bodyPr`
- * present but without `@anchor` does not mask the master's. The read-model
- * {@link TextFrame.resolvedAnchor} sibling of {@link placeholderInheritedXfrm}.
- */
-export function placeholderInheritedAnchor(type: string | null, idx: string, ctx: FlattenContext): string | null {
-	for (const root of [ctx.layoutRoot, ctx.masterRoot]) {
-		if (!root) continue
-		const ph = findPlaceholder(root, type, idx)
-		const txBody = ph && firstChild(ph, 'p:txBody')
-		const bodyPr = txBody && firstChild(txBody, 'a:bodyPr')
-		const anchor = bodyPr && attr(bodyPr, 'anchor')
-		if (anchor) return anchor
-	}
-	return null
-}
-
-/**
- * Bake the placeholder-inherited vertical anchor onto a lifted shape's text body
- * (the {@link flattenShape} placeholder-demotion path). A placeholder whose own
- * `a:bodyPr` sets no `@anchor` inherits it from the source layout/master placeholder;
- * once {@link demotePlaceholders} strips the `p:ph` the shape would lose that
- * inheritance and fall back to top-anchored, so a vertically-centred title jumps.
- * We resolve the effective anchor from the source chain (via
- * {@link placeholderInheritedAnchor}) and write it explicitly. Shapes whose
- * `a:bodyPr` already fixes `@anchor`, and placeholders with no resolvable inherited
- * anchor, are left untouched. Other `a:bodyPr` knobs (insets, autofit) are left as
- * authored — they have sane defaults a plain shape keeps.
- */
-function resolvePlaceholderBodyPr(shapeRoot: Element, ctx: FlattenContext): void {
-	if (!ctx.layoutRoot && !ctx.masterRoot) return
-	for (const sp of elementsByTag(shapeRoot, OOXML_NS.p, 'sp')) {
-		const ph = placeholderOf(sp)
-		if (!ph) continue
-		const txBody = firstChild(sp, 'p:txBody')
-		if (!txBody) continue
-		const bodyPr = firstChild(txBody, 'a:bodyPr')
-		if (bodyPr && attr(bodyPr, 'anchor') != null) continue // slide fixes it — not inherited
-		const anchor = placeholderInheritedAnchor(attr(ph, 'type'), attr(ph, 'idx') ?? '0', ctx)
-		if (!anchor) continue
-		setAttr(bodyPr ?? getOrAddChild(txBody, 'a:bodyPr', ['a:lstStyle', 'a:p']), 'anchor', anchor)
-	}
-}
-
-/** The ordered children of a `CT_TextListStyle` (`a:lstStyle` / a `p:txStyles` style). */
-const LST_STYLE_LEVELS = [
-	'a:defPPr',
-	'a:lvl1pPr',
-	'a:lvl2pPr',
-	'a:lvl3pPr',
-	'a:lvl4pPr',
-	'a:lvl5pPr',
-	'a:lvl6pPr',
-	'a:lvl7pPr',
-	'a:lvl8pPr',
-	'a:lvl9pPr',
-]
-
-/**
- * Bake the placeholder-inherited list style onto a lifted shape's text body (the
- * {@link flattenShape} placeholder-demotion path). A placeholder's per-level
- * *paragraph* formatting — indent (`marL`/`indent`), bullets (`a:buChar`/
- * `a:buAutoNum`/`a:buNone`), alignment, and the level `a:defRPr` — is inherited
- * from the source layout/master placeholder `a:lstStyle` and the master
- * `p:txStyles` category style. Run colour/size are baked onto each run by the
- * sibling passes, but paragraph-level defaults live here; once
- * {@link demotePlaceholders} strips the `p:ph` the shape stops inheriting them, so
- * bullets and indents would vanish. We materialize the effective list style onto
- * the shape's `p:txBody/a:lstStyle`.
- *
- * Resolution is per *level*, most specific tier wins whole: the slide's own level
- * (if it defines one) is kept verbatim, else the first source tier that defines it
- * (layout placeholder, then master placeholder, then master category style) is
- * cloned. This is a whole-element overlay, not the per-attribute merge PowerPoint
- * does — but explicit paragraph `a:pPr` on the slide's own runs travels with the
- * shape and still wins, so this only supplies defaults for the inherited case
- * (paragraphs that set no `a:pPr` of their own). Scheme colours in the cloned
- * levels are resolved by the later {@link resolveSchemeColors} pass.
- */
-function resolvePlaceholderListStyle(shapeRoot: Element, ctx: FlattenContext): void {
-	if (!ctx.layoutRoot && !ctx.masterRoot) return
-	for (const sp of elementsByTag(shapeRoot, OOXML_NS.p, 'sp')) {
-		const ph = placeholderOf(sp)
-		if (!ph) continue
-		const txBody = firstChild(sp, 'p:txBody')
-		if (!txBody) continue
-		const tiers = placeholderInheritedListStyles(attr(ph, 'type'), attr(ph, 'idx') ?? '0', ctx)
-		if (tiers.length === 0) continue
-		const slideLst = firstChild(txBody, 'a:lstStyle')
-		const merged = createElement(ownerDocumentOf(txBody), 'a:lstStyle')
-		let any = false
-		for (const level of LST_STYLE_LEVELS) {
-			// Slide's own level wins; otherwise the most-specific source tier that defines it.
-			const own = slideLst && firstChild(slideLst, level)
-			const src = own ?? tiers.map((t) => firstChild(t, level)).find((e): e is Element => !!e) ?? null
-			if (!src) continue
-			merged.appendChild(src.cloneNode(true))
-			any = true
-		}
-		if (!any) continue
-		if (slideLst) txBody.replaceChild(merged, slideLst)
-		else insertInOrder(txBody, merged, ['a:p'])
-	}
-}
-
-/**
- * The source list-style tiers a placeholder inherits paragraph formatting from,
- * most specific first: layout placeholder `a:lstStyle`, master placeholder
- * `a:lstStyle`, then the master `p:txStyles` category style (itself a
- * `CT_TextListStyle`). The paragraph-level sibling of {@link placeholderInheritedDefRPrs}.
- */
-function placeholderInheritedListStyles(type: string | null, idx: string, ctx: FlattenContext): Element[] {
-	const tiers: (Element | null)[] = []
-	if (ctx.layoutRoot) {
-		const layoutPh = findPlaceholder(ctx.layoutRoot, type, idx)
-		tiers.push(layoutPh && placeholderLstStyle(layoutPh))
-	}
-	if (ctx.masterRoot) {
-		const masterPh = findPlaceholder(ctx.masterRoot, type, idx)
-		tiers.push(masterPh && placeholderLstStyle(masterPh))
-		const txStyles = firstChild(ctx.masterRoot, 'p:txStyles')
-		tiers.push(txStyles && firstChild(txStyles, TX_STYLE_NAME[phCategory(type)]))
-	}
-	return tiers.filter((t): t is Element => t !== null)
-}
-
-/**
- * Strip the `p:ph` marker from every placeholder shape in a lifted subtree so it
- * becomes a self-contained ordinary shape (the {@link flattenShape} path only). By
- * the time this runs, the shape's inherited geometry, colour, run size, anchor, and
- * list style are all baked explicitly, so it no longer needs — and must not keep —
- * its placeholder identity: a surviving `p:ph` would re-resolve against the *host*
- * deck's layout/master placeholder of the same type/idx (wrong inheritance, or a
- * fallback when the host has none) and could collide with the host slide's own
- * placeholder of that type. Removing the marker severs both. The `p:nvPr` itself is
- * kept (it can carry media/custom-data children); only the `p:ph` child goes.
- */
-function demotePlaceholders(shapeRoot: Element): void {
-	for (const sp of elementsByTag(shapeRoot, OOXML_NS.p, 'sp')) {
-		const nvSpPr = firstChild(sp, 'p:nvSpPr')
-		const nvPr = nvSpPr && firstChild(nvSpPr, 'p:nvPr')
-		if (nvPr) removeChildrenByQName(nvPr, ['p:ph'])
-	}
-}
-
-/** Inheritable run properties baked under `preserve`: size and weight/slant (not typeface). */
-const RUN_PROP_NAMES = ['sz', 'b', 'i'] as const
-type RunProps = Record<(typeof RUN_PROP_NAMES)[number], string | null>
-
-/**
- * Bake placeholder-inherited run size/weight onto the slide (gap 3). Mirrors
- * {@link resolvePlaceholderRunColors}: for each placeholder run that sets no
- * `sz`/`b`/`i` of its own (nor at paragraph/text-body level on the *slide*),
- * resolve the value it would inherit from the source `slideLayout`/`slideMaster`
- * text styles — per paragraph list level — and write it explicitly onto the run's
- * `a:rPr`. Each property resolves independently up the chain. Typeface (`a:latin`)
- * is left to re-bind to the destination theme, as gap 1 does for the `fontRef`.
- */
-function resolvePlaceholderRunSizes(slideRoot: Element, ctx: FlattenContext): void {
-	if (!ctx.layoutRoot && !ctx.masterRoot) return
-	for (const sp of elementsByTag(slideRoot, OOXML_NS.p, 'sp')) {
-		const ph = placeholderOf(sp)
-		if (!ph) continue
-		const txBody = firstChild(sp, 'p:txBody')
-		if (!txBody) continue
-		const type = attr(ph, 'type')
-		const idx = attr(ph, 'idx') ?? '0'
-		const slideLst = firstChild(txBody, 'a:lstStyle')
-		const byLevel = new Map<number, RunProps | null>()
-		for (const p of getElements(txBody, 'a:p')) {
-			const pPr = firstChild(p, 'a:pPr')
-			const level = (pPr && intValue(attr(pPr, 'lvl'))) ?? 0
-			const runs = [...getElements(p, 'a:r'), ...getElements(p, 'a:fld')]
-			if (runs.length === 0) continue
-			let props = byLevel.get(level)
-			if (props === undefined) {
-				props = placeholderInheritedRunProps(type, idx, level, ctx)
-				byLevel.set(level, props)
-			}
-			if (!props) continue
-			for (const run of runs) writeRunProps(run, props, pPr, slideLst, level)
-		}
-	}
-}
-
-/**
- * The run size/weight a placeholder run inherits from the source style chain:
- * layout placeholder `a:lstStyle` → master placeholder `a:lstStyle` → master
- * `p:txStyles` category style, per list level. Each of `sz`/`b`/`i` is taken from
- * the first tier that defines it (properties resolve independently). Returns
- * `null` when no tier defines any of them.
- */
-function placeholderInheritedRunProps(
-	type: string | null,
-	idx: string,
-	level: number,
-	ctx: FlattenContext
-): RunProps | null {
-	const tiers = placeholderInheritedDefRPrs(type, idx, level, ctx)
-	const props = {} as RunProps
-	let any = false
-	for (const name of RUN_PROP_NAMES) {
-		let value: string | null = null
-		for (const tier of tiers) {
-			value = attr(tier, name)
-			if (value != null) break
-		}
-		props[name] = value
-		if (value != null) any = true
-	}
-	return any ? props : null
-}
-
-/** Whether the *slide itself* already fixes a run property (so a rebind cannot change it). */
-function slideDefinesProp(
-	name: string,
-	run: Element,
-	pPr: Element | null,
-	slideLst: Element | null,
-	level: number
-): boolean {
-	const rPr = firstChild(run, 'a:rPr')
-	if (rPr && attr(rPr, name) != null) return true
-	const defRPr = pPr && firstChild(pPr, 'a:defRPr')
-	if (defRPr && attr(defRPr, name) != null) return true
-	const slideDefRPr = lstStyleLevelDefRPr(slideLst, level)
-	return !!(slideDefRPr && attr(slideDefRPr, name) != null)
-}
-
-/** Write each resolved run property onto a run's `a:rPr`, skipping ones the slide already fixes. */
-function writeRunProps(
-	run: Element,
-	props: RunProps,
-	pPr: Element | null,
-	slideLst: Element | null,
-	level: number
-): void {
-	let rPr: Element | null = null
-	for (const name of RUN_PROP_NAMES) {
-		const value = props[name]
-		if (value == null) continue
-		if (slideDefinesProp(name, run, pPr, slideLst, level)) continue
-		rPr ??= getOrAddChild(run, 'a:rPr', ['a:t'])
-		setAttr(rPr, name, value)
-	}
-}
-
-/** Snapshot all descendant elements of `root` matching a namespace + local name. */
-function elementsByTag(root: Element, ns: string, local: string): Element[] {
-	const out: Element[] = []
-	for (const el of root.getElementsByTagNameNS(ns, local)) out.push(el)
-	return out
-}
-
-/**
- * Resolve each shape's `p:style` `lnRef`/`fillRef`/`effectRef` into explicit
- * `spPr` children (using the theme `fmtScheme`), then neutralize the ref. The
- * `fontRef` is intentionally left for the destination theme to re-resolve.
- */
-function materializeStyleRefs(root: Element, ctx: FlattenContext): void {
-	if (!ctx.fmtScheme) return
-	for (const style of elementsByTag(root, OOXML_NS.p, 'style')) {
-		const shape = style.parentNode as Element | null
-		if (!shape) continue
-		const spPr = getOrAddChild(shape, 'p:spPr', SHAPE_AFTER_SPPR)
-		materializeFill(spPr, firstChild(style, 'a:fillRef'), ctx)
-		materializeLine(spPr, firstChild(style, 'a:lnRef'), ctx)
-		materializeEffect(spPr, firstChild(style, 'a:effectRef'), ctx)
-	}
-}
-
 /** Replace every `phClr` under `el` with the ref colour (ref transforms first, then the `phClr`'s own). */
-function substitutePhClr(el: Element, ref: ResolvedColor): void {
+export function substitutePhClr(el: Element, ref: ResolvedColor): void {
 	const doc = ownerDocumentOf(el)
-	for (const phClr of elementsByTag(el, OOXML_NS.a, 'schemeClr')) {
+	for (const phClr of descendantsByTag(el, OOXML_NS.a, 'schemeClr')) {
 		if (attr(phClr, 'val') !== 'phClr') continue
 		const srgb = createElement(doc, 'a:srgbClr')
 		setAttr(srgb, 'val', ref.hex)
@@ -1061,7 +237,7 @@ function substitutePhClr(el: Element, ref: ResolvedColor): void {
 }
 
 /** The `idx`-th entry (1-based) of a `fmtScheme` style list, deep-cloned, or `null`. */
-function fmtEntry(ctx: FlattenContext, listName: string, idx: number): Element | null {
+export function fmtEntry(ctx: ThemeContext, listName: string, idx: number): Element | null {
 	const list = ctx.fmtScheme && firstChild(ctx.fmtScheme, listName)
 	if (!list || idx < 1) return null
 	const entry = childElements(list)[idx - 1]
@@ -1073,10 +249,10 @@ function fmtEntry(ctx: FlattenContext, listName: string, idx: number): Element |
  * `fmtScheme` `fillStyleLst`/`bgFillStyleLst` entry (deep-cloned) with its `phClr`
  * replaced by the ref's resolved colour. Pure: mutates neither the ref nor the
  * theme. `null` when the ref is absent, `idx` is 0/unset, or the entry or its
- * colour cannot be resolved. Shared by the flatten path ({@link materializeFill})
- * and the read-model `resolveStyleFillColor` getter so both see the same fill.
+ * colour cannot be resolved. Shared by the flatten path and the read-model
+ * `resolveStyleFillColor` getter so both see the same fill.
  */
-export function styleRefFill(fillRef: Element | null, ctx: FlattenContext): Element | null {
+export function styleRefFill(fillRef: Element | null, ctx: ThemeContext): Element | null {
 	if (!fillRef) return null
 	const idx = intAttr(fillRef, 'idx')
 	if (idx === null || idx <= 0) return null
@@ -1093,7 +269,7 @@ export function styleRefFill(fillRef: Element | null, ctx: FlattenContext): Elem
  * `fmtScheme` `lnStyleLst` entry (deep-cloned) with its `phClr` replaced by the
  * ref's resolved colour. Pure; the line/read counterpart of {@link styleRefFill}.
  */
-export function styleRefLine(lnRef: Element | null, ctx: FlattenContext): Element | null {
+export function styleRefLine(lnRef: Element | null, ctx: ThemeContext): Element | null {
 	if (!lnRef) return null
 	const idx = intAttr(lnRef, 'idx')
 	if (idx === null || idx <= 0) return null
@@ -1104,50 +280,8 @@ export function styleRefLine(lnRef: Element | null, ctx: FlattenContext): Elemen
 	return ln
 }
 
-function materializeFill(spPr: Element, fillRef: Element | null, ctx: FlattenContext): void {
-	if (!fillRef) return
-	if (!FILL_CHOICES.some((q) => firstChild(spPr, q))) {
-		const fill = styleRefFill(fillRef, ctx)
-		if (fill) insertInOrder(spPr, fill, SPPR_FILL_AFTER)
-	}
-	neutralizeRef(fillRef)
-}
-
-function materializeLine(spPr: Element, lnRef: Element | null, ctx: FlattenContext): void {
-	if (!lnRef) return
-	if (!firstChild(spPr, 'a:ln')) {
-		const ln = styleRefLine(lnRef, ctx)
-		if (ln) insertInOrder(spPr, ln, SPPR_LN_AFTER)
-	}
-	neutralizeRef(lnRef)
-}
-
-function materializeEffect(spPr: Element, effectRef: Element | null, ctx: FlattenContext): void {
-	if (!effectRef) return
-	const idx = intAttr(effectRef, 'idx')
-	if (idx !== null && idx > 0 && !firstChild(spPr, 'a:effectLst') && !firstChild(spPr, 'a:effectDag')) {
-		const style = fmtEntry(ctx, 'a:effectStyleLst', idx) // a:effectStyle (effectLst?, scene3d?, sp3d?)
-		const ref = resolveColor(firstChildElement(effectRef), ctx)
-		if (style && ref) {
-			substitutePhClr(style, ref)
-			// Lift the effectStyle's children (effectLst/scene3d/sp3d) into spPr, in order.
-			for (const child of childElements(style)) {
-				if (isA(child, 'effectLst') || isA(child, 'effectDag')) insertInOrder(spPr, child, SPPR_EFFECT_AFTER)
-				else if (isA(child, 'scene3d')) insertInOrder(spPr, child, ['a:sp3d', 'a:extLst'])
-				else if (isA(child, 'sp3d')) insertInOrder(spPr, child, ['a:extLst'])
-			}
-		}
-	}
-	neutralizeRef(effectRef)
-}
-
-/** Strip a style-matrix ref to `idx="0"` with no colour child so it contributes nothing. */
-function neutralizeRef(ref: Element): void {
-	setAttr(ref, 'idx', '0')
-	for (const child of childElements(ref)) ref.removeChild(child)
-}
-
-function intAttr(el: Element, name: string): number | null {
+/** Read an integer attribute; `null`/empty/non-finite → `null`. */
+export function intAttr(el: Element, name: string): number | null {
 	const value = attr(el, name)
 	if (value === null || value === '') return null
 	const n = Number(value)

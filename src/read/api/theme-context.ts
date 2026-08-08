@@ -12,23 +12,32 @@
 import { applyColorTransforms } from '../oxml/color-transform.js'
 import { attr, firstChild, firstChildElement, intValue, type Element } from '../oxml/dom.js'
 import {
-	lstStyleLevelDefRPr,
-	lstStyleLevelFill,
 	parseClrMap,
 	parseClrScheme,
-	placeholderInheritedAnchor,
-	placeholderInheritedDefRPrs,
-	placeholderInheritedFill,
-	placeholderInheritedXfrm,
 	resolveColor,
 	resolveThemeFont,
 	styleRefFill,
 	styleRefLine,
 	type ColorContext,
-	type FlattenContext,
+	type ThemeContext,
 } from '../oxml/theme.js'
+import {
+	lstStyleLevelDefRPr,
+	lstStyleLevelFill,
+	placeholderInheritedAnchor,
+	placeholderInheritedDefRPrs,
+	placeholderInheritedFill,
+	placeholderInheritedXfrm,
+} from '../oxml/placeholder-inherit.js'
 import type { OpcPackage } from '../opc/package.js'
-import { NOTES_MASTER_REL, OFFICE_DOCUMENT_REL, SLIDE_LAYOUT_REL, SLIDE_MASTER_REL, THEME_REL } from './rel-types.js'
+import { resolveSingleRel } from '../opc/partnames.js'
+import {
+	NOTES_MASTER_REL,
+	OFFICE_DOCUMENT_REL,
+	SLIDE_LAYOUT_REL,
+	SLIDE_MASTER_REL,
+	THEME_REL,
+} from '../../ooxml/rel-types.js'
 
 /** The resolved theme subgraph a slide depends on, plus its parsed colour maps. */
 export interface SlideThemeParts extends ColorContext {
@@ -47,13 +56,6 @@ export interface SlideThemeParts extends ColorContext {
 	themeElements: Element | null
 }
 
-/** Resolve the single relationship of `type` owned by `partName`, or `null`. */
-function resolveSingleRel(opc: OpcPackage, partName: string, type: string): string | null {
-	const rels = opc.relationshipsFor(partName)
-	const rel = rels.byType(type)[0]
-	return rel ? rels.resolveTarget(rel.id) : null
-}
-
 /** The document element of a part, or `null` when the partname/part is absent. */
 function documentElement(opc: OpcPackage, partName: string | null): Element | null {
 	return partName ? (opc.part(partName)?.dom.documentElement ?? null) : null
@@ -63,7 +65,7 @@ function documentElement(opc: OpcPackage, partName: string | null): Element | nu
  * The presentation's `p:defaultTextStyle` (`presentation.xml`, reached via the
  * package `officeDocument` relationship), or `null` when absent. This is
  * PowerPoint's lowest-priority text fallback — the bottom tier of a slide run's
- * size/colour/face/bold resolution (see `FlattenContext.defaultTextStyle`).
+ * size/colour/face/bold resolution (see `ThemeContext.defaultTextStyle`).
  */
 function presentationDefaultTextStyle(opc: OpcPackage): Element | null {
 	const root = documentElement(opc, resolveSingleRel(opc, '/', OFFICE_DOCUMENT_REL))
@@ -112,7 +114,7 @@ export function resolveSlideThemeParts(opc: OpcPackage, slidePartName: string): 
  * `theme: 'preserve'` flatten path does). The `fmtScheme` is `null` when the
  * slide's theme is missing.
  */
-export function resolveSlideColorContext(opc: OpcPackage, slidePartName: string): FlattenContext {
+export function resolveSlideColorContext(opc: OpcPackage, slidePartName: string): ThemeContext {
 	const { clrMap, clrScheme, themeElements, layoutRoot, masterRoot } = resolveSlideThemeParts(opc, slidePartName)
 	return {
 		clrMap,
@@ -149,7 +151,7 @@ export function resolveSlideColorContext(opc: OpcPackage, slidePartName: string)
  * analogue of the slide placeholder chain. The maps are empty when the
  * notesMaster/theme chain is incomplete, in which case tokens stay unresolved.
  */
-export function resolveNotesColorContext(opc: OpcPackage, notesPartName: string): FlattenContext {
+export function resolveNotesColorContext(opc: OpcPackage, notesPartName: string): ThemeContext {
 	const masterPartName = resolveSingleRel(opc, notesPartName, NOTES_MASTER_REL)
 	const themePartName = masterPartName ? resolveSingleRel(opc, masterPartName, THEME_REL) : null
 	const masterRoot = documentElement(opc, masterPartName)
@@ -164,7 +166,7 @@ export function resolveNotesColorContext(opc: OpcPackage, notesPartName: string)
 		// that omits its own face resolves through here.
 		fontScheme: themeElements ? firstChild(themeElements, 'a:fontScheme') : null,
 		// The notesMaster's text style — the tier a notes-body run's inherited
-		// size/face/bold/colour resolves against (see `FlattenContext.notesStyle`).
+		// size/face/bold/colour resolves against (see `ThemeContext.notesStyle`).
 		notesStyle: masterRoot ? firstChild(masterRoot, 'p:notesStyle') : null,
 	}
 }
@@ -178,7 +180,7 @@ export function resolveNotesColorContext(opc: OpcPackage, notesPartName: string)
  * placeholder value still resolves against the master's own text styles. The maps
  * are empty when the theme is missing, in which case tokens stay unresolved.
  */
-export function resolveMasterColorContext(opc: OpcPackage, masterPartName: string): FlattenContext {
+export function resolveMasterColorContext(opc: OpcPackage, masterPartName: string): ThemeContext {
 	const themePartName = resolveSingleRel(opc, masterPartName, THEME_REL)
 	const masterRoot = documentElement(opc, masterPartName)
 	const themeElements = themeElementsOf(opc, themePartName)
@@ -200,7 +202,7 @@ export function resolveMasterColorContext(opc: OpcPackage, masterPartName: strin
  * `layoutRoot`/`masterRoot` are carried for inherited-placeholder resolution. Backs
  * the text frames of {@link import('./chrome.js').SlideLayout}'s placeholders.
  */
-export function resolveLayoutColorContext(opc: OpcPackage, layoutPartName: string): FlattenContext {
+export function resolveLayoutColorContext(opc: OpcPackage, layoutPartName: string): ThemeContext {
 	const masterPartName = resolveSingleRel(opc, layoutPartName, SLIDE_MASTER_REL)
 	const themePartName = masterPartName ? resolveSingleRel(opc, masterPartName, THEME_REL) : null
 	const layoutRoot = documentElement(opc, layoutPartName)
@@ -248,7 +250,7 @@ export function resolveInheritedRunColor(
 	level: number,
 	pPr: Element | null,
 	slideLstStyle: Element | null,
-	ctx: FlattenContext
+	ctx: ThemeContext
 ): ResolvedColor | null {
 	const defRPr = pPr && firstChild(pPr, 'a:defRPr')
 	const paraFill = defRPr && firstChild(defRPr, 'a:solidFill')
@@ -280,7 +282,7 @@ function inheritedRunDefRPrs(
 	level: number,
 	pPr: Element | null,
 	slideLstStyle: Element | null,
-	ctx: FlattenContext
+	ctx: ThemeContext
 ): Element[] {
 	const tiers: Element[] = []
 	const paraDefRPr = pPr && firstChild(pPr, 'a:defRPr')
@@ -306,7 +308,7 @@ export function resolveInheritedRunSize(
 	level: number,
 	pPr: Element | null,
 	slideLstStyle: Element | null,
-	ctx: FlattenContext
+	ctx: ThemeContext
 ): number | null {
 	for (const defRPr of inheritedRunDefRPrs(ph, level, pPr, slideLstStyle, ctx)) {
 		const sz = intValue(attr(defRPr, 'sz'))
@@ -330,7 +332,7 @@ export function resolveInheritedRunFontFace(
 	level: number,
 	pPr: Element | null,
 	slideLstStyle: Element | null,
-	ctx: FlattenContext
+	ctx: ThemeContext
 ): string | null {
 	for (const defRPr of inheritedRunDefRPrs(ph, level, pPr, slideLstStyle, ctx)) {
 		const latin = firstChild(defRPr, 'a:latin')
@@ -354,7 +356,7 @@ export function resolveInheritedRunBold(
 	level: number,
 	pPr: Element | null,
 	slideLstStyle: Element | null,
-	ctx: FlattenContext
+	ctx: ThemeContext
 ): boolean | null {
 	for (const defRPr of inheritedRunDefRPrs(ph, level, pPr, slideLstStyle, ctx)) {
 		const b = attr(defRPr, 'b')
@@ -370,7 +372,7 @@ export function resolveInheritedRunBold(
  * frame is not in a placeholder or nothing in the chain sets an anchor (PowerPoint
  * then defaults to top).
  */
-export function resolveInheritedAnchor(ph: PlaceholderRef, ctx: FlattenContext): string | null {
+export function resolveInheritedAnchor(ph: PlaceholderRef, ctx: ThemeContext): string | null {
 	return placeholderInheritedAnchor(ph.type, ph.idx, ctx)
 }
 
@@ -395,7 +397,7 @@ export interface ResolvedFrame {
  * check (the common case) use {@link Shape.resolvedFrame}, which layers that on
  * top of this.
  */
-export function resolveInheritedFrame(ph: PlaceholderRef, ctx: FlattenContext): ResolvedFrame | null {
+export function resolveInheritedFrame(ph: PlaceholderRef, ctx: ThemeContext): ResolvedFrame | null {
 	const found = placeholderInheritedXfrm(ph.type, ph.idx, ctx)
 	if (!found) return null
 	const off = firstChild(found.xfrm, 'a:off')
@@ -469,7 +471,7 @@ export function resolveSolidFillColor(container: Element | null, ctx: ColorConte
  * resolved, or the indexed style entry is not a solid fill (a gradient style fill
  * has no single colour — read it through `gradientStops` instead).
  */
-export function resolveStyleFillColor(shape: Element, ctx: FlattenContext): ResolvedColor | null {
+export function resolveStyleFillColor(shape: Element, ctx: ThemeContext): ResolvedColor | null {
 	const style = firstChild(shape, 'p:style')
 	const fill = style && styleRefFill(firstChild(style, 'a:fillRef'), ctx)
 	if (!fill || fill.localName !== 'solidFill') return null
@@ -482,7 +484,7 @@ export function resolveStyleFillColor(shape: Element, ctx: FlattenContext): Reso
  * {@link import('./shapes.js').Shape.resolvedLine} when the shape carries no
  * explicit `spPr/a:ln`. `null` when there is no `lnRef` or it cannot be resolved.
  */
-export function resolveStyleLineColor(shape: Element, ctx: FlattenContext): ResolvedColor | null {
+export function resolveStyleLineColor(shape: Element, ctx: ThemeContext): ResolvedColor | null {
 	const style = firstChild(shape, 'p:style')
 	const ln = style && styleRefLine(firstChild(style, 'a:lnRef'), ctx)
 	return ln ? resolveSolidFillColor(ln, ctx) : null
@@ -504,7 +506,7 @@ export interface StyleFontRef {
  * `lumMod`/`shade` transforms); `@idx` (`major`|`minor`|`none`) maps to the theme's
  * major/minor Latin font. `null` when the shape has no `p:style/a:fontRef` at all.
  */
-export function resolveStyleFontRef(shape: Element, ctx: FlattenContext): StyleFontRef | null {
+export function resolveStyleFontRef(shape: Element, ctx: ThemeContext): StyleFontRef | null {
 	const style = firstChild(shape, 'p:style')
 	const fontRef = style && firstChild(style, 'a:fontRef')
 	if (!fontRef) return null

@@ -26,17 +26,10 @@ import type { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
 import type { Relationships } from '../opc/relationships.js'
 import { attr, firstChild, getElements, intValue, type Element } from '../oxml/dom.js'
-import type { FlattenContext } from '../oxml/theme.js'
+import type { ThemeContext } from '../oxml/theme.js'
 import { resolveNotesColorContext } from './theme-context.js'
+import { spPrXfrmEmu } from './shapes/oxml.js'
 import { TextFrame } from './text.js'
-
-/** One EMU coordinate from a placeholder's `p:spPr/a:xfrm` child, or `null` when absent. */
-function xfrmEmu(sp: Element, container: 'a:off' | 'a:ext', axis: string): number | null {
-	const spPr = firstChild(sp, 'p:spPr')
-	const xfrm = spPr && firstChild(spPr, 'a:xfrm')
-	const el = xfrm && firstChild(xfrm, container)
-	return el ? intValue(attr(el, axis)) : null
-}
 
 /**
  * One placeholder shape (`p:sp`) of a notes slide. A notes slide holds a fixed set:
@@ -50,7 +43,7 @@ export class NotesPlaceholder {
 		private readonly sp: Element,
 		private readonly part: Part,
 		/** The notes theme context (notesMaster → `theme2.xml`), threaded to {@link textFrame}. */
-		private readonly themeContext: FlattenContext,
+		private readonly themeContext: ThemeContext,
 		/** The notes part's relationships, threaded to {@link textFrame} for hyperlink resolution. */
 		private readonly relationships: Relationships
 	) {}
@@ -92,22 +85,22 @@ export class NotesPlaceholder {
 
 	/** Left edge in EMU (`a:off/@x`), or `null` when geometry is inherited (no own `a:xfrm`). */
 	get left(): number | null {
-		return xfrmEmu(this.sp, 'a:off', 'x')
+		return spPrXfrmEmu(this.sp, 'a:off', 'x')
 	}
 
 	/** Top edge in EMU (`a:off/@y`), or `null` when geometry is inherited. */
 	get top(): number | null {
-		return xfrmEmu(this.sp, 'a:off', 'y')
+		return spPrXfrmEmu(this.sp, 'a:off', 'y')
 	}
 
 	/** Width in EMU (`a:ext/@cx`), or `null` when geometry is inherited. */
 	get width(): number | null {
-		return xfrmEmu(this.sp, 'a:ext', 'cx')
+		return spPrXfrmEmu(this.sp, 'a:ext', 'cx')
 	}
 
 	/** Height in EMU (`a:ext/@cy`), or `null` when geometry is inherited. */
 	get height(): number | null {
-		return xfrmEmu(this.sp, 'a:ext', 'cy')
+		return spPrXfrmEmu(this.sp, 'a:ext', 'cy')
 	}
 
 	/**
@@ -154,7 +147,7 @@ export class NotesPlaceholder {
  * every placeholder's text frame.
  */
 export class NotesSlide {
-	#themeContext?: FlattenContext
+	#themeContext?: ThemeContext
 
 	constructor(
 		private readonly opc: OpcPackage,
@@ -171,7 +164,7 @@ export class NotesSlide {
 	 * The notes theme context, resolved through the notesMaster → `theme2.xml` chain
 	 * and cached. Backs {@link NotesPlaceholder.textFrame}'s `Run.resolvedColor`.
 	 */
-	themeContext(): FlattenContext {
+	themeContext(): ThemeContext {
 		return (this.#themeContext ??= resolveNotesColorContext(this.opc, this.partName))
 	}
 

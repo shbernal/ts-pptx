@@ -13,7 +13,7 @@
 
 import { firstChild, type Element } from '../../oxml/dom.js'
 import type { OpcPackage } from '../../opc/package.js'
-import type { FlattenContext } from '../../oxml/theme.js'
+import type { FlattenContext } from './flatten.js'
 import { resolveSlideThemeParts } from '../theme-context.js'
 
 /** The `p:cSld/p:bg` element of a slide/layout/master root, or `null`. */

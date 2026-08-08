@@ -10,7 +10,7 @@
  * source-side half that drives most of them is `part-copy.ts`.
  */
 
-import { relativePartName } from '../opc/partnames.js'
+import { relativePartName } from '../../opc/partnames.js'
 import {
 	attr,
 	createElement,
@@ -21,10 +21,10 @@ import {
 	removeChildrenByQName,
 	setAttr,
 	type Element,
-} from '../oxml/dom.js'
+} from '../../oxml/dom.js'
 import type { DeckTarget } from './deck-target.js'
-import { SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from './rel-types.js'
-import { PackageReadError } from '../../errors.js'
+import { SLIDE_LAYOUT_REL, SLIDE_MASTER_REL } from '../../../ooxml/rel-types.js'
+import { PackageReadError } from '../../../errors.js'
 
 // ST_SlideMasterId and ST_SlideLayoutId share this floor.
 const MIN_SLIDE_MASTER_ID = 2147483648

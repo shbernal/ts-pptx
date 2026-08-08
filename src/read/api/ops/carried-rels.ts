@@ -17,8 +17,8 @@ import { OOXML_NS, setAttr, type Element } from '../../oxml/dom.js'
 import type { Relationships } from '../../opc/relationships.js'
 import { InvalidOptionError } from '../../../errors.js'
 import { relativePartName } from '../../opc/partnames.js'
-import { collectElements } from '../slide-dom.js'
-import { copyPart, type ImportContext } from '../part-copy.js'
+import { collectElements } from '../../oxml/slide-dom.js'
+import { copyPart, type ImportContext } from './part-copy.js'
 
 /**
  * Rewrite every relationship reference inside a carried subtree to a fresh destination-local id.

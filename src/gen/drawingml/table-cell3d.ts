@@ -12,94 +12,17 @@
 
 import type { TableCell3DProps } from '../../types/index.js'
 import { warnOnce } from '../../diagnostics.js'
+import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
+import { BEVEL_PRESETS, LIGHT_RIGS, LIGHT_RIG_DIRECTIONS, PRESET_MATERIALS } from '../../ooxml/st-enums.js'
 import { valToPts } from '../../units-internal.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 
-/** `ST_BevelPresetType`. */
-const BEVEL_PRESETS: readonly string[] = [
-	'relaxedInset',
-	'circle',
-	'slope',
-	'cross',
-	'angle',
-	'softRound',
-	'convex',
-	'coolSlant',
-	'divot',
-	'riblet',
-	'hardEdge',
-	'artDeco',
-]
-
-/** `ST_PresetMaterialType`. */
-const MATERIALS: readonly string[] = [
-	'legacyMatte',
-	'legacyPlastic',
-	'legacyMetal',
-	'legacyWireframe',
-	'matte',
-	'plastic',
-	'metal',
-	'warmMatte',
-	'translucentPowder',
-	'powder',
-	'dkEdge',
-	'softEdge',
-	'clear',
-	'flat',
-	'softmetal',
-]
-
-/** `ST_LightRigType`. */
-const LIGHT_RIGS: readonly string[] = [
-	'legacyFlat1',
-	'legacyFlat2',
-	'legacyFlat3',
-	'legacyFlat4',
-	'legacyNormal1',
-	'legacyNormal2',
-	'legacyNormal3',
-	'legacyNormal4',
-	'legacyHarsh1',
-	'legacyHarsh2',
-	'legacyHarsh3',
-	'legacyHarsh4',
-	'threePt',
-	'balanced',
-	'soft',
-	'harsh',
-	'flood',
-	'contrasting',
-	'morning',
-	'sunrise',
-	'sunset',
-	'chilly',
-	'freezing',
-	'flat',
-	'twoPt',
-	'glow',
-	'brightRoom',
-]
-
-/** `ST_LightRigDirection`. */
-const LIGHT_DIRECTIONS: readonly string[] = ['tl', 't', 'tr', 'l', 'r', 'bl', 'b', 'br']
-
 /**
- * Vet one enumerated value before it reaches the XML. Anything outside its `ST_` union would
- * make the slide part schema-invalid, and PowerPoint reports that as a corrupt file rather
- * than as a mis-set option — so an unrecognized value is reported and the attribute dropped,
- * leaving the renderer on the schema default.
+ * Vet one enumerated value before it reaches the XML, reporting and dropping anything outside
+ * its `ST_` union. See `ooxml/check-enum.ts` for why the write path drops rather than throws.
  */
-function resolveEnum(value: string | undefined, valid: readonly string[], field: string): string | null {
-	if (value === undefined || value === null) return null
-	if (valid.includes(value)) return value
-	warnOnce(
-		'table/invalid-cell3d',
-		`table cell: cell3D \`${field}\` value \`${String(value)}\` is not valid and is ignored — ` +
-			`use one of ${valid.join(', ')}.`,
-		{ received: value, field, valid }
-	)
-	return null
+function resolveEnum<T extends string>(value: string | undefined, valid: readonly T[], field: string): T | null {
+	return checkEnumOrWarn(value, valid, 'table/invalid-cell3d', `table cell: cell3D \`${field}\``, { field })
 }
 
 /**
@@ -135,7 +58,7 @@ export function genTableCell3DXml(cell3D?: TableCell3DProps): string {
 	// Both `rig` and `dir` are required on CT_LightRig, so a half-specified rig is dropped
 	// whole — emitting one attribute would produce a part PowerPoint calls corrupt.
 	const rig = resolveEnum(cell3D.lightRig?.rig, LIGHT_RIGS, 'lightRig.rig')
-	const dir = resolveEnum(cell3D.lightRig?.dir, LIGHT_DIRECTIONS, 'lightRig.dir')
+	const dir = resolveEnum(cell3D.lightRig?.dir, LIGHT_RIG_DIRECTIONS, 'lightRig.dir')
 	const lightRig = rig && dir ? voidEl('a:lightRig', { rig, dir }) : ''
 	if (cell3D.lightRig && !lightRig) {
 		warnOnce(
@@ -145,7 +68,7 @@ export function genTableCell3DXml(cell3D?: TableCell3DProps): string {
 			{ received: cell3D.lightRig }
 		)
 	}
-	return el('a:cell3D', { prstMaterial: resolveEnum(cell3D.material, MATERIALS, 'material') }, [
+	return el('a:cell3D', { prstMaterial: resolveEnum(cell3D.material, PRESET_MATERIALS, 'material') }, [
 		raw(bevel),
 		lightRig ? raw(lightRig) : null,
 	])

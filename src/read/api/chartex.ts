@@ -206,7 +206,7 @@ export class ChartExSeries {
 	get values(): (number | null)[] {
 		const data = this.chart.dataElementById(this.dataId)
 		const numDim = data && firstChild(data, 'cx:numDim')
-		return readLevelPoints(numDim && firstChild(numDim, 'cx:lvl')).map(toNumberOrNull)
+		return readLevelPoints(numDim && firstChild(numDim, 'cx:lvl')).map(intValue)
 	}
 
 	/**
@@ -336,12 +336,6 @@ function boolAttr(element: Element, name: string): boolean | null {
 
 /** Parse an attribute as a float (chartEx uses fractional `gapWidth`/scale values), or `null`. */
 function floatValue(value: string | null): number | null {
-	if (value === null || value === '') return null
-	const number = Number(value)
-	return Number.isFinite(number) ? number : null
-}
-
-function toNumberOrNull(value: string | null): number | null {
 	if (value === null || value === '') return null
 	const number = Number(value)
 	return Number.isFinite(number) ? number : null

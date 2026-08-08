@@ -18,7 +18,7 @@ import type { SlideRelChart, OptsChartDataInternal } from '../../types/internal.
 import { encodeXmlEntities } from '../utils.js'
 import { ZipWriter } from '../../zip.js'
 import { el, raw, voidEl } from '../oxml/el.js'
-import { OFFICE_REL, PACKAGE_REL_NS } from '../oxml/schema-uris.js'
+import { OFFICE_REL, PACKAGE_REL_NS } from '../../ooxml/rel-types.js'
 import { dataLabels, dataValues, dataSizes, firstLabelGroup, getExcelColName } from './data-refs.js'
 import { makeXmlCharts } from './chart-xml.js'
 import { makeXmlChartEx } from './chartex-xml.js'

@@ -10,28 +10,12 @@ import type { BorderProps, LineCap, ShapeLineProps } from '../../types/index.js'
 import { genXmlColorSelection, genXmlGradientFill } from './fill.js'
 import { InvalidOptionError } from '../../errors.js'
 import { warnOnce } from '../../diagnostics.js'
+import { checkEnumOrWarn } from '../../ooxml/check-enum.js'
+import { PRESET_LINE_DASHES } from '../../ooxml/st-enums.js'
 import { voidEl } from '../oxml/el.js'
 
 /** Every key `BorderProps` defines. Keep in step with the interface in `types/style.ts`. */
 const BORDER_KEYS: readonly string[] = ['type', 'dashType', 'color', 'width', 'transparency', 'cap']
-
-/**
- * The `ST_PresetLineDashVal` tokens `BorderProps.dashType` accepts — the same set
- * `ShapeLineProps.dashType` does, so a caller who knows one knows the other.
- */
-const BORDER_DASH_VALUES: readonly string[] = [
-	'solid',
-	'dot',
-	'dash',
-	'lgDash',
-	'dashDot',
-	'lgDashDot',
-	'lgDashDotDot',
-	'sysDash',
-	'sysDot',
-	'sysDashDot',
-	'sysDashDotDot',
-]
 
 /**
  * Resolve the `a:prstDash/@val` a border should emit.
@@ -49,16 +33,9 @@ const BORDER_DASH_VALUES: readonly string[] = [
  */
 export function resolveBorderDash(border: BorderProps): string {
 	const fromType = border.type === 'dash' ? 'sysDash' : 'solid'
-	const dash = border.dashType
-	if (dash === undefined || dash === null) return fromType
-	if (BORDER_DASH_VALUES.includes(dash)) return dash
-	warnOnce(
-		'border/invalid-dash-type',
-		`border: dashType \`${String(dash)}\` is not a valid value and is ignored — ` +
-			`use one of ${BORDER_DASH_VALUES.join(', ')}.`,
-		{ received: dash, valid: BORDER_DASH_VALUES }
+	return (
+		checkEnumOrWarn(border.dashType, PRESET_LINE_DASHES, 'border/invalid-dash-type', 'border: dashType') ?? fromType
 	)
-	return fromType
 }
 
 /**
