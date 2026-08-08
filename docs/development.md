@@ -16,10 +16,6 @@ doc_type: "guide"
 - Node.js `>=24`.
 - Corepack-enabled `pnpm`.
 - A local checkout of this repository.
-- Python `>=3.9`, for the `docs:*` scaffolding scripts only. `scripts/run-python.mjs`
-  finds an interpreter for you (`py -3`, `python`, or `python3`, in that order on
-  Windows so the non-functional Microsoft Store `python3` alias is skipped). Set
-  `TSPPTX_PYTHON` to an absolute interpreter path to override the search.
 
 Install dependencies:
 

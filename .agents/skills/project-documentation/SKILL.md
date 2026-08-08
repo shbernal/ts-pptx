@@ -15,7 +15,7 @@ Use this skill for documentation work in this repository.
    docs before making behavior-sensitive claims.
 4. Update docs when architecture, APIs, CLI commands, config, setup, or user
    workflows change.
-5. Use `pnpm run docs:new <slug> --title "..." --summary "..."`
+5. Use `pnpm run docs:new -- <slug> --title "..." --summary "..."`
    for new pages.
 6. Update `docs/docs.json` when a page should be discoverable in navigation.
 7. Run `pnpm run docs:check` before handoff so generated API docs are refreshed
