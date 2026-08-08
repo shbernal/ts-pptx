@@ -393,9 +393,26 @@ export abstract class Shape {
 	}
 
 	/**
+	 * `true` when the shape sets an explicit no-fill (`spPr/a:noFill`) — a
+	 * deliberately transparent surface. The fill-side counterpart of
+	 * {@link lineNoFill}, and the only accessor that separates it from a shape
+	 * carrying no fill child at all (one inheriting through `p:style/a:fillRef`):
+	 * every other fill accessor — {@link fillColor}, {@link fillSchemeColor},
+	 * {@link resolvedFill}, {@link gradientFill}, {@link patternFill},
+	 * {@link pictureFill} — reports `null` for both. The two paint completely
+	 * differently, so a consumer that cannot tell them apart paints a transparent
+	 * shape in the theme's accent colour.
+	 */
+	get fillNoFill(): boolean {
+		const props = this.properties()
+		return !!(props && firstChild(props, 'a:noFill'))
+	}
+
+	/**
 	 * Set an explicit `<a:noFill/>` on the shape — a transparent surface. This is
 	 * distinct from clearing the fill (`fillColor = null`), which removes the
 	 * `a:solidFill` and lets the fill inherit from the shape's style/placeholder.
+	 * Read it back with {@link fillNoFill}.
 	 */
 	noFill(): void {
 		if (!this.supportsFill)

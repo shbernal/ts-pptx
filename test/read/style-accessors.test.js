@@ -272,6 +272,23 @@ describe('Shape line dash / explicit no-line reads (off-fixture)', () => {
 		assertEqual(inherited.lineNoFill, false, 'no a:ln (inherited line) is not an explicit no-line')
 	})
 
+	test('fillNoFill distinguishes an explicit spPr/a:noFill from an inherited fill', () => {
+		// The whole point of the accessor: after `shape.noFill()` every other fill
+		// accessor reports exactly what a themed shape reports, so without this one a
+		// deliberately transparent shape is painted in the theme's accent colour.
+		const explicitNone = sp('<p:spPr><a:noFill/></p:spPr>')
+		assertEqual(explicitNone.fillNoFill, true, 'explicit <a:noFill/> reads true')
+		assertEqual(explicitNone.fillColor, null, 'and reports no fill colour…')
+		assertEqual(explicitNone.fillSchemeColor, null, '…and no scheme colour')
+
+		const solid = sp('<p:spPr><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></p:spPr>')
+		assertEqual(solid.fillNoFill, false, 'a solid-filled shape is not a no-fill')
+
+		const themed = sp('<p:spPr/>')
+		assertEqual(themed.fillNoFill, false, 'no fill child (an inherited/themed fill) is not an explicit no-fill')
+		assertEqual(themed.fillColor, null, 'which reads identically to the no-fill shape on every other accessor')
+	})
+
 	// lineGradient points the (fixture-validated, see gradient-fill.pptx) a:gradFill
 	// reader at the a:ln container instead of spPr. Explicit srgb stops resolve
 	// without a theme, so a minimal themeContext stub is enough off-fixture.

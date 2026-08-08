@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`Shape.fillNoFill` reads an explicit `<a:noFill/>` on a shape's fill** — the fill-side
+  counterpart of `lineNoFill`, and the only accessor that separates a deliberately
+  transparent shape from one that inherits its fill through `p:style/a:fillRef`. Every other
+  fill accessor (`fillColor`, `fillSchemeColor`, `resolvedFill`, `gradientFill`,
+  `patternFill`, `pictureFill`) reports `null` for both, so a consumer honouring the read
+  model painted an `a:noFill` rectangle in the theme's accent colour. The same class had
+  `ChartFill.noFill`, `ChartLine.noFill` and `CellBorder.noFill` already; the shape fill was
+  the omission. `Shape.noFill()` has always been able to *write* this state.
+
 - **`clipPath()` names the clip silhouettes you would otherwise re-derive.** A `ClipShape`
   is data — a named silhouette plus its options — and `clipPath(shape, w, h)` resolves it to
   the freeform `points` path `addImage` emits as its `<a:custGeom>` clip mask. The first
