@@ -14,6 +14,8 @@
  */
 import { ELEMENT_NODE, OOXML_NS, firstChild, getElements, getOrAddChild, type Element } from '../oxml/dom.js'
 import { GRPSPPR_AFTER_XFRM, GRPSPPR_FILL_AFTER, type ShapeProperties } from './shapes/oxml.js'
+import { readBox } from './shapes/geometry.js'
+import type { ChildFrame } from './shapes/types.js'
 import { Shape } from './shapes/base.js'
 import { AutoShape } from './shapes/autoshape.js'
 import { Picture } from './shapes/picture.js'
@@ -34,6 +36,7 @@ export type { PictureFill, PictureFillTile, FillRect } from './picture-fill.js'
 // Likewise for the shape value types, whose definitions live in ./shapes/types.js.
 export type {
 	AbsoluteFrame,
+	ChildFrame,
 	ConnectionSite,
 	CustomGeometry,
 	CustomGeometryPath,
@@ -81,6 +84,26 @@ export class GroupShape extends Shape {
 
 	#getOrAddGrpSpPr(): Element {
 		return getOrAddChild(this.element, 'p:grpSpPr', ['p:sp', 'p:grpSp', 'p:pic', 'p:cxnSp', 'p:graphicFrame'])
+	}
+
+	/**
+	 * The group's own child coordinate space (`p:grpSpPr/a:xfrm/a:chOff` and
+	 * `a:chExt`) in EMU, or `null` when the group has no transform or either
+	 * element is incomplete.
+	 *
+	 * Most consumers should not need this: {@link Shape.absoluteFrame} already
+	 * composes the whole ancestor chain — child space, group flips and rotations —
+	 * and doing that arithmetic per consumer is how a shape in a nested group ends
+	 * up subtly displaced. It is here for a *replica* consumer rather than a
+	 * *paint* one: rebuilding this group and its children as OOXML needs the
+	 * source child space to reproduce the scaling, and without it only groups whose
+	 * child space is the identity can be rebuilt.
+	 */
+	get childFrame(): ChildFrame | null {
+		const xfrm = this.xfrm()
+		const box = xfrm && readBox(xfrm, 'a:chOff', 'a:chExt')
+		if (!box) return null
+		return { offsetX: box.x, offsetY: box.y, extentX: box.cx, extentY: box.cy }
 	}
 
 	/** The shapes nested directly inside this group, in document order. */

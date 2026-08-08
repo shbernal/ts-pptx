@@ -27,6 +27,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   whether each dash reads as a rectangle or a lozenge and changes the drawn length of every
   one; SVG's `stroke-linecap` is the exact equivalent.
 
+- **`GroupShape.childFrame` reads a group's own child coordinate space**
+  (`p:grpSpPr/a:xfrm/a:chOff` and `a:chExt`), as a `ChildFrame` of `offsetX` / `offsetY` /
+  `extentX` / `extentY` in EMU, or `null` when the group has no transform. `absoluteFrame`
+  reads these internally to compose slide-absolute geometry and remains the right answer for
+  anything that *paints* — this is for a consumer that *rebuilds* a group as OOXML, which
+  needs the source child space to reproduce its scaling and could otherwise only rebuild
+  groups whose child space is the identity. Named after the OOXML attributes rather than the
+  read model's `left`/`top`/`width`/`height`, because it is the source rectangle of a
+  mapping, not a frame on the slide.
+
 - **`clipPath()` names the clip silhouettes you would otherwise re-derive.** A `ClipShape`
   is data — a named silhouette plus its options — and `clipPath(shape, w, h)` resolves it to
   the freeform `points` path `addImage` emits as its `<a:custGeom>` clip mask. The first

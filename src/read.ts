@@ -91,6 +91,7 @@ export {
 	type CustomGeometryPath,
 	type GeometryCommand,
 	type AbsoluteFrame,
+	type ChildFrame,
 	type Recolor,
 	type RecolorColor,
 } from './read/api/shapes.js'

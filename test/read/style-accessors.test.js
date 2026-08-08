@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url'
 import { DOMParser } from '@xmldom/xmldom'
 import { describe, test } from 'vitest'
 import TsPptx from '../../dist/node.js'
-import { Presentation, AutoShape, Picture } from '../../dist/read.js'
+import { Presentation, AutoShape, GroupShape, Picture } from '../../dist/read.js'
 import { assert, assertEqual } from '../helpers.js'
 
 const P_NS = 'http://schemas.openxmlformats.org/presentationml/2006/main'
@@ -342,6 +342,32 @@ describe('Shape line dash / explicit no-line reads (off-fixture)', () => {
 		assertEqual(solid.lineGradient, null, 'a solid-stroked line has no lineGradient')
 		const noLine = spGrad('<p:spPr/>')
 		assertEqual(noLine.lineGradient, null, 'no a:ln ⇒ null lineGradient')
+	})
+})
+
+describe('GroupShape child coordinate space (off-fixture)', () => {
+	const grp = (grpSpPr) => shapeFromXml(GroupShape, 'grpSp', `<p:grpSp>${grpSpPr}</p:grpSp>`)
+
+	test('childFrame reads a:chOff / a:chExt in EMU', () => {
+		const scaling = grp(
+			'<p:grpSpPr><a:xfrm>' +
+				'<a:off x="914400" y="457200"/><a:ext cx="1828800" cy="914400"/>' +
+				'<a:chOff x="100" y="200"/><a:chExt cx="3657600" cy="1828800"/>' +
+				'</a:xfrm></p:grpSpPr>'
+		)
+		assertEqual(scaling.childFrame.offsetX, 100, 'a:chOff/@x')
+		assertEqual(scaling.childFrame.offsetY, 200, 'a:chOff/@y')
+		assertEqual(scaling.childFrame.extentX, 3657600, 'a:chExt/@cx')
+		assertEqual(scaling.childFrame.extentY, 1828800, 'a:chExt/@cy')
+		// The group's own frame is the separate, already-exposed pair — the two differing
+		// is exactly the case a replica consumer needs childFrame for.
+		assertEqual(scaling.width, 1828800, 'a:ext/@cx is unchanged by the child space')
+	})
+
+	test('childFrame is null with no transform and with an incomplete one', () => {
+		assertEqual(grp('<p:grpSpPr/>').childFrame, null, 'no a:xfrm → null')
+		const partial = grp('<p:grpSpPr><a:xfrm><a:chOff x="0" y="0"/></a:xfrm></p:grpSpPr>')
+		assertEqual(partial.childFrame, null, 'a:chOff without a:chExt → null, not a half-filled box')
 	})
 })
 

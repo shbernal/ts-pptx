@@ -220,6 +220,28 @@ export interface AbsoluteFrame {
 }
 
 /**
+ * A group shape's own child coordinate space (`p:grpSpPr/a:xfrm/a:chOff` and
+ * `a:chExt`) in EMU — the space its children's `a:off`/`a:ext` are authored in.
+ *
+ * Named after the OOXML attributes rather than in the `left`/`top`/`width`/
+ * `height` vocabulary the rest of the read model uses, because this is not a
+ * frame on the slide: it is the source rectangle of the
+ * `off + (p - chOff) * (ext / chExt)` mapping, and nothing about it is
+ * positional. A consumer reaching for it is rebuilding that mapping, so the
+ * names it needs are the ones the mapping is written in.
+ */
+export interface ChildFrame {
+	/** `a:chOff/@x`. */
+	offsetX: number
+	/** `a:chOff/@y`. */
+	offsetY: number
+	/** `a:chExt/@cx`. */
+	extentX: number
+	/** `a:chExt/@cy`. */
+	extentY: number
+}
+
+/**
  * A colour reference inside a picture recolour effect, split by colour model
  * (mirrors {@link GradientStop}). At most one field is non-`null`.
  */
