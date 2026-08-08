@@ -129,9 +129,9 @@ shape level, exactly as for display math.
   PowerPoint 2010+. There is no `mc:Fallback` image for non-a14 consumers.
 - **Fidelity is temml + mathml2omml's** — a few constructs map loosely. Accent
   commands (`\hat`, `\bar`, `\vec`, …) render via `<m:limUpp>` rather than `<m:acc>`
-  because temml omits `accent="true"` on the `<mover>` it emits (tracked in backlog
-  `fork-temml-accent-fidelity`, on hold pending a temml fix). The result is valid OMML
-  and opens cleanly in PowerPoint.
+  because temml omits `accent="true"` on the `<mover>` it emits (tracked in
+  [issue #6](https://github.com/shbernal/ts-pptx/issues/6), pending a temml fix). The
+  result is valid OMML and opens cleanly in PowerPoint.
 
 ## Error policy
 

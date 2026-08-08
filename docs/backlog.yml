@@ -176,35 +176,9 @@ item_fields:
   evidence: local evidence gathered against this checkout
   next_action: next local action or none
 
-# Add an upstream item by hand following the example below. Add a downstream-need
-# the easy way with `pnpm run backlog -- add` (see --help), then write its generic
-# design rationale into current_project_notes as a block scalar.
-#
-# items:
-# - id: upstream-issue-1234
-#   source: gitbrent/PptxGenJS#1234
-#   type: issue
-#   first_seen: 2026-06-07
-#   last_reviewed: 2026-06-07
-#   status: interesting-with-tweaks
-#   priority: p1
-#   target_area:
-#     - powerpoint-repair
-#     - invalid-ooxml
-#   applies_to_current_project: partial
-#   non_target_reasons: []
-#   summary: PowerPoint repair report for a generated chart.
-#   current_project_notes: >
-#     The behavior may apply, but the upstream fix also touches legacy package
-#     artifacts. Re-evaluate only the emitted OOXML behavior.
-#   evidence:
-#     kinds: []
-#     local_files: []
-#     schema_fixture: null
-#     validator_result: null
-#     powerpoint_result: null
-#     spec_refs: []
-#   next_action: create-minimal-repro
+# Add an entry with `pnpm run backlog -- add` (see --help), then write its generic
+# design rationale into current_project_notes as a block scalar. For a worked entry
+# with every field annotated, see docs/backlog-item-template.yml.
 items:
   - id: dn-doc-render-caveats
     source: downstream
@@ -352,435 +326,59 @@ items:
       powerpoint_result: null
       spec_refs: []
     next_action: await-asset-theme-boundary
-  - id: fork-temml-accent-fidelity
-    source: fork:src/math.ts
+  - id: fork-chart-point-nofill
+    source: fork:src/gen/chart/plot-pie.ts
     type: fork-internal-proposal
-    first_seen: 2026-07-07
-    last_reviewed: 2026-07-07
-    status: on-hold
-    priority: p3
+    first_seen: 2026-08-08
+    last_reviewed: 2026-08-08
+    status: target
+    priority: p2
     target_area:
-      - missing-pptx-feature
+      - chart-ooxml
+      - typescript-api
     applies_to_current_project: yes
     non_target_reasons: []
-    summary: latexToOmml accents (\hat, \bar, \vec, ...) degrade to m:limUpp because temml omits accent="true" on <mover>
-    current_project_notes: "Temml renders accent commands (\\hat \\bar \\vec \\dot \\tilde \\ddot \\acute \\grave \\check \\breve \\widehat \\overline ...) as <mover> WITHOUT the accent=\"true\" attribute (and under-accents \\underline/\\utilde as <munder> without accentunder=\"true\"). Browsers derive accent positioning from the MathML operator dictionary so it renders fine in a browser, but mathml2omml keys off the attribute: <mover accent=\"true\"> -> <m:acc> (correct accent, script hugs the base) vs a bare <mover> -> <m:limUpp> (over-limit: wrong spacing/semantics). So latexToOmml('\\\\hat{a}') currently emits a limit-over construct in the .pptx rather than a true accent. The output is still valid OMML and opens clean in PowerPoint, so this is a fidelity limit, not a correctness bug - already documented in docs/math-latex.md 'Scope and limits' (the '\\hat renders via <m:limUpp> rather than <m:acc>' note). The full write-up (repro, affected commands, suggested fix) is captured in ../temml-issue.md, distilled from the retired MATH-LATEX-OMML plan. The clean fix is an explicit accent=\"true\"/accentunder=\"true\" from temml, but on closer inspection that temml change is not as straightforward as first thought; there is no upstream fix or PR and it is not clear it will be fixed. Parked on-hold (owner-gated): do NOT re-raise until either a temml fix lands or the maintainer green-lights a local shim (post-process temml's MathML to stamp accent=\"true\" on known accent operators before handing it to mathml2omml). Companion: upstream-issue-1456 (the shipped math feature)."
-    evidence:
-      kinds: []
-      local_files: []
-      schema_fixture: null
-      validator_result: null
-      powerpoint_result: null
-      spec_refs: []
-    next_action: none
-  - id: fork-write-side-branch-coverage
-    source: fork:src/media/content-type.ts
-    type: fork-internal-proposal
-    first_seen: 2026-07-18
-    last_reviewed: 2026-07-28
-    status: partially-implemented
-    priority: p3
-    target_area: []
-    applies_to_current_project: yes
-    non_target_reasons: []
-    summary: Raise write-side branch coverage on the emitters still below the gate (media/content-type, measure-fit/text-fit, gen/table/autopage, gen/define/hyperlinks and gen/define/{zoom,preview-image,background,comment,text,chart} DONE, plus the chart.ts/color.ts dead-code deletions and the docs/testing.md write-side section; only the drawingml/pres stragglers remain, and none of them can move a gate alone)
+    summary: A chart data point cannot be made invisible — ChartDataPointStyle has no no-fill, so c:dPt always emits a visible fill
     current_project_notes: |
-      Carried over from the retired REPO-IMPROVEMENT-PLAN (its P6) after the read-side
-      branch-coverage sweep landed (commits bbf8d3b4..106cc3fc) and the gate was
-      ratcheted to 90/76/96/93 (8479a722). The read-side gaps that plan named
-      (read/api/chart.ts, theme-context, shapes, oxml/theme, animation, transition)
-      are now covered; the remaining below-average branch coverage is on the WRITE
-      side. Re-measured 2026-07-20 (global 90.94/78.1/96.61/94.05, gate still green):
+      Lifted out of upstream-issue-1183 before that entry was archived; the semicircle
+      request it arrived under is correctly dismissed as a downstream composition, but
+      this piece of it is a generic primitive gap in THIS library and was the one part
+      of it not expressible from today's options.
 
-        - gen-tables.ts / gen-objects.ts no longer exist. Commits 92643b41, a710480f,
-          f1519793 (all after this item was filed) split their logic out to
-          `src/gen/table/{autopage,html-dom}.ts` and `src/gen/define/*.ts`, leaving
-          re-export barrels; the barrels were then deleted outright. Target the new
-          locations.
-        - src/gen/table/autopage.ts (ex getSlidesForTableRows engine): 72.6% branch —
-          still the lowest table-path surface.
-        - src/gen/table/html-dom.ts reported 0% in coverage/coverage-summary.json,
-          which was a measurement artifact rather than a real gap: htmlBorderToProps/
-          resolveHtmlColWidth ARE tested (test/regression/html/html-table-border-width.test.js,
-          html-table-col-width.test.js), just via a src-import
-          (`from '../../src/gen/table/html-dom.ts'`) that bypasses dist instrumentation — see
-          the docs/testing.md caveat this item already flagged. SUPERSEDED 2026-07-29:
-          the file was excluded from coverage entirely back then (it bundled into the
-          browser chunks). It is now its own included `dist/html-dom-*.js` chunk and
-          genTableToSlides is covered end-to-end against happy-dom
-          (test/regression/html/html-to-slides-node.test.js), measuring 85.09/70.88/76.31/90.38.
-          The src-import caveat still applies to the pure helpers in it, so its dist
-          numbers understate what is actually tested. Its branch % is now a real target.
-        - src/gen/define/*.ts (ex gen-objects.ts) is the biggest low-coverage surface by
-          volume; worst branch %: comment.ts 61.8%, hyperlinks.ts 69.1%, chart.ts 72.1%,
-          background.ts 71.4%, text.ts 73.5%.
-        - measure-fit.ts (67.1%) and text-fit.ts (70.7%) remain the lowest of all listed
-          files, branch-wise.
-      No missing files — the gap is within-file branches, and per docs/testing.md some
-      red dist lines are already covered via src-importing tests, so read
-      coverage/coverage-summary.json before assuming a real gap. Ongoing ratchet work,
-      not a discrete deliverable: add branch tests, then bump the vitest.config.ts
-      thresholds in lockstep (ratchet upward, never loosen). Nothing here changes
-      emitted OOXML.
+      `c:dPt > c:spPr` is CT_ShapeProperties, so `<a:noFill/>` is legal there — a data
+      point CAN be made invisible in OOXML. The API has no way to ask for it:
+      `ChartDataPointStyle` (types/chart.ts:77) offers `fill?: HexColor`, `pattern?:
+      PatternFillProps` and `border?: BorderProps`, and a bare hex cannot express
+      absence.
 
-      RE-MEASURED 2026-07-27 (full `pnpm run test:coverage`, 1834/1834 green).
-      Global moved 90.94/78.1/96.61/94.05 -> 91.9/79.11/98/94.65 against the
-      91/78/97/94 gate, so every axis is green but statements and lines have only
-      ~1pt and ~0.6pt of headroom. Per-file, the named targets barely moved -- the
-      global gain came from the new script/ subsystem landing well-tested, not from
-      this item being worked:
-        - src/gen/table/autopage.ts    72.6 -> 74.03 branch (79.2 stmt / 81.43 line)
-        - src/gen/define/comment.ts    61.8 -> 73.52
-        - src/gen/define/hyperlinks.ts 69.1 -> 72.13 (also 75% FUNCTIONS, the only
-          write-side file on its own below the 97% function gate)
-        - src/gen/define/chart.ts      72.1 -> 74.93
-        - src/gen/define/background.ts 71.4 -> 71.42 (unmoved)
-        - src/gen/define/text.ts       73.5 -> 74.6
-        - src/measure-fit.ts           67.1 -> 67.11 (unmoved, still the floor)
-                                       [now src/measure/fit.ts + paragraphs.ts + table-fit.ts]
-        - src/text-fit.ts              70.7 -> 70.73 (unmoved) [now src/measure/text-fit.ts]
-      The html-dom.ts bullet above is now RESOLVED and no longer needs its caveat:
-      vitest.config.ts excludes `dist/browser.js` / `dist/browser-*.js`, so the
-      browser-only chunk that file bundles into is out of the report entirely rather
-      than showing a misleading 0%. Dropped from evidence.local_files.
+      The two emitters differ, and neither closes the gap:
+        - plot-pie.ts:86 (pie/doughnut) emits one `c:dPt` per slice with an
+          UNCONDITIONAL `<a:solidFill>`, falling back to `chartColors[idx]` and finally
+          to a random palette entry. There is no input that produces anything but a
+          solid fill.
+        - chart-parts.ts:400 (bar/line/area/scatter) omits the `c:dPt` entirely when a
+          point has no fill, pattern or border. That is NOT the same thing: an omitted
+          point inherits the series/theme fill and still paints. "Styled as invisible"
+          and "not styled" are different requests and only the second is reachable.
 
-      Worse surfaces this item never named, found in the same re-measure, and the
-      right place to spend the next effort:
-        - src/media/content-type.ts    38.29 branch / 41.37 stmt -- by a wide margin
-          the least-covered file in the package, and it decides part content types.
-        - src/gen/define/zoom.ts 63.63, preview-image.ts 62.85, plot-bubble.ts 60.86,
-          src/gen/drawingml/math.ts 60, src/gen/slide/comments.ts 64.28,
-          src/gen/pres/presentation-rels.ts 64.28, src/package/assemble.ts 68.18.
-        - src/gen/drawingml/color.ts 33.33 FUNCTIONS / 72.22 stmt, and
-          src/gen/drawingml/line.ts 65 stmt -- small files, cheap to lift.
-      Priority order for the next pass: content-type.ts first (worst, and on the
-      package-correctness path), then measure-fit/text-fit (unmoved floors), then the
-      drawingml stragglers (cheapest per point).
+      The workaround a consumer is forced into is to hardcode a background-matched hex,
+      which couples the deck to its slide background and breaks over an image or
+      gradient fill. That is the tell that this belongs here rather than downstream.
 
-      PARTIALLY IMPLEMENTED 2026-07-28. Re-measured on a full run (196 files,
-      1890/1890 green): global 91.9/79.11/98/94.65 -> 92.22/79.93/98.12/95 against
-      the 91/79/97/94 gate. The first of the three priorities above landed and the
-      other two did not.
-
-      Landed -- src/media/content-type.ts, 38.29 branch / 41.37 stmt -> 88.88 / 100 /
-      100 / 100 (dfdc61b6, plus bf08c51f which fixed a data:-mime sniff bug the
-      coverage work surfaced). Neither function in that file is exported from a public
-      entry, so a src-importing unit test would have moved nothing; both were driven
-      through the public API instead -- avContentType through `addMedia({ type, extn })`
-      (extn is a public MediaProps option and wins over the mime sniff) and
-      audioExtensionForSubtype through a `data:` URI on `transition.sound`. Same tests
-      lifted package/assemble.ts and gen/opc/content-types.ts as collateral. The six
-      arms still red are the `(x || '')` fallbacks, unreachable by construction: every
-      caller guarantees a non-empty extension or subtype. Left alone per
-      docs/testing.md rather than fenced.
-
-      NOT landed, unmoved across three re-measures now: measure-fit.ts 67.11 branch
-      (97 uncovered branch lines, 2 uncovered functions), text-fit.ts 70.73 (19),
-      gen/table/autopage.ts 74.03 branch / 80 functions, gen/define/hyperlinks.ts
-      72.13 branch / 75 functions, gen/drawingml/color.ts 33.33 functions.
-
-      SCOPE CORRECTION -- the "the remaining below-average branch coverage is on the
-      WRITE side" claim above is no longer true and should not be trusted by the next
-      reader. Ranked by absolute missed branches rather than percentage (which is what
-      actually moves the gate), the top ten includes read/api/presentation.ts at #3 (92
-      missed), read/api/shapes.ts at #6 (69), and two files from the script/ subsystem
-      the 2026-07-27 note credited as "landed well-tested" -- script/from-read/shape.ts
-      (68) and script/verify/diff.ts (53). 282 missed branches between the four. This
-      item stays deliberately write-side scoped; those are recorded here so they are
-      not re-derived, and want their own entry if they are ever worked.
-
-      Note the two read-side files above have since been split -- shapes.ts across
-      read/api/shapes/* and presentation.ts partly into read/api/ops/* -- so their
-      missed-branch counts are now spread over several files. Re-measure before
-      using those two numbers; the totals are unaffected.
-
-      Two findings that change how these numbers should be read:
-        - autopage.ts is low on FUNCTIONS and STATEMENTS, not mainly on engine
-          branches, and the reason is the `if (tableProps.verbose) console.log(...)`
-          debug dumps -- seven uncovered functions and ~50 uncovered statements. No
-          test anywhere sets `verbose`, which is a public TableProps option whose dump
-          does arithmetic and .toFixed() on props that may legitimately be strings. A
-          test there pins "the debug dump survives its inputs", not emitted OOXML, and
-          should say so; it is not a substitute for the paging-engine branches.
-        - color.ts's two uncovered functions (componentToHex, rgbToHex) cannot be
-          covered by any Node test. Their only callers are in gen/table/html-dom.ts,
-          the browser-only path that vitest.config.ts excludes via dist/browser*.js,
-          and they are not publicly exported. The fix is to move them into html-dom.ts
-          where the existing exclusion already covers them -- deleting a false signal
-          rather than testing dead code, and no `v8 ignore` fence needed.
-
-      No threshold bump this pass, deliberately. Post-content-type margins are
-      1.22 / 0.93 / 1.12 / 1.00; the config's own policy is "pinned a notch below ...
-      without the gate being flaky", and bumping statements to 92 would leave 0.22.
-      Ratchet once the measure-fit/text-fit work lands, which is the only remaining
-      piece with enough headroom (146 missed branches ~= 1.4pt) to justify one.
-      Nothing was loosened.
-
-      MEASURE-FIT/TEXT-FIT LANDED 2026-07-28 (25b06a77 text-box input matrix +
-      the standalone measure entry, 7feae4e9 the table path). Second of the three
-      priorities done; only the third (the drawingml/define stragglers) remains.
-      Global 92.22/79.93/98.12/95 -> 92.86/81.07/98.22/95.46 on a full run (198
-      files, 1971 green). Per file: text-fit.ts 70.73 -> 100 branch / 100 stmt;
-      measure-fit.ts 67.11 -> 85.7 branch / 98.4 stmt.
-
-      FIRST THRESHOLD BUMP of this effort: branches 79 -> 80 (measured 81.07, so a
-      full point of slack remains). Statements/functions/lines deliberately left at
-      91/97/94 -- their margins are 1.9/1.2/1.5, which is not enough to pin a notch
-      without risking a flaky gate. Ratchet upward only; nothing loosened.
-
-      The lesson to carry into the remaining work -- ask which PUBLIC DOOR reaches a
-      branch before calling it dead. text-fit's newline handling and its
-      lineSpacingPct/spaceBefore/spaceAfter defaults are genuinely unreachable from a
-      deck: buildFitParagraphs pre-splits every "\n" and always fills those fields.
-      They are fully reachable from `ts-pptx/measure`, a published subpath that exists
-      precisely so a consumer can hand-build FitParagraph[] -- and that subpath had no
-      dist test for the wrap model at all. Covering it there is what took text-fit to
-      100%, and it is the reason a "dead" branch should not be fenced on the strength
-      of one entry point. Same shape in the table half: normalizeRuns's
-      single-run-object form is unreachable from addTable (which normalizes a missing
-      cell text to '' at define/table.ts:418) but reachable from tableLayout(), which
-      takes caller rows unnormalized.
-
-      What stays red in measure-fit.ts is one class and should stay that way: ~50
-      `?? 0` / `|| {}` fallback arms on values the caller already guarantees
-      (prefilled arrays, fields the define pass always sets), plus the `!options` /
-      `!paragraphs` guards normalization makes unreachable. Unreachable by
-      construction per docs/testing.md; reaching them needs hand-built input no caller
-      produces.
-
-      AUTOPAGE LANDED 2026-07-28 (f1050af3 verbose trace, c5bab6b2 engine edges +
-      statements ratchet). gen/table/autopage.ts: branches 74.03 -> 85.61, statements
-      79.2 -> 92.07, lines 81.43 -> 94.31, functions 80 -> 82.85. Global 92.86/81.07/
-      98.22/95.46 -> 93.21/81.42/98.27/95.81. Second threshold bump of this effort:
-      statements 91 -> 92, leaving 1.2. Branches (1.4) and lines (1.8) stay put --
-      neither leaves a full point behind a notch.
-
-      The `verbose` flag was the single cheapest win in the file: a documented
-      TableProps option, unset by every test, whose trace does .toFixed() arithmetic
-      on props that may legitimately be percentage strings. Two runs (numeric props,
-      percentage-string props) with console.log captured took ~40 statements and most
-      of the file's function gap. Two defects the coverage surfaced, both recorded in
-      the test rather than fixed: the trace's numeric arm divides x/y/w/h by
-      EMU_PER_INCH although this fork keeps raw inches through to emission (off by
-      914400 -- dev-only output, no OOXML impact); and parseTextToLines's own [n/4]
-      trace is unreachable because its only call site passes `verbose: false` outright.
-      The test asserts those lines are absent, so the dead arms are demonstrably dead.
-
-      What stays red in autopage.ts is, again, one class, and reachability is the
-      reason: addTable resolves a scalar `colW` into `w` (define/table.ts:358) before
-      the pager runs, defaults y/fontSize/margin/slideMargin, and throws on an empty
-      row set. So the pager's scalar-colW arms, its `?? 0` fallbacks and its no-rows
-      guards cannot be reached from the only in-scope door -- the other caller is the
-      browser-only tableToSlides, excluded from coverage. Note this is the mirror of
-      the measure-fit lesson above: there, a second public door made "dead" branches
-      live; here, the only other door is out of scope, so they really are dead.
-
-      HYPERLINKS LANDED 2026-07-28 (09170d33). gen/define/hyperlinks.ts: branches
-      73.77 -> 93.44, statements 48.57 -> 97.14, functions 75 -> 100, lines 100.
-      Global 93.21/81.42/98.27/95.81 -> 93.29/81.58/98.32/95.89 on a full run (199
-      files, 1987 green). No threshold bump: the nearest notch (lines 94 -> 95) would
-      leave 0.89 behind it, under the full point this effort uses as its bar.
-
-      The gap was not "a few odd branches" -- no test anywhere put a hyperlink on a
-      TABLE CELL, so the entire table half of the walk was red, including the only
-      uncovered function. Five cases through the public API closed it: a cell
-      hyperlink, the same cell object reused across rows (one rel, not one per
-      occurrence), a repeated header row re-registering both rel kinds on every
-      auto-paged slide, and the two malformed-hyperlink shapes, which log a
-      diagnostic while defining and then throw while emitting.
-
-      DEFECT FOUND AND NOT FIXED -- see fork-autopage-hyperlink-relid-collision. The
-      re-registration path preserves the header's relationship id on each overflow
-      slide while getNewRelId keeps counting that slide's rels from 1, so the two can
-      collide and emit a part with a duplicate Relationship Id. Filed separately
-      because it changes emitted OOXML and is not a coverage question; the tests here
-      assert id-uniqueness on the fixtures they build, which do not trigger it.
-      (Fixed in a follow-up the same day -- a sixth case in the same file now builds a
-      fixture that does trigger it. See that entry.)
-
-      ZOOM / PREVIEW-IMAGE / BACKGROUND LANDED 2026-07-28. gen/define/zoom.ts:
-      branches 63.63 -> 97.72, statements 81.69 -> 98.59. gen/define/preview-image.ts:
-      84 -> 92 branch. gen/define/background.ts: 76.19 -> 90.47 branch, 90 -> 100
-      statements. Global 93.29/81.58/98.32/95.89 -> 93.41/81.79/98.33/96.00 on a full
-      run (200 files, 2001 green). Third of the three priorities is now under way; what
-      remains of it is comment.ts (73.52) and the drawingml stragglers.
-
-      THIRD THRESHOLD BUMP: lines 94 -> 95, measured 96.0045, so 1.00 of slack remains
-      -- the first time this axis has cleared the full point this effort uses as its
-      bar (it was declined at 0.89 one commit ago). The other three stay: statements
-      would keep 0.41, branches 0.79, functions 0.33. Nothing was loosened.
-
-      Zoom's gap was not edge branches but the whole refusal half of the definer. Every
-      existing zoom test fed it valid input -- the schema fixture builds three working
-      zooms, and zoom-links.test.js hand-builds SlideObjects and skips the definer
-      entirely -- so none of the six guards that drop an unresolvable zoom with a
-      warning had ever run. Twelve cases through the public builder cover them plus the
-      two option defaults (`?? 0` geometry, auto objectName) and the width-bound arm of
-      the Summary grid fit. Background needed exactly one shape nothing else had: a
-      background supplied by `path` with no `data` alongside it, which is what reaches
-      the jpg -> jpeg rename; every other fixture in the repo passes `data`, which wins
-      over `path` for extension sniffing.
-
-      What stays red is the usual class, unreachable by construction and left alone per
-      docs/testing.md: the Summary tile loop's `!firstSlide` re-check (its list was
-      already filtered on `_slides.length > 0`), and the `_relsMedia || []` / `_name ||
-      ''` fallbacks in background.ts (both callers construct the target themselves).
-      One is worth knowing about rather than just leaving: preview-image.ts's media-key
-      ternary has `'sm'` and `sl-<n>` arms for a master and a layout, copied from
-      gen/define/image.ts where those really are reachable. A preview image cannot
-      reach them -- its only two callers are the zoom and OLE definers, both reachable
-      only from SlideBuilder, which always carries a 1-based _slideNum. Live where it
-      was copied from, dead where it was copied to.
-
-      COMMENT LANDED 2026-07-28. gen/define/comment.ts: branches 73.52 -> 91.17,
-      statements 69.23 -> 92.3, lines 80.95 -> 100. Global 93.41/81.79/98.33/96.00 ->
-      93.46/81.85/98.33/96.04. That closes the cheap gen/define files; what is left of
-      the third priority is the volume work (chart.ts, text.ts) and the drawingml
-      stragglers.
-
-      NO threshold bump, and the margins say why: statements would keep 0.46, branches
-      0.85, functions 0.33, lines 0.04. A five-case file does not move a global gate,
-      which is the expected shape for the rest of this effort -- only chart.ts and
-      text.ts have enough missed branches left to justify another notch. Nothing was
-      loosened.
-
-      Same gap as zoom's, one size down: every existing caller (schema-cases.js, the
-      read round-trips) passes a valid author and text, so neither of the two guards
-      that drop a comment with a warning had ever executed against dist. Five cases
-      through the public builder cover them plus the derivation edges -- the three
-      shapes of "no author" (options omitted entirely, `author` absent, an author that
-      is only whitespace), the two shapes of "no body", a mononym author deriving a
-      single uppercased initial, a blank `initials` string falling through to the
-      derivation rather than emitting an empty marker, and `date` as a Date normalizing
-      to ISO-8601 while `date: ''` is treated as absent.
-
-      What stays red in comment.ts is unreachable by construction: `if (!first)` and the
-      `?? first` fallback in deriveAuthorInitials (only ever called after the author has
-      been trimmed and checked non-empty, so there is always at least one word and the
-      last index is always in range), and `if (!target._comments)` (SlideBuilder
-      declares `_comments: SlideComment[] = []` and is the definer's only caller).
-
-      A measurement finding worth keeping: gen/slide/comments.ts stays at 64.28 branch
-      and should NOT be read as untested. Its five red arms are the same defensive
-      class (`slides || []`, `slide._comments || []` twice, the `?? 0` idx seed, the
-      `!m` skip), all unreachable through the public door, and comments-xml.test.mjs
-      does exercise every one of them -- but it imports from src/, so it can never move
-      a dist number. That is now the third instance of this pattern in the repo
-      (html-dom.ts's border/width helpers, zoom-links.test.js, and this file); the note
-      is recorded in that test's header so the next measurer does not re-derive it.
-
-      TEXT AND CHART LANDED 2026-07-28, which finishes the third priority's volume
-      work. gen/define/text.ts: branches 86.86 -> 96.57, statements 92.39 -> 100,
-      lines 100. gen/define/chart.ts: branches 80.61 -> 94.63, statements 93.90 ->
-      100, lines 100. Global 93.46/81.85/98.33/96.04 -> 93.69/82.79/98.33/96.19 on a
-      full run (203 files, 2035 green). Note text.ts and chart.ts were 47 and 73
-      missed branches when this item last named them and were 23 and 83 when the pass
-      started -- the earlier per-file percentages had drifted, which is the reason
-      this entry keeps saying to re-measure rather than plan off a recorded number.
-
-      FOURTH THRESHOLD BUMP: branches 80 -> 81, measured 82.79, so 1.79 of slack
-      remains. 82 was available on the raw number and declined -- it would keep 0.79,
-      under the full point this effort uses as its bar. The other three stay at
-      92/97/95: their next notches would keep 0.69, 0.33 and 0.20. Nothing loosened.
-
-      Neither file's gap was edge branches. text.ts had never been driven past the
-      happy path -- no fixture passed an empty text array, a line-shaped text box, an
-      out-of-range columns/columnSpacing, the `underline: true` shorthand, a centered
-      or justified paragraph, or a picture bullet given as anything other than a path
-      AND data together. chart.ts had 83 red branches essentially all in the option
-      normalization that runs before any chart XML exists.
-
-      Two behaviors the tests had to be written around, both pinned rather than
-      changed, and both worth knowing before touching these files:
-        - `cleanOpts` runs once for the text object and again per run, and
-          `addText(string, opts)` hands the SAME options object to both, so the
-          shorthand normalizes twice where the array form normalizes once. Decisive
-          for line defaults (`shape: 'line'` alone emits a full 1pt solid line
-          through the shorthand and an empty `<a:ln>` through the array form) and it
-          doubles every warning the definer emits.
-        - the bar `dataLabelPosition` rules run in sequence rather than as a switch,
-          so the outcome inverts the obvious reading: `outEnd` is dropped on
-          CLUSTERED bars by the first rule and kept on STACKED ones by the second.
-
-      What stays red is the usual class plus one group worth acting on. chart.ts
-      carries THIRTEEN self-cancelling ternaries of the form
-      `x = x || !x ? x : false` -- `a || !a` is true for every value of `a`, so each
-      is an identity assignment with a dead alternative. Eleven are the show* block
-      in normalizeChartPlotAreaOptions, plus v3DRAngAx and dataLabelBkgrdColors.
-      Collapsing them would delete 13 permanently-red branches and change no emitted
-      byte, but it is a src edit and so wants a byte-identity baseline/check.
-
-      A reasoning trap recorded so it is not repeated: the second arm of
-      `!border.width || isNaN(border.width)` LOOKS unreachable, since NaN is falsy
-      and the first arm should catch it. A branch counter records that the second
-      operand was EVALUATED, not that it was true, so any truthy width reaches it.
-      Two arms were wrongly classified as dead on that reasoning before a probe
-      showed otherwise; both are covered now by passing a width rather than omitting
-      one. Applies to every `!x || isNaN(x)` and `!x || x.length` shape in the repo.
-
-      Read this before trusting a per-file number from coverage/: a run started with
-      --coverage.reportsDirectory writes there AND vitest cleans the directory, so a
-      narrow probe left in coverage/ (or a later full run wiping coverage/probe) can
-      leave a stale coverage-final.json that reports FEWER covered branches than a
-      three-file probe does. The tell is exactly that -- a subset beating the full
-      run. Re-measure rather than reason from what is on disk.
-
-      THE TWO SRC CLEANUPS LANDED 2026-07-28 (6cc2f6d2 chart.ts, 302c3961 color.ts),
-      both gated on a byte-identity baseline taken before the edits: PASS, 177 parts,
-      with three chart parts confirmed in the corpus. Global 93.69/82.79/98.33/96.19
-      -> 93.70/82.84/98.43/96.22, on a branch total 13 smaller and a function total 2
-      smaller -- the gain here is deleting red code, not covering it. Full run 203
-      files, 2035 green. NO ratchet: the next notch on each axis would keep
-      0.70/0.84/0.43/0.22, all under the full point this effort uses as its bar.
-
-      chart.ts's thirteen `x = x || !x ? x : <default>` ternaries are gone; the file
-      is now 100 statements / 97.34 branches / 100 functions / 100 lines. Deleting
-      them is behavior-preserving because every consumer reads these options as plain
-      truthiness (`opts.showPercent ? 1 : 0`, `!opts.showDataTableKeys ? 0 : 1`), so
-      an absent option already behaved as false -- which is what the public types
-      document (@default false on showDataTable, showPercent, v3DRAngAx). Worth
-      knowing before anyone "fixes" this: the defaults those ternaries appear to
-      promise were never applied, and four of them (the showDataTable* borders/keys)
-      are undocumented in types/chart.ts. Applying them would change emitted OOXML and
-      is a separate decision; a comment in the file now says so in place of the code.
-
-      color.ts's componentToHex/rgbToHex now live in gen/table/html-dom.ts, their only
-      caller, unexported. gen/drawingml/color.ts goes 33.33 -> 100 functions (it was
-      the worst function figure in the package) and 72.22 -> 86.66 statements, and
-      html-dom.ts stays out of the report entirely under the dist/browser*.js
-      exclusion -- so the false signal is gone with no v8 ignore fence and no test for
-      code the bundle cannot reach. Caveat on the PASS: the byte-identity corpus is
-      Node-emitted decks, so it proves color.ts unchanged rather than proving the
-      browser path, which no showcase reaches; the move is call-site-identical and
-      typechecks.
-
-      THE DURABLE FINDINGS ARE NOW IN docs/testing.md (6c401158), in a new "Reading a
-      red number on the write side" section beside the read-side "Branches that are
-      not worth covering". It carries the door question and its mirror, the
-      statement-vs-branch signal, the small-pure-emitter case (line.ts), the
-      verbose-dump class, delete-beats-fence-beats-test, the evaluated-not-true branch
-      counter trap, and the stale-coverage-directory trap; gen/slide/comments.ts is
-      recorded there as the third worked example of the src-import caveat. Prefer
-      editing that section over re-deriving any of it here.
+      Shape not yet decided — `fill: 'none'` widening the HexColor type, or a separate
+      boolean — and the choice is worth making against both emitters at once so pie and
+      bar do not diverge further. Whichever wins, the bar path also needs to
+      distinguish "omit the point" from "emit the point with noFill".
     evidence:
       kinds:
         - local-source-inspection
+        - ooxml-reference
       local_files:
-        - src/media/content-type.ts
-        - src/gen/table/autopage.ts
-        - src/gen/define/comment.ts
-        - src/gen/define/hyperlinks.ts
-        - src/gen/define/chart.ts
-        - src/gen/define/background.ts
-        - src/gen/define/preview-image.ts
-        - src/gen/define/text.ts
-        - src/gen/define/zoom.ts
-        - src/gen/drawingml/color.ts
-        - src/gen/drawingml/line.ts
-        - src/measure/fit.ts
-        - src/measure/text-fit.ts
+        - src/gen/chart/plot-pie.ts:86
+        - src/gen/chart/chart-parts.ts:400
+        - src/types/chart.ts:77
       schema_fixture: null
       validator_result: null
       powerpoint_result: null
       spec_refs: []
-    next_action: all of gen/define is done, both src cleanups landed (chart.ts's thirteen dead ternaries 6cc2f6d2, color.ts's two browser-only helpers 302c3961, byte-identity PASS on both) and the durable how-to-read-this guidance is distilled into docs/testing.md's new write-side section (6c401158) -- so the only work left under this item is the drawingml/pres stragglers, and they are deliberately unclaimed -- math.ts's six red branches are already pinned by math-omml.test.mjs and can never move a dist number (src-import), while plot-bubble.ts 60.86 and pres/presentation-rels.ts 64.28 are small enough that neither will move a gate alone; margins are 0.70/0.84/0.43/0.22 against 92/81/97/95, so the next notch on any axis needs close to a full point more and no cheap file left can supply it -- treat this item as parked at a green gate rather than as work queued, and re-open it only if a new emitter lands under-tested; before doing anything here, re-measure per-file coverage rather than reading whatever coverage-final.json is on disk (the recorded chart.ts/text.ts numbers had drifted by 10-25 branches before the last pass) and read docs/testing.md's write-side section first -- it now holds the door question, the statement-vs-branch signal and both measurement traps that this entry used to be the only record of
+    next_action: decide-nofill-api-shape-across-both-dpt-emitters
