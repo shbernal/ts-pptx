@@ -17,7 +17,13 @@ defineRegressionSuite('Bullet glyph font and size', [
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
-				s.addText('item', { x: 1, y: 1, w: 4, h: 1, bullet: { characterCode: 'F0E0', fontFace: 'Wingdings' } })
+				s.addText('item', {
+					x: 1,
+					y: 1,
+					w: 4,
+					h: 1,
+					bullet: { characterCode: 'F0E0', fontFace: 'Wingdings', size: 100 },
+				})
 			})
 			const { ppr } = await getPPr(zip)
 			assert(
@@ -38,7 +44,7 @@ defineRegressionSuite('Bullet glyph font and size', [
 		},
 	},
 	{
-		name: 'out-of-range bullet.size warns and falls back to 100%',
+		name: 'out-of-range bullet.size warns and emits no <a:buSzPct/> at all',
 		fn: async () => {
 			const warnings = []
 			setDiagnosticHandler((d) => warnings.push(d.message))
@@ -52,7 +58,10 @@ defineRegressionSuite('Bullet glyph font and size', [
 			} finally {
 				setDiagnosticHandler(null)
 			}
-			assert(/<a:buSzPct val="100000"\/>/.test(ppr), 'expected fallback <a:buSzPct val="100000"/>; got: ' + ppr)
+			// A rejected size leaves the element out rather than pinning the glyph to 100%:
+			// an explicit 100% overrides whatever size the list style sets, which is a silent
+			// change the caller did not ask for on top of the one they got warned about.
+			assert(!/<a:buSzPct/.test(ppr), 'expected no <a:buSzPct/> for a rejected size; got: ' + ppr)
 			assert(
 				warnings.some((w) => w.includes('bullet.size')),
 				'expected a console.warn mentioning bullet.size; got: ' + JSON.stringify(warnings)
@@ -75,17 +84,17 @@ defineRegressionSuite('Bullet glyph font and size', [
 		},
 	},
 	{
-		name: 'object bullet without fontFace/size keeps prior default markup',
+		name: 'object bullet without fontFace/size emits neither buSzPct nor buFont',
 		fn: async () => {
 			const { zip } = await build((p) => {
 				const s = p.addSlide()
 				s.addText('item', { x: 1, y: 1, w: 4, h: 1, bullet: { characterCode: '25BA' } })
 			})
 			const { ppr } = await getPPr(zip)
-			assert(
-				/<a:buSzPct val="100000"\/><a:buChar char="&#x25BA;"\/>/.test(ppr),
-				'expected unchanged buSzPct(100%) + buChar with no buFont; got: ' + ppr
-			)
+			assert(/<a:buChar char="&#x25BA;"\/>/.test(ppr), 'expected the glyph; got: ' + ppr)
+			// Both are omitted rather than defaulted, so an unstyled bullet inherits its size
+			// and face from the list style instead of being pinned to 100% of the body font.
+			assert(!/<a:buSzPct/.test(ppr), 'expected no <a:buSzPct/> when size is not set; got: ' + ppr)
 			assert(!/<a:buFont/.test(ppr), 'expected no <a:buFont/> when fontFace is not set; got: ' + ppr)
 		},
 	},

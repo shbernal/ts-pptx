@@ -37,6 +37,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   read model's `left`/`top`/`width`/`height`, because it is the source rectangle of a
   mapping, not a frame on the slide.
 
+### Changed
+
+- **BREAKING: `Paragraph.bullet` is replaced by `Paragraph.bulletDetail`.** The old accessor
+  reported a *tagged string* — `'none'` / `'char:•'` / `'autoNum:arabicPeriod'` — which is
+  ambiguous when the glyph is itself a colon and reads as a bare glyph if you do not know
+  better. That is not hypothetical: this library's own script converter first consumed it as
+  one, and `'none'.codePointAt(0)` put a literal `n` bullet on every converted deck, silently.
+
+  `bulletDetail` returns a discriminated union with no parsing left to get wrong, and carries
+  what the string could not — `a:buAutoNum/@startAt`, and the bullet's own `a:buFont` /
+  `a:buSzPct` / `a:buSzPts` / `a:buClr`. It also reports a fourth kind the old accessor
+  dropped to `null`: a picture bullet (`a:buBlip`), with its image part resolved.
+
+  ```js
+  // before
+  para.bullet // 'autoNum:arabicPeriod' — startAt, font, size and colour unreachable
+
+  // after
+  para.bulletDetail
+  // { kind: 'autoNum', scheme: 'arabicPeriod', startAt: 5,
+  //   font: 'Wingdings', sizePct: 80, sizePt: null,
+  //   color: 'C00000', schemeColor: null, resolvedColor: { … } }
+  ```
+
+  Migration: `bullet === 'none'` → `bulletDetail?.kind === 'none'`;
+  `bullet?.startsWith('char:')` → `bulletDetail?.kind === 'char'`, with the glyph at
+  `.char` rather than after the colon; `bullet.slice('autoNum:'.length)` → `.scheme`.
+  A paragraph that inherits its bullet still reports `null`.
+
+  Numbering is content rather than styling: a list continuing "5. Deploy" that came back as
+  "1. Deploy" was a different slide, and `numberStartAt` was a pure write/read asymmetry —
+  `addText` accepted it and nothing could produce it.
+
+- **BREAKING (output): `<a:buSzPct/>` is emitted only when `bullet.size` is given.** It used
+  to be written unconditionally, pinned to `val="100000"`, on every object-form bullet and on
+  `bullet: true`. An explicit 100% is not the same as leaving it out — it *overrides*
+  whatever bullet size the layout's or master's list style sets, so every bullet this path
+  wrote silently forced its glyph back to full size. The same class of bug as the explicit
+  `a:buNone` an omitted `bullet` emits, and invisible until `bulletDetail` gave the
+  round-trip check something to see it with. An out-of-range `bullet.size` now warns and
+  emits nothing rather than warning and pinning to 100%. Decks that want the old behaviour
+  can pass `bullet: { size: 100 }` explicitly.
+
 ### Fixed
 
 - **`readModelToIr` now emits its `table.rowAuto` note when *every* row is auto-height**, not

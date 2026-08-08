@@ -24,7 +24,7 @@
  * now emit the *resolved* value with a note, which freezes it against a later theme edit and
  * renders correctly, in preference to staying faithful in the IR and wrong on the slide.
  */
-import type { BodyProperties, Paragraph, Run, TextFrame } from '../../read/api/text.js'
+import type { BodyProperties, BulletDetail, BulletStyle, Paragraph, Run, TextFrame } from '../../read/api/text.js'
 import type { NoteScope } from '../fidelity.js'
 import type { IrValue } from '../ir.js'
 import { compact, isWritableSchemeToken, literalColor, orUndefined, pointsToInches } from './values.js'
@@ -70,54 +70,57 @@ const AUTO_NUMBER_TYPES = new Set([
 ])
 
 /**
- * `Paragraph.bullet` → the write API's `bullet` option.
+ * `Paragraph.bulletDetail` → the write API's `bullet` option.
  *
- * The read model reports a **tagged** string — `'none'`, `'char:<glyph>'` or
- * `'autoNum:<type>'` — not a bare glyph, and the first version of this function read it as
- * one. The result was silent and universal: a paragraph that explicitly suppressed its
- * bullet (`a:buNone`, which is most of them) came back with a literal `n` bullet, because
- * `'none'.codePointAt(0)` is `n`; a real character bullet came back as `c`, from the `char:`
- * tag; and a numbered list came back as `a`. Every converted deck was affected and nothing
- * failed, which is why the round-trip check exists.
+ * This function used to take a **tagged** string — `'none'`, `'char:<glyph>'` or
+ * `'autoNum:<type>'` — and its first version read it as a bare glyph. The result was silent
+ * and universal: a paragraph that explicitly suppressed its bullet (`a:buNone`, which is most
+ * of them) came back with a literal `n` bullet, because `'none'.codePointAt(0)` is `n`; a real
+ * character bullet came back as `c`, from the `char:` tag; and a numbered list came back as
+ * `a`. Every converted deck was affected and nothing failed, which is why the round-trip check
+ * exists — and why the accessor is now a discriminated union with no parsing left to get wrong.
  */
-function bulletOption(bullet: string, notes: NoteScope): IrValue {
+function bulletOption(bullet: BulletDetail, notes: NoteScope): IrValue {
 	// Explicit suppression, and it must stay explicit: an omitted `bullet` lets the
 	// destination list style put one back.
-	if (bullet === 'none') return false
+	if (bullet.kind === 'none') return false
 
-	notes.note(
-		'text.bullet.style',
-		'flattened',
-		'unread',
-		"a bullet's own font, size and colour have no accessor (a:buFont / a:buSzPct / a:buClr), so it renders in the body font and colour"
-	)
-
-	if (bullet.startsWith('autoNum:')) {
-		const scheme = bullet.slice('autoNum:'.length)
+	// A picture bullet's bytes would have to be re-embedded through the asset resolver, which
+	// the paragraph mapper does not carry — `addText`'s `bullet.image` could author it.
+	if (bullet.kind === 'picture') {
 		notes.note(
-			'text.bullet.numberStartAt',
-			'dropped',
-			'unread',
-			'a numbered bullet restarts at 1: nothing reads a:buAutoNum/@startAt, though addText accepts numberStartAt'
+			'text.bullet.picture',
+			'approximated',
+			'unsupported',
+			'this paragraph uses an image as its bullet glyph (a:buBlip); the text mapper has no asset resolver to re-embed it with, so the bullet falls back to the default character'
 		)
-		if (!AUTO_NUMBER_TYPES.has(scheme)) {
+		return true
+	}
+
+	const style = bulletStyle(bullet, notes)
+
+	if (bullet.kind === 'autoNum') {
+		if (!AUTO_NUMBER_TYPES.has(bullet.scheme)) {
 			notes.note(
 				'text.bullet.numberType',
 				'approximated',
 				'unwritable',
-				`numbering scheme "${scheme}" is outside the set the write API names, so the list falls back to the default scheme`
+				`numbering scheme "${bullet.scheme}" is outside the set the write API names, so the list falls back to the default scheme`
 			)
-			return { type: 'number' }
+			return compact({ type: 'number', ...startAtOption(bullet.startAt), ...style }) ?? { type: 'number' }
 		}
-		return { type: 'number', numberType: scheme }
+		return (
+			compact({ type: 'number', numberType: bullet.scheme, ...startAtOption(bullet.startAt), ...style }) ?? {
+				type: 'number',
+			}
+		)
 	}
 
 	// Zero-padded to four digits, and that is load-bearing rather than cosmetic: the write
 	// path tests `characterCode` against /^[0-9A-Fa-f]{4}$/ and, on a miss, warns to the
 	// console and substitutes its own default glyph. So "6E" — a perfectly good code point —
 	// silently became a different bullet character, visible only in the rendered slide.
-	const glyph = bullet.startsWith('char:') ? bullet.slice('char:'.length) : bullet
-	const code = glyph.codePointAt(0) ?? 0x2022
+	const code = bullet.char.codePointAt(0) ?? 0x2022
 	if (code > 0xffff) {
 		notes.note(
 			'text.bullet.glyph',
@@ -126,7 +129,77 @@ function bulletOption(bullet: string, notes: NoteScope): IrValue {
 			`bullet glyph U+${code.toString(16).toUpperCase()} is outside the Basic Multilingual Plane and characterCode takes a four-digit code, so the bullet falls back to the write path's default glyph`
 		)
 	}
-	return { characterCode: code.toString(16).toUpperCase().padStart(4, '0') }
+	return compact({ characterCode: code.toString(16).toUpperCase().padStart(4, '0'), ...style }) ?? {}
+}
+
+/**
+ * `a:buAutoNum/@startAt` → `numberStartAt`.
+ *
+ * Numbering is content rather than styling: a list continuing "5. Deploy" that comes back as
+ * "1. Deploy" is a different slide. `1` is the schema default, so emitting it would only add
+ * noise to the printed script.
+ */
+function startAtOption(startAt: number | null): Record<string, IrValue> {
+	return startAt === null || startAt === 1 ? {} : { numberStartAt: startAt }
+}
+
+/**
+ * The bullet's own font, size and colour (`a:buFont` / `a:buSzPct` / `a:buClr`) as the write
+ * API's `fontFace` / `size` / `color`.
+ *
+ * `a:buSzPts` has no write-API counterpart — `bullet.size` is a percentage of the run size —
+ * so an absolute bullet size is the one part of this that still cannot carry.
+ */
+function bulletStyle(bullet: BulletStyle, notes: NoteScope): Record<string, IrValue> {
+	if (bullet.sizePt !== null) {
+		notes.note(
+			'text.bullet.sizePt',
+			'dropped',
+			'unwritable',
+			'this bullet sets an absolute glyph size (a:buSzPts); bullet.size is a percentage of the run size, so the absolute value has no write-API expression and the glyph follows the text size'
+		)
+	}
+
+	// 25–400% is the range the write path accepts; outside it the option is rejected with a
+	// console warning and the glyph silently falls back to full size, so it is declared here.
+	const sizePct = bullet.sizePct
+	if (sizePct !== null && (sizePct < 25 || sizePct > 400)) {
+		notes.note(
+			'text.bullet.sizePct',
+			'approximated',
+			'unwritable',
+			`bullet glyph size ${sizePct}% is outside the 25–400% range the write API accepts, so no a:buSzPct is emitted and the glyph size is left to be inherited`
+		)
+	}
+
+	return (
+		compact({
+			fontFace: orUndefined(bullet.font),
+			size: sizePct === null || sizePct < 25 || sizePct > 400 ? undefined : sizePct,
+			color: bulletColor(bullet, notes),
+		}) ?? {}
+	)
+}
+
+/**
+ * The bullet's colour, preferring the raw `schemeClr` token over the resolved literal for the
+ * same reason {@link runColor} does: a token keeps tracking the destination theme.
+ */
+function bulletColor(bullet: BulletStyle, notes: NoteScope): string | undefined {
+	const scheme = bullet.schemeColor
+	if (isWritableSchemeToken(scheme)) return scheme as string
+	if (bullet.color !== null) return literalColor(bullet.color)
+	const resolved = bullet.resolvedColor
+	if (!resolved) return undefined
+	if (scheme !== null) {
+		notes.note(
+			'text.bullet.schemeToken',
+			'approximated',
+			'unwritable',
+			`bullet scheme colour "${scheme}" is outside the ten tokens the write path maps, so it is baked to a literal hex and stops tracking the theme`
+		)
+	}
+	return literalColor(resolved.effectiveHex)
 }
 
 /** Per-run character formatting, shared by shape text and table-cell text. */
@@ -212,7 +285,7 @@ function hyperlinkOption(run: Run): IrValue | undefined {
 /** Paragraph-level properties, replicated onto each of the paragraph's runs. */
 function paragraphOptions(paragraph: Paragraph, notes: NoteScope): Record<string, IrValue> {
 	const spacing = paragraph.lineSpacing
-	const bullet = paragraph.bullet
+	const bullet = paragraph.bulletDetail
 	const align = paragraph.align
 
 	if (align !== null && !(align in ALIGN)) {
@@ -264,7 +337,7 @@ function paragraphOptions(paragraph: Paragraph, notes: NoteScope): Record<string
  * is stated as a possibility rather than a fact.
  */
 function noteInheritedBullets(paragraphs: readonly Paragraph[], notes: NoteScope): void {
-	if (!paragraphs.some((paragraph) => paragraph.bullet === null)) return
+	if (!paragraphs.some((paragraph) => paragraph.bulletDetail === null)) return
 	notes.note(
 		'text.bullet.inherited',
 		'dropped',

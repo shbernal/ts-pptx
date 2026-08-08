@@ -34,7 +34,7 @@ describe('paragraph properties: bullets', () => {
 		expect(pPr({ bullet: { color: 'FF00FF' } })).toBe(
 			'<a:pPr marL="342900" indent="-342900">' +
 				'<a:buClr><a:srgbClr val="FF00FF"/></a:buClr>' +
-				'<a:buSzPct val="100000"/><a:buChar char="&#x2022;"/>' +
+				'<a:buChar char="&#x2022;"/>' +
 				'</a:pPr>'
 		)
 	})
@@ -48,16 +48,14 @@ describe('paragraph properties: bullets', () => {
 
 	test('a picture bullet references the media rel', () => {
 		expect(pPr({ bullet: { image: { data: 'x' }, _rId: 9 } })).toBe(
-			'<a:pPr marL="342900" indent="-342900">' +
-				'<a:buSzPct val="100000"/><a:buBlip><a:blip r:embed="rId9"/></a:buBlip>' +
-				'</a:pPr>'
+			'<a:pPr marL="342900" indent="-342900">' + '<a:buBlip><a:blip r:embed="rId9"/></a:buBlip>' + '</a:pPr>'
 		)
 	})
 
 	test('an SVG picture bullet carries the svgBlip extension alongside the PNG preview', () => {
 		expect(pPr({ bullet: { image: { data: 'x' }, _rId: 9, _rIdSvg: 10 } })).toBe(
 			'<a:pPr marL="342900" indent="-342900">' +
-				'<a:buSzPct val="100000"/><a:buBlip><a:blip r:embed="rId9">' +
+				'<a:buBlip><a:blip r:embed="rId9">' +
 				'<a:extLst><a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}">' +
 				'<asvg:svgBlip xmlns:asvg="http://schemas.microsoft.com/office/drawing/2016/SVG/main" r:embed="rId10"/>' +
 				'</a:ext></a:extLst></a:blip></a:buBlip>' +

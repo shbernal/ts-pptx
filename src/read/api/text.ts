@@ -82,6 +82,72 @@ export interface RunHyperlink {
  */
 export type LineSpacing = { type: 'points'; valuePt: number } | { type: 'percent'; percent: number }
 
+/**
+ * The bullet's own font, size and colour (`a:buFont` / `a:buSzPct` / `a:buSzPts` /
+ * `a:buClr`) — the properties that style the glyph or number itself rather than
+ * the text after it. Every field is `null` when the paragraph leaves it to be
+ * inherited from the list style.
+ *
+ * These are siblings of the bullet kind in `a:pPr`, not children of it, so they
+ * are carried alongside each kind rather than inside it.
+ */
+export interface BulletStyle {
+	/** `a:buFont/@typeface` — the face the glyph is drawn in (a symbol font such as `Wingdings`), or `null`. */
+	font: string | null
+	/** `a:buSzPct/@val` as a percentage of the run size (e.g. `80`; the raw attribute is thousandths of a percent), or `null`. */
+	sizePct: number | null
+	/** `a:buSzPts/@val` as an absolute point size (the raw attribute is hundredths of a point), or `null`. The alternative to {@link sizePct}; at most one is set. */
+	sizePt: number | null
+	/** Explicit RGB bullet colour as 6-hex (`a:buClr/a:srgbClr/@val`), or `null`. */
+	color: string | null
+	/** Theme colour token when the bullet colour is a scheme colour (`a:buClr/a:schemeClr/@val`), or `null`. */
+	schemeColor: string | null
+	/** The bullet colour resolved against the slide theme with its transforms applied, or `null` when unset or not resolvable to a literal. */
+	resolvedColor: ResolvedColor | null
+}
+
+/**
+ * A paragraph's bullet, as the structured counterpart of the `a:pPr` bullet
+ * children. Discriminated on {@link kind}, which is one of the four mutually
+ * exclusive choices the schema allows:
+ *
+ * - `'none'`    — `a:buNone`, the bullet explicitly suppressed. Carries no style,
+ *                 because there is no glyph to style.
+ * - `'char'`    — `a:buChar`, a literal glyph.
+ * - `'autoNum'` — `a:buAutoNum`, an auto-numbered list.
+ * - `'picture'` — `a:buBlip`, an image used as the glyph.
+ *
+ * A paragraph that names none of them inherits its bullet from the list style and
+ * reports `null` rather than a member of this union.
+ */
+export type BulletDetail =
+	| { kind: 'none' }
+	| ({
+			kind: 'char'
+			/** The glyph itself (`a:buChar/@char`) — a bare character, never a tagged string. */
+			char: string
+	  } & BulletStyle)
+	| ({
+			kind: 'autoNum'
+			/** The numbering scheme (`a:buAutoNum/@type`, e.g. `arabicPeriod`). */
+			scheme: string
+			/**
+			 * The number this list starts at (`a:buAutoNum/@startAt`), or `null` when
+			 * unset (the schema default is 1). Content rather than styling: a list
+			 * continuing "5. Deploy" that restarts at 1 is a different slide.
+			 */
+			startAt: number | null
+	  } & BulletStyle)
+	| ({
+			kind: 'picture'
+			/**
+			 * Absolute partname of the image used as the glyph (`a:buBlip/a:blip/@r:embed`,
+			 * resolved through the owning part's relationships), or `null` when the
+			 * paragraph was reached without them or the blip carries no `r:embed`.
+			 */
+			imagePartName: string | null
+	  } & BulletStyle)
+
 // Schema successors used to keep `a:rPr` children in document order when a
 // setter has to create one (CT_TextCharacterProperties sequence).
 const RPR_AFTER_FILL = [
@@ -595,21 +661,69 @@ export class Paragraph {
 	}
 
 	/**
-	 * Bullet description for this paragraph, derived from the `a:pPr` bullet
-	 * children, or `null` when unset (inherited from the list style):
-	 * - `'none'`          — explicit `a:buNone` (bullet suppressed)
-	 * - `'char:•'`        — `a:buChar/@char` (the literal glyph follows the colon)
-	 * - `'autoNum:arabicPeriod'` — `a:buAutoNum/@type` (auto-numbered)
+	 * This paragraph's bullet — its kind, and for a drawn bullet the glyph, the
+	 * numbering start, and the bullet's own font/size/colour. `null` when the
+	 * paragraph names no bullet at all and inherits one from the list style.
+	 *
+	 * Structured rather than a tagged string, which is not merely tidier. The
+	 * previous `bullet` accessor reported `'none'` / `'char:•'` /
+	 * `'autoNum:arabicPeriod'`, and that shape is ambiguous when the glyph is
+	 * itself a colon; worse, it reads as a bare glyph, which is exactly how the
+	 * script converter first consumed it — `'none'.codePointAt(0)` put a literal
+	 * `n` bullet on every converted deck, silently. See {@link BulletDetail}.
 	 */
-	get bullet(): string | null {
+	get bulletDetail(): BulletDetail | null {
 		const pPr = firstChild(this.element, 'a:pPr')
 		if (!pPr) return null
-		if (firstChild(pPr, 'a:buNone')) return 'none'
+		if (firstChild(pPr, 'a:buNone')) return { kind: 'none' }
+
+		const style = this.#bulletStyle(pPr)
 		const buChar = firstChild(pPr, 'a:buChar')
-		if (buChar) return `char:${attr(buChar, 'char') ?? ''}`
+		if (buChar) return { kind: 'char', char: attr(buChar, 'char') ?? '', ...style }
+
 		const buAutoNum = firstChild(pPr, 'a:buAutoNum')
-		if (buAutoNum) return `autoNum:${attr(buAutoNum, 'type') ?? ''}`
+		if (buAutoNum) {
+			return {
+				kind: 'autoNum',
+				scheme: attr(buAutoNum, 'type') ?? '',
+				startAt: intValue(attr(buAutoNum, 'startAt')),
+				...style,
+			}
+		}
+
+		const buBlip = firstChild(pPr, 'a:buBlip')
+		if (buBlip) return { kind: 'picture', imagePartName: this.#bulletImagePartName(buBlip), ...style }
+
 		return null
+	}
+
+	/** The `a:buFont` / `a:buSz*` / `a:buClr` siblings of a `a:pPr` bullet choice. */
+	#bulletStyle(pPr: Element): BulletStyle {
+		const buFont = firstChild(pPr, 'a:buFont')
+		const buSzPct = firstChild(pPr, 'a:buSzPct')
+		const buSzPts = firstChild(pPr, 'a:buSzPts')
+		const buClr = firstChild(pPr, 'a:buClr')
+		// `a:buClr` holds the colour element directly (CT_Color), not wrapped in an
+		// `a:solidFill` the way a run or a shape fill does.
+		const colorEl = buClr ? firstChildElement(buClr) : null
+		const pctVal = buSzPct ? intValue(attr(buSzPct, 'val')) : null
+		const ptVal = buSzPts ? intValue(attr(buSzPts, 'val')) : null
+		return {
+			font: buFont ? (attr(buFont, 'typeface') ?? null) : null,
+			sizePct: pctVal === null ? null : pctVal / 1000,
+			sizePt: ptVal === null ? null : ptVal / 100,
+			color: colorEl?.localName === 'srgbClr' ? (attr(colorEl, 'val') ?? null) : null,
+			schemeColor: colorEl?.localName === 'schemeClr' ? (attr(colorEl, 'val') ?? null) : null,
+			resolvedColor: this.themeContext ? resolveColorElement(colorEl, this.themeContext) : null,
+		}
+	}
+
+	/** Resolve a picture bullet's `a:buBlip/a:blip/@r:embed` to an absolute partname. */
+	#bulletImagePartName(buBlip: Element): string | null {
+		const blip = firstChild(buBlip, 'a:blip')
+		const relId = blip && attr(blip, 'r:embed')
+		if (!relId || !this.relationships) return null
+		return this.relationships.resolveTarget(relId)
 	}
 
 	/** Points from a spacing child's `a:spcPts/@val` (hundredths of a point), or `null`. */

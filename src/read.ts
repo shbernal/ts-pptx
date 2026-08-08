@@ -101,6 +101,8 @@ export {
 	Run,
 	type BodyProperties,
 	type AutofitMode,
+	type BulletDetail,
+	type BulletStyle,
 	type RunHyperlink,
 	type LineSpacing,
 } from './read/api/text.js'

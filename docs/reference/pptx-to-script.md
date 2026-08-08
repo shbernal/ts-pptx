@@ -296,7 +296,6 @@ Both tiers, in corpus order:
 | `table.cell.fill` | 7/42 | unread | `resolvedFill` folds a cell's own fill together with the style graph's banding, so emitting it would freeze the banding |
 | `text.color.default` | 7/42 | unread | nothing resolves what this run inherits, so the write path paints it black — the one case where the output colour is not merely frozen but possibly *wrong* |
 | `text.indent` | 5/42 | unwritable | `a:pPr/@marL`/`@indent` have no option; only the discrete `indentLevel` does, so hanging indents flatten |
-| `text.bullet.style` | 3/42 | unread | `a:buFont` / `a:buSzPct` / `a:buClr` — a bullet's font, size and colour |
 | `media.audioVideo` | 2/42 | unread | only the poster frame is readable, so embedded A/V becomes a still image |
 | `text.equation` | 2/42 | unread | the whole `m:` namespace is absent from the read path, so OMML math is invisible |
 
@@ -354,11 +353,19 @@ a reader can act on. Per deck the tier adds five to eleven notes, not fifty
 ### The read path is the binding constraint
 
 Worth stating plainly, because it is the opposite of what it looks like from the
-write side. Eight constructs are lost purely because **nothing reads them**,
-while the write API can already express them today: bullet glyph font, size and
-start number, picture bullets, tab stops, preset text warp, and custGeom guides,
-adjust handles and connection sites. `pnpm run read:census` measures that
-surface directly.
+write side. Constructs are lost purely because **nothing reads them**, while the
+write API can already express them today: tab stops, preset text warp, and
+custGeom guides, adjust handles and connection sites. `pnpm run read:census`
+measures that surface directly.
+
+The bullet half of that list is now closed. `Paragraph.bulletDetail` reads
+`a:buAutoNum/@startAt` and a bullet's own `a:buFont` / `a:buSzPct` / `a:buClr`,
+so `text.bullet.numberStartAt` and `text.bullet.style` are gone rather than
+merely unmapped — the converter emits `numberStartAt`, `fontFace`, `size` and
+`color` instead of noting their absence. What remains is `text.bullet.sizePt`,
+an absolute `a:buSzPts` the write API has no unit for, and
+`text.bullet.picture`, where the bytes of an `a:buBlip` are readable but the
+paragraph mapper carries no asset resolver to re-embed them with.
 
 ## Verifying a conversion
 

@@ -286,9 +286,23 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	'table.rowAuto': ['rowH'],
 	'table.style': ['tableStyle'],
 	'text.align': ['align'],
-	'text.bullet.numberStartAt': ['bullet'],
+	// `text.bullet.numberStartAt` and `text.bullet.style` used to live here, for
+	// `a:buAutoNum/@startAt` and for a bullet's own font/size/colour. `Paragraph.bulletDetail`
+	// reads all four, so the mapper emits `numberStartAt` / `fontFace` / `size` / `color` and
+	// records nothing — the notes are gone rather than unmapped. What remains of the size half
+	// is `text.bullet.sizePt`, which is a genuinely unwritable unit rather than an unread value.
 	'text.bullet.numberType': ['bullet'],
-	'text.bullet.style': ['bullet'],
+	// An absolute bullet size (`a:buSzPts`) has no write option at all — `bullet.size` is a
+	// percentage of the run size — so the difference lands on the bullet option.
+	'text.bullet.sizePt': ['bullet'],
+	// A percentage outside 25–400%, which the write path rejects with a warning and replaces
+	// with the run's own size.
+	'text.bullet.sizePct': ['bullet'],
+	// A bullet colour outside the ten scheme tokens the write path maps, baked to a literal.
+	'text.bullet.schemeToken': ['bullet'],
+	// A picture bullet (`a:buBlip`): readable, and `bullet.image` could author it, but the
+	// paragraph mapper carries no asset resolver to re-embed the bytes with.
+	'text.bullet.picture': ['bullet'],
 	'text.color.default': ['color'],
 	'text.color.inherited': ['color'],
 	'text.color.schemeToken': ['color'],

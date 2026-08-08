@@ -135,8 +135,17 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 			if (opts.bullet.color && !isPictureBullet)
 				strXmlBulletColor = el('a:buClr', null, raw(createColorElement(opts.bullet.color)))
 
-			// `<a:buSzPct/>` val is thousandths of a percent; ST_TextBulletSizePercent allows 25%-400%
-			let bulletSizePct = PERCENT_SCALE
+			// `<a:buSzPct/>` val is thousandths of a percent; ST_TextBulletSizePercent allows 25%-400%.
+			//
+			// Emitted ONLY when the caller asked for a size. It used to be unconditional, pinned
+			// to 100% when unset, and that is not the same thing as leaving it out: an explicit
+			// `<a:buSzPct val="100000"/>` *overrides* whatever bullet size the layout's or
+			// master's list style sets, so every bullet this path wrote silently forced its glyph
+			// back to full size. The same class of bug as the explicit `a:buNone` an omitted
+			// `bullet` emits — and invisible until `Paragraph.bulletDetail` gave the round-trip
+			// check something to see it with, which reported the added 100% on every bulleted
+			// fixture.
+			let bulletSizePct: number | undefined
 			if (opts.bullet.size !== undefined) {
 				const bulletSize = Number(opts.bullet.size)
 				// 25–400% is the range PowerPoint's bullet-size dialog accepts (and the
@@ -148,7 +157,7 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 					bulletSizePct = Math.round(bulletSize * FIXED_PCT_PER_PERCENT)
 				}
 			}
-			const strXmlBulletSize = voidEl('a:buSzPct', { val: bulletSizePct })
+			const strXmlBulletSize = bulletSizePct === undefined ? '' : voidEl('a:buSzPct', { val: bulletSizePct })
 			// NOTE: the builder escapes `typeface`, so the manual `encodeXmlEntities` that used to
 			// wrap it here is gone — keeping both would double-escape (`&` -> `&amp;amp;`).
 			const strXmlBulletFont = opts.bullet.fontFace ? voidEl('a:buFont', { typeface: opts.bullet.fontFace }) : ''
@@ -228,7 +237,11 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 			paragraphPropXml += ` marL="${
 				opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
 			}" indent="-${bulletMarL}"`
-			strXmlBullet = voidEl('a:buSzPct', { val: '100000' }) + buChar(BulletType.DEFAULT)
+			// No `a:buSzPct` here either — `bullet: true` asks for a bullet, not for one pinned
+			// to 100% of the body size in defiance of the master's list style. Same reasoning as
+			// the `a:buNone` note just below, and it keeps `bullet: true` byte-identical to
+			// `bullet: { type: 'bullet' }`, which the object branch above now also leaves out.
+			strXmlBullet = buChar(BulletType.DEFAULT)
 		} else if (!opts.bullet) {
 			// We only add this when the user explicitely asks for no bullet, otherwise, it can override the master defaults!
 			paragraphPropXml += ' indent="0" marL="0"' // FIX: specify zero indent and marL or default will be hanging paragraph

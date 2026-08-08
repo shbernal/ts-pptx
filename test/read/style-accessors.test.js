@@ -133,13 +133,14 @@ describe('Paragraph style reads — real PowerPoint XML (mixed.pptx slide7)', ()
 		assertEqual(hanging.indentPt, -27, 'matching hanging indent (indent -342900)')
 	})
 
-	test('bullet distinguishes buChar glyphs from explicit buNone', async () => {
-		const bullets = (await slide7Paragraphs()).map((p) => p.bullet)
-		assert(
-			bullets.some((b) => b?.startsWith('char:')),
-			`expected a glyph bullet; got ${JSON.stringify([...new Set(bullets)])}`
-		)
-		assert(bullets.includes('none'), 'expected an explicitly un-bulleted paragraph (a:buNone)')
+	test('bulletDetail distinguishes buChar glyphs from explicit buNone', async () => {
+		const bullets = (await slide7Paragraphs()).map((p) => p.bulletDetail)
+		const kinds = bullets.map((b) => b?.kind ?? null)
+		const glyph = bullets.find((b) => b?.kind === 'char')
+		assert(glyph, `expected a glyph bullet; got ${JSON.stringify([...new Set(kinds)])}`)
+		// A bare character, not a tagged string — the whole point of the structured form.
+		assertEqual(glyph.char.length > 0 && glyph.char.includes(':'), false, 'the glyph is not tagged')
+		assert(kinds.includes('none'), 'expected an explicitly un-bulleted paragraph (a:buNone)')
 	})
 })
 
