@@ -1,0 +1,298 @@
+// Layout-time public measurement API (docs/measured-text-fit.md). Three layers:
+//  A) the core measureText(registry, …) + shared buildFitParagraphs against src,
+//     with SYNTHETIC metrics so the suite is reproducible and needs no font files;
+//  B) the same through the built `ts-pptx/measure` subpath (P1 re-exports);
+//  C) the pptx.measureText()/overflowsBox() instance methods through dist (the
+//     heuristic path, so no real font is required).
+// The KEY correctness assertion is the no-drift test: measureText's height equals
+// the height the export-time resize bake (solveResize) uses for the same input.
+import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { describe, test, expect } from 'vitest'
+import { measureText } from '../../../src/measure/fit.ts'
+import { buildFitParagraphs } from '../../../src/measure/paragraphs.ts'
+import { makeRegistryResolver } from '../../../src/measure/font-metrics.ts'
+import { solveResize, solveShrink, HEIGHT_SAFETY_FACTOR, WIDTH_SAFETY_FACTOR } from '../../../src/measure/text-fit.ts'
+import { FontMetricsRegistry, parseFontMetrics, getHeuristicFontMetrics } from '../../../src/measure/font-metrics.ts'
+import TsPptx from '../../../dist/node.js'
+
+// Resolve a genuine Aptos font file via fontconfig; null when unavailable so the
+// file-backed coverage assertions skip on CI (same pattern as measured-fit-integration).
+function aptosPath() {
+	try {
+		const out = execFileSync('fc-match', ['-f', '%{family}\t%{file}', 'Aptos'], { encoding: 'utf8' })
+		const [fam, file] = out.split('\t')
+		return fam && file && fam.toLowerCase().includes('aptos') ? file.trim() : null
+	} catch {
+		return null
+	}
+}
+
+// Monospace synthetic metrics: every code point advances `emPerChar` ems.
+const mono = (emPerChar = 0.5) => ({
+	unitsPerEm: 1000,
+	advanceWidthPt(text, sizePt, charSpacingPt = 0) {
+		const n = [...text].length
+		return n * emPerChar * sizePt + n * charSpacingPt
+	},
+	// No cmap: like the unregistered-font heuristic, treat every code point as covered.
+	hasCodepoint: () => true,
+})
+
+const regWith = (face = 'Mono') => {
+	const r = new FontMetricsRegistry()
+	r.set(face, mono())
+	return r
+}
+
+const SENTENCE = 'aaaaaaaaaa bbbbbbbbbb cccccccccc dddddddddd eeeeeeeeee'
+
+describe('measureText core (synthetic metrics)', () => {
+	test('no drift: measureText height == solveResize bake height for the same input', () => {
+		const reg = regWith()
+		const opts = { wIn: 2, fontSize: 18, fontFace: 'Mono' }
+		const m = measureText(reg, SENTENCE, opts)
+
+		// Reproduce what the export pass would do, independently.
+		const paras = buildFitParagraphs([{ text: SENTENCE }], { fontSize: 18, fontFace: 'Mono' })
+		const innerWidthPt = opts.wIn * 72
+		const outcome = solveResize(paras, { innerWidthPt, innerHeightPt: 9999 }, makeRegistryResolver(reg))
+		if (outcome.kind !== 'resize') throw new Error(`expected a resize outcome, got ${outcome.kind}`)
+		expect(m.heightIn * 72).toBeCloseTo(outcome.neededInnerHeightPt, 6)
+	})
+
+	test('height errs tall by the HEIGHT_SAFETY_FACTOR vs the raw laid-out height', () => {
+		const reg = regWith()
+		const m = measureText(reg, 'one short line', { wIn: 10, fontSize: 12, fontFace: 'Mono' })
+		// Single line at 12pt: pitch 1.2117 * 12, inflated by the height safety factor.
+		expect(m.lineCount).toBe(1)
+		expect(m.heightIn * 72).toBeCloseTo(1.2117 * 12 * HEIGHT_SAFETY_FACTOR, 4)
+	})
+
+	test('narrower width wraps to more lines', () => {
+		const reg = regWith()
+		const wide = measureText(reg, SENTENCE, { wIn: 10, fontSize: 18, fontFace: 'Mono' })
+		const narrow = measureText(reg, SENTENCE, { wIn: 2, fontSize: 18, fontFace: 'Mono' })
+		expect(narrow.lineCount).toBeGreaterThan(wide.lineCount)
+		expect(narrow.heightIn).toBeGreaterThan(wide.heightIn)
+	})
+
+	test('insetIn shrinks the usable width on both sides', () => {
+		const reg = regWith()
+		const noInset = measureText(reg, SENTENCE, { wIn: 4, fontSize: 18, fontFace: 'Mono' })
+		const inset = measureText(reg, SENTENCE, { wIn: 4, fontSize: 18, fontFace: 'Mono', insetIn: 0.5 })
+		expect(inset.lineCount).toBeGreaterThanOrEqual(noInset.lineCount)
+	})
+
+	test('fitsBox mirrors the conservative height', () => {
+		const reg = regWith()
+		const m = measureText(reg, SENTENCE, { wIn: 2, fontSize: 18, fontFace: 'Mono' })
+		expect(m.fitsBox(m.heightIn)).toBe(true)
+		expect(m.fitsBox(m.heightIn - 0.01)).toBe(false)
+		expect(m.fitsBox(m.heightIn + 1)).toBe(true)
+	})
+
+	test('shrinkScaleFor: 100 when it fits, and matches solveShrink when it overflows', () => {
+		const reg = regWith()
+		const m = measureText(reg, SENTENCE, { wIn: 2, fontSize: 18, fontFace: 'Mono' })
+		expect(m.shrinkScaleFor(m.heightIn + 1)).toBe(100)
+
+		const tightIn = m.heightIn / 3
+		const paras = buildFitParagraphs([{ text: SENTENCE }], { fontSize: 18, fontFace: 'Mono' })
+		const outcome = solveShrink(paras, { innerWidthPt: 2 * 72, innerHeightPt: tightIn * 72 }, makeRegistryResolver(reg))
+		const expected = outcome.kind === 'shrink' ? outcome.result.fontScalePct : 100
+		expect(m.shrinkScaleFor(tightIn)).toBe(expected)
+		expect(m.shrinkScaleFor(tightIn)).toBeLessThan(100)
+	})
+
+	test('named face without exact metrics is still measurable (heuristic), and is reported', () => {
+		const reg = regWith() // only 'Mono' registered
+		const m = measureText(reg, 'hello world', { wIn: 5, fontSize: 12, fontFace: 'SomeOtherFace' })
+		expect(m.measurable).toBe(true)
+		expect(m.heightIn).toBeGreaterThan(0)
+		expect(m.approximatedFaces).toEqual(['SomeOtherFace'])
+	})
+
+	test('approximatedFaces is empty when every run is measured exactly', () => {
+		const reg = regWith()
+		const m = measureText(reg, SENTENCE, { wIn: 2, fontSize: 18, fontFace: 'Mono' })
+		expect(m.measurable).toBe(true)
+		expect(m.approximatedFaces).toEqual([])
+	})
+
+	test('approximatedFaces lists each guessed face once, exact runs excluded', () => {
+		const reg = regWith() // only 'Mono' registered
+		const m = measureText(
+			reg,
+			[
+				{ text: 'exact ', options: { fontFace: 'Mono' } },
+				{ text: 'guessed ', options: { fontFace: 'FaceA' } },
+				{ text: 'guessed again ', options: { fontFace: 'FaceA' } },
+				{ text: 'other', options: { fontFace: 'FaceB' } },
+			],
+			{ wIn: 20, fontSize: 12, fontFace: 'Mono' }
+		)
+		expect([...m.approximatedFaces].sort()).toEqual(['FaceA', 'FaceB'])
+	})
+
+	test('approximatedFaces is a caller-owned snapshot: mutating it cannot corrupt later calls', () => {
+		const reg = regWith()
+		const m = measureText(reg, 'hello world', { wIn: 5, fontSize: 12, fontFace: 'SomeOtherFace' })
+		m.approximatedFaces.push('Injected')
+		// shrinkScaleFor re-enters the same resolver; the returned array must not track it.
+		m.shrinkScaleFor(0.1)
+		expect(m.approximatedFaces).toEqual(['SomeOtherFace', 'Injected'])
+		expect(
+			measureText(reg, 'hello world', { wIn: 5, fontSize: 12, fontFace: 'SomeOtherFace' }).approximatedFaces
+		).toEqual(['SomeOtherFace'])
+	})
+
+	test('widestLineIn: single line == natural width (advance × WIDTH_SAFETY)', () => {
+		const reg = regWith()
+		const text = 'one short line' // 14 chars, mono 0.5em at 12pt = 84pt raw
+		const m = measureText(reg, text, { wIn: 100, fontSize: 12, fontFace: 'Mono' })
+		expect(m.lineCount).toBe(1)
+		const rawPt = [...text].length * 0.5 * 12
+		expect(m.widestLineIn * 72).toBeCloseTo(rawPt * WIDTH_SAFETY_FACTOR, 4)
+	})
+
+	test('widestLineIn: wrapped text is bounded by the inner width but > 0', () => {
+		const reg = regWith()
+		const wide = measureText(reg, SENTENCE, { wIn: 100, fontSize: 18, fontFace: 'Mono' })
+		const narrow = measureText(reg, SENTENCE, { wIn: 2, fontSize: 18, fontFace: 'Mono' })
+		// Unwrapped: widest line is the whole sentence; wrapped: <= the wide extent.
+		expect(narrow.widestLineIn).toBeGreaterThan(0)
+		expect(narrow.widestLineIn).toBeLessThanOrEqual(wide.widestLineIn + 1e-9)
+		expect(narrow.widestLineIn).toBeLessThanOrEqual(2 + 1e-9)
+	})
+
+	test('unnamed (theme-default) face is unmeasurable', () => {
+		const reg = regWith()
+		const m = measureText(reg, 'hello world', { wIn: 5, fontSize: 12 })
+		expect(m.measurable).toBe(false)
+		expect(m.heightIn).toBe(0)
+		expect(m.fitsBox(100)).toBe(false)
+		expect(m.shrinkScaleFor(100)).toBe(100)
+		expect(m.approximatedFaces).toEqual([]) // nothing was measured, so nothing was guessed
+	})
+
+	test('TextProps[] runs honor per-run overrides', () => {
+		const reg = regWith()
+		const m = measureText(
+			reg,
+			[
+				{ text: 'small ', options: { fontSize: 10 } },
+				{ text: 'BIG', options: { fontSize: 40 } },
+			],
+			{ wIn: 20, fontSize: 12, fontFace: 'Mono' }
+		)
+		// One line; line height follows the tallest run (40pt).
+		expect(m.lineCount).toBe(1)
+		expect(m.heightIn * 72).toBeCloseTo(1.2117 * 40 * HEIGHT_SAFETY_FACTOR, 4)
+	})
+})
+
+describe('ts-pptx/measure subpath (P1 re-exports, built)', () => {
+	test('re-exports resolve and measureText works through dist with a synthetic registry', async () => {
+		const mod = await import('../../../dist/measure.js')
+		for (const name of [
+			'measureLayout',
+			'measureHeightPt',
+			'solveShrink',
+			'solveResize',
+			'SINGLE_LINE_PITCH',
+			'FONT_SCALE_STEP_PCT',
+			'MIN_FONT_SCALE_PCT',
+			'WIDTH_SAFETY_FACTOR',
+			'HEIGHT_SAFETY_FACTOR',
+			'parseFontMetrics',
+			'getHeuristicFontMetrics',
+			'FontMetricsRegistry',
+			'buildFitParagraphs',
+			'makeRegistryResolver',
+			'measureText',
+		]) {
+			expect(mod[name], `missing export: ${name}`).toBeDefined()
+		}
+		const reg = new mod.FontMetricsRegistry()
+		reg.set('Mono', mono())
+		const m = mod.measureText(reg, SENTENCE, { wIn: 2, fontSize: 18, fontFace: 'Mono' })
+		expect(m.measurable).toBe(true)
+		expect(m.lineCount).toBeGreaterThan(1)
+	})
+})
+
+describe('FontMetrics.hasCodepoint (cmap coverage)', () => {
+	test('heuristic metrics report every code point as covered (no cmap to consult)', () => {
+		const h = getHeuristicFontMetrics()
+		expect(h.hasCodepoint(0x41)).toBe(true) // 'A'
+		expect(h.hasCodepoint(0x2011)).toBe(true) // non-breaking hyphen, still reported covered
+	})
+
+	test('file-backed Aptos: covers A and ordinary hyphen, lacks U+2011 non-breaking hyphen', async () => {
+		const path = aptosPath()
+		if (!path) return expect(true).toBe(true) // skip when fontconfig can't resolve Aptos
+		const fm = await parseFontMetrics(new Uint8Array(readFileSync(path)))
+		expect(fm.hasCodepoint(0x41)).toBe(true) // 'A' — present
+		expect(fm.hasCodepoint(0x2d)).toBe(true) // '-' ordinary hyphen-minus — present (contrast control)
+		expect(fm.hasCodepoint(0x2011)).toBe(false) // non-breaking hyphen — the canonical missing glyph
+	})
+})
+
+describe('FontMetricsRegistry.hasCodepoint (face-keyed coverage)', () => {
+	// Silkscreen is a committed pixel font with a small cmap: covers ASCII, lacks
+	// the U+2011 non-breaking hyphen — a deterministic covered/uncovered contrast
+	// with no fontconfig dependency.
+	const silkscreen = 'test/read/fixtures/fonts/Silkscreen-Regular.ttf'
+
+	test('a registered face reports true/false from its cmap', async () => {
+		const reg = new FontMetricsRegistry()
+		reg.set('Silkscreen', await parseFontMetrics(new Uint8Array(readFileSync(silkscreen))))
+		expect(reg.hasCodepoint('Silkscreen', 0x41)).toBe(true) // 'A' — covered
+		expect(reg.hasCodepoint('Silkscreen', 0x2011)).toBe(false) // non-breaking hyphen — not covered
+	})
+
+	test('an unregistered face returns undefined (unknown, not a false "not covered")', async () => {
+		const reg = new FontMetricsRegistry()
+		reg.set('Silkscreen', await parseFontMetrics(new Uint8Array(readFileSync(silkscreen))))
+		expect(reg.hasCodepoint('Nope', 0x41)).toBe(undefined)
+		expect(reg.hasCodepoint(undefined, 0x41)).toBe(undefined)
+	})
+
+	test('a bold query falls back to the registered regular variant', async () => {
+		const reg = new FontMetricsRegistry()
+		reg.set('Silkscreen', await parseFontMetrics(new Uint8Array(readFileSync(silkscreen))))
+		// Only the regular variant is registered; a bold lookup resolves through it.
+		expect(reg.hasCodepoint('Silkscreen', 0x41, { bold: true })).toBe(true)
+		expect(reg.hasCodepoint('Silkscreen', 0x2011, { bold: true })).toBe(false)
+	})
+})
+
+describe('pptx.measureText() / overflowsBox() instance methods (heuristic path)', () => {
+	test('named face is measurable via the heuristic even with no metrics registered', () => {
+		const pptx = new TsPptx()
+		const m = pptx.measureText('A heading that is reasonably long', { wIn: 2, fontSize: 18, fontFace: 'Arial' })
+		expect(m.measurable).toBe(true)
+		expect(m.heightIn).toBeGreaterThan(0)
+		expect(m.lineCount).toBeGreaterThanOrEqual(1)
+		// Zero setup → every face is guessed, and the result says so.
+		expect(m.approximatedFaces).toEqual(['Arial'])
+	})
+
+	test('unnamed face returns measurable:false', () => {
+		const pptx = new TsPptx()
+		expect(pptx.measureText('text', { wIn: 5, fontSize: 12 }).measurable).toBe(false)
+	})
+
+	test('overflowsBox: tall text in a tiny box overflows; short text does not', () => {
+		const pptx = new TsPptx()
+		const long = 'The quick brown fox jumps over the lazy dog. '.repeat(6)
+		expect(pptx.overflowsBox(long, { wIn: 2, hIn: 0.5, fontSize: 18, fontFace: 'Arial' })).toBe(true)
+		expect(pptx.overflowsBox('hi', { wIn: 5, hIn: 3, fontSize: 12, fontFace: 'Arial' })).toBe(false)
+	})
+
+	test('overflowsBox reports false for an unmeasurable (unnamed) face', () => {
+		const pptx = new TsPptx()
+		expect(pptx.overflowsBox('x'.repeat(500), { wIn: 1, hIn: 0.2, fontSize: 40 })).toBe(false)
+	})
+})

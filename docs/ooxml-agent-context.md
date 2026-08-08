@@ -148,7 +148,7 @@ Useful local files:
 
 - `tools/ooxml-validator/README.md`
 - `test/schema-cases.js`
-- `test/schema-validation.test.mjs`
+- `test/schema-validation.test.js`
 - `test/validator.js`
 - `src/gen/` (OOXML generators: `define/*` normalize, `slide|drawingml|chart|pres|opc|anim|table/*` serialize)
 - `src/gen/oxml/el.ts` (XML element builder used by the emitters)

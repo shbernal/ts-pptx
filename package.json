@@ -89,7 +89,7 @@
 		"check:package": "pnpm run ensure-dist && pnpm run package:lint && pnpm run test:package && pnpm run bundle-size:check",
 		"test": "pnpm run ensure-dist && vitest run",
 		"test:unit": "pnpm run ensure-dist && vitest run test/regression",
-		"test:schema": "pnpm run ensure-dist && vitest run test/schema-validation.test.mjs",
+		"test:schema": "pnpm run ensure-dist && vitest run test/schema-validation.test.js",
 		"schema:versions": "pnpm run ensure-dist && node scripts/ooxml-version-probe.mjs",
 		"test:read": "pnpm run ensure-dist && vitest run test/read",
 		"test:read:emit": "pnpm run ensure-dist && node scripts/read-emit-roundtrip.mjs",

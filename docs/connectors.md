@@ -165,6 +165,6 @@ which maps to the `…Connector3` variants.
 - Where it lives in the pipeline: [Architecture](architecture.md) —
   `gen/define/connector.ts` `addConnectorDefinition` (add) →
   `gen/slide/objects/connector.ts` `renderConnectorObject` (emit `<p:cxnSp>`).
-- Regression coverage: `test/regression/connector-shape.test.js`.
+- Regression coverage: `test/regression/shape/connector-shape.test.js`.
 - Schema fixture: `connectors (straight/elbow/curved, flipped, arrowheads)` in
   `test/schema-cases.js`.

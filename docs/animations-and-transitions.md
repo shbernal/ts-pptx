@@ -23,7 +23,7 @@ byte-for-byte. See the backlog entry `gitbrent/PptxGenJS#1431` (status
 `src/read/api/slide.ts` (read accessors); `src/types/index.ts`,
 `src/slide.ts`, `src/gen/anim/` (write). Tests:
 `test/read/animations-transitions.test.js`,
-`test/regression/animations-transitions.test.js`, and two
+`test/regression/slide-content/animations-transitions.test.js`, and two
 `test/schema-cases.js` validator fixtures.
 
 This doc records the agreed read/write scope so the fixtures + oracles could be

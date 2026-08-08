@@ -103,7 +103,7 @@ supported.
   HTML `<table>` → slides is **not** in that category any more. `tableToSlides`
   is a supported, tested, portable path: it ships as a free function on
   `ts-pptx/html`, runs under Node with any DOM implementation, and is covered
-  end-to-end against happy-dom (`test/regression/html-to-slides-node.test.js`).
+  end-to-end against happy-dom (`test/regression/html/html-to-slides-node.test.js`).
   What it cannot do without a browser is *measure* — `offsetWidth` is `0` where
   nothing laid the table out — so column widths fall back to the computed CSS
   widths, then to an equal split, and `data-pptx-width` /
@@ -126,12 +126,12 @@ supported.
   *Contributor note:* the established pattern is to extract the DOM-independent
   decision into a pure helper and unit-test it with synthetic inputs. The
   originals are `resolveHtmlColWidth` / `htmlBorderToProps`
-  (`test/regression/html-table-col-width.test.js`,
+  (`test/regression/html/html-table-col-width.test.js`,
   `html-table-border-width.test.js`); the portability work added
   `pickColWidthBasis`, `parseCssWidthBasis`, `parseCssPx`, `cssColorToHex` and
-  `readCellText` (`test/regression/html-table-portable-basis.test.js`), and the
+  `readCellText` (`test/regression/html/html-table-portable-basis.test.js`), and the
   HTML-vs-pptx grid reconciliation added `measureGridColumns` / `extendColBasis`
-  (`test/regression/html-table-grid.test.js`). Follow
+  (`test/regression/html/html-table-grid.test.js`). Follow
   it — those helpers are why the flow could be made portable at all. A
   full-fidelity *layout* repro still needs a headless browser
   (Playwright/Puppeteer), which is not a project dependency; a DOM-only repro no

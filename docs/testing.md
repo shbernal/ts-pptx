@@ -61,7 +61,7 @@ Once `dist/` is current (a `watch:dev` running, or after `pnpm run build`), driv
 Vitest directly — these skip the build, so mind the stale-`dist/` caveat:
 
 ```bash
-pnpm exec vitest run test/regression/object-identity.test.js   # one file
+pnpm exec vitest run test/regression/api/object-identity.test.js   # one file
 pnpm exec vitest run test/regression -t "content type default"  # by test name
 ```
 
@@ -76,6 +76,16 @@ Regression tests live in `test/regression/` and are organized by behavior, not
 by historical bug number. File names should describe the contract being tested,
 such as `object-identity.test.js`, `content-type-defaults.test.js`, or
 `slide-master-placeholders.test.js`.
+
+They are grouped into one directory per subject — `chart/`, `table/`, `text/`, `image/`,
+`shape/`, `master-layout/`, `color-fill/`, `media/`, `slide-content/`, `html/`, `package/`,
+and `api/` for the cross-cutting rest. The grouping follows the filename prefix, so a new
+file's home is normally obvious from its name; when a file could sit in two groups, put it
+with the subsystem whose *emission* it asserts on. Nothing in the tooling keys on the
+directory — Vitest globs the tree — so a file can be moved between groups freely.
+
+Paths inside a suite are relative to its group directory: `../../helpers.js`,
+`../../../dist/node.js`, `../../read/fixtures/…`.
 
 Each regression file calls `defineRegressionSuite()` from `test/helpers.js`.
 The optional second argument records legacy provenance, for example
@@ -97,18 +107,18 @@ package part, relationship, OOXML element, attribute, or absence of generated
 parts. Name the file after the behavior, and include bug or upstream issue
 context in the suite metadata or test name only when it helps future triage.
 
-### `.test.js` vs `.test.mjs`
+### File extensions
 
-Both extensions coexist under `test/regression/` (the bulk are `.test.js`; a
-handful are `.test.mjs`). The package is `"type": "module"`, so `.js` is
-already ESM and Vitest resolves and runs both identically — the suffix has **no
-functional effect** here (no build, transform, or resolution difference), and
-both can import from `dist/` or `src/`. The `.mjs` files are a historical subset
-that made the ESM boundary explicit for tests exercising built entry points or
-the measurement/runtime subsystems directly with Vitest's `describe`/`test`
-API, rather than the shared `defineRegressionSuite()` harness. Prefer
-`.test.js` for new regression files to match the majority; use `.mjs` only if
-you have a specific reason to signal the ESM boundary.
+Every Vitest file is `*.test.js`. The package is `"type": "module"`, so `.js` is already ESM
+and needs no `.mjs` to say so. A subset used to carry `.mjs` to mark tests that drive built
+entry points with Vitest's `describe`/`test` API rather than the shared
+`defineRegressionSuite()` harness, but the suffix had no functional effect — Vitest resolved
+and ran both identically — so the distinction cost a paragraph of explanation and bought
+nothing a reader could rely on. Which harness a file uses is visible in the file.
+
+The one exception is the browser lane: `test/browser/*.spec.mjs` are **Playwright** specs, not
+Vitest ones, and are matched by name in `playwright.config.ts` (and excluded from Vitest's
+`include`). There the different extension marks a genuinely different runner.
 
 ## Coverage Gate
 
@@ -309,7 +319,7 @@ construction" on that reasoning before a probe showed both green. Applies to eve
 
 **The src-import trap above applies to emitters too, and is easy to misread as a
 gap.** `gen/slide/comments.ts` sits near 64% branches and is not untested —
-`comments-xml.test.mjs` exercises every one of its red arms with stub slides, but it
+`comments-xml.test.js` exercises every one of its red arms with stub slides, but it
 imports from `src/`, so it can never move a `dist` number. That is the third
 instance in the repo, after `html-dom.ts`'s helpers and `zoom-links.test.js`. Check
 the import path of the tests that already name a file before calling its number a
@@ -370,7 +380,7 @@ pnpm run test:schema
 
 Use this path for emitted OOXML changes. Add or update focused fixtures in
 `test/schema-cases.js` (a flat fixture data module — not a Vitest suite despite
-living under `test/`; the runner `test/schema-validation.test.mjs` consumes it).
+living under `test/`; the runner `test/schema-validation.test.js` consumes it).
 
 The fixtures run **concurrently** (`describe.concurrent`), which took the suite
 from ~50s to ~10s and is what lets `verify` include it. Two consequences worth
@@ -712,7 +722,7 @@ break, so a continuation slide accepted a row it had no room for. The browser's
 contribution was the cross-runtime assertion — proving the report was never about a
 rendered page, and moving the entry out of the browser bucket rather than deeper into
 it. Fixed in `src/gen/table/autopage.ts`; the regression that guards it is DOM-free too
-(`test/regression/table-autopage-continuation-budget.test.js`). The triage rule that came
+(`test/regression/table/table-autopage-continuation-budget.test.js`). The triage rule that came
 out of it — ask what the browser actually supplies to a code path before accepting a
 report as a layout report — is stated with the scope line in
 [project target](project-target.md).

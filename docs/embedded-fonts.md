@@ -28,7 +28,7 @@ in the file*. Two independent entry points share one OOXML model:
 
 Both converge on the shared model and serializer in `src/embedded-fonts.ts`.
 See `CHANGELOG.md` for the import-carry limits. Tests:
-`test/regression/embed-font.test.js` (author-side), `test/read/embedded-fonts.test.js`
+`test/regression/media/embed-font.test.js` (author-side), `test/read/embedded-fonts.test.js`
 (import-carry, incl. schema validity), and an author-side case in
 `test/schema-cases.js` (validator-checked against the oracle).
 

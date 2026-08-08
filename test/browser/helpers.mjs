@@ -119,7 +119,7 @@ export async function buildTableInHarness(page, scenario) {
 /**
  * Convert the same fixture in Node, against a DOM that renders nothing.
  *
- * happy-dom is the same DOM `test/regression/html-to-slides-node.test.js` drives, and the
+ * happy-dom is the same DOM `test/regression/html/html-to-slides-node.test.js` drives, and the
  * point of building here too is that `offsetWidth` is `0` for every cell — so the widths
  * come from the *other* basis. That contrast is the assertion, not an incidental detail.
  */

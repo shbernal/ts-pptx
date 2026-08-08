@@ -65,7 +65,7 @@ export default defineConfig({
 			// is no longer true: the `ts-pptx/html` entry imports it too, so tsdown emits
 			// it as its own shared `dist/html-dom-*.js` chunk — also not excluded. The
 			// Node suite executes it against a real DOM
-			// (test/regression/html-to-slides-node.test.js), so it is covered code now,
+			// (test/regression/html/html-to-slides-node.test.js), so it is covered code now,
 			// not unreachable code.
 			//
 			// Nothing of this repo's own is excluded any more. The defaults are restated
@@ -101,7 +101,7 @@ export default defineConfig({
 				// `src/runtime/browser.ts`'s 13 functions into this denominator with 1 of them
 				// reachable from Node, so the Node-only number fell 98.33 -> 97.35. It reads
 				// 97.77 now that the public accessors have tests
-				// (test/regression/public-accessors.test.js), and 98.29 merged.
+				// (test/regression/api/public-accessors.test.js), and 98.29 merged.
 				functions: 97,
 				// Raised 94 -> 95 once the zoom/background definers landed, measured 96.00 at
 				// the time; the same exclusion drop took it to 95.67, and it reads 95.74 now.

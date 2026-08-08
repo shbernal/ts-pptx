@@ -20,7 +20,7 @@
     *rendered* page: real `offsetWidth` after layout, the resolved cascade, fonts
     as the browser chose them. `tableToSlides()` is NOT in this category any more:
     it ships as a free function on `ts-pptx/html`, runs under Node with any DOM,
-    and is covered against happy-dom (`test/regression/html-to-slides-node.test.js`).
+    and is covered against happy-dom (`test/regression/html/html-to-slides-node.test.js`).
     Only real *measurement* is out of scope there — without a layout engine
     `offsetWidth` is `0`, so column widths fall back to computed CSS widths then to
     an equal split. Say "fall back", not "degrade": `offsetWidth` is the border box

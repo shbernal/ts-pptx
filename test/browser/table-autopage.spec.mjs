@@ -23,7 +23,7 @@ import { buildTableInHarness, buildTableInNode, openTableHarness, packageBytes }
  * accept one row more than it had room for. Nothing about that needed a browser; the report's
  * browser flavour is why it read as a layout question for two years. The fix and the DOM-free
  * regression are in `src/gen/table/autopage.ts` and
- * test/regression/table-autopage-continuation-budget.test.js.
+ * test/regression/table/table-autopage-continuation-budget.test.js.
  *
  * ── What is and is not claimed ─────────────────────────────────────────────────────────────────
  *

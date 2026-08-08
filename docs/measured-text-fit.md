@@ -28,7 +28,7 @@ calibrated against PowerPoint-authored fixtures. Source:
   cells and rewrites the slide object before the sync XML build.
 - `pptx.registerFontMetrics()` — the public registration API.
 
-Held conservative by `test/read/autofit-calibration-oracle.test.mjs` (computed
+Held conservative by `test/read/autofit-calibration-oracle.test.js` (computed
 shrink `fontScale` ≤ PowerPoint's; computed resize `cy` ≥ PowerPoint's *and* ≥
 LibreOffice's). See `CHANGELOG.md` for the change history.
 
@@ -114,7 +114,7 @@ via `RuntimeAdapter.loadFontData` (node `fs` / browser `fetch`).
   build. It extracts paragraphs/runs (mirroring `gen/slide/objects/` grouping + inheritance),
   computes the inner box from `w`/`h`/insets/margin, then:
   - `'shrink'` → rewrites `fit:'shrink'` to the object form with the computed
-    `fontScale`, so `gen/drawingml/text.ts` emits `<a:normAutofit fontScale=…/>`.
+    `fontScale`, so `gen/drawingml/text-run.ts` emits `<a:normAutofit fontScale=…/>`.
   - `'resize'` → rewrites `options.h` (and `options.y` per the resolved vertical
     anchor) as `"<emu>emu"` strings, so `gen/slide/objects/text.ts` emits the baked `ext.cy`/`off.y`
     while keeping the `<a:spAutoFit/>` marker. `off.y` shifts by 0 / half / full of
@@ -171,7 +171,7 @@ The library cannot tell "never intended to register" from "intended to register 
 the load silently failed"; detecting the latter is the caller's job, at font-load
 time. `measureText` reports every named face it had to guess at in
 `approximatedFaces`, so a caller that needs exact numbers can check rather than
-assume. `measured-fit-integration.test.mjs` pins this divergence so it cannot change
+assume. `measured-fit-integration.test.js` pins this divergence so it cannot change
 silently.
 
 ## Layout-time measurement (public API)
@@ -230,7 +230,7 @@ calibration constants, and `parseFontMetrics`/`getHeuristicFontMetrics`/
 `FontMetricsRegistry`. `opentype.js` stays lazily imported (only `parseFontMetrics`
 pulls it in), keeping the subpath cheap to import.
 
-A regression (`test/regression/measure-text-api.test.mjs`) asserts the no-drift
+A regression (`test/regression/text/measure-text-api.test.js`) asserts the no-drift
 contract: `measureText`'s height equals the height `solveResize` (the export bake)
 computes for the same input.
 

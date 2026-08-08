@@ -147,7 +147,7 @@ sweep, not a 40° one.
 
 The wide source photo is cropped to the box aspect — not squashed — and the curved
 edge is a smooth ellipse arc. See `demos/common/image-in-shape.js` for a runnable
-version, and `test/regression/image-shape.test.js` for the composition tests.
+version, and `test/regression/image/image-shape.test.js` for the composition tests.
 
 ## Named silhouettes: `clipPath()`
 
