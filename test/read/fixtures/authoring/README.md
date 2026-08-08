@@ -22,7 +22,15 @@ be invoked from anywhere:
 ```powershell
 & test\read\fixtures\authoring\author-read-stress.ps1        # re-authors ../read-stress.pptx
 node test/read/fixtures/authoring/build-oracles.mjs          # re-derives the oracle sidecars
+node test/read/fixtures/authoring/gen-cases.mjs --help       # the one here that takes flags
 ```
+
+`gen-cases.mjs` and `measure-lo.py` were duplicated under `scripts/` until August 2026,
+with nothing keeping the copies in step. This directory is the single home for both:
+their output feeds the Windows authoring step next door, so they are recipes like
+everything else here. `scripts/` keeps only `extract-autofit-calibration.mjs`, which
+derives its table from the finished decks and needs no desktop app —
+[`scripts/README.md`](../../../../scripts/README.md) states the boundary.
 
 Two things to know before you commit the result:
 

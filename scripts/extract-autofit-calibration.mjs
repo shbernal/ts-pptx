@@ -144,7 +144,7 @@ function main() {
 	}
 	// Preserve any previously-committed LibreOffice column so re-running on a box
 	// without the (uncommitted) <deck>.lo.json files does not clobber it. The LO
-	// measurement is a Windows+LibreOffice step (scripts/measure-autofit-lo.py).
+	// measurement is a Windows+LibreOffice step (test/read/fixtures/authoring/measure-lo.py).
 	const outPath = resolve(FIX, 'autofit-calibration.json')
 	const priorLo = {}
 	if (existsSync(outPath)) {

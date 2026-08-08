@@ -4,11 +4,15 @@ $REPO    = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..\..')).Path
 $FIX     = Join-Path $REPO 'test\read\fixtures'
 $SCRATCH = Join-Path $REPO '.tmp'
 $ASSETS  = Join-Path $PSScriptRoot 'assets'
-$FIX = $FIX
 $TMP = $SCRATCH
-$engine = "$TMP\author-deck.ps1"
+# Both live here, beside this recipe. They used to be read from $TMP, which is how the
+# generator came to exist twice: the copy under scripts/ was edited, the .tmp copy this
+# line actually loaded was whatever had last been staged there, and neither was the file
+# a reader would open. Resolve from $PSScriptRoot like every other recipe in this
+# directory, so the file that runs is the file that is tracked.
+$engine = Join-Path $PSScriptRoot 'author-deck.ps1'
+$measure = Join-Path $PSScriptRoot 'measure-lo.py'
 $py = 'C:\Users\000023500\AppData\Local\Programs\LibreOffice\program\python.exe'
-$measure = "$TMP\measure-lo.py"
 
 # deck -> whether to run the LibreOffice cross-measure
 $decks = [ordered]@{

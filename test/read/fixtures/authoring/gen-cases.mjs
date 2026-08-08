@@ -1,8 +1,13 @@
 // Generates the *.cases.json manifests for the autofit calibration decks.
-// Output is committed next to each .pptx in test/read/fixtures/.
+// Output is committed to the parent directory, next to each .pptx it authors.
+//
+// No shebang: nothing in this directory has one. Every file here is an entry point
+// invoked as `node <path>`, so the marker that earns its keep in `scripts/` — where it
+// separates a command from a library module — would distinguish nothing.
 import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
+import { parseCliOrExit } from '../../../../scripts/script-utils.mjs'
 
 // This script lives in test/read/fixtures/authoring/, so the fixtures dir is its parent.
 const FIX = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -382,8 +387,27 @@ function deck4() {
 }
 
 const decks = { 'autofit-line-metrics': deck1, 'autofit-shrink': deck2, 'autofit-resize': deck3, 'autofit-edge': deck4 }
-const which = process.argv[2]
-const names = which ? [which] : Object.keys(decks)
+
+const USAGE = `Generate the *.cases.json manifests the autofit fixtures are authored from.
+
+  node test/read/fixtures/authoring/gen-cases.mjs           every deck
+  node test/read/fixtures/authoring/gen-cases.mjs <deck>    one deck
+
+Decks: ${Object.keys(decks).join(', ')}
+
+Options:
+  -h, --help  show this message`
+
+const { positionals } = parseCliOrExit(process.argv.slice(2), { usage: USAGE, allowPositionals: true, options: {} })
+// Validated rather than indexed blind: an unknown name used to reach `decks[name]()`
+// and fail as "decks[name] is not a function", which names nothing the caller typed.
+const unknown = positionals.filter((name) => !(name in decks))
+if (unknown.length) {
+	console.error(`unknown deck: ${unknown.join(', ')}`)
+	console.error('\n' + USAGE)
+	process.exit(2)
+}
+const names = positionals.length ? positionals : Object.keys(decks)
 for (const name of names) {
 	const spec = decks[name]()
 	const out = resolve(FIX, `${name}.cases.json`)

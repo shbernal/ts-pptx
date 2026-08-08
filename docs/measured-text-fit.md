@@ -276,8 +276,12 @@ Arial**.
 
 The decks are the source of truth; `test/read/fixtures/autofit-calibration.json`
 (with the LibreOffice cross-measure column) is the derived, regenerable table the
-Node-only/Linux test suite reads. Regeneration tooling: `scripts/gen-autofit-cases.mjs`,
-`scripts/measure-autofit-lo.py`, `scripts/extract-autofit-calibration.mjs`.
+Node-only/Linux test suite reads. Regeneration tooling splits along what each piece
+needs: the authoring chain is Windows-only and lives with the recipes it feeds
+(`test/read/fixtures/authoring/gen-cases.mjs` writes the manifests `author-all.ps1`
+authors from, `measure-lo.py` beside it adds the LibreOffice column), while
+`scripts/extract-autofit-calibration.mjs` derives the table from the committed decks
+and runs anywhere.
 Provenance, SHA-256 hashes, and the case-id scheme are in
 `test/read/fixtures/README.md`.
 

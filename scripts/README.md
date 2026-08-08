@@ -39,11 +39,9 @@ proving nothing, which is how `script-roundtrip.mjs` sat runnable-but-unrun. Kee
 | `docs-new.mjs` | Generator | Creates a new doc page from the template | manual (`docs:new`) |
 | `ensure-dist.mjs` | Gate | `dist/` freshness guard; builds, or `--check` fails | almost every `pnpm run` |
 | `extract-autofit-calibration.mjs` | Generator | Fixture decks → `autofit-calibration.json` | manual, on fixture change |
-| `gen-autofit-cases.mjs` | Generator | The `*.cases.json` autofit manifests — **duplicated**, see below | manual, on fixture change |
 | `gen-inspect-snapshot.mjs` | Generator | The inspect-surface snapshot | manual; asserted by a regression test |
 | `generate-llms-docs.mjs` | Generator | `docs/public/llms*.txt` | `docs:prepare` |
 | `install-hooks.mjs` | Library | Installs lefthook, skipping where it cannot | `prepare` |
-| `measure-autofit-lo.py` | Generator | LibreOffice cross-measure (Windows, needs LO) — **duplicated**, see below | manual — the one non-Node script |
 | `ooxml-version-probe.mjs` | Diagnostic | Validator error counts across Office versions | manual (`schema:versions`) |
 | `pack-utils.mjs` | Library | `pnpm pack` helpers for the two package gates | — |
 | `package-lint.mjs` | Gate | `publint` + `attw` on the packed tarball | `verify:full`, `check:package` |
@@ -71,23 +69,28 @@ are the second kind, and the reasons are worth not re-litigating:
   open in desktop PowerPoint and confirm no repair prompt. CI has no PowerPoint; running
   them there would produce files nobody opens.
 
-### Two generators exist twice — unresolved
+### Where fixture tooling lives, and why not here
 
-Found while writing this table, recorded here rather than fixed because which directory
-owns fixture authoring is a call worth making deliberately:
+`gen-autofit-cases.mjs` and `measure-autofit-lo.py` used to sit in this directory *and*
+in `test/read/fixtures/authoring/`, the second as a byte-identical copy and a near-identical
+one. Nothing kept either pair in step. They now live only in the authoring directory, and
+the line that put them there is worth stating so the next generator lands on the right side
+of it:
 
-- `scripts/measure-autofit-lo.py` and `test/read/fixtures/authoring/measure-lo.py` are
-  **byte-identical**.
-- `scripts/gen-autofit-cases.mjs` and `test/read/fixtures/authoring/gen-cases.mjs` are the
-  same ~380-line generator, differing only in how each resolves the fixtures directory.
-  Both write the same four `*.cases.json` files.
+- **Feeds the authoring of a fixture → `test/read/fixtures/authoring/`.** `gen-cases.mjs`
+  writes the `*.cases.json` manifests that `author-deck.ps1` reads to drive PowerPoint;
+  `measure-lo.py` is invoked by `author-all.ps1` in the same directory. Their output is an
+  *input* to a Windows-only, PowerPoint-and-LibreOffice step, so they belong beside the
+  recipe that consumes them — which is also what `docs/testing.md` already told readers.
+- **Derives from an already-committed fixture → here.** `extract-autofit-calibration.mjs`
+  reads the finished `.pptx` decks with `fflate` and produces `autofit-calibration.json`.
+  It needs no desktop app and runs on any platform, so a Linux contributor can regenerate
+  the table from a clean checkout. That is a different kind of thing from a recipe.
 
-Nothing keeps either pair in step, so editing one copy silently leaves the other stale.
-`test/read/fixtures/authoring/README.md` documents its copies as part of the authoring
-workflow, alongside the `author-*.ps1` scripts; `docs/measured-text-fit.md`,
-`test/read/fixtures/README.md` and `extract-autofit-calibration.mjs` point at the
-`scripts/` copies — and that last file cites *both* paths in different comments. Pick one
-home, delete the other, and update the four references.
+The stale-copy mechanism was worth understanding rather than just deleting: `author-all.ps1`
+loaded its engine and measure script from `.tmp/` rather than from `$PSScriptRoot`, so the
+file that actually ran was whatever had last been staged into scratch — neither tracked copy.
+That indirection is gone too; every recipe there now resolves from its own location.
 
 ## Conventions
 
