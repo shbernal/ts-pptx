@@ -18,6 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ChartFill.noFill`, `ChartLine.noFill` and `CellBorder.noFill` already; the shape fill was
   the omission. `Shape.noFill()` has always been able to *write* this state.
 
+- **`Shape.lineCap` and `Shape.lineAlign` read `a:ln/@cap` and `a:ln/@algn`.** `@cap` was a
+  write/read asymmetry inside this library: `ShapeLineProps.cap` authors it and nothing read
+  it back, so a deck this writer produced could not round-trip through its own reader without
+  losing an attribute the writer put there on purpose. Both report the raw OOXML token, the
+  way `lineDash` reports `@val` — `'flat'` / `'rnd'` / `'sq'` and `'ctr'` / `'in'` — and
+  `null` when unset rather than a defaulted value. On a thick dashed rule the cap decides
+  whether each dash reads as a rectangle or a lozenge and changes the drawn length of every
+  one; SVG's `stroke-linecap` is the exact equivalent.
+
 - **`clipPath()` names the clip silhouettes you would otherwise re-derive.** A `ClipShape`
   is data — a named silhouette plus its options — and `clipPath(shape, w, h)` resolves it to
   the freeform `points` path `addImage` emits as its `<a:custGeom>` clip mask. The first

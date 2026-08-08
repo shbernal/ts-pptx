@@ -476,6 +476,34 @@ export abstract class Shape {
 	}
 
 	/**
+	 * The line end cap (`spPr/a:ln/@cap`) as the raw OOXML token — `'flat'`,
+	 * `'rnd'` (round) or `'sq'` (square) — or `null` when unset (PowerPoint's
+	 * default is `flat`). The write API authors this attribute through
+	 * `ShapeLineProps.cap`, so without the accessor a deck this library produced
+	 * could not be read back without losing it.
+	 *
+	 * Not cosmetic on a thick dashed rule: the cap decides whether each dash reads
+	 * as a rectangle or a lozenge, and it extends every dash by the stroke width.
+	 * SVG's `stroke-linecap` is the exact equivalent (`flat`→`butt`, `rnd`→`round`,
+	 * `sq`→`square`).
+	 */
+	get lineCap(): string | null {
+		const ln = this.#line()
+		return ln ? (attr(ln, 'cap') ?? null) : null
+	}
+
+	/**
+	 * The line alignment (`spPr/a:ln/@algn`) as the raw OOXML token — `'ctr'`
+	 * (centred on the shape's outline) or `'in'` (inset, drawn wholly inside it) —
+	 * or `null` when unset. It shifts a thick outline by half its width, so it
+	 * changes where the border sits relative to the fill.
+	 */
+	get lineAlign(): string | null {
+		const ln = this.#line()
+		return ln ? (attr(ln, 'algn') ?? null) : null
+	}
+
+	/**
 	 * Preset geometry name (`spPr/a:prstGeom/@prst`, e.g. `rect`), or `null` for
 	 * custom geometry or none. Not an auto-shape-only property: PowerPoint gives a
 	 * picture and a connector a preset geometry too (a `p:pic` is `rect` unless it

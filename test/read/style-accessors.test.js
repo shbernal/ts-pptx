@@ -289,6 +289,25 @@ describe('Shape line dash / explicit no-line reads (off-fixture)', () => {
 		assertEqual(themed.fillColor, null, 'which reads identically to the no-fill shape on every other accessor')
 	})
 
+	test('lineCap and lineAlign surface a:ln/@cap and @algn verbatim', () => {
+		const round = sp('<p:spPr><a:ln w="76200" cap="rnd" algn="ctr"><a:prstDash val="dash"/></a:ln></p:spPr>')
+		// The raw OOXML tokens, matching how lineDash reports @val — not the write
+		// API's friendly 'round'/'square' spelling.
+		assertEqual(round.lineCap, 'rnd', 'a:ln/@cap verbatim')
+		assertEqual(round.lineAlign, 'ctr', 'a:ln/@algn verbatim')
+
+		const square = sp('<p:spPr><a:ln cap="sq"/></p:spPr>')
+		assertEqual(square.lineCap, 'sq', 'square cap')
+		assertEqual(square.lineAlign, null, 'unset @algn reads null, not a defaulted token')
+
+		const plain = sp('<p:spPr><a:ln w="12700"/></p:spPr>')
+		assertEqual(plain.lineCap, null, 'unset @cap reads null, not a defaulted "flat"')
+
+		const noLine = sp('<p:spPr/>')
+		assertEqual(noLine.lineCap, null, 'no a:ln at all → null')
+		assertEqual(noLine.lineAlign, null, 'no a:ln at all → null')
+	})
+
 	// lineGradient points the (fixture-validated, see gradient-fill.pptx) a:gradFill
 	// reader at the a:ln container instead of spPr. Explicit srgb stops resolve
 	// without a theme, so a minimal themeContext stub is enough off-fixture.
