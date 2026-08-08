@@ -37,6 +37,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   read model's `left`/`top`/`width`/`height`, because it is the source rectangle of a
   mapping, not a frame on the slide.
 
+### Fixed
+
+- **`readModelToIr` now emits its `table.rowAuto` note when *every* row is auto-height**, not
+  only when some are. The guard excluded the all-auto case explicitly, and that case is both
+  the more common one — a table authored with no explicit row heights has `a:tr/@h="0"` on
+  every row — and a real loss: no `rowH` is emitted at all, so `addTable` divides the frame
+  height evenly and three auto rows come back pinned to a third of the frame each. The table
+  still looks the same; what is lost is the *implicitness*, which matters the moment someone
+  edits a cell and expects the row to grow. A round-trip oracle gated on "nothing undeclared"
+  is only as good as its note set, and this was a difference passing through undeclared.
+
 - **`clipPath()` names the clip silhouettes you would otherwise re-derive.** A `ClipShape`
   is data — a named silhouette plus its options — and `clipPath(shape, w, h)` resolves it to
   the freeform `points` path `addImage` emits as its `<a:custGeom>` clip mask. The first

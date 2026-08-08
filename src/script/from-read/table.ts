@@ -62,10 +62,24 @@ export function tableCall(frame: GraphicFrame, table: Table, notes: NoteScope, a
 	}
 
 	// A row of height 0 is PowerPoint's "auto — as tall as its content needs", not a
-	// zero-height row. The write path takes it literally and then lets the row grow anyway,
-	// so the output reports whatever height the content forced. Nothing is visibly wrong;
-	// the row simply stops being auto and is pinned to that measurement.
-	if (rowHeights.some((height) => height === 0) && !rowHeights.every((height) => height === 0)) {
+	// zero-height row, and neither the mixed nor the all-auto case survives the write path.
+	// Nothing is visibly wrong either way; what is lost is the *implicitness*, which matters
+	// the moment someone edits a cell and expects the row to grow.
+	//
+	// The all-auto case is the more common of the two — a table authored without explicit row
+	// heights has `a:tr/@h="0"` on every row — and it went undeclared for longer precisely
+	// because it looks like the harmless one. It is the case where `rowH` is omitted entirely
+	// below, and `addTable` then divides the frame height evenly rather than leaving the rows
+	// auto, so three auto rows come back pinned to a third of the frame each.
+	const autoRows = rowHeights.filter((height) => height === 0).length
+	if (autoRows === rowHeights.length && autoRows > 0) {
+		notes.note(
+			'table.rowAuto',
+			'approximated',
+			'unsupported',
+			'every row is auto-height (a:tr/@h of 0), so no rowH is emitted and addTable divides the frame height evenly among the rows; the rows come back pinned to that even split rather than sized to their content'
+		)
+	} else if (autoRows > 0) {
 		notes.note(
 			'table.rowAuto',
 			'approximated',
