@@ -46,9 +46,11 @@ const FIT: Record<string, string> = { none: 'none', normAutofit: 'shrink', spAut
 const WRITABLE_VERT = new Set(['eaVert', 'horz', 'mongolianVert', 'vert', 'vert270', 'wordArtVert', 'wordArtVertRtl'])
 
 /**
- * `a:buAutoNum/@type` values, used to tell a numbered bullet from a character bullet.
- * The read model reports both as a single string — the character for `a:buChar`, the
- * `@type` token for `a:buAutoNum` — so membership here is the only discriminator.
+ * The `a:buAutoNum/@type` values the write API's `numberType` names.
+ *
+ * This used to be the *discriminator* between a numbered and a character bullet, back when
+ * the read model reported both as one tagged string. `BulletDetail.kind` does that now, so
+ * the set has one job left: telling a scheme the write path can spell from one it cannot.
  */
 const AUTO_NUMBER_TYPES = new Set([
 	'alphaLcParenBoth',
