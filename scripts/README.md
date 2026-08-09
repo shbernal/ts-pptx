@@ -52,6 +52,7 @@ proving nothing, which is how `script-roundtrip.mjs` sat runnable-but-unrun. Kee
 | `read-emit-roundtrip.mjs` | Generator | `load()`→`save()` decks for the manual PowerPoint check | manual |
 | `script-roundtrip.mjs` | Gate | Generated script must rebuild the deck it came from | `verify:full`, CI |
 | `script-utils.mjs` | Library | `ROOT`, `run()`, and the shared CLI front end | — |
+| `sync-version.mjs` | Generator | Rewrites the `VERSION` constant in `src/presentation.ts` from `package.json` | the `version` lifecycle script (`pnpm version …`); `--check` manual (`version:check`) |
 
 ### Why four of these are manual on purpose
 

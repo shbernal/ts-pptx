@@ -1,6 +1,6 @@
 ---
 name: release-publish
-description: Use to cut and publish a new ts-pptx version (any "do a release", "minor/major/patch release", "publish vX.Y.Z", "ship a release" request in this repo). Encodes the exact release flow — version bump in three files, CHANGELOG, tag, and the GitHub Release that triggers CI. IMPORTANT — publishing to npm is done by CI (trusted publishing), never by running `npm publish` locally. Do not run `npm publish`, `npm login`, or `npm token` for a release.
+description: Use to cut and publish a new ts-pptx version (any "do a release", "minor/major/patch release", "publish vX.Y.Z", "ship a release" request in this repo). Encodes the exact release flow — CHANGELOG, the `pnpm version` bump that writes the other two version files and tags, and the GitHub Release that triggers CI. IMPORTANT — publishing to npm is done by CI (trusted publishing), never by running `npm publish` locally. Do not run `npm publish`, `npm login`, or `npm token` for a release.
 metadata:
   # For working *on* ts-pptx, not *with* it. `npx skills add shbernal/ts-pptx` walks
   # .claude/skills/ (a symlink to this tree) as well as the published skills/, and this flag
@@ -25,9 +25,9 @@ fail the run if either is off:
 - the release tag must equal `v<package.json version>` exactly, and
 - that version must not already exist on npm.
 
-So the whole job is: get the version consistent across three files, tag it, and
-cut a Release. CI does the rest (and re-runs every lint/typecheck/test/pack gate
-before it publishes).
+So the whole job is: write the CHANGELOG, let `pnpm version` bump and tag, and cut
+a Release. CI does the rest (and re-runs every lint/typecheck/test/pack gate before
+it publishes).
 
 ### The one historical exception (already spent — do not repeat it)
 
@@ -68,10 +68,13 @@ Assume today's date is available; use `YYYY-MM-DD` in the CHANGELOG.
   CHANGELOG `[Unreleased]` section. If a fix/feature landed without a CHANGELOG
   entry, write one now (match the dense, prose style of existing entries).
 
-### 2. Bump the version in THREE places (all must match)
+### 2. Write the CHANGELOG entry and stage it
 
-- `package.json` → `"version": "X.Y.Z"`
-- `src/presentation.ts` → `const VERSION = 'X.Y.Z'`
+The version lands in three files, but you only edit one. `package.json` is the
+version of record and `src/presentation.ts` is derived from it — `pnpm version` in
+step 4 bumps the first and rewrites the second. **Do not hand-edit either one**;
+doing so puts you on a path where `pnpm version` refuses to run.
+
 - `CHANGELOG.md` → convert the `## [Unreleased]` heading region into a released
   section, keeping an empty `## [Unreleased]` above it:
 
@@ -85,6 +88,12 @@ Assume today's date is available; use `YYYY-MM-DD` in the CHANGELOG.
   ### Added
   - ...
   ```
+
+Stage it, and only it:
+
+```bash
+git add CHANGELOG.md
+```
 
 ### 3. Verify locally before committing
 
@@ -100,19 +109,40 @@ pnpm run check:static && pnpm run verify:full
 (The commit's own pre-commit/pre-push hooks also run oxlint, oxfmt, and
 typecheck, so `check:static` should be a formality.)
 
-### 4. Commit, tag, push
+### 4. Bump, commit and tag — one command
 
 ```bash
-git add CHANGELOG.md package.json src/presentation.ts
-git commit -m "chore(release): vX.Y.Z"
-git tag vX.Y.Z -m "vX.Y.Z"
+pnpm version <major|minor|patch> --message 'chore(release): v%s' --no-git-checks
 git push origin master
 git push origin vX.Y.Z
 ```
 
+`pnpm version` bumps `package.json`, runs the `version` lifecycle script
+(`scripts/sync-version.mjs`) which rewrites `const VERSION` in
+`src/presentation.ts` and stages it, then makes **one** commit holding all three
+files — the staged `CHANGELOG.md` rides along — and creates the annotated tag.
+Do not bump by hand; that is what step 2 was avoiding.
+
+Both flags matter, and both were checked rather than assumed:
+
+- **`--message`** — pnpm's default subject is the bare version (`3.2.0`). The
+  flag produces `chore(release): vX.Y.Z`, and the annotated tag gets the same
+  text as its message. pnpm does **not** read npm's `message` config, so putting
+  it in an `.npmrc` will not work.
+- **`--no-git-checks`** — pnpm refuses to run against anything but a spotless
+  tree (`ERR_PNPM_UNCLEAN_WORKING_TREE`), and the `CHANGELOG.md` you staged in
+  step 2 counts as unclean. Without this flag the release becomes two commits.
+  It waives the check for *everything*, which is why step 1 insists on a clean
+  `git status` and no `git add -A`.
+
 Commit-message rules: subject `chore(release): vX.Y.Z`, **no** AI/Claude
 attribution footer and **no** cross-repo file references (see the repo's commit
-conventions). Tag is annotated, matching prior release tags.
+conventions).
+
+If `pnpm version` fails partway, check `git status` before retrying — the bump,
+the constant rewrite and the commit are separate steps, so it can leave the two
+version files ahead of the commit. `pnpm run version:check` says whether the
+constant and the manifest agree.
 
 ### 5. Create the GitHub Release (this is what publishes)
 
@@ -151,9 +181,10 @@ Sanity check: `npm view @shbernal/ts-pptx version` should report `X.Y.Z`.
 
 ## If the publish run fails
 
-- **Tag/version mismatch** or **already published** → the three files disagree or
-  you reused a version. Fix the version, re-tag, and cut a new Release. Never work
-  around it by publishing locally.
+- **Tag/version mismatch** or **already published** → the tag and `package.json`
+  disagree, or you reused a version. (`pnpm run version:check` covers the other
+  pair, the manifest against `src/presentation.ts`.) Fix the version, re-tag, and
+  cut a new Release. Never work around it by publishing locally.
 - **A lint/test/pack gate failed** → fix on `master`, then either bump to the next
   patch and re-release, or (if the tag content is still what you want) delete and
   recreate the tag + Release after pushing the fix. Prefer a fresh patch version

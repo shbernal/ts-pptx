@@ -35,13 +35,47 @@ matching tag as a retry path.
 
 ## Version Updates
 
-1. Update `package.json` version.
-2. Update `src/presentation.ts` version.
-3. Update `CHANGELOG.md` with the release date and summary.
-4. Update demo package versions when they intentionally track the release
-   version.
-5. Keep package import examples on the scoped package name:
-   `@shbernal/ts-pptx`.
+`package.json` holds the version of record — the publish workflow refuses to
+publish unless the tag matches it. The `VERSION` constant in
+`src/presentation.ts` that backs `pres.version` is *derived* from it and is not
+edited by hand.
+
+Write the `CHANGELOG.md` entry first (release date and summary), stage it, then
+bump:
+
+```bash
+git add CHANGELOG.md
+pnpm version minor --message 'chore(release): v%s' --no-git-checks
+```
+
+That bumps `package.json`, runs the `version` lifecycle script
+(`scripts/sync-version.mjs`) which rewrites the constant and stages it, then
+makes one commit holding all three files and creates the annotated tag `vX.Y.Z`.
+Both flags are load-bearing:
+
+- **`--message`** — pnpm's default subject is the bare version (`3.2.0`), which
+  is not this repo's commit style. It does **not** read npm's `message` config;
+  setting `message` in an `.npmrc` is silently ignored, so the flag is the only
+  way to control the subject.
+- **`--no-git-checks`** — pnpm otherwise refuses to run against anything but a
+  spotless tree (`ERR_PNPM_UNCLEAN_WORKING_TREE`), and the staged `CHANGELOG.md`
+  counts. Waiving the check is what keeps the release a single commit rather than
+  two. It waives the check for *everything*, so run `git status` first and leave
+  scratch files untracked.
+
+Still by hand, and unaffected by the above:
+
+- Demo package versions, when they intentionally track the release version.
+  (None do today — `demos/node` is on 5.0.2 and the other two on 1.0.0 — so this
+  is normally a no-op.)
+- Keep package import examples on the scoped package name:
+  `@shbernal/ts-pptx`.
+
+If the constant ever does drift — a hand-edited `package.json`, or a bump made
+some other way — `pnpm run version:check` reports it and `pnpm run version:sync`
+repairs it. `test/regression/api/public-accessors.test.js` fails in `verify`
+either way, and the release path cannot skip that, so a mis-reported version
+cannot ship.
 
 ## Local Release Gate
 
@@ -74,10 +108,15 @@ The command should fail with a registry 404 for a new release version.
 ## Automated npm Publish
 
 1. Merge the release commit into `master`.
-2. Create a tag named exactly `vX.Y.Z`, matching `package.json#version`.
-3. Push `master` and the tag.
-4. Create a GitHub Release from `vX.Y.Z`.
-5. Publish the GitHub Release.
+2. Push `master` and the `vX.Y.Z` tag that `pnpm version` created — it already
+   matches `package.json#version`, which is what the workflow checks:
+
+   ```bash
+   git push origin master && git push origin vX.Y.Z
+   ```
+
+3. Create a GitHub Release from `vX.Y.Z`.
+4. Publish the GitHub Release.
 
 Publishing the GitHub Release starts `.github/workflows/publish.yml`. The
 workflow:
