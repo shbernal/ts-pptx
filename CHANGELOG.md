@@ -34,6 +34,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   has no write option, so it now records a `line.align` note (`dropped`/`unwritable`) —
   for `algn="in"` only, since `ctr` is what an omitted `@algn` already renders as.
 
+- **A table cell's explicit `a:noFill` survives read → script → write.** Previously a
+  suppressed cell fell out of `cellFill` as "no fill option" and the copy took the table
+  style's banding — the opposite of what the source showed. Enabled by the reader below and
+  the writer fix above.
+
+### Added
+
+- **`TableCell.fillNoFill` reads an explicit `<a:noFill/>` on a cell** (#7) — the cell-side
+  counterpart of 3.0.0's `Shape.fillNoFill`, and what `TableCell.noFill()` has always been
+  able to write. `hasOwnFill` is not this question: it is `true` for any
+  `EG_FillProperties` child, so it cannot separate a suppressed fill from a gradient, a
+  pattern, a picture or an `a:grpFill`, and every colour accessor (`resolvedFill`,
+  `fillColor`, `fillSchemeColor`) reports `null` for a no-fill cell exactly as it does for
+  one inheriting the style's shading. Deriving it as "has an own fill that no accessor
+  recognises" also changes meaning silently the day a further fill kind gets an accessor.
+
 ### Changed
 
 - **Development toolchain: ESLint + Prettier → oxlint + oxfmt, and TypeScript 6 → 7.**

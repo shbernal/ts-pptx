@@ -737,6 +737,28 @@ export class TableCell {
 	}
 
 	/**
+	 * `true` when the cell sets an explicit no-fill (`a:tcPr/a:noFill`) — a deliberately
+	 * transparent cell showing the table background (or the slide) through. The cell-side
+	 * counterpart of {@link import('./shapes.js').AutoShape.fillNoFill}, and what
+	 * {@link noFill} writes.
+	 *
+	 * {@link hasOwnFill} is not this question: it is `true` for *any* `EG_FillProperties`
+	 * child, so on its own it cannot separate a suppressed fill from a gradient or an image
+	 * one — and every colour accessor ({@link resolvedFill}, {@link fillColor},
+	 * {@link fillSchemeColor}) reports `null` for a no-fill cell exactly as it does for a
+	 * cell that inherits its shading from the table style. Deriving it as "has a fill of its
+	 * own, and no accessor recognises it" instead of reading it has two failure modes: it
+	 * folds `a:grpFill` in with `a:noFill`, and its meaning changes silently the day a
+	 * further fill kind gets an accessor. The two paint completely differently — an
+	 * inherited banding colour versus nothing at all — so a consumer that cannot tell them
+	 * apart paints a transparent cell in the style's shading.
+	 */
+	get fillNoFill(): boolean {
+		const tcPr = this.#tcPr()
+		return !!tcPr && !!firstChild(tcPr, 'a:noFill')
+	}
+
+	/**
 	 * The cell's picture (image) fill (`a:tcPr/a:blipFill`), or `null` when the cell
 	 * is not image-filled. The cell counterpart of
 	 * {@link import('./shapes.js').AutoShape.pictureFill}: {@link resolvedFill}

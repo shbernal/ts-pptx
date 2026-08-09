@@ -12,7 +12,7 @@ import TsPptx, { TableStyle } from '../../dist/node.js'
 import { Presentation } from '../../dist/read.js'
 import { readModelToIr } from '../../dist/script.js'
 import JSZip from 'jszip'
-import { authorRead, authorReadWithFixtureStyles } from './authored.js'
+import { authorRead, authorReadWithFixtureStyles, firstTable } from './authored.js'
 import { assert, assertEqual } from '../helpers.js'
 
 /** The IR's single `addTable` call, or a failing assertion. */
@@ -292,6 +292,39 @@ describe("table replication — a cell's own fill versus the style's banding", (
 		assert(cells[0][1].options?.fill === undefined, 'a cell with no fill of its own carries none')
 		assert(cells[1][1].options?.fill === undefined, 'even where the style bands it')
 		assert(!constructs(ir).has('table.cell.fill'), 'and nothing is recorded as lost')
+	})
+
+	test('a deliberately transparent cell stays transparent instead of taking the banding', async () => {
+		// `hasOwnFill` cannot answer this: it is `true` for any `EG_FillProperties` child, and
+		// every colour accessor reports `null` for a suppressed cell exactly as it does for one
+		// that inherits its shading — so without `TableCell.fillNoFill` the suppressed cell fell
+		// out of the mapper as "no fill option" and the copy painted it in the style's banding.
+		const { buf } = await authorReadWithFixtureStyles((pres) => {
+			pres.addSlide().addTable([[{ text: 'ghost', options: { fill: { type: 'none' } } }, { text: 'inherits' }]], {
+				x: 1,
+				y: 1,
+				w: 8,
+				tableStyle: TableStyle.MEDIUM_STYLE_2_ACCENT_1,
+				hasBandedRows: true,
+			})
+		})
+		const [ghost, inherits] = firstTable(await Presentation.load(buf)).rows[0].cells
+		assertEqual(ghost.fillNoFill, true, 'the reader sees the explicit a:noFill')
+		assertEqual(inherits.fillNoFill, false, 'and an inheriting cell is not one')
+		assertEqual(ghost.hasOwnFill, true, 'hasOwnFill reports true for both kinds of own fill…')
+		assertEqual(ghost.resolvedFill, null, '…and every colour accessor reports null, as it does for an inherited fill')
+
+		const call = tableCall(readModelToIr(await Presentation.load(buf)))
+		assertEqual(call.args[0][0][0].options.fill.type, 'none', 'the IR carries the suppression')
+		assert(call.args[0][0][1].options?.fill === undefined, 'while the inheriting cell is still left to the style')
+
+		// The cell's own no-fill follows the four edge lines, which carry `a:noFill` of their
+		// own — so the assertion is on position, not on the element being present somewhere.
+		const xml = await replay(call)
+		const tcPrs = xml.match(/<a:tcPr[^>]*>[\s\S]*?<\/a:tcPr>/g)
+		assertEqual(tcPrs.length, 2, 'two cells')
+		assert(/<\/a:lnB><a:noFill\/>/.test(tcPrs[0]), `the suppressed cell replays its own a:noFill; got: ${tcPrs[0]}`)
+		assert(!/<\/a:lnB><a:noFill\/>/.test(tcPrs[1]), `the inheriting cell carries none; got: ${tcPrs[1]}`)
 	})
 
 	test('a scheme-coloured cell keeps its token rather than the colour it resolves to', async () => {

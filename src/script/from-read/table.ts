@@ -282,7 +282,14 @@ function cellTextDirection(cell: TableCell, notes: NoteScope): IrValue | undefin
  * neither records a note.
  */
 function cellFill(cell: TableCell, hasStyle: boolean, notes: NoteScope, assets: AssetResolver): IrValue | undefined {
-	// Every non-solid choice comes first, and for one shared reason: a cell whose `a:tcPr`
+	// An explicit `a:noFill` is a statement, and the one `EG_FillProperties` member whose
+	// loss is invisible further down: a suppressed cell reports `null` from every colour
+	// accessor, so without this it falls out of the bottom as "no fill option" and the copy
+	// takes the style's banding — the opposite of what the source shows. Same distinction
+	// `lineOption` makes for `lineNoFill` on the shape side.
+	if (cell.fillNoFill) return { type: 'none' }
+
+	// Every non-solid choice comes next, and for one shared reason: a cell whose `a:tcPr`
 	// holds a `a:gradFill`/`a:pattFill`/`a:blipFill` holds no `a:solidFill` for the colour
 	// legs below to find, so `resolvedFill` would answer with the table style's banding
 	// colour and paint over the cell with something the source never showed.
