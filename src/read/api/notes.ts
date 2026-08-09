@@ -19,8 +19,8 @@
  * a literal hex, and with the notes part's own relationships so a notes hyperlink
  * resolves its url. The body frame is additionally given a placeholder context, so a
  * body run that sets no own size/face/bold resolves its *inherited* value from the
- * notesMaster's `p:notesStyle` (FIDELITY-BACKLOG F2) — the notes analogue of a slide
- * placeholder's `Run.resolved*` chain.
+ * notesMaster's `p:notesStyle` — the notes analogue of a slide placeholder's
+ * `Run.resolved*` chain.
  */
 import type { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'

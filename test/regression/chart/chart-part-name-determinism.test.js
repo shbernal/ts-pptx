@@ -6,7 +6,7 @@ import { defineRegressionSuite, build, listEntries, assert, assertEqual } from '
 // so two identical, independent presentations built in one process emitted different
 // chart part filenames (`chart1.xml`/`chart2.xml` vs `chart3.xml`/`chart4.xml`) —
 // same input, different bytes. `exportPresentation` now assigns them from a
-// per-presentation counter at write time. See backlog fork-chart-counter-nondeterminism.
+// per-presentation counter at write time (`src/package/assemble.ts`, STEP 2).
 
 const chartParts = (zip) =>
 	listEntries(zip)
@@ -24,7 +24,7 @@ const buildTwoChartDeck = (p) => {
 	p.addSlide().addChart(data2, { type: ChartType.line, x: 1, y: 1, w: 4, h: 3 })
 }
 
-defineRegressionSuite('Chart part-name determinism', 'backlog fork-chart-counter-nondeterminism', [
+defineRegressionSuite('Chart part-name determinism', [
 	{
 		name: 'two identical decks built in one process emit identical chart part filenames',
 		fn: async () => {

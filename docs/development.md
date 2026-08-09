@@ -90,7 +90,7 @@ Two aggregate commands cover almost every iteration; reach for the individual
 scripts below only when you want one specific gate:
 
 ```bash
-pnpm run verify       # ~45s — typechecks, backlog validation, and the whole test suite
+pnpm run verify       # ~45s — typechecks, the raw-XML ratchet, and the whole test suite
 pnpm run verify:full  # ~65s — the above plus the package boundary suites
 ```
 
@@ -101,7 +101,7 @@ when touching the release/package boundary. Both deliberately omit `lint` and
 Two more aggregates exist for CI, and are occasionally useful locally:
 
 ```bash
-pnpm run check:static   # lint, format:check, all three typechecks, backlog:validate, raw-xml:check
+pnpm run check:static   # lint, format:check, all three typechecks, raw-xml:check
 pnpm run check:package  # package:lint, test:package, bundle-size:check
 ```
 
@@ -147,7 +147,7 @@ successfully and is caught only by `typecheck`. Never substitute one for the oth
 
 The individual gates — `build`, `typecheck`, `typecheck:scripts`, `typecheck:test`,
 `test`, `test:unit`, `test:read`, `test:schema`, `test:coverage`, `package:lint`,
-`test:package`, `backlog:validate`, `bundle-size:check` — all still exist and are
+`test:package`, `raw-xml:check`, `bundle-size:check` — all still exist and are
 worth running alone when iterating on one specific thing. `pnpm run` lists them.
 
 One gate is in neither aggregate: `pnpm run test:browser`, the Playwright lane
@@ -183,8 +183,8 @@ eslint `--fix` and prettier `--write` over staged files and re-stages the result
 (`stage_fixed: true`), and pre-push re-verifies the whole repo — so running
 `format:check` yourself can only cost you a check→fix→re-check cycle on files that
 were going to be fixed on commit anyway. What no hook covers is **tests** (none run
-any), **`typecheck:test`** and **`backlog:validate`** (pre-push runs `lint`,
-`format:check`, `typecheck` and `typecheck:scripts` only); those are `verify`'s job.
+any) and **`typecheck:test`** (pre-push runs `lint`, `format:check`, `typecheck`
+and `typecheck:scripts` only); those are `verify`'s job.
 
 Note that `format`/`format:check` carry an explicit file list while pre-commit's
 prettier job uses an extension glob. Every extension in the former is covered by

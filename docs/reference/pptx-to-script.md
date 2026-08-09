@@ -463,7 +463,8 @@ rather than the working directory.
 - **`p15`/`p159` transitions cannot be exercised end to end.** They are dropped
   correctly, by the same namespace check as the 19 `p14` effects, but neither
   prefix is in the read DOM's registry, so no test can author one to prove it.
-- **The rest of the read-side fidelity backlog** remains the binding constraint:
+- **What the reader still does not decode** remains the binding constraint — the
+  converter cannot print what it cannot see:
   `lnRef` width/dash, `a:fillToRect`, `effectRef`, custGeom
   `gdLst`/`ahLst`/`cxnLst`, `a:tabLst`, `a:prstTxWarp`, plus `p:txStyles` and
   master/layout decoration. Every one of them raises the ceiling both tiers build

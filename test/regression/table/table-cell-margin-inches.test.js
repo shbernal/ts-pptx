@@ -3,10 +3,9 @@ import { defineRegressionSuite, build, readEntry, assert } from '../../helpers.j
 // Acceptance: table cell `margin` is INCHES (matching x/y/w/h and the PowerPoint dialog).
 // The pre-v3.8.0 magnitude heuristic — a component `>= 1` read as POINTS — is gone; every
 // value is now inches (`inch2Emu`, 914400 EMU/in). A `>= 1` value is still honored as inches
-// (it just warns once as a likely legacy points value). Backlog: dn-table-cell-margin-units,
-// fork-units-pt-vs-inches.
+// (it just warns once as a likely legacy points value).
 
-defineRegressionSuite('Table cell margin units', 'fork-units-pt-vs-inches', [
+defineRegressionSuite('Table cell margin units', [
 	{
 		name: 'fractional cell margin is inches (0.5in => 457200 EMU on all four sides)',
 		fn: async () => {

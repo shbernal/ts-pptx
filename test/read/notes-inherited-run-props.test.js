@@ -1,5 +1,5 @@
-// Write→read fidelity for a notes-body run's INHERITED character properties
-// (FIDELITY-BACKLOG F2). T1.2 threaded a notesMaster→theme2 *colour* context into
+// Write→read fidelity for a notes-body run's INHERITED character properties.
+// T1.2 threaded a notesMaster→theme2 *colour* context into
 // the notes frame, so a notes run's own `schemeClr` resolves (`Run.resolvedColor`).
 // But the notes frame was built without a placeholder context, so the *inherited*
 // getters — the ones that read from the notesMaster's `p:notesStyle` when a run sets
@@ -9,8 +9,8 @@
 // `resolvedSizePt`/`resolvedFontFace`/`resolvedBold` (and inherited `resolvedColor`)
 // walk that chain the same way a slide placeholder run walks layout→master→txStyles.
 //
-// Gate: AUTHORABLE. The gate check (recorded in FIDELITY-BACKLOG.md) found the
-// backlog's "fixture-only" assumption wrong: a plain `addNotes('text')` serializes
+// Gate: AUTHORABLE. The gate check found the earlier "fixture-only" assumption
+// wrong: a plain `addNotes('text')` serializes
 // the run through genXmlTextRunProperties with empty options, which emits NO `@sz`
 // and NO `<a:latin>` (src/gen/drawingml/text-run.ts) — a genuine inherit trigger —
 // and the writer authors its own notesMaster with a full `p:notesStyle`

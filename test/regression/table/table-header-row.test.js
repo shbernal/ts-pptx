@@ -1,6 +1,6 @@
 import { defineRegressionSuite, build, readEntry, assert } from '../../helpers.js'
 
-// Acceptance for `headerRow` inline sugar (backlog upstream-issue-1256):
+// Acceptance for `headerRow` inline sugar (upstream gitbrent/PptxGenJS#1256):
 // `addTable(rows, { headerRow:{…} })` styles the first row distinctly *without* first
 // registering a custom table style. It is applied as direct per-cell formatting on row 0,
 // so: (1) only row 0 cells get it, (2) explicit per-cell options win over it, and

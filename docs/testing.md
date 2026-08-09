@@ -20,7 +20,7 @@ For source changes, run one of the two aggregates rather than composing a set by
 hand:
 
 ```bash
-pnpm run verify       # per-change loop: typechecks, backlog validation, raw-XML ratchet, all suites
+pnpm run verify       # per-change loop: typechecks, raw-XML ratchet, all suites
 pnpm run verify:full  # before pushing / at the package boundary: the above plus package + demos
 ```
 
@@ -722,13 +722,12 @@ hidden it; an unbundled consumer needs it in an import map, and now
 | `table-autopage.spec.mjs` | html-table | a table too tall for one slide pages with **one row budget on every page**, carries every row across exactly once, and — the assertion no other lane can make — reaches the *same* pagination in Chromium as on a DOM that renders nothing |
 
 `table-autopage.spec.mjs` is worth reading for what a browser lane is *for*. It was
-written as the headless repro an out-of-scope backlog entry invited
+written as the headless repro a report dismissed as out of scope had invited
 (`gitbrent/PptxGenJS#1200`, `tableToSlides` auto-paging overflow), it reproduced, and the
 bug it found was **DOM-free**: the pager dropped one row's cell margins at every page
 break, so a continuation slide accepted a row it had no room for. The browser's
 contribution was the cross-runtime assertion — proving the report was never about a
-rendered page, and moving the entry out of the browser bucket rather than deeper into
-it. Fixed in `src/gen/table/autopage.ts`; the regression that guards it is DOM-free too
+rendered page, and moving it out of the browser bucket rather than deeper into it. Fixed in `src/gen/table/autopage.ts`; the regression that guards it is DOM-free too
 (`test/regression/table/table-autopage-continuation-budget.test.js`). The triage rule that came
 out of it — ask what the browser actually supplies to a code path before accepting a
 report as a layout report — is stated with the scope line in

@@ -59,7 +59,8 @@ export function chartExLayoutId(type: ChartType): string {
 /**
  * A deterministic `uniqueId` GUID for a `<cx:series>`, derived from the chart's package-global id.
  * PowerPoint stamps a random GUID here; deriving it keeps output byte-stable (the project pins
- * chart determinism — see `docs/backlog.yml` `fork-chart-counter-nondeterminism`). `seriesIdx`
+ * chart determinism — the package-wide id this derives from is assigned at write time in
+ * `package/assemble.ts`, STEP 2). `seriesIdx`
  * distinguishes multiple series within one chart (pareto emits two), varying the 4th GUID group so
  * every series still gets a distinct id.
  */

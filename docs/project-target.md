@@ -203,11 +203,9 @@ That single rule produces the read/write asymmetry the codebase already has:
   that the caller must call `markDirty()`; every class exposing `element_` also
   exposes it. See `docs/reference/pptx-read.md`.
 
-The worked precedent for a rejection is the caller-provided XML transform hook
-(`docs/backlog.yml`, `upstream-issue-1282`, dismissed under
-`escape-hatch-footgun`): a generic write-side hook over the emitted XML bypasses
-the guarantee itself and leaves the library unable to make any claim about its
-own output. A concrete need behind such a request is met with a typed, validated
+The worked precedent for a rejection is the caller-provided XML transform hook: a
+generic write-side hook over the emitted XML bypasses the guarantee itself and
+leaves the library unable to make any claim about its own output. A concrete need behind such a request is met with a typed, validated
 primitive instead — not by widening the hatch.
 
 ## Maintenance Posture

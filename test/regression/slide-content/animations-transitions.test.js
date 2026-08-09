@@ -217,7 +217,7 @@ defineRegressionSuite('Preset build animations (write)', [
 		// A shapeIndex past the last top-level object would emit `spid = shapeIndex + 2` naming no
 		// shape on the slide — a dangling <p:spTgt> PowerPoint reports as a repair (0x80070570).
 		// The out-of-range index must warn and drop the effect, exactly like an unresolvable
-		// objectName, leaving no <p:timing> and no dangling spid. (backlog: fork-animation-spid-index-unvalidated)
+		// objectName, leaving no <p:timing> and no dangling spid. The index used to go unvalidated.
 		name: 'drops an out-of-range shapeIndex with a warning (no dangling spid)',
 		fn: async () => {
 			const warnings = []

@@ -239,8 +239,9 @@ export async function buildPackageParts(
 		// the master, so the id must be package-wide; `addChartDefinition` only sets a
 		// target-local placeholder. This is the authoritative assignment consumed by content
 		// types, slide rels, and the chart/embedding parts below — all emitted after this pass.
-		// A never-reset module global previously drove this (same input, different bytes).
-		// See backlog fork-chart-counter-nondeterminism.
+		// A never-reset module global in `gen/define/chart.ts` previously drove this — same
+		// input, different bytes. `gen/chart/chartex-xml.ts` derives its series GUIDs from
+		// the id assigned here, so both depend on this pass staying authoritative.
 		let chartPartIdx = 0
 		for (const target of [...pres.slides, ...pres.slideLayouts, pres.masterSlide]) {
 			for (const rel of target._relsChart || []) {

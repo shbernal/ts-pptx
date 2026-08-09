@@ -17,8 +17,8 @@ doc_type: "decision"
 **Phase 1 implemented (2026-06-26).** Transitions are a full typed model both
 ways; animations are opaque spid-aware preservation on read plus preset-template
 authoring on write. The write emitters reproduce the PowerPoint-authored oracles
-byte-for-byte. See the backlog entry `gitbrent/PptxGenJS#1431` (status
-`implemented`) and `CHANGELOG.md` for the landed surface. Code:
+byte-for-byte. The caveat this closed came in as `gitbrent/PptxGenJS#1431`; see
+`CHANGELOG.md` for the landed surface. Code:
 `src/read/api/transition.ts`, `src/read/api/animation.ts`,
 `src/read/api/slide.ts` (read accessors); `src/types/index.ts`,
 `src/slide.ts`, `src/gen/anim/` (write). Tests:
@@ -276,8 +276,8 @@ Author with desktop PowerPoint COM (skill `powerpoint-fixture-authoring`; clear
    enumerate/remap/prune and is the source of the write-side preset templates.
 
 Update `test/read/fixtures/README.md` (provenance, hash, purpose, PowerPoint
-check date). Record the fixtures as the blocking precondition in
-`docs/backlog.yml` before implementing.
+check date). Until a fixture exists, it is the blocking precondition — see
+[Evidence and fixtures](evidence-and-fixtures.md).
 
 ## Out of scope / phasing
 

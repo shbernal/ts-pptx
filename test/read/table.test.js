@@ -172,7 +172,7 @@ describe('Table cell styling', () => {
 	// The fixture's `TableWithFormattedCells` cells carry
 	// `a:tcPr/a:solidFill/a:schemeClr val="accent3"` with `lumMod`/`lumOff`.
 	// Populated `verticalText`/`anchor`/`marginsEmu` paths need a PowerPoint-authored
-	// fixture that does not exist yet — tracked by backlog `fork-table-cell-style-fixture`.
+	// fixture; `table-cell-style.pptx` is it — see the suite below.
 	test('resolvedFill resolves a scheme fill through the theme, applying lum transforms', async () => {
 		const cell = formattedTable(await open('table')).cell(0, 0)
 		const fill = cell.resolvedFill
@@ -237,7 +237,7 @@ describe('Table cell styling', () => {
 
 describe('Table cell styling (populated a:tcPr paths)', () => {
 	// The `table-cell-style.pptx` fixture is a PowerPoint-authored 2×2 table whose
-	// cells each isolate one appearance accessor (backlog fork-table-cell-style-fixture):
+	// cells each isolate one appearance accessor:
 	//   (0,0) <a:tcPr vert="vert270"/>                              -> verticalText
 	//   (0,1) <a:tcPr anchor="b"/>                                  -> anchor
 	//   (1,0) <a:tcPr marL/marR/marT/marB=228600/342900/114300/457200/> -> marginsEmu

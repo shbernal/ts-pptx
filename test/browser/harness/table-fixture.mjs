@@ -131,8 +131,8 @@ export const TABLE_HTML = {
 		</table>`,
 
 	/**
-	 * upstream gitbrent/PptxGenJS#1200 — "tableToSlides autoPaging not working", the repro the
-	 * backlog entry invited and this repo could not build until the browser lane existed.
+	 * upstream gitbrent/PptxGenJS#1200 — "tableToSlides autoPaging not working", the repro that
+	 * report invited and this repo could not build until the browser lane existed.
 	 *
 	 * The reporter's shape, as plainly as it can be stated: an ordinary table of dynamic data,
 	 * too tall for one slide, converted with **no options at all**. What came back paged onto

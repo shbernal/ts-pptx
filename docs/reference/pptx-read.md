@@ -644,7 +644,7 @@ comes from the notesMaster's own `p:clrMap`, the `clrScheme`/`fontScheme` from
 `theme2.xml`).
 
 The body frame *also* resolves **placeholder-inherited** character properties
-(FIDELITY-BACKLOG F2, shipped 2026-07-23): a notes run that sets no own `@sz`/
+(shipped 2026-07-23): a notes run that sets no own `@sz`/
 `a:latin`/`@b` takes its effective size/face/bold (and inherited colour) from the
 notesMaster's `p:notesStyle`, surfaced via `Run.resolvedSizePt`/`resolvedFontFace`/
 `resolvedBold`/`resolvedColor`. Notes don't inherit from a slide layout/master
@@ -777,11 +777,10 @@ Scope note: this pass ships the property model and navigation. It does not add n
 *inheritance-resolution* getters beyond what already existed (a slide placeholder's
 effective run colour/size/face already resolves via `Slide.themeContext` →
 `Run.resolved*`). Notes-body run inheritance from the notesMaster's `p:notesStyle`
-now resolves too (FIDELITY-BACKLOG F2, shipped 2026-07-23) — see the notes-frame
-section above.
+now resolves too (shipped 2026-07-23) — see the notes-frame section above.
 
 A slide placeholder's effective *geometry* through this chain **does** resolve, via
-`Shape.resolvedFrame` (FIDELITY-BACKLOG F1, shipped 2026-07-23):
+`Shape.resolvedFrame` (shipped 2026-07-23):
 
 ```ts
 type GeometrySource = 'own' | 'layout' | 'master'

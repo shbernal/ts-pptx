@@ -48,8 +48,8 @@ describe('escaping: cNvPrOpen leaves objectName as-is (caller escapes upstream);
 	// Unlike objectName, `_name` (-> `<p:cSld name>`) is escaped HERE, at this render layer, not
 	// upstream: `_name` doubles as the raw lookup key `addSlide({masterTitle})` matches against the
 	// caller's `title` (presentation.ts, `layout._name === masterTitle`), so it must stay unescaped
-	// until emission or that match breaks for a title containing XML metacharacters. Fixed for
-	// backlog `fork-slidemaster-title-unescaped`.
+	// until emission or that match breaks for a title containing XML metacharacters. The bug this
+	// guards was a slide-master title reaching `<p:cSld name>` unescaped.
 	test('the slide name IS escaped, at this render layer', () => {
 		expect(render([], { _name: 'R&D' })).toContain('<p:cSld name="R&amp;D">')
 	})

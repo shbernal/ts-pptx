@@ -9,10 +9,9 @@ import { buildTableInHarness, buildTableInNode, openTableHarness, packageBytes }
 /**
  * The headless-browser `tableToSlides` auto-paging repro — upstream gitbrent/PptxGenJS#1200.
  *
- * The backlog entry for that report was closed `non-target/out-of-project-scope` on the grounds
- * that "the sizing input that drives the overflow cannot be exercised here", and it invited
- * reopening with either a DOM-free `addTable`-autoPage repro or a headless-browser `tableToSlides`
- * one. This file is the second of those. It exists because the Tier 2b harness made it
+ * That report was dismissed as out of project scope on the grounds that "the sizing input that
+ * drives the overflow cannot be exercised here", and the dismissal invited reopening with either
+ * a DOM-free `addTable`-autoPage repro or a headless-browser `tableToSlides` one. This file is the second of those. It exists because the Tier 2b harness made it
  * constructible, not because a new report arrived.
  *
  * ── What it found ──────────────────────────────────────────────────────────────────────────────
@@ -100,8 +99,8 @@ test('the page budget is the same in Chromium as on a DOM that renders nothing',
 	const browserCounts = rowsPerSlide(await explodeBrowserBuild(page))
 	const nodeDir = await explodePackage(packageBytes(await buildTableInNode('autoPage')), path.join(OUT_ROOT, 'node'))
 
-	// This is the assertion that places the defect, and it is the reason the backlog entry moved
-	// out of the browser bucket rather than into it. The two runtimes size the *columns*
+	// This is the assertion that places the defect, and it is the reason the report moved out of
+	// the browser bucket rather than deeper into it. The two runtimes size the *columns*
 	// differently — Chromium measures, happy-dom falls back, which is what table-widths.spec.mjs
 	// pins — but the cells are short enough that no column width makes them wrap, so the vertical
 	// arithmetic has the same inputs on both sides. It therefore has to reach the same answer, and

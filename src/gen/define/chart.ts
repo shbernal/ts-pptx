@@ -443,10 +443,9 @@ export function addChartDefinition(
 
 	// Placeholder part identity, unique only within this target. The authoritative,
 	// package-unique chart part filename is assigned at write time by a per-presentation
-	// pass in `buildPackageParts` (`package/assemble.ts`, STEP 2) — see backlog
-	// fork-chart-counter-nondeterminism: a module-global counter here was never reset, so
-	// two identical decks built in one process emitted different chart part filenames
-	// (same input, different bytes).
+	// pass in `buildPackageParts` (`package/assemble.ts`, STEP 2). A module-global counter
+	// here was never reset, so two identical decks built in one process emitted different
+	// chart part filenames — same input, different bytes.
 	const chartId = target._relsChart.length + 1
 	const resultObject: SlideObject = {
 		_type: SlideObjectType.chart,

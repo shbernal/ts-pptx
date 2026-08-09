@@ -88,8 +88,10 @@ export default [
 	},
 	{
 		// Asserts the body-property serialization stays schema-valid. Note: this
-		// proves the XML is well-formed, not that PowerPoint/LibreOffice renders
-		// a particular layout (see docs/backlog.yml dn-doc-render-caveats).
+		// proves the XML is well-formed, not that PowerPoint/LibreOffice renders a
+		// particular layout. The library does no glyph measurement or line breaking
+		// here, so where the text actually falls is renderer-defined and is not
+		// something a schema fixture can or should assert.
 		name: 'text box with margins',
 		fn: async () => {
 			const { buf } = await build((p) => {
@@ -155,8 +157,9 @@ export default [
 	},
 	{
 		// Serialization-contract fixture: breakLine: false on a CRLF-containing run must
-		// produce valid OOXML (upstream-issue-1138). The rendering result is layout-dependent
-		// and not asserted here — see docs/backlog.yml dn-doc-render-caveats.
+		// produce valid OOXML (upstream-issue-1138). breakLine faithfully splits the
+		// paragraph, but the visual line count that results is layout-dependent, so the
+		// rendering result is deliberately not asserted here.
 		name: 'rich text with breakLine: false on CRLF-containing run',
 		fn: async () => {
 			const { buf } = await build((p) => {

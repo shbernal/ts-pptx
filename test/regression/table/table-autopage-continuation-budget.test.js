@@ -21,7 +21,7 @@ import { defineRegressionSuite, build, listEntries, readEntry, assert, assertEqu
 // shows as an arithmetic disagreement between page 1 and its continuations about how many
 // identical rows fit an identical space. Before the fix: 10, then 11, 11, 11.
 //
-// This is the DOM-free repro the backlog entry asked for, and it makes the same case in the
+// This is the DOM-free repro the dismissal asked for, and it makes the same case in the
 // browser (test/browser/table-autopage.spec.mjs) a confirmation rather than the evidence.
 
 /** Enough rows to fill several pages, all identical so every page's budget is comparable. */

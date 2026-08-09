@@ -68,11 +68,10 @@ by the `ts-pptx/read` harness. Two groups:
   `c:dPt`/`c:dLbl` + workbook cache), `math-omml.pptx` (native **display**
   equation OMML `a14:m`/`m:oMathPara`), and `math-omml-inline.pptx` (an
   **inline**, in-sentence equation `a14:m`/`m:oMath` with no `m:oMathPara`, flowing
-  between plain `a:r` runs in one `a:p` — backlog `dn-inline-math`).
+  between plain `a:r` runs in one `a:p`).
 - **A/V media rel graph**: `av-media.pptx` (embedded video + audio rel/content-type
-  oracle for `appendSlides`, backlog `dn-append-av-media`); `online-video.pptx`
-  (external-link/online video rel graph for `appendSlides`, backlog
-  `dn-append-online-video`).
+  oracle for `appendSlides`); `online-video.pptx` (external-link/online video rel
+  graph for `appendSlides`).
 - **3D model**: `model3d.pptx` (the `am3d:model3d` graphic frame PowerPoint 2019+ writes for
   an embedded `.glb` — namespace/`graphicData@uri`, the `mc:Choice`/`mc:Fallback` pair, the
   `2017/06` model3d rel type, the `model/gltf.binary` content-type `Default`, and the camera /
@@ -196,7 +195,7 @@ c845473330b94c2079ce9af01c51ac8ba2d99c24f4d14c039843bbb8e642ebd8  fonts/Silkscre
 ### Embedded-media binaries (`media/`)
 
 Tiny real media binaries committed under `media/` to drive the `addMedia`
-generator path in `appendSlides` tests (backlog `dn-append-av-media`). Encoded
+generator path in `appendSlides` tests. Encoded
 locally with ffmpeg 8.1.1 on Windows (2026-06-24); these are the bytes
 `addMedia` must round-trip and are kept deliberately small. The poster PNG is the
 same 1×1 PNG the append tests already use inline.
@@ -249,7 +248,7 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
     reset `def` to the standard GUID and weaken the test — redo the manual step.
 - `table-cell-style.pptx` — a locally authored single-slide deck with one 2×2 table
   (`cell-style-table`) whose cells each isolate one `TableCell` appearance accessor,
-  the fixture gate for backlog `fork-table-cell-style-fixture`. Authored via desktop
+  the fixture gate for those accessors. Authored via desktop
   PowerPoint COM on Windows (2026-07-08) by setting `TextFrame2` properties on
   individual cells, so every `a:tcPr` attribute below is genuine PowerPoint output:
   - **(0,0) `Vert270`** — `<a:tcPr vert="vert270"/>` (COM
@@ -355,8 +354,8 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   empty `<a:lstStyle/>`), and a `body` placeholder `explicit-body` whose run sets
   an explicit `srgbClr FF00FF` (the negative control proving an explicit run
   colour still wins). **Slide 3** (added 2026-06-24) is the fixture-gated source
-  for `importSlide` restyle force-remap + table-style copy (backlog
-  `dn-importslide-restyle-literals`): `literal-accent1`, a rectangle whose fill is
+  for `importSlide` restyle force-remap + table-style copy: `literal-accent1`, a
+  rectangle whose fill is
   a **literal** `<a:srgbClr val="B01513"/>` equal to Ion accent1 (so a force-remap
   of literals has a hex to match); `literal-nonaccent`, a literal `srgbClr 123456`
   matching no theme slot (negative control); and `styled-table`, a 2×2 table using
@@ -381,8 +380,7 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   (2026-07-17). Read by the "placeholder text-property inheritance" suite. Both
   placeholders also carry **no own `a:xfrm`** (neither does their layout,
   `slideLayout12.xml` — both resolve all the way to `slideMaster1.xml`), which
-  the FIDELITY-BACKLOG F1 item (2026-07-23) reuses for `Shape.resolvedFrame`
-  effective-geometry coverage (`placeholder-effective-geometry.test.js`); the
+  `Shape.resolvedFrame` effective-geometry coverage reuses (2026-07-23) (`placeholder-effective-geometry.test.js`); the
   oracle geometry there was read directly off the fixture's own master/layout
   XML, independent of the reader code under test.
 - `placeholder-footer-trio.pptx` — a minimal deck (one slide, title only) whose
@@ -524,7 +522,7 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   `application/vnd.openxmlformats-officedocument.presentationml.template.main+xml`
   — exactly what `Presentation.fromTemplate()` must flip to
   `…presentationml.presentation.main+xml` when normalizing a `.potx` to an editable
-  `.pptx` (backlog `dn-import-template-masters`). Carries the default Office theme
+  `.pptx`. Carries the default Office theme
   shell: **zero sample slides**, one slide master, a theme, and the 11 standard
   named layouts (`Title Slide`, `Title and Content`, `Section Header`, `Two
   Content`, `Comparison`, `Title Only`, `Blank`, `Content with Caption`, `Picture
@@ -579,7 +577,7 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   `.pptx` package XML is genuine PowerPoint output.** Pins the `<a:p>` → `a14:m` /
   `m:oMathPara` / `m:oMath` structure and namespace declarations.
 - `math-omml-inline.pptx` — **authoring oracle** for an **inline** (in-sentence)
-  equation run — the write-side gate for backlog `dn-inline-math` (the sibling of
+  equation run — the write-side gate for inline math (the sibling of
   the display-form `math-omml.pptx`). One slide with a text box (`inline-equation-box`)
   holding the single paragraph **"where 𝑥²+1=𝑦 holds"**: an ordinary text run, an
   inline equation, and another text run all in one `<a:p>`. Authored the same way as
@@ -608,7 +606,7 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   - The `<mc:Fallback>` is the same back-compat raster `blipFill` (`ppt/media/image1.png`,
     `rId2` image rel, `png` `Default` content-type) PowerPoint emits for the whole shape.
 - `av-media.pptx` — **authoring oracle** for embedded audio/video in appended
-  slides (backlog `dn-append-av-media`). Two blank slides, each with one media
+  slides. Two blank slides, each with one media
   shape embedded by PowerPoint's `AddMediaObject2` (no link-to-file): **slide 1**
   `EmbeddedVideo` (`media1.mp4`) and **slide 2** `EmbeddedAudio` (`media2.mp3`).
   Pins the exact rel graph + content types PowerPoint writes for A/V — the
@@ -630,7 +628,7 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
   - **Content types are `Default` extension entries, not Overrides:** `mp4` →
     `video/mp4`, `mp3` → `audio/mpeg` (alongside `png`/`jpeg`).
 - `online-video.pptx` — **authoring oracle** for online (external-link) video in
-  appended slides (backlog `dn-append-online-video`). One blank slide with a single
+  appended slides. One blank slide with a single
   `online-video` shape inserted as a **linked** (not embedded) video via
   `AddMediaObject2(LinkToFile:=msoTrue, SaveWithDocument:=msoFalse)` pointing at an
   external `file:///` path. Pins the external-link rel graph PowerPoint writes — the
@@ -650,8 +648,8 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
     against a real media part.) The `p:cNvPr` also carries
     `<a:hlinkClick action="ppaction://media"/>` and the slide a `<p:timing>`
     interactive-media trigger tree.
-- `model3d.pptx` — **authoring oracle** for an embedded 3D model (backlog
-  `upstream-issue-585`; the write-side gate for `addModel3d()`). One blank slide with a
+- `model3d.pptx` — **authoring oracle** for an embedded 3D model (the write-side
+  gate for `addModel3d()`). One blank slide with a
   single `Cube3D` shape inserted via `Shapes.Add3DModel(cube.glb, LinkToFile:=msoFalse,
   SaveWithDocument:=msoTrue, 120, 90, 240, 180)` — `Shape.Type` 30 (`mso3DModel`). The
   payload is the generated `authoring/assets/cube.glb` (a 2×2×2 cube, one mesh, no
@@ -799,8 +797,8 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
     a tiny **self-generated** WAV (16-bit PCM mono 8 kHz sine, 844 bytes) to stay license-clean
     of Microsoft's bundled audio; the built-in equivalence is recorded in the oracle, not embedded.
 - `import-animation-merge.pptx` — **authoring oracle** for carrying a build animation through
-  `importShape` (`docs/animations-and-transitions.md`, capability A; backlog
-  `dn-importshape-v1-limits`). Two blank 16:9 slides. **Slide 1** `Source` (spid 2) has an
+  `importShape` (`docs/animations-and-transitions.md`, capability A). Two blank
+  16:9 slides. **Slide 1** `Source` (spid 2) has an
   entrance Fade-on-click (presetID 10). **Slide 2** `HostExisting` (spid 2) has its own entrance
   Fly-on-click (presetID 2/sub4); then in PowerPoint `Source` was **copied from slide 1 and
   pasted onto slide 2 with its animation**. The merged result is PowerPoint's ground truth for
@@ -815,7 +813,7 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
 
 Four desktop-PowerPoint-authored decks that pin **how PowerPoint itself computes
 text autofit** — the fixture-gated precondition for measured-fit solvers
-(`docs/measured-text-fit.md`, backlog `dn-measured-text-fit`). Like the authoring
+(`docs/measured-text-fit.md`). Like the authoring
 oracles above, these are **inspection only — not loaded by `test:read`**. PowerPoint
 baked every fit value here (`fontScale`/`lnSpcReduction` for shrink, `ext.cy`/`off.y`
 for resize) non-interactively on `SaveAs`; the decks are the source of truth and the

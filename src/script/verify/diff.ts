@@ -61,9 +61,9 @@ export type DifferenceKind = 'lost' | 'added' | 'changed'
  *
  * Every entry names a write-path default whose *correctness* the round trip has no way to
  * assess, because the source's counterpart was inherited and the read model cannot resolve
- * what it was inheriting. That is an honest "unknown", not an "ignore" — each one is a
- * candidate for the read-side backlog, and closing any of them turns its entry into a real
- * comparison.
+ * what it was inheriting. That is an honest "unknown", not an "ignore" — each one names a
+ * gap in the reader that could be closed later, and teaching the reader to resolve one turns
+ * its entry here into a real comparison.
  */
 const WRITER_DEFAULTS: Record<string, string> = {
 	// The write path copies the object-level and first-run character properties onto every

@@ -54,8 +54,8 @@
 // slideLayout, §13.3.9 slideLayout → slideMaster). A slide missing the first
 // resolves to neither root and every placeholder pass no-ops; a layout missing the
 // second leaves the chain with a first tier and no second. Both packages validate,
-// so the `!layoutRoot && !masterRoot` family the backlog once called "structurally
-// unreachable" is ordinary legal input. The same goes for a placeholder with no
+// so the `!layoutRoot && !masterRoot` family, once written off as "structurally
+// unreachable", is ordinary legal input. The same goes for a placeholder with no
 // `p:txBody` and a master with no `p:txStyles` (both `minOccurs="0"`), a style-matrix
 // `@idx` of 0 or past the end of its list, a theme stating its `clrScheme` in
 // `a:prstClr`, and a `clrScheme`/`clrMap` that collides two slots or two tokens.
