@@ -23,7 +23,6 @@ proving nothing, which is how `script-roundtrip.mjs` sat runnable-but-unrun. Kee
 | Script | Kind | What it does | Runs in |
 |---|---|---|---|
 | `append-ceiling.mjs` | Diagnostic | What survives appending an authored slide to a template deck | manual (`read:append-ceiling`) |
-| `backlog-ledger.mjs` | Gate | Validates and queries `docs/backlog.yml` | `verify`, `check:static` |
 | `browser-harness-server.mjs` | Library | Static server for the Playwright harness | started by `playwright.config.ts` |
 | `bundle-size-ratchet.mjs` | Gate | Gzipped size of the browser entry's closure vs `bundle-size-budget.json` | `verify:full`, `check:package` |
 | `byte-identity.mjs` | Diagnostic | Freeze/compare emitted bytes across a refactor | manual — see note below |

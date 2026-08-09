@@ -13,8 +13,8 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
  * The gate scripts keep their logic in exported functions and their CLI behind this,
  * so a test can import the parsing and scanning without the script measuring `dist/`,
  * writing a budget file, or calling `process.exit` out from under the test runner.
- * `backlog-ledger.mjs` and `gen-inspect-snapshot.mjs` open-coded this first; it is
- * shared now that it has more than two callers.
+ * `gen-inspect-snapshot.mjs` open-coded this first; it is shared now that it has
+ * more than two callers.
  * @param {string} metaUrl the caller's `import.meta.url`
  * @returns {boolean}
  */

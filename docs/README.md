@@ -32,8 +32,6 @@ artifacts.
 - [Evidence and fixtures](evidence-and-fixtures.md): what counts as evidence
   before implementing, and when to wait for a genuine PowerPoint fixture instead
   of guessing the target XML.
-- [Backlog workflow](backlog-workflow.md): how to classify
-  upstream issues and PRs without reintroducing dropped package targets.
 
 ## Feature Guides
 
