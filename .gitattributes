@@ -1,5 +1,5 @@
 # Canonical LF in the repo and in every working tree (Windows included), so
-# checkouts match Linux/CI and Prettier's default endOfLine:lf is satisfied.
+# checkouts match Linux/CI and the formatter's LF line endings are satisfied.
 # This makes line-ending behavior independent of each contributor's core.autocrlf.
 * text=auto eol=lf
 

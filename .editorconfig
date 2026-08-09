@@ -1,25 +1,30 @@
 # EditorConfig — baseline for editors/agents writing files that fall outside the
-# Prettier pipeline (Prettier owns src/**/*.ts and the globs in package.json's
+# formatter's reach (oxfmt owns src/**/*.ts and the globs in package.json's
 # `format` script; everything else — most .md, .json, .yml, config — relies on
-# this). Values mirror .prettierrc.json and .gitattributes so the two never drift.
+# this). Values below duplicate .oxfmtrc.jsonc and .gitattributes.
+#
+# Duplicate, not derive: **oxfmt does not read .editorconfig** — verified by setting
+# `indent_style = space` for *.ts here and watching `oxfmt --check` stay happy with
+# tabs. So nothing enforces the agreement, and the two can drift silently. When a
+# formatting option changes in .oxfmtrc.jsonc, change it here in the same commit.
 # https://editorconfig.org
 root = true
 
 # Repo-wide defaults. LF matches .gitattributes (`* text=auto eol=lf`); the final
-# newline + trailing-whitespace trim match Prettier's defaults.
+# newline + trailing-whitespace trim match what oxfmt emits.
 [*]
 charset = utf-8
 end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-# TypeScript source: tabs, 120-col wrap — mirrors .prettierrc.json
+# TypeScript source: tabs, 120-col wrap — mirrors .oxfmtrc.jsonc
 # (`"useTabs": true`, `"printWidth": 120`).
 [*.ts]
 indent_style = tab
 max_line_length = 120
 
-# Data/config files Prettier formats with its 2-space default.
+# Data/config files oxfmt formats with its 2-space default.
 [*.{json,yml,yaml}]
 indent_style = space
 indent_size = 2

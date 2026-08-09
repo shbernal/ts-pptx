@@ -39,15 +39,8 @@
 			"groupName": "type definitions"
 		},
 		{
-			"description": "Group the ESLint / typescript-eslint / prettier toolchain.",
-			"matchPackageNames": [
-				"eslint",
-				"@eslint/**",
-				"typescript-eslint",
-				"@typescript-eslint/**",
-				"eslint-config-prettier",
-				"prettier"
-			],
+			"description": "Group the oxlint / oxfmt toolchain. `oxlint-tsgolint` belongs here rather than with TypeScript despite its 7.0.x version: it is oxlint's type-aware backend and is released against oxlint, not against the compiler.",
+			"matchPackageNames": ["oxlint", "oxlint-tsgolint", "oxfmt"],
 			"groupName": "lint & format toolchain"
 		},
 		{
@@ -56,9 +49,20 @@
 			"groupName": "vitest"
 		},
 		{
-			"description": "Group the TypeDoc docs toolchain.",
+			"description": "Group the TypeDoc docs toolchain. These live in the tools/api-docs workspace package rather than the root manifest; Renovate reads every workspace package.json, so the group keeps matching them there.",
 			"matchPackageNames": ["typedoc", "typedoc-plugin-**"],
 			"groupName": "typedoc"
+		},
+		{
+			"description": "Hold tools/api-docs on TypeScript 6. That package exists precisely because TypeScript 7 is the native Go compiler and ships no JavaScript compiler API for TypeDoc to import — see tools/api-docs/README.md. Letting the devDependencies rule above bump this to 7 would re-break `docs:api` in a dependency PR far from the reasoning that caused it. Lift this the day TypeDoc supports 7, not before.",
+			"matchFileNames": ["tools/api-docs/package.json"],
+			"matchPackageNames": ["typescript"],
+			"allowedVersions": "<7"
+		},
+		{
+			"description": "Same reason, different consumer: `typescript-6` is an alias of typescript@6 that scripts/raw-xml-ratchet.mjs imports because it walks a syntax tree, which TypeScript 7 cannot do. Held below 7 independently of the tools/api-docs pin above — the two unwind separately.",
+			"matchDepNames": ["typescript-6"],
+			"allowedVersions": "<7"
 		},
 		{
 			"description": "Keep temml + mathml2omml (the optional /math peer deps) in lockstep.",
