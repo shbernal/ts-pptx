@@ -79,8 +79,22 @@ const SELF = 'scripts/path-refs.mjs'
  * Directories that hold build output; a citation into one is about an artifact, not a source
  * file. Matched anywhere in the token so that `../../../dist/node.js` — a relative specifier
  * inside a code sample — is recognised as the same thing as `dist/node.js`.
+ *
+ * `reference/api/` is the TypeDoc output under `docs/`, and is matched on its two-segment tail
+ * because the citations to it are relative (`reference/api/index.md`, from `docs/reference/`);
+ * a bare `api/` would be broad enough to swallow real source directories.
  */
-const GENERATED = /(^|\/)(dist|coverage|\.tmp|output|node_modules)\//
+const GENERATED = /(^|\/)(dist|coverage|\.tmp|output|node_modules|reference\/api)\//
+
+/**
+ * Generated *files*, which the directory test above cannot catch. These are skipped on the same
+ * grounds — a citation naming one is about an artifact — but the reason they must be skipped
+ * rather than allowlisted is the ordering: `path-refs:check` runs before `docs:build` in both
+ * `check:static` and `verify`, so in a clean checkout the file does not exist yet, while on a
+ * tree that has built docs it does. An `ALLOWLIST` entry would fail in the second case, since a
+ * citation that starts resolving is reported as a stale exemption.
+ */
+const GENERATED_FILES = new Set(['docs/doc-index.md'])
 
 /**
  * Citations that are meant not to resolve. `where` is `<file>:<token>` — the line is left
@@ -176,7 +190,7 @@ function collect() {
 				const token = match[1] ?? ''
 				if (!token.includes('/') || !CITED_EXT.test(token)) continue
 				if (token.startsWith('@') || token.startsWith('node:')) continue
-				if (GENERATED.test(token)) continue
+				if (GENERATED.test(token) || GENERATED_FILES.has(token)) continue
 				citations.push({ file: relFile, line: index + 1, token, ok: resolves(token, file, known) })
 			}
 		})
