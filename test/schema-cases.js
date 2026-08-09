@@ -490,6 +490,62 @@ export default [
 		},
 	},
 	{
+		// The same two spellings on a chart, plus the two fill kinds the chart areas could never
+		// reach before (#11). `c:spPr` is `a:CT_ShapeProperties`, so this is the validator agreeing
+		// that a `gradFill`/`pattFill` really is legal there and — for `'inherit'` — that a
+		// `c:spPr` whose `EG_FillProperties` slot is empty still satisfies the sequence ahead of
+		// `a:ln`. The chart part is the strict one: PowerPoint rejects a malformed `chartN.xml`
+		// outright rather than dropping the offending property, so an unvalidated guess here is a
+		// 0x80070570 rather than a wrong colour.
+		name: 'chart area and plot area with gradient, pattern and inherit fills',
+		fn: async () => {
+			const series = [{ name: 'S1', labels: ['A', 'B', 'C'], values: [1, 2, 3] }]
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addChart(series, {
+					x: 0.5,
+					y: 0.5,
+					w: 4.5,
+					h: 3,
+					type: ChartType.bar,
+					chartArea: {
+						fill: {
+							type: 'gradient',
+							gradient: {
+								kind: 'linear',
+								angle: 90,
+								stops: [
+									{ position: 0, color: '0088CC' },
+									{ position: 100, color: 'FFFFFF' },
+								],
+							},
+						},
+					},
+					plotArea: { fill: { type: 'pattern', pattern: { preset: 'pct25', fgColor: '336699' } } },
+				})
+				s.addChart(series, {
+					x: 5.5,
+					y: 0.5,
+					w: 4.5,
+					h: 3,
+					type: ChartType.line,
+					chartArea: { fill: { type: 'inherit' }, border: { color: 'C00000', width: 1 } },
+					plotArea: { fill: { type: 'inherit' } },
+				})
+				s.addChart(series, {
+					x: 0.5,
+					y: 4,
+					w: 4.5,
+					h: 2.5,
+					type: ChartType.pie,
+					chartArea: { fill: { type: 'none' } },
+					plotArea: { fill: { color: 'EEEEEE', transparency: 40 } },
+				})
+			})
+			await expectNoSchemaErrors(buf, 'chart-area-fill-kinds')
+		},
+	},
+	{
 		// `drawingml/line.ts` claims DrawingML allows the same fill group inside `<a:ln>` as
 		// inside a shape fill, and dispatches `type: 'pattern' | 'image'` to the shared fill
 		// code on that basis. Nothing exercised the claim: this is the validator checking that

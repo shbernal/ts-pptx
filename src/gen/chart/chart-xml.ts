@@ -26,6 +26,7 @@ import {
 	XML_DECL,
 } from '../../constants-internal.js'
 import type { ChartOptsInternal, OptsChartDataInternal, SlideRelChart } from '../../types/internal.js'
+import type { ShapeFillProps } from '../../types/index.js'
 import { warn } from '../../diagnostics.js'
 import { encodeXmlEntities } from '../utils.js'
 import { genXmlColorSelection } from '../drawingml/fill.js'
@@ -42,6 +43,28 @@ import { makePiePlot } from './plot-pie.js'
 import { isVolumeStockStyle, makeStockPlot } from './plot-stock.js'
 import { makeSurfacePlot, makeSurfaceScene } from './plot-surface.js'
 import { InvalidOptionError } from '../../errors.js'
+
+/**
+ * Whether a chart-area/plot-area `fill` says anything the fill dispatch can act on.
+ *
+ * `c:spPr` is `a:CT_ShapeProperties` — the same optional `EG_FillProperties` group the
+ * shape path writes into — so gradient, pattern and an omitted fill child are all legal
+ * here. The gate used to be `fill?.color`, which meant every spelling carrying no colour
+ * (`gradient`, `pattern`, `image`, `inherit`) fell to the no-fill arm and did nothing.
+ *
+ * The gate cannot simply be `fill != null`. `normalizeChartOptions` defaults
+ * `plotArea.fill` to `{}`, so every chart in existence arrives here with a fill object,
+ * and a presence check would paint each one a default grey. The same is true of the one
+ * input a caller can write by hand: `{ transparency: 50 }` alone is not a fill, since
+ * there is no colour for the alpha to apply to. Both stay no-fill.
+ *
+ * A payload with no `type` (`{ gradient }`, `{ pattern }`) is likewise not stated, which
+ * matches the shape path: only `line` infers its type from a bare `gradient`, fills have
+ * always wanted `type: 'gradient'` spelled out.
+ */
+function isStatedFill(fill?: ShapeFillProps): fill is ShapeFillProps {
+	return Boolean(fill?.color || fill?.type)
+}
 
 /**
  * Build the chartSpace/chart header: chartSpace open, title (or autoTitleDeleted),
@@ -280,7 +303,7 @@ function makeChartPlotAreaPropsXml(rel: SlideRelChart): string {
 	strXml += '  <c:spPr>'
 
 	// OPTION: Fill
-	strXml += plotArea.fill?.color ? genXmlColorSelection(plotArea.fill) : '<a:noFill/>'
+	strXml += isStatedFill(plotArea.fill) ? genXmlColorSelection(plotArea.fill) : '<a:noFill/>'
 
 	// OPTION: Border
 	strXml += plotArea.border
@@ -430,7 +453,7 @@ export function makeXmlCharts(rel: SlideRelChart): string {
 
 	// STEP 5: chartSpace shape props
 	strXml += '<c:spPr>'
-	strXml += chartArea.fill?.color ? genXmlColorSelection(chartArea.fill) : '<a:noFill/>'
+	strXml += isStatedFill(chartArea.fill) ? genXmlColorSelection(chartArea.fill) : '<a:noFill/>'
 	strXml += chartArea.border
 		? `<a:ln w="${valToPts(resolveBorderWidth(chartArea.border, 1))}" cap="flat">${genXmlColorSelection({ color: chartArea.border.color ?? '363636', transparency: chartArea.border.transparency })}</a:ln>`
 		: '<a:ln><a:noFill/></a:ln>'

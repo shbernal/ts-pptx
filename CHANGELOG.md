@@ -63,6 +63,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   paint child, keep the `<a:ln>`. On a table cell and a slide background, where *omitting*
   the option already meant inherit, `'inherit'` is simply the explicit spelling of that.
 
+### Fixed
+
+- **Chart area and plot area fills honour `type` instead of only `color`** (#11).
+  `ChartPropsFillLine.fill` is typed `ShapeFillProps`, so both areas looked like they took
+  every fill kind a shape does — and `c:spPr` really is `a:CT_ShapeProperties`, the same
+  optional `EG_FillProperties` group, so nothing in OOXML said otherwise. But both emitters
+  gated on `fill?.color`, so every spelling that carries no colour fell to the `<a:noFill/>`
+  arm and did nothing: `type: 'gradient'`, `type: 'pattern'`, and `type: 'inherit'` the
+  moment it was added above. They now go through the shared fill dispatch, so a chart area
+  can take a gradient or a pattern, `'none'` states a transparent area explicitly, and
+  `'inherit'` emits no fill child at all and leaves the area to the chart style.
+
+  Two spellings deliberately still mean no-fill, because the gate is on a fill being
+  *stated* rather than merely present. `normalizeChartOptions` defaults `plotArea.fill` to
+  `{}`, so every chart ever authored arrives at the emitter carrying a fill object — a
+  presence check would have painted all of them a default grey. And `{ transparency: 50 }`
+  with no colour is not a fill: there is nothing for the alpha to apply to. That was a
+  documented `@example` on the option and has never worked; it now reads
+  `{ color: '696969', transparency: 50 }`.
+
+  `type: 'image'` remains unavailable on a chart and now warns
+  (`image-fill/unresolved-media`) instead of silently doing nothing: a blip fill needs a
+  media relationship on the chart part, and only shape and slide-level fills register one.
+  No existing deck changes — the only inputs whose output moved are ones that used to emit
+  `<a:noFill/>`, an invisible area nobody asked for.
+
 ## [3.1.0] - 2026-08-09
 
 ### Added
