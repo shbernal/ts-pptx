@@ -44,8 +44,31 @@ drop-in-compatible continuation of the upstream release line.
 - Shipping a CommonJS build.
 - Shipping a standalone IIFE/global browser build.
 - Supporting direct CDN script tags as the primary browser story.
-- Rebuilding the upstream release matrix around every historical artifact name.
+- Rebuilding the upstream release matrix around every historical artifact name,
+  or keeping compatibility with the upstream build system.
 - Treating generated `dist/` outputs as hand-edited source.
+
+### What Stays In The Consumer
+
+Distinct from the bullets above, which are package *shapes* this project dropped.
+The following encode a specific consumer's brand, content, or deck workflow. They
+are not candidates for this package at any priority, and the boundary holds even
+when the code involved looks generic — do not raise them:
+
+- Brand guidance, workflow-specific scripts, and consumer content.
+- A consumer's default font choice.
+- Icon-set policy, imports, aliases, and provenance manifests.
+- External stock-asset sourcing helpers.
+- Lint quality thresholds, annotated screenshots, and human-review artifacts.
+- Slide semantics manifests as agent-facing design-intent contracts.
+- Greenfield deck eval prompts, scorecards, and generator-adapter behavior.
+- LibreOffice/ImageMagick rendering orchestration for local visual QA.
+
+What this package owes such a consumer is that the primitives it composes exist
+and are sound; the composition itself is the consumer's. A generic PPTX gap
+uncovered while building one of these *is* in scope — see
+[Agent development guide → Promoting A Downstream Need](agent-development.md#promoting-a-downstream-need)
+for how it moves across.
 
 ## Out Of Active Scope (Contributions Welcome)
 

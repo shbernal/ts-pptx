@@ -94,7 +94,9 @@ fallbacks are:
    Open XML SDK behavior for this library's generated `.pptx` compatibility.
 5. Validate with a minimal generated fixture. For serialization changes, add or
    update a focused case in `test/schema-cases.js` and run
-   `pnpm run test:schema`.
+   `pnpm run test:schema`. When the only valid oracle is genuine PowerPoint
+   output and no such fixture exists yet, stop rather than guess — see
+   [Evidence and fixtures](evidence-and-fixtures.md).
 
 ## What Not To Do
 

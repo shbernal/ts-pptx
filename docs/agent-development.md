@@ -57,19 +57,32 @@ The `./measure`, `./read`, `./math`, and `./zip` subpaths exist in package
 exports but are not yet covered by `pnpm run test:package` — see
 [Runtime And Package Support](runtime-and-package-support.md).
 
-## Upstream Signals
+## Promoting A Downstream Need
 
-When reviewing upstream issues or pull requests for potential local work, use
-[backlog workflow](backlog-workflow.md) and record decisions in
-`docs/backlog.yml`.
+A downstream consumer hitting a generic PPTX gap is the main source of new work
+here: an OOXML serialization fix, an API/typing gap, a repeated layout primitive,
+media/SVG handling, post-processing that patches generated XML. Before moving one
+into this project:
 
-Treat upstream as a source of evidence for PPTX generation bugs and missing
-features, not as a source of package-target decisions. Signals about PowerPoint
-repair prompts, invalid OOXML, content types, relationships, chart/table/media
-serialization, and current TypeScript or ESM behavior can be target candidates.
-Signals that depend on CommonJS, IIFE/global bundles, direct CDN script tags, or
-legacy generated artifact names are non-target unless the documented project
-target changes first.
+1. Prove the need with a minimal, consumer-agnostic reproduction.
+2. Reduce the behavior to a minimal ts-pptx fixture.
+3. Add a ts-pptx regression or schema test.
+4. Pack or link the project into the downstream consumer to verify.
+5. Run the consumer's build/render/lint/eval path against the linked project.
+6. Keep only generic code in ts-pptx; keep project policy downstream.
+
+Report such a gap as a GitHub issue and describe it **anonymously**: the missing
+PPTX behavior and how *any* consumer would reproduce it, never the consumer's
+name, file paths, deck or client names, or content.
+
+Treat a report as evidence about PPTX generation bugs and missing features, not
+as a source of package-target decisions. PowerPoint repair prompts, invalid
+OOXML, content types, relationships, chart/table/media serialization, and current
+TypeScript or ESM behavior are candidates. Anything that depends on CommonJS,
+IIFE/global bundles, direct CDN script tags, or legacy generated artifact names is
+not, unless the documented project target changes first — and see
+[Project target → What Stays In The Consumer](project-target.md#what-stays-in-the-consumer)
+for what this package refuses to absorb regardless of merit.
 
 ## Communication Expectations
 

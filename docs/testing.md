@@ -916,3 +916,28 @@ That leg therefore asserts on pixels, with the preview picture deliberately set 
 magenta so the two distinct failures separate cleanly: magenta in the frame means
 PowerPoint fell back to the picture, and a blank frame means the payload never
 rasterized. Both absent is the only passing state.
+
+#### "PowerPoint will never paint this" is a claim that needs render evidence
+
+The claim *this construct is valid OOXML, we can emit it, and PowerPoint does not
+implement it, so the markup can never affect the render* is worth making — it is what
+stops the next person re-attempting the construct. But it may only be made on **render
+evidence**. Schema reasoning does not establish it (the markup being correct is the
+premise, not the finding), and a COM read-back does not either, for the reason this whole
+section exists. Export a slide and compare pixels, ideally as a rendered pair, or the
+claim is unproven.
+
+Keep it apart from its two neighbours: the construct being *out of this project's scope*
+is a decision about us and can be revisited when the target changes; the markup being
+*invalid* is a defect we can fix. This one is a property of PowerPoint, and nothing we
+do here moves it.
+
+#### Where such a finding has to live
+
+A finding of that shape has to end up in front of whoever is about to re-attempt the
+construct, and nobody reads an issue tracker before writing an emitter. So it does not
+go in a tracker: distil it into the doc that the feature's own workflow already sends
+them to — [tables.md → Table styles](tables.md#table-styles) for the custom-table-style
+case — and put any reusable *method* note (how the render evidence was obtained) here in
+this section. An issue that merely records the negative result is filed and forgotten;
+a paragraph in the feature's own doc is read at exactly the moment it matters.

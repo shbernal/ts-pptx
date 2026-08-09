@@ -202,6 +202,7 @@ The full documentation site is published at
 - [Testing guide](docs/testing.md)
 - [Agent development guide](docs/agent-development.md)
 - [OOXML agent context](docs/ooxml-agent-context.md)
+- [Evidence and fixtures](docs/evidence-and-fixtures.md)
 - [Backlog workflow](docs/backlog-workflow.md)
 
 ## Repository Development
