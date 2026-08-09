@@ -39,7 +39,7 @@ const MASTER_BODY = { left: 838200, top: 1825625, width: 10515600, height: 43513
 describe('read: placeholder effective geometry', () => {
 	test('a title placeholder with no own a:xfrm resolves through layout to the master geometry', async () => {
 		const slide = (await open('placeholder-inherit')).slides[0]
-		const title = slide.shapes.find((s) => /^Title/.test(s.name ?? ''))
+		const title = slide.shapes.find((s) => (s.name ?? '').startsWith('Title'))
 		assert(title, 'expected a title placeholder shape')
 
 		// The shape itself carries no own transform -- proving resolvedFrame below is inherited.
@@ -59,7 +59,7 @@ describe('read: placeholder effective geometry', () => {
 
 	test('a body placeholder with no own a:xfrm resolves through layout to the master geometry', async () => {
 		const slide = (await open('placeholder-inherit')).slides[0]
-		const body = slide.shapes.find((s) => !/^Title/.test(s.name ?? '') && s.textFrame)
+		const body = slide.shapes.find((s) => !(s.name ?? '').startsWith('Title') && s.textFrame)
 		assert(body, 'expected a body placeholder shape')
 
 		assertEqual(body.left, null, 'body has no own left')

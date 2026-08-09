@@ -107,7 +107,7 @@ function applyTableHeaderColumnSugar(tableRows: TableRow[], opt: TableProps): Ta
 				const cellObj: TableCell =
 					typeof cell === 'string' || typeof cell === 'number'
 						? { text: String(cell), options: {} }
-						: { ...cell, options: { ...(cell.options || {}) } }
+						: { ...cell, options: { ...cell.options } }
 				const colDef = cols ? cols[colCursor] : undefined
 				colCursor += cellObj.options?.colspan || 1
 				cellObj.options = {

@@ -103,7 +103,7 @@ describe('Presentation.fromTemplate', () => {
 			assert(allowed.has(name), `only chrome-neutral parts change; unexpected change: ${name}`)
 		const removed = [...before.keys()].filter((name) => !after.has(name))
 		for (const name of removed)
-			assert(/^ppt\/slides\//.test(name), `only slide parts are removed; unexpected removal: ${name}`)
+			assert(name.startsWith('ppt/slides/'), `only slide parts are removed; unexpected removal: ${name}`)
 	})
 
 	test('authors generated slides onto the template, binding to an existing layout (no new chrome)', async () => {

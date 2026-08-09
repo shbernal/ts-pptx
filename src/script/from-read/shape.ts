@@ -559,7 +559,7 @@ function pictureCall(shape: Picture, notes: NoteScope, assets: AssetResolver): C
 		crop:
 			crop === null ? undefined : { l: crop.left * 100, t: crop.top * 100, r: crop.right * 100, b: crop.bottom * 100 },
 	})
-	return { method: 'addImage', args: [{ ...(options ?? {}), data: asset }], ...nameOf(shape) }
+	return { method: 'addImage', args: [{ ...options, data: asset }], ...nameOf(shape) }
 }
 
 /**

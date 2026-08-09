@@ -968,7 +968,7 @@ export function setTextBodyText(txBody: Element, value: string): void {
 	}
 
 	// Remove every run-level child (runs, breaks, fields); keep a:pPr / a:endParaRPr.
-	for (const child of [...childElements(p)]) {
+	for (const child of childElements(p)) {
 		if (child.localName === 'r' || child.localName === 'br' || child.localName === 'fld') p.removeChild(child)
 	}
 

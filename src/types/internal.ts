@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* oxlint-disable typescript/no-explicit-any */
 /**
  * Generator-internal wire shapes. NOT part of the public authoring contract: these are the
  * normalized structures the emitters pass around, and their `_`-prefixed members are

@@ -135,6 +135,10 @@ export function pruneSpids(root: Element, spids: Iterable<number>): boolean {
 	let progress = true
 	while (progress) {
 		progress = false
+		// The spread is a snapshot, not a redundant copy: the body both deletes the
+		// current wrapper and adds its grandparent, and iterating a Set while mutating
+		// it would visit entries added during this pass.
+		// oxlint-disable-next-line unicorn/no-useless-spread
 		for (const wrapper of [...wrappersToCheck]) {
 			if (isEmptyWrapperPar(wrapper)) {
 				const grandWrapper = wrapper.parentNode?.parentNode?.parentNode as Element | null

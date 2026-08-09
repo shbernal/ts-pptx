@@ -76,7 +76,7 @@ export function resolveCellInsetsEmu(margin: Margin | undefined): CellInsetsEmu 
 export function scaleCellFontSizes(cell: TableCell, eff: RunOpts, f: number): void {
 	const shrink = (sizePt: number): number => Math.floor(sizePt * f * 10) / 10 // floor: stay on the conservative (smaller) side
 	const baseSize = Number(eff.fontSize ?? DEF_FONT_SIZE)
-	cell.options = { ...(cell.options ?? {}), fontSize: shrink(baseSize) }
+	cell.options = { ...cell.options, fontSize: shrink(baseSize) }
 	if (Array.isArray(cell.text)) {
 		cell.text = cell.text.map((run) =>
 			run && typeof run === 'object' && typeof run.options?.fontSize === 'number'

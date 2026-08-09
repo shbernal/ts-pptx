@@ -30,7 +30,6 @@
 	// no project's `include` at all — never typechecked by anything.
 	"include": [
 		"scripts/**/*.mjs",
-		"eslint.config.mjs",
 		"vitest.config.ts",
 		"tsdown.config.ts",
 		"tsdown.dev.config.ts",

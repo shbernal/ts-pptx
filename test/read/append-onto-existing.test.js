@@ -372,7 +372,7 @@ describe('Presentation.appendSlides', () => {
 		// The only new media part is the poster image — no ppt/media/*.mp4 binary.
 		const newParts = [...after.keys()].filter((name) => !before.has(name))
 		assert(
-			newParts.filter((n) => /^ppt\/media\//.test(n)).every((n) => /^ppt\/media\/image\d+\.png$/.test(n)),
+			newParts.filter((n) => n.startsWith('ppt/media/')).every((n) => /^ppt\/media\/image\d+\.png$/.test(n)),
 			`the only new media part is the poster image (${newParts.join(', ')})`
 		)
 		assert(!newParts.some((n) => /^ppt\/media\/.*\.mp4$/.test(n)), 'no mp4 media binary was added')

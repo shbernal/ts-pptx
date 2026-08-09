@@ -124,7 +124,7 @@ export class Chart {
 		for (let node = plotArea.firstChild; node; node = node.nextSibling) {
 			if (node.nodeType !== ELEMENT_NODE) continue
 			const element = node as Element
-			if (element.namespaceURI === OOXML_NS.c && /Ax$/.test(element.localName ?? ''))
+			if (element.namespaceURI === OOXML_NS.c && (element.localName ?? '').endsWith('Ax'))
 				out.push(new ChartAxis(element, this.part))
 		}
 		return out

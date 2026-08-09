@@ -42,7 +42,7 @@ function firstRun(shape) {
 describe('read: placeholder text-property inheritance', () => {
 	test('a bare title run inherits size + theme (major) face from the master txStyles', async () => {
 		const slide = (await open('placeholder-inherit')).slides[0]
-		const title = slide.shapes.find((s) => /^Title/.test(s.name ?? ''))
+		const title = slide.shapes.find((s) => (s.name ?? '').startsWith('Title'))
 		assert(title, 'expected a title placeholder shape')
 		const run = firstRun(title)
 
@@ -61,7 +61,7 @@ describe('read: placeholder text-property inheritance', () => {
 	test('a bare body run inherits size + theme (minor) face from the master txStyles', async () => {
 		const slide = (await open('placeholder-inherit')).slides[0]
 		// The body placeholder is the non-title text placeholder.
-		const body = slide.shapes.find((s) => !/^Title/.test(s.name ?? '') && s.textFrame)
+		const body = slide.shapes.find((s) => !(s.name ?? '').startsWith('Title') && s.textFrame)
 		assert(body, 'expected a body placeholder shape')
 		const run = firstRun(body)
 

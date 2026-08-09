@@ -1,0 +1,273 @@
+// oxlint configuration, replacing eslint.config.mjs. JSONC because most of what this
+// file encodes is *why* — decisions that were measured once and should not be
+// re-litigated. oxlint auto-discovers `.oxlintrc.jsonc` as well as `.oxlintrc.json`
+// (verified against a control run with no config present).
+//
+// ## The category baseline, and what it costs
+//
+// oxlint's default is `correctness` alone. That is deliberately kept, rather than the
+// `correctness` + `suspicious` + `pedantic` that looks like the closer analogue of
+// `eslint:recommended` + `recommendedTypeChecked`, because the wider baselines were
+// measured on this tree: 17 findings at `correctness`, 753 adding `suspicious`, 1509
+// adding `pedantic`. The extra 1492 are not latent bugs this repo had been missing —
+// they are a different linter's house style, and several of them contradict decisions
+// recorded below (`suspicious` turns `require-await` back on; `pedantic` wants
+// `eqeqeq` across read/api). Adopting them would be a style migration wearing a
+// toolchain swap's clothes.
+//
+// Parity is instead reached by naming rules explicitly. Of the 90 rules ESLint had
+// enabled on `src/**/*.ts`, 57 are in oxlint's `correctness` already and 32 more are
+// turned on by name in `rules` below. The 90th, `no-octal`, does not exist in oxlint
+// and is not replaceable — see the note at the end of `rules`.
+//
+// The 17 `correctness` findings were real and were dealt with rather than silenced:
+// one dead conjunct, three useless spread fallbacks, one redundant array copy and one
+// regex-for-endsWith were fixed; one snapshot-before-mutation is suppressed inline at
+// the site with its reason; and `unicorn/no-new-array` is off for the reason below.
+{
+	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"ignorePatterns": [
+		"coverage/**",
+		"demos/**",
+		"dist/**",
+		"node_modules/**",
+		"src/bld/**",
+		"types/**",
+		// `tools/**` and `docs/**` are new entries, and they encode something the previous
+		// config expressed by omission rather than by an ignore: its blocks were all
+		// `files`-scoped, so a file matching no block was linted with *zero* rules, and
+		// nothing there matched. oxlint inverts that — top-level `rules` apply to every
+		// file that is not ignored — so keeping these trees at the enforcement level they
+		// have always had means naming them. Starting to lint them is a decision worth
+		// making on its own, not a side effect of changing linters.
+		"tools/**",
+		"docs/**",
+	],
+	"categories": {
+		"correctness": "error",
+	},
+	"rules": {
+		// --- ESLint rules that `correctness` does not include, restored by name ---
+		"eslint/no-case-declarations": "error",
+		"eslint/no-empty": "error",
+		"eslint/no-fallthrough": "error",
+		"eslint/no-prototype-builtins": "error",
+		"eslint/no-regex-spaces": "error",
+		"eslint/no-useless-assignment": "error",
+		"eslint/no-var": "error",
+		"eslint/prefer-const": "error",
+		"eslint/prefer-rest-params": "error",
+		"eslint/prefer-spread": "error",
+		"eslint/preserve-caught-error": "error",
+		"typescript/ban-ts-comment": "error",
+		"typescript/no-array-constructor": "error",
+		"typescript/no-empty-object-type": "error",
+		"typescript/no-explicit-any": "error",
+		"typescript/no-namespace": "error",
+		"typescript/no-require-imports": "error",
+		"typescript/no-unnecessary-type-constraint": "error",
+		"typescript/no-unsafe-function-type": "error",
+
+		// --- type-aware, and the reason `options.typeAware` is on below ---
+		// These are where `recommendedTypeChecked` was doing work that no syntax-only
+		// linter can replicate. They need tsgolint (the Go typechecker oxlint shells
+		// out to), which is why `oxlint-tsgolint` is a devDependency.
+		"typescript/no-misused-promises": "error",
+		"typescript/no-unsafe-argument": "error",
+		"typescript/no-unsafe-assignment": "error",
+		"typescript/no-unsafe-call": "error",
+		"typescript/no-unsafe-enum-comparison": "error",
+		"typescript/no-unsafe-member-access": "error",
+		"typescript/no-unsafe-return": "error",
+		"typescript/only-throw-error": "error",
+		"typescript/prefer-promise-reject-errors": "error",
+		"typescript/restrict-plus-operands": "error",
+
+		// Gate both compile-time escape hatches from the null-safety work: a bare `!`
+		// and a provably-redundant `as` cast. Pinned together so the `!`/`as` symmetry
+		// is explicit and survives any upstream preset change — the same reason they
+		// were pinned under the previous linter.
+		"typescript/no-non-null-assertion": "error",
+		"typescript/no-unnecessary-type-assertion": "error",
+
+		// Library output goes through `warn()` / `warnOnce()` so a consumer can route or
+		// silence it (see diagnostics.ts), and failures go through the error classes. A
+		// direct `console.*` is neither: it cannot be captured, muted, or branched on.
+		// Three files are exempt in `overrides`; everything else that reaches for one
+		// wants a diagnostic code or a thrown error instead.
+		"eslint/no-console": "error",
+
+		// --- rules intentionally relaxed for this codebase ---
+		// Several async methods exist only to satisfy a uniform Promise-returning
+		// contract (runtime adapters, zip/opc save, excel worksheet) even when a given
+		// impl has no await.
+		"typescript/require-await": "off",
+		// Output paths deliberately coerce `unknown`/union values with
+		// String()/.toString() while assembling OOXML strings; the object-stringification
+		// guard is noise here.
+		"typescript/no-base-to-string": "off",
+		// Public color types are `literal-union | string` on purpose: the literals drive
+		// editor autocomplete while `string` keeps an escape hatch for arbitrary hex.
+		"typescript/no-redundant-type-constituents": "off",
+		"eslint/no-lone-blocks": "off",
+		// Every one of the ten sites this fires on is `new Array<T>(n).fill(v)`. The
+		// rule's stated reason is that `new Array(x)` is ambiguous about whether `x` is
+		// a length or a lone element; an explicit type argument followed by `.fill()`
+		// removes that ambiguity, and the suggested `Array.from({ length: n })` is a
+		// longer spelling of the same dense array. Off rather than churned.
+		"unicorn/no-new-array": "off",
+
+		// `eslint/no-octal` has no oxlint equivalent and needs none: legacy octal
+		// literals are a syntax error in strict mode, every source file here is an ES
+		// module, and modules are always strict. The parser rejects what the rule
+		// forbids, so this is the one rule lost in the swap and it is lost harmlessly.
+	},
+	"overrides": [
+		{
+			// The three exemptions to `no-console`, all deliberate.
+			//
+			// `diagnostics.ts` owns the default handler — the one `console.warn` every
+			// diagnostic funnels into when the consumer has installed nothing else.
+			//
+			// The `verbose: true` table tracers are a different kind of output from a
+			// diagnostic: a DEV-ONLY flag (see `TableProps.verbose`) that prints a
+			// multi-line trace of the auto-paging arithmetic. Routing it through the
+			// diagnostic handler would mean inventing a code per formatted line and
+			// flooding a consumer's handler with output that reports no condition. A
+			// consumer silences it by not passing the flag, so it is opt-in, not
+			// unroutable.
+			"files": ["src/diagnostics.ts", "src/gen/table/autopage.ts", "src/gen/table/html-dom.ts"],
+			"rules": {
+				"eslint/no-console": "off",
+			},
+		},
+		{
+			// Untyped, deliberately — and measured, so it does not get retried.
+			//
+			// `scripts/**` does have a typechecked project (`tsconfig.scripts.json`,
+			// `checkJs`), so type-aware rules are *available* here in a way they are not
+			// for the root configs below. Under the previous linter, turning them on
+			// reported 1849 errors, of which 1843 were the `no-unsafe-*` family: that
+			// project sets `noImplicitAny: false` on purpose, so every unannotated
+			// parameter is `any` and every member access on one is "unsafe". The rules
+			// actually worth having — `no-floating-promises`, `no-misused-promises` —
+			// reported zero. Re-measured under oxlint: same shape, see the plan notes.
+			//
+			// So the trade is: disable a handful of rules to silence 99.7% of the
+			// output, and gain nothing `tsc -p tsconfig.scripts.json` does not already
+			// catch. Annotating 6.8k lines of maintenance tooling to buy the same result
+			// is not a good use of anyone's time either. `typecheck:scripts` is the type
+			// gate for this tree.
+			// The list below is every type-aware rule this config leaves enabled, minus
+			// `no-floating-promises` and `no-misused-promises`. Those two are the pair the
+			// old measurement called out as the ones actually worth having, they report
+			// zero here, and oxlint — unlike the preset-based setup this replaces — lets
+			// them stay on without dragging the `no-unsafe-*` family along. Keeping them is
+			// the one place this swap tightens the gate rather than reproducing it.
+			"files": ["scripts/**/*.mjs", "test/**/*.mjs", "test/**/*.js"],
+			"env": {
+				"node": true,
+				"es2024": true,
+			},
+			"rules": {
+				"eslint/no-console": "off",
+				"typescript/no-explicit-any": "off",
+				"typescript/await-thenable": "off",
+				"typescript/no-array-delete": "off",
+				"typescript/no-duplicate-type-constituents": "off",
+				"typescript/no-for-in-array": "off",
+				"typescript/no-implied-eval": "off",
+				"typescript/no-meaningless-void-operator": "off",
+				"typescript/no-misused-spread": "off",
+				"typescript/no-unnecessary-type-assertion": "off",
+				"typescript/no-unsafe-argument": "off",
+				"typescript/no-unsafe-assignment": "off",
+				"typescript/no-unsafe-call": "off",
+				"typescript/no-unsafe-enum-comparison": "off",
+				"typescript/no-unsafe-member-access": "off",
+				"typescript/no-unsafe-return": "off",
+				"typescript/no-unsafe-unary-minus": "off",
+				"typescript/no-useless-default-assignment": "off",
+				"typescript/only-throw-error": "off",
+				"typescript/prefer-promise-reject-errors": "off",
+				"typescript/prefer-string-starts-ends-with": "off",
+				"typescript/require-array-sort-compare": "off",
+				"typescript/restrict-plus-operands": "off",
+				"typescript/restrict-template-expressions": "off",
+				"typescript/unbound-method": "off",
+			},
+		},
+		{
+			// The browser lane is the one place under `test/` whose code runs in a page,
+			// and the two halves of it need different amounts of DOM.
+			//
+			// A **spec** is ordinary Node except for its `page.evaluate` callbacks, which
+			// are serialized and evaluated in the page. Those reach `window` and nothing
+			// else here grants more, deliberately: a reference to `document` or `fetch`
+			// outside an evaluate callback would be a mistake worth catching.
+			"files": ["test/browser/**/*.mjs"],
+			"globals": {
+				"window": "readonly",
+			},
+		},
+		{
+			// A **harness module** is page code outright — loaded by its own document
+			// over a `<script type="module">`, never imported by Node. Reading the DOM is
+			// its whole job (`table.mjs` renders a fixture and measures it), so
+			// withholding `document` there would only mean writing the same access in a
+			// form the linter cannot see.
+			//
+			// Kept to this directory rather than folded into the block above so the
+			// distinction survives: the specs still cannot touch the DOM outside an
+			// evaluate callback.
+			"files": ["test/browser/harness/**/*.mjs"],
+			"globals": {
+				"document": "readonly",
+				"getComputedStyle": "readonly",
+				"window": "readonly",
+			},
+		},
+		{
+			// The root build configs matched no block at all under the previous linter,
+			// so zero rules applied to them. Untyped only: these are a handful of
+			// declarative config objects, and type-aware rules would mean building a
+			// program for them.
+			"files": ["*.config.ts", "*.config.mts"],
+			"env": {
+				"node": true,
+				"es2024": true,
+			},
+			"rules": {
+				"typescript/await-thenable": "off",
+				"typescript/no-array-delete": "off",
+				"typescript/no-duplicate-type-constituents": "off",
+				"typescript/no-for-in-array": "off",
+				"typescript/no-implied-eval": "off",
+				"typescript/no-meaningless-void-operator": "off",
+				"typescript/no-misused-spread": "off",
+				"typescript/no-unnecessary-type-assertion": "off",
+				"typescript/no-unsafe-argument": "off",
+				"typescript/no-unsafe-assignment": "off",
+				"typescript/no-unsafe-call": "off",
+				"typescript/no-unsafe-enum-comparison": "off",
+				"typescript/no-unsafe-member-access": "off",
+				"typescript/no-unsafe-return": "off",
+				"typescript/no-unsafe-unary-minus": "off",
+				"typescript/no-useless-default-assignment": "off",
+				"typescript/only-throw-error": "off",
+				"typescript/prefer-promise-reject-errors": "off",
+				"typescript/prefer-string-starts-ends-with": "off",
+				"typescript/require-array-sort-compare": "off",
+				"typescript/restrict-plus-operands": "off",
+				"typescript/restrict-template-expressions": "off",
+				"typescript/unbound-method": "off",
+			},
+		},
+	],
+	"options": {
+		// Type-aware rules are the half of the old `recommendedTypeChecked` that a
+		// syntax-only pass cannot reach. Enabled in config rather than by a CLI flag so
+		// an editor's oxlint integration gets the same answer as `pnpm run lint`.
+		"typeAware": true,
+	},
+}

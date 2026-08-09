@@ -89,7 +89,7 @@ describe('read-stress.pptx — combined read-model integration', () => {
 		const svg = named(shapes, 'SvgIcon')
 		// Real PowerPoint COM writes an svg-only blip (empty a:blip + asvg:svgBlip).
 		assertEqual(svg.mediaKind, 'svg', 'inserted .svg is svg-only')
-		assert(/\.svg$/.test(svg.svgPartName ?? ''), `svgPartName should resolve, got ${svg.svgPartName}`)
+		assert((svg.svgPartName ?? '').endsWith('.svg'), `svgPartName should resolve, got ${svg.svgPartName}`)
 	})
 
 	test('nested groups: a group inside a group', async () => {

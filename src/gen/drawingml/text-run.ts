@@ -502,7 +502,7 @@ export function groupRunsIntoLines(arrTextObjects: RunProps[], opts: ObjectOptio
 				arrLines.push(arrTexts)
 				arrTexts = []
 			}
-		} else if (arrTexts.length > 0 && textObj.options.bullet && arrTexts.length > 0) {
+		} else if (arrTexts.length > 0 && textObj.options.bullet) {
 			arrLines.push(arrTexts)
 			arrTexts = []
 			textObj.options.breakLine = false // For cases with both `bullet` and `brekaLine` - prevent double lineBreak

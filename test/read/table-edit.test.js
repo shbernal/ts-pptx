@@ -207,7 +207,7 @@ describe('TableCell setters — a:tcPr attributes', () => {
 		const { presentation, table } = await editable(plainTable)
 		table.cell(0, 0).setMarginsEmu({ left: 0, top: 12700 })
 
-		let xml = await savedSlide(presentation)
+		const xml = await savedSlide(presentation)
 		let tag = xml.match(/<a:tcPr[^>]*>/)[0]
 		assert(tag.includes('marL="0"'), 'the left inset is flush; got: ' + tag)
 		assert(tag.includes('marT="12700"'), 'the top inset is set; got: ' + tag)

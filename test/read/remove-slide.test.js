@@ -53,7 +53,7 @@ function assertNoDanglingRels(opc) {
 	}
 }
 function partNames(opc) {
-	return new Set([...opc.parts.keys()])
+	return new Set(opc.parts.keys())
 }
 
 describe('Presentation.removeSlide', () => {

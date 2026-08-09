@@ -56,8 +56,8 @@ function decodeTransition(tx) {
 	const body = tx.replace(/^<p:transition\b[^>]*>/, '').replace(/<\/p:transition>\s*$/, '')
 	const child = body.match(/<(?:([\w]+):)?([\w]+)\b([^>]*?)\/?>/)
 	let element = null,
-		ns = null,
-		variant = {}
+		ns = null
+	const variant = {}
 	if (child) {
 		ns = child[1] || 'p'
 		element = child[2]
