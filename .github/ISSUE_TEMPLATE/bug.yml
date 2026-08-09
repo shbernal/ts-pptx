@@ -1,3 +1,11 @@
+# Two decisions here are load-bearing and were made against real filings, not taste:
+#
+# 1. A fidelity limit is a severity, not a third form. It is neither a bug (the
+#    OOXML is valid and the deck opens) nor a missing accessor — but three forms
+#    is more chooser than intake for a repo this size.
+# 2. There is no browser or package-manager field. Every filing that had them
+#    answered `n/a`. PowerPoint version is optional for the same reason: it is
+#    meaningless for an API-shape report and load-bearing for a render one.
 name: Bug or fidelity limit
 description: Wrong output, a repair prompt, a regression, or a construct that does not survive a round trip.
 labels: [bug]
