@@ -233,6 +233,37 @@ concrete case: `test:schema` requires the validator installed with
 first run turned one legible missing-validator error into three blind 40s re-runs. Run
 bare first; filter only on a re-run, once you know what you are looking for.
 
+### Shell habit: reach a binary directly, keep `pnpm run` for scripts
+
+`pnpm run X` and `pnpm exec X` add a flat ~0.7s to whatever they wrap. About 0.45s of
+that is pnpm's own CLI startup — `pnpm --version`, which resolves nothing, costs that
+much by itself — and the rest is script lookup plus the extra `.CMD` shim and second
+`node` process pnpm's shell line goes through. It is **not** dependency verification, so
+it does not shrink with the size of the job: forcing `verify-deps-before-run` on or off
+moves nothing, and on a one-file oxlint the wrapper costs more than the lint does.
+
+So when you invoke one of the repo's binaries yourself, name it directly:
+
+```
+node node_modules/oxlint/bin/oxlint <paths>      # 1.15s repo-wide, against 1.86s for `pnpm run lint`
+```
+
+Output and exit status are byte-identical — the `lint` script is exactly `oxlint .` — and
+that path is the `bin` entry oxlint's own `package.json` declares, the file the
+`node_modules/.bin` shims are generated from, so it is the published contract rather than
+a reach into the package. The pre-commit hook resolves its tools the same way, with the
+measurements written down beside it in `lefthook.yml`.
+
+This is a habit about *how* to call a tool, not permission to call more of them — the
+hooks still own `lint` and `format:check` per the section above. It applies to the
+narrower cases that do warrant a direct call: iterating on `.oxlintrc.jsonc`, or checking
+the single file you just rewrote.
+
+It also stops at binaries. Keep `pnpm run` for `verify`, `check:static` and the other
+composites — those name **scripts**, not executables: they chain steps and open with the
+`ensure-dist` guard. Bypassing one means re-deriving its definition in your shell, which
+is how a second, drifting copy of a gate gets created.
+
 ### Commit messages go through a file, never through a shell
 
 Write the message to `.git/COMMIT_MSG_DRAFT` with your file-writing tool, then `git commit -F

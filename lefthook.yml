@@ -6,15 +6,21 @@
 # `git push --no-verify`, or `LEFTHOOK=0 git …` to disable all hooks.
 #
 # pre-commit runs its tools as `node <file>`, never through `pnpm exec`. A hook
-# pays that wrapper on every invocation, and it is not small: `pnpm exec`
-# re-verifies the whole dependency tree before the tool sees an argument.
-# Measured on this machine with `--version`, which does no work at all — oxlint
-# ~0.89 s via `pnpm exec` against ~0.17 s direct, oxfmt ~1.0 s against
-# ~0.24 s. That is overhead, not lint; end to end over two staged files the pair
-# goes from ~2.5 s to ~1.0 s. Each path is the `bin` entry the tool's
-# own package.json declares — the file `node_modules/.bin` shims are generated
-# from — so this is the published contract, not a reach into the package.
-# scripts/install-hooks.mjs resolves lefthook the same way, for the same reason.
+# pays that wrapper on every invocation, and it is not small. The cost is pnpm's
+# own CLI startup, not dependency work: `pnpm --version`, which resolves nothing,
+# already accounts for most of it, and forcing `verify-deps-before-run` on or off
+# moves the total by less than the run-to-run noise. So it is a flat per-process
+# tax that does not shrink with the two or three files a hook actually hands over.
+# Measured on this machine, point-in-time (pnpm 11.3.0, oxlint 1.77.0, 2026-08),
+# with `--version`, which does no work at all — oxlint ~0.67 s via `pnpm exec`
+# against ~0.11 s direct, oxfmt ~0.72 s against ~0.19 s. That is overhead, not
+# lint; end to end over two staged files the pair goes from ~2.0 s to ~0.9 s.
+# `node <file>` rather than the `node_modules/.bin` shim because the shim is a
+# second process — a `.CMD` that re-execs node — worth another ~0.08 s. Each path
+# is the `bin` entry the tool's own package.json declares, the file those shims
+# are generated from, so this is the published contract and not a reach into the
+# package. scripts/install-hooks.mjs resolves lefthook the same way, for the same
+# reason.
 #
 # pre-push keeps `pnpm run`: those jobs name scripts, not binaries, and inlining
 # the script bodies here would be a second definition of each gate to keep in
