@@ -333,6 +333,36 @@ probe does. A subset beating the full run is the tell. Recorded per-file numbers
 the same way: two files in this package were logged at 73 and 47 missed branches and
 were actually at 83 and 23 when the work started.
 
+## Path-Citation Gate
+
+```bash
+pnpm run path-refs:check  # part of verify and check:static
+pnpm run path-refs:list   # every citation found, resolved or not
+```
+
+This repo cites files in backticks rather than as markdown links — a doc says "see
+`test/regression/shape/group-shapes.test.js`", a source comment names the module that
+owns the other half of a decision. Those citations are usually the *evidence* for the
+claim beside them, and nothing checked them: `docs-check.mjs` validates markdown links,
+a backticked path is not a link, and most of these live in `src/` and `test/` where a
+docs gate never looks. Seven had rotted by the time anyone did look, two still
+describing the upstream demo layout this project replaced.
+
+A citation is a backticked token containing a `/` and ending in a source extension; the
+`/` is what keeps bare `package.json` out. It resolves against the repo root, against
+the citing file's directory, or as a suffix of some file's path — the loose third rule
+exists because comments legitimately write `gen/oxml/el.ts` without the `src/` prefix. A
+`.js` token also resolves against its `.ts` source, since ESM specifiers name the emitted
+file.
+
+Build output (`dist/`, `coverage/`, `.tmp/`, demo `output/`) is skipped: `RELEASING.md`
+lists `dist/pptxgen.*` files *on purpose*, as the negative space of what this package
+refuses to ship, and those must never resolve. `CHANGELOG.md` is skipped entirely — a
+release log describes the tree as it stood, so a moved path there is a correct historical
+record. Everything else deliberately unresolvable goes in `ALLOWLIST` in
+`scripts/path-refs.mjs` with its reason, and an entry that stops firing is itself
+reported: a stale exemption is the same disease the gate exists to catch.
+
 ## Raw-XML Ratchet
 
 ```bash
