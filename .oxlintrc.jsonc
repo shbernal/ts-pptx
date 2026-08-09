@@ -3,6 +3,11 @@
 // re-litigated. oxlint auto-discovers `.oxlintrc.jsonc` as well as `.oxlintrc.json`
 // (verified against a control run with no config present).
 //
+// Every count below — finding totals, rule counts — is a point-in-time measurement,
+// taken 2026-08-09 against oxlint 1.77.0 with oxlint-tsgolint 7.0.2001. They are the
+// evidence the decisions rest on, not a description of the tree as it stands today;
+// expect them to drift, and re-measure before treating any of them as current.
+//
 // ## The category baseline, and what it costs
 //
 // oxlint's default is `correctness` alone. That is deliberately kept, rather than the
