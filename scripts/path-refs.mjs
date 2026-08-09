@@ -37,6 +37,8 @@
  * - `dist/`, `coverage/`, `.tmp/` and demo `output/` — build artifacts. `RELEASING.md`
  *   in particular lists `dist/pptxgen.*` files *on purpose*, as the negative space of
  *   what this package refuses to ship; those must never resolve.
+ * - Generated trees *inside* the scanned roots, which are skipped as sources as well as
+ *   as targets — see `SKIP_PATHS`.
  * - `CHANGELOG.md` — a release log describes the tree as it stood at the time, so a
  *   path that has since moved is a correct historical record, not a dead citation.
  * - The `ALLOWLIST` below: citations that are deliberately unresolvable. Each carries
@@ -62,6 +64,24 @@ const ROOT_FILES = ['AGENTS.md', 'README.md', 'CONTRIBUTING.md', 'SECURITY.md', 
  * not by directory, so there is nothing to gain by excluding the tree.
  */
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage', '.git', '.tmp', '.vitepress', 'output'])
+
+/**
+ * Generated trees that sit *inside* a scan root, so they cannot be excluded by directory name:
+ * `docs/reference/api/` is TypeDoc output, but `api` alone would also swallow `src/read/api/`.
+ * Repo-relative, matched on the directory itself.
+ *
+ * The reason to skip them is determinism, not noise. These trees are gitignored, so CI's fresh
+ * checkout scans a tree that lacks them while a working copy that has run `docs:build` scans one
+ * that has them — and `path-refs:check` runs *before* `docs:build` in both `check:static` and
+ * `verify`, so even locally the state depends on what a previous run left behind. A dead citation
+ * inside generated output would fail on one tree and pass on the other, which makes the gate's
+ * verdict a property of the machine rather than of the repo.
+ *
+ * Nothing is lost by not walking them: TypeDoc copies its citations out of TSDoc comments in
+ * `src/`, where this gate already reads them at the source. Every one of the ten citations the
+ * generated tree contributed was such a duplicate.
+ */
+const SKIP_PATHS = new Set(['docs/reference/api'])
 
 /** Only these carry citations worth resolving; a `.png` or `.pptx` is an asset, not a claim. */
 const CITED_EXT = /\.(ts|mts|tsx|js|mjs|cjs|jsx|md|json|jsonc|yml|yaml|html|css|tsv)$/
@@ -137,8 +157,10 @@ function walk(dir, out = []) {
 	for (const entry of readdirSync(dir, { withFileTypes: true })) {
 		if (SKIP_DIRS.has(entry.name)) continue
 		const full = path.join(dir, entry.name)
-		if (entry.isDirectory()) walk(full, out)
-		else out.push(full)
+		if (entry.isDirectory()) {
+			if (SKIP_PATHS.has(rel(full))) continue
+			walk(full, out)
+		} else out.push(full)
 	}
 	return out
 }
