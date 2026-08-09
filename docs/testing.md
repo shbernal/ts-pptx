@@ -646,9 +646,9 @@ platform-independent, and the validator installer is a bash script.
 That narrows, but does not remove, the gap: a Windows-only break outside the
 package scripts is still invisible to CI.
 
-Note that the Windows leg has never actually executed — `ci.yml` has not run at
-all yet. Treat it as the highest-risk part of the first push; see "Common
-Commands" in [the development guide](./development.md) for what to watch.
+That leg does execute, and is green on every CI run to date — including the
+`workflow_call` gate inside `publish.yml`, so the Windows path is exercised on
+every release rather than merely configured.
 
 ## Browser Lane
 

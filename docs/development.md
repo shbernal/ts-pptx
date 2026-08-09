@@ -127,16 +127,20 @@ anything. The previous toolchain at least errored out loudly
 worked and did something other than what you asked — check the echoed command line
 pnpm prints if a flag seems to have had no effect.
 
-`ci.yml` has **never actually run.** The repo has no remote yet, so the workflow
-is verified only by parsing plus every command it invokes being green locally.
-On the first push, watch the three things with no local equivalent: the
-`workflow_call` from `publish.yml`, the job split (that `check:static` and
-`check:package` are each self-sufficient on a fresh runner), and above all the
-`windows-latest` package leg. That leg exists to cover the Windows-only branches
-of `run()` in `scripts/script-utils.mjs`, which is exactly where this repo's one
-live cross-platform bug lived (`run('node', …)` resolving to `node.cmd`) — expect
-it to find more. If it proves flaky, mark it `continue-on-error: true` rather than
-dropping it; a noisy signal beats none.
+`ci.yml` runs on every push to `master` and on every pull request, and
+`publish.yml` pulls in that same workflow through `workflow_call` instead of
+keeping its own transcript of it. A release therefore passes the identical seven
+jobs, which appear in the publish run prefixed `CI gate /` — that path is
+exercised rather than assumed, and it is how v3.0.0 shipped.
+
+The `windows-latest` leg of the `package` job is the one worth understanding. It
+exists to cover the Windows-only branches of `run()` in
+`scripts/script-utils.mjs`, which is exactly where this repo's one live
+cross-platform bug lived (`run('node', …)` resolving to `node.cmd`). It has been
+green on every run so far and has shown no flakiness — but it is also the only
+job that can catch that class of bug, so if it ever does turn intermittent, mark
+it `continue-on-error: true` rather than dropping the leg; a noisy signal beats
+none.
 
 Relatedly, `.tmp/*.tsbuildinfo` is deliberately **not** cached in CI, which leaves
 `incremental: true` inert there. Whether an `actions/cache` step would earn its
