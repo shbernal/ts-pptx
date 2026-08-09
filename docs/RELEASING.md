@@ -155,6 +155,21 @@ npm view @shbernal/ts-pptx@X.Y.Z version dist-tags --json
 gh release view vX.Y.Z --repo shbernal/ts-pptx
 ```
 
+Then say on each issue the release closes **which version carries the fix**:
+
+```bash
+gh issue comment <N> --repo shbernal/ts-pptx --body "Released in X.Y.Z."
+```
+
+One line each, and it is the only place a consumer can learn it. Issues here close
+when the fix merges, which is the right moment for this repo and the wrong signal
+for a consumer: merged and unreleased is a state that can last weeks, and a
+workaround deleted on the strength of a closed issue breaks against the version
+that is actually installed. The skill this package ships tells consumers to trust
+the published version over the issue state for exactly that reason — this comment
+is what makes the two agree. `CHANGELOG.md` already cites the numbers, so the list
+is the entry you just wrote.
+
 ## Package Surface Checks
 
 The package should ship:

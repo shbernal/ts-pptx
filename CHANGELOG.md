@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The `ts-pptx-upstream` skill covers the far end of the cycle, not just the filing.**
+  It ended at "write the workaround", which is the half that happens on its own — the
+  half that rots is the release landing and nobody finding the stopgaps it retired. A
+  new step 7 is that sweep: `npm view` for what is out, closed issues, `rg 'ts-pptx#'`
+  for every marked stopgap here, then per stopgap bump, run the check the comment names,
+  delete, leave a test behind, and comment upstream with the check that now passes. It
+  rests on the marker actually saying something, so step 6 no longer prescribes
+  `remove once fixed upstream` — a line that cannot be checked at bump time and sends
+  the reader back to re-derive the reproduction — but the wrong output as an observable,
+  the exact check that proves the fix, and the code the stopgap becomes. `ts-pptx#` is
+  named as the literal token to grep for, which is what makes step 7 a command rather
+  than a memory. Two other gaps a downstream consumer found by working through it: step
+  4 now checks `npm view @shbernal/ts-pptx version` *before* the tracker, since a report
+  against a stale pin costs a maintainer a full triage and ends in a close; and step 1
+  carries the `FidelityNote.cause` triage — `unread` and `unwritable` are gaps worth
+  filing, `unsupported` is the format's own limit and is not — which is our own
+  machine-readable verdict on whose bug a silent loss is, and was being re-derived in
+  each consumer's notes instead of read off the note.
+
+- **The README installs the skill the way an agent will actually run it.** The documented
+  line was the interactive one, in a section addressed to agents: it prompts for the
+  skill and the runtimes, which unattended is a hang rather than an install. The
+  non-interactive form is now the default shown, with the interactive one as the aside,
+  and `--all` is called out — it installs into every runtime the CLI knows, around
+  seventy, and leaves an `agent/` directory at the consumer's repository root. Also
+  written down: the installed copy is a copy, so a version bump does not update it, and
+  `skills experimental_install` restores the file from `skills-lock.json` without
+  creating any runtime link, so it is a record rather than a restore command.
+
+- **`docs/RELEASING.md` closes the loop the skill now depends on.** Issues here close
+  when the fix merges, which is right for this repo and the wrong signal for a consumer:
+  merged-and-unreleased lasts weeks, and a workaround deleted on the strength of a closed
+  issue breaks against the version actually installed. Post-publish now comments the
+  carrying version on each issue the release closed. `AGENTS.md` gains the rule #10 was:
+  when a fix gives an option value a meaning it did not have, work out what its *absence*
+  now means, because an emitter that defaults through a ternary has already assigned one
+  state to silence.
+
 ### Added
 
 - **`fill: { type: 'inherit' }` authors a shape whose interior comes from the style

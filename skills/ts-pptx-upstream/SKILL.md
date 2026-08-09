@@ -40,9 +40,8 @@ Not every defect throws. These are ours too, and are worth reporting:
 - Output PowerPoint opens with a **repair prompt** (`0x80070570` and friends), or
   renders differently than intended.
 - A **round trip that loses a construct**: read a deck, write it back, something is
-  gone or changed. If the loss surfaces as a conversion fidelity note, capture its
-  **construct key** (e.g. `table.rowAuto`) — the form asks for it and it is the
-  fastest thing a maintainer can search on.
+  gone or changed. If the loss surfaced as a conversion fidelity note, the note has
+  already classified it for you — see below.
 - The **read side cannot see what the write side authors** — a property ts-pptx emits
   but has no accessor to read back. This is the strongest case a gap can make, and it
   has its own form (see step 5).
@@ -50,6 +49,28 @@ Not every defect throws. These are ours too, and are worth reporting:
   carries the wrong `code`.
 - Types that make correct code fail to compile, or admit code that throws at runtime.
 - Documented behaviour that does not match observed behaviour.
+
+### If you are holding a fidelity note, it already told you
+
+Anything that converts a deck through `@shbernal/ts-pptx/script` gets `FidelityNote`s
+back, and `cause` is the library's own verdict on whose gap the loss is. Read it
+before deciding whether to file — it answers the same question the error table above
+answers for the throwing cases:
+
+| `cause`       | what it means                                              | report it?                                      |
+| ------------- | ---------------------------------------------------------- | ----------------------------------------------- |
+| `unread`      | nothing on the read side can see it — a missing reader      | **Yes**, and `api-gap.yml` is its form.          |
+| `unwritable`  | it is read fine, but no write option can author it back     | **Yes** — a missing option is a gap, not a limit.|
+| `unsupported` | OOXML, or the tier you chose, cannot express it at all      | **No**. No amount of converter work closes it.   |
+
+So a `dropped`/`unread` note is a report waiting to be written, and an `unsupported`
+one is the format's answer rather than ours. Quote `construct` (`line.width`,
+`table.rowAuto`) verbatim: it is a stable dotted key, the form asks for it, and it is
+the fastest thing a maintainer can search on.
+
+One more shape worth filing: a note that fires for a construct that **did** survive.
+A declared loss that does not happen is a stale note, and it is a defect in the same
+way a missing one is — it teaches every reader to discount the notes that are true.
 
 Two things are **out of active maintenance scope** and will usually be closed — check
 before spending effort on a reproduction:
@@ -131,17 +152,32 @@ you generate, with invented values. A synthesized file is always safe to attach.
 redacted one is not yours to judge — redaction fails quietly, and a public tracker is
 permanent.
 
-## 4. Check it is not already filed
+## 4. Check it is not already fixed, or already filed
+
+**Fixed first.** The version in `node_modules` is whatever the project pinned, which is
+not necessarily the current one:
+
+```bash
+npm view @shbernal/ts-pptx version   # latest published
+```
+
+If that is ahead of the version you collected in step 2, bump the pin and re-run the
+reproduction from step 3 before writing anything. A report against a stale version costs
+a maintainer the same triage as a real one and ends in a close; the bump costs you one
+command, and you were going to need it anyway once the fix shipped.
+
+Then the tracker:
 
 ```bash
 gh issue list --repo shbernal/ts-pptx --state all --limit 20 --search "<distinctive phrase>"
 ```
 
-Search the error `code` (`table/invalid-border`, `oxml/node-has-no-document`) or the
-distinctive part of the message — not your description of it. Codes are stable and
-searchable in a way prose is not. If an open issue matches, add your reproduction as a
-comment instead of opening a duplicate; if a closed one matches, reopen the conversation
-there with your version and Node version.
+Search the error `code` (`table/invalid-border`, `oxml/node-has-no-document`), the
+fidelity note's `construct` key, or the distinctive part of the message — not your
+description of it. Codes and construct keys are stable and searchable in a way prose is
+not. If an open issue matches, add your reproduction as a comment instead of opening a
+duplicate; if a closed one matches, reopen the conversation there with your version and
+Node version — closed and unreleased is a real state, and so is closed and regressed.
 
 ## 5. Pick the form, then file it
 
@@ -175,8 +211,12 @@ tracker.
 gh issue create --repo shbernal/ts-pptx \
   --title "<InternalError|reads|writes|round-trip|types>: <one specific symptom>" \
   --label agent-reported \
-  --body-file .tmp/ts-pptx-report.md
+  --body-file <a path your repo ignores>/ts-pptx-report.md
 ```
+
+Write the body somewhere the consumer's own `.gitignore` already covers — its scratch or
+temp directory, whatever that repo calls it. A report file committed by accident is a
+second copy of the reproduction living in someone else's history.
 
 The web form (`agent-report.yml`) is what the error message links to; `gh` does not apply
 issue forms, so mirror its sections in the body file so both routes land the same shape:
@@ -224,12 +264,59 @@ as a request. They should be able to read what you filed and close it if they di
 ## 6. Then, and only then, write the workaround
 
 Filing does not unblock the user. Once the issue is open, implement the workaround in
-this project and leave a comment pointing at the issue, so the stopgap is removable when
-the fix ships:
+this project and mark it, so that whoever bumps the pin later can find it and decide.
+
+An issue number alone is not enough of a mark. `remove once fixed upstream` does not say
+what *fixed* looks like, so at bump time it cannot be checked — it can only be
+re-investigated, which means re-reading the issue and re-deriving the reproduction
+someone already wrote. Write the comment so that verifying the fix is running one line:
 
 ```ts
-// Workaround for ts-pptx#<N> — remove once fixed upstream.
+// Workaround for ts-pptx#<N> — https://github.com/shbernal/ts-pptx/issues/<N>
+//
+// <what the library does instead, as an observable: the XML it emits, the value the
+//  accessor returns, the option it ignores.>
+//
+// Remove when <the exact check — an accessor returning the right value, a written part
+// containing the right element> holds, and write <the code this becomes> instead.
 ```
+
+Keep `ts-pptx#` in that literal spelling wherever you mark one. It is the token that
+makes `rg 'ts-pptx#'` list every stopgap in the project at once, and step 7 is exactly
+the moment someone needs that list.
+
+## 7. When the fix ships, delete the workaround
+
+The other half of the cycle, and the half that quietly does not happen: a stopgap nobody
+removes becomes indistinguishable from a design decision, and the next reader inherits it
+as one. Do this in one unit of work, on the release that carries the fix.
+
+```bash
+npm view @shbernal/ts-pptx version                          # what is out
+gh issue list --repo shbernal/ts-pptx --state closed --limit 30
+rg 'ts-pptx#'                                               # every stopgap here
+```
+
+**A closed issue is not a released fix.** A fix can sit merged and unreleased for weeks,
+so the published version is what to check, never the issue state — the repository's
+[`CHANGELOG.md`](https://github.com/shbernal/ts-pptx/blob/master/CHANGELOG.md) and the
+GitHub release notes name the issue numbers each version closes. Bump the pin, reinstall,
+and refresh the installed skill in the same commit. Then, per stopgap:
+
+1. **Run the check its comment names.** If it does not hold, the release does not carry
+   that fix; say so on the issue rather than deleting anything.
+2. **Delete the workaround** and write what the comment told you to write.
+3. **Add the test the workaround was standing in for**, if the project has a layer that
+   can hold it. The stopgap was the only thing keeping the defect from being visible; a
+   deletion with nothing in its place means the same regression can return unnoticed.
+4. **Replace the comment rather than only deleting it** where the code still looks odd
+   without it. One sentence on why the shape it has is the shape it has — *this used to
+   be X because of Y, which release Z fixed* — is the difference between a reader
+   trusting the line and re-litigating it.
+5. **Close the loop upstream**: comment on the issue with the check that now passes, in
+   the same self-contained form as the original reproduction. A maintainer's own tests
+   say the fix works; a consumer's say it works *where it was found*, which is the thing
+   they cannot write themselves.
 
 ## If `gh` is unavailable
 
@@ -240,8 +327,14 @@ Print the assembled report and this URL, and ask the user to paste it in:
 ## Keeping this skill current
 
 This file ships inside the package, so the copy in `node_modules` always matches the
-installed version. If it was installed into an agent directory, refresh it with:
+installed version — but the copy in an agent directory is a *copy*, and a version bump
+does not move it. Refresh it in the same commit as the bump, which is step 7's commit:
 
 ```bash
 npx skills update ts-pptx-upstream
 ```
+
+If that reports nothing to do but the skill is not loading, the runtime link is missing
+rather than the file — reinstall it with the command in the package README, which names
+the runtimes explicitly. `skills experimental_install` and `experimental_sync` restore
+the file from the lock and create no runtime links, so neither is the repair.

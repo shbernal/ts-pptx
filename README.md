@@ -103,15 +103,30 @@ a filed issue with a minimal reproduction, which is what becomes a permanent
 regression test here. It ships inside the package, so it is already on disk:
 
 ```bash
-npx skills add ./node_modules/@shbernal/ts-pptx   # offline, matches your installed version
-npx skills add shbernal/ts-pptx                   # or straight from the repo
+# Name the skill and the runtimes, and take the defaults: this is the form that
+# completes unattended, which is how an agent will be running it.
+npx skills add ./node_modules/@shbernal/ts-pptx -s '*' -a claude-code -a codex -a universal -y
+
+npx skills add shbernal/ts-pptx   # same flags, straight from the repo instead of node_modules
 ```
+
+Drop the flags for an interactive prompt if you are at a terminal yourself. Do not reach
+for `--all` to avoid the prompt — it installs into every runtime the CLI knows about,
+around seventy of them, and leaves an `agent/` directory at your repository root for
+runtimes nobody there uses. Name the ones you have.
+
+Two things about living with the installed copy. It is a copy, so **a version bump does
+not update it** — re-run the command above, or `npx skills update ts-pptx-upstream`, in
+the same commit as the bump. And if you track it, track `skills-lock.json` and ignore the
+copy: `skills experimental_install` restores the file from that lock but creates none of
+the runtime links, so it is a record, not a restore command.
 
 It covers triage (is this ours, your deck's, or out of scope?), reducing a failure to
 a script that builds its own deck, and — because presentations carry client names and
 unreleased numbers — never uploading one to a public tracker. Once the reproduction
 stands on its own it files without interrupting you, and tells you the issue number
-afterwards.
+afterwards. It also covers the far end of the cycle, which is the half that usually
+rots: when a release lands, finding every workaround it retires and deleting them.
 
 You do not need it to report something: <https://github.com/shbernal/ts-pptx/issues>
 is open, and errors the library knows are its own fault print that link themselves.

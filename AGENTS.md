@@ -49,6 +49,18 @@
 - Silent coercion of invalid input is a footgun, not a feature: prefer warning or
   failing on `NaN` / `undefined` / out-of-range values over emitting a degenerate
   result (e.g. a zero-size object).
+- **When you give an option value a meaning it did not have, work out what its
+  *absence* now means.** An emitter that defaults a missing option through a
+  ternary has already assigned one of the states to silence, so correcting the
+  explicit spelling moves the boundary without anyone editing the default. #9 gave
+  `fill: { type: 'none' }` its `<a:noFill/>` back and, in the same stroke, left
+  *inherit* with no spelling at all on that path — omission already meant no-fill —
+  and 3.1.0's own migration advice, "omit `fill` instead", therefore pointed at the
+  wrong state; #10 is that hole. A property with three states needs three
+  spellings. "The caller said nothing" is not one of them: it is an *alias* for one
+  of them, and which one is a decision to make deliberately and write down, not a
+  fact to read off a ternary. Before calling such a fix complete, read the other
+  arms of the branch you changed and ask what is now unreachable.
 - Before adding, widening, or removing an escape hatch (raw XML, a passthrough
   string, direct DOM access), read the "Escape Hatches" section of
   `docs/project-target.md`. It states the convenience-vs-guarantee rule and why
