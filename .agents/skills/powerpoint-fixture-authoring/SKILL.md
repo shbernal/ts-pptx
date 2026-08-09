@@ -32,7 +32,7 @@ writes OOXML; do not generate them with ts-pptx.
    `.tmp/` is gitignored, so a recipe left there is lost on the next clean checkout —
    and the fixture becomes unreproducible. See that directory's `README.md` for the
    path-resolution convention (`$PSScriptRoot`-relative, never absolute) and the
-   Prettier step for regenerated sidecars.
+   formatter step for regenerated sidecars.
 5. Keep the fixture minimal and explicit:
    - set slide size deliberately;
    - name important shapes/groups with stable names;

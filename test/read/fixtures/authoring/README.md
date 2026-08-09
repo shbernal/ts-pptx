@@ -38,11 +38,16 @@ split this directory by platform did not survive contact with its own contents.
 
 Two things to know before you commit the result:
 
-- **Re-run Prettier.** The sidecars are committed in Prettier's format, but the builders
-  emit raw `JSON.stringify(…, '\t')`. After regenerating, run
-  `pnpm exec prettier --write "test/read/fixtures/*.json"` or the diff will be pure
+- **Re-run the formatter.** The sidecars are committed in the repo formatter's output,
+  but the builders emit raw `JSON.stringify(…, '\t')`. After regenerating, run
+  `pnpm exec oxfmt --write "test/read/fixtures/*.json"` or the diff will be pure
   whitespace noise. With that done, every builder here reproduces its committed sidecar
   byte-for-byte — that round-trip is the check that a recipe is still honest.
+
+  That glob deliberately includes `inspect-surface.snapshot.json`, which must **not** be
+  reformatted — it is generated one element per line so a changed element is one changed
+  line in `git diff`. `.oxfmtrc.jsonc` ignores it by name, so the command above skips it
+  on its own; do not work around that by formatting the file directly.
 - **A re-authored `.pptx` will not be byte-identical** to the committed one (PowerPoint
   stamps fresh ids/timestamps), so its SHA-256 changes. Update the hash and the
   provenance line in [`../README.md`](../README.md) whenever you replace a fixture, and

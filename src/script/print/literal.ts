@@ -22,12 +22,12 @@ import type { AssetRef, IrValue } from '../ir.js'
 import { isAssetRef } from '../ir.js'
 import { InvalidOptionError } from '../../errors.js'
 
-/** Matches `.prettierrc`: `printWidth: 120`. */
+/** Matches `.oxfmtrc.jsonc`: `printWidth: 120`. */
 const MAX_WIDTH = 120
 
 /**
- * Columns a tab is assumed to occupy when measuring against {@link MAX_WIDTH}. Prettier's
- * default `tabWidth`, since the repo sets `useTabs` but not `tabWidth`.
+ * Columns a tab is assumed to occupy when measuring against {@link MAX_WIDTH}. The
+ * formatter's default `tabWidth`, since the repo sets `useTabs` but not `tabWidth`.
  */
 const TAB_COLUMNS = 2
 

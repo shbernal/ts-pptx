@@ -151,7 +151,11 @@
 			// project sets `noImplicitAny: false` on purpose, so every unannotated
 			// parameter is `any` and every member access on one is "unsafe". The rules
 			// actually worth having — `no-floating-promises`, `no-misused-promises` —
-			// reported zero. Re-measured under oxlint: same shape, see the plan notes.
+			// reported zero. Re-measured under oxlint, with the list below deleted: 13798
+			// findings over `scripts/**` + `test/**` (1276 of them in `scripts/**` alone), of
+			// which 13760 — 99.7%, the same proportion the old measurement found — are the
+			// `no-unsafe-*` family. The shape transferred exactly; only the absolute number
+			// grew, because this override covers `test/**` too.
 			//
 			// So the trade is: disable a handful of rules to silence 99.7% of the
 			// output, and gain nothing `tsc -p tsconfig.scripts.json` does not already

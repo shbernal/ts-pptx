@@ -34,7 +34,7 @@ contributor guidance lives in the docs below, which are kept authoritative.
   [docs/testing.md](docs/testing.md) for the full matrix.
 - Any change to emitted OOXML must be grounded in fixtures / schema validation /
   PowerPoint-compatibility evidence, per AGENTS.md.
-- A `lefthook` pre-commit hook runs ESLint + Prettier on staged files, and
+- A `lefthook` pre-commit hook runs oxlint + oxfmt on staged files, and
   pre-push runs lint, format-check, and typecheck. Do not bypass hooks.
 
 ## Reporting bugs and proposing changes

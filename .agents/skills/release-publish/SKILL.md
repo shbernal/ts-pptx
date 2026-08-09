@@ -91,7 +91,7 @@ Release run:
 pnpm run check:static && pnpm run verify:full
 ```
 
-(The commit's own pre-commit/pre-push hooks also run eslint, prettier, and
+(The commit's own pre-commit/pre-push hooks also run oxlint, oxfmt, and
 typecheck, so `check:static` should be a formality.)
 
 ### 4. Commit, tag, push

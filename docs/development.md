@@ -115,9 +115,17 @@ a growth detector, not a download size — see
 [Bundle Size](runtime-and-package-support.md#bundle-size).
 
 Pass flags to a script as `pnpm run lint --fix`, never `pnpm run lint -- --fix`.
-pnpm forwards the `--` **literally** to the underlying binary, where it turns the
-following flag into a positional argument (`No files matching the pattern
-"--fix" were found`). This bites eslint and prettier identically.
+pnpm forwards the `--` **literally** to the underlying binary: `pnpm run lint -- --fix`
+runs `oxlint . "--" "--fix"`.
+
+With oxlint and oxfmt this fails **silently**, which is worse than how it used to
+fail. Both tools accept the stray `--` and drop it along with everything after it:
+that command lints all 505 files, exits 0, and applies no fixes, and
+`pnpm run format:check -- --write` reports the tree clean while never writing
+anything. The previous toolchain at least errored out loudly
+(`No files matching the pattern "--fix" were found`). So the command looks like it
+worked and did something other than what you asked — check the echoed command line
+pnpm prints if a flag seems to have had no effect.
 
 `ci.yml` has **never actually run.** The repo has no remote yet, so the workflow
 is verified only by parsing plus every command it invokes being green locally.
@@ -172,14 +180,22 @@ that way:
 
 ```bash
 pnpm run typecheck     # tsc -p tsconfig.json --noEmit
-pnpm run lint          # eslint . --no-warn-ignored
-pnpm run format:check  # prettier --check (includes src/**/*.ts)
+pnpm run lint          # oxlint .
+pnpm run format:check  # oxfmt --check (includes src/**/*.ts)
 ```
+
+`lint` is **type-aware**: `.oxlintrc.jsonc` sets `options.typeAware: true`, so the
+rules that need type information (`no-floating-promises`, the `no-unsafe-*` family,
+`no-misused-promises`) really do run. They are executed by `oxlint-tsgolint`, a Go
+typechecker oxlint shells out to — which is why that devDependency exists and why
+its version tracks TypeScript 7 rather than oxlint. The option lives in the config
+rather than behind a `--type-aware` flag so an editor's oxlint integration reaches
+the same verdict as `pnpm run lint`.
 
 ### Who runs which gate
 
 `lint` and `format:check` do not normally need to be run by hand. Pre-commit runs
-eslint `--fix` and prettier `--write` over staged files and re-stages the result
+oxlint `--fix` and oxfmt `--write` over staged files and re-stages the result
 (`stage_fixed: true`), and pre-push re-verifies the whole repo — so running
 `format:check` yourself can only cost you a check→fix→re-check cycle on files that
 were going to be fixed on commit anyway. What no hook covers is **tests** (none run
@@ -187,9 +203,17 @@ any) and **`typecheck:test`** (pre-push runs `lint`, `format:check`, `typecheck`
 and `typecheck:scripts` only); those are `verify`'s job.
 
 Note that `format`/`format:check` carry an explicit file list while pre-commit's
-prettier job uses an extension glob. Every extension in the former is covered by
+oxfmt job uses an extension glob. Every extension in the former is covered by
 the latter today, but the two are maintained separately — if they drift, so does
 the advice above.
+
+There is a third list, and it is a safety net rather than a definition:
+`.oxfmtrc.jsonc`'s `ignorePatterns`. `format:run` hands oxfmt an explicit set of
+globs instead of the bare `oxfmt` that would otherwise suffice, because bare oxfmt
+considers 585 files against the ~500 the explicit list covers — it reaches markdown,
+CSS, SCSS, HTML and the `demos/vite-demo` workspace, none of which this repo
+formats. A silently *wider* set is how a tool-written file gets clobbered, so both
+defences are kept and they overlap on purpose.
 
 The three `tsc` projects are `incremental`, with their build state under the
 gitignored `.tmp/` (one `tsBuildInfoFile` each — a shared one would thrash). A warm
@@ -200,8 +224,8 @@ slower than a non-incremental one, so CI loses nothing.
 
 All text files are checked in and checked out as **LF**, enforced by
 `.gitattributes` (`* text=auto eol=lf`, with binary asset types marked `binary`).
-Prettier's default `endOfLine: "lf"` relies on this. Do not depend on your local
-`core.autocrlf` setting — the repo config is self-contained.
+oxfmt writes LF and relies on this. Do not depend on your local `core.autocrlf`
+setting — the repo config is self-contained.
 
 On Windows, a working tree that predates the `.gitattributes` (or a fresh clone
 with `core.autocrlf=true` and no attributes applied) can materialize files as
@@ -214,6 +238,35 @@ already LF, so this changes only line endings, not content):
 git rm -r --cached -q .
 git reset --hard        # re-checks-out every tracked file as LF per .gitattributes
 ```
+
+### Two TypeScript versions are installed, on purpose
+
+`tsc` is **TypeScript 7**, the native Go compiler. Two things still hold a pinned
+copy of **TypeScript 6**, and neither is an oversight:
+
+- `tools/api-docs` — a private workspace package holding TypeDoc, its markdown
+  plugin, and `typescript@6.0.3` for TypeDoc to use.
+- `typescript-6` in the root devDependencies — an alias of `typescript@6` that
+  `scripts/raw-xml-ratchet.mjs` imports.
+
+The cause is the same for both. TypeScript 7's npm package ships `bin/tsc` plus
+twenty platform binaries and **no JavaScript compiler API** — no `ts.SyntaxKind`,
+no `ts.createProgram`. Anything that walks a syntax tree therefore cannot run on
+it: TypeDoc dies at import time, and the raw-XML ratchet walks a tree by design.
+Both are dev-only, so leaving them on 6.x costs consumers nothing, and the
+published `.d.ts` output is unaffected.
+
+They are separate pins that unwind separately — `tools/api-docs` frees up when
+TypeDoc supports TypeScript 7, the alias when the ratchet does — so Renovate
+holds each below 7 with its own rule and its own `description`. Note that
+`pnpm.overrides` cannot express this: an override does not bind a peer
+dependency, which is why the TypeDoc copy needs a whole workspace package rather
+than one line of config. `tools/api-docs/README.md` has the full reasoning,
+including what to delete when the day comes.
+
+This is also why `.vscode/settings.json` points `typescript.tsdk` at the
+`tools/api-docs` copy: TypeScript 7 ships no `tsserver.js`, so the editor cannot
+use the root one.
 
 ### TypeScript strictness
 
@@ -237,20 +290,58 @@ becomes cheap on the input type.
 
 ### Lint policy
 
-`src/**/*.ts` runs the type-aware set (`recommendedTypeChecked`), wired to type
-info via `parserOptions.projectService`. `test/` and `scripts/` run the plain
-recommended set. Two guardrail rules are pinned as **errors** to close the
-compile-time escape hatches from the null-safety work:
+`src/**/*.ts` runs the type-aware set; `test/` and `scripts/` run a syntax-only
+set. Two guardrail rules are pinned as **errors** to close the compile-time
+escape hatches from the null-safety work:
 
-- `@typescript-eslint/no-non-null-assertion` — bans a bare `!`.
-- `@typescript-eslint/no-unnecessary-type-assertion` — bans a provably-redundant
-  `as` (an intentional branding/`unknown as T` cast is not redundant and stays).
+- `typescript/no-non-null-assertion` — bans a bare `!`.
+- `typescript/no-unnecessary-type-assertion` — bans a provably-redundant `as` (an
+  intentional branding/`unknown as T` cast is not redundant and stays).
+
+They are pinned together, and deliberately so: the point is the `!`/`as`
+symmetry, and pinning both by name means it survives any upstream change to the
+preset either one lives in.
 
 A handful of type-aware rules are intentionally relaxed to `off`
 (`require-await`, `no-base-to-string`, `no-redundant-type-constituents`), each
-with an inline rationale in `eslint.config.mjs`. Prettier is the sole formatter
-of record; `eslint-config-prettier` disables any formatting rules that would
-conflict.
+with an inline rationale in `.oxlintrc.jsonc`. There is no formatting-rule
+conflict to manage: **oxlint ships no formatting rules at all**, so nothing needs
+disabling and no compatibility package belongs in this repo. oxfmt is the sole
+formatter of record.
+
+### What the baseline is, and what it is not
+
+oxlint's categories are not a drop-in for the old preset pair, and the gap was
+measured rather than guessed. `correctness` alone reports 17 findings on this
+tree; adding `suspicious` reports 753; adding `pedantic`, 1509. Those extra 1492
+are not latent bugs that had been going unnoticed — they are a different
+linter's house style, and several contradict decisions this repo has already
+recorded (`suspicious` re-enables `require-await`; `pedantic` wants `eqeqeq`
+across `read/api`). Adopting them would be a style migration wearing a toolchain
+swap's clothes.
+
+So the baseline is `correctness`, and parity is reached by **naming rules
+explicitly**. Of the 90 rules previously enabled on `src/**/*.ts`, 57 are already
+in `correctness` and 32 more are turned on by name. Exactly one is lost —
+`no-octal`, which oxlint does not implement — and it is lost harmlessly: legacy
+octal literals are a syntax error in strict mode, every file here is an ES
+module, and modules are always strict, so the parser already forbids what the
+rule forbade.
+
+The swap also **tightens** the gate in one place. `scripts/**` and `test/**` stay
+syntax-only, but `no-floating-promises` and `no-misused-promises` now stay on
+there. Those two were always the pair worth having; under the previous linter
+they could not be enabled without dragging the whole `no-unsafe-*` family along,
+and oxlint lets them stand alone.
+
+One structural difference is worth knowing before editing `.oxlintrc.jsonc`. The
+old flat config scoped every block by `files`, so a file matching no block was
+linted with **zero** rules — which is how `tools/**` and `docs/**` came to be
+unlinted without anyone deciding it. oxlint inverts that: top-level `rules` apply
+to every file that is not ignored. Both trees are therefore named in
+`ignorePatterns`, to hold them at the enforcement level they have always had.
+Starting to lint them is a decision worth taking on its own merits, not a side
+effect of changing linters.
 
 ## OOXML Changes
 

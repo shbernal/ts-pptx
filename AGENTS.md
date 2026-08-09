@@ -200,7 +200,7 @@ MCPs' corpora.
 
 ### Do not run these — the git hooks already own them
 
-- **`format`, `format:check`, `lint`.** Pre-commit runs eslint `--fix` then prettier
+- **`format`, `format:check`, `lint`.** Pre-commit runs oxlint `--fix` then oxfmt
   `--write` over staged files and re-stages what they change (`stage_fixed: true`), and
   pre-push re-verifies the whole repo (`lefthook.yml`). An agent running `format:check`
   therefore cannot improve the committed result — it can only burn a

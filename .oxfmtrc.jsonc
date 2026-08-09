@@ -5,6 +5,14 @@
 // means no `--ignore-path` flag and nothing named after a formatter this repo no
 // longer uses.
 //
+// Per-line suppressions in the source are spelled `// prettier-ignore`, and they stay
+// that way. oxfmt honours that directive as well as its own `// oxfmt-ignore` — verified
+// both ways against a deliberately misformatted array, with a plain `// hello` comment as
+// the control to prove it is the directive doing the work and not merely a preceding
+// comment. Renaming the existing ones would be pure churn across `src/gen/table/`,
+// `src/script/verify/`, and two test files, and deleting one silently reflows a line that
+// is laid out by hand on purpose.
+//
 // The ignore list is a safety net, not the definition of what gets formatted:
 // `format:run` in package.json still hands oxfmt an explicit list of globs rather
 // than the bare `oxfmt` that would suffice. Bare, oxfmt considers 585 files against

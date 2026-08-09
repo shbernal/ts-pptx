@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Development toolchain: ESLint + Prettier → oxlint + oxfmt, and TypeScript 6 → 7.**
+  This is a contributor-facing change with **no runtime effect on the published package** —
+  no API was added, removed or altered, and the generated OOXML is byte-identical across
+  all 183 parts of the reference decks. Enforcement was held level rather than relaxed: of
+  the 90 lint rules previously enabled on `src/`, 89 carry over (the missing one, `no-octal`,
+  is already a syntax error in an ES module), type-aware linting stays on, and
+  `no-floating-promises` / `no-misused-promises` now also cover `scripts/` and `test/`,
+  where the old configuration could not afford them. See `docs/development.md`.
+
+- **Published `.d.ts` files are textually different, though no type changed.** TypeScript 7
+  prints declarations slightly differently: string literal types use single quotes
+  (`readonly shapeType: 'autoShape'` rather than `"autoShape"`) and redundant parentheses
+  are dropped (`fontRef?: (StyleFontRef | null) | undefined` becomes
+  `fontRef?: StyleFontRef | null | undefined`). Chunk filename hashes shift as a
+  consequence. No declaration, signature or export moved, and `publint`,
+  `@arethetypeswrong/cli` and the packed-package smoke test all pass — but a consumer
+  diffing shipped declarations between versions will see churn, which is why it is recorded
+  here rather than left as an implementation detail.
+
+  Note that documentation generation deliberately stays on TypeScript 6: TypeScript 7 is
+  the native Go compiler and ships no JavaScript compiler API for TypeDoc to import. That
+  copy is confined to the private `tools/api-docs` workspace package and reaches nothing
+  that is published.
+
 ## [3.0.0] - 2026-08-09
 
 ### Added

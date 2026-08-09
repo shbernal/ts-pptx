@@ -537,7 +537,7 @@ Fixtures authored here with desktop PowerPoint COM keep their recipe in
 rather than leaving it in `.tmp/`, which is gitignored — otherwise the fixture becomes
 unreproducible on the next clean checkout. The same directory holds the scripts that
 derive the committed `*.oracle.json` / `*.cases.json` sidecars; each regenerates its
-sidecar byte-for-byte after a Prettier pass, which is how you check that a recipe still
+sidecar byte-for-byte after an oxfmt pass, which is how you check that a recipe still
 matches what it claims to produce.
 
 ## Converter And Read-Coverage Harnesses

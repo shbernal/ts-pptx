@@ -4,7 +4,7 @@
 // `prepare` runs this on every `pnpm install` — and, since pnpm 11 verifies dependencies before
 // running any script, that is effectively *every* `pnpm run` and `pnpm exec` too. So whatever
 // `prepare` does, it does constantly, and a non-zero exit from it takes the whole package manager
-// down with it: `pnpm run lint` never reaches ESLint, it dies in the install that pnpm ran first.
+// down with it: `pnpm run lint` never reaches oxlint, it dies in the install that pnpm ran first.
 //
 // Calling `lefthook install` directly is exactly that hazard. Lefthook refuses to install while
 // `core.hooksPath` points somewhere it does not own, and exits 1 — correctly, because writing its
