@@ -365,7 +365,11 @@ export type InternalErrorCode =
 
 /** Every condition the library can throw. See {@link TsPptxCode} for the whole vocabulary. */
 export type ErrorCode =
-	InvalidOptionErrorCode | UnsupportedFeatureErrorCode | PackageReadErrorCode | MediaErrorCode | InternalErrorCode
+	| InvalidOptionErrorCode
+	| UnsupportedFeatureErrorCode
+	| PackageReadErrorCode
+	| MediaErrorCode
+	| InternalErrorCode
 
 /** Every condition the library can report, warned or thrown. */
 export type TsPptxCode = DiagnosticCode | ErrorCode

@@ -9,8 +9,8 @@
 # pays that wrapper on every invocation, and it is not small: `pnpm exec`
 # re-verifies the whole dependency tree before the tool sees an argument.
 # Measured on this machine with `--version`, which does no work at all — eslint
-# ~0.96 s via `pnpm exec` against ~0.28 s direct, prettier ~0.85 s against
-# ~0.17 s. That is overhead, not lint; end to end over two staged files the pair
+# ~0.96 s via `pnpm exec` against ~0.28 s direct, oxfmt ~1.0 s against
+# ~0.24 s. That is overhead, not lint; end to end over two staged files the pair
 # goes from ~2.4 s to ~1.1 s. Each path is the `bin` entry the tool's
 # own package.json declares — the file `node_modules/.bin` shims are generated
 # from — so this is the published contract, not a reach into the package.
@@ -20,9 +20,9 @@
 # the script bodies here would be a second definition of each gate to keep in
 # sync. Once per push is a fair price for one definition.
 pre-commit:
-  # Sequential (not parallel): eslint --fix and prettier --write now both touch
+  # Sequential (not parallel): eslint --fix and oxfmt --write now both touch
   # the same staged *.ts files, so running them concurrently could race on writes.
-  # eslint first (non-format autofixes), then prettier as the final formatting pass.
+  # eslint first (non-format autofixes), then oxfmt as the final formatting pass.
   piped: true
   jobs:
     - name: eslint
@@ -30,11 +30,16 @@ pre-commit:
       run: node node_modules/eslint/bin/eslint.js --fix --no-warn-ignored {staged_files}
       stage_fixed: true
 
-    - name: prettier
-      glob: '*.{json,yaml,yml,mjs,mts,ts,js}'
+    - name: oxfmt
+      glob: '*.{json,jsonc,yaml,yml,mjs,mts,ts,js}'
       exclude:
         - 'pnpm-lock.yaml'
-      run: node node_modules/prettier/bin/prettier.cjs --write --ignore-unknown {staged_files}
+      # `--no-error-on-unmatched-pattern` is load-bearing, not tidiness: oxfmt exits 2
+      # when every path it was handed is excluded by `.oxfmtrc.jsonc`'s ignore rules,
+      # and that is reachable here — `pnpm run docs:new` rewrites `docs/docs.json`,
+      # which matches the glob above but sits under the config's ignored `docs/**`.
+      # Committing only that file would otherwise fail the hook with nothing to fix.
+      run: node node_modules/oxfmt/bin/oxfmt --write --no-error-on-unmatched-pattern {staged_files}
       stage_fixed: true
 
 commit-msg:
