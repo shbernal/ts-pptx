@@ -7,7 +7,7 @@ const docsDir = path.join(root, 'docs')
 const publicDir = path.join(docsDir, 'public')
 const docsConfig = JSON.parse(readFileSync(path.join(docsDir, 'docs.json'), 'utf8'))
 const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'))
-const baseUrl = (process.env.DOCS_BASE_URL ?? 'https://shbernal.github.io/TsPptx/').replace(/\/?$/, '/')
+const baseUrl = (process.env.DOCS_BASE_URL ?? 'https://shbernal.github.io/ts-pptx/').replace(/\/?$/, '/')
 const excludedDirs = new Set(['.vitepress', 'archive', 'public', 'research'])
 
 function walkMarkdown(dir) {
@@ -48,11 +48,14 @@ function routeFor(filePath) {
 	const rel = path.relative(docsDir, filePath).split(path.sep).join('/')
 	const withoutExt = rel.replace(/\.md$/, '')
 	if (withoutExt === 'index') return baseUrl
-	const route =
-		withoutExt.endsWith('/index') || withoutExt.endsWith('/README')
-			? withoutExt.slice(0, withoutExt.lastIndexOf('/'))
-			: withoutExt
-	return new URL(route ? `${route}/` : '', baseUrl).toString()
+	// VitePress builds with `cleanUrls`, which emits `tables.html` rather than
+	// `tables/index.html`. GitHub Pages serves that as `/tables` and 404s on
+	// `/tables/`, so only a directory index may carry the trailing slash. A
+	// README is not one of those: VitePress leaves it at `README.html`, and the
+	// walk above already drops any README that a sibling `index.md` supersedes.
+	const isDirectoryIndex = withoutExt.endsWith('/index')
+	const route = isDirectoryIndex ? `${withoutExt.slice(0, withoutExt.lastIndexOf('/'))}/` : withoutExt
+	return new URL(route, baseUrl).toString()
 }
 
 function pageRecord(filePath) {
