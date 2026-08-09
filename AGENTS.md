@@ -111,6 +111,12 @@ MCPs' corpora.
   missing PPTX behaviour, a fixture that has to be authored before a feature can
   be implemented. There is no local ledger — do not add one, and do not re-add an
   upstream sync step (upstream tracking is retired).
+- Two forms in `.github/ISSUE_TEMPLATE/` cover the usual shapes: **bug** (wrong
+  output, repair prompts, regressions, and fidelity limits — carries a severity
+  and a "possible fixes" slot) and **api-gap** (a missing accessor, or a property
+  the write side authors that the read side cannot read back). A fixture that has
+  to be authored first is a bug of severity *fidelity limit*. If neither fits,
+  file a blank issue rather than bending one of them.
 - Work you implement on the spot needs no issue. Its record is the project's own
   commit history, its tests, and `CHANGELOG.md`.
 - **Describe a downstream consumer's need ANONYMOUSLY.** Issues are public; the

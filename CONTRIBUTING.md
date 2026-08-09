@@ -39,9 +39,19 @@ contributor guidance lives in the docs below, which are kept authoritative.
 
 ## Reporting bugs and proposing changes
 
-- Open a GitHub issue for bugs, with a minimal repro (ideally a small script that
-  produces the offending `.pptx`), and for anything not yet built — a proposed API
-  change, a missing PPTX behaviour. There is no local ledger.
+- GitHub issues are the only tracker; there is no local ledger. The
+  [new-issue chooser](https://github.com/shbernal/ts-pptx/issues/new/choose)
+  offers two forms:
+  - **Bug or fidelity limit** — wrong output, a repair prompt, a regression, or a
+    construct that does not survive a round trip. Bring a minimal repro: a small
+    script that produces the offending `.pptx`.
+  - **API gap** — a missing accessor, or a property the write side authors that
+    the read side cannot see.
+
+  Neither fits? File a blank issue. A good issue in the wrong shape beats a bad
+  issue in the right one.
+- Describe a downstream consumer's need **anonymously**. Issues are public — see
+  [AGENTS.md](AGENTS.md).
 - For security issues, **do not** open a public issue — see
   [SECURITY.md](SECURITY.md).
 - Breaking changes are acceptable when they make the API clearer or safer; record
