@@ -77,6 +77,18 @@ const WRITABLE_DASHES = new Set([
 ])
 
 /**
+ * `a:ln/@cap` tokens → the `ShapeLineProps.cap` spelling that authors them. The read side
+ * reports the raw OOXML token (`AutoShape.lineCap`) and the write side takes a friendly
+ * name, so this is the whole of the mapping between them. `ST_LineCap` has exactly these
+ * three members, so nothing falls off the end.
+ */
+const CAP_TOKENS: Record<string, 'flat' | 'square' | 'round'> = {
+	flat: 'flat',
+	sq: 'square',
+	rnd: 'round',
+}
+
+/**
  * Map one shape. Returns `null` when the shape produces no call at all — a note is always
  * recorded in that case, so a dropped shape is never silent.
  */
@@ -215,6 +227,7 @@ function lineOption(shape: AnyShape, notes: NoteScope): Record<string, IrValue> 
 
 	const widthPt = shape.lineWidthPt
 	const dash = shape.lineDash
+	const cap = shape.lineCap
 	const scheme = shape.lineSchemeColor
 	const resolved = shape.resolvedLine
 
@@ -241,11 +254,25 @@ function lineOption(shape: AnyShape, notes: NoteScope): Record<string, IrValue> 
 			`dash style "${dash}" is outside the eight the write API accepts, so the outline falls back to solid`
 		)
 	}
+	// `@algn` is the one outline attribute both sides can see and neither can carry: the read
+	// model reports it (`lineAlign`) and `ShapeLineProps` has no option for it. Only `in` is
+	// noted — it insets the stroke by half its width, so it moves the border. `ctr` is what an
+	// omitted `@algn` already renders as, so noting that would fire on most PowerPoint-authored
+	// shapes while describing no loss at all.
+	if (shape.lineAlign === 'in') {
+		notes.note(
+			'line.align',
+			'dropped',
+			'unwritable',
+			'this outline is inset (a:ln/@algn="in", drawn wholly inside the shape); ShapeLineProps has no alignment option, so it comes back centred on the edge and sits half its width further out'
+		)
+	}
 
 	const options = compact({
 		color,
 		width: orUndefined(widthPt),
 		dashType: dash !== null && WRITABLE_DASHES.has(dash) ? dash : undefined,
+		cap: cap === null ? undefined : CAP_TOKENS[cap],
 		transparency: alphaToTransparency(resolved?.alpha),
 		...arrowOptions(shape, notes),
 	})

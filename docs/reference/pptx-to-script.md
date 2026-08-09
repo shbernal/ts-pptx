@@ -330,6 +330,20 @@ That is `fill.picture.geometry` / `table.cell.fill.picture.geometry`,
 actually uses one of them — one fixture does, the PowerPoint-authored tiled
 cell in `table-cell-image-fill.pptx`.
 
+**An outline's `@cap` carries; its `@algn` does not.** `a:ln/@cap` is mapped
+onto `ShapeLineProps.cap` (`flat`/`sq`/`rnd` → `flat`/`square`/`round`) and
+records no note, because both legs exist: the write API authors the attribute and
+`AutoShape.lineCap` reads it back. It is not cosmetic — on a thick dashed rule the
+cap extends every dash by the stroke width and decides whether each draws as a
+rectangle or a lozenge — so before the mapping existed a deck this library wrote
+could not survive its own converter, and nothing said so. `@algn` is the case
+where only one leg exists: readable through `AutoShape.lineAlign`, with no write
+option for it, so `line.align` is `dropped`/`unwritable`. It is recorded only for
+`algn="in"`, the inset stroke that sits half its width further in; `ctr` is what
+an omitted `@algn` already renders as, so noting it would fire on most
+PowerPoint-authored shapes while describing no loss. No corpus fixture states
+`in`, so the note reads 0/44.
+
 `fill.picture` / `table.cell.fill.picture` are what remain for a fill that
 cannot carry its bytes at all, and neither fires on the corpus: a blip embedding
 no part (an external or linked image), a part missing from the package, or an

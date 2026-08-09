@@ -23,6 +23,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   by accident — if you were relying on it to mean "leave the fill to the style", omit the
   `fill` option instead.
 
+- **`readModelToIr` carries a line's `@cap`, and declares a dropped `@algn`** (#8). Both
+  legs of the cap mapping already existed — `ShapeLineProps.cap` authors the attribute and
+  3.0.0's `Shape.lineCap` reads it back — but the script tier's `lineOption` never consumed
+  it, so a deck this library wrote could not survive its own converter. The loss was
+  *undeclared*, which is the part that mattered: the round-trip gate excludes exactly what
+  a fidelity note names, so it passed green while the deck changed. `@cap` extends every
+  dash by the stroke width and decides whether each draws as a rectangle or a lozenge, so
+  on a thick dashed rule the before and after are visibly different. `@algn` is readable and
+  has no write option, so it now records a `line.align` note (`dropped`/`unwritable`) —
+  for `algn="in"` only, since `ctr` is what an omitted `@algn` already renders as.
+
 ### Changed
 
 - **Development toolchain: ESLint + Prettier → oxlint + oxfmt, and TypeScript 6 → 7.**

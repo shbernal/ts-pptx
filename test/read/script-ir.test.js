@@ -306,6 +306,64 @@ describe('deck IR — losses the read model cannot see', () => {
 		assertEqual(noted[0].cause, 'unread', 'the cause is a missing accessor, not a missing write option')
 	})
 
+	test("a stated line cap round-trips, and an inset outline's alignment is declared", async () => {
+		// `@cap` is not cosmetic on a thick dashed rule: it extends every dash by the stroke
+		// width and decides whether each draws as a rectangle or a lozenge. Both legs of the
+		// mapping existed before this — `ShapeLineProps.cap` authors the attribute and
+		// `AutoShape.lineCap` reads it — so a drop here was a silent, *undeclared* loss: the
+		// round-trip gate excludes only what a note names, and nothing named this.
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addShape('line', {
+				x: 1,
+				y: 1,
+				w: 4,
+				h: 0,
+				line: { color: 'C00000', width: 6, dashType: 'dash', cap: 'round' },
+			})
+		})
+		const shape = presentation.slides[0].shapes.find(isAutoShape)
+		assertEqual(shape.lineCap, 'rnd', 'the reader sees the written cap as its raw OOXML token')
+
+		const ir = readModelToIr(presentation)
+		const line = allCalls(ir).find((call) => call.method === 'addShape').args[1].line
+		assertEqual(line.cap, 'round', "the IR carries it back in the write API's spelling")
+		assertEqual(line.dashType, 'dash', 'alongside the dash it modifies')
+		assertEqual(
+			ir.fidelity.filter((note) => note.construct === 'line.align').length,
+			0,
+			'and an unstated @algn is not a loss, so nothing is noted'
+		)
+	})
+
+	test('an inset outline reports the alignment the write API cannot express', async () => {
+		// `@algn="in"` is the other half: readable (`AutoShape.lineAlign`) and unwritable, so a
+		// note is the honest floor. `ctr` deliberately does NOT note — it is what an omitted
+		// `@algn` already renders as, so noting it would fire on most PowerPoint-authored shapes
+		// while describing no loss at all.
+		const { buf } = await authorRead((pres) => {
+			pres.addSlide().addShape('rect', { x: 1, y: 1, w: 3, h: 1, line: { color: 'C00000', width: 6 } })
+		})
+		const irWith = async (algn) => {
+			const zip = await JSZip.loadAsync(buf)
+			const slideXml = await zip.file('ppt/slides/slide1.xml').async('string')
+			const patched = slideXml.replace(/<a:ln w="76200"/, `<a:ln w="76200" algn="${algn}"`)
+			assert(patched !== slideXml, 'the outline was found and given an @algn')
+			zip.file('ppt/slides/slide1.xml', patched)
+			return readModelToIr(await Presentation.load(await zip.generateAsync({ type: 'uint8array' })))
+		}
+
+		const inset = (await irWith('in')).fidelity.find((note) => note.construct === 'line.align')
+		assert(inset, 'an inset outline declares what it loses')
+		assertEqual(inset.cause, 'unwritable', 'the read model sees @algn; ShapeLineProps has no option for it')
+		assert(inset.detail.includes('a:ln/@algn'), `the note names the attribute, got: ${inset.detail}`)
+
+		assertEqual(
+			(await irWith('ctr')).fidelity.filter((note) => note.construct === 'line.align').length,
+			0,
+			'a centred outline is what the write path already emits, so it is not a loss'
+		)
+	})
+
 	test('embedded audio/video is reported, not silently emitted as a still image', async () => {
 		const ir = await irFor('av-media.pptx')
 		assert(constructs(ir).has('media.audioVideo'), 'av-media.pptx should report its media as flattened')
