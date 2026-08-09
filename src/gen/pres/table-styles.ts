@@ -15,7 +15,7 @@
  * cell formatting (`headerRow`, `columns[i]`, per-cell options); see `docs/tables.md`.
  *
  * The part itself still ships: PowerPoint expects the relationship and content-type override
- * to be present, and the read side (`read/api/table-styles.ts`) merges real definitions out of
+ * to be present, and the read side (`src/read/api/ops/table-styles.ts`) merges real definitions out of
  * *imported* decks into it, which is a different thing from authoring one here.
  */
 

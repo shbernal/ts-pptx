@@ -20,7 +20,7 @@ import { encodeXmlAttrValue } from '../utils.js'
  * This **mirrors** the allocation in `slideObjectToXml`, which hands out ids as it walks the tree.
  * A reference that must name an id *before* the walk reaches it — a connector's `<a:stCxn>`, an
  * animation's `<p:spTgt spid>` — cannot wait for that, so it resolves through this map instead.
- * The two must stay in step: `test/regression/group-shapes.test.js` parses the emitted `cNvPr` ids
+ * The two must stay in step: `test/regression/shape/group-shapes.test.js` parses the emitted `cNvPr` ids
  * back out and asserts each reference points at the shape it names, so drift fails there.
  * @param slideObjects - the slide's top-level objects
  * @returns each object's `<p:cNvPr>` id, keyed by object identity, in id order

@@ -177,7 +177,8 @@ authored `w/h` is its true rendered size (see `docs/measured-text-fit.md`).
 
 ## See also
 
-- Runnable demo: `demos/modules/demo_group.mjs` (run with `node demos/node/demo.js Group`).
+- Runnable demo: the KPI cards in `demos/showcases/quarterly-review/index.mjs`
+  (run with `pnpm demos:build quarterly-review`).
 - Regression coverage: `test/regression/shape/group-shapes.test.js`.
 - Schema fixtures: `flat-group`, `nested-group`, `group-cross-references`,
   `group-existing-objects` in `test/schema-cases.js`.

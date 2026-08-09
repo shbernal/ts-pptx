@@ -36,8 +36,8 @@ pictures**, and **slide cloning**. Setting a property or calling a mutator
 mutates the live DOM in place and marks only the affected part(s) dirty, so
 `save()` reserializes just those and keeps every other byte for byte.
 Lower-level DOM mutation (below) still works for anything the typed setters do
-not yet cover. Future directions not yet implemented are tracked outside this
-repo in `../PPTX_EDITING_NEXT_STEPS.md`.
+not yet cover. Future directions not yet implemented are tracked as issues:
+<https://github.com/shbernal/ts-pptx/issues>.
 
 ## Quick start
 

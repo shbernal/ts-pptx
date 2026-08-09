@@ -37,7 +37,7 @@ export const MIN_FONT_SCALE_PCT = 25
  * each glyph advance up — so PowerPoint wraps marginally earlier and its fitted
  * box is marginally taller. Inflating measured width and height by these factors
  * makes the computed `fontScale` ≤ PowerPoint's across the calibration oracle
- * (`test/read/autofit-calibration-oracle.test.mjs`: 0 violations over the Aptos
+ * (`test/read/autofit-calibration-oracle.test.js`: 0 violations over the Aptos
  * cases). They err on the side of shrinking slightly too much, never overflowing.
  */
 export const WIDTH_SAFETY_FACTOR = 1.03

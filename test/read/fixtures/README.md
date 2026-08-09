@@ -79,7 +79,7 @@ by the `ts-pptx/read` harness. Two groups:
 - **Embedded fonts**: `embedded-fonts.pptx` (PowerPoint-embedded font part graph —
   `p:embeddedFontLst` + `font` relationships + `application/x-fontdata` Default +
   `ppt/fonts/*.fntdata` parts; the read/merge + author-side emit oracle for
-  `docs/plans/embedded-fonts.md`). Its sibling `embedded-fonts.oracle.json` records
+  `docs/embedded-fonts.md`). Its sibling `embedded-fonts.oracle.json` records
   the verbatim `embeddedFontLst`, the font rels, the part list, and the raw-face
   hashes; the whole OFL faces it embeds live under `fonts/` (below).
 - **Transitions / animations**: `slide-transition.pptx`, `slide-animation-basic.pptx`,
@@ -172,8 +172,8 @@ d0755d060f2af1b8836f2b0846a9b0fd30d44b65d70497cece1d75cbdcfa2b3d  tags.pptx
 ### Embedded font faces (`fonts/`)
 
 Raw, whole (un-subsetted) **SIL OFL 1.1** font faces committed under `fonts/` —
-the bytes the planned author-side embedding API (`docs/plans/embedded-fonts.md`,
-Feature B) embeds verbatim, and the un-subsetted counterpart of the subsetted
+the bytes the author-side embedding API (`docs/embedded-fonts.md`, Feature B —
+`pptx.embedFont()`) embeds verbatim, and the un-subsetted counterpart of the subsetted
 `.fntdata` parts inside `embedded-fonts.pptx`. The font is
 [**Silkscreen**](https://github.com/google/fonts/tree/main/ofl/silkscreen) (Jason
 Kottke), a tiny pixel display family chosen so the fixture stays light while still
@@ -686,7 +686,7 @@ d0349b049dec32cce83e2f04967e94e4484801cb6a7a972db3d9bf5c33a69996  media/tiny.mp4
     index `componentType` widened 5123→5125). That is normalization, not a validity
     requirement — `addModel3d()` embeds the caller's bytes unchanged.
 - `embedded-fonts.pptx` — **authoring oracle** for embedded fonts
-  (`docs/plans/embedded-fonts.md`: Feature A import-carry merge + Feature B
+  (`docs/embedded-fonts.md`: Feature A import-carry merge + Feature B
   author-side emit). One blank 16:9 slide whose text box `silkscreen-text` has a
   regular paragraph and a bold paragraph, both in the SIL OFL font **Silkscreen**,
   so PowerPoint embedded **both** faces under a single `p:embeddedFont`. Pins the
