@@ -1,6 +1,12 @@
 ---
 name: powerpoint-gui-automation
 description: Use on Windows with desktop Microsoft PowerPoint installed when a feature has NO COM/VBA surface at all (e.g. Insert > Zoom - Slide/Section/Summary Zoom - has no Shapes.AddZoom) and must be authored by driving the real GUI, or when you need to visually observe how a file renders/behaves in the actual desktop app rather than infer it from OOXML. Escalation path from powerpoint-fixture-authoring, not a replacement for it - try COM (and its ExecuteMso fallback) first.
+metadata:
+  # For working *on* ts-pptx, not *with* it. `npx skills add shbernal/ts-pptx` walks
+  # .claude/skills/ (a symlink to this tree) as well as the published skills/, and this flag
+  # is what keeps it out of the menu a consumer sees. Set INSTALL_INTERNAL_SKILLS=1 to install
+  # it anyway.
+  internal: true
 ---
 
 # PowerPoint GUI Automation

@@ -1,6 +1,12 @@
 ---
 name: powerpoint-fixture-authoring
 description: Use when creating, replacing, verifying, or documenting real Microsoft PowerPoint-authored .pptx fixtures in this ts-pptx repository, especially for read-model or OOXML bugs that need desktop PowerPoint output rather than ts-pptx-generated packages.
+metadata:
+  # For working *on* ts-pptx, not *with* it. `npx skills add shbernal/ts-pptx` walks
+  # .claude/skills/ (a symlink to this tree) as well as the published skills/, and this flag
+  # is what keeps it out of the menu a consumer sees. Set INSTALL_INTERNAL_SKILLS=1 to install
+  # it anyway.
+  internal: true
 ---
 
 # PowerPoint Fixture Authoring

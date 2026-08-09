@@ -1,6 +1,12 @@
 ---
 name: release-publish
 description: Use to cut and publish a new ts-pptx version (any "do a release", "minor/major/patch release", "publish vX.Y.Z", "ship a release" request in this repo). Encodes the exact release flow — version bump in three files, CHANGELOG, tag, and the GitHub Release that triggers CI. IMPORTANT — publishing to npm is done by CI (trusted publishing), never by running `npm publish` locally. Do not run `npm publish`, `npm login`, or `npm token` for a release.
+metadata:
+  # For working *on* ts-pptx, not *with* it. `npx skills add shbernal/ts-pptx` walks
+  # .claude/skills/ (a symlink to this tree) as well as the published skills/, and this flag
+  # is what keeps it out of the menu a consumer sees. Set INSTALL_INTERNAL_SKILLS=1 to install
+  # it anyway.
+  internal: true
 ---
 
 # Releasing & Publishing ts-pptx

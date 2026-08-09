@@ -21,6 +21,13 @@
  * | {@link MediaError} | a referenced image/font/AV resource would not load or decode | the resource |
  * | {@link InternalError} | an invariant of the library itself did not hold | ts-pptx (file a bug) |
  *
+ * **Which of these is worth reporting upstream.** `InternalError` always is, and says so at
+ * runtime. The middle three are worth reporting when the environment disagrees with us:
+ * a `PackageReadError` on a file that opens cleanly in PowerPoint, a `MediaError` on an asset every
+ * other tool loads, an `UnsupportedFeatureError` for something PowerPoint can plainly express.
+ * `InvalidOptionError` is worth reporting only if the deck it refused is one PowerPoint can
+ * express. See `skills/ts-pptx-upstream` for how to file one.
+ *
  * @see `docs/errors.md` for the consumer-facing contract.
  * @see `codes.ts` for the code vocabulary, which is shared with the diagnostic (warning) surface.
  */
@@ -134,15 +141,37 @@ export class MediaError extends TsPptxError {
 }
 
 /**
+ * Where a report of an `InternalError` should go. Appended to the message rather than left to the
+ * docs, because a stack trace is the only artefact of the failure that reaches whoever (or
+ * whatever) is debugging it — a pointer anywhere else is a pointer they have to already be looking
+ * for. Most code that calls this library is written by an agent in a repository that is not this
+ * one, and an agent that hits a library defect routes around it silently unless something in front
+ * of it says the report is worth making.
+ */
+const REPORT_NOTICE =
+	'This is a bug in ts-pptx, not in your deck or your code. Please report it:\n' +
+	'https://github.com/shbernal/ts-pptx/issues/new?template=agent-report.yml'
+
+/**
  * An invariant the library maintains itself did not hold.
  *
  * No consumer input should be able to produce one, which is the whole reason it is a separate
  * class: seeing it means the bug is in ts-pptx, and the useful response is to file it rather than
  * to keep adjusting the input.
+ *
+ * It is the one class in the taxonomy that extends its own message, appending `REPORT_NOTICE`
+ * below the invariant that broke. The constructor is where that lives so a throw site added later
+ * inherits it — the alternative, a notice pasted at each of the sites, is one every future site can
+ * forget. Every other class leaves `message` exactly as given: a malformed package is the routine
+ * outcome for a library that reads untrusted files, and a "report this" banner on each corrupt
+ * input would train callers to ignore the one banner that always means something.
+ *
+ * This does not make the message API — see the class doc on {@link TsPptxError}. Branch on
+ * `instanceof` or on {@link InternalError.code}, never on the text.
  */
 export class InternalError extends TsPptxError {
 	declare readonly code: InternalErrorCode
 	constructor(code: InternalErrorCode, message: string, options?: TsPptxErrorOptions) {
-		super(code, message, options)
+		super(code, `${message}\n\n${REPORT_NOTICE}`, options)
 	}
 }

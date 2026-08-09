@@ -363,7 +363,19 @@ export type InternalErrorCode =
 	| 'oxml/node-has-no-document'
 	| 'oxml/node-has-no-parent'
 
-/** Every condition the library can throw. See {@link TsPptxCode} for the whole vocabulary. */
+/**
+ * Every condition the library can throw. See {@link TsPptxCode} for the whole vocabulary.
+ *
+ * **Which of these is worth reporting upstream.** An `InternalErrorCode` always is, and the error
+ * carrying it says so at runtime. A `PackageReadErrorCode` on a file that opens cleanly in
+ * PowerPoint, a `MediaErrorCode` on an asset every other tool loads, and an
+ * `UnsupportedFeatureErrorCode` for something PowerPoint can plainly express are all gaps on our
+ * side rather than bad input — the project's supported bar is "the output opens cleanly in
+ * Microsoft PowerPoint", and it reads in both directions. An `InvalidOptionErrorCode` is worth
+ * reporting only if the deck it refused is one PowerPoint can express.
+ *
+ * `npx skills add shbernal/ts-pptx` installs the skill that walks through filing one.
+ */
 export type ErrorCode =
 	| InvalidOptionErrorCode
 	| UnsupportedFeatureErrorCode

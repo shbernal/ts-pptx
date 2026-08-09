@@ -111,12 +111,22 @@ MCPs' corpora.
   missing PPTX behaviour, a fixture that has to be authored before a feature can
   be implemented. There is no local ledger — do not add one, and do not re-add an
   upstream sync step (upstream tracking is retired).
-- Two forms in `.github/ISSUE_TEMPLATE/` cover the usual shapes: **bug** (wrong
+- Three forms in `.github/ISSUE_TEMPLATE/` cover the usual shapes: **bug** (wrong
   output, repair prompts, regressions, and fidelity limits — carries a severity
   and a "possible fixes" slot) and **api-gap** (a missing accessor, or a property
   the write side authors that the read side cannot read back). A fixture that has
   to be authored first is a bug of severity *fidelity limit*. If neither fits,
-  file a blank issue rather than bending one of them.
+  file a blank issue rather than bending one of them. The third, **agent-report**,
+  is not for work started here: it is where `InternalError`'s message sends an
+  agent working in a *consumer* repo, and it is the only form that asks which class
+  and code was thrown and where an attached file came from. Do not route local work
+  through it.
+- The `skills/ts-pptx-upstream/` skill is the consumer-side half of that form. It
+  ships in the tarball (`files` includes `skills`), so it is what
+  `npx skills add ./node_modules/@shbernal/ts-pptx` installs — keep it in step with
+  the taxonomy and the forms when either changes. Everything under `.agents/skills/`
+  is for working *on* this repo and is flagged `metadata.internal: true` so the same
+  command does not offer it to a consumer.
 - Work you implement on the spot needs no issue. Its record is the project's own
   commit history, its tests, and `CHANGELOG.md`.
 - **Describe a downstream consumer's need ANONYMOUSLY.** Issues are public; the

@@ -72,7 +72,8 @@
 		}
 	},
 	"files": [
-		"dist"
+		"dist",
+		"skills"
 	],
 	"types": "./dist/index.d.ts",
 	"scripts": {

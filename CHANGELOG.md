@@ -60,6 +60,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The package ships a `ts-pptx-upstream` skill, and `InternalError` says where to send a
+  report.** Most code that calls this library is written by an agent working in a repository
+  that is not this one, and an agent that hits a library defect writes a workaround instead of
+  filing — which is the rational move from where it stands, since the workaround unblocks its
+  user today and the tracker belongs to a repo it is not in. So the report never happens and the
+  next consumer rediscovers the same defect. Three layers answer three different reasons the
+  report dies. `InternalError` now appends the tracker URL from its constructor rather than from
+  its throw sites, so a site added later cannot forget it; it is the only class that does, because
+  it is the only one that already declares whose bug it is, and a "report this" banner on every
+  malformed package would train callers to skip the line that always means something. The
+  `ErrorCode` TSDoc — and therefore the `.d.ts` an agent in `node_modules` actually reads — now
+  states the test for the other four: the supported bar is *"the output opens cleanly in Microsoft
+  PowerPoint"*, and it reads in both directions, so a `PackageReadError` on a file PowerPoint opens
+  cleanly is our gap, not bad input. And `skills/ts-pptx-upstream/` is published in the tarball, so
+  `npx skills add ./node_modules/@shbernal/ts-pptx` works offline and always matches the installed
+  version. The skill's load-bearing instruction is the one about the deck: presentations carry
+  client names, unreleased strategy and pricing, and the tracker is public, so it spends most of
+  its length on reducing a failure to a script that builds its own deck — and passes
+  `--repo shbernal/ts-pptx` on every `gh` call, since `gh` in a consumer repo would otherwise file
+  our bug into theirs. A third issue form, `agent-report.yml`, is where the error message's URL
+  lands; its attachment dropdown deliberately has no option for a file containing real data, and
+  "what should have happened" asks for the reason — an ECMA-376 clause, PowerPoint's own behaviour,
+  or the docs — since that is what separates an actionable report from a matter of opinion. No API
+  changed. `InternalError.message` gained a trailing pointer, which is not a contract: the class and
+  the `code` are API and the message never was.
+
 - **`TableCell.fillNoFill` reads an explicit `<a:noFill/>` on a cell** (#7) — the cell-side
   counterpart of 3.0.0's `Shape.fillNoFill`, and what `TableCell.noFill()` has always been
   able to write. `hasOwnFill` is not this question: it is `true` for any

@@ -69,6 +69,49 @@ try {
 throw rather than coerce, because emitting a degenerate result (a zero-size shape, a silently
 dropped option) hides the mistake instead of surfacing it.
 
+## `InternalError` tells you to report it
+
+`InternalError` is the one class that adds to its own message, appending a pointer to the issue
+tracker below the invariant that broke:
+
+```
+makeXmlSlideRel: no slide at index 3
+
+This is a bug in ts-pptx, not in your deck or your code. Please report it:
+https://github.com/shbernal/ts-pptx/issues/new?template=agent-report.yml
+```
+
+That is a message, so it is still not API — do not assert on it. It lives in the constructor rather
+than at each throw site so a site added later cannot forget it, and it is on this class alone
+because the other four are routine outcomes of bad input or a bad call. A "report this" banner on
+every malformed package would train you to skip the line, including the one time it always means
+something.
+
+### Which failures are worth reporting
+
+`InternalError` always is. For the rest, the test is whether the environment disagrees with us —
+the project's supported bar is *"the output opens cleanly in Microsoft PowerPoint"*, and it reads in
+both directions:
+
+| you saw | report it when |
+| --- | --- |
+| `PackageReadError` | the file opens cleanly in PowerPoint — then we are the ones who cannot read it |
+| `MediaError` | the image, font, or A/V asset loads fine in other tools |
+| `UnsupportedFeatureError` | PowerPoint can plainly express the thing, so this is a gap rather than a limit |
+| `InvalidOptionError` | the deck it refused is one PowerPoint can express |
+| no error at all | PowerPoint repairs or misrenders the output, or a round trip loses a construct |
+
+A skill ships inside the package that walks through triage, reducing the failure to a script that
+builds its own deck, and filing — including the rule that a deck from a real project never goes to a
+public tracker:
+
+```bash
+npx skills add ./node_modules/@shbernal/ts-pptx   # offline, matches your installed version
+npx skills add shbernal/ts-pptx                   # or straight from the repo
+```
+
+You do not need it to report something. <https://github.com/shbernal/ts-pptx/issues> is open.
+
 ## Codes are shared with diagnostics
 
 Errors and warnings draw on **one** vocabulary (`src/codes.ts`). A condition keeps the same code

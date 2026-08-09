@@ -1,0 +1,177 @@
+# This is the third form, and the count was argued about. `bug.yml` records the rule
+# that a fidelity limit is a severity rather than a form, because three forms is more
+# chooser than intake. This one earns its place on a different axis: it is not another
+# *kind* of defect, it is a different *filer*. An agent in a consumer repo arrives here
+# from a URL printed by an error message, not from the chooser, so it costs a human
+# nothing — and it asks for the two things the other forms have no slot for: which class
+# and code was thrown, and where any attached file came from.
+name: Agent-assisted report
+description: A defect found while using ts-pptx in another project — the form the library's own error messages link to.
+title: '<area>: <one specific symptom>'
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This form is aimed at an AI agent filing on a user's behalf, and at anyone who
+        arrived from a `Please report it:` line in a ts-pptx error message. It asks for
+        exactly what turns a report into a permanent regression test.
+
+        **Do not attach a deck containing real data.** Presentations carry client names,
+        unreleased strategy, pricing, and internal logos, and this tracker is public.
+        Reduce the failure to a script that builds its own deck — the "Minimal
+        reproduction" field below is the one that decides whether this gets fixed.
+
+        Two other forms may fit better:
+        [bug](https://github.com/shbernal/ts-pptx/issues/new?template=bug.yml) for wrong
+        output or a repair prompt found while working *on* a deck, and
+        [api-gap](https://github.com/shbernal/ts-pptx/issues/new?template=api-gap.yml) for
+        OOXML the API cannot reach. If none fits, a blank issue is fine.
+
+        The `ts-pptx-upstream` skill walks through all of this:
+        `npx skills add shbernal/ts-pptx --skill ts-pptx-upstream`
+
+  - type: input
+    id: version-ts-pptx
+    attributes:
+      label: ts-pptx version
+      description: 'Exact installed version: `node -p "require(''@shbernal/ts-pptx/package.json'').version"`'
+      placeholder: 3.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: version-node
+    attributes:
+      label: Node.js version
+      description: The package requires Node.js `>=24`.
+      placeholder: v24.5.0
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: Operating system
+      description: >-
+        Path handling, filesystem case sensitivity, and line endings all differ by platform,
+        and several past defects reproduced on exactly one of them.
+      placeholder: Windows 11 x64 / macOS 15 arm64 / Ubuntu 24.04 x64
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of failure is this?
+      options:
+        - Threw an InternalError (the library declares this one ours)
+        - Wrote a deck PowerPoint repairs, rejects, or renders wrong
+        - Cannot read a .pptx that opens cleanly in PowerPoint
+        - Round trip loses or changes a construct
+        - A diagnostic fired wrongly, did not fire, or carried the wrong code
+        - Types are wrong (block correct code, or admit code that throws)
+        - Documented behaviour does not match observed behaviour
+        - Missing feature / feature request
+        - Something else
+    validations:
+      required: true
+
+  - type: input
+    id: error-class-and-code
+    attributes:
+      label: Error class and code
+      description: >-
+        `error.name` and `error.code`, if anything was thrown. The code is a stable
+        `area/condition` string and is the fastest thing to search on.
+      placeholder: InternalError / oxml/node-has-no-document
+    validations:
+      required: false
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-expected
+    attributes:
+      label: What should have happened
+      description: >-
+        And why you believe that — a clause of ECMA-376, what PowerPoint itself does with
+        the same input, or what the docs promise. "Why" is what makes this actionable rather
+        than a matter of opinion.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: >-
+        A self-contained script that constructs its own deck and fails. Cut it down until
+        removing anything more makes the failure disappear.
+      render: javascript
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Error output
+      description: Verbatim message, `error.detail`, and stack trace. Do not paraphrase.
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: construct-key
+    attributes:
+      label: Construct key
+      description: If the gap surfaces as a conversion fidelity note, its key — e.g. `table.rowAuto`. See [pptx-to-script](https://shbernal.github.io/ts-pptx/reference/pptx-to-script).
+      placeholder: table.rowAuto
+    validations:
+      required: false
+
+  - type: input
+    id: version-powerpoint
+    attributes:
+      label: PowerPoint version
+      description: Only needed if the report depends on how PowerPoint renders or repairs the file. Leave blank otherwise.
+      placeholder: Microsoft 365, Version 2406 (Windows)
+    validations:
+      required: false
+
+  - type: dropdown
+    id: attachment
+    attributes:
+      label: Is a file attached, and where did it come from?
+      options:
+        - No file — the reproduction builds its own deck
+        - Synthesized file, contains no real data
+        - Authored in PowerPoint by hand, contains no real data
+      description: >-
+        There is deliberately no option for a file with real data in it, redacted or not.
+        If the failure only reproduces against one, say so in "What happened" and describe
+        the structural feature you suspect (a grouped shape, a chart part, a custom table
+        style, a layout inherited from a master, a namespace prefix).
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched open and closed issues for this code or error message and found no match.
+          required: true
+        - label: >-
+            This still reproduces on the latest published version — or "What happened" says why
+            I could not upgrade to check.
+          required: true
+        - label: >-
+            No confidential data appears in this report — no consumer name, deck or client names,
+            or file paths from a consumer's tree.
+          required: true

@@ -4,6 +4,7 @@ import TsPptx, {
 	InvalidOptionError,
 	UnsupportedFeatureError,
 	PackageReadError,
+	InternalError,
 } from '../../../dist/node.js'
 import { readZip } from '../../../dist/zip.js'
 import { PackageReadError as PackageReadErrorFromZip, TsPptxError as TsPptxErrorFromZip } from '../../../dist/zip.js'
@@ -13,7 +14,8 @@ import { TsPptxError as TsPptxErrorFromRead } from '../../../dist/read.js'
 // `code`, so a consumer can classify it without matching on message substrings.
 //
 // What is pinned here is the CONTRACT, not the wording. The class and the `code` are API; the
-// `message` is explicitly free to change in any release, so nothing below asserts on message text.
+// `message` is explicitly free to change in any release, so nothing below asserts on message text —
+// with one exception, noted where it appears, that pins a mechanism rather than a phrasing.
 
 /** Run `fn`, returning whatever it threw (or `null` if it did not throw). */
 async function caught(fn) {
@@ -109,6 +111,30 @@ defineRegressionSuite('Error taxonomy', [
 			assert(!(err instanceof InvalidOptionError), 'it is not an InvalidOptionError')
 			assertEqual(err.name, 'UnsupportedFeatureError')
 			assertEqual(err.code, 'math/missing-optional-peer')
+		},
+	},
+	{
+		name: 'InternalError carries the report pointer, and no other class does',
+		fn: () => {
+			// The one deliberate exception to "nothing here asserts on message text". What is pinned
+			// is not the wording but the mechanism: the notice comes from the constructor, so a throw
+			// site added later inherits it without having to remember. Most consumers of this library
+			// are agents in another repository, and a stack trace is the only artefact of the failure
+			// that reaches them — a pointer anywhere else is one they have to already be looking for.
+			const internal = new InternalError('slide/rel-index-out-of-range', 'no slide at index 3')
+
+			assert(internal.message.startsWith('no slide at index 3'), 'the invariant that broke leads')
+			assert(
+				internal.message.includes('https://github.com/shbernal/ts-pptx/issues/new'),
+				'the message points at the tracker: ' + internal.message
+			)
+			assertEqual(internal.code, 'slide/rel-index-out-of-range', 'the code is untouched by the notice')
+
+			// Every other class leaves the message alone. A malformed package is the routine outcome
+			// for a library that reads untrusted files; a banner on each one would train callers to
+			// skip the line, including the one time it always means something.
+			const other = new PackageReadError('zip/not-a-zip-archive', 'not a zip')
+			assertEqual(other.message, 'not a zip', 'only InternalError appends to its message')
 		},
 	},
 	{

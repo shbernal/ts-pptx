@@ -94,6 +94,30 @@ encouraged even though the maintainer is not actively developing them. See
 [`docs/project-target.md`](docs/project-target.md) for the full scope statement
 and suggested testing approaches.
 
+## Hit A Bug? There Is A Skill For That
+
+Most code that uses this library is written by an agent, and an agent that hits a
+library defect will usually route around it silently — so the defect is never
+reported and never fixed. `ts-pptx-upstream` is a skill that turns that moment into
+a filed issue with a minimal reproduction, which is what becomes a permanent
+regression test here. It ships inside the package, so it is already on disk:
+
+```bash
+npx skills add ./node_modules/@shbernal/ts-pptx   # offline, matches your installed version
+npx skills add shbernal/ts-pptx                   # or straight from the repo
+```
+
+It covers triage (is this ours, your deck's, or out of scope?), reducing a failure to
+a script that builds its own deck, and — because presentations carry client names and
+unreleased numbers — never uploading one to a public tracker. Once the reproduction
+stands on its own it files without interrupting you, and tells you the issue number
+afterwards.
+
+You do not need it to report something: <https://github.com/shbernal/ts-pptx/issues>
+is open, and errors the library knows are its own fault print that link themselves.
+See [errors](docs/errors.md#which-failures-are-worth-reporting) for which failures are
+worth a report.
+
 ## Runtime And Package Support
 
 The package is ESM-only.
