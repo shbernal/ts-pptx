@@ -46,8 +46,8 @@ Author the fixture itself with the `powerpoint-fixture-authoring` skill, verify 
 with that skill's own
 `.agents/skills/powerpoint-fixture-authoring/scripts/verify-powerpoint-fixture.ps1`
 (there are no `.ps1` files under `scripts/`), record provenance + SHA-256 in
-[test/read/fixtures/README.md](../test/read/fixtures/README.md), then wire the
-test to the fixture (the read harness for read accessors; a
+[test/read/fixtures/README.md](https://github.com/shbernal/ts-pptx/blob/master/test/read/fixtures/README.md),
+then wire the test to the fixture (the read harness for read accessors; a
 `test/schema-cases.js` comparison/inspection check for write-side oracles). Only
 then implement.
 
