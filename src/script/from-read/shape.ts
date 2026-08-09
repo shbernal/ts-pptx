@@ -13,7 +13,7 @@
  * output with silent visual losses. The clearest is theme-referenced line styling: a shape
  * whose outline comes from `p:style/a:lnRef` reports a colour through `resolvedLine` but
  * reports `null` for width and dash, because there is a resolved-colour path and no
- * resolved-width path. In the corpus that was every such shape, 25 of 25, so a themed 2pt
+ * resolved-width path. In the corpus that was every such shape, so a themed 2pt
  * border silently becomes a 1pt default. Each one is noted here rather than quietly thinned.
  */
 import type {

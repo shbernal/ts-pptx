@@ -120,7 +120,7 @@ runs `oxlint . "--" "--fix"`.
 
 With oxlint and oxfmt this fails **silently**, which is worse than how it used to
 fail. Both tools accept the stray `--` and drop it along with everything after it:
-that command lints all 505 files, exits 0, and applies no fixes, and
+that command lints the whole tree, exits 0, and applies no fixes, and
 `pnpm run format:check -- --write` reports the tree clean while never writing
 anything. The previous toolchain at least errored out loudly
 (`No files matching the pattern "--fix" were found`). So the command looks like it
@@ -220,7 +220,7 @@ the advice above.
 There is a third list, and it is a safety net rather than a definition:
 `.oxfmtrc.jsonc`'s `ignorePatterns`. `format:run` hands oxfmt an explicit set of
 globs instead of the bare `oxfmt` that would otherwise suffice, because bare oxfmt
-considers 588 files against the ~500 the explicit list covers — it reaches markdown,
+considers a wider set than the explicit list covers — it reaches markdown,
 CSS, SCSS, HTML and the `demos/vite-demo` workspace, none of which this repo
 formats. A silently *wider* set is how a tool-written file gets clobbered, so both
 defences are kept and they overlap on purpose.

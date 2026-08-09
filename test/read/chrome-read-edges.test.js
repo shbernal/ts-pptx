@@ -35,7 +35,7 @@
 //      layout with no `slideMaster` rel, a `p:sldLayoutId` with no `r:id` or an
 //      `r:id` resolving to no part. Such a package fails OPC validation.
 //
-// A scan of all 42 fixture decks finds zero instances of any of them, and zero of
+// A scan of every fixture deck finds zero instances of any of them, and zero of
 // the tolerance fallbacks either (an unnamed `p:cSld` or `p:cNvPr` → `''`). Reaching
 // them means hand-building a broken package, which asserts nothing about how the
 // reader handles PowerPoint's output: the metric moves and the guarantee does not.

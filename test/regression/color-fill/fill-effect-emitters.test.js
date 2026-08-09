@@ -5,7 +5,7 @@ import { defineRegressionSuite, build, readEntry, assert, assertEqual, captureDi
 // refactor of `src/gen/`, but its corpus is only what the showcase decks emit — and no showcase
 // authors a pattern fill, an image fill, a glow, or an inner shadow. Migrating `drawingml/fill.ts`
 // and `drawingml/effect.ts` onto the `gen/oxml/el.ts` builder therefore had nothing gating it:
-// those four emitters produce zero bytes in all 177 baseline parts, so a PASS said nothing at all
+// those four emitters produce zero bytes in every baseline part, so a PASS said nothing at all
 // about them.
 //
 // These pin the exact emitted string for each construct the baseline cannot see. Exact, not

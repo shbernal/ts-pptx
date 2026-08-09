@@ -14,8 +14,8 @@
 //     `ts-pptx/read` and compare the IR against *that*, never against the converter — the same
 //     rule Phase 3's chart-arity bug earned.
 //  3. **Two manufactured decks**, because the fixture corpus contains neither a slide-owned
-//     background nor an extended chart, so the mutations that delete each survived against all
-//     41 files. Both are authored through the write API here rather than waited on as fixtures.
+//     background nor an extended chart, so the mutations that delete each survived against every
+//     fixture. Both are authored through the write API here rather than waited on as fixtures.
 
 import { execFile } from 'node:child_process'
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
@@ -253,8 +253,8 @@ describe('standalone printer — the emitted script runs, with no template in re
 })
 
 describe('standalone printer — cases the fixture corpus does not contain', () => {
-	// Both of these had a deliberate defect planted in the printer that survived all 41
-	// fixtures, because no fixture exercises the construct. Authored here rather than deferred:
+	// Both of these had a deliberate defect planted in the printer that survived every
+	// fixture, because no fixture exercises the construct. Authored here rather than deferred:
 	// the write path is the fixture, the same technique `chartex-read.test.js` uses.
 	test('a slide-owned background survives, and is reported when it is deleted', async () => {
 		const bytes = await authored((pptx) => {
