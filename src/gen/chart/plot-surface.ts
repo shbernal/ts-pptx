@@ -18,7 +18,7 @@ import { el } from '../oxml/el.js'
 import { numCachePt } from './chart-parts.js'
 
 /** True when the (normalized) surface options select the 3-D surface rather than a 2-D contour. */
-export const isSurface3D = (opts: ChartOptsInternal): boolean => opts.surface3D !== false
+const isSurface3D = (opts: ChartOptsInternal): boolean => opts.surface3D !== false
 
 /** Emit the shared `<c:cat>` (strRef) + `<c:val>` (numRef) refs for a surface series. */
 function surfaceCatVal(obj: OptsChartDataInternal, valFmtCode: string): string {

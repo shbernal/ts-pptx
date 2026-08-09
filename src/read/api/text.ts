@@ -49,7 +49,7 @@ import { InternalError, InvalidOptionError } from '../../errors.js'
  * `p:style/a:fontRef` text tier. The owning slide's text body `a:lstStyle` is added
  * per text frame. Absent only for text reached without a theme context (table cells).
  */
-export interface PlaceholderTextContext {
+interface PlaceholderTextContext {
 	ph: PlaceholderRef | null
 	flatten: ThemeContext
 	/** The shape's resolved `p:style/a:fontRef` colour + face tier, or `null` when it has none. */

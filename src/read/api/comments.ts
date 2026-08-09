@@ -17,17 +17,16 @@ import type { Part } from '../opc/part.js'
 import { attr, firstChild, getElements, intValue, type Element } from '../oxml/dom.js'
 
 /** The slide → comments-part relationship type (legacy comments). */
-export const COMMENTS_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments'
+const COMMENTS_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments'
 /** The presentation → commentAuthors-part relationship type. */
-export const COMMENT_AUTHORS_REL_TYPE =
-	'http://schemas.openxmlformats.org/officeDocument/2006/relationships/commentAuthors'
+const COMMENT_AUTHORS_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/commentAuthors'
 
 /** Content type of a legacy per-slide comments part (`ppt/comments/commentN.xml`). */
 const LEGACY_COMMENTS_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.comments+xml'
 /** The slide → modern-comments-part relationship type (2018 schema). */
-export const MODERN_COMMENTS_REL_TYPE = 'http://schemas.microsoft.com/office/2018/10/relationships/comments'
+const MODERN_COMMENTS_REL_TYPE = 'http://schemas.microsoft.com/office/2018/10/relationships/comments'
 /** The presentation → modern-authors-part relationship type (2018 schema). */
-export const MODERN_AUTHORS_REL_TYPE = 'http://schemas.microsoft.com/office/2018/10/relationships/authors'
+const MODERN_AUTHORS_REL_TYPE = 'http://schemas.microsoft.com/office/2018/10/relationships/authors'
 /** Content type of the modern per-slide comments part (`ppt/comments/modernComment_*.xml`). */
 const MODERN_COMMENTS_CONTENT_TYPE = 'application/vnd.ms-powerpoint.comments+xml'
 

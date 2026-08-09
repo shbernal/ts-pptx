@@ -64,7 +64,7 @@ export function rewriteCarriedRels(
  * @param {Map<string, string>} relIdMap - per-call dedupe cache
  * @return {string} the new relationship id on the destination part
  */
-export function carryRel(
+function carryRel(
 	ctx: ImportContext,
 	sourceRels: Relationships,
 	id: string,

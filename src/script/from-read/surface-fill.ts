@@ -15,7 +15,7 @@ import type { IrValue } from '../ir.js'
 import { alphaToTransparency, compact, isWritableSchemeToken, literalColor } from './values.js'
 
 /** How a note names the surface a gradient sits on: `fill.gradient`, `table.fill.gradient`, … */
-export type FillNoteScope = 'fill' | 'line' | 'table.fill' | 'table.cell.fill'
+type FillNoteScope = 'fill' | 'line' | 'table.fill' | 'table.cell.fill'
 
 /**
  * A read gradient as `GradientFillProps`. Stop positions convert from the read model's

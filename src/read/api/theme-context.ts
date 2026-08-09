@@ -40,7 +40,7 @@ import {
 } from '../../ooxml/rel-types.js'
 
 /** The resolved theme subgraph a slide depends on, plus its parsed colour maps. */
-export interface SlideThemeParts extends ColorContext {
+interface SlideThemeParts extends ColorContext {
 	slideRoot: Element | null
 	layoutPartName: string | null
 	masterPartName: string | null

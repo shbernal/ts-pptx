@@ -68,7 +68,7 @@ const GEOM_GUIDE_OPS = new Set([
  */
 // Shapes whose corner-radius adjust value is named adj1 (+ adj2) instead of adj.
 // Sourced from ECMA-376 Annex D electronic addenda (presetShapeDefinitions.xml).
-export const RECT_RADIUS_ADJ1_SHAPES = new Set(['round2SameRect', 'round2DiagRect'])
+const RECT_RADIUS_ADJ1_SHAPES = new Set(['round2SameRect', 'round2DiagRect'])
 
 export function genXmlPresetGeom(shapeName: string, options: ObjectOptions, cx: number, cy: number): string {
 	// Safety net for every prstGeom emitter (addShape, addText/addImage `shape`):

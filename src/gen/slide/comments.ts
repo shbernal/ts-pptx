@@ -13,7 +13,7 @@ import { inch2Emu } from '../../units-internal.js'
 import { el, raw, voidEl } from '../oxml/el.js'
 
 /** Result of resolving every slide's comments into a deck-wide author registry + per-comment numbering. */
-export interface ResolvedComments {
+interface ResolvedComments {
 	/** Authors in first-appearance order, ready to serialize to `commentAuthors.xml`. */
 	authors: ResolvedCommentAuthor[]
 	/** Per-comment `authorId`/`idx` keyed by the stored comment object. */

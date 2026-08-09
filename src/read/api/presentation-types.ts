@@ -420,7 +420,7 @@ export interface ExtractedSlide {
 }
 
 /** One slide's speaker notes, extracted for {@link Presentation.appendSlides}. */
-export interface ExtractedNotes {
+interface ExtractedNotes {
 	/** Standalone `<p:notes>` part body (XML declaration + namespaces included). */
 	xml: string
 	/**
@@ -432,7 +432,7 @@ export interface ExtractedNotes {
 }
 
 /** One embedded audio/video item extracted for {@link Presentation.appendSlides}. */
-export interface AvMediaItem {
+interface AvMediaItem {
 	/** Whether the item is `audio` (`<a:audioFile>`) or `video` (`<a:videoFile>`). */
 	mtype: 'audio' | 'video'
 	/** Body `rId` of the ECMA `audio`/`video` rel (`r:link`); points at the media part. */
@@ -456,7 +456,7 @@ export interface AvMediaItem {
 }
 
 /** One online (external-link) video item extracted for {@link Presentation.appendSlides}. */
-export interface OnlineMediaItem {
+interface OnlineMediaItem {
 	/** Body `rId` of the ECMA `video` rel (`a:videoFile r:link`); External, no part. */
 	mediaRid: number
 	/** Body `rId` of the MS-2007 `media` rel (`p14:media r:link`); External, shares the link Target. */

@@ -23,7 +23,7 @@ import { FILL_CHOICES } from './fill.js'
 import { resolveColor, type ResolvedColor, type ThemeContext } from './theme.js'
 
 /** The master `p:txStyles` style element name for a placeholder category. */
-export const TX_STYLE_NAME: Record<'title' | 'body' | 'other', string> = {
+const TX_STYLE_NAME: Record<'title' | 'body' | 'other', string> = {
 	title: 'p:titleStyle',
 	body: 'p:bodyStyle',
 	other: 'p:otherStyle',
@@ -118,7 +118,7 @@ export function findPlaceholder(root: Element, slideType: string | null, slideId
 }
 
 /** The `a:lstStyle` of a placeholder shape's `p:txBody`, or `null`. */
-export function placeholderLstStyle(sp: Element): Element | null {
+function placeholderLstStyle(sp: Element): Element | null {
 	const txBody = firstChild(sp, 'p:txBody')
 	return txBody ? firstChild(txBody, 'a:lstStyle') : null
 }

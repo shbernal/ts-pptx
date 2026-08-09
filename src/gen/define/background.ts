@@ -27,7 +27,7 @@ import { imageContentType, imageExtensionForSource } from '../../media/content-t
  * trimmed, and a name left empty — including an all-non-ASCII one — falls back to `media`.
  * The result is cosmetic: it names the media part, and nothing resolves a layout by it.
  */
-export function sanitizeMediaNamePart(name: string): string {
+function sanitizeMediaNamePart(name: string): string {
 	const safe = name
 		.replace(/[^A-Za-z0-9._-]+/g, '-')
 		.replace(/^[-.]+/, '')

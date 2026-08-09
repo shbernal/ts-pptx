@@ -177,7 +177,7 @@ function createChartMediaRels(
  * the `store` hint is an fflate-era zip optimization kept internal so re-zipping stays
  * byte-identical. A public parts API exposes only `{ path, data }`.
  */
-export interface InternalPackagePart {
+interface InternalPackagePart {
 	readonly path: string
 	readonly data: Uint8Array
 	readonly store: boolean

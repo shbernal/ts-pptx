@@ -16,21 +16,6 @@ import { el, raw, voidEl } from '../oxml/el.js'
 import { OFFICE_REL, PACKAGE_REL_NS } from '../../ooxml/rel-types.js'
 
 /**
- * Get text content of Notes from Slide
- * @param {PresSlideInternal} slide - the slide object to transform into XML
- * @return {string} notes text
- */
-export function getNotesFromSlide(slide: PresSlideInternal): string {
-	let notesText = ''
-
-	slide._slideObjects.forEach((data) => {
-		if (data._type === SlideObjectType.notes) notesText += data?.text && data.text[0] ? data.text[0].text : ''
-	})
-
-	return notesText.replace(/\r*\n/g, CRLF)
-}
-
-/**
  * Collect the speaker-notes runs for a slide (flattened across any number of `addNotes()` calls).
  * @param {PresSlideInternal} slide - the slide object
  * @return {TextProps[]} notes text runs in document order

@@ -24,7 +24,7 @@ import type {
 } from '../types/index.js'
 import type { SlideObject } from '../types/internal.js'
 
-export const CELL_INHERIT_KEYS = [
+const CELL_INHERIT_KEYS = [
 	'fontFace',
 	'fontSize',
 	'bold',
@@ -46,7 +46,7 @@ export function effectiveCellOpts(cellOpts: TableCellProps, tableOpts: RunOpts):
 	return merged
 }
 
-export interface CellInsetsEmu {
+interface CellInsetsEmu {
 	marL: number
 	marR: number
 	marT: number
@@ -93,7 +93,7 @@ export function tableColCount(rows: TableCell[][]): number {
 }
 
 /** A placed (non-merged origin) cell yielded by {@link walkTableGrid}. */
-export interface GridPlacement {
+interface GridPlacement {
 	cell: TableCell
 	/** Zero-based grid row of the cell's top-left origin. */
 	row: number

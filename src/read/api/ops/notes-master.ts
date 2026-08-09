@@ -89,7 +89,7 @@ export function carryNotes(
  * source notesMaster (and, via {@link copyPart}, its theme) is copied and
  * registered in `presentation.xml`. Returns the destination notesMaster partname.
  */
-export function ensureNotesMaster(dest: Presentation, ctx: ImportContext, sourceNotesMasterPartName: string): string {
+function ensureNotesMaster(dest: Presentation, ctx: ImportContext, sourceNotesMasterPartName: string): string {
 	const presPart = dest.presentationPart
 	const presRels = dest.opc.relationshipsFor(presPart.partName)
 	const existing = presRels.byType(NOTES_MASTER_REL)[0]
@@ -109,7 +109,7 @@ export function ensureNotesMaster(dest: Presentation, ctx: ImportContext, source
  * {@link Presentation.appendSlides} — differ only in how the *part* is created, not in how it is
  * registered.
  */
-export function registerNotesMaster(dest: Presentation, notesMasterPartName: string): string {
+function registerNotesMaster(dest: Presentation, notesMasterPartName: string): string {
 	const presPart = dest.presentationPart
 	const presRels = dest.opc.relationshipsFor(presPart.partName)
 	const relId = presRels.add(NOTES_MASTER_REL, relativePartName(presPart.partName, notesMasterPartName)).id

@@ -11,7 +11,7 @@ import { getNewRelId } from '../utils.js'
 import { imageContentType, imageExtensionForSource } from '../../media/content-type.js'
 
 /** 32×32 solid #E7E6E6 PNG — the neutral placeholder shown when the caller supplies no cover image. */
-export const PLACEHOLDER_PNG =
+const PLACEHOLDER_PNG =
 	'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAxSURBVFhH7c4hAQAACMAw+geFGOAJAGbi5mpRmf1Z7HEdAAAAAAAAAAAAAAAAAADAAPwOyNPFH3F8AAAAAElFTkSuQmCC'
 
 /**

@@ -23,7 +23,7 @@ import { InvalidOptionError } from '../../../errors.js'
  * (the `ST_AdjCoordinate` string form) is not produced by authored freeforms;
  * a non-numeric value degrades to `0` rather than crashing (documented edge).
  */
-export function ptAxis(pt: Element | undefined, axis: 'x' | 'y'): number {
+function ptAxis(pt: Element | undefined, axis: 'x' | 'y'): number {
 	return (pt ? intValue(attr(pt, axis)) : null) ?? 0
 }
 

@@ -91,7 +91,7 @@ export function printString(value: string): string {
  * literals) and never reach here from a well-formed IR, so they throw rather than emit
  * source that would not run.
  */
-export function printNumber(value: number): string {
+function printNumber(value: number): string {
 	if (!Number.isFinite(value))
 		throw new InvalidOptionError('script/non-finite-literal', `Cannot print a non-finite number: ${value}`)
 	return String(value)

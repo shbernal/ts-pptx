@@ -34,7 +34,7 @@ const R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationship
  * Map a chartEx {@link ChartType} to its `<cx:series layoutId>` token (the CT_SeriesLayout value
  * PowerPoint keys the chart geometry on). Returns `''` for a non-chartEx type.
  */
-export function chartExLayoutId(type: ChartType): string {
+function chartExLayoutId(type: ChartType): string {
 	switch (type) {
 		case ChartType.waterfall:
 			return 'waterfall'

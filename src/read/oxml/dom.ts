@@ -127,7 +127,7 @@ export function firstChildElement(parent: Node): Element | null {
 }
 
 /** First direct child element matching any of the given qnames, or `null`. */
-export function firstChildMatchingAny(parent: Node, qnames: readonly string[]): Element | null {
+function firstChildMatchingAny(parent: Node, qnames: readonly string[]): Element | null {
 	const wanted = qnames.map(splitQName)
 	for (let node = parent.firstChild; node; node = node.nextSibling) {
 		if (node.nodeType !== ELEMENT_NODE) continue

@@ -40,12 +40,12 @@ export function rowsOf(tbl: Element): Element[] {
 }
 
 /** Every `a:tc` of a row, in document (left-to-right) order. */
-export function cellsOf(tr: Element): Element[] {
+function cellsOf(tr: Element): Element[] {
 	return getElements(tr, 'a:tc')
 }
 
 /** The table's `a:tblGrid`, or a thrown error — `CT_Table` requires one. */
-export function gridOf(tbl: Element): Element {
+function gridOf(tbl: Element): Element {
 	const grid = firstChild(tbl, 'a:tblGrid')
 	if (!grid)
 		throw new InvalidOptionError(
@@ -56,22 +56,22 @@ export function gridOf(tbl: Element): Element {
 }
 
 /** A cell's `@gridSpan`, defaulting to 1. */
-export function gridSpanOf(tc: Element): number {
+function gridSpanOf(tc: Element): number {
 	return intValue(attr(tc, 'gridSpan')) ?? 1
 }
 
 /** A cell's `@rowSpan`, defaulting to 1. */
-export function rowSpanOf(tc: Element): number {
+function rowSpanOf(tc: Element): number {
 	return intValue(attr(tc, 'rowSpan')) ?? 1
 }
 
 /** Whether a cell is the covered half of a horizontal merge. */
-export function isHMerge(tc: Element): boolean {
+function isHMerge(tc: Element): boolean {
 	return attr(tc, 'hMerge') === '1' || attr(tc, 'hMerge') === 'true'
 }
 
 /** Whether a cell is the covered half of a vertical merge. */
-export function isVMerge(tc: Element): boolean {
+function isVMerge(tc: Element): boolean {
 	return attr(tc, 'vMerge') === '1' || attr(tc, 'vMerge') === 'true'
 }
 
@@ -90,7 +90,7 @@ function setSpan(tc: Element, name: 'gridSpan' | 'rowSpan', value: number): void
  * cell at or left of `col` that is not one.
  * @returns the origin's column index, or `col` itself when the cell stands alone
  */
-export function hRunOrigin(cells: Element[], col: number): number {
+function hRunOrigin(cells: Element[], col: number): number {
 	let idx = col
 	while (idx > 0) {
 		const cell = cells[idx]
@@ -104,7 +104,7 @@ export function hRunOrigin(cells: Element[], col: number): number {
  * Walk up from `row` to the origin of the vertical run containing `(row, col)`.
  * @returns the origin's row index, or `row` itself when the cell stands alone
  */
-export function vRunOrigin(rows: Element[][], row: number, col: number): number {
+function vRunOrigin(rows: Element[][], row: number, col: number): number {
 	let idx = row
 	while (idx > 0) {
 		const cell = rows[idx]?.[col]
@@ -115,7 +115,7 @@ export function vRunOrigin(rows: Element[][], row: number, col: number): number 
 }
 
 /** A fresh, empty `a:tc`, shaped the way PowerPoint writes one. */
-export function makeCell(doc: Document): Element {
+function makeCell(doc: Document): Element {
 	const tc = createElement(doc, 'a:tc')
 	const txBody = createElement(doc, 'a:txBody')
 	txBody.appendChild(createElement(doc, 'a:bodyPr'))
@@ -127,7 +127,7 @@ export function makeCell(doc: Document): Element {
 }
 
 /** The grid as a row-major array of `a:tc` elements. */
-export function gridOfCells(tbl: Element): Element[][] {
+function gridOfCells(tbl: Element): Element[][] {
 	return rowsOf(tbl).map((tr) => cellsOf(tr))
 }
 

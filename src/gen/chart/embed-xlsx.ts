@@ -488,7 +488,7 @@ function buildXlsxSheet(
  * @param {string} embeddingTarget - the workbook target, relative to the chart part
  * @return {string} the chart part's `.rels` XML
  */
-export function buildChartRelsXml(embeddingTarget: string): string {
+function buildChartRelsXml(embeddingTarget: string): string {
 	// `voidEl` escapes the Target. The one in-tree caller passes an internally built
 	// `../embeddings/Microsoft_Excel_WorksheetN.xlsx`, so that is a no-op on bytes;
 	// it matters only for the read-side injection path, which supplies its own target.
@@ -503,7 +503,7 @@ export function buildChartRelsXml(embeddingTarget: string): string {
  * @param {string} colorsTarget - `colors{N}.xml`, relative to the chart part
  * @param {string} styleTarget - `style{N}.xml`, relative to the chart part
  */
-export function buildChartExRelsXml(embeddingTarget: string, colorsTarget: string, styleTarget: string): string {
+function buildChartExRelsXml(embeddingTarget: string, colorsTarget: string, styleTarget: string): string {
 	return (
 		XML_DECL +
 		relationships([

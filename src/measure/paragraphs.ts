@@ -116,7 +116,7 @@ export function buildFitParagraphs(runs: TextProps[], opts: RunOpts): FitParagra
 	return paras.length > 0 ? paras : null
 }
 
-export interface InsetsEmu {
+interface InsetsEmu {
 	lIns: number
 	rIns: number
 	tIns: number

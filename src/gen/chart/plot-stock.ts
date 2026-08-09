@@ -23,7 +23,7 @@ import { dataLabels, dataValues, firstLabelGroup, sheetCellRef, sheetRangeRef } 
 import { el } from '../oxml/el.js'
 import { numCachePt } from './chart-parts.js'
 
-export type StockStyle = 'hlc' | 'ohlc' | 'vhlc' | 'vohlc'
+type StockStyle = 'hlc' | 'ohlc' | 'vhlc' | 'vohlc'
 
 /**
  * Per-style stock chart geometry: how many value series the style expects, whether the first
@@ -31,7 +31,7 @@ export type StockStyle = 'hlc' | 'ohlc' | 'vhlc' | 'vohlc'
  * `<c:upDownBars>` are drawn. HLC/VHLC are three-value (no open) and instead mark the close
  * with a dot; OHLC/VOHLC are four-value and use up/down bars for the open-close body.
  */
-export const STOCK_STYLE_SPEC: Record<StockStyle, { seriesCount: number; volume: boolean; upDownBars: boolean }> = {
+const STOCK_STYLE_SPEC: Record<StockStyle, { seriesCount: number; volume: boolean; upDownBars: boolean }> = {
 	hlc: { seriesCount: 3, volume: false, upDownBars: false },
 	ohlc: { seriesCount: 4, volume: false, upDownBars: true },
 	vhlc: { seriesCount: 4, volume: true, upDownBars: false },

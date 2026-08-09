@@ -54,7 +54,7 @@ export function pruneIfOrphan(pres: Presentation, partName: string): void {
 }
 
 /** Whether any remaining part (or the package root) resolves an internal relationship to `partName`. */
-export function isReferenced(pres: Presentation, partName: string): boolean {
+function isReferenced(pres: Presentation, partName: string): boolean {
 	for (const owner of [...pres.opc.parts.keys(), '/']) {
 		if (owner.endsWith('.rels')) continue
 		const rels = pres.opc.relationshipsFor(owner)

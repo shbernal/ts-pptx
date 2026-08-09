@@ -29,9 +29,9 @@ import { InvalidOptionError } from '../../errors.js'
 import { warn } from '../../diagnostics.js'
 
 /** OPC content type for a glTF binary, as PowerPoint spells it in `[Content_Types].xml`. */
-export const GLB_CONTENT_TYPE = 'model/gltf.binary'
+const GLB_CONTENT_TYPE = 'model/gltf.binary'
 /** `.rels` `Type` URI for the embedded 3D model part. Note `2017/06` — not the namespace's `2017`. */
-export const MODEL3D_REL_TYPE = 'http://schemas.microsoft.com/office/2017/06/relationships/model3d'
+const MODEL3D_REL_TYPE = 'http://schemas.microsoft.com/office/2017/06/relationships/model3d'
 
 /** Fixed-point denominator for `am3d` linear values: `am3d:up@dy="36000000"` is the unit vector. */
 const AM3D_UNIT = 36000000

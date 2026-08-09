@@ -161,7 +161,7 @@ export function carryGeneratedEmbeddedFonts(dest: Presentation, fonts: EmbeddedF
  * is inserted in schema child order. The list is created at CT_Presentation index 7 when
  * the deck has none yet. No-op for empty input.
  */
-export function mergeEmbeddedFontEntries(dest: Presentation, entries: IncomingEmbeddedFont[]): void {
+function mergeEmbeddedFontEntries(dest: Presentation, entries: IncomingEmbeddedFont[]): void {
 	if (entries.length === 0) return
 
 	const presPart = dest.presentationPart

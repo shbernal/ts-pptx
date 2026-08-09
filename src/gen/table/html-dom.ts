@@ -339,7 +339,7 @@ export function pickColWidthBasis(measured: readonly number[], cssWidths: readon
 }
 
 /** One cell's span attributes, as far as the grid walk cares. */
-export type GridCellSpans = { colspan?: number; rowspan?: number }
+type GridCellSpans = { colspan?: number; rowspan?: number }
 
 /**
  * Read a `colspan`/`rowspan` as the number of grid tracks it covers.

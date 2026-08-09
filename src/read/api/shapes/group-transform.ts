@@ -18,7 +18,7 @@
  */
 
 /** A position + extent pair in EMU (`a:off`/`a:ext`, or `a:chOff`/`a:chExt`). */
-export interface TransformBox {
+interface TransformBox {
 	x: number
 	y: number
 	cx: number
@@ -26,7 +26,7 @@ export interface TransformBox {
 }
 
 /** A shape's own `a:xfrm`, decoded. `rotation` is in degrees (the raw `@rot` / 60000). */
-export interface ShapeTransform {
+interface ShapeTransform {
 	box: TransformBox
 	rotation: number
 	flipH: boolean
@@ -47,7 +47,7 @@ export interface GroupTransform {
 }
 
 /** A slide-absolute frame: the unrotated placement box plus effective orientation. */
-export interface ComposedFrame {
+interface ComposedFrame {
 	box: TransformBox
 	/** Effective clockwise rotation in degrees, normalised to [0, 360). */
 	rotation: number
@@ -58,12 +58,12 @@ export interface ComposedFrame {
 }
 
 /** Normalise a degree value into [0, 360). */
-export function normalizeDegrees(value: number): number {
+function normalizeDegrees(value: number): number {
 	return ((value % 360) + 360) % 360
 }
 
 /** Rotate `point` clockwise about `center` by `degrees`. */
-export function rotatePoint(
+function rotatePoint(
 	point: { x: number; y: number },
 	center: { x: number; y: number },
 	degrees: number
