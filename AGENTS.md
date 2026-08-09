@@ -141,6 +141,12 @@ MCPs' corpora.
   deck as template, tier A with no template at all — because they gate different claims.
   It certifies "nothing the converter can see was lost", never "nothing was lost";
   `read:census` is what measures the second thing.
+- **`pnpm run script:census`** (~2s, in no gate) counts how many fixtures raise each
+  fidelity note, per tier. It gates nothing on purpose — it is the number
+  `docs/reference/pptx-to-script.md` publishes, and the round trip cannot keep it true,
+  because a note that excuses a difference and a note that never fires look identical to
+  it. Run it after closing a reader gap, retiring a note, or landing a fixture, and
+  refresh that page's tables in the same commit.
 - Two of those are **ratchets**, and both fail on a change you did not intend as much as
   on one you did: `raw-xml:check` (in `verify`) and `bundle-size:check` (in
   `verify:full`). A ratchet failure is not automatically a defect — it is a prompt to

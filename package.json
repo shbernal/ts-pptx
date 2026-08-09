@@ -99,6 +99,7 @@
 		"script:roundtrip": "pnpm run ensure-dist && node scripts/script-roundtrip.mjs",
 		"script:roundtrip:a": "pnpm run ensure-dist && node scripts/script-roundtrip.mjs --tier a",
 		"script:roundtrip:all": "pnpm run script:roundtrip && pnpm run script:roundtrip:a",
+		"script:census": "pnpm run ensure-dist && node scripts/note-census.mjs",
 		"test:watch": "vitest --watch test/regression",
 		"test:coverage": "pnpm run ensure-dist && vitest run --coverage",
 		"coverage:probe": "pnpm run ensure-dist && vitest run --coverage --coverage.reportsDirectory=coverage/probe --coverage.reporter=json --coverage.reporter=json-summary --coverage.reporter=text-summary --coverage.thresholds.statements=0 --coverage.thresholds.branches=0 --coverage.thresholds.functions=0 --coverage.thresholds.lines=0",

@@ -278,34 +278,45 @@ check must exclude from its diff.
 
 ## What actually gets lost
 
-Measured across the 42-fixture corpus. The count is how many fixtures raise the
-note at least once — the corpus is construct-targeted, so this measures
-**coverage, not frequency**: it says what a converter meets, not what a real deck
-is mostly made of.
+Measured across the 44-fixture corpus by `pnpm run script:census`, which is what
+keeps the numbers below honest — a closed reader gap or a new fixture moves them
+without failing anything. The count is how many fixtures raise the note at least
+once, not how many notes fired; the corpus is construct-targeted, so this
+measures **coverage, not frequency**: it says what a converter meets, not what a
+real deck is mostly made of.
 
 Both tiers, in corpus order:
 
 | construct | fixtures | cause | what it costs |
 |---|---|---|---|
-| `text.bullet.inherited` | 33/42 | unread | a paragraph inheriting its bullet gets an explicit `a:buNone` — the write path cannot say "inherit" |
-| `text.color.inherited` | 27/42 | unsupported | an uncoloured run would be painted black, so the inherited colour is resolved and baked in |
-| `shape.placeholder` | 9/42 | unsupported | placeholder *identity* degrades; 6 of 16 `ST_PlaceholderType` values are expressible and `idx` has no setter |
-| `shape.frameInherited` | 8/42 | unsupported | geometry inherited from a layout is reproduced exactly, then frozen — it stops tracking layout edits |
-| `line.width` | 7/42 | unread | an outline from the theme line matrix (`p:style/a:lnRef`) keeps its colour and loses its width and dash |
-| `slide.animation` | 7/42 | unread | build animation has no structural reader |
-| `table.cell.fill` | 7/42 | unread | `resolvedFill` folds a cell's own fill together with the style graph's banding, so emitting it would freeze the banding |
-| `text.color.default` | 7/42 | unread | nothing resolves what this run inherits, so the write path paints it black — the one case where the output colour is not merely frozen but possibly *wrong* |
-| `text.indent` | 5/42 | unwritable | `a:pPr/@marL`/`@indent` have no option; only the discrete `indentLevel` does, so hanging indents flatten |
-| `media.audioVideo` | 2/42 | unread | only the poster frame is readable, so embedded A/V becomes a still image |
-| `text.equation` | 2/42 | unread | the whole `m:` namespace is absent from the read path, so OMML math is invisible |
+| `text.bullet.inherited` | 34/44 | unread | a paragraph inheriting its bullet gets an explicit `a:buNone` — the write path cannot say "inherit" |
+| `text.color.inherited` | 27/44 | unsupported | an uncoloured run would be painted black, so the inherited colour is resolved and baked in |
+| `shape.placeholder` | 9/44 | unsupported | placeholder *identity* degrades; 6 of 16 `ST_PlaceholderType` values are expressible and `idx` has no setter |
+| `shape.frameInherited` | 8/44 | unsupported | geometry inherited from a layout is reproduced exactly, then frozen — it stops tracking layout edits |
+| `text.color.default` | 8/44 | unread | nothing resolves what this run inherits, so the write path paints it black — the one case where the output colour is not merely frozen but possibly *wrong* |
+| `line.width` | 7/44 | unread | an outline from the theme line matrix (`p:style/a:lnRef`) keeps its colour and loses its width and dash |
+| `slide.animation` | 7/44 | unread | build animation has no structural reader |
+| `text.indent` | 5/44 | unwritable | `a:pPr/@marL`/`@indent` have no option; only the discrete `indentLevel` does, so hanging indents flatten |
+| `media.audioVideo` | 2/44 | unread | only the poster frame is readable, so embedded A/V becomes a still image |
+| `text.equation` | 2/44 | unread | the whole `m:` namespace is absent from the read path, so OMML math is invisible |
 
-Plus, at 1–2 fixtures each: `chart.workbook`, `group.childSpace`,
-`group.transform`, `image.recolor`, `image.svg`, `shape.empty`,
-`connector.binding`, `fill.gradient.path`, `fill.schemeToken`,
-`graphicFrame.unknown`, `group.child`, `line.arrowSize`,
-`shape.custGeom.guides`, `slide.layout`,
-`table.cell.fill.picture.geometry`, `table.cell.vert`, `table.rowAuto`,
-`text.field`, `text.paraSpaceZero`.
+Plus, at 1–2 fixtures each: `chart.workbook`, `graphicFrame.unknown`,
+`group.childSpace`, `group.transform`, `image.recolor`, `shape.empty`,
+`connector.binding`, `fill.gradient.path`, `fill.schemeToken`, `group.child`,
+`image.svg`, `line.arrowSize`, `shape.custGeom.guides`, `slide.layout`,
+`table.cell.fill.picture.geometry`, `table.rowAuto`,
+`text.bullet.schemeToken`, `text.field`, `text.paraSpaceZero`.
+
+**A styled cell's own fill is not a loss.** It used to be — the note read at 7
+fixtures, because `resolvedFill` answers "what colour is this cell" by folding
+the cell's own fill together with the colour it merely inherits from the style's
+header and banding rules, and writing that back would turn every banded cell into
+an explicitly filled one. `TableCell.hasOwnFill` separates the two: a cell whose
+`a:tcPr` carries an `EG_FillProperties` child emits that fill, and a cell with
+none is left to the style GUID, which reproduces the banding exactly rather than
+approximately. Neither case records a note, and the bare `table.cell.fill` key is
+retired rather than merely unfired — its `.gradient`, `.gradient.path`,
+`.picture` and `.picture.geometry` children are separate constructs and stay.
 
 **Picture fills carry; their geometry does not.** An image-filled *surface* — a
 shape's `p:spPr/a:blipFill` or a cell's `a:tcPr/a:blipFill` — is re-embedded
@@ -331,24 +342,24 @@ fixture, which is the honest headline of that tier:
 
 | construct | fixtures | what it costs |
 |---|---|---|
-| `theme.fmtScheme` | 42/42 | the output carries Office's format scheme |
-| `master.txStyles` | 42/42 | placeholder text falls back to built-in defaults |
-| `master.placeholders` | 42/42 | layout placeholder definitions are not reproduced |
-| `deck.docProps` | 42/42 | 5 of 12 document properties have setters |
-| `master.default` | 42/42 | every presentation carries an unremovable blank `DEFAULT` layout |
-| `master.background` | 41/42 | a `p:bgRef` theme reference is baked to the colour it resolves to |
-| `master.decoration` | 6/42 | the shapes a layout sits on top of |
-| `master.name` | 5/42 | a layout name containing a tab or line break collapses |
-| `master.colorMap` | 4/42 | `p:clrMap` has no setter |
-| `master.multiple` | 1/42 | multi-master decks collapse to one |
-| `master.nameCollision` | 1/42 | layout titles are deduplicated, since a title doubles as a lookup key |
+| `theme.fmtScheme` | 44/44 | the output carries Office's format scheme |
+| `master.txStyles` | 44/44 | placeholder text falls back to built-in defaults |
+| `master.placeholders` | 44/44 | layout placeholder definitions are not reproduced |
+| `deck.docProps` | 44/44 | 5 of 12 document properties have setters |
+| `master.default` | 44/44 | every presentation carries an unremovable blank `DEFAULT` layout |
+| `master.background` | 43/44 | a `p:bgRef` theme reference is baked to the colour it resolves to |
+| `master.decoration` | 6/44 | the shapes a layout sits on top of |
+| `master.name` | 5/44 | a layout name containing a tab or line break collapses |
+| `master.colorMap` | 4/44 | `p:clrMap` has no setter |
+| `master.multiple` | 1/44 | multi-master decks collapse to one |
+| `master.nameCollision` | 1/44 | layout titles are deduplicated, since a title doubles as a lookup key |
 
 Chrome losses are deliberately **rolled up**: `master.decoration` and
 `master.placeholders` are one note each, naming the layouts and the counts. A
 twelve-layout deck emitting one note per layout would put twelve near-identical
 paragraphs at the top of the script and bury the per-shape notes underneath that
-a reader can act on. Per deck the tier adds five to eleven notes, not fifty
-(across the corpus: 998 notes against the template-anchored tier's 728).
+a reader can act on. Per deck the tier adds four to nine notes, not fifty
+(across the corpus: 994 notes against the template-anchored tier's 712).
 
 ### The read path is the binding constraint
 
@@ -365,7 +376,10 @@ merely unmapped — the converter emits `numberStartAt`, `fontFace`, `size` and
 `color` instead of noting their absence. What remains is `text.bullet.sizePt`,
 an absolute `a:buSzPts` the write API has no unit for, and
 `text.bullet.picture`, where the bytes of an `a:buBlip` are readable but the
-paragraph mapper carries no asset resolver to re-embed them with.
+paragraph mapper carries no asset resolver to re-embed them with. Reading the
+colour also opened one write-side gap of its own: `text.bullet.schemeToken`
+(1/44), an `a:buClr/a:schemeClr` outside the ten tokens the write path maps,
+which is baked to a literal hex and stops tracking the theme.
 
 ## Verifying a conversion
 
@@ -375,6 +389,9 @@ pnpm run script:roundtrip -- --tier a              # standalone
 pnpm run script:roundtrip -- --fixture mixed.pptx --verbose
 pnpm run script:roundtrip -- --dir ~/decks         # your own decks, any path
 pnpm run script:roundtrip -- --json
+
+pnpm run script:census                             # counts, not differences
+pnpm run script:census -- --names 3 --dir ~/decks
 ```
 
 The harness runs `source → IR₁ → script → execute it → output → IR₂`, then
@@ -395,9 +412,16 @@ permanently.
 that still needed one fails here rather than passing on the very file it is
 meant to replace.
 
+`script:census` answers the question the round trip cannot: *how much* is lost
+and by which construct. To the harness a note that excuses a difference and a
+note that never fires look identical, so the counts above can drift silently
+while every gate stays green. The census prints both tiers without running the
+scripts, so it is fast, and `--dir` accepts a corpus of real decks to trade the
+coverage reading for a frequency-weighted one.
+
 ### What a clean run does not prove
 
-Stated here because "0 undeclared differences across 41 decks" reads like proof
+Stated here because "0 undeclared differences across 44 decks" reads like proof
 of correctness and is not:
 
 - **It detects asymmetry only.** Both IRs come from the same reader through the
@@ -439,11 +463,12 @@ rather than the working directory.
 - **`p15`/`p159` transitions cannot be exercised end to end.** They are dropped
   correctly, by the same namespace check as the 19 `p14` effects, but neither
   prefix is in the read DOM's registry, so no test can author one to prove it.
-- **The read-side fidelity backlog is untouched** and remains the binding
-  constraint: `lnRef` width/dash, bullet font/size/`startAt`, `a:fillToRect`,
-  `effectRef`, custGeom `gdLst`/`ahLst`/`cxnLst`, `a:tabLst`, `a:prstTxWarp`,
-  plus `p:txStyles` and master/layout decoration. Every one of them raises the
-  ceiling both tiers build against.
+- **The rest of the read-side fidelity backlog** remains the binding constraint:
+  `lnRef` width/dash, `a:fillToRect`, `effectRef`, custGeom
+  `gdLst`/`ahLst`/`cxnLst`, `a:tabLst`, `a:prstTxWarp`, plus `p:txStyles` and
+  master/layout decoration. Every one of them raises the ceiling both tiers build
+  against. The bullet entries are gone from this list because `bulletDetail`
+  closed them.
 - **A frequency-weighted corpus.** `test/read/fixtures/` is construct-targeted —
   one feature per deck — so every count on this page is a coverage argument and
   not a frequency one. Point `--dir` at real decks to get the other kind.

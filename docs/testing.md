@@ -542,21 +542,23 @@ matches what it claims to produce.
 
 ## Converter And Read-Coverage Harnesses
 
-Three runnable measurement tools back the `ts-pptx/script` subsystem. Their
+Four runnable measurement tools back the `ts-pptx/script` subsystem. Their
 suites are already inside `pnpm run verify`; run them directly to iterate or to
 point them at your own decks.
 
 ```bash
 pnpm run script:roundtrip                     # deck → script → run it → deck → diff the two IRs
 pnpm run script:roundtrip -- --tier a         # the standalone printer instead of template-anchored
+pnpm run script:census                        # how many decks raise each fidelity note, per tier
 pnpm run read:census                          # QNames present in a deck that no read accessor names
 pnpm run read:append-ceiling                  # what survives fromTemplate + appendSlides
 ```
 
-All three take `--json`, so a test can assert on them rather than re-derive the
-numbers. `script:roundtrip` and `read:census` also take `--fixture` and `--dir`,
-the latter so a corpus of your own decks can be measured in place;
-`read:census` adds `--all` (include layouts, masters, theme and notes) and
+All four take `--json`, so a test can assert on them rather than re-derive the
+numbers. All but `append-ceiling` take `--dir`, so a corpus of your own decks can
+be measured in place; `script:roundtrip` and `read:census` add `--fixture`,
+`read:census` adds `--all` (include layouts, masters, theme and notes),
+`script:census` adds `--names <count>` (name the decks behind the long tail), and
 `append-ceiling` takes `--template <path>` instead.
 
 `script:roundtrip` gates on **undeclared** differences: the printer's fidelity
@@ -565,7 +567,12 @@ Read a clean run precisely — both IRs come from the same reader, so it detects
 *asymmetry* and not loss in general. `read:census` is what measures the other
 half, and it under-reports by construction (it counts element names appearing in
 comments and error strings as read), so a listed element is a real gap while an
-absent one is not proof of coverage. Full contract in
+absent one is not proof of coverage.
+
+`script:census` gates on nothing — it counts. The round trip cannot tell a note
+that excuses a difference from one that never fires, so the per-construct numbers
+the reference publishes drift silently as reader gaps close and fixtures land;
+this is what re-measures them. Full contract in
 [PPTX To Script](reference/pptx-to-script.md).
 
 ## Full Test Command
