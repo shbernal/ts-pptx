@@ -45,23 +45,22 @@
   or safer. Do not block an improvement on reverse compatibility. When you make
   one, record it (with migration guidance and downstream impact) in `CHANGELOG.md`.
   When you only *propose* one, or want to track a not-yet-implemented candidate,
-  record it in the backlog ledger `docs/backlog.yml` (see the Backlog Workflow
-  below).
+  open a GitHub issue (see Tracking Work below).
 - Silent coercion of invalid input is a footgun, not a feature: prefer warning or
   failing on `NaN` / `undefined` / out-of-range values over emitting a degenerate
   result (e.g. a zero-size object).
 - Before adding, widening, or removing an escape hatch (raw XML, a passthrough
   string, direct DOM access), read the "Escape Hatches" section of
   `docs/project-target.md`. It states the convenience-vs-guarantee rule and why
-  the read path gets a deep raw hatch while the write path does not — do not
-  re-derive that reasoning from the backlog.
+  the read path gets a deep raw hatch while the write path does not — that
+  document is the whole reasoning; do not re-derive it from anywhere else.
 
 ## OOXML And PowerPoint Work
 
 - Before changing emitted OOXML, read `docs/ooxml-agent-context.md`.
 - Do not vendor full standards PDFs or large extracted specification text into this repository as agent context. Store small, repo-specific notes with section references instead.
 - Prefer executable evidence over prose alone: inspect minimal PowerPoint-authored `.pptx` packages when needed, compare package XML, and add focused regression or schema fixtures.
-- If a feature can only be tested against genuine PowerPoint output (a read accessor validated against real Office XML, or a write-side behaviour whose target XML is "what PowerPoint authors") and that fixture/oracle does not exist yet, do not implement against synthetic or round-tripped XML. Record the fixture as the blocking precondition in `docs/backlog.yml` (tagging the relevant `constructs:` key) and stop until it is authored — see the "Fixture-Gated Work" section in `docs/backlog-workflow.md`.
+- If a feature can only be tested against genuine PowerPoint output (a read accessor validated against real Office XML, or a write-side behaviour whose target XML is "what PowerPoint authors") and that fixture/oracle does not exist yet, do not implement against synthetic or round-tripped XML. Open a GitHub issue naming the construct the oracle must contain, and stop until the fixture is authored — see `docs/evidence-and-fixtures.md`.
 
 ### MCP Tool Selection
 
@@ -106,26 +105,27 @@ ambiguous. Useful for community discoveries (e.g. undocumented GUIDs found by
 reverse-engineering), third-party library behaviour, and content that postdates the
 MCPs' corpora.
 
-## Backlog Workflow
+## Tracking Work
 
-- `docs/backlog.yml` is the project's backlog ledger. New work is recorded as `downstream-need` items — generic PPTX behavior a downstream consumer needs (`source: downstream`); a set of retained gitbrent/PptxGenJS issues/PRs remain from before upstream tracking was retired (`source: owner/repo#N`). The validator enforces that the source matches the type. The full process lives in `docs/backlog-workflow.md`. Upstream tracking is retired — do not re-add a GitHub sync step.
-- **Downstream needs are ANONYMOUS.** This ledger is public; the consumer is not. Describe the generic PPTX gap and how any consumer reproduces it — never the consumer's name, file paths, deck/client names, or content.
-- Record a not-yet-implemented candidate here only; if you implement a change immediately, its record is the project's own commit history, tests, and `CHANGELOG.md` — do not also add a backlog entry.
-- To add a downstream need, use `pnpm run backlog -- add --id dn-<slug> --type downstream-need --source downstream --summary "…"`, then write the generic design rationale into `current_project_notes`. For these we DO want full design detail (they are believed-valuable).
-- When you implement a fix or feature derived from a backlog item, update the corresponding entry: set `status` to `implemented`, update `last_reviewed` to today's date, update `current_project_notes` with where the fix landed, update `evidence.local_files`, and set `next_action` to `none`. The temporary workaround lives downstream (tracked there by an in-code comment referencing the entry id); remove it when the fix lands.
-- **`implemented` is transient.** A closed entry is pruned from the ledger (`pnpm run backlog -- remove <id>`) in a *later* commit than the one that closed it — the fix commit carries the entry with its closing notes so history keeps them, and the ledger goes back to holding only open work. Never delete the entry in the fix commit itself. See "Closing Implemented Items" in `docs/backlog-workflow.md` for the two checks that come first.
-- Also update any companion items that share the same root cause.
-- Every field constrained by `vocabulary` (`status`, `priority`, `target_area`, `applies_to_current_project`, `non_target_reasons`, `evidence.kinds`) MUST use a value already listed under that file's top-level `vocabulary:` block. Before writing a value, scan the `vocabulary:` lists and reuse the closest existing term — do not invent synonyms (`validator-pass` for `validator-result`, `repro-confirmed` for `minimal-repro`, etc.), as the validator rejects them.
-- If no listed value genuinely fits the situation, do not force an approximation: add the new value to the appropriate `vocabulary:` list (with a one-line rationale in your message) in the same change, then use it. Extending the controlled vocabulary deliberately is fine; drifting away from it by typo is not.
-- ALWAYS run `pnpm run backlog:validate` after editing `docs/backlog.yml` (it is fast and offline) and fix every reported error before committing. A clean ledger is a precondition for the edit being considered done. `verify` runs it too, so a forgotten ledger fix fails the same gate as a failing test.
+- Not-yet-built work goes in a **GitHub issue**: a bug, a proposed API change, a
+  missing PPTX behaviour, a fixture that has to be authored before a feature can
+  be implemented. There is no local ledger — do not add one, and do not re-add an
+  upstream sync step (upstream tracking is retired).
+- Work you implement on the spot needs no issue. Its record is the project's own
+  commit history, its tests, and `CHANGELOG.md`.
+- **Describe a downstream consumer's need ANONYMOUSLY.** Issues are public; the
+  consumer is not. State the missing PPTX behaviour and how *any* consumer would
+  reproduce it — never the consumer's name, its file paths, deck or client names,
+  or its content. See `docs/agent-development.md` for the checklist that moves
+  such a need into the project.
 
 ## Verification
 
 ### The default loop
 
 - **`pnpm run verify`** (~45s) is the per-iteration check: a `dist/` freshness guard →
-  `typecheck` → `typecheck:scripts` → `typecheck:test` → `backlog:validate` →
-  `raw-xml:check` → the whole test suite (`vitest run`, which discovers every suite
+  `typecheck` → `typecheck:scripts` → `typecheck:test` → `raw-xml:check` →
+  the whole test suite (`vitest run`, which discovers every suite
   including schema). Run this instead of hand-composing four or five separate commands —
   hand-composed sets come out slightly different every time and end up re-running the
   same suite twice.
@@ -164,7 +164,7 @@ MCPs' corpora.
 ### Coverage: probe in the loop, gate before the commit
 
 - **`pnpm run test:coverage` (~2min, observed 60–185s) is a commit gate, not a loop
-  step.** It runs all 191 test files, including the schema suite that spawns a .NET
+  step.** It runs all 229 test files, including the schema suite that spawns a .NET
   OOXMLValidatorCLI process per concurrent case — none of which you need in order to
   learn whether the test you just wrote reaches the line you wrote it for. Run it
   **once, immediately before each commit**, and never before an edit. A coverage
@@ -201,8 +201,8 @@ MCPs' corpora.
   check→fix→re-check cycle on files that were going to be fixed anyway. This is not a
   lowered standard: the gate still runs, just not from your shell.
 - What the hooks do *not* cover, and `verify` therefore does: **tests** (no hook runs
-  any), **`typecheck:test`** and **`backlog:validate`** (pre-push checks `lint`,
-  `format:check`, `typecheck` and `typecheck:scripts` only).
+  any) and **`typecheck:test`** (pre-push checks `lint`, `format:check`, `typecheck`
+  and `typecheck:scripts` only).
 
 ### Shell habit: do not pipe a verification command on its first run
 

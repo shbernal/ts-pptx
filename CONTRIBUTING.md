@@ -6,9 +6,9 @@ contributor guidance lives in the docs below, which are kept authoritative.
 ## Start here
 
 - **[AGENTS.md](AGENTS.md)** — repository expectations, scope (Node-first; two
-  out-of-active-scope domains), the API evolution policy, OOXML/PowerPoint
-  working rules, and the backlog workflow. Read this first, whether you are a
-  human or an agent.
+  out-of-active-scope domains), the API evolution policy, and the
+  OOXML/PowerPoint working rules. Read this first, whether you are a human or an
+  agent.
 - **[docs/agent-development.md](docs/agent-development.md)** — how changes are
   developed and verified in this repo, end to end.
 - **[docs/testing.md](docs/testing.md)** — regression, schema, package, demo,
@@ -40,9 +40,9 @@ contributor guidance lives in the docs below, which are kept authoritative.
 ## Reporting bugs and proposing changes
 
 - Open a GitHub issue for bugs, with a minimal repro (ideally a small script that
-  produces the offending `.pptx`).
+  produces the offending `.pptx`), and for anything not yet built — a proposed API
+  change, a missing PPTX behaviour. There is no local ledger.
 - For security issues, **do not** open a public issue — see
   [SECURITY.md](SECURITY.md).
 - Breaking changes are acceptable when they make the API clearer or safer; record
-  them (with migration guidance) in [CHANGELOG.md](CHANGELOG.md). Not-yet-built
-  proposals go in the backlog ledger (`docs/backlog.yml`) — see AGENTS.md.
+  them (with migration guidance) in [CHANGELOG.md](CHANGELOG.md).
