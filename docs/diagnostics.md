@@ -123,5 +123,6 @@ warns. See [Errors](./errors.md) for the thrown half.
 
 Reporting a condition by calling `console.log` / `console.error` directly is neither, and oxlint
 rejects it under `eslint/no-console` — such a line cannot be captured, silenced, or branched on. The only
-exemptions are the default handler itself and the `verbose: true` table tracer, whose output
-reports no condition and is opt-in.
+exemptions are `diagnostics.ts`, which owns the default handler, and the two `verbose: true`
+table tracers (`gen/table/autopage.ts`, `gen/table/html-dom.ts`), whose output reports no
+condition and is opt-in.

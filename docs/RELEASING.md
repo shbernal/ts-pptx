@@ -125,23 +125,29 @@ The package should ship:
 - `dist/inspect.js`
 - `dist/measure.js`
 - `dist/read.js`
+- `dist/script.js`
 - `dist/math.js`
 - `dist/zip.js`
+- `dist/html.js`
 - `dist/node.js`
 - `dist/browser.js`
 - package `exports["."].default`
 - package `exports["."].types`
-- package subpaths for `./inspect`, `./measure`, `./read`, `./math`,
-  `./zip`, `./node`, and `./browser`
+- package subpaths for `./inspect`, `./measure`, `./read`, `./script`,
+  `./math`, `./zip`, `./html`, `./node`, and `./browser`
 - scoped imports for `@shbernal/ts-pptx`,
   `@shbernal/ts-pptx/inspect`, `@shbernal/ts-pptx/measure`,
-  `@shbernal/ts-pptx/read`, `@shbernal/ts-pptx/math`,
-  `@shbernal/ts-pptx/zip`, `@shbernal/ts-pptx/node`, and
+  `@shbernal/ts-pptx/read`, `@shbernal/ts-pptx/script`,
+  `@shbernal/ts-pptx/math`, `@shbernal/ts-pptx/zip`,
+  `@shbernal/ts-pptx/html`, `@shbernal/ts-pptx/node`, and
   `@shbernal/ts-pptx/browser`
 
-(`pnpm run test:package` currently smoke-tests `.`, `./inspect`, `./node`, and
-`./browser` end-to-end; `./measure`, `./read`, `./math`, and `./zip` are not yet
-exercised by that script.)
+(`pnpm run test:package` exercises all ten end-to-end, out of an installed
+tarball: every one is imported and checked for a sample of load-bearing named
+exports, and all but `./browser` are additionally put through esbuild on the
+`node` platform. Both lists come off one `EXPORT_MATRIX` in
+`scripts/package-smoke.mjs`, so a new subpath is covered by being added there —
+but it still has to be added *here* by hand, and this list has drifted before.)
 
 The package should not ship or document:
 
