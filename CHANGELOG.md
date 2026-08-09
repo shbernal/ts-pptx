@@ -34,6 +34,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   has no write option, so it now records a `line.align` note (`dropped`/`unwritable`) —
   for `algn="in"` only, since `ctr` is what an omitted `@algn` already renders as.
 
+- **`latexToOmml` emits accents as `<m:acc>` rather than `<m:limUpp>`** (#6). `\hat`,
+  `\bar`, `\vec`, `\dot`, `\ddot`, `\tilde`, `\acute`, `\grave`, `\check`, `\breve`,
+  `\mathring`, `\H`, `\dddot` and their short-form aliases (`\^`, `` \` ``, `\'`, `\"`,
+  `\.`, `\=`, `\u`, `\v`, `\r`) all landed as over-*limits*, with limit spacing and
+  semantics, because temml emits a bare `<mover>` (correct for a browser — MathML renderers
+  derive accent positioning from the operator dictionary) and mathml2omml has no dictionary
+  and keys strictly off `accent="true"`. The pipeline now carries the small dictionary
+  subset that closes the gap, and while it is there it swaps temml's *spacing* modifier for
+  the combining mark ECMA-376 §22.1.2.20 says an `accPr` character should be — so `\vec{v}`
+  gets an arrow accent instead of a full-size arrow hung over the base.
+
+  Scoped to `latexToOmml`: `mathmlToOmml` passes hand-written MathML through unchanged,
+  because there `accent` is the caller's to set. Constructs that were already mapping well
+  are untouched (`\widehat`/`\overbrace` stay `m:groupChr`, `\overline`/`\underline` stay
+  `m:borderBox`, `\stackrel` stays `m:limUpp`), and two stay limits by necessity: `\utilde`
+  and other under-accents, since OMML has no under-accent object and the symmetric
+  `accentunder="true"` makes mathml2omml emit an *over*-accent; and `\ddddot`, whose
+  two-character operator has no single `m:chr`.
+
 - **A table cell's explicit `a:noFill` survives read → script → write.** Previously a
   suppressed cell fell out of `cellFill` as "no fill option" and the copy took the table
   style's banding — the opposite of what the source showed. Enabled by the reader below and

@@ -76,6 +76,106 @@ describe('math/latexToOmml', () => {
 	})
 })
 
+describe('math/latexToOmml — accents become m:acc, not m:limUpp', () => {
+	// The pipeline's two halves disagree about how an accent is signalled: temml renders one
+	// as a bare `<mover>` (correct for a browser, which derives accent positioning from the
+	// MathML operator dictionary), while mathml2omml has no dictionary and keys strictly off
+	// `accent="true"` — so every accent landed as `<m:limUpp>`, an over-*limit*, with limit
+	// spacing and semantics. `markAccentedMovers` carries the dictionary subset that closes
+	// it. These pin the whole table, because a missing entry is silent: the deck still opens.
+
+	/** `[element kinds, m:chr code points]` for one inline conversion. */
+	function convert(latex) {
+		const omml = latexToOmml(latex, { display: false })
+		assertWellFormed(omml, latex)
+		return {
+			kinds: [...omml.matchAll(/<m:(acc|limUpp|limLow|groupChr|borderBox)\b/g)].map((m) => m[1]),
+			chars: [...omml.matchAll(/<m:chr m:val="([^"]*)"/g)].map((m) => m[1].codePointAt(0)),
+		}
+	}
+
+	// Every accent command temml documents, with the combining mark ECMA-376 §22.1.2.20 says
+	// an `accPr` character should be (U+0300–U+036F or U+20D0–U+20EF). temml emits the
+	// *spacing* modifiers instead (U+02C6, U+2192, …) and mathml2omml passes them straight
+	// through, so without the swap `\vec{v}` hangs a full-size arrow over the base.
+	const ACCENTS = [
+		['\\hat{a}', 0x0302],
+		['\\^{a}', 0x0302],
+		['\\tilde{n}', 0x0303],
+		['\\~{n}', 0x0303],
+		['\\acute{e}', 0x0301],
+		["\\'{e}", 0x0301],
+		['\\grave{e}', 0x0300],
+		['\\`{e}', 0x0300],
+		['\\ddot{y}', 0x0308],
+		['\\"{y}', 0x0308],
+		['\\dot{y}', 0x0307],
+		['\\.{y}', 0x0307],
+		['\\bar{x}', 0x0304],
+		['\\={x}', 0x0304],
+		['\\breve{u}', 0x0306],
+		['\\u{u}', 0x0306],
+		['\\check{s}', 0x030c],
+		['\\v{s}', 0x030c],
+		['\\mathring{A}', 0x030a],
+		['\\r{A}', 0x030a],
+		['\\H{o}', 0x030b],
+		['\\vec{v}', 0x20d7],
+		['\\dddot{y}', 0x20db],
+	]
+
+	for (const [latex, codePoint] of ACCENTS) {
+		test(`${latex} is an accent carrying U+${codePoint.toString(16).toUpperCase().padStart(4, '0')}`, () => {
+			const { kinds, chars } = convert(latex)
+			expect(kinds, `${latex} is an m:acc, not an over-limit`).toEqual(['acc'])
+			expect(chars).toEqual([codePoint])
+		})
+	}
+
+	test('nested accents each carry their own mark', () => {
+		// The rewrite pairs `<mover>` with `</mover>` on a stack, so an accent inside an accent
+		// has to come out as two m:acc with different characters — a naive innermost-only or
+		// outermost-only match would drop one of them back to m:limUpp.
+		const { kinds, chars } = convert('\\vec{\\hat{n}}')
+		expect(kinds).toEqual(['acc', 'acc'])
+		expect(chars).toEqual([0x20d7, 0x0302])
+	})
+
+	test('what deliberately stays as it was', () => {
+		// Each of these is already a better rendering than m:acc would be, so the rewrite is
+		// scoped off them rather than sweeping every <mover> into an accent.
+		expect(convert('\\widehat{abc}').kinds, 'a wide accent stretches — m:groupChr').toEqual(['groupChr'])
+		expect(convert('\\overbrace{a+b}').kinds, 'a brace is a group character').toEqual(['groupChr'])
+		expect(convert('\\overline{AB}').kinds, 'temml emits menclose, which maps to a rule').toEqual(['borderBox'])
+		expect(convert('\\underline{y}').kinds, 'likewise below').toEqual(['borderBox'])
+		expect(convert('\\stackrel{?}{=}').kinds, 'an over-relation really is a limit').toEqual(['limUpp'])
+		// OMML has no under-accent object: `accentunder="true"` makes mathml2omml emit m:acc,
+		// which would move the tilde ABOVE the base. m:limLow keeps it below.
+		expect(convert('\\utilde{y}').kinds, 'an under-accent stays a low limit').toEqual(['limLow'])
+		// "…." is two characters and m:chr takes one, so this keeps the limit form rather than
+		// producing an m:chr no consumer can read.
+		expect(convert('\\ddddot{y}').kinds, 'a four-dot accent has no single m:chr').toEqual(['limUpp'])
+	})
+
+	test('mathmlToOmml does not rewrite a caller-supplied <mover>', () => {
+		// The shim compensates for something *temml* does. MathML gives a caller the `accent`
+		// attribute to state this themselves, so second-guessing it on hand-written input would
+		// take away the only way to ask for an over-limit.
+		const bare = mathmlToOmml('<math><mover><mi>a</mi><mo stretchy="false">ˆ</mo></mover></math>')
+		expect(bare.includes('<m:limUpp>'), 'a bare mover stays a limit').toBe(true)
+		const stated = mathmlToOmml('<math><mover accent="true"><mi>a</mi><mo stretchy="false">ˆ</mo></mover></math>')
+		expect(stated.includes('<m:acc>'), 'and a stated accent is honoured').toBe(true)
+	})
+
+	test('an accent already stating `accent` is left alone by latexToOmml too', () => {
+		// Belt and braces on the guard in `markAccentedMovers`: a double rewrite would insert a
+		// second attribute and produce malformed XML.
+		const omml = latexToOmml('\\hat{a}', { display: false })
+		expect((omml.match(/<m:acc>/g) || []).length).toBe(1)
+		assertWellFormed(omml, 'single accent')
+	})
+})
+
 describe('math/mathmlToOmml', () => {
 	test('converts MathML to a bare, namespace-free m:oMath', () => {
 		const omml = mathmlToOmml('<math><mrow><mi>a</mi><mo>+</mo><mi>b</mi></mrow></math>')

@@ -1101,6 +1101,10 @@ export default [
 				'f(x) = \\begin{cases} 1 & x>0 \\\\ 0 & x\\le 0 \\end{cases}',
 				'\\alpha + \\beta = \\gamma',
 				'\\hat{a} + \\bar{b}',
+				// The accent leg emits `m:acc` with a combining mark in `m:chr` (ST_Char), and
+				// nests one accent inside another — the two shapes `markAccentedMovers` produces
+				// that no other corpus entry reaches.
+				'\\vec{v} \\cdot \\vec{\\hat{n}} = \\dddot{y}',
 				'\\left( \\frac{a}{b} \\right)',
 			]
 			const { buf, zip } = await build((p) => {

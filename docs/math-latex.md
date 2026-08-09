@@ -127,11 +127,20 @@ shape level, exactly as for display math.
   macros, `\usepackage`, and environments temml does not support are out of scope.
 - **No raster fallback** — output relies on the `Requires="a14"` envelope, understood by
   PowerPoint 2010+. There is no `mc:Fallback` image for non-a14 consumers.
-- **Fidelity is temml + mathml2omml's** — a few constructs map loosely. Accent
-  commands (`\hat`, `\bar`, `\vec`, …) render via `<m:limUpp>` rather than `<m:acc>`
-  because temml omits `accent="true"` on the `<mover>` it emits (tracked in
-  [issue #6](https://github.com/shbernal/ts-pptx/issues/6), pending a temml fix). The
-  result is valid OMML and opens cleanly in PowerPoint.
+- **Fidelity is temml + mathml2omml's**, with one correction applied in between. Accent
+  commands (`\hat`, `\bar`, `\vec`, `\ddot`, …) used to render as `<m:limUpp>` — an
+  over-*limit*, with limit spacing — because temml emits a bare `<mover>` and mathml2omml
+  keys strictly off `accent="true"`. `latexToOmml` now stamps that attribute, and swaps
+  temml's *spacing* modifier (U+02C6, U+2192) for the combining mark ECMA-376 §22.1.2.20
+  says an `accPr` character should be (U+0302, U+20D7), so accents come out as `<m:acc>`
+  with the character Word itself writes. This applies to `latexToOmml` only: `mathmlToOmml`
+  passes your MathML through as written, because there the `accent` attribute is yours to
+  set. Constructs that were already mapping well are untouched — `\widehat` and
+  `\overbrace` stay `<m:groupChr>`, `\overline`/`\underline` stay `<m:borderBox>`,
+  `\stackrel` stays `<m:limUpp>`. Two cases remain limits by necessity: `\utilde` and other
+  under-accents (OMML has no under-accent object, and the symmetric `accentunder="true"`
+  would move the mark *above* the base), and `\ddddot`, whose two-character operator has no
+  single `m:chr`. See [issue #6](https://github.com/shbernal/ts-pptx/issues/6).
 
 ## Error policy
 
