@@ -105,6 +105,11 @@ export function renderTextObject(
 	}
 
 	// Option: FILL
+	// A missing `fill` defaults to `<a:noFill/>` here — an unfilled box is what a text box
+	// should be, and every deck ever authored against this writer depends on it. That default
+	// is also why omission cannot mean *inherit* on this path: `fill: { type: 'inherit' }` is
+	// the spelling that emits no fill child and lets `p:style/a:fillRef` or the placeholder
+	// paint the interior.
 	strSlideXml += slideItemObj.options.fill ? genXmlColorSelection(slideItemObj.options.fill) : '<a:noFill/>'
 
 	// shape Type: LINE: line color

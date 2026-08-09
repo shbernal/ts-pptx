@@ -131,6 +131,39 @@ defineRegressionSuite('Fill and effect emitters the byte-identity corpus never r
 		},
 	},
 	{
+		name: "fill `type: 'inherit'` emits no fill child, and omitting `fill` still emits <a:noFill/>",
+		fn: async () => {
+			// The two calls are asserted together because the pair is the point: on this path a
+			// *missing* `fill` is not silence, it is `<a:noFill/>`. Once `'none'` stopped emitting
+			// nothing, omission was the only remaining spelling anyone could mistake for inherit,
+			// and it emits the opposite state. `'inherit'` is the one that emits nothing.
+			const { buf, zip } = await build((pres) => {
+				const slide = pres.addSlide()
+				slide.addShape('rect', { ...BOX, fill: { type: 'inherit' }, objectName: 'themed' })
+				slide.addShape('rect', { ...BOX, y: 3, objectName: 'unfilled' })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+
+			// The fill slot sits between the geometry and `a:ln`, and `a:ln` is always there:
+			// `addShape` defaults `line` to `{ type: 'none' }`, whose own `a:noFill` is a *stroke*
+			// and unrelated to this. So both assertions anchor on the geometry-to-stroke seam.
+			const geom = '<a:prstGeom prst="rect"><a:avLst></a:avLst></a:prstGeom>'
+			assertContainsExactly(xml, `${geom}<a:ln>`, 'no fill child at all between geometry and stroke')
+			assertContainsExactly(xml, `${geom}<a:noFill/><a:ln>`, 'an explicit no-fill for the shape that omitted it')
+			assertEqual(
+				xml.split(`${geom}<a:noFill/>`).length - 1,
+				1,
+				'exactly one shape carries a fill-slot <a:noFill/>: the one that omitted fill'
+			)
+
+			// `fillNoFill` is the accessor that separates the two states, so it is what proves they
+			// did not collapse into each other.
+			const [themed, unfilled] = [...(await Presentation.load(buf)).slides[0].shapes].filter(isAutoShape)
+			assertEqual(themed.fillNoFill, false, "fill: { type: 'inherit' } leaves the interior inherited")
+			assertEqual(unfilled.fillNoFill, true, 'an omitted fill is still an explicit no-fill')
+		},
+	},
+	{
 		name: 'a radial gradient centres its fillToRect, and `center` shifts it',
 		fn: async () => {
 			const stops = [

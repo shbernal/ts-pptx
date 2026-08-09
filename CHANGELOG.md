@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`fill: { type: 'inherit' }` authors a shape whose interior comes from the style
+  reference or the placeholder** (#10). 3.1.0 gave `type: 'none'` its `<a:noFill/>` back
+  (#9) and, in doing so, left the *inherit* state with no spelling on the shape and text-box
+  path: that emitter defaults a **missing** `fill` to `<a:noFill/>`, so omitting the option
+  is an explicit transparent interior, not silence. The two arms were therefore both
+  no-fill, and 3.1.0's own migration advice — "omit `fill` instead" — pointed at the wrong
+  one. `'inherit'` emits no `EG_FillProperties` member at all, which is the state that lets
+  `p:style/a:fillRef` or the placeholder paint the shape. The default is untouched: every
+  existing `addShape`/`addText` call without a `fill` keeps emitting `<a:noFill/>`, which is
+  why this is additive rather than a fix to the ternary. `ShapeLineProps` inherits the new
+  member, where it means the same thing the stroke side already got for free — omit the
+  paint child, keep the `<a:ln>`. On a table cell and a slide background, where *omitting*
+  the option already meant inherit, `'inherit'` is simply the explicit spelling of that.
+
 ## [3.1.0] - 2026-08-09
 
 ### Added
@@ -83,8 +101,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Round-trip consequence: `addShape({ fill: { type: 'none' } })` → save → load now reports
   `Shape.fillNoFill === true`, where it reported `false` before. The one behaviour that
   changes for existing decks is that `type: 'none'` no longer produces the *inherit* state
-  by accident — if you were relying on it to mean "leave the fill to the style", omit the
-  `fill` option instead.
+  by accident — if you were relying on it to mean "leave the fill to the style", use
+  `type: 'inherit'`, added in the next release. (This sentence originally said to omit the
+  `fill` option, which is wrong on the shape and text-box path: a missing `fill` emits
+  `<a:noFill/>` there. See #10.)
 
 - **`readModelToIr` carries a line's `@cap`, and declares a dropped `@algn`** (#8). Both
   legs of the cap mapping already existed — `ShapeLineProps.cap` authors the attribute and

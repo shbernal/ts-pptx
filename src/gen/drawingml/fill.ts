@@ -190,6 +190,13 @@ export function genXmlColorSelection(props: Color | ShapeFillProps | ShapeLinePr
 			case 'none':
 				outText += voidEl('a:noFill')
 				break
+			// The other half of that distinction, and the reason it needs a name of its own:
+			// on the shape/text-box path a missing `fill` already emits `<a:noFill/>`, so
+			// omission cannot spell *inherit* there. `'inherit'` emits nothing, which is what
+			// hands the interior back to `p:style/a:fillRef` or the placeholder.
+			case 'inherit':
+				outText += ''
+				break
 			case 'solid':
 				outText += el('a:solidFill', null, raw(createColorElement(colorVal, internalElements)))
 				break

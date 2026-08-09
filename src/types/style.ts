@@ -145,9 +145,21 @@ export interface ShapeFillProps {
 	transparency?: number
 	/**
 	 * Fill type
+	 *
+	 * `'none'` and `'inherit'` are different states, and both have to be spelled out
+	 * because omitting `fill` is not one of them: the shape/text-box emitter defaults a
+	 * missing `fill` to `<a:noFill/>`.
+	 * - `'none'` emits `<a:noFill/>` — an explicit transparent interior.
+	 * - `'inherit'` emits no fill child at all, leaving the interior to
+	 *   `p:style/a:fillRef` or the placeholder. This is the only way to author that
+	 *   state from `addShape`/`addText`.
+	 *
+	 * On a table cell (`TableCellProps.fill`) and a slide background the two spellings
+	 * differ the same way, except that *omitting* the option there already means
+	 * inherit, so `'inherit'` is merely the explicit form of the default.
 	 * @default 'solid'
 	 */
-	type?: 'none' | 'solid' | 'gradient' | 'pattern' | 'image'
+	type?: 'none' | 'inherit' | 'solid' | 'gradient' | 'pattern' | 'image'
 
 	/**
 	 * Native PPTX gradient fill options.

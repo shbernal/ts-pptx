@@ -457,6 +457,39 @@ export default [
 		},
 	},
 	{
+		// The opposite spelling: `fill: { type: 'inherit' }` emits *no* `EG_FillProperties`
+		// member at all. That is legal — the group is optional in `CT_ShapeProperties` and
+		// `CT_TableCellProperties` — but a `p:spPr` whose fill slot is empty is a sequence the
+		// writer had never produced, so what this checks is that dropping the child does not
+		// leave the surrounding order (`a:xfrm`, `a:prstGeom`, then `a:ln`) unsatisfied.
+		name: "shape, text box and table cell with fill: { type: 'inherit' } (no fill child)",
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape(ShapeType.rect, { x: 1, y: 1, w: 4, h: 1, fill: { type: 'inherit' } })
+				s.addShape(ShapeType.rect, {
+					x: 5.5,
+					y: 1,
+					w: 4,
+					h: 1,
+					fill: { type: 'inherit' },
+					line: { color: 'C00000', width: 2 },
+				})
+				s.addText('themed box', { x: 1, y: 2.5, w: 4, h: 1, fill: { type: 'inherit' } })
+				s.addTable(
+					[
+						[
+							{ text: 'inherited', options: { fill: { type: 'inherit' } } },
+							{ text: 'filled', options: { fill: { color: '003366' } } },
+						],
+					],
+					{ x: 1, y: 4, w: 8 }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'shape-and-cell-inherit-fill')
+		},
+	},
+	{
 		// `drawingml/line.ts` claims DrawingML allows the same fill group inside `<a:ln>` as
 		// inside a shape fill, and dispatches `type: 'pattern' | 'image'` to the shared fill
 		// code on that basis. Nothing exercised the claim: this is the validator checking that
