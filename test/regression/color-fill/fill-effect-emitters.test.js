@@ -1,3 +1,4 @@
+import { Presentation, isAutoShape } from '../../../dist/read.js'
 import { defineRegressionSuite, build, readEntry, assert, assertEqual, captureDiagnostics } from '../../helpers.js'
 
 // The byte-identity harness (`scripts/byte-identity.mjs`) is what gates a behavior-preserving
@@ -100,6 +101,33 @@ defineRegressionSuite('Fill and effect emitters the byte-identity corpus never r
 				`expected an image-fill diagnostic; got: ${diagnostics.map((d) => d.code).join(',')}`
 			)
 			assert(!result.includes('<a:blipFill'), 'expected no blipFill when the media is unresolved')
+		},
+	},
+	{
+		name: "fill `type: 'none'` emits <a:noFill/>, and the reader sees it as an explicit no-fill",
+		fn: async () => {
+			// Unlike shadow's `type: 'none'` above, an explicit no-*fill* is a statement, not
+			// the absence of one: emit nothing and the interior falls back to `p:style/a:fillRef`
+			// or the placeholder, so the shape paints in the theme's accent colour instead of
+			// being transparent. `line: { type: 'none' }` has always emitted its `a:noFill`;
+			// this is the fill side of the same option object saying the same thing.
+			const { buf, zip } = await build((pres) => {
+				pres.addSlide().addShape('rect', { ...BOX, fill: { type: 'none' }, objectName: 'ghost' })
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assertContainsExactly(
+				xml,
+				'<a:prstGeom prst="rect"><a:avLst></a:avLst></a:prstGeom><a:noFill/>',
+				'no-fill after geometry'
+			)
+			assert(!xml.includes('<a:solidFill'), 'expected no solid fill anywhere in the shape')
+
+			// The round trip is the point: `Shape.fillNoFill` is the accessor that separates a
+			// transparent shape from an inheriting one, and before this fix the writer's own
+			// output was the one input it could not be demonstrated on.
+			const shape = (await Presentation.load(buf)).slides[0].shapes.find(isAutoShape)
+			assertEqual(shape.fillNoFill, true, 'a shape authored fill: none reads back as an explicit no-fill')
+			assertEqual(shape.fillColor, null, 'and carries no fill colour')
 		},
 	},
 	{

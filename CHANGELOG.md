@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`fill: { type: 'none' }` emits `<a:noFill/>` instead of nothing at all** (#9). The
+  option's own name states the shape is transparent, and it was the one call that did not
+  produce that state: `genXmlColorSelection` had no `none` case, so the fill child was
+  omitted entirely and the interior fell back to `p:style/a:fillRef` or the placeholder —
+  a shape carrying a style reference rendered in the theme's accent colour rather than
+  transparent. `line: { type: 'none' }` on the same options object has always emitted its
+  `a:noFill`; the two now agree. This reaches every caller of the shared fill dispatch, so
+  a table cell (`TableCellProps.fill`) can author a transparent cell the same way.
+  Round-trip consequence: `addShape({ fill: { type: 'none' } })` → save → load now reports
+  `Shape.fillNoFill === true`, where it reported `false` before. The one behaviour that
+  changes for existing decks is that `type: 'none'` no longer produces the *inherit* state
+  by accident — if you were relying on it to mean "leave the fill to the style", omit the
+  `fill` option instead.
+
 ### Changed
 
 - **Development toolchain: ESLint + Prettier → oxlint + oxfmt, and TypeScript 6 → 7.**

@@ -183,6 +183,13 @@ export function genXmlColorSelection(props: Color | ShapeFillProps | ShapeLinePr
 		}
 
 		switch (fillType) {
+			// `type: 'none'` is an explicit *no fill*, not the absence of a statement — the
+			// same distinction `genXmlLineFill` already makes on the stroke side. Emitting
+			// nothing leaves the interior to `p:style/a:fillRef` or the placeholder, so a
+			// shape authored transparent came out painted in the theme's accent colour.
+			case 'none':
+				outText += voidEl('a:noFill')
+				break
 			case 'solid':
 				outText += el('a:solidFill', null, raw(createColorElement(colorVal, internalElements)))
 				break

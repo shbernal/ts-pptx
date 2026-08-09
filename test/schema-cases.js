@@ -433,6 +433,30 @@ export default [
 		},
 	},
 	{
+		// `fill: { type: 'none' }` emits `<a:noFill/>` rather than nothing at all, on both the
+		// shape and the table cell. `EG_FillProperties` admits one member, so the risk this
+		// checks is a *second* fill child sneaking in beside it — and on the cell, that the
+		// element lands after `a:lnB`/`a:lnTlToBr` where `CT_TableCellProperties` sequences it.
+		name: "shape and table cell with fill: { type: 'none' } (a:noFill)",
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addShape(ShapeType.rect, { x: 1, y: 1, w: 4, h: 1, fill: { type: 'none' } })
+				s.addText('ghost box', { x: 1, y: 2.5, w: 4, h: 1, fill: { type: 'none' }, line: { color: 'C00000' } })
+				s.addTable(
+					[
+						[
+							{ text: 'transparent', options: { fill: { type: 'none' } } },
+							{ text: 'filled', options: { fill: { color: '003366' } } },
+						],
+					],
+					{ x: 1, y: 4, w: 8, border: { type: 'none' } }
+				)
+			})
+			await expectNoSchemaErrors(buf, 'shape-and-cell-no-fill')
+		},
+	},
+	{
 		// `drawingml/line.ts` claims DrawingML allows the same fill group inside `<a:ln>` as
 		// inside a shape fill, and dispatches `type: 'pattern' | 'image'` to the shared fill
 		// code on that basis. Nothing exercised the claim: this is the validator checking that
