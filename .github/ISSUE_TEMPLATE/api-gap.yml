@@ -1,0 +1,76 @@
+name: API gap
+description: Something the OOXML carries that the API cannot reach — a missing accessor, or a property the write side authors but the read side cannot see.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing. Before you start:
+
+        - Confirm the accessor is still missing on the **latest release**.
+        - **Issues here are public.** If a downstream consumer prompted this, describe the need **anonymously** — state the missing PPTX behaviour and how *any* consumer would reproduce it. Never a consumer name, a deck or client name, or a path from its source tree.
+
+  - type: textarea
+    id: gap
+    attributes:
+      label: What is unreachable
+      description: The OOXML that carries it (e.g. `a:ln/@cap`) and what the API surfaces instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed accessor or signature
+      description: What you would want to call. A rough shape is fine — it makes the gap concrete and is much easier to argue with than a description.
+      render: typescript
+    validations:
+      required: false
+
+  - type: dropdown
+    id: asymmetry
+    attributes:
+      label: Does the write API author this?
+      description: |
+        A property ts-pptx *writes* but cannot *read* is a round-trip hole in its own model, which is the strongest case a gap can make. Please check before answering.
+      options:
+        - Yes — the write API authors it, but nothing reads it back
+        - No — neither side models it today
+        - Not applicable / not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact if this stays unmodeled
+      description: What is actually lost. Be honest if the answer is "not much" — that is useful too, and it sets the priority correctly.
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workaround in place
+      description: If you are working around it today, how — and is that acceptable long-term, or is it something you are waiting to delete?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: Urgency, relative to your other open filings
+      options:
+        - Blocking work now
+        - Wanted, but the workaround holds
+        - Filed for completeness — close this if there is an intended answer I missed
+    validations:
+      required: true
+
+  - type: input
+    id: version-ts-pptx
+    attributes:
+      label: ts-pptx version
+      placeholder: 2.0.0
+    validations:
+      required: true

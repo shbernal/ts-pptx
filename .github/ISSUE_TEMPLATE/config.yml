@@ -1,0 +1,11 @@
+# Blank issues stay enabled on purpose. The best issue this repo has received so
+# far was filed against no template at all, because none of them fitted it. The
+# answer to that is a form that fits, not a wall.
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/shbernal/ts-pptx/security/advisories/new
+    about: Do NOT open a public issue for a security problem. Use GitHub's private vulnerability reporting instead — see SECURITY.md.
+  - name: Documentation
+    url: https://shbernal.github.io/ts-pptx/
+    about: Guides and the generated API reference. Please check here, and confirm the problem still happens on the latest release, before filing.

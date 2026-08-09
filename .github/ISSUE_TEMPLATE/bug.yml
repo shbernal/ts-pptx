@@ -1,0 +1,93 @@
+name: Bug or fidelity limit
+description: Wrong output, a repair prompt, a regression, or a construct that does not survive a round trip.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing. Before you start:
+
+        - Confirm the problem still happens on the **latest release**.
+        - ts-pptx is **ESM, Node-first**. CommonJS and IIFE/global browser bundles are not supported and reports about them will be closed.
+        - If this is a security problem, **stop** — do not file it publicly. See [SECURITY.md](https://github.com/shbernal/ts-pptx/blob/master/SECURITY.md).
+        - If a downstream consumer prompted this, describe the need **anonymously**: no consumer name, deck or client names, or file paths from its tree.
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: |
+        *Fidelity limit* means the package is valid and PowerPoint opens it, but something does not survive the trip.
+      options:
+        - Crash or repair prompt
+        - Incorrect output
+        - Fidelity limit
+    validations:
+      required: true
+
+  - type: textarea
+    id: observed
+    attributes:
+      label: What happens
+      description: The actual behaviour, including any error text or the XML you found in the package.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: The smallest script that produces the offending `.pptx`. Please paste the code rather than attaching a project.
+      render: javascript
+    validations:
+      required: true
+
+  - type: input
+    id: construct-key
+    attributes:
+      label: Construct key
+      description: If the gap surfaces as a conversion fidelity note, its key — e.g. `table.rowAuto`. See [pptx-to-script](https://shbernal.github.io/ts-pptx/reference/pptx-to-script).
+      placeholder: table.rowAuto
+    validations:
+      required: false
+
+  - type: textarea
+    id: cause-and-fixes
+    attributes:
+      label: Cause, and possible fixes
+      description: If you traced it, say where it goes wrong and what the options are. A recommendation among them is welcome — it is the most useful thing an issue can carry.
+    validations:
+      required: false
+
+  - type: input
+    id: version-ts-pptx
+    attributes:
+      label: ts-pptx version
+      placeholder: 2.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: version-node
+    attributes:
+      label: Node.js version
+      description: The package requires Node.js `>=24`.
+      placeholder: v24.5.0
+    validations:
+      required: true
+
+  - type: input
+    id: version-powerpoint
+    attributes:
+      label: PowerPoint version
+      description: Only needed if the report depends on how PowerPoint renders or repairs the file. Leave blank otherwise.
+      placeholder: Microsoft 365, Version 2406 (Windows)
+    validations:
+      required: false
