@@ -139,10 +139,16 @@ it to find more. If it proves flaky, mark it `continue-on-error: true` rather th
 dropping it; a noisy signal beats none.
 
 Relatedly, `.tmp/*.tsbuildinfo` is deliberately **not** cached in CI, which leaves
-`incremental: true` inert there. Whether an `actions/cache` step earns its keep
-depends on a *cold* CI typecheck nobody has measured yet; warm local runs
-(2.1 / 1.7 / 2.3s) put it near the not-worth-it line, so the default is to leave
-it alone until that first push produces a number.
+`incremental: true` inert there. Whether an `actions/cache` step would earn its
+keep depends on the size of the cold/warm gap, and under TypeScript 7 that gap is
+small. Measured locally: cold (buildinfo deleted first) 1.9 / 1.5 / 2.8s for
+`typecheck` / `typecheck:scripts` / `typecheck:test`, against warm runs of
+1.2 / 1.4 / 1.6s — about 6.2s versus 4.2s for all three. Two seconds is well below
+what restoring and saving a cache costs, so the default is to leave it alone.
+
+Note those numbers are the *native Go* compiler's. Under TypeScript 6 the same
+three gates took roughly 27.7s cold and 9.1s warm, where a cache was at least
+arguable; the upgrade removed most of the reason to want one.
 
 No script needs to be prefixed with a build. Every gate begins with
 `scripts/ensure-dist.mjs`, which compares source and config mtimes against `dist/`
