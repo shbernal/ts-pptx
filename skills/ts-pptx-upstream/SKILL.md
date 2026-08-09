@@ -174,7 +174,7 @@ tracker.
 ```bash
 gh issue create --repo shbernal/ts-pptx \
   --title "<InternalError|reads|writes|round-trip|types>: <one specific symptom>" \
-  --label bug \
+  --label agent-reported \
   --body-file .tmp/ts-pptx-report.md
 ```
 

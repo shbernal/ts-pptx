@@ -8,7 +8,11 @@
 name: Agent-assisted report
 description: A defect found while using ts-pptx in another project — the form the library's own error messages link to.
 title: '<area>: <one specific symptom>'
-labels: [bug]
+# Not `bug`: the kind dropdown below reaches feature requests and doc mismatches too, and
+# pre-labelling those `bug` makes the label mean "arrived somehow" instead of "is a defect".
+# What every issue from this form does have in common is where it came from, so that is what
+# the label records. Triage adds `bug` or `enhancement` after reading.
+labels: [agent-reported]
 body:
   - type: markdown
     attributes:

@@ -120,7 +120,9 @@ MCPs' corpora.
   is not for work started here: it is where `InternalError`'s message sends an
   agent working in a *consumer* repo, and it is the only form that asks which class
   and code was thrown and where an attached file came from. Do not route local work
-  through it.
+  through it. It labels `agent-reported`, which records *where an issue came from*
+  rather than what it is — it reaches feature requests and doc mismatches as well as
+  defects, so triage still adds `bug` or `enhancement` after reading.
 - The `skills/ts-pptx-upstream/` skill is the consumer-side half of that form. It
   ships in the tarball (`files` includes `skills`), so it is what
   `npx skills add ./node_modules/@shbernal/ts-pptx` installs — keep it in step with
