@@ -5,7 +5,19 @@ import path from 'node:path'
 
 const root = process.cwd()
 const outDir = path.join(root, 'docs', 'reference', 'api')
-const typedocBin = path.join(root, 'node_modules', '.bin', process.platform === 'win32' ? 'typedoc.cmd' : 'typedoc')
+// TypeDoc lives in the tools/api-docs workspace package, not at the root, because it needs
+// a TypeScript 6 that the root no longer has: TypeScript 7 ships a native binary and no JS
+// compiler API, so TypeDoc cannot import it. See tools/api-docs/README.md. `cwd` below stays
+// the repo root, which is what keeps every root-relative path in typedoc.docs.json working,
+// and TypeDoc resolves its markdown plugin relative to its own install rather than to cwd.
+const typedocBin = path.join(
+	root,
+	'tools',
+	'api-docs',
+	'node_modules',
+	'.bin',
+	process.platform === 'win32' ? 'typedoc.cmd' : 'typedoc'
+)
 
 function walkMarkdown(dir) {
 	const out = []

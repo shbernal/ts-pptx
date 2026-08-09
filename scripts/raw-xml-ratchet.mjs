@@ -45,7 +45,14 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import ts from 'typescript'
+// `typescript-6`, not `typescript`: this script walks a real syntax tree
+// (`createSourceFile`, `forEachChild`, the `isXxx` predicates), and TypeScript 7 is the
+// native Go compiler — its npm package ships a `tsc` binary and no JavaScript compiler
+// API at all, so the bare specifier resolves to something with none of these on it. The
+// root stays on 7 for `tsc`; this one consumer takes an aliased 6. Unlike TypeDoc, which
+// hard-codes the bare specifier and therefore needs the tools/api-docs workspace package,
+// an alias is enough here because the import is ours to name.
+import ts from 'typescript-6'
 import { ROOT, isMain, parseCli, runCli } from './script-utils.mjs'
 
 const SRC = path.join(ROOT, 'src')

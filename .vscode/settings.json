@@ -1,3 +1,15 @@
 {
-	"typescript.tsdk": "node_modules/typescript/lib"
+	// Not `node_modules/typescript/lib` any more. The root TypeScript is 7, the native Go
+	// compiler, and its package ships `bin/tsc` and nothing else — no `tsserver.js`, no
+	// language server at all — so pointing the editor there leaves it with no TypeScript
+	// service. This path is the pinned TypeScript 6 that tools/api-docs carries for TypeDoc.
+	//
+	// That means the editor typechecks with 6 while `pnpm run typecheck` uses 7, so the
+	// editor can in principle disagree with the gate. It is the better of the two options:
+	// the alternative is dropping this setting and letting VS Code use whatever TypeScript
+	// it bundles, which drifts per machine and per release, where this one is pinned in the
+	// lockfile and is the exact compiler this repo used until the upgrade.
+	//
+	// When tools/api-docs goes away — see its README — this setting goes with it.
+	"typescript.tsdk": "tools/api-docs/node_modules/typescript/lib"
 }

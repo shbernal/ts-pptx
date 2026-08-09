@@ -2,6 +2,11 @@ packages:
   - demos/node
   - demos/showcases
   - demos/vite-demo
+  # Not a demo and not a build step: it holds TypeDoc and the TypeScript 6 that
+  # TypeDoc still needs, because TypeScript 7 ships no JS compiler API for it to
+  # use. See tools/api-docs/README.md for why this is a workspace member and not
+  # a pnpm override — the override was tried and does not bind a peer dependency.
+  - tools/api-docs
 allowBuilds:
   '@parcel/watcher': true
   esbuild: true
