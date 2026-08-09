@@ -5,58 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Fixed
-
-- **`fill: { type: 'none' }` emits `<a:noFill/>` instead of nothing at all** (#9). The
-  option's own name states the shape is transparent, and it was the one call that did not
-  produce that state: `genXmlColorSelection` had no `none` case, so the fill child was
-  omitted entirely and the interior fell back to `p:style/a:fillRef` or the placeholder —
-  a shape carrying a style reference rendered in the theme's accent colour rather than
-  transparent. `line: { type: 'none' }` on the same options object has always emitted its
-  `a:noFill`; the two now agree. This reaches every caller of the shared fill dispatch, so
-  a table cell (`TableCellProps.fill`) can author a transparent cell the same way.
-  Round-trip consequence: `addShape({ fill: { type: 'none' } })` → save → load now reports
-  `Shape.fillNoFill === true`, where it reported `false` before. The one behaviour that
-  changes for existing decks is that `type: 'none'` no longer produces the *inherit* state
-  by accident — if you were relying on it to mean "leave the fill to the style", omit the
-  `fill` option instead.
-
-- **`readModelToIr` carries a line's `@cap`, and declares a dropped `@algn`** (#8). Both
-  legs of the cap mapping already existed — `ShapeLineProps.cap` authors the attribute and
-  3.0.0's `Shape.lineCap` reads it back — but the script tier's `lineOption` never consumed
-  it, so a deck this library wrote could not survive its own converter. The loss was
-  *undeclared*, which is the part that mattered: the round-trip gate excludes exactly what
-  a fidelity note names, so it passed green while the deck changed. `@cap` extends every
-  dash by the stroke width and decides whether each draws as a rectangle or a lozenge, so
-  on a thick dashed rule the before and after are visibly different. `@algn` is readable and
-  has no write option, so it now records a `line.align` note (`dropped`/`unwritable`) —
-  for `algn="in"` only, since `ctr` is what an omitted `@algn` already renders as.
-
-- **`latexToOmml` emits accents as `<m:acc>` rather than `<m:limUpp>`** (#6). `\hat`,
-  `\bar`, `\vec`, `\dot`, `\ddot`, `\tilde`, `\acute`, `\grave`, `\check`, `\breve`,
-  `\mathring`, `\H`, `\dddot` and their short-form aliases (`\^`, `` \` ``, `\'`, `\"`,
-  `\.`, `\=`, `\u`, `\v`, `\r`) all landed as over-*limits*, with limit spacing and
-  semantics, because temml emits a bare `<mover>` (correct for a browser — MathML renderers
-  derive accent positioning from the operator dictionary) and mathml2omml has no dictionary
-  and keys strictly off `accent="true"`. The pipeline now carries the small dictionary
-  subset that closes the gap, and while it is there it swaps temml's *spacing* modifier for
-  the combining mark ECMA-376 §22.1.2.20 says an `accPr` character should be — so `\vec{v}`
-  gets an arrow accent instead of a full-size arrow hung over the base.
-
-  Scoped to `latexToOmml`: `mathmlToOmml` passes hand-written MathML through unchanged,
-  because there `accent` is the caller's to set. Constructs that were already mapping well
-  are untouched (`\widehat`/`\overbrace` stay `m:groupChr`, `\overline`/`\underline` stay
-  `m:borderBox`, `\stackrel` stays `m:limUpp`), and two stay limits by necessity: `\utilde`
-  and other under-accents, since OMML has no under-accent object and the symmetric
-  `accentunder="true"` makes mathml2omml emit an *over*-accent; and `\ddddot`, whose
-  two-character operator has no single `m:chr`.
-
-- **A table cell's explicit `a:noFill` survives read → script → write.** Previously a
-  suppressed cell fell out of `cellFill` as "no fill option" and the copy took the table
-  style's banding — the opposite of what the source showed. Enabled by the reader below and
-  the writer fix above.
+## [3.1.0] - 2026-08-09
 
 ### Added
 
@@ -120,6 +69,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the native Go compiler and ships no JavaScript compiler API for TypeDoc to import. That
   copy is confined to the private `tools/api-docs` workspace package and reaches nothing
   that is published.
+
+### Fixed
+
+- **`fill: { type: 'none' }` emits `<a:noFill/>` instead of nothing at all** (#9). The
+  option's own name states the shape is transparent, and it was the one call that did not
+  produce that state: `genXmlColorSelection` had no `none` case, so the fill child was
+  omitted entirely and the interior fell back to `p:style/a:fillRef` or the placeholder —
+  a shape carrying a style reference rendered in the theme's accent colour rather than
+  transparent. `line: { type: 'none' }` on the same options object has always emitted its
+  `a:noFill`; the two now agree. This reaches every caller of the shared fill dispatch, so
+  a table cell (`TableCellProps.fill`) can author a transparent cell the same way.
+  Round-trip consequence: `addShape({ fill: { type: 'none' } })` → save → load now reports
+  `Shape.fillNoFill === true`, where it reported `false` before. The one behaviour that
+  changes for existing decks is that `type: 'none'` no longer produces the *inherit* state
+  by accident — if you were relying on it to mean "leave the fill to the style", omit the
+  `fill` option instead.
+
+- **`readModelToIr` carries a line's `@cap`, and declares a dropped `@algn`** (#8). Both
+  legs of the cap mapping already existed — `ShapeLineProps.cap` authors the attribute and
+  3.0.0's `Shape.lineCap` reads it back — but the script tier's `lineOption` never consumed
+  it, so a deck this library wrote could not survive its own converter. The loss was
+  *undeclared*, which is the part that mattered: the round-trip gate excludes exactly what
+  a fidelity note names, so it passed green while the deck changed. `@cap` extends every
+  dash by the stroke width and decides whether each draws as a rectangle or a lozenge, so
+  on a thick dashed rule the before and after are visibly different. `@algn` is readable and
+  has no write option, so it now records a `line.align` note (`dropped`/`unwritable`) —
+  for `algn="in"` only, since `ctr` is what an omitted `@algn` already renders as.
+
+- **`latexToOmml` emits accents as `<m:acc>` rather than `<m:limUpp>`** (#6). `\hat`,
+  `\bar`, `\vec`, `\dot`, `\ddot`, `\tilde`, `\acute`, `\grave`, `\check`, `\breve`,
+  `\mathring`, `\H`, `\dddot` and their short-form aliases (`\^`, `` \` ``, `\'`, `\"`,
+  `\.`, `\=`, `\u`, `\v`, `\r`) all landed as over-*limits*, with limit spacing and
+  semantics, because temml emits a bare `<mover>` (correct for a browser — MathML renderers
+  derive accent positioning from the operator dictionary) and mathml2omml has no dictionary
+  and keys strictly off `accent="true"`. The pipeline now carries the small dictionary
+  subset that closes the gap, and while it is there it swaps temml's *spacing* modifier for
+  the combining mark ECMA-376 §22.1.2.20 says an `accPr` character should be — so `\vec{v}`
+  gets an arrow accent instead of a full-size arrow hung over the base.
+
+  Scoped to `latexToOmml`: `mathmlToOmml` passes hand-written MathML through unchanged,
+  because there `accent` is the caller's to set. Constructs that were already mapping well
+  are untouched (`\widehat`/`\overbrace` stay `m:groupChr`, `\overline`/`\underline` stay
+  `m:borderBox`, `\stackrel` stays `m:limUpp`), and two stay limits by necessity: `\utilde`
+  and other under-accents, since OMML has no under-accent object and the symmetric
+  `accentunder="true"` makes mathml2omml emit an *over*-accent; and `\ddddot`, whose
+  two-character operator has no single `m:chr`.
+
+- **A table cell's explicit `a:noFill` survives read → script → write.** Previously a
+  suppressed cell fell out of `cellFill` as "no fill option" and the copy took the table
+  style's banding — the opposite of what the source showed. Enabled by the
+  `TableCell.fillNoFill` reader above and the `fill: { type: 'none' }` writer fix above.
 
 ## [3.0.0] - 2026-08-09
 
@@ -1880,6 +1880,7 @@ makes no backwards-compatibility guarantee with the original project.
   where the image is `/ppt/media/image1.jpeg`. Affects `Slide.background`,
   `SlideMaster.background`, and `SlideLayout.background`.
 
+[3.1.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.1.0
 [3.0.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.0.0
 [2.0.0]: https://github.com/shbernal/ts-pptx/releases/tag/v2.0.0
 [1.0.0]: https://github.com/shbernal/ts-pptx/releases/tag/v1.0.0
