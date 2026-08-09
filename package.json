@@ -138,7 +138,7 @@
 		"docs:check": "pnpm run docs:api && node scripts/docs-check.mjs",
 		"docs:prepare": "pnpm run docs:api && pnpm run docs:llms && pnpm run docs:index",
 		"docs:dev": "pnpm run docs:prepare && vitepress dev docs",
-		"docs:build": "pnpm run docs:prepare && node scripts/docs-check.mjs && vitepress build docs",
+		"docs:build": "pnpm run docs:prepare && node scripts/docs-check.mjs && vitepress build docs && node scripts/docs-check.mjs --dist",
 		"docs:preview": "vitepress preview docs"
 	},
 	"dependencies": {

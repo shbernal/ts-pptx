@@ -4,6 +4,10 @@
 //
 // Runs in `docs:check` and again inside `docs:build`, so a broken link fails the docs build
 // rather than shipping a 404.
+//
+// With `--dist`, checks the built output instead: every URL in the generated llms.txt files
+// must name a page VitePress actually emitted. That is a separate pass because it can only run
+// *after* `vitepress build`, and the source checks above only need the markdown tree.
 
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -122,7 +126,95 @@ function checkLinks(docsDir, rel, routes) {
 	return errors
 }
 
+/**
+ * The URL prefix the published site actually answers on, derived rather than restated: the
+ * GitHub Pages host comes from `repository`, the path from the VitePress `base`. Writing the
+ * value out a second time is what let `llms.txt` drift to a host that never existed.
+ */
+function canonicalBase(docsDir) {
+	if (process.env.DOCS_BASE_URL) return { base: process.env.DOCS_BASE_URL.replace(/\/?$/, '/'), errors: [] }
+
+	const pkg = JSON.parse(readFileSync(path.join(docsDir, '..', 'package.json'), 'utf8'))
+	const slug = String(pkg.repository?.url ?? pkg.homepage ?? '').match(/github\.com\/([^/]+)\/([^/.#]+)/)
+	if (!slug) return { base: null, errors: ['package.json: cannot derive the GitHub Pages host from `repository`'] }
+
+	const config = readFileSync(path.join(docsDir, '.vitepress', 'config.mts'), 'utf8')
+	const configured = config.match(/^\s*base:.*?'([^']+)'/m)
+	if (!configured) return { base: null, errors: ['docs/.vitepress/config.mts: cannot read the `base` option'] }
+
+	// An unreadable `base` collapses to `/`, which the slug check below then rejects loudly.
+	const base = (process.env.VITEPRESS_BASE ?? configured[1] ?? '').replace(/\/?$/, '/')
+	const errors = []
+	// A project Pages site is served under /<repo>/, so a `base` that disagrees means the whole
+	// site 404s no matter how well-formed the routes underneath it are.
+	if (!process.env.VITEPRESS_BASE && base !== `/${slug[2]}/`) {
+		errors.push(`docs/.vitepress/config.mts: \`base\` is \`${base}\`, but Pages serves this repo at \`/${slug[2]}/\``)
+	}
+	return { base: `https://${slug[1]}.github.io${base}`, errors }
+}
+
+// How each generated file writes the URLs it advertises. These have to stay per-file rather than
+// being tried against both: llms-full.txt embeds whole page bodies, so a link pattern applied to
+// it would also match the ordinary markdown links *inside* those bodies.
+const ADVERTISED_URL_RE = {
+	'llms-full.txt': /^URL: (\S+)$/gm,
+	'llms.txt': /^- \[[^\]]+\]\((\S+?)\)/gm,
+}
+
+/** The URLs a generated llms file advertises. */
+function advertisedUrls(text, pattern) {
+	const urls = [...text.matchAll(pattern)].map((match) => match[1] ?? '')
+	return new Set(urls.map((url) => url.split('#', 1)[0]?.split('?', 1)[0] ?? ''))
+}
+
+/**
+ * Every advertised URL must map to a file in the build. VitePress runs with `cleanUrls`, so a
+ * leaf page is `x.html` and only a directory index is `x/index.html` — the mapping below is the
+ * one the server applies, so a route the generator invents cannot pass by looking plausible.
+ */
+function checkGeneratedUrls(docsDir) {
+	const dist = path.join(docsDir, '.vitepress', 'dist')
+	if (!existsSync(dist)) return ['docs/.vitepress/dist: missing; run `vitepress build docs` before `--dist`']
+
+	const { base, errors } = canonicalBase(docsDir)
+	if (!base) return errors
+
+	for (const [name, pattern] of Object.entries(ADVERTISED_URL_RE)) {
+		const file = path.join(dist, name)
+		if (!existsSync(file)) {
+			errors.push(`${name}: not present in the build output`)
+			continue
+		}
+		const urls = advertisedUrls(readFileSync(file, 'utf8'), pattern)
+		if (urls.size === 0) {
+			errors.push(`${name}: advertises no URLs, so nothing was verified`)
+			continue
+		}
+		for (const url of [...urls].sort()) {
+			if (!url.startsWith(base)) {
+				errors.push(`${name}: \`${url}\` is not under the published base \`${base}\``)
+				continue
+			}
+			const rest = url.slice(base.length)
+			const page = rest === '' ? 'index.html' : rest.endsWith('/') ? `${rest}index.html` : `${rest}.html`
+			if (!existsSync(path.join(dist, page))) errors.push(`${name}: \`${url}\` has no page in the build (${page})`)
+		}
+	}
+	return errors
+}
+
 const docsDir = requireDocsDir('docs:check')
+
+if (process.argv.includes('--dist')) {
+	const errors = checkGeneratedUrls(docsDir)
+	if (errors.length > 0) {
+		for (const error of errors) console.error(`docs:check: ${error}`)
+		process.exit(1)
+	}
+	console.log('docs:check: ok (generated llms URLs all resolve to a built page)')
+	process.exit(0)
+}
+
 const relPaths = walkDocs(docsDir)
 
 const routes = new Set()
