@@ -3,7 +3,8 @@
 // resolve to a real page, and internal links that resolve to a real route or file.
 //
 // Runs in `docs:check` and again inside `docs:build`, so a broken link fails the docs build
-// rather than shipping a 404.
+// rather than shipping a 404. `docs:build` is in turn part of `verify` and `check:static`, so
+// the failure lands on the change that caused it rather than on the Pages deploy.
 //
 // With `--dist`, checks the built output instead: every URL in the generated llms.txt files
 // must name a page VitePress actually emitted. That is a separate pass because it can only run
@@ -13,6 +14,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { ALLOWED_DOC_TYPES, compactStrings, parseFrontmatter, requireDocsDir, walkDocs } from './docs-frontmatter.mjs'
+import { isMain, runCli } from './script-utils.mjs'
 
 const REQUIRED_FIELDS = ['doc-schema-version', 'doc_type', 'read_when', 'summary', 'title']
 // Markdown inline links, excluding images (`!` prefix) and tolerating a trailing "title".
@@ -56,6 +58,15 @@ function collectNavPages(value) {
 /** A link target that leaves the docs site entirely. */
 function isExternal(target) {
 	return /^[a-z][a-z0-9+.-]*:/i.test(target) || target.startsWith('//')
+}
+
+/**
+ * Is `target` inside `root`? Not a prefix test: `startsWith` would also accept a `docs-extra/`
+ * sibling, which is outside the tree but shares the leading characters.
+ */
+function isInside(root, target) {
+	const rel = path.relative(root, target)
+	return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel)
 }
 
 function checkFrontmatter(docsDir, rel) {
@@ -104,7 +115,15 @@ function checkDocsJson(docsDir, relPaths) {
 	return errors
 }
 
-function checkLinks(docsDir, rel, routes) {
+/**
+ * Every link problem on one page. Exported for the test, per the gate-script convention in
+ * `script-utils.mjs`: the rules below are judgement calls about what VitePress will resolve.
+ * @param {string} docsDir the docs tree root
+ * @param {string} rel the page, relative to `docsDir`
+ * @param {Set<string>} routes every route the site serves
+ * @returns {string[]}
+ */
+export function checkLinks(docsDir, rel, routes) {
 	const filePath = path.join(docsDir, rel)
 	const text = readFileSync(filePath, 'utf8')
 	const errors = []
@@ -119,9 +138,22 @@ function checkLinks(docsDir, rel, routes) {
 			if (!routes.has(normalizeRoute(targetPath))) errors.push(`${rel}: broken docs route \`${target}\``)
 			continue
 		}
+		// Only `.md` targets are routes. Anything else (an image, a `.txt` under public/) is an
+		// asset VitePress passes through, and is not this gate's business wherever it resolves.
+		if (!targetPath.endsWith('.md')) continue
+
 		const resolved = path.resolve(path.dirname(filePath), targetPath)
-		if (!resolved.startsWith(docsRoot)) continue // points outside the docs tree; not ours to check
-		if (targetPath.endsWith('.md') && !existsSync(resolved)) errors.push(`${rel}: broken relative link \`${target}\``)
+		// A relative `.md` link that escapes docs/ is the failure that stalled the Pages deploy for
+		// three days: the file exists on disk, so it looks fine locally, but it is not a page in the
+		// site and VitePress fails the build on the dead link. Skipping these as "not ours to check"
+		// is what let it reach the Docs workflow. Repo files outside docs/ get an absolute blob URL.
+		if (!isInside(docsRoot, resolved)) {
+			errors.push(
+				`${rel}: relative link \`${target}\` points outside docs/; VitePress has no route for it — use the absolute URL`
+			)
+		} else if (!existsSync(resolved)) {
+			errors.push(`${rel}: broken relative link \`${target}\``)
+		}
 	}
 	return errors
 }
@@ -203,30 +235,40 @@ function checkGeneratedUrls(docsDir) {
 	return errors
 }
 
-const docsDir = requireDocsDir('docs:check')
+/** @param {string[]} argv */
+function main(argv) {
+	const docsDir = requireDocsDir('docs:check')
 
-if (process.argv.includes('--dist')) {
-	const errors = checkGeneratedUrls(docsDir)
+	if (argv.includes('--dist')) {
+		const errors = checkGeneratedUrls(docsDir)
+		if (errors.length > 0) {
+			for (const error of errors) console.error(`docs:check: ${error}`)
+			return 1
+		}
+		console.log('docs:check: ok (generated llms URLs all resolve to a built page)')
+		return 0
+	}
+
+	const relPaths = walkDocs(docsDir)
+
+	const routes = new Set()
+	for (const rel of relPaths) for (const route of routesFor(rel)) routes.add(route)
+
+	const errors = [...checkDocsJson(docsDir, relPaths)]
+	for (const rel of relPaths) {
+		errors.push(
+			...checkFrontmatter(docsDir, rel),
+			...checkCodeFences(docsDir, rel),
+			...checkLinks(docsDir, rel, routes)
+		)
+	}
+
 	if (errors.length > 0) {
 		for (const error of errors) console.error(`docs:check: ${error}`)
-		process.exit(1)
+		return 1
 	}
-	console.log('docs:check: ok (generated llms URLs all resolve to a built page)')
-	process.exit(0)
+	console.log(`docs:check: ok (${relPaths.length} docs page(s))`)
+	return 0
 }
 
-const relPaths = walkDocs(docsDir)
-
-const routes = new Set()
-for (const rel of relPaths) for (const route of routesFor(rel)) routes.add(route)
-
-const errors = [...checkDocsJson(docsDir, relPaths)]
-for (const rel of relPaths) {
-	errors.push(...checkFrontmatter(docsDir, rel), ...checkCodeFences(docsDir, rel), ...checkLinks(docsDir, rel, routes))
-}
-
-if (errors.length > 0) {
-	for (const error of errors) console.error(`docs:check: ${error}`)
-	process.exit(1)
-}
-console.log(`docs:check: ok (${relPaths.length} docs page(s))`)
+if (isMain(import.meta.url)) await runCli(() => main(process.argv.slice(2)))

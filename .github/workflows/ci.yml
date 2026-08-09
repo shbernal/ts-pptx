@@ -17,6 +17,13 @@ jobs:
   # Lint, formatting and the three typechecks are node-version-independent: they
   # read the same sources and the same tsconfig on every leg, so running them per
   # matrix entry was pure duplication. One run, newest supported Node.
+  #
+  # `check:static` also carries `docs:build`, which is the dead-link gate. That gate
+  # used to live only in docs.yml, so a broken link failed the *deploy* rather than
+  # the change that introduced it — the Pages site went three days stale that way.
+  # docs.yml still builds, because it is what uploads the Pages artifact; here the
+  # same build is a merge gate, and it also runs on the `workflow_call` path that
+  # publish.yml uses, which docs.yml never covered.
   static:
     name: Static checks
     runs-on: ubuntu-latest

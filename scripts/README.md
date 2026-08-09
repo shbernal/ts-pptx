@@ -30,7 +30,7 @@ proving nothing, which is how `script-roundtrip.mjs` sat runnable-but-unrun. Kee
 | `coverage-gate.mjs` | Gate | Per-area coverage thresholds from `coverage-gates.json` | CI (`coverage` job) |
 | `coverage-merge.mjs` | Library | Merges Node + browser coverage into one report | `coverage:gate` |
 | `docs-api.mjs` | Generator | TypeDoc → markdown API pages | `docs:check`, `docs:prepare` |
-| `docs-check.mjs` | Gate | Frontmatter, nav and link validation; with `--dist`, that every generated `llms.txt` URL names a built page | `docs:build` (Docs workflow), twice — once on the source tree, once on the build |
+| `docs-check.mjs` | Gate | Frontmatter, nav and link validation; with `--dist`, that every generated `llms.txt` URL names a built page | `docs:check`; `docs:build` twice — once on the source tree, once on the build — and `docs:build` is in `verify` and `check:static`, so it gates CI too |
 | `docs-frontmatter.mjs` | Library | Frontmatter parsing shared by the `docs:*` scripts | — |
 | `docs-index.mjs` | Generator | Rebuilds `docs/doc-index.md` | `docs:prepare` |
 | `docs-init.mjs` | Generator | Scaffolds the docs kit; inert in this repo | manual (`docs:init`) |
