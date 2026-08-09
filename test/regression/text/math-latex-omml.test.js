@@ -157,6 +157,15 @@ describe('math/latexToOmml — accents become m:acc, not m:limUpp', () => {
 		expect(convert('\\ddddot{y}').kinds, 'a four-dot accent has no single m:chr').toEqual(['limUpp'])
 	})
 
+	test('an extensible arrow is left alone — temml states accent="false" on it', () => {
+		// The one place temml *does* answer the question the rewrite exists to answer, and it
+		// answers "no": `\xrightarrow` is `<mover accent="false">` over an inner `<mover>` whose
+		// top is an `<mspace>` rather than an `<mo>`. Both of the rewrite's skip conditions —
+		// `accent` already stated, and an over-script that is not an operator — are load-bearing
+		// here, so this is the case that keeps them honest.
+		expect(convert('\\xrightarrow{f}').kinds, 'both movers stay limits').toEqual(['limUpp', 'limUpp'])
+	})
+
 	test('mathmlToOmml does not rewrite a caller-supplied <mover>', () => {
 		// The shim compensates for something *temml* does. MathML gives a caller the `accent`
 		// attribute to state this themselves, so second-guessing it on hand-written input would
