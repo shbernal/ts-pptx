@@ -20,6 +20,12 @@
 // `demos/vite-demo` workspace, none of which this repo formats. A silently *wider*
 // set is how a tool-written file gets clobbered, so the list stays explicit and the
 // two defences overlap on purpose.
+//
+// The root tsconfigs are named one by one in that list for a reason that is easy to undo:
+// **oxfmt matches `tsconfig*.json` at any depth**, not just at the root, so the obvious
+// shorthand also pulls in `demos/vite-demo/tsconfig{,.app,.node}.json` — a workspace this
+// repo deliberately does not format. That was caught only by `format:check` failing on
+// three files nobody had touched. Do not re-collapse them.
 {
 	"$schema": "./node_modules/oxfmt/configuration_schema.json",
 	"printWidth": 120,
