@@ -42,6 +42,27 @@ npm install @shbernal/ts-pptx
 yarn add @shbernal/ts-pptx
 ```
 
+### Installing an unreleased commit
+
+Any commit is installable directly from GitHub, without waiting for a release:
+
+```bash
+npm install github:shbernal/ts-pptx#<commit-sha>
+```
+
+`master` (`github:shbernal/ts-pptx`) works too, but pin the sha — a branch spec
+re-resolves to whatever is at the head of it when the lockfile is next written.
+
+`dist/` is not committed, so this builds the package on install: your package
+manager clones the repo, installs this package's `devDependencies`, and runs its
+`prepare` script. That makes the install slow (a couple of minutes) and heavier
+than a registry install, and it needs a working Node toolchain. It is meant for
+trying a fix before it ships, not for production dependencies.
+
+Note that `pres.version` reports the version in `package.json` at that commit, so
+several different commits report the same number. The sha in your `package.json`
+is what identifies the build.
+
 ## Quick Start
 
 ```ts

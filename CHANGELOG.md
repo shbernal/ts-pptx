@@ -63,6 +63,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   paint child, keep the `<a:ln>`. On a table cell and a slide background, where *omitting*
   the option already meant inherit, `'inherit'` is simply the explicit spelling of that.
 
+- **Any commit is installable straight from GitHub: `npm i github:shbernal/ts-pptx#<sha>`.**
+  It looked like this already worked, and it never did. `dist/` is gitignored and `prepare`
+  only installed git hooks, so a git-URL install packed a tarball in which every `exports`
+  entry named a file that had never been built — the install succeeded and the first import
+  failed. `prepare` now also runs `scripts/ensure-dist.mjs --if-missing`, a new mode that
+  builds an *absent* `dist/` and leaves a stale one alone. That distinction is the whole
+  design: the existing freshness check would be wrong in `prepare`, where it would make
+  `pnpm run build` and `pnpm run watch` build twice over, and every script that needs a
+  current build already front-loads its own unconditional `ensure-dist`. Absent means
+  build; stale is somebody else's question. Two things had to move with it, both only
+  reachable once consumers could run this path at all: `ensure-dist` invokes the build
+  through `npm_execpath` — the package manager actually running it — rather than a
+  hardcoded `pnpm`, which is declared here as `packageManager` but never installed as a
+  dependency and so resolved to a shim a plain-npm consumer does not have; and
+  `install-hooks.mjs` now skips when `INIT_CWD` places the caller outside the checkout,
+  which is what a consumer's install looks like. Without that it ran `lefthook install`
+  inside the package manager's throwaway clone and propagated lefthook's exit status into
+  someone else's `npm install`. This is for trying an unreleased fix, not for production
+  dependencies: the install builds from source, so it pulls this package's
+  `devDependencies` and takes minutes.
+
 ### Fixed
 
 - **Chart area and plot area fills honour `type` instead of only `color`** (#11).
