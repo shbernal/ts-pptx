@@ -22,6 +22,8 @@
         "reference/pptx-read",
         "reference/pptx-to-script",
         "reference/object-identity",
+        "errors",
+        "diagnostics",
         "tables",
         "groups",
         "connectors",
@@ -29,6 +31,7 @@
         "ole-objects",
         "3d-models",
         "math-latex",
+        "animations-and-transitions",
         "reference/api/index",
         "ooxml-agent-context",
         "RELEASING"
