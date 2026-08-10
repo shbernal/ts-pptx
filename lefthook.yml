@@ -75,3 +75,5 @@ pre-push:
       run: pnpm run typecheck
     - name: typecheck-scripts
       run: pnpm run typecheck:scripts
+    - name: typecheck-site
+      run: pnpm run typecheck:site

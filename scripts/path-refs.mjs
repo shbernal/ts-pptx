@@ -52,7 +52,7 @@ import path from 'node:path'
 import { isMain, ROOT, runCli } from './script-utils.mjs'
 
 /** Trees worth scanning. Everything else is either generated or third-party. */
-const SCAN_ROOTS = ['docs', 'src', 'test', 'scripts', 'tools', 'demos', '.github']
+const SCAN_ROOTS = ['docs', 'src', 'test', 'scripts', 'tools', 'demos', 'www', '.github']
 
 /** Files at the repo root that carry citations. `CHANGELOG.md` is excluded on purpose. */
 const ROOT_FILES = ['AGENTS.md', 'README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'CLAUDE.md']
@@ -84,7 +84,7 @@ const SKIP_DIRS = new Set(['node_modules', 'dist', 'coverage', '.git', '.tmp', '
 const SKIP_PATHS = new Set(['docs/reference/api'])
 
 /** Only these carry citations worth resolving; a `.png` or `.pptx` is an asset, not a claim. */
-const CITED_EXT = /\.(ts|mts|tsx|js|mjs|cjs|jsx|md|json|jsonc|yml|yaml|html|css|tsv)$/
+const CITED_EXT = /\.(ts|mts|tsx|js|mjs|cjs|jsx|vue|md|json|jsonc|yml|yaml|html|css|tsv)$/
 
 /** A backticked token that looks like a path, `./`- and `../`-relative forms included. */
 const CITATION_RE = /`((?:\.{1,2}\/)*[A-Za-z0-9_@][A-Za-z0-9_./@-]*\.[a-z]+)`/g

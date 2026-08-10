@@ -103,8 +103,8 @@ you want a specific build regardless of how conditions resolve.
 
 The browser build is exercised in CI, by the `browser` job in `.github/workflows/ci.yml`
 (`pnpm run test:browser` — Playwright, headless Chromium). It is not "supported by
-construction". Three fixtures: `demos/vite-demo` for the bundled path a real consumer
-takes, a static server handing the browser the shipped `dist/browser.js` unbundled
+construction". Three fixtures: the site's own demos page (`www/demos/`) for the bundled
+path a real consumer takes, a static server handing the browser the shipped `dist/browser.js` unbundled
 for the runtime adapter itself, and a page that renders a real `<table>` so
 `tableToSlides` reads a measured `offsetWidth`.
 
@@ -309,5 +309,5 @@ repository.
 The old named ESM artifacts `dist/pptxgen.es.js` and `dist/pptxgen.js` are not
 shipped. Use the package exports instead of direct artifact paths.
 
-The maintained browser integration target is a module-aware app such as
-`demos/vite-demo`.
+The maintained browser integration target is a module-aware app such as the site's own
+demos page (`www/demos/`).

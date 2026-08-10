@@ -16,16 +16,16 @@
 // The ignore list is a safety net, not the definition of what gets formatted:
 // `format:run` in package.json still hands oxfmt an explicit list of globs rather
 // than the bare `oxfmt` that would suffice. Bare, oxfmt considers 585 files against
-// the ~500 the explicit list covers — it reaches markdown, css, scss, html and the
-// `demos/vite-demo` workspace, none of which this repo formats. A silently *wider*
+// the ~500 the explicit list covers — it reaches markdown, css, html and `.vue`
+// single-file components, none of which this repo formats. A silently *wider*
 // set is how a tool-written file gets clobbered, so the list stays explicit and the
 // two defences overlap on purpose.
 //
 // The root tsconfigs are named one by one in that list for a reason that is easy to undo:
 // **oxfmt matches `tsconfig*.json` at any depth**, not just at the root, so the obvious
-// shorthand also pulls in `demos/vite-demo/tsconfig{,.app,.node}.json` — a workspace this
-// repo deliberately does not format. That was caught only by `format:check` failing on
-// three files nobody had touched. Do not re-collapse them.
+// shorthand also pulls in every workspace's own `tsconfig*.json` — files this repo
+// deliberately does not format. That was caught only by `format:check` failing on three
+// files nobody had touched. Do not re-collapse them.
 {
 	"$schema": "./node_modules/oxfmt/configuration_schema.json",
 	"printWidth": 120,
@@ -57,6 +57,12 @@
 		"!docs/.vitepress",
 		"docs/.vitepress/**",
 		"!docs/.vitepress/config.mts",
+		// The theme entry point is a hand-written re-export of `www/theme`, so it is formatted
+		// like the rest of the site's source. Same two-step as above: the directory has to be
+		// re-included before a file inside it can be.
+		"!docs/.vitepress/theme",
+		"docs/.vitepress/theme/**",
+		"!docs/.vitepress/theme/index.ts",
 		// docs/docs.json stays ignored on purpose: it is tool-written, not hand-written.
 		// `scripts/docs-new.py` rewrites it with `json.dumps(config, indent=2)` and
 		// `scripts/docs-init.py`'s scaffold template is 2-space too, so formatting it to

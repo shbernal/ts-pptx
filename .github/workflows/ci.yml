@@ -130,7 +130,7 @@ jobs:
   #
   # Two fixtures, started by Playwright itself, so this job stays one command:
   #
-  #   - `demos/vite-demo`, which imports the SAME showcase module
+  #   - the site's demos page, which imports the SAME showcase module
   #     `pnpm demos:build quarterly-review` runs — so the strong assertion is
   #     available: the browser-built deck must be byte-identical to the Node-built
   #     one, part for part. See test/browser/cross-runtime-bytes.spec.mjs.
@@ -180,7 +180,8 @@ jobs:
       - name: Install Chromium
         run: pnpm exec playwright install --with-deps chromium
 
-      # Starts with `ensure-dist`, then builds the demo, then runs the specs.
+      # Starts with `ensure-dist`, then builds the site (the `demo` project's fixture is
+      # a page of it), then runs the specs.
       - name: Browser tests
         run: pnpm run test:browser
 

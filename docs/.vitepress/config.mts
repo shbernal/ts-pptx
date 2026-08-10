@@ -50,7 +50,8 @@ export default defineConfig({
 	title: docsConfig.name,
 	themeConfig: {
 		nav: [
-			{ text: 'Guide', link: '/' },
+			{ text: 'Guide', link: '/project-target' },
+			{ text: 'Demos', link: '/demos' },
 			{ text: 'API', link: '/reference/api/' },
 			{ text: 'GitHub', link: 'https://github.com/shbernal/ts-pptx' },
 		],
@@ -62,6 +63,14 @@ export default defineConfig({
 	vite: {
 		build: {
 			chunkSizeWarningLimit: 5000,
+		},
+		resolve: {
+			// This repo declares `vue` itself (for `www/theme`), and VitePress carries its own
+			// copy. pnpm resolves those to two versions, and two Vue runtimes in one page means
+			// `inject`/`provide` and the app instance stop matching across the boundary — which
+			// shows up as a component that mounts but sees none of the theme's context. Naming
+			// it here collapses both specifiers onto one copy.
+			dedupe: ['vue'],
 		},
 		esbuild: {
 			target: 'es2022',

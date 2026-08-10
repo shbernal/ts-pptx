@@ -2,7 +2,7 @@
 // plain `<script type="module">` — no bundler anywhere in the path — and exposes one
 // function for the specs to drive through `page.evaluate`.
 //
-// Loading dist directly is deliberate. `demos/vite-demo` already covers the bundled
+// Loading dist directly is deliberate. The site's demos page already covers the bundled
 // story (Rollup resolving the `browser` export condition and tree-shaking it); what it
 // cannot tell you is whether the file that ships is itself browser-loadable. Here, a
 // single `node:*` import anywhere in the `dist/browser.js` chunk graph is a hard page
@@ -65,7 +65,7 @@ async function build(name) {
 /**
  * Build a deck and hand it to `writeFile` — the object-URL `<a download>` path.
  *
- * `demos/vite-demo` already drives that path, but through a Vite bundle. Doing it here
+ * The site's demos page already drives that path, but through a Vite bundle. Doing it here
  * too is what lets one coverage measurement over `dist/browser.js` account for all four
  * adapter functions (see adapter-coverage.spec.mjs); without it `writeFile` would be
  * covered in a fixture where the file is not loaded as a file at all.

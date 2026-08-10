@@ -6,6 +6,7 @@
       "group": "Start",
       "pages": [
         "index",
+        "demos",
         "project-target",
         "runtime-and-package-support",
         "development",

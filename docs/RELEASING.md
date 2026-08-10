@@ -66,8 +66,8 @@ Both flags are load-bearing:
 Still by hand, and unaffected by the above:
 
 - Demo package versions, when they intentionally track the release version.
-  (None do today — `demos/node` is on 5.0.2 and the other two on 1.0.0 — so this
-  is normally a no-op.)
+  (Neither does today — `demos/node` is on 5.0.2 and `demos/showcases` on 1.0.0 —
+  so this is normally a no-op.)
 - Keep package import examples on the scoped package name:
   `@shbernal/ts-pptx`.
 
@@ -169,6 +169,23 @@ that is actually installed. The skill this package ships tells consumers to trus
 the published version over the issue state for exactly that reason — this comment
 is what makes the two agree. `CHANGELOG.md` already cites the numbers, so the list
 is the entry you just wrote.
+
+### One downstream to watch, and it is not a blocker
+
+The site's demos page renders its preview with [`pptx-html`](https://www.npmjs.com/package/pptx-html),
+which depends on `@shbernal/ts-pptx` at a caret range and therefore installs its **own**
+published copy — see `www/README.md` for why that duplication is deliberate rather than an
+oversight.
+
+The consequence lands on a **major**. When this package goes 4.x, `pptx-html`'s reader is
+still built against 3.x, so the preview keeps rendering decks the *old* writer produced and
+the docs build keeps resolving — but the page stops demonstrating the version it sits beside
+until `pptx-html` ships a matching release. Nothing in this repo's gates detects that, because
+nothing here asserts what the preview looks like (docs/testing.md, "Demos Are Not Tests").
+
+So: release, then open an issue on `pptx-html`. Do not hold a release for it, and do not
+pin the site to the workspace copy to avoid it — that trade makes the first breaking change
+break the docs *deploy* of the release introducing it, which is strictly worse.
 
 ## Package Surface Checks
 

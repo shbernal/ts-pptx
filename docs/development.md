@@ -29,7 +29,7 @@ pnpm install
 - `test/`: regression tests, schema fixtures, and validator helpers.
 - `docs/`: maintained project documentation.
 - `demos/node`: Node.js ESM demo.
-- `demos/vite-demo`: React, TypeScript, and Vite demo.
+- `www/`: the site's theme and its Vue components, including the demos page.
 - `scripts/`: build, package, demo, and smoke-test automation.
 - `tools/ooxml-validator`: OOXML validator installer and wrapper.
 - `dist/`: generated package runtime and declaration artifacts.
@@ -101,7 +101,7 @@ when touching the release/package boundary. Both deliberately omit `lint` and
 Two more aggregates exist for CI, and are occasionally useful locally:
 
 ```bash
-pnpm run check:static   # lint, format:check, all three typechecks, raw-xml:check, path-refs:check
+pnpm run check:static   # lint, format:check, all four typechecks, the two ratchets, and the docs build
 pnpm run check:package  # package:lint, test:package, bundle-size:check
 ```
 
@@ -209,8 +209,8 @@ oxlint `--fix` and oxfmt `--write` over staged files and re-stages the result
 (`stage_fixed: true`), and pre-push re-verifies the whole repo — so running
 `format:check` yourself can only cost you a check→fix→re-check cycle on files that
 were going to be fixed on commit anyway. What no hook covers is **tests** (none run
-any) and **`typecheck:test`** (pre-push runs `lint`, `format:check`, `typecheck`
-and `typecheck:scripts` only); those are `verify`'s job.
+any), **`typecheck:test`** and **`docs:build`** (pre-push runs `lint`, `format:check`,
+`typecheck`, `typecheck:scripts` and `typecheck:site` only); those are `verify`'s job.
 
 Note that `format`/`format:check` carry an explicit file list while pre-commit's
 oxfmt job uses an extension glob. Every extension in the former is covered by
@@ -221,12 +221,13 @@ There is a third list, and it is a safety net rather than a definition:
 `.oxfmtrc.jsonc`'s `ignorePatterns`. `format:run` hands oxfmt an explicit set of
 globs instead of the bare `oxfmt` that would otherwise suffice, because bare oxfmt
 considers a wider set than the explicit list covers — it reaches markdown,
-CSS, SCSS, HTML and the `demos/vite-demo` workspace, none of which this repo
+CSS, HTML and `.vue` single-file components, none of which this repo
 formats. A silently *wider* set is how a tool-written file gets clobbered, so both
 defences are kept and they overlap on purpose.
 
-The three `tsc` projects are `incremental`, with their build state under the
-gitignored `.tmp/` (one `tsBuildInfoFile` each — a shared one would thrash). A warm
+Three of the four `tsc` projects are `incremental`, with their build state under the
+gitignored `.tmp/` (one `tsBuildInfoFile` each — a shared one would thrash). `typecheck:site`
+is not: it is small, and it is the one project whose inputs are mostly `node_modules`. A warm
 `typecheck` runs in roughly a third of the cold time; a cold incremental run is not
 slower than a non-incremental one, so CI loses nothing.
 
@@ -398,12 +399,50 @@ pnpm demos:build                    # both
 pnpm demos:build quarterly-review   # one, by slug
 ```
 
-The other two workspaces run from their own directory:
+The streaming demo runs from its own directory, and the browser story is a page of the
+site rather than a workspace of its own:
 
 ```bash
 pnpm --dir demos/node run demo-stream   # streams a deck over HTTP
-pnpm --dir demos/vite-demo run dev      # the same review deck, built in a browser
+pnpm run docs:dev                       # the site, including /demos — the same deck in a browser
 ```
 
 See [demos/README.md](https://github.com/shbernal/ts-pptx/blob/master/demos/README.md)
 for what each one is for.
+
+## Site Changes
+
+The project site is one VitePress build covering everything at
+`https://shbernal.github.io/ts-pptx/` — the front page, the docs, and the demos page. It
+is split across two trees on purpose:
+
+- **`docs/`** is content. Markdown under the frontmatter schema, navigated from
+  `docs.json`, validated by `docs:check`.
+- **`www/`** is the code that renders it: the VitePress theme, its stylesheet, and the Vue
+  components a page mounts. See
+  [www/README.md](https://github.com/shbernal/ts-pptx/blob/master/www/README.md).
+
+VitePress only looks for a theme at `<root>/.vitepress/theme`, so
+`docs/.vitepress/theme/index.ts` is a one-line re-export of `www/theme`. That shim is the
+whole cost of keeping an application out of the docs tree.
+
+```bash
+pnpm run docs:dev       # hot-reloaded, at http://localhost:5173/ts-pptx/
+pnpm run docs:build     # what CI publishes; runs docs:check on both sides of the build
+pnpm run docs:preview   # serve the built output, which is what the browser lane drives
+pnpm run typecheck:site # tsc over www/**/*.ts and docs/.vitepress/**
+```
+
+Two things to know before changing the demos page:
+
+- **It is a test fixture.** The Playwright `demo` project drives `/demos` — it is the only
+  place `src/runtime/browser.ts`'s `writeFile` executes, and where the browser-built deck
+  is compared byte for byte against the Node-built one. The specs bind by ARIA role
+  (`getByRole('group', { name: 'Download' })`, then a button matching `/^Build /`, then
+  `role="status"` / `role="alert"` inside that group). Rearrange the markup freely; keep
+  those roles.
+- **`.vue` files are typechecked by nothing.** `tsc` does not read single-file components
+  and this repo carries no `vue-tsc`. So the page's logic lives in
+  `www/demos/deck-preview.ts` — which `typecheck:site` reads and
+  `test/regression/www/deck-preview.test.js` covers — and the component is markup around
+  it. Adding logic to the SFC quietly moves it outside both.

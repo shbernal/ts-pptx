@@ -6,6 +6,13 @@
 - Use `pnpm` for repository scripts. The package declares Node `>=24`.
 - Keep source changes focused in `src/` and tests in `test/`. Treat `dist/` as generated package artifacts unless the task explicitly requires refreshing release outputs.
 - Preserve unrelated dirty state. Do not revert user changes.
+- Three trees are not the library and are easy to confuse. `docs/` is **content**: markdown
+  under a frontmatter schema the docs kit validates. `www/` is the **site's application
+  code** — the VitePress theme and the Vue components a page mounts, including the demos
+  page that previews a deck via `pptx-html` (`www/README.md`). `demos/` is **clone-and-run
+  only**: someone runs a script and gets a `.pptx`. Do not put an application in `docs/`,
+  and do not re-grow a browser app under `demos/` — that one already existed once and is
+  now a page of the site.
 
 ## Scope: Node-First (Two Out-Of-Active-Scope Domains)
 
@@ -154,8 +161,8 @@ MCPs' corpora.
 ### The default loop
 
 - **`pnpm run verify`** (~45s) is the per-iteration check: a `dist/` freshness guard →
-  `typecheck` → `typecheck:scripts` → `typecheck:test` → `raw-xml:check` →
-  `path-refs:check` →
+  `typecheck` → `typecheck:scripts` → `typecheck:test` → `typecheck:site` →
+  `raw-xml:check` → `path-refs:check` → `docs:build` →
   the whole test suite (`vitest run`, which discovers every suite
   including schema). Run this instead of hand-composing four or five separate commands —
   hand-composed sets come out slightly different every time and end up re-running the
@@ -232,8 +239,8 @@ MCPs' corpora.
   check→fix→re-check cycle on files that were going to be fixed anyway. This is not a
   lowered standard: the gate still runs, just not from your shell.
 - What the hooks do *not* cover, and `verify` therefore does: **tests** (no hook runs
-  any) and **`typecheck:test`** (pre-push checks `lint`, `format:check`, `typecheck`
-  and `typecheck:scripts` only).
+  any), **`typecheck:test`**, and **`docs:build`** (pre-push checks `lint`,
+  `format:check`, `typecheck`, `typecheck:scripts` and `typecheck:site` only).
 
 ### Shell habit: do not pipe a verification command on its first run
 

@@ -1,7 +1,6 @@
 packages:
   - demos/node
   - demos/showcases
-  - demos/vite-demo
   # Not a demo and not a build step: it holds TypeDoc and the TypeScript 6 that
   # TypeDoc still needs, because TypeScript 7 ships no JS compiler API for it to
   # use. See tools/api-docs/README.md for why this is a workspace member and not
@@ -22,3 +21,13 @@ allowBuilds:
 minimumReleaseAgeStrict: true
 minimumReleaseAgeExclude:
   - '@types/node@25.9.2'
+  # The site's deck preview. `pptx-html` is a sibling project by the same author,
+  # and it depends on `@shbernal/ts-pptx` — this package — so a release here makes
+  # the docs build unresolvable for 24h unless both are excluded. The release-age
+  # delay exists to let a compromised or broken publish be caught by someone else
+  # first; that reasoning does not apply to a publish we performed ourselves.
+  #
+  # Note the default is not visible through `pnpm config get minimumReleaseAge`,
+  # which reports `undefined` while pnpm still enforces 1440 minutes.
+  - 'pptx-html'
+  - '@shbernal/ts-pptx'

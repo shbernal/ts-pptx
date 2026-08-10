@@ -7,7 +7,7 @@ import { defineConfig, devices } from '@playwright/test'
  * This proves the same core in a real browser, across two fixtures that answer different
  * questions:
  *
- *   - **demo** — drives `demos/vite-demo`, which imports the *same* showcase module
+ *   - **demo** — drives the site's own demos page, which imports the *same* showcase module
  *     `pnpm demos:build quarterly-review` runs. This is the bundled story: a real
  *     consumer, Vite resolving the `browser` export condition, Rollup tree-shaking it.
  *     It exercises `writeFile` (the object-URL `<a download>` path) and proves the
@@ -32,29 +32,29 @@ import { defineConfig, devices } from '@playwright/test'
  * support and layout fidelity are separate claims (see docs/project-target.md "Out Of
  * Active Scope"); this lane moves only the first one.
  *
- * Run it with `pnpm run test:browser`, which builds `dist/` and the demo first.
+ * Run it with `pnpm run test:browser`, which builds `dist/` and the site first.
  */
 
-// Vite's preview default. Pinned rather than left to chance because `base` below has to
-// agree with it, and because `--strictPort` must fail loudly instead of silently serving
-// the wrong app on the next free port.
+// `vitepress preview`'s default, restated because `webServer.url` below has to agree with
+// it. The preview server takes no `--strictPort`: `listen` on a taken port throws
+// EADDRINUSE and the command exits, which is the behaviour that flag would have bought.
 const PORT = 4173
 
 // The harness server, on the next port up. Its own origin rather than a route on the
-// preview server: `vite preview` serves the demo's build output, and mounting repo paths
-// into it would mean the demo's config decides what the adapter tests can reach.
+// preview server: the preview serves the site's build output, and mounting repo paths into
+// it would mean the site's config decides what the adapter tests can reach.
 const HARNESS_PORT = 4174
 
-// Bound explicitly below with `--host 127.0.0.1`. Left to itself, `vite preview` binds
-// `localhost`, which on Windows resolves to `::1` **only** — a v4 probe of the same port
-// gets nothing and the webServer wait times out at 60s with no clue why. Naming the v4
-// loopback on both sides makes the lane behave the same on Windows and on CI's Linux
-// instead of depending on how the host orders its loopback records.
+// `vitepress preview` takes no `--host` — it listens on every interface — so naming the v4
+// loopback here is a client-side choice, and it is the one that behaves the same on Windows
+// and on CI's Linux. `localhost` would resolve to `::1` only on Windows, and a v4 probe of
+// the same port gets nothing: a 60s webServer timeout with no clue why.
 const HOST = '127.0.0.1'
 
-// `demos/vite-demo/vite.config.ts` sets `base: '/TsPptx/demos/vite/'` for the published
-// GitHub Pages demo, and `vite preview` honours it — the app is NOT at `/`.
-const BASE_URL = `http://${HOST}:${PORT}/TsPptx/demos/vite/`
+// The published site's own base (`docs/.vitepress/config.mts`), which `vitepress preview`
+// honours — the site is NOT at `/`. The demos page is a route under it, so the baseURL is
+// the site root and the spec navigates to `./demos`.
+const BASE_URL = `http://${HOST}:${PORT}/ts-pptx/`
 
 // The harness page sits at its real repo path, so the relative `../../../dist/browser.js`
 // inside `harness.mjs` is the same specifier on disk and over HTTP — one path that both
@@ -70,6 +70,11 @@ export default defineConfig({
 	// Under `.tmp/` (gitignored) with the rest of this repo's generated artifacts, rather
 	// than Playwright's default `test-results/` at the root, which nothing ignores.
 	outputDir: './.tmp/playwright',
+	// Playwright's default is 30s, which the `demo` project no longer fits: it drives a page
+	// of the real site, so a run is the async chunk downloading, then a deck built in the
+	// tab, then that deck read back and rendered. Raised for all three projects rather than
+	// per-project — a limit that differs by project is a limit nobody remembers the shape of.
+	timeout: 60_000,
 	// One deck build per test, each ~seconds; there is no value in parallelising two of
 	// them across browser processes, and serial output is far easier to read on failure.
 	workers: 1,
@@ -121,10 +126,10 @@ export default defineConfig({
 	],
 	webServer: [
 		{
-			// `pnpm run test:browser` builds the demo; this only serves it. Keeping the build
+			// `pnpm run test:browser` builds the site; this only serves it. Keeping the build
 			// out of the webServer command means a failed build fails as a build, with the
 			// bundler's own output, instead of as a webServer timeout.
-			command: `pnpm --dir demos/vite-demo exec vite preview --host ${HOST} --port ${PORT} --strictPort`,
+			command: `pnpm exec vitepress preview docs --port ${PORT}`,
 			url: BASE_URL,
 			reuseExistingServer: !process.env['CI'],
 			timeout: 60_000,

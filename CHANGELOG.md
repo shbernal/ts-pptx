@@ -5,6 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Nothing in the published package changed. Everything below is the repository and the
+project site; it is here because the showcase deck and the demo layout are things people
+outside this repo look at.
+
+### Changed
+
+- **The browser demo is a page of the site, not a workspace.** `demos/vite-demo` — a React
+  + Vite + Bootstrap app whose only output was a download — is deleted. Its replacement is
+  `/demos` on the project site, which builds the same deck in the tab and then **shows you
+  the slides**, by reading the package back with
+  [`pptx-html`](https://www.npmjs.com/package/pptx-html) and painting them as SVG. A
+  download button is still there, and still goes through the browser runtime's own
+  `writeFile`.
+
+  This removes React, Bootstrap, sass-embedded and a second ESLint configuration from the
+  repository, and leaves one toolchain (VitePress + Vue) building one site. The site's
+  application code lives in a new top-level `www/`, so `docs/` stays what the docs kit
+  governs: markdown content. See `www/README.md`.
+
+  `demos/` is now only what its name says — clone the repo, run a script, get a `.pptx`.
+
+  The browser test lane did not shrink: that page is the Playwright `demo` fixture, so
+  `writeFile`'s object-URL path and the browser-vs-Node byte-identity comparison are still
+  covered, now against the site's build rather than a second app's.
+
+- **The quarterly-review showcase is Kestrel Analytics, in forest and brass.** Same eleven
+  slides, same five masters, same charts, table and timeline — a different fictional company
+  and a different palette, because `pptx-html` already uses "Meridian" as its own example
+  and two neighbouring projects demonstrating the same fictional company is confusing.
+
+  This is only visible if you build the showcase. The output file name changes from
+  `Meridian_Q3_Business_Review.pptx` to `Kestrel_Q3_Business_Review.pptx`, and every key in
+  the deck's exported `BRAND` is renamed rather than merely re-valued — a constant called
+  `navy` holding a green is the exact thing that file's own doc comment argues against.
+
+### Added
+
+- **`compose()` on the showcase modules**, beside the existing `build(outFile)`: it
+  assembles the deck and returns the presentation, having written nothing. The preview needs
+  the bytes; `pnpm demos:build` needs a file. `build` is now `compose` plus a destination.
+
+- **`pnpm run typecheck:site`**, and `docs/tsconfig.json` grew a runner. It covered
+  `docs/.vitepress/**` on paper and was executed by nothing; it now also covers `www/**/*.ts`
+  and runs in `verify`, `check:static` and pre-push. `.vue` files stay outside it — `tsc`
+  does not read single-file components — which is why the demos page's logic is a plain
+  `.ts` module and the component is markup around it.
+
 ## [3.2.0] - 2026-08-10
 
 ### Added

@@ -2,7 +2,7 @@
 /**
  * Static file server for the browser lane's adapter harness.
  *
- * `demos/vite-demo` is the fixture for the *bundled* browser path (Vite resolves the
+ * The site's demos page is the fixture for the *bundled* browser path (Vite resolves the
  * `browser` export condition, Rollup tree-shakes it). It cannot be the fixture for
  * `src/runtime/browser.ts`'s three loader functions, because the deck it builds draws
  * every asset and so never calls one — see docs/testing.md "Browser Lane".

@@ -8,7 +8,7 @@ import { buildDeckInBrowser } from './helpers.mjs'
 /**
  * Cross-runtime byte identity — the assertion this lane exists for.
  *
- * `demos/vite-demo` builds the same showcase module as `pnpm demos:build
+ * The site's demos page builds the same showcase module as `pnpm demos:build
  * quarterly-review`, and `src/zip.ts` pins `FIXED_MTIME`, so the deck a browser assembles
  * and the deck Node assembles should agree part for part. That is a far stronger claim
  * than the structural smoke test next door: it says the *whole* emission core — every
@@ -22,7 +22,7 @@ import { buildDeckInBrowser } from './helpers.mjs'
  * (`p14:section` ids, `c16:uniqueId`) — and are normalized there. Everything else is a
  * real finding.
  *
- * `quarterly-review` and not `field-notes` because the demo only offers the former: the
+ * `quarterly-review` and not `field-notes` because the page only offers the former: the
  * latter loads photographs and a video from disk by path, which a browser cannot do.
  * That also means this comparison never crosses `loadMedia`, whose two implementations
  * return different-but-equivalent strings (Node: raw base64; browser: a `FileReader`

@@ -683,7 +683,7 @@ every release rather than merely configured.
 ## Browser Lane
 
 ```bash
-pnpm run test:browser   # ensure-dist, build demos/vite-demo, then Playwright
+pnpm run test:browser   # build the site (docs:build), then Playwright
 ```
 
 Everything above this section runs under Node. `dist/browser.js` and its runtime
@@ -719,7 +719,7 @@ They answer different questions, and none can answer another's:
 
 | Project | Fixture | What only it can prove |
 |---|---|---|
-| `demo` | `demos/vite-demo` behind `vite preview` | the **bundled** path a real consumer takes — Vite resolving the `browser` export condition, Rollup tree-shaking it |
+| `demo` | the site's `/demos` page behind `vitepress preview` | the **bundled** path a real consumer takes — Vite resolving the `browser` export condition, Rollup tree-shaking it |
 | `runtime-adapter` | `test/browser/harness/index.html` behind `scripts/browser-harness-server.mjs` | the shipped `dist/browser.js` loading **unbundled**, and the adapter loaders the demo cannot reach |
 | `html-table` | `test/browser/harness/table.html`, same server | `tableToSlides` reading a **non-zero `offsetWidth`** — the one width basis no Node DOM can produce — and the end-to-end conversions that basis feeds |
 
@@ -768,8 +768,8 @@ and are built **twice** — once in Chromium, once in Node — from that one
 definition. Writing them out on both sides would mean a divergence in the fixture
 reading as a divergence in the runtime.
 
-`cross-runtime-bytes` is the one worth the lane. `demos/vite-demo` imports the same showcase
-module `pnpm demos:build quarterly-review` runs, and `src/zip.ts` pins
+`cross-runtime-bytes` is the one worth the lane. The site's demos page imports the same
+showcase module `pnpm demos:build quarterly-review` runs, and `src/zip.ts` pins
 `FIXED_MTIME`, so the two packages are directly comparable — one diff asserts that
 every serializer, the zip writer, part ordering and relationship numbering are
 runtime-invariant. A runtime-dependent code path anywhere in `src/gen/` surfaces
@@ -838,10 +838,16 @@ What this lane does **not** cover, and must not be read as covering:
 The showcase decks have no test role. There is no demo smoke command, no
 verification aggregate builds one, and a broken showcase fails nothing.
 
-The one exception is `demos/vite-demo`, which the browser lane above uses as its
-fixture and CI therefore builds. It is a fixture, not a showcase-with-assertions:
-nothing checks how the page *looks*, only that the deck it builds is the right
-bytes. (The byte-identity harness likewise *builds* the showcase decks without
+`demos/` itself is now entirely that: clone the repo, run a script, get a `.pptx`.
+Nothing under it is a fixture for anything.
+
+The exception is on the **site**, not in `demos/`. The `/demos` page (`www/demos/`)
+is the browser lane's `demo` fixture, so CI builds the site to run it. It is a
+fixture, not a showcase-with-assertions: nothing checks how the page *looks*, or
+that the preview it renders is a good likeness — only that the deck it builds is
+the right bytes. What it *shows* is drawn by a separate library (`pptx-html`)
+against the published `@shbernal/ts-pptx`, and this repo's gates make no claim
+about it. (The byte-identity harness likewise *builds* the showcase decks without
 asserting anything about them — a showcase that throws simply takes the harness
 down with it.)
 
@@ -893,11 +899,11 @@ Two things worth knowing before editing it:
 Automated tests prove package shape and generated XML structure. Manual visual
 checks are still useful for user-visible PowerPoint behavior:
 
-1. Generate a small deck from the Node demo or Vite demo.
+1. Generate a small deck with `pnpm demos:build` or from the Node demo.
 2. Open it in Microsoft PowerPoint when available.
 3. Check import behavior in Keynote, LibreOffice Impress, or Google Slides when
    the change affects cross-app compatibility.
-4. For browser download behavior, prefer `demos/vite-demo`.
+4. For browser download behavior, prefer the site's `/demos` page (`pnpm run docs:dev`).
 
 Node demo decks are written to `demos/node/output/`, which is ignored by git.
 Re-running a demo command replaces the previous deck with the same name.

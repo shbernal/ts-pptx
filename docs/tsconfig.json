@@ -1,14 +1,30 @@
 {
 	"$schema": "https://json.schemastore.org/tsconfig",
-	"display": "ts-pptx docs",
+	"display": "ts-pptx site",
 	"compilerOptions": {
 		"allowSyntheticDefaultImports": true,
 		"esModuleInterop": true,
 		"module": "ESNext",
 		"moduleResolution": "Bundler",
+		"noEmit": true,
 		"strict": true,
 		"target": "ES2022",
-		"types": ["node"]
+		"types": ["node"],
+		// Scoped here for the same reason `tsconfig.scripts.json` scopes it: the dependencies
+		// this project pulls in ship `.d.ts` files it cannot fix. VitePress's own types
+		// declare a circular `Token` alias, `@vueuse/core` references Web Bluetooth types
+		// that no `lib` here provides, and two copies of `@vue/runtime-core` resolve at once
+		// (VitePress pins one, this repo's `vue` devDependency the other), which makes every
+		// compiler macro a duplicate declaration. None of that says anything about the code
+		// in `www/`. The library project keeps full lib checking.
+		"skipLibCheck": true
 	},
-	"include": [".vitepress/**/*.ts", ".vitepress/**/*.mts"]
+	// Both halves of the site: the VitePress config here, and the theme and components in
+	// `www/`. This project had no runner until the site grew application code — it was
+	// formatted and never typechecked. `pnpm run typecheck:site` is that runner.
+	//
+	// `.vue` files are not in it and cannot be: `tsc` does not read SFCs, and this repo
+	// carries no `vue-tsc`. That is the reason `www/demos/deck-preview.ts` exists — the
+	// component's logic is in a file this project does read.
+	"include": [".vitepress/**/*.ts", ".vitepress/**/*.mts", "../www/**/*.ts", "../www/**/*.d.ts"]
 }

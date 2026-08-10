@@ -13,10 +13,10 @@ import { buildDeckInBrowser } from './helpers.mjs'
  * independent zip implementation is what makes "the download is a real OPC package"
  * an assertion rather than a tautology.
  */
-test('the demo builds a downloadable .pptx package in the browser', async ({ page }) => {
+test('the demos page builds a downloadable .pptx package in the browser', async ({ page }) => {
 	const { bytes, fileName } = await buildDeckInBrowser(page)
 
-	expect(fileName).toBe('Meridian_Q3_Business_Review.pptx')
+	expect(fileName).toBe('Kestrel_Q3_Business_Review.pptx')
 	expect(bytes.byteLength).toBeGreaterThan(10_000)
 
 	const zip = await JSZip.loadAsync(bytes)

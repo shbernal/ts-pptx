@@ -21,7 +21,9 @@ contributor guidance lives in the docs below, which are kept authoritative.
 
 - Use `pnpm`. The package requires Node.js `>=24`.
 - Keep source changes in `src/` and tests in `test/`; treat `dist/` as generated
-  output.
+  output. The project site is a fourth tree: markdown content in `docs/`, the theme
+  and components that render it in `www/`. `pnpm run docs:dev` serves the lot —
+  see [docs/development.md](docs/development.md#site-changes).
 - The standard gate is one command:
 
   ```bash

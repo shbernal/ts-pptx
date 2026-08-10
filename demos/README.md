@@ -1,9 +1,14 @@
 # Demos
 
-Showcases for `@shbernal/ts-pptx`. **None of this is a test.** No verification aggregate
-runs anything here, CI never builds a demo, and a broken demo fails no gate — the published
-package is covered by `pnpm run check:package`. See
+Showcases for `@shbernal/ts-pptx`, for someone who has cloned this repository and wants a
+deck out of it. **None of this is a test.** No verification aggregate runs anything here,
+CI never builds a demo, and a broken demo fails no gate — the published package is covered
+by `pnpm run check:package`. See
 [docs/testing.md](../docs/testing.md#demos-are-not-tests) for why it works that way.
+
+If you only want to *see* a deck, you do not need any of this: the
+[demos page](https://shbernal.github.io/ts-pptx/demos) builds one in your browser and shows
+you the slides.
 
 ## Build the showcase decks
 
@@ -17,15 +22,22 @@ it rebuilds `dist/` first only if it is stale.
 
 ## What is here
 
-| Directory     | What it is                                                                     |
-| ------------- | ------------------------------------------------------------------------------ |
-| `showcases/`  | The two flagship decks. Start here. [README](showcases/README.md)               |
-| `common/`     | Shared images and media the Field Notes deck draws on.                         |
-| `node/`       | Streaming a generated deck from an HTTP server. [README](node/README.md)       |
-| `vite-demo/`  | The browser showcase — React + Vite. [README](vite-demo/README.md)             |
+| Directory    | What it is                                                              |
+| ------------ | ----------------------------------------------------------------------- |
+| `showcases/` | The two flagship decks. Start here. [README](showcases/README.md)        |
+| `common/`    | Shared images and media the Field Notes deck draws on.                   |
+| `node/`      | Streaming a generated deck from an HTTP server. [README](node/README.md) |
 
 The two showcase decks are deliberately unalike. One is a corporate report built from
 charts, tables, and grouped shapes on a themed grid; the other is a photo essay built from
 full-bleed images, gradient scrims, and picture effects. Between them they exercise most of
 what the library can do, without either being a feature checklist — which is what the demos
 used to be, and what made them useless as showcases and unconvincing as tests.
+
+## Where the browser demo went
+
+There used to be a fourth directory here: a React + Vite + Bootstrap app that built the
+quarterly review in a tab and downloaded it. It is now a page of the site
+(`www/demos/`, mounted at `/demos`), which previews the slides instead of only handing you
+a file, and carries no second UI framework to do it. The browser lane still drives it —
+that page, not this directory, is the Playwright `demo` fixture.

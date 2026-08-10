@@ -288,8 +288,10 @@ pnpm run check:package
 
 ## Demos
 
+- `demos/showcases` builds the two flagship decks from one command.
 - `demos/node` exercises Node.js ESM generation and stream output.
-- `demos/vite-demo` exercises a modern React, TypeScript, and Vite app.
+- The [demos page](https://shbernal.github.io/ts-pptx/demos) builds the quarterly review in
+  your browser and previews the slides — nothing to clone.
 
 ## Relationship To Upstream
 

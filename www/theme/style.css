@@ -1,0 +1,200 @@
+/*
+ * The site's own palette, and the demos page.
+ *
+ * Everything here is expressed through VitePress's own custom properties rather than
+ * against its class names. That is what makes it a palette rather than a fork: the default
+ * theme keeps deciding layout, spacing and dark-mode behaviour, and this file only tells it
+ * which colours to use. It is also why dropping Bootstrap cost nothing — there was never a
+ * second layout system to replace, only a second one to remove.
+ */
+
+:root {
+	/* A warm ember, distinct from VitePress's default indigo and from the deck's own
+	   forest & brass — the showcase belongs to a fictional company, not to this library.
+	   `brand-1` is link text on white (~5.6:1); `brand-3` is a solid button background,
+	   so it is judged against white text instead. */
+	--vp-c-brand-1: #b4451f;
+	--vp-c-brand-2: #c4552c;
+	--vp-c-brand-3: #a83f1c;
+	--vp-c-brand-soft: rgba(180, 69, 31, 0.14);
+
+	--vp-home-hero-name-color: transparent;
+	--vp-home-hero-name-background: linear-gradient(120deg, #b4451f, #d9743f);
+	--vp-home-hero-image-background-image: linear-gradient(120deg, rgba(180, 69, 31, 0.24), rgba(217, 116, 63, 0.16));
+	--vp-home-hero-image-filter: blur(48px);
+}
+
+.dark {
+	/* Lifted for the dark ground: #b4451f on #1b1b1f is under 3:1 and unreadable as link
+	   text. These are the same hue at a higher lightness, not a different accent. */
+	--vp-c-brand-1: #e9855c;
+	--vp-c-brand-2: #f0a184;
+	--vp-c-brand-3: #b4451f;
+	--vp-c-brand-soft: rgba(233, 133, 92, 0.16);
+
+	--vp-home-hero-name-background: linear-gradient(120deg, #e9855c, #f3b48f);
+}
+
+/* --- the demos page ------------------------------------------------------------- */
+
+/*
+ * Wider than the prose column it sits in. A slide is 16:9 and the point of the page, and
+ * at the reading width the default theme sets it comes out too small to read.
+ *
+ * The break-out is done with the component's own geometry — centre on the parent, then
+ * pull back by half its own width — rather than by overriding `.VPDoc .content-container`.
+ * Reaching into the default theme's class names is the thing this stylesheet otherwise
+ * does not do, and it would break on any release that renames a container.
+ */
+.deck-preview {
+	position: relative;
+	left: 50%;
+	transform: translateX(-50%);
+	margin: 2rem 0 3rem;
+	width: min(1080px, 100%);
+}
+
+@media (min-width: 960px) {
+	.deck-preview {
+		width: min(1080px, calc(100vw - 22rem));
+	}
+}
+
+.deck-preview__head {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 1rem 2rem;
+	align-items: flex-start;
+	justify-content: space-between;
+}
+
+.deck-preview__title {
+	margin: 0;
+	border: 0;
+	padding: 0;
+	font-size: 1.35rem;
+	line-height: 1.4;
+}
+
+.deck-preview__blurb {
+	margin: 0.35rem 0 0;
+	max-width: 46ch;
+	color: var(--vp-c-text-2);
+	font-size: 0.9rem;
+}
+
+.deck-preview__download {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	align-items: flex-end;
+}
+
+.deck-preview button {
+	border: 1px solid var(--vp-c-divider);
+	border-radius: 8px;
+	background: var(--vp-c-bg-soft);
+	padding: 0.45rem 0.9rem;
+	color: var(--vp-c-text-1);
+	font-size: 0.875rem;
+	font-weight: 500;
+	line-height: 1.2;
+	transition:
+		border-color 0.2s,
+		background-color 0.2s;
+}
+
+.deck-preview button:hover:not(:disabled) {
+	border-color: var(--vp-c-brand-1);
+	color: var(--vp-c-brand-1);
+}
+
+.deck-preview button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.deck-preview__download button {
+	border-color: transparent;
+	background: var(--vp-c-brand-3);
+	color: #fff;
+}
+
+.deck-preview__download button:hover:not(:disabled) {
+	background: var(--vp-c-brand-2);
+	color: #fff;
+}
+
+.deck-preview__note {
+	margin: 0;
+	color: var(--vp-c-text-2);
+	font-size: 0.8rem;
+}
+
+.deck-preview__note--bad {
+	color: var(--vp-c-danger-1, #b4451f);
+}
+
+.deck-preview__bar {
+	display: flex;
+	gap: 0.75rem;
+	align-items: center;
+	margin: 1.25rem 0 0.5rem;
+	color: var(--vp-c-text-2);
+	font-size: 0.85rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.deck-preview__frame {
+	display: block;
+	border: 1px solid var(--vp-c-divider);
+	border-radius: 10px;
+	background: var(--vp-c-bg-soft);
+	width: 100%;
+	height: min(72vh, 640px);
+}
+
+.deck-preview__frame--empty {
+	background-image: linear-gradient(135deg, var(--vp-c-bg-soft) 0%, var(--vp-c-bg-alt) 100%);
+}
+
+.deck-preview__failure {
+	margin: 0.75rem 0 0;
+	border-left: 3px solid var(--vp-c-brand-1);
+	padding-left: 0.75rem;
+	color: var(--vp-c-text-2);
+	font-size: 0.85rem;
+}
+
+.deck-preview__ledger {
+	margin-top: 1.25rem;
+	border: 1px solid var(--vp-c-divider);
+	border-radius: 10px;
+	padding: 0.75rem 1rem;
+	font-size: 0.85rem;
+}
+
+.deck-preview__ledger summary {
+	cursor: pointer;
+	font-weight: 500;
+}
+
+.deck-preview__ledger p {
+	margin: 0.75rem 0;
+	color: var(--vp-c-text-2);
+}
+
+.deck-preview__ledger dt {
+	margin-top: 0.75rem;
+	font-weight: 500;
+}
+
+.deck-preview__ledger dd {
+	margin: 0.2rem 0 0;
+	color: var(--vp-c-text-2);
+}
+
+.deck-preview__slides {
+	color: var(--vp-c-text-3);
+	font-weight: 400;
+}
