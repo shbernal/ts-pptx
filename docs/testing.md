@@ -20,13 +20,89 @@ For source changes, run one of the two aggregates rather than composing a set by
 hand:
 
 ```bash
-pnpm run verify       # per-change loop: typechecks, raw-XML ratchet, all suites
-pnpm run verify:full  # before pushing / at the package boundary: the above plus package + demos
+pnpm run verify       # per-change loop: typechecks, ratchets, docs check, all suites
+pnpm run verify:full  # before pushing / at the package boundary: the above plus site build, package + demos
 ```
 
 They are defined in `package.json` and described in
 [development](development.md#common-commands). Neither runs `lint` or
 `format:check` — the git hooks own those.
+
+Both are assembled by `scripts/run-steps.mjs`, which expands a list of script
+names into the leaf commands they ultimately run and executes them in one
+process tree. `package.json` stays the single definition of what each step *is*;
+what the runner removes is the package-manager relaunch between them, which cost
+a flat ~0.7–1.3s per step — `verify` used to spend ~13s of its runtime starting
+pnpm 13 times. It prints a per-step breakdown on success, so the cost of a gate
+is visible where it is paid:
+
+```bash
+node scripts/run-steps.mjs --list verify       # show the expansion, run nothing
+```
+
+Where a composite overlaps another (`verify:full` is `verify` plus `docs:build`,
+and both reach `docs:api`), an exact command repeat inside one invocation is
+skipped and the skip is logged. Every step in these gates is a check or a
+regenerator, so a second consecutive run cannot report anything the first did
+not — but the log line is there so a step that starts mutating another's inputs
+is visible at the point it would be wrongly elided.
+
+### What is in the loop tier, and why
+
+`verify` holds everything cheap plus the tests; the site build sits in
+`verify:full`. Measured on a 12-core / 15.6 GB Linux box:
+
+| Step | Wall | Peak RSS |
+| --- | --- | --- |
+| `ensure-dist` (no-op) | 0.1s | 33 MB |
+| four `typecheck*` steps | 1.1s total | ≤210 MB |
+| `raw-xml:check` | 1.0s | 144 MB |
+| `path-refs:check` | 0.2s | 20 MB |
+| `docs:check` (`docs:api` + validation) | 3.5–6.6s | 680 MB |
+| `test` (`vitest run`) | ~39s | ~3.4 GB |
+| **`verify` total** | **~44s** | **~3.8 GB** |
+| `docs:build` — `verify:full` only | 26.6s | 1119 MB |
+
+`docs:build` left the loop because 19.7s of it is `vitepress build`, a
+production static-site build that catches site-build breakage and nothing about
+the library. Docs themselves are still validated every iteration by
+`docs:check`. CI did not lose the build either — `docs.yml` runs `docs:build` on
+every pull request, so having it in `check:static` as well meant building the
+site twice per PR.
+
+### Suite cost and the worker ceiling
+
+Vitest sizes its fork pool from the CPU (`availableParallelism() - 1`). That made
+the suite's footprint a property of the developer's machine rather than of this
+repo — and the wrong property: cores decide how fast it *could* run, memory
+decides whether the host survives it. A faster CPU made the spike bigger, never
+the run safer. On a 12-core box with a browser and an editor already resident,
+that is enough to drive the machine into swap.
+
+With validator batching in place, peak RSS is close to linear in the pool size:
+
+| `maxWorkers` | Wall | Peak RSS |
+| --- | --- | --- |
+| 4 | 78.7s | 1.66 GB |
+| 6 | 69.0s | 2.27 GB |
+| 8 | 63.8s | 2.68 GB |
+| 11 (CPU default) | 48.4s | 3.40 GB |
+
+That is `BASE_MB + PER_WORKER_MB × workers` to within ~50 MB across all four
+points, so `vitest.config.ts` solves for the pool directly from the memory free
+at startup instead of guessing or pinning a timid constant. On an idle machine it
+lands on the CPU bound and gives up nothing; under pressure it scales itself down
+rather than pushing the host into swap. It never resolves below 1.
+
+The budget reads `MemAvailable` from `/proc/meminfo` where the kernel publishes
+it, falling back to `os.freemem()` elsewhere. The distinction matters on Linux:
+`os.freemem()` is `MemFree`, which excludes reclaimable page cache and badly
+understates what is available — measured here, 9.1 GB free against 12.4 GB
+available. On Windows and macOS `os.freemem()` is already the right quantity.
+
+Set `VITEST_MAX_WORKERS` to pin the pool explicitly — useful in CI, where a
+predictable cost beats an adaptive one, and when bisecting a concurrency-
+dependent failure. An explicit pin is taken as given and is not clamped.
 
 For documentation-only changes, no automated test is required unless the docs
 change package, build, or testing claims.
@@ -412,22 +488,71 @@ Use this path for emitted OOXML changes. Add or update focused fixtures in
 `test/schema-cases.js` (a flat fixture data module — not a Vitest suite despite
 living under `test/`; the runner `test/schema-validation.test.js` consumes it).
 
-The fixtures run **concurrently** (`describe.concurrent`), which took the suite
-from ~50s to ~10s and is what lets `verify` include it. Two consequences worth
+Most fixtures run **concurrently** (`describe.concurrent`), which took the suite
+from ~50s to ~10s and is what lets `verify` include it. Three consequences worth
 knowing:
 
-- Each concurrent fixture spawns its own `OOXMLValidatorCLI` process, and
-  `test/read` spawns validators too, so the real process ceiling is
-  workers × `maxConcurrency`. `maxConcurrency` is pinned in `vitest.config.ts`
-  rather than left at the default, and is the first knob to lower if CI turns
-  flaky or runs out of memory — re-serializing the suite is not the fix.
-- `testTimeout` is raised well above Vitest's 5s default for the same reason:
-  under concurrency a fixture's wall-clock time mostly measures how long it
-  queued for CPU, not how long it worked.
+- Validator processes no longer scale with `maxConcurrency`. They used to: each
+  concurrent fixture spawned its own `OOXMLValidatorCLI`, so the real ceiling was
+  workers × `maxConcurrency` and the memory cost of the suite was set by the
+  host's core count. `test/validator.js` now batches (see below) and holds at
+  most one validator child per worker. `maxConcurrency` still governs in-process
+  interleaving; it is no longer the knob to reach for on memory pressure —
+  `maxWorkers` is, and it sizes itself.
+- `testTimeout` is raised well above Vitest's 5s default: under concurrency a
+  fixture's wall-clock time mostly measures how long it queued for CPU, not how
+  long it worked.
+- A handful of fixtures assert on emitted warnings by swapping `console.warn` for
+  a collector and restoring it in a `finally`. That is only sound with exclusive
+  access to the process, so `test/schema-validation.test.js` routes them to a
+  **sequential** sibling suite. Under `describe.concurrent` a neighbour's restore
+  lands inside another fixture's capture window and its warnings vanish — a
+  failure that points at the deck under test while nothing about that deck is
+  wrong. Fixtures are detected by source inspection plus an explicit
+  `exclusive: true` opt-out, so a newly added warn-capturing fixture is
+  quarantined without anyone having to remember.
 
-A `beforeAll` validates one minimal deck serially before the concurrent fixtures
-start. `OOXMLValidatorCLI` is a .NET single-file app that self-extracts on first
-run, and firing many processes at a cold extract directory can race.
+A file-level `beforeAll` validates one minimal deck serially before the
+concurrent fixtures start. `OOXMLValidatorCLI` is a .NET single-file app that
+self-extracts on first run, and firing many processes at a cold extract
+directory can race.
+
+### Validator batching
+
+`OOXMLValidatorCLI` accepts a **directory** and validates every package in it in
+one process. The binary is a 110 MB self-contained .NET single-file app, and
+measured against the pinned release a run costs ~0.40s of startup plus only
+~0.048s per additional deck, at ~55 MB RSS regardless of file count. One deck per
+process therefore paid that startup and that 55 MB roughly 500 times per suite.
+
+`test/validator.js` batches `validateBuf` requests: they accumulate while an
+invocation is in flight and go out together when it returns. This is self-tuning
+(batches grow under load, one timer tick when idle) and bounds each worker to a
+single validator child. Measured on the full suite, batching took it from 55.1s
+/ 4.03 GB / 17 concurrent validators to 48.4s / 3.40 GB / 7.
+
+`runValidatorOnFile` is deliberately *not* batched — its only caller is the
+serial version probe (`scripts/ooxml-version-probe.mjs`), which iterates
+conformance targets one at a time and would gain nothing.
+
+Directory mode's contract was established empirically against the pinned binary
+rather than assumed, because one of its properties is load-bearing:
+
+- a package with ≥1 error is reported, keyed by absolute `FilePath`, with the
+  same error list single-file mode gives it;
+- a **clean** package is omitted from the output entirely;
+- an unreadable or non-package file is **not** omitted — it comes back as an
+  `OpenXmlPackageException`. This is what makes "absent means clean" safe. Were
+  corrupt packages dropped instead, the batcher would report the very failures
+  the suite exists to catch as passes;
+- results arrive in arbitrary order, so they are keyed by filename, never
+  position;
+- the scan does not recurse, so a flat batch directory is sufficient.
+
+If a batch invocation fails, the batch is retried one deck per process so the
+error lands on the request that caused it instead of failing 32 neighbours
+indistinguishably. Set `TSPPTX_VALIDATOR_NO_BATCH=1` to bypass batching entirely
+and pin a failure to a single fixture by hand.
 
 ### The conformance target is pinned
 

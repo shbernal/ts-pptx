@@ -1,4 +1,81 @@
+import fs from 'node:fs'
+import os from 'node:os'
 import { configDefaults, coverageConfigDefaults, defineConfig } from 'vitest/config'
+
+// ---------------------------------------------------------------------------
+// Worker ceiling
+//
+// Vitest sizes its fork pool from the CPU (`availableParallelism() - 1`), which
+// made this suite's footprint a property of the developer's machine rather than
+// of this repo — and the wrong property. Cores decide how fast it *could* run;
+// memory decides whether the host survives it. A faster CPU made the spike
+// bigger, never the run safer.
+//
+// Measured on the batched suite (see docs/testing.md "Suite cost and the worker
+// ceiling"), peak RSS is close to linear in the pool size:
+//
+//     4 workers 1.66 GB   6 workers 2.27 GB   8 workers 2.68 GB   11 workers 3.40 GB
+//
+// which is BASE_MB + PER_WORKER_MB × workers to within ~50 MB across all four
+// points. So the pool can be solved for directly from the memory actually free
+// at startup instead of being guessed at or pinned to a timid constant. On an
+// idle machine this lands on the CPU bound and nothing is given up; next to a
+// browser and an agent it scales itself down instead of pushing the host into
+// swap.
+//
+// This is a ceiling, not a reservation — the numbers are a model of observed
+// peaks, so treat them as a budget to stay under, and re-measure if the suite's
+// shape changes materially.
+// ---------------------------------------------------------------------------
+
+const BASE_MB = 700
+const PER_WORKER_MB = 250
+/** Leave the rest of `available` to the desktop, the editor, and page cache. */
+const BUDGET_FRACTION = 0.6
+
+/**
+ * Memory this machine could actually hand over right now, in MB.
+ *
+ * `os.freemem()` is the portable answer but means different things per platform:
+ * on Linux it is `MemFree`, which excludes reclaimable page cache and so badly
+ * understates what is available (measured here: 9.1 GB free against 12.4 GB
+ * available). Prefer `MemAvailable` where the kernel publishes it — that is the
+ * number this budget wants — and fall back to `freemem()` elsewhere, which is
+ * already the right quantity on Windows and macOS.
+ */
+function availableMemoryMb(): number {
+	try {
+		const meminfo = fs.readFileSync('/proc/meminfo', 'utf8')
+		const match = /^MemAvailable:\s+(\d+) kB$/m.exec(meminfo)
+		if (match) return Number(match[1]) / 1024
+	} catch {
+		// Not Linux, or /proc is not mounted — fall through.
+	}
+	return os.freemem() / (1024 * 1024)
+}
+
+function resolveMaxWorkers(): number {
+	// Escape hatch first: CI pins this to keep a job's cost predictable rather than
+	// dependent on whatever else the runner happens to be doing.
+	const override = Number(process.env.VITEST_MAX_WORKERS)
+	if (Number.isInteger(override) && override > 0) return override
+
+	const byCpu = Math.max(1, os.availableParallelism() - 1)
+	const budgetMb = availableMemoryMb() * BUDGET_FRACTION
+	const byMemory = Math.floor((budgetMb - BASE_MB) / PER_WORKER_MB)
+	// Never resolve to zero: one worker at a time is slow, but it is the only
+	// setting that still makes progress on a machine with nothing left to give.
+	const workers = Math.max(1, Math.min(byCpu, byMemory))
+	if (workers < byCpu) {
+		process.stderr.write(
+			`[vitest] pool capped to ${workers} workers (CPU allows ${byCpu}) — ` +
+				`${Math.round(availableMemoryMb())} MB available, budget ${Math.round(budgetMb)} MB\n`
+		)
+	}
+	return workers
+}
+
+const maxWorkers = resolveMaxWorkers()
 
 // The suite runs against the built package (`pnpm run build` then `vitest run`),
 // so tests import from `dist/`, not `src/`. v8 collects coverage for the code it
@@ -26,13 +103,21 @@ export default defineConfig({
 		// `@playwright/test`'s fixtures. Excluded by directory rather than by filename so
 		// the two harnesses never race for a file on the strength of what it is called.
 		exclude: [...configDefaults.exclude, 'test/browser/**'],
-		// The schema fixtures are `describe.concurrent` and each concurrent test
-		// spawns an OOXMLValidatorCLI (.NET) process; `test/read` spawns validators
-		// too, so with a bare `vitest run` the real process ceiling is
-		// workers × maxConcurrency. Cap it deliberately rather than leaving the
-		// default (5) to interact with the worker pool by accident. If CI turns
-		// flaky or OOMs, lower this — do not re-serialize the suite, that is the
-		// 50s → ~15s the concurrency bought.
+		// Bound the pool by memory, not by core count — see the header above.
+		// `maxWorkers` is the whole knob: Vitest 4 has no `minWorkers` (it is not in
+		// `InlineConfig`, and setting it is a type error rather than a no-op), and
+		// the pool grows to this ceiling on demand rather than being preallocated.
+		maxWorkers,
+		// The schema fixtures are `describe.concurrent` and `test/read` validates
+		// too. This used to be half of a `workers × maxConcurrency` process ceiling:
+		// every concurrent test spawned its own OOXMLValidatorCLI (.NET) process, so
+		// this number multiplied directly into RAM. It does not any more —
+		// test/validator.js batches validation requests and holds at most ONE
+		// validator child per worker regardless of what this is set to, so the
+		// validator cost is now `workers × ~55 MB` and this knob only governs
+		// in-process test interleaving. Raising it no longer buys spawn parallelism;
+		// lower `maxWorkers` (or let the memory budget do it) if the suite needs to
+		// shrink.
 		maxConcurrency: 8,
 		// Vitest's default 5s is a per-test *wall-clock* budget, which stops being a
 		// property of the test once validators run concurrently: a fixture that

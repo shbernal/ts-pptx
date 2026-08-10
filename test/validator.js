@@ -115,10 +115,142 @@ async function runValidatorOnFile(filePath, fileFormat = FILE_FORMAT) {
 	}
 }
 
-async function validateBuf(buf, fileFormat = FILE_FORMAT) {
-	if (!(await isInstalled())) {
-		throw new Error('OOXMLValidatorCLI not installed. Run ./tools/ooxml-validator/install.sh')
+// ---------------------------------------------------------------------------
+// Batching
+//
+// The CLI accepts a *directory* and validates every package in it in ONE
+// process. That matters because the binary is a 110 MB self-contained .NET
+// single-file app: measured here, a run costs ~0.40s of startup plus only
+// ~0.048s per additional deck, and ~55 MB of RSS regardless. Validating one
+// deck per process therefore paid the 0.40s and the 55 MB about 500 times per
+// suite, and — because the spawn happened inside a `describe.concurrent` test —
+// the process count scaled with `maxConcurrency` × the worker pool. That
+// product, not the tests themselves, is what put the memory ceiling out of the
+// repo's hands and into the host's core count.
+//
+// The queue below is a dataloader: requests accumulate while an invocation is
+// in flight and go out as one batch when it returns. It is self-tuning — under
+// load batches grow, when idle the delay is a single timer tick — and it bounds
+// this process to at most ONE validator child at a time, so a fork's validator
+// memory is ~55 MB flat instead of ~55 MB × maxConcurrency.
+//
+// The directory mode's contract, established empirically against this pinned
+// binary (see docs/testing.md "Validator batching") rather than assumed:
+//   - a package with >= 1 error is reported, keyed by absolute `FilePath`, with
+//     the same error list single-file mode gives it;
+//   - a CLEAN package is omitted from the output entirely;
+//   - an unreadable or non-package file is NOT omitted — it is reported as an
+//     `OpenXmlPackageException`. This is the property that makes "absent means
+//     clean" safe. Were corrupt packages silently dropped instead, this batcher
+//     would report the worst failures the suite exists to catch as passes.
+//   - results come back in arbitrary order, so they are keyed by filename, never
+//     by position;
+//   - the scan is not recursive, so a flat batch directory is sufficient.
+//
+// Set TSPPTX_VALIDATOR_NO_BATCH=1 to bypass all of this and validate one deck
+// per process, for when a batch failure needs to be pinned to a single fixture
+// by hand.
+// ---------------------------------------------------------------------------
+
+const BATCH_DISABLED = process.env.TSPPTX_VALIDATOR_NO_BATCH === '1'
+// Caps stdout size and batch-directory disk, not memory — the CLI's RSS does not
+// grow meaningfully with file count. Well above the ~8 a concurrent suite offers.
+const MAX_BATCH = 32
+
+/** @type {{buf: Buffer, fileFormat: string, resolve: Function, reject: Function}[]} */
+let queue = []
+let flushScheduled = false
+let inFlight = false
+
+function scheduleFlush() {
+	// While an invocation is in flight, new work simply accumulates; the flush
+	// that is running re-arms this on the way out. That is what keeps the child
+	// count at one without a semaphore.
+	if (flushScheduled || inFlight) return
+	flushScheduled = true
+	setTimeout(() => {
+		flushScheduled = false
+		void flush()
+	}, 0)
+}
+
+async function flush() {
+	if (inFlight || queue.length === 0) return
+	inFlight = true
+	// `fileFormat` is an argument to the whole invocation, so a batch is only
+	// ever one format; anything else waits for the next round. The queue is
+	// non-empty here (guarded above), which `noUncheckedIndexedAccess` cannot see.
+	const head = /** @type {{buf: Buffer, fileFormat: string, resolve: Function, reject: Function}} */ (queue[0])
+	const fileFormat = head.fileFormat
+	const batch = []
+	const deferred = []
+	for (const item of queue) {
+		if (item.fileFormat === fileFormat && batch.length < MAX_BATCH) batch.push(item)
+		else deferred.push(item)
 	}
+	queue = deferred
+	try {
+		await runBatch(batch, fileFormat)
+	} finally {
+		inFlight = false
+		if (queue.length > 0) scheduleFlush()
+	}
+}
+
+async function runBatch(batch, fileFormat) {
+	const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'TsPptx-schema-batch-'))
+	try {
+		// Positional names, so a result can be mapped back to its request without
+		// trusting either output order or the caller's own naming.
+		const names = batch.map((_, i) => 'b' + i + '.pptx')
+		await Promise.all(batch.map((item, i) => fs.writeFile(path.join(dir, names[i]), item.buf)))
+
+		let rows
+		try {
+			const { stdout } = await execFile(VALIDATOR, [dir, fileFormat], {
+				env: {
+					...process.env,
+					DOTNET_BUNDLE_EXTRACT_BASE_DIR: process.env.DOTNET_BUNDLE_EXTRACT_BASE_DIR || os.tmpdir(),
+				},
+				maxBuffer: 128 * 1024 * 1024,
+			})
+			rows = JSON.parse(stdout || '[]')
+		} catch {
+			// One bad deck must not turn into 32 indistinguishable failures. Re-run the
+			// batch one deck per process so the error lands on the request that caused
+			// it and its neighbours still get real verdicts. Costs a slow path only on
+			// a failure that would otherwise have been unattributable.
+			//
+			// The batch-level error is deliberately dropped: it describes an invocation
+			// covering 32 decks, so it can only be less specific than what the retry is
+			// about to produce for each of them.
+			await Promise.all(
+				batch.map(async (item) => {
+					try {
+						item.resolve(await validateBufDirect(item.buf, item.fileFormat))
+					} catch (individualErr) {
+						item.reject(individualErr)
+					}
+				})
+			)
+			return
+		}
+
+		/** @type {Map<string, unknown[]>} */
+		const byName = new Map()
+		for (const row of rows) {
+			byName.set(path.basename(row.FilePath), JSON.parse(row.ValidationErrors || '[]'))
+		}
+		// Absent means clean — safe only because corrupt packages are reported, not
+		// dropped (see the contract above).
+		batch.forEach((item, i) => item.resolve(byName.get(names[i]) ?? []))
+	} finally {
+		await fs.rm(dir, { recursive: true, force: true })
+	}
+}
+
+/** One deck, one process — the pre-batching path, kept for the fallback and the opt-out. */
+async function validateBufDirect(buf, fileFormat) {
 	const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'TsPptx-schema-'))
 	const tmp = path.join(tmpDir, 'fixture.pptx')
 	await fs.writeFile(tmp, buf)
@@ -127,6 +259,17 @@ async function validateBuf(buf, fileFormat = FILE_FORMAT) {
 	} finally {
 		await fs.rm(tmpDir, { recursive: true, force: true })
 	}
+}
+
+async function validateBuf(buf, fileFormat = FILE_FORMAT) {
+	if (!(await isInstalled())) {
+		throw new Error('OOXMLValidatorCLI not installed. Run ./tools/ooxml-validator/install.sh')
+	}
+	if (BATCH_DISABLED) return validateBufDirect(buf, fileFormat)
+	return new Promise((resolve, reject) => {
+		queue.push({ buf, fileFormat, resolve, reject })
+		scheduleFlush()
+	})
 }
 
 export { isInstalled, validatorAvailable, validateBuf, runValidatorOnFile, VALIDATOR, FILE_FORMAT, FILE_FORMATS }

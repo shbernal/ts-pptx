@@ -160,18 +160,39 @@ MCPs' corpora.
 
 ### The default loop
 
-- **`pnpm run verify`** (~45s) is the per-iteration check: a `dist/` freshness guard →
+- **`pnpm run verify`** (~44s) is the per-iteration check: a `dist/` freshness guard →
   `typecheck` → `typecheck:scripts` → `typecheck:test` → `typecheck:site` →
-  `raw-xml:check` → `path-refs:check` → `docs:build` →
+  `raw-xml:check` → `path-refs:check` → `docs:check` →
   the whole test suite (`vitest run`, which discovers every suite
   including schema). Run this instead of hand-composing four or five separate commands —
   hand-composed sets come out slightly different every time and end up re-running the
   same suite twice.
-- **`pnpm run verify:full`** (~90s) before pushing or for a release/package-boundary
-  change: everything in `verify`, plus `script:roundtrip:all`, `package:lint`,
-  `test:package` and `bundle-size:check`. The split is only about cost — those pack and
-  install the tarball, or run the whole read corpus twice; everything cheaper already
-  lives in `verify`.
+- **`pnpm run verify:full`** (~77s) before pushing or for a release/package-boundary
+  change: everything in `verify`, plus `docs:build`, `script:roundtrip:all`,
+  `package:lint`, `test:package` and `bundle-size:check`. The split is only about cost —
+  those pack and install the tarball, build the production site, or run the whole read
+  corpus twice; everything cheaper already lives in `verify`.
+- **`docs:build` is in `verify:full`, not `verify`.** 19.7s of its 26.6s is
+  `vitepress build`, a production static-site build that proves something about the
+  *site*, not the library; `docs:check` keeps the docs themselves validated every
+  iteration for ~3.5s. CI never depended on the loop tier for it — `docs.yml` builds the
+  site on every pull request, so carrying it in `check:static` too just built it twice.
+- Both aggregates are assembled by `scripts/run-steps.mjs`, which expands script names
+  into their leaf commands and runs them in one process tree. `package.json` remains the
+  single definition of every step; the runner only removes the ~0.7–1.3s package-manager
+  relaunch between them (`verify` was paying that 13 times). It prints a per-step
+  breakdown when it passes, and `node scripts/run-steps.mjs --list verify` shows the
+  expansion without running anything. Add a step by editing the name list in
+  `package.json` — never by inlining its command, which is how a second, drifting copy
+  of a gate gets created.
+- **The test suite sizes its own worker pool from free memory** (`vitest.config.ts`),
+  not from the core count, because cores decide how fast it could run while memory
+  decides whether the host survives it. On an idle machine this lands on the CPU bound
+  and costs nothing; under memory pressure it scales down instead of driving the box
+  into swap. `VITEST_MAX_WORKERS` pins it explicitly and is never clamped. Do not
+  "fix" a slow run by raising `maxConcurrency` — since validator batching landed that
+  knob no longer buys spawn parallelism. See docs/testing.md "Suite cost and the worker
+  ceiling".
 - **`pnpm run script:roundtrip:all`** (~25s, in `verify:full` and CI) is the script
   converter's gate: for every read fixture it prints a script, runs it, and diffs the
   result against the source with the printer's own fidelity notes as the exclusion list.
@@ -239,8 +260,10 @@ MCPs' corpora.
   check→fix→re-check cycle on files that were going to be fixed anyway. This is not a
   lowered standard: the gate still runs, just not from your shell.
 - What the hooks do *not* cover, and `verify` therefore does: **tests** (no hook runs
-  any), **`typecheck:test`**, and **`docs:build`** (pre-push checks `lint`,
+  any), **`typecheck:test`**, and **`docs:check`** (pre-push checks `lint`,
   `format:check`, `typecheck`, `typecheck:scripts` and `typecheck:site` only).
+  **`docs:build`** is covered by neither — it is in `verify:full` and in CI's
+  `docs.yml`, which runs on every pull request.
 
 ### Shell habit: do not pipe a verification command on its first run
 

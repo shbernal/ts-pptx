@@ -14,6 +14,41 @@ people outside this repo look at.
 
 ### Changed
 
+- **`pnpm run verify` no longer sizes itself off the host's CPU, and no longer builds the
+  site.** The gate could take a developer machine down: Vitest sizes its fork pool from
+  `availableParallelism() - 1`, and every concurrent fixture spawned its own 55 MB
+  `OOXMLValidatorCLI` process, so the real ceiling was `workers × maxConcurrency` — a
+  property of the developer's core count rather than of this repository, and the wrong
+  one. A faster CPU made the spike bigger, never the run safer. Three changes, all in
+  test/build tooling; nothing the published package does is affected.
+
+  - `test/validator.js` **batches** validation. `OOXMLValidatorCLI` accepts a directory
+    and validates every package in it in one process, and measured against the pinned
+    release a run costs ~0.40s of startup plus ~0.048s per additional deck at ~55 MB
+    regardless — so one deck per process was paying that startup, and that 55 MB, some
+    500 times per suite. Each worker now holds at most one validator child. Full suite:
+    55.1s / 4.03 GB / 17 concurrent validators → 48.4s / 3.40 GB / 7.
+  - `vitest.config.ts` derives `maxWorkers` from **memory free at startup** rather than
+    core count, since peak RSS is linear in the pool size. Idle machines still land on
+    the CPU bound; loaded ones scale down instead of swapping. `VITEST_MAX_WORKERS` pins
+    it explicitly.
+  - `docs:build` moved from `verify` to `verify:full`. 19.7s of its 26.6s is
+    `vitepress build`, which proves something about the site, not the library; `docs:check`
+    keeps the docs validated in the loop. CI is unaffected — `docs.yml` already built the
+    site on every pull request, so `check:static` was building it a second time.
+
+  `verify` is ~97s → ~44s and `verify:full` ~77s, both on a 12-core box. Composites are
+  now assembled by `scripts/run-steps.mjs`, which expands script names into leaf commands
+  and runs them in one process tree, removing the ~0.7–1.3s package-manager relaunch that
+  `verify` was paying 13 times over. `package.json` remains the single definition of each
+  step. See `docs/testing.md`.
+
+  One latent test bug surfaced and is fixed: seven schema fixtures assert on warnings by
+  swapping `console.warn` across an `await`, which is unsound under `describe.concurrent`
+  — a neighbour's `finally` restores the original mid-capture. It was a race, so it was
+  always latent; changing how fixtures interleave is what exposed it. Those fixtures now
+  run in a sequential sibling suite, and new ones are routed there automatically.
+
 - **The browser demo is a page of the site, not a workspace.** `demos/vite-demo` — a React
   + Vite + Bootstrap app whose only output was a download — is deleted. Its replacement is
   `/demos` on the project site, which builds the same deck in the tab and then **shows you
