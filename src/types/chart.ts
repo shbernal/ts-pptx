@@ -16,7 +16,14 @@ export type ChartAxisTickMark = 'none' | 'inside' | 'outside' | 'cross'
  */
 export type LineCap = 'flat' | 'round' | 'square'
 export type ChartLineDash =
-	'dash' | 'dashDot' | 'lgDash' | 'lgDashDot' | 'lgDashDotDot' | 'solid' | 'sysDash' | 'sysDot'
+	| 'dash'
+	| 'dashDot'
+	| 'lgDash'
+	| 'lgDashDot'
+	| 'lgDashDotDot'
+	| 'solid'
+	| 'sysDash'
+	| 'sysDot'
 
 export interface OptsChartData {
 	/**

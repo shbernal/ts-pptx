@@ -37,10 +37,21 @@
 	// ordered by public surface and the scripts are grouped by concern — and sorting it
 	// would produce a large, meaningless diff that destroys both groupings.
 	"sortPackageJson": false,
+	// **`types/` is not in this list, and must not come back.** These patterns are
+	// unanchored, and gitignore semantics match an unanchored directory name at *any* depth
+	// — so `types/` never meant the root build directory `.gitignore` names as `/types/`. It
+	// meant `src/types/`: the library's entire public type surface, seventeen files that
+	// `format:run`'s own `"src/**/*.ts"` glob advertises covering and that the formatter had
+	// never once read. Four had drifted, one of them past `printWidth`.
+	//
+	// This is the same hazard the header records for `tsconfig*.json`, in the opposite
+	// direction — there a pattern reached workspaces it should not, here it reached a source
+	// tree it should not. Anchor a build-output pattern (`/types/`) or name it precisely; an
+	// unanchored directory name will collide with a source directory eventually, and it does
+	// so silently, because an ignored file is exactly as quiet as a well-formatted one.
 	"ignorePatterns": [
 		"node_modules/",
 		"dist/",
-		"types/",
 		"src/bld/",
 		"coverage/",
 		".tmp/",

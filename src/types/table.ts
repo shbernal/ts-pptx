@@ -4,12 +4,7 @@
  * Re-exported by `./index.js`, which is the import site for the rest of `src/`.
  */
 import type { SHAPE_NAME, SlideObjectType, TableStyle } from '../enums.js'
-import type {
-	BevelPresetType,
-	LightRigDirection,
-	LightRigType,
-	PresetMaterialType,
-} from '../ooxml/st-enums.js'
+import type { BevelPresetType, LightRigDirection, LightRigType, PresetMaterialType } from '../ooxml/st-enums.js'
 import type { DataOrPathProps, Margin, PositionProps } from './core.js'
 import type { ObjectNameProps } from './object.js'
 import type { ShapeProps } from './shape.js'

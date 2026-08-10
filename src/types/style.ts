@@ -61,7 +61,13 @@ export interface BorderProps {
  * `ppaction://hlinkshowjump?jump=<value>`. A specific numbered slide is reached via
  * `HyperlinkProps.slide` instead (which emits `ppaction://hlinksldjump`).
  */
-export type HyperlinkActionJump = 'firstslide' | 'previousslide' | 'nextslide' | 'lastslide' | 'lastslideviewed' | 'endshow'
+export type HyperlinkActionJump =
+	| 'firstslide'
+	| 'previousslide'
+	| 'nextslide'
+	| 'lastslide'
+	| 'lastslideviewed'
+	| 'endshow'
 // used by: image, object, text,
 export interface HyperlinkProps {
 	_rId?: number
