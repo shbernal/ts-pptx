@@ -5,75 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Changed
-
-- **BREAKING (write): `TextPropsOptions.strike` admits `'noStrike'`, and `underline.style`
-  matches `ST_TextUnderlineType`** (#14). `strike` was `boolean | 'sngStrike' | 'dblStrike'`,
-  which had no spelling for the explicit off even though the serializer passes any truthy
-  string straight to the attribute — so `strike: 'noStrike' as 'sngStrike'` already produced
-  the right XML and only the published type refused it. It is now
-  `boolean | 'noStrike' | 'sngStrike' | 'dblStrike'`. The breaking half is `underline.style`:
-  `'dotDashHeave'` was a typo for `'dotDashHeavy'` and is corrected, and the missing
-  `'words'` is added, so the union is the enumeration's full 18 members. Migration: replace
-  `underline: { style: 'dotDashHeave' }` with `'dotDashHeavy'` — the old spelling was not a
-  legal `ST_TextUnderlineType` value, so any deck written with it carried an invalid `@u`.
-
-  The doc comments now also say which state silence is an alias for, on all three
-  decorations. `false` and an omitted `strike` both write no attribute and therefore state
-  *nothing*, leaving the run with whatever it inherits — the same as `bold`/`italic`, whose
-  falsy arm is likewise an omission. `'noStrike'`, `underline: { style: 'none' }` and
-  `caps: 'none'` are the spellings that state "off" and override an inherited decoration.
-
-- **BREAKING (read): `Shape.slide` is now `Shape.host`, typed `ShapeHost`.** A shape proxy
-  no longer belongs to a slide specifically — the same `p:sp` can sit in a slide's,
-  a layout's, or a master's `p:spTree` — so the back-reference names what it actually
-  is. `ShapeHost` is the small contract all three classes satisfy (`part`, `partName`,
-  `opc`, `relationships`, `themeContext()`, `shapeByIdDeep()`) and is exported from
-  `ts-pptx/read`. Migration: `shape.slide` → `shape.host`; where you genuinely need the
-  `Slide`, narrow with `shape.host instanceof Slide`. `Slide` gains an `opc` getter
-  (`=== presentation.opc`) and `SlideMaster`/`SlideLayout` gain public `opc` and
-  `relationships` getters, all to satisfy that contract. Nothing else about a shape
-  changed, and `Slide.shapes` is untouched.
-
-- **The `ts-pptx-upstream` skill covers the far end of the cycle, not just the filing.**
-  It ended at "write the workaround", which is the half that happens on its own — the
-  half that rots is the release landing and nobody finding the stopgaps it retired. A
-  new step 7 is that sweep: `npm view` for what is out, closed issues, `rg 'ts-pptx#'`
-  for every marked stopgap here, then per stopgap bump, run the check the comment names,
-  delete, leave a test behind, and comment upstream with the check that now passes. It
-  rests on the marker actually saying something, so step 6 no longer prescribes
-  `remove once fixed upstream` — a line that cannot be checked at bump time and sends
-  the reader back to re-derive the reproduction — but the wrong output as an observable,
-  the exact check that proves the fix, and the code the stopgap becomes. `ts-pptx#` is
-  named as the literal token to grep for, which is what makes step 7 a command rather
-  than a memory. Two other gaps a downstream consumer found by working through it: step
-  4 now checks `npm view @shbernal/ts-pptx version` *before* the tracker, since a report
-  against a stale pin costs a maintainer a full triage and ends in a close; and step 1
-  carries the `FidelityNote.cause` triage — `unread` and `unwritable` are gaps worth
-  filing, `unsupported` is the format's own limit and is not — which is our own
-  machine-readable verdict on whose bug a silent loss is, and was being re-derived in
-  each consumer's notes instead of read off the note.
-
-- **The README installs the skill the way an agent will actually run it.** The documented
-  line was the interactive one, in a section addressed to agents: it prompts for the
-  skill and the runtimes, which unattended is a hang rather than an install. The
-  non-interactive form is now the default shown, with the interactive one as the aside,
-  and `--all` is called out — it installs into every runtime the CLI knows, around
-  seventy, and leaves an `agent/` directory at the consumer's repository root. Also
-  written down: the installed copy is a copy, so a version bump does not update it, and
-  `skills experimental_install` restores the file from `skills-lock.json` without
-  creating any runtime link, so it is a record rather than a restore command.
-
-- **`docs/RELEASING.md` closes the loop the skill now depends on.** Issues here close
-  when the fix merges, which is right for this repo and the wrong signal for a consumer:
-  merged-and-unreleased lasts weeks, and a workaround deleted on the strength of a closed
-  issue breaks against the version actually installed. Post-publish now comments the
-  carrying version on each issue the release closed. `AGENTS.md` gains the rule #10 was:
-  when a fix gives an option value a meaning it did not have, work out what its *absence*
-  now means, because an emitter that defaults through a ternary has already assigned one
-  state to silence.
+## [3.2.0] - 2026-08-10
 
 ### Added
 
@@ -262,6 +194,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   someone else's `npm install`. This is for trying an unreleased fix, not for production
   dependencies: the install builds from source, so it pulls this package's
   `devDependencies` and takes minutes.
+
+### Changed
+
+- **BREAKING (write): `TextPropsOptions.strike` admits `'noStrike'`, and `underline.style`
+  matches `ST_TextUnderlineType`** (#14). `strike` was `boolean | 'sngStrike' | 'dblStrike'`,
+  which had no spelling for the explicit off even though the serializer passes any truthy
+  string straight to the attribute — so `strike: 'noStrike' as 'sngStrike'` already produced
+  the right XML and only the published type refused it. It is now
+  `boolean | 'noStrike' | 'sngStrike' | 'dblStrike'`. The breaking half is `underline.style`:
+  `'dotDashHeave'` was a typo for `'dotDashHeavy'` and is corrected, and the missing
+  `'words'` is added, so the union is the enumeration's full 18 members. Migration: replace
+  `underline: { style: 'dotDashHeave' }` with `'dotDashHeavy'` — the old spelling was not a
+  legal `ST_TextUnderlineType` value, so any deck written with it carried an invalid `@u`.
+
+  The doc comments now also say which state silence is an alias for, on all three
+  decorations. `false` and an omitted `strike` both write no attribute and therefore state
+  *nothing*, leaving the run with whatever it inherits — the same as `bold`/`italic`, whose
+  falsy arm is likewise an omission. `'noStrike'`, `underline: { style: 'none' }` and
+  `caps: 'none'` are the spellings that state "off" and override an inherited decoration.
+
+- **BREAKING (read): `Shape.slide` is now `Shape.host`, typed `ShapeHost`.** A shape proxy
+  no longer belongs to a slide specifically — the same `p:sp` can sit in a slide's,
+  a layout's, or a master's `p:spTree` — so the back-reference names what it actually
+  is. `ShapeHost` is the small contract all three classes satisfy (`part`, `partName`,
+  `opc`, `relationships`, `themeContext()`, `shapeByIdDeep()`) and is exported from
+  `ts-pptx/read`. Migration: `shape.slide` → `shape.host`; where you genuinely need the
+  `Slide`, narrow with `shape.host instanceof Slide`. `Slide` gains an `opc` getter
+  (`=== presentation.opc`) and `SlideMaster`/`SlideLayout` gain public `opc` and
+  `relationships` getters, all to satisfy that contract. Nothing else about a shape
+  changed, and `Slide.shapes` is untouched.
+
+- **The `ts-pptx-upstream` skill covers the far end of the cycle, not just the filing.**
+  It ended at "write the workaround", which is the half that happens on its own — the
+  half that rots is the release landing and nobody finding the stopgaps it retired. A
+  new step 7 is that sweep: `npm view` for what is out, closed issues, `rg 'ts-pptx#'`
+  for every marked stopgap here, then per stopgap bump, run the check the comment names,
+  delete, leave a test behind, and comment upstream with the check that now passes. It
+  rests on the marker actually saying something, so step 6 no longer prescribes
+  `remove once fixed upstream` — a line that cannot be checked at bump time and sends
+  the reader back to re-derive the reproduction — but the wrong output as an observable,
+  the exact check that proves the fix, and the code the stopgap becomes. `ts-pptx#` is
+  named as the literal token to grep for, which is what makes step 7 a command rather
+  than a memory. Two other gaps a downstream consumer found by working through it: step
+  4 now checks `npm view @shbernal/ts-pptx version` *before* the tracker, since a report
+  against a stale pin costs a maintainer a full triage and ends in a close; and step 1
+  carries the `FidelityNote.cause` triage — `unread` and `unwritable` are gaps worth
+  filing, `unsupported` is the format's own limit and is not — which is our own
+  machine-readable verdict on whose bug a silent loss is, and was being re-derived in
+  each consumer's notes instead of read off the note.
+
+- **The README installs the skill the way an agent will actually run it.** The documented
+  line was the interactive one, in a section addressed to agents: it prompts for the
+  skill and the runtimes, which unattended is a hang rather than an install. The
+  non-interactive form is now the default shown, with the interactive one as the aside,
+  and `--all` is called out — it installs into every runtime the CLI knows, around
+  seventy, and leaves an `agent/` directory at the consumer's repository root. Also
+  written down: the installed copy is a copy, so a version bump does not update it, and
+  `skills experimental_install` restores the file from `skills-lock.json` without
+  creating any runtime link, so it is a record rather than a restore command.
+
+- **`docs/RELEASING.md` closes the loop the skill now depends on.** Issues here close
+  when the fix merges, which is right for this repo and the wrong signal for a consumer:
+  merged-and-unreleased lasts weeks, and a workaround deleted on the strength of a closed
+  issue breaks against the version actually installed. Post-publish now comments the
+  carrying version on each issue the release closed. `AGENTS.md` gains the rule #10 was:
+  when a fix gives an option value a meaning it did not have, work out what its *absence*
+  now means, because an emitter that defaults through a ternary has already assigned one
+  state to silence.
 
 ### Fixed
 
@@ -2217,6 +2217,7 @@ makes no backwards-compatibility guarantee with the original project.
   where the image is `/ppt/media/image1.jpeg`. Affects `Slide.background`,
   `SlideMaster.background`, and `SlideLayout.background`.
 
+[3.2.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.2.0
 [3.1.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.1.0
 [3.0.0]: https://github.com/shbernal/ts-pptx/releases/tag/v3.0.0
 [2.0.0]: https://github.com/shbernal/ts-pptx/releases/tag/v2.0.0

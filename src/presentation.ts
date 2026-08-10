@@ -68,7 +68,7 @@ import { buildNotesSlideRels, makeXmlNotesMaster, makeXmlNotesSlide } from './ge
 import { makeXmlTheme } from './gen/pres/theme.js'
 import { buildPackageParts, writePackage, type PackageSource } from './package/assemble.js'
 
-const VERSION = '3.1.0'
+const VERSION = '3.2.0'
 
 function standardLayoutToPresLayout(layout: StandardLayout): PresLayout {
 	return {
