@@ -8,29 +8,17 @@
  * Expects ./template.pptx (the source deck, unmodified) beside this file.
  * Writes ./output.pptx. Needs an ESM context — it uses top-level await.
  *
- * FIDELITY: 7 declared loss(es). Everything not listed here is expected to
+ * FIDELITY: 4 declared loss(es). Everything not listed here is expected to
  * survive unchanged; a difference that is not in this list is a defect, not a caveat.
  *
  * Slide 1:
- * - text.bullet.inherited (replaceText) [dropped, unread] — at least one paragraph sets no bullet of its own and
- *   inherits one from the layout or master list style; the write path cannot express "inherit" and emits an
- *   explicit a:buNone, so any inherited bullet is suppressed — a no-op where the inherited style had none, and a
- *   visible change where it did not
  * - text.color.inherited (replaceText) [flattened, unsupported] — this run inherits its colour from the
  *   placeholder, master or theme; the write path paints an uncoloured run black instead of leaving it to
  *   inherit, so the inherited colour is resolved and baked in and no longer tracks a theme change
- * - text.bullet.inherited (setText) [dropped, unread] — at least one paragraph sets no bullet of its own and
- *   inherits one from the layout or master list style; the write path cannot express "inherit" and emits an
- *   explicit a:buNone, so any inherited bullet is suppressed — a no-op where the inherited style had none, and a
- *   visible change where it did not
  * - text.color.inherited (setText) [flattened, unsupported] — this run inherits its colour from the placeholder,
  *   master or theme; the write path paints an uncoloured run black instead of leaving it to inherit, so the
  *   inherited colour is resolved and baked in and no longer tracks a theme change
  * Slide 2:
- * - text.bullet.inherited (replaceTextBullet1) [dropped, unread] — at least one paragraph sets no bullet of its
- *   own and inherits one from the layout or master list style; the write path cannot express "inherit" and emits
- *   an explicit a:buNone, so any inherited bullet is suppressed — a no-op where the inherited style had none,
- *   and a visible change where it did not
  * - text.indent (replaceTextBullet1) [dropped, unwritable] — a paragraph's own indent (a:pPr/@marL, @indent) is
  *   not expressible; only the discrete indentLevel is, so hanging indents flatten to the level default
  * - text.color.inherited (replaceTextBullet1) [flattened, unsupported] — this run inherits its colour from the
@@ -68,30 +56,30 @@ const slide1 = gen1.addSlide()
 // replaceText
 slide1.addText(
 	[
-		{ options: { color: 'accent2', fontSize: 20, italic: true }, text: 'This' },
+		{ options: { bullet: 'inherit', color: 'accent2', fontSize: 20, italic: true }, text: 'This' },
 		{ options: { color: '000000', fontSize: 20 }, text: ' is test' },
 		{ options: { color: '000000' }, text: ' ' },
 		{ options: { bold: true, color: '000000' }, text: 'content' },
 		{ options: { breakLine: true, color: '000000' }, text: '. ' },
-		{ text: '', options: { breakLine: true } },
-		{ options: { color: '000000' }, text: 'We like to replace ' },
+		{ text: '', options: { breakLine: true, bullet: 'inherit' } },
+		{ options: { bullet: 'inherit', color: '000000' }, text: 'We like to replace ' },
 		{ options: { color: '000000', fontSize: 16 }, text: '{{replace}}' },
 		{ options: { color: '000000' }, text: ' by ' },
 		{ options: { color: 'accent2' }, text: '{{by}} ' },
 		{ options: { color: 'accent5' }, text: 'and nothing else' },
 		{ options: { breakLine: true, color: 'accent2' }, text: '.' },
-		{ text: '', options: { breakLine: true } },
-		{ options: { align: 'right', color: '000000' }, text: 'Replacement ' },
+		{ text: '', options: { breakLine: true, bullet: 'inherit' } },
+		{ options: { align: 'right', bullet: 'inherit', color: '000000' }, text: 'Replacement ' },
 		{ options: { align: 'right', color: '000000', italic: true }, text: 'should' },
 		{ options: { align: 'right', color: '000000' }, text: ' ' },
 		{ options: { align: 'right', bold: true, color: '000000' }, text: 'work' },
 		{ options: { align: 'right', breakLine: true, color: '000000' }, text: ' everywhere.  {{replacement}}' },
-		{ text: '', options: { align: 'right', breakLine: true } },
-		{ options: { align: 'right', color: '000000' }, text: 'Some co' },
+		{ text: '', options: { align: 'right', breakLine: true, bullet: 'inherit' } },
+		{ options: { align: 'right', bullet: 'inherit', color: '000000' }, text: 'Some co' },
 		{ options: { align: 'right', color: '00B050' }, text: 'lo' },
 		{ options: { align: 'right', breakLine: true, color: '000000' }, text: 'rful Text' },
-		{ text: '', options: { align: 'right', breakLine: true } },
-		{ options: { color: '000000' }, text: '{{replace}} → {{replace}} → abc {{by}}' },
+		{ text: '', options: { align: 'right', breakLine: true, bullet: 'inherit' } },
+		{ options: { bullet: 'inherit', color: '000000' }, text: '{{replace}} → {{replace}} → abc {{by}}' },
 	],
 	{
 		fit: 'resize',
@@ -109,7 +97,7 @@ slide1.addText(
 // setText
 slide1.addText(
 	[
-		{ options: { color: 'accent6', fontSize: 20, italic: true }, text: 'This' },
+		{ options: { bullet: 'inherit', color: 'accent6', fontSize: 20, italic: true }, text: 'This' },
 		{ options: { color: '000000', fontSize: 20 }, text: ' is test' },
 		{ options: { color: '000000' }, text: ' ' },
 		{ options: { bold: true, color: '000000' }, text: 'content' },
@@ -141,7 +129,7 @@ slide2.addText(
 			options: { breakLine: true, bullet: { characterCode: '2022', fontFace: 'Arial' }, color: '000000' },
 			text: '{{bullet1}}',
 		},
-		{ text: '', options: { breakLine: true } },
+		{ text: '', options: { breakLine: true, bullet: 'inherit' } },
 		{ options: { bullet: { characterCode: '2022', fontFace: 'Arial' }, color: 'accent6' }, text: '{{bullet2}}' },
 	],
 	{

@@ -38,10 +38,17 @@ export interface TextBaseProps {
 	 * Add standard or custom bullet
 	 * - use `true` for standard bullet
 	 * - pass object options for custom bullet
+	 * - `false` (and omitting the option) is the *explicit off*: it writes `<a:buNone/>`
+	 *   plus `marL="0" indent="0"`, which overrides whatever bullet the layout's or
+	 *   master's list style sets for this level
+	 * - `'inherit'` states nothing at all — no bullet child and no margin attributes — so
+	 *   the list style keeps reaching the paragraph. This is the one state omission
+	 *   cannot spell, because omitting the option means `false` here for compatibility
 	 * @default false
 	 */
 	bullet?:
 		| boolean
+		| 'inherit'
 		| {
 				/**
 				 * Bullet type

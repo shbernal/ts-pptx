@@ -297,7 +297,6 @@ Both tiers, in corpus order:
 
 | construct | fixtures | cause | what it costs |
 |---|---|---|---|
-| `text.bullet.inherited` | 34/44 | unread | a paragraph inheriting its bullet gets an explicit `a:buNone` — the write path cannot say "inherit" |
 | `text.color.inherited` | 27/44 | unsupported | an uncoloured run would be painted black, so the inherited colour is resolved and baked in |
 | `shape.placeholder` | 9/44 | unsupported | placeholder *identity* degrades; 6 of 16 `ST_PlaceholderType` values are expressible and `idx` has no setter |
 | `shape.frameInherited` | 8/44 | unsupported | geometry inherited from a layout is reproduced exactly, then frozen — it stops tracking layout edits |
@@ -314,6 +313,22 @@ Plus, at 1–2 fixtures each: `chart.workbook`, `graphicFrame.unknown`,
 `image.svg`, `line.arrowSize`, `shape.custGeom.guides`, `slide.layout`,
 `table.cell.fill.picture.geometry`, `table.rowAuto`,
 `text.bullet.schemeToken`, `text.field`, `text.paraSpaceZero`.
+
+**An inherited bullet is not a loss.** It used to be the largest one here, at
+34/44 — the top of this table, and 305 of the standalone tier's notes on its own.
+A paragraph with no bullet child of its own inherits whatever the layout's or
+master's list style says, and the write API had no way to state that: omitting
+`bullet` emitted an explicit `<a:buNone/>` plus `marL="0" indent="0"`, which
+*overrides* the list style rather than deferring to it. That is a different fact
+even where the inherited style has no bullet, because a later edit to the master
+then stops arriving — and a visible change where it did have one, along with an
+inherited hanging indent flattened to zero in the same stroke. `bullet: 'inherit'`
+is the spelling for the third state, emitting neither a bullet child nor
+`a:buNone` nor the margins, so `Paragraph.bulletDetail` returning `null` (no
+bullet child) maps onto it and `{ kind: 'none' }` (a stated `a:buNone`) still maps
+onto `false`. The distinction always survived the read leg; it died on the write
+leg, which made this a missing option rather than an unreadable construct. Neither
+state notes now, and `layout.text.bullet.inherited` closes with it.
 
 **A styled cell's own fill is not a loss.** It used to be — the note read at 7
 fixtures, because `resolvedFill` answers "what colour is this cell" by folding
@@ -418,8 +433,7 @@ layout, and the round trip would let one excuse the same difference on a *slide*
 
 | construct | fixtures | what it costs |
 |---|---|---|
-| `layout.text.bullet.inherited` | 5/44 | a decorative text box inheriting its bullet gets an explicit `a:buNone` |
-| `layout.text.color.inherited` | 4/44 | the same for an inherited run colour |
+| `layout.text.color.inherited` | 4/44 | an inherited run colour on a decorative text box, resolved and baked in |
 | `layout.group` | 2/44 | a group on a layout becomes loose objects — they land unmoved, but stop being one selectable object |
 | `layout.fill.schemeToken` | 1/44 | a token outside the ten the write path maps is baked to hex |
 | `layout.shape.custGeom.guides` | 1/44 | a freeform's guides and adjust handles, as on a slide |
@@ -429,8 +443,8 @@ The two remaining rolled-up chrome notes are `master.decoration` and
 `master.placeholders`, one each, naming the counts. A twelve-layout deck
 emitting one note per layout would put twelve near-identical paragraphs at the
 top of the script and bury the per-shape notes underneath that a reader can act
-on. Per deck the tier adds four to seventeen notes, not fifty (across the
-corpus: 1018 notes against the template-anchored tier's 712).
+on. Per deck the tier adds 4 to 13 notes, not fifty (across the corpus: 713
+notes against the template-anchored tier's 419).
 
 ### The read path is the binding constraint
 
@@ -451,6 +465,17 @@ paragraph mapper carries no asset resolver to re-embed them with. Reading the
 colour also opened one write-side gap of its own: `text.bullet.schemeToken`
 (1/44), an `a:buClr/a:schemeClr` outside the ten tokens the write path maps,
 which is baked to a literal hex and stops tracking the theme.
+
+`text.bullet.inherited` is the counter-example to this section's thesis, and it
+was the biggest note on the corpus, so it is worth being precise about why. It
+was filed `unread`, and that was true of the wrong thing: what nothing reads is
+the inherited *value*, since `a:lvl1pPr` list styles are still undecoded. But
+reproducing an inherited bullet never required reading it — it required not
+overwriting it, and `Paragraph.bulletDetail` already separated "no bullet child"
+(`null`) from "a stated `a:buNone`" (`{ kind: 'none' }`). The whole loss was a
+missing *write* spelling, and `bullet: 'inherit'` closed it without the reader
+moving at all. A note's `cause` records the gap its author could see; it is a
+hypothesis about where the fix lives, not a finding.
 
 Layout decoration is the largest case of the same pattern, and it closed
 completely. It was `unread`, on the strength of the read model documenting a

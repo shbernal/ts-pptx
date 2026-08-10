@@ -77,6 +77,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`bullet: 'inherit'`, the state omission cannot spell** (#15). `TextBaseProps.bullet` had
+  two states and three meanings: a bullet, or `false`/omitted — and both of the latter emitted
+  an explicit `<a:buNone/>` plus `indent="0" marL="0"`. There was no way to author a paragraph
+  that states *nothing* about its bullet. That matters because bullet properties resolve down
+  the `a:lstStyle` → placeholder → layout → master chain, and `a:buNone` **overrides** that
+  chain rather than deferring to it: a paragraph inheriting a bullet from its layout's
+  `a:lvl1pPr` lost it, and one inheriting no bullet still stopped tracking the master, so a
+  later edit there no longer reached the slide. The `indent="0" marL="0"` written beside it
+  flattened an inherited hanging indent to zero in the same stroke — a second, separate loss on
+  the same element. `bullet: 'inherit'` emits neither a bullet child nor `a:buNone` nor the
+  margins.
+
+  Omission keeps meaning `a:buNone`, and that is deliberate: it has meant that since the writer
+  existed and every deck authored against it depends on the default. Same resolution as
+  `fill: { type: 'inherit' }` (#10) — name the state that had no name, leave alone the one that
+  has. This is that fix one element down, and #14's mirror image: there the *explicit off*
+  needed a spelling distinct from silence, here the explicit off is the only thing that could
+  be said.
+
+  Two sites downstream of the emitter tested `bullet` for **truthiness**, which a truthy string
+  that draws nothing would have broken: the line grouping (a bullet starts a new paragraph)
+  would have split every run into its own paragraph, and the leading-glyph strip (which removes
+  a literal `•` so it is not drawn twice beside the `a:buChar`) would have eaten a real
+  character from text that emits no bullet to duplicate. Both now ask whether bullet markup is
+  actually emitted.
+
+- **Fixed in the same pass: a paragraph's properties are the first run's, decided once.** The
+  emitter retried `genXmlParagraphProperties` on each run of a paragraph until one produced
+  non-empty XML. That was unreachable while every `bullet` state wrote something, and became
+  wrong the moment an empty `a:pPr` was possible: a paragraph whose first run said `'inherit'`
+  took its properties from a *continuation* run instead, which by convention states no bullet —
+  so it got back the very `a:buNone` the first run asked to leave out, appended **after** that
+  run's `<a:r>`, where a `pPr` is not allowed. No deck the byte-identity corpus authors moves.
+
+- **`ts-pptx/script` carries inherited bullets instead of declaring them lost.** A paragraph
+  read as having no bullet child of its own now maps to `bullet: 'inherit'` rather than to an
+  absent option, and `text.bullet.inherited` is retired — it was the **largest** fidelity note
+  on the corpus at 34/44 fixtures, along with `layout.text.bullet.inherited` at 5/44. Across
+  the 44-fixture corpus the standalone tier's note count falls from 1018 to 713 and the
+  template-anchored tier's from 712 to 419. The distinction always survived the read leg —
+  `Paragraph.bulletDetail` is `null` for a paragraph with no bullet child and `{ kind: 'none' }`
+  for one stating `a:buNone` — so this was a missing write option rather than an unreadable
+  construct, which is worth noting because the note filed it as `unread`. Consumers diffing
+  printed scripts will see `bullet: 'inherit'` appear on most paragraphs.
+
 - **`ts-pptx/script`'s standalone tier rebuilds a layout's decoration instead of dropping
   it.** A source layout became a `defineSlideMaster` call carrying a title and a
   background, and nothing else: the bands, rules, wordmarks, triangles and quote marks

@@ -490,6 +490,51 @@ export default [
 		},
 	},
 	{
+		// `bullet: 'inherit'` is the same shape one element down: it emits no `EG_TextBullet`
+		// member at all, where every other spelling emits one (`a:buChar`/`a:buAutoNum`/
+		// `a:buNone`). Two sequences the writer had never produced come out of that — an
+		// `a:pPr` carrying attributes and NO children, and an `a:p` with no `a:pPr` at all,
+		// since a paragraph stating only `'inherit'` has nothing left to put in one. Both are
+		// legal (`CT_TextParagraphProperties` has every child optional and `a:pPr` itself is
+		// `minOccurs="0"`), and the point is that the surrounding order still validates: the
+		// bullet group sits between `a:lnSpc`/`a:spcBef`/`a:spcAft` and `a:tabLst`, so a
+		// missing member must not leave the sequence unsatisfied for the parts that remain.
+		name: "paragraphs with bullet: 'inherit' (no bullet child, and a bare or absent a:pPr)",
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				// Nothing else stated: the `a:p` ends up with no `a:pPr` whatsoever.
+				s.addText('inherits, says nothing else', { x: 1, y: 1, w: 8, h: 1, bullet: 'inherit' })
+				// Attributes but no children, and children but no bullet — the two partial forms,
+				// including the neighbours on either side of the bullet group in the sequence.
+				s.addText(
+					[
+						{ text: 'aligned and levelled', options: { bullet: 'inherit', align: 'center', indentLevel: 2 } },
+						{ text: 'spaced and tabbed', options: { bullet: 'inherit', breakLine: true } },
+						{
+							text: 'with the neighbours on both sides',
+							options: {
+								bullet: 'inherit',
+								lineSpacing: 20,
+								paraSpaceBefore: 6,
+								paraSpaceAfter: 6,
+								tabStops: [{ position: 1, alignment: 'l' }],
+							},
+						},
+					],
+					{ x: 1, y: 2.5, w: 8, h: 2 }
+				)
+				// The same inside a table cell, whose text body is built by the same emitter.
+				s.addTable([[{ text: 'cell inherits', options: { bullet: 'inherit' } }, { text: 'plain' }]], {
+					x: 1,
+					y: 5,
+					w: 8,
+				})
+			})
+			await expectNoSchemaErrors(buf, 'paragraph-inherit-bullet')
+		},
+	},
+	{
 		// The same two spellings on a chart, plus the two fill kinds the chart areas could never
 		// reach before (#11). `c:spPr` is `a:CT_ShapeProperties`, so this is the validator agreeing
 		// that a `gradFill`/`pattFill` really is legal there and — for `'inherit'` — that a

@@ -79,4 +79,110 @@ defineRegressionSuite('Bullet option serialization', 'legacy bug-19', [
 			)
 		},
 	},
+	{
+		// The pair is asserted together, because either half alone passes against the bug:
+		// before `'inherit'` existed both spellings produced the identical `a:buNone` block.
+		name: "bullet:'inherit' states nothing, where an omitted bullet states <a:buNone/>",
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addText(
+					[
+						{ text: 'omitted', options: { breakLine: true } },
+						{ text: 'inherits', options: { bullet: 'inherit' } },
+					],
+					{ x: 1, y: 1, w: 4, h: 1 }
+				)
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const paras = [...xml.matchAll(/<a:p>[\s\S]*?<\/a:p>/g)].map((m) => m[0])
+			assert(paras.length === 2, 'expected two paragraphs; got ' + paras.length + '\nxml: ' + xml)
+			assert(
+				/<a:pPr indent="0" marL="0"><a:buNone\/><\/a:pPr>/.test(paras[0]),
+				'an omitted bullet must keep emitting the explicit off; got: ' + paras[0]
+			)
+			assert(!/<a:pPr/.test(paras[1]), "bullet:'inherit' must emit no <a:pPr> at all here; got: " + paras[1])
+			assert(!/<a:buNone/.test(paras[1]), "bullet:'inherit' must not emit <a:buNone/>; got: " + paras[1])
+			assert(!/marL=|indent=/.test(paras[1]), "bullet:'inherit' must not flatten marL/indent; got: " + paras[1])
+		},
+	},
+	{
+		name: "bullet:'inherit' keeps the paragraph's other properties",
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addText('aligned', { x: 1, y: 1, w: 4, h: 1, bullet: 'inherit', align: 'center', indentLevel: 2 })
+			})
+			const { ppr } = await getPPr(zip)
+			assert(/algn="ctr"/.test(ppr), 'expected algn="ctr" to survive; got: ' + ppr)
+			assert(/lvl="2"/.test(ppr), 'expected lvl="2" to survive; got: ' + ppr)
+			assert(!/<a:buNone/.test(ppr), 'must NOT emit <a:buNone/>; got: ' + ppr)
+			assert(!/marL=|indent=/.test(ppr), 'must NOT emit marL/indent; got: ' + ppr)
+		},
+	},
+	{
+		// `'inherit'` is a TRUTHY member of the `bullet` union, and two sites downstream of the
+		// emitter used to test it for truthiness. This is the line-grouping one: a bullet starts
+		// a new paragraph, and a bullet that draws nothing must not.
+		name: "bullet:'inherit' on consecutive runs does not split them into paragraphs",
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addText(
+					[
+						{ text: 'run one ', options: { bullet: 'inherit' } },
+						{ text: 'run two', options: { bullet: 'inherit' } },
+					],
+					{ x: 1, y: 1, w: 4, h: 1 }
+				)
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			const paras = [...xml.matchAll(/<a:p>[\s\S]*?<\/a:p>/g)]
+			assert(paras.length === 1, 'expected ONE paragraph; got ' + paras.length + '\nxml: ' + xml)
+			assert(/run one <\/a:t>/.test(xml) && /run two<\/a:t>/.test(xml), 'both runs should survive; xml: ' + xml)
+		},
+	},
+	{
+		// The other truthiness site: a leading glyph is stripped so it is not drawn twice beside
+		// the `a:buChar` the paragraph emits. Under `'inherit'` there is no `a:buChar` to double,
+		// so the character is the author's text and must survive.
+		name: "a leading bullet glyph survives bullet:'inherit' and is still stripped for bullet:true",
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addText(
+					[
+						{ text: '• kept', options: { bullet: 'inherit', breakLine: true } },
+						{ text: '• stripped', options: { bullet: true } },
+					],
+					{ x: 1, y: 1, w: 4, h: 1 }
+				)
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(/<a:t>• kept<\/a:t>/.test(xml), "the glyph must survive bullet:'inherit'; xml: " + xml)
+			assert(/<a:t>stripped<\/a:t>/.test(xml), 'the glyph must still be stripped for bullet:true; xml: ' + xml)
+		},
+	},
+	{
+		// A paragraph whose FIRST run inherits and whose continuation runs state no bullet — the
+		// exact shape the pptx-to-script converter emits. The paragraph-property emitter used to
+		// retry on each run until one produced non-empty XML, so the continuation run supplied a
+		// `a:buNone` the first run had asked to leave out, appended after its `<a:r>`.
+		name: "bullet:'inherit' on the first run of a multi-run paragraph is not undone by the rest",
+		fn: async () => {
+			const { zip } = await build((p) => {
+				const s = p.addSlide()
+				s.addText(
+					[
+						{ text: 'first ', options: { bullet: 'inherit' } },
+						{ text: 'second', options: { bold: true } },
+					],
+					{ x: 1, y: 1, w: 4, h: 1 }
+				)
+			})
+			const xml = await readEntry(zip, 'ppt/slides/slide1.xml')
+			assert(!/<a:buNone/.test(xml), 'no <a:buNone/> may reach the slide; xml: ' + xml)
+			assert(!/<a:r>[\s\S]*<a:pPr/.test(xml), '<a:pPr> may never follow a run; xml: ' + xml)
+		},
+	},
 ])

@@ -332,28 +332,13 @@ function paragraphOptions(paragraph: Paragraph, notes: NoteScope): Record<string
 			paraSpaceAfter: orUndefined(paragraph.spaceAfterPt),
 			lineSpacing: spacing?.type === 'points' ? spacing.valuePt : undefined,
 			lineSpacingMultiple: spacing?.type === 'percent' ? spacing.percent / 100 : undefined,
-			bullet: bullet === null ? undefined : bulletOption(bullet, notes),
+			// A paragraph with no bullet child of its own states nothing, and `'inherit'` is
+			// how the write path says that. `undefined` would NOT do — an omitted `bullet`
+			// emits an explicit `a:buNone`, which suppresses whatever the destination list
+			// style has. That was this converter's most frequent loss (`text.bullet.inherited`,
+			// 34 of 44 corpus fixtures) until the option gained a third state.
+			bullet: bullet === null ? 'inherit' : bulletOption(bullet, notes),
 		}) ?? {}
-	)
-}
-
-/**
- * Record the one bullet loss that has no expression at all, once per shape.
- *
- * A paragraph with no bullet child of its own inherits whatever the layout's or master's
- * list style says. There is no way to say "inherit" through the write API — an omitted
- * `bullet` makes it emit an explicit `a:buNone` — so an inherited bullet is suppressed. The
- * read side cannot see the inherited value either (`a:lvl1pPr` list styles are unread), so
- * the converter can neither reproduce it nor tell whether there was one, which is why this
- * is stated as a possibility rather than a fact.
- */
-function noteInheritedBullets(paragraphs: readonly Paragraph[], notes: NoteScope): void {
-	if (!paragraphs.some((paragraph) => paragraph.bulletDetail === null)) return
-	notes.note(
-		'text.bullet.inherited',
-		'dropped',
-		'unread',
-		'at least one paragraph sets no bullet of its own and inherits one from the layout or master list style; the write path cannot express "inherit" and emits an explicit a:buNone, so any inherited bullet is suppressed — a no-op where the inherited style had none, and a visible change where it did not'
 	)
 }
 
@@ -367,7 +352,6 @@ function noteInheritedBullets(paragraphs: readonly Paragraph[], notes: NoteScope
 export function textRuns(frame: TextFrame, notes: NoteScope): IrValue[] {
 	const paragraphs = frame.paragraphs
 	const items: IrValue[] = []
-	noteInheritedBullets(paragraphs, notes)
 
 	paragraphs.forEach((paragraph, paragraphIndex) => {
 		const paraOpts = paragraphOptions(paragraph, notes)

@@ -56,6 +56,21 @@ const HLINK_TEXT_COLOR_EXT = el(
 )
 
 /**
+ * Whether a `bullet` value makes the paragraph DRAW a bullet (a glyph, a number or a picture).
+ *
+ * Two call sites downstream of the emitter act on "this paragraph has a bullet" rather than on
+ * "this paragraph says something about its bullet", and both were plain truthiness tests until
+ * `'inherit'` — a truthy string that draws nothing — joined the union. Left as truthiness they
+ * would have broken the line grouping (every run starting its own paragraph) and eaten a real
+ * leading `•` from text that emits no `a:buChar` to duplicate it.
+ * @param {TextPropsOptions['bullet']} bullet - the option value
+ * @return {boolean} true when bullet markup is emitted
+ */
+function emitsBulletMarkup(bullet: TextPropsOptions['bullet']): boolean {
+	return !!bullet && bullet !== 'inherit'
+}
+
+/**
  * Generate XML Paragraph Properties
  * @param {SlideObject|TextProps} textObj - text object
  * @param {boolean} isDefault - array of default relations
@@ -233,6 +248,17 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 				paragraphPropXml += bulletIndentAttrs()
 				strXmlBullet = strXmlBulletSize + strXmlBulletFont + buChar(BulletType.DEFAULT)
 			}
+		} else if (opts.bullet === 'inherit') {
+			// The paragraph states NOTHING about its bullet: no `a:buChar`/`a:buAutoNum`, no
+			// `a:buNone`, and none of the margin attributes the other arms write. Bullet
+			// properties resolve down the `a:lstStyle` -> placeholder -> layout -> master chain,
+			// so silence is what lets the list style keep reaching this paragraph — `a:buNone`
+			// *overrides* it, which is a different fact even where the inherited style has no
+			// bullet, because a later edit to the master then stops arriving.
+			//
+			// Omission cannot mean this: it has meant `a:buNone` since the writer existed and
+			// every deck authored against it depends on that. Same resolution as `fill: { type:
+			// 'inherit' }` (#10) — name the state that had no name, leave the one that has.
 		} else if (opts.bullet) {
 			paragraphPropXml += ` marL="${
 				opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
@@ -502,7 +528,7 @@ export function groupRunsIntoLines(arrTextObjects: RunProps[], opts: ObjectOptio
 				arrLines.push(arrTexts)
 				arrTexts = []
 			}
-		} else if (arrTexts.length > 0 && textObj.options.bullet) {
+		} else if (arrTexts.length > 0 && emitsBulletMarkup(textObj.options.bullet)) {
 			arrLines.push(arrTexts)
 			arrTexts = []
 			textObj.options.breakLine = false // For cases with both `bullet` and `brekaLine` - prevent double lineBreak
@@ -549,8 +575,9 @@ export function renderTextParagraphsXml(
 
 		// A: Accumulate the paragraph's children; the `<a:p>` wrapper closes over them at the end.
 		let paraXml = ''
-		// NOTE: `rtlMode` is like other opts, its propagated up to each text:options, so just check the 1st one
-		let paragraphPropXml = `<a:pPr ${line[0]?.options?.rtlMode ? ' rtl="1" ' : ''}`
+		// NOTE: the `<a:pPr ${rtlMode ? ' rtl="1" ' : ''}` seed that used to sit here was dead —
+		// `genXmlParagraphProperties` builds its own open tag (with the same `rtlMode` check) and
+		// overwrote this on the first run, and nothing read it in between.
 		let paragraphPropEmitted = false
 
 		// B: Start paragraph, loop over lines and add text runs
@@ -572,14 +599,18 @@ export function renderTextParagraphsXml(
 			textObj.options.paraSpaceAfter = textObj.options.paraSpaceAfter || opts.paraSpaceAfter
 
 			// OOXML allows only one `<a:pPr>` per `<a:p>`, and it must precede any `<a:r>` runs.
-			// Emit paragraph properties exactly once, derived from the first run that yields non-empty pPr XML.
+			// The paragraph's properties are the FIRST run's, decided once: this used to retry on
+			// each subsequent run until one produced non-empty XML, which was unreachable while
+			// every `bullet` state wrote something (an omitted one still emitted `marL="0"
+			// indent="0"` + `a:buNone`) — and became wrong the moment `bullet: 'inherit'` made an
+			// empty pPr possible. A retry would take its properties from a *continuation* run,
+			// which by convention states no bullet, so the paragraph got back the very `a:buNone`
+			// the first run asked to leave out — and got it appended AFTER that run's `<a:r>`,
+			// where a `pPr` is not allowed.
 			if (!paragraphPropEmitted) {
-				paragraphPropXml = genXmlParagraphProperties(textObj, false)
-				const cleaned = paragraphPropXml.replace('<a:pPr></a:pPr>', '') // IMPORTANT: Empty "pPr" blocks will generate needs-repair/corrupt msg
-				if (cleaned) {
-					paraXml += cleaned
-					paragraphPropEmitted = true
-				}
+				paragraphPropEmitted = true
+				// IMPORTANT: Empty "pPr" blocks will generate needs-repair/corrupt msg
+				paraXml += genXmlParagraphProperties(textObj, false).replace('<a:pPr></a:pPr>', '')
 			}
 			// C: Inherit any main options (color, fontSize, etc.)
 			// NOTE: We only pass the text.options to genXmlTextRun (not the Slide.options),
@@ -598,9 +629,10 @@ export function renderTextParagraphsXml(
 			// form), strip a single leading bullet glyph (+ optional whitespace) from
 			// the first run's text. Otherwise PowerPoint renders two bullets — one
 			// from the paragraph-level `<a:buChar/>` and one from the literal glyph
-			// in `<a:t>`. Mid-text glyphs and `bullet:false`/no-bullet are unaffected.
+			// in `<a:t>`. Mid-text glyphs are unaffected, and so are `bullet:false`,
+			// `bullet:'inherit'` and no-bullet — none of them emit a glyph to double.
 			let _textRunObj = textObj
-			if (idx === 0 && line[0]?.options.bullet && typeof textObj.text === 'string') {
+			if (idx === 0 && emitsBulletMarkup(line[0]?.options.bullet) && typeof textObj.text === 'string') {
 				const _stripped = textObj.text.replace(/^[\u2022\u25E6\u25AA\u25AB\u25CF\u25CB\u2023\u2043\u2219]\s*/, '')
 				if (_stripped !== textObj.text) {
 					_textRunObj = { text: _stripped, options: textObj.options }

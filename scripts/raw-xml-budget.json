@@ -13,7 +13,7 @@
 	"src/gen/drawingml/color.ts": 1,
 	"src/gen/drawingml/math.ts": 2,
 	"src/gen/drawingml/text-body.ts": 2,
-	"src/gen/drawingml/text-run.ts": 4,
+	"src/gen/drawingml/text-run.ts": 3,
 	"src/gen/pres/presentation.ts": 2,
 	"src/gen/pres/theme.ts": 137,
 	"src/gen/slide/layout.ts": 5,

@@ -8,14 +8,10 @@
  * Expects ./template.pptx (the source deck, unmodified) beside this file.
  * Writes ./output.pptx. Needs an ESM context — it uses top-level await.
  *
- * FIDELITY: 2 declared loss(es). Everything not listed here is expected to
+ * FIDELITY: 1 declared loss(es). Everything not listed here is expected to
  * survive unchanged; a difference that is not in this list is a defect, not a caveat.
  *
  * Slide 1:
- * - text.bullet.inherited (Textfeld 3) [dropped, unread] — at least one paragraph sets no bullet of its own and
- *   inherits one from the layout or master list style; the write path cannot express "inherit" and emits an
- *   explicit a:buNone, so any inherited bullet is suppressed — a no-op where the inherited style had none, and a
- *   visible change where it did not
  * - text.color.inherited (Textfeld 3) [flattened, unsupported] — this run inherits its colour from the
  *   placeholder, master or theme; the write path paints an uncoloured run black instead of leaving it to
  *   inherit, so the inherited colour is resolved and baked in and no longer tracks a theme change
@@ -50,7 +46,7 @@ const gen1 = generator()
 const slide1 = gen1.addSlide()
 // Textfeld 3
 slide1.addText(
-	[{ options: { color: '000000', fontSize: 12 }, text: 'This is an almost empty slide.' }],
+	[{ options: { bullet: 'inherit', color: '000000', fontSize: 12 }, text: 'This is an almost empty slide.' }],
 	{
 		fit: 'resize',
 		h: '276999emu',

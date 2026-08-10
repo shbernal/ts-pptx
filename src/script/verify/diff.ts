@@ -323,7 +323,10 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	'text.equation': ['*'],
 	'text.field': ['*'],
 	'text.bullet.glyph': ['bullet'],
-	'text.bullet.inherited': ['bullet'],
+	// `text.bullet.inherited` used to live here — a paragraph stating no bullet of its own was
+	// re-emitted with an explicit `a:buNone`, because omitting the write API's `bullet` is that
+	// element rather than silence. `bullet: 'inherit'` says silence now, so the mapper carries
+	// the state instead of excusing its loss and the note is gone rather than unmapped.
 	'text.indent': [],
 	'text.paraSpaceZero': ['paraSpaceBefore', 'paraSpaceAfter'],
 	'text.vert': ['vert'],
