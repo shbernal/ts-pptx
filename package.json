@@ -175,7 +175,6 @@
 		"@vitest/coverage-v8": "^4.1.10",
 		"ast-v8-to-istanbul": "^1.0.5",
 		"esbuild": "^0.28.1",
-		"fast-xml-parser": "^5.10.1",
 		"happy-dom": "^20.11.1",
 		"istanbul-lib-coverage": "^3.2.2",
 		"istanbul-lib-report": "^3.0.1",

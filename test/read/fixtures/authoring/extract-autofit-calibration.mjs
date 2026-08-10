@@ -15,7 +15,7 @@ import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { unzipSync, strFromU8 } from 'fflate'
-import { XMLParser } from 'fast-xml-parser'
+import { DOMParser, MIME_TYPE, onErrorStopParsing } from '@xmldom/xmldom'
 import { parseCliOrExit, ROOT } from '../../../../scripts/script-utils.mjs'
 
 // This script lives in test/read/fixtures/authoring/, so the fixtures dir is its parent.
@@ -37,18 +37,49 @@ const { values } = parseCliOrExit(process.argv.slice(2), {
 })
 const LO_DIR = values['lo-dir'] ?? resolve(ROOT, '.tmp')
 
-const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_', isArray: () => false })
+// The two namespaces this script reads. `@xmldom/xmldom` is already a runtime
+// dependency of the library, so no parser is pulled in for this script alone.
+const NS = {
+	a: 'http://schemas.openxmlformats.org/drawingml/2006/main',
+	p: 'http://schemas.openxmlformats.org/presentationml/2006/main',
+}
+const ELEMENT_NODE = 1
 
-const asArray = (v) => (v == null ? [] : Array.isArray(v) ? v : [v])
+function splitQName(qname) {
+	const colon = qname.indexOf(':')
+	const uri = NS[qname.slice(0, colon)]
+	if (!uri) throw new Error(`unknown namespace prefix in qname: ${qname}`)
+	return { uri, local: qname.slice(colon + 1) }
+}
 
-// Recursively collect every node under `tag` (namespaced key) in a parsed tree.
-function collect(node, tag, out = []) {
-	if (node == null || typeof node !== 'object') return out
-	for (const [k, v] of Object.entries(node)) {
-		if (k === tag) for (const item of asArray(v)) out.push(item)
-		for (const item of asArray(v)) if (item && typeof item === 'object') collect(item, tag, out)
-	}
+/**
+ * The first *direct child* element matching a prefixed qname, or `null`.
+ *
+ * Deliberately not `getElementsByTagNameNS`, which searches descendants: every
+ * lookup below is a child step (`p:spPr` → `a:xfrm` → `a:off`), and a descendant
+ * search would happily match an `a:off` belonging to some nested subtree.
+ */
+function child(parent, qname) {
+	if (!parent) return null
+	const { uri, local } = splitQName(qname)
+	for (let node = parent.firstChild; node; node = node.nextSibling)
+		if (node.nodeType === ELEMENT_NODE && node.localName === local && node.namespaceURI === uri) return node
+	return null
+}
+
+/** Every descendant element matching a prefixed qname, in document order. */
+function descendants(root, qname) {
+	const { uri, local } = splitQName(qname)
+	const list = root.getElementsByTagNameNS(uri, local)
+	const out = []
+	for (let i = 0; i < list.length; i++) out.push(list[i])
 	return out
+}
+
+/** An unprefixed attribute value, or `null` when the element or attribute is absent. */
+function attr(element, name) {
+	if (!element || !element.hasAttribute(name)) return null
+	return element.getAttribute(name)
 }
 
 function int(v) {
@@ -56,43 +87,39 @@ function int(v) {
 }
 
 function readSlideShapes(xml) {
-	const doc = parser.parse(xml)
-	const shapes = collect(doc, 'p:sp')
+	const doc = new DOMParser({ onError: onErrorStopParsing }).parseFromString(xml, MIME_TYPE.XML_TEXT)
 	const byName = {}
-	for (const sp of shapes) {
-		const nv = sp['p:nvSpPr']?.['p:cNvPr']
-		const name = nv?.['@_name']
+	// Shapes nest (a group's children are `p:sp` too), so this one lookup is a
+	// descendant search — the field reads below are all child steps.
+	for (const sp of descendants(doc, 'p:sp')) {
+		const name = attr(child(child(sp, 'p:nvSpPr'), 'p:cNvPr'), 'name')
 		if (!name) continue
-		const spPr = sp['p:spPr']
-		const xfrm = spPr?.['a:xfrm']
-		const off = xfrm?.['a:off']
-		const ext = xfrm?.['a:ext']
-		const txBody = sp['p:txBody']
-		const bodyPr = txBody?.['a:bodyPr']
-		const norm = bodyPr?.['a:normAutofit']
-		const hasSp = bodyPr?.['a:spAutoFit'] !== undefined
-		const autofit = norm !== undefined ? 'normAutofit' : hasSp ? 'spAutoFit' : 'none'
+		const xfrm = child(child(sp, 'p:spPr'), 'a:xfrm')
+		const off = child(xfrm, 'a:off')
+		const ext = child(xfrm, 'a:ext')
+		const txBody = child(sp, 'p:txBody')
+		const bodyPr = child(txBody, 'a:bodyPr')
+		const norm = child(bodyPr, 'a:normAutofit')
+		const autofit = norm ? 'normAutofit' : child(bodyPr, 'a:spAutoFit') ? 'spAutoFit' : 'none'
 		// first run's resolved latin typeface + size
-		const firstP = asArray(txBody?.['a:p'])[0]
-		const firstR = asArray(firstP?.['a:r'])[0]
-		const rPr = firstR?.['a:rPr']
-		const latin = rPr?.['a:latin']
+		const rPr = child(child(child(txBody, 'a:p'), 'a:r'), 'a:rPr')
+		const latin = child(rPr, 'a:latin')
 		byName[name] = {
-			offXEmu: int(off?.['@_x']),
-			offYEmu: int(off?.['@_y']),
-			extCxEmu: int(ext?.['@_cx']),
-			extCyEmu: int(ext?.['@_cy']),
+			offXEmu: int(attr(off, 'x')),
+			offYEmu: int(attr(off, 'y')),
+			extCxEmu: int(attr(ext, 'cx')),
+			extCyEmu: int(attr(ext, 'cy')),
 			autofit,
-			fontScale: norm && norm['@_fontScale'] != null ? int(norm['@_fontScale']) : null,
-			lnSpcReduction: norm && norm['@_lnSpcReduction'] != null ? int(norm['@_lnSpcReduction']) : null,
-			bodyWrap: bodyPr?.['@_wrap'] ?? null,
-			bodyAnchor: bodyPr?.['@_anchor'] ?? null,
-			lInsEmu: int(bodyPr?.['@_lIns']),
-			tInsEmu: int(bodyPr?.['@_tIns']),
-			rInsEmu: int(bodyPr?.['@_rIns']),
-			bInsEmu: int(bodyPr?.['@_bIns']),
-			resolvedTypeface: latin?.['@_typeface'] ?? null,
-			runSizeHundredths: rPr?.['@_sz'] != null ? int(rPr['@_sz']) : null,
+			fontScale: int(attr(norm, 'fontScale')),
+			lnSpcReduction: int(attr(norm, 'lnSpcReduction')),
+			bodyWrap: attr(bodyPr, 'wrap'),
+			bodyAnchor: attr(bodyPr, 'anchor'),
+			lInsEmu: int(attr(bodyPr, 'lIns')),
+			tInsEmu: int(attr(bodyPr, 'tIns')),
+			rInsEmu: int(attr(bodyPr, 'rIns')),
+			bInsEmu: int(attr(bodyPr, 'bIns')),
+			resolvedTypeface: attr(latin, 'typeface'),
+			runSizeHundredths: int(attr(rPr, 'sz')),
 		}
 	}
 	return byName
@@ -201,7 +228,9 @@ function main() {
 		},
 		decks,
 	}
-	writeFileSync(outPath, JSON.stringify(result, null, 2) + '\n')
+	// Tab-indented to match what the repo formatter leaves in the committed file, so
+	// a regeneration that changed nothing produces no diff at all.
+	writeFileSync(outPath, JSON.stringify(result, null, '\t') + '\n')
 	console.log(`wrote ${outPath}`)
 }
 

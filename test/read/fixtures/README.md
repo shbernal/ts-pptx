@@ -844,7 +844,7 @@ with no repair prompt (verified with the `powerpoint-fixture-authoring` skill's
   (`extCy`/`offY`, `normAutofit` `fontScale`/`lnSpcReduction`, resolved typeface)
   and the LibreOffice cross-measure. Produced by
   `authoring/extract-autofit-calibration.mjs` (Node, reads the `.pptx` via `fflate` +
-  `fast-xml-parser`; the PowerPoint columns are cross-platform, the LibreOffice
+  `@xmldom/xmldom`; the PowerPoint columns are cross-platform, the LibreOffice
   column needs the Windows step below). Solver unit tests read this JSON and assert
   the solver is conservative against it (computed `fontScale` ≤ PowerPoint's;
   computed `cy` ≥ PowerPoint's **and** ≥ the LibreOffice height).
