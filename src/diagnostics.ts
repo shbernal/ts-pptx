@@ -94,11 +94,3 @@ export function warnOnce(code: DiagnosticCode, message: string, detail?: Readonl
 	seen.add(key)
 	warn(code, message, detail)
 }
-
-/**
- * Forget which diagnostics {@link warnOnce} has already emitted. Test-only: a suite that asserts
- * on a once-per-process warning needs each case to start from a clean slate.
- */
-export function resetWarnOnceState_(): void {
-	seen.clear()
-}
