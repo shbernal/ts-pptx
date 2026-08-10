@@ -403,7 +403,6 @@ export function textRuns(frame: TextFrame, notes: NoteScope): IrValue[] {
  */
 export function textFrameOptions(frame: TextFrame, notes: NoteScope): Record<string, IrValue> {
 	const body = frame.bodyProperties
-	const autofit = frame.autofit
 	const anchor = frame.resolvedAnchor
 	const vert = body?.vert ?? null
 
@@ -425,10 +424,50 @@ export function textFrameOptions(frame: TextFrame, notes: NoteScope): Record<str
 			// `@wrap` is `square`/`none` in OOXML and a boolean in the write API.
 			wrap: body?.wrap === null || body?.wrap === undefined ? undefined : body.wrap !== 'none',
 			vert: vert !== null && WRITABLE_VERT.has(vert) ? vert : undefined,
-			fit: autofit === null ? undefined : FIT[autofit],
+			fit: fitOption(frame, notes),
 			margin: marginOption(body),
 		}) ?? {}
 	)
+}
+
+/**
+ * `a:bodyPr`'s autofit as the write API's `fit`.
+ *
+ * A `normAutofit` that bakes `fontScale` or `lnSpcReduction` is a *different state* from a
+ * bare `<a:normAutofit/>`, so the two get different spellings. ECMA-376 §21.1.2.1.3 defaults
+ * each attribute to 100%/0% only when it is **omitted**; PowerPoint recomputes an unbaked
+ * scale on edit and draws the baked one exactly as written until then. Flattening both to
+ * `'shrink'` therefore re-emits a frame that paints its text at full size — a deck baked at
+ * `fontScale="40000"` comes back two and a half times too large — and the object form is
+ * already what the write API accepts, so nothing has to be lost here.
+ *
+ * Out-of-range percentages are the one arm that still loses something. The write path rejects
+ * anything outside 0–100 and drops the attribute with a warning, so passing one through would
+ * turn a declared loss into a silent one; the frame falls back to bare `'shrink'` with a note.
+ */
+function fitOption(frame: TextFrame, notes: NoteScope): IrValue | undefined {
+	const autofit = frame.autofit
+	if (autofit === null) return undefined
+	if (autofit !== 'normAutofit') return FIT[autofit]
+
+	const baked = compact({
+		fontScale: bakedPct(frame.autofitFontScale, 'fontScale', notes),
+		lnSpcReduction: bakedPct(frame.autofitLineSpaceReduction, 'lnSpcReduction', notes),
+	})
+	return baked ? { type: 'shrink', ...baked } : FIT[autofit]
+}
+
+/** A baked `a:normAutofit` percentage, or `undefined` (with a note) when the write API would reject it. */
+function bakedPct(value: number | null, name: string, notes: NoteScope): number | undefined {
+	if (value === null) return undefined
+	if (value >= 0 && value <= 100) return value
+	notes.note(
+		`text.autofit.${name}`,
+		'dropped',
+		'unwritable',
+		`baked a:normAutofit/@${name} of ${value}% is outside the 0-100 the write API accepts, so the frame re-emits a bare <a:normAutofit/>`
+	)
+	return undefined
 }
 
 /**

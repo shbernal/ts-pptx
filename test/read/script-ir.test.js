@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, test } from 'vitest'
 import JSZip from 'jszip'
 import { Presentation, isAutoShape } from '../../dist/read.js'
-import { readModelToIr } from '../../dist/script.js'
+import { canonicalDeckIr, readModelToIr } from '../../dist/script.js'
 import { assert, assertEqual } from '../helpers.js'
 import { authorRead } from './authored.js'
 
@@ -376,6 +376,79 @@ describe('deck IR — losses the read model cannot see', () => {
 		const noted = ir.fidelity.find((note) => note.construct === 'text.equation')
 		assert(noted, 'math-omml.pptx holds an equation no accessor exposes')
 		assertEqual(noted.cause, 'unread', 'the write API can author equations; the read side cannot see them')
+	})
+})
+
+describe('deck IR — text autofit', () => {
+	// A baked `<a:normAutofit fontScale="40000"/>` and a bare `<a:normAutofit/>` are two
+	// states, not one: PowerPoint draws the baked scale as written and recomputes an unbaked
+	// one only when someone clicks into the frame. The IR used to flatten both to `'shrink'`,
+	// so a deck baked at 40% came back painting its text two and a half times too large — and
+	// because `canonicalDeckIr` did not carry the numbers either, a `diffDeckIr` oracle
+	// compared two models that were both missing them and called the deck clean.
+
+	/** The `fit` option of the deck's single `addText` call. */
+	const fitOf = (ir) => allCalls(ir).find((call) => call.method === 'addText').args[1].fit
+
+	test('a baked normAutofit keeps its fontScale and lnSpcReduction through the IR', async () => {
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addText([{ text: 'Baked' }], {
+				x: 0.5,
+				y: 0.5,
+				w: 4,
+				h: 1.2,
+				fit: { type: 'shrink', fontScale: 70, lnSpcReduction: 20 },
+			})
+		})
+		const frame = presentation.slides[0].shapes[0].textFrame
+		assertEqual(frame.autofitFontScale, 70, 'the reader sees the baked scale')
+
+		const ir = readModelToIr(presentation)
+		assertEqual(
+			JSON.stringify(fitOf(ir)),
+			JSON.stringify({ type: 'shrink', fontScale: 70, lnSpcReduction: 20 }),
+			"the IR carries both in the write API's object spelling"
+		)
+
+		const canonical = JSON.stringify(canonicalDeckIr(ir))
+		assert(canonical.includes('fontScale'), 'so a diffDeckIr oracle can see a future loss of it')
+		assert(canonical.includes('lnSpcReduction'), 'and of its companion')
+	})
+
+	test('a bare normAutofit stays the string form, distinct from a baked one', async () => {
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addText([{ text: 'Bare' }], { x: 0.5, y: 0.5, w: 4, h: 1.2, fit: 'shrink' })
+		})
+		assertEqual(
+			fitOf(readModelToIr(presentation)),
+			'shrink',
+			'an unbaked frame has no numbers to carry, so it keeps the spelling that emits a bare <a:normAutofit/>'
+		)
+	})
+
+	test('an out-of-range baked percentage falls back to bare shrink and says so', async () => {
+		// The write path rejects anything outside 0-100 and drops the attribute with a warning,
+		// so passing one through would turn a declared loss into a silent one.
+		const { buf } = await authorRead((pres) => {
+			pres.addSlide().addText([{ text: 'Malformed' }], {
+				x: 0.5,
+				y: 0.5,
+				w: 4,
+				h: 1.2,
+				fit: { type: 'shrink', fontScale: 70 },
+			})
+		})
+		const zip = await JSZip.loadAsync(buf)
+		const slideXml = await zip.file('ppt/slides/slide1.xml').async('string')
+		const patched = slideXml.replace('fontScale="70000"', 'fontScale="250000"')
+		assert(patched !== slideXml, 'the baked scale was found and pushed out of range')
+		zip.file('ppt/slides/slide1.xml', patched)
+		const ir = readModelToIr(await Presentation.load(await zip.generateAsync({ type: 'uint8array' })))
+
+		assertEqual(fitOf(ir), 'shrink', 'the frame keeps shrinking; only the unwritable number is dropped')
+		const noted = ir.fidelity.find((note) => note.construct === 'text.autofit.fontScale')
+		assert(noted, 'and the drop is declared rather than silent')
+		assertEqual(noted.cause, 'unwritable', 'the read model sees the value; the write API will not accept it')
 	})
 })
 

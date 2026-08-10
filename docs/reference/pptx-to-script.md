@@ -352,6 +352,22 @@ an omitted `@algn` already renders as, so noting it would fire on most
 PowerPoint-authored shapes while describing no loss. No corpus fixture states
 `in`, so the note reads 0/44.
 
+**A baked autofit carries its scale, and a bare one is a different state.** A
+`normAutofit` frame maps onto `fit`, but not onto a single spelling: one that
+bakes `a:normAutofit/@fontScale` or `@lnSpcReduction` emits the object form
+`fit: { type: 'shrink', fontScale, lnSpcReduction }`, and one with neither
+attribute emits `fit: 'shrink'`, which is what writes a bare `<a:normAutofit/>`.
+Collapsing the two would not be a rounding — ECMA-376 §21.1.2.1.3 defaults each
+attribute to 100%/0% only when it is *omitted*, and PowerPoint recomputes an
+unbaked scale on edit while drawing a baked one exactly as written, so a deck
+baked at `fontScale="40000"` would come back painting its text two and a half
+times too large until someone clicked into the frame. Neither case notes.
+`text.autofit.fontScale` / `text.autofit.lnSpcReduction` are the one arm that
+does: the write path rejects a percentage outside 0–100 and drops the attribute
+with a warning, so a malformed source falls back to bare `'shrink'` with the loss
+declared instead of passing through a number that would vanish silently. No
+corpus fixture is malformed, so both read 0/44.
+
 `fill.picture` / `table.cell.fill.picture` are what remain for a fill that
 cannot carry its bytes at all, and neither fires on the corpus: a blip embedding
 no part (an external or linked image), a part missing from the package, or an

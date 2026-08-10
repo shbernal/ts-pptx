@@ -170,6 +170,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`readModelToIr` keeps a baked `normAutofit`'s `fontScale` and `lnSpcReduction`** (#13).
+  The mapper flattened every `normAutofit` frame to `fit: 'shrink'`, so both numbers were
+  gone by the time a consumer held the `DeckIr` and everything downstream re-emitted a bare
+  `<a:normAutofit/>`. Neither end of the round trip was at fault — `TextFitShrinkProps`
+  already carries both fields and `TextFrame.autofitFontScale` already reads them back — so
+  this was a mapping omission with an exact fix available: a frame that bakes either
+  attribute now emits the object form `fit: { type: 'shrink', fontScale, lnSpcReduction }`,
+  and one with neither keeps `fit: 'shrink'`.
+
+  The two spellings are two states, not one value at two precisions. ECMA-376 §21.1.2.1.3
+  defaults each attribute to 100%/0% only when it is *omitted*; PowerPoint recomputes an
+  unbaked scale on edit and draws a baked one exactly as written until then. A deck baked at
+  `fontScale="40000"` therefore came back painting its text two and a half times too large,
+  in a file valid either way, which is why nothing caught it.
+
+  It was also silent, which is the worse half. `printScript` named no fidelity note, so a
+  consumer following the documented rule — trust the tier's own notes — was told the tier
+  lost nothing; and `canonicalDeckIr` did not carry the fields either, so `diffDeckIr`
+  compared two models that were both missing them and reported the deck clean. A round-trip
+  oracle built on `diffDeckIr`, which is what the docs recommend building, could not detect
+  this class of loss at all. Carrying the numbers through the IR closes all three at once.
+
+  One arm still loses something, and now declares it: the write path rejects a percentage
+  outside 0–100 and drops the attribute with a warning, so a source outside that range falls
+  back to bare `'shrink'` with a `text.autofit.fontScale` / `text.autofit.lnSpcReduction`
+  note (`dropped`/`unwritable`) rather than passing through a number that would vanish. No
+  corpus fixture is malformed, so both read 0/44 and the census is unmoved.
+
 - **Chart area and plot area fills honour `type` instead of only `color`** (#11).
   `ChartPropsFillLine.fill` is typed `ShapeFillProps`, so both areas looked like they took
   every fill kind a shape does — and `c:spPr` really is `a:CT_ShapeProperties`, the same
