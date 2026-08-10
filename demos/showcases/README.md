@@ -37,14 +37,21 @@ Node-only by nature — it loads photographs and a video from `demos/common` by 
 ```
 lib/assets.mjs      absolute asset + output paths, and the one base64 helper addMedia needs
 lib/layout.mjs      slide geometry: the 16:9 box, margins, column arithmetic
+lib/showcases.mjs   the SHOWCASES registry — every deck, in build order
 <deck>/design.mjs   palette, type scale, theme, masters — no slide names a raw hex
-<deck>/data.mjs     content, kept apart from layout
+<deck>/data.mjs     content, kept apart from layout (quarterly review only; Field Notes
+                    carries its handful of captions inline)
 <deck>/index.mjs    the slides, plus an exported `showcase` descriptor
 build.mjs           the runner; the only place that touches the filesystem
 ```
 
 Each deck exports `{ slug, title, description, fileName, build }`. Adding a third deck means
-writing that object and adding it to `SHOWCASES` in `build.mjs`.
+writing that object and adding it to `SHOWCASES` in `lib/showcases.mjs`.
+
+That registry is **not** in `build.mjs`, and the distinction is the whole reason it was
+moved out: `scripts/byte-identity.mjs` enumerates the decks from it too. A deck registered
+anywhere else still builds, and is silently absent from the gate that would have caught an
+emitter regression in it.
 
 ## Two things worth knowing before editing a deck
 
