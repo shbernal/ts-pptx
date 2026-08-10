@@ -85,8 +85,8 @@ pptx.author = 'Thomas Singer'
 pptx.revision = '3'
 pptx.title = 'Test'
 
-// One master per source layout. A layout that carried decoration or placeholder
-// definitions has lost them — the read model decodes neither; see the fidelity notes.
+// One master per source layout, carrying its name, background and decoration. What a
+// layout does not bring across is its placeholder definitions; see the fidelity notes.
 pptx.defineSlideMaster({ background: { color: 'FFFFFF' }, title: 'Titelfolie' })
 pptx.defineSlideMaster({ background: { color: 'FFFFFF' }, title: 'Titel und Inhalt' })
 pptx.defineSlideMaster({ background: { color: 'FFFFFF' }, title: 'Abschnitts- überschrift' })

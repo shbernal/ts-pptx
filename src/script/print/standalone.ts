@@ -10,13 +10,15 @@
  * inherits — colours, fonts, placeholder geometry — not the parts a slide merely sits on top
  * of. So the output is a deck that renders its slides faithfully and wears a different suit.
  *
- * **The ceiling is measured, not estimated, and no amount of printer work moves it.** Three
+ * **The ceiling is measured, not estimated, and no amount of printer work moves it.** Two
  * constructs are unreachable from *both* directions: `a:fmtScheme` (nothing reads it, and the
- * write path emits a hardcoded Office one), `p:txStyles` (no reader, though
- * `SlideMasterProps.textStyles` could author it), and master/layout decoration (documented as
- * out of the read model's scope, carried byte-for-byte by the import paths instead). A fourth,
- * `p:clrMap`, is readable and has no setter. Each is a fidelity note here and a `pass` in the
- * other tier, which is the whole reason the other tier shipped first.
+ * write path emits a hardcoded Office one) and `p:txStyles` (no reader, though
+ * `SlideMasterProps.textStyles` could author it). A third, `p:clrMap`, is readable and has no
+ * setter. Each is a fidelity note here and a `pass` in the other tier, which is the whole
+ * reason the other tier shipped first. A **master's** own decoration joins them for a
+ * structural reason rather than a reading one: `defineSlideMaster` creates a layout, so there
+ * is no master shape tree to write to. A *layout's* decoration used to be on this list and is
+ * not any more — it is transcribed into that layout's `objects`.
  *
  * **One structural difference beyond the chrome.** A slide marked `carried` has no source
  * package to be carried from here, so it is transcribed like any other and loses only the
@@ -185,10 +187,11 @@ function printDocProps(ir: DeckIr, collector: NoteCollector): string[] {
  *
  * The naming is the write API's rather than OOXML's: a `defineSlideMaster` call creates a
  * *layout* under the single shared master, which is the right granularity for a source layout.
- * What it carries is thin by measurement, not by choice — a layout's decoration and its
- * placeholder definitions are both out of reach (see `from-read/chrome.ts`), leaving the name
- * and the background. The name still earns its place: it is what `addSlide({ masterTitle })`
- * binds on, so the deck keeps a layout gallery a reader recognises.
+ * It carries the layout's name, its background, and its decoration — the bands, rules and
+ * wordmarks that make the gallery recognisable rather than a list of blank rectangles. What it
+ * still cannot carry is the layout's *placeholder definitions*, and that is a write-path
+ * consequence rather than a reading one (see `from-read/chrome.ts`). The name earns its place
+ * twice over: it is also what `addSlide({ masterTitle })` binds on.
  */
 function printMasters(ir: DeckIr, collector: NoteCollector, printAsset: AssetPrinter): string[] {
 	// Recorded before the early return, because the extra layout is there either way: it is
@@ -203,8 +206,8 @@ function printMasters(ir: DeckIr, collector: NoteCollector, printAsset: AssetPri
 	)
 	if (ir.chrome.masters.length === 0) return []
 	return [
-		'// One master per source layout. A layout that carried decoration or placeholder',
-		'// definitions has lost them — the read model decodes neither; see the fidelity notes.',
+		'// One master per source layout, carrying its name, background and decoration. What a',
+		'// layout does not bring across is its placeholder definitions; see the fidelity notes.',
 		...ir.chrome.masters.map((master) => printArguments('pptx.defineSlideMaster', [master.props], 0, printAsset)),
 	]
 }

@@ -178,22 +178,38 @@ export function hasTextStyles(element: unknown): boolean {
 }
 
 /**
+ * `true` when this shape is a placeholder — the tier that *reserves* a region for a slide to
+ * fill, as opposed to the decoration that is drawn as-is.
+ *
+ * A DOM predicate rather than `shape.placeholder !== null`, and that is not an oversight: only
+ * `AutoShape` reports a `p:ph` through the read model, so the model-based spelling would call
+ * a *picture* placeholder (`p:nvPicPr/p:nvPr/p:ph`, which PowerPoint does author) decoration
+ * and re-draw it as a fixed image on every slide bound to the layout.
+ *
+ * Not a direct-child lookup, unlike its neighbours: the `p:ph` sits two or three levels down
+ * inside whichever `p:nv*Pr` the shape kind uses. That means a *group* containing a
+ * placeholder answers `true` for its child, which is the wanted answer anyway — a group is
+ * never itself a placeholder, and a layout that put one inside a group is one whose grouping
+ * cannot survive being flattened into loose objects.
+ */
+export function isPlaceholderShape(element: unknown): boolean {
+	return has(element, P_NS, 'ph')
+}
+
+/**
  * `true` when this master or layout carries a shape that is not a placeholder — a logo, a
  * rule, a background image, a footer graphic.
  *
- * `SlideMaster.shapes`/`SlideLayout.shapes` do decode these now, but there is no write
- * option that re-authors them (`defineSlideMaster({ objects })` covers a plain rect, line,
- * image, chart or text box, not the groups and custom geometry real decoration is made of),
- * so an output that rebuilds the chrome loses every one — and a deck that has none loses
- * nothing, which is why this is a count rather than a blanket note.
- *
- * Kept as a DOM predicate rather than `host.shapes.some((s) => s.placeholder === null)`:
- * only `AutoShape` reports a `p:ph`, so the model-based spelling would count a *picture*
- * placeholder (`p:nvPicPr/p:nvPr/p:ph`, which PowerPoint does author) as decoration.
+ * Only the **master** arm still needs this. A layout's decoration is now transcribed into its
+ * `defineSlideMaster({ objects })` call, so what did not survive is reported per shape rather
+ * than as a blanket count. A master's cannot be: `defineSlideMaster` authors a *layout* under
+ * the one shared master, so a master's own shape tree has no write-side counterpart at all,
+ * and a deck whose master carries none loses nothing — which is why this is a presence check
+ * rather than an unconditional note.
  */
 export function hasDecorativeShapes(element: unknown): boolean {
 	const spTree = child(child(element as ElementLike | null, P_NS, 'cSld'), P_NS, 'spTree')
 	return children(spTree).some(
-		(shape) => shape.namespaceURI === P_NS && SHAPE_ELEMENTS.has(shape.localName ?? '') && !has(shape, P_NS, 'ph')
+		(shape) => shape.namespaceURI === P_NS && SHAPE_ELEMENTS.has(shape.localName ?? '') && !isPlaceholderShape(shape)
 	)
 }

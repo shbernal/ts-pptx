@@ -174,8 +174,14 @@ function canonicalSlide(slide: SlideIr, digests: Map<string, string>): Canonical
 	}
 }
 
-/** Every `objectName` value reachable in `value`, at any depth. */
-function collectObjectNames(value: IrValue, out: Set<string>): Set<string> {
+/**
+ * Every `objectName` value reachable in `value`, at any depth.
+ *
+ * Exported for the chrome half of the diff, which needs the same list for the same reason: a
+ * layout's decoration is an argument to one `defineSlideMaster` call, so a note scoped to one
+ * of those shapes has no call of its own to be matched against.
+ */
+export function collectObjectNames(value: IrValue, out: Set<string>): Set<string> {
 	if (Array.isArray(value)) {
 		for (const item of value) collectObjectNames(item, out)
 		return out

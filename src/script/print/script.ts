@@ -29,7 +29,7 @@
  * with no template at all and pays for it in the note list.
  */
 import type { DeckIr, SlideIr } from '../ir.js'
-import { NoteCollector, scopeNotes } from '../fidelity.js'
+import { LAYOUT_NOTE_PREFIX, NoteCollector, scopeNotes } from '../fidelity.js'
 import { inches } from '../from-read/values.js'
 import { printString, type AssetPrinter } from './literal.js'
 import {
@@ -79,6 +79,11 @@ export interface PrintScriptOptions {
  * none of them is touched here, because the design *is* the template. A caveat that does not
  * apply to the output in front of you is worse than no caveat: it teaches the reader to skim
  * the ones that do.
+ *
+ * Alongside this list, {@link isTemplateCarried} drops every note under
+ * {@link LAYOUT_NOTE_PREFIX}. Those are the per-shape losses of re-authoring a layout's
+ * decoration, recorded in the slide vocabulary because the shape mapper is shared — and every
+ * one of them is about a layout, which this tier does not rebuild.
  */
 const TEMPLATE_CARRIED_CONSTRUCTS = new Set([
 	'deck.docProps',
@@ -95,6 +100,11 @@ const TEMPLATE_CARRIED_CONSTRUCTS = new Set([
 	'master.txStyles',
 	'theme.fmtScheme',
 ])
+
+/** `true` when the source deck carries this loss through untouched, so this tier does not have it. */
+function isTemplateCarried(construct: string): boolean {
+	return TEMPLATE_CARRIED_CONSTRUCTS.has(construct) || construct.startsWith(LAYOUT_NOTE_PREFIX)
+}
 
 /**
  * Default import specifier for the emitted script — this package's *published* name, which
@@ -120,7 +130,7 @@ export function printScript(ir: DeckIr, options: PrintScriptOptions = {}): Print
 	const needsFallbackLayout = ir.slides.some((slide) => slide.source === 'authored' && slide.layout === null)
 
 	// Built last: the tier's own notes are only known once the slides have been walked.
-	const notes = [...ir.fidelity.filter((note) => !TEMPLATE_CARRIED_CONSTRUCTS.has(note.construct)), ...collector.notes]
+	const notes = [...ir.fidelity.filter((note) => !isTemplateCarried(note.construct)), ...collector.notes]
 
 	const lines: string[] = [
 		header(

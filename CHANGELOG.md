@@ -60,6 +60,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`ts-pptx/script`'s standalone tier rebuilds a layout's decoration instead of dropping
+  it.** A source layout became a `defineSlideMaster` call carrying a title and a
+  background, and nothing else: the bands, rules, wordmarks, triangles and quote marks
+  that make a deck recognisable as somebody's template were declared lost as
+  `master.decoration` and thrown away, so a standalone script produced a deck that
+  rendered its slides faithfully and wore a different suit. Each of a layout's
+  non-placeholder shapes is now transcribed into that layout's
+  `defineSlideMaster({ objects })` array, by **the same mapper the slides go through** —
+  so a rectangle on a layout is decided by the code that decides one on a slide, and the
+  two cannot drift. Fills, gradients, scheme tokens, custom geometry, adjust handles,
+  rotation, effects and text all come across on the shape mapper's existing terms.
+
+  The note claiming this was unwritable was wrong about which half was holding it, and
+  measuring it is what showed that: `{ shape: { type } }` accepts any preset, `custGeom`
+  included, and its `ShapeProps` carries fill, line, shadow and adjust handles, so most
+  of the supposed write-side ceiling was already reachable. Three kinds genuinely are
+  not, and each is handled rather than assumed away. A **group** has no variant, so it is
+  flattened into its children — visually lossless, because `absoluteFrame` composes the
+  group's offset, rotation, flips *and* child-space scaling into each child, and noted as
+  `layout.group` because one selectable object becomes several. A **connector** has no
+  variant either and is re-authored as a `line` preset: it paints the identical stroke,
+  keeps its rotation (which the slide-side `addConnector` mapping loses), and matters
+  more than it sounds — PowerPoint's line tool authors a `p:cxnSp`, so connectors are 18
+  of the 45 shapes the fixture corpus's layouts actually draw. A **table** is dropped,
+  with a `layout.decoration` note naming the shape.
+
+  Layout **placeholders** are still not emitted, and that is unchanged and deliberate:
+  the write path seeds every slide with each layout placeholder it did not populate, so
+  re-declaring one would put an empty ghost shape on every slide bound to the layout.
+  `master.decoration` survives for a **master's** own shapes and moves from a reading
+  problem to a structural one — `defineSlideMaster` creates a *layout* under the single
+  shared master, so a master's shape tree has no write-side counterpart to receive them.
+
+  Fidelity notes recorded against a layout shape are namespaced under a new
+  `LAYOUT_NOTE_PREFIX` (`layout.`), exported from `ts-pptx/script`, because the shared
+  mapper speaks the slide vocabulary: `layout.line.width` is `line.width` seen from the
+  chrome. The prefix is load-bearing twice over — the template-anchored tier suppresses
+  every note under it (it rebuilds no layout, so none of them describes its output), and
+  the round-trip check refuses to let one excuse a difference on a *slide*, which a
+  shape name repeated between a layout and the slides bound to it would otherwise do.
+  `isKnownNoteConstruct` is exported alongside it and resolves a prefixed construct to
+  its slide entry in the coverage table.
+
 - **`SlideMaster.shapes` / `SlideLayout.shapes` reach a template's own content, and
   `showMasterSp` says whether to draw it** (#12). Both classes exposed `placeholders`
   and nothing else, so the `p:sp`/`p:pic`/`p:graphicFrame` under a master's or layout's

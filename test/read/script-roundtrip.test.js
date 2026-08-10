@@ -35,6 +35,7 @@ import { Presentation } from '../../dist/read.js'
 import {
 	canonicalDeckIr,
 	diffDeckIr,
+	isKnownNoteConstruct,
 	knownNoteConstructs,
 	printScript,
 	printStandaloneScript,
@@ -188,15 +189,28 @@ describe('script round trip — the note coverage table', () => {
 		// note silently turns the round trip back into a snapshot. Checked against the notes the
 		// corpus actually produces rather than a hand-kept list — and against *both* printers,
 		// since each suppresses notes the other keeps and adds ones of its own.
-		const known = new Set(knownNoteConstructs())
+		//
+		// `isKnownNoteConstruct` rather than the raw key set, because a `layout.`-prefixed
+		// construct resolves through its slide twin: a layout's decoration is transcribed by the
+		// slide shape mapper, so `layout.line.width` is `line.width`'s entry seen from the chrome.
 		const missing = new Set()
 		for (const name of fixtureNames) {
 			const ir = readModelToIr(await Presentation.load(await readFile(path.join(FIXTURES, name))))
 			for (const note of [...printScript(ir).notes, ...printStandaloneScript(ir).notes]) {
-				if (!known.has(note.construct)) missing.add(note.construct)
+				if (!isKnownNoteConstruct(note.construct)) missing.add(note.construct)
 			}
 		}
 		assertEqual([...missing].sort().join(', '), '', 'note constructs with no entry in the coverage table')
+	})
+
+	test('the table itself is the only thing `isKnownNoteConstruct` accepts', async () => {
+		// The fallback above widens what counts as known, so it needs a floor: without this a
+		// prefix rule that accepted anything would make the check above vacuous.
+		const known = new Set(knownNoteConstructs())
+		assert(known.has('line.width'), 'the table lists the slide constructs')
+		assert(isKnownNoteConstruct('layout.line.width'), 'and resolves the layout spelling of one')
+		assert(!isKnownNoteConstruct('layout.not.a.construct'), 'but invents no entry for a construct it lacks')
+		assert(!isKnownNoteConstruct('line.widht'), 'and a typo stays unknown')
 	})
 
 	test('the two tiers suppress different notes, and neither suppresses one it causes', async () => {

@@ -33,7 +33,8 @@
  * A clean report means "nothing the converter can distinguish was lost", never "nothing was
  * lost".
  */
-import type { FidelityNote } from '../fidelity.js'
+import { LAYOUT_NOTE_PREFIX, type FidelityNote } from '../fidelity.js'
+import { collectObjectNames } from './canonical.js'
 import type { CanonicalCall, CanonicalChrome, CanonicalDeck, CanonicalSlide } from './canonical.js'
 import type { IrValue } from '../ir.js'
 
@@ -215,9 +216,12 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	'image.svg': ['svg', 'data', '$asset'],
 	'line.arrowSize': ['beginArrowType', 'endArrowType'],
 	// The chrome notes. Most are empty for the reason stated above and it is the common case
-	// here rather than the exception: `a:fmtScheme`, `p:txStyles`, master/layout decoration and
-	// layout placeholder definitions are all absent from the IR on *both* sides — nothing reads
-	// them — so there is nothing for a note to exclude and the note exists for a human.
+	// here rather than the exception: `a:fmtScheme`, `p:txStyles`, a *master's* decoration and a
+	// layout's placeholder definitions are all absent from the IR on *both* sides — the first two
+	// because nothing reads them, the other two because nothing writes them — so there is nothing
+	// for a note to exclude and the note exists for a human. A *layout's* decoration is the one
+	// that left this state: it is now in the IR as `objects` and is genuinely compared, which is
+	// what makes the `layout.` entries below worth stating separately.
 	// `p:clrMap` is the subtle one: a remapped token changes what every scheme colour in the
 	// deck resolves to, and the round trip still cannot see it, because the IR reports the token
 	// verbatim rather than its resolved hex. That is exactly the blind spot this file's header
@@ -232,6 +236,16 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	'master.placeholders': [],
 	'master.txStyles': [],
 	'theme.fmtScheme': [],
+	// The two layout-shape notes with no slide counterpart to inherit a mapping from. Both are
+	// empty for the same reason, and it is worth spelling out because both *look* like they
+	// should exclude something. A table on a layout is absent from the `objects` array on both
+	// sides — the source's because this converter skips it, the output's because it was never
+	// written — so there is no difference to excuse. A flattened group is stronger still: the
+	// source layout's group becomes N loose objects here and the output layout genuinely *has*
+	// N loose objects, so the two agree exactly and the note is a caveat for a human reading the
+	// emitted script, not an exclusion.
+	'layout.decoration': [],
+	'layout.group': [],
 	'line.dash': ['dashType'],
 	'line.width': ['width'],
 	'media.audioVideo': ['*'],
@@ -315,7 +329,11 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	'text.vert': ['vert'],
 }
 
-/** Every note construct this table knows how to match, for a test to check against. */
+/**
+ * Every note construct this table knows how to match, for a test to check against. The
+ * `layout.` spellings are not listed — they resolve through {@link isKnownNoteConstruct},
+ * which is what a corpus check should use.
+ */
 export function knownNoteConstructs(): string[] {
 	return Object.keys(NOTE_FIELDS).sort()
 }
@@ -412,7 +430,7 @@ function diffChrome(expected: CanonicalChrome, actual: CanonicalChrome, out: IrD
 		out.push({
 			slideNumber: 0,
 			shapeName: titleOf(before ?? after ?? null),
-			nestedNames: [],
+			nestedNames: decorationNames(before, after),
 			path,
 			field: 'master',
 			kind,
@@ -444,7 +462,10 @@ function diffChrome(expected: CanonicalChrome, actual: CanonicalChrome, out: IrD
 			return
 		}
 		claimed.add(after)
-		diffValue(before, after, `chrome.masters[${index}]`, 'master', 0, null, [], out)
+		// A layout's decoration rides inside this one value, so a note scoped to one of those
+		// shapes has no call of its own to be matched against — the same problem a group's child
+		// has on a slide, and the same answer.
+		diffValue(before, after, `chrome.masters[${index}]`, 'master', 0, null, decorationNames(before, after), out)
 	})
 
 	actual.masters.forEach((after, index) => {
@@ -465,6 +486,16 @@ function uniqueByTitle(masters: IrValue[]): Map<string, IrValue> {
 		if (title !== null && counts.get(title) === 1) out.set(title, master)
 	}
 	return out
+}
+
+/**
+ * The `objectName`s of every decorative shape in a master's props, taking both sides so a
+ * shape that dropped out is still named by the source's.
+ */
+function decorationNames(before: IrValue | undefined, after: IrValue | undefined): string[] {
+	const names = new Set<string>()
+	for (const master of [before, after]) if (master !== undefined) collectObjectNames(master, names)
+	return [...names]
 }
 
 /** A canonical master's `title`, which is its identity across the round trip. */
@@ -665,6 +696,11 @@ function scalarDifference(
 function declaringNote(difference: IrDifference, notes: FidelityNote[]): FidelityNote | null {
 	for (const note of notes) {
 		if (note.slideNumber !== null && note.slideNumber !== difference.slideNumber) continue
+		// A layout-shape note is about the chrome, which the diff reports in the deck-level bucket.
+		// Without this a themed outline on a layout — recorded with no slide number, and named
+		// after a shape whose name repeats between the layout and the slides bound to it — would
+		// excuse the same difference on a *slide*, which is a loss nothing declared.
+		if (note.construct.startsWith(LAYOUT_NOTE_PREFIX) && difference.slideNumber !== 0) continue
 		// A shape-scoped note covers only that shape; a slide- or deck-scoped one covers any.
 		if (
 			note.shapeName !== null &&
@@ -673,11 +709,30 @@ function declaringNote(difference: IrDifference, notes: FidelityNote[]): Fidelit
 		) {
 			continue
 		}
-		const fields = NOTE_FIELDS[note.construct]
+		const fields = noteFields(note.construct)
 		if (!fields) continue
 		if (fields.includes('*') || fields.includes(difference.field)) return note
 	}
 	return null
+}
+
+/**
+ * The fields a construct is a promise about.
+ *
+ * A layout-shape construct falls back to its slide counterpart, which is the whole point of
+ * borrowing the vocabulary: `layout.line.width` is `line.width` on a layout and covers exactly
+ * the same field. Only the two constructs with no slide twin need entries of their own.
+ */
+function noteFields(construct: string): readonly string[] | undefined {
+	return NOTE_FIELDS[construct] ?? (construct.startsWith(LAYOUT_NOTE_PREFIX) ? NOTE_FIELDS[construct.slice(LAYOUT_NOTE_PREFIX.length)] : undefined) // prettier-ignore
+}
+
+/**
+ * `true` when the coverage table can match this construct — directly or through the
+ * layout-shape fallback. The check a corpus test runs over every note both printers emit.
+ */
+export function isKnownNoteConstruct(construct: string): boolean {
+	return noteFields(construct) !== undefined
 }
 
 function brief(value: IrValue | undefined): string {

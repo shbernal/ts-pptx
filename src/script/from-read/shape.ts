@@ -15,6 +15,11 @@
  * reports `null` for width and dash, because there is a resolved-colour path and no
  * resolved-width path. In the corpus that was every such shape, so a themed 2pt
  * border silently becomes a 1pt default. Each one is noted here rather than quietly thinned.
+ *
+ * The same dispatch serves the deck's *chrome*: {@link masterObject} re-tags a call as an
+ * entry in a `defineSlideMaster({ objects })` array, so a rectangle on a layout is transcribed
+ * by the code that transcribes one on a slide. Sharing it is the point — a second mapper would
+ * be a second set of decisions about the same OOXML, drifting from this one silently.
  */
 import type {
 	AnyShape,
@@ -27,7 +32,7 @@ import type {
 } from '../../read/api/shapes.js'
 import { isAutoShape, isConnector, isGraphicFrame, isGroupShape, isPicture } from '../../read/api/shapes.js'
 import type { NoteScope } from '../fidelity.js'
-import type { AssetRef, CallIr, IrValue } from '../ir.js'
+import { isAssetRef, type AssetRef, type CallIr, type IrValue } from '../ir.js'
 import { alphaToTransparency, compact, emu, isWritableSchemeToken, literalColor, orUndefined } from './values.js'
 import { gradientStops, patternOption } from './surface-fill.js'
 import { pictureFillOption, type PictureFillSubject } from './picture-fill.js'
@@ -96,14 +101,7 @@ export function shapeCall(shape: AnyShape, notes: NoteScope, assets: AssetResolv
 	const scoped = notes.forShape(shape.name || null)
 
 	if (shape.hidden) {
-		// `p:cNvPr/@hidden` has no write-API counterpart, so a hidden shape would come back
-		// visible. Omitting it preserves what the deck looks like, which is the lesser loss.
-		scoped.note(
-			'shape.hidden',
-			'dropped',
-			'unwritable',
-			'a hidden shape has no write-API expression; it is omitted rather than emitted visible'
-		)
+		noteHidden(scoped)
 		return null
 	}
 
@@ -117,6 +115,20 @@ export function shapeCall(shape: AnyShape, notes: NoteScope, assets: AssetResolv
 	// `never` here. Left as a floor so a sixth shape kind fails to compile at the call sites
 	// that assume a call, rather than silently falling through to a silent drop.
 	return null
+}
+
+/**
+ * `p:cNvPr/@hidden` has no write-API counterpart, so a hidden shape would come back visible.
+ * Omitting it preserves what the deck looks like, which is the lesser loss. Shared with the
+ * layout-decoration mapper below, whose connector arm does not pass through {@link shapeCall}.
+ */
+function noteHidden(notes: NoteScope): void {
+	notes.note(
+		'shape.hidden',
+		'dropped',
+		'unwritable',
+		'a hidden shape has no write-API expression; it is omitted rather than emitted visible'
+	)
 }
 
 /* ===== position, fill, line, effects — shared by every shape kind ===== */
@@ -790,4 +802,113 @@ function asGroupChild(call: CallIr): IrValue | null {
 /** Attach the source name to a call, when the shape had one. */
 function nameOf(shape: AnyShape): { sourceName?: string } {
 	return shape.name ? { sourceName: shape.name } : {}
+}
+
+/* ===== a layout's own shapes ===== */
+
+/**
+ * One shape from a **layout's** shape tree as a `SlideMasterObject` — an entry in the
+ * `objects` array of a `defineSlideMaster` call.
+ *
+ * Everything about the shape itself is decided by {@link shapeCall}, so a rectangle on a
+ * layout is transcribed by the same code that transcribes one on a slide and cannot drift
+ * from it. Only the *envelope* differs: `objects` is a key-tagged union rather than a method
+ * name plus arguments — the same shape `GroupChildProps` takes — which is why this reads as a
+ * sibling of {@link asGroupChild}.
+ *
+ * `notes` must already be a `layoutShapeScope`, so the slide vocabulary this borrows lands
+ * under `layout.` and cannot be mistaken for a loss on a slide.
+ *
+ * Two methods have no variant in the union. `addGroup` never reaches here — the layout walk
+ * flattens a group into its children first, since children already carry slide-absolute
+ * coordinates. `addTable` genuinely has nowhere to go, and is the one kind this reports as
+ * lost.
+ */
+export function masterObject(shape: AnyShape, notes: NoteScope, assets: AssetResolver): IrValue | null {
+	// The connector arm bypasses `shapeCall`, so it carries the hidden check with it.
+	if (isConnector(shape)) {
+		const scoped = notes.forShape(shape.name || null)
+		if (shape.hidden) {
+			noteHidden(scoped)
+			return null
+		}
+		return connectorObject(shape, scoped)
+	}
+
+	const call = shapeCall(shape, notes, assets)
+	if (!call) return null
+
+	const [first, second] = call.args
+	switch (call.method) {
+		case 'addText':
+			return { text: compact({ text: first, options: second }) ?? {} }
+		case 'addShape':
+			return { shape: compact({ type: first, options: second }) ?? {} }
+		case 'addImage':
+			return { image: first ?? {} }
+		case 'addChart': {
+			// `addChart(data, options)` carries the chart type inside its options, while a master
+			// object names it separately. Lifted back out rather than moved: `addChildDefinition`
+			// passes the whole options object on to `addChartDefinition` as well, which is where a
+			// chart's `type` is read from in the first place.
+			const options = second !== null && typeof second === 'object' && !Array.isArray(second) && !isAssetRef(second) ? second : null // prettier-ignore
+			const type = options?.['type']
+			if (type === undefined || first === undefined) return null
+			return { chart: compact({ type, data: first, opts: options }) ?? {} }
+		}
+		default:
+			notes
+				.forShape(shape.name || null)
+				.note(
+					'decoration',
+					'dropped',
+					'unwritable',
+					`a ${call.method.replace(/^add/, '').toLowerCase()} on a slide layout has no defineSlideMaster({ objects }) variant — the union covers a chart, an image, a shape and a text box — so it is dropped from the layout the output rebuilds`
+				)
+			return null
+	}
+}
+
+/**
+ * A `Connector` as a `line` shape descriptor, which is the only way one reaches a layout.
+ *
+ * The alternative to this arm is dropping every connector a layout carries, and in the fixture
+ * corpus that is 18 of the 45 shapes every layout actually draws — because PowerPoint's
+ * line tool authors a `p:cxnSp`, so a plain horizontal rule under a title is usually a
+ * connector rather than a shape. Drawing it as a `line` preset paints the identical stroke.
+ *
+ * What that costs is the endpoint binding, and on a layout it costs nothing that was working:
+ * `a:stCxn`/`a:endCxn` reference shapes in the *layout's* tree, and nothing a slide later puts
+ * on top is one of them. The slide-side `addConnector` mapping loses the binding too.
+ *
+ * It is also better than that mapping in one respect. `addConnector` takes two endpoints and
+ * no rotation, so a rotated connector lands along the unrotated diagonal of its box; a shape
+ * carries `rotate`, so this keeps it.
+ */
+function connectorObject(shape: Connector, notes: NoteScope): IrValue | null {
+	if (!shape.absoluteFrame) return null
+
+	if (shape.startConnection || shape.endConnection) {
+		notes.note(
+			'connector.binding',
+			'dropped',
+			'unsupported',
+			'this connector is bound to shapes on the layout; it is re-authored as a line shape, which paints the same stroke but no longer follows them'
+		)
+	}
+
+	// No `fill`: a connector's `p:spPr` has no fill that a line geometry could show, and asking
+	// `fillOption` for one would resolve the `p:style/a:fillRef` a `p:cxnSp` always carries into
+	// a colour that paints nothing on the source and a filled box on the output.
+	const options = compact({
+		...positionOptions(shape, notes),
+		...transformOptions(shape),
+		line: lineOption(shape, notes),
+		shadow: shadowOption(shape, notes),
+		glow: glowOption(shape),
+		objectName: shape.name || undefined,
+	})
+	// Through `compact` like the other arms, so every emitted descriptor spells its keys in the
+	// same order and the printed script does not read as two different mappers.
+	return { shape: compact({ type: 'line', options: options ?? {} }) ?? {} }
 }

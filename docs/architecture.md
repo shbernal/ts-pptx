@@ -101,10 +101,12 @@ exports and let this repository own the internal OOXML generation details.
   byte-identical, so only slide content is ever regenerated.
   `printStandaloneScript` emits a module that depends on nothing but this
   package, re-authoring the theme and one `defineSlideMaster` per source layout
-  from what the read model exposes. The split is not a preference: a theme's
-  `a:fmtScheme`, a master's `p:txStyles`, and master/layout decoration are
-  unreachable from *both* directions, so a rebuilt design can only ever be an
-  approximation, while a reused one is exact. Each printer therefore returns the
+  from what the read model exposes — including that layout's own decoration,
+  re-tagged through the same mapper the slides use. The split is not a
+  preference: a theme's `a:fmtScheme` and a master's `p:txStyles` are unreachable
+  from *both* directions, and a master's own decoration has no write-side
+  counterpart because `defineSlideMaster` creates a layout, so a rebuilt design
+  can only ever be an approximation, while a reused one is exact. Each printer therefore returns the
   note set that applies to **its** output — suppressing what its tier rescues and
   adding what its tier costs — and that set, not `DeckIr.fidelity`, is what a
   round-trip check excludes.

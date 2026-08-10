@@ -24,7 +24,7 @@ export type { PrintStandaloneScriptOptions } from './script/print/standalone.js'
 export type { AssetMode, PrintedScript } from './script/print/common.js'
 export { canonicalDeckIr } from './script/verify/canonical.js'
 export type { CanonicalCall, CanonicalChrome, CanonicalDeck, CanonicalSlide } from './script/verify/canonical.js'
-export { diffDeckIr, knownNoteConstructs } from './script/verify/diff.js'
+export { diffDeckIr, isKnownNoteConstruct, knownNoteConstructs } from './script/verify/diff.js'
 export type { DifferenceKind, IrDifference, RoundTripReport } from './script/verify/diff.js'
 export { isAssetRef } from './script/ir.js'
 export type {
@@ -44,6 +44,7 @@ export type {
 	TransitionIr,
 	TransitionSoundIr,
 } from './script/ir.js'
+export { LAYOUT_NOTE_PREFIX } from './script/fidelity.js'
 export type { Cause, Disposition, FidelityNote } from './script/fidelity.js'
 
 // Error taxonomy — see `entry-errors.ts`. Re-exported from every entry so `instanceof`

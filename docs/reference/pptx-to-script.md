@@ -130,7 +130,7 @@ the output keeps a layout gallery a reader recognises.
 Slide *bodies* map near one-to-one from the read model onto write-API option
 objects. Slide *chrome* does not, and four constructs are the reason. Each is
 free in the template-anchored tier and unreachable in the standalone one, and
-**no amount of printer work moves them** — three are unreachable from *both*
+**no amount of printer work moves them** — two are unreachable from *both*
 directions at once:
 
 - **`a:fmtScheme`** — the three fill, three line and three effect style lists a
@@ -141,13 +141,21 @@ directions at once:
 - **`p:txStyles`** — the master's per-level default size, face, colour, indent
   and bullet for each of the nine list levels. No read accessor, although
   `SlideMasterProps.textStyles` could author them if they could be seen.
-- **Master and layout decoration** — the shapes a layout sits on top of.
-  Documented as outside the read model's scope; the import paths carry them
-  byte-for-byte instead.
+- **A master's own decoration** — the shapes a *master* carries. Structural
+  rather than a reading gap: `defineSlideMaster` creates a layout under the one
+  shared master, so a master's shape tree has no write-side counterpart at all.
 - **`p:clrMap`** — readable, with no write-API setter.
 
 Multi-master decks add a fifth: a generated deck has a single shared master, so
 a source deck with several has no structural counterpart and collapses.
+
+A **layout's** decoration used to head that list and no longer does.
+`SlideLayout.shapes` decodes it and the converter transcribes each shape into
+that layout's `defineSlideMaster({ objects })` array — through the same mapper
+the slides go through, so a band or a wordmark on a layout is decided by the
+code that decides one on a slide. What is left is narrow and named per shape
+under the `layout.` prefix: a table has no variant in that union, and a group is
+flattened into its children because the union has no `group` either.
 
 This asymmetry is why the template-anchored tier shipped first. It rides
 primitives that already existed and were already tested, and it makes those five
@@ -362,18 +370,35 @@ fixture, which is the honest headline of that tier:
 | `deck.docProps` | 44/44 | 5 of 12 document properties have setters |
 | `master.default` | 44/44 | every presentation carries an unremovable blank `DEFAULT` layout |
 | `master.background` | 43/44 | a `p:bgRef` theme reference is baked to the colour it resolves to |
-| `master.decoration` | 6/44 | the shapes a layout sits on top of |
+| `master.decoration` | 6/44 | the shapes a *master* carries — `defineSlideMaster` creates a layout, so there is nowhere to put them |
 | `master.name` | 5/44 | a layout name containing a tab or line break collapses |
 | `master.colorMap` | 4/44 | `p:clrMap` has no setter |
 | `master.multiple` | 1/44 | multi-master decks collapse to one |
 | `master.nameCollision` | 1/44 | layout titles are deduplicated, since a title doubles as a lookup key |
 
-Chrome losses are deliberately **rolled up**: `master.decoration` and
-`master.placeholders` are one note each, naming the layouts and the counts. A
-twelve-layout deck emitting one note per layout would put twelve near-identical
-paragraphs at the top of the script and bury the per-shape notes underneath that
-a reader can act on. Per deck the tier adds four to nine notes, not fifty
-(across the corpus: 994 notes against the template-anchored tier's 712).
+A **`layout.` prefix** marks the rest: a loss in re-authoring a *layout's* own
+decoration, which the standalone tier rebuilds into that layout's
+`defineSlideMaster({ objects })`. The vocabulary after the prefix is the slide
+one, because the shape mapper is shared — `layout.line.width` is `line.width`
+seen from the chrome. The prefix is not cosmetic: without it a themed outline on
+a layout would be reported by the template-anchored tier, which rebuilds no
+layout, and the round trip would let one excuse the same difference on a *slide*.
+
+| construct | fixtures | what it costs |
+|---|---|---|
+| `layout.text.bullet.inherited` | 5/44 | a decorative text box inheriting its bullet gets an explicit `a:buNone` |
+| `layout.text.color.inherited` | 4/44 | the same for an inherited run colour |
+| `layout.group` | 2/44 | a group on a layout becomes loose objects — they land unmoved, but stop being one selectable object |
+| `layout.fill.schemeToken` | 1/44 | a token outside the ten the write path maps is baked to hex |
+| `layout.shape.custGeom.guides` | 1/44 | a freeform's guides and adjust handles, as on a slide |
+| `layout.decoration` | 0/44 | a table on a layout: no `SlideMasterObject` variant at all |
+
+The two remaining rolled-up chrome notes are `master.decoration` and
+`master.placeholders`, one each, naming the counts. A twelve-layout deck
+emitting one note per layout would put twelve near-identical paragraphs at the
+top of the script and bury the per-shape notes underneath that a reader can act
+on. Per deck the tier adds four to seventeen notes, not fifty (across the
+corpus: 1018 notes against the template-anchored tier's 712).
 
 ### The read path is the binding constraint
 
@@ -395,14 +420,26 @@ colour also opened one write-side gap of its own: `text.bullet.schemeToken`
 (1/44), an `a:buClr/a:schemeClr` outside the ten tokens the write path maps,
 which is baked to a literal hex and stops tracking the theme.
 
-`master.decoration` (6/44) moved off `unread` for the same reason and with the
-opposite result: `SlideMaster.shapes` / `SlideLayout.shapes` now decode a
-template's non-placeholder content, so the converter *sees* it — but
-`defineSlideMaster({ objects })` expresses a plain rect, line, image, chart or
-text box, and real decoration is groups, custom geometry and effects. The note
-still fires on the same six fixtures, now as `unwritable`. Closing a reader gap
-does not always close the loss; sometimes it only tells you which half was
-actually holding it.
+Layout decoration is the largest case of the same pattern, and it closed
+completely. It was `unread`, on the strength of the read model documenting a
+template's non-placeholder content as outside its scope. `SlideLayout.shapes`
+decodes it now, and the guess about the *write* side turned out to be wrong: the
+`objects` union covers a plain rect, line, image, chart and text box, but it
+also covers any preset via `{ shape: { type } }` — which includes `custGeom` —
+and its `ShapeProps` carries fill, line, shadow, rotation and adjust handles. So
+what looked like a write-side ceiling was mostly reachable, and re-tagging the
+existing slide mapper's output was the whole of the work. What genuinely does
+not fit is a table (no variant) and a group (no variant, so it is flattened into
+children that land unmoved). A connector has no variant either and is re-authored
+as a `line` preset, which paints the identical stroke and, unlike the slide-side
+`addConnector`, keeps its rotation.
+
+A **master's** decoration stayed lost, and moved from `unread` to `unwritable`
+rather than closing: `defineSlideMaster` creates a layout, so a master's shape
+tree has no counterpart to receive them at all. Closing a reader gap does not
+always close the loss; sometimes it only tells you which half was actually
+holding it — and sometimes, as here, the half everyone assumed was holding it
+was not.
 
 ## Verifying a conversion
 
@@ -489,10 +526,18 @@ rather than the working directory.
 - **What the reader still does not decode** remains the binding constraint — the
   converter cannot print what it cannot see:
   `lnRef` width/dash, `a:fillToRect`, `effectRef`, custGeom
-  `gdLst`/`ahLst`/`cxnLst`, `a:tabLst`, `a:prstTxWarp`, plus `p:txStyles` and
-  master/layout decoration. Every one of them raises the ceiling both tiers build
-  against. The bullet entries are gone from this list because `bulletDetail`
-  closed them.
+  `gdLst`/`ahLst`/`cxnLst`, `a:tabLst`, `a:prstTxWarp`, plus `p:txStyles`. Every
+  one of them raises the ceiling both tiers build against. The bullet entries are
+  gone from this list because `bulletDetail` closed them, and master/layout
+  decoration because `SlideMaster.shapes` / `SlideLayout.shapes` did — a layout's
+  is now re-authored, and a master's is blocked on the write side instead.
+- **A table on a layout, and `defineSlideMaster({ objects })` in general.** The
+  union has no `table` variant and no `group` variant. A group is flattened into
+  children that land unmoved, so it costs an editing affordance rather than a
+  pixel; a table is dropped outright. Both are write-side gaps now, not reading
+  ones. Neither fires on the corpus, and the write API cannot author either onto
+  a layout, so the table arm is proved against a `p:graphicFrame` relocated into
+  a layout part.
 - **A frequency-weighted corpus.** `test/read/fixtures/` is construct-targeted —
   one feature per deck — so every count on this page is a coverage argument and
   not a frequency one. Point `--dir` at real decks to get the other kind.
