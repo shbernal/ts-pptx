@@ -5,11 +5,11 @@
 // self-contained rather than sharing a module". That trade stops paying once the scripts are in
 // the same language as the rest of the tooling and can just import each other.
 //
-// The parser is deliberately NOT a general YAML parser, and the `yaml` devDependency is
-// deliberately not used here. It recognizes exactly the shape the docs kit writes — scalars,
-// block lists, and inline `[a, b]` lists — and ignores anything else. A real parser would reject
-// frontmatter this one tolerates, which would turn `docs:check` from a lint into a gate on YAML
-// pedantry; the checks that matter are asserted explicitly in `docs-check.mjs`.
+// The parser is deliberately NOT a general YAML parser, and this repo deliberately carries no
+// YAML library to make it one — do not add one for this. It recognizes exactly the shape the docs
+// kit writes — scalars, block lists, and inline `[a, b]` lists — and ignores anything else. A real
+// parser would reject frontmatter this one tolerates, which would turn `docs:check` from a lint
+// into a gate on YAML pedantry; the checks that matter are asserted explicitly in `docs-check.mjs`.
 
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
