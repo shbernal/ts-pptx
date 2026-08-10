@@ -36,26 +36,28 @@ office-suite interop quirks (WPS round-trips, etc.), which AGENTS.md puts out of
 
 ## Workflow
 
-1. **Build and generate decks.** From the repo root:
-   - `pnpm -w run build`
-   - Full surface: `cd demos/node && node demo.js All` → `output/TsPptx_Demo_All.pptx`.
-   - Or one feature group: `node demo.js <Group>` where `<Group>` is one of
-     `Master | Chart | Image | Media | Shape | Text | Table` →
-     `output/TsPptx_Demo_<Group>.pptx`.
+1. **Generate decks.** From the repo root, `pnpm demos:build` (it rebuilds `dist/` first
+   only if stale) writes both showcases to `demos/showcases/output/`:
+   `Kestrel_Q3_Business_Review.pptx` (charts, tables, groups, masters) and
+   `Field_Notes_Four_Cities.pptx` (images, media, a 3D model, picture effects). Between
+   them they reach most of the emitter. `pnpm demos:build quarterly-review` builds one.
+
+   The showcases are decks, not a feature matrix — there is no per-feature generator to
+   ask for a single construct. For that, write a focused deck (step 3).
 
 2. **Open the decks in PowerPoint.** Point the smoke script at the output:
    ```
-   & '.agents/skills/powerpoint-desktop-smoke/scripts/smoke-open.ps1' -Path 'demos/node/output/*.pptx'
+   & '.agents/skills/powerpoint-desktop-smoke/scripts/smoke-open.ps1' -Path 'demos/showcases/output/*.pptx'
    ```
    It opens each deck in a timeout-guarded background job (a modal dialog blocks only that
    job, never the session), reaps only the PowerPoint it spawned, prints `PASS`/`FAIL`/`HANG`
    per deck, and exits non-zero if any deck fails. Use it the same way on any single deck.
 
-3. **Bisect a failure.** If the `All` deck fails, generate each feature group separately
-   (step 1) and re-run step 2 to find the culprit group. Then narrow further with a
-   minimal repro **written inside `demos/node/`** (so the `@shbernal/ts-pptx` workspace
-   dependency resolves) that adds just the suspect construct — and shrink it until a single
-   `addX` call flips PASS→FAIL.
+3. **Bisect a failure.** If a showcase fails, narrow it with a minimal repro **written
+   inside `demos/showcases/`** (so the `@shbernal/ts-pptx` workspace dependency resolves)
+   that adds just the suspect construct, and shrink it until a single `addX` call flips
+   PASS→FAIL. `scripts/powerpoint-com-smoke.mjs` (`pnpm run test:com`) takes any deck with
+   `--file <deck.pptx>` for the corruption-open check alone.
 
 4. **Confirm the structural defect.** Extract the failing package and inspect the offending
    slide part. Common culprits and how to see them:

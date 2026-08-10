@@ -19,13 +19,13 @@
   release / pre-commit gate.
 
 .PARAMETER Path
-  One or more .pptx paths or globs (e.g. demos/node/output/*.pptx).
+  One or more .pptx paths or globs (e.g. demos/showcases/output/*.pptx).
 
 .PARAMETER TimeoutSec
   Per-deck open timeout. Default 90.
 
 .EXAMPLE
-  & .agents/skills/powerpoint-desktop-smoke/scripts/smoke-open.ps1 -Path demos/node/output/*.pptx
+  & .agents/skills/powerpoint-desktop-smoke/scripts/smoke-open.ps1 -Path demos/showcases/output/*.pptx
 #>
 param(
   [Parameter(Mandatory = $true, Position = 0)]

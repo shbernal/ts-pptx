@@ -7,9 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing in the published package changed. Everything below is the repository and the
-project site; it is here because the showcase deck and the demo layout are things people
-outside this repo look at.
+Nothing the published package *does* changed — the one `src/` edit below swaps a raw NUL
+byte for its escape, which is the same value at runtime. Everything else is the repository
+and the project site; it is here because the showcase deck and the demo layout are things
+people outside this repo look at.
 
 ### Changed
 
@@ -53,6 +54,61 @@ outside this repo look at.
   and runs in `verify`, `check:static` and pre-push. `.vue` files stay outside it — `tsc`
   does not read single-file components — which is why the demos page's logic is a plain
   `.ts` module and the component is markup around it.
+
+### Fixed
+
+- **Four source files were being tracked as binary, and it had already cost us.**
+  `src/diagnostics.ts`, `src/measure/font-metrics.ts`, `src/script/fidelity.ts` and
+  `www/demos/deck-preview.ts` each held a **literal `U+0000` byte** inside a template
+  literal used as a map-key separator — `` `${code}<NUL>${message}` `` and friends. Git
+  classifies such a file as binary, which is why the last two showed up as `Bin 0 -> 4739
+  bytes` and `Bin 4938 -> 6949 bytes` in their own commits rather than as readable diffs.
+
+  The bytes are now written as the `\0` escape. Same value at runtime, and the files are
+  text again: they diff, they blame, `git log -S` reaches them, and — the part that
+  matters — `grep` stops skipping them silently.
+
+  Two stale references had been hiding behind exactly that, both invisible to the passes
+  that should have caught them. `src/measure/font-metrics.ts` still opened with
+  `PptxGenJS: Write-side font metrics`, the last upstream branding anywhere in `src/`,
+  which the rebrand content scrub could not see; and it still cited
+  `PLAN-measured-text-fit.md`, consolidated into `docs/measured-text-fit.md` back in
+  `604ff7cf`, which `path-refs:check` does not catch because a citation needs a `/` to be
+  recognised as a path. Both now say what is true.
+
+- **The desktop-smoke skill told agents to run a generator that no longer exists.**
+  `.agents/skills/powerpoint-desktop-smoke/` walked through `cd demos/node && node demo.js
+  All` and a per-feature-group `node demo.js <Group>`, against
+  `demos/node/output/TsPptx_Demo_*.pptx`. That generator went with the upstream-era demos;
+  `demos/node/` is one HTTP-streaming example now. The workflow is rewritten around
+  `pnpm demos:build` and `demos/showcases/output/`, and the bisect step no longer promises
+  a feature-group split there is no generator for. `path-refs:check` does not reach
+  `.agents/`, so nothing had flagged it.
+
+- **Two config comments described files that had been renamed.** `.oxfmtrc.jsonc`
+  justified ignoring `docs/docs.json` by citing `scripts/docs-new.py` and
+  `scripts/docs-init.py` and "both python writers"; they are `.mjs`, and write with
+  `JSON.stringify(config, null, 2)`. The reasoning was still correct, the evidence for it
+  was not. It also still ignored `demos/browser/js/*`, a tree not in this repository.
+
+### Removed
+
+- **40 of the 53 files in `demos/common/` — about 34 MB of 37 MB.** They were the upstream
+  demos' feature-checklist props (`starlabs_*`, `title_bkgd*`, `cc_*`, `fediverse_*`,
+  `krita_*`, `sample.{aif,avi,m4v,mov,mp3,mpg,wav}`, `earth-big.mp4`, `base64Images.js`,
+  and the rest), and nothing referenced them: not a showcase, not a test, not the browser
+  harness. What is left is the 13 files the Field Notes deck draws, the regression suite
+  loads, and `scripts/browser-harness-server.mjs` serves.
+
+- **`tslib` and `@arethetypeswrong/core` from `devDependencies`.** No tsconfig sets
+  `importHelpers` and nothing in `dist/` imports tslib; it arrived in a bulk dependency
+  bump and was never used. `@arethetypeswrong/core` is a direct dependency of
+  `@arethetypeswrong/cli` at an *exact* pin, so declaring it again here was a second,
+  looser constraint on the same package whose only possible effect was to drift out of
+  step with the pin the cli actually wants.
+
+- **`demos/.prettierrc.json`.** Prettier is gone; oxfmt does not read it, `demos/**` is
+  oxlint-ignored, and `format:run`'s globs do not reach it. It configured nothing.
 
 ## [3.2.0] - 2026-08-10
 
