@@ -303,7 +303,6 @@ Both tiers, in corpus order:
 | `text.color.default` | 8/44 | unread | nothing resolves what this run inherits, so the write path paints it black — the one case where the output colour is not merely frozen but possibly *wrong* |
 | `line.width` | 7/44 | unread | an outline from the theme line matrix (`p:style/a:lnRef`) keeps its colour and loses its width and dash |
 | `slide.animation` | 7/44 | unread | build animation has no structural reader |
-| `text.indent` | 5/44 | unwritable | `a:pPr/@marL`/`@indent` have no option; only the discrete `indentLevel` does, so hanging indents flatten |
 | `media.audioVideo` | 2/44 | unread | only the poster frame is readable, so embedded A/V becomes a still image |
 | `text.equation` | 2/44 | unread | the whole `m:` namespace is absent from the read path, so OMML math is invisible |
 
@@ -329,6 +328,22 @@ bullet child) maps onto it and `{ kind: 'none' }` (a stated `a:buNone`) still ma
 onto `false`. The distinction always survived the read leg; it died on the write
 leg, which made this a missing option rather than an unreadable construct. Neither
 state notes now, and `layout.text.bullet.inherited` closes with it.
+
+**A paragraph's own margins are not a loss either — and they were the other half
+of the same element.** `text.indent` read 5/44 and was the largest note left on
+`a:pPr` once the bullet one closed. `a:pPr/@marL` and `@indent` had no write
+option at all, so whichever `bullet` state a paragraph mapped onto decided them:
+a drawn bullet re-hung the first line by the writer's own 27pt default no matter
+what the source said, and `bullet: false` flattened both to zero. `paraMarginLeft`
+and `paraIndent` state them now, in points, with `'inherit'` for the paragraph
+that states neither — which a bulleted paragraph needs, since omitting the option
+is what writes the default. That is the third state again, one attribute over
+from `bullet: 'inherit'`, and the reader did not move here either:
+`Paragraph.marginLeftPt` and `Paragraph.indentPt` already separated a stated
+margin from an absent one. The note was empty in the round trip's exclusion table
+— neither IR carried the field, so the check compared two models both missing it
+— which is why closing it is what makes the margins *verified* rather than merely
+declared.
 
 **A styled cell's own fill is not a loss.** It used to be — the note read at 7
 fixtures, because `resolvedFill` answers "what colour is this cell" by folding
@@ -443,8 +458,8 @@ The two remaining rolled-up chrome notes are `master.decoration` and
 `master.placeholders`, one each, naming the counts. A twelve-layout deck
 emitting one note per layout would put twelve near-identical paragraphs at the
 top of the script and bury the per-shape notes underneath that a reader can act
-on. Per deck the tier adds 4 to 13 notes, not fifty (across the corpus: 713
-notes against the template-anchored tier's 419).
+on. Per deck the tier adds 4 to 13 notes, not fifty (across the corpus: 705
+notes against the template-anchored tier's 411).
 
 ### The read path is the binding constraint
 
@@ -476,6 +491,16 @@ overwriting it, and `Paragraph.bulletDetail` already separated "no bullet child"
 missing *write* spelling, and `bullet: 'inherit'` closed it without the reader
 moving at all. A note's `cause` records the gap its author could see; it is a
 hypothesis about where the fix lives, not a finding.
+
+`text.indent` was filed the same way and closed the same way, one attribute over
+— which is the part worth generalizing. It read `unwritable` rather than
+`unread`, so its hypothesis was right about *which* leg, but the loss it
+described stopped at "hanging indents flatten to the level default" when the
+element also carried a margin that no bullet state could leave alone. Both notes
+were on the same `a:pPr`, both were closed by naming a third state on the write
+side, and neither needed a line of reader work. Where one note on an element
+turns out to be a missing write spelling, its neighbours are worth re-reading
+before they are believed.
 
 Layout decoration is the largest case of the same pattern, and it closed
 completely. It was `unread`, on the strength of the read model documenting a

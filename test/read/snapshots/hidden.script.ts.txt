@@ -8,7 +8,7 @@
  * Expects ./template.pptx (the source deck, unmodified) beside this file.
  * Writes ./output.pptx. Needs an ESM context — it uses top-level await.
  *
- * FIDELITY: 4 declared loss(es). Everything not listed here is expected to
+ * FIDELITY: 3 declared loss(es). Everything not listed here is expected to
  * survive unchanged; a difference that is not in this list is a defect, not a caveat.
  *
  * Slide 1:
@@ -19,8 +19,6 @@
  *   master or theme; the write path paints an uncoloured run black instead of leaving it to inherit, so the
  *   inherited colour is resolved and baked in and no longer tracks a theme change
  * Slide 2:
- * - text.indent (replaceTextBullet1) [dropped, unwritable] — a paragraph's own indent (a:pPr/@marL, @indent) is
- *   not expressible; only the discrete indentLevel is, so hanging indents flatten to the level default
  * - text.color.inherited (replaceTextBullet1) [flattened, unsupported] — this run inherits its colour from the
  *   placeholder, master or theme; the write path paints an uncoloured run black instead of leaving it to
  *   inherit, so the inherited colour is resolved and baked in and no longer tracks a theme change
@@ -126,11 +124,25 @@ slide2.hidden = true
 slide2.addText(
 	[
 		{
-			options: { breakLine: true, bullet: { characterCode: '2022', fontFace: 'Arial' }, color: '000000' },
+			options: {
+				breakLine: true,
+				bullet: { characterCode: '2022', fontFace: 'Arial' },
+				color: '000000',
+				paraIndent: -22.5,
+				paraMarginLeft: 22.5,
+			},
 			text: '{{bullet1}}',
 		},
 		{ text: '', options: { breakLine: true, bullet: 'inherit' } },
-		{ options: { bullet: { characterCode: '2022', fontFace: 'Arial' }, color: 'accent6' }, text: '{{bullet2}}' },
+		{
+			options: {
+				bullet: { characterCode: '2022', fontFace: 'Arial' },
+				color: 'accent6',
+				paraIndent: -22.5,
+				paraMarginLeft: 22.5,
+			},
+			text: '{{bullet2}}',
+		},
 	],
 	{
 		fit: 'resize',

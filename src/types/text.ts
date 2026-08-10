@@ -44,6 +44,10 @@ export interface TextBaseProps {
 	 * - `'inherit'` states nothing at all — no bullet child and no margin attributes — so
 	 *   the list style keeps reaching the paragraph. This is the one state omission
 	 *   cannot spell, because omitting the option means `false` here for compatibility
+	 *
+	 * The margins are only a *default* of the bullet state: {@link paraMarginLeft} and
+	 * {@link paraIndent} state `@marL`/`@indent` independently in any of the three, including
+	 * an inherited margin under a drawn bullet.
 	 * @default false
 	 */
 	bullet?:
@@ -191,6 +195,38 @@ export interface TextBaseProps {
 	 * @example 'fr-CA' // french Canadian
 	 */
 	lang?: string
+	/**
+	 * First-line indent (points) — `a:pPr/@indent`, the offset of the paragraph's FIRST line
+	 * from {@link paraMarginLeft}. Negative hangs the first line to the left of the body, which
+	 * is what a bulleted paragraph does; positive indents it to the right, the "first line
+	 * indented" prose form. PowerPoint: Paragraph > Indentation > Special.
+	 * - `'inherit'` writes no `@indent` at all, so the paragraph takes whatever its list style
+	 *   (`a:lstStyle` → placeholder → layout → master) sets — the same third state
+	 *   {@link bullet} spells, on the attribute beside it
+	 * - omitting the option keeps the bullet-derived default: a drawn bullet hangs the first
+	 *   line by its margin, `bullet: false` writes `indent="0"`, `bullet: 'inherit'` writes
+	 *   nothing
+	 * - a value here overrides all of those, in every bullet state
+	 * @example -18 // hang the first line 18pt left of the body text
+	 * @example 18 // indent the first line 18pt, prose style
+	 * @example 'inherit' // keep the list style's indent, even on a bulleted paragraph
+	 */
+	paraIndent?: number | 'inherit'
+	/**
+	 * Left margin of the paragraph (points) — `a:pPr/@marL`, where the paragraph's body text
+	 * starts. This is the paragraph's own margin, not the text frame's internal padding
+	 * (`margin`) and not the discrete outline level (`indentLevel`, which writes `a:p/@lvl`).
+	 * PowerPoint: Paragraph > Indentation > Before text.
+	 * - `'inherit'` writes no `@marL` at all, so the paragraph takes whatever its list style
+	 *   (`a:lstStyle` → placeholder → layout → master) sets — the third state that omission
+	 *   cannot spell, since omitting it writes the bullet-derived default
+	 * - omitting the option keeps that default: a drawn bullet writes its own margin (see
+	 *   `bullet.indent`), `bullet: false` writes `marL="0"`, `bullet: 'inherit'` writes nothing
+	 * - a value here overrides all of those, in every bullet state
+	 * @example 36 // body text starts 36pt (0.5in) from the frame's text edge
+	 * @example 'inherit' // keep the list style's margin, even on a bulleted paragraph
+	 */
+	paraMarginLeft?: number | 'inherit'
 	/**
 	 * Add a soft line-break (shift+enter) before line text content
 	 * @default false

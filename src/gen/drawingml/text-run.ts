@@ -18,7 +18,13 @@ import { inch2Emu, lineWidthToEmu, valToPts } from '../../units-internal.js'
 import { FIXED_PCT_PER_PERCENT, PERCENT_SCALE, ptToHundredths } from '../../units.js'
 import { warn } from '../../diagnostics.js'
 import { el, raw, voidEl, type XmlAttrs } from '../oxml/el.js'
-import { clampCharSpacingSpc, clampFontSizeSz, clampLineSpacingPts } from './clamp.js'
+import {
+	clampCharSpacingSpc,
+	clampFontSizeSz,
+	clampLineSpacingPts,
+	clampParaIndentEmu,
+	clampParaMarginEmu,
+} from './clamp.js'
 import { genXmlInlineMath, genXmlMathParagraph } from './math.js'
 import { InvalidOptionError } from '../../errors.js'
 
@@ -71,6 +77,28 @@ function emitsBulletMarkup(bullet: TextPropsOptions['bullet']): boolean {
 }
 
 /**
+ * One paragraph margin attribute's value in EMU, or `null` when the attribute is not written.
+ *
+ * Three inputs, because the option has three states and so does the attribute: an explicit
+ * number is clamped and written, `'inherit'` writes nothing, and an absent option falls back to
+ * whatever the `bullet` arm decided — which is also `null` for `bullet: 'inherit'`, the one arm
+ * that states nothing on its own.
+ * @param {number|'inherit'|undefined} option - `paraMarginLeft` / `paraIndent` as given
+ * @param {number|null} fallbackEmu - the bullet arm's default, `null` for no attribute
+ * @param {Function} clamp - the attribute's ST_* range clamp (points in, EMU out)
+ * @return {number|null} the EMU value to write, or null to omit the attribute
+ */
+function resolveParagraphMargin(
+	option: number | 'inherit' | undefined,
+	fallbackEmu: number | null,
+	clamp: (points: number) => number
+): number | null {
+	if (option === undefined) return fallbackEmu
+	if (option === 'inherit') return null
+	return clamp(option)
+}
+
+/**
  * Generate XML Paragraph Properties
  * @param {SlideObject|TextProps} textObj - text object
  * @param {boolean} isDefault - array of default relations
@@ -87,6 +115,17 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 	let strXmlTabStops = ''
 	const tag = isDefault ? 'a:lvl1pPr' : 'a:pPr'
 	let bulletMarL = valToPts(DEF_BULLET_MARGIN)
+	// The paragraph's own margins (`a:pPr/@marL` and `@indent`, in EMU). Each `bullet` arm below
+	// records the default it has always written and `paraMarginLeft`/`paraIndent` override it;
+	// `null` means the attribute is not written at all, which is what leaves the margin to the
+	// `a:lstStyle` -> placeholder -> layout -> master chain. They are resolved and appended once,
+	// after the chain, rather than by each arm — the arms decide a default, not the output.
+	let defaultMarL: number | null = null
+	let defaultIndent: number | null = null
+	// The no-bullet arm writes `indent` before `marL`; every other arm writes `marL` first.
+	// Attribute order carries no meaning to a reader, but it is byte-significant and the demo
+	// decks are pinned byte-for-byte, so each arm keeps the order it has always emitted.
+	let indentBeforeMarL = false
 
 	// NOTE: this open tag is deliberately NOT built with `openTag`/`el`. When `rtlMode` is set the
 	// historical template emits `rtl="1" ` with a TRAILING space while every attribute appended
@@ -146,6 +185,9 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 			const bulletImage = opts.bullet.image
 			const isPictureBullet = !!(bulletImage && (bulletImage.path || bulletImage.data))
 			if (opts.bullet?.indent) bulletMarL = valToPts(opts.bullet.indent)
+			// Every bullet form hangs the first line by the same margin, whichever glyph it draws.
+			defaultMarL = opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
+			defaultIndent = -bulletMarL
 			// `buClr` colors a glyph/number; it has no effect on a picture bullet, so skip it for `buBlip`.
 			if (opts.bullet.color && !isPictureBullet)
 				strXmlBulletColor = el('a:buClr', null, raw(createColorElement(opts.bullet.color)))
@@ -177,17 +219,9 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 			// wrap it here is gone — keeping both would double-escape (`&` -> `&amp;amp;`).
 			const strXmlBulletFont = opts.bullet.fontFace ? voidEl('a:buFont', { typeface: opts.bullet.fontFace }) : ''
 
-			// Every bullet form below hangs the first line by the same margin; the attributes belong to
-			// the hand-built open tag above, so they stay a fragment rather than becoming builder attrs.
-			const bulletIndentAttrs = (): string =>
-				` marL="${
-					opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
-				}" indent="-${bulletMarL}"`
-
 			if (isPictureBullet) {
 				// Picture bullet: <a:buBlip> references a slide media rel registered in addText() (`_rId`).
 				// No `buFont` (there is no glyph typeface), but `buSzPct` still scales the image height.
-				paragraphPropXml += bulletIndentAttrs()
 				if (opts.bullet._rId) {
 					// SVG bullet: the blip embeds the PNG preview (`_rId`) and references the SVG via the
 					// `asvg:svgBlip` extension (`_rIdSvg`), the same dual-rel form addImage() emits for SVG.
@@ -222,7 +256,6 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 					strXmlBullet = strXmlBulletSize + strXmlBulletFont + buChar(BulletType.DEFAULT)
 				}
 			} else if (opts.bullet.type && opts.bullet.type.toString().toLowerCase() === 'number') {
-				paragraphPropXml += bulletIndentAttrs()
 				strXmlBullet =
 					strXmlBulletSize +
 					(strXmlBulletFont || voidEl('a:buFont', { typeface: '+mj-lt' })) +
@@ -242,10 +275,8 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 					bulletCode = BulletType.DEFAULT
 				}
 
-				paragraphPropXml += bulletIndentAttrs()
 				strXmlBullet = strXmlBulletSize + strXmlBulletFont + buChar(bulletCode)
 			} else {
-				paragraphPropXml += bulletIndentAttrs()
 				strXmlBullet = strXmlBulletSize + strXmlBulletFont + buChar(BulletType.DEFAULT)
 			}
 		} else if (opts.bullet === 'inherit') {
@@ -260,9 +291,8 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 			// every deck authored against it depends on that. Same resolution as `fill: { type:
 			// 'inherit' }` (#10) — name the state that had no name, leave the one that has.
 		} else if (opts.bullet) {
-			paragraphPropXml += ` marL="${
-				opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
-			}" indent="-${bulletMarL}"`
+			defaultMarL = opts.indentLevel && opts.indentLevel > 0 ? bulletMarL + bulletMarL * opts.indentLevel : bulletMarL
+			defaultIndent = -bulletMarL
 			// No `a:buSzPct` here either — `bullet: true` asks for a bullet, not for one pinned
 			// to 100% of the body size in defiance of the master's list style. Same reasoning as
 			// the `a:buNone` note just below, and it keeps `bullet: true` byte-identical to
@@ -270,9 +300,25 @@ export function genXmlParagraphProperties(textObj: SlideObject | TextProps, isDe
 			strXmlBullet = buChar(BulletType.DEFAULT)
 		} else if (!opts.bullet) {
 			// We only add this when the user explicitely asks for no bullet, otherwise, it can override the master defaults!
-			paragraphPropXml += ' indent="0" marL="0"' // FIX: specify zero indent and marL or default will be hanging paragraph
+			// FIX: specify zero indent and marL or default will be hanging paragraph
+			defaultMarL = 0
+			defaultIndent = 0
+			indentBeforeMarL = true
 			strXmlBullet = voidEl('a:buNone')
 		}
+
+		// OPTION: paraMarginLeft / paraIndent
+		// The paragraph's own `@marL`/`@indent`, which until now only the `bullet` arms decided.
+		// That conflated two facts on one element: `bullet: false` could not suppress a bullet
+		// without ALSO flattening an inherited hanging indent to zero, and no state could set a
+		// margin without drawing a bullet. An explicit value wins over the arm's default in every
+		// state, and `'inherit'` takes the attribute out entirely — the third state omission
+		// cannot spell here either, since omission is what writes the default.
+		const marLEmu = resolveParagraphMargin(opts.paraMarginLeft, defaultMarL, clampParaMarginEmu)
+		const indentEmu = resolveParagraphMargin(opts.paraIndent, defaultIndent, clampParaIndentEmu)
+		const marLAttr = marLEmu === null ? '' : ` marL="${marLEmu}"`
+		const indentAttr = indentEmu === null ? '' : ` indent="${indentEmu}"`
+		paragraphPropXml += indentBeforeMarL ? indentAttr + marLAttr : marLAttr + indentAttr
 
 		// OPTION: tabStops
 		if (opts.tabStops && Array.isArray(opts.tabStops)) {
@@ -597,6 +643,12 @@ export function renderTextParagraphsXml(
 			textObj.options.indentLevel = textObj.options.indentLevel || opts.indentLevel
 			textObj.options.paraSpaceBefore = textObj.options.paraSpaceBefore || opts.paraSpaceBefore
 			textObj.options.paraSpaceAfter = textObj.options.paraSpaceAfter || opts.paraSpaceAfter
+			// `??`, not `||`, on these two: `0` is a meaningful margin (flush with the frame, and
+			// the override that suppresses a bullet's hanging indent), where the options above have
+			// no zero worth stating. A falsy test would silently swap a run's explicit `0` for the
+			// shape's value.
+			textObj.options.paraMarginLeft = textObj.options.paraMarginLeft ?? opts.paraMarginLeft
+			textObj.options.paraIndent = textObj.options.paraIndent ?? opts.paraIndent
 
 			// OOXML allows only one `<a:pPr>` per `<a:p>`, and it must precede any `<a:r>` runs.
 			// The paragraph's properties are the FIRST run's, decided once: this used to retry on

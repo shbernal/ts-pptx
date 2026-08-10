@@ -103,6 +103,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   character from text that emits no bullet to duplicate. Both now ask whether bullet markup is
   actually emitted.
 
+- **`paraMarginLeft` and `paraIndent`, the other half of that element.** #15's report named
+  the `indent="0" marL="0"` beside the `a:buNone` as "a second, separate loss on the same
+  element", and `bullet: 'inherit'` closed it only for the state that says nothing. The
+  attributes themselves still belonged to the bullet: `a:pPr/@marL` and `@indent` had no option
+  of their own, so `bullet: false` could not suppress a bullet without also flattening an
+  inherited hanging indent to zero, a drawn bullet always re-hung the first line by the
+  writer's 27pt default, and a first-line indent (a *positive* `@indent`, the prose form) was
+  unauthorable in every state. `indentLevel` is a different fact — it writes `a:p/@lvl`, the
+  discrete outline level — and `bullet.indent` reached `@marL` only by drawing a bullet with
+  it.
+
+  Both options take points and both admit `'inherit'`, which writes no attribute at all and so
+  leaves the margin to the `a:lstStyle` → placeholder → layout → master chain. Omission keeps
+  meaning what it has always meant — whatever the `bullet` state writes — so no existing deck
+  moves, and the third state is spelled rather than assumed, exactly as one element up. An
+  explicit value wins over the bullet default in every state. Out-of-range values are clamped
+  to `ST_TextMargin` (0–4032pt, unsigned) and `ST_TextIndent` (−4032–4032pt) with a warning,
+  under the new `text/paragraph-margin-out-of-range` and `text/paragraph-indent-out-of-range`
+  diagnostic codes, since PowerPoint reports an out-of-range value as needing repair.
+
+- **`ts-pptx/script` carries a paragraph's own margins, and `text.indent` is retired.** It was
+  5/44 on the corpus and the largest note left on `a:pPr` once the bullet one closed; the
+  standalone tier's note count falls from 713 to 705 and the template-anchored tier's from 419
+  to 411. The mapper emits the read margin as a number, and `'inherit'` where the paragraph
+  states none but its bullet state would otherwise write one — which is what makes an inherited
+  margin survive rather than being replaced by a default. The reader did not move here either:
+  `Paragraph.marginLeftPt` and `Paragraph.indentPt` already separated a stated margin from an
+  absent one, so this was a missing write spelling, the same shape as the bullet note above.
+  The retired note's exclusion entry was **empty** — neither IR carried the field, so the round
+  trip compared two models both missing it — which means the margins are now verified rather
+  than merely declared; a build that ignores the new options reports 36 undeclared differences
+  across the corpus.
+
 - **Fixed in the same pass: a paragraph's properties are the first run's, decided once.** The
   emitter retried `genXmlParagraphProperties` on each run of a paragraph until one produced
   non-empty XML. That was unreachable while every `bullet` state wrote something, and became

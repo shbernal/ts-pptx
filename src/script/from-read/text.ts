@@ -135,6 +135,24 @@ function bulletOption(bullet: BulletDetail, notes: NoteScope): IrValue {
 }
 
 /**
+ * `a:pPr/@marL` / `@indent` → `paraMarginLeft` / `paraIndent`.
+ *
+ * A stated margin carries as its number. An *absent* one is the interesting case, because
+ * leaving the key out does not reproduce it: every `bullet` state except `'inherit'` makes the
+ * write path put a margin on the element — its hanging default for a drawn bullet, zero for
+ * `bullet: false` — so a paragraph that inherits its margin has to ask for silence explicitly.
+ * Under `bullet: 'inherit'` nothing is written either way and the key would be noise, which is
+ * why the bullet option decides rather than the paragraph being asked twice.
+ * @param {number|null} valuePt - the paragraph's own margin in points, `null` when unset
+ * @param {IrValue} bulletValue - the `bullet` option this paragraph maps onto
+ * @return {IrValue|undefined} the option value, or `undefined` to leave the key out
+ */
+function paraMarginOption(valuePt: number | null, bulletValue: IrValue): IrValue | undefined {
+	if (valuePt !== null) return valuePt
+	return bulletValue === 'inherit' ? undefined : 'inherit'
+}
+
+/**
  * `a:buAutoNum/@startAt` → `numberStartAt`.
  *
  * Numbering is content rather than styling: a list continuing "5. Deploy" that comes back as
@@ -315,19 +333,18 @@ function paragraphOptions(paragraph: Paragraph, notes: NoteScope): Record<string
 			'this paragraph explicitly sets zero space before or after (a:spcBef / a:spcAft of 0), which suppresses the spacing its list style would otherwise apply; the write path treats 0 as "unset" and emits nothing, so the inherited spacing comes back'
 		)
 	}
-	if (paragraph.marginLeftPt !== null || paragraph.indentPt !== null) {
-		notes.note(
-			'text.indent',
-			'dropped',
-			'unwritable',
-			"a paragraph's own indent (a:pPr/@marL, @indent) is not expressible; only the discrete indentLevel is, so hanging indents flatten to the level default"
-		)
-	}
+	// `text.indent` used to be filed here — a paragraph's own `a:pPr/@marL` and `@indent` had no
+	// write option at all, so every margin it stated was replaced by whatever the `bullet` state
+	// wrote. `paraMarginLeft` / `paraIndent` state them now, so the mapper carries the values
+	// instead of excusing their loss and the note is gone rather than unmapped.
+	const bulletValue = bullet === null ? 'inherit' : bulletOption(bullet, notes)
 
 	return (
 		compact({
 			align: align === null ? undefined : ALIGN[align],
 			indentLevel: paragraph.level === 0 ? undefined : paragraph.level,
+			paraMarginLeft: paraMarginOption(paragraph.marginLeftPt, bulletValue),
+			paraIndent: paraMarginOption(paragraph.indentPt, bulletValue),
 			paraSpaceBefore: orUndefined(paragraph.spaceBeforePt),
 			paraSpaceAfter: orUndefined(paragraph.spaceAfterPt),
 			lineSpacing: spacing?.type === 'points' ? spacing.valuePt : undefined,
@@ -336,8 +353,10 @@ function paragraphOptions(paragraph: Paragraph, notes: NoteScope): Record<string
 			// how the write path says that. `undefined` would NOT do — an omitted `bullet`
 			// emits an explicit `a:buNone`, which suppresses whatever the destination list
 			// style has. That was this converter's most frequent loss (`text.bullet.inherited`,
-			// 34 of 44 corpus fixtures) until the option gained a third state.
-			bullet: bullet === null ? 'inherit' : bulletOption(bullet, notes),
+			// 34 of 44 corpus fixtures) until the option gained a third state. Resolved above
+			// rather than here: the margin keys need to know which bullet state was chosen, and
+			// calling `bulletOption` twice would file its notes twice.
+			bullet: bulletValue,
 		}) ?? {}
 	)
 }

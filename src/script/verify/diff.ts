@@ -327,7 +327,12 @@ const NOTE_FIELDS: Record<string, readonly string[]> = {
 	// re-emitted with an explicit `a:buNone`, because omitting the write API's `bullet` is that
 	// element rather than silence. `bullet: 'inherit'` says silence now, so the mapper carries
 	// the state instead of excusing its loss and the note is gone rather than unmapped.
-	'text.indent': [],
+	//
+	// `text.indent` used to live here, empty, because a paragraph's `a:pPr/@marL` and `@indent`
+	// were in neither IR — the write API had no option for them, so the mapper never emitted one
+	// and the diff compared two models both missing the field. `paraMarginLeft` / `paraIndent`
+	// put it in both, which is what turns an empty entry into a comparison rather than a caveat,
+	// so the note is gone rather than unmapped.
 	'text.paraSpaceZero': ['paraSpaceBefore', 'paraSpaceAfter'],
 	'text.vert': ['vert'],
 }

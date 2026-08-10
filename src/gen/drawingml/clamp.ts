@@ -6,7 +6,8 @@
  * Out-of-range values make PowerPoint report the package as needing repair.
  */
 
-import { HUNDREDTHS_PER_POINT, ptToHundredths } from '../../units.js'
+import { EMU_PER_POINT, HUNDREDTHS_PER_POINT, ptToHundredths } from '../../units.js'
+import { valToPts } from '../../units-internal.js'
 import { warnOnce } from '../../diagnostics.js'
 
 /**
@@ -33,6 +34,38 @@ export function clampCharSpacingSpc(charSpacingPts: number): number {
 		warnOnce(
 			'text/char-spacing-out-of-range',
 			`charSpacing ${charSpacingPts} is outside the valid range -4000..4000pt; using ${clamped / HUNDREDTHS_PER_POINT}.`
+		)
+	return clamped
+}
+
+/**
+ * Clamp a paragraph's left margin (points) into ST_TextMargin (0..4032pt, i.e. 0..51206400 EMU);
+ * returns EMU for `a:pPr/@marL`. The type is unsigned — a negative margin is not a narrower one,
+ * it is a value PowerPoint reports as needing repair.
+ */
+export function clampParaMarginEmu(marginPts: number): number {
+	const raw = valToPts(marginPts)
+	const clamped = Math.min(51206400, Math.max(0, raw))
+	if (clamped !== raw)
+		warnOnce(
+			'text/paragraph-margin-out-of-range',
+			`paraMarginLeft ${marginPts} is outside the valid range 0-4032pt; using ${clamped / EMU_PER_POINT}.`
+		)
+	return clamped
+}
+
+/**
+ * Clamp a first-line indent (points) into ST_TextIndent (-4032..4032pt); returns EMU for
+ * `a:pPr/@indent`. Unlike the margin this one is signed: a negative indent is the hanging
+ * indent every bulleted paragraph uses.
+ */
+export function clampParaIndentEmu(indentPts: number): number {
+	const raw = valToPts(indentPts)
+	const clamped = Math.min(51206400, Math.max(-51206400, raw))
+	if (clamped !== raw)
+		warnOnce(
+			'text/paragraph-indent-out-of-range',
+			`paraIndent ${indentPts} is outside the valid range -4032..4032pt; using ${clamped / EMU_PER_POINT}.`
 		)
 	return clamped
 }

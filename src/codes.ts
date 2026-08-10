@@ -88,6 +88,8 @@ export type DiagnosticCode =
 	| 'text/invalid-fit-percentage'
 	| 'text/char-spacing-out-of-range'
 	| 'text/line-spacing-out-of-range'
+	| 'text/paragraph-margin-out-of-range'
+	| 'text/paragraph-indent-out-of-range'
 	| 'font/size-out-of-range'
 	| 'bullet/size-out-of-range'
 	| 'bullet/image-missing-base64-header'

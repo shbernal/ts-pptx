@@ -535,6 +535,39 @@ export default [
 		},
 	},
 	{
+		// `paraMarginLeft`/`paraIndent` write the two attributes that used to belong to the bullet
+		// arms, which puts three previously unreachable combinations on `a:pPr`: a margin without
+		// a bullet child, a drawn bullet with NO margin attributes, and a POSITIVE `@indent` — the
+		// first-line indent, where every value this writer had ever emitted was zero or negative.
+		// The signs are the point: `@marL` is `ST_TextMargin` (unsigned) while `@indent` is
+		// `ST_TextIndent` (signed), so the validator is what confirms the clamps face the right
+		// way rather than merely being symmetric.
+		name: 'paragraphs stating their own marL/indent (with and without a bullet, both signs)',
+		fn: async () => {
+			const { buf } = await build((p) => {
+				const s = p.addSlide()
+				s.addText(
+					[
+						{ text: 'margin, no bullet child', options: { bullet: 'inherit', paraMarginLeft: 36, paraIndent: -18, breakLine: true } }, // prettier-ignore
+						{ text: 'first line indented', options: { bullet: 'inherit', paraMarginLeft: 0, paraIndent: 18, breakLine: true } }, // prettier-ignore
+						{ text: 'bullet, no margins at all', options: { bullet: true, paraMarginLeft: 'inherit', paraIndent: 'inherit', breakLine: true } }, // prettier-ignore
+						{ text: 'off, margins inherited', options: { bullet: false, paraMarginLeft: 'inherit', paraIndent: 'inherit' } }, // prettier-ignore
+					],
+					{ x: 1, y: 1, w: 8, h: 2 }
+				)
+				// Clamped to the ends of both ranges, which is where a schema violation would land.
+				s.addText('clamped', { x: 1, y: 3.5, w: 8, h: 1, paraMarginLeft: -5, paraIndent: 99999 })
+				// The same inside a table cell, whose text body is built by the same emitter.
+				s.addTable([[{ text: 'cell margin', options: { bullet: 'inherit', paraMarginLeft: 18 } }, { text: 'plain' }]], {
+					x: 1,
+					y: 5,
+					w: 8,
+				})
+			})
+			await expectNoSchemaErrors(buf, 'paragraph-margins')
+		},
+	},
+	{
 		// The same two spellings on a chart, plus the two fill kinds the chart areas could never
 		// reach before (#11). `c:spPr` is `a:CT_ShapeProperties`, so this is the validator agreeing
 		// that a `gradFill`/`pattFill` really is legal there and — for `'inherit'` — that a
