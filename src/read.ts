@@ -72,6 +72,7 @@ export {
 	isGraphicFrame,
 	isGroupShape,
 	type AnyShape,
+	type ShapeHost,
 	type ShapeType,
 	type GradientStop,
 	type GradientFill,

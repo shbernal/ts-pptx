@@ -38,7 +38,7 @@ export class Connector extends Shape {
 		return this.#connection('a:endCxn')
 	}
 
-	/** Decode one `a:stCxn` / `a:endCxn` binding, resolving its `@id` to a slide shape. */
+	/** Decode one `a:stCxn` / `a:endCxn` binding, resolving its `@id` to a shape in the same tree. */
 	#connection(qname: string): ConnectionSite | null {
 		const nvCxnSpPr = firstChild(this.element, 'p:nvCxnSpPr')
 		const cNvCxnSpPr = nvCxnSpPr && firstChild(nvCxnSpPr, 'p:cNvCxnSpPr')
@@ -49,6 +49,6 @@ export class Connector extends Shape {
 		// CT_Connection requires both @id and @idx; an unparseable pair degrades to null
 		// rather than a half-populated site.
 		if (shapeId === null || siteIndex === null) return null
-		return { shapeId, siteIndex, boundShape: this.slide.shapeByIdDeep(shapeId) ?? null }
+		return { shapeId, siteIndex, boundShape: this.host.shapeByIdDeep(shapeId) ?? null }
 	}
 }

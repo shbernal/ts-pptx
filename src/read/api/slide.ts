@@ -1,12 +1,14 @@
 /**
  * Read-model proxy for one slide (`p:sld`), backed by its live part DOM.
  */
+import type { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
 import { relativePartName } from '../opc/partnames.js'
 import type { Relationships } from '../opc/relationships.js'
 import {
 	OOXML_NS,
 	attr,
+	boolValue,
 	createElement,
 	firstChild,
 	insertInOrder,
@@ -20,7 +22,16 @@ import type { ThemeContext } from '../oxml/theme.js'
 import { resolveSlideColorContext, resolveSlideThemeParts } from './theme-context.js'
 import { backgroundElementOf, readSlideBackground, type SlideBackground } from './slide-background.js'
 import type { Presentation } from './presentation.js'
-import { AutoShape, GraphicFrame, GroupShape, Picture, buildShapes, type AnyShape } from './shapes.js'
+import {
+	AutoShape,
+	GraphicFrame,
+	GroupShape,
+	Picture,
+	buildShapes,
+	findShapeByIdDeep,
+	type AnyShape,
+	type ShapeHost,
+} from './shapes.js'
 import { NotesSlide } from './notes.js'
 import { readModernSlideComments, readSlideComments, type Comment, type ModernComment } from './comments.js'
 import { readTagsForPart, type Tag } from './tags.js'
@@ -111,7 +122,7 @@ function sniffImageType(bytes: Uint8Array): ImageType | null {
 	return null
 }
 
-export class Slide {
+export class Slide implements ShapeHost {
 	constructor(
 		readonly presentation: Presentation,
 		/** The slide's OPC part (`/ppt/slides/slideN.xml`). */
@@ -148,6 +159,15 @@ export class Slide {
 	/** This slide part's relationships (image embeds, layout, hyperlinks, …). */
 	get relationships(): Relationships {
 		return this.presentation.opc.relationshipsFor(this.partName)
+	}
+
+	/**
+	 * The deck's OPC package. Convenience for `presentation.opc`, and the member
+	 * {@link ShapeHost} names so a shape can reach a referenced part (an image, a
+	 * chart) the same way whether it lives on a slide, a layout, or a master.
+	 */
+	get opc(): OpcPackage {
+		return this.presentation.opc
 	}
 
 	#themeColors?: ThemeContext
@@ -198,6 +218,23 @@ export class Slide {
 		if (value) setAttr(root, 'show', '0')
 		else removeAttr(root, 'show')
 		this.part.markDirty()
+	}
+
+	/**
+	 * Whether this slide draws the master's non-placeholder shapes
+	 * (`p:sld/@showMasterSp`). `xsd:boolean` defaulting to `true`, so an absent
+	 * attribute means shown — the same shape as {@link hidden}.
+	 *
+	 * This is the switch that decides whether {@link SlideMaster.shapes} belongs on
+	 * *this* slide. A slide the author gave a full-bleed image or a section divider
+	 * usually sets it to `0`, and a renderer that paints the master's band and logo
+	 * anyway puts the template's furniture on top of a slide that deliberately hid
+	 * it. Placeholders are unaffected: the flag suppresses only the master's
+	 * decorative shapes.
+	 */
+	get showMasterSp(): boolean {
+		const root = this.part.dom.documentElement
+		return boolValue(root && attr(root, 'showMasterSp')) !== false
 	}
 
 	/**
@@ -522,17 +559,7 @@ export class Slide {
 	 * resolve a binding into a group that top-level {@link shapeById} cannot see.
 	 */
 	shapeByIdDeep(id: number): AnyShape | undefined {
-		const walk = (shapes: AnyShape[]): AnyShape | undefined => {
-			for (const shape of shapes) {
-				if (shape.id === id) return shape
-				if (shape instanceof GroupShape) {
-					const found = walk(shape.shapes)
-					if (found) return found
-				}
-			}
-			return undefined
-		}
-		return walk(this.shapes)
+		return findShapeByIdDeep(this.shapes, id)
 	}
 
 	/** The first top-level shape with the given name (`p:cNvPr/@name`), or `undefined`. */

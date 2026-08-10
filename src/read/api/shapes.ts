@@ -1,11 +1,12 @@
 /**
- * Read-model proxies for the shapes on a slide.
+ * Read-model proxies for the shapes in a `p:spTree`.
  *
  * The `p:spTree` holds five shape kinds; each wraps its element and exposes
  * non-visual identity (id/name), geometry (left/top/width/height in EMU), and
- * kind-specific reads. Proxies hold a back-reference to the owning `Slide` so
- * pictures can resolve their image relationship and so future edits can mark
- * the slide part dirty.
+ * kind-specific reads. Proxies hold a back-reference to the owning
+ * {@link ShapeHost} — the slide, layout, or master whose part carries the tree —
+ * so pictures can resolve their image relationship and so edits can mark that
+ * part dirty.
  *
  * This module is the entry point for that model: the `Shape` base and the four leaf kinds live in
  * `./shapes/`, and only the dispatch that turns an element into a proxy — plus `GroupShape`, which
@@ -21,9 +22,10 @@ import { AutoShape } from './shapes/autoshape.js'
 import { Picture } from './shapes/picture.js'
 import { Connector } from './shapes/connector.js'
 import { GraphicFrame } from './shapes/graphic-frame.js'
-import type { Slide } from './slide.js'
+import type { ShapeHost } from './shapes/host.js'
 
 export { Shape } from './shapes/base.js'
+export type { ShapeHost } from './shapes/host.js'
 export { AutoShape } from './shapes/autoshape.js'
 export { Picture } from './shapes/picture.js'
 export { Connector } from './shapes/connector.js'
@@ -108,7 +110,7 @@ export class GroupShape extends Shape {
 
 	/** The shapes nested directly inside this group, in document order. */
 	get shapes(): AnyShape[] {
-		return buildShapes(this.element, this.slide)
+		return buildShapes(this.element, this.host)
 	}
 }
 
@@ -154,19 +156,19 @@ export function isGroupShape(shape: Shape): shape is GroupShape {
  * `p:grpSp`) in its concrete `Shape` proxy, or `null` if it is not a shape kind
  * (e.g. `p:nvGrpSpPr`, `p:grpSpPr`, `p:extLst`).
  */
-export function wrapShapeElement(element: Element, slide: Slide): AnyShape | null {
+export function wrapShapeElement(element: Element, host: ShapeHost): AnyShape | null {
 	if (element.namespaceURI !== OOXML_NS.p) return null
 	switch (element.localName) {
 		case 'sp':
-			return new AutoShape(element, slide)
+			return new AutoShape(element, host)
 		case 'pic':
-			return new Picture(element, slide)
+			return new Picture(element, host)
 		case 'cxnSp':
-			return new Connector(element, slide)
+			return new Connector(element, host)
 		case 'graphicFrame':
-			return new GraphicFrame(element, slide)
+			return new GraphicFrame(element, host)
 		case 'grpSp':
-			return new GroupShape(element, slide)
+			return new GroupShape(element, host)
 		default:
 			return null
 	}
@@ -180,12 +182,12 @@ export function wrapShapeElement(element: Element, slide: Slide): AnyShape | nul
  * chartEx chart's `p:graphicFrame`, a zoom frame, an inline-math shape. Returns
  * the wrapped inner shape, or `null` when neither branch holds one.
  */
-function unwrapAlternateContent(altContent: Element, slide: Slide): AnyShape | null {
+function unwrapAlternateContent(altContent: Element, host: ShapeHost): AnyShape | null {
 	const branches = [...getElements(altContent, 'mc:Choice'), ...getElements(altContent, 'mc:Fallback')]
 	for (const branch of branches) {
 		for (let node = branch.firstChild; node; node = node.nextSibling) {
 			if (node.nodeType !== ELEMENT_NODE) continue
-			const shape = wrapShapeElement(node as Element, slide)
+			const shape = wrapShapeElement(node as Element, host)
 			if (shape) return shape
 		}
 	}
@@ -198,18 +200,36 @@ function unwrapAlternateContent(altContent: Element, slide: Slide): AnyShape | n
  * `mc:AlternateContent` wrapper (chartEx charts, zoom frames, inline math) is
  * unwrapped to the shape inside its preferred branch.
  */
-export function buildShapes(parent: Element, slide: Slide): AnyShape[] {
+export function buildShapes(parent: Element, host: ShapeHost): AnyShape[] {
 	const shapes: AnyShape[] = []
 	for (let node = parent.firstChild; node; node = node.nextSibling) {
 		if (node.nodeType !== ELEMENT_NODE) continue
 		const element = node as Element
 		if (element.namespaceURI === OOXML_NS.mc && element.localName === 'AlternateContent') {
-			const unwrapped = unwrapAlternateContent(element, slide)
+			const unwrapped = unwrapAlternateContent(element, host)
 			if (unwrapped) shapes.push(unwrapped)
 			continue
 		}
-		const shape = wrapShapeElement(element, slide)
+		const shape = wrapShapeElement(element, host)
 		if (shape) shapes.push(shape)
 	}
 	return shapes
+}
+
+/**
+ * The first shape in `shapes` with the given drawing id (`p:cNvPr/@id`), walked
+ * pre-order so a group is visited before its children. Backs
+ * {@link ShapeHost.shapeByIdDeep} on all three hosts — drawing ids are unique
+ * within a part, so the first match is the only match and the walk order just
+ * fixes a deterministic one.
+ */
+export function findShapeByIdDeep(shapes: AnyShape[], id: number): AnyShape | undefined {
+	for (const shape of shapes) {
+		if (shape.id === id) return shape
+		if (shape instanceof GroupShape) {
+			const found = findShapeByIdDeep(shape.shapes, id)
+			if (found) return found
+		}
+	}
+	return undefined
 }

@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING (read): `Shape.slide` is now `Shape.host`, typed `ShapeHost`.** A shape proxy
+  no longer belongs to a slide specifically — the same `p:sp` can sit in a slide's,
+  a layout's, or a master's `p:spTree` — so the back-reference names what it actually
+  is. `ShapeHost` is the small contract all three classes satisfy (`part`, `partName`,
+  `opc`, `relationships`, `themeContext()`, `shapeByIdDeep()`) and is exported from
+  `ts-pptx/read`. Migration: `shape.slide` → `shape.host`; where you genuinely need the
+  `Slide`, narrow with `shape.host instanceof Slide`. `Slide` gains an `opc` getter
+  (`=== presentation.opc`) and `SlideMaster`/`SlideLayout` gain public `opc` and
+  `relationships` getters, all to satisfy that contract. Nothing else about a shape
+  changed, and `Slide.shapes` is untouched.
+
 - **The `ts-pptx-upstream` skill covers the far end of the cycle, not just the filing.**
   It ended at "write the workaround", which is the half that happens on its own — the
   half that rots is the release landing and nobody finding the stopgaps it retired. A
@@ -48,6 +59,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   state to silence.
 
 ### Added
+
+- **`SlideMaster.shapes` / `SlideLayout.shapes` reach a template's own content, and
+  `showMasterSp` says whether to draw it** (#12). Both classes exposed `placeholders`
+  and nothing else, so the `p:sp`/`p:pic`/`p:graphicFrame` under a master's or layout's
+  `p:cSld/p:spTree` — the bands, rules, logos and footer furniture a deck is recognized
+  by — had no modeled path out of the read API at all; only `part.dom` reached them,
+  which is the raw-XML hatch rather than the model. On a corpus of PowerPoint-authored
+  decks this was the single largest read gap: a consumer walking `slide.shapes`
+  reproduces the deck's content and none of its identity. Both getters return the same
+  `AnyShape` union `Slide.shapes` does, from the same `buildShapes` dispatch, so
+  shape-walking code applies unchanged — and the members carry the full paint surface
+  (`resolvedFill`, `resolvedLine`, `presetGeometry`, `rotation`, `absoluteFrame`), which
+  the smaller `Placeholder` class never had. Tokens resolve against the *owning* part's
+  context: a master shape's `schemeClr accent2` goes through the master's own `p:clrMap`
+  and theme, not a slide's. Groups recurse and compose to slide-absolute frames as at
+  slide level, and both classes get `shapeByIdDeep`.
+
+  `placeholders` is unchanged, and is now documented as the filtered view of the same
+  tree — both hand out the same live `p:sp` elements. Read a placeholder there to
+  *place* it, through `shapes` to *draw* it.
+
+  Shipping the accessor alone would have traded one wrong answer for another, so
+  `Slide.showMasterSp` and `SlideLayout.showMasterSp` ship with it: `@showMasterSp`
+  (ECMA-376 attributeGroup `AG_ChildSlide`, `xsd:boolean` defaulting to `true`, so absent
+  means shown) is how a slide or a layout suppresses the master's decorative shapes —
+  PowerPoint writes it on section dividers and full-bleed layouts. Without it a consumer
+  that gained access to master shapes would paint them onto slides that deliberately hid
+  them. Both are read-only; the write API authors neither. The layout arm has a genuine
+  oracle in `mixed.pptx` and `read-stress.pptx`, which each carry `showMasterSp="0"` on
+  their title layout.
 
 - **`fill: { type: 'inherit' }` authors a shape whose interior comes from the style
   reference or the placeholder** (#10). 3.1.0 gave `type: 'none'` its `<a:noFill/>` back

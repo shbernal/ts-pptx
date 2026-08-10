@@ -395,6 +395,15 @@ colour also opened one write-side gap of its own: `text.bullet.schemeToken`
 (1/44), an `a:buClr/a:schemeClr` outside the ten tokens the write path maps,
 which is baked to a literal hex and stops tracking the theme.
 
+`master.decoration` (6/44) moved off `unread` for the same reason and with the
+opposite result: `SlideMaster.shapes` / `SlideLayout.shapes` now decode a
+template's non-placeholder content, so the converter *sees* it — but
+`defineSlideMaster({ objects })` expresses a plain rect, line, image, chart or
+text box, and real decoration is groups, custom geometry and effects. The note
+still fires on the same six fixtures, now as `unwritable`. Closing a reader gap
+does not always close the loss; sometimes it only tells you which half was
+actually holding it.
+
 ## Verifying a conversion
 
 ```sh

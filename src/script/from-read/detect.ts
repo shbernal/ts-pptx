@@ -181,10 +181,15 @@ export function hasTextStyles(element: unknown): boolean {
  * `true` when this master or layout carries a shape that is not a placeholder — a logo, a
  * rule, a background image, a footer graphic.
  *
- * The read model is explicit that it decodes master/layout *placeholders* only, leaving
- * decoration to the byte-for-byte import paths. An output that rebuilds the chrome from the
- * read model therefore loses every one of these, and a deck that has none loses nothing —
- * which is why this is a count rather than a blanket note.
+ * `SlideMaster.shapes`/`SlideLayout.shapes` do decode these now, but there is no write
+ * option that re-authors them (`defineSlideMaster({ objects })` covers a plain rect, line,
+ * image, chart or text box, not the groups and custom geometry real decoration is made of),
+ * so an output that rebuilds the chrome loses every one — and a deck that has none loses
+ * nothing, which is why this is a count rather than a blanket note.
+ *
+ * Kept as a DOM predicate rather than `host.shapes.some((s) => s.placeholder === null)`:
+ * only `AutoShape` reports a `p:ph`, so the model-based spelling would count a *picture*
+ * placeholder (`p:nvPicPr/p:nvPr/p:ph`, which PowerPoint does author) as decoration.
  */
 export function hasDecorativeShapes(element: unknown): boolean {
 	const spTree = child(child(element as ElementLike | null, P_NS, 'cSld'), P_NS, 'spTree')

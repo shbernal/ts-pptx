@@ -63,13 +63,7 @@ export class GraphicFrame extends Shape {
 		const graphicData = this.#graphicData()
 		const tbl = graphicData && firstChild(graphicData, 'a:tbl')
 		if (!tbl) return null
-		return new Table(
-			tbl,
-			this.slide.part,
-			this.slide.themeContext(),
-			this.slide.presentation.opc,
-			this.slide.relationships
-		)
+		return new Table(tbl, this.host.part, this.host.themeContext(), this.host.opc, this.host.relationships)
 	}
 
 	/** The hosted chart, or `null` when this frame is not a chart or its part is missing. */
@@ -79,8 +73,8 @@ export class GraphicFrame extends Shape {
 		const chartRef = graphicData && firstChild(graphicData, 'c:chart')
 		const relId = chartRef && attr(chartRef, 'r:id')
 		if (!relId) return null
-		const partName = this.slide.relationships.resolveTarget(relId)
-		const part = this.slide.presentation.opc.part(partName)
+		const partName = this.host.relationships.resolveTarget(relId)
+		const part = this.host.opc.part(partName)
 		return part ? new Chart(part) : null
 	}
 
@@ -95,8 +89,8 @@ export class GraphicFrame extends Shape {
 		const chartRef = graphicData && firstChild(graphicData, 'cx:chart')
 		const relId = chartRef && attr(chartRef, 'r:id')
 		if (!relId) return null
-		const partName = this.slide.relationships.resolveTarget(relId)
-		const part = this.slide.presentation.opc.part(partName)
+		const partName = this.host.relationships.resolveTarget(relId)
+		const part = this.host.opc.part(partName)
 		return part ? new ChartEx(part) : null
 	}
 

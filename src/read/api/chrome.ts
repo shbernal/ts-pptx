@@ -14,21 +14,28 @@
  * inherited and so reads `null` on an authored deck — a master/layout placeholder
  * carries its geometry explicitly, so position/size round-trip.
  *
- * Scope: this is the *property* model. Decorative (non-placeholder) master/layout
- * shapes are carried byte-for-byte by the import paths, not decoded here. A
- * *slide* placeholder's effective inherited geometry against this chain resolves
+ * A master's and a layout's *non*-placeholder content — the bands, rules, logos and
+ * decorative furniture a template is recognized by — is reached through
+ * {@link SlideMaster.shapes} / {@link SlideLayout.shapes}, which return the same
+ * `AnyShape` union `Slide.shapes` does (both classes are {@link ShapeHost}s). Those
+ * shapes carry the full paint surface — `resolvedFill`, `resolvedLine`,
+ * `presetGeometry`, `rotation`, `absoluteFrame` — so a template renders, not merely
+ * positions. `placeholders` remains the filtered convenience view over the same tree.
+ *
+ * A *slide* placeholder's effective inherited geometry against this chain resolves
  * via `Shape.resolvedFrame` (`shapes.ts`), the geometry sibling of the run
  * colour/size/face resolution already backed by `Slide.themeContext` → `Run.resolved*`.
  */
 import type { OpcPackage } from '../opc/package.js'
 import type { Part } from '../opc/part.js'
 import type { Relationships } from '../opc/relationships.js'
-import { attr, firstChild, getElements, intValue, type Element } from '../oxml/dom.js'
+import { attr, boolValue, firstChild, getElements, intValue, type Element } from '../oxml/dom.js'
 import { parseClrMap, parseClrScheme, type ThemeContext } from '../oxml/theme.js'
 import { resolveLayoutColorContext, resolveMasterColorContext } from './theme-context.js'
 import { placeholderOf } from '../oxml/placeholder-inherit.js'
 import { spPrXfrmEmu } from './shapes/oxml.js'
 import { backgroundElementOf, readSlideBackground, type SlideBackground } from './slide-background.js'
+import { buildShapes, findShapeByIdDeep, type AnyShape, type ShapeHost } from './shapes.js'
 import { TextFrame } from './text.js'
 import { SLIDE_MASTER_REL, THEME_REL } from '../../ooxml/rel-types.js'
 
@@ -218,6 +225,13 @@ function placeholderShapes(spTree: Element | null): Element[] {
  * and text style from. Geometry getters read the placeholder's *own* `a:xfrm`,
  * which a master/layout placeholder carries explicitly (so it round-trips, unlike a
  * notes placeholder's inherited geometry).
+ *
+ * This is the identity-and-geometry view. The same `p:sp` also appears in
+ * {@link SlideMaster.shapes} / {@link SlideLayout.shapes} as an `AutoShape`, which
+ * additionally carries the paint surface (`resolvedFill`, `resolvedLine`,
+ * `presetGeometry`, `rotation`, `absoluteFrame`) and reports its `p:ph` through
+ * `AutoShape.placeholder`. Read a placeholder here to *place* it; read it there to
+ * *draw* it.
  */
 export class Placeholder {
 	constructor(
@@ -302,15 +316,16 @@ export class Placeholder {
 /**
  * A deck's slide master (`slideMasterN.xml`) as a modeled object. Exposes the
  * property tiers a bound slide inherits: the {@link colorMap} (token → theme slot),
- * its {@link theme}, its {@link placeholders} (with geometry), its own
- * {@link background}, and the {@link layouts} that build on it. Reachable from
- * {@link SlideLayout.master} and `Slide.master`.
+ * its {@link theme}, its {@link shapes} and the {@link placeholders} subset of them,
+ * its own {@link background}, and the {@link layouts} that build on it. Reachable
+ * from {@link SlideLayout.master} and `Slide.master`.
  */
-export class SlideMaster {
+export class SlideMaster implements ShapeHost {
 	#themeContext?: ThemeContext
 
 	constructor(
-		private readonly opc: OpcPackage,
+		/** The package the master belongs to, for reaching its layouts, theme, and media. */
+		readonly opc: OpcPackage,
 		/** The master's OPC part (`/ppt/slideMasters/slideMasterN.xml`). */
 		readonly part: Part
 	) {}
@@ -318,6 +333,11 @@ export class SlideMaster {
 	/** Partname of the master part. */
 	get partName(): string {
 		return this.part.partName
+	}
+
+	/** This master part's relationships (its layouts, its theme, image embeds, …). */
+	get relationships(): Relationships {
+		return this.opc.relationshipsFor(this.partName)
 	}
 
 	/** The master's authoring name (`p:cSld/@name`), or `''` when unnamed (the writer's default). */
@@ -346,10 +366,29 @@ export class SlideMaster {
 		return out
 	}
 
+	/**
+	 * Every shape in the master's `p:cSld/p:spTree`, in document order — the same
+	 * `AnyShape` union `Slide.shapes` returns, so shape-walking code applies
+	 * unchanged. This is where a template's non-placeholder furniture lives: the
+	 * header band, the rule under the title, the logo. Whether a given slide draws
+	 * them is `Slide.showMasterSp` (and, for a layout, {@link SlideLayout.showMasterSp}).
+	 *
+	 * {@link placeholders} is the filtered view of the same tree.
+	 */
+	get shapes(): AnyShape[] {
+		const spTree = this.#spTree()
+		return spTree ? buildShapes(spTree, this) : []
+	}
+
+	/** The shape anywhere in the master's tree with the given drawing id, or `undefined`. */
+	shapeByIdDeep(id: number): AnyShape | undefined {
+		return findShapeByIdDeep(this.shapes, id)
+	}
+
 	/** The master's placeholder shapes (`p:sp` carrying a `p:ph`), in document order. */
 	get placeholders(): Placeholder[] {
 		const ctx = this.themeContext()
-		const rels = this.opc.relationshipsFor(this.partName)
+		const rels = this.relationships
 		return placeholderShapes(this.#spTree()).map((sp) => new Placeholder(sp, this.part, ctx, rels))
 	}
 
@@ -358,7 +397,7 @@ export class SlideMaster {
 		const root = this.part.dom.documentElement
 		const lst = root && firstChild(root, 'p:sldLayoutIdLst')
 		if (!lst) return []
-		const rels = this.opc.relationshipsFor(this.partName)
+		const rels = this.relationships
 		const out: SlideLayout[] = []
 		for (const entry of getElements(lst, 'p:sldLayoutId')) {
 			const relId = attr(entry, 'r:id')
@@ -381,7 +420,7 @@ export class SlideMaster {
 			bg,
 			'master',
 			this.themeContext(),
-			this.opc.relationshipsFor(this.partName),
+			this.relationships,
 			themePart ? this.opc.relationshipsFor(themePart.partName) : null
 		)
 	}
@@ -395,7 +434,7 @@ export class SlideMaster {
 	}
 
 	#relTarget(type: string): Part | null {
-		const rels = this.opc.relationshipsFor(this.partName)
+		const rels = this.relationships
 		const rel = rels.byType(type)[0]
 		return rel ? (this.opc.part(rels.resolveTarget(rel.id)) ?? null) : null
 	}
@@ -415,14 +454,15 @@ export class SlideMaster {
  * A deck's slide layout (`slideLayoutN.xml`) as a modeled object — the gallery entry
  * a slide binds to. Exposes its {@link name}, its {@link type} (import-only; the
  * writer authors none), its {@link master} (and, through it, the {@link theme}), its
- * {@link placeholders} (with geometry), and its own {@link background}. Reachable
- * from `Slide.layout` and {@link SlideMaster.layouts}.
+ * {@link shapes} and the {@link placeholders} subset of them, and its own
+ * {@link background}. Reachable from `Slide.layout` and {@link SlideMaster.layouts}.
  */
-export class SlideLayout {
+export class SlideLayout implements ShapeHost {
 	#themeContext?: ThemeContext
 
 	constructor(
-		private readonly opc: OpcPackage,
+		/** The package the layout belongs to, for reaching its master, theme, and media. */
+		readonly opc: OpcPackage,
 		/** The layout's OPC part (`/ppt/slideLayouts/slideLayoutN.xml`). */
 		readonly part: Part
 	) {}
@@ -430,6 +470,11 @@ export class SlideLayout {
 	/** Partname of the layout part. */
 	get partName(): string {
 		return this.part.partName
+	}
+
+	/** This layout part's relationships (its master, image embeds, hyperlinks, …). */
+	get relationships(): Relationships {
+		return this.opc.relationshipsFor(this.partName)
 	}
 
 	/** The layout's authoring name (`p:cSld/@name`, e.g. `Title and Content`), or `''` when unnamed. */
@@ -448,9 +493,22 @@ export class SlideLayout {
 		return root ? attr(root, 'type') : null
 	}
 
+	/**
+	 * Whether this layout draws the master's non-placeholder shapes
+	 * (`p:sldLayout/@showMasterSp`). `xsd:boolean` defaulting to `true`, so an absent
+	 * attribute means shown — the layout-tier counterpart of `Slide.showMasterSp`,
+	 * and the one PowerPoint actually writes on a section-divider or full-bleed
+	 * layout. A renderer resolving what to paint under a slide's own shapes has to
+	 * consult both: the slide's flag, then its layout's.
+	 */
+	get showMasterSp(): boolean {
+		const root = this.part.dom.documentElement
+		return boolValue(root && attr(root, 'showMasterSp')) !== false
+	}
+
 	/** The master this layout is built on (via its `slideMaster` relationship), or `null` when absent. */
 	get master(): SlideMaster | null {
-		const rels = this.opc.relationshipsFor(this.partName)
+		const rels = this.relationships
 		const rel = rels.byType(SLIDE_MASTER_REL)[0]
 		const part = rel ? this.opc.part(rels.resolveTarget(rel.id)) : null
 		return part ? new SlideMaster(this.opc, part) : null
@@ -461,10 +519,29 @@ export class SlideLayout {
 		return this.master?.theme ?? null
 	}
 
+	/**
+	 * Every shape in the layout's `p:cSld/p:spTree`, in document order — the same
+	 * `AnyShape` union `Slide.shapes` returns, so shape-walking code applies
+	 * unchanged. The write API authors non-placeholder shapes here: every
+	 * `defineSlideMaster({ objects })` member that is not a `placeholder` (a `rect`,
+	 * a `line`, an `image`, a `chart`, a `text` box) lands in this tree.
+	 *
+	 * {@link placeholders} is the filtered view of the same tree.
+	 */
+	get shapes(): AnyShape[] {
+		const spTree = this.#spTree()
+		return spTree ? buildShapes(spTree, this) : []
+	}
+
+	/** The shape anywhere in the layout's tree with the given drawing id, or `undefined`. */
+	shapeByIdDeep(id: number): AnyShape | undefined {
+		return findShapeByIdDeep(this.shapes, id)
+	}
+
 	/** The layout's placeholder shapes (`p:sp` carrying a `p:ph`), in document order. */
 	get placeholders(): Placeholder[] {
 		const ctx = this.themeContext()
-		const rels = this.opc.relationshipsFor(this.partName)
+		const rels = this.relationships
 		return placeholderShapes(this.#spTree()).map((sp) => new Placeholder(sp, this.part, ctx, rels))
 	}
 
@@ -482,7 +559,7 @@ export class SlideLayout {
 			bg,
 			'layout',
 			this.themeContext(),
-			this.opc.relationshipsFor(this.partName),
+			this.relationships,
 			themePart ? this.opc.relationshipsFor(themePart.partName) : null
 		)
 	}

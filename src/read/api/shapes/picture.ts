@@ -107,7 +107,7 @@ export class Picture extends Shape {
 	}
 
 	/**
-	 * Repoint the blip at a relationship id already present in the slide's
+	 * Repoint the blip at a relationship id already present in the owning part's
 	 * relationships, without minting a new media part. The caller owns ensuring
 	 * the id exists and targets an image; use {@link setImage} to add fresh bytes.
 	 */
@@ -116,10 +116,10 @@ export class Picture extends Shape {
 		this.markDirty()
 	}
 
-	/** Absolute partname of the embedded image, resolved via the slide's relationships, or `null`. */
+	/** Absolute partname of the embedded image, resolved via the owning part's relationships, or `null`. */
 	get imagePartName(): string | null {
 		const relId = this.imageRelId
-		return relId ? this.slide.relationships.resolveTarget(relId) : null
+		return relId ? this.host.relationships.resolveTarget(relId) : null
 	}
 
 	/**
@@ -135,10 +135,10 @@ export class Picture extends Shape {
 		return svg ? attr(svg, 'r:embed') : null
 	}
 
-	/** Absolute partname of the embedded SVG image, resolved via the slide's relationships, or `null`. */
+	/** Absolute partname of the embedded SVG image, resolved via the owning part's relationships, or `null`. */
 	get svgPartName(): string | null {
 		const relId = this.svgRelId
-		return relId ? this.slide.relationships.resolveTarget(relId) : null
+		return relId ? this.host.relationships.resolveTarget(relId) : null
 	}
 
 	/**
@@ -263,7 +263,7 @@ export class Picture extends Shape {
 	/**
 	 * Replace this picture's image with new bytes. Mints a fresh media part under
 	 * `/ppt/media/`, registers its content type, wires an `image` relationship
-	 * from the owning slide, and repoints the blip's `@r:embed` at it.
+	 * from the owning part, and repoints the blip's `@r:embed` at it.
 	 *
 	 * Copy-on-write: the previous media part is never mutated or removed, so any
 	 * other picture sharing it (common after `importSlide`/dedup) is unaffected;
@@ -295,10 +295,10 @@ export class Picture extends Shape {
 			throw new InvalidOptionError('image/missing-content-type', 'setImage requires a contentType (e.g. "image/png")')
 		const extension = (options.extension ?? extFromContentType(contentType)).toLowerCase().replace(/^\./, '')
 
-		const opc = this.slide.presentation.opc
+		const opc = this.host.opc
 		const mediaPartName = opc.reserveMediaPartName(extension)
 		opc.addPart(mediaPartName, contentType, bytes)
-		const relId = this.slide.relationships.add(IMAGE_REL, relativePartName(this.slide.partName, mediaPartName)).id
+		const relId = this.host.relationships.add(IMAGE_REL, relativePartName(this.host.partName, mediaPartName)).id
 
 		setAttr(this.#getOrAddBlip(), 'r:embed', relId)
 		if (options.fit) this.#applyFit(options.fit, bytes)

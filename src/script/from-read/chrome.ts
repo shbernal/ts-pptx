@@ -124,8 +124,8 @@ function recordMasterLosses(masters: SlideMaster[], theme: Theme | null, notes: 
 			notes.note(
 				'master.decoration',
 				'dropped',
-				'unread',
-				'this slide master carries shapes that are not placeholders (a logo, a rule, a background graphic); the read model decodes master and layout placeholders only, so they cannot be re-authored'
+				'unwritable',
+				'this slide master carries shapes that are not placeholders (a logo, a rule, a background graphic); the read model now decodes them (SlideMaster.shapes), but defineSlideMaster authors a layout rather than a master, and its objects union expresses none of what real master decoration is made of — groups, custom geometry, effects — so they cannot be re-authored'
 			)
 		}
 
@@ -211,8 +211,8 @@ function layoutsToIr(masters: SlideMaster[], notes: NoteScope, assets: AssetReso
 		notes.note(
 			'master.decoration',
 			'dropped',
-			'unread',
-			`${decorated.length} slide layout(s) carry shapes that are not placeholders — ${decorated.join(', ')} — and the read model decodes layout placeholders only, so that decoration cannot be re-authored`
+			'unwritable',
+			`${decorated.length} slide layout(s) carry shapes that are not placeholders — ${decorated.join(', ')} — and while the read model now decodes them (SlideLayout.shapes), the converter does not map a layout's shape tree back into defineSlideMaster({ objects }): that union covers a plain rect, line, image, chart or text box, not the groups, custom geometry and effects real layout decoration is made of`
 		)
 	}
 	if (placeholderCount > 0) {

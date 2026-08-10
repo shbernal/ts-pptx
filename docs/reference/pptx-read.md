@@ -487,6 +487,7 @@ class Slide {
 	readonly name: string | null // p:cSld/@name
 	readonly shapes: Shape[] // top-level shapes in the spTree
 	hidden: boolean // p:sld/@show — read/write; absent attr ⇒ shown
+	readonly showMasterSp: boolean // p:sld/@showMasterSp — absent ⇒ true; see "The shared chrome"
 	readonly background: SlideBackground | null // effective bg, walking slide→layout→master
 	readonly slideNumberPlaceholder: AutoShape | null // this slide's own p:ph type="sldNum"
 	readonly notesText: string | null // flattened speaker-notes body text; null when there is no notes part
@@ -703,10 +704,9 @@ placeholder's `textFrame` shares the same notes theme context as `notesTextFrame
 `slide.layout` → `slide.master` → `slide.theme` walk the property tiers a slide
 resolves against — the deck chrome reachable through the presentation → master →
 layout → theme graph but owned by no single slide. `Presentation.masters()` enters
-the same graph from the deck side. This is a *property* model (colour scheme, font
-scheme, colour map, placeholder geometry, names, backgrounds) — decorative
-(non-placeholder) master/layout shapes are carried byte-for-byte by the import
-paths, not decoded here.
+the same graph from the deck side. It is both a *property* model (colour scheme,
+font scheme, colour map, names, backgrounds) and — through `shapes` on the master
+and the layout — a full *shape* model of the template's own content.
 
 ```ts
 class Theme {
@@ -727,23 +727,36 @@ type ThemeFontFace = { readonly latin: string | null; readonly ea: string | null
 
 class SlideMaster {
 	readonly part: Part
+	readonly opc: OpcPackage
+	readonly partName: string
+	readonly relationships: Relationships
 	readonly name: string // p:cSld/@name; '' when unnamed
 	readonly theme: Theme | null
 	readonly colorMap: Record<ColorMapToken, string | null> // p:clrMap: token → ThemeColorSlot, e.g. tx1 → dk1
-	readonly placeholders: Placeholder[] // this master's own p:ph shapes
+	readonly shapes: AnyShape[] // EVERY shape in this master's spTree, in document order
+	readonly placeholders: Placeholder[] // the p:ph subset of the same tree
+	shapeByIdDeep(id: number): AnyShape | undefined // descends into groups
 	readonly layouts: SlideLayout[] // built on this master, via p:sldLayoutIdLst
 	readonly background: SlideBackground | null // this master's OWN p:bg (not a slide's effective one)
+	themeContext(): ThemeContext
 }
 type ColorMapToken = 'bg1' | 'tx1' | 'bg2' | 'tx2' | 'accent1' | … | 'accent6' | 'hlink' | 'folHlink'
 
 class SlideLayout {
 	readonly part: Part
+	readonly opc: OpcPackage
+	readonly partName: string
+	readonly relationships: Relationships
 	readonly name: string // p:cSld/@name, e.g. "Title and Content"; '' when unnamed
 	readonly type: string | null // p:sldLayout/@type — import-only, see below
+	readonly showMasterSp: boolean // p:sldLayout/@showMasterSp — absent ⇒ true
 	readonly master: SlideMaster | null
 	readonly theme: Theme | null // === master?.theme
-	readonly placeholders: Placeholder[]
+	readonly shapes: AnyShape[] // EVERY shape in this layout's spTree
+	readonly placeholders: Placeholder[] // the p:ph subset of the same tree
+	shapeByIdDeep(id: number): AnyShape | undefined
 	readonly background: SlideBackground | null // this layout's OWN p:bg
+	themeContext(): ThemeContext
 }
 
 class Placeholder {
@@ -756,6 +769,50 @@ class Placeholder {
 }
 ```
 
+##### Master and layout shapes (`shapes`)
+
+`SlideMaster.shapes` and `SlideLayout.shapes` return the same `AnyShape` union
+`Slide.shapes` and `GroupShape.shapes` do, built by the same dispatch, so
+shape-walking code applies unchanged to a template's own content. That content is
+what a viewer recognizes the deck by — the header band, the rule under the title,
+the logo, the footer furniture — and it is *not* reachable through `placeholders`,
+which is the `p:ph`-only view of the same tree. Both views hand out the same live
+`p:sp` elements: read a placeholder through `placeholders` to **place** it, through
+`shapes` to **draw** it (only the latter carries `resolvedFill`, `resolvedLine`,
+`presetGeometry`, `rotation`, `absoluteFrame`, and reports its `p:ph` as
+`AutoShape.placeholder`).
+
+Colour and font tokens resolve against the *owning* part's context, not a slide's:
+a master shape's `schemeClr` goes through the master's own `p:clrMap` and its theme,
+a layout shape's through `SlideLayout.themeContext()` (layout → master → theme).
+Groups recurse and `absoluteFrame` composes the enclosing group chain exactly as it
+does at slide level.
+
+The write API authors the layout arm: every non-`placeholder` member of
+`defineSlideMaster({ objects })` — a `rect`, a `line`, an `image`, a `chart`, a
+`text` box, a `{ shape: { type } }` descriptor — lands in the layout's `p:spTree`.
+It authors nothing on the master's own tree (`defineSlideMaster` creates a *layout*
+under the shared master), so an authored deck reads `master.shapes` as `[]`; the
+master arm is measured against PowerPoint-authored fixtures
+(`test/read/chrome-shapes.test.js`).
+
+##### Whether the master's shapes are drawn (`showMasterSp`)
+
+`p:sld/@showMasterSp` and `p:sldLayout/@showMasterSp` (ECMA-376 attributeGroup
+`AG_ChildSlide`) are `xsd:boolean` **defaulting to `true`**, so an absent attribute
+means shown — the same shape as `Slide.hidden`. PowerPoint writes `showMasterSp="0"`
+on a section divider or a full-bleed layout, and it suppresses only the master's
+*decorative* shapes; placeholders are unaffected.
+
+A consumer that paints `master.shapes` has to consult both tiers, or it puts the
+template's furniture back on a slide that deliberately hid it:
+
+```ts
+const drawMasterFurniture = slide.showMasterSp && (slide.layout?.showMasterSp ?? true)
+```
+
+Read-only on both classes: the write API authors neither attribute.
+
 The measured fidelity: `pres.theme = { colorScheme, headFontFace, bodyFontFace, … }`
 authors `theme1.xml`'s `a:clrScheme` (a caller override per slot, Office defaults for
 the rest — including the `dk1`/`lt1` `a:sysClr` slots, resolved here through their
@@ -764,20 +821,24 @@ writer leaves empty read as `null`, not `""`). `defineSlideMaster({ background,
 slideNumber, objects, … })` authors the master's `p:clrMap`, its slide-number
 placeholder with **explicit geometry** (`left`/`top`/`width`/`height` all round-trip
 — unlike a notes placeholder, a master/layout placeholder's `a:xfrm` is authored,
-not inherited), and its layout's own background and placeholders (a non-placeholder
-`objects` shape like a decorative rect is filtered out of `placeholders`). The one
-import-only surface is `p:sldLayout/@type` — the writer authors none, so it reads
-`null` on an authored deck; an imported deck carries PowerPoint's value.
+not inherited), and its layout's own background, placeholders, and non-placeholder
+`objects` (a decorative rect is filtered out of `placeholders` but present in
+`shapes`). The import-only surfaces are `p:sldLayout/@type` and both `@showMasterSp`
+attributes — the writer authors none, so they read `null`/`true` on an authored deck;
+an imported deck carries PowerPoint's values.
 
 `SlideLayout.background`/`SlideMaster.background` report only that part's **own**
 `p:bg` — for the *effective* background a slide actually renders (walking slide →
 layout → master), use `Slide.background` instead.
 
-Scope note: this pass ships the property model and navigation. It does not add new
-*inheritance-resolution* getters beyond what already existed (a slide placeholder's
-effective run colour/size/face already resolves via `Slide.themeContext` →
-`Run.resolved*`). Notes-body run inheritance from the notesMaster's `p:notesStyle`
-now resolves too (shipped 2026-07-23) — see the notes-frame section above.
+Scope note: this pass ships the property model, the shape model, and navigation. It
+does not add new *inheritance-resolution* getters beyond what already existed (a
+slide placeholder's effective run colour/size/face already resolves via
+`Slide.themeContext` → `Run.resolved*`). Notes-body run inheritance from the
+notesMaster's `p:notesStyle` now resolves too (shipped 2026-07-23) — see the
+notes-frame section above. Nor does it *compose* the tiers for you: a renderer still
+decides for itself whether to paint `master.shapes` under `layout.shapes` under
+`slide.shapes`, with `showMasterSp` as the gate.
 
 A slide placeholder's effective *geometry* through this chain **does** resolve, via
 `Shape.resolvedFrame` (shipped 2026-07-23):
@@ -812,7 +873,8 @@ off that fixture's own master/layout XML, not derived from the reader.
 
 ### `Shape` and subclasses
 
-`slide.shapes` returns one proxy per shape-tree child, by element:
+`slide.shapes` — and, identically, `layout.shapes`, `master.shapes`, and
+`group.shapes` — returns one proxy per shape-tree child, by element:
 
 | Element           | Class          | `shapeType`     |
 | ----------------- | -------------- | --------------- |
@@ -840,7 +902,7 @@ flips after composing enclosing group transforms.
 ```ts
 abstract class Shape {
 	readonly shapeType: ShapeType
-	readonly slide: Slide
+	readonly host: ShapeHost // the Slide, SlideLayout, or SlideMaster whose part carries this tree
 	readonly id: number | null // p:cNvPr/@id
 	readonly name: string // p:cNvPr/@name ('' if unnamed)
 	left: number | null // EMU (a:off/@x) — settable
@@ -885,9 +947,9 @@ class AutoShape extends Shape {
 
 class Picture extends Shape {
 	imageRelId: string | null // a:blip/@r:embed — get, or set to repoint at an existing rel
-	readonly imagePartName: string | null // resolved via the slide's rels
+	readonly imagePartName: string | null // resolved via the owning part's rels
 	readonly svgRelId: string | null // a:blip/asvg:svgBlip/@r:embed — the SVG source, when present
-	readonly svgPartName: string | null // the SVG part, resolved via the slide's rels
+	readonly svgPartName: string | null // the SVG part, resolved via the owning part's rels
 	setImage(bytes: Uint8Array, options: { contentType: string; extension?: string }): void // Phase 4 — swap the image
 	// Fill setters throw (a picture's surface is out of scope for v1); lineColor
 	// (the picture's border) is available.
@@ -919,7 +981,7 @@ class Connector extends Shape {
 interface ConnectionSite {
 	shapeId: number // the bound shape's drawing id (p:cNvPr/@id)
 	siteIndex: number // connection-site index on that shape (@idx, 0-based, preset-dependent)
-	boundShape: AnyShape | null // resolved via slide.shapeByIdDeep (descends into groups); null only when no shape anywhere carries that id
+	boundShape: AnyShape | null // resolved via the host's shapeByIdDeep (descends into groups); null only when no shape in the same tree carries that id
 }
 ```
 
@@ -1883,7 +1945,8 @@ below — parsing and reading must never dirty a part — so the obligation stay
 explicit. It is pinned by `test/read/escape-hatch-dirty.test.js`.
 
 `element_` is available at every level, and `markDirty()` on any of them reaches
-the same owning part: `Slide` (the `p:sld` root), `Shape`, `TextFrame`,
+the same owning part: `Slide` (the `p:sld` root), `Shape` (its host's part — the
+slide, layout, or master carrying the tree), `TextFrame`,
 `Paragraph`, `Run`, `Table`, `TableRow`, `TableCell`, `Placeholder`,
 `NotesPlaceholder`, `Theme`, and — reaching their *own* parts, not the slide —
 `Chart`, `ChartAxis`, `ChartSeries`, `ChartEx`, `ChartExAxis`, `ChartExSeries`,

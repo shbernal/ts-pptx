@@ -3,11 +3,12 @@
  *
  * It owns everything a shape has regardless of kind: non-visual identity (id / name / hidden /
  * description / decorative), geometry through the subclass-supplied `a:xfrm`, and the `p:spPr`
- * surface — fill, line, gradient, effects — resolved against the slide's theme. Kind-specific
+ * surface — fill, line, gradient, effects — resolved against the host's theme. Kind-specific
  * reads live on the subclasses in the sibling modules.
  *
- * A proxy holds a back-reference to its owning `Slide` so it can resolve relationships and theme
- * colours, and so a mutation can mark the slide part dirty.
+ * A proxy holds a back-reference to its owning {@link ShapeHost} — a `Slide`, a `SlideLayout` or a
+ * `SlideMaster` — so it can resolve relationships and theme colours, and so a mutation can mark
+ * that host's part dirty.
  */
 
 import {
@@ -41,7 +42,7 @@ import { readGradientFill, readGradientStops, type GradientFill, type GradientSt
 import { readPictureFill, type PictureFill } from '../picture-fill.js'
 import { readPatternFill } from '../pattern-fill.js'
 import { TextFrame } from '../text.js'
-import type { Slide } from '../slide.js'
+import type { ShapeHost } from './host.js'
 import {
 	childElements,
 	emuFrom,
@@ -72,11 +73,16 @@ import { InternalError, PackageReadError, UnsupportedFeatureError } from '../../
 // against real PowerPoint output ("Mark as decorative").
 const ADEC_NS = 'http://schemas.microsoft.com/office/drawing/2017/decorative'
 
-/** Common base for every shape in a slide's shape tree. */
+/** Common base for every shape in a shape tree — a slide's, a layout's, or a master's. */
 export abstract class Shape {
 	constructor(
 		protected readonly element: Element,
-		readonly slide: Slide
+		/**
+		 * The part that owns this shape's tree — a `Slide`, a `SlideLayout`, or a
+		 * `SlideMaster`. Narrow it with `instanceof` when you need the concrete class;
+		 * {@link ShapeHost.partName} tells the tiers apart without one.
+		 */
+		readonly host: ShapeHost
 	) {}
 
 	/** Which concrete shape kind this is. */
@@ -89,12 +95,12 @@ export abstract class Shape {
 	protected abstract getOrAddXfrm(): Element
 
 	/**
-	 * Mark the owning slide part dirty so `save()` reserializes it. Public
+	 * Mark the owning host's part dirty so `save()` reserializes it. Public
 	 * because {@link element_} hands out the live DOM node: the hatch and the
 	 * obligation that comes with it belong on the same object.
 	 */
 	markDirty(): void {
-		this.slide.part.markDirty()
+		this.host.part.markDirty()
 	}
 
 	/** Drawing id (`p:cNvPr/@id`), or `null` if absent. */
@@ -239,7 +245,7 @@ export abstract class Shape {
 		}
 		const ph = this.placeholder
 		if (!ph) return null
-		return resolveInheritedFrame(ph, this.slide.themeContext())
+		return resolveInheritedFrame(ph, this.host.themeContext())
 	}
 
 	/**
@@ -553,7 +559,7 @@ export abstract class Shape {
 	 * when the gradient carries no stop list.
 	 */
 	#gradientStopsIn(container: Element): GradientStop[] | null {
-		return readGradientStops(container, this.slide.themeContext())
+		return readGradientStops(container, this.host.themeContext())
 	}
 
 	/**
@@ -562,7 +568,7 @@ export abstract class Shape {
 	 * container has no gradient.
 	 */
 	#gradientFillIn(container: Element): GradientFill | null {
-		return readGradientFill(container, this.slide.themeContext())
+		return readGradientFill(container, this.host.themeContext())
 	}
 
 	/**
@@ -610,7 +616,7 @@ export abstract class Shape {
 
 	/**
 	 * The shape's outer drop shadow (`spPr/a:effectLst/a:outerShdw`), resolved
-	 * against the slide theme, or `null` when the shape has no outer shadow. The
+	 * against the host's theme, or `null` when the shape has no outer shadow. The
 	 * soft brand shadows the eye reads as "floating" panels live here and are
 	 * invisible in geometry/fill alone.
 	 */
@@ -621,7 +627,7 @@ export abstract class Shape {
 
 	/**
 	 * The shape's **inner** shadow (`spPr/a:effectLst/a:innerShdw`), resolved against
-	 * the slide theme, or `null` when the shape has no inner shadow. The inset
+	 * the host's theme, or `null` when the shape has no inner shadow. The inset
 	 * counterpart of {@link shadow}: the write-side `shadow: { type: 'inner' }`
 	 * emits it, and it is invisible in geometry/fill alone.
 	 */
@@ -631,7 +637,7 @@ export abstract class Shape {
 	}
 
 	/**
-	 * The shape's glow halo (`spPr/a:effectLst/a:glow`), resolved against the slide
+	 * The shape's glow halo (`spPr/a:effectLst/a:glow`), resolved against the host's
 	 * theme, or `null` when the shape has no glow. Same element the write-side text
 	 * glow emits, so its {@link Glow.radiusPt} and colour round-trip.
 	 */
@@ -683,13 +689,13 @@ export abstract class Shape {
 	/**
 	 * The shape's pattern (hatch) fill (`spPr/a:pattFill`), or `null` when the fill
 	 * is not a pattern. Surfaces the {@link PatternFill.preset} name and both
-	 * colours resolved against the slide theme — the pattern counterpart of
+	 * colours resolved against the host's theme — the pattern counterpart of
 	 * {@link resolvedFill}, which reports `null` for a non-solid fill and so drops a
 	 * hatched surface entirely.
 	 */
 	get patternFill(): PatternFill | null {
 		const props = this.properties()
-		return props ? readPatternFill(props, this.slide.themeContext()) : null
+		return props ? readPatternFill(props, this.host.themeContext()) : null
 	}
 
 	/**
@@ -703,7 +709,7 @@ export abstract class Shape {
 	 */
 	get pictureFill(): PictureFill | null {
 		const props = this.properties()
-		return props ? readPictureFill(props, this.slide.relationships) : null
+		return props ? readPictureFill(props, this.host.relationships) : null
 	}
 
 	/** A named child of the shape's effect list (`spPr/a:effectLst/<qname>`), or `null`. */
@@ -715,7 +721,7 @@ export abstract class Shape {
 
 	/** Resolve `colorEl` against the theme and stamp `color`/`colorToken`/`alpha` onto an effect result. */
 	#applyEffectColor(out: { color: string | null; colorToken?: string; alpha?: number }, colorEl: Element | null): void {
-		const resolved = resolveColorElement(colorEl, this.slide.themeContext())
+		const resolved = resolveColorElement(colorEl, this.host.themeContext())
 		if (resolved) {
 			out.color = resolved.effectiveHex
 			if (resolved.alpha !== undefined) out.alpha = resolved.alpha
@@ -737,7 +743,7 @@ export abstract class Shape {
 	}
 
 	/**
-	 * The shape's solid fill resolved against the slide's theme
+	 * The shape's solid fill resolved against the host's theme
 	 * ({@link Slide.themeContext}) to a literal hex — the resolved counterpart of
 	 * {@link fillColor}/{@link fillSchemeColor}, which report the raw reference.
 	 * `null` when the shape has no `a:solidFill` (a gradient/none/inherited fill)
@@ -751,14 +757,14 @@ export abstract class Shape {
 	 * matrix), resolved the same way the `theme: 'preserve'` flatten path bakes it.
 	 */
 	get resolvedFill(): ResolvedColor | null {
-		const ctx = this.slide.themeContext()
+		const ctx = this.host.themeContext()
 		const props = this.properties()
 		if (props && FILL_CHOICES.some((q) => firstChild(props, q))) return resolveSolidFillColor(props, ctx)
 		return resolveStyleFillColor(this.element, ctx)
 	}
 
 	/**
-	 * The shape's line/border solid fill resolved against the slide's theme to a
+	 * The shape's line/border solid fill resolved against the host's theme to a
 	 * literal hex — the resolved counterpart of {@link lineColor}/{@link lineSchemeColor}.
 	 * `null` when the shape has no `a:ln/a:solidFill` or it cannot be made literal.
 	 * Like {@link resolvedFill}, the result carries `effectiveHex` (the base colour
@@ -768,7 +774,7 @@ export abstract class Shape {
 	 * the shape inherits from its `p:style` `a:lnRef` (the theme style matrix).
 	 */
 	get resolvedLine(): ResolvedColor | null {
-		const ctx = this.slide.themeContext()
+		const ctx = this.host.themeContext()
 		const ln = this.#line()
 		return ln ? resolveSolidFillColor(ln, ctx) : resolveStyleLineColor(this.element, ctx)
 	}
@@ -853,8 +859,8 @@ export abstract class Shape {
 	}
 
 	/**
-	 * Remove this shape from its parent (the slide's shape tree, or an enclosing
-	 * group) and mark the owning slide part dirty. The proxy is dead afterwards.
+	 * Remove this shape from its parent (the host's shape tree, or an enclosing
+	 * group) and mark the owning host's part dirty. The proxy is dead afterwards.
 	 */
 	delete(): void {
 		const parent = this.element.parentNode

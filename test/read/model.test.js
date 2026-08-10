@@ -207,7 +207,7 @@ describe('mixed.pptx — connectors, groups, graphic frames', () => {
 			'Groupe 2 nests two connectors'
 		)
 		assert(
-			groupe2.shapes.every((shape) => shape.slide === slide),
+			groupe2.shapes.every((shape) => shape.host === slide),
 			'nested shapes back-reference their owning slide'
 		)
 	})
