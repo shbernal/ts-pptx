@@ -1,38 +1,41 @@
 /**
- * Design system for the Meridian quarterly review deck: palette, type scale, and the
+ * Design system for the Kestrel quarterly review deck: palette, type scale, and the
  * five slide masters every slide is built on.
  *
  * The point of keeping this in one file is that the slides in `index.mjs` never name a
- * raw hex value or a magic font size. A deck that hard-codes `color: '1FA8A0'` in forty
+ * raw hex value or a magic font size. A deck that hard-codes `color: 'B08D3F'` in forty
  * places is not a design system, it is forty coincidences — and it is exactly what makes
  * a generated deck look generated.
  */
-import { ShapeType } from "@shbernal/ts-pptx";
-import { WIDE } from "../lib/layout.mjs";
+import { ShapeType } from '@shbernal/ts-pptx'
+import { WIDE } from '../lib/layout.mjs'
 
 export const BRAND = {
-	ink: "0B1F33",
-	navy: "12314F",
-	steel: "3A5875",
-	slate: "5A6B7C",
-	mist: "D9E2EC",
-	paper: "F5F7FA",
-	white: "FFFFFF",
-	teal: "1FA8A0",
-	amber: "E8A33D",
-	rose: "D2596B",
-	violet: "7C6BB0",
-	moss: "5E9E6B",
-};
+	ink: '0C1D13',
+	forest: '14301F',
+	pine: '3E6B4A',
+	ash: '6F7269',
+	haze: 'D9DED1',
+	bone: 'F3F1EA',
+	white: 'FFFFFF',
+	brass: 'B08D3F',
+	// `brass` darkened until small caps hold up on `bone`. The fills and rules use the
+	// lighter one; anything set as *text* on a light ground uses this.
+	brassInk: '7E6224',
+	clay: 'C4784A',
+	rust: 'A75A3C',
+	lichen: '8FA98A',
+	fern: '6E9E72',
+}
 
 /** Series colours for charts, ordered so adjacent series stay legible side by side. */
-export const CHART_COLORS = [BRAND.teal, BRAND.navy, BRAND.amber, BRAND.violet, BRAND.rose, BRAND.moss];
+export const CHART_COLORS = [BRAND.brass, BRAND.forest, BRAND.clay, BRAND.lichen, BRAND.rust, BRAND.fern]
 
 export const FONT = {
-	head: "Segoe UI Semibold",
-	body: "Segoe UI",
-	mono: "Consolas",
-};
+	head: 'Segoe UI Semibold',
+	body: 'Segoe UI',
+	mono: 'Consolas',
+}
 
 /** Type scale. Sizes are points, matching PowerPoint's own units. */
 export const TYPE = {
@@ -44,27 +47,27 @@ export const TYPE = {
 	body: 14,
 	caption: 11,
 	metric: 40,
-};
+}
 
 export const MASTER = {
-	title: "MERIDIAN_TITLE",
-	section: "MERIDIAN_SECTION",
-	content: "MERIDIAN_CONTENT",
-	data: "MERIDIAN_DATA",
-	closing: "MERIDIAN_CLOSING",
-};
+	title: 'KESTREL_TITLE',
+	section: 'KESTREL_SECTION',
+	content: 'KESTREL_CONTENT',
+	data: 'KESTREL_DATA',
+	closing: 'KESTREL_CLOSING',
+}
 
-const FOOTER_TEXT = "Meridian Group  ·  Q3 FY26 Business Review  ·  Internal";
-const FOOTER_Y = 6.95;
-const FOOTER_H = 0.55;
+const FOOTER_TEXT = 'Kestrel Analytics  ·  Q3 FY26 Business Review  ·  Internal'
+const FOOTER_Y = 6.95
+const FOOTER_H = 0.55
 
 /**
- * The footer band shared by the two body masters: a navy bar, the deck's running
+ * The footer band shared by the two body masters: a forest bar, the deck's running
  * title on the left, and room on the right for the slide number the master places.
  */
 function footerObjects() {
 	return [
-		{ rect: { x: 0, y: FOOTER_Y, w: "100%", h: FOOTER_H, fill: { color: BRAND.navy } } },
+		{ rect: { x: 0, y: FOOTER_Y, w: '100%', h: FOOTER_H, fill: { color: BRAND.forest } } },
 		{
 			text: {
 				text: FOOTER_TEXT,
@@ -74,15 +77,15 @@ function footerObjects() {
 					w: 8,
 					h: FOOTER_H,
 					margin: 0,
-					valign: "middle",
+					valign: 'middle',
 					fontFace: FONT.body,
 					fontSize: 9,
-					color: BRAND.mist,
+					color: BRAND.haze,
 					charSpacing: 0.6,
 				},
 			},
 		},
-	];
+	]
 }
 
 const SLIDE_NUMBER = {
@@ -90,23 +93,23 @@ const SLIDE_NUMBER = {
 	y: FOOTER_Y,
 	w: 0.5,
 	h: FOOTER_H,
-	align: "right",
-	valign: "middle",
+	align: 'right',
+	valign: 'middle',
 	fontFace: FONT.body,
 	fontSize: 10,
 	color: BRAND.white,
 	bold: true,
-};
+}
 
 /**
- * Apply the Meridian theme and register every master.
+ * Apply the Kestrel theme and register every master.
  *
  * `pptx.theme.colorScheme` matters more than it looks: it rewrites `theme1.xml`, so a
  * chart series left on `accent1`, a hyperlink, and a table style region all pick up the
  * brand palette without being told about it individually.
  */
 export function applyDesign(pptx) {
-	pptx.layout = "LAYOUT_WIDE";
+	pptx.layout = 'LAYOUT_WIDE'
 
 	pptx.theme = {
 		headFontFace: FONT.head,
@@ -114,62 +117,62 @@ export function applyDesign(pptx) {
 		colorScheme: {
 			dk1: BRAND.ink,
 			lt1: BRAND.white,
-			dk2: BRAND.navy,
-			lt2: BRAND.paper,
-			accent1: BRAND.teal,
-			accent2: BRAND.navy,
-			accent3: BRAND.amber,
-			accent4: BRAND.violet,
-			accent5: BRAND.rose,
-			accent6: BRAND.moss,
-			hlink: BRAND.teal,
-			folHlink: BRAND.slate,
+			dk2: BRAND.forest,
+			lt2: BRAND.bone,
+			accent1: BRAND.brass,
+			accent2: BRAND.forest,
+			accent3: BRAND.clay,
+			accent4: BRAND.lichen,
+			accent5: BRAND.rust,
+			accent6: BRAND.fern,
+			hlink: BRAND.brassInk,
+			folHlink: BRAND.ash,
 		},
-	};
+	}
 
 	// TITLE — a native linear gradient rather than a background image, so the cover
 	// scales to any layout and adds nothing to the package size.
 	pptx.defineSlideMaster({
 		title: MASTER.title,
 		background: {
-			type: "gradient",
+			type: 'gradient',
 			gradient: {
-				kind: "linear",
+				kind: 'linear',
 				angle: 135,
 				stops: [
 					{ position: 0, color: BRAND.ink },
-					{ position: 55, color: BRAND.navy },
-					{ position: 100, color: BRAND.steel },
+					{ position: 55, color: BRAND.forest },
+					{ position: 100, color: BRAND.pine },
 				],
 			},
 		},
 		objects: [
-			{ rect: { x: 0, y: 0, w: 0.22, h: "100%", fill: { color: BRAND.teal } } },
-			{ rect: { x: 0.95, y: 4.62, w: 2.4, h: 0.06, fill: { color: BRAND.teal } } },
+			{ rect: { x: 0, y: 0, w: 0.22, h: '100%', fill: { color: BRAND.brass } } },
+			{ rect: { x: 0.95, y: 4.62, w: 2.4, h: 0.06, fill: { color: BRAND.brass } } },
 		],
-	});
+	})
 
 	// SECTION — flat ink, with an oversized ghosted numeral slot on the right.
 	pptx.defineSlideMaster({
 		title: MASTER.section,
 		background: { color: BRAND.ink },
 		objects: [
-			{ rect: { x: 0, y: 0, w: 0.22, h: "100%", fill: { color: BRAND.amber } } },
-			{ rect: { x: 0.95, y: 4.35, w: 1.5, h: 0.06, fill: { color: BRAND.amber } } },
+			{ rect: { x: 0, y: 0, w: 0.22, h: '100%', fill: { color: BRAND.clay } } },
+			{ rect: { x: 0.95, y: 4.35, w: 1.5, h: 0.06, fill: { color: BRAND.clay } } },
 		],
-	});
+	})
 
 	// CONTENT — the workhorse. Paper ground, hairline rule under the title area.
 	pptx.defineSlideMaster({
 		title: MASTER.content,
-		background: { color: BRAND.paper },
+		background: { color: BRAND.bone },
 		objects: [
-			{ rect: { x: 0, y: 0, w: "100%", h: 0.1, fill: { color: BRAND.teal } } },
-			{ rect: { x: 0.75, y: 1.28, w: WIDE.w - 1.5, h: 0.015, fill: { color: BRAND.mist } } },
+			{ rect: { x: 0, y: 0, w: '100%', h: 0.1, fill: { color: BRAND.brass } } },
+			{ rect: { x: 0.75, y: 1.28, w: WIDE.w - 1.5, h: 0.015, fill: { color: BRAND.haze } } },
 			...footerObjects(),
 		],
 		slideNumber: SLIDE_NUMBER,
-	});
+	})
 
 	// DATA — same chrome, white ground. Charts and tables read better without the
 	// paper tint behind them, and PowerPoint's own chart area default is white.
@@ -177,30 +180,30 @@ export function applyDesign(pptx) {
 		title: MASTER.data,
 		background: { color: BRAND.white },
 		objects: [
-			{ rect: { x: 0, y: 0, w: "100%", h: 0.1, fill: { color: BRAND.amber } } },
-			{ rect: { x: 0.75, y: 1.28, w: WIDE.w - 1.5, h: 0.015, fill: { color: BRAND.mist } } },
+			{ rect: { x: 0, y: 0, w: '100%', h: 0.1, fill: { color: BRAND.clay } } },
+			{ rect: { x: 0.75, y: 1.28, w: WIDE.w - 1.5, h: 0.015, fill: { color: BRAND.haze } } },
 			...footerObjects(),
 		],
 		slideNumber: SLIDE_NUMBER,
-	});
+	})
 
 	// CLOSING — the title gradient mirrored, so the deck opens and shuts on the same note.
 	pptx.defineSlideMaster({
 		title: MASTER.closing,
 		background: {
-			type: "gradient",
+			type: 'gradient',
 			gradient: {
-				kind: "linear",
+				kind: 'linear',
 				angle: 315,
 				stops: [
-					{ position: 0, color: BRAND.steel },
-					{ position: 45, color: BRAND.navy },
+					{ position: 0, color: BRAND.pine },
+					{ position: 45, color: BRAND.forest },
 					{ position: 100, color: BRAND.ink },
 				],
 			},
 		},
-		objects: [{ rect: { x: 0, y: 0, w: "100%", h: 0.1, fill: { color: BRAND.teal } } }],
-	});
+		objects: [{ rect: { x: 0, y: 0, w: '100%', h: 0.1, fill: { color: BRAND.brass } } }],
+	})
 }
 
 /** Slide title + optional kicker, positioned against the master's hairline rule. */
@@ -214,10 +217,10 @@ export function slideTitle(slide, title, kicker) {
 			margin: 0,
 			fontFace: FONT.body,
 			fontSize: TYPE.caption,
-			color: BRAND.teal,
+			color: BRAND.brassInk,
 			bold: true,
 			charSpacing: 1.6,
-		});
+		})
 	}
 	slide.addText(title, {
 		x: 0.75,
@@ -225,11 +228,11 @@ export function slideTitle(slide, title, kicker) {
 		w: WIDE.w - 1.5,
 		h: 0.6,
 		margin: 0,
-		valign: "middle",
+		valign: 'middle',
 		fontFace: FONT.head,
 		fontSize: TYPE.title,
 		color: BRAND.ink,
-	});
+	})
 }
 
 /**
@@ -240,7 +243,7 @@ export function slideTitle(slide, title, kicker) {
  * which is what someone editing the deck afterwards actually wants.
  */
 export function kpiCard({ x, y, w, h, label, value, delta, positive }) {
-	const accent = positive ? BRAND.teal : BRAND.rose;
+	const accent = positive ? BRAND.brass : BRAND.rust
 	return [
 		{
 			roundRect: {
@@ -250,7 +253,7 @@ export function kpiCard({ x, y, w, h, label, value, delta, positive }) {
 				h,
 				rectRadius: 0.06,
 				fill: { color: BRAND.white },
-				line: { color: BRAND.mist, width: 1 },
+				line: { color: BRAND.haze, width: 1 },
 			},
 		},
 		{ rect: { x: x + 0.06, y, w: w - 0.12, h: 0.07, fill: { color: accent } } },
@@ -263,7 +266,7 @@ export function kpiCard({ x, y, w, h, label, value, delta, positive }) {
 					w: w - 0.48,
 					h: 0.85,
 					margin: 0,
-					valign: "middle",
+					valign: 'middle',
 					fontFace: FONT.head,
 					fontSize: TYPE.metric,
 					color: BRAND.ink,
@@ -281,7 +284,7 @@ export function kpiCard({ x, y, w, h, label, value, delta, positive }) {
 					margin: 0,
 					fontFace: FONT.body,
 					fontSize: 10,
-					color: BRAND.slate,
+					color: BRAND.ash,
 					charSpacing: 1.2,
 				},
 			},
@@ -295,8 +298,8 @@ export function kpiCard({ x, y, w, h, label, value, delta, positive }) {
 					w: 1.25,
 					h: 0.34,
 					margin: 0,
-					align: "center",
-					valign: "middle",
+					align: 'center',
+					valign: 'middle',
 					shape: ShapeType.roundRect,
 					rectRadius: 0.16,
 					fill: { color: accent, transparency: 86 },
@@ -306,5 +309,5 @@ export function kpiCard({ x, y, w, h, label, value, delta, positive }) {
 				},
 			},
 		},
-	];
+	]
 }

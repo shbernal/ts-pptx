@@ -12,7 +12,7 @@ Output goes to `output/` (git-ignored).
 
 ## The decks
 
-### `quarterly-review/` — Meridian Q3 FY26 Business Review
+### `quarterly-review/` — Kestrel Q3 FY26 Business Review
 
 Eleven slides. The corporate flagship: a themed `<a:clrScheme>`, five slide masters, native
 linear gradients on the cover and closing, KPI cards assembled as groups, a stacked column
@@ -20,8 +20,8 @@ chart, a doughnut with a text well in its hole, a line chart with a callout, a h
 table with a totals row, chevron timeline, and speaker notes throughout.
 
 It imports nothing from `node:` — every mark on every slide is drawn rather than loaded.
-That is what lets `demos/vite-demo` import this same module and build the identical deck in
-a browser.
+That is what lets the site's demos page (`www/demos/`) import this same module and build the
+identical deck in a browser.
 
 ### `field-notes/` — Four Cities After Dark
 
