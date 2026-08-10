@@ -368,6 +368,22 @@ with a warning, so a malformed source falls back to bare `'shrink'` with the los
 declared instead of passing through a number that would vanish silently. No
 corpus fixture is malformed, so both read 0/44.
 
+**The explicit off for a text decoration is a state, not silence.** `u="none"`,
+`strike="noStrike"` and `cap="none"` carry into the IR as
+`underline: { style: 'none' }`, `strike: 'noStrike'` and `caps: 'none'`; only an
+*absent* attribute maps to an absent option. Each is a member of its own
+enumeration (ECMA-376 §20.1.10.81, §20.1.10.78, `ST_TextCapsType`) and would be
+redundant with omission if omission were the only way to be off. It is not,
+because run properties resolve down the `a:lstStyle` → placeholder → layout →
+master chain: a run that would take `u="sng"` from its list style and states
+`u="none"` is not underlined, and the same run with the attribute dropped is. The
+loss was invisible on a deck with no inherited decoration and a wrong answer on
+one that has any — and undeclared either way, since `canonicalDeckIr` did not
+carry the field, so `diffDeckIr` compared two models that were both missing it.
+Neither state notes. Two PowerPoint-authored fixtures state these tokens:
+`mixed.pptx` and `table.pptx` carry 132 runs stating `u="none"` and
+`strike="noStrike"`, and 100 of those also state `cap="none"`.
+
 `fill.picture` / `table.cell.fill.picture` are what remain for a fill that
 cannot carry its bytes at all, and neither fires on the corpus: a blip embedding
 no part (an external or linked image), a part missing from the package, or an

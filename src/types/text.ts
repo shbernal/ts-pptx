@@ -126,11 +126,14 @@ export interface TextBaseProps {
 				color?: HexColor
 		  }
 	/**
-	 * Text capitalization
+	 * Text capitalization (`a:rPr/@cap`, `ST_TextCapsType`)
 	 * - `'all'` = ALL CAPS
 	 * - `'small'` = Small Caps
-	 * - `'none'` = no override (default)
+	 * - `'none'` = the *explicit off*: it writes `cap="none"`, which overrides a capitalization
+	 *   the run would otherwise inherit. Omitting the option states nothing and lets that
+	 *   inheritance stand
 	 * - PowerPoint: Font > Effects > All Caps / Small Caps
+	 * @default (unset) inherit
 	 */
 	caps?: 'none' | 'small' | 'all'
 	/**
@@ -211,7 +214,12 @@ export interface TextBaseProps {
 	/**
 	 * underline properties
 	 * - PowerPoint: Font > Color & Underline > Underline Style/Underline Color
-	 * @default (none)
+	 * - `style` is the full `ST_TextUnderlineType` enumeration (ECMA-376 §20.1.10.81)
+	 * - `'none'` is the *explicit off*: it writes `a:rPr/@u="none"`, which overrides an
+	 *   underline the run would otherwise inherit from its list style, placeholder, layout or
+	 *   master. Omitting the option instead states nothing and lets that inheritance stand —
+	 *   the two are different facts, not two spellings of one.
+	 * @default (unset) inherit
 	 */
 	underline?: {
 		style?:
@@ -221,7 +229,7 @@ export interface TextBaseProps {
 			| 'dashLongHeavy'
 			| 'dbl'
 			| 'dotDash'
-			| 'dotDashHeave'
+			| 'dotDashHeavy'
 			| 'dotDotDash'
 			| 'dotDotDashHeavy'
 			| 'dotted'
@@ -232,6 +240,7 @@ export interface TextBaseProps {
 			| 'wavy'
 			| 'wavyDbl'
 			| 'wavyHeavy'
+			| 'words'
 		color?: Color
 	}
 	/**
@@ -429,7 +438,19 @@ export interface TextPropsOptions extends PositionProps, DataOrPathProps, TextBa
 	rtlMode?: boolean
 	shadow?: ShadowProps
 	shape?: SHAPE_NAME
-	strike?: boolean | 'dblStrike' | 'sngStrike'
+	/**
+	 * Strikethrough (`a:rPr/@strike`, `ST_TextStrikeType` — ECMA-376 §20.1.10.78)
+	 * - `true` is `'sngStrike'`; `'dblStrike'` is the double rule
+	 * - `'noStrike'` is the *explicit off*: it writes `strike="noStrike"`, which overrides a
+	 *   strikethrough the run would otherwise inherit from its list style, placeholder, layout
+	 *   or master
+	 * - `false`, like leaving the option out, writes no attribute at all and so states
+	 *   *nothing* — the run keeps whatever it inherits. This matches `bold`/`italic`, whose
+	 *   falsy arm is likewise an omission; reach for `'noStrike'` when the intent is "not
+	 *   struck" rather than "unspecified"
+	 * @default (unset) inherit
+	 */
+	strike?: boolean | 'noStrike' | 'sngStrike' | 'dblStrike'
 	subscript?: boolean
 	superscript?: boolean
 	/**

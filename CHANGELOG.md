@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING (write): `TextPropsOptions.strike` admits `'noStrike'`, and `underline.style`
+  matches `ST_TextUnderlineType`** (#14). `strike` was `boolean | 'sngStrike' | 'dblStrike'`,
+  which had no spelling for the explicit off even though the serializer passes any truthy
+  string straight to the attribute — so `strike: 'noStrike' as 'sngStrike'` already produced
+  the right XML and only the published type refused it. It is now
+  `boolean | 'noStrike' | 'sngStrike' | 'dblStrike'`. The breaking half is `underline.style`:
+  `'dotDashHeave'` was a typo for `'dotDashHeavy'` and is corrected, and the missing
+  `'words'` is added, so the union is the enumeration's full 18 members. Migration: replace
+  `underline: { style: 'dotDashHeave' }` with `'dotDashHeavy'` — the old spelling was not a
+  legal `ST_TextUnderlineType` value, so any deck written with it carried an invalid `@u`.
+
+  The doc comments now also say which state silence is an alias for, on all three
+  decorations. `false` and an omitted `strike` both write no attribute and therefore state
+  *nothing*, leaving the run with whatever it inherits — the same as `bold`/`italic`, whose
+  falsy arm is likewise an omission. `'noStrike'`, `underline: { style: 'none' }` and
+  `caps: 'none'` are the spellings that state "off" and override an inherited decoration.
+
 - **BREAKING (read): `Shape.slide` is now `Shape.host`, typed `ShapeHost`.** A shape proxy
   no longer belongs to a slide specifically — the same `p:sp` can sit in a slide's,
   a layout's, or a master's `p:spTree` — so the back-reference names what it actually
@@ -169,6 +186,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `devDependencies` and takes minutes.
 
 ### Fixed
+
+- **`readModelToIr` carries a text decoration's explicit off** (#14). A run stating
+  `a:rPr/@u="none"`, `@strike="noStrike"` or `@cap="none"` was read correctly by
+  `Run.underline` / `Run.strike` / `Run.caps` and then mapped to `undefined`, so the
+  resulting `CallIr` carried no option and re-emitting wrote no attribute. All three now
+  carry — `underline: { style: 'none' }`, `strike: 'noStrike'`, `caps: 'none'` — and only an
+  *absent* attribute maps to an absent option.
+
+  `none` / `noStrike` are not the same fact as stating nothing. Each is a member of its own
+  enumeration (ECMA-376 §20.1.10.81, §20.1.10.78, `ST_TextCapsType`) and would be redundant
+  with omission if omission were the only way to be off. It is not, because run properties
+  resolve down the `a:lstStyle` → placeholder → layout → master chain: a run that would take
+  `u="sng"` from its list style and states `u="none"` is not underlined, and the same run
+  with the attribute dropped is. So the loss was invisible on a deck with no inherited
+  decoration and a visibly wrong answer on one that has any.
+
+  It was undeclared either way — the same shape as #13. `DeckIr.fidelity` named neither
+  construct, and `canonicalDeckIr` did not carry the field, so `diffDeckIr` compared two
+  models that were *both* missing it and reported the deck clean; a consumer's round-trip
+  harness structurally could not see this. Carrying the tokens closes both at once, and
+  neither state notes. Two PowerPoint-authored fixtures state these tokens: `mixed.pptx` and
+  `table.pptx` hold 132 runs stating `u="none"` and `strike="noStrike"`, 100 of which also
+  state `cap="none"`. No new note fires, so `script:census` is unmoved.
 
 - **`readModelToIr` keeps a baked `normAutofit`'s `fontScale` and `lnSpcReduction`** (#13).
   The mapper flattened every `normAutofit` frame to `fit: 'shrink'`, so both numbers were

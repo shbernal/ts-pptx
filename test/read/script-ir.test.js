@@ -452,6 +452,80 @@ describe('deck IR — text autofit', () => {
 	})
 })
 
+describe('deck IR — the explicit off for text decorations', () => {
+	// `u="none"`, `strike="noStrike"` and `cap="none"` are members of their enumerations
+	// (ECMA-376 §20.1.10.81 / §20.1.10.78 / ST_TextCapsType), not spellings of an absent
+	// attribute. Run properties resolve down the `a:lstStyle` → placeholder → layout → master
+	// chain, so a run that would take `u="sng"` from its list style and states `u="none"` is
+	// *not* underlined, while the same run with the attribute dropped is. The IR mapped all
+	// three tokens to `undefined`, so re-emitting turned the first run into the second — and
+	// because `canonicalDeckIr` did not carry the field either, `diffDeckIr` compared two
+	// models that were both missing it and called the deck clean.
+
+	/** The per-run option objects of the deck's single `addText` call. */
+	const runOptionsOf = (ir) =>
+		allCalls(ir)
+			.find((call) => call.method === 'addText')
+			.args[0].map((run) => run.options)
+
+	test('a run stating the off token keeps it, in the XML and through the IR', async () => {
+		const { presentation, buf } = await authorRead((pres) => {
+			pres.addSlide().addText(
+				[
+					{ text: 'explicitly not underlined', options: { underline: { style: 'none' }, breakLine: true } },
+					// `strike: 'noStrike'` is also this test's compile-time assertion: `typecheck:test`
+					// checks object-literal shape against the package's public types, so a
+					// `TextPropsOptions.strike` that cannot spell the off token fails here.
+					{ text: 'explicitly not struck', options: { strike: 'noStrike', breakLine: true } },
+					{ text: 'explicitly not capitalised', options: { caps: 'none' } },
+				],
+				{ x: 0.5, y: 0.5, w: 6, h: 2, objectName: 'copy' }
+			)
+		})
+
+		const slideXml = await (await JSZip.loadAsync(buf)).file('ppt/slides/slide1.xml').async('string')
+		for (const attr of ['u="none"', 'strike="noStrike"', 'cap="none"']) {
+			assert(slideXml.includes(attr), `the write API states ${attr} rather than omitting the attribute`)
+		}
+
+		const runs = presentation.slides[0].shapes[0].textFrame.paragraphs.flatMap((para) => para.runs)
+		assertEqual(
+			JSON.stringify([runs[0].underline, runs[1].strike, runs[2].caps]),
+			JSON.stringify(['none', 'noStrike', 'none']),
+			'and the reader sees all three tokens'
+		)
+
+		const ir = readModelToIr(presentation)
+		const options = runOptionsOf(ir)
+		assertEqual(JSON.stringify(options[0].underline), JSON.stringify({ style: 'none' }), 'the IR carries u="none"')
+		assertEqual(options[1].strike, 'noStrike', 'and strike="noStrike"')
+		assertEqual(options[2].caps, 'none', 'and cap="none"')
+
+		const canonical = JSON.stringify(canonicalDeckIr(ir))
+		for (const carried of ['"underline":{"style":"none"}', '"strike":"noStrike"', '"caps":"none"']) {
+			assert(canonical.includes(carried), `so a diffDeckIr oracle can see a future loss of ${carried}`)
+		}
+		assertEqual(
+			ir.fidelity.filter((note) => /underline|strike|caps/i.test(note.construct)).length,
+			0,
+			'nothing is lost on this path, so nothing is noted'
+		)
+	})
+
+	test('a run stating nothing stays absent, so the two states remain distinct', async () => {
+		const { presentation } = await authorRead((pres) => {
+			pres.addSlide().addText([{ text: 'unstated' }], { x: 0.5, y: 0.5, w: 6, h: 1, objectName: 'copy' })
+		})
+		const run = presentation.slides[0].shapes[0].textFrame.paragraphs[0].runs[0]
+		assertEqual(run.underline, null, 'the writer emits no @u for a run that states nothing')
+
+		const options = runOptionsOf(readModelToIr(presentation))[0] ?? {}
+		for (const key of ['underline', 'strike', 'caps']) {
+			assertEqual(options[key], undefined, `${key} is left out, which is what re-emits an inheriting run`)
+		}
+	})
+})
+
 describe('deck IR — slide transitions', () => {
 	// The mapping's whole difficulty is that the read model reports an *open* type string
 	// (it decodes PowerPoint's modern effects by namespace) while the write API has a closed

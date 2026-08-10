@@ -204,22 +204,31 @@ function bulletColor(bullet: BulletStyle, notes: NoteScope): string | undefined 
 	return literalColor(resolved.effectiveHex)
 }
 
-/** Per-run character formatting, shared by shape text and table-cell text. */
+/**
+ * Per-run character formatting, shared by shape text and table-cell text.
+ *
+ * The three decoration tokens carry their **explicit off** — `u="none"`, `strike="noStrike"`,
+ * `cap="none"` — rather than collapsing it into the unstated case. Stating one is a different
+ * fact from stating nothing: run properties resolve down the `a:lstStyle` → placeholder →
+ * layout → master chain, so a run that would take `u="sng"` from its list style and states
+ * `u="none"` is *not* underlined, while the same run with the attribute dropped is. Only an
+ * absent attribute (`null` here) means "state nothing"; each off token is a member of its
+ * enumeration in its own right (ECMA-376 §20.1.10.81 / §20.1.10.78) and would be redundant
+ * with omission otherwise.
+ */
 export function runOptions(run: Run, notes: NoteScope): Record<string, IrValue> | undefined {
 	const underline = run.underline
-	const strike = run.strike
-	const caps = run.caps
 
 	return compact({
 		bold: orUndefined(run.bold),
 		italic: orUndefined(run.italic),
-		underline: underline === null || underline === 'none' ? undefined : { style: underline },
-		strike: strike === null || strike === 'noStrike' ? undefined : strike,
+		underline: underline === null ? undefined : { style: underline },
+		strike: orUndefined(run.strike),
 		fontSize: orUndefined(run.fontSizePt),
 		fontFace: orUndefined(run.fontName),
 		color: runColor(run, notes),
 		highlight: run.highlight ? literalColor(run.highlight.effectiveHex) : undefined,
-		caps: caps === null || caps === 'none' ? undefined : caps,
+		caps: orUndefined(run.caps),
 		// The write API spells baseline shift as a percentage, the same unit the read
 		// model reports, so superscript/subscript survive without a preset round-trip.
 		baseline: orUndefined(run.baselinePct),
