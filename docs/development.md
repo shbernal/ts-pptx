@@ -233,13 +233,14 @@ triage and files the report; it ships inside the package, so refresh the copy
 (`npx skills update charcheck-upstream`) in the same commit that bumps the pin, and
 re-apply the local `metadata.internal: true` flag afterwards.
 
-That silence is not hypothetical here. `DASH_PATTERN` in `charcheck.config.js` matches the
-dash with `[ \t]` around it rather than `\s`, because `\s` matches a newline: a trailing
-`\s*` carries the match off the end of a hard-wrapped line, and when the next line opens
-with an inline code span the finding is dropped without a word (shbernal/charcheck#16).
-Eleven genuine dashes sat behind a clean run that way. So when a green scan is the evidence
-for a claim, prove the gate can still fail: put one dash back, watch it report, take it out
-again.
+That silence is not hypothetical here. `DASH_PATTERN` in `charcheck.config.js` ends in
+`\s*`, and `\s` matches a newline: until charcheck 0.2.3 that carried the match off the end
+of a hard-wrapped line, and when the next line opened with an inline code span the finding
+was dropped without a word (shbernal/charcheck#16). Eleven genuine dashes sat behind a clean
+run that way, and the workaround was to match `[ \t]` instead. 0.2.3 fixed it and the
+pattern is back to `\s*`, which is why the pin is exact. So when a green scan is the
+evidence for a claim, prove the gate can still fail: put one dash back, watch it report,
+take it out again.
 
 Note that `format`/`format:check` carry an explicit file list while pre-commit's
 oxfmt job uses an extension glob. Every extension in the former is covered by

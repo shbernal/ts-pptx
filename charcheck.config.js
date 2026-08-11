@@ -25,17 +25,16 @@ const DASHES = [cp(0x2014), cp(0x2015)]
  * needs in order to put a line break back rather than swallow it. Written as regex
  * escapes so the characters never appear literally in this file.
  *
- * The whitespace is `[ \t]`, not `\s`, and that is load-bearing rather than pedantic.
- * `\s` matches a newline, so a trailing `\s*` runs the match off the end of a
- * hard-wrapped line and into the next node; when that node is an inline code span,
- * charcheck drops the finding silently and reports a clean scan (charcheck#16). That is
- * not a hypothetical: it hid 11 real dashes here, every one of them a dash ending a
- * wrapped line whose continuation began with a code span. Horizontal-only whitespace
- * keeps the match inside the line, which reports all of them and leaves the fixer's
- * output unchanged on the cases both forms could already see. Restore `\s` after the
- * upstream fix ships, re-run, and expect those findings to keep being reported.
+ * The whitespace was `[ \t]` rather than `\s` from the gate's arrival until charcheck
+ * 0.2.3, working around a silent miss: `\s` matches a newline, so a trailing `\s*` ran
+ * the match off the end of a hard-wrapped line and into the next node, and when that
+ * node was an inline code span the match belonged to no region and the finding was
+ * thrown away as a clean scan (charcheck#16). It hid 11 real dashes here. 0.2.3 reports
+ * the longest match that fits inside the region instead of discarding it, so `\s` is
+ * back and those cases report. The pin is exact for this reason: a downgrade below
+ * 0.2.3 makes this pattern under-report again, and it does so silently.
  */
-const DASH_PATTERN = '[ \\t]*[\\u2014\\u2015][ \\t]*'
+const DASH_PATTERN = '\\s*[\\u2014\\u2015]\\s*'
 
 const MESSAGE = 'Use a comma, a colon, parentheses, or reword.'
 
